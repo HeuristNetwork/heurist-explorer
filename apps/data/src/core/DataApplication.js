@@ -11,6 +11,11 @@
  * @since       8.0
  */
 
+import {
+  normalizeDataConfigurationSettings,
+  serializeDataConfigurationSettings,
+} from "../ui/config/dataConfigurationSchema.js";
+
 /** Coordinates host integration, data loading, engine rendering, and state. */
 export class DataApplication extends EventTarget {
   constructor({
@@ -149,9 +154,6 @@ export class DataApplication extends EventTarget {
     try {
       const saved = await this.host.loadPreferences();
       if (!saved) return;
-      const { normalizeDataConfigurationSettings } = await import(
-        "../ui/config/dataConfigurationSchema.js"
-      );
       const normalized = normalizeDataConfigurationSettings(saved);
       if (
         String(this.config.runtimeMode || "").toLowerCase() === "main" &&
@@ -545,9 +547,6 @@ export class DataApplication extends EventTarget {
           }
           allowed.push(recordId);
           if (typeof this.host.savePreferences === "function") {
-            const { serializeDataConfigurationSettings } = await import(
-              "../ui/config/dataConfigurationSchema.js"
-            );
             await this.host.savePreferences(
               serializeDataConfigurationSettings(settings),
             );
@@ -645,9 +644,6 @@ export class DataApplication extends EventTarget {
   }
 
   async applyConfiguration(settings) {
-    const { normalizeDataConfigurationSettings } = await import(
-      "../ui/config/dataConfigurationSchema.js"
-    );
     const normalized = normalizeDataConfigurationSettings(settings);
     const previousEngine = this.engineName;
     this._setConfiguration(normalized);

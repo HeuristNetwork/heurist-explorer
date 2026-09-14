@@ -13,6 +13,7 @@
 
 import { GraphDocument } from "./GraphDocument.js";
 import { GraphExpansions } from './GraphExpansions.js';
+import { normalizeGraphConfigurationSettings } from "../ui/config/graphConfigurationSchema.js";
 
 export class GraphApplication extends EventTarget {
   constructor({
@@ -159,9 +160,6 @@ export class GraphApplication extends EventTarget {
     try {
       const saved = await this.host.loadPreferences();
       if (!saved) return;
-      const { normalizeGraphConfigurationSettings } = await import(
-        "../ui/config/graphConfigurationSchema.js"
-      );
       const normalized = normalizeGraphConfigurationSettings(saved);
       this.config.persistedSettings = normalized;
       this.config.ui = normalized.options.ui;
@@ -454,9 +452,6 @@ export class GraphApplication extends EventTarget {
   }
 
   async applyConfiguration(value) {
-    const { normalizeGraphConfigurationSettings } = await import(
-      "../ui/config/graphConfigurationSchema.js"
-    );
     const normalized = normalizeGraphConfigurationSettings(value);
     if (this.datasetAvailable === false) {
       normalized.options.interaction.readonly = true;
