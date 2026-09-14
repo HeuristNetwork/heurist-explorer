@@ -194,9 +194,10 @@ export class DataControlPanel {
 
   /** Load the module user manual for the active language into a full-viewport overlay. */
   openHelp() {
-    const hosted = this.api.openHelp?.();
-    if (hosted !== false && hosted != null) return hosted;
-    this.helpOverlay ||= new InlineHelp({ moduleName: "data" });
+    this.helpOverlay ||= new InlineHelp({
+      moduleName: "data",
+      baseUrl: this.options.helpBaseUrl || null,
+    });
     return this.helpOverlay.open();
   }
 

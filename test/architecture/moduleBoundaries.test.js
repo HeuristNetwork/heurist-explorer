@@ -11,12 +11,19 @@ test("applications do not import sibling applications", async () => {
     const files = await sourceFiles(path.join(appsRoot, appName, "src"));
     for (const filename of files) {
       const source = await readFile(filename, "utf8");
-      for (const sibling of appNames) {
-        if (sibling === appName) continue;
-        assert.doesNotMatch(
-          source,
-          new RegExp(`(?:from\\s+|import\\s*\\()?['\"](?:[^'\"]*/)?apps/${sibling}/`),
-          `${path.relative(process.cwd(), filename)} imports apps/${sibling}`,
+      for (const specifier of importSpecifiers(source)) {
+        if (!specifier.startsWith(".")) continue;
+        const target = path.resolve(path.dirname(filename), specifier);
+        const sibling = appNames.find((name) =>
+          target.startsWith(path.join(appsRoot, name, path.sep))
+        );
+        if (!sibling || sibling === appName) continue;
+        const allowedDirectEntry = appName === "explorer" && sibling === "data"
+          && target === path.join(appsRoot, "data", "src", "direct.js");
+        assert.equal(
+          allowedDirectEntry,
+          true,
+          `${path.relative(process.cwd(), filename)} imports apps/${sibling} outside its public direct entry`,
         );
       }
     }
@@ -40,3 +47,7 @@ async function sourceFiles(directory) {
   return result;
 }
 
+function importSpecifiers(source) {
+  return [...source.matchAll(/(?:from\s+|import\s*\()\s*["']([^"']+)["']/g)]
+    .map((match) => match[1]);
+}

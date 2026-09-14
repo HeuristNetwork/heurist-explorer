@@ -62,7 +62,6 @@ export class IframeModuleAdapter extends ExplorerModule {
       },
       updateState: (state) => { this.state = clone(state); },
       getHostContext: () => outer.getHostContext?.() || { name: 'heurist-explorer', runtimeMode: 'main' },
-      openHelp: (options) => outer.openHelp?.(options),
       editRecord: (id) => outer.editRecord?.(id),
       viewRecord: (id) => outer.viewRecord?.(id),
       addRecord: (recordTypeId) => outer.addRecord?.(recordTypeId),

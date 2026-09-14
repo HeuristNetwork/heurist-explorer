@@ -2,7 +2,7 @@
 import { HFilter } from '../widgets/filter/HFilter.js';
 import { HeuristApiClient } from '#shared/api';
 import { HostAdapter } from '#shared/host';
-import { HMsg, $HR, InlineHelp } from '#shared/ui';
+import { HMsg, $HR } from '#shared/ui';
 import { LayoutManager } from './LayoutManager.js';
 import { cloneDataSource, dataSourceKey, dataSourceRole, normalizeDataSource } from './DataSource.js';
 import { DataSourceFavorites } from './DataSourceFavorites.js';
@@ -13,6 +13,7 @@ import { RecordTypeManager } from './RecordTypeManager.js';
 import { QuerySourceManager } from './QuerySourceManager.js';
 import { SyncEngine } from './SyncEngine.js';
 import { IframeModuleAdapter } from '../modules/IframeModuleAdapter.js';
+import { DirectModuleAdapter } from '../modules/DirectModuleAdapter.js';
 import { ExplorerControlPanel } from '../ui/ExplorerControlPanel.js';
 import { HDbDefs } from '../utils/HDbDefs.js';
 import queryVocabulary from '../utils/queryVocabulary.json';
@@ -151,11 +152,20 @@ export class ExplorerApplication {
 
   async _createModule(definition) {
     const slot = this.layout.createSlot(definition.id, definition.type);
-    const module = new IframeModuleAdapter({
+    const mode = definition.mode || this.config.moduleModes?.[definition.type] || 'iframe';
+    if (mode === 'direct' && definition.type !== 'data') {
+      throw new Error(`Direct mode is not implemented for ${definition.type}`);
+    }
+    const Adapter = mode === 'direct' ? DirectModuleAdapter : IframeModuleAdapter;
+    const module = new Adapter({
       id: definition.id,
       type: definition.type,
       container: slot,
       url: definition.url || this.config.moduleUrls[definition.type],
+      ...(mode === 'direct' ? {
+        mountModule: mountDirectData,
+        assetBaseUrl: this.config.moduleAssetUrls?.data
+      } : {}),
       runtime: {
         database: this.config.database,
         apiBaseUrl: this.config.apiBaseUrl,
@@ -323,20 +333,6 @@ export class ExplorerApplication {
     const target = module || [...this.modules.values()].find((item) => item.type === 'map');
     if (!target || typeof target.setWorkspaceDataSources !== 'function') return false;
     return target.setWorkspaceDataSources(await this.getWorkspaceDataSources());
-  }
-
-  /**
-   * Open a child module's own manual full-viewport, in Explorer's own page
-   * rather than inside that module's (possibly narrow) layout panel. The
-   * manual lives beside the requesting module's own bundle, so its own asset
-   * base must be supplied - Explorer's own base would resolve to nothing.
-   */
-  openHelp({ moduleName, baseUrl } = {}) {
-    if (!moduleName || !baseUrl) return false;
-    this.helpOverlay?.close?.();
-    this.helpOverlay = new InlineHelp({ moduleName, baseUrl });
-    this.helpOverlay.open();
-    return true;
   }
 
   async showDatasource(source) {
@@ -587,7 +583,6 @@ export class ExplorerApplication {
       describeRules: (rules) => bridge.describeRules?.(rules),
       selectFieldset: (value, options) => bridge.selectFieldset?.(value, options),
       getHostContext: () => ({ name: 'heurist-explorer', runtimeMode: 'main' }),
-      openHelp: (options) => this.openHelp(options),
       addDataSourceToWorkspace: (source, options) => this.addDataSourceToWorkspace(source, options),
       removeDataSourceFromWorkspace: (sourceOrKey) => this.removeDataSourceFromWorkspace(sourceOrKey),
       isDataSourceInWorkspace: (source) => this.isDataSourceInWorkspace(source),
@@ -730,7 +725,6 @@ export class ExplorerApplication {
     this.sync.destroy();
     this.layout?.destroy();
     this.inlineHelper?.destroy?.();
-    this.helpOverlay?.close?.();
     this.filter?.destroy?.();
     this.savedFilters?.destroy?.();
     this.recordTypes?.destroy?.();
@@ -748,6 +742,11 @@ function toolTitle(type) {
     actions: 'Actions Dashboard',
     export: 'Export Dashboard'
   }[type] || 'Tool';
+}
+
+async function mountDirectData(options) {
+  const { mountHeuristData } = await import('../../../data/src/direct.js');
+  return mountHeuristData(options);
 }
 
 function defaultLayout() {

@@ -43,18 +43,6 @@ test('iframe bridge forwards Explorer datasource workspace actions', async () =>
   ]);
 });
 
-test('iframe bridge forwards openHelp to the host', () => {
-  const calls = [];
-  const hostActions = { openHelp: (options) => { calls.push(options); return true; } };
-  const adapter = new IframeModuleAdapter({ id: 'map', type: 'map', container: null, url: '', hostActions });
-  const bridge = adapter._createChildHostBridge();
-
-  const result = bridge.openHelp({ moduleName: 'map', baseUrl: 'https://example.org/map' });
-
-  assert.equal(result, true);
-  assert.deepEqual(calls, [{ moduleName: 'map', baseUrl: 'https://example.org/map' }]);
-});
-
 test('updateSettings notifies onSettingsChange so Explorer can cache the module preference', async () => {
   const changes = [];
   const adapter = new IframeModuleAdapter({

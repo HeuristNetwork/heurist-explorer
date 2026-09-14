@@ -1,6 +1,7 @@
 export {
   parseLocale,
   initLocale,
+  extendLocale,
   $HR,
   applyI18n,
   getActiveLanguage,

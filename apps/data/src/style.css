@@ -1,11 +1,11 @@
 :root { font-family: var(--h-font-family); color: var(--h-color-text); font-size: var(--h-font-size); }
-html, body, #heurist-data { width: 100%; height: 100%; margin: 0; overflow: hidden; }
-#heurist-data {
+html, body, .heurist-data-root { width: 100%; height: 100%; margin: 0; overflow: hidden; }
+.heurist-data-root {
   box-sizing: border-box;
   padding: 4px !important;
   background: var(--h-color-bg);
 }
-#heurist-data > div.dt-container {
+.heurist-data-root > div.dt-container {
   box-sizing: border-box;
   display: flex !important;
   flex-direction: column;
@@ -15,17 +15,17 @@ html, body, #heurist-data { width: 100%; height: 100%; margin: 0; overflow: hidd
   min-height: 0;
   overflow: hidden;
 }
-#heurist-data > div.dt-container > div.dt-layout-row {
+.heurist-data-root > div.dt-container > div.dt-layout-row {
   flex: 0 0 auto;
 }
-#heurist-data > div.dt-container > div.dt-layout-row.dt-layout-table {
+.heurist-data-root > div.dt-container > div.dt-layout-row.dt-layout-table {
   flex: 1 1 0;
   min-height: 0;
   margin-top: 0;
   margin-bottom: 0;
   overflow: hidden;
 }
-#heurist-data > div.dt-container > div.dt-layout-row.dt-layout-table > div.dt-layout-cell {
+.heurist-data-root > div.dt-container > div.dt-layout-row.dt-layout-table > div.dt-layout-cell {
   box-sizing: border-box;
   display: flex !important;
   flex-direction: column;
@@ -34,7 +34,7 @@ html, body, #heurist-data { width: 100%; height: 100%; margin: 0; overflow: hidd
   min-height: 0;
   overflow: hidden;
 }
-#heurist-data div.dt-scroll {
+.heurist-data-root div.dt-scroll {
   display: flex;
   flex: 1 1 0;
   flex-direction: column;
@@ -43,9 +43,9 @@ html, body, #heurist-data { width: 100%; height: 100%; margin: 0; overflow: hidd
   min-height: 0;
   overflow: hidden;
 }
-#heurist-data div.dt-scroll-head,
-#heurist-data div.dt-scroll-foot { flex: 0 0 auto; }
-#heurist-data div.dt-scroll-body {
+.heurist-data-root div.dt-scroll-head,
+.heurist-data-root div.dt-scroll-foot { flex: 0 0 auto; }
+.heurist-data-root div.dt-scroll-body {
   flex: 1 1 0;
   height: auto !important;
   max-height: none !important;
@@ -73,12 +73,12 @@ html, body, #heurist-data { width: 100%; height: 100%; margin: 0; overflow: hidd
 .heurist-data-source-actions { display:inline-flex; align-items:center; gap:3px; }
 .heurist-data-source-actions[hidden] { display:none !important; }
 .heurist-data-source-action.active { color:var(--h-color-primary); border-color:var(--h-color-primary); }
-#heurist-data.heurist-data-has-toolbar { display:flex; flex-direction:column; }
-#heurist-data.heurist-data-has-toolbar > .heurist-data-toolbar { flex:0 0 auto; }
-#heurist-data.heurist-data-has-toolbar > .dt-container { height:auto !important; flex:1 1 0; min-height:0; }
+.heurist-data-root.heurist-data-has-toolbar { display:flex; flex-direction:column; }
+.heurist-data-root.heurist-data-has-toolbar > .heurist-data-toolbar { flex:0 0 auto; }
+.heurist-data-root.heurist-data-has-toolbar > .dt-container { height:auto !important; flex:1 1 0; min-height:0; }
 .heurist-data-table { width: 100%; }
-#heurist-data table.dataTable>tbody>tr>th,
-#heurist-data table.dataTable>tbody>tr>td { padding:3px 3px !important; }
+.heurist-data-root table.dataTable>tbody>tr>th,
+.heurist-data-root table.dataTable>tbody>tr>td { padding:3px 3px !important; }
 .heurist-data-table tbody tr { cursor: pointer; }
 .heurist-data-table tbody tr.heurist-data-selected > * { background: var(--h-color-selected) !important; }
 .heurist-data-record { border: 0; background: transparent; color: var(--h-color-link); cursor: pointer; text-decoration: underline; }
@@ -96,17 +96,17 @@ html, body, #heurist-data { width: 100%; height: 100%; margin: 0; overflow: hidd
 .heurist-data-memo,.heurist-data-structured { display:inline-block; max-width:32em; overflow:hidden; vertical-align:top; }
 .heurist-data-collection-cell { width:18px !important; min-width:18px !important; padding-left:2px !important; padding-right:2px !important; }
 
-#heurist-data.heurist-has-source-header { position:relative; padding-top:38px !important; }
+.heurist-data-root.heurist-has-source-header { position:relative; padding-top:38px !important; }
 /* The source header is pinned into that reserved top gutter (see the
    padding-top above) rather than taking flow space, so it can sit under the
    overlaid control panel instead of pushing it down. */
-#heurist-data .heurist-source-header { position:absolute; top:0; left:0; right:0; }
+.heurist-data-root .heurist-source-header { position:absolute; top:0; left:0; right:0; }
 /* The configured font size scales the table content only; controls stay fixed. */
-#heurist-data,
-#heurist-data .dt-container,
-#heurist-data .dt-input,
-#heurist-data button { font-size:var(--h-font-size); }
-#heurist-data table.dataTable { font-size:var(--heurist-data-font-size,var(--h-font-size-large)); }
+.heurist-data-root,
+.heurist-data-root .dt-container,
+.heurist-data-root .dt-input,
+.heurist-data-root button { font-size:var(--h-font-size); }
+.heurist-data-root table.dataTable { font-size:var(--heurist-data-font-size,var(--h-font-size-large)); }
 
 /* Data-specific control panel geometry and typography. Shared chrome
    (header/body/collapse states) lives in heurist-module.css. Positioned
@@ -168,7 +168,7 @@ html, body, #heurist-data { width: 100%; height: 100%; margin: 0; overflow: hidd
 .heurist-data-config-footer { flex:0 0 auto; }
 
 /* DataTables generates its own controls; align them with the shared Heurist UI tokens. */
-#heurist-data .dt-input {
+.heurist-data-root .dt-input {
   box-sizing:border-box;
   min-height:var(--h-control-height);
   border:1px solid var(--h-color-border);
@@ -177,11 +177,11 @@ html, body, #heurist-data { width: 100%; height: 100%; margin: 0; overflow: hidd
   color:var(--h-color-text);
   font:inherit;
 }
-#heurist-data .dt-input:focus {
+.heurist-data-root .dt-input:focus {
   outline:2px solid color-mix(in srgb, var(--h-color-primary) 45%, transparent);
   outline-offset:1px;
 }
-#heurist-data .dt-button {
+.heurist-data-root .dt-button {
   min-height:var(--h-control-height);
   border:1px solid var(--h-color-border);
   border-radius:var(--h-radius);
@@ -189,26 +189,26 @@ html, body, #heurist-data { width: 100%; height: 100%; margin: 0; overflow: hidd
   color:var(--h-color-text);
   font:inherit;
 }
-#heurist-data .dt-button:hover:not(:disabled) {
+.heurist-data-root .dt-button:hover:not(:disabled) {
   background:var(--h-color-surface-hover);
   border-color:var(--h-color-border-strong);
 }
 
 /* Keep HRecordList inside the module viewport. The scroll owner is its content,
    not the iframe document or the record-list root. */
-#heurist-data.h-recordlist-host {
+.heurist-data-root.h-recordlist-host {
   box-sizing:border-box;
   height:100%;
   min-height:0;
   overflow:hidden;
 }
-#heurist-data.h-recordlist-host > .h-recordlist {
+.heurist-data-root.h-recordlist-host > .h-recordlist {
   box-sizing:border-box;
   height:100%;
   min-height:0;
   overflow:hidden;
 }
-#heurist-data.h-recordlist-host .h-recordlist-content {
+.heurist-data-root.h-recordlist-host .h-recordlist-content {
   min-height:0;
   overflow:auto;
 }

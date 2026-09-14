@@ -23,8 +23,16 @@ export function getHeuristDataConfig() {
     bridge,
     standalone: getGlobalBootstrap("heuristModuleBootstrap"),
   });
-  const runtime = resolvedConfig.runtime;
-  const settings = resolvedConfig.settings;
+  return createHeuristDataConfig(resolvedConfig, { bridge });
+}
+
+/** Normalize an explicit bootstrap envelope for same-realm/direct hosting. */
+export function createHeuristDataConfig(
+  resolvedConfig = {},
+  { bridge = null, containerId = "heurist-data" } = {},
+) {
+  const runtime = resolvedConfig.runtime || {};
+  const settings = resolvedConfig.settings || {};
   const hasPersistedSettings = Boolean(
     settings?.format || settings?.options || settings?.config,
   );
@@ -72,7 +80,7 @@ export function getHeuristDataConfig() {
     ...(readonly ? { editEnabled: false } : {}),
   };
   return {
-    containerId: "heurist-data",
+    containerId,
     viewerMode:
       runtime.viewerMode === "configuration" ? "configuration" : "data",
     runtimeMode: runtime.runtimeMode || "standalone",

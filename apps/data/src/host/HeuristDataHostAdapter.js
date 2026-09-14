@@ -13,7 +13,6 @@
 
 import { HostAdapter } from "#shared/host";
 import { HCollection } from "#shared/utils";
-import { getAssetBaseUrl } from "#shared/ui";
 
 /** Bridges application operations to the embedding Heurist host. */
 export class HeuristDataHostAdapter extends HostAdapter {
@@ -62,7 +61,6 @@ export class HeuristDataHostAdapter extends HostAdapter {
       dataPublishing: Boolean(this.baseUrl),
       hostedPreferencesDialog: this.supportsHostedPreferencesDialog(),
       hostedPublishDialog: this.supportsHostedPublishDialog(),
-      hostedHelp: this.supportsHostedHelp(),
       explorerDataSources: this.supportsExplorerDataSources(),
     };
   }
@@ -90,16 +88,6 @@ export class HeuristDataHostAdapter extends HostAdapter {
     if (!this.supportsHostedPublishDialog())
       throw new Error("Host publication dialog is unavailable");
     return this.bridge.openPublishDialog(options);
-  }
-  supportsHostedHelp() {
-    return typeof this.bridge?.openHelp === "function";
-  }
-  openHelp(options = {}) {
-    if (!this.supportsHostedHelp()) throw new Error("Host help is unavailable");
-    // The manual lives beside this module's own bundle, a different origin/path
-    // than whatever hosts it (e.g. heurist-explorer's own asset base), so the
-    // host needs this module's base explicitly rather than resolving its own.
-    return this.bridge.openHelp({ moduleName: "data", baseUrl: getAssetBaseUrl(), ...options });
   }
   supportsExplorerDataSources() {
     return (

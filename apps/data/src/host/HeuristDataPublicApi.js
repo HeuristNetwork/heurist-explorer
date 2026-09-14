@@ -185,12 +185,6 @@ export class HeuristDataPublicApi {
       },
     });
   }
-  openHelp(options = {}) {
-    if (this.application.host.supportsHostedHelp?.()) {
-      return this.application.host.openHelp(options);
-    }
-    return false;
-  }
   getHostContext() {
     return this.application.hostContext || {};
   }

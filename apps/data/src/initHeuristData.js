@@ -84,6 +84,7 @@ export async function initHeuristData(config) {
       tableContainer: container,
       options: {
         ...settings.options.ui,
+        helpBaseUrl: config.moduleAssetBaseUrl,
         runtimeMode: config.runtimeMode,
         readonly: config.readonly,
         editEnabled: config.engineOptions.interaction.editEnabled,
@@ -105,7 +106,8 @@ export async function initHeuristData(config) {
     return originalDestroy();
   };
   api.setReadyPromise(readyWithPanel);
-  globalThis.heuristData = api;
+  container.classList.add("heurist-data-root");
+  if (config.exposeGlobal !== false) globalThis.heuristData = api;
   return readyWithPanel;
 }
 

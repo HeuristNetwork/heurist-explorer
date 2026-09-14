@@ -40,6 +40,18 @@ export async function initLocale(language = 'eng', baseUrl = '') {
   }
 }
 
+/** Merge another directly hosted module's resources into the active locale. */
+export async function extendLocale(language = activeLanguage, baseUrl = '') {
+  const selectedLanguage = normalizeLanguage(language);
+  const base = String(baseUrl || '').replace(/\/+$/, '');
+  if (!base) return;
+  const prefix = `${base}/assets/localization/`;
+  Object.assign(strings, parseLocale(await fetchText(`${prefix}localization_eng.txt`)));
+  if (selectedLanguage !== 'eng') {
+    Object.assign(strings, parseLocale(await fetchText(`${prefix}localization_${selectedLanguage}.txt`)));
+  }
+}
+
 /** Return a localized resource, falling back to the key or explicit fallback. */
 export function $HR(key, fallback) {
   if (!String(key ?? '').trim()) return '';

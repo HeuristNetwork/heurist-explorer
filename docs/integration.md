@@ -20,14 +20,20 @@ contract. They must not access application or engine internals.
 | Map | `HeuristMapPublicApi` | `heuristMap` |
 | Timeline | `HeuristTimelinePublicApi` | `heuristTimeline` |
 
-Explorer's `IframeModuleAdapter` talks only to these public surfaces. DataSource,
-selection and collection synchronization must not bypass them.
+Explorer's iframe and direct adapters talk only to these public surfaces.
+DataSource, selection and collection synchronization must not bypass them.
 
 ## Run modes
 
 The same application source supports standalone, legacy-hosted, Explorer-hosted,
 website and published contexts. Differences belong in bootstrap values and host
 adapters, not parallel application implementations.
+
+Explorer hosts Data directly by default. Set `runtime.moduleModes.data` to
+`"iframe"` to use the previous mode. A layout definition may override this with
+its own `mode`. `runtime.moduleAssetUrls.data` may override the Data bundle base
+used for localization and the Data manual; its default is
+`hclient/bundles/heurist-data` below the configured Heurist base URL.
 
 ## Distribution workflow
 
@@ -61,4 +67,3 @@ When a bridge contract changes:
 Do not solve integration problems by importing one application from another,
 reaching through an iframe, exposing native engine objects, or adding environment
 branches throughout application code.
-

@@ -21,10 +21,10 @@ apps/map ────────────► shared
 apps/timeline ───────► shared
 ```
 
-Imports between sibling application directories are forbidden. In particular,
-Explorer does not import MapApplication, DataApplication, GraphApplication or
-TimelineApplication. It creates module iframes through `IframeModuleAdapter` and
-uses their public APIs through the host bridge.
+Explorer may import only a presentation application's explicit direct-bootstrap
+entry point. It must not import MapApplication, DataApplication, GraphApplication,
+TimelineApplication, widgets, engines, or other module internals. Data currently
+provides `apps/data/src/direct.js`; the other applications remain iframe-hosted.
 
 ## Host boundaries
 
@@ -32,8 +32,8 @@ There are two explicit communication boundaries:
 
 1. Legacy Heurist or a standalone page provides bootstrap state and a host bridge
    to an application.
-2. Explorer communicates with presentation-module iframes through the same public
-   host-bridge vocabulary.
+2. Explorer communicates with directly hosted or iframe-hosted presentation
+   modules through the same public API and host-bridge vocabulary.
 
 Presentation modules never call Explorer internals. They may emit public events or
 request host actions. Explorer owns DataSource activation, workspace state, layout
@@ -45,8 +45,8 @@ and cross-module selection synchronization.
 
 Owns DataSource identity and activation, history, favorites, workspace, layout,
 search/filter UI and synchronization. `SyncEngine` distributes state while
-preventing event echoes. `IframeModuleAdapter` is the only inner-frame integration
-layer.
+preventing event echoes. `IframeModuleAdapter` and `DirectModuleAdapter` expose
+the same adapter surface to Explorer.
 
 ### Data
 
@@ -91,4 +91,3 @@ targets. A module test may import its own source and `#shared`, but no sibling a
 The first consolidation preserves app-local implementations even where Data and
 Graph currently contain identical files. Shared extraction is a later refactor and
 requires explicit common contracts plus passing tests for both consumers.
-
