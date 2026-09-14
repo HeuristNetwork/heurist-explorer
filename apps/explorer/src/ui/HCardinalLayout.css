@@ -1,0 +1,120 @@
+.h-cardinal-layout {
+    position: relative;
+    display: grid;
+    width: 100%;
+    height: 100%;
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+    grid-template-rows: 0 0 minmax(0, 1fr) 0 0;
+    background: var(--h-color-bg);
+}
+
+.h-cardinal-middle {
+    display: grid;
+    grid-row: 3;
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+    grid-template-columns: 0 0 minmax(0, 1fr) 0 0;
+}
+
+/*
+ * Cardinal children use explicit tracks rather than grid auto-placement.
+ * Hidden regions use display:none, so auto-placement would otherwise move
+ * following elements into an earlier zero-sized row/column.
+ */
+.h-cardinal-north {
+    grid-row: 1;
+}
+
+.h-cardinal-splitter-north {
+    grid-row: 2;
+}
+
+.h-cardinal-splitter-south {
+    grid-row: 4;
+}
+
+.h-cardinal-south {
+    grid-row: 5;
+}
+
+.h-cardinal-west {
+    grid-column: 1;
+}
+
+.h-cardinal-splitter-west {
+    grid-column: 2;
+}
+
+.h-cardinal-center {
+    grid-column: 3;
+}
+
+.h-cardinal-splitter-east {
+    grid-column: 4;
+}
+
+.h-cardinal-east {
+    grid-column: 5;
+}
+
+.h-cardinal-region {
+    position: relative;
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+    background: var(--h-color-bg);
+}
+
+.h-cardinal-region[hidden],
+.h-cardinal-splitter[hidden] {
+    display: none !important;
+}
+
+.h-cardinal-region.is-collapsed > * {
+    visibility: hidden;
+    pointer-events: none;
+}
+
+.h-cardinal-splitter {
+    position: relative;
+    z-index: 20;
+    background: var(--h-color-border);
+    transition: background 100ms ease;
+    touch-action: none;
+}
+
+.h-cardinal-splitter:hover,
+.h-cardinal-splitter:focus-visible {
+    background: var(--h-color-primary);
+    outline: none;
+}
+
+.h-cardinal-splitter-west,
+.h-cardinal-splitter-east {
+    cursor: col-resize;
+}
+
+.h-cardinal-splitter-north,
+.h-cardinal-splitter-south {
+    cursor: row-resize;
+}
+
+.h-cardinal-resizing {
+    user-select: none;
+    cursor: default;
+}
+
+.h-cardinal-drag-veil {
+    position: absolute;
+    inset: 0;
+    z-index: 1000;
+    background: rgba(0, 0, 0, 0.025);
+    touch-action: none;
+}
+
+.h-cardinal-drag-veil[hidden] {
+    display: none !important;
+}

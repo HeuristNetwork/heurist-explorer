@@ -1,0 +1,87 @@
+/* Explorer shell: workspace, module iframe slots, and the Tools-mode
+   workspace. Owned by ExplorerApplication (LayoutManager and
+   IframeModuleAdapter render into this same shell as its collaborators). */
+:root {
+    font-family: var(--h-font-family);
+    color: var(--h-color-text);
+    font-size: var(--h-font-size);
+}
+
+.h-explorer {
+    position: relative;
+    display: flex;
+    flex-direction: row;
+    width: 100%;
+    height: 100%;
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.h-explorer-workspace {
+    position: relative;
+    order: 1;
+    flex: 1 1 auto;
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.h-explorer-module-frame {
+    display: block;
+    width: 100%;
+    height: 100%;
+    border: 0;
+}
+
+.h-explorer-slot {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.h-explorer-slot-focus {
+    outline: 2px solid var(--h-color-primary);
+    outline-offset: -2px;
+}
+
+.h-explorer-filter {
+    max-height: calc(min(78vh, 680px) - 33px);
+    overflow: auto;
+    padding: 8px;
+}
+
+.h-explorer-pinned-tool-body .h-explorer-filter {
+    max-height: none;
+}
+
+/* -------------------------------------------------------------------------
+ * Explorer Tools mode
+ * ---------------------------------------------------------------------- */
+
+.h-explorer-tool-workspace {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+    min-width: 0;
+    min-height: 0;
+    background: var(--h-color-bg);
+}
+
+.h-explorer-tool-workspace-header {
+    flex: 0 0 auto;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--h-color-border);
+}
+
+.h-explorer-tool-workspace-body {
+    flex: 1 1 auto;
+    display: grid;
+    place-items: center;
+    min-height: 0;
+    color: var(--h-color-text-muted);
+}

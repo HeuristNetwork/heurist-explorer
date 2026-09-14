@@ -1,0 +1,141 @@
+#Settings#Settings
+#Publish data#Publish data
+#Publication configuration#Publication configuration
+#Published#Published
+#The publication is available at:#The publication is available at:
+#Published link#Published link
+#Copy link#Copy link
+#Copied#Copied
+#Open#Open
+#Close#Close
+#Cancel#Cancel
+#Save#Save
+#Publish#Publish
+#Interface#Interface
+#Publication#Publication
+#Default settings#Default settings
+#Filtered Result#Filtered Result
+#Datasets and Filters#Datasets and Filters
+#Interaction#Interaction
+#Datasets#Datasets
+#Filters#Filters
+#Initially expanded#Initially expanded
+#Columns picker (for current active dataset)#Columns picker (for current active dataset)
+#Options#Options
+#Native table controls#Native table controls
+#Page size#Page size
+#Search#Search
+#Counter#Counter
+#Export (CSV, Excel, PDF)#Export (CSV, Excel, PDF)
+#Export_warning#Because DataTables uses server-side pagination, exports include the current page only. Use Explore > Export tab for Entire-dataset export.
+#Language#Language
+#Auto#Auto
+#English#English
+#French#French
+#German#German
+#Portuguese#Portuguese
+#Font size#Font size
+#Color scheme#Color scheme
+#DataTables#DataTables
+#Bootstrap 3#Bootstrap 3
+#Bootstrap 4#Bootstrap 4
+#Bootstrap 5#Bootstrap 5
+#Bulma#Bulma
+#Foundation#Foundation
+#jQuery UI#jQuery UI
+#Semantic UI#Semantic UI
+#Empty result message#Empty result message
+#Popup template#Popup template
+#Standard#Standard
+#Title#Title
+#Initial query#Initial query
+#Filter by#Filter by
+#None#None
+#Time filter#Time filter
+#Selection#Selection
+#Last selected#Last selected
+#Select widget#Select widget
+#in#in
+#Allow all#Allow all
+#Available datasets#Available datasets
+#Allowed datasets#Allowed datasets
+#Default dataset#Default dataset
+#Available filters#Available filters
+#Allowed filters#Allowed filters
+#Enable edit#Enable edit
+#Enable selection#Enable selection
+#Collection / Persistent selection#Collection / Persistent selection
+#Enable popups#Enable popups
+#Admin info#Admin info
+#Preserve current state#Preserve current state
+#Preserve the active dataset or query, page, sort, filter and selection.#Preserve the active dataset or query, page, sort, filter and selection.
+#Discard changes to data configuration?#Discard changes to data configuration?
+#Add available datasets#Add available datasets
+#Remove allowed datasets#Remove allowed datasets
+#Add available filters#Add available filters
+#Remove allowed filters#Remove allowed filters
+#Data controls#Data controls
+#Show or hide data controls#Show or hide data controls
+#Show or hide panels#Show or hide panels
+#Help#Help
+#Create new dataset#Create new dataset
+#Pick fields#Pick fields
+#Apply#Apply
+#No filters#No filters
+#ID#ID
+#In collection#In collection
+#No records#No records
+#Show _MENU_ entries#Show _MENU_ entries
+#Showing _START_ to _END_ of _TOTAL_ entries#Showing _START_ to _END_ of _TOTAL_ entries
+#Showing 0 to 0 of 0 entries#Showing 0 to 0 of 0 entries
+#(filtered from _MAX_ total entries)#(filtered from _MAX_ total entries)
+#First#First
+#Previous#Previous
+#Next#Next
+#Last#Last
+#Processing...#Processing...
+#Record info#Record info
+#Native controls#Native controls
+#View mode#View mode
+#Selection actions#Selection actions
+#Engine#Engine
+#Data table#Data table
+#Record list#Record list
+#Record list view#Record list view
+#Table#Table
+#Cards#Cards
+#Rows#Rows
+#Extended#Extended
+#View#View
+#Select page#Select page
+#Clear selection#Clear selection
+#Show selection#Show selection
+#Export#Export
+#Copy#Copy
+#CSV#CSV
+#Excel#Excel
+#PDF#PDF
+#Selected#Selected
+#filtered from#filtered from
+#Edit#Edit
+#Bookmarked#Bookmarked
+#Show#Show
+#Show header#Show header
+#Header#Header
+#source_header_hint#Show header
+#hidden_hint#private - hidden from non-owners
+#Select all on page#Select all on page
+#Select none#Select none
+#Show selected#Show selected
+#Add selected to collection#Add selected to collection
+#Add page to collection#Add page to collection
+#Remove selected from collection#Remove selected from collection
+#Clear collection#Clear collection
+#Show collection#Show collection
+#Card and row template#Card and row template
+#Extended view template#Extended view template
+#Built-in renderer#Built-in renderer
+#Standard record view#Standard record view
+#visible_hint#visible to any logged-in user
+#pending_hint#pending (viewable by anyone, changes pending)
+#public_hint#public (viewable by anyone)

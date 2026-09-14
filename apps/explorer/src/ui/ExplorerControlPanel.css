@@ -1,0 +1,270 @@
+/* Ephemeral search/navigation flyout panel anchored below the left rail. */
+.h-explorer-tool-panel[hidden] {
+    display: none !important;
+}
+
+.h-explorer-tool-panel {
+    position: absolute;
+    z-index: 1250;
+    top: 0;
+    left: 38px;
+    width: min(620px, calc(100% - 76px));
+    max-height: min(78vh, 680px);
+    overflow: hidden;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    background: var(--h-color-bg);
+    border: 2px solid var(--h-color-primary);
+    border-radius: 0 0 var(--h-radius) var(--h-radius);
+    box-shadow: var(--h-shadow-dialog);
+}
+
+.h-explorer-tool-panel.h-explorer-tool-panel-tall {
+    max-height: 100%;
+}
+
+.h-explorer-tool-panel.h-explorer-filter-panel .h-filter-query {
+    width: 430px;
+}
+
+.h-explorer-tool-panel-header {
+    flex: 0 0 auto;
+    height: 36px;
+    min-height: 36px;
+    padding: 0 5px 0 9px;
+    border-bottom: 1px solid var(--h-color-border);
+    background: var(--h-color-surface);
+}
+
+.h-explorer-tool-panel-header strong {
+    color: var(--h-color-header);
+    font: 600 14px/1.35 Arial, sans-serif;
+}
+
+/* Compatibility marker retained for callers that identify the filter header. */
+.h-explorer-tool-panel-header.h-filter-header {
+    height: 36px;
+    min-height: 36px;
+    padding: 0 5px 0 9px;
+    background: var(--h-color-surface);
+}
+
+.h-explorer-tool-panel-header.h-filter-header strong {
+    color: var(--h-color-header);
+    font: 600 14px/1.35 Arial, sans-serif;
+}
+
+.h-explorer-tool-panel-actions {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    margin-left: auto;
+}
+
+.h-explorer-tool-panel-help,
+.h-explorer-tool-panel-pin,
+.h-explorer-tool-panel-close {
+    width: 26px;
+    height: 26px;
+    padding: 0;
+}
+
+.h-explorer-tool-panel-body {
+    min-height: 0;
+    overflow: auto;
+}
+
+.h-explorer-pinned-tool {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+    min-width: 0;
+    min-height: 0;
+    background: var(--h-color-bg);
+}
+
+.h-explorer-pinned-tool-header {
+    flex: 0 0 auto;
+    height: 36px;
+    min-height: 36px;
+    padding: 0 5px 0 9px;
+    border-bottom: 1px solid var(--h-color-border);
+    background: var(--h-color-surface);
+}
+
+.h-explorer-pinned-tool-header strong {
+    color: var(--h-color-header);
+    font: 600 14px/1.35 Arial, sans-serif;
+}
+
+.h-explorer-pinned-tool-header .heurist-icon-button {
+    width: 26px;
+    height: 26px;
+    padding: 0;
+}
+
+.h-explorer-pinned-tool-body {
+    flex: 1 1 auto;
+    min-width: 0;
+    min-height: 0;
+    overflow: auto;
+}
+
+.h-explorer-panel-placeholder,
+.h-explorer-panel-empty {
+    margin: 8px;
+    color: var(--h-color-text-muted);
+    font-style: italic;
+}
+
+.h-explorer-source-panel {
+    padding: 7px;
+}
+
+.h-explorer-source-section-title {
+    margin: 6px 7px 3px;
+    color: var(--h-color-primary);
+    font-size: var(--h-font-size);
+}
+
+.h-explorer-source-section-title:not(:first-child) {
+    margin-top: 12px;
+    padding-top: 8px;
+    border-top: 1px solid var(--h-color-border);
+}
+
+.h-explorer-source-list {
+    border-top: 1px solid var(--h-color-border);
+}
+
+.h-explorer-source-row {
+    display: flex;
+    align-items: center;
+    min-height: 31px;
+    border-bottom: 1px solid color-mix(in srgb, var(--h-color-border) 70%, transparent);
+}
+
+.h-explorer-source-row:hover {
+    background: var(--h-color-surface-hover);
+}
+
+.h-explorer-source-select {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1 1 auto;
+    min-width: 0;
+    padding: 6px 7px;
+    border: 0;
+    background: transparent;
+    color: var(--h-color-text);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.h-explorer-source-select > [class*="fa-"] {
+    flex: 0 0 16px;
+    color: var(--h-color-primary);
+    text-align: center;
+}
+
+.h-explorer-source-title {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.h-explorer-source-meta {
+    flex: 0 0 auto;
+    color: var(--h-color-text-muted);
+    font-size: var(--h-font-size-small);
+}
+
+.h-explorer-filter-controls {
+    display: flex;
+    align-items: center;
+    gap: var(--h-gap);
+    flex-wrap: wrap;
+    margin-bottom: 7px;
+}
+
+.h-explorer-filter-controls input {
+    min-width: 120px;
+}
+
+.h-explorer-filter-controls select {
+    max-width: 180px;
+}
+
+.h-explorer-record-type-controls {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 28px;
+    margin-bottom: 5px;
+    padding: 2px 7px;
+    border-bottom: 1px solid var(--h-color-border);
+    font-size: var(--h-font-size-small);
+}
+
+.h-explorer-record-type-option {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.h-explorer-record-type-groups {
+    margin-left: auto;
+}
+
+.h-explorer-record-type-icon {
+    flex: 0 0 18px;
+    width: 18px;
+    height: 18px;
+    object-fit: contain;
+}
+
+.h-explorer-record-type-count {
+    min-width: 3ch;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+.h-explorer-filter-favorite,
+.h-explorer-filter-edit {
+    flex: 0 0 auto;
+    width: 24px;
+    height: 24px;
+    color: var(--h-color-primary);
+}
+
+.h-explorer-filter-edit {
+    margin-right: 3px;
+    opacity: 0;
+}
+
+.h-explorer-saved-filter-row:hover .h-explorer-filter-edit,
+.h-explorer-saved-filter-row:focus-within .h-explorer-filter-edit {
+    opacity: 1;
+}
+
+.h-explorer-source-remove {
+    flex: 0 0 auto;
+    width: 26px;
+    height: 26px;
+    margin-right: 3px;
+}
+
+@media (max-width: 760px) {
+    .h-explorer-tool-panel {
+        width: calc(100% - 76px);
+        max-height: 85%;
+    }
+}

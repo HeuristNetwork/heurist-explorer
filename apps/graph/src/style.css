@@ -1,0 +1,136 @@
+:root { font-family: var(--h-font-family); color: var(--h-color-text); }
+html, body, #heurist-graph { width: 100%; height: 100%; margin: 0; overflow: hidden; }
+#heurist-graph {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  background: var(--h-color-bg);
+}
+
+/* Graph-specific control panel geometry: fixed to the viewport, unlike map's
+   panel which is positioned relative to its container. Shared chrome
+   (header/body/collapse states) lives in heurist-module.css. */
+.heurist-module-control-panel {
+  position: fixed;
+  top: 4px;
+  right: 4px;
+  width: min(300px, calc(100vw - 8px));
+  max-height: min(70vh, 520px);
+}
+.heurist-module-panel-body section { padding: 0px 4px; }
+.heurist-module-control-panel h3 { margin: 0 0 5px; font-size: 13px; color: var(--h-color-primary); }
+
+.heurist-graph-query { display:grid; gap:4px; }
+.heurist-graph-query input { box-sizing:border-box; width:100%; padding:5px 7px; border:1px solid var(--h-color-border-strong); border-radius:3px; }
+.heurist-graph-actions { display:flex; gap:6px; margin-top:7px; }
+.heurist-graph-actions button { padding:5px 9px; border:1px solid var(--h-color-border-strong); border-radius:3px; background:var(--h-color-bg); cursor:pointer; }
+.heurist-graph-dataset-row { display:flex !important; align-items:center; gap:6px; min-height:28px; cursor:pointer; }
+.heurist-graph-dataset-row.active { font-weight:600; }
+.heurist-graph-empty { color:var(--h-color-text-muted); font-style:italic; }
+.heurist-graph-toolbar label { display:flex; align-items:center; gap:5px; }
+.heurist-graph-toolbar input { min-width:220px; padding:5px 7px; border:1px solid var(--h-color-border-strong); border-radius:3px; }
+.heurist-graph-toolbar button { padding:5px 9px; border:1px solid var(--h-color-border-strong); border-radius:3px; background:var(--h-color-bg); cursor:pointer; }
+.heurist-graph-toolbar button:hover { background:var(--h-color-surface-hover); }
+.heurist-graph-canvas { flex:1 1 0; min-height:0; overflow:hidden; position:relative; padding:4px }
+
+/* Custom pan/zoom overlay (replaces vis-network's navigationButtons) */
+.vis-network{ outline: none !important;}
+.heurist-graph-nav { position:absolute; left:10px; bottom:10px; z-index:15; display:flex; flex-direction:column; gap:8px; }
+.heurist-graph-nav[hidden], .heurist-graph-nav-group[hidden] { display:none !important; }
+.heurist-graph-nav-group { display:grid; gap:3px; }
+.heurist-graph-nav-pan { grid-template-columns:repeat(3,28px); grid-template-rows:repeat(3,28px); }
+.heurist-graph-nav-pan .heurist-graph-nav-button:nth-child(1) { grid-column:2; grid-row:1; }
+.heurist-graph-nav-pan .heurist-graph-nav-button:nth-child(2) { grid-column:1; grid-row:2; }
+.heurist-graph-nav-pan .heurist-graph-nav-button:nth-child(3) { grid-column:3; grid-row:2; }
+.heurist-graph-nav-pan .heurist-graph-nav-button:nth-child(4) { grid-column:2; grid-row:3; }
+.heurist-graph-nav-zoom { grid-auto-flow:column; grid-auto-columns:28px; }
+.heurist-graph-nav-button { width:28px; height:28px; display:inline-flex; align-items:center; justify-content:center; padding:0; border:1px solid var(--h-color-border); border-radius:3px; background:var(--h-color-bg); color:var(--h-color-icon); font-size:13px; cursor:pointer; box-shadow:0 1px 2px rgba(0,0,0,.12); }
+.heurist-graph-nav-button:hover { background:var(--h-color-surface-hover); color:var(--h-color-text); }
+.heurist-graph-nav-button:focus-visible { outline:1px solid var(--h-color-primary); outline-offset:1px; }
+.heurist-graph-message { display:grid; height:100%; place-items:center; color:var(--h-color-text-muted); }
+.heurist-graph-message[hidden] { display:none !important; }
+.heurist-graph-popup {
+  position:absolute; z-index:20; max-width:280px; padding:8px 10px;
+  background:var(--h-color-bg); border:1px solid rgba(0,0,0,.25); border-radius:4px;
+  box-shadow:0 3px 12px rgba(0,0,0,.22); font:12px/1.4 Arial,sans-serif; color:var(--h-color-text);
+  transform:translate(-50%,calc(-100% - 12px)); pointer-events:none;
+}
+.heurist-graph-popup[hidden] { display:none !important; }
+.heurist-graph-popup-title { font-weight:600; margin:0 0 3px; word-break:break-word; }
+.heurist-graph-popup-meta { color:var(--h-color-text-muted); }
+.heurist-graph-popup-loading { color:var(--h-color-border-strong); }
+
+.heurist-graph-selector-row { display:grid; grid-template-columns:minmax(0, 1fr) auto; align-items:center; gap:6px; min-height:28px; padding:4px; border:1px solid transparent; }
+.heurist-graph-selector-row.active { background:var(--h-color-selected); border-color:var(--h-color-selected-border); }
+label.heurist-data-dataset { display:flex; align-items:center; gap:6px; font-weight:400; cursor:pointer; }
+.active > label.heurist-data-dataset { font-weight:600; }
+.heurist-graph-selector-row > .heurist-graph-legend { grid-column:1 / -1; min-width:0; }
+.heurist-graph-section-toggle { display:flex; align-items:center; gap:6px; width:100%; padding:5px 0; border:1px solid var(--h-color-selected-border); background:var(--h-color-selected); text-align:left; cursor:pointer; font:inherit; font-size:12px; font-weight:600; }
+.heurist-graph-section-toggle::before { content:'▸'; }
+.heurist-graph-section-toggle[aria-expanded="true"]::before { content:'▾'; }
+.heurist-graph-filter-row { display:block; width:100%; min-height:28px; padding:3px 5px; border:0; background:transparent; text-align:left; cursor:pointer; }
+.heurist-graph-empty { padding:4px; color:var(--h-color-text-muted); font-style:italic; }
+
+.heurist-data-config-dialog[open] { display:flex; flex-direction:column; overflow:hidden; width:min(920px,calc(100vw - 32px)); }
+.heurist-data-config-dialog [hidden] { display:none !important; }
+
+.heurist-data-config-form { display:flex; flex:1 1 auto; flex-direction:column; min-height:0; padding:0; overflow:hidden; }
+.heurist-data-config-content { flex:1 1 auto; min-height:0; padding:12px 14px; overflow:auto; }
+.heurist-data-config-section { margin-bottom: 8px; border: 1px solid var(--h-color-border); }
+.heurist-data-config-section > summary { padding: 8px 10px; background: var(--h-color-surface); color: var(--h-color-primary); font-weight: 600; cursor: pointer; }
+.heurist-data-config-section-body { display: flex; flex-wrap: wrap; gap: 10px 22px; padding: 12px; }
+.heurist-data-config-check { display: inline-flex; align-items: center; gap: 6px; }
+.heurist-data-config-break { flex-basis: 100%; height: 0; }
+.heurist-data-config-row { display: grid; grid-template-columns: minmax(145px, 190px) minmax(180px, 1fr); align-items: center; gap: 10px; width: 100%; }
+.heurist-data-config-row input, .heurist-data-config-row select, .heurist-data-config-row textarea { width: 100%; }
+.heurist-data-config-row input[type='number'] { width: 90px; }
+.heurist-data-config-filterby { grid-template-columns: 145px 160px auto minmax(180px, 1fr); }
+.heurist-data-config-subgroup { box-sizing: border-box; flex: 1 1 100%; min-width: 0; padding: 10px; border: 1px solid var(--h-color-border-strong); }
+.heurist-data-config-subgroup legend { padding: 0 5px; color: var(--h-color-icon); font-weight: 600; }
+.heurist-data-config-subgroup > .heurist-data-config-check { margin-right: 18px; }
+.heurist-data-config-export-warning { margin-top: 8px; color: var(--h-color-text-muted); font-size: 0.9em; }
+.heurist-data-config-list-section { box-sizing:border-box; flex:1 1 100%; min-width:0; }
+.heurist-data-config-list-section + .heurist-data-config-list-section { margin-top:8px; }
+.heurist-data-config-list-heading { display:flex; align-items:center; gap:16px; }
+.heurist-data-config-list-heading strong { color:var(--h-color-icon); }
+.heurist-data-config-list-section .heurist-data-config-row { margin-top:10px; }
+.heurist-data-config-transfer { display: grid; grid-template-columns: 1fr 42px 1fr; align-items: end; gap: 8px; width: 100%; margin-top: 10px; }
+.heurist-data-config-transfer[hidden] { display:none !important; }
+.heurist-data-config-transfer label { display: grid; gap: 5px; font-weight: 600; }
+.heurist-data-config-transfer select { min-height: 130px; font-weight: normal; }
+.heurist-data-config-transfer-buttons { display: grid; gap: 6px; align-self: center; }
+.heurist-data-config-footer { flex:0 0 auto; }
+.heurist-data-config-footer button { min-width:72px; }
+
+/* Active dataset legend */
+.heurist-graph-legend h3, .heurist-graph-legend h4 { display: flex; align-items: center; justify-content: space-between; gap: .4rem; }
+.heurist-graph-legend h4 { margin:4px; font-size:12px; font-weight:400; }
+.heurist-graph-legend-rule-actions { display:inline-flex; align-items:center; }
+.heurist-graph-legend-row { font-size:11px; display: flex; align-items: baseline; gap: .4rem; padding: .2rem 0; overflow-wrap: anywhere; }
+.heurist-graph-legend-row input { flex: 0 0 auto; }
+.heurist-graph-legend-branch-header { display: flex; align-items: baseline; }
+.heurist-graph-legend-children { margin-left: 1rem; }
+.heurist-graph-legend-note { font-size: .85em; color: var(--h-color-text-muted); margin: .35rem 0; }
+.heurist-graph-legend-rule { padding: .2rem 0; }
+.heurist-graph-legend-editor { width:min(32rem,calc(100vw - 32px)); }
+
+.heurist-graph-legend-editor label { display: block; margin: .6rem 0; }
+.heurist-graph-legend-editor input, .heurist-graph-legend-editor textarea { display: block; width: 100%; box-sizing: border-box; }
+.heurist-graph-legend-editor textarea { min-height: 6rem; }
+
+
+.heurist-module-panel-body section.heurist-graph-legend-items { padding-left:5px; }
+
+.heurist-graph-legend-color { display:inline-block; width:10px; height:10px; flex:0 0 10px; border:1px solid var(--h-color-text-muted); border-radius:50%; }
+
+/* Reserve the same expand-control column for branches and leaves. */
+.heurist-graph-legend-branch-header > .heurist-icon-button { box-sizing:border-box; width:24px; flex:0 0 24px; }
+.heurist-graph-legend-leaf { position:relative; padding-left:24px; }
+.heurist-graph-legend-leaf::before { content:''; position:absolute; left:0; width:24px; height:1em; pointer-events:none; }
+
+.heurist-graph-nav-bottom { display:flex; gap:3px; }
+.heurist-graph-nav-bottom[hidden], .heurist-graph-nav-button[hidden] { display:none !important; }
+
+/* Explorer ("main") host has limited header width, so keep the expansion-level select narrow. */
+.heurist-graph-runtime-main .heurist-graph-level-selector { max-width:70px; }

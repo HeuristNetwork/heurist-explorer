@@ -1,0 +1,28 @@
+#Search#Rechercher
+#Help#Aide
+#Close#Fermer
+#Pin#Épingler
+#Unpin#Désépingler
+#Filter#Filtre
+#Source#Source
+#Data source#Source de données
+#No source#Aucune source
+#Current result#Résultat actuel
+#Search sources#Rechercher des sources
+#Search filters#Rechercher des filtres
+#Add to favorites#Ajouter aux favoris
+#Remove from favorites#Retirer des favoris
+#Filter Builder#Constructeur de filtre
+#Save for re-use#Enregistrer pour réutilisation
+#Enter query#Saisir une requête
+#Invalid query#Requête non valide
+#Checking#Vérification
+#Record type#Type de fiche
+#Query#Requête
+#Builder#Constructeur
+#Edit in builder#Modifier dans le constructeur
+#No data source to save#Aucune source de données à enregistrer
+#Source editor is not available#L’éditeur de source n’est pas disponible
+#Saved Filter editor is not available#L’éditeur de filtre enregistré n’est pas disponible
+#Unable to load database structure#Impossible de charger la structure de la base
+

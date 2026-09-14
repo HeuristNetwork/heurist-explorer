@@ -1,0 +1,53 @@
+{
+  "meta": {
+    "dbId": 0,
+    "version": "1789037284",
+    "language": "eng",
+    "languages": ["eng", "fre"],
+    "dbconst": {
+      "RT_RELATION": 1,
+      "DT_TARGET_RESOURCE": 5
+    }
+  },
+  "rectypeGroups": {
+    "1": { "name": "Entities", "order": 1 },
+    "2": { "name": "System", "order": 2 }
+  },
+  "fieldGroups": {
+    "1": { "name": "General", "order": 1 }
+  },
+  "rectypes": {
+    "1": { "name": "Record relationship", "plural": "Record relationships", "group": 1, "concept": "2-1", "showInLists": true },
+    "2": { "name": "Record collection", "plural": "Record collections", "group": 1, "concept": "2-2" },
+    "3": { "name": "Note", "plural": "Notes", "group": 1, "concept": "2-3" },
+    "4": { "name": "Organisation", "plural": "Organisations", "group": 1, "concept": "2-4" },
+    "10": { "name": "Person", "plural": "People", "group": 1, "concept": "2-10" },
+    "12": { "name": "Place", "plural": "Places", "group": 1, "concept": "0-12" },
+    "48": { "name": "Event", "plural": "Events", "group": 1, "concept": "2-48" }
+  },
+  "fields": {
+    "5": { "name": "Target record", "type": "resource", "group": 1, "concept": "2-5", "targetTypes": [10] },
+    "6": { "name": "Relationship type", "type": "enum", "group": 1, "concept": "2-6" },
+    "7": { "name": "Source record pointer INTERNAL USE ONLY", "type": "resource", "group": 1, "concept": "2-7", "targetTypes": [10] },
+    "16": { "name": "Forbidden field", "type": "freetext", "group": 1, "concept": "2-16" },
+    "19": { "name": "Honorific", "type": "enum", "group": 1, "concept": "2-19", "vocabulary": 507 }
+  },
+  "structure": [
+    { "rty": 1, "dty": 7, "name": "Source record", "order": 1, "req": "required" },
+    { "rty": 1, "dty": 6, "name": "Relationship type", "order": 2, "req": "optional" },
+    { "rty": 1, "dty": 5, "name": "Target record", "order": 3, "req": "optional" },
+    { "rty": 2, "dty": 16, "name": "Forbidden field", "order": 1, "req": "forbidden" },
+    { "rty": 2, "dty": 7, "name": "Related person", "order": 2, "req": "optional" },
+    { "rty": 10, "dty": 19, "name": "Honorific", "order": 1, "req": "optional" }
+  ],
+  "terms": {
+    "460": { "label": "English (EN, ENG)", "code": "ENG", "concept": "2-460" },
+    "461": { "label": "French (FR, FRE)", "code": "FRE", "concept": "2-461" },
+    "496": { "label": "Language", "code": "LANG", "concept": "2-496" },
+    "507": { "label": "Honorific", "code": "HON", "concept": "2-507" }
+  },
+  "termlinks": [
+    { "parent": 496, "term": 460 },
+    { "parent": 496, "term": 461 }
+  ]
+}

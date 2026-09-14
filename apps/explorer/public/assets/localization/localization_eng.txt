@@ -1,0 +1,28 @@
+#Search#Search
+#Help#Help
+#Close#Close
+#Pin#Pin
+#Unpin#Unpin
+#Filter#Filter
+#Source#Source
+#Data source#Data source
+#No source#No source
+#Current result#Current result
+#Search sources#Search sources
+#Search filters#Search filters
+#Add to favorites#Add to favorites
+#Remove from favorites#Remove from favorites
+#Filter Builder#Filter Builder
+#Save for re-use#Save for re-use
+#Enter query#Enter query
+#Invalid query#Invalid query
+#Checking#Checking
+#Record type#Record type
+#Query#Query
+#Builder#Builder
+#Edit in builder#Edit in builder
+#No data source to save#No data source to save
+#Source editor is not available#Source editor is not available
+#Saved Filter editor is not available#Saved Filter editor is not available
+#Unable to load database structure#Unable to load database structure
+

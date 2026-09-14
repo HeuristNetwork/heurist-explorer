@@ -1,0 +1,161 @@
+/* ------------------------------------------------------------------ *
+ * Filter Builder (HFilterBuilder / HFilterBuilderItem / HFilterBuilderSort) *
+ * Layout only - visual styling of input/select/button comes from     *
+ * shared/src/ui/heurist-ui.css (.h-input/.h-select/     *
+ * .h-btn/.h-menu-item/.h-checkbox/.heurist-icon-button).             *
+ * ------------------------------------------------------------------ */
+
+/* Widen the shared HMsg <dialog> when it hosts the Filter Builder. */
+.h-dialog:has(.h-fb) { width: min(1080px, calc(100vw - 48px)); }
+.h-dialog:has(.h-fb) .h-dialog-body { max-height: calc(100vh - 120px); }
+
+.h-fb {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    width: 100%;
+    min-height: 60vh;
+}
+.h-fb-header {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 14px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--h-color-border);
+}
+.h-fb-labelled { display: inline-flex; align-items: center; gap: 6px; }
+.h-fb-labelled > span { color: var(--h-color-text-muted); font-size: var(--h-font-size-small); }
+.h-fb-rectype { min-width: 240px; max-width: 340px; }
+.h-fb-lang { min-width: 120px; }
+.h-fb-clear { margin-left: auto; }
+
+/* --- criteria list --- */
+.h-fb-criteria { display: flex; flex-direction: column; gap: 4px; }
+.h-fb-rows { display: flex; flex-direction: column; gap: 8px; }
+.h-fb-row { display: flex; align-items: flex-start; gap: 4px; }
+.h-fb-rowconj {
+    flex: 0 0 46px;
+    display: inline-flex;
+    justify-content: flex-end;
+    align-items: center;
+    min-height: var(--h-control-height);
+}
+.h-fb-conjlabel {
+    color: var(--h-color-text-muted);
+    font-size: var(--h-font-size-small);
+    font-weight: 600;
+}
+.h-fb-itemhost { flex: 1 1 auto; min-width: 0; }
+.h-fb-linkrow .h-fb-itemhost {
+    border-left: 2px solid var(--h-color-primary);
+    padding-left: 10px;
+    background: var(--h-color-surface);
+    border-radius: var(--h-radius);
+}
+
+/* borderless conjunction selectors (legacy .search_conjunction look) */
+.h-fb-conj,
+.h-fbitem-conj {
+    border-color: transparent;
+    background: transparent;
+    min-height: 24px;
+    padding: 0 2px;
+    font-weight: 600;
+    font-size: var(--h-font-size-small);
+    color: var(--h-color-text-muted);
+}
+
+.h-fb-addrow { margin-top: 2px; padding-left: 50px; }  /* align + under .h-fbitem */
+.h-fb-addbig { width: 34px; padding: 0; font-size: 1.3rem; line-height: 1; }
+
+/* --- one criterion row --- */
+.h-fbitem {
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;                 /* space between field | operator | values */
+    flex-wrap: wrap;
+}
+.h-fbitem-field {
+    min-width: 190px;
+    max-width: 260px;
+    justify-content: flex-start;
+    text-align: left;
+    font-weight: normal;
+}
+.h-fbitem-remove {
+    align-self: center;
+    margin-left: -12px;
+    font-size: 1.35em;
+    line-height: 1;
+    opacity: 0;
+    transition: opacity 0.1s ease;
+}
+.h-fbitem:hover .h-fbitem-remove,
+.h-fbitem-remove:focus-visible { opacity: 1; }
+.h-fbitem-op {
+    border-color: transparent;
+    background: transparent;
+    min-width: 160px;          /* tabular alignment */
+}
+.h-fbitem-op:focus { border-color: var(--h-color-border); }
+
+/* --- value column --- */
+.h-fbitem-values { display: flex; flex-direction: column; gap: 4px; }
+.h-fbitem-valrow { display: flex; align-items: center; gap: 6px; }
+.h-fbitem-conjslot,
+.h-fbitem-conj,
+.h-fbitem-conjlabel {
+    flex: 0 0 48px;
+    box-sizing: border-box;
+}
+.h-fbitem-conjslot { display: inline-flex; justify-content: flex-end; align-items: center; }
+.h-fbitem-conjlabel {
+    text-align: right;
+    padding-right: 4px;
+    font-size: var(--h-font-size-small);
+    font-weight: 600;
+    color: var(--h-color-text-muted);
+}
+.h-fbitem-rangesep { color: var(--h-color-text-muted); }
+.h-fbitem-values .h-input,
+.h-fbitem-values .h-select { min-width: 190px; }
+.h-fbitem-wkt { min-width: 240px; font-family: monospace; }
+.h-fbitem-record { display: inline-flex; gap: 4px; }
+.h-fbitem-addval,
+.h-fbitem-delval { width: 24px; height: 24px; font-size: 14px; line-height: 1; }
+
+/* --- sort --- */
+.h-fb-sort-rows { display: flex; flex-direction: column; gap: 4px; padding: 6px 0; }
+.h-fbsort { display: flex; align-items: center; gap: 6px; }
+.h-fbsort-field { min-width: 200px; }
+.h-fbsort-dir { min-width: 130px; }
+
+/* --- preview --- */
+.h-fb-preview-label { color: var(--h-color-text-muted); font-size: var(--h-font-size-small); margin-bottom: 2px; }
+.h-fb-preview-json {
+    margin: 0;
+    padding: 8px;
+    background: var(--h-color-surface);
+    border: 1px solid var(--h-color-border);
+    border-radius: var(--h-radius);
+    max-height: 140px;
+    overflow: auto;
+    white-space: pre-wrap;
+    word-break: break-word;
+    font-size: var(--h-font-size-small);
+}
+.h-fb-unsupported { color: var(--h-color-warning); font-size: var(--h-font-size-small); margin-top: 4px; }
+
+/* --- link sub-panel --- */
+.h-fb-linkhead,
+.h-fb-subfoot { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding: 4px 0; }
+.h-fb-sublist { display: flex; flex-direction: column; gap: 6px; padding-left: 8px; }
+
+.h-fb-sentence {
+    margin-bottom: 6px;
+    padding: 6px 8px;
+    background: var(--h-color-selected);
+    border-radius: var(--h-radius);
+    font-size: 0.95em;
+}

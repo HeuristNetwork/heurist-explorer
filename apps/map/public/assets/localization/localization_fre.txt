@@ -1,0 +1,149 @@
+#Map controls#Contrôles de la carte
+#Show or hide map controls#Afficher ou masquer les contrôles de la carte
+#Show or hide panels#Afficher ou masquer les panneaux
+#Help#Aide
+#Create new map document#Créer un document cartographique
+#Zoom to active map document#Zoomer sur le document cartographique actif
+#Map options#Options de la carte
+#Publish map#Publier la carte
+#Base maps#Fonds de carte
+#No map documents#Aucun document cartographique
+#Loading map document#Chargement du document cartographique
+#Activate#Activer
+#Zoom to map document extent#Zoomer sur l’étendue du document cartographique
+#Reload map document#Recharger le document cartographique
+#Edit map document#Modifier le document cartographique
+#Map document loading failed#Échec du chargement du document cartographique
+#Loading...#Chargement…
+#No layers#Aucune couche
+#Zoom to layer extent#Zoomer sur l’étendue de la couche
+#Edit layer#Modifier la couche
+#Edit default symbology#Modifier la symbologie par défaut
+#Edit layer symbology#Modifier la symbologie de la couche
+#Edit thematic renderers#Modifier les rendus thématiques
+#Symbology for#Symbologie de
+#Theme#Thème
+#Default#Par défaut
+#Loading layer#Chargement de la couche
+#Layer loading failed; click to retry#Échec du chargement de la couche ; cliquez pour réessayer
+#Layer has not been loaded#La couche n’a pas été chargée
+#Layer loaded#Couche chargée
+#Set layer opacity#Définir l’opacité de la couche
+#Close opacity control#Fermer le contrôle d’opacité
+#Layer opacity#Opacité de la couche
+#Values#Valeurs
+#Published#Publié
+#The publication is available at:#La publication est disponible à l’adresse :
+#Published link#Lien de publication
+#Copy link#Copier le lien
+#Copied#Copié
+#Open#Ouvrir
+#Close#Fermer
+#Unable to initialize the map.#Impossible d’initialiser la carte.
+#Allow multiple objects#Autoriser plusieurs objets
+#Set style#Définir le style
+#Add Geometry#Ajouter une géométrie
+#Get Geometry#Obtenir la géométrie
+#Zoom to drawing#Zoomer sur le dessin
+#Clear all#Tout effacer
+#Cancel#Annuler
+#Save#Enregistrer
+#Apply#Appliquer
+#Apply image extent#Appliquer l’étendue de l’image
+#Save extent#Enregistrer l’étendue
+#Apply Extent#Appliquer l’étendue
+#Paste WKT or GeoJSON#Coller du WKT ou du GeoJSON
+#Advanced settings#Paramètres avancés
+#Discard changes to map configuration?#Abandonner les modifications de la configuration cartographique ?
+#Interface#Interface
+#Publication#Publication
+#Filtered Result Map#Carte du résultat filtré
+#Default settings#Paramètres par défaut
+#Map documents#Documents cartographiques
+#Interaction#Interaction
+#Preserve current state#Conserver l’état actuel
+#Preserve current extent, zoom, basemap, visible layers, opacity, thematic map and selection.#Conserver l’étendue, le zoom, le fond de carte, les couches visibles, l’opacité, la carte thématique et la sélection actuels.
+#Show only active document#Afficher uniquement le document actif
+#Title#Titre
+#Enable current-results document#Activer le document des résultats actuels
+#Load by map extent#Charger selon l’étendue de la carte
+#Loads only records within the current map view and refreshes the layer when the map is moved or zoomed. Recommended for large result sets.#Charge uniquement les notices situées dans la vue actuelle et actualise la couche lorsque la carte est déplacée ou zoomée. Recommandé pour les grands ensembles de résultats.
+#Point selection extent (km)#Étendue de sélection d’un point (km)
+#Default symbology#Symbologie par défaut
+#Select symbology#Symbologie de sélection
+#Prevent continuous world basemap#Empêcher la répétition continue du fond mondial
+#Marker clustering#Regroupement des marqueurs
+#Grid pixels#Pixels de la grille
+#Stop at#Arrêter à
+#The maximum zoom level that a marker can be part of a cluster.#Niveau de zoom maximal auquel un marqueur peut appartenir à un groupe.
+#Level 1 = ~10,000km (15 deg.) to ~65,000 km (equator). Level 18 = ~50m (15 deg.) to ~250m (equator)#Niveau 1 = environ 10 000 km (15°) à 65 000 km (équateur). Niveau 18 = environ 50 m (15°) à 250 m (équateur)
+#Maximum allowed features#Nombre maximal d’entités autorisées
+#Popup template#Modèle de fenêtre contextuelle
+#Standard#Standard
+#Minimal#Minimal
+#None#Aucun
+#Allowed MapDocuments#Documents cartographiques autorisés
+#Allow all MapDocuments#Autoriser tous les documents cartographiques
+#Available#Disponibles
+#Selected#Sélectionnés
+#Always available#Toujours disponible
+#Cannot load MapDocument list:#Impossible de charger la liste des documents cartographiques :
+#Default document#Document par défaut
+#Filtered Result#Résultat filtré
+#Allowed base maps#Fonds de carte autorisés
+#All Heurist base maps#Tous les fonds de carte Heurist
+#Email team for other base maps#Contacter l’équipe pour d’autres fonds de carte
+#Initial base map#Fond de carte initial
+#Map Controls#Contrôles de la carte
+#Heurist Map Controls#Contrôles cartographiques Heurist
+#Initially expanded#Développé initialement
+#Header#En-tête
+#Show a header above the map with the active map document title.#Affiche un en-tête au-dessus de la carte avec le titre du document cartographique actif.
+#Home#Accueil
+#Options#Options
+#Publish#Publier
+#Native Map Controls#Contrôles cartographiques natifs
+#Zoom#Zoom
+#Scale#Échelle
+#Bookmark#Signet
+#Print#Imprimer
+#Selector#Sélecteur
+#Search#Rechercher
+#Feature area selector will be implemented with Leaflet.draw in a later step.#Le sélecteur de zone sera implémenté ultérieurement avec Leaflet.draw.
+#Legend#Légende
+#Show layers#Afficher les couches
+#Control placement#Emplacement des contrôles
+#Overlay#Superposition
+#Side panel#Panneau latéral
+#Control position#Position des contrôles
+#Top left#En haut à gauche
+#Top right#En haut à droite
+#Bottom left#En bas à gauche
+#Bottom right#En bas à droite
+#CSS for Map Control#CSS des contrôles cartographiques
+#Readonly#Lecture seule
+#Enable selection#Activer la sélection
+#Enable popups#Activer les fenêtres contextuelles
+#Zoom on selection#Zoomer sur la sélection
+#Zoom In#Zoom avant
+#Zoom Out#Zoom arrière
+#Level#Niveau
+#Km#Km
+#Extent#Étendue
+#south,west - north,east#sud,ouest - nord,est
+#Define#Définir
+#Define map extent#Définir l’étendue de la carte
+#Use default list#Utiliser la liste par défaut
+#JSON (optional)#JSON (facultatif)
+#Edit#Modifier
+#Show raw#Afficher le JSON
+#Hide raw#Masquer le JSON
+#Show or hide raw#Afficher ou masquer le JSON
+#Clear#Effacer
+#Website map configuration#Configuration de la carte du site
+#Publication configuration#Configuration de la publication
+#Map preferences#Préférences cartographiques
+#Worldwide#Monde entier
+#City scale#Échelle d’une ville
+#Zoomed right in#Zoom maximal
+#level#niveau

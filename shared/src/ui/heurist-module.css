@@ -1,0 +1,121 @@
+/**
+ * Shared chrome for Heurist client modules (map, graph, timeline, data).
+ * Cross-module classes only: the module control panel, the source header,
+ * and the published-record dialog. Framework-independent, built on the
+ * tokens/primitives in heurist-ui.css. Module-specific sizing/position
+ * (e.g. absolute vs fixed positioning, panel width) stays in each module's
+ * own style.css and is applied after this file.
+ */
+
+/* Module control panel ------------------------------------------------- */
+.heurist-module-control-panel {
+  z-index: 1100;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  background: var(--h-color-bg);
+  border: 1px solid var(--h-color-border);
+  border-radius: var(--h-radius);
+  font: var(--h-font-size)/1.35 var(--h-font-family);
+  color: var(--h-color-text);
+}
+.heurist-module-control-panel[hidden],
+.heurist-module-control-panel [hidden] { display: none !important; }
+
+.heurist-module-panel-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 30px;
+  padding: 0;
+  box-sizing: border-box;
+  background: var(--h-color-surface);
+  border-bottom: 1px solid var(--h-color-border);
+}
+.heurist-module-panel-actions { display: flex; align-items: center; gap: 2px; margin-left: auto; }
+.heurist-module-panel-body { overflow: auto; overscroll-behavior: contain; border: none; padding: 4px; }
+.heurist-module-panel-body section { padding: 6px 8px; }
+.heurist-module-panel-body h3 { margin: 2px 0 5px; font-size: var(--h-font-size-large); color: var(--h-color-primary); }
+
+.heurist-module-control-panel.body-collapsed .heurist-module-panel-body { display: none; }
+.heurist-module-control-panel.fully-collapsed {
+  width: 30px;
+  height: 30px;
+  min-width: 30px;
+  max-height: 30px;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+.heurist-module-control-panel.fully-collapsed .heurist-module-panel-header {
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 0;
+  gap: 0;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+.heurist-module-control-panel.fully-collapsed .heurist-module-panel-header > :not(.heurist-module-panel-toggle),
+.heurist-module-control-panel.fully-collapsed .heurist-module-panel-body { display: none; }
+.heurist-module-control-panel.fully-collapsed .heurist-module-panel-toggle { width: 30px; height: 30px; padding: 0; margin-left: 0; }
+
+.heurist-module-panel-toggle { width: 30px; height: 30px; padding: 0 !important; margin-left: 9px; }
+
+.heurist-module-control-panel.with-source-header { border: 1px solid var(--h-color-surface); }
+.heurist-module-panel-body.with-source-header { border: 1px solid var(--h-color-border); border-radius: var(--h-radius); border-top: none; }
+
+.heurist-module-control-panel.controls-only { width: auto; max-width: calc(100% - 24px); }
+.heurist-module-control-panel.controls-only .heurist-module-panel-header { width: auto; padding: 4px; gap: 2px; border-bottom: 0; }
+.heurist-module-control-panel.controls-only .heurist-module-panel-body { display: none; }
+
+/* Below 600px, drop to a full-width mobile drawer - except for the compact,
+   always-visible bars (main-mode, controls-only), which stay a small corner
+   bar at any width so they never cover the module underneath (e.g. the
+   source header). */
+@media (max-width: 600px) {
+  .heurist-module-control-panel:not(.main-mode):not(.controls-only) { right: 6px; left: 6px; width: auto; max-height: 55vh; }
+  .heurist-module-control-panel.position-top-left { left: 6px; right: 6px; }
+}
+
+/* Source header ---------------------------------------------------------- */
+.heurist-source-header {
+  z-index: 2;
+  box-sizing: border-box;
+  color: var(--h-color-header);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  background: var(--h-color-surface);
+  border-bottom: 1px solid var(--h-color-border);
+  height: 36px;
+  padding: 10px 9px;
+  font: 600 14px/1.35 Arial, sans-serif;
+  overflow: hidden;
+}
+
+/* Published-record dialog ------------------------------------------------ */
+.heurist-published-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: var(--h-color-backdrop);
+}
+.heurist-published-dialog {
+  box-sizing: border-box;
+  width: min(560px, 94vw);
+  max-height: 94vh;
+  padding: 18px;
+  border: 1px solid var(--h-color-border-strong);
+  border-radius: 5px;
+  background: var(--h-color-bg);
+  color: var(--h-color-text);
+  box-shadow: var(--h-shadow-dialog);
+}
+.heurist-published-dialog h2 { margin: 0; font-size: var(--h-font-size-large); }
+.heurist-published-dialog p { margin: 12px 0 8px; }
+.heurist-published-dialog input { box-sizing: border-box; width: 100%; padding: 6px; font: inherit; }
+.heurist-published-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; }

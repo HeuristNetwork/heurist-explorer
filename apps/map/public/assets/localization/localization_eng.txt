@@ -1,0 +1,149 @@
+#Map controls#Map controls
+#Show or hide map controls#Show or hide map controls
+#Show or hide panels#Show or hide panels
+#Help#Help
+#Create new map document#Create new map document
+#Zoom to active map document#Zoom to active map document
+#Map options#Map options
+#Publish map#Publish map
+#Base maps#Base maps
+#No map documents#No map documents
+#Loading map document#Loading map document
+#Activate#Activate
+#Zoom to map document extent#Zoom to map document extent
+#Reload map document#Reload map document
+#Edit map document#Edit map document
+#Map document loading failed#Map document loading failed
+#Loading...#Loading...
+#No layers#No layers
+#Zoom to layer extent#Zoom to layer extent
+#Edit layer#Edit layer
+#Edit default symbology#Edit default symbology
+#Edit layer symbology#Edit layer symbology
+#Edit thematic renderers#Edit thematic renderers
+#Symbology for#Symbology for
+#Theme#Theme
+#Default#Default
+#Loading layer#Loading layer
+#Layer loading failed; click to retry#Layer loading failed; click to retry
+#Layer has not been loaded#Layer has not been loaded
+#Layer loaded#Layer loaded
+#Set layer opacity#Set layer opacity
+#Close opacity control#Close opacity control
+#Layer opacity#Layer opacity
+#Values#Values
+#Published#Published
+#The publication is available at:#The publication is available at:
+#Published link#Published link
+#Copy link#Copy link
+#Copied#Copied
+#Open#Open
+#Close#Close
+#Unable to initialize the map.#Unable to initialize the map.
+#Allow multiple objects#Allow multiple objects
+#Set style#Set style
+#Add Geometry#Add Geometry
+#Get Geometry#Get Geometry
+#Zoom to drawing#Zoom to drawing
+#Clear all#Clear all
+#Cancel#Cancel
+#Save#Save
+#Apply#Apply
+#Apply image extent#Apply image extent
+#Save extent#Save extent
+#Apply Extent#Apply Extent
+#Paste WKT or GeoJSON#Paste WKT or GeoJSON
+#Advanced settings#Advanced settings
+#Discard changes to map configuration?#Discard changes to map configuration?
+#Interface#Interface
+#Publication#Publication
+#Filtered Result Map#Filtered Result Map
+#Default settings#Default settings
+#Map documents#Map documents
+#Interaction#Interaction
+#Preserve current state#Preserve current state
+#Preserve current extent, zoom, basemap, visible layers, opacity, thematic map and selection.#Preserve current extent, zoom, basemap, visible layers, opacity, thematic map and selection.
+#Show only active document#Show only active document
+#Title#Title
+#Enable current-results document#Enable current-results document
+#Load by map extent#Load by map extent
+#Loads only records within the current map view and refreshes the layer when the map is moved or zoomed. Recommended for large result sets.#Loads only records within the current map view and refreshes the layer when the map is moved or zoomed. Recommended for large result sets.
+#Point selection extent (km)#Point selection extent (km)
+#Default symbology#Default symbology
+#Select symbology#Select symbology
+#Prevent continuous world basemap#Prevent continuous world basemap
+#Marker clustering#Marker clustering
+#Grid pixels#Grid pixels
+#Stop at#Stop at
+#The maximum zoom level that a marker can be part of a cluster.#The maximum zoom level that a marker can be part of a cluster.
+#Level 1 = ~10,000km (15 deg.) to ~65,000 km (equator). Level 18 = ~50m (15 deg.) to ~250m (equator)#Level 1 = ~10,000km (15 deg.) to ~65,000 km (equator). Level 18 = ~50m (15 deg.) to ~250m (equator)
+#Maximum allowed features#Maximum allowed features
+#Popup template#Popup template
+#Standard#Standard
+#Minimal#Minimal
+#None#None
+#Allowed MapDocuments#Allowed MapDocuments
+#Allow all MapDocuments#Allow all MapDocuments
+#Available#Available
+#Selected#Selected
+#Always available#Always available
+#Cannot load MapDocument list:#Cannot load MapDocument list:
+#Default document#Default document
+#Filtered Result#Filtered Result
+#Allowed base maps#Allowed base maps
+#All Heurist base maps#All Heurist base maps
+#Email team for other base maps#Email team for other base maps
+#Initial base map#Initial base map
+#Map Controls#Map Controls
+#Heurist Map Controls#Heurist Map Controls
+#Initially expanded#Initially expanded
+#Header#Header
+#Show a header above the map with the active map document title.#Show a header above the map with the active map document title.
+#Home#Home
+#Options#Options
+#Publish#Publish
+#Native Map Controls#Native Map Controls
+#Zoom#Zoom
+#Scale#Scale
+#Bookmark#Bookmark
+#Print#Print
+#Selector#Selector
+#Search#Search
+#Feature area selector will be implemented with Leaflet.draw in a later step.#Feature area selector will be implemented with Leaflet.draw in a later step.
+#Legend#Legend
+#Show layers#Show layers
+#Control placement#Control placement
+#Overlay#Overlay
+#Side panel#Side panel
+#Control position#Control position
+#Top left#Top left
+#Top right#Top right
+#Bottom left#Bottom left
+#Bottom right#Bottom right
+#CSS for Map Control#CSS for Map Control
+#Readonly#Readonly
+#Enable selection#Enable selection
+#Enable popups#Enable popups
+#Zoom on selection#Zoom on selection
+#Zoom In#Zoom In
+#Zoom Out#Zoom Out
+#Level#Level
+#Km#Km
+#Extent#Extent
+#south,west - north,east#south,west - north,east
+#Define#Define
+#Define map extent#Define map extent
+#Use default list#Use default list
+#JSON (optional)#JSON (optional)
+#Edit#Edit
+#Show raw#Show raw
+#Hide raw#Hide raw
+#Show or hide raw#Show or hide raw
+#Clear#Clear
+#Website map configuration#Website map configuration
+#Publication configuration#Publication configuration
+#Map preferences#Map preferences
+#Worldwide#Worldwide
+#City scale#City scale
+#Zoomed right in#Zoomed right in
+#level#level

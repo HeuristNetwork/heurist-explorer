@@ -1,0 +1,24 @@
+/* --- field tree popover --- */
+.h-fbtree {
+    z-index: 2147483000;
+    width: 340px;
+    max-height: 60vh;
+    display: flex;
+    flex-direction: column;
+    background: var(--h-color-bg);
+    border: 1px solid var(--h-color-border);
+    border-radius: var(--h-radius);
+    box-shadow: var(--h-shadow-dialog);
+}
+.h-fbtree-toolbar {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 8px;
+    border-bottom: 1px solid var(--h-color-border);
+}
+.h-fbtree-toggle { font-size: var(--h-font-size-small); color: var(--h-color-text-muted); }
+.h-fbtree-body { overflow: auto; padding: 4px 0; }
+.h-fbtree-hint { padding: 6px 10px; color: var(--h-color-text-muted); }
+.h-fbtree-type { float: right; color: var(--h-color-text-muted); font-size: 0.85em; }
+.h-fbtree-children { border-left: 1px solid var(--h-color-border); margin-left: 12px; }

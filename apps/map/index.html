@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Heurist Map</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <script type="module" crossorigin src="dist/heurist-map.js"></script>
+  <link rel="stylesheet" crossorigin href="dist/heurist-map-main.css">
+</head>
+<body>
+  <div id="heurist-map"></div>
+
+  <script>
+    // Standalone launch envelope. See docs/configuration.md §1 and §4.
+    // `settings` and `state` are optional; canonical defaults are used when omitted.
+    window.heuristModuleBootstrap = {
+      runtime: {
+        database: 'osmak_mapping',
+        apiBaseUrl: '/heurist/api'
+        // baseUrl omitted on purpose: this dev page uses the standalone host
+        // adapter rather than the main Heurist iframe bridge.
+      }
+    };
+  </script>
+
+<!--    <script type="module" src="/src/main.js"></script>   -->
+
+
+  <script type="module">
+    async function getHeuristMap() {
+      for (let attempt = 0; attempt < 100; attempt += 1) {
+        if (window.heuristMap) {
+          await window.heuristMap.ready();
+          return window.heuristMap;
+        }
+        await new Promise((resolve) => setTimeout(resolve, 20));
+      }
+      throw new Error('Heurist Map API was not initialized');
+    }
+
+    try {
+      const map = await getHeuristMap();
+
+    // Phase 1/standalone inline layer remains available.
+    if(false){
+      await map.addLayer({
+        id: 'sample-places',
+        title: 'Sample places',
+        type: 'geojson',
+        visible: true,
+        data: {
+          type: 'FeatureCollection',
+          features: [
+            {
+              type: 'Feature',
+              id: 'sydney',
+              properties: { name: 'Sydney', recordId: 1 },
+              geometry: { type: 'Point', coordinates: [151.2093, -33.8688] }
+            },
+            {
+              type: 'Feature',
+              id: 'canberra',
+              properties: { name: 'Canberra', recordId: 2 },
+              geometry: { type: 'Point', coordinates: [149.1300, -35.2809] }
+            }
+          ]
+        },
+        style: {
+          color: '#276cb8',
+          fillColor: '#4f9de8',
+          fillOpacity: 0.45,
+          radius: 8
+        }
+      });
+
+      await map.fitBounds({
+        west: 148.8,
+        south: -35.8,
+        east: 151.8,
+        north: -33.3
+      });
+    }else{
+      // Public API example after setting heuristModuleBootstrap.runtime.database:
+      // 101 - cities
+      // 129 - china mosques
+      // 125 - new york bromley map
+      // 126 - Brantford
+      //await map.loadMapDocument(101);
+    }
+
+    } catch (error) {
+      console.error('Cannot initialize sample map content', error);
+    }
+  </script>
+</body>
+</html>

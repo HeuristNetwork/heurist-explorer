@@ -1,0 +1,616 @@
+/**
+ * @file HFilterBuilder.js
+ * @brief Visual Heurist query builder (M3 scope: flat predicates + one linked level + sort).
+ * @project     Heurist academic knowledge management system
+ * @package     heurist-explorer.widgets.filter
+ * @link        https://HeuristNetwork.org
+ * @license     https://www.gnu.org/licenses/gpl-3.0.txt GNU License 3.0
+ * @author      Artem Osmakov <osmakov@gmail.com>
+ *
+ * Framework-free re-implementation of legacy `hclient/widgets/search/searchBuilder.js`,
+ * matching its workflow and layout (record type · language · field rows with
+ * operator/value · any|all conjunction · sorted-by section · live JSON preview)
+ * but NOT its Ruleset/Expansion section (D3). Query <-> model mapping lives in
+ * `src/utils/queryModel.js`; this class owns only the DOM. Emits
+ * `onChange(jsonQuery, textQuery)` - `textQuery` stays null until M4 (describe()).
+ *
+ * The `$NAME$` wildcard affordance (plan section 11.5) is stubbed here for M9.
+ */
+
+import { HBaseWidget } from '#shared/widgets/HBaseWidget.js';
+import { $HR } from '#shared/ui';
+import { composeQuery, parseQuery, emptyFieldRow } from '../../utils/queryModel.js';
+import { queryDescribe } from '../../utils/queryDescribe.js';
+import { HFilterBuilderItem } from './HFilterBuilderItem.js';
+import { HFilterBuilderSort } from './HFilterBuilderSort.js';
+import { HFieldTree } from './HFieldTree.js';
+import { str } from '../../utils/vocabHelpers.js';
+import './HFilterBuilder.css';
+
+export class HFilterBuilder extends HBaseWidget {
+  /**
+   * @param {{dbdefs:object, vocabulary:object, lang?:string, onChange?:Function}} deps
+   */
+  constructor({ dbdefs, vocabulary, lang = 'eng', onChange } = {}) {
+    super();
+    if (!dbdefs) throw new TypeError('HFilterBuilder requires dbdefs (HDbDefs)');
+    if (!vocabulary) throw new TypeError('HFilterBuilder requires vocabulary (queryVocabulary.json)');
+    this.dbdefs = dbdefs;
+    this.vocab = vocabulary;
+    this.lang = lang;
+    this._onChange = onChange || (() => {});
+    this.tree = new HFieldTree({ dbdefs });
+
+    this.model = { rtyId: '', conjunction: 'all', lang, rows: [], sort: [], unsupported: null };
+    this._entries = []; // { kind:'field'|'link', item?:HFilterBuilderItem, panel?:LinkPanel, el:HTMLElement }
+    this._sorts = [];   // HFilterBuilderSort
+  }
+
+  attach(container, options = {}) {
+    super.attach(container, options);
+    return this;
+  }
+
+  render() {
+    if (!this.container) throw new Error('HFilterBuilder must be attached before render');
+    this.container.className = 'h-fb';
+    this.container.replaceChildren();
+
+    // ---- header: record type + language ----
+    const header = el('div', 'h-fb-header');
+
+    this._rtySel = document.createElement('select');
+    this._rtySel.className = 'h-select h-fb-rectype';
+    this._populateRectypes();
+    this._rtySel.addEventListener('change', () => {
+      this.model.rtyId = coerceRty(this._rtySel.value);
+      this._onScopeChanged();
+      this._recompose();
+    });
+
+    header.append(labelled($HR('Record type'), this._rtySel));
+
+    const langs = this.dbdefs.languages?.() || [];
+    if (langs.length > 1) {
+      this._langSel = document.createElement('select');
+      this._langSel.className = 'h-select h-fb-lang';
+      for (const code of ['', ...langs]) {
+        const o = document.createElement('option');
+        o.value = code;
+        o.textContent = code || $HR('Default');
+        this._langSel.append(o);
+      }
+      this._langSel.value = '';
+      this._langSel.addEventListener('change', () => { /* reserved: term label language */ });
+      header.append(labelled($HR('Language'), this._langSel));
+    }
+
+    const clearBtn = btn($HR('Clear all'), 'h-btn h-btn-small h-fb-clear', () => this.setQuery([]));
+    header.append(clearBtn);
+    this.container.append(header);
+
+    // ---- criteria ----
+    const crit = el('div', 'h-fb-criteria');
+
+    // The single AND/OR selector between top-level criteria. It is re-parented
+    // into the 2nd row's conjunction slot; rows 3+ show a static label instead.
+    this._conjSel = document.createElement('select');
+    this._conjSel.className = 'h-select h-fb-conj';
+    for (const [val, key] of [['all', 'phrase.and'], ['any', 'phrase.or']]) {
+      const o = document.createElement('option');
+      o.value = val;
+      o.textContent = (str(this.vocab, this.lang, key).trim() || val).toUpperCase();
+      this._conjSel.append(o);
+    }
+    this._conjSel.addEventListener('change', () => {
+      this.model.conjunction = this._conjSel.value;
+      this._refreshRowConjunctions();
+      this._recompose();
+    });
+
+    this._rowsHost = el('div', 'h-fb-rows');
+    crit.append(this._rowsHost);
+
+    const addRow = el('div', 'h-fb-addrow');
+    const addBtn = btn('+', 'h-btn h-fb-addbig', () => { this._addFieldEntry(); this._recompose(); });
+    addBtn.title = $HR('add field');
+    addRow.append(addBtn);
+    crit.append(addRow);
+    this.container.append(crit);
+
+    // ---- sort ----
+    const sortSec = el('details', 'h-fb-sort');
+    const sortSum = document.createElement('summary');
+    sortSum.textContent = $HR('Sorted by');
+    sortSec.append(sortSum);
+    this._sortHost = el('div', 'h-fb-sort-rows');
+    sortSec.append(this._sortHost);
+    const addSortBtn = btn('+', 'h-btn h-fb-addbig', () => { this._addSort(); this._recompose(); });
+    addSortBtn.title = $HR('add sort');
+    sortSec.append(addSortBtn);
+    this.container.append(sortSec);
+
+    // ---- preview ----
+    const prevSec = el('div', 'h-fb-preview');
+    this._sentence = el('div', 'h-fb-sentence');
+    this._sentence.hidden = true;
+    const prevLabel = el('div', 'h-fb-preview-label');
+    prevLabel.textContent = $HR('Query');
+    this._preview = document.createElement('pre');
+    this._preview.className = 'h-fb-preview-json';
+    prevSec.append(this._sentence, prevLabel, this._preview);
+    this.container.append(prevSec);
+
+    this._unsupportedNote = el('div', 'h-fb-unsupported');
+    this._unsupportedNote.hidden = true;
+    this._unsupportedNote.textContent = $HR('Part of this query is too complex to edit visually and will be kept unchanged.');
+    prevSec.append(this._unsupportedNote);
+
+    this.state = 'rendered';
+    this._syncFromModel();
+    return this;
+  }
+
+  // ------------------------------------------------------------- public API ---
+
+  /** @returns {Array<object>} the composed Heurist q-array */
+  getQuery() {
+    return composeQuery(this._readModel(), this.vocab);
+  }
+
+  /** @param {Array|string|object} query */
+  setQuery(query) {
+    this.model = parseQuery(query, this.vocab);
+    if (!this.model.lang) this.model.lang = this.lang;
+    if (this.isRendered) this._syncFromModel();
+    this._recompose();
+    return this;
+  }
+
+  // --------------------------------------------------------------- internal ---
+
+  _populateRectypes() {
+    this._rtySel.replaceChildren();
+    for (const [val, label] of [['', $HR('any record type')]]) {
+      const o = document.createElement('option');
+      o.value = val; o.textContent = label; this._rtySel.append(o);
+    }
+    const groups = new Map();
+    for (const rt of this.dbdefs.rectypes()) {
+      const gid = rt.group ?? 0;
+      if (!groups.has(gid)) groups.set(gid, []);
+      groups.get(gid).push(rt);
+    }
+    const groupMeta = new Map((this.dbdefs.rectypeGroups?.() || []).map((g) => [g.id, g]));
+    for (const [gid, list] of groups) {
+      const og = document.createElement('optgroup');
+      og.label = groupMeta.get(gid)?.name || $HR('Other');
+      for (const rt of list) {
+        const o = document.createElement('option');
+        o.value = String(rt.id);
+        o.textContent = rt.name;
+        og.append(o);
+      }
+      this._rtySel.append(og);
+    }
+  }
+
+  _syncFromModel() {
+    this._rtySel.value = this.model.rtyId === '' || this.model.rtyId == null ? '' : String(this.model.rtyId);
+    this._conjSel.value = this.model.conjunction === 'any' ? 'any' : 'all';
+
+    for (const entry of this._entries) {
+      if (entry.item) entry.item.destroy?.();
+      else entry.panel?.destroy?.();
+    }
+    this._entries = [];
+    this._rowsHost.replaceChildren();
+    for (const row of this.model.rows) {
+      if (row.type === 'link') this._addLinkEntry(row);
+      else this._addFieldEntry(row);
+    }
+
+    for (const s of this._sorts) s.destroy?.();
+    this._sorts = [];
+    this._sortHost.replaceChildren();
+    for (const entry of this.model.sort) this._addSort(entry);
+
+    this._onScopeChanged();
+    this._recompose();
+  }
+
+  _onScopeChanged() {
+    const rtyId = this.model.rtyId;
+    for (const entry of this._entries) {
+      if (entry.kind === 'field') entry.item.setScope(rtyId);
+    }
+    for (const s of this._sorts) s.setScope(rtyId);
+    this._refreshRowConjunctions();
+  }
+
+  /**
+   * Row 0: nothing. Row 1: the shared AND/OR selector. Row 2+: a static label
+   * matching the selector's value. Mirrors legacy `.search_conjunction`.
+   */
+  _refreshRowConjunctions() {
+    const word = (this._conjSel.value === 'any'
+      ? str(this.vocab, this.lang, 'phrase.or')
+      : str(this.vocab, this.lang, 'phrase.and')).trim().toUpperCase();
+    this._entries.forEach((entry, index) => {
+      if (!entry.conj) return;
+      entry.conj.replaceChildren();
+      if (index === 1) {
+        entry.conj.append(this._conjSel);
+      } else if (index >= 2) {
+        const lbl = document.createElement('span');
+        lbl.className = 'h-fb-conjlabel';
+        lbl.textContent = word;
+        entry.conj.append(lbl);
+      }
+    });
+  }
+
+  _makeEntryHost(extraClass = '') {
+    const host = el('div', 'h-fb-row' + (extraClass ? ' ' + extraClass : ''));
+    const conj = el('span', 'h-fb-rowconj');
+    const itemHost = el('div', 'h-fb-itemhost');
+    host.append(conj, itemHost);
+    return { host, conj, itemHost };
+  }
+
+  _addFieldEntry(rowModel = null) {
+    const { host, conj, itemHost } = this._makeEntryHost();
+    const item = new HFilterBuilderItem({
+      dbdefs: this.dbdefs,
+      vocabulary: this.vocab,
+      lang: this.lang,
+      scopeRtyId: this.model.rtyId,
+      onRequestFieldPick: (it, anchor) => this._pickField(it, anchor),
+      onChange: (evt) => {
+        if (evt?.removed) this._removeEntry(entry);
+        this._recompose();
+      }
+    });
+    item.attach(itemHost).render();
+    if (rowModel) item.setRowModel(rowModel);
+    this._rowsHost.append(host);
+    const entry = { kind: 'field', item, el: host, conj };
+    this._entries.push(entry);
+    this._onScopeChanged();
+    return entry;
+  }
+
+  _addLinkEntry(rowModel = null) {
+    const { host, conj, itemHost } = this._makeEntryHost('h-fb-linkrow');
+    const panel = new LinkPanel({
+      builder: this,
+      onChange: (evt) => {
+        if (evt?.removed) this._removeEntry(entry);
+        this._recompose();
+      }
+    });
+    panel.attach(itemHost).render();
+    if (rowModel) panel.setRowModel(rowModel);
+    this._rowsHost.append(host);
+    const entry = { kind: 'link', panel, el: host, conj };
+    this._entries.push(entry);
+    this._onScopeChanged();
+    return entry;
+  }
+
+  _removeEntry(entry) {
+    const i = this._entries.indexOf(entry);
+    if (i >= 0) this._entries.splice(i, 1);
+    entry.el.remove();
+    this._onScopeChanged();
+  }
+
+  _addSort(entryModel = null) {
+    const host = el('div', 'h-fb-sort-row');
+    const sort = new HFilterBuilderSort({
+      dbdefs: this.dbdefs,
+      lang: this.lang,
+      scopeRtyId: this.model.rtyId,
+      onChange: (evt) => {
+        if (evt?.removed) {
+          const i = this._sorts.indexOf(sort);
+          if (i >= 0) this._sorts.splice(i, 1);
+          host.remove();
+        }
+        this._recompose();
+      }
+    });
+    sort.attach(host).render();
+    if (entryModel) sort.setEntry(entryModel);
+    this._sortHost.append(host);
+    this._sorts.push(sort);
+  }
+
+  /** Field-tree picker for a top-level field row. */
+  _pickField(item, anchor) {
+    this.tree.open(anchor, { rtyId: this.model.rtyId }, (path) => {
+      if (!path?.length) return;
+      if (path.length === 1) {
+        item.setField(path[0]);
+        this._recompose();
+        return;
+      }
+      // one pointer hop -> convert this field row into a link entry
+      const via = path[0].via;
+      const entry = this._entries.find((e) => e.item === item);
+      const rowModel = {
+        type: 'link',
+        link: via.link,
+        dty: via.dty,
+        targetRty: via.targetRty || '',
+        conjunction: 'all',
+        rows: [{ ...emptyFieldRow(), dty: path[1].dty }]
+      };
+      const link = this._addLinkEntry();
+      // move new link entry to the old row's position, drop the old row
+      if (entry) {
+        this._rowsHost.insertBefore(link.el, entry.el);
+        this._removeEntry(entry);
+      }
+      link.panel.setRowModel(rowModel);
+      // resolve kind for the seeded sub-row now that we know its field type
+      link.panel.items[0]?.setField(path[1]);
+      this._recompose();
+    });
+  }
+
+  /** Field-tree picker for a row inside a link sub-panel (flat only). */
+  pickSubField(item, anchor, targetRtyId) {
+    this.tree.open(anchor, { rtyId: targetRtyId, flatOnly: true }, (path) => {
+      if (path?.length === 1) {
+        item.setField(path[0]);
+        this._recompose();
+      }
+    });
+  }
+
+  _readModel() {
+    // before render() the DOM entry lists are empty - the parsed model is authoritative
+    if (!this.isRendered) return this.model;
+    const rows = this._entries.map((entry) => (
+      entry.kind === 'link' ? entry.panel.getRowModel() : entry.item.getRowModel()
+    ));
+    const sort = this._sorts.map((s) => s.getEntry()).filter((e) => e.field !== '' && e.field != null);
+    return { ...this.model, rows, sort };
+  }
+
+  _recompose() {
+    this.model = this._readModel();
+    const q = composeQuery(this.model, this.vocab);
+    const sentence = q.length
+      ? queryDescribe(q, { dbdefs: this.dbdefs, vocabulary: this.vocab, lang: this.lang })
+      : '';
+    if (this._preview) this._preview.textContent = q.length ? JSON.stringify(q, null, 1) : $HR('(empty)');
+    if (this._sentence) {
+      this._sentence.textContent = sentence;
+      this._sentence.hidden = !sentence;
+    }
+    if (this._unsupportedNote) {
+      this._unsupportedNote.hidden = !(this.model.unsupported && this.model.unsupported.length);
+    }
+    this._onChange(q, sentence || null);
+  }
+
+  async destroy() {
+    this.tree?.destroy();
+    for (const entry of this._entries) { entry.item?.destroy?.(); entry.panel?.destroy?.(); }
+    for (const s of this._sorts) s.destroy?.();
+    this._entries = [];
+    this._sorts = [];
+    await super.destroy();
+  }
+}
+
+/* ------------------------------------------------------------------ LinkPanel --- */
+/** One "linked to / linked from" sub-query block (single level). */
+class LinkPanel {
+  constructor({ builder, onChange }) {
+    this.builder = builder;
+    this.dbdefs = builder.dbdefs;
+    this.vocab = builder.vocab;
+    this._onChange = onChange || (() => {});
+    this.row = { type: 'link', link: 'lt', dty: '', targetRty: '', conjunction: 'all', rows: [] };
+    this.items = [];
+    this.container = null;
+  }
+
+  attach(container) { this.container = container; return this; }
+
+  render() {
+    this.container.replaceChildren();
+    this.container.classList.add('h-fb-linkpanel');
+
+    const head = el('div', 'h-fb-linkhead');
+
+    const remove = btn('×', 'heurist-icon-button h-fbitem-remove', () => { this.destroy(); this._onChange({ removed: true }); });
+
+    this._linkSel = document.createElement('select');
+    for (const [v, label] of [['lt', $HR('linked to')], ['lf', $HR('linked from')]]) {
+      const o = document.createElement('option'); o.value = v; o.textContent = label; this._linkSel.append(o);
+    }
+    this._linkSel.value = this.row.link;
+    this._linkSel.addEventListener('change', () => {
+      this.row.link = this._linkSel.value;
+      this.row.dty = '';
+      this._populateTargets();
+      this._populatePointers();
+      this._emit();
+    });
+
+    this._targetSel = document.createElement('select');
+    this._targetSel.addEventListener('change', () => {
+      this.row.targetRty = coerceRty(this._targetSel.value);
+      this._populatePointers();
+      for (const it of this.items) it.setScope(this.row.targetRty);
+      this._emit();
+    });
+
+    this._pointerSel = document.createElement('select');
+    this._pointerSel.addEventListener('change', () => {
+      this.row.dty = this._pointerSel.value === '' ? '' : Number(this._pointerSel.value);
+      this._emit();
+    });
+
+    head.append(
+      remove,
+      labelled($HR('records'), this._linkSel),
+      labelled($HR('of type'), this._targetSel),
+      labelled($HR('via'), this._pointerSel)
+    );
+    this.container.append(head);
+
+    this._subHost = el('div', 'h-fb-sublist');
+    this.container.append(this._subHost);
+
+    this._subConj = document.createElement('select');
+    for (const [v, key] of [['all', 'phrase.and'], ['any', 'phrase.or']]) {
+      const o = document.createElement('option');
+      o.value = v; o.textContent = (str(this.vocab, this.builder.lang, key).trim() || v).toUpperCase();
+      this._subConj.append(o);
+    }
+    this._subConj.value = this.row.conjunction;
+    this._subConj.addEventListener('change', () => { this.row.conjunction = this._subConj.value; this._emit(); });
+
+    const addCond = btn('+ ' + $HR('add condition'), 'h-btn h-btn-small', () => { this._addItem(); this._emit(); });
+    const foot = el('div', 'h-fb-subfoot');
+    foot.append(addCond, this._subConj);
+    this.container.append(foot);
+
+    this._populateTargets();
+    this._populatePointers();
+    if (!this.items.length) this._addItem();
+    return this;
+  }
+
+  _populateTargets() {
+    const scope = Number(this.builder.model.rtyId) > 0 ? Number(this.builder.model.rtyId) : null;
+    this._targetSel.replaceChildren();
+    const anyOpt = document.createElement('option');
+    anyOpt.value = ''; anyOpt.textContent = $HR('any');
+    this._targetSel.append(anyOpt);
+    const dir = this.row.link === 'lf' ? 'from' : 'to';
+    const ids = scope ? this.dbdefs.linkedRectypes(scope, { direction: dir }) : [];
+    for (const id of ids) {
+      const o = document.createElement('option');
+      o.value = String(id); o.textContent = this.dbdefs.rectypeName(id);
+      this._targetSel.append(o);
+    }
+    this._targetSel.value = this.row.targetRty === '' ? '' : String(this.row.targetRty);
+  }
+
+  _populatePointers() {
+    const scope = Number(this.builder.model.rtyId) > 0 ? Number(this.builder.model.rtyId) : null;
+    const target = Number(this.row.targetRty) > 0 ? Number(this.row.targetRty) : null;
+    this._pointerSel.replaceChildren();
+    const any = document.createElement('option');
+    any.value = ''; any.textContent = $HR('any link');
+    this._pointerSel.append(any);
+    if (scope && target) {
+      const [from, to] = this.row.link === 'lf' ? [target, scope] : [scope, target];
+      for (const dty of this.dbdefs.pointerFieldsBetween(from, to)) {
+        const o = document.createElement('option');
+        o.value = String(dty);
+        o.textContent = this.dbdefs.fieldGlobal(dty)?.name || `field ${dty}`;
+        this._pointerSel.append(o);
+      }
+    }
+    this._pointerSel.value = this.row.dty === '' ? '' : String(this.row.dty);
+  }
+
+  _addItem(rowModel = null) {
+    const host = el('div', 'h-fb-subrow');
+    const item = new HFilterBuilderItem({
+      dbdefs: this.dbdefs,
+      vocabulary: this.vocab,
+      lang: this.builder.lang,
+      scopeRtyId: this.row.targetRty,
+      onRequestFieldPick: (it, anchor) => this.builder.pickSubField(it, anchor, this.row.targetRty),
+      onChange: (evt) => {
+        if (evt?.removed) {
+          const i = this.items.indexOf(item);
+          if (i >= 0) this.items.splice(i, 1);
+          host.remove();
+        }
+        this._emit();
+      }
+    });
+    item.attach(host).render();
+    if (rowModel) item.setRowModel(rowModel);
+    this._subHost.append(host);
+    this.items.push(item);
+    return item;
+  }
+
+  getRowModel() {
+    return {
+      type: 'link',
+      link: this.row.link,
+      dty: this.row.dty,
+      targetRty: this.row.targetRty,
+      conjunction: this.row.conjunction,
+      rows: this.items.map((it) => it.getRowModel())
+    };
+  }
+
+  setRowModel(row) {
+    this.row = {
+      type: 'link',
+      link: row.link === 'lf' ? 'lf' : 'lt',
+      dty: row.dty ?? '',
+      targetRty: row.targetRty ?? '',
+      conjunction: row.conjunction === 'any' ? 'any' : 'all',
+      rows: []
+    };
+    if (this._linkSel) {
+      this._linkSel.value = this.row.link;
+      this._populateTargets();
+      this._targetSel.value = this.row.targetRty === '' ? '' : String(this.row.targetRty);
+      this._populatePointers();
+      this._subConj.value = this.row.conjunction;
+      for (const it of this.items) it.destroy?.();
+      this.items = [];
+      this._subHost.replaceChildren();
+      for (const sub of row.rows || []) this._addItem(sub);
+      if (!this.items.length) this._addItem();
+    }
+    return this;
+  }
+
+  _emit() { this._onChange({ row: this.getRowModel() }); }
+
+  destroy() {
+    for (const it of this.items) it.destroy?.();
+    this.items = [];
+    this.container?.replaceChildren();
+  }
+}
+
+/* --------------------------------------------------------------------- utils --- */
+function el(tag, className) {
+  const node = document.createElement(tag);
+  if (className) node.className = className;
+  return node;
+}
+function btn(text, className, onClick) {
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.className = className;
+  b.textContent = text;
+  if (onClick) b.addEventListener('click', onClick);
+  return b;
+}
+function labelled(text, control) {
+  const wrap = el('label', 'h-fb-labelled');
+  const span = document.createElement('span');
+  span.textContent = text;
+  wrap.append(span, control);
+  return wrap;
+}
+function coerceRty(value) {
+  return value === '' || value == null ? '' : Number(value);
+}

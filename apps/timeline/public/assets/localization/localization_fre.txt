@@ -1,0 +1,141 @@
+#Settings#Paramètres
+#Publish data#Publier les données
+#Publication configuration#Configuration de la publication
+#Published#Publié
+#The publication is available at:#La publication est disponible à l’adresse suivante :
+#Published link#Lien de publication
+#Copy link#Copier le lien
+#Copied#Copié
+#Open#Ouvrir
+#Close#Fermer
+#Cancel#Annuler
+#Save#Enregistrer
+#Publish#Publier
+#Interface#Interface
+#Publication#Publication
+#Default settings#Paramètres par défaut
+#Filtered Result#Résultat filtré
+#Datasets and Filters#Jeux de données et filtres
+#Interaction#Interaction
+#Datasets#Jeux de données
+#Filters#Filtres
+#Initially expanded#Développé initialement
+#Columns picker (for current active dataset)#Sélecteur de colonnes (pour le jeu de données actif)
+#Options#Options
+#Native table controls#Contrôles natifs du tableau
+#Page size#Taille de page
+#Search#Rechercher
+#Counter#Compteur
+#Export (CSV, Excel, PDF)#Exporter (CSV, Excel, PDF)
+#Export_warning#Comme DataTables utilise une pagination côté serveur, les exports incluent uniquement la page actuelle. Utilisez Explorer > onglet Export pour exporter l’ensemble du jeu de données.
+#Language#Langue
+#Auto#Automatique
+#English#Anglais
+#French#Français
+#German#Allemand
+#Portuguese#Portugais
+#Font size#Taille de police
+#Color scheme#Thème de couleurs
+#DataTables#DataTables
+#Bootstrap 3#Bootstrap 3
+#Bootstrap 4#Bootstrap 4
+#Bootstrap 5#Bootstrap 5
+#Bulma#Bulma
+#Foundation#Foundation
+#jQuery UI#jQuery UI
+#Semantic UI#Semantic UI
+#Empty result message#Message pour un résultat vide
+#Popup template#Modèle de fenêtre contextuelle
+#Standard#Standard
+#Title#Titre
+#Initial query#Requête initiale
+#Filter by#Filtrer par
+#None#Aucun
+#Time filter#Filtre temporel
+#Selection#Sélection
+#Last selected#Dernier élément sélectionné
+#Select widget#Sélectionner un widget
+#in#dans
+#Allow all#Tout autoriser
+#Available datasets#Jeux de données disponibles
+#Allowed datasets#Jeux de données autorisés
+#Default dataset#Jeu de données par défaut
+#Available filters#Filtres disponibles
+#Allowed filters#Filtres autorisés
+#Enable edit#Activer la modification
+#Enable selection#Activer la sélection
+#Collection / Persistent selection#Collection / Sélection persistante
+#Enable popups#Activer les fenêtres contextuelles
+#Admin info#Informations d’administration
+#Preserve current state#Conserver l’état actuel
+#Preserve the active dataset or query, page, sort, filter and selection.#Conserver le jeu de données ou la requête active, la page, le tri, le filtre et la sélection.
+#Discard changes to data configuration?#Abandonner les modifications de la configuration des données ?
+#Add available datasets#Ajouter les jeux de données disponibles
+#Remove allowed datasets#Retirer les jeux de données autorisés
+#Add available filters#Ajouter les filtres disponibles
+#Remove allowed filters#Retirer les filtres autorisés
+#Data controls#Contrôles des données
+#Show or hide data controls#Afficher ou masquer les contrôles des données
+#Show or hide panels#Afficher ou masquer les panneaux
+#Help#Aide
+#Create new dataset#Créer un jeu de données
+#Pick fields#Choisir les champs
+#Apply#Appliquer
+#No filters#Aucun filtre
+#ID#ID
+#In collection#Dans la collection
+#No records#Aucun enregistrement
+#Show _MENU_ entries#Afficher _MENU_ entrées
+#Showing _START_ to _END_ of _TOTAL_ entries#Affichage de _START_ à _END_ sur _TOTAL_ entrées
+#Showing 0 to 0 of 0 entries#Affichage de 0 à 0 sur 0 entrée
+#(filtered from _MAX_ total entries)#(filtré à partir de _MAX_ entrées au total)
+#First#Premier
+#Previous#Précédent
+#Next#Suivant
+#Last#Dernier
+#Processing...#Traitement en cours…
+#Record info#Informations sur la notice
+#Native controls#Contrôles natifs
+#View mode#Mode d’affichage
+#Selection actions#Actions de sélection
+#Engine#Moteur
+#Data table#Tableau de données
+#Record list#Liste de notices
+#Record list view#Affichage de la liste
+#Table#Tableau
+#Cards#Cartes
+#Rows#Rangées
+#Extended#Étendu
+#View#Voir
+#Select page#Sélectionner la page
+#Clear selection#Effacer la sélection
+#Show selection#Afficher la sélection
+#Export#Exporter
+#Copy#Copier
+#CSV#CSV
+#Excel#Excel
+#PDF#PDF
+#Selected#Sélectionnés
+#filtered from#filtré à partir de
+#Edit#Modifier
+#Bookmarked#Ajouté aux favoris
+#Show#Afficher
+#Show header#Afficher l'en-tête
+#Header#En-tête
+#source_header_hint#Afficher l'en-tête
+#hidden_hint#privé - masqué pour les non-propriétaires
+#Select all on page#Tout sélectionner sur la page
+#Select none#Tout désélectionner
+#Show selected#Afficher la sélection
+#Add selected to collection#Ajouter la sélection à la collection
+#Add page to collection#Ajouter la page à la collection
+#Remove selected from collection#Retirer la sélection de la collection
+#Clear collection#Vider la collection
+#Show collection#Afficher la collection
+#Card and row template#Modèle de carte et de ligne
+#Extended view template#Modèle de vue étendue
+#Built-in renderer#Rendu intégré
+#Standard record view#Vue standard de la notice
+#visible_hint#visible par tout utilisateur connecté
+#pending_hint#en attente (visible par tous, modifications en attente)
+#public_hint#public (visible par tous)

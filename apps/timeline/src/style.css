@@ -1,0 +1,87 @@
+html,body,#heurist-timeline{width:100%;height:100%;margin:0;min-height:0}
+body{overflow:hidden;font:var(--h-font-size) var(--h-font-family);color:var(--h-color-text);background:var(--h-color-bg)}
+.heurist-timeline-toolbar{height:34px;gap:2px;padding:2px 5px;border-bottom:1px solid var(--h-color-border);background:var(--h-color-surface);box-sizing:border-box}
+.heurist-timeline-toolbar+ #heurist-timeline{height:calc(100% - 34px)}
+.heurist-timeline-toolbar .heurist-icon-button{width:30px;height:28px}
+
+/* ---------------------------------------------------------------------------
+   Custom timeline bars. The 9-value Heurist tuple stays on the item; these
+   classes only present it.
+
+   - point kinds (exact/circa/before/after): marker+label flow normally so
+     vis-timeline measures them and stacks items to avoid label overlap; the
+     fixed uncertainty pill is an absolutely-positioned decoration behind them.
+   - range kinds (range/fuzzy-range): the coloured bar is scaled to the real
+     time span, while the marker+label sizes .vis-item-content so vis reserves
+     horizontal room for the overflowing label when stacking.
+   --------------------------------------------------------------------------- */
+
+/* Strip vis-timeline's default item chrome but keep the standard yellow
+   highlight on selected items. !important because vis-timeline's stylesheet is
+   injected after this one (dynamic engine import). */
+.vis-item.vis-box:not(.vis-selected),
+.vis-item.vis-point:not(.vis-selected),
+.vis-item.vis-range:not(.vis-selected){
+  background-color:transparent!important;border:0!important;box-shadow:none!important}
+.vis-item.vis-dot,.vis-item.vis-line{display:none!important}
+.vis-item{overflow:visible}
+.vis-item .vis-item-overflow,.vis-item .vis-item-visible-frame{overflow:visible!important}
+.vis-item .vis-item-content{margin:0!important;padding:0!important;overflow:visible}
+
+/* temporal.determination -> bar colour, light blue to light green so the
+   marker icon and label stay readable on every shade.
+   Unknown(0) Conjecture(2) Measurement(3) Attested(1) */
+.vis-item{--htl-bar-color:#79a5fc;--htl-bar-color-soft:#c2d5fe}
+.vis-item.heurist-determination-0{--htl-bar-color:#79a5fc;--htl-bar-color-soft:#c2d5fe}
+.vis-item.heurist-determination-2{--htl-bar-color:#79ebfc;--htl-bar-color-soft:#c2f5fe}
+.vis-item.heurist-determination-3{--htl-bar-color:#79fce6;--htl-bar-color-soft:#c2fef2}
+.vis-item.heurist-determination-1{--htl-bar-color:#79fc9d;--htl-bar-color-soft:#c2fed3}
+
+.htl-item{box-sizing:border-box;height:16px}
+
+/* ---- point items ------------------------------------------------------------ */
+/* content flows -> vis stacks by label width */
+.vis-item.vis-point .vis-item-content{position:relative!important;width:auto!important;transform:none!important}
+.htl-point{position:relative;display:inline-flex;align-items:center;height:16px;white-space:nowrap}
+.htl-point>.htl-lead{position:relative;z-index:1}
+
+/* fixed uncertainty pill: absolute -> never affects measured width */
+.htl-fuzzy{position:absolute;top:3px;height:10px;border-radius:16px;pointer-events:none;z-index:0}
+.htl-kind-exact .htl-fuzzy{display:none}
+.htl-kind-circa .htl-fuzzy{width:40px;left:-15px;background:radial-gradient(var(--htl-bar-color),var(--htl-bar-color-soft) 73%)}
+.htl-kind-before .htl-fuzzy{width:30px;left:-14px;background:linear-gradient(to left,var(--htl-bar-color),var(--htl-bar-color-soft) 82%)}
+.htl-kind-after .htl-fuzzy{width:30px;left:0;background:linear-gradient(to right,var(--htl-bar-color),var(--htl-bar-color-soft) 82%)}
+
+/* ---- range items -----------------------------------------------------------
+   .vis-item-overflow is overflow:visible (above), so vis-timeline treats the
+   range as "overflowing" and stacks it with width = boxWidth + content width
+   while the visible box stays boxWidth. So .vis-item-content must shrink-wrap
+   to the marker+label; the bar/caps are positioned against .vis-item-overflow
+   (the boxWidth-wide frame), not against the content. */
+.vis-item.vis-range{min-height:16px}
+.vis-item.vis-range .vis-item-overflow{position:relative;width:100%;height:16px}
+.vis-item.vis-range .vis-item-content{position:static!important;display:inline-block;width:auto!important;height:16px;transform:none!important;vertical-align:top}
+.htl-range{position:static;display:inline-block;vertical-align:top}
+.htl-range>.htl-lead{position:relative;z-index:1}
+
+.htl-bar{position:absolute;left:0;right:0;top:25%;height:50%;z-index:0}
+.htl-cap{position:absolute;top:25%;height:50%;z-index:0}
+.htl-cap-start{left:0}
+.htl-cap-end{right:0}
+
+/* gradient direction from profileStart / profileEnd:
+   0 solid, 1 central/circa (radial), 2 slow-start/before, 3 slow-finish/after */
+.htl-grad-0{background:var(--htl-bar-color)}
+.htl-grad-1{background:radial-gradient(var(--htl-bar-color),var(--htl-bar-color-soft) 73%)}
+.htl-grad-2{background:linear-gradient(to left,var(--htl-bar-color),var(--htl-bar-color-soft) 60%)}
+.htl-grad-3{background:linear-gradient(to right,var(--htl-bar-color),var(--htl-bar-color-soft) 60%)}
+
+/* ---- shared: marker + label -------------------------------------------------- */
+.htl-lead{display:inline-flex;align-items:center;white-space:nowrap;height:16px}
+.htl-marker{width:16px;height:16px;flex:0 0 16px;display:block;margin-right:3px}
+.htl-marker-blank{background:transparent}
+.htl-label{white-space:nowrap;color:#1a1a1a}
+.heurist-label-hidden .htl-label{display:none}
+.heurist-label-hidden .htl-marker{margin-right:0}
+.heurist-label-truncate .htl-label{display:inline-block;overflow:hidden;text-overflow:ellipsis;max-width:16em;vertical-align:middle}
+.heurist-label-pos-above .htl-label{position:relative;top:-13px}

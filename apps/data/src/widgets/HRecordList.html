@@ -1,0 +1,51 @@
+<section class="h-recordlist h-stack">
+  <header class="h-recordlist-toolbar h-toolbar" data-role="toolbar">
+    <label class="h-recordlist-search" data-control="search">
+      <input class="h-input" type="search" data-role="search" autocomplete="off">
+    </label>
+    <label class="h-inline" data-control="viewMode">
+      <span data-role="view-label"></span>
+      <select class="h-select h-recordlist-view-mode" data-role="view-mode">
+        <option value="list" data-label="List"></option>
+        <option value="card" data-label="Cards"></option>
+        <option value="row" data-label="Rows"></option>
+        <option value="big" data-label="Extended"></option>
+        <option value="datatable" data-label="Table"></option>
+      </select>
+    </label>
+    <details class="h-dropdown" data-control="selectionActions">
+      <summary class="h-btn h-btn-small" data-role="selection-button"></summary>
+      <ul class="h-menu">
+        <li><button class="h-menu-item" data-selection-action="page"><span data-label="Select all on page"></span></button></li>
+        <li><button class="h-menu-item" data-selection-action="none"><span data-label="Select none"></span></button></li>
+        <li><button class="h-menu-item" data-selection-action="show"><span data-label="Show selected"></span></button></li>
+        <li data-collection-action><hr class="h-menu-divider"></li>
+        <li data-collection-action><button class="h-menu-item" data-collection-action-name="add-selected"><span data-label="Add selected to collection"></span></button></li>
+        <li data-collection-action><button class="h-menu-item" data-collection-action-name="add-page"><span data-label="Add page to collection"></span></button></li>
+        <li data-collection-action><button class="h-menu-item" data-collection-action-name="remove-selected"><span data-label="Remove selected from collection"></span></button></li>
+        <li data-collection-action><button class="h-menu-item" data-collection-action-name="clear"><span data-label="Clear collection"></span></button></li>
+        <li data-collection-action><button class="h-menu-item" data-collection-action-name="show"><span data-label="Show collection"></span></button></li>
+      </ul>
+    </details>
+    <details class="h-dropdown" data-control="export">
+      <summary class="h-btn h-btn-small"><span data-label="Export"></span></summary>
+      <ul class="h-menu">
+        <li><button class="h-menu-item" data-export="copy" data-label="Copy"></button></li>
+        <li><button class="h-menu-item" data-export="csv" data-label="CSV"></button></li>
+        <li><button class="h-menu-item" data-export="excel" data-label="Excel"></button></li>
+        <li><button class="h-menu-item" data-export="pdf" data-label="PDF"></button></li>
+      </ul>
+    </details>
+  </header>
+  <div class="h-recordlist-content h-grow" data-role="content"></div>
+  <footer class="h-recordlist-footer h-toolbar" data-control="pagination">
+    <label class="h-inline" data-control="pageSize">
+      <span data-role="page-size-label"></span>
+      <select class="h-select h-recordlist-page-size" data-role="page-size">
+        <option>50</option><option>100</option><option>500</option><option>1000</option><option>5000</option>
+      </select>
+    </label>
+    <nav class="h-recordlist-pagination" aria-label="Record list pages"><ul class="h-pagination" data-role="pagination"></ul></nav>
+    <span class="h-recordlist-counter" data-role="counter" data-control="counter"></span>
+  </footer>
+</section>

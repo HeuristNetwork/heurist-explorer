@@ -1,0 +1,166 @@
+.h-explorer-rail {
+    position: relative;
+    z-index: 1200;
+    flex: 0 0 38px;
+    width: 38px;
+    height: 100%;
+    min-height: 0;
+    box-sizing: border-box;
+    overflow: hidden;
+    background: var(--h-color-surface);
+    color: var(--h-color-text);
+}
+
+.h-explorer-rail-left {
+    order: 0;
+    border-right: 1px solid var(--h-color-border);
+}
+
+.h-explorer-rail-right {
+    order: 2;
+    border-left: 1px solid var(--h-color-border);
+}
+
+.h-explorer-rail.is-collapsed {
+    display: none;
+}
+
+.h-explorer-rail-cluster {
+    position: absolute;
+    top: 0;
+    left: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    width: 100%;
+    padding: 4px 3px;
+    box-sizing: border-box;
+    transition: none;
+    will-change: transform;
+}
+
+.h-explorer-rail-button {
+    display: grid;
+    place-items: center;
+    flex: 0 0 auto;
+    width: 30px;
+    height: 30px;
+    padding: 0;
+    font-size: 15px;
+}
+
+.h-explorer-rail-button.active {
+    color: var(--h-color-primary);
+    background: var(--h-color-surface-hover);
+    box-shadow: inset 0 0 0 1px var(--h-color-primary);
+    border-radius: 2px;
+}
+
+.h-explorer-rail-button-label {
+    display: none;
+}
+
+.h-explorer-rail-separator {
+    width: 22px;
+    height: 1px;
+    margin: 10px 0;
+    background: var(--h-color-border);
+}
+
+/* -------------------------------------------------- button presentation modes --- */
+
+.h-explorer-rail.h-mode-large,
+.h-explorer-rail.h-mode-large-caption {
+    flex-basis: 64px;
+    width: 64px;
+}
+
+.h-explorer-rail.h-mode-large .h-explorer-rail-button,
+.h-explorer-rail.h-mode-large-caption .h-explorer-rail-button {
+    width: 60px;
+    height: 60px;
+    font-size: 28px;
+}
+
+.h-explorer-rail.h-mode-large .h-explorer-rail-separator,
+.h-explorer-rail.h-mode-large-caption .h-explorer-rail-separator {
+    width: 44px;
+}
+
+.h-explorer-rail.h-mode-large-caption .h-explorer-rail-button {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    height: auto;
+    min-height: 70px;
+    gap: 4px;
+    padding: 6px 2px;
+}
+
+.h-explorer-rail.h-mode-large-caption .h-explorer-rail-button-label {
+    display: block;
+    font-size: 10px;
+    line-height: 1.15;
+    text-align: center;
+    white-space: normal;
+    word-break: break-word;
+}
+
+.h-explorer-rail.h-mode-small-caption {
+    flex-basis: 160px;
+    width: 160px;
+}
+
+.h-explorer-rail.h-mode-small-caption .h-explorer-rail-cluster {
+    align-items: stretch;
+}
+
+.h-explorer-rail.h-mode-small-caption .h-explorer-rail-button {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-start;
+    width: 100%;
+    height: 30px;
+    gap: 8px;
+    padding: 0 8px;
+}
+
+.h-explorer-rail.h-mode-small-caption .h-explorer-rail-button-label {
+    display: block;
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 12px;
+    text-align: left;
+}
+
+.h-explorer-rail.h-mode-small-caption .h-explorer-rail-separator {
+    width: calc(100% - 6px);
+}
+
+/* --------------------------------------------------------- view-mode control --- */
+
+.h-explorer-rail-viewmode {
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    width: 100%;
+    box-sizing: border-box;
+    display: flex;
+    justify-content: center;
+    padding: 4px 3px;
+    background: var(--h-color-surface);
+    border-top: 1px solid var(--h-color-border);
+    z-index: 1;
+}
+
+/* Always a plain small icon-button: never picks up the h-mode-* size/caption rules above. */
+.h-explorer-rail-viewmode-toggle {
+    width: 30px;
+    height: 30px;
+    font-size: 15px;
+}
