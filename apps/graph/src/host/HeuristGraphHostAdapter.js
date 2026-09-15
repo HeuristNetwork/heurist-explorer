@@ -52,17 +52,39 @@ export class HeuristGraphHostAdapter extends HostAdapter {
   describeRules(rules) { return this.bridge?.describeRules?.(rules) || rules; }
 
   /**
-   * Return optional capabilities: editing support, and whether graph preferences/publishing are configured.
+   * Return optional capabilities: editing support, whether graph preferences/publishing are
+   * configured, and whether the host can display/save the active DataSource.
    *
-   * @returns {{editing: boolean, graphPreferences: boolean, graphPublishing: boolean}}
+   * @returns {{editing: boolean, graphPreferences: boolean, graphPublishing: boolean, showDatasource?: boolean, saveDatasourceAsSource?: boolean}}
    */
   getCapabilities() {
+    const showDatasource = typeof this.bridge?.showDatasource === "function";
+    const saveDatasourceAsSource = typeof this.bridge?.saveDatasourceAsSource === "function";
     return {
       editing: this.supportsEditing(),
       graphPreferences: Boolean(this.baseUrl && this.database),
       graphPublishing: Boolean(this.baseUrl && this.database),
+      ...(showDatasource ? { showDatasource: true } : {}),
+      ...(saveDatasourceAsSource ? { saveDatasourceAsSource: true } : {}),
     };
   }
+
+  /**
+   * Ask the host to activate and display the active DataSource.
+   *
+   * @param {object} source DataSource to show.
+   * @returns {*} Result of the host bridge's call, or `undefined` when unsupported.
+   */
+  showDatasource(source) { return this.bridge?.showDatasource?.(source); }
+
+  /**
+   * Ask the host to save the active DataSource as a reusable Source record.
+   *
+   * @param {object} source DataSource to save.
+   * @param {object} [options] Options forwarded to the host bridge.
+   * @returns {*} Result of the host bridge's call, or `undefined` when unsupported.
+   */
+  saveDatasourceAsSource(source, options = {}) { return this.bridge?.saveDatasourceAsSource?.(source, options); }
 
   /**
    * Publish the current selection to the host's global selection channel.

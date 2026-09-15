@@ -18,6 +18,7 @@ import { GraphLegendEditor } from "./GraphLegendEditor.js";
 import { DatasetSelector } from "./DatasetSelector.js";
 import { FilterSelector } from "./FilterSelector.js";
 import { $HR, applyI18n, InlineHelp } from "#shared/ui";
+import { sourceAction, showDataSourceAction } from "#shared/ui/documents/SourceActions.js";
 
 /** Owns Graph's control panel: dataset/filter selectors, legend, expansion controls, and toolbar actions. */
 export class GraphControlPanel {
@@ -109,6 +110,7 @@ export class GraphControlPanel {
     this.bind("heurist-graph-vocabulary-changed", () => this.renderLegend());
     this.bind("heurist-graph-visibility-changed", () => this.renderLegend());
     this.bind('heurist-graph-expansions-changed', () => this.renderLegend());
+    this.bind('heurist-graph-pin-changed', () => { void this.render().catch(error => this.reportError(error)); });
     this.bind('heurist-graph-selection-changed', () => this.renderExpansionControls());
     this.bind("heurist-graph-configuration-changed", (event) => {
       void this.applyOptions(event.detail).catch((error) => this.reportError(error, "apply-options"));
@@ -156,12 +158,23 @@ export class GraphControlPanel {
       !state.datasetId,
       {
         showCurrentResults: this.options.showCurrentResults !== false,
-        currentResultsTitle: currentTitle,
+        // Main runtime has no selectable Filtered Result/Dataset choice - the
+        // row instead reflects whatever DataSource the host last pushed.
+        currentResultsTitle: isMainRuntime ? state.datasetTitle || currentTitle : currentTitle,
+        mainMode: isMainRuntime,
+        pinned: state.pinned,
+        onTogglePin: () => this.togglePin(),
       },
     );
     this.renderLegend();
     this.filtersSelector.render(normalizeItems(filters, "Filter"));
     applyI18n(this.element);
+  }
+
+  /** Stick or unstick the active DataSource against inbound host pushes (main runtime only). */
+  togglePin() {
+    try { this.api.togglePinned(); }
+    catch (error) { this.reportError(error, "toggle-pin"); }
   }
 
   /**
@@ -176,9 +189,21 @@ export class GraphControlPanel {
     const editEnabled = interaction.editEnabled !== false && interaction.readonly !== true && Boolean(app?.host?.supportsEditing?.());
     const activeRow = this.datasetsSection.querySelector('.heurist-graph-selector-row.active');
     this.datasetsSection.querySelectorAll('.heurist-graph-dataset-action').forEach(button => button.remove());
+    const isMainRuntime = this.options.runtimeMode === "main";
     if (activeRow) {
       activeRow.append(this.legendSection);
-      if (editEnabled && (state.datasetId || typeof app.host.bridge?.addRecord === 'function')) {
+      // Main runtime has no persisted Dataset to add/edit while a host-pushed
+      // DataSource is active; offer to display or persist it instead - shown
+      // on hover/focus, like the map/timeline layer row actions.
+      if (isMainRuntime && !state.datasetId && app?.dataSource) {
+        const capabilities = this.api.getHostCapabilities?.() || {};
+        const report = (error) => this.reportError(error, 'datasource-action');
+        const actions = document.createElement('span');
+        actions.className = 'heurist-graph-dataset-action heurist-graph-row-actions';
+        if (capabilities.showDatasource) actions.append(showDataSourceAction(this.api, report));
+        if (capabilities.saveDatasourceAsSource) actions.append(sourceAction('fa-solid fa-database', 'Save as Source', () => this.api.saveDatasourceAsSource(), report));
+        if (actions.childElementCount) activeRow.insertBefore(actions, this.legendSection);
+      } else if (editEnabled && (state.datasetId || typeof app.host.bridge?.addRecord === 'function')) {
         const action = this.legend.action(state.datasetId ? 'Edit Dataset' : 'Add Dataset', state.datasetId ? 'fa-pen' : 'fa-circle-plus', () => this.editDataset());
         action.classList.add('heurist-graph-dataset-action');
         activeRow.insertBefore(action, this.legendSection);
@@ -209,7 +234,7 @@ export class GraphControlPanel {
     this.levelSelector.replaceChildren();
     for (let depth = 0; depth <= state.maxDepth; depth++) {
       const option = document.createElement('option');
-      option.value = String(depth); option.textContent = `${$HR('Level')} ${depth}`;
+      option.value = String(depth); option.textContent = String(depth);
       this.levelSelector.append(option);
     }
     this.levelSelector.value = String(Math.min(state.depth, state.maxDepth));

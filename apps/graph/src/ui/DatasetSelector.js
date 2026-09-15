@@ -12,7 +12,7 @@
  * @license     https://www.gnu.org/licenses/gpl-3.0.txt GNU License 3.0
  * @since       8.0
  */
-import { applyI18n } from "#shared/ui";
+import { $HR, applyI18n } from "#shared/ui";
 /** Renders Filtered Result and persisted Dataset choices. */
 export class DatasetSelector {
   /**
@@ -35,14 +35,26 @@ export class DatasetSelector {
    * @param {Array<{id: number, title: string}>} datasets Datasets to list.
    * @param {number|string|null} activeId Currently active dataset ID, if any.
    * @param {boolean} currentResultsActive Whether Filtered Result is the active source.
-   * @param {{showCurrentResults?: boolean, currentResultsTitle?: string}} [options] Display options.
+   * @param {object} [options] Display options.
+   * @param {boolean} [options.showCurrentResults] Whether to render the Filtered Result row.
+   * @param {string} [options.currentResultsTitle] Label for the Filtered Result row.
+   * @param {boolean} [options.mainMode] Replace the Filtered Result row's radio with a pin toggle
+   *        (main runtime: the row reflects a host-pushed DataSource, not a selectable choice).
+   * @param {boolean} [options.pinned] Current pinned state, when `mainMode` is set.
+   * @param {Function} [options.onTogglePin] Called when the pin toggle is clicked, when `mainMode` is set.
    * @returns {void}
    */
   render(
     datasets,
     activeId,
     currentResultsActive,
-    { showCurrentResults = true, currentResultsTitle = "Filtered Result" } = {},
+    {
+      showCurrentResults = true,
+      currentResultsTitle = "Filtered Result",
+      mainMode = false,
+      pinned = false,
+      onTogglePin = null,
+    } = {},
   ) {
     this.container.replaceChildren();
     if (showCurrentResults) {
@@ -60,6 +72,7 @@ export class DatasetSelector {
             );
           },
           this.classPrefix,
+          mainMode ? { pinned, onTogglePin } : null,
         ),
       );
     }
@@ -76,23 +89,43 @@ export class DatasetSelector {
   }
 }
 
-/** Build a radio-button row for one dataset (or the Filtered Result entry). */
-function row(item, active, activate, classPrefix = "heurist-data") {
+/**
+ * Build a row for one dataset (or the Filtered Result entry): a radio button that
+ * activates it, or - when `pin` is set - a pin/unpin toggle that instead sticks the
+ * active DataSource against inbound host pushes (see `GraphControlPanel`).
+ */
+function row(item, active, activate, classPrefix = "heurist-data", pin = null) {
   const label = document.createElement("label");
   const wrapper = document.createElement("div");
   wrapper.className = `${classPrefix}-selector-row${active ? " active" : ""}`;
   label.className = "heurist-data-dataset";
-  const input = document.createElement("input");
-  input.type = "radio"; input.classList.add("h-checkbox");
-  input.name = "heurist-data-dataset";
-  input.checked = active;
-  input.addEventListener("change", () => {
-    if (input.checked) activate();
-  });
+  let control;
+  if (pin) {
+    control = document.createElement("button");
+    control.type = "button";
+    control.className = "heurist-icon-button heurist-graph-pin-toggle";
+    control.classList.toggle("pinned", Boolean(pin.pinned));
+    control.title = $HR(pin.pinned ? "Unstick current data" : "Stick current data");
+    control.setAttribute("aria-pressed", String(Boolean(pin.pinned)));
+    control.setAttribute("aria-label", control.title);
+    control.innerHTML = `<span class="fa-solid ${pin.pinned ? "fa-thumbtack-slash" : "fa-thumbtack"}" aria-hidden="true"></span>`;
+    control.addEventListener("click", (event) => {
+      event.stopPropagation();
+      pin.onTogglePin?.();
+    });
+  } else {
+    control = document.createElement("input");
+    control.type = "radio"; control.classList.add("h-checkbox");
+    control.name = "heurist-data-dataset";
+    control.checked = active;
+    control.addEventListener("change", () => {
+      if (control.checked) activate();
+    });
+  }
   const title = document.createElement("span");
   if (item.i18n) title.classList.add("h-i18n");
   title.textContent = item.title;
-  label.append(input, title);
+  label.append(control, title);
   wrapper.append(label);
   return wrapper;
 }

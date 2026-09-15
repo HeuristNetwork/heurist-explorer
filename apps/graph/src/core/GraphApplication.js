@@ -70,6 +70,10 @@ export class GraphApplication extends EventTarget {
     // persisted Dataset "wins" against inbound Filtered Result queries until
     // the viewer explicitly reactivates Filtered Result.
     this.source = null;
+    // The host-pushed DataSource currently active (main runtime only), and
+    // whether the viewer has "stuck" it so a new inbound push is ignored.
+    this.dataSource = null;
+    this.pinned = false;
     this.currentResultsQuery =
       config.query == null || config.query === "" ? null : config.query;
     // DOM handles for the empty-result presentation. Set by initialize().
@@ -322,10 +326,12 @@ export class GraphApplication extends EventTarget {
       ? this.engine.mergeGraph(visible)
       : this.engine.setGraph(visible));
     await this.engine.setSelection(this.selection);
-    // Reframe the viewport only for a genuinely new/switched graph, never for
-    // an incremental node expansion (merge) - an unprompted re-center while
-    // expanding, or on an unrelated resize/rejected update, is disorienting.
-    if (!merge) await this.engine.fit?.();
+    // Reframing is requested via `setGraph()` itself (never for an incremental
+    // node expansion/merge - an unprompted re-center while expanding, or on an
+    // unrelated resize/rejected update, is disorienting) and applied by the
+    // engine once its layout has actually settled; fitting synchronously here,
+    // before physics stabilizes, would frame the pre-stabilization positions
+    // and leave the settled graph off-center.
     this.#setEmptyState(this.graph.records.length === 0);
     this.dispatchEvent(
       new CustomEvent("heurist-graph-loaded", { detail: result }),
@@ -396,15 +402,88 @@ export class GraphApplication extends EventTarget {
     const query = dataset?.source?.query ?? dataset?.query;
     if (query == null || query === "") throw new Error("Dataset query is empty");
     this.dataset = dataset;
+    this.dataSource = null;
     this.config.datasetId = Number(id);
     this.config.datasetTitle = dataset.title || dataset.rec_Title || null;
     this.source = { type: "dataset", datasetId: Number(id) };
     return this.load({ query, links: dataset.links ?? "all", internal: true, remember: false });
   }
 
+  /**
+   * Apply a DataSource pushed by the host (main runtime only), unless the viewer has
+   * "stuck" the current one - matching heurist-data's `DataApplication.setDataSource()`,
+   * plus the pin guard described on `setPinned()`.
+   *
+   * @param {object} dataSource DataSource to activate.
+   * @returns {Promise<object>} Updated application state; unchanged when pinned.
+   */
+  async setDataSource(dataSource) {
+    if (this.pinned) return this.getState();
+    const query = dataSource?.request?.q ?? dataSource?.query ?? null;
+    this.dataset = null;
+    this.dataSource = dataSource || null;
+    this.config.datasetId = null;
+    this.config.datasetTitle = dataSource?.title || null;
+    this.source = { type: "datasource", dataSource };
+    return this.load({ query, links: dataSource?.links ?? "all", internal: true, remember: false });
+  }
+
+  /**
+   * Stick (or unstick) the active DataSource: while pinned, `setDataSource()` ignores
+   * every inbound host push instead of replacing the current graph.
+   *
+   * @param {boolean} pinned New pinned state.
+   * @returns {boolean} The applied pinned state.
+   */
+  setPinned(pinned) {
+    this.pinned = pinned === true;
+    this.dispatch("heurist-graph-pin-changed", { pinned: this.pinned });
+    return this.pinned;
+  }
+
+  /**
+   * Toggle the pinned state; see `setPinned()`.
+   *
+   * @returns {boolean} The applied pinned state.
+   */
+  togglePinned() {
+    return this.setPinned(!this.pinned);
+  }
+
+  /**
+   * Ask the host to activate and display the active DataSource.
+   *
+   * @returns {Promise<boolean|*>} `false` when there is no active DataSource or the host can't show it, otherwise the host's result.
+   */
+  async showDataSource() {
+    if (!this.dataSource || typeof this.host?.showDatasource !== "function") return false;
+    return this.host.showDatasource(this.dataSource);
+  }
+
+  /**
+   * Ask the host to save the active DataSource as a reusable Source record.
+   *
+   * @param {object} [options] Options forwarded to the host, in addition to `module: 'graph'`.
+   * @returns {Promise<boolean|*>} `false` when there is no active DataSource or the host can't save it, otherwise the host's result.
+   */
+  async saveDatasourceAsSource(options = {}) {
+    if (!this.dataSource || typeof this.host?.saveDatasourceAsSource !== "function") return false;
+    return this.host.saveDatasourceAsSource(this.dataSource, { module: "graph", ...options });
+  }
+
+  /**
+   * Return the host's optional capability flags.
+   *
+   * @returns {object} Capability flags, or `{}` when the host declares none.
+   */
+  getHostCapabilities() {
+    return this.host?.getCapabilities?.() || {};
+  }
+
   /** Restore the most recently remembered Filtered Result query, locally. */
   activateCurrentResults() {
     this.dataset = null;
+    this.dataSource = null;
     this.source = null;
     this.config.datasetId = null;
     this.config.datasetTitle = null;
@@ -424,6 +503,7 @@ export class GraphApplication extends EventTarget {
    */
   async activateFilter(filter) {
     this.dataset = null;
+    this.dataSource = null;
     this.config.datasetId = null;
     this.config.datasetTitle = null;
     this.source = null;
@@ -944,6 +1024,7 @@ export class GraphApplication extends EventTarget {
       query: this.config.query,
       datasetId: this.config.datasetId || null,
       datasetTitle: this.config.datasetTitle || null,
+      pinned: this.pinned,
       selection: [...this.selection],
       recordIds: this.graph?.recordIds || [],
       limits: this.graph?.limits || null,

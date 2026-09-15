@@ -88,10 +88,14 @@ export class NetworkMovement {
   constructor(network) {
     this.network = network;
     this.pending = false;
+    this.onSettleOnce = null;
     this.freeze = () => {
       if (!this.pending) return;
       this.pending = false;
       this.network.setOptions({ physics: { enabled: false } });
+      const onSettle = this.onSettleOnce;
+      this.onSettleOnce = null;
+      onSettle?.();
     };
     network.on('stabilized', this.freeze);
     network.on('stabilizationIterationsDone', this.freeze);
@@ -100,19 +104,33 @@ export class NetworkMovement {
   /**
    * Apply layout physics for the given options, running a bounded stabilization or continuous simulation.
    *
+   * A bounded ('once') stabilization settles asynchronously - fitting the
+   * viewport before it completes would frame the pre-stabilization positions,
+   * not the final layout. Pass `onSettle` to run once physics actually
+   * freezes (or immediately, when there is nothing to stabilize).
+   *
    * @param {object} options Graph engine options; see `layoutOptions`.
+   * @param {Function} [onSettle] Called once the layout has settled.
    * @returns {void}
    */
-  arrange(options) {
+  arrange(options, onSettle) {
     this.pending = false;
+    this.onSettleOnce = null;
     const physics = layoutOptions(options).physics;
     this.network.setOptions({ physics });
-    if (physics === false || physics.enabled === false) return;
+    if (physics === false || physics.enabled === false) {
+      onSettle?.();
+      return;
+    }
     if (options.movement === 'once') {
       this.pending = true;
+      this.onSettleOnce = onSettle || null;
       this.network.stabilize(500);
     } else {
+      // Continuous movement never freezes/settles on its own; there is no
+      // "final" layout to wait for, so fit against the current positions.
       this.network.startSimulation();
+      onSettle?.();
     }
   }
 
@@ -123,6 +141,7 @@ export class NetworkMovement {
    */
   destroy() {
     this.pending = false;
+    this.onSettleOnce = null;
     this.network.off('stabilized', this.freeze);
     this.network.off('stabilizationIterationsDone', this.freeze);
   }

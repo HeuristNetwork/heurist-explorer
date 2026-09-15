@@ -47,6 +47,10 @@ export class VisNetworkAdapter extends GraphEngineAdapter {
     this.onSelectionChange = onSelectionChange;
     this.onNodeActivate = onNodeActivate;
     this.onPopupContentRequest = onPopupContentRequest;
+    // A fit requested while the container is hidden (e.g. an inactive Explorer
+    // panel, width/height 0) can't compute a meaningful viewport; remember to
+    // run it once `resize()` reports the container is visible again.
+    this.pendingFit = false;
     this.nodes = new DataSet();
     this.edges = new DataSet();
     // Human labels for edges, keyed by detail-type dty_ID / relation-type
@@ -93,7 +97,9 @@ export class VisNetworkAdapter extends GraphEngineAdapter {
     this.savedPositions = {};
     this.nodes.clear();
     this.edges.clear();
-    return this.mergeGraph(graph);
+    // A genuinely new/switched graph reframes the viewport, but only once its
+    // layout has settled - see `rearrange()`.
+    return this.mergeGraph(graph, { fitOnSettle: true });
   }
 
   /** Reconcile membership without resetting the viewport or surviving nodes. */
@@ -110,9 +116,10 @@ export class VisNetworkAdapter extends GraphEngineAdapter {
    * Merge additional nodes/edges into the rendered graph, then rearrange.
    *
    * @param {import('../../core/GraphDocument.js').GraphDocument} graph Graph (already merged with any existing state) to render.
+   * @param {{fitOnSettle?: boolean}} [options] Pass `fitOnSettle: true` to reframe the viewport once layout physics settles.
    * @returns {Promise<void>}
    */
-  async mergeGraph(graph) {
+  async mergeGraph(graph, { fitOnSettle = false } = {}) {
     this.syncNodeGroups(graph.records);
     const maxLength =
       Number(this.options?.labelMaxLength) || DEFAULT_LABEL_MAX_LENGTH;
@@ -159,20 +166,25 @@ export class VisNetworkAdapter extends GraphEngineAdapter {
         relationshipId: edge.relationshipId || undefined,
       })),
     );
-    this.rearrange();
+    this.rearrange(fitOnSettle ? () => this.fit() : undefined);
   }
 
   /**
    * Re-apply layout physics/fixed positions to the currently rendered nodes.
    *
+   * @param {Function} [onSettle] Called once the layout has settled (immediately for a
+   *        fixed/no-physics layout, or after physics freezes for a bounded stabilization).
    * @returns {void}
    */
-  rearrange() {
-    if (!this.nodes?.length) return;
+  rearrange(onSettle) {
+    if (!this.nodes?.length) { onSettle?.(); return; }
     this.#hidePopup();
-    this.movement?.arrange(this.options);
+    // Apply fixed-layout positions before `onSettle` can fire (a fixed layout
+    // settles synchronously inside `arrange()`), so a requested fit frames the
+    // final positions instead of whatever vis-network's own initial layout put down.
     const positions = fixedPositions(this.nodes.get(), this.options.layoutMode);
     if (positions.length) this.nodes.update(positions);
+    this.movement?.arrange(this.options, onSettle);
   }
 
   /**
@@ -272,16 +284,24 @@ export class VisNetworkAdapter extends GraphEngineAdapter {
   }
 
   /**
-   * Fit the viewport to the full graph, animated.
+   * Fit the viewport to the full graph, animated. A hidden container (width/height 0,
+   * e.g. an inactive Explorer panel) can't compute a meaningful viewport - the fit is
+   * deferred and re-attempted from `resize()` once the container is visible again.
    *
    * @returns {Promise<void>}
    */
   async fit() {
+    if (!this.#isContainerVisible()) {
+      this.pendingFit = true;
+      return;
+    }
+    this.pendingFit = false;
     this.network?.fit({ animation: true });
   }
 
   /**
-   * Repaint the network at its current (auto-resized) canvas size, without reframing the viewport.
+   * Repaint the network at its current (auto-resized) canvas size, without reframing the viewport,
+   * except to run a fit that was deferred (see `fit()`) while the container was hidden.
    *
    * @returns {Promise<void>}
    */
@@ -292,6 +312,15 @@ export class VisNetworkAdapter extends GraphEngineAdapter {
     // unrelated layout resize (e.g. a sidebar toggle, or another widget's
     // search finishing). Use fit() explicitly when a reframe is wanted.
     this.network?.redraw();
+    if (this.pendingFit && this.#isContainerVisible()) {
+      this.pendingFit = false;
+      this.network?.fit({ animation: true });
+    }
+  }
+
+  /** Whether the container currently has a rendered box (not `display:none`/zero-sized). */
+  #isContainerVisible() {
+    return Boolean(this.container && (this.container.offsetWidth > 0 || this.container.offsetHeight > 0));
   }
 
   /**

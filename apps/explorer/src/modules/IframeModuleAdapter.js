@@ -286,7 +286,11 @@ export class IframeModuleAdapter extends ExplorerModule {
     // Every DataSource is resolved before synchronization. Its persistent
     // identity and profiles remain metadata; this adapter applies its request.
     if (this.type === 'timeline' && typeof api.setDynamicDataSources !== 'function') return api.setQuery?.(query, { title: source?.title || 'Current result' });
-    if (this.type === 'graph') return api.load?.({ query });
+    if (this.type === 'graph') {
+      return typeof api.setDataSource === 'function'
+        ? api.setDataSource(source)
+        : api.load?.({ query });
+    }
     if (this.type === 'data') {
       return typeof api.setDataSource === 'function'
         ? api.setDataSource(source, { reload: true })

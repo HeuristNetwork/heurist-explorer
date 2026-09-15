@@ -158,6 +158,63 @@ export class HeuristGraphPublicApi {
   }
 
   /**
+   * Apply a DataSource pushed by the host (main runtime), unless the viewer has stuck the current one.
+   *
+   * @param {object} dataSource DataSource to activate.
+   * @returns {Promise<object>} Updated application state; unchanged when pinned.
+   */
+  setDataSource(dataSource) {
+    return this.application.setDataSource(dataSource);
+  }
+
+  /**
+   * Stick (or unstick) the active DataSource against inbound host pushes.
+   *
+   * @param {boolean} pinned New pinned state.
+   * @returns {boolean} The applied pinned state.
+   */
+  setPinned(pinned) {
+    return this.application.setPinned(pinned);
+  }
+
+  /**
+   * Toggle the pinned state; see `setPinned()`.
+   *
+   * @returns {boolean} The applied pinned state.
+   */
+  togglePinned() {
+    return this.application.togglePinned();
+  }
+
+  /**
+   * Ask the host to activate and display the active DataSource.
+   *
+   * @returns {Promise<boolean|*>} `false` when unavailable, otherwise the host's result.
+   */
+  showDataSource() {
+    return this.application.showDataSource();
+  }
+
+  /**
+   * Ask the host to save the active DataSource as a reusable Source record.
+   *
+   * @param {object} [options] Options forwarded to the host.
+   * @returns {Promise<boolean|*>} `false` when unavailable, otherwise the host's result.
+   */
+  saveDatasourceAsSource(options) {
+    return this.application.saveDatasourceAsSource(options);
+  }
+
+  /**
+   * Return the host's optional capability flags.
+   *
+   * @returns {object} Capability flags, or `{}` when the host declares none.
+   */
+  getHostCapabilities() {
+    return this.application.getHostCapabilities();
+  }
+
+  /**
    * Restore the most recently remembered Filtered Result query.
    *
    * @returns {Promise<object>} Updated application state.

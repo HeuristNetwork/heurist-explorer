@@ -51,3 +51,13 @@ export function sourceAction(icon, title, handler, onError = console.error) {
 export function showDataAction(api, id, onError) {
   return sourceAction('fa-solid fa-table', 'Show data', () => api.showLayerDataSource(id), onError);
 }
+/**
+ * Build the "Show data" action button for a module with a single active DataSource (e.g. graph).
+ *
+ * @param {object} api Public application API exposing `showDataSource`.
+ * @param {Function} [onError] Called with the error when the action fails.
+ * @returns {HTMLButtonElement} The button element.
+ */
+export function showDataSourceAction(api, onError) {
+  return sourceAction('fa-solid fa-table', 'Show data', () => api.showDataSource(), onError);
+}

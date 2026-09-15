@@ -69,6 +69,11 @@ label.heurist-data-dataset { display:flex; align-items:center; gap:6px; font-wei
 .heurist-graph-section-toggle { display:flex; align-items:center; gap:6px; width:100%; padding:5px 0; border:1px solid var(--h-color-selected-border); background:var(--h-color-selected); text-align:left; cursor:pointer; font:inherit; font-size:12px; font-weight:600; }
 .heurist-graph-section-toggle::before { content:'▸'; }
 .heurist-graph-section-toggle[aria-expanded="true"]::before { content:'▾'; }
+.heurist-graph-pin-toggle.pinned { color:var(--h-color-primary); }
+/* "Show data"/"Save as Source" are shown on hover/focus only, matching the map/timeline layer row actions. */
+.heurist-graph-row-actions { display:flex; align-items:center; gap:2px; opacity:0; visibility:hidden; pointer-events:none; transition:opacity .12s ease; }
+.heurist-graph-selector-row:hover > .heurist-graph-row-actions,
+.heurist-graph-selector-row:focus-within > .heurist-graph-row-actions { opacity:1; visibility:visible; pointer-events:auto; }
 .heurist-graph-filter-row { display:block; width:100%; min-height:28px; padding:3px 5px; border:0; background:transparent; text-align:left; cursor:pointer; }
 .heurist-graph-empty { padding:4px; color:var(--h-color-text-muted); font-style:italic; }
 
