@@ -233,7 +233,8 @@ html.heurist-map-configuration-mode .heurist-map-config-dialog::backdrop {
 .heurist-map-config-field.heurist-map-config-narrow-number>input{width:72px}
 
 /* Current-results layer count / partial-load status. */
-.heurist-map-layer-active-datasource{outline:2px solid var(--h-primary-color, #2675b9);outline-offset:-2px}
+.heurist-map-layer-active-datasource{outline:1px dotted var(--h-primary-color, #2675b9);outline-offset:-1px;border-radius:4px}
+.heurist-map-layer-empty .heurist-map-layer-title{color:var(--h-color-text-muted)}
 .heurist-map-layer-title-block{display:flex;flex-direction:column;min-width:0;overflow:hidden}
 .heurist-map-layer-title{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .heurist-map-layer-partial-warning{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10px;line-height:1.2;color:var(--h-color-warning)}

@@ -31,6 +31,7 @@ export class LayerPanelItem {
   constructor({ api, layer, editingEnabled = false, symbologyEditingEnabled = false, onEditLayer = null, showLegend = true, showWorkspaceActions = true }) {
     this.api = api;
     this.layer = layer;
+    this.empty = isEmptyMapLayer(layer);
     this.editingEnabled = editingEnabled;
     this.symbologyEditingEnabled = symbologyEditingEnabled;
     this.onEditLayer = onEditLayer;
@@ -48,6 +49,7 @@ export class LayerPanelItem {
     const row = document.createElement('div');
     row.className = 'heurist-map-layer-row';
     if (this.layer.activeDataSource) row.classList.add('heurist-map-layer-active-datasource');
+    if (this.empty) row.classList.add('heurist-map-layer-empty');
     row.dataset.layerId = this.layer.id;
 
     const main = document.createElement('div');
@@ -97,7 +99,7 @@ export class LayerPanelItem {
         () => this.api.showLayerDataSource(this.layer.id)
       ));
     }
-    if (this.layer.loadState === 'loaded') {
+    if (this.layer.loadState === 'loaded' && !this.empty) {
       const zoomButton = button(
         'fa-solid fa-magnifying-glass-plus',
         'Zoom to layer extent',
@@ -106,6 +108,8 @@ export class LayerPanelItem {
       zoomButton.classList.add('heurist-map-layer-zoom-action');
       actions.append(zoomButton);
       actions.append(createOpacityControl(this.api, this.layer, row));
+    }
+    if (this.layer.loadState === 'loaded') {
       if (!isCurrentResults && Number(this.layer.recordId) > 0 && this.editingEnabled && typeof this.onEditLayer === 'function') {
         actions.append(button(
           'fa-solid fa-pencil',
@@ -125,7 +129,7 @@ export class LayerPanelItem {
 
     const symbologyActions = this.createSymbologyActions();
     let legend = null;
-    if (this.showLegend && supportsSymbologyLegend(this.layer)) {
+    if (!this.empty && this.showLegend && supportsSymbologyLegend(this.layer)) {
       legend = createLayerLegend(this.layer);
       if (legend) {
         if (symbologyActions) legend.append(symbologyActions);
@@ -146,6 +150,7 @@ export class LayerPanelItem {
    * @returns {HTMLElement|null} The actions container, or `null` when no editors apply.
    */
   createSymbologyActions() {
+    if (this.empty) return null;
     if (!this.symbologyEditingEnabled || !supportsSymbologyLegend(this.layer) || this.layer.loadState !== 'loaded') {
       return null;
     }
@@ -179,6 +184,7 @@ export class LayerPanelItem {
    * @returns {HTMLElement|null} The selector element, or `null` when no themes are configured.
    */
   createThematicSelector() {
+    if (this.empty) return null;
     if (this.layer?.loadState !== 'loaded' || !supportsThematicSelection(this.layer)) return null;
     const thematic = Array.isArray(this.layer?.style?.thematic) ? this.layer.style.thematic : [];
     if (!thematic.length) return null;
@@ -256,10 +262,12 @@ export class LayerPanelItem {
     checkbox.type = 'checkbox';
     checkbox.classList.add('h-checkbox');
     checkbox.checked = this.layer.visible;
-    checkbox.disabled = this.layer.options?.emptyCurrentResult === true;
+    checkbox.disabled = this.layer.options?.emptyCurrentResult === true
+      || (this.empty && String(this.layer.id) !== 'current-results');
     checkbox.title = this.layer.loadState === 'deferred'
       ? $HR('Layer has not been loaded')
       : $HR('Layer loaded');
+    if (this.empty) checkbox.title = getLayerPresentation(this.layer).title;
     checkbox.addEventListener('change', async () => {
       const requested = checkbox.checked;
       try {
@@ -271,6 +279,14 @@ export class LayerPanelItem {
     });
     return checkbox;
   }
+}
+
+/** Only a successful, non-viewport vector load with a known zero count is empty. */
+export function isEmptyMapLayer(layer) {
+  if (layer?.loadState !== 'loaded' || layer.options?.dynamicRequests === true
+    || !supportsSymbologyLegend(layer)) return false;
+  const count = finiteCount(layer.resultMeta?.returnedFeatures) ?? finiteCount(layer.featureCount);
+  return count === 0;
 }
 
 /**
@@ -443,6 +459,12 @@ function getLayerPresentation(layer) {
   }
 
   label = layer?.title || String(layer?.id ?? '');
+  if (isEmptyMapLayer(layer)) {
+    title += meta.isPartial === true
+      ? '. No map features found in the loaded results.'
+      : '. No map features found.';
+    if (layer.options?.dataSource) title += ' Records are still available through Show Data.';
+  }
   if (String(label).trim().toLowerCase() === '[vector]') {
     label = `${formatCount(features)} features`;
   }
@@ -457,6 +479,7 @@ function getLayerPresentation(layer) {
  * @returns {number|null} The non-negative integer, or `null`.
  */
 function finiteCount(value) {
+  if (value == null || value === '') return null;
   const number = Number(value);
   return Number.isFinite(number) && number >= 0 ? Math.trunc(number) : null;
 }
