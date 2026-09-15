@@ -2,10 +2,10 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
-const panelSource = await readFile(new URL('../../src/ui/MapControlPanel.js', import.meta.url), 'utf8');
+const panelSource = await readFile(new URL('../../../../shared/src/ui/documents/DocumentControlPanel.js', import.meta.url), 'utf8');
 const layerPanelSource = await readFile(new URL('../../src/ui/LayerPanel.js', import.meta.url), 'utf8');
 const layerItemSource = await readFile(new URL('../../src/ui/LayerPanelItem.js', import.meta.url), 'utf8');
-const cssSource = await readFile(new URL('../../src/style.css', import.meta.url), 'utf8')
+const cssSource = (await readFile(new URL('../../src/style.css', import.meta.url), 'utf8') + await readFile(new URL('../../../../shared/src/ui/documents/document-controls.css', import.meta.url), 'utf8'))
   + await readFile(new URL('../../../../shared/src/ui/heurist-module.css', import.meta.url), 'utf8');
 
 test('current-results document panel is independent from persisted MapDocument visibility', () => {

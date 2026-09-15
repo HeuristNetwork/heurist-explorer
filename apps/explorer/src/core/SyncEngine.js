@@ -26,6 +26,7 @@ export class SyncEngine {
     this.modules = new Map();
     this.dataSource = null;
     this.selection = [];
+    this.activeMapDocument = null;
     this._handlers = new Map();
     this.onDataSourceRequest = onDataSourceRequest;
   }
@@ -62,7 +63,12 @@ export class SyncEngine {
     };
     module.addEventListener?.('selectionchange', selectionHandler);
     module.addEventListener?.('datasourcechange', sourceHandler);
-    this._handlers.set(module.id, { selectionHandler, sourceHandler });
+    const documentHandler = (event) => {
+      void this.setActiveMapDocument(event.detail?.documentId, { origin: module.id })
+        .catch((error) => module.dispatchEvent?.(new CustomEvent('error', { detail: { error } })));
+    };
+    module.addEventListener?.('mapdocumentchange', documentHandler);
+    this._handlers.set(module.id, { selectionHandler, sourceHandler, documentHandler });
     return module;
   }
 
@@ -78,6 +84,7 @@ export class SyncEngine {
     if (module && handlers) {
       module.removeEventListener?.('selectionchange', handlers.selectionHandler);
       module.removeEventListener?.('datasourcechange', handlers.sourceHandler);
+      module.removeEventListener?.('mapdocumentchange', handlers.documentHandler);
     }
     this.modules.delete(id);
     this._handlers.delete(id);
@@ -115,6 +122,20 @@ export class SyncEngine {
       { origin: 'sync' }
       )));
     return cloneDataSource(this.dataSource);
+  }
+
+  /** Synchronize document identity only; band visibility and viewport remain local. */
+  async setActiveMapDocument(documentId, { origin = null } = {}) {
+    if (documentId == null) return;
+    const id = String(documentId);
+    if (id === this.activeMapDocument) return;
+    this.activeMapDocument = id;
+    const results = await Promise.allSettled([...this.modules.values()]
+      .filter((module) => module.id !== origin && ['map', 'timeline'].includes(module.type))
+      .map((module) => module.setActiveMapDocument?.(id)));
+    const failure = results.find((result) => result.status === 'rejected');
+    if (failure) throw failure.reason;
+    return id;
   }
 
   /**

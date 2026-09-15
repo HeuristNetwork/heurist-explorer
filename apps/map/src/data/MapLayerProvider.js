@@ -19,6 +19,7 @@ import {
   normalizeMapLayer
 } from '../core/MapLayer.js';
 import { HeuristApiError } from '#shared/api';
+import { loadMapRecord } from '#shared/data/MapRecordProvider.js';
 
 /** Loads and validates MapLayer records through the public Heurist API. */
 export class MapLayerProvider {
@@ -38,7 +39,7 @@ export class MapLayerProvider {
    */
   async getById(recordId, { signal, defaults } = {}) {
     const id = requireRecordId(recordId);
-    const response = await this.apiClient.get(`/map/layer/${id}`, { signal });
+    const response = await loadMapRecord(this.apiClient, 'layer', id, { signal });
 
     validateResponse(response);
     return normalizeMapLayer(response, { defaults });

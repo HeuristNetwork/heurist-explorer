@@ -29,13 +29,13 @@ export async function initHeuristTimeline(config) {
   const { config: safeConfig, container } = validateTimelineConfig(config);
 
   const [
-    { TimelineApplication },
+    { TimelineDocumentApplication },
     { TemporalDataProvider },
     { VisTimelineEngine },
     { HeuristTimelinePublicApi },
     { TimelineToolbar },
   ] = await Promise.all([
-    import("./core/TimelineApplication.js"),
+    import("./core/TimelineDocumentApplication.js"),
     import("./data/TemporalDataProvider.js"),
     import("./engine/vis/VisTimelineEngine.js"),
     import("./host/HeuristTimelinePublicApi.js"),
@@ -49,7 +49,8 @@ export async function initHeuristTimeline(config) {
     headers: safeConfig.requestHeaders,
   });
 
-  const application = new TimelineApplication({
+  const application = new TimelineDocumentApplication({
+    apiClient,
     container,
     config: safeConfig,
     engine: new VisTimelineEngine(),
@@ -71,12 +72,16 @@ export async function initHeuristTimeline(config) {
   const toolbar = new TimelineToolbar({ api, settings: safeConfig.settings });
   toolbar.mount(container);
 
-  const ready = application.initialize().then(() => api);
+  const { TimelineControlPanel } = await import('./ui/TimelineControlPanel.js');
+  const panel = new TimelineControlPanel({ api, container, options: safeConfig.ui });
+  application.controlPanel = panel;
+  const ready = application.initialize().then(() => { panel.mount(); return api; });
   api.setReadyPromise(ready);
 
   const originalDestroy = api.destroy.bind(api);
   api.destroy = () => {
     toolbar.destroy();
+    panel.destroy();
     return originalDestroy();
   };
 

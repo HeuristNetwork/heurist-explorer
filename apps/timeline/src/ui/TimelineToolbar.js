@@ -50,7 +50,6 @@ export class TimelineToolbar {
       ["fa-crosshairs", "Zoom to selection", () => this.api.zoomToSelection()],
       ["fa-chevron-left", "Move to start", () => this.api.moveToStart()],
       ["fa-chevron-right", "Move to end", () => this.api.moveToEnd()],
-      ["fa-gear", "Timeline options", () => this._openOptions()],
       ["fa-tag", "Label options", () => this._cycleLabelMode()],
     ];
 

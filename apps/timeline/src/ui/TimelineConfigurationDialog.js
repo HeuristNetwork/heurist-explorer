@@ -21,8 +21,10 @@ export class TimelineConfigurationDialog {
   /**
    * @param {{api: object}} options Timeline public API used to read and apply settings.
    */
-  constructor({ api }) {
+  constructor({ api, mode = 'preferences', onSave = null }) {
     this.api = api;
+    this.mode = mode;
+    this.onSave = onSave;
   }
 
   /**
@@ -41,7 +43,7 @@ export class TimelineConfigurationDialog {
     header.className = 'h-dialog-header';
     const title = document.createElement('h2');
     title.className = 'h-dialog-title';
-    title.textContent = $HR('Timeline options');
+    title.textContent = $HR(this.mode === 'publish' ? 'Publish timeline' : 'Timeline options');
     const close = this.button('×', () => this.cancel(), 'h-dialog-close');
     close.setAttribute('aria-label', $HR('Close'));
     header.append(title, close);
@@ -89,9 +91,23 @@ export class TimelineConfigurationDialog {
     row.append(stack, label);
     body.append(row);
 
+    for (const [name, caption] of [['showSourceHeader', 'Show source header'], ['initiallyExpanded', 'Expand control panel initially']]) {
+      const row = document.createElement('label');
+      row.className = 'h-inline';
+      const checkbox = document.createElement('input');
+      checkbox.type = 'checkbox';
+      checkbox.className = 'h-checkbox';
+      checkbox.checked = name === 'showSourceHeader' ? options[name] === true : options[name] !== false;
+      const label = document.createElement('span');
+      label.textContent = $HR(caption);
+      row.append(checkbox, label);
+      this.fields.set(name, checkbox);
+      body.append(row);
+    }
+
     const footer = document.createElement('footer');
     footer.className = 'h-dialog-footer';
-    this.saveButton = this.button('Apply', () => {}, 'h-btn h-btn-primary');
+    this.saveButton = this.button(this.mode === 'publish' ? 'Publish' : 'Apply', () => {}, 'h-btn h-btn-primary');
     this.saveButton.type = 'submit';
     footer.append(this.button('Cancel', () => this.cancel()), this.saveButton);
 
@@ -151,7 +167,8 @@ export class TimelineConfigurationDialog {
     this.saving = true;
     this.saveButton.disabled = true;
     try {
-      await this.api.applyOptions(this.getValue());
+      if (this.onSave) await this.onSave(this.getValue());
+      else await this.api.applyOptions(this.getValue());
       this.close();
       return true;
     } catch (error) {

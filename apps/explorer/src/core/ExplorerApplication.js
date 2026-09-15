@@ -60,6 +60,7 @@ export class ExplorerApplication {
     this.sync = new SyncEngine({
       onDataSourceRequest: (source, options) => this.activateDataSource(source, options)
     });
+    if (config.state?.activeMapDocument != null) this.sync.activeMapDocument = String(config.state.activeMapDocument);
     this.layout = null;
     this.filter = null;
     this.controlPanel = null;
@@ -223,6 +224,14 @@ export class ExplorerApplication {
     this.modules.set(definition.id, module);
     await module.mount();
     this.sync.register(module);
+    if (['map', 'timeline'].includes(module.type)) {
+      if (this.sync.activeMapDocument != null) await module.setActiveMapDocument(this.sync.activeMapDocument);
+      else {
+        const active = module.api?.getActiveMapDocument?.();
+        if (active) await this.sync.setActiveMapDocument(active.persistent === false ? 'dynamic' : active.id, { origin: module.id });
+      }
+      await this._syncWorkspaceMap(module);
+    }
 
     // New presentation followers join the currently active datasource. Data
     // modules keep independent sources and are assigned explicitly by
@@ -231,7 +240,7 @@ export class ExplorerApplication {
       await module.setDataSource(this.sync.dataSource, { origin: 'sync' });
     }
     if (this.sync.selection.length) await module.setSelection(this.sync.selection, { origin: 'sync' });
-    if (module.type === 'map') await this._syncWorkspaceMap(module);
+
     return module;
   }
 
@@ -450,9 +459,9 @@ export class ExplorerApplication {
    * @returns {Promise<boolean>} True when the map module accepted the update.
    */
   async _syncWorkspaceMap(module = null) {
-    const target = module || [...this.modules.values()].find((item) => item.type === 'map');
-    if (!target || typeof target.setWorkspaceDataSources !== 'function') return false;
-    return target.setWorkspaceDataSources(await this.getWorkspaceDataSources());
+    const targets = module ? [module] : [...this.modules.values()].filter((item) => ['map', 'timeline'].includes(item.type));
+    const sources = await this.getWorkspaceDataSources();
+    return Promise.all(targets.map((target) => target.setWorkspaceDataSources?.(sources)));
   }
 
   /**
@@ -981,6 +990,7 @@ export class ExplorerApplication {
   async getState() {
     return {
       dataSource: this.sync.dataSource,
+      activeMapDocument: this.sync.activeMapDocument,
       selection: [...this.sync.selection],
       activeModuleId: this.layout?.activeModuleId || null,
       layout: this.layout?.getState() || null,

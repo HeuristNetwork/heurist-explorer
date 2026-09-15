@@ -56,7 +56,7 @@ test('url and rectype icon types survive symbol normalization', async () => {
 });
 
 test('legend and theme blocks always occupy their own wrapped panel row', () => {
-  const css = fs.readFileSync(new URL('../../src/style.css', import.meta.url), 'utf8');
+  const css = (fs.readFileSync(new URL('../../src/style.css', import.meta.url), 'utf8') + fs.readFileSync(new URL('../../../../shared/src/ui/documents/document-controls.css', import.meta.url), 'utf8'));
   assert.match(css, /\.heurist-map-layer-themes\{flex:0 0 calc\(100% - 20px\)/);
   assert.match(css, /\.heurist-map-layer-legend\{flex:0 0 calc\(100% - 20px\)/);
 });

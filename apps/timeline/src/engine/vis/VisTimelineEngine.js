@@ -48,6 +48,8 @@ export class VisTimelineEngine {
       align: "left",
       selectable: true,
       multiselect: true,
+      verticalScroll: true,
+      groupOrder: 'order',
       stack: settings.stack !== false,
       margin: 1,
       zoomMax: settings.zoomMax,
@@ -73,7 +75,7 @@ export class VisTimelineEngine {
    * @param {{ groups?: Array<object>, items?: Array<object> }} options - New groups and items.
    * @returns {Promise<void>}
    */
-  async setData({ groups = [], items = [] }) {
+  async setData({ groups = [], items = [], fit = true }) {
     this.recordItemIds.clear();
 
     for (const item of items) {
@@ -88,7 +90,7 @@ export class VisTimelineEngine {
     this.items.add(items);
     this.timeline.setGroups(this.groups);
     this.timeline.setItems(this.items);
-    this.zoomToAll();
+    if (fit && items.length) this.zoomToAll();
   }
 
   /**
@@ -107,6 +109,19 @@ export class VisTimelineEngine {
 
     this.timeline.setSelection(itemIds, { focus: false });
     if (options.zoom && itemIds.length) this.zoomToSelection();
+  }
+
+  getRange() {
+    const range = this.timeline.getWindow();
+    return { start: range.start.toISOString(), end: range.end.toISOString() };
+  }
+  setRange({ start, end }) { this.timeline.setWindow(start, end, { animation: false }); }
+
+  /** Scroll the band label without changing the time window. */
+  scrollToBand(id) {
+    const label = [...this.container.querySelectorAll('.vis-label [data-timeline-band]')]
+      .find((element) => element.getAttribute('data-timeline-band') === String(id));
+    label?.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' });
   }
 
   /**
@@ -285,4 +300,3 @@ function escapeHtml(value) {
     "'": "&#39;",
   }[character]));
 }
-

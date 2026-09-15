@@ -85,3 +85,8 @@ body{overflow:hidden;font:var(--h-font-size) var(--h-font-family);color:var(--h-
 .heurist-label-hidden .htl-marker{margin-right:0}
 .heurist-label-truncate .htl-label{display:inline-block;overflow:hidden;text-overflow:ellipsis;max-width:16em;vertical-align:middle}
 .heurist-label-pos-above .htl-label{position:relative;top:-13px}
+
+body{display:flex;flex-direction:column;position:relative}
+#heurist-timeline{flex:1;min-height:0;height:auto}
+.heurist-source-header{flex:none}
+.heurist-module-control-panel{z-index:500}

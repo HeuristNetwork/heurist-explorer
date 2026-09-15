@@ -34,7 +34,7 @@
   border-bottom: 1px solid var(--h-color-border);
 }
 .heurist-module-panel-actions { display: flex; align-items: center; gap: 2px; margin-left: auto; }
-.heurist-module-panel-body { overflow: auto; overscroll-behavior: contain; border: none; padding: 4px; }
+.heurist-module-panel-body { overflow: auto; overscroll-behavior: contain; border: 2px solid var(--h-color-primary); padding: 4px; }
 .heurist-module-panel-body section { padding: 6px 8px; }
 .heurist-module-panel-body h3 { margin: 2px 0 5px; font-size: var(--h-font-size-large); color: var(--h-color-primary); }
 
@@ -63,7 +63,9 @@
 .heurist-module-panel-toggle { width: 30px; height: 30px; padding: 0 !important; margin-left: 9px; }
 
 .heurist-module-control-panel.with-source-header { border: 1px solid var(--h-color-surface); }
+/*
 .heurist-module-panel-body.with-source-header { border: 1px solid var(--h-color-border); border-radius: var(--h-radius); border-top: none; }
+*/
 
 .heurist-module-control-panel.controls-only { width: auto; max-width: calc(100% - 24px); }
 .heurist-module-control-panel.controls-only .heurist-module-panel-header { width: auto; padding: 4px; gap: 2px; border-bottom: 0; }

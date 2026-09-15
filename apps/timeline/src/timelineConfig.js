@@ -29,7 +29,8 @@ export function getHeuristTimelineConfig() {
   });
 
   const runtime = bootstrap.runtime || {};
-  const settings = normalizeSettings(bootstrap.settings || {});
+  const rawSettings = bootstrap.settings || {};
+  const settings = normalizeSettings(rawSettings.options?.timeline || rawSettings);
   const source = bootstrap.source ?? bootstrap.state ?? {};
   const contexts = normalizeContexts(source.contexts);
 
@@ -63,6 +64,13 @@ export function getHeuristTimelineConfig() {
         }
       : null,
     settings,
+    explorerHost: bridge?.getHostContext?.()?.name === 'heurist-explorer',
+    initialState: bootstrap.state?.moduleState || bootstrap.state || null,
+    documents: {
+      query: rawSettings.options?.mapDocuments?.allowed ?? null,
+      initiallyActive: rawSettings.options?.mapDocuments?.initiallyActive ?? 'dynamic'
+    },
+    ui: { showSourceHeader: false, initiallyExpanded: true, ...(rawSettings.options?.ui || rawSettings.ui || {}) },
     source: {
       contexts,
       selection: normalizeIds(source.selection),
@@ -125,4 +133,3 @@ function normalizeIds(value) {
     ),
   ];
 }
-

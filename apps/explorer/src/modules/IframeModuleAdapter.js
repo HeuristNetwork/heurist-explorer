@@ -122,8 +122,8 @@ export class IframeModuleAdapter extends ExplorerModule {
       updateDataSourceInWorkspace: (source) => outer.updateDataSourceInWorkspace?.(source),
       getWorkspaceDataSources: () => outer.getWorkspaceDataSources?.() || [],
       showDatasource: (source) => {
-        if (this.type === 'map') this.dataSource = clone(source);
-        return outer.showDatasource?.(source, this.type === 'map' ? { origin: this.id } : {});
+        if (['map', 'timeline'].includes(this.type)) this.dataSource = clone(source);
+        return outer.showDatasource?.(source, ['map', 'timeline'].includes(this.type) ? { origin: this.id } : {});
       },
       saveDatasourceAsFilter: (source) => outer.saveDatasourceAsFilter?.(source),
       saveDatasourceAsSource: (source, options) => outer.saveDatasourceAsSource?.(source, options)
@@ -239,6 +239,37 @@ export class IframeModuleAdapter extends ExplorerModule {
       this.api.addEventListener(name, forwardSelection);
       return [name, forwardSelection];
     });
+    if (['map', 'timeline'].includes(this.type)) {
+      const forwardDocument = (event) => {
+        const detail = event.detail || {};
+        const document = detail.document;
+        if (!document || detail.loading || document.activating || document.loadState === 'error'
+          || document.active === false) return;
+        const id = document.persistent === false ? 'dynamic' : String(document.id);
+        if (this._applyingDocument === id || this._activeDocument === id) return;
+        this._activeDocument = id;
+        this.dispatchEvent(new CustomEvent('mapdocumentchange', { detail: { documentId: id } }));
+      };
+      for (const suffix of ['document-activated', 'document-state-changed']) {
+        const name = `heurist-${this.type}-${suffix}`;
+        this.api.addEventListener(name, forwardDocument);
+        this._eventBindings.push([name, forwardDocument]);
+      }
+    }
+  }
+
+  async setActiveMapDocument(documentId) {
+    if (!['map', 'timeline'].includes(this.type)) return false;
+    const api = await this._readyApi();
+    const id = String(documentId);
+    this._applyingDocument = id;
+    try {
+      const localId = id === 'dynamic' ? (api.getDynamicDocument?.()?.id || 'dynamic') : documentId;
+      await api.activateMapDocument(localId);
+      this._activeDocument = id;
+    } finally {
+      if (this._applyingDocument === id) this._applyingDocument = null;
+    }
   }
 
   /**
@@ -254,14 +285,14 @@ export class IframeModuleAdapter extends ExplorerModule {
 
     // Every DataSource is resolved before synchronization. Its persistent
     // identity and profiles remain metadata; this adapter applies its request.
-    if (this.type === 'timeline') return api.setQuery?.(query, { title: source?.title || 'Current result' });
+    if (this.type === 'timeline' && typeof api.setDynamicDataSources !== 'function') return api.setQuery?.(query, { title: source?.title || 'Current result' });
     if (this.type === 'graph') return api.load?.({ query });
     if (this.type === 'data') {
       return typeof api.setDataSource === 'function'
         ? api.setDataSource(source, { reload: true })
         : api.setQuery?.(query, { reload: true, dataSource: source, title: source?.title || null });
     }
-    if (this.type === 'map') {
+    if (['map', 'timeline'].includes(this.type)) {
       const workspaceDataSources = await this.hostActions.getWorkspaceDataSources?.() || [];
       return typeof api.setDynamicDataSources === 'function'
         ? api.setDynamicDataSources({ currentDataSource: source, workspaceDataSources })
@@ -277,7 +308,7 @@ export class IframeModuleAdapter extends ExplorerModule {
    * @returns {Promise<*>} Result of the map module's call, or `false` for non-map modules or an unsupported API.
    */
   async setWorkspaceDataSources(workspaceDataSources = []) {
-    if (this.type !== 'map') return false;
+    if (!['map', 'timeline'].includes(this.type)) return false;
     const api = await this._readyApi();
     if (typeof api.setDynamicDataSources !== 'function') return false;
     return api.setDynamicDataSources({

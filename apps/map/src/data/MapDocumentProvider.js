@@ -19,6 +19,7 @@ import {
   normalizeMapDocument
 } from '../core/MapDocument.js';
 import { HeuristApiError } from '#shared/api';
+import { loadMapRecord } from '#shared/data/MapRecordProvider.js';
 
 /** Loads and validates MapDocument records through the public Heurist API. */
 export class MapDocumentProvider {
@@ -38,7 +39,7 @@ export class MapDocumentProvider {
    */
   async getById(recordId, { signal } = {}) {
     const id = requireRecordId(recordId, 'MapDocument');
-    const response = await this.apiClient.get(`/map/document/${id}`, { signal });
+    const response = await loadMapRecord(this.apiClient, 'document', id, { signal });
 
     validateFormat(response, MAP_DOCUMENT_FORMAT, MAP_DOCUMENT_VERSION, 'MapDocument');
     return normalizeMapDocument(response);

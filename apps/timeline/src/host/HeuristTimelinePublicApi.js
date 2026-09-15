@@ -17,6 +17,55 @@
  * Public API facade that exposes timeline operations to callers and host applications.
  */
 export class HeuristTimelinePublicApi {
+  getMapDocuments() { return this.application.getMapDocuments(); }
+  getActiveMapDocument() { return this.application.getActiveMapDocument(); }
+  getDynamicDocument() { return this.application.getDynamicDocument(); }
+  activateMapDocument(id, options) { return this.application.activateMapDocument(id, options); }
+  reloadMapDocument(id) { return this.application.activateMapDocument(id, { force: true }); }
+  async zoomToMapDocument(id) { await this.activateMapDocument(id); return this.zoomToAll(); }
+  setDynamicDataSources(value) { return this.application.setDynamicDataSources(value); }
+  getLayers() { return this.application.getLayers(); }
+  setLayerVisibility(id, visible) { return this.application.setLayerVisibility(id, visible); }
+  showLayerDataSource(id) { return this.application.showLayerDataSource(id); }
+  reloadLayer(id) { return this.application.reloadLayer(id); }
+  requestEditMapDocument(id) { return this.application.requestEditMapDocument(id); }
+  requestEditLayer(id) { return this.application.requestEditLayer(id); }
+  getCapabilities() { return { editing: this.application.host.supportsEditing() }; }
+  getHostCapabilities() {
+    const host = this.application.host;
+    return { mapPreferences: true, mapPublishing: Boolean(host.baseUrl && host.database),
+      showDatasource: typeof host.bridge?.showDatasource === 'function',
+      explorerWorkspace: typeof host.bridge?.addDataSourceToWorkspace === 'function' };
+  }
+  addLayerToWorkspace(id) {
+    return this.application.host.bridge?.addDataSourceToWorkspace?.(this.getLayers().find((layer) => layer.id === id)?.options?.dataSource);
+  }
+  removeLayerFromWorkspace(id) {
+    return this.application.host.bridge?.removeDataSourceFromWorkspace?.(this.getLayers().find((layer) => layer.id === id)?.options?.dataSource);
+  }
+  async openPreferencesDialog() {
+    const { TimelineConfigurationDialog } = await import('../ui/TimelineConfigurationDialog.js');
+    this.configurationDialog?.close();
+    this.configurationDialog = new TimelineConfigurationDialog({ api: this }).open();
+  }
+  async openPublishDialog() {
+    const { TimelineConfigurationDialog } = await import('../ui/TimelineConfigurationDialog.js');
+    const { PublishedDialog } = await import('#shared/ui/PublishedDialog.js');
+    this.configurationDialog?.close();
+    this.configurationDialog = new TimelineConfigurationDialog({ api: this, mode: 'publish', onSave: async (settings) => {
+      const publication = await this.publish(settings);
+      this.publishedDialog?.close();
+      this.publishedDialog = new PublishedDialog({ publication }).open();
+    } }).open();
+  }
+  publish(settings = this.application.config.settings) {
+    const ui = { ...this.application.config.ui };
+    for (const key of ['showSourceHeader', 'initiallyExpanded']) if (key in settings) ui[key] = settings[key] === true;
+    return this.application.host.publish({ format: 'heurist-publication', version: 1,
+      options: { timeline: settings, mapDocuments: { allowed: this.application.config.documents?.query ?? null,
+        initiallyActive: this.application.activeDocumentId }, ui },
+      config: {}, state: this.application.getState() });
+  }
   /**
    * Creates the public API wrapper around the application instance.
    *
@@ -131,7 +180,7 @@ export class HeuristTimelinePublicApi {
    * @returns {object} Current application state.
    */
   getState() {
-    return { ...this.application.getState(), options: { ...this.application.config.settings } };
+    return { ...this.application.getState(), options: { ...this.application.config.settings, ...this.application.config.ui } };
   }
 
   /**
@@ -198,6 +247,12 @@ export class HeuristTimelinePublicApi {
     if ('stack' in options) settings.stack = options.stack !== false;
     this.application.engine.setOptions(settings);
     this.application.config.settings = settings;
+    const ui = { ...this.application.config.ui };
+    for (const key of ['showSourceHeader', 'initiallyExpanded']) if (key in options) ui[key] = options[key] === true;
+    this.application.config.ui = ui;
+    if ('showSourceHeader' in options || 'initiallyExpanded' in options) this.application.controlPanel?.applyOptions(ui);
+    this.application.host?.bridge?.updateSettings?.({ options: { timeline: settings, ui: this.application.config.ui,
+      mapDocuments: { allowed: this.application.config.documents?.query, initiallyActive: this.application.config.documents?.initiallyActive } } });
     this.application.dispatch('heurist-timeline-options-changed', { ...settings });
     return { ...settings };
   }
@@ -240,7 +295,8 @@ export class HeuristTimelinePublicApi {
    * @returns {Promise<void>} Destroy operation result.
    */
   destroy() {
+    this.configurationDialog?.close();
+    this.publishedDialog?.close();
     return this.application.destroy();
   }
 }
-

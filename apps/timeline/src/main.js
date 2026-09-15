@@ -35,3 +35,6 @@ initHeuristTimeline(config).catch((error) => {
   console.error("Unable to initialize heurist-timeline", error);
 });
 
+
+import '#shared/ui/documents/document-controls.css';
+import '@fortawesome/fontawesome-free/css/regular.min.css';

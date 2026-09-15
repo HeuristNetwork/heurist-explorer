@@ -5,7 +5,7 @@ import { QueryGeoDataProvider } from '../../src/data/QueryGeoDataProvider.js';
 import { createGeoJsonRuntimeLayer } from '../../src/engine/loaders/GeoJsonLayerLoader.js';
 
 const layerItemSource = await readFile(new URL('../../src/ui/LayerPanelItem.js', import.meta.url), 'utf8');
-const cssSource = await readFile(new URL('../../src/style.css', import.meta.url), 'utf8');
+const cssSource = (await readFile(new URL('../../src/style.css', import.meta.url), 'utf8') + await readFile(new URL('../../../../shared/src/ui/documents/document-controls.css', import.meta.url), 'utf8'));
 
 test('map API pagination advances by returned records, not emitted features', async () => {
   const offsets = [];

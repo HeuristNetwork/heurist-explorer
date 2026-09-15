@@ -3,6 +3,24 @@ import assert from 'node:assert/strict';
 import { SyncEngine } from '../src/core/SyncEngine.js';
 import { ExplorerModule } from '../src/core/ExplorerModule.js';
 
+test('document synchronization excludes origin and suppresses echoes without changing datasource', async () => {
+  const sync = new SyncEngine();
+  const calls = [];
+  for (const type of ['map', 'timeline', 'data']) {
+    const module = new ExplorerModule({ id: type, type, container: null });
+    module.setActiveMapDocument = async (id) => {
+      calls.push([type, id]);
+      module.dispatchEvent(new CustomEvent('mapdocumentchange', { detail: { documentId: id } }));
+    };
+    sync.register(module);
+  }
+  await sync.setActiveMapDocument('12', { origin: 'map' });
+  assert.deepEqual(calls, [['timeline', '12']]);
+  await sync.setActiveMapDocument('dynamic', { origin: 'timeline' });
+  assert.deepEqual(calls.at(-1), ['map', 'dynamic']);
+  assert.equal(sync.dataSource, null);
+});
+
 test('SyncEngine propagates datasource and selection between modules', async () => {
   const sync = new SyncEngine();
   const a = new ExplorerModule({ id: 'a', type: 'data', container: null });

@@ -2,6 +2,24 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { IframeModuleAdapter } from '../src/modules/IframeModuleAdapter.js';
 
+test('iframe document forwarding suppresses programmatic activation and forwards user changes', async () => {
+  const events = new EventTarget();
+  const adapter = new IframeModuleAdapter({ id: 'timeline-1', type: 'timeline', container: null, url: '' });
+  adapter.api = {
+    addEventListener: (...args) => events.addEventListener(...args),
+    activateMapDocument: async (id) => events.dispatchEvent(new CustomEvent('heurist-timeline-document-activated', {
+      detail: { document: { id, active: true, loadState: 'loaded' } }
+    }))
+  };
+  const forwarded = [];
+  adapter.addEventListener('mapdocumentchange', (event) => forwarded.push(event.detail.documentId));
+  adapter._bindChildEvents();
+  await adapter.setActiveMapDocument(12);
+  assert.deepEqual(forwarded, []);
+  await adapter.api.activateMapDocument(13);
+  assert.deepEqual(forwarded, ['13']);
+});
+
 test('map Show Data excludes its origin from synchronization; Workspace updates carry no current result', async () => {
   const calls = [];
   const adapter = new IframeModuleAdapter({

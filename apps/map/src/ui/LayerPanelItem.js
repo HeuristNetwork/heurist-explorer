@@ -15,6 +15,8 @@
 
 import { createLayerLegend } from './legend/LegendRenderer.js';
 import { $HR } from '#shared/ui';
+import { showDataAction } from '#shared/ui/documents/SourceActions.js';
+import { showMapMessage } from './mapMessages.js';
 
 /** Renders one MapLayer row, its state control, actions, thematic selector, and legend. */
 export class LayerPanelItem {
@@ -93,11 +95,7 @@ export class LayerPanelItem {
       ));
     }
     if (hostCapabilities.showDatasource && hasDataSource) {
-      actions.append(button(
-        'fa-solid fa-table',
-        'Show data',
-        () => this.api.showLayerDataSource(this.layer.id)
-      ));
+      actions.append(showDataAction(this.api, this.layer.id, (error) => showMapMessage(error, { error: true })));
     }
     if (this.layer.loadState === 'loaded' && !this.empty) {
       const zoomButton = button(
