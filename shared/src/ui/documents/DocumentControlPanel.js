@@ -62,7 +62,10 @@ export class DocumentControlPanel {
     if (this.options.showSourceHeader === true) {
       this.sourceHeader = document.createElement('div');
       this.sourceHeader.className = 'heurist-source-header';
-      this.mapContainer.before(this.sourceHeader);
+      // Prepend to the shared parent rather than inserting immediately before
+      // mapContainer: a module toolbar (e.g. heurist-timeline-toolbar) may already
+      // sit before mapContainer, and the source header must render above it.
+      this.mapContainer.parentElement?.prepend(this.sourceHeader);
     }
 
     this.element = document.createElement('aside');
