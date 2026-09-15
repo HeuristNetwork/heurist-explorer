@@ -1,24 +1,23 @@
 /**
- * ThematicAttributeProvider.js - Thematic record attribute provider
+ * @file ThematicAttributeProvider.js
+ * @brief Loads selected direct or linked Heurist record details through the public records API.
  *
- * @fileOverview Loads selected direct or linked Heurist record details through the public records API.
- * @project     Heurist mapping application
+ * @project     Heurist academic knowledge management system
+ * @package     heurist-map
  *
  * @link        https://HeuristNetwork.org
- * @copyright   (C) 2026 Heurist Network
+ * @copyright   (C) 2024 onwards Heurist Network
+ * @author      Artem Osmakov   <osmakov@gmail.com>
+ * @author      Ian Johnson <ian.johnson.heurist@gmail.com>
  * @license     https://www.gnu.org/licenses/gpl-3.0.txt GNU License 3.0
- * @author      Artem Osmakov <osmakov@gmail.com>
+ * @since       8.0
  */
 
 import { HeuristApiError } from '#shared/api';
 
-/**
- * Loads thematic attribute values for Heurist record IDs.
- */
+/** Loads thematic attribute values for Heurist record IDs. */
 export class ThematicAttributeProvider {
-  /**
-   * Create and initialize the class instance.
-   */
+  /** @param {{apiClient: object}} options Heurist API client. */
   constructor({ apiClient }) {
     this.apiClient = apiClient;
   }
@@ -48,6 +47,7 @@ export class ThematicAttributeProvider {
   }
 }
 
+/** Normalize a value into a de-duplicated array of positive integer record IDs. */
 function normalizeRecordIds(values) {
   if (!Array.isArray(values)) return [];
   return [...new Set(values
@@ -55,6 +55,7 @@ function normalizeRecordIds(values) {
     .filter((value) => Number.isInteger(value) && value > 0))];
 }
 
+/** Normalize a value into a de-duplicated array of trimmed, non-empty field codes. */
 function normalizeFieldCodes(values) {
   if (!Array.isArray(values)) return [];
   return [...new Set(values
@@ -62,6 +63,7 @@ function normalizeFieldCodes(values) {
     .filter(Boolean))];
 }
 
+/** Validate the records API response has a `records` array, throwing a `HeuristApiError` otherwise. */
 function validateResponse(value) {
   if (!value || typeof value !== 'object' || !Array.isArray(value.records)) {
     throw new HeuristApiError(

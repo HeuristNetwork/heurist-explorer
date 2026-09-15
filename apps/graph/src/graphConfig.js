@@ -20,6 +20,11 @@ import {
 import { resolveModuleBootstrap } from "#shared/config";
 import { normalizeGraphConfigurationSettings } from "./ui/config/graphConfigurationSchema.js";
 
+/**
+ * Build the normalized Graph configuration from the host bridge or standalone bootstrap.
+ *
+ * @returns {object} Normalized Graph configuration.
+ */
 export function getHeuristGraphConfig() {
   const bridge = getFrameHostBridge("heuristGraphHost");
   const bootstrap = resolveModuleBootstrap({
@@ -99,6 +104,7 @@ export function getHeuristGraphConfig() {
   };
 }
 
+/** Normalize a links selection to `'all'` or an array of compact link specs. */
 function normalizeLinks(value) {
   if (value == null || value === "") return "all";
   const values = Array.isArray(value) ? value : String(value).split(",");
@@ -110,6 +116,7 @@ function normalizeLinks(value) {
   return specs;
 }
 
+/** Normalize a field list, defaulting to title and record type. */
 function normalizeFields(value) {
   if (value == null || value === "") return ["rec_Title", "rec_RecTypeID"];
   const values = Array.isArray(value) ? value : String(value).split(",");
@@ -118,6 +125,7 @@ function normalizeFields(value) {
   ];
 }
 
+/** Normalize a value into a de-duplicated array of positive integer IDs. */
 function normalizeIds(value) {
   const values = Array.isArray(value) ? value : [];
   return [
@@ -127,6 +135,7 @@ function normalizeIds(value) {
   ];
 }
 
+/** Normalize the graph's node/edge/depth budget, applying defaults for missing or invalid values. */
 function normalizeLimits(value = {}) {
   return {
     maxNodes: positiveLimit(value.maxNodes, 5000),
@@ -135,11 +144,13 @@ function normalizeLimits(value = {}) {
   };
 }
 
+/** Normalize a value to a positive integer, or a fallback when invalid. */
 function positiveLimit(value, fallback) {
   const number = Number(value);
   return Number.isInteger(number) && number > 0 ? number : fallback;
 }
 
+/** Normalize a value to a positive integer, or `null` when invalid. */
 function toPositiveInt(value) {
   const number = Number(value);
   return Number.isInteger(number) && number > 0 ? number : null;

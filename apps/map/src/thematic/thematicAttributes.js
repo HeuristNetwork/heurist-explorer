@@ -1,18 +1,27 @@
 /**
- * thematicAttributes.js - Thematic attribute helpers
+ * @file thematicAttributes.js
+ * @brief Identifies the active thematic map, extracts requested field-path codes, and
+ *        merges API values into GeoJSON features.
  *
- * @fileOverview Identifies the active thematic map, extracts requested field-path codes, and merges API values into GeoJSON features.
- * @project     Heurist mapping application
+ * @project     Heurist academic knowledge management system
+ * @package     heurist-map
  *
  * @link        https://HeuristNetwork.org
- * @copyright   (C) 2026 Heurist Network
+ * @copyright   (C) 2024 onwards Heurist Network
+ * @author      Artem Osmakov   <osmakov@gmail.com>
+ * @author      Ian Johnson <ian.johnson.heurist@gmail.com>
  * @license     https://www.gnu.org/licenses/gpl-3.0.txt GNU License 3.0
- * @author      Artem Osmakov <osmakov@gmail.com>
+ * @since       8.0
  */
 
 const GEO_FIELD_CODE = 'rec_GeoField';
 
-/** Return the single active thematic map from a normalized layer style. */
+/**
+ * Return the single active thematic map from a normalized layer style.
+ *
+ * @param {object} style Normalized layer style.
+ * @returns {object|null} Active thematic map, or `null` when none is active.
+ */
 export function getActiveThematicMap(style) {
   if (!style) return null;
   const thematic = style.thematic;
@@ -33,7 +42,12 @@ export function getActiveThematicMap(style) {
   return null;
 }
 
-/** Return unique field-path codes required by one active thematic map. */
+/**
+ * Return unique field-path codes required by one active thematic map.
+ *
+ * @param {object} theme Active thematic map.
+ * @returns {Array<string>} Unique, non-empty field-path codes (excluding {@link GEO_FIELD_CODE}).
+ */
 export function getThematicFieldCodes(theme) {
   if (!theme || !Array.isArray(theme.fields)) return [];
   return [...new Set(theme.fields
@@ -41,8 +55,12 @@ export function getThematicFieldCodes(theme) {
     .filter((code) => code && code !== GEO_FIELD_CODE))];
 }
 
-
-/** Return unique field-path codes required by all configured thematic maps. */
+/**
+ * Return unique field-path codes required by all configured thematic maps.
+ *
+ * @param {object} style Normalized layer style.
+ * @returns {Array<string>} Unique field-path codes across every configured thematic map.
+ */
 export function getAllThematicFieldCodes(style) {
   const thematic = Array.isArray(style?.thematic)
     ? style.thematic
@@ -64,7 +82,14 @@ export function getAllThematicFieldCodes(style) {
   return codes;
 }
 
-/** Return a cloned style with exactly one thematic map active, or none for default symbology. */
+/**
+ * Return a cloned style with exactly one thematic map active, or none for default symbology.
+ *
+ * @param {object} style Normalized layer style.
+ * @param {number|null} [themeIndex] Index of the thematic map to activate; `null` deactivates all.
+ * @returns {object} Cloned style with updated `thematic[].active` flags.
+ * @throws {RangeError} When `themeIndex` does not resolve to a configured thematic map.
+ */
 export function activateThematicMap(style, themeIndex = null) {
   const source = style && typeof style === 'object' ? style : {};
   const thematic = Array.isArray(source.thematic) ? source.thematic : [];
@@ -81,7 +106,12 @@ export function activateThematicMap(style, themeIndex = null) {
   };
 }
 
-/** Return unique Heurist record IDs represented by a normalized GeoJSON collection. */
+/**
+ * Return unique Heurist record IDs represented by a normalized GeoJSON collection.
+ *
+ * @param {object} geoJson Normalized GeoJSON feature collection.
+ * @returns {Array<number>} Unique positive record IDs.
+ */
 export function collectThematicRecordIds(geoJson) {
   if (!geoJson || !Array.isArray(geoJson.features)) return [];
   const ids = [];
@@ -102,7 +132,11 @@ export function collectThematicRecordIds(geoJson) {
 
 /**
  * Attach the records response to normalized GeoJSON features under
- * properties.thematic, keyed by the exact requested field-path code.
+ * `properties.thematic`, keyed by the exact requested field-path code.
+ *
+ * @param {object} geoJson Normalized GeoJSON feature collection (mutated in place).
+ * @param {object} response Public API records response.
+ * @returns {object} The same `geoJson`, with `properties.thematic` populated on each feature.
  */
 export function applyThematicAttributes(geoJson, response) {
   if (!geoJson || !Array.isArray(geoJson.features)) return geoJson;
@@ -139,7 +173,15 @@ export function applyThematicAttributes(geoJson, response) {
   return geoJson;
 }
 
-/** Keep only thematic occurrences that belong to one geographic occurrence. */
+/**
+ * Keep only thematic occurrences that belong to one geographic occurrence.
+ *
+ * @param {object} feature GeoJSON feature being matched.
+ * @param {object} details Raw thematic details for the feature's record.
+ * @param {object} [geometryPaths] Compact-path definitions for the geometry field.
+ * @param {object} [thematicPaths] Compact-path definitions for the thematic fields.
+ * @returns {object} Field-path-keyed thematic values that match the feature's occurrence.
+ */
 export function matchDetailsToFeature(
   feature,
   details,
@@ -178,7 +220,15 @@ export function matchDetailsToFeature(
   return matched;
 }
 
-/** Compare the actual record prefix shared by two configured compact paths. */
+/**
+ * Compare the actual record prefix shared by two configured compact paths.
+ *
+ * @param {string} geometryCode Geometry field's compact path code.
+ * @param {Array<string>} geometryRecordIds Geometry occurrence's traversed record IDs.
+ * @param {string} thematicCode Thematic field's compact path code.
+ * @param {Array<string>} thematicRecordIds Thematic occurrence's traversed record IDs.
+ * @returns {boolean} `true` when both occurrences share the same record-ID prefix.
+ */
 export function pathOccurrencesMatch(
   geometryCode,
   geometryRecordIds,
@@ -195,6 +245,13 @@ export function pathOccurrencesMatch(
   return true;
 }
 
+/**
+ * Compute how many leading traversed records two compact path codes share.
+ *
+ * @param {string} leftCode First compact path code.
+ * @param {string} rightCode Second compact path code.
+ * @returns {number} Shared leading record count (at least 1).
+ */
 function commonPathRecordLength(leftCode, rightCode) {
   const left = pathSteps(leftCode);
   const right = pathSteps(rightCode);
@@ -210,6 +267,13 @@ function commonPathRecordLength(leftCode, rightCode) {
   return records;
 }
 
+/**
+ * Parse a compact path code (`root:op:recordType:...`) into root and traversal steps.
+ *
+ * @param {string} code Compact path code.
+ * @returns {{root: string, steps: Array<{operator: string, recordType: string}>}|null}
+ *          Parsed path, or `null` when `code` is not a valid compact path.
+ */
 function pathSteps(code) {
   const tokens = String(code || '').split(':').map((item) => item.trim()).filter(Boolean);
   if (!tokens.length || !/^\d+$/.test(tokens[0])) return null;
@@ -221,6 +285,12 @@ function pathSteps(code) {
   return { root: tokens[0], steps };
 }
 
+/**
+ * Derive an implied compact traversal path from a field-path code.
+ *
+ * @param {string} code Field-path code.
+ * @returns {string|null} The implied traversal path, or `null` when it cannot be derived.
+ */
 function traversalFromFieldCode(code) {
   const tokens = String(code || '').split(':').map((item) => item.trim()).filter(Boolean);
   return tokens.length >= 4 && tokens.length % 2 === 0
@@ -228,26 +298,57 @@ function traversalFromFieldCode(code) {
     : null;
 }
 
+/**
+ * Look up a compact path definition by id, tolerating string/number key mismatches.
+ *
+ * @param {object} paths Path-id-keyed compact path definitions.
+ * @param {*} id Path id.
+ * @returns {string|null} The compact path definition, or `null` when not found.
+ */
 function pathDefinition(paths, id) {
   if (!paths || id === null || id === undefined) return null;
   return paths[id] ?? paths[String(id)] ?? null;
 }
 
+/**
+ * Normalize a raw list of traversed record IDs to strings.
+ *
+ * @param {Array} values Raw record ID list.
+ * @returns {Array<string>} Stringified record IDs.
+ */
 function normalizePathRecordIds(values) {
   if (!Array.isArray(values)) return [];
   return values.map((value) => String(value));
 }
 
+/**
+ * Normalize a raw detail value into a list of individual occurrences.
+ *
+ * @param {*} value Raw detail value (array, object map, or scalar).
+ * @returns {Array} List of occurrences.
+ */
 function detailOccurrences(value) {
   if (Array.isArray(value)) return value;
   if (isObject(value)) return Object.values(value);
   return value == null ? [] : [value];
 }
 
+/**
+ * Whether a value is a plain, non-array object.
+ *
+ * @param {*} value Candidate value.
+ * @returns {boolean} `true` when `value` is a non-null, non-array object.
+ */
 function isObject(value) {
   return Boolean(value && typeof value === 'object' && !Array.isArray(value));
 }
 
+/**
+ * Deep-clone a plain object or array, preferring the native `structuredClone`.
+ *
+ * @param {*} value Candidate value.
+ * @returns {*} The cloned value, or `value` itself when not an object/array.
+ */
 function cloneDetails(value) {
   if (!isObject(value) && !Array.isArray(value)) return value;
   return typeof structuredClone === 'function'

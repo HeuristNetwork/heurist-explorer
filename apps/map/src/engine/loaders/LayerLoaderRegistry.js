@@ -1,26 +1,32 @@
 /**
- * LayerLoaderRegistry.js - Layer loader registry
+ * @file LayerLoaderRegistry.js
+ * @brief Registers source-specific layer loaders and dispatches MapLayer definitions
+ *        to the appropriate loader.
  *
- * @fileOverview Registers source-specific layer loaders and dispatches MapLayer definitions to the appropriate loader.
- * @project     Heurist mapping application
+ * @project     Heurist academic knowledge management system
+ * @package     heurist-map
  *
  * @link        https://HeuristNetwork.org
- * @copyright   (C) 2026 Heurist Network
+ * @copyright   (C) 2024 onwards Heurist Network
+ * @author      Artem Osmakov   <osmakov@gmail.com>
+ * @author      Ian Johnson <ian.johnson.heurist@gmail.com>
  * @license     https://www.gnu.org/licenses/gpl-3.0.txt GNU License 3.0
- * @author      Artem Osmakov <osmakov@gmail.com>
+ * @since       8.0
  */
 
+/** Registers per-source-type layer loaders and dispatches MapLayer loads to the right one. */
 export class LayerLoaderRegistry {
-  /**
-   * Create and initialize the class instance.
-   */
+  /** Create an empty registry. */
   constructor() {
     this.loaders = new Map();
   }
 
   /**
    * Register a loader for one or more MapLayer source types.
-   * @returns {*} Method result.
+   *
+   * @param {string|Array<string>} sourceTypes One or more MapLayer `source.type` values.
+   * @param {object} loader Loader with a `load(mapLayer, context)` method.
+   * @returns {LayerLoaderRegistry} This instance, for chaining.
    */
   register(sourceTypes, loader) {
     const types = Array.isArray(sourceTypes) ? sourceTypes : [sourceTypes];
@@ -31,8 +37,11 @@ export class LayerLoaderRegistry {
   }
 
   /**
-   * Send a GET request to the public Heurist API.
-   * @returns {*} Method result.
+   * Look up the loader registered for a MapLayer source type.
+   *
+   * @param {string} sourceType MapLayer `source.type` value.
+   * @returns {object} The registered loader.
+   * @throws {Error} When no loader is registered for `sourceType`.
    */
   get(sourceType) {
     const loader = this.loaders.get(sourceType);
@@ -44,7 +53,11 @@ export class LayerLoaderRegistry {
 
   /**
    * Load a MapLayer using the loader registered for its source type.
-   * @returns {Promise<*>} Resolves when the operation completes.
+   *
+   * @param {object} mapLayer Normalized public MapLayer.
+   * @param {object} context Layer-loading context.
+   * @returns {Promise<object>} Engine-neutral runtime layer.
+   * @throws {Error} When no loader is registered for the layer's source type.
    */
   async load(mapLayer, context) {
     return this.get(mapLayer.source.type).load(mapLayer, context);

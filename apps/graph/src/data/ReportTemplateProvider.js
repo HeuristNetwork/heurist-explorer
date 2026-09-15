@@ -14,14 +14,30 @@
  */
 /** Provides configured report templates for presentation dialogs. */
 export class ReportTemplateProvider {
+  /**
+   * @param {object} options Provider configuration.
+   * @param {string} options.baseUrl Legacy Heurist base URL the ReportController endpoint is relative to.
+   * @param {string} options.database Target Heurist database name.
+   * @param {Function|null} [options.fetchImpl] Fetch implementation to use instead of the global `fetch`.
+   */
   constructor({ baseUrl, database, fetchImpl = null } = {}) {
     this.baseUrl = normalizeBaseUrl(baseUrl);
     this.database = database == null ? null : String(database);
     this.fetchImpl = fetchImpl || ((...args) => globalThis.fetch(...args));
   }
+
+  /** Whether the provider has both a base URL and a database, and can list templates. */
   isConfigured() {
     return Boolean(this.baseUrl && this.database);
   }
+
+  /**
+   * List configured report templates.
+   *
+   * @param {{signal?: AbortSignal}} [options] Request options.
+   * @returns {Promise<Array<{value: string, label: string}>>} Templates, or `[]` when unconfigured.
+   * @throws {Error} When the list request fails.
+   */
   async list({ signal } = {}) {
     if (!this.isConfigured()) return [];
     const url = new URL(
@@ -44,6 +60,7 @@ export class ReportTemplateProvider {
     return normalizeTemplates(payload?.data ?? payload);
   }
 }
+/** Normalize the ReportController's template list payload (array or key-value map) to `{value, label}` entries. */
 function normalizeTemplates(value) {
   const source = Array.isArray(value)
     ? value
@@ -77,6 +94,7 @@ function normalizeTemplates(value) {
     })
     .filter(Boolean);
 }
+/** Ensure a base URL has exactly one trailing slash, or return `null` when empty. */
 function normalizeBaseUrl(value) {
   const text = String(value || "").trim();
   return text ? (text.endsWith("/") ? text : `${text}/`) : null;

@@ -1,15 +1,35 @@
-import { showGraphMessage } from "./graphMessages.js";
 /**
  * @file GraphControlPanel.js
  * @brief Graph controls using the heurist-data panel interaction pattern.
+ *
+ * @project     Heurist academic knowledge management system
+ * @package     heurist-graph
+ *
+ * @link        https://HeuristNetwork.org
+ * @copyright   (C) 2024 onwards Heurist Network
+ * @author      Artem Osmakov   <osmakov@gmail.com>
+ * @author      Ian Johnson <ian.johnson.heurist@gmail.com>
+ * @license     https://www.gnu.org/licenses/gpl-3.0.txt GNU License 3.0
+ * @since       8.0
  */
+import { showGraphMessage } from "./graphMessages.js";
 import { GraphLegend } from "./GraphLegend.js";
 import { GraphLegendEditor } from "./GraphLegendEditor.js";
 import { DatasetSelector } from "./DatasetSelector.js";
 import { FilterSelector } from "./FilterSelector.js";
 import { $HR, applyI18n, InlineHelp } from "#shared/ui";
 
+/** Owns Graph's control panel: dataset/filter selectors, legend, expansion controls, and toolbar actions. */
 export class GraphControlPanel {
+  /**
+   * @param {object} options Panel dependencies.
+   * @param {object} options.api Graph public API instance.
+   * @param {HTMLElement} options.container Element the rendering engine renders into; the panel is anchored above it.
+   * @param {object} [options.options] Initial visibility/interaction options; refreshed via `applyOptions`.
+   * @param {object} options.datasetListProvider Provider used to list available datasets.
+   * @param {object} options.datasetProvider Provider used to load a dataset's own record-type id when creating one.
+   * @param {object} options.filterListProvider Provider used to list and load available filters.
+   */
   constructor({ api, container, options = {}, datasetListProvider, datasetProvider, filterListProvider }) {
     this.api = api;
     this.container = container;
@@ -20,6 +40,11 @@ export class GraphControlPanel {
     this.listeners = [];
   }
 
+  /**
+   * Build the panel DOM, wire up API event listeners, and load its initial content.
+   *
+   * @returns {Promise<HTMLElement>} The mounted panel element.
+   */
   async mount() {
     this.element = document.createElement("aside");
     this.element.className = "heurist-module-control-panel h-widget";
@@ -95,11 +120,23 @@ export class GraphControlPanel {
     return this.element;
   }
 
+  /**
+   * Subscribe to a public API event and remember the listener for `destroy`.
+   *
+   * @param {string} name Event type.
+   * @param {Function} handler Event handler.
+   * @returns {void}
+   */
   bind(name, handler) {
     this.api.addEventListener(name, handler);
     this.listeners.push([name, handler]);
   }
 
+  /**
+   * Refresh the source header, dataset/filter lists, and legend from the current application state.
+   *
+   * @returns {Promise<void>}
+   */
   async render() {
     const state = this.api.getState();
     const currentTitle = this.options.currentResultsTitle || "Filtered Result";
@@ -127,6 +164,11 @@ export class GraphControlPanel {
     applyI18n(this.element);
   }
 
+  /**
+   * Attach the legend to the active dataset row, add an edit/add-dataset action when editable, and re-render it.
+   *
+   * @returns {void}
+   */
   renderLegend() {
     const app = this.api.application;
     const state = this.api.getState();
@@ -146,12 +188,22 @@ export class GraphControlPanel {
     this.renderExpansionControls();
   }
 
+  /**
+   * The current selection, restricted to record ids present in the loaded graph.
+   *
+   * @returns {Array<number>|null} Seed record ids, or `null` to scope expansion controls to the base graph.
+   */
   expansionSeeds() {
     const state = this.api.getState();
     const ids = (state.selection || []).filter(id => state.recordIds.includes(id));
     return ids.length ? ids : null;
   }
 
+  /**
+   * Rebuild the expansion-level select and prune/expand button states from the current expansion state.
+   *
+   * @returns {void}
+   */
   renderExpansionControls() {
     const state = this.api.getExpansionState(this.expansionSeeds());
     this.levelSelector.replaceChildren();
@@ -167,6 +219,11 @@ export class GraphControlPanel {
     this.expandButton.disabled = state.busy || state.depth >= state.maxDepth;
   }
 
+  /**
+   * Edit the active Dataset (or create one, when the graph has none) via the host record editor.
+   *
+   * @returns {Promise<void>}
+   */
   async editDataset() {
     const app = this.api.application;
     if (app?.datasetAvailable === false || app?.config.persistedSettings?.options?.interaction?.readonly === true || app?.config.persistedSettings?.options?.interaction?.editEnabled === false) return;
@@ -183,6 +240,12 @@ export class GraphControlPanel {
     }
   }
 
+  /**
+   * Open the session-only legend/links editor.
+   *
+   * @param {string} mode Editor mode (currently only `'links'` is used).
+   * @returns {void}
+   */
   editLegend(mode) {
     this.legendEditor?.destroy();
     this.legendEditor = new GraphLegendEditor({ api: this.api, onError: error => this.reportError(error, 'legend-editor') });
@@ -206,11 +269,21 @@ export class GraphControlPanel {
     await this.render();
   }
 
+  /**
+   * Expand the current selection (or the base graph) by one additional depth level.
+   *
+   * @returns {Promise<void>}
+   */
   async expandGraph() {
     try { return await this.api.advanceExpansion(this.expansionSeeds()); }
     catch (error) { this.reportError(error, 'expansion'); }
   }
 
+  /**
+   * Toggle the panel between its normal and fully-collapsed (icon-only) states.
+   *
+   * @returns {void}
+   */
   toggleFullyCollapsed() {
     const fullyCollapsed = this.element.classList.toggle("fully-collapsed");
     if (!fullyCollapsed) {
@@ -219,6 +292,11 @@ export class GraphControlPanel {
     this.updateExpandedState();
   }
 
+  /**
+   * Toggle the panel body between expanded and collapsed, falling back to fully-collapsing when it has no visible panels.
+   *
+   * @returns {void}
+   */
   toggleBody() {
     if (this.element.classList.contains("fully-collapsed")) return;
     if (!this.hasVisiblePanels) {
@@ -229,6 +307,11 @@ export class GraphControlPanel {
     this.updateExpandedState();
   }
 
+  /**
+   * Sync the header toggle buttons' `aria-expanded` state and icon direction with the current collapse state.
+   *
+   * @returns {void}
+   */
   updateExpandedState() {
     const fullyCollapsed = this.element.classList.contains("fully-collapsed");
     const bodyCollapsed = this.element.classList.contains("body-collapsed");
@@ -248,6 +331,11 @@ export class GraphControlPanel {
     this.helpOverlay.open();
   }
 
+  /**
+   * Re-apply panel/button/section visibility from current options and runtime mode.
+   *
+   * @returns {void}
+   */
   applyVisibility() {
     if (!this.element) return;
     this.element.classList.toggle(
@@ -296,10 +384,22 @@ export class GraphControlPanel {
     this.updateExpandedState();
   }
 
+  /**
+   * Dispatch a `heurist-graph-error` event for a failure that occurred within the panel.
+   *
+   * @param {Error} error The error that occurred.
+   * @param {string} [operation] Short operation label identifying where the error occurred.
+   * @returns {void}
+   */
   reportError(error, operation) {
     this.api.application?.dispatch?.("heurist-graph-error", { error, operation });
   }
 
+  /**
+   * Detach API event listeners and remove the panel and legend editor from the DOM.
+   *
+   * @returns {void}
+   */
   destroy() {
     this.listeners.forEach(([name, handler]) => this.api.removeEventListener(name, handler));
     this.legendEditor?.destroy();
@@ -309,6 +409,7 @@ export class GraphControlPanel {
   }
 }
 
+/** Build a titled `<section>` with a heading and content container, optionally collapsible, appended to `parent`. */
 function section(parent, title, collapsible = false) {
   const section = document.createElement("section");
   const heading = document.createElement(collapsible ? "button" : "h3");
@@ -331,6 +432,7 @@ function section(parent, title, collapsible = false) {
   return { section, content };
 }
 
+/** Create a small icon-only button with a localized title/aria-label and an async click handler. */
 function iconButton(icon, title, handler) {
   const button = document.createElement("button");
   button.type = "button";
@@ -345,6 +447,7 @@ function iconButton(icon, title, handler) {
   return button;
 }
 
+/** Normalize a list-provider payload into `{id, title}` entries, dropping invalid IDs. */
 function normalizeItems(result, fallback) {
   const values = Array.isArray(result) ? result : result?.items || [];
   return values.map((item) => ({

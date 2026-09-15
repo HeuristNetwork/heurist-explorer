@@ -16,7 +16,9 @@
 import { serializeGraphConfigurationSettings } from "../ui/config/graphConfigurationSchema.js";
 import { PublishedDialog } from "#shared/ui";
 
+/** Public API facade that exposes graph operations to callers and host applications. */
 export class HeuristGraphPublicApi {
+  /** @param {import('../core/GraphApplication.js').GraphApplication} application Graph application controller this API wraps. */
   constructor(application) {
     this.application = application;
     this.readyPromise = null;
@@ -24,18 +26,42 @@ export class HeuristGraphPublicApi {
     this.publishedDialog = null;
   }
 
+  /**
+   * Register the promise that resolves once the application is ready.
+   *
+   * @param {Promise<object>} promise Ready promise.
+   * @returns {void}
+   */
   setReadyPromise(promise) {
     this.readyPromise = promise;
   }
 
+  /**
+   * Resolves when the application is ready.
+   *
+   * @returns {Promise<HeuristGraphPublicApi>} Pending ready promise or this API instance.
+   */
   ready() {
     return this.readyPromise || Promise.resolve(this);
   }
 
+  /**
+   * Register the factory used to create the configuration/publish dialog.
+   *
+   * @param {Function|null} factory Called with dialog options; returns a dialog with an `open()`/`close()` API.
+   * @returns {void}
+   */
   setConfigurationDialogFactory(factory) {
     this.configurationDialogFactory = typeof factory === "function" ? factory : null;
   }
 
+  /**
+   * Open the preferences editor, seeded from freshly-loaded host preferences when available.
+   *
+   * @param {object} [options] Dialog options; `onSave` is wrapped to persist and re-apply settings.
+   * @returns {Promise<object>} The opened dialog.
+   * @throws {Error} When no configuration dialog factory has been registered.
+   */
   async openPreferencesDialog(options = {}) {
     if (!this.configurationDialogFactory) throw new Error("Graph configuration dialog is not available");
     const saved = (await this.application.host.loadPreferences?.()) ?? null;
@@ -48,7 +74,13 @@ export class HeuristGraphPublicApi {
     } });
   }
 
-  /** Serialize settings and publish a reproducible graph snapshot via the host PublicationController. */
+  /**
+   * Serialize settings and publish a reproducible graph snapshot via the host PublicationController.
+   *
+   * @param {object} value Settings to publish; serialized into the publication envelope.
+   * @param {{preserveCurrentState?: boolean}} [publishOptions] Set `preserveCurrentState: false` to publish with no state.
+   * @returns {Promise<object>} The host's publication result.
+   */
   publish(value, publishOptions = {}) {
     const settings = serializeGraphConfigurationSettings(value);
     const state =
@@ -64,6 +96,14 @@ export class HeuristGraphPublicApi {
     });
   }
 
+  /**
+   * Open the publish editor seeded with publish-mode settings. On save, publishes and shows the
+   * resulting link dialog.
+   *
+   * @param {object} [options] Dialog options.
+   * @returns {object} The opened dialog.
+   * @throws {Error} When no configuration dialog factory has been registered.
+   */
   openPublishDialog(options = {}) {
     if (!this.configurationDialogFactory)
       throw new Error("Graph configuration dialog is not available");
@@ -97,86 +137,242 @@ export class HeuristGraphPublicApi {
     });
   }
 
+  /**
+   * Load or merge a graph for a query.
+   *
+   * @param {object} options Load options; see `GraphApplication#load`.
+   * @returns {Promise<object>} Updated application state.
+   */
   load(options) {
     return this.application.load(options);
   }
 
+  /**
+   * Load a persisted Dataset by id and activate it as the graph's source.
+   *
+   * @param {number|string} id Dataset record id.
+   * @returns {Promise<object>} Updated application state.
+   */
   setDataset(id) {
     return this.application.setDataset(id);
   }
 
+  /**
+   * Restore the most recently remembered Filtered Result query.
+   *
+   * @returns {Promise<object>} Updated application state.
+   */
   activateCurrentResults() {
     return this.application.activateCurrentResults();
   }
 
+  /**
+   * Apply a saved Filter as a new search.
+   *
+   * @param {object} filter Saved filter (or its raw query).
+   * @returns {Promise<object>} Updated application state.
+   */
   activateFilter(filter) {
     return this.application.activateFilter(filter);
   }
 
+  /**
+   * Fit the viewport to the full graph.
+   *
+   * @returns {*} Result of the engine's fit call.
+   */
   fit() {
     return this.application.engine.fit();
   }
 
+  /**
+   * Serialize and download the current graph as Gephi-compatible JSON.
+   *
+   * @returns {*} Result of the application's export call.
+   */
   exportGephi() {
     return this.application.exportGephi?.();
   }
 
+  /**
+   * Expand one node by one additional depth level.
+   *
+   * @param {number|string} recordId Record id to expand from.
+   * @returns {Promise<boolean>} True when the id was valid and expansion was requested.
+   */
   expandNode(recordId) {
     return this.application.expandNode(recordId);
   }
 
+  /**
+   * Legend model derived from the loaded graph; see `GraphApplication#getLegend`.
+   *
+   * @returns {object} Legend model.
+   */
   getLegend() {
     return this.application.getLegend();
   }
 
+  /**
+   * Open the host's expansion-rules editor and apply the result.
+   *
+   * @returns {Promise<void>}
+   */
   defineExpansions() { return this.application.defineExpansions(); }
+
+  /**
+   * Discard the "Define expansions" override, reverting to the saved rules.
+   *
+   * @returns {Promise<void>}
+   */
   resetExpansionRules() { return this.application.resetExpansionRules(); }
+
+  /**
+   * Enable or disable one expansion rule.
+   *
+   * @param {number|string} id Expansion rule id.
+   * @param {boolean} enabled New enabled state.
+   * @returns {Promise<void>}
+   */
   setRuleEnabled(id, enabled) { return this.application.setRuleEnabled(id, enabled); }
+
+  /**
+   * Current expansion depth/max-depth/busy state.
+   *
+   * @param {Array<number>} [ids] Seed record ids to scope the state to; omit for the base scope.
+   * @returns {{depth: number, maxDepth: number, busy: boolean}}
+   */
   getExpansionState(ids) { return this.application.getExpansionState(ids); }
+
+  /**
+   * Set the expansion depth for one or more seeds (or the base scope).
+   *
+   * @param {number} depth Target depth.
+   * @param {Array<number>} [ids] Seed record ids to scope the change to; omit for the base scope.
+   * @returns {Promise<void>}
+   */
   setExpansionDepth(depth, ids) { return this.application.setExpansionDepth(depth, ids); }
+
+  /**
+   * Expand one additional depth level for one or more seeds (or the base scope).
+   *
+   * @param {Array<number>} [ids] Seed record ids; omit for the base scope.
+   * @returns {Promise<void>}
+   */
   advanceExpansion(ids) { return this.application.advanceExpansion(ids); }
+
+  /**
+   * Retreat one depth level for one or more seeds (or the base scope).
+   *
+   * @param {Array<number>} [ids] Seed record ids; omit for the base scope.
+   * @returns {Promise<void>}
+   */
   pruneExpansion(ids) { return this.application.pruneExpansion(ids); }
 
+  /**
+   * Show or hide specific relationship types within a link group without reloading.
+   *
+   * @param {string} key Link group key; see `GraphApplication#getLegend`.
+   * @param {Array<number|string>} ids Relation-type (trm_ID) ids to toggle.
+   * @param {boolean} visible New visibility state.
+   * @returns {Promise<object>} Updated legend model.
+   */
   setRelationshipVisibility(key, ids, visible) {
     return this.application.setRelationshipVisibility(key, ids, visible);
   }
 
+  /**
+   * Resolved edge vocabulary for the legend renderer; see `GraphApplication#getVocabulary`.
+   *
+   * @returns {object} Resolved vocabulary.
+   */
   getVocabulary() {
     return this.application.getVocabulary();
   }
 
+  /**
+   * Show or hide every node of one record type without reloading.
+   *
+   * @param {number|string} recordTypeId Record type id.
+   * @param {boolean} visible New visibility state.
+   * @returns {Promise<object>} Updated legend model.
+   */
   setRecordTypeVisibility(recordTypeId, visible) {
     return this.application.setRecordTypeVisibility(recordTypeId, visible);
   }
 
+  /**
+   * Show or hide every edge of one link group without reloading.
+   *
+   * @param {string} key Link group key; see `GraphApplication#getLegend`.
+   * @param {boolean} visible New visibility state.
+   * @returns {Promise<object>} Updated legend model.
+   */
   setLinkVisibility(key, visible) {
     return this.application.setLinkVisibility(key, visible);
   }
 
+  /**
+   * Set the selected record IDs.
+   *
+   * @param {Array<number>} recordIds Selected record IDs.
+   * @param {object} [options] Options forwarded to `GraphApplication#setSelection`.
+   * @returns {Promise<Array<number>>} The applied selection.
+   */
   setSelection(recordIds, options) {
     return this.application.setSelection(recordIds, options);
   }
 
+  /**
+   * Clear the current selection.
+   *
+   * @returns {Promise<Array<number>>} The applied (empty) selection.
+   */
   clearSelection() {
     return this.application.clearSelection();
   }
 
+  /**
+   * Return the current application state.
+   *
+   * @returns {object} Current application state.
+   */
   getState() {
     return this.application.getState();
   }
 
+  /**
+   * Resize the rendering engine.
+   *
+   * @returns {*} Result of the engine's resize call.
+   */
   resize() {
     return this.application.resize();
   }
 
+  /**
+   * Add a DOM event listener to the underlying application.
+   *
+   * @returns {void}
+   */
   addEventListener(...args) {
     return this.application.addEventListener(...args);
   }
 
+  /**
+   * Remove a DOM event listener from the underlying application.
+   *
+   * @returns {void}
+   */
   removeEventListener(...args) {
     return this.application.removeEventListener(...args);
   }
 
+  /**
+   * Close any open dialogs and tear down the application.
+   *
+   * @returns {Promise<void>}
+   */
   destroy() {
     this.publishedDialog?.close?.();
     this.publishedDialog = null;

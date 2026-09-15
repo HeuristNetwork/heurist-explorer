@@ -1,16 +1,31 @@
 /**
- * MapControlPanel.js - Engine-neutral application controls rendered above or beside the map.
+ * @file MapControlPanel.js
+ * @brief Engine-neutral application controls rendered above or beside the map.
  *
- * @project     Heurist mapping application
+ * @project     Heurist academic knowledge management system
+ * @package     heurist-map
+ *
+ * @link        https://HeuristNetwork.org
+ * @copyright   (C) 2024 onwards Heurist Network
+ * @author      Artem Osmakov   <osmakov@gmail.com>
+ * @author      Ian Johnson <ian.johnson.heurist@gmail.com>
  * @license     https://www.gnu.org/licenses/gpl-3.0.txt GNU License 3.0
+ * @since       8.0
  */
+
 import { MapDocumentSelector } from './MapDocumentSelector.js';
 import { LayerPanel } from './LayerPanel.js';
 import { BaseMapSelector } from './BaseMapSelector.js';
 import { showMapMessage } from './mapMessages.js';
 import { $HR, applyI18n, InlineHelp } from '#shared/ui';
 
+/** Renders the map's document/layer/base-map control panel and its collapse behavior. */
 export class MapControlPanel {
+  /**
+   * @param {{api: object, mapContainer: HTMLElement, options: object}} config `api` is the
+   *        map's public API; `mapContainer` is the map's DOM element; `options` are the
+   *        panel's presentation options.
+   */
   constructor({ api, mapContainer, options }) {
     this.api = api;
     this.mapContainer = mapContainer;
@@ -19,6 +34,11 @@ export class MapControlPanel {
     this.baseMapsExpanded = options.baseMapsInitiallyExpanded === true;
   }
 
+  /**
+   * Build, mount, and wire the control panel to the map's public API events.
+   *
+   * @returns {void}
+   */
   mount() {
     if (this.options.enabled === false || this.options.placement === 'none') return;
 
@@ -143,11 +163,23 @@ export class MapControlPanel {
     this.refresh();
   }
 
+  /**
+   * Register a public API event listener and track it for later removal.
+   *
+   * @param {string} name Event name.
+   * @param {Function} handler Event handler.
+   * @returns {void}
+   */
   bind(name, handler) {
     this.api.addEventListener(name, handler);
     this.listeners.push([name, handler]);
   }
 
+  /**
+   * Re-render the document, layer, and base-map sections from current API state.
+   *
+   * @returns {void}
+   */
   refresh() {
     const activeDocument = this.api.getActiveMapDocument();
     const activeId = activeDocument?.id;
@@ -188,17 +220,31 @@ export class MapControlPanel {
     this.updateBaseMapsExpansion();
   }
 
-
-  /** Request editing of a persisted MapDocument through the public map API. */
+  /**
+   * Request editing of a persisted MapDocument through the public map API.
+   *
+   * @param {*} documentId Id of the map document to edit.
+   * @returns {*} Result of the underlying public API call.
+   */
   editMapDocument(documentId) {
     return this.api.requestEditMapDocument(documentId);
   }
 
-  /** Request editing of a persisted MapLayer through the public map API. */
+  /**
+   * Request editing of a persisted MapLayer through the public map API.
+   *
+   * @param {*} layerId Id of the layer to edit.
+   * @returns {*} Result of the underlying public API call.
+   */
   editLayer(layerId) {
     return this.api.requestEditLayer(layerId);
   }
 
+  /**
+   * Sync the base-maps toggle label/aria state and section visibility with `baseMapsExpanded`.
+   *
+   * @returns {void}
+   */
   updateBaseMapsExpansion() {
     if (!this.baseMapsToggle || !this.baseMapsContainer) return;
     this.baseMapsToggle.textContent = `${$HR('Base maps')} ${this.baseMapsExpanded ? '▾' : '▸'}`;
@@ -206,7 +252,11 @@ export class MapControlPanel {
     this.baseMapsContainer.hidden = !this.baseMapsExpanded;
   }
 
-  /** Shrink or restore the whole panel down to its far-right toggle button. */
+  /**
+   * Shrink or restore the whole panel down to its far-right toggle button.
+   *
+   * @returns {void}
+   */
   toggleFullyCollapsed() {
     const fullyCollapsed = this.element.classList.toggle('fully-collapsed');
     if (!fullyCollapsed) {
@@ -215,7 +265,11 @@ export class MapControlPanel {
     this.updateExpandedState();
   }
 
-  /** Show or hide the document/base-map list while keeping the header visible. */
+  /**
+   * Show or hide the document/base-map list while keeping the header visible.
+   *
+   * @returns {void}
+   */
   toggleBody() {
     if (this.element.classList.contains('fully-collapsed')) return;
     if (!this.hasVisiblePanels) {
@@ -226,7 +280,11 @@ export class MapControlPanel {
     this.updateExpandedState();
   }
 
-  /** Sync toggle aria-expanded state and the angle icon with the current collapse classes. */
+  /**
+   * Sync toggle aria-expanded state and the angle icon with the current collapse classes.
+   *
+   * @returns {void}
+   */
   updateExpandedState() {
     const fullyCollapsed = this.element.classList.contains('fully-collapsed');
     const bodyCollapsed = this.element.classList.contains('body-collapsed');
@@ -241,13 +299,21 @@ export class MapControlPanel {
     }
   }
 
-  /** Load the module user manual for the active language into a full-viewport overlay. */
+  /**
+   * Load the module user manual for the active language into a full-viewport overlay.
+   *
+   * @returns {void}
+   */
   openHelp() {
     this.helpOverlay ||= new InlineHelp({ moduleName: 'map' });
     this.helpOverlay.open();
   }
 
-  /** Apply custom Map Control CSS as inline declarations or a complete CSS rule. */
+  /**
+   * Apply custom Map Control CSS as inline declarations or a complete CSS rule.
+   *
+   * @returns {void}
+   */
   applyControlCss() {
     this.controlCssStyle?.remove();
     this.controlCssStyle = null;
@@ -266,7 +332,12 @@ export class MapControlPanel {
     this.controlCssStyle = style;
   }
 
-  /** Rebuild the lightweight control panel with new presentation options. */
+  /**
+   * Rebuild the lightweight control panel with new presentation options.
+   *
+   * @param {object} [options] Partial options merged over the current options.
+   * @returns {HTMLElement|null} The rebuilt panel element, or `null` when it did not mount.
+   */
   applyOptions(options = {}) {
     const next = { ...this.options, ...options };
     const wasExpanded = this.element ? !this.element.classList.contains('fully-collapsed') : next.initiallyExpanded !== false;
@@ -282,6 +353,11 @@ export class MapControlPanel {
     return this.element || null;
   }
 
+  /**
+   * Remove the panel, its custom CSS, and detach all bound event listeners.
+   *
+   * @returns {void}
+   */
   destroy() {
     for (const [name, handler] of this.listeners) this.api.removeEventListener(name, handler);
     this.controlCssStyle?.remove();
@@ -293,6 +369,14 @@ export class MapControlPanel {
   }
 }
 
+/**
+ * Build a small icon-only action button that reports async failures as a map error message.
+ *
+ * @param {string} icon Font Awesome icon class.
+ * @param {string} title Localizable tooltip/aria-label text.
+ * @param {Function} handler Click handler; may be async.
+ * @returns {HTMLButtonElement} The button element.
+ */
 function iconButton(icon, title, handler) {
   const button = document.createElement('button');
   button.type = 'button';

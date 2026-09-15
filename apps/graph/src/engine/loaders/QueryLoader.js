@@ -17,9 +17,26 @@ import { Dataset, normalizeDatasetFields } from "../../core/Dataset.js";
 
 /** Loads a transient Dataset from a Filtered Result query. */
 export class QueryLoader {
+  /** @param {{recordDataProvider: object}} options Provides the selected-field record page. */
   constructor({ recordDataProvider }) {
     this.recordDataProvider = recordDataProvider;
   }
+
+  /**
+   * Load a transient Dataset from a Filtered Result query.
+   *
+   * @param {object} options Load options.
+   * @param {*} options.query Heurist query.
+   * @param {Array<object>} [options.fields] Field descriptors; defaults to title and record type.
+   * @param {Array<string>} [options.additionalFields] Extra field codes to request beyond the dataset's own.
+   * @param {boolean} [options.includeDatasetFields=true] Include the dataset's own configured fields.
+   * @param {number} [options.limit] Page size.
+   * @param {number} [options.offset] Page offset.
+   * @param {*} [options.sort] Sort specification.
+   * @param {*} [options.filter] Additional filter.
+   * @param {AbortSignal} [options.signal] Abort signal for cancellation.
+   * @returns {Promise<{dataset: import('../../core/Dataset.js').Dataset, response: object}>}
+   */
   async load({
     query,
     fields = [],

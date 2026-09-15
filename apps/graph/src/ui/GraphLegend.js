@@ -1,12 +1,41 @@
-/** Active dataset legend. Counts describe loaded data, independent of visibility. */
+/**
+ * @file GraphLegend.js
+ * @brief Active dataset legend. Counts describe loaded data, independent of visibility.
+ *
+ * @project     Heurist academic knowledge management system
+ * @package     heurist-graph
+ *
+ * @link        https://HeuristNetwork.org
+ * @copyright   (C) 2024 onwards Heurist Network
+ * @author      Artem Osmakov   <osmakov@gmail.com>
+ * @author      Ian Johnson <ian.johnson.heurist@gmail.com>
+ * @license     https://www.gnu.org/licenses/gpl-3.0.txt GNU License 3.0
+ * @since       8.0
+ */
 import { $HR } from '#shared/ui';
 
+/** Renders the record-type/link/expansion-rule legend for the active graph. */
 export class GraphLegend {
+  /**
+   * @param {object} options Legend dependencies.
+   * @param {object} options.api Graph public API instance.
+   * @param {HTMLElement} options.container Element to render the legend into.
+   * @param {Function} options.onEdit Called to open the legend editor for record-type styling.
+   * @param {Function} options.onLinks Called to open the initial-links editor.
+   * @param {Function} options.onRule Called to open the expansion-rules editor.
+   * @param {Function} options.onError Called with `(error, operation)` when an action fails.
+   */
   constructor({ api, container, onEdit, onLinks, onRule, onError }) {
     Object.assign(this, { api, container, onEdit, onLinks, onRule, onError });
     this.open = new Set();
   }
 
+  /**
+   * Render the record-types, links/relations, and expansion-rules sections from the current legend model.
+   *
+   * @param {{editEnabled?: boolean}} [options] Pass `editEnabled: true` to show edit affordances.
+   * @returns {void}
+   */
   render({ editEnabled = false } = {}) {
     const model = this.api.getLegend?.() || { recordTypes: [], links: [], rules: [] };
     const focusKey = this.container.contains(document.activeElement) ? document.activeElement?.dataset?.legendKey : null;
@@ -70,6 +99,13 @@ export class GraphLegend {
     if (focusKey) [...this.container.querySelectorAll('input')].find(input => input.dataset.legendKey === focusKey)?.focus();
   }
 
+  /**
+   * Render one relationship-type tree node as a checkbox row, recursing into a collapsible branch when it has children.
+   *
+   * @param {Array<object>} groups Link groups carrying relationship entries.
+   * @param {object} node Relationship-type tree node (`{id, label, children}`).
+   * @returns {HTMLElement}
+   */
   term(groups, node) {
     const ids = descendants(node);
     const entries = groups.flatMap(group => (group.relationships || [])
@@ -95,6 +131,14 @@ export class GraphLegend {
     return node.children?.length ? this.branch(`relation:tree:${node.id}`, row, node.children.map(child => this.term(groups, child))) : row;
   }
 
+  /**
+   * Wrap a row with a collapsible toggle and its child rows.
+   *
+   * @param {string} key Unique open/closed state key.
+   * @param {HTMLElement} row The branch's own checkbox row.
+   * @param {Array<HTMLElement>} children Child row/branch elements.
+   * @returns {HTMLElement}
+   */
   branch(key, row, children) {
     const branch = element('div', null, 'heurist-graph-legend-branch');
     const header = element('div', null, 'heurist-graph-legend-branch-header');
@@ -115,6 +159,17 @@ export class GraphLegend {
     return branch;
   }
 
+  /**
+   * Build a labeled checkbox row with an optional count suffix.
+   *
+   * @param {string} label Row label.
+   * @param {number|null} count Count to append in parentheses; omitted when `null`.
+   * @param {boolean} checked Initial checked state.
+   * @param {boolean} mixed Initial indeterminate state.
+   * @param {string} key Unique key stored on the checkbox for focus restoration.
+   * @param {function(boolean): (void|Promise<void>)} handler Called with the new checked state.
+   * @returns {HTMLElement}
+   */
   checkbox(label, count, checked, mixed, key, handler) {
     const row = element('label', null, 'heurist-graph-legend-row');
     const input = element('input');
@@ -126,6 +181,14 @@ export class GraphLegend {
     return row;
   }
 
+  /**
+   * Build a small icon-only action button.
+   *
+   * @param {string} title Localized tooltip/aria-label text.
+   * @param {string} icon FontAwesome solid icon suffix (e.g. `'fa-pen'`).
+   * @param {Function} handler Click handler, run through `run` for error reporting.
+   * @returns {HTMLElement}
+   */
   action(title, icon, handler) {
     const button = element('button', null, 'heurist-icon-button');
     button.type = 'button'; button.title = $HR(title); button.setAttribute('aria-label', $HR(title));
@@ -135,9 +198,16 @@ export class GraphLegend {
     return button;
   }
 
+  /**
+   * Run a handler, reporting any rejection through `onError`.
+   *
+   * @param {Function} handler Handler to run.
+   * @returns {void}
+   */
   run(handler) { Promise.resolve().then(handler).catch(error => this.onError?.(error, 'legend')); }
 }
 
+/** Create an element, optionally with text content and a class name. */
 function element(tag, text, className) {
   const node = document.createElement(tag);
   if (text != null) node.textContent = text;
@@ -145,9 +215,16 @@ function element(tag, text, className) {
   return node;
 }
 
+/** Collect a relationship-type tree node's id and every descendant id. */
 function descendants(node) { return [Number(node.id), ...(node.children || []).flatMap(descendants)]; }
 
-/** Retain a single copy of each observed branch, including its vocabulary ancestors. */
+/**
+ * Retain a single copy of each observed branch, including its vocabulary ancestors.
+ *
+ * @param {{relationships?: Array<{id: number}>}} group Observed relationship entries.
+ * @param {object} trees Relation-type trees keyed by root id.
+ * @returns {Array<object>} Pruned forest roots covering every observed relationship type.
+ */
 export function relationForest(group, trees = {}) {
   const ids = new Set((group.relationships || []).map(row => row.id));
   const prune = (node, seen = new Set()) => {

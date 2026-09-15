@@ -1,13 +1,18 @@
 /**
- * MapApplication.js - Engine-neutral map controller
+ * @file MapApplication.js
+ * @brief Engine-neutral map controller coordinating map initialization, MapDocument
+ *        loading, layer preparation, rendering, application state, cancellation, and
+ *        public map operations.
  *
- * @fileOverview Coordinates map initialization, MapDocument loading, layer preparation, rendering, application state, cancellation, and public map operations.
- * @project     Heurist mapping application
+ * @project     Heurist academic knowledge management system
+ * @package     heurist-map
  *
  * @link        https://HeuristNetwork.org
- * @copyright   (C) 2026 Heurist Network
+ * @copyright   (C) 2024 onwards Heurist Network
+ * @author      Artem Osmakov   <osmakov@gmail.com>
+ * @author      Ian Johnson <ian.johnson.heurist@gmail.com>
  * @license     https://www.gnu.org/licenses/gpl-3.0.txt GNU License 3.0
- * @author      Artem Osmakov <osmakov@gmail.com>
+ * @since       8.0
  */
 
 import { normalizeMapDocument } from './MapDocument.js';
@@ -24,7 +29,15 @@ import { DEFAULT_MAP_SYMBOL, normalizeMapSymbol } from '../utils/normalizeMapSym
  */
 export class MapApplication {
   /**
-   * Create and initialize the class instance.
+   * Create the application controller and its predefined dynamic MapDocument.
+   *
+   * @param {Object} options Constructor options.
+   * @param {HTMLElement} options.container DOM element hosting the map.
+   * @param {Object} options.config Engine-neutral application configuration.
+   * @param {Object} options.mapEngine Concrete {@link MapEngineAdapter} implementation.
+   * @param {Object} options.host Host integration adapter.
+   * @param {Object} [options.providers={}] Data providers (MapDocument, MapLayer, etc).
+   * @param {Object} options.layerLoaders Loader registry used to prepare runtime layers.
    */
   constructor({ container, config, mapEngine, host, providers = {}, layerLoaders }) {
     this.container = container;
@@ -76,7 +89,11 @@ export class MapApplication {
       || null;
   }
 
-  /** Create the predefined non-persistent MapDocument entry. */
+  /**
+   * Create the predefined non-persistent MapDocument entry.
+   *
+   * @returns {void}
+   */
   initializeDynamicDocument() {
     if (this.config.dynamicDocument?.enabled === false) return;
     const active = String(this.config.documents?.initiallyActive) === this.dynamicDocumentId;
@@ -112,20 +129,30 @@ export class MapApplication {
     if (active) this.activeMapDocumentId = this.dynamicDocumentId;
   }
 
-  /** Return the internal dynamic MapDocument entry. */
+  /**
+   * Return the internal dynamic MapDocument entry.
+   *
+   * @returns {?Object} The dynamic MapDocument registry entry, or `null` when disabled.
+   */
   getDynamicDocumentEntry() {
     return this.mapDocuments.get(this.dynamicDocumentId) || null;
   }
 
-  /** Return the public dynamic MapDocument description. */
+  /**
+   * Return the public dynamic MapDocument description.
+   *
+   * @returns {?Object} Public dynamic MapDocument entry, or `null` when disabled.
+   */
   getDynamicDocument() {
     const entry = this.getDynamicDocumentEntry();
     return entry ? createPublicDocumentEntry(entry) : null;
   }
 
   /**
-   * Initialize the component and its required resources.
-   * @returns {Promise<*>} Resolves when the operation completes.
+   * Initialize the map engine, host integration, and initial view/zoom limits.
+   *
+   * @returns {Promise<void>} Resolves once `heurist-map-ready` has been dispatched.
+   * @throws {Error} When the map engine or host cannot be initialized.
    */
   async initialize() {
     this.assertActive();
@@ -144,7 +171,16 @@ export class MapApplication {
     }
   }
 
-  /** Load the lightweight list of available MapDocuments. */
+  /**
+   * Load the lightweight list of available MapDocuments.
+   *
+   * @param {*} [query=null] Provider-specific search query, or `false`/`null` for all documents.
+   * @param {Object} [options={}] Load options.
+   * @param {AbortSignal} [options.signal] Abort signal for the underlying request.
+   * @param {boolean} [options.activateFirst=true] Whether to activate the resolved initial document.
+   * @returns {Promise<Array<Object>>} Resolves with the available MapDocuments in API order.
+   * @throws {Error} When the MapDocument list provider is not configured, or the request fails.
+   */
   async loadMapDocuments(query = null, { signal, activateFirst = true } = {}) {
     this.assertActive();
     if (!this.providers.mapDocumentList) {
@@ -187,16 +223,33 @@ export class MapApplication {
     }
   }
 
-  /** Return available MapDocuments in API order. */
+  /**
+   * Return available MapDocuments in API order.
+   *
+   * @returns {Array<Object>} Public MapDocument list entries.
+   */
   getMapDocuments() { return [...this.mapDocuments.values()].map(createPublicDocumentEntry); }
 
-  /** Return the active MapDocument list entry. */
+  /**
+   * Return the active MapDocument list entry.
+   *
+   * @returns {?Object} Public active MapDocument list entry, or `null` when none is active.
+   */
   getActiveMapDocument() {
     const item = this.mapDocuments.get(this.activeMapDocumentId);
     return item ? createPublicDocumentEntry(item) : null;
   }
 
-  /** Activate exactly one persisted MapDocument. */
+  /**
+   * Activate exactly one persisted MapDocument.
+   *
+   * @param {string|number} documentId MapDocument list entry identifier.
+   * @param {Object} [options={}] Activation options.
+   * @param {AbortSignal} [options.signal] Abort signal for the underlying request.
+   * @param {boolean} [options.force=false] Reactivate even if already the active document.
+   * @returns {Promise<Object>} Resolves with the activated public MapDocument.
+   * @throws {Error} When `documentId` is not in the available document list.
+   */
   async activateMapDocument(documentId, { signal, force = false } = {}) {
     const requestedId = String(documentId);
     if (requestedId === this.dynamicDocumentId) {
@@ -279,7 +332,15 @@ export class MapApplication {
     }
   }
 
-  /** Activate the predefined dynamic MapDocument using stored layer definitions. */
+  /**
+   * Activate the predefined dynamic MapDocument using stored layer definitions.
+   *
+   * @param {Object} [options={}] Activation options.
+   * @param {AbortSignal} [options.signal] Abort signal used while preparing stored layers.
+   * @param {boolean} [options.force=false] Reactivate even if already the active document.
+   * @returns {Promise<Object>} Resolves with the activated dynamic MapDocument.
+   * @throws {Error} When the dynamic MapDocument is disabled.
+   */
   async activateDynamicMapDocument({ signal, force = false } = {}) {
     const item = this.getDynamicDocumentEntry();
     if (!item) throw new Error('Dynamic MapDocument is disabled');
@@ -373,13 +434,25 @@ export class MapApplication {
     }
   }
 
-  /** Reload a persisted MapDocument and keep it active. */
+  /**
+   * Reload a persisted MapDocument and keep it active.
+   *
+   * @param {string|number} [documentId=this.activeMapDocumentId] MapDocument identifier.
+   * @param {Object} [options={}] Reload options forwarded to {@link MapApplication#activateMapDocument}.
+   * @returns {Promise<Object>} Resolves with the reloaded public MapDocument.
+   * @throws {Error} When no MapDocument is active.
+   */
   async reloadMapDocument(documentId = this.activeMapDocumentId, options = {}) {
     if (!documentId) throw new Error('No MapDocument is active');
     return this.activateMapDocument(documentId, { ...options, force: true });
   }
 
-  /** Unload the active MapDocument layers and restore the default base map. */
+  /**
+   * Unload the active MapDocument layers and restore the default base map.
+   *
+   * @param {string|number} [documentId=this.activeMapDocumentId] MapDocument identifier to unload.
+   * @returns {Promise<boolean>} Resolves with whether the document was unloaded.
+   */
   async unloadMapDocument(documentId = this.activeMapDocumentId) {
     const id = String(documentId);
     if (!id || id !== String(this.activeMapDocumentId)) return false;
@@ -397,7 +470,12 @@ export class MapApplication {
     return true;
   }
 
-  /** Zoom to a document bookmark, bounds, or combined visible layer extent. */
+  /**
+   * Zoom to a document bookmark, bounds, or combined visible layer extent.
+   *
+   * @param {string|number} documentId MapDocument identifier (persisted or dynamic).
+   * @returns {Promise<*>} Resolves when the view change completes.
+   */
   async zoomToMapDocument(documentId) {
     const requestedId = String(documentId);
     const id = Number(documentId);
@@ -416,7 +494,11 @@ export class MapApplication {
     return this.setView(view.center, view.zoom, { animate: false });
   }
 
-  /** Zoom to the active MapDocument. */
+  /**
+   * Zoom to the active MapDocument.
+   *
+   * @returns {Promise<*>} Resolves when the view change completes.
+   */
   async zoomHome() {
     if (this.activeMapDocumentId) return this.zoomToMapDocument(this.activeMapDocumentId);
     const view = this.mapEnvironment.initialView;
@@ -424,16 +506,30 @@ export class MapApplication {
     return this.setView(view.center, view.zoom, { animate: false });
   }
 
-  /** Return configured engine-neutral base-map definitions. */
+  /**
+   * Return configured engine-neutral base-map definitions.
+   *
+   * @returns {Array<Object>} Cloned base-map definitions.
+   */
   getBaseMaps() { return [...this.baseMaps.values()].map(clonePlain); }
 
-  /** Return the active base-map definition. */
+  /**
+   * Return the active base-map definition.
+   *
+   * @returns {?Object} Cloned active base-map definition, or `null` when none is active.
+   */
   getActiveBaseMap() {
     const item = this.baseMaps.get(String(this.activeBaseMapId));
     return item ? clonePlain(item) : null;
   }
 
-  /** Replace the active base map while preserving operational layers. */
+  /**
+   * Replace the active base map while preserving operational layers.
+   *
+   * @param {string} baseMapId Configured base-map identifier.
+   * @returns {Promise<Object>} Resolves with the cloned activated base-map definition.
+   * @throws {Error} When `baseMapId` is not a configured base map.
+   */
   async setBaseMap(baseMapId) {
     const item = this.baseMaps.get(String(baseMapId));
     if (!item) throw new Error(`Unknown base map "${baseMapId}"`);
@@ -443,6 +539,13 @@ export class MapApplication {
     return clonePlain(item);
   }
 
+  /**
+   * Resolve and apply the base map declared by a MapDocument, honoring curated
+   * basemaps that fall outside the site's configured "allowed" catalog.
+   *
+   * @param {Object} document MapDocument whose `worldBaseMap` should be applied.
+   * @returns {Promise<?Object>} Resolves with the cloned activated base-map definition, or `null`.
+   */
   async applyDocumentBaseMap(document) {
     // MapPresentationService returns worldBaseMap as a Heurist term descriptor.
     // The term id/code are not basemap identifiers; the reliable value is label.
@@ -462,6 +565,12 @@ export class MapApplication {
     return baseMap ? this.setBaseMap(baseMap.id) : this.restoreDefaultBaseMap();
   }
 
+  /**
+   * Restore the configured default base map, or clear the base map entirely
+   * when none is configured.
+   *
+   * @returns {Promise<?Object>} Resolves with the cloned restored base-map definition, or `null`.
+   */
   async restoreDefaultBaseMap() {
     if (this.defaultBaseMapId != null && this.baseMaps.has(String(this.defaultBaseMapId))) {
       return this.setBaseMap(this.defaultBaseMapId);
@@ -472,7 +581,13 @@ export class MapApplication {
     return null;
   }
 
-  /** Zoom to a layer extent from source metadata or the map engine. */
+  /**
+   * Zoom to a layer extent from source metadata or the map engine.
+   *
+   * @param {string|number} layerId Runtime layer identifier.
+   * @returns {Promise<*>} Resolves when the view change completes.
+   * @throws {Error} When the layer is not registered or has no resolvable extent.
+   */
   async zoomToLayer(layerId) {
     const layer = this.layers.get(layerId);
     if (!layer) throw new Error(`Layer "${layerId}" is not registered`);
@@ -481,7 +596,14 @@ export class MapApplication {
     return this.fitBounds(bounds, { animate: false });
   }
 
-  /** Apply a runtime global opacity multiplier; accepts 0-1 or 0-100. */
+  /**
+   * Apply a runtime global opacity multiplier; accepts 0-1 or 0-100.
+   *
+   * @param {string|number} layerId Runtime layer identifier.
+   * @param {number} opacity Opacity in the 0-1 or 0-100 range.
+   * @returns {Promise<number>} Resolves with the normalized 0-1 opacity applied.
+   * @throws {Error} When the layer is not registered.
+   */
   async setLayerOpacity(layerId, opacity) {
     const value = normalizeRuntimeOpacity(opacity);
     const layer = this.layers.get(layerId);
@@ -496,7 +618,14 @@ export class MapApplication {
     return value;
   }
 
-  /** Activate one thematic map for a layer, or use null for the ordinary/default symbology. */
+  /**
+   * Activate one thematic map for a layer, or use null for the ordinary/default symbology.
+   *
+   * @param {string|number} layerId Runtime layer identifier.
+   * @param {?number} [themeIndex=null] Thematic map index to activate, or `null` for the default symbology.
+   * @returns {Promise<Object>} Resolves with the updated public layer description.
+   * @throws {Error} When the layer is not registered.
+   */
   async setLayerTheme(layerId, themeIndex = null) {
     const layer = this.layers.get(layerId);
     if (!layer) throw new Error(`Layer "${layerId}" is not registered`);
@@ -535,7 +664,14 @@ export class MapApplication {
     return this.getLayer(layerId);
   }
 
-  /** Replace a layer style in memory and redraw it without reloading geometry/data. */
+  /**
+   * Replace a layer style in memory and redraw it without reloading geometry/data.
+   *
+   * @param {string|number} layerId Runtime layer identifier.
+   * @param {Object} style Sparse or complete style definition to apply.
+   * @returns {Promise<Object>} Resolves with the updated public layer description.
+   * @throws {Error} When the layer is not registered.
+   */
   async setLayerStyle(layerId, style) {
     const layer = this.layers.get(layerId);
     if (!layer) throw new Error(`Layer "${layerId}" is not registered`);
@@ -577,7 +713,16 @@ export class MapApplication {
     return this.getLayer(layerId);
   }
 
-  /** Open the host symbology editor and apply the returned canonical DT_SYMBOLOGY value. */
+  /**
+   * Open the host symbology editor and apply the returned canonical DT_SYMBOLOGY value.
+   *
+   * @param {string|number} layerId Runtime layer identifier.
+   * @param {Object} [options={}] Editor options.
+   * @param {boolean} [options.thematic=false] Whether to open the thematic-map editor.
+   * @returns {Promise<?Object>} Resolves with the updated public layer description, or `null` when
+   *          editing is unavailable or the editor was dismissed without saving.
+   * @throws {Error} When the layer is not registered, or is not backed by a persisted MapLayer record.
+   */
   async requestEditLayerSymbology(layerId, { thematic = false } = {}) {
     const layer = this.layers.get(layerId);
     if (!layer) throw new Error(`Layer "${layerId}" is not registered`);
@@ -655,7 +800,14 @@ export class MapApplication {
     return this.setLayerStyle(layerId, value);
   }
 
-  /** Apply synchronized record IDs to the first visible layer containing them. */
+  /**
+   * Apply synchronized record IDs to the first visible layer containing them.
+   *
+   * @param {number|Array<number>} recordIds Record ID or IDs to select.
+   * @param {Object} [options={}] Selection options.
+   * @param {boolean} [options.zoom] Whether to zoom to the resulting selection.
+   * @returns {Promise<?Object>} Resolves with the resulting selection, or `null` when cleared.
+   */
   async setSelection(recordIds, options = {}) {
     const ids = [...new Set((Array.isArray(recordIds) ? recordIds : [recordIds])
       .map(normalizeSelectedRecordId).filter((value) => value != null))];
@@ -669,7 +821,11 @@ export class MapApplication {
     return this.clearSelection();
   }
 
-  /** Return the lightweight single-layer selection. */
+  /**
+   * Return the lightweight single-layer selection.
+   *
+   * @returns {?Object} Current `{ layerId, features }` selection, or `null` when nothing is selected.
+   */
   getSelection() {
     return this.selectionLayerId == null
       ? null
@@ -679,7 +835,20 @@ export class MapApplication {
         };
   }
 
-  /** Select one feature, optionally adding/toggling within the same layer. */
+  /**
+   * Select one feature, optionally adding/toggling within the same layer.
+   *
+   * @param {string|number} layerId Runtime layer identifier.
+   * @param {string|number} featureId Rendered feature identifier.
+   * @param {Object} [options={}] Selection options.
+   * @param {?number} [options.recordId=null] Record ID backing the feature, resolved from the
+   *        engine when omitted.
+   * @param {boolean} [options.additive=false] Add to the current selection instead of replacing it.
+   * @param {boolean} [options.toggle=false] Toggle the feature out of the selection if already selected.
+   * @param {boolean} [options.zoom=false] Zoom to the resulting selection.
+   * @returns {Promise<?Object>} Resolves with the resulting selection, or `null` when cleared.
+   * @throws {Error} When the layer is not registered, not selectable, or not visible/loaded.
+   */
   async selectFeature(layerId, featureId, { recordId = null, additive = false, toggle = false, zoom = false } = {}) {
     if (this.config.interaction?.selectionEnabled === false) return null;
     const layer = this.layers.get(layerId);
@@ -727,7 +896,15 @@ export class MapApplication {
     return selection;
   }
 
-  /** Select all rendered geometries for one record in a selectable layer. */
+  /**
+   * Select all rendered geometries for one record in a selectable layer.
+   *
+   * @param {string|number} layerId Runtime layer identifier.
+   * @param {number} recordId Record ID whose rendered geometries should be selected.
+   * @param {Object} [options={}] Selection options.
+   * @param {boolean} [options.zoom] Zoom to the resulting selection.
+   * @returns {Promise<?Object>} Resolves with the resulting selection, or `null` when cleared.
+   */
   async selectRecord(layerId, recordId, options = {}) {
     return this.selectRecords(layerId, [recordId], {
       replace: true,
@@ -735,7 +912,17 @@ export class MapApplication {
     });
   }
 
-  /** Select all rendered geometries for multiple records in one selectable layer. */
+  /**
+   * Select all rendered geometries for multiple records in one selectable layer.
+   *
+   * @param {string|number} layerId Runtime layer identifier.
+   * @param {number|Array<number>} recordIds Record ID or IDs whose geometries should be selected.
+   * @param {Object} [options={}] Selection options.
+   * @param {boolean} [options.replace=true] Replace the current selection instead of adding to it.
+   * @param {boolean} [options.zoom=false] Zoom to the resulting selection.
+   * @returns {Promise<?Object>} Resolves with the resulting selection, or `null` when cleared.
+   * @throws {Error} When the layer is not registered, not selectable, or not visible/loaded.
+   */
   async selectRecords(layerId, recordIds, { replace = true, zoom = false } = {}) {
     if (this.config.interaction?.selectionEnabled === false) return null;
     const layer = this.layers.get(layerId);
@@ -783,7 +970,11 @@ export class MapApplication {
     return selection;
   }
 
-  /** Clear selected features and restore their native styles. */
+  /**
+   * Clear selected features and restore their native styles.
+   *
+   * @returns {Promise<?Object>} Resolves with the selection that was cleared, or `null` if none.
+   */
   async clearSelection() {
     const previous = this.getSelection();
     if (this.selectionLayerId != null) {
@@ -798,7 +989,11 @@ export class MapApplication {
     return previous;
   }
 
-  /** Zoom to all selected geometries. */
+  /**
+   * Zoom to all selected geometries.
+   *
+   * @returns {Promise<boolean>} Resolves with whether the view actually changed.
+   */
   async zoomToSelection() {
     if (this.selectionLayerId == null || this.selectedFeatures.size === 0) return false;
     const bounds = await this.mapEngine.getSelectionBounds(
@@ -822,7 +1017,13 @@ export class MapApplication {
     return true;
   }
 
-  /** Handle an engine-neutral feature click. */
+  /**
+   * Handle an engine-neutral feature click: dispatch click events, apply record
+   * selection, and open a feature popup when configured.
+   *
+   * @param {Object} detail Engine-neutral feature click detail.
+   * @returns {Promise<void>} Resolves once selection and popup handling complete.
+   */
   async handleFeatureClick(detail) {
     const payload = {
       layerId: detail.layerId,
@@ -895,12 +1096,26 @@ export class MapApplication {
     }
   }
 
-  /** Handle a background map click and clear current selection. */
+  /**
+   * Handle a background map click and clear current selection.
+   *
+   * @param {Object} detail Engine-neutral map click detail.
+   * @returns {Promise<void>} Resolves once the selection has been cleared.
+   */
   async handleMapClick(detail) {
     this.dispatch('heurist-map-map-click', { latlng: detail.latlng || null });
     await this.clearSelection();
   }
 
+  /**
+   * Open the host record editor for a persisted MapDocument and reload it on save.
+   *
+   * @param {string|number} documentId Persisted MapDocument record ID.
+   * @returns {Promise<?Object>} Resolves with the host edit result, or `null` when editing
+   *          is unavailable (the stable `heurist-map-edit-document-requested` event is
+   *          dispatched as a fallback in that case).
+   * @throws {Error} When `documentId` does not resolve to a positive record ID.
+   */
   async requestEditMapDocument(documentId) {
     const recordId = Number(documentId);
     if (!(recordId > 0)) throw new Error('A persisted MapDocument record ID is required for editing');
@@ -918,6 +1133,14 @@ export class MapApplication {
     return null;
   }
 
+  /**
+   * Create a new persisted MapDocument record through the host editor and activate it.
+   *
+   * @returns {Promise<?Object>} Resolves with the host creation result, or `null` when
+   *          editing is unavailable (the stable `heurist-map-add-document-requested`
+   *          event is dispatched as a fallback in that case).
+   * @throws {Error} When the MapDocument record type cannot be resolved.
+   */
   async requestAddMapDocument() {
     if (!this.config.readonly && this.host.supportsEditing()) {
       const typeResult = await this.providers.mapDocumentList?.search(false);
@@ -938,6 +1161,15 @@ export class MapApplication {
     return null;
   }
 
+  /**
+   * Open the host record editor for a persisted MapLayer and reload it on save.
+   *
+   * @param {string|number} layerId Runtime layer identifier.
+   * @returns {Promise<?Object>} Resolves with the host edit result, or `null` when editing
+   *          is unavailable (the stable `heurist-map-edit-layer-requested` event is
+   *          dispatched as a fallback in that case).
+   * @throws {Error} When the layer is not backed by a persisted MapLayer record.
+   */
   async requestEditLayer(layerId) {
     const layer = this.layers.get(layerId);
     const recordId = Number(layer?.recordId);
@@ -958,7 +1190,14 @@ export class MapApplication {
 
   /**
    * Load, prepare, and render a MapDocument and its ordered MapLayer references.
-   * @returns {Promise<*>} Resolves when the operation completes.
+   *
+   * @param {string|number} recordId Persisted MapDocument record ID.
+   * @param {Object} [options={}] Load options.
+   * @param {AbortSignal} [options.signal] Abort signal for the underlying requests.
+   * @param {Function} [options.onEnvironmentReady] Called with `(mapDocument, environment)`
+   *        once the document shell (bookmark/bounds/base map) is ready, before layers load.
+   * @returns {Promise<Object>} Resolves with the loaded MapDocument.
+   * @throws {Error} When data-integration providers are not configured, or loading fails.
    */
   async loadMapDocument(recordId, { signal, onEnvironmentReady } = {}) {
     this.assertActive();
@@ -1036,7 +1275,9 @@ export class MapApplication {
 
   /**
    * Cancel the currently active MapDocument or data-loading request.
-   * @returns {boolean} Operation result.
+   *
+   * @param {string} [reason='Map request cancelled'] Abort reason message.
+   * @returns {boolean} Whether a pending request was cancelled.
    */
   cancelPendingRequests(reason = 'Map request cancelled') {
     if (!this.activeLoadController) {
@@ -1069,7 +1310,11 @@ export class MapApplication {
 
   /**
    * Add an engine-neutral runtime layer and register its application state.
-   * @returns {Promise<*>} Resolves when the operation completes.
+   *
+   * @param {Object} definition Prepared runtime layer definition.
+   * @returns {Promise<*>} Resolves with the map engine's `addLayer()` result.
+   * @throws {TypeError} When the definition has no `id`.
+   * @throws {Error} When a layer with the same ID is already registered, or rendering fails.
    */
   async renderRuntimeLayer(definition) {
     this.assertActive();
@@ -1106,6 +1351,8 @@ export class MapApplication {
 
   /**
    * Remove a runtime layer from the map and application registry.
+   *
+   * @param {string|number} layerId Runtime layer identifier.
    * @returns {Promise<boolean>} Resolves with whether a layer was removed.
    */
   async removeRuntimeLayer(layerId) {
@@ -1130,7 +1377,12 @@ export class MapApplication {
     return removed;
   }
 
-  /** Return layer fallbacks for one document. Dynamic loading is document-specific. */
+  /**
+   * Return layer fallbacks for one document. Dynamic loading is document-specific.
+   *
+   * @param {?Object} document MapDocument registry entry.
+   * @returns {Object} Effective layer defaults for `document`.
+   */
   getLayerDefaults(document) {
     if (String(document?.id) === this.dynamicDocumentId) {
       return {
@@ -1141,7 +1393,18 @@ export class MapApplication {
     return this.config.defaults || {};
   }
 
-  /** Add a MapLayer definition or persisted MapLayer record to a document. */
+  /**
+   * Add a MapLayer definition or persisted MapLayer record to a document.
+   *
+   * @param {number|Object} definition Persisted MapLayer record ID, a public MapLayer
+   *        definition, or a prepared runtime layer.
+   * @param {Object} [options={}] Add options.
+   * @param {string|number} [options.documentId=this.activeMapDocumentId] Target MapDocument.
+   * @param {AbortSignal} [options.signal] Abort signal for the underlying request.
+   * @returns {Promise<Object>} Resolves with the added public layer description.
+   * @throws {TypeError} When a MapLayer definition has no `source.type`.
+   * @throws {Error} When the resolved layer ID already exists in the target document.
+   */
   async addLayer(definition, { documentId = this.activeMapDocumentId, signal } = {}) {
     // Backward-compatible internal/runtime path used by existing integrations
     // and tests. Public MapLayer definitions use source.type and are stored on
@@ -1198,7 +1461,14 @@ export class MapApplication {
     return this.getLayer(id) || { id, recordId: mapLayer.id, title: mapLayer.title };
   }
 
-  /** Remove a layer definition and its active native representation. */
+  /**
+   * Remove a layer definition and its active native representation.
+   *
+   * @param {string|number} layerId Runtime layer identifier.
+   * @param {Object} [options={}] Remove options.
+   * @param {string|number} [options.documentId=this.activeMapDocumentId] MapDocument owning the layer.
+   * @returns {Promise<boolean>} Resolves with whether a stored layer definition was removed.
+   */
   async removeLayer(layerId, { documentId = this.activeMapDocumentId } = {}) {
     const document = this.resolveMutableDocument(documentId);
     const index = findStoredLayerIndex(document, layerId);
@@ -1212,7 +1482,14 @@ export class MapApplication {
     return true;
   }
 
-  /** Keep a layer definition but remove its data/native representation. */
+  /**
+   * Keep a layer definition but remove its data/native representation.
+   *
+   * @param {string|number} layerId Runtime layer identifier.
+   * @param {Object} [options={}] Clear options.
+   * @param {string|number} [options.documentId=this.activeMapDocumentId] MapDocument owning the layer.
+   * @returns {Promise<boolean>} Resolves with whether the layer was cleared.
+   */
   async clearLayer(layerId, { documentId = this.activeMapDocumentId } = {}) {
     const document = this.resolveMutableDocument(documentId);
     const stored = findStoredLayer(document, layerId);
@@ -1231,6 +1508,12 @@ export class MapApplication {
    * Remember the shared Current-result query. The fixed `current-results`
    * source belongs to the predefined dynamic MapDocument; updating it must
    * never activate that document or replace an active persisted MapDocument.
+   *
+   * @param {*} query Query value, or `null`/`''` to clear the current-results layer.
+   * @param {Object} [options={}] Query options.
+   * @param {string} [options.title] Layer title used when the layer is created.
+   * @param {AbortSignal} [options.signal] Abort signal for the underlying request.
+   * @returns {Promise<?Object>} Resolves with the updated public layer description, or `null`.
    */
   async setQuery(query, options = {}) {
     const layerId = 'current-results';
@@ -1273,7 +1556,15 @@ export class MapApplication {
     });
   }
 
-  /** Cache and reconcile the Explorer current-result and Workspace layers. */
+  /**
+   * Cache and reconcile the Explorer current-result and Workspace layers.
+   *
+   * @param {Object} [options={}] Data-source options.
+   * @param {?Object} [options.currentDataSource=null] Explorer current-result data source.
+   * @param {Array<Object>} [options.workspaceDataSources=[]] Explorer Workspace data sources.
+   * @returns {Promise<boolean|Object>} Resolves with `false` outside the Explorer host, otherwise
+   *          the updated public dynamic MapDocument description.
+   */
   async setDynamicDataSources({ currentDataSource = null, workspaceDataSources = [] } = {}) {
     if (this.host.getHostContext?.()?.name !== 'heurist-explorer') return false;
     this.currentDataSource = normalizeRuntimeDataSource(currentDataSource);
@@ -1286,6 +1577,12 @@ export class MapApplication {
     return this.getDynamicDocument();
   }
 
+  /**
+   * Replace the dynamic MapDocument's Explorer-managed layer definitions with
+   * ones freshly derived from the cached current-result/Workspace data sources.
+   *
+   * @returns {boolean} Whether the dynamic MapDocument entry was updated.
+   */
   replaceExplorerDynamicLayerDefinitions() {
     const document = this.getDynamicDocumentEntry();
     if (!document) return false;
@@ -1300,6 +1597,14 @@ export class MapApplication {
     return true;
   }
 
+  /**
+   * Reconcile the dynamic MapDocument's rendered layers with the cached Explorer
+   * current-result/Workspace data sources, adding, removing, and reordering
+   * layers as needed without disturbing unchanged ones.
+   *
+   * @returns {Promise<boolean>} Resolves with whether reconciliation ran (`false` when the
+   *          dynamic MapDocument is disabled or not active).
+   */
   async reconcileDynamicDataSourceLayers() {
     const document = this.getDynamicDocumentEntry();
     if (!document) return false;
@@ -1343,6 +1648,13 @@ export class MapApplication {
     return true;
   }
 
+  /**
+   * Add or remove a layer's backing data source from the host Workspace.
+   *
+   * @param {string|number} layerId Runtime layer identifier.
+   * @returns {Promise<boolean>} Resolves with `false` when the layer has no data source or the
+   *          host does not support Workspace, otherwise the new "in workspace" state.
+   */
   async toggleLayerWorkspace(layerId) {
     const layer = this.getLayer(layerId);
     const source = layer?.options?.dataSource;
@@ -1358,6 +1670,13 @@ export class MapApplication {
     return !inWorkspace;
   }
 
+  /**
+   * Remove a layer's backing data source from the host Workspace.
+   *
+   * @param {string|number} layerId Runtime layer identifier.
+   * @returns {Promise<boolean>} Resolves with `false` when the layer has no data source or the
+   *          host does not support Workspace, otherwise the host removal result.
+   */
   async removeLayerFromWorkspace(layerId) {
     const layer = this.getLayer(layerId);
     const source = layer?.options?.dataSource;
@@ -1365,12 +1684,27 @@ export class MapApplication {
     return this.host.removeDataSourceFromWorkspace(source);
   }
 
+  /**
+   * Ask the host to display a layer's backing data source.
+   *
+   * @param {string|number} layerId Runtime layer identifier.
+   * @returns {Promise<boolean>} Resolves with `false` when the layer has no data source or the
+   *          host does not support it, otherwise the host display result.
+   */
   async showLayerDataSource(layerId) {
     const source = this.getLayer(layerId)?.options?.dataSource;
     if (!source || typeof this.host.showDatasource !== 'function') return false;
     return this.host.showDatasource(source);
   }
 
+  /**
+   * Merge a runtime layer's live style/opacity/visibility into a cloned data source's
+   * map presentation profile.
+   *
+   * @param {Object} source Data source to clone and update.
+   * @param {?Object} layer Public layer description providing the current live state.
+   * @returns {Object} Cloned data source with an updated `presentation.map` profile.
+   */
   dataSourceWithLayerState(source, layer) {
     const value = clonePlain(source);
     value.presentation ||= {};
@@ -1383,6 +1717,13 @@ export class MapApplication {
     return value;
   }
 
+  /**
+   * Push a Workspace-linked layer's current style/opacity/visibility back to the
+   * host Workspace entry, so external Workspace views stay in sync.
+   *
+   * @param {string|number} layerId Runtime layer identifier.
+   * @returns {*} Host update result, or `null` when the layer is not a Workspace entry.
+   */
   persistWorkspaceLayerState(layerId) {
     const layer = this.getLayer(layerId);
     if (layer?.options?.workspaceEntry !== true) return null;
@@ -1391,7 +1732,23 @@ export class MapApplication {
     );
   }
 
-  /** Add a query-backed layer to the predefined dynamic MapDocument. */
+  /**
+   * Add a query-backed layer to the predefined dynamic MapDocument.
+   *
+   * @param {*} query Query value for the new layer's source.
+   * @param {Object} [options={}] Layer options.
+   * @param {string} [options.id] Explicit runtime layer identifier.
+   * @param {string} [options.title='Query layer'] Layer title.
+   * @param {string} [options.description=''] Layer description.
+   * @param {boolean} [options.visible] Initial visibility, default visible.
+   * @param {boolean} [options.selectable] Whether features are selectable, default selectable.
+   * @param {number} [options.limit] Maximum number of results to request.
+   * @param {boolean} [options.simplify] Whether to request simplified geometries.
+   * @param {Object} [options.style] Layer style definition.
+   * @param {Object} [options.layerOptions] Additional engine-neutral layer options (`options.options` also accepted).
+   * @param {AbortSignal} [options.signal] Abort signal for the underlying request.
+   * @returns {Promise<Object>} Resolves with the added public layer description.
+   */
   async addQueryLayer(query, options = {}) {
     const definition = {
       id: options.id || null,
@@ -1410,7 +1767,18 @@ export class MapApplication {
     return this.addLayer(definition, { documentId: this.dynamicDocumentId, signal: options.signal });
   }
 
-  /** Replace the query for one dynamic query layer and optionally reload it. */
+  /**
+   * Replace the query for one dynamic query layer and optionally reload it.
+   *
+   * @param {string|number} layerId Runtime layer identifier.
+   * @param {*} query Replacement query value.
+   * @param {Object} [options={}] Options.
+   * @param {boolean} [options.reload=true] Whether to reload the layer immediately when visible.
+   * @param {AbortSignal} [options.signal] Abort signal used when recreating the runtime layer.
+   * @returns {Promise<Object>} Resolves with the updated public layer description.
+   * @throws {Error} When the dynamic MapDocument is disabled, the layer is not found in it,
+   *          or the layer is not a query layer.
+   */
   async setQueryForLayer(layerId, query, options = {}) {
     const document = this.getDynamicDocumentEntry();
     if (!document) throw new Error('Dynamic MapDocument is disabled');
@@ -1448,7 +1816,13 @@ export class MapApplication {
     return this.getLayer(layerId) || { id: layerId, title: stored.mapLayer.title };
   }
 
-  /** Resolve one mutable runtime MapDocument entry. */
+  /**
+   * Resolve one mutable runtime MapDocument entry.
+   *
+   * @param {string|number} [documentId=this.activeMapDocumentId] MapDocument identifier.
+   * @returns {Object} Mutable MapDocument registry entry, with `layerDefinitions` initialized.
+   * @throws {Error} When the MapDocument is not available.
+   */
   resolveMutableDocument(documentId = this.activeMapDocumentId) {
     const key = String(documentId);
     const document = this.mapDocuments.get(key) || this.mapDocuments.get(Number(key));
@@ -1459,7 +1833,11 @@ export class MapApplication {
 
   /**
    * Show or hide a runtime layer.
-   * @returns {Promise<*>} Resolves when the operation completes.
+   *
+   * @param {string|number} layerId Runtime layer identifier.
+   * @param {boolean} visible Requested visibility.
+   * @returns {Promise<void>} Resolves once the layer visibility change is applied.
+   * @throws {Error} When the layer is not registered.
    */
   async setLayerVisibility(layerId, visible) {
     this.assertActive();
@@ -1515,13 +1893,13 @@ export class MapApplication {
   }
 
   /**
-   * Register an initially hidden MapLayer without loading its source data.
+   * Register one failed MapLayer without aborting the containing MapDocument.
    *
-   * @param {Object} mapLayer Normalized public MapLayer definition.
+   * @param {?Object} mapLayer Normalized public MapLayer definition, or `null` when unresolved.
    * @param {Object} reference MapDocument layer reference.
-   * @returns {Object} Lightweight registered layer state.
+   * @param {*} error Error describing why the layer could not be loaded/prepared.
+   * @returns {Object} Lightweight registered layer state with `loadState: 'error'`.
    */
-  /** Register one failed MapLayer without aborting the containing MapDocument. */
   registerFailedLayer(mapLayer, reference, error) {
     const id = reference.id ?? `map-layer-${reference.recordId}`;
     const definition = {
@@ -1551,6 +1929,16 @@ export class MapApplication {
     return state;
   }
 
+  /**
+   * Register an initially hidden MapLayer without loading its source data.
+   *
+   * @param {Object} mapLayer Normalized public MapLayer definition.
+   * @param {Object} reference MapDocument layer reference.
+   * @param {Object} [options={}] Registration options.
+   * @param {boolean} [options.preserveVisible=false] Preserve the definition's own visibility
+   *        instead of forcing the layer hidden (used for dynamic layers deferred by zoom range).
+   * @returns {Object} Lightweight registered layer state with `loadState: 'deferred'`.
+   */
   registerDeferredLayer(mapLayer, reference, { preserveVisible = false } = {}) {
     const id = reference.id ?? `map-layer-${reference.recordId}`;
     const definition = {
@@ -1710,7 +2098,12 @@ export class MapApplication {
 
   /**
    * Reload a persisted MapLayer record and replace its rendered runtime layer.
-   * @returns {Promise<*>} Resolves when the operation completes.
+   *
+   * @param {string|number} layerId Runtime layer identifier.
+   * @param {Object} [options={}] Reload options.
+   * @param {AbortSignal} [options.signal] Abort signal for the underlying request.
+   * @returns {Promise<Object>} Resolves with the rendered or deferred layer state.
+   * @throws {Error} When the layer is not backed by a MapLayer record.
    */
   async reloadLayer(layerId, { signal } = {}) {
     this.assertDataIntegrationConfigured();
@@ -1739,7 +2132,8 @@ export class MapApplication {
 
   /**
    * Remove all runtime layers from the application.
-   * @returns {Promise<*>} Resolves when the operation completes.
+   *
+   * @returns {Promise<void>} Resolves once every runtime layer has been removed.
    */
   async clearLayers() {
     for (const layerId of [...this.layers.keys()]) {
@@ -1749,7 +2143,12 @@ export class MapApplication {
 
   /**
    * Set the map center and zoom.
+   *
+   * @param {{latitude: number, longitude: number}} center Target center coordinate.
+   * @param {number} zoom Target native zoom level.
+   * @param {Object} [options={}] Engine-specific view options (for example `animate`).
    * @returns {Promise<*>} Resolves when the operation completes.
+   * @throws {Error} When the application has been destroyed.
    */
   async setView(center, zoom, options = {}) {
     this.assertActive();
@@ -1758,7 +2157,11 @@ export class MapApplication {
 
   /**
    * Fit the map viewport to geographic bounds.
+   *
+   * @param {{west: number, south: number, east: number, north: number}} bounds Target bounds.
+   * @param {Object} [options={}] Engine-specific view options (for example `animate`).
    * @returns {Promise<*>} Resolves when the operation completes.
+   * @throws {Error} When the application has been destroyed.
    */
   async fitBounds(bounds, options = {}) {
     this.assertActive();
@@ -1767,7 +2170,9 @@ export class MapApplication {
 
   /**
    * Notify the map engine that its container dimensions changed.
+   *
    * @returns {Promise<*>} Resolves when the operation completes.
+   * @throws {Error} When the application has been destroyed.
    */
   async invalidateSize() {
     this.assertActive();
@@ -1776,7 +2181,9 @@ export class MapApplication {
 
   /**
    * Return the current engine-neutral map view state.
-   * @returns {*} Method result.
+   *
+   * @returns {*} Current map engine view state.
+   * @throws {Error} When the application has been destroyed.
    */
   getViewState() {
     this.assertActive();
@@ -1791,6 +2198,11 @@ export class MapApplication {
    * Startup-only choices (allowed/default documents and base maps) are stored
    * for the next initialization. Live UI and current-results settings are
    * applied immediately where this is safe.
+   *
+   * @param {Object} [settings={}] Raw map configuration settings payload.
+   * @returns {Promise<{applied: boolean, requiresReload: boolean, settings: Object}>} Resolves
+   *          with the normalized settings that were applied.
+   * @throws {Error} When the application has been destroyed.
    */
   async applyConfiguration(settings = {}) {
     this.assertActive();
@@ -1936,12 +2348,20 @@ export class MapApplication {
     return { applied: true, requiresReload: false, settings: normalized };
   }
 
-  /** Return host integration capabilities. */
+  /**
+   * Return host integration capabilities.
+   *
+   * @returns {{mapPreferences: boolean, mapPublishing: boolean}} Host capability flags.
+   */
   getHostCapabilities() {
     return this.host?.getCapabilities?.() || { mapPreferences: false, mapPublishing: false };
   }
 
-  /** Capture the reproducible, non-persistent state of the current map. */
+  /**
+   * Capture the reproducible, non-persistent state of the current map.
+   *
+   * @returns {Object} Serializable map state suitable for {@link MapApplication#restoreMapState}.
+   */
   captureMapState() {
     const view = this.getViewState();
     const currentLayer = this.getDocumentLayer('current-results', this.dynamicDocumentId);
@@ -1967,7 +2387,12 @@ export class MapApplication {
     };
   }
 
-  /** Restore a previously captured published/initial map state. */
+  /**
+   * Restore a previously captured published/initial map state.
+   *
+   * @param {Object} [state={}] Serialized map state from {@link MapApplication#captureMapState}.
+   * @returns {Promise<boolean>} Resolves with whether the state was applied.
+   */
   async restoreMapState(state = {}) {
     if (!state || typeof state !== 'object') return false;
 
@@ -2050,7 +2475,8 @@ export class MapApplication {
 
   /**
    * Return the current public MapDocument representation.
-   * @returns {*} Method result.
+   *
+   * @returns {Object} Cloned current MapDocument.
    */
   getMapDocument() {
     return clonePlain(this.config.mapDocument);
@@ -2058,7 +2484,8 @@ export class MapApplication {
 
   /**
    * Return supported application or map-engine capabilities.
-   * @returns {*} Method result.
+   *
+   * @returns {Object} Merged map-engine and application capability flags.
    */
   getCapabilities() {
     return {
@@ -2102,8 +2529,14 @@ export class MapApplication {
   }
 
   /**
-   * Prepare referenced layers.
-   * @returns {Promise<*>} Resolves when the operation completes.
+   * Load and prepare a MapDocument's referenced MapLayer records, tolerating
+   * individual layer failures and resolving dynamic-layer zoom-range conflicts.
+   *
+   * @param {Object} mapDocument MapDocument whose `layers` references are prepared.
+   * @param {AbortSignal} [signal] Abort signal for the underlying requests.
+   * @returns {Promise<Array<Object>>} Resolves with `{ mapLayer, reference, runtimeLayer?, error? }`
+   *          entries in reference order.
+   * @throws {DOMException} When `signal` is aborted.
    */
   async prepareReferencedLayers(mapDocument, signal) {
     const references = [...mapDocument.layers].sort(compareLayerReferences);
@@ -2180,10 +2613,24 @@ export class MapApplication {
     return result;
   }
 
+  /**
+   * Whether a MapLayer is a dynamic (viewport-driven) query layer.
+   *
+   * @param {?Object} mapLayer Normalized public MapLayer definition.
+   * @returns {boolean} `true` when the layer is a Heurist query layer with dynamic requests enabled.
+   */
   isDynamicQueryLayer(mapLayer) {
     return mapLayer?.source?.type === 'heurist-query' && mapLayer?.options?.dynamicRequests === true;
   }
 
+  /**
+   * Select the single dynamic query layer that should be active for the current
+   * zoom level, warning when more than one candidate's zoom range overlaps.
+   *
+   * @param {Array<Object>} items Candidate `{ mapLayer, reference }` entries (or MapLayer-shaped items).
+   * @param {?Object} [view=this.mapEngine.getViewState?.()] Current engine-neutral view state.
+   * @returns {?Object} The winning candidate item, or `null` when none qualify.
+   */
   selectDynamicLayer(items, view = this.mapEngine.getViewState?.()) {
     const zoom = Number(view?.zoom);
     const candidates = items.filter((item) => {
@@ -2205,6 +2652,15 @@ export class MapApplication {
     return winner;
   }
 
+  /**
+   * Debounce (or immediately run) a dynamic-layer viewport refresh.
+   *
+   * @param {?Object} [view=null] Engine-neutral view state to refresh with, or `null` to
+   *        resolve it from the map engine when the refresh runs.
+   * @param {Object} [options={}] Scheduling options.
+   * @param {boolean} [options.immediate=false] Run the refresh immediately instead of debouncing.
+   * @returns {void}
+   */
   scheduleDynamicLayerRefresh(view = null, { immediate = false } = {}) {
     if (this.destroyed || !this.initialized) return;
     if (this.dynamicRefreshTimer) clearTimeout(this.dynamicRefreshTimer);
@@ -2218,6 +2674,12 @@ export class MapApplication {
     else this.dynamicRefreshTimer = setTimeout(run, this.dynamicRefreshDelay);
   }
 
+  /**
+   * Resolve a runtime-layer registry key without assuming string/number identity.
+   *
+   * @param {string|number} layerId Runtime layer identifier as known by the caller.
+   * @returns {string|number} The registry key found in {@link MapApplication#layers}, or `layerId` unchanged.
+   */
   findRuntimeLayerKey(layerId) {
     if (this.layers.has(layerId)) return layerId;
     const wanted = String(layerId);
@@ -2237,6 +2699,15 @@ export class MapApplication {
     return null;
   }
 
+  /**
+   * Resolve the winning dynamic layer for the current viewport, hide losing
+   * dynamic layers, and reload the winner's data when the viewport changed.
+   *
+   * @param {?Object} [view=null] Engine-neutral view state, or `null` to resolve it
+   *        from the map engine.
+   * @returns {Promise<?Object>} Resolves with the public description of the winning
+   *          layer, or `null` when there is no active document/view or no dynamic layer.
+   */
   async refreshDynamicLayer(view = null) {
     const document = this.mapDocuments.get(this.activeMapDocumentId);
     if (!document) return null;
@@ -2323,8 +2794,16 @@ export class MapApplication {
   }
 
   /**
-   * Create runtime layer.
-   * @returns {Promise<*>} Resolves when the operation completes.
+   * Prepare an engine-neutral runtime layer definition from a normalized MapLayer.
+   *
+   * @param {Object} mapLayer Normalized public MapLayer definition.
+   * @param {Object} reference MapDocument layer reference.
+   * @param {AbortSignal} [signal] Abort signal for the underlying loader request.
+   * @param {Object} [options={}] Preparation options.
+   * @param {?Object} [options.viewport=null] Viewport bounds used by viewport-driven loaders;
+   *        resolved from the map engine for dynamic query layers when omitted.
+   * @returns {Promise<Object>} Resolves with the prepared runtime layer definition.
+   * @throws {Error} When the MapLayer loader registry is not configured.
    */
   async createRuntimeLayer(mapLayer, reference, signal, { viewport = null } = {}) {
     if (this.isDynamicQueryLayer(mapLayer) && !viewport) {
@@ -2344,7 +2823,12 @@ export class MapApplication {
     return runtimeLayer;
   }
 
-  /** Resolve effective native visibility zooms for one MapLayer. */
+  /**
+   * Resolve effective native visibility zooms for one MapLayer.
+   *
+   * @param {?Object} mapLayer Normalized public MapLayer definition.
+   * @returns {{minZoom: ?number, maxZoom: ?number}} Effective native zoom visibility range.
+   */
   resolveLayerZoomRange(mapLayer) {
     const options = mapLayer?.options || {};
     let minZoom = finiteNumberOrNull(options.minZoom);
@@ -2360,7 +2844,12 @@ export class MapApplication {
     return { minZoom, maxZoom };
   }
 
-  /** Resolve and apply MapDocument-wide native zoom limits. */
+  /**
+   * Resolve and apply MapDocument-wide native zoom limits.
+   *
+   * @param {Object} environment Map environment produced by {@link createMapEnvironment}.
+   * @returns {Promise<void>} Resolves once the zoom limits have been applied to the map engine.
+   */
   async applyDocumentZoomLimits(environment) {
     const limits = environment?.zoomLimits || {};
     let minZoom = finiteNumberOrNull(limits.minZoom);
@@ -2380,8 +2869,12 @@ export class MapApplication {
   }
 
   /**
-   * Replace map environment.
-   * @returns {Promise<*>} Resolves when the operation completes.
+   * Replace the active MapDocument environment and render its prepared layers.
+   *
+   * @param {Object} mapDocument MapDocument to make current.
+   * @param {Object} environment Map environment produced by {@link createMapEnvironment}.
+   * @param {Array<Object>} preparedLayers Prepared layer entries from {@link MapApplication#prepareReferencedLayers}.
+   * @returns {Promise<void>} Resolves once the environment is replaced and layers are rendered.
    */
   async replaceMapEnvironment(mapDocument, environment, preparedLayers) {
     await this.beginMapEnvironment(mapDocument, environment);
@@ -2392,6 +2885,11 @@ export class MapApplication {
    * Replace the visible MapDocument shell before loading its operational layers.
    * This clears the previous document immediately and applies the new bookmark
    * or bounds so a document selection always has prompt visual feedback.
+   *
+   * @param {Object} mapDocument MapDocument to make current.
+   * @param {Object} environment Map environment produced by {@link createMapEnvironment}.
+   * @returns {Promise<void>} Resolves once the map engine has been reinitialized for `environment`.
+   * @throws {Error} When the new MapDocument environment cannot be initialized.
    */
   async beginMapEnvironment(mapDocument, environment) {
     await this.clearSelection();
@@ -2420,7 +2918,12 @@ export class MapApplication {
     this.initialized = true;
   }
 
-  /** Render already prepared operational layers into the active environment. */
+  /**
+   * Render already prepared operational layers into the active environment.
+   *
+   * @param {Array<Object>} preparedLayers Prepared layer entries from {@link MapApplication#prepareReferencedLayers}.
+   * @returns {Promise<void>} Resolves once every prepared layer has been rendered, deferred, or failed.
+   */
   async renderPreparedLayers(preparedLayers) {
     for (const item of preparedLayers) {
       if (item.error) {
@@ -2446,8 +2949,11 @@ export class MapApplication {
   }
 
   /**
-   * Initialize map engine.
-   * @returns {Promise<*>} Resolves when the operation completes.
+   * Initialize the concrete map engine for a resolved map environment and wire
+   * its engine-neutral interaction handlers.
+   *
+   * @param {Object} environment Map environment produced by {@link createMapEnvironment}.
+   * @returns {Promise<void>} Resolves once the map engine has been initialized.
    */
   async initializeMapEngine(environment) {
     const initialView = environment.initialView;
@@ -2474,7 +2980,10 @@ export class MapApplication {
   }
 
   /**
-   * Apply initial view.
+   * Apply the resolved initial view when it is bounds-based; point/view bookmarks
+   * are already applied by the map engine's own initial center/zoom.
+   *
+   * @param {Object} initialView Resolved initial view from a map environment.
    * @returns {Promise<*>} Resolves when the operation completes.
    */
   async applyInitialView(initialView) {
@@ -2483,7 +2992,11 @@ export class MapApplication {
     }
   }
 
-  /** Return the configured initial/first allowed basemap as an engine-neutral layer. */
+  /**
+   * Return the configured initial/first allowed basemap as an engine-neutral layer.
+   *
+   * @returns {?Object} Cloned default base-map definition, or `null` when none is configured.
+   */
   getConfiguredDefaultBaseMap() {
     if (this.defaultBaseMapId == null) return null;
     const item = this.baseMaps.get(String(this.defaultBaseMapId));
@@ -2491,8 +3004,10 @@ export class MapApplication {
   }
 
   /**
-   * Assert data integration configured.
-   * @returns {*} Method result.
+   * Assert that Heurist public API data-integration providers/configuration are present.
+   *
+   * @returns {void}
+   * @throws {Error} When the required providers or runtime configuration are missing.
    */
   assertDataIntegrationConfigured() {
     if (!this.providers.mapDocument || !this.providers.mapLayer || !this.providers.queryGeoData) {
@@ -2506,16 +3021,21 @@ export class MapApplication {
   }
 
   /**
-   * Dispatch.
-   * @returns {*} Method result.
+   * Dispatch an engine-neutral application event on the map container.
+   *
+   * @param {string} name Event name (for example `heurist-map-ready`).
+   * @param {*} detail Event detail payload.
+   * @returns {void}
    */
   dispatch(name, detail) {
     this.container.dispatchEvent(new CustomEvent(name, { detail }));
   }
 
   /**
-   * Assert active.
-   * @returns {*} Method result.
+   * Assert that the application has not been destroyed.
+   *
+   * @returns {void}
+   * @throws {Error} When the application has been destroyed.
    */
   assertActive() {
     if (this.destroyed) {
@@ -2524,6 +3044,13 @@ export class MapApplication {
   }
 }
 
+/**
+ * Whether a value already looks like a prepared engine-neutral runtime layer
+ * definition rather than a public MapLayer definition/record ID.
+ *
+ * @param {*} definition Candidate value.
+ * @returns {boolean} `true` when `definition` is a usable runtime layer definition.
+ */
 function isPreparedRuntimeLayer(definition) {
   if (!definition || typeof definition !== 'object' || !definition.type) return false;
   if (definition.type === 'geojson') return definition.data != null;
@@ -2531,17 +3058,35 @@ function isPreparedRuntimeLayer(definition) {
   return false;
 }
 
+/**
+ * Strip internal `layerDefinitions` storage from a MapDocument registry entry.
+ *
+ * @param {?Object} entry MapDocument registry entry.
+ * @returns {Object} Cloned public MapDocument list entry.
+ */
 function createPublicDocumentEntry(entry) {
   const { layerDefinitions, ...publicEntry } = entry || {};
   return clonePlain(publicEntry);
 }
 
+/**
+ * Normalize a raw Explorer data source, discarding ones without a usable query.
+ *
+ * @param {*} value Candidate data source.
+ * @returns {?Object} Cloned normalized data source, or `null` when unusable.
+ */
 function normalizeRuntimeDataSource(value) {
   if (!value || typeof value !== 'object' || !value.reference || !value.request) return null;
   if (value.request.q == null || value.request.q === '') return null;
   return clonePlain(value);
 }
 
+/**
+ * Normalize a list of Workspace data sources, discarding duplicates by reference key.
+ *
+ * @param {*} values Candidate data source list.
+ * @returns {Array<Object>} Normalized, deduplicated data sources.
+ */
 function uniqueDataSources(values) {
   const result = [];
   const keys = new Set();
@@ -2555,6 +3100,15 @@ function uniqueDataSources(values) {
   return result;
 }
 
+/**
+ * Build engine-neutral stored layer entries for the Explorer current-result and
+ * Workspace data sources, choosing which one qualifies for viewport-driven loading.
+ *
+ * @param {?Object} current Explorer current-result data source, or `null`.
+ * @param {Array<Object>} workspace Workspace data sources.
+ * @param {Object} defaults Effective layer defaults for the dynamic MapDocument.
+ * @returns {Array<Object>} Stored `{ mapLayer, reference, runtimeAdded, runtimeOpacity, workspaceFingerprint }` entries.
+ */
 function createExplorerDynamicLayers(current, workspace, defaults) {
   const currentKey = current?.reference?.key || null;
   const workspaceCurrent = currentKey
@@ -2627,6 +3181,12 @@ function createExplorerDynamicLayers(current, workspace, defaults) {
   });
 }
 
+/**
+ * Convert a stored explorer-dynamic layer entry back into a public MapLayer definition.
+ *
+ * @param {Object} stored Stored `{ mapLayer, reference }` entry.
+ * @returns {Object} Public MapLayer definition suitable for {@link MapApplication#addLayer}.
+ */
 function dynamicLayerDefinition(stored) {
   return {
     id: stored.reference.id,
@@ -2639,27 +3199,60 @@ function dynamicLayerDefinition(stored) {
   };
 }
 
+/**
+ * Whether a stored layer entry is managed by the Explorer current-result/Workspace
+ * reconciliation logic rather than authored directly on the dynamic MapDocument.
+ *
+ * @param {?Object} stored Stored `{ mapLayer, reference }` entry.
+ * @returns {boolean} `true` when the entry is Explorer-managed.
+ */
 function isExplorerDynamicLayer(stored) {
   return stored?.mapLayer?.options?.explorerWorkspace === true
     || String(stored?.reference?.id) === 'current-results';
 }
 
+/**
+ * Resolve whether a data source's map presentation should use viewport-driven loading.
+ *
+ * @param {Object} map Data source `presentation.map` profile.
+ * @param {Object} defaults Effective layer defaults for the dynamic MapDocument.
+ * @returns {boolean} `true` when viewport-driven (dynamic) loading is requested.
+ */
 function requestedViewportLoading(map, defaults) {
   const value = map.dynamicRequests ?? map.viewportQueries ?? map.useViewportExtentQueries;
   return typeof value === 'boolean' ? value : defaults?.dynamicRequests === true;
 }
 
+/**
+ * Resolve a data source's known result count for ranking viewport-loading candidates.
+ *
+ * @param {?Object} source Explorer/Workspace data source.
+ * @returns {number} Non-negative result count, or `-1` when unknown.
+ */
 function resultCount(source) {
   const value = Number(source?.meta?.count);
   return Number.isFinite(value) && value >= 0 ? value : -1;
 }
 
+/**
+ * Normalize a list of geo-field paths (bare strings or `{ field|code }` objects) to strings.
+ *
+ * @param {*} values Raw geo-field path list.
+ * @returns {Array<string>} Trimmed, non-empty geo-field path strings.
+ */
 function normalizeGeoPaths(values) {
   return (Array.isArray(values) ? values : [])
     .map((value) => typeof value === 'object' ? value.field ?? value.code : value)
     .map((value) => String(value || '').trim()).filter(Boolean);
 }
 
+/**
+ * Overlay a Workspace entry's `presentation.map` profile onto a cloned data source.
+ *
+ * @param {Object} source Data source to clone.
+ * @param {?Object} mapOverride Workspace `presentation.map` override, or `null`/`undefined`.
+ * @returns {Object} Cloned data source with the map profile merged in.
+ */
 function mergeDataSourceMapProfile(source, mapOverride) {
   if (!mapOverride) return clonePlain(source);
   const result = clonePlain(source);
@@ -2668,6 +3261,12 @@ function mergeDataSourceMapProfile(source, mapOverride) {
   return result;
 }
 
+/**
+ * Compute a short, stable, non-cryptographic hash (FNV-1a) for a value's string form.
+ *
+ * @param {*} value Value to hash (coerced to a string).
+ * @returns {string} Base-36 encoded unsigned hash.
+ */
 function stableHash(value) {
   let hash = 2166136261;
   const text = String(value || '');
@@ -2678,6 +3277,13 @@ function stableHash(value) {
   return (hash >>> 0).toString(36);
 }
 
+/**
+ * Find a base-map definition by title or ID within a base-map registry.
+ *
+ * @param {Map<string, Object>} baseMaps Base-map registry keyed by string ID.
+ * @param {*} name Base-map title or ID to match.
+ * @returns {?Object} The matching base-map definition, or `null` when not found.
+ */
 function findBaseMapByName(baseMaps, name) {
   const requestedName = String(name || '').trim();
   if (!requestedName) return null;
@@ -2693,7 +3299,11 @@ function findBaseMapByName(baseMaps, name) {
 
 let curatedBaseMapsById = null;
 
-/** Full Heurist curated basemap catalog, independent of any site "allowed" filter. */
+/**
+ * Full Heurist curated basemap catalog, independent of any site "allowed" filter.
+ *
+ * @returns {Map<string, Object>} Curated base-map registry keyed by string ID, memoized.
+ */
 function getCuratedBaseMapsById() {
   if (!curatedBaseMapsById) {
     curatedBaseMapsById = new Map(getDefaultBaseMaps().map((item) => [String(item.id), item]));
@@ -2701,6 +3311,13 @@ function getCuratedBaseMapsById() {
   return curatedBaseMapsById;
 }
 
+/**
+ * Build the synthetic MapDocument representing the current dynamic-document state.
+ *
+ * @param {Object} config Application configuration.
+ * @param {?Object} entry Dynamic MapDocument registry entry.
+ * @returns {Object} Synthetic MapDocument with `id: null` and the entry's stored layer references.
+ */
 function createDynamicMapDocument(config, entry) {
   const base = normalizeMapDocument(config.mapDocument || {});
   const dynamic = config.dynamicDocument || {};
@@ -2717,25 +3334,58 @@ function createDynamicMapDocument(config, entry) {
   };
 }
 
+/**
+ * Resolve a stable runtime layer identifier for a MapLayer.
+ *
+ * @param {Object} mapLayer Normalized public MapLayer definition.
+ * @param {number} serial Fallback serial number used when no ID can be resolved.
+ * @returns {string} Runtime layer identifier.
+ */
 function createRuntimeLayerId(mapLayer, serial) {
   if (mapLayer?.options?.runtimeId) return String(mapLayer.options.runtimeId);
   if (mapLayer?.id) return String(mapLayer.id);
   return `dynamic-layer-${serial}`;
 }
 
+/**
+ * Compute the next available display order for a new layer in a MapDocument.
+ *
+ * @param {Object} document MapDocument registry entry.
+ * @returns {number} Next display order, one greater than the current maximum.
+ */
 function nextDocumentLayerOrder(document) {
   return Math.max(0, ...(document.layerDefinitions || []).map((item) => Number(item.reference.order) || 0)) + 1;
 }
 
+/**
+ * Find the index of a stored layer definition within a MapDocument.
+ *
+ * @param {Object} document MapDocument registry entry.
+ * @param {string|number} layerId Runtime layer identifier.
+ * @returns {number} Index of the stored entry, or `-1` when not found.
+ */
 function findStoredLayerIndex(document, layerId) {
   return (document.layerDefinitions || []).findIndex((item) => String(item.reference.id) === String(layerId));
 }
 
+/**
+ * Find a stored layer definition within a MapDocument.
+ *
+ * @param {Object} document MapDocument registry entry.
+ * @param {string|number} layerId Runtime layer identifier.
+ * @returns {?Object} Stored `{ mapLayer, reference }` entry, or `null` when not found.
+ */
 function findStoredLayer(document, layerId) {
   const index = findStoredLayerIndex(document, layerId);
   return index < 0 ? null : document.layerDefinitions[index];
 }
 
+/**
+ * Build a placeholder MapLayer definition for a layer reference that failed to load.
+ *
+ * @param {Object} reference MapDocument layer reference.
+ * @returns {Object} Minimal, non-selectable MapLayer definition.
+ */
 function createFailedMapLayer(reference) {
   return {
     id: reference.recordId,
@@ -2749,6 +3399,12 @@ function createFailedMapLayer(reference) {
   };
 }
 
+/**
+ * Build the lightweight registered runtime layer state kept in {@link MapApplication#layers}.
+ *
+ * @param {Object} definition Runtime or deferred/failed layer definition.
+ * @returns {Object} Registered layer state with `loadState: 'loading'`.
+ */
 function createLayerState(definition) {
   const dataSource = definition.options?.dataSource || dataSourceFromLayerDefinition(definition);
   return {
@@ -2778,6 +3434,13 @@ function createLayerState(definition) {
   };
 }
 
+/**
+ * Synthesize an engine-neutral data-source description from a query-backed MapLayer
+ * definition, for layers not explicitly linked to an Explorer data source.
+ *
+ * @param {Object} definition MapLayer or runtime layer definition.
+ * @returns {?Object} Synthesized data source, or `null` when not query-backed.
+ */
 function dataSourceFromLayerDefinition(definition) {
   if (definition?.source?.type !== 'heurist-query' || definition.source.query == null) return null;
   const linked = definition.source.dataSourceReference;
@@ -2807,6 +3470,12 @@ function dataSourceFromLayerDefinition(definition) {
   };
 }
 
+/**
+ * Count features in a GeoJSON runtime layer definition.
+ *
+ * @param {Object} definition Runtime layer definition.
+ * @returns {?number} Feature count for GeoJSON layers, or `null` for other layer types.
+ */
 function getFeatureCount(definition) {
   if (definition.type !== 'geojson') {
     return null;
@@ -2817,12 +3486,26 @@ function getFeatureCount(definition) {
   return definition.data ? 1 : 0;
 }
 
+/**
+ * Coerce a value to a finite number, or `null` when it is empty/non-numeric.
+ *
+ * @param {*} value Candidate value.
+ * @returns {?number} The finite number, or `null`.
+ */
 function finiteNumberOrNull(value) {
   if (value === null || value === undefined || value === '') return null;
   const number = Number(value);
   return Number.isFinite(number) ? number : null;
 }
 
+/**
+ * Resolve a representative latitude for a map environment's initial view, used to
+ * convert kilometre-based zoom settings to native zoom levels.
+ *
+ * @param {Object} environment Map environment produced by {@link createMapEnvironment}.
+ * @param {?Object} viewState Current engine-neutral view state, used as a fallback.
+ * @returns {number} Representative latitude, defaulting to `0`.
+ */
 function environmentReferenceLatitude(environment, viewState) {
   const bounds = environment?.initialView?.bounds;
   if (bounds) return (Number(bounds.south) + Number(bounds.north)) / 2;
@@ -2830,6 +3513,14 @@ function environmentReferenceLatitude(environment, viewState) {
   return Number.isFinite(Number(latitude)) ? Number(latitude) : 0;
 }
 
+/**
+ * Resolve a representative latitude for a MapLayer, used to convert kilometre-based
+ * zoom settings to native zoom levels.
+ *
+ * @param {Object} mapLayer Normalized public MapLayer definition.
+ * @param {?Object} viewState Current engine-neutral view state, used as a fallback.
+ * @returns {number} Representative latitude, defaulting to `0`.
+ */
 function layerReferenceLatitude(mapLayer, viewState) {
   const bounds = mapLayer?.source?.bounds;
   if (bounds) return (Number(bounds.south) + Number(bounds.north)) / 2;
@@ -2837,7 +3528,13 @@ function layerReferenceLatitude(mapLayer, viewState) {
   return Number.isFinite(Number(latitude)) ? Number(latitude) : 0;
 }
 
-
+/**
+ * Build a cache key identifying a dynamic layer's current viewport request, so
+ * repeated identical requests can be skipped.
+ *
+ * @param {?Object} view Engine-neutral view state.
+ * @returns {?string} Cache key combining zoom and bounds, or `null` when incomplete.
+ */
 function dynamicViewportKey(view) {
   const bounds = view?.bounds;
   const zoom = Number(view?.zoom);
@@ -2847,16 +3544,38 @@ function dynamicViewportKey(view) {
   return `${zoom}|${values.map((value) => value.toFixed(5)).join(',')}`;
 }
 
+/**
+ * Sort comparator for MapDocument layer references by order, then record ID.
+ *
+ * @param {Object} a First layer reference.
+ * @param {Object} b Second layer reference.
+ * @returns {number} Negative, zero, or positive per the standard comparator contract.
+ */
 function compareLayerReferences(a, b) {
   const orderDifference = Number(a.order || 0) - Number(b.order || 0);
   return orderDifference || Number(a.recordId || a.id) - Number(b.recordId || b.id);
 }
 
+/**
+ * Sort comparator for runtime layer states by order, then ID.
+ *
+ * @param {Object} a First runtime layer state.
+ * @param {Object} b Second runtime layer state.
+ * @returns {number} Negative, zero, or positive per the standard comparator contract.
+ */
 function compareRuntimeLayers(a, b) {
   return Number(a.order || 0) - Number(b.order || 0)
     || String(a.id).localeCompare(String(b.id));
 }
 
+/**
+ * Combine an internal AbortSignal with an optional caller-supplied one, aborting
+ * when either fires.
+ *
+ * @param {AbortSignal} internalSignal Signal owned by the calling operation.
+ * @param {?AbortSignal} externalSignal Optional caller-supplied signal.
+ * @returns {AbortSignal} Combined signal that aborts when either input aborts.
+ */
 function combineAbortSignals(internalSignal, externalSignal) {
   if (!externalSignal) return internalSignal;
   if (typeof AbortSignal.any === 'function') {
@@ -2876,6 +3595,13 @@ function combineAbortSignals(internalSignal, externalSignal) {
   return controller.signal;
 }
 
+/**
+ * Throw when an abort signal has already fired.
+ *
+ * @param {?AbortSignal} signal Signal to check.
+ * @returns {void}
+ * @throws {Error} The signal's abort reason, or a generic `AbortError` when `signal` is aborted.
+ */
 function throwIfAborted(signal) {
   if (signal?.aborted) {
     throw signal.reason instanceof Error
@@ -2884,10 +3610,24 @@ function throwIfAborted(signal) {
   }
 }
 
+/**
+ * Whether an error represents a cancelled (aborted) operation.
+ *
+ * @param {*} error Candidate error.
+ * @returns {boolean} `true` when `error.name === 'AbortError'`.
+ */
 function isAbortError(error) {
   return error?.name === 'AbortError';
 }
 
+/**
+ * Wrap an error with additional human-readable context while preserving its
+ * name and transport-related properties, and passing abort errors through unchanged.
+ *
+ * @param {*} error Original error.
+ * @param {string} context Context message prefixed to the error message.
+ * @returns {*} The original abort error, or a new contextualized `Error`.
+ */
 function addContext(error, context) {
   if (isAbortError(error)) return error;
   const contextualError = new Error(`${context}: ${error?.message || String(error)}`, { cause: error });
@@ -2898,11 +3638,24 @@ function addContext(error, context) {
   return contextualError;
 }
 
+/**
+ * Coerce a value to a positive integer record ID suitable for selection tracking.
+ *
+ * @param {*} value Candidate value.
+ * @returns {?number} The positive integer record ID, or `null`.
+ */
 function normalizeSelectedRecordId(value) {
   const id = Number(value);
   return Number.isInteger(id) && id > 0 ? id : null;
 }
 
+/**
+ * Resolve the effective, ordered base-map catalog from site settings.
+ *
+ * @param {Object} [settings={}] Base-map settings (`allowed` IDs, `initial` ID).
+ * @param {boolean} [preventContinuousWorldBasemap=false] Disable continuous world wrapping on tile base maps.
+ * @returns {Array<Object>} Effective base-map definitions, with the initial base map first.
+ */
 function resolveConfiguredBaseMaps(settings = {}, preventContinuousWorldBasemap = false) {
   const defaults = getDefaultBaseMaps();
   const defaultById = new Map(defaults.map((item) => [String(item.id), item]));
@@ -2928,12 +3681,20 @@ function resolveConfiguredBaseMaps(settings = {}, preventContinuousWorldBasemap 
   return result;
 }
 
+/** Style keys accepted by the main-Heurist vector symbology editor/storage contract. */
 const VECTOR_SYMBOL_KEYS = new Set([
   'iconType', 'iconUrl', 'iconFont', 'iconSize', 'iconAnchor', 'popupAnchor',
   'color', 'fillColor', 'weight', 'opacity', 'fillOpacity', 'fill', 'stroke',
   'dashArray', 'radius'
 ]);
 
+/**
+ * Reduce a runtime/normalized style to the sparse `{ symbol, thematic? }` shape
+ * accepted by the main-Heurist symbology editor and persisted as DT_SYMBOLOGY.
+ *
+ * @param {*} style Runtime or source style value.
+ * @returns {Object} Canonical vector symbology, either a bare symbol or `{ symbol, thematic }`.
+ */
 function canonicalVectorSymbology(style) {
   const value = style && typeof style === 'object' && !Array.isArray(style) ? style : {};
   const rawSymbol = value.symbol && typeof value.symbol === 'object' && !Array.isArray(value.symbol)
@@ -2957,10 +3718,23 @@ function canonicalVectorSymbology(style) {
   return thematic.length ? { symbol, thematic } : symbol;
 }
 
+/**
+ * Whether two values are deeply equal by JSON serialization.
+ *
+ * @param {*} left First value.
+ * @param {*} right Second value.
+ * @returns {boolean} `true` when both values serialize identically.
+ */
 function sameJson(left, right) {
   return JSON.stringify(left ?? null) === JSON.stringify(right ?? null);
 }
 
+/**
+ * Deep-clone a plain JSON-serializable value.
+ *
+ * @param {*} value Value to clone.
+ * @returns {*} Cloned value, or `undefined` when `value` is `undefined`.
+ */
 function clonePlain(value) {
   if (value === undefined) return undefined;
   return typeof structuredClone === 'function'
@@ -2968,6 +3742,13 @@ function clonePlain(value) {
     : JSON.parse(JSON.stringify(value));
 }
 
+/**
+ * Reduce an error to a plain, serializable `{ name, message, code, status }` shape
+ * suitable for dispatched application events.
+ *
+ * @param {*} error Source error.
+ * @returns {{name: string, message: string, code: *, status: *}} Serializable error description.
+ */
 function serializeError(error) {
   return {
     name: error?.name || 'Error',
@@ -2977,6 +3758,12 @@ function serializeError(error) {
   };
 }
 
+/**
+ * Resolve the index of the currently active thematic map within a layer style.
+ *
+ * @param {*} style Runtime or source style value.
+ * @returns {number} Index of the active thematic map, or `-1` when none is active.
+ */
 function activeThemeIndex(style) {
   const thematic = Array.isArray(style?.thematic)
     ? style.thematic
@@ -2986,6 +3773,13 @@ function activeThemeIndex(style) {
   return thematic.findIndex((theme) => theme?.active === true);
 }
 
+/**
+ * Normalize a runtime opacity value expressed as either a 0-1 fraction or a
+ * 0-100 percentage to a clamped 0-1 fraction.
+ *
+ * @param {*} value Raw opacity value.
+ * @returns {number} Normalized opacity in the `[0, 1]` range, defaulting to `1`.
+ */
 function normalizeRuntimeOpacity(value) {
   const number = Number(value);
   if (!Number.isFinite(number)) return 1;

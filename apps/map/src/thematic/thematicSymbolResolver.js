@@ -1,13 +1,17 @@
 /**
- * thematicSymbolResolver.js - Thematic feature symbol resolution
+ * @file thematicSymbolResolver.js
+ * @brief Resolves one normalized thematic map against feature attributes and returns
+ *        the final engine-neutral map symbol.
  *
- * @fileOverview Resolves one normalized thematic map against feature attributes and returns the final engine-neutral map symbol.
- * @project     Heurist mapping application
+ * @project     Heurist academic knowledge management system
+ * @package     heurist-map
  *
  * @link        https://HeuristNetwork.org
- * @copyright   (C) 2026 Heurist Network
+ * @copyright   (C) 2024 onwards Heurist Network
+ * @author      Artem Osmakov   <osmakov@gmail.com>
+ * @author      Ian Johnson <ian.johnson.heurist@gmail.com>
  * @license     https://www.gnu.org/licenses/gpl-3.0.txt GNU License 3.0
- * @author      Artem Osmakov <osmakov@gmail.com>
+ * @since       8.0
  */
 
 import { getActiveThematicMap } from './thematicAttributes.js';
@@ -21,6 +25,10 @@ const GEO_FIELD_CODE = 'rec_GeoField';
  * With an active thematic map, resolution starts from the thematic base symbol and
  * applies at most one range override per thematic field, in field order. Multiple
  * fields may therefore contribute independent properties to the final symbol.
+ *
+ * @param {object} feature GeoJSON feature.
+ * @param {object} [style] Normalized layer style.
+ * @returns {object} Resolved engine-neutral map symbol.
  */
 export function resolveFeatureSymbol(feature, style = {}) {
   const ordinarySymbol = isObject(style.symbol) ? style.symbol : {};
@@ -35,7 +43,6 @@ export function resolveFeatureSymbol(feature, style = {}) {
   return symbol;
 }
 
-
 /**
  * Merge one partial thematic range symbol into the current symbol.
  *
@@ -43,6 +50,10 @@ export function resolveFeatureSymbol(feature, style = {}) {
  * thematic ranges historically vary point size with `iconSize`. When a
  * circle range overrides iconSize but not radius, translate the requested
  * diameter to the engine radius so thematic size ranges affect the map.
+ *
+ * @param {object} [base] Base symbol.
+ * @param {object} [override] Partial range-symbol override.
+ * @returns {object} Merged symbol.
  */
 export function mergeThematicSymbol(base = {}, override = {}) {
   const merged = { ...(isObject(base) ? base : {}), ...(isObject(override) ? override : {}) };
@@ -57,7 +68,13 @@ export function mergeThematicSymbol(base = {}, override = {}) {
   return merged;
 }
 
-/** Return the first configured range symbol matching any value of one thematic field. */
+/**
+ * Return the first configured range symbol matching any value of one thematic field.
+ *
+ * @param {object} feature GeoJSON feature.
+ * @param {object} field Thematic field descriptor (`{ code, ranges }`).
+ * @returns {object|null} Matching range symbol, or `null` when none match.
+ */
 export function resolveThematicFieldSymbol(feature, field) {
   if (!field || !Array.isArray(field.ranges)) return null;
   const values = getFeatureThematicValues(feature, field.code);
@@ -72,7 +89,13 @@ export function resolveThematicFieldSymbol(feature, field) {
   return null;
 }
 
-/** Return all values available to one thematic field without discarding multivalues. */
+/**
+ * Return all values available to one thematic field without discarding multivalues.
+ *
+ * @param {object} feature GeoJSON feature.
+ * @param {string} code Thematic field code (or {@link GEO_FIELD_CODE}).
+ * @returns {Array} Flattened list of raw field values.
+ */
 export function getFeatureThematicValues(feature, code) {
   const fieldCode = String(code ?? '').trim();
   if (!fieldCode) return [];
@@ -99,11 +122,17 @@ export function getFeatureThematicValues(feature, code) {
 
 /**
  * Match one value against a persisted thematic range.
+ *
  * Supported legacy forms:
  * - "a,b,c"       membership list;
  * - "min<>max"    inclusive numeric or lexical interval;
  * - scalar value   equality.
+ *
  * Pre-parsed `min`/`max` and array-valued `value` are also supported.
+ *
+ * @param {*} value Feature value to test.
+ * @param {object} range Persisted thematic range descriptor.
+ * @returns {boolean} `true` when `value` matches `range`.
  */
 export function thematicRangeMatches(value, range) {
   if (!range) return false;
@@ -132,6 +161,14 @@ export function thematicRangeMatches(value, range) {
   return valuesEqual(value, range.value);
 }
 
+/**
+ * Whether a value falls inclusively between `min` and `max`, numerically or lexically.
+ *
+ * @param {*} value Candidate value.
+ * @param {*} min Lower bound.
+ * @param {*} max Upper bound.
+ * @returns {boolean} `true` when `value` falls within `[min, max]`.
+ */
 function betweenInclusive(value, min, max) {
   const numericValue = toFiniteNumber(value);
   const numericMin = toFiniteNumber(min);
@@ -147,6 +184,13 @@ function betweenInclusive(value, min, max) {
   return text >= minText && text <= maxText;
 }
 
+/**
+ * Whether two values are equal, numerically when both parse as numbers, otherwise as text.
+ *
+ * @param {*} left First value.
+ * @param {*} right Second value.
+ * @returns {boolean} `true` when the two values are equal.
+ */
 function valuesEqual(left, right) {
   const leftNumber = toFiniteNumber(left);
   const rightNumber = toFiniteNumber(right);
@@ -154,24 +198,47 @@ function valuesEqual(left, right) {
   return scalarText(left) === scalarText(right);
 }
 
+/**
+ * Coerce a value to a finite number, or `null` when it is not a plain numeric scalar.
+ *
+ * @param {*} value Candidate value.
+ * @returns {number|null} The finite number, or `null`.
+ */
 function toFiniteNumber(value) {
   if (value == null || value === '' || typeof value === 'boolean' || isObject(value) || Array.isArray(value)) return null;
   const number = Number(value);
   return Number.isFinite(number) ? number : null;
 }
 
+/**
+ * Coerce a value to its scalar string form, or `null` for objects/arrays/nullish values.
+ *
+ * @param {*} value Candidate value.
+ * @returns {string|null} The scalar string, or `null`.
+ */
 function scalarText(value) {
   if (value == null || isObject(value) || Array.isArray(value)) return null;
   return String(value);
 }
 
+/**
+ * Recursively flatten a value (or array of values) into a flat array.
+ *
+ * @param {*} value Candidate value or nested array.
+ * @returns {Array} Flattened values.
+ */
 function flattenValues(value) {
   if (value == null) return [];
   if (Array.isArray(value)) return value.flatMap(flattenValues);
   return [value];
 }
 
-/** Extract the actual value while retaining compatibility with legacy scalars. */
+/**
+ * Extract the actual value while retaining compatibility with legacy scalars.
+ *
+ * @param {*} value Candidate raw thematic value, possibly `{ value }`-wrapped.
+ * @returns {Array} Flattened values.
+ */
 function flattenThematicValues(value) {
   if (value == null) return [];
   if (Array.isArray(value)) return value.flatMap(flattenThematicValues);
@@ -181,6 +248,12 @@ function flattenThematicValues(value) {
   return flattenValues(value);
 }
 
+/**
+ * Whether a value is a plain, non-array object.
+ *
+ * @param {*} value Candidate value.
+ * @returns {boolean} `true` when `value` is a non-null, non-array object.
+ */
 function isObject(value) {
   return Boolean(value && typeof value === 'object' && !Array.isArray(value));
 }

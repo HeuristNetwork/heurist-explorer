@@ -14,6 +14,7 @@
  */
 /** Registers loaders and dispatches requests by source type. */
 export class LoaderRegistry {
+  /** Create an empty registry. */
   constructor() {
     this.loaders = new Map();
   }

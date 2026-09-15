@@ -1,13 +1,17 @@
 /**
- * QueryGeoDataProvider.js - GeoJSON data provider
+ * @file QueryGeoDataProvider.js
+ * @brief Loads record and query GeoJSON from the public map API, including paging, POST
+ *        fallback, validation, and cancellation.
  *
- * @fileOverview Loads record and query GeoJSON from the public map API, including paging, POST fallback, validation, and cancellation.
- * @project     Heurist mapping application
+ * @project     Heurist academic knowledge management system
+ * @package     heurist-map
  *
  * @link        https://HeuristNetwork.org
- * @copyright   (C) 2026 Heurist Network
+ * @copyright   (C) 2024 onwards Heurist Network
+ * @author      Artem Osmakov   <osmakov@gmail.com>
+ * @author      Ian Johnson <ian.johnson.heurist@gmail.com>
  * @license     https://www.gnu.org/licenses/gpl-3.0.txt GNU License 3.0
- * @author      Artem Osmakov <osmakov@gmail.com>
+ * @since       8.0
  */
 
 import { HeuristApiError } from '#shared/api';
@@ -15,20 +19,26 @@ import { HeuristApiError } from '#shared/api';
 const DEFAULT_LIMIT = 1000;
 const MAX_LIMIT = 5000;
 
-/**
- * Loads GeoJSON from the public /map endpoints.
- */
+/** Loads GeoJSON from the public `/map` endpoints, with paging, POST fallback, and validation. */
 export class QueryGeoDataProvider {
-  /**
-   * Create and initialize the class instance.
-   */
+  /** @param {{apiClient: object}} options Heurist API client. */
   constructor({ apiClient }) {
     this.apiClient = apiClient;
   }
 
   /**
    * Load GeoJSON for one Heurist record.
-   * @returns {Promise<*>} Resolves when the operation completes.
+   *
+   * @param {number|string} recordId Heurist record ID.
+   * @param {object} [options] Load options.
+   * @param {boolean} [options.simplify=false] Request simplified geometry.
+   * @param {Array<string>|null} [options.geoFields] Restrict to specific geo field paths.
+   * @param {string} [options.geoOutputMode='records'] `'records'` or `'features'` output shape.
+   * @param {object|null} [options.extent] Viewport bounds to restrict results to; see `normalizeExtent`.
+   * @param {AbortSignal} [options.signal] Abort signal for cancellation.
+   * @returns {Promise<object>} Validated GeoJSON `FeatureCollection` with a `meta` object.
+   * @throws {TypeError} When `recordId` is not a positive integer.
+   * @throws {HeuristApiError} When the response is not a valid GeoJSON `FeatureCollection`.
    */
   async getRecord(recordId, {
     simplify = false,
@@ -53,7 +63,21 @@ export class QueryGeoDataProvider {
 
   /**
    * Load one page of GeoJSON for a Heurist query.
-   * @returns {Promise<*>} Resolves when the operation completes.
+   *
+   * @param {object} options Search options.
+   * @param {*} options.query Heurist query (string or object); required.
+   * @param {number} [options.limit=DEFAULT_LIMIT] Page size, capped at `MAX_LIMIT`.
+   * @param {number} [options.offset=0] Page offset.
+   * @param {boolean} [options.simplify=false] Request simplified geometry.
+   * @param {Array<string>|null} [options.geoFields] Restrict to specific geo field paths.
+   * @param {string} [options.geoOutputMode='records'] `'records'` or `'features'` output shape.
+   * @param {object|null} [options.extent] Viewport bounds to restrict results to; see `normalizeExtent`.
+   * @param {'auto'|'get'|'post'} [options.method='auto'] `'auto'` posts for object queries, geo-field
+   *   selections, or long query strings; otherwise GETs.
+   * @param {AbortSignal} [options.signal] Abort signal for cancellation.
+   * @returns {Promise<object>} Validated GeoJSON `FeatureCollection` with a `meta` object.
+   * @throws {TypeError} When `query` is empty.
+   * @throws {HeuristApiError} When the response is not a valid GeoJSON `FeatureCollection`.
    */
   async search({
     query,
@@ -109,7 +133,13 @@ export class QueryGeoDataProvider {
   }
 
   /**
-   * Load every API page and merge it into one FeatureCollection.
+   * Load every API page for a query and merge them into one FeatureCollection.
+   *
+   * @param {object} options Search options; see `search`, plus:
+   * @param {number} [options.maxPages=100] Safety cap on the number of pages fetched.
+   * @param {number|null} [options.maxFeatures] Stop once this many features have been collected.
+   * @returns {Promise<{type: 'FeatureCollection', features: Array<object>, meta: object}>} Merged FeatureCollection.
+   * @throws {HeuristApiError} When the safety page limit is exceeded before the query completes.
    */
   async searchAll({
     query,
@@ -212,6 +242,7 @@ export class QueryGeoDataProvider {
   }
 }
 
+/** Validate a response is a GeoJSON `FeatureCollection` with a `meta` object, throwing a `HeuristApiError` otherwise. */
 function validateGeoJsonResponse(value) {
   if (!value || value.type !== 'FeatureCollection' || !Array.isArray(value.features)) {
     throw new HeuristApiError(
@@ -226,10 +257,12 @@ function validateGeoJsonResponse(value) {
   return value;
 }
 
+/** Whether a query should be sent via POST: object queries, or long query strings. */
 function shouldUsePost(query) {
   return typeof query === 'object' || String(query).length > 1500;
 }
 
+/** Normalize a page-size limit to a positive integer, capped at `MAX_LIMIT`. */
 function normalizeLimit(value) {
   const number = Number(value);
   if (!Number.isInteger(number) || number < 1) {
@@ -238,22 +271,30 @@ function normalizeLimit(value) {
   return Math.min(number, MAX_LIMIT);
 }
 
+/** Normalize an optional total-feature cap to a positive integer capped at `MAX_LIMIT`, or `null`. */
 function normalizeFeatureLimit(value) {
   if (value === null || value === undefined || value === '') return null;
   const number = Number(value);
   return Number.isInteger(number) && number > 0 ? Math.min(number, MAX_LIMIT) : null;
 }
 
+/** Normalize a page offset to a non-negative integer, defaulting to `0`. */
 function normalizeOffset(value) {
   const number = Number(value);
   return Number.isInteger(number) && number >= 0 ? number : 0;
 }
 
+/** Normalize a geo output mode to `'features'` or `'records'` (the default). */
 function normalizeOutputMode(value) {
   return String(value || '').toLowerCase() === 'features' ? 'features' : 'records';
 }
 
-/** Normalize engine-neutral viewport bounds without changing the stored query. */
+/**
+ * Normalize engine-neutral viewport bounds without changing the stored query.
+ *
+ * @param {object|null} value Bounds with `west`/`south`/`east`/`north` properties.
+ * @returns {{west: number, south: number, east: number, north: number}|null} Clamped bounds, or `null` when invalid.
+ */
 export function normalizeExtent(value) {
   if (!value || typeof value !== 'object') return null;
   const west = Number(value.west);
@@ -269,10 +310,12 @@ export function normalizeExtent(value) {
   };
 }
 
+/** Clamp a number to `[min, max]`. */
 function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
 }
 
+/** Normalize a value to a positive integer record id, or throw a `TypeError`. */
 function requireRecordId(value) {
   const id = Number(value);
   if (!Number.isInteger(id) || id < 1) {
@@ -281,6 +324,7 @@ function requireRecordId(value) {
   return id;
 }
 
+/** Throw the abort signal's reason (or a generic `AbortError`) when it has already fired. */
 function throwIfAborted(signal) {
   if (signal?.aborted) {
     throw signal.reason instanceof Error

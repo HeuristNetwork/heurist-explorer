@@ -1,14 +1,17 @@
 /**
- * normalizeImageFilter.js - Image-layer filter normalization
+ * @file normalizeImageFilter.js
+ * @brief Normalizes the image filter properties stored in a MapLayer symbol and
+ *        converts them into a safe CSS filter string for map adapters.
  *
- * @fileOverview Normalizes the image filter properties stored in a MapLayer
- * symbol and converts them into a safe CSS filter string for map adapters.
- * @project     Heurist mapping application
+ * @project     Heurist academic knowledge management system
+ * @package     heurist-map
  *
  * @link        https://HeuristNetwork.org
- * @copyright   (C) 2026 Heurist Network
+ * @copyright   (C) 2024 onwards Heurist Network
+ * @author      Artem Osmakov   <osmakov@gmail.com>
+ * @author      Ian Johnson <ian.johnson.heurist@gmail.com>
  * @license     https://www.gnu.org/licenses/gpl-3.0.txt GNU License 3.0
- * @author      Artem Osmakov <osmakov@gmail.com>
+ * @since       8.0
  */
 
 export const IMAGE_FILTER_NAMES = Object.freeze([
@@ -123,6 +126,7 @@ export function normalizeOpacity(value, fallback = 1) {
   return Math.min(1, Math.max(0, number));
 }
 
+/** Append the CSS unit (`px`/`deg`) a filter function expects, when the value is a bare number. */
 function normalizeFilterValue(name, value) {
   const text = String(value).trim();
 

@@ -17,10 +17,30 @@ import { Dataset } from "../../core/Dataset.js";
 
 /** Loads a persisted Dataset and its selected record page. */
 export class DatasetLoader {
+  /**
+   * @param {object} options Loader dependencies.
+   * @param {object} options.datasetProvider Loads persisted Dataset definitions.
+   * @param {object} options.recordDataProvider Loads the dataset's selected-field record page.
+   */
   constructor({ datasetProvider, recordDataProvider }) {
     this.datasetProvider = datasetProvider;
     this.recordDataProvider = recordDataProvider;
   }
+
+  /**
+   * Load a persisted Dataset and its selected record page.
+   *
+   * @param {object} options Load options.
+   * @param {number|string} options.datasetId Dataset record id.
+   * @param {Array<string>} [options.additionalFields] Extra field codes to request beyond the dataset's own.
+   * @param {boolean} [options.includeDatasetFields=true] Include the dataset's own configured fields.
+   * @param {number} [options.limit] Page size.
+   * @param {number} [options.offset] Page offset.
+   * @param {*} [options.sort] Sort specification.
+   * @param {*} [options.filter] Additional filter.
+   * @param {AbortSignal} [options.signal] Abort signal for cancellation.
+   * @returns {Promise<{dataset: import('../../core/Dataset.js').Dataset, response: object}>}
+   */
   async load({
     datasetId,
     additionalFields = [],

@@ -1,14 +1,17 @@
 /**
- * ImageLayerLoader.js - Image overlay layer loader
+ * @file ImageLayerLoader.js
+ * @brief Converts public image MapLayer definitions into engine-neutral runtime image
+ *        overlays with normalized bounds, opacity, and CSS filters.
  *
- * @fileOverview Converts public image MapLayer definitions into engine-neutral
- * runtime image overlays with normalized bounds, opacity, and CSS filters.
- * @project     Heurist mapping application
+ * @project     Heurist academic knowledge management system
+ * @package     heurist-map
  *
  * @link        https://HeuristNetwork.org
- * @copyright   (C) 2026 Heurist Network
+ * @copyright   (C) 2024 onwards Heurist Network
+ * @author      Artem Osmakov   <osmakov@gmail.com>
+ * @author      Ian Johnson <ian.johnson.heurist@gmail.com>
  * @license     https://www.gnu.org/licenses/gpl-3.0.txt GNU License 3.0
- * @author      Artem Osmakov <osmakov@gmail.com>
+ * @since       8.0
  */
 
 import { normalizeBounds } from '../../utils/normalizeBounds.js';

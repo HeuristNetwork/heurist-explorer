@@ -1,13 +1,17 @@
 /**
- * LeafletMapAdapter.js - Leaflet map engine adapter
+ * @file LeafletMapAdapter.js
+ * @brief Implements the engine-neutral map contract with Leaflet while keeping
+ *        Leaflet objects private to the adapter.
  *
- * @fileOverview Implements the engine-neutral map contract with Leaflet while keeping Leaflet objects private to the adapter.
- * @project     Heurist mapping application
+ * @project     Heurist academic knowledge management system
+ * @package     heurist-map
  *
  * @link        https://HeuristNetwork.org
- * @copyright   (C) 2026 Heurist Network
+ * @copyright   (C) 2024 onwards Heurist Network
+ * @author      Artem Osmakov   <osmakov@gmail.com>
+ * @author      Ian Johnson <ian.johnson.heurist@gmail.com>
  * @license     https://www.gnu.org/licenses/gpl-3.0.txt GNU License 3.0
- * @author      Artem Osmakov <osmakov@gmail.com>
+ * @since       8.0
  */
 
 import L from 'leaflet';
@@ -54,8 +58,13 @@ export class LeafletMapAdapter extends MapEngineAdapter {
   }
 
   /**
-   * Initialize the component and its required resources.
-   * @returns {Promise<*>} Resolves when the operation completes.
+   * Initialize the Leaflet map instance, its operational-layers pane, native
+   * interaction listeners, native controls, and optional base map.
+   *
+   * @param {HTMLElement} container DOM element hosting the map.
+   * @param {Object} options Initialization options (center, zoom, zoom limits,
+   *        CRS-independent controls, base-map provider options, initial base layer).
+   * @returns {Promise<void>} Resolves once the map and its native controls are ready.
    */
   async initialize(container, options) {
     this.baseMapProviderOptions = { ...(options.baseMapProviderOptions || {}) };
@@ -109,7 +118,12 @@ export class LeafletMapAdapter extends MapEngineAdapter {
     }
   }
 
-  /** Show/hide Leaflet-native controls and optional Leaflet plugins. */
+  /**
+   * Show/hide Leaflet-native controls and optional Leaflet plugins.
+   *
+   * @param {Object} [options={}] Desired control flags (`zoom`, `scale`, `bookmark`, `print`, `search`).
+   * @returns {Promise<void>} Resolves once every requested control has been toggled.
+   */
   async setNativeControls(options = {}) {
     this.assertInitialized();
     const desired = {
@@ -164,6 +178,14 @@ export class LeafletMapAdapter extends MapEngineAdapter {
     });
   }
 
+  /**
+   * Add or remove one lazily-created native control, reusing an existing instance.
+   *
+   * @param {string} name Control registry key.
+   * @param {boolean} enabled Whether the control should be present.
+   * @param {Function} factory Async factory returning the Leaflet control instance when enabled.
+   * @returns {Promise<?Object>} Resolves with the active control instance, or `null` when disabled.
+   */
   async toggleNativeControl(name, enabled, factory) {
     const existing = this.nativeControls.get(name);
     if (!enabled) {
@@ -193,7 +215,19 @@ export class LeafletMapAdapter extends MapEngineAdapter {
     return control || null;
   }
 
-  /** Start an isolated Leaflet.draw session without exposing Leaflet objects. */
+  /**
+   * Start an isolated Leaflet.draw session without exposing Leaflet objects.
+   *
+   * @param {Object} [options={}] Drawing session options.
+   * @param {string} [options.mode='full'] Drawing mode; a non-`'full'` mode restricts
+   *        drawing to rectangles/markers only.
+   * @param {Object} [options.style] Base shape style, merged over a default blue outline.
+   * @param {boolean} [options.allowMultiple] Allow more than one drawn shape at a time.
+   * @param {string} [options.imageUrl] Image URL kept aligned to the drawn bounds (image/filter modes).
+   * @param {?Function} [onChange=null] Called with `{ reason, drawing }` on every drawing change.
+   * @returns {Promise<boolean>} Resolves with `true` once the session has started.
+   * @throws {Error} When the Leaflet.draw plugin fails to register.
+   */
   async beginDrawing(options = {}, onChange = null) {
     this.assertInitialized();
     await this.endDrawing();
@@ -262,6 +296,11 @@ export class LeafletMapAdapter extends MapEngineAdapter {
     return true;
   }
 
+  /**
+   * End the active Leaflet.draw session and remove its group/control from the map.
+   *
+   * @returns {Promise<boolean>} Resolves with whether a session was ended.
+   */
   async endDrawing() {
     const session = this.drawSession;
     if (!session) return false;
@@ -279,6 +318,15 @@ export class LeafletMapAdapter extends MapEngineAdapter {
     return true;
   }
 
+  /**
+   * Load GeoJSON geometry into the active drawing session.
+   *
+   * @param {Object} geojson GeoJSON Feature/FeatureCollection or Polygon geometry to load.
+   * @param {Object} [options={}] Load options.
+   * @param {boolean} [options.clear=true] Clear existing drawn shapes before loading.
+   * @returns {Promise<?Object>} Resolves with the resulting drawing GeoJSON.
+   * @throws {Error} When no drawing session is active.
+   */
   async setDrawingGeoJson(geojson, { clear = true } = {}) {
     const session = this.requireDrawSession();
     if (clear) session.group.clearLayers();
@@ -297,7 +345,12 @@ export class LeafletMapAdapter extends MapEngineAdapter {
     return this.getDrawingGeoJson();
   }
 
-  /** Enter Leaflet.draw edit mode for geometry loaded at session startup. */
+  /**
+   * Enter Leaflet.draw edit mode for geometry loaded at session startup.
+   *
+   * @returns {Promise<boolean>} Resolves with whether edit mode was entered.
+   * @throws {Error} When no drawing session is active.
+   */
   async startDrawingEdit() {
     const session = this.requireDrawSession();
     if (!session.group.getLayers().length) return false;
@@ -307,6 +360,12 @@ export class LeafletMapAdapter extends MapEngineAdapter {
     return true;
   }
 
+  /**
+   * Return the active drawing session's geometry as GeoJSON.
+   *
+   * @returns {?Object} GeoJSON Feature/FeatureCollection, or `null` when nothing is drawn.
+   * @throws {Error} When no drawing session is active.
+   */
   getDrawingGeoJson() {
     const session = this.requireDrawSession();
     const features = [];
@@ -320,6 +379,12 @@ export class LeafletMapAdapter extends MapEngineAdapter {
     return features.length === 1 ? features[0] : { type: 'FeatureCollection', features };
   }
 
+  /**
+   * Clear all drawn shapes and the aligned image overlay from the active session.
+   *
+   * @returns {Promise<void>} Resolves once the drawing has been cleared.
+   * @throws {Error} When no drawing session is active.
+   */
   async clearDrawing() {
     const session = this.requireDrawSession();
     session.group.clearLayers();
@@ -328,6 +393,12 @@ export class LeafletMapAdapter extends MapEngineAdapter {
     session.onChange?.({ reason: 'cleared', drawing: null });
   }
 
+  /**
+   * Zoom the map to fit the active drawing session's shapes.
+   *
+   * @returns {Promise<boolean>} Resolves with whether the view changed.
+   * @throws {Error} When no drawing session is active.
+   */
   async zoomToDrawing() {
     const bounds = this.requireDrawSession().group.getBounds();
     if (!bounds?.isValid?.()) return false;
@@ -335,6 +406,12 @@ export class LeafletMapAdapter extends MapEngineAdapter {
     return true;
   }
 
+  /**
+   * Zoom to fit the drawing, then capture a PNG screenshot of the map container.
+   *
+   * @returns {Promise<string>} Resolves with a PNG data URL.
+   * @throws {Error} When the screenshot renderer is unavailable.
+   */
   async captureDrawingImage() {
     await this.zoomToDrawing();
     await new Promise((resolve) => setTimeout(resolve, 100));
@@ -347,6 +424,11 @@ export class LeafletMapAdapter extends MapEngineAdapter {
     });
   }
 
+  /**
+   * Keep the drawing session's aligned image overlay in sync with the drawn bounds.
+   *
+   * @returns {void}
+   */
   refreshDrawingImageOverlay() {
     const session = this.drawSession;
     if (!session?.imageUrl) return;
@@ -366,6 +448,12 @@ export class LeafletMapAdapter extends MapEngineAdapter {
     }
   }
 
+  /**
+   * Return the active drawing session, or throw when none is active.
+   *
+   * @returns {Object} The active drawing session.
+   * @throws {Error} When no drawing session is active.
+   */
   requireDrawSession() {
     if (!this.drawSession) throw new Error('No Leaflet drawing session is active');
     return this.drawSession;
@@ -373,7 +461,11 @@ export class LeafletMapAdapter extends MapEngineAdapter {
 
   /**
    * Add an engine-neutral runtime layer and register its application state.
-   * @returns {Promise<*>} Resolves when the operation completes.
+   *
+   * @param {Object} definition Runtime layer definition (`type`: `geojson`, `tile`, or `image`).
+   * @returns {Promise<*>} Resolves with the map engine's per-type registration result.
+   * @throws {TypeError} When the definition is invalid, or has an unsupported `type`.
+   * @throws {Error} When a layer with the same ID is already registered.
    */
   async addLayer(definition) {
     this.assertInitialized();
@@ -397,6 +489,8 @@ export class LeafletMapAdapter extends MapEngineAdapter {
 
   /**
    * Remove a runtime layer from the map and application registry.
+   *
+   * @param {string|number} layerId Runtime layer identifier.
    * @returns {Promise<boolean>} Resolves with whether a layer was removed.
    */
   async removeLayer(layerId) {
@@ -413,7 +507,11 @@ export class LeafletMapAdapter extends MapEngineAdapter {
 
   /**
    * Show or hide a runtime layer.
+   *
+   * @param {string|number} layerId Runtime layer identifier.
+   * @param {boolean} visible Requested visibility.
    * @returns {Promise<*>} Resolves when the operation completes.
+   * @throws {Error} When the layer is not registered.
    */
   async setLayerVisibility(layerId, visible) {
     const entry = this.getLayerEntry(layerId);
@@ -421,7 +519,12 @@ export class LeafletMapAdapter extends MapEngineAdapter {
     this.applyLayerEffectiveVisibility(entry);
   }
 
-  /** Configure callbacks without exposing Leaflet event objects. */
+  /**
+   * Configure callbacks without exposing Leaflet event objects.
+   *
+   * @param {Object} [handlers={}] Interaction handlers (`onFeatureClick`, `onMapClick`, `onViewChange`).
+   * @returns {void}
+   */
   setInteractionHandlers(handlers = {}) {
     this.interactionHandlers = { ...handlers };
   }
@@ -432,6 +535,12 @@ export class LeafletMapAdapter extends MapEngineAdapter {
    * Only features whose selected state changed are touched. This is important
    * for large result layers: a normal click must not walk every rendered
    * feature just to restore the previously selected item.
+   *
+   * @param {string|number} layerId Runtime layer identifier.
+   * @param {Array<string>} [featureIds=[]] Feature IDs that should be selected.
+   * @returns {Promise<boolean>} Resolves with `false` when the layer has no feature layers,
+   *          otherwise `true`.
+   * @throws {Error} When the layer is not registered.
    */
   async setFeatureSelection(layerId, featureIds = []) {
     const entry = this.getLayerEntry(layerId);
@@ -477,7 +586,16 @@ export class LeafletMapAdapter extends MapEngineAdapter {
     return true;
   }
 
-  /** Open a popup for one rendered feature, binding HTML lazily when supplied. */
+  /**
+   * Open a popup for one rendered feature, binding HTML lazily when supplied.
+   *
+   * @param {string|number} layerId Runtime layer identifier.
+   * @param {string|number} featureId Rendered feature identifier.
+   * @param {?string} [html=null] Popup HTML to bind before opening; reuses an already-bound
+   *        popup when omitted.
+   * @returns {Promise<boolean>} Resolves with whether the popup was opened.
+   * @throws {Error} When the layer is not registered.
+   */
   async openFeaturePopup(layerId, featureId, html = null) {
     const entry = this.getLayerEntry(layerId);
     const id = String(featureId);
@@ -496,19 +614,40 @@ export class LeafletMapAdapter extends MapEngineAdapter {
     return true;
   }
 
-  /** Resolve the record ID attached to one rendered feature. */
+  /**
+   * Resolve the record ID attached to one rendered feature.
+   *
+   * @param {string|number} layerId Runtime layer identifier.
+   * @param {string|number} featureId Rendered feature identifier.
+   * @returns {?number} The feature's record ID, or `null` when unknown.
+   * @throws {Error} When the layer is not registered.
+   */
   getFeatureRecordId(layerId, featureId) {
     const entry = this.getLayerEntry(layerId);
     return entry.featureRecordIds?.get(String(featureId)) ?? null;
   }
 
-  /** Resolve all rendered feature IDs attached to one record. */
+  /**
+   * Resolve all rendered feature IDs attached to one record.
+   *
+   * @param {string|number} layerId Runtime layer identifier.
+   * @param {number} recordId Record ID to look up.
+   * @returns {Array<string>} Feature IDs rendered for the record.
+   * @throws {Error} When the layer is not registered.
+   */
   getFeatureIdsByRecord(layerId, recordId) {
     const entry = this.getLayerEntry(layerId);
     return [...(entry.recordFeatureIds?.get(Number(recordId)) || [])];
   }
 
-  /** Return bounds of selected native features. */
+  /**
+   * Return bounds of selected native features.
+   *
+   * @param {string|number} layerId Runtime layer identifier.
+   * @param {Array<string>} [featureIds=[]] Feature IDs to combine bounds for.
+   * @returns {Promise<?Object>} Resolves with `{ west, south, east, north }`, or `null`.
+   * @throws {Error} When the layer is not registered.
+   */
   async getSelectionBounds(layerId, featureIds = []) {
     const entry = this.getLayerEntry(layerId);
     if (!entry.featureLayers) return null;
@@ -525,12 +664,21 @@ export class LeafletMapAdapter extends MapEngineAdapter {
       : null;
   }
 
-  /** Return the full Leaflet provider catalogue as engine-neutral descriptors. */
+  /**
+   * Return the full Leaflet provider catalogue as engine-neutral descriptors.
+   *
+   * @returns {Array<Object>} Available base-map descriptors.
+   */
   getAvailableBaseMaps() {
     return getLeafletBaseMapCatalog();
   }
 
-  /** Replace the current base map without touching operational layers. */
+  /**
+   * Replace the current base map without touching operational layers.
+   *
+   * @param {?Object} definition Engine-neutral base-map definition, or `null` to clear it.
+   * @returns {Promise<boolean>} Resolves with `true` once the base map has been applied.
+   */
   async setBaseMap(definition) {
     await this.removeLayer('__base__');
     if (!definition) return true;
@@ -538,7 +686,12 @@ export class LeafletMapAdapter extends MapEngineAdapter {
     return true;
   }
 
-  /** Create/register one base map while keeping Leaflet provider objects private. */
+  /**
+   * Create/register one base map while keeping Leaflet provider objects private.
+   *
+   * @param {Object} definition Engine-neutral base-map definition.
+   * @returns {?Object} Public native-layer registration result, or `null` when unsupported.
+   */
   addBaseMapLayer(definition) {
     const normalized = { ...definition, id: '__base__', visible: true };
     const layer = createLeafletBaseMapLayer(normalized, this.baseMapProviderOptions);
@@ -548,7 +701,14 @@ export class LeafletMapAdapter extends MapEngineAdapter {
     return result;
   }
 
-  /** Replace layer style by redrawing the already-loaded runtime definition. */
+  /**
+   * Replace layer style by redrawing the already-loaded runtime definition.
+   *
+   * @param {string|number} layerId Runtime layer identifier.
+   * @param {Object} style Replacement style definition.
+   * @returns {Promise<boolean>} Resolves with `true` once the layer has been redrawn.
+   * @throws {Error} When the layer is not registered.
+   */
   async setLayerStyle(layerId, style) {
     const entry = this.getLayerEntry(layerId);
     const definition = {
@@ -566,7 +726,14 @@ export class LeafletMapAdapter extends MapEngineAdapter {
     return true;
   }
 
-  /** Apply a global opacity multiplier without changing persisted symbology. */
+  /**
+   * Apply a global opacity multiplier without changing persisted symbology.
+   *
+   * @param {string|number} layerId Runtime layer identifier.
+   * @param {number} opacity Opacity in the 0-1 range.
+   * @returns {Promise<void>} Resolves once the opacity has been applied.
+   * @throws {Error} When the layer is not registered.
+   */
   async setLayerOpacity(layerId, opacity) {
     const entry = this.getLayerEntry(layerId);
     const value = Math.min(1, Math.max(0, Number(opacity)));
@@ -588,7 +755,13 @@ export class LeafletMapAdapter extends MapEngineAdapter {
     }
   }
 
-  /** Return geographic bounds for a rendered layer. */
+  /**
+   * Return geographic bounds for a rendered layer.
+   *
+   * @param {string|number} layerId Runtime layer identifier.
+   * @returns {Promise<?Object>} Resolves with `{ west, south, east, north }`, or `null`.
+   * @throws {Error} When the layer is not registered.
+   */
   async getLayerBounds(layerId) {
     const entry = this.getLayerEntry(layerId);
     const bounds = typeof entry.layer.getBounds === 'function' ? entry.layer.getBounds() : null;
@@ -596,7 +769,11 @@ export class LeafletMapAdapter extends MapEngineAdapter {
     return { west: bounds.getWest(), south: bounds.getSouth(), east: bounds.getEast(), north: bounds.getNorth() };
   }
 
-  /** Return combined bounds for visible operational layers. */
+  /**
+   * Return combined bounds for visible operational layers.
+   *
+   * @returns {Promise<?Object>} Resolves with `{ west, south, east, north }`, or `null`.
+   */
   async getVisibleLayerBounds() {
     let combined = null;
     for (const [id, entry] of this.layers) {
@@ -616,7 +793,12 @@ export class LeafletMapAdapter extends MapEngineAdapter {
 
   /**
    * Set the map center and zoom.
+   *
+   * @param {*} center Target center coordinate (`{latitude, longitude}`, `{lat, lng}`, or `[lat, lng]`).
+   * @param {number} zoom Target native zoom level.
+   * @param {Object} [options={}] Leaflet `setView()` options.
    * @returns {Promise<*>} Resolves when the operation completes.
+   * @throws {TypeError} When `center` is not a valid coordinate.
    */
   async setView(center, zoom, options = {}) {
     const point = normalizeCenter(center);
@@ -625,7 +807,11 @@ export class LeafletMapAdapter extends MapEngineAdapter {
 
   /**
    * Fit the map viewport to geographic bounds.
+   *
+   * @param {*} bounds Target bounds, in any shape accepted by {@link normalizeBounds}.
+   * @param {Object} [options={}] Leaflet `fitBounds()` options.
    * @returns {Promise<*>} Resolves when the operation completes.
+   * @throws {TypeError} When `bounds` is not valid.
    */
   async fitBounds(bounds, options = {}) {
     const normalized = normalizeBounds(bounds);
@@ -638,7 +824,15 @@ export class LeafletMapAdapter extends MapEngineAdapter {
     );
   }
 
-  /** Apply document-wide native zoom limits. */
+  /**
+   * Apply document-wide native zoom limits.
+   *
+   * @param {Object} [options={}] Zoom limits.
+   * @param {?number} [options.minZoom=null] Minimum native zoom, or `null` for no limit.
+   * @param {?number} [options.maxZoom=null] Maximum native zoom, or `null` for no limit.
+   * @returns {Promise<void>} Resolves once the limits (and current zoom, if needed) are applied.
+   * @throws {Error} When the map engine has not been initialized.
+   */
   async setZoomLimits({ minZoom = null, maxZoom = null } = {}) {
     this.assertInitialized();
 
@@ -663,6 +857,13 @@ export class LeafletMapAdapter extends MapEngineAdapter {
    * Convert a target viewport width in kilometres to a Leaflet zoom level.
    * The calculation uses Web-Mercator ground resolution at the supplied
    * latitude and the current map container width.
+   *
+   * @param {number} distanceKm Target viewport width in kilometres.
+   * @param {Object} [options={}] Conversion options.
+   * @param {?number} [options.latitude=null] Latitude used for the ground-resolution
+   *        calculation; defaults to the current map center latitude.
+   * @returns {?number} Rounded native zoom level, or `null` when it cannot be computed.
+   * @throws {Error} When the map engine has not been initialized.
    */
   distanceKmToZoom(distanceKm, { latitude = null } = {}) {
     this.assertInitialized();
@@ -679,7 +880,11 @@ export class LeafletMapAdapter extends MapEngineAdapter {
     return Number.isFinite(zoom) ? Math.max(0, Math.round(zoom)) : null;
   }
 
-  /** Re-evaluate all operational layers after a zoom change. */
+  /**
+   * Re-evaluate all operational layers after a zoom change.
+   *
+   * @returns {void}
+   */
   refreshZoomRangeVisibility() {
     if (!this.map) return;
     for (const [id, entry] of this.layers) {
@@ -688,6 +893,13 @@ export class LeafletMapAdapter extends MapEngineAdapter {
     }
   }
 
+  /**
+   * Show or hide one layer's native representation based on its configured
+   * visibility flag and its zoom-range restriction at the current zoom level.
+   *
+   * @param {Object} entry Native layer registry entry.
+   * @returns {void}
+   */
   applyLayerEffectiveVisibility(entry) {
     if (!this.map || !entry) return;
     const zoom = this.map.getZoom();
@@ -704,6 +916,7 @@ export class LeafletMapAdapter extends MapEngineAdapter {
 
   /**
    * Notify the map engine that its container dimensions changed.
+   *
    * @returns {Promise<*>} Resolves when the operation completes.
    */
   async invalidateSize() {
@@ -712,7 +925,9 @@ export class LeafletMapAdapter extends MapEngineAdapter {
 
   /**
    * Return the current engine-neutral map view state.
-   * @returns {*} Method result.
+   *
+   * @returns {{center: {latitude: number, longitude: number}, zoom: number, bounds: Object}} Current view state.
+   * @throws {Error} When the map engine has not been initialized.
    */
   getViewState() {
     this.assertInitialized();
@@ -736,7 +951,8 @@ export class LeafletMapAdapter extends MapEngineAdapter {
 
   /**
    * Return supported application or map-engine capabilities.
-   * @returns {*} Method result.
+   *
+   * @returns {Object} Leaflet engine capability flags.
    */
   getCapabilities() {
     return {
@@ -780,8 +996,11 @@ export class LeafletMapAdapter extends MapEngineAdapter {
   }
 
   /**
-   * Create and register a Leaflet GeoJSON layer.
-   * @returns {*} Method result.
+   * Create and register a Leaflet GeoJSON layer, wiring per-feature selection
+   * tracking, click handling, and optional marker clustering.
+   *
+   * @param {Object} definition Engine-neutral runtime GeoJSON layer definition.
+   * @returns {Object} Public native-layer registration result.
    */
   addGeoJsonLayer(definition) {
     const paneName = this.ensureOperationalLayerPane(definition);
@@ -853,7 +1072,10 @@ export class LeafletMapAdapter extends MapEngineAdapter {
 
   /**
    * Create and register a Leaflet tile layer.
-   * @returns {*} Method result.
+   *
+   * @param {Object} definition Engine-neutral runtime tile layer definition.
+   * @returns {Object} Public native-layer registration result.
+   * @throws {TypeError} When the definition has no URL.
    */
   addTileLayer(definition) {
     if (!definition.url) {
@@ -947,7 +1169,10 @@ export class LeafletMapAdapter extends MapEngineAdapter {
 
   /**
    * Register a native Leaflet layer and optionally add it to the map.
-   * @returns {*} Method result.
+   *
+   * @param {Object} definition Engine-neutral runtime layer definition.
+   * @param {Object} layer Native Leaflet layer instance.
+   * @returns {{id: (string|number), type: string}} Public native-layer registration result.
    */
   registerLayer(definition, layer) {
     const visible = definition.visible !== false;
@@ -968,6 +1193,9 @@ export class LeafletMapAdapter extends MapEngineAdapter {
    * Ensure one stable Leaflet pane exists for an operational MapLayer.
    * All panes are children of one parent stacking context so their local
    * z-index never competes with Leaflet popups/tooltips/control panes.
+   *
+   * @param {Object} definition Engine-neutral runtime layer definition.
+   * @returns {string} The layer's pane name.
    */
   ensureOperationalLayerPane(definition) {
     const paneName = `heurist-map-layer-${sanitizeClassToken(definition.id)}`;
@@ -979,7 +1207,11 @@ export class LeafletMapAdapter extends MapEngineAdapter {
     return paneName;
   }
 
-  /** Keep native layer panes in the same order as the engine-neutral layer list. */
+  /**
+   * Keep native layer panes in the same order as the engine-neutral layer list.
+   *
+   * @returns {void}
+   */
   refreshOperationalLayerOrder() {
     if (!this.map) return;
     const entries = [...this.layers.entries()]
@@ -997,7 +1229,10 @@ export class LeafletMapAdapter extends MapEngineAdapter {
 
   /**
    * Return a native Leaflet layer registry entry.
-   * @returns {*} Method result.
+   *
+   * @param {string|number} layerId Runtime layer identifier.
+   * @returns {Object} The native layer registry entry.
+   * @throws {Error} When no layer is registered under `layerId`.
    */
   getLayerEntry(layerId) {
     const entry = this.layers.get(layerId);
@@ -1009,7 +1244,9 @@ export class LeafletMapAdapter extends MapEngineAdapter {
 
   /**
    * Throw when the map engine has not been initialized.
-   * @returns {*} Method result.
+   *
+   * @returns {void}
+   * @throws {Error} When the Leaflet map has not been initialized.
    */
   assertInitialized() {
     if (!this.map) {
@@ -1018,6 +1255,13 @@ export class LeafletMapAdapter extends MapEngineAdapter {
   }
 }
 
+/**
+ * Recognize a GeoJSON Polygon that is an axis-aligned rectangle and return its bounds.
+ * Used to preserve rectangle/image/filter drawing shapes edited by the legacy editor.
+ *
+ * @param {*} value GeoJSON Feature or Polygon geometry.
+ * @returns {?Object} Leaflet `LatLngBounds`, or `null` when not an axis-aligned rectangle.
+ */
 function getAxisAlignedRectangleBounds(value) {
   const geometry = value?.type === 'Feature' ? value.geometry : value;
   if (geometry?.type !== 'Polygon' || geometry.coordinates?.length !== 1) return null;
@@ -1036,6 +1280,13 @@ function getAxisAlignedRectangleBounds(value) {
 }
 
 
+/**
+ * Validate that a runtime layer definition has the minimum required shape.
+ *
+ * @param {*} definition Candidate runtime layer definition.
+ * @returns {void}
+ * @throws {TypeError} When the definition is not an object, or lacks `id`/`type`.
+ */
 function validateLayerDefinition(definition) {
   if (!definition || typeof definition !== 'object') {
     throw new TypeError('Layer definition must be an object');
@@ -1048,6 +1299,13 @@ function validateLayerDefinition(definition) {
   }
 }
 
+/**
+ * Normalize a raw center coordinate to `{ latitude, longitude }`.
+ *
+ * @param {*} center Raw center (`{latitude, longitude}`, `{lat, lng}`, or `[lat, lng]`).
+ * @returns {{latitude: number, longitude: number}} Normalized center.
+ * @throws {TypeError} When the center is not a valid coordinate.
+ */
 function normalizeCenter(center) {
   const latitude = Number(center?.latitude ?? center?.lat ?? center?.[0]);
   const longitude = Number(center?.longitude ?? center?.lng ?? center?.lon ?? center?.[1]);
@@ -1059,6 +1317,13 @@ function normalizeCenter(center) {
   return { latitude, longitude };
 }
 
+/**
+ * Normalize raw geographic bounds, throwing when they cannot be resolved.
+ *
+ * @param {*} bounds Raw bounds value.
+ * @returns {{west: number, south: number, east: number, north: number}} Normalized bounds.
+ * @throws {TypeError} When the bounds cannot be normalized.
+ */
 function normalizeBounds(bounds) {
   const normalized = normalizeGeographicBounds(bounds);
   if (!normalized) {
@@ -1067,6 +1332,12 @@ function normalizeBounds(bounds) {
   return normalized;
 }
 
+/**
+ * Convert engine-neutral geographic bounds to a Leaflet `[[south, west], [north, east]]` pair.
+ *
+ * @param {*} bounds Raw bounds value.
+ * @returns {Array<Array<number>>|undefined} Leaflet-shaped bounds pair, or `undefined` when unresolvable.
+ */
 function toLeafletBounds(bounds) {
   const normalized = normalizeGeographicBounds(bounds);
   return normalized
@@ -1078,13 +1349,30 @@ function toLeafletBounds(bounds) {
 }
 
 
+/**
+ * Remove `undefined`-valued keys from a Leaflet options object, since Leaflet
+ * treats an explicit `undefined` differently from an absent key for some options.
+ *
+ * @param {Object} options Candidate options object.
+ * @returns {Object} Shallow copy with `undefined` values removed.
+ */
 function compactOptions(options) {
   return Object.fromEntries(
     Object.entries(options).filter(([, value]) => value !== undefined)
   );
 }
 
-
+/**
+ * Build a Leaflet `pointToLayer` factory that resolves the correct marker type
+ * (image, icon-font, cluster-friendly, or default circle marker) per feature.
+ *
+ * @param {Function} resolveSymbol Resolves the effective symbol for a GeoJSON feature.
+ * @param {Object} [options={}] Factory options.
+ * @param {boolean} [options.markerClustering=false] Use Marker-based icons compatible with clustering.
+ * @param {?Object} [options.iconContext=null] Record-type icon context (`baseUrl`, `database`).
+ * @param {?string} [options.paneName=null] Leaflet pane to render markers into.
+ * @returns {Function} A Leaflet `pointToLayer(feature, latlng)` callback.
+ */
 function createPointLayerFactory(resolveSymbol, { markerClustering = false, iconContext = null, paneName = null } = {}) {
   const imageIconCache = new Map();
 
@@ -1126,6 +1414,13 @@ function createPointLayerFactory(resolveSymbol, { markerClustering = false, icon
   };
 }
 
+/**
+ * Build Leaflet vector path style options from an effective symbol.
+ *
+ * @param {Object} [symbol={}] Effective symbol for the path feature.
+ * @param {?string} [paneName=null] Leaflet pane to render the path into.
+ * @returns {Object} Compact Leaflet path style options.
+ */
 function createPathStyle(symbol = {}, paneName = null) {
   return compactOptions({
     pane: paneName,
@@ -1140,6 +1435,16 @@ function createPathStyle(symbol = {}, paneName = null) {
   });
 }
 
+/**
+ * Wrap a GeoJSON layer's markers in a Leaflet.markercluster group.
+ *
+ * @param {Object} geoJsonLayer Source Leaflet GeoJSON layer whose markers are clustered.
+ * @param {number} [gridPixels=20] Maximum cluster radius in pixels.
+ * @param {number} [maxLevel=12] Maximum zoom level at which clustering still applies.
+ * @param {?string} [paneName=null] Leaflet pane for the cluster group.
+ * @returns {Object} The Leaflet.markercluster group containing the layer's markers.
+ * @throws {Error} When Leaflet.markercluster is not available.
+ */
 function createMarkerClusterLayer(geoJsonLayer, gridPixels = 20, maxLevel = 12, paneName = null) {
   if (typeof L.markerClusterGroup !== 'function') {
     throw new Error('Marker clustering is enabled but Leaflet.markercluster is not available');
@@ -1156,6 +1461,13 @@ function createMarkerClusterLayer(geoJsonLayer, gridPixels = 20, maxLevel = 12, 
 }
 
 
+/**
+ * Build a cache key for an image marker icon derived from its visual properties.
+ *
+ * @param {Object} symbol Effective symbol for the marker.
+ * @param {string} iconUrl Resolved marker image URL.
+ * @returns {string} JSON cache key.
+ */
 function imageMarkerCacheKey(symbol, iconUrl) {
   return JSON.stringify([
     iconUrl,
@@ -1166,6 +1478,14 @@ function imageMarkerCacheKey(symbol, iconUrl) {
   ]);
 }
 
+/**
+ * Create a Leaflet icon for an image-backed marker, tinting it via CSS filter
+ * when a color is set (falling back to a `divIcon` wrapper so the filter applies).
+ *
+ * @param {Object} symbol Effective symbol for the marker.
+ * @param {string} iconUrl Resolved marker image URL.
+ * @returns {Object} A Leaflet `Icon` or `DivIcon` instance.
+ */
 function createImageMarkerIcon(symbol, iconUrl) {
   const size = Array.isArray(symbol.iconSize) ? symbol.iconSize : [finitePositiveNumber(symbol.iconSize, 18), finitePositiveNumber(symbol.iconSize, 18)];
   const iconAnchor = leafletPointOption(symbol.iconAnchor);
@@ -1186,6 +1506,12 @@ function createImageMarkerIcon(symbol, iconUrl) {
   }));
 }
 
+/**
+ * Normalize a raw point option (array pair or `{x, y}` object) to a Leaflet `[x, y]` pair.
+ *
+ * @param {*} value Raw point value.
+ * @returns {Array<number>|undefined} Normalized `[x, y]` pair, or `undefined` when invalid/absent.
+ */
 function leafletPointOption(value) {
   if (value == null) return undefined;
   if (Array.isArray(value) && value.length >= 2) {
@@ -1201,6 +1527,15 @@ function leafletPointOption(value) {
   return undefined;
 }
 
+/**
+ * Resolve the image URL for an image-backed marker symbol, including the
+ * record-type icon URL variant that depends on the feature's record type.
+ *
+ * @param {Object} symbol Effective symbol for the marker.
+ * @param {Object} feature GeoJSON feature the marker is rendered for.
+ * @param {?Object} iconContext Record-type icon context (`baseUrl`, `database`).
+ * @returns {?string} Resolved image URL, or `null` when not image-backed/resolvable.
+ */
 function resolveImageMarkerUrl(symbol, feature, iconContext) {
   const type = String(symbol?.iconType || '').toLowerCase();
   if ((type === 'url' || type === 'image' || type === 'icon' || type === 'marker') && symbol?.iconUrl) return String(symbol.iconUrl);
@@ -1213,20 +1548,49 @@ function resolveImageMarkerUrl(symbol, feature, iconContext) {
   return url.toString();
 }
 
+/**
+ * Escape a value for safe inclusion in an HTML attribute.
+ *
+ * @param {*} value Value to escape.
+ * @returns {string} HTML-attribute-safe string.
+ */
 function escapeAttribute(value) {
   return String(value).replaceAll('&', '&amp;').replaceAll('"', '&quot;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
 }
 
+/**
+ * Coerce a value to a finite, non-negative number.
+ *
+ * @param {*} value Candidate value.
+ * @param {number} fallback Fallback used when `value` is not finite/non-negative.
+ * @returns {number} The finite non-negative number, or `fallback`.
+ */
 function finiteNonNegativeNumber(value, fallback) {
   const number = Number(value);
   return Number.isFinite(number) && number >= 0 ? number : fallback;
 }
 
+/**
+ * Coerce a value to an integer clamped to a `[min, max]` range.
+ *
+ * @param {*} value Candidate value.
+ * @param {number} fallback Fallback used when `value` is not finite.
+ * @param {number} min Minimum allowed value.
+ * @param {number} max Maximum allowed value.
+ * @returns {number} The clamped rounded integer, or `fallback`.
+ */
 function boundedInteger(value, fallback, min, max) {
   const number = Number(value);
   return Number.isFinite(number) ? Math.min(max, Math.max(min, Math.round(number))) : fallback;
 }
 
+/**
+ * Build a `divIcon` that renders default (non-clustered) point symbology as a
+ * Marker-compatible icon, for use inside a Leaflet.markercluster group.
+ *
+ * @param {Object} [symbol={}] Effective symbol for the marker.
+ * @returns {Object} A Leaflet `DivIcon` instance.
+ */
 function createClusterPointIcon(symbol = {}) {
   const radius = finitePositiveNumber(symbol.radius, 6);
   const diameter = Math.max(2, radius * 2);
@@ -1258,16 +1622,37 @@ function createClusterPointIcon(symbol = {}) {
   });
 }
 
+/**
+ * Coerce a value to a finite, strictly positive number.
+ *
+ * @param {*} value Candidate value.
+ * @param {number} fallback Fallback used when `value` is not finite/positive.
+ * @returns {number} The finite positive number, or `fallback`.
+ */
 function finitePositiveNumber(value, fallback) {
   const number = Number(value);
   return Number.isFinite(number) && number > 0 ? number : fallback;
 }
 
+/**
+ * Coerce a value to a finite number.
+ *
+ * @param {*} value Candidate value.
+ * @param {number} fallback Fallback used when `value` is not finite.
+ * @returns {number} The finite number, or `fallback`.
+ */
 function finiteNumber(value, fallback) {
   const number = Number(value);
   return Number.isFinite(number) ? number : fallback;
 }
 
+/**
+ * Convert a `#rrggbb` hex color and opacity to an `rgba()` CSS color string.
+ *
+ * @param {*} color Candidate color; only 6-digit hex colors are converted.
+ * @param {number} opacity Alpha value applied to the resulting color.
+ * @returns {string} An `rgba(...)` string, or `color` unchanged when not a hex color.
+ */
 function hexOrCssWithOpacity(color, opacity) {
   const hex = typeof color === 'string' ? color.trim() : '';
   const match = /^#([0-9a-f]{6})$/i.exec(hex);
@@ -1276,6 +1661,13 @@ function hexOrCssWithOpacity(color, opacity) {
   return `rgba(${parseInt(value.slice(0, 2), 16)},${parseInt(value.slice(2, 4), 16)},${parseInt(value.slice(4, 6), 16)},${opacity})`;
 }
 
+/**
+ * Build a `divIcon` rendering an icon-font glyph (Font Awesome or the legacy
+ * `ui-icon-*` set) as a marker, sanitizing the resolved CSS class list.
+ *
+ * @param {Object} symbol Effective symbol for the marker (`iconFont`, `iconSize`, `iconAnchor`, `color`).
+ * @returns {Object} A Leaflet `DivIcon` instance.
+ */
 function createIconFontIcon(symbol) {
   const iconFont = symbol.iconFont || 'ui-icon-location';
   let className;
@@ -1339,10 +1731,23 @@ function createIconFontIcon(symbol) {
   });
 }
 
+/**
+ * Sanitize a value into a safe CSS class-name/pane-name token.
+ *
+ * @param {*} value Candidate value.
+ * @returns {string} Token with only letters, digits, `_`, and `-`.
+ */
 function sanitizeClassToken(value) {
   return String(value).replace(/[^A-Za-z0-9_-]/g, '-');
 }
 
+/**
+ * Resolve the feature/record identifiers and popup properties embedded in a
+ * GeoJSON feature by MapLayer loaders.
+ *
+ * @param {Object} feature GeoJSON feature.
+ * @returns {{featureId: string, recordId: ?number, popupProperties: Object}} Selection metadata.
+ */
 function getFeatureSelectionMetadata(feature) {
   const properties = feature?.properties && typeof feature.properties === 'object' ? feature.properties : {};
   const metadata = properties.heurist || {};
@@ -1355,10 +1760,24 @@ function getFeatureSelectionMetadata(feature) {
   };
 }
 
+/**
+ * Convert a Leaflet LatLng to the engine-neutral `{ latitude, longitude }` shape.
+ *
+ * @param {?Object} latlng Leaflet LatLng instance.
+ * @returns {?{latitude: number, longitude: number}} Engine-neutral coordinate, or `null`.
+ */
 function toPublicLatLng(latlng) {
   return latlng ? { latitude: latlng.lat, longitude: latlng.lng } : null;
 }
 
+/**
+ * Recursively bind a stopped-propagation click handler to a native layer (or
+ * every child of a compound layer), so feature clicks never bubble to the map.
+ *
+ * @param {?Object} layer Native Leaflet layer (or group).
+ * @param {Function} handler Called with `(event, clickedLayer)` on click.
+ * @returns {void}
+ */
 function bindFeatureClickHandlers(layer, handler) {
   if (!layer) return;
 
@@ -1377,6 +1796,12 @@ function bindFeatureClickHandlers(layer, handler) {
   });
 }
 
+/**
+ * Find the first descendant layer (or the layer itself) capable of opening a popup.
+ *
+ * @param {?Object} layer Native Leaflet layer (or group).
+ * @returns {?Object} A layer supporting `openPopup()`, or `null` when none is found.
+ */
 function getFirstPopupCapableLayer(layer) {
   if (!layer) return null;
   if (typeof layer.eachLayer === 'function') {
@@ -1389,6 +1814,14 @@ function getFirstPopupCapableLayer(layer) {
   return typeof layer.openPopup === 'function' ? layer : null;
 }
 
+/**
+ * Remember a native layer's (or each child's, for compound layers) unselected
+ * base style so it can be restored after deselection.
+ *
+ * @param {Object} layer Native Leaflet layer (or group).
+ * @param {WeakMap<Object, Object>} storage Map from native layer to its remembered base style.
+ * @returns {void}
+ */
 function rememberSelectionBaseStyle(layer, storage) {
   // GeometryCollection and other compound GeoJSON features are represented by
   // Leaflet FeatureGroup/LayerGroup instances. Selection is rendered by the
@@ -1409,6 +1842,18 @@ function rememberSelectionBaseStyle(layer, storage) {
   });
 }
 
+/**
+ * Apply or restore selection styling on a native layer (or each child, for
+ * compound features), honoring the layer's opacity multiplier and optional
+ * configured selection symbol.
+ *
+ * @param {Object} layer Native Leaflet layer (or group).
+ * @param {boolean} selected Whether the feature should render as selected.
+ * @param {WeakMap<Object, Object>} storage Map from native layer to its remembered base style.
+ * @param {number} [opacityMultiplier=1] Layer opacity multiplier to combine with the base/selected style.
+ * @param {?Object} [selectionSymbol=null] Optional style override for the selected state.
+ * @returns {void}
+ */
 function applyNativeSelection(layer, selected, storage, opacityMultiplier = 1, selectionSymbol = null) {
   // Apply selection recursively to compound features. Calling setStyle() only on
   // the FeatureGroup can propagate the selected style, but the group's options
@@ -1459,6 +1904,9 @@ function applyNativeSelection(layer, selected, storage, opacityMultiplier = 1, s
  * Restore the native insertion order of path features in one GeoJSON layer.
  * Leaflet Path.bringToFront() physically moves an SVG element to the end of its
  * renderer, so deselection must rebuild the normal DOM order explicitly.
+ *
+ * @param {?Object} layer Native Leaflet layer (or group).
+ * @returns {void}
  */
 function restoreNativeLayerOrder(layer) {
   if (!layer || typeof layer.eachLayer !== 'function') return;
@@ -1471,7 +1919,12 @@ function restoreNativeLayerOrder(layer) {
   });
 }
 
-/** Bring one logical feature (including compound geometries) to the front. */
+/**
+ * Bring one logical feature (including compound geometries) to the front.
+ *
+ * @param {?Object} layer Native Leaflet layer (or group).
+ * @returns {void}
+ */
 function bringNativeFeatureToFront(layer) {
   if (!layer) return;
   if (typeof layer.eachLayer === 'function') {
@@ -1481,7 +1934,12 @@ function bringNativeFeatureToFront(layer) {
   if (typeof layer.bringToFront === 'function') layer.bringToFront();
 }
 
-/** Return whether a logical feature contains at least one Leaflet Path. */
+/**
+ * Return whether a logical feature contains at least one Leaflet Path.
+ *
+ * @param {?Object} layer Native Leaflet layer (or group).
+ * @returns {boolean} `true` when the layer (or a descendant) supports `bringToFront()`.
+ */
 function canBringNativeFeatureToFront(layer) {
   if (!layer) return false;
   if (typeof layer.bringToFront === 'function') return true;
@@ -1493,6 +1951,12 @@ function canBringNativeFeatureToFront(layer) {
   return found;
 }
 
+/**
+ * Resolve geographic bounds for a single native feature layer (path or point).
+ *
+ * @param {Object} layer Native Leaflet layer.
+ * @returns {?Object} Leaflet `LatLngBounds`, or `null` when unresolvable.
+ */
 function getNativeFeatureBounds(layer) {
   if (typeof layer.getBounds === 'function') return layer.getBounds();
   if (typeof layer.getLatLng === 'function') {
@@ -1502,6 +1966,14 @@ function getNativeFeatureBounds(layer) {
   return null;
 }
 
+/**
+ * Apply a layer's opacity multiplier on top of its remembered base opacity.
+ *
+ * @param {Object} layer Native Leaflet child layer.
+ * @param {number} multiplier Opacity multiplier in the 0-1 range.
+ * @param {WeakMap<Object, Object>} baseOpacity Map from native layer to its remembered base opacity.
+ * @returns {void}
+ */
 function applyChildOpacity(layer, multiplier, baseOpacity) {
   let base = baseOpacity.get(layer);
   if (!base) {
@@ -1530,12 +2002,26 @@ function applyChildOpacity(layer, multiplier, baseOpacity) {
   if (element) element.style.opacity = String(base.opacity * multiplier);
 }
 
+/**
+ * Coerce a value to a finite opacity number.
+ *
+ * @param {*} value Candidate value.
+ * @param {number} fallback Fallback used when `value` is not finite.
+ * @returns {number} The finite number, or `fallback`.
+ */
 function finiteOpacity(value, fallback) {
   const number = Number(value);
   return Number.isFinite(number) ? number : fallback;
 }
 
-/** Convert Leaflet's non-GeoJSON Circle into the polygon used by the legacy editor. */
+/**
+ * Convert Leaflet's non-GeoJSON Circle into the polygon used by the legacy editor.
+ *
+ * @param {Object} circle Native Leaflet `Circle` instance.
+ * @param {Object} map Native Leaflet map instance (accepted for parity with the caller; unused).
+ * @param {number} [segments=40] Number of polygon vertices approximating the circle.
+ * @returns {Object} A GeoJSON Polygon Feature approximating the circle.
+ */
 function circleToPolygonFeature(circle, map, segments = 40) {
   const center = circle.getLatLng();
   const radius = circle.getRadius();
@@ -1563,6 +2049,12 @@ function circleToPolygonFeature(circle, map, segments = 40) {
   };
 }
 
+/**
+ * Deep-clone a plain JSON-serializable value.
+ *
+ * @param {*} value Value to clone.
+ * @returns {*} Cloned value, or `value` unchanged when `null`/`undefined`.
+ */
 function clonePlainValue(value) {
   if (value == null) return value;
   return typeof structuredClone === 'function'

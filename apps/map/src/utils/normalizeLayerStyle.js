@@ -1,13 +1,16 @@
 /**
- * normalizeLayerStyle.js - Layer style normalization
+ * @file normalizeLayerStyle.js
+ * @brief Converts public MapLayer style definitions into a consistent engine-neutral style structure.
  *
- * @fileOverview Converts public MapLayer style definitions into a consistent engine-neutral style structure.
- * @project     Heurist mapping application
+ * @project     Heurist academic knowledge management system
+ * @package     heurist-map
  *
  * @link        https://HeuristNetwork.org
- * @copyright   (C) 2026 Heurist Network
+ * @copyright   (C) 2024 onwards Heurist Network
+ * @author      Artem Osmakov   <osmakov@gmail.com>
+ * @author      Ian Johnson <ian.johnson.heurist@gmail.com>
  * @license     https://www.gnu.org/licenses/gpl-3.0.txt GNU License 3.0
- * @author      Artem Osmakov <osmakov@gmail.com>
+ * @since       8.0
  */
 
 import {
@@ -22,6 +25,10 @@ import {
  * Vector inheritance follows the same chain as main Heurist:
  * DEFAULT_MAP_SYMBOL -> configured default -> layer -> thematic renderer -> range.
  * Thematic range symbols remain sparse until feature resolution.
+ *
+ * @param {object} [value] Raw layer style.
+ * @param {object} [defaults] Configured default symbol/selection to inherit from.
+ * @returns {{symbol: object, selectSymbol: object|null, thematic: Array<object>}} Normalized style.
  */
 export function normalizeLayerStyle(value = {}, defaults = {}) {
   const style = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
@@ -46,6 +53,7 @@ export function normalizeLayerStyle(value = {}, defaults = {}) {
 }
 
 
+/** Normalize a selection-highlight symbol override, deriving `radius` from `iconSize` when present. */
 function normalizeSelectionSymbol(value) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
   const symbol = normalizeMapSymbolOverride(value);
@@ -56,6 +64,7 @@ function normalizeSelectionSymbol(value) {
   return symbol;
 }
 
+/** Normalize a layer's thematic-map list, ensuring at most one is marked active. */
 function normalizeThematicMaps(value, layerSymbol) {
   const source = Array.isArray(value)
     ? value
@@ -78,6 +87,7 @@ function normalizeThematicMaps(value, layerSymbol) {
     });
 }
 
+/** Normalize a thematic map's field list. */
 function normalizeThematicFields(value) {
   if (!Array.isArray(value)) return [];
   return value
@@ -90,6 +100,7 @@ function normalizeThematicFields(value) {
     }));
 }
 
+/** Normalize a thematic field's value ranges. */
 function normalizeThematicRanges(value) {
   if (!Array.isArray(value)) return [];
   return value
@@ -100,15 +111,18 @@ function normalizeThematicRanges(value) {
     }));
 }
 
+/** Whether a style object carries symbol properties directly at its top level (legacy shape). */
 function hasInlineSymbol(style) {
   const ignored = new Set(['type', 'thematic', 'selectSymbol', 'selectSymbology', 'symbol']);
   return Object.keys(style).some((key) => !ignored.has(key));
 }
 
+/** Whether a value is a non-empty plain object, suitable as an explicit symbol override. */
 function hasMeaningfulSymbol(value) {
   return Boolean(value && typeof value === 'object' && !Array.isArray(value) && Object.keys(value).length);
 }
 
+/** Deep-clone a JSON-safe value. */
 function structuredCloneSafe(value) {
   return typeof structuredClone === 'function'
     ? structuredClone(value)

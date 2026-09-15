@@ -31,6 +31,7 @@ function rowsOf(payload) {
   return [];
 }
 
+/** Normalize a value into a de-duplicated array of positive integer IDs. */
 function uniqueIds(ids) {
   return [
     ...new Set(
@@ -51,7 +52,9 @@ function pick(cache, ids) {
   return out;
 }
 
+/** Resolves and caches record-type/field/relation-type display names for the graph legend and popups. */
 export class VocabularyProvider {
+  /** @param {{apiClient: object}} [options] Heurist API client. */
   constructor({ apiClient } = {}) {
     this.apiClient = apiClient;
     this.recordTypeNames = new Map();
@@ -85,6 +88,14 @@ export class VocabularyProvider {
     return pick(this.recordTypeNames, ids);
   }
 
+  /**
+   * Resolve (and cache) detail-type (field) names.
+   *
+   * @param {number[]} ids dty_ID values.
+   * @param {{signal?: AbortSignal}} [options] Request options.
+   * @returns {Promise<Map<number,string>>} id -> name for the ids that resolved.
+   * @throws {Error} When the request is aborted.
+   */
   async getFieldNames(ids, { signal } = {}) {
     const missing = uniqueIds(ids).filter((id) => !this.fieldNames.has(id));
     if (missing.length) {

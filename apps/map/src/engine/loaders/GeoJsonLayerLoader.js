@@ -1,13 +1,17 @@
 /**
- * GeoJsonLayerLoader.js - Heurist GeoJSON layer loader
+ * @file GeoJsonLayerLoader.js
+ * @brief Loads query, record, or inline GeoJSON sources and produces normalized
+ *        engine-neutral runtime layers.
  *
- * @fileOverview Loads query, record, or inline GeoJSON sources and produces normalized engine-neutral runtime layers.
- * @project     Heurist mapping application
+ * @project     Heurist academic knowledge management system
+ * @package     heurist-map
  *
  * @link        https://HeuristNetwork.org
- * @copyright   (C) 2026 Heurist Network
+ * @copyright   (C) 2024 onwards Heurist Network
+ * @author      Artem Osmakov   <osmakov@gmail.com>
+ * @author      Ian Johnson <ian.johnson.heurist@gmail.com>
  * @license     https://www.gnu.org/licenses/gpl-3.0.txt GNU License 3.0
- * @author      Artem Osmakov <osmakov@gmail.com>
+ * @since       8.0
  */
 
 import { normalizeGeoJson } from '../../utils/normalizeGeoJson.js';
@@ -18,12 +22,12 @@ import {
   getAllThematicFieldCodes
 } from '../../thematic/thematicAttributes.js';
 
-/**
- * Loads Heurist query, record, and inline GeoJSON MapLayers.
- */
+/** Loads Heurist query, record, and inline GeoJSON MapLayers. */
 export class GeoJsonLayerLoader {
   /**
-   * Create and initialize the class instance.
+   * @param {object} options Loader dependencies.
+   * @param {object} options.queryGeoData Provider used to load query/record GeoJSON.
+   * @param {object|null} [options.thematicAttributes] Provider used to load thematic attribute values.
    */
   constructor({ queryGeoData, thematicAttributes = null }) {
     this.queryGeoData = queryGeoData;
@@ -31,8 +35,12 @@ export class GeoJsonLayerLoader {
   }
 
   /**
-   * Load a MapLayer using the loader registered for its source type.
-   * @returns {Promise<*>} Resolves when the operation completes.
+   * Load a query, record, or inline GeoJSON MapLayer, enriching thematic attributes where applicable.
+   *
+   * @param {object} mapLayer Normalized public MapLayer.
+   * @param {object} context Layer-loading context (`reference`, `viewport`, `signal`, `application`).
+   * @returns {Promise<object>} Engine-neutral runtime GeoJSON layer.
+   * @throws {Error} When the source type is not `'heurist-query'`, `'record'`, or `'inline-geojson'`.
    */
   async load(mapLayer, context) {
     const source = mapLayer.source;
@@ -82,7 +90,15 @@ export class GeoJsonLayerLoader {
     return createGeoJsonRuntimeLayer(mapLayer, context, normalizedGeoJson, { normalized: true });
   }
 
-  /** Load thematic attributes without making geometry loading depend on enrichment success. */
+  /**
+   * Load thematic attributes without making geometry loading depend on enrichment success.
+   *
+   * @param {object} mapLayer Normalized public MapLayer.
+   * @param {object} geoJson Normalized GeoJSON to enrich in place.
+   * @param {object} context Layer-loading context.
+   * @returns {Promise<object>} The (possibly enriched) `geoJson`, unchanged when enrichment is skipped or fails.
+   * @throws {Error} When the thematic attribute request is aborted.
+   */
   async enrichThematicAttributes(mapLayer, geoJson, context) {
     const fieldCodes = getAllThematicFieldCodes(mapLayer.style);
     const recordIds = collectThematicRecordIds(geoJson);
@@ -111,9 +127,13 @@ export class GeoJsonLayerLoader {
 }
 
 /**
- * Create geo json runtime layer.
+ * Build the engine-neutral runtime layer shape shared by every GeoJSON-backed MapLayer.
  *
- * @returns {*} Function result.
+ * @param {object} mapLayer Normalized public MapLayer.
+ * @param {object} context Layer-loading context.
+ * @param {object} geoJson Raw or already-normalized GeoJSON.
+ * @param {{normalized?: boolean}} [options] Pass `normalized: true` when `geoJson` has already been normalized.
+ * @returns {object} Engine-neutral runtime GeoJSON layer.
  */
 export function createGeoJsonRuntimeLayer(mapLayer, context, geoJson, { normalized = false } = {}) {
   const id = context.reference.id ?? `map-layer-${context.reference.recordId}`;
@@ -142,6 +162,7 @@ export function createGeoJsonRuntimeLayer(mapLayer, context, geoJson, { normaliz
   };
 }
 
+/** Normalize a layer's popup configuration, merging in an optional report template name. */
 function normalizePopup(value, template = null) {
   if (value === false) {
     return { enabled: false };
@@ -156,6 +177,7 @@ function normalizePopup(value, template = null) {
   };
 }
 
+/** Normalize a GeoJSON response's `meta` block to the runtime layer's `resultMeta` shape. */
 function normalizeResultMeta(value) {
   if (!value || typeof value !== 'object') return null;
   const numberOrNull = (item) => {
@@ -172,11 +194,12 @@ function normalizeResultMeta(value) {
   };
 }
 
-
+/** Whether an error is an `AbortError`. */
 function isAbortError(error) {
   return error?.name === 'AbortError';
 }
 
+/** Reduce an error to a plain `{name, message}` object safe to include in a dispatched event. */
 function serializeError(error) {
   return {
     name: error?.name || 'Error',
@@ -184,13 +207,18 @@ function serializeError(error) {
   };
 }
 
-
-/** @deprecated Viewports are now sent to /map as the separate extent parameter. */
+/**
+ * @deprecated Viewports are now sent to /map as the separate extent parameter.
+ * @param {*} query Query, returned unchanged.
+ * @param {*} bounds Unused.
+ * @returns {*} `query`, unchanged.
+ */
 export function addViewportToQuery(query, bounds) {
   void bounds;
   return query;
 }
 
+/** Collect the distinct record-type IDs present across a GeoJSON's features. */
 function collectRecordTypeIds(geoJson) {
   const ids = new Set();
   for (const feature of geoJson?.features || []) {
@@ -201,6 +229,7 @@ function collectRecordTypeIds(geoJson) {
   return [...ids];
 }
 
+/** Build the record-icon base URL/database context from the application config, or `null` when unconfigured. */
 function createIconContext(config = {}) {
   const apiBaseUrl = String(config?.apiBaseUrl || '').replace(/\/+$/, '');
   if (!apiBaseUrl || !config?.database) return null;

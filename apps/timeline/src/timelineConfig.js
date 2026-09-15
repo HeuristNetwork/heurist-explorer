@@ -1,8 +1,10 @@
 /**
  * @file timelineConfig.js
  * @brief Builds and normalizes the runtime configuration for the Heurist timeline module.
+ *
  * @project     Heurist academic knowledge management system
  * @package     heurist-timeline
+ *
  * @link        https://HeuristNetwork.org
  * @copyright   (C) 2024 onwards Heurist Network
  * @author      Artem Osmakov   <osmakov@gmail.com>

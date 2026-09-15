@@ -14,6 +14,7 @@
  */
 /** Provides selected-field records and count summaries. */
 export class RecordDataProvider {
+  /** @param {{apiClient: object}} options Heurist API client. */
   constructor({ apiClient }) {
     this.apiClient = apiClient;
   }
@@ -48,17 +49,23 @@ export class RecordDataProvider {
   }
 
   /** Return a count-only search summary without materialising record IDs. */
-  /** Return a count-only search summary. */
   async count({ query, filter, signal } = {}) {
     return this.#summary("count", { query, filter, signal });
   }
 
   /** Return total and counts grouped by rec_RecTypeID. */
-  /** Return counts grouped by record type. */
   async rectypes({ query, filter, signal } = {}) {
     return this.#summary("rectypes", { query, filter, signal });
   }
 
+  /**
+   * Shared summary request for `count`/`rectypes`.
+   *
+   * @param {'count'|'rectypes'} detail Summary detail level requested from the API.
+   * @param {{query: *, filter?: *, signal?: AbortSignal}} options Request options.
+   * @returns {Promise<object>} Summary response.
+   * @throws {TypeError} When `query` is empty, or the response is missing the expected fields.
+   */
   async #summary(detail, { query, filter, signal }) {
     if (query == null || (typeof query === "string" && !query.trim())) {
       throw new TypeError("A Heurist query is required");

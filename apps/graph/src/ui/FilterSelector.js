@@ -15,6 +15,16 @@
 import { $HR } from "#shared/ui";
 /** Renders saved filters as selectable actions. */
 export class FilterSelector {
+  /**
+   * @param {object} options Selector dependencies.
+   * @param {object} options.api Graph public API instance.
+   * @param {HTMLElement} options.container Element to render the filter rows into.
+   * @param {Function|null} [options.loadFilter] Loads a filter's full definition by id, when not already loaded.
+   * @param {Function|null} [options.onLoading] Called with the filter id before a deferred load starts.
+   * @param {Function|null} [options.onLoaded] Called with the loaded filter once it resolves.
+   * @param {Function|null} [options.onError] Called with `(error, operation)` when activation fails.
+   * @param {string} [options.classPrefix='heurist-data'] Class-name prefix applied to generated elements.
+   */
   constructor({
     api,
     container,
@@ -34,6 +44,12 @@ export class FilterSelector {
     this.loaded = new Map();
   }
 
+  /**
+   * Render one button per saved filter, or an empty-state message when there are none.
+   *
+   * @param {Array<{id: number, title: string}>} filters Filters to list.
+   * @returns {void}
+   */
   render(filters) {
     this.container.replaceChildren();
     for (const filter of filters) {
@@ -58,6 +74,12 @@ export class FilterSelector {
     }
   }
 
+  /**
+   * Activate a filter, loading its full definition first if needed.
+   *
+   * @param {{id: number, query?: *}} filter Filter (possibly without a loaded query).
+   * @returns {Promise<void>}
+   */
   async activate(filter) {
     let selected = this.loaded.get(Number(filter.id)) || filter;
     if (selected.query == null && this.loadFilter) {

@@ -1,12 +1,20 @@
 /**
- * defaultBasemaps.js - Heurist curated base-map definitions.
+ * @file defaultBasemaps.js
+ * @brief Heurist curated base-map definitions.
  *
  * Standard entries refer to provider IDs exposed by leaflet-providers.js.
  * Custom entries remain engine-neutral XYZ tile definitions and are handled by
  * the active map-engine adapter.
  *
- * @project     Heurist mapping application
+ * @project     Heurist academic knowledge management system
+ * @package     heurist-map
+ *
+ * @link        https://HeuristNetwork.org
+ * @copyright   (C) 2024 onwards Heurist Network
+ * @author      Artem Osmakov   <osmakov@gmail.com>
+ * @author      Ian Johnson <ian.johnson.heurist@gmail.com>
  * @license     https://www.gnu.org/licenses/gpl-3.0.txt GNU License 3.0
+ * @since       8.0
  */
 
 export const DEFAULT_BASE_MAPS = Object.freeze([
@@ -41,14 +49,21 @@ export const DEFAULT_BASE_MAPS = Object.freeze([
   Object.freeze({ id: 'None', title: 'None', type: 'none' })
 ]);
 
+/**
+ * Return a fresh, mutable copy of the curated default base-map list.
+ *
+ * @returns {Array<object>} Cloned base-map definitions.
+ */
 export function getDefaultBaseMaps() {
   return DEFAULT_BASE_MAPS.map(cloneDefinition);
 }
 
+/** Build a standard leaflet-providers base-map entry from its provider id. */
 function provider(id) {
   return Object.freeze({ id, title: id, type: 'tile', provider: id });
 }
 
+/** Deep-clone a JSON-safe value, tolerating `null`/`undefined`. */
 function cloneDefinition(value) {
   return value == null ? value : JSON.parse(JSON.stringify(value));
 }

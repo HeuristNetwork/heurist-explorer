@@ -15,7 +15,9 @@
 
 import { GraphDocument } from "../core/GraphDocument.js";
 
+/** Loads graph documents from the dedicated Heurist graph endpoint. */
 export class GraphProvider {
+  /** @param {{apiClient: object}} options Heurist API client. */
   constructor({ apiClient }) {
     this.apiClient = apiClient;
   }

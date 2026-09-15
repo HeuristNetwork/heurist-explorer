@@ -17,7 +17,18 @@ import { GraphDocument } from "./GraphDocument.js";
 import { GraphExpansions } from './GraphExpansions.js';
 import { normalizeGraphConfigurationSettings } from "../ui/config/graphConfigurationSchema.js";
 
+/** Coordinates graph loading, merging, selection, expansions, legend state, and rendering. */
 export class GraphApplication extends EventTarget {
+  /**
+   * @param {object} options Application configuration.
+   * @param {object} options.config Normalized Graph configuration; see `graphConfig.js`.
+   * @param {object} options.provider Graph data provider (loads/merges query results into a `GraphDocument`).
+   * @param {object} options.engine Rendering engine adapter.
+   * @param {object} options.host Host adapter.
+   * @param {object|null} [options.datasetProvider] Loads persisted Dataset records.
+   * @param {object|null} [options.recordContentProvider] Loads per-record popup content.
+   * @param {object|null} [options.vocabularyProvider] Resolves field/relation-type/record-type display names.
+   */
   constructor({
     config,
     provider,
@@ -66,6 +77,13 @@ export class GraphApplication extends EventTarget {
     this.messageElement = null;
   }
 
+  /**
+   * Initialize the host, load persisted preferences, initialize the rendering engine, and restore the initial view.
+   *
+   * @param {HTMLElement} container Element the rendering engine renders into.
+   * @param {{messageElement?: HTMLElement|null}} [options] `messageElement` shown when the graph is empty.
+   * @returns {Promise<GraphApplication>} This instance, once initialization completes.
+   */
   async initialize(container, { messageElement = null } = {}) {
     this.canvasElement = container;
     this.messageElement = messageElement;
@@ -366,6 +384,13 @@ export class GraphApplication extends EventTarget {
     }
   }
 
+  /**
+   * Load a persisted Dataset by id and activate it as the graph's source.
+   *
+   * @param {number|string} id Dataset record id.
+   * @returns {Promise<object>} Updated application state.
+   * @throws {Error} When the dataset has no executable query.
+   */
   async setDataset(id) {
     const dataset = await this.datasetProvider?.load?.(id);
     const query = dataset?.source?.query ?? dataset?.query;
@@ -432,14 +457,6 @@ export class GraphApplication extends EventTarget {
     return content.get(id) ?? content.get(String(id)) ?? null;
   }
 
-  /**
-   * Apply settings edited in the configuration dialog to the running
-   * application, matching heurist-data's `DataApplication.applyConfiguration()`:
-   * push the renderer-facing options into the live engine and re-render the
-   * current graph, and let `GraphControlPanel` react to the UI-facing options
-   * through the dispatched event, instead of only ever taking effect on the
-   * next full reload.
-   */
   /** Runtime fallback for databases without the optional Dataset record type. */
   disableDatasetEditing() {
     this.datasetAvailable = false;
@@ -453,6 +470,17 @@ export class GraphApplication extends EventTarget {
     };
   }
 
+  /**
+   * Apply settings edited in the configuration dialog to the running
+   * application, matching heurist-data's `DataApplication.applyConfiguration()`:
+   * push the renderer-facing options into the live engine and re-render the
+   * current graph, and let `GraphControlPanel` react to the UI-facing options
+   * through the dispatched event, instead of only ever taking effect on the
+   * next full reload.
+   *
+   * @param {object} value Raw settings value from the configuration dialog.
+   * @returns {Promise<object>} Updated application state.
+   */
   async applyConfiguration(value) {
     const normalized = normalizeGraphConfigurationSettings(value);
     if (this.datasetAvailable === false) {
@@ -495,6 +523,11 @@ export class GraphApplication extends EventTarget {
     return this.getState();
   }
 
+  /**
+   * Serialize and download the current graph as Gephi-compatible JSON.
+   *
+   * @returns {string} The serialized JSON payload (also returned in non-browser environments, without triggering a download).
+   */
   exportGephi() {
     const payload = JSON.stringify({ nodes: this.graph?.records || [], edges: this.graph?.edges || [] }, null, 2);
     if (typeof document === "undefined") return payload;
@@ -506,6 +539,12 @@ export class GraphApplication extends EventTarget {
     return payload;
   }
 
+  /**
+   * Expand one node by one additional depth level.
+   *
+   * @param {number|string} recordId Record id to expand from.
+   * @returns {Promise<boolean>} True when the id was valid and expansion was requested.
+   */
   async expandNode(recordId) {
     const id = Number(recordId);
     if (!Number.isInteger(id) || id < 1) return false;
@@ -513,12 +552,23 @@ export class GraphApplication extends EventTarget {
     return true;
   }
 
+  /**
+   * Return the effective expansion rules: a "Define expansions" override, else the Dataset's or config's rules.
+   *
+   * @returns {Array<object>} Expansion rule definitions.
+   */
   getExpansionRules() {
     const value = this.ruleOverrides.get(this.config.datasetId ? `dataset:${this.config.datasetId}` : 'current')
       ?? this.dataset?.rules ?? this.config.rules ?? [];
     return typeof value === 'string' ? JSON.parse(value || '[]') : value;
   }
 
+  /**
+   * Open the host's expansion-rules editor and apply the result.
+   *
+   * @returns {Promise<void>}
+   * @throws {Error} When the active graph changed while the editor was open.
+   */
   async defineExpansions() {
     const generation = this.generation;
     const result = await this.host.editRules(structuredClone(this.getExpansionRules()));
@@ -527,6 +577,13 @@ export class GraphApplication extends EventTarget {
     await this.setExpansionRules(result.rules);
   }
 
+  /**
+   * Override the effective expansion rules for the current source and re-render.
+   *
+   * @param {Array<object>} rules New expansion rule definitions.
+   * @returns {Promise<void>}
+   * @throws {TypeError} When `rules` is not an array.
+   */
   async setExpansionRules(rules) {
     if (!Array.isArray(rules)) throw new TypeError('Expansion rules must be an array');
     this.ruleOverrides.set(this.config.datasetId ? `dataset:${this.config.datasetId}` : 'current', structuredClone(rules));
@@ -534,12 +591,23 @@ export class GraphApplication extends EventTarget {
     await this.renderExpansions();
   }
 
+  /**
+   * Discard the "Define expansions" override, reverting to the Dataset's or config's saved rules.
+   *
+   * @returns {Promise<void>}
+   */
   async resetExpansionRules() {
     this.ruleOverrides.delete(this.config.datasetId ? `dataset:${this.config.datasetId}` : 'current');
     this.expansions?.setRules(this.getExpansionRules());
     await this.renderExpansions();
   }
 
+  /**
+   * Current expansion depth/max-depth/busy state, for one seed set or the whole graph.
+   *
+   * @param {Array<number>|null} [seedIds] Seed record ids to scope the state to; omit for the base scope.
+   * @returns {{depth: number, maxDepth: number, busy: boolean}}
+   */
   getExpansionState(seedIds = null) {
     const state = this.expansions;
     const scopes = state ? (seedIds?.length ? seedIds.map(id => state.scope([id])) : [state.scope()]) : [];
@@ -549,6 +617,13 @@ export class GraphApplication extends EventTarget {
       busy: !!this.expansionBusy };
   }
 
+  /**
+   * Enable or disable one expansion rule, running it immediately when enabled.
+   *
+   * @param {number|string} id Expansion rule id.
+   * @param {boolean} enabled New enabled state.
+   * @returns {Promise<void>}
+   */
   async setRuleEnabled(id, enabled) {
     const state = this.expansions;
     const rule = state?.rules.find(r => r.id === id);
@@ -566,6 +641,13 @@ export class GraphApplication extends EventTarget {
     }
   }
 
+  /**
+   * Set the expansion depth for one or more seeds (or the base scope), running enabled rules to that depth.
+   *
+   * @param {number} depth Target depth, clamped to `[0, maxDepth]`.
+   * @param {Array<number>|null} [seedIds] Seed record ids to scope the change to; omit for the base scope.
+   * @returns {Promise<void>}
+   */
   async setExpansionDepth(depth, seedIds = null) {
     const state = this.expansions;
     if (!state) return;
@@ -592,9 +674,30 @@ export class GraphApplication extends EventTarget {
     }
   }
 
+  /**
+   * Expand one additional depth level for one or more seeds (or the base scope).
+   *
+   * @param {Array<number>|null} [seedIds] Seed record ids; omit for the base scope.
+   * @returns {Promise<void>}
+   */
   advanceExpansion(seedIds = null) { return this.setExpansionDepth(this.getExpansionState(seedIds).depth + 1, seedIds); }
+
+  /**
+   * Retreat one depth level for one or more seeds (or the base scope).
+   *
+   * @param {Array<number>|null} [seedIds] Seed record ids; omit for the base scope.
+   * @returns {Promise<void>}
+   */
   pruneExpansion(seedIds = null) { return this.setExpansionDepth(this.getExpansionState(seedIds).depth - 1, seedIds); }
 
+  /**
+   * Queue and run one expansion rule to its scope's current depth, serialized against other expansions.
+   *
+   * @param {import('./GraphExpansions.js').GraphExpansions} state Expansion state this rule belongs to.
+   * @param {object} rule Expansion rule to run.
+   * @param {object} scope Expansion scope (seeds and depth) to run the rule against.
+   * @returns {Promise<void>}
+   */
   runExpansion(state, rule, scope) {
     const valid = () => state === this.expansions && state.rules.includes(rule) && rule.enabled;
     const generation = this.generation;
@@ -618,6 +721,11 @@ export class GraphApplication extends EventTarget {
     return pending;
   }
 
+  /**
+   * Recompose the graph from the current expansion state and push it to the engine.
+   *
+   * @returns {Promise<void>}
+   */
   async renderExpansions() {
     if (!this.expansions) return;
     this.graph = this.expansions.compose();
@@ -738,6 +846,14 @@ export class GraphApplication extends EventTarget {
     return this.getLegend();
   }
 
+  /**
+   * Show or hide specific relationship types within a link group without reloading.
+   *
+   * @param {string} key Link group key; see `getLegend`.
+   * @param {Array<number|string>} ids Relation-type (trm_ID) ids to toggle.
+   * @param {boolean} visible New visibility state.
+   * @returns {Promise<object>} Updated legend model; see `getLegend`.
+   */
   async setRelationshipVisibility(key, ids, visible) {
     for (const id of ids) {
       const token = String(key) + ':' + Number(id);
@@ -790,6 +906,13 @@ export class GraphApplication extends EventTarget {
     }
   }
 
+  /**
+   * Set the selected record IDs, syncing the engine and notifying the host and public API listeners.
+   *
+   * @param {Array<number>} recordIds Selected record IDs.
+   * @param {{fromEngine?: boolean}} [options] Pass `fromEngine: true` when the selection originated from the engine, to avoid echoing it back.
+   * @returns {Promise<Array<number>>} The applied selection.
+   */
   async setSelection(recordIds, { fromEngine = false } = {}) {
     this.selection = normalizeIds(recordIds);
     if (!fromEngine) await this.engine.setSelection(this.selection);
@@ -802,10 +925,20 @@ export class GraphApplication extends EventTarget {
     return [...this.selection];
   }
 
+  /**
+   * Clear the current selection.
+   *
+   * @returns {Promise<Array<number>>} The applied (empty) selection.
+   */
   async clearSelection() {
     return this.setSelection([]);
   }
 
+  /**
+   * Return the current serialized application state.
+   *
+   * @returns {object} Current application state.
+   */
   getState() {
     return {
       query: this.config.query,
@@ -840,14 +973,31 @@ export class GraphApplication extends EventTarget {
     };
   }
 
+  /**
+   * Resize the rendering engine.
+   *
+   * @returns {*} Result of the engine's resize call.
+   */
   resize() {
     return this.engine.resize();
   }
 
+  /**
+   * Dispatch a CustomEvent carrying `detail`.
+   *
+   * @param {string} name Event name.
+   * @param {object} detail Event detail payload.
+   * @returns {void}
+   */
   dispatch(name, detail) {
     this.dispatchEvent(new CustomEvent(name, { detail }));
   }
 
+  /**
+   * Abort in-flight requests and tear down the engine and host.
+   *
+   * @returns {Promise<void>}
+   */
   async destroy() {
     this.generation += 1;
     this.abortController?.abort("Graph destroyed");
@@ -865,6 +1015,7 @@ function edgeGroupKey(edge) {
   return "other";
 }
 
+/** Normalize a value into a de-duplicated array of positive integer IDs. */
 function normalizeIds(value) {
   const values = Array.isArray(value) ? value : [];
   return [
@@ -874,6 +1025,7 @@ function normalizeIds(value) {
   ];
 }
 
+/** Build an `AbortError`-named Error, for cancellation paths that mimic `AbortController` semantics. */
 function abortError(message) {
   const error = new Error(message);
   error.name = "AbortError";

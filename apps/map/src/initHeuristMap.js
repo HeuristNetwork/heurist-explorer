@@ -1,13 +1,17 @@
 /**
- * initHeuristMap.js - Mapping application initializer
+ * @file initHeuristMap.js
+ * @brief Creates the map engine, host adapter, API providers, layer loaders, application
+ *        controller, and stable public API.
  *
- * @fileOverview Creates the map engine, host adapter, API providers, layer loaders, application controller, and stable public API.
- * @project     Heurist mapping application
+ * @project     Heurist academic knowledge management system
+ * @package     heurist-map
  *
  * @link        https://HeuristNetwork.org
- * @copyright   (C) 2026 Heurist Network
+ * @copyright   (C) 2024 onwards Heurist Network
+ * @author      Artem Osmakov   <osmakov@gmail.com>
+ * @author      Ian Johnson <ian.johnson.heurist@gmail.com>
  * @license     https://www.gnu.org/licenses/gpl-3.0.txt GNU License 3.0
- * @author      Artem Osmakov <osmakov@gmail.com>
+ * @since       8.0
  */
 
 import { MapApplication } from './core/MapApplication.js';
@@ -151,6 +155,12 @@ export async function initHeuristMap(config) {
   return readyPromise;
 }
 
+/**
+ * Resolve the Heurist site base URL used to build popup/report-template asset links.
+ *
+ * @param {object} [config] Normalized runtime/application configuration.
+ * @returns {string|null} The trailing-slash-terminated base URL, or `null` when unresolvable.
+ */
 function resolveHeuristBaseUrl(config = {}) {
   const hostBaseUrl = String(config.host?.baseUrl || '').trim();
   if (hostBaseUrl) return hostBaseUrl.endsWith('/') ? hostBaseUrl : `${hostBaseUrl}/`;

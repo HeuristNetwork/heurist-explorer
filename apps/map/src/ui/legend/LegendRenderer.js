@@ -1,16 +1,29 @@
 /**
- * LegendRenderer.js - Visual legend for layer and thematic symbology.
+ * @file LegendRenderer.js
+ * @brief Visual legend for layer and thematic symbology.
  *
- * @project     Heurist mapping application
+ * @project     Heurist academic knowledge management system
+ * @package     heurist-map
+ *
+ * @link        https://HeuristNetwork.org
+ * @copyright   (C) 2024 onwards Heurist Network
+ * @author      Artem Osmakov   <osmakov@gmail.com>
+ * @author      Ian Johnson <ian.johnson.heurist@gmail.com>
  * @license     https://www.gnu.org/licenses/gpl-3.0.txt GNU License 3.0
+ * @since       8.0
  */
+
 import { $HR } from '#shared/ui';
 
 import { mergeThematicSymbol } from '../../thematic/thematicSymbolResolver.js';
 import { hexToCssFilter } from '../../utils/hexToCssFilter.js';
 
-
-/** Create a compact geometry-neutral preview for configuration forms. */
+/**
+ * Create a compact geometry-neutral preview for configuration forms.
+ *
+ * @param {object} [symbol] Symbol definition to preview.
+ * @returns {HTMLElement} The preview element.
+ */
 export function createSymbolPreview(symbol = {}) {
   const preview = document.createElement('span');
   preview.className = 'heurist-map-symbol-preview';
@@ -18,7 +31,12 @@ export function createSymbolPreview(symbol = {}) {
   return preview;
 }
 
-/** Create the legend for the currently selected layer symbology. */
+/**
+ * Create the legend for the currently selected layer symbology.
+ *
+ * @param {object} layer Normalized runtime layer.
+ * @returns {HTMLElement|null} The legend element, or `null` when the layer is not loaded.
+ */
 export function createLayerLegend(layer) {
   if (layer?.loadState !== 'loaded') return null;
 
@@ -79,6 +97,17 @@ export function createLayerLegend(layer) {
   return legend;
 }
 
+/**
+ * Build one legend row (geometry sample plus label).
+ *
+ * @param {object} options
+ * @param {string} options.label Row label.
+ * @param {object} options.symbol Resolved symbol for the row.
+ * @param {{point: boolean, line: boolean, polygon: boolean}} options.geometryTypes Geometry families present in the layer.
+ * @param {object} [options.iconContext] Record-type icon resolution context.
+ * @param {number|null} [options.recordTypeId] Record type id used for record-type icon symbols.
+ * @returns {HTMLElement} The row element.
+ */
 function createLegendRow({ label, symbol, geometryTypes, iconContext = null, recordTypeId = null }) {
   const row = document.createElement('div');
   row.className = 'heurist-map-legend-row';
@@ -97,6 +126,15 @@ function createLegendRow({ label, symbol, geometryTypes, iconContext = null, rec
   return row;
 }
 
+/**
+ * Append one geometry sample per geometry family present in the layer.
+ *
+ * @param {HTMLElement} container Element the samples are appended to.
+ * @param {object} symbol Resolved symbol.
+ * @param {{point: boolean, line: boolean, polygon: boolean}} geometryTypes Geometry families to render.
+ * @param {object} [context] Extra context (`iconContext`, `recordTypeId`) for point samples.
+ * @returns {void}
+ */
 function appendGeometrySamples(container, symbol, geometryTypes, context = {}) {
   const known = geometryTypes.point || geometryTypes.line || geometryTypes.polygon;
   // Loaded-but-empty GeoJSON has no geometry family to infer. Use a marker as
@@ -108,6 +146,13 @@ function appendGeometrySamples(container, symbol, geometryTypes, context = {}) {
   if (types.polygon) container.append(createPolygonSample(symbol));
 }
 
+/**
+ * Build a point-geometry legend sample (icon font, image marker, or plain circle).
+ *
+ * @param {object} symbol Resolved symbol.
+ * @param {{iconContext?: object|null, recordTypeId?: number|null}} [options]
+ * @returns {HTMLElement} The sample element.
+ */
 function createPointSample(symbol, { iconContext = null, recordTypeId = null } = {}) {
   const wrapper = document.createElement('span');
   wrapper.className = 'heurist-map-legend-sample heurist-map-legend-point';
@@ -156,6 +201,12 @@ function createPointSample(symbol, { iconContext = null, recordTypeId = null } =
   return wrapper;
 }
 
+/**
+ * Build a line-geometry legend sample.
+ *
+ * @param {object} symbol Resolved symbol.
+ * @returns {HTMLElement} The sample element.
+ */
 function createLineSample(symbol) {
   const wrapper = document.createElement('span');
   wrapper.className = 'heurist-map-legend-sample heurist-map-legend-line';
@@ -168,6 +219,12 @@ function createLineSample(symbol) {
   return wrapper;
 }
 
+/**
+ * Build a polygon-geometry legend sample.
+ *
+ * @param {object} symbol Resolved symbol.
+ * @returns {HTMLElement} The sample element.
+ */
 function createPolygonSample(symbol) {
   const wrapper = document.createElement('span');
   wrapper.className = 'heurist-map-legend-sample heurist-map-legend-polygon';
@@ -184,6 +241,12 @@ function createPolygonSample(symbol) {
   return wrapper;
 }
 
+/**
+ * Resolve a point sample's pixel size from its symbol's radius or icon size.
+ *
+ * @param {object} symbol Resolved symbol.
+ * @returns {number} Pixel size, clamped to `[5, 28]`.
+ */
 function pointSize(symbol) {
   const radiusSize = Number(symbol?.radius) * 2;
   if ((symbol?.iconType || 'circle') === 'circle' && Number.isFinite(radiusSize) && radiusSize > 0) {
@@ -196,6 +259,12 @@ function pointSize(symbol) {
   return Math.max(5, Math.min(28, Math.round(size)));
 }
 
+/**
+ * Normalize a raw icon-font class string, defaulting Font Awesome icons to solid style.
+ *
+ * @param {string} iconFont Raw icon font class string.
+ * @returns {string} Normalized class string.
+ */
 function normalizeIconFontClass(iconFont) {
   const classes = String(iconFont || '')
     .trim()
@@ -216,13 +285,25 @@ function normalizeIconFontClass(iconFont) {
   return `ui-icon ${iconClass.startsWith('ui-icon-') ? iconClass : `ui-icon-${iconClass}`}`;
 }
 
+/**
+ * Resolve the CSS border style for a line/polygon dash-array value.
+ *
+ * @param {*} value Raw dash-array value.
+ * @returns {'solid'|'dashed'} The resolved CSS border style.
+ */
 function dashStyle(value) {
   if (value == null || value === '' || value === false) return 'solid';
   return 'dashed';
 }
 
+/**
+ * Resolve a thematic range's display label.
+ *
+ * @param {object} range Thematic range descriptor.
+ * @returns {string} The resolved label.
+ */
 function getRangeLabel(range) {
-  const label = range?.symbol?.legendLabel;//range?.title ?? range?.label;
+  const label = range?.symbol?.legendLabel; // range?.title ?? range?.label;
   if (label != null && String(label).trim()) return String(label);
   if (range?.min != null || range?.max != null) {
     return `${range.min ?? ''} – ${range.max ?? ''}`.trim();
@@ -232,6 +313,12 @@ function getRangeLabel(range) {
   return value.includes('<>') ? value.replace('<>', ' – ') : value;
 }
 
+/**
+ * Normalize a raw geometry-types flag object to strict booleans.
+ *
+ * @param {object} value Raw geometry-types flags.
+ * @returns {{point: boolean, line: boolean, polygon: boolean}} Normalized flags.
+ */
 function normalizeGeometryTypes(value) {
   return {
     point: value?.point === true,
@@ -240,12 +327,25 @@ function normalizeGeometryTypes(value) {
   };
 }
 
+/**
+ * Coerce a value to a finite number, or `fallback` when it is not one.
+ *
+ * @param {*} value Candidate value.
+ * @param {number} fallback Value used when `value` does not parse as finite.
+ * @returns {number} The finite number, or `fallback`.
+ */
 function numberOr(value, fallback) {
   const number = Number(value);
   return Number.isFinite(number) ? number : fallback;
 }
 
-
+/**
+ * Convert a hex color and opacity to an `rgba()` CSS color string.
+ *
+ * @param {string} color Hex color (`#rgb` or `#rrggbb`), or any other CSS color string.
+ * @param {number} opacity Opacity in `[0, 1]`.
+ * @returns {string} The `rgba()` string, or the original `color` when it is not hex.
+ */
 function cssColorWithOpacity(color, opacity) {
   const alpha = Math.min(1, Math.max(0, numberOr(opacity, 1)));
   const text = String(color || '').trim();
@@ -257,11 +357,25 @@ function cssColorWithOpacity(color, opacity) {
   return `rgba(${parseInt(hex.slice(0, 2), 16)},${parseInt(hex.slice(2, 4), 16)},${parseInt(hex.slice(4, 6), 16)},${alpha})`;
 }
 
+/**
+ * Return a layer's first configured record type id, if any.
+ *
+ * @param {object} layer Normalized runtime layer.
+ * @returns {number|null} The first record type id, or `null`.
+ */
 function firstRecordTypeId(layer) {
   const ids = Array.isArray(layer?.recordTypeIds) ? layer.recordTypeIds : [];
   return Number.isInteger(Number(ids[0])) ? Number(ids[0]) : null;
 }
 
+/**
+ * Resolve the image URL for a point symbol (direct icon URL, or record-type icon endpoint).
+ *
+ * @param {object} symbol Resolved symbol.
+ * @param {object} iconContext Record-type icon resolution context (`baseUrl`, `database`).
+ * @param {number|null} recordTypeId Record type id used for record-type icon symbols.
+ * @returns {string|null} The resolved image URL, or `null` when the symbol has no image.
+ */
 function resolveLegendImageUrl(symbol, iconContext, recordTypeId) {
   const type = String(symbol?.iconType || '').toLowerCase();
   if ((type === 'url' || type === 'image' || type === 'icon' || type === 'marker') && symbol?.iconUrl) return String(symbol.iconUrl);

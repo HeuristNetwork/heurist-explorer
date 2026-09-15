@@ -1,15 +1,20 @@
 /**
- * mapConfig.js - Bootstrap configuration normalization
+ * @file mapConfig.js
+ * @brief Bootstrap configuration normalization.
  *
  * Consumes one bootstrap contract: { runtime, settings, state }.
  * Runtime transport/host values are deliberately separate from persisted map
  * settings. Basemap definitions and application mechanics are internal.
  *
- * @project     Heurist mapping application
+ * @project     Heurist academic knowledge management system
+ * @package     heurist-map
+ *
  * @link        https://HeuristNetwork.org
- * @copyright   (C) 2026 Heurist Network
+ * @copyright   (C) 2024 onwards Heurist Network
+ * @author      Artem Osmakov   <osmakov@gmail.com>
+ * @author      Ian Johnson <ian.johnson.heurist@gmail.com>
  * @license     https://www.gnu.org/licenses/gpl-3.0.txt GNU License 3.0
- * @author      Artem Osmakov <osmakov@gmail.com>
+ * @since       8.0
  */
 
 import { normalizeMapDocument } from './core/MapDocument.js';
@@ -24,6 +29,8 @@ import { resolveModuleBootstrap } from '#shared/config';
 /**
  * Return normalized application configuration from the single bootstrap object.
  * Missing settings are filled entirely from canonical configuration defaults.
+ *
+ * @returns {object} Normalized application configuration.
  */
 export function getHeuristMapConfig() {
   const url = new URL(globalThis.location?.href || 'http://localhost/');
@@ -93,6 +100,10 @@ export function getHeuristMapConfig() {
  * bootstrap-supplied settings and, when `loadPreferencesOnInit` is true, to
  * re-derive config from a freshly fetched `heurist-map` preference before
  * MapApplication is constructed.
+ *
+ * @param {object} config Base application configuration.
+ * @param {object} rawSettings Raw (possibly enveloped) persisted settings.
+ * @returns {object} `config` merged with fields derived from `rawSettings`.
  */
 export function applyPersistedSettings(config, rawSettings) {
   const configuredDynamicTitle = rawSettings?.config?.dynamicDocument?.title;
@@ -149,12 +160,24 @@ export function applyPersistedSettings(config, rawSettings) {
   };
 }
 
+/**
+ * Normalize a raw language code to a supported 3-letter lowercase code.
+ *
+ * @param {*} value Raw language value.
+ * @returns {string} A 3-letter language code, defaulting to `'eng'`.
+ */
 function normalizeLanguage(value) {
   const language = String(value || 'eng').trim().toLowerCase().slice(0, 3);
   return /^[a-z]{3}$/.test(language) && language !== 'aut' ? language : 'eng';
 }
 
-/** Build Heurist internal host persistence only when a Heurist base URL exists. */
+/**
+ * Build Heurist internal host persistence only when a Heurist base URL exists.
+ *
+ * @param {object} runtime Raw bootstrap runtime values.
+ * @param {object|null} bridge Frame host bridge, when available.
+ * @returns {object|null} Host configuration, or `null` when no Heurist base URL is configured.
+ */
 function buildHostConfiguration(runtime, bridge) {
   if (!runtime?.baseUrl) return null;
   return {
@@ -165,6 +188,12 @@ function buildHostConfiguration(runtime, bridge) {
   };
 }
 
+/**
+ * Parse the standalone `?doc=` URL parameter into a MapDocument query.
+ *
+ * @param {string|null} value Raw `doc` query parameter value.
+ * @returns {Array<number>|string|null} Parsed record ids, raw query text, or `null` when absent.
+ */
 function parseDocumentQuery(value) {
   if (!value) return null;
   const text = String(value).trim();
@@ -172,6 +201,13 @@ function parseDocumentQuery(value) {
   return /^\d+(?:,\d+)*$/.test(text) ? text.split(',').map(Number) : text;
 }
 
+/**
+ * Resolve the configured base-map list from the built-in catalog and persisted settings.
+ *
+ * @param {object} [settings] Persisted base-map settings (`allowed`, `initial`).
+ * @param {boolean} [preventContinuousWorldBasemap] Whether tile basemaps should disable world wrapping.
+ * @returns {Array<object>} Resolved base-map list, with the initial selection moved to the front.
+ */
 function normalizeBaseMaps(settings = {}, preventContinuousWorldBasemap = false) {
   const defaults = getDefaultBaseMaps();
   const defaultById = new Map(defaults.map((item) => [String(item.id), item]));

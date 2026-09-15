@@ -26,6 +26,12 @@ import {
   unwrapSettings,
 } from "./configurationUtils.js";
 
+/**
+ * Normalize a raw persisted-settings value against the canonical defaults.
+ *
+ * @param {object} [value] Raw settings value (or an envelope wrapping one).
+ * @returns {{options: object, config: object}} Fully normalized settings.
+ */
 export function normalizeGraphConfigurationSettings(value = {}) {
   const defaults = createGraphConfigurationDefaults();
   const source = unwrapSettings(value);
@@ -34,17 +40,38 @@ export function normalizeGraphConfigurationSettings(value = {}) {
     config: normalizeConfig(source.config || {}, defaults.config),
   };
 }
+
+/**
+ * Produce the versioned, JSON-safe settings envelope for persistence.
+ *
+ * @param {object} [value] Raw settings value to normalize and wrap.
+ * @returns {object} Serializable settings envelope; see `serializeConfigurationSettings`.
+ */
 export function serializeGraphConfigurationSettings(value = {}) {
   return serializeConfigurationSettings(
     value,
     normalizeGraphConfigurationSettings,
   );
 }
+
+/**
+ * Normalize a configuration-dialog mode to one of `CONFIGURATION_MODES`.
+ *
+ * @param {string} value Raw mode value.
+ * @returns {string} Normalized mode; defaults to `'preferences'`.
+ */
 export function normalizeGraphConfigurationMode(value) {
   const mode = String(value || "preferences").toLowerCase();
   return CONFIGURATION_MODES.includes(mode) ? mode : "preferences";
 }
 
+/**
+ * Normalize the `options` half of the settings envelope (UI/controls/datasets/filters/interaction).
+ *
+ * @param {object} source Raw options value.
+ * @param {object} defaults Default options to fall back to.
+ * @returns {object} Normalized options.
+ */
 function normalizeOptions(source, defaults) {
   const ui = source.ui || {};
   const controls = source.nativeControls || {};
@@ -108,6 +135,13 @@ function normalizeOptions(source, defaults) {
   };
 }
 
+/**
+ * Normalize the `config` half of the settings envelope (defaults/currentResults), migrating legacy fields.
+ *
+ * @param {object} source Raw config value.
+ * @param {object} defaults Default config to fall back to.
+ * @returns {object} Normalized config.
+ */
 function normalizeConfig(source, defaults) {
   const configured = source.defaults || {};
   // A legacy `popupTemplate` of "standard" (or empty) means the built-in

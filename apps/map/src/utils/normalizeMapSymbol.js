@@ -1,17 +1,21 @@
 /**
- * normalizeMapSymbol.js - Map symbol normalization
+ * @file normalizeMapSymbol.js
+ * @brief Resolves sparse Heurist map symbols against an effective parent and converts
+ *        them into the complete engine-neutral symbol used at runtime.
  *
- * @fileOverview Resolves sparse Heurist map symbols against an effective parent
- * and converts them into the complete engine-neutral symbol used at runtime.
  * Persisted opacity is canonical 0..1. Legacy 0..100 values are accepted only
  * at this normalization boundary. iconSize is the semantic marker diameter;
  * Leaflet circle radius is derived as iconSize / 2.
- * @project     Heurist mapping application
+ *
+ * @project     Heurist academic knowledge management system
+ * @package     heurist-map
  *
  * @link        https://HeuristNetwork.org
- * @copyright   (C) 2026 Heurist Network
+ * @copyright   (C) 2024 onwards Heurist Network
+ * @author      Artem Osmakov   <osmakov@gmail.com>
+ * @author      Ian Johnson <ian.johnson.heurist@gmail.com>
  * @license     https://www.gnu.org/licenses/gpl-3.0.txt GNU License 3.0
- * @author      Artem Osmakov <osmakov@gmail.com>
+ * @since       8.0
  */
 
 /** Built-in symbology shared with main Heurist. */
@@ -31,6 +35,9 @@ export const DEFAULT_MAP_SYMBOL = Object.freeze({
 /**
  * Canonicalize one sparse/local symbol without applying inheritance.
  * Radius is accepted as a legacy input alias only when iconSize is absent.
+ *
+ * @param {object} [value] Sparse symbol properties.
+ * @returns {object} Canonicalized symbol, containing only the properties explicitly present in `value`.
  */
 export function canonicalizeMapSymbol(value = {}) {
   const symbol = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
@@ -77,6 +84,10 @@ export function canonicalizeMapSymbol(value = {}) {
 /**
  * Normalize a complete map symbol against an effective parent.
  * DEFAULT_MAP_SYMBOL is always the final fallback.
+ *
+ * @param {object} [value] Sparse local symbol overrides.
+ * @param {object} [parentSymbol] Effective parent symbol to inherit unset properties from.
+ * @returns {object} Complete, engine-neutral symbol.
  */
 export function normalizeMapSymbol(value = {}, parentSymbol = DEFAULT_MAP_SYMBOL) {
   const parent = canonicalizeMapSymbol(parentSymbol);
@@ -122,6 +133,9 @@ export function normalizeMapSymbol(value = {}, parentSymbol = DEFAULT_MAP_SYMBOL
 /**
  * Normalize only explicitly stored thematic range properties. The range remains
  * sparse; it is applied later over its effective thematic parent.
+ *
+ * @param {object} [value] Sparse symbol override.
+ * @returns {object} Canonicalized, still-sparse symbol override.
  */
 export function normalizeMapSymbolOverride(value = {}) {
   const local = canonicalizeMapSymbol(value);
@@ -133,7 +147,13 @@ export function normalizeMapSymbolOverride(value = {}) {
   return result;
 }
 
-/** Convert legacy percentage opacity to canonical 0..1. */
+/**
+ * Convert legacy percentage opacity to canonical 0..1.
+ *
+ * @param {*} value Opacity value, as 0..1 or legacy 0..100.
+ * @param {number} [fallback=1] Value returned when `value` is not finite.
+ * @returns {number} Opacity clamped to 0..1.
+ */
 export function normalizeOpacity(value, fallback = 1) {
   let number = Number(value);
   if (!Number.isFinite(number)) return fallback;
@@ -141,20 +161,29 @@ export function normalizeOpacity(value, fallback = 1) {
   return Math.min(1, Math.max(0, number));
 }
 
+/** Return a shallow copy of an object with `null`/`undefined`/`''`-valued keys removed. */
 function definedValues(value) {
   return Object.fromEntries(Object.entries(value || {}).filter(([, item]) => item !== null && item !== undefined && item !== ''));
 }
+
+/** Whether an object has its own property with the given key. */
 function hasOwn(value, key) { return Object.prototype.hasOwnProperty.call(value, key); }
+
+/** Normalize an icon type to one of the supported values, defaulting to `DEFAULT_MAP_SYMBOL.iconType`. */
 function normalizeIconType(value) {
   const type = String(value || '').trim().toLowerCase();
   return ['circle', 'marker', 'icon', 'iconfont', 'url', 'rectype'].includes(type) ? type : DEFAULT_MAP_SYMBOL.iconType;
 }
+
+/** Normalize a size value (bare number or `[size, ...]` array) to a non-negative number, or a fallback. */
 function normalizeSize(value, fallback) {
   if (Array.isArray(value)) value = value[0];
   if (value === null || value === undefined || value === '') return fallback;
   const number = Number(value);
   return Number.isFinite(number) && number >= 0 ? number : fallback;
 }
+
+/** Normalize a value to a `[x, y]` pair, accepting a bare number as both coordinates, or a fallback. */
 function normalizePair(value, fallback) {
   if (Array.isArray(value) && value.length >= 2) {
     const first = Number(value[0]); const second = Number(value[1]);
@@ -165,10 +194,14 @@ function normalizePair(value, fallback) {
   }
   return Array.isArray(fallback) ? [...fallback] : fallback;
 }
+
+/** Normalize a value to a non-negative number, or a fallback when invalid. */
 function nonNegativeNumber(value, fallback) {
   const number = Number(value);
   return Number.isFinite(number) && number >= 0 ? number : fallback;
 }
+
+/** Normalize a loosely-typed boolean (`true`/`false`, `1`/`0`, `'true'`/`'false'`), or a fallback. */
 function booleanValue(value, fallback) {
   if (typeof value === 'boolean') return value;
   if (value === 1 || value === '1') return true;
@@ -178,14 +211,20 @@ function booleanValue(value, fallback) {
   if (text === 'false') return false;
   return fallback;
 }
+
+/** Trim a value to text, returning a fallback when empty. */
 function nonEmptyString(value, fallback) {
   const text = value == null ? '' : String(value).trim();
   return text || fallback;
 }
+
+/** Trim a value to text, returning `null` when empty. */
 function nonEmptyStringOrNull(value) {
   const text = value == null ? '' : String(value).trim();
   return text || null;
 }
+
+/** Trim a value to text, returning `null` for `null`/`undefined`. */
 function stringOrNull(value) {
   if (value === null || value === undefined) return null;
   return String(value).trim();

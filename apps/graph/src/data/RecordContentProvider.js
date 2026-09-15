@@ -14,6 +14,12 @@
  */
 /** Loads deferred standard and Smarty record presentation content. */
 export class RecordContentProvider {
+  /**
+   * @param {object} options Provider configuration.
+   * @param {string} options.baseUrl Legacy Heurist base URL the renderer endpoints are relative to.
+   * @param {string} options.database Target Heurist database name.
+   * @param {Function|null} [options.fetchImpl] Fetch implementation to use instead of the global `fetch`.
+   */
   constructor({ baseUrl, database, fetchImpl = null } = {}) {
     const value = String(baseUrl || "").trim();
     this.baseUrl = value ? (value.endsWith("/") ? value : `${value}/`) : null;
@@ -21,6 +27,12 @@ export class RecordContentProvider {
     this.fetchImpl = fetchImpl || ((...args) => globalThis.fetch(...args));
   }
 
+  /**
+   * Load presentation HTML for a set of records under one template, tolerating individual failures.
+   *
+   * @param {{records?: Array<{rec_ID: number}>, template?: string, signal?: AbortSignal}} [options] Load options.
+   * @returns {Promise<Map<number, string>>} Rendered HTML keyed by record id; empty when unconfigured.
+   */
   async load({ records = [], template = "standard", signal } = {}) {
     if (!this.baseUrl || !this.database) return new Map();
     const results = await Promise.allSettled(
@@ -46,6 +58,13 @@ export class RecordContentProvider {
     );
   }
 
+  /**
+   * Build the renderer URL for one record and template.
+   *
+   * @param {number} id Record id.
+   * @param {string} template Template name; `'standard'` uses the plain record renderer.
+   * @returns {URL}
+   */
   buildUrl(id, template) {
     const name = String(template || "standard").trim();
     if (name && name !== "standard") {

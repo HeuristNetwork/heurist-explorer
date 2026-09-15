@@ -1,12 +1,18 @@
 /**
- * MapConfigurationDialog.js - Reusable editor for persisted Heurist map settings
+ * @file MapConfigurationDialog.js
+ * @brief Reusable editor for persisted Heurist map settings. The dialog owns no
+ *        persistence: preferences, website editing, and publishing provide/receive
+ *        the same allowlisted settings object through setValue(), getValue(), and onSave.
  *
- * The dialog owns no persistence. Preferences, website editing, and publishing
- * provide/receive the same allowlisted settings object through setValue(),
- * getValue(), and onSave.
+ * @project     Heurist academic knowledge management system
+ * @package     heurist-map
  *
- * @project     Heurist mapping application
+ * @link        https://HeuristNetwork.org
+ * @copyright   (C) 2024 onwards Heurist Network
+ * @author      Artem Osmakov   <osmakov@gmail.com>
+ * @author      Ian Johnson <ian.johnson.heurist@gmail.com>
  * @license     https://www.gnu.org/licenses/gpl-3.0.txt GNU License 3.0
+ * @since       8.0
  */
 
 import {
@@ -20,9 +26,27 @@ import { DEFAULT_MAP_SYMBOL, normalizeMapSymbol } from '../../utils/normalizeMap
 import { $HR, applyI18n, HMsg } from '#shared/ui';
 
 const ZOOM_LEVEL_TOOLTIP = 'Level 1 = ~10,000km (15 deg.) to ~65,000 km (equator). Level 18 = ~50m (15 deg.) to ~250m (equator)';
+/** Remembers each mode's "Advanced settings" toggle state across dialog instances. */
 const advancedStateByMode = new Map();
 
+/** Edits and serializes persisted heurist-map settings in a modal dialog. */
 export class MapConfigurationDialog {
+  /**
+   * @param {Object} [options={}] Dialog configuration.
+   * @param {string} [options.mode='preferences'] Dialog mode: `'preferences'`, `'website'`, or `'publish'`.
+   * @param {?Object} [options.value=null] Initial settings value; normalized and mode-adjusted.
+   * @param {?Element} [options.parent=null] Element to append the dialog to; defaults to `document.body`.
+   * @param {?string} [options.title=null] Dialog title; defaults from `defaultTitle(mode)`.
+   * @param {?Function} [options.onSave=null] Called with `(value, context)` on save; returning `false` keeps the dialog open.
+   * @param {?Function} [options.onCancel=null] Called with `(value, {mode})` when the dialog is cancelled.
+   * @param {?Function} [options.onEditSymbology=null] Opens the host symbology editor; returns the edited value.
+   * @param {?Function} [options.onEditExtent=null] Opens the host extent/bounds editor; returns the edited bounds.
+   * @param {?Object} [options.reportTemplateProvider=null] Provider used to list popup report templates.
+   * @param {?Object} [options.mapDocumentListProvider=null] Provider used to list available MapDocuments.
+   * @param {Array<Object>} [options.baseMapCatalog=[]] Reserved base-map catalogue; stored but not
+   *        currently read (the "Base maps" section uses the curated default catalogue directly).
+   * @param {?Object} [options.publishContext=null] Publish-mode context (`activeDocumentId`, `dynamicDocumentId`).
+   */
   constructor({
     mode = 'preferences', value = null, parent = null, title = null,
     onSave = null, onCancel = null, onEditSymbology = null, onEditExtent = null, reportTemplateProvider = null,
@@ -52,6 +76,12 @@ export class MapConfigurationDialog {
     this.initialFormState = null;
   }
 
+  /**
+   * Replace the dialog's current settings value.
+   *
+   * @param {?Object} value New settings value; normalized and mode-adjusted.
+   * @returns {MapConfigurationDialog} This instance, for chaining.
+   */
   setValue(value) {
     this.value = normalizeMapConfigurationSettings(value || {});
     this.value = prepareModeConfiguration(this.value, this.mode);
@@ -62,13 +92,29 @@ export class MapConfigurationDialog {
     return this;
   }
 
+  /**
+   * Read the current settings value: the live form when open, otherwise the stored value.
+   *
+   * @returns {Object} Cloned, normalized settings.
+   */
   getValue() {
     if (this.form) this.value = normalizeMapConfigurationSettings(this.readForm());
     return clone(this.value);
   }
 
+  /**
+   * Produce the versioned, JSON-safe settings envelope for persistence.
+   *
+   * @returns {Object} Serializable settings envelope.
+   */
   serialize() { return serializeMapConfigurationSettings(this.getValue()); }
 
+  /**
+   * Build the dialog DOM, populate it, and show it modally.
+   *
+   * @returns {MapConfigurationDialog} This instance, for chaining.
+   * @throws {Error} When there is no browser `document`.
+   */
   open() {
     if (typeof document === 'undefined') throw new Error('MapConfigurationDialog requires a browser document');
     if (this.element) return this;
@@ -121,6 +167,11 @@ export class MapConfigurationDialog {
     return this;
   }
 
+  /**
+   * Build the "Advanced settings" toggle panel shown above the sections.
+   *
+   * @returns {HTMLElement} The generated panel element.
+   */
   buildAdvancedPanel() {
     const panel = document.createElement('div');
     panel.className = 'heurist-map-config-advanced-panel';
@@ -139,6 +190,12 @@ export class MapConfigurationDialog {
     return panel;
   }
 
+  /**
+   * Close the dialog, prompting to discard unsaved changes when the form was modified.
+   *
+   * @returns {boolean} `true` once the dialog has actually been cancelled/closed;
+   *          `false` while a discard-confirmation dialog is pending.
+   */
   cancel() {
     if (this.initialFormState !== null && this.formStateSignature() !== this.initialFormState) {
       if (this.discardDialog?.open) return false;
@@ -157,6 +214,11 @@ export class MapConfigurationDialog {
     return this.finishCancel();
   }
 
+  /**
+   * Close the dialog immediately and notify `onCancel`, without discard confirmation.
+   *
+   * @returns {boolean} `true` once cancellation has completed.
+   */
   finishCancel() {
     let value;
     try { value = this.getValue(); } catch { value = clone(this.value); }
@@ -165,6 +227,11 @@ export class MapConfigurationDialog {
     return true;
   }
 
+  /**
+   * Compute a signature of the current form state, used to detect unsaved changes.
+   *
+   * @returns {string} JSON signature of every field's current value.
+   */
   formStateSignature() {
     if (!this.form) return '';
     return JSON.stringify([...this.fields.entries()].map(([path, field]) => [
@@ -175,6 +242,12 @@ export class MapConfigurationDialog {
     ]));
   }
 
+  /**
+   * Validate and submit the current form value through `onSave`, then close on success.
+   *
+   * @returns {Promise<Object|boolean>} Resolves with the saved value, or `false` when
+   *          `onSave` rejected the save or an error occurred (shown to the user).
+   */
   async save() {
     try {
       const value = this.getValue();
@@ -192,6 +265,11 @@ export class MapConfigurationDialog {
     }
   }
 
+  /**
+   * Close and tear down the dialog DOM, restoring focus to the previously focused element.
+   *
+   * @returns {void}
+   */
   close() {
     this.discardDialog?.close();
     this.dialog?.close();
@@ -203,6 +281,11 @@ export class MapConfigurationDialog {
     this.previousFocus = null;
   }
 
+  /**
+   * Build and append every section for the current mode.
+   *
+   * @returns {void}
+   */
   buildSections() {
     if (this.mode === 'publish') {
       this.form.append(
@@ -221,6 +304,13 @@ export class MapConfigurationDialog {
     );
   }
 
+  /**
+   * Build the "Publication" section's fields (preserve-state, active-document
+   * scoping, and the dynamic-document title when publishing Filtered Result).
+   *
+   * @param {HTMLElement} body Section body to append fields into.
+   * @returns {void}
+   */
   buildPublish(body) {
     const preserve = plainCheckbox('Preserve current state', true);
     preserve.row.title = $HR('Preserve current extent, zoom, basemap, visible layers, opacity, thematic map and selection.');
@@ -245,6 +335,13 @@ export class MapConfigurationDialog {
     this.updatePublishDocumentControls();
   }
 
+  /**
+   * Disable the corresponding "show current document" control while "Show only
+   * active document" is checked in publish mode, since publishing collapses
+   * document selection to just the active one.
+   *
+   * @returns {void}
+   */
   updatePublishDocumentControls() {
     if (this.mode !== 'publish' || !this.publishControls) return;
     const checked = this.publishControls.showOnlyActiveDocument.checked === true;
@@ -257,6 +354,11 @@ export class MapConfigurationDialog {
     field.control.disabled = checked;
   }
 
+  /**
+   * Read the publish-mode-only options not represented in the settings envelope.
+   *
+   * @returns {{preserveCurrentState: boolean, showOnlyActiveDocument: boolean}} Publish options.
+   */
   getPublishOptions() {
     return {
       preserveCurrentState: this.publishControls?.preserveState?.checked !== false,
@@ -264,6 +366,12 @@ export class MapConfigurationDialog {
     };
   }
 
+  /**
+   * Build the "Workspace/Filtered Result Map" section's fields.
+   *
+   * @param {HTMLElement} body Section body to append fields into.
+   * @returns {void}
+   */
   buildCurrentResults(body) {
     this.checkbox(body, 'config.dynamicDocument.enabled', 'Enable current-results document', { hidden: true });
     this.text(body, 'config.dynamicDocument.title', 'Title');
@@ -273,6 +381,13 @@ export class MapConfigurationDialog {
     this.boundsFields(body, 'config.dynamicDocument.bounds', { advanced: true });
   }
 
+  /**
+   * Build the "Default settings" section's fields (point-selection extent,
+   * default/select symbology, clustering, feature limits, popup template).
+   *
+   * @param {HTMLElement} body Section body to append fields into.
+   * @returns {void}
+   */
   buildDefaults(body) {
     const pointExtent = this.number(body, 'config.defaults.zoomToPointInKM', 'Point selection extent (km)', { min: 0 });
     pointExtent.classList.add('heurist-map-config-inline-number', 'heurist-map-config-narrow-number');
@@ -298,6 +413,12 @@ export class MapConfigurationDialog {
     void this.loadReportTemplates();
   }
 
+  /**
+   * Populate the popup-template `<select>` with report templates from the provider,
+   * preserving the currently stored value even if it is not among the loaded choices.
+   *
+   * @returns {Promise<void>} Resolves once the options have been populated (or on early return).
+   */
   async loadReportTemplates() {
     const field = this.fields.get('config.defaults.popupTemplate');
     const control = field?.control;
@@ -343,6 +464,12 @@ export class MapConfigurationDialog {
     }
   }
 
+  /**
+   * Build the "Map documents" section's fields (allowed MapDocuments, default document).
+   *
+   * @param {HTMLElement} body Section body to append fields into.
+   * @returns {void}
+   */
   buildMapDocuments(body) {
     this.transferList(body, 'options.mapDocuments.allowed', 'Allowed MapDocuments', [], {
       kind: 'multi-number',
@@ -356,6 +483,12 @@ export class MapConfigurationDialog {
     void this.loadMapDocumentChoices();
   }
 
+  /**
+   * Build the "Base maps" section's fields (allowed base maps, initial base map).
+   *
+   * @param {HTMLElement} body Section body to append fields into.
+   * @returns {void}
+   */
   buildBaseMaps(body) {
     // Configuration deliberately exposes the Heurist-curated list only. The full
     // leaflet-providers catalogue remains available to the Leaflet adapter, but is
@@ -376,6 +509,12 @@ export class MapConfigurationDialog {
     this.refreshBaseMapInitialChoices();
   }
 
+  /**
+   * Load the available MapDocuments from the provider and populate the
+   * allowed-MapDocuments transfer list and default-document choices.
+   *
+   * @returns {Promise<void>} Resolves once the choices have been populated (or on early return).
+   */
   async loadMapDocumentChoices() {
     if (!this.mapDocumentListProvider) return;
     try {
@@ -392,6 +531,11 @@ export class MapConfigurationDialog {
     }
   }
 
+  /**
+   * Refresh the "Default document" choices to match the currently allowed MapDocuments.
+   *
+   * @returns {void}
+   */
   refreshMapDocumentDefaultChoices() {
     const field = this.fields.get('options.mapDocuments.allowed');
     if (!field) return;
@@ -403,6 +547,12 @@ export class MapConfigurationDialog {
     );
   }
 
+  /**
+   * Refresh the "Initial base map" choices to match the currently allowed base maps,
+   * preserving the current selection when it is still valid.
+   *
+   * @returns {void}
+   */
   refreshBaseMapInitialChoices() {
     const field = this.fields.get('options.baseMaps.allowed');
     if (!field) return;
@@ -418,6 +568,13 @@ export class MapConfigurationDialog {
     }
   }
 
+  /**
+   * Build the "Interface" section's fields (Heurist control visibility toggles,
+   * native Leaflet control toggles, and legacy hidden/internal controls).
+   *
+   * @param {HTMLElement} body Section body to append fields into.
+   * @returns {void}
+   */
   buildInterface(body) {
     const controls = document.createElement('fieldset');
     controls.className = 'heurist-map-config-group heurist-map-config-controls-group';
@@ -487,6 +644,12 @@ export class MapConfigurationDialog {
     }
   }
 
+  /**
+   * Disable the Heurist control-panel sub-options while the master
+   * "Heurist Map Controls" checkbox is unchecked.
+   *
+   * @returns {void}
+   */
   updateHeuristControlState() {
     const master = this.fields.get('options.ui.enabled')?.control;
     if (!master) return;
@@ -507,6 +670,12 @@ export class MapConfigurationDialog {
     }
   }
 
+  /**
+   * Force the Options/Publish controls off and disabled in website mode, since
+   * a website embed never shows the preferences/publish icons.
+   *
+   * @returns {void}
+   */
   applyModeControlState() {
     if (this.mode !== 'website') return;
     for (const path of ['options.ui.showOptions', 'options.ui.showPublish']) {
@@ -518,6 +687,12 @@ export class MapConfigurationDialog {
     }
   }
 
+  /**
+   * Build the "Interaction" section's fields (readonly, selection, popups, zoom-on-select).
+   *
+   * @param {HTMLElement} body Section body to append fields into.
+   * @returns {void}
+   */
   buildInteraction(body) {
     this.checkbox(body, 'options.interaction.readonly', 'Readonly');
     this.checkbox(body, 'options.interaction.selectionEnabled', 'Enable selection');
@@ -525,6 +700,16 @@ export class MapConfigurationDialog {
     this.checkbox(body, 'options.interaction.zoomOnSelection', 'Zoom on selection');
   }
 
+  /**
+   * Build a zoom-limit field row that lets the admin choose between native zoom
+   * levels and kilometre-based distances, registering both representations.
+   *
+   * @param {HTMLElement} body Section body to append the row into.
+   * @param {string} prefix Settings path prefix (`minZoom`/`maxZoom`/`minimumZoomKm`/`maximumZoomKm` are appended).
+   * @param {Object} [options={}] Field options.
+   * @param {boolean} [options.allAdvanced=false] Mark the whole row as an advanced setting.
+   * @returns {void}
+   */
   zoomFields(body, prefix, options = {}) {
     const row = document.createElement('div');
     row.className = 'heurist-map-config-zoom-row';
@@ -554,6 +739,16 @@ export class MapConfigurationDialog {
     body.append(row);
   }
 
+  /**
+   * Build a read-only extent display row with a "Define" button that opens the
+   * host bounds editor, registering four hidden `west`/`south`/`east`/`north` fields.
+   *
+   * @param {HTMLElement} body Section body to append the row into.
+   * @param {string} prefix Settings path prefix (`west`/`south`/`east`/`north` are appended).
+   * @param {Object} [options={}] Field options.
+   * @param {boolean} [options.advanced] Mark the row as an advanced setting.
+   * @returns {void}
+   */
   boundsFields(body, prefix, options = {}) {
     const row = document.createElement('div');
     row.className = 'heurist-map-config-field heurist-map-config-bounds';
@@ -585,6 +780,16 @@ export class MapConfigurationDialog {
     body.append(row);
   }
 
+  /**
+   * Build a collapsible `<details>` section and populate its body via `build`.
+   *
+   * @param {string} title Section title (localized `<summary>` text).
+   * @param {Function} build Called with the section's body element to append fields into.
+   * @param {Object} [options={}] Section options.
+   * @param {boolean} [options.open=false] Whether the section starts expanded.
+   * @param {boolean} [options.advanced] Mark the whole section as an advanced setting.
+   * @returns {HTMLElement} The generated `<details>` element.
+   */
   section(title, build, options = {}) {
     const details = document.createElement('details');
     details.className = 'heurist-map-config-section';
@@ -600,6 +805,15 @@ export class MapConfigurationDialog {
     return details;
   }
 
+  /**
+   * Build and register a labeled checkbox field row.
+   *
+   * @param {HTMLElement} body Element to append the row into.
+   * @param {string} path Dot-separated settings path.
+   * @param {string} labelText Field label.
+   * @param {Object} [options={}] Field options (`advanced`, `hidden`).
+   * @returns {HTMLElement} The generated row element.
+   */
   checkbox(body, path, labelText, options = {}) {
     const row = document.createElement('label');
     row.className = 'heurist-map-config-check';
@@ -612,6 +826,16 @@ export class MapConfigurationDialog {
     return row;
   }
 
+  /**
+   * Build and register a labeled `<select>` field row.
+   *
+   * @param {HTMLElement} body Element to append the row into.
+   * @param {string} path Dot-separated settings path.
+   * @param {string} labelText Field label.
+   * @param {Array<[*, string]>} choices Option `[value, label]` pairs.
+   * @param {Object} [options={}] Field options (`kind` registration type, `advanced`, `hidden`).
+   * @returns {HTMLElement} The generated row element.
+   */
   select(body, path, labelText, choices, options = {}) {
     const { row, control } = labelledControl('select', labelText);
     for (const [value, text] of choices) {
@@ -627,6 +851,24 @@ export class MapConfigurationDialog {
     return row;
   }
 
+  /**
+   * Build and register a dual-list "available/selected" transfer control, with an
+   * optional "use default list" checkbox that hides the lists while checked.
+   *
+   * @param {HTMLElement} body Element to append the row into.
+   * @param {string} path Dot-separated settings path (bound to the "selected" list, `null` means use defaults).
+   * @param {string} labelText Field label.
+   * @param {Array<[*, string]>} choices Initial choice `[value, label]` pairs.
+   * @param {Object} [options={}] Field options.
+   * @param {string} [options.kind='multi-string'] Registration kind (`multi-string` or `multi-number`).
+   * @param {string} [options.defaultLabel='Use default list'] Label for the "use default" checkbox.
+   * @param {*} [options.defaultValues] Default values used when the checkbox is checked (`'all'` or an array).
+   * @param {Array<*>} [options.fixedSelectedValues] Values that are always selected and cannot be removed.
+   * @param {{text: string, href: string}} [options.availableNotice] Optional link shown under the available list.
+   * @param {Function} [options.onChange] Called whenever the selected values change.
+   * @param {boolean} [options.advanced] Mark the row as an advanced setting.
+   * @returns {HTMLElement} The generated row element.
+   */
   transferList(body, path, labelText, choices, options = {}) {
     const row = document.createElement('div');
     row.className = 'heurist-map-config-field heurist-map-config-transfer-field';
@@ -706,6 +948,13 @@ export class MapConfigurationDialog {
     return row;
   }
 
+  /**
+   * Replace a transfer field's available choices while preserving the current selection.
+   *
+   * @param {string} path Dot-separated settings path of a transfer field.
+   * @param {Array<[*, string]>} choices Replacement choice `[value, label]` pairs.
+   * @returns {void}
+   */
   replaceTransferChoices(path, choices) {
     const field = this.fields.get(path);
     if (!field?.selectedControl) return;
@@ -714,6 +963,13 @@ export class MapConfigurationDialog {
     this.renderTransferField(field, selected);
   }
 
+  /**
+   * Redistribute a transfer field's choices between its available/selected `<select>`s.
+   *
+   * @param {Object} field Registered transfer field.
+   * @param {Array<*>} selectedValues Values that should render in the "selected" list.
+   * @returns {void}
+   */
   renderTransferField(field, selectedValues) {
     const selected = new Set((selectedValues || []).map(String));
     for (const value of field.fixedSelectedValues || []) selected.add(String(value));
@@ -742,27 +998,61 @@ export class MapConfigurationDialog {
     }
   }
 
+  /**
+   * Resolve the values a transfer field's "use default list" checkbox represents.
+   *
+   * @param {Object} field Registered transfer field.
+   * @returns {Array<string>} Default values (`'all'` choices, an explicit array, or empty).
+   */
   getTransferDefaultValues(field) {
     if (field.defaultValues === 'all') return field.choices.map(([value]) => String(value));
     if (Array.isArray(field.defaultValues)) return field.defaultValues.map(String);
     return [];
   }
 
+  /**
+   * Read the values currently shown in a transfer field's "selected" list.
+   *
+   * @param {Object} field Registered transfer field.
+   * @returns {Array<string>} Currently selected values.
+   */
   getTransferSelectedValues(field) {
     return [...(field.selectedControl?.options || [])].map((option) => option.value);
   }
 
+  /**
+   * Resolve a transfer field's effective allowed values (defaults when the
+   * "use default list" checkbox is checked, otherwise the explicit selection).
+   *
+   * @param {Object} field Registered transfer field.
+   * @returns {Array<string>} Effective allowed values.
+   */
   getTransferAllowedValues(field) {
     return field.defaultToggle?.checked
       ? this.getTransferDefaultValues(field)
       : this.getTransferSelectedValues(field);
   }
 
+  /**
+   * Resolve the display label for one transfer field choice value.
+   *
+   * @param {Object} field Registered transfer field.
+   * @param {*} value Choice value to look up.
+   * @returns {string} The choice's label, or `value` stringified when not found.
+   */
   transferChoiceLabel(field, value) {
     const found = field.choices.find(([candidate]) => String(candidate) === String(value));
     return found ? found[1] : String(value);
   }
 
+  /**
+   * Replace a plain `<select>` field's choices while preserving the current
+   * selection when it remains valid, otherwise falling back to no selection.
+   *
+   * @param {string} path Dot-separated settings path of a select field.
+   * @param {Array<[*, string]>} choices Replacement choice `[value, label]` pairs.
+   * @returns {void}
+   */
   replaceConstrainedSelectChoices(path, choices) {
     const field = this.fields.get(path);
     if (!field?.control) return;
@@ -773,6 +1063,13 @@ export class MapConfigurationDialog {
       : '';
   }
 
+  /**
+   * Replace a plain `<select>` field's `<option>`s.
+   *
+   * @param {string} path Dot-separated settings path of a select field.
+   * @param {Array<[*, string]>} choices Replacement choice `[value, label]` pairs.
+   * @returns {void}
+   */
   replaceSelectChoices(path, choices) {
     const field = this.fields.get(path);
     if (!field?.control) return;
@@ -786,6 +1083,15 @@ export class MapConfigurationDialog {
     }
   }
 
+  /**
+   * Build and register a labeled text `<input>` field row.
+   *
+   * @param {HTMLElement} body Element to append the row into.
+   * @param {string} path Dot-separated settings path.
+   * @param {string} labelText Field label.
+   * @param {Object} [options={}] Field options (`placeholder`, `kind`, `advanced`, `hidden`).
+   * @returns {HTMLElement} The generated row element.
+   */
   text(body, path, labelText, options = {}) {
     const { row, control } = labelledControl('input', labelText);
     control.type = 'text';
@@ -796,6 +1102,15 @@ export class MapConfigurationDialog {
     return row;
   }
 
+  /**
+   * Build and register a labeled `<textarea>` field row.
+   *
+   * @param {HTMLElement} body Element to append the row into.
+   * @param {string} path Dot-separated settings path.
+   * @param {string} labelText Field label.
+   * @param {Object} [options={}] Field options (`advanced`, `hidden`).
+   * @returns {HTMLElement} The generated row element.
+   */
   textarea(body, path, labelText, options = {}) {
     const { row, control } = labelledControl('textarea', labelText);
     control.rows = 3;
@@ -805,6 +1120,15 @@ export class MapConfigurationDialog {
     return row;
   }
 
+  /**
+   * Build and register a labeled JSON-editing `<textarea>` field row.
+   *
+   * @param {HTMLElement} body Element to append the row into.
+   * @param {string} path Dot-separated settings path.
+   * @param {string} labelText Field label.
+   * @param {Object} [options={}] Field options (`advanced`, `hidden`).
+   * @returns {HTMLElement} The generated row element.
+   */
   json(body, path, labelText, options = {}) {
     const { row, control } = labelledControl('textarea', labelText);
     control.rows = 3;
@@ -815,6 +1139,19 @@ export class MapConfigurationDialog {
     return row;
   }
 
+  /**
+   * Build and register a symbology field: a live preview, Edit/Show raw/Clear
+   * links, and a hidden raw-JSON textarea kept in sync with the edited value.
+   *
+   * @param {HTMLElement} body Element to append the row into.
+   * @param {string} path Dot-separated settings path.
+   * @param {string} labelText Field label.
+   * @param {Object} [options={}] Field options.
+   * @param {boolean} [options.selection=false] Whether this edits a selection symbology
+   *        (passed through to `onEditSymbology`).
+   * @param {boolean} [options.advanced] Mark the row as an advanced setting.
+   * @returns {HTMLElement} The generated row element.
+   */
   symbology(body, path, labelText, options = {}) {
     const row = document.createElement('div');
     row.className = 'heurist-map-config-field heurist-map-config-symbology-field';
@@ -895,6 +1232,15 @@ export class MapConfigurationDialog {
     return row;
   }
 
+  /**
+   * Build and register a labeled numeric `<input>` field row.
+   *
+   * @param {HTMLElement} body Element to append the row into.
+   * @param {string} path Dot-separated settings path.
+   * @param {string} labelText Field label.
+   * @param {Object} [options={}] Field options (`step`, `min`, `max`, `compact`, `advanced`, `hidden`).
+   * @returns {HTMLElement} The generated row element.
+   */
   number(body, path, labelText, options = {}) {
     const { row, control } = labelledControl('input', labelText);
     control.type = 'number';
@@ -908,16 +1254,34 @@ export class MapConfigurationDialog {
     return row;
   }
 
+  /**
+   * Apply the common `advanced`/`hidden` field-row options.
+   *
+   * @param {HTMLElement} element Field row element.
+   * @param {Object} [options={}] Field options (`advanced`, `hidden`).
+   * @returns {void}
+   */
   decorate(element, options = {}) {
     if (options.advanced) this.markAdvanced(element);
     if (options.hidden) element.hidden = true;
   }
 
+  /**
+   * Mark an element as an advanced-only setting, toggled by {@link MapConfigurationDialog#updateAdvancedVisibility}.
+   *
+   * @param {HTMLElement} element Element to mark.
+   * @returns {HTMLElement} `element`, unchanged.
+   */
   markAdvanced(element) {
     element.dataset.advancedSetting = '1';
     return element;
   }
 
+  /**
+   * Show or hide every advanced-marked element according to `this.advanced`.
+   *
+   * @returns {void}
+   */
   updateAdvancedVisibility() {
     if (!this.form) return;
     for (const element of this.form.querySelectorAll('[data-advanced-setting="1"]')) {
@@ -925,16 +1289,35 @@ export class MapConfigurationDialog {
     }
   }
 
+  /**
+   * Record a field's control under its settings path.
+   *
+   * @param {string} path Dot-separated settings path.
+   * @param {HTMLElement} control Field's input/select/textarea control.
+   * @param {string} kind Field value kind (see {@link readControl}).
+   * @returns {void}
+   */
   register(path, control, kind) {
     control.dataset.configPath = path;
     this.fields.set(path, { control, kind });
   }
 
+  /**
+   * Populate every registered field's control from the current settings value.
+   *
+   * @returns {void}
+   */
   populate() {
     for (const path of this.fields.keys()) this.populateField(path);
     this.updateHeuristControlState();
   }
 
+  /**
+   * Populate one registered field's control from the current settings value.
+   *
+   * @param {string} path Dot-separated settings path.
+   * @returns {void}
+   */
   populateField(path) {
     const field = this.fields.get(path);
     if (!field) return;
@@ -964,6 +1347,12 @@ export class MapConfigurationDialog {
     field.onPopulate?.(current);
   }
 
+  /**
+   * Read every registered field's current control value into a settings object.
+   *
+   * @returns {Object} Settings object with every registered path updated from the form.
+   * @throws {Error} When a `json`-kind field contains invalid JSON.
+   */
   readForm() {
     // Start from the current normalized value so publish mode can render only
     // Interface/Publication without discarding settings from hidden sections.
@@ -972,6 +1361,14 @@ export class MapConfigurationDialog {
     return result;
   }
 
+  /**
+   * Run a host editor callback while the dialog is temporarily closed, so
+   * legacy editors (which live outside the browser top layer) stay usable,
+   * then reopen the dialog and restore focus.
+   *
+   * @param {Function} edit Async callback invoked while the dialog is closed.
+   * @returns {Promise<*>} Resolves with `edit`'s result.
+   */
   async withHostEditor(edit) {
     // Legacy host editors live outside the browser top layer. Suspend modality
     // while they run so they remain visible and interactive.
@@ -987,6 +1384,12 @@ export class MapConfigurationDialog {
     }
   }
 
+  /**
+   * Show a modal error message dialog.
+   *
+   * @param {string} message Error message to display.
+   * @returns {void}
+   */
   showError(message) {
     if (!this.form) return;
     const content = document.createElement('span');
@@ -995,6 +1398,14 @@ export class MapConfigurationDialog {
   }
 }
 
+/**
+ * Read one registered field's control value, coerced according to its registered `kind`.
+ *
+ * @param {Object} field Registered field.
+ * @param {string} path Dot-separated settings path (used only in the JSON-parse error message).
+ * @returns {*} The field's coerced value.
+ * @throws {Error} When a `json`-kind field contains invalid JSON.
+ */
 function readControl(field, path) {
   const control = field.control;
   if (field.kind === 'boolean') return control.checked;
@@ -1027,6 +1438,12 @@ function readControl(field, path) {
   return text || null;
 }
 
+/**
+ * Build one column (heading + multi-line `<select>`) of a transfer-list control.
+ *
+ * @param {string} title Column heading text.
+ * @returns {{column: HTMLElement, select: HTMLSelectElement}} The column element and its `<select>`.
+ */
 function transferColumn(title) {
   const column = document.createElement('div');
   column.className = 'heurist-map-config-transfer-column';
@@ -1039,10 +1456,23 @@ function transferColumn(title) {
   return { column, select };
 }
 
+/**
+ * Normalize a choice list to `[String(value), String(label)]` pairs.
+ *
+ * @param {*} choices Candidate choice list.
+ * @returns {Array<[string, string]>} Normalized choice pairs.
+ */
 function normalizeChoices(choices) {
   return (Array.isArray(choices) ? choices : []).map(([value, label]) => [String(value), String(label ?? value)]);
 }
 
+/**
+ * Build a labeled field row wrapping one input/select/textarea control.
+ *
+ * @param {string} tag Control tag name (`'input'`, `'select'`, `'textarea'`).
+ * @param {string} labelText Field label.
+ * @returns {{row: HTMLElement, control: HTMLElement}} The row element and its control.
+ */
 function labelledControl(tag, labelText) {
   const row = document.createElement('label');
   row.className = 'heurist-map-config-field';
@@ -1054,25 +1484,63 @@ function labelledControl(tag, labelText) {
   return { row, control };
 }
 
+/** Build a `<legend>` element for a fieldset. */
 function legend(text) { const item = document.createElement('legend'); item.className = 'h-i18n'; item.textContent = text; return item; }
+
+/** Build a section-title `<div>` used above a group of native controls. */
 function sectionTitle(text) { const item = document.createElement('div'); item.className = 'heurist-map-config-control-section-title h-i18n'; item.textContent = text; return item; }
+
+/**
+ * Build the dialog's displayed title, appending the module version when available.
+ *
+ * @param {string} title Base (unlocalized) dialog title.
+ * @returns {string} Localized title, optionally suffixed with `(vX.Y.Z)`.
+ */
 function configurationDialogTitle(title) {
   const version = typeof HEURIST_MODULE_VERSION !== 'undefined'
     ? String(HEURIST_MODULE_VERSION).trim() : '';
   const localizedTitle = $HR(title);
   return version ? `${localizedTitle} (v${version})` : localizedTitle;
 }
+
+/**
+ * Build a labeled button with a click handler.
+ *
+ * @param {string} text Button label.
+ * @param {string} title Button `title` attribute/tooltip.
+ * @param {Function} handler Click event handler.
+ * @returns {HTMLElement} The generated `<button>` element.
+ */
 function button(text, title, handler) {
   const item = document.createElement('button');
   item.type = 'button'; item.className = 'h-btn h-i18n'; item.textContent = $HR(text); item.title = $HR(title); item.addEventListener('click', handler); return item;
 }
 
+/**
+ * Build a link-styled button (used for Edit/Show raw/Clear symbology actions).
+ *
+ * @param {string} text Button label.
+ * @param {string} title Button `title` attribute/tooltip.
+ * @param {Function} handler Click event handler.
+ * @returns {HTMLElement} The generated `<button>` element.
+ */
 function linkButton(text, title, handler) {
   const item = button(text, title, handler);
   item.classList.add('heurist-map-config-link');
   return item;
 }
+
+/** Build the form's primary submit button. */
 function submitButton(text) { const item = document.createElement('button'); item.type = 'submit'; item.className = 'h-btn h-btn-primary h-i18n'; item.textContent = $HR(text); return item; }
+
+/**
+ * Apply mode-specific forced settings overrides before rendering the form
+ * (publish mode is handled separately by {@link preparePublishConfiguration}).
+ *
+ * @param {Object} value Normalized settings value.
+ * @param {string} mode Dialog mode (`'preferences'`, `'website'`, or `'publish'`).
+ * @returns {Object} The value, or a mode-adjusted clone.
+ */
 function prepareModeConfiguration(value, mode) {
   if (mode === 'publish') return preparePublishConfiguration(value);
   if (mode !== 'website') return value;
@@ -1092,6 +1560,13 @@ function prepareModeConfiguration(value, mode) {
   return result;
 }
 
+/**
+ * Apply publish-mode forced settings overrides (disable Options/Publish icons,
+ * force a minimal, predictable set of native controls).
+ *
+ * @param {Object} value Normalized settings value.
+ * @returns {Object} A publish-mode-adjusted clone of `value`.
+ */
 function preparePublishConfiguration(value) {
   const result = clone(value);
   result.options = result.options || {};
@@ -1108,6 +1583,13 @@ function preparePublishConfiguration(value) {
   return result;
 }
 
+/**
+ * Build a standalone labeled checkbox not bound through `register()`.
+ *
+ * @param {string} labelText Checkbox label.
+ * @param {boolean} [checked=false] Initial checked state.
+ * @returns {{row: HTMLElement, control: HTMLElement}} The row element and its checkbox control.
+ */
 function plainCheckbox(labelText, checked = false) {
   const row = document.createElement('label');
   row.className = 'heurist-map-config-check';
@@ -1118,6 +1600,13 @@ function plainCheckbox(labelText, checked = false) {
   return { row, control };
 }
 
+/**
+ * Build the `[value, label]` choices for a native-zoom-level `<select>`, 1-18,
+ * with descriptive suffixes at the worldwide/city/close-in levels.
+ *
+ * @param {boolean} includeEmpty Whether to prepend an empty "no limit" choice.
+ * @returns {Array<[string, string]>} Zoom-level choice pairs.
+ */
 function zoomLevelChoices(includeEmpty) {
   const result = includeEmpty ? [['', '']] : [];
   for (let level = 1; level <= 18; level += 1) {
@@ -1129,6 +1618,14 @@ function zoomLevelChoices(includeEmpty) {
   return result;
 }
 
+/**
+ * Build a group of radio buttons sharing one input `name`, with helpers to read/set the checked value.
+ *
+ * @param {string} name Shared `name` attribute for the radio inputs.
+ * @param {Array<[*, string]>} choices Option `[value, label]` pairs.
+ * @returns {{element: HTMLElement, value: Function, set: Function}} The group element,
+ *          a `value()` getter, and a `set(value)` setter.
+ */
 function radioChoice(name, choices) {
   const element = document.createElement('span');
   element.className = 'heurist-map-config-radio-choice';
@@ -1150,6 +1647,12 @@ function radioChoice(name, choices) {
   };
 }
 
+/**
+ * Build a localized `<span>` text node (used inside labels/radio choices).
+ *
+ * @param {string} text Text content.
+ * @returns {HTMLElement} The generated `<span>` element.
+ */
 function i18nText(text) {
   const item = document.createElement('span');
   item.className = 'h-i18n';
@@ -1157,11 +1660,27 @@ function i18nText(text) {
   return item;
 }
 
+/**
+ * Refresh the read-only extent display input from the current hidden bounds fields.
+ *
+ * @param {HTMLElement} display Read-only text input showing the formatted extent.
+ * @param {Map<string, Object>} fields Registered fields map.
+ * @param {string} prefix Settings path prefix (`west`/`south`/`east`/`north` are appended).
+ * @returns {void}
+ */
 function refreshExtentDisplay(display, fields, prefix) {
   const bounds = readBoundsFields(fields, prefix);
   display.value = bounds ? `${bounds.south},${bounds.west} - ${bounds.north},${bounds.east}` : '';
 }
 
+/**
+ * Read the four hidden `west`/`south`/`east`/`north` bounds fields for one extent.
+ *
+ * @param {Map<string, Object>} fields Registered fields map.
+ * @param {string} prefix Settings path prefix (`west`/`south`/`east`/`north` are appended).
+ * @returns {?{west: number, south: number, east: number, north: number}} The bounds,
+ *          or `null` when any coordinate is missing/non-finite.
+ */
 function readBoundsFields(fields, prefix) {
   const values = Object.fromEntries(['west', 'south', 'east', 'north'].map((key) => {
     const text = fields.get(`${prefix}.${key}`)?.control?.value;
@@ -1170,6 +1689,15 @@ function readBoundsFields(fields, prefix) {
   return Object.values(values).every(Number.isFinite) ? values : null;
 }
 
+/**
+ * Write bounds into the four hidden `west`/`south`/`east`/`north` fields and refresh the display.
+ *
+ * @param {Map<string, Object>} fields Registered fields map.
+ * @param {string} prefix Settings path prefix (`west`/`south`/`east`/`north` are appended).
+ * @param {{west: number, south: number, east: number, north: number}} bounds Bounds to write.
+ * @param {HTMLElement} display Read-only text input showing the formatted extent.
+ * @returns {void}
+ */
 function writeBoundsFields(fields, prefix, bounds, display) {
   for (const key of ['west', 'south', 'east', 'north']) {
     fields.get(`${prefix}.${key}`).control.value = String(bounds[key]);
@@ -1177,13 +1705,31 @@ function writeBoundsFields(fields, prefix, bounds, display) {
   refreshExtentDisplay(display, fields, prefix);
 }
 
+/** Resolve the submit button label for a dialog mode. */
 function submitLabel(mode) { return mode === 'publish' ? 'Publish' : mode === 'website' ? 'Save' : 'Apply'; }
+
+/** Find the first focusable control inside a root element. */
 function firstFocusable(root) { return root.querySelector('button, input, select, textarea, summary'); }
+
+/** Default dialog title for a mode. */
 function defaultTitle(mode) { return mode === 'website' ? 'Website map configuration' : mode === 'publish' ? 'Publication configuration' : 'Map preferences'; }
+
+/** Read a dot-separated path from a nested object. */
 function getPath(object, path) { return path.split('.').reduce((current, key) => current?.[key], object); }
+
+/**
+ * Write a value at a dot-separated path in a nested object, creating intermediate objects as needed.
+ *
+ * @param {Object} object Target object, mutated in place.
+ * @param {string} path Dot-separated path.
+ * @param {*} value Value to write.
+ * @returns {void}
+ */
 function setPath(object, path, value) {
   const parts = path.split('.'); let current = object;
   for (let index = 0; index < parts.length - 1; index += 1) { current[parts[index]] ||= {}; current = current[parts[index]]; }
   current[parts.at(-1)] = value;
 }
+
+/** Deep-clone a JSON-safe value. */
 function clone(value) { return JSON.parse(JSON.stringify(value)); }

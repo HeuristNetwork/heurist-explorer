@@ -22,7 +22,19 @@ import { layoutOptions, NetworkMovement, fixedPositions } from "./NetworkLayout.
 const DEFAULT_LABEL_MAX_LENGTH = 40;
 
 
+/** vis-network implementation of the graph engine contract. */
 export class VisNetworkAdapter extends GraphEngineAdapter {
+  /**
+   * Create the vis-network `Network`, wire up selection/activation/popup events, and mount nav controls.
+   *
+   * @param {object} options Initialization options.
+   * @param {HTMLElement} options.container Element to render the network into.
+   * @param {object} [options.options] Graph engine options; see `networkOptions`.
+   * @param {function(Array<number>): void} [options.onSelectionChange] Called with the new selection when it changes in the engine.
+   * @param {function(number): void} [options.onNodeActivate] Called with a record id on double-click.
+   * @param {function({recordId: number, signal: AbortSignal}): Promise<string|null>} [options.onPopupContentRequest] Fetches server-rendered popup content for a node.
+   * @returns {Promise<void>}
+   */
   async initialize({
     container,
     options = {},
@@ -71,6 +83,12 @@ export class VisNetworkAdapter extends GraphEngineAdapter {
     this.navControls.setVisibility(options.nativeControls);
   }
 
+  /**
+   * Replace the rendered graph entirely, resetting saved node positions.
+   *
+   * @param {import('../../core/GraphDocument.js').GraphDocument} graph Graph to render.
+   * @returns {Promise<void>}
+   */
   async setGraph(graph) {
     this.savedPositions = {};
     this.nodes.clear();
@@ -88,6 +106,12 @@ export class VisNetworkAdapter extends GraphEngineAdapter {
     this.nodes.update(graph.recordIds.filter(id => this.savedPositions[id]).map(id => ({ id, ...this.savedPositions[id] })));
   }
 
+  /**
+   * Merge additional nodes/edges into the rendered graph, then rearrange.
+   *
+   * @param {import('../../core/GraphDocument.js').GraphDocument} graph Graph (already merged with any existing state) to render.
+   * @returns {Promise<void>}
+   */
   async mergeGraph(graph) {
     this.syncNodeGroups(graph.records);
     const maxLength =
@@ -138,6 +162,11 @@ export class VisNetworkAdapter extends GraphEngineAdapter {
     this.rearrange();
   }
 
+  /**
+   * Re-apply layout physics/fixed positions to the currently rendered nodes.
+   *
+   * @returns {void}
+   */
   rearrange() {
     if (!this.nodes?.length) return;
     this.#hidePopup();
@@ -196,6 +225,13 @@ export class VisNetworkAdapter extends GraphEngineAdapter {
     return this.options?.showEdgeLabels === true ? this.#edgeName(edge) : "";
   }
 
+  /**
+   * Resolve an edge's display name: relation type first, then detail type, then its numeric id.
+   *
+   * @private
+   * @param {object} edge Rendered edge (`fieldId`/`relationshipId`).
+   * @returns {string|undefined}
+   */
   #edgeName(edge) {
     const relationshipId = edge.relationshipId || null;
     if (relationshipId && this.edgeLabels.relationTypes.get(relationshipId)) {
@@ -218,6 +254,12 @@ export class VisNetworkAdapter extends GraphEngineAdapter {
     this.rearrange();
   }
 
+  /**
+   * Apply the current record selection to the network, ignoring ids not present in the rendered graph.
+   *
+   * @param {Array<number>} recordIds Selected record IDs.
+   * @returns {Promise<void>}
+   */
   async setSelection(recordIds) {
     if (!this.network || !this.nodes) return;
     // A selection driven by another widget's ON_REC_SELECT event may name
@@ -229,10 +271,20 @@ export class VisNetworkAdapter extends GraphEngineAdapter {
     this.network.selectNodes(ids, false);
   }
 
+  /**
+   * Fit the viewport to the full graph, animated.
+   *
+   * @returns {Promise<void>}
+   */
   async fit() {
     this.network?.fit({ animation: true });
   }
 
+  /**
+   * Repaint the network at its current (auto-resized) canvas size, without reframing the viewport.
+   *
+   * @returns {Promise<void>}
+   */
   async resize() {
     // autoResize (set in networkOptions) already recalculates the canvas
     // size on its own; redraw() alone repaints at that size without forcing
@@ -242,6 +294,11 @@ export class VisNetworkAdapter extends GraphEngineAdapter {
     this.network?.redraw();
   }
 
+  /**
+   * Tear down the popup, nav controls, movement controller, and the network itself.
+   *
+   * @returns {Promise<void>}
+   */
   async destroy() {
     this.#hidePopup();
     this.popupAbortController?.abort();
@@ -328,6 +385,13 @@ export class VisNetworkAdapter extends GraphEngineAdapter {
     this.popup.replaceChildren(this.#renderPopupContent(node));
   }
 
+  /**
+   * Resolve a node's popup content via `options.popupRenderer`, falling back to the default card.
+   *
+   * @private
+   * @param {object} node Rendered vis-network node.
+   * @returns {Node}
+   */
   #renderPopupContent(node) {
     const content =
       typeof this.options?.popupRenderer === "function"
@@ -336,6 +400,12 @@ export class VisNetworkAdapter extends GraphEngineAdapter {
     return content instanceof Node ? content : defaultPopupContent(node);
   }
 
+  /**
+   * Hide the popup and invalidate any in-flight popup content fetch.
+   *
+   * @private
+   * @returns {void}
+   */
   #hidePopup() {
     if (this.popup) this.popup.hidden = true;
     // Invalidate any in-flight popup content fetch so a slow response can
@@ -362,6 +432,7 @@ function truncateLabel(text, maxLength) {
   return `${trimmed.trimEnd()}…`;
 }
 
+/** Build the small built-in title/type popup card for a node, when no template or renderer is configured. */
 function defaultPopupContent(node) {
   const fragment = document.createDocumentFragment();
   const title = document.createElement("div");
@@ -377,6 +448,7 @@ function defaultPopupContent(node) {
   return fragment;
 }
 
+/** Build the transient "loading" placeholder shown while a templated popup's content is fetched. */
 function popupPlaceholderContent() {
   const span = document.createElement("span");
   span.className = "heurist-graph-popup-loading";
@@ -384,6 +456,7 @@ function popupPlaceholderContent() {
   return span;
 }
 
+/** Build vis-network's `Network` constructor options from the graph's engine options. */
 function networkOptions(options) {
   const scalingEnabled = options.scaling !== false;
   const popupDelaySeconds = Number(options.popupDelay);

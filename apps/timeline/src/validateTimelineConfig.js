@@ -1,8 +1,10 @@
 /**
  * @file validateTimelineConfig.js
  * @brief Validates the timeline runtime config before any browser initialization occurs.
+ *
  * @project     Heurist academic knowledge management system
  * @package     heurist-timeline
+ *
  * @link        https://HeuristNetwork.org
  * @copyright   (C) 2024 onwards Heurist Network
  * @author      Artem Osmakov   <osmakov@gmail.com>

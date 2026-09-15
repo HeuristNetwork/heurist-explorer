@@ -1,8 +1,10 @@
 /**
  * @file HeuristTimelineHostAdapter.js
  * @brief Provides a Heurist-aware host adapter for embedded timeline integrations.
+ *
  * @project     Heurist academic knowledge management system
  * @package     heurist-timeline
+ *
  * @link        https://HeuristNetwork.org
  * @copyright   (C) 2024 onwards Heurist Network
  * @author      Artem Osmakov   <osmakov@gmail.com>

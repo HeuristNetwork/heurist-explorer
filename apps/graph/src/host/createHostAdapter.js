@@ -16,6 +16,12 @@
 import { StandaloneHostAdapter } from "#shared/host";
 import { HeuristGraphHostAdapter } from "./HeuristGraphHostAdapter.js";
 
+/**
+ * Select the host adapter for the given bootstrap host descriptor.
+ *
+ * @param {object|null} host Bootstrap `host` field; `{type: 'heurist', ...}` for a legacy Heurist host.
+ * @returns {object} A `HeuristGraphHostAdapter`, the raw `host` object, or a `StandaloneHostAdapter`.
+ */
 export function createHostAdapter(host) {
   if (host?.type === "heurist") return new HeuristGraphHostAdapter(host);
   if (host) return host;

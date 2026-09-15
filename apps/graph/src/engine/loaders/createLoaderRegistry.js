@@ -17,6 +17,12 @@ import { LoaderRegistry } from "./LoaderRegistry.js";
 import { DatasetLoader } from "./DatasetLoader.js";
 import { QueryLoader } from "./QueryLoader.js";
 
+/**
+ * Build the loader registry with the dataset and query loaders registered.
+ *
+ * @param {object} providers Data providers forwarded to each loader.
+ * @returns {LoaderRegistry}
+ */
 export function createLoaderRegistry(providers) {
   return new LoaderRegistry()
     .register("dataset", new DatasetLoader(providers))

@@ -93,12 +93,27 @@ export class NavControls {
     this.root.hidden = !showZoom && !showPan && !showRearrange;
   }
 
+  /**
+   * Zoom the network by a scale factor.
+   *
+   * @private
+   * @param {number} factor Multiplier applied to the current scale (`> 1` zooms in).
+   * @returns {void}
+   */
   #zoom(factor) {
     if (!this.network) return;
     const scale = this.network.getScale() * factor;
     this.network.moveTo({ scale, animation: { duration: 150 } });
   }
 
+  /**
+   * Pan the network by a pixel offset.
+   *
+   * @private
+   * @param {number} dx Horizontal offset in canvas pixels.
+   * @param {number} dy Vertical offset in canvas pixels.
+   * @returns {void}
+   */
   #pan(dx, dy) {
     if (!this.network) return;
     const { x, y } = this.network.getViewPosition();
@@ -110,10 +125,21 @@ export class NavControls {
     });
   }
 
+  /**
+   * Fit the viewport to the full graph.
+   *
+   * @private
+   * @returns {void}
+   */
   #fit() {
     this.network?.fit({ animation: { duration: 250 } });
   }
 
+  /**
+   * Remove the overlay from the DOM.
+   *
+   * @returns {void}
+   */
   destroy() {
     this.root?.remove();
     this.root = null;

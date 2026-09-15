@@ -1,20 +1,28 @@
 /**
- * MapDocument.js - MapDocument domain normalization
+ * @file MapDocument.js
+ * @brief Validates and normalizes public MapDocument responses while preserving the
+ *        engine-neutral API representation.
  *
- * @fileOverview Validates and normalizes public MapDocument responses while preserving the engine-neutral API representation.
- * @project     Heurist mapping application
+ * @project     Heurist academic knowledge management system
+ * @package     heurist-map
  *
  * @link        https://HeuristNetwork.org
- * @copyright   (C) 2026 Heurist Network
+ * @copyright   (C) 2024 onwards Heurist Network
+ * @author      Artem Osmakov   <osmakov@gmail.com>
+ * @author      Ian Johnson <ian.johnson.heurist@gmail.com>
  * @license     https://www.gnu.org/licenses/gpl-3.0.txt GNU License 3.0
- * @author      Artem Osmakov <osmakov@gmail.com>
+ * @since       8.0
  */
 
 import { normalizeBounds } from '../utils/normalizeBounds.js';
 
+/** Format identifier stamped on every normalized MapDocument. */
 export const MAP_DOCUMENT_FORMAT = 'heurist-map-document';
+
+/** Current MapDocument schema version. */
 export const MAP_DOCUMENT_VERSION = 1;
 
+/** Default bookmark used when no valid bookmark can be normalized. */
 const DEFAULT_BOOKMARK = Object.freeze({
   raw: '',
   type: 'view',
@@ -27,6 +35,9 @@ const DEFAULT_BOOKMARK = Object.freeze({
  *
  * API MapDocuments contain only engine-neutral domain values. Runtime and
  * map-engine options are produced separately by createMapEnvironment().
+ *
+ * @param {object} [value] Raw MapDocument payload (public API or legacy DB fields).
+ * @returns {object} Canonical MapDocument.
  */
 export function normalizeMapDocument(value = {}) {
   const source = isObject(value) ? value : {};
@@ -72,9 +83,11 @@ export function normalizeMapDocument(value = {}) {
 }
 
 /**
- * Normalize map bookmark.
+ * Normalize a raw map bookmark (legacy encoded string or object) into the
+ * canonical `{ raw, type, ... }` bookmark shape.
  *
- * @returns {*} Function result.
+ * @param {object|string} value Raw bookmark value.
+ * @returns {object} Canonical bookmark; falls back to {@link DEFAULT_BOOKMARK} when unrecognized.
  */
 export function normalizeMapBookmark(value) {
   if (typeof value === 'string') {
@@ -123,6 +136,12 @@ export function normalizeMapBookmark(value) {
   };
 }
 
+/**
+ * Decode a legacy comma-delimited bookmark string (`extent,...` or `point,...`).
+ *
+ * @param {string} value Legacy encoded bookmark string.
+ * @returns {object} Canonical bookmark; falls back to {@link DEFAULT_BOOKMARK} when unparseable.
+ */
 function parseLegacyBookmark(value) {
   const parts = value.split(',').map((part) => part.trim());
 
@@ -164,6 +183,13 @@ function parseLegacyBookmark(value) {
   };
 }
 
+/**
+ * Normalize a raw term reference (id, code string, or object) into `{ id, code, label }`.
+ *
+ * @param {*} value Raw term reference.
+ * @param {object|null} [defaults] Fallback `{ code, label }` used when `value` is absent/unrecognized.
+ * @returns {object|null} Normalized term descriptor, or `null` when explicitly absent.
+ */
 function normalizeTermDescriptor(value, defaults = null) {
   if (value === false || value === null) {
     return null;
@@ -192,6 +218,12 @@ function normalizeTermDescriptor(value, defaults = null) {
   };
 }
 
+/**
+ * Normalize a raw list of layer references, sorted by their resolved order.
+ *
+ * @param {Array} value Raw layer reference list.
+ * @returns {Array<object>} Normalized `{ id, recordId, title, order, visible }` entries.
+ */
 function normalizeLayerReferences(value) {
   if (!Array.isArray(value)) {
     return [];
@@ -203,6 +235,13 @@ function normalizeLayerReferences(value) {
     .sort((a, b) => a.order - b.order);
 }
 
+/**
+ * Normalize a single raw layer reference (bare record id, or object).
+ *
+ * @param {*} value Raw layer reference.
+ * @param {number} index Position in the source list, used as the default order.
+ * @returns {object|null} Normalized layer reference, or `null` when it has no resolvable record id.
+ */
 function normalizeLayerReference(value, index) {
   if (typeof value === 'number' || typeof value === 'string') {
     const recordId = positiveIntegerOrNull(value);
@@ -229,11 +268,23 @@ function normalizeLayerReference(value, index) {
   };
 }
 
+/**
+ * Coerce a raw version value to a supported MapDocument schema version.
+ *
+ * @param {*} value Raw version value.
+ * @returns {number} A supported version number, defaulting to {@link MAP_DOCUMENT_VERSION}.
+ */
 function normalizeVersion(value) {
   const version = Number(value);
   return Number.isInteger(version) && version > 0 ? version : MAP_DOCUMENT_VERSION;
 }
 
+/**
+ * Normalize a raw coordinate (object with `latitude`/`lat`/`[0]` fields, or array pair) to `{ latitude, longitude }`.
+ *
+ * @param {*} value Raw coordinate value.
+ * @returns {{latitude: number, longitude: number}|null} Normalized coordinate, or `null` when not finite.
+ */
 function normalizeCenter(value) {
   const latitude = Number(value?.latitude ?? value?.lat ?? value?.[0]);
   const longitude = Number(value?.longitude ?? value?.lng ?? value?.lon ?? value?.[1]);
@@ -242,7 +293,12 @@ function normalizeCenter(value) {
     : null;
 }
 
-
+/**
+ * Coerce a value to a finite number, or `null` when it is empty/non-numeric.
+ *
+ * @param {*} value Candidate value.
+ * @returns {number|null} The finite number, or `null`.
+ */
 function finiteNumberOrNull(value) {
   if (value === null || value === undefined || value === '') {
     return null;
@@ -251,17 +307,35 @@ function finiteNumberOrNull(value) {
   return Number.isFinite(number) ? number : null;
 }
 
+/**
+ * Coerce a value to a positive integer, or `null` when it is not one.
+ *
+ * @param {*} value Candidate value.
+ * @returns {number|null} The positive integer, or `null`.
+ */
 function positiveIntegerOrNull(value) {
   const number = Number(value);
   return Number.isInteger(number) && number > 0 ? number : null;
 }
 
+/**
+ * Return a shallow copy of an object with `null`/`undefined`-valued keys removed.
+ *
+ * @param {object} value Source object.
+ * @returns {object} Compacted shallow copy.
+ */
 function compact(value) {
   return Object.fromEntries(
     Object.entries(value).filter(([, entry]) => entry !== undefined && entry !== null)
   );
 }
 
+/**
+ * Whether a value is a plain, non-array object.
+ *
+ * @param {*} value Candidate value.
+ * @returns {boolean} `true` when `value` is a non-null, non-array object.
+ */
 function isObject(value) {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
 }

@@ -1,8 +1,10 @@
 /**
  * @file HeuristTimelinePublicApi.js
  * @brief Exposes the embeddable public API for the timeline application.
+ *
  * @project     Heurist academic knowledge management system
  * @package     heurist-timeline
+ *
  * @link        https://HeuristNetwork.org
  * @copyright   (C) 2024 onwards Heurist Network
  * @author      Artem Osmakov   <osmakov@gmail.com>
@@ -179,9 +181,11 @@ export class HeuristTimelinePublicApi {
   }
 
   /**
-   * Cycles through the available label display modes.
+   * Validates and applies partial display option changes to the engine and configuration.
    *
-   * @returns {string} The newly selected label mode.
+   * @param {{labelMode?: string, labelPosition?: string, orientation?: string, stack?: boolean}} [options={}] - Partial option changes.
+   * @returns {object} The fully resolved settings after applying the changes.
+   * @throws {Error} When an option value is not one of its supported choices.
    */
   applyOptions(options = {}) {
     const settings = { ...this.application.config.settings };
@@ -198,6 +202,11 @@ export class HeuristTimelinePublicApi {
     return { ...settings };
   }
 
+  /**
+   * Cycles through the available label display modes.
+   *
+   * @returns {string} The newly selected label mode.
+   */
   cycleLabelMode() {
     const modes = ["full", "truncate", "hidden"];
     const engine = this.application.engine;

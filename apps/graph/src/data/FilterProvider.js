@@ -79,6 +79,7 @@ function detailValue(details, field) {
   return values[0]?.value ?? null;
 }
 
+/** Normalize a field list (array or comma-separated string) into a de-duplicated array. */
 function normalizeFields(value) {
   const fields = Array.isArray(value) ? value : String(value || "").split(",");
   return [
@@ -86,6 +87,7 @@ function normalizeFields(value) {
   ];
 }
 
+/** Normalize a value into a de-duplicated array of positive integer IDs. */
 function normalizeIds(value) {
   const values = Array.isArray(value) ? value : value == null ? [] : [value];
   const ids = values.map(Number);

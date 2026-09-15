@@ -1,8 +1,10 @@
 /**
  * @file TimelineContext.js
  * @brief Defines the internal representation of an individual timeline context or band.
+ *
  * @project     Heurist academic knowledge management system
  * @package     heurist-timeline
+ *
  * @link        https://HeuristNetwork.org
  * @copyright   (C) 2024 onwards Heurist Network
  * @author      Artem Osmakov   <osmakov@gmail.com>

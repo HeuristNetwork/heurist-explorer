@@ -1,8 +1,10 @@
 /**
  * @file DatasetProvider.js
  * @brief Retrieves and validates persisted dataset-based timeline sources.
+ *
  * @project     Heurist academic knowledge management system
  * @package     heurist-timeline
+ *
  * @link        https://HeuristNetwork.org
  * @copyright   (C) 2024 onwards Heurist Network
  * @author      Artem Osmakov   <osmakov@gmail.com>

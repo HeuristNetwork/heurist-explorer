@@ -14,11 +14,20 @@
  */
 /** Resolves Heurist record-type IDs and definitions. */
 export class RecordTypeProvider {
+  /** @param {{apiClient: object}} options Heurist API client. */
   constructor({ apiClient }) {
     this.apiClient = apiClient;
     this.cache = new Map();
   }
 
+  /**
+   * Resolve (and cache) a record type's local id from its portable concept code.
+   *
+   * @param {string} conceptCode Record type concept code (`"<originatingDbId>-<idInOriginatingDb>"`).
+   * @param {{signal?: AbortSignal}} [options] Request options.
+   * @returns {Promise<number>} Local record type id.
+   * @throws {Error} When the lookup doesn't resolve to a valid id.
+   */
   async getIdByConceptCode(conceptCode, { signal } = {}) {
     if (this.cache.has(conceptCode)) return this.cache.get(conceptCode);
     const payload = await this.apiClient.get(

@@ -1,12 +1,20 @@
 /**
- * mapConfigurationSchema.js - Allowlist, normalization, and serialization for user map settings
+ * @file mapConfigurationSchema.js
+ * @brief Allowlist, normalization, and serialization for user map settings.
  *
  * Only safe, persisted presentation values belong here. Runtime connection
  * values (database, API URL, access token, request headers, callbacks, etc.)
  * are intentionally discarded.
  *
- * @project     Heurist mapping application
+ * @project     Heurist academic knowledge management system
+ * @package     heurist-map
+ *
+ * @link        https://HeuristNetwork.org
+ * @copyright   (C) 2024 onwards Heurist Network
+ * @author      Artem Osmakov   <osmakov@gmail.com>
+ * @author      Ian Johnson <ian.johnson.heurist@gmail.com>
  * @license     https://www.gnu.org/licenses/gpl-3.0.txt GNU License 3.0
+ * @since       8.0
  */
 
 import { createMapConfigurationDefaults } from './mapConfigurationDefaults.js';
@@ -31,6 +39,9 @@ import {
 /**
  * Normalize and allowlist a pair of persisted map configuration objects.
  * Unknown properties are intentionally removed.
+ *
+ * @param {object} [value] Raw (possibly enveloped) settings.
+ * @returns {{options: object, config: object}} Normalized options and config.
  */
 export function normalizeMapConfigurationSettings(value = {}) {
   const defaults = createMapConfigurationDefaults();
@@ -44,17 +55,34 @@ export function normalizeMapConfigurationSettings(value = {}) {
   };
 }
 
-/** Produce the versioned JSON-safe settings envelope. */
+/**
+ * Produce the versioned JSON-safe settings envelope.
+ *
+ * @param {object} [value] Raw settings object.
+ * @returns {object} Versioned settings envelope.
+ */
 export function serializeMapConfigurationSettings(value = {}) {
   return serializeConfigurationSettings(value, normalizeMapConfigurationSettings);
 }
 
-/** Validate/normalize a dialog mode. */
+/**
+ * Validate/normalize a dialog mode.
+ *
+ * @param {*} value Raw mode value.
+ * @returns {string} A supported mode from {@link CONFIGURATION_MODES}, defaulting to `'preferences'`.
+ */
 export function normalizeMapConfigurationMode(value) {
   const mode = String(value || 'preferences').toLowerCase();
   return CONFIGURATION_MODES.includes(mode) ? mode : 'preferences';
 }
 
+/**
+ * Normalize the `options` half of the persisted map configuration.
+ *
+ * @param {object} source Raw options object.
+ * @param {object} defaults Default options.
+ * @returns {object} Normalized options.
+ */
 function normalizeOptions(source, defaults) {
   const ui = source.ui || {};
   const documents = source.mapDocuments || {};
@@ -107,6 +135,13 @@ function normalizeOptions(source, defaults) {
   };
 }
 
+/**
+ * Normalize the `config` half of the persisted map configuration.
+ *
+ * @param {object} source Raw config object.
+ * @param {object} defaults Default config.
+ * @returns {object} Normalized config.
+ */
 function normalizeConfig(source, defaults) {
   const configuredDefaults = source.defaults || {};
   const document = source.dynamicDocument || {};

@@ -1,8 +1,10 @@
 /**
  * @file TemporalDataProvider.js
  * @brief Retrieves temporal record payloads from the Heurist /time endpoint.
+ *
  * @project     Heurist academic knowledge management system
  * @package     heurist-timeline
+ *
  * @link        https://HeuristNetwork.org
  * @copyright   (C) 2024 onwards Heurist Network
  * @author      Artem Osmakov   <osmakov@gmail.com>

@@ -30,6 +30,14 @@ import { RecordContentProvider } from "./data/RecordContentProvider.js";
 import { VocabularyProvider } from "./data/VocabularyProvider.js";
 import { GraphConfigurationDialog } from "./ui/config/GraphConfigurationDialog.js";
 
+/**
+ * Create providers, engine, host adapter, and application, mount the control panel,
+ * and expose the result as `window.heuristGraph`.
+ *
+ * @param {object} config Normalized Graph configuration; see `graphConfig.js`.
+ * @returns {Promise<import('./host/HeuristGraphPublicApi.js').HeuristGraphPublicApi>} Resolves once the application and control panel are ready.
+ * @throws {Error} When `config.containerId` does not match an element in the document.
+ */
 export async function initHeuristGraph(config) {
   const container = document.getElementById(config.containerId);
   if (!container)

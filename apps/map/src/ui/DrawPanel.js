@@ -1,19 +1,38 @@
-import { showMapMessage } from './mapMessages.js';
 /**
- * DrawPanel.js - Compact controls for an active map drawing session
+ * @file DrawPanel.js
+ * @brief Compact controls for an active map drawing session.
  *
- * @project     Heurist mapping application
+ * @project     Heurist academic knowledge management system
+ * @package     heurist-map
+ *
+ * @link        https://HeuristNetwork.org
+ * @copyright   (C) 2024 onwards Heurist Network
+ * @author      Artem Osmakov   <osmakov@gmail.com>
+ * @author      Ian Johnson <ian.johnson.heurist@gmail.com>
  * @license     https://www.gnu.org/licenses/gpl-3.0.txt GNU License 3.0
+ * @since       8.0
  */
+
+import { showMapMessage } from './mapMessages.js';
 import { $HR, applyI18n } from '#shared/ui';
 
+/** Compact floating panel exposing controls for an active map drawing session. */
 export class DrawPanel {
+  /**
+   * @param {{api: object, container: HTMLElement}} options `api` is the map's public API;
+   *        `container` is the element the panel mounts into.
+   */
   constructor({ api, container }) {
     this.api = api;
     this.container = container;
     this.element = null;
   }
 
+  /**
+   * Build and mount the panel.
+   *
+   * @returns {DrawPanel} `this`, for chaining.
+   */
   mount() {
     const panel = document.createElement('aside');
     panel.className = 'heurist-map-draw-panel';
@@ -44,6 +63,12 @@ export class DrawPanel {
     return this;
   }
 
+  /**
+   * Show/hide and relabel controls to match the active drawing session mode.
+   *
+   * @param {object} options Drawing session options (`{ mode }`).
+   * @returns {void}
+   */
   applySessionOptions(options) {
     const mode = options.mode || 'full';
     const bboxExtent = mode === 'image' || mode === 'rectangle' || mode === 'filter';
@@ -53,6 +78,12 @@ export class DrawPanel {
         : mode === 'filter' ? 'Apply Extent' : 'Save');
   }
 
+  /**
+   * Open the "Add Geometry" or "Get Geometry" dialog.
+   *
+   * @param {'add'|'get'} mode Dialog mode.
+   * @returns {void}
+   */
   openGeometryEditor(mode) {
     this.geometryDialog?.close();
     this.geometryDialog?.remove();
@@ -124,6 +155,11 @@ export class DrawPanel {
     textarea.focus();
   }
 
+  /**
+   * Remove the panel and any open dialog, and detach listeners.
+   *
+   * @returns {void}
+   */
   destroy() {
     if (this.sessionHandler) {
       this.container.removeEventListener('heurist-map-drawing-session-started', this.sessionHandler);
@@ -135,6 +171,13 @@ export class DrawPanel {
   }
 }
 
+/**
+ * Build a group of mutually exclusive radio inputs.
+ *
+ * @param {string} name Shared `name` attribute for the radio group.
+ * @param {Array<[string, string]>} values `[value, label]` pairs; the first is selected by default.
+ * @returns {{element: HTMLElement, value: Function}} The group element and a getter for the selected value.
+ */
 function radioGroup(name, values) {
   const element = document.createElement('div');
   element.className = 'h-inline';
@@ -155,6 +198,12 @@ function radioGroup(name, values) {
   return { element, value: () => controls.find((item) => item.checked)?.value || values[0][0] };
 }
 
+/**
+ * Stop pointer/touch events on an element from reaching the underlying map.
+ *
+ * @param {HTMLElement} element Element to isolate from map interaction.
+ * @returns {void}
+ */
 function stopMapInteraction(element) {
   for (const eventName of ['mousedown', 'mouseup', 'mousemove', 'click', 'dblclick', 'wheel',
     'touchstart', 'touchmove', 'touchend']) {
@@ -162,6 +211,14 @@ function stopMapInteraction(element) {
   }
 }
 
+/**
+ * Build a button that runs an async handler and surfaces failures as a map error message.
+ *
+ * @param {string} label Localizable button label.
+ * @param {Function} handler Click handler; may be async.
+ * @param {string} [className] Additional CSS class(es).
+ * @returns {HTMLButtonElement} The button element.
+ */
 function action(label, handler, className = '') {
   const button = document.createElement('button');
   button.type = 'button';
@@ -173,6 +230,12 @@ function action(label, handler, className = '') {
   return button;
 }
 
+/**
+ * Build a labeled checkbox row.
+ *
+ * @param {string} label Localizable label text.
+ * @returns {{row: HTMLElement, control: HTMLInputElement}} The row element and its checkbox input.
+ */
 function checkbox(label) {
   const row = document.createElement('label');
   const control = document.createElement('input');

@@ -1,36 +1,42 @@
 /**
- * RemoteGeoJsonLayerLoader.js - Remote GeoJSON layer loader
+ * @file RemoteGeoJsonLayerLoader.js
+ * @brief Fetches external GeoJSON resources, validates them, and produces normalized
+ *        engine-neutral runtime layers.
  *
- * @fileOverview Fetches external GeoJSON resources, validates them, and produces normalized engine-neutral runtime layers.
- * @project     Heurist mapping application
+ * @project     Heurist academic knowledge management system
+ * @package     heurist-map
  *
  * @link        https://HeuristNetwork.org
- * @copyright   (C) 2026 Heurist Network
+ * @copyright   (C) 2024 onwards Heurist Network
+ * @author      Artem Osmakov   <osmakov@gmail.com>
+ * @author      Ian Johnson <ian.johnson.heurist@gmail.com>
  * @license     https://www.gnu.org/licenses/gpl-3.0.txt GNU License 3.0
- * @author      Artem Osmakov <osmakov@gmail.com>
+ * @since       8.0
  */
 
 import { HeuristApiError } from '#shared/api';
 import { createGeoJsonRuntimeLayer } from './GeoJsonLayerLoader.js';
 
+/** Invoke the native fetch implementation without losing its required global receiver in browsers. */
 function defaultFetch(...args) {
   return globalThis.fetch(...args);
 }
 
-/**
- * Loads external GeoJSON MapLayers through fetch.
- */
+/** Loads external GeoJSON MapLayers through fetch. */
 export class RemoteGeoJsonLayerLoader {
-  /**
-   * Create and initialize the class instance.
-   */
+  /** @param {{fetchImpl?: Function}} [options] `fetchImpl` overrides the global `fetch`. */
   constructor({ fetchImpl = defaultFetch } = {}) {
     this.fetchImpl = fetchImpl;
   }
 
   /**
-   * Load a MapLayer using the loader registered for its source type.
-   * @returns {Promise<*>} Resolves when the operation completes.
+   * Fetch and validate a remote GeoJSON MapLayer.
+   *
+   * @param {object} mapLayer Normalized public MapLayer.
+   * @param {object} context Layer-loading context.
+   * @returns {Promise<object>} Engine-neutral runtime GeoJSON layer.
+   * @throws {TypeError} When the source has no `url`.
+   * @throws {HeuristApiError} When the fetch fails, returns a non-OK status, or invalid JSON.
    */
   async load(mapLayer, context) {
     const source = mapLayer.source;

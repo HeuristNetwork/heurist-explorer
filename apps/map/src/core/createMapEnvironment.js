@@ -1,20 +1,25 @@
 /**
- * createMapEnvironment.js - Map environment builder
+ * @file createMapEnvironment.js
+ * @brief Converts a normalized MapDocument into the private runtime environment used
+ *        to initialize the map engine.
  *
- * @fileOverview Converts a normalized MapDocument into the private runtime environment used to initialize the map engine.
- * @project     Heurist mapping application
+ * @project     Heurist academic knowledge management system
+ * @package     heurist-map
  *
  * @link        https://HeuristNetwork.org
- * @copyright   (C) 2026 Heurist Network
+ * @copyright   (C) 2024 onwards Heurist Network
+ * @author      Artem Osmakov   <osmakov@gmail.com>
+ * @author      Ian Johnson <ian.johnson.heurist@gmail.com>
  * @license     https://www.gnu.org/licenses/gpl-3.0.txt GNU License 3.0
- * @author      Artem Osmakov <osmakov@gmail.com>
+ * @since       8.0
  */
 
 /**
  * Convert a public MapDocument into the private, engine-neutral runtime model.
  *
- * @param {Object} mapDocument Canonical MapDocument.
- * @returns {Object} MapEnvironment consumed by MapApplication/adapters.
+ * @param {object} mapDocument Canonical MapDocument.
+ * @param {object} [defaults] Configured global defaults (e.g. `preventContinuousWorldBasemap`, `zoomToPointInKM`).
+ * @returns {object} MapEnvironment consumed by MapApplication/adapters.
  */
 export function createMapEnvironment(mapDocument, defaults = {}) {
   return {
@@ -38,6 +43,7 @@ export function createMapEnvironment(mapDocument, defaults = {}) {
   };
 }
 
+/** Apply the configured "prevent continuous world basemap" default to a tile basemap. */
 function applyBaseMapDefaults(baseMap, defaults) {
   if (!baseMap || baseMap.type !== 'tile') return baseMap;
   return defaults.preventContinuousWorldBasemap === true
@@ -45,6 +51,7 @@ function applyBaseMapDefaults(baseMap, defaults) {
     : baseMap;
 }
 
+/** Resolve the initial viewport from a MapDocument's bookmark, falling back to its bounds, then the world default. */
 function createInitialView(bookmark, documentBounds) {
   if (bookmark?.type === 'extent' && bookmark.bounds) {
     return {
@@ -95,6 +102,7 @@ function createInitialView(bookmark, documentBounds) {
   };
 }
 
+/** Whether a view bookmark is the unset default (0,0 at zoom 2, with no raw source text). */
 function isSyntheticDefaultView(bookmark) {
   return bookmark?.type === 'view'
     && !bookmark.raw
@@ -103,6 +111,7 @@ function isSyntheticDefaultView(bookmark) {
     && Number(bookmark.zoom ?? 2) === 2;
 }
 
+/** Resolve a MapDocument's basemap term reference to a runtime basemap descriptor, or `null`. */
 function resolveBaseMap(reference) {
   if (!reference) {
     return null;
@@ -134,6 +143,7 @@ function resolveBaseMap(reference) {
   };
 }
 
+/** Return a shallow copy of an object with `null`/`undefined`-valued keys removed. */
 function compact(value) {
   return Object.fromEntries(
     Object.entries(value).filter(([, entry]) => entry !== undefined && entry !== null)

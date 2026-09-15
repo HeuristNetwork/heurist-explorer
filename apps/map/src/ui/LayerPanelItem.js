@@ -1,13 +1,33 @@
 /**
- * LayerPanelItem.js - One MapLayer row with state and actions.
+ * @file LayerPanelItem.js
+ * @brief One MapLayer row with state and actions.
  *
- * @project     Heurist mapping application
+ * @project     Heurist academic knowledge management system
+ * @package     heurist-map
+ *
+ * @link        https://HeuristNetwork.org
+ * @copyright   (C) 2024 onwards Heurist Network
+ * @author      Artem Osmakov   <osmakov@gmail.com>
+ * @author      Ian Johnson <ian.johnson.heurist@gmail.com>
  * @license     https://www.gnu.org/licenses/gpl-3.0.txt GNU License 3.0
+ * @since       8.0
  */
+
 import { createLayerLegend } from './legend/LegendRenderer.js';
 import { $HR } from '#shared/ui';
 
+/** Renders one MapLayer row, its state control, actions, thematic selector, and legend. */
 export class LayerPanelItem {
+  /**
+   * @param {object} options
+   * @param {object} options.api Map's public API.
+   * @param {object} options.layer Normalized runtime layer.
+   * @param {boolean} [options.editingEnabled] Whether layer editing controls are shown.
+   * @param {boolean} [options.symbologyEditingEnabled] Whether symbology editing controls are shown.
+   * @param {Function|null} [options.onEditLayer] Callback invoked to edit the layer.
+   * @param {boolean} [options.showLegend] Whether the layer's legend is rendered.
+   * @param {boolean} [options.showWorkspaceActions] Whether workspace-only actions are shown.
+   */
   constructor({ api, layer, editingEnabled = false, symbologyEditingEnabled = false, onEditLayer = null, showLegend = true, showWorkspaceActions = true }) {
     this.api = api;
     this.layer = layer;
@@ -19,6 +39,11 @@ export class LayerPanelItem {
     this.element = this.create();
   }
 
+  /**
+   * Build the full row element (state control, title, actions, thematic selector, legend).
+   *
+   * @returns {HTMLElement} The row element.
+   */
   create() {
     const row = document.createElement('div');
     row.className = 'heurist-map-layer-row';
@@ -114,6 +139,11 @@ export class LayerPanelItem {
     return row;
   }
 
+  /**
+   * Build the symbology/thematic editor action buttons for this layer, when applicable.
+   *
+   * @returns {HTMLElement|null} The actions container, or `null` when no editors apply.
+   */
   createSymbologyActions() {
     if (!this.symbologyEditingEnabled || !supportsSymbologyLegend(this.layer) || this.layer.loadState !== 'loaded') {
       return null;
@@ -142,7 +172,11 @@ export class LayerPanelItem {
     return actions;
   }
 
-
+  /**
+   * Build the thematic-map radio selector for this layer, when it has configured themes.
+   *
+   * @returns {HTMLElement|null} The selector element, or `null` when no themes are configured.
+   */
   createThematicSelector() {
     if (this.layer?.loadState !== 'loaded' || !supportsThematicSelection(this.layer)) return null;
     const thematic = Array.isArray(this.layer?.style?.thematic) ? this.layer.style.thematic : [];
@@ -161,6 +195,14 @@ export class LayerPanelItem {
     return list;
   }
 
+  /**
+   * Build one radio option for the thematic-map selector.
+   *
+   * @param {string} labelText Label text (may be a translatable "Theme N" placeholder).
+   * @param {number|null} themeIndex Index of the thematic map, or `null` for "Default".
+   * @param {boolean} checked Whether this option is initially selected.
+   * @returns {HTMLElement} The radio option's label element.
+   */
   createThemeRadio(labelText, themeIndex, checked) {
     const label = document.createElement('label');
     label.className = 'heurist-map-layer-theme-option';
@@ -184,6 +226,11 @@ export class LayerPanelItem {
     return label;
   }
 
+  /**
+   * Build the layer's leading state control (loading spinner, error retry, or visibility checkbox).
+   *
+   * @returns {HTMLElement} The state control element.
+   */
   createStateControl() {
     if (this.layer.loadState === 'loading') {
       const status = document.createElement('span');
@@ -224,11 +271,23 @@ export class LayerPanelItem {
   }
 }
 
+/**
+ * Whether a layer's source type supports a symbology legend.
+ *
+ * @param {object} layer Normalized runtime layer.
+ * @returns {boolean} `true` unless the source is an image/tile/iiif/geotiff raster.
+ */
 function supportsSymbologyLegend(layer) {
   const sourceType = String(layer?.source?.type || '');
   return !['image', 'tile', 'iiif', 'geotiff'].includes(sourceType);
 }
 
+/**
+ * Whether a layer's source type supports thematic-attribute selection.
+ *
+ * @param {object} layer Normalized runtime layer.
+ * @returns {boolean} `true` for Heurist query/record sources.
+ */
 function supportsThematicSelection(layer) {
   const sourceType = String(layer?.source?.type || '');
   // Thematic attributes are retrieved through the Heurist records API.
@@ -236,6 +295,14 @@ function supportsThematicSelection(layer) {
   return sourceType === 'heurist-query' || sourceType === 'record';
 }
 
+/**
+ * Build a small icon-only action button.
+ *
+ * @param {string} icon Font Awesome icon class.
+ * @param {string} title Localizable tooltip text.
+ * @param {Function} handler Click handler.
+ * @returns {HTMLButtonElement} The button element.
+ */
 function button(icon, title, handler) {
   const element = document.createElement('button');
   element.type = 'button';
@@ -246,6 +313,14 @@ function button(icon, title, handler) {
   return element;
 }
 
+/**
+ * Build the trigger button that opens a layer's opacity popover.
+ *
+ * @param {object} api Map's public API.
+ * @param {object} layer Normalized runtime layer.
+ * @param {HTMLElement} row The layer row the popover attaches to.
+ * @returns {HTMLElement} The opacity control container.
+ */
 function createOpacityControl(api, layer, row) {
   const control = document.createElement('span');
   control.className = 'heurist-map-opacity-control';
@@ -263,6 +338,12 @@ function createOpacityControl(api, layer, row) {
   return control;
 }
 
+/**
+ * Open the opacity-slider popover for one layer, closing any other open popover first.
+ *
+ * @param {{api: object, layer: object, row: HTMLElement, trigger: HTMLElement}} context
+ * @returns {void}
+ */
 function openOpacityPopover({ api, layer, row, trigger }) {
   closeOpenOpacityPopover();
 
@@ -321,6 +402,11 @@ function openOpacityPopover({ api, layer, row, trigger }) {
   queueMicrotask(() => document.addEventListener('pointerdown', onOutsidePointerDown, true));
 }
 
+/**
+ * Close the currently open opacity popover, if any.
+ *
+ * @returns {void}
+ */
 function closeOpenOpacityPopover() {
   const popover = document.querySelector('[data-heurist-map-opacity-popover="1"]');
   if (typeof popover?._heuristCleanup === 'function') {
@@ -330,13 +416,18 @@ function closeOpenOpacityPopover() {
   }
 }
 
+/**
+ * Resolve a layer's display label, tooltip, and optional partial-load warning.
+ *
+ * @param {object} layer Normalized runtime layer.
+ * @returns {{label: string, title: string, warning: string|null}} Presentation strings.
+ */
 function getLayerPresentation(layer) {
-
   let label, title;
   let warning = null;
 
   const meta = layer?.resultMeta || {};
-  const features = finiteCount(meta.returnedFeatures) ?? finiteCount(layer?.featureCount) ?? 0; 
+  const features = finiteCount(meta.returnedFeatures) ?? finiteCount(layer?.featureCount) ?? 0;
   if (meta.isPartial === true) {
     const returnedRecords = finiteCount(meta.returnedRecords);
     const totalRecords = finiteCount(meta.totalRecords);
@@ -345,7 +436,7 @@ function getLayerPresentation(layer) {
       : 'only part of the result set was loaded';
     title = `Result: ${formatCount(features)} features — ${detail}`;
     warning = `Partial load: ${detail}.`;
-  }else{
+  } else {
     title = `Result: ${formatCount(features)} features`;
   }
 
@@ -354,7 +445,7 @@ function getLayerPresentation(layer) {
     if (String(label).trim().toLowerCase() === '[vector]') {
       label = `${formatCount(features)} features`;
     }
-  }else{
+  } else {
     label = title;
     warning = null;
   }
@@ -362,11 +453,23 @@ function getLayerPresentation(layer) {
   return { label, title, warning: warning };
 }
 
+/**
+ * Coerce a value to a non-negative integer count, or `null` when it is not one.
+ *
+ * @param {*} value Candidate value.
+ * @returns {number|null} The non-negative integer, or `null`.
+ */
 function finiteCount(value) {
   const number = Number(value);
   return Number.isFinite(number) && number >= 0 ? Math.trunc(number) : null;
 }
 
+/**
+ * Format a count using the runtime's default locale grouping.
+ *
+ * @param {number} value Count to format.
+ * @returns {string} The formatted count.
+ */
 function formatCount(value) {
   return new Intl.NumberFormat().format(value);
 }

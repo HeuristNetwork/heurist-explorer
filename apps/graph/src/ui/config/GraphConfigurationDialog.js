@@ -22,6 +22,20 @@ import { showGraphMessage } from "../graphMessages.js";
 
 /** Edits and serializes heurist-graph settings in a modal dialog. */
 export class GraphConfigurationDialog {
+  /**
+   * @param {object} [options] Dialog configuration.
+   * @param {string} [options.mode='preferences'] Dialog mode: `'preferences'`, `'website'`, or `'publish'`.
+   * @param {object|null} [options.value] Initial settings value; normalized and mode-adjusted.
+   * @param {Element|null} [options.parent] Element to append the dialog to; defaults to `document.body`.
+   * @param {string|null} [options.title] Dialog title; defaults from `defaultTitle(mode)`.
+   * @param {Function|null} [options.onSave] Called with `(value, context)` on save; returning `false` keeps the dialog open.
+   * @param {Function|null} [options.onCancel] Called with `(value, {mode})` when the dialog is cancelled.
+   * @param {object|null} [options.datasetListProvider] Provider used to list available datasets.
+   * @param {object|null} [options.filterListProvider] Provider used to list available filters.
+   * @param {object|null} [options.reportTemplateProvider] Provider used to list popup report templates.
+   * @param {object|null} [options.widgetListProvider] Provider used to list "Filter by" target widgets.
+   * @param {object|null} [options.publishContext] Reserved for publish-mode context.
+   */
   constructor({
     mode = "preferences",
     value = null,
@@ -53,6 +67,12 @@ export class GraphConfigurationDialog {
     this.element = null;
   }
 
+  /**
+   * Replace the dialog's current settings value.
+   *
+   * @param {object} value New settings value; normalized and mode-adjusted.
+   * @returns {GraphConfigurationDialog} This instance, for chaining.
+   */
   setValue(value) {
     this.value = prepareMode(
       normalizeGraphConfigurationSettings(value || {}),
@@ -60,15 +80,33 @@ export class GraphConfigurationDialog {
     );
     return this;
   }
+
+  /**
+   * Read the current settings value: the live form when open, otherwise the stored value.
+   *
+   * @returns {object} Cloned, normalized settings.
+   */
   getValue() {
     if (this.form)
       this.value = normalizeGraphConfigurationSettings(this.readForm());
     return clone(this.value);
   }
+
+  /**
+   * Produce the versioned, JSON-safe settings envelope for persistence.
+   *
+   * @returns {object} Serializable settings envelope.
+   */
   serialize() {
     return serializeGraphConfigurationSettings(this.getValue());
   }
 
+  /**
+   * Build the dialog DOM, populate it, and show it modally.
+   *
+   * @returns {GraphConfigurationDialog} This instance, for chaining.
+   * @throws {Error} When there is no browser `document`.
+   */
   open() {
     if (typeof document === "undefined")
       throw new Error("GraphConfigurationDialog requires a browser document");
@@ -112,6 +150,11 @@ export class GraphConfigurationDialog {
     return this;
   }
 
+  /**
+   * Build and append every section for the current mode.
+   *
+   * @returns {void}
+   */
   buildSections() {
     this.content.append(
       this.section("Interface", (body) => this.buildInterface(body), true),
@@ -150,6 +193,12 @@ export class GraphConfigurationDialog {
     );
   }
 
+  /**
+   * Build the "Interface" section's fields (visibility toggles, native controls, language).
+   *
+   * @param {HTMLElement} body Section body to append fields into.
+   * @returns {void}
+   */
   buildInterface(body) {
     if (this.mode === "website") {
       body.append(
@@ -189,6 +238,12 @@ export class GraphConfigurationDialog {
     }
   }
 
+  /**
+   * Build the "Default settings" section's fields (limits, layout, movement, labels, popup, empty message).
+   *
+   * @param {HTMLElement} body Section body to append fields into.
+   * @returns {void}
+   */
   buildDefaults(body) {
     this.select(body, "config.defaults.maxNodes", "Nodes limit", [[1000, "1000"], [5000, "5000"], [10000, "10000"]]);
     this.select(body, "config.defaults.maxEdges", "Edges limit", [[1000, "1000"], [5000, "5000"], [10000, "10000"]]);
@@ -223,6 +278,12 @@ export class GraphConfigurationDialog {
 
   }
 
+  /**
+   * Build the "Interaction" section's fields (edit/selection/popup toggles).
+   *
+   * @param {HTMLElement} body Section body to append fields into.
+   * @returns {void}
+   */
   buildInteraction(body) {
     body.append(
       this.check("options.interaction.editEnabled", "Enable edit"),
@@ -231,6 +292,12 @@ export class GraphConfigurationDialog {
     );
   }
 
+  /**
+   * Build the "Filtered Result" section's fields (title, initial query, and website-mode "Filter by").
+   *
+   * @param {HTMLElement} body Section body to append fields into.
+   * @returns {void}
+   */
   buildCurrentResults(body) {
     this.text(body, "config.currentResults.title", "Title");
     this.text(body, "config.currentResults.initialQuery", "Initial query");
@@ -261,6 +328,12 @@ export class GraphConfigurationDialog {
     }
   }
 
+  /**
+   * Build the "Datasets and Filters" section's fields (allow-all toggles, transfer lists, default dataset).
+   *
+   * @param {HTMLElement} body Section body to append fields into.
+   * @returns {void}
+   */
   buildDatasetsAndFilters(body) {
     const datasetBox = el("div", "heurist-data-config-list-section");
     const datasetHeading = el("div", "heurist-data-config-list-heading");
@@ -307,6 +380,12 @@ export class GraphConfigurationDialog {
       .control.addEventListener("change", () => this.applyDependencies());
   }
 
+  /**
+   * Build the "Publication" section's fields (preserve-state toggle, popup toggle).
+   *
+   * @param {HTMLElement} body Section body to append fields into.
+   * @returns {void}
+   */
   buildPublication(body) {
     const preserve = plainCheck("Preserve current state", true);
     preserve.row.title = $HR(
@@ -319,6 +398,14 @@ export class GraphConfigurationDialog {
     this.publishControls = { preserveCurrentState: preserve.control };
   }
 
+  /**
+   * Build a collapsible `<details>` section with a heading and body.
+   *
+   * @param {string} title Section heading text.
+   * @param {function(HTMLElement): void} builder Called with the section body to populate it.
+   * @param {boolean} [open=false] Whether the section starts expanded.
+   * @returns {HTMLElement} The generated `<details>` element.
+   */
   section(title, builder, open = false) {
     const details = el("details", "heurist-data-config-section");
     details.open = open;
@@ -329,14 +416,42 @@ export class GraphConfigurationDialog {
     details.append(summary, body);
     return details;
   }
+
+  /**
+   * Build and register a checkbox field row.
+   *
+   * @param {string} path Dot-separated settings path.
+   * @param {string} labelText Field label.
+   * @returns {HTMLElement} The generated row element.
+   */
   check(path, labelText) {
     const item = plainCheck(labelText);
     this.register(path, item.control, item.row);
     return item.row;
   }
+
+  /**
+   * Build and register a text input field row.
+   *
+   * @param {HTMLElement} parent Element to append the row into.
+   * @param {string} path Dot-separated settings path.
+   * @param {string} labelText Field label.
+   * @returns {HTMLElement} The generated row element.
+   */
   text(parent, path, labelText) {
     return this.inputRow(parent, path, labelText, "text");
   }
+
+  /**
+   * Build and register a bounded number input field row.
+   *
+   * @param {HTMLElement} parent Element to append the row into.
+   * @param {string} path Dot-separated settings path.
+   * @param {string} labelText Field label.
+   * @param {number} min Minimum allowed value.
+   * @param {number} max Maximum allowed value.
+   * @returns {HTMLElement} The generated row element.
+   */
   number(parent, path, labelText, min, max) {
     const row = this.inputRow(parent, path, labelText, "number");
     const control = this.fields.get(path).control;
@@ -344,6 +459,16 @@ export class GraphConfigurationDialog {
     control.max = max;
     return row;
   }
+
+  /**
+   * Build and register a textarea field row.
+   *
+   * @param {HTMLElement} parent Element to append the row into.
+   * @param {string} path Dot-separated settings path.
+   * @param {string} labelText Field label.
+   * @param {number} rows Textarea row count.
+   * @returns {HTMLElement} The generated row element.
+   */
   textarea(parent, path, labelText, rows) {
     const row = el("label", "heurist-data-config-row");
     const caption = el("span", "h-i18n");
@@ -355,6 +480,16 @@ export class GraphConfigurationDialog {
     this.register(path, control, row);
     return row;
   }
+
+  /**
+   * Build and register a labeled `<input>` field row.
+   *
+   * @param {HTMLElement} parent Element to append the row into.
+   * @param {string} path Dot-separated settings path.
+   * @param {string} labelText Field label.
+   * @param {string} type Input `type` attribute.
+   * @returns {HTMLElement} The generated row element.
+   */
   inputRow(parent, path, labelText, type) {
     const row = el("label", "heurist-data-config-row");
     const caption = el("span", "h-i18n");
@@ -366,6 +501,16 @@ export class GraphConfigurationDialog {
     this.register(path, control, row);
     return row;
   }
+
+  /**
+   * Build and register a labeled `<select>` field row.
+   *
+   * @param {HTMLElement} parent Element to append the row into.
+   * @param {string} path Dot-separated settings path.
+   * @param {string} labelText Field label.
+   * @param {Array<[*, string]>} options Option `[value, label]` pairs.
+   * @returns {HTMLElement} The generated row element.
+   */
   select(parent, path, labelText, options) {
     const row = el("label", "heurist-data-config-row");
     const caption = el("span", "h-i18n");
@@ -376,14 +521,38 @@ export class GraphConfigurationDialog {
     this.register(path, control, row);
     return row;
   }
+
+  /**
+   * Build a visual break element between grouped fields.
+   *
+   * @returns {HTMLElement}
+   */
   separator() {
     return el("span", "heurist-data-config-break");
   }
+
+  /**
+   * Record a field's control/row (and any extra metadata) under its settings path.
+   *
+   * @param {string} path Dot-separated settings path.
+   * @param {HTMLElement} control Field's input/select/textarea control.
+   * @param {HTMLElement} row Field's row element.
+   * @param {object} [extras] Extra metadata merged into the field record (e.g. transfer-list controls).
+   * @returns {HTMLElement} `control`, unchanged.
+   */
   register(path, control, row, extras = {}) {
     this.fields.set(path, { control, row, ...extras });
     return control;
   }
 
+  /**
+   * Build and register a dual-list "available/allowed" transfer control.
+   *
+   * @param {string} path Dot-separated settings path (bound to the "selected"/allowed list).
+   * @param {string} availableLabel Label for the available-items list.
+   * @param {string} selectedLabel Label for the selected/allowed-items list.
+   * @returns {{row: HTMLElement, available: HTMLSelectElement, selected: HTMLSelectElement}}
+   */
   transfer(path, availableLabel, selectedLabel) {
     const row = el("div", "heurist-data-config-transfer");
     const available = el("select");
@@ -421,6 +590,11 @@ export class GraphConfigurationDialog {
     return { row, available, selected };
   }
 
+  /**
+   * Apply the current settings value onto every registered field's control.
+   *
+   * @returns {void}
+   */
   populate() {
     for (const [path, field] of this.fields) {
       const value = getPath(this.value, path);
@@ -438,6 +612,11 @@ export class GraphConfigurationDialog {
     }
   }
 
+  /**
+   * Read every registered field's control value back into a settings object.
+   *
+   * @returns {object} Settings object built from the current form state.
+   */
   readForm() {
     const result = clone(this.value);
     for (const [path, field] of this.fields) {
@@ -455,6 +634,11 @@ export class GraphConfigurationDialog {
     return result;
   }
 
+  /**
+   * Load dataset/filter/template/widget options from the configured providers, in parallel.
+   *
+   * @returns {Promise<void>}
+   */
   async loadProviderOptions() {
     const results = await Promise.allSettled([
       this.loadRecordOptions(
@@ -473,6 +657,14 @@ export class GraphConfigurationDialog {
     if (failures.length) this.showError(failures.map(result => result.reason?.message || String(result.reason)).join("\n"));
   }
 
+  /**
+   * Load a record list provider's items into a transfer control's available/selected lists (and an optional default select).
+   *
+   * @param {object|null} provider Record list provider; a no-op when absent.
+   * @param {string} transferPath Settings path of the transfer control to populate.
+   * @param {string|null} [defaultPath] Settings path of a "default" select to populate with the same items.
+   * @returns {Promise<void>}
+   */
   async loadRecordOptions(provider, transferPath, defaultPath = null) {
     if (!provider) return;
     const payload = await callList(provider);
@@ -503,6 +695,11 @@ export class GraphConfigurationDialog {
     }
   }
 
+  /**
+   * Load the configured report templates into the popup-template select.
+   *
+   * @returns {Promise<void>}
+   */
   async loadTemplateOptions() {
     if (!this.reportTemplateProvider) return;
     const control = this.fields.get("config.defaults.popupTemplate")?.control;
@@ -515,6 +712,12 @@ export class GraphConfigurationDialog {
     ]);
     control.value = current || "";
   }
+
+  /**
+   * Load "Filter by" target widgets for the current filter mode (website mode only).
+   *
+   * @returns {Promise<void>}
+   */
   async loadWidgetOptions() {
     if (this.mode !== "website" || !this.widgetListProvider) return;
     const mode = this.fields.get(
@@ -538,6 +741,12 @@ export class GraphConfigurationDialog {
     target.value = current || "";
   }
 
+  /**
+   * Re-apply cross-field enable/disable and visibility rules (layout/gravity/movement, allow-all lists,
+   * filter-by widget, publish-mode publish toggle).
+   *
+   * @returns {void}
+   */
   applyDependencies() {
     const layout = this.fields.get("config.defaults.layoutMode")?.control;
     const gravity = this.fields.get("config.defaults.gravity")?.control;
@@ -570,15 +779,33 @@ export class GraphConfigurationDialog {
       }
     }
   }
+
+  /**
+   * Read the publish-mode-only options (preserve current state).
+   *
+   * @returns {{preserveCurrentState: boolean}}
+   */
   getPublishOptions() {
     return {
       preserveCurrentState:
         this.publishControls?.preserveCurrentState.checked !== false,
     };
   }
+
+  /**
+   * Build a comparable snapshot of the current form state, used to detect unsaved changes.
+   *
+   * @returns {string} JSON signature of the form state and publish options.
+   */
   signature() {
     return JSON.stringify([this.readForm(), this.getPublishOptions()]);
   }
+
+  /**
+   * Validate and save the form via `onSave`, closing the dialog on success.
+   *
+   * @returns {Promise<object|false>} The saved value, or `false` when saving was cancelled or failed.
+   */
   async save() {
     try {
       const value = this.getValue();
@@ -596,6 +823,12 @@ export class GraphConfigurationDialog {
       return false;
     }
   }
+
+  /**
+   * Cancel the dialog, confirming discard first when the form has unsaved changes.
+   *
+   * @returns {boolean} True once cancellation completed (immediately, or false while a confirm dialog is pending).
+   */
   cancel() {
     if (this.initialState && this.signature() !== this.initialState) {
       if (this.discardDialog?.open) return false;
@@ -613,6 +846,12 @@ export class GraphConfigurationDialog {
     }
     return this.finishCancel();
   }
+
+  /**
+   * Close the dialog and notify `onCancel` with the (best-effort) current value.
+   *
+   * @returns {boolean} Always `true`.
+   */
   finishCancel() {
     let value;
     try { value = this.getValue(); } catch { value = clone(this.value); }
@@ -620,9 +859,22 @@ export class GraphConfigurationDialog {
     this.onCancel?.(value, { mode: this.mode });
     return true;
   }
+
+  /**
+   * Show an error message dialog, only while the form is mounted.
+   *
+   * @param {string} message Error message text.
+   * @returns {void}
+   */
   showError(message) {
     if (this.form) showGraphMessage(message, { error: true, title: 'Graph configuration error' });
   }
+
+  /**
+   * Close and remove the dialog, restoring focus to the previously focused element.
+   *
+   * @returns {void}
+   */
   close() {
     this.discardDialog?.close();
     this.dialog?.close();
@@ -635,6 +887,7 @@ export class GraphConfigurationDialog {
   }
 }
 
+/** Force mode-specific field overrides (publish is read-only except popups; preferences always shows Options). */
 function prepareMode(value, mode) {
   if (mode === "publish") {
     const copy = clone(value);
@@ -655,9 +908,13 @@ function prepareMode(value, mode) {
   copy.options.ui.showPublish = false;
   return copy;
 }
+
+/** Default dialog title for a mode. */
 function defaultTitle(mode) {
   return mode === "publish" ? "Publication configuration" : "Settings";
 }
+
+/** Create an element, applying the shared `h-input`/`h-select`/`h-btn` classes by tag. */
 function el(tag, className = "") {
   const node = document.createElement(tag);
   if (className) node.className = className;
@@ -666,6 +923,8 @@ function el(tag, className = "") {
   if (tag === "button") node.classList.add("h-btn");
   return node;
 }
+
+/** Build a labeled button with a click handler. */
 function button(label, handler, title = label) {
   const node = el("button");
   if (/[A-Za-z]/.test(label)) node.classList.add("h-i18n");
@@ -675,12 +934,16 @@ function button(label, handler, title = label) {
   node.addEventListener("click", handler);
   return node;
 }
+
+/** Build the form's primary submit button. */
 function submitButton(label) {
   const node = el("button", "h-i18n h-btn-primary");
   node.type = "submit";
   node.textContent = label;
   return node;
 }
+
+/** Build a standalone labeled checkbox not bound through `register`. */
 function plainCheck(labelText, checked = false) {
   const row = el("label", "heurist-data-config-check");
   const control = el("input");
@@ -693,11 +956,15 @@ function plainCheck(labelText, checked = false) {
   row.append(control, caption);
   return { row, control };
 }
+
+/** Create a `<select>` populated with `items`. */
 function select(items) {
   const node = el("select");
   fillSelect(node, items);
   return node;
 }
+
+/** Replace a `<select>`'s options from an array of `[value, label]` pairs or `{value, label, i18n}` objects. */
 function fillSelect(node, items) {
   node.replaceChildren(
     ...items.map((item) => {
@@ -711,21 +978,31 @@ function fillSelect(node, items) {
     }),
   );
 }
+
+/** Move every selected `<option>` from one multi-select to another. */
 function moveSelected(source, target) {
   [...source.selectedOptions].forEach((option) => target.append(option));
 }
+
+/** Deep-clone a JSON-safe value. */
 function clone(value) {
   return JSON.parse(JSON.stringify(value));
 }
+
+/** Read a dot-separated path from a nested object. */
 function getPath(value, path) {
   return path.split(".").reduce((item, key) => item?.[key], value);
 }
+
+/** Write a value at a dot-separated path in a nested object, creating intermediate objects as needed. */
 function setPath(value, path, next) {
   const keys = path.split(".");
   const last = keys.pop();
   const target = keys.reduce((item, key) => (item[key] ||= {}), value);
   target[last] = next;
 }
+
+/** Call a provider's `list`/`search` method, or invoke it directly when it's a plain function. */
 async function callList(provider, options) {
   if (typeof provider === "function") return provider(options);
   if (typeof provider.list === "function") return provider.list(options);
@@ -733,6 +1010,8 @@ async function callList(provider, options) {
     return provider.search(null, options);
   return [];
 }
+
+/** Normalize a list-provider payload into `{value, label}` entries, dropping entries with no id. */
 function normalizeItems(payload) {
   const source = Array.isArray(payload) ? payload : payload?.items || [];
   return source

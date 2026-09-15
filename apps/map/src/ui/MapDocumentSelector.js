@@ -1,16 +1,40 @@
 /**
- * MapDocumentSelector.js - Render mutually exclusive MapDocument choices.
+ * @file MapDocumentSelector.js
+ * @brief Renders mutually exclusive MapDocument choices.
  *
- * @project     Heurist mapping application
+ * @project     Heurist academic knowledge management system
+ * @package     heurist-map
+ *
+ * @link        https://HeuristNetwork.org
+ * @copyright   (C) 2024 onwards Heurist Network
+ * @author      Artem Osmakov   <osmakov@gmail.com>
+ * @author      Ian Johnson <ian.johnson.heurist@gmail.com>
  * @license     https://www.gnu.org/licenses/gpl-3.0.txt GNU License 3.0
+ * @since       8.0
  */
+
 import { $HR } from '#shared/ui';
+
+/** Renders the list of MapDocuments available to the current map, with selection and edit controls. */
 export class MapDocumentSelector {
+  /**
+   * @param {{api: object, container: HTMLElement}} options `api` is the map's public API;
+   *        `container` is the element the document list renders into.
+   */
   constructor({ api, container }) {
     this.api = api;
     this.container = container;
   }
 
+  /**
+   * Render the MapDocument list, with the active document's content inline.
+   *
+   * @param {Array<object>} documents Map documents available to the current map.
+   * @param {*} activeId Id of the currently active document.
+   * @param {Function} [createActiveContent] Returns extra content to render for the active document.
+   * @param {{editingEnabled?: boolean, onEditDocument?: Function|null, onActivateDocument?: Function|null}} [options]
+   * @returns {void}
+   */
   render(documents, activeId, createActiveContent, { editingEnabled = false, onEditDocument = null, onActivateDocument = null } = {}) {
     this.container.replaceChildren();
     for (const item of documents) {
@@ -28,6 +52,15 @@ export class MapDocumentSelector {
   }
 }
 
+/**
+ * Build one MapDocument row (selection control, status, title, and actions).
+ *
+ * @param {object} item MapDocument list entry.
+ * @param {boolean} active Whether this document is currently active.
+ * @param {object} api Map's public API.
+ * @param {{editingEnabled?: boolean, onEditDocument?: Function|null, onActivateDocument?: Function|null}} [options]
+ * @returns {HTMLElement} The row element.
+ */
 function createRow(item, active, api, { editingEnabled = false, onEditDocument = null, onActivateDocument = null } = {}) {
   const row = document.createElement('div');
   row.className = 'heurist-map-document-row';
@@ -75,6 +108,12 @@ function createRow(item, active, api, { editingEnabled = false, onEditDocument =
   return row;
 }
 
+/**
+ * Build a document's loading/error status indicator.
+ *
+ * @param {object} item MapDocument list entry.
+ * @returns {HTMLElement} The status element.
+ */
 function createDocumentStatus(item) {
   const status = document.createElement('span');
   status.className = 'heurist-map-document-status';
@@ -86,6 +125,14 @@ function createDocumentStatus(item) {
   return status;
 }
 
+/**
+ * Build a small icon-only action button.
+ *
+ * @param {string} icon Font Awesome icon class.
+ * @param {string} title Localizable tooltip/aria-label text.
+ * @param {Function} handler Click handler.
+ * @returns {HTMLButtonElement} The button element.
+ */
 function iconButton(icon, title, handler) {
   const button = document.createElement('button');
   button.type = 'button';
@@ -97,6 +144,12 @@ function iconButton(icon, title, handler) {
   return button;
 }
 
+/**
+ * Build the "no documents" empty-state element.
+ *
+ * @param {string} text Localizable empty-state text.
+ * @returns {HTMLElement} The empty-state element.
+ */
 function createEmpty(text) {
   const element = document.createElement('div');
   element.className = 'heurist-map-empty h-i18n';

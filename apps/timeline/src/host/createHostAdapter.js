@@ -1,8 +1,10 @@
 /**
  * @file createHostAdapter.js
  * @brief Chooses the correct host adapter for standalone or embedded Heurist execution.
+ *
  * @project     Heurist academic knowledge management system
  * @package     heurist-timeline
+ *
  * @link        https://HeuristNetwork.org
  * @copyright   (C) 2024 onwards Heurist Network
  * @author      Artem Osmakov   <osmakov@gmail.com>

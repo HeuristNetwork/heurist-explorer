@@ -1,23 +1,38 @@
 /**
- * MapLayer.js - MapLayer domain normalization
+ * @file MapLayer.js
+ * @brief Validates and normalizes public MapLayer responses, source definitions, styles,
+ *        options, and supported source types.
  *
- * @fileOverview Validates and normalizes public MapLayer responses, source definitions, styles, options, and supported source types.
- * @project     Heurist mapping application
+ * @project     Heurist academic knowledge management system
+ * @package     heurist-map
  *
  * @link        https://HeuristNetwork.org
- * @copyright   (C) 2026 Heurist Network
+ * @copyright   (C) 2024 onwards Heurist Network
+ * @author      Artem Osmakov   <osmakov@gmail.com>
+ * @author      Ian Johnson <ian.johnson.heurist@gmail.com>
  * @license     https://www.gnu.org/licenses/gpl-3.0.txt GNU License 3.0
- * @author      Artem Osmakov <osmakov@gmail.com>
+ * @since       8.0
  */
 
 import { normalizeLayerStyle } from '../utils/normalizeLayerStyle.js';
 import { normalizeMapSymbol } from '../utils/normalizeMapSymbol.js';
 import { normalizeBounds } from '../utils/normalizeBounds.js';
 
+/** Format identifier stamped on every normalized MapLayer. */
 export const MAP_LAYER_FORMAT = 'heurist-map-layer';
+
+/** Current MapLayer schema version. */
 export const MAP_LAYER_VERSION = 1;
 
-/** Normalize a MapLayer, applying configured global fallbacks only when absent. */
+/**
+ * Normalize a MapLayer, applying configured global fallbacks only when absent.
+ *
+ * @param {object} [value] Raw MapLayer payload.
+ * @param {{defaults?: object}} [options] `defaults` supplies global fallbacks for
+ *        symbology, marker clustering, and other sparse layer properties.
+ * @returns {object} Canonical MapLayer, with non-enumerable `_defaulted`/`_sourceStyle`
+ *          bookkeeping used by {@link reapplyMapLayerDefaults}.
+ */
 export function normalizeMapLayer(value = {}, { defaults = {} } = {}) {
   const source = value && typeof value === 'object' ? value : {};
   const sourceOptions = source.options && typeof source.options === 'object' ? source.options : {};
@@ -73,7 +88,14 @@ export function normalizeMapLayer(value = {}, { defaults = {} } = {}) {
   return result;
 }
 
-/** Reapply changed global defaults to properties originally inherited by a layer. */
+/**
+ * Reapply changed global defaults to properties originally inherited by a layer.
+ *
+ * @param {object} mapLayer Normalized MapLayer (mutated in place) previously produced
+ *        by {@link normalizeMapLayer}.
+ * @param {object} [defaults] Current global defaults.
+ * @returns {boolean} `true` when any inherited property changed.
+ */
 export function reapplyMapLayerDefaults(mapLayer, defaults = {}) {
   const inherited = mapLayer?._defaulted;
   if (!inherited) return false;
@@ -131,6 +153,12 @@ export function reapplyMapLayerDefaults(mapLayer, defaults = {}) {
   return changed;
 }
 
+/**
+ * Normalize a raw MapLayer source definition.
+ *
+ * @param {object} value Raw source definition.
+ * @returns {object} Normalized source, preserving unrecognized fields.
+ */
 function normalizeSource(value) {
   const source = value && typeof value === 'object' ? value : {};
   return {
@@ -143,7 +171,12 @@ function normalizeSource(value) {
   };
 }
 
-
+/**
+ * Normalize a raw list of geo field names, dropping non-string/blank entries.
+ *
+ * @param {Array} value Raw geo field list.
+ * @returns {Array<string>} Trimmed, non-empty field names.
+ */
 function normalizeGeoFields(value) {
   if (!Array.isArray(value)) return [];
   return value
@@ -152,6 +185,13 @@ function normalizeGeoFields(value) {
     .filter(Boolean);
 }
 
+/**
+ * Normalize a raw layer style, applying global symbol/select-symbol defaults.
+ *
+ * @param {object} value Raw style definition.
+ * @param {object} defaults Global defaults providing `symbology`/`selectSymbology` fallbacks.
+ * @returns {object} Normalized style.
+ */
 function normalizeStyle(value, defaults) {
   return normalizeLayerStyle(value, {
     symbol: defaults?.symbology ?? null,
@@ -159,6 +199,12 @@ function normalizeStyle(value, defaults) {
   });
 }
 
+/**
+ * Normalize a raw timeline configuration.
+ *
+ * @param {object} value Raw timeline definition.
+ * @returns {{enabled: boolean, fields: Array}} Normalized timeline configuration.
+ */
 function normalizeTimeline(value) {
   const timeline = value && typeof value === 'object' ? value : {};
   return {
@@ -167,6 +213,13 @@ function normalizeTimeline(value) {
   };
 }
 
+/**
+ * Normalize raw layer options, applying global defaults only where absent.
+ *
+ * @param {object} value Raw options object.
+ * @param {object} [defaults] Global defaults for marker clustering, popup template, etc.
+ * @returns {object} Normalized options, preserving unrecognized fields.
+ */
 function normalizeOptions(value, defaults = {}) {
   const options = value && typeof value === 'object' ? { ...value } : {};
   return {
@@ -188,6 +241,12 @@ function normalizeOptions(value, defaults = {}) {
   };
 }
 
+/**
+ * Whether a raw style explicitly defines a (non-thematic, non-select) symbol.
+ *
+ * @param {object} value Raw style definition.
+ * @returns {boolean} `true` when an explicit symbol is present.
+ */
 function hasExplicitSymbol(value) {
   const style = value && typeof value === 'object' ? value : {};
   const candidate = style.symbol !== undefined ? style.symbol : style;
@@ -196,39 +255,85 @@ function hasExplicitSymbol(value) {
   return Object.keys(candidate).some((key) => !ignored.has(key));
 }
 
+/**
+ * Whether a raw style explicitly defines a select symbol.
+ *
+ * @param {object} value Raw style definition.
+ * @returns {boolean} `true` when an explicit select symbol is present.
+ */
 function hasExplicitSelectSymbol(value) {
   const style = value && typeof value === 'object' ? value : {};
   const candidate = style.selectSymbol ?? style.selectSymbology;
   return Boolean(candidate && typeof candidate === 'object' && !Array.isArray(candidate) && Object.keys(candidate).length);
 }
 
+/**
+ * Deep-clone a plain object via JSON round-trip.
+ *
+ * @param {*} value Candidate value.
+ * @returns {object|null} The cloned object, or `null` when `value` is not a plain object.
+ */
 function cloneObject(value) {
   return value && typeof value === 'object' && !Array.isArray(value)
     ? JSON.parse(JSON.stringify(value))
     : null;
 }
 
+/**
+ * Whether two values are deeply equal by JSON serialization.
+ *
+ * @param {*} left First value.
+ * @param {*} right Second value.
+ * @returns {boolean} `true` when both serialize identically.
+ */
 function sameJson(left, right) {
   return JSON.stringify(left ?? null) === JSON.stringify(right ?? null);
 }
 
+/**
+ * Coerce a value to a number clamped to `[min, max]`, or `fallback` when not finite.
+ *
+ * @param {*} value Candidate value.
+ * @param {number} fallback Value used when `value` does not parse as finite.
+ * @param {number} min Minimum allowed value.
+ * @param {number} max Maximum allowed value.
+ * @returns {number} The clamped number, or `fallback`.
+ */
 function boundedNumber(value, fallback, min, max) {
   const number = Number(value);
   if (!Number.isFinite(number)) return fallback;
   return Math.min(max, Math.max(min, number));
 }
 
+/**
+ * Coerce a value to a string, or `null` when it is empty/absent.
+ *
+ * @param {*} value Candidate value.
+ * @returns {string|null} The string, or `null`.
+ */
 function nullableString(value) {
   if (value === null || value === undefined || value === '') return null;
   return String(value);
 }
 
+/**
+ * Coerce a value to a finite number, or `null` when it is empty/non-numeric.
+ *
+ * @param {*} value Candidate value.
+ * @returns {number|null} The finite number, or `null`.
+ */
 function finiteNumberOrNull(value) {
   if (value === null || value === undefined || value === '') return null;
   const number = Number(value);
   return Number.isFinite(number) ? number : null;
 }
 
+/**
+ * Coerce a value to a positive integer, or `null` when it is not one.
+ *
+ * @param {*} value Candidate value.
+ * @returns {number|null} The positive integer, or `null`.
+ */
 function positiveIntegerOrNull(value) {
   const number = Number(value);
   return Number.isInteger(number) && number > 0 ? number : null;

@@ -1,4 +1,24 @@
-/** Layout presets and bounded arrange-once movement for vis-network. */
+/**
+ * @file NetworkLayout.js
+ * @brief Layout presets and bounded arrange-once movement for vis-network.
+ *
+ * @project     Heurist academic knowledge management system
+ * @package     heurist-graph
+ *
+ * @link        https://HeuristNetwork.org
+ * @copyright   (C) 2024 onwards Heurist Network
+ * @author      Artem Osmakov   <osmakov@gmail.com>
+ * @author      Ian Johnson <ian.johnson.heurist@gmail.com>
+ * @license     https://www.gnu.org/licenses/gpl-3.0.txt GNU License 3.0
+ * @since       8.0
+ */
+
+/**
+ * Build vis-network `layout`/`physics` options for a graph configuration.
+ *
+ * @param {object} [options] Graph engine options (`layoutMode`, `gravity`, `physics`, `layout`).
+ * @returns {{layout: object, physics: object|false}} vis-network layout and physics options.
+ */
 export function layoutOptions(options = {}) {
   const fixedLayout = ['grid', 'record-types'].includes(options.layoutMode);
   const hierarchical = options.layoutMode?.startsWith('hierarchical-');
@@ -25,7 +45,13 @@ export function layoutOptions(options = {}) {
   };
 }
 
-/** Stable, centered grids; record-type groups occupy separated rectangular blocks. */
+/**
+ * Stable, centered grids; record-type groups occupy separated rectangular blocks.
+ *
+ * @param {Array<{id: number|string, label?: string, recordTypeId?: number}>} nodes Nodes to position.
+ * @param {string} mode Layout mode; positions are only computed for `'grid'` and `'record-types'`.
+ * @returns {Array<{id: number|string, x: number, y: number}>} Computed positions, or `[]` for other modes or no nodes.
+ */
 export function fixedPositions(nodes, mode) {
   if (!nodes.length || !['grid', 'record-types'].includes(mode)) return [];
   const ordered = [...nodes].sort((a, b) => Number(a.id) - Number(b.id));
@@ -54,7 +80,11 @@ export function fixedPositions(nodes, mode) {
   return positions.map(node => ({ ...node, x: node.x - centerX, y: node.y - centerY }));
 }
 
+/** Freezes physics once vis-network reports stabilization, and can trigger a single bounded re-arrangement. */
 export class NetworkMovement {
+  /**
+   * @param {object} network vis-network `Network` instance to control.
+   */
   constructor(network) {
     this.network = network;
     this.pending = false;
@@ -67,6 +97,12 @@ export class NetworkMovement {
     network.on('stabilizationIterationsDone', this.freeze);
   }
 
+  /**
+   * Apply layout physics for the given options, running a bounded stabilization or continuous simulation.
+   *
+   * @param {object} options Graph engine options; see `layoutOptions`.
+   * @returns {void}
+   */
   arrange(options) {
     this.pending = false;
     const physics = layoutOptions(options).physics;
@@ -80,6 +116,11 @@ export class NetworkMovement {
     }
   }
 
+  /**
+   * Detach stabilization listeners.
+   *
+   * @returns {void}
+   */
   destroy() {
     this.pending = false;
     this.network.off('stabilized', this.freeze);

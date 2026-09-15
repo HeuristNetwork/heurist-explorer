@@ -1,13 +1,16 @@
 /**
- * MapLayerProvider.js - MapLayer data provider
+ * @file MapLayerProvider.js
+ * @brief Loads and validates public MapLayer API responses and converts them to the application domain format.
  *
- * @fileOverview Loads and validates public MapLayer API responses and converts them to the application domain format.
- * @project     Heurist mapping application
+ * @project     Heurist academic knowledge management system
+ * @package     heurist-map
  *
  * @link        https://HeuristNetwork.org
- * @copyright   (C) 2026 Heurist Network
+ * @copyright   (C) 2024 onwards Heurist Network
+ * @author      Artem Osmakov   <osmakov@gmail.com>
+ * @author      Ian Johnson <ian.johnson.heurist@gmail.com>
  * @license     https://www.gnu.org/licenses/gpl-3.0.txt GNU License 3.0
- * @author      Artem Osmakov <osmakov@gmail.com>
+ * @since       8.0
  */
 
 import {
@@ -17,20 +20,21 @@ import {
 } from '../core/MapLayer.js';
 import { HeuristApiError } from '#shared/api';
 
-/**
- * Loads and validates MapLayer records through the public Heurist API.
- */
+/** Loads and validates MapLayer records through the public Heurist API. */
 export class MapLayerProvider {
-  /**
-   * Create and initialize the class instance.
-   */
+  /** @param {{apiClient: object}} options Heurist API client. */
   constructor({ apiClient }) {
     this.apiClient = apiClient;
   }
 
   /**
-   * Load and validate a public API entity by record ID.
-   * @returns {Promise<*>} Resolves when the operation completes.
+   * Load and validate a MapLayer record by id.
+   *
+   * @param {number|string} recordId MapLayer record ID.
+   * @param {{signal?: AbortSignal, defaults?: object}} [options] Request options; `defaults` seeds the layer's inherited style.
+   * @returns {Promise<object>} Normalized MapLayer.
+   * @throws {TypeError} When `recordId` is not a positive integer.
+   * @throws {HeuristApiError} When the response is invalid or has an unsupported format/version.
    */
   async getById(recordId, { signal, defaults } = {}) {
     const id = requireRecordId(recordId);
@@ -41,6 +45,7 @@ export class MapLayerProvider {
   }
 }
 
+/** Normalize a value to a positive integer record id, or throw a `TypeError`. */
 function requireRecordId(value) {
   const id = Number(value);
   if (!Number.isInteger(id) || id < 1) {
@@ -49,6 +54,7 @@ function requireRecordId(value) {
   return id;
 }
 
+/** Validate a response's shape and declared format/version, throwing a `HeuristApiError` otherwise. */
 function validateResponse(value) {
   if (!value || typeof value !== 'object') {
     throw new HeuristApiError('The MapLayer API returned an invalid response');

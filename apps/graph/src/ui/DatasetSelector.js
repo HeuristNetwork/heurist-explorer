@@ -15,6 +15,13 @@
 import { applyI18n } from "#shared/ui";
 /** Renders Filtered Result and persisted Dataset choices. */
 export class DatasetSelector {
+  /**
+   * @param {object} options Selector dependencies.
+   * @param {object} options.api Graph public API instance.
+   * @param {HTMLElement} options.container Element to render the dataset rows into.
+   * @param {Function|null} [options.onError] Called with `(error, operation)` when activation fails.
+   * @param {string} [options.classPrefix='heurist-data'] Class-name prefix applied to generated row elements.
+   */
   constructor({ api, container, onError = null, classPrefix = "heurist-data" }) {
     this.api = api;
     this.container = container;
@@ -22,6 +29,15 @@ export class DatasetSelector {
     this.classPrefix = classPrefix;
   }
 
+  /**
+   * Render the Filtered Result row (optional) and one row per dataset.
+   *
+   * @param {Array<{id: number, title: string}>} datasets Datasets to list.
+   * @param {number|string|null} activeId Currently active dataset ID, if any.
+   * @param {boolean} currentResultsActive Whether Filtered Result is the active source.
+   * @param {{showCurrentResults?: boolean, currentResultsTitle?: string}} [options] Display options.
+   * @returns {void}
+   */
   render(
     datasets,
     activeId,
@@ -60,6 +76,7 @@ export class DatasetSelector {
   }
 }
 
+/** Build a radio-button row for one dataset (or the Filtered Result entry). */
 function row(item, active, activate, classPrefix = "heurist-data") {
   const label = document.createElement("label");
   const wrapper = document.createElement("div");

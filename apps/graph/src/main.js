@@ -29,8 +29,12 @@ const bootstrap = initLocale(
   config.localeBaseUrl || moduleBaseUrl(),
 ).then(() => initHeuristGraph(config));
 
+/**
+ * Resolve assets beside the deployed bundle, not beside dataViewer.html.
+ *
+ * @returns {string}
+ */
 function moduleBaseUrl() {
-  // Resolve assets beside the deployed bundle, not beside dataViewer.html.
   return new URL("./", import.meta.url).href;
 }
 

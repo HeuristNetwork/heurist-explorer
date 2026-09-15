@@ -1,15 +1,34 @@
 /**
- * RecordTypeProvider.js - Resolve Heurist record types by concept code.
+ * @file RecordTypeProvider.js
+ * @brief Resolve Heurist record types by concept code.
  *
- * @project Heurist mapping application
- * @license https://www.gnu.org/licenses/gpl-3.0.txt GNU License 3.0
+ * @project     Heurist academic knowledge management system
+ * @package     heurist-map
+ *
+ * @link        https://HeuristNetwork.org
+ * @copyright   (C) 2024 onwards Heurist Network
+ * @author      Artem Osmakov   <osmakov@gmail.com>
+ * @author      Ian Johnson <ian.johnson.heurist@gmail.com>
+ * @license     https://www.gnu.org/licenses/gpl-3.0.txt GNU License 3.0
+ * @since       8.0
  */
+
+/** Resolves Heurist record-type IDs from portable concept codes, caching results. */
 export class RecordTypeProvider {
+  /** @param {{apiClient: object}} options Heurist API client. */
   constructor({ apiClient }) {
     this.apiClient = apiClient;
     this.cache = new Map();
   }
 
+  /**
+   * Resolve (and cache) a record type's local id from its portable concept code.
+   *
+   * @param {string} conceptCode Record type concept code (`"<originatingDbId>-<idInOriginatingDb>"`).
+   * @param {{signal?: AbortSignal}} [options] Request options.
+   * @returns {Promise<number>} Local record type id.
+   * @throws {Error} When the lookup doesn't resolve to a valid id.
+   */
   async getIdByConceptCode(conceptCode, { signal } = {}) {
     if (this.cache.has(conceptCode)) return this.cache.get(conceptCode);
     const payload = await this.apiClient.get(`/rty/${encodeURIComponent(conceptCode)}`, {
@@ -24,6 +43,7 @@ export class RecordTypeProvider {
   }
 }
 
+/** Extract a record type id from the API's various possible response shapes. */
 function extractRecordTypeId(payload) {
   if(Number.isInteger(payload)){
     return Number(payload);

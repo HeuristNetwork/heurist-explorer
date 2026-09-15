@@ -67,12 +67,19 @@ export const HEURIST_GRAPH_CONFIG_DEFAULTS = Object.freeze({
   }),
 });
 
+/**
+ * Build a fresh, mutable copy of the canonical default settings.
+ *
+ * @returns {{options: object, config: object}}
+ */
 export function createGraphConfigurationDefaults() {
   return {
     options: clone(HEURIST_GRAPH_OPTIONS_DEFAULTS),
     config: clone(HEURIST_GRAPH_CONFIG_DEFAULTS),
   };
 }
+
+/** Deep-clone a JSON-safe value. */
 function clone(value) {
   return JSON.parse(JSON.stringify(value));
 }

@@ -1,8 +1,16 @@
 /**
- * mapConfigurationDefaults.js - Canonical persisted map configuration defaults
+ * @file mapConfigurationDefaults.js
+ * @brief Canonical persisted map configuration defaults.
  *
- * @project     Heurist mapping application
+ * @project     Heurist academic knowledge management system
+ * @package     heurist-map
+ *
+ * @link        https://HeuristNetwork.org
+ * @copyright   (C) 2024 onwards Heurist Network
+ * @author      Artem Osmakov   <osmakov@gmail.com>
+ * @author      Ian Johnson <ian.johnson.heurist@gmail.com>
  * @license     https://www.gnu.org/licenses/gpl-3.0.txt GNU License 3.0
+ * @since       8.0
  */
 
 /** Public, user-configurable viewer defaults. */
@@ -72,7 +80,11 @@ export const HEURIST_MAP_CONFIG_DEFAULTS = Object.freeze({
   })
 });
 
-/** Return independent mutable defaults for editing. */
+/**
+ * Return independent mutable defaults for editing.
+ *
+ * @returns {{options: object, config: object}} Deep-cloned default options and config.
+ */
 export function createMapConfigurationDefaults() {
   return {
     options: clone(HEURIST_MAP_OPTIONS_DEFAULTS),
@@ -80,6 +92,12 @@ export function createMapConfigurationDefaults() {
   };
 }
 
+/**
+ * Deep-clone a value via JSON round-trip.
+ *
+ * @param {*} value Candidate value.
+ * @returns {*} The cloned value, or `value` itself when nullish.
+ */
 function clone(value) {
   return value == null ? value : JSON.parse(JSON.stringify(value));
 }

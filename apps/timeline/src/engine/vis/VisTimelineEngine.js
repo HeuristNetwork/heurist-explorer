@@ -1,8 +1,10 @@
 /**
  * @file VisTimelineEngine.js
  * @brief Wraps the vis-timeline library and maps the timeline API to the Heurist module lifecycle.
+ *
  * @project     Heurist academic knowledge management system
  * @package     heurist-timeline
+ *
  * @link        https://HeuristNetwork.org
  * @copyright   (C) 2024 onwards Heurist Network
  * @author      Artem Osmakov   <osmakov@gmail.com>

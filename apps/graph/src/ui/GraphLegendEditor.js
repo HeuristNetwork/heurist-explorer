@@ -1,10 +1,34 @@
+/**
+ * @file GraphLegendEditor.js
+ * @brief Session configuration; persisted Dataset editing is delegated to the host.
+ *
+ * @project     Heurist academic knowledge management system
+ * @package     heurist-graph
+ *
+ * @link        https://HeuristNetwork.org
+ * @copyright   (C) 2024 onwards Heurist Network
+ * @author      Artem Osmakov   <osmakov@gmail.com>
+ * @author      Ian Johnson <ian.johnson.heurist@gmail.com>
+ * @license     https://www.gnu.org/licenses/gpl-3.0.txt GNU License 3.0
+ * @since       8.0
+ */
 import { showGraphMessage } from "./graphMessages.js";
 import { $HR } from '#shared/ui';
 
-/** Session configuration; persisted Dataset editing is delegated to the host. */
+/** Modal dialog for editing the current session's initial-link definitions. */
 export class GraphLegendEditor {
+  /**
+   * @param {object} options Editor dependencies.
+   * @param {object} options.api Graph public API instance.
+   * @param {Function} [options.onError] Called with the error when applying changes fails.
+   */
   constructor({ api, onError }) { Object.assign(this, { api, onError }); }
 
+  /**
+   * Build and show the modal dialog, pre-filled with the active session's link definitions.
+   *
+   * @returns {void}
+   */
   open() {
     const app = this.api.application;
     const generation = app.generation;
@@ -61,5 +85,10 @@ export class GraphLegendEditor {
     document.body.append(this.dialog); this.dialog.showModal();
   }
 
+  /**
+   * Close and remove the dialog.
+   *
+   * @returns {void}
+   */
   destroy() { this.dialog?.close(); this.dialog?.remove(); this.dialog = null; }
 }

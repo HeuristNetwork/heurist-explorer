@@ -15,6 +15,13 @@
 
 import { VisNetworkAdapter } from "./visnetwork/VisNetworkAdapter.js";
 
+/**
+ * Create the configured rendering engine adapter.
+ *
+ * @param {string} [name='vis-network'] Engine name.
+ * @returns {GraphEngineAdapter} The created engine adapter.
+ * @throws {Error} When `name` is not a known engine.
+ */
 export function createGraphEngine(name = "vis-network") {
   if (name === "vis-network") return new VisNetworkAdapter();
   throw new Error(`Unknown Heurist Graph engine: ${name}`);

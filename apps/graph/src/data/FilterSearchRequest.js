@@ -12,6 +12,13 @@
  * @license     https://www.gnu.org/licenses/gpl-3.0.txt GNU License 3.0
  * @since       8.0
  */
+/**
+ * Convert a saved filter's persisted definition into an executable search request.
+ *
+ * @param {{query?: *}} filter Saved filter record.
+ * @param {{searchRealm?: *, source?: *}} [runtime] Runtime fields merged into the request.
+ * @returns {object} Executable search request.
+ */
 export function createFilterSearchRequest(filter, runtime = {}) {
   const definition = parseDefinition(filter?.query);
   const request = {
@@ -27,6 +34,7 @@ export function createFilterSearchRequest(filter, runtime = {}) {
   return request;
 }
 
+/** Parse a persisted filter definition (object, JSON string, or bare query string). */
 function parseDefinition(value) {
   if (value && typeof value === "object" && !Array.isArray(value)) return value;
   if (typeof value !== "string") return { q: "" };

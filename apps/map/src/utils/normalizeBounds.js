@@ -1,13 +1,17 @@
 /**
- * normalizeBounds.js - Geographic bounds normalization
+ * @file normalizeBounds.js
+ * @brief Normalizes engine-neutral geographic bounds from either the public Heurist API
+ *        min/max format or the west/south/east/north client format.
  *
- * @fileOverview Normalizes engine-neutral geographic bounds from either the public Heurist API min/max format or the west/south/east/north client format.
- * @project     Heurist mapping application
+ * @project     Heurist academic knowledge management system
+ * @package     heurist-map
  *
  * @link        https://HeuristNetwork.org
- * @copyright   (C) 2026 Heurist Network
+ * @copyright   (C) 2024 onwards Heurist Network
+ * @author      Artem Osmakov   <osmakov@gmail.com>
+ * @author      Ian Johnson <ian.johnson.heurist@gmail.com>
  * @license     https://www.gnu.org/licenses/gpl-3.0.txt GNU License 3.0
- * @author      Artem Osmakov <osmakov@gmail.com>
+ * @since       8.0
  */
 
 /**
