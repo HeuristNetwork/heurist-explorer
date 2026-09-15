@@ -47,6 +47,7 @@ export class LayerPanelItem {
   create() {
     const row = document.createElement('div');
     row.className = 'heurist-map-layer-row';
+    if (this.layer.activeDataSource) row.classList.add('heurist-map-layer-active-datasource');
     row.dataset.layerId = this.layer.id;
 
     const main = document.createElement('div');
@@ -255,6 +256,7 @@ export class LayerPanelItem {
     checkbox.type = 'checkbox';
     checkbox.classList.add('h-checkbox');
     checkbox.checked = this.layer.visible;
+    checkbox.disabled = this.layer.options?.emptyCurrentResult === true;
     checkbox.title = this.layer.loadState === 'deferred'
       ? $HR('Layer has not been loaded')
       : $HR('Layer loaded');
@@ -440,14 +442,9 @@ function getLayerPresentation(layer) {
     title = `Result: ${formatCount(features)} features`;
   }
 
-  if (String(layer?.id) !== 'current-results') {
-    label = layer?.title || String(layer?.id ?? '');
-    if (String(label).trim().toLowerCase() === '[vector]') {
-      label = `${formatCount(features)} features`;
-    }
-  } else {
-    label = title;
-    warning = null;
+  label = layer?.title || String(layer?.id ?? '');
+  if (String(label).trim().toLowerCase() === '[vector]') {
+    label = `${formatCount(features)} features`;
   }
 
   return { label, title, warning: warning };

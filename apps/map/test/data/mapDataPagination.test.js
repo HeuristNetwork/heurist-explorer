@@ -105,7 +105,7 @@ test('GeoJSON runtime layer preserves map API result metadata', () => {
 });
 
 test('current-results layer displays feature count and explicit partial warning', () => {
-  assert.match(layerItemSource, /String\(layer\?\.id\) !== 'current-results'/);
+  assert.doesNotMatch(layerItemSource, /label = title/);
   assert.match(layerItemSource, /Result: \$\{formatCount\(features\)\} features/);
   assert.match(layerItemSource, /Partial load:/);
   assert.match(layerItemSource, /title\.title = presentation\.title/);

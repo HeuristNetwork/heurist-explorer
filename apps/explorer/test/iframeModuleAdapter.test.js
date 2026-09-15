@@ -2,6 +2,21 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { IframeModuleAdapter } from '../src/modules/IframeModuleAdapter.js';
 
+test('map Show Data excludes its origin from synchronization; Workspace updates carry no current result', async () => {
+  const calls = [];
+  const adapter = new IframeModuleAdapter({
+    id: 'map-1', type: 'map', container: null, url: '',
+    hostActions: { showDatasource: (source, options) => calls.push({ source, options }) }
+  });
+  const source = { reference: { key: 'source:1' }, request: { q: 't:1' } };
+  await adapter._createChildHostBridge().showDatasource(source);
+  assert.deepEqual(calls, [{ source, options: { origin: 'map-1' } }]);
+  assert.deepEqual(adapter.dataSource, source);
+  adapter.api = { setDynamicDataSources: (value) => calls.push(value) };
+  await adapter.setWorkspaceDataSources([source]);
+  assert.deepEqual(calls.at(-1), { workspaceDataSources: [source] });
+});
+
 test('iframe bridge forwards Explorer datasource workspace actions', async () => {
   const calls = [];
   const hostActions = {

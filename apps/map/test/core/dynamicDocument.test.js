@@ -126,7 +126,7 @@ test('global interaction selection policy restricts otherwise selectable layers'
   assert.equal(rendered.at(-1).popup.enabled, false);
 });
 
-test('Explorer dynamic document keeps current first, deduplicates Workspace and elects the largest viewport source', async () => {
+test('Explorer dynamic document keeps an empty current row and stable Workspace rows', async () => {
   const { application, rendered } = createApplication();
   const current = dataSource('filter:7', 'Current places', 't:12', 20, { dynamicRequests: true });
   const sameWorkspace = dataSource('filter:7', 'Saved places', 't:12', 20, {
@@ -134,18 +134,82 @@ test('Explorer dynamic document keeps current first, deduplicates Workspace and 
   });
   const large = dataSource('source:9', 'Large source', 't:10', 200, { dynamicRequests: true });
   await application.setDynamicDataSources({ currentDataSource: current, workspaceDataSources: [sameWorkspace, large] });
-  assert.equal(application.getDynamicDocumentEntry().layerDefinitions.length, 0);
+  assert.equal(application.getDynamicDocumentEntry().layerDefinitions.length, 3);
   assert.equal(rendered.length, 0);
   await application.activateMapDocument('dynamic');
   const stored = application.getDynamicDocumentEntry().layerDefinitions;
-  assert.equal(stored.length, 2);
+  assert.equal(stored.length, 3);
   assert.equal(stored[0].reference.id, 'current-results');
-  assert.equal(stored[0].mapLayer.title, 'Current places');
-  assert.equal(stored[0].mapLayer.options.workspaceEntry, true);
-  assert.equal(stored[0].runtimeOpacity, 0.4);
-  assert.equal(stored[0].mapLayer.style.symbol.color, '#123456');
+  assert.equal(stored[0].mapLayer.title, 'Current result');
+  assert.equal(stored[0].mapLayer.options.emptyCurrentResult, true);
+  assert.equal(stored[1].runtimeOpacity, 0.4);
+  assert.equal(stored[1].mapLayer.style.symbol.color, '#123456');
   assert.equal(stored[0].mapLayer.options.dynamicRequests, false);
-  assert.equal(stored[1].mapLayer.options.dynamicRequests, true);
+  assert.equal(stored[2].mapLayer.options.dynamicRequests, true);
+  assert.equal(application.getLayers().find((item) => item.activeDataSource)?.title, 'Saved places');
+});
+
+test('incoming results load only in a visible current row; Workspace selection preserves it', async () => {
+  const { application, rendered } = createApplication({ initiallyActive: true });
+  const first = dataSource('query:1', 'First', 't:1', 10);
+  const second = dataSource('query:2', 'Second', 't:2', 10);
+  const workspace = dataSource('source:3', 'Workspace', 't:3', 10);
+  await application.setDynamicDataSources({ currentDataSource: first, workspaceDataSources: [workspace] });
+  const ids = application.getLayers().map((layer) => layer.id);
+  const count = rendered.length;
+  await application.setDynamicDataSources({ currentDataSource: workspace, workspaceDataSources: [workspace] });
+  assert.equal(rendered.length, count);
+  assert.equal(application.currentDataSource.title, 'First');
+  assert.deepEqual(application.getLayers().map((layer) => layer.id), ids);
+  assert.equal(application.getLayers().find((layer) => layer.activeDataSource).title, 'Workspace');
+  await application.setLayerVisibility('current-results', false);
+  await application.setDynamicDataSources({ currentDataSource: second });
+  assert.equal(rendered.length, count);
+  assert.equal(application.getLayer('current-results').title, 'Second');
+  assert.equal(application.getLayer('current-results').visible, false);
+  await application.setLayerVisibility('current-results', true);
+  assert.equal(rendered.at(-1).source.query, 't:2');
+  await application.setDynamicDataSources({ currentDataSource: first });
+  assert.equal(rendered.at(-1).source.query, 't:1');
+});
+
+test('ordinary document matches select its layer and unrelated results wait for dynamic activation', async () => {
+  const { application, rendered } = createApplication();
+  application.mapDocuments.set(42, { id: 42, layerDefinitions: [], active: true });
+  application.activeMapDocumentId = 42;
+  const own = dataSource('source:1', 'Ordinary layer', 't:1', 10);
+  await application.addLayer({ id: 'ordinary', title: own.title, source: { type: 'heurist-query', query: 't:1' }, options: { dataSource: own } });
+  const count = rendered.length;
+  await application.setDynamicDataSources({ currentDataSource: own });
+  assert.equal(application.getLayers()[0].activeDataSource, true);
+  assert.equal(application.currentDataSource, null);
+  const incoming = dataSource('query:2', 'Pending', 't:2', 10);
+  await application.setDynamicDataSources({ currentDataSource: incoming });
+  assert.equal(rendered.length, count);
+  assert.equal(application.activeMapDocumentId, 42);
+  assert.equal(application.getLayers()[0].activeDataSource, false);
+  await application.activateMapDocument('dynamic');
+  assert.equal(application.getLayers()[0].title, 'Pending');
+  assert.equal(application.getLayers()[0].activeDataSource, true);
+});
+
+test('Show Data selects an existing row without replacing current-result or loading layers', async () => {
+  const { application, rendered } = createApplication({ initiallyActive: true });
+  const current = dataSource('query:1', 'Current', 't:1', 10);
+  const workspace = dataSource('source:2', 'Workspace', 't:2', 10);
+  await application.setDynamicDataSources({ currentDataSource: current, workspaceDataSources: [workspace] });
+  const calls = [];
+  application.host.showDatasource = (source) => calls.push(source);
+  const workspaceId = application.getLayers()[1].id;
+  const count = rendered.length;
+  await application.showLayerDataSource(workspaceId);
+  assert.equal(application.currentDataSource.title, 'Current');
+  assert.equal(application.getLayers()[1].activeDataSource, true);
+  await application.setDynamicDataSources({ workspaceDataSources: [workspace] });
+  await application.showLayerDataSource('current-results');
+  assert.equal(application.getLayers()[0].activeDataSource, true);
+  assert.equal(rendered.length, count);
+  assert.deepEqual(calls.map((source) => source.title), ['Workspace', 'Current']);
 });
 
 function dataSource(key, title, q, count, map = {}) {
@@ -155,6 +219,28 @@ function dataSource(key, title, q, count, map = {}) {
     request: { q }, presentation: { map }, meta: { count }
   };
 }
+
+test('successive datasource updates finish with the latest result even when the first search is slow', async () => {
+  const { application } = createApplication({ initiallyActive: true });
+  const load = application.layerLoaders.load;
+  let release;
+  let started;
+  const loading = new Promise((resolve) => { started = resolve; });
+  application.layerLoaders.load = async (layer, context) => {
+    if (layer.source.query === 't:1') {
+      started();
+      await new Promise((resolve) => { release = resolve; });
+    }
+    return load(layer, context);
+  };
+  const first = application.setDynamicDataSources({ currentDataSource: dataSource('query:1', 'Slow', 't:1', 10) });
+  await loading;
+  const second = application.setDynamicDataSources({ currentDataSource: dataSource('query:2', 'Latest', 't:2', 10) });
+  release();
+  await Promise.all([first, second]);
+  assert.equal(application.getLayer('current-results').title, 'Latest');
+  assert.equal(application.getLayers()[0].activeDataSource, true);
+});
 
 test('query layer added while dynamic document is inactive is retained but not rendered', async () => {
   const { application, rendered } = createApplication();

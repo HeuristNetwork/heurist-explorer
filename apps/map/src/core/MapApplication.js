@@ -72,6 +72,9 @@ export class MapApplication {
     this.dynamicRequestKeys = new Map();
     this.dynamicDocumentId = String(config.dynamicDocument?.id || 'dynamic');
     this.currentDataSource = null;
+    this.activeDataSourceKey = null;
+    this.activeDataSourceLayerId = null;
+    this.dataSourceUpdateQueue = Promise.resolve();
     this.workspaceDataSources = [];
     this.hasExplorerDataSourceSnapshot = false;
     this.initializeDynamicDocument();
@@ -346,9 +349,7 @@ export class MapApplication {
     if (!item) throw new Error('Dynamic MapDocument is disabled');
     if (!force && this.activeMapDocumentId === this.dynamicDocumentId) return this.getMapDocument();
 
-    // Workspace changes made while another MapDocument is active remain only
-    // in the cached DataSource snapshot. Materialise them immediately before
-    // activation so inactive documents are not mutated in the background.
+    // Rebuild definitions from the latest snapshot before rendering the document.
     if (this.host.getHostContext?.()?.name === 'heurist-explorer'
       && this.hasExplorerDataSourceSnapshot) {
       this.replaceExplorerDynamicLayerDefinitions();
@@ -1560,21 +1561,71 @@ export class MapApplication {
    * Cache and reconcile the Explorer current-result and Workspace layers.
    *
    * @param {Object} [options={}] Data-source options.
-   * @param {?Object} [options.currentDataSource=null] Explorer current-result data source.
-   * @param {Array<Object>} [options.workspaceDataSources=[]] Explorer Workspace data sources.
+   * @param {?Object} [options.currentDataSource] Selected Explorer datasource; omission preserves selection.
+   * @param {Array<Object>} [options.workspaceDataSources] Workspace snapshot; omission preserves the list.
    * @returns {Promise<boolean|Object>} Resolves with `false` outside the Explorer host, otherwise
    *          the updated public dynamic MapDocument description.
    */
-  async setDynamicDataSources({ currentDataSource = null, workspaceDataSources = [] } = {}) {
+  setDynamicDataSources(value = {}) {
+    // Serialize reconciliation so an older search cannot replace a newer result.
+    const snapshot = clonePlain(value);
+    const update = this.dataSourceUpdateQueue.then(() => this.applyDynamicDataSources(snapshot));
+    this.dataSourceUpdateQueue = update.catch(() => {});
+    return update;
+  }
+
+  async applyDynamicDataSources(value) {
     if (this.host.getHostContext?.()?.name !== 'heurist-explorer') return false;
-    this.currentDataSource = normalizeRuntimeDataSource(currentDataSource);
-    this.workspaceDataSources = uniqueDataSources(workspaceDataSources);
+    if (Object.hasOwn(value, 'workspaceDataSources')) {
+      this.workspaceDataSources = uniqueDataSources(value.workspaceDataSources);
+    }
+    if (Object.hasOwn(value, 'currentDataSource')) {
+      const source = normalizeRuntimeDataSource(value.currentDataSource);
+      const key = source?.reference?.key || null;
+      const matching = key && this.getLayers().find((layer) =>
+        layer.options?.dataSource?.reference?.key === key
+        && (String(this.activeMapDocumentId) !== this.dynamicDocumentId || layer.id !== 'current-results'));
+      const workspace = key && this.workspaceDataSources.some((item) => item.reference.key === key);
+      this.activeDataSourceKey = key;
+      this.activeDataSourceLayerId = matching?.id || null;
+      if (!matching && !workspace) this.currentDataSource = source;
+    }
     this.hasExplorerDataSourceSnapshot = true;
     if (String(this.activeMapDocumentId) !== this.dynamicDocumentId) {
+      this.replaceExplorerDynamicLayerDefinitions();
+      this.controlPanel?.refresh?.();
       return this.getDynamicDocument();
     }
     await this.reconcileDynamicDataSourceLayers();
+    this.controlPanel?.refresh?.();
     return this.getDynamicDocument();
+  }
+
+  /** Build desired layers while retaining the current-result row's live controls. */
+  explorerDynamicLayers(document) {
+    const desired = createExplorerDynamicLayers(this.currentDataSource, this.workspaceDataSources, this.getLayerDefaults(document));
+    const previous = findStoredLayer(document, 'current-results');
+    if (this.currentDataSource && previous?.mapLayer.options?.dataSource) {
+      const current = desired[0];
+      current.mapLayer.visible = previous.mapLayer.visible !== false && previous.reference.visible !== false;
+      current.reference.visible = current.mapLayer.visible;
+      current.mapLayer.style = clonePlain(previous.mapLayer.style);
+      current.runtimeOpacity = previous.runtimeOpacity ?? 1;
+    }
+    for (const item of desired) {
+      item.workspaceFingerprint = JSON.stringify({ layer: item.mapLayer, opacity: item.runtimeOpacity });
+    }
+    return desired;
+  }
+
+  /** Selection is independent of layer visibility and feature selection. */
+  isActiveDataSourceLayer(layer) {
+    if (!this.activeDataSourceKey || layer.options?.dataSource?.reference?.key !== this.activeDataSourceKey) return false;
+    const exact = this.layers.get(this.activeDataSourceLayerId);
+    if (exact?.options?.dataSource?.reference?.key === this.activeDataSourceKey) return layer.id === exact.id;
+    const workspace = [...this.layers.values()].find((item) => item.id !== 'current-results'
+      && item.options?.dataSource?.reference?.key === this.activeDataSourceKey);
+    return !workspace || layer.id === workspace.id;
   }
 
   /**
@@ -1588,12 +1639,10 @@ export class MapApplication {
     if (!document) return false;
     document.layerDefinitions = [
       ...(document.layerDefinitions || []).filter((item) => !isExplorerDynamicLayer(item)),
-      ...createExplorerDynamicLayers(
-        this.currentDataSource,
-        this.workspaceDataSources,
-        this.getLayerDefaults(document)
-      )
+      ...this.explorerDynamicLayers(document)
     ];
+    document.layerDefinitions.sort((a, b) => compareRuntimeLayers(
+      { id: a.reference.id, order: a.reference.order }, { id: b.reference.id, order: b.reference.order }));
     return true;
   }
 
@@ -1608,11 +1657,7 @@ export class MapApplication {
   async reconcileDynamicDataSourceLayers() {
     const document = this.getDynamicDocumentEntry();
     if (!document) return false;
-    const desired = createExplorerDynamicLayers(
-      this.currentDataSource,
-      this.workspaceDataSources,
-      this.getLayerDefaults(document)
-    );
+    const desired = this.explorerDynamicLayers(document);
     const desiredById = new Map(desired.map((item) => [String(item.reference.id), item]));
     const managed = (document.layerDefinitions || []).filter(isExplorerDynamicLayer);
 
@@ -1631,11 +1676,14 @@ export class MapApplication {
       const existing = findStoredLayer(document, id);
       if (existing && existing.workspaceFingerprint === next.workspaceFingerprint) {
         existing.reference.order = next.reference.order;
+        if (this.layers.has(id)) this.layers.get(id).order = next.reference.order;
         continue;
       }
       await this.addLayer(dynamicLayerDefinition(next), { documentId: this.dynamicDocumentId });
       const added = findStoredLayer(document, id);
       if (added) {
+        added.reference.order = next.reference.order;
+        if (this.layers.has(id)) this.layers.get(id).order = next.reference.order;
         added.workspaceFingerprint = next.workspaceFingerprint;
         added.runtimeOpacity = next.runtimeOpacity;
         if (next.runtimeOpacity != null && this.layers.has(id)) {
@@ -1643,7 +1691,7 @@ export class MapApplication {
         }
       }
     }
-    document.layerDefinitions.sort((a, b) => Number(a.reference.order) - Number(b.reference.order));
+    document.layerDefinitions.sort((a, b) => compareRuntimeLayers(a.reference, b.reference));
     this.dispatch('heurist-map-documents-changed', { documents: this.getMapDocuments() });
     return true;
   }
@@ -1694,6 +1742,9 @@ export class MapApplication {
   async showLayerDataSource(layerId) {
     const source = this.getLayer(layerId)?.options?.dataSource;
     if (!source || typeof this.host.showDatasource !== 'function') return false;
+    this.activeDataSourceKey = source.reference.key;
+    this.activeDataSourceLayerId = layerId;
+    this.controlPanel?.refresh?.();
     return this.host.showDatasource(source);
   }
 
@@ -2055,7 +2106,7 @@ export class MapApplication {
   getLayers() {
     return [...this.layers.values()]
       .sort(compareRuntimeLayers)
-      .map(clonePlain);
+      .map((layer) => ({ ...clonePlain(layer), activeDataSource: this.isActiveDataSourceLayer(layer) }));
   }
 
   /**
@@ -3110,17 +3161,11 @@ function uniqueDataSources(values) {
  * @returns {Array<Object>} Stored `{ mapLayer, reference, runtimeAdded, runtimeOpacity, workspaceFingerprint }` entries.
  */
 function createExplorerDynamicLayers(current, workspace, defaults) {
-  const currentKey = current?.reference?.key || null;
-  const workspaceCurrent = currentKey
-    ? workspace.find((source) => source.reference?.key === currentKey)
-    : null;
-  const currentSource = current
-    ? mergeDataSourceMapProfile(current, workspaceCurrent?.presentation?.map)
-    : null;
-  const sources = [];
-  if (currentSource) sources.push({ source: currentSource, id: 'current-results', current: true, workspaceEntry: Boolean(workspaceCurrent) });
+  const sources = [{
+    source: current || { title: 'Current result', reference: {}, request: { q: null }, presentation: { map: { visible: false } } },
+    id: 'current-results', current: true, workspaceEntry: false
+  }];
   for (const source of workspace) {
-    if (source.reference?.key === currentKey) continue;
     sources.push({
       source,
       id: `workspace-${stableHash(source.reference.key)}`,
@@ -3157,7 +3202,8 @@ function createExplorerDynamicLayers(current, workspace, defaults) {
         currentResult: item.current,
         workspaceEntry: item.workspaceEntry,
         dataSourceKey: item.source.reference.key,
-        dataSource: clonePlain(item.source),
+        dataSource: item.source.request.q == null ? null : clonePlain(item.source),
+        emptyCurrentResult: item.current && item.source.request.q == null,
         dynamicRequests: item.source.reference.key === viewportWinnerKey,
         minZoom: finiteNumberOrNull(map.minZoom),
         maxZoom: finiteNumberOrNull(map.maxZoom)
@@ -3244,21 +3290,6 @@ function normalizeGeoPaths(values) {
   return (Array.isArray(values) ? values : [])
     .map((value) => typeof value === 'object' ? value.field ?? value.code : value)
     .map((value) => String(value || '').trim()).filter(Boolean);
-}
-
-/**
- * Overlay a Workspace entry's `presentation.map` profile onto a cloned data source.
- *
- * @param {Object} source Data source to clone.
- * @param {?Object} mapOverride Workspace `presentation.map` override, or `null`/`undefined`.
- * @returns {Object} Cloned data source with the map profile merged in.
- */
-function mergeDataSourceMapProfile(source, mapOverride) {
-  if (!mapOverride) return clonePlain(source);
-  const result = clonePlain(source);
-  result.presentation ||= {};
-  result.presentation.map = { ...(result.presentation.map || {}), ...clonePlain(mapOverride) };
-  return result;
 }
 
 /**
@@ -3564,6 +3595,8 @@ function compareLayerReferences(a, b) {
  * @returns {number} Negative, zero, or positive per the standard comparator contract.
  */
 function compareRuntimeLayers(a, b) {
+  if (a.id === 'current-results' && b.id !== 'current-results') return -1;
+  if (b.id === 'current-results' && a.id !== 'current-results') return 1;
   return Number(a.order || 0) - Number(b.order || 0)
     || String(a.id).localeCompare(String(b.id));
 }

@@ -121,7 +121,10 @@ export class IframeModuleAdapter extends ExplorerModule {
       isDataSourceInWorkspace: (source) => outer.isDataSourceInWorkspace?.(source),
       updateDataSourceInWorkspace: (source) => outer.updateDataSourceInWorkspace?.(source),
       getWorkspaceDataSources: () => outer.getWorkspaceDataSources?.() || [],
-      showDatasource: (source) => outer.showDatasource?.(source),
+      showDatasource: (source) => {
+        if (this.type === 'map') this.dataSource = clone(source);
+        return outer.showDatasource?.(source, this.type === 'map' ? { origin: this.id } : {});
+      },
       saveDatasourceAsFilter: (source) => outer.saveDatasourceAsFilter?.(source),
       saveDatasourceAsSource: (source, options) => outer.saveDatasourceAsSource?.(source, options)
     };
@@ -278,7 +281,6 @@ export class IframeModuleAdapter extends ExplorerModule {
     const api = await this._readyApi();
     if (typeof api.setDynamicDataSources !== 'function') return false;
     return api.setDynamicDataSources({
-      currentDataSource: this.dataSource,
       workspaceDataSources: clone(workspaceDataSources)
     });
   }

@@ -461,9 +461,9 @@ export class ExplorerApplication {
    * @param {object} source Datasource-like value; see `_resolveRequestedDataSource`.
    * @returns {Promise<object|null>} Reusable data module, or `null` when unresolved.
    */
-  async showDatasource(source) {
+  async showDatasource(source, options = {}) {
     const dataSource = await this._resolveRequestedDataSource(source);
-    return dataSource ? this.activateDataSource(dataSource) : null;
+    return dataSource ? this.activateDataSource(dataSource, options) : null;
   }
 
   /**
@@ -814,7 +814,7 @@ export class ExplorerApplication {
       isDataSourceInWorkspace: (source) => this.isDataSourceInWorkspace(source),
       updateDataSourceInWorkspace: (source) => this.updateDataSourceInWorkspace(source),
       getWorkspaceDataSources: () => this.getWorkspaceDataSources(),
-      showDatasource: (source) => this.showDatasource(source),
+      showDatasource: (source, options) => this.showDatasource(source, options),
       saveDatasourceAsFilter: (source) => this.saveDatasourceAsFilter(source),
       saveDatasourceAsSource: (source, options) => this.saveDatasourceAsSource(source, options)
     };
