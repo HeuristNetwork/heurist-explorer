@@ -1,8 +1,10 @@
 /**
  * @file HeuristDataPublicApi.js
  * @brief Stable engine-neutral public API for host integrations.
+ *
  * @project     Heurist academic knowledge management system
  * @package     heurist-data
+ *
  * @link        https://HeuristNetwork.org
  * @copyright   (C) 2024 onwards Heurist Network
  * @author      Artem Osmakov   <osmakov@gmail.com>
@@ -15,8 +17,8 @@ import { serializeDataConfigurationSettings } from "../ui/config/dataConfigurati
 import { PublishedDialog } from "#shared/ui";
 
 /** Stable engine-neutral public API for host integrations. */
-/** Stable engine-neutral public API for host integrations. */
 export class HeuristDataPublicApi {
+  /** @param {object} application Data application controller this API wraps. */
   constructor(application) {
     this.application = application;
     this.readyPromise = null;
@@ -24,67 +26,112 @@ export class HeuristDataPublicApi {
     this.configurationDialog = null;
     this.publishedDialog = null;
   }
+
+  /**
+   * Register the promise that resolves once the application is ready.
+   *
+   * @param {Promise<object>} value Ready promise.
+   * @returns {void}
+   */
   setReadyPromise(value) {
     this.readyPromise = value;
   }
+
   /** Resolve when the application is ready. */
   ready() {
     return this.readyPromise || Promise.resolve(this);
   }
+
   /** Select and load a persisted Dataset. */
   setDataset(id, options) {
     return this.application.setDataset(id, options);
   }
+
   /** Select and load Filtered Result. */
   setQuery(query, options) {
     return this.application.setQuery(query, options);
   }
+
   /** Apply a complete Explorer DataSource, preserving its title and identity. */
   setDataSource(dataSource, options) {
     return this.application.setDataSource(dataSource, options);
   }
+
   /** Replace the selected record IDs. */
   setSelection(ids, options) {
     return this.application.setSelection(ids, options);
   }
+
   /** Clear the selected record IDs. */
   clearSelection() {
     return this.application.clearSelection();
   }
+
   /** Activate the remembered Filtered Result source. */
   activateCurrentResults() {
     return this.application.activateCurrentResults();
   }
+
   /** Activate a saved filter against Filtered Result. */
   activateFilter(filter) {
     return this.application.activateFilter(filter);
   }
+
+  /**
+   * Dispatch a public event announcing that a saved filter is loading.
+   *
+   * @param {number|string} filterId Saved filter record ID.
+   * @returns {void}
+   */
   notifyFilterLoading(filterId) {
     this.application.dispatch("heurist-data-filter-loading", {
       filterId: Number(filterId),
     });
   }
+
+  /**
+   * Dispatch a public event announcing that a saved filter has loaded.
+   *
+   * @param {object} filter Loaded filter definition.
+   * @returns {void}
+   */
   notifyFilterLoaded(filter) {
     this.application.dispatch("heurist-data-filter-loaded", { filter });
   }
+
+  /**
+   * Create a new persisted Dataset record and activate it.
+   *
+   * @returns {Promise<object|null>} The host's record-creation result, or `null` when unavailable.
+   */
   requestCreateDataset() {
     return this.application.requestCreateDataset();
   }
+
+  /**
+   * Ask the host to edit the field selection for the active dataset (or Filtered Result).
+   *
+   * @returns {Promise<*>} The host's `editFieldset` result, or `null` when unavailable.
+   */
   requestPickFields() {
     return this.application.requestPickFields();
   }
+
   /** Return host and engine capabilities. */
   getCapabilities() {
     return this.application.getCapabilities();
   }
+
   /** Return the current application state. */
   getState() {
     return this.application.getState();
   }
+
   /** Resize the active rendering engine. */
   resize() {
     return this.application.resize();
   }
+
   /** Reload the active Dataset or query source. */
   refresh() {
     const state = this.application.getState();
@@ -95,10 +142,26 @@ export class HeuristDataPublicApi {
     }
     return Promise.resolve(state);
   }
+
+  /**
+   * Register the factory used to create a standalone configuration dialog
+   * when the host has no dialog of its own.
+   *
+   * @param {Function|null} factory Called with dialog options; returns a dialog with an `open()`/`close()` API.
+   * @returns {void}
+   */
   setConfigurationDialogFactory(factory) {
     this.configurationDialogFactory =
       typeof factory === "function" ? factory : null;
   }
+
+  /**
+   * Open the standalone configuration dialog via the registered factory.
+   *
+   * @param {object} [options] Dialog options.
+   * @returns {object} The opened dialog.
+   * @throws {Error} When no configuration dialog factory has been registered.
+   */
   openConfigurationDialog(options = {}) {
     if (!this.configurationDialogFactory)
       throw new Error("Data configuration dialog is not available");
@@ -106,26 +169,54 @@ export class HeuristDataPublicApi {
     this.configurationDialog = this.configurationDialogFactory(options);
     return this.configurationDialog;
   }
+
+  /**
+   * Alias for {@link HeuristDataPublicApi#openConfigurationDialog}.
+   *
+   * @param {object} [options] Dialog options.
+   * @returns {object} The opened dialog.
+   */
   openConfiguration(options = {}) {
     return this.openConfigurationDialog(options);
   }
+
+  /**
+   * Load this module's persisted settings via the host.
+   *
+   * @returns {Promise<object|null>|null} Host's loaded preferences, or `null` when unsupported.
+   */
   loadPreferences() {
     return this.application.host.loadPreferences?.() ?? null;
   }
+
+  /**
+   * Persist this module's settings via the host.
+   *
+   * @param {object} value Settings to persist; serialized before sending to the host.
+   * @returns {*} Result of the host's save action, or `undefined` when unsupported.
+   */
   savePreferences(value) {
     return this.application.host.savePreferences?.(
       serializeDataConfigurationSettings(value),
     );
   }
+
   /** Apply normalized runtime configuration. */
   applyConfiguration(value) {
     return this.application.applyConfiguration(value);
   }
+
+  /**
+   * Open the preferences editor: the host's own dialog when available, otherwise the standalone one.
+   *
+   * Opens from the live application configuration rather than reloading host preferences, since
+   * runtime-only changes (e.g. switching List/Card/Table) are applied immediately but not
+   * necessarily persisted until the dialog is saved; reloading here would resurrect stale values.
+   *
+   * @param {object} [options] Dialog options; `onSave` is wrapped to persist and re-apply settings.
+   * @returns {Promise<object>} The opened dialog.
+   */
   async openPreferencesDialog(options = {}) {
-    // Preferences must open from the live application configuration. Runtime
-    // changes such as switching List/Card/Table are applied immediately but
-    // are not necessarily persisted to the host until the dialog is saved.
-    // Reloading host preferences here would therefore resurrect stale values.
     const dialogOptions = {
       runtimeMode: this.application.config.runtimeMode,
       ...options,
@@ -142,6 +233,14 @@ export class HeuristDataPublicApi {
     }
     return this.openConfigurationDialog(dialogOptions);
   }
+
+  /**
+   * Publish a reproducible snapshot of the current (or given) settings and state via the host.
+   *
+   * @param {object} value Settings to publish; serialized into the publication envelope.
+   * @param {{preserveCurrentState?: boolean}} [publishOptions] Set `preserveCurrentState: false` to publish with no state.
+   * @returns {Promise<object>} The host's publication result.
+   */
   publish(value, publishOptions = {}) {
     const settings = serializeDataConfigurationSettings(value);
     const state =
@@ -154,6 +253,14 @@ export class HeuristDataPublicApi {
       state,
     });
   }
+
+  /**
+   * Open the publish editor: the host's own dialog when available, otherwise the standalone one
+   * seeded with publish-mode settings. On save, publishes and shows the resulting link dialog.
+   *
+   * @param {object} [options] Dialog options.
+   * @returns {Promise<object>} The opened dialog.
+   */
   openPublishDialog(options = {}) {
     if (this.application.host.supportsHostedPublishDialog?.()) {
       return this.application.host.openPublishDialog(options);
@@ -185,23 +292,60 @@ export class HeuristDataPublicApi {
       },
     });
   }
+
+  /**
+   * Return the embedding host's identity.
+   *
+   * @returns {object} Host context, or `{}` when not yet known.
+   */
   getHostContext() {
     return this.application.hostContext || {};
   }
+
+  /**
+   * Perform a datasource-related action requested by a host UI element (see `DataApplication#requestDataSourceAction`).
+   *
+   * @param {'workspace'|'save-filter'|'save-source'} action Action to perform.
+   * @returns {Promise<boolean|*>} Result of the underlying application action.
+   */
   requestDataSourceAction(action) {
     return this.application.requestDataSourceAction(action);
   }
+
+  /**
+   * Dispatch a public event requesting that the current source be saved as a filter.
+   *
+   * @returns {{type: string, datasetId: number|null, query: *}} The current source descriptor.
+   */
   requestSaveFilter() {
     const source = currentSource(this.application);
     this.application.dispatch("heurist-data-save-filter-requested", { source });
     return source;
   }
+
+  /**
+   * Add a DOM event listener to the underlying application.
+   *
+   * @returns {void}
+   */
   addEventListener(...args) {
     this.application.addEventListener(...args);
   }
+
+  /**
+   * Remove a DOM event listener from the underlying application.
+   *
+   * @returns {void}
+   */
   removeEventListener(...args) {
     this.application.removeEventListener(...args);
   }
+
+  /**
+   * Close any open dialogs and tear down the application.
+   *
+   * @returns {Promise<void>}
+   */
   destroy() {
     this.configurationDialog?.close?.();
     this.publishedDialog?.close?.();
@@ -209,6 +353,7 @@ export class HeuristDataPublicApi {
   }
 }
 
+/** Build the current-source descriptor (`{type, datasetId, query}`) from application state. */
 function currentSource(application) {
   const state = application.getState();
   return {
@@ -218,6 +363,7 @@ function currentSource(application) {
   };
 }
 
+/** Clone settings for publication and default the UI language away from "auto". */
 function publicationSettings(settings, runtimeLanguage) {
   const value = JSON.parse(JSON.stringify(settings || {}));
   value.options ||= {};
@@ -228,6 +374,7 @@ function publicationSettings(settings, runtimeLanguage) {
   return value;
 }
 
+/** Normalize a publication result's URL, migrating a legacy `publication_id` param to `pub_id`. */
 function normalizePublicationResult(result) {
   if (!result?.url) return result;
   try {

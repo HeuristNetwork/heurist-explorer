@@ -1,8 +1,10 @@
 /**
  * @file QueryLoader.js
  * @brief Loads transient Filtered Result datasets.
+ *
  * @project     Heurist academic knowledge management system
- * @package     heurist-data
+ * @package     heurist-graph
+ *
  * @link        https://HeuristNetwork.org
  * @copyright   (C) 2024 onwards Heurist Network
  * @author      Artem Osmakov   <osmakov@gmail.com>

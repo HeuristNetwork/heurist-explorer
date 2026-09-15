@@ -1,32 +1,41 @@
 /**
- * InlineHelp.js - Full-viewport inline user manual viewer
+ * @file InlineHelp.js
+ * @brief Full-viewport inline user manual viewer.
  *
  * Loads `{moduleName}UserManual{Lang}.htm` from the module's own public/
  * directory into an iframe. Each consuming module supplies its own manual
  * files; this component only knows the naming convention and overlay chrome.
  *
  * @project     Heurist academic knowledge management system
- * @package     client-core.ui
+ * @package     heurist-client-core
+ *
  * @link        https://HeuristNetwork.org
  * @copyright   (C) 2024 onwards Heurist Network
+ * @author      Artem Osmakov   <osmakov@gmail.com>
+ * @author      Ian Johnson <ian.johnson.heurist@gmail.com>
  * @license     https://www.gnu.org/licenses/gpl-3.0.txt GNU License 3.0
- * @author      Artem Osmakov <osmakov@gmail.com>
+ * @since       8.0
  */
+
 import { HMsg } from './HMsg.js';
 import { $HR, getActiveLanguage, getAssetBaseUrl } from './i18n/HResource.js';
 
 let helpDialogSeq = 0;
 
+/** Full-viewport dialog that displays a module's own user manual in an iframe. */
 export class InlineHelp {
   /**
-   * @param {{parent?:Element, moduleName:string, fileBase?:string, baseUrl?:string}} options
-   *   `fileBase` overrides the `{moduleName}UserManual` file-name prefix for
+   * @param {object} options Inline help configuration.
+   * @param {Element} [options.parent] Element to append the dialog to; defaults to `document.body`.
+   * @param {string} options.moduleName Module name used to derive the default manual file prefix.
+   * @param {string} [options.fileBase] Overrides the `{moduleName}UserManual` file-name prefix for
    *   manuals that don't follow that convention (e.g. topic-specific help
-   *   pages shared across modules). `baseUrl` overrides where the manual is
-   *   fetched from; omit it to use this document's own asset base (the normal
-   *   case). A host opening another module's manual on its behalf - e.g.
-   *   heurist-explorer hosting heurist-map's help - must pass that module's
-   *   own asset base explicitly, since it lives in a different bundle.
+   *   pages shared across modules).
+   * @param {string} [options.baseUrl] Overrides where the manual is fetched from; omit it to use this
+   *   document's own asset base (the normal case). A host opening another
+   *   module's manual on its behalf - e.g. heurist-explorer hosting
+   *   heurist-map's help - must pass that module's own asset base
+   *   explicitly, since it lives in a different bundle.
    */
   constructor({ parent = null, moduleName, fileBase = null, baseUrl = null } = {}) {
     if (!moduleName) throw new Error('InlineHelp requires a moduleName');
@@ -38,6 +47,11 @@ export class InlineHelp {
     this.dlg = null;
   }
 
+  /**
+   * Open the full-viewport manual dialog, loading the manual iframe for the active language.
+   *
+   * @returns {void}
+   */
   open() {
     const dlg = HMsg.getMsgDlg(this.dialogId);
     (this.parent || document.body).append(dlg);
@@ -61,10 +75,20 @@ export class InlineHelp {
     dlg.showModal();
   }
 
+  /**
+   * Close the manual dialog, if open.
+   *
+   * @returns {void}
+   */
   close() {
     this.dlg?.close();
   }
 
+  /**
+   * Build the manual URL for the active language.
+   *
+   * @returns {string} Absolute or relative URL of the manual HTML file.
+   */
   manualUrl() {
     const language = getActiveLanguage();
     const suffix = language.charAt(0).toUpperCase() + language.slice(1);

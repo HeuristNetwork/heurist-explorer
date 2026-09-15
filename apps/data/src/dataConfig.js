@@ -1,8 +1,10 @@
 /**
  * @file dataConfig.js
  * @brief Runtime configuration normalization for heurist-data.
+ *
  * @project     Heurist academic knowledge management system
  * @package     heurist-data
+ *
  * @link        https://HeuristNetwork.org
  * @copyright   (C) 2024 onwards Heurist Network
  * @author      Artem Osmakov   <osmakov@gmail.com>
@@ -17,6 +19,11 @@ import {
 import { resolveModuleBootstrap } from "#shared/config";
 import { normalizeDataConfigurationSettings } from "./ui/config/dataConfigurationSchema.js";
 
+/**
+ * Build the normalized Data configuration from the host bridge or standalone bootstrap.
+ *
+ * @returns {object} Normalized Data configuration; see `createHeuristDataConfig`.
+ */
 export function getHeuristDataConfig() {
   const bridge = getFrameHostBridge("heuristDataHost");
   const resolvedConfig = resolveModuleBootstrap({
@@ -142,6 +149,7 @@ export function createHeuristDataConfig(
   };
 }
 
+/** Deep-clone a JSON-safe object value, returning `null` for non-objects. */
 function cloneValue(value) {
   if (!value || typeof value !== "object") return null;
   return typeof structuredClone === "function"
@@ -149,15 +157,20 @@ function cloneValue(value) {
     : JSON.parse(JSON.stringify(value));
 }
 
+/** Normalize a value to a positive integer id, or `null` when invalid. */
 function positiveId(value) {
   const id = Number(value);
   return Number.isInteger(id) && id > 0 ? id : null;
 }
+
+/** Normalize a value into an array of positive integer IDs. */
 function normalizeIds(value) {
   return (Array.isArray(value) ? value : [])
     .map(Number)
     .filter((id) => Number.isInteger(id) && id > 0);
 }
+
+/** Normalize a language value to a supported three-letter code, defaulting to English. */
 function normalizeLanguage(value) {
   const language = String(value || "eng")
     .trim()
@@ -165,6 +178,8 @@ function normalizeLanguage(value) {
     .slice(0, 3);
   return /^[a-z]{3}$/.test(language) && language !== "aut" ? language : "eng";
 }
+
+/** Normalize a pagination value to `{offset, limit}`, or `null` when both are zero. */
 function normalizePagination(value) {
   const offset = Math.max(0, Number(value?.offset) || 0);
   const limit = Math.max(0, Number(value?.limit) || 0);

@@ -1,8 +1,10 @@
 /**
  * @file RecordDataProvider.js
  * @brief Provides selected-field record data.
+ *
  * @project     Heurist academic knowledge management system
- * @package     heurist-data
+ * @package     heurist-graph
+ *
  * @link        https://HeuristNetwork.org
  * @copyright   (C) 2024 onwards Heurist Network
  * @author      Artem Osmakov   <osmakov@gmail.com>

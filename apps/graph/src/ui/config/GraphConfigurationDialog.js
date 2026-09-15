@@ -1,8 +1,10 @@
 /**
  * @file GraphConfigurationDialog.js
  * @brief Reusable persistence-neutral editor for heurist-graph settings.
+ *
  * @project     Heurist academic knowledge management system
  * @package     heurist-graph
+ *
  * @link        https://HeuristNetwork.org
  * @copyright   (C) 2024 onwards Heurist Network
  * @author      Artem Osmakov   <osmakov@gmail.com>

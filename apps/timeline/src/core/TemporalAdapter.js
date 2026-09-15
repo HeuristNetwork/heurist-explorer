@@ -1,5 +1,27 @@
+/**
+ * @file TemporalAdapter.js
+ * @brief Converts the normal /time records envelope into engine-neutral timeline items.
+ *
+ * @project     Heurist academic knowledge management system
+ * @package     heurist-timeline
+ *
+ * @link        https://HeuristNetwork.org
+ * @copyright   (C) 2024 onwards Heurist Network
+ * @author      Artem Osmakov   <osmakov@gmail.com>
+ * @author      Ian Johnson <ian.johnson.heurist@gmail.com>
+ * @license     https://www.gnu.org/licenses/gpl-3.0.txt GNU License 3.0
+ * @since       8.0
+ */
+
 /** Converts the normal /time records envelope into engine-neutral timeline items. */
 export class TemporalAdapter {
+  /**
+   * Convert every `when` entry of every record in a /time response into timeline items.
+   *
+   * @param {object} context Timeline context (band) the items belong to.
+   * @param {{records?: Array<object>}} response Raw /time response for this context.
+   * @returns {Array<object>} Engine-neutral timeline items, one per valid `when` entry.
+   */
   static convertContext(context, response) {
     const items = [];
     for (const record of response?.records || []) {
@@ -12,6 +34,15 @@ export class TemporalAdapter {
     return items.filter(Boolean);
   }
 
+  /**
+   * Convert one record's `when` tuple into a single engine-neutral timeline item.
+   *
+   * @param {object} context Timeline context (band) the item belongs to.
+   * @param {object} record Source record the `when` tuple belongs to.
+   * @param {Array} when Raw temporal tuple: `[start, latestStart, earliestEnd, end, label, profileStart, profileEnd, determination, dtyID]`.
+   * @param {number} index Index of this `when` entry within the record, used to build a unique item id.
+   * @returns {object|null} Engine-neutral timeline item, or `null` when the tuple has no usable start date.
+   */
   static convertWhen(context, record, when, index) {
     const [start, latestStart, earliestEnd, end, label, profileStart, profileEnd, determination, dtyID] = when;
     const temporal = { start, latestStart, earliestEnd, end, label, profileStart, profileEnd, determination, dtyID };
@@ -44,6 +75,7 @@ export class TemporalAdapter {
   }
 }
 
+/** Derive display layout (kind, start/end, fuzzy bounds) from a raw temporal tuple. */
 function deriveLayout(t) {
   const start = parseTemporalDate(t.start);
   const end = parseTemporalDate(t.end);
@@ -68,6 +100,7 @@ function deriveLayout(t) {
   };
 }
 
+/** Classify a temporal tuple into one of `range`, `fuzzy-range`, `circa`, `before`, `after`, or `exact`. */
 function classifyTemporal(t, hasSpan, hasFuzzyBounds) {
   // Temporal::getTimelineDate profile contract:
   // 0 flat/exact, 1 central/circa, 2 slow start/before, 3 slow finish/after.
@@ -105,10 +138,12 @@ function fuzzyZones(layout) {
   return { headPct: round2(headPct), tailPct: round2(tailPct) };
 }
 
+/** Clamp a percentage value to `[0, 100]`. */
 function clampPercent(value) {
   return value < 0 ? 0 : value > 100 ? 100 : value;
 }
 
+/** Round a number to two decimal places. */
 function round2(value) {
   return Math.round(value * 100) / 100;
 }
@@ -126,6 +161,6 @@ function parseTemporalDate(value) {
   const day = Math.max(1, Math.min(31, Number(match[3] || 1)));
   const date = new Date(0);
   date.setUTCFullYear(year, month - 1, day);
-  date.setUTCHours(0,0,0,0);
+  date.setUTCHours(0, 0, 0, 0);
   return Number.isNaN(date.getTime()) ? null : date;
 }

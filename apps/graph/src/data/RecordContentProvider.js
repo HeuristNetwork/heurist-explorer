@@ -1,8 +1,10 @@
 /**
  * @file RecordContentProvider.js
  * @brief Lazy loader for standard and Smarty record presentation HTML.
+ *
  * @project     Heurist academic knowledge management system
- * @package     heurist-data
+ * @package     heurist-graph
+ *
  * @link        https://HeuristNetwork.org
  * @copyright   (C) 2024 onwards Heurist Network
  * @author      Artem Osmakov   <osmakov@gmail.com>

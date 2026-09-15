@@ -1,8 +1,10 @@
 /**
  * @file configurationUtils.js
  * @brief heurist-data's format/mode constants; generic helpers live in #shared/ui.
+ *
  * @project     Heurist academic knowledge management system
  * @package     heurist-data
+ *
  * @link        https://HeuristNetwork.org
  * @copyright   (C) 2024 onwards Heurist Network
  * @author      Artem Osmakov   <osmakov@gmail.com>
@@ -45,6 +47,12 @@ export function serializeConfigurationSettings(
 export function nullableIdentifier(value) {
   return sharedNullableIdentifier(value, { numeric: true });
 }
+/**
+ * Normalize a list of dataset/filter identifiers, dropping invalid entries.
+ *
+ * @param {*} value Value to normalize.
+ * @returns {Array<number>|null}
+ */
 export function nullableList(value) {
   return sharedNullableList(value, { numeric: true });
 }

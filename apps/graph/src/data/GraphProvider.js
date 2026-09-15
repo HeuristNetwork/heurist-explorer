@@ -1,8 +1,10 @@
 /**
  * @file GraphProvider.js
  * @brief Loads graph documents from the dedicated Heurist graph endpoint.
+ *
  * @project     Heurist academic knowledge management system
  * @package     heurist-graph
+ *
  * @link        https://HeuristNetwork.org
  * @copyright   (C) 2024 onwards Heurist Network
  * @author      Artem Osmakov   <osmakov@gmail.com>

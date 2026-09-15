@@ -1,8 +1,10 @@
 /**
  * @file graphConfigurationSchema.js
  * @brief Allowlist, normalization, and serialization for settings.
+ *
  * @project     Heurist academic knowledge management system
  * @package     heurist-graph
+ *
  * @link        https://HeuristNetwork.org
  * @copyright   (C) 2024 onwards Heurist Network
  * @author      Artem Osmakov   <osmakov@gmail.com>

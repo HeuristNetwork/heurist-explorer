@@ -1,8 +1,10 @@
 /**
  * @file DatasetListProvider.js
  * @brief Search lightweight Dataset records through the standard records API.
+ *
  * @project     Heurist academic knowledge management system
- * @package     heurist-data
+ * @package     heurist-graph
+ *
  * @link        https://HeuristNetwork.org
  * @copyright   (C) 2024 onwards Heurist Network
  * @author      Artem Osmakov   <osmakov@gmail.com>
@@ -14,6 +16,12 @@ export const DATASET_CONCEPT_CODE = "2-1100";
 
 /** Provides lightweight persisted Dataset records for selectors. */
 export class DatasetListProvider {
+  /**
+   * @param {object} options Provider dependencies.
+   * @param {object} options.apiClient Heurist API client.
+   * @param {object} options.recordTypes Record type provider, used to resolve the Dataset record type ID.
+   * @param {Function|null} [options.onUnavailable] Called once if the database has no Dataset record type.
+   */
   constructor({ apiClient, recordTypes, onUnavailable = null }) {
     this.apiClient = apiClient;
     this.recordTypes = recordTypes;
@@ -21,6 +29,19 @@ export class DatasetListProvider {
     this.available = true;
   }
 
+  /**
+   * List Dataset records, optionally restricted to specific IDs or an extra query.
+   *
+   * Databases without the optional Dataset record type return an empty result instead of
+   * throwing, after which the provider is marked unavailable and `onUnavailable` fires once.
+   *
+   * @param {object} [options] Search options.
+   * @param {Array<number|string>|null} [options.ids] When given, restrict results to these Dataset IDs.
+   * @param {object|string|null} [options.query] Extra query merged with the Dataset record-type filter.
+   * @param {AbortSignal} [options.signal] Abort signal for cancellation.
+   * @returns {Promise<{items: Array<object>, pagination: object|null, recordTypeId: number|null}>} Matching datasets.
+   * @throws {Error} When the lookup fails for a reason other than a missing Dataset definition.
+   */
   async list({ ids = null, query = null, signal } = {}) {
     const normalizedIds = normalizeIds(ids);
     const empty = { items: [], pagination: null, recordTypeId: null };
@@ -52,6 +73,7 @@ export class DatasetListProvider {
   }
 }
 
+/** Merge a raw query (object, JSON string, or plain text) with the Dataset record-type filter and IDs. */
 function normalizeDatasetQuery(query, recordTypeId, ids) {
   let value = {};
   if (query && typeof query === "object" && !Array.isArray(query))
@@ -68,6 +90,7 @@ function normalizeDatasetQuery(query, recordTypeId, ids) {
   return value;
 }
 
+/** Normalize a value into a de-duplicated array of positive integer IDs. */
 function normalizeIds(value) {
   const values = Array.isArray(value) ? value : value == null ? [] : [value];
   const ids = values.map(Number);
@@ -77,6 +100,7 @@ function normalizeIds(value) {
   return [...new Set(ids)];
 }
 
+/** Normalize raw record API results into `{id, recordTypeId, title}` entries. */
 function normalizeRecords(records) {
   return Array.isArray(records)
     ? records

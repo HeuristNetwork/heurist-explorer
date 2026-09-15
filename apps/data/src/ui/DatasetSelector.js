@@ -1,8 +1,10 @@
 /**
  * @file DatasetSelector.js
  * @brief Renders Filtered Result and available persisted datasets.
+ *
  * @project     Heurist academic knowledge management system
  * @package     heurist-data
+ *
  * @link        https://HeuristNetwork.org
  * @copyright   (C) 2024 onwards Heurist Network
  * @author      Artem Osmakov   <osmakov@gmail.com>
@@ -13,12 +15,29 @@
 import { applyI18n } from "#shared/ui";
 /** Renders Filtered Result and persisted Dataset choices. */
 export class DatasetSelector {
+  /**
+   * @param {object} options Selector dependencies.
+   * @param {object} options.api Data public API instance.
+   * @param {HTMLElement} options.container Element to render the dataset rows into.
+   * @param {Function|null} [options.onError] Called with `(error, operation)` when activation fails.
+   */
   constructor({ api, container, onError = null }) {
     this.api = api;
     this.container = container;
     this.onError = onError;
   }
 
+  /**
+   * Render the Filtered Result row (optional) and one row per dataset.
+   *
+   * @param {Array<{id: number, title: string}>} datasets Datasets to list.
+   * @param {number|string|null} activeId Currently active dataset ID, if any.
+   * @param {boolean} currentResultsActive Whether Filtered Result is the active source.
+   * @param {object} [options] Display options.
+   * @param {boolean} [options.showCurrentResults=true] Whether to render the Filtered Result row.
+   * @param {string} [options.currentResultsTitle='Filtered Result'] Label for the Filtered Result row.
+   * @returns {void}
+   */
   render(
     datasets,
     activeId,
@@ -56,6 +75,7 @@ export class DatasetSelector {
   }
 }
 
+/** Build a radio-button row for one dataset (or the Filtered Result entry). */
 function row(item, active, activate) {
   const label = document.createElement("label");
   label.className = `heurist-data-selector-row${active ? " active" : ""}`;

@@ -1,8 +1,10 @@
 /**
  * @file NavControls.js
  * @brief Custom pan/zoom overlay for the vis-network canvas.
+ *
  * @project     Heurist academic knowledge management system
  * @package     heurist-graph
+ *
  * @link        https://HeuristNetwork.org
  * @copyright   (C) 2024 onwards Heurist Network
  * @author      Artem Osmakov   <osmakov@gmail.com>

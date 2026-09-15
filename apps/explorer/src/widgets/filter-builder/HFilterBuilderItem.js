@@ -1,11 +1,6 @@
 /**
  * @file HFilterBuilderItem.js
  * @brief One flat field criterion row in the Filter Builder (field · operator · value).
- * @project     Heurist academic knowledge management system
- * @package     heurist-explorer.widgets.filter
- * @link        https://HeuristNetwork.org
- * @license     https://www.gnu.org/licenses/gpl-3.0.txt GNU License 3.0
- * @author      Artem Osmakov <osmakov@gmail.com>
  *
  * Framework-free re-implementation of the legacy `heurist.searchBuilderItem`
  * (`hclient/widgets/search/searchBuilderItem.js`), scoped to M3: a single field
@@ -14,6 +9,16 @@
  * The value column stacks multiple values; a value conjunction selector sits in
  * front of the 2nd value and a static AND/OR label in front of the 3rd+.
  * Emits/consumes the `FieldRow` shape from `src/utils/queryModel.js`.
+ *
+ * @project     Heurist academic knowledge management system
+ * @package     heurist-explorer
+ *
+ * @link        https://HeuristNetwork.org
+ * @copyright   (C) 2024 onwards Heurist Network
+ * @author      Artem Osmakov   <osmakov@gmail.com>
+ * @author      Ian Johnson <ian.johnson.heurist@gmail.com>
+ * @license     https://www.gnu.org/licenses/gpl-3.0.txt GNU License 3.0
+ * @since       8.0
  */
 
 import { HBaseWidget } from '#shared/widgets/HBaseWidget.js';
@@ -29,6 +34,7 @@ const HEADER_LABELS = {
 };
 const MULTI_INPUTS = ['text', 'term', 'record', 'tag'];
 
+/** One flat field criterion row (field · operator · value) in the Filter Builder. */
 export class HFilterBuilderItem extends HBaseWidget {
   /**
    * @param {{dbdefs:object, vocabulary:object, lang:string,
@@ -45,11 +51,24 @@ export class HFilterBuilderItem extends HBaseWidget {
     this.row = emptyFieldRow();
   }
 
+  /**
+   * Attach the widget to its container.
+   *
+   * @param {HTMLElement} container Container element.
+   * @param {object} [options] Widget options.
+   * @returns {HFilterBuilderItem} This instance, for chaining.
+   */
   attach(container, options = {}) {
     super.attach(container, options);
     return this;
   }
 
+  /**
+   * Render the field selector, remove button, operator select, and value column.
+   *
+   * @returns {HFilterBuilderItem} This instance, for chaining.
+   * @throws {Error} When the widget has not been attached yet.
+   */
   render() {
     if (!this.container) throw new Error('HFilterBuilderItem must be attached before render');
     this.container.className = 'h-fbitem';
@@ -127,12 +146,24 @@ export class HFilterBuilderItem extends HBaseWidget {
     this._emit();
   }
 
+  /**
+   * Change the row's scope record type (affects field-name resolution).
+   *
+   * @param {number|string} rtyId Scope record type id.
+   * @returns {void}
+   */
   setScope(rtyId) {
     this.scopeRtyId = rtyId;
   }
 
   // ---------------------------------------------------------------- private ---
 
+  /**
+   * Refresh the field selector button's label from the current row's field.
+   *
+   * @private
+   * @returns {void}
+   */
   _syncField() {
     const d = this.row.dty;
     let label;
@@ -145,6 +176,12 @@ export class HFilterBuilderItem extends HBaseWidget {
     this._fieldBtn.textContent = label + ' ▾';
   }
 
+  /**
+   * Rebuild the operator select's options for the row's current field kind, reconciling its value.
+   *
+   * @private
+   * @returns {void}
+   */
   _renderOperators() {
     const list = operatorsFor(this.vocab, this.row.kind);
     this._opSel.replaceChildren();
@@ -171,11 +208,23 @@ export class HFilterBuilderItem extends HBaseWidget {
     return list[0]?.i18nKey ?? null;
   }
 
+  /**
+   * Localized, upper-cased AND/OR word for the row's current value conjunction.
+   *
+   * @private
+   * @returns {string}
+   */
   _conjWord() {
     const key = this.row.valueConj === 'all' ? 'phrase.and' : 'phrase.or';
     return (str(this.vocab, this.lang, key).trim() || this.row.valueConj).toUpperCase();
   }
 
+  /**
+   * Rebuild the value column for the row's current operator (none/range/single/multi-value).
+   *
+   * @private
+   * @returns {void}
+   */
   _renderValues() {
     const opDef = operatorByKey(this.vocab, this.row.kind, this.row.op) || { input: 'text' };
     const input = opDef.whole ? 'none' : (opDef.input || 'text');
@@ -257,6 +306,15 @@ export class HFilterBuilderItem extends HBaseWidget {
     return lbl;
   }
 
+  /**
+   * Build one value control (term select, bool select, record input, WKT textarea, or plain input).
+   *
+   * @private
+   * @param {string} input Input kind: `term`, `bool`, `record`, `wkt`, `number`, `date`, or `text`.
+   * @param {number} index Index into `this.row.values` this control edits.
+   * @param {string} [placeholder=''] Placeholder text for text-like inputs.
+   * @returns {HTMLElement}
+   */
   _valueControl(input, index, placeholder = '') {
     const set = (v) => { this.row.values[index] = v; this._emit(); };
     const current = this.row.values[index] ?? '';
@@ -330,10 +388,21 @@ export class HFilterBuilderItem extends HBaseWidget {
     return inp;
   }
 
+  /**
+   * Notify the owning builder of the row's current model.
+   *
+   * @private
+   * @returns {void}
+   */
   _emit() {
     this._onChange({ row: this.getRowModel() });
   }
 
+  /**
+   * Clear the row's DOM.
+   *
+   * @returns {Promise<void>}
+   */
   async destroy() {
     this.container?.replaceChildren();
     this.container?.classList.remove('h-fbitem');
@@ -341,6 +410,7 @@ export class HFilterBuilderItem extends HBaseWidget {
   }
 }
 
+/** Build a labeled button with an optional click handler. */
 function mkbtn(text, className, onClick) {
   const b = document.createElement('button');
   b.type = 'button';
@@ -349,11 +419,15 @@ function mkbtn(text, className, onClick) {
   if (onClick) b.addEventListener('click', onClick);
   return b;
 }
+
+/** Build one value row's container element. */
 function valRow() {
   const d = document.createElement('div');
   d.className = 'h-fbitem-valrow';
   return d;
 }
+
+/** Build the fixed-width conjunction-prefix slot element. */
 function conjSlot() {
   const s = document.createElement('span');
   s.className = 'h-fbitem-conjslot';

@@ -1,11 +1,6 @@
 /**
  * @file HFieldTree.js
  * @brief Framework-free hierarchical field picker for the Filter Builder.
- * @project     Heurist academic knowledge management system
- * @package     heurist-explorer.widgets.filter
- * @link        https://HeuristNetwork.org
- * @license     https://www.gnu.org/licenses/gpl-3.0.txt GNU License 3.0
- * @author      Artem Osmakov <osmakov@gmail.com>
  *
  * Replaces the legacy jQuery/Fancytree field tree in
  * `hclient/widgets/search/searchBuilder.js`. Shows the fields of a record type;
@@ -17,6 +12,16 @@
  *   [{ dty, fieldType }]                         flat field on the scope rectype
  *   [{ via:{ link:'lt'|'lf', dty, targetRty } }, // one pointer hop
  *    { dty, fieldType }]
+ *
+ * @project     Heurist academic knowledge management system
+ * @package     heurist-explorer
+ *
+ * @link        https://HeuristNetwork.org
+ * @copyright   (C) 2024 onwards Heurist Network
+ * @author      Artem Osmakov   <osmakov@gmail.com>
+ * @author      Ian Johnson <ian.johnson.heurist@gmail.com>
+ * @license     https://www.gnu.org/licenses/gpl-3.0.txt GNU License 3.0
+ * @since       8.0
  */
 
 import { $HR } from '#shared/ui';
@@ -24,6 +29,7 @@ import './HFieldTree.css';
 
 const LINKABLE = new Set(['resource', 'relmarker']);
 
+/** Framework-free hierarchical field picker popover for the Filter Builder. */
 export class HFieldTree {
   /**
    * @param {{dbdefs:import('../../utils/HDbDefs.js').HDbDefs}} deps
@@ -42,9 +48,12 @@ export class HFieldTree {
   }
 
   /**
+   * Open the popover anchored under a button, scoped to a record type.
+   *
    * @param {HTMLElement} anchor Button the popover attaches under.
    * @param {{rtyId:(number|string)}} scope
    * @param {(path:Array)=>void} onPick
+   * @returns {HFieldTree} This instance, for chaining.
    */
   open(anchor, scope, onPick) {
     this.close();
@@ -87,6 +96,11 @@ export class HFieldTree {
     return this;
   }
 
+  /**
+   * Close the popover and remove its outside-click listener.
+   *
+   * @returns {void}
+   */
   close() {
     document.removeEventListener('click', this._onDocClick);
     this.element?.remove();
@@ -95,12 +109,23 @@ export class HFieldTree {
     this._onPick = null;
   }
 
+  /**
+   * Close the popover. Alias kept for widget-lifecycle symmetry.
+   *
+   * @returns {void}
+   */
   destroy() {
     this.close();
   }
 
   // ------------------------------------------------------------------ render ---
 
+  /**
+   * Render the popover body: the scope rectype's fields, plus reverse-pointer folders when enabled.
+   *
+   * @private
+   * @returns {void}
+   */
   _renderBody() {
     if (!this._body) return;
     this._body.replaceChildren();
@@ -157,6 +182,14 @@ export class HFieldTree {
     return out;
   }
 
+  /**
+   * Build a leaf row for one flat field, wired to call `onPick` with its full path.
+   *
+   * @private
+   * @param {object} field Field descriptor; see `HDbDefs#fields`.
+   * @param {Array} viaChain Pointer-hop prefix leading to this field's scope rectype.
+   * @returns {HTMLButtonElement}
+   */
   _leaf(field, viaChain) {
     const row = document.createElement('button');
     row.type = 'button';
@@ -174,6 +207,18 @@ export class HFieldTree {
     return row;
   }
 
+  /**
+   * Build an expandable pointer-field folder, recursing into its target rectype's fields when open.
+   *
+   * @private
+   * @param {object} options Folder definition.
+   * @param {string} options.label Folder label.
+   * @param {string} options.key Unique open/closed state key.
+   * @param {{link: string, dty: number, targetRty: number|string}} options.via Pointer hop this folder represents.
+   * @param {number|string|null} options.childRtyId Target rectype to expand into, when unambiguous.
+   * @param {Array<number>} [options.targets] Candidate target rectypes, when ambiguous.
+   * @returns {HTMLElement}
+   */
   _linkFolder({ label, key, via, childRtyId, targets = [] }) {
     const wrap = document.createElement('div');
     wrap.className = 'h-fbtree-folder';
@@ -218,6 +263,15 @@ export class HFieldTree {
     return wrap;
   }
 
+  /**
+   * Build a labeled checkbox toolbar toggle.
+   *
+   * @private
+   * @param {string} label Toggle label.
+   * @param {boolean} checked Initial checked state.
+   * @param {function(boolean): void} onChange Called with the new checked state.
+   * @returns {HTMLElement}
+   */
   _toggle(label, checked, onChange) {
     const wrap = document.createElement('label');
     wrap.className = 'h-fbtree-toggle';
@@ -231,6 +285,7 @@ export class HFieldTree {
   }
 }
 
+/** Position a popover element fixed, just below and left-aligned with its anchor, clamped to the viewport. */
 function positionUnder(el, anchor) {
   const rect = anchor.getBoundingClientRect();
   // fixed => viewport-relative, so it works whatever the offset parent is

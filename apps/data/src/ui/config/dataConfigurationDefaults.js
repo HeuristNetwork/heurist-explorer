@@ -1,8 +1,10 @@
 /**
  * @file dataConfigurationDefaults.js
  * @brief Canonical persisted heurist-data configuration defaults.
+ *
  * @project     Heurist academic knowledge management system
  * @package     heurist-data
+ *
  * @link        https://HeuristNetwork.org
  * @copyright   (C) 2024 onwards Heurist Network
  * @author      Artem Osmakov   <osmakov@gmail.com>
@@ -65,12 +67,19 @@ export const HEURIST_DATA_CONFIG_DEFAULTS = Object.freeze({
   }),
 });
 
+/**
+ * Build a fresh, mutable copy of the canonical default settings.
+ *
+ * @returns {{options: object, config: object}}
+ */
 export function createDataConfigurationDefaults() {
   return {
     options: clone(HEURIST_DATA_OPTIONS_DEFAULTS),
     config: clone(HEURIST_DATA_CONFIG_DEFAULTS),
   };
 }
+
+/** Deep-clone a JSON-safe value. */
 function clone(value) {
   return JSON.parse(JSON.stringify(value));
 }

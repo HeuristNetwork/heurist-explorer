@@ -1,9 +1,10 @@
-import { showTimelineMessage } from "./ui/timelineMessages.js";
 /**
  * @file initHeuristTimeline.js
  * @brief Initializes the timeline runtime and binds it to the host container.
+ *
  * @project     Heurist academic knowledge management system
  * @package     heurist-timeline
+ *
  * @link        https://HeuristNetwork.org
  * @copyright   (C) 2024 onwards Heurist Network
  * @author      Artem Osmakov   <osmakov@gmail.com>
@@ -15,6 +16,7 @@ import { showTimelineMessage } from "./ui/timelineMessages.js";
 import { HeuristApiClient } from "#shared/api";
 import { createHostAdapter } from "./host/createHostAdapter.js";
 import { validateTimelineConfig } from "./validateTimelineConfig.js";
+import { showTimelineMessage } from "./ui/timelineMessages.js";
 
 /**
  * Initializes the timeline application for the supplied container and runtime settings.
@@ -56,9 +58,16 @@ export async function initHeuristTimeline(config) {
   });
 
   const api = new HeuristTimelinePublicApi(application);
-  api.addEventListener('heurist-timeline-error', event => showTimelineMessage(event.detail?.error || event.detail?.message, { error: true }));
-  api.addEventListener('heurist-timeline-warning', event => showTimelineMessage(event.detail?.message));
-  api.addEventListener('heurist-timeline-message', event => showTimelineMessage(event.detail?.message, { title: 'Timeline' }));
+  api.addEventListener('heurist-timeline-error', (event) => {
+    showTimelineMessage(event.detail?.error || event.detail?.message, { error: true });
+  });
+  api.addEventListener('heurist-timeline-warning', (event) => {
+    showTimelineMessage(event.detail?.message);
+  });
+  api.addEventListener('heurist-timeline-message', (event) => {
+    showTimelineMessage(event.detail?.message, { title: 'Timeline' });
+  });
+
   const toolbar = new TimelineToolbar({ api, settings: safeConfig.settings });
   toolbar.mount(container);
 
@@ -74,4 +83,3 @@ export async function initHeuristTimeline(config) {
   globalThis.heuristTimeline = api;
   return ready;
 }
-

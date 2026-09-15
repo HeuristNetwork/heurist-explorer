@@ -1,8 +1,10 @@
 /**
  * @file createDataEngine.js
  * @brief Creates the configured data rendering engine.
+ *
  * @project     Heurist academic knowledge management system
  * @package     heurist-data
+ *
  * @link        https://HeuristNetwork.org
  * @copyright   (C) 2024 onwards Heurist Network
  * @author      Artem Osmakov   <osmakov@gmail.com>
@@ -14,6 +16,13 @@
 import { DataTablesAdapter } from "./datatables/DataTablesAdapter.js";
 import { HRecordList } from "../widgets/HRecordList.js";
 
+/**
+ * Create the configured rendering engine adapter.
+ *
+ * @param {string} [name='datatables'] Engine name: `'datatables'` or `'recordlist'`.
+ * @returns {Promise<object>} The created engine adapter.
+ * @throws {Error} When `name` is not a known engine.
+ */
 export async function createDataEngine(name = "datatables") {
   if (name === "datatables") return new DataTablesAdapter();
   if (name === "recordlist") {

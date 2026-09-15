@@ -1,8 +1,10 @@
 /**
  * @file RecordTypeProvider.js
  * @brief Resolves Heurist record types by concept code.
+ *
  * @project     Heurist academic knowledge management system
  * @package     heurist-data
+ *
  * @link        https://HeuristNetwork.org
  * @copyright   (C) 2024 onwards Heurist Network
  * @author      Artem Osmakov   <osmakov@gmail.com>
@@ -12,11 +14,20 @@
  */
 /** Resolves Heurist record-type IDs and definitions. */
 export class RecordTypeProvider {
+  /** @param {{apiClient: object}} options Heurist API client. */
   constructor({ apiClient }) {
     this.apiClient = apiClient;
     this.cache = new Map();
   }
 
+  /**
+   * Resolve a record type's numeric ID from its stable concept code, caching the result.
+   *
+   * @param {string} conceptCode Record type concept code (e.g. `"2-1100"`).
+   * @param {{signal?: AbortSignal}} [options] Request options.
+   * @returns {Promise<number>} The resolved record type ID.
+   * @throws {Error} When the concept code does not resolve to a valid record type.
+   */
   async getIdByConceptCode(conceptCode, { signal } = {}) {
     if (this.cache.has(conceptCode)) return this.cache.get(conceptCode);
     const payload = await this.apiClient.get(

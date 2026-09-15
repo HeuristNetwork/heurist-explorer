@@ -6,7 +6,8 @@
  * only renders pages and reports interaction through adapter callbacks.
  *
  * @project     Heurist academic knowledge management system
- * @package     heurist-client-core
+ * @package     heurist-data
+ *
  * @link        https://HeuristNetwork.org
  * @copyright   (C) 2024 onwards Heurist Network
  * @author      Artem Osmakov   <osmakov@gmail.com>
@@ -26,6 +27,24 @@ const RECORD_TYPE_ICON_TOKEN = Date.now();
 
 /** Renders records using native DOM/CSS without a UI framework. */
 export class HRecordList extends HBaseWidget {
+  /**
+   * Attach to a container, build the widget shell, and wire up interaction callbacks.
+   *
+   * @param {object} context Widget context; see `DataApplication#_engineContext`.
+   * @param {HTMLElement} context.container Element to render the record list into.
+   * @param {object} [context.options] Engine options (columns, controls, interaction flags, view mode, …).
+   * @param {Function} context.onSelectionChange Called with selected record IDs.
+   * @param {Function} context.onEditRecord Called with a record ID to edit.
+   * @param {Function} context.onCollectionToggle Called with `(recordId, collected)` to toggle persistent collection membership.
+   * @param {Function} context.onCollectionAction Called with `(action, recordIds)` for bulk collection actions.
+   * @param {Function} context.onDataRequest Called with `{offset, limit, sort, filter}` to request a page of data.
+   * @param {Function} context.onRecordContentRequest Called to lazily load a record's presentation HTML.
+   * @param {Function} context.onViewRecord Called with a record ID to view.
+   * @param {Function} context.onExport Called with an export format to export the current results.
+   * @param {Function} context.onViewModeChange Called with the new view mode.
+   * @param {Function} context.onDataSourceAction Called with a datasource action id (workspace/save-filter/save-source).
+   * @returns {Promise<void>}
+   */
   async initialize({
     container,
     options = {},
@@ -74,6 +93,7 @@ export class HRecordList extends HBaseWidget {
     this.state = "rendered";
   }
 
+  /** Localize static labels and wire up toolbar/list interaction listeners. */
   _initializeControls() {
     this.$$("[data-label]").forEach((el) => {
       el.textContent = $HR(el.dataset.label);
@@ -179,10 +199,12 @@ export class HRecordList extends HBaseWidget {
     );
   }
 
+  /** Close the `<details>` dropdown containing `target`, if any. */
   _closeDropdown(target) {
     target?.closest("details.h-dropdown")?.removeAttribute("open");
   }
 
+  /** Build the workspace/save-filter/save-source toolbar buttons. */
   _createDataSourceActions() {
     const host = document.createElement("span");
     host.className = "h-recordlist-source-actions";
@@ -214,6 +236,12 @@ export class HRecordList extends HBaseWidget {
     this.workspaceButton = host.querySelector('[data-source-action="workspace"]');
   }
 
+  /**
+   * Show/hide the source-actions toolbar group and reflect workspace membership on its button.
+   *
+   * @param {{enabled?: boolean, inWorkspace?: boolean}} [options] Visibility and workspace-membership state.
+   * @returns {Promise<void>}
+   */
   async setDataSourceActions({ enabled = false, inWorkspace = false } = {}) {
     if (this.sourceActions) this.sourceActions.hidden = !enabled;
     if (this.workspaceButton) {
@@ -227,6 +255,12 @@ export class HRecordList extends HBaseWidget {
     }
   }
 
+  /**
+   * Render a new page of data.
+   *
+   * @param {{dataset: object|null, records?: Array<object>, meta?: object, pagination?: object}} data Data to render.
+   * @returns {Promise<void>}
+   */
   async setData({ dataset, records = [], meta = {}, pagination = {} }) {
     this.dataset = dataset;
     this.records = records;
@@ -237,6 +271,7 @@ export class HRecordList extends HBaseWidget {
     this._render();
   }
 
+  /** Request the current offset/page-length/filter page of data and re-render, tolerating supersession/abort. */
   async _requestPage() {
     if (!this.onDataRequest) return;
     this.container.classList.add("h-recordlist-loading");
@@ -267,6 +302,7 @@ export class HRecordList extends HBaseWidget {
     }
   }
 
+  /** Re-render the visible record list, pagination, counter, and selection classes. */
   _render() {
     if (!this.content) return;
     this.observer?.disconnect();
@@ -295,6 +331,7 @@ export class HRecordList extends HBaseWidget {
     this._applySelection();
   }
 
+  /** Build one record's list item, choosing markup by the active view mode (list/card/row/big). */
   _renderRecord(record, index) {
     const id = recordId(record);
     const item = document.createElement("article");
@@ -331,6 +368,7 @@ export class HRecordList extends HBaseWidget {
     return item;
   }
 
+  /** Build "list" view-mode markup: collection/type/admin markers, title, and row actions. */
   _tableHtml(record) {
     return (
       `${this._collectionHtml(record)}${this._typeIconHtml(record)}${this._adminHtml(record)}` +
@@ -338,6 +376,8 @@ export class HRecordList extends HBaseWidget {
       this._actionsHtml(record)
     );
   }
+
+  /** Build "card" view-mode markup: thumbnail, title, and actions. */
   _cardHtml(record) {
     const ownThumbnail = String(record.rec_ThumbnailURL || "");
     const thumbnail =
@@ -351,6 +391,7 @@ export class HRecordList extends HBaseWidget {
     return `<div class="h-recordlist-card-top">${this._collectionHtml(record)}${this._typeIconHtml(record)}${this._adminHtml(record)}</div>${content}${this._actionsHtml(record)}`;
   }
 
+  /** Build "row" view-mode markup: thumbnail, title, and actions in a horizontal layout. */
   _rowHtml(record) {
     const ownThumbnail = String(record.rec_ThumbnailURL || "");
     const thumbnail =
@@ -371,6 +412,7 @@ export class HRecordList extends HBaseWidget {
     );
   }
 
+  /** Build placeholder markup shown while a record's template content loads lazily. */
   _templateShellHtml(record) {
     const loader =
       '<div class="h-recordlist-template-content h-recordlist-placeholder">' +
@@ -378,6 +420,7 @@ export class HRecordList extends HBaseWidget {
     return `<div class="h-recordlist-card-top">${this._collectionHtml(record)}${this._typeIconHtml(record)}${this._adminHtml(record)}</div>${loader}${this._actionsHtml(record)}`;
   }
 
+  /** Report-template name configured for the active view mode, or `null` when using the built-in renderer. */
   _templateForMode() {
     if (this.options.viewMode === "card" || this.options.viewMode === "row") {
       return nullableTemplate(this.options.cardTemplate);
@@ -386,6 +429,7 @@ export class HRecordList extends HBaseWidget {
       return nullableTemplate(this.options.viewTemplate);
     return null;
   }
+  /** Build the record-type icon URL used as a card/row thumbnail fallback. */
   _recordTypeThumbnail(record) {
     const typeId = Number(record?.rec_RecTypeID);
     const baseUrl = String(this.options.baseUrl || "");
@@ -393,6 +437,7 @@ export class HRecordList extends HBaseWidget {
     const heuristRoot = baseUrl.endsWith("/") ? baseUrl : `${baseUrl}/`;
     return `${heuristRoot}?db=${encodeURIComponent(this.options.database || "")}&icon=${typeId}&t=${RECORD_TYPE_ICON_TOKEN}&version=thumb`;
   }
+  /** Build fallback "big" view-mode markup used when no report template or content is available. */
   _fallbackExtendedHtml(record) {
     return (
       `<strong class="h-recordlist-title">${sanitizeTextHtml(record.rec_Title)}</strong>` +
@@ -401,6 +446,7 @@ export class HRecordList extends HBaseWidget {
       this._actionsHtml(record)
     );
   }
+  /** Build the persistent-collection checkbox markup, when that interaction is enabled. */
   _collectionHtml(record) {
     if (!this.options.interaction.persistentSelectionEnabled) return "";
     return (
@@ -409,6 +455,7 @@ export class HRecordList extends HBaseWidget {
     );
   }
 
+  /** Build the record-type icon markup shown on each list item. */
   _typeIconHtml(record) {
     const baseUrl = String(this.options.baseUrl || "");
     const heuristRoot =
@@ -424,6 +471,7 @@ export class HRecordList extends HBaseWidget {
       : '<span class="h-recordlist-rectype-icon"></span>';
   }
 
+  /** Build the owner/visibility/bookmark admin-info markup, when that interaction is enabled. */
   _adminHtml(record) {
     if (!this.options.interaction.adminInfoEnabled) return "";
     const visibility = String(
@@ -445,6 +493,7 @@ export class HRecordList extends HBaseWidget {
       "</span>"
     );
   }
+  /** Build the edit/view row-action buttons markup, per enabled interactions. */
   _actionsHtml(record) {
     const id = recordId(record);
     const edit =
@@ -458,6 +507,7 @@ export class HRecordList extends HBaseWidget {
     return `<span class="h-recordlist-actions">${edit}${view}</span>`;
   }
 
+  /** Create the IntersectionObserver that lazily loads template content for scrolled-into-view items. */
   _createObserver() {
     if (typeof IntersectionObserver === "undefined") return;
     this.observer = new IntersectionObserver(
@@ -472,6 +522,7 @@ export class HRecordList extends HBaseWidget {
     );
   }
 
+  /** Load and inject template presentation HTML for newly visible record items. */
   async _loadVisibleContent(items) {
     const records = items.map((item) => item._record).filter(Boolean);
     const generation = this.renderGeneration;
@@ -519,6 +570,7 @@ export class HRecordList extends HBaseWidget {
     }
   }
 
+  /** Apply click/ctrl-click/shift-click selection semantics to a clicked record item. */
   _recordClicked(event, item) {
     if (
       this.options.interaction.selectionEnabled === false ||
@@ -542,6 +594,7 @@ export class HRecordList extends HBaseWidget {
     this.onSelectionChange?.([...this.selected]);
   }
 
+  /** Dispatch a row-action button click (edit or view) for its record. */
   _recordAction(target) {
     const id = Number(target.dataset.recordId);
     target.dataset.recordAction === "edit"
@@ -549,6 +602,7 @@ export class HRecordList extends HBaseWidget {
       : this.onViewRecord?.(id);
   }
 
+  /** Toggle persistent collection membership for the record whose checkbox changed. */
   _collectionChanged(target) {
     const id = Number(target.dataset.recordId);
     const checked = target.checked;
@@ -557,6 +611,7 @@ export class HRecordList extends HBaseWidget {
     });
   }
 
+  /** Apply a toolbar selection shortcut ('page' selects the loaded page, 'none' clears, 'show' filters to selection). */
   _selectionAction(action) {
     if (action === "page") {
       this.records.forEach((record) => this.selected.add(recordId(record)));
@@ -568,6 +623,8 @@ export class HRecordList extends HBaseWidget {
     this._render();
     this.onSelectionChange?.([...this.selected]);
   }
+
+  /** Dispatch a toolbar persistent-collection shortcut to the host-level collection action handler. */
   async _collectionAction(action) {
     const selected = [...this.selected];
     const page = this.records.map(recordId);
@@ -580,12 +637,19 @@ export class HRecordList extends HBaseWidget {
     else if (action === "clear") await this.onCollectionAction?.("clear", []);
     else if (action === "show") await this.onCollectionAction?.("show", []);
   }
+  /**
+   * Apply the current record selection to the rendered items and scroll the first into view.
+   *
+   * @param {Array<number>} ids Selected record IDs.
+   * @returns {Promise<void>}
+   */
   async setSelection(ids) {
     this.selected = new Set((ids || []).map(Number));
     this._applySelection();
     this._scrollSelectedIntoView();
   }
 
+  /** Scroll the first selected record's item into view, if rendered. */
   _scrollSelectedIntoView() {
     const [firstId] = this.selected;
     if (firstId == null) return;
@@ -593,11 +657,18 @@ export class HRecordList extends HBaseWidget {
     item?.scrollIntoView({ block: "nearest", inline: "nearest" });
   }
 
+  /**
+   * Apply the current persistent-collection membership to the rendered items.
+   *
+   * @param {Array<number>} ids Collected record IDs.
+   * @returns {Promise<void>}
+   */
   async setCollection(ids) {
     this.collected = new Set((ids || []).map(Number));
     this._applyCollection();
   }
 
+  /** Sync the selection toolbar button and each rendered item's selected-item class. */
   _applySelection() {
     this.$$(".h-recordlist-item").forEach((item) => {
       item.classList.toggle(
@@ -608,18 +679,21 @@ export class HRecordList extends HBaseWidget {
     this._updateSelectionButton();
   }
 
+  /** Sync each rendered item's collection checkbox with `this.collected`. */
   _applyCollection() {
     this.$$(".h-recordlist-collection").forEach((input) => {
       input.checked = this.collected.has(Number(input.dataset.recordId));
     });
   }
 
+  /** Refresh the selection-count toolbar button's label. */
   _updateSelectionButton() {
     const button = this.$('[data-role="selection-button"]');
     if (button)
       button.textContent = `${$HR("Selected")}: ${this.selected?.size || 0}`;
   }
 
+  /** Rebuild the pagination control from the current offset, page length, and filtered total. */
   _renderPagination() {
     const host = this.$('[data-role="pagination"]');
     if (!host) return;
@@ -645,6 +719,7 @@ export class HRecordList extends HBaseWidget {
     });
   }
 
+  /** Refresh the "start–end / total" record counter, including a filtered-count suffix when filtered. */
   _updateCounter() {
     const start = this.filteredTotal ? this.offset + 1 : 0;
     const end = Math.min(this.offset + this.records.length, this.filteredTotal);
@@ -656,6 +731,7 @@ export class HRecordList extends HBaseWidget {
       `${start}–${end} / ${this.filteredTotal}${suffix}`;
   }
 
+  /** Show/hide toolbar controls per the configured `controls`/`interaction` options. */
   _applyControlVisibility() {
     const controls = this.options.controls;
     const datatableOption = this.viewModeSelect?.querySelector('option[value="datatable"]');
@@ -677,6 +753,13 @@ export class HRecordList extends HBaseWidget {
     });
   }
 
+  /**
+   * Export the current results in the given format.
+   *
+   * @param {'copy'|'csv'|'excel'|'pdf'} format Export format.
+   * @returns {Promise<void>}
+   * @todo The implementation below is currently commented out, so this is a no-op until it is restored.
+   */
   async _export(format) {
 /*
     if (this.onExport) {
@@ -716,6 +799,12 @@ export class HRecordList extends HBaseWidget {
 */
   }
 
+  /**
+   * Apply updated engine options: merges into the current options, refreshes toolbar controls, and re-renders.
+   *
+   * @param {object} [options] Updated engine options, merged into `this.options`.
+   * @returns {Promise<void>}
+   */
   async applyConfiguration(options = {}) {
     this.options = normalizeOptions({
       ...this.options,
@@ -735,6 +824,11 @@ export class HRecordList extends HBaseWidget {
     this._render();
   }
 
+  /**
+   * Return the current engine-neutral rendering state.
+   *
+   * @returns {{viewMode: string, pagination: {offset: number, limit: number}}} Current view mode and pagination.
+   */
   getState() {
     return {
       viewMode: this.options.viewMode,
@@ -742,8 +836,18 @@ export class HRecordList extends HBaseWidget {
     };
   }
 
+  /**
+   * No-op: HRecordList's layout reflows automatically with its container.
+   *
+   * @returns {Promise<void>}
+   */
   async resize() {}
 
+  /**
+   * Disconnect the intersection observer, abort in-flight content loads, and tear down the widget.
+   *
+   * @returns {Promise<void>}
+   */
   async destroy() {
     this.observer?.disconnect();
     this.contentAbort?.abort();
@@ -754,6 +858,7 @@ export class HRecordList extends HBaseWidget {
   }
 }
 
+/** Normalize widget options, filling in page-size/font-size/view-mode/controls/interaction defaults. */
 function normalizeOptions(options) {
   return {
     ...options,
@@ -783,19 +888,30 @@ function normalizeOptions(options) {
   };
 }
 
+/** Normalize a view mode to one of `VIEW_MODES`, defaulting to `'card'`. */
 function normalizeViewMode(value) {
   return VIEW_MODES.includes(value) ? value : "card";
 }
 
+/** Normalize a template value, treating the legacy `'standard'` sentinel as unset. */
 function nullableTemplate(value) {
   const text = String(value || "").trim();
   return text && text !== "standard" ? text : null;
 }
 
+/** Extract a record's numeric id. */
 function recordId(record) {
   return Number(record?.rec_ID);
 }
 
+/**
+ * Build the page-number list for pagination controls: first, last, a window around
+ * the current page, and `null` gaps where pages are skipped.
+ *
+ * @param {number} current Current page index (0-based).
+ * @param {number} count Total page count.
+ * @returns {Array<number|null>} Page indices to render, with `null` marking an ellipsis gap.
+ */
 function pageEntries(current, count) {
   if (count <= 9) return Array.from({ length: count }, (_, i) => i);
   const values = new Set(
@@ -819,6 +935,7 @@ function pageEntries(current, count) {
   return result;
 }
 
+/** Build a header + data row matrix (ID plus visible field titles/values) for export. */
 function exportRows(records, fields) {
   const visible = fields.filter((field) => field.visible !== false);
   return [
@@ -830,6 +947,7 @@ function exportRows(records, fields) {
   ];
 }
 
+/** Serialize a row matrix to a quoted, delimited text block (CSV/TSV). */
 function toDelimited(rows, delimiter) {
   return rows
     .map((row) =>
@@ -840,6 +958,7 @@ function toDelimited(rows, delimiter) {
     .join("\r\n");
 }
 
+/** Trigger a browser download of a value (text or Blob) as a named file. */
 function downloadBlob(value, filename, type) {
   const blob = value instanceof Blob ? value : new Blob([value], { type });
   const url = URL.createObjectURL(blob);
@@ -850,6 +969,7 @@ function downloadBlob(value, filename, type) {
   setTimeout(() => URL.revokeObjectURL(url), 0);
 }
 
+/** Read and project a field's values, joined into one display string. */
 function displayFieldValue(record, field, separator = " | ") {
   const raw = String(field?.field || "").startsWith("rec_")
     ? record?.[field.field]
@@ -858,6 +978,7 @@ function displayFieldValue(record, field, separator = " | ") {
   return values.map((item) => projectFieldValue(item, field?.ext)).join(separator);
 }
 
+/** Project one detail value to a display string per its fieldset output option (`ext`). */
 function projectFieldValue(item, ext = null) {
   if (item == null) return "";
   if (typeof item !== "object") return item;
@@ -874,12 +995,14 @@ function projectFieldValue(item, ext = null) {
   return serializeValue(first(item.trm_Label, item.rec_Title, item.file?.ulf_Caption, item.file?.ulf_OrigFileName, item.file?.ulf_ExternalFileReference, item.file?.fullPath, item.geo?.wkt, item.value, item.label, item.title, item.code, item.id, ""));
 }
 
+/** JSON-stringify an object value; pass scalars through, and `''` for `null`/`undefined`. */
 function serializeValue(value) {
   if (value == null) return "";
   if (typeof value !== "object") return value;
   try { return JSON.stringify(value); } catch { return String(value); }
 }
 
+/** Strip HTML down to a small allowlist of inline formatting tags (`u`, `i`, `b`, `strong`, `em`). */
 function sanitizeTextHtml(value) {
   const allowed = new Set(["u", "i", "b", "strong", "em"]);
   return String(value ?? "")
@@ -891,12 +1014,14 @@ function sanitizeTextHtml(value) {
     });
 }
 
+/** Escape HTML-significant characters in a string via the DOM, for safe interpolation into markup. */
 function escapeHtml(value) {
   const div = document.createElement("div");
   div.textContent = String(value ?? "");
   return div.innerHTML;
 }
 
+/** Escape a value for safe interpolation into an HTML attribute delimited by backticks. */
 function escapeAttr(value) {
   return escapeHtml(value).replaceAll("`", "&#96;");
 }

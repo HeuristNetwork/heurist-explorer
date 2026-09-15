@@ -1,8 +1,10 @@
 /**
  * @file DataApplication.js
  * @brief Heurist Data application controller.
+ *
  * @project     Heurist academic knowledge management system
  * @package     heurist-data
+ *
  * @link        https://HeuristNetwork.org
  * @copyright   (C) 2024 onwards Heurist Network
  * @author      Artem Osmakov   <osmakov@gmail.com>
@@ -18,6 +20,16 @@ import {
 
 /** Coordinates host integration, data loading, engine rendering, and state. */
 export class DataApplication extends EventTarget {
+  /**
+   * @param {object} options Application dependencies.
+   * @param {HTMLElement} options.container Element the rendering engine mounts into.
+   * @param {object} options.config Runtime configuration produced by `getHeuristDataConfig`.
+   * @param {object} options.engine Rendering engine adapter (e.g. HRecordList or DataTablesAdapter).
+   * @param {Function|null} [options.engineFactory] Factory used to swap engines when the configured engine changes.
+   * @param {object} options.host Host adapter used for lifecycle and preference delegation.
+   * @param {object} options.loaders Loader registry used to load datasets/queries/filters.
+   * @param {object} [options.providers] Supporting providers (record content, field values, etc.).
+   */
   constructor({
     container,
     config,
@@ -101,6 +113,7 @@ export class DataApplication extends EventTarget {
     return this;
   }
 
+  /** Build the callback/options context passed to the rendering engine's `initialize`. */
   _engineContext() {
     return {
       container: this.container,
@@ -145,6 +158,7 @@ export class DataApplication extends EventTarget {
     return this.getState();
   }
 
+  /** Load and apply the host's persisted configuration, when not already embedded at bootstrap. */
   async _loadInitialPreferences() {
     if (
       !this.config.loadPreferencesOnInit ||
@@ -237,6 +251,7 @@ export class DataApplication extends EventTarget {
     });
   }
 
+  /** Run a generation-guarded, abortable load through the loader registry, dispatching loading/error events. */
   async _load(type, request) {
     const generation = ++this.requestGeneration;
     this.abortController?.abort("Superseded data request");
@@ -264,6 +279,7 @@ export class DataApplication extends EventTarget {
     }
   }
 
+  /** Extra fields fetched for presentation only, never added to the user's persisted fieldset. */
   _presentationFields() {
     return [
       "rec_OwnerName",
@@ -273,6 +289,7 @@ export class DataApplication extends EventTarget {
     ];
   }
 
+  /** Apply a load result to the engine and dispatch `heurist-data-loaded`. */
   async _applyResult(result) {
     this.response = result.response;
     this.recordsTotal = Number(result.response.pagination?.total) || 0;
@@ -292,6 +309,7 @@ export class DataApplication extends EventTarget {
     return this.getState();
   }
 
+  /** Set the active source descriptor and dispatch a pending `heurist-data-source-changed` event. */
   _resetSource(source) {
     this.source = source;
     this.recordsTotal = null;
@@ -301,6 +319,7 @@ export class DataApplication extends EventTarget {
     });
   }
 
+  /** Load one page of the active source, requested by the engine's pagination/sort/filter controls. */
   async _loadPage({ offset, limit, sort, filter } = {}) {
     if (!this.source) throw new Error("No Dataset source is active");
     const request = {
@@ -370,6 +389,7 @@ export class DataApplication extends EventTarget {
     return this.getState();
   }
 
+  /** Apply a selection reported by the engine and dispatch the public selection-changed event. */
   _selectionFromEngine(recordIds) {
     this.selection = normalizeIds(recordIds);
     this.dispatch("heurist-data-selection-changed", {
@@ -395,6 +415,14 @@ export class DataApplication extends EventTarget {
     return null;
   }
 
+  /**
+   * Add or remove one record from the host's persistent collection.
+   *
+   * @param {number|string} recordId Record ID to add or remove.
+   * @param {boolean} collected `true` to add the record, `false` to remove it.
+   * @returns {Promise<boolean>} True when the collection was updated.
+   * @throws {Error} When the host doesn't support persistent collections.
+   */
   async setRecordCollected(recordId, collected) {
     const id = Number(recordId);
     if (!Number.isInteger(id) || id < 1) return false;
@@ -410,6 +438,13 @@ export class DataApplication extends EventTarget {
     return true;
   }
 
+  /**
+   * Apply a bulk action to the host's persistent collection.
+   *
+   * @param {'add'|'remove'|'clear'|'show'} action Action to perform.
+   * @param {Array<number|string>} [recordIds] Record IDs the action applies to; ignored by `clear` and `show`.
+   * @returns {Promise<boolean|object>} True/false for add/remove/clear, or the result of `show` loading the collection as a query.
+   */
   async applyCollectionAction(action, recordIds = []) {
     if (
       !this.config.engineOptions?.interaction?.persistentSelectionEnabled ||
@@ -459,10 +494,16 @@ export class DataApplication extends EventTarget {
     };
   }
 
+  /**
+   * Return the host's optional capability flags.
+   *
+   * @returns {object} Capability flags, or `{}` when the host declares none.
+   */
   getCapabilities() {
     return this.host.getCapabilities?.() || {};
   }
 
+  /** Whether this instance is running as Explorer's main data view, with workspace/source actions enabled. */
   _isExplorerMain() {
     const runtimeMain =
       String(this.config.runtimeMode || "").toLowerCase() === "main";
@@ -474,6 +515,13 @@ export class DataApplication extends EventTarget {
     );
   }
 
+  /**
+   * Perform a datasource-related action requested by the engine's source-actions UI
+   * (Explorer-main only): toggling workspace membership, or saving as a filter/source.
+   *
+   * @param {'workspace'|'save-filter'|'save-source'} action Action to perform.
+   * @returns {Promise<boolean|*>} For `workspace`, the new membership state; otherwise the host action's result, or `false` when unavailable.
+   */
   async requestDataSourceAction(action) {
     if (!this._isExplorerMain() || !this.dataSource) return false;
     if (action === "workspace") {
@@ -497,6 +545,7 @@ export class DataApplication extends EventTarget {
     return false;
   }
 
+  /** Clone the active datasource with its current field selection attached as `presentation.data.fields`. */
   _dataSourceWithPresentation() {
     const source = cloneValue(this.dataSource);
     if (!source) return null;
@@ -510,6 +559,7 @@ export class DataApplication extends EventTarget {
     return source;
   }
 
+  /** Refresh the engine's source-actions UI (enabled/workspace state) from current Explorer-main status. */
   async _syncDataSourceActions() {
     const enabled = this._isExplorerMain() && Boolean(this.dataSource);
     const inWorkspace = enabled
@@ -520,6 +570,16 @@ export class DataApplication extends EventTarget {
     await this.engine.setDataSourceActions?.({ enabled, inWorkspace });
   }
 
+  /**
+   * Create a new persisted Dataset record through the host's record editor and activate it.
+   *
+   * When Dataset access is restricted to an allow-list, the new dataset is added to it
+   * and the configuration change is persisted and announced before activation.
+   *
+   * @returns {Promise<object|null>} The host's record-creation result, or `null` when the host has no editor
+   *   (a `heurist-data-create-dataset-requested` event is dispatched instead).
+   * @throws {Error} When the host can edit records but the Dataset record type is unavailable.
+   */
   async requestCreateDataset() {
     if (
       this.host.supportsEditing?.() &&
@@ -564,6 +624,15 @@ export class DataApplication extends EventTarget {
     return null;
   }
 
+  /**
+   * Ask the host to edit the field selection for the active dataset (or Filtered Result).
+   *
+   * For a Filtered Result (no dataset id), the returned field list is applied immediately
+   * and remembered as the current-results field selection.
+   *
+   * @returns {Promise<*>} The host's `editFieldset` result, or `null` when the host doesn't support it
+   *   (a `heurist-data-pick-fields-requested` event is dispatched instead).
+   */
   async requestPickFields() {
     if (typeof this.host.editFieldset === "function") {
       const result = await this.host.editFieldset({
@@ -595,6 +664,16 @@ export class DataApplication extends EventTarget {
     return null;
   }
 
+  /**
+   * Build a search request from a saved filter and activate it as the current Filtered Result.
+   *
+   * Delegates to the host's search engine when available; otherwise runs the search (or a
+   * count-only lookup) through the standalone providers.
+   *
+   * @param {object} filter Saved filter definition; see `createFilterSearchRequest`.
+   * @returns {Promise<object>} Updated application state.
+   * @throws {Error} When standalone search is requested but no search/count provider is configured.
+   */
   async activateFilter(filter) {
     const { createFilterSearchRequest } = await import(
       "../data/FilterSearchRequest.js"
@@ -639,10 +718,21 @@ export class DataApplication extends EventTarget {
     );
   }
 
+  /**
+   * Resize the rendering engine.
+   *
+   * @returns {*} Result of the engine's resize call.
+   */
   resize() {
     return this.engine.resize();
   }
 
+  /**
+   * Apply a new persisted configuration, replacing the rendering engine when it changed.
+   *
+   * @param {object} settings Raw persisted-configuration settings; normalized before applying.
+   * @returns {Promise<object>} The normalized, applied settings.
+   */
   async applyConfiguration(settings) {
     const normalized = normalizeDataConfigurationSettings(settings);
     const previousEngine = this.engineName;
@@ -664,6 +754,7 @@ export class DataApplication extends EventTarget {
     return normalized;
   }
 
+  /** Apply a normalized configuration to `this.config` (persisted settings, UI flags, engine options). */
   _setConfiguration(normalized) {
     this.config.persistedSettings = normalized;
     this.config.ui = normalized.options.ui;
@@ -678,6 +769,7 @@ export class DataApplication extends EventTarget {
     };
   }
 
+  /** Destroy the current engine and initialize the newly configured one, re-applying live state. */
   async _replaceEngine() {
     if (typeof this.engineFactory !== "function") {
       throw new Error("Data engine factory is unavailable");
@@ -701,10 +793,18 @@ export class DataApplication extends EventTarget {
     await this._syncDataSourceActions();
   }
 
+  /**
+   * Dispatch a public event carrying the given detail payload.
+   *
+   * @param {string} name Event type.
+   * @param {object} detail Event detail payload.
+   * @returns {void}
+   */
   dispatch(name, detail) {
     this.dispatchEvent(new CustomEvent(name, { detail }));
   }
 
+  /** (Re-)subscribe to the host's persistent collection, or clear it when unsupported/disabled. */
   async _configureCollection() {
     const enabled =
       this.config.engineOptions?.interaction?.persistentSelectionEnabled ===
@@ -725,6 +825,11 @@ export class DataApplication extends EventTarget {
       }) || null;
   }
 
+  /**
+   * Abort any in-flight load, tear down the engine, collection subscription, and host.
+   *
+   * @returns {Promise<void>} Resolves once teardown completes.
+   */
   async destroy() {
     this.requestGeneration += 1;
     this.abortController?.abort("Application destroyed");
@@ -735,6 +840,7 @@ export class DataApplication extends EventTarget {
   }
 }
 
+/** Normalize a value into a de-duplicated array of positive integer IDs. */
 function normalizeIds(values) {
   const seen = new Set();
   return (Array.isArray(values) ? values : values == null ? [] : [values])
@@ -744,6 +850,7 @@ function normalizeIds(values) {
     );
 }
 
+/** Build an ad-hoc query-type DataSource for a raw query and optional title. */
 function adHocDataSource(query, title = null) {
   return {
     reference: { type: "query", id: null },
@@ -753,6 +860,7 @@ function adHocDataSource(query, title = null) {
   };
 }
 
+/** Deep-clone a JSON-safe object value, passing scalars through unchanged. */
 function cloneValue(value) {
   if (value == null || typeof value !== "object") return value ?? null;
   return typeof structuredClone === "function"
@@ -760,16 +868,19 @@ function cloneValue(value) {
     : JSON.parse(JSON.stringify(value));
 }
 
+/** Trim a value to text, returning `''` for `null`/`undefined`. */
 function text(value) {
   return value == null ? "" : String(value).trim();
 }
 
+/** Build an `AbortError`-named Error, for cancellation paths that mimic `AbortController` semantics. */
 function abortError(message) {
   const error = new Error(message);
   error.name = "AbortError";
   return error;
 }
 
+/** Build the engine's initial page options from a persisted pagination offset. */
 function initialPageOptions(pagination) {
   const offset = Math.max(0, Number(pagination?.offset) || 0);
   return offset ? { offset } : {};

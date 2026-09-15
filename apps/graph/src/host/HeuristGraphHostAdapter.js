@@ -1,8 +1,10 @@
 /**
  * @file HeuristGraphHostAdapter.js
  * @brief Host bridge for embedded heurist-graph operation.
+ *
  * @project     Heurist academic knowledge management system
  * @package     heurist-graph
+ *
  * @link        https://HeuristNetwork.org
  * @copyright   (C) 2024 onwards Heurist Network
  * @author      Artem Osmakov   <osmakov@gmail.com>

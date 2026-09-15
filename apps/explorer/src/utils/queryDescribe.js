@@ -1,11 +1,6 @@
 /**
  * @file queryDescribe.js
  * @brief Task A-min: render a Heurist `q`-array query as a plain human sentence.
- * @project     Heurist academic knowledge management system
- * @package     heurist-explorer.utils
- * @link        https://HeuristNetwork.org
- * @license     https://www.gnu.org/licenses/gpl-3.0.txt GNU License 3.0
- * @author      Artem Osmakov <osmakov@gmail.com>
  *
  * Pure (DOM-free) client describer for the inline helper's post-parse display
  * (plan D6 / M4). Covers flat predicates + one linked sub-query level + sort;
@@ -14,6 +9,16 @@
  *
  * e.g. [{t:"10"},{"f:12":"=Smith"},{"sortby":"-modified"}]
  *      -> "Find Persons where Family name is Smith, sorted by Date modified"
+ *
+ * @project     Heurist academic knowledge management system
+ * @package     heurist-explorer
+ *
+ * @link        https://HeuristNetwork.org
+ * @copyright   (C) 2024 onwards Heurist Network
+ * @author      Artem Osmakov   <osmakov@gmail.com>
+ * @author      Ian Johnson <ian.johnson.heurist@gmail.com>
+ * @license     https://www.gnu.org/licenses/gpl-3.0.txt GNU License 3.0
+ * @since       8.0
  */
 
 import {
@@ -114,6 +119,17 @@ function describeGroup(arr, ctx, { top, scopeRty }) {
   return out.trim();
 }
 
+/**
+ * Describe one predicate: a linked sub-query, header keyword, field condition,
+ * grouping wrapper, or (as a fallback) its literal key/value text.
+ *
+ * @param {string} base Canonical predicate base keyword.
+ * @param {{raw:string, parts:string[]}} suffix Remaining predicate key parts after the base.
+ * @param {*} value Predicate value.
+ * @param {object} ctx Describe context (`dbdefs`, `vocab`, `lang`).
+ * @param {number|null} scopeRty Record type id the predicate is evaluated within.
+ * @returns {string}
+ */
 function describePredicate(base, suffix, value, ctx, scopeRty) {
   // linked / related sub-query
   if (isLinkPredicate(base) && Array.isArray(value)) {
@@ -152,6 +168,15 @@ function describePredicate(base, suffix, value, ctx, scopeRty) {
   return literalPredicate(base, suffix, value);
 }
 
+/**
+ * Describe an `{any|all|not:[…]}` grouping wrapper as a joined conditions phrase.
+ *
+ * @param {'any'|'all'|'not'} base Grouping keyword.
+ * @param {Array} value Inner predicate array.
+ * @param {object} ctx Describe context (`dbdefs`, `vocab`, `lang`).
+ * @param {number|null} scopeRty Record type id the group is evaluated within.
+ * @returns {string}
+ */
 function describeGroupWrapper(base, value, ctx, scopeRty) {
   const inner = value
     .map((p) => {
@@ -239,6 +264,15 @@ function operatorKeyForToken(kind, token, negate, ctx) {
   return list[0]?.i18nKey || 'op.is';
 }
 
+/**
+ * Render one raw predicate value as human text, resolving enum/term/record ids when possible.
+ *
+ * @param {string} kind Field kind; see `kindFor`.
+ * @param {string} value Raw value segment.
+ * @param {number|null} dtyId Field id, when known.
+ * @param {object} ctx Describe context (`dbdefs`, `vocab`, `lang`).
+ * @returns {string}
+ */
 function humanizeValue(kind, value, dtyId, ctx) {
   const v = String(value ?? '').trim();
   if (v === '') return '';
@@ -253,6 +287,13 @@ function humanizeValue(kind, value, dtyId, ctx) {
 
 // ---------------------------------------------------------------- name lookups ---
 
+/**
+ * Resolve a `t:` predicate's value to a rectype id: numeric id, or a name lookup via `dbdefs`.
+ *
+ * @param {*} value Raw `t:` predicate value.
+ * @param {object} ctx Describe context (`dbdefs`, `vocab`, `lang`).
+ * @returns {number|null}
+ */
 function resolveRectypeId(value, ctx) {
   const raw = String(value ?? '').split(',')[0].trim();
   if (!raw) return null;
@@ -265,6 +306,13 @@ function resolveRectypeId(value, ctx) {
   return null;
 }
 
+/**
+ * Find a linked sub-query's own `t:` predicate and resolve its rectype id.
+ *
+ * @param {Array} arr Sub-query predicate array.
+ * @param {object} ctx Describe context (`dbdefs`, `vocab`, `lang`).
+ * @returns {number|null}
+ */
 function subqueryRectype(arr, ctx) {
   for (const p of arr) {
     const e = firstPredicateEntry(p);
@@ -275,6 +323,14 @@ function subqueryRectype(arr, ctx) {
   return null;
 }
 
+/**
+ * Resolve a rectype's display name via `dbdefs`, falling back to a generic label.
+ *
+ * @param {number} id Rectype id.
+ * @param {object} ctx Describe context (`dbdefs`, `vocab`, `lang`).
+ * @param {{plural?: boolean}} [options] Pass `plural: true` for the plural form.
+ * @returns {string}
+ */
 function rectypeName(id, ctx, { plural = false } = {}) {
   if (ctx.dbdefs?.rectypeName) {
     const n = ctx.dbdefs.rectypeName(id, { plural });
@@ -283,6 +339,14 @@ function rectypeName(id, ctx, { plural = false } = {}) {
   return `record type ${id}`;
 }
 
+/**
+ * Resolve a field's display name via `dbdefs`, falling back to a generic label.
+ *
+ * @param {number} dtyId Field id.
+ * @param {number|null} scopeRty Record type the field is scoped to, when known.
+ * @param {object} ctx Describe context (`dbdefs`, `vocab`, `lang`).
+ * @returns {string}
+ */
 function fieldName(dtyId, scopeRty, ctx) {
   if (ctx.dbdefs) {
     const n = ctx.dbdefs.fieldName?.(scopeRty ?? '', dtyId)
@@ -292,6 +356,15 @@ function fieldName(dtyId, scopeRty, ctx) {
   return `field ${dtyId}`;
 }
 
+/**
+ * Resolve a field's operator/value "kind" (text/number/date/enum/…) for describing its condition.
+ *
+ * @param {number|null} dtyId Field id, or `null` for an any-field match.
+ * @param {number|null} scopeRty Record type the field is scoped to, when known.
+ * @param {object} ctx Describe context (`dbdefs`, `vocab`, `lang`).
+ * @param {string|null} enumField Enum sub-part (`term`/`code`/`conceptid`/`desc`), when present.
+ * @returns {string}
+ */
 function fieldKind(dtyId, scopeRty, ctx, enumField) {
   if (dtyId == null) return 'text';
   if (enumField && enumField !== 'internalid') return 'text'; // label/code sub-part is a string
@@ -301,6 +374,14 @@ function fieldKind(dtyId, scopeRty, ctx, enumField) {
   return kindFor(ctx.vocab, type);
 }
 
+/**
+ * Describe one `sortby` field token as human text, appending "(descending)" for a `-` prefix.
+ *
+ * @param {string} raw Raw sort token (e.g. `-modified`).
+ * @param {number|null} scopeRty Record type the sort field is scoped to, when known.
+ * @param {object} ctx Describe context (`dbdefs`, `vocab`, `lang`).
+ * @returns {string}
+ */
 function describeSort(raw, scopeRty, ctx) {
   if (!raw) return '';
   const desc = raw.startsWith('-');
@@ -315,21 +396,25 @@ function describeSort(raw, scopeRty, ctx) {
 
 // --------------------------------------------------------------------- helpers ---
 
+/** Look up a named phrase string from the vocabulary, falling back to its `phrase.<name>` key. */
 function phrase(ctx, name) {
   const key = ctx.vocab?.phrases?.[name] || `phrase.${name}`;
   return str(ctx.vocab, ctx.lang, key);
 }
 
+/** Substitute `{name}` placeholders in a template string from a values object. */
 function fill(template, values) {
   return String(template).replace(/\{(\w+)\}/g, (_, k) => (k in values ? values[k] : `{${k}}`));
 }
 
+/** Join described conditions with the localized "and" phrase. */
 function joinConditions(conditions, ctx) {
   if (conditions.length <= 1) return conditions.join('');
   // "A and B and C" — the vocab and/or strings already carry surrounding spaces
   return conditions.join(phrase(ctx, 'and'));
 }
 
+/** Return a predicate array's first entry's value, or the value itself when not an array. */
 function firstOf(value) {
   if (Array.isArray(value)) {
     for (const p of value) {
@@ -341,12 +426,14 @@ function firstOf(value) {
   return value;
 }
 
+/** Render a predicate's raw key/value verbatim, for predicates the describer cannot phrase. */
 function literalPredicate(base, suffix, value) {
   const key = suffix.raw ? `${base}:${suffix.raw}` : base;
   if (Array.isArray(value) || (value && typeof value === 'object')) return `${key} (…)`;
   return `${key} ${String(value ?? '')}`.trim();
 }
 
+/** Capitalize the first character of a sentence. */
 function capitalizeFirst(s) {
   return s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
 }

@@ -1,14 +1,23 @@
 /**
  * @file FieldValueFormatter.js
  * @brief Resolve Heurist detail values according to fieldset output options.
+ *
  * @project     Heurist academic knowledge management system
  * @package     heurist-data
+ *
  * @link        https://HeuristNetwork.org
  * @copyright   (C) 2024 onwards Heurist Network
  * @author      Artem Osmakov   <osmakov@gmail.com>
  * @author      Ian Johnson <ian.johnson.heurist@gmail.com>
  * @license     https://www.gnu.org/licenses/gpl-3.0.txt GNU License 3.0
  * @since       8.0
+ */
+/**
+ * Project one detail value to a display string per its fieldset output option (`ext`).
+ *
+ * @param {*} item Raw detail value (a term/file/geo/plain-value object, or a scalar).
+ * @param {string|null} [ext] Output option: `term`, `code`, `conceptid`, `id`, `url`, `thumb`, `wkt`, `geojson`, `pair`, `iso`, `human`, `raw`, or a bare object key.
+ * @returns {*} Projected value; `''` for `null`/`undefined` input.
  */
 export function projectFieldValue(item, ext = null) {
   if (item == null) return "";
@@ -72,6 +81,13 @@ export function projectFieldValue(item, ext = null) {
   );
 }
 
+/**
+ * Read and project every value of a field on a record.
+ *
+ * @param {object} record Heurist record (`rec_*` fields plus a `details` map).
+ * @param {{field: string, ext?: string}} field Field descriptor: `field` is `rec_*` or a detail-type code; `ext` selects the output projection.
+ * @returns {Array<*>} Projected values, one per raw value (single-valued fields yield a one-element array).
+ */
 export function fieldValues(record, field) {
   const raw = String(field.field).startsWith("rec_")
     ? record?.[field.field]
@@ -81,12 +97,27 @@ export function fieldValues(record, field) {
   );
 }
 
+/**
+ * Read and project a field's values, joined into one display string.
+ *
+ * @param {object} record Heurist record.
+ * @param {{field: string, ext?: string}} field Field descriptor; see `fieldValues`.
+ * @param {string} [separator=' | '] Separator joining multiple values.
+ * @returns {string} Joined display string.
+ */
 export function displayFieldValue(record, field, separator = " | ") {
   return fieldValues(record, field)
     .map((value) => String(value ?? ""))
     .join(separator);
 }
 
+/**
+ * Strip HTML down to a small allowlist of inline formatting tags (`u`, `i`, `b`, `strong`, `em`),
+ * removing `<script>`/`<style>` content and all other markup.
+ *
+ * @param {*} value Raw value that may contain HTML.
+ * @returns {string} Sanitized HTML.
+ */
 export function sanitizeTextHtml(value) {
   const allowed = new Set(["u", "i", "b", "strong", "em"]);
   return String(value ?? "")
@@ -98,12 +129,19 @@ export function sanitizeTextHtml(value) {
     });
 }
 
+/**
+ * Remove all HTML markup, returning plain text.
+ *
+ * @param {*} value Raw value that may contain HTML.
+ * @returns {string} Plain text.
+ */
 export function stripHtml(value) {
   return String(value ?? "")
     .replace(/<(script|style)\b[^>]*>[\s\S]*?<\/\1\s*>/gi, "")
     .replace(/<[^>]*>/g, "");
 }
 
+/** JSON-stringify an object value; pass scalars through, and `''` for `null`/`undefined`. */
 function serialize(value) {
   if (value == null) return "";
   if (typeof value !== "object") return value;
@@ -114,10 +152,12 @@ function serialize(value) {
   }
 }
 
+/** Return the first defined, non-null value among the arguments, or `''`. */
 function first(...values) {
   return values.find((value) => value !== null && value !== undefined) ?? "";
 }
 
+/** Render a geo value as a `"lat,lng"` pair, falling back to its raw WKT point or string. */
 function coordinatePair(value) {
   const lat = value?.lat ?? value?.latitude;
   const lng = value?.lng ?? value?.lon ?? value?.longitude;
@@ -127,6 +167,7 @@ function coordinatePair(value) {
   return match ? `${match[2]},${match[1]}` : wkt;
 }
 
+/** Format an ISO-like date string as a locale-medium date, falling back to the raw text. */
 function humanDate(value) {
   const text = String(value ?? "");
   const match = text.match(/^(\d{4})-(\d{2})-(\d{2})(.*)$/);

@@ -1,3 +1,17 @@
+/**
+ * @file ExplorerApplication.js
+ * @brief Explorer's top-level application controller: modules, layout, datasource, and synchronization.
+ *
+ * @project     Heurist academic knowledge management system
+ * @package     heurist-explorer
+ *
+ * @link        https://HeuristNetwork.org
+ * @copyright   (C) 2024 onwards Heurist Network
+ * @author      Artem Osmakov   <osmakov@gmail.com>
+ * @author      Ian Johnson <ian.johnson.heurist@gmail.com>
+ * @license     https://www.gnu.org/licenses/gpl-3.0.txt GNU License 3.0
+ * @since       8.0
+ */
 
 import { HFilter } from '../widgets/filter/HFilter.js';
 import { HeuristApiClient } from '#shared/api';
@@ -23,7 +37,13 @@ import { parseTextQuery } from '../utils/parseTextQuery.js';
 import { queryToArray } from '../utils/queryModel.js';
 import './ExplorerApplication.css';
 
+/** Explorer's top-level application controller: modules, layout, datasource, and synchronization. */
 export class ExplorerApplication {
+  /**
+   * @param {object} options Application configuration.
+   * @param {HTMLElement} options.container Root element Explorer renders into.
+   * @param {object} options.config Normalized Explorer configuration; see `explorerConfig.js`.
+   */
   constructor({ container, config }) {
     this.container = container;
     this.config = config;
@@ -59,6 +79,12 @@ export class ExplorerApplication {
     this.modulePreferences = {};
   }
 
+  /**
+   * Build the workspace DOM, load Explorer's supporting data (filters, record types, query
+   * sources), mount the control panel, apply the initial layout, and restore bootstrap state.
+   *
+   * @returns {Promise<ExplorerApplication>} This instance, once initialization completes.
+   */
   async initialize() {
     this.container.classList.add('h-explorer');
     const workspace = document.createElement('div');
@@ -129,6 +155,12 @@ export class ExplorerApplication {
     return this;
   }
 
+  /**
+   * Apply a new module layout: create newly-listed modules, and destroy modules no longer present.
+   *
+   * @param {Array<object>|{modules: Array<object>}} layout Layout definition; see `normalizeLayout`.
+   * @returns {Promise<ExplorerApplication>} This instance, for chaining.
+   */
   async applyLayout(layout) {
     const moduleDefs = normalizeLayout(layout);
     this.layoutDefinitions = moduleDefs.map((item) => ({ ...item }));
@@ -150,6 +182,14 @@ export class ExplorerApplication {
     return this;
   }
 
+  /**
+   * Create, mount, and register one presentation-module adapter from a layout definition.
+   *
+   * @private
+   * @param {object} definition Layout definition for one module.
+   * @returns {Promise<import('./ExplorerModule.js').ExplorerModule>} The mounted, registered module.
+   * @throws {Error} When `direct` mode is requested for a module type other than `data`.
+   */
   async _createModule(definition) {
     const slot = this.layout.createSlot(definition.id, definition.type);
     const mode = definition.mode || this.config.moduleModes?.[definition.type] || 'iframe';
@@ -195,6 +235,14 @@ export class ExplorerApplication {
     return module;
   }
 
+  /**
+   * Create a new heurist-data module instance for a datasource, adding it to the layout.
+   *
+   * @private
+   * @param {object} source Datasource the new data module should display.
+   * @param {object|null} [context] Module context; `role` defaults from `dataSourceRole(source)`.
+   * @returns {Promise<import('./ExplorerModule.js').ExplorerModule>} The created data module.
+   */
   async _createDataModule(source, context = null) {
     const role = context?.role || dataSourceRole(source);
     const id = this._nextDataModuleId(source, role);
@@ -209,6 +257,14 @@ export class ExplorerApplication {
     return this._createModule(definition);
   }
 
+  /**
+   * Derive a unique data-module id for a new datasource/role pairing.
+   *
+   * @private
+   * @param {object} source Datasource the module will display.
+   * @param {'current'|'saved'|'other'} role Data-module role; see `dataSourceRole`.
+   * @returns {string} A unique, unused module id.
+   */
   _nextDataModuleId(source, role) {
     if (role === 'current' && !this.modules.has('data')) return 'data';
     const reference = source?.reference;
@@ -226,6 +282,7 @@ export class ExplorerApplication {
    * contents of this one data view; they do not create additional data panes.
    *
    * @param {object} source DataSource emitted by HFilter or a presentation.
+   * @param {object} [syncOptions] Options forwarded to `SyncEngine#setDataSource`.
    * @returns {Promise<object|null>} Reusable data module.
    */
   async activateDataSource(source, syncOptions = {}) {
@@ -254,6 +311,13 @@ export class ExplorerApplication {
     return dataModule;
   }
 
+  /**
+   * Add or remove a persistent reference from Favorites.
+   *
+   * @param {object} reference Persistent reference (filter/recordtype/source).
+   * @param {string|null} [title] Explicit title override when adding.
+   * @returns {boolean} True when the reference is now favorited, false when it was just removed.
+   */
   toggleFavorite(reference, title = null) {
     const removed = this.favorites.has(reference);
     if (removed) this.favorites.remove(reference);
@@ -262,16 +326,35 @@ export class ExplorerApplication {
     return !removed;
   }
 
+  /**
+   * Activate a datasource from a history entry.
+   *
+   * @param {{dataSource?: object}} entry History entry; see `DataSourceHistory#list`.
+   * @returns {Promise<object|null>} Reusable data module, or `null` when the entry has no datasource.
+   */
   async activateHistoryEntry(entry) {
     const dataSource = entry?.dataSource;
     return dataSource ? this.activateDataSource(dataSource) : null;
   }
 
+  /**
+   * Resolve and activate a datasource from a workspace entry.
+   *
+   * @param {object} entry Workspace entry; see `ExplorerWorkspace#list`.
+   * @returns {Promise<object|null>} Reusable data module, or `null` when the entry can't be resolved.
+   */
   async activateWorkspaceEntry(entry) {
     const dataSource = await this.workspace.resolve(entry);
     return dataSource ? this.activateDataSource(dataSource) : null;
   }
 
+  /**
+   * Add a datasource (or the currently active one) to the workspace.
+   *
+   * @param {object|null} [source] Datasource to add; defaults to `this.sync.dataSource`.
+   * @param {object} [options] Options forwarded to `ExplorerWorkspace#add`.
+   * @returns {object|null} The stored workspace entry, or `null` when there was nothing to add.
+   */
   addDataSourceToWorkspace(source = null, options = {}) {
     const value = source || this.sync.dataSource;
     const entry = value ? this.workspace.add(value, options) : null;
@@ -282,6 +365,12 @@ export class ExplorerApplication {
     return entry;
   }
 
+  /**
+   * Remove a workspace entry.
+   *
+   * @param {object|string} sourceOrKey Datasource, entry, reference, or key string identifying the entry.
+   * @returns {boolean} True when an entry was found and removed.
+   */
   removeDataSourceFromWorkspace(sourceOrKey) {
     const removed = this.workspace.remove(sourceOrKey);
     if (removed) {
@@ -291,10 +380,22 @@ export class ExplorerApplication {
     return removed;
   }
 
+  /**
+   * Whether a datasource (or the currently active one) is in the workspace.
+   *
+   * @param {object|null} [source] Datasource to check; defaults to `this.sync.dataSource`.
+   * @returns {boolean} True when the source is present in the workspace.
+   */
   isDataSourceInWorkspace(source = null) {
     return this.workspace.has(source || this.sync.dataSource);
   }
 
+  /**
+   * Persist module-owned presentation state for a workspace entry.
+   *
+   * @param {object} source Datasource (carrying `.presentation`) identifying the entry to update.
+   * @returns {object|null} The updated entry, or `null` when not found.
+   */
   updateDataSourceInWorkspace(source) {
     const updated = this.workspace.update(source, source?.presentation);
     if (updated) {
@@ -304,11 +405,23 @@ export class ExplorerApplication {
     return updated;
   }
 
+  /**
+   * Resolve every workspace entry to an executable DataSource with a result count.
+   *
+   * @returns {Promise<Array<object>>} Resolved workspace datasources.
+   */
   async getWorkspaceDataSources() {
     const values = await Promise.all(this.workspace.list().map((entry) => this.workspace.resolve(entry)));
     return Promise.all(values.filter(Boolean).map((source) => this._withResultCount(source)));
   }
 
+  /**
+   * Fetch and attach a result count to a datasource's metadata, when not already present.
+   *
+   * @private
+   * @param {object} source Datasource to annotate.
+   * @returns {Promise<object>} The datasource, with `meta.count` set when the count request succeeded.
+   */
   async _withResultCount(source) {
     if (Number.isFinite(Number(source?.meta?.count))) return source;
     const request = source?.request || {};
@@ -329,23 +442,51 @@ export class ExplorerApplication {
     return source;
   }
 
+  /**
+   * Push the resolved workspace datasource list to the map module.
+   *
+   * @private
+   * @param {import('./ExplorerModule.js').ExplorerModule|null} [module] Target map module; defaults to the first mounted map module.
+   * @returns {Promise<boolean>} True when the map module accepted the update.
+   */
   async _syncWorkspaceMap(module = null) {
     const target = module || [...this.modules.values()].find((item) => item.type === 'map');
     if (!target || typeof target.setWorkspaceDataSources !== 'function') return false;
     return target.setWorkspaceDataSources(await this.getWorkspaceDataSources());
   }
 
+  /**
+   * Resolve and activate an arbitrary datasource-like value requested by a presentation module.
+   *
+   * @param {object} source Datasource-like value; see `_resolveRequestedDataSource`.
+   * @returns {Promise<object|null>} Reusable data module, or `null` when unresolved.
+   */
   async showDatasource(source) {
     const dataSource = await this._resolveRequestedDataSource(source);
     return dataSource ? this.activateDataSource(dataSource) : null;
   }
 
+  /**
+   * Open the Saved Filter editor seeded with a datasource's (or the active) request.
+   *
+   * @param {object|null} [source] Datasource to save; defaults to `this.sync.dataSource`.
+   * @returns {Promise<*>} Result of `editSavedFilter`.
+   * @throws {Error} When there is no datasource to save.
+   */
   async saveDatasourceAsFilter(source = null) {
     const dataSource = await this._resolveRequestedDataSource(source || this.sync.dataSource);
     if (!dataSource) throw new Error($HR('No data source to save'));
     return this.editSavedFilter(null, dataSource.request);
   }
 
+  /**
+   * Delegate to the host's source editor to save a datasource (or the active one) as an RT_QUERY_SOURCE record.
+   *
+   * @param {object|null} [source] Datasource to save; defaults to `this.sync.dataSource`.
+   * @param {object} [options] Options forwarded to the host's `saveDatasourceAsSource`.
+   * @returns {Promise<*>} Result of the host action.
+   * @throws {Error} When there is no datasource to save, or the host doesn't support source editing.
+   */
   async saveDatasourceAsSource(source = null, options = {}) {
     const dataSource = await this._resolveRequestedDataSource(source || this.sync.dataSource);
     if (!dataSource) throw new Error($HR('No data source to save'));
@@ -356,6 +497,14 @@ export class ExplorerApplication {
     return action(dataSource, options);
   }
 
+  /**
+   * Normalize an arbitrary datasource-like, workspace-entry-like, or reference-like value
+   * requested by a presentation module into an executable DataSource.
+   *
+   * @private
+   * @param {*} value Value to resolve.
+   * @returns {Promise<object|null>} Resolved DataSource, or `null` when `value` is empty or unresolvable.
+   */
   async _resolveRequestedDataSource(value) {
     if (!value) return null;
     if (value?.dataSource) return normalizeDataSource(value.dataSource);
@@ -381,38 +530,87 @@ export class ExplorerApplication {
     }
   }
 
+  /**
+   * Resolve and activate a favorite entry.
+   *
+   * @param {object} entry Favorite entry; see `DataSourceFavorites#list`.
+   * @returns {Promise<object|null>} Reusable data module, or `null` when unresolved.
+   */
   async activateFavorite(entry) {
     const dataSource = await this.favorites.resolve(entry);
     return dataSource ? this.activateDataSource(dataSource) : null;
   }
 
+  /**
+   * Resolve and activate a saved filter by id.
+   *
+   * @param {number|string} id Saved filter record id.
+   * @returns {Promise<object|null>} Reusable data module, or `null` when unresolved.
+   */
   async activateSavedFilter(id) {
     const dataSource = await this.savedFilters.resolveDataSource(id, { origin: 'filter' });
     return dataSource ? this.activateDataSource(dataSource) : null;
   }
 
+  /**
+   * List loaded record types.
+   *
+   * @param {object} [options] Options forwarded to `RecordTypeManager#list`.
+   * @returns {Array<object>} Record types, or `[]` when not yet loaded.
+   */
   getRecordTypes(options = {}) {
     return this.recordTypes?.list?.(options) || [];
   }
 
+  /**
+   * Build a DataSource that queries all records of a record type.
+   *
+   * @param {number|string} id Record type id.
+   * @param {object} [options] Options forwarded to `RecordTypeManager#resolveDataSource`.
+   * @returns {object|null} Resolved DataSource, or `null` when the record type is unknown.
+   */
   dataSourceFromRecordType(id, options = {}) {
     return this.recordTypes?.resolveDataSource?.(id, options) || null;
   }
 
+  /**
+   * Activate the "all records of this type" datasource for a record type.
+   *
+   * @param {number|string} id Record type id.
+   * @returns {Promise<object|null>} Reusable data module, or `null` when the record type is unknown.
+   */
   async activateRecordType(id) {
     const dataSource = this.dataSourceFromRecordType(id, { origin: 'recordtype' });
     return dataSource ? this.activateDataSource(dataSource) : null;
   }
 
+  /**
+   * List loaded RT_QUERY_SOURCE sources.
+   *
+   * @param {object} [options] Options forwarded to `QuerySourceManager#list`.
+   * @returns {Array<object>} Sources, or `[]` when not yet loaded.
+   */
   getQuerySources(options = {}) {
     return this.querySources?.list?.(options) || [];
   }
 
+  /**
+   * Resolve and activate a query source by id.
+   *
+   * @param {number|string} id Source record id.
+   * @returns {Promise<object|null>} Reusable data module, or `null` when unresolved.
+   */
   async activateQuerySource(id) {
     const dataSource = await this.querySources?.resolveDataSource?.(id, { origin: 'source' });
     return dataSource ? this.activateDataSource(dataSource) : null;
   }
 
+  /**
+   * Resolve a persistent reference (filter/recordtype/source) to its current executable DataSource.
+   *
+   * @param {{type?: string, id?: number, key?: string}} reference Persistent reference to resolve.
+   * @returns {Promise<object|null>} Resolved DataSource, or `null` when it cannot be resolved.
+   */
   async resolveDataSourceReference(reference) {
     if (reference?.type === 'filter') {
       return this.savedFilters.resolveDataSource(reference.id, { origin: 'favorite' });
@@ -434,6 +632,14 @@ export class ExplorerApplication {
     return resolved ? normalizeDataSource(resolved) : null;
   }
 
+  /**
+   * Delegate to the host's Saved Filter editor, refreshing local state when it saves.
+   *
+   * @param {number|string|null} svsID Existing saved-filter id, or `null` to create one.
+   * @param {*} [squery] Seed query/definition for the editor.
+   * @returns {Promise<object|null>} Editor result, or `null` when the host returned nothing.
+   * @throws {Error} When the host doesn't support editing saved filters.
+   */
   async editSavedFilter(svsID, squery = null) {
     const bridge = this.config.hostBridge;
     if (!bridge || typeof bridge.editSavedFilter !== 'function') {
@@ -448,6 +654,13 @@ export class ExplorerApplication {
     return result || null;
   }
 
+  /**
+   * Auto-favorite a newly-saved filter that was already favorited under a placeholder reference.
+   *
+   * @private
+   * @param {{id?: number, request?: {svs_Name?: string}}} result Saved-filter editor result.
+   * @returns {void}
+   */
   _savedFilterSaved(result) {
     const id = Number(result?.id);
     const title = result?.request?.svs_Name;
@@ -543,6 +756,13 @@ export class ExplorerApplication {
     return true;
   }
 
+  /**
+   * Build the placeholder panel shown for a not-yet-implemented tool.
+   *
+   * @private
+   * @param {string} type Tool id.
+   * @returns {HTMLElement} The placeholder panel element.
+   */
   _createToolPlaceholder(type) {
     const panel = document.createElement('div');
     panel.className = 'h-explorer-tool-workspace';
@@ -571,6 +791,12 @@ export class ExplorerApplication {
     return panel;
   }
 
+  /**
+   * Build the host action callbacks exposed to mounted presentation modules.
+   *
+   * @private
+   * @returns {object} Host actions bound to this application and its configured host bridge.
+   */
   _hostActions() {
     const bridge = this.config.hostBridge || {};
     return {
@@ -597,7 +823,9 @@ export class ExplorerApplication {
   /**
    * Loads (once) and caches the database-definition snapshot used by the
    * Filter Builder.
-   * @returns {Promise<HDbDefs>}
+   *
+   * @private
+   * @returns {Promise<HDbDefs>} The cached (or newly loaded) database-definition snapshot.
    */
   async _ensureDbDefs() {
     if (!this._dbDefsPromise) {
@@ -614,8 +842,10 @@ export class ExplorerApplication {
    * Describes a raw query-box string as a plain-language sentence for HFilter's
    * `h-fih-sentence` readout (plan §8 / D6). Accepts keyword syntax or pasted
    * JSON; returns '' when the text is empty or can't be parsed/described.
-   * @param {string} text
-   * @returns {Promise<string>}
+   *
+   * @private
+   * @param {string} text Raw query-box text.
+   * @returns {Promise<string>} Description sentence, or `''` when it can't be produced.
    */
   async _describeQueryText(text) {
     const trimmed = String(text ?? '').trim();
@@ -640,17 +870,24 @@ export class ExplorerApplication {
   }
 
   /**
-   * Opens the visual Filter Builder in a modal dialog, seeded with the current
-   * query. Replaces the legacy `hostBridge.openSearchBuilder()` round trip.
+   * Public entry point for the Filter Builder from the command rail.
    *
-   * @param {import('../widgets/filter/HFilter.js').HFilter} widget
-   * @param {string} query Current raw query string from the HFilter input.
+   * @param {string|null} [query] Seed query; defaults to the current HFilter query value.
+   * @returns {Promise<void>} Resolves once the builder dialog has been shown.
    */
-  /** Public entry point for the Filter Builder from the command rail. */
   openFilterBuilder(query = null) {
     return this._openFilterBuilder(this.filter, query ?? this.filter?.getQueryValue?.() ?? '');
   }
 
+  /**
+   * Opens the visual Filter Builder in a modal dialog, seeded with the current
+   * query. Replaces the legacy `hostBridge.openSearchBuilder()` round trip.
+   *
+   * @private
+   * @param {import('../widgets/filter/HFilter.js').HFilter} widget Query widget to apply the composed query back to.
+   * @param {string} query Current raw query string from the HFilter input.
+   * @returns {Promise<void>}
+   */
   async _openFilterBuilder(widget, query) {
     if (!widget) return;
     let dbdefs;
@@ -692,6 +929,12 @@ export class ExplorerApplication {
     });
   }
 
+  /**
+   * Activate a module's slot and briefly flash it, to draw the user's attention.
+   *
+   * @param {string} id Module id.
+   * @returns {boolean} True when the module has a slot and was focused.
+   */
   focusModule(id) {
     const slot = this.layout?.getSlot(id);
     if (!slot) return false;
@@ -703,13 +946,38 @@ export class ExplorerApplication {
     return true;
   }
 
+  /**
+   * Set the active Explorer datasource.
+   *
+   * @param {object} source Datasource to activate.
+   * @returns {Promise<object|null>} Reusable data module.
+   */
   async setDataSource(source) { return this.activateDataSource(source); }
+
+  /**
+   * Set the shared record selection.
+   *
+   * @param {Array<number>} ids Selected record IDs.
+   * @returns {Promise<Array<number>>} Updated selection.
+   */
   async setSelection(ids) { return this.sync.setSelection(ids); }
+
+  /**
+   * Resize the layout and every mounted module.
+   *
+   * @returns {Promise<boolean>} Always `true`.
+   */
   async resize() {
     this.layout?.resize();
     await Promise.all([...this.modules.values()].map((module) => module.resize()));
     return true;
   }
+
+  /**
+   * Return Explorer's current serialized state, including every mounted module's own state.
+   *
+   * @returns {Promise<object>} Current application state.
+   */
   async getState() {
     return {
       dataSource: this.sync.dataSource,
@@ -719,6 +987,12 @@ export class ExplorerApplication {
       modules: Object.fromEntries(await Promise.all([...this.modules].map(async ([id, module]) => [id, await module.getState()])))
     };
   }
+
+  /**
+   * Tear down every module and Explorer's own owned resources.
+   *
+   * @returns {Promise<void>}
+   */
   async destroy() {
     await Promise.all([...this.modules.values()].map((module) => module.destroy()));
     this.modules.clear();
@@ -735,6 +1009,7 @@ export class ExplorerApplication {
   }
 }
 
+/** Resolve a tool id to its display title. */
 function toolTitle(type) {
   return {
     report: 'Report',
@@ -744,17 +1019,21 @@ function toolTitle(type) {
   }[type] || 'Tool';
 }
 
+/** Load and mount heurist-data's direct (same-realm) bootstrap for `direct` module mode. */
 async function mountDirectData(options) {
   const { mountHeuristData } = await import('../../../data/src/direct.js');
   return mountHeuristData(options);
 }
 
+/** Explorer's built-in default layout: Data west, Map center. */
 function defaultLayout() {
   return [
     { id: 'data', type: 'data', region: 'west', context: { role: 'current' } },
     { id: 'map', type: 'map', region: 'center' }
   ];
 }
+
+/** Normalize a persisted or bootstrap layout value, guaranteeing Data and Map are present. */
 function normalizeLayout(value) {
   const list = Array.isArray(value) ? value : value?.modules;
   const normalized = (Array.isArray(list) ? list : defaultLayout())

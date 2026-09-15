@@ -1,8 +1,10 @@
 /**
  * @file DataConfigurationDialog.js
  * @brief Reusable persistence-neutral editor for heurist-data settings.
+ *
  * @project     Heurist academic knowledge management system
  * @package     heurist-data
+ *
  * @link        https://HeuristNetwork.org
  * @copyright   (C) 2024 onwards Heurist Network
  * @author      Artem Osmakov   <osmakov@gmail.com>
@@ -19,6 +21,21 @@ import { $HR, applyI18n, HMsg } from "#shared/ui";
 
 /** Edits and serializes heurist-data settings in a modal dialog. */
 export class DataConfigurationDialog {
+  /**
+   * @param {object} [options] Dialog configuration.
+   * @param {'preferences'|'website'|'publish'} [options.mode='preferences'] Editing mode; controls which sections/fields are offered.
+   * @param {object|null} [options.value] Initial persisted settings to edit.
+   * @param {Element|null} [options.parent] Element to append the dialog to; defaults to `document.body`.
+   * @param {string|null} [options.title] Dialog title; defaults to a mode-specific title.
+   * @param {Function|null} [options.onSave] Called with `(value, context)` on save; return `false` to keep the dialog open.
+   * @param {Function|null} [options.onCancel] Called with `(value, context)` on cancel.
+   * @param {object|null} [options.datasetListProvider] Provider used to populate the Datasets transfer list.
+   * @param {object|null} [options.filterListProvider] Provider used to populate the Filters transfer list.
+   * @param {object|null} [options.reportTemplateProvider] Provider used to populate card/view template pickers.
+   * @param {object|null} [options.widgetListProvider] Provider used to populate the website filter-by-widget picker.
+   * @param {object|null} [options.publishContext] Extra context available to publish-mode fields.
+   * @param {string|null} [options.runtimeMode] Host runtime mode; `'main'` fixes the interface layout.
+   */
   constructor({
     mode = "preferences",
     value = null,
@@ -53,10 +70,17 @@ export class DataConfigurationDialog {
     this.element = null;
   }
 
+  /** Whether the host runtime is Explorer's fixed-interface "main" mode. */
   get isMain() {
     return this.runtimeMode === "main";
   }
 
+  /**
+   * Replace the edited settings, re-normalizing and re-applying mode-specific restrictions.
+   *
+   * @param {object} value Raw settings to edit.
+   * @returns {DataConfigurationDialog} This instance, for chaining.
+   */
   setValue(value) {
     this.value = prepareMode(
       normalizeDataConfigurationSettings(value || {}),
@@ -65,15 +89,33 @@ export class DataConfigurationDialog {
     );
     return this;
   }
+
+  /**
+   * Read the current settings, from the live form when rendered.
+   *
+   * @returns {object} A cloned, normalized settings object.
+   */
   getValue() {
     if (this.form)
       this.value = normalizeDataConfigurationSettings(this.readForm());
     return clone(this.value);
   }
+
+  /**
+   * Read and serialize the current settings into the persisted envelope shape.
+   *
+   * @returns {object} Serialized settings envelope; see `serializeDataConfigurationSettings`.
+   */
   serialize() {
     return serializeDataConfigurationSettings(this.getValue());
   }
 
+  /**
+   * Build and show the dialog, populating it from the current settings.
+   *
+   * @returns {DataConfigurationDialog} This instance, for chaining.
+   * @throws {Error} When called outside a browser document.
+   */
   open() {
     if (typeof document === "undefined")
       throw new Error("DataConfigurationDialog requires a browser document");
@@ -122,6 +164,7 @@ export class DataConfigurationDialog {
     return this;
   }
 
+  /** Append every settings section applicable to the current mode/runtime. */
   buildSections() {
     this.content.append(
       this.section("Interface", (body) => this.buildInterface(body), true),
@@ -161,6 +204,7 @@ export class DataConfigurationDialog {
     );
   }
 
+  /** Build the "Interface" section: panel visibility, layout, and native-control toggles. */
   buildInterface(body) {
     // In "main" runtime the Filtered Result / Datasets / Filters visibility and
     // the panel layout are fixed, so their toggles are not offered.
@@ -230,6 +274,7 @@ export class DataConfigurationDialog {
     }
   }
 
+  /** Build the "Default settings" section: view mode, page size, font size, and templates. */
   buildDefaults(body) {
     // The rendering engine is derived from the view mode: "Table" selects the
     // DataTables engine, every other mode the record-list engine.
@@ -268,6 +313,7 @@ export class DataConfigurationDialog {
       .control.addEventListener("change", () => this.applyDependencies());
   }
 
+  /** Build the "Filtered Result" section: title, initial query, and (website mode) filter-by-widget binding. */
   buildCurrentResults(body) {
     this.text(body, "config.currentResults.title", "Title");
     this.text(body, "config.currentResults.initialQuery", "Initial query");
@@ -298,6 +344,7 @@ export class DataConfigurationDialog {
     }
   }
 
+  /** Build the "Datasets and Filters" section: allow-all toggles and transfer lists. */
   buildDatasetsAndFilters(body) {
     const datasetBox = el("div", "heurist-data-config-list-section");
     const datasetHeading = el("div", "heurist-data-config-list-heading");
@@ -344,6 +391,7 @@ export class DataConfigurationDialog {
       .control.addEventListener("change", () => this.applyDependencies());
   }
 
+  /** Build the "Interaction" section: edit, selection, collection, popup, and admin-info toggles. */
   buildInteraction(body) {
     body.append(
       this.check("options.interaction.editEnabled", "Enable edit"),
@@ -357,6 +405,7 @@ export class DataConfigurationDialog {
     );
   }
 
+  /** Build the "Publication" section (publish mode only): preserve-state and popup toggles. */
   buildPublication(body) {
     const preserve = plainCheck("Preserve current state", true);
     preserve.row.title = $HR(
@@ -369,6 +418,14 @@ export class DataConfigurationDialog {
     this.publishControls = { preserveCurrentState: preserve.control };
   }
 
+  /**
+   * Build a collapsible `<details>` section and run `builder` to fill its body.
+   *
+   * @param {string} title Section title resource key.
+   * @param {function(Element): void} builder Called with the section's body element.
+   * @param {boolean} [open=false] Whether the section starts expanded.
+   * @returns {HTMLDetailsElement} The built section element.
+   */
   section(title, builder, open = false) {
     const details = el("details", "heurist-data-config-section");
     details.open = open;
@@ -379,14 +436,42 @@ export class DataConfigurationDialog {
     details.append(summary, body);
     return details;
   }
+
+  /**
+   * Build and register a checkbox row for a settings path.
+   *
+   * @param {string} path Dotted settings path.
+   * @param {string} labelText Label resource key.
+   * @returns {HTMLElement} The row element.
+   */
   check(path, labelText) {
     const item = plainCheck(labelText);
     this.register(path, item.control, item.row);
     return item.row;
   }
+
+  /**
+   * Build and register a text-input row for a settings path.
+   *
+   * @param {Element} parent Element to append the row to.
+   * @param {string} path Dotted settings path.
+   * @param {string} labelText Label resource key.
+   * @returns {HTMLElement} The row element.
+   */
   text(parent, path, labelText) {
     return this.inputRow(parent, path, labelText, "text");
   }
+
+  /**
+   * Build and register a bounded number-input row for a settings path.
+   *
+   * @param {Element} parent Element to append the row to.
+   * @param {string} path Dotted settings path.
+   * @param {string} labelText Label resource key.
+   * @param {number} min Minimum allowed value.
+   * @param {number} max Maximum allowed value.
+   * @returns {HTMLElement} The row element.
+   */
   number(parent, path, labelText, min, max) {
     const row = this.inputRow(parent, path, labelText, "number");
     const control = this.fields.get(path).control;
@@ -394,6 +479,16 @@ export class DataConfigurationDialog {
     control.max = max;
     return row;
   }
+
+  /**
+   * Build and register a multi-line textarea row for a settings path.
+   *
+   * @param {Element} parent Element to append the row to.
+   * @param {string} path Dotted settings path.
+   * @param {string} labelText Label resource key.
+   * @param {number} rows Textarea row count.
+   * @returns {HTMLElement} The row element.
+   */
   textarea(parent, path, labelText, rows) {
     const row = el("label", "heurist-data-config-row");
     const caption = el("span", "h-i18n");
@@ -405,6 +500,16 @@ export class DataConfigurationDialog {
     this.register(path, control, row);
     return row;
   }
+
+  /**
+   * Build and register a labeled `<input>` row for a settings path.
+   *
+   * @param {Element} parent Element to append the row to.
+   * @param {string} path Dotted settings path.
+   * @param {string} labelText Label resource key.
+   * @param {string} type Input `type` attribute.
+   * @returns {HTMLElement} The row element.
+   */
   inputRow(parent, path, labelText, type) {
     const row = el("label", "heurist-data-config-row");
     const caption = el("span", "h-i18n");
@@ -416,6 +521,16 @@ export class DataConfigurationDialog {
     this.register(path, control, row);
     return row;
   }
+
+  /**
+   * Build and register a labeled `<select>` row for a settings path.
+   *
+   * @param {Element} parent Element to append the row to.
+   * @param {string} path Dotted settings path.
+   * @param {string} labelText Label resource key.
+   * @param {Array<[*, string]>} options Option `[value, label]` pairs.
+   * @returns {HTMLElement} The row element.
+   */
   select(parent, path, labelText, options) {
     const row = el("label", "heurist-data-config-row");
     const caption = el("span", "h-i18n");
@@ -426,14 +541,34 @@ export class DataConfigurationDialog {
     this.register(path, control, row);
     return row;
   }
+
+  /** Build a visual break element between field groups. */
   separator() {
     return el("span", "heurist-data-config-break");
   }
+
+  /**
+   * Register a control against a settings path so `populate`/`readForm` can read and write it.
+   *
+   * @param {string} path Dotted settings path.
+   * @param {HTMLElement} control Form control representing the path's value.
+   * @param {HTMLElement} row Row element containing the control, hidden/shown by `applyDependencies`.
+   * @param {object} [extras] Extra field metadata (e.g. `availableControl`/`selectedControl` for transfer lists).
+   * @returns {HTMLElement} The registered control.
+   */
   register(path, control, row, extras = {}) {
     this.fields.set(path, { control, row, ...extras });
     return control;
   }
 
+  /**
+   * Build and register a dual-list transfer control (available <-> selected) for a settings path.
+   *
+   * @param {string} path Dotted settings path; holds the array of selected values.
+   * @param {string} availableLabel Label for the "available" list.
+   * @param {string} selectedLabel Label for the "selected" list.
+   * @returns {{row: HTMLElement, available: HTMLSelectElement, selected: HTMLSelectElement}} The built control.
+   */
   transfer(path, availableLabel, selectedLabel) {
     const row = el("div", "heurist-data-config-transfer");
     const available = el("select", "h-select");
@@ -471,6 +606,7 @@ export class DataConfigurationDialog {
     return { row, available, selected };
   }
 
+  /** Write `this.value` into every registered form control. */
   populate() {
     for (const [path, field] of this.fields) {
       const value = getPath(this.value, path);
@@ -488,6 +624,11 @@ export class DataConfigurationDialog {
     }
   }
 
+  /**
+   * Read every registered form control into a settings object.
+   *
+   * @returns {object} Settings object built from `this.value` overlaid with current form values.
+   */
   readForm() {
     const result = clone(this.value);
     for (const [path, field] of this.fields) {
@@ -505,6 +646,11 @@ export class DataConfigurationDialog {
     return result;
   }
 
+  /**
+   * Load dataset, filter, template, and (website mode) widget options from their providers in parallel.
+   *
+   * @returns {Promise<void>} Resolves once every provider load has settled.
+   */
   async loadProviderOptions() {
     await Promise.allSettled([
       this.loadRecordOptions(
@@ -521,6 +667,15 @@ export class DataConfigurationDialog {
     ]);
   }
 
+  /**
+   * Load a provider's record list and populate a transfer control's available/selected options
+   * (and an optional default-value select).
+   *
+   * @param {object|null} provider List provider; a no-op when `null`.
+   * @param {string} transferPath Dotted settings path of the transfer control to populate.
+   * @param {string|null} [defaultPath] Dotted settings path of a related default-value select to populate.
+   * @returns {Promise<void>} Resolves once the options are applied.
+   */
   async loadRecordOptions(provider, transferPath, defaultPath = null) {
     if (!provider) return;
     const payload = await callList(provider);
@@ -551,6 +706,11 @@ export class DataConfigurationDialog {
     }
   }
 
+  /**
+   * Load report-template options and populate the card/row and extended-view template pickers.
+   *
+   * @returns {Promise<void>} Resolves once the options are applied.
+   */
   async loadTemplateOptions() {
     if (!this.reportTemplateProvider) return;
     const items = normalizeItems(await callList(this.reportTemplateProvider));
@@ -569,6 +729,11 @@ export class DataConfigurationDialog {
       control.value = current || "";
     });
   }
+  /**
+   * Load website-widget options (website mode only) and populate the filter-by-widget picker.
+   *
+   * @returns {Promise<void>} Resolves once the options are applied.
+   */
   async loadWidgetOptions() {
     if (this.mode !== "website" || !this.widgetListProvider) return;
     const mode = this.fields.get(
@@ -592,6 +757,12 @@ export class DataConfigurationDialog {
     target.value = current || "";
   }
 
+  /**
+   * Re-apply cross-field UI dependencies: disabled/hidden state that follows other fields'
+   * current values (e.g. hiding the allowed-list when "allow all" is checked).
+   *
+   * @returns {void}
+   */
   applyDependencies() {
     const optionsControl = this.fields.get("options.ui.showOptions")?.control;
     if (optionsControl) optionsControl.disabled = this.mode !== "website";
@@ -633,15 +804,32 @@ export class DataConfigurationDialog {
       }
     }
   }
+  /**
+   * Read publish-only options not part of the persisted settings (e.g. preserve-current-state).
+   *
+   * @returns {{preserveCurrentState: boolean}} Publish options.
+   */
   getPublishOptions() {
     return {
       preserveCurrentState:
         this.publishControls?.preserveCurrentState.checked !== false,
     };
   }
+
+  /**
+   * Serialize the current form state for change detection against `initialState`.
+   *
+   * @returns {string} JSON signature of the current form values.
+   */
   signature() {
     return JSON.stringify(this.readForm());
   }
+
+  /**
+   * Validate and save the current settings via `onSave`, closing the dialog on success.
+   *
+   * @returns {Promise<object|false>} The saved settings, or `false` when saving failed or was rejected by `onSave`.
+   */
   async save() {
     try {
       const value = this.getValue();
@@ -659,6 +847,12 @@ export class DataConfigurationDialog {
       return false;
     }
   }
+  /**
+   * Close the dialog without saving, prompting to discard unsaved changes first unless `force`d.
+   *
+   * @param {boolean} [force=false] Skip the discard-changes confirmation and close immediately.
+   * @returns {boolean} `true` when the dialog was closed immediately.
+   */
   cancel(force = false) {
     if (
       !force &&
@@ -690,9 +884,21 @@ export class DataConfigurationDialog {
     this.onCancel?.(value, { mode: this.mode });
     return true;
   }
+  /**
+   * Show an error message dialog above this dialog.
+   *
+   * @param {string} message Error message text.
+   * @returns {void}
+   */
   showError(message) {
     HMsg.showMsgErr(message);
   }
+
+  /**
+   * Close and remove the dialog, restoring focus to the previously focused element.
+   *
+   * @returns {void}
+   */
   close() {
     if (this.dialog?.open) this.dialog.close();
     this.element?.remove();
@@ -703,6 +909,7 @@ export class DataConfigurationDialog {
   }
 }
 
+/** Apply mode restrictions, then fix the interface for Explorer's "main" runtime. */
 function prepareMode(value, mode, runtimeMode = "") {
   const result = prepareForMode(value, mode);
   if (runtimeMode === "main") {
@@ -716,6 +923,7 @@ function prepareMode(value, mode, runtimeMode = "") {
   return result;
 }
 
+/** Clone settings and force the fields each mode (publish/preferences/website) restricts. */
 function prepareForMode(value, mode) {
   if (mode === "publish") {
     const copy = clone(value);
@@ -740,14 +948,19 @@ function prepareForMode(value, mode) {
   copy.options.ui.showPublish = false;
   return copy;
 }
+/** Default dialog title for a mode. */
 function defaultTitle(mode) {
   return mode === "publish" ? "Publication configuration" : "Settings";
 }
+
+/** Create an element, optionally with a class name. */
 function el(tag, className = "") {
   const node = document.createElement(tag);
   if (className) node.className = className;
   return node;
 }
+
+/** Create a small button with a click handler and localized title. */
 function button(label, handler, title = label) {
   const node = el("button", "h-btn h-btn-small");
   if (/[A-Za-z]/.test(label)) node.classList.add("h-i18n");
@@ -757,12 +970,16 @@ function button(label, handler, title = label) {
   node.addEventListener("click", handler);
   return node;
 }
+
+/** Create the dialog's primary submit button. */
 function submitButton(label) {
   const node = el("button", "h-btn h-btn-small h-btn-primary h-i18n");
   node.type = "submit";
   node.textContent = label;
   return node;
 }
+
+/** Create an unregistered checkbox row (label + input) for callers that manage registration themselves. */
 function plainCheck(labelText, checked = false) {
   const row = el("label", "heurist-data-config-check");
   const control = el("input", "h-checkbox");
@@ -773,11 +990,15 @@ function plainCheck(labelText, checked = false) {
   row.append(control, caption);
   return { row, control };
 }
+
+/** Create a `<select>` populated with `items`. */
 function select(items) {
   const node = el("select", "h-select");
   fillSelect(node, items);
   return node;
 }
+
+/** Replace a `<select>`'s options from an array of `[value, label]` pairs or `{value, label, i18n}` objects. */
 function fillSelect(node, items) {
   node.replaceChildren(
     ...items.map((item) => {
@@ -791,21 +1012,30 @@ function fillSelect(node, items) {
     }),
   );
 }
+/** Move a `<select>`'s selected options into another `<select>`. */
 function moveSelected(source, target) {
   [...source.selectedOptions].forEach((option) => target.append(option));
 }
+
+/** Deep-clone a JSON-safe value. */
 function clone(value) {
   return JSON.parse(JSON.stringify(value));
 }
+
+/** Read a dotted-path value from an object. */
 function getPath(value, path) {
   return path.split(".").reduce((item, key) => item?.[key], value);
 }
+
+/** Write a dotted-path value into an object, creating intermediate objects as needed. */
 function setPath(value, path, next) {
   const keys = path.split(".");
   const last = keys.pop();
   const target = keys.reduce((item, key) => (item[key] ||= {}), value);
   target[last] = next;
 }
+
+/** Call a list provider given as a function, `.list()`, or `.search()`. */
 async function callList(provider, options) {
   if (typeof provider === "function") return provider(options);
   if (typeof provider.list === "function") return provider.list(options);
@@ -813,6 +1043,8 @@ async function callList(provider, options) {
     return provider.search(null, options);
   return [];
 }
+
+/** Normalize a list-provider payload into `{value, label}` option entries. */
 function normalizeItems(payload) {
   const source = Array.isArray(payload) ? payload : payload?.items || [];
   return source

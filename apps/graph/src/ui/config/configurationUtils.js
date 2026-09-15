@@ -1,8 +1,10 @@
 /**
  * @file configurationUtils.js
  * @brief heurist-graph's format/mode constants; generic helpers live in #shared/ui.
+ *
  * @project     Heurist academic knowledge management system
  * @package     heurist-graph
+ *
  * @link        https://HeuristNetwork.org
  * @copyright   (C) 2024 onwards Heurist Network
  * @author      Artem Osmakov   <osmakov@gmail.com>

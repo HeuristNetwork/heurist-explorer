@@ -1,8 +1,10 @@
 /**
  * @file GraphDocument.js
  * @brief Renderer-neutral normalized graph document.
+ *
  * @project     Heurist academic knowledge management system
  * @package     heurist-graph
+ *
  * @link        https://HeuristNetwork.org
  * @copyright   (C) 2024 onwards Heurist Network
  * @author      Artem Osmakov   <osmakov@gmail.com>
@@ -11,7 +13,9 @@
  * @since       8.0
  */
 
+/** Renderer-neutral normalized graph document: records, edges, links, and paths. */
 export class GraphDocument {
+  /** @param {{graph?: object, records?: Array, nodes?: Array, edges?: Array, links?: object, paths?: object, limits?: object}} [value] Raw graph payload, or an object wrapping it in a `graph` property. */
   constructor(value = {}) {
     const graph = value.graph || value;
     this.records = normalizeRecords(graph.records || graph.nodes);
@@ -24,6 +28,12 @@ export class GraphDocument {
         : null;
   }
 
+  /**
+   * Merge another graph payload into this document, records/edges taking precedence by ID.
+   *
+   * @param {object} value Graph payload to merge in; normalized the same way as the constructor.
+   * @returns {GraphDocument} A new, merged document.
+   */
   merge(value) {
     const next = new GraphDocument(value);
     const records = new Map(this.records.map((record) => [record.id, record]));
@@ -41,17 +51,20 @@ export class GraphDocument {
     });
   }
 
+  /** Record IDs in this document, in their configured order. */
   get recordIds() {
     return this.records.map((record) => record.id);
   }
 }
 
+/** Return a shallow copy of a plain object value, or `{}` when it isn't one. */
 function normalizeMap(value) {
   return value && typeof value === "object" && !Array.isArray(value)
     ? { ...value }
     : {};
 }
 
+/** Normalize raw record entries into `{id, recordTypeId, title, isTop, raw}`, dropping invalid IDs. */
 function normalizeRecords(records) {
   if (!Array.isArray(records)) return [];
   return records
@@ -66,6 +79,7 @@ function normalizeRecords(records) {
     .filter((record) => Number.isInteger(record.id) && record.id > 0);
 }
 
+/** Normalize raw edge entries into `{id, from, to, fieldId, relationshipId, link, path, raw}`, dropping invalid endpoints. */
 function normalizeEdges(edges) {
   if (!Array.isArray(edges)) return [];
   return edges
@@ -96,6 +110,7 @@ function normalizeEdges(edges) {
     .filter((edge) => edge.from > 0 && edge.to > 0);
 }
 
+/** Normalize an empty or nullish value to `null`, otherwise stringify it. */
 function textOrNull(value) {
   return value == null || value === "" ? null : String(value);
 }

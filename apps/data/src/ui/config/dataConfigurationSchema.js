@@ -1,8 +1,10 @@
 /**
  * @file dataConfigurationSchema.js
  * @brief Allowlist, normalization, and serialization for settings.
+ *
  * @project     Heurist academic knowledge management system
  * @package     heurist-data
+ *
  * @link        https://HeuristNetwork.org
  * @copyright   (C) 2024 onwards Heurist Network
  * @author      Artem Osmakov   <osmakov@gmail.com>
@@ -24,6 +26,12 @@ import {
   unwrapSettings,
 } from "./configurationUtils.js";
 
+/**
+ * Normalize a raw persisted-settings value against the canonical defaults.
+ *
+ * @param {object} [value] Raw settings value (or an envelope wrapping one).
+ * @returns {{options: object, config: object}} Fully normalized settings.
+ */
 export function normalizeDataConfigurationSettings(value = {}) {
   const defaults = createDataConfigurationDefaults();
   const source = unwrapSettings(value);
@@ -32,17 +40,38 @@ export function normalizeDataConfigurationSettings(value = {}) {
     config: normalizeConfig(source.config || {}, defaults.config),
   };
 }
+
+/**
+ * Produce the versioned, JSON-safe settings envelope for persistence.
+ *
+ * @param {object} [value] Raw settings value to normalize and wrap.
+ * @returns {object} Serializable settings envelope; see `serializeConfigurationSettings`.
+ */
 export function serializeDataConfigurationSettings(value = {}) {
   return serializeConfigurationSettings(
     value,
     normalizeDataConfigurationSettings,
   );
 }
+
+/**
+ * Normalize a configuration-dialog mode to one of `CONFIGURATION_MODES`.
+ *
+ * @param {string} value Raw mode value.
+ * @returns {string} Normalized mode; defaults to `'preferences'`.
+ */
 export function normalizeDataConfigurationMode(value) {
   const mode = String(value || "preferences").toLowerCase();
   return CONFIGURATION_MODES.includes(mode) ? mode : "preferences";
 }
 
+/**
+ * Normalize the `options` half of the settings envelope (UI/controls/datasets/filters/interaction).
+ *
+ * @param {object} source Raw options value.
+ * @param {object} defaults Default options to fall back to.
+ * @returns {object} Normalized options.
+ */
 function normalizeOptions(source, defaults) {
   const ui = source.ui || {};
   const controls = source.nativeControls || {};
@@ -123,6 +152,13 @@ function normalizeOptions(source, defaults) {
   };
 }
 
+/**
+ * Normalize the `config` half of the settings envelope (defaults/currentResults), migrating legacy fields.
+ *
+ * @param {object} source Raw config value.
+ * @param {object} defaults Default config to fall back to.
+ * @returns {object} Normalized config.
+ */
 function normalizeConfig(source, defaults) {
   const configured = source.defaults || {};
   const legacyTemplate = nullableString(configured.popupTemplate);

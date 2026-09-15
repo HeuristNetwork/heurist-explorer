@@ -1,8 +1,10 @@
 /**
  * @file FilterProvider.js
  * @brief Loads saved filters exposed as OpenAPI system entities.
+ *
  * @project     Heurist academic knowledge management system
  * @package     heurist-data
+ *
  * @link        https://HeuristNetwork.org
  * @copyright   (C) 2024 onwards Heurist Network
  * @author      Artem Osmakov   <osmakov@gmail.com>
@@ -12,6 +14,11 @@
  */
 /** Provides normalized saved-filter definitions. */
 export class FilterProvider {
+  /**
+   * @param {object} options Provider dependencies.
+   * @param {object} options.apiClient Heurist API client.
+   * @param {Array<string>} [options.fields] Default detail fields requested for each filter.
+   */
   constructor({ apiClient, fields = [] }) {
     this.apiClient = apiClient;
     this.fields = fields;
@@ -47,6 +54,7 @@ export class FilterProvider {
   }
 }
 
+/** Normalize a raw filter payload into `{id, title, query, filterType, raw}`, or `null` when invalid. */
 function normalizeFilter(value) {
   const id = Number(
     value?.id ?? value?.filter_ID ?? value?.svs_ID ?? value?.rec_ID,
@@ -64,12 +72,14 @@ function normalizeFilter(value) {
   };
 }
 
+/** Read the first value of a system-entity detail field. */
 function detailValue(details, field) {
   const values = details?.[field];
   if (!Array.isArray(values) || !values.length) return null;
   return values[0]?.value ?? null;
 }
 
+/** Normalize a field list (array or comma-separated string) into a de-duplicated array. */
 function normalizeFields(value) {
   const fields = Array.isArray(value) ? value : String(value || "").split(",");
   return [
@@ -77,6 +87,7 @@ function normalizeFields(value) {
   ];
 }
 
+/** Normalize a value into a de-duplicated array of positive integer IDs. */
 function normalizeIds(value) {
   const values = Array.isArray(value) ? value : value == null ? [] : [value];
   const ids = values.map(Number);

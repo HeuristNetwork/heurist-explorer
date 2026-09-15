@@ -1,6 +1,26 @@
+/**
+ * @file explorerConfig.js
+ * @brief Reads and normalizes the Explorer application's bootstrap configuration.
+ *
+ * @project     Heurist academic knowledge management system
+ * @package     heurist-explorer
+ *
+ * @link        https://HeuristNetwork.org
+ * @copyright   (C) 2024 onwards Heurist Network
+ * @author      Artem Osmakov   <osmakov@gmail.com>
+ * @author      Ian Johnson <ian.johnson.heurist@gmail.com>
+ * @license     https://www.gnu.org/licenses/gpl-3.0.txt GNU License 3.0
+ * @since       8.0
+ */
+
 import { getFrameHostBridge, getGlobalBootstrap } from '#shared/host';
 import { resolveModuleBootstrap } from '#shared/config';
 
+/**
+ * Build the normalized Explorer configuration from the host bridge or standalone bootstrap.
+ *
+ * @returns {object} Normalized Explorer configuration, including module modes/URLs and host bridge.
+ */
 export function getHeuristExplorerConfig() {
   const bridge = getFrameHostBridge('heuristExplorerHost');
   const bootstrap = resolveModuleBootstrap({
@@ -41,15 +61,18 @@ export function getHeuristExplorerConfig() {
   };
 }
 
+/** Normalize a module mode to `'direct'` or `'iframe'` (the default). */
 function normalizeMode(value, fallback = 'iframe') {
   return String(value || fallback).toLowerCase() === 'direct' ? 'direct' : 'iframe';
 }
 
+/** Ensure a URL-like string ends in exactly one trailing slash, or return `''`. */
 function ensureSlash(value) {
   const text = String(value || '').trim();
   return text ? text.replace(/\/?$/, '/') : '';
 }
 
+/** Normalize a language value to a supported three-letter code, defaulting to English. */
 function normalizeLanguage(value) {
   const text = String(value || 'eng').toLowerCase().slice(0, 3);
   return /^[a-z]{3}$/.test(text) ? text : 'eng';

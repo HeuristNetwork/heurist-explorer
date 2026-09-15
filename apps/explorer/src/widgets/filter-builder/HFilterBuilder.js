@@ -1,11 +1,6 @@
 /**
  * @file HFilterBuilder.js
  * @brief Visual Heurist query builder (M3 scope: flat predicates + one linked level + sort).
- * @project     Heurist academic knowledge management system
- * @package     heurist-explorer.widgets.filter
- * @link        https://HeuristNetwork.org
- * @license     https://www.gnu.org/licenses/gpl-3.0.txt GNU License 3.0
- * @author      Artem Osmakov <osmakov@gmail.com>
  *
  * Framework-free re-implementation of legacy `hclient/widgets/search/searchBuilder.js`,
  * matching its workflow and layout (record type · language · field rows with
@@ -15,6 +10,16 @@
  * `onChange(jsonQuery, textQuery)` - `textQuery` stays null until M4 (describe()).
  *
  * The `$NAME$` wildcard affordance (plan section 11.5) is stubbed here for M9.
+ *
+ * @project     Heurist academic knowledge management system
+ * @package     heurist-explorer
+ *
+ * @link        https://HeuristNetwork.org
+ * @copyright   (C) 2024 onwards Heurist Network
+ * @author      Artem Osmakov   <osmakov@gmail.com>
+ * @author      Ian Johnson <ian.johnson.heurist@gmail.com>
+ * @license     https://www.gnu.org/licenses/gpl-3.0.txt GNU License 3.0
+ * @since       8.0
  */
 
 import { HBaseWidget } from '#shared/widgets/HBaseWidget.js';
@@ -27,6 +32,7 @@ import { HFieldTree } from './HFieldTree.js';
 import { str } from '../../utils/vocabHelpers.js';
 import './HFilterBuilder.css';
 
+/** Visual Heurist query builder: record type, field/link rows, sort, and a live JSON preview. */
 export class HFilterBuilder extends HBaseWidget {
   /**
    * @param {{dbdefs:object, vocabulary:object, lang?:string, onChange?:Function}} deps
@@ -46,11 +52,24 @@ export class HFilterBuilder extends HBaseWidget {
     this._sorts = [];   // HFilterBuilderSort
   }
 
+  /**
+   * Attach the widget to its container.
+   *
+   * @param {HTMLElement} container Container element.
+   * @param {object} [options] Widget options.
+   * @returns {HFilterBuilder} This instance, for chaining.
+   */
   attach(container, options = {}) {
     super.attach(container, options);
     return this;
   }
 
+  /**
+   * Render the header (record type/language), criteria rows, sort section, and preview.
+   *
+   * @returns {HFilterBuilder} This instance, for chaining.
+   * @throws {Error} When the widget has not been attached yet.
+   */
   render() {
     if (!this.container) throw new Error('HFilterBuilder must be attached before render');
     this.container.className = 'h-fb';
@@ -169,6 +188,12 @@ export class HFilterBuilder extends HBaseWidget {
 
   // --------------------------------------------------------------- internal ---
 
+  /**
+   * Rebuild the record-type select's options, grouped by rectype group.
+   *
+   * @private
+   * @returns {void}
+   */
   _populateRectypes() {
     this._rtySel.replaceChildren();
     for (const [val, label] of [['', $HR('any record type')]]) {
@@ -195,6 +220,12 @@ export class HFilterBuilder extends HBaseWidget {
     }
   }
 
+  /**
+   * Rebuild every row, link panel, and sort widget from `this.model`.
+   *
+   * @private
+   * @returns {void}
+   */
   _syncFromModel() {
     this._rtySel.value = this.model.rtyId === '' || this.model.rtyId == null ? '' : String(this.model.rtyId);
     this._conjSel.value = this.model.conjunction === 'any' ? 'any' : 'all';
@@ -219,6 +250,12 @@ export class HFilterBuilder extends HBaseWidget {
     this._recompose();
   }
 
+  /**
+   * Propagate the current scope record type to every row/sort widget and refresh conjunction labels.
+   *
+   * @private
+   * @returns {void}
+   */
   _onScopeChanged() {
     const rtyId = this.model.rtyId;
     for (const entry of this._entries) {
@@ -250,6 +287,13 @@ export class HFilterBuilder extends HBaseWidget {
     });
   }
 
+  /**
+   * Build a criteria row's host structure: outer row, conjunction slot, and item host.
+   *
+   * @private
+   * @param {string} [extraClass=''] Extra class name appended to the row element.
+   * @returns {{host: HTMLElement, conj: HTMLElement, itemHost: HTMLElement}}
+   */
   _makeEntryHost(extraClass = '') {
     const host = el('div', 'h-fb-row' + (extraClass ? ' ' + extraClass : ''));
     const conj = el('span', 'h-fb-rowconj');
@@ -258,6 +302,13 @@ export class HFilterBuilder extends HBaseWidget {
     return { host, conj, itemHost };
   }
 
+  /**
+   * Add a new flat field criterion row.
+   *
+   * @private
+   * @param {import('../../utils/queryModel.js').FieldRow|null} [rowModel] Initial row model; blank when omitted.
+   * @returns {object} The created entry record (`{kind: 'field', item, el, conj}`).
+   */
   _addFieldEntry(rowModel = null) {
     const { host, conj, itemHost } = this._makeEntryHost();
     const item = new HFilterBuilderItem({
@@ -280,6 +331,13 @@ export class HFilterBuilder extends HBaseWidget {
     return entry;
   }
 
+  /**
+   * Add a new "linked to/from" sub-query row.
+   *
+   * @private
+   * @param {import('../../utils/queryModel.js').LinkRow|null} [rowModel] Initial row model; blank when omitted.
+   * @returns {object} The created entry record (`{kind: 'link', panel, el, conj}`).
+   */
   _addLinkEntry(rowModel = null) {
     const { host, conj, itemHost } = this._makeEntryHost('h-fb-linkrow');
     const panel = new LinkPanel({
@@ -298,6 +356,13 @@ export class HFilterBuilder extends HBaseWidget {
     return entry;
   }
 
+  /**
+   * Remove a criteria row entry's DOM and bookkeeping.
+   *
+   * @private
+   * @param {object} entry Entry record returned by `_addFieldEntry`/`_addLinkEntry`.
+   * @returns {void}
+   */
   _removeEntry(entry) {
     const i = this._entries.indexOf(entry);
     if (i >= 0) this._entries.splice(i, 1);
@@ -305,6 +370,13 @@ export class HFilterBuilder extends HBaseWidget {
     this._onScopeChanged();
   }
 
+  /**
+   * Add a new "sort by" row.
+   *
+   * @private
+   * @param {{field?: number|string, dir?: string}|null} [entryModel] Initial sort entry; blank when omitted.
+   * @returns {void}
+   */
   _addSort(entryModel = null) {
     const host = el('div', 'h-fb-sort-row');
     const sort = new HFilterBuilderSort({
@@ -369,6 +441,12 @@ export class HFilterBuilder extends HBaseWidget {
     });
   }
 
+  /**
+   * Read the live model from the current row/sort widgets (or the stored model, before render).
+   *
+   * @private
+   * @returns {object} Current builder model (`BuilderModel` shape).
+   */
   _readModel() {
     // before render() the DOM entry lists are empty - the parsed model is authoritative
     if (!this.isRendered) return this.model;
@@ -379,6 +457,12 @@ export class HFilterBuilder extends HBaseWidget {
     return { ...this.model, rows, sort };
   }
 
+  /**
+   * Recompose the model into a `q`-array, refresh the preview/sentence/unsupported note, and notify `onChange`.
+   *
+   * @private
+   * @returns {void}
+   */
   _recompose() {
     this.model = this._readModel();
     const q = composeQuery(this.model, this.vocab);
@@ -396,6 +480,11 @@ export class HFilterBuilder extends HBaseWidget {
     this._onChange(q, sentence || null);
   }
 
+  /**
+   * Destroy the field-tree popover and every row/sort widget.
+   *
+   * @returns {Promise<void>}
+   */
   async destroy() {
     this.tree?.destroy();
     for (const entry of this._entries) { entry.item?.destroy?.(); entry.panel?.destroy?.(); }
@@ -409,6 +498,9 @@ export class HFilterBuilder extends HBaseWidget {
 /* ------------------------------------------------------------------ LinkPanel --- */
 /** One "linked to / linked from" sub-query block (single level). */
 class LinkPanel {
+  /**
+   * @param {{builder: HFilterBuilder, onChange?: Function}} options Panel configuration.
+   */
   constructor({ builder, onChange }) {
     this.builder = builder;
     this.dbdefs = builder.dbdefs;
@@ -419,8 +511,19 @@ class LinkPanel {
     this.container = null;
   }
 
+  /**
+   * Attach the panel to its container.
+   *
+   * @param {HTMLElement} container Container element.
+   * @returns {LinkPanel} This instance, for chaining.
+   */
   attach(container) { this.container = container; return this; }
 
+  /**
+   * Render the link-type/target/pointer selects and the sub-criteria list.
+   *
+   * @returns {LinkPanel} This instance, for chaining.
+   */
   render() {
     this.container.replaceChildren();
     this.container.classList.add('h-fb-linkpanel');
@@ -487,6 +590,12 @@ class LinkPanel {
     return this;
   }
 
+  /**
+   * Rebuild the target-rectype select's options from the scope rectype's link graph.
+   *
+   * @private
+   * @returns {void}
+   */
   _populateTargets() {
     const scope = Number(this.builder.model.rtyId) > 0 ? Number(this.builder.model.rtyId) : null;
     this._targetSel.replaceChildren();
@@ -503,6 +612,12 @@ class LinkPanel {
     this._targetSel.value = this.row.targetRty === '' ? '' : String(this.row.targetRty);
   }
 
+  /**
+   * Rebuild the pointer-field select's options for the current scope/target rectype pair.
+   *
+   * @private
+   * @returns {void}
+   */
   _populatePointers() {
     const scope = Number(this.builder.model.rtyId) > 0 ? Number(this.builder.model.rtyId) : null;
     const target = Number(this.row.targetRty) > 0 ? Number(this.row.targetRty) : null;
@@ -522,6 +637,13 @@ class LinkPanel {
     this._pointerSel.value = this.row.dty === '' ? '' : String(this.row.dty);
   }
 
+  /**
+   * Add a new sub-criteria field row inside this link panel.
+   *
+   * @private
+   * @param {import('../../utils/queryModel.js').FieldRow|null} [rowModel] Initial row model; blank when omitted.
+   * @returns {HFilterBuilderItem} The created item widget.
+   */
   _addItem(rowModel = null) {
     const host = el('div', 'h-fb-subrow');
     const item = new HFilterBuilderItem({
@@ -546,6 +668,11 @@ class LinkPanel {
     return item;
   }
 
+  /**
+   * Read the panel's current `LinkRow` model.
+   *
+   * @returns {import('../../utils/queryModel.js').LinkRow}
+   */
   getRowModel() {
     return {
       type: 'link',
@@ -557,6 +684,12 @@ class LinkPanel {
     };
   }
 
+  /**
+   * Replace the panel's link row model, rebuilding its selects and sub-criteria.
+   *
+   * @param {import('../../utils/queryModel.js').LinkRow} row New link row model.
+   * @returns {LinkPanel} This instance, for chaining.
+   */
   setRowModel(row) {
     this.row = {
       type: 'link',
@@ -581,8 +714,19 @@ class LinkPanel {
     return this;
   }
 
+  /**
+   * Notify the owning builder of the panel's current row model.
+   *
+   * @private
+   * @returns {void}
+   */
   _emit() { this._onChange({ row: this.getRowModel() }); }
 
+  /**
+   * Destroy every sub-criteria item and clear the panel's DOM.
+   *
+   * @returns {void}
+   */
   destroy() {
     for (const it of this.items) it.destroy?.();
     this.items = [];
@@ -591,11 +735,15 @@ class LinkPanel {
 }
 
 /* --------------------------------------------------------------------- utils --- */
+
+/** Create an element, optionally with a class name. */
 function el(tag, className) {
   const node = document.createElement(tag);
   if (className) node.className = className;
   return node;
 }
+
+/** Build a labeled button with an optional click handler. */
 function btn(text, className, onClick) {
   const b = document.createElement('button');
   b.type = 'button';
@@ -604,6 +752,8 @@ function btn(text, className, onClick) {
   if (onClick) b.addEventListener('click', onClick);
   return b;
 }
+
+/** Wrap a control in a `<label>` with a leading text span. */
 function labelled(text, control) {
   const wrap = el('label', 'h-fb-labelled');
   const span = document.createElement('span');
@@ -611,6 +761,8 @@ function labelled(text, control) {
   wrap.append(span, control);
   return wrap;
 }
+
+/** Coerce a rectype select value to a number, or `''` when empty/absent. */
 function coerceRty(value) {
   return value === '' || value == null ? '' : Number(value);
 }

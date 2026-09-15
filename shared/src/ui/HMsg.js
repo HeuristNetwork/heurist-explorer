@@ -1,15 +1,32 @@
 /**
  * @file HMsg.js
  * @brief Framework-independent message and modal dialog utilities using native <dialog>.
- * @package heurist-client-core
+ *
+ * @project     Heurist academic knowledge management system
+ * @package     heurist-client-core
+ *
+ * @link        https://HeuristNetwork.org
+ * @copyright   (C) 2024 onwards Heurist Network
+ * @author      Artem Osmakov   <osmakov@gmail.com>
+ * @author      Ian Johnson <ian.johnson.heurist@gmail.com>
+ * @license     https://www.gnu.org/licenses/gpl-3.0.txt GNU License 3.0
+ * @since       8.0
  */
+
 import { $HR } from './i18n/index.js';
 
+/** Static message/dialog utilities backed by a shared native `<dialog>` element per dialog id. */
 export class HMsg {
   static coverall = null;
   static coverallKeep = false;
   static _flashTimers = new Map();
 
+  /**
+   * Return the `<dialog>` element for the given id, creating it if it doesn't exist yet.
+   *
+   * @param {string} [dialogId='dialog-common-messages'] Element id, with or without a leading `#`.
+   * @returns {HTMLDialogElement} The dialog element, attached to `document.body`.
+   */
   static getMsgDlg(dialogId = 'dialog-common-messages') {
     const id = String(dialogId || 'dialog-common-messages').replace(/^#/, '');
     let dlg = document.getElementById(id);
@@ -40,6 +57,23 @@ export class HMsg {
     return dlg;
   }
 
+  /**
+   * Show a modal message dialog with optional title, buttons, and palette.
+   *
+   * @param {string|HTMLElement} message Message text (resource key) or element to display.
+   * @param {object} [options] Dialog options.
+   * @param {string} [options.dialogId] Target dialog element id.
+   * @param {string} [options.title] Title resource key.
+   * @param {boolean} [options.hideHeader] Hide the header bar.
+   * @param {boolean} [options.hideFooter] Hide the footer/buttons bar.
+   * @param {boolean} [options.preventClose] Disallow closing via backdrop click, Escape, or the close button.
+   * @param {Function|Array|object} [options.buttons] Yes/No handler, button config list, or label→handler map.
+   * @param {*} [options.context] `this` binding and argument passed to button handlers.
+   * @param {string} [options.bgBodyClass] Palette class(es) applied to the body.
+   * @param {string} [options.bgTitleClass] Palette class(es) applied to the header.
+   * @param {{of?: Element, at?: string, my?: string}} [options.position] Anchor-relative positioning.
+   * @returns {HTMLDialogElement} The shown dialog element.
+   */
   static showMsgDlg(message, options = {}) {
     const dlg = HMsg.getMsgDlg(options.dialogId);
     if (dlg.open) dlg.close();
@@ -85,11 +119,26 @@ export class HMsg {
     return dlg;
   }
 
+  /**
+   * Close the message dialog with the given id, if open.
+   *
+   * @param {string} dialogId Dialog element id.
+   * @returns {void}
+   */
   static closeMsgDlg(dialogId) {
     const dlg = HMsg.getMsgDlg(dialogId);
     if (dlg.open) dlg.close();
   }
 
+  /**
+   * Render a dialog's footer buttons from a Yes/No handler, a config list, or a label→handler map.
+   *
+   * @param {Element|null} container Footer element to render into.
+   * @param {Function|Array<object>|object|null} buttons Button source; see {@link HMsg.showMsgDlg}.
+   * @param {*} context `this` binding and argument passed to button handlers.
+   * @param {HTMLDialogElement|null} [dlg] Owning dialog, used to close it for the default "No" handler.
+   * @returns {void}
+   */
   static renderButtons(container, buttons, context, dlg = null) {
     if (!container || !buttons) return;
     let list;
@@ -128,6 +177,13 @@ export class HMsg {
     container.appendChild(wrapper);
   }
 
+  /**
+   * Map a legacy or shorthand button class to its `h-btn` equivalent.
+   *
+   * @private
+   * @param {string} [value] Legacy or shorthand class name.
+   * @returns {string} Normalized `h-btn` class list.
+   */
   static _normalizeButtonClass(value) {
     const text = String(value || '').trim();
     if (!text) return 'h-btn h-btn-primary';
@@ -138,6 +194,13 @@ export class HMsg {
     return text.startsWith('h-') || text.includes(' h-') ? text : `h-btn ${text}`;
   }
 
+  /**
+   * Show a message dialog that auto-closes after a delay, with no header or footer by default.
+   *
+   * @param {string|HTMLElement} message Message text or element to display.
+   * @param {object} [options] Dialog options; see {@link HMsg.showMsgDlg}. `showDelay` sets the auto-close delay in ms (default 2000).
+   * @returns {HTMLDialogElement} The shown dialog element.
+   */
   static showMsgFlash(message, options = {}) {
     const opts = {
       ...options,
@@ -155,6 +218,13 @@ export class HMsg {
     return dlg;
   }
 
+  /**
+   * Show a modal error dialog with an OK button and the danger palette.
+   *
+   * @param {string} message Error message text; falls back to a generic message when empty.
+   * @param {object} [options] Dialog options; see {@link HMsg.showMsgDlg}.
+   * @returns {HTMLDialogElement} The shown dialog element.
+   */
   static showMsgErr(message, options = {}) {
     const text = String(message ?? '').trim();
     const opts = { ...options, title: options.title ?? 'Error_Title' };
@@ -166,10 +236,25 @@ export class HMsg {
     return dlg;
   }
 
+  /**
+   * Open a URL in a new browser window/tab.
+   *
+   * @param {string} contentURL URL to open.
+   * @param {{windowName?: string}} [options] `windowName` sets the target window name (default `_blank`).
+   * @returns {Window|null} The opened window, or `null` if blocked.
+   */
   static showMsgDlgUrl(contentURL, options = {}) {
     return window.open(contentURL, options.windowName ?? '_blank');
   }
 
+  /**
+   * Show (or update) a full-coverage loading overlay above the given element.
+   *
+   * @param {Element|null} [ele] Element to append the overlay to; defaults to `document.body`.
+   * @param {object} [styles] Inline styles applied to the overlay element.
+   * @param {string} [message] Loading message; defaults to a localized "Loading Content...".
+   * @returns {void}
+   */
   static bringCoverallToFront(ele, styles, message) {
     if (!HMsg.coverall) {
       HMsg.coverall = document.createElement('div');
@@ -184,11 +269,23 @@ export class HMsg {
     HMsg.coverall.style.display = 'block';
   }
 
+  /**
+   * Hide the loading overlay shown by {@link HMsg.bringCoverallToFront}, unless held open.
+   *
+   * @param {boolean} [forceClose=false] Hide the overlay even if `coverallKeep` is set.
+   * @returns {void}
+   */
   static sendCoverallToBack(forceClose = false) {
     if (forceClose) HMsg.coverallKeep = false;
     if (!HMsg.coverallKeep && HMsg.coverall) HMsg.coverall.style.display = 'none';
   }
 
+  /**
+   * Close a flash dialog immediately and clear its pending auto-close timer.
+   *
+   * @param {string} [dialogId='dialog-common-messages'] Dialog element id, with or without a leading `#`.
+   * @returns {void}
+   */
   static closeMsgFlash(dialogId = 'dialog-common-messages') {
     const id = String(dialogId).replace(/^#/, '');
     clearTimeout(HMsg._flashTimers.get(id));
@@ -197,6 +294,13 @@ export class HMsg {
     if (dlg?.open) dlg.close();
   }
 
+  /**
+   * Position a dialog relative to an anchor element, jQuery-UI `.position()` style.
+   *
+   * @param {HTMLDialogElement} dlg Dialog to position; must already be shown.
+   * @param {{of?: Element, at?: string, my?: string}} position Anchor element plus `at`/`my` alignment keywords (e.g. `'center center'`).
+   * @returns {void}
+   */
   static positionModal(dlg, position) {
     const anchor = position?.of;
     if (!(anchor instanceof Element)) return;
@@ -217,6 +321,13 @@ export class HMsg {
     });
   }
 
+  /**
+   * Replace an element's previously-applied palette classes with a new set.
+   *
+   * @param {Element|null} ele Element to restyle.
+   * @param {string} classNames Space-separated palette class(es); clears the palette when empty.
+   * @returns {void}
+   */
   static definePalette(ele, classNames) {
     if (!ele) return;
     const previous = ele.dataset.palette;

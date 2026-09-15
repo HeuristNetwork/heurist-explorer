@@ -1,8 +1,10 @@
 /**
  * @file LoaderRegistry.js
  * @brief Registers and dispatches data loaders.
+ *
  * @project     Heurist academic knowledge management system
  * @package     heurist-data
+ *
  * @link        https://HeuristNetwork.org
  * @copyright   (C) 2024 onwards Heurist Network
  * @author      Artem Osmakov   <osmakov@gmail.com>
@@ -12,6 +14,7 @@
  */
 /** Registers loaders and dispatches requests by source type. */
 export class LoaderRegistry {
+  /** Create an empty registry with no loaders registered. */
   constructor() {
     this.loaders = new Map();
   }

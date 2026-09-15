@@ -1,8 +1,10 @@
 /**
  * @file HeuristDataConfigurationApi.js
  * @brief Public API for configuration-editor-only operation.
+ *
  * @project     Heurist academic knowledge management system
  * @package     heurist-data
+ *
  * @link        https://HeuristNetwork.org
  * @copyright   (C) 2024 onwards Heurist Network
  * @author      Artem Osmakov   <osmakov@gmail.com>
@@ -19,6 +21,11 @@ import {
 
 /** Exposes configuration editing without starting the data application. */
 export class HeuristDataConfigurationApi {
+  /**
+   * @param {object} [options] API configuration.
+   * @param {object} [options.providers] Supporting providers (datasetList, filterList, reportTemplates, widgetList).
+   * @param {object|null} [options.hostBridge] Optional host bridge for persistence delegation.
+   */
   constructor({ providers = {}, hostBridge = null } = {}) {
     this.providers = providers;
     this.hostBridge = hostBridge;
@@ -56,6 +63,7 @@ export class HeuristDataConfigurationApi {
   getConfigurationDefaults() {
     return createDataConfigurationDefaults();
   }
+  /** Close the configuration dialog, if open. */
   destroy() {
     this.configurationDialog?.close?.();
     this.configurationDialog = null;

@@ -1,15 +1,20 @@
 /**
  * @file HFilterBuilderSort.js
  * @brief One "sort by" row in the Filter Builder (field + direction).
- * @project     Heurist academic knowledge management system
- * @package     heurist-explorer.widgets.filter
- * @link        https://HeuristNetwork.org
- * @license     https://www.gnu.org/licenses/gpl-3.0.txt GNU License 3.0
- * @author      Artem Osmakov <osmakov@gmail.com>
  *
  * Framework-free minimal replacement for `hclient/widgets/search/searchBuilderSort.js`.
  * Emits `{field, dir}` where `field` is a header keyword (`title`, `modified`,
  * `added`) or a numeric `dty` id from the scope record type.
+ *
+ * @project     Heurist academic knowledge management system
+ * @package     heurist-explorer
+ *
+ * @link        https://HeuristNetwork.org
+ * @copyright   (C) 2024 onwards Heurist Network
+ * @author      Artem Osmakov   <osmakov@gmail.com>
+ * @author      Ian Johnson <ian.johnson.heurist@gmail.com>
+ * @license     https://www.gnu.org/licenses/gpl-3.0.txt GNU License 3.0
+ * @since       8.0
  */
 
 import { HBaseWidget } from '#shared/widgets/HBaseWidget.js';
@@ -23,6 +28,7 @@ const HEADER_SORTS = [
   ['id', 'Record ID']
 ];
 
+/** One "sort by" row (field + direction) in the Filter Builder. */
 export class HFilterBuilderSort extends HBaseWidget {
   /**
    * @param {{dbdefs:object, lang?:string, onChange?:Function, scopeRtyId?:(number|string)}} deps
@@ -36,6 +42,12 @@ export class HFilterBuilderSort extends HBaseWidget {
     this.entry = { field: '', dir: 'asc' };
   }
 
+  /**
+   * Render the field/direction selects and remove button.
+   *
+   * @returns {HFilterBuilderSort} This instance, for chaining.
+   * @throws {Error} When the widget has not been attached yet.
+   */
   render() {
     if (!this.container) throw new Error('HFilterBuilderSort must be attached before render');
     this.container.className = 'h-fbsort';
@@ -76,10 +88,21 @@ export class HFilterBuilderSort extends HBaseWidget {
     return this;
   }
 
+  /**
+   * Read the current `{field, dir}` sort entry.
+   *
+   * @returns {{field: number|string, dir: 'asc'|'desc'}}
+   */
   getEntry() {
     return { field: this.entry.field, dir: this.entry.dir };
   }
 
+  /**
+   * Replace the current sort entry.
+   *
+   * @param {{field?: number|string, dir?: string}} [entry] New sort entry.
+   * @returns {HFilterBuilderSort} This instance, for chaining.
+   */
   setEntry(entry = {}) {
     this.entry = { field: entry.field ?? '', dir: entry.dir === 'desc' ? 'desc' : 'asc' };
     if (this.isRendered) {
@@ -89,11 +112,23 @@ export class HFilterBuilderSort extends HBaseWidget {
     return this;
   }
 
+  /**
+   * Change the scope record type and refresh the field select's options.
+   *
+   * @param {number|string} rtyId Scope record type id.
+   * @returns {void}
+   */
   setScope(rtyId) {
     this.scopeRtyId = rtyId;
     if (this.isRendered) this._populateFields();
   }
 
+  /**
+   * Rebuild the field select's options (header sorts + scope record type's fields).
+   *
+   * @private
+   * @returns {void}
+   */
   _populateFields() {
     const keep = this._fieldSel.value;
     this._fieldSel.replaceChildren();
@@ -117,12 +152,18 @@ export class HFilterBuilderSort extends HBaseWidget {
     this._fieldSel.value = keep || String(this.entry.field ?? '');
   }
 
+  /**
+   * Clear the row's DOM.
+   *
+   * @returns {Promise<void>}
+   */
   async destroy() {
     this.container?.replaceChildren();
     await super.destroy();
   }
 }
 
+/** Coerce a numeric-looking select value to a number; otherwise leave it as a string. */
 function coerce(value) {
   return /^\d+$/.test(value) ? Number(value) : value;
 }

@@ -1,7 +1,37 @@
+/**
+ * @file TimelineControlPanel.js
+ * @brief Floating control panel exposing zoom, navigation, and options commands for the timeline.
+ *
+ * @project     Heurist academic knowledge management system
+ * @package     heurist-timeline
+ *
+ * @link        https://HeuristNetwork.org
+ * @copyright   (C) 2024 onwards Heurist Network
+ * @author      Artem Osmakov   <osmakov@gmail.com>
+ * @author      Ian Johnson <ian.johnson.heurist@gmail.com>
+ * @license     https://www.gnu.org/licenses/gpl-3.0.txt GNU License 3.0
+ * @since       8.0
+ */
+
 import { TimelineConfigurationDialog } from './TimelineConfigurationDialog.js';
 import { showTimelineMessage } from './timelineMessages.js';
+
+/** Floating icon toolbar for timeline zoom, navigation, and options commands. */
 export class TimelineControlPanel {
-  constructor({ api, container, options }) { this.api = api; this.container = container; this.options = options; }
+  /**
+   * @param {{api: object, container: HTMLElement, options: object}} options Public API, host container, and panel options.
+   */
+  constructor({ api, container, options }) {
+    this.api = api;
+    this.container = container;
+    this.options = options;
+  }
+
+  /**
+   * Build the panel and insert it before the timeline container.
+   *
+   * @returns {TimelineControlPanel} This instance, for chaining.
+   */
   mount() {
     this.element = document.createElement("div");
     this.element.className = "h-timeline-toolbar h-widget h-toolbar";
@@ -14,9 +44,19 @@ export class TimelineControlPanel {
       <button type="button" class="heurist-icon-button" data-action="end" title="Move to end"><i class="fa-solid fa-forward-step"></i></button>
       <button type="button" class="heurist-icon-button" data-action="options" title="Timeline options"><i class="fa-solid fa-gear"></i></button>`;
     this.container.parentElement.insertBefore(this.element, this.container);
-    this.element.addEventListener("click", e => { Promise.resolve().then(() => this._action(e)).catch(error => showTimelineMessage(error, { error: true })); });
+    this.element.addEventListener("click", (e) => {
+      Promise.resolve().then(() => this._action(e)).catch((error) => showTimelineMessage(error, { error: true }));
+    });
     return this;
   }
+
+  /**
+   * Dispatch a click on one of the panel's buttons to the matching API call.
+   *
+   * @private
+   * @param {MouseEvent} event Click event from the panel.
+   * @returns {*} Result of the dispatched API call, if any.
+   */
   _action(event) {
     const action = event.target.closest("button")?.dataset.action;
     if (!action) return;
@@ -28,9 +68,25 @@ export class TimelineControlPanel {
     else if (action === "end") return this.api.moveToEnd();
     else if (action === "options") return this._openOptions();
   }
+
+  /**
+   * Open the timeline configuration dialog, creating it on first use.
+   *
+   * @private
+   * @returns {void}
+   */
   _openOptions() {
     this.configurationDialog ||= new TimelineConfigurationDialog({ api: this.api });
     this.configurationDialog.open();
   }
-  destroy() { this.configurationDialog?.close(); this.element?.remove(); }
+
+  /**
+   * Remove the panel (and any open configuration dialog) from the document.
+   *
+   * @returns {void}
+   */
+  destroy() {
+    this.configurationDialog?.close();
+    this.element?.remove();
+  }
 }

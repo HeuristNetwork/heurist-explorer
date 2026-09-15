@@ -1,8 +1,10 @@
 /**
  * @file initHeuristData.js
  * @brief Initializes the Heurist Data application.
+ *
  * @project     Heurist academic knowledge management system
  * @package     heurist-data
+ *
  * @link        https://HeuristNetwork.org
  * @copyright   (C) 2024 onwards Heurist Network
  * @author      Artem Osmakov   <osmakov@gmail.com>
@@ -27,6 +29,14 @@ import { DatasetListProvider } from "./data/DatasetListProvider.js";
 import { DataControlPanel } from "./ui/DataControlPanel.js";
 import { RecordContentProvider } from "./data/RecordContentProvider.js";
 
+/**
+ * Create providers, engine, host adapter, and application, mount the control panel,
+ * and expose the result as `window.heuristData`.
+ *
+ * @param {object} config Normalized Data configuration; see `dataConfig.js`.
+ * @returns {Promise<import('./host/HeuristDataPublicApi.js').HeuristDataPublicApi>} Resolves once the application and control panel are ready.
+ * @throws {Error} When `config.containerId` does not match an element in the document.
+ */
 export async function initHeuristData(config) {
   const container = document.getElementById(config.containerId);
   if (!container)
@@ -111,6 +121,7 @@ export async function initHeuristData(config) {
   return readyWithPanel;
 }
 
+/** Resolve the legacy Heurist base URL (for report/publication asset links) from the host or API base URL. */
 function resolveHeuristBaseUrl(config) {
   const hostBase = String(config.host?.baseUrl || "").trim();
   if (hostBase) return hostBase.endsWith("/") ? hostBase : `${hostBase}/`;

@@ -2,17 +2,22 @@
  * @file queryModel.js
  * @brief Pure (DOM-free) compose/parse between the Heurist `q`-array query shape
  *        and the Filter Builder's editable model.
- * @project     Heurist academic knowledge management system
- * @package     heurist-explorer.utils
- * @link        https://HeuristNetwork.org
- * @license     https://www.gnu.org/licenses/gpl-3.0.txt GNU License 3.0
- * @author      Artem Osmakov <osmakov@gmail.com>
  *
  * `HFilterBuilder` owns the DOM; this module owns the query <-> model mapping so
  * it can be unit-tested without a browser. The target JSON is the same shape the
  * legacy `searchBuilder._doCompose()` produces, e.g.
  *   [{"t":"10"},{"f:12":"=Smith"},{"lf:134":[{"t":"12"},{"f:26":"Paris"}]},{"sortby":"-modified"}]
  * See docs/query-language-filter-builder-plan.md sections 4 / 11 / D12.
+ *
+ * @project     Heurist academic knowledge management system
+ * @package     heurist-explorer
+ *
+ * @link        https://HeuristNetwork.org
+ * @copyright   (C) 2024 onwards Heurist Network
+ * @author      Artem Osmakov   <osmakov@gmail.com>
+ * @author      Ian Johnson <ian.johnson.heurist@gmail.com>
+ * @license     https://www.gnu.org/licenses/gpl-3.0.txt GNU License 3.0
+ * @since       8.0
  */
 
 import { canonicalPredicate, isLinkPredicate } from './queryPredicates.js';
@@ -203,6 +208,7 @@ function compileLinkRow(row, vocab) {
   return { [key]: sub };
 }
 
+/** Build a predicate key (`f`, `f:<id>[:<enumField>]`, or a header keyword) from a field row. */
 function fieldKey(row) {
   const d = row.dty;
   if (d === 'anyfield' || d === '' || d == null || d === 'f') return 'f';
@@ -218,6 +224,7 @@ function fieldKey(row) {
   return key;
 }
 
+/** Render one scalar value with its operator token/pattern and negation prefix applied. */
 function renderScalar(value, op, negate) {
   let out = value;
   if (op.pattern && /\{v\}/.test(op.pattern)) {
@@ -228,10 +235,12 @@ function renderScalar(value, op, negate) {
   return out;
 }
 
+/** Wrap a value under a predicate key: `{ [key]: value }`. */
 function wrap(key, value) {
   return { [key]: value };
 }
 
+/** Remove a leading `-` (negation) from a string value, if present. */
 function stripLeadingDash(value) {
   return typeof value === 'string' && value.charAt(0) === '-' ? value.slice(1) : value;
 }
@@ -372,6 +381,12 @@ function linkRowFromPredicate(base, suffix, value) {
 
 // --------------------------------------------------------------------- helpers ---
 
+/**
+ * Normalize a `q`-array input (array, JSON string, or `{q: […]}`) to a plain array.
+ *
+ * @param {Array|string|object} input Raw query input.
+ * @returns {Array<object>} Normalized predicate array; `[]` when unparseable.
+ */
 function toArray(input) {
   if (Array.isArray(input)) return input;
   if (input && typeof input === 'object' && Array.isArray(input.q)) return input.q;
@@ -388,18 +403,37 @@ function toArray(input) {
   return [];
 }
 
+/**
+ * Return a single-key predicate object's `[key, value]` entry.
+ *
+ * @param {*} predicate Predicate object (`{key: value}`).
+ * @returns {[string, *]|null} The entry, or `null` when not a plain object with a key.
+ */
 function firstEntry(predicate) {
   if (!predicate || typeof predicate !== 'object' || Array.isArray(predicate)) return null;
   const keys = Object.keys(predicate);
   return keys.length ? [keys[0], predicate[keys[0]]] : null;
 }
 
+/**
+ * Split a raw predicate key (e.g. `f:12:term`) into its canonical base and remaining suffix parts.
+ *
+ * @param {string} rawKey Raw predicate key.
+ * @returns {{base: string, suffix: {raw: string, parts: string[]}}}
+ */
 function splitKey(rawKey) {
   const parts = String(rawKey).split(':');
   const base = canonicalPredicate(parts[0]) || parts[0];
   return { base, suffix: { raw: parts.slice(1).join(':'), parts: parts.slice(1) } };
 }
 
+/**
+ * Resolve a field row's `dty` value (numeric field id, header keyword, or `'anyfield'`) from a split predicate key.
+ *
+ * @param {string} base Canonical predicate base keyword.
+ * @param {{raw: string, parts: string[]}} suffix Remaining predicate key parts after the base.
+ * @returns {number|string|null} Field id, header keyword, `'anyfield'`, or `null` when not a field predicate.
+ */
 function fieldDtyFromKey(base, suffix) {
   if (base === 'f' || base === 'fc') {
     if (!suffix.parts.length) return 'anyfield';
@@ -411,6 +445,12 @@ function fieldDtyFromKey(base, suffix) {
   return null;
 }
 
+/**
+ * Return a predicate value as a scalar: the value itself, or the first sub-entry's value when it's a group array.
+ *
+ * @param {*} value Predicate value.
+ * @returns {*}
+ */
 function firstScalar(value) {
   if (Array.isArray(value)) {
     const hit = value.map(firstEntry).find(Boolean);

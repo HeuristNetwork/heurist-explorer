@@ -1,8 +1,10 @@
 /**
  * @file RecordContentProvider.js
  * @brief Lazy loader for standard and Smarty record presentation HTML.
+ *
  * @project     Heurist academic knowledge management system
  * @package     heurist-data
+ *
  * @link        https://HeuristNetwork.org
  * @copyright   (C) 2024 onwards Heurist Network
  * @author      Artem Osmakov   <osmakov@gmail.com>
@@ -12,6 +14,12 @@
  */
 /** Loads deferred standard and Smarty record presentation content. */
 export class RecordContentProvider {
+  /**
+   * @param {object} [options] Provider configuration.
+   * @param {string} [options.baseUrl] Base URL record presentation is fetched from; normalized to end in `/`.
+   * @param {string|number} [options.database] Target Heurist database name.
+   * @param {Function|null} [options.fetchImpl] Fetch implementation to use instead of the global `fetch`.
+   */
   constructor({ baseUrl, database, fetchImpl = null } = {}) {
     const value = String(baseUrl || "").trim();
     this.baseUrl = value ? (value.endsWith("/") ? value : `${value}/`) : null;
@@ -19,6 +27,15 @@ export class RecordContentProvider {
     this.fetchImpl = fetchImpl || ((...args) => globalThis.fetch(...args));
   }
 
+  /**
+   * Load presentation HTML for a set of records, tolerating individual failures.
+   *
+   * @param {object} [options] Load options.
+   * @param {Array<object>} [options.records] Records to load content for; each needs a `rec_ID`.
+   * @param {string} [options.template='standard'] Report template name, or `'standard'` for the default renderer.
+   * @param {AbortSignal} [options.signal] Abort signal for cancellation.
+   * @returns {Promise<Map<number, string>>} Record ID -> presentation HTML, for records that loaded successfully.
+   */
   async load({ records = [], template = "standard", signal } = {}) {
     if (!this.baseUrl || !this.database) return new Map();
     const results = await Promise.allSettled(
@@ -44,6 +61,13 @@ export class RecordContentProvider {
     );
   }
 
+  /**
+   * Build the presentation URL for one record: a Smarty report-template URL, or the standard renderer.
+   *
+   * @param {number} id Record ID.
+   * @param {string} template Report template name, or `'standard'` for the default renderer.
+   * @returns {URL} The request URL.
+   */
   buildUrl(id, template) {
     const name = String(template || "standard").trim();
     if (name && name !== "standard") {

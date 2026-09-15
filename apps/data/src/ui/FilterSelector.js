@@ -1,8 +1,10 @@
 /**
  * @file FilterSelector.js
  * @brief Renders saved filters as Filtered Result search actions.
+ *
  * @project     Heurist academic knowledge management system
  * @package     heurist-data
+ *
  * @link        https://HeuristNetwork.org
  * @copyright   (C) 2024 onwards Heurist Network
  * @author      Artem Osmakov   <osmakov@gmail.com>
@@ -13,6 +15,15 @@
 import { $HR } from "#shared/ui";
 /** Renders saved filters as selectable actions. */
 export class FilterSelector {
+  /**
+   * @param {object} options Selector dependencies.
+   * @param {object} options.api Data public API instance.
+   * @param {HTMLElement} options.container Element to render the filter buttons into.
+   * @param {Function|null} [options.loadFilter] Called with a filter ID to lazily load its full definition (query).
+   * @param {Function|null} [options.onLoading] Called with a filter ID before it starts loading.
+   * @param {Function|null} [options.onLoaded] Called with the loaded filter once available.
+   * @param {Function|null} [options.onError] Called with `(error, operation)` when activation fails.
+   */
   constructor({
     api,
     container,
@@ -30,6 +41,12 @@ export class FilterSelector {
     this.loaded = new Map();
   }
 
+  /**
+   * Render one button per filter, or an empty-state message when there are none.
+   *
+   * @param {Array<{id: number, title: string}>} filters Filters to list.
+   * @returns {void}
+   */
   render(filters) {
     this.container.replaceChildren();
     for (const filter of filters) {
@@ -54,6 +71,12 @@ export class FilterSelector {
     }
   }
 
+  /**
+   * Activate a filter, lazily loading its full definition (query) first if needed.
+   *
+   * @param {{id: number, title: string, query?: *}} filter Filter to activate; may be a lightweight list entry.
+   * @returns {Promise<void>}
+   */
   async activate(filter) {
     let selected = this.loaded.get(Number(filter.id)) || filter;
     if (selected.query == null && this.loadFilter) {

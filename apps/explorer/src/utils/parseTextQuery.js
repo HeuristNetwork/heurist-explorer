@@ -1,11 +1,6 @@
 /**
  * @file parseTextQuery.js
  * @brief Task B-min (client): flat Heurist keyword-syntax text -> `q`-array.
- * @project     Heurist academic knowledge management system
- * @package     heurist-explorer.utils
- * @link        https://HeuristNetwork.org
- * @license     https://www.gnu.org/licenses/gpl-3.0.txt GNU License 3.0
- * @author      Artem Osmakov <osmakov@gmail.com>
  *
  * Pure (DOM-free). Understands only the *flat keyword* subset of the query
  * language - `t:<rty>`, `<field>:<value>`, `f:<id>:<value>`, header keywords
@@ -15,6 +10,16 @@
  *
  * Used by `HFilterInlineHelper` to feed `queryDescribe()` and to seed the
  * Filter Builder from whatever the user typed.
+ *
+ * @project     Heurist academic knowledge management system
+ * @package     heurist-explorer
+ *
+ * @link        https://HeuristNetwork.org
+ * @copyright   (C) 2024 onwards Heurist Network
+ * @author      Artem Osmakov   <osmakov@gmail.com>
+ * @author      Ian Johnson <ian.johnson.heurist@gmail.com>
+ * @license     https://www.gnu.org/licenses/gpl-3.0.txt GNU License 3.0
+ * @since       8.0
  */
 
 import { canonicalPredicate } from './queryPredicates.js';
@@ -130,6 +135,7 @@ function tokenize(text) {
   return out;
 }
 
+/** Strip one layer of matching single/double quotes from a token's value. */
 function unquote(s) {
   const t = String(s ?? '').trim();
   if (t.length >= 2 && ((t[0] === '"' && t.endsWith('"')) || (t[0] === "'" && t.endsWith("'")))) {
@@ -138,12 +144,20 @@ function unquote(s) {
   return t;
 }
 
+/** Prefix a value with `-` (negation) unless it already carries a leading `-`. */
 function applyNegate(value, negate) {
   const v = String(value ?? '');
   if (!negate) return v;
   return v.charAt(0) === '-' ? v : `-${v}`;
 }
 
+/**
+ * Resolve a `t:` token's text to a rectype id: numeric id, or a name lookup via `dbdefs`.
+ *
+ * @param {string} text Rectype id or name.
+ * @param {object|null} dbdefs Database-definition snapshot; see `HDbDefs`.
+ * @returns {number|null}
+ */
 function resolveRectype(text, dbdefs) {
   const raw = String(text ?? '').trim();
   if (!raw) return null;

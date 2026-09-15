@@ -1,8 +1,10 @@
 /**
  * @file DataControlPanel.js
  * @brief Renders dataset, filter, and data controls.
+ *
  * @project     Heurist academic knowledge management system
  * @package     heurist-data
+ *
  * @link        https://HeuristNetwork.org
  * @copyright   (C) 2024 onwards Heurist Network
  * @author      Artem Osmakov   <osmakov@gmail.com>
@@ -15,9 +17,19 @@ import { DatasetSelector } from "./DatasetSelector.js";
 import { FilterSelector } from "./FilterSelector.js";
 import { $HR, applyI18n, InlineHelp } from "#shared/ui";
 
-/** Fixed collapsible panel overlaying the DataTables toolbar. */
-/** Coordinates the application's dataset and filter controls. */
+/**
+ * Fixed collapsible panel overlaying the DataTables toolbar.
+ * Coordinates the application's dataset and filter controls.
+ */
 export class DataControlPanel {
+  /**
+   * @param {object} options Panel dependencies.
+   * @param {object} options.api Data public API instance.
+   * @param {HTMLElement} options.tableContainer Element the rendering engine renders into; the panel is anchored above it.
+   * @param {object} [options.options] Initial visibility/interaction options; refreshed via `applyOptions`.
+   * @param {object|null} [options.datasetListProvider] Provider used to list available datasets.
+   * @param {object|null} [options.filterListProvider] Provider used to list and load available filters.
+   */
   constructor({
     api,
     tableContainer,
@@ -33,6 +45,11 @@ export class DataControlPanel {
     this.listeners = [];
   }
 
+  /**
+   * Build the panel DOM, wire up API event listeners, and load its initial content.
+   *
+   * @returns {Promise<HTMLElement|null>} The mounted panel element, or `null` when the panel is disabled.
+   */
   async mount() {
     if (this.options.enabled === false) return null;
     // "main" = the module embedded in the main Heurist editor: fixed layout,
@@ -150,15 +167,34 @@ export class DataControlPanel {
     return this.element;
   }
 
+  /**
+   * Subscribe to a public API event and remember the listener for `destroy`.
+   *
+   * @param {string} name Event type.
+   * @param {Function} handler Event handler.
+   * @returns {void}
+   */
   bind(name, handler) {
     this.api.addEventListener(name, handler);
     this.listeners.push([name, handler]);
   }
 
+  /**
+   * Dispatch a `heurist-data-error` event for a failure that occurred within the panel.
+   *
+   * @param {Error} error The error that occurred.
+   * @param {string} operation Short operation label identifying where the error occurred.
+   * @returns {void}
+   */
   reportError(error, operation) {
     this.api.application?.dispatch("heurist-data-error", { error, operation });
   }
 
+  /**
+   * Toggle the panel between its normal and fully-collapsed (icon-only) states.
+   *
+   * @returns {void}
+   */
   toggleFullyCollapsed() {
     const fullyCollapsed = this.element.classList.toggle("fully-collapsed");
     if (!fullyCollapsed) {
@@ -167,6 +203,12 @@ export class DataControlPanel {
     this.updateExpandedState();
   }
 
+  /**
+   * Toggle the panel body (Datasets/Filters sections) between expanded and collapsed,
+   * falling back to fully-collapsing the panel when it has no visible panels to show.
+   *
+   * @returns {void}
+   */
   toggleBody() {
     if (this.element.classList.contains("fully-collapsed")) return;
     if (!this.hasVisiblePanels) {
@@ -177,6 +219,7 @@ export class DataControlPanel {
     this.updateExpandedState();
   }
 
+  /** Sync the header toggle buttons' `aria-expanded` state and icon direction with the current collapse state. */
   updateExpandedState() {
     const fullyCollapsed = this.element.classList.contains("fully-collapsed");
     const bodyCollapsed = this.element.classList.contains("body-collapsed");
@@ -201,6 +244,11 @@ export class DataControlPanel {
     return this.helpOverlay.open();
   }
 
+  /**
+   * Collapse the panel body (Datasets/Filters sections), leaving the header visible.
+   *
+   * @returns {void}
+   */
   collapseBody() {
     if (!this.element?.hidden) {
       this.element.classList.remove("fully-collapsed");
@@ -208,6 +256,7 @@ export class DataControlPanel {
       this.updateExpandedState();
     }
   }
+
   /** Refresh the source-header caption without touching the dataset list. */
   updateSourceHeader(detail = null) {
     if (!this.sourceHeader) return;
@@ -220,6 +269,12 @@ export class DataControlPanel {
       this.api.getState?.()?.title ||
       (currentTitle === "Filtered Result" ? $HR(currentTitle) : currentTitle);
   }
+
+  /**
+   * Load and render the Datasets list (or just refresh the source header when panels are skipped).
+   *
+   * @returns {Promise<void>}
+   */
   async renderDatasets() {
     if (this.skipDataPanels) return this.updateSourceHeader();
     const ids =
@@ -243,6 +298,11 @@ export class DataControlPanel {
       currentResultsTitle: currentTitle,
     });
   }
+  /**
+   * Load and render the Filters list.
+   *
+   * @returns {Promise<void>}
+   */
   async renderFilters() {
     if (this.skipDataPanels) return;
     const ids =
@@ -252,6 +312,13 @@ export class DataControlPanel {
     const result = (await this.filterListProvider?.list?.({ ids })) || [];
     this.filterSelector?.render(normalizeItems(result, "Filter"));
   }
+
+  /**
+   * Apply an updated persisted configuration: visibility/interaction options, then re-render the lists.
+   *
+   * @param {object} [settings] Persisted-configuration settings (or a bare `options` object).
+   * @returns {Promise<void>}
+   */
   async applyOptions(settings = {}) {
     const options = settings.options || settings;
     this.options = {
@@ -275,6 +342,11 @@ export class DataControlPanel {
     this.applyVisibility();
     await Promise.all([this.renderDatasets(), this.renderFilters()]);
   }
+  /**
+   * Re-apply panel/button/section visibility from current options and runtime mode.
+   *
+   * @returns {void}
+   */
   applyVisibility() {
     if (!this.element) return;
     const standalone = ["standalone", "publish", "published"].includes(
@@ -340,6 +412,11 @@ export class DataControlPanel {
     }
     this.updateExpandedState();
   }
+  /**
+   * Detach API event listeners and remove the panel and source header from the DOM.
+   *
+   * @returns {void}
+   */
   destroy() {
     for (const [name, handler] of this.listeners)
       this.api.removeEventListener(name, handler);
@@ -350,6 +427,7 @@ export class DataControlPanel {
   }
 }
 
+/** Build a titled `<section>` with a heading and content container, appended to `parent`. */
 function section(parent, title) {
   const section = document.createElement("section");
   const heading = document.createElement("h3");
@@ -360,6 +438,7 @@ function section(parent, title) {
   parent.append(section);
   return { section, content };
 }
+/** Normalize a list-provider payload into `{id, title}` entries, dropping invalid IDs. */
 function normalizeItems(result, fallback) {
   const values = Array.isArray(result) ? result : result?.items || [];
   return values
@@ -375,11 +454,13 @@ function normalizeItems(result, fallback) {
     }))
     .filter((item) => Number.isInteger(item.id) && item.id > 0);
 }
+/** Normalize a value into an array of positive integer IDs. */
 function normalizeIds(values) {
   return (Array.isArray(values) ? values : [])
     .map(Number)
     .filter((id) => Number.isInteger(id) && id > 0);
 }
+/** Create a small icon-only button with a localized title/aria-label and an async click handler. */
 function iconButton(icon, title, handler) {
   const button = document.createElement("button");
   button.type = "button";

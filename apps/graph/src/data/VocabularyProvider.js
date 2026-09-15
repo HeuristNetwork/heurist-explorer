@@ -1,8 +1,10 @@
 /**
  * @file VocabularyProvider.js
  * @brief Resolves edge detail-type and relation-type labels from the Heurist API.
+ *
  * @project     Heurist academic knowledge management system
  * @package     heurist-graph
+ *
  * @link        https://HeuristNetwork.org
  * @copyright   (C) 2024 onwards Heurist Network
  * @author      Artem Osmakov   <osmakov@gmail.com>

@@ -1,12 +1,6 @@
 /**
  * @file HDbDefs.js
  * @brief Client-side Heurist database-definition layer for the Explorer.
- * @project     Heurist academic knowledge management system
- * @package     heurist-explorer.utils
- * @link        https://HeuristNetwork.org
- * @copyright   (C) 2026 Heurist Network
- * @license     https://www.gnu.org/licenses/gpl-3.0.txt GNU License 3.0
- * @author      Artem Osmakov <osmakov@gmail.com>
  *
  * Requests, parses and stores the definition snapshot served by
  * `GET /api/{db}/def/snapshot`, then answers the id <-> name / label questions the
@@ -19,6 +13,16 @@
  * `$Db.rst_links()` (`hclient/core/utils_dbs.js`).
  *
  * See docs/query-language-filter-builder-plan.md sections 4 and 5.
+ *
+ * @project     Heurist academic knowledge management system
+ * @package     heurist-explorer
+ *
+ * @link        https://HeuristNetwork.org
+ * @copyright   (C) 2024 onwards Heurist Network
+ * @author      Artem Osmakov   <osmakov@gmail.com>
+ * @author      Ian Johnson <ian.johnson.heurist@gmail.com>
+ * @license     https://www.gnu.org/licenses/gpl-3.0.txt GNU License 3.0
+ * @since       8.0
  */
 
 /** Shared frozen empty array so accessors never leak a mutable internal list. */
@@ -79,6 +83,12 @@ export class HDbDefs {
 
   // ---------------------------------------------------------------- indexes ---
 
+  /**
+   * Build the structure/term-hierarchy/concept-code indexes and the link graph.
+   *
+   * @private
+   * @returns {void}
+   */
   _buildIndexes() {
     // structure rows grouped by rectype, order-sorted once
     this._structByRty = new Map();
@@ -163,6 +173,12 @@ export class HDbDefs {
     }
   }
 
+  /**
+   * Every rectype id, computed once and cached.
+   *
+   * @private
+   * @returns {number[]}
+   */
   _allRectypeIds() {
     if (!this.__allRectypeIds) {
       this.__allRectypeIds = Object.keys(this._rectypes).map(Number);

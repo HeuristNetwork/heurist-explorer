@@ -1,3 +1,18 @@
+/**
+ * @file IframeModuleAdapter.js
+ * @brief Same-origin child-module adapter used by Explorer.
+ *
+ * @project     Heurist academic knowledge management system
+ * @package     heurist-explorer
+ *
+ * @link        https://HeuristNetwork.org
+ * @copyright   (C) 2024 onwards Heurist Network
+ * @author      Artem Osmakov   <osmakov@gmail.com>
+ * @author      Ian Johnson <ian.johnson.heurist@gmail.com>
+ * @license     https://www.gnu.org/licenses/gpl-3.0.txt GNU License 3.0
+ * @since       8.0
+ */
+
 import { ExplorerModule, clone, normalizeIds } from '../core/ExplorerModule.js';
 import { dataSourcePresentation, dataSourceRequest } from '../core/DataSource.js';
 
@@ -10,6 +25,19 @@ const TYPE_META = {
 
 /** Same-origin child-module adapter used by Explorer. */
 export class IframeModuleAdapter extends ExplorerModule {
+  /**
+   * @param {object} options Adapter configuration.
+   * @param {string} options.id Unique module instance id.
+   * @param {'data'|'map'|'timeline'|'graph'} options.type Module type.
+   * @param {HTMLElement} options.container Element the module's iframe will mount into.
+   * @param {string} options.url Module document URL to load in the iframe.
+   * @param {object} [options.runtime] Runtime bootstrap fields forwarded to the child module.
+   * @param {object} [options.settings] Persisted settings forwarded to the child module.
+   * @param {*} [options.state] Persisted state forwarded to the child module.
+   * @param {object|null} [options.context] Module-specific context.
+   * @param {object} [options.hostActions] Host action callbacks exposed to the child module.
+   * @param {Function|null} [options.onSettingsChange] Called with the child module's updated settings.
+   */
   constructor({ id, type, container, url, runtime, settings = {}, state = null, context = null, hostActions = {}, onSettingsChange = null }) {
     super({ id, type, container, context });
     this.url = url;
@@ -23,6 +51,12 @@ export class IframeModuleAdapter extends ExplorerModule {
     this.readyPromise = null;
   }
 
+  /**
+   * Create the iframe, install the host bridge, load the module, and wait for its public API.
+   *
+   * @returns {Promise<IframeModuleAdapter>} This adapter, once the module is ready.
+   * @throws {Error} When the module type is unsupported, no URL is configured, or loading times out.
+   */
   async mount() {
     if (!TYPE_META[this.type]) throw new Error(`Unsupported Explorer module type: ${this.type}`);
     if (!this.url) throw new Error(`No URL configured for ${this.type}`);
@@ -45,12 +79,24 @@ export class IframeModuleAdapter extends ExplorerModule {
     return this;
   }
 
+  /**
+   * Install (or reinstall) the same-origin host bridge on the iframe element.
+   *
+   * @private
+   * @returns {void}
+   */
   _installBridge() {
     if (!this.frame) return;
     const meta = TYPE_META[this.type];
     this.frame[meta.bridge] = this._createChildHostBridge();
   }
 
+  /**
+   * Build the host bridge object exposed to the child module via `window.frameElement`.
+   *
+   * @private
+   * @returns {object} Host bridge with configuration, settings/state, and delegated host actions.
+   */
   _createChildHostBridge() {
     const outer = this.hostActions;
     return {
@@ -81,6 +127,12 @@ export class IframeModuleAdapter extends ExplorerModule {
     };
   }
 
+  /**
+   * Build the bootstrap envelope returned to the child module via `getConfiguration`.
+   *
+   * @private
+   * @returns {object} Bootstrap envelope: runtime, settings, state, and the active source.
+   */
   _bootstrap() {
     return {
       runtime: {
@@ -94,6 +146,12 @@ export class IframeModuleAdapter extends ExplorerModule {
     };
   }
 
+  /**
+   * Build the active-source portion of the bootstrap envelope, shaped per module type.
+   *
+   * @private
+   * @returns {object} Source bootstrap: a `contexts` list for timeline, or a query/request/presentation shape otherwise.
+   */
   _sourceBootstrap() {
     const source = this.dataSource || {};
     const query = executableQuery(source);
@@ -112,6 +170,13 @@ export class IframeModuleAdapter extends ExplorerModule {
     };
   }
 
+  /**
+   * Poll the iframe's `contentWindow` until the child module's public API appears.
+   *
+   * @private
+   * @returns {Promise<object>} The child module's public API.
+   * @throws {Error} When the public API is not exposed within the polling window.
+   */
   async _waitForApi() {
     const meta = TYPE_META[this.type];
     for (let i = 0; i < 200; i += 1) {
@@ -126,6 +191,12 @@ export class IframeModuleAdapter extends ExplorerModule {
     throw new Error(`${this.type} public API was not exposed`);
   }
 
+  /**
+   * Subscribe to the child module's public selection-changed event and forward genuine changes to Explorer.
+   *
+   * @private
+   * @returns {void}
+   */
   _bindChildEvents() {
     if (!this.api?.addEventListener) return;
     const forwardSelection = (event) => {
@@ -167,6 +238,12 @@ export class IframeModuleAdapter extends ExplorerModule {
     });
   }
 
+  /**
+   * Apply a new active datasource to the child module, using its module-specific API.
+   *
+   * @param {object} source Datasource to apply.
+   * @returns {Promise<*>} Result of the child module's datasource/query call.
+   */
   async setDataSource(source) {
     await super.setDataSource(source);
     const api = await this._readyApi();
@@ -190,6 +267,12 @@ export class IframeModuleAdapter extends ExplorerModule {
     return false;
   }
 
+  /**
+   * Push the current workspace datasource list to the map module.
+   *
+   * @param {Array<object>} [workspaceDataSources] Workspace datasources to forward.
+   * @returns {Promise<*>} Result of the map module's call, or `false` for non-map modules or an unsupported API.
+   */
   async setWorkspaceDataSources(workspaceDataSources = []) {
     if (this.type !== 'map') return false;
     const api = await this._readyApi();
@@ -200,6 +283,12 @@ export class IframeModuleAdapter extends ExplorerModule {
     });
   }
 
+  /**
+   * Apply a new record selection to the child module.
+   *
+   * @param {Array<number>} ids Selected record IDs.
+   * @returns {Promise<Array<number>>} The applied selection.
+   */
   async setSelection(ids) {
     await super.setSelection(ids);
     const api = await this._readyApi();
@@ -221,13 +310,28 @@ export class IframeModuleAdapter extends ExplorerModule {
     }) ?? this.selection;
   }
 
+  /**
+   * Resize the child module.
+   *
+   * @returns {Promise<*>} Result of the child module's resize call.
+   */
   async resize() { return (await this._readyApi()).resize?.() ?? true; }
 
+  /**
+   * Return this module's serialized state, including the child module's own state.
+   *
+   * @returns {Promise<object>} Current module state with an added `moduleState` field.
+   */
   async getState() {
     const api = await this._readyApi();
     return { ...(await super.getState()), moduleState: clone(api.getState?.() || null) };
   }
 
+  /**
+   * Detach event listeners, destroy the child module, and remove the iframe.
+   *
+   * @returns {Promise<void>}
+   */
   async destroy() {
     if (this.api && this._eventBindings) {
       this._eventBindings.forEach(([name, handler]) => this.api.removeEventListener?.(name, handler));
@@ -238,6 +342,13 @@ export class IframeModuleAdapter extends ExplorerModule {
     this.api = null;
   }
 
+  /**
+   * Resolve once the child module's public API is available.
+   *
+   * @private
+   * @returns {Promise<object>} The child module's public API.
+   * @throws {Error} When the adapter has not been mounted yet.
+   */
   async _readyApi() {
     if (this.api) return this.api;
     if (!this.readyPromise) throw new Error(`${this.type} module is not mounted`);
@@ -245,11 +356,15 @@ export class IframeModuleAdapter extends ExplorerModule {
   }
 }
 
+/** Extract the executable query (`request.q`) from a datasource, or `null`. */
 function executableQuery(source) {
   return dataSourceRequest(source)?.q ?? null;
 }
+
+/** Resolve after `ms` milliseconds. */
 function delay(ms) { return new Promise((resolve) => setTimeout(resolve, ms)); }
 
+/** Whether two selection arrays contain the same set of ids, ignoring order. */
 function sameSelection(a, b) {
   if (a.length !== b.length) {
     return false;

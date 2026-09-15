@@ -1,8 +1,27 @@
+/**
+ * @file SyncEngine.js
+ * @brief Synchronizes the active datasource and selection only inside Explorer.
+ *
+ * @project     Heurist academic knowledge management system
+ * @package     heurist-explorer
+ *
+ * @link        https://HeuristNetwork.org
+ * @copyright   (C) 2024 onwards Heurist Network
+ * @author      Artem Osmakov   <osmakov@gmail.com>
+ * @author      Ian Johnson <ian.johnson.heurist@gmail.com>
+ * @license     https://www.gnu.org/licenses/gpl-3.0.txt GNU License 3.0
+ * @since       8.0
+ */
+
 import { normalizeIds } from './ExplorerModule.js';
 import { cloneDataSource, normalizeDataSource } from './DataSource.js';
 
 /** Synchronizes the active datasource and selection only inside Explorer. */
 export class SyncEngine {
+  /**
+   * @param {object} [options] Engine configuration.
+   * @param {Function|null} [options.onDataSourceRequest] Intercepts datasource-change requests before they're applied; defaults to applying immediately.
+   */
   constructor({ onDataSourceRequest = null } = {}) {
     this.modules = new Map();
     this.dataSource = null;
@@ -11,6 +30,13 @@ export class SyncEngine {
     this.onDataSourceRequest = onDataSourceRequest;
   }
 
+  /**
+   * Register a module for synchronization, listening for its selection/datasource change events.
+   *
+   * @param {import('./ExplorerModule.js').ExplorerModule} module Module to register.
+   * @returns {import('./ExplorerModule.js').ExplorerModule} The registered module.
+   * @throws {Error} When `module` has no `id`.
+   */
   register(module) {
     if (!module?.id) throw new Error('Explorer module requires an id');
     this.unregister(module.id);
@@ -40,6 +66,12 @@ export class SyncEngine {
     return module;
   }
 
+  /**
+   * Unregister a module and remove its event listeners.
+   *
+   * @param {string} id Module id.
+   * @returns {void}
+   */
   unregister(id) {
     const module = this.modules.get(id);
     const handlers = this._handlers.get(id);
@@ -56,6 +88,13 @@ export class SyncEngine {
    *
    * With preserveDataViews, only the selected data module plus all non-data
    * followers receive the source. Other data views retain their own sources.
+   *
+   * @param {object|null} source Datasource to activate, or `null` to clear it.
+   * @param {object} [options] Synchronization options.
+   * @param {string|null} [options.origin] Module id that triggered this change; excluded from the update.
+   * @param {boolean} [options.preserveDataViews=false] Restrict data-module updates to `dataModuleId`.
+   * @param {string|null} [options.dataModuleId] Data module id to update when `preserveDataViews` is set.
+   * @returns {Promise<object|null>} Cloned, normalized active datasource.
    */
   async setDataSource(source, {
     origin = null,
@@ -78,6 +117,13 @@ export class SyncEngine {
     return cloneDataSource(this.dataSource);
   }
 
+  /**
+   * Set the shared record selection and propagate it to every other registered module.
+   *
+   * @param {Array<number>} ids Selected record IDs.
+   * @param {{origin?: string|null}} [options] `origin` excludes the triggering module from the update.
+   * @returns {Promise<Array<number>>} The applied selection.
+   */
   async setSelection(ids, { origin = null } = {}) {
     const nextSelection = normalizeIds(ids);
 
@@ -95,11 +141,17 @@ export class SyncEngine {
     return this.selection;
   }
 
+  /**
+   * Unregister every module.
+   *
+   * @returns {Promise<void>}
+   */
   async destroy() {
     [...this.modules.keys()].forEach((id) => this.unregister(id));
   }
 }
 
+/** Whether two selection arrays contain the same set of ids, ignoring order. */
 function sameSelection(a, b) {
   if (a.length !== b.length) {
     return false;

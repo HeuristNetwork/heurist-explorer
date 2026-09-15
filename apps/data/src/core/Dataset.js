@@ -1,8 +1,10 @@
 /**
  * @file Dataset.js
  * @brief Engine-neutral Dataset domain model.
+ *
  * @project     Heurist academic knowledge management system
  * @package     heurist-data
+ *
  * @link        https://HeuristNetwork.org
  * @copyright   (C) 2024 onwards Heurist Network
  * @author      Artem Osmakov   <osmakov@gmail.com>
@@ -15,6 +17,7 @@ const AGGREGATIONS = new Set(["count", "sum", "avg", "min", "max"]);
 
 /** Represents a normalized persisted or transient Dataset definition. */
 export class Dataset {
+  /** @param {object} [definition] Raw dataset definition; normalized and assigned onto this instance. */
   constructor(definition = {}) {
     const value = normalizeDataset(definition);
     Object.assign(this, value);
@@ -39,6 +42,13 @@ export class Dataset {
   }
 }
 
+/**
+ * Validate and normalize a raw Dataset definition.
+ *
+ * @param {object} [value] Raw dataset definition.
+ * @returns {object} Normalized dataset fields, ready to assign onto a `Dataset` instance.
+ * @throws {TypeError} When `value` is not an object, has an unsupported format, or lacks a source query.
+ */
 export function normalizeDataset(value = {}) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     throw new TypeError("Dataset definition must be an object");
@@ -67,6 +77,13 @@ export function normalizeDataset(value = {}) {
   };
 }
 
+/**
+ * Validate and normalize a Dataset's field list.
+ *
+ * @param {Array<string|number|object>} [fields] Raw field list (bare codes or field descriptor objects).
+ * @returns {Array<object>} Normalized field descriptors.
+ * @throws {TypeError} When `fields` is not an array, or a field is invalid, codeless, or has an unsupported aggregation.
+ */
 export function normalizeDatasetFields(fields = []) {
   if (!Array.isArray(fields))
     throw new TypeError("Dataset fields must be an array");
@@ -102,6 +119,11 @@ export function normalizeDatasetFields(fields = []) {
   });
 }
 
+/**
+ * Normalize an id value to a positive integer, or `null` when empty.
+ *
+ * @throws {TypeError} When the value is present but not a positive integer.
+ */
 function positiveIntegerOrNull(value) {
   if (value == null || value === "") return null;
   const number = Number(value);
@@ -110,6 +132,7 @@ function positiveIntegerOrNull(value) {
   return number;
 }
 
+/** Deep-clone a JSON-safe value, tolerating `null`/`undefined`. */
 function structuredCloneSafe(value) {
   if (value == null) return value;
   return typeof structuredClone === "function"

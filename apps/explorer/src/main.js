@@ -1,3 +1,18 @@
+/**
+ * @file main.js
+ * @brief Entry point for the Heurist Explorer application.
+ *
+ * @project     Heurist academic knowledge management system
+ * @package     heurist-explorer
+ *
+ * @link        https://HeuristNetwork.org
+ * @copyright   (C) 2024 onwards Heurist Network
+ * @author      Artem Osmakov   <osmakov@gmail.com>
+ * @author      Ian Johnson <ian.johnson.heurist@gmail.com>
+ * @license     https://www.gnu.org/licenses/gpl-3.0.txt GNU License 3.0
+ * @since       8.0
+ */
+
 import '@fortawesome/fontawesome-free/css/fontawesome.min.css';
 import '@fortawesome/fontawesome-free/css/solid.min.css';
 import '@fortawesome/fontawesome-free/css/regular.min.css';
@@ -13,6 +28,7 @@ const startup = initLocale(
   config.localeBaseUrl || moduleBaseUrl(),
 ).then(() => initHeuristExplorer(config));
 
+/** Resolve assets beside the deployed bundle, not beside the host page. */
 function moduleBaseUrl() {
   return new URL('./', import.meta.url).href;
 }

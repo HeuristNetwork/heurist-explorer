@@ -1,14 +1,23 @@
 /**
  * @file FilterSearchRequest.js
  * @brief Converts a saved filter definition into a Heurist search request.
+ *
  * @project     Heurist academic knowledge management system
  * @package     heurist-data
+ *
  * @link        https://HeuristNetwork.org
  * @copyright   (C) 2024 onwards Heurist Network
  * @author      Artem Osmakov   <osmakov@gmail.com>
  * @author      Ian Johnson <ian.johnson.heurist@gmail.com>
  * @license     https://www.gnu.org/licenses/gpl-3.0.txt GNU License 3.0
  * @since       8.0
+ */
+/**
+ * Convert a saved filter's persisted definition into an executable search request.
+ *
+ * @param {{query?: *}} filter Saved filter record.
+ * @param {{searchRealm?: *, source?: *}} [runtime] Runtime fields merged into the request.
+ * @returns {object} Executable search request.
  */
 export function createFilterSearchRequest(filter, runtime = {}) {
   const definition = parseDefinition(filter?.query);
@@ -25,6 +34,7 @@ export function createFilterSearchRequest(filter, runtime = {}) {
   return request;
 }
 
+/** Parse a persisted filter definition (object, JSON string, or bare query string). */
 function parseDefinition(value) {
   if (value && typeof value === "object" && !Array.isArray(value)) return value;
   if (typeof value !== "string") return { q: "" };

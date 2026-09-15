@@ -1,8 +1,10 @@
 /**
  * @file main.js
  * @brief Heurist Data browser entry point.
+ *
  * @project     Heurist academic knowledge management system
  * @package     heurist-data
+ *
  * @link        https://HeuristNetwork.org
  * @copyright   (C) 2024 onwards Heurist Network
  * @author      Artem Osmakov   <osmakov@gmail.com>
@@ -32,8 +34,12 @@ const startup = initLocale(
     : initHeuristData(config),
 );
 
+/**
+ * Resolve assets beside the deployed bundle, not beside dataViewer.html.
+ *
+ * @returns {string}
+ */
 function moduleBaseUrl() {
-  // Resolve assets beside the deployed bundle, not beside dataViewer.html.
   return new URL("./", import.meta.url).href;
 }
 

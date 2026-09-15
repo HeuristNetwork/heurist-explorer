@@ -1,17 +1,42 @@
+/**
+ * @file ExplorerDataViews.js
+ * @brief Compact list of open heurist-data module instances in the Explorer workspace.
+ *
+ * It is a view only: module discovery/activation remain in LayoutManager.
+ *
+ * @project     Heurist academic knowledge management system
+ * @package     heurist-explorer
+ *
+ * @link        https://HeuristNetwork.org
+ * @copyright   (C) 2024 onwards Heurist Network
+ * @author      Artem Osmakov   <osmakov@gmail.com>
+ * @author      Ian Johnson <ian.johnson.heurist@gmail.com>
+ * @license     https://www.gnu.org/licenses/gpl-3.0.txt GNU License 3.0
+ * @since       8.0
+ */
+
 import { $HR, applyI18n } from '#shared/ui';
 import { dataSourceTitle as resolvedDataSourceTitle } from '../core/DataSource.js';
 
-/**
- * Compact list of open heurist-data module instances in Explorer workspace.
- * It is a view only: module discovery/activation remain in LayoutManager.
- */
+/** Compact list of open heurist-data module instances in the Explorer workspace. */
 export class ExplorerDataViews {
+  /**
+   * @param {object} options View configuration.
+   * @param {import('../core/ExplorerApplication.js').ExplorerApplication} options.application Explorer application controller.
+   * @param {Function|null} [options.onSelect] Called with the selected module when a row is clicked.
+   */
   constructor({ application, onSelect = null } = {}) {
     this.application = application;
     this.onSelect = onSelect;
     this.element = null;
   }
 
+  /**
+   * Create the list element and render its initial content.
+   *
+   * @param {HTMLElement} parent Parent element to mount into.
+   * @returns {HTMLElement} The generated list element.
+   */
   mount(parent) {
     this.element = document.createElement('div');
     this.element.className = 'h-explorer-data-view-list';
@@ -20,6 +45,11 @@ export class ExplorerDataViews {
     return this.element;
   }
 
+  /**
+   * Re-render the list of open data views from the current layout.
+   *
+   * @returns {ExplorerDataViews} This instance, for chaining.
+   */
   render() {
     if (!this.element) return this;
     this.element.replaceChildren();
@@ -63,12 +93,18 @@ export class ExplorerDataViews {
     return this;
   }
 
+  /**
+   * Remove the generated list element.
+   *
+   * @returns {void}
+   */
   destroy() {
     this.element?.remove();
     this.element = null;
   }
 }
 
+/** Resolve a display title for a data view's active source, with generic fallbacks by reference type. */
 function dataSourceTitle(source) {
   if (!source) return $HR('No source');
   const title = resolvedDataSourceTitle(source);

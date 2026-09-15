@@ -1,8 +1,10 @@
 /**
  * @file createLoaderRegistry.js
  * @brief Creates the application loader registry.
+ *
  * @project     Heurist academic knowledge management system
  * @package     heurist-data
+ *
  * @link        https://HeuristNetwork.org
  * @copyright   (C) 2024 onwards Heurist Network
  * @author      Artem Osmakov   <osmakov@gmail.com>
@@ -15,6 +17,12 @@ import { LoaderRegistry } from "./LoaderRegistry.js";
 import { DatasetLoader } from "./DatasetLoader.js";
 import { QueryLoader } from "./QueryLoader.js";
 
+/**
+ * Build the loader registry with the dataset and query loaders registered.
+ *
+ * @param {object} providers Data providers forwarded to each loader.
+ * @returns {LoaderRegistry}
+ */
 export function createLoaderRegistry(providers) {
   return new LoaderRegistry()
     .register("dataset", new DatasetLoader(providers))

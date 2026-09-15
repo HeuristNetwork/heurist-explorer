@@ -1,8 +1,10 @@
 /**
  * @file Dataset.js
  * @brief Engine-neutral Dataset domain model.
+ *
  * @project     Heurist academic knowledge management system
- * @package     heurist-data
+ * @package     heurist-graph
+ *
  * @link        https://HeuristNetwork.org
  * @copyright   (C) 2024 onwards Heurist Network
  * @author      Artem Osmakov   <osmakov@gmail.com>
@@ -15,6 +17,7 @@ const AGGREGATIONS = new Set(["count", "sum", "avg", "min", "max"]);
 
 /** Represents a normalized persisted or transient Dataset definition. */
 export class Dataset {
+  /** @param {object} [definition] Raw dataset definition; normalized and assigned onto this instance. */
   constructor(definition = {}) {
     const value = normalizeDataset(definition);
     Object.assign(this, value);

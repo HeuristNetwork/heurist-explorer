@@ -1,14 +1,16 @@
 /**
- * HeuristApiClient.js - Heurist public API client
+ * @file HeuristApiClient.js
+ * @brief Request construction, authentication headers, cancellation, JSON parsing, and consistent errors for the public Heurist API.
  *
- * @fileOverview Provides request construction, authentication headers, cancellation, JSON parsing, and consistent errors for the public Heurist API.
  * @project     Heurist academic knowledge management system
- * @package     client-core.api
+ * @package     heurist-client-core
  *
  * @link        https://HeuristNetwork.org
- * @copyright   (C) 2026 Heurist Network
+ * @copyright   (C) 2024 onwards Heurist Network
+ * @author      Artem Osmakov   <osmakov@gmail.com>
+ * @author      Ian Johnson <ian.johnson.heurist@gmail.com>
  * @license     https://www.gnu.org/licenses/gpl-3.0.txt GNU License 3.0
- * @author      Artem Osmakov <osmakov@gmail.com>
+ * @since       8.0
  */
 
 import { HeuristApiError } from './HeuristApiError.js';
@@ -24,12 +26,15 @@ function defaultFetch(...args) {
   return globalThis.fetch(...args);
 }
 
-/**
- * Small fetch-based client for the public Heurist API.
- */
+/** Small fetch-based client for the public Heurist API. */
 export class HeuristApiClient {
   /**
-   * Create and initialize the class instance.
+   * @param {object} options Client configuration.
+   * @param {string} options.apiBaseUrl Base URL of the Heurist installation; normalized to end in `/api`.
+   * @param {string} options.database Target Heurist database name.
+   * @param {string|null} [options.accessToken] Bearer token added to every request's Authorization header.
+   * @param {object} [options.headers] Extra headers merged into every request.
+   * @param {Function} [options.fetchImpl] Fetch implementation to use instead of the global `fetch`.
    */
   constructor({
     apiBaseUrl,
@@ -50,8 +55,9 @@ export class HeuristApiClient {
   }
 
   /**
-   * Return whether the API client has the required base URL and database.
-   * @returns {boolean} Operation result.
+   * Whether the client has both a base URL and a database, and can issue requests.
+   *
+   * @returns {boolean} True once both `apiBaseUrl` and `database` are configured.
    */
   isConfigured() {
     return Boolean(this.apiBaseUrl && this.database);
@@ -59,7 +65,10 @@ export class HeuristApiClient {
 
   /**
    * Send a GET request to the public Heurist API.
-   * @returns {Promise<*>} Resolves when the operation completes.
+   *
+   * @param {string} path API path relative to the database root.
+   * @param {{query?: object, signal?: AbortSignal, headers?: object}} [options] Request options.
+   * @returns {Promise<*>} Parsed JSON response body.
    */
   async get(path, { query, signal, headers } = {}) {
     return this.request(path, { method: 'GET', query, signal, headers });
@@ -67,7 +76,10 @@ export class HeuristApiClient {
 
   /**
    * Send a POST request to the public Heurist API.
-   * @returns {Promise<*>} Resolves when the operation completes.
+   *
+   * @param {string} path API path relative to the database root.
+   * @param {{body?: *, signal?: AbortSignal, headers?: object}} [options] Request options.
+   * @returns {Promise<*>} Parsed JSON response body.
    */
   async post(path, { body, signal, headers } = {}) {
     return this.request(path, { method: 'POST', body, signal, headers });
@@ -75,7 +87,16 @@ export class HeuristApiClient {
 
   /**
    * Send a public Heurist API request and parse its JSON response.
-   * @returns {Promise<*>} Resolves when the operation completes.
+   *
+   * @param {string} path API path relative to the database root.
+   * @param {object} [options] Request options.
+   * @param {string} [options.method='GET'] HTTP method.
+   * @param {object|null} [options.query] Query-string parameters.
+   * @param {*} [options.body] Request body; serialized as JSON when present.
+   * @param {AbortSignal} [options.signal] Abort signal for cancellation.
+   * @param {object} [options.headers] Extra headers merged into this request.
+   * @returns {Promise<*>} Parsed JSON response body.
+   * @throws {HeuristApiError} When the client is unconfigured, the network request fails, or the API returns an error.
    */
   async request(path, {
     method = 'GET',
@@ -140,7 +161,10 @@ export class HeuristApiClient {
 
   /**
    * Build an absolute API URL for the configured database.
-   * @returns {*} Method result.
+   *
+   * @param {string} path API path relative to the database root.
+   * @param {object|null} [query] Query-string parameters to append.
+   * @returns {string} Absolute request URL.
    */
   buildUrl(path, query = null) {
     const normalizedPath = String(path || '').startsWith('/')
@@ -166,7 +190,9 @@ export class HeuristApiClient {
 
   /**
    * Throw when required API configuration is missing.
-   * @returns {*} Method result.
+   *
+   * @returns {void}
+   * @throws {HeuristApiError} When `apiBaseUrl` or `database` is not configured.
    */
   assertConfigured() {
     if (!this.apiBaseUrl) {
@@ -182,6 +208,7 @@ export class HeuristApiClient {
   }
 }
 
+/** Normalize a base URL, ensuring it ends in `/api` and has no trailing slash. */
 function normalizeApiBaseUrl(value) {
   if (!value) {
     return null;
@@ -199,11 +226,13 @@ function normalizeApiBaseUrl(value) {
   return result;
 }
 
+/** Normalize a database name, returning `null` for empty input. */
 function normalizeDatabase(value) {
   const result = value == null ? '' : String(value).trim();
   return result || null;
 }
 
+/** Serialize one query-string value as a string, JSON-encoding non-primitives. */
 function serializeQueryValue(value) {
   if (typeof value === 'string') {
     return value;
@@ -214,6 +243,7 @@ function serializeQueryValue(value) {
   return JSON.stringify(value);
 }
 
+/** Read a response body as JSON, returning `null` for an empty body. */
 async function readResponsePayload(response) {
   const text = await response.text();
   if (!text) {
@@ -236,6 +266,7 @@ async function readResponsePayload(response) {
   }
 }
 
+/** Build a HeuristApiError describing a non-OK response. */
 function createResponseError(response, payload, method, url) {
   const message = extractErrorMessage(payload)
     || `${response.status} ${response.statusText}`.trim()
@@ -254,6 +285,7 @@ function createResponseError(response, payload, method, url) {
   );
 }
 
+/** Extract a human-readable message from an error response payload, when present. */
 function extractErrorMessage(payload) {
   if (!payload || typeof payload !== 'object') {
     return null;

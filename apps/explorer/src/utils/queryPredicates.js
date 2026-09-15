@@ -1,16 +1,22 @@
 /**
  * @file queryPredicates.js
  * @brief Predicate keyword vocabulary for the Heurist record query language.
- * @project     Heurist academic knowledge management system
- * @package     heurist-explorer.utils
- * @link        https://HeuristNetwork.org
- * @license     https://www.gnu.org/licenses/gpl-3.0.txt GNU License 3.0
  *
  * HARD COPY of `KEYWORD_ALIASES` + `LINK_PREDICATES` from
  * `srv/Records/Query/Parser/RecordQueryParser.php` (~L26-40). The PHP parser
  * stays the single source of truth and has no dependency on this file; keep the
  * two in sync by hand (a CI/lint check is planned). See
  * docs/query-language-filter-builder-plan.md section 6 / D1.
+ *
+ * @project     Heurist academic knowledge management system
+ * @package     heurist-explorer
+ *
+ * @link        https://HeuristNetwork.org
+ * @copyright   (C) 2024 onwards Heurist Network
+ * @author      Artem Osmakov   <osmakov@gmail.com>
+ * @author      Ian Johnson <ian.johnson.heurist@gmail.com>
+ * @license     https://www.gnu.org/licenses/gpl-3.0.txt GNU License 3.0
+ * @since       8.0
  */
 
 /**

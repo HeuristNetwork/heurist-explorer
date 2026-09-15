@@ -1,8 +1,10 @@
 /**
  * @file DataTablesAdapter.js
  * @brief DataTables.net rendering engine.
+ *
  * @project     Heurist academic knowledge management system
  * @package     heurist-data
+ *
  * @link        https://HeuristNetwork.org
  * @copyright   (C) 2024 onwards Heurist Network
  * @author      Artem Osmakov   <osmakov@gmail.com>
@@ -28,6 +30,23 @@ const RECORD_TYPE_ICON_TOKEN = Date.now();
 
 /** Renders application data with DataTables.net. */
 export class DataTablesAdapter extends DataEngineAdapter {
+  /**
+   * Build the toolbar, export buttons, and DataTables instance.
+   *
+   * @param {object} context Engine context; see `DataApplication#_engineContext`.
+   * @param {HTMLElement} context.container Element to render the table into.
+   * @param {object} [context.options] Engine options (columns, controls, interaction flags, page length, …).
+   * @param {Function} context.onSelectionChange Called with selected record IDs.
+   * @param {Function} context.onEditRecord Called with a record ID to edit.
+   * @param {Function} context.onViewRecord Called with a record ID to view.
+   * @param {Function} context.onCollectionToggle Called with `(recordId, collected)` to toggle persistent collection membership.
+   * @param {Function} context.onCollectionAction Called with `(action, recordIds)` for bulk collection actions.
+   * @param {Function} context.onDataRequest Called with `{offset, limit, sort, filter}` to request a page of data.
+   * @param {Function} context.onViewModeChange Called with the new view mode.
+   * @param {Function} context.onPickFields Called to request a field-picker dialog.
+   * @param {Function} context.onDataSourceAction Called with a datasource action id (workspace/save-filter/save-source).
+   * @returns {Promise<void>}
+   */
   async initialize({
     container,
     options = {},
@@ -252,6 +271,12 @@ export class DataTablesAdapter extends DataEngineAdapter {
       this.sourceActions.hidden = this.options.sourceActionsEnabled !== true;
   }
 
+  /**
+   * Show/hide the source-actions toolbar group and reflect workspace membership on its button.
+   *
+   * @param {{enabled?: boolean, inWorkspace?: boolean}} [options] Visibility and workspace-membership state.
+   * @returns {Promise<void>}
+   */
   async setDataSourceActions({ enabled = false, inWorkspace = false } = {}) {
     if (this.sourceActions) this.sourceActions.hidden = !enabled;
     if (this.workspaceButton) {
@@ -276,6 +301,7 @@ export class DataTablesAdapter extends DataEngineAdapter {
       .filter((id) => Number.isInteger(id) && id > 0);
   }
 
+  /** Apply a toolbar selection shortcut ('page' selects the visible page, 'none' clears selection). */
   _selectionAction(name) {
     if (name === "page")
       this._pageIds().forEach((id) => this.selected.add(id));
@@ -285,6 +311,7 @@ export class DataTablesAdapter extends DataEngineAdapter {
     this.onSelectionChange?.([...this.selected]);
   }
 
+  /** Dispatch a toolbar persistent-collection shortcut to the host-level collection action handler. */
   async _collectionAction(name) {
     const selected = [...this.selected];
     if (name === "add-selected")
@@ -297,6 +324,7 @@ export class DataTablesAdapter extends DataEngineAdapter {
     else if (name === "show") await this.onCollectionAction?.("show", []);
   }
 
+  /** Refresh the selection-count toolbar button's label. */
   _updateSelectionButton() {
     if (this.selectionButton)
       this.selectionButton.textContent = `${$HR("Selected")}: ${this.selected.size}`;
@@ -340,6 +368,12 @@ export class DataTablesAdapter extends DataEngineAdapter {
     }
   }
 
+  /**
+   * Rebuild the DataTables instance for a new page of data.
+   *
+   * @param {{dataset: object|null, records: Array<object>, meta: object, pagination: object}} data Data to render.
+   * @returns {Promise<void>}
+   */
   async setData({ dataset, records, meta, pagination }) {
     this.instance?.destroy();
     this.instance = null;
@@ -522,11 +556,23 @@ export class DataTablesAdapter extends DataEngineAdapter {
     };
   }
 
+  /**
+   * Apply the current record selection to the rendered rows.
+   *
+   * @param {Array<number>} recordIds Selected record IDs.
+   * @returns {Promise<void>}
+   */
   async setSelection(recordIds) {
     this.selected = new Set(recordIds.map(Number));
     this._applySelectionClasses();
   }
 
+  /**
+   * Apply the current persistent-collection membership to the rendered rows.
+   *
+   * @param {Array<number>} recordIds Collected record IDs.
+   * @returns {Promise<void>}
+   */
   async setCollection(recordIds) {
     this.collected = new Set(recordIds.map(Number));
     this._applyCollectionClasses();
@@ -549,6 +595,7 @@ export class DataTablesAdapter extends DataEngineAdapter {
     return this.pendingRequest;
   }
 
+  /** Route a click on the table body to collection toggling, record editing/viewing, or row selection. */
   _handleClick(event) {
     const collection = event.target.closest(".heurist-data-collection");
     if (collection) {
@@ -588,6 +635,7 @@ export class DataTablesAdapter extends DataEngineAdapter {
     this.onSelectionChange?.([...this.selected]);
   }
 
+  /** Sync the selection toolbar button and each visible row's selected-row class. */
   _applySelectionClasses() {
     this._updateSelectionButton();
     if (!this.instance) return;
@@ -601,6 +649,7 @@ export class DataTablesAdapter extends DataEngineAdapter {
     });
   }
 
+  /** Sync each visible row's collection checkbox with `this.collected`. */
   _applyCollectionClasses() {
     if (!this.instance) return;
     const collected = this.collected;
@@ -611,10 +660,21 @@ export class DataTablesAdapter extends DataEngineAdapter {
     });
   }
 
+  /**
+   * Re-adjust DataTables column widths after a container size change.
+   *
+   * @returns {Promise<void>}
+   */
   async resize() {
     this.instance?.columns.adjust();
   }
 
+  /**
+   * Apply updated engine options: toolbar visibility, font size, and (if data is loaded) a re-render.
+   *
+   * @param {object} [options] Updated engine options, merged into `this.options`.
+   * @returns {Promise<void>}
+   */
   async applyConfiguration(options = {}) {
     this.options = { ...this.options, ...options };
     this._syncToolbarVisibility();
@@ -632,6 +692,11 @@ export class DataTablesAdapter extends DataEngineAdapter {
       });
   }
 
+  /**
+   * Destroy the DataTables instance and remove the toolbar and event listeners.
+   *
+   * @returns {Promise<void>}
+   */
   async destroy() {
     this.instance?.destroy();
     this.instance = null;
@@ -655,6 +720,7 @@ export class DataTablesAdapter extends DataEngineAdapter {
   }
 }
 
+/** Build one toolbar icon button for a datasource action (workspace/save-filter/save-source). */
 function sourceActionButton(action, icon, title) {
   const button = document.createElement("button");
   button.type = "button";
@@ -666,6 +732,13 @@ function sourceActionButton(action, icon, title) {
   return button;
 }
 
+/**
+ * Project raw records into DataTables row objects, keyed by generated field columns.
+ *
+ * @param {Array<object>} records Raw Heurist records.
+ * @param {Array<{field: string, ext?: string}>} fields Field descriptors; see `FieldValueFormatter#fieldValues`.
+ * @returns {Array<object>} Row objects: `{rec_ID, _record, field_0, field_1, ...}`.
+ */
 export function projectRecords(records, fields) {
   return records.map((record) => {
     const row = { rec_ID: record.rec_ID, _record: record };
@@ -676,11 +749,20 @@ export function projectRecords(records, fields) {
   });
 }
 
+/**
+ * Format one field's values for display or export.
+ *
+ * @param {object} record Raw Heurist record.
+ * @param {{field: string, ext?: string, type?: string}} field Field descriptor.
+ * @param {'display'|'export'} [type='display'] `'display'` renders HTML per-value formatting joined by `<br>`; otherwise plain values joined by `' | '`.
+ * @returns {string} Formatted cell content.
+ */
 export function formatCell(record, field, type = "display") {
   const normalized = fieldValues(record, field).map(String);
   return formatProjectedCell(normalized, type, field.type || null);
 }
 
+/** Join one field's already-stringified values into display HTML or plain export text. */
 function formatProjectedCell(value, type = "display", dataType = null) {
   const values = Array.isArray(value) ? value : value == null ? [] : [value];
   const plain = values.map((item) => stripHtml(String(item ?? "")));
@@ -692,10 +774,12 @@ function formatProjectedCell(value, type = "display", dataType = null) {
     .join("<br>");
 }
 
+/** Build the generated column key for a field at a given index (`field_0`, `field_1`, ...). */
 function columnKey(index) {
   return `field_${index}`;
 }
 
+/** Map a projected column code (`rec_*` or a field id/path) to the API's sort field token, or `null` when unsortable. */
 function sortCode(code) {
   if (code === "rec_ID") return "id";
   if (code === "rec_Title") return "title";
@@ -710,6 +794,7 @@ function sortCode(code) {
   return null;
 }
 
+/** Build DataTables' localized `language` option object, from the configured empty-result message. */
 function dataTablesLanguage(emptyResultMessage) {
   const empty = String(emptyResultMessage || "No records");
   return {
@@ -730,6 +815,7 @@ function dataTablesLanguage(emptyResultMessage) {
   };
 }
 
+/** Resolve a field's display name from the dataset metadata's field details, falling back to its code. */
 function fieldTitle(code, meta) {
   const raw = meta?.fields?.details || meta?.details || [];
   const details = Array.isArray(raw) ? raw : Object.values(raw);
@@ -739,12 +825,14 @@ function fieldTitle(code, meta) {
   return found?.dty_Name || code;
 }
 
+/** Escape HTML-significant characters in a string via the DOM, for safe interpolation into markup. */
 function escapeHtml(value) {
   const span = document.createElement("span");
   span.textContent = value;
   return span.innerHTML;
 }
 
+/** Render the admin-only owner/visibility/bookmark/record-type-icon column HTML for one record. */
 function renderAdminInfo(record, options) {
   const visibility = String(record?.rec_NonOwnerVisibility || "").toLowerCase();
   const visibilityInfo = {
@@ -784,6 +872,7 @@ function renderAdminInfo(record, options) {
   );
 }
 
+/** Resolve a field's `dty_Type` from the dataset metadata's field details, or `null` when unknown. */
 function fieldType(code, meta) {
   const raw = meta?.fields?.details || meta?.details || [];
   const details = Array.isArray(raw) ? raw : Object.values(raw);
@@ -794,6 +883,7 @@ function fieldType(code, meta) {
   );
 }
 
+/** Format one value's display HTML per its data type (blocktext/JSON/geo get special treatment; others are sanitized HTML). */
 function formatDisplayValue(value, plain, dataType) {
   const type = String(dataType || "").toLowerCase();
   if (type === "blocktext") {
@@ -809,6 +899,7 @@ function formatDisplayValue(value, plain, dataType) {
   return sanitizeTextHtml(value);
 }
 
+/** Whether a string looks like JSON (starts with `{`/`[` and parses successfully). */
 function looksLikeJson(value) {
   const text = String(value || "").trim();
   if (!(text.startsWith("{") || text.startsWith("["))) return false;
@@ -820,6 +911,7 @@ function looksLikeJson(value) {
   }
 }
 
+/** Re-serialize a JSON string compactly and truncate it for display. */
 function compactJson(value) {
   try {
     return truncate(JSON.stringify(JSON.parse(value)), 90);
@@ -828,11 +920,13 @@ function compactJson(value) {
   }
 }
 
+/** Truncate text to `length` characters, appending an ellipsis when shortened. */
 function truncate(value, length) {
   const text = String(value || "");
   return text.length > length ? `${text.slice(0, length - 1)}…` : text;
 }
 
+/** Render the per-row edit/view action-button HTML for a record id. */
 function renderRowActions(value, interaction) {
   const id = Number(value);
   return (

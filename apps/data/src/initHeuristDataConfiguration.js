@@ -1,8 +1,10 @@
 /**
  * @file initHeuristDataConfiguration.js
  * @brief Initializes the Heurist Data configuration editor.
+ *
  * @project     Heurist academic knowledge management system
  * @package     heurist-data
+ *
  * @link        https://HeuristNetwork.org
  * @copyright   (C) 2024 onwards Heurist Network
  * @author      Artem Osmakov   <osmakov@gmail.com>
@@ -44,6 +46,7 @@ export async function initHeuristDataConfiguration(config) {
   globalThis.heuristData = api;
   return api;
 }
+/** Resolve the legacy Heurist base URL (for report template assets) from the host or API base URL. */
 function resolveHeuristBaseUrl(config) {
   const hostBase = String(config.host?.baseUrl || "").trim();
   if (hostBase) return hostBase.endsWith("/") ? hostBase : `${hostBase}/`;

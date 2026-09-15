@@ -1,11 +1,10 @@
-import { $HR } from '#shared/ui';
-import { TimelineConfigurationDialog } from './TimelineConfigurationDialog.js';
-import { showTimelineMessage } from './timelineMessages.js';
 /**
  * @file TimelineToolbar.js
  * @brief Provides the toolbar UI for the timeline viewport and navigation commands.
+ *
  * @project     Heurist academic knowledge management system
  * @package     heurist-timeline
+ *
  * @link        https://HeuristNetwork.org
  * @copyright   (C) 2024 onwards Heurist Network
  * @author      Artem Osmakov   <osmakov@gmail.com>
@@ -13,6 +12,10 @@ import { showTimelineMessage } from './timelineMessages.js';
  * @license     https://www.gnu.org/licenses/gpl-3.0.txt GNU License 3.0
  * @since       8.0
  */
+
+import { $HR } from '#shared/ui';
+import { TimelineConfigurationDialog } from './TimelineConfigurationDialog.js';
+import { showTimelineMessage } from './timelineMessages.js';
 
 /**
  * Provides the floating toolbar used to control the display and viewport of the timeline.
@@ -73,14 +76,21 @@ export class TimelineToolbar {
   }
 
   /**
-   * Cycles the label display mode (full -> truncated -> hidden) and refreshes
-   * the button hint.
+   * Opens the timeline configuration dialog, creating it on first use.
+   *
+   * @private
    */
   _openOptions() {
     this.configurationDialog ||= new TimelineConfigurationDialog({ api: this.api });
     this.configurationDialog.open();
   }
 
+  /**
+   * Cycles the label display mode (full -> truncated -> hidden) and refreshes
+   * the button hint.
+   *
+   * @private
+   */
   _cycleLabelMode() {
     this._syncLabelButton(this.api.cycleLabelMode());
   }
@@ -89,6 +99,7 @@ export class TimelineToolbar {
    * Updates the label button tooltip to describe the current mode and the next
    * click.
    *
+   * @private
    * @param {string} mode - The active label mode.
    */
   _syncLabelButton(mode) {
@@ -110,4 +121,3 @@ export class TimelineToolbar {
     this.element = null;
   }
 }
-

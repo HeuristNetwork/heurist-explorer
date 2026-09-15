@@ -1,11 +1,6 @@
 /**
  * @file HFilterInlineHelper.js
  * @brief Inline query helper: context token hints while typing, human sentence after.
- * @project     Heurist academic knowledge management system
- * @package     heurist-explorer.widgets.filter
- * @link        https://HeuristNetwork.org
- * @license     https://www.gnu.org/licenses/gpl-3.0.txt GNU License 3.0
- * @author      Artem Osmakov <osmakov@gmail.com>
  *
  * Binds to any <input>/<textarea> carrying a Heurist keyword query (plan §8 / D6):
  *   - while typing  -> a token-hint dropdown only (record type -> field ->
@@ -17,6 +12,16 @@
  *
  * `parseText` / `describe` are injectable so a host can swap in the canonical
  * server implementations later; the defaults are the client-min ones.
+ *
+ * @project     Heurist academic knowledge management system
+ * @package     heurist-explorer
+ *
+ * @link        https://HeuristNetwork.org
+ * @copyright   (C) 2024 onwards Heurist Network
+ * @author      Artem Osmakov   <osmakov@gmail.com>
+ * @author      Ian Johnson <ian.johnson.heurist@gmail.com>
+ * @license     https://www.gnu.org/licenses/gpl-3.0.txt GNU License 3.0
+ * @since       8.0
  */
 
 import { HBaseWidget } from '#shared/widgets/HBaseWidget.js';
@@ -35,6 +40,7 @@ const IDLE_MS = 700;
 const HINT_DEBOUNCE_MS = 120;
 const MAX_HINTS = 12;
 
+/** Binds token-hint autocomplete and a post-parse sentence readout to a query input. */
 export class HFilterInlineHelper extends HBaseWidget {
   /**
    * @param {{vocabulary:object, lang?:string, dbdefs?:object,
@@ -65,7 +71,14 @@ export class HFilterInlineHelper extends HBaseWidget {
     this._hintTimer = null;
   }
 
-  /** @param {HTMLInputElement|HTMLTextAreaElement} input */
+  /**
+   * Attach the helper to the query input it will augment.
+   *
+   * @param {HTMLInputElement|HTMLTextAreaElement} input Input to bind to.
+   * @param {{showBuilderButton?: boolean}} [options] Attach options.
+   * @returns {HFilterInlineHelper} This instance, for chaining.
+   * @throws {TypeError} When `input` is not an `HTMLElement`.
+   */
   attach(input, options = {}) {
     if (!(input instanceof HTMLElement)) throw new TypeError('HFilterInlineHelper needs an input element');
     this.input = input;
@@ -74,6 +87,12 @@ export class HFilterInlineHelper extends HBaseWidget {
     return this;
   }
 
+  /**
+   * Build the hint dropdown and sentence panel, and wire up the input's event handlers.
+   *
+   * @returns {HFilterInlineHelper} This instance, for chaining.
+   * @throws {Error} When the helper has not been attached yet.
+   */
   render() {
     if (!this.input) throw new Error('HFilterInlineHelper must be attached before render');
     const input = this.input;
@@ -129,6 +148,12 @@ export class HFilterInlineHelper extends HBaseWidget {
 
   // ---------------------------------------------------------------- lifecycle ---
 
+  /**
+   * Hide the sentence, and (re)schedule hints and the idle-triggered sentence update.
+   *
+   * @private
+   * @returns {void}
+   */
   _onInput() {
     this._hideSentence();               // D6: no prose while typing
     this._scheduleHints();
@@ -136,6 +161,13 @@ export class HFilterInlineHelper extends HBaseWidget {
     this._idleTimer = setTimeout(() => this._updateSentence(), IDLE_MS);
   }
 
+  /**
+   * Handle hint-navigation keys (arrows, Escape, Enter/Tab to apply) while the hint dropdown is open.
+   *
+   * @private
+   * @param {KeyboardEvent} event Originating keydown event.
+   * @returns {void}
+   */
   _onKeyDown(event) {
     if (this._hintBox?.hidden) return;
     if (event.key === 'ArrowDown') { event.preventDefault(); this._moveHint(1); }
@@ -147,6 +179,12 @@ export class HFilterInlineHelper extends HBaseWidget {
     }
   }
 
+  /**
+   * Request database definitions from `onNeedDbDefs`, once, when not already available.
+   *
+   * @private
+   * @returns {void}
+   */
   _requestDbDefs() {
     if (this.dbdefs || this._dbDefsRequested) return;
     this._dbDefsRequested = true;
@@ -155,6 +193,12 @@ export class HFilterInlineHelper extends HBaseWidget {
       .catch(() => { this._dbDefsRequested = false; });
   }
 
+  /**
+   * Debounce a hint refresh.
+   *
+   * @private
+   * @returns {void}
+   */
   _scheduleHints() {
     clearTimeout(this._hintTimer);
     this._hintTimer = setTimeout(() => this._updateHints(), HINT_DEBOUNCE_MS);
@@ -162,6 +206,12 @@ export class HFilterInlineHelper extends HBaseWidget {
 
   // ------------------------------------------------------------------- hints ---
 
+  /**
+   * Recompute and show (or close) the hint dropdown for the caret's current token.
+   *
+   * @private
+   * @returns {void}
+   */
   _updateHints() {
     if (!this.isRendered || document.activeElement !== this.input) return;
     if (!this.dbdefs) { this._closeHints(); return; }
@@ -176,6 +226,12 @@ export class HFilterInlineHelper extends HBaseWidget {
     this._renderHints();
   }
 
+  /**
+   * Render the hint dropdown's current items, highlighting the active one.
+   *
+   * @private
+   * @returns {void}
+   */
   _renderHints() {
     this._hintBox.replaceChildren();
     this._hintItems.forEach((item, i) => {
@@ -197,6 +253,13 @@ export class HFilterInlineHelper extends HBaseWidget {
     this._hintBox.hidden = false;
   }
 
+  /**
+   * Move the active hint selection by `delta`, wrapping around.
+   *
+   * @private
+   * @param {number} delta `1` for next, `-1` for previous.
+   * @returns {void}
+   */
   _moveHint(delta) {
     const n = this._hintItems.length;
     if (!n) return;
@@ -204,6 +267,13 @@ export class HFilterInlineHelper extends HBaseWidget {
     this._renderHints();
   }
 
+  /**
+   * Insert a chosen hint's text into the input at the current token, replacing it.
+   *
+   * @private
+   * @param {{insert: string}} item Hint item; see `_computeHints`.
+   * @returns {void}
+   */
   _applyHint(item) {
     if (!item) return;
     const value = this.input.value;
@@ -220,6 +290,12 @@ export class HFilterInlineHelper extends HBaseWidget {
     this._onChange?.(this.input.value);
   }
 
+  /**
+   * Hide the hint dropdown and clear its item list.
+   *
+   * @private
+   * @returns {void}
+   */
   _closeHints() {
     if (this._hintBox) this._hintBox.hidden = true;
     this._hintItems = [];
@@ -318,6 +394,13 @@ export class HFilterInlineHelper extends HBaseWidget {
     return { tokenStart, items: filterByLabel(items, valTail.toLowerCase()) };
   }
 
+  /**
+   * Resolve the scope record type implied by prior tokens (a leading bare name/id, or an explicit `t:`).
+   *
+   * @private
+   * @param {string[]} tokens Whitespace-split tokens before the caret.
+   * @returns {number|string} Resolved rectype id, or `''` when none.
+   */
   _rtyContext(tokens) {
     let ctx = '';
     for (const tok of tokens) {
@@ -331,6 +414,13 @@ export class HFilterInlineHelper extends HBaseWidget {
     return ctx;
   }
 
+  /**
+   * Resolve a `t:` token's text to a rectype id: numeric id, or a name lookup via `dbdefs`.
+   *
+   * @private
+   * @param {string} text Rectype id or name.
+   * @returns {number|string} Resolved rectype id, or `''` when unresolved.
+   */
   _resolveRty(text) {
     const raw = String(text ?? '').trim();
     if (/^\d+$/.test(raw)) return Number(raw);
@@ -352,6 +442,12 @@ export class HFilterInlineHelper extends HBaseWidget {
     return Array.isArray(q) ? q : (Array.isArray(q?.q) ? q.q : []);
   }
 
+  /**
+   * Parse and describe the current input text, showing or hiding the sentence panel accordingly.
+   *
+   * @private
+   * @returns {void}
+   */
   _updateSentence() {
     if (!this.isRendered) return;
     const text = this.input.value.trim();
@@ -380,10 +476,22 @@ export class HFilterInlineHelper extends HBaseWidget {
     this._onChange?.(this.input.value, sentence);
   }
 
+  /**
+   * Hide the sentence panel.
+   *
+   * @private
+   * @returns {void}
+   */
   _hideSentence() {
     if (this._sentence) this._sentence.hidden = true;
   }
 
+  /**
+   * Parse the current input text and hand it to `onOpenBuilder`.
+   *
+   * @private
+   * @returns {void}
+   */
   _openBuilder() {
     if (typeof this._onOpenBuilder !== 'function') return;
     let seed = [];
@@ -391,6 +499,11 @@ export class HFilterInlineHelper extends HBaseWidget {
     this._onOpenBuilder({ query: seed, rawText: this.input.value, input: this.input });
   }
 
+  /**
+   * Detach listeners and remove the hint/sentence/builder-button DOM.
+   *
+   * @returns {Promise<void>}
+   */
   async destroy() {
     clearTimeout(this._idleTimer);
     clearTimeout(this._hintTimer);
@@ -405,12 +518,14 @@ export class HFilterInlineHelper extends HBaseWidget {
 
 // --------------------------------------------------------------------- helpers ---
 
+/** Create an element, optionally with a class name. */
 function el(tag, className) {
   const node = document.createElement(tag);
   if (className) node.className = className;
   return node;
 }
 
+/** Filter and rank items by label: prefix matches first, then substring matches. */
 function filterByLabel(items, q) {
   if (!q) return items;
   const starts = [];
