@@ -45,7 +45,8 @@
     "deploy:data": "node scripts/deploy-module.mjs data",
     "deploy:graph": "node scripts/deploy-module.mjs graph",
     "deploy:map": "node scripts/deploy-module.mjs map",
-    "deploy:timeline": "node scripts/deploy-module.mjs timeline"
+    "deploy:timeline": "node scripts/deploy-module.mjs timeline",
+    "deploy:all": "node scripts/deploy-module.mjs all"
   },
   "dependencies": {
     "@fortawesome/fontawesome-free": "^7.3.1",
