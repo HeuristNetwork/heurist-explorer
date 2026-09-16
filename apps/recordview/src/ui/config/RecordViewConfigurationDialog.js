@@ -174,12 +174,18 @@ export class RecordViewConfigurationDialog {
     this.check("config.defaults.showHeader", "Show header");
     this.text("config.defaults.headerTitle", "Header title");
     this.text("config.defaults.emptyMessage", "Empty message");
+    // .heurist-config-section-body is what gives Data/Graph's dialogs
+    // row-to-row spacing (its flex `gap`) - it normally lives inside a
+    // <details class="heurist-config-section">, but this dialog has no
+    // sections to group into, so the plain wrapper is used on its own.
+    const fieldsBody = el("div", "heurist-config-section-body");
     for (const [path, field] of this.fields) {
-      body.append(field.row);
+      fieldsBody.append(field.row);
       if (path === "config.defaults.engine") {
         field.control.addEventListener("change", () => this.applyDependencies());
       }
     }
+    body.append(fieldsBody);
   }
 
   /** Show or hide the template select based on the selected engine. */

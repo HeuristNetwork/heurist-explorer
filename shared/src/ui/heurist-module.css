@@ -71,15 +71,6 @@
 .heurist-module-control-panel.controls-only .heurist-module-panel-header { width: auto; padding: 4px; gap: 2px; border-bottom: 0; }
 .heurist-module-control-panel.controls-only .heurist-module-panel-body { display: none; }
 
-/* Below 600px, drop to a full-width mobile drawer - except for the compact,
-   always-visible bars (main-mode, controls-only), which stay a small corner
-   bar at any width so they never cover the module underneath (e.g. the
-   source header). */
-@media (max-width: 600px) {
-  .heurist-module-control-panel:not(.main-mode):not(.controls-only) { right: 6px; left: 6px; width: auto; max-height: 55vh; }
-  .heurist-module-control-panel.position-top-left { left: 6px; right: 6px; }
-}
-
 /* Source header ---------------------------------------------------------- */
 .heurist-source-header {
   z-index: 2;

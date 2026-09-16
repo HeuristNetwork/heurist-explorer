@@ -44,7 +44,7 @@ export class PublishedDialog {
     title.textContent = 'Published';
     const text = element('p', 'h-i18n');
     text.textContent = 'The publication is available at:';
-    const input = element('input');
+    const input = element('input', 'h-input');
     input.type = 'text';
     input.readOnly = true;
     input.value = url;
@@ -99,7 +99,7 @@ function element(tag, className = '') {
 
 /** Create a labeled, i18n-marked button that runs an async click handler. */
 function button(label, handler) {
-  const node = element('button', 'h-i18n');
+  const node = element('button', 'h-btn h-i18n');
   node.type = 'button';
   node.textContent = label;
   node.addEventListener('click', () => Promise.resolve(handler()).catch(() => {}));

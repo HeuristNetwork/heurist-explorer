@@ -1,9 +1,15 @@
 :root { font-family: var(--h-font-family); color: var(--h-color-text); }
-html, body, #heurist-recordview { width: 100%; height: 100%; margin: 0; overflow: hidden; }
-#heurist-recordview {
+/* `.heurist-recordview-root` (not `#heurist-recordview`) so this sizing
+   applies in both iframe/standalone mode (the `#heurist-recordview` element
+   from index.html) and `direct` mode (an arbitrary Explorer-generated
+   container with its own id) - both get this class added at runtime by
+   initHeuristRecordView.js, matching Data's own `.heurist-data-root`. */
+html, body, .heurist-recordview-root { width: 100%; height: 100%; margin: 0; overflow: hidden; }
+.heurist-recordview-root {
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
+  min-height: 0;
   position: relative;
   background: var(--h-color-bg);
 }
@@ -18,7 +24,7 @@ html, body, #heurist-recordview { width: 100%; height: 100%; margin: 0; overflow
   position: absolute;
   top: 4px;
   right: 4px;
-  width: min(220px, calc(100% - 8px));
+  width: min(90px, calc(100% - 8px));
   font-size: var(--h-font-size-small);
 }
 

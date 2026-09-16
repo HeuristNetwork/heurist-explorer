@@ -57,7 +57,6 @@ export class RecordContentProvider {
     const url = new URL("viewers/record/renderRecordData.php", this.baseUrl);
     url.searchParams.set("recID", String(id));
     url.searchParams.set("db", this.database);
-    url.searchParams.set("noheader", "1");
     return url;
   }
 }
