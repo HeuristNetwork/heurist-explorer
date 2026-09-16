@@ -32,7 +32,7 @@ const LINKABLE = new Set(['resource', 'relmarker']);
 /** Framework-free hierarchical field picker popover for the Filter Builder. */
 export class HFieldTree {
   /**
-   * @param {{dbdefs:import('../../utils/HDbDefs.js').HDbDefs}} deps
+   * @param {{dbdefs:import('#shared/data/HDbDefs.js').HDbDefs}} deps
    */
   constructor({ dbdefs }) {
     this.dbdefs = dbdefs;

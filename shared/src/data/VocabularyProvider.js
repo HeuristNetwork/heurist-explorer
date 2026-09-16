@@ -1,15 +1,17 @@
 /**
  * @file VocabularyProvider.js
- * @brief Resolves edge detail-type and relation-type labels from the Heurist API.
+ * @brief Resolves record-type/field/relation-type display names by id, in small cached batches.
  *
- * @project     Heurist academic knowledge management system
- * @package     heurist-graph
- *
- * @link        https://HeuristNetwork.org
- * @copyright   (C) 2024 onwards Heurist Network
- * @author      Artem Osmakov   <osmakov@gmail.com>
- * @license     https://www.gnu.org/licenses/gpl-3.0.txt GNU License 3.0
- * @since       8.0
+ * Complements `HDbDefs` (also under `shared/src/data/`) rather than
+ * replacing it: `HDbDefs` loads and indexes an entire database's
+ * definitions up front (rectypes, fields, terms, structure, the link
+ * graph) and suits consumers that already need that whole structure
+ * (Explorer's Filter Builder, describer, inline helper). This provider
+ * answers a much narrower question — "what are the names for these few
+ * ids I already have on screen" — with small, cached, per-id-batch REST
+ * calls, for consumers (Graph's legend/edge labels, Record View's
+ * `builtin` renderer) that only ever need a handful of names and would
+ * pay for the entire snapshot for no benefit if switched to `HDbDefs`.
  *
  * The graph endpoint reports edges by numeric id only (`fieldId` = detail type
  * dty_ID, `relationshipId` = relation-type trm_ID). This provider turns those
@@ -20,6 +22,15 @@
  *
  * Every lookup is cached by id (including misses) so repeated loads and node
  * expansions only fetch ids not seen before.
+ *
+ * @project     Heurist academic knowledge management system
+ * @package     heurist-client-core
+ *
+ * @link        https://HeuristNetwork.org
+ * @copyright   (C) 2024 onwards Heurist Network
+ * @author      Artem Osmakov   <osmakov@gmail.com>
+ * @license     https://www.gnu.org/licenses/gpl-3.0.txt GNU License 3.0
+ * @since       8.0
  */
 
 /** Rows live under `items` in every current Heurist REST response. */
@@ -52,7 +63,7 @@ function pick(cache, ids) {
   return out;
 }
 
-/** Resolves and caches record-type/field/relation-type display names for the graph legend and popups. */
+/** Resolves and caches record-type/field/relation-type display names by id, in small batches. */
 export class VocabularyProvider {
   /** @param {{apiClient: object}} [options] Heurist API client. */
   constructor({ apiClient } = {}) {

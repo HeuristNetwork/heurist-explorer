@@ -46,7 +46,7 @@ export function getHeuristExplorerConfig() {
       map: normalizeMode(runtime.moduleModes?.map),
       timeline: normalizeMode(runtime.moduleModes?.timeline),
       graph: normalizeMode(runtime.moduleModes?.graph),
-      recordview: normalizeMode(runtime.moduleModes?.recordview)
+      recordview: normalizeMode(runtime.moduleModes?.recordview, 'direct')
     },
     moduleUrls: {
       data: runtime.moduleUrls?.data || (baseUrl ? `${baseUrl}hclient/modules/data/dataViewer.html` : null),

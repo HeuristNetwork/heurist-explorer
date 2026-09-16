@@ -16,7 +16,7 @@
 import { HeuristDataConfigurationApi } from "./host/HeuristDataConfigurationApi.js";
 import { ReportTemplateProvider } from "./data/ReportTemplateProvider.js";
 import { HeuristApiClient } from "#shared/api";
-import { RecordTypeProvider } from "./data/RecordTypeProvider.js";
+import { RecordTypeProvider } from "#shared/data/RecordTypeProvider.js";
 import { DatasetListProvider } from "./data/DatasetListProvider.js";
 import { FilterProvider } from "./data/FilterProvider.js";
 

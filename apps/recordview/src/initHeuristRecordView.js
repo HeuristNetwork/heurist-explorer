@@ -16,7 +16,7 @@ import { showRecordViewMessage } from "./ui/recordViewMessages.js";
 import { HeuristApiClient } from "#shared/api";
 import { RecordViewApplication } from "./core/RecordViewApplication.js";
 import { RecordDataProvider } from "./data/RecordDataProvider.js";
-import { VocabularyProvider } from "./data/VocabularyProvider.js";
+import { VocabularyProvider } from "#shared/data/VocabularyProvider.js";
 import { RecordContentProvider } from "./data/RecordContentProvider.js";
 import { ReportTemplateProvider } from "./data/ReportTemplateProvider.js";
 import { HeuristRecordViewPublicApi } from "./host/HeuristRecordViewPublicApi.js";

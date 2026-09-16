@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { GraphApplication } from '../src/core/GraphApplication.js';
 import { GraphDocument } from '../src/core/GraphDocument.js';
-import { VocabularyProvider } from '../src/data/VocabularyProvider.js';
+import { VocabularyProvider } from '#shared/data/VocabularyProvider.js';
 import { GraphLegend, relationForest } from '../src/ui/GraphLegend.js';
 
 function fixture() {

@@ -16,7 +16,7 @@ import assert from "node:assert/strict";
 import { DatasetProvider } from "../../src/data/DatasetProvider.js";
 import { RecordDataProvider } from "../../src/data/RecordDataProvider.js";
 import { FilterProvider } from "../../src/data/FilterProvider.js";
-import { RecordTypeProvider } from "../../src/data/RecordTypeProvider.js";
+import { RecordTypeProvider } from "#shared/data/RecordTypeProvider.js";
 import { DatasetListProvider } from "../../src/data/DatasetListProvider.js";
 import { createFilterSearchRequest } from "../../src/data/FilterSearchRequest.js";
 

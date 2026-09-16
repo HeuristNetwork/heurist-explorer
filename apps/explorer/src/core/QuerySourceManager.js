@@ -15,20 +15,25 @@
 
 import { normalizeDataSource } from './DataSource.js';
 
+// RT_QUERY_SOURCE's portable concept code: a fixed, global constant, the
+// same in every Heurist database (see `dbconst()` in the server's
+// `srv/Definitions/DefinitionSnapshotService.php`, which hardcodes this same
+// "3-1021" for every db). Resolving it needs one small `/rty/{code}` lookup
+// (RecordTypeProvider), not the whole per-database HDbDefs snapshot.
+const QUERY_SOURCE_CONCEPT_CODE = '3-1021';
+
 /** Loads RT_QUERY_SOURCE records and resolves their presentation definition. */
 export class QuerySourceManager {
   /**
    * @param {object} options Manager configuration.
    * @param {import('#shared/api').HeuristApiClient} options.apiClient Heurist API client.
-   * @param {function(): Promise<object>} options.dbDefsProvider Resolves the current database's definitions.
+   * @param {import('#shared/data/RecordTypeProvider.js').RecordTypeProvider} options.recordTypeProvider Resolves RT_QUERY_SOURCE's local id by concept code.
    */
-  constructor({ apiClient, dbDefsProvider } = {}) {
+  constructor({ apiClient, recordTypeProvider } = {}) {
     if (!apiClient) throw new TypeError('QuerySourceManager requires apiClient');
-    if (typeof dbDefsProvider !== 'function') {
-      throw new TypeError('QuerySourceManager requires dbDefsProvider');
-    }
+    if (!recordTypeProvider) throw new TypeError('QuerySourceManager requires recordTypeProvider');
     this.apiClient = apiClient;
-    this.dbDefsProvider = dbDefsProvider;
+    this.recordTypeProvider = recordTypeProvider;
     this.sources = [];
     this.recordTypeId = null;
     this._loadController = null;
@@ -42,16 +47,20 @@ export class QuerySourceManager {
   async load() {
     this._loadController?.abort();
     this._loadController = new AbortController();
-    const dbDefs = await this.dbDefsProvider();
-    this.recordTypeId = positiveId(dbDefs?.dbconst?.('RT_QUERY_SOURCE'));
-
-    if (!this.recordTypeId) {
+    const signal = this._loadController.signal;
+    try {
+      this.recordTypeId = await this.recordTypeProvider.getIdByConceptCode(QUERY_SOURCE_CONCEPT_CODE, { signal });
+    } catch (error) {
+      if (error?.name === 'AbortError') throw error;
+      // RT_QUERY_SOURCE isn't registered in this database (older install) - no sources to show.
+      this.recordTypeId = null;
       this.sources = [];
       return [];
     }
+
     const payload = await this.apiClient.get('/records/', {
       query: { q: `t:${this.recordTypeId}`, limit: 100000 },
-      signal: this._loadController.signal
+      signal
     });
     const rows = Array.isArray(payload) ? payload : payload?.items || payload?.records || [];
     this.sources = rows.map(normalizeListItem).filter(Boolean);

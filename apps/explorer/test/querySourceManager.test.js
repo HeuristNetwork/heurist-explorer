@@ -17,7 +17,7 @@ test('loads RT_QUERY_SOURCE records and resolves all presentation profiles', asy
   };
   const manager = new QuerySourceManager({
     apiClient,
-    dbDefsProvider: async () => ({ dbconst: (name) => name === 'RT_QUERY_SOURCE' ? 77 : null })
+    recordTypeProvider: { getIdByConceptCode: async (code) => (code === '3-1021' ? 77 : null) }
   });
   assert.deepEqual(await manager.load(), [{ id: 8, title: 'Places source' }]);
   assert.equal(calls[0][1].query.q, 't:77');
@@ -30,4 +30,35 @@ test('loads RT_QUERY_SOURCE records and resolves all presentation profiles', asy
   assert.equal(source.presentation.map.minZoom, 4);
   assert.equal(source.presentation.map.maxZoom, 15);
   assert.deepEqual(source.presentation.timeline.fields, ['12:3']);
+});
+
+test('resolves RT_QUERY_SOURCE by its portable concept code, not the whole dbdefs snapshot', async () => {
+  const conceptCodes = [];
+  const manager = new QuerySourceManager({
+    apiClient: { get: async () => ({ items: [] }) },
+    recordTypeProvider: {
+      async getIdByConceptCode(code) {
+        conceptCodes.push(code);
+        return 5;
+      }
+    }
+  });
+  await manager.load();
+  assert.deepEqual(conceptCodes, ['3-1021']);
+});
+
+test('degrades to an empty list when RT_QUERY_SOURCE is not registered in this database', async () => {
+  let getCalled = false;
+  const manager = new QuerySourceManager({
+    apiClient: { get: async () => { getCalled = true; return { items: [] }; } },
+    recordTypeProvider: { getIdByConceptCode: async () => { throw new Error('did not return a valid rty_ID'); } }
+  });
+  assert.deepEqual(await manager.load(), []);
+  assert.equal(getCalled, false);
+  assert.equal(manager.recordTypeId, null);
+});
+
+test('constructor requires both apiClient and recordTypeProvider', () => {
+  assert.throws(() => new QuerySourceManager({ recordTypeProvider: {} }), TypeError);
+  assert.throws(() => new QuerySourceManager({ apiClient: {} }), TypeError);
 });

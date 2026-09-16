@@ -1,11 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { HDbDefs } from '../src/utils/HDbDefs.js';
+import { HDbDefs } from '../../src/data/HDbDefs.js';
 
 // Minimal fixture with the exact /api/{db}/def/snapshot shape.
 const SNAPSHOT = JSON.parse(
-  readFileSync(new URL('./fixtures/snapshot.json', import.meta.url), 'utf8')
+  readFileSync(new URL('../fixtures/snapshot.json', import.meta.url), 'utf8')
 );
 
 const defs = () => new HDbDefs(SNAPSHOT);

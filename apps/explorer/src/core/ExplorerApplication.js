@@ -29,7 +29,8 @@ import { SyncEngine } from './SyncEngine.js';
 import { IframeModuleAdapter } from '../modules/IframeModuleAdapter.js';
 import { DirectModuleAdapter } from '../modules/DirectModuleAdapter.js';
 import { ExplorerControlPanel } from '../ui/ExplorerControlPanel.js';
-import { HDbDefs } from '../utils/HDbDefs.js';
+import { HDbDefs } from '#shared/data/HDbDefs.js';
+import { RecordTypeProvider } from '#shared/data/RecordTypeProvider.js';
 import queryVocabulary from '../utils/queryVocabulary.json';
 import { HFilterBuilder } from '../widgets/filter-builder/HFilterBuilder.js';
 import { queryDescribe } from '../utils/queryDescribe.js';
@@ -112,7 +113,7 @@ export class ExplorerApplication {
     });
     this.querySources = new QuerySourceManager({
       apiClient,
-      dbDefsProvider: () => this._ensureDbDefs()
+      recordTypeProvider: new RecordTypeProvider({ apiClient })
     });
     this.filter = new HFilter({ apiClient });
     this.filter.attach(this.filterHost, {

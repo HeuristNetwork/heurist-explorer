@@ -21,13 +21,13 @@ import { createGraphEngine } from "./engine/createGraphEngine.js";
 import { HeuristGraphPublicApi } from "./host/HeuristGraphPublicApi.js";
 import { GraphControlPanel } from "./ui/GraphControlPanel.js";
 import { createHostAdapter } from "./host/createHostAdapter.js";
-import { RecordTypeProvider } from "./data/RecordTypeProvider.js";
+import { RecordTypeProvider } from "#shared/data/RecordTypeProvider.js";
 import { DatasetListProvider } from "./data/DatasetListProvider.js";
 import { DatasetProvider } from "./data/DatasetProvider.js";
 import { FilterProvider } from "./data/FilterProvider.js";
 import { ReportTemplateProvider } from "./data/ReportTemplateProvider.js";
 import { RecordContentProvider } from "./data/RecordContentProvider.js";
-import { VocabularyProvider } from "./data/VocabularyProvider.js";
+import { VocabularyProvider } from "#shared/data/VocabularyProvider.js";
 import { GraphConfigurationDialog } from "./ui/config/GraphConfigurationDialog.js";
 
 /**

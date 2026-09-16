@@ -24,7 +24,7 @@ import { HeuristDataPublicApi } from "./host/HeuristDataPublicApi.js";
 import { DataConfigurationDialog } from "./ui/config/DataConfigurationDialog.js";
 import { ReportTemplateProvider } from "./data/ReportTemplateProvider.js";
 import { FilterProvider } from "./data/FilterProvider.js";
-import { RecordTypeProvider } from "./data/RecordTypeProvider.js";
+import { RecordTypeProvider } from "#shared/data/RecordTypeProvider.js";
 import { DatasetListProvider } from "./data/DatasetListProvider.js";
 import { DataControlPanel } from "./ui/DataControlPanel.js";
 import { RecordContentProvider } from "./data/RecordContentProvider.js";
