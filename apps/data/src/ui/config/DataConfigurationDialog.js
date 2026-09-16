@@ -121,15 +121,15 @@ export class DataConfigurationDialog {
       throw new Error("DataConfigurationDialog requires a browser document");
     if (this.element) return this;
     this.previousFocus = document.activeElement;
-    this.dialog = el("dialog", "h-dialog heurist-data-config-dialog");
+    this.dialog = el("dialog", "h-dialog heurist-config-dialog");
     this.element = this.dialog;
-    const header = el("header", "h-dialog-header heurist-data-config-header");
+    const header = el("header", "h-dialog-header");
     const heading = el("h2", "h-dialog-title h-i18n");
     heading.textContent = this.title;
     const close = button("×", () => this.cancel(), "Close");
-    close.classList.add("h-dialog-close", "heurist-data-config-close");
+    close.classList.add("h-dialog-close");
     header.append(heading, close);
-    this.form = el("form", "heurist-data-config-form");
+    this.form = el("form", "heurist-config-form");
     this.form.addEventListener("submit", (event) => {
       event.preventDefault();
       void this.save();
@@ -140,9 +140,9 @@ export class DataConfigurationDialog {
         this.cancel();
       }
     });
-    this.content = el("div", "heurist-data-config-content");
+    this.content = el("div", "heurist-config-content");
     this.buildSections();
-    const footer = el("footer", "h-dialog-footer heurist-data-config-footer");
+    const footer = el("footer", "h-dialog-footer heurist-config-footer");
     footer.append(
       button("Cancel", () => this.cancel()),
       submitButton(this.mode === "publish" ? "Publish" : "Apply"),
@@ -230,7 +230,7 @@ export class DataConfigurationDialog {
       this.check("options.ui.showOptions", "Options"),
       this.check("options.ui.showPublish", "Publish"),
     );
-    const controls = el("fieldset", "heurist-data-config-subgroup");
+    const controls = el("fieldset", "heurist-config-subgroup");
     const legend = el("legend", "h-i18n");
     legend.textContent = "Native controls";
     const exportControl = this.check(
@@ -320,7 +320,7 @@ export class DataConfigurationDialog {
     if (this.mode === "website") {
       const row = el(
         "div",
-        "heurist-data-config-row heurist-data-config-filterby",
+        "heurist-config-row heurist-data-config-filterby",
       );
       const label = el("label", "h-i18n");
       label.textContent = "Filter by";
@@ -346,8 +346,8 @@ export class DataConfigurationDialog {
 
   /** Build the "Datasets and Filters" section: allow-all toggles and transfer lists. */
   buildDatasetsAndFilters(body) {
-    const datasetBox = el("div", "heurist-data-config-list-section");
-    const datasetHeading = el("div", "heurist-data-config-list-heading");
+    const datasetBox = el("div", "heurist-config-list-section");
+    const datasetHeading = el("div", "heurist-config-list-heading");
     const datasetTitle = el("strong", "h-i18n");
     datasetTitle.textContent = "Datasets";
     datasetHeading.append(
@@ -367,8 +367,8 @@ export class DataConfigurationDialog {
       "Default dataset",
       [["", "None"]],
     );
-    const filterBox = el("div", "heurist-data-config-list-section");
-    const filterHeading = el("div", "heurist-data-config-list-heading");
+    const filterBox = el("div", "heurist-config-list-section");
+    const filterHeading = el("div", "heurist-config-list-heading");
     const filterTitle = el("strong", "h-i18n");
     filterTitle.textContent = "Filters";
     filterHeading.append(
@@ -427,11 +427,11 @@ export class DataConfigurationDialog {
    * @returns {HTMLDetailsElement} The built section element.
    */
   section(title, builder, open = false) {
-    const details = el("details", "heurist-data-config-section");
+    const details = el("details", "heurist-config-section");
     details.open = open;
     const summary = el("summary", "h-i18n");
     summary.textContent = title;
-    const body = el("div", "heurist-data-config-section-body");
+    const body = el("div", "heurist-config-section-body");
     builder(body);
     details.append(summary, body);
     return details;
@@ -490,7 +490,7 @@ export class DataConfigurationDialog {
    * @returns {HTMLElement} The row element.
    */
   textarea(parent, path, labelText, rows) {
-    const row = el("label", "heurist-data-config-row");
+    const row = el("label", "heurist-config-row");
     const caption = el("span", "h-i18n");
     caption.textContent = labelText;
     const control = el("textarea", "h-input");
@@ -511,7 +511,7 @@ export class DataConfigurationDialog {
    * @returns {HTMLElement} The row element.
    */
   inputRow(parent, path, labelText, type) {
-    const row = el("label", "heurist-data-config-row");
+    const row = el("label", "heurist-config-row");
     const caption = el("span", "h-i18n");
     caption.textContent = labelText;
     const control = el("input", "h-input");
@@ -532,7 +532,7 @@ export class DataConfigurationDialog {
    * @returns {HTMLElement} The row element.
    */
   select(parent, path, labelText, options) {
-    const row = el("label", "heurist-data-config-row");
+    const row = el("label", "heurist-config-row");
     const caption = el("span", "h-i18n");
     caption.textContent = labelText;
     const control = select(options);
@@ -544,7 +544,7 @@ export class DataConfigurationDialog {
 
   /** Build a visual break element between field groups. */
   separator() {
-    return el("span", "heurist-data-config-break");
+    return el("span", "heurist-config-break");
   }
 
   /**
@@ -570,14 +570,14 @@ export class DataConfigurationDialog {
    * @returns {{row: HTMLElement, available: HTMLSelectElement, selected: HTMLSelectElement}} The built control.
    */
   transfer(path, availableLabel, selectedLabel) {
-    const row = el("div", "heurist-data-config-transfer");
+    const row = el("div", "heurist-config-transfer");
     const available = el("select", "h-select");
     available.multiple = true;
     available.setAttribute("aria-label", $HR(availableLabel));
     const selected = el("select", "h-select");
     selected.multiple = true;
     selected.setAttribute("aria-label", $HR(selectedLabel));
-    const controls = el("div", "heurist-data-config-transfer-buttons");
+    const controls = el("div", "heurist-config-transfer-buttons");
     controls.append(
       button(
         "›",
@@ -981,7 +981,7 @@ function submitButton(label) {
 
 /** Create an unregistered checkbox row (label + input) for callers that manage registration themselves. */
 function plainCheck(labelText, checked = false) {
-  const row = el("label", "heurist-data-config-check");
+  const row = el("label", "heurist-config-check");
   const control = el("input", "h-checkbox");
   const caption = el("span", "h-i18n");
   caption.textContent = labelText;

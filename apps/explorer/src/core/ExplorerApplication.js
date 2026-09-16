@@ -190,12 +190,13 @@ export class ExplorerApplication {
    * @private
    * @param {object} definition Layout definition for one module.
    * @returns {Promise<import('./ExplorerModule.js').ExplorerModule>} The mounted, registered module.
-   * @throws {Error} When `direct` mode is requested for a module type other than `data`.
+   * @throws {Error} When `direct` mode is requested for a module type with no entry in `DIRECT_MOUNTERS`.
    */
   async _createModule(definition) {
     const slot = this.layout.createSlot(definition.id, definition.type);
     const mode = definition.mode || this.config.moduleModes?.[definition.type] || 'iframe';
-    if (mode === 'direct' && definition.type !== 'data') {
+    const mountModule = DIRECT_MOUNTERS[definition.type];
+    if (mode === 'direct' && !mountModule) {
       throw new Error(`Direct mode is not implemented for ${definition.type}`);
     }
     const Adapter = mode === 'direct' ? DirectModuleAdapter : IframeModuleAdapter;
@@ -205,8 +206,8 @@ export class ExplorerApplication {
       container: slot,
       url: definition.url || this.config.moduleUrls[definition.type],
       ...(mode === 'direct' ? {
-        mountModule: mountDirectData,
-        assetBaseUrl: this.config.moduleAssetUrls?.data
+        mountModule,
+        assetBaseUrl: this.config.moduleAssetUrls?.[definition.type]
       } : {}),
       runtime: {
         database: this.config.database,
@@ -1034,6 +1035,18 @@ async function mountDirectData(options) {
   const { mountHeuristData } = await import('../../../data/src/direct.js');
   return mountHeuristData(options);
 }
+
+/** Load and mount heurist-recordview's direct (same-realm) bootstrap for `direct` module mode. */
+async function mountDirectRecordView(options) {
+  const { mountHeuristRecordView } = await import('../../../recordview/src/direct.js');
+  return mountHeuristRecordView(options);
+}
+
+/** Direct-mode bootstraps, keyed by module type. Only types listed here support `mode: 'direct'`. */
+const DIRECT_MOUNTERS = {
+  data: mountDirectData,
+  recordview: mountDirectRecordView
+};
 
 /** Explorer's built-in default layout: Data west, Map center. */
 function defaultLayout() {

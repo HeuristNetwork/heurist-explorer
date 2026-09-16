@@ -5,6 +5,11 @@ import path from "node:path";
 
 const appsRoot = path.resolve("apps");
 const appNames = ["explorer", "data", "graph", "map", "timeline", "recordview"];
+// Explorer's `direct` module mode dynamically imports each direct-capable
+// application's public direct-bootstrap entry point (architecture.md: "Explorer
+// may import only a presentation application's explicit direct-bootstrap entry
+// point"). List every app that exposes one here.
+const directEntryApps = ["data", "recordview"];
 
 test("applications do not import sibling applications", async () => {
   for (const appName of appNames) {
@@ -18,8 +23,8 @@ test("applications do not import sibling applications", async () => {
           target.startsWith(path.join(appsRoot, name, path.sep))
         );
         if (!sibling || sibling === appName) continue;
-        const allowedDirectEntry = appName === "explorer" && sibling === "data"
-          && target === path.join(appsRoot, "data", "src", "direct.js");
+        const allowedDirectEntry = appName === "explorer" && directEntryApps.includes(sibling)
+          && target === path.join(appsRoot, sibling, "src", "direct.js");
         assert.equal(
           allowedDirectEntry,
           true,

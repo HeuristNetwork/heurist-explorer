@@ -8,14 +8,19 @@ html, body, #heurist-recordview { width: 100%; height: 100%; margin: 0; overflow
   background: var(--h-color-bg);
 }
 
-.heurist-recordview-content {
-  flex: 1 1 0;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-}
-
 .heurist-recordview-body { flex: 1 1 0; min-height: 0; overflow: auto; position: relative; }
+
+/* Record View control panel geometry: positioned absolute (like Data's own
+   override, since Record View also supports `direct` mode alongside
+   Explorer in the same realm), not Graph's viewport-fixed panel. Shared
+   chrome (header, source header) lives in heurist-module.css. */
+.heurist-module-control-panel {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: min(220px, calc(100% - 8px));
+  font-size: var(--h-font-size-small);
+}
 
 .heurist-recordview-frame { display: block; width: 100%; height: 100%; border: 0; }
 
@@ -53,20 +58,4 @@ html, body, #heurist-recordview { width: 100%; height: 100%; margin: 0; overflow
 }
 .heurist-recordview-fields dd {
   margin: 2px 0 0;
-}
-
-.heurist-recordview-control-panel {
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 4px 8px;
-  border-bottom: 1px solid var(--h-color-border);
-}
-.heurist-recordview-control-title {
-  font-weight: 600;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }

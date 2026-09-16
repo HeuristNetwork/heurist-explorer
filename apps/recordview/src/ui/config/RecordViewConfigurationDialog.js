@@ -100,7 +100,7 @@ export class RecordViewConfigurationDialog {
       throw new Error("RecordViewConfigurationDialog requires a browser document");
     if (this.element) return this;
     this.previousFocus = document.activeElement;
-    this.dialog = el("dialog", "heurist-recordview-config-dialog h-dialog");
+    this.dialog = el("dialog", "heurist-config-dialog h-dialog");
     this.element = this.dialog;
     this.dialog.setAttribute("aria-label", $HR(this.title));
     this.dialog.addEventListener("cancel", (event) => {
@@ -113,14 +113,14 @@ export class RecordViewConfigurationDialog {
     const close = button("×", () => this.cancel(), "Close");
     close.classList.add("h-dialog-close");
     header.append(heading, close);
-    this.form = el("form", "heurist-recordview-config-form");
+    this.form = el("form", "heurist-config-form");
     this.form.addEventListener("submit", (event) => {
       event.preventDefault();
       void this.save();
     });
-    this.content = el("div", "heurist-recordview-config-content h-dialog-body");
+    this.content = el("div", "heurist-config-content h-dialog-body");
     this.buildFields(this.content);
-    const footer = el("footer", "heurist-recordview-config-footer h-dialog-footer");
+    const footer = el("footer", "heurist-config-footer h-dialog-footer");
     footer.append(
       button("Cancel", () => this.cancel()),
       submitButton(this.mode === "publish" ? "Publish" : "Apply"),
@@ -227,7 +227,7 @@ export class RecordViewConfigurationDialog {
    * @returns {HTMLElement} The generated row element.
    */
   text(path, labelText) {
-    const row = el("label", "heurist-recordview-config-row");
+    const row = el("label", "heurist-config-row");
     const caption = el("span", "h-i18n");
     caption.textContent = labelText;
     const control = el("input");
@@ -246,7 +246,7 @@ export class RecordViewConfigurationDialog {
    * @returns {HTMLElement} The generated row element.
    */
   select(path, labelText, options) {
-    const row = el("label", "heurist-recordview-config-row");
+    const row = el("label", "heurist-config-row");
     const caption = el("span", "h-i18n");
     caption.textContent = labelText;
     const control = select(options);
@@ -432,7 +432,7 @@ function submitButton(label) {
 
 /** Build a standalone labeled checkbox not bound through `register`. */
 function plainCheck(labelText, checked = false) {
-  const row = el("label", "heurist-recordview-config-check");
+  const row = el("label", "heurist-config-check");
   const control = el("input");
   const caption = el("span", "h-i18n");
   caption.textContent = labelText;

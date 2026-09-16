@@ -31,6 +31,20 @@ export function getHeuristRecordViewConfig() {
     bridge,
     standalone: getGlobalBootstrap("heuristModuleBootstrap"),
   });
+  return createHeuristRecordViewConfig(bootstrap, { bridge });
+}
+
+/**
+ * Normalize an explicit bootstrap envelope for same-realm/direct hosting.
+ *
+ * @param {object} [bootstrap] Bootstrap envelope (runtime/settings/source/state), as normally supplied via the host bridge.
+ * @param {{bridge?: object|null, containerId?: string}} [options] `bridge` forwarded into `host`; `containerId` overrides the mount target.
+ * @returns {object} Normalized Record View configuration.
+ */
+export function createHeuristRecordViewConfig(
+  bootstrap = {},
+  { bridge = null, containerId = "heurist-recordview" } = {},
+) {
   const runtime = bootstrap.runtime || {};
   const settings = bootstrap.settings || {};
   const persistedSettings = normalizeRecordViewConfigurationSettings(settings);
@@ -42,7 +56,7 @@ export function getHeuristRecordViewConfig() {
   const language = String(runtime.language || "eng").slice(0, 3).toLowerCase();
   const runtimeMode = String(runtime.runtimeMode || "standalone").toLowerCase();
   return {
-    containerId: "heurist-recordview",
+    containerId,
     runtimeMode,
     database: runtime.database || null,
     apiBaseUrl: runtime.apiBaseUrl || null,

@@ -133,39 +133,10 @@ html, body, .heurist-data-root { width: 100%; height: 100%; margin: 0; overflow:
 .heurist-data-filter-row:hover { background:var(--h-color-surface-hover); }
 .heurist-data-empty { padding:4px; color:var(--h-color-text-muted); font-style:italic; }
 
-.heurist-data-config-dialog {
-  width:min(920px,96vw); max-height:94vh; overflow:hidden; font-size:var(--h-font-size-small);
-}
-.heurist-data-config-dialog[open] { display:flex; flex-direction:column; }
-.heurist-data-config-dialog [hidden] { display:none !important; }
-.heurist-data-config-header { flex:0 0 auto; }
-.heurist-data-config-header h2 { margin:0; font-size:var(--h-font-size-large); }
-.heurist-data-config-form { display:flex; flex:1 1 auto; flex-direction:column; min-height:0; padding:0; overflow:hidden; }
-.heurist-data-config-content { flex:1 1 auto; min-height:0; padding:12px 14px; overflow:auto; }
-.heurist-data-config-section { margin-bottom:8px; border:1px solid var(--h-color-border); border-radius:var(--h-radius); }
-.heurist-data-config-section > summary { padding:8px 10px; background:var(--h-color-surface); color:var(--h-color-primary); font-weight:600; cursor:pointer; }
-.heurist-data-config-section-body { display:flex; flex-wrap:wrap; gap:10px 22px; padding:12px; }
-.heurist-data-config-check { display:inline-flex; align-items:center; gap:6px; }
-.heurist-data-config-break { flex-basis:100%; height:0; }
-.heurist-data-config-row { display:grid; grid-template-columns:minmax(145px,190px) minmax(180px,1fr); align-items:center; gap:10px; width:100%; }
-.heurist-data-config-row .h-input,.heurist-data-config-row .h-select { width:100%; }
-.heurist-data-config-row input[type='number'] { width:90px; }
+/* Module-specific deltas only - the shared dialog layout (.heurist-config-dialog
+   and friends) lives in #shared/ui/heurist-module.css. */
 .heurist-data-config-filterby { grid-template-columns:145px 160px auto minmax(180px,1fr); }
-.heurist-data-config-subgroup { box-sizing:border-box; flex:1 1 100%; min-width:0; padding:10px; border:1px solid var(--h-color-border); }
-.heurist-data-config-subgroup legend { padding:0 5px; color:var(--h-color-text); font-weight:600; }
-.heurist-data-config-subgroup > .heurist-data-config-check { margin-right:18px; }
 .heurist-data-config-export-warning { margin-top:8px; color:var(--h-color-text-muted); }
-.heurist-data-config-list-section { box-sizing:border-box; flex:1 1 100%; min-width:0; }
-.heurist-data-config-list-section + .heurist-data-config-list-section { margin-top:8px; }
-.heurist-data-config-list-heading { display:flex; align-items:center; gap:16px; }
-.heurist-data-config-list-heading strong { color:var(--h-color-text); }
-.heurist-data-config-list-section .heurist-data-config-row { margin-top:10px; }
-.heurist-data-config-transfer { display:grid; grid-template-columns:1fr 42px 1fr; align-items:end; gap:8px; width:100%; margin-top:10px; }
-.heurist-data-config-transfer[hidden] { display:none !important; }
-.heurist-data-config-transfer label { display:grid; gap:5px; font-weight:600; }
-.heurist-data-config-transfer select { min-height:130px; font-weight:normal; }
-.heurist-data-config-transfer-buttons { display:grid; gap:6px; align-self:center; }
-.heurist-data-config-footer { flex:0 0 auto; }
 
 /* DataTables generates its own controls; align them with the shared Heurist UI tokens. */
 .heurist-data-root .dt-input {

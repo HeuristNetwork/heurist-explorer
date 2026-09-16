@@ -44,18 +44,15 @@ export async function initHeuristRecordView(config) {
   });
   const heuristBaseUrl = resolveHeuristBaseUrl(config);
 
-  const controlPanelHost = document.createElement("div");
-  controlPanelHost.className = "heurist-recordview-panel-host";
-  const body = document.createElement("div");
-  body.className = "heurist-recordview-content";
-  container.replaceChildren(controlPanelHost, body);
-
   const application = new RecordViewApplication({
     config,
     recordDataProvider: new RecordDataProvider({ apiClient }),
     vocabularyProvider: new VocabularyProvider({ apiClient }),
     recordContentProvider: new RecordContentProvider({ baseUrl: heuristBaseUrl, database: config.database }),
-    renderer: new RecordViewRenderer({ container: body }),
+    // The renderer owns everything inside <main> except the source header
+    // (RecordViewControlPanel prepends that once it mounts) - same split as
+    // GraphApplication's canvas/message vs. GraphControlPanel's source header.
+    renderer: new RecordViewRenderer({ container }),
     host: createHostAdapter(config.host),
   });
   const api = new HeuristRecordViewPublicApi(application);
@@ -70,21 +67,24 @@ export async function initHeuristRecordView(config) {
 
   const controlPanel = new RecordViewControlPanel({
     api,
+    container,
     options: {
       showOptions: config.options.ui.showOptions,
       showPublish: config.options.ui.showPublish,
       showHeader: config.persistedSettings.config.defaults.showHeader,
       headerTitle: config.persistedSettings.config.defaults.headerTitle,
       readonly: config.options.interaction.readonly,
+      helpBaseUrl: config.moduleAssetBaseUrl,
     },
   });
 
   const ready = application.initialize().then(async () => {
-    controlPanel.mount(controlPanelHost);
+    await controlPanel.mount();
     return api;
   });
   api.setReadyPromise(ready);
-  globalThis.heuristRecordview = api;
+  container.classList.add("heurist-recordview-root");
+  if (config.exposeGlobal !== false) globalThis.heuristRecordview = api;
   return ready;
 }
 

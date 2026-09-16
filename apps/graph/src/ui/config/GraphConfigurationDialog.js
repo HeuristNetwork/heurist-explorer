@@ -112,7 +112,7 @@ export class GraphConfigurationDialog {
       throw new Error("GraphConfigurationDialog requires a browser document");
     if (this.element) return this;
     this.previousFocus = document.activeElement;
-    this.dialog = el("dialog", "heurist-data-config-dialog h-dialog");
+    this.dialog = el("dialog", "heurist-config-dialog h-dialog");
     this.element = this.dialog;
     this.dialog.setAttribute("aria-label", $HR(this.title));
     this.dialog.addEventListener("cancel", event => {
@@ -125,14 +125,14 @@ export class GraphConfigurationDialog {
     const close = button("×", () => this.cancel(), "Close");
     close.classList.add("h-dialog-close");
     header.append(heading, close);
-    this.form = el("form", "heurist-data-config-form");
+    this.form = el("form", "heurist-config-form");
     this.form.addEventListener("submit", (event) => {
       event.preventDefault();
       void this.save();
     });
-    this.content = el("div", "heurist-data-config-content h-dialog-body");
+    this.content = el("div", "heurist-config-content h-dialog-body");
     this.buildSections();
-    const footer = el("footer", "heurist-data-config-footer h-dialog-footer");
+    const footer = el("footer", "heurist-config-footer h-dialog-footer");
     footer.append(
       button("Cancel", () => this.cancel()),
       submitButton(this.mode === "publish" ? "Publish" : "Apply"),
@@ -217,7 +217,7 @@ export class GraphConfigurationDialog {
       this.check("options.ui.showOptions", "Options"),
       this.check("options.ui.showPublish", "Publish"),
     );
-    const controls = el("fieldset", "heurist-data-config-subgroup");
+    const controls = el("fieldset", "heurist-config-subgroup");
     const legend = el("legend", "h-i18n");
     legend.textContent = "Native controls";
     controls.append(
@@ -304,7 +304,7 @@ export class GraphConfigurationDialog {
     if (this.mode === "website") {
       const row = el(
         "div",
-        "heurist-data-config-row heurist-data-config-filterby",
+        "heurist-config-row heurist-graph-config-filterby",
       );
       const label = el("label", "h-i18n");
       label.textContent = "Filter by";
@@ -335,8 +335,8 @@ export class GraphConfigurationDialog {
    * @returns {void}
    */
   buildDatasetsAndFilters(body) {
-    const datasetBox = el("div", "heurist-data-config-list-section");
-    const datasetHeading = el("div", "heurist-data-config-list-heading");
+    const datasetBox = el("div", "heurist-config-list-section");
+    const datasetHeading = el("div", "heurist-config-list-heading");
     const datasetTitle = el("strong", "h-i18n");
     datasetTitle.textContent = "Datasets";
     datasetHeading.append(
@@ -356,8 +356,8 @@ export class GraphConfigurationDialog {
       "Default dataset",
       [["", "None"]],
     );
-    const filterBox = el("div", "heurist-data-config-list-section");
-    const filterHeading = el("div", "heurist-data-config-list-heading");
+    const filterBox = el("div", "heurist-config-list-section");
+    const filterHeading = el("div", "heurist-config-list-heading");
     const filterTitle = el("strong", "h-i18n");
     filterTitle.textContent = "Filters";
     filterHeading.append(
@@ -407,11 +407,11 @@ export class GraphConfigurationDialog {
    * @returns {HTMLElement} The generated `<details>` element.
    */
   section(title, builder, open = false) {
-    const details = el("details", "heurist-data-config-section");
+    const details = el("details", "heurist-config-section");
     details.open = open;
     const summary = el("summary", "h-i18n");
     summary.textContent = title;
-    const body = el("div", "heurist-data-config-section-body");
+    const body = el("div", "heurist-config-section-body");
     builder(body);
     details.append(summary, body);
     return details;
@@ -470,7 +470,7 @@ export class GraphConfigurationDialog {
    * @returns {HTMLElement} The generated row element.
    */
   textarea(parent, path, labelText, rows) {
-    const row = el("label", "heurist-data-config-row");
+    const row = el("label", "heurist-config-row");
     const caption = el("span", "h-i18n");
     caption.textContent = labelText;
     const control = el("textarea");
@@ -491,7 +491,7 @@ export class GraphConfigurationDialog {
    * @returns {HTMLElement} The generated row element.
    */
   inputRow(parent, path, labelText, type) {
-    const row = el("label", "heurist-data-config-row");
+    const row = el("label", "heurist-config-row");
     const caption = el("span", "h-i18n");
     caption.textContent = labelText;
     const control = el("input");
@@ -512,7 +512,7 @@ export class GraphConfigurationDialog {
    * @returns {HTMLElement} The generated row element.
    */
   select(parent, path, labelText, options) {
-    const row = el("label", "heurist-data-config-row");
+    const row = el("label", "heurist-config-row");
     const caption = el("span", "h-i18n");
     caption.textContent = labelText;
     const control = select(options);
@@ -528,7 +528,7 @@ export class GraphConfigurationDialog {
    * @returns {HTMLElement}
    */
   separator() {
-    return el("span", "heurist-data-config-break");
+    return el("span", "heurist-config-break");
   }
 
   /**
@@ -554,14 +554,14 @@ export class GraphConfigurationDialog {
    * @returns {{row: HTMLElement, available: HTMLSelectElement, selected: HTMLSelectElement}}
    */
   transfer(path, availableLabel, selectedLabel) {
-    const row = el("div", "heurist-data-config-transfer");
+    const row = el("div", "heurist-config-transfer");
     const available = el("select");
     available.multiple = true;
     available.setAttribute("aria-label", $HR(availableLabel));
     const selected = el("select");
     selected.multiple = true;
     selected.setAttribute("aria-label", $HR(selectedLabel));
-    const controls = el("div", "heurist-data-config-transfer-buttons");
+    const controls = el("div", "heurist-config-transfer-buttons");
     controls.append(
       button(
         "›",
@@ -945,7 +945,7 @@ function submitButton(label) {
 
 /** Build a standalone labeled checkbox not bound through `register`. */
 function plainCheck(labelText, checked = false) {
-  const row = el("label", "heurist-data-config-check");
+  const row = el("label", "heurist-config-check");
   const control = el("input");
   const caption = el("span", "h-i18n");
   caption.textContent = labelText;
