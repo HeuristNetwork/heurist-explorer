@@ -816,7 +816,7 @@ export class ExplorerApplication {
       editExtent: (value, options) => bridge.editExtent?.(value, options),
       editRules: (value, options) => bridge.editRules?.(value, options),
       describeRules: (rules) => bridge.describeRules?.(rules),
-      selectFieldset: (value, options) => bridge.selectFieldset?.(value, options),
+      editFieldset: (value, options) => bridge.editFieldset?.(value, options),
       getHostContext: () => ({ name: 'heurist-explorer', runtimeMode: 'main' }),
       addDataSourceToWorkspace: (source, options) => this.addDataSourceToWorkspace(source, options),
       removeDataSourceFromWorkspace: (sourceOrKey) => this.removeDataSourceFromWorkspace(sourceOrKey),

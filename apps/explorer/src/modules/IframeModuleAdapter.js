@@ -115,7 +115,7 @@ export class IframeModuleAdapter extends ExplorerModule {
       editExtent: (value, options) => outer.editExtent?.(value, options),
       editRules: (value, options) => outer.editRules?.(value, options),
       describeRules: (rules) => outer.describeRules?.(rules),
-      selectFieldset: (value, options) => outer.selectFieldset?.(value, options),
+      editFieldset: (value, options) => outer.editFieldset?.(value, options),
       addDataSourceToWorkspace: (source, options) => outer.addDataSourceToWorkspace?.(source, options),
       removeDataSourceFromWorkspace: (sourceOrKey) => outer.removeDataSourceFromWorkspace?.(sourceOrKey),
       isDataSourceInWorkspace: (source) => outer.isDataSourceInWorkspace?.(source),
