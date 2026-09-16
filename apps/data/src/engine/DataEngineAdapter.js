@@ -25,7 +25,7 @@ export class DataEngineAdapter {
   /**
    * Render a page of records.
    *
-   * @param {{dataset: object|null, records: Array<object>, meta: object, pagination: object}} [data] Data to render.
+   * @param {{querySource: object|null, records: Array<object>, meta: object, pagination: object}} [data] Data to render.
    * @returns {Promise<void>}
    * @throws {Error} Concrete engines must implement this method.
    */

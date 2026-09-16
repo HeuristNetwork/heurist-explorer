@@ -49,7 +49,7 @@ function createApi({ publishResult, state } = {}) {
         return publishResult ?? { url: "https://h.org/?db=x&controller=Web&publication_id=7&type=graph" };
       },
     },
-    getState: () => state ?? { datasetId: 12, query: "t:10", selection: [] },
+    getState: () => state ?? { querySourceId: 12, query: "t:10", selection: [] },
     dispatch: (name, detail) => events.push({ name, detail }),
   };
   return { api: new HeuristGraphPublicApi(application), application, events };
@@ -90,8 +90,8 @@ test("saving the publish dialog calls the host PublicationController and opens t
     assert.equal(application.host.lastPayload.version, 1);
     assert.deepEqual(application.host.lastPayload.state, {
       query: "t:10",
-      datasetId: 12,
-      datasetTitle: null,
+      querySourceId: 12,
+      querySourceTitle: null,
       selection: [],
     });
     const published = events.find((e) => e.name === "heurist-graph-published");
@@ -136,8 +136,8 @@ test("publication state keeps the original query, expansions and hidden groups b
     const { api, application } = createApi({
       state: {
         query: "t:10",
-        datasetId: null,
-        datasetTitle: null,
+        querySourceId: null,
+        querySourceTitle: null,
         selection: [42],
         recordIds: [1, 2, 3, 4, 5, 6, 7, 8],
         limits: { maxNodes: 5000, nodesReturned: 8 },

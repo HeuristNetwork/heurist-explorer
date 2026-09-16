@@ -15,7 +15,7 @@
 
 import { HeuristApiClient } from "#shared/api";
 import { DataApplication } from "./core/DataApplication.js";
-import { DatasetProvider } from "./data/DatasetProvider.js";
+import { QuerySourceProvider } from "#shared/data/QuerySourceProvider.js";
 import { RecordDataProvider } from "./data/RecordDataProvider.js";
 import { createDataEngine } from "./engine/createDataEngine.js";
 import { createLoaderRegistry } from "./engine/loaders/createLoaderRegistry.js";
@@ -25,7 +25,7 @@ import { DataConfigurationDialog } from "./ui/config/DataConfigurationDialog.js"
 import { ReportTemplateProvider } from "./data/ReportTemplateProvider.js";
 import { FilterProvider } from "./data/FilterProvider.js";
 import { RecordTypeProvider } from "#shared/data/RecordTypeProvider.js";
-import { DatasetListProvider } from "./data/DatasetListProvider.js";
+import { QuerySourceListProvider } from "#shared/data/QuerySourceListProvider.js";
 import { DataControlPanel } from "./ui/DataControlPanel.js";
 import { RecordContentProvider } from "./data/RecordContentProvider.js";
 
@@ -51,9 +51,9 @@ export async function initHeuristData(config) {
   const heuristBaseUrl = resolveHeuristBaseUrl(config);
   const providers = {
     recordTypes,
-    datasetList: new DatasetListProvider({ apiClient, recordTypes }),
+    querySourceList: new QuerySourceListProvider({ apiClient, recordTypes }),
     filterList: new FilterProvider({ apiClient }),
-    datasetProvider: new DatasetProvider({ apiClient }),
+    querySourceProvider: new QuerySourceProvider({ apiClient }),
     recordDataProvider: new RecordDataProvider({ apiClient }),
     recordContent: new RecordContentProvider({
       baseUrl: heuristBaseUrl,
@@ -77,14 +77,14 @@ export async function initHeuristData(config) {
   api.setConfigurationDialogFactory((options = {}) =>
     new DataConfigurationDialog({
       ...options,
-      datasetListProvider: options.datasetListProvider || providers.datasetList,
+      querySourceListProvider: options.querySourceListProvider || providers.querySourceList,
       filterListProvider: options.filterListProvider || providers.filterList,
       reportTemplateProvider: options.reportTemplateProvider || reportTemplates,
       widgetListProvider: options.widgetListProvider || null,
     }).open(),
   );
   const ready = application.initialize().then(() => api);
-  const datasetListProvider = providers.datasetList;
+  const querySourceListProvider = providers.querySourceList;
   const filterListProvider = providers.filterList;
   let panel = null;
   const readyWithPanel = ready.then(async () => {
@@ -99,12 +99,12 @@ export async function initHeuristData(config) {
         readonly: config.readonly,
         editEnabled: config.engineOptions.interaction.editEnabled,
         currentResultsTitle: settings.config.currentResults.title,
-        allowAllDatasets: settings.options.datasets.allowAll,
-        allowedDatasetIds: settings.options.datasets.allowed,
+        allowAllQuerySources: settings.options.querySources.allowAll,
+        allowedQuerySourceIds: settings.options.querySources.allowed,
         allowAllFilters: settings.options.filters.allowAll,
         allowedFilterIds: settings.options.filters.allowed,
       },
-      datasetListProvider,
+      querySourceListProvider,
       filterListProvider,
     });
     await panel.mount();

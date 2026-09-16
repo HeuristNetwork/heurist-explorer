@@ -1,6 +1,6 @@
 /**
  * @file DataControlPanel.js
- * @brief Renders dataset, filter, and data controls.
+ * @brief Renders Query Source, filter, and data controls.
  *
  * @project     Heurist academic knowledge management system
  * @package     heurist-data
@@ -13,13 +13,12 @@
  * @since       8.0
  */
 
-import { DatasetSelector } from "./DatasetSelector.js";
 import { FilterSelector } from "./FilterSelector.js";
-import { $HR, applyI18n, InlineHelp } from "#shared/ui";
+import { $HR, applyI18n, InlineHelp, QuerySourceSelector } from "#shared/ui";
 
 /**
  * Fixed collapsible panel overlaying the DataTables toolbar.
- * Coordinates the application's dataset and filter controls.
+ * Coordinates the application's Query Source and filter controls.
  */
 export class DataControlPanel {
   /**
@@ -27,20 +26,20 @@ export class DataControlPanel {
    * @param {object} options.api Data public API instance.
    * @param {HTMLElement} options.tableContainer Element the rendering engine renders into; the panel is anchored above it.
    * @param {object} [options.options] Initial visibility/interaction options; refreshed via `applyOptions`.
-   * @param {object|null} [options.datasetListProvider] Provider used to list available datasets.
+   * @param {object|null} [options.querySourceListProvider] Provider used to list available Query Sources.
    * @param {object|null} [options.filterListProvider] Provider used to list and load available filters.
    */
   constructor({
     api,
     tableContainer,
     options = {},
-    datasetListProvider = null,
+    querySourceListProvider = null,
     filterListProvider = null,
   }) {
     this.api = api;
     this.tableContainer = tableContainer;
     this.options = options;
-    this.datasetListProvider = datasetListProvider;
+    this.querySourceListProvider = querySourceListProvider;
     this.filterListProvider = filterListProvider;
     this.listeners = [];
   }
@@ -53,14 +52,14 @@ export class DataControlPanel {
   async mount() {
     if (this.options.enabled === false) return null;
     // "main" = the module embedded in the main Heurist editor: fixed layout,
-    // no Datasets/Filters panels, control panel always visible.
+    // no Query Sources/Filters panels, control panel always visible.
     this.main =
       String(this.options.runtimeMode || "").toLowerCase() === "main";
-    // Skip building the Datasets/Filters selectors (and their provider calls)
+    // Skip building the Query Sources/Filters selectors (and their provider calls)
     // only when nothing source-related is shown at all — always true in "main".
     this.skipDataPanels =
       this.options.showFilters === false &&
-      this.options.showDatasets === false &&
+      this.options.showQuerySources === false &&
       this.options.showCurrentResults === false;
     this.element = document.createElement("aside");
     this.element.className = "h-widget heurist-module-control-panel";
@@ -104,9 +103,9 @@ export class DataControlPanel {
     const body = document.createElement("div");
     body.className = "heurist-module-panel-body";
     this.body = body;
-    const datasets = section(body, "Datasets");
-    this.datasetsSection = datasets.section;
-    this.datasetsContainer = datasets.content;
+    const querySources = section(body, "Query Sources");
+    this.querySourcesSection = querySources.section;
+    this.querySourcesContainer = querySources.content;
     const filters = section(body, "Filters");
     this.filtersSection = filters.section;
     this.filtersContainer = filters.content;
@@ -126,7 +125,7 @@ export class DataControlPanel {
       );
     });
     if (this.skipDataPanels) {
-      // No Datasets/Filters lists are loaded here; keep only the source header.
+      // No Query Sources/Filters lists are loaded here; keep only the source header.
       this.bind("heurist-data-loaded", (event) => {
         this.updateSourceHeader(event.detail);
         this.applyVisibility();
@@ -136,9 +135,9 @@ export class DataControlPanel {
       applyI18n(this.element);
       return this.element;
     }
-    this.datasetSelector = new DatasetSelector({
+    this.querySourceSelector = new QuerySourceSelector({
       api: this.api,
-      container: this.datasetsContainer,
+      container: this.querySourcesContainer,
       onError: (error, operation) => this.reportError(error, operation),
     });
     this.filterSelector = new FilterSelector({
@@ -150,19 +149,19 @@ export class DataControlPanel {
       onError: (error, operation) => this.reportError(error, operation),
     });
     this.bind("heurist-data-loaded", () => {
-      void this.renderDatasets().catch((error) =>
-        this.reportError(error, "render-datasets"),
+      void this.renderQuerySources().catch((error) =>
+        this.reportError(error, "render-query-sources"),
       );
     });
     this.bind("heurist-data-source-changed", () => {
       this.collapseBody();
       this.applyVisibility();
-      void this.renderDatasets().catch((error) =>
-        this.reportError(error, "render-datasets"),
+      void this.renderQuerySources().catch((error) =>
+        this.reportError(error, "render-query-sources"),
       );
     });
     this.applyVisibility();
-    await Promise.all([this.renderDatasets(), this.renderFilters()]);
+    await Promise.all([this.renderQuerySources(), this.renderFilters()]);
     applyI18n(this.element);
     return this.element;
   }
@@ -204,7 +203,7 @@ export class DataControlPanel {
   }
 
   /**
-   * Toggle the panel body (Datasets/Filters sections) between expanded and collapsed,
+   * Toggle the panel body (Query Sources/Filters sections) between expanded and collapsed,
    * falling back to fully-collapsing the panel when it has no visible panels to show.
    *
    * @returns {void}
@@ -245,7 +244,7 @@ export class DataControlPanel {
   }
 
   /**
-   * Collapse the panel body (Datasets/Filters sections), leaving the header visible.
+   * Collapse the panel body (Query Sources/Filters sections), leaving the header visible.
    *
    * @returns {void}
    */
@@ -257,43 +256,43 @@ export class DataControlPanel {
     }
   }
 
-  /** Refresh the source-header caption without touching the dataset list. */
+  /** Refresh the source-header caption without touching the Query Source list. */
   updateSourceHeader(detail = null) {
     if (!this.sourceHeader) return;
     const currentTitle = this.options.currentResultsTitle || "Filtered Result";
-    const datasetTitle = detail?.dataset?.title;
+    const querySourceTitle = detail?.querySource?.title;
     const dataSourceTitle = detail?.dataSource?.title || detail?.title;
     this.sourceHeader.textContent =
       dataSourceTitle ||
-      datasetTitle ||
+      querySourceTitle ||
       this.api.getState?.()?.title ||
       (currentTitle === "Filtered Result" ? $HR(currentTitle) : currentTitle);
   }
 
   /**
-   * Load and render the Datasets list (or just refresh the source header when panels are skipped).
+   * Load and render the Query Sources list (or just refresh the source header when panels are skipped).
    *
    * @returns {Promise<void>}
    */
-  async renderDatasets() {
+  async renderQuerySources() {
     if (this.skipDataPanels) return this.updateSourceHeader();
     const ids =
-      this.options.allowAllDatasets === false
-        ? normalizeIds(this.options.allowedDatasetIds)
+      this.options.allowAllQuerySources === false
+        ? normalizeIds(this.options.allowedQuerySourceIds)
         : null;
-    const result = (await this.datasetListProvider?.list?.({ ids })) || [];
-    let datasets = normalizeItems(result, "Dataset");
+    const result = (await this.querySourceListProvider?.list?.({ ids })) || [];
+    let querySources = normalizeItems(result, "Query Source");
     const state = this.api.getState();
     const currentTitle = this.options.currentResultsTitle || "Filtered Result";
-    const activeDataset = datasets.find(
-      (item) => String(item.id) === String(state.datasetId),
+    const activeQuerySource = querySources.find(
+      (item) => String(item.id) === String(state.querySourceId),
     );
     if (this.sourceHeader) {
       this.sourceHeader.textContent =
-        activeDataset?.title ||
+        activeQuerySource?.title ||
         (currentTitle === "Filtered Result" ? $HR(currentTitle) : currentTitle);
     }
-    this.datasetSelector?.render(datasets, state.datasetId, !state.datasetId, {
+    this.querySourceSelector?.render(querySources, state.querySourceId, !state.querySourceId, {
       showCurrentResults: this.options.showCurrentResults !== false,
       currentResultsTitle: currentTitle,
     });
@@ -324,8 +323,8 @@ export class DataControlPanel {
     this.options = {
       ...this.options,
       ...options.ui,
-      allowAllDatasets: options.datasets?.allowAll,
-      allowedDatasetIds: options.datasets?.allowed,
+      allowAllQuerySources: options.querySources?.allowAll,
+      allowedQuerySourceIds: options.querySources?.allowed,
       allowAllFilters: options.filters?.allowAll,
       allowedFilterIds: options.filters?.allowed,
       readonly: this.options.readonly || options.interaction?.readonly === true,
@@ -340,7 +339,7 @@ export class DataControlPanel {
         this.options.initiallyExpanded === false,
       );
     this.applyVisibility();
-    await Promise.all([this.renderDatasets(), this.renderFilters()]);
+    await Promise.all([this.renderQuerySources(), this.renderFilters()]);
   }
   /**
    * Re-apply panel/button/section visibility from current options and runtime mode.
@@ -377,13 +376,13 @@ export class DataControlPanel {
       "with-source-header",
       this.options.showSourceHeader === true,
     );
-    if (this.datasetsSection)
-      this.datasetsSection.hidden =
-        this.options.showDatasets === false &&
+    if (this.querySourcesSection)
+      this.querySourcesSection.hidden =
+        this.options.showQuerySources === false &&
         this.options.showCurrentResults === false;
     if (this.filtersSection)
       this.filtersSection.hidden = this.options.showFilters === false;
-    const hasVisiblePanel = [this.datasetsSection, this.filtersSection].some(
+    const hasVisiblePanel = [this.querySourcesSection, this.filtersSection].some(
       (section) => section && !section.hidden,
     );
     this.hasVisiblePanels = hasVisiblePanel;

@@ -15,12 +15,12 @@
 #Publication#Publication
 #Default settings#Paramètres par défaut
 #Filtered Result#Résultat filtré
-#Datasets and Filters#Jeux de données et filtres
+#Query Sources and Filters#Sources de requête et filtres
 #Interaction#Interaction
-#Datasets#Jeux de données
+#Query Sources#Sources de requête
 #Filters#Filtres
 #Initially expanded#Développé initialement
-#Columns picker (for current active dataset)#Sélecteur de colonnes (pour le jeu de données actif)
+#Columns picker (for current active Query Source)#Sélecteur de colonnes (pour la source de requête active)
 #Options#Options
 #Native table controls#Contrôles natifs du tableau
 #Page size#Taille de page
@@ -46,9 +46,9 @@
 #Select widget#Sélectionner un widget
 #in#dans
 #Allow all#Tout autoriser
-#Available datasets#Jeux de données disponibles
-#Allowed datasets#Jeux de données autorisés
-#Default dataset#Jeu de données par défaut
+#Available Query Sources#Sources de requête disponibles
+#Allowed Query Sources#Sources de requête autorisées
+#Default Query Source#Source de requête par défaut
 #Available filters#Filtres disponibles
 #Allowed filters#Filtres autorisés
 #Enable edit#Activer la modification
@@ -57,10 +57,10 @@
 #Enable popups#Activer les fenêtres contextuelles
 #Admin info#Informations d’administration
 #Preserve current state#Conserver l’état actuel
-#Preserve the active dataset or query, page, sort, filter and selection.#Conserver le jeu de données ou la requête active, la page, le tri, le filtre et la sélection.
+#Preserve the active Query Source or query, page, sort, filter and selection.#Conserver la source de requête ou la requête active, la page, le tri, le filtre et la sélection.
 #Discard changes to data configuration?#Abandonner les modifications de la configuration des données ?
-#Add available datasets#Ajouter les jeux de données disponibles
-#Remove allowed datasets#Retirer les jeux de données autorisés
+#Add available query sources#Ajouter les sources de requête disponibles
+#Remove allowed query sources#Retirer les sources de requête autorisées
 #Add available filters#Ajouter les filtres disponibles
 #Remove allowed filters#Retirer les filtres autorisés
 #Data controls#Contrôles des données
@@ -69,7 +69,7 @@
 #Show or hide graph controls#Afficher ou masquer les contrôles du graphe
 #Show or hide panels#Afficher ou masquer les panneaux
 #Help#Aide
-#Create new dataset#Créer un jeu de données
+#Create new Query Source#Créer une nouvelle source de requête
 #Pick fields#Choisir les champs
 #Apply#Appliquer
 #No filters#Aucun filtre
@@ -87,8 +87,8 @@
 #source_header_hint#Afficher l'en-tête
 
 
-#Edit Dataset#Modifier le jeu de données
-#Add Dataset#Ajouter un jeu de données
+#Edit Query Source#Modifier la source de requête
+#Add Query Source#Ajouter une source de requête
 #Nodes (Record types)#Nœuds (types de fiches)
 #Edges (Links and Relations)#Arêtes (liens et relations)
 #Loaded#Chargés
@@ -102,7 +102,7 @@
 #Rule#Règle
 #No expansion rules#Aucune règle d’expansion
 #Add new rule#Ajouter une règle
-#Changes apply to this viewing session. Use Edit Dataset to edit the saved definition.#Les modifications s’appliquent à cette session. Utilisez Modifier le jeu de données pour modifier la définition enregistrée.
+#Changes apply to this viewing session. Use Edit Query Source to edit the saved definition.#Les modifications s’appliquent à cette session. Utilisez Modifier la source de requête pour modifier la définition enregistrée.
 #Links (one definition per line, or all)#Liens (une définition par ligne, ou all)
 #Rule name#Nom de la règle
 #Description#Description

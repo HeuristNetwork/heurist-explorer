@@ -1,6 +1,6 @@
 /**
  * @file GraphLegendEditor.js
- * @brief Session configuration; persisted Dataset editing is delegated to the host.
+ * @brief Session configuration; persisted Query Source editing is delegated to the host.
  *
  * @project     Heurist academic knowledge management system
  * @package     heurist-graph
@@ -43,7 +43,7 @@ export class GraphLegendEditor {
     heading.textContent = $HR('Define initial links');
     this.dialog.setAttribute('aria-label', heading.textContent);
     const note = document.createElement('p');
-    note.textContent = $HR('Changes apply to this viewing session. Use Edit Dataset to edit the saved definition.');
+    note.textContent = $HR('Changes apply to this viewing session. Use Edit Query Source to edit the saved definition.');
     header.append(heading);
     body.append(note);
     this.dialog.append(header, body);
@@ -52,7 +52,7 @@ export class GraphLegendEditor {
       const input = document.createElement(multiline ? 'textarea' : 'input'); input.className = "h-input"; input.value = value;
       label.append(input); body.append(label); return input;
     };
-    const current = app.source?.links ?? app.dataset?.links ?? app.config.links ?? 'all';
+    const current = app.source?.links ?? app.querySource?.links ?? app.config.links ?? 'all';
     const links = field('Links (one definition per line, or all)', Array.isArray(current) ? current.join('\n') : current, true);
     links.placeholder = '10:lt240:48\n10:rt3260:10';
     const footer = document.createElement('footer'); footer.className = 'h-dialog-footer';
@@ -63,7 +63,7 @@ export class GraphLegendEditor {
       save.disabled = true;
       try {
         if (app.generation !== generation) throw new Error($HR('The active graph changed. Reopen this editor.'));
-        if (app.datasetAvailable === false || app.config.persistedSettings?.options?.interaction?.readonly === true || app.config.persistedSettings?.options?.interaction?.editEnabled === false) throw new Error($HR('Editing is disabled.'));
+        if (app.querySourceAvailable === false || app.config.persistedSettings?.options?.interaction?.readonly === true || app.config.persistedSettings?.options?.interaction?.editEnabled === false) throw new Error($HR('Editing is disabled.'));
         const value = links.value.trim();
         if (!value) throw new Error($HR('Enter link definitions or all.'));
         const specs = value.toLowerCase() === 'all' ? 'all' : value.split(/[\n,]+/).map(s => s.trim()).filter(Boolean);

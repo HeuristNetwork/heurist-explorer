@@ -15,28 +15,27 @@
 import { showGraphMessage } from "./graphMessages.js";
 import { GraphLegend } from "./GraphLegend.js";
 import { GraphLegendEditor } from "./GraphLegendEditor.js";
-import { DatasetSelector } from "./DatasetSelector.js";
 import { FilterSelector } from "./FilterSelector.js";
-import { $HR, applyI18n, InlineHelp } from "#shared/ui";
+import { $HR, applyI18n, InlineHelp, QuerySourceSelector } from "#shared/ui";
 import { sourceAction, showDataSourceAction } from "#shared/ui/documents/SourceActions.js";
 
-/** Owns Graph's control panel: dataset/filter selectors, legend, expansion controls, and toolbar actions. */
+/** Owns Graph's control panel: Query Source/filter selectors, legend, expansion controls, and toolbar actions. */
 export class GraphControlPanel {
   /**
    * @param {object} options Panel dependencies.
    * @param {object} options.api Graph public API instance.
    * @param {HTMLElement} options.container Element the rendering engine renders into; the panel is anchored above it.
    * @param {object} [options.options] Initial visibility/interaction options; refreshed via `applyOptions`.
-   * @param {object} options.datasetListProvider Provider used to list available datasets.
-   * @param {object} options.datasetProvider Provider used to load a dataset's own record-type id when creating one.
+   * @param {object} options.querySourceListProvider Provider used to list available Query Sources.
+   * @param {object} options.querySourceProvider Provider used to load a Query Source's own record-type id when creating one.
    * @param {object} options.filterListProvider Provider used to list and load available filters.
    */
-  constructor({ api, container, options = {}, datasetListProvider, datasetProvider, filterListProvider }) {
+  constructor({ api, container, options = {}, querySourceListProvider, querySourceProvider, filterListProvider }) {
     this.api = api;
     this.container = container;
     this.options = options;
-    this.datasetListProvider = datasetListProvider;
-    this.datasetProvider = datasetProvider;
+    this.querySourceListProvider = querySourceListProvider;
+    this.querySourceProvider = querySourceProvider;
     this.filterListProvider = filterListProvider;
     this.listeners = [];
   }
@@ -81,9 +80,9 @@ export class GraphControlPanel {
     const body = document.createElement("div");
     body.className = "heurist-module-panel-body";
     this.body = body;
-    const datasets = section(body);
-    this.datasetsSection = datasets.section;
-    this.datasetsSelector = new DatasetSelector({ api: this.api, container: datasets.content, classPrefix: "heurist-graph", onError: (error) => this.reportError(error) });
+    const querySources = section(body);
+    this.querySourcesSection = querySources.section;
+    this.querySourcesSelector = new QuerySourceSelector({ api: this.api, container: querySources.content, classPrefix: "heurist-graph", onError: (error) => this.reportError(error) });
     const filters = section(body, "Filters", true);
     this.filtersSection = filters.section;
     this.filtersSelector = new FilterSelector({
@@ -97,7 +96,7 @@ export class GraphControlPanel {
     this.legendSection.className = 'heurist-graph-legend';
 
     this.legend = new GraphLegend({ api: this.api, container: this.legendSection,
-      onEdit: () => this.editDataset(), onLinks: () => this.editLegend('links'),
+      onEdit: () => this.editQuerySource(), onLinks: () => this.editLegend('links'),
       onRule: () => this.api.defineExpansions(), onError: (error, operation) => this.reportError(error, operation) });
     this.element.append(header, body);
     (this.container.parentElement || document.body).append(this.element);
@@ -135,7 +134,7 @@ export class GraphControlPanel {
   }
 
   /**
-   * Refresh the source header, dataset/filter lists, and legend from the current application state.
+   * Refresh the source header, Query Source/filter lists, and legend from the current application state.
    *
    * @returns {Promise<void>}
    */
@@ -143,24 +142,24 @@ export class GraphControlPanel {
     const state = this.api.getState();
     const currentTitle = this.options.currentResultsTitle || "Filtered Result";
     this.sourceHeader.textContent =
-      state.datasetTitle ||
+      state.querySourceTitle ||
       (currentTitle === "Filtered Result" ? $HR(currentTitle) : currentTitle);
     const isMainRuntime = this.options.runtimeMode === "main";
-    const [datasets, filters] = isMainRuntime
+    const [querySources, filters] = isMainRuntime
       ? [[], []]
       : await Promise.all([
-          this.datasetListProvider?.list?.() || [],
+          this.querySourceListProvider?.list?.() || [],
           this.filterListProvider?.list?.() || [],
         ]);
-    this.datasetsSelector.render(
-      normalizeItems(datasets, "Dataset"),
-      state.datasetId,
-      !state.datasetId,
+    this.querySourcesSelector.render(
+      normalizeItems(querySources, "Query Source"),
+      state.querySourceId,
+      !state.querySourceId,
       {
         showCurrentResults: this.options.showCurrentResults !== false,
-        // Main runtime has no selectable Filtered Result/Dataset choice - the
+        // Main runtime has no selectable Filtered Result/Query Source choice - the
         // row instead reflects whatever DataSource the host last pushed.
-        currentResultsTitle: isMainRuntime ? state.datasetTitle || currentTitle : currentTitle,
+        currentResultsTitle: isMainRuntime ? state.querySourceTitle || currentTitle : currentTitle,
         mainMode: isMainRuntime,
         pinned: state.pinned,
         onTogglePin: () => this.togglePin(),
@@ -178,7 +177,7 @@ export class GraphControlPanel {
   }
 
   /**
-   * Attach the legend to the active dataset row, add an edit/add-dataset action when editable, and re-render it.
+   * Attach the legend to the active Query Source row, add an edit/add-Query-Source action when editable, and re-render it.
    *
    * @returns {void}
    */
@@ -187,25 +186,25 @@ export class GraphControlPanel {
     const state = this.api.getState();
     const interaction = app?.config.persistedSettings?.options?.interaction || {};
     const editEnabled = interaction.editEnabled !== false && interaction.readonly !== true && Boolean(app?.host?.supportsEditing?.());
-    const activeRow = this.datasetsSection.querySelector('.heurist-graph-selector-row.active');
-    this.datasetsSection.querySelectorAll('.heurist-graph-dataset-action').forEach(button => button.remove());
+    const activeRow = this.querySourcesSection.querySelector('.heurist-graph-selector-row.active');
+    this.querySourcesSection.querySelectorAll('.heurist-graph-query-source-action').forEach(button => button.remove());
     const isMainRuntime = this.options.runtimeMode === "main";
     if (activeRow) {
       activeRow.append(this.legendSection);
-      // Main runtime has no persisted Dataset to add/edit while a host-pushed
+      // Main runtime has no persisted Query Source to add/edit while a host-pushed
       // DataSource is active; offer to display or persist it instead - shown
       // on hover/focus, like the map/timeline layer row actions.
-      if (isMainRuntime && !state.datasetId && app?.dataSource) {
+      if (isMainRuntime && !state.querySourceId && app?.dataSource) {
         const capabilities = this.api.getHostCapabilities?.() || {};
         const report = (error) => this.reportError(error, 'datasource-action');
         const actions = document.createElement('span');
-        actions.className = 'heurist-graph-dataset-action heurist-graph-row-actions';
+        actions.className = 'heurist-graph-query-source-action heurist-graph-row-actions';
         if (capabilities.showDatasource) actions.append(showDataSourceAction(this.api, report));
         if (capabilities.saveDatasourceAsSource) actions.append(sourceAction('fa-solid fa-database', 'Save as Source', () => this.api.saveDatasourceAsSource(), report));
         if (actions.childElementCount) activeRow.insertBefore(actions, this.legendSection);
-      } else if (editEnabled && (state.datasetId || typeof app.host.bridge?.addRecord === 'function')) {
-        const action = this.legend.action(state.datasetId ? 'Edit Dataset' : 'Add Dataset', state.datasetId ? 'fa-pen' : 'fa-circle-plus', () => this.editDataset());
-        action.classList.add('heurist-graph-dataset-action');
+      } else if (editEnabled && (state.querySourceId || typeof app.host.bridge?.addRecord === 'function')) {
+        const action = this.legend.action(state.querySourceId ? 'Edit Query Source' : 'Add Query Source', state.querySourceId ? 'fa-pen' : 'fa-circle-plus', () => this.editQuerySource());
+        action.classList.add('heurist-graph-query-source-action');
         activeRow.insertBefore(action, this.legendSection);
       }
     } else this.legendSection.remove();
@@ -245,23 +244,23 @@ export class GraphControlPanel {
   }
 
   /**
-   * Edit the active Dataset (or create one, when the graph has none) via the host record editor.
+   * Edit the active Query Source (or create one, when the graph has none) via the host record editor.
    *
    * @returns {Promise<void>}
    */
-  async editDataset() {
+  async editQuerySource() {
     const app = this.api.application;
-    if (app?.datasetAvailable === false || app?.config.persistedSettings?.options?.interaction?.readonly === true || app?.config.persistedSettings?.options?.interaction?.editEnabled === false) return;
-    const id = this.api.getState().datasetId;
+    if (app?.querySourceAvailable === false || app?.config.persistedSettings?.options?.interaction?.readonly === true || app?.config.persistedSettings?.options?.interaction?.editEnabled === false) return;
+    const id = this.api.getState().querySourceId;
     if (id) {
       await app.host.editRecord(id);
-      if (this.api.getState().datasetId === id) await this.api.setDataset(id);
+      if (this.api.getState().querySourceId === id) await this.api.setQuerySource(id);
     } else {
-      const info = await this.datasetListProvider.list({ ids: [] });
+      const info = await this.querySourceListProvider.list({ ids: [] });
       if (!info.recordTypeId) return;
       const created = await app.host.addRecord(info.recordTypeId);
       const newId = Number(created?.recordId ?? created?.rec_ID ?? created?.id);
-      if (newId > 0) await this.api.setDataset(newId);
+      if (newId > 0) await this.api.setQuerySource(newId);
     }
   }
 
@@ -387,15 +386,15 @@ export class GraphControlPanel {
       "with-source-header",
       this.options.showSourceHeader === true,
     );
-    if (this.datasetsSection)
-      this.datasetsSection.hidden =
-        this.options.showDatasets === false &&
+    if (this.querySourcesSection)
+      this.querySourcesSection.hidden =
+        this.options.showQuerySources === false &&
         this.options.showCurrentResults === false;
     if (this.filtersSection)
       this.filtersSection.hidden =
         this.options.showFilters === false ||
         this.options.runtimeMode === "main";
-    const hasVisiblePanel = [this.datasetsSection, this.filtersSection].some(
+    const hasVisiblePanel = [this.querySourcesSection, this.filtersSection].some(
       (section) => section && !section.hidden,
     );
     this.hasVisiblePanels = hasVisiblePanel;

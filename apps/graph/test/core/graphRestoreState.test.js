@@ -1,6 +1,6 @@
 /**
  * @file graphRestoreState.test.js
- * @brief Tests reproduction of a published view: dataset/query, expansions, visibility.
+ * @brief Tests reproduction of a published view: Query Source/query, expansions, visibility.
  * @project     Heurist academic knowledge management system
  * @package     heurist-graph
  * @link        https://HeuristNetwork.org
@@ -22,7 +22,7 @@ const doc = (ids, edges = []) =>
     edges,
   });
 
-function makeApp(configOverrides, { datasetQuery = "t:99" } = {}) {
+function makeApp(configOverrides, { querySourceQuery = "t:99" } = {}) {
   const loads = [];
   const engine = {
     initialize: async () => {},
@@ -49,11 +49,11 @@ function makeApp(configOverrides, { datasetQuery = "t:99" } = {}) {
     },
     engine,
     host: {},
-    datasetProvider: {
+    querySourceProvider: {
       load: async (id) => ({
         id,
-        title: "Published dataset",
-        source: { query: datasetQuery },
+        title: "Published Query Source",
+        source: { query: querySourceQuery },
       }),
     },
     provider: {
@@ -73,16 +73,16 @@ function makeApp(configOverrides, { datasetQuery = "t:99" } = {}) {
   return { app, engine, loads };
 }
 
-test("a published datasetId activates the Dataset instead of running a raw query", async () => {
-  const { app, loads } = makeApp({ datasetId: 5, query: "ids:1,2" });
+test("a published querySourceId activates the Query Source instead of running a raw query", async () => {
+  const { app, loads } = makeApp({ querySourceId: 5, query: "ids:1,2" });
   await app.initialize({ hidden: false });
-  assert.equal(app.getState().datasetId, 5);
-  assert.equal(app.getState().query, "t:99", "loads the Dataset's own query");
+  assert.equal(app.getState().querySourceId, 5);
+  assert.equal(app.getState().query, "t:99", "loads the Query Source's own query");
   assert.ok(!loads.some((r) => r.query === "ids:1,2"), "the stale id query is not run");
 });
 
-test("with no datasetId the persisted query is executed", async () => {
-  const { app, loads } = makeApp({ datasetId: null, query: "t:10" });
+test("with no querySourceId the persisted query is executed", async () => {
+  const { app, loads } = makeApp({ querySourceId: null, query: "t:10" });
   await app.initialize({ hidden: false });
   assert.equal(app.getState().query, "t:10");
   assert.deepEqual(app.graph.recordIds, [1, 2]);
@@ -122,7 +122,7 @@ test("published hidden record types are applied after the graph loads", async ()
 });
 
 test("no persisted source leaves the graph in the empty state", async () => {
-  const { app, loads } = makeApp({ datasetId: null, query: null });
+  const { app, loads } = makeApp({ querySourceId: null, query: null });
   const message = { hidden: true, textContent: "" };
   await app.initialize({ hidden: false }, { messageElement: message });
   assert.equal(loads.length, 0);

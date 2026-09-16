@@ -42,9 +42,9 @@ export class HeuristDataPublicApi {
     return this.readyPromise || Promise.resolve(this);
   }
 
-  /** Select and load a persisted Dataset. */
-  setDataset(id, options) {
-    return this.application.setDataset(id, options);
+  /** Select and load a persisted Query Source. */
+  setQuerySource(id, options) {
+    return this.application.setQuerySource(id, options);
   }
 
   /** Select and load Filtered Result. */
@@ -100,16 +100,16 @@ export class HeuristDataPublicApi {
   }
 
   /**
-   * Create a new persisted Dataset record and activate it.
+   * Create a new persisted Query Source record and activate it.
    *
    * @returns {Promise<object|null>} The host's record-creation result, or `null` when unavailable.
    */
-  requestCreateDataset() {
-    return this.application.requestCreateDataset();
+  requestCreateQuerySource() {
+    return this.application.requestCreateQuerySource();
   }
 
   /**
-   * Ask the host to edit the field selection for the active dataset (or Filtered Result).
+   * Ask the host to edit the field selection for the active Query Source (or Filtered Result).
    *
    * @returns {Promise<*>} The host's `editFieldset` result, or `null` when unavailable.
    */
@@ -132,11 +132,11 @@ export class HeuristDataPublicApi {
     return this.application.resize();
   }
 
-  /** Reload the active Dataset or query source. */
+  /** Reload the active Query Source or query. */
   refresh() {
     const state = this.application.getState();
-    if (state.datasetId)
-      return this.setDataset(state.datasetId, { reload: true });
+    if (state.querySourceId)
+      return this.setQuerySource(state.querySourceId, { reload: true });
     if (state.query != null && state.query !== "") {
       return this.setQuery(state.query, { reload: true });
     }
@@ -315,7 +315,7 @@ export class HeuristDataPublicApi {
   /**
    * Dispatch a public event requesting that the current source be saved as a filter.
    *
-   * @returns {{type: string, datasetId: number|null, query: *}} The current source descriptor.
+   * @returns {{type: string, querySourceId: number|null, query: *}} The current source descriptor.
    */
   requestSaveFilter() {
     const source = currentSource(this.application);
@@ -353,12 +353,12 @@ export class HeuristDataPublicApi {
   }
 }
 
-/** Build the current-source descriptor (`{type, datasetId, query}`) from application state. */
+/** Build the current-source descriptor (`{type, querySourceId, query}`) from application state. */
 function currentSource(application) {
   const state = application.getState();
   return {
-    type: state.sourceType || (state.datasetId ? "dataset" : "query"),
-    datasetId: state.datasetId ?? null,
+    type: state.sourceType || (state.querySourceId ? "querySource" : "query"),
+    querySourceId: state.querySourceId ?? null,
     query: state.query ?? null,
   };
 }

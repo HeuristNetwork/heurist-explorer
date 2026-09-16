@@ -39,7 +39,7 @@ test("initial user preferences are applied before DataTables initialization", as
     persistedSettings: {},
     ui: {},
     engineOptions: { pageLength: 100, controls: {} },
-    source: { datasetId: null, query: null, fields: [], selection: [] },
+    source: { querySourceId: null, query: null, fields: [], selection: [] },
   };
   const application = new DataApplication({
     container: {},
@@ -55,9 +55,9 @@ test("initial user preferences are applied before DataTables initialization", as
   assert.equal(initializedOptions.controls.search, false);
 });
 
-test("switching back from a Dataset restores the latest Filtered Result query", async () => {
+test("switching back from a Query Source restores the latest Filtered Result query", async () => {
   const requests = [];
-  const dataset = {
+  const querySource = {
     id: 7,
     source: { query: "t:7" },
     fields: [],
@@ -65,7 +65,7 @@ test("switching back from a Dataset restores the latest Filtered Result query", 
       return this;
     },
   };
-  const queryDataset = {
+  const queryQuerySource = {
     id: null,
     source: { query: "t:10" },
     fields: [],
@@ -77,7 +77,7 @@ test("switching back from a Dataset restores the latest Filtered Result query", 
     load: async (type, request) => {
       requests.push({ type, request });
       return {
-        dataset: type === "dataset" ? dataset : queryDataset,
+        querySource: type === "querySource" ? querySource : queryQuerySource,
         response: { records: [], meta: {}, pagination: { total: 0 } },
       };
     },
@@ -91,16 +91,16 @@ test("switching back from a Dataset restores the latest Filtered Result query", 
     loaders,
   });
   await application.setQuery("t:10", { fields: ["rec_Title"] });
-  await application.setDataset(7);
+  await application.setQuerySource(7);
   await application.activateCurrentResults();
   assert.equal(requests.at(-1).type, "query");
   assert.equal(requests.at(-1).request.query, "t:10");
   assert.deepEqual(requests.at(-1).request.fields, ["rec_Title"]);
 });
 
-test("a host Filtered Result update does not replace the active Dataset", async () => {
+test("a host Filtered Result update does not replace the active Query Source", async () => {
   const requests = [];
-  const dataset = {
+  const querySource = {
     id: 7,
     source: { query: "t:7" },
     fields: [],
@@ -108,7 +108,7 @@ test("a host Filtered Result update does not replace the active Dataset", async 
       return this;
     },
   };
-  const queryDataset = {
+  const queryQuerySource = {
     id: null,
     source: { query: "t:11" },
     fields: [],
@@ -120,7 +120,7 @@ test("a host Filtered Result update does not replace the active Dataset", async 
     load: async (type, request) => {
       requests.push({ type, request });
       return {
-        dataset: type === "dataset" ? dataset : queryDataset,
+        querySource: type === "querySource" ? querySource : queryQuerySource,
         response: { records: [], meta: {}, pagination: { total: 0 } },
       };
     },
@@ -132,17 +132,17 @@ test("a host Filtered Result update does not replace the active Dataset", async 
     host: {},
     loaders,
   });
-  await application.setDataset(7);
+  await application.setQuerySource(7);
   await application.setQuery("t:11", { fields: ["rec_Title"] });
   assert.equal(requests.length, 1);
-  assert.equal(application.getState().datasetId, 7);
+  assert.equal(application.getState().querySourceId, 7);
   await application.activateCurrentResults();
   assert.equal(requests.at(-1).type, "query");
   assert.equal(requests.at(-1).request.query, "t:11");
 });
 
 test("host filter activation delegates the parsed request and leaves Filtered Result pending", async () => {
-  const dataset = {
+  const querySource = {
     id: 7,
     source: { query: "t:7" },
     fields: [],
@@ -168,12 +168,12 @@ test("host filter activation delegates the parsed request and leaves Filtered Re
     },
     loaders: {
       load: async () => ({
-        dataset,
+        querySource,
         response: { records: [], meta: {}, pagination: { total: 0 } },
       }),
     },
   });
-  await application.setDataset(7);
+  await application.setQuerySource(7);
   await application.activateFilter({
     id: 4,
     title: "People",
@@ -192,12 +192,12 @@ test("host filter activation delegates the parsed request and leaves Filtered Re
     search_realm: "realm-1",
     source: "data-1",
   });
-  assert.equal(application.getState().datasetId, null);
+  assert.equal(application.getState().querySourceId, null);
 });
 
 test("standalone filter activation counts, then loads Filtered Result by query", async () => {
   const order = [];
-  const queryDataset = {
+  const queryQuerySource = {
     id: null,
     source: {},
     fields: [],
@@ -223,7 +223,7 @@ test("standalone filter activation counts, then loads Filtered Result by query",
       load: async (type, request) => {
         order.push(["load", type, request]);
         return {
-          dataset: queryDataset,
+          querySource: queryQuerySource,
           response: { records: [], meta: {}, pagination: { total: 0 } },
         };
       },
@@ -238,7 +238,7 @@ test("standalone filter activation counts, then loads Filtered Result by query",
 
 test("a superseded load cannot replace the Filtered Result", async () => {
   const pending = new Map();
-  const dataset = (id) => ({
+  const querySource = (id) => ({
     id,
     source: { query: `t:${id}` },
     fields: [],
@@ -253,28 +253,28 @@ test("a superseded load cannot replace the Filtered Result", async () => {
     loaders: {
       load: (type, request) =>
         new Promise((resolve) =>
-          pending.set(request.datasetId, { type, resolve }),
+          pending.set(request.querySourceId, { type, resolve }),
         ),
     },
   });
-  const first = application.setDataset(1);
-  const second = application.setDataset(2);
+  const first = application.setQuerySource(1);
+  const second = application.setQuerySource(2);
   pending.get(2).resolve({
-    dataset: dataset(2),
+    querySource: querySource(2),
     response: { records: [], meta: {}, pagination: { total: 0 } },
   });
   await second;
   pending.get(1).resolve({
-    dataset: dataset(1),
+    querySource: querySource(1),
     response: { records: [], meta: {}, pagination: { total: 0 } },
   });
   await assert.rejects(first, { name: "AbortError" });
-  assert.equal(application.getState().datasetId, 2);
+  assert.equal(application.getState().querySourceId, 2);
 });
 
-test("creating a Dataset tolerates a null allowed list", async () => {
+test("creating a Query Source tolerates a null allowed list", async () => {
   const settings = {
-    options: { datasets: { allowAll: false, allowed: null } },
+    options: { querySources: { allowAll: false, allowed: null } },
     config: {},
   };
   const application = new DataApplication({
@@ -285,11 +285,11 @@ test("creating a Dataset tolerates a null allowed list", async () => {
       addRecord: async () => ({ recordId: 9 }),
     },
     providers: {
-      datasetList: { list: async () => ({ recordTypeId: 42 }) },
+      querySourceList: { list: async () => ({ recordTypeId: 42 }) },
     },
     loaders: {
       load: async () => ({
-        dataset: {
+        querySource: {
           id: 9,
           source: { query: "t:42" },
           fields: [],
@@ -301,6 +301,6 @@ test("creating a Dataset tolerates a null allowed list", async () => {
       }),
     },
   });
-  await application.requestCreateDataset();
-  assert.deepEqual(settings.options.datasets.allowed, [9]);
+  await application.requestCreateQuerySource();
+  assert.deepEqual(settings.options.querySources.allowed, [9]);
 });

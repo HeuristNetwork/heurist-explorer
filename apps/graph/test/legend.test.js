@@ -17,7 +17,7 @@ function fixture() {
   const engine = { setGraph: async value => { engine.graph = value; }, setSelection: async () => {} };
   const app = new GraphApplication({ config: { query: 't:10', rules: [], links: 'all' }, engine,
     provider: { load: async request => { requests.push(request); return { graph, total: 500000 }; } },
-    datasetProvider: { load: async () => ({ title: 'Family', source: { query: 't:10' }, links: ['10:rt100:10'], rules: [{ name: 'Parents', description: 'Find parents' }] }) } });
+    querySourceProvider: { load: async () => ({ title: 'Family', source: { query: 't:10' }, links: ['10:rt100:10'], rules: [{ name: 'Parents', description: 'Find parents' }] }) } });
   app.graph = graph;
   app.response = { total: 500000 };
   app.recordTypeNames = new Map([[10, 'Persons'], [48, 'Events']]);
@@ -50,9 +50,9 @@ test('subtree visibility is scoped to a link and combines with node visibility',
   assert.equal(events, 3);
 });
 
-test('dataset links and rule hints follow the active source and current results restore correctly', async () => {
+test('Query Source links and rule hints follow the active source and current results restore correctly', async () => {
   const { app, requests } = fixture();
-  await app.setDataset(12);
+  await app.setQuerySource(12);
   assert.deepEqual(requests.at(-1).links, ['10:rt100:10']);
   assert.equal(app.getLegend().rules[0].description, 'Find parents');
   await app.activateCurrentResults();

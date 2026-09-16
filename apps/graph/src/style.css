@@ -25,8 +25,6 @@ html, body, #heurist-graph { width: 100%; height: 100%; margin: 0; overflow: hid
 .heurist-graph-query input { box-sizing:border-box; width:100%; padding:5px 7px; border:1px solid var(--h-color-border-strong); border-radius:3px; }
 .heurist-graph-actions { display:flex; gap:6px; margin-top:7px; }
 .heurist-graph-actions button { padding:5px 9px; border:1px solid var(--h-color-border-strong); border-radius:3px; background:var(--h-color-bg); cursor:pointer; }
-.heurist-graph-dataset-row { display:flex !important; align-items:center; gap:6px; min-height:28px; cursor:pointer; }
-.heurist-graph-dataset-row.active { font-weight:600; }
 .heurist-graph-empty { color:var(--h-color-text-muted); font-style:italic; }
 .heurist-graph-toolbar label { display:flex; align-items:center; gap:5px; }
 .heurist-graph-toolbar input { min-width:220px; padding:5px 7px; border:1px solid var(--h-color-border-strong); border-radius:3px; }
@@ -63,8 +61,8 @@ html, body, #heurist-graph { width: 100%; height: 100%; margin: 0; overflow: hid
 
 .heurist-graph-selector-row { display:grid; grid-template-columns:minmax(0, 1fr) auto; align-items:center; gap:6px; min-height:28px; padding:4px; border:1px solid transparent; }
 .heurist-graph-selector-row.active { background:var(--h-color-selected); border-color:var(--h-color-selected-border); }
-label.heurist-data-dataset { display:flex; align-items:center; gap:6px; font-weight:400; cursor:pointer; }
-.active > label.heurist-data-dataset { font-weight:600; }
+label.heurist-graph-query-source { display:flex; align-items:center; gap:6px; font-weight:400; cursor:pointer; }
+.active > label.heurist-graph-query-source { font-weight:600; }
 .heurist-graph-selector-row > .heurist-graph-legend { grid-column:1 / -1; min-width:0; }
 .heurist-graph-section-toggle { display:flex; align-items:center; gap:6px; width:100%; padding:5px 0; border:1px solid var(--h-color-selected-border); background:var(--h-color-selected); text-align:left; cursor:pointer; font:inherit; font-size:12px; font-weight:600; }
 .heurist-graph-section-toggle::before { content:'▸'; }
@@ -81,7 +79,7 @@ label.heurist-data-dataset { display:flex; align-items:center; gap:6px; font-wei
    and friends) lives in #shared/ui/heurist-module.css. */
 .heurist-graph-config-filterby { grid-template-columns: 145px 160px auto minmax(180px, 1fr); }
 
-/* Active dataset legend */
+/* Active Query Source legend */
 .heurist-graph-legend h3, .heurist-graph-legend h4 { display: flex; align-items: center; justify-content: space-between; gap: .4rem; }
 .heurist-graph-legend h4 { margin:4px; font-size:12px; font-weight:400; }
 .heurist-graph-legend-rule-actions { display:inline-flex; align-items:center; }

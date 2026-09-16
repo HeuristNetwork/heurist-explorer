@@ -28,7 +28,7 @@ test("data configuration defaults expose the requested controls", () => {
   const value = createDataConfigurationDefaults();
   assert.equal(value.options.ui.showColumnPicker, true);
   assert.equal(value.options.nativeControls.export, true);
-  assert.equal(value.options.datasets.allowAll, true);
+  assert.equal(value.options.querySources.allowAll, true);
   assert.equal(value.options.filters.allowAll, true);
   assert.equal(value.options.ui.language, "auto");
   assert.equal(value.options.ui.showSourceHeader, false);
@@ -90,7 +90,7 @@ test("normalization allowlists values and clamps font size", () => {
   const value = normalizeDataConfigurationSettings({
     options: {
       accessToken: "discard",
-      datasets: { allowAll: false, allowed: [2, "3", 0, 2] },
+      querySources: { allowAll: false, allowed: [2, "3", 0, 2] },
       interaction: { persistentSelectionEnabled: true },
     },
     config: {
@@ -100,7 +100,7 @@ test("normalization allowlists values and clamps font size", () => {
     callback() {},
   });
   assert.equal(value.options.accessToken, undefined);
-  assert.deepEqual(value.options.datasets.allowed, [2, 3]);
+  assert.deepEqual(value.options.querySources.allowed, [2, 3]);
   assert.equal(value.options.interaction.persistentSelectionEnabled, true);
   assert.equal(value.config.defaults.fontSize, 30);
   assert.deepEqual(value.config.currentResults.filterBy, {

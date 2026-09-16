@@ -115,14 +115,14 @@ test('selected-node descendants suspend when their seed loses its last source', 
   assert.deepEqual(app.graph.recordIds, [1,2,3,4]);
 });
 
-test('source overrides stay local to their Dataset and Current Results', async () => {
+test('source overrides stay local to their Query Source and Current Results', async () => {
   const { app } = await fixture([], async () => ({ ids:[], edges:[] }));
-  app.datasetProvider = { load:async id => ({ title:`Dataset ${id}`, source:{query:'t:10'}, rules:[rule(id)] }) };
+  app.querySourceProvider = { load:async id => ({ title:`Query Source ${id}`, source:{query:'t:10'}, rules:[rule(id)] }) };
   await app.setExpansionRules([rule(7)]);
-  await app.setDataset(12); await app.setExpansionRules([rule(8)]);
-  await app.setDataset(13);
+  await app.setQuerySource(12); await app.setExpansionRules([rule(8)]);
+  await app.setQuerySource(13);
   assert.deepEqual(app.getExpansionRules(), [rule(13)]);
-  await app.setDataset(12);
+  await app.setQuerySource(12);
   assert.deepEqual(app.getExpansionRules(), [rule(8)]);
   await app.resetExpansionRules();
   assert.deepEqual(app.getExpansionRules(), [rule(12)]);

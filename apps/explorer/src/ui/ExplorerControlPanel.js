@@ -513,8 +513,8 @@ export class ExplorerControlPanel {
         this._showPlaceholder(id, 'Manage Filters');
         break;
 
-      case 'manage-datasets':
-        this._showPlaceholder(id, 'Manage Datasets');
+      case 'manage-query-sources':
+        this._showPlaceholder(id, 'Manage Query Sources');
         break;
 
       case 'help':

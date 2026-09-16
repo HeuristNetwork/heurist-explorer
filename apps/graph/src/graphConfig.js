@@ -38,7 +38,7 @@ export function getHeuristGraphConfig() {
   );
   const persistedSettings = normalizeGraphConfigurationSettings(settings);
   // Embedded hosts supply `bootstrap.source` ({ query, selection }); publications
-  // supply the richer `bootstrap.state` snapshot (query/datasetId/expansions/
+  // supply the richer `bootstrap.state` snapshot (query/querySourceId/expansions/
   // hidden) and no `source`. `normalizeModuleBootstrap` always materializes
   // `source` as an object, so it can never be used to fall back to `state` -
   // merge them, letting a publication's `state` win.
@@ -65,8 +65,8 @@ export function getHeuristGraphConfig() {
     searchRealm: runtime.searchRealm ?? runtime.search_realm ?? null,
     sourceId: runtime.source ?? runtime.sourceId ?? null,
     query: source.query ?? null,
-    datasetId: toPositiveInt(source.datasetId),
-    datasetTitle: source.datasetTitle ?? null,
+    querySourceId: toPositiveInt(source.querySourceId),
+    querySourceTitle: source.querySourceTitle ?? null,
     // Published views carry their effective expansion rules under
     // `state.expansions.rules`; fall back to legacy `settings.rules`/`source.rules`.
     rules: settings.rules ?? source.expansions?.rules ?? source.rules ?? [],

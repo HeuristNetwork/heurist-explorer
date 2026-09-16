@@ -15,12 +15,9 @@
 #Publication#Publication
 #Default settings#Default settings
 #Filtered Result#Filtered Result
-#Datasets and Filters#Datasets and Filters
 #Interaction#Interaction
-#Datasets#Datasets
 #Filters#Filters
 #Initially expanded#Initially expanded
-#Columns picker (for current active dataset)#Columns picker (for current active dataset)
 #Options#Options
 #Native table controls#Native table controls
 #Page size#Page size
@@ -57,9 +54,6 @@
 #Select widget#Select widget
 #in#in
 #Allow all#Allow all
-#Available datasets#Available datasets
-#Allowed datasets#Allowed datasets
-#Default dataset#Default dataset
 #Available filters#Available filters
 #Allowed filters#Allowed filters
 #Enable edit#Enable edit
@@ -68,17 +62,13 @@
 #Enable popups#Enable popups
 #Admin info#Admin info
 #Preserve current state#Preserve current state
-#Preserve the active dataset or query, page, sort, filter and selection.#Preserve the active dataset or query, page, sort, filter and selection.
 #Discard changes to data configuration?#Discard changes to data configuration?
-#Add available datasets#Add available datasets
-#Remove allowed datasets#Remove allowed datasets
 #Add available filters#Add available filters
 #Remove allowed filters#Remove allowed filters
 #Data controls#Data controls
 #Show or hide data controls#Show or hide data controls
 #Show or hide panels#Show or hide panels
 #Help#Help
-#Create new dataset#Create new dataset
 #Pick fields#Pick fields
 #Apply#Apply
 #No filters#No filters

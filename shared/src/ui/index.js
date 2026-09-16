@@ -18,3 +18,4 @@ export * from './config/index.js';
 export { InlineHelp } from './InlineHelp.js';
 export { PublishedDialog } from './PublishedDialog.js';
 export { HMsg } from './HMsg.js';
+export { QuerySourceSelector } from './QuerySourceSelector.js';

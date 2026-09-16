@@ -371,19 +371,19 @@ export class DataTablesAdapter extends DataEngineAdapter {
   /**
    * Rebuild the DataTables instance for a new page of data.
    *
-   * @param {{dataset: object|null, records: Array<object>, meta: object, pagination: object}} data Data to render.
+   * @param {{querySource: object|null, records: Array<object>, meta: object, pagination: object}} data Data to render.
    * @returns {Promise<void>}
    */
-  async setData({ dataset, records, meta, pagination }) {
+  async setData({ querySource, records, meta, pagination }) {
     this.instance?.destroy();
     this.instance = null;
     this.tableElement.replaceChildren();
     this.selected.clear();
-    this.dataset = dataset;
+    this.querySource = querySource;
     this.records = records;
     this.meta = meta;
     const fields =
-      dataset?.fields?.filter((field) => field.visible !== false) || [];
+      querySource?.fields?.filter((field) => field.visible !== false) || [];
     const projected = projectRecords(records, fields);
     const interaction = this.options.interaction || {};
     const collectionEnabled = interaction.persistentSelectionEnabled === true;
@@ -683,9 +683,9 @@ export class DataTablesAdapter extends DataEngineAdapter {
         "--heurist-data-font-size",
         `${Number(this.options.fontSize) || 14}px`,
       );
-    if (this.dataset)
+    if (this.querySource)
       await this.setData({
-        dataset: this.dataset,
+        querySource: this.querySource,
         records: this.records || [],
         meta: this.meta || {},
         pagination: this.pagination || {},
@@ -815,7 +815,7 @@ function dataTablesLanguage(emptyResultMessage) {
   };
 }
 
-/** Resolve a field's display name from the dataset metadata's field details, falling back to its code. */
+/** Resolve a field's display name from the response metadata's field details, falling back to its code. */
 function fieldTitle(code, meta) {
   const raw = meta?.fields?.details || meta?.details || [];
   const details = Array.isArray(raw) ? raw : Object.values(raw);
@@ -872,7 +872,7 @@ function renderAdminInfo(record, options) {
   );
 }
 
-/** Resolve a field's `dty_Type` from the dataset metadata's field details, or `null` when unknown. */
+/** Resolve a field's `dty_Type` from the response metadata's field details, or `null` when unknown. */
 function fieldType(code, meta) {
   const raw = meta?.fields?.details || meta?.details || [];
   const details = Array.isArray(raw) ? raw : Object.values(raw);

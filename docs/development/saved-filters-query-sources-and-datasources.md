@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This note clarifies the roles and relationships of Saved Filters, Record Types, Dataset/MapSource records and the Explorer `DataSource`. It supplements the HEURIST-EXPLORER Development Plan and DataSource Workflow and should be treated as the architectural context for their first phases.
+This note clarifies the roles and relationships of Saved Filters, Record Types, Query Source (MapSource) records and the Explorer `DataSource`. It supplements the HEURIST-EXPLORER Development Plan and DataSource Workflow and should be treated as the architectural context for their first phases.
 
 ## 1. Persistent and producing entities
 
@@ -24,11 +24,11 @@ Saved Filters are widely used and must remain available during the transition. T
 
 A Record Type is not a stored source definition. Selecting a Record Type is simply a convenient **producer of a query**, normally `t:<record-type-id>`.
 
-Explorer therefore resolves a Record Type selection to a runtime DataSource. A Favorite may reference the Record Type so its current name and icon can be resolved, but presentation modules should receive the resolved query rather than a special record-type datasource format.
+Explorer therefore resolves a Record Type selection to a runtime DataSource. A Favorite may reference the Record Type so its current name and icon can be resolved, but presentation modules should receive the resolved query rather than a special record-type Query Source format.
 
-### MapSource and Dataset
+### Query Source (MapSource)
 
-`RT_QUERY_SOURCE` / MapSource (`3-1021`) and `RT_DATASET` (`2-1100`) are persistent **presentation-aware source definitions** stored today as ordinary user records.
+`RT_QUERY_SOURCE` (`3-1021`) is one persistent **presentation-aware source definition** record type, stored today as ordinary user records, and shared by every presentation module — "MapSource" is simply Map's established name for its own use of this same record type; Data/Graph/Timeline call it Query Source.
 
 They combine a query with configuration needed by one or more presentation modules:
 
@@ -42,7 +42,7 @@ They combine a query with configuration needed by one or more presentation modul
 
 Field, geo and date/time selectors use the same query-path notation, for example `10:lt234:12:38`.
 
-MapSource is established and referenced by existing MapLayer records, so it requires long-term compatibility. Dataset is new and can evolve or be replaced with much less migration risk. Although their structures overlap, neither should be folded into the Saved Filter JSON: a Saved Filter captures search intent, while Dataset/MapSource add a presentation recipe.
+Map's use of this record type is established and referenced by existing MapLayer records, so it requires long-term compatibility. Data/Graph/Timeline's use of it is newer and can evolve or be replaced with much less migration risk, even though both are the same underlying record type. It should not be folded into the Saved Filter JSON: a Saved Filter captures search intent, while Query Source adds a presentation recipe.
 
 In the target architecture these definitions belong to the `sys` domain, alongside Website, Page, MapDocument and MapLayer. The intended domains are:
 
@@ -61,7 +61,7 @@ It should contain three clearly separated parts:
 ```js
 {
   reference: {
-    type: 'query' | 'filter' | 'recordtype' | 'dataset' | 'mapsource',
+    type: 'query' | 'filter' | 'recordtype' | 'querysource',
     id: 17,                 // absent for an ad-hoc query
     key: 'filter:17'
   },
@@ -90,9 +90,9 @@ The exact property names may remain compatible with the current `{type, id, quer
 - `request` is the executable common records request;
 - `presentation` contains only resolved module profiles when applicable.
 
-The DataSource may repeat values read from a Saved Filter or Dataset, but this is deliberate runtime denormalization, not a second canonical store. It must never be saved as an independent record, edited as the authoritative definition, or acquire its own CRUD API. Reloading/resolving its reference refreshes the runtime snapshot.
+The DataSource may repeat values read from a Saved Filter or Query Source, but this is deliberate runtime denormalization, not a second canonical store. It must never be saved as an independent record, edited as the authoritative definition, or acquire its own CRUD API. Reloading/resolving its reference refreshes the runtime snapshot.
 
-Modules should primarily consume `request` and their own presentation profile. Explorer uses `reference` for identity, History, Favorites and Workspace. For compatibility, `normalizeDataSource()` can accept the current `{type:'query'|'filter'|'dataset'}` objects and produce the normalized shape.
+Modules should primarily consume `request` and their own presentation profile. Explorer uses `reference` for identity, History, Favorites and Workspace. For compatibility, `normalizeDataSource()` can accept the current `{type:'query'|'filter'|'querysource'}` objects and produce the normalized shape.
 
 ## 3. Recommended transition
 
@@ -101,7 +101,7 @@ Modules should primarily consume `request` and their own presentation profile. E
 Use both existing families during the Explorer demonstration period:
 
 - Saved Filters remain in `usrSavedSearches`;
-- Dataset and MapSource remain ordinary records;
+- Query Source (MapSource) records remain ordinary records;
 - Explorer resolves all of them to the same runtime DataSource contract;
 - presentation modules do not know which table/domain supplied the definition.
 
@@ -131,7 +131,7 @@ Thus Explorer and `FilterProvider` use only the permanent `/sys/filter` contract
 
 A small filter-specific codec is unavoidable while several logical fields occupy one JSON column. It belongs behind the generic system API, not in Explorer.
 
-### Do not put Dataset fields into Saved Filter JSON (option A)
+### Do not put Query Source fields into Saved Filter JSON (option A)
 
 Option A should not be used for the new presentation fields:
 
@@ -140,11 +140,11 @@ Option A should not be used for the new presentation fields:
 - ownership, validation and evolution of the JSON become unclear;
 - MapSource compatibility would still remain a separate concern.
 
-Only existing Saved Filter search fields should remain there. If new transitional search metadata is necessary, place it in a versioned/namespaced section and make the new API preserve unknown keys; do not store Dataset, Map or Timeline profiles there.
+Only existing Saved Filter search fields should remain there. If new transitional search metadata is necessary, place it in a versioned/namespaced section and make the new API preserve unknown keys; do not store Query Source, Map or Timeline profiles there.
 
-### Do not build a Dataset-only `sysRecords` subsystem now
+### Do not build a Query-Source-only `sysRecords` subsystem now
 
-Dataset is an excellent first **pilot entity** for the future `sys` domain because it has little compatibility burden. It is not, however, a reason to implement a one-off Dataset CRUD stack in `sysRecords` before Explorer can be demonstrated.
+Query Source is an excellent first **pilot entity** for the future `sys` domain because it has little compatibility burden. It is not, however, a reason to implement a one-off Query Source CRUD stack in `sysRecords` before Explorer can be demonstrated.
 
 The real prerequisite is a generic system-domain foundation:
 
@@ -155,15 +155,15 @@ The real prerequisite is a generic system-domain foundation:
 - cross-domain links and domain-qualified identity;
 - migration and compatibility rules.
 
-The HST project contains useful generic record-model, persistence and repository work, but importing it is a broader integration task rather than a small Dataset patch. Continue using the existing Dataset presentation service and legacy record editor until the generic foundation is ready.
+The HST project contains useful generic record-model, persistence and repository work, but importing it is a broader integration task rather than a small Query Source patch. Continue using the existing Query Source presentation service and legacy record editor until the generic foundation is ready.
 
 ### Later route: staged option C
 
 Option C is the target migration, not the immediate Explorer dependency:
 
-1. Implement and test generic `sys` CRUD/search with Dataset as the pilot.
+1. Implement and test generic `sys` CRUD/search with Query Source as the pilot.
 2. Define a future system type such as `QueryDefinition` or `PresentationSource`; avoid using the client term `DataSource` for the stored entity.
-3. Import Datasets first, with stable old-to-new identity mapping.
+3. Import Query Sources first, with stable old-to-new identity mapping.
 4. Import Saved Filters into a system search-definition type while `/sys/filter` continues to expose the same contract.
 5. Migrate MapSource only with a compatibility adapter because existing MapLayers and projects reference it.
 6. Use dual-read or explicit fallback during a release window; choose one authoritative write store at each stage rather than uncontrolled dual-write.
@@ -174,12 +174,12 @@ Option C is the target migration, not the immediate Explorer dependency:
 | Question | Decision |
 | --- | --- |
 | Keep Saved Filters without legacy client calls? | Use stable `/sys/filter` CRUD backed temporarily by a legacy-table adapter. |
-| Develop Dataset in `sysRecords` now? | No, not as an Explorer prerequisite or Dataset-only implementation. Later use Dataset to pilot generic `sys` CRUD. |
-| Does DataSource duplicate Saved Filter/Dataset? | It is a resolved runtime snapshot, not a persistent duplicate. Keep reference, request and presentation profile distinct. |
+| Develop Query Source in `sysRecords` now? | No, not as an Explorer prerequisite or Query-Source-only implementation. Later use Query Source to pilot generic `sys` CRUD. |
+| Does DataSource duplicate Saved Filter/Query Source? | It is a resolved runtime snapshot, not a persistent duplicate. Keep reference, request and presentation profile distinct. |
 | Option A | Reject for presentation fields. |
 | Option B | Use now as a controlled compatibility phase. |
 | Option C | Adopt later as a staged migration after generic system-domain infrastructure exists. |
 
 ## Consequence for the Explorer plans
 
-Before implementing Phase 1, refine `DataSource.js` so persistent identity/provenance is separated from the executable request. Continue accepting current objects through a compatibility normalizer. The remaining workflow remains valid: all producers resolve to a DataSource, `ExplorerApplication.activateDataSource()` activates it, and `SyncEngine` distributes it. Saved Filter CRUD should be implemented through the stable system-resource API, while Dataset/MapSource migration must not block History, Favorites, Record Type filtering or Workspace.
+Before implementing Phase 1, refine `DataSource.js` so persistent identity/provenance is separated from the executable request. Continue accepting current objects through a compatibility normalizer. The remaining workflow remains valid: all producers resolve to a DataSource, `ExplorerApplication.activateDataSource()` activates it, and `SyncEngine` distributes it. Saved Filter CRUD should be implemented through the stable system-resource API, while Query Source (MapSource) migration must not block History, Favorites, Record Type filtering or Workspace.

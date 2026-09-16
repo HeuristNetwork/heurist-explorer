@@ -21,7 +21,7 @@ import { GraphDocument } from './GraphDocument.js';
  */
 export class GraphExpansions {
   /**
-   * @param {GraphDocument} base Immutable base graph (e.g. the current Filtered Result/Dataset).
+   * @param {GraphDocument} base Immutable base graph (e.g. the current Filtered Result/Query Source).
    * @param {Array<object>} [rules] Initial expansion rule definitions; see `setRules`.
    * @param {{maxDepth?: number, maxNodes?: number, maxEdges?: number}} [limits] Expansion and composition limits.
    */

@@ -22,8 +22,8 @@ import { HeuristGraphPublicApi } from "./host/HeuristGraphPublicApi.js";
 import { GraphControlPanel } from "./ui/GraphControlPanel.js";
 import { createHostAdapter } from "./host/createHostAdapter.js";
 import { RecordTypeProvider } from "#shared/data/RecordTypeProvider.js";
-import { DatasetListProvider } from "./data/DatasetListProvider.js";
-import { DatasetProvider } from "./data/DatasetProvider.js";
+import { QuerySourceListProvider } from "#shared/data/QuerySourceListProvider.js";
+import { QuerySourceProvider } from "#shared/data/QuerySourceProvider.js";
 import { FilterProvider } from "./data/FilterProvider.js";
 import { ReportTemplateProvider } from "./data/ReportTemplateProvider.js";
 import { RecordContentProvider } from "./data/RecordContentProvider.js";
@@ -54,7 +54,7 @@ export async function initHeuristGraph(config) {
     provider: new GraphProvider({ apiClient }),
     engine: createGraphEngine(config.engine),
     host: createHostAdapter(config.host),
-    datasetProvider: new DatasetProvider({ apiClient }),
+    querySourceProvider: new QuerySourceProvider({ apiClient }),
     // Fetches server-rendered popup content for a Popup template
     recordContentProvider: new RecordContentProvider({
       baseUrl: heuristBaseUrl,
@@ -81,9 +81,9 @@ export async function initHeuristGraph(config) {
   message.hidden = true;
   container.replaceChildren(canvas, message);
   const recordTypes = new RecordTypeProvider({ apiClient });
-  const datasetListProvider = new DatasetListProvider({
+  const querySourceListProvider = new QuerySourceListProvider({
     apiClient, recordTypes,
-    onUnavailable: () => application.disableDatasetEditing(),
+    onUnavailable: () => application.disableQuerySourceEditing(),
   });
   const filterListProvider = new FilterProvider({ apiClient });
   const reportTemplateProvider = new ReportTemplateProvider({
@@ -92,7 +92,7 @@ export async function initHeuristGraph(config) {
   });
   api.setConfigurationDialogFactory((options = {}) => new GraphConfigurationDialog({
     ...options,
-    datasetListProvider,
+    querySourceListProvider,
     filterListProvider,
     reportTemplateProvider,
   }).open());
@@ -105,8 +105,8 @@ export async function initHeuristGraph(config) {
         runtimeMode: config.runtimeMode,
         currentResultsTitle: config.persistedSettings?.config?.currentResults?.title,
       },
-      datasetListProvider,
-      datasetProvider: new DatasetProvider({ apiClient }),
+      querySourceListProvider,
+      querySourceProvider: new QuerySourceProvider({ apiClient }),
       filterListProvider,
     }).mount();
     return api;

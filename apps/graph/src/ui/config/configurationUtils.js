@@ -43,12 +43,12 @@ export function serializeConfigurationSettings(
   return serializeSettings(value, normalizeSettings, CONFIGURATION_FORMAT);
 }
 
-/** Dataset/filter identifiers are always positive-integer record ids. */
+/** Query Source/filter identifiers are always positive-integer record ids. */
 export function nullableIdentifier(value) {
   return sharedNullableIdentifier(value, { numeric: true });
 }
 /**
- * Normalize a list of dataset/filter identifiers, dropping invalid entries.
+ * Normalize a list of Query Source/filter identifiers, dropping invalid entries.
  *
  * @param {*} value Value to normalize.
  * @returns {Array<number>|null}

@@ -28,8 +28,8 @@ export class TimelineContext {
     this.title = String(value.title || `Band ${index + 1}`);
     this.query = value.query ?? null;
     this.ids = normalizeIds(value.ids);
-    this.datasetId = positiveId(value.datasetId);
-    this.source = value.source || (this.datasetId ? "dataset" : "query");
+    this.querySourceId = positiveId(value.querySourceId);
+    this.source = value.source || (this.querySourceId ? "querySource" : "query");
     this.timefields = normalizeFields(value.timefields);
     this.fields = normalizeFields(value.fields);
     this.visible = value.visible !== false;
@@ -48,7 +48,7 @@ export class TimelineContext {
       title: this.title,
       query: this.query,
       ids: [...this.ids],
-      datasetId: this.datasetId,
+      querySourceId: this.querySourceId,
       source: this.source,
       timefields: [...this.timefields],
       fields: [...this.fields],
@@ -93,9 +93,9 @@ function normalizeIds(value) {
 }
 
 /**
- * Validates a dataset ID and strips invalid values.
+ * Validates a Query Source ID and strips invalid values.
  *
- * @param {number|string|null|undefined} value - Candidate dataset ID.
+ * @param {number|string|null|undefined} value - Candidate Query Source ID.
  * @returns {number|null} Parsed positive integer or null.
  */
 function positiveId(value) {

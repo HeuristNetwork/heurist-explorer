@@ -25,7 +25,7 @@ export class GraphApplication extends EventTarget {
    * @param {object} options.provider Graph data provider (loads/merges query results into a `GraphDocument`).
    * @param {object} options.engine Rendering engine adapter.
    * @param {object} options.host Host adapter.
-   * @param {object|null} [options.datasetProvider] Loads persisted Dataset records.
+   * @param {object|null} [options.querySourceProvider] Loads persisted Query Source records.
    * @param {object|null} [options.recordContentProvider] Loads per-record popup content.
    * @param {object|null} [options.vocabularyProvider] Resolves field/relation-type/record-type display names.
    */
@@ -34,7 +34,7 @@ export class GraphApplication extends EventTarget {
     provider,
     engine,
     host,
-    datasetProvider = null,
+    querySourceProvider = null,
     recordContentProvider = null,
     vocabularyProvider = null,
   }) {
@@ -43,7 +43,7 @@ export class GraphApplication extends EventTarget {
     this.provider = provider;
     this.engine = engine;
     this.host = host;
-    this.datasetProvider = datasetProvider;
+    this.querySourceProvider = querySourceProvider;
     this.recordContentProvider = recordContentProvider;
     this.vocabularyProvider = vocabularyProvider;
     this.graph = null;
@@ -63,11 +63,11 @@ export class GraphApplication extends EventTarget {
     this.hiddenRecordTypes = new Set();
     this.hiddenLinks = new Set();
     this.hiddenRelationships = new Set();
-    this.dataset = null;
+    this.querySource = null;
     this.response = null;
     this.recordTypeNames = new Map();
     // Active source tracking, mirroring heurist-data's DataApplication: a
-    // persisted Dataset "wins" against inbound Filtered Result queries until
+    // persisted Query Source "wins" against inbound Filtered Result queries until
     // the viewer explicitly reactivates Filtered Result.
     this.source = null;
     // The host-pushed DataSource currently active (main runtime only), and
@@ -105,20 +105,20 @@ export class GraphApplication extends EventTarget {
   }
 
   /**
-   * Reproduce a published (or host-seeded) view: activate the persisted Dataset
+   * Reproduce a published (or host-seeded) view: activate the persisted Query Source
    * by id, or run the persisted query, then re-apply the saved base-scope
    * expansions and legend visibility. Matches heurist-data's publish/open cycle.
    */
   async #restoreInitialView() {
     let loaded = false;
-    if (this.config.datasetId) {
+    if (this.config.querySourceId) {
       try {
-        await this.setDataset(this.config.datasetId);
+        await this.setQuerySource(this.config.querySourceId);
         loaded = true;
       } catch (error) {
         this.dispatch("heurist-graph-error", {
           error,
-          operation: "restore-dataset",
+          operation: "restore-query-source",
         });
       }
     }
@@ -137,8 +137,8 @@ export class GraphApplication extends EventTarget {
   /** Re-enable the published rules and drive the base scope to the saved depth. */
   async #restoreExpansions(saved) {
     if (!saved || !this.expansions) return;
-    const key = this.config.datasetId
-      ? `dataset:${this.config.datasetId}`
+    const key = this.config.querySourceId
+      ? `querySource:${this.config.querySourceId}`
       : "current";
     if (Array.isArray(saved.rules) && saved.rules.length) {
       this.ruleOverrides.set(key, structuredClone(saved.rules));
@@ -219,24 +219,24 @@ export class GraphApplication extends EventTarget {
   /**
    * Load or merge a graph for a query.
    *
-   * A plain (non-merge) call is ignored while a persisted Dataset is the
+   * A plain (non-merge) call is ignored while a persisted Query Source is the
    * active source - matching heurist-data's `DataApplication.setQuery()` -
    * so a Filtered Result query the host pushes (a global search event, once
-   * applied after the widget becomes visible) never clobbers a Dataset the
+   * applied after the widget becomes visible) never clobbers a Query Source the
    * viewer deliberately selected. Internal callers that manage `this.source`
-   * themselves (`setDataset`, `activateCurrentResults`) pass `internal: true`
+   * themselves (`setQuerySource`, `activateCurrentResults`) pass `internal: true`
    * to bypass that guard.
    *
    * Whatever the outcome, the *remembered* Filtered Result query is still
    * updated first (matching heurist-data's "host search events keep Current
    * Results up to date" comment) so `activateCurrentResults()` always
-   * restores the latest one, even one that arrived while a Dataset was on
-   * screen - not a stale query from before the Dataset was selected. Pass
-   * `remember: false` to skip that (restoring/loading a Dataset's own query
+   * restores the latest one, even one that arrived while a Query Source was on
+   * screen - not a stale query from before the Query Source was selected. Pass
+   * `remember: false` to skip that (restoring/loading a Query Source's own query
    * must never be remembered as a Filtered Result query).
    *
-   * An explicit `null`/empty query always wins, even over an active Dataset -
-   * it deactivates any Dataset and shows the empty-result message.
+   * An explicit `null`/empty query always wins, even over an active Query Source -
+   * it deactivates any Query Source and shows the empty-result message.
    */
   async load({
     query = this.config.query,
@@ -251,12 +251,12 @@ export class GraphApplication extends EventTarget {
       this.generation += 1;
       this.abortController?.abort("Graph cleared");
       this.source = null;
-      this.config.datasetId = null;
-      this.config.datasetTitle = null;
+      this.config.querySourceId = null;
+      this.config.querySourceTitle = null;
       this.config.query = null;
       this.graph = new GraphDocument();
       this.expansions = null;
-      this.dataset = null;
+      this.querySource = null;
       this.response = null;
       await this.engine.setGraph(this.graph);
       await this.engine.setSelection(this.selection);
@@ -273,10 +273,10 @@ export class GraphApplication extends EventTarget {
       if (normalizedQuery != null && remember) {
         this.currentResultsQuery = normalizedQuery;
       }
-      if (this.source?.type === "dataset" && !internal) return this.getState();
+      if (this.source?.type === "querySource" && !internal) return this.getState();
       if (!internal) {
         this.source = { type: "query", query: normalizedQuery };
-        this.dataset = null;
+        this.querySource = null;
       }
     }
 
@@ -286,10 +286,10 @@ export class GraphApplication extends EventTarget {
 
     // An incremental expansion never re-runs internal-edge discovery; the
     // initial graph and a Saved Filter default to discovering every edge until
-    // a Dataset supplies an explicit link set.
+    // a Query Source supplies an explicit link set.
     const linkSelection = merge
       ? undefined
-      : links ?? this.source?.links ?? this.dataset?.links ?? this.config.links ?? "all";
+      : links ?? this.source?.links ?? this.querySource?.links ?? this.config.links ?? "all";
     const result = await this.provider.load({
       query: normalizedQuery,
       links: linkSelection,
@@ -391,22 +391,22 @@ export class GraphApplication extends EventTarget {
   }
 
   /**
-   * Load a persisted Dataset by id and activate it as the graph's source.
+   * Load a persisted Query Source by id and activate it as the graph's source.
    *
-   * @param {number|string} id Dataset record id.
+   * @param {number|string} id Query Source record id.
    * @returns {Promise<object>} Updated application state.
-   * @throws {Error} When the dataset has no executable query.
+   * @throws {Error} When the Query Source has no executable query.
    */
-  async setDataset(id) {
-    const dataset = await this.datasetProvider?.load?.(id);
-    const query = dataset?.source?.query ?? dataset?.query;
-    if (query == null || query === "") throw new Error("Dataset query is empty");
-    this.dataset = dataset;
+  async setQuerySource(id) {
+    const querySource = await this.querySourceProvider?.load?.(id);
+    const query = querySource?.source?.query ?? querySource?.query;
+    if (query == null || query === "") throw new Error("Query Source query is empty");
+    this.querySource = querySource;
     this.dataSource = null;
-    this.config.datasetId = Number(id);
-    this.config.datasetTitle = dataset.title || dataset.rec_Title || null;
-    this.source = { type: "dataset", datasetId: Number(id) };
-    return this.load({ query, links: dataset.links ?? "all", internal: true, remember: false });
+    this.config.querySourceId = Number(id);
+    this.config.querySourceTitle = querySource.title || querySource.rec_Title || null;
+    this.source = { type: "querySource", querySourceId: Number(id) };
+    return this.load({ query, links: querySource.links ?? "all", internal: true, remember: false });
   }
 
   /**
@@ -420,10 +420,10 @@ export class GraphApplication extends EventTarget {
   async setDataSource(dataSource) {
     if (this.pinned) return this.getState();
     const query = dataSource?.request?.q ?? dataSource?.query ?? null;
-    this.dataset = null;
+    this.querySource = null;
     this.dataSource = dataSource || null;
-    this.config.datasetId = null;
-    this.config.datasetTitle = dataSource?.title || null;
+    this.config.querySourceId = null;
+    this.config.querySourceTitle = dataSource?.title || null;
     this.source = { type: "datasource", dataSource };
     return this.load({ query, links: dataSource?.links ?? "all", internal: true, remember: false });
   }
@@ -482,11 +482,11 @@ export class GraphApplication extends EventTarget {
 
   /** Restore the most recently remembered Filtered Result query, locally. */
   activateCurrentResults() {
-    this.dataset = null;
+    this.querySource = null;
     this.dataSource = null;
     this.source = null;
-    this.config.datasetId = null;
-    this.config.datasetTitle = null;
+    this.config.querySourceId = null;
+    this.config.querySourceTitle = null;
     return this.load({
       query: this.currentResultsQuery,
       internal: true,
@@ -502,10 +502,10 @@ export class GraphApplication extends EventTarget {
    * search internally by loading the filter's query directly.
    */
   async activateFilter(filter) {
-    this.dataset = null;
+    this.querySource = null;
     this.dataSource = null;
-    this.config.datasetId = null;
-    this.config.datasetTitle = null;
+    this.config.querySourceId = null;
+    this.config.querySourceTitle = null;
     this.source = null;
     const query = filter?.query ?? filter;
     if (query == null || query === "") return this.getState();
@@ -537,9 +537,9 @@ export class GraphApplication extends EventTarget {
     return content.get(id) ?? content.get(String(id)) ?? null;
   }
 
-  /** Runtime fallback for databases without the optional Dataset record type. */
-  disableDatasetEditing() {
-    this.datasetAvailable = false;
+  /** Runtime fallback for databases without the optional Query Source record type. */
+  disableQuerySourceEditing() {
+    this.querySourceAvailable = false;
     const settings = this.config.persistedSettings || {};
     this.config.persistedSettings = {
       ...settings,
@@ -563,7 +563,7 @@ export class GraphApplication extends EventTarget {
    */
   async applyConfiguration(value) {
     const normalized = normalizeGraphConfigurationSettings(value);
-    if (this.datasetAvailable === false) {
+    if (this.querySourceAvailable === false) {
       normalized.options.interaction.readonly = true;
       normalized.options.interaction.editEnabled = false;
     }
@@ -633,13 +633,13 @@ export class GraphApplication extends EventTarget {
   }
 
   /**
-   * Return the effective expansion rules: a "Define expansions" override, else the Dataset's or config's rules.
+   * Return the effective expansion rules: a "Define expansions" override, else the Query Source's or config's rules.
    *
    * @returns {Array<object>} Expansion rule definitions.
    */
   getExpansionRules() {
-    const value = this.ruleOverrides.get(this.config.datasetId ? `dataset:${this.config.datasetId}` : 'current')
-      ?? this.dataset?.rules ?? this.config.rules ?? [];
+    const value = this.ruleOverrides.get(this.config.querySourceId ? `querySource:${this.config.querySourceId}` : 'current')
+      ?? this.querySource?.rules ?? this.config.rules ?? [];
     return typeof value === 'string' ? JSON.parse(value || '[]') : value;
   }
 
@@ -666,18 +666,18 @@ export class GraphApplication extends EventTarget {
    */
   async setExpansionRules(rules) {
     if (!Array.isArray(rules)) throw new TypeError('Expansion rules must be an array');
-    this.ruleOverrides.set(this.config.datasetId ? `dataset:${this.config.datasetId}` : 'current', structuredClone(rules));
+    this.ruleOverrides.set(this.config.querySourceId ? `querySource:${this.config.querySourceId}` : 'current', structuredClone(rules));
     this.expansions?.setRules(rules);
     await this.renderExpansions();
   }
 
   /**
-   * Discard the "Define expansions" override, reverting to the Dataset's or config's saved rules.
+   * Discard the "Define expansions" override, reverting to the Query Source's or config's saved rules.
    *
    * @returns {Promise<void>}
    */
   async resetExpansionRules() {
-    this.ruleOverrides.delete(this.config.datasetId ? `dataset:${this.config.datasetId}` : 'current');
+    this.ruleOverrides.delete(this.config.querySourceId ? `querySource:${this.config.querySourceId}` : 'current');
     this.expansions?.setRules(this.getExpansionRules());
     await this.renderExpansions();
   }
@@ -884,7 +884,7 @@ export class GraphApplication extends EventTarget {
       offset: this.response?.offset || 0,
       limits: this.graph?.limits || {},
       rules: this.expansions ? this.expansions.rules.map(r => ({ ...r.definition, id:r.id, enabled:r.enabled })) : this.getExpansionRules(),
-      rulesOverridden: this.ruleOverrides.has(this.config.datasetId ? `dataset:${this.config.datasetId}` : 'current'),
+      rulesOverridden: this.ruleOverrides.has(this.config.querySourceId ? `querySource:${this.config.querySourceId}` : 'current'),
       recordTypes: [...recordTypes.entries()].map(([recordTypeId, count]) => ({
         recordTypeId,
         color: this.engine.getNodeColor?.(recordTypeId),
@@ -1022,8 +1022,8 @@ export class GraphApplication extends EventTarget {
   getState() {
     return {
       query: this.config.query,
-      datasetId: this.config.datasetId || null,
-      datasetTitle: this.config.datasetTitle || null,
+      querySourceId: this.config.querySourceId || null,
+      querySourceTitle: this.config.querySourceTitle || null,
       pinned: this.pinned,
       selection: [...this.selection],
       recordIds: this.graph?.recordIds || [],
@@ -1039,7 +1039,7 @@ export class GraphApplication extends EventTarget {
 
   /**
    * Reproducible base-scope expansion state for publication: the effective rule
-   * definitions (dataset/config rules plus any "Define expansions" override), a
+   * definitions (Query Source/config rules plus any "Define expansions" override), a
    * parallel array of which rules are active, and the shared expansion depth.
    * Per-seed (single-node) expansions are intentionally not captured.
    */

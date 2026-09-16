@@ -66,7 +66,7 @@ export function normalizeGraphConfigurationMode(value) {
 }
 
 /**
- * Normalize the `options` half of the settings envelope (UI/controls/datasets/filters/interaction).
+ * Normalize the `options` half of the settings envelope (UI/controls/query sources/filters/interaction).
  *
  * @param {object} source Raw options value.
  * @param {object} defaults Default options to fall back to.
@@ -75,7 +75,7 @@ export function normalizeGraphConfigurationMode(value) {
 function normalizeOptions(source, defaults) {
   const ui = source.ui || {};
   const controls = source.nativeControls || {};
-  const datasets = source.datasets || {};
+  const querySources = source.querySources || {};
   const filters = source.filters || {};
   const interaction = source.interaction || {};
   return {
@@ -84,7 +84,7 @@ function normalizeOptions(source, defaults) {
         ui.showCurrentResults,
         defaults.ui.showCurrentResults,
       ),
-      showDatasets: boolean(ui.showDatasets, defaults.ui.showDatasets),
+      showQuerySources: boolean(ui.showQuerySources, defaults.ui.showQuerySources),
       showFilters: boolean(ui.showFilters, defaults.ui.showFilters),
       initiallyExpanded: boolean(
         ui.initiallyExpanded,
@@ -108,10 +108,10 @@ function normalizeOptions(source, defaults) {
       pan: boolean(controls.pan, defaults.nativeControls.pan),
       rearrange: boolean(controls.rearrange, defaults.nativeControls.rearrange),
     },
-    datasets: {
-      allowAll: boolean(datasets.allowAll, defaults.datasets.allowAll),
-      allowed: nullableList(datasets.allowed),
-      initiallyActive: nullableIdentifier(datasets.initiallyActive),
+    querySources: {
+      allowAll: boolean(querySources.allowAll, defaults.querySources.allowAll),
+      allowed: nullableList(querySources.allowed),
+      initiallyActive: nullableIdentifier(querySources.initiallyActive),
     },
     filters: {
       allowAll: boolean(filters.allowAll, defaults.filters.allowAll),

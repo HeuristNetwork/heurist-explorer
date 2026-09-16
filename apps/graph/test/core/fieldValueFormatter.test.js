@@ -13,7 +13,7 @@
 
 import test from "node:test";
 import assert from "node:assert/strict";
-import { normalizeDatasetFields } from "../../src/core/Dataset.js";
+import { normalizeQuerySourceFields } from "#shared/data/QuerySource.js";
 import {
   displayFieldValue,
   projectFieldValue,
@@ -21,9 +21,9 @@ import {
   stripHtml,
 } from "../../src/core/FieldValueFormatter.js";
 
-test("Dataset accepts Output as the field Ext alias", () => {
+test("QuerySource accepts Output as the field Ext alias", () => {
   assert.equal(
-    normalizeDatasetFields([{ field: "12", output: "code" }])[0].ext,
+    normalizeQuerySourceFields([{ field: "12", output: "code" }])[0].ext,
     "code",
   );
 });

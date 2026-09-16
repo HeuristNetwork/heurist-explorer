@@ -17,7 +17,7 @@ import { HeuristDataConfigurationApi } from "./host/HeuristDataConfigurationApi.
 import { ReportTemplateProvider } from "./data/ReportTemplateProvider.js";
 import { HeuristApiClient } from "#shared/api";
 import { RecordTypeProvider } from "#shared/data/RecordTypeProvider.js";
-import { DatasetListProvider } from "./data/DatasetListProvider.js";
+import { QuerySourceListProvider } from "#shared/data/QuerySourceListProvider.js";
 import { FilterProvider } from "./data/FilterProvider.js";
 
 /** Start the small configuration-only build without creating DataTables. */
@@ -31,7 +31,7 @@ export async function initHeuristDataConfiguration(config) {
   });
   const recordTypes = new RecordTypeProvider({ apiClient });
   const providers = {
-    datasetList: new DatasetListProvider({ apiClient, recordTypes }),
+    querySourceList: new QuerySourceListProvider({ apiClient, recordTypes }),
     filterList: new FilterProvider({ apiClient }),
     reportTemplates: new ReportTemplateProvider({
       baseUrl: resolveHeuristBaseUrl(config),

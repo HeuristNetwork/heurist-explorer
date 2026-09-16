@@ -362,7 +362,7 @@ test("HeuristGraphHostAdapter publishes selection through the bridge", async () 
   assert.deepEqual(selection, [3, 4]);
 });
 
-test("GraphApplication ignores a Filtered Result query while a Dataset is active, and activateCurrentResults restores the last remembered query", async () => {
+test("GraphApplication ignores a Filtered Result query while a Query Source is active, and activateCurrentResults restores the last remembered query", async () => {
   const engine = {
     initialize: async () => {},
     setGraph: async () => {},
@@ -370,40 +370,40 @@ test("GraphApplication ignores a Filtered Result query while a Dataset is active
     setSelection: async () => {},
     destroy: async () => {},
   };
-  const datasetProvider = {
-    load: async (id) => ({ id, title: "My dataset", source: { query: "t:20" } }),
+  const querySourceProvider = {
+    load: async (id) => ({ id, title: "My Query Source", source: { query: "t:20" } }),
   };
   const application = new GraphApplication({
     config: { query: "t:10", selection: [], limits: {} },
     provider: { load: async ({ query }) => ({ graph: new GraphDocument(graphEnvelope({})), query }) },
     engine,
     host: {},
-    datasetProvider,
+    querySourceProvider,
   });
   await application.initialize({});
   assert.equal(application.getState().query, "t:10");
 
-  await application.setDataset(5);
-  assert.equal(application.getState().datasetId, 5);
+  await application.setQuerySource(5);
+  assert.equal(application.getState().querySourceId, 5);
   assert.equal(application.getState().query, "t:20");
 
-  // A host-driven Filtered Result query must not clobber the active Dataset,
+  // A host-driven Filtered Result query must not clobber the active Query Source,
   // but it must still be remembered - heurist-data's "host search events keep
   // Filtered Result up to date" - so reactivating Filtered Result afterward
-  // shows the latest search, not a stale one from before the Dataset was
+  // shows the latest search, not a stale one from before the Query Source was
   // selected.
   const result = await application.load({ query: "t:99" });
-  assert.equal(result.datasetId, 5);
+  assert.equal(result.querySourceId, 5);
   assert.equal(application.getState().query, "t:20");
 
   // Reactivating Filtered Result restores the latest remembered query (t:99),
-  // not the one that was active before the Dataset was selected (t:10).
+  // not the one that was active before the Query Source was selected (t:10).
   await application.activateCurrentResults();
-  assert.equal(application.getState().datasetId, null);
+  assert.equal(application.getState().querySourceId, null);
   assert.equal(application.getState().query, "t:99");
 });
 
-test("GraphApplication.load(null) always clears, deactivating an active Dataset", async () => {
+test("GraphApplication.load(null) always clears, deactivating an active Query Source", async () => {
   const engine = {
     initialize: async () => {},
     setGraph: async () => {},
@@ -411,7 +411,7 @@ test("GraphApplication.load(null) always clears, deactivating an active Dataset"
     setSelection: async () => {},
     destroy: async () => {},
   };
-  const datasetProvider = {
+  const querySourceProvider = {
     load: async (id) => ({ id, source: { query: "t:20" } }),
   };
   const application = new GraphApplication({
@@ -419,14 +419,14 @@ test("GraphApplication.load(null) always clears, deactivating an active Dataset"
     provider: { load: async ({ query }) => ({ graph: new GraphDocument(graphEnvelope({})), query }) },
     engine,
     host: {},
-    datasetProvider,
+    querySourceProvider,
   });
   await application.initialize({});
-  await application.setDataset(5);
-  assert.equal(application.getState().datasetId, 5);
+  await application.setQuerySource(5);
+  assert.equal(application.getState().querySourceId, 5);
 
   await application.load({ query: null });
-  assert.equal(application.getState().datasetId, null);
+  assert.equal(application.getState().querySourceId, null);
   assert.equal(application.getState().query, null);
 });
 
@@ -587,9 +587,9 @@ test("GraphApplication emits selection changes from the graph engine", async () 
    assert.equal(bodies[1].limit, 50);
  });
 
- test("missing Dataset definition keeps the graph usable and enforces readonly preferences", async () => {
+ test("missing Query Source definition keeps the graph usable and enforces readonly preferences", async () => {
    const app = new GraphApplication({ config: { selection: [], limits: {}, engineOptions: {} }, engine: { applyConfiguration: async () => {}, setGraph: async () => {}, setSelection: async () => {} } });
-   app.disableDatasetEditing();
+   app.disableQuerySourceEditing();
    assert.equal(app.config.persistedSettings.options.interaction.readonly, true);
    await app.applyConfiguration({ options: { interaction: { readonly: false, editEnabled: true } } });
    assert.equal(app.config.persistedSettings.options.interaction.readonly, true);

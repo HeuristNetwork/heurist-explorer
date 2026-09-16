@@ -1,6 +1,6 @@
 /**
  * @file GraphLegend.js
- * @brief Active dataset legend. Counts describe loaded data, independent of visibility.
+ * @brief Active Query Source legend. Counts describe loaded data, independent of visibility.
  *
  * @project     Heurist academic knowledge management system
  * @package     heurist-graph
@@ -83,7 +83,7 @@ export class GraphLegend {
     const rulesHeading = element('h4', $HR('Expansion Rules'));
     if (editEnabled) {
       const actions = element('span', null, 'heurist-graph-legend-rule-actions');
-      if (this.api.getState?.().datasetId) actions.append(this.action('Reset: Use saved expansion rules', 'fa-rotate-left', () => this.api.resetExpansionRules()));
+      if (this.api.getState?.().querySourceId) actions.append(this.action('Reset: Use saved expansion rules', 'fa-rotate-left', () => this.api.resetExpansionRules()));
       actions.append(this.action('Define expansions', 'fa-pen', this.onRule));
       rulesHeading.append(actions);
     }

@@ -128,6 +128,8 @@ html, body, .heurist-data-root { width: 100%; height: 100%; margin: 0; overflow:
 .heurist-module-panel-toggle:focus-visible { outline:none; }
 .heurist-data-selector-row { display:flex; align-items:center; gap:6px; min-height:28px; cursor:pointer; }
 .heurist-data-selector-row.active { font-weight:600; }
+label.heurist-data-query-source { display:flex; align-items:center; gap:6px; font-weight:400; cursor:pointer; }
+.active > label.heurist-data-query-source { font-weight:600; }
 .heurist-data-filter-row { display:block; width:100%; min-height:28px; padding:3px 5px; border:0;
   background:transparent; text-align:left; cursor:pointer; }
 .heurist-data-filter-row:hover { background:var(--h-color-surface-hover); }

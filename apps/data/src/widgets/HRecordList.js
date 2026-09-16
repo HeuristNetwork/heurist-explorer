@@ -258,11 +258,11 @@ export class HRecordList extends HBaseWidget {
   /**
    * Render a new page of data.
    *
-   * @param {{dataset: object|null, records?: Array<object>, meta?: object, pagination?: object}} data Data to render.
+   * @param {{querySource: object|null, records?: Array<object>, meta?: object, pagination?: object}} data Data to render.
    * @returns {Promise<void>}
    */
-  async setData({ dataset, records = [], meta = {}, pagination = {} }) {
-    this.dataset = dataset;
+  async setData({ querySource, records = [], meta = {}, pagination = {} }) {
+    this.querySource = querySource;
     this.records = records;
     this.meta = meta;
     this.offset = Number(pagination.offset) || 0;
@@ -769,7 +769,7 @@ export class HRecordList extends HBaseWidget {
         selection: [...this.selected],
       });
     }
-    const rows = exportRows(this.records, this.dataset?.fields || []);
+    const rows = exportRows(this.records, this.querySource?.fields || []);
     if (format === "copy")
       return navigator.clipboard?.writeText(toDelimited(rows, "\t"));
     if (format === "csv")

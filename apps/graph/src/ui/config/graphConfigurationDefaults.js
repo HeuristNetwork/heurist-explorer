@@ -15,7 +15,7 @@
 export const HEURIST_GRAPH_OPTIONS_DEFAULTS = Object.freeze({
   ui: Object.freeze({
     showCurrentResults: true,
-    showDatasets: false,
+    showQuerySources: false,
     showFilters: false,
     initiallyExpanded: true,
     showSourceHeader: true,
@@ -29,7 +29,7 @@ export const HEURIST_GRAPH_OPTIONS_DEFAULTS = Object.freeze({
     pan: true,
     rearrange: true,
   }),
-  datasets: Object.freeze({
+  querySources: Object.freeze({
     allowed: null,
     allowAll: true,
     initiallyActive: null,

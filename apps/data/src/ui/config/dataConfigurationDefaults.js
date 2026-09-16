@@ -15,7 +15,7 @@
 export const HEURIST_DATA_OPTIONS_DEFAULTS = Object.freeze({
   ui: Object.freeze({
     showCurrentResults: true,
-    showDatasets: true,
+    showQuerySources: true,
     showFilters: true,
     initiallyExpanded: true,
     showSourceHeader: false,
@@ -32,7 +32,7 @@ export const HEURIST_DATA_OPTIONS_DEFAULTS = Object.freeze({
     viewMode: true,
     selectionActions: true,
   }),
-  datasets: Object.freeze({
+  querySources: Object.freeze({
     allowed: null,
     allowAll: true,
     initiallyActive: null,

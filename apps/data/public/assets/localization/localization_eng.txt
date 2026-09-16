@@ -15,12 +15,12 @@
 #Publication#Publication
 #Default settings#Default settings
 #Filtered Result#Filtered Result
-#Datasets and Filters#Datasets and Filters
+#Query Sources and Filters#Query Sources and Filters
 #Interaction#Interaction
-#Datasets#Datasets
+#Query Sources#Query Sources
 #Filters#Filters
 #Initially expanded#Initially expanded
-#Columns picker (for current active dataset)#Columns picker (for current active dataset)
+#Columns picker (for current active Query Source)#Columns picker (for current active Query Source)
 #Columns picker (Table view only)#Columns picker (Table view only)
 #Options#Options
 #Native table controls#Native table controls
@@ -56,9 +56,9 @@
 #Select widget#Select widget
 #in#in
 #Allow all#Allow all
-#Available datasets#Available datasets
-#Allowed datasets#Allowed datasets
-#Default dataset#Default dataset
+#Available Query Sources#Available Query Sources
+#Allowed Query Sources#Allowed Query Sources
+#Default Query Source#Default Query Source
 #Available filters#Available filters
 #Allowed filters#Allowed filters
 #Enable edit#Enable edit
@@ -67,17 +67,17 @@
 #Enable popups#Enable popups
 #Admin info#Admin info
 #Preserve current state#Preserve current state
-#Preserve the active dataset or query, page, sort, filter and selection.#Preserve the active dataset or query, page, sort, filter and selection.
+#Preserve the active Query Source or query, page, sort, filter and selection.#Preserve the active Query Source or query, page, sort, filter and selection.
 #Discard changes to data configuration?#Discard changes to data configuration?
-#Add available datasets#Add available datasets
-#Remove allowed datasets#Remove allowed datasets
+#Add available query sources#Add available query sources
+#Remove allowed query sources#Remove allowed query sources
 #Add available filters#Add available filters
 #Remove allowed filters#Remove allowed filters
 #Data controls#Data controls
 #Show or hide data controls#Show or hide data controls
 #Show or hide panels#Show or hide panels
 #Help#Help
-#Create new dataset#Create new dataset
+#Create new Query Source#Create new Query Source
 #Persist for session#Persist for session
 #Pick fields#Pick fields
 #Apply#Apply

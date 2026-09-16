@@ -26,7 +26,7 @@ import { GraphConfigurationDialog } from "../../src/ui/config/GraphConfiguration
 
 test("graph configuration defaults expose the requested controls", () => {
   const value = createGraphConfigurationDefaults();
-  assert.equal(value.options.datasets.allowAll, true);
+  assert.equal(value.options.querySources.allowAll, true);
   assert.equal(value.options.filters.allowAll, true);
   assert.equal(value.options.ui.language, "auto");
   assert.equal(value.options.ui.showSourceHeader, true);
@@ -79,11 +79,11 @@ test("publication mode locks interaction down to a read-only viewer", () => {
   assert.equal(interaction.popupEnabled, true);
 });
 
-test("normalization drops unknown keys and allowlists dataset ids and filter mode", () => {
+test("normalization drops unknown keys and allowlists Query Source ids and filter mode", () => {
   const value = normalizeGraphConfigurationSettings({
     options: {
       accessToken: "discard",
-      datasets: { allowAll: false, allowed: [2, "3", 0, 2] },
+      querySources: { allowAll: false, allowed: [2, "3", 0, 2] },
       interaction: { editEnabled: false },
     },
     config: {
@@ -93,7 +93,7 @@ test("normalization drops unknown keys and allowlists dataset ids and filter mod
   });
   assert.equal(value.options.accessToken, undefined);
   assert.equal(value.options.interaction.persistentSelectionEnabled, undefined);
-  assert.deepEqual(value.options.datasets.allowed, [2, 3]);
+  assert.deepEqual(value.options.querySources.allowed, [2, 3]);
   assert.equal(value.options.interaction.editEnabled, false);
   assert.deepEqual(value.config.currentResults.filterBy, {
     mode: "selection",

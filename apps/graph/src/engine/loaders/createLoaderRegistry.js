@@ -14,17 +14,17 @@
  */
 
 import { LoaderRegistry } from "./LoaderRegistry.js";
-import { DatasetLoader } from "./DatasetLoader.js";
+import { QuerySourceLoader } from "#shared/data/QuerySourceLoader.js";
 import { QueryLoader } from "./QueryLoader.js";
 
 /**
- * Build the loader registry with the dataset and query loaders registered.
+ * Build the loader registry with the Query Source and query loaders registered.
  *
  * @param {object} providers Data providers forwarded to each loader.
  * @returns {LoaderRegistry}
  */
 export function createLoaderRegistry(providers) {
   return new LoaderRegistry()
-    .register("dataset", new DatasetLoader(providers))
+    .register("querySource", new QuerySourceLoader(providers))
     .register("query", new QueryLoader(providers));
 }

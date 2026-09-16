@@ -1,9 +1,9 @@
 /**
- * @file DatasetSelector.js
- * @brief Renders Filtered Result and available persisted datasets.
+ * @file QuerySourceSelector.js
+ * @brief Renders Filtered Result and available persisted Query Sources.
  *
  * @project     Heurist academic knowledge management system
- * @package     heurist-graph
+ * @package     heurist-client-core
  *
  * @link        https://HeuristNetwork.org
  * @copyright   (C) 2024 onwards Heurist Network
@@ -12,13 +12,14 @@
  * @license     https://www.gnu.org/licenses/gpl-3.0.txt GNU License 3.0
  * @since       8.0
  */
-import { $HR, applyI18n } from "#shared/ui";
-/** Renders Filtered Result and persisted Dataset choices. */
-export class DatasetSelector {
+import { $HR, applyI18n } from "./i18n/HResource.js";
+
+/** Renders Filtered Result and persisted Query Source choices. */
+export class QuerySourceSelector {
   /**
    * @param {object} options Selector dependencies.
-   * @param {object} options.api Graph public API instance.
-   * @param {HTMLElement} options.container Element to render the dataset rows into.
+   * @param {object} options.api Host application's public API instance.
+   * @param {HTMLElement} options.container Element to render the Query Source rows into.
    * @param {Function|null} [options.onError] Called with `(error, operation)` when activation fails.
    * @param {string} [options.classPrefix='heurist-data'] Class-name prefix applied to generated row elements.
    */
@@ -30,14 +31,14 @@ export class DatasetSelector {
   }
 
   /**
-   * Render the Filtered Result row (optional) and one row per dataset.
+   * Render the Filtered Result row (optional) and one row per Query Source.
    *
-   * @param {Array<{id: number, title: string}>} datasets Datasets to list.
-   * @param {number|string|null} activeId Currently active dataset ID, if any.
+   * @param {Array<{id: number, title: string}>} querySources Query Sources to list.
+   * @param {number|string|null} activeId Currently active Query Source ID, if any.
    * @param {boolean} currentResultsActive Whether Filtered Result is the active source.
    * @param {object} [options] Display options.
-   * @param {boolean} [options.showCurrentResults] Whether to render the Filtered Result row.
-   * @param {string} [options.currentResultsTitle] Label for the Filtered Result row.
+   * @param {boolean} [options.showCurrentResults=true] Whether to render the Filtered Result row.
+   * @param {string} [options.currentResultsTitle='Filtered Result'] Label for the Filtered Result row.
    * @param {boolean} [options.mainMode] Replace the Filtered Result row's radio with a pin toggle
    *        (main runtime: the row reflects a host-pushed DataSource, not a selectable choice).
    * @param {boolean} [options.pinned] Current pinned state, when `mainMode` is set.
@@ -45,7 +46,7 @@ export class DatasetSelector {
    * @returns {void}
    */
   render(
-    datasets,
+    querySources,
     activeId,
     currentResultsActive,
     {
@@ -76,11 +77,11 @@ export class DatasetSelector {
         ),
       );
     }
-    for (const dataset of datasets) {
+    for (const querySource of querySources) {
       this.container.append(
-        row(dataset, String(dataset.id) === String(activeId), () => {
-          void Promise.resolve(this.api.setDataset(dataset.id)).catch((error) =>
-            this.onError?.(error, "set-dataset"),
+        row(querySource, String(querySource.id) === String(activeId), () => {
+          void Promise.resolve(this.api.setQuerySource(querySource.id)).catch((error) =>
+            this.onError?.(error, "set-query-source"),
           );
         }, this.classPrefix),
       );
@@ -90,7 +91,7 @@ export class DatasetSelector {
 }
 
 /**
- * Build a row for one dataset (or the Filtered Result entry): a radio button that
+ * Build a row for one Query Source (or the Filtered Result entry): a radio button that
  * activates it, or - when `pin` is set - a pin/unpin toggle that instead sticks the
  * active DataSource against inbound host pushes (see `GraphControlPanel`).
  */
@@ -98,7 +99,7 @@ function row(item, active, activate, classPrefix = "heurist-data", pin = null) {
   const label = document.createElement("label");
   const wrapper = document.createElement("div");
   wrapper.className = `${classPrefix}-selector-row${active ? " active" : ""}`;
-  label.className = "heurist-data-dataset";
+  label.className = `${classPrefix}-query-source`;
   let control;
   if (pin) {
     control = document.createElement("button");
@@ -116,7 +117,7 @@ function row(item, active, activate, classPrefix = "heurist-data", pin = null) {
   } else {
     control = document.createElement("input");
     control.type = "radio"; control.classList.add("h-checkbox");
-    control.name = "heurist-data-dataset";
+    control.name = `${classPrefix}-query-source`;
     control.checked = active;
     control.addEventListener("change", () => {
       if (control.checked) activate();

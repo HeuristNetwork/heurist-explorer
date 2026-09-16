@@ -15,12 +15,12 @@
 #Publication#Publication
 #Default settings#Paramètres par défaut
 #Filtered Result#Résultat filtré
-#Datasets and Filters#Jeux de données et filtres
+#Query Sources and Filters#Sources de requête et filtres
 #Interaction#Interaction
-#Datasets#Jeux de données
+#Query Sources#Sources de requête
 #Filters#Filtres
 #Initially expanded#Développé initialement
-#Columns picker (for current active dataset)#Sélecteur de colonnes (pour le jeu de données actif)
+#Columns picker (for current active Query Source)#Sélecteur de colonnes (pour la source de requête active)
 #Columns picker (Table view only)#Sélecteur de colonnes (vue Tableau uniquement)
 #Options#Options
 #Native table controls#Contrôles natifs du tableau
@@ -56,9 +56,9 @@
 #Select widget#Sélectionner un widget
 #in#dans
 #Allow all#Tout autoriser
-#Available datasets#Jeux de données disponibles
-#Allowed datasets#Jeux de données autorisés
-#Default dataset#Jeu de données par défaut
+#Available Query Sources#Sources de requête disponibles
+#Allowed Query Sources#Sources de requête autorisées
+#Default Query Source#Source de requête par défaut
 #Available filters#Filtres disponibles
 #Allowed filters#Filtres autorisés
 #Enable edit#Activer la modification
@@ -67,17 +67,17 @@
 #Enable popups#Activer les fenêtres contextuelles
 #Admin info#Informations d’administration
 #Preserve current state#Conserver l’état actuel
-#Preserve the active dataset or query, page, sort, filter and selection.#Conserver le jeu de données ou la requête active, la page, le tri, le filtre et la sélection.
+#Preserve the active Query Source or query, page, sort, filter and selection.#Conserver la source de requête ou la requête active, la page, le tri, le filtre et la sélection.
 #Discard changes to data configuration?#Abandonner les modifications de la configuration des données ?
-#Add available datasets#Ajouter les jeux de données disponibles
-#Remove allowed datasets#Retirer les jeux de données autorisés
+#Add available query sources#Ajouter les sources de requête disponibles
+#Remove allowed query sources#Retirer les sources de requête autorisées
 #Add available filters#Ajouter les filtres disponibles
 #Remove allowed filters#Retirer les filtres autorisés
 #Data controls#Contrôles des données
 #Show or hide data controls#Afficher ou masquer les contrôles des données
 #Show or hide panels#Afficher ou masquer les panneaux
 #Help#Aide
-#Create new dataset#Créer un jeu de données
+#Create new Query Source#Créer une nouvelle source de requête
 #Persist for session#Conserver pour la session
 #Pick fields#Choisir les champs
 #Apply#Appliquer

@@ -1,9 +1,9 @@
 /**
- * @file Dataset.js
- * @brief Engine-neutral Dataset domain model.
+ * @file QuerySource.js
+ * @brief Engine-neutral Query Source domain model.
  *
  * @project     Heurist academic knowledge management system
- * @package     heurist-graph
+ * @package     heurist-client-core
  *
  * @link        https://HeuristNetwork.org
  * @copyright   (C) 2024 onwards Heurist Network
@@ -15,11 +15,11 @@
 
 const AGGREGATIONS = new Set(["count", "sum", "avg", "min", "max"]);
 
-/** Represents a normalized persisted or transient Dataset definition. */
-export class Dataset {
-  /** @param {object} [definition] Raw dataset definition; normalized and assigned onto this instance. */
+/** Represents a normalized persisted or transient Query Source definition. */
+export class QuerySource {
+  /** @param {object} [definition] Raw Query Source definition; normalized and assigned onto this instance. */
   constructor(definition = {}) {
-    const value = normalizeDataset(definition);
+    const value = normalizeQuerySource(definition);
     Object.assign(this, value);
   }
 
@@ -28,7 +28,7 @@ export class Dataset {
     return [...new Set(this.fields.map((field) => field.field))];
   }
 
-  /** Return a serializable copy of the Dataset definition. */
+  /** Return a serializable copy of the Query Source definition. */
   toJSON() {
     return {
       format: this.format,
@@ -43,26 +43,26 @@ export class Dataset {
 }
 
 /**
- * Validate and normalize a raw Dataset definition.
+ * Validate and normalize a raw Query Source definition.
  *
- * @param {object} [value] Raw dataset definition.
- * @returns {object} Normalized dataset fields, ready to assign onto a `Dataset` instance.
+ * @param {object} [value] Raw Query Source definition.
+ * @returns {object} Normalized Query Source fields, ready to assign onto a `QuerySource` instance.
  * @throws {TypeError} When `value` is not an object, has an unsupported format, or lacks a source query.
  */
-export function normalizeDataset(value = {}) {
+export function normalizeQuerySource(value = {}) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
-    throw new TypeError("Dataset definition must be an object");
+    throw new TypeError("Query Source definition must be an object");
   }
-  if (value.format && value.format !== "heurist-dataset") {
-    throw new TypeError(`Unsupported Dataset format: ${value.format}`);
+  if (value.format && value.format !== "heurist-query-source") {
+    throw new TypeError(`Unsupported Query Source format: ${value.format}`);
   }
   const source =
     value.source && typeof value.source === "object" ? { ...value.source } : {};
   if (source.query == null || source.query === "") {
-    throw new TypeError("Dataset source query is required");
+    throw new TypeError("Query Source source query is required");
   }
   return {
-    format: "heurist-dataset",
+    format: "heurist-query-source",
     version: Number(value.version) || 1,
     id: positiveIntegerOrNull(value.id),
     title: String(value.title || ""),
@@ -73,35 +73,35 @@ export function normalizeDataset(value = {}) {
       title: String(source.title || ""),
       query: structuredCloneSafe(source.query),
     },
-    fields: normalizeDatasetFields(value.fields),
+    fields: normalizeQuerySourceFields(value.fields),
   };
 }
 
 /**
- * Validate and normalize a Dataset's field list.
+ * Validate and normalize a Query Source's field list.
  *
  * @param {Array<string|number|object>} [fields] Raw field list (bare codes or field descriptor objects).
  * @returns {Array<object>} Normalized field descriptors.
  * @throws {TypeError} When `fields` is not an array, or a field is invalid, codeless, or has an unsupported aggregation.
  */
-export function normalizeDatasetFields(fields = []) {
+export function normalizeQuerySourceFields(fields = []) {
   if (!Array.isArray(fields))
-    throw new TypeError("Dataset fields must be an array");
+    throw new TypeError("Query Source fields must be an array");
   return fields.map((item) => {
     const value =
       typeof item === "string" || typeof item === "number"
         ? { field: String(item) }
         : item;
     if (!value || typeof value !== "object")
-      throw new TypeError("Invalid Dataset field");
+      throw new TypeError("Invalid Query Source field");
     const field = String(value.field ?? value.code ?? "").trim();
-    if (!field) throw new TypeError("Dataset field code is required");
+    if (!field) throw new TypeError("Query Source field code is required");
     const aggregation =
       value.aggregation == null || value.aggregation === ""
         ? null
         : String(value.aggregation);
     if (aggregation && !AGGREGATIONS.has(aggregation)) {
-      throw new TypeError(`Unsupported Dataset aggregation: ${aggregation}`);
+      throw new TypeError(`Unsupported Query Source aggregation: ${aggregation}`);
     }
     return {
       field,

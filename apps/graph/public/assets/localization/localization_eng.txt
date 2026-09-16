@@ -15,12 +15,12 @@
 #Publication#Publication
 #Default settings#Default settings
 #Filtered Result#Filtered Result
-#Datasets and Filters#Datasets and Filters
+#Query Sources and Filters#Query Sources and Filters
 #Interaction#Interaction
-#Datasets#Datasets
+#Query Sources#Query Sources
 #Filters#Filters
 #Initially expanded#Initially expanded
-#Columns picker (for current active dataset)#Columns picker (for current active dataset)
+#Columns picker (for current active Query Source)#Columns picker (for current active Query Source)
 #Options#Options
 #Native table controls#Native table controls
 #Search#Search
@@ -45,9 +45,9 @@
 #Select widget#Select widget
 #in#in
 #Allow all#Allow all
-#Available datasets#Available datasets
-#Allowed datasets#Allowed datasets
-#Default dataset#Default dataset
+#Available Query Sources#Available Query Sources
+#Allowed Query Sources#Allowed Query Sources
+#Default Query Source#Default Query Source
 #Available filters#Available filters
 #Allowed filters#Allowed filters
 #Enable edit#Enable edit
@@ -56,10 +56,10 @@
 #Enable popups#Enable popups
 #Admin info#Admin info
 #Preserve current state#Preserve current state
-#Preserve the active dataset or query, page, sort, filter and selection.#Preserve the active dataset or query, page, sort, filter and selection.
+#Preserve the active Query Source or query, page, sort, filter and selection.#Preserve the active Query Source or query, page, sort, filter and selection.
 #Discard changes to data configuration?#Discard changes to data configuration?
-#Add available datasets#Add available datasets
-#Remove allowed datasets#Remove allowed datasets
+#Add available query sources#Add available query sources
+#Remove allowed query sources#Remove allowed query sources
 #Add available filters#Add available filters
 #Remove allowed filters#Remove allowed filters
 #Data controls#Data controls
@@ -68,7 +68,7 @@
 #Show or hide graph controls#Show or hide graph controls
 #Show or hide panels#Show or hide panels
 #Help#Help
-#Create new dataset#Create new dataset
+#Create new Query Source#Create new Query Source
 #Pick fields#Pick fields
 #Apply#Apply
 #No filters#No filters
@@ -86,8 +86,8 @@
 #source_header_hint#Show header
 
 #Page size#Page size
-#Edit Dataset#Edit Dataset
-#Add Dataset#Add Dataset
+#Edit Query Source#Edit Query Source
+#Add Query Source#Add Query Source
 #Nodes (Record types)#Nodes (Record types)
 #Edges (Links and Relations)#Edges (Links and Relations)
 #Loaded#Loaded
@@ -101,7 +101,7 @@
 #Rule#Rule
 #No expansion rules#No expansion rules
 #Add new rule#Add new rule
-#Changes apply to this viewing session. Use Edit Dataset to edit the saved definition.#Changes apply to this viewing session. Use Edit Dataset to edit the saved definition.
+#Changes apply to this viewing session. Use Edit Query Source to edit the saved definition.#Changes apply to this viewing session. Use Edit Query Source to edit the saved definition.
 #Links (one definition per line, or all)#Links (one definition per line, or all)
 #Rule name#Rule name
 #Description#Description

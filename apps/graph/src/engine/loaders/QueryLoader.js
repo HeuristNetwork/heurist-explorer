@@ -1,6 +1,6 @@
 /**
  * @file QueryLoader.js
- * @brief Loads transient Filtered Result datasets.
+ * @brief Loads transient Filtered Result Query Sources.
  *
  * @project     Heurist academic knowledge management system
  * @package     heurist-graph
@@ -13,9 +13,9 @@
  * @since       8.0
  */
 
-import { Dataset, normalizeDatasetFields } from "../../core/Dataset.js";
+import { QuerySource, normalizeQuerySourceFields } from "#shared/data/QuerySource.js";
 
-/** Loads a transient Dataset from a Filtered Result query. */
+/** Loads a transient Query Source from a Filtered Result query. */
 export class QueryLoader {
   /** @param {{recordDataProvider: object}} options Provides the selected-field record page. */
   constructor({ recordDataProvider }) {
@@ -23,32 +23,32 @@ export class QueryLoader {
   }
 
   /**
-   * Load a transient Dataset from a Filtered Result query.
+   * Load a transient Query Source from a Filtered Result query.
    *
    * @param {object} options Load options.
    * @param {*} options.query Heurist query.
    * @param {Array<object>} [options.fields] Field descriptors; defaults to title and record type.
-   * @param {Array<string>} [options.additionalFields] Extra field codes to request beyond the dataset's own.
-   * @param {boolean} [options.includeDatasetFields=true] Include the dataset's own configured fields.
+   * @param {Array<string>} [options.additionalFields] Extra field codes to request beyond the Query Source's own.
+   * @param {boolean} [options.includeQuerySourceFields=true] Include the Query Source's own configured fields.
    * @param {number} [options.limit] Page size.
    * @param {number} [options.offset] Page offset.
    * @param {*} [options.sort] Sort specification.
    * @param {*} [options.filter] Additional filter.
    * @param {AbortSignal} [options.signal] Abort signal for cancellation.
-   * @returns {Promise<{dataset: import('../../core/Dataset.js').Dataset, response: object}>}
+   * @returns {Promise<{querySource: import('#shared/data/QuerySource.js').QuerySource, response: object}>}
    */
   async load({
     query,
     fields = [],
     additionalFields = [],
-    includeDatasetFields = true,
+    includeQuerySourceFields = true,
     limit,
     offset,
     sort,
     filter,
     signal,
   } = {}) {
-    const normalizedFields = normalizeDatasetFields(
+    const normalizedFields = normalizeQuerySourceFields(
       fields.length
         ? fields
         : [
@@ -56,7 +56,7 @@ export class QueryLoader {
             { field: "rec_RecTypeID", title: "Record type" },
           ],
     );
-    const dataset = new Dataset({
+    const querySource = new QuerySource({
       title: "Filtered Result",
       source: { type: "heurist-query", query },
       fields: normalizedFields,
@@ -64,7 +64,7 @@ export class QueryLoader {
     const response = await this.recordDataProvider.load({
       query,
       fields: [
-        ...(includeDatasetFields ? dataset.getFieldCodes() : []),
+        ...(includeQuerySourceFields ? querySource.getFieldCodes() : []),
         ...additionalFields,
       ],
       limit,
@@ -73,6 +73,6 @@ export class QueryLoader {
       filter,
       signal,
     });
-    return { dataset, response };
+    return { querySource, response };
   }
 }

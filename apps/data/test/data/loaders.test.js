@@ -1,6 +1,6 @@
 /**
  * @file loaders.test.js
- * @brief Tests Dataset and query loaders.
+ * @brief Tests Query Source and query loaders.
  * @project     Heurist academic knowledge management system
  * @package     heurist-data
  * @link        https://HeuristNetwork.org
@@ -13,13 +13,13 @@
 
 import test from "node:test";
 import assert from "node:assert/strict";
-import { DatasetLoader } from "../../src/engine/loaders/DatasetLoader.js";
+import { QuerySourceLoader } from "#shared/data/QuerySourceLoader.js";
 import { QueryLoader } from "../../src/engine/loaders/QueryLoader.js";
 
-test("DatasetLoader retrieves definition then selected record fields", async () => {
+test("QuerySourceLoader retrieves definition then selected record fields", async () => {
   const calls = [];
-  const loader = new DatasetLoader({
-    datasetProvider: {
+  const loader = new QuerySourceLoader({
+    querySourceProvider: {
       load: async () => ({
         id: 7,
         source: { query: "t:10" },
@@ -33,16 +33,16 @@ test("DatasetLoader retrieves definition then selected record fields", async () 
       },
     },
   });
-  const result = await loader.load({ datasetId: 7 });
-  assert.equal(result.dataset.id, 7);
+  const result = await loader.load({ querySourceId: 7 });
+  assert.equal(result.querySource.id, 7);
   assert.deepEqual(calls[0].fields, ["rec_Title", "20"]);
   assert.equal(calls[0].query, "t:10");
 });
 
-test("DatasetLoader can request only presentation fields", async () => {
+test("QuerySourceLoader can request only presentation fields", async () => {
   let request;
-  const loader = new DatasetLoader({
-    datasetProvider: {
+  const loader = new QuerySourceLoader({
+    querySourceProvider: {
       load: async () => ({
         source: { query: "t:10" },
         fields: [{ field: "rec_Title" }, { field: "20" }],
@@ -56,23 +56,23 @@ test("DatasetLoader can request only presentation fields", async () => {
     },
   });
   await loader.load({
-    datasetId: 7,
-    includeDatasetFields: false,
+    querySourceId: 7,
+    includeQuerySourceFields: false,
     additionalFields: ["rec_OwnerName", "rec_ThumbnailURL"],
   });
   assert.deepEqual(request.fields, ["rec_OwnerName", "rec_ThumbnailURL"]);
 });
 
-test("QueryLoader creates a transient Filtered Result Dataset", async () => {
+test("QueryLoader creates a transient Filtered Result Query Source", async () => {
   const loader = new QueryLoader({
     recordDataProvider: {
       load: async () => ({ records: [], meta: {}, pagination: {} }),
     },
   });
   const result = await loader.load({ query: "ids:1,2" });
-  assert.equal(result.dataset.id, null);
-  assert.equal(result.dataset.title, "Filtered Result");
-  assert.deepEqual(result.dataset.getFieldCodes(), [
+  assert.equal(result.querySource.id, null);
+  assert.equal(result.querySource.title, "Filtered Result");
+  assert.deepEqual(result.querySource.getFieldCodes(), [
     "rec_Title",
     "rec_RecTypeID",
   ]);
@@ -90,7 +90,7 @@ test("QueryLoader can request only presentation fields", async () => {
   });
   await loader.load({
     query: "ids:1,2",
-    includeDatasetFields: false,
+    includeQuerySourceFields: false,
     additionalFields: ["rec_OwnerName", "rec_ThumbnailURL"],
   });
   assert.deepEqual(request.fields, ["rec_OwnerName", "rec_ThumbnailURL"]);

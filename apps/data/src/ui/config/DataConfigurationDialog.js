@@ -29,7 +29,7 @@ export class DataConfigurationDialog {
    * @param {string|null} [options.title] Dialog title; defaults to a mode-specific title.
    * @param {Function|null} [options.onSave] Called with `(value, context)` on save; return `false` to keep the dialog open.
    * @param {Function|null} [options.onCancel] Called with `(value, context)` on cancel.
-   * @param {object|null} [options.datasetListProvider] Provider used to populate the Datasets transfer list.
+   * @param {object|null} [options.querySourceListProvider] Provider used to populate the Query Sources transfer list.
    * @param {object|null} [options.filterListProvider] Provider used to populate the Filters transfer list.
    * @param {object|null} [options.reportTemplateProvider] Provider used to populate card/view template pickers.
    * @param {object|null} [options.widgetListProvider] Provider used to populate the website filter-by-widget picker.
@@ -43,7 +43,7 @@ export class DataConfigurationDialog {
     title = null,
     onSave = null,
     onCancel = null,
-    datasetListProvider = null,
+    querySourceListProvider = null,
     filterListProvider = null,
     reportTemplateProvider = null,
     widgetListProvider = null,
@@ -61,7 +61,7 @@ export class DataConfigurationDialog {
     this.title = title || defaultTitle(this.mode);
     this.onSave = typeof onSave === "function" ? onSave : null;
     this.onCancel = typeof onCancel === "function" ? onCancel : null;
-    this.datasetListProvider = datasetListProvider;
+    this.querySourceListProvider = querySourceListProvider;
     this.filterListProvider = filterListProvider;
     this.reportTemplateProvider = reportTemplateProvider;
     this.widgetListProvider = widgetListProvider;
@@ -194,8 +194,8 @@ export class DataConfigurationDialog {
           (body) => this.buildCurrentResults(body),
           true,
         ),
-        this.section("Datasets and Filters", (body) =>
-          this.buildDatasetsAndFilters(body),
+        this.section("Query Sources and Filters", (body) =>
+          this.buildQuerySourcesAndFilters(body),
         ),
       );
     }
@@ -206,12 +206,12 @@ export class DataConfigurationDialog {
 
   /** Build the "Interface" section: panel visibility, layout, and native-control toggles. */
   buildInterface(body) {
-    // In "main" runtime the Filtered Result / Datasets / Filters visibility and
+    // In "main" runtime the Filtered Result / Query Sources / Filters visibility and
     // the panel layout are fixed, so their toggles are not offered.
     if (!this.isMain) {
       body.append(
         this.check("options.ui.showCurrentResults", "Filtered Result"),
-        this.check("options.ui.showDatasets", "Datasets"),
+        this.check("options.ui.showQuerySources", "Query Sources"),
         this.check("options.ui.showFilters", "Filters"),
         this.separator(),
       );
@@ -344,27 +344,27 @@ export class DataConfigurationDialog {
     }
   }
 
-  /** Build the "Datasets and Filters" section: allow-all toggles and transfer lists. */
-  buildDatasetsAndFilters(body) {
-    const datasetBox = el("div", "heurist-config-list-section");
-    const datasetHeading = el("div", "heurist-config-list-heading");
-    const datasetTitle = el("strong", "h-i18n");
-    datasetTitle.textContent = "Datasets";
-    datasetHeading.append(
-      datasetTitle,
-      this.check("options.datasets.allowAll", "Allow all"),
+  /** Build the "Query Sources and Filters" section: allow-all toggles and transfer lists. */
+  buildQuerySourcesAndFilters(body) {
+    const querySourceBox = el("div", "heurist-config-list-section");
+    const querySourceHeading = el("div", "heurist-config-list-heading");
+    const querySourceTitle = el("strong", "h-i18n");
+    querySourceTitle.textContent = "Query Sources";
+    querySourceHeading.append(
+      querySourceTitle,
+      this.check("options.querySources.allowAll", "Allow all"),
     );
-    datasetBox.append(datasetHeading);
-    const datasetTransfer = this.transfer(
-      "options.datasets.allowed",
-      "Available datasets",
-      "Allowed datasets",
+    querySourceBox.append(querySourceHeading);
+    const querySourceTransfer = this.transfer(
+      "options.querySources.allowed",
+      "Available Query Sources",
+      "Allowed Query Sources",
     );
-    datasetBox.append(datasetTransfer.row);
+    querySourceBox.append(querySourceTransfer.row);
     this.select(
-      datasetBox,
-      "options.datasets.initiallyActive",
-      "Default dataset",
+      querySourceBox,
+      "options.querySources.initiallyActive",
+      "Default Query Source",
       [["", "None"]],
     );
     const filterBox = el("div", "heurist-config-list-section");
@@ -382,9 +382,9 @@ export class DataConfigurationDialog {
       "Allowed filters",
     );
     filterBox.append(filterTransfer.row);
-    body.append(datasetBox, filterBox);
+    body.append(querySourceBox, filterBox);
     this.fields
-      .get("options.datasets.allowAll")
+      .get("options.querySources.allowAll")
       .control.addEventListener("change", () => this.applyDependencies());
     this.fields
       .get("options.filters.allowAll")
@@ -409,7 +409,7 @@ export class DataConfigurationDialog {
   buildPublication(body) {
     const preserve = plainCheck("Preserve current state", true);
     preserve.row.title = $HR(
-      "Preserve the active dataset or query, page, sort, filter and selection.",
+      "Preserve the active Query Source or query, page, sort, filter and selection.",
     );
     body.append(
       preserve.row,
@@ -647,16 +647,16 @@ export class DataConfigurationDialog {
   }
 
   /**
-   * Load dataset, filter, template, and (website mode) widget options from their providers in parallel.
+   * Load Query Source, filter, template, and (website mode) widget options from their providers in parallel.
    *
    * @returns {Promise<void>} Resolves once every provider load has settled.
    */
   async loadProviderOptions() {
     await Promise.allSettled([
       this.loadRecordOptions(
-        this.datasetListProvider,
-        "options.datasets.allowed",
-        "options.datasets.initiallyActive",
+        this.querySourceListProvider,
+        "options.querySources.allowed",
+        "options.querySources.initiallyActive",
       ),
       this.loadRecordOptions(
         this.filterListProvider,
@@ -766,10 +766,10 @@ export class DataConfigurationDialog {
   applyDependencies() {
     const optionsControl = this.fields.get("options.ui.showOptions")?.control;
     if (optionsControl) optionsControl.disabled = this.mode !== "website";
-    const datasetsAll = this.fields.get("options.datasets.allowAll");
-    if (datasetsAll)
-      this.fields.get("options.datasets.allowed").row.hidden =
-        datasetsAll.control.checked;
+    const querySourcesAll = this.fields.get("options.querySources.allowAll");
+    if (querySourcesAll)
+      this.fields.get("options.querySources.allowed").row.hidden =
+        querySourcesAll.control.checked;
     const filtersAll = this.fields.get("options.filters.allowAll");
     if (filtersAll)
       this.fields.get("options.filters.allowed").row.hidden =
@@ -914,11 +914,11 @@ function prepareMode(value, mode, runtimeMode = "") {
   const result = prepareForMode(value, mode);
   if (runtimeMode === "main") {
     // The module in the main Heurist editor uses a fixed interface: header
-    // always on; no Filtered Result / Datasets / Filters panels.
+    // always on; no Filtered Result / Query Sources / Filters panels.
     result.options.ui.showSourceHeader = true;
     result.options.ui.showCurrentResults = false;
     result.options.ui.showFilters = false;
-    result.options.ui.showDatasets = false;
+    result.options.ui.showQuerySources = false;
   }
   return result;
 }

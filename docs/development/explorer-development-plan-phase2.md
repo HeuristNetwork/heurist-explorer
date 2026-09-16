@@ -3,7 +3,7 @@
 ## Purpose
 
 `explorer-development-plan.md`, `datasource-workflow.md` and
-`saved-filters-datasets-and-datasources.md` established the DataSource
+`saved-filters-query-sources-and-datasources.md` established the DataSource
 identity model (`reference`/`request`/`presentation`), the single
 `activateDataSource()` gateway, and History/Favorites/Workspace as reference
 stores. That groundwork is largely built: `DataSource.js`, `SyncEngine`,
@@ -176,7 +176,7 @@ once, not per-engine. Concretely:
 
 ### Grounding: this was already scoped, just not built
 
-`saved-filters-datasets-and-datasources.md` §1 already defines exactly the
+`saved-filters-query-sources-and-datasources.md` §1 already defines exactly the
 fields Artem lists in 2b, as the "presentation profile" of an
 `RT_QUERY_SOURCE` record:
 
@@ -192,7 +192,7 @@ fields Artem lists in 2b, as the "presentation profile" of an
 filterForm}` slots for exactly this (`DataSource.js:25`), and
 `QuerySourceManager.resolveDataSource()` already *reads* `fields`, `map`
 (`geoFields`/`dynamicRequests`/`minZoom`/`maxZoom`), `timefields` and `rules`
-from `/records/dataset/{id}`. Task 2 is therefore "build the editor for a
+from `/records/querysource/{id}`. Task 2 is therefore "build the editor for a
 data shape the architecture already committed to," not a new design — which
 also means the field-path notation (`10:lt234:12:38`) and the four editors
 Artem names map onto existing bridge patterns almost directly:
@@ -266,7 +266,7 @@ exists for this). The open problem is the **list view**, before resolution:
 `QuerySourceManager.list()` only has `{id, title}` from the lightweight
 `/records/` listing query, not the presentation profile, so today there is no
 cheap way to badge a row without resolving every source up front (one
-`/records/dataset/{id}` call each — too expensive for a list).
+`/records/querysource/{id}` call each — too expensive for a list).
 
 Recommendation: extend the *server* list response (or add fields to the
 existing list query) with a small enrichment — booleans/flags for

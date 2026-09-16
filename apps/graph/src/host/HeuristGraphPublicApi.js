@@ -148,13 +148,13 @@ export class HeuristGraphPublicApi {
   }
 
   /**
-   * Load a persisted Dataset by id and activate it as the graph's source.
+   * Load a persisted Query Source by id and activate it as the graph's source.
    *
-   * @param {number|string} id Dataset record id.
+   * @param {number|string} id Query Source record id.
    * @returns {Promise<object>} Updated application state.
    */
-  setDataset(id) {
-    return this.application.setDataset(id);
+  setQuerySource(id) {
+    return this.application.setQuerySource(id);
   }
 
   /**
@@ -439,7 +439,7 @@ export class HeuristGraphPublicApi {
 
 /**
  * Reduce the live application state to what reproduces the published view:
- * the source (Dataset id or the original query - never the expanded id list),
+ * the source (Query Source id or the original query - never the expanded id list),
  * the selection, the active base-scope expansions, and hidden legend groups.
  * `recordIds`/`limits` are dropped - the graph is rebuilt on open by re-running
  * the source and re-applying the expansions.
@@ -447,8 +447,8 @@ export class HeuristGraphPublicApi {
 function publicationState(state) {
   const out = {
     query: state.query ?? null,
-    datasetId: state.datasetId ?? null,
-    datasetTitle: state.datasetTitle ?? null,
+    querySourceId: state.querySourceId ?? null,
+    querySourceTitle: state.querySourceTitle ?? null,
     selection: Array.isArray(state.selection) ? state.selection : [],
   };
   const expansions = state.expansions;

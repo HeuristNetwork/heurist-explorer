@@ -104,7 +104,7 @@ export class QuerySourceManager {
     const sourceId = positiveId(id);
     if (!sourceId) return null;
 
-    const payload = await this.apiClient.get(`/records/dataset/${sourceId}`);
+    const payload = await this.apiClient.get(`/records/querysource/${sourceId}`);
     if (!payload || positiveId(payload.id) !== sourceId) return null;
 
     const query = payload?.source?.query;

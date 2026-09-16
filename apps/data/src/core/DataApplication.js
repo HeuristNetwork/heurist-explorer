@@ -27,7 +27,7 @@ export class DataApplication extends EventTarget {
    * @param {object} options.engine Rendering engine adapter (e.g. HRecordList or DataTablesAdapter).
    * @param {Function|null} [options.engineFactory] Factory used to swap engines when the configured engine changes.
    * @param {object} options.host Host adapter used for lifecycle and preference delegation.
-   * @param {object} options.loaders Loader registry used to load datasets/queries/filters.
+   * @param {object} options.loaders Loader registry used to load Query Sources/queries/filters.
    * @param {object} [options.providers] Supporting providers (record content, field values, etc.).
    */
   constructor({
@@ -48,7 +48,7 @@ export class DataApplication extends EventTarget {
     this.host = host;
     this.loaders = loaders;
     this.providers = providers;
-    this.dataset = null;
+    this.querySource = null;
     this.query = null;
     this.response = null;
     this.selection = [];
@@ -81,9 +81,9 @@ export class DataApplication extends EventTarget {
     }
     await this.engine.initialize(this._engineContext());
     await this._configureCollection();
-    if (this.config.source.datasetId) {
-      await this.setDataset(
-        this.config.source.datasetId,
+    if (this.config.source.querySourceId) {
+      await this.setQuerySource(
+        this.config.source.querySourceId,
         {
           ...initialPageOptions(this.config.source.pagination),
           dataSource: this.config.source.dataSource,
@@ -99,7 +99,7 @@ export class DataApplication extends EventTarget {
       });
     } else {
       await this.engine.setData({
-        dataset: null,
+        querySource: null,
         records: [],
         meta: {},
         pagination: {},
@@ -184,18 +184,18 @@ export class DataApplication extends EventTarget {
     }
   }
 
-  /** Load and activate a persisted Dataset by ID. */
-  async setDataset(datasetId, options = {}) {
+  /** Load and activate a persisted Query Source by ID. */
+  async setQuerySource(querySourceId, options = {}) {
     this.dataSource = cloneValue(options.dataSource);
     this.sourceTitle = text(options.title ?? this.dataSource?.title);
-    this._resetSource({ type: "dataset", datasetId, options });
-    const result = await this._load("dataset", {
+    this._resetSource({ type: "querySource", querySourceId, options });
+    const result = await this._load("querySource", {
       limit: this.config.engineOptions?.pageLength,
-      datasetId,
+      querySourceId,
       ...options,
     });
-    this.dataset = result.dataset;
-    this.query = result.dataset.source.query;
+    this.querySource = result.querySource;
+    this.query = result.querySource.source.query;
     return this._applyResult(result);
   }
 
@@ -220,9 +220,9 @@ export class DataApplication extends EventTarget {
       this.currentResultsSource = { query, fields: options.fields || [] };
     }
     // Host search events keep Filtered Result up to date, but must not replace
-    // a Dataset which the user deliberately selected.
+    // a Query Source which the user deliberately selected.
     if (
-      this.source?.type === "dataset" &&
+      this.source?.type === "querySource" &&
       options.activateCurrentResults !== true
     ) {
       return this.getState();
@@ -233,7 +233,7 @@ export class DataApplication extends EventTarget {
       query,
       ...options,
     });
-    this.dataset = result.dataset;
+    this.querySource = result.querySource;
     this.query = query;
     return this._applyResult(result);
   }
@@ -261,9 +261,9 @@ export class DataApplication extends EventTarget {
     try {
       const result = await this.loaders.load(type, {
         ...request,
-        includeDatasetFields: this.config.engine !== "recordlist",
+        includeQuerySourceFields: this.config.engine !== "recordlist",
         // IMPORTANT: presentation-only virtual fields are fetched but are not
-        // inserted into the user's persisted Dataset fieldset.
+        // inserted into the user's persisted Query Source fieldset.
         additionalFields: this._presentationFields(),
         signal: controller.signal,
       });
@@ -294,13 +294,13 @@ export class DataApplication extends EventTarget {
     this.response = result.response;
     this.recordsTotal = Number(result.response.pagination?.total) || 0;
     await this.engine.setData({
-      dataset: result.dataset,
+      querySource: result.querySource,
       records: result.response.records || [],
       meta: result.response.meta || {},
       pagination: result.response.pagination || {},
     });
     this.dispatch("heurist-data-loaded", {
-      dataset: result.dataset.toJSON(),
+      querySource: result.querySource.toJSON(),
       dataSource: cloneValue(this.dataSource),
       title: this.sourceTitle,
       pagination: result.response.pagination || {},
@@ -321,7 +321,7 @@ export class DataApplication extends EventTarget {
 
   /** Load one page of the active source, requested by the engine's pagination/sort/filter controls. */
   async _loadPage({ offset, limit, sort, filter } = {}) {
-    if (!this.source) throw new Error("No Dataset source is active");
+    if (!this.source) throw new Error("No Query Source is active");
     const request = {
       ...this.source.options,
       offset,
@@ -329,15 +329,15 @@ export class DataApplication extends EventTarget {
       sort,
       filter,
     };
-    if (this.source.type === "dataset")
-      request.datasetId = this.source.datasetId;
+    if (this.source.type === "querySource")
+      request.querySourceId = this.source.querySourceId;
     else request.query = this.source.query;
     const result = await this._load(this.source.type, request);
     const filteredTotal = Number(result.response.pagination?.total) || 0;
     if (filter == null || filter === "") this.recordsTotal = filteredTotal;
     this.response = result.response;
     return {
-      dataset: result.dataset,
+      querySource: result.querySource,
       records: result.response.records || [],
       meta: result.response.meta || {},
       recordsTotal: this.recordsTotal ?? filteredTotal,
@@ -361,7 +361,7 @@ export class DataApplication extends EventTarget {
   async clearData() {
     this.requestGeneration += 1;
     this.abortController?.abort("Data cleared");
-    this.dataset = null;
+    this.querySource = null;
     this.query = null;
     this.source = null;
     this.dataSource = null;
@@ -374,13 +374,13 @@ export class DataApplication extends EventTarget {
     };
     this.selection = [];
     await this.engine.setData({
-      dataset: null,
+      querySource: null,
       records: [],
       meta: {},
       pagination: this.response.pagination,
     });
     this.dispatch("heurist-data-loaded", {
-      dataset: null,
+      querySource: null,
       dataSource: null,
       title: null,
       pagination: this.response.pagination,
@@ -464,7 +464,7 @@ export class DataApplication extends EventTarget {
         { ids: [...this.collection] },
         {
           fields:
-            this.dataset?.fields || this.currentResultsSource?.fields || [],
+            this.querySource?.fields || this.currentResultsSource?.fields || [],
           activateCurrentResults: true,
           rememberCurrentResults: true,
         },
@@ -483,7 +483,7 @@ export class DataApplication extends EventTarget {
   getState() {
     const engineState = this.engine.getState?.() || {};
     return {
-      datasetId: this.dataset?.id ?? null,
+      querySourceId: this.querySource?.id ?? null,
       query: this.query,
       dataSource: cloneValue(this.dataSource),
       title: this.sourceTitle || null,
@@ -553,7 +553,7 @@ export class DataApplication extends EventTarget {
     source.presentation.data = {
       ...(source.presentation.data || {}),
       fields: [
-        ...(this.dataset?.fields || this.currentResultsSource?.fields || []),
+        ...(this.querySource?.fields || this.currentResultsSource?.fields || []),
       ],
     };
     return source;
@@ -571,38 +571,38 @@ export class DataApplication extends EventTarget {
   }
 
   /**
-   * Create a new persisted Dataset record through the host's record editor and activate it.
+   * Create a new persisted Query Source record through the host's record editor and activate it.
    *
-   * When Dataset access is restricted to an allow-list, the new dataset is added to it
+   * When Query Source access is restricted to an allow-list, the new Query Source is added to it
    * and the configuration change is persisted and announced before activation.
    *
    * @returns {Promise<object|null>} The host's record-creation result, or `null` when the host has no editor
-   *   (a `heurist-data-create-dataset-requested` event is dispatched instead).
-   * @throws {Error} When the host can edit records but the Dataset record type is unavailable.
+   *   (a `heurist-data-create-query-source-requested` event is dispatched instead).
+   * @throws {Error} When the host can edit records but the Query Source record type is unavailable.
    */
-  async requestCreateDataset() {
+  async requestCreateQuerySource() {
     if (
       this.host.supportsEditing?.() &&
       typeof this.host.addRecord === "function"
     ) {
-      const result = await this.providers.datasetList?.list({ ids: [] });
+      const result = await this.providers.querySourceList?.list({ ids: [] });
       const recordTypeId = Number(result?.recordTypeId);
       if (!(recordTypeId > 0))
-        throw new Error("Dataset record type is not available");
+        throw new Error("Query Source record type is not available");
       const created = await this.host.addRecord(recordTypeId);
       const recordId = Number(
         created?.recordId ?? created?.rec_ID ?? created?.id,
       );
       if (recordId > 0) {
         const settings = this.config.persistedSettings;
-        const datasets = settings?.options?.datasets;
-        if (datasets?.allowAll === false) {
-          const allowed = Array.isArray(datasets.allowed)
-            ? datasets.allowed
+        const querySources = settings?.options?.querySources;
+        if (querySources?.allowAll === false) {
+          const allowed = Array.isArray(querySources.allowed)
+            ? querySources.allowed
             : [];
-          datasets.allowed = allowed;
+          querySources.allowed = allowed;
           if (allowed.map(Number).includes(recordId)) {
-            await this.setDataset(recordId);
+            await this.setQuerySource(recordId);
             return created ?? null;
           }
           allowed.push(recordId);
@@ -616,18 +616,18 @@ export class DataApplication extends EventTarget {
             config: settings.config,
           });
         }
-        await this.setDataset(recordId);
+        await this.setQuerySource(recordId);
       }
       return created ?? null;
     }
-    this.dispatch("heurist-data-create-dataset-requested", {});
+    this.dispatch("heurist-data-create-query-source-requested", {});
     return null;
   }
 
   /**
-   * Ask the host to edit the field selection for the active dataset (or Filtered Result).
+   * Ask the host to edit the field selection for the active Query Source (or Filtered Result).
    *
-   * For a Filtered Result (no dataset id), the returned field list is applied immediately
+   * For a Filtered Result (no Query Source id), the returned field list is applied immediately
    * and remembered as the current-results field selection.
    *
    * @returns {Promise<*>} The host's `editFieldset` result, or `null` when the host doesn't support it
@@ -636,9 +636,9 @@ export class DataApplication extends EventTarget {
   async requestPickFields() {
     if (typeof this.host.editFieldset === "function") {
       const result = await this.host.editFieldset({
-        dataset: this.dataset?.toJSON?.() || null,
+        querySource: this.querySource?.toJSON?.() || null,
       });
-      if (this.dataset?.id == null) {
+      if (this.querySource?.id == null) {
         const fields = Array.isArray(result)
           ? result
           : (result?.fields ?? result?.value?.fields);
@@ -659,7 +659,7 @@ export class DataApplication extends EventTarget {
       return result;
     }
     this.dispatch("heurist-data-pick-fields-requested", {
-      dataset: this.dataset?.toJSON?.() || null,
+      querySource: this.querySource?.toJSON?.() || null,
     });
     return null;
   }
@@ -688,7 +688,7 @@ export class DataApplication extends EventTarget {
     ) {
       return this.getState();
     }
-    this.dataset = null;
+    this.querySource = null;
     this.source = null;
     this.dispatch("heurist-data-source-changed", {
       source: "current-results",
@@ -780,7 +780,7 @@ export class DataApplication extends EventTarget {
     await this.engine.initialize(this._engineContext());
     await this._configureCollection();
     await this.engine.setData({
-      dataset: this.dataset,
+      querySource: this.querySource,
       records: this.response?.records || [],
       meta: this.response?.meta || {},
       pagination: this.response?.pagination || {

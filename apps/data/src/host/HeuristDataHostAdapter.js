@@ -257,7 +257,7 @@ export class HeuristDataHostAdapter extends HostAdapter {
   /**
    * Ask the host to open its field-selection editor.
    *
-   * @param {object} context Field-editor context (e.g. the current dataset).
+   * @param {object} context Field-editor context (e.g. the current Query Source).
    * @returns {*} Result of the host's editor action.
    * @throws {Error} When the host has no fieldset editor.
    */

@@ -30,7 +30,7 @@ export class GraphConfigurationDialog {
    * @param {string|null} [options.title] Dialog title; defaults from `defaultTitle(mode)`.
    * @param {Function|null} [options.onSave] Called with `(value, context)` on save; returning `false` keeps the dialog open.
    * @param {Function|null} [options.onCancel] Called with `(value, {mode})` when the dialog is cancelled.
-   * @param {object|null} [options.datasetListProvider] Provider used to list available datasets.
+   * @param {object|null} [options.querySourceListProvider] Provider used to list available Query Sources.
    * @param {object|null} [options.filterListProvider] Provider used to list available filters.
    * @param {object|null} [options.reportTemplateProvider] Provider used to list popup report templates.
    * @param {object|null} [options.widgetListProvider] Provider used to list "Filter by" target widgets.
@@ -43,7 +43,7 @@ export class GraphConfigurationDialog {
     title = null,
     onSave = null,
     onCancel = null,
-    datasetListProvider = null,
+    querySourceListProvider = null,
     filterListProvider = null,
     reportTemplateProvider = null,
     widgetListProvider = null,
@@ -58,7 +58,7 @@ export class GraphConfigurationDialog {
     this.title = title || defaultTitle(this.mode);
     this.onSave = typeof onSave === "function" ? onSave : null;
     this.onCancel = typeof onCancel === "function" ? onCancel : null;
-    this.datasetListProvider = datasetListProvider;
+    this.querySourceListProvider = querySourceListProvider;
     this.filterListProvider = filterListProvider;
     this.reportTemplateProvider = reportTemplateProvider;
     this.widgetListProvider = widgetListProvider;
@@ -183,8 +183,8 @@ export class GraphConfigurationDialog {
           (body) => this.buildCurrentResults(body),
           true,
         ),
-        this.section("Datasets and Filters", (body) =>
-          this.buildDatasetsAndFilters(body),
+        this.section("Query Sources and Filters", (body) =>
+          this.buildQuerySourcesAndFilters(body),
         ),
       );
     }
@@ -203,7 +203,7 @@ export class GraphConfigurationDialog {
     if (this.mode === "website") {
       body.append(
         this.check("options.ui.showCurrentResults", "Filtered Result"),
-        this.check("options.ui.showDatasets", "Datasets"),
+        this.check("options.ui.showQuerySources", "Query Sources"),
         this.check("options.ui.showFilters", "Filters"),
       );
       body.append(this.separator());
@@ -329,31 +329,31 @@ export class GraphConfigurationDialog {
   }
 
   /**
-   * Build the "Datasets and Filters" section's fields (allow-all toggles, transfer lists, default dataset).
+   * Build the "Query Sources and Filters" section's fields (allow-all toggles, transfer lists, default Query Source).
    *
    * @param {HTMLElement} body Section body to append fields into.
    * @returns {void}
    */
-  buildDatasetsAndFilters(body) {
-    const datasetBox = el("div", "heurist-config-list-section");
-    const datasetHeading = el("div", "heurist-config-list-heading");
-    const datasetTitle = el("strong", "h-i18n");
-    datasetTitle.textContent = "Datasets";
-    datasetHeading.append(
-      datasetTitle,
-      this.check("options.datasets.allowAll", "Allow all"),
+  buildQuerySourcesAndFilters(body) {
+    const querySourceBox = el("div", "heurist-config-list-section");
+    const querySourceHeading = el("div", "heurist-config-list-heading");
+    const querySourceTitle = el("strong", "h-i18n");
+    querySourceTitle.textContent = "Query Sources";
+    querySourceHeading.append(
+      querySourceTitle,
+      this.check("options.querySources.allowAll", "Allow all"),
     );
-    datasetBox.append(datasetHeading);
-    const datasetTransfer = this.transfer(
-      "options.datasets.allowed",
-      "Available datasets",
-      "Allowed datasets",
+    querySourceBox.append(querySourceHeading);
+    const querySourceTransfer = this.transfer(
+      "options.querySources.allowed",
+      "Available Query Sources",
+      "Allowed Query Sources",
     );
-    datasetBox.append(datasetTransfer.row);
+    querySourceBox.append(querySourceTransfer.row);
     this.select(
-      datasetBox,
-      "options.datasets.initiallyActive",
-      "Default dataset",
+      querySourceBox,
+      "options.querySources.initiallyActive",
+      "Default Query Source",
       [["", "None"]],
     );
     const filterBox = el("div", "heurist-config-list-section");
@@ -371,9 +371,9 @@ export class GraphConfigurationDialog {
       "Allowed filters",
     );
     filterBox.append(filterTransfer.row);
-    body.append(datasetBox, filterBox);
+    body.append(querySourceBox, filterBox);
     this.fields
-      .get("options.datasets.allowAll")
+      .get("options.querySources.allowAll")
       .control.addEventListener("change", () => this.applyDependencies());
     this.fields
       .get("options.filters.allowAll")
@@ -389,7 +389,7 @@ export class GraphConfigurationDialog {
   buildPublication(body) {
     const preserve = plainCheck("Preserve current state", true);
     preserve.row.title = $HR(
-      "Preserve the active dataset or query, page, sort, filter and selection.",
+      "Preserve the active Query Source or query, page, sort, filter and selection.",
     );
     body.append(
       preserve.row,
@@ -635,16 +635,16 @@ export class GraphConfigurationDialog {
   }
 
   /**
-   * Load dataset/filter/template/widget options from the configured providers, in parallel.
+   * Load Query Source/filter/template/widget options from the configured providers, in parallel.
    *
    * @returns {Promise<void>}
    */
   async loadProviderOptions() {
     const results = await Promise.allSettled([
       this.loadRecordOptions(
-        this.datasetListProvider,
-        "options.datasets.allowed",
-        "options.datasets.initiallyActive",
+        this.querySourceListProvider,
+        "options.querySources.allowed",
+        "options.querySources.initiallyActive",
       ),
       this.loadRecordOptions(
         this.filterListProvider,
@@ -756,10 +756,10 @@ export class GraphConfigurationDialog {
     if (movement) movement.disabled = fixedLayout;
     const optionsControl = this.fields.get("options.ui.showOptions")?.control;
     if (optionsControl) optionsControl.disabled = this.mode !== "website";
-    const datasetsAll = this.fields.get("options.datasets.allowAll");
-    if (datasetsAll)
-      this.fields.get("options.datasets.allowed").row.hidden =
-        datasetsAll.control.checked;
+    const querySourcesAll = this.fields.get("options.querySources.allowAll");
+    if (querySourcesAll)
+      this.fields.get("options.querySources.allowed").row.hidden =
+        querySourcesAll.control.checked;
     const filtersAll = this.fields.get("options.filters.allowAll");
     if (filtersAll)
       this.fields.get("options.filters.allowed").row.hidden =

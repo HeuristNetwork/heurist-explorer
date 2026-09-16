@@ -25,7 +25,7 @@ function withBootstrap(value, run) {
   }
 }
 
-test("a published bootstrap restores query/datasetId/expansions/hidden from state (not source)", () => {
+test("a published bootstrap restores query/querySourceId/expansions/hidden from state (not source)", () => {
   const config = withBootstrap(
     {
       runtime: { database: "db", baseUrl: "https://h.org/", runtimeMode: "published" },
@@ -37,8 +37,8 @@ test("a published bootstrap restores query/datasetId/expansions/hidden from stat
       // The server sends no `source` for publications - only `state`.
       state: {
         query: "t:10",
-        datasetId: 5,
-        datasetTitle: "Published dataset",
+        querySourceId: 5,
+        querySourceTitle: "Published Query Source",
         selection: [42],
         expansions: { rules: [{ query: "lf:1" }], enabled: [true], depth: 2 },
         hidden: { recordTypes: [48], links: ["link:x"], relationships: [] },
@@ -48,8 +48,8 @@ test("a published bootstrap restores query/datasetId/expansions/hidden from stat
   );
 
   assert.equal(config.query, "t:10");
-  assert.equal(config.datasetId, 5);
-  assert.equal(config.datasetTitle, "Published dataset");
+  assert.equal(config.querySourceId, 5);
+  assert.equal(config.querySourceTitle, "Published Query Source");
   assert.deepEqual(config.selection, [42]);
   assert.deepEqual(config.initialExpansions, {
     rules: [{ query: "lf:1" }],
@@ -78,7 +78,7 @@ test("an embedded bootstrap still reads query/selection from source", () => {
 
   assert.equal(config.query, "ids:1,2,3");
   assert.deepEqual(config.selection, [2]);
-  assert.equal(config.datasetId, null);
+  assert.equal(config.querySourceId, null);
   assert.equal(config.initialExpansions, null);
   assert.equal(config.initialHidden, null);
 });
@@ -89,7 +89,7 @@ test("a publication `state` wins over any stale embedded `source`", () => {
       runtime: { database: "db", baseUrl: "https://h.org/", runtimeMode: "published" },
       settings: { options: {}, config: {} },
       source: { query: "ids:9,9,9", selection: [9] },
-      state: { query: "t:10", datasetId: null, selection: [] },
+      state: { query: "t:10", querySourceId: null, selection: [] },
     },
     getHeuristGraphConfig,
   );

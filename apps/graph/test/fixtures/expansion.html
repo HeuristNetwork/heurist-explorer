@@ -28,7 +28,7 @@ const container = document.querySelector('#graph'), canvas=document.createElemen
 canvas.className='heurist-graph-canvas';container.append(canvas);
 const api = new HeuristGraphPublicApi(app);
 await app.initialize(canvas);
-await new GraphControlPanel({api,container,datasetListProvider:{list:async()=>[]},filterListProvider:{list:async()=>[]}}).mount();
+await new GraphControlPanel({api,container,querySourceListProvider:{list:async()=>[]},filterListProvider:{list:async()=>[]}}).mount();
 const status=()=>{document.querySelector('#status').textContent=`Nodes: ${app.graph.recordIds.join(', ')}; Edges: ${app.graph.edges.length}`;};
 app.addEventListener('heurist-graph-expansions-changed',status);status();
 </script></html>

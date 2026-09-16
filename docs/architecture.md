@@ -51,7 +51,7 @@ the same adapter surface to Explorer.
 
 ### Data
 
-Owns tabular/card/record-list presentation, DataTables integration, dataset and
+Owns tabular/card/record-list presentation, DataTables integration, query source and
 filter loading, collection operations, field formatting and data configuration.
 
 ### Graph

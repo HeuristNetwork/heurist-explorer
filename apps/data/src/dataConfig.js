@@ -46,12 +46,12 @@ export function createHeuristDataConfig(
   const persistedSettings = normalizeDataConfigurationSettings(settings);
   if (String(runtime.runtimeMode || "").toLowerCase() === "main") {
     // The module hosted in the main Heurist editor uses a fixed interface:
-    // header always shown; no Filtered Result / Datasets / Filters panels.
+    // header always shown; no Filtered Result / Query Sources / Filters panels.
     Object.assign(persistedSettings.options.ui, {
       showSourceHeader: true,
       showCurrentResults: false,
       showFilters: false,
-      showDatasets: false,
+      showQuerySources: false,
     });
     // Main UI starts without a second client-side search layer unless the
     // setting was explicitly persisted by the user.
@@ -67,16 +67,16 @@ export function createHeuristDataConfig(
   // Publications store the module snapshot under the shared `state` member;
   // Retain `source` for embedded host configurations created before publication.
   const source = resolvedConfig.source ?? resolvedConfig.state ?? {};
-  const runtimeDatasetId = positiveId(source.datasetId ?? source.dataset);
+  const runtimeQuerySourceId = positiveId(source.querySourceId);
   const runtimeQuery =
     source.query == null || source.query === "" ? null : source.query;
-  const configuredDatasetId =
-    persistedSettings.options.datasets.initiallyActive;
-  const initialDatasetId =
-    runtimeDatasetId || (runtimeQuery == null ? configuredDatasetId : null);
+  const configuredQuerySourceId =
+    persistedSettings.options.querySources.initiallyActive;
+  const initialQuerySourceId =
+    runtimeQuerySourceId || (runtimeQuery == null ? configuredQuerySourceId : null);
   const initialQuery =
     runtimeQuery ??
-    (initialDatasetId == null
+    (initialQuerySourceId == null
       ? persistedSettings.config.currentResults.initialQuery
       : null);
   const readonly =
@@ -130,7 +130,7 @@ export function createHeuristDataConfig(
       ),
     ui: persistedSettings.options.ui,
     source: {
-      datasetId: initialDatasetId,
+      querySourceId: initialQuerySourceId,
       query: initialQuery,
       title: source.title == null ? null : String(source.title),
       dataSource: cloneValue(source.dataSource),

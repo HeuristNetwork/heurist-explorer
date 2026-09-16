@@ -7,7 +7,7 @@
  * `#shared/ui/heurist-module.css`) and the same DOM shape: an `<aside>`
  * sibling of the module's `<main>`, with `.heurist-source-header` prepended
  * into `<main>` itself - see `GraphControlPanel`/`DataControlPanel`. Record
- * View never has a Datasets/Filters list to collapse into, so unlike those
+ * View never has a Query Sources/Filters list to collapse into, so unlike those
  * two panels this one has no `.heurist-module-panel-body` at all.
  *
  * @project     Heurist academic knowledge management system
