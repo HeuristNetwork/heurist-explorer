@@ -40,3 +40,13 @@
 #selected_ignored_notice#{n} sélectionnés — affichage de la sélection précédente
 #multiple_selected_single_only#Sélectionnez un seul enregistrement
 #record_viewer_unconfigured#La visionneuse d'enregistrement n'est pas configurée
+#Edit#Modifier
+#View full size#Voir en taille réelle
+#Open in Mirador#Ouvrir dans Mirador
+#Created#Créé
+#Modified#Modifié
+#Owner#Propriétaire
+#Visibility#Visibilité
+#Hidden#Masqué
+#Viewable#Visible
+#Public#Public

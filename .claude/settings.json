@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(curl -s \"http://127.0.0.1/api/osmak_mapping/records?q=ids:151&fields=_all,rec_Added&resolveDetails=1\")",
+      "Bash(php tests/RecordFieldSelectorTest.php)"
+    ]
+  }
+}

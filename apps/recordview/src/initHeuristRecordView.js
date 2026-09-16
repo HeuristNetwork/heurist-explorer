@@ -16,6 +16,7 @@ import { showRecordViewMessage } from "./ui/recordViewMessages.js";
 import { HeuristApiClient } from "#shared/api";
 import { RecordViewApplication } from "./core/RecordViewApplication.js";
 import { RecordDataProvider } from "./data/RecordDataProvider.js";
+import { RecordStructureProvider } from "./data/RecordStructureProvider.js";
 import { VocabularyProvider } from "#shared/data/VocabularyProvider.js";
 import { RecordContentProvider } from "./data/RecordContentProvider.js";
 import { ReportTemplateProvider } from "./data/ReportTemplateProvider.js";
@@ -48,11 +49,12 @@ export async function initHeuristRecordView(config) {
     config,
     recordDataProvider: new RecordDataProvider({ apiClient }),
     vocabularyProvider: new VocabularyProvider({ apiClient }),
+    structureProvider: new RecordStructureProvider({ apiClient }),
     recordContentProvider: new RecordContentProvider({ baseUrl: heuristBaseUrl, database: config.database }),
     // The renderer owns everything inside <main> except the source header
     // (RecordViewControlPanel prepends that once it mounts) - same split as
     // GraphApplication's canvas/message vs. GraphControlPanel's source header.
-    renderer: new RecordViewRenderer({ container }),
+    renderer: new RecordViewRenderer({ container, baseUrl: heuristBaseUrl, database: config.database }),
     host: createHostAdapter(config.host),
   });
   const api = new HeuristRecordViewPublicApi(application);

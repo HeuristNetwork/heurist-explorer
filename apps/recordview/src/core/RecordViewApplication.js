@@ -42,7 +42,8 @@ export class RecordViewApplication extends EventTarget {
    * @param {object} options Application configuration.
    * @param {object} options.config Normalized Record View configuration; see `recordViewConfig.js`.
    * @param {object} options.recordDataProvider Fetches one fully-resolved record, for the `builtin` engine.
-   * @param {object} options.vocabularyProvider Resolves field/record-type display names, for the `builtin` engine.
+   * @param {object} options.vocabularyProvider Resolves the record type's display name, for the `builtin` engine's header.
+   * @param {object} options.structureProvider Resolves one record type's field structure/sections, for the `builtin` engine.
    * @param {object} options.recordContentProvider Builds the `legacy`/`smarty` renderer URL.
    * @param {object} options.renderer `RecordViewRenderer` instance the application renders into.
    * @param {object} options.host Host adapter.
@@ -51,6 +52,7 @@ export class RecordViewApplication extends EventTarget {
     config,
     recordDataProvider,
     vocabularyProvider,
+    structureProvider,
     recordContentProvider,
     renderer,
     host,
@@ -59,6 +61,7 @@ export class RecordViewApplication extends EventTarget {
     this.config = config;
     this.recordDataProvider = recordDataProvider;
     this.vocabularyProvider = vocabularyProvider;
+    this.structureProvider = structureProvider;
     this.recordContentProvider = recordContentProvider;
     this.renderer = renderer;
     this.host = host;
@@ -319,15 +322,21 @@ export class RecordViewApplication extends EventTarget {
           this.renderer.showEmpty(this.#emptyMessage());
           return;
         }
-        const detailIds = Object.keys(record.details || {}).map(Number);
         const recordTypeId = Number(record.rec_RecTypeID) || 0;
-        const [fields, recordTypes] = await Promise.all([
-          this.vocabularyProvider.getFieldNames(detailIds, { signal: this.abortController.signal }),
+        const [sections, recordTypes] = await Promise.all([
+          this.structureProvider.fieldSections(recordTypeId, { signal: this.abortController.signal }),
           this.vocabularyProvider.getRecordTypeNames([recordTypeId], { signal: this.abortController.signal }),
         ]);
         if (generation !== this.generation) return;
-        this.recordTitle = record.rec_Title || recordTypes.get(recordTypeId) || null;
-        this.renderer.showBuiltin(record, { fields, recordTypes });
+        const recordTypeName = recordTypes.get(recordTypeId) || null;
+        this.recordTitle = record.rec_Title || recordTypeName || null;
+        this.renderer.showBuiltin(record, {
+          sections,
+          recordTypeName,
+          canEdit: Boolean(this.getHostCapabilities().editing),
+          onEdit: (recordId) => this.host?.editRecord?.(recordId),
+          onNavigate: (recordId) => this.navigateToRecord(recordId),
+        });
       } else {
         this.recordTitle = null;
         const url = this.recordContentProvider?.buildUrl(id, engine, this.settings.config.defaults.template);

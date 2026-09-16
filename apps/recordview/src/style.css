@@ -48,20 +48,97 @@ html, body, .heurist-recordview-root { width: 100%; height: 100%; margin: 0; ove
   border-bottom: 1px solid var(--h-color-border);
 }
 
-.heurist-recordview-fields {
-  margin: 0;
+.heurist-recordview-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
   padding: 10px 14px;
+  border-bottom: 1px solid var(--h-color-border);
 }
-.heurist-recordview-fields h2 {
-  margin: 0 0 8px;
+.heurist-recordview-rty-icon {
+  width: 24px;
+  height: 24px;
+  flex: none;
+  object-fit: contain;
+}
+.heurist-recordview-header-text { flex: 1 1 auto; min-width: 0; }
+.heurist-recordview-title {
+  margin: 0;
   font-size: 14px;
   color: var(--h-color-primary);
+  overflow-wrap: anywhere;
 }
-.heurist-recordview-fields dt {
+.heurist-recordview-meta {
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--h-color-text-muted);
+}
+.heurist-recordview-edit-button {
+  flex: none;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+  padding: 2px 4px;
+  color: var(--h-color-text-muted);
+}
+.heurist-recordview-edit-button:hover { color: var(--h-color-primary); }
+
+.heurist-recordview-media {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--h-color-border);
+}
+.heurist-recordview-media-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  width: 120px;
+}
+.heurist-recordview-media-thumb {
+  max-width: 120px;
+  max-height: 120px;
+  object-fit: contain;
+  border: 1px solid var(--h-color-border);
+}
+.heurist-recordview-media-link {
+  font-size: 11px;
+  text-align: center;
+}
+
+.heurist-recordview-sections { padding: 4px 14px; }
+.heurist-recordview-section {
+  border: 0;
+  border-top: 1px solid var(--h-color-border);
+  margin: 0;
+  padding: 8px 0;
+}
+.heurist-recordview-section:first-child { border-top: 0; }
+.heurist-recordview-section legend {
+  padding: 0;
+  font-size: 11px;
+  text-transform: uppercase;
+  color: var(--h-color-text-muted);
+}
+.heurist-recordview-section-fields { margin: 0; }
+.heurist-recordview-section-fields dt {
   font-weight: 600;
   color: var(--h-color-text-muted);
   margin-top: 8px;
 }
-.heurist-recordview-fields dd {
-  margin: 2px 0 0;
+.heurist-recordview-section-fields dd { margin: 2px 0 0; }
+.heurist-recordview-resource-link { cursor: pointer; }
+
+.heurist-recordview-footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  padding: 8px 14px;
+  border-top: 1px solid var(--h-color-border);
+  font-size: 11px;
+  color: var(--h-color-text-muted);
 }

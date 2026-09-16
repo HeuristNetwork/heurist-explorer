@@ -40,3 +40,13 @@
 #selected_ignored_notice#{n} selected — showing previous selection
 #multiple_selected_single_only#Select a single record
 #record_viewer_unconfigured#Record viewer is not configured
+#Edit#Edit
+#View full size#View full size
+#Open in Mirador#Open in Mirador
+#Created#Created
+#Modified#Modified
+#Owner#Owner
+#Visibility#Visibility
+#Hidden#Hidden
+#Viewable#Viewable
+#Public#Public

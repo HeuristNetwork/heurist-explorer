@@ -49,12 +49,32 @@ function createVocabularyProvider() {
   };
 }
 
-function createApplication({ selectionMode = "last", selection = [], recordId = null, records = new Map(), host = {} } = {}) {
+/** Build a stub structure provider, recording every `fieldSections` call made to it. */
+function createStructureProvider() {
+  const calls = [];
+  return {
+    calls,
+    async fieldSections(rectypeId) {
+      calls.push(rectypeId);
+      return [];
+    },
+  };
+}
+
+function createApplication({
+  selectionMode = "last",
+  selection = [],
+  recordId = null,
+  records = new Map(),
+  host = {},
+  engine = "builtin",
+} = {}) {
   const renderer = createRenderer();
   const recordDataProvider = createRecordDataProvider(records);
+  const structureProvider = createStructureProvider();
   const config = {
     persistedSettings: normalizeRecordViewConfigurationSettings({
-      config: { defaults: { selectionMode, engine: "builtin" } },
+      config: { defaults: { selectionMode, engine } },
     }),
     selection,
     recordId,
@@ -64,11 +84,12 @@ function createApplication({ selectionMode = "last", selection = [], recordId = 
     config,
     recordDataProvider,
     vocabularyProvider: createVocabularyProvider(),
+    structureProvider,
     recordContentProvider: { buildUrl: () => null },
     renderer,
     host,
   });
-  return { application, renderer, recordDataProvider };
+  return { application, renderer, recordDataProvider, structureProvider };
 }
 
 test("setSelection with mode 'last' displays the final id in the array", async () => {
@@ -160,6 +181,20 @@ test("setOptions merges partial overrides and re-renders with the new engine", a
   await application.setOptions({ selectionMode: "first", emptyMessage: "Nothing selected" });
   assert.equal(application.selectionMode, "first");
   assert.deepEqual(renderer.calls.at(-1), ["showEmpty", "Nothing selected"]);
+});
+
+test("the builtin engine loads field sections via structureProvider", async () => {
+  const records = new Map([[3, { rec_ID: 3, rec_RecTypeID: 10, rec_Title: "Three", details: {} }]]);
+  const { application, structureProvider } = createApplication({ records });
+  await application.setRecord(3);
+  assert.deepEqual(structureProvider.calls, [10]);
+});
+
+test("the legacy/smarty engines never touch structureProvider", async () => {
+  const records = new Map([[3, { rec_ID: 3, rec_RecTypeID: 10, rec_Title: "Three", details: {} }]]);
+  const { application, structureProvider } = createApplication({ records, engine: "legacy" });
+  await application.setRecord(3);
+  assert.deepEqual(structureProvider.calls, []);
 });
 
 test("getState reports recordId, selection, selectionMode, engine and options", async () => {
