@@ -1,0 +1,72 @@
+:root { font-family: var(--h-font-family); color: var(--h-color-text); }
+html, body, #heurist-recordview { width: 100%; height: 100%; margin: 0; overflow: hidden; }
+#heurist-recordview {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  background: var(--h-color-bg);
+}
+
+.heurist-recordview-content {
+  flex: 1 1 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.heurist-recordview-body { flex: 1 1 0; min-height: 0; overflow: auto; position: relative; }
+
+.heurist-recordview-frame { display: block; width: 100%; height: 100%; border: 0; }
+
+.heurist-recordview-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--h-color-text-muted);
+  font-style: italic;
+  text-align: center;
+  padding: 12px;
+}
+
+.heurist-recordview-notice {
+  padding: 4px 10px;
+  font-size: 12px;
+  color: var(--h-color-text-muted);
+  border-bottom: 1px solid var(--h-color-border);
+}
+
+.heurist-recordview-fields {
+  margin: 0;
+  padding: 10px 14px;
+}
+.heurist-recordview-fields h2 {
+  margin: 0 0 8px;
+  font-size: 14px;
+  color: var(--h-color-primary);
+}
+.heurist-recordview-fields dt {
+  font-weight: 600;
+  color: var(--h-color-text-muted);
+  margin-top: 8px;
+}
+.heurist-recordview-fields dd {
+  margin: 2px 0 0;
+}
+
+.heurist-recordview-control-panel {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--h-color-border);
+}
+.heurist-recordview-control-title {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

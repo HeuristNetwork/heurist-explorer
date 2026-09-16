@@ -45,13 +45,15 @@ export function getHeuristExplorerConfig() {
       data: normalizeMode(runtime.moduleModes?.data, 'direct'),
       map: normalizeMode(runtime.moduleModes?.map),
       timeline: normalizeMode(runtime.moduleModes?.timeline),
-      graph: normalizeMode(runtime.moduleModes?.graph)
+      graph: normalizeMode(runtime.moduleModes?.graph),
+      recordview: normalizeMode(runtime.moduleModes?.recordview)
     },
     moduleUrls: {
       data: runtime.moduleUrls?.data || (baseUrl ? `${baseUrl}hclient/modules/data/dataViewer.html` : null),
       map: runtime.moduleUrls?.map || (baseUrl ? `${baseUrl}hclient/modules/map/mapViewer.html` : null),
       timeline: runtime.moduleUrls?.timeline || (baseUrl ? `${baseUrl}hclient/modules/timeline/timelineViewer.html` : null),
-      graph: runtime.moduleUrls?.graph || (baseUrl ? `${baseUrl}hclient/modules/graph/graphViewer.html` : null)
+      graph: runtime.moduleUrls?.graph || (baseUrl ? `${baseUrl}hclient/modules/graph/graphViewer.html` : null),
+      recordview: runtime.moduleUrls?.recordview || (baseUrl ? `${baseUrl}hclient/modules/recordview/recordviewViewer.html` : null)
     },
     moduleAssetUrls: {
       data: runtime.moduleAssetUrls?.data || (baseUrl ? `${baseUrl}hclient/bundles/heurist-data` : null)

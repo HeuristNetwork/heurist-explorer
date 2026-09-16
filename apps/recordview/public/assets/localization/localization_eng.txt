@@ -1,0 +1,42 @@
+#Record View controls#Record View controls
+#Record View#Record View
+#Select a record#Select a record
+#Record#Record
+#Help#Help
+#Options#Options
+#Publish#Publish
+#Settings#Settings
+#Publication configuration#Publication configuration
+#Cancel#Cancel
+#Apply#Apply
+#Close#Close
+#Discard changes#Discard changes
+#Discard changes to Record View configuration?#Discard changes to Record View configuration?
+#Keep editing#Keep editing
+#Record View error#Record View error
+#Record View warning#Record View warning
+#Record View configuration error#Record View configuration error
+#Unable to initialize Record View#Unable to initialize Record View
+#Unable to complete the Record View operation.#Unable to complete the Record View operation.
+#Render engine#Render engine
+#Built-in#Built-in
+#Legacy viewer#Legacy viewer
+#Smarty template#Smarty template
+#Selection mode#Selection mode
+#First selected#First selected
+#Last selected#Last selected
+#Single selection only#Single selection only
+#Language#Language
+#Auto#Auto
+#English#English
+#French#French
+#German#German
+#Portuguese#Portuguese
+#Show header#Show header
+#Header title#Header title
+#Empty message#Empty message
+#None#None
+#selected_showing_notice#{n} selected — showing this record
+#selected_ignored_notice#{n} selected — showing previous selection
+#multiple_selected_single_only#Select a single record
+#record_viewer_unconfigured#Record viewer is not configured

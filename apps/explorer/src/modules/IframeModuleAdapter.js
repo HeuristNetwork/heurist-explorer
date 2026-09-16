@@ -20,7 +20,8 @@ const TYPE_META = {
   data: { bridge: 'heuristDataHost', api: 'heuristData' },
   map: { bridge: 'heuristMapHost', api: 'heuristMap' },
   timeline: { bridge: 'heuristTimelineHost', api: 'heuristTimeline' },
-  graph: { bridge: 'heuristGraphHost', api: 'heuristGraph' }
+  graph: { bridge: 'heuristGraphHost', api: 'heuristGraph' },
+  recordview: { bridge: 'heuristRecordviewHost', api: 'heuristRecordview' }
 };
 
 /** Same-origin child-module adapter used by Explorer. */
@@ -28,7 +29,7 @@ export class IframeModuleAdapter extends ExplorerModule {
   /**
    * @param {object} options Adapter configuration.
    * @param {string} options.id Unique module instance id.
-   * @param {'data'|'map'|'timeline'|'graph'} options.type Module type.
+   * @param {'data'|'map'|'timeline'|'graph'|'recordview'} options.type Module type.
    * @param {HTMLElement} options.container Element the module's iframe will mount into.
    * @param {string} options.url Module document URL to load in the iframe.
    * @param {object} [options.runtime] Runtime bootstrap fields forwarded to the child module.
@@ -233,7 +234,12 @@ export class IframeModuleAdapter extends ExplorerModule {
       map: ['heurist-map-selection-changed'],
       timeline: ['heurist-timeline-selection-changed'],
       graph: ['heurist-graph-selection-changed'],
-      data: ['heurist-data-selection-changed']
+      data: ['heurist-data-selection-changed'],
+      // RecordView only ever emits this from an explicit "navigate to a
+      // linked record" action (see RecordViewApplication#navigateToRecord),
+      // never from passively displaying a pushed selection - one-way sync
+      // by default.
+      recordview: ['heurist-recordview-selection-changed']
     }[this.type] || [];
     this._eventBindings = names.map((name) => {
       this.api.addEventListener(name, forwardSelection);

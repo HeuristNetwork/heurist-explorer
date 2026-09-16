@@ -4,7 +4,7 @@ import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 
 const appsRoot = path.resolve("apps");
-const appNames = ["explorer", "data", "graph", "map", "timeline"];
+const appNames = ["explorer", "data", "graph", "map", "timeline", "recordview"];
 
 test("applications do not import sibling applications", async () => {
   for (const appName of appNames) {

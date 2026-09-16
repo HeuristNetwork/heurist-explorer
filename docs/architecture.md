@@ -3,9 +3,9 @@
 ## Repository purpose
 
 This repository unifies maintenance and builds without merging the runtime
-applications. Explorer, Data, Graph, Map and Timeline remain autonomous programs.
-Each owns its bootstrap, application object, engine adapter, host adapter, public
-API, styles, localization and tests.
+applications. Explorer, Data, Graph, Map, Timeline and Record View remain
+autonomous programs. Each owns its bootstrap, application object, engine
+adapter, host adapter, public API, styles, localization and tests.
 
 `shared/` contains only presentation-neutral facilities: API transport, bootstrap
 normalization, host contracts, the host bridge, common UI primitives, i18n and
@@ -19,6 +19,7 @@ apps/data ───────────► shared
 apps/graph ──────────► shared
 apps/map ────────────► shared
 apps/timeline ───────► shared
+apps/recordview ─────► shared
 ```
 
 Explorer may import only a presentation application's explicit direct-bootstrap
@@ -68,6 +69,17 @@ Leaflet objects remain behind the map engine adapter.
 
 Owns temporal contexts, `/time` response adaptation, vis.timeline rendering,
 uncertain-date presentation and timeline configuration.
+
+### Record View
+
+Owns single-record rendering and its render-engine choice (`builtin`, an
+in-repo field/value renderer; `legacy`, the PHP record viewer; `smarty`, a
+configured report template — the latter two embedded as an iframe). Record
+View owns no DataSource: it only ever fetches the one record it is asked to
+display, and it only ever consumes the shared selection (`setSelection`),
+never a DataSource push. Selection sync is one-way by default — displaying a
+followed selection never re-emits it — with an explicit exception for
+following a linked record from within the rendered content.
 
 ## CSS and localization
 

@@ -19,6 +19,7 @@ contract. They must not access application or engine internals.
 | Graph | `HeuristGraphPublicApi` | `heuristGraph` |
 | Map | `HeuristMapPublicApi` | `heuristMap` |
 | Timeline | `HeuristTimelinePublicApi` | `heuristTimeline` |
+| Record View | `HeuristRecordViewPublicApi` | `heuristRecordview` |
 
 Explorer's iframe and direct adapters talk only to these public surfaces.
 DataSource, selection and collection synchronization must not bypass them.
@@ -53,6 +54,7 @@ hclient/bundles/heurist-data/
 hclient/bundles/heurist-graph/
 hclient/bundles/heurist-map/
 hclient/bundles/heurist-timeline/
+hclient/bundles/heurist-recordview/
 ```
 
 ## Change rules

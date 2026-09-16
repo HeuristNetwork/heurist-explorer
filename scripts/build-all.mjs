@@ -1,7 +1,7 @@
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
-const targets = ["explorer", "data", "graph", "map", "timeline"];
+const targets = ["explorer", "data", "graph", "map", "timeline", "recordview"];
 const viteCli = fileURLToPath(
   new URL("../node_modules/vite/bin/vite.js", import.meta.url),
 );

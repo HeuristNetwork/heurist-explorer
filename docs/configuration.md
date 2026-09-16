@@ -2,7 +2,7 @@
 
 ## Build targets
 
-One `vite.config.js` defines five targets selected through Vite mode:
+One `vite.config.js` defines six targets selected through Vite mode:
 
 | Target | Development port | Output |
 | --- | ---: | --- |
@@ -11,6 +11,7 @@ One `vite.config.js` defines five targets selected through Vite mode:
 | data | 5175 | `dist/heurist-data/` |
 | timeline | 5176 | `dist/heurist-timeline/` |
 | graph | 5177 | `dist/heurist-graph/` |
+| recordview | 5178 | `dist/heurist-recordview/` |
 
 Each invocation sets its app directory as Vite's root and its own `public/`
 directory as `publicDir`. Consequently only the selected app's localization and
@@ -37,6 +38,7 @@ The exact allowed values remain application-owned:
 - `apps/graph/src/graphConfig.js`
 - `apps/map/src/mapConfig.js`
 - `apps/timeline/src/timelineConfig.js`
+- `apps/recordview/src/recordViewConfig.js`
 
 Persisted settings are normalized by each application's configuration schema.
 Bootstrap/runtime state and persisted settings are not interchangeable.

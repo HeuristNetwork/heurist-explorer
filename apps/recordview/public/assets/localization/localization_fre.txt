@@ -1,0 +1,42 @@
+#Record View controls#Contrôles de Record View
+#Record View#Vue enregistrement
+#Select a record#Sélectionnez un enregistrement
+#Record#Enregistrement
+#Help#Aide
+#Options#Options
+#Publish#Publier
+#Settings#Paramètres
+#Publication configuration#Configuration de publication
+#Cancel#Annuler
+#Apply#Appliquer
+#Close#Fermer
+#Discard changes#Annuler les modifications
+#Discard changes to Record View configuration?#Abandonner les modifications de la configuration de Record View ?
+#Keep editing#Continuer l'édition
+#Record View error#Erreur Record View
+#Record View warning#Avertissement Record View
+#Record View configuration error#Erreur de configuration Record View
+#Unable to initialize Record View#Impossible d'initialiser Record View
+#Unable to complete the Record View operation.#Impossible de terminer l'opération Record View.
+#Render engine#Moteur de rendu
+#Built-in#Intégré
+#Legacy viewer#Visionneuse historique
+#Smarty template#Modèle Smarty
+#Selection mode#Mode de sélection
+#First selected#Premier sélectionné
+#Last selected#Dernier sélectionné
+#Single selection only#Sélection unique uniquement
+#Language#Langue
+#Auto#Auto
+#English#Anglais
+#French#Français
+#German#Allemand
+#Portuguese#Portugais
+#Show header#Afficher l'en-tête
+#Header title#Titre de l'en-tête
+#Empty message#Message si vide
+#None#Aucun
+#selected_showing_notice#{n} sélectionnés — affichage de celui-ci
+#selected_ignored_notice#{n} sélectionnés — affichage de la sélection précédente
+#multiple_selected_single_only#Sélectionnez un seul enregistrement
+#record_viewer_unconfigured#La visionneuse d'enregistrement n'est pas configurée

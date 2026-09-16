@@ -688,8 +688,6 @@ export class ExplorerApplication {
    * @returns {Promise<boolean>} New visible state.
    */
   async togglePresentation(type) {
-    if (type === 'recordview') return false;
-
     if (this.layout?.isToolMode()) {
       const wasVisible = this.layout.isPresentationVisible(type);
       this.layout.exitToolMode();
@@ -705,7 +703,8 @@ export class ExplorerApplication {
       data: 'west',
       map: 'center',
       graph: 'center',
-      timeline: 'south'
+      timeline: 'south',
+      recordview: 'east'
     };
     const region = regionByType[type];
     if (!region) return false;
@@ -1047,7 +1046,7 @@ function defaultLayout() {
 function normalizeLayout(value) {
   const list = Array.isArray(value) ? value : value?.modules;
   const normalized = (Array.isArray(list) ? list : defaultLayout())
-    .filter((item) => item && ['data', 'map', 'timeline', 'graph'].includes(item.type))
+    .filter((item) => item && ['data', 'map', 'timeline', 'graph', 'recordview'].includes(item.type))
     .map((item, index) => ({
       ...item,
       id: String(item.id || `${item.type}-${index + 1}`),

@@ -1,7 +1,7 @@
 import { cp, mkdir, rename, rm, stat } from "node:fs/promises";
 import path from "node:path";
 
-const validTargets = new Set(["explorer", "data", "graph", "map", "timeline"]);
+const validTargets = new Set(["explorer", "data", "graph", "map", "timeline", "recordview"]);
 const target = process.argv[2];
 if (target !== "all" && !validTargets.has(target)) {
   throw new Error(`Expected module name: all, ${[...validTargets].join(", ")}`);
