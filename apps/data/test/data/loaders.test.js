@@ -13,12 +13,12 @@
 
 import test from "node:test";
 import assert from "node:assert/strict";
-import { QuerySourceLoader } from "#shared/data/QuerySourceLoader.js";
-import { QueryLoader } from "../../src/engine/loaders/QueryLoader.js";
+import { DataSourceLoader } from "../../src/engine/loaders/DataSourceLoader.js";
+import { DirectQueryLoader } from "../../src/engine/loaders/DirectQueryLoader.js";
 
-test("QuerySourceLoader retrieves definition then selected record fields", async () => {
+test("DataSourceLoader retrieves definition then selected record fields", async () => {
   const calls = [];
-  const loader = new QuerySourceLoader({
+  const loader = new DataSourceLoader({
     querySourceProvider: {
       load: async () => ({
         id: 7,
@@ -39,9 +39,9 @@ test("QuerySourceLoader retrieves definition then selected record fields", async
   assert.equal(calls[0].query, "t:10");
 });
 
-test("QuerySourceLoader can request only presentation fields", async () => {
+test("DataSourceLoader can request only presentation fields", async () => {
   let request;
-  const loader = new QuerySourceLoader({
+  const loader = new DataSourceLoader({
     querySourceProvider: {
       load: async () => ({
         source: { query: "t:10" },
@@ -63,8 +63,8 @@ test("QuerySourceLoader can request only presentation fields", async () => {
   assert.deepEqual(request.fields, ["rec_OwnerName", "rec_ThumbnailURL"]);
 });
 
-test("QueryLoader creates a transient Filtered Result Query Source", async () => {
-  const loader = new QueryLoader({
+test("DirectQueryLoader creates a transient Filtered Result Query Source", async () => {
+  const loader = new DirectQueryLoader({
     recordDataProvider: {
       load: async () => ({ records: [], meta: {}, pagination: {} }),
     },
@@ -78,9 +78,9 @@ test("QueryLoader creates a transient Filtered Result Query Source", async () =>
   ]);
 });
 
-test("QueryLoader can request only presentation fields", async () => {
+test("DirectQueryLoader can request only presentation fields", async () => {
   let request;
-  const loader = new QueryLoader({
+  const loader = new DirectQueryLoader({
     recordDataProvider: {
       load: async (value) => {
         request = value;

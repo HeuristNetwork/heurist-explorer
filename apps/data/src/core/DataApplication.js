@@ -13,10 +13,7 @@
  * @since       8.0
  */
 
-import {
-  normalizeDataConfigurationSettings,
-  serializeDataConfigurationSettings,
-} from "../ui/config/dataConfigurationSchema.js";
+import { normalizeDataConfigurationSettings } from "../ui/config/dataConfigurationSchema.js";
 
 /** Coordinates host integration, data loading, engine rendering, and state. */
 export class DataApplication extends EventTarget {
@@ -27,7 +24,7 @@ export class DataApplication extends EventTarget {
    * @param {object} options.engine Rendering engine adapter (e.g. HRecordList or DataTablesAdapter).
    * @param {Function|null} [options.engineFactory] Factory used to swap engines when the configured engine changes.
    * @param {object} options.host Host adapter used for lifecycle and preference delegation.
-   * @param {object} options.loaders Loader registry used to load Query Sources/queries/filters.
+   * @param {object} options.loaders Loader registry used to load persisted Query Sources and direct queries.
    * @param {object} [options.providers] Supporting providers (record content, field values, etc.).
    */
   constructor({
@@ -49,12 +46,11 @@ export class DataApplication extends EventTarget {
     this.loaders = loaders;
     this.providers = providers;
     this.querySource = null;
-    this.query = null;
     this.response = null;
     this.selection = [];
     this.abortController = null;
     this.requestGeneration = 0;
-    this.source = null;
+    this.activeLoad = null;
     this.dataSource = cloneValue(config.source?.dataSource);
     this.sourceTitle = text(config.source?.title ?? this.dataSource?.title);
     this.hostContext = null;
@@ -184,29 +180,18 @@ export class DataApplication extends EventTarget {
     }
   }
 
-  /** Load and activate a persisted Query Source by ID. */
+  /** Load and activate a persisted Query Source by ID (internal; not exposed on the public API). */
   async setQuerySource(querySourceId, options = {}) {
     this.dataSource = cloneValue(options.dataSource);
     this.sourceTitle = text(options.title ?? this.dataSource?.title);
-    this._resetSource({ type: "querySource", querySourceId, options });
-    const result = await this._load("querySource", {
+    this._resetActiveLoad({ type: "source", querySourceId, options });
+    const result = await this._load("source", {
       limit: this.config.engineOptions?.pageLength,
       querySourceId,
       ...options,
     });
     this.querySource = result.querySource;
-    this.query = result.querySource.source.query;
     return this._applyResult(result);
-  }
-
-  /** Restore the most recently remembered Filtered Result source. */
-  async activateCurrentResults() {
-    if (!this.currentResultsSource?.query) return this.clearData();
-    return this.setQuery(this.currentResultsSource.query, {
-      fields: this.currentResultsSource.fields,
-      activateCurrentResults: true,
-      rememberCurrentResults: false,
-    });
   }
 
   /** Load and activate a transient Filtered Result query. */
@@ -222,19 +207,18 @@ export class DataApplication extends EventTarget {
     // Host search events keep Filtered Result up to date, but must not replace
     // a Query Source which the user deliberately selected.
     if (
-      this.source?.type === "querySource" &&
+      this.activeLoad?.type === "source" &&
       options.activateCurrentResults !== true
     ) {
       return this.getState();
     }
-    this._resetSource({ type: "query", query, options });
+    this._resetActiveLoad({ type: "query", query, options });
     const result = await this._load("query", {
       limit: this.config.engineOptions?.pageLength,
       query,
       ...options,
     });
     this.querySource = result.querySource;
-    this.query = query;
     return this._applyResult(result);
   }
 
@@ -309,30 +293,30 @@ export class DataApplication extends EventTarget {
     return this.getState();
   }
 
-  /** Set the active source descriptor and dispatch a pending `heurist-data-source-changed` event. */
-  _resetSource(source) {
-    this.source = source;
+  /** Set the active load descriptor and dispatch a pending `heurist-data-source-changed` event. */
+  _resetActiveLoad(activeLoad) {
+    this.activeLoad = activeLoad;
     this.recordsTotal = null;
     this.dispatch("heurist-data-source-changed", {
-      source: source.type,
+      source: activeLoad.type,
       pending: true,
     });
   }
 
   /** Load one page of the active source, requested by the engine's pagination/sort/filter controls. */
   async _loadPage({ offset, limit, sort, filter } = {}) {
-    if (!this.source) throw new Error("No Query Source is active");
+    if (!this.activeLoad) throw new Error("No Query Source is active");
     const request = {
-      ...this.source.options,
+      ...this.activeLoad.options,
       offset,
       limit,
       sort,
       filter,
     };
-    if (this.source.type === "querySource")
-      request.querySourceId = this.source.querySourceId;
-    else request.query = this.source.query;
-    const result = await this._load(this.source.type, request);
+    if (this.activeLoad.type === "source")
+      request.querySourceId = this.activeLoad.querySourceId;
+    else request.query = this.activeLoad.query;
+    const result = await this._load(this.activeLoad.type, request);
     const filteredTotal = Number(result.response.pagination?.total) || 0;
     if (filter == null || filter === "") this.recordsTotal = filteredTotal;
     this.response = result.response;
@@ -362,8 +346,7 @@ export class DataApplication extends EventTarget {
     this.requestGeneration += 1;
     this.abortController?.abort("Data cleared");
     this.querySource = null;
-    this.query = null;
-    this.source = null;
+    this.activeLoad = null;
     this.dataSource = null;
     this.sourceTitle = "";
     this.recordsTotal = null;
@@ -484,10 +467,10 @@ export class DataApplication extends EventTarget {
     const engineState = this.engine.getState?.() || {};
     return {
       querySourceId: this.querySource?.id ?? null,
-      query: this.query,
+      query: this.querySource?.source?.query ?? null,
       dataSource: cloneValue(this.dataSource),
       title: this.sourceTitle || null,
-      sourceType: this.source?.type ?? null,
+      sourceType: this.activeLoad?.type ?? null,
       selection: [...this.selection],
       pagination: engineState.pagination || this.response?.pagination || null,
       ...(engineState.viewMode ? { viewMode: engineState.viewMode } : {}),
@@ -571,60 +554,6 @@ export class DataApplication extends EventTarget {
   }
 
   /**
-   * Create a new persisted Query Source record through the host's record editor and activate it.
-   *
-   * When Query Source access is restricted to an allow-list, the new Query Source is added to it
-   * and the configuration change is persisted and announced before activation.
-   *
-   * @returns {Promise<object|null>} The host's record-creation result, or `null` when the host has no editor
-   *   (a `heurist-data-create-query-source-requested` event is dispatched instead).
-   * @throws {Error} When the host can edit records but the Query Source record type is unavailable.
-   */
-  async requestCreateQuerySource() {
-    if (
-      this.host.supportsEditing?.() &&
-      typeof this.host.addRecord === "function"
-    ) {
-      const result = await this.providers.querySourceList?.list({ ids: [] });
-      const recordTypeId = Number(result?.recordTypeId);
-      if (!(recordTypeId > 0))
-        throw new Error("Query Source record type is not available");
-      const created = await this.host.addRecord(recordTypeId);
-      const recordId = Number(
-        created?.recordId ?? created?.rec_ID ?? created?.id,
-      );
-      if (recordId > 0) {
-        const settings = this.config.persistedSettings;
-        const querySources = settings?.options?.querySources;
-        if (querySources?.allowAll === false) {
-          const allowed = Array.isArray(querySources.allowed)
-            ? querySources.allowed
-            : [];
-          querySources.allowed = allowed;
-          if (allowed.map(Number).includes(recordId)) {
-            await this.setQuerySource(recordId);
-            return created ?? null;
-          }
-          allowed.push(recordId);
-          if (typeof this.host.savePreferences === "function") {
-            await this.host.savePreferences(
-              serializeDataConfigurationSettings(settings),
-            );
-          }
-          this.dispatch("heurist-data-configuration-changed", {
-            options: settings.options,
-            config: settings.config,
-          });
-        }
-        await this.setQuerySource(recordId);
-      }
-      return created ?? null;
-    }
-    this.dispatch("heurist-data-create-query-source-requested", {});
-    return null;
-  }
-
-  /**
    * Ask the host to edit the field selection for the active Query Source (or Filtered Result).
    *
    * For a Filtered Result (no Query Source id), the returned field list is applied immediately
@@ -643,13 +572,14 @@ export class DataApplication extends EventTarget {
           ? result
           : (result?.fields ?? result?.value?.fields);
         if (Array.isArray(fields)) {
+          const currentQuery = this.querySource?.source?.query ?? null;
           this.currentResultsSource = {
             ...(this.currentResultsSource || {}),
-            query: this.query,
+            query: currentQuery,
             fields,
           };
-          if (this.query)
-            await this.setQuery(this.query, {
+          if (currentQuery)
+            await this.setQuery(currentQuery, {
               fields,
               activateCurrentResults: true,
               rememberCurrentResults: true,
@@ -662,60 +592,6 @@ export class DataApplication extends EventTarget {
       querySource: this.querySource?.toJSON?.() || null,
     });
     return null;
-  }
-
-  /**
-   * Build a search request from a saved filter and activate it as the current Filtered Result.
-   *
-   * Delegates to the host's search engine when available; otherwise runs the search (or a
-   * count-only lookup) through the standalone providers.
-   *
-   * @param {object} filter Saved filter definition; see `createFilterSearchRequest`.
-   * @returns {Promise<object>} Updated application state.
-   * @throws {Error} When standalone search is requested but no search/count provider is configured.
-   */
-  async activateFilter(filter) {
-    const { createFilterSearchRequest } = await import(
-      "../data/FilterSearchRequest.js"
-    );
-    const request = createFilterSearchRequest(filter, {
-      searchRealm: this.config.searchRealm,
-      source: this.config.sourceId || this.container?.id || null,
-    });
-    if (
-      request.q == null ||
-      (typeof request.q === "string" && !request.q.trim())
-    ) {
-      return this.getState();
-    }
-    this.querySource = null;
-    this.source = null;
-    this.dispatch("heurist-data-source-changed", {
-      source: "current-results",
-      pending: true,
-    });
-    if (this.host.supportsSearch?.()) {
-      await this.host.doSearch(request);
-      return this.getState();
-    }
-    const searchProvider = this.providers.recordSearch;
-    const countProvider = this.providers.recordDataProvider;
-    if (!searchProvider && typeof countProvider?.count !== "function")
-      throw new Error("Standalone record search is unavailable");
-    const result = searchProvider
-      ? await searchProvider.search(request)
-      : await countProvider.count({
-          query: request.q,
-          filter: request.filter,
-          signal: request.signal,
-        });
-    return this.setQuery(
-      result.query ?? (result.ids ? { ids: result.ids } : request.q),
-      {
-        activateCurrentResults: true,
-        rememberCurrentResults: true,
-      },
-    );
   }
 
   /**
@@ -765,7 +641,6 @@ export class DataApplication extends EventTarget {
       controls: normalized.options.nativeControls,
       interaction: normalized.options.interaction,
       pageLength: normalized.config.defaults.pageSize,
-      showColumnPicker: normalized.options.ui.showColumnPicker,
     };
   }
 

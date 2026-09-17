@@ -18,8 +18,6 @@ import {
   boolean,
   boundedNumber,
   enumValue,
-  nullableIdentifier,
-  nullableList,
   nullableString,
   serializeConfigurationSettings,
   stringValue,
@@ -66,7 +64,7 @@ export function normalizeDataConfigurationMode(value) {
 }
 
 /**
- * Normalize the `options` half of the settings envelope (UI/controls/query sources/filters/interaction).
+ * Normalize the `options` half of the settings envelope (UI/controls/interaction).
  *
  * @param {object} source Raw options value.
  * @param {object} defaults Default options to fall back to.
@@ -75,17 +73,9 @@ export function normalizeDataConfigurationMode(value) {
 function normalizeOptions(source, defaults) {
   const ui = source.ui || {};
   const controls = source.nativeControls || {};
-  const querySources = source.querySources || {};
-  const filters = source.filters || {};
   const interaction = source.interaction || {};
   return {
     ui: {
-      showCurrentResults: boolean(
-        ui.showCurrentResults,
-        defaults.ui.showCurrentResults,
-      ),
-      showQuerySources: boolean(ui.showQuerySources, defaults.ui.showQuerySources),
-      showFilters: boolean(ui.showFilters, defaults.ui.showFilters),
       initiallyExpanded: boolean(
         ui.initiallyExpanded,
         defaults.ui.initiallyExpanded,
@@ -94,12 +84,7 @@ function normalizeOptions(source, defaults) {
         ui.showSourceHeader,
         defaults.ui.showSourceHeader,
       ),
-      showColumnPicker: boolean(
-        ui.showColumnPicker,
-        defaults.ui.showColumnPicker,
-      ),
       showOptions: boolean(ui.showOptions, defaults.ui.showOptions),
-      showPublish: boolean(ui.showPublish, defaults.ui.showPublish),
       language: enumValue(
         ui.language,
         ["auto", "eng", "fre", "ger", "por"],
@@ -116,15 +101,6 @@ function normalizeOptions(source, defaults) {
         controls.selectionActions,
         defaults.nativeControls.selectionActions,
       ),
-    },
-    querySources: {
-      allowAll: boolean(querySources.allowAll, defaults.querySources.allowAll),
-      allowed: nullableList(querySources.allowed),
-      initiallyActive: nullableIdentifier(querySources.initiallyActive),
-    },
-    filters: {
-      allowAll: boolean(filters.allowAll, defaults.filters.allowAll),
-      allowed: nullableList(filters.allowed),
     },
     interaction: {
       readonly: boolean(interaction.readonly, defaults.interaction.readonly),
@@ -153,7 +129,7 @@ function normalizeOptions(source, defaults) {
 }
 
 /**
- * Normalize the `config` half of the settings envelope (defaults/currentResults), migrating legacy fields.
+ * Normalize the `config` half of the settings envelope (defaults), migrating legacy fields.
  *
  * @param {object} source Raw config value.
  * @param {object} defaults Default config to fall back to.
@@ -164,8 +140,6 @@ function normalizeConfig(source, defaults) {
   const legacyTemplate = nullableString(configured.popupTemplate);
   const migratedTemplate =
     legacyTemplate && legacyTemplate !== "standard" ? legacyTemplate : null;
-  const current = source.currentResults || {};
-  const filterBy = current.filterBy || {};
   // View mode is the single source of truth for the rendering engine. The
   // separate "engine" setting is retained only so legacy configs that selected
   // the DataTables renderer via `engine: "datatables"` migrate to the "datatable"
@@ -221,19 +195,6 @@ function normalizeConfig(source, defaults) {
         nullableString(configured.viewTemplate) ||
         migratedTemplate ||
         defaults.defaults.viewTemplate,
-    },
-    currentResults: {
-      enabled: boolean(current.enabled, defaults.currentResults.enabled),
-      title: stringValue(current.title, defaults.currentResults.title),
-      initialQuery: nullableString(current.initialQuery),
-      filterBy: {
-        mode: enumValue(
-          filterBy.mode,
-          ["none", "timefilter", "selection", "lastSelected"],
-          "none",
-        ),
-        widgetId: nullableString(filterBy.widgetId),
-      },
     },
   };
 }

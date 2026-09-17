@@ -17,7 +17,7 @@ function fixture() {
   const engine = { setGraph: async value => { engine.graph = value; }, setSelection: async () => {} };
   const app = new GraphApplication({ config: { query: 't:10', rules: [], links: 'all' }, engine,
     provider: { load: async request => { requests.push(request); return { graph, total: 500000 }; } },
-    querySourceProvider: { load: async () => ({ title: 'Family', source: { query: 't:10' }, links: ['10:rt100:10'], rules: [{ name: 'Parents', description: 'Find parents' }] }) } });
+    querySourceProvider: { load: async () => ({ title: 'Family', source: { query: 't:10' }, rules: [{ name: 'Parents', description: 'Find parents' }] }) } });
   app.graph = graph;
   app.response = { total: 500000 };
   app.recordTypeNames = new Map([[10, 'Persons'], [48, 'Events']]);
@@ -50,12 +50,20 @@ test('subtree visibility is scoped to a link and combines with node visibility',
   assert.equal(events, 3);
 });
 
-test('Query Source links and rule hints follow the active source and current results restore correctly', async () => {
+test('Query Source rule hints follow the active source and current results restore correctly', async () => {
   const { app, requests } = fixture();
   await app.setQuerySource(12);
-  assert.deepEqual(requests.at(-1).links, ['10:rt100:10']);
+  assert.equal(requests.at(-1).links, 'all');
   assert.equal(app.getLegend().rules[0].description, 'Find parents');
-  await app.activateCurrentResults();
+  // Restoring the remembered Filtered Result query is now the caller's job:
+  // clear the active source and Query Source identity so the plain-query
+  // guard doesn't block the reload and expansion rules key off 'current'.
+  app.querySource = null;
+  app.dataSource = null;
+  app.activeLoad = null;
+  app.config.querySourceId = null;
+  app.config.querySourceTitle = null;
+  await app.load({ query: app.currentResultsQuery, remember: false });
   assert.equal(requests.at(-1).links, 'all');
   assert.deepEqual(app.getLegend().rules, []);
   await app.load({ query: 't:48' });

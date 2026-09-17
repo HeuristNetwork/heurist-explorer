@@ -26,10 +26,7 @@ import { DataConfigurationDialog } from "../../src/ui/config/DataConfigurationDi
 
 test("data configuration defaults expose the requested controls", () => {
   const value = createDataConfigurationDefaults();
-  assert.equal(value.options.ui.showColumnPicker, true);
   assert.equal(value.options.nativeControls.export, true);
-  assert.equal(value.options.querySources.allowAll, true);
-  assert.equal(value.options.filters.allowAll, true);
   assert.equal(value.options.ui.language, "auto");
   assert.equal(value.options.ui.showSourceHeader, false);
   assert.equal(value.config.defaults.fontSize, 14);
@@ -40,10 +37,6 @@ test("data configuration defaults expose the requested controls", () => {
   assert.equal(value.config.defaults.viewTemplate, null);
   assert.equal(value.options.nativeControls.viewMode, true);
   assert.equal(value.options.nativeControls.selectionActions, true);
-  assert.deepEqual(value.config.currentResults.filterBy, {
-    mode: "none",
-    widgetId: null,
-  });
 });
 
 test("page size accepts only configured choices and publication restricts interaction", () => {
@@ -90,23 +83,16 @@ test("normalization allowlists values and clamps font size", () => {
   const value = normalizeDataConfigurationSettings({
     options: {
       accessToken: "discard",
-      querySources: { allowAll: false, allowed: [2, "3", 0, 2] },
       interaction: { persistentSelectionEnabled: true },
     },
     config: {
       defaults: { fontSize: 50 },
-      currentResults: { filterBy: { mode: "selection", widgetId: "w2" } },
     },
     callback() {},
   });
   assert.equal(value.options.accessToken, undefined);
-  assert.deepEqual(value.options.querySources.allowed, [2, 3]);
   assert.equal(value.options.interaction.persistentSelectionEnabled, true);
   assert.equal(value.config.defaults.fontSize, 30);
-  assert.deepEqual(value.config.currentResults.filterBy, {
-    mode: "selection",
-    widgetId: "w2",
-  });
 });
 
 test("view mode drives the engine and both are allowlisted", () => {
@@ -182,25 +168,23 @@ test("published UI language is restricted to available locale resources", () => 
 
 test("serializer creates the heurist-data settings envelope", () => {
   const value = serializeDataConfigurationSettings({
-    options: { filters: { allowAll: false, allowed: [5] } },
+    options: { nativeControls: { export: false } },
   });
   assert.equal(value.format, CONFIGURATION_FORMAT);
   assert.equal(value.version, CONFIGURATION_VERSION);
-  assert.deepEqual(value.options.filters.allowed, [5]);
+  assert.equal(value.options.nativeControls.export, false);
 });
 
 test("dialog is usable as a value object without a document", () => {
   const dialog = new DataConfigurationDialog({
     mode: "website",
     value: {
-      options: { ui: { showOptions: true, showPublish: true } },
-      config: { currentResults: { initialQuery: "t:10" } },
+      options: { ui: { showOptions: true, showSourceHeader: true } },
     },
   });
   const value = dialog.getValue();
   assert.equal(value.options.ui.showOptions, true);
-  assert.equal(value.options.ui.showPublish, false);
-  assert.equal(value.config.currentResults.initialQuery, "t:10");
+  assert.equal(value.options.ui.showSourceHeader, true);
   assert.equal(dialog.serialize().format, "heurist-data-settings");
 });
 

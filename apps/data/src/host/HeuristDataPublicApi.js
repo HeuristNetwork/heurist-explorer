@@ -42,11 +42,6 @@ export class HeuristDataPublicApi {
     return this.readyPromise || Promise.resolve(this);
   }
 
-  /** Select and load a persisted Query Source. */
-  setQuerySource(id, options) {
-    return this.application.setQuerySource(id, options);
-  }
-
   /** Select and load Filtered Result. */
   setQuery(query, options) {
     return this.application.setQuery(query, options);
@@ -65,47 +60,6 @@ export class HeuristDataPublicApi {
   /** Clear the selected record IDs. */
   clearSelection() {
     return this.application.clearSelection();
-  }
-
-  /** Activate the remembered Filtered Result source. */
-  activateCurrentResults() {
-    return this.application.activateCurrentResults();
-  }
-
-  /** Activate a saved filter against Filtered Result. */
-  activateFilter(filter) {
-    return this.application.activateFilter(filter);
-  }
-
-  /**
-   * Dispatch a public event announcing that a saved filter is loading.
-   *
-   * @param {number|string} filterId Saved filter record ID.
-   * @returns {void}
-   */
-  notifyFilterLoading(filterId) {
-    this.application.dispatch("heurist-data-filter-loading", {
-      filterId: Number(filterId),
-    });
-  }
-
-  /**
-   * Dispatch a public event announcing that a saved filter has loaded.
-   *
-   * @param {object} filter Loaded filter definition.
-   * @returns {void}
-   */
-  notifyFilterLoaded(filter) {
-    this.application.dispatch("heurist-data-filter-loaded", { filter });
-  }
-
-  /**
-   * Create a new persisted Query Source record and activate it.
-   *
-   * @returns {Promise<object|null>} The host's record-creation result, or `null` when unavailable.
-   */
-  requestCreateQuerySource() {
-    return this.application.requestCreateQuerySource();
   }
 
   /**
@@ -135,8 +89,16 @@ export class HeuristDataPublicApi {
   /** Reload the active Query Source or query. */
   refresh() {
     const state = this.application.getState();
-    if (state.querySourceId)
-      return this.setQuerySource(state.querySourceId, { reload: true });
+    if (state.querySourceId) {
+      // setQuerySource is internal-only (see DataApplication#setQuerySource);
+      // reload re-fetches the persisted definition through the application
+      // directly rather than the public API.
+      return this.application.setQuerySource(state.querySourceId, {
+        reload: true,
+        dataSource: state.dataSource,
+        title: state.title,
+      });
+    }
     if (state.query != null && state.query !== "") {
       return this.setQuery(state.query, { reload: true });
     }

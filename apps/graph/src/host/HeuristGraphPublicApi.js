@@ -148,16 +148,6 @@ export class HeuristGraphPublicApi {
   }
 
   /**
-   * Load a persisted Query Source by id and activate it as the graph's source.
-   *
-   * @param {number|string} id Query Source record id.
-   * @returns {Promise<object>} Updated application state.
-   */
-  setQuerySource(id) {
-    return this.application.setQuerySource(id);
-  }
-
-  /**
    * Apply a DataSource pushed by the host (main runtime), unless the viewer has stuck the current one.
    *
    * @param {object} dataSource DataSource to activate.
@@ -212,25 +202,6 @@ export class HeuristGraphPublicApi {
    */
   getHostCapabilities() {
     return this.application.getHostCapabilities();
-  }
-
-  /**
-   * Restore the most recently remembered Filtered Result query.
-   *
-   * @returns {Promise<object>} Updated application state.
-   */
-  activateCurrentResults() {
-    return this.application.activateCurrentResults();
-  }
-
-  /**
-   * Apply a saved Filter as a new search.
-   *
-   * @param {object} filter Saved filter (or its raw query).
-   * @returns {Promise<object>} Updated application state.
-   */
-  activateFilter(filter) {
-    return this.application.activateFilter(filter);
   }
 
   /**

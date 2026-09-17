@@ -52,7 +52,7 @@ export class GraphLegendEditor {
       const input = document.createElement(multiline ? 'textarea' : 'input'); input.className = "h-input"; input.value = value;
       label.append(input); body.append(label); return input;
     };
-    const current = app.source?.links ?? app.querySource?.links ?? app.config.links ?? 'all';
+    const current = app.config.links ?? 'all';
     const links = field('Links (one definition per line, or all)', Array.isArray(current) ? current.join('\n') : current, true);
     links.placeholder = '10:lt240:48\n10:rt3260:10';
     const footer = document.createElement('footer'); footer.className = 'h-dialog-footer';
@@ -63,13 +63,12 @@ export class GraphLegendEditor {
       save.disabled = true;
       try {
         if (app.generation !== generation) throw new Error($HR('The active graph changed. Reopen this editor.'));
-        if (app.querySourceAvailable === false || app.config.persistedSettings?.options?.interaction?.readonly === true || app.config.persistedSettings?.options?.interaction?.editEnabled === false) throw new Error($HR('Editing is disabled.'));
+        if (app.config.persistedSettings?.options?.interaction?.readonly === true || app.config.persistedSettings?.options?.interaction?.editEnabled === false) throw new Error($HR('Editing is disabled.'));
         const value = links.value.trim();
         if (!value) throw new Error($HR('Enter link definitions or all.'));
         const specs = value.toLowerCase() === 'all' ? 'all' : value.split(/[\n,]+/).map(s => s.trim()).filter(Boolean);
         if (specs !== 'all' && specs.some(s => !/^\d+:(?:lt|rt)\d+:\d+$/.test(s))) throw new Error($HR('Use link definitions such as 10:lt240:48 or 10:rt3260:10.'));
         await app.load({ query: app.config.query, links: specs, internal: true, remember: false });
-        if (app.source) app.source.links = specs;
         this.destroy();
       } catch (error) {
         if (this.onError) this.onError(error);

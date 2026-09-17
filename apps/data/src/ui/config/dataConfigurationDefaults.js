@@ -14,14 +14,9 @@
  */
 export const HEURIST_DATA_OPTIONS_DEFAULTS = Object.freeze({
   ui: Object.freeze({
-    showCurrentResults: true,
-    showQuerySources: true,
-    showFilters: true,
     initiallyExpanded: true,
     showSourceHeader: false,
-    showColumnPicker: true,
     showOptions: true,
-    showPublish: true,
     language: "auto",
   }),
   nativeControls: Object.freeze({
@@ -32,12 +27,6 @@ export const HEURIST_DATA_OPTIONS_DEFAULTS = Object.freeze({
     viewMode: true,
     selectionActions: true,
   }),
-  querySources: Object.freeze({
-    allowed: null,
-    allowAll: true,
-    initiallyActive: null,
-  }),
-  filters: Object.freeze({ allowed: null, allowAll: true }),
   interaction: Object.freeze({
     readonly: false,
     editEnabled: true,
@@ -58,12 +47,6 @@ export const HEURIST_DATA_CONFIG_DEFAULTS = Object.freeze({
     emptyResultMessage: "No records",
     cardTemplate: null,
     viewTemplate: null,
-  }),
-  currentResults: Object.freeze({
-    enabled: true,
-    title: "Filtered Result",
-    initialQuery: null,
-    filterBy: Object.freeze({ mode: "none", widgetId: null }),
   }),
 });
 

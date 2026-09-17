@@ -14,13 +14,9 @@
  */
 export const HEURIST_GRAPH_OPTIONS_DEFAULTS = Object.freeze({
   ui: Object.freeze({
-    showCurrentResults: true,
-    showQuerySources: false,
-    showFilters: false,
     initiallyExpanded: true,
     showSourceHeader: true,
     showOptions: true,
-    showPublish: true,
     showExpand: true,
     language: "auto",
   }),
@@ -29,12 +25,6 @@ export const HEURIST_GRAPH_OPTIONS_DEFAULTS = Object.freeze({
     pan: true,
     rearrange: true,
   }),
-  querySources: Object.freeze({
-    allowed: null,
-    allowAll: true,
-    initiallyActive: null,
-  }),
-  filters: Object.freeze({ allowed: null, allowAll: true }),
   interaction: Object.freeze({
     readonly: false,
     editEnabled: true,
@@ -58,12 +48,6 @@ export const HEURIST_GRAPH_CONFIG_DEFAULTS = Object.freeze({
     labelLength: 40,
     popupDelay: 1,
     popupTemplate: null,
-  }),
-  currentResults: Object.freeze({
-    enabled: true,
-    title: "Filtered Result",
-    initialQuery: null,
-    filterBy: Object.freeze({ mode: "none", widgetId: null }),
   }),
 });
 

@@ -362,7 +362,7 @@ test("HeuristGraphHostAdapter publishes selection through the bridge", async () 
   assert.deepEqual(selection, [3, 4]);
 });
 
-test("GraphApplication ignores a Filtered Result query while a Query Source is active, and activateCurrentResults restores the last remembered query", async () => {
+test("GraphApplication ignores a Filtered Result query while a Query Source is active, and remembers the latest one for later restoration", async () => {
   const engine = {
     initialize: async () => {},
     setGraph: async () => {},
@@ -398,7 +398,14 @@ test("GraphApplication ignores a Filtered Result query while a Query Source is a
 
   // Reactivating Filtered Result restores the latest remembered query (t:99),
   // not the one that was active before the Query Source was selected (t:10).
-  await application.activateCurrentResults();
+  // Restoring it is now the caller's job: clear the active source and Query
+  // Source identity so the plain-query guard doesn't block the reload.
+  application.querySource = null;
+  application.dataSource = null;
+  application.activeLoad = null;
+  application.config.querySourceId = null;
+  application.config.querySourceTitle = null;
+  await application.load({ query: application.currentResultsQuery, remember: false });
   assert.equal(application.getState().querySourceId, null);
   assert.equal(application.getState().query, "t:99");
 });
@@ -460,48 +467,6 @@ test("GraphApplication.requestPopupContent is a no-op without a configured templ
   });
   const html = await application.requestPopupContent({ recordId: 7 });
   assert.equal(html, null);
-});
-
-test("GraphApplication.activateFilter triggers the host search in hosted mode and loads locally in standalone mode", async () => {
-  const engine = {
-    initialize: async () => {},
-    setGraph: async () => {},
-    mergeGraph: async () => {},
-    setSelection: async () => {},
-    destroy: async () => {},
-  };
-  let searchRequest = null;
-  const hostedApplication = new GraphApplication({
-    config: { selection: [], limits: {}, searchRealm: "graph1", sourceId: "graph1" },
-    provider: { load: async () => assert.fail("standalone load must not run in hosted mode") },
-    engine,
-    host: {
-      supportsSearch: () => true,
-      doSearch: (request) => {
-        searchRequest = request;
-      },
-    },
-  });
-  await hostedApplication.initialize({});
-  await hostedApplication.activateFilter({ id: 1, query: "t:30" });
-  assert.equal(searchRequest.q, "t:30");
-  assert.equal(searchRequest.search_realm, "graph1");
-
-  let loadedQuery = null;
-  const standaloneApplication = new GraphApplication({
-    config: { selection: [], limits: {} },
-    provider: {
-      load: async ({ query }) => {
-        loadedQuery = query;
-        return { graph: new GraphDocument(graphEnvelope({})), query };
-      },
-    },
-    engine,
-    host: {},
-  });
-  await standaloneApplication.initialize({});
-  await standaloneApplication.activateFilter({ id: 2, query: "t:40" });
-  assert.equal(loadedQuery, "t:40");
 });
 
 test("GraphApplication shows the configured empty-result message for a missing or empty query", async () => {
@@ -585,13 +550,4 @@ test("GraphApplication emits selection changes from the graph engine", async () 
    assert.equal(bodies[0].limit, 5000);
    assert.equal(bodies[0].limits.maxNodes, 5000);
    assert.equal(bodies[1].limit, 50);
- });
-
- test("missing Query Source definition keeps the graph usable and enforces readonly preferences", async () => {
-   const app = new GraphApplication({ config: { selection: [], limits: {}, engineOptions: {} }, engine: { applyConfiguration: async () => {}, setGraph: async () => {}, setSelection: async () => {} } });
-   app.disableQuerySourceEditing();
-   assert.equal(app.config.persistedSettings.options.interaction.readonly, true);
-   await app.applyConfiguration({ options: { interaction: { readonly: false, editEnabled: true } } });
-   assert.equal(app.config.persistedSettings.options.interaction.readonly, true);
-   assert.equal(app.config.persistedSettings.options.interaction.editEnabled, false);
  });

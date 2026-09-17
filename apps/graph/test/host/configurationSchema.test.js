@@ -26,8 +26,6 @@ import { GraphConfigurationDialog } from "../../src/ui/config/GraphConfiguration
 
 test("graph configuration defaults expose the requested controls", () => {
   const value = createGraphConfigurationDefaults();
-  assert.equal(value.options.querySources.allowAll, true);
-  assert.equal(value.options.filters.allowAll, true);
   assert.equal(value.options.ui.language, "auto");
   assert.equal(value.options.ui.showSourceHeader, true);
   assert.equal(value.options.ui.showExpand, true);
@@ -38,10 +36,6 @@ test("graph configuration defaults expose the requested controls", () => {
   assert.equal(value.config.defaults.maxEdges, 10000);
   assert.equal(value.config.defaults.layoutMode, "automatic");
   assert.equal(value.config.defaults.popupTemplate, null);
-  assert.deepEqual(value.config.currentResults.filterBy, {
-    mode: "none",
-    widgetId: null,
-  });
 });
 
 test("node and edge limits accept only the configured choices", () => {
@@ -79,26 +73,17 @@ test("publication mode locks interaction down to a read-only viewer", () => {
   assert.equal(interaction.popupEnabled, true);
 });
 
-test("normalization drops unknown keys and allowlists Query Source ids and filter mode", () => {
+test("normalization drops unknown keys", () => {
   const value = normalizeGraphConfigurationSettings({
     options: {
       accessToken: "discard",
-      querySources: { allowAll: false, allowed: [2, "3", 0, 2] },
       interaction: { editEnabled: false },
-    },
-    config: {
-      currentResults: { filterBy: { mode: "selection", widgetId: "w2" } },
     },
     callback() {},
   });
   assert.equal(value.options.accessToken, undefined);
   assert.equal(value.options.interaction.persistentSelectionEnabled, undefined);
-  assert.deepEqual(value.options.querySources.allowed, [2, 3]);
   assert.equal(value.options.interaction.editEnabled, false);
-  assert.deepEqual(value.config.currentResults.filterBy, {
-    mode: "selection",
-    widgetId: "w2",
-  });
 });
 
 test("legacy popupTemplate migrates to the node popup template and 'standard' means built-in", () => {
@@ -157,25 +142,23 @@ test("published UI language is restricted to available locale resources", () => 
 
 test("serializer creates the heurist-graph settings envelope", () => {
   const value = serializeGraphConfigurationSettings({
-    options: { filters: { allowAll: false, allowed: [5] } },
+    options: { nativeControls: { zoom: false } },
   });
   assert.equal(value.format, CONFIGURATION_FORMAT);
   assert.equal(value.version, CONFIGURATION_VERSION);
-  assert.deepEqual(value.options.filters.allowed, [5]);
+  assert.equal(value.options.nativeControls.zoom, false);
 });
 
 test("dialog is usable as a value object without a document", () => {
   const dialog = new GraphConfigurationDialog({
     mode: "website",
     value: {
-      options: { ui: { showOptions: true, showPublish: true } },
-      config: { currentResults: { initialQuery: "t:10" } },
+      options: { ui: { showOptions: true, showSourceHeader: true } },
     },
   });
   const value = dialog.getValue();
   assert.equal(value.options.ui.showOptions, true);
-  assert.equal(value.options.ui.showPublish, false);
-  assert.equal(value.config.currentResults.initialQuery, "t:10");
+  assert.equal(value.options.ui.showSourceHeader, true);
   assert.equal(dialog.serialize().format, "heurist-graph-settings");
 });
 

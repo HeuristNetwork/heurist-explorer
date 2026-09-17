@@ -1,9 +1,9 @@
 /**
- * @file QueryLoader.js
- * @brief Loads transient Filtered Result Query Sources.
+ * @file DirectQueryLoader.js
+ * @brief Loads transient Filtered Result Query Sources from an already-resolved request.
  *
  * @project     Heurist academic knowledge management system
- * @package     heurist-graph
+ * @package     heurist-data
  *
  * @link        https://HeuristNetwork.org
  * @copyright   (C) 2024 onwards Heurist Network
@@ -15,8 +15,8 @@
 
 import { QuerySource, normalizeQuerySourceFields } from "#shared/data/QuerySource.js";
 
-/** Loads a transient Query Source from a Filtered Result query. */
-export class QueryLoader {
+/** Loads a transient Query Source directly from an already-resolved query, with no persisted reference to fetch. */
+export class DirectQueryLoader {
   /** @param {{recordDataProvider: object}} options Provides the selected-field record page. */
   constructor({ recordDataProvider }) {
     this.recordDataProvider = recordDataProvider;

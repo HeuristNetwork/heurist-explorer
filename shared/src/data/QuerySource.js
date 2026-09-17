@@ -38,6 +38,9 @@ export class QuerySource {
       description: this.description,
       source: structuredCloneSafe(this.source),
       fields: structuredCloneSafe(this.fields),
+      timefields: structuredCloneSafe(this.timefields),
+      map: structuredCloneSafe(this.map),
+      rules: structuredCloneSafe(this.rules),
     };
   }
 }
@@ -74,6 +77,28 @@ export function normalizeQuerySource(value = {}) {
       query: structuredCloneSafe(source.query),
     },
     fields: normalizeQuerySourceFields(value.fields),
+    timefields: normalizeQuerySourceFields(value.timefields),
+    map: normalizeQuerySourceMap(value.map),
+    // Expansion rules are opaque to the client (GraphExpansions consumes
+    // them as-is) - passed through unvalidated; the server already validated
+    // them (ExpansionRuleParser) before ever sending them here.
+    rules: Array.isArray(value.rules) ? value.rules : [],
+  };
+}
+
+/**
+ * Normalize a Query Source's `map` presentation profile (geo fields and viewport hints).
+ *
+ * @param {object} [value] Raw `map` value.
+ * @returns {{geoFields: Array<object>, dynamicRequests: boolean, minZoom: number|null, maxZoom: number|null}}
+ */
+function normalizeQuerySourceMap(value) {
+  const map = value && typeof value === "object" ? value : {};
+  return {
+    geoFields: normalizeQuerySourceFields(map.geoFields),
+    dynamicRequests: map.dynamicRequests === true,
+    minZoom: finiteNumberOrNull(map.minZoom),
+    maxZoom: finiteNumberOrNull(map.maxZoom),
   };
 }
 
@@ -130,6 +155,13 @@ function positiveIntegerOrNull(value) {
   if (!Number.isInteger(number) || number < 1)
     throw new TypeError("ID must be a positive integer");
   return number;
+}
+
+/** Normalize a value to a finite number, or `null` when empty or invalid. */
+function finiteNumberOrNull(value) {
+  if (value == null || value === "") return null;
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
 }
 
 /** Deep-clone a JSON-safe value, tolerating `null`/`undefined`. */

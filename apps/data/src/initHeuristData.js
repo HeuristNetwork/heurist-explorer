@@ -23,9 +23,6 @@ import { createHostAdapter } from "./host/createHostAdapter.js";
 import { HeuristDataPublicApi } from "./host/HeuristDataPublicApi.js";
 import { DataConfigurationDialog } from "./ui/config/DataConfigurationDialog.js";
 import { ReportTemplateProvider } from "./data/ReportTemplateProvider.js";
-import { FilterProvider } from "./data/FilterProvider.js";
-import { RecordTypeProvider } from "#shared/data/RecordTypeProvider.js";
-import { QuerySourceListProvider } from "#shared/data/QuerySourceListProvider.js";
 import { DataControlPanel } from "./ui/DataControlPanel.js";
 import { RecordContentProvider } from "./data/RecordContentProvider.js";
 
@@ -47,12 +44,8 @@ export async function initHeuristData(config) {
     accessToken: config.accessToken,
     headers: config.requestHeaders,
   });
-  const recordTypes = new RecordTypeProvider({ apiClient });
   const heuristBaseUrl = resolveHeuristBaseUrl(config);
   const providers = {
-    recordTypes,
-    querySourceList: new QuerySourceListProvider({ apiClient, recordTypes }),
-    filterList: new FilterProvider({ apiClient }),
     querySourceProvider: new QuerySourceProvider({ apiClient }),
     recordDataProvider: new RecordDataProvider({ apiClient }),
     recordContent: new RecordContentProvider({
@@ -77,15 +70,10 @@ export async function initHeuristData(config) {
   api.setConfigurationDialogFactory((options = {}) =>
     new DataConfigurationDialog({
       ...options,
-      querySourceListProvider: options.querySourceListProvider || providers.querySourceList,
-      filterListProvider: options.filterListProvider || providers.filterList,
       reportTemplateProvider: options.reportTemplateProvider || reportTemplates,
-      widgetListProvider: options.widgetListProvider || null,
     }).open(),
   );
   const ready = application.initialize().then(() => api);
-  const querySourceListProvider = providers.querySourceList;
-  const filterListProvider = providers.filterList;
   let panel = null;
   const readyWithPanel = ready.then(async () => {
     const settings = config.persistedSettings;
@@ -98,14 +86,8 @@ export async function initHeuristData(config) {
         runtimeMode: config.runtimeMode,
         readonly: config.readonly,
         editEnabled: config.engineOptions.interaction.editEnabled,
-        currentResultsTitle: settings.config.currentResults.title,
-        allowAllQuerySources: settings.options.querySources.allowAll,
-        allowedQuerySourceIds: settings.options.querySources.allowed,
-        allowAllFilters: settings.options.filters.allowAll,
-        allowedFilterIds: settings.options.filters.allowed,
+        currentResultsTitle: settings.config?.currentResults?.title,
       },
-      querySourceListProvider,
-      filterListProvider,
     });
     await panel.mount();
     return api;

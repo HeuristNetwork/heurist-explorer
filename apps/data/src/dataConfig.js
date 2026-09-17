@@ -46,13 +46,8 @@ export function createHeuristDataConfig(
   const persistedSettings = normalizeDataConfigurationSettings(settings);
   if (String(runtime.runtimeMode || "").toLowerCase() === "main") {
     // The module hosted in the main Heurist editor uses a fixed interface:
-    // header always shown; no Filtered Result / Query Sources / Filters panels.
-    Object.assign(persistedSettings.options.ui, {
-      showSourceHeader: true,
-      showCurrentResults: false,
-      showFilters: false,
-      showQuerySources: false,
-    });
+    // header always shown.
+    persistedSettings.options.ui.showSourceHeader = true;
     // Main UI starts without a second client-side search layer unless the
     // setting was explicitly persisted by the user.
     if (settings?.options?.nativeControls?.search == null) {
@@ -67,18 +62,9 @@ export function createHeuristDataConfig(
   // Publications store the module snapshot under the shared `state` member;
   // Retain `source` for embedded host configurations created before publication.
   const source = resolvedConfig.source ?? resolvedConfig.state ?? {};
-  const runtimeQuerySourceId = positiveId(source.querySourceId);
-  const runtimeQuery =
-    source.query == null || source.query === "" ? null : source.query;
-  const configuredQuerySourceId =
-    persistedSettings.options.querySources.initiallyActive;
-  const initialQuerySourceId =
-    runtimeQuerySourceId || (runtimeQuery == null ? configuredQuerySourceId : null);
+  const initialQuerySourceId = positiveId(source.querySourceId);
   const initialQuery =
-    runtimeQuery ??
-    (initialQuerySourceId == null
-      ? persistedSettings.config.currentResults.initialQuery
-      : null);
+    source.query == null || source.query === "" ? null : source.query;
   const readonly =
     runtime.readonly === true ||
     persistedSettings.options.interaction.readonly === true;
@@ -120,7 +106,6 @@ export function createHeuristDataConfig(
       interaction,
       // Let the record-list widget offer the engine-switching "Table" option.
       engineSwitch: true,
-      showColumnPicker: persistedSettings.options.ui.showColumnPicker,
     },
     persistedSettings,
     loadPreferencesOnInit:

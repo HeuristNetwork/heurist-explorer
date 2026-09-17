@@ -15,6 +15,7 @@
 
 import { GraphDocument } from "./GraphDocument.js";
 import { GraphExpansions } from './GraphExpansions.js';
+import { QuerySource } from "#shared/data/QuerySource.js";
 import { normalizeGraphConfigurationSettings } from "../ui/config/graphConfigurationSchema.js";
 
 /** Coordinates graph loading, merging, selection, expansions, legend state, and rendering. */
@@ -66,10 +67,10 @@ export class GraphApplication extends EventTarget {
     this.querySource = null;
     this.response = null;
     this.recordTypeNames = new Map();
-    // Active source tracking, mirroring heurist-data's DataApplication: a
+    // Active load tracking, mirroring heurist-data's DataApplication: a
     // persisted Query Source "wins" against inbound Filtered Result queries until
     // the viewer explicitly reactivates Filtered Result.
-    this.source = null;
+    this.activeLoad = null;
     // The host-pushed DataSource currently active (main runtime only), and
     // whether the viewer has "stuck" it so a new inbound push is ignored.
     this.dataSource = null;
@@ -223,15 +224,15 @@ export class GraphApplication extends EventTarget {
    * active source - matching heurist-data's `DataApplication.setQuery()` -
    * so a Filtered Result query the host pushes (a global search event, once
    * applied after the widget becomes visible) never clobbers a Query Source the
-   * viewer deliberately selected. Internal callers that manage `this.source`
-   * themselves (`setQuerySource`, `activateCurrentResults`) pass `internal: true`
-   * to bypass that guard.
+   * viewer deliberately selected. Internal callers that manage `this.activeLoad`
+   * themselves (`setQuerySource`, `setDataSource`) pass `internal: true` to
+   * bypass that guard.
    *
-   * Whatever the outcome, the *remembered* Filtered Result query is still
-   * updated first (matching heurist-data's "host search events keep Current
-   * Results up to date" comment) so `activateCurrentResults()` always
-   * restores the latest one, even one that arrived while a Query Source was on
-   * screen - not a stale query from before the Query Source was selected. Pass
+   * Whatever the outcome, the *remembered* Filtered Result query
+   * (`this.currentResultsQuery`) is still updated first (matching
+   * heurist-data's "host search events keep Current Results up to date"
+   * comment), even one that arrived while a Query Source was on screen - not
+   * a stale query from before the Query Source was selected. Pass
    * `remember: false` to skip that (restoring/loading a Query Source's own query
    * must never be remembered as a Filtered Result query).
    *
@@ -250,7 +251,7 @@ export class GraphApplication extends EventTarget {
     if (normalizedQuery == null && !merge) {
       this.generation += 1;
       this.abortController?.abort("Graph cleared");
-      this.source = null;
+      this.activeLoad = null;
       this.config.querySourceId = null;
       this.config.querySourceTitle = null;
       this.config.query = null;
@@ -273,9 +274,9 @@ export class GraphApplication extends EventTarget {
       if (normalizedQuery != null && remember) {
         this.currentResultsQuery = normalizedQuery;
       }
-      if (this.source?.type === "querySource" && !internal) return this.getState();
+      if (this.activeLoad?.type === "source" && !internal) return this.getState();
       if (!internal) {
-        this.source = { type: "query", query: normalizedQuery };
+        this.activeLoad = { type: "query", query: normalizedQuery };
         this.querySource = null;
       }
     }
@@ -285,11 +286,11 @@ export class GraphApplication extends EventTarget {
     this.abortController = new AbortController();
 
     // An incremental expansion never re-runs internal-edge discovery; the
-    // initial graph and a Saved Filter default to discovering every edge until
-    // a Query Source supplies an explicit link set.
+    // initial graph and a Saved Filter default to discovering every edge
+    // unless the caller (or the configured default) narrows it.
     const linkSelection = merge
       ? undefined
-      : links ?? this.source?.links ?? this.querySource?.links ?? this.config.links ?? "all";
+      : links ?? this.config.links ?? "all";
     const result = await this.provider.load({
       query: normalizedQuery,
       links: linkSelection,
@@ -393,20 +394,23 @@ export class GraphApplication extends EventTarget {
   /**
    * Load a persisted Query Source by id and activate it as the graph's source.
    *
+   * Internal: fetches the persisted definition by id, needed for website/
+   * publication mode (no host to pre-resolve it) and to restore a published
+   * view. Not exposed on the public API.
+   *
    * @param {number|string} id Query Source record id.
    * @returns {Promise<object>} Updated application state.
    * @throws {Error} When the Query Source has no executable query.
    */
   async setQuerySource(id) {
-    const querySource = await this.querySourceProvider?.load?.(id);
-    const query = querySource?.source?.query ?? querySource?.query;
-    if (query == null || query === "") throw new Error("Query Source query is empty");
+    const payload = await this.querySourceProvider?.load?.(id);
+    const querySource = new QuerySource(payload);
     this.querySource = querySource;
     this.dataSource = null;
     this.config.querySourceId = Number(id);
-    this.config.querySourceTitle = querySource.title || querySource.rec_Title || null;
-    this.source = { type: "querySource", querySourceId: Number(id) };
-    return this.load({ query, links: querySource.links ?? "all", internal: true, remember: false });
+    this.config.querySourceTitle = querySource.title || null;
+    this.activeLoad = { type: "source", querySourceId: Number(id) };
+    return this.load({ query: querySource.source.query, internal: true, remember: false });
   }
 
   /**
@@ -424,7 +428,7 @@ export class GraphApplication extends EventTarget {
     this.dataSource = dataSource || null;
     this.config.querySourceId = null;
     this.config.querySourceTitle = dataSource?.title || null;
-    this.source = { type: "datasource", dataSource };
+    this.activeLoad = { type: "datasource", dataSource };
     return this.load({ query, links: dataSource?.links ?? "all", internal: true, remember: false });
   }
 
@@ -480,49 +484,6 @@ export class GraphApplication extends EventTarget {
     return this.host?.getCapabilities?.() || {};
   }
 
-  /** Restore the most recently remembered Filtered Result query, locally. */
-  activateCurrentResults() {
-    this.querySource = null;
-    this.dataSource = null;
-    this.source = null;
-    this.config.querySourceId = null;
-    this.config.querySourceTitle = null;
-    return this.load({
-      query: this.currentResultsQuery,
-      internal: true,
-      remember: false,
-    });
-  }
-
-  /**
-   * Apply a saved Filter as a new search, matching heurist-data: hosted mode
-   * triggers the global ON_REC_SEARCHSTART event through the host bridge (so
-   * every realm-matching widget - including this one, once the host echoes
-   * the search result back - stays in sync); standalone mode runs the
-   * search internally by loading the filter's query directly.
-   */
-  async activateFilter(filter) {
-    this.querySource = null;
-    this.dataSource = null;
-    this.config.querySourceId = null;
-    this.config.querySourceTitle = null;
-    this.source = null;
-    const query = filter?.query ?? filter;
-    if (query == null || query === "") return this.getState();
-    if (this.host?.supportsSearch?.()) {
-      const { createFilterSearchRequest } = await import(
-        "../data/FilterSearchRequest.js"
-      );
-      const request = createFilterSearchRequest(filter, {
-        searchRealm: this.config.searchRealm,
-        source: this.config.sourceId || null,
-      });
-      await this.host.doSearch(request);
-      return this.getState();
-    }
-    return this.load({ query });
-  }
-
   /** Load per-record popup content from the configured presentation template. */
   async requestPopupContent({ recordId, signal } = {}) {
     const template = this.config.engineOptions?.popupTemplate;
@@ -535,19 +496,6 @@ export class GraphApplication extends EventTarget {
       signal,
     });
     return content.get(id) ?? content.get(String(id)) ?? null;
-  }
-
-  /** Runtime fallback for databases without the optional Query Source record type. */
-  disableQuerySourceEditing() {
-    this.querySourceAvailable = false;
-    const settings = this.config.persistedSettings || {};
-    this.config.persistedSettings = {
-      ...settings,
-      options: {
-        ...settings.options,
-        interaction: { ...settings.options?.interaction, readonly: true, editEnabled: false },
-      },
-    };
   }
 
   /**
@@ -563,10 +511,6 @@ export class GraphApplication extends EventTarget {
    */
   async applyConfiguration(value) {
     const normalized = normalizeGraphConfigurationSettings(value);
-    if (this.querySourceAvailable === false) {
-      normalized.options.interaction.readonly = true;
-      normalized.options.interaction.editEnabled = false;
-    }
     const defaults = normalized.config.defaults;
     this.config.persistedSettings = normalized;
     this.config.ui = normalized.options.ui;

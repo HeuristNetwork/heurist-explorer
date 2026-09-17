@@ -38,7 +38,6 @@ test("every direct $HR string in runtime source is present in module dictionarie
   const sourceFiles = [
     "../../src/ui/config/DataConfigurationDialog.js",
     "../../src/ui/DataControlPanel.js",
-    "../../src/ui/FilterSelector.js",
     "../../src/engine/datatables/DataTablesAdapter.js",
   ];
   const sources = await Promise.all(

@@ -37,7 +37,6 @@ test("every direct $HR string in runtime source is present in module dictionarie
   );
   const sourceFiles = [
     "../../src/ui/config/GraphConfigurationDialog.js",
-    "../../src/ui/FilterSelector.js",
     "../../src/ui/GraphLegend.js",
     "../../src/ui/GraphLegendEditor.js",
   ];

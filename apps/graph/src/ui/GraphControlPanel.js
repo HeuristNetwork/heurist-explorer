@@ -15,28 +15,21 @@
 import { showGraphMessage } from "./graphMessages.js";
 import { GraphLegend } from "./GraphLegend.js";
 import { GraphLegendEditor } from "./GraphLegendEditor.js";
-import { FilterSelector } from "./FilterSelector.js";
-import { $HR, applyI18n, InlineHelp, QuerySourceSelector } from "#shared/ui";
+import { $HR, applyI18n, InlineHelp } from "#shared/ui";
 import { sourceAction, showDataSourceAction } from "#shared/ui/documents/SourceActions.js";
 
-/** Owns Graph's control panel: Query Source/filter selectors, legend, expansion controls, and toolbar actions. */
+/** Owns Graph's control panel: current-source row, legend, expansion controls, and toolbar actions. */
 export class GraphControlPanel {
   /**
    * @param {object} options Panel dependencies.
    * @param {object} options.api Graph public API instance.
    * @param {HTMLElement} options.container Element the rendering engine renders into; the panel is anchored above it.
    * @param {object} [options.options] Initial visibility/interaction options; refreshed via `applyOptions`.
-   * @param {object} options.querySourceListProvider Provider used to list available Query Sources.
-   * @param {object} options.querySourceProvider Provider used to load a Query Source's own record-type id when creating one.
-   * @param {object} options.filterListProvider Provider used to list and load available filters.
    */
-  constructor({ api, container, options = {}, querySourceListProvider, querySourceProvider, filterListProvider }) {
+  constructor({ api, container, options = {} }) {
     this.api = api;
     this.container = container;
     this.options = options;
-    this.querySourceListProvider = querySourceListProvider;
-    this.querySourceProvider = querySourceProvider;
-    this.filterListProvider = filterListProvider;
     this.listeners = [];
   }
 
@@ -80,23 +73,21 @@ export class GraphControlPanel {
     const body = document.createElement("div");
     body.className = "heurist-module-panel-body";
     this.body = body;
-    const querySources = section(body);
-    this.querySourcesSection = querySources.section;
-    this.querySourcesSelector = new QuerySourceSelector({ api: this.api, container: querySources.content, classPrefix: "heurist-graph", onError: (error) => this.reportError(error) });
-    const filters = section(body, "Filters", true);
-    this.filtersSection = filters.section;
-    this.filtersSelector = new FilterSelector({
-      api: this.api,
-      container: filters.content,
-      classPrefix: "heurist-graph",
-      loadFilter: (id) => this.filterListProvider?.load(id),
-      onError: (error) => this.reportError(error),
-    });
+    const currentSource = section(body);
+    this.querySourcesSection = currentSource.section;
+    this.currentSourceRow = document.createElement("div");
+    this.currentSourceRow.className = "heurist-graph-selector-row active heurist-graph-current-source-row";
+    const label = document.createElement("span");
+    label.className = "heurist-graph-query-source";
+    this.currentSourceTitle = document.createElement("span");
+    label.append(this.currentSourceTitle);
+    this.currentSourceRow.append(label);
+    currentSource.content.append(this.currentSourceRow);
     this.legendSection = document.createElement('section');
     this.legendSection.className = 'heurist-graph-legend';
 
     this.legend = new GraphLegend({ api: this.api, container: this.legendSection,
-      onEdit: () => this.editQuerySource(), onLinks: () => this.editLegend('links'),
+      onLinks: () => this.editLegend('links'),
       onRule: () => this.api.defineExpansions(), onError: (error, operation) => this.reportError(error, operation) });
     this.element.append(header, body);
     (this.container.parentElement || document.body).append(this.element);
@@ -134,39 +125,25 @@ export class GraphControlPanel {
   }
 
   /**
-   * Refresh the source header, Query Source/filter lists, and legend from the current application state.
+   * Refresh the source header, current-source row, and legend from the current application state.
    *
    * @returns {Promise<void>}
    */
   async render() {
     const state = this.api.getState();
     const currentTitle = this.options.currentResultsTitle || "Filtered Result";
-    this.sourceHeader.textContent =
+    const title =
       state.querySourceTitle ||
       (currentTitle === "Filtered Result" ? $HR(currentTitle) : currentTitle);
+    this.sourceHeader.textContent = title;
+    this.currentSourceTitle.textContent = title;
     const isMainRuntime = this.options.runtimeMode === "main";
-    const [querySources, filters] = isMainRuntime
-      ? [[], []]
-      : await Promise.all([
-          this.querySourceListProvider?.list?.() || [],
-          this.filterListProvider?.list?.() || [],
-        ]);
-    this.querySourcesSelector.render(
-      normalizeItems(querySources, "Query Source"),
-      state.querySourceId,
-      !state.querySourceId,
-      {
-        showCurrentResults: this.options.showCurrentResults !== false,
-        // Main runtime has no selectable Filtered Result/Query Source choice - the
-        // row instead reflects whatever DataSource the host last pushed.
-        currentResultsTitle: isMainRuntime ? state.querySourceTitle || currentTitle : currentTitle,
-        mainMode: isMainRuntime,
-        pinned: state.pinned,
-        onTogglePin: () => this.togglePin(),
-      },
-    );
+    this.currentSourceRow.querySelectorAll(".heurist-graph-pin-toggle").forEach((button) => button.remove());
+    if (isMainRuntime) {
+      const label = this.currentSourceRow.querySelector(".heurist-graph-query-source");
+      label.prepend(pinToggle(state.pinned, () => this.togglePin()));
+    }
     this.renderLegend();
-    this.filtersSelector.render(normalizeItems(filters, "Filter"));
     applyI18n(this.element);
   }
 
@@ -177,37 +154,29 @@ export class GraphControlPanel {
   }
 
   /**
-   * Attach the legend to the active Query Source row, add an edit/add-Query-Source action when editable, and re-render it.
+   * Attach the legend to the current-source row, add a show/save-as-source action when the
+   * host supports it, and re-render it.
    *
    * @returns {void}
    */
   renderLegend() {
     const app = this.api.application;
-    const state = this.api.getState();
     const interaction = app?.config.persistedSettings?.options?.interaction || {};
     const editEnabled = interaction.editEnabled !== false && interaction.readonly !== true && Boolean(app?.host?.supportsEditing?.());
-    const activeRow = this.querySourcesSection.querySelector('.heurist-graph-selector-row.active');
-    this.querySourcesSection.querySelectorAll('.heurist-graph-query-source-action').forEach(button => button.remove());
-    const isMainRuntime = this.options.runtimeMode === "main";
-    if (activeRow) {
-      activeRow.append(this.legendSection);
-      // Main runtime has no persisted Query Source to add/edit while a host-pushed
-      // DataSource is active; offer to display or persist it instead - shown
-      // on hover/focus, like the map/timeline layer row actions.
-      if (isMainRuntime && !state.querySourceId && app?.dataSource) {
-        const capabilities = this.api.getHostCapabilities?.() || {};
-        const report = (error) => this.reportError(error, 'datasource-action');
-        const actions = document.createElement('span');
-        actions.className = 'heurist-graph-query-source-action heurist-graph-row-actions';
-        if (capabilities.showDatasource) actions.append(showDataSourceAction(this.api, report));
-        if (capabilities.saveDatasourceAsSource) actions.append(sourceAction('fa-solid fa-database', 'Save as Source', () => this.api.saveDatasourceAsSource(), report));
-        if (actions.childElementCount) activeRow.insertBefore(actions, this.legendSection);
-      } else if (editEnabled && (state.querySourceId || typeof app.host.bridge?.addRecord === 'function')) {
-        const action = this.legend.action(state.querySourceId ? 'Edit Query Source' : 'Add Query Source', state.querySourceId ? 'fa-pen' : 'fa-circle-plus', () => this.editQuerySource());
-        action.classList.add('heurist-graph-query-source-action');
-        activeRow.insertBefore(action, this.legendSection);
-      }
-    } else this.legendSection.remove();
+    this.currentSourceRow.append(this.legendSection);
+    this.currentSourceRow.querySelectorAll('.heurist-graph-query-source-action').forEach(button => button.remove());
+    // Persisted-record lifecycle (add/edit a Query Source) is fully host-owned;
+    // offer to display or persist the active DataSource instead - shown on
+    // hover/focus, like the map/timeline layer row actions.
+    if (app?.dataSource) {
+      const capabilities = this.api.getHostCapabilities?.() || {};
+      const report = (error) => this.reportError(error, 'datasource-action');
+      const actions = document.createElement('span');
+      actions.className = 'heurist-graph-query-source-action heurist-graph-row-actions';
+      if (capabilities.showDatasource) actions.append(showDataSourceAction(this.api, report));
+      if (capabilities.saveDatasourceAsSource) actions.append(sourceAction('fa-solid fa-database', 'Save as Source', () => this.api.saveDatasourceAsSource(), report));
+      if (actions.childElementCount) this.currentSourceRow.insertBefore(actions, this.legendSection);
+    }
     this.legend.render({ editEnabled });
     this.renderExpansionControls();
   }
@@ -241,27 +210,6 @@ export class GraphControlPanel {
     this.levelSelector.disabled = state.busy || !state.maxDepth;
     this.pruneButton.disabled = state.busy || !state.depth;
     this.expandButton.disabled = state.busy || state.depth >= state.maxDepth;
-  }
-
-  /**
-   * Edit the active Query Source (or create one, when the graph has none) via the host record editor.
-   *
-   * @returns {Promise<void>}
-   */
-  async editQuerySource() {
-    const app = this.api.application;
-    if (app?.querySourceAvailable === false || app?.config.persistedSettings?.options?.interaction?.readonly === true || app?.config.persistedSettings?.options?.interaction?.editEnabled === false) return;
-    const id = this.api.getState().querySourceId;
-    if (id) {
-      await app.host.editRecord(id);
-      if (this.api.getState().querySourceId === id) await this.api.setQuerySource(id);
-    } else {
-      const info = await this.querySourceListProvider.list({ ids: [] });
-      if (!info.recordTypeId) return;
-      const created = await app.host.addRecord(info.recordTypeId);
-      const newId = Number(created?.recordId ?? created?.rec_ID ?? created?.id);
-      if (newId > 0) await this.api.setQuerySource(newId);
-    }
   }
 
   /**
@@ -375,7 +323,7 @@ export class GraphControlPanel {
     if (this.optionsButton)
       this.optionsButton.hidden = this.options.showOptions === false;
     if (this.publishButton)
-      this.publishButton.hidden = this.options.showPublish === false;
+      this.publishButton.hidden = this.options.runtimeMode !== "main";
     if (this.sourceHeader)
       this.sourceHeader.hidden = this.options.showSourceHeader !== true;
     this.element.classList.toggle(
@@ -386,17 +334,7 @@ export class GraphControlPanel {
       "with-source-header",
       this.options.showSourceHeader === true,
     );
-    if (this.querySourcesSection)
-      this.querySourcesSection.hidden =
-        this.options.showQuerySources === false &&
-        this.options.showCurrentResults === false;
-    if (this.filtersSection)
-      this.filtersSection.hidden =
-        this.options.showFilters === false ||
-        this.options.runtimeMode === "main";
-    const hasVisiblePanel = [this.querySourcesSection, this.filtersSection].some(
-      (section) => section && !section.hidden,
-    );
+    const hasVisiblePanel = Boolean(this.querySourcesSection);
     this.hasVisiblePanels = hasVisiblePanel;
     if (this.angleToggle) this.angleToggle.hidden = !hasVisiblePanel;
     if (
@@ -471,12 +409,19 @@ function iconButton(icon, title, handler) {
   return button;
 }
 
-/** Normalize a list-provider payload into `{id, title}` entries, dropping invalid IDs. */
-function normalizeItems(result, fallback) {
-  const values = Array.isArray(result) ? result : result?.items || [];
-  return values.map((item) => ({
-    ...item,
-    id: Number(item.id ?? item.rec_ID),
-    title: String(item.title ?? item.name ?? item.rec_Title ?? `${fallback} ${item.id ?? item.rec_ID}`),
-  })).filter((item) => Number.isInteger(item.id) && item.id > 0);
+/** Build the pin/unpin toggle that sticks the active DataSource against inbound host pushes (main runtime only). */
+function pinToggle(pinned, onToggle) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "heurist-icon-button heurist-graph-pin-toggle";
+  button.classList.toggle("pinned", Boolean(pinned));
+  button.title = $HR(pinned ? "Unstick current data" : "Stick current data");
+  button.setAttribute("aria-pressed", String(Boolean(pinned)));
+  button.setAttribute("aria-label", button.title);
+  button.innerHTML = `<span class="fa-solid ${pinned ? "fa-thumbtack-slash" : "fa-thumbtack"}" aria-hidden="true"></span>`;
+  button.addEventListener("click", (event) => {
+    event.stopPropagation();
+    onToggle();
+  });
+  return button;
 }

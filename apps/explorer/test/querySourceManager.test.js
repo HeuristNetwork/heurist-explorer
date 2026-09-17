@@ -24,7 +24,9 @@ test('loads RT_QUERY_SOURCE records and resolves all presentation profiles', asy
   const source = await manager.resolveDataSource(8);
   assert.equal(source.reference.key, 'source:8');
   assert.equal(source.request.q, 't:12');
-  assert.deepEqual(source.presentation.data.fields, [{ field: '12:1' }]);
+  assert.deepEqual(source.presentation.data.fields, [
+    { field: '12:1', title: null, visible: true, width: null, aggregation: null, ext: null },
+  ]);
   assert.deepEqual(source.presentation.map.geoFields, ['12:2']);
   assert.equal(source.presentation.map.dynamicRequests, true);
   assert.equal(source.presentation.map.minZoom, 4);

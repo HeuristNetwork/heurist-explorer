@@ -1,6 +1,6 @@
 /**
- * @file QueryLoader.js
- * @brief Loads transient Filtered Result Query Sources.
+ * @file DataSourceLoader.js
+ * @brief Loads records by the query and fields specified in a Query Source record, given its id.
  *
  * @project     Heurist academic knowledge management system
  * @package     heurist-data
@@ -13,21 +13,25 @@
  * @since       8.0
  */
 
-import { QuerySource, normalizeQuerySourceFields } from "#shared/data/QuerySource.js";
+import { QuerySource } from "#shared/data/QuerySource.js";
 
-/** Loads a transient Query Source from a Filtered Result query. */
-export class QueryLoader {
-  /** @param {{recordDataProvider: object}} options Provider used to load the query's record page. */
-  constructor({ recordDataProvider }) {
+/** Loads records by the query and fields specified in a Query Source record, given its querySourceId. */
+export class DataSourceLoader {
+  /**
+   * @param {object} options Loader dependencies.
+   * @param {object} options.querySourceProvider Provider used to load the persisted Query Source definition.
+   * @param {object} options.recordDataProvider Provider used to load the Query Source's record page.
+   */
+  constructor({ querySourceProvider, recordDataProvider }) {
+    this.querySourceProvider = querySourceProvider;
     this.recordDataProvider = recordDataProvider;
   }
 
   /**
-   * Build a transient "Filtered Result" Query Source for a query and load one page of its records.
+   * Load a persisted Query Source and one page of its records.
    *
    * @param {object} [options] Load options.
-   * @param {string|object} options.query Heurist `q`-array query or keyword-syntax string.
-   * @param {Array<object>} [options.fields] Query Source field definitions; defaults to title + record type.
+   * @param {number|string} options.querySourceId Query Source record ID.
    * @param {Array<string>} [options.additionalFields] Extra presentation-only fields to request.
    * @param {boolean} [options.includeQuerySourceFields=true] Include the Query Source's own configured fields.
    * @param {number} [options.limit] Page size.
@@ -35,11 +39,10 @@ export class QueryLoader {
    * @param {string} [options.sort] Sort specification.
    * @param {string} [options.filter] Extra filter expression.
    * @param {AbortSignal} [options.signal] Abort signal for cancellation.
-   * @returns {Promise<{querySource: QuerySource, response: object}>} The transient Query Source and its record page.
+   * @returns {Promise<{querySource: QuerySource, response: object}>} The loaded Query Source and its record page.
    */
   async load({
-    query,
-    fields = [],
+    querySourceId,
     additionalFields = [],
     includeQuerySourceFields = true,
     limit,
@@ -48,21 +51,11 @@ export class QueryLoader {
     filter,
     signal,
   } = {}) {
-    const normalizedFields = normalizeQuerySourceFields(
-      fields.length
-        ? fields
-        : [
-            { field: "rec_Title", title: "Title" },
-            { field: "rec_RecTypeID", title: "Record type" },
-          ],
+    const querySource = new QuerySource(
+      await this.querySourceProvider.load(querySourceId, { signal }),
     );
-    const querySource = new QuerySource({
-      title: "Filtered Result",
-      source: { type: "heurist-query", query },
-      fields: normalizedFields,
-    });
     const response = await this.recordDataProvider.load({
-      query,
+      query: querySource.source.query,
       fields: [
         ...(includeQuerySourceFields ? querySource.getFieldCodes() : []),
         ...additionalFields,

@@ -21,10 +21,7 @@ import { createGraphEngine } from "./engine/createGraphEngine.js";
 import { HeuristGraphPublicApi } from "./host/HeuristGraphPublicApi.js";
 import { GraphControlPanel } from "./ui/GraphControlPanel.js";
 import { createHostAdapter } from "./host/createHostAdapter.js";
-import { RecordTypeProvider } from "#shared/data/RecordTypeProvider.js";
-import { QuerySourceListProvider } from "#shared/data/QuerySourceListProvider.js";
 import { QuerySourceProvider } from "#shared/data/QuerySourceProvider.js";
-import { FilterProvider } from "./data/FilterProvider.js";
 import { ReportTemplateProvider } from "./data/ReportTemplateProvider.js";
 import { RecordContentProvider } from "./data/RecordContentProvider.js";
 import { VocabularyProvider } from "#shared/data/VocabularyProvider.js";
@@ -80,20 +77,12 @@ export async function initHeuristGraph(config) {
   message.className = "heurist-graph-message";
   message.hidden = true;
   container.replaceChildren(canvas, message);
-  const recordTypes = new RecordTypeProvider({ apiClient });
-  const querySourceListProvider = new QuerySourceListProvider({
-    apiClient, recordTypes,
-    onUnavailable: () => application.disableQuerySourceEditing(),
-  });
-  const filterListProvider = new FilterProvider({ apiClient });
   const reportTemplateProvider = new ReportTemplateProvider({
     baseUrl: heuristBaseUrl,
     database: config.database,
   });
   api.setConfigurationDialogFactory((options = {}) => new GraphConfigurationDialog({
     ...options,
-    querySourceListProvider,
-    filterListProvider,
     reportTemplateProvider,
   }).open());
   const ready = application.initialize(canvas, { messageElement: message }).then(async () => {
@@ -105,9 +94,6 @@ export async function initHeuristGraph(config) {
         runtimeMode: config.runtimeMode,
         currentResultsTitle: config.persistedSettings?.config?.currentResults?.title,
       },
-      querySourceListProvider,
-      querySourceProvider: new QuerySourceProvider({ apiClient }),
-      filterListProvider,
     }).mount();
     return api;
   });

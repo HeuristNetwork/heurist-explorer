@@ -29,10 +29,7 @@ export class DataConfigurationDialog {
    * @param {string|null} [options.title] Dialog title; defaults to a mode-specific title.
    * @param {Function|null} [options.onSave] Called with `(value, context)` on save; return `false` to keep the dialog open.
    * @param {Function|null} [options.onCancel] Called with `(value, context)` on cancel.
-   * @param {object|null} [options.querySourceListProvider] Provider used to populate the Query Sources transfer list.
-   * @param {object|null} [options.filterListProvider] Provider used to populate the Filters transfer list.
    * @param {object|null} [options.reportTemplateProvider] Provider used to populate card/view template pickers.
-   * @param {object|null} [options.widgetListProvider] Provider used to populate the website filter-by-widget picker.
    * @param {object|null} [options.publishContext] Extra context available to publish-mode fields.
    * @param {string|null} [options.runtimeMode] Host runtime mode; `'main'` fixes the interface layout.
    */
@@ -43,10 +40,7 @@ export class DataConfigurationDialog {
     title = null,
     onSave = null,
     onCancel = null,
-    querySourceListProvider = null,
-    filterListProvider = null,
     reportTemplateProvider = null,
-    widgetListProvider = null,
     publishContext = null,
     runtimeMode = null,
   } = {}) {
@@ -61,10 +55,7 @@ export class DataConfigurationDialog {
     this.title = title || defaultTitle(this.mode);
     this.onSave = typeof onSave === "function" ? onSave : null;
     this.onCancel = typeof onCancel === "function" ? onCancel : null;
-    this.querySourceListProvider = querySourceListProvider;
-    this.filterListProvider = filterListProvider;
     this.reportTemplateProvider = reportTemplateProvider;
-    this.widgetListProvider = widgetListProvider;
     this.publishContext = publishContext || {};
     this.fields = new Map();
     this.element = null;
@@ -186,19 +177,6 @@ export class DataConfigurationDialog {
         true,
       ),
     );
-    // The "main" runtime hides the website-editor-only source sections.
-    if (!this.isMain) {
-      this.content.append(
-        this.section(
-          "Filtered Result",
-          (body) => this.buildCurrentResults(body),
-          true,
-        ),
-        this.section("Query Sources and Filters", (body) =>
-          this.buildQuerySourcesAndFilters(body),
-        ),
-      );
-    }
     this.content.append(
       this.section("Interaction", (body) => this.buildInteraction(body)),
     );
@@ -206,15 +184,8 @@ export class DataConfigurationDialog {
 
   /** Build the "Interface" section: panel visibility, layout, and native-control toggles. */
   buildInterface(body) {
-    // In "main" runtime the Filtered Result / Query Sources / Filters visibility and
-    // the panel layout are fixed, so their toggles are not offered.
+    // In "main" runtime the panel layout is fixed, so its toggles are not offered.
     if (!this.isMain) {
-      body.append(
-        this.check("options.ui.showCurrentResults", "Filtered Result"),
-        this.check("options.ui.showQuerySources", "Query Sources"),
-        this.check("options.ui.showFilters", "Filters"),
-        this.separator(),
-      );
       const sourceHeader = this.check("options.ui.showSourceHeader", "Header");
       sourceHeader.title = $HR("source_header_hint");
       body.append(
@@ -222,14 +193,7 @@ export class DataConfigurationDialog {
         sourceHeader,
       );
     }
-    body.append(
-      this.check(
-        "options.ui.showColumnPicker",
-        "Columns picker (Table view only)",
-      ),
-      this.check("options.ui.showOptions", "Options"),
-      this.check("options.ui.showPublish", "Publish"),
-    );
+    body.append(this.check("options.ui.showOptions", "Options"));
     const controls = el("fieldset", "heurist-config-subgroup");
     const legend = el("legend", "h-i18n");
     legend.textContent = "Native controls";
@@ -313,84 +277,6 @@ export class DataConfigurationDialog {
       .control.addEventListener("change", () => this.applyDependencies());
   }
 
-  /** Build the "Filtered Result" section: title, initial query, and (website mode) filter-by-widget binding. */
-  buildCurrentResults(body) {
-    this.text(body, "config.currentResults.title", "Title");
-    this.text(body, "config.currentResults.initialQuery", "Initial query");
-    if (this.mode === "website") {
-      const row = el(
-        "div",
-        "heurist-config-row heurist-data-config-filterby",
-      );
-      const label = el("label", "h-i18n");
-      label.textContent = "Filter by";
-      const mode = select([
-        ["none", "None"],
-        ["timefilter", "Time filter"],
-        ["selection", "Selection"],
-        ["lastSelected", "Last selected"],
-      ]);
-      const target = select([["", "Select widget"]]);
-      const inLabel = el("span", "h-i18n");
-      inLabel.textContent = "in";
-      row.append(label, mode, inLabel, target);
-      body.append(row);
-      this.register("config.currentResults.filterBy.mode", mode, row);
-      this.register("config.currentResults.filterBy.widgetId", target, row);
-      mode.addEventListener("change", () => {
-        this.applyDependencies();
-        void this.loadWidgetOptions();
-      });
-    }
-  }
-
-  /** Build the "Query Sources and Filters" section: allow-all toggles and transfer lists. */
-  buildQuerySourcesAndFilters(body) {
-    const querySourceBox = el("div", "heurist-config-list-section");
-    const querySourceHeading = el("div", "heurist-config-list-heading");
-    const querySourceTitle = el("strong", "h-i18n");
-    querySourceTitle.textContent = "Query Sources";
-    querySourceHeading.append(
-      querySourceTitle,
-      this.check("options.querySources.allowAll", "Allow all"),
-    );
-    querySourceBox.append(querySourceHeading);
-    const querySourceTransfer = this.transfer(
-      "options.querySources.allowed",
-      "Available Query Sources",
-      "Allowed Query Sources",
-    );
-    querySourceBox.append(querySourceTransfer.row);
-    this.select(
-      querySourceBox,
-      "options.querySources.initiallyActive",
-      "Default Query Source",
-      [["", "None"]],
-    );
-    const filterBox = el("div", "heurist-config-list-section");
-    const filterHeading = el("div", "heurist-config-list-heading");
-    const filterTitle = el("strong", "h-i18n");
-    filterTitle.textContent = "Filters";
-    filterHeading.append(
-      filterTitle,
-      this.check("options.filters.allowAll", "Allow all"),
-    );
-    filterBox.append(filterHeading);
-    const filterTransfer = this.transfer(
-      "options.filters.allowed",
-      "Available filters",
-      "Allowed filters",
-    );
-    filterBox.append(filterTransfer.row);
-    body.append(querySourceBox, filterBox);
-    this.fields
-      .get("options.querySources.allowAll")
-      .control.addEventListener("change", () => this.applyDependencies());
-    this.fields
-      .get("options.filters.allowAll")
-      .control.addEventListener("change", () => this.applyDependencies());
-  }
-
   /** Build the "Interaction" section: edit, selection, collection, popup, and admin-info toggles. */
   buildInteraction(body) {
     body.append(
@@ -448,18 +334,6 @@ export class DataConfigurationDialog {
     const item = plainCheck(labelText);
     this.register(path, item.control, item.row);
     return item.row;
-  }
-
-  /**
-   * Build and register a text-input row for a settings path.
-   *
-   * @param {Element} parent Element to append the row to.
-   * @param {string} path Dotted settings path.
-   * @param {string} labelText Label resource key.
-   * @returns {HTMLElement} The row element.
-   */
-  text(parent, path, labelText) {
-    return this.inputRow(parent, path, labelText, "text");
   }
 
   /**
@@ -542,68 +416,17 @@ export class DataConfigurationDialog {
     return row;
   }
 
-  /** Build a visual break element between field groups. */
-  separator() {
-    return el("span", "heurist-config-break");
-  }
-
   /**
    * Register a control against a settings path so `populate`/`readForm` can read and write it.
    *
    * @param {string} path Dotted settings path.
    * @param {HTMLElement} control Form control representing the path's value.
    * @param {HTMLElement} row Row element containing the control, hidden/shown by `applyDependencies`.
-   * @param {object} [extras] Extra field metadata (e.g. `availableControl`/`selectedControl` for transfer lists).
    * @returns {HTMLElement} The registered control.
    */
-  register(path, control, row, extras = {}) {
-    this.fields.set(path, { control, row, ...extras });
+  register(path, control, row) {
+    this.fields.set(path, { control, row });
     return control;
-  }
-
-  /**
-   * Build and register a dual-list transfer control (available <-> selected) for a settings path.
-   *
-   * @param {string} path Dotted settings path; holds the array of selected values.
-   * @param {string} availableLabel Label for the "available" list.
-   * @param {string} selectedLabel Label for the "selected" list.
-   * @returns {{row: HTMLElement, available: HTMLSelectElement, selected: HTMLSelectElement}} The built control.
-   */
-  transfer(path, availableLabel, selectedLabel) {
-    const row = el("div", "heurist-config-transfer");
-    const available = el("select", "h-select");
-    available.multiple = true;
-    available.setAttribute("aria-label", $HR(availableLabel));
-    const selected = el("select", "h-select");
-    selected.multiple = true;
-    selected.setAttribute("aria-label", $HR(selectedLabel));
-    const controls = el("div", "heurist-config-transfer-buttons");
-    controls.append(
-      button(
-        "›",
-        () => moveSelected(available, selected),
-        `Add ${availableLabel.toLowerCase()}`,
-      ),
-      button(
-        "‹",
-        () => moveSelected(selected, available),
-        `Remove ${selectedLabel.toLowerCase()}`,
-      ),
-    );
-    const left = el("label");
-    const leftCaption = el("span", "h-i18n");
-    leftCaption.textContent = availableLabel;
-    left.append(leftCaption, available);
-    const right = el("label");
-    const rightCaption = el("span", "h-i18n");
-    rightCaption.textContent = selectedLabel;
-    right.append(rightCaption, selected);
-    row.append(left, controls, right);
-    this.register(path, selected, row, {
-      availableControl: available,
-      selectedControl: selected,
-    });
-    return { row, available, selected };
   }
 
   /** Write `this.value` into every registered form control. */
@@ -611,14 +434,6 @@ export class DataConfigurationDialog {
     for (const [path, field] of this.fields) {
       const value = getPath(this.value, path);
       const control = field.control;
-      if (field.selectedControl) {
-        const ids = Array.isArray(value) ? value : [];
-        fillSelect(
-          field.selectedControl,
-          ids.map((id) => ({ value: id, label: String(id) })),
-        );
-        continue;
-      }
       if (control.type === "checkbox") control.checked = Boolean(value);
       else control.value = value ?? "";
     }
@@ -633,11 +448,7 @@ export class DataConfigurationDialog {
     const result = clone(this.value);
     for (const [path, field] of this.fields) {
       let value;
-      if (field.selectedControl)
-        value = [...field.selectedControl.options].map((option) =>
-          Number(option.value),
-        );
-      else if (field.control.type === "checkbox") value = field.control.checked;
+      if (field.control.type === "checkbox") value = field.control.checked;
       else if (field.control.type === "number")
         value = Number(field.control.value);
       else value = field.control.value || null;
@@ -647,63 +458,12 @@ export class DataConfigurationDialog {
   }
 
   /**
-   * Load Query Source, filter, template, and (website mode) widget options from their providers in parallel.
+   * Load report-template options from their provider.
    *
-   * @returns {Promise<void>} Resolves once every provider load has settled.
-   */
-  async loadProviderOptions() {
-    await Promise.allSettled([
-      this.loadRecordOptions(
-        this.querySourceListProvider,
-        "options.querySources.allowed",
-        "options.querySources.initiallyActive",
-      ),
-      this.loadRecordOptions(
-        this.filterListProvider,
-        "options.filters.allowed",
-      ),
-      this.loadTemplateOptions(),
-      this.loadWidgetOptions(),
-    ]);
-  }
-
-  /**
-   * Load a provider's record list and populate a transfer control's available/selected options
-   * (and an optional default-value select).
-   *
-   * @param {object|null} provider List provider; a no-op when `null`.
-   * @param {string} transferPath Dotted settings path of the transfer control to populate.
-   * @param {string|null} [defaultPath] Dotted settings path of a related default-value select to populate.
    * @returns {Promise<void>} Resolves once the options are applied.
    */
-  async loadRecordOptions(provider, transferPath, defaultPath = null) {
-    if (!provider) return;
-    const payload = await callList(provider);
-    const items = normalizeItems(payload);
-    const field = this.fields.get(transferPath);
-    if (!field) return;
-    const allowed = new Set(
-      (getPath(this.value, transferPath) || []).map(Number),
-    );
-    fillSelect(
-      field.availableControl,
-      items.filter((item) => !allowed.has(Number(item.value))),
-    );
-    fillSelect(
-      field.selectedControl,
-      items.filter((item) => allowed.has(Number(item.value))),
-    );
-    if (defaultPath) {
-      const defaultControl = this.fields.get(defaultPath)?.control;
-      if (defaultControl) {
-        const current = getPath(this.value, defaultPath);
-        fillSelect(defaultControl, [
-          { value: "", label: "None", i18n: true },
-          ...items,
-        ]);
-        defaultControl.value = current ?? "";
-      }
-    }
+  async loadProviderOptions() {
+    await this.loadTemplateOptions();
   }
 
   /**
@@ -729,33 +489,6 @@ export class DataConfigurationDialog {
       control.value = current || "";
     });
   }
-  /**
-   * Load website-widget options (website mode only) and populate the filter-by-widget picker.
-   *
-   * @returns {Promise<void>} Resolves once the options are applied.
-   */
-  async loadWidgetOptions() {
-    if (this.mode !== "website" || !this.widgetListProvider) return;
-    const mode = this.fields.get(
-      "config.currentResults.filterBy.mode",
-    )?.control;
-    const target = this.fields.get(
-      "config.currentResults.filterBy.widgetId",
-    )?.control;
-    if (!target) return;
-    const items = normalizeItems(
-      await callList(this.widgetListProvider, { type: mode?.value }),
-    );
-    const current = getPath(
-      this.value,
-      "config.currentResults.filterBy.widgetId",
-    );
-    fillSelect(target, [
-      { value: "", label: "Select widget", i18n: true },
-      ...items,
-    ]);
-    target.value = current || "";
-  }
 
   /**
    * Re-apply cross-field UI dependencies: disabled/hidden state that follows other fields'
@@ -766,21 +499,6 @@ export class DataConfigurationDialog {
   applyDependencies() {
     const optionsControl = this.fields.get("options.ui.showOptions")?.control;
     if (optionsControl) optionsControl.disabled = this.mode !== "website";
-    const querySourcesAll = this.fields.get("options.querySources.allowAll");
-    if (querySourcesAll)
-      this.fields.get("options.querySources.allowed").row.hidden =
-        querySourcesAll.control.checked;
-    const filtersAll = this.fields.get("options.filters.allowAll");
-    if (filtersAll)
-      this.fields.get("options.filters.allowed").row.hidden =
-        filtersAll.control.checked;
-    const filterMode = this.fields.get(
-      "config.currentResults.filterBy.mode",
-    )?.control;
-    const widget = this.fields.get(
-      "config.currentResults.filterBy.widgetId",
-    )?.control;
-    if (widget) widget.disabled = !filterMode || filterMode.value === "none";
     // The template pickers only apply to their record-list render modes.
     const viewModeValue =
       this.fields.get("config.defaults.viewMode")?.control?.value ||
@@ -791,16 +509,12 @@ export class DataConfigurationDialog {
     const viewRow = this.fields.get("config.defaults.viewTemplate")?.row;
     if (viewRow) viewRow.hidden = viewModeValue !== "big";
     if (this.mode === "publish") {
-      for (const path of [
-        "options.ui.showColumnPicker",
-        "options.ui.showPublish",
+      const control = this.fields.get(
         "options.nativeControls.selectionActions",
-      ]) {
-        const control = this.fields.get(path)?.control;
-        if (control) {
-          control.checked = false;
-          control.disabled = true;
-        }
+      )?.control;
+      if (control) {
+        control.checked = false;
+        control.disabled = true;
       }
     }
   }
@@ -913,12 +627,8 @@ export class DataConfigurationDialog {
 function prepareMode(value, mode, runtimeMode = "") {
   const result = prepareForMode(value, mode);
   if (runtimeMode === "main") {
-    // The module in the main Heurist editor uses a fixed interface: header
-    // always on; no Filtered Result / Query Sources / Filters panels.
+    // The module in the main Heurist editor uses a fixed interface: header always on.
     result.options.ui.showSourceHeader = true;
-    result.options.ui.showCurrentResults = false;
-    result.options.ui.showFilters = false;
-    result.options.ui.showQuerySources = false;
   }
   return result;
 }
@@ -928,8 +638,6 @@ function prepareForMode(value, mode) {
   if (mode === "publish") {
     const copy = clone(value);
     copy.options.ui.showOptions = false;
-    copy.options.ui.showColumnPicker = false;
-    copy.options.ui.showPublish = false;
     copy.options.nativeControls.selectionActions = false;
     copy.options.interaction.readonly = true;
     copy.options.interaction.editEnabled = false;
@@ -944,9 +652,7 @@ function prepareForMode(value, mode) {
     copy.options.ui.showOptions = true;
     return copy;
   }
-  const copy = clone(value);
-  copy.options.ui.showPublish = false;
-  return copy;
+  return clone(value);
 }
 /** Default dialog title for a mode. */
 function defaultTitle(mode) {
@@ -1011,10 +717,6 @@ function fillSelect(node, items) {
       return option;
     }),
   );
-}
-/** Move a `<select>`'s selected options into another `<select>`. */
-function moveSelected(source, target) {
-  [...source.selectedOptions].forEach((option) => target.append(option));
 }
 
 /** Deep-clone a JSON-safe value. */

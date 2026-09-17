@@ -14,6 +14,8 @@
  */
 
 import { normalizeDataSource } from './DataSource.js';
+import { QuerySourceProvider } from '#shared/data/QuerySourceProvider.js';
+import { QuerySource } from '#shared/data/QuerySource.js';
 
 // RT_QUERY_SOURCE's portable concept code: a fixed, global constant, the
 // same in every Heurist database (see `dbconst()` in the server's
@@ -34,6 +36,7 @@ export class QuerySourceManager {
     if (!recordTypeProvider) throw new TypeError('QuerySourceManager requires recordTypeProvider');
     this.apiClient = apiClient;
     this.recordTypeProvider = recordTypeProvider;
+    this.querySourceProvider = new QuerySourceProvider({ apiClient });
     this.sources = [];
     this.recordTypeId = null;
     this._loadController = null;
@@ -104,28 +107,30 @@ export class QuerySourceManager {
     const sourceId = positiveId(id);
     if (!sourceId) return null;
 
-    const payload = await this.apiClient.get(`/records/querysource/${sourceId}`);
-    if (!payload || positiveId(payload.id) !== sourceId) return null;
+    const payload = await this.querySourceProvider.load(sourceId);
+    let querySource;
+    try {
+      querySource = new QuerySource(payload);
+    } catch {
+      return null; // missing/empty query, or a malformed persisted definition
+    }
+    if (querySource.id !== sourceId) return null;
 
-    const query = payload?.source?.query;
-    if (query == null || query === '') return null;
-
-    const request = { q: clone(query) };
-    if (Array.isArray(payload.rules) && payload.rules.length) request.rules = clone(payload.rules);
-    const map = payload.map && typeof payload.map === 'object' ? payload.map : {};
+    const request = { q: clone(querySource.source.query) };
+    if (querySource.rules.length) request.rules = clone(querySource.rules);
     const dataSource = normalizeDataSource({
       reference: { type: 'source', id: sourceId },
-      title: payload.title || payload?.source?.title || this.get(sourceId)?.title,
+      title: querySource.title || querySource.source.title || this.get(sourceId)?.title,
       request,
       presentation: {
-        data: { fields: clone(payload.fields || []) },
+        data: { fields: clone(querySource.fields) },
         map: {
-          geoFields: fieldPaths(map.geoFields ?? payload.geofields),
-          dynamicRequests: map.dynamicRequests === true,
-          minZoom: finiteNumberOrNull(map.minZoom),
-          maxZoom: finiteNumberOrNull(map.maxZoom)
+          geoFields: querySource.map.geoFields.map((field) => field.field),
+          dynamicRequests: querySource.map.dynamicRequests,
+          minZoom: querySource.map.minZoom,
+          maxZoom: querySource.map.maxZoom
         },
-        timeline: { fields: fieldPaths(payload.timefields) },
+        timeline: { fields: querySource.timefields.map((field) => field.field) },
         graph: null,
         filterForm: null
       },
@@ -153,22 +158,8 @@ function normalizeListItem(value) {
   return { id, title: String(value?.rec_Title ?? value?.title ?? `Source ${id}`) };
 }
 
-/** Normalize a list of field descriptors (objects or bare codes) to trimmed field-path strings. */
-function fieldPaths(values) {
-  return (Array.isArray(values) ? values : [])
-    .map((value) => typeof value === 'object' ? value.field ?? value.code : value)
-    .map((value) => String(value || '').trim()).filter(Boolean);
-}
-
 /** Normalize a value to a positive integer id, or `null` when invalid. */
 function positiveId(value) { const id = Number(value); return Number.isInteger(id) && id > 0 ? id : null; }
-
-/** Normalize a value to a finite number, or `null` when empty or invalid. */
-function finiteNumberOrNull(value) {
-  if (value == null || value === '') return null;
-  const number = Number(value);
-  return Number.isFinite(number) ? number : null;
-}
 
 /** Deep-clone a JSON-safe value, tolerating `null`/`undefined`. */
 function clone(value) { return value == null ? value : (typeof structuredClone === 'function' ? structuredClone(value) : JSON.parse(JSON.stringify(value))); }

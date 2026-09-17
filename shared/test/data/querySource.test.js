@@ -74,3 +74,68 @@ test("QuerySource#toJSON round-trips through JSON", () => {
   assert.equal(json.id, 15);
   assert.equal(json.source.query, "t:10");
 });
+
+test("QuerySource normalizes timefields through the same field normalizer as fields", () => {
+  const querySource = new QuerySource({
+    source: { query: "t:10" },
+    timefields: [{ field: "10:20", title: "Start" }, "10:21"],
+  });
+  assert.deepEqual(
+    querySource.timefields.map((field) => field.field),
+    ["10:20", "10:21"],
+  );
+  assert.equal(querySource.timefields[0].title, "Start");
+});
+
+test("QuerySource defaults timefields, map and rules when the server omits them", () => {
+  const querySource = new QuerySource({ source: { query: "t:10" } });
+  assert.deepEqual(querySource.timefields, []);
+  assert.deepEqual(querySource.map, {
+    geoFields: [],
+    dynamicRequests: false,
+    minZoom: null,
+    maxZoom: null,
+  });
+  assert.deepEqual(querySource.rules, []);
+});
+
+test("QuerySource normalizes map.geoFields through the field normalizer and coerces zoom/dynamicRequests", () => {
+  const querySource = new QuerySource({
+    source: { query: "t:10" },
+    map: {
+      geoFields: ["10:22"],
+      dynamicRequests: true,
+      minZoom: "4",
+      maxZoom: 15,
+    },
+  });
+  assert.deepEqual(
+    querySource.map.geoFields.map((field) => field.field),
+    ["10:22"],
+  );
+  assert.equal(querySource.map.dynamicRequests, true);
+  assert.equal(querySource.map.minZoom, 4);
+  assert.equal(querySource.map.maxZoom, 15);
+});
+
+test("QuerySource passes expansion rules through unvalidated (opaque to the client)", () => {
+  const rules = [{ name: "Parents", query: { "lf:1": 1 }, levels: [] }];
+  const querySource = new QuerySource({ source: { query: "t:10" }, rules });
+  assert.deepEqual(querySource.rules, rules);
+});
+
+test("QuerySource#toJSON includes timefields, map and rules", () => {
+  const querySource = new QuerySource({
+    source: { query: "t:10" },
+    timefields: ["10:20"],
+    map: { geoFields: ["10:22"], dynamicRequests: true, minZoom: 4, maxZoom: 15 },
+    rules: [{ name: "Parents" }],
+  });
+  const json = JSON.parse(JSON.stringify(querySource));
+  assert.deepEqual(
+    json.timefields.map((field) => field.field),
+    ["10:20"],
+  );
+  assert.equal(json.map.dynamicRequests, true);
+  assert.deepEqual(json.rules, [{ name: "Parents" }]);
+});

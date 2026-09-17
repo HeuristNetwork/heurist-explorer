@@ -23,7 +23,7 @@ import {
 export class HeuristDataConfigurationApi {
   /**
    * @param {object} [options] API configuration.
-   * @param {object} [options.providers] Supporting providers (querySourceList, filterList, reportTemplates, widgetList).
+   * @param {object} [options.providers] Supporting providers (reportTemplates).
    * @param {object|null} [options.hostBridge] Optional host bridge for persistence delegation.
    */
   constructor({ providers = {}, hostBridge = null } = {}) {
@@ -40,14 +40,8 @@ export class HeuristDataConfigurationApi {
     this.configurationDialog?.close?.();
     this.configurationDialog = new DataConfigurationDialog({
       ...options,
-      querySourceListProvider:
-        options.querySourceListProvider || this.providers.querySourceList,
-      filterListProvider:
-        options.filterListProvider || this.providers.filterList,
       reportTemplateProvider:
         options.reportTemplateProvider || this.providers.reportTemplates,
-      widgetListProvider:
-        options.widgetListProvider || this.providers.widgetList,
     }).open();
     return this.configurationDialog;
   }

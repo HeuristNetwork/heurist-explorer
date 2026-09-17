@@ -38,15 +38,11 @@ test('save errors preserve the editor and report the failure', async () => {
   assert.equal(closed, false);
 });
 
-test('provider failures are reported without dropping successful option loads', async () => {
+test('loadProviderOptions reports a template-loading failure', async () => {
   const editor = new GraphConfigurationDialog();
-  let loaded = false;
   let message;
-  editor.loadRecordOptions = async () => {};
   editor.loadTemplateOptions = async () => { throw new Error('Templates unavailable'); };
-  editor.loadWidgetOptions = async () => { loaded = true; };
   editor.showError = value => { message = value; };
   await editor.loadProviderOptions();
-  assert.equal(loaded, true);
   assert.equal(message, 'Templates unavailable');
 });

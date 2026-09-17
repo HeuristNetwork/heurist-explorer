@@ -14,17 +14,17 @@
  */
 
 import { LoaderRegistry } from "./LoaderRegistry.js";
-import { QuerySourceLoader } from "#shared/data/QuerySourceLoader.js";
-import { QueryLoader } from "./QueryLoader.js";
+import { DataSourceLoader } from "./DataSourceLoader.js";
+import { DirectQueryLoader } from "./DirectQueryLoader.js";
 
 /**
- * Build the loader registry with the Query Source and query loaders registered.
+ * Build the loader registry with the persisted-source and direct-query loaders registered.
  *
  * @param {object} providers Data providers forwarded to each loader.
  * @returns {LoaderRegistry}
  */
 export function createLoaderRegistry(providers) {
   return new LoaderRegistry()
-    .register("querySource", new QuerySourceLoader(providers))
-    .register("query", new QueryLoader(providers));
+    .register("source", new DataSourceLoader(providers))
+    .register("query", new DirectQueryLoader(providers));
 }

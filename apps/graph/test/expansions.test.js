@@ -126,7 +126,15 @@ test('source overrides stay local to their Query Source and Current Results', as
   assert.deepEqual(app.getExpansionRules(), [rule(8)]);
   await app.resetExpansionRules();
   assert.deepEqual(app.getExpansionRules(), [rule(12)]);
-  await app.activateCurrentResults();
+  // Restoring the remembered Filtered Result query is now the caller's job:
+  // clear the active source so the plain-query guard doesn't block the reload,
+  // and clear the Query Source identity so expansion rules key off 'current'.
+  app.querySource = null;
+  app.dataSource = null;
+  app.activeLoad = null;
+  app.config.querySourceId = null;
+  app.config.querySourceTitle = null;
+  await app.load({ query: app.currentResultsQuery, remember: false });
   assert.deepEqual(app.getExpansionRules(), [rule(7)]);
 });
 

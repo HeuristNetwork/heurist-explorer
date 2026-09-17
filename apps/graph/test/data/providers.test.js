@@ -14,8 +14,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { RecordDataProvider } from "../../src/data/RecordDataProvider.js";
-import { FilterProvider } from "../../src/data/FilterProvider.js";
-import { createFilterSearchRequest } from "../../src/data/FilterSearchRequest.js";
 
 test("RecordDataProvider requests only Query Source fields", async () => {
   let request;
@@ -73,99 +71,6 @@ test("RecordDataProvider omits an unspecified sort so query ordering is retained
   });
   await provider.load({ query: "t:10", fields: ["20"], offset: 25, limit: 25 });
   assert.equal(Object.hasOwn(request, "sort"), false);
-});
-
-test("FilterProvider loads all filters or restricts the OpenAPI request by IDs", async () => {
-  const calls = [];
-  const provider = new FilterProvider({
-    apiClient: {
-      get: async (path, options) => {
-        calls.push({ path, options });
-        return {
-          items: [
-            {
-              rec_ID: 4,
-              rec_Title: "Recent records",
-              query: "after:2026-01-01",
-            },
-          ],
-        };
-      },
-    },
-  });
-  const all = await provider.list();
-  const selected = await provider.list({ ids: [4, "7", 4] });
-  assert.deepEqual(
-    all.map((item) => item.title),
-    ["Recent records"],
-  );
-  assert.deepEqual(
-    selected.map((item) => item.id),
-    [4],
-  );
-  assert.equal(calls[0].path, "/sys");
-  assert.deepEqual(calls[0].options.query, {
-    q: '{"t":"filter","filterType":"filter"}',
-  });
-  assert.deepEqual(calls[1].options.query, {
-    q: '{"t":"filter","filterType":"filter","ids":"4,7"}',
-  });
-});
-
-test("FilterProvider loads a particular filter through the system endpoint", async () => {
-  let request;
-  const provider = new FilterProvider({
-    apiClient: {
-      get: async (path, options) => {
-        request = { path, options };
-        return { rec_ID: 9, rec_Title: "Places", query: "t:12" };
-      },
-    },
-  });
-  const result = await provider.load(9);
-  assert.equal(request.path, "/sys/filter/9");
-  assert.equal(request.options.query, undefined);
-  assert.equal(result.query, "t:12");
-});
-
-test("FilterProvider rejects malformed IDs", async () => {
-  const provider = new FilterProvider({ apiClient: { get: async () => [] } });
-  await assert.rejects(() => provider.list({ ids: [4, "invalid"] }), {
-    name: "TypeError",
-  });
-});
-
-test("createFilterSearchRequest parses only the saved-filter envelope", () => {
-  const rules = '[{"query":{"t":10,"r":3115}}]';
-  const request = createFilterSearchRequest(
-    {
-      query: JSON.stringify({
-        q: "t:10 Ivanov",
-        rules,
-        rulesonly: 0,
-      }),
-    },
-    { searchRealm: "main", source: "data-widget" },
-  );
-  assert.deepEqual(request, {
-    q: "t:10 Ivanov",
-    rules,
-    rulesonly: 0,
-    detail: "ids",
-    isNewEngine: true,
-    search_realm: "main",
-    source: "data-widget",
-  });
-});
-
-test("createFilterSearchRequest keeps a plain query and omits undefined rules", () => {
-  assert.deepEqual(createFilterSearchRequest({ query: "t:10" }), {
-    q: "t:10",
-    detail: "ids",
-    isNewEngine: true,
-    search_realm: null,
-    source: null,
-  });
 });
 
 test("RecordDataProvider requests count without loading IDs", async () => {

@@ -18,8 +18,6 @@ import {
   boolean,
   boundedNumber,
   enumValue,
-  nullableIdentifier,
-  nullableList,
   nullableString,
   serializeConfigurationSettings,
   stringValue,
@@ -66,7 +64,7 @@ export function normalizeGraphConfigurationMode(value) {
 }
 
 /**
- * Normalize the `options` half of the settings envelope (UI/controls/query sources/filters/interaction).
+ * Normalize the `options` half of the settings envelope (UI/controls/interaction).
  *
  * @param {object} source Raw options value.
  * @param {object} defaults Default options to fall back to.
@@ -75,17 +73,9 @@ export function normalizeGraphConfigurationMode(value) {
 function normalizeOptions(source, defaults) {
   const ui = source.ui || {};
   const controls = source.nativeControls || {};
-  const querySources = source.querySources || {};
-  const filters = source.filters || {};
   const interaction = source.interaction || {};
   return {
     ui: {
-      showCurrentResults: boolean(
-        ui.showCurrentResults,
-        defaults.ui.showCurrentResults,
-      ),
-      showQuerySources: boolean(ui.showQuerySources, defaults.ui.showQuerySources),
-      showFilters: boolean(ui.showFilters, defaults.ui.showFilters),
       initiallyExpanded: boolean(
         ui.initiallyExpanded,
         defaults.ui.initiallyExpanded,
@@ -95,7 +85,6 @@ function normalizeOptions(source, defaults) {
         defaults.ui.showSourceHeader,
       ),
       showOptions: boolean(ui.showOptions, defaults.ui.showOptions),
-      showPublish: boolean(ui.showPublish, defaults.ui.showPublish),
       showExpand: boolean(ui.showExpand, defaults.ui.showExpand),
       language: enumValue(
         ui.language,
@@ -107,15 +96,6 @@ function normalizeOptions(source, defaults) {
       zoom: boolean(controls.zoom, defaults.nativeControls.zoom),
       pan: boolean(controls.pan, defaults.nativeControls.pan),
       rearrange: boolean(controls.rearrange, defaults.nativeControls.rearrange),
-    },
-    querySources: {
-      allowAll: boolean(querySources.allowAll, defaults.querySources.allowAll),
-      allowed: nullableList(querySources.allowed),
-      initiallyActive: nullableIdentifier(querySources.initiallyActive),
-    },
-    filters: {
-      allowAll: boolean(filters.allowAll, defaults.filters.allowAll),
-      allowed: nullableList(filters.allowed),
     },
     interaction: {
       readonly: boolean(interaction.readonly, defaults.interaction.readonly),
@@ -136,7 +116,7 @@ function normalizeOptions(source, defaults) {
 }
 
 /**
- * Normalize the `config` half of the settings envelope (defaults/currentResults), migrating legacy fields.
+ * Normalize the `config` half of the settings envelope (defaults), migrating legacy fields.
  *
  * @param {object} source Raw config value.
  * @param {object} defaults Default config to fall back to.
@@ -149,8 +129,6 @@ function normalizeConfig(source, defaults) {
   const legacyTemplate = nullableString(configured.popupTemplate);
   const migratedTemplate =
     legacyTemplate && legacyTemplate !== "standard" ? legacyTemplate : null;
-  const current = source.currentResults || {};
-  const filterBy = current.filterBy || {};
   return {
     defaults: {
       emptyResultMessage: stringValue(
@@ -184,19 +162,6 @@ function normalizeConfig(source, defaults) {
       // heurist-graph's node popup reads this directly: a Heurist report
       // template name, or null for the built-in vis-native popup.
       popupTemplate: migratedTemplate,
-    },
-    currentResults: {
-      enabled: boolean(current.enabled, defaults.currentResults.enabled),
-      title: stringValue(current.title, defaults.currentResults.title),
-      initialQuery: nullableString(current.initialQuery),
-      filterBy: {
-        mode: enumValue(
-          filterBy.mode,
-          ["none", "timefilter", "selection", "lastSelected"],
-          "none",
-        ),
-        widgetId: nullableString(filterBy.widgetId),
-      },
     },
   };
 }
