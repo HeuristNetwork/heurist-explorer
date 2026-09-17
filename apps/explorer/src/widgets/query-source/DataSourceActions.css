@@ -1,0 +1,5 @@
+.h-dsa { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:4px 8px 6px; border-bottom:1px solid var(--h-color-border); background:var(--h-color-bg); }
+.h-dsa-status { font-size:var(--h-font-size-small); color:var(--h-color-text-muted); min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.h-dsa-status.is-persisted { font-weight:600; color:var(--h-color-text); }
+.h-dsa-status.is-workspace::before { content:'◆ '; }
+.h-dsa-buttons { display:flex; gap:5px; flex-wrap:wrap; justify-content:flex-end; }

@@ -95,6 +95,7 @@ test("QuerySource defaults timefields, map and rules when the server omits them"
     dynamicRequests: false,
     minZoom: null,
     maxZoom: null,
+    geoOutputMode: 'records',
   });
   assert.deepEqual(querySource.rules, []);
 });
@@ -114,6 +115,7 @@ test("QuerySource normalizes map.geoFields through the field normalizer and coer
     ["10:22"],
   );
   assert.equal(querySource.map.dynamicRequests, true);
+  assert.equal(querySource.map.geoOutputMode, 'records');
   assert.equal(querySource.map.minZoom, 4);
   assert.equal(querySource.map.maxZoom, 15);
 });

@@ -28,6 +28,13 @@ import { $HR } from '#shared/ui';
 import './HFieldTree.css';
 
 const LINKABLE = new Set(['resource', 'relmarker']);
+const HEADER_FIELDS = [
+  { code: 'rec_ID', label: 'Record ID' },
+  { code: 'rec_Title', label: 'Title' },
+  { code: 'rec_RecTypeID', label: 'Record type' },
+  { code: 'rec_Modified', label: 'Modified' },
+  { code: 'rec_Added', label: 'Added' }
+];
 
 /** Framework-free hierarchical field picker popover for the Filter Builder. */
 export class HFieldTree {
@@ -59,6 +66,12 @@ export class HFieldTree {
     this.close();
     this._rtyId = scope?.rtyId ?? '';
     this._flatOnly = scope?.flatOnly === true;
+    this._maxDepth = Number.isInteger(Number(scope?.maxDepth)) ? Math.max(0, Number(scope.maxDepth)) : 1;
+    this._selectableTypes = Array.isArray(scope?.selectableTypes) && scope.selectableTypes.length
+      ? new Set(scope.selectableTypes.map((value) => String(value).toLowerCase())) : null;
+    this._hideUnselectable = scope?.hideUnselectable === true;
+    this._includeHeaders = scope?.includeHeaders === true;
+    this._showSort = scope?.showSort !== false;
     this._onPick = onPick;
     this._openKeys.clear();
 
@@ -72,13 +85,16 @@ export class HFieldTree {
 
     const toolbar = document.createElement('div');
     toolbar.className = 'h-fbtree-toolbar';
-    toolbar.append(
-      this._toggle($HR('Alphabetic'), this._alpha, (on) => { this._alpha = on; this._renderBody(); }),
-      this._toggle($HR('Show linked-from types'), this._showReverse, (on) => {
-        this._showReverse = on;
+    if (this._showSort) {
+      toolbar.append(this._toggle($HR('Alphabetic'), this._alpha, (on) => {
+        this._alpha = on;
         this._renderBody();
-      })
-    );
+      }));
+    }
+    toolbar.append(this._toggle($HR('Show linked-from types'), this._showReverse, (on) => {
+      this._showReverse = on;
+      this._renderBody();
+    }));
 
     this._body = document.createElement('div');
     this._body.className = 'h-fbtree-body';
@@ -139,6 +155,17 @@ export class HFieldTree {
       return;
     }
 
+    if (this._includeHeaders) {
+      const header = document.createElement('div');
+      header.className = 'h-fbtree-section';
+      header.textContent = $HR('Record header');
+      this._body.append(header);
+      for (const item of HEADER_FIELDS) this._body.append(this._headerLeaf(item));
+      const details = document.createElement('div');
+      details.className = 'h-fbtree-section';
+      details.textContent = $HR('Record fields');
+      this._body.append(details);
+    }
     for (const node of this._fieldNodes(rtyId, [])) this._body.append(node);
 
     if (this._showReverse && !this._flatOnly) {
@@ -151,7 +178,8 @@ export class HFieldTree {
           label: `« ${this.dbdefs.rectypeName(fromRty)}`,
           key: `lf:${dty}:${fromRty}`,
           via: { link: 'lf', dty, targetRty: fromRty },
-          childRtyId: fromRty
+          childRtyId: fromRty,
+          viaChain: []
         }));
       }
     }
@@ -166,20 +194,40 @@ export class HFieldTree {
 
     const out = [];
     for (const field of fields) {
-      if (LINKABLE.has(field.type) && viaChain.length === 0 && !this._flatOnly) {
+      const linkable = LINKABLE.has(field.type);
+      const selectable = !this._selectableTypes || this._selectableTypes.has(String(field.type || '').toLowerCase());
+      if (this._hideUnselectable && !selectable && !linkable) continue;
+      if (linkable && viaChain.length < this._maxDepth && !this._flatOnly) {
         const targets = this.dbdefs.fieldGlobal(field.id)?.targetTypes || [];
         out.push(this._linkFolder({
           label: field.name,
           key: `lt:${field.id}`,
           via: { link: 'lt', dty: field.id, targetRty: targets.length === 1 ? targets[0] : '' },
           childRtyId: targets.length === 1 ? targets[0] : null,
-          targets
+          targets,
+          viaChain
         }));
-      } else {
+      } else if (!this._hideUnselectable || selectable) {
         out.push(this._leaf(field, viaChain));
       }
     }
     return out;
+  }
+
+  _headerLeaf(item) {
+    const row = document.createElement('button');
+    row.type = 'button';
+    row.className = 'h-menu-item h-fbtree-leaf h-fbtree-header-leaf';
+    row.textContent = $HR(item.label);
+    const type = document.createElement('span');
+    type.className = 'h-fbtree-type';
+    type.textContent = $HR('header');
+    row.append(type);
+    row.addEventListener('click', () => {
+      this._onPick?.([{ code: item.code, label: $HR(item.label), fieldType: 'header' }]);
+      this.close();
+    });
+    return row;
   }
 
   /**
@@ -194,6 +242,9 @@ export class HFieldTree {
     const row = document.createElement('button');
     row.type = 'button';
     row.className = 'h-menu-item h-fbtree-leaf';
+    const selectable = !this._selectableTypes || this._selectableTypes.has(String(field.type || '').toLowerCase());
+    if (!selectable) row.classList.add('h-fbtree-leaf-disabled');
+    row.disabled = !selectable;
     row.textContent = `${field.name}`;
     const type = document.createElement('span');
     type.className = 'h-fbtree-type';
@@ -219,7 +270,7 @@ export class HFieldTree {
    * @param {Array<number>} [options.targets] Candidate target rectypes, when ambiguous.
    * @returns {HTMLElement}
    */
-  _linkFolder({ label, key, via, childRtyId, targets = [] }) {
+  _linkFolder({ label, key, via, childRtyId, targets = [], viaChain = [] }) {
     const wrap = document.createElement('div');
     wrap.className = 'h-fbtree-folder';
 
@@ -246,7 +297,8 @@ export class HFieldTree {
           label: this.dbdefs.rectypeName(target),
           key: `${key}>${target}`,
           via: { ...via, targetRty: target },
-          childRtyId: target
+          childRtyId: target,
+          viaChain
         }));
       }
       wrap.append(kids);
@@ -255,7 +307,8 @@ export class HFieldTree {
 
     const rty = Number(childRtyId) > 0 ? Number(childRtyId) : null;
     if (rty) {
-      for (const node of this._fieldNodes(rty, [{ via: { ...via, targetRty: rty } }])) {
+      const nextChain = [...viaChain, { via: { ...via, targetRty: rty } }];
+      for (const node of this._fieldNodes(rty, nextChain)) {
         kids.append(node);
       }
     }

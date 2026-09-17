@@ -117,17 +117,10 @@ export class IframeModuleAdapter extends ExplorerModule {
       editRules: (value, options) => outer.editRules?.(value, options),
       describeRules: (rules) => outer.describeRules?.(rules),
       editFieldset: (value, options) => outer.editFieldset?.(value, options),
-      addDataSourceToWorkspace: (source, options) => outer.addDataSourceToWorkspace?.(source, options),
-      removeDataSourceFromWorkspace: (sourceOrKey) => outer.removeDataSourceFromWorkspace?.(sourceOrKey),
-      isDataSourceInWorkspace: (source) => outer.isDataSourceInWorkspace?.(source),
-      updateDataSourceInWorkspace: (source) => outer.updateDataSourceInWorkspace?.(source),
-      getWorkspaceDataSources: () => outer.getWorkspaceDataSources?.() || [],
       showDatasource: (source) => {
         if (['map', 'timeline'].includes(this.type)) this.dataSource = clone(source);
         return outer.showDatasource?.(source, ['map', 'timeline'].includes(this.type) ? { origin: this.id } : {});
-      },
-      saveDatasourceAsFilter: (source) => outer.saveDatasourceAsFilter?.(source),
-      saveDatasourceAsSource: (source, options) => outer.saveDatasourceAsSource?.(source, options)
+      }
     };
   }
 

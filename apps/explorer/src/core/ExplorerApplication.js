@@ -33,6 +33,7 @@ import { HDbDefs } from '#shared/data/HDbDefs.js';
 import { RecordTypeProvider } from '#shared/data/RecordTypeProvider.js';
 import queryVocabulary from '../utils/queryVocabulary.json';
 import { HFilterBuilder } from '../widgets/filter-builder/HFilterBuilder.js';
+import { QuerySourcePanel } from '../widgets/query-source/QuerySourcePanel.js';
 import { queryDescribe } from '../utils/queryDescribe.js';
 import { parseTextQuery } from '../utils/parseTextQuery.js';
 import { queryToArray } from '../utils/queryModel.js';
@@ -70,6 +71,7 @@ export class ExplorerApplication {
     this.querySources = null;
     this._moduleCounter = 0;
     this.layoutDefinitions = [];
+    this.querySourcePanels = new Map();
     // Each embedded module (map, timeline, ...) owns its own persisted user
     // preference (`heurist-<type>`), separate from the Explorer layout config
     // in this.config.settings. IframeModuleAdapter's bridge only supplies
@@ -194,6 +196,7 @@ export class ExplorerApplication {
    */
   async _createModule(definition) {
     const slot = this.layout.createSlot(definition.id, definition.type);
+    const moduleContainer = await this._prepareModuleContainer(definition, slot);
     const mode = definition.mode || this.config.moduleModes?.[definition.type] || 'iframe';
     const mountModule = DIRECT_MOUNTERS[definition.type];
     if (mode === 'direct' && !mountModule) {
@@ -203,7 +206,7 @@ export class ExplorerApplication {
     const module = new Adapter({
       id: definition.id,
       type: definition.type,
-      container: slot,
+      container: moduleContainer,
       url: definition.url || this.config.moduleUrls[definition.type],
       ...(mode === 'direct' ? {
         mountModule,
@@ -244,6 +247,118 @@ export class ExplorerApplication {
     if (this.sync.selection.length) await module.setSelection(this.sync.selection, { origin: 'sync' });
 
     return module;
+  }
+
+  /** Prepare a generic Explorer module shell. The current Data presentation also receives
+   * the Query Source authoring panel; the same shell can host it for other modules later. */
+  async _prepareModuleContainer(definition, slot) {
+    const attachAuthoring = definition.authoring === true
+      || definition.context?.querySourceAuthoring === true
+      || (definition.type === 'data' && definition.context?.role === 'current');
+    if (!attachAuthoring) return slot;
+    const shell = document.createElement('div');
+    shell.className = 'h-explorer-module-shell';
+    const authoring = document.createElement('div');
+    authoring.className = 'h-explorer-authoring';
+    const content = document.createElement('div');
+    content.className = 'h-explorer-module-content';
+    shell.append(authoring, content);
+    slot.replaceChildren(shell);
+
+    const dbdefs = await this._ensureDbDefs();
+    const panel = new QuerySourcePanel({
+      dbdefs,
+      lang: this.config.language,
+      openFilterBuilder: (query) => this._editQueryWithBuilder(query),
+      editRules: (rules, options) => this.config.hostBridge?.editRules?.(rules, options),
+      describeRules: (rules) => this.config.hostBridge?.describeRules?.(rules),
+      onExecute: (source) => this.activateDataSource(source, {
+        origin: 'query-source-editor', allowDirty: true, keepEditorDraft: true
+      }),
+      onApply: (source) => this._applyQuerySourceDraft(source),
+      onSaveFilter: (source) => this.saveDatasourceAsFilter(source),
+      onSaveSource: (source) => this._saveQuerySourceDraft(source),
+      onUpdateSource: (source, id) => this._saveQuerySourceDraft(source, id),
+      onWorkspaceAdd: (source) => this.addDataSourceToWorkspace(source),
+      onWorkspaceRemove: (source) => this.removeDataSourceFromWorkspace(source),
+      isInWorkspace: (source) => this.isDataSourceInWorkspace(source)
+    });
+    panel.attach(authoring).render();
+    this.querySourcePanels.set(String(definition.id), panel);
+    if (this.sync.dataSource) panel.setDataSource(this.sync.dataSource);
+    return content;
+  }
+
+
+  /** Apply the Query Source draft to synchronized presentations without persisting it. */
+  async _applyQuerySourceDraft(source) {
+    const dataSource = normalizeDataSource(source);
+    const dataModule = this.layout?.findCurrentResultDataModule?.();
+    await this.sync.setDataSource(dataSource, {
+      origin: 'query-source-editor-apply',
+      preserveDataViews: true,
+      dataModuleId: dataModule?.id
+    });
+    return dataSource;
+  }
+
+  /** Protect QuerySourceEditor drafts from silent datasource replacement. */
+  async _confirmQuerySourceNavigation(panel) {
+    const draft = panel?.getDraftDataSource?.();
+    if (!draft) return true;
+    const sourceId = draft.reference?.type === 'source' ? Number(draft.reference.id) : null;
+    const message = document.createElement('div');
+    message.textContent = sourceId > 0
+      ? $HR('This Query Source has unsaved changes.')
+      : $HR('This source has unsaved configuration.');
+    return new Promise((resolve) => {
+      const finish = (value) => { HMsg.closeMsgDlg?.(); resolve(value); };
+      const save = async () => {
+        try {
+          const result = await this._saveQuerySourceDraft(draft, sourceId > 0 ? sourceId : null);
+          finish(result?.saved !== false);
+        } catch (error) {
+          HMsg.showMsgErr?.(error?.message || String(error));
+        }
+      };
+      HMsg.showMsgDlg(message, {
+        title: $HR('Unsaved Query Source changes'),
+        preventClose: true,
+        buttons: [
+          { label: sourceId > 0 ? $HR('Update Source') : $HR('Save as Source'), class: 'h-btn h-btn-primary', onClick: () => void save() },
+          { label: $HR('Discard'), class: 'h-btn', onClick: () => finish(true) },
+          { label: $HR('Cancel'), class: 'h-btn', onClick: () => finish(false) }
+        ]
+      });
+    });
+  }
+
+  /** Persist a QuerySourceEditor draft through the host bridge and refresh its stable reference. */
+  async _saveQuerySourceDraft(source, id = null) {
+    const result = await this.saveDatasourceAsSource(source, id ? { id } : {});
+    const recordId = Number(result?.recordId ?? id);
+    if (result?.saved !== false && recordId > 0) {
+      const resolved = await this.querySources.resolveDataSource(recordId);
+      const panel = this._currentQuerySourcePanel();
+      if (resolved) {
+        panel?.markCommitted(resolved);
+        await this.activateDataSource(resolved, { allowDirty: true });
+      } else {
+        panel?.markCommitted();
+      }
+      await this.querySources.load().catch(() => {});
+      this.controlPanel?.refreshNavigationLists?.();
+    }
+    return result;
+  }
+
+  _currentQuerySourcePanel() {
+    const activeId = this.layout?.activeModuleId;
+    if (activeId && this.querySourcePanels.has(String(activeId))) {
+      return this.querySourcePanels.get(String(activeId));
+    }
+    const module = this.layout?.findCurrentResultDataModule?.();
+    return module ? this.querySourcePanels.get(String(module.id)) || null : null;
   }
 
   /**
@@ -301,6 +416,12 @@ export class ExplorerApplication {
       return null;
     }
 
+    const panelBefore = this._currentQuerySourcePanel();
+    if (panelBefore?.isDirty?.() && syncOptions.allowDirty !== true) {
+      const mayContinue = await this._confirmQuerySourceNavigation(panelBefore);
+      if (!mayContinue) return null;
+    }
+
     const dataSource = await this._withResultCount(normalizeDataSource(source));
     let dataModule = this.layout.findCurrentResultDataModule();
 
@@ -318,6 +439,9 @@ export class ExplorerApplication {
     this.controlPanel?.refreshNavigationLists?.();
 
     this.layout.activateModule(dataModule.id);
+    if (syncOptions.keepEditorDraft !== true) {
+      for (const panel of this.querySourcePanels.values()) panel.setDataSource(dataSource);
+    }
     this.controlPanel?.refreshActiveTool?.();
     return dataModule;
   }
@@ -505,7 +629,13 @@ export class ExplorerApplication {
     if (typeof action !== 'function') {
       throw new Error($HR('Source editor is not available'));
     }
-    return action(dataSource, options);
+    const dbdefs = await this._ensureDbDefs();
+    const querySourceDbconst = {};
+    for (const name of ['DT_GEO_OUTPUTMODE', 'DT_IS_LOADED_BY_EXTENT', 'TRM_NO', 'TRM_YES']) {
+      const id = dbdefs.dbconst?.(name);
+      if (Number(id) > 0) querySourceDbconst[name] = Number(id);
+    }
+    return action(dataSource, { ...options, dbconst: querySourceDbconst });
   }
 
   /**
@@ -819,14 +949,7 @@ export class ExplorerApplication {
       describeRules: (rules) => bridge.describeRules?.(rules),
       editFieldset: (value, options) => bridge.editFieldset?.(value, options),
       getHostContext: () => ({ name: 'heurist-explorer', runtimeMode: 'main' }),
-      addDataSourceToWorkspace: (source, options) => this.addDataSourceToWorkspace(source, options),
-      removeDataSourceFromWorkspace: (sourceOrKey) => this.removeDataSourceFromWorkspace(sourceOrKey),
-      isDataSourceInWorkspace: (source) => this.isDataSourceInWorkspace(source),
-      updateDataSourceInWorkspace: (source) => this.updateDataSourceInWorkspace(source),
-      getWorkspaceDataSources: () => this.getWorkspaceDataSources(),
-      showDatasource: (source, options) => this.showDatasource(source, options),
-      saveDatasourceAsFilter: (source) => this.saveDatasourceAsFilter(source),
-      saveDatasourceAsSource: (source, options) => this.saveDatasourceAsSource(source, options)
+      showDatasource: (source, options) => this.showDatasource(source, options)
     };
   }
 
@@ -879,6 +1002,30 @@ export class ExplorerApplication {
     }
   }
 
+  /** Open HFilterBuilder as a value editor and resolve with its JSON query, or null on cancel. */
+  async _editQueryWithBuilder(query) {
+    let dbdefs;
+    try { dbdefs = await this._ensureDbDefs(); }
+    catch (error) {
+      HMsg.showMsgFlash?.($HR('Unable to load database structure') + ': ' + (error?.message || error));
+      return null;
+    }
+    const host = document.createElement('div');
+    const builder = new HFilterBuilder({ dbdefs, vocabulary: queryVocabulary, lang: this.config.language });
+    builder.attach(host).render();
+    builder.setQuery(query || []);
+    return new Promise((resolve) => {
+      const finish = async (value) => { HMsg.closeMsgDlg?.(); await builder.destroy(); resolve(value); };
+      HMsg.showMsgDlg(host, {
+        title: 'Filter builder', preventClose: true,
+        buttons: [
+          { label: 'Apply', class: 'h-btn h-btn-primary', onClick: () => void finish(builder.getQuery()) },
+          { label: 'Cancel', class: 'h-btn', onClick: () => void finish(null) }
+        ]
+      });
+    });
+  }
+
   /**
    * Public entry point for the Filter Builder from the command rail.
    *
@@ -900,43 +1047,11 @@ export class ExplorerApplication {
    */
   async _openFilterBuilder(widget, query) {
     if (!widget) return;
-    let dbdefs;
-    try {
-      dbdefs = await this._ensureDbDefs();
-    } catch (error) {
-      HMsg.showMsgFlash?.($HR('Unable to load database structure') + ': ' + (error?.message || error));
-      return;
-    }
-
-    const host = document.createElement('div');
-    const builder = new HFilterBuilder({
-      dbdefs,
-      vocabulary: queryVocabulary,
-      lang: this.config.language
-    });
-    builder.attach(host).render();
-    builder.setQuery(query || []);
-
-    const apply = () => {
-      const composed = builder.getQuery();
-      HMsg.closeMsgDlg?.();
-      widget.setQueryValue(composed.length ? JSON.stringify(composed) : '');
-      widget.refreshSentence?.();
-      if (composed.length) void widget.executeDirectQuery();
-      void builder.destroy();
-    };
-    const cancel = () => { HMsg.closeMsgDlg?.(); void builder.destroy(); };
-
-    // preventClose: a builder holds unsaved work - only Apply / Cancel dismiss it,
-    // never a stray backdrop click or Escape (matches other deliberate modals).
-    HMsg.showMsgDlg(host, {
-      title: 'Filter builder',
-      preventClose: true,
-      buttons: [
-        { label: 'Apply', class: 'h-btn h-btn-primary', onClick: apply },
-        { label: 'Cancel', class: 'h-btn', onClick: cancel }
-      ]
-    });
+    const composed = await this._editQueryWithBuilder(query);
+    if (composed == null) return;
+    widget.setQueryValue(composed.length ? JSON.stringify(composed) : '');
+    widget.refreshSentence?.();
+    if (composed.length) void widget.executeDirectQuery();
   }
 
   /**
@@ -1008,6 +1123,8 @@ export class ExplorerApplication {
     await Promise.all([...this.modules.values()].map((module) => module.destroy()));
     this.modules.clear();
     this.sync.destroy();
+    for (const panel of this.querySourcePanels.values()) void panel.destroy?.();
+    this.querySourcePanels.clear();
     this.layout?.destroy();
     this.inlineHelper?.destroy?.();
     this.filter?.destroy?.();

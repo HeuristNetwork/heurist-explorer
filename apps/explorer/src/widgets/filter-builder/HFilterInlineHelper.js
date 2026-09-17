@@ -465,7 +465,7 @@ export class HFilterInlineHelper extends HBaseWidget {
     const txt = el('span', 'h-fih-sentence-text');
     txt.textContent = sentence;
     this._sentence.append(txt);
-    if (typeof this._onOpenBuilder === 'function') {
+    if (this.options.showBuilderButton && typeof this._onOpenBuilder === 'function') {
       const link = el('button', 'h-btn h-btn-small h-fih-edit');
       link.type = 'button';
       link.textContent = $HR('Edit in builder');

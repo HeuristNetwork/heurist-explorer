@@ -90,7 +90,7 @@ export function normalizeQuerySource(value = {}) {
  * Normalize a Query Source's `map` presentation profile (geo fields and viewport hints).
  *
  * @param {object} [value] Raw `map` value.
- * @returns {{geoFields: Array<object>, dynamicRequests: boolean, minZoom: number|null, maxZoom: number|null}}
+ * @returns {{geoFields: Array<object>, dynamicRequests: boolean, minZoom: number|null, maxZoom: number|null, geoOutputMode:'records'|'features'}}
  */
 function normalizeQuerySourceMap(value) {
   const map = value && typeof value === "object" ? value : {};
@@ -99,6 +99,7 @@ function normalizeQuerySourceMap(value) {
     dynamicRequests: map.dynamicRequests === true,
     minZoom: finiteNumberOrNull(map.minZoom),
     maxZoom: finiteNumberOrNull(map.maxZoom),
+    geoOutputMode: map.geoOutputMode === 'features' ? 'features' : 'records',
   };
 }
 

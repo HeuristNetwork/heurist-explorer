@@ -128,7 +128,8 @@ export class QuerySourceManager {
           geoFields: querySource.map.geoFields.map((field) => field.field),
           dynamicRequests: querySource.map.dynamicRequests,
           minZoom: querySource.map.minZoom,
-          maxZoom: querySource.map.maxZoom
+          maxZoom: querySource.map.maxZoom,
+          geoOutputMode: querySource.map.geoOutputMode
         },
         timeline: { fields: querySource.timefields.map((field) => field.field) },
         graph: null,
