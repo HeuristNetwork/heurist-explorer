@@ -50,3 +50,4 @@
 #Hidden#Masqué
 #Viewable#Visible
 #Public#Public
+#Data in system format#Données au format système

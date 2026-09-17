@@ -13,7 +13,7 @@
  * @since       8.0
  */
 import { $HR } from "#shared/ui";
-import { displayFieldValue } from "../core/FieldValueFormatter.js";
+import { fieldValues, sanitizeTextHtml, looksLikeJson } from "../core/FieldValueFormatter.js";
 
 const VISIBILITY_LABELS = { hidden: "Hidden", viewable: "Viewable", public: "Public" };
 
@@ -130,7 +130,7 @@ export class RecordViewRenderer {
     text.className = "heurist-recordview-header-text";
     const title = document.createElement("h2");
     title.className = "heurist-recordview-title";
-    title.textContent = record?.rec_Title || recordTypeName || `Record ${record?.rec_ID ?? ""}`;
+    title.innerHTML = sanitizeTextHtml(record?.rec_Title || recordTypeName || `Record ${record?.rec_ID ?? ""}`);
     const meta = document.createElement("div");
     meta.className = "heurist-recordview-meta";
     meta.textContent = [recordTypeName, record?.rec_ID != null ? `#${record.rec_ID}` : null]
@@ -228,14 +228,20 @@ export class RecordViewRenderer {
     return wrapper;
   }
 
-  /** One field row: a resource field renders as links that trigger `onNavigate`; everything else via `displayFieldValue`. */
+  /**
+   * One field row: a resource field renders as links that trigger `onNavigate`; a blocktext
+   * field renders sanitized rich text (or a system-format notice when its content is JSON);
+   * everything else renders as plain text. Each value gets its own line within `dd`, so the
+   * label sits inline with the first value and further values stack beneath it.
+   */
   #buildFieldRow(record, field, values, { onNavigate }) {
     const dt = document.createElement("dt");
     dt.textContent = field.name || `Field ${field.id}`;
     const dd = document.createElement("dd");
     if (field.type === "resource") {
-      values.forEach((value, index) => {
-        if (index > 0) dd.append(document.createElement("br"));
+      for (const value of values) {
+        const line = document.createElement("div");
+        line.className = "heurist-recordview-value-line";
         const link = document.createElement("a");
         link.href = "#";
         link.className = "heurist-recordview-resource-link";
@@ -244,10 +250,29 @@ export class RecordViewRenderer {
           event.preventDefault();
           if (value?.rec_ID) onNavigate(value.rec_ID);
         });
-        dd.append(link);
-      });
+        line.append(link);
+        dd.append(line);
+      }
+    } else if (field.type === "blocktext") {
+      for (const text of fieldValues(record, { field: String(field.id) })) {
+        const line = document.createElement("div");
+        line.className = "heurist-recordview-value-line";
+        const plain = String(text ?? "");
+        if (looksLikeJson(plain)) {
+          line.classList.add("heurist-recordview-value-systemformat");
+          line.textContent = $HR("Data in system format");
+        } else {
+          line.innerHTML = sanitizeTextHtml(plain, { extraTags: ["p"] });
+        }
+        dd.append(line);
+      }
     } else {
-      dd.textContent = displayFieldValue(record, { field: String(field.id) });
+      for (const text of fieldValues(record, { field: String(field.id) })) {
+        const line = document.createElement("div");
+        line.className = "heurist-recordview-value-line";
+        line.textContent = String(text ?? "");
+        dd.append(line);
+      }
     }
     return [dt, dd];
   }

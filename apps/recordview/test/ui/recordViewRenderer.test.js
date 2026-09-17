@@ -55,9 +55,24 @@ test("resource-field values render as links that call onNavigate with rec_ID, no
   assert.match(rendererSource, /value\?\.rec_Title \|\| `#\$\{value\?\.rec_ID/);
 });
 
-test("non-resource, non-file fields render via the shared FieldValueFormatter", () => {
-  assert.match(rendererSource, /import \{ displayFieldValue \} from "..\/core\/FieldValueFormatter\.js"/);
-  assert.match(rendererSource, /dd\.textContent = displayFieldValue\(record, \{ field: String\(field\.id\) \}\)/);
+test("non-resource, non-file, non-blocktext fields render plain text via the shared FieldValueFormatter", () => {
+  assert.match(rendererSource, /import \{ fieldValues, sanitizeTextHtml, looksLikeJson \} from "..\/core\/FieldValueFormatter\.js"/);
+  assert.match(rendererSource, /line\.textContent = String\(text \?\? ""\)/);
+});
+
+test("blocktext fields render sanitized HTML (u/i/b/strong/em/p), or a system-format notice when the content is JSON", () => {
+  assert.match(rendererSource, /field\.type === "blocktext"/);
+  assert.match(rendererSource, /looksLikeJson\(plain\)/);
+  assert.match(rendererSource, /\$HR\("Data in system format"\)/);
+  assert.match(rendererSource, /sanitizeTextHtml\(plain, \{ extraTags: \["p"\] \}\)/);
+});
+
+test("the record title is rendered as sanitized HTML (u/i/b/strong/em), not plain text", () => {
+  assert.match(rendererSource, /title\.innerHTML = sanitizeTextHtml\(record\?\.rec_Title/);
+});
+
+test("each field value renders on its own line, so the label sits inline with the first value", () => {
+  assert.match(rendererSource, /heurist-recordview-value-line/);
 });
 
 test("the footer shows created/modified/owner/visibility and omits rating/tags (deferred)", () => {

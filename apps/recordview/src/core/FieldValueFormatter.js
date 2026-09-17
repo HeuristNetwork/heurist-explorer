@@ -121,6 +121,50 @@ export function displayFieldValue(record, field, separator = " | ") {
     .join(separator);
 }
 
+/**
+ * Strip HTML down to a small allowlist of inline formatting tags (`u`, `i`, `b`, `strong`, `em`,
+ * plus any `extraTags`), removing `<script>`/`<style>` content and all other markup.
+ *
+ * @param {*} value Raw value that may contain HTML.
+ * @param {{extraTags?: string[]}} [options] `extraTags` adds further tag names to the allowlist
+ *        (e.g. `p`, for blocktext field values).
+ * @returns {string} Sanitized HTML.
+ */
+export function sanitizeTextHtml(value, { extraTags = [] } = {}) {
+  const allowed = new Set(["u", "i", "b", "strong", "em", ...extraTags]);
+  return String(value ?? "")
+    .replace(/<(script|style)\b[^>]*>[\s\S]*?<\/\1\s*>/gi, "")
+    .replace(/<\/?([a-z][a-z0-9]*)\b[^>]*>/gi, (tag, name) => {
+      const normalized = name.toLowerCase();
+      if (!allowed.has(normalized)) return "";
+      return tag.startsWith("</") ? `</${normalized}>` : `<${normalized}>`;
+    });
+}
+
+/**
+ * Remove all HTML markup, returning plain text.
+ *
+ * @param {*} value Raw value that may contain HTML.
+ * @returns {string} Plain text.
+ */
+export function stripHtml(value) {
+  return String(value ?? "")
+    .replace(/<(script|style)\b[^>]*>[\s\S]*?<\/\1\s*>/gi, "")
+    .replace(/<[^>]*>/g, "");
+}
+
+/** Whether a string looks like JSON (starts with `{`/`[` and parses successfully). */
+export function looksLikeJson(value) {
+  const text = String(value ?? "").trim();
+  if (!(text.startsWith("{") || text.startsWith("["))) return false;
+  try {
+    JSON.parse(text);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /** Return the first defined, non-null value among the arguments, or `''`. */
 function first(...values) {
   return values.find((value) => value !== null && value !== undefined) ?? "";
