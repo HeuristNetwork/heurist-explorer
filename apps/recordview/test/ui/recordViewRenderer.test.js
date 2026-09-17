@@ -27,16 +27,43 @@ test("file thumbnails use the legacy ?db=&thumb= convention", () => {
   assert.match(rendererSource, /\?db=\$\{encodeURIComponent\(this\.database\)\}&thumb=\$\{encodeURIComponent\(fileId\)\}/);
 });
 
-test("image files link to OpenSeadragon; everything else links to Mirador", () => {
+test("images get an OSD link; images/audio/video get a Mirador link", () => {
   assert.match(rendererSource, /openSeadragonViewer\.php\?db=\$\{encodeURIComponent\(this\.database\)\}&recID=/);
   assert.match(rendererSource, /miradorViewer\.php\?db=\$\{encodeURIComponent\(this\.database\)\}&id=/);
-  assert.match(rendererSource, /const isImage = String\(file\.fxm_MimeType \|\| ""\)\.startsWith\("image\/"\)/);
-  assert.match(rendererSource, /if \(isImage\) \{\s*link\.href = this\.#osdUrl\(fileId\);/);
+  assert.match(rendererSource, /if \(isImage\) links\.append\(this\.#buildMediaLink\(this\.#osdUrl\(fileId\), "Show in OSD"\)\);/);
+  assert.match(rendererSource, /if \(isImage \|\| isAudio \|\| isVideo\) links\.append\(this\.#buildMediaLink\(this\.#miradorUrl\(fileId\), "Show in Mirador"\)\);/);
 });
 
-test("the edit button only renders when canEdit is true, and calls onEdit with the record id", () => {
+test("uploaded audio/video render as native <audio>/<video> players, not static thumbnails", () => {
+  assert.match(rendererSource, /const isAudio = mimeType\.startsWith\("audio\/"\);/);
+  assert.match(rendererSource, /const isVideo = mimeType\.startsWith\("video\/"\);/);
+  assert.match(rendererSource, /document\.createElement\(isVideo \? "video" : "audio"\)/);
+  assert.match(rendererSource, /player\.controls = true;/);
+});
+
+test("an externally-referenced file gets a 'Show in new tab' link to its raw external URL", () => {
+  assert.match(rendererSource, /if \(externalUrl\) links\.append\(this\.#buildMediaLink\(externalUrl, "Show in new tab"\)\);/);
+});
+
+test("clicking an image thumbnail toggles it between the thumbnail and full-size URL, in place, and toggles the expanded size class", () => {
+  assert.match(rendererSource, /const expanded = item\.classList\.toggle\("heurist-recordview-media-item-expanded"\);/);
+  assert.match(rendererSource, /thumb\.src = expanded \? mediaSrc : this\.#thumbUrl\(fileId\);/);
+});
+
+test("the full-file URL uses the legacy ?db=&file= convention", () => {
+  assert.match(rendererSource, /\?db=\$\{encodeURIComponent\(this\.database\)\}&file=\$\{encodeURIComponent\(fileId\)\}/);
+});
+
+test("the edit button only renders when canEdit is true, sits inside the meta line next to the record id, and calls onEdit with the record id", () => {
   assert.match(rendererSource, /if \(canEdit\) \{/);
   assert.match(rendererSource, /edit\.addEventListener\("click", \(\) => onEdit\(record\?\.rec_ID\)\)/);
+  assert.match(rendererSource, /meta\.append\(edit\);/);
+});
+
+test("each render measures the widest section label and pins every section's dt column to it", () => {
+  assert.match(rendererSource, /this\.#alignFieldLabels\(\);/);
+  assert.match(rendererSource, /#alignFieldLabels\(\) \{/);
+  assert.match(rendererSource, /dl\.style\.setProperty\("--heurist-recordview-label-width", `\$\{maxWidth\}px`\);/);
 });
 
 test("media items are built only from file-type fields, keyed by detail-type id", () => {
@@ -53,6 +80,10 @@ test("resource-field values render as links that call onNavigate with rec_ID, no
   assert.match(rendererSource, /if \(field\.type === "resource"\) \{/);
   assert.match(rendererSource, /if \(value\?\.rec_ID\) onNavigate\(value\.rec_ID\)/);
   assert.match(rendererSource, /value\?\.rec_Title \|\| `#\$\{value\?\.rec_ID/);
+});
+
+test("resource-field link titles are rendered as sanitized HTML, matching the record's own title", () => {
+  assert.match(rendererSource, /link\.innerHTML = sanitizeTextHtml\(value\?\.rec_Title \|\| `#\$\{value\?\.rec_ID/);
 });
 
 test("non-resource, non-file, non-blocktext fields render plain text via the shared FieldValueFormatter", () => {

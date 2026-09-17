@@ -41,8 +41,9 @@
 #multiple_selected_single_only#Sélectionnez un seul enregistrement
 #record_viewer_unconfigured#La visionneuse d'enregistrement n'est pas configurée
 #Edit#Modifier
-#View full size#Voir en taille réelle
-#Open in Mirador#Ouvrir dans Mirador
+#Show in OSD#Afficher dans OSD
+#Show in Mirador#Afficher dans Mirador
+#Show in new tab#Afficher dans un nouvel onglet
 #Created#Créé
 #Modified#Modifié
 #Owner#Propriétaire

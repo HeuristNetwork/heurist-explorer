@@ -86,6 +86,7 @@ export class RecordViewRenderer {
     children.push(this.#buildSections(record, sections, { onNavigate }));
     children.push(this.#buildFooter(record));
     this.body.replaceChildren(...children);
+    this.#alignFieldLabels();
   }
 
   /**
@@ -113,7 +114,7 @@ export class RecordViewRenderer {
     this.body.remove();
   }
 
-  /** Header: rectype icon, title, rectype name + id, and an edit pencil gated on `canEdit`. */
+  /** Header: rectype icon, title, and a meta line (rectype name + id, with an edit pencil right next to the id, gated on `canEdit`). */
   #buildHeader(record, { recordTypeName, canEdit, onEdit }) {
     const header = document.createElement("div");
     header.className = "heurist-recordview-header";
@@ -133,11 +134,11 @@ export class RecordViewRenderer {
     title.innerHTML = sanitizeTextHtml(record?.rec_Title || recordTypeName || `Record ${record?.rec_ID ?? ""}`);
     const meta = document.createElement("div");
     meta.className = "heurist-recordview-meta";
-    meta.textContent = [recordTypeName, record?.rec_ID != null ? `#${record.rec_ID}` : null]
+    const metaText = document.createElement("span");
+    metaText.textContent = [recordTypeName, record?.rec_ID != null ? `#${record.rec_ID}` : null]
       .filter(Boolean)
       .join(" · ");
-    text.append(title, meta);
-    header.append(text);
+    meta.append(metaText);
     if (canEdit) {
       const edit = document.createElement("button");
       edit.type = "button";
@@ -146,8 +147,10 @@ export class RecordViewRenderer {
       edit.setAttribute("aria-label", $HR("Edit"));
       edit.textContent = "✎";
       edit.addEventListener("click", () => onEdit(record?.rec_ID));
-      header.append(edit);
+      meta.append(edit);
     }
+    text.append(title, meta);
+    header.append(text);
     return header;
   }
 
@@ -173,30 +176,70 @@ export class RecordViewRenderer {
     return media.childElementCount ? media : null;
   }
 
-  /** One media item: thumbnail plus an OpenSeadragon (images) or Mirador (everything else) link. */
+  /**
+   * One media item. Audio/video render as a native `<audio>`/`<video>` player; everything
+   * else as a thumbnail whose click toggles it between the thumbnail and full-size image
+   * (images only — see `#fileUrl`). Below that, per-type viewer links: OSD for images,
+   * Mirador for images/audio/video, and "open in new tab" for an externally-referenced file.
+   */
   #buildMediaItem(file) {
     const fileId = file.ulf_ObfuscatedFileID;
-    const isImage = String(file.fxm_MimeType || "").startsWith("image/");
+    const mimeType = String(file.fxm_MimeType || "");
+    const isImage = mimeType.startsWith("image/");
+    const isAudio = mimeType.startsWith("audio/");
+    const isVideo = mimeType.startsWith("video/");
+    // Matches the legacy renderer's `fileUrl()`: an external reference is embedded directly
+    // unless it's plain (insecure) `http://`, in which case it's proxied through Heurist.
+    const externalUrl = file.ulf_ExternalFileReference || null;
+    const mediaSrc = externalUrl && !/^http:\/\//i.test(externalUrl) ? externalUrl : this.#fileUrl(fileId);
+
     const item = document.createElement("div");
     item.className = "heurist-recordview-media-item";
-    const thumb = document.createElement("img");
-    thumb.className = "heurist-recordview-media-thumb";
-    thumb.src = this.#thumbUrl(fileId);
-    thumb.alt = file.ulf_Caption || file.ulf_OrigFileName || "";
-    item.append(thumb);
+
+    if (isAudio || isVideo) {
+      item.classList.add("heurist-recordview-media-item-player");
+      const player = document.createElement(isVideo ? "video" : "audio");
+      player.className = "heurist-recordview-media-player";
+      player.controls = true;
+      const source = document.createElement("source");
+      source.src = mediaSrc;
+      if (mimeType) source.type = mimeType;
+      player.append(source);
+      item.append(player);
+    } else {
+      const thumb = document.createElement("img");
+      thumb.className = "heurist-recordview-media-thumb";
+      thumb.src = this.#thumbUrl(fileId);
+      thumb.alt = file.ulf_Caption || file.ulf_OrigFileName || "";
+      if (isImage) {
+        thumb.classList.add("heurist-recordview-media-thumb-zoomable");
+        thumb.addEventListener("click", () => {
+          const expanded = item.classList.toggle("heurist-recordview-media-item-expanded");
+          thumb.src = expanded ? mediaSrc : this.#thumbUrl(fileId);
+        });
+      }
+      item.append(thumb);
+    }
+
+    const links = document.createElement("div");
+    links.className = "heurist-recordview-media-links";
+    if (isImage) links.append(this.#buildMediaLink(this.#osdUrl(fileId), "Show in OSD"));
+    if (isImage || isAudio || isVideo) links.append(this.#buildMediaLink(this.#miradorUrl(fileId), "Show in Mirador"));
+    if (externalUrl) links.append(this.#buildMediaLink(externalUrl, "Show in new tab"));
+    if (links.childElementCount) item.append(links);
+
+    return item;
+  }
+
+  /** One `target="_blank"` viewer link, used inside a media item's link list. */
+  #buildMediaLink(href, label) {
     const link = document.createElement("a");
     link.className = "heurist-recordview-media-link";
+    link.href = href;
     link.target = "_blank";
     link.rel = "noopener";
-    if (isImage) {
-      link.href = this.#osdUrl(fileId);
-      link.textContent = $HR("View full size");
-    } else {
-      link.href = this.#miradorUrl(fileId);
-      link.textContent = $HR("Open in Mirador");
-    }
-    item.append(link);
-    return item;
+    link.textContent = $HR(label);
+    return link;
   }
 
   /** Fields grouped into `<fieldset>`s per section; only populated, non-`file` fields are shown. */
@@ -245,7 +288,7 @@ export class RecordViewRenderer {
         const link = document.createElement("a");
         link.href = "#";
         link.className = "heurist-recordview-resource-link";
-        link.textContent = value?.rec_Title || `#${value?.rec_ID ?? ""}`;
+        link.innerHTML = sanitizeTextHtml(value?.rec_Title || `#${value?.rec_ID ?? ""}`);
         link.addEventListener("click", (event) => {
           event.preventDefault();
           if (value?.rec_ID) onNavigate(value.rec_ID);
@@ -275,6 +318,23 @@ export class RecordViewRenderer {
       }
     }
     return [dt, dd];
+  }
+
+  /**
+   * Give every section's `<dt>` label column the same width — each section's `<dl>` is its
+   * own CSS grid, so left to `max-content` alone their columns would size independently and
+   * labels would land at different x-positions section to section. Measures each label's
+   * natural (already `max-content`-sized) width, then pins every section's column to the
+   * widest one via a shared CSS variable.
+   */
+  #alignFieldLabels() {
+    const dts = this.body.querySelectorAll(".heurist-recordview-section-fields dt");
+    if (!dts.length) return;
+    let maxWidth = 0;
+    for (const dt of dts) maxWidth = Math.max(maxWidth, dt.getBoundingClientRect().width);
+    for (const dl of this.body.querySelectorAll(".heurist-recordview-section-fields")) {
+      dl.style.setProperty("--heurist-recordview-label-width", `${maxWidth}px`);
+    }
   }
 
   /** Footer: created/modified dates, owner group id, and a visibility label. No rating/tags row (deferred). */
@@ -312,6 +372,11 @@ export class RecordViewRenderer {
   /** File thumbnail URL (`?db={db}&thumb={obfuscatedId}`). */
   #thumbUrl(fileId) {
     return `${this.baseUrl}?db=${encodeURIComponent(this.database)}&thumb=${encodeURIComponent(fileId)}`;
+  }
+
+  /** Full uploaded-file URL (`?db={db}&file={obfuscatedId}`), for playback and full-size viewing. */
+  #fileUrl(fileId) {
+    return `${this.baseUrl}?db=${encodeURIComponent(this.database)}&file=${encodeURIComponent(fileId)}`;
   }
 
   /** OpenSeadragon viewer URL, for image files. */

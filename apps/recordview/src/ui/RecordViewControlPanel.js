@@ -21,6 +21,7 @@
  * @since       8.0
  */
 import { $HR, applyI18n, InlineHelp } from "#shared/ui";
+import { sanitizeTextHtml } from "../core/FieldValueFormatter.js";
 
 /** Header-only `<aside class="heurist-module-control-panel">`, sibling of the module's `<main>`. */
 export class RecordViewControlPanel {
@@ -92,12 +93,24 @@ export class RecordViewControlPanel {
     this.listeners.push([name, handler]);
   }
 
-  /** Refresh the source-header caption from a loaded/cleared-record detail (or `getState()`-shaped) value. */
+  /**
+   * Refresh the source-header caption from a loaded/cleared-record detail (or `getState()`-shaped)
+   * value. A configured `headerTitle` is plain text; the record's own title (`rec_Title`) is
+   * rendered as sanitized HTML (u/i/b/strong/em), matching the `builtin` engine's own header.
+   */
   updateTitle(detail) {
     if (!this.sourceHeader) return;
     const headerTitle = this.options.headerTitle;
+    if (headerTitle) {
+      this.sourceHeader.textContent = headerTitle;
+      return;
+    }
     const fallbackTitle = detail?.title ?? detail?.recordTitle ?? null;
-    this.sourceHeader.textContent = headerTitle || fallbackTitle || $HR("Record View");
+    if (fallbackTitle) {
+      this.sourceHeader.innerHTML = sanitizeTextHtml(fallbackTitle);
+      return;
+    }
+    this.sourceHeader.textContent = $HR("Record View");
   }
 
   /** Load the module user manual for the active language into a full-viewport overlay. */
