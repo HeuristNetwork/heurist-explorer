@@ -14,9 +14,8 @@
  */
 import { showGraphMessage } from "./graphMessages.js";
 import { GraphLegend } from "./GraphLegend.js";
-import { GraphLegendEditor } from "./GraphLegendEditor.js";
 import { $HR, applyI18n, InlineHelp } from "#shared/ui";
-import { sourceAction, showDataSourceAction } from "#shared/ui/documents/SourceActions.js";
+import { showDataSourceAction } from "#shared/ui/documents/SourceActions.js";
 
 /** Owns Graph's control panel: current-source row, legend, expansion controls, and toolbar actions. */
 export class GraphControlPanel {
@@ -76,7 +75,7 @@ export class GraphControlPanel {
     const currentSource = section(body);
     this.querySourcesSection = currentSource.section;
     this.currentSourceRow = document.createElement("div");
-    this.currentSourceRow.className = "heurist-graph-selector-row active heurist-graph-current-source-row";
+    this.currentSourceRow.className = "heurist-graph-selector-row heurist-graph-current-source-row";
     const label = document.createElement("span");
     label.className = "heurist-graph-query-source";
     this.currentSourceTitle = document.createElement("span");
@@ -87,8 +86,7 @@ export class GraphControlPanel {
     this.legendSection.className = 'heurist-graph-legend';
 
     this.legend = new GraphLegend({ api: this.api, container: this.legendSection,
-      onLinks: () => this.editLegend('links'),
-      onRule: () => this.api.defineExpansions(), onError: (error, operation) => this.reportError(error, operation) });
+      onError: (error, operation) => this.reportError(error, operation) });
     this.element.append(header, body);
     (this.container.parentElement || document.body).append(this.element);
     this.sourceHeader = document.createElement("div");
@@ -154,30 +152,27 @@ export class GraphControlPanel {
   }
 
   /**
-   * Attach the legend to the current-source row, add a show/save-as-source action when the
-   * host supports it, and re-render it.
+   * Attach the legend to the current-source row, add a show-data action when the host
+   * supports it, and re-render it.
    *
    * @returns {void}
    */
   renderLegend() {
     const app = this.api.application;
-    const interaction = app?.config.persistedSettings?.options?.interaction || {};
-    const editEnabled = interaction.editEnabled !== false && interaction.readonly !== true && Boolean(app?.host?.supportsEditing?.());
     this.currentSourceRow.append(this.legendSection);
     this.currentSourceRow.querySelectorAll('.heurist-graph-query-source-action').forEach(button => button.remove());
-    // Persisted-record lifecycle (add/edit a Query Source) is fully host-owned;
-    // offer to display or persist the active DataSource instead - shown on
-    // hover/focus, like the map/timeline layer row actions.
+    // Persisted-record lifecycle (add/edit/save a Query Source) is fully host-owned;
+    // offer to display the active DataSource instead - shown on hover/focus,
+    // like the map/timeline layer row actions.
     if (app?.dataSource) {
       const capabilities = this.api.getHostCapabilities?.() || {};
       const report = (error) => this.reportError(error, 'datasource-action');
       const actions = document.createElement('span');
       actions.className = 'heurist-graph-query-source-action heurist-graph-row-actions';
       if (capabilities.showDatasource) actions.append(showDataSourceAction(this.api, report));
-      if (capabilities.saveDatasourceAsSource) actions.append(sourceAction('fa-solid fa-database', 'Save as Source', () => this.api.saveDatasourceAsSource(), report));
       if (actions.childElementCount) this.currentSourceRow.insertBefore(actions, this.legendSection);
     }
-    this.legend.render({ editEnabled });
+    this.legend.render();
     this.renderExpansionControls();
   }
 
@@ -210,18 +205,6 @@ export class GraphControlPanel {
     this.levelSelector.disabled = state.busy || !state.maxDepth;
     this.pruneButton.disabled = state.busy || !state.depth;
     this.expandButton.disabled = state.busy || state.depth >= state.maxDepth;
-  }
-
-  /**
-   * Open the session-only legend/links editor.
-   *
-   * @param {string} mode Editor mode (currently only `'links'` is used).
-   * @returns {void}
-   */
-  editLegend(mode) {
-    this.legendEditor?.destroy();
-    this.legendEditor = new GraphLegendEditor({ api: this.api, onError: error => this.reportError(error, 'legend-editor') });
-    this.legendEditor.open(mode);
   }
 
   /** React to settings edited/saved in the Configuration dialog while the panel is mounted. */
@@ -364,7 +347,6 @@ export class GraphControlPanel {
    */
   destroy() {
     this.listeners.forEach(([name, handler]) => this.api.removeEventListener(name, handler));
-    this.legendEditor?.destroy();
     this.sourceHeader?.remove();
     this.helpOverlay?.close();
     this.element?.remove();

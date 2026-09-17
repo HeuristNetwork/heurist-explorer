@@ -465,17 +465,6 @@ export class GraphApplication extends EventTarget {
   }
 
   /**
-   * Ask the host to save the active DataSource as a reusable Source record.
-   *
-   * @param {object} [options] Options forwarded to the host, in addition to `module: 'graph'`.
-   * @returns {Promise<boolean|*>} `false` when there is no active DataSource or the host can't save it, otherwise the host's result.
-   */
-  async saveDatasourceAsSource(options = {}) {
-    if (!this.dataSource || typeof this.host?.saveDatasourceAsSource !== "function") return false;
-    return this.host.saveDatasourceAsSource(this.dataSource, { module: "graph", ...options });
-  }
-
-  /**
    * Return the host's optional capability flags.
    *
    * @returns {object} Capability flags, or `{}` when the host declares none.
@@ -577,7 +566,8 @@ export class GraphApplication extends EventTarget {
   }
 
   /**
-   * Return the effective expansion rules: a "Define expansions" override, else the Query Source's or config's rules.
+   * Return the effective expansion rules: a restored rule override (from a published view), else
+   * the Query Source's or config's rules.
    *
    * @returns {Array<object>} Expansion rule definitions.
    */
@@ -588,35 +578,7 @@ export class GraphApplication extends EventTarget {
   }
 
   /**
-   * Open the host's expansion-rules editor and apply the result.
-   *
-   * @returns {Promise<void>}
-   * @throws {Error} When the active graph changed while the editor was open.
-   */
-  async defineExpansions() {
-    const generation = this.generation;
-    const result = await this.host.editRules(structuredClone(this.getExpansionRules()));
-    if (result == null) return;
-    if (generation !== this.generation) throw new Error('The active graph changed. Reopen Define expansions.');
-    await this.setExpansionRules(result.rules);
-  }
-
-  /**
-   * Override the effective expansion rules for the current source and re-render.
-   *
-   * @param {Array<object>} rules New expansion rule definitions.
-   * @returns {Promise<void>}
-   * @throws {TypeError} When `rules` is not an array.
-   */
-  async setExpansionRules(rules) {
-    if (!Array.isArray(rules)) throw new TypeError('Expansion rules must be an array');
-    this.ruleOverrides.set(this.config.querySourceId ? `querySource:${this.config.querySourceId}` : 'current', structuredClone(rules));
-    this.expansions?.setRules(rules);
-    await this.renderExpansions();
-  }
-
-  /**
-   * Discard the "Define expansions" override, reverting to the Query Source's or config's saved rules.
+   * Discard a restored rule override, reverting to the Query Source's or config's saved rules.
    *
    * @returns {Promise<void>}
    */
@@ -983,7 +945,7 @@ export class GraphApplication extends EventTarget {
 
   /**
    * Reproducible base-scope expansion state for publication: the effective rule
-   * definitions (Query Source/config rules plus any "Define expansions" override), a
+   * definitions (Query Source/config rules plus any restored override), a
    * parallel array of which rules are active, and the shared expansion depth.
    * Per-seed (single-node) expansions are intentionally not captured.
    */

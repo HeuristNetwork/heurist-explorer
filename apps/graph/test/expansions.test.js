@@ -6,6 +6,14 @@ import { GraphDocument } from '../src/core/GraphDocument.js';
 const rule = (field, levels = []) => ({ query: { t:10, [`lf:${field}`]:[{ t:10 }] }, levels });
 const edge = (from, to, fieldId = 1) => ({ from, to, fieldId });
 const graph = (ids, edges = []) => new GraphDocument({ records:ids.map(id => ({ id, recordTypeId:10 })), edges });
+// setExpansionRules() was removed with the "Define expansions" UI; replicate
+// its override-scoping directly (the same path GraphApplication#restoreExpansions
+// uses to apply a published view's saved override).
+async function setRules(app, rules) {
+  app.ruleOverrides.set(app.config.querySourceId ? `querySource:${app.config.querySourceId}` : 'current', structuredClone(rules));
+  app.expansions?.setRules(rules);
+  await app.renderExpansions();
+}
 async function fixture(rules, steps, base = graph([1,2], [edge(1,2)])) {
   const calls = [];
   const engine = { setGraph:async g => { engine.graph = g; }, setSelection:async () => {} };
@@ -68,7 +76,7 @@ test('editing preserves unchanged cached rules and invalidates changed definitio
   const { app, enable, calls } = await fixture([rule(1),rule(2)], async field => ({ ids:[Number(field)+2], edges:[edge(1,Number(field)+2)] }));
   await enable(0); await enable(1);
   const oldId = app.getLegend().rules[1].id;
-  await app.setExpansionRules([{ ...rule(2), name:'Renamed' },rule(3)]);
+  await setRules(app, [{ ...rule(2), name:'Renamed' },rule(3)]);
   assert.equal(app.getLegend().rules[0].id, oldId);
   assert.equal(app.getLegend().rules[0].enabled, true);
   assert.deepEqual(app.graph.recordIds, [1,2,4]);
@@ -118,8 +126,8 @@ test('selected-node descendants suspend when their seed loses its last source', 
 test('source overrides stay local to their Query Source and Current Results', async () => {
   const { app } = await fixture([], async () => ({ ids:[], edges:[] }));
   app.querySourceProvider = { load:async id => ({ title:`Query Source ${id}`, source:{query:'t:10'}, rules:[rule(id)] }) };
-  await app.setExpansionRules([rule(7)]);
-  await app.setQuerySource(12); await app.setExpansionRules([rule(8)]);
+  await setRules(app, [rule(7)]);
+  await app.setQuerySource(12); await setRules(app, [rule(8)]);
   await app.setQuerySource(13);
   assert.deepEqual(app.getExpansionRules(), [rule(13)]);
   await app.setQuerySource(12);

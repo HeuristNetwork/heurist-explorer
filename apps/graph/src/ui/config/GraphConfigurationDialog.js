@@ -256,7 +256,6 @@ export class GraphConfigurationDialog {
    */
   buildInteraction(body) {
     body.append(
-      this.check("options.interaction.editEnabled", "Enable edit"),
       this.check("options.interaction.selectionEnabled", "Enable selection"),
       this.check("options.interaction.popupEnabled", "Enable popups"),
     );
@@ -597,7 +596,6 @@ function prepareMode(value, mode) {
     const copy = clone(value);
     copy.options.ui.showOptions = false;
     copy.options.interaction.readonly = true;
-    copy.options.interaction.editEnabled = false;
     copy.options.interaction.selectionEnabled = false;
     copy.options.interaction.popupEnabled = true;
     return copy;

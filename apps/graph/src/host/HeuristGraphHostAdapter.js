@@ -32,18 +32,6 @@ export class HeuristGraphHostAdapter extends HostAdapter {
   async initialize() {}
 
   /**
-   * Ask the host to open its expansion-rule editor.
-   *
-   * @param {Array<object>} value Current expansion rule definitions.
-   * @returns {*} Result of the host's rule editor.
-   * @throws {Error} When the host does not support editing expansion rules.
-   */
-  editRules(value) {
-    if (!this.bridge?.editRules) throw new Error('Expansion rule editor is not available in this host.');
-    return this.bridge.editRules(value);
-  }
-
-  /**
    * Ask the host to resolve human-readable descriptions for expansion rules.
    *
    * @param {Array<object>} rules Expansion rule definitions.
@@ -53,19 +41,17 @@ export class HeuristGraphHostAdapter extends HostAdapter {
 
   /**
    * Return optional capabilities: editing support, whether graph preferences/publishing are
-   * configured, and whether the host can display/save the active DataSource.
+   * configured, and whether the host can display the active DataSource.
    *
-   * @returns {{editing: boolean, graphPreferences: boolean, graphPublishing: boolean, showDatasource?: boolean, saveDatasourceAsSource?: boolean}}
+   * @returns {{editing: boolean, graphPreferences: boolean, graphPublishing: boolean, showDatasource?: boolean}}
    */
   getCapabilities() {
     const showDatasource = typeof this.bridge?.showDatasource === "function";
-    const saveDatasourceAsSource = typeof this.bridge?.saveDatasourceAsSource === "function";
     return {
       editing: this.supportsEditing(),
       graphPreferences: Boolean(this.baseUrl && this.database),
       graphPublishing: Boolean(this.baseUrl && this.database),
       ...(showDatasource ? { showDatasource: true } : {}),
-      ...(saveDatasourceAsSource ? { saveDatasourceAsSource: true } : {}),
     };
   }
 
@@ -76,15 +62,6 @@ export class HeuristGraphHostAdapter extends HostAdapter {
    * @returns {*} Result of the host bridge's call, or `undefined` when unsupported.
    */
   showDatasource(source) { return this.bridge?.showDatasource?.(source); }
-
-  /**
-   * Ask the host to save the active DataSource as a reusable Source record.
-   *
-   * @param {object} source DataSource to save.
-   * @param {object} [options] Options forwarded to the host bridge.
-   * @returns {*} Result of the host bridge's call, or `undefined` when unsupported.
-   */
-  saveDatasourceAsSource(source, options = {}) { return this.bridge?.saveDatasourceAsSource?.(source, options); }
 
   /**
    * Publish the current selection to the host's global selection channel.

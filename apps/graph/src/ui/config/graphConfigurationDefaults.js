@@ -27,7 +27,6 @@ export const HEURIST_GRAPH_OPTIONS_DEFAULTS = Object.freeze({
   }),
   interaction: Object.freeze({
     readonly: false,
-    editEnabled: true,
     selectionEnabled: true,
     popupEnabled: true,
   }),

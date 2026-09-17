@@ -186,16 +186,6 @@ export class HeuristGraphPublicApi {
   }
 
   /**
-   * Ask the host to save the active DataSource as a reusable Source record.
-   *
-   * @param {object} [options] Options forwarded to the host.
-   * @returns {Promise<boolean|*>} `false` when unavailable, otherwise the host's result.
-   */
-  saveDatasourceAsSource(options) {
-    return this.application.saveDatasourceAsSource(options);
-  }
-
-  /**
    * Return the host's optional capability flags.
    *
    * @returns {object} Capability flags, or `{}` when the host declares none.
@@ -242,14 +232,7 @@ export class HeuristGraphPublicApi {
   }
 
   /**
-   * Open the host's expansion-rules editor and apply the result.
-   *
-   * @returns {Promise<void>}
-   */
-  defineExpansions() { return this.application.defineExpansions(); }
-
-  /**
-   * Discard the "Define expansions" override, reverting to the saved rules.
+   * Discard a restored rule override, reverting to the saved rules.
    *
    * @returns {Promise<void>}
    */

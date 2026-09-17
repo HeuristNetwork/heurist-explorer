@@ -63,12 +63,11 @@ test("publication mode locks interaction down to a read-only viewer", () => {
   const dialog = new GraphConfigurationDialog({
     mode: "publish",
     value: {
-      options: { interaction: { editEnabled: true, selectionEnabled: true } },
+      options: { interaction: { selectionEnabled: true } },
     },
   });
   const interaction = dialog.getValue().options.interaction;
   assert.equal(interaction.readonly, true);
-  assert.equal(interaction.editEnabled, false);
   assert.equal(interaction.selectionEnabled, false);
   assert.equal(interaction.popupEnabled, true);
 });
@@ -77,13 +76,13 @@ test("normalization drops unknown keys", () => {
   const value = normalizeGraphConfigurationSettings({
     options: {
       accessToken: "discard",
-      interaction: { editEnabled: false },
+      interaction: { selectionEnabled: false },
     },
     callback() {},
   });
   assert.equal(value.options.accessToken, undefined);
   assert.equal(value.options.interaction.persistentSelectionEnabled, undefined);
-  assert.equal(value.options.interaction.editEnabled, false);
+  assert.equal(value.options.interaction.selectionEnabled, false);
 });
 
 test("legacy popupTemplate migrates to the node popup template and 'standard' means built-in", () => {

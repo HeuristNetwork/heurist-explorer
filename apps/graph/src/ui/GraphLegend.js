@@ -20,23 +20,19 @@ export class GraphLegend {
    * @param {object} options Legend dependencies.
    * @param {object} options.api Graph public API instance.
    * @param {HTMLElement} options.container Element to render the legend into.
-   * @param {Function} options.onEdit Called to open the legend editor for record-type styling.
-   * @param {Function} options.onLinks Called to open the initial-links editor.
-   * @param {Function} options.onRule Called to open the expansion-rules editor.
    * @param {Function} options.onError Called with `(error, operation)` when an action fails.
    */
-  constructor({ api, container, onEdit, onLinks, onRule, onError }) {
-    Object.assign(this, { api, container, onEdit, onLinks, onRule, onError });
+  constructor({ api, container, onError }) {
+    Object.assign(this, { api, container, onError });
     this.open = new Set();
   }
 
   /**
    * Render the record-types, links/relations, and expansion-rules sections from the current legend model.
    *
-   * @param {{editEnabled?: boolean}} [options] Pass `editEnabled: true` to show edit affordances.
    * @returns {void}
    */
-  render({ editEnabled = false } = {}) {
+  render() {
     const model = this.api.getLegend?.() || { recordTypes: [], links: [], rules: [] };
     const focusKey = this.container.contains(document.activeElement) ? document.activeElement?.dataset?.legendKey : null;
     this.container.replaceChildren();
@@ -59,7 +55,6 @@ export class GraphLegend {
     }
     if (!model.recordTypes.length) nodesSection.append(element('p', $HR('No records')));
     const edgesHeading = element('h4', $HR('Edges (Links and Relations)'));
-    if (editEnabled) edgesHeading.append(this.action('Define initial links', 'fa-link', this.onLinks));
     this.container.append(edgesHeading);
     const edgesSection = element('section', null, 'heurist-graph-legend-items');
     this.container.append(edgesSection);
@@ -81,10 +76,12 @@ export class GraphLegend {
     for (const tree of forest) edgesSection.append(this.term(relationshipGroups, tree));
     if (!model.links.length) edgesSection.append(element('p', $HR('No links')));
     const rulesHeading = element('h4', $HR('Expansion Rules'));
-    if (editEnabled) {
+    // Discarding a local rule override isn't a persisted-record edit, so this
+    // isn't gated by edit permissions - only by there being a Query Source
+    // (and therefore possibly a restored override) to reset.
+    if (this.api.getState?.().querySourceId) {
       const actions = element('span', null, 'heurist-graph-legend-rule-actions');
-      if (this.api.getState?.().querySourceId) actions.append(this.action('Reset: Use saved expansion rules', 'fa-rotate-left', () => this.api.resetExpansionRules()));
-      actions.append(this.action('Define expansions', 'fa-pen', this.onRule));
+      actions.append(this.action('Reset: Use saved expansion rules', 'fa-rotate-left', () => this.api.resetExpansionRules()));
       rulesHeading.append(actions);
     }
     this.container.append(rulesHeading);

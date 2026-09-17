@@ -99,10 +99,6 @@ function normalizeOptions(source, defaults) {
     },
     interaction: {
       readonly: boolean(interaction.readonly, defaults.interaction.readonly),
-      editEnabled: boolean(
-        interaction.editEnabled,
-        defaults.interaction.editEnabled,
-      ),
       selectionEnabled: boolean(
         interaction.selectionEnabled,
         defaults.interaction.selectionEnabled,
