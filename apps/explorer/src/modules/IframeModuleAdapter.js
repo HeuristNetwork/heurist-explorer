@@ -296,9 +296,11 @@ export class IframeModuleAdapter extends ExplorerModule {
         : api.setQuery?.(query, { reload: true, dataSource: source, title: source?.title || null });
     }
     if (['map', 'timeline'].includes(this.type)) {
-      const workspaceDataSources = await this.hostActions.getWorkspaceDataSources?.() || [];
+      // Workspace is independent Explorer state and is synchronized only when
+      // membership/state changes. A normal current-datasource change must not
+      // replace or rebuild Workspace layers/bands.
       return typeof api.setDynamicDataSources === 'function'
-        ? api.setDynamicDataSources({ currentDataSource: source, workspaceDataSources })
+        ? api.setDynamicDataSources({ currentDataSource: source })
         : api.setQuery?.(query, { reload: true, title: source?.title || 'Current result' });
     }
     return false;

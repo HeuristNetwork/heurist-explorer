@@ -3170,6 +3170,7 @@ function createExplorerDynamicLayers(current, workspace, defaults) {
 
   return sources.map((item, index) => {
     const map = item.source.presentation?.map || {};
+
     const definition = {
       id: item.id,
       title: item.source.title || (item.current ? 'Current result' : 'Workspace result'),

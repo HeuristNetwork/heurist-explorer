@@ -426,6 +426,9 @@ export class GraphApplication extends EventTarget {
     const query = dataSource?.request?.q ?? dataSource?.query ?? null;
     this.querySource = null;
     this.dataSource = dataSource || null;
+    // A restored/current rule override belongs to the previous datasource.
+    // Keeping it here would mask request.rules supplied by the new Query Source.
+    this.ruleOverrides.delete('current');
     this.config.querySourceId = null;
     this.config.querySourceTitle = dataSource?.title || null;
     this.activeLoad = { type: "datasource", dataSource };
@@ -573,7 +576,10 @@ export class GraphApplication extends EventTarget {
    */
   getExpansionRules() {
     const value = this.ruleOverrides.get(this.config.querySourceId ? `querySource:${this.config.querySourceId}` : 'current')
-      ?? this.querySource?.rules ?? this.config.rules ?? [];
+      ?? this.querySource?.rules
+      ?? this.dataSource?.request?.rules
+      ?? this.config.rules
+      ?? [];
     return typeof value === 'string' ? JSON.parse(value || '[]') : value;
   }
 

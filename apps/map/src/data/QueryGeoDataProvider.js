@@ -102,7 +102,6 @@ export class QueryGeoDataProvider {
     const usePost = method === 'post'
       || (method === 'auto' && (hasGeoFields || shouldUsePost(query)));
 
-
     const response = usePost
       ? await this.apiClient.post('/map', {
           body: {

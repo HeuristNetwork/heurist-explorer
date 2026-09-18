@@ -30,8 +30,10 @@ export class QuerySourceEditor extends HBaseWidget {
     this.dataSource = null;
     this.draft = null;
     this._dirty = false;
+    this._baseline = null;
     this._expanded = false;
     this.inlineHelper = null;
+    this._syncingDraft = false;
   }
 
   attach(container, options = {}) { super.attach(container, options); return this; }
@@ -75,10 +77,10 @@ export class QuerySourceEditor extends HBaseWidget {
     this._advanced = div('h-qse-advanced');
     this._advanced.hidden = true;
     this._advanced.append(
-      this._configRow('Expansion rules', 'rules', () => void this.openRuleBuilder()),
-      this._configRow('Geographic fields', 'geo', () => void this.openGeoFieldSelector()),
-      this._configRow('Time fields', 'time', () => void this.openTimeFieldSelector()),
-      this._configRow('Column fields', 'fields', () => void this.openFieldSetEditor())
+      this._configRow('Expansion rules', 'rules', () => void this.openRuleBuilder(), 'Rules used by Graph to expand the result through linked records.'),
+      this._configRow('Geographic fields', 'geo', () => void this.openGeoFieldSelector(), 'Fields used by Map to obtain geometry, including linked geographic fields.'),
+      this._configRow('Time fields', 'time', () => void this.openTimeFieldSelector(), 'Date and year fields used by Timeline.'),
+      this._configRow('Column fields', 'fields', () => void this.openFieldSetEditor(), 'Columns and formatting used by the Data table presentation.')
     );
     const testRow = div('h-qse-test-row');
     const titleLabel = document.createElement('span'); titleLabel.className = 'h-qse-title-label'; titleLabel.textContent = $HR('Title');
@@ -94,7 +96,13 @@ export class QuerySourceEditor extends HBaseWidget {
       lang: this.lang,
       dbdefs: this.dbdefs,
       onOpenBuilder: () => void this._openBuilder(),
-      onChange: () => { if (this.draft && typeof this.draft.request.q === 'string') { this.draft.request.q = this._query.value; this._markDirty(); } }
+      onChange: () => {
+        if (this._syncingDraft) return;
+        if (this.draft && typeof this.draft.request.q === 'string' && this.draft.request.q !== this._query.value) {
+          this.draft.request.q = this._query.value;
+          this._markDirty();
+        }
+      }
     });
     this.inlineHelper.attach(this._query, { showBuilderButton: false }).render();
     this.state = 'rendered';
@@ -106,6 +114,7 @@ export class QuerySourceEditor extends HBaseWidget {
     this.setExpanded(false);
     this.dataSource = source ? normalizeDataSource(source) : null;
     this.draft = this.dataSource ? cloneDataSource(this.dataSource) : blankDraft();
+    this._baseline = editableFingerprint(this.draft);
     this._setDirty(false);
     if (this.isRendered) this._syncFromDraft();
     return this;
@@ -136,7 +145,16 @@ export class QuerySourceEditor extends HBaseWidget {
     this._more.title = this._expanded ? $HR('Less Query Source options') : $HR('More Query Source options');
   }
   resetDraft() { this.setDataSource(this.dataSource); return this; }
-  markCommitted(source = null) { if (source) this.setDataSource(source); else { this.dataSource = this.draft ? cloneDataSource(this.draft) : null; this._setDirty(false); this.setExpanded(false); } return this; }
+  markCommitted(source = null) {
+    if (source) this.setDataSource(source);
+    else {
+      this.dataSource = this.draft ? cloneDataSource(this.draft) : null;
+      this._baseline = editableFingerprint(this.draft);
+      this._setDirty(false);
+      this.setExpanded(false);
+    }
+    return this;
+  }
 
   async execute() {
     const source = this.getDraftDataSource();
@@ -200,20 +218,22 @@ export class QuerySourceEditor extends HBaseWidget {
     host.className = editor instanceof HFieldSetEditor ? 'h-qse-dialog-wide' : 'h-qse-dialog';
     editor.attach(host).render();
     return new Promise((resolve) => {
-      const finish = async (value) => { HMsg.closeMsgDlg?.(); await editor.destroy(); resolve(value); };
-      HMsg.showMsgDlg(host, {
+      let dlg = null;
+      const finish = async (value) => { dlg?.classList.remove('h-qse-dialog-wide-shell'); HMsg.closeMsgDlg?.(); await editor.destroy(); resolve(value); };
+      dlg = HMsg.showMsgDlg(host, {
         title: $HR(title), preventClose: true,
         buttons: [
           { label: $HR('Apply'), class: 'h-btn h-btn-primary', onClick: () => void finish(getResult()) },
           { label: $HR('Cancel'), class: 'h-btn', onClick: () => void finish(null) }
         ]
       });
+      dlg?.classList.toggle('h-qse-dialog-wide-shell', editor instanceof HFieldSetEditor);
     });
   }
 
-  _configRow(label, key, onEdit) {
+  _configRow(label, key, onEdit, hint = '') {
     const row = div('h-qse-config-row');
-    const edit = button($HR(label) + '…', `${$HR('Edit')} ${$HR(label)}`, onEdit);
+    const edit = button($HR(label) + '…', hint ? $HR(hint) : `${$HR('Edit')} ${$HR(label)}`, onEdit);
     edit.classList.add('h-qse-config-edit');
     const value = div('h-qse-config-value h-muted'); value.dataset.summary = key;
     row.append(edit, value); return row;
@@ -228,7 +248,9 @@ export class QuerySourceEditor extends HBaseWidget {
     this._structured.hidden = !structured;
     if (structured) this._structured.textContent = this._describe(q) || $HR('Structured query');
     else this._query.value = String(q ?? '');
-    this.inlineHelper?.refreshSentence?.();
+    this._syncingDraft = true;
+    try { this.inlineHelper?.refreshSentence?.(); }
+    finally { this._syncingDraft = false; }
     this._renderSummary();
   }
 
@@ -261,7 +283,7 @@ export class QuerySourceEditor extends HBaseWidget {
   _describe(q) { try { return queryDescribe(q, { dbdefs: this.dbdefs, vocabulary: queryVocabulary, lang: this.lang }); } catch { return ''; } }
   _recordTypeId() { return inferRecordTypeId(this.draft?.request?.q); }
   _ensurePresentation(key) { this.draft.presentation ||= {}; this.draft.presentation[key] ||= {}; return this.draft.presentation[key]; }
-  _markDirty() { this._setDirty(true); }
+  _markDirty() { this._setDirty(editableFingerprint(this.draft) !== this._baseline); }
   _setDirty(value) { const next = value === true; if (next === this._dirty) return; this._dirty = next; this.container?.classList.toggle('is-dirty', next); this.onDirtyChange?.(next, this.getDraftDataSource()); }
 
   async destroy() { await this.inlineHelper?.destroy?.(); this.inlineHelper = null; await super.destroy(); }
@@ -282,6 +304,28 @@ function summarizeLabels(labels, noun) {
   return rest > 0 ? `${shown} · ${rest} ${$HR('more ' + noun + (rest === 1 ? '' : 's'))}` : shown;
 }
 function setSummary(root, key, text) { const el = root?.querySelector(`[data-summary="${key}"]`); if (el) el.textContent = text; }
+function editableFingerprint(source) {
+  if (!source) return '';
+  const request = source.request || {};
+  const presentation = source.presentation || {};
+  return JSON.stringify({
+    title: source.title || '',
+    request: {
+      q: request.q ?? null,
+      rules: request.rules ?? null,
+      rulesonly: request.rulesonly ?? null,
+      filter: request.filter ?? null,
+      sort: request.sort ?? null
+    },
+    presentation: {
+      data: presentation.data ?? null,
+      map: presentation.map ?? null,
+      graph: presentation.graph ?? null,
+      timeline: presentation.timeline ?? null,
+      filterForm: presentation.filterForm ?? null
+    }
+  });
+}
 function blankDraft() { return { reference: { type: 'query', id: null, key: 'query:draft' }, title: null, request: { q: '' }, presentation: { data: null, map: null, graph: null, timeline: null, filterForm: null } }; }
 function safeCloneDataSource(source) { try { return cloneDataSource(source); } catch { return clone(source); } }
 function hasQuery(q) { return q != null && (typeof q !== 'string' || q.trim().length > 0); }

@@ -205,7 +205,7 @@ export class TimelineDocumentApplication extends TimelineApplication {
     const profile = source?.presentation?.timeline || {};
     return {
       id, title: source?.title || 'Current result', query: source?.request?.q ?? null,
-      request: structuredClone(source?.request || {}), timefields: profile.timefields ?? profile.timeFields ?? null,
+      request: structuredClone(source?.request || {}), timefields: profile.timefields ?? profile.timeFields ?? profile.fields ?? null,
       fields: profile.fields || [], visible: profile.visible !== false, options: { ...profile, dataSource: source },
       loadState: 'deferred', items: [], ...overrides
     };
@@ -248,10 +248,29 @@ export class TimelineDocumentApplication extends TimelineApplication {
       const source = normalizeRuntimeDataSource(value.currentDataSource);
       const key = source?.reference.key || null;
       const matching = key && this.contexts.find((band) => band.id !== 'current-results' && band.options?.dataSource?.reference.key === key);
-      const workspace = key && this.workspaceDataSources.some((item) => item.reference.key === key);
+      const workspaceIndex = key ? this.workspaceDataSources.findIndex((item) => item.reference.key === key) : -1;
+      const workspace = workspaceIndex >= 0;
       this.activeDataSourceKey = key;
       this.activeLayerId = matching?.id || null;
-      if (!matching && !workspace) this.currentDataSource = source;
+      if (workspace && source) {
+        // QuerySourceEditor Test may push a draft with the same stable identity
+        // as an existing Workspace source. Use that draft as the runtime band
+        // snapshot without mutating Explorer's persisted Workspace entry.
+        const previous = this.workspaceDataSources[workspaceIndex];
+        this.workspaceDataSources[workspaceIndex] = {
+          ...previous,
+          request: source.request || previous.request,
+          meta: { ...(previous.meta || {}), ...(source.meta || {}) },
+          presentation: {
+            ...(previous.presentation || {}),
+            ...(source.presentation || {}),
+            timeline: {
+              ...(previous.presentation?.timeline || {}),
+              ...(source.presentation?.timeline || {})
+            }
+          }
+        };
+      } else if (!matching) this.currentDataSource = source;
     }
     if (this.activeDocumentId === 'dynamic') this.cancelBandLoads();
     this.rebuildDynamicBands();

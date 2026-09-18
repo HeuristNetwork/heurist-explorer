@@ -14,7 +14,7 @@
 .h-qse-fieldset-title { min-width:90px; }
 .h-qse-fieldset-width { width:65px; }
 .h-qse-fieldset-aggregation { width:86px; }
-.h-qse-dialog-wide .h-qse-helper { min-width:min(1000px,82vw); }
+.h-qse-dialog-wide .h-qse-helper { width:min(1500px,94vw); min-width:min(1200px,94vw); }
 .h-qse-fieldset-row { grid-template-columns:24px auto minmax(180px,1.35fr) minmax(160px,1fr) 78px 100px auto; }
 .h-qse-fieldset-name { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .h-qse-drag { cursor:ns-resize; text-align:center; color:var(--h-color-text-muted); user-select:none; }

@@ -16,5 +16,6 @@
 .h-qse-title { flex:1 1 auto; min-width:160px; }
 .h-qse-run,.h-qse-more { display:inline-flex; align-items:center; gap:5px; }
 @container (max-width: 620px) { .h-qse-run-caption,.h-qse-more-caption { display:none; } }
-.h-qse-dialog-wide { width:min(1320px, 95vw); min-width:min(1080px, 94vw); }
+.h-qse-dialog-wide { width:100%; min-width:0; }
+.h-dialog.h-qse-dialog-wide-shell { width:calc(100vw - 24px) !important; max-width:none !important; }
 .h-qse-dialog { min-width:min(620px, 82vw); }
