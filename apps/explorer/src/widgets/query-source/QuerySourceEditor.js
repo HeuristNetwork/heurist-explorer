@@ -77,11 +77,15 @@ export class QuerySourceEditor extends HBaseWidget {
     this._advanced = div('h-qse-advanced');
     this._advanced.hidden = true;
     this._advanced.append(
-      this._configRow('Expansion rules', 'rules', () => void this.openRuleBuilder(), 'Rules used by Graph to expand the result through linked records.'),
-      this._configRow('Geographic fields', 'geo', () => void this.openGeoFieldSelector(), 'Fields used by Map to obtain geometry, including linked geographic fields.'),
-      this._configRow('Time fields', 'time', () => void this.openTimeFieldSelector(), 'Date and year fields used by Timeline.'),
-      this._configRow('Column fields', 'fields', () => void this.openFieldSetEditor(), 'Columns and formatting used by the Data table presentation.')
+      this._configRow('Expansion rules', 'rules', 'fa-hexagon-nodes', () => void this.openRuleBuilder(), 'Rules used by Graph to expand the result through linked records.'),
+      this._configRow('Geographic fields', 'geo', 'fa-map-location-dot', () => void this.openGeoFieldSelector(), 'Fields used by Map to obtain geometry, including linked geographic fields.'),
+      this._configRow('Time fields', 'time', 'fa-clock', () => void this.openTimeFieldSelector(), 'Date and year fields used by Timeline.'),
+      this._configRow('Column fields', 'fields', 'fa-table', () => void this.openFieldSetEditor(), 'Columns and formatting used by the Data table presentation.')
     );
+    const clearRow = div('h-qse-clear-row');
+    const clear = button($HR('Clear'), $HR('Clear Query Source title and presentation settings'), () => this.clearSettings(), 'h-btn h-btn-small h-qse-clear');
+    clearRow.append(clear);
+    this._advanced.append(clearRow);
     const testRow = div('h-qse-test-row');
     const titleLabel = document.createElement('span'); titleLabel.className = 'h-qse-title-label'; titleLabel.textContent = $HR('Title');
     this._title = document.createElement('input'); this._title.className = 'h-input h-qse-title'; this._title.type = 'text';
@@ -145,6 +149,21 @@ export class QuerySourceEditor extends HBaseWidget {
     this._more.title = this._expanded ? $HR('Less Query Source options') : $HR('More Query Source options');
   }
   resetDraft() { this.setDataSource(this.dataSource); return this; }
+  clearSettings() {
+    if (!this.draft) return this;
+    this.draft.title = '';
+    this.draft.request ||= {};
+    this.draft.request.rules = [];
+    this.draft.request.rulesonly = 0;
+    this.draft.presentation ||= {};
+    this.draft.presentation.data = null;
+    this.draft.presentation.map = null;
+    this.draft.presentation.graph = null;
+    this.draft.presentation.timeline = null;
+    this._markDirty();
+    this._syncFromDraft();
+    return this;
+  }
   markCommitted(source = null) {
     if (source) this.setDataSource(source);
     else {
@@ -231,10 +250,12 @@ export class QuerySourceEditor extends HBaseWidget {
     });
   }
 
-  _configRow(label, key, onEdit, hint = '') {
+  _configRow(label, key, icon, onEdit, hint = '') {
     const row = div('h-qse-config-row');
-    const edit = button($HR(label) + '…', hint ? $HR(hint) : `${$HR('Edit')} ${$HR(label)}`, onEdit);
+    const edit = button('', hint ? $HR(hint) : `${$HR('Edit')} ${$HR(label)}`, onEdit);
     edit.classList.add('h-qse-config-edit');
+    edit.innerHTML = `<i class="fa-solid ${icon}" aria-hidden="true"></i><span class="h-qse-config-caption">${escapeHtml($HR(label))}…</span>`;
+    edit.setAttribute('aria-label', $HR(label));
     const value = div('h-qse-config-value h-muted'); value.dataset.summary = key;
     row.append(edit, value); return row;
   }
@@ -259,19 +280,19 @@ export class QuerySourceEditor extends HBaseWidget {
     const q = this.draft.request?.q;
     if (this._sentence) this._sentence.textContent = typeof q === 'object' ? (this._describe(q) || $HR('Structured query')) : '';
     void this._renderRuleSummary();
-    setSummary(this.container, 'fields', summarizeFields(this.draft.presentation?.data?.fields, this.dbdefs));
+    setSummary(this.container, 'fields', summarizeFields(this.draft.presentation?.data?.fields, this.dbdefs, 'default'));
     const map = this.draft.presentation?.map || {};
-    let geo = summarizeFields(map.geoFields, this.dbdefs);
+    let geo = summarizeFields(map.geoFields, this.dbdefs, 'default');
     if (map.dynamicRequests) geo += ` · ${$HR('load by extent')}`;
     if (map.geoOutputMode === 'features') geo += ` · ${$HR('individual linked map features')}`;
     if (map.minZoom != null || map.maxZoom != null) geo += ` · zoom ${map.minZoom ?? 0}–${map.maxZoom ?? 22}`;
     setSummary(this.container, 'geo', geo);
-    setSummary(this.container, 'time', summarizeFields(this.draft.presentation?.timeline?.fields, this.dbdefs));
+    setSummary(this.container, 'time', summarizeFields(this.draft.presentation?.timeline?.fields, this.dbdefs, 'default'));
   }
 
   async _renderRuleSummary() {
     const rules = Array.isArray(this.draft?.request?.rules) ? this.draft.request.rules : [];
-    if (!rules.length) { setSummary(this.container, 'rules', $HR('None')); return; }
+    if (!rules.length) { setSummary(this.container, 'rules', $HR('none')); return; }
     let rows = rules;
     if (typeof this.describeRules === 'function') {
       try { rows = await this.describeRules(rules) || rules; } catch { rows = rules; }
@@ -292,10 +313,10 @@ export class QuerySourceEditor extends HBaseWidget {
 function div(className) { const el = document.createElement('div'); el.className = className; return el; }
 function button(text, title, handler, className = 'h-btn h-btn-small') { const b = document.createElement('button'); b.type = 'button'; b.className = className; b.textContent = text; b.title = title; b.addEventListener('click', handler); return b; }
 function clone(value) { return value == null ? value : (typeof structuredClone === 'function' ? structuredClone(value) : JSON.parse(JSON.stringify(value))); }
-function summarizeFields(value, dbdefs) {
+function summarizeFields(value, dbdefs, emptyLabel = 'default') {
   const values = Array.isArray(value) ? value : [];
   const labels = values.map((item) => { const field = typeof item === 'object' ? item?.field : item; return (typeof item === 'object' && item?.title) || fieldCodeLabel(field, dbdefs) || String(field || ''); }).filter(Boolean);
-  return summarizeLabels(labels, 'field');
+  return labels.length ? summarizeLabels(labels, 'field') : $HR(emptyLabel);
 }
 function summarizeLabels(labels, noun) {
   if (!labels.length) return $HR('None');

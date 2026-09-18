@@ -827,7 +827,14 @@ export class ExplorerControlPanel {
         title.textContent = source.title;
         select.append(title);
         select.addEventListener('click', () => void this._activateQuerySource(source.id));
-        row.append(star, select);
+        const edit = document.createElement('button');
+        edit.type = 'button';
+        edit.className = 'heurist-icon-button h-explorer-filter-edit';
+        edit.title = $HR('Edit Query Source record');
+        edit.setAttribute('aria-label', edit.title);
+        edit.innerHTML = '<span class="fa-solid fa-pen" aria-hidden="true"></span>';
+        edit.addEventListener('click', () => void this._editQuerySource(source.id));
+        row.append(star, select, edit);
         list.append(row);
       }
     };
@@ -851,6 +858,20 @@ export class ExplorerControlPanel {
     try {
       const activated = await this.application.activateQuerySource(id);
       if (activated) this.closeToolPanel();
+    } catch (error) {
+      HMsg.showMsgErr(error?.message || String(error));
+    }
+  }
+
+
+  /** Open the generic host record editor for a Query Source record. */
+  async _editQuerySource(id) {
+    try {
+      await this.application.editQuerySource(id);
+      await this.application.querySources?.load?.();
+      if (this.activeTool === 'query-sources') {
+        this.flyoutBody?.replaceChildren(this._buildQuerySourcesPanel());
+      }
     } catch (error) {
       HMsg.showMsgErr(error?.message || String(error));
     }

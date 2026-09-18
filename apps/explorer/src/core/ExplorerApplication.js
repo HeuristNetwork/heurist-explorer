@@ -308,6 +308,8 @@ export class ExplorerApplication {
     if (!draft) return true;
     const sourceId = draft.reference?.type === 'source' ? Number(draft.reference.id) : null;
     const message = document.createElement('div');
+    message.style.width = 'min(520px, calc(100vw - 48px))';
+    message.style.maxWidth = '100%';
     message.textContent = sourceId > 0
       ? $HR('This Query Source has unsaved changes.')
       : $HR('This source has unsaved configuration.');
@@ -794,6 +796,18 @@ export class ExplorerApplication {
     }
     return result || null;
   }
+
+  /** Open a Query Source record in the host record editor. */
+  async editQuerySource(id) {
+    const recordId = Number(id);
+    if (!Number.isFinite(recordId) || recordId <= 0) return null;
+    const bridge = this.config.hostBridge || {};
+    if (typeof bridge.editRecord !== 'function') {
+      throw new Error($HR('Record editor is not available'));
+    }
+    return bridge.editRecord(recordId);
+  }
+
 
   /**
    * Auto-favorite a newly-saved filter that was already favorited under a placeholder reference.

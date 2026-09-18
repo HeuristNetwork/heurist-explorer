@@ -251,7 +251,9 @@
 }
 
 .h-explorer-saved-filter-row:hover .h-explorer-filter-edit,
-.h-explorer-saved-filter-row:focus-within .h-explorer-filter-edit {
+.h-explorer-saved-filter-row:focus-within .h-explorer-filter-edit,
+.h-explorer-query-source-row:hover .h-explorer-filter-edit,
+.h-explorer-query-source-row:focus-within .h-explorer-filter-edit {
     opacity: 1;
 }
 

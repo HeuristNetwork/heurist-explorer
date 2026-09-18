@@ -10,7 +10,8 @@
 .h-qse { container-type:inline-size; }
 .h-qse-advanced[hidden] { display:none; }
 .h-qse-config-row { grid-template-columns:150px minmax(0,1fr); }
-.h-qse-config-edit { justify-self:stretch; text-align:left; }
+.h-qse-config-edit { justify-self:stretch; text-align:left; display:inline-flex; align-items:center; gap:6px; }
+.h-qse-clear-row { display:flex; justify-content:flex-start; padding-top:4px; }
 .h-qse-test-row { display:flex; align-items:center; gap:8px; padding-top:5px; }
 .h-qse-title-label { flex:0 0 auto; }
 .h-qse-title { flex:1 1 auto; min-width:160px; }
@@ -19,3 +20,9 @@
 .h-qse-dialog-wide { width:100%; min-width:0; }
 .h-dialog.h-qse-dialog-wide-shell { width:calc(100vw - 24px) !important; max-width:none !important; }
 .h-qse-dialog { min-width:min(620px, 82vw); }
+
+@container (max-width: 520px) {
+  .h-qse-config-caption { display:none; }
+  .h-qse-config-row { grid-template-columns:34px minmax(0,1fr); }
+  .h-qse-config-edit { justify-content:center; padding-inline:7px; }
+}
