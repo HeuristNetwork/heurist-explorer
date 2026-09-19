@@ -337,11 +337,13 @@ export class ExplorerApplication {
 
   /** Persist a QuerySourceEditor draft through the host bridge and refresh its stable reference. */
   async _saveQuerySourceDraft(source, id = null) {
-    const result = await this.saveDatasourceAsSource(source, id ? { id } : {});
+    const panel = this._currentQuerySourcePanel();
+    const prepared = !String(source?.title || '').trim() ? (panel?.prepareDraftForSave?.() || source) : source;
+    if (!queryDefined(prepared?.request?.q)) return { saved: false, reason: 'empty-query' };
+    const result = await this.saveDatasourceAsSource(prepared, id ? { id } : {});
     const recordId = Number(result?.recordId ?? id);
     if (result?.saved !== false && recordId > 0) {
       const resolved = await this.querySources.resolveDataSource(recordId);
-      const panel = this._currentQuerySourcePanel();
       if (resolved) {
         panel?.markCommitted(resolved);
         await this.activateDataSource(resolved, { allowDirty: true });
@@ -349,6 +351,7 @@ export class ExplorerApplication {
         panel?.markCommitted();
       }
       await this.querySources.load().catch(() => {});
+      if (this.workspace.has(resolved)) this.updateDataSourceInWorkspace(resolved);
       this.controlPanel?.refreshNavigationLists?.();
     }
     return result;
@@ -420,8 +423,13 @@ export class ExplorerApplication {
 
     const panelBefore = this._currentQuerySourcePanel();
     if (panelBefore?.isDirty?.() && syncOptions.allowDirty !== true) {
-      const mayContinue = await this._confirmQuerySourceNavigation(panelBefore);
-      if (!mayContinue) return null;
+      const draftBefore = panelBefore.getDraftDataSource?.();
+      const isSavedSource = draftBefore?.reference?.type === 'source' && Number(draftBefore.reference.id) > 0;
+      const hasConfiguredFields = panelBefore.hasConfiguredFields?.() === true;
+      if (isSavedSource || hasConfiguredFields) {
+        const mayContinue = await this._confirmQuerySourceNavigation(panelBefore);
+        if (!mayContinue) return null;
+      }
     }
 
     const dataSource = await this._withResultCount(normalizeDataSource(source));
@@ -494,7 +502,9 @@ export class ExplorerApplication {
    */
   addDataSourceToWorkspace(source = null, options = {}) {
     const value = source || this.sync.dataSource;
-    const entry = value ? this.workspace.add(value, options) : null;
+    const sourceId = value?.reference?.type === 'source' ? Number(value.reference.id) : 0;
+    if (!(sourceId > 0)) return null;
+    const entry = this.workspace.add(value, options);
     if (entry) {
       this.controlPanel?.refreshNavigationLists?.();
       void this._syncWorkspaceMap();
@@ -1221,3 +1231,5 @@ function normalizeLayout(value) {
 
   return normalized;
 }
+
+function queryDefined(q) { return q != null && (typeof q !== 'string' || q.trim().length > 0); }

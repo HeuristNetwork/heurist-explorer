@@ -1,4 +1,24 @@
-/** Utilities shared by Query Source field-path helper editors. */
+/**
+ * @file fieldPathUtils.js
+ * @brief Utilities shared by Query Source field-path helper editors.
+ *
+ * @project     Heurist academic knowledge management system
+ * @package     heurist-explorer
+ *
+ * @link        https://HeuristNetwork.org
+ * @copyright   (C) 2024 onwards Heurist Network
+ * @author      Artem Osmakov   <osmakov@gmail.com>
+ * @author      Ian Johnson <ian.johnson.heurist@gmail.com>
+ * @license     https://www.gnu.org/licenses/gpl-3.0.txt GNU License 3.0
+ * @since       8.0
+ */
+
+/**
+ * Encode a field-tree selection path as a persisted field/path code (e.g. `123:lt45:678`).
+ * @param {Array} [path] Field-tree path steps, root to leaf.
+ * @param {number|null} [rootRtyId] Root record type id, prefixed when the path starts below it.
+ * @returns {string} The path code, or '' if the path cannot be encoded.
+ */
 export function fieldPathCode(path = [], rootRtyId = null) {
   if (!Array.isArray(path) || !path.length) return '';
   if (path.length === 1 && path[0]?.code) return String(path[0].code);
@@ -19,6 +39,12 @@ export function fieldPathCode(path = [], rootRtyId = null) {
   return parts.join(':');
 }
 
+/**
+ * Build a readable "A > B > C" caption for a field-tree selection path.
+ * @param {Array} [path] Field-tree path steps, root to leaf.
+ * @param {object} dbdefs Database definitions used to resolve field names.
+ * @returns {string} The hierarchy caption, or '' if the path is empty.
+ */
 export function fieldPathLabel(path = [], dbdefs) {
   if (!Array.isArray(path) || !path.length) return '';
   const labels = [];
@@ -37,7 +63,12 @@ export function fieldPathLabel(path = [], dbdefs) {
   return labels.join(' > ');
 }
 
-/** Resolve a persisted field/path code to a readable hierarchy caption. */
+/**
+ * Resolve a persisted field/path code to a readable hierarchy caption.
+ * @param {string|number} code Field/path code (e.g. `123:lt45:678` or `rec_Title`).
+ * @param {object} dbdefs Database definitions used to resolve field names.
+ * @returns {string} The hierarchy caption, or the original code if it cannot be resolved.
+ */
 export function fieldCodeLabel(code, dbdefs) {
   const text = String(code ?? '').trim();
   if (!text) return '';
@@ -63,6 +94,12 @@ export function fieldCodeLabel(code, dbdefs) {
   return labels.length ? labels.join(' > ') : text;
 }
 
+/**
+ * Normalize a mixed list of field codes/ids and partial descriptors into `{ field, title, ... }` objects.
+ * @param {Array} [values] Field codes/ids or partial field descriptors.
+ * @param {object|null} [dbdefs] Database definitions used to derive a missing title.
+ * @returns {Array<object>} Normalized field descriptors, with invalid entries removed.
+ */
 export function normalizeFieldDescriptors(values = [], dbdefs = null) {
   if (!Array.isArray(values)) return [];
   return values.map((value) => {
@@ -78,6 +115,11 @@ export function normalizeFieldDescriptors(values = [], dbdefs = null) {
   }).filter(Boolean);
 }
 
+/**
+ * Find the record type id (`t:<id>`) constraint anywhere within a keyword or structured query.
+ * @param {*} query Query to search (string, array or object).
+ * @returns {number|null} The record type id, or null if none is present.
+ */
 export function inferRecordTypeId(query) {
   const find = (value) => {
     if (!value) return null;

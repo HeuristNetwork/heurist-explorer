@@ -1,11 +1,28 @@
+/**
+ * @file HFieldSetEditor.js
+ * @brief Ordered Data-presentation column field-set editor built on HFieldTree.
+ *
+ * @project     Heurist academic knowledge management system
+ * @package     heurist-explorer
+ *
+ * @link        https://HeuristNetwork.org
+ * @copyright   (C) 2024 onwards Heurist Network
+ * @author      Artem Osmakov   <osmakov@gmail.com>
+ * @author      Ian Johnson <ian.johnson.heurist@gmail.com>
+ * @license     https://www.gnu.org/licenses/gpl-3.0.txt GNU License 3.0
+ * @since       8.0
+ */
+
 import { HFieldSelectionEditor } from './HFieldSelectionEditor.js';
 import { fieldCodeLabel } from './fieldPathUtils.js';
 import { $HR } from '#shared/ui';
 
 /** Ordered Data-presentation column field-set editor built on HFieldTree. */
 export class HFieldSetEditor extends HFieldSelectionEditor {
+  /** @param {object} [options] Forwarded to HFieldSelectionEditor; `title`, `includeHeaders` and `allowReorder` are fixed. */
   constructor(options = {}) { super({ ...options, title: 'Column fields', includeHeaders: true, allowReorder: true }); }
 
+  /** @returns {Array} A clone of the selected columns, stripped of the internal `_type` hint. */
   getValue() {
     return this.fields.map(({ _type, ...field }) => ({ ...field }));
   }

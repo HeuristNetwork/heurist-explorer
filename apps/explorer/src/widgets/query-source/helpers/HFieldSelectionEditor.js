@@ -1,3 +1,18 @@
+/**
+ * @file HFieldSelectionEditor.js
+ * @brief Base multi-field selector used by fieldset, geo and time Query Source helpers.
+ *
+ * @project     Heurist academic knowledge management system
+ * @package     heurist-explorer
+ *
+ * @link        https://HeuristNetwork.org
+ * @copyright   (C) 2024 onwards Heurist Network
+ * @author      Artem Osmakov   <osmakov@gmail.com>
+ * @author      Ian Johnson <ian.johnson.heurist@gmail.com>
+ * @license     https://www.gnu.org/licenses/gpl-3.0.txt GNU License 3.0
+ * @since       8.0
+ */
+
 import { HBaseWidget } from '#shared/widgets/HBaseWidget.js';
 import { $HR } from '#shared/ui';
 import { HFieldTree } from '../../filter-builder/HFieldTree.js';
@@ -6,6 +21,16 @@ import './QuerySourceHelpers.css';
 
 /** Base multi-field selector used by fieldset, geo and time Query Source helpers. */
 export class HFieldSelectionEditor extends HBaseWidget {
+  /**
+   * @param {object} options Widget configuration.
+   * @param {object} options.dbdefs Database definitions used to resolve and label fields (required).
+   * @param {string} [options.title] Editor title.
+   * @param {string[]|null} [options.selectableTypes] Field types selectable via the tree; null allows all.
+   * @param {boolean} [options.allowReorder] Whether selected fields can be reordered.
+   * @param {boolean} [options.includeHeaders] Whether record header fields appear in the tree.
+   * @param {boolean} [options.hideUnselectable] Whether non-selectable fields are hidden rather than shown disabled.
+   * @param {boolean} [options.showSort] Whether the field tree offers a sort control.
+   */
   constructor({ dbdefs, title = 'Fields', selectableTypes = null, allowReorder = true, includeHeaders = false, hideUnselectable = false, showSort = true } = {}) {
     super();
     if (!dbdefs) throw new TypeError('HFieldSelectionEditor requires dbdefs');
@@ -21,10 +46,22 @@ export class HFieldSelectionEditor extends HBaseWidget {
     this.fields = [];
   }
 
+  /**
+   * @param {number} recordTypeId Record type the field tree is scoped to.
+   * @returns {HFieldSelectionEditor} this, for chaining.
+   */
   setRecordType(recordTypeId) { this.recordTypeId = Number(recordTypeId) || null; return this; }
+
+  /**
+   * @param {Array} value Field descriptors (or field codes/ids) to select.
+   * @returns {HFieldSelectionEditor} this, for chaining.
+   */
   setValue(value) { this.fields = normalizeFieldDescriptors(value, this.dbdefs).map((x) => ({ ...x })); if (this.isRendered) this._renderRows(); return this; }
+
+  /** @returns {Array} A clone of the selected field descriptors. */
   getValue() { return this.fields.map((x) => ({ ...x })); }
 
+  /** @returns {HFieldSelectionEditor} this, for chaining. */
   render() {
     if (!this.container) throw new Error('HFieldSelectionEditor must be attached before render');
     this.container.className = 'h-qse-helper';
@@ -107,6 +144,7 @@ export class HFieldSelectionEditor extends HBaseWidget {
     this._renderRows();
   }
 
+  /** Tear down the field tree popover and the widget itself. */
   async destroy() { this.tree.destroy(); await super.destroy(); }
 }
 

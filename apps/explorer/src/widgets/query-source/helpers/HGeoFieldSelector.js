@@ -1,3 +1,18 @@
+/**
+ * @file HGeoFieldSelector.js
+ * @brief Geographic field-path selector plus viewport/zoom Query Source options.
+ *
+ * @project     Heurist academic knowledge management system
+ * @package     heurist-explorer
+ *
+ * @link        https://HeuristNetwork.org
+ * @copyright   (C) 2024 onwards Heurist Network
+ * @author      Artem Osmakov   <osmakov@gmail.com>
+ * @author      Ian Johnson <ian.johnson.heurist@gmail.com>
+ * @license     https://www.gnu.org/licenses/gpl-3.0.txt GNU License 3.0
+ * @since       8.0
+ */
+
 import { HFieldSelectionEditor } from './HFieldSelectionEditor.js';
 import { fieldCodeLabel } from './fieldPathUtils.js';
 import { $HR, HMsg } from '#shared/ui';
@@ -7,11 +22,16 @@ const DT_GEO_OBJECT = '2-28';
 
 /** Geographic field-path selector plus viewport/zoom Query Source options. */
 export class HGeoFieldSelector extends HFieldSelectionEditor {
+  /** @param {object} [options] Forwarded to HFieldSelectionEditor; `title` and the geo-specific selection settings are fixed. */
   constructor(options = {}) {
     super({ ...options, title: 'Geographic fields', selectableTypes: ['geo'], hideUnselectable: true, allowReorder: false, showSort: false });
     this.mapOptions = { dynamicRequests: false, minZoom: null, maxZoom: null, geoOutputMode: 'records' };
   }
 
+  /**
+   * @param {object} [profile] Map presentation profile (`geoFields`, `dynamicRequests`, `minZoom`, `maxZoom`, `geoOutputMode`).
+   * @returns {HGeoFieldSelector} this, for chaining.
+   */
   setMapProfile(profile = {}) {
     this.setValue(profile.geoFields || []);
     this.mapOptions = {
@@ -24,8 +44,10 @@ export class HGeoFieldSelector extends HFieldSelectionEditor {
     return this;
   }
 
+  /** @returns {object} The current map presentation profile (`geoFields` plus viewport/zoom options). */
   getMapProfile() { return { geoFields: this.getValue().map((item) => item.field), ...this.mapOptions }; }
 
+  /** @returns {HGeoFieldSelector} this, for chaining. */
   render() {
     super.render();
     const auto = document.createElement('button');
