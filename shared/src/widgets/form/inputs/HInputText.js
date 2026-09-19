@@ -56,4 +56,9 @@ export class HInputText extends HInput {
     if (this.control) this.control.value = String(value ?? '');
     return this;
   }
+
+  /** @returns {string[]} Validation errors. */
+  validate() {
+    return this.options.required && !this.getValue().trim() ? ['A value is required'] : [];
+  }
 }

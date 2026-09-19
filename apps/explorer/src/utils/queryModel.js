@@ -74,6 +74,7 @@ export function emptyFieldRow(overrides = {}) {
     negate: false,
     values: [''],
     valueConj: 'any',
+    parameterId: null,
     ...overrides
   };
 }
@@ -152,6 +153,8 @@ function compileFieldRow(row, vocab) {
 
   const op = resolveOperator(row, vocab);
 
+  if (row.parameterId) return null;
+
   if (op.whole) {
     return wrap(key, op.token);
   }
@@ -184,6 +187,85 @@ function compileFieldRow(row, vocab) {
   }
 
   return { [conj]: rendered.map((v) => wrap(key, v)) };
+}
+
+/**
+ * Compose a parameterized Builder model with runtime form values.
+ * Undefined parameter values omit their predicate; explicit NULL operators
+ * remain ordinary Builder criteria.
+ *
+ * @param {BuilderModel} model Builder model with parameter IDs on field rows.
+ * @param {object} values Runtime values by parameter ID.
+ * @param {object} vocabulary Query vocabulary.
+ * @returns {Array<object>} Executable Heurist query.
+ */
+export function composeWithParameters(model, values, vocabulary) {
+  const copy = structuredClone(model);
+  const resolve = (row) => {
+    if (!row.parameterId) return;
+    const value = values?.[row.parameterId];
+    row.parameterId = null;
+    if (row.kind === 'geo') {
+      row.values = [];
+      return;
+    }
+    if (value && typeof value === 'object' && ('from' in value || 'to' in value)) {
+      if (value.from != null && value.from !== '' && (value.to == null || value.to === '')) {
+        row.op = row.kind === 'date' ? 'op.on_or_after' : 'op.gte';
+        row.values = [String(value.from)];
+        return;
+      }
+
+      if (value.to != null && value.to !== '' && (value.from == null || value.from === '')) {
+        row.op = row.kind === 'date' ? 'op.on_or_before' : 'op.lte';
+        row.values = [String(value.to)];
+        return;
+      }
+    }
+
+    row.values = Array.isArray(value)
+      ? value.map(String)
+      : value && typeof value === 'object' && ('from' in value || 'to' in value)
+        ? [value.from ?? '', value.to ?? ''].map(String)
+        : value == null || value === '' ? [] : [String(value)];
+  };
+
+  for (const row of copy.rows || []) {
+    if (row.type === 'link') {
+      for (const child of row.rows || []) resolve(child);
+    } else {
+      resolve(row);
+    }
+  }
+
+  return composeQuery(copy, vocabulary);
+}
+
+/**
+ * Resolve query parameters and return optional Map-compatible extent separately.
+ *
+ * @param {BuilderModel} model Parameterized Builder model.
+ * @param {object} values Runtime parameter values.
+ * @param {object} vocabulary Query vocabulary.
+ * @returns {{q:Array<object>,extent:object|null}} Executable query and extent.
+ */
+export function composeFilterRequest(model, values, vocabulary) {
+  let extent = null;
+  const inspect = (row) => {
+    if (row?.kind === 'geo' && row.parameterId && values?.[row.parameterId]) {
+      extent = values[row.parameterId];
+    }
+  };
+
+  for (const row of model?.rows || []) {
+    if (row.type === 'link') {
+      for (const child of row.rows || []) inspect(child);
+    } else {
+      inspect(row);
+    }
+  }
+
+  return { q: composeWithParameters(model, values, vocabulary), extent };
 }
 
 /** @returns {object|null} predicate */
@@ -345,6 +427,18 @@ function fieldRowFromPredicate(predicate) {
 
   const { negate, token, value: bare } = stripToken(raw);
   row.negate = negate;
+  if (token === '><' && bare.includes('/')) {
+    row.opToken = token;
+    row.values = bare.split('/', 2);
+    return row;
+  }
+
+  if (bare.includes('<>')) {
+    row.opToken = '<>';
+    row.values = bare.split('<>', 2);
+    return row;
+  }
+
   row.opToken = token;
   row.values = bare.includes(',') ? bare.split(',').map((s) => s.trim()) : [bare];
   if (row.values.length > 1) row.valueConj = 'any';

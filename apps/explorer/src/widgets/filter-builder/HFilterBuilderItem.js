@@ -22,6 +22,7 @@
  */
 
 import { HBaseWidget } from '#shared/widgets/HBaseWidget.js';
+import { createHInput } from '#shared/widgets/form/inputs/createHInput.js';
 import { $HR } from '#shared/ui';
 import { emptyFieldRow } from '../../utils/queryModel.js';
 import { HEADER_KEYWORDS } from '../../utils/queryPredicates.js';
@@ -33,6 +34,7 @@ const HEADER_LABELS = {
   addedby: 'Creator', access: 'Visibility', tag: 'Tags', user: 'Bookmarked by'
 };
 const MULTI_INPUTS = ['text', 'term', 'record', 'tag'];
+let nextParameterId = 0;
 
 /** One flat field criterion row (field · operator · value) in the Filter Builder. */
 export class HFilterBuilderItem extends HBaseWidget {
@@ -49,6 +51,7 @@ export class HFilterBuilderItem extends HBaseWidget {
     this._onRequestFieldPick = onRequestFieldPick || null;
     this.scopeRtyId = scopeRtyId;
     this.row = emptyFieldRow();
+    this._valueWidgets = [];
   }
 
   /**
@@ -100,7 +103,14 @@ export class HFilterBuilderItem extends HBaseWidget {
     this._valuesHost = document.createElement('div');
     this._valuesHost.className = 'h-fbitem-values';
 
-    this.container.append(this._fieldBtn, remove, this._opSel, this._valuesHost);
+    this._parameterButton = mkbtn('', 'h-btn h-btn-small h-fbitem-parameter', () => {
+      this.row.parameterId = this.row.parameterId ? null : `parameter${++nextParameterId}`;
+      this._renderValues();
+      this._emit();
+    });
+    this._parameterButton.classList.add('h-i18n');
+
+    this.container.append(this._fieldBtn, remove, this._opSel, this._valuesHost, this._parameterButton);
 
     this._syncField();
     this._renderOperators();
@@ -138,6 +148,7 @@ export class HFilterBuilderItem extends HBaseWidget {
     if (this.row.kind !== 'enum') this.row.enumField = null;
     this.row.op = operatorsFor(this.vocab, this.row.kind)[0]?.i18nKey || null;
     this.row.values = [''];
+    this.row.parameterId = null;
     if (this.isRendered) {
       this._syncField();
       this._renderOperators();
@@ -228,7 +239,28 @@ export class HFilterBuilderItem extends HBaseWidget {
   _renderValues() {
     const opDef = operatorByKey(this.vocab, this.row.kind, this.row.op) || { input: 'text' };
     const input = opDef.whole ? 'none' : (opDef.input || 'text');
+    if (opDef.whole) this.row.parameterId = null;
+    for (const widget of this._valueWidgets) void widget.destroy();
+    this._valueWidgets = [];
     this._valuesHost.replaceChildren();
+
+    this._parameterButton.textContent = this.row.parameterId ? 'Use literal' : 'Use parameter';
+    this._parameterButton.hidden = Boolean(opDef.whole)
+      || !['text', 'number', 'date', 'enum', 'geo'].includes(this.row.kind);
+
+    if (this.row.parameterId) {
+      const id = document.createElement('input');
+      id.className = 'h-input h-fbitem-parameter-id';
+      id.value = this.row.parameterId;
+      id.setAttribute('aria-label', $HR('Parameter ID'));
+      id.addEventListener('change', () => {
+        this.row.parameterId = id.value.trim() || `parameter${++nextParameterId}`;
+        id.value = this.row.parameterId;
+        this._emit();
+      });
+      this._valuesHost.append(id);
+      return;
+    }
 
     if (input === 'none') return;
 
@@ -237,9 +269,9 @@ export class HFilterBuilderItem extends HBaseWidget {
       const line = valRow();
       line.append(
         conjSlot(),
-        this._valueControl('text', 0, $HR('from')),
+        this._valueControl(this.row.kind === 'date' ? 'date' : 'number', 0, $HR('from')),
         Object.assign(document.createElement('span'), { className: 'h-fbitem-rangesep', textContent: '–' }),
-        this._valueControl('text', 1, $HR('to'))
+        this._valueControl(this.row.kind === 'date' ? 'date' : 'number', 1, $HR('to'))
       );
       this._valuesHost.append(line);
       return;
@@ -318,6 +350,26 @@ export class HFilterBuilderItem extends HBaseWidget {
   _valueControl(input, index, placeholder = '') {
     const set = (v) => { this.row.values[index] = v; this._emit(); };
     const current = this.row.values[index] ?? '';
+
+    if (['text', 'number', 'date', 'term'].includes(input)) {
+      const host = document.createElement('div');
+      host.className = 'h-fbitem-value-widget';
+      const type = { text: 'text', number: 'numeric', date: 'date', term: 'enum' }[input];
+      const root = input === 'term' ? this.dbdefs?.vocabRoot?.(this.row.dty) || 0 : 0;
+      const terms = root ? this.dbdefs.termTree(root, { flat: true }).filter((term) => term.id !== root) : [];
+      const widget = createHInput(type, host, {
+        suppressLabel: true,
+        value: current,
+        integer: this.dbdefs?.fieldGlobal?.(this.row.dty)?.type === 'integer',
+        terms,
+        emptyLabel: $HR('— select —'),
+        allowLegacyText: input === 'date',
+        placeholder
+      });
+      host.addEventListener('h-input-change', () => set(widget.getValue() ?? ''));
+      this._valueWidgets.push(widget);
+      return host;
+    }
 
     if (input === 'term') {
       const sel = document.createElement('select');
@@ -404,6 +456,8 @@ export class HFilterBuilderItem extends HBaseWidget {
    * @returns {Promise<void>}
    */
   async destroy() {
+    for (const widget of this._valueWidgets) await widget.destroy();
+    this._valueWidgets = [];
     this.container?.replaceChildren();
     this.container?.classList.remove('h-fbitem');
     await super.destroy();

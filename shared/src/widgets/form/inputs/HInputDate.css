@@ -1,0 +1,16 @@
+.h-input-date-range {
+  display: flex;
+  gap: var(--h-gap);
+}
+
+.h-input-date-range .h-input-date {
+  min-width: 0;
+  width: 50%;
+}
+
+.h-input-date-range .flatpickr-wrapper { width: calc(50% - var(--h-gap) / 2); }
+.h-input-date-range .flatpickr-wrapper .h-input-date { width: 100%; }
+
+.h-input-date-range { flex-wrap: wrap; }
+.h-input-date-sliders { display: flex; width: 100%; gap: var(--h-gap); }
+.h-input-date-sliders input { width: 50%; }

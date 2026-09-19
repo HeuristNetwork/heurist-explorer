@@ -23,13 +23,16 @@
  */
 
 import { HBaseWidget } from '#shared/widgets/HBaseWidget.js';
-import { $HR } from '#shared/ui';
+import { $HR, HMsg } from '#shared/ui';
 import { composeQuery, parseQuery, emptyFieldRow } from '../../utils/queryModel.js';
 import { queryDescribe } from '../../utils/queryDescribe.js';
 import { HFilterBuilderItem } from './HFilterBuilderItem.js';
 import { HFilterBuilderSort } from './HFilterBuilderSort.js';
 import { HFieldTree } from './HFieldTree.js';
-import { str } from '../../utils/vocabHelpers.js';
+import { HFilterFormDesigner } from './HFilterFormDesigner.js';
+import { HFilterForm } from '#shared/widgets/filter/HFilterForm.js';
+import { composeWithParameters } from '../../utils/queryModel.js';
+import { str, operatorByKey } from '../../utils/vocabHelpers.js';
 import './HFilterBuilder.css';
 
 /** Visual Heurist query builder: record type, field/link rows, sort, and a live JSON preview. */
@@ -50,6 +53,7 @@ export class HFilterBuilder extends HBaseWidget {
     this.model = { rtyId: '', conjunction: 'all', lang, rows: [], sort: [], unsupported: null };
     this._entries = []; // { kind:'field'|'link', item?:HFilterBuilderItem, panel?:LinkPanel, el:HTMLElement }
     this._sorts = [];   // HFilterBuilderSort
+    this.form = null;
   }
 
   /**
@@ -149,6 +153,14 @@ export class HFilterBuilder extends HBaseWidget {
     sortSec.append(addSortBtn);
     this.container.append(sortSec);
 
+    const formActions = el('div', 'h-fb-form-actions');
+    formActions.append(
+      btn($HR('Design Filter Form…'), 'h-btn', () => void this.openFormDesigner()),
+      btn($HR('Preview Filter Form'), 'h-btn', () => void this.previewFilterForm())
+    );
+    this._formActions = formActions;
+    this.container.append(formActions);
+
     // ---- preview ----
     const prevSec = el('div', 'h-fb-preview');
     this._sentence = el('div', 'h-fb-sentence');
@@ -177,13 +189,130 @@ export class HFilterBuilder extends HBaseWidget {
     return composeQuery(this._readModel(), this.vocab);
   }
 
+  /**
+   * Return the query with parameter bindings and optional form layout.
+   *
+   * @returns {Array<object>|object} Plain query or parameterized definition.
+   */
+  getDefinition() {
+    const model = this._readModel();
+    const parameters = {};
+    const collect = (row) => {
+      if (!row.parameterId) return;
+      if (parameters[row.parameterId]) throw new Error(`Duplicate parameter ID: ${row.parameterId}`);
+      parameters[row.parameterId] = {
+        type: row.kind,
+        fieldId: row.dty,
+        label: this.dbdefs?.fieldGlobal?.(row.dty)?.name || String(row.dty),
+        operator: row.op,
+        range: operatorByKey(this.vocab, row.kind, row.op)?.input === 'range'
+      };
+    };
+
+    for (const row of model.rows) {
+      if (row.type === 'link') {
+        for (const child of row.rows) collect(child);
+      } else {
+        collect(row);
+      }
+    }
+
+    const q = composeQuery(model, this.vocab);
+    const form = this.form ? structuredClone(this.form) : null;
+    if (form) {
+      for (const group of form.groups || []) {
+        group.children = (group.children || []).filter((child) => parameters[child.input]);
+      }
+
+      form.inputs = Object.fromEntries(Object.entries(form.inputs || {})
+        .filter(([id]) => parameters[id]));
+    }
+    return Object.keys(parameters).length
+      ? { q, parameters, form, builderModel: model }
+      : q;
+  }
+
   /** @param {Array|string|object} query */
   setQuery(query) {
-    this.model = parseQuery(query, this.vocab);
+    let definition = query;
+    if (typeof query === 'string' && query.trim().startsWith('{')) {
+      try { definition = JSON.parse(query); } catch { /* plain query remains parseable */ }
+    }
+    this.model = definition?.builderModel
+      ? structuredClone(definition.builderModel)
+      : parseQuery(definition, this.vocab);
+    this.form = definition?.form || null;
     if (!this.model.lang) this.model.lang = this.lang;
     if (this.isRendered) this._syncFromModel();
     this._recompose();
     return this;
+  }
+
+  /**
+   * Open the filter-only layout designer for the current parameters.
+   *
+   * @returns {Promise<void>} Completion after the dialog opens.
+   */
+  async openFormDesigner() {
+    let definition;
+    try { definition = this.getDefinition(); }
+    catch (error) { HMsg.showMsgFlash?.(error.message); return; }
+    if (Array.isArray(definition)) {
+      HMsg.showMsgFlash?.($HR('Create a parameter first'));
+      return;
+    }
+
+    const host = document.createElement('div');
+    const designer = new HFilterFormDesigner();
+    designer.attach(host, { parameters: definition.parameters, layout: this.form }).render();
+    const id = 'h-filter-form-designer-dialog';
+    const close = async (apply) => {
+      if (apply) {
+        try { this.form = designer.getLayout(); }
+        catch (error) { HMsg.showMsgFlash?.(error.message); return; }
+      }
+      HMsg.closeMsgDlg(id);
+      await designer.destroy();
+    };
+    HMsg.showMsgDlg(host, {
+      dialogId: id,
+      title: 'Filter form designer',
+      buttons: [
+        { label: 'Apply', class: 'h-btn h-btn-primary', onClick: () => void close(true) },
+        { label: 'Cancel', class: 'h-btn', onClick: () => void close(false) }
+      ]
+    });
+  }
+
+  /**
+   * Preview the current parameter form in a nested dialog.
+   *
+   * @returns {Promise<void>} Completion after the dialog opens.
+   */
+  async previewFilterForm() {
+    let definition;
+    try { definition = this.getDefinition(); }
+    catch (error) { HMsg.showMsgFlash?.(error.message); return; }
+    if (Array.isArray(definition)) {
+      HMsg.showMsgFlash?.($HR('Create a parameter first'));
+      return;
+    }
+
+    const host = document.createElement('div');
+    const form = new HFilterForm();
+    form.attach(host, {
+      definition,
+      dbdefs: this.dbdefs,
+      composeQuery: (source, values) => composeWithParameters(source.builderModel, values, this.vocab),
+      onSubmit: ({ query }) => HMsg.showMsgFlash?.(JSON.stringify(query))
+    }).render();
+    const id = 'h-filter-form-preview-dialog';
+    const dialog = HMsg.showMsgDlg(host, {
+      dialogId: id,
+      title: 'Filter form preview',
+      buttons: [{ label: 'Close', class: 'h-btn', onClick: () => HMsg.closeMsgDlg(id) }]
+    });
+    dialog.addEventListener('close', () => void form.destroy(), { once: true });
   }
 
   // --------------------------------------------------------------- internal ---
@@ -466,6 +595,10 @@ export class HFilterBuilder extends HBaseWidget {
   _recompose() {
     this.model = this._readModel();
     const q = composeQuery(this.model, this.vocab);
+    const hasParameters = this.model.rows.some((row) => row.type === 'link'
+      ? row.rows.some((child) => Boolean(child.parameterId))
+      : Boolean(row.parameterId));
+    if (this._formActions) this._formActions.hidden = !hasParameters;
     const sentence = q.length
       ? queryDescribe(q, { dbdefs: this.dbdefs, vocabulary: this.vocab, lang: this.lang })
       : '';

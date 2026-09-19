@@ -1,0 +1,13 @@
+.h-input-numeric-range {
+  display: flex;
+  gap: var(--h-gap);
+}
+
+.h-input-numeric-range .h-input-numeric {
+  min-width: 0;
+  width: 50%;
+}
+
+.h-input-numeric-range { flex-wrap: wrap; }
+.h-input-numeric-sliders { display: flex; width: 100%; gap: var(--h-gap); }
+.h-input-numeric-sliders input { width: 50%; }

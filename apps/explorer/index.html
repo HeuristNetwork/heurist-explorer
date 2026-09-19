@@ -1,12 +1,31 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Heurist Explorer</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <title>Heurist Academic Knowledge Management System</title>
 </head>
 <body>
   <main id="heurist-explorer"></main>
+  <script>
+    // Keep the API and iframe modules on this page's origin. Vite proxies /heurist
+    // during development; a deployed page uses its Heurist installation directly.
+    // Change the database for another standalone installation.
+    window.heuristModuleBootstrap = {
+      runtime: {
+        database: 'osmak_mapping',
+        baseUrl: new URL('/heurist/', window.location.origin).href,
+        apiBaseUrl: new URL('/heurist/api', window.location.origin).href,
+        runtimeMode: 'main',
+        language: 'eng',
+        moduleModes: {
+          data: 'direct',
+          recordview: 'direct'
+        }
+      }
+    };
+  </script>
   <script type="module" src="/src/main.js"></script>
 </body>
 </html>

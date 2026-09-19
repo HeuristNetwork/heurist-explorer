@@ -1,0 +1,32 @@
+.h-filter-form-body,
+.h-filter-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.h-filter-form-group h3 {
+  margin: 0;
+  font-size: var(--h-font-size-large);
+}
+
+.h-filter-form-horizontal .h-filter-form-group {
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: end;
+}
+
+.h-filter-form-field {
+  min-width: 180px;
+}
+
+.h-filter-form-actions {
+  display: flex;
+  gap: var(--h-gap);
+  margin-top: 10px;
+}
+
+.h-filter-form-errors {
+  color: var(--h-color-danger);
+  margin-top: 8px;
+}

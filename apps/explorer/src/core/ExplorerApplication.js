@@ -281,6 +281,7 @@ export class ExplorerApplication {
       onUpdateSource: (source, id) => this._saveQuerySourceDraft(source, id),
       onWorkspaceAdd: (source) => this.addDataSourceToWorkspace(source),
       onWorkspaceRemove: (source) => this.removeDataSourceFromWorkspace(source),
+      selectExtent: (current) => this.selectFilterExtent(current),
       isInWorkspace: (source) => this.isDataSourceInWorkspace(source)
     });
     panel.attach(authoring).render();
@@ -1043,7 +1044,13 @@ export class ExplorerApplication {
       HMsg.showMsgDlg(host, {
         title: 'Filter builder', preventClose: true,
         buttons: [
-          { label: 'Apply', class: 'h-btn h-btn-primary', onClick: () => void finish(builder.getQuery()) },
+          { label: 'Apply', class: 'h-btn h-btn-primary', onClick: () => {
+            try {
+              void finish(builder.getDefinition());
+            } catch (error) {
+              HMsg.showMsgFlash?.(error.message);
+            }
+          } },
           { label: 'Cancel', class: 'h-btn', onClick: () => void finish(null) }
         ]
       });
@@ -1061,6 +1068,47 @@ export class ExplorerApplication {
   }
 
   /**
+   * Let the Map module draw a filter extent and return viewport-style bounds.
+   *
+   * @param {object|null} current Existing bounds, reserved for later seeding.
+   * @returns {Promise<object|null>} West/south/east/north bounds or null on cancel.
+   */
+  async selectFilterExtent(current = null) {
+    let module = [...this.modules.values()].find((item) => item.type === 'map');
+    if (!module) {
+      await this.togglePresentation('map');
+      module = [...this.modules.values()].find((item) => item.type === 'map');
+    }
+
+    if (!module?.api?.beginDrawing) throw new Error('Map drawing is not available');
+    this.layout.activateModule(module.id);
+    const polygon = current && ['west', 'south', 'east', 'north'].every((key) => Number.isFinite(Number(current[key])))
+      ? { type: 'Polygon', coordinates: [[
+        [Number(current.west), Number(current.south)],
+        [Number(current.east), Number(current.south)],
+        [Number(current.east), Number(current.north)],
+        [Number(current.west), Number(current.north)],
+        [Number(current.west), Number(current.south)]
+      ]] }
+      : null;
+    await module.api.beginDrawing({ mode: 'filter', geojson: polygon });
+
+    return new Promise((resolve) => {
+      const finish = (event) => {
+        cleanup();
+        resolve(boundsFromGeometry(event.detail?.result?.geojson));
+      };
+      const cancel = () => { cleanup(); resolve(null); };
+      const cleanup = () => {
+        module.api.removeEventListener('heurist-map-drawing-finished', finish);
+        module.api.removeEventListener('heurist-map-drawing-cancelled', cancel);
+      };
+      module.api.addEventListener('heurist-map-drawing-finished', finish);
+      module.api.addEventListener('heurist-map-drawing-cancelled', cancel);
+    });
+  }
+
+  /**
    * Opens the visual Filter Builder in a modal dialog, seeded with the current
    * query. Replaces the legacy `hostBridge.openSearchBuilder()` round trip.
    *
@@ -1073,9 +1121,9 @@ export class ExplorerApplication {
     if (!widget) return;
     const composed = await this._editQueryWithBuilder(query);
     if (composed == null) return;
-    widget.setQueryValue(composed.length ? JSON.stringify(composed) : '');
+    widget.setQueryValue(Array.isArray(composed) && !composed.length ? '' : JSON.stringify(composed));
     widget.refreshSentence?.();
-    if (composed.length) void widget.executeDirectQuery();
+    if (Array.isArray(composed) && composed.length) void widget.executeDirectQuery();
   }
 
   /**
@@ -1233,3 +1281,30 @@ function normalizeLayout(value) {
 }
 
 function queryDefined(q) { return q != null && (typeof q !== 'string' || q.trim().length > 0); }
+
+/** Convert a drawn GeoJSON geometry to Map's viewport extent shape. */
+function boundsFromGeometry(geojson) {
+  const positions = [];
+  const visit = (node) => {
+    if (!node) return;
+    if (Array.isArray(node) && node.length >= 2 && node.every((value) => typeof value === 'number')) {
+      positions.push(node);
+      return;
+    }
+
+    if (Array.isArray(node)) {
+      for (const item of node) visit(item);
+      return;
+    }
+
+    if (typeof node === 'object') visit(node.coordinates || node.geometry || node.features || node.geometries);
+  };
+  visit(geojson);
+  if (!positions.length) return null;
+  return {
+    west: Math.min(...positions.map((point) => point[0])),
+    south: Math.min(...positions.map((point) => point[1])),
+    east: Math.max(...positions.map((point) => point[0])),
+    north: Math.max(...positions.map((point) => point[1]))
+  };
+}

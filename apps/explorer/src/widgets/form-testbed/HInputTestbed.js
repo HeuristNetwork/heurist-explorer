@@ -1,6 +1,6 @@
 /**
  * @file HInputTestbed.js
- * @brief Popup test form for shared text and enum inputs.
+ * @brief Popup test form for the shared filter input types.
  *
  * @project     Heurist academic knowledge management system
  * @package     heurist-explorer
@@ -16,9 +16,12 @@
 import { HBaseWidget } from '#shared/widgets';
 import { HInputText } from '#shared/widgets/form/inputs/HInputText.js';
 import { HInputEnum } from '#shared/widgets/form/inputs/HInputEnum.js';
+import { HInputNumeric } from '#shared/widgets/form/inputs/HInputNumeric.js';
+import { HInputDate } from '#shared/widgets/form/inputs/HInputDate.js';
+import { HInputGeo } from '#shared/widgets/form/inputs/HInputGeo.js';
 import './HInputTestbed.css';
 
-/** Shows two editable fields selected from the current database snapshot. */
+/** Shows representative editable fields from the current database snapshot. */
 export class HInputTestbed extends HBaseWidget {
   /** Create an unattached testbed. */
   constructor() {
@@ -27,7 +30,7 @@ export class HInputTestbed extends HBaseWidget {
   }
 
   /**
-   * Render a Person family-name and Gender form.
+   * Render representative text, enum, number, date and geo fields.
    *
    * @returns {HInputTestbed} This form.
    */
@@ -63,6 +66,25 @@ export class HInputTestbed extends HBaseWidget {
     }).render();
     this.inputs.set('gender', genderInput);
 
+    const numberField = dbdefs.fieldGlobal(32);
+    const numberInput = new HInputNumeric();
+    numberInput.attach(this._addHost(), {
+      label: numberField?.name || 'Number',
+      integer: true,
+      range: true
+    }).render();
+    this.inputs.set('number', numberInput);
+
+    const dateField = dbdefs.fieldGlobal(9);
+    const dateInput = new HInputDate();
+    dateInput.attach(this._addHost(), { label: dateField?.name || 'Date', range: true }).render();
+    this.inputs.set('date', dateInput);
+
+    const geoField = dbdefs.fieldGlobal(28);
+    const geoInput = new HInputGeo();
+    geoInput.attach(this._addHost(), { label: geoField?.name || 'Extent' }).render();
+    this.inputs.set('geo', geoInput);
+
     const resultLabel = document.createElement('div');
     resultLabel.className = 'h-input-testbed-result-label h-i18n';
     resultLabel.textContent = 'Current values';
@@ -79,17 +101,14 @@ export class HInputTestbed extends HBaseWidget {
   /**
    * Read the current form values.
    *
-   * @returns {{name:string, gender:number|null}} Current values.
+   * @returns {object} Current values keyed by test input name.
    */
   getValues() {
-    return {
-      name: this.inputs.get('name')?.getValue() ?? '',
-      gender: this.inputs.get('gender')?.getValue() ?? null
-    };
+    return Object.fromEntries([...this.inputs].map(([key, input]) => [key, input.getValue()]));
   }
 
   /**
-   * Validate the two fields.
+   * Validate all test fields.
    *
    * @returns {string[]} Validation errors.
    */

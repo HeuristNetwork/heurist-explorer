@@ -5,7 +5,9 @@ import {
   composeQuery,
   parseQuery,
   emptyModel,
-  emptyFieldRow
+  emptyFieldRow,
+  composeWithParameters,
+  composeFilterRequest
 } from '../src/utils/queryModel.js';
 
 const VOCAB = JSON.parse(
@@ -15,6 +17,50 @@ const VOCAB = JSON.parse(
 const compose = (model) => composeQuery(model, VOCAB);
 const model = (over = {}) => ({ ...emptyModel(), ...over });
 const fieldRow = (over = {}) => emptyFieldRow(over);
+
+test('parameter values resolve into flat and linked predicates without changing the template', () => {
+  const template = model({
+    rtyId: 10,
+    rows: [
+      fieldRow({ dty: 1, kind: 'text', op: 'op.exact', parameterId: 'personName' }),
+      { type: 'link', link: 'lt', dty: 240, targetRty: 48, conjunction: 'all', rows: [
+        fieldRow({ dty: 237, kind: 'enum', op: 'op.is', parameterId: 'placeType' })
+      ] }
+    ]
+  });
+
+  assert.deepEqual(compose(template), [{ t: '10' }, { 'lt:240': [{ t: '48' }] }]);
+  assert.deepEqual(composeWithParameters(template, { personName: 'Smith', placeType: 5399 }, VOCAB), [
+    { t: '10' },
+    { 'f:1': '=Smith' },
+    { 'lt:240': [{ t: '48' }, { 'f:237': '5399' }] }
+  ]);
+  assert.equal(template.rows[0].parameterId, 'personName');
+});
+
+test('empty parameters omit predicates and open ranges keep only the supplied endpoint', () => {
+  const template = model({ rows: [
+    fieldRow({ dty: 1, kind: 'text', op: 'op.exact', parameterId: 'name' }),
+    fieldRow({ dty: 32, kind: 'number', op: 'op.between', parameterId: 'zoom' })
+  ] });
+
+  assert.deepEqual(composeWithParameters(template, { name: '', zoom: { from: 2, to: null } }, VOCAB), [
+    { 'f:32': '>=2' }
+  ]);
+  assert.deepEqual(composeWithParameters(template, { zoom: { from: null, to: 8 } }, VOCAB), [
+    { 'f:32': '<=8' }
+  ]);
+});
+
+test('geographic parameter is a separate viewport extent, never a WKT query token', () => {
+  const template = model({ rows: [fieldRow({
+    dty: 28, kind: 'geo', op: 'op.within', parameterId: 'placeExtent'
+  })] });
+  const extent = { west: 1, south: 2, east: 3, north: 4 };
+  assert.deepEqual(composeFilterRequest(template, { placeExtent: extent }, VOCAB), {
+    q: [], extent
+  });
+});
 
 // ------------------------------------------------------------------- compose ---
 

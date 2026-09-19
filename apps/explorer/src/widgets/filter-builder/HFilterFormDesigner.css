@@ -1,0 +1,32 @@
+.h-filter-form-designer {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: min(680px, 85vw);
+}
+
+.h-filter-form-designer-setting,
+.h-filter-form-designer-row {
+  display: flex;
+  align-items: center;
+  gap: var(--h-gap);
+}
+
+.h-filter-form-designer-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.h-filter-form-designer-name {
+  min-width: 110px;
+}
+
+.h-filter-form-designer-row > .h-input {
+  flex: 1 1 auto;
+}
+
+.h-filter-form-designer-row > .h-filter-form-designer-bound {
+  flex: 0 1 115px;
+  min-width: 95px;
+}

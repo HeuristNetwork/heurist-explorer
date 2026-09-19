@@ -57,7 +57,8 @@ export class HInput extends HBaseWidget {
 
     const controlHost = document.createElement('div');
     controlHost.className = 'h-form-input-control';
-    this.container.append(label, controlHost);
+    if (!this.options.suppressLabel) this.container.append(label);
+    this.container.append(controlHost);
 
     this.label = label;
     this.control = this.renderControl(controlHost);

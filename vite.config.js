@@ -67,11 +67,17 @@ export default defineConfig(({ mode }) => {
       emptyOutDir: true,
       sourcemap: true,
       rollupOptions: {
-        input: path.join(appRoot, "src", "main.js"),
+        input: path.join(appRoot, targetName === "explorer" ? "index.html" : "src/main.js"),
         output: {
           entryFileNames: `${moduleName}.js`,
           chunkFileNames: `${moduleName}-[name].js`,
-          assetFileNames: `${moduleName}-[name][extname]`,
+          assetFileNames: (asset) => {
+            const name = asset.names?.[0] || asset.name || "";
+            if (targetName === "explorer" && name === "index.css") {
+              return `${moduleName}-main.css`;
+            }
+            return `${moduleName}-[name][extname]`;
+          },
         },
       },
     },

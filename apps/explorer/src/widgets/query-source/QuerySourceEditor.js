@@ -17,7 +17,7 @@
 import { HBaseWidget } from '#shared/widgets/HBaseWidget.js';
 import { $HR, HMsg } from '#shared/ui';
 import { HFilterInlineHelper } from '../filter-builder/HFilterInlineHelper.js';
-import queryVocabulary from '../../utils/queryVocabulary.json';
+import queryVocabulary from '../../utils/queryVocabulary.json' with { type: 'json' };
 import { queryDescribe } from '../../utils/queryDescribe.js';
 import { HFieldSetEditor } from './helpers/HFieldSetEditor.js';
 import { HGeoFieldSelector } from './helpers/HGeoFieldSelector.js';

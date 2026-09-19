@@ -1,3 +1,23 @@
 .h-input-enum {
   cursor: pointer;
 }
+
+.h-input-enum-list {
+  display: flex;
+  gap: 8px;
+}
+
+.h-input-enum-column {
+  flex-direction: column;
+}
+
+.h-input-enum-inline {
+  flex-wrap: wrap;
+}
+
+.h-input-enum-choice {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+}

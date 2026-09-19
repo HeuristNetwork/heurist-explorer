@@ -1,0 +1,14 @@
+.h-input-geo-coordinates {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--h-gap);
+}
+
+.h-input-geo-coordinates .h-input {
+  min-width: 0;
+  width: 100%;
+}
+
+.h-input-geo-map {
+  margin-top: var(--h-gap);
+}

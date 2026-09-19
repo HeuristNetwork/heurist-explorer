@@ -29,6 +29,8 @@
 .h-fb-rectype { min-width: 240px; max-width: 340px; }
 .h-fb-lang { min-width: 120px; }
 .h-fb-clear { margin-left: auto; }
+.h-fb-form-actions { display: flex; gap: var(--h-gap); }
+.h-fb-form-actions[hidden] { display: none; }
 
 /* --- criteria list --- */
 .h-fb-criteria { display: flex; flex-direction: column; gap: 4px; }
@@ -103,6 +105,9 @@
 /* --- value column --- */
 .h-fbitem-values { display: flex; flex-direction: column; gap: 4px; }
 .h-fbitem-valrow { display: flex; align-items: center; gap: 6px; }
+.h-fbitem-value-widget { min-width: 150px; }
+.h-fbitem-parameter-id { min-width: 145px; }
+.h-fbitem-parameter { white-space: nowrap; }
 .h-fbitem-conjslot,
 .h-fbitem-conj,
 .h-fbitem-conjlabel {
