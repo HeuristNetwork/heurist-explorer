@@ -15,6 +15,7 @@
 
 import { $HR, applyI18n, HMsg, InlineHelp } from '#shared/ui';
 import { ExplorerRail } from './ExplorerRail.js';
+import { HInputTestbed } from '../widgets/form-testbed/HInputTestbed.js';
 import './ExplorerControlPanel.css';
 
 /**
@@ -464,6 +465,42 @@ export class ExplorerControlPanel {
   }
 
   /**
+   * Open the shared-input test form in a modal popup.
+   *
+   * @returns {Promise<void>} Completion after opening the popup.
+   */
+  async openInputTestbed() {
+    let dbdefs;
+
+    try {
+      dbdefs = await this.application._ensureDbDefs();
+    } catch (error) {
+      HMsg.showMsgFlash?.(`${$HR('Unable to load database structure')}: ${error?.message || error}`);
+      return;
+    }
+
+    const host = document.createElement('div');
+    const testbed = new HInputTestbed();
+
+    try {
+      testbed.attach(host, { dbdefs }).render();
+    } catch (error) {
+      HMsg.showMsgFlash?.(error?.message || String(error));
+      await testbed.destroy();
+      return;
+    }
+
+    applyI18n(host);
+    const dialog = HMsg.showMsgDlg(host, {
+      title: 'Input test form',
+      buttons: [
+        { label: 'Close', class: 'h-btn', onClick: () => HMsg.closeMsgDlg() }
+      ]
+    });
+    dialog.addEventListener('close', () => void testbed.destroy(), { once: true });
+  }
+
+  /**
    * Dispatch a left-rail toolselect event to the matching panel/action.
    *
    * @private
@@ -498,6 +535,10 @@ export class ExplorerControlPanel {
 
       case 'query-sources':
         this.openQuerySources(this.leftRail?.getButtonElement('query-sources'));
+        break;
+
+      case 'input-testbed':
+        void this.openInputTestbed();
         break;
 
       case 'subsets':
@@ -923,8 +964,13 @@ export class ExplorerControlPanel {
     }
     const list = document.createElement('div');
     list.className = 'h-explorer-source-list';
+    const currentSources = this.application.getQuerySources?.() || [];
     for (const entry of entries) {
-      list.append(this._sourceRow(entry, {
+      const reference = entry?.dataSource?.reference || entry?.reference || null;
+      const sourceId = reference?.type === 'source' ? Number(reference.id) : 0;
+      const current = sourceId > 0 ? currentSources.find((item) => Number(item.id) === sourceId) : null;
+      const displayEntry = current?.title ? { ...entry, title: current.title } : entry;
+      list.append(this._sourceRow(displayEntry, {
         icon: 'fa-regular fa-object-group',
         activate: async () => {
           try {
@@ -1379,6 +1425,7 @@ function leftButtons() {
     { id: 'favorites', icon: 'fa-solid fa-star', title: 'Favorites', group: 'activity' },
     { id: 'history', icon: 'fa-solid fa-clock-rotate-left', title: 'History', group: 'activity' },
     { id: 'workspace', icon: 'fa-regular fa-object-group', title: 'Workspace', group: 'activity' },
+    { id: 'input-testbed', icon: 'fa-solid fa-pen-to-square', title: 'Input test form', group: 'activity' },
     { id: 'subsets', icon: 'fa-solid fa-arrows-left-right-to-line', title: 'Subsets', group: 'subsets' },
     // Manage Filters / Manage Sources remain hidden until their workflows
     // replace the legacy management widgets.

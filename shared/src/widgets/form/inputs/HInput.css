@@ -1,0 +1,19 @@
+.h-form-input {
+  display: flex;
+  flex-direction: column;
+  gap: var(--h-gap);
+  min-width: 0;
+}
+
+.h-form-input-label {
+  font-weight: 600;
+}
+
+.h-form-input-control {
+  min-width: 0;
+}
+
+.h-form-input-control > .h-input,
+.h-form-input-control > .h-select {
+  width: 100%;
+}

@@ -1,0 +1,4 @@
+.h-input-text-multiline {
+  min-height: 5rem;
+  resize: vertical;
+}
