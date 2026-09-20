@@ -31,7 +31,7 @@ export class HFilterFormDesigner extends HBaseWidget {
     super.attach(container, options);
     this.parameters = options.parameters || {};
     this.layout = structuredClone(options.layout || defaultLayout(this.parameters));
-    this.layout.inputs ||= {};
+
     return this;
   }
 
@@ -72,7 +72,8 @@ export class HFilterFormDesigner extends HBaseWidget {
 
   /** @returns {object} Edited, detached layout definition. */
   getLayout() {
-    for (const [id, config] of Object.entries(this.layout.inputs)) {
+    for (const config of this.layout.groups.flatMap((group) => group.children || [])) {
+      const id = config.input;
       if (config.widget?.control !== 'slider') continue;
       const { min, max } = config.widget;
       const type = this.parameters[id]?.type;
@@ -83,7 +84,17 @@ export class HFilterFormDesigner extends HBaseWidget {
       if (!valid) throw new Error(`Slider for ${id} requires minimum and maximum bounds`);
     }
 
-    return structuredClone(this.layout);
+    const layout = structuredClone(this.layout);
+    for (const child of layout.groups.flatMap((group) => group.children || [])) {
+      const parameter = this.parameters[child.input];
+      if (child.label === parameter?.label) delete child.label;
+      if (child.mode === 'select') delete child.mode;
+      if (child.orientation === 'column') delete child.orientation;
+      if (child.multiple === false) delete child.multiple;
+      if (child.widget?.control === 'direct') delete child.widget;
+    }
+    if (layout.settings?.orientation === 'vertical') delete layout.settings;
+    return layout;
   }
 
   /** Render one editable row per available parameter. */
@@ -102,7 +113,7 @@ export class HFilterFormDesigner extends HBaseWidget {
     for (const id of ordered) {
       const parameter = this.parameters[id];
       if (!parameter) continue;
-      const config = this.layout.inputs[id] ||= {};
+      const config = group.children.find((child) => child.input === id) || { input: id };
       const row = document.createElement('div');
       row.className = 'h-filter-form-designer-row';
       const enabled = document.createElement('input');
@@ -111,7 +122,7 @@ export class HFilterFormDesigner extends HBaseWidget {
       enabled.setAttribute('aria-label', `Show ${id}`);
       this.listen(enabled, 'change', () => {
         group.children = group.children.filter((child) => child.input !== id);
-        if (enabled.checked) group.children.push({ input: id });
+        if (enabled.checked) group.children.push(config);
         this._renderRows();
       });
       const name = document.createElement('span');

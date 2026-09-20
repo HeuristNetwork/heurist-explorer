@@ -141,3 +141,12 @@ test("QuerySource#toJSON includes timefields, map and rules", () => {
   assert.equal(json.map.dynamicRequests, true);
   assert.deepEqual(json.rules, [{ name: "Parents" }]);
 });
+
+test("QuerySource keeps the Filter Form layout separate from the query", () => {
+  const query = [{ t: "10" }, { "f:1": "$X1$" }];
+  const filterForm = { version: 1, groups: [{ id: "main", type: "section",
+    children: [{ input: "X1", label: "Person name" }] }] };
+  const source = new QuerySource({ source: { query }, filterForm });
+  assert.deepEqual(source.toJSON().source.query, query);
+  assert.deepEqual(source.toJSON().filterForm, filterForm);
+});

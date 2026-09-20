@@ -125,7 +125,10 @@ export class HInputDate extends HInput {
       dateFormat: 'Y-m-d',
       allowInput: true,
       position: 'auto',
-      onOpen: (_dates, _text, picker) => positionCalendar(input, picker),
+      onOpen: (_dates, _text, picker) => {
+        if (input.readOnly) picker.close();
+        else positionCalendar(input, picker);
+      },
       onChange: () => { this._syncSliders(); this.notifyChange(); }
     }));
     input.addEventListener('change', () => { this._syncSliders(); this.notifyChange(); });

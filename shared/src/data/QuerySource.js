@@ -41,6 +41,7 @@ export class QuerySource {
       timefields: structuredCloneSafe(this.timefields),
       map: structuredCloneSafe(this.map),
       rules: structuredCloneSafe(this.rules),
+      filterForm: structuredCloneSafe(this.filterForm),
     };
   }
 }
@@ -83,6 +84,8 @@ export function normalizeQuerySource(value = {}) {
     // them as-is) - passed through unvalidated; the server already validated
     // them (ExpansionRuleParser) before ever sending them here.
     rules: Array.isArray(value.rules) ? value.rules : [],
+    filterForm: value.filterForm && typeof value.filterForm === 'object'
+      ? structuredCloneSafe(value.filterForm) : null,
   };
 }
 

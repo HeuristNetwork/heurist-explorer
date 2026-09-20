@@ -61,8 +61,10 @@ test('blank selected values become runtime parameters, but NULL operators do not
   ];
 
   const definition = builder.getDefinition();
-  assert.deepEqual(Object.keys(definition.parameters), ['value_0']);
-  assert.deepEqual(definition.q, [{ 'f:13': 'NULL' }]);
+  assert.deepEqual(definition, {
+    query: [{ 'f:12': '$X1$' }, { 'f:13': 'NULL' }],
+    filterForm: null
+  });
 });
 
 test('an incomplete range keeps its defined endpoint as a form default', () => {
@@ -72,6 +74,5 @@ test('an incomplete range keeps its defined endpoint as a form default', () => {
   ];
 
   const definition = builder.getDefinition();
-  assert.deepEqual(definition.parameters.value_0.default, { from: '10', to: null });
-  assert.deepEqual(definition.q, []);
+  assert.deepEqual(definition, { query: [{ 'f:12': '10<>$X1$' }], filterForm: null });
 });

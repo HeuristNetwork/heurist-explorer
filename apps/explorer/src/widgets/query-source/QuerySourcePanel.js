@@ -16,8 +16,7 @@
 import { QuerySourceEditor } from './QuerySourceEditor.js';
 import { DataSourceActions } from './DataSourceActions.js';
 import { HFilterForm } from '#shared/widgets/filter/HFilterForm.js';
-import { composeFilterRequest } from '../../utils/queryModel.js';
-import queryVocabulary from '../../utils/queryVocabulary.json' with { type: 'json' };
+import { hasQueryParameters, resolveQueryParameters } from '#shared/data/queryParameters.js';
 import './QuerySourcePanel.css';
 
 /** Explorer-owned host combining QuerySourceEditor and DataSourceActions. */
@@ -46,8 +45,8 @@ export class QuerySourcePanel {
     openForm.addEventListener('click', () => void this.openFilterForm());
     const closeForm = document.createElement('button');
     closeForm.type = 'button';
-    closeForm.className = 'h-btn h-btn-small h-i18n';
-    closeForm.textContent = 'Close Filter Form';
+    closeForm.className = 'h-btn h-btn-primary h-i18n';
+    closeForm.textContent = 'Close';
     closeForm.addEventListener('click', () => this.closeFilterForm());
     formHeader.append(openForm, closeForm);
     const formHost = document.createElement('div');
@@ -61,7 +60,8 @@ export class QuerySourcePanel {
       dbdefs: this.options.dbdefs, lang: this.options.lang,
       openFilterBuilder: this.options.openFilterBuilder,
       editRules: this.options.editRules, describeRules: this.options.describeRules,
-      onExecute: (source) => this.options.onExecute?.(source),
+      onExecute: (source) => hasQueryParameters(source?.request?.q)
+        ? this.openFilterForm() : this.options.onExecute?.(source),
       onApply: (source) => this.options.onApply?.(source),
       onDirtyChange: (dirty, draft) => {
         this._updateFormAction(draft);
@@ -84,7 +84,16 @@ export class QuerySourcePanel {
    * @param {object|null} source DataSource to load into the editor and actions.
    * @returns {QuerySourcePanel} this, for chaining.
    */
-  setDataSource(source) { this.closeFilterForm(); this.dataSource = source; this.editor?.setDataSource(source); this.actions?.setDataSource(source, { getDraft: () => this.editor?.getDraftDataSource() }); this.actions?.setDirty(false); this._updateFormAction(); return this; }
+  setDataSource(source) {
+    this.dataSource = source;
+    this.editor?.setDataSource(source);
+    this.actions?.setDataSource(source, { getDraft: () => this.editor?.getDraftDataSource() });
+    this.actions?.setDirty(false);
+    this._updateFormAction();
+    if (hasQueryParameters(source?.request?.q)) void this.openFilterForm();
+    else void this.closeFilterForm();
+    return this;
+  }
 
   /** Open the Explorer map's extent selector for a geographic filter value. */
   selectExtent(current = null) {
@@ -94,15 +103,16 @@ export class QuerySourcePanel {
   /** Show the runtime form for the editor's parameterized query. */
   async openFilterForm() {
     const source = this.getDraftDataSource();
-    const definition = source?.request?.q;
-    if (!definition?.parameters || !definition?.builderModel) return;
+    const query = source?.request?.q;
+    if (!hasQueryParameters(query)) return;
     await this.closeFilterForm();
     this.form = new HFilterForm();
     this.form.attach(this.formHost, {
-      definition,
+      definition: { query, filterForm: source.presentation?.filterForm || null },
       dbdefs: this.options.dbdefs,
       selectExtent: this.options.selectExtent,
-      composeQuery: (item, values) => composeFilterRequest(item.builderModel, values, queryVocabulary),
+      composeQuery: (item, values) => resolveQueryParameters(item.query, values),
+      onClose: () => void this.closeFilterForm(),
       onSubmit: ({ query }) => {
         const runtimeSource = structuredClone(source);
         runtimeSource.request.q = query.q;
@@ -128,7 +138,7 @@ export class QuerySourcePanel {
     // setDataSource notifies listeners before the textarea is synchronized.
     // Reading getDraftDataSource here would commit its old value over request.q.
     const query = source?.request?.q;
-    if (this.openFormButton) this.openFormButton.hidden = Boolean(this.form) || !query?.parameters;
+    if (this.openFormButton) this.openFormButton.hidden = Boolean(this.form) || !hasQueryParameters(query);
     if (this.closeFormButton) this.closeFormButton.hidden = !this.form;
   }
 

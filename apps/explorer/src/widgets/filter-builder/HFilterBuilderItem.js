@@ -110,7 +110,10 @@ export class HFilterBuilderItem extends HBaseWidget {
     this._valuesHost.className = 'h-fbitem-values';
 
     this._parameterButton = mkbtn('', 'h-btn h-btn-small h-fbitem-parameter', () => {
-      this.row.parameterId = this.row.parameterId ? null : `parameter${++nextParameterId}`;
+      const wasParameter = Boolean(this.row.parameterId);
+      this.row.parameterId = wasParameter ? null : `X${++nextParameterId}`;
+      this.row.parameterEndId = null;
+      if (!wasParameter) this.row.values = [''];
       this._renderValues();
       this._emit();
     });
@@ -162,6 +165,7 @@ export class HFilterBuilderItem extends HBaseWidget {
     this.row.values = [''];
     this.row.geoExtent = null;
     this.row.parameterId = null;
+    this.row.parameterEndId = null;
     if (this.isRendered) {
       this._syncField();
       this._renderOperators();
@@ -296,7 +300,7 @@ export class HFilterBuilderItem extends HBaseWidget {
       id.value = this.row.parameterId;
       id.setAttribute('aria-label', $HR('Parameter ID'));
       id.addEventListener('change', () => {
-        this.row.parameterId = id.value.trim() || `parameter${++nextParameterId}`;
+        this.row.parameterId = id.value.trim() || `X${++nextParameterId}`;
         id.value = this.row.parameterId;
         this._emit();
       });

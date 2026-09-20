@@ -133,7 +133,7 @@ export class QuerySourceManager {
         },
         timeline: { fields: querySource.timefields.map((field) => field.field) },
         graph: null,
-        filterForm: null
+        filterForm: clone(querySource.filterForm)
       },
       meta: { origin }
     });

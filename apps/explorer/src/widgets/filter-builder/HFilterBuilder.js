@@ -1,6 +1,6 @@
 /**
  * @file HFilterBuilder.js
- * @brief Visual Heurist query builder (M3 scope: flat predicates + one linked level + sort).
+ * @brief Visual Heurist query builder with linked criteria and runtime placeholders.
  *
  * Framework-free re-implementation of legacy `hclient/widgets/search/searchBuilder.js`,
  * matching its workflow and layout (record type · language · field rows with
@@ -9,7 +9,7 @@
  * `src/utils/queryModel.js`; this class owns only the DOM. Emits
  * `onChange(jsonQuery, textQuery)` - `textQuery` stays null until M4 (describe()).
  *
- * The `$NAME$` wildcard affordance (plan section 11.5) is stubbed here for M9.
+ * Blank criteria become named placeholders in the Heurist query array.
  *
  * @project     Heurist academic knowledge management system
  * @package     heurist-explorer
@@ -24,7 +24,7 @@
 
 import { HBaseWidget } from '#shared/widgets/HBaseWidget.js';
 import { $HR, HMsg } from '#shared/ui';
-import { composeQuery, parseQuery, emptyFieldRow, composeFilterRequest } from '../../utils/queryModel.js';
+import { composeQuery, parseQuery, emptyFieldRow } from '../../utils/queryModel.js';
 import { describeGeoValue } from '#shared/widgets/form/inputs/HInputGeo.js';
 import { queryDescribe } from '../../utils/queryDescribe.js';
 import { HFilterBuilderItem } from './HFilterBuilderItem.js';
@@ -32,7 +32,7 @@ import { HFilterBuilderSort } from './HFilterBuilderSort.js';
 import { HFieldTree } from './HFieldTree.js';
 import { HFilterFormDesigner } from './HFilterFormDesigner.js';
 import { HFilterForm } from '#shared/widgets/filter/HFilterForm.js';
-import { composeWithParameters } from '../../utils/queryModel.js';
+import { describeQueryParameters, hasQueryParameters, resolveQueryParameters } from '#shared/data/queryParameters.js';
 import { parseTextQuery } from '../../utils/parseTextQuery.js';
 import { str, kindFor, operatorByKey } from '../../utils/vocabHelpers.js';
 import './HFilterBuilder.css';
@@ -190,53 +190,62 @@ export class HFilterBuilder extends HBaseWidget {
 
   /** @returns {Array<object>} the composed Heurist q-array */
   getQuery() {
-    return composeQuery(this._readModel(), this.vocab);
+    return this.getDefinition().query;
   }
 
   /**
    * Return the query with parameter bindings and optional form layout.
    *
-   * @returns {Array<object>|object} Plain query or parameterized definition.
+   * @returns {{query:Array<object>,filterForm:object|null}} Query and separate layout.
    */
   getDefinition() {
     const model = this._readModel();
-    const parameters = {};
-    const collect = (row, path) => {
-      if (isImplicitParameter(row, this.vocab)) row.parameterId = `value_${path.join('_')}`;
-      if (!row.parameterId) return;
-      if (parameters[row.parameterId]) throw new Error(`Duplicate parameter ID: ${row.parameterId}`);
-      parameters[row.parameterId] = {
-        type: row.op === 'op.count' ? 'text' : row.kind,
-        fieldId: row.dty,
-        label: this.dbdefs?.fieldGlobal?.(row.dty)?.name || String(row.dty),
-        operator: row.op,
-        range: operatorByKey(this.vocab, row.kind, row.op)?.input === 'range',
-        default: operatorByKey(this.vocab, row.kind, row.op)?.input === 'range'
-          ? { from: row.values?.[0] || null, to: row.values?.[1] || null }
-          : null
-      };
+    const used = new Set();
+    const visitIds = (rows) => {
+      for (const row of rows || []) {
+        if (row.type === 'link') visitIds(row.rows);
+        else for (const id of [row.parameterId, row.parameterEndId]) {
+          if (id) used.add(id);
+        }
+      }
     };
-
-    const visit = (rows, path = []) => rows.forEach((row, index) => {
-      const next = [...path, index];
-      if (row.type === 'link') visit(row.rows || [], next);
-      else collect(row, next);
-    });
+    visitIds(model.rows);
+    let index = 1;
+    const nextId = () => {
+      while (used.has(`X${index}`)) index++;
+      const id = `X${index++}`;
+      used.add(id);
+      return id;
+    };
+    const visit = (rows) => {
+      for (const row of rows || []) {
+        if (row.type === 'link') { visit(row.rows); continue; }
+        const range = operatorByKey(this.vocab, row.kind, row.op)?.input === 'range';
+        if (operatorByKey(this.vocab, row.kind, row.op)?.whole) continue;
+        if (row.parameterId || isImplicitParameter(row, this.vocab)) {
+          const count = range ? 2 : 1;
+          for (let i = 0; i < count; i++) {
+            if (!String(row.values?.[i] ?? '').trim()) {
+              const id = i === 0 ? row.parameterId || nextId() : row.parameterEndId || nextId();
+              row.values[i] = `$${id}$`;
+            }
+          }
+          row.parameterId = null;
+          row.parameterEndId = null;
+        }
+      }
+    };
     visit(model.rows);
-
-    const q = composeQuery(model, this.vocab);
-    const form = this.form ? structuredClone(this.form) : null;
-    if (form) {
-      for (const group of form.groups || []) {
+    const query = composeQuery(model, this.vocab);
+    const parameters = describeQueryParameters(query, this.dbdefs);
+    const filterForm = this.form && Object.keys(parameters).length
+      ? structuredClone(this.form) : null;
+    if (filterForm) {
+      for (const group of filterForm.groups || []) {
         group.children = (group.children || []).filter((child) => parameters[child.input]);
       }
-
-      form.inputs = Object.fromEntries(Object.entries(form.inputs || {})
-        .filter(([id]) => parameters[id]));
     }
-    return Object.keys(parameters).length
-      ? { q, parameters, form, builderModel: model }
-      : q;
+    return { query, filterForm };
   }
 
   /** @param {Array|string|object} query */
@@ -251,10 +260,19 @@ export class HFilterBuilder extends HBaseWidget {
         definition = parseTextQuery(text, { dbdefs: this.dbdefs });
       }
     }
-    this.model = definition?.builderModel
-      ? structuredClone(definition.builderModel)
-      : parseQuery(definition, this.vocab);
-    this.form = definition?.form || null;
+    const queryArray = definition?.query || definition?.q || definition;
+    this.model = parseQuery(queryArray, this.vocab);
+    this.form = definition?.filterForm || null;
+    const restore = (rows) => {
+      for (const row of rows || []) {
+        if (row.type === 'link') { restore(row.rows); continue; }
+        const first = /^\$([A-Za-z][A-Za-z0-9_]*)\$$/.exec(row.values?.[0] || '');
+        const second = /^\$([A-Za-z][A-Za-z0-9_]*)\$$/.exec(row.values?.[1] || '');
+        if (first) { row.parameterId = first[1]; row.values[0] = ''; }
+        if (second) { row.parameterEndId = second[1]; row.values[1] = ''; }
+      }
+    };
+    restore(this.model.rows);
     if (!this.model.lang) this.model.lang = this.lang;
     if (this.isRendered) this._syncFromModel();
     this._recompose();
@@ -270,14 +288,14 @@ export class HFilterBuilder extends HBaseWidget {
     let definition;
     try { definition = this.getDefinition(); }
     catch (error) { HMsg.showMsgFlash?.(error.message); return; }
-    if (Array.isArray(definition)) {
+    if (!hasQueryParameters(definition.query)) {
       HMsg.showMsgFlash?.($HR('Create a parameter first'));
       return;
     }
 
     const host = document.createElement('div');
     const designer = new HFilterFormDesigner();
-    designer.attach(host, { parameters: definition.parameters, layout: this.form }).render();
+    designer.attach(host, { parameters: describeQueryParameters(definition.query, this.dbdefs), layout: this.form }).render();
     const id = 'h-filter-form-designer-dialog';
     const close = async (apply) => {
       if (apply) {
@@ -307,7 +325,7 @@ export class HFilterBuilder extends HBaseWidget {
     let definition;
     try { definition = this.getDefinition(); }
     catch (error) { HMsg.showMsgFlash?.(error.message); return; }
-    if (Array.isArray(definition)) {
+    if (!hasQueryParameters(definition.query)) {
       HMsg.showMsgFlash?.($HR('Create a parameter first'));
       return;
     }
@@ -322,10 +340,10 @@ export class HFilterBuilder extends HBaseWidget {
       dbdefs: this.dbdefs,
       selectExtent: this.selectExtent,
       preview: true,
-      composeQuery: (source, values) => composeWithParameters(source.builderModel, values, this.vocab),
+      composeQuery: (source, values) => resolveQueryParameters(source.query, values),
     }).render();
     const update = () => {
-      const request = composeFilterRequest(definition.builderModel, form.getValues(), this.vocab);
+      const request = resolveQueryParameters(definition.query, form.getValues());
       updateQueryPreview(preview, request.q, this.dbdefs, this.vocab, this.lang, request.extent);
     };
     host.addEventListener('h-input-change', update);
@@ -619,7 +637,7 @@ export class HFilterBuilder extends HBaseWidget {
    */
   _recompose() {
     this.model = this._readModel();
-    const q = composeQuery(this.model, this.vocab);
+    const q = this.getDefinition().query;
     const hasParameters = hasParameterRows(this.model.rows, this.vocab);
     if (this._formActions) this._formActions.hidden = !hasParameters;
     if (this._criteriaInfo) {

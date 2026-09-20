@@ -24,6 +24,7 @@ import { HGeoFieldSelector } from './helpers/HGeoFieldSelector.js';
 import { HTimeFieldSelector } from './helpers/HTimeFieldSelector.js';
 import { HRuleBuilder } from './helpers/HRuleBuilder.js';
 import { inferRecordTypeId, fieldCodeLabel } from './helpers/fieldPathUtils.js';
+import { hasQueryParameters } from '#shared/data/queryParameters.js';
 import './QuerySourceEditor.css';
 
 /** Explorer Query Source authoring widget. Edits a draft DataSource only. */
@@ -176,7 +177,8 @@ export class QuerySourceEditor extends HBaseWidget {
    */
   setQuery(query) {
     if (!this.draft) return this;
-    this.draft.request.q = clone(query);
+    this.draft.request.q = clone(query.query || query);
+    this.draft.presentation.filterForm = clone(query.filterForm || null);
     this._markDirty();
     if (this.isRendered) this._syncFromDraft();
     return this;
@@ -245,7 +247,7 @@ export class QuerySourceEditor extends HBaseWidget {
   }
 
   _commitQueryInput() {
-    if (!this.draft || !this._query || this._query.disabled) return;
+    if (!this.draft || !this._query || this._query.readOnly) return;
     this.draft.request ||= {};
     this.draft.request.q = parseQueryText(this._query.value);
   }
@@ -270,9 +272,11 @@ export class QuerySourceEditor extends HBaseWidget {
 
   async _openBuilder() {
     if (!this.draft || typeof this.openFilterBuilder !== 'function') return;
-    const query = await this.openFilterBuilder(clone(this.draft.request.q));
+    const query = await this.openFilterBuilder(clone(this.draft.request.q),
+      clone(this.draft.presentation?.filterForm || null));
     if (query == null) return;
-    this.draft.request.q = clone(query);
+    this.draft.request.q = clone(query.query || query);
+    this.draft.presentation.filterForm = clone(query.filterForm || null);
     if (!(await this._ensureRecordTypeConsistency())) return;
     this._markDirty();
     this._syncFromDraft();
@@ -362,7 +366,7 @@ export class QuerySourceEditor extends HBaseWidget {
     this._query.value = queryText;
 
     const parameterized = isParameterizedQuery(q);
-    this._query.disabled = parameterized;
+    this._query.disabled = false;
     this._query.readOnly = parameterized;
     this._query.title = parameterized
       ? $HR('Parameterized queries are edited in Filter Builder.')
@@ -560,15 +564,8 @@ function parseQueryText(value) {
   }
   return value;
 }
-function isParameterizedQuery(query) {
-  if (!query || typeof query !== 'object') return false;
-  const parameters = query.parameters;
-  if (Array.isArray(parameters)) return parameters.length > 0;
-  if (parameters && typeof parameters === 'object') return Object.keys(parameters).length > 0;
-  const paramForm = query.paramForm || query.form;
-  if (Array.isArray(paramForm?.params)) return paramForm.params.length > 0;
-  return false;
-}
+function isParameterizedQuery(query) { return hasQueryParameters(query); }
+
 function confirmRecordTypeChange() {
   return new Promise((resolve) => {
     const finish = (value) => { HMsg.closeMsgDlg?.(); resolve(value); };

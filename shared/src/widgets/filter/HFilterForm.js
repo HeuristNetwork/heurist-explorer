@@ -15,6 +15,7 @@
 
 import { HBaseWidget } from '../HBaseWidget.js';
 import { createHInput } from '../form/inputs/createHInput.js';
+import { describeQueryParameters, resolveQueryParameters } from '../../data/queryParameters.js';
 import './HFilterForm.css';
 
 /** Render a layout over Builder-defined query parameters. */
@@ -35,6 +36,8 @@ export class HFilterForm extends HBaseWidget {
   attach(container, options = {}) {
     super.attach(container, options);
     this.definition = options.definition || {};
+    this.query = this.definition.query || this.definition.q || [];
+    this.parameters = describeQueryParameters(this.query, options.dbdefs);
     this.values = { ...(options.values || {}) };
     return this;
   }
@@ -46,8 +49,8 @@ export class HFilterForm extends HBaseWidget {
    */
   render() {
     if (!this.container) throw new Error('HFilterForm must be attached before render');
-    const parameters = this.definition.parameters || {};
-    const layout = this.definition.form || defaultLayout(parameters);
+    const parameters = this.parameters;
+    const layout = this.definition.filterForm || defaultLayout(parameters);
     this.inputs.clear();
     this.container.replaceChildren();
     this.container.className = `h-widget h-filter-form h-filter-form-${layout.settings?.orientation === 'horizontal' ? 'horizontal' : 'vertical'}`;
@@ -72,16 +75,16 @@ export class HFilterForm extends HBaseWidget {
         const parameter = parameters[id];
         if (!parameter) throw new Error(`Unknown filter parameter: ${id}`);
         if (this.inputs.has(id)) throw new Error(`Filter parameter occurs twice: ${id}`);
-        const config = layout.inputs?.[id] || {};
+        const config = child;
         const host = document.createElement('div');
         host.className = 'h-filter-form-field';
         const widget = createHInput(inputType(parameter), host, {
           label: config.label || parameter.label || id,
-          value: this.values[id] ?? parameter.default ?? null,
-          fixedValue: parameter.range === true ? {
-            from: parameter.default?.from ?? null,
-            to: parameter.default?.to ?? null
-          } : null,
+          value: parameter.range ? {
+            from: parameter.fixedValue?.from ?? this.values[id] ?? null,
+            to: parameter.fixedValue?.to ?? this.values[parameter.endInput || id] ?? null
+          } : this.values[id] ?? null,
+          fixedValue: parameter.fixedValue || null,
           required: Boolean(parameter.required),
           range: config.widget?.type === 'range' || parameter.range === true,
           rangeControl: config.widget?.control || 'direct',
@@ -112,6 +115,12 @@ export class HFilterForm extends HBaseWidget {
     reset.type = 'button';
     this.listen(reset, 'click', () => this.reset());
     actions.append(reset);
+    if (this.options.onClose) {
+      const close = button('Close', 'h-btn h-btn-primary');
+      close.type = 'button';
+      this.listen(close, 'click', () => this.options.onClose());
+      actions.append(close);
+    }
     form.append(actions);
     this.listen(form, 'submit', (event) => {
       event.preventDefault();
@@ -123,7 +132,8 @@ export class HFilterForm extends HBaseWidget {
 
       this._showErrors([]);
       const values = this.getValues();
-      const query = this.options.composeQuery?.(this.definition, values) ?? null;
+      const query = this.options.composeQuery?.(this.definition, values)
+        ?? resolveQueryParameters(this.query, values);
       this.options.onSubmit?.({ values, query, definition: this.definition });
     });
     this.listen(form, 'h-input-error', (event) => {
@@ -140,7 +150,16 @@ export class HFilterForm extends HBaseWidget {
 
   /** @returns {object} Current values keyed by parameter ID. */
   getValues() {
-    return Object.fromEntries([...this.inputs].map(([id, input]) => [id, input.getValue()]));
+    const values = {};
+    for (const [id, input] of this.inputs) {
+      const value = input.getValue();
+      const endInput = this.parameters[id]?.endInput;
+      if (endInput) { values[id] = value?.from ?? ''; values[endInput] = value?.to ?? ''; }
+      else if (this.parameters[id]?.range) {
+        values[id] = value?.[this.parameters[id].endpoint] ?? '';
+      } else values[id] = value;
+    }
+    return values;
   }
 
   /**
@@ -150,7 +169,13 @@ export class HFilterForm extends HBaseWidget {
    * @returns {HFilterForm} This form.
    */
   setValues(values = {}) {
-    for (const [id, input] of this.inputs) input.setValue(values[id] ?? null);
+    for (const [id, input] of this.inputs) {
+      const endInput = this.parameters[id]?.endInput;
+      const parameter = this.parameters[id];
+      input.setValue(endInput ? { from: values[id] ?? null, to: values[endInput] ?? null }
+        : parameter?.range ? { ...parameter.fixedValue, [parameter.endpoint]: values[id] ?? null }
+          : values[id] ?? null);
+    }
     return this;
   }
 
@@ -165,8 +190,7 @@ export class HFilterForm extends HBaseWidget {
 
   /** Reset inputs to parameter defaults. */
   reset() {
-    this.setValues(Object.fromEntries(Object.entries(this.definition.parameters || {})
-      .map(([id, parameter]) => [id, parameter.default ?? null])));
+    this.setValues({});
     this._showErrors([]);
     this.container?.dispatchEvent(new CustomEvent('h-filter-form-reset', { bubbles: true }));
   }
@@ -203,9 +227,9 @@ export class HFilterForm extends HBaseWidget {
 export function defaultLayout(parameters = {}) {
   return {
     version: 1,
-    groups: [{ id: 'main', type: 'section', children: Object.keys(parameters).map((input) => ({ input })) }],
-    inputs: {},
-    settings: { orientation: 'vertical' }
+    groups: [{ id: 'main', type: 'section', children: Object.keys(parameters)
+      .filter((input) => !Object.values(parameters).some((parameter) => parameter.endInput === input))
+      .map((input) => ({ input })) }]
   };
 }
 

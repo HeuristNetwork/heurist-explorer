@@ -159,7 +159,7 @@ function compileFieldRow(row, vocab) {
 
   const op = resolveOperator(row, vocab);
 
-  if (row.parameterId) return null;
+
 
   if (op.whole) {
     return wrap(key, op.token);
