@@ -1,14 +1,22 @@
-.h-input-geo-coordinates {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+.h-input-geo {
+  display: flex;
+  align-items: center;
   gap: var(--h-gap);
 }
 
-.h-input-geo-coordinates .h-input {
+.h-input-geo-summary {
+  flex: 1 1 auto;
   min-width: 0;
-  width: 100%;
 }
 
 .h-input-geo-map {
-  margin-top: var(--h-gap);
+  flex: 0 0 auto;
+  margin: 0;
+  min-width: var(--h-control-height);
+  padding: 0 6px;
+  font-size: var(--h-font-size);
+}
+
+.h-form-input-control:has(.h-input-geo) .h-form-input-clear {
+  inset-inline-end: calc(var(--h-control-height) + var(--h-gap) + 4px);
 }

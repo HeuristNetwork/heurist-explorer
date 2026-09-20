@@ -551,7 +551,12 @@ function parseQueryText(value) {
   const text = String(value ?? '').trim();
   if (!text) return '';
   if ((text.startsWith('{') && text.endsWith('}')) || (text.startsWith('[') && text.endsWith(']'))) {
-    try { return JSON.parse(text); } catch { /* keep plain query text until Builder/validation handles it */ }
+    try {
+      const parsed = JSON.parse(text);
+      return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+        && !('q' in parsed) && !('builderModel' in parsed) && !('parameters' in parsed)
+        ? [parsed] : parsed;
+    } catch { /* keep plain query text until Builder/validation handles it */ }
   }
   return value;
 }

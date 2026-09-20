@@ -23,6 +23,7 @@
 
 import { HBaseWidget } from '#shared/widgets/HBaseWidget.js';
 import { createHInput } from '#shared/widgets/form/inputs/createHInput.js';
+import { extentToWkt } from '#shared/widgets/form/inputs/HInputGeo.js';
 import { $HR } from '#shared/ui';
 import { emptyFieldRow } from '../../utils/queryModel.js';
 import { HEADER_KEYWORDS } from '../../utils/queryPredicates.js';
@@ -42,7 +43,8 @@ export class HFilterBuilderItem extends HBaseWidget {
    * @param {{dbdefs:object, vocabulary:object, lang:string,
    *          onChange?:Function, onRequestFieldPick?:Function, scopeRtyId?:(number|string)}} deps
    */
-  constructor({ dbdefs, vocabulary, lang = 'eng', onChange, onRequestFieldPick, scopeRtyId = '' } = {}) {
+  constructor({ dbdefs, vocabulary, lang = 'eng', onChange, onRequestFieldPick,
+    selectExtent, scopeRtyId = '' } = {}) {
     super();
     this.dbdefs = dbdefs;
     this.vocab = vocabulary;
@@ -50,6 +52,7 @@ export class HFilterBuilderItem extends HBaseWidget {
     this._onChange = onChange || (() => {});
     this._onRequestFieldPick = onRequestFieldPick || null;
     this.scopeRtyId = scopeRtyId;
+    this.selectExtent = selectExtent;
     this.row = emptyFieldRow();
     this._valueWidgets = [];
   }
@@ -74,7 +77,7 @@ export class HFilterBuilderItem extends HBaseWidget {
    */
   render() {
     if (!this.container) throw new Error('HFilterBuilderItem must be attached before render');
-    this.container.className = 'h-fbitem';
+    this.container.classList.add('h-fbitem');
     this.container.replaceChildren();
 
     // field selector button
@@ -95,6 +98,9 @@ export class HFilterBuilderItem extends HBaseWidget {
     this._opSel.className = 'h-select h-fbitem-op';
     this._opSel.addEventListener('change', () => {
       this.row.op = this._opSel.value;
+      if (operatorByKey(this.vocab, this.row.kind, this.row.op)?.input !== 'range') {
+        this.row.values = [this.row.values[0] ?? ''];
+      }
       this._renderValues();
       this._emit();
     });
@@ -129,6 +135,11 @@ export class HFilterBuilderItem extends HBaseWidget {
   /** @param {import('../../utils/queryModel.js').FieldRow} row */
   setRowModel(row) {
     this.row = { ...emptyFieldRow(), ...row };
+    if (typeof this.row.dty === 'number' || /^\d+$/.test(String(this.row.dty))) {
+      const fieldType = this.dbdefs?.fieldType?.(this.scopeRtyId, this.row.dty)
+        || this.dbdefs?.fieldGlobal?.(this.row.dty)?.type;
+      if (fieldType) this.row.kind = kindFor(this.vocab, fieldType);
+    }
     if (!Array.isArray(this.row.values) || !this.row.values.length) this.row.values = [''];
     if (this.isRendered) {
       this._syncField();
@@ -141,13 +152,15 @@ export class HFilterBuilderItem extends HBaseWidget {
   /** Called by the field-tree pick. @param {{dty:(number|string), fieldType?:string}} pick */
   setField({ dty, fieldType }) {
     this.row.dty = dty;
+    this.row.selected = true;
     const isHeader = typeof dty === 'string' && !/^\d+$/.test(dty) && dty !== 'anyfield';
-    this.row.kind = isHeader
+    this.row.kind = dty === 'exists' ? 'exists' : isHeader
       ? kindFor(this.vocab, null, HEADER_KEYWORDS[dty] ? dty : null)
       : kindFor(this.vocab, fieldType || this.dbdefs?.fieldType?.(null, dty) || 'freetext');
     if (this.row.kind !== 'enum') this.row.enumField = null;
-    this.row.op = operatorsFor(this.vocab, this.row.kind)[0]?.i18nKey || null;
+    this.row.op = this._operators()[0]?.i18nKey || null;
     this.row.values = [''];
+    this.row.geoExtent = null;
     this.row.parameterId = null;
     if (this.isRendered) {
       this._syncField();
@@ -178,7 +191,7 @@ export class HFilterBuilderItem extends HBaseWidget {
   _syncField() {
     const d = this.row.dty;
     let label;
-    if (d === 'anyfield' || d === '' || d == null) label = $HR('Select field');
+    if (d === 'anyfield' || d === '' || d == null) label = this.row.selected ? $HR('Any field') : $HR('Select field');
     else if (typeof d === 'string' && !/^\d+$/.test(d)) label = $HR(HEADER_LABELS[d] || d);
     else {
       label = this.dbdefs?.fieldName?.(this.scopeRtyId, d) || this.dbdefs?.fieldGlobal?.(d)?.name || `field ${d}`;
@@ -194,12 +207,23 @@ export class HFilterBuilderItem extends HBaseWidget {
    * @returns {void}
    */
   _renderOperators() {
-    const list = operatorsFor(this.vocab, this.row.kind);
+    const list = this._operators();
     this._opSel.replaceChildren();
-    for (const op of list) {
+    for (let index = 0; index < list.length; index++) {
+      const op = list[index];
+      if (index > 0 && (op.i18nKey === 'op.is_set'
+        || (op.i18nKey === 'op.count' && !list.some((entry) => entry.i18nKey === 'op.is_set')))) {
+        const separator = document.createElement('option');
+        separator.disabled = true;
+        separator.textContent = '────────';
+        this._opSel.append(separator);
+      }
       const o = document.createElement('option');
       o.value = op.i18nKey;
-      o.textContent = str(this.vocab, this.lang, op.i18nKey);
+      o.textContent = op.i18nKey === 'op.count' ? $HR('count of values')
+        : op.i18nKey === 'op.exists' ? $HR('exists')
+          : op.i18nKey === 'op.missing' ? $HR('missing')
+            : str(this.vocab, this.lang, op.i18nKey);
       this._opSel.append(o);
     }
     if (!this.row.op || !list.some((o) => o.i18nKey === this.row.op)) {
@@ -208,8 +232,26 @@ export class HFilterBuilderItem extends HBaseWidget {
     this._opSel.value = this.row.op || (list[0]?.i18nKey ?? '');
   }
 
+  /** Operators available for the selected field. */
+  _operators() {
+    const list = operatorsFor(this.vocab, this.row.kind);
+    if (['owner', 'access', 'addedby'].includes(this.row.dty)) {
+      return [
+        { token: '', input: 'text', i18nKey: 'op.is' },
+        { token: '-', input: 'text', i18nKey: 'op.is_not' }
+      ];
+    }
+    const noNull = ['ids', 'title', 'added', 'modified', 'addedby', 'owner', 'access', 'anyfield'].includes(this.row.dty);
+    return list.filter((op) => (!noNull || !['op.is_set', 'op.is_empty'].includes(op.i18nKey))
+      && (/^\d+$/.test(String(this.row.dty)) || op.i18nKey !== 'op.count'));
+  }
+
   /** Pick an operator i18nKey from a raw token carried over by parseQuery. */
   _reconcileOp(list) {
+    if (['owner', 'access', 'addedby'].includes(this.row.dty) && this.row.negate) {
+      this.row.negate = false;
+      return 'op.is_not';
+    }
     if (this.row.opToken != null) {
       const exact = list.filter((o) => (o.token || '') === this.row.opToken && !o.pattern);
       if (exact.length) return exact[0].i18nKey;
@@ -274,6 +316,13 @@ export class HFilterBuilderItem extends HBaseWidget {
         this._valueControl(this.row.kind === 'date' ? 'date' : 'number', 1, $HR('to'))
       );
       this._valuesHost.append(line);
+      return;
+    }
+
+    if (input === 'count') {
+      const control = this._valueControl('text', 0, $HR('Use >N, <N or <>N where N is count'));
+      control.title = $HR('Use >N, <N or <>N where N is count');
+      this._valuesHost.append(control);
       return;
     }
 
@@ -351,12 +400,28 @@ export class HFilterBuilderItem extends HBaseWidget {
     const set = (v) => { this.row.values[index] = v; this._emit(); };
     const current = this.row.values[index] ?? '';
 
+    if (this.row.dty === 'access') {
+      return choiceControl([
+        ['', '— select —'], ['viewable', 'viewable'], ['hidden', 'hidden'],
+        ['public', 'public'], ['pending', 'pending']
+      ], current, set);
+    }
+
+    if (this.row.dty === 'owner' || this.row.dty === 'addedby') {
+      const user = globalThis.window?.hWin?.HAPI4?.currentUser;
+      if (user?.ugr_ID) {
+        const options = [['', '— select —'], [String(user.ugr_ID), user.ugr_FullName || 'Current user']];
+        if (current && !options.some(([value]) => value === current)) options.push([current, current]);
+        return choiceControl(options, current, set);
+      }
+    }
+
     if (['text', 'number', 'date', 'term'].includes(input)) {
       const host = document.createElement('div');
       host.className = 'h-fbitem-value-widget';
       const type = { text: 'text', number: 'numeric', date: 'date', term: 'enum' }[input];
       const root = input === 'term' ? this.dbdefs?.vocabRoot?.(this.row.dty) || 0 : 0;
-      const terms = root ? this.dbdefs.termTree(root, { flat: true }).filter((term) => term.id !== root) : [];
+      const terms = root ? flattenTerms(this.dbdefs.termTree(root)).slice(1) : [];
       const widget = createHInput(type, host, {
         suppressLabel: true,
         value: current,
@@ -421,13 +486,20 @@ export class HFilterBuilderItem extends HBaseWidget {
     }
 
     if (input === 'wkt') {
-      const ta = document.createElement('textarea');
-      ta.className = 'h-input h-fbitem-wkt';
-      ta.rows = 2;
-      ta.placeholder = $HR('WKT or bounding box');
-      ta.value = current;
-      ta.addEventListener('input', () => set(ta.value));
-      return ta;
+      const host = document.createElement('div');
+      host.className = 'h-fbitem-value-widget';
+      const widget = createHInput('geo', host, {
+        suppressLabel: true,
+        value: this.row.geoExtent || current,
+        selectExtent: this.selectExtent
+      });
+      host.addEventListener('h-input-change', () => {
+        const value = widget.getValue();
+        this.row.geoExtent = value && typeof value === 'object' ? value : null;
+        set(typeof value === 'string' ? value : extentToWkt(value));
+      });
+      this._valueWidgets.push(widget);
+      return host;
     }
 
     const inp = document.createElement('input');
@@ -464,6 +536,18 @@ export class HFilterBuilderItem extends HBaseWidget {
   }
 }
 
+/** Flatten a vocabulary tree while retaining each term's depth. */
+function flattenTerms(root) {
+  if (!root) return [];
+  const result = [];
+  const visit = (term, depth) => {
+    result.push({ ...term, depth });
+    for (const child of term.children || []) visit(child, depth + 1);
+  };
+  visit(root, 0);
+  return result;
+}
+
 /** Build a labeled button with an optional click handler. */
 function mkbtn(text, className, onClick) {
   const b = document.createElement('button');
@@ -486,4 +570,19 @@ function conjSlot() {
   const s = document.createElement('span');
   s.className = 'h-fbitem-conjslot';
   return s;
+}
+
+/** Build a small native dropdown for fixed metadata choices. */
+function choiceControl(choices, current, onChange) {
+  const select = document.createElement('select');
+  select.className = 'h-select';
+  for (const [value, label] of choices) {
+    const option = document.createElement('option');
+    option.value = value;
+    option.textContent = $HR(label);
+    select.append(option);
+  }
+  select.value = current;
+  select.addEventListener('change', () => onChange(select.value));
+  return select;
 }

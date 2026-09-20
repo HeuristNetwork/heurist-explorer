@@ -15,6 +15,7 @@
 
 import { HBaseWidget } from '#shared/widgets';
 import { defaultLayout } from '#shared/widgets/filter/HFilterForm.js';
+import flatpickr from 'flatpickr';
 import './HFilterFormDesigner.css';
 
 /** Edits presentation of a fixed set of filter parameters. */
@@ -43,6 +44,7 @@ export class HFilterFormDesigner extends HBaseWidget {
     if (!this.container) throw new Error('HFilterFormDesigner must be attached before render');
     this.container.className = 'h-widget h-filter-form-designer';
     this.container.replaceChildren();
+    this._boundPickers = [];
 
     const orientation = document.createElement('select');
     orientation.className = 'h-select';
@@ -86,6 +88,8 @@ export class HFilterFormDesigner extends HBaseWidget {
 
   /** Render one editable row per available parameter. */
   _renderRows() {
+    for (const picker of this._boundPickers || []) picker.destroy();
+    this._boundPickers = [];
     this.rows.replaceChildren();
     const group = this.layout.groups?.[0];
     if (!group) throw new Error('Filter form layout requires a root group');
@@ -142,7 +146,7 @@ export class HFilterFormDesigner extends HBaseWidget {
         for (const bound of ['min', 'max']) {
           const input = document.createElement('input');
           input.className = 'h-input h-filter-form-designer-bound';
-          input.type = parameter.type === 'number' ? 'number' : 'date';
+          input.type = parameter.type === 'number' ? 'number' : 'text';
           input.placeholder = bound;
           input.setAttribute('aria-label', `${bound} for ${id}`);
           input.value = config.widget?.[bound] ?? '';
@@ -151,6 +155,14 @@ export class HFilterFormDesigner extends HBaseWidget {
             config.widget[bound] = input.value || undefined;
           });
           row.append(input);
+          if (parameter.type === 'date') {
+            this._boundPickers.push(flatpickr(input, {
+              dateFormat: 'Y-m-d',
+              allowInput: true,
+              appendTo: row,
+              onChange: () => input.dispatchEvent(new Event('change', { bubbles: true }))
+            }));
+          }
         }
       }
 
@@ -159,6 +171,13 @@ export class HFilterFormDesigner extends HBaseWidget {
       row.append(up, down);
       this.rows.append(row);
     }
+  }
+
+  /** Dispose calendar widgets and DOM listeners. */
+  async destroy() {
+    for (const picker of this._boundPickers || []) picker.destroy();
+    this._boundPickers = [];
+    await super.destroy();
   }
 
   /** @returns {HTMLElement} A labeled control. */

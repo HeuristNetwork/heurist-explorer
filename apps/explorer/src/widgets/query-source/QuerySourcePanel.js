@@ -76,7 +76,7 @@ export class QuerySourcePanel {
       prepareSourceDraft: () => this.editor?.prepareDraftForSave?.() || this.editor?.getDraftDataSource?.()
     });
     this.actions.attach(actionsHost).render();
-    if (this.dataSource) this.setDataSource(this.dataSource);
+    this.setDataSource(this.dataSource);
     this._updateFormAction();
     return this;
   }
@@ -85,6 +85,11 @@ export class QuerySourcePanel {
    * @returns {QuerySourcePanel} this, for chaining.
    */
   setDataSource(source) { this.closeFilterForm(); this.dataSource = source; this.editor?.setDataSource(source); this.actions?.setDataSource(source, { getDraft: () => this.editor?.getDraftDataSource() }); this.actions?.setDirty(false); this._updateFormAction(); return this; }
+
+  /** Open the Explorer map's extent selector for a geographic filter value. */
+  selectExtent(current = null) {
+    return this.options.selectExtent?.(current) ?? Promise.resolve(null);
+  }
 
   /** Show the runtime form for the editor's parameterized query. */
   async openFilterForm() {

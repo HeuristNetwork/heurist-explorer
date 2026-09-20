@@ -34,9 +34,12 @@ export class HInputDate extends HInput {
    */
   renderControl(host) {
     const first = this._makeDate(host, this.options.range ? 'From' : 'Date');
+    this.control = first;
 
     if (this.options.range) {
       this.endControl = this._makeDate(host, 'To');
+      first.readOnly = this.options.fixedValue?.from != null;
+      this.endControl.readOnly = this.options.fixedValue?.to != null;
       host.classList.add('h-input-date-range');
       if (this.options.rangeControl === 'slider' && dateDay(this.options.min) !== null
         && dateDay(this.options.max) !== null) {
@@ -121,7 +124,8 @@ export class HInputDate extends HInput {
     this.pickers.push(flatpickr(input, {
       dateFormat: 'Y-m-d',
       allowInput: true,
-      static: true,
+      position: 'auto',
+      onOpen: (_dates, _text, picker) => positionCalendar(input, picker),
       onChange: () => { this._syncSliders(); this.notifyChange(); }
     }));
     input.addEventListener('change', () => { this._syncSliders(); this.notifyChange(); });
@@ -152,6 +156,7 @@ export class HInputDate extends HInput {
       slider.max = String(dateDay(this.options.max));
       slider.step = '1';
       slider.setAttribute('aria-label', endpoint.placeholder);
+      slider.disabled = endpoint.readOnly;
       slider.addEventListener('input', () => {
         this.pickers[index].setDate(dayDate(Number(slider.value)), true, 'Y-m-d');
       });
@@ -170,6 +175,26 @@ export class HInputDate extends HInput {
         ?? dateDay(index ? this.options.max : this.options.min));
     }
   }
+}
+
+/** Keep the calendar in the active dialog and choose the side with more space. */
+function positionCalendar(input, picker) {
+  const calendar = picker.calendarContainer;
+  const parent = input.closest('dialog') || document.body;
+  if (calendar.parentElement !== parent) parent.append(calendar);
+  const rect = input.getBoundingClientRect();
+  const dialogRect = input.closest('dialog')?.getBoundingClientRect();
+  const topLimit = Math.max(8, dialogRect?.top ?? 8);
+  const bottomLimit = Math.min(window.innerHeight - 8, dialogRect?.bottom ?? window.innerHeight - 8);
+  const below = bottomLimit - rect.bottom - 4;
+  const above = rect.top - topLimit - 4;
+  const openBelow = below >= calendar.offsetHeight || below >= above;
+  const height = Math.max(80, Math.min(calendar.offsetHeight || 320, openBelow ? below : above));
+  calendar.style.maxHeight = `${height}px`;
+  calendar.style.overflowY = 'auto';
+  calendar.style.position = 'fixed';
+  calendar.style.top = `${Math.max(topLimit, openBelow ? rect.bottom + 2 : rect.top - height - 2)}px`;
+  calendar.style.left = `${Math.max(8, Math.min(rect.left, window.innerWidth - calendar.offsetWidth - 8))}px`;
 }
 
 /** @returns {number|null} UTC day number for an ISO simple date. */

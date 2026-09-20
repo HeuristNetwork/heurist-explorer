@@ -24,7 +24,8 @@
 
 import { HBaseWidget } from '#shared/widgets/HBaseWidget.js';
 import { $HR, HMsg } from '#shared/ui';
-import { composeQuery, parseQuery, emptyFieldRow } from '../../utils/queryModel.js';
+import { composeQuery, parseQuery, emptyFieldRow, composeFilterRequest } from '../../utils/queryModel.js';
+import { describeGeoValue } from '#shared/widgets/form/inputs/HInputGeo.js';
 import { queryDescribe } from '../../utils/queryDescribe.js';
 import { HFilterBuilderItem } from './HFilterBuilderItem.js';
 import { HFilterBuilderSort } from './HFilterBuilderSort.js';
@@ -32,7 +33,8 @@ import { HFieldTree } from './HFieldTree.js';
 import { HFilterFormDesigner } from './HFilterFormDesigner.js';
 import { HFilterForm } from '#shared/widgets/filter/HFilterForm.js';
 import { composeWithParameters } from '../../utils/queryModel.js';
-import { str, operatorByKey } from '../../utils/vocabHelpers.js';
+import { parseTextQuery } from '../../utils/parseTextQuery.js';
+import { str, kindFor, operatorByKey } from '../../utils/vocabHelpers.js';
 import './HFilterBuilder.css';
 
 /** Visual Heurist query builder: record type, field/link rows, sort, and a live JSON preview. */
@@ -40,13 +42,14 @@ export class HFilterBuilder extends HBaseWidget {
   /**
    * @param {{dbdefs:object, vocabulary:object, lang?:string, onChange?:Function}} deps
    */
-  constructor({ dbdefs, vocabulary, lang = 'eng', onChange } = {}) {
+  constructor({ dbdefs, vocabulary, lang = 'eng', onChange, selectExtent } = {}) {
     super();
     if (!dbdefs) throw new TypeError('HFilterBuilder requires dbdefs (HDbDefs)');
     if (!vocabulary) throw new TypeError('HFilterBuilder requires vocabulary (queryVocabulary.json)');
     this.dbdefs = dbdefs;
     this.vocab = vocabulary;
     this.lang = lang;
+    this.selectExtent = selectExtent;
     this._onChange = onChange || (() => {});
     this.tree = new HFieldTree({ dbdefs });
 
@@ -112,6 +115,10 @@ export class HFilterBuilder extends HBaseWidget {
     header.append(clearBtn);
     this.container.append(header);
 
+    const guidance = el('p', 'h-fb-guidance h-i18n');
+    guidance.textContent = 'Select fields, comparison operators and values. Leave a value blank to let the user enter it in the Filter Form when the Query Source runs.';
+    this.container.append(guidance);
+
     // ---- criteria ----
     const crit = el('div', 'h-fb-criteria');
 
@@ -158,24 +165,21 @@ export class HFilterBuilder extends HBaseWidget {
       btn($HR('Design Filter Form…'), 'h-btn', () => void this.openFormDesigner()),
       btn($HR('Preview Filter Form'), 'h-btn', () => void this.previewFilterForm())
     );
+    this._criteriaInfo = el('span', 'h-fb-criteria-info h-i18n');
+    formActions.append(this._criteriaInfo);
     this._formActions = formActions;
     this.container.append(formActions);
 
     // ---- preview ----
-    const prevSec = el('div', 'h-fb-preview');
-    this._sentence = el('div', 'h-fb-sentence');
-    this._sentence.hidden = true;
-    const prevLabel = el('div', 'h-fb-preview-label');
-    prevLabel.textContent = $HR('Query');
-    this._preview = document.createElement('pre');
-    this._preview.className = 'h-fb-preview-json';
-    prevSec.append(this._sentence, prevLabel, this._preview);
-    this.container.append(prevSec);
+    const preview = makeQueryPreview();
+    this._sentence = preview.sentence;
+    this._preview = preview.json;
+    this.container.append(preview.element);
 
     this._unsupportedNote = el('div', 'h-fb-unsupported');
     this._unsupportedNote.hidden = true;
     this._unsupportedNote.textContent = $HR('Part of this query is too complex to edit visually and will be kept unchanged.');
-    prevSec.append(this._unsupportedNote);
+    preview.element.append(this._unsupportedNote);
 
     this.state = 'rendered';
     this._syncFromModel();
@@ -197,25 +201,28 @@ export class HFilterBuilder extends HBaseWidget {
   getDefinition() {
     const model = this._readModel();
     const parameters = {};
-    const collect = (row) => {
+    const collect = (row, path) => {
+      if (isImplicitParameter(row, this.vocab)) row.parameterId = `value_${path.join('_')}`;
       if (!row.parameterId) return;
       if (parameters[row.parameterId]) throw new Error(`Duplicate parameter ID: ${row.parameterId}`);
       parameters[row.parameterId] = {
-        type: row.kind,
+        type: row.op === 'op.count' ? 'text' : row.kind,
         fieldId: row.dty,
         label: this.dbdefs?.fieldGlobal?.(row.dty)?.name || String(row.dty),
         operator: row.op,
-        range: operatorByKey(this.vocab, row.kind, row.op)?.input === 'range'
+        range: operatorByKey(this.vocab, row.kind, row.op)?.input === 'range',
+        default: operatorByKey(this.vocab, row.kind, row.op)?.input === 'range'
+          ? { from: row.values?.[0] || null, to: row.values?.[1] || null }
+          : null
       };
     };
 
-    for (const row of model.rows) {
-      if (row.type === 'link') {
-        for (const child of row.rows) collect(child);
-      } else {
-        collect(row);
-      }
-    }
+    const visit = (rows, path = []) => rows.forEach((row, index) => {
+      const next = [...path, index];
+      if (row.type === 'link') visit(row.rows || [], next);
+      else collect(row, next);
+    });
+    visit(model.rows);
 
     const q = composeQuery(model, this.vocab);
     const form = this.form ? structuredClone(this.form) : null;
@@ -235,8 +242,14 @@ export class HFilterBuilder extends HBaseWidget {
   /** @param {Array|string|object} query */
   setQuery(query) {
     let definition = query;
-    if (typeof query === 'string' && query.trim().startsWith('{')) {
-      try { definition = JSON.parse(query); } catch { /* plain query remains parseable */ }
+    if (typeof query === 'string') {
+      const text = query.trim();
+      if (text.startsWith('{') || text.startsWith('[')) {
+        try { definition = JSON.parse(text); }
+        catch { definition = parseTextQuery(text, { dbdefs: this.dbdefs }); }
+      } else {
+        definition = parseTextQuery(text, { dbdefs: this.dbdefs });
+      }
     }
     this.model = definition?.builderModel
       ? structuredClone(definition.builderModel)
@@ -277,6 +290,7 @@ export class HFilterBuilder extends HBaseWidget {
     HMsg.showMsgDlg(host, {
       dialogId: id,
       title: 'Filter form designer',
+      preventClose: true,
       buttons: [
         { label: 'Apply', class: 'h-btn h-btn-primary', onClick: () => void close(true) },
         { label: 'Cancel', class: 'h-btn', onClick: () => void close(false) }
@@ -299,17 +313,30 @@ export class HFilterBuilder extends HBaseWidget {
     }
 
     const host = document.createElement('div');
+    const formHost = document.createElement('div');
+    const preview = makeQueryPreview();
+    host.append(formHost, preview.element);
     const form = new HFilterForm();
-    form.attach(host, {
+    form.attach(formHost, {
       definition,
       dbdefs: this.dbdefs,
+      selectExtent: this.selectExtent,
+      preview: true,
       composeQuery: (source, values) => composeWithParameters(source.builderModel, values, this.vocab),
-      onSubmit: ({ query }) => HMsg.showMsgFlash?.(JSON.stringify(query))
     }).render();
+    const update = () => {
+      const request = composeFilterRequest(definition.builderModel, form.getValues(), this.vocab);
+      updateQueryPreview(preview, request.q, this.dbdefs, this.vocab, this.lang, request.extent);
+    };
+    host.addEventListener('h-input-change', update);
+    host.addEventListener('change', update);
+    host.addEventListener('h-filter-form-reset', update);
+    update();
     const id = 'h-filter-form-preview-dialog';
     const dialog = HMsg.showMsgDlg(host, {
       dialogId: id,
       title: 'Filter form preview',
+      preventClose: true,
       buttons: [{ label: 'Close', class: 'h-btn', onClick: () => HMsg.closeMsgDlg(id) }]
     });
     dialog.addEventListener('close', () => void form.destroy(), { once: true });
@@ -365,6 +392,7 @@ export class HFilterBuilder extends HBaseWidget {
     }
     this._entries = [];
     this._rowsHost.replaceChildren();
+    if (!this.model.rows.length) this.model.rows = [emptyFieldRow()];
     for (const row of this.model.rows) {
       if (row.type === 'link') this._addLinkEntry(row);
       else this._addFieldEntry(row);
@@ -389,6 +417,7 @@ export class HFilterBuilder extends HBaseWidget {
     const rtyId = this.model.rtyId;
     for (const entry of this._entries) {
       if (entry.kind === 'field') entry.item.setScope(rtyId);
+      else entry.panel.setScope(rtyId);
     }
     for (const s of this._sorts) s.setScope(rtyId);
     this._refreshRowConjunctions();
@@ -445,6 +474,7 @@ export class HFilterBuilder extends HBaseWidget {
       vocabulary: this.vocab,
       lang: this.lang,
       scopeRtyId: this.model.rtyId,
+      selectExtent: this.selectExtent,
       onRequestFieldPick: (it, anchor) => this._pickField(it, anchor),
       onChange: (evt) => {
         if (evt?.removed) this._removeEntry(entry);
@@ -471,6 +501,8 @@ export class HFilterBuilder extends HBaseWidget {
     const { host, conj, itemHost } = this._makeEntryHost('h-fb-linkrow');
     const panel = new LinkPanel({
       builder: this,
+      depth: 1,
+      scopeRtyId: this.model.rtyId,
       onChange: (evt) => {
         if (evt?.removed) this._removeEntry(entry);
         this._recompose();
@@ -529,24 +561,29 @@ export class HFilterBuilder extends HBaseWidget {
 
   /** Field-tree picker for a top-level field row. */
   _pickField(item, anchor) {
-    this.tree.open(anchor, { rtyId: this.model.rtyId }, (path) => {
+    const excludedFields = this._entries.filter((entry) => entry.kind === 'field' && entry.item !== item)
+      .map((entry) => entry.item.row)
+      .filter((row) => row.selected || row.dty !== 'anyfield')
+      .map((row) => row.dty);
+    this.tree.open(anchor, {
+      rtyId: this.model.rtyId,
+      maxDepth: 1,
+      builderMode: true,
+      disableLinks: this._entries.some((entry) => entry.kind === 'link'),
+      excludedFields
+    }, (path) => {
       if (!path?.length) return;
       if (path.length === 1) {
+        if (this._entries.some((entry) => entry.kind === 'field' && entry.item !== item
+          && String(entry.item.row.dty) === String(path[0].dty)
+          && (entry.item.row.selected || entry.item.row.dty !== 'anyfield'))) return;
         item.setField(path[0]);
         this._recompose();
         return;
       }
       // one pointer hop -> convert this field row into a link entry
-      const via = path[0].via;
       const entry = this._entries.find((e) => e.item === item);
-      const rowModel = {
-        type: 'link',
-        link: via.link,
-        dty: via.dty,
-        targetRty: via.targetRty || '',
-        conjunction: 'all',
-        rows: [{ ...emptyFieldRow(), dty: path[1].dty }]
-      };
+      const rowModel = rowForPath(path, this.vocab);
       const link = this._addLinkEntry();
       // move new link entry to the old row's position, drop the old row
       if (entry) {
@@ -554,19 +591,7 @@ export class HFilterBuilder extends HBaseWidget {
         this._removeEntry(entry);
       }
       link.panel.setRowModel(rowModel);
-      // resolve kind for the seeded sub-row now that we know its field type
-      link.panel.items[0]?.setField(path[1]);
       this._recompose();
-    });
-  }
-
-  /** Field-tree picker for a row inside a link sub-panel (flat only). */
-  pickSubField(item, anchor, targetRtyId) {
-    this.tree.open(anchor, { rtyId: targetRtyId, flatOnly: true }, (path) => {
-      if (path?.length === 1) {
-        item.setField(path[0]);
-        this._recompose();
-      }
     });
   }
 
@@ -595,17 +620,21 @@ export class HFilterBuilder extends HBaseWidget {
   _recompose() {
     this.model = this._readModel();
     const q = composeQuery(this.model, this.vocab);
-    const hasParameters = this.model.rows.some((row) => row.type === 'link'
-      ? row.rows.some((child) => Boolean(child.parameterId))
-      : Boolean(row.parameterId));
+    const hasParameters = hasParameterRows(this.model.rows, this.vocab);
     if (this._formActions) this._formActions.hidden = !hasParameters;
+    if (this._criteriaInfo) {
+      const count = countCriteria(this.model.rows);
+      const blank = countBlankCriteria(this.model.rows, this.vocab);
+      const criteria = count === 1 ? $HR('criterion') : $HR('criteria');
+      const blanks = blank === 1 ? $HR('has a blank value') : $HR('have blank values');
+      this._criteriaInfo.textContent = `${count} ${criteria} ${$HR('defined')}. `
+        + `${blank} ${blanks}; ${$HR('users can supply them in the Filter Form')}.`;
+    }
     const sentence = q.length
       ? queryDescribe(q, { dbdefs: this.dbdefs, vocabulary: this.vocab, lang: this.lang })
       : '';
-    if (this._preview) this._preview.textContent = q.length ? JSON.stringify(q, null, 1) : $HR('(empty)');
-    if (this._sentence) {
-      this._sentence.textContent = sentence;
-      this._sentence.hidden = !sentence;
+    if (this._sentence && this._preview) {
+      updateQueryPreview({ sentence: this._sentence, json: this._preview }, q, this.dbdefs, this.vocab, this.lang);
     }
     if (this._unsupportedNote) {
       this._unsupportedNote.hidden = !(this.model.unsupported && this.model.unsupported.length);
@@ -629,16 +658,18 @@ export class HFilterBuilder extends HBaseWidget {
 }
 
 /* ------------------------------------------------------------------ LinkPanel --- */
-/** One "linked to / linked from" sub-query block (single level). */
+/** One linked subquery block; it may contain field rows or deeper linked blocks. */
 class LinkPanel {
   /**
-   * @param {{builder: HFilterBuilder, onChange?: Function}} options Panel configuration.
+   * @param {{builder: HFilterBuilder, onChange?: Function, depth:number, scopeRtyId:number|string}} options Panel configuration.
    */
-  constructor({ builder, onChange }) {
+  constructor({ builder, onChange, depth = 1, scopeRtyId = '' }) {
     this.builder = builder;
     this.dbdefs = builder.dbdefs;
     this.vocab = builder.vocab;
     this._onChange = onChange || (() => {});
+    this.depth = depth;
+    this.scopeRtyId = scopeRtyId;
     this.row = { type: 'link', link: 'lt', dty: '', targetRty: '', conjunction: 'all', rows: [] };
     this.items = [];
     this.container = null;
@@ -666,6 +697,7 @@ class LinkPanel {
     const remove = btn('×', 'heurist-icon-button h-fbitem-remove', () => { this.destroy(); this._onChange({ removed: true }); });
 
     this._linkSel = document.createElement('select');
+    this._linkSel.className = 'h-select';
     for (const [v, label] of [['lt', $HR('linked to')], ['lf', $HR('linked from')]]) {
       const o = document.createElement('option'); o.value = v; o.textContent = label; this._linkSel.append(o);
     }
@@ -679,6 +711,7 @@ class LinkPanel {
     });
 
     this._targetSel = document.createElement('select');
+    this._targetSel.className = 'h-select';
     this._targetSel.addEventListener('change', () => {
       this.row.targetRty = coerceRty(this._targetSel.value);
       this._populatePointers();
@@ -687,17 +720,16 @@ class LinkPanel {
     });
 
     this._pointerSel = document.createElement('select');
+    this._pointerSel.className = 'h-select';
     this._pointerSel.addEventListener('change', () => {
       this.row.dty = this._pointerSel.value === '' ? '' : Number(this._pointerSel.value);
       this._emit();
     });
 
-    head.append(
-      remove,
-      labelled($HR('records'), this._linkSel),
-      labelled($HR('of type'), this._targetSel),
-      labelled($HR('via'), this._pointerSel)
-    );
+    this._linkText = el('span', 'h-fb-linktext');
+    this._targetText = el('span', 'h-fb-linktext');
+    this._pointerText = el('span', 'h-fb-linktext');
+    head.append(remove, this._linkText, this._targetText, this._pointerText);
     this.container.append(head);
 
     this._subHost = el('div', 'h-fb-sublist');
@@ -710,16 +742,23 @@ class LinkPanel {
       this._subConj.append(o);
     }
     this._subConj.value = this.row.conjunction;
-    this._subConj.addEventListener('change', () => { this.row.conjunction = this._subConj.value; this._emit(); });
+    this._subConj.addEventListener('change', () => {
+      this.row.conjunction = this._subConj.value;
+      this._refreshSubConjunctions();
+      this._emit();
+    });
 
     const addCond = btn('+ ' + $HR('add condition'), 'h-btn h-btn-small', () => { this._addItem(); this._emit(); });
     const foot = el('div', 'h-fb-subfoot');
+    this._subFoot = foot;
     foot.append(addCond, this._subConj);
     this.container.append(foot);
 
     this._populateTargets();
     this._populatePointers();
+    this._syncHead();
     if (!this.items.length) this._addItem();
+    this._refreshSubConjunctions();
     return this;
   }
 
@@ -730,7 +769,7 @@ class LinkPanel {
    * @returns {void}
    */
   _populateTargets() {
-    const scope = Number(this.builder.model.rtyId) > 0 ? Number(this.builder.model.rtyId) : null;
+    const scope = Number(this.scopeRtyId) > 0 ? Number(this.scopeRtyId) : null;
     this._targetSel.replaceChildren();
     const anyOpt = document.createElement('option');
     anyOpt.value = ''; anyOpt.textContent = $HR('any');
@@ -752,7 +791,7 @@ class LinkPanel {
    * @returns {void}
    */
   _populatePointers() {
-    const scope = Number(this.builder.model.rtyId) > 0 ? Number(this.builder.model.rtyId) : null;
+    const scope = Number(this.scopeRtyId) > 0 ? Number(this.scopeRtyId) : null;
     const target = Number(this.row.targetRty) > 0 ? Number(this.row.targetRty) : null;
     this._pointerSel.replaceChildren();
     const any = document.createElement('option');
@@ -770,6 +809,16 @@ class LinkPanel {
     this._pointerSel.value = this.row.dty === '' ? '' : String(this.row.dty);
   }
 
+  /** Refresh the read-only linked-query header from its selected path. */
+  _syncHead() {
+    if (!this._linkText) return;
+    this._linkText.textContent = this.row.link === 'lf' ? $HR('linked from') : $HR('linked to');
+    this._targetText.textContent = this.row.targetRty
+      ? this.dbdefs.rectypeName(this.row.targetRty) : $HR('any record type');
+    this._pointerText.textContent = this.row.dty
+      ? `${$HR('via')} ${this.dbdefs.fieldGlobal(this.row.dty)?.name || this.row.dty}` : '';
+  }
+
   /**
    * Add a new sub-criteria field row inside this link panel.
    *
@@ -779,26 +828,116 @@ class LinkPanel {
    */
   _addItem(rowModel = null) {
     const host = el('div', 'h-fb-subrow');
+    const conj = el('span', 'h-fb-rowconj');
+    const itemHost = el('div', 'h-fb-itemhost');
+    host.append(conj, itemHost);
     const item = new HFilterBuilderItem({
       dbdefs: this.dbdefs,
       vocabulary: this.vocab,
       lang: this.builder.lang,
       scopeRtyId: this.row.targetRty,
-      onRequestFieldPick: (it, anchor) => this.builder.pickSubField(it, anchor, this.row.targetRty),
+      selectExtent: this.builder.selectExtent,
+      onRequestFieldPick: (it, anchor) => this._pickField(it, anchor),
       onChange: (evt) => {
         if (evt?.removed) {
           const i = this.items.indexOf(item);
           if (i >= 0) this.items.splice(i, 1);
           host.remove();
+          this._refreshSubConjunctions();
         }
         this._emit();
       }
     });
-    item.attach(host).render();
+    item.attach(itemHost).render();
     if (rowModel) item.setRowModel(rowModel);
     this._subHost.append(host);
     this.items.push(item);
+    this._refreshSubConjunctions();
     return item;
+  }
+
+  /** Replace a field item with a linked block selected from the field tree. */
+  _pickField(item, anchor) {
+    const excludedFields = this.items.filter((entry) => entry instanceof HFilterBuilderItem && entry !== item)
+      .map((entry) => entry.row)
+      .filter((row) => row.selected || row.dty !== 'anyfield')
+      .map((row) => row.dty);
+    this.builder.tree.open(anchor, {
+      rtyId: this.row.targetRty,
+      linkedContext: true,
+      builderMode: true,
+      disableLinks: this.items.some((entry) => entry instanceof LinkPanel),
+      excludedFields,
+      maxDepth: this.depth < 3 ? 1 : 0
+    }, async (path) => {
+      if (!path?.length) return;
+      if (path.length === 1) {
+        if (this.items.some((entry) => entry instanceof HFilterBuilderItem && entry !== item
+          && String(entry.row.dty) === String(path[0].dty)
+          && (entry.row.selected || entry.row.dty !== 'anyfield'))) return;
+        item.setField(path[0]);
+        this._emit();
+        return;
+      }
+
+      const index = this.items.indexOf(item);
+      if (index < 0) return;
+      const host = item.container;
+      await item.destroy();
+      host.classList.add('h-fb-nested');
+      const panel = this._makeNestedPanel(host, rowForPath(path, this.vocab));
+      this.items[index] = panel;
+      this._emit();
+    });
+  }
+
+  /** Create a child linked block within this linked record type. */
+  _makeNestedPanel(host, rowModel) {
+    const panel = new LinkPanel({
+      builder: this.builder,
+      depth: this.depth + 1,
+      scopeRtyId: this.row.targetRty,
+      onChange: (event) => {
+        if (event?.removed) {
+          const index = this.items.indexOf(panel);
+          if (index >= 0) this.items.splice(index, 1);
+          (host.parentElement?.classList.contains('h-fb-subrow') ? host.parentElement : host).remove();
+          this._refreshSubConjunctions();
+        }
+        this._emit();
+      }
+    });
+    panel.attach(host).render().setRowModel(rowModel);
+    return panel;
+  }
+
+  /** Update this link's source record type. */
+  setScope(rtyId) {
+    this.scopeRtyId = rtyId;
+    if (this._targetSel) {
+      this._populateTargets();
+      this._populatePointers();
+      this._syncHead();
+    }
+  }
+
+  /** Align linked-row conjunctions with the top-level criterion grid. */
+  _refreshSubConjunctions() {
+    if (!this._subHost || !this._subConj) return;
+    const rows = [...this._subHost.children];
+    this._subConj.hidden = rows.length < 2;
+    if (rows.length < 2) this._subFoot?.append(this._subConj);
+    rows.forEach((row, index) => {
+      const conj = row.querySelector(':scope > .h-fb-rowconj');
+      if (!conj) return;
+      conj.replaceChildren();
+      if (index === 1) conj.append(this._subConj);
+      else if (index > 1) {
+        const label = el('span', 'h-fb-conjlabel');
+        label.textContent = this.row.conjunction === 'any' ? 'OR' : 'AND';
+        conj.append(label);
+      }
+    });
   }
 
   /**
@@ -837,12 +976,25 @@ class LinkPanel {
       this._populateTargets();
       this._targetSel.value = this.row.targetRty === '' ? '' : String(this.row.targetRty);
       this._populatePointers();
+      this._syncHead();
       this._subConj.value = this.row.conjunction;
       for (const it of this.items) it.destroy?.();
       this.items = [];
       this._subHost.replaceChildren();
-      for (const sub of row.rows || []) this._addItem(sub);
+      for (const sub of row.rows || []) {
+        if (sub.type === 'link') {
+          const host = el('div', 'h-fb-subrow h-fb-nested');
+          const conj = el('span', 'h-fb-rowconj');
+          const panelHost = el('div', 'h-fb-itemhost');
+          host.append(conj, panelHost);
+          this._subHost.append(host);
+          this.items.push(this._makeNestedPanel(panelHost, sub));
+        } else {
+          this._addItem(sub);
+        }
+      }
       if (!this.items.length) this._addItem();
+      this._refreshSubConjunctions();
     }
     return this;
   }
@@ -898,4 +1050,84 @@ function labelled(text, control) {
 /** Coerce a rectype select value to a number, or `''` when empty/absent. */
 function coerceRty(value) {
   return value === '' || value == null ? '' : Number(value);
+}
+
+/** Turn a field-tree path into nested linked rows ending in one field row. */
+function rowForPath(path, vocabulary) {
+  const field = path[path.length - 1];
+  let row = emptyFieldRow({
+    dty: field.dty,
+    selected: true,
+    kind: field.dty === 'exists' ? 'exists'
+      : kindFor(vocabulary, field.fieldType || 'freetext'),
+    op: field.dty === 'exists' ? 'op.exists' : null
+  });
+  for (let index = path.length - 2; index >= 0; index--) {
+    const via = path[index].via;
+    row = {
+      type: 'link',
+      link: via.link,
+      dty: via.dty,
+      targetRty: via.targetRty || '',
+      conjunction: 'all',
+      rows: [row]
+    };
+  }
+  return row;
+}
+
+/** Create the common translated and JSON query preview used by both dialogs. */
+function makeQueryPreview() {
+  const element = el('div', 'h-fb-preview');
+  const sentence = el('div', 'h-fb-sentence');
+  sentence.hidden = true;
+  const label = el('div', 'h-fb-preview-label');
+  label.textContent = $HR('Query');
+  const json = document.createElement('pre');
+  json.className = 'h-fb-preview-json';
+  element.append(sentence, label, json);
+  return { element, sentence, json };
+}
+
+/** Refresh a query preview without opening a second dialog. */
+function updateQueryPreview(preview, query, dbdefs, vocabulary, lang, extent = null) {
+  const sentence = query.length ? queryDescribe(query, { dbdefs, vocabulary, lang }) : '';
+  const extentText = extent ? `${$HR('Map extent')}: ${describeGeoValue(extent)}` : '';
+  preview.sentence.textContent = [sentence, extentText].filter(Boolean).join('. ');
+  preview.sentence.hidden = !sentence && !extentText;
+  preview.json.textContent = query.length || extent
+    ? JSON.stringify(extent ? { q: query, extent } : query, null, 1) : $HR('(empty)');
+}
+
+/** Count chosen field criteria at every linked depth. */
+function countCriteria(rows) {
+  return (rows || []).reduce((count, row) => count + (row.type === 'link'
+    ? countCriteria(row.rows)
+    : row.selected || row.dty !== 'anyfield' ? 1 : 0), 0);
+}
+
+/** Count criteria whose values will be supplied by the runtime form. */
+function countBlankCriteria(rows, vocabulary) {
+  return (rows || []).reduce((count, row) => count + (row.type === 'link'
+    ? countBlankCriteria(row.rows, vocabulary)
+    : row.parameterId || isImplicitParameter(row, vocabulary) ? 1 : 0), 0);
+}
+
+/** True when a selected field has no literal and needs a runtime form value. */
+function isImplicitParameter(row, vocabulary) {
+  if (!row || row.type === 'link' || row.parameterId) return false;
+  if (row.dty === '' || row.dty == null || (row.dty === 'anyfield' && !row.selected)) return false;
+  if (!['text', 'number', 'date', 'enum', 'geo'].includes(row.kind)) return false;
+  if (operatorByKey(vocabulary, row.kind, row.op)?.whole) return false;
+  const values = row.values || [];
+  const required = operatorByKey(vocabulary, row.kind, row.op)?.input === 'range' ? 2 : 1;
+  return Array.from({ length: required }, (_, index) => values[index])
+    .some((value) => String(value ?? '').trim() === '');
+}
+
+/** Detect explicit and implicit parameter rows at every linked depth. */
+function hasParameterRows(rows, vocabulary) {
+  return (rows || []).some((row) => row.type === 'link'
+    ? hasParameterRows(row.rows, vocabulary)
+    : Boolean(row.parameterId) || isImplicitParameter(row, vocabulary));
 }

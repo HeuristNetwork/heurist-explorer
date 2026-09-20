@@ -78,6 +78,10 @@ export class HFilterForm extends HBaseWidget {
         const widget = createHInput(inputType(parameter), host, {
           label: config.label || parameter.label || id,
           value: this.values[id] ?? parameter.default ?? null,
+          fixedValue: parameter.range === true ? {
+            from: parameter.default?.from ?? null,
+            to: parameter.default?.to ?? null
+          } : null,
           required: Boolean(parameter.required),
           range: config.widget?.type === 'range' || parameter.range === true,
           rangeControl: config.widget?.control || 'direct',
@@ -99,12 +103,15 @@ export class HFilterForm extends HBaseWidget {
 
     const actions = document.createElement('div');
     actions.className = 'h-filter-form-actions';
-    const filter = button('Filter', 'h-btn h-btn-primary');
-    filter.type = 'submit';
+    if (!this.options.preview) {
+      const filter = button('Filter', 'h-btn h-btn-primary');
+      filter.type = 'submit';
+      actions.append(filter);
+    }
     const reset = button('Reset', 'h-btn');
     reset.type = 'button';
     this.listen(reset, 'click', () => this.reset());
-    actions.append(filter, reset);
+    actions.append(reset);
     form.append(actions);
     this.listen(form, 'submit', (event) => {
       event.preventDefault();
@@ -161,6 +168,7 @@ export class HFilterForm extends HBaseWidget {
     this.setValues(Object.fromEntries(Object.entries(this.definition.parameters || {})
       .map(([id, parameter]) => [id, parameter.default ?? null])));
     this._showErrors([]);
+    this.container?.dispatchEvent(new CustomEvent('h-filter-form-reset', { bubbles: true }));
   }
 
   /** @returns {Promise<void>} Completion after child cleanup. */
@@ -175,7 +183,14 @@ export class HFilterForm extends HBaseWidget {
     if (Array.isArray(parameter.terms)) return parameter.terms;
     const dbdefs = this.options.dbdefs;
     const root = dbdefs?.vocabRoot?.(parameter.fieldId);
-    return root ? dbdefs.termTree(root, { flat: true }).filter((term) => term.id !== root) : [];
+    if (!root) return [];
+    const terms = [];
+    const visit = (term, depth) => {
+      if (depth) terms.push({ ...term, depth });
+      for (const child of term.children || []) visit(child, depth + 1);
+    };
+    visit(dbdefs.termTree(root), 0);
+    return terms;
   }
 
   /** Show or clear validation errors. */

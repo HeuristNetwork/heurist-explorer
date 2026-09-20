@@ -38,7 +38,7 @@ export const KEYWORD_ALIASES = Object.freeze({
   linkedfrom: 'lf', linkfrom: 'lf', link_from: 'lf', lf: 'lf', related_to: 'rt',
   relatedto: 'rt', rt: 'rt', related_from: 'rf', relatedfrom: 'rf', rf: 'rf',
   related: 'related', links: 'links', relf: 'relf', r: 'r', any: 'any', all: 'all',
-  not: 'not', sortby: 'sortby', sort: 'sortby', s: 'sortby'
+  not: 'not', exists: 'exists', sortby: 'sortby', sort: 'sortby', s: 'sortby'
 });
 
 /**

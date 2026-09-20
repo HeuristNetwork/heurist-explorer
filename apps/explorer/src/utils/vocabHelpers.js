@@ -46,9 +46,14 @@ export function kindFor(vocab, fieldType, headerKeyword = null) {
  * @returns {Array<{token:string,input:string,i18nKey:string,pattern?:string,whole?:boolean}>}
  */
 export function operatorsFor(vocab, kind) {
+  if (kind === 'exists') return [
+    { token: '', input: 'none', whole: true, i18nKey: 'op.exists' },
+    { token: 'NULL', input: 'none', whole: true, i18nKey: 'op.missing' }
+  ];
   const own = vocab?.operators?.[kind] || [];
   const shared = (vocab?.commonAppliesTo || []).includes(kind) ? (vocab?.common || []) : [];
-  return [...own, ...shared];
+  const count = kind === 'none' ? [] : [{ token: '', input: 'count', i18nKey: 'op.count' }];
+  return [...own, ...shared, ...count];
 }
 
 /**

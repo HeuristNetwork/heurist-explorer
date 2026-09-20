@@ -39,6 +39,9 @@ import { parseTextQuery } from '../utils/parseTextQuery.js';
 import { queryToArray } from '../utils/queryModel.js';
 import './ExplorerApplication.css';
 
+/** Disambiguates concurrent extent-drawing dialogs; see `selectFilterExtent`. */
+let filterExtentDialogSeq = 0;
+
 /** Explorer's top-level application controller: modules, layout, datasource, and synchronization. */
 export class ExplorerApplication {
   /**
@@ -269,7 +272,8 @@ export class ExplorerApplication {
     const panel = new QuerySourcePanel({
       dbdefs,
       lang: this.config.language,
-      openFilterBuilder: (query) => this._editQueryWithBuilder(query),
+      openFilterBuilder: (query) => this._editQueryWithBuilder(query,
+        (current) => panel.selectExtent(current)),
       editRules: (rules, options) => this.config.hostBridge?.editRules?.(rules, options),
       describeRules: (rules) => this.config.hostBridge?.describeRules?.(rules),
       onExecute: (source) => this.activateDataSource(source, {
@@ -433,7 +437,17 @@ export class ExplorerApplication {
       }
     }
 
-    const dataSource = await this._withResultCount(normalizeDataSource(source));
+    const requestedSource = normalizeDataSource(source);
+    if (requestedSource.request?.q?.parameters && requestedSource.request.q.builderModel) {
+      const panel = panelBefore || [...this.querySourcePanels.values()][0];
+      if (panel) {
+        panel.setDataSource(requestedSource);
+        await panel.openFilterForm();
+        return null;
+      }
+    }
+
+    const dataSource = await this._withResultCount(requestedSource);
     let dataModule = this.layout.findCurrentResultDataModule();
 
     if (!dataModule) {
@@ -1028,7 +1042,7 @@ export class ExplorerApplication {
   }
 
   /** Open HFilterBuilder as a value editor and resolve with its JSON query, or null on cancel. */
-  async _editQueryWithBuilder(query) {
+  async _editQueryWithBuilder(query, selectExtent = (current) => this.selectFilterExtent(current)) {
     let dbdefs;
     try { dbdefs = await this._ensureDbDefs(); }
     catch (error) {
@@ -1036,7 +1050,9 @@ export class ExplorerApplication {
       return null;
     }
     const host = document.createElement('div');
-    const builder = new HFilterBuilder({ dbdefs, vocabulary: queryVocabulary, lang: this.config.language });
+    const builder = new HFilterBuilder({
+      dbdefs, vocabulary: queryVocabulary, lang: this.config.language, selectExtent
+    });
     builder.attach(host).render();
     builder.setQuery(query || []);
     return new Promise((resolve) => {
@@ -1068,43 +1084,83 @@ export class ExplorerApplication {
   }
 
   /**
-   * Let the Map module draw a filter extent and return viewport-style bounds.
+   * Draw a filter extent using a dedicated, throwaway Map instance hosted in a
+   * modal dialog - the same workflow as legacy Heurist's `_setExtent`
+   * (`HeuristModuleViewer`), which opens a fresh map module for drawing rather
+   * than disturbing whatever Map presentation the user already has open. The
+   * instance is never added to `this.modules`/the layout and is destroyed as
+   * soon as the dialog closes.
    *
-   * @param {object|null} current Existing bounds, reserved for later seeding.
-   * @returns {Promise<object|null>} West/south/east/north bounds or null on cancel.
+   * @param {object|null} current Existing bounds, used to seed the drawn rectangle.
+   * @returns {Promise<object|null>} West/south/east/north bounds, or null on cancel.
    */
   async selectFilterExtent(current = null) {
-    let module = [...this.modules.values()].find((item) => item.type === 'map');
-    if (!module) {
-      await this.togglePresentation('map');
-      module = [...this.modules.values()].find((item) => item.type === 'map');
+    const url = this.config.moduleUrls?.map;
+    if (!url) throw new Error('Map drawing is not available');
+
+    const dlg = HMsg.getMsgDlg(`dialog-filter-extent-${++filterExtentDialogSeq}`);
+    dlg.classList.add('h-dialog-fullscreen');
+    dlg.dataset.preventClose = 'false';
+    dlg.querySelector('.h-dialog-title').textContent = $HR('Define map extent');
+    dlg.querySelector('.h-dialog-footer').hidden = true;
+    const body = dlg.querySelector('.h-dialog-body');
+    body.classList.add('h-dialog-body-flush');
+    body.replaceChildren();
+    const container = document.createElement('div');
+    container.style.cssText = 'flex:1 1 auto;min-height:0;';
+    body.append(container);
+
+    const module = new IframeModuleAdapter({
+      id: dlg.id,
+      type: 'map',
+      container,
+      url,
+      runtime: {
+        database: this.config.database,
+        apiBaseUrl: this.config.apiBaseUrl,
+        baseUrl: this.config.baseUrl,
+        accessToken: this.config.accessToken,
+        requestHeaders: this.config.requestHeaders,
+        language: this.config.language,
+        viewerMode: 'draw'
+      },
+      hostActions: this._hostActions()
+    });
+
+    dlg.showModal();
+    try {
+      await module.mount();
+      await module.api.beginDrawing({ mode: 'filter', geojson: polygonFromBounds(current) });
+    } catch (error) {
+      await module.destroy();
+      dlg.close();
+      dlg.remove();
+      throw error;
     }
 
-    if (!module?.api?.beginDrawing) throw new Error('Map drawing is not available');
-    this.layout.activateModule(module.id);
-    const polygon = current && ['west', 'south', 'east', 'north'].every((key) => Number.isFinite(Number(current[key])))
-      ? { type: 'Polygon', coordinates: [[
-        [Number(current.west), Number(current.south)],
-        [Number(current.east), Number(current.south)],
-        [Number(current.east), Number(current.north)],
-        [Number(current.west), Number(current.north)],
-        [Number(current.west), Number(current.south)]
-      ]] }
-      : null;
-    await module.api.beginDrawing({ mode: 'filter', geojson: polygon });
-
     return new Promise((resolve) => {
-      const finish = (event) => {
+      let settled = false;
+      const finish = (value) => {
+        if (settled) return;
+        settled = true;
         cleanup();
-        resolve(boundsFromGeometry(event.detail?.result?.geojson));
+        Promise.resolve(module.destroy()).finally(() => {
+          dlg.close();
+          dlg.remove();
+          resolve(value);
+        });
       };
-      const cancel = () => { cleanup(); resolve(null); };
+      const onFinished = (event) => finish(boundsFromGeometry(event.detail?.result?.geojson));
+      const onCancelled = () => finish(null);
+      const onDialogClose = () => finish(null);
       const cleanup = () => {
-        module.api.removeEventListener('heurist-map-drawing-finished', finish);
-        module.api.removeEventListener('heurist-map-drawing-cancelled', cancel);
+        module.api.removeEventListener('heurist-map-drawing-finished', onFinished);
+        module.api.removeEventListener('heurist-map-drawing-cancelled', onCancelled);
+        dlg.removeEventListener('close', onDialogClose);
       };
-      module.api.addEventListener('heurist-map-drawing-finished', finish);
-      module.api.addEventListener('heurist-map-drawing-cancelled', cancel);
+      module.api.addEventListener('heurist-map-drawing-finished', onFinished);
+      module.api.addEventListener('heurist-map-drawing-cancelled', onCancelled);
+      dlg.addEventListener('close', onDialogClose);
     });
   }
 
@@ -1281,6 +1337,19 @@ function normalizeLayout(value) {
 }
 
 function queryDefined(q) { return q != null && (typeof q !== 'string' || q.trim().length > 0); }
+
+/** Convert west/south/east/north bounds to a rectangular GeoJSON polygon, or null. */
+function polygonFromBounds(bounds) {
+  if (!bounds || !['west', 'south', 'east', 'north'].every((key) => Number.isFinite(Number(bounds[key])))) return null;
+  const { west, south, east, north } = bounds;
+  return { type: 'Polygon', coordinates: [[
+    [Number(west), Number(south)],
+    [Number(east), Number(south)],
+    [Number(east), Number(north)],
+    [Number(west), Number(north)],
+    [Number(west), Number(south)]
+  ]] };
+}
 
 /** Convert a drawn GeoJSON geometry to Map's viewport extent shape. */
 function boundsFromGeometry(geojson) {

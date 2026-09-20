@@ -11,7 +11,21 @@
 
 .h-form-input-control {
   min-width: 0;
+  position: relative;
 }
+
+.h-form-input-clear {
+  position: absolute;
+  inset-inline-end: 4px;
+  top: 3px;
+  opacity: 0;
+  z-index: 1;
+}
+
+.h-form-input-control:hover .h-form-input-clear,
+.h-form-input-clear:focus-visible { opacity: 1; }
+
+.h-form-input-clear[hidden] { display: none; }
 
 .h-form-input-control > .h-input,
 .h-form-input-control > .h-select {

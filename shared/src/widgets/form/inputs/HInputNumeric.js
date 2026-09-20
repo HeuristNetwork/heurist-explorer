@@ -27,10 +27,13 @@ export class HInputNumeric extends HInput {
   renderControl(host) {
     const range = this.options.range === true;
     const first = this._makeNumber(range ? 'From' : 'Value');
+    this.control = first;
     host.append(first);
 
     if (range) {
       this.endControl = this._makeNumber('To');
+      first.readOnly = this.options.fixedValue?.from != null;
+      this.endControl.readOnly = this.options.fixedValue?.to != null;
       host.classList.add('h-input-numeric-range');
       host.append(this.endControl);
       if (this.options.rangeControl === 'slider'
@@ -124,6 +127,7 @@ export class HInputNumeric extends HInput {
       slider.max = String(this.options.max);
       slider.step = String(this.options.step || (this.options.integer ? 1 : 'any'));
       slider.setAttribute('aria-label', endpoint.placeholder);
+      slider.disabled = endpoint.readOnly;
       slider.addEventListener('input', () => {
         endpoint.value = slider.value;
         this.notifyChange();

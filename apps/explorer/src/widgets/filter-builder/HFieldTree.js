@@ -29,11 +29,13 @@ import './HFieldTree.css';
 
 const LINKABLE = new Set(['resource', 'relmarker']);
 const HEADER_FIELDS = [
-  { code: 'rec_ID', label: 'Record ID' },
-  { code: 'rec_Title', label: 'Title' },
-  { code: 'rec_RecTypeID', label: 'Record type' },
-  { code: 'rec_Modified', label: 'Modified' },
-  { code: 'rec_Added', label: 'Added' }
+  { dty: 'ids', label: 'ID', fieldType: 'integer' },
+  { dty: 'added', label: 'Added', fieldType: 'date' },
+  { dty: 'modified', label: 'Modified', fieldType: 'date' },
+  { dty: 'addedby', label: 'Creator', fieldType: 'enum' },
+  { dty: 'url', label: 'URL', fieldType: 'freetext' },
+  { dty: 'owner', label: 'Owner', fieldType: 'enum' },
+  { dty: 'access', label: 'Visibility', fieldType: 'enum' }
 ];
 
 /** Framework-free hierarchical field picker popover for the Filter Builder. */
@@ -70,10 +72,16 @@ export class HFieldTree {
     this._selectableTypes = Array.isArray(scope?.selectableTypes) && scope.selectableTypes.length
       ? new Set(scope.selectableTypes.map((value) => String(value).toLowerCase())) : null;
     this._hideUnselectable = scope?.hideUnselectable === true;
-    this._includeHeaders = scope?.includeHeaders === true;
+    this._includeHeaders = scope?.includeHeaders !== false;
+    this._linkedContext = scope?.linkedContext === true;
+    this._builderMode = scope?.builderMode === true;
+    this._disableLinks = scope?.disableLinks === true;
+    this._excludedFields = new Set((scope?.excludedFields || []).map(String));
     this._showSort = scope?.showSort !== false;
     this._onPick = onPick;
     this._openKeys.clear();
+    this._openKeys.add(`rty:${this._rtyId}`);
+    this._openKeys.add(`fields:${this._rtyId}`);
 
     const el = document.createElement('div');
     el.className = 'h-fbtree';
@@ -104,8 +112,8 @@ export class HFieldTree {
     // everything outside its subtree inert, so a popover on document.body would
     // render behind the backdrop and be unclickable.
     (anchor.closest('dialog') || document.body).append(el);
-    positionUnder(el, anchor);
     this._renderBody();
+    positionNear(el, anchor);
 
     // defer so the click that opened us does not immediately close it
     setTimeout(() => document.addEventListener('click', this._onDocClick), 0);
@@ -155,18 +163,8 @@ export class HFieldTree {
       return;
     }
 
-    if (this._includeHeaders) {
-      const header = document.createElement('div');
-      header.className = 'h-fbtree-section';
-      header.textContent = $HR('Record header');
-      this._body.append(header);
-      for (const item of HEADER_FIELDS) this._body.append(this._headerLeaf(item));
-      const details = document.createElement('div');
-      details.className = 'h-fbtree-section';
-      details.textContent = $HR('Record fields');
-      this._body.append(details);
-    }
-    for (const node of this._fieldNodes(rtyId, [])) this._body.append(node);
+    this._body.append(this._sectionFolder(this.dbdefs.rectypeName(rtyId), `rty:${rtyId}`, () =>
+      this._scopeNodes(rtyId, [], this._linkedContext)));
 
     if (this._showReverse && !this._flatOnly) {
       const reverse = this.dbdefs.linkedRectypes(rtyId, { direction: 'from' });
@@ -185,6 +183,47 @@ export class HFieldTree {
     }
   }
 
+  /** Build the record's Title, metadata and field sections. */
+  _scopeNodes(rtyId, viaChain, linkedContext) {
+    const nodes = [];
+    if (linkedContext) {
+      nodes.push(this._headerLeaf({ dty: 'exists', label: `${this.dbdefs.rectypeName(rtyId)} records`, fieldType: 'exists' }, viaChain));
+    }
+    if (this._includeHeaders) {
+      nodes.push(this._headerLeaf({ dty: 'title', label: 'Title', fieldType: 'freetext' }, viaChain));
+      nodes.push(this._sectionFolder($HR('metadata'), `metadata:${rtyId}:${viaChain.length}`, () =>
+        HEADER_FIELDS.map((field) => this._headerLeaf(field, viaChain))));
+    }
+    nodes.push(this._sectionFolder($HR('fields'), `fields:${rtyId}`, () => [
+      this._headerLeaf({ dty: 'anyfield', label: 'Any field', fieldType: 'freetext' }, viaChain),
+      ...this._fieldNodes(rtyId, viaChain)
+    ]));
+    return nodes;
+  }
+
+  /** Render one expandable section, preserving its open state. */
+  _sectionFolder(label, key, children) {
+    const wrap = document.createElement('div');
+    wrap.className = 'h-fbtree-folder';
+    const head = document.createElement('button');
+    head.type = 'button';
+    head.className = 'h-menu-item h-fbtree-folder-head h-i18n';
+    head.textContent = `${this._openKeys.has(key) ? '▾' : '▸'} ${label}`;
+    head.addEventListener('click', () => {
+      if (this._openKeys.has(key)) this._openKeys.delete(key);
+      else this._openKeys.add(key);
+      this._renderBody();
+    });
+    wrap.append(head);
+    if (this._openKeys.has(key)) {
+      const body = document.createElement('div');
+      body.className = 'h-fbtree-children';
+      body.append(...children());
+      wrap.append(body);
+    }
+    return wrap;
+  }
+
   /** @returns {HTMLElement[]} field rows + expandable pointer folders */
   _fieldNodes(rtyId, viaChain) {
     const fields = this.dbdefs.fields(rtyId);
@@ -195,8 +234,18 @@ export class HFieldTree {
     const out = [];
     for (const field of fields) {
       const linkable = LINKABLE.has(field.type);
+      if (linkable && this._builderMode && this._disableLinks) {
+        const disabled = document.createElement('button');
+        disabled.type = 'button';
+        disabled.className = 'h-menu-item h-fbtree-leaf h-fbtree-leaf-disabled';
+        disabled.textContent = field.name;
+        disabled.disabled = true;
+        out.push(disabled);
+        continue;
+      }
+      if (linkable && this._builderMode && viaChain.length >= this._maxDepth) continue;
       const selectable = !this._selectableTypes || this._selectableTypes.has(String(field.type || '').toLowerCase());
-      if (this._hideUnselectable && !selectable && !linkable) continue;
+      if (field.type === 'file' || (this._hideUnselectable && !selectable && !linkable)) continue;
       if (linkable && viaChain.length < this._maxDepth && !this._flatOnly) {
         const targets = this.dbdefs.fieldGlobal(field.id)?.targetTypes || [];
         out.push(this._linkFolder({
@@ -214,17 +263,21 @@ export class HFieldTree {
     return out;
   }
 
-  _headerLeaf(item) {
+  _headerLeaf(item, viaChain = []) {
     const row = document.createElement('button');
     row.type = 'button';
     row.className = 'h-menu-item h-fbtree-leaf h-fbtree-header-leaf';
     row.textContent = $HR(item.label);
     const type = document.createElement('span');
     type.className = 'h-fbtree-type';
-    type.textContent = $HR('header');
+    type.textContent = item.fieldType;
     row.append(type);
+    if (!viaChain.length && this._excludedFields.has(String(item.dty))) {
+      row.disabled = true;
+      row.classList.add('h-fbtree-leaf-disabled');
+    }
     row.addEventListener('click', () => {
-      this._onPick?.([{ code: item.code, label: $HR(item.label), fieldType: 'header' }]);
+      this._onPick?.([...viaChain, { dty: item.dty, fieldType: item.fieldType }]);
       this.close();
     });
     return row;
@@ -243,8 +296,9 @@ export class HFieldTree {
     row.type = 'button';
     row.className = 'h-menu-item h-fbtree-leaf';
     const selectable = !this._selectableTypes || this._selectableTypes.has(String(field.type || '').toLowerCase());
-    if (!selectable) row.classList.add('h-fbtree-leaf-disabled');
-    row.disabled = !selectable;
+    const available = selectable && (viaChain.length || !this._excludedFields.has(String(field.id)));
+    if (!available) row.classList.add('h-fbtree-leaf-disabled');
+    row.disabled = !available;
     row.textContent = `${field.name}`;
     const type = document.createElement('span');
     type.className = 'h-fbtree-type';
@@ -308,7 +362,7 @@ export class HFieldTree {
     const rty = Number(childRtyId) > 0 ? Number(childRtyId) : null;
     if (rty) {
       const nextChain = [...viaChain, { via: { ...via, targetRty: rty } }];
-      for (const node of this._fieldNodes(rty, nextChain)) {
+      for (const node of this._scopeNodes(rty, nextChain, true)) {
         kids.append(node);
       }
     }
@@ -338,11 +392,18 @@ export class HFieldTree {
   }
 }
 
-/** Position a popover element fixed, just below and left-aligned with its anchor, clamped to the viewport. */
-function positionUnder(el, anchor) {
+/** Place the field tree below its anchor, or above when more room is available there. */
+function positionNear(el, anchor) {
   const rect = anchor.getBoundingClientRect();
-  // fixed => viewport-relative, so it works whatever the offset parent is
+  const dialogRect = anchor.closest('dialog')?.getBoundingClientRect();
+  const topLimit = Math.max(8, dialogRect?.top ?? 8);
+  const bottomLimit = Math.min(window.innerHeight - 8, dialogRect?.bottom ?? window.innerHeight - 8);
+  const below = bottomLimit - rect.bottom - 4;
+  const above = rect.top - topLimit - 4;
+  const openBelow = below >= el.offsetHeight || below >= above;
+  const height = Math.max(80, Math.min(el.offsetHeight, openBelow ? below : above));
+  el.style.maxHeight = `${height}px`;
   el.style.position = 'fixed';
-  el.style.top = `${Math.min(rect.bottom + 2, window.innerHeight - 40)}px`;
-  el.style.left = `${Math.min(rect.left, window.innerWidth - 360)}px`;
+  el.style.top = `${Math.max(topLimit, openBelow ? rect.bottom + 2 : rect.top - height - 2)}px`;
+  el.style.left = `${Math.max(8, Math.min(rect.left, window.innerWidth - el.offsetWidth - 8))}px`;
 }

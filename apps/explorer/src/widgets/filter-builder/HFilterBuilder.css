@@ -7,7 +7,19 @@
 
 /* Widen the shared HMsg <dialog> when it hosts the Filter Builder. */
 .h-dialog:has(.h-fb) { width: min(1080px, calc(100vw - 48px)); }
-.h-dialog:has(.h-fb) .h-dialog-body { max-height: calc(100vh - 120px); }
+.h-dialog:has(.h-fb) {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+.h-dialog:has(.h-fb) .h-dialog-header,
+.h-dialog:has(.h-fb) .h-dialog-footer { flex: 0 0 auto; }
+.h-dialog:has(.h-fb) .h-dialog-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    max-height: calc(100vh - 150px);
+    overflow-y: auto;
+}
 
 .h-fb {
     display: flex;
@@ -24,6 +36,7 @@
     padding-bottom: 10px;
     border-bottom: 1px solid var(--h-color-border);
 }
+.h-fb-guidance { margin: 0; color: var(--h-color-text-muted); }
 .h-fb-labelled { display: inline-flex; align-items: center; gap: 6px; }
 .h-fb-labelled > span { color: var(--h-color-text-muted); font-size: var(--h-font-size-small); }
 .h-fb-rectype { min-width: 240px; max-width: 340px; }
@@ -35,9 +48,14 @@
 /* --- criteria list --- */
 .h-fb-criteria { display: flex; flex-direction: column; gap: 4px; }
 .h-fb-rows { display: flex; flex-direction: column; gap: 8px; }
-.h-fb-row { display: flex; align-items: flex-start; gap: 4px; }
+.h-fb-row,
+.h-fb-subrow {
+    display: grid;
+    grid-template-columns: 64px minmax(190px, 2fr) 24px minmax(150px, 1.5fr) minmax(260px, 3fr) 110px;
+    align-items: start;
+    column-gap: 8px;
+}
 .h-fb-rowconj {
-    flex: 0 0 46px;
     display: inline-flex;
     justify-content: flex-end;
     align-items: center;
@@ -48,7 +66,11 @@
     font-size: var(--h-font-size-small);
     font-weight: 600;
 }
-.h-fb-itemhost { flex: 1 1 auto; min-width: 0; }
+.h-fb-itemhost { display: grid; grid-template-columns: subgrid; grid-column: 2 / -1; min-width: 0; }
+.h-fb-row > .h-fb-itemhost.h-fbitem,
+.h-fb-subrow > .h-fb-itemhost.h-fbitem,
+.h-fb-row > .h-fb-itemhost.h-fb-linkpanel,
+.h-fb-subrow > .h-fb-itemhost.h-fb-linkpanel { grid-column: 2 / -1; }
 .h-fb-linkrow .h-fb-itemhost {
     border-left: 2px solid var(--h-color-primary);
     padding-left: 10px;
@@ -73,21 +95,23 @@
 
 /* --- one criterion row --- */
 .h-fbitem {
-    display: flex;
+    display: grid;
+    grid-template-columns: subgrid;
+    grid-column: 1 / -1;
     align-items: flex-start;
-    gap: 16px;                 /* space between field | operator | values */
-    flex-wrap: wrap;
+    gap: 8px;
+    position: relative;
 }
 .h-fbitem-field {
-    min-width: 190px;
-    max-width: 260px;
+    width: 100%;
+    min-width: 0;
     justify-content: flex-start;
     text-align: left;
     font-weight: normal;
 }
 .h-fbitem-remove {
-    align-self: center;
-    margin-left: -12px;
+    grid-column: 2;
+    margin-top: 4px;
     font-size: 1.35em;
     line-height: 1;
     opacity: 0;
@@ -98,14 +122,15 @@
 .h-fbitem-op {
     border-color: transparent;
     background: transparent;
-    min-width: 160px;          /* tabular alignment */
+    width: 100%;
+    min-width: 0;
 }
 .h-fbitem-op:focus { border-color: var(--h-color-border); }
 
 /* --- value column --- */
-.h-fbitem-values { display: flex; flex-direction: column; gap: 4px; }
-.h-fbitem-valrow { display: flex; align-items: center; gap: 6px; }
-.h-fbitem-value-widget { min-width: 150px; }
+.h-fbitem-values { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.h-fbitem-valrow { display: grid; grid-template-columns: 54px minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: 6px; }
+.h-fbitem-value-widget { min-width: 0; }
 .h-fbitem-parameter-id { min-width: 145px; }
 .h-fbitem-parameter { white-space: nowrap; }
 .h-fbitem-conjslot,
@@ -124,7 +149,7 @@
 }
 .h-fbitem-rangesep { color: var(--h-color-text-muted); }
 .h-fbitem-values .h-input,
-.h-fbitem-values .h-select { min-width: 190px; }
+.h-fbitem-values .h-select { min-width: 0; width: 100%; }
 .h-fbitem-wkt { min-width: 240px; font-family: monospace; }
 .h-fbitem-record { display: inline-flex; gap: 4px; }
 .h-fbitem-addval,
@@ -138,6 +163,7 @@
 
 /* --- preview --- */
 .h-fb-preview-label { color: var(--h-color-text-muted); font-size: var(--h-font-size-small); margin-bottom: 2px; }
+.h-fb-criteria-info { color: var(--h-color-text-muted); font-size: var(--h-font-size-small); align-self: center; }
 .h-fb-preview-json {
     margin: 0;
     padding: 8px;
@@ -155,7 +181,17 @@
 /* --- link sub-panel --- */
 .h-fb-linkhead,
 .h-fb-subfoot { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding: 4px 0; }
-.h-fb-sublist { display: flex; flex-direction: column; gap: 6px; padding-left: 8px; }
+.h-fb-linkhead .h-fbitem-remove { position: static; margin: 0; opacity: 0; }
+.h-fb-linkhead:hover .h-fbitem-remove,
+.h-fb-linkhead .h-fbitem-remove:focus-visible { opacity: 1; }
+.h-fb-linktext { white-space: nowrap; }
+.h-fb-sublist { display: flex; flex-direction: column; gap: 6px; }
+.h-fb-subrow { grid-template-columns: 64px minmax(190px, 2fr) 24px minmax(150px, 1.5fr) minmax(260px, 3fr) 110px; }
+.h-fb-linkpanel { display: block; grid-column: 2 / -1; min-width: 0; }
+.h-fb-nested .h-fb-linkpanel {
+    border-inline-start: 2px solid var(--h-color-primary);
+    padding-inline-start: 8px;
+}
 
 .h-fb-sentence {
     margin-bottom: 6px;

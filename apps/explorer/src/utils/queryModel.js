@@ -75,6 +75,7 @@ export function emptyFieldRow(overrides = {}) {
     values: [''],
     valueConj: 'any',
     parameterId: null,
+    selected: false,
     ...overrides
   };
 }
@@ -128,6 +129,11 @@ export function composeQuery(model, vocabulary) {
  * @returns {{token:string, pattern?:string, whole?:boolean, input?:string}}
  */
 function resolveOperator(row, vocab) {
+  if (['owner', 'access', 'addedby'].includes(row.dty) && row.op === 'op.is') return { token: '' };
+  if (['owner', 'access', 'addedby'].includes(row.dty) && row.op === 'op.is_not') return { token: '-' };
+  if (row.op === 'op.count') return { token: '', input: 'count' };
+  if (row.op === 'op.exists') return { token: '', whole: true };
+  if (row.op === 'op.missing') return { token: 'NULL', whole: true };
   const groups = vocab.operators || {};
   const list = [...(groups[row.kind] || []), ...(vocab.common || [])];
   if (!list.length) return { token: '' };
@@ -157,6 +163,11 @@ function compileFieldRow(row, vocab) {
 
   if (op.whole) {
     return wrap(key, op.token);
+  }
+
+  if (op.pattern && /\{a\}/.test(op.pattern)
+    && [row.values?.[0], row.values?.[1]].some((value) => String(value ?? '').trim() === '')) {
+    return null;
   }
 
   const values = (row.values || []).map((v) => String(v ?? '').trim()).filter((v) => v !== '');
@@ -230,13 +241,13 @@ export function composeWithParameters(model, values, vocabulary) {
         : value == null || value === '' ? [] : [String(value)];
   };
 
-  for (const row of copy.rows || []) {
-    if (row.type === 'link') {
-      for (const child of row.rows || []) resolve(child);
-    } else {
-      resolve(row);
+  const visit = (rows) => {
+    for (const row of rows || []) {
+      if (row.type === 'link') visit(row.rows);
+      else resolve(row);
     }
-  }
+  };
+  visit(copy.rows);
 
   return composeQuery(copy, vocabulary);
 }
@@ -257,13 +268,13 @@ export function composeFilterRequest(model, values, vocabulary) {
     }
   };
 
-  for (const row of model?.rows || []) {
-    if (row.type === 'link') {
-      for (const child of row.rows || []) inspect(child);
-    } else {
-      inspect(row);
+  const visit = (rows) => {
+    for (const row of rows || []) {
+      if (row.type === 'link') visit(row.rows);
+      else inspect(row);
     }
-  }
+  };
+  visit(model?.rows);
 
   return { q: composeWithParameters(model, values, vocabulary), extent };
 }
@@ -280,7 +291,8 @@ function compileLinkRow(row, vocab) {
   if (row.targetRty !== '' && row.targetRty != null && Number(row.targetRty) > 0) {
     sub.push({ t: String(row.targetRty) });
   }
-  const preds = (row.rows || []).map((r) => compileFieldRow(r, vocab)).filter(Boolean);
+  const preds = (row.rows || []).map((r) => r?.type === 'link'
+    ? compileLinkRow(r, vocab) : compileFieldRow(r, vocab)).filter(Boolean);
   if (preds.length > 1 && row.conjunction === 'any') {
     sub.push({ any: preds });
   } else {
@@ -293,13 +305,15 @@ function compileLinkRow(row, vocab) {
 /** Build a predicate key (`f`, `f:<id>[:<enumField>]`, or a header keyword) from a field row. */
 function fieldKey(row) {
   const d = row.dty;
+  if (row.kind === 'geo' || d === 'geo') return 'geo';
+  if (d === 'exists') return 'exists';
   if (d === 'anyfield' || d === '' || d == null || d === 'f') return 'f';
 
   if (typeof d === 'string' && !/^\d+$/.test(d)) {
     return canonicalPredicate(d) || d; // title, added, ids, tag, owner, addedby, access, user, url, notes
   }
 
-  let key = 'f:' + Number(d);
+  let key = (row.op === 'op.count' ? 'fc:' : 'f:') + Number(d);
   if (row.enumField && row.enumField !== 'internalid') {
     key += ':' + row.enumField;
   }
@@ -363,7 +377,7 @@ export function parseQuery(input, vocabulary) { // eslint-disable-line no-unused
     if ((base === 'any' || base === 'all') && Array.isArray(value)) {
       model.conjunction = base;
       for (const inner of value) {
-        const row = fieldRowFromPredicate(inner);
+        const row = linkedChildFromPredicate(inner);
         if (row) model.rows.push(row);
         else leftover.push(inner);
       }
@@ -409,7 +423,22 @@ function fieldRowFromPredicate(predicate) {
   const dty = fieldDtyFromKey(base, suffix);
   if (dty == null) return null;
 
-  const row = emptyFieldRow({ dty });
+  const row = emptyFieldRow({ dty, selected: true, kind: base === 'geo' ? 'geo' : 'text' });
+  if (base === 'fc') {
+    row.op = 'op.count';
+    row.values = [String(value ?? '')];
+    return row;
+  }
+  if (base === 'exists') {
+    row.kind = 'exists';
+    row.op = String(value ?? '') === 'NULL' ? 'op.missing' : 'op.exists';
+    row.values = [''];
+    return row;
+  }
+  if (base === 'geo') {
+    row.values = [String(value ?? '')];
+    return row;
+  }
   // for an `f:<id>[:<enumField>]` key the enum sub-part is the SECOND suffix segment
   if (typeof dty === 'number' && suffix.parts.length > 1) {
     row.enumField = suffix.parts[1] || null;
@@ -464,13 +493,26 @@ function linkRowFromPredicate(base, suffix, value) {
     if (b === 't') { row.targetRty = firstScalar(v); continue; }
     if ((b === 'any' || b === 'all') && Array.isArray(v)) {
       row.conjunction = b;
-      for (const p of v) { const fr = fieldRowFromPredicate(p); if (fr) row.rows.push(fr); }
+      for (const p of v) {
+        const fr = linkedChildFromPredicate(p);
+        if (fr) row.rows.push(fr);
+      }
       continue;
     }
-    const fr = fieldRowFromPredicate(inner);
+    const fr = linkedChildFromPredicate(inner);
     if (fr) row.rows.push(fr);
   }
   return row;
+}
+
+/** Parse a field or another linked predicate within a linked subquery. */
+function linkedChildFromPredicate(predicate) {
+  const entry = firstEntry(predicate);
+  if (!entry) return null;
+  const { base, suffix } = splitKey(entry[0]);
+  return isLinkPredicate(base)
+    ? linkRowFromPredicate(base, suffix, entry[1])
+    : fieldRowFromPredicate(predicate);
 }
 
 // --------------------------------------------------------------------- helpers ---
@@ -484,12 +526,14 @@ function linkRowFromPredicate(base, suffix, value) {
 function toArray(input) {
   if (Array.isArray(input)) return input;
   if (input && typeof input === 'object' && Array.isArray(input.q)) return input.q;
+  if (input && typeof input === 'object' && !Array.isArray(input)) return [input];
   if (typeof input === 'string') {
     const text = input.trim();
     if (!text) return [];
     try {
       const parsed = JSON.parse(text);
-      return Array.isArray(parsed) ? parsed : (Array.isArray(parsed?.q) ? parsed.q : []);
+      return Array.isArray(parsed) ? parsed : (Array.isArray(parsed?.q) ? parsed.q
+        : parsed && typeof parsed === 'object' ? [parsed] : []);
     } catch {
       return [];
     }
@@ -529,11 +573,12 @@ function splitKey(rawKey) {
  * @returns {number|string|null} Field id, header keyword, `'anyfield'`, or `null` when not a field predicate.
  */
 function fieldDtyFromKey(base, suffix) {
+  if (base === 'geo') return 'geo';
   if (base === 'f' || base === 'fc') {
     if (!suffix.parts.length) return 'anyfield';
     return /^\d+$/.test(suffix.parts[0]) ? Number(suffix.parts[0]) : null;
   }
-  if (['title', 'url', 'notes', 'added', 'modified', 'ids', 'owner', 'addedby', 'access', 'tag', 'user'].includes(base)) {
+  if (['title', 'url', 'notes', 'added', 'modified', 'ids', 'owner', 'addedby', 'access', 'tag', 'user', 'exists'].includes(base)) {
     return base;
   }
   return null;

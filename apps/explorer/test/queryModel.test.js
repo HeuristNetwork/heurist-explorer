@@ -18,6 +18,46 @@ const compose = (model) => composeQuery(model, VOCAB);
 const model = (over = {}) => ({ ...emptyModel(), ...over });
 const fieldRow = (over = {}) => emptyFieldRow(over);
 
+test('one-predicate JSON objects are accepted as a query', () => {
+  assert.deepEqual(compose(parseQuery('{"t":"112"}', VOCAB)), [{ t: '112' }]);
+  assert.deepEqual(compose(parseQuery({ t: '112' }, VOCAB)), [{ t: '112' }]);
+});
+
+test('owner and visibility is/not is operators compile to header predicates', () => {
+  assert.deepEqual(compose(model({ rows: [fieldRow({ dty: 'owner', op: 'op.is', values: ['2'] })] })),
+    [{ owner: '2' }]);
+  assert.deepEqual(compose(model({ rows: [fieldRow({ dty: 'access', op: 'op.is_not', values: ['hidden'] })] })),
+    [{ access: '-hidden' }]);
+});
+
+test('creator is/not is and geographic fields use their dedicated predicates', () => {
+  assert.deepEqual(compose(model({ rows: [fieldRow({ dty: 'addedby', op: 'op.is_not', values: ['3'] })] })),
+    [{ addedby: '-3' }]);
+  const wkt = 'POLYGON((10 -5,20 -5,20 8,10 8,10 -5))';
+  const query = [{ t: '10' }, { geo: wkt }];
+  assert.deepEqual(compose(model({ rtyId: 10, rows: [fieldRow({ dty: 28, kind: 'geo', values: [wkt] })] })), query);
+  assert.deepEqual(compose(parseQuery(query, VOCAB)), query);
+});
+
+test('nested linked predicates retain every intermediate record type', () => {
+  const query = [{ t: '10' }, { 'lt:240': [
+    { t: '48' }, { 'lt:134': [{ t: '12' }, { 'f:1': 'Athens' }] }
+  ] }];
+  assert.deepEqual(compose(parseQuery(query, VOCAB)), query);
+});
+
+test('field count and any-field predicates round-trip through the Builder model', () => {
+  const query = [{ t: '10' }, { 'fc:20': '>2' }, { f: 'Smith' }];
+  assert.deepEqual(compose(parseQuery(query, VOCAB)), query);
+});
+
+test('linked record existence and missing predicates round-trip', () => {
+  for (const value of ['', 'NULL']) {
+    const query = [{ t: '10' }, { 'lt:134': [{ t: '12' }, { exists: value }] }];
+    assert.deepEqual(compose(parseQuery(query, VOCAB)), query);
+  }
+});
+
 test('parameter values resolve into flat and linked predicates without changing the template', () => {
   const template = model({
     rtyId: 10,
@@ -170,6 +210,15 @@ test('single-level linked subquery', () => {
   ]);
 });
 
+test('three linked levels round-trip with nested field predicates', () => {
+  const query = [{ 'lt:240': [{ t: '48' }, {
+    'lt:241': [{ t: '10' }, {
+      'lf:242': [{ t: '19' }, { 'f:20': '5399' }]
+    }]
+  }] }];
+  assert.deepEqual(compose(parseQuery(query)), query);
+});
+
 test('linked subquery with any-conjunction sub-rows', () => {
   const linkRow = {
     type: 'link', link: 'lt', dty: 200, targetRty: '', conjunction: 'any',
@@ -199,6 +248,12 @@ test('rows with no value are dropped', () => {
     compose(model({ rtyId: 10, rows: [fieldRow({ dty: 12, kind: 'text', op: 'op.contains', values: [''] })] })),
     [{ t: '10' }]
   );
+});
+
+test('an incomplete range is omitted until its runtime value is supplied', () => {
+  assert.deepEqual(compose(model({ rows: [fieldRow({
+    dty: 12, kind: 'number', op: 'op.between', values: ['10', '']
+  })] })), []);
 });
 
 // --------------------------------------------------------------------- parse ---

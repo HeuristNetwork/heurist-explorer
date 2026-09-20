@@ -34,6 +34,7 @@ export class HInputEnum extends HInput {
       for (const item of this.options.terms || []) {
         const label = document.createElement('label');
         label.className = 'h-input-enum-choice';
+        label.style.paddingInlineStart = `${Math.max(0, Number(item.depth || 1) - 1) * 1.25}em`;
         const control = document.createElement('input');
         control.type = this.options.mode;
         control.name = radioName;
@@ -63,7 +64,7 @@ export class HInputEnum extends HInput {
     for (const item of this.options.terms || []) {
       const option = document.createElement('option');
       option.value = String(item.id);
-      option.textContent = item.label || String(item.id);
+      option.textContent = `${'\u00a0\u00a0'.repeat(Math.max(0, Number(item.depth || 1) - 1))}${item.label || String(item.id)}`;
       select.append(option);
     }
 

@@ -69,6 +69,20 @@ export class HInput extends HBaseWidget {
       this.setReadOnly(Boolean(this.options.readOnly));
     }
 
+    this.clearButton = document.createElement('button');
+    this.clearButton.type = 'button';
+    this.clearButton.className = 'heurist-icon-button h-form-input-clear';
+    this.clearButton.textContent = '×';
+    this.clearButton.title = 'Clear value';
+    this.clearButton.setAttribute('aria-label', 'Clear value');
+    this.listen(this.clearButton, 'click', () => {
+      const fixed = this.options.fixedValue;
+      this.setValue(fixed && typeof fixed === 'object' ? { ...fixed } : null);
+      this.notifyChange();
+    });
+    controlHost.append(this.clearButton);
+    this._syncClearButton();
+
     this.state = 'rendered';
     return this;
   }
@@ -100,6 +114,7 @@ export class HInput extends HBaseWidget {
    */
   setValue(value) {
     this.value = value ?? null;
+    if (this.clearButton) queueMicrotask(() => this._syncClearButton());
     return this;
   }
 
@@ -129,9 +144,20 @@ export class HInput extends HBaseWidget {
 
   /** Notify the form that this input changed. */
   notifyChange() {
+    this._syncClearButton();
     this.container?.dispatchEvent(new CustomEvent('h-input-change', {
       bubbles: true,
       detail: { input: this, value: this.getValue() }
     }));
+  }
+
+  /** Show the clear action only when the input currently has a value. */
+  _syncClearButton() {
+    if (!this.clearButton) return;
+    const value = this.getValue();
+    const present = Array.isArray(value) ? value.length > 0
+      : value && typeof value === 'object' ? Object.values(value).some((part) => part != null && part !== '')
+        : value != null && value !== '';
+    this.clearButton.hidden = !present || Boolean(this.options.readOnly);
   }
 }
