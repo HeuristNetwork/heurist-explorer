@@ -77,13 +77,18 @@ export class RecordViewRenderer {
    * @param {boolean} [options.canEdit] Whether the edit pencil is shown.
    * @param {(recordId: number) => void} [options.onEdit] Invoked when the edit pencil is activated.
    * @param {(recordId: number) => void} [options.onNavigate] Invoked when a resource-field link is followed.
+   * @param {boolean} [options.canZoomExtent] Whether the host has an active map module to zoom, gating the geo field's zoom button.
+   * @param {(wkt: string) => void} [options.onZoomExtent] Invoked with a geo field's WKT value when its zoom button is activated.
    * @returns {void}
    */
-  showBuiltin(record, { sections = [], recordTypeName = null, canEdit = false, onEdit = () => {}, onNavigate = () => {} } = {}) {
+  showBuiltin(record, {
+    sections = [], recordTypeName = null, canEdit = false, onEdit = () => {}, onNavigate = () => {},
+    canZoomExtent = false, onZoomExtent = () => {},
+  } = {}) {
     const children = [this.#buildHeader(record, { recordTypeName, canEdit, onEdit })];
     const media = this.#buildMedia(record, sections);
     if (media) children.push(media);
-    children.push(this.#buildSections(record, sections, { onNavigate }));
+    children.push(this.#buildSections(record, sections, { onNavigate, canZoomExtent, onZoomExtent }));
     children.push(this.#buildFooter(record));
     this.body.replaceChildren(...children);
     this.#alignFieldLabels();
@@ -243,7 +248,7 @@ export class RecordViewRenderer {
   }
 
   /** Fields grouped into `<fieldset>`s per section; only populated, non-`file` fields are shown. */
-  #buildSections(record, sections, { onNavigate }) {
+  #buildSections(record, sections, { onNavigate, canZoomExtent, onZoomExtent }) {
     const wrapper = document.createElement("div");
     wrapper.className = "heurist-recordview-sections";
     for (const section of sections) {
@@ -252,7 +257,7 @@ export class RecordViewRenderer {
         if (field.type === "file") continue;
         const values = record?.details?.[String(field.id)];
         if (!Array.isArray(values) || !values.length) continue;
-        rows.push(this.#buildFieldRow(record, field, values, { onNavigate }));
+        rows.push(this.#buildFieldRow(record, field, values, { onNavigate, canZoomExtent, onZoomExtent }));
       }
       if (!rows.length) continue;
       const fieldset = document.createElement("fieldset");
@@ -274,10 +279,12 @@ export class RecordViewRenderer {
   /**
    * One field row: a resource field renders as links that trigger `onNavigate`; a blocktext
    * field renders sanitized rich text (or a system-format notice when its content is JSON);
-   * everything else renders as plain text. Each value gets its own line within `dd`, so the
-   * label sits inline with the first value and further values stack beneath it.
+   * a geo field renders a compact summary (geometry kind plus a couple of coordinates, never
+   * the raw WKT) with an optional zoom button; everything else renders as plain text. Each
+   * value gets its own line within `dd`, so the label sits inline with the first value and
+   * further values stack beneath it.
    */
-  #buildFieldRow(record, field, values, { onNavigate }) {
+  #buildFieldRow(record, field, values, { onNavigate, canZoomExtent, onZoomExtent }) {
     const dt = document.createElement("dt");
     dt.textContent = field.name || `Field ${field.id}`;
     const dd = document.createElement("dd");
@@ -294,6 +301,26 @@ export class RecordViewRenderer {
           if (value?.rec_ID) onNavigate(value.rec_ID);
         });
         line.append(link);
+        dd.append(line);
+      }
+    } else if (field.type === "geo") {
+      for (const wkt of fieldValues(record, { field: String(field.id) })) {
+        const line = document.createElement("div");
+        line.className = "heurist-recordview-value-line heurist-recordview-geo-line";
+        const summary = document.createElement("span");
+        summary.className = "heurist-recordview-geo-summary";
+        summary.textContent = summarizeWkt(wkt);
+        line.append(summary);
+        if (canZoomExtent && String(wkt ?? "").trim()) {
+          const zoom = document.createElement("button");
+          zoom.type = "button";
+          zoom.className = "heurist-icon-button heurist-recordview-geo-zoom";
+          zoom.title = $HR("Zoom to extent");
+          zoom.setAttribute("aria-label", $HR("Zoom to extent"));
+          zoom.innerHTML = '<span class="fa-solid fa-magnifying-glass-plus" aria-hidden="true"></span>';
+          zoom.addEventListener("click", () => onZoomExtent(wkt));
+          line.append(zoom);
+        }
         dd.append(line);
       }
     } else if (field.type === "blocktext") {
@@ -388,6 +415,28 @@ export class RecordViewRenderer {
   #miradorUrl(fileId) {
     return `${this.baseUrl}hclient/widgets/viewers/miradorViewer.php?db=${encodeURIComponent(this.database)}&id=${encodeURIComponent(fileId)}`;
   }
+}
+
+/**
+ * Summarize a WKT geometry for display: its kind plus up to two coordinate
+ * pairs, ellipsized when the geometry has more — never the full raw WKT
+ * (matches the shared `HInputGeo` input's compact-summary treatment).
+ */
+function summarizeWkt(wkt) {
+  const text = String(wkt ?? "").trim();
+  if (!text) return "";
+  const kind = /^([A-Z]+)\s*\(/i.exec(text)?.[1]?.toUpperCase() || "";
+  const pairs = text.match(/-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?\s+-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?/g) || [];
+  if (!pairs.length) return text;
+  const shown = pairs.slice(0, 2).map((pair) => pair.trim().split(/\s+/).map(formatCoordinate).join(" "));
+  const suffix = pairs.length > shown.length ? ", …" : "";
+  return kind ? `${kind} (${shown.join(", ")}${suffix})` : `${shown.join(", ")}${suffix}`;
+}
+
+/** Format a coordinate without insignificant trailing zeros. */
+function formatCoordinate(value) {
+  const number = Number(value);
+  return Number.isFinite(number) ? String(Number(number.toFixed(6))) : String(value);
 }
 
 /** Format a Heurist `YYYY-MM-DD...` date string as a locale-medium date, falling back to the raw text. */

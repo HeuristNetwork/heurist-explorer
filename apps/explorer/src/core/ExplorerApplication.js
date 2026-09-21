@@ -1008,7 +1008,10 @@ export class ExplorerApplication {
       editRules: (value, options) => bridge.editRules?.(value, options),
       describeRules: (rules) => bridge.describeRules?.(rules),
       editFieldset: (value, options) => bridge.editFieldset?.(value, options),
-      getHostContext: () => ({ name: 'heurist-explorer', runtimeMode: 'main' }),
+      zoomToExtent: (wkt) => this.zoomActiveMapToExtent(wkt),
+      getHostContext: () => ({
+        name: 'heurist-explorer', runtimeMode: 'main', hasMapModule: this.hasActiveMapModule()
+      }),
       showDatasource: (source, options) => this.showDatasource(source, options)
     };
   }
@@ -1202,6 +1205,30 @@ export class ExplorerApplication {
       module.api.addEventListener('heurist-map-drawing-cancelled', onCancelled);
       dlg.addEventListener('close', onDialogClose);
     });
+  }
+
+  /**
+   * Whether a Map module is currently mounted in the active layout (not the
+   * hidden dedicated instance `selectFilterExtent` uses for drawing).
+   *
+   * @returns {boolean} Whether at least one mounted layout module is a ready Map instance.
+   */
+  hasActiveMapModule() {
+    return [...this.modules.values()].some((module) => module.type === 'map' && module.api);
+  }
+
+  /**
+   * Zoom the active layout's Map module to a WKT geometry's bounding extent.
+   *
+   * @param {string} wkt WKT geometry text.
+   * @returns {Promise<boolean>} Whether the map viewport was changed.
+   */
+  async zoomActiveMapToExtent(wkt) {
+    const module = [...this.modules.values()].find((item) => item.type === 'map' && item.api);
+    const bounds = wktBounds(wkt);
+    if (!module || !bounds) return false;
+    await module.api.fitBounds(bounds);
+    return true;
   }
 
   /**
@@ -1420,5 +1447,18 @@ function boundsFromGeometry(geojson) {
     south: Math.min(...positions.map((point) => point[1])),
     east: Math.max(...positions.map((point) => point[0])),
     north: Math.max(...positions.map((point) => point[1]))
+  };
+}
+
+/** Compute west/south/east/north bounds from a WKT geometry's coordinate pairs, or null. */
+function wktBounds(wkt) {
+  const pairs = String(wkt || '').match(/-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?\s+-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?/g);
+  if (!pairs || !pairs.length) return null;
+  const points = pairs.map((pair) => pair.trim().split(/\s+/).map(Number));
+  return {
+    west: Math.min(...points.map((point) => point[0])),
+    south: Math.min(...points.map((point) => point[1])),
+    east: Math.max(...points.map((point) => point[0])),
+    north: Math.max(...points.map((point) => point[1]))
   };
 }

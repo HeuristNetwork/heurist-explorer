@@ -41,6 +41,7 @@
 #multiple_selected_single_only#Select a single record
 #record_viewer_unconfigured#Record viewer is not configured
 #Edit#Edit
+#Zoom to extent#Zoom to extent
 #Show in OSD#Show in OSD
 #Show in Mirador#Show in Mirador
 #Show in new tab#Show in new tab

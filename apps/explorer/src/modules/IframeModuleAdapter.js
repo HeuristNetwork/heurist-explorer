@@ -117,6 +117,7 @@ export class IframeModuleAdapter extends ExplorerModule {
       editRules: (value, options) => outer.editRules?.(value, options),
       describeRules: (rules) => outer.describeRules?.(rules),
       editFieldset: (value, options) => outer.editFieldset?.(value, options),
+      zoomToExtent: (wkt) => outer.zoomToExtent?.(wkt),
       showDatasource: (source) => {
         if (['map', 'timeline'].includes(this.type)) this.dataSource = clone(source);
         return outer.showDatasource?.(source, ['map', 'timeline'].includes(this.type) ? { origin: this.id } : {});

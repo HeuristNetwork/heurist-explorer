@@ -12,6 +12,7 @@ html, body, .heurist-recordview-root { width: 100%; height: 100%; margin: 0; ove
   min-height: 0;
   position: relative;
   background: var(--h-color-bg);
+  container-type: inline-size;
 }
 
 .heurist-recordview-body { flex: 1 1 0; min-height: 0; overflow: auto; position: relative; }
@@ -159,6 +160,11 @@ html, body, .heurist-recordview-root { width: 100%; height: 100%; margin: 0; ove
   flex-direction: column;
   gap: 2px;
 }
+/* Narrow panel: fall back to the original stacked layout (label above its
+   value) since there isn't room for a two-column grid. */
+@container (max-width: 460px) {
+  .heurist-recordview-section-fields { grid-template-columns: 1fr; }
+}
 .heurist-recordview-value-line { overflow-wrap: anywhere; }
 .heurist-recordview-value-line p { margin: 0 0 4px; }
 .heurist-recordview-value-line p:last-child { margin-bottom: 0; }
@@ -167,6 +173,10 @@ html, body, .heurist-recordview-root { width: 100%; height: 100%; margin: 0; ove
   color: var(--h-color-text-muted);
 }
 .heurist-recordview-resource-link { cursor: pointer; }
+
+.heurist-recordview-geo-line { display: flex; align-items: center; gap: 6px; }
+.heurist-recordview-geo-summary { overflow-wrap: anywhere; }
+.heurist-recordview-geo-zoom { flex: none; }
 
 .heurist-recordview-footer {
   display: flex;

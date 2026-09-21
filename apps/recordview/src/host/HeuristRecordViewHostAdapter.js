@@ -41,6 +41,7 @@ export class HeuristRecordViewHostAdapter extends HostAdapter {
       editing: this.supportsEditing(),
       recordViewPreferences: Boolean(this.baseUrl && this.database),
       recordViewPublishing: Boolean(this.baseUrl && this.database),
+      mapZoom: typeof this.bridge?.zoomToExtent === "function",
     };
   }
 
@@ -55,6 +56,30 @@ export class HeuristRecordViewHostAdapter extends HostAdapter {
    */
   publishSelection(recordIds) {
     return this.bridge?.onSelection?.([...recordIds]);
+  }
+
+  /**
+   * Ask the host to zoom its active map module to a WKT geometry's extent.
+   *
+   * @param {string} wkt WKT geometry text.
+   * @returns {*} Result of the host's zoom action, or `null` when unsupported.
+   */
+  zoomToExtent(wkt) {
+    return this.bridge?.zoomToExtent?.(wkt) ?? null;
+  }
+
+  /**
+   * Whether the host currently has an active map module to zoom to. A live
+   * check (unlike `getCapabilities().mapZoom`, which only reflects whether
+   * the host bridge supports the action at all) — layout membership can
+   * change while a record stays displayed.
+   *
+   * @returns {Promise<boolean>}
+   */
+  async hasMapModule() {
+    if (typeof this.bridge?.zoomToExtent !== "function") return false;
+    const context = await this.bridge?.getHostContext?.();
+    return Boolean(context?.hasMapModule);
   }
 
   /** Release any resources held by the adapter. No-op for this host. */

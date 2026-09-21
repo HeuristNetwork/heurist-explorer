@@ -27,6 +27,7 @@ test("getCapabilities reflects editing support and FrontController configuration
     editing: true,
     recordViewPreferences: true,
     recordViewPublishing: true,
+    mapZoom: false,
   });
 
   const unconfigured = new HeuristRecordViewHostAdapter();
@@ -34,6 +35,7 @@ test("getCapabilities reflects editing support and FrontController configuration
     editing: false,
     recordViewPreferences: false,
     recordViewPublishing: false,
+    mapZoom: false,
   });
 });
 

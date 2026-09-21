@@ -330,12 +330,18 @@ export class RecordViewApplication extends EventTarget {
         if (generation !== this.generation) return;
         const recordTypeName = recordTypes.get(recordTypeId) || null;
         this.recordTitle = record.rec_Title || recordTypeName || null;
+        const hasGeoField = sections.some((section) => section.fields.some((field) =>
+          field.type === "geo" && record?.details?.[String(field.id)]?.length));
+        const canZoomExtent = hasGeoField && (await this.host?.hasMapModule?.());
+        if (generation !== this.generation) return;
         this.renderer.showBuiltin(record, {
           sections,
           recordTypeName,
           canEdit: Boolean(this.getHostCapabilities().editing),
           onEdit: (recordId) => this.host?.editRecord?.(recordId),
           onNavigate: (recordId) => this.navigateToRecord(recordId),
+          canZoomExtent: Boolean(canZoomExtent),
+          onZoomExtent: (wkt) => this.host?.zoomToExtent?.(wkt),
         });
       } else {
         this.recordTitle = null;
