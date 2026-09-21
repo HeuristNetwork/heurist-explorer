@@ -105,7 +105,7 @@ test('number operators', () => {
 
 test('date range operators consume two values into one predicate', () => {
   const row = (op) => model({ rows: [fieldRow({ dty: 10, kind: 'date', op, values: ['1900', '1950'] })] });
-  assert.deepEqual(compose(row('op.overlaps')), [{ 'f:10': '1900<>1950' }]);
+  assert.deepEqual(compose(row('op.overlaps')), [{ 'f:10': '<>1900/1950' }]);
   assert.deepEqual(compose(row('op.within_range')), [{ 'f:10': '><1900/1950' }]);
 });
 

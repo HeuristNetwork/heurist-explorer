@@ -285,11 +285,11 @@ export class QuerySourceEditor extends HBaseWidget {
     await this.execute();
   }
 
-  /** Open the expansion-rules editor (host Rule Builder or fallback) and apply the result to the draft. */
+  /** Open the native expansion-rules editor and apply the result to the draft. */
   async openRuleBuilder() {
     if (!this.draft || !(await this._ensureRecordTypeConsistency())) return;
-    const editor = new HRuleBuilder({ editRules: this.editRules, describeRules: this.describeRules });
-    editor.setRules(this.draft.request.rules || []);
+    const editor = new HRuleBuilder({ dbdefs: this.dbdefs, lang: this.lang, describeRules: this.describeRules });
+    editor.setRules(this.draft.request.rules || []).setRecordTypes([this._recordTypeId()]);
     const rules = await editor.open({ dataSource: this.getDraftDataSource() });
     if (rules) { this.draft.request.rules = clone(rules); this._markDirty(); this._renderSummary(); }
   }

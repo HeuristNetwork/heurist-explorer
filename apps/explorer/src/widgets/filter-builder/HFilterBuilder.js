@@ -57,6 +57,8 @@ export class HFilterBuilder extends HBaseWidget {
     this._entries = []; // { kind:'field'|'link', item?:HFilterBuilderItem, panel?:LinkPanel, el:HTMLElement }
     this._sorts = [];   // HFilterBuilderSort
     this.form = null;
+    this._fixedRecordTypeId = null;
+    this._allowParameters = true;
   }
 
   /**
@@ -116,7 +118,10 @@ export class HFilterBuilder extends HBaseWidget {
     this.container.append(header);
 
     const guidance = el('p', 'h-fb-guidance h-i18n');
-    guidance.textContent = 'Select fields, comparison operators and values. Leave a value blank to let the user enter it in the Filter Form when the Query Source runs.';
+    guidance.textContent = this._allowParameters
+      ? 'Select fields, comparison operators and values. Leave a value blank to let the user enter it in the Filter Form when the Query Source runs.'
+      : 'Select fields, comparison operators and values.';
+    this._guidance = guidance;
     this.container.append(guidance);
 
     // ---- criteria ----
@@ -192,6 +197,35 @@ export class HFilterBuilder extends HBaseWidget {
 
   // ------------------------------------------------------------- public API ---
 
+  /**
+   * Predefine the query record type. When locked, the selector is disabled and
+   * the record type acts as builder scope rather than an editable criterion.
+   *
+   * @param {number|string|null} rtyId Record type id.
+   * @param {{locked?:boolean,allowParameters?:boolean}} [options]
+   * @returns {HFilterBuilder} This instance.
+   */
+  setRecordType(rtyId, options = {}) {
+    const { locked = false, allowParameters = this._allowParameters } = options;
+    const value = coerceRty(rtyId);
+    this._allowParameters = allowParameters !== false;
+    if (!this._allowParameters) this.form = null;
+    this._fixedRecordTypeId = locked && value !== '' ? value : null;
+    this.model.rtyId = value;
+    if (this.isRendered) {
+      this._rtySel.value = value === '' || value == null ? '' : String(value);
+      this._rtySel.disabled = Boolean(this._fixedRecordTypeId);
+      if (this._guidance) {
+        this._guidance.textContent = this._allowParameters
+          ? 'Select fields, comparison operators and values. Leave a value blank to let the user enter it in the Filter Form when the Query Source runs.'
+          : 'Select fields, comparison operators and values.';
+      }
+      this._onScopeChanged();
+      this._recompose();
+    }
+    return this;
+  }
+
   /** @returns {Array<object>} the composed Heurist q-array */
   getQuery() {
     return this.getDefinition().query;
@@ -237,10 +271,10 @@ export class HFilterBuilder extends HBaseWidget {
         }
       }
     };
-    visit(model.rows);
+    if (this._allowParameters) visit(model.rows);
     const query = composeQuery(model, this.vocab);
-    const parameters = describeQueryParameters(query, this.dbdefs);
-    const filterForm = this.form && Object.keys(parameters).length
+    const parameters = this._allowParameters ? describeQueryParameters(query, this.dbdefs) : {};
+    const filterForm = this._allowParameters && this.form && Object.keys(parameters).length
       ? structuredClone(this.form) : null;
     if (filterForm) {
       for (const group of filterForm.groups || []) {
@@ -264,6 +298,7 @@ export class HFilterBuilder extends HBaseWidget {
     }
     const queryArray = definition?.query || definition?.q || definition;
     this.model = parseQuery(queryArray, this.vocab);
+    if (this._fixedRecordTypeId != null) this.model.rtyId = this._fixedRecordTypeId;
     this.form = definition?.filterForm || null;
     const restore = (rows) => {
       for (const row of rows || []) {
@@ -275,7 +310,7 @@ export class HFilterBuilder extends HBaseWidget {
         if (second) { row.placeholderIds[1] = second[1]; row.values[1] = ''; }
       }
     };
-    restore(this.model.rows);
+    if (this._allowParameters) restore(this.model.rows);
     if (!this.model.lang) this.model.lang = this.lang;
     if (this.isRendered) this._syncFromModel();
     this._recompose();
@@ -288,6 +323,7 @@ export class HFilterBuilder extends HBaseWidget {
    * @returns {Promise<void>} Completion after the dialog opens.
    */
   async openFormDesigner() {
+    if (!this._allowParameters) return;
     let definition;
     try { definition = this.getDefinition(); }
     catch (error) { HMsg.showMsgFlash?.(error.message); return; }
@@ -334,6 +370,7 @@ export class HFilterBuilder extends HBaseWidget {
    * @returns {Promise<void>} Completion after the dialog opens.
    */
   async previewFilterForm() {
+    if (!this._allowParameters) return;
     let definition;
     try { definition = this.getDefinition(); }
     catch (error) { HMsg.showMsgFlash?.(error.message); return; }
@@ -414,6 +451,7 @@ export class HFilterBuilder extends HBaseWidget {
    */
   _syncFromModel() {
     this._rtySel.value = this.model.rtyId === '' || this.model.rtyId == null ? '' : String(this.model.rtyId);
+    this._rtySel.disabled = Boolean(this._fixedRecordTypeId);
     this._conjSel.value = this.model.conjunction === 'any' ? 'any' : 'all';
 
     for (const entry of this._entries) {
@@ -650,15 +688,19 @@ export class HFilterBuilder extends HBaseWidget {
   _recompose() {
     this.model = this._readModel();
     const q = this.getDefinition().query;
-    const hasParameters = hasParameterRows(this.model.rows, this.vocab);
-    if (this._formActions) this._formActions.hidden = !hasParameters;
+    const hasParameters = this._allowParameters && hasParameterRows(this.model.rows, this.vocab);
+    if (this._formActions) this._formActions.hidden = !this._allowParameters || !hasParameters;
     if (this._criteriaInfo) {
       const count = countCriteria(this.model.rows);
-      const blank = countBlankCriteria(this.model.rows, this.vocab);
       const criteria = count === 1 ? $HR('criterion') : $HR('criteria');
-      const blanks = blank === 1 ? $HR('has a blank value') : $HR('have blank values');
-      this._criteriaInfo.textContent = `${count} ${criteria} ${$HR('defined')}. `
-        + `${blank} ${blanks}; ${$HR('users can supply them in the Filter Form')}.`;
+      if (this._allowParameters) {
+        const blank = countBlankCriteria(this.model.rows, this.vocab);
+        const blanks = blank === 1 ? $HR('has a blank value') : $HR('have blank values');
+        this._criteriaInfo.textContent = `${count} ${criteria} ${$HR('defined')}. `
+          + `${blank} ${blanks}; ${$HR('users can supply them in the Filter Form')}.`;
+      } else {
+        this._criteriaInfo.textContent = `${count} ${criteria} ${$HR('defined')}.`;
+      }
     }
     const sentence = q.length
       ? queryDescribe(q, { dbdefs: this.dbdefs, vocabulary: this.vocab, lang: this.lang })

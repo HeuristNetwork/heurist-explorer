@@ -67,6 +67,15 @@ test('header keyword predicates', () => {
   );
 });
 
+
+
+test('date overlap range uses human operator text', () => {
+  assert.equal(
+    say([{ added: '<>1900-01-01/2000-01-01' }]),
+    'Find records where date added falls in or overlaps 1900-01-01/2000-01-01'
+  );
+});
+
 test('single linked sub-query - matches the plan example', () => {
   assert.equal(
     say([{ t: '12' }, { 'lf:134': [{ t: '48' }, { 'f:237': '10443' }] }]),

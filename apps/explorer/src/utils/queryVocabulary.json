@@ -53,7 +53,7 @@
       { "token": "<>", "input": "range",  "pattern": "{a}<>{b}", "i18nKey": "op.between" }
     ],
     "date": [
-      { "token": "<>", "input": "range", "pattern": "{a}<>{b}", "i18nKey": "op.overlaps" },
+      { "token": "<>", "input": "range", "pattern": "<>{a}/{b}", "i18nKey": "op.overlaps" },
       { "token": "><", "input": "range", "pattern": "><{a}/{b}", "i18nKey": "op.within_range" },
       { "token": "=",  "input": "date",  "i18nKey": "op.on" },
       { "token": ">=", "input": "date",  "i18nKey": "op.on_or_after" },
@@ -146,6 +146,7 @@
       "op.all_of": "is all of",
       "op.is_set": "has a value",
       "op.is_empty": "has no value",
+      "op.count": "count",
 
       "phrase.find": "Find {rectype}",
       "phrase.any_type": "records",
