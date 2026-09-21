@@ -14,7 +14,7 @@
  */
 
 import { HBaseWidget } from '#shared/widgets';
-import { defaultLayout } from '#shared/widgets/filter/HFilterForm.js';
+import { HFilterForm, defaultLayout } from '#shared/widgets/filter/HFilterForm.js';
 import flatpickr from 'flatpickr';
 import './HFilterFormDesigner.css';
 
@@ -31,6 +31,12 @@ export class HFilterFormDesigner extends HBaseWidget {
     super.attach(container, options);
     this.parameters = options.parameters || {};
     this.layout = structuredClone(options.layout || defaultLayout(this.parameters));
+    this.query = options.query || [];
+    this.dbdefs = options.dbdefs;
+    this.selectExtent = options.selectExtent;
+    this.preview = null;
+    this._previewRevision = 0;
+    this._previewScheduled = false;
 
     return this;
   }
@@ -56,15 +62,51 @@ export class HFilterFormDesigner extends HBaseWidget {
       orientation.append(option);
     }
     orientation.value = this.layout.settings?.orientation || 'vertical';
+
+    const showPreview = document.createElement('input');
+    showPreview.type = 'checkbox';
+    showPreview.className = 'h-checkbox';
+    showPreview.checked = true;
+    const previewToggle = this._label('Show Form Preview', showPreview);
+    previewToggle.classList.add('h-filter-form-designer-preview-toggle');
+
+    const toolbar = document.createElement('div');
+    toolbar.className = 'h-filter-form-designer-toolbar';
+    toolbar.append(this._label('Orientation', orientation), previewToggle);
+    this.container.append(toolbar);
+
+    this.workspace = document.createElement('div');
+    this.workspace.className = 'h-filter-form-designer-workspace';
+    this.rows = document.createElement('div');
+    this.rows.className = 'h-filter-form-designer-rows';
+
+    this.previewPane = document.createElement('section');
+    this.previewPane.className = 'h-filter-form-designer-preview-pane';
+    const previewTitle = document.createElement('h3');
+    previewTitle.className = 'h-filter-form-designer-preview-title h-i18n';
+    previewTitle.textContent = 'Filter Form preview';
+    this.previewHost = document.createElement('div');
+    this.previewHost.className = 'h-filter-form-designer-preview';
+    this.previewPane.append(previewTitle, this.previewHost);
+    this.workspace.append(this.rows, this.previewPane);
+    this.container.append(this.workspace);
+
+    const applyWorkspaceOrientation = () => {
+      const vertical = orientation.value === 'vertical';
+      this.workspace.classList.toggle('is-preview-side', vertical);
+      this.workspace.classList.toggle('is-preview-below', !vertical);
+    };
+    applyWorkspaceOrientation();
     this.listen(orientation, 'change', () => {
       this.layout.settings ||= {};
       this.layout.settings.orientation = orientation.value;
+      applyWorkspaceOrientation();
+      this._schedulePreview();
     });
-    this.container.append(this._label('Orientation', orientation));
-
-    this.rows = document.createElement('div');
-    this.rows.className = 'h-filter-form-designer-rows';
-    this.container.append(this.rows);
+    this.listen(showPreview, 'change', () => {
+      this.previewPane.hidden = !showPreview.checked;
+      if (showPreview.checked) this._schedulePreview();
+    });
     this._renderRows();
     this.state = 'rendered';
     return this;
@@ -106,8 +148,10 @@ export class HFilterFormDesigner extends HBaseWidget {
     if (!group) throw new Error('Filter form layout requires a root group');
     const ordered = group.children.map((child) => child.input);
 
+    const companionInputs = new Set(Object.values(this.parameters)
+      .map((parameter) => parameter.endInput).filter(Boolean));
     for (const id of Object.keys(this.parameters)) {
-      if (!ordered.includes(id)) ordered.push(id);
+      if (!companionInputs.has(id) && !ordered.includes(id)) ordered.push(id);
     }
 
     for (const id of ordered) {
@@ -116,10 +160,38 @@ export class HFilterFormDesigner extends HBaseWidget {
       const config = group.children.find((child) => child.input === id) || { input: id };
       const row = document.createElement('div');
       row.className = 'h-filter-form-designer-row';
+      row.dataset.input = id;
+      this.listen(row, 'dragstart', (event) => {
+        this._draggedInput = id;
+        event.dataTransfer.effectAllowed = 'move';
+        event.dataTransfer.setData('text/plain', id);
+        row.classList.add('is-dragging');
+      });
+      this.listen(row, 'dragend', () => {
+        this._draggedInput = null;
+        row.classList.remove('is-dragging');
+      });
+      this.listen(row, 'dragover', (event) => {
+        if (!this._draggedInput || this._draggedInput === id) return;
+        event.preventDefault();
+        event.dataTransfer.dropEffect = 'move';
+      });
+      this.listen(row, 'drop', (event) => {
+        event.preventDefault();
+        this._moveBefore(this._draggedInput, id);
+      });
+      const drag = document.createElement('span');
+      drag.className = 'h-filter-form-designer-drag';
+      drag.textContent = '⠿';
+      drag.title = 'Drag to reorder';
+      drag.setAttribute('aria-label', 'Drag to reorder');
       const enabled = document.createElement('input');
       enabled.type = 'checkbox';
       enabled.checked = group.children.some((child) => child.input === id);
+      row.draggable = enabled.checked;
+      row.classList.toggle('is-hidden-input', !enabled.checked);
       enabled.setAttribute('aria-label', `Show ${id}`);
+      enabled.title = 'Show this input in the Filter Form';
       this.listen(enabled, 'change', () => {
         group.children = group.children.filter((child) => child.input !== id);
         if (enabled.checked) group.children.push(config);
@@ -127,23 +199,28 @@ export class HFilterFormDesigner extends HBaseWidget {
       });
       const name = document.createElement('span');
       name.className = 'h-filter-form-designer-name';
-      name.textContent = id;
+      name.textContent = parameter.pathLabel || parameter.label || id;
+      name.title = id;
       const label = document.createElement('input');
       label.className = 'h-input';
       label.value = config.label || parameter.label || id;
       label.setAttribute('aria-label', `Label for ${id}`);
-      this.listen(label, 'input', () => { config.label = label.value; });
-      row.append(enabled, name, label);
+      this.listen(label, 'input', () => { config.label = label.value; this._schedulePreview(); });
+      row.append(drag, enabled, name, label);
 
       if (parameter.type === 'enum') {
         const mode = this._select(['select', 'radio', 'checkbox'], config.mode || 'select');
         this.listen(mode, 'change', () => {
           config.mode = mode.value;
           config.multiple = mode.value === 'checkbox';
+          this._schedulePreview();
         });
         row.append(mode);
         const orientation = this._select(['column', 'inline'], config.orientation || 'column');
-        this.listen(orientation, 'change', () => { config.orientation = orientation.value; });
+        this.listen(orientation, 'change', () => {
+          config.orientation = orientation.value;
+          this._schedulePreview();
+        });
         row.append(orientation);
       }
 
@@ -151,6 +228,7 @@ export class HFilterFormDesigner extends HBaseWidget {
         const control = this._select(['direct', 'slider'], config.widget?.control || 'direct');
         this.listen(control, 'change', () => {
           config.widget = { ...(config.widget || {}), type: 'range', control: control.value };
+          this._renderRows();
         });
         row.append(control);
 
@@ -161,33 +239,65 @@ export class HFilterFormDesigner extends HBaseWidget {
           input.placeholder = bound;
           input.setAttribute('aria-label', `${bound} for ${id}`);
           input.value = config.widget?.[bound] ?? '';
+          input.hidden = control.value !== 'slider';
           this.listen(input, 'change', () => {
             config.widget = { ...(config.widget || {}), type: 'range', control: control.value };
             config.widget[bound] = input.value || undefined;
+            this._schedulePreview();
           });
           row.append(input);
           if (parameter.type === 'date') {
             this._boundPickers.push(flatpickr(input, {
               dateFormat: 'Y-m-d',
               allowInput: true,
-              appendTo: row,
+              onOpen: (_dates, _text, picker) => positionDesignerCalendar(input, picker),
               onChange: () => input.dispatchEvent(new Event('change', { bubbles: true }))
             }));
           }
         }
       }
 
-      const up = this._moveButton('↑', id, -1);
-      const down = this._moveButton('↓', id, 1);
-      row.append(up, down);
       this.rows.append(row);
     }
+    this._schedulePreview();
+  }
+
+  /** Schedule one live preview refresh after the current designer update. */
+  _schedulePreview() {
+    this._previewRevision++;
+    if (this._previewScheduled || !this.previewHost) return;
+    this._previewScheduled = true;
+    queueMicrotask(() => void this._refreshPreview());
+  }
+
+  /** Rebuild the runtime Filter Form preview from the latest layout. */
+  async _refreshPreview() {
+    const revision = this._previewRevision;
+    this._previewScheduled = false;
+    const previous = this.preview;
+    this.preview = null;
+    if (previous) await previous.destroy();
+    if (revision !== this._previewRevision) {
+      this._schedulePreview();
+      return;
+    }
+    const preview = new HFilterForm();
+    preview.attach(this.previewHost, {
+      definition: { query: this.query, filterForm: structuredClone(this.layout) },
+      dbdefs: this.dbdefs,
+      selectExtent: this.selectExtent,
+      preview: true
+    }).render();
+    this.preview = preview;
   }
 
   /** Dispose calendar widgets and DOM listeners. */
   async destroy() {
     for (const picker of this._boundPickers || []) picker.destroy();
     this._boundPickers = [];
+    this._previewRevision++;
+    await this.preview?.destroy?.();
+    this.preview = null;
     await super.destroy();
   }
 
@@ -217,20 +327,36 @@ export class HFilterFormDesigner extends HBaseWidget {
     return select;
   }
 
-  /** @returns {HTMLButtonElement} Order button. */
-  _moveButton(text, id, direction) {
-    const button = document.createElement('button');
-    button.type = 'button';
-    button.className = 'h-btn h-btn-small';
-    button.textContent = text;
-    this.listen(button, 'click', () => {
-      const children = this.layout.groups[0].children;
-      const index = children.findIndex((child) => child.input === id);
-      const target = index + direction;
-      if (index < 0 || target < 0 || target >= children.length) return;
-      [children[index], children[target]] = [children[target], children[index]];
-      this._renderRows();
-    });
-    return button;
+  /** Move one visible input before another after a drag operation. */
+  _moveBefore(sourceId, targetId) {
+    if (!sourceId || sourceId === targetId) return;
+    const children = this.layout.groups[0].children;
+    const source = children.findIndex((child) => child.input === sourceId);
+    const target = children.findIndex((child) => child.input === targetId);
+    if (source < 0 || target < 0) return;
+    const [item] = children.splice(source, 1);
+    children.splice(children.findIndex((child) => child.input === targetId), 0, item);
+    this._renderRows();
   }
+}
+
+/** Keep a slider-bound calendar within the visible designer dialog. */
+function positionDesignerCalendar(input, picker) {
+  const calendar = picker.calendarContainer;
+  const dialog = input.closest('dialog');
+  const parent = dialog || document.body;
+  if (calendar.parentElement !== parent) parent.append(calendar);
+  const rect = input.getBoundingClientRect();
+  const bounds = dialog?.getBoundingClientRect();
+  const top = Math.max(8, bounds?.top ?? 8);
+  const bottom = Math.min(window.innerHeight - 8, bounds?.bottom ?? window.innerHeight - 8);
+  const height = Math.max(80, Math.min(calendar.offsetHeight || 320, bottom - top - 16));
+  const below = bottom - rect.bottom;
+  const openBelow = below >= height || below >= rect.top - top;
+  calendar.style.position = 'fixed';
+  calendar.style.maxHeight = `${height}px`;
+  calendar.style.overflowY = 'auto';
+  calendar.style.top = `${Math.max(top, openBelow ? rect.bottom + 2 : rect.top - height - 2)}px`;
+  calendar.style.left = `${Math.max(8, Math.min(rect.left,
+    window.innerWidth - calendar.offsetWidth - 8))}px`;
 }

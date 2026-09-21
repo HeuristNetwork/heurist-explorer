@@ -9,5 +9,4 @@
 }
 
 .h-input-numeric-range { flex-wrap: wrap; }
-.h-input-numeric-sliders { display: flex; width: 100%; gap: var(--h-gap); }
-.h-input-numeric-sliders input { width: 50%; }
+.h-input-numeric-sliders { width: 100%; }

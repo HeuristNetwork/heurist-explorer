@@ -5,10 +5,9 @@ import {
   composeQuery,
   parseQuery,
   emptyModel,
-  emptyFieldRow,
-  composeWithParameters,
-  composeFilterRequest
+  emptyFieldRow
 } from '../src/utils/queryModel.js';
+import { rowForPath } from '../src/widgets/filter-builder/HFilterBuilder.js';
 
 const VOCAB = JSON.parse(
   readFileSync(new URL('../src/utils/queryVocabulary.json', import.meta.url), 'utf8')
@@ -34,9 +33,24 @@ test('creator is/not is and geographic fields use their dedicated predicates', (
   assert.deepEqual(compose(model({ rows: [fieldRow({ dty: 'addedby', op: 'op.is_not', values: ['3'] })] })),
     [{ addedby: '-3' }]);
   const wkt = 'POLYGON((10 -5,20 -5,20 8,10 8,10 -5))';
-  const query = [{ t: '10' }, { geo: wkt }];
+  const query = [{ t: '10' }, { 'geo:28': wkt }];
   assert.deepEqual(compose(model({ rtyId: 10, rows: [fieldRow({ dty: 28, kind: 'geo', values: [wkt] })] })), query);
   assert.deepEqual(compose(parseQuery(query, VOCAB)), query);
+});
+
+test('nested field-tree paths retain every intermediate link', () => {
+  const path = [
+    { via: { link: 'lt', dty: 240, targetRty: 48 } },
+    { via: { link: 'lt', dty: 134, targetRty: 12 } },
+    { dty: 1, fieldType: 'freetext' }
+  ];
+  assert.deepEqual(rowForPath(path, VOCAB), {
+    type: 'link', link: 'lt', dty: 240, targetRty: 48, conjunction: 'all', rows: [{
+      type: 'link', link: 'lt', dty: 134, targetRty: 12, conjunction: 'all', rows: [
+        fieldRow({ dty: 1, selected: true, kind: 'text', op: null })
+      ]
+    }]
+  });
 });
 
 test('nested linked predicates retain every intermediate record type', () => {
@@ -56,50 +70,6 @@ test('linked record existence and missing predicates round-trip', () => {
     const query = [{ t: '10' }, { 'lt:134': [{ t: '12' }, { exists: value }] }];
     assert.deepEqual(compose(parseQuery(query, VOCAB)), query);
   }
-});
-
-test('parameter values resolve into flat and linked predicates without changing the template', () => {
-  const template = model({
-    rtyId: 10,
-    rows: [
-      fieldRow({ dty: 1, kind: 'text', op: 'op.exact', parameterId: 'personName' }),
-      { type: 'link', link: 'lt', dty: 240, targetRty: 48, conjunction: 'all', rows: [
-        fieldRow({ dty: 237, kind: 'enum', op: 'op.is', parameterId: 'placeType' })
-      ] }
-    ]
-  });
-
-  assert.deepEqual(compose(template), [{ t: '10' }, { 'lt:240': [{ t: '48' }] }]);
-  assert.deepEqual(composeWithParameters(template, { personName: 'Smith', placeType: 5399 }, VOCAB), [
-    { t: '10' },
-    { 'f:1': '=Smith' },
-    { 'lt:240': [{ t: '48' }, { 'f:237': '5399' }] }
-  ]);
-  assert.equal(template.rows[0].parameterId, 'personName');
-});
-
-test('empty parameters omit predicates and open ranges keep only the supplied endpoint', () => {
-  const template = model({ rows: [
-    fieldRow({ dty: 1, kind: 'text', op: 'op.exact', parameterId: 'name' }),
-    fieldRow({ dty: 32, kind: 'number', op: 'op.between', parameterId: 'zoom' })
-  ] });
-
-  assert.deepEqual(composeWithParameters(template, { name: '', zoom: { from: 2, to: null } }, VOCAB), [
-    { 'f:32': '>=2' }
-  ]);
-  assert.deepEqual(composeWithParameters(template, { zoom: { from: null, to: 8 } }, VOCAB), [
-    { 'f:32': '<=8' }
-  ]);
-});
-
-test('geographic parameter is a separate viewport extent, never a WKT query token', () => {
-  const template = model({ rows: [fieldRow({
-    dty: 28, kind: 'geo', op: 'op.within', parameterId: 'placeExtent'
-  })] });
-  const extent = { west: 1, south: 2, east: 3, north: 4 };
-  assert.deepEqual(composeFilterRequest(template, { placeExtent: extent }, VOCAB), {
-    q: [], extent
-  });
 });
 
 // ------------------------------------------------------------------- compose ---

@@ -57,11 +57,14 @@ export class HInput extends HBaseWidget {
 
     const controlHost = document.createElement('div');
     controlHost.className = 'h-form-input-control';
+    const controlWrap = document.createElement('div');
+    controlWrap.className = 'h-form-input-control-wrap';
+    controlHost.append(controlWrap);
     if (!this.options.suppressLabel) this.container.append(label);
     this.container.append(controlHost);
 
     this.label = label;
-    this.control = this.renderControl(controlHost);
+    this.control = this.renderControl(controlWrap);
     if (this.control) {
       this.control.id = `h-input-${++nextInputId}`;
       label.htmlFor = this.control.id;

@@ -83,7 +83,10 @@ export class HInputDate extends HInput {
   setReadOnly(readOnly) {
     super.setReadOnly(readOnly);
     if (this.endControl) this.endControl.disabled = Boolean(readOnly);
-    for (const slider of this.sliders || []) slider.disabled = Boolean(readOnly);
+    for (const [index, slider] of (this.sliders || []).entries()) {
+      const endpoint = index ? 'to' : 'from';
+      slider.disabled = Boolean(readOnly) || this.options.fixedValue?.[endpoint] != null;
+    }
     return this;
   }
 
@@ -146,11 +149,11 @@ export class HInputDate extends HInput {
     }
   }
 
-  /** Add date sliders when the designer supplies finite bounds. */
+  /** Add one date range track with independent start and end handles. */
   _addSliders(host) {
     this.sliders = [];
     const wrapper = document.createElement('div');
-    wrapper.className = 'h-input-date-sliders';
+    wrapper.className = 'h-input-date-sliders h-input-dual-slider';
 
     for (const [index, endpoint] of [this.control, this.endControl].entries()) {
       const slider = document.createElement('input');
@@ -161,13 +164,20 @@ export class HInputDate extends HInput {
       slider.setAttribute('aria-label', endpoint.placeholder);
       slider.disabled = endpoint.readOnly;
       slider.addEventListener('input', () => {
+        const other = this.sliders[index ? 0 : 1];
+        if (other) slider.value = String(index
+          ? Math.max(Number(slider.value), Number(other.value))
+          : Math.min(Number(slider.value), Number(other.value)));
         this.pickers[index].setDate(dayDate(Number(slider.value)), true, 'Y-m-d');
+        this._syncSliderFill(wrapper);
       });
       wrapper.append(slider);
       this.sliders.push(slider);
     }
 
     host.append(wrapper);
+    this.sliderWrapper = wrapper;
+    this._syncSliderFill(wrapper);
   }
 
   /** Synchronize slider positions after direct date changes. */
@@ -177,6 +187,17 @@ export class HInputDate extends HInput {
       this.sliders[index].value = String(dateDay(endpoint.value)
         ?? dateDay(index ? this.options.max : this.options.min));
     }
+    this._syncSliderFill(this.sliderWrapper);
+  }
+
+  /** Paint the selected interval between the two slider handles. */
+  _syncSliderFill(wrapper) {
+    if (!wrapper || this.sliders?.length !== 2) return;
+    const min = dateDay(this.options.min);
+    const span = dateDay(this.options.max) - min;
+    if (!(span > 0)) return;
+    wrapper.style.setProperty('--h-range-from', `${(Number(this.sliders[0].value) - min) / span * 100}%`);
+    wrapper.style.setProperty('--h-range-to', `${(Number(this.sliders[1].value) - min) / span * 100}%`);
   }
 }
 

@@ -51,7 +51,7 @@
 .h-fb-row,
 .h-fb-subrow {
     display: grid;
-    grid-template-columns: 64px minmax(190px, 2fr) 24px minmax(150px, 1.5fr) minmax(260px, 3fr) 110px;
+    grid-template-columns: 64px minmax(190px, 2fr) 24px minmax(150px, 1.5fr) minmax(260px, 3fr);
     align-items: start;
     column-gap: 8px;
 }
@@ -131,8 +131,6 @@
 .h-fbitem-values { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 .h-fbitem-valrow { display: grid; grid-template-columns: 54px minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: 6px; }
 .h-fbitem-value-widget { min-width: 0; }
-.h-fbitem-parameter-id { min-width: 145px; }
-.h-fbitem-parameter { white-space: nowrap; }
 .h-fbitem-conjslot,
 .h-fbitem-conj,
 .h-fbitem-conjlabel {
@@ -186,7 +184,7 @@
 .h-fb-linkhead .h-fbitem-remove:focus-visible { opacity: 1; }
 .h-fb-linktext { white-space: nowrap; }
 .h-fb-sublist { display: flex; flex-direction: column; gap: 6px; }
-.h-fb-subrow { grid-template-columns: 64px minmax(190px, 2fr) 24px minmax(150px, 1.5fr) minmax(260px, 3fr) 110px; }
+.h-fb-subrow { grid-template-columns: 64px minmax(190px, 2fr) 24px minmax(150px, 1.5fr) minmax(260px, 3fr); }
 .h-fb-linkpanel { display: block; grid-column: 2 / -1; min-width: 0; }
 .h-fb-nested .h-fb-linkpanel {
     border-inline-start: 2px solid var(--h-color-primary);

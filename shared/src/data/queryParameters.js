@@ -33,21 +33,23 @@ export function hasQueryParameters(query) {
 /** Infer transient input descriptions from the query and database definitions. */
 export function describeQueryParameters(query, dbdefs) {
   const parameters = {};
-  visit(query, (value, key) => {
+  visit(query, (value, key, recordTypeId) => {
     if (typeof value !== 'string') return;
     const names = [...value.matchAll(TOKEN)].map((match) => match[1]);
     if (!names.length) return;
-    const fieldId = /^f(?:c)?:([0-9]+)/.exec(key)?.[1] || null;
+    const fieldId = /^(?:f|fc|geo):([0-9]+)/.exec(key)?.[1] || null;
     const field = fieldId ? dbdefs?.fieldGlobal?.(Number(fieldId)) : null;
     const fieldType = field?.type || 'text';
-    const type = key === 'geo' ? 'geo'
+    const type = key === 'geo' || key.startsWith('geo:') ? 'geo'
       : ['added', 'modified'].includes(key) ? 'date'
         : key === 'ids' || ['integer', 'float', 'year', 'numeric'].includes(fieldType) ? 'number'
           : ['enum', 'relationtype'].includes(fieldType) ? 'enum'
             : fieldType === 'date' ? 'date' : 'text';
+    const recordType = recordTypeId ? dbdefs?.rectypeName?.(recordTypeId) : '';
+    const fieldLabel = field?.name || key;
+    const pathLabel = recordType ? `${recordType}.${fieldLabel}` : fieldLabel;
     for (const name of names) {
-      parameters[name] ||= { type, fieldId: fieldId ? Number(fieldId) : null,
-        label: field?.name || key };
+      parameters[name] ||= { type, fieldId: fieldId ? Number(fieldId) : null, label: fieldLabel, pathLabel };
     }
     if (/<>|></.test(value)) {
       const parts = value.includes('<>') ? value.split('<>', 2) : value.slice(2).split('/', 2);
@@ -70,7 +72,6 @@ export function describeQueryParameters(query, dbdefs) {
 
 /** Replace runtime values and omit predicates whose values remain blank. */
 export function resolveQueryParameters(query, values = {}) {
-  let extent = null;
   const resolve = (node) => {
     if (Array.isArray(node)) return node.map(resolve).filter((item) => item !== null);
     if (!node || typeof node !== 'object') return node;
@@ -93,8 +94,9 @@ export function resolveQueryParameters(query, values = {}) {
       TOKEN.lastIndex = 0;
       const names = [...value.matchAll(TOKEN)].map((match) => match[1]);
       const present = (name) => values[name] != null && values[name] !== '';
-      if (key === 'geo' && present(names[0]) && typeof values[names[0]] === 'object') {
-        extent = values[names[0]];
+      if ((key === 'geo' || key.startsWith('geo:'))
+        && present(names[0]) && typeof values[names[0]] === 'object') {
+        result[key] = extentToWkt(values[names[0]]);
         continue;
       }
       if (names.length === 2 && /<>|></.test(value)) {
@@ -108,15 +110,27 @@ export function resolveQueryParameters(query, values = {}) {
     }
     return Object.keys(result).length ? result : null;
   };
-  return { q: resolve(query) || [], extent };
+  return { q: resolve(query) || [], extent: null };
+}
+
+/** Convert map bounds into the WKT polygon required by a geo field predicate. */
+function extentToWkt(extent) {
+  const coordinates = ['west', 'south', 'east', 'north'];
+  if (!extent || typeof extent !== 'object'
+    || !coordinates.every((key) => Number.isFinite(Number(extent[key])))) return '';
+  const { west, south, east, north } = extent;
+  return `POLYGON((${west} ${south},${east} ${south},${east} ${north},${west} ${north},${west} ${south}))`;
 }
 
 /** Visit scalar query values while retaining each predicate key. */
-function visit(node, callback, key = '') {
+function visit(node, callback, key = '', recordTypeId = null) {
   if (Array.isArray(node)) {
-    for (const child of node) visit(child, callback, key);
+    const typePredicate = node.find((child) => child && typeof child === 'object'
+      && !Array.isArray(child) && Object.hasOwn(child, 't'));
+    const scope = typePredicate?.t ?? recordTypeId;
+    for (const child of node) visit(child, callback, key, scope);
   } else if (node && typeof node === 'object') {
-    for (const [name, value] of Object.entries(node)) visit(value, callback, name);
-  } else callback(node, key);
+    for (const [name, value] of Object.entries(node)) visit(value, callback, name, recordTypeId);
+  } else callback(node, key, recordTypeId);
 }
 

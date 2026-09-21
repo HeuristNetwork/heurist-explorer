@@ -7,6 +7,11 @@
 
 #h-filter-form-designer-dialog {
   width: min(1100px, calc(100vw - 32px));
+  min-height: min(620px, calc(100vh - 32px));
+}
+
+#h-filter-form-designer-dialog .h-dialog-body {
+  min-height: min(500px, calc(100vh - 150px));
 }
 
 .h-filter-form-designer-setting,
@@ -24,7 +29,25 @@
 }
 
 .h-filter-form-designer-name {
-  min-width: 110px;
+  min-width: 190px;
+}
+
+.h-filter-form-designer-drag {
+  flex: 0 0 20px;
+  cursor: grab;
+  color: var(--h-color-text-muted, #666);
+  font-size: 20px;
+  line-height: 1;
+  text-align: center;
+}
+
+.h-filter-form-designer-row.is-dragging {
+  opacity: 0.45;
+}
+
+.h-filter-form-designer-row.is-hidden-input .h-filter-form-designer-drag {
+  cursor: default;
+  opacity: 0.25;
 }
 
 .h-filter-form-designer-row > .h-input {
@@ -34,4 +57,56 @@
 .h-filter-form-designer-row > .h-filter-form-designer-bound {
   flex: 0 1 115px;
   min-width: 95px;
+}
+
+
+.h-filter-form-designer-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+
+.h-filter-form-designer-preview-toggle {
+  flex-direction: row-reverse;
+}
+
+.h-filter-form-designer-workspace {
+  display: grid;
+  min-height: 360px;
+}
+
+.h-filter-form-designer-workspace.is-preview-side {
+  grid-template-columns: minmax(0, 3fr) minmax(320px, 2fr);
+}
+
+.h-filter-form-designer-workspace.is-preview-below {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.h-filter-form-designer-preview-pane {
+  min-width: 0;
+  padding: 12px;
+  background: var(--h-color-bg, #fff);
+}
+
+.h-filter-form-designer-workspace.is-preview-side .h-filter-form-designer-preview-pane {
+  margin-left: 16px;
+  border-left: 4px solid var(--h-color-border-strong, #777);
+}
+
+.h-filter-form-designer-workspace.is-preview-below .h-filter-form-designer-preview-pane {
+  margin-top: 16px;
+  border-top: 4px solid var(--h-color-border-strong, #777);
+}
+
+.h-filter-form-designer-preview-title {
+  margin: 0 0 10px;
+  font-size: var(--h-font-size-large);
+}
+
+.h-filter-form-designer-preview {
+  min-height: 110px;
+  padding: 6px;
+  border: 1px solid var(--h-color-border, #aaa);
+  border-radius: var(--h-border-radius, 3px);
 }

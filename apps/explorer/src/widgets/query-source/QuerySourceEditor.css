@@ -2,6 +2,7 @@
 .h-qse.is-dirty { box-shadow:inset 3px 0 0 var(--h-color-accent,#777); }
 .h-qse-query-row { display:flex; align-items:center; gap:6px; }
 .h-qse-query { flex:1 1 auto; min-width:220px; resize:vertical; min-height:30px; max-height:110px; }
+.h-qse-query[readonly] { background: var(--h-color-bg-disabled, #ededed); color: var(--h-color-text-muted, #666); }
 .h-qse-structured { flex:1 1 auto; min-width:220px; padding:5px 7px; background:var(--h-color-surface); border:1px solid var(--h-color-border); border-radius:var(--h-radius); }
 .h-qse-sentence { min-height:0; padding-left:2px; }
 .h-qse-advanced { display:grid; gap:4px; padding-top:4px; }

@@ -35,7 +35,6 @@ const HEADER_LABELS = {
   addedby: 'Creator', access: 'Visibility', tag: 'Tags', user: 'Bookmarked by'
 };
 const MULTI_INPUTS = ['text', 'term', 'record', 'tag'];
-let nextParameterId = 0;
 
 /** One flat field criterion row (field · operator · value) in the Filter Builder. */
 export class HFilterBuilderItem extends HBaseWidget {
@@ -109,17 +108,7 @@ export class HFilterBuilderItem extends HBaseWidget {
     this._valuesHost = document.createElement('div');
     this._valuesHost.className = 'h-fbitem-values';
 
-    this._parameterButton = mkbtn('', 'h-btn h-btn-small h-fbitem-parameter', () => {
-      const wasParameter = Boolean(this.row.parameterId);
-      this.row.parameterId = wasParameter ? null : `X${++nextParameterId}`;
-      this.row.parameterEndId = null;
-      if (!wasParameter) this.row.values = [''];
-      this._renderValues();
-      this._emit();
-    });
-    this._parameterButton.classList.add('h-i18n');
-
-    this.container.append(this._fieldBtn, remove, this._opSel, this._valuesHost, this._parameterButton);
+    this.container.append(this._fieldBtn, remove, this._opSel, this._valuesHost);
 
     this._syncField();
     this._renderOperators();
@@ -164,8 +153,7 @@ export class HFilterBuilderItem extends HBaseWidget {
     this.row.op = this._operators()[0]?.i18nKey || null;
     this.row.values = [''];
     this.row.geoExtent = null;
-    this.row.parameterId = null;
-    this.row.parameterEndId = null;
+    this.row.placeholderIds = [];
     if (this.isRendered) {
       this._syncField();
       this._renderOperators();
@@ -182,6 +170,11 @@ export class HFilterBuilderItem extends HBaseWidget {
    */
   setScope(rtyId) {
     this.scopeRtyId = rtyId;
+  }
+
+  /** Open the shared field picker for this condition. */
+  openFieldPicker() {
+    this._onRequestFieldPick?.(this, this._fieldBtn);
   }
 
   // ---------------------------------------------------------------- private ---
@@ -285,28 +278,10 @@ export class HFilterBuilderItem extends HBaseWidget {
   _renderValues() {
     const opDef = operatorByKey(this.vocab, this.row.kind, this.row.op) || { input: 'text' };
     const input = opDef.whole ? 'none' : (opDef.input || 'text');
-    if (opDef.whole) this.row.parameterId = null;
+    if (opDef.whole) this.row.placeholderIds = [];
     for (const widget of this._valueWidgets) void widget.destroy();
     this._valueWidgets = [];
     this._valuesHost.replaceChildren();
-
-    this._parameterButton.textContent = this.row.parameterId ? 'Use literal' : 'Use parameter';
-    this._parameterButton.hidden = Boolean(opDef.whole)
-      || !['text', 'number', 'date', 'enum', 'geo'].includes(this.row.kind);
-
-    if (this.row.parameterId) {
-      const id = document.createElement('input');
-      id.className = 'h-input h-fbitem-parameter-id';
-      id.value = this.row.parameterId;
-      id.setAttribute('aria-label', $HR('Parameter ID'));
-      id.addEventListener('change', () => {
-        this.row.parameterId = id.value.trim() || `X${++nextParameterId}`;
-        id.value = this.row.parameterId;
-        this._emit();
-      });
-      this._valuesHost.append(id);
-      return;
-    }
 
     if (input === 'none') return;
 

@@ -76,12 +76,13 @@ export class HFieldTree {
     this._linkedContext = scope?.linkedContext === true;
     this._builderMode = scope?.builderMode === true;
     this._disableLinks = scope?.disableLinks === true;
+    this._excludedLinks = new Set((scope?.excludedLinks || []).map(String));
     this._excludedFields = new Set((scope?.excludedFields || []).map(String));
     this._showSort = scope?.showSort !== false;
     this._onPick = onPick;
     this._openKeys.clear();
     this._openKeys.add(`rty:${this._rtyId}`);
-    this._openKeys.add(`fields:${this._rtyId}`);
+    this._openKeys.add(`root:fields:${this._rtyId}`);
 
     const el = document.createElement('div');
     el.className = 'h-fbtree';
@@ -191,10 +192,10 @@ export class HFieldTree {
     }
     if (this._includeHeaders) {
       nodes.push(this._headerLeaf({ dty: 'title', label: 'Title', fieldType: 'freetext' }, viaChain));
-      nodes.push(this._sectionFolder($HR('metadata'), `metadata:${rtyId}:${viaChain.length}`, () =>
+      nodes.push(this._sectionFolder($HR('metadata'), `${pathKey(viaChain)}:metadata:${rtyId}`, () =>
         HEADER_FIELDS.map((field) => this._headerLeaf(field, viaChain))));
     }
-    nodes.push(this._sectionFolder($HR('fields'), `fields:${rtyId}`, () => [
+    nodes.push(this._sectionFolder($HR('fields'), `${pathKey(viaChain)}:fields:${rtyId}`, () => [
       this._headerLeaf({ dty: 'anyfield', label: 'Any field', fieldType: 'freetext' }, viaChain),
       ...this._fieldNodes(rtyId, viaChain)
     ]));
@@ -209,11 +210,8 @@ export class HFieldTree {
     head.type = 'button';
     head.className = 'h-menu-item h-fbtree-folder-head h-i18n';
     head.textContent = `${this._openKeys.has(key) ? '▾' : '▸'} ${label}`;
-    head.addEventListener('click', () => {
-      if (this._openKeys.has(key)) this._openKeys.delete(key);
-      else this._openKeys.add(key);
-      this._renderBody();
-    });
+    head.dataset.treeKey = key;
+    head.addEventListener('click', () => this._toggleFolder(key, head));
     wrap.append(head);
     if (this._openKeys.has(key)) {
       const body = document.createElement('div');
@@ -234,11 +232,14 @@ export class HFieldTree {
     const out = [];
     for (const field of fields) {
       const linkable = LINKABLE.has(field.type);
-      if (linkable && this._builderMode && this._disableLinks) {
+      const branchBlocked = linkable && this._builderMode && viaChain.length === 0
+        && (this._disableLinks || this._excludedLinks.has(String(field.id)));
+      if (branchBlocked) {
         const disabled = document.createElement('button');
         disabled.type = 'button';
         disabled.className = 'h-menu-item h-fbtree-leaf h-fbtree-leaf-disabled';
         disabled.textContent = field.name;
+        disabled.title = $HR('This linked branch is already present. Add more conditions inside its table.');
         disabled.disabled = true;
         out.push(disabled);
         continue;
@@ -250,7 +251,7 @@ export class HFieldTree {
         const targets = this.dbdefs.fieldGlobal(field.id)?.targetTypes || [];
         out.push(this._linkFolder({
           label: field.name,
-          key: `lt:${field.id}`,
+          key: `${pathKey(viaChain)}:lt:${field.id}`,
           via: { link: 'lt', dty: field.id, targetRty: targets.length === 1 ? targets[0] : '' },
           childRtyId: targets.length === 1 ? targets[0] : null,
           targets,
@@ -332,11 +333,8 @@ export class HFieldTree {
     head.type = 'button';
     head.className = 'h-menu-item h-fbtree-folder-head';
     head.textContent = (this._openKeys.has(key) ? '▾ ' : '▸ ') + label;
-    head.addEventListener('click', () => {
-      if (this._openKeys.has(key)) this._openKeys.delete(key);
-      else this._openKeys.add(key);
-      this._renderBody();
-    });
+    head.dataset.treeKey = key;
+    head.addEventListener('click', () => this._toggleFolder(key, head));
     wrap.append(head);
 
     if (!this._openKeys.has(key)) return wrap;
@@ -370,6 +368,18 @@ export class HFieldTree {
     return wrap;
   }
 
+
+  /** Toggle a lazy folder without moving the clicked row in the scroll viewport. */
+  _toggleFolder(key, head) {
+    const previousTop = head.getBoundingClientRect().top;
+    if (this._openKeys.has(key)) this._openKeys.delete(key);
+    else this._openKeys.add(key);
+    this._renderBody();
+    const replacement = [...this._body.querySelectorAll('[data-tree-key]')]
+      .find((node) => node.dataset.treeKey === key);
+    if (replacement) this._body.scrollTop += replacement.getBoundingClientRect().top - previousTop;
+  }
+
   /**
    * Build a labeled checkbox toolbar toggle.
    *
@@ -390,6 +400,13 @@ export class HFieldTree {
     wrap.append(input, document.createTextNode(' ' + label));
     return wrap;
   }
+}
+
+
+/** Return a stable branch identifier for a linked path. */
+function pathKey(viaChain) {
+  return (viaChain || []).map(({ via }) =>
+    (via?.link || 'lt') + ':' + (via?.dty ?? '') + ':' + (via?.targetRty ?? '')).join('>') || 'root';
 }
 
 /** Place the field tree below its anchor, or above when more room is available there. */

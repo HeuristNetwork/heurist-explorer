@@ -12,8 +12,7 @@
 .h-input-date-range .flatpickr-wrapper .h-input-date { width: 100%; }
 
 .h-input-date-range { flex-wrap: wrap; }
-.h-input-date-sliders { display: flex; width: 100%; gap: var(--h-gap); }
-.h-input-date-sliders input { width: 50%; }
+.h-input-date-sliders { width: 100%; }
 .flatpickr-calendar.open { z-index: 2147483001; }
 .flatpickr-calendar { font-size: var(--h-font-size); }
 .flatpickr-calendar .flatpickr-day,

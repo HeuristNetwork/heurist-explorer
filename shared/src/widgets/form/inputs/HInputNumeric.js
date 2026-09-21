@@ -84,7 +84,10 @@ export class HInputNumeric extends HInput {
   setReadOnly(readOnly) {
     super.setReadOnly(readOnly);
     if (this.endControl) this.endControl.disabled = Boolean(readOnly);
-    for (const slider of this.sliders || []) slider.disabled = Boolean(readOnly);
+    for (const [index, slider] of (this.sliders || []).entries()) {
+      const endpoint = index ? 'to' : 'from';
+      slider.disabled = Boolean(readOnly) || this.options.fixedValue?.[endpoint] != null;
+    }
     return this;
   }
 
@@ -114,13 +117,13 @@ export class HInputNumeric extends HInput {
     return input;
   }
 
-  /** Add paired sliders under the direct endpoint fields. */
+  /** Add one range track with independent start and end handles. */
   _addSliders(host) {
     this.sliders = [];
     const wrapper = document.createElement('div');
-    wrapper.className = 'h-input-numeric-sliders';
+    wrapper.className = 'h-input-numeric-sliders h-input-dual-slider';
 
-    for (const endpoint of [this.control, this.endControl]) {
+    for (const [index, endpoint] of [this.control, this.endControl].entries()) {
       const slider = document.createElement('input');
       slider.type = 'range';
       slider.min = String(this.options.min);
@@ -129,7 +132,12 @@ export class HInputNumeric extends HInput {
       slider.setAttribute('aria-label', endpoint.placeholder);
       slider.disabled = endpoint.readOnly;
       slider.addEventListener('input', () => {
+        const other = this.sliders[index ? 0 : 1];
+        if (other) slider.value = String(index
+          ? Math.max(Number(slider.value), Number(other.value))
+          : Math.min(Number(slider.value), Number(other.value)));
         endpoint.value = slider.value;
+        this._syncSliderFill(wrapper);
         this.notifyChange();
       });
       wrapper.append(slider);
@@ -137,6 +145,8 @@ export class HInputNumeric extends HInput {
     }
 
     host.append(wrapper);
+    this.sliderWrapper = wrapper;
+    this._syncSliderFill(wrapper);
   }
 
   /** Keep sliders aligned when direct values change. */
@@ -145,6 +155,17 @@ export class HInputNumeric extends HInput {
     for (const [index, endpoint] of [this.control, this.endControl].entries()) {
       this.sliders[index].value = endpoint.value || (index ? String(this.options.max) : String(this.options.min));
     }
+    this._syncSliderFill(this.sliderWrapper);
+  }
+
+  /** Paint the selected interval between the two slider handles. */
+  _syncSliderFill(wrapper) {
+    if (!wrapper || this.sliders?.length !== 2) return;
+    const min = Number(this.options.min);
+    const span = Number(this.options.max) - min;
+    if (!(span > 0)) return;
+    wrapper.style.setProperty('--h-range-from', `${(Number(this.sliders[0].value) - min) / span * 100}%`);
+    wrapper.style.setProperty('--h-range-to', `${(Number(this.sliders[1].value) - min) / span * 100}%`);
   }
 
   /** @returns {number|null} Parsed control value. */

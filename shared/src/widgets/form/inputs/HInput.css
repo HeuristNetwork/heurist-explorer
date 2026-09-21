@@ -10,16 +10,20 @@
 }
 
 .h-form-input-control {
+  display: flex;
+  align-items: center;
+  gap: 4px;
   min-width: 0;
-  position: relative;
+}
+
+.h-form-input-control-wrap {
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 .h-form-input-clear {
-  position: absolute;
-  inset-inline-end: 4px;
-  top: 3px;
+  flex: 0 0 auto;
   opacity: 0;
-  z-index: 1;
 }
 
 .h-form-input-control:hover .h-form-input-clear,
@@ -27,7 +31,48 @@
 
 .h-form-input-clear[hidden] { display: none; }
 
-.h-form-input-control > .h-input,
-.h-form-input-control > .h-select {
+.h-form-input-control-wrap > .h-input,
+.h-form-input-control-wrap > .h-select {
   width: 100%;
+}
+
+.h-input-dual-slider {
+  --h-range-from: 0%;
+  --h-range-to: 100%;
+  position: relative;
+  height: 24px;
+  background: linear-gradient(to right,
+    var(--h-color-border, #bbb) 0 var(--h-range-from),
+    var(--h-color-accent, #3978b8) var(--h-range-from) var(--h-range-to),
+    var(--h-color-border, #bbb) var(--h-range-to) 100%) center / 100% 4px no-repeat;
+}
+.h-input-dual-slider input[type='range'] {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  margin: 0;
+  background: transparent;
+  pointer-events: none;
+  appearance: none;
+}
+.h-input-dual-slider input[type='range']::-webkit-slider-runnable-track { background: transparent; }
+.h-input-dual-slider input[type='range']::-webkit-slider-thumb {
+  pointer-events: auto;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border: 1px solid var(--h-color-accent, #3978b8);
+  border-radius: 50%;
+  background: var(--h-color-bg, #fff);
+  cursor: pointer;
+}
+.h-input-dual-slider input[type='range']::-moz-range-track { background: transparent; }
+.h-input-dual-slider input[type='range']::-moz-range-thumb {
+  pointer-events: auto;
+  width: 16px;
+  height: 16px;
+  border: 1px solid var(--h-color-accent, #3978b8);
+  border-radius: 50%;
+  background: var(--h-color-bg, #fff);
+  cursor: pointer;
 }

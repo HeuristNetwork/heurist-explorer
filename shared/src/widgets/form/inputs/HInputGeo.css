@@ -16,7 +16,3 @@
   padding: 0 6px;
   font-size: var(--h-font-size);
 }
-
-.h-form-input-control:has(.h-input-geo) .h-form-input-clear {
-  inset-inline-end: calc(var(--h-control-height) + var(--h-gap) + 4px);
-}

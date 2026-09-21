@@ -36,26 +36,12 @@ export class QuerySourcePanel {
     this.container.className = 'h-query-source-panel';
     const editorHost = document.createElement('div'); editorHost.className = 'h-query-source-editor-host';
     const actionsHost = document.createElement('div'); actionsHost.className = 'h-data-source-actions-host';
-    const formHeader = document.createElement('div');
-    formHeader.className = 'h-query-source-form-header';
-    const openForm = document.createElement('button');
-    openForm.type = 'button';
-    openForm.className = 'h-btn h-btn-small h-i18n';
-    openForm.textContent = 'Open Filter Form';
-    openForm.addEventListener('click', () => void this.openFilterForm());
-    const closeForm = document.createElement('button');
-    closeForm.type = 'button';
-    closeForm.className = 'h-btn h-btn-primary h-i18n';
-    closeForm.textContent = 'Close';
-    closeForm.addEventListener('click', () => this.closeFilterForm());
-    formHeader.append(openForm, closeForm);
     const formHost = document.createElement('div');
     formHost.className = 'h-query-source-form-host';
-    this.container.replaceChildren(formHeader, editorHost, formHost, actionsHost);
+    this.container.replaceChildren(editorHost, actionsHost, formHost);
     this.editorHost = editorHost;
+    this.actionsHost = actionsHost;
     this.formHost = formHost;
-    this.openFormButton = openForm;
-    this.closeFormButton = closeForm;
     this.editor = new QuerySourceEditor({
       dbdefs: this.options.dbdefs, lang: this.options.lang,
       openFilterBuilder: this.options.openFilterBuilder,
@@ -105,7 +91,8 @@ export class QuerySourcePanel {
     const source = this.getDraftDataSource();
     const query = source?.request?.q;
     if (!hasQueryParameters(query)) return;
-    await this.closeFilterForm();
+    this._setFilterFormVisible(true);
+    await this.closeFilterForm({ restoreEditor: false });
     this.form = new HFilterForm();
     this.form.attach(this.formHost, {
       definition: { query, filterForm: source.presentation?.filterForm || null },
@@ -120,26 +107,39 @@ export class QuerySourcePanel {
         void this.options.onExecute?.(runtimeSource);
       }
     }).render();
-    this.editorHost.hidden = true;
+    this._setFilterFormVisible(true);
     this._updateFormAction();
   }
 
   /** Hide the runtime form and return to the Query Source editor. */
-  async closeFilterForm() {
+  async closeFilterForm({ restoreEditor = true } = {}) {
     if (this.form) await this.form.destroy();
     this.form = null;
-    if (this.editorHost) this.editorHost.hidden = false;
+    if (restoreEditor) this._setFilterFormVisible(false);
     if (this.formHost) this.formHost.replaceChildren();
     this._updateFormAction();
+  }
+
+  /** Show either the runtime Filter Form or the Query Source editing controls. */
+  _setFilterFormVisible(visible) {
+    this.container?.classList.toggle('is-filter-form-open', visible);
+    for (const host of [this.editorHost, this.actionsHost]) {
+      if (!host) continue;
+      host.hidden = visible;
+      if (visible) host.style.setProperty('display', 'none', 'important');
+      else host.style.removeProperty('display');
+    }
+    if (this.formHost) {
+      this.formHost.hidden = !visible;
+      if (visible) this.formHost.style.removeProperty('display');
+    }
   }
 
   /** Update form action visibility from the current draft. */
   _updateFormAction(source = this.editor?.draft || this.dataSource) {
     // setDataSource notifies listeners before the textarea is synchronized.
     // Reading getDraftDataSource here would commit its old value over request.q.
-    const query = source?.request?.q;
-    if (this.openFormButton) this.openFormButton.hidden = Boolean(this.form) || !hasQueryParameters(query);
-    if (this.closeFormButton) this.closeFormButton.hidden = !this.form;
+    void source;
   }
 
   /** @returns {object|null} The editor's current draft DataSource, or the last committed one. */

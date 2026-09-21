@@ -134,9 +134,11 @@ export class QuerySourceEditor extends HBaseWidget {
       onOpenBuilder: () => void this._openBuilder(),
       onChange: () => {
         if (this._syncingDraft) return;
-        if (this.draft && typeof this.draft.request.q === 'string' && this.draft.request.q !== this._query.value) {
-          this.draft.request.q = this._query.value;
+        if (this.draft) {
+          this.draft.request.q = parseQueryText(this._query.value);
           this._markDirty();
+          this._renderSummary();
+          this._updateControlState();
         }
       }
     });
@@ -280,6 +282,7 @@ export class QuerySourceEditor extends HBaseWidget {
     if (!(await this._ensureRecordTypeConsistency())) return;
     this._markDirty();
     this._syncFromDraft();
+    await this.execute();
   }
 
   /** Open the expansion-rules editor (host Rule Builder or fallback) and apply the result to the draft. */
@@ -426,7 +429,9 @@ export class QuerySourceEditor extends HBaseWidget {
   }
 
   _updateControlState() {
-    const enabled = hasQuery(this.draft?.request?.q);
+    const current = this._query?.readOnly ? this.draft?.request?.q
+      : parseQueryText(this._query?.value ?? '');
+    const enabled = hasQuery(current);
     if (this._run) this._run.disabled = !enabled;
     if (this._test) this._test.disabled = !enabled;
   }

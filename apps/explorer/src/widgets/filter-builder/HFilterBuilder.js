@@ -142,7 +142,11 @@ export class HFilterBuilder extends HBaseWidget {
     crit.append(this._rowsHost);
 
     const addRow = el('div', 'h-fb-addrow');
-    const addBtn = btn('+', 'h-btn h-fb-addbig', () => { this._addFieldEntry(); this._recompose(); });
+    const addBtn = btn('+', 'h-btn h-fb-addbig', () => {
+      const entry = this._addFieldEntry();
+      this._recompose();
+      entry.item.openFieldPicker();
+    });
     addBtn.title = $HR('add field');
     addRow.append(addBtn);
     crit.append(addRow);
@@ -204,7 +208,7 @@ export class HFilterBuilder extends HBaseWidget {
     const visitIds = (rows) => {
       for (const row of rows || []) {
         if (row.type === 'link') visitIds(row.rows);
-        else for (const id of [row.parameterId, row.parameterEndId]) {
+        else for (const id of row.placeholderIds || []) {
           if (id) used.add(id);
         }
       }
@@ -222,16 +226,14 @@ export class HFilterBuilder extends HBaseWidget {
         if (row.type === 'link') { visit(row.rows); continue; }
         const range = operatorByKey(this.vocab, row.kind, row.op)?.input === 'range';
         if (operatorByKey(this.vocab, row.kind, row.op)?.whole) continue;
-        if (row.parameterId || isImplicitParameter(row, this.vocab)) {
+        if (isImplicitParameter(row, this.vocab)) {
           const count = range ? 2 : 1;
           for (let i = 0; i < count; i++) {
             if (!String(row.values?.[i] ?? '').trim()) {
-              const id = i === 0 ? row.parameterId || nextId() : row.parameterEndId || nextId();
+              const id = row.placeholderIds?.[i] || nextId();
               row.values[i] = `$${id}$`;
             }
           }
-          row.parameterId = null;
-          row.parameterEndId = null;
         }
       }
     };
@@ -268,8 +270,9 @@ export class HFilterBuilder extends HBaseWidget {
         if (row.type === 'link') { restore(row.rows); continue; }
         const first = /^\$([A-Za-z][A-Za-z0-9_]*)\$$/.exec(row.values?.[0] || '');
         const second = /^\$([A-Za-z][A-Za-z0-9_]*)\$$/.exec(row.values?.[1] || '');
-        if (first) { row.parameterId = first[1]; row.values[0] = ''; }
-        if (second) { row.parameterEndId = second[1]; row.values[1] = ''; }
+        row.placeholderIds = [];
+        if (first) { row.placeholderIds[0] = first[1]; row.values[0] = ''; }
+        if (second) { row.placeholderIds[1] = second[1]; row.values[1] = ''; }
       }
     };
     restore(this.model.rows);
@@ -295,12 +298,21 @@ export class HFilterBuilder extends HBaseWidget {
 
     const host = document.createElement('div');
     const designer = new HFilterFormDesigner();
-    designer.attach(host, { parameters: describeQueryParameters(definition.query, this.dbdefs), layout: this.form }).render();
+    designer.attach(host, {
+      parameters: describeQueryParameters(definition.query, this.dbdefs),
+      query: definition.query,
+      layout: this.form,
+      dbdefs: this.dbdefs,
+      selectExtent: this.selectExtent
+    }).render();
     const id = 'h-filter-form-designer-dialog';
     const close = async (apply) => {
       if (apply) {
         try { this.form = designer.getLayout(); }
-        catch (error) { HMsg.showMsgFlash?.(error.message); return; }
+        catch (error) {
+          HMsg.showMsgFlash?.(error.message, { dialogId: 'h-filter-form-designer-warning' });
+          return;
+        }
       }
       HMsg.closeMsgDlg(id);
       await designer.destroy();
@@ -585,9 +597,9 @@ export class HFilterBuilder extends HBaseWidget {
       .map((row) => row.dty);
     this.tree.open(anchor, {
       rtyId: this.model.rtyId,
-      maxDepth: 1,
+      maxDepth: 3,
       builderMode: true,
-      disableLinks: this._entries.some((entry) => entry.kind === 'link'),
+      excludedLinks: selectedLinkBranches(this._entries),
       excludedFields
     }, (path) => {
       if (!path?.length) return;
@@ -766,7 +778,11 @@ class LinkPanel {
       this._emit();
     });
 
-    const addCond = btn('+ ' + $HR('add condition'), 'h-btn h-btn-small', () => { this._addItem(); this._emit(); });
+    const addCond = btn('+ ' + $HR('add condition'), 'h-btn h-btn-small', () => {
+      const item = this._addItem();
+      this._emit();
+      item.openFieldPicker();
+    });
     const foot = el('div', 'h-fb-subfoot');
     this._subFoot = foot;
     foot.append(addCond, this._subConj);
@@ -884,9 +900,9 @@ class LinkPanel {
       rtyId: this.row.targetRty,
       linkedContext: true,
       builderMode: true,
-      disableLinks: this.items.some((entry) => entry instanceof LinkPanel),
+      excludedLinks: selectedLinkBranches(this.items),
       excludedFields,
-      maxDepth: this.depth < 3 ? 1 : 0
+      maxDepth: Math.max(0, 3 - this.depth)
     }, async (path) => {
       if (!path?.length) return;
       if (path.length === 1) {
@@ -1071,7 +1087,7 @@ function coerceRty(value) {
 }
 
 /** Turn a field-tree path into nested linked rows ending in one field row. */
-function rowForPath(path, vocabulary) {
+export function rowForPath(path, vocabulary) {
   const field = path[path.length - 1];
   let row = emptyFieldRow({
     dty: field.dty,
@@ -1128,12 +1144,12 @@ function countCriteria(rows) {
 function countBlankCriteria(rows, vocabulary) {
   return (rows || []).reduce((count, row) => count + (row.type === 'link'
     ? countBlankCriteria(row.rows, vocabulary)
-    : row.parameterId || isImplicitParameter(row, vocabulary) ? 1 : 0), 0);
+    : isImplicitParameter(row, vocabulary) ? 1 : 0), 0);
 }
 
 /** True when a selected field has no literal and needs a runtime form value. */
 function isImplicitParameter(row, vocabulary) {
-  if (!row || row.type === 'link' || row.parameterId) return false;
+  if (!row || row.type === 'link') return false;
   if (row.dty === '' || row.dty == null || (row.dty === 'anyfield' && !row.selected)) return false;
   if (!['text', 'number', 'date', 'enum', 'geo'].includes(row.kind)) return false;
   if (operatorByKey(vocabulary, row.kind, row.op)?.whole) return false;
@@ -1147,5 +1163,14 @@ function isImplicitParameter(row, vocabulary) {
 function hasParameterRows(rows, vocabulary) {
   return (rows || []).some((row) => row.type === 'link'
     ? hasParameterRows(row.rows, vocabulary)
-    : Boolean(row.parameterId) || isImplicitParameter(row, vocabulary));
+    : isImplicitParameter(row, vocabulary));
+}
+
+/** Return immediate linked branches already represented at one builder level. */
+function selectedLinkBranches(entries) {
+  return (entries || []).map((entry) => {
+    const row = entry?.kind === 'link' ? entry.panel?.getRowModel?.()
+      : entry instanceof LinkPanel ? entry.getRowModel() : null;
+    return row?.dty == null || row.dty === '' ? null : String(row.dty);
+  }).filter(Boolean);
 }

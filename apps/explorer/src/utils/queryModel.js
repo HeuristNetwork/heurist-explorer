@@ -74,7 +74,6 @@ export function emptyFieldRow(overrides = {}) {
     negate: false,
     values: [''],
     valueConj: 'any',
-    parameterId: null,
     selected: false,
     ...overrides
   };
@@ -200,85 +199,6 @@ function compileFieldRow(row, vocab) {
   return { [conj]: rendered.map((v) => wrap(key, v)) };
 }
 
-/**
- * Compose a parameterized Builder model with runtime form values.
- * Undefined parameter values omit their predicate; explicit NULL operators
- * remain ordinary Builder criteria.
- *
- * @param {BuilderModel} model Builder model with parameter IDs on field rows.
- * @param {object} values Runtime values by parameter ID.
- * @param {object} vocabulary Query vocabulary.
- * @returns {Array<object>} Executable Heurist query.
- */
-export function composeWithParameters(model, values, vocabulary) {
-  const copy = structuredClone(model);
-  const resolve = (row) => {
-    if (!row.parameterId) return;
-    const value = values?.[row.parameterId];
-    row.parameterId = null;
-    if (row.kind === 'geo') {
-      row.values = [];
-      return;
-    }
-    if (value && typeof value === 'object' && ('from' in value || 'to' in value)) {
-      if (value.from != null && value.from !== '' && (value.to == null || value.to === '')) {
-        row.op = row.kind === 'date' ? 'op.on_or_after' : 'op.gte';
-        row.values = [String(value.from)];
-        return;
-      }
-
-      if (value.to != null && value.to !== '' && (value.from == null || value.from === '')) {
-        row.op = row.kind === 'date' ? 'op.on_or_before' : 'op.lte';
-        row.values = [String(value.to)];
-        return;
-      }
-    }
-
-    row.values = Array.isArray(value)
-      ? value.map(String)
-      : value && typeof value === 'object' && ('from' in value || 'to' in value)
-        ? [value.from ?? '', value.to ?? ''].map(String)
-        : value == null || value === '' ? [] : [String(value)];
-  };
-
-  const visit = (rows) => {
-    for (const row of rows || []) {
-      if (row.type === 'link') visit(row.rows);
-      else resolve(row);
-    }
-  };
-  visit(copy.rows);
-
-  return composeQuery(copy, vocabulary);
-}
-
-/**
- * Resolve query parameters and return optional Map-compatible extent separately.
- *
- * @param {BuilderModel} model Parameterized Builder model.
- * @param {object} values Runtime parameter values.
- * @param {object} vocabulary Query vocabulary.
- * @returns {{q:Array<object>,extent:object|null}} Executable query and extent.
- */
-export function composeFilterRequest(model, values, vocabulary) {
-  let extent = null;
-  const inspect = (row) => {
-    if (row?.kind === 'geo' && row.parameterId && values?.[row.parameterId]) {
-      extent = values[row.parameterId];
-    }
-  };
-
-  const visit = (rows) => {
-    for (const row of rows || []) {
-      if (row.type === 'link') visit(row.rows);
-      else inspect(row);
-    }
-  };
-  visit(model?.rows);
-
-  return { q: composeWithParameters(model, values, vocabulary), extent };
-}
-
 /** @returns {object|null} predicate */
 function compileLinkRow(row, vocab) {
   if (!row || !row.link) return null;
@@ -305,7 +225,9 @@ function compileLinkRow(row, vocab) {
 /** Build a predicate key (`f`, `f:<id>[:<enumField>]`, or a header keyword) from a field row. */
 function fieldKey(row) {
   const d = row.dty;
-  if (row.kind === 'geo' || d === 'geo') return 'geo';
+  if (row.kind === 'geo' || d === 'geo') {
+    return /^\d+$/.test(String(d)) ? `geo:${Number(d)}` : 'geo';
+  }
   if (d === 'exists') return 'exists';
   if (d === 'anyfield' || d === '' || d == null || d === 'f') return 'f';
 
@@ -573,7 +495,10 @@ function splitKey(rawKey) {
  * @returns {number|string|null} Field id, header keyword, `'anyfield'`, or `null` when not a field predicate.
  */
 function fieldDtyFromKey(base, suffix) {
-  if (base === 'geo') return 'geo';
+  if (base === 'geo') {
+    return suffix.parts.length && /^\d+$/.test(suffix.parts[0])
+      ? Number(suffix.parts[0]) : 'geo';
+  }
   if (base === 'f' || base === 'fc') {
     if (!suffix.parts.length) return 'anyfield';
     return /^\d+$/.test(suffix.parts[0]) ? Number(suffix.parts[0]) : null;
