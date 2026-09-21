@@ -64,3 +64,25 @@ test('updateSettings notifies onSettingsChange so Explorer can cache the module 
   assert.deepEqual(returned, saved);
   assert.deepEqual(changes, [saved]);
 });
+
+test('programmatic Map selection feedback does not clear Graph selection', async () => {
+  const events = new EventTarget();
+  const adapter = new IframeModuleAdapter({ id: 'map', type: 'map', container: null, url: '' });
+  adapter.api = {
+    addEventListener: (...args) => events.addEventListener(...args),
+    setSelection: async () => {
+      events.dispatchEvent(new CustomEvent('heurist-map-selection-changed', {
+        detail: { selection: null }
+      }));
+      return null;
+    }
+  };
+  const forwarded = [];
+  adapter.addEventListener('selectionchange', (event) => forwarded.push(event.detail.selection));
+  adapter._bindChildEvents();
+
+  await adapter.setSelection([17]);
+
+  assert.deepEqual(adapter.selection, [17]);
+  assert.deepEqual(forwarded, []);
+});

@@ -64,7 +64,9 @@ export class HInputEnum extends HInput {
     for (const item of this.options.terms || []) {
       const option = document.createElement('option');
       option.value = String(item.id);
-      option.textContent = `${'\u00a0\u00a0'.repeat(Math.max(0, Number(item.depth || 1) - 1))}${item.label || String(item.id)}`;
+      const depth = Math.max(0, Number(item.depth || 1) - 1);
+      option.textContent = `${'\u00a0\u00a0\u00a0'.repeat(depth)}${item.label || String(item.id)}`;
+      option.dataset.depth = String(depth);
       select.append(option);
     }
 

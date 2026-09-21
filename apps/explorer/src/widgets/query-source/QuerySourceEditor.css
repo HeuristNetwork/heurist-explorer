@@ -26,3 +26,10 @@
   .h-qse-config-row { grid-template-columns:34px minmax(0,1fr); }
   .h-qse-config-edit { justify-content:center; padding-inline:7px; }
 }
+
+@container (max-width: 370px) {
+  .h-qse-query-row { flex-wrap:wrap; }
+  .h-qse-query { flex-basis:100%; min-width:0; }
+  .h-qse-run,.h-qse-query-row > .h-btn { flex:1 1 auto; justify-content:center; }
+  .h-qse-run-caption,.h-qse-more-caption { display:inline; }
+}

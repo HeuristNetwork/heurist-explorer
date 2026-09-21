@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { ExplorerUiConfig } from '../src/core/ExplorerUiConfig.js';
+import { applyUiRegions, ExplorerUiConfig } from '../src/core/ExplorerUiConfig.js';
 
 test('load() returns defaults when nothing is persisted', () => {
   const config = new ExplorerUiConfig({ database: 'demo', storage: memoryStorage() });
@@ -58,6 +58,25 @@ test('tolerates a storage backend that throws', () => {
   const config = new ExplorerUiConfig({ database: 'demo', storage });
   assert.deepEqual(config.load(), ExplorerUiConfig.defaults());
   assert.doesNotThrow(() => config.save({ toolbar: { position: 'horizontal', buttonSize: 'small' } }));
+});
+
+test('persisted pane assignments override bootstrap defaults before modules mount', () => {
+  const definitions = [
+    { id: 'data', type: 'data', region: 'west' },
+    { id: 'map', type: 'map', region: 'center' }
+  ];
+  const configured = applyUiRegions(definitions, {
+    regions: { data: 'center', map: 'west' }
+  });
+
+  assert.deepEqual(configured.map(({ id, region }) => [id, region]), [
+    ['data', 'center'],
+    ['map', 'west']
+  ]);
+  assert.deepEqual(definitions.map(({ id, region }) => [id, region]), [
+    ['data', 'west'],
+    ['map', 'center']
+  ]);
 });
 
 function memoryStorage() {

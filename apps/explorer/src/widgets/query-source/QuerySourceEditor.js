@@ -118,7 +118,7 @@ export class QuerySourceEditor extends HBaseWidget {
       this._configRow('Column fields', 'fields', 'fa-table', () => void this.openFieldSetEditor(), 'Columns and formatting used by the Data table presentation.')
     );
     const testRow = div('h-qse-test-row');
-    const clear = button($HR('Clear'), $HR('Clear Query Source title and presentation settings'), () => this.clearSettings(), 'h-btn h-btn-small h-qse-clear');
+    const clear = button($HR('Clear'), $HR('Detach from Query Source and clear its title and presentation settings'), () => this.clearSettings(), 'h-btn h-btn-small h-qse-clear');
     const titleLabel = document.createElement('span'); titleLabel.className = 'h-qse-title-label'; titleLabel.textContent = $HR('Title');
     this._title = document.createElement('input'); this._title.className = 'h-input h-qse-title'; this._title.type = 'text';
     this._title.addEventListener('input', () => { if (this.draft) { this.draft.title = this._title.value; this._markDirty(); } });
@@ -215,11 +215,13 @@ export class QuerySourceEditor extends HBaseWidget {
   resetDraft() { this.setDataSource(this.dataSource); return this; }
 
   /**
-   * Clear the draft's title and expansion rules/presentation settings, keeping only the query.
+   * Detach the draft from a persisted Query Source and clear its title and
+   * presentation settings, keeping only the query as a transient search.
    * @returns {QuerySourceEditor} this, for chaining.
    */
   clearSettings() {
     if (!this.draft) return this;
+    this.draft.reference = { type: 'query', id: null, key: 'query:draft' };
     this.draft.title = '';
     this.draft.request ||= {};
     this.draft.request.rules = [];
@@ -229,6 +231,8 @@ export class QuerySourceEditor extends HBaseWidget {
     this.draft.presentation.map = null;
     this.draft.presentation.graph = null;
     this.draft.presentation.timeline = null;
+    this.draft.presentation.filterForm = null;
+    delete this.draft.meta;
     this._markDirty();
     this._syncFromDraft();
     return this;

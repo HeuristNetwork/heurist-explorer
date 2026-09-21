@@ -161,13 +161,18 @@ export class HFilterFormDesigner extends HBaseWidget {
       const row = document.createElement('div');
       row.className = 'h-filter-form-designer-row';
       row.dataset.input = id;
-      this.listen(row, 'dragstart', (event) => {
+      const drag = document.createElement('span');
+      drag.className = 'h-filter-form-designer-drag';
+      drag.textContent = '⠿';
+      drag.title = 'Drag to reorder';
+      drag.setAttribute('aria-label', 'Drag to reorder');
+      this.listen(drag, 'dragstart', (event) => {
         this._draggedInput = id;
         event.dataTransfer.effectAllowed = 'move';
         event.dataTransfer.setData('text/plain', id);
         row.classList.add('is-dragging');
       });
-      this.listen(row, 'dragend', () => {
+      this.listen(drag, 'dragend', () => {
         this._draggedInput = null;
         row.classList.remove('is-dragging');
       });
@@ -180,15 +185,10 @@ export class HFilterFormDesigner extends HBaseWidget {
         event.preventDefault();
         this._moveBefore(this._draggedInput, id);
       });
-      const drag = document.createElement('span');
-      drag.className = 'h-filter-form-designer-drag';
-      drag.textContent = '⠿';
-      drag.title = 'Drag to reorder';
-      drag.setAttribute('aria-label', 'Drag to reorder');
       const enabled = document.createElement('input');
       enabled.type = 'checkbox';
       enabled.checked = group.children.some((child) => child.input === id);
-      row.draggable = enabled.checked;
+      drag.draggable = enabled.checked;
       row.classList.toggle('is-hidden-input', !enabled.checked);
       enabled.setAttribute('aria-label', `Show ${id}`);
       enabled.title = 'Show this input in the Filter Form';

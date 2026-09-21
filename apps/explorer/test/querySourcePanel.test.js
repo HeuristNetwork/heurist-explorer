@@ -27,3 +27,23 @@ test('setDataSource preserves the query while the editor input is synchronized',
   assert.deepEqual(editor.getQuery(), source.request.q);
   assert.equal(editor._query.value, JSON.stringify(source.request.q));
 });
+
+test('Clear detaches a persisted Query Source but preserves its query', () => {
+  const editor = new QuerySourceEditor({ dbdefs: {} });
+  editor.setDataSource({
+    reference: { type: 'source', id: 44, key: 'source:44' },
+    title: 'Named source',
+    request: { q: 't:10', rules: [{ levels: [] }] },
+    presentation: { data: { fields: ['1'] }, filterForm: { groups: [] } },
+    meta: { origin: 'source' }
+  });
+
+  editor.clearSettings();
+
+  assert.deepEqual(editor.draft.reference, { type: 'query', id: null, key: 'query:draft' });
+  assert.equal(editor.draft.request.q, 't:10');
+  assert.equal(editor.draft.title, '');
+  assert.equal(editor.draft.presentation.data, null);
+  assert.equal(editor.draft.presentation.filterForm, null);
+  assert.equal(editor.draft.meta, undefined);
+});

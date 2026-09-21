@@ -35,7 +35,7 @@
 .h-rule-icon { min-width:28px; padding-inline:5px; }
 .h-rule-add-step { align-self:flex-start; margin-left:calc((var(--h-rule-depth,0) + 1) * 22px); }
 .h-rule-children { margin-left:10px; }
-.h-rule-builder-dialog-shell { max-width:96vw; }
+.h-rule-builder-dialog-shell { width:min(1240px,calc(100vw - 32px)); max-width:96vw; }
 .h-rule-filter-builder { width:min(1050px,90vw); min-width:min(820px,90vw); }
 .h-rule-filter-dialog-shell { max-width:96vw; }
 @media (max-width:900px) {

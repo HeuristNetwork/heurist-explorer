@@ -22,7 +22,15 @@ import './QuerySourcePanel.css';
 /** Explorer-owned host combining QuerySourceEditor and DataSourceActions. */
 export class QuerySourcePanel {
   /** @param {object} [options] Forwarded to QuerySourceEditor and DataSourceActions; see their constructors. */
-  constructor(options = {}) { this.options = options; this.container = null; this.editor = null; this.actions = null; this.dataSource = null; }
+  constructor(options = {}) {
+    this.options = options;
+    this.container = null;
+    this.editor = null;
+    this.actions = null;
+    this.dataSource = null;
+    this._resizeObserver = null;
+    this._responsiveFrame = null;
+  }
 
   /**
    * @param {HTMLElement} container Element to render into.
@@ -38,6 +46,7 @@ export class QuerySourcePanel {
     const actionsHost = document.createElement('div'); actionsHost.className = 'h-data-source-actions-host';
     const formHost = document.createElement('div');
     formHost.className = 'h-query-source-form-host';
+    formHost.addEventListener('h-filter-form-reset', () => void this.options.onClearResults?.());
     this.container.replaceChildren(editorHost, actionsHost, formHost);
     this.editorHost = editorHost;
     this.actionsHost = actionsHost;
@@ -64,6 +73,7 @@ export class QuerySourcePanel {
     this.actions.attach(actionsHost).render();
     this.setDataSource(this.dataSource);
     this._updateFormAction();
+    this._observeResponsiveLayout();
     return this;
   }
   /**
@@ -91,6 +101,8 @@ export class QuerySourcePanel {
     const source = this.getDraftDataSource();
     const query = source?.request?.q;
     if (!hasQueryParameters(query)) return;
+    this.show();
+    await this.options.onClearResults?.();
     this._setFilterFormVisible(true);
     await this.closeFilterForm({ restoreEditor: false });
     this.form = new HFilterForm();
@@ -107,8 +119,10 @@ export class QuerySourcePanel {
         void this.options.onExecute?.(runtimeSource);
       }
     }).render();
+    this.formHost.classList.add('h-query-source-form-host');
     this._setFilterFormVisible(true);
     this._updateFormAction();
+    this._scheduleResponsiveLayout();
   }
 
   /** Hide the runtime form and return to the Query Source editor. */
@@ -118,6 +132,7 @@ export class QuerySourcePanel {
     if (restoreEditor) this._setFilterFormVisible(false);
     if (this.formHost) this.formHost.replaceChildren();
     this._updateFormAction();
+    this._scheduleResponsiveLayout();
   }
 
   /** Show either the runtime Filter Form or the Query Source editing controls. */
@@ -133,6 +148,60 @@ export class QuerySourcePanel {
       this.formHost.hidden = !visible;
       if (visible) this.formHost.style.removeProperty('display');
     }
+    this._scheduleResponsiveLayout();
+  }
+
+  /** Show the Query Source panel. */
+  show() { if (this.container) this.container.hidden = false; return this; }
+
+  /** Hide the Query Source panel, including any open runtime form. */
+  hide() { if (this.container) this.container.hidden = true; this._scheduleResponsiveLayout(); return this; }
+
+  /** Whether the editor/form panel is currently visible. */
+  isVisible() { return this.container?.hidden !== true; }
+
+  /** Whether the runtime Filter Form is currently open. */
+  isFilterFormOpen() { return this.container?.classList.contains('is-filter-form-open') === true; }
+
+  /**
+   * Toggle editor/actions visibility. An open Filter Form always returns to the
+   * visible editor instead of hiding the whole authoring area.
+   */
+  async toggleEditor() {
+    if (this.isFilterFormOpen()) {
+      this.show();
+      await this.closeFilterForm();
+      return true;
+    }
+    if (this.isVisible()) this.hide();
+    else this.show();
+    return this.isVisible();
+  }
+
+  _observeResponsiveLayout() {
+    const shell = this.container?.closest?.('.h-explorer-module-shell');
+    if (!shell || typeof ResizeObserver !== 'function') return;
+    this._resizeObserver?.disconnect();
+    this._resizeObserver = new ResizeObserver(() => this._scheduleResponsiveLayout());
+    this._resizeObserver.observe(shell);
+    if (this.formHost) this._resizeObserver.observe(this.formHost);
+  }
+
+  _scheduleResponsiveLayout() {
+    const shell = this.container?.closest?.('.h-explorer-module-shell');
+    if (!shell) return;
+    const cancel = globalThis.cancelAnimationFrame || clearTimeout;
+    const schedule = globalThis.requestAnimationFrame || ((callback) => setTimeout(callback, 0));
+    if (this._responsiveFrame != null) cancel(this._responsiveFrame);
+    this._responsiveFrame = schedule(() => {
+      this._responsiveFrame = null;
+      const vertical = this.formHost?.classList.contains('h-filter-form-vertical') === true;
+      const formHeight = this.formHost?.scrollHeight || 0;
+      const availableHeight = shell.clientHeight || window.innerHeight || 0;
+      const enoughWidth = (shell.clientWidth || 0) >= 700;
+      shell.classList.toggle('has-side-filter-form', this.isVisible() && this.isFilterFormOpen()
+        && vertical && enoughWidth && formHeight > availableHeight / 3);
+    });
   }
 
   /** Update form action visibility from the current draft. */
@@ -158,5 +227,13 @@ export class QuerySourcePanel {
   markCommitted(source = null) { this.editor?.markCommitted(source); if (source) this.dataSource = source; this.actions?.setDataSource(this.dataSource, { getDraft: () => this.editor?.getDraftDataSource() }); this.actions?.setDirty(false); }
 
   /** Tear down the editor and actions widgets and empty the container. */
-  async destroy() { await this.closeFilterForm(); await this.editor?.destroy?.(); await this.actions?.destroy?.(); this.container?.replaceChildren(); }
+  async destroy() {
+    this._resizeObserver?.disconnect();
+    if (this._responsiveFrame != null) (globalThis.cancelAnimationFrame || clearTimeout)(this._responsiveFrame);
+    this.container?.closest?.('.h-explorer-module-shell')?.classList.remove('has-side-filter-form');
+    await this.closeFilterForm();
+    await this.editor?.destroy?.();
+    await this.actions?.destroy?.();
+    this.container?.replaceChildren();
+  }
 }

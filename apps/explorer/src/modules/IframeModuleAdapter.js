@@ -213,6 +213,11 @@ export class IframeModuleAdapter extends ExplorerModule {
 
       const nextSelection = normalizeIds(selection);
 
+      // A child may be unable to display some synchronized ids (for example,
+      // Map has no visible feature for a Graph selection) and report an empty
+      // local selection. That is presentation feedback, not a new user choice.
+      if (this._applyingSelection) return;
+
       // Child modules may emit their normal selection-changed event in
       // response to Explorer applying a synchronized selection. If the
       // effective selection has not changed, this is an echo rather than a
@@ -331,22 +336,26 @@ export class IframeModuleAdapter extends ExplorerModule {
   async setSelection(ids) {
     await super.setSelection(ids);
     const api = await this._readyApi();
+    this._applyingSelection = true;
+    try {
+      if (this.type === 'map' && typeof api.setSelection !== 'function') {
+        if (!this.selection.length) {
+          return await (api.clearSelection?.() ?? this.selection);
+        }
 
-    if (this.type === 'map' && typeof api.setSelection !== 'function') {
-      if (!this.selection.length) {
-        return api.clearSelection?.() ?? this.selection;
+        return await (api.selectRecords?.('current-results', this.selection, {
+          replace: true,
+          zoom: false
+        }) ?? this.selection);
       }
 
-      return api.selectRecords?.('current-results', this.selection, {
+      return await (api.setSelection?.(this.selection, {
         replace: true,
         zoom: false
-      }) ?? this.selection;
+      }) ?? this.selection);
+    } finally {
+      this._applyingSelection = false;
     }
-
-    return api.setSelection?.(this.selection, {
-      replace: true,
-      zoom: false
-    }) ?? this.selection;
   }
 
   /**

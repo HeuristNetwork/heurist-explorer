@@ -61,6 +61,15 @@ export class ExplorerUiConfig {
   }
 }
 
+/** Apply persisted module-to-pane assignments to normalized layout definitions. */
+export function applyUiRegions(definitions, value) {
+  const regions = value?.regions || {};
+  return (Array.isArray(definitions) ? definitions : []).map((definition) => ({
+    ...definition,
+    region: regions[definition.type] || definition.region
+  }));
+}
+
 /** Build a fresh copy of the default configuration. */
 function defaults() {
   return {

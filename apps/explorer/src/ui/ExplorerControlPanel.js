@@ -84,42 +84,18 @@ export class ExplorerControlPanel {
   }
 
   /**
-   * Opens HFilter over the Explorer workspace.
+   * Toggle the current Data module's Query Source editor and actions. If its
+   * runtime Filter Form is open, return to the visible editor.
    *
    * @param {HTMLElement|null} [anchor] Element to anchor the flyout to; defaults to the rail's Search button.
-   * @returns {void}
+   * @returns {Promise<boolean|undefined>} Whether the editor is visible after toggling.
    */
-  openSearch(anchor = null) {
-    if (this.isPanelPinned('search')) {
-      this.closeToolPanel();
-      this.showPinnedPanel('search');
-      this.leftRail?.setActive('search', true);
-      this.application.filter?.focus?.();
-      return;
-    }
-
-    if (this._toggleIfActive('search')) {
-      return;
-    }
-
-    this._setActiveTool('search');
-    this._showToolPanel(
-      'Filter',
-      this.application.filterHost,
-      anchor || this.leftRail?.getButtonElement('search'),
-      {
-        headerVariant: 'filter',
-        onHelp: () => this._openFilterHelp(),
-        onPin: () => this.pinPanel({
-          id: 'search',
-          title: 'Filter',
-          content: this.application.filterHost,
-          region: 'north',
-          onHelp: () => this._openFilterHelp()
-        })
-      }
-    );
-    this.application.filter?.focus?.();
+  async openSearch(_anchor = null) {
+    this.closeToolPanel();
+    const visible = await this.application.toggleQuerySourceEditor?.();
+    this.leftRail?.clearActive();
+    this.leftRail?.setActive('search', visible === true);
+    return visible;
   }
 
   /**
@@ -264,6 +240,7 @@ export class ExplorerControlPanel {
     this.flyout.hidden = true;
     this.flyout.classList.remove('open');
     this._setActiveTool(null);
+    this.leftRail?.setActive('search', this.application.isQuerySourceEditorVisible?.() === true);
     return true;
   }
 
@@ -501,6 +478,13 @@ export class ExplorerControlPanel {
     this.flyoutBody = document.createElement('div');
     this.flyoutBody.className = 'h-explorer-tool-panel-body';
     this.flyout.append(header, this.flyoutBody);
+    this.flyout.addEventListener('keydown', (event) => {
+      if (event.key !== 'Escape' || !this.flyout.contains(document.activeElement)) return;
+      event.preventDefault();
+      const activeButton = this.leftRail?.getButtonElement(this.activeTool);
+      this.closeToolPanel();
+      activeButton?.focus();
+    });
     parent.append(this.flyout);
   }
 
@@ -822,12 +806,7 @@ export class ExplorerControlPanel {
    * @returns {Promise<void>}
    */
   async _activateRecordType(id) {
-    try {
-      const activated = await this.application.activateRecordType(id);
-      if (activated) this.closeToolPanel();
-    } catch (error) {
-      HMsg.showMsgErr(error?.message || String(error));
-    }
+    await this._activateFromList(() => this.application.activateRecordType(id));
   }
 
   /**
@@ -907,12 +886,7 @@ export class ExplorerControlPanel {
    * @returns {Promise<void>}
    */
   async _activateQuerySource(id) {
-    try {
-      const activated = await this.application.activateQuerySource(id);
-      if (activated) this.closeToolPanel();
-    } catch (error) {
-      HMsg.showMsgErr(error?.message || String(error));
-    }
+    await this._activateFromList(() => this.application.activateQuerySource(id));
   }
 
 
@@ -1120,11 +1094,20 @@ export class ExplorerControlPanel {
    * @returns {Promise<void>}
    */
   async _activateSavedFilter(id) {
+    await this._activateFromList(() => this.application.activateSavedFilter(id));
+  }
+
+  /** Close a navigation list immediately, clear stale results, and show progress while activating. */
+  async _activateFromList(activate) {
+    this.closeToolPanel();
+    this.application.setCurrentResultLoading?.(true);
     try {
-      const activated = await this.application.activateSavedFilter(id);
-      if (activated) this.closeToolPanel();
+      await this.application.clearCurrentResult?.();
+      await activate();
     } catch (error) {
       HMsg.showMsgErr(error?.message || String(error));
+    } finally {
+      this.application.setCurrentResultLoading?.(false);
     }
   }
 

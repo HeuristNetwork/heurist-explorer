@@ -30,7 +30,7 @@ import { SyncEngine } from './SyncEngine.js';
 import { IframeModuleAdapter } from '../modules/IframeModuleAdapter.js';
 import { DirectModuleAdapter } from '../modules/DirectModuleAdapter.js';
 import { ExplorerControlPanel } from '../ui/ExplorerControlPanel.js';
-import { ExplorerUiConfig } from './ExplorerUiConfig.js';
+import { applyUiRegions, ExplorerUiConfig } from './ExplorerUiConfig.js';
 import { HDbDefs } from '#shared/data/HDbDefs.js';
 import { RecordTypeProvider } from '#shared/data/RecordTypeProvider.js';
 import queryVocabulary from '../utils/queryVocabulary.json';
@@ -173,7 +173,7 @@ export class ExplorerApplication {
    * @returns {Promise<ExplorerApplication>} This instance, for chaining.
    */
   async applyLayout(layout) {
-    const moduleDefs = normalizeLayout(layout);
+    const moduleDefs = applyUiRegions(normalizeLayout(layout), this.uiConfigValue);
     this.layoutDefinitions = moduleDefs.map((item) => ({ ...item }));
     this.layout.setLayout(moduleDefs);
     const active = new Set(moduleDefs.map((item) => item.id));
@@ -290,10 +290,12 @@ export class ExplorerApplication {
       onWorkspaceAdd: (source) => this.addDataSourceToWorkspace(source),
       onWorkspaceRemove: (source) => this.removeDataSourceFromWorkspace(source),
       selectExtent: (current) => this.selectFilterExtent(current),
-      isInWorkspace: (source) => this.isDataSourceInWorkspace(source)
+      isInWorkspace: (source) => this.isDataSourceInWorkspace(source),
+      onClearResults: () => this.clearCurrentResult()
     });
     panel.attach(authoring).render();
     this.querySourcePanels.set(String(definition.id), panel);
+    this.controlPanel?.leftRail?.setActive('search', true);
     if (this.sync.dataSource) panel.setDataSource(this.sync.dataSource);
     return content;
   }
@@ -355,7 +357,6 @@ export class ExplorerApplication {
       const resolved = await this.querySources.resolveDataSource(recordId);
       if (resolved) {
         panel?.markCommitted(resolved);
-        await this.activateDataSource(resolved, { allowDirty: true });
       } else {
         panel?.markCommitted();
       }
@@ -373,6 +374,37 @@ export class ExplorerApplication {
     }
     const module = this.layout?.findCurrentResultDataModule?.();
     return module ? this.querySourcePanels.get(String(module.id)) || null : null;
+  }
+
+  /** Toggle the current data module's Query Source editor/actions. */
+  async toggleQuerySourceEditor() {
+    const panel = this._currentQuerySourcePanel() || [...this.querySourcePanels.values()][0];
+    return panel ? panel.toggleEditor() : false;
+  }
+
+  /** Whether the current data module's Query Source panel is visible. */
+  isQuerySourceEditorVisible() {
+    const panel = this._currentQuerySourcePanel() || [...this.querySourcePanels.values()][0];
+    return panel?.isVisible?.() === true;
+  }
+
+  /** Clear the reusable current result while retaining the editor's draft/source. */
+  async clearCurrentResult() {
+    const dataModule = this.layout?.findCurrentResultDataModule?.();
+    await this.sync.setSelection([]);
+    await this.sync.setDataSource(null, {
+      preserveDataViews: true,
+      dataModuleId: dataModule?.id || null
+    });
+  }
+
+  /** Show or hide a loading veil over the current Data result. */
+  setCurrentResultLoading(loading) {
+    const module = this.layout?.findCurrentResultDataModule?.();
+    const slot = module ? this.layout?.getSlot?.(module.id) : null;
+    if (!slot) return;
+    slot.classList.toggle('is-result-loading', loading === true);
+    slot.setAttribute('aria-busy', String(loading === true));
   }
 
   /**
