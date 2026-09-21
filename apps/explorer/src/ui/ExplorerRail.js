@@ -17,7 +17,7 @@ import './ExplorerRail.css';
  */
 
 /** Button presentation modes the rail's toggle cycles through. 'small' is the baseline (no CSS class applied). */
-const VIEW_MODES = [
+export const VIEW_MODES = [
   { id: 'small', label: 'Small icons' },
   { id: 'small-caption', label: 'Small icons with captions' },
   { id: 'large', label: 'Large icons' },
@@ -232,11 +232,12 @@ export class ExplorerRail extends EventTarget {
     return this.viewMode;
   }
 
-  /** Advances to the next presentation mode in VIEW_MODES, wrapping around. */
+  /** Advances to the next presentation mode in VIEW_MODES, wrapping around, and notifies listeners. */
   _cycleViewMode() {
     const currentIndex = VIEW_MODES.findIndex((entry) => entry.id === this.viewMode);
     const next = VIEW_MODES[(currentIndex + 1) % VIEW_MODES.length];
     this.setViewMode(next.id);
+    this.dispatchEvent(new CustomEvent('viewmodechange', { detail: { mode: next.id } }));
   }
 
   /**
@@ -270,7 +271,10 @@ export class ExplorerRail extends EventTarget {
    * Build one rail button from its definition, wiring its click to a `toolselect` event.
    *
    * @private
-   * @param {object} definition Button definition (id, title, icon, group, toggle, disabled).
+   * @param {object} definition Button definition (id, title, hint, icon, group, toggle, disabled).
+   *   `title` is the short caption shown as the button's visible label in caption
+   *   view modes; `hint` is the longer description shown as its tooltip/aria-label,
+   *   falling back to `title` when omitted.
    * @returns {HTMLButtonElement} The generated button element.
    */
   _createButton(definition) {
@@ -278,8 +282,8 @@ export class ExplorerRail extends EventTarget {
     button.type = 'button';
     button.className = 'heurist-icon-button h-explorer-rail-button';
     button.dataset.tool = definition.id;
-    button.title = $HR(definition.title || definition.id);
-    button.setAttribute('aria-label', $HR(definition.title || definition.id));
+    button.title = $HR(definition.hint || definition.title || definition.id);
+    button.setAttribute('aria-label', $HR(definition.hint || definition.title || definition.id));
 
     if (definition.toggle) {
       button.setAttribute('aria-pressed', 'false');

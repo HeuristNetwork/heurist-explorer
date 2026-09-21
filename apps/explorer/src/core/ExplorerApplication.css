@@ -18,6 +18,40 @@
     overflow: hidden;
 }
 
+/* Horizontal toolbar mode (Options > Toolbar > Position): left/right rails
+   become a single top bar and the workspace fills the row beneath it. Same
+   DOM, no wrapper element - only the container switches to grid. */
+.h-explorer.h-toolbar-horizontal {
+    display: grid;
+    /* fit-content(50%) - not auto - caps how wide the left rail's column can
+       grow: a plain `auto` track sizes to its content's max-content width
+       and grid gives `1fr` tracks whatever is left over (even down to 0)
+       before ever shrinking an `auto` track, so the left rail would never
+       wrap - it would just push the right rail's buttons off-screen on a
+       narrow toolbar. Capping it forces the left rail to wrap once its
+       buttons would take more than half the toolbar. */
+    grid-template-columns: fit-content(50%) minmax(0, 1fr);
+    grid-template-rows: auto 1fr;
+    grid-template-areas: "left right" "workspace workspace";
+    /* Lets ExplorerRail.css hide captions once the toolbar itself gets
+       narrow, independent of the browser viewport (Explorer can be embedded
+       in a panel narrower than the window). */
+    container-type: inline-size;
+    container-name: h-toolbar;
+}
+
+.h-explorer.h-toolbar-horizontal .h-explorer-rail-left {
+    grid-area: left;
+}
+
+.h-explorer.h-toolbar-horizontal .h-explorer-rail-right {
+    grid-area: right;
+}
+
+.h-explorer.h-toolbar-horizontal .h-explorer-workspace {
+    grid-area: workspace;
+}
+
 .h-explorer-workspace {
     position: relative;
     order: 1;

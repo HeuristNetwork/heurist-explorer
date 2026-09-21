@@ -13,6 +13,7 @@
  * @since       8.0
  */
 
+import { hasQueryParameters } from '#shared/data/queryParameters.js';
 import { HFilter } from '../widgets/filter/HFilter.js';
 import { HeuristApiClient } from '#shared/api';
 import { HostAdapter } from '#shared/host';
@@ -29,6 +30,7 @@ import { SyncEngine } from './SyncEngine.js';
 import { IframeModuleAdapter } from '../modules/IframeModuleAdapter.js';
 import { DirectModuleAdapter } from '../modules/DirectModuleAdapter.js';
 import { ExplorerControlPanel } from '../ui/ExplorerControlPanel.js';
+import { ExplorerUiConfig } from './ExplorerUiConfig.js';
 import { HDbDefs } from '#shared/data/HDbDefs.js';
 import { RecordTypeProvider } from '#shared/data/RecordTypeProvider.js';
 import queryVocabulary from '../utils/queryVocabulary.json';
@@ -38,9 +40,6 @@ import { queryDescribe } from '../utils/queryDescribe.js';
 import { parseTextQuery } from '../utils/parseTextQuery.js';
 import { queryToArray } from '../utils/queryModel.js';
 import './ExplorerApplication.css';
-
-/** Disambiguates concurrent extent-drawing dialogs; see `selectFilterExtent`. */
-let filterExtentDialogSeq = 0;
 
 /** Explorer's top-level application controller: modules, layout, datasource, and synchronization. */
 export class ExplorerApplication {
@@ -61,6 +60,8 @@ export class ExplorerApplication {
       database: config.database,
       resolver: (reference) => this.resolveDataSourceReference(reference)
     });
+    this.uiConfig = new ExplorerUiConfig({ database: config.database });
+    this.uiConfigValue = ExplorerUiConfig.defaults();
     this.modules = new Map();
     this.sync = new SyncEngine({
       onDataSourceRequest: (source, options) => this.activateDataSource(source, options)
@@ -75,6 +76,8 @@ export class ExplorerApplication {
     this._moduleCounter = 0;
     this.layoutDefinitions = [];
     this.querySourcePanels = new Map();
+    this._filterExtentDialog = null;
+    this._filterExtentModule = null;
     // Each embedded module (map, timeline, ...) owns its own persisted user
     // preference (`heurist-<type>`), separate from the Explorer layout config
     // in this.config.settings. IframeModuleAdapter's bridge only supplies
@@ -150,6 +153,7 @@ export class ExplorerApplication {
       if (error?.name !== 'AbortError') HMsg.showMsgErr(error?.message || String(error));
     }
 
+    this.uiConfigValue = this.uiConfig.load();
     this.layout = new LayoutManager(workspace).bindModules(this.modules);
     this.controlPanel = new ExplorerControlPanel({
       application: this,
@@ -272,7 +276,7 @@ export class ExplorerApplication {
     const panel = new QuerySourcePanel({
       dbdefs,
       lang: this.config.language,
-      openFilterBuilder: (query) => this._editQueryWithBuilder(query,
+      openFilterBuilder: (query, filterForm) => this._editQueryWithBuilder(query, filterForm,
         (current) => panel.selectExtent(current)),
       editRules: (rules, options) => this.config.hostBridge?.editRules?.(rules, options),
       describeRules: (rules) => this.config.hostBridge?.describeRules?.(rules),
@@ -438,11 +442,10 @@ export class ExplorerApplication {
     }
 
     const requestedSource = normalizeDataSource(source);
-    if (requestedSource.request?.q?.parameters && requestedSource.request.q.builderModel) {
+    if (hasQueryParameters(requestedSource.request?.q)) {
       const panel = panelBefore || [...this.querySourcePanels.values()][0];
       if (panel) {
         panel.setDataSource(requestedSource);
-        await panel.openFilterForm();
         return null;
       }
     }
@@ -870,14 +873,7 @@ export class ExplorerApplication {
       }
     }
 
-    const regionByType = {
-      data: 'west',
-      map: 'center',
-      graph: 'center',
-      timeline: 'south',
-      recordview: 'east'
-    };
-    const region = regionByType[type];
+    const region = this.uiConfigValue.regions[type];
     if (!region) return false;
 
     let module = [...this.modules.values()].find((item) => item.type === type);
@@ -906,6 +902,31 @@ export class ExplorerApplication {
     await module.resize();
     this.controlPanel?.refreshPresentationState?.();
     return true;
+  }
+
+  /**
+   * Persists a new toolbar/layout configuration and applies it live: already-created
+   * presentation modules whose type moved to a different region are reassigned there.
+   *
+   * @param {object} next Configuration value; see `ExplorerUiConfig`'s shape.
+   * @returns {Promise<object>} The normalized, persisted configuration.
+   */
+  async applyUiConfig(next) {
+    const previousRegions = this.uiConfigValue.regions;
+    const saved = this.uiConfig.save(next);
+    this.uiConfigValue = saved;
+
+    for (const module of this.modules.values()) {
+      const newRegion = saved.regions[module.type];
+      if (!newRegion || newRegion === previousRegions[module.type]) continue;
+      this.layout.assignModule(module.id, newRegion);
+      this.layout.showModule(module.id);
+      await module.resize();
+    }
+
+    this.controlPanel?.applyToolbarConfig(saved.toolbar);
+    this.controlPanel?.refreshPresentationState?.();
+    return saved;
   }
 
   /**
@@ -1042,7 +1063,7 @@ export class ExplorerApplication {
   }
 
   /** Open HFilterBuilder as a value editor and resolve with its JSON query, or null on cancel. */
-  async _editQueryWithBuilder(query, selectExtent = (current) => this.selectFilterExtent(current)) {
+  async _editQueryWithBuilder(query, filterForm = null, selectExtent = (current) => this.selectFilterExtent(current)) {
     let dbdefs;
     try { dbdefs = await this._ensureDbDefs(); }
     catch (error) {
@@ -1054,7 +1075,7 @@ export class ExplorerApplication {
       dbdefs, vocabulary: queryVocabulary, lang: this.config.language, selectExtent
     });
     builder.attach(host).render();
-    builder.setQuery(query || []);
+    builder.setQuery({ query: query || [], filterForm });
     return new Promise((resolve) => {
       const finish = async (value) => { HMsg.closeMsgDlg?.(); await builder.destroy(); resolve(value); };
       HMsg.showMsgDlg(host, {
@@ -1084,12 +1105,9 @@ export class ExplorerApplication {
   }
 
   /**
-   * Draw a filter extent using a dedicated, throwaway Map instance hosted in a
-   * modal dialog - the same workflow as legacy Heurist's `_setExtent`
-   * (`HeuristModuleViewer`), which opens a fresh map module for drawing rather
-   * than disturbing whatever Map presentation the user already has open. The
-   * instance is never added to `this.modules`/the layout and is destroyed as
-   * soon as the dialog closes.
+   * Draw a filter extent with a dedicated Map instance hosted in a modal dialog.
+   * The instance is kept for the Explorer lifetime so reopening the extent editor
+   * does not reload the Map module or discard its draw-mode state.
    *
    * @param {object|null} current Existing bounds, used to seed the drawn rectangle.
    * @returns {Promise<object|null>} West/south/east/north bounds, or null on cancel.
@@ -1098,61 +1116,83 @@ export class ExplorerApplication {
     const url = this.config.moduleUrls?.map;
     if (!url) throw new Error('Map drawing is not available');
 
-    const dlg = HMsg.getMsgDlg(`dialog-filter-extent-${++filterExtentDialogSeq}`);
-    dlg.classList.add('h-dialog-fullscreen');
-    dlg.dataset.preventClose = 'false';
-    dlg.querySelector('.h-dialog-title').textContent = $HR('Define map extent');
-    dlg.querySelector('.h-dialog-footer').hidden = true;
-    const body = dlg.querySelector('.h-dialog-body');
-    body.classList.add('h-dialog-body-flush');
-    body.replaceChildren();
-    const container = document.createElement('div');
-    container.style.cssText = 'flex:1 1 auto;min-height:0;';
-    body.append(container);
+    if (!this._filterExtentModule) {
+      const dlg = HMsg.getMsgDlg('dialog-filter-extent');
+      dlg.classList.add('h-dialog-fullscreen');
+      dlg.dataset.preventClose = 'false';
+      dlg.querySelector('.h-dialog-title').textContent = $HR('Define map extent');
+      dlg.querySelector('.h-dialog-footer').hidden = true;
+      const body = dlg.querySelector('.h-dialog-body');
+      body.classList.add('h-dialog-body-flush');
+      body.replaceChildren();
+      const container = document.createElement('div');
+      container.style.cssText = 'flex:1 1 auto;min-height:0;';
+      body.append(container);
 
-    const module = new IframeModuleAdapter({
-      id: dlg.id,
-      type: 'map',
-      container,
-      url,
-      runtime: {
-        database: this.config.database,
-        apiBaseUrl: this.config.apiBaseUrl,
-        baseUrl: this.config.baseUrl,
-        accessToken: this.config.accessToken,
-        requestHeaders: this.config.requestHeaders,
-        language: this.config.language,
-        viewerMode: 'draw'
-      },
-      hostActions: this._hostActions()
-    });
+      this._filterExtentDialog = dlg;
+      this._filterExtentModule = new IframeModuleAdapter({
+        id: 'filter-extent-map',
+        type: 'map',
+        container,
+        url,
+        runtime: {
+          database: this.config.database,
+          apiBaseUrl: this.config.apiBaseUrl,
+          baseUrl: this.config.baseUrl,
+          accessToken: this.config.accessToken,
+          requestHeaders: this.config.requestHeaders,
+          language: this.config.language,
+          viewerMode: 'draw'
+        },
+        settings: {
+          options: {
+            ui: {
+              initiallyExpanded: false,
+              showCurrentDocument: false,
+              showMapDocuments: true,
+              showOptions: false,
+              showPublish: false,
+              showSourceHeader: false
+            }
+          }
+        },
+        hostActions: this._hostActions()
+      });
+      dlg.showModal();
+      try {
+        await this._filterExtentModule.mount();
+      } catch (error) {
+        await this._filterExtentModule.destroy();
+        this._filterExtentModule = null;
+        dlg.close();
+        throw error;
+      }
+    } else {
+      this._filterExtentDialog.showModal();
+    }
 
-    dlg.showModal();
+    const dlg = this._filterExtentDialog;
+    const module = this._filterExtentModule;
     try {
-      await module.mount();
       await module.api.beginDrawing({ mode: 'filter', geojson: polygonFromBounds(current) });
     } catch (error) {
-      await module.destroy();
       dlg.close();
-      dlg.remove();
       throw error;
     }
 
     return new Promise((resolve) => {
       let settled = false;
-      const finish = (value) => {
+      const finish = (value, cancelDrawing = false) => {
         if (settled) return;
         settled = true;
         cleanup();
-        Promise.resolve(module.destroy()).finally(() => {
-          dlg.close();
-          dlg.remove();
-          resolve(value);
-        });
+        if (cancelDrawing) void module.api.cancelDrawing?.();
+        dlg.close();
+        resolve(value);
       };
       const onFinished = (event) => finish(boundsFromGeometry(event.detail?.result?.geojson));
       const onCancelled = () => finish(null);
-      const onDialogClose = () => finish(null);
+      const onDialogClose = () => finish(null, true);
       const cleanup = () => {
         module.api.removeEventListener('heurist-map-drawing-finished', onFinished);
         module.api.removeEventListener('heurist-map-drawing-cancelled', onCancelled);
@@ -1177,9 +1217,10 @@ export class ExplorerApplication {
     if (!widget) return;
     const composed = await this._editQueryWithBuilder(query);
     if (composed == null) return;
-    widget.setQueryValue(Array.isArray(composed) && !composed.length ? '' : JSON.stringify(composed));
+    const template = composed.query;
+    widget.setQueryValue(!template.length ? '' : JSON.stringify(template));
     widget.refreshSentence?.();
-    if (Array.isArray(composed) && composed.length) void widget.executeDirectQuery();
+    if (template.length && !hasQueryParameters(template)) void widget.executeDirectQuery();
   }
 
   /**
@@ -1248,6 +1289,10 @@ export class ExplorerApplication {
    * @returns {Promise<void>}
    */
   async destroy() {
+    await this._filterExtentModule?.destroy?.();
+    this._filterExtentDialog?.remove?.();
+    this._filterExtentModule = null;
+    this._filterExtentDialog = null;
     await Promise.all([...this.modules.values()].map((module) => module.destroy()));
     this.modules.clear();
     this.sync.destroy();

@@ -138,10 +138,6 @@
     text-align: left;
 }
 
-.h-explorer-rail.h-mode-small-caption .h-explorer-rail-separator {
-    width: calc(100% - 6px);
-}
-
 /* --------------------------------------------------------- view-mode control --- */
 
 .h-explorer-rail-viewmode {
@@ -163,4 +159,118 @@
     width: 30px;
     height: 30px;
     font-size: 15px;
+}
+
+/* -------------------------------------------------- horizontal toolbar mode --- */
+/* Applied via the `.h-toolbar-horizontal` modifier on the `.h-explorer` root
+   (see ExplorerApplication.css); same rail DOM, restyled into a top bar.
+   Overrides below intentionally repeat each h-mode-* selector they replace so
+   specificity wins regardless of source order against the vertical-mode
+   rules above. */
+
+.h-toolbar-horizontal .h-explorer-rail {
+    display: flex;
+    align-items: flex-start;
+    width: 100%;
+    height: auto;
+    min-height: 38px;
+    padding: 0;
+    border-right: 0;
+    border-left: 0;
+    border-bottom: 1px solid var(--h-color-border);
+}
+
+.h-toolbar-horizontal .h-explorer-rail.h-mode-large {
+    width: 100%;
+    min-height: 64px;
+}
+
+/* Large-caption keeps the vertical mode's icon-above-label stacking (see the
+   h-mode-large-caption rules above) - only its fixed width needs relaxing so
+   captions have room; the pane grows taller to fit the stacked button. */
+.h-toolbar-horizontal .h-explorer-rail.h-mode-large-caption {
+    width: 100%;
+    min-height: 84px;
+}
+
+.h-toolbar-horizontal .h-explorer-rail.h-mode-small-caption {
+    width: 100%;
+    min-height: 38px;
+}
+
+.h-toolbar-horizontal .h-explorer-rail-cluster {
+    position: static;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    width: auto;
+    flex: 1 1 auto;
+    padding: 4px 8px;
+    row-gap: 4px;
+    transform: none;
+}
+
+.h-toolbar-horizontal .h-explorer-rail-right .h-explorer-rail-cluster {
+    justify-content: flex-end;
+}
+
+.h-toolbar-horizontal .h-explorer-rail-button {
+    width: auto;
+    flex-direction: row;
+}
+
+.h-toolbar-horizontal .h-explorer-rail.h-mode-large .h-explorer-rail-button {
+    width: 60px;
+    height: 60px;
+}
+
+/* Large-caption: width only - flex-direction/padding/gap/height stay the
+   vertical mode's column stack (icon above, caption below). */
+.h-toolbar-horizontal .h-explorer-rail.h-mode-large-caption .h-explorer-rail-button {
+    width: auto;
+    min-width: 60px;
+}
+
+.h-toolbar-horizontal .h-explorer-rail.h-mode-small-caption .h-explorer-rail-button {
+    width: auto;
+    padding: 0 2px;
+}
+
+.h-toolbar-horizontal .h-explorer-rail-separator,
+.h-toolbar-horizontal .h-explorer-rail.h-mode-large .h-explorer-rail-separator,
+.h-toolbar-horizontal .h-explorer-rail.h-mode-large-caption .h-explorer-rail-separator {
+    width: 1px;
+    height: 22px;
+    margin: 0 8px;
+}
+
+.h-toolbar-horizontal .h-explorer-rail.h-mode-small-caption .h-explorer-rail-separator {
+    margin: 0 2px;
+}
+
+.h-toolbar-horizontal .h-explorer-rail-viewmode {
+    position: static;
+    width: auto;
+    padding: 0;
+    background: none;
+    border-top: 0;
+    margin-left: 8px;
+}
+
+/* Only the right rail's toggle remains; it drives both rails' button size. */
+.h-toolbar-horizontal .h-explorer-rail-left .h-explorer-rail-viewmode {
+    display: none;
+}
+
+/* Below 600px of toolbar width (not viewport width - see the container-type
+   on .h-toolbar-horizontal in ExplorerApplication.css), captions are dropped
+   regardless of the chosen button size, leaving icon-only buttons. Selectors
+   repeat the h-mode-*-caption ancestor so specificity beats their `display:
+   block` rules above regardless of source order (same reasoning as the rest
+   of this file's horizontal-mode overrides). */
+@container h-toolbar (max-width: 600px) {
+    .h-toolbar-horizontal .h-explorer-rail.h-mode-small-caption .h-explorer-rail-button-label,
+    .h-toolbar-horizontal .h-explorer-rail.h-mode-large-caption .h-explorer-rail-button-label {
+        display: none;
+    }
 }

@@ -1,0 +1,87 @@
+/* ExplorerConfigurationDialog: layout/chrome reuses the shared heurist-config-*
+   classes (see shared/src/ui/heurist-module.css); only the radio group and the
+   drag-and-drop cardinal grid below are local to this dialog. */
+
+.heurist-config-radio-row {
+    align-items: flex-start;
+}
+
+.h-explorer-config-radio-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 18px;
+}
+
+.h-explorer-config-hint {
+    margin: 0 0 10px;
+    color: var(--h-color-text-muted);
+}
+
+.h-explorer-config-cardinal {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    grid-template-areas:
+        "north north north"
+        "west center east"
+        "south south south";
+    gap: 8px;
+    width: 100%;
+}
+
+.h-explorer-config-pane-north { grid-area: north; }
+.h-explorer-config-pane-west { grid-area: west; }
+.h-explorer-config-pane-center { grid-area: center; }
+.h-explorer-config-pane-east { grid-area: east; }
+.h-explorer-config-pane-south { grid-area: south; }
+
+.h-explorer-config-pane {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+}
+
+.h-explorer-config-pane-label {
+    font-size: var(--h-font-size-small);
+    font-weight: 600;
+    color: var(--h-color-text-muted);
+}
+
+.h-explorer-config-pane-list {
+    display: flex;
+    flex-wrap: wrap;
+    align-content: flex-start;
+    gap: 6px;
+    min-height: 44px;
+    padding: 6px;
+    box-sizing: border-box;
+    border: 1px dashed var(--h-color-border);
+    border-radius: var(--h-radius);
+    background: var(--h-color-surface);
+}
+
+.h-explorer-config-pane-list.h-drag-over {
+    border-color: var(--h-color-primary);
+    background: var(--h-color-surface-hover);
+}
+
+.h-explorer-config-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 8px;
+    border: 1px solid var(--h-color-border);
+    border-radius: var(--h-radius);
+    background: var(--h-color-bg);
+    font-size: var(--h-font-size-small);
+    cursor: grab;
+    user-select: none;
+}
+
+.h-explorer-config-chip.h-dragging {
+    opacity: 0.4;
+}
+
+.h-explorer-config-reset {
+    margin-top: 12px;
+}

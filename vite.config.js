@@ -1,4 +1,4 @@
-import { copyFile, mkdir } from "node:fs/promises";
+import { copyFile, mkdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { defineConfig } from "vite";
@@ -106,6 +106,23 @@ function copyManualsPlugin(manuals, outputDirectory) {
           path.join(outputDirectory, filename),
         );
       }
+    },
+    // The copy above only runs on build (writeBundle). Without this, a Help
+    // iframe under `vite dev` requests a manual that doesn't exist anywhere
+    // under the dev server, 404s, and Vite's SPA history fallback serves
+    // index.html instead - silently booting a second copy of the app inside
+    // the help iframe. Serve manuals directly from user-manual/ in dev too.
+    configureServer(server) {
+      server.middlewares.use(async (req, res, next) => {
+        const filename = manuals.find((name) => req.url === `/${name}`);
+        if (!filename) return next();
+        try {
+          res.setHeader("Content-Type", "text/html; charset=utf-8");
+          res.end(await readFile(path.join(repositoryRoot, "user-manual", filename)));
+        } catch {
+          next();
+        }
+      });
     },
   };
 }

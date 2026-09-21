@@ -40,3 +40,27 @@ test('fixed range endpoint is part of the query, not the layout', () => {
   assert.deepEqual(resolveQueryParameters(query, { X3: 30 }).q,
     [{ 'f:20': '10<>30' }]);
 });
+
+test('descriptions include record type, field name, and geo field id', () => {
+  const query = [{ t: '10' }, { 'geo:28': '$X1$' },
+    { 'lt:240': [{ t: '48' }, { 'f:1': '$X2$' }] }];
+  const dbdefs = {
+    rectypeName: (id) => ({ 10: 'Person', 48: 'Place' })[id],
+    fieldGlobal: (id) => ({ 28: { type: 'geo', name: 'Location' },
+      1: { type: 'freetext', name: 'Full name' } })[id]
+  };
+  const parameters = describeQueryParameters(query, dbdefs);
+  assert.equal(parameters.X1.pathLabel, 'Person.Location');
+  assert.equal(parameters.X1.fieldId, 28);
+  assert.equal(parameters.X2.pathLabel, 'Place.Full name');
+});
+
+
+test('geographic parameters remain geo field predicates', () => {
+  const query = [{ t: '10' }, { 'geo:28': '$X1$' }];
+  const extent = { west: 10, south: -5, east: 20, north: 8 };
+  assert.deepEqual(resolveQueryParameters(query, { X1: extent }), {
+    q: [{ t: '10' }, { 'geo:28': 'POLYGON((10 -5,20 -5,20 8,10 8,10 -5))' }],
+    extent: null
+  });
+});

@@ -15,7 +15,7 @@
 
 import { $HR, applyI18n, HMsg, InlineHelp } from '#shared/ui';
 import { ExplorerRail } from './ExplorerRail.js';
-import { HInputTestbed } from '../widgets/form-testbed/HInputTestbed.js';
+import { ExplorerConfigurationDialog } from './config/ExplorerConfigurationDialog.js';
 import './ExplorerControlPanel.css';
 
 /**
@@ -71,9 +71,11 @@ export class ExplorerControlPanel {
     });
     this.rightRail.mount(parent);
     this.rightRail.addEventListener('toolselect', (event) => this._handleRightTool(event.detail.id));
+    this.rightRail.addEventListener('viewmodechange', (event) => this._onRightViewModeChange(event.detail.mode));
 
     this._buildFlyout(parent);
     this._syncPresentationButtons();
+    this.applyToolbarConfig(this.application.uiConfigValue?.toolbar);
 
     document.addEventListener('pointerdown', this._onDocumentPointerDown, true);
     window.addEventListener('blur', this._onWindowBlur);
@@ -389,6 +391,44 @@ export class ExplorerControlPanel {
   }
 
   /**
+   * Opens the Explorer configuration dialog (toolbar position/size, module-to-region layout).
+   */
+  openConfiguration() {
+    this.closeToolPanel();
+    new ExplorerConfigurationDialog({
+      value: this.application.uiConfigValue,
+      onSave: (value) => this.application.applyUiConfig(value)
+    }).open();
+  }
+
+  /**
+   * Applies a toolbar position/size configuration to both rails.
+   *
+   * @param {{position?: 'vertical'|'horizontal', buttonSize?: string}} [config] Toolbar configuration.
+   * @returns {void}
+   */
+  applyToolbarConfig({ position = 'vertical', buttonSize = 'small' } = {}) {
+    this._toolbarPosition = position;
+    this.application.container?.classList.toggle('h-toolbar-horizontal', position === 'horizontal');
+    this.leftRail?.setViewMode(buttonSize);
+    this.rightRail?.setViewMode(buttonSize);
+  }
+
+  /**
+   * Mirrors the right rail's view-mode toggle onto the left rail while the toolbar is horizontal,
+   * since only the right rail's toggle remains visible there.
+   *
+   * @private
+   * @param {string} mode View-mode id; see `ExplorerRail`'s `VIEW_MODES`.
+   * @returns {void}
+   */
+  _onRightViewModeChange(mode) {
+    if (this._toolbarPosition === 'horizontal') {
+      this.leftRail?.setViewMode(mode);
+    }
+  }
+
+  /**
    * Removes rails, flyout and global listeners.
    */
   destroy() {
@@ -465,42 +505,6 @@ export class ExplorerControlPanel {
   }
 
   /**
-   * Open the shared-input test form in a modal popup.
-   *
-   * @returns {Promise<void>} Completion after opening the popup.
-   */
-  async openInputTestbed() {
-    let dbdefs;
-
-    try {
-      dbdefs = await this.application._ensureDbDefs();
-    } catch (error) {
-      HMsg.showMsgFlash?.(`${$HR('Unable to load database structure')}: ${error?.message || error}`);
-      return;
-    }
-
-    const host = document.createElement('div');
-    const testbed = new HInputTestbed();
-
-    try {
-      testbed.attach(host, { dbdefs }).render();
-    } catch (error) {
-      HMsg.showMsgFlash?.(error?.message || String(error));
-      await testbed.destroy();
-      return;
-    }
-
-    applyI18n(host);
-    const dialog = HMsg.showMsgDlg(host, {
-      title: 'Input test form',
-      buttons: [
-        { label: 'Close', class: 'h-btn', onClick: () => HMsg.closeMsgDlg() }
-      ]
-    });
-    dialog.addEventListener('close', () => void testbed.destroy(), { once: true });
-  }
-
-  /**
    * Dispatch a left-rail toolselect event to the matching panel/action.
    *
    * @private
@@ -537,10 +541,6 @@ export class ExplorerControlPanel {
         this.openQuerySources(this.leftRail?.getButtonElement('query-sources'));
         break;
 
-      case 'input-testbed':
-        void this.openInputTestbed();
-        break;
-
       case 'subsets':
         this._showPlaceholder(id, 'Subsets');
         break;
@@ -556,10 +556,6 @@ export class ExplorerControlPanel {
 
       case 'manage-query-sources':
         this._showPlaceholder(id, 'Manage Query Sources');
-        break;
-
-      case 'help':
-        this.openHelp();
         break;
 
       default:
@@ -578,6 +574,21 @@ export class ExplorerControlPanel {
     if (['data', 'map', 'graph', 'timeline', 'recordview'].includes(id)) {
       await this.application.togglePresentation(id);
       this._syncPresentationButtons();
+      return;
+    }
+
+    if (id === 'help') {
+      this.openHelp();
+      return;
+    }
+
+    if (id === 'options') {
+      this.openConfiguration();
+      return;
+    }
+
+    if (id === 'publish') {
+      HMsg.showMsgFlash('Will be implemented soon...');
       return;
     }
 
@@ -1418,32 +1429,33 @@ export class ExplorerControlPanel {
 /** Build the left rail's button definitions. */
 function leftButtons() {
   return [
-    { id: 'search', icon: 'fa-solid fa-magnifying-glass', title: 'Search', group: 'find' },
-    { id: 'saved-filters', icon: 'fa-solid fa-filter', title: 'Saved Filters', group: 'find' },
-    { id: 'record-types', icon: 'fa-solid fa-shapes', title: 'Search by Record Type', group: 'find' },
-    { id: 'query-sources', icon: 'fa-solid fa-database', title: 'Query Sources', group: 'find' },
-    { id: 'favorites', icon: 'fa-solid fa-star', title: 'Favorites', group: 'activity' },
-    { id: 'history', icon: 'fa-solid fa-clock-rotate-left', title: 'History', group: 'activity' },
-    { id: 'workspace', icon: 'fa-regular fa-object-group', title: 'Workspace', group: 'activity' },
-    { id: 'input-testbed', icon: 'fa-solid fa-pen-to-square', title: 'Input test form', group: 'activity' },
-    { id: 'subsets', icon: 'fa-solid fa-arrows-left-right-to-line', title: 'Subsets', group: 'subsets' },
+    { id: 'search', icon: 'fa-solid fa-magnifying-glass', title: 'Search', hint: 'Query builder and source editor', group: 'find' },
+    { id: 'saved-filters', icon: 'fa-solid fa-filter', title: 'Filters', hint: 'Browse and apply saved filters', group: 'find' },
+    { id: 'record-types', icon: 'fa-solid fa-shapes', title: 'Entities', hint: 'Search by record type', group: 'find' },
+    { id: 'query-sources', icon: 'fa-solid fa-database', title: 'Sources', hint: 'Saved data sources (filter and presentation settings)', group: 'find' },
+    { id: 'favorites', icon: 'fa-solid fa-star', title: 'Favorites', hint: 'Starred filters, record types and sources', group: 'activity' },
+    { id: 'history', icon: 'fa-solid fa-clock-rotate-left', title: 'History', hint: 'Recently viewed data sources', group: 'activity' },
+    { id: 'workspace', icon: 'fa-regular fa-object-group', title: 'Workspace', hint: 'Saved working set of data sources', group: 'activity' },
+    { id: 'subsets', icon: 'fa-solid fa-arrows-left-right-to-line', title: 'Subsets', hint: 'Restrict further searches to a subset of records', group: 'subsets' }
     // Manage Filters / Manage Sources remain hidden until their workflows
     // replace the legacy management widgets.
-    { id: 'help', icon: 'fa-solid fa-circle-question', title: 'Help', group: 'help' }
   ];
 }
 
 /** Build the right rail's button definitions. */
 function rightButtons() {
   return [
-    { id: 'data', icon: 'fa-solid fa-table', title: 'Data', group: 'presentations', toggle: true },
-    { id: 'map', icon: 'fa-solid fa-map-location-dot', title: 'Map', group: 'presentations', toggle: true },
-    { id: 'graph', icon: 'fa-solid fa-hexagon-nodes', title: 'Graph', group: 'presentations', toggle: true },
-    { id: 'timeline', icon: 'fa-regular fa-clock', title: 'Timeline', group: 'presentations', toggle: true },
-    { id: 'recordview', icon: 'fa-regular fa-address-card', title: 'Record View', group: 'presentations', toggle: true },
-    { id: 'report', icon: 'fa-regular fa-file', title: 'Report', group: 'tools' },
-    { id: 'crosstabs', icon: 'fa-solid fa-chart-column', title: 'Crosstabs / Charts', group: 'tools' },
-    { id: 'actions', icon: 'fa-solid fa-bolt', title: 'Actions Dashboard', group: 'tools' },
-    { id: 'export', icon: 'fa-solid fa-file-export', title: 'Export Dashboard', group: 'tools' }
+    { id: 'data', icon: 'fa-solid fa-table', title: 'Data', hint: 'List, cards or tabular presentation of records', group: 'presentations', toggle: true },
+    { id: 'map', icon: 'fa-solid fa-map-location-dot', title: 'Map', hint: 'Map view of records', group: 'presentations', toggle: true },
+    { id: 'graph', icon: 'fa-solid fa-hexagon-nodes', title: 'Graph', hint: 'Network graph of linked records', group: 'presentations', toggle: true },
+    { id: 'timeline', icon: 'fa-regular fa-clock', title: 'Timeline', hint: 'Timeline view of dated records', group: 'presentations', toggle: true },
+    { id: 'recordview', icon: 'fa-regular fa-address-card', title: 'Record', hint: 'Detailed information for the selected record', group: 'presentations', toggle: true },
+    { id: 'report', icon: 'fa-regular fa-file', title: 'Report', hint: 'Custom reports editor', group: 'tools' },
+    { id: 'crosstabs', icon: 'fa-solid fa-chart-column', title: 'Crosstabs', hint: 'Cross-tabulation and chart analysis', group: 'tools' },
+    { id: 'actions', icon: 'fa-solid fa-bolt', title: 'Actions', hint: 'Dashboard of actions for the current filtered result or selection', group: 'tools' },
+    { id: 'export', icon: 'fa-solid fa-file-export', title: 'Export', hint: 'Export records in various formats', group: 'tools' },
+    { id: 'help', icon: 'fa-solid fa-circle-question', title: 'Help', hint: 'Explorer help and user guide', group: 'settings' },
+    { id: 'options', icon: 'fa-solid fa-gear', title: 'Options', hint: 'Toolbar and layout configuration', group: 'settings' },
+    { id: 'publish', icon: 'fa-solid fa-share-nodes', title: 'Publish', hint: 'Publish the current view (coming soon)', group: 'settings' }
   ];
 }
