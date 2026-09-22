@@ -288,28 +288,55 @@ export class IframeModuleAdapter extends ExplorerModule {
     const api = await this._readyApi();
     const query = executableQuery(source);
 
-    // Every DataSource is resolved before synchronization. Its persistent
-    // identity and profiles remain metadata; this adapter applies its request.
-    if (this.type === 'timeline' && typeof api.setDynamicDataSources !== 'function') return api.setQuery?.(query, { title: source?.title || 'Current result' });
-    if (this.type === 'graph') {
-      return typeof api.setDataSource === 'function'
-        ? api.setDataSource(source)
-        : api.load?.({ query });
+    await this.setLoading(true);
+    try {
+      // Every DataSource is resolved before synchronization. Its persistent
+      // identity and profiles remain metadata; this adapter applies its request.
+      if (this.type === 'timeline' && typeof api.setDynamicDataSources !== 'function') {
+        return await api.setQuery?.(query, { title: source?.title || 'Current result' });
+      }
+      if (this.type === 'graph') {
+        return await (typeof api.setDataSource === 'function'
+          ? api.setDataSource(source)
+          : api.load?.({ query }));
+      }
+      if (this.type === 'data') {
+        return await (typeof api.setDataSource === 'function'
+          ? api.setDataSource(source, { reload: true })
+          : api.setQuery?.(query, { reload: true, dataSource: source, title: source?.title || null }));
+      }
+      if (['map', 'timeline'].includes(this.type)) {
+        // Workspace is independent Explorer state and is synchronized only when
+        // membership/state changes. A normal current-datasource change must not
+        // replace or rebuild Workspace layers/bands.
+        return await (typeof api.setDynamicDataSources === 'function'
+          ? api.setDynamicDataSources({ currentDataSource: source })
+          : api.setQuery?.(query, { reload: true, title: source?.title || 'Current result' }));
+      }
+      return false;
+    } catch (error) {
+      // A newer setDataSource() call already superseded this one; the child
+      // module's own generation guard aborted it. Expected, not a failure.
+      if (error?.name === 'AbortError') {
+        console.debug(`${this.type} datasource request superseded: ${error.message}`);
+        return null;
+      }
+      throw error;
+    } finally {
+      await this.setLoading(false);
     }
-    if (this.type === 'data') {
-      return typeof api.setDataSource === 'function'
-        ? api.setDataSource(source, { reload: true })
-        : api.setQuery?.(query, { reload: true, dataSource: source, title: source?.title || null });
-    }
-    if (['map', 'timeline'].includes(this.type)) {
-      // Workspace is independent Explorer state and is synchronized only when
-      // membership/state changes. A normal current-datasource change must not
-      // replace or rebuild Workspace layers/bands.
-      return typeof api.setDynamicDataSources === 'function'
-        ? api.setDynamicDataSources({ currentDataSource: source })
-        : api.setQuery?.(query, { reload: true, title: source?.title || 'Current result' });
-    }
-    return false;
+  }
+
+  /**
+   * Show or hide a loading indicator for the module's active DataSource,
+   * using its module-specific API when available.
+   *
+   * @param {boolean} loading Whether a load is in progress.
+   * @returns {Promise<*>} Result of the child module's call, or `undefined` when unsupported.
+   */
+  async setLoading(loading) {
+    const api = await this._readyApi();
+    return api.setLoading?.(Boolean(loading));
   }
 
   /**

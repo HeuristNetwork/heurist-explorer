@@ -189,13 +189,10 @@ test("GraphApplication loads and merges explicit graph fragments", async () => {
   assert.deepEqual(calls[1].query, { ids: [1] });
 });
 
-test("setDataSource dispatches a loading state while unpinned, and skips it entirely while pinned", async () => {
-  let resolveLoad;
+test("setLoading dispatches a loading state while unpinned, and is ignored entirely while pinned", async () => {
   const application = new GraphApplication({
     config: { query: null, selection: [], limits: {} },
-    provider: {
-      load: () => new Promise((resolve) => { resolveLoad = resolve; }),
-    },
+    provider: { load: async () => ({ graph: new GraphDocument({ records: [], edges: [], paths: {} }) }) },
     engine: {
       initialize: async () => {},
       setGraph: async () => {},
@@ -211,17 +208,18 @@ test("setDataSource dispatches a loading state while unpinned, and skips it enti
   application.addEventListener("heurist-graph-datasource-loading-changed",
     (event) => events.push(event.detail.loading));
 
-  const pending = application.setDataSource({ request: { q: "t:5" }, title: "Source" });
+  // The host (IframeModuleAdapter) calls setLoading() explicitly around its
+  // own setDataSource() call; GraphApplication no longer derives it internally.
+  application.setLoading(true);
   assert.deepEqual(events, [true]);
   assert.equal(application.getState().loadingDataSource, true);
-  resolveLoad({ graph: new GraphDocument({ records: [], edges: [], paths: {} }) });
-  await pending;
+  application.setLoading(false);
   assert.deepEqual(events, [true, false]);
   assert.equal(application.getState().loadingDataSource, false);
 
   application.setPinned(true);
   events.length = 0;
-  await application.setDataSource({ request: { q: "t:9" }, title: "Ignored while pinned" });
+  application.setLoading(true);
   assert.deepEqual(events, []);
   assert.equal(application.getState().loadingDataSource, false);
 });

@@ -426,28 +426,31 @@ export class GraphApplication extends EventTarget {
    */
   async setDataSource(dataSource) {
     if (this.pinned) return this.getState();
-    // load() below claims the next generation synchronously on entry; predict
-    // it so a superseded call's cleanup can't clear a newer call's flag.
-    const requestGeneration = this.generation + 1;
-    this.loadingDataSource = true;
-    this.dispatch("heurist-graph-datasource-loading-changed", { loading: true });
-    try {
-      const query = dataSource?.request?.q ?? dataSource?.query ?? null;
-      this.querySource = null;
-      this.dataSource = dataSource || null;
-      // A restored/current rule override belongs to the previous datasource.
-      // Keeping it here would mask request.rules supplied by the new Query Source.
-      this.ruleOverrides.delete('current');
-      this.config.querySourceId = null;
-      this.config.querySourceTitle = dataSource?.title || null;
-      this.activeLoad = { type: "datasource", dataSource };
-      return await this.load({ query, links: dataSource?.links ?? "all", internal: true, remember: false });
-    } finally {
-      if (this.generation === requestGeneration) {
-        this.loadingDataSource = false;
-        this.dispatch("heurist-graph-datasource-loading-changed", { loading: false });
-      }
-    }
+    const query = dataSource?.request?.q ?? dataSource?.query ?? null;
+    this.querySource = null;
+    this.dataSource = dataSource || null;
+    // A restored/current rule override belongs to the previous datasource.
+    // Keeping it here would mask request.rules supplied by the new Query Source.
+    this.ruleOverrides.delete('current');
+    this.config.querySourceId = null;
+    this.config.querySourceTitle = dataSource?.title || null;
+    this.activeLoad = { type: "datasource", dataSource };
+    return this.load({ query, links: dataSource?.links ?? "all", internal: true, remember: false });
+  }
+
+  /**
+   * Show or hide a loading indicator for an inbound host DataSource push
+   * (main runtime only), called explicitly by the host around its
+   * setDataSource() call. Ignored while pinned, since setDataSource() itself
+   * is a no-op in that state - nothing is actually loading.
+   *
+   * @param {boolean} loading Whether a load is in progress.
+   * @returns {void}
+   */
+  setLoading(loading) {
+    if (this.pinned) return;
+    this.loadingDataSource = loading === true;
+    this.dispatch("heurist-graph-datasource-loading-changed", { loading: this.loadingDataSource });
   }
 
   /**

@@ -95,6 +95,29 @@ test("a host Filtered Result update does not replace the active Query Source", a
   assert.equal(application.getState().querySourceId, 7);
 });
 
+test("setLoading forwards to the active engine's own setLoading, tolerating engines without one", async () => {
+  const calls = [];
+  const application = new DataApplication({
+    container: {},
+    config: { source: {} },
+    engine: { setData: async () => {}, setLoading: (loading) => calls.push(loading) },
+    host: {},
+    loaders: {},
+  });
+  application.setLoading(true);
+  application.setLoading(false);
+  assert.deepEqual(calls, [true, false]);
+
+  const applicationWithoutIndicator = new DataApplication({
+    container: {},
+    config: { source: {} },
+    engine: { setData: async () => {} },
+    host: {},
+    loaders: {},
+  });
+  assert.doesNotThrow(() => applicationWithoutIndicator.setLoading(true));
+});
+
 test("a superseded load cannot replace the Filtered Result", async () => {
   const pending = new Map();
   const querySource = (id) => ({

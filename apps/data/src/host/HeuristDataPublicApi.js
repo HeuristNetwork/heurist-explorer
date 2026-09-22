@@ -52,6 +52,11 @@ export class HeuristDataPublicApi {
     return this.application.setDataSource(dataSource, options);
   }
 
+  /** Show or hide a loading indicator, called by the host around its setDataSource() call. */
+  setLoading(loading) {
+    return this.application.setLoading(loading);
+  }
+
   /** Replace the selected record IDs. */
   setSelection(ids, options) {
     return this.application.setSelection(ids, options);

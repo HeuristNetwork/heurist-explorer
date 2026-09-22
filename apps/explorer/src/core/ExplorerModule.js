@@ -48,6 +48,15 @@ export class ExplorerModule extends EventTarget {
   async setDataSource(source) { this.dataSource = clone(source); return source; }
 
   /**
+   * Show or hide a loading indicator for the module's active DataSource.
+   * Base implementation is a no-op; subclasses override.
+   *
+   * @param {boolean} loading Whether a load is in progress.
+   * @returns {Promise<void>}
+   */
+  async setLoading(loading) { void loading; }
+
+  /**
    * Apply a new record selection. Base implementation only records it locally.
    *
    * @param {Array<number>} ids Selected record IDs.

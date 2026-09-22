@@ -1097,17 +1097,14 @@ export class ExplorerControlPanel {
     await this._activateFromList(() => this.application.activateSavedFilter(id));
   }
 
-  /** Close a navigation list immediately, clear stale results, and show progress while activating. */
+  /** Close a navigation list immediately and clear stale results before activating. */
   async _activateFromList(activate) {
     this.closeToolPanel();
-    this.application.setCurrentResultLoading?.(true);
     try {
       await this.application.clearCurrentResult?.();
       await activate();
     } catch (error) {
       HMsg.showMsgErr(error?.message || String(error));
-    } finally {
-      this.application.setCurrentResultLoading?.(false);
     }
   }
 

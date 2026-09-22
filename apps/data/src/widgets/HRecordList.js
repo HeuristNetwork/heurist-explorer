@@ -271,10 +271,28 @@ export class HRecordList extends HBaseWidget {
     this._render();
   }
 
+  /**
+   * Show or hide the loading indicator for an externally-triggered load
+   * (e.g. the host applying a new DataSource), sharing the same indicator
+   * `_requestPage()` toggles for its own internal page/filter requests.
+   *
+   * @param {boolean} loading Whether a load is in progress.
+   * @returns {void}
+   */
+  setLoading(loading) {
+    this._setLoading(Boolean(loading));
+  }
+
+  /** Increment/decrement the shared loading count and toggle the indicator at the 0<->1+ edge. */
+  _setLoading(loading) {
+    this._loadingCount = Math.max(0, (this._loadingCount || 0) + (loading ? 1 : -1));
+    this.container.classList.toggle("h-recordlist-loading", this._loadingCount > 0);
+  }
+
   /** Request the current offset/page-length/filter page of data and re-render, tolerating supersession/abort. */
   async _requestPage() {
     if (!this.onDataRequest) return;
-    this.container.classList.add("h-recordlist-loading");
+    this._setLoading(true);
     try {
       const result = await this.onDataRequest({
         offset: this.offset,
@@ -298,7 +316,7 @@ export class HRecordList extends HBaseWidget {
         );
       }
     } finally {
-      this.container.classList.remove("h-recordlist-loading");
+      this._setLoading(false);
     }
   }
 

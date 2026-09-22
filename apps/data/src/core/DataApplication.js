@@ -221,6 +221,19 @@ export class DataApplication extends EventTarget {
     return this._applyResult(result);
   }
 
+  /**
+   * Show or hide a loading indicator for the active DataSource, called by
+   * the host right before/after its setDataSource() call. Drives the same
+   * indicator the active engine already shows for its own internal
+   * page/filter requests.
+   *
+   * @param {boolean} loading Whether a load is in progress.
+   * @returns {void}
+   */
+  setLoading(loading) {
+    this.engine.setLoading?.(Boolean(loading));
+  }
+
   /** Apply Explorer's complete normalized DataSource without losing identity. */
   setDataSource(dataSource, options = {}) {
     const request = dataSource?.request || {};

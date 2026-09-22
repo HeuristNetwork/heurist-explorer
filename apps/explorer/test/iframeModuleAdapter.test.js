@@ -65,6 +65,46 @@ test('updateSettings notifies onSettingsChange so Explorer can cache the module 
   assert.deepEqual(changes, [saved]);
 });
 
+test('setDataSource swallows a superseded (AbortError) rejection instead of throwing', async () => {
+  const adapter = new IframeModuleAdapter({ id: 'graph', type: 'graph', container: null, url: '' });
+  const error = new Error('Superseded graph request');
+  error.name = 'AbortError';
+  adapter.api = { setDataSource: async () => { throw error; } };
+  const result = await adapter.setDataSource({ request: { q: 't:1' } });
+  assert.equal(result, null);
+});
+
+test('setDataSource still rethrows a non-abort error', async () => {
+  const adapter = new IframeModuleAdapter({ id: 'graph', type: 'graph', container: null, url: '' });
+  adapter.api = { setDataSource: async () => { throw new Error('Server error'); } };
+  await assert.rejects(
+    () => adapter.setDataSource({ request: { q: 't:1' } }),
+    /Server error/
+  );
+});
+
+test('setDataSource brackets the child module call with setLoading(true)/setLoading(false)', async () => {
+  const calls = [];
+  const adapter = new IframeModuleAdapter({ id: 'graph', type: 'graph', container: null, url: '' });
+  adapter.api = {
+    setLoading: (loading) => calls.push(`loading:${loading}`),
+    setDataSource: async () => { calls.push('setDataSource'); return 'ok'; }
+  };
+  await adapter.setDataSource({ request: { q: 't:1' } });
+  assert.deepEqual(calls, ['loading:true', 'setDataSource', 'loading:false']);
+});
+
+test('setDataSource still clears the loading state when the child module rejects', async () => {
+  const calls = [];
+  const adapter = new IframeModuleAdapter({ id: 'data', type: 'data', container: null, url: '' });
+  adapter.api = {
+    setLoading: (loading) => calls.push(`loading:${loading}`),
+    setDataSource: async () => { throw new Error('Server error'); }
+  };
+  await assert.rejects(() => adapter.setDataSource({ request: { q: 't:1' } }));
+  assert.deepEqual(calls, ['loading:true', 'loading:false']);
+});
+
 test('programmatic Map selection feedback does not clear Graph selection', async () => {
   const events = new EventTarget();
   const adapter = new IframeModuleAdapter({ id: 'map', type: 'map', container: null, url: '' });

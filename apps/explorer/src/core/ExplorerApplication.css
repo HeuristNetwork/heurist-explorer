@@ -85,33 +85,6 @@
     overflow: hidden;
 }
 
-.h-explorer-slot.is-result-loading::before {
-    content:"";
-    position:absolute;
-    z-index:20;
-    inset:0;
-    background:color-mix(in srgb, var(--h-color-bg) 68%, transparent);
-    pointer-events:none;
-}
-
-.h-explorer-slot.is-result-loading::after {
-    content:"\f110";
-    position:absolute;
-    z-index:21;
-    left:50%;
-    top:50%;
-    color:var(--h-color-primary);
-    font:var(--fa-font-solid);
-    font-size:28px;
-    animation:h-explorer-spin 0.9s linear infinite;
-    pointer-events:none;
-}
-
-@keyframes h-explorer-spin {
-    from { transform:translate(-50%, -50%) rotate(0deg); }
-    to { transform:translate(-50%, -50%) rotate(360deg); }
-}
-
 .h-explorer-slot-focus {
     outline: 2px solid var(--h-color-primary);
     outline-offset: -2px;

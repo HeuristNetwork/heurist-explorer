@@ -398,15 +398,6 @@ export class ExplorerApplication {
     });
   }
 
-  /** Show or hide a loading veil over the current Data result. */
-  setCurrentResultLoading(loading) {
-    const module = this.layout?.findCurrentResultDataModule?.();
-    const slot = module ? this.layout?.getSlot?.(module.id) : null;
-    if (!slot) return;
-    slot.classList.toggle('is-result-loading', loading === true);
-    slot.setAttribute('aria-busy', String(loading === true));
-  }
-
   /**
    * Create a new heurist-data module instance for a datasource, adding it to the layout.
    *
@@ -482,36 +473,32 @@ export class ExplorerApplication {
       }
     }
 
-    // Covers every caller (saved filter/source/record-type selection, and a
-    // Filter Form search) with the same result-loading veil, rather than
-    // relying on each call site to remember to toggle it.
-    this.setCurrentResultLoading(true);
-    try {
-      const dataSource = await this._withResultCount(requestedSource);
-      let dataModule = this.layout.findCurrentResultDataModule();
+    const dataSource = await this._withResultCount(requestedSource);
+    let dataModule = this.layout.findCurrentResultDataModule();
 
-      if (!dataModule) {
-        dataModule = await this._createDataModule(dataSource, { role: 'current' });
-      }
-
-      await this.sync.setDataSource(dataSource, {
-        ...syncOptions,
-        preserveDataViews: true,
-        dataModuleId: dataModule.id
-      });
-
-      this.history.add(dataSource);
-      this.controlPanel?.refreshNavigationLists?.();
-
-      this.layout.activateModule(dataModule.id);
-      if (syncOptions.keepEditorDraft !== true) {
-        for (const panel of this.querySourcePanels.values()) panel.setDataSource(dataSource);
-      }
-      this.controlPanel?.refreshActiveTool?.();
-      return dataModule;
-    } finally {
-      this.setCurrentResultLoading(false);
+    if (!dataModule) {
+      dataModule = await this._createDataModule(dataSource, { role: 'current' });
     }
+
+    // Every module's IframeModuleAdapter.setDataSource() brackets its own
+    // call with setLoading(true)/setLoading(false), so every caller here
+    // (saved filter/source/record-type selection, a Filter Form search) gets
+    // a consistent loading indicator without this method managing one itself.
+    await this.sync.setDataSource(dataSource, {
+      ...syncOptions,
+      preserveDataViews: true,
+      dataModuleId: dataModule.id
+    });
+
+    this.history.add(dataSource);
+    this.controlPanel?.refreshNavigationLists?.();
+
+    this.layout.activateModule(dataModule.id);
+    if (syncOptions.keepEditorDraft !== true) {
+      for (const panel of this.querySourcePanels.values()) panel.setDataSource(dataSource);
+    }
+    this.controlPanel?.refreshActiveTool?.();
+    return dataModule;
   }
 
   /**

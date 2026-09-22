@@ -158,6 +158,17 @@ export class HeuristGraphPublicApi {
   }
 
   /**
+   * Show or hide a loading indicator for an inbound host DataSource push,
+   * called by the host right before/after its setDataSource() call.
+   *
+   * @param {boolean} loading Whether a load is in progress.
+   * @returns {void}
+   */
+  setLoading(loading) {
+    return this.application.setLoading(loading);
+  }
+
+  /**
    * Stick (or unstick) the active DataSource against inbound host pushes.
    *
    * @param {boolean} pinned New pinned state.

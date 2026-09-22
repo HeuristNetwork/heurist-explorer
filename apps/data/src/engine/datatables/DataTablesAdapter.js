@@ -652,6 +652,17 @@ export class DataTablesAdapter extends DataEngineAdapter {
   }
 
   /**
+   * Show or hide DataTables' native processing indicator for an
+   * externally-triggered load (e.g. the host applying a new DataSource).
+   *
+   * @param {boolean} loading Whether a load is in progress.
+   * @returns {void}
+   */
+  setLoading(loading) {
+    this.instance?.processing(Boolean(loading));
+  }
+
+  /**
    * Apply updated engine options: toolbar visibility, font size, and (if data is loaded) a re-render.
    *
    * @param {object} [options] Updated engine options, merged into `this.options`.
