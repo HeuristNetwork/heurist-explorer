@@ -99,6 +99,8 @@ label.heurist-graph-query-source { display:flex; align-items:center; gap:6px; fo
 .heurist-graph-legend-editor input, .heurist-graph-legend-editor textarea { display: block; width: 100%; box-sizing: border-box; }
 .heurist-graph-legend-editor textarea { min-height: 6rem; }
 
+.heurist-graph-expansion-navigator { display: flex; align-items: center; gap: 2px; margin: .4rem 0 0; }
+
 
 .heurist-module-panel-body section.heurist-graph-legend-items { padding-left:5px; }
 

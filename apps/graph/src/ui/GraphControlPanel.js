@@ -50,6 +50,17 @@ export class GraphControlPanel {
 
     this.actions = document.createElement("span");
     this.actions.className = "heurist-module-panel-actions";
+    this.exportButton = iconButton("fa-solid fa-file-export", "Export Gephi", () => this.api.exportGephi?.());
+    this.helpButton = iconButton("fa-solid fa-circle-question", "Help", () => this.openHelp());
+    this.optionsButton = iconButton("fa-solid fa-gear", "Options", () => this.api.openPreferencesDialog?.());
+    this.publishButton = iconButton("fa-solid fa-share-nodes", "Publish", () => this.api.openPublishDialog?.());
+    this.actions.append(this.exportButton, this.helpButton, this.optionsButton, this.publishButton);
+    header.append(this.actions);
+
+    // Depth navigator: rendered in the legend, below the expansion-rules
+    // list, rather than the header - it only makes sense once rules exist.
+    this.expansionNavigator = document.createElement("span");
+    this.expansionNavigator.className = "heurist-graph-expansion-navigator";
     this.expandButton = iconButton("fa-solid fa-angle-right", "Expand graph", () => this.expandGraph());
     this.pruneButton = iconButton('fa-solid fa-angle-left', 'Prune one level', () => this.api.pruneExpansion(this.expansionSeeds()).catch(error => this.reportError(error, 'expansion')));
     this.levelSelector = document.createElement('select');
@@ -58,12 +69,7 @@ export class GraphControlPanel {
     this.levelSelector.addEventListener('change', () => {
       void this.api.setExpansionDepth(this.levelSelector.value, this.expansionSeeds()).catch(error => this.reportError(error, 'expansion'));
     });
-    this.exportButton = iconButton("fa-solid fa-file-export", "Export Gephi", () => this.api.exportGephi?.());
-    this.helpButton = iconButton("fa-solid fa-circle-question", "Help", () => this.openHelp());
-    this.optionsButton = iconButton("fa-solid fa-gear", "Options", () => this.api.openPreferencesDialog?.());
-    this.publishButton = iconButton("fa-solid fa-share-nodes", "Publish", () => this.api.openPublishDialog?.());
-    this.actions.append(this.pruneButton, this.levelSelector, this.expandButton, this.exportButton, this.helpButton, this.optionsButton, this.publishButton);
-    header.append(this.actions);
+    this.expansionNavigator.append(this.pruneButton, this.levelSelector, this.expandButton);
 
     const toggle = iconButton("fa-solid fa-layer-group", "Show or hide graph controls", () => this.toggleFullyCollapsed());
     toggle.classList.add("heurist-module-panel-toggle");
@@ -86,6 +92,7 @@ export class GraphControlPanel {
     this.legendSection.className = 'heurist-graph-legend';
 
     this.legend = new GraphLegend({ api: this.api, container: this.legendSection,
+      expansionNavigator: this.expansionNavigator,
       onError: (error, operation) => this.reportError(error, operation) });
     this.element.append(header, body);
     (this.container.parentElement || document.body).append(this.element);
@@ -209,7 +216,11 @@ export class GraphControlPanel {
     this.levelSelector.title = $HR(this.expansionSeeds() ? 'Expansion depth for selected records' : 'Expansion depth for the base graph');
     this.levelSelector.disabled = state.busy || !state.maxDepth;
     this.pruneButton.disabled = state.busy || !state.depth;
-    this.expandButton.disabled = state.busy || state.depth >= state.maxDepth;
+    // maxDepth is 0 until a rule is enabled; defined-but-disabled rules still
+    // leave something for the first expand click to unlock (see advanceExpansion).
+    const hasRules = (this.api.getLegend?.()?.rules?.length || 0) > 0;
+    const canUnlockRules = hasRules && state.maxDepth === 0;
+    this.expandButton.disabled = state.busy || (!canUnlockRules && state.depth >= state.maxDepth);
   }
 
   /** React to settings edited/saved in the Configuration dialog while the panel is mounted. */

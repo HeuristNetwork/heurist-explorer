@@ -152,7 +152,7 @@ test("applyConfiguration pushes engine options live and re-renders the current g
   const state = await application.applyConfiguration({
     config: {
       defaults: {
-        maxNodes: 10000,
+        maxNodes: 2000,
         maxEdges: 10000,
         gravity: "tight",
         scaling: false,
@@ -165,7 +165,7 @@ test("applyConfiguration pushes engine options live and re-renders the current g
     },
   });
 
-  assert.equal(application.config.limits.maxNodes, 10000);
+  assert.equal(application.config.limits.maxNodes, 2000);
   assert.equal(appliedOptions.gravity, "tight");
   assert.equal(appliedOptions.scaling, false);
   assert.equal(appliedOptions.labelMaxLength, 60);

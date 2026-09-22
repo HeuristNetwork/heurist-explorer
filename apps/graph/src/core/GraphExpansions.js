@@ -153,7 +153,7 @@ export class GraphExpansions {
         truncated ||= entry.truncated;
       }
     }
-    const maxNodes = this.limits.maxNodes || 10000;
+    const maxNodes = this.limits.maxNodes || 5000;
     const maxEdges = this.limits.maxEdges || 10000;
     truncated ||= nodes.size > maxNodes || edges.size > maxEdges;
     const visible = new Set([...nodes].slice(0, maxNodes));

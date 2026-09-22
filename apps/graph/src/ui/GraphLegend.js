@@ -20,10 +20,11 @@ export class GraphLegend {
    * @param {object} options Legend dependencies.
    * @param {object} options.api Graph public API instance.
    * @param {HTMLElement} options.container Element to render the legend into.
+   * @param {HTMLElement} [options.expansionNavigator] Depth navigator element, re-appended below the expansion-rules list on each render.
    * @param {Function} options.onError Called with `(error, operation)` when an action fails.
    */
-  constructor({ api, container, onError }) {
-    Object.assign(this, { api, container, onError });
+  constructor({ api, container, expansionNavigator = null, onError }) {
+    Object.assign(this, { api, container, expansionNavigator, onError });
     this.open = new Set();
   }
 
@@ -41,7 +42,11 @@ export class GraphLegend {
     this.container.append(nodesSection);
     const count = model.recordTypes.reduce((sum, row) => sum + row.count, 0);
     if (model.total != null && model.total > count) {
-      nodesSection.append(element('p', model.offset ? `${$HR('Loaded')} ${count} ${$HR('of')} ${model.total}` : `${$HR('First')} ${count} ${$HR('of')} ${model.total}`, 'heurist-graph-legend-note'));
+      const note = element('p', model.offset ? `${$HR('Loaded')} ${count} ${$HR('of')} ${model.total}` : `${$HR('First')} ${count} ${$HR('of')} ${model.total}`, 'heurist-graph-legend-note');
+      // Fold the edge-truncation explanation into a hint here instead of a
+      // second, redundant standalone message in the edges section below.
+      if (model.limits?.truncated) note.title = $HR('Graph is truncated; only links between loaded records are shown.');
+      nodesSection.append(note);
     }
     for (const row of model.recordTypes) {
       const item = this.checkbox(row.label || `Record type ${row.recordTypeId}`, row.count, row.visible, false, `node:${row.recordTypeId}`, value => this.api.setRecordTypeVisibility(row.recordTypeId, value));
@@ -60,7 +65,6 @@ export class GraphLegend {
     this.container.append(edgesSection);
     const edgeCount = model.links.reduce((sum, row) => sum + row.count, 0);
     if (model.limits?.edgesTruncated) edgesSection.append(element('p', `${$HR('First')} ${edgeCount}${model.limits.edgesTotal != null ? ` ${$HR('of')} ${model.limits.edgesTotal}` : ` — ${$HR('edge limit reached')}`}`, 'heurist-graph-legend-note'));
-    else if (model.limits?.truncated) edgesSection.append(element('p', $HR('Graph is truncated; only links between loaded records are shown.'), 'heurist-graph-legend-note'));
     const relationshipGroups = model.links.filter(group => group.relationships?.length);
     for (const group of model.links.filter(group => !group.relationships?.length)) {
       const endpoints = group.endpoints || [];
@@ -93,6 +97,9 @@ export class GraphLegend {
       this.container.append(row);
     }
     if (!model.rules?.length) this.container.append(element('p', $HR('No expansion rules')));
+    // Re-append (not re-create) the persistent navigator element so its
+    // listeners survive across renders.
+    if (this.expansionNavigator) this.container.append(this.expansionNavigator);
     if (focusKey) [...this.container.querySelectorAll('input')].find(input => input.dataset.legendKey === focusKey)?.focus();
   }
 

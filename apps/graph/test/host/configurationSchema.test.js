@@ -41,13 +41,13 @@ test("graph configuration defaults expose the requested controls", () => {
 test("node and edge limits accept only the configured choices", () => {
   assert.equal(
     normalizeGraphConfigurationSettings({
-      config: { defaults: { maxNodes: 10000 } },
+      config: { defaults: { maxNodes: 2000 } },
     }).config.defaults.maxNodes,
-    10000,
+    2000,
   );
   assert.equal(
     normalizeGraphConfigurationSettings({
-      config: { defaults: { maxNodes: 250000 } },
+      config: { defaults: { maxNodes: 10000 } },
     }).config.defaults.maxNodes,
     5000,
   );

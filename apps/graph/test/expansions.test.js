@@ -47,6 +47,22 @@ test('base, two rules, and shared physical edges retain independent ownership', 
   assert.equal(app.config.query, 't:10', 'expansion never replaces the base query');
 });
 
+test('advanceExpansion from an untouched graph enables defined rules and shows the first level only', async () => {
+  // rule(1, [rule(2)]) has its own maxDepth of 2 (one fork level); the fix
+  // must still land on depth 1, not jump straight to the rule's full depth.
+  const { app, calls } = await fixture([rule(1, [rule(2)])], async (field, seeds) => field === '1'
+    ? { ids: [3], edges: [edge(1, 3)] } : { ids: [4], edges: [edge(3, 4, 2)] },
+    graph([1, 2], []));
+  const before = app.getExpansionState();
+  assert.equal(before.maxDepth, 0, 'rules start disabled, so nothing is expandable yet');
+  await app.advanceExpansion();
+  const [a] = app.getLegend().rules;
+  assert.equal(a.enabled, true);
+  assert.equal(app.getExpansionState().maxDepth, 2);
+  assert.equal(app.getExpansionState().depth, 1, 'lands on the first level, not the rule\'s full max depth');
+  assert.equal(calls.length, 1);
+});
+
 test('forks use parent targets; prune drops descendants while overlap with base survives', async () => {
   const { app, enable, calls } = await fixture([rule(1, [rule(2),rule(3)])], async (field, seeds) => {
     if(field==='1') return { ids:[3], edges:[edge(1,3)] };

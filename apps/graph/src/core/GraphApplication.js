@@ -687,10 +687,22 @@ export class GraphApplication extends EventTarget {
   /**
    * Expand one additional depth level for one or more seeds (or the base scope).
    *
+   * Defined expansion rules start disabled, which otherwise leaves this at a
+   * dead end: `maxDepth` is 0 until a rule is enabled, so there is nothing to
+   * advance into. The first expand click turns on every defined rule and
+   * shows the first level, instead of requiring the viewer to first find and
+   * check each rule in the legend.
+   *
    * @param {Array<number>|null} [seedIds] Seed record ids; omit for the base scope.
    * @returns {Promise<void>}
    */
-  advanceExpansion(seedIds = null) { return this.setExpansionDepth(this.getExpansionState(seedIds).depth + 1, seedIds); }
+  advanceExpansion(seedIds = null) {
+    const state = this.getExpansionState(seedIds);
+    if (state.depth === 0 && state.maxDepth === 0 && this.expansions?.rules?.length) {
+      for (const rule of this.expansions.rules) rule.enabled = true;
+    }
+    return this.setExpansionDepth(this.getExpansionState(seedIds).depth + 1, seedIds);
+  }
 
   /**
    * Retreat one depth level for one or more seeds (or the base scope).

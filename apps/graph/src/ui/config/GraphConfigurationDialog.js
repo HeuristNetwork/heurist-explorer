@@ -215,7 +215,7 @@ export class GraphConfigurationDialog {
    * @returns {void}
    */
   buildDefaults(body) {
-    this.select(body, "config.defaults.maxNodes", "Nodes limit", [[1000, "1000"], [5000, "5000"], [10000, "10000"]]);
+    this.select(body, "config.defaults.maxNodes", "Nodes limit", [[1000, "1000"], [2000, "2000"], [5000, "5000"]]);
     this.select(body, "config.defaults.maxEdges", "Edges limit", [[1000, "1000"], [5000, "5000"], [10000, "10000"]]);
     this.select(body, "config.defaults.layoutMode", "Layout", [
       ["forceAtlas2", "Automatic (ForceAtlas2)"],
