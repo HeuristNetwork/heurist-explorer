@@ -33,11 +33,11 @@ export class HInputDate extends HInput {
    * @returns {HTMLInputElement} Primary control.
    */
   renderControl(host) {
-    const first = this._makeDate(host, this.options.range ? 'From' : 'Date');
+    const first = this._makeDate(host, this.options.range ? 'Date From' : 'Date');
     this.control = first;
 
     if (this.options.range) {
-      this.endControl = this._makeDate(host, 'To');
+      this.endControl = this._makeDate(host, 'Date To');
       first.readOnly = this.options.fixedValue?.from != null;
       this.endControl.readOnly = this.options.fixedValue?.to != null;
       host.classList.add('h-input-date-range');
@@ -168,9 +168,13 @@ export class HInputDate extends HInput {
         if (other) slider.value = String(index
           ? Math.max(Number(slider.value), Number(other.value))
           : Math.min(Number(slider.value), Number(other.value)));
-        this.pickers[index].setDate(dayDate(Number(slider.value)), true, 'Y-m-d');
+        // Update the date without triggering flatpickr's onChange (which
+        // calls notifyChange) on every intermediate drag tick.
+        this.pickers[index].setDate(dayDate(Number(slider.value)), false, 'Y-m-d');
         this._syncSliderFill(wrapper);
       });
+      // 'change' fires once when the drag/keypress commits.
+      slider.addEventListener('change', () => this.notifyChange());
       wrapper.append(slider);
       this.sliders.push(slider);
     }

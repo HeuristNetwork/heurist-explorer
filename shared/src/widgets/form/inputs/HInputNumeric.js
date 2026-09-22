@@ -111,9 +111,10 @@ export class HInputNumeric extends HInput {
     const input = document.createElement('input');
     input.className = 'h-input h-input-numeric';
     input.type = 'number';
-    input.step = this.options.integer ? '1' : String(this.options.step || 'any');
+    input.step = this.options.integer ? '1' : String(this.options.step || '0.01');
     input.placeholder = placeholder;
-    input.addEventListener('input', () => { this._syncSliders(); this.notifyChange(); });
+    input.addEventListener('input', () => this._syncSliders());
+    this._commitOnEnterOrBlur(input);
     return input;
   }
 
@@ -128,7 +129,7 @@ export class HInputNumeric extends HInput {
       slider.type = 'range';
       slider.min = String(this.options.min);
       slider.max = String(this.options.max);
-      slider.step = String(this.options.step || (this.options.integer ? 1 : 'any'));
+      slider.step = String(this.options.step || (this.options.integer ? 1 : 0.01));
       slider.setAttribute('aria-label', endpoint.placeholder);
       slider.disabled = endpoint.readOnly;
       slider.addEventListener('input', () => {
@@ -136,10 +137,14 @@ export class HInputNumeric extends HInput {
         if (other) slider.value = String(index
           ? Math.max(Number(slider.value), Number(other.value))
           : Math.min(Number(slider.value), Number(other.value)));
-        endpoint.value = slider.value;
+        endpoint.value = this.options.integer
+          ? String(Math.round(Number(slider.value)))
+          : Number(slider.value).toFixed(2);
         this._syncSliderFill(wrapper);
-        this.notifyChange();
       });
+      // 'change' fires once when the drag/keypress commits, not on every
+      // intermediate 'input' event while the handle is being dragged.
+      slider.addEventListener('change', () => this.notifyChange());
       wrapper.append(slider);
       this.sliders.push(slider);
     }

@@ -111,6 +111,8 @@ export class QuerySourcePanel {
       dbdefs: this.options.dbdefs,
       selectExtent: this.options.selectExtent,
       composeQuery: (item, values) => resolveQueryParameters(item.query, values),
+      runtimeMode: 'main',
+      onOpenBuilder: () => this._openFilterFormBuilder(),
       onClose: () => void this.closeFilterForm(),
       onSubmit: ({ query }) => {
         const runtimeSource = structuredClone(source);
@@ -123,6 +125,21 @@ export class QuerySourcePanel {
     this._setFilterFormVisible(true);
     this._updateFormAction();
     this._scheduleResponsiveLayout();
+  }
+
+  /** Open the Filter Builder on the runtime Filter Form's current query source, then refresh the form. */
+  async _openFilterFormBuilder() {
+    if (typeof this.options.openFilterBuilder !== 'function') return;
+    const current = this.getDraftDataSource();
+    const result = await this.options.openFilterBuilder(
+      structuredClone(current.request.q),
+      structuredClone(current.presentation?.filterForm || null)
+    );
+    if (result == null) return;
+    this.editor?.setQuery(result);
+    const updated = this.getDraftDataSource();
+    if (hasQueryParameters(updated?.request?.q)) await this.openFilterForm();
+    else void this.options.onExecute?.(updated);
   }
 
   /** Hide the runtime form and return to the Query Source editor. */

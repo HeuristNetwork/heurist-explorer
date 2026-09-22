@@ -79,7 +79,7 @@ label.heurist-graph-query-source { display:flex; align-items:center; gap:6px; fo
 
 /* Active Query Source legend */
 .heurist-graph-legend h3, .heurist-graph-legend h4 { display: flex; align-items: center; justify-content: space-between; gap: .4rem; }
-.heurist-graph-legend h4 { margin:4px; font-size:12px; font-weight:400; }
+.heurist-graph-legend h4 { margin:4px; font-size:12px; font-weight:600; }
 .heurist-graph-legend-rule-actions { display:inline-flex; align-items:center; }
 .heurist-graph-legend-row { font-size:11px; display: flex; align-items: baseline; gap: .4rem; padding: .2rem 0; overflow-wrap: anywhere; }
 .heurist-graph-legend-row input { flex: 0 0 auto; }

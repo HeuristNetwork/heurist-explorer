@@ -49,10 +49,17 @@ export function describeQueryParameters(query, dbdefs) {
     const fieldLabel = field?.name || key;
     const pathLabel = recordType ? `${recordType}.${fieldLabel}` : fieldLabel;
     for (const name of names) {
-      parameters[name] ||= { type, fieldId: fieldId ? Number(fieldId) : null, label: fieldLabel, pathLabel };
+      parameters[name] ||= {
+        type,
+        integer: type === 'number' && (key === 'ids' || ['integer', 'year'].includes(fieldType)),
+        fieldId: fieldId ? Number(fieldId) : null,
+        label: fieldLabel,
+        pathLabel
+      };
     }
     if (/<>|></.test(value)) {
-      const parts = value.includes('<>') ? value.split('<>', 2) : value.slice(2).split('/', 2);
+      const prefixRange = value.startsWith('<>') || value.startsWith('><');
+      const parts = prefixRange ? value.slice(2).split('/', 2) : value.split('<>', 2);
       const first = /^\$([A-Za-z][A-Za-z0-9_]*)\$$/.exec(parts[0] || '');
       const second = /^\$([A-Za-z][A-Za-z0-9_]*)\$$/.exec(parts[1] || '');
       if (first && second) {
@@ -133,4 +140,3 @@ function visit(node, callback, key = '', recordTypeId = null) {
     for (const [name, value] of Object.entries(node)) visit(value, callback, name, recordTypeId);
   } else callback(node, key, recordTypeId);
 }
-

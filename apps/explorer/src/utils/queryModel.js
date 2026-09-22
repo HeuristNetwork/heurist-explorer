@@ -378,7 +378,9 @@ function fieldRowFromPredicate(predicate) {
 
   const { negate, token, value: bare } = stripToken(raw);
   row.negate = negate;
-  if (token === '><' && bare.includes('/')) {
+  // date-style range tokens ('<>'/'><') are a leading prefix on `<token>a/b`;
+  // stripToken already consumed the prefix, so what's left splits on '/'.
+  if ((token === '><' || token === '<>') && bare.includes('/')) {
     row.opToken = token;
     row.values = bare.split('/', 2);
     return row;

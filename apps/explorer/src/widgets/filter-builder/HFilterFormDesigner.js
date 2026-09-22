@@ -146,10 +146,10 @@ export class HFilterFormDesigner extends HBaseWidget {
     this.rows.replaceChildren();
     const group = this.layout.groups?.[0];
     if (!group) throw new Error('Filter form layout requires a root group');
-    const ordered = group.children.map((child) => child.input);
-
     const companionInputs = new Set(Object.values(this.parameters)
       .map((parameter) => parameter.endInput).filter(Boolean));
+    group.children = group.children.filter((child) => !companionInputs.has(child.input));
+    const ordered = group.children.map((child) => child.input);
     for (const id of Object.keys(this.parameters)) {
       if (!companionInputs.has(id) && !ordered.includes(id)) ordered.push(id);
     }

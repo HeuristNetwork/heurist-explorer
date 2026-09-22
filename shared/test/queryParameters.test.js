@@ -41,6 +41,27 @@ test('fixed range endpoint is part of the query, not the layout', () => {
     [{ 'f:20': '10<>30' }]);
 });
 
+test('date overlap and containment operators expose one two-ended parameter', () => {
+  const dbdefs = { fieldGlobal: () => ({ type: 'date', name: 'Date' }) };
+  for (const value of ['<>$DateFrom$/$DateTo$', '><$DateFrom$/$DateTo$']) {
+    const descriptors = describeQueryParameters([{ 'f:20': value }], dbdefs);
+    assert.equal(descriptors.DateFrom.range, true);
+    assert.equal(descriptors.DateFrom.endInput, 'DateTo');
+    assert.equal(descriptors.DateTo.range, undefined);
+  }
+});
+
+test('numeric descriptions distinguish integer and floating-point inputs', () => {
+  const integer = describeQueryParameters([{ 'f:20': '$Value$' }], {
+    fieldGlobal: () => ({ type: 'integer', name: 'Count' })
+  });
+  const float = describeQueryParameters([{ 'f:21': '$Value$' }], {
+    fieldGlobal: () => ({ type: 'float', name: 'Score' })
+  });
+  assert.equal(integer.Value.integer, true);
+  assert.equal(float.Value.integer, false);
+});
+
 test('descriptions include record type, field name, and geo field id', () => {
   const query = [{ t: '10' }, { 'geo:28': '$X1$' },
     { 'lt:240': [{ t: '48' }, { 'f:1': '$X2$' }] }];

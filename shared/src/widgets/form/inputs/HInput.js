@@ -145,6 +145,31 @@ export class HInput extends HBaseWidget {
     return [];
   }
 
+  /**
+   * Wire a text-like control to notify only on Enter or a changed-value blur,
+   * not on every keystroke.
+   *
+   * @param {HTMLElement} control Control to observe.
+   * @param {{enter?: boolean}} [options] `enter: false` skips the Enter-key commit
+   *        (e.g. multiline text, where Enter inserts a newline).
+   * @returns {void}
+   */
+  _commitOnEnterOrBlur(control, { enter = true } = {}) {
+    let committed = control.value;
+    if (enter) {
+      this.listen(control, 'keydown', (event) => {
+        if (event.key !== 'Enter') return;
+        committed = control.value;
+        this.notifyChange();
+      });
+    }
+    this.listen(control, 'blur', () => {
+      if (control.value === committed) return;
+      committed = control.value;
+      this.notifyChange();
+    });
+  }
+
   /** Notify the form that this input changed. */
   notifyChange() {
     this._syncClearButton();

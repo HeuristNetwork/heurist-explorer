@@ -51,6 +51,8 @@ export class HFilterForm extends HBaseWidget {
     if (!this.container) throw new Error('HFilterForm must be attached before render');
     const parameters = this.parameters;
     const layout = this.definition.filterForm || defaultLayout(parameters);
+    const companionInputs = new Set(Object.values(parameters)
+      .map((parameter) => parameter.endInput).filter(Boolean));
     this.inputs.clear();
     this.container.replaceChildren();
     this.container.className = `h-widget h-filter-form h-filter-form-${layout.settings?.orientation === 'horizontal' ? 'horizontal' : 'vertical'}`;
@@ -72,6 +74,7 @@ export class HFilterForm extends HBaseWidget {
 
       for (const child of group.children || []) {
         const id = child.input;
+        if (companionInputs.has(id)) continue;
         const parameter = parameters[id];
         if (!parameter) throw new Error(`Unknown filter parameter: ${id}`);
         if (this.inputs.has(id)) throw new Error(`Filter parameter occurs twice: ${id}`);
@@ -91,6 +94,7 @@ export class HFilterForm extends HBaseWidget {
           min: config.widget?.min,
           max: config.widget?.max,
           step: config.widget?.step,
+          integer: parameter.integer === true,
           multiple: config.multiple === true,
           mode: config.mode || 'select',
           orientation: config.orientation || 'column',
@@ -115,6 +119,12 @@ export class HFilterForm extends HBaseWidget {
     reset.type = 'button';
     this.listen(reset, 'click', () => this.reset());
     actions.append(reset);
+    if (this.options.runtimeMode === 'main' && this.options.onOpenBuilder) {
+      const builder = button('Builder', 'h-btn');
+      builder.type = 'button';
+      this.listen(builder, 'click', () => void this.options.onOpenBuilder());
+      actions.append(builder);
+    }
     if (this.options.onClose) {
       const close = button('Close', 'h-btn h-btn-primary');
       close.type = 'button';
@@ -122,8 +132,7 @@ export class HFilterForm extends HBaseWidget {
       actions.append(close);
     }
     form.append(actions);
-    this.listen(form, 'submit', (event) => {
-      event.preventDefault();
+    const submit = () => {
       const errors = this.validate();
       if (errors.length) {
         this._showErrors(errors);
@@ -135,6 +144,19 @@ export class HFilterForm extends HBaseWidget {
       const query = this.options.composeQuery?.(this.definition, values)
         ?? resolveQueryParameters(this.query, values);
       this.options.onSubmit?.({ values, query, definition: this.definition });
+    };
+    this.listen(form, 'submit', (event) => {
+      event.preventDefault();
+      submit();
+    });
+    let submitScheduled = false;
+    this.listen(form, 'h-input-change', () => {
+      if (submitScheduled) return;
+      submitScheduled = true;
+      queueMicrotask(() => {
+        submitScheduled = false;
+        submit();
+      });
     });
     this.listen(form, 'h-input-error', (event) => {
       this._showErrors([event.detail?.error?.message || 'Input error']);

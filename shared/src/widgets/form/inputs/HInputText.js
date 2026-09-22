@@ -35,7 +35,8 @@ export class HInputText extends HInput {
       control.type = this.options.inputType === 'url' ? 'url' : 'text';
     }
 
-    this.listen(control, 'input', () => this.notifyChange());
+    this.listen(control, 'input', () => this._syncClearButton());
+    this._commitOnEnterOrBlur(control, { enter: !multiline });
     host.append(control);
     return control;
   }

@@ -4,11 +4,12 @@
 }
 
 .h-input-date-range .h-input-date {
+  flex: 1 1 0;
   min-width: 0;
-  width: 50%;
+  width: auto;
 }
 
-.h-input-date-range .flatpickr-wrapper { width: calc(50% - var(--h-gap) / 2); }
+.h-input-date-range .flatpickr-wrapper { flex: 1 1 0; min-width: 0; width: auto; }
 .h-input-date-range .flatpickr-wrapper .h-input-date { width: 100%; }
 
 .h-input-date-range { flex-wrap: wrap; }

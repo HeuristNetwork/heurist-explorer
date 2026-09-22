@@ -43,6 +43,8 @@
   font-size: var(--h-font-size);
 }
 
+h4 { font-weight: bolder; }
+
 .h-btn,
 .h-input,
 .h-select {

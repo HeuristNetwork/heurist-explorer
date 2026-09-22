@@ -43,7 +43,6 @@ export class DataTablesAdapter extends DataEngineAdapter {
    * @param {Function} context.onCollectionAction Called with `(action, recordIds)` for bulk collection actions.
    * @param {Function} context.onDataRequest Called with `{offset, limit, sort, filter}` to request a page of data.
    * @param {Function} context.onViewModeChange Called with the new view mode.
-   * @param {Function} context.onPickFields Called to request a field-picker dialog.
    * @param {Function} context.onDataSourceAction Called with a datasource action id (workspace/save-filter/save-source).
    * @returns {Promise<void>}
    */
@@ -57,7 +56,6 @@ export class DataTablesAdapter extends DataEngineAdapter {
     onCollectionAction,
     onDataRequest,
     onViewModeChange,
-    onPickFields,
     onDataSourceAction,
   }) {
     this.container = container;
@@ -69,7 +67,6 @@ export class DataTablesAdapter extends DataEngineAdapter {
     this.onCollectionAction = onCollectionAction;
     this.onDataRequest = onDataRequest;
     this.onViewModeChange = onViewModeChange;
-    this.onPickFields = onPickFields;
     this.onDataSourceAction = onDataSourceAction;
     this.pendingRequestKey = null;
     this.pendingRequest = null;
@@ -95,8 +92,8 @@ export class DataTablesAdapter extends DataEngineAdapter {
   /**
    * Build the dedicated toolbar rendered as a sibling above the DataTables
    * container, mirroring the HRecordList toolbar: quick search, view-mode
-   * selector, selection / collection actions and the column picker. The native
-   * DataTables search box and top layout row are not used.
+   * selector, and selection / collection actions. The native DataTables
+   * search box and top layout row are not used.
    */
   _buildToolbar() {
     const interaction = this.options.interaction || {};
@@ -236,22 +233,10 @@ export class DataTablesAdapter extends DataEngineAdapter {
         .catch(() => {});
     });
 
-    const picker = document.createElement("button");
-    picker.type = "button";
-    picker.className = "heurist-data-toolbar-button";
-    picker.title = $HR("Pick fields");
-    picker.setAttribute("aria-label", picker.title);
-    picker.innerHTML =
-      '<i class="fa-solid fa-table-columns" aria-hidden="true"></i>';
-    picker.addEventListener("click", () => this.onPickFields?.());
-    picker.hidden =
-      this.options.showColumnPicker === false || !this.onPickFields;
-
-    bar.append(searchLabel, viewLabel, actions, this.sourceActions, picker);
+    bar.append(searchLabel, viewLabel, actions, this.sourceActions);
     this.toolbarElement = bar;
     this.searchLabel = searchLabel;
     this.selectionActionsEl = actions;
-    this.columnPickerButton = picker;
     this._updateSelectionButton();
   }
 
@@ -264,9 +249,6 @@ export class DataTablesAdapter extends DataEngineAdapter {
       this.selectionActionsEl.hidden =
         interaction.selectionEnabled === false ||
         controls.selectionActions === false;
-    if (this.columnPickerButton)
-      this.columnPickerButton.hidden =
-        this.options.showColumnPicker === false || !this.onPickFields;
     if (this.sourceActions)
       this.sourceActions.hidden = this.options.sourceActionsEnabled !== true;
   }
@@ -705,7 +687,6 @@ export class DataTablesAdapter extends DataEngineAdapter {
     this.tableElement?.removeEventListener("click", this.clickHandler);
     this.toolbarElement?.remove();
     this.toolbarElement = null;
-    this.columnPickerButton = null;
     this.selectionButton = null;
     this.searchInput = null;
     this.searchLabel = null;

@@ -482,28 +482,36 @@ export class ExplorerApplication {
       }
     }
 
-    const dataSource = await this._withResultCount(requestedSource);
-    let dataModule = this.layout.findCurrentResultDataModule();
+    // Covers every caller (saved filter/source/record-type selection, and a
+    // Filter Form search) with the same result-loading veil, rather than
+    // relying on each call site to remember to toggle it.
+    this.setCurrentResultLoading(true);
+    try {
+      const dataSource = await this._withResultCount(requestedSource);
+      let dataModule = this.layout.findCurrentResultDataModule();
 
-    if (!dataModule) {
-      dataModule = await this._createDataModule(dataSource, { role: 'current' });
+      if (!dataModule) {
+        dataModule = await this._createDataModule(dataSource, { role: 'current' });
+      }
+
+      await this.sync.setDataSource(dataSource, {
+        ...syncOptions,
+        preserveDataViews: true,
+        dataModuleId: dataModule.id
+      });
+
+      this.history.add(dataSource);
+      this.controlPanel?.refreshNavigationLists?.();
+
+      this.layout.activateModule(dataModule.id);
+      if (syncOptions.keepEditorDraft !== true) {
+        for (const panel of this.querySourcePanels.values()) panel.setDataSource(dataSource);
+      }
+      this.controlPanel?.refreshActiveTool?.();
+      return dataModule;
+    } finally {
+      this.setCurrentResultLoading(false);
     }
-
-    await this.sync.setDataSource(dataSource, {
-      ...syncOptions,
-      preserveDataViews: true,
-      dataModuleId: dataModule.id
-    });
-
-    this.history.add(dataSource);
-    this.controlPanel?.refreshNavigationLists?.();
-
-    this.layout.activateModule(dataModule.id);
-    if (syncOptions.keepEditorDraft !== true) {
-      for (const panel of this.querySourcePanels.values()) panel.setDataSource(dataSource);
-    }
-    this.controlPanel?.refreshActiveTool?.();
-    return dataModule;
   }
 
   /**
@@ -948,12 +956,24 @@ export class ExplorerApplication {
     const saved = this.uiConfig.save(next);
     this.uiConfigValue = saved;
 
+    const vacatedRegions = new Set();
     for (const module of this.modules.values()) {
       const newRegion = saved.regions[module.type];
       if (!newRegion || newRegion === previousRegions[module.type]) continue;
+      const oldRegion = this.layout.getRegionForModule(module.id);
       this.layout.assignModule(module.id, newRegion);
       this.layout.showModule(module.id);
       await module.resize();
+      if (oldRegion && oldRegion !== newRegion) vacatedRegions.add(oldRegion);
+    }
+
+    // A module left behind as the sole occupant of a vacated pane is now
+    // visible for the first time; its presentation engine (map/graph/etc.)
+    // needs a resize to render into its now-nonzero container.
+    for (const region of vacatedRegions) {
+      const promotedId = this.layout.getModuleForRegion(region);
+      const promoted = promotedId ? this.modules.get(promotedId) : null;
+      if (promoted) await promoted.resize();
     }
 
     this.controlPanel?.applyToolbarConfig(saved.toolbar);

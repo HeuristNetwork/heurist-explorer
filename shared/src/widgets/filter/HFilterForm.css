@@ -27,8 +27,15 @@
 
 .h-filter-form-actions {
   display: flex;
+  justify-content: center;
   gap: var(--h-gap);
   margin-top: 10px;
+  position: sticky;
+  bottom: 0;
+  padding: 8px 0;
+  background: var(--h-color-bg);
+  border-top: 1px solid var(--h-color-border);
+  z-index: 1;
 }
 
 .h-filter-form-errors {

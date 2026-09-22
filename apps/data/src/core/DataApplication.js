@@ -124,7 +124,6 @@ export class DataApplication extends EventTarget {
       onRecordContentRequest: (request) => this.requestRecordContent(request),
       onDataRequest: (request) => this._loadPage(request),
       onViewModeChange: (mode) => this.requestViewMode(mode),
-      onPickFields: () => this.requestPickFields(),
       onDataSourceAction: async (action) => {
         try {
           return await this.requestDataSourceAction(action);

@@ -109,6 +109,21 @@ test('date range operators consume two values into one predicate', () => {
   assert.deepEqual(compose(row('op.within_range')), [{ 'f:10': '><1900/1950' }]);
 });
 
+test('date range predicates (prefixed <>/><) round-trip without duplicating a value', () => {
+  // parseQuery cannot infer field kind from the raw key alone; the Builder
+  // reconciles it from dbdefs (see HFilterBuilderItem.setRowModel), so this
+  // mirrors that step to exercise the actual reopen/re-save round-trip.
+  for (const query of [
+    [{ t: '10' }, { 'f:10': '<>$X1$/$X3$' }],
+    [{ t: '10' }, { 'f:10': '><$X1$/$X3$' }]
+  ]) {
+    const parsed = parseQuery(query, VOCAB);
+    parsed.rows[0].kind = 'date';
+    assert.deepEqual(parsed.rows[0].values, ['$X1$', '$X3$']);
+    assert.deepEqual(compose(parsed), query);
+  }
+});
+
 test('enum: single, OR-collapsed multi, AND multi', () => {
   const base = { dty: 19, kind: 'enum', op: 'op.is' };
   assert.deepEqual(

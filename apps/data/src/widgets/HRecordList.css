@@ -1,6 +1,7 @@
 .h-recordlist { min-height:0; font-size:var(--h-recordlist-font-size,14px); color:var(--h-color-text); }
 .h-recordlist-toolbar,.h-recordlist-footer { flex:0 0 auto; min-height:42px; padding:4px; font-size:var(--h-font-size); color:var(--h-color-text-muted); background:var(--h-color-surface); }
 .h-recordlist-toolbar { border-bottom:1px solid var(--h-color-border); }
+.h-recordlist-toolbar.h-toolbar { min-height:25px; padding:2px; }
 .h-recordlist-footer { border-top:1px solid var(--h-color-border); justify-content:space-between; gap:8px; }
 .h-recordlist-pagination { margin:auto; }
 .h-recordlist-search { width:min(260px,100%); }

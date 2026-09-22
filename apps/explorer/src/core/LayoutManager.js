@@ -268,7 +268,19 @@ export class LayoutManager extends EventTarget {
     if (oldRegion && oldRegion !== targetRegion && this.regionAssignments.get(oldRegion) === key) {
       this.regionAssignments.delete(oldRegion);
 
-      if (!this._hasAssignedSlots(oldRegion, key)) {
+      // A sibling still assigned to the vacated region (e.g. Graph, left
+      // behind when Map moves out of a shared pane) must become that
+      // region's visible occupant — same promotion removeSlot() does.
+      const replacement = this._firstAssignedSlot(oldRegion, key);
+
+      if (replacement) {
+        this.regionAssignments.set(oldRegion, replacement);
+        const replacementSlot = this.getSlot(replacement);
+
+        if (replacementSlot) {
+          replacementSlot.hidden = false;
+        }
+      } else {
         this.cardinal.hide(oldRegion);
       }
     }
@@ -686,24 +698,6 @@ export class LayoutManager extends EventTarget {
     this._toolSnapshot = null;
     this.activeToolId = null;
     this.mode = 'presentation';
-  }
-
-  /**
-   * Whether another slot besides `excludingId` is still assigned to a region.
-   *
-   * @private
-   * @param {string} region Cardinal region.
-   * @param {string|null} [excludingId] Module id to ignore.
-   * @returns {boolean}
-   */
-  _hasAssignedSlots(region, excludingId = null) {
-    for (const [id, assignedRegion] of this.assignments) {
-      if (id !== excludingId && assignedRegion === region && this.slots.has(id)) {
-        return true;
-      }
-    }
-
-    return false;
   }
 
   /**

@@ -5,6 +5,7 @@
   padding:6px;
   margin-left:4px;
   border:2px solid var(--h-color-primary);
+  overflow:auto;
 }
 .h-query-source-panel[hidden] { display:none; }
 .h-query-source-form-host { padding: 8px 4px; }

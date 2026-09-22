@@ -55,7 +55,7 @@ html, body, .heurist-data-root { width: 100%; height: 100%; margin: 0; overflow:
 /* Dedicated toolbar rendered between the source header and the DataTables
    container, styled to match the HRecordList toolbar. */
 .heurist-data-toolbar { display:flex; flex-wrap:wrap; align-items:center; gap:8px;
-  box-sizing:border-box; min-height:42px; padding:4px 310px 4px 4px;
+  box-sizing:border-box; min-height:25px; padding:2px 310px 2px 2px;
   border-bottom:1px solid var(--h-color-border); background:var(--h-color-bg); }
 @media (max-width:800px) { .heurist-data-toolbar { padding-right:4px; } }
 .heurist-data-toolbar[hidden] { display:none !important; }
