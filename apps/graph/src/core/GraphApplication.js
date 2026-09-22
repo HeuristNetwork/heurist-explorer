@@ -75,6 +75,9 @@ export class GraphApplication extends EventTarget {
     // whether the viewer has "stuck" it so a new inbound push is ignored.
     this.dataSource = null;
     this.pinned = false;
+    // Whether an inbound host DataSource push (setDataSource()) is currently
+    // loading. Only meaningful while unpinned - a pinned graph never reloads.
+    this.loadingDataSource = false;
     this.currentResultsQuery =
       config.query == null || config.query === "" ? null : config.query;
     // DOM handles for the empty-result presentation. Set by initialize().
@@ -423,16 +426,28 @@ export class GraphApplication extends EventTarget {
    */
   async setDataSource(dataSource) {
     if (this.pinned) return this.getState();
-    const query = dataSource?.request?.q ?? dataSource?.query ?? null;
-    this.querySource = null;
-    this.dataSource = dataSource || null;
-    // A restored/current rule override belongs to the previous datasource.
-    // Keeping it here would mask request.rules supplied by the new Query Source.
-    this.ruleOverrides.delete('current');
-    this.config.querySourceId = null;
-    this.config.querySourceTitle = dataSource?.title || null;
-    this.activeLoad = { type: "datasource", dataSource };
-    return this.load({ query, links: dataSource?.links ?? "all", internal: true, remember: false });
+    // load() below claims the next generation synchronously on entry; predict
+    // it so a superseded call's cleanup can't clear a newer call's flag.
+    const requestGeneration = this.generation + 1;
+    this.loadingDataSource = true;
+    this.dispatch("heurist-graph-datasource-loading-changed", { loading: true });
+    try {
+      const query = dataSource?.request?.q ?? dataSource?.query ?? null;
+      this.querySource = null;
+      this.dataSource = dataSource || null;
+      // A restored/current rule override belongs to the previous datasource.
+      // Keeping it here would mask request.rules supplied by the new Query Source.
+      this.ruleOverrides.delete('current');
+      this.config.querySourceId = null;
+      this.config.querySourceTitle = dataSource?.title || null;
+      this.activeLoad = { type: "datasource", dataSource };
+      return await this.load({ query, links: dataSource?.links ?? "all", internal: true, remember: false });
+    } finally {
+      if (this.generation === requestGeneration) {
+        this.loadingDataSource = false;
+        this.dispatch("heurist-graph-datasource-loading-changed", { loading: false });
+      }
+    }
   }
 
   /**
@@ -937,6 +952,7 @@ export class GraphApplication extends EventTarget {
       querySourceId: this.config.querySourceId || null,
       querySourceTitle: this.config.querySourceTitle || null,
       pinned: this.pinned,
+      loadingDataSource: this.loadingDataSource,
       selection: [...this.selection],
       recordIds: this.graph?.recordIds || [],
       limits: this.graph?.limits || null,

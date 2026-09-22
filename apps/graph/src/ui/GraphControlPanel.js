@@ -99,6 +99,7 @@ export class GraphControlPanel {
     this.bind("heurist-graph-visibility-changed", () => this.renderLegend());
     this.bind('heurist-graph-expansions-changed', () => this.renderLegend());
     this.bind('heurist-graph-pin-changed', () => { void this.render().catch(error => this.reportError(error)); });
+    this.bind('heurist-graph-datasource-loading-changed', () => { void this.render().catch(error => this.reportError(error)); });
     this.bind('heurist-graph-selection-changed', () => this.renderExpansionControls());
     this.bind("heurist-graph-configuration-changed", (event) => {
       void this.applyOptions(event.detail).catch((error) => this.reportError(error, "apply-options"));
@@ -136,10 +137,14 @@ export class GraphControlPanel {
     this.sourceHeader.textContent = title;
     this.currentSourceTitle.textContent = title;
     const isMainRuntime = this.options.runtimeMode === "main";
-    this.currentSourceRow.querySelectorAll(".heurist-graph-pin-toggle").forEach((button) => button.remove());
+    this.currentSourceRow.querySelectorAll(".heurist-graph-pin-toggle, .heurist-graph-loading-indicator")
+      .forEach((element) => element.remove());
     if (isMainRuntime) {
       const label = this.currentSourceRow.querySelector(".heurist-graph-query-source");
       label.prepend(pinToggle(state.pinned, () => this.togglePin()));
+      // Only meaningful while unpinned: a pinned graph never reloads from an
+      // inbound DataSource push, so there is nothing running to show here.
+      if (state.loadingDataSource && !state.pinned) label.prepend(loadingIndicator());
     }
     this.renderLegend();
     applyI18n(this.element);
@@ -406,4 +411,14 @@ function pinToggle(pinned, onToggle) {
     onToggle();
   });
   return button;
+}
+
+/** Build the rotation icon shown while an inbound host DataSource push is loading. */
+function loadingIndicator() {
+  const span = document.createElement("span");
+  span.className = "heurist-graph-loading-indicator";
+  span.title = $HR("Loading data source");
+  span.setAttribute("aria-label", span.title);
+  span.setAttribute("role", "status");
+  return span;
 }

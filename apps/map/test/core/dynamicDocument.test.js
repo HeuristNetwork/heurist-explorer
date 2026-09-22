@@ -149,6 +149,26 @@ test('Explorer dynamic document keeps an empty current row and stable Workspace 
   assert.equal(application.getLayers().find((item) => item.activeDataSource)?.title, 'Saved places');
 });
 
+test('a query-only Current-result update keeps the layer definition identity, not a remove/re-add', async () => {
+  // Mirrors a Filter Form re-search: the same saved/parameterized source
+  // (same reference key/title), only its resolved query text - and thus its
+  // result count, almost always different - changes.
+  const { application } = createApplication({ initiallyActive: true });
+  const first = dataSource('filter:7', 'Saved filter', 't:1', 10, { dynamicRequests: true });
+  const second = dataSource('filter:7', 'Saved filter', 't:2', 37, { dynamicRequests: true });
+  await application.setDynamicDataSources({ currentDataSource: first });
+  const before = application.getDynamicDocumentEntry().layerDefinitions
+    .find((item) => item.reference.id === 'current-results');
+  assert.ok(before);
+  await application.setDynamicDataSources({ currentDataSource: second });
+  const after = application.getDynamicDocumentEntry().layerDefinitions
+    .find((item) => item.reference.id === 'current-results');
+  // A remove-then-re-add would splice out `before` and push a new object,
+  // momentarily leaving the panel/legend with no current-results row.
+  assert.equal(after, before);
+  assert.equal(after.mapLayer.source.query, 't:2');
+});
+
 test('incoming results load only in a visible current row; Workspace selection preserves it', async () => {
   const { application, rendered } = createApplication({ initiallyActive: true });
   const first = dataSource('query:1', 'First', 't:1', 10);
@@ -261,6 +281,29 @@ test('setQueryForLayer keeps layer identity and reloads active dynamic layer', a
   assert.deepEqual(removed, ['current-results']);
   assert.equal(rendered.at(-1).id, 'current-results');
   assert.equal(rendered.at(-1).source.query, 't:20');
+});
+
+test('setQueryForLayer shows a loading state (not a vanished row) while the new query is in flight', async () => {
+  const { application } = createApplication({ initiallyActive: true });
+  await application.addQueryLayer('t:10', { id: 'current-results' });
+  assert.equal(application.getLayer('current-results').loadState, 'loaded');
+
+  const load = application.layerLoaders.load;
+  let release;
+  const pendingLoad = new Promise((resolve) => { release = resolve; });
+  application.layerLoaders.load = async (layer, context) => {
+    await pendingLoad;
+    return load(layer, context);
+  };
+
+  const reload = application.setQueryForLayer('current-results', 't:20');
+  // The runtime layer has been torn down for the new query, but the panel
+  // row must stay present and flagged loading, not disappear.
+  assert.equal(application.getLayer('current-results')?.loadState, 'loading');
+  release();
+  await reload;
+  assert.equal(application.getLayer('current-results').loadState, 'loaded');
+  assert.equal(application.getLayer('current-results').source.query, 't:20');
 });
 
 test('clearLayer keeps definition while removeLayer removes it', async () => {

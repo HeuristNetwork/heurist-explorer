@@ -189,6 +189,43 @@ test("GraphApplication loads and merges explicit graph fragments", async () => {
   assert.deepEqual(calls[1].query, { ids: [1] });
 });
 
+test("setDataSource dispatches a loading state while unpinned, and skips it entirely while pinned", async () => {
+  let resolveLoad;
+  const application = new GraphApplication({
+    config: { query: null, selection: [], limits: {} },
+    provider: {
+      load: () => new Promise((resolve) => { resolveLoad = resolve; }),
+    },
+    engine: {
+      initialize: async () => {},
+      setGraph: async () => {},
+      mergeGraph: async () => {},
+      setSelection: async () => {},
+      destroy: async () => {},
+    },
+    host: { initialize: async () => {}, destroy: async () => {} },
+  });
+  await application.initialize({});
+
+  const events = [];
+  application.addEventListener("heurist-graph-datasource-loading-changed",
+    (event) => events.push(event.detail.loading));
+
+  const pending = application.setDataSource({ request: { q: "t:5" }, title: "Source" });
+  assert.deepEqual(events, [true]);
+  assert.equal(application.getState().loadingDataSource, true);
+  resolveLoad({ graph: new GraphDocument({ records: [], edges: [], paths: {} }) });
+  await pending;
+  assert.deepEqual(events, [true, false]);
+  assert.equal(application.getState().loadingDataSource, false);
+
+  application.setPinned(true);
+  events.length = 0;
+  await application.setDataSource({ request: { q: "t:9" }, title: "Ignored while pinned" });
+  assert.deepEqual(events, []);
+  assert.equal(application.getState().loadingDataSource, false);
+});
+
 test("GraphApplication builds a legend and hides record types and link groups", async () => {
   let rendered;
   const engine = {

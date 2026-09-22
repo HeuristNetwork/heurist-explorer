@@ -66,6 +66,12 @@ label.heurist-graph-query-source { display:flex; align-items:center; gap:6px; fo
 .heurist-graph-section-toggle::before { content:'▸'; }
 .heurist-graph-section-toggle[aria-expanded="true"]::before { content:'▾'; }
 .heurist-graph-pin-toggle.pinned { color:var(--h-color-primary); }
+.heurist-graph-loading-indicator {
+  display:inline-block; width:11px; height:11px; flex:0 0 auto;
+  border:2px solid var(--h-color-border-strong); border-top-color:var(--h-color-primary);
+  border-radius:50%; animation:heurist-graph-spin .8s linear infinite;
+}
+@keyframes heurist-graph-spin { to { transform:rotate(360deg); } }
 /* "Show data" is shown on hover/focus only, matching the map/timeline layer row actions. */
 .heurist-graph-row-actions { display:flex; align-items:center; gap:2px; opacity:0; visibility:hidden; pointer-events:none; transition:opacity .12s ease; }
 .heurist-graph-selector-row:hover > .heurist-graph-row-actions,

@@ -1668,6 +1668,16 @@ export class MapApplication {
       const id = String(stored.reference.id);
       const next = desiredById.get(id);
       if (!next || stored.workspaceFingerprint !== next.workspaceFingerprint) {
+        // A query-only change on the Current-result row (the common case for an
+        // Explorer search) updates the existing layer in place, loaded -> loading
+        // -> loaded, instead of removing and re-adding it. Removing it first
+        // would blank the panel/legend row for the duration of the reload.
+        if (next && id === 'current-results' && isQueryOnlyChange(stored, next)) {
+          await this.setQueryForLayer(id, next.mapLayer.source.query, { reload: true });
+          stored.mapLayer = next.mapLayer;
+          stored.workspaceFingerprint = next.workspaceFingerprint;
+          continue;
+        }
         await this.removeLayer(id, { documentId: this.dynamicDocumentId });
       }
     }
@@ -1850,8 +1860,21 @@ export class MapApplication {
       if (!this.layers.has(layerId)) this.registerDeferredLayer(stored.mapLayer, stored.reference, { preserveVisible: true });
       await this.refreshDynamicLayer();
     } else if (String(this.activeMapDocumentId) === this.dynamicDocumentId) {
+      const reloading = options.reload !== false && wasVisible;
+      if (reloading) {
+        // Flag the still-present layer row as loading before tearing down its
+        // runtime representation, so the panel shows the spinner throughout
+        // the reload instead of nothing (removeRuntimeLayer below does not
+        // itself dispatch a change, so this stays the last-rendered state).
+        const state = this.layers.get(layerId);
+        if (state) {
+          state.loadState = 'loading';
+          state.error = null;
+          this.dispatch('heurist-map-layer-state-changed', { layer: this.getLayer(layerId) });
+        }
+      }
       if (this.layers.has(layerId)) await this.removeRuntimeLayer(layerId);
-      if (options.reload === false || !wasVisible) {
+      if (!reloading) {
         stored.mapLayer.visible = false;
         stored.reference.visible = false;
         this.registerDeferredLayer(stored.mapLayer, stored.reference);
@@ -3712,6 +3735,35 @@ function canonicalVectorSymbology(style) {
  */
 function sameJson(left, right) {
   return JSON.stringify(left ?? null) === JSON.stringify(right ?? null);
+}
+
+/**
+ * Whether a stored dynamic layer entry and its desired replacement differ
+ * only in their query (not style, geo fields, options, or opacity).
+ *
+ * @param {{mapLayer: Object, runtimeOpacity?: number}} stored Currently stored layer entry.
+ * @param {{mapLayer: Object, runtimeOpacity?: number}} next Desired replacement layer entry.
+ * @returns {boolean}
+ */
+function isQueryOnlyChange(stored, next) {
+  const strip = (item) => {
+    const mapLayer = clonePlain(item.mapLayer) || {};
+    if (mapLayer.source) mapLayer.source = { ...mapLayer.source, query: null };
+    // `options.dataSource` embeds the whole originating DataSource (including
+    // its own `request.q` and result `meta`, e.g. `count`) as metadata; a
+    // re-resolved parameterized query changes those too - almost always a
+    // different result count - without making this a different data source.
+    const embedded = mapLayer.options?.dataSource;
+    if (embedded) {
+      mapLayer.options = { ...mapLayer.options, dataSource: {
+        ...embedded,
+        request: embedded.request ? { ...embedded.request, q: null } : embedded.request,
+        meta: embedded.meta ? {} : embedded.meta
+      } };
+    }
+    return { mapLayer, opacity: item.runtimeOpacity };
+  };
+  return sameJson(strip(stored), strip(next));
 }
 
 /**
