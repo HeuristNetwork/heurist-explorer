@@ -142,7 +142,6 @@ export class HFilterForm extends HBaseWidget {
     }
     form.append(actions);
     const submit = () => {
-console.log('submit() called');      
       const errors = this.validate();
       if (errors.length) {
         this._showErrors(errors);
@@ -165,11 +164,14 @@ console.log('submit() called');
     // (blur immediately followed by its own click) collapses into one call.
     this._submitTimer = null;
     const scheduleSubmit = () => {
+      if(this._submitTimer!==null){
+          return; // already scheduled, don't schedule again
+      }
+      submit();
       clearTimeout(this._submitTimer);
       this._submitTimer = setTimeout(() => {
         this._submitTimer = null;
-        submit();
-      }, 50);
+      }, 500);
     };
     // Defensive only: no control in this form has type="submit", so the
     // browser's native implicit form submission (Enter with no field
