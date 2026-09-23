@@ -22,8 +22,9 @@ import './ExplorerControlPanel.css';
  * Owns Explorer command rails but delegates presentation geometry to LayoutManager.
  *
  * Left rail commands operate on search/navigation. Right rail commands operate
- * on presentation visibility and tools. HFilter and other navigation panels are
- * ephemeral overlays over the Explorer workspace.
+ * on presentation visibility and tools. Navigation panels (Favorites, History,
+ * Workspace, Saved Filters, Record Types, Query Sources) are ephemeral overlays
+ * over the Explorer workspace.
  */
 export class ExplorerControlPanel {
   /**
@@ -531,7 +532,6 @@ export class ExplorerControlPanel {
 
       case 'filter-builder':
         this.openSearch(this.leftRail?.getButtonElement('filter-builder'));
-        this.application.openFilterBuilder?.();
         break;
 
       case 'manage-filters':

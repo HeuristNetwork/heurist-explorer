@@ -111,8 +111,17 @@ export class HFilterForm extends HBaseWidget {
     const actions = document.createElement('div');
     actions.className = 'h-filter-form-actions';
     if (!this.options.preview) {
+      // type="button", not "submit": a submit-type button makes the browser
+      // treat it as the form's default control, so pressing Enter in a field
+      // triggers the browser's own native implicit form submission (a
+      // 'submit' event) *in addition to* our own per-input Enter handling
+      // (HInput's commit-on-Enter, which already dispatches h-input-change).
+      // Those two fire in separate tasks, so no amount of same-tick
+      // debouncing coalesces them - the only reliable fix is to leave no
+      // submit-type control in the form for the browser to invoke.
       const filter = button('Filter', 'h-btn h-btn-primary');
-      filter.type = 'submit';
+      filter.type = 'button';
+      this.listen(filter, 'click', () => scheduleSubmit());
       actions.append(filter);
     }
     const reset = button('Reset', 'h-btn');
@@ -133,6 +142,7 @@ export class HFilterForm extends HBaseWidget {
     }
     form.append(actions);
     const submit = () => {
+console.log('submit() called');      
       const errors = this.validate();
       if (errors.length) {
         this._showErrors(errors);
@@ -145,19 +155,28 @@ export class HFilterForm extends HBaseWidget {
         ?? resolveQueryParameters(this.query, values);
       this.options.onSubmit?.({ values, query, definition: this.definition });
     };
-    this.listen(form, 'submit', (event) => {
-      event.preventDefault();
-      submit();
-    });
-    let submitScheduled = false;
-    this.listen(form, 'h-input-change', () => {
-      if (submitScheduled) return;
-      submitScheduled = true;
-      queueMicrotask(() => {
-        submitScheduled = false;
+    // Clicking Filter while a field still has focus blurs that field first,
+    // committing an edited value via h-input-change, and the click's own
+    // handler fires moments later. The browser can dispatch those as two
+    // separate tasks (not just two listeners in one task), so a same-tick
+    // microtask guard doesn't reliably coalesce them - it can drain and
+    // reset between the two. A short wall-clock debounce does: every new
+    // trigger restarts the timer, so anything landing within the window
+    // (blur immediately followed by its own click) collapses into one call.
+    this._submitTimer = null;
+    const scheduleSubmit = () => {
+      clearTimeout(this._submitTimer);
+      this._submitTimer = setTimeout(() => {
+        this._submitTimer = null;
         submit();
-      });
-    });
+      }, 50);
+    };
+    // Defensive only: no control in this form has type="submit", so the
+    // browser's native implicit form submission (Enter with no field
+    // committing a change of its own) shouldn't reach this - but if it ever
+    // does, still block navigation without submitting a second time.
+    this.listen(form, 'submit', (event) => event.preventDefault());
+    this.listen(form, 'h-input-change', () => scheduleSubmit());
     this.listen(form, 'h-input-error', (event) => {
       this._showErrors([event.detail?.error?.message || 'Input error']);
     });
@@ -219,6 +238,7 @@ export class HFilterForm extends HBaseWidget {
 
   /** @returns {Promise<void>} Completion after child cleanup. */
   async destroy() {
+    clearTimeout(this._submitTimer);
     for (const input of this.inputs.values()) await input.destroy();
     this.inputs.clear();
     await super.destroy();

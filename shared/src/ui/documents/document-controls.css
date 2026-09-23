@@ -14,6 +14,12 @@
   font-size: 12px;
 }
 
+/* A short viewport leaves little room at 70vh; use nearly the full height
+   instead of cramming the panel's own scrollable body into a sliver. */
+@media (max-height: 600px) {
+  .heurist-module-control-panel { max-height: 98vh; }
+}
+
 .heurist-module-control-panel.position-top-left { left: 12px; right: auto; }
 
 .heurist-map-document-row,.heurist-map-layer-row{display:flex;align-items:center;justify-content:space-between;min-height:30px;gap:0px}

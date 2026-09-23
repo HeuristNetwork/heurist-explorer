@@ -118,13 +118,27 @@ export class QuerySourcePanel {
         const runtimeSource = structuredClone(source);
         runtimeSource.request.q = query.q;
         if (query.extent) runtimeSource.request.extent = query.extent;
-        void this.options.onExecute?.(runtimeSource);
+        this.setLoading(true);
+        Promise.resolve(this.options.onExecute?.(runtimeSource)).finally(() => this.setLoading(false));
       }
     }).render();
     this.formHost.classList.add('h-query-source-form-host');
     this._setFilterFormVisible(true);
     this._updateFormAction();
     this._scheduleResponsiveLayout();
+  }
+
+  /**
+   * Show or hide a loading veil over the runtime Filter Form while its
+   * submitted search is in flight. The form's own inputs/engine have no
+   * visibility into that - it's a host-owned widget, not part of the data
+   * module - so this is set directly around the onSubmit -> onExecute call.
+   *
+   * @param {boolean} loading Whether a load is in progress.
+   * @returns {void}
+   */
+  setLoading(loading) {
+    this.formHost?.classList.toggle('is-loading', Boolean(loading));
   }
 
   /** Open the Filter Builder on the runtime Filter Form's current query source, then refresh the form. */

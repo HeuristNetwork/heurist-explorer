@@ -116,6 +116,16 @@ test('Filtered Result Map startup applies its document-specific zoom limits', as
   assert.deepEqual(zoomLimits.at(-1), { minZoom: 4, maxZoom: 12 });
 });
 
+test('setDynamicDataSources tolerates an explicit null argument (bypasses the default parameter)', async () => {
+  const { application } = createApplication({ initiallyActive: true });
+  // IframeModuleAdapter always wraps the pushed value in an object
+  // ({ currentDataSource }), but callers of the public/application method
+  // directly (or a future caller) could still pass null outright; the
+  // default parameter only covers undefined.
+  await assert.doesNotReject(() => application.setDynamicDataSources(null));
+  await assert.doesNotReject(() => application.applyDynamicDataSources(null));
+});
+
 test('global interaction selection policy restricts otherwise selectable layers', async () => {
   const { application, rendered } = createApplication({
     initiallyActive: true,

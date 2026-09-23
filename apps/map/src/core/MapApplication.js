@@ -1569,7 +1569,9 @@ export class MapApplication {
    */
   setDynamicDataSources(value = {}) {
     // Serialize reconciliation so an older search cannot replace a newer result.
-    const snapshot = clonePlain(value);
+    // `value` may be explicitly `null` (bypassing the default parameter),
+    // which clonePlain() would otherwise pass through unchanged.
+    const snapshot = clonePlain(value) || {};
     const update = this.dataSourceUpdateQueue.then(() => this.applyDynamicDataSources(snapshot));
     this.dataSourceUpdateQueue = update.catch(() => {});
     return update;
@@ -1577,6 +1579,7 @@ export class MapApplication {
 
   async applyDynamicDataSources(value) {
     if (this.host.getHostContext?.()?.name !== 'heurist-explorer') return false;
+    value = value || {};
     if (Object.hasOwn(value, 'workspaceDataSources')) {
       this.workspaceDataSources = uniqueDataSources(value.workspaceDataSources);
     }

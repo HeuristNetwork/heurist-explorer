@@ -58,5 +58,34 @@
 .h-recordlist-hidden { display:none !important; }
 .h-recordlist .h-dropdown .h-menu { min-width:210px; }
 .h-recordlist .h-dropdown:last-child .h-menu { min-width:110px; }
-.h-recordlist-loading { cursor:progress; opacity:.7; }
+/* h-recordlist-loading is toggled on the widget's own container element
+   (h-recordlist-host, see HRecordList.js _setLoading()), not on the .h-recordlist
+   section it renders inside - that's just its first child. */
+.h-recordlist-host { position:relative; }
+.h-recordlist-loading { cursor:progress; }
+.h-recordlist-loading > * { opacity:.7; }
+.h-recordlist-loading::before {
+  content:"";
+  position:absolute;
+  z-index:20;
+  inset:0;
+  background:color-mix(in srgb, var(--h-color-bg) 55%, transparent);
+  pointer-events:none;
+}
+.h-recordlist-loading::after {
+  content:"\f110";
+  position:absolute;
+  z-index:21;
+  left:50%;
+  top:50%;
+  color:var(--h-color-primary);
+  font:var(--fa-font-solid);
+  font-size:28px;
+  animation:h-recordlist-spin .9s linear infinite;
+  pointer-events:none;
+}
+@keyframes h-recordlist-spin {
+  from { transform:translate(-50%, -50%) rotate(0deg); }
+  to { transform:translate(-50%, -50%) rotate(360deg); }
+}
 @media (max-width:800px) { .h-recordlist-toolbar { padding-right:4px; } }

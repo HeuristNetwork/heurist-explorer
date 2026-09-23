@@ -253,7 +253,7 @@ export class GraphApplication extends EventTarget {
 
     if (normalizedQuery == null && !merge) {
       this.generation += 1;
-      this.abortController?.abort("Graph cleared");
+      this.abortController?.abort(abortError("Graph cleared"));
       this.activeLoad = null;
       this.config.querySourceId = null;
       this.config.querySourceTitle = null;
@@ -285,7 +285,11 @@ export class GraphApplication extends EventTarget {
     }
 
     const generation = ++this.generation;
-    this.abortController?.abort("Superseded graph request");
+    // A plain string reason (rather than a named AbortError) makes the
+    // signal's own consumers (fetch, and our own AbortError checks) reject
+    // with that bare string per the AbortController spec - losing `.name`
+    // and defeating every downstream "was this just superseded?" check.
+    this.abortController?.abort(abortError("Superseded graph request"));
     this.abortController = new AbortController();
 
     // An incremental expansion never re-runs internal-edge discovery; the
@@ -1024,7 +1028,7 @@ export class GraphApplication extends EventTarget {
    */
   async destroy() {
     this.generation += 1;
-    this.abortController?.abort("Graph destroyed");
+    this.abortController?.abort(abortError("Graph destroyed"));
     await this.engine.destroy();
     await this.host?.destroy?.();
   }

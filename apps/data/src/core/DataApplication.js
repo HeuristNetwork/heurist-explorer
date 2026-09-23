@@ -250,7 +250,11 @@ export class DataApplication extends EventTarget {
   /** Run a generation-guarded, abortable load through the loader registry, dispatching loading/error events. */
   async _load(type, request) {
     const generation = ++this.requestGeneration;
-    this.abortController?.abort("Superseded data request");
+    // A plain string reason (rather than a named AbortError) makes the
+    // signal's own consumers (fetch, and our own AbortError checks) reject
+    // with that bare string per the AbortController spec - losing `.name`
+    // and defeating every downstream "was this just superseded?" check.
+    this.abortController?.abort(abortError("Superseded data request"));
     this.abortController = new AbortController();
     const controller = this.abortController;
     this.dispatch("heurist-data-loading", { type, request });
@@ -356,7 +360,7 @@ export class DataApplication extends EventTarget {
   /** Abort active loading and clear the rendered data state. */
   async clearData() {
     this.requestGeneration += 1;
-    this.abortController?.abort("Data cleared");
+    this.abortController?.abort(abortError("Data cleared"));
     this.querySource = null;
     this.activeLoad = null;
     this.dataSource = null;
@@ -719,7 +723,7 @@ export class DataApplication extends EventTarget {
    */
   async destroy() {
     this.requestGeneration += 1;
-    this.abortController?.abort("Application destroyed");
+    this.abortController?.abort(abortError("Application destroyed"));
     await this.engine.destroy();
     this.unsubscribeCollection?.();
     this.unsubscribeCollection = null;

@@ -154,8 +154,10 @@ export function applyPersistedSettings(config, rawSettings) {
     ui: {
       ...settings.options.ui,
       // Internal Map Control defaults that are not persisted configuration.
-      baseMapsInitiallyExpanded: false,
-      maxHeight: '70vh'
+      // Panel max-height is driven by CSS (.heurist-module-control-panel in
+      // document-controls.css), not set here, so a low-height viewport media
+      // query can override it without fighting an inline style.
+      baseMapsInitiallyExpanded: false
     }
   };
 }

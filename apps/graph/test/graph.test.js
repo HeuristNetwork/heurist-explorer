@@ -189,6 +189,43 @@ test("GraphApplication loads and merges explicit graph fragments", async () => {
   assert.deepEqual(calls[1].query, { ids: [1] });
 });
 
+test("a superseded load's abort signal carries a named AbortError, not a bare string", async () => {
+  // Mimics a real fetch: it observes the passed AbortSignal and rejects with
+  // signal.reason directly (the modern AbortController behavior), rather
+  // than a mock that never actually reads the signal. abortController.abort()
+  // must be called with a named AbortError, or this rejects with whatever
+  // bare reason was passed instead, and callers checking error.name === 'AbortError'
+  // (e.g. IframeModuleAdapter.setDataSource()) can never recognize it.
+  const application = new GraphApplication({
+    config: { query: null, selection: [], limits: {} },
+    provider: {
+      load: (request) => new Promise((resolve, reject) => {
+        request.signal.addEventListener("abort", () => reject(request.signal.reason));
+        queueMicrotask(() => {
+          if (request.signal.aborted) return;
+          resolve({ graph: new GraphDocument({ records: [], edges: [], paths: {} }) });
+        });
+      }),
+    },
+    engine: {
+      initialize: async () => {},
+      setGraph: async () => {},
+      mergeGraph: async () => {},
+      setSelection: async () => {},
+      destroy: async () => {},
+    },
+    host: { initialize: async () => {}, destroy: async () => {} },
+  });
+  await application.initialize({});
+  const first = application.load({ query: "t:1" });
+  const second = application.load({ query: "t:2" });
+  await assert.rejects(first, (error) => {
+    assert.equal(error.name, "AbortError");
+    return true;
+  });
+  await second;
+});
+
 test("setLoading dispatches a loading state while unpinned, and is ignored entirely while pinned", async () => {
   const application = new GraphApplication({
     config: { query: null, selection: [], limits: {} },

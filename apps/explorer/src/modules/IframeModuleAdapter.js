@@ -315,6 +315,7 @@ export class IframeModuleAdapter extends ExplorerModule {
       }
       return false;
     } catch (error) {
+console.log('setDataSource error', error);      
       // A newer setDataSource() call already superseded this one; the child
       // module's own generation guard aborted it. Expected, not a failure.
       if (error?.name === 'AbortError') {

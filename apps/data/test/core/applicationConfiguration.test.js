@@ -153,3 +153,35 @@ test("a superseded load cannot replace the Filtered Result", async () => {
   await assert.rejects(first, { name: "AbortError" });
   assert.equal(application.getState().querySourceId, 2);
 });
+
+test("a superseded load's abort signal carries a named AbortError, not a bare string", async () => {
+  // Mimics a real fetch: it observes the passed AbortSignal and rejects with
+  // signal.reason directly (the modern AbortController behavior), rather
+  // than the generic mock elsewhere in this file that never actually reads
+  // the signal. abortController.abort() must be called with a named
+  // AbortError, or this rejects with whatever bare reason was passed instead.
+  const application = new DataApplication({
+    config: { source: {} },
+    engine: { setData: async () => {} },
+    host: {},
+    loaders: {
+      load: (type, request) => new Promise((resolve, reject) => {
+        request.signal.addEventListener("abort", () => reject(request.signal.reason));
+        queueMicrotask(() => {
+          if (request.signal.aborted) return;
+          resolve({
+            querySource: { id: null, source: { query: request.query }, fields: [], toJSON() { return this; } },
+            response: { records: [], meta: {}, pagination: { total: 0 } },
+          });
+        });
+      }),
+    },
+  });
+  const first = application.setQuery("t:1");
+  const second = application.setQuery("t:2");
+  await assert.rejects(first, (error) => {
+    assert.equal(error.name, "AbortError");
+    return true;
+  });
+  await second;
+});

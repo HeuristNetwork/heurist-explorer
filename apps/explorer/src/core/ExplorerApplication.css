@@ -90,16 +90,6 @@
     outline-offset: -2px;
 }
 
-.h-explorer-filter {
-    max-height: calc(min(78vh, 680px) - 33px);
-    overflow: auto;
-    padding: 8px;
-}
-
-.h-explorer-pinned-tool-body .h-explorer-filter {
-    max-height: none;
-}
-
 /* -------------------------------------------------------------------------
  * Explorer Tools mode
  * ---------------------------------------------------------------------- */

@@ -104,7 +104,13 @@ export class TimelineApplication extends EventTarget {
     const normalized = normalizeContexts(contexts);
     const generation = ++this.generation;
 
-    for (const controller of this.abortControllers.values()) controller.abort("Superseded timeline request");
+    // A plain string reason (rather than a named AbortError) makes the
+    // signal's own consumers reject with that bare string per the
+    // AbortController spec, losing `.name` and defeating "was this just
+    // superseded?" checks downstream.
+    for (const controller of this.abortControllers.values()) {
+      controller.abort(new DOMException("Superseded timeline request", "AbortError"));
+    }
     this.abortControllers.clear();
 
     this.dispatch("heurist-timeline-loading", { contexts: normalized.map(publicContext) });

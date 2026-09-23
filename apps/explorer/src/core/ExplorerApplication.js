@@ -14,7 +14,6 @@
  */
 
 import { hasQueryParameters } from '#shared/data/queryParameters.js';
-import { HFilter } from '../widgets/filter/HFilter.js';
 import { HeuristApiClient } from '#shared/api';
 import { HostAdapter } from '#shared/host';
 import { HMsg, $HR } from '#shared/ui';
@@ -36,9 +35,6 @@ import { RecordTypeProvider } from '#shared/data/RecordTypeProvider.js';
 import queryVocabulary from '../utils/queryVocabulary.json';
 import { HFilterBuilder } from '../widgets/filter-builder/HFilterBuilder.js';
 import { QuerySourcePanel } from '../widgets/query-source/QuerySourcePanel.js';
-import { queryDescribe } from '../utils/queryDescribe.js';
-import { parseTextQuery } from '../utils/parseTextQuery.js';
-import { queryToArray } from '../utils/queryModel.js';
 import './ExplorerApplication.css';
 
 /** Explorer's top-level application controller: modules, layout, datasource, and synchronization. */
@@ -68,7 +64,6 @@ export class ExplorerApplication {
     });
     if (config.state?.activeMapDocument != null) this.sync.activeMapDocument = String(config.state.activeMapDocument);
     this.layout = null;
-    this.filter = null;
     this.controlPanel = null;
     this.savedFilters = null;
     this.recordTypes = null;
@@ -102,9 +97,6 @@ export class ExplorerApplication {
     this.container.replaceChildren(workspace);
     this.workspaceElement = workspace;
 
-    this.filterHost = document.createElement('div');
-    this.filterHost.className = 'h-explorer-filter';
-
     const apiClient = new HeuristApiClient({
       apiBaseUrl: this.config.apiBaseUrl,
       database: this.config.database,
@@ -123,20 +115,6 @@ export class ExplorerApplication {
       apiClient,
       recordTypeProvider: new RecordTypeProvider({ apiClient })
     });
-    this.filter = new HFilter({ apiClient });
-    this.filter.attach(this.filterHost, {
-      onFilterBuilder: ({ widget, query }) => this._openFilterBuilder(widget, query),
-      editSavedFilter: (svsID, squery) => this.editSavedFilter(svsID, squery),
-      // Sentence readout below the query box (plan §8 / D6). The full
-      // HFilterInlineHelper (token-hint dropdown) is disabled for now -
-      // this is the minimal describe-on-idle/blur path it will grow back into.
-      describeQuery: (text) => this._describeQueryText(text)
-    });
-    // Search/filter actions close the ephemeral flyout immediately. Execution
-    // continues independently; HMsg reports validation/application errors.
-    this.filterHost.addEventListener('searchstart', () => this.controlPanel?.closeToolPanel());
-    await this.filter.render();
-    this.sync.register(this.filter);
     try {
       await this.savedFilters.load();
     } catch (error) {
@@ -444,7 +422,7 @@ export class ExplorerApplication {
    * presentation followers. Query, Filter and Dataset sources replace the
    * contents of this one data view; they do not create additional data panes.
    *
-   * @param {object} source DataSource emitted by HFilter or a presentation.
+   * @param {object} source DataSource emitted by a Filter Form search, saved filter, or a presentation.
    * @param {object} [syncOptions] Options forwarded to `SyncEngine#setDataSource`.
    * @returns {Promise<object|null>} Reusable data module.
    */
@@ -1073,37 +1051,6 @@ export class ExplorerApplication {
     return this._dbDefsPromise;
   }
 
-  /**
-   * Describes a raw query-box string as a plain-language sentence for HFilter's
-   * `h-fih-sentence` readout (plan §8 / D6). Accepts keyword syntax or pasted
-   * JSON; returns '' when the text is empty or can't be parsed/described.
-   *
-   * @private
-   * @param {string} text Raw query-box text.
-   * @returns {Promise<string>} Description sentence, or `''` when it can't be produced.
-   */
-  async _describeQueryText(text) {
-    const trimmed = String(text ?? '').trim();
-    if (!trimmed) return '';
-    let dbdefs;
-    try {
-      dbdefs = await this._ensureDbDefs();
-    } catch {
-      return '';
-    }
-    let arr = (trimmed[0] === '[' || trimmed[0] === '{') ? queryToArray(trimmed) : [];
-    if (!arr.length) {
-      const parsed = parseTextQuery(trimmed, { dbdefs });
-      arr = Array.isArray(parsed) ? parsed : (Array.isArray(parsed?.q) ? parsed.q : []);
-    }
-    if (!arr.length) return '';
-    try {
-      return queryDescribe(arr, { dbdefs, vocabulary: queryVocabulary, lang: this.config.language }) || '';
-    } catch {
-      return '';
-    }
-  }
-
   /** Open HFilterBuilder as a value editor and resolve with its JSON query, or null on cancel. */
   async _editQueryWithBuilder(query, filterForm = null, selectExtent = (current) => this.selectFilterExtent(current)) {
     let dbdefs;
@@ -1134,16 +1081,6 @@ export class ExplorerApplication {
         ]
       });
     });
-  }
-
-  /**
-   * Public entry point for the Filter Builder from the command rail.
-   *
-   * @param {string|null} [query] Seed query; defaults to the current HFilter query value.
-   * @returns {Promise<void>} Resolves once the builder dialog has been shown.
-   */
-  openFilterBuilder(query = null) {
-    return this._openFilterBuilder(this.filter, query ?? this.filter?.getQueryValue?.() ?? '');
   }
 
   /**
@@ -1271,25 +1208,6 @@ export class ExplorerApplication {
   }
 
   /**
-   * Opens the visual Filter Builder in a modal dialog, seeded with the current
-   * query. Replaces the legacy `hostBridge.openSearchBuilder()` round trip.
-   *
-   * @private
-   * @param {import('../widgets/filter/HFilter.js').HFilter} widget Query widget to apply the composed query back to.
-   * @param {string} query Current raw query string from the HFilter input.
-   * @returns {Promise<void>}
-   */
-  async _openFilterBuilder(widget, query) {
-    if (!widget) return;
-    const composed = await this._editQueryWithBuilder(query);
-    if (composed == null) return;
-    const template = composed.query;
-    widget.setQueryValue(!template.length ? '' : JSON.stringify(template));
-    widget.refreshSentence?.();
-    if (template.length && !hasQueryParameters(template)) void widget.executeDirectQuery();
-  }
-
-  /**
    * Activate a module's slot and briefly flash it, to draw the user's attention.
    *
    * @param {string} id Module id.
@@ -1365,14 +1283,10 @@ export class ExplorerApplication {
     for (const panel of this.querySourcePanels.values()) void panel.destroy?.();
     this.querySourcePanels.clear();
     this.layout?.destroy();
-    this.inlineHelper?.destroy?.();
-    this.filter?.destroy?.();
     this.savedFilters?.destroy?.();
     this.recordTypes?.destroy?.();
     this.querySources?.destroy?.();
     this.controlPanel?.destroy?.();
-    this.filterHost?.remove?.();
-    this.filterHost = null;
   }
 }
 

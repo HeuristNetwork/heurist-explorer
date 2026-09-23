@@ -18,6 +18,11 @@ html, body, #heurist-graph { width: 100%; height: 100%; margin: 0; overflow: hid
   width: min(300px, calc(100vw - 8px));
   max-height: min(70vh, 520px);
 }
+/* A short viewport leaves little room at min(70vh, 520px); use nearly the
+   full height instead of cramming the panel's own scrollable body. */
+@media (max-height: 600px) {
+  .heurist-module-control-panel { max-height: 98vh; }
+}
 .heurist-module-panel-body section { padding: 0px 4px; }
 .heurist-module-control-panel h3 { margin: 0 0 5px; font-size: 13px; color: var(--h-color-primary); }
 
