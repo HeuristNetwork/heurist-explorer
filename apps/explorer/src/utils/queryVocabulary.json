@@ -61,6 +61,7 @@
     ],
     "enum": [
       { "token": "",  "input": "term", "i18nKey": "op.is" },
+      { "token": "=", "input": "term", "i18nKey": "op.is_exactly" },
       { "token": "-", "input": "term", "i18nKey": "op.is_not" }
     ],
     "term": [

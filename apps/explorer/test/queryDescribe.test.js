@@ -171,3 +171,7 @@ test('a linked sub-query may be a single predicate object', () => {
   assert.equal(say([{ t: '10' }, { 'lt:134': { ids: 51 } }]), say([{ t: '10' }, { 'lt:134': [{ ids: 51 }] }]));
   assert.equal(say([{ t: '10' }, { 'lt:134': { ids: 51 } }]), 'Find Persons linked to records where record ID is 51');
 });
+
+test('enum "=" token reads "is exactly"', () => {
+  assert.equal(say([{ 'f:237': '=10443' }]), 'Find records where Event type is exactly "Death"');
+});

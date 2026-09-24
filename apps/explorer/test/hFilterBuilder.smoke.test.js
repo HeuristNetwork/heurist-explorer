@@ -96,3 +96,11 @@ test('setQuery() loads nested linked text queries and resolves enum labels to te
     { 'lt:240': [{ t: '48' }, { 'f:237': '5381' }, { 'lt:134': [{ t: '12' }, { title: '@+athens' }] }] }
   ]);
 });
+
+test('enum fields offer "is exactly" and round-trip its = token', async () => {
+  const { operatorsFor } = await import('../src/utils/vocabHelpers.js');
+  assert.ok(operatorsFor(VOCAB, 'enum').some((o) => o.i18nKey === 'op.is_exactly' && o.token === '='));
+  const builder = new HFilterBuilder({ dbdefs: dbdefsStub, vocabulary: VOCAB });
+  builder.setQuery([{ t: '48' }, { 'f:237': '=5381' }]);
+  assert.deepEqual(builder.getQuery(), [{ t: '48' }, { 'f:237': '=5381' }]);
+});
