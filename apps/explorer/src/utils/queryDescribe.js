@@ -46,6 +46,8 @@ const HEADER_LABELS = {
 const QUOTED_KINDS = new Set(['text', 'enum', 'term', 'tag']);
 /** Whole-value parameter token `$NAME$` (D9). */
 const PARAM_RE = /^\$[A-Za-z_]\w*\$$/;
+/** Parameter tokens embedded in a larger value. */
+const PARAM_ANY_RE = /\$[A-Za-z_]\w*\$/g;
 
 const LINK_PHRASE = {
   lt: 'linked_to', lf: 'linked_from', rt: 'related_to', rf: 'related_from',
@@ -86,8 +88,9 @@ function describeGroup(arr, ctx, { top, scopeRty }) {
   for (const predicate of arr) {
     const entry = firstPredicateEntry(predicate);
     if (!entry) continue;
-    const [rawKey, value] = entry;
+    const [rawKey, rawValue] = entry;
     const { base, suffix } = splitPredicateKey(rawKey);
+    const value = linkValue(base, rawValue);
 
     if (base === 't') {
       const ids = resolveRectypeIds(firstOf(value), ctx);
@@ -100,7 +103,7 @@ function describeGroup(arr, ctx, { top, scopeRty }) {
       continue;
     }
     if (isLinkPredicate(base) && Array.isArray(value)) {
-      linkClauses.push(describePredicate(base, suffix, value, ctx, rectypeId));
+      linkClauses.push({ base, suffix, value });   // described after the loop
       continue;
     }
     // a whole group that is just one {any|all|not:[…]} wrapper
@@ -123,7 +126,12 @@ function describeGroup(arr, ctx, { top, scopeRty }) {
     out += ' ' + fill(phrase(ctx, 'where'), { conditions: joinConditions(conditions, ctx) });
   }
   if (linkClauses.length) {
-    out += (conditions.length ? phrase(ctx, 'and') : ' ') + linkClauses.join(phrase(ctx, 'and'));
+    // a sub-query with links of its own is bracketed when a sibling link follows
+    // it, so that sibling reads as belonging to this record type, not the nested one
+    const last = linkClauses.length - 1;
+    const texts = linkClauses.map(({ base, suffix, value }, i) =>
+      describePredicate(base, suffix, value, ctx, rectypeId, { wrap: i < last && hasLinks(value) }));
+    out += (conditions.length ? phrase(ctx, 'and') : ' ') + texts.join(phrase(ctx, 'and'));
   }
   if (top && sorts.length) {
     out += ', ' + fill(phrase(ctx, 'sort_by'), { fields: sorts.join(', ') });
@@ -140,15 +148,17 @@ function describeGroup(arr, ctx, { top, scopeRty }) {
  * @param {*} value Predicate value.
  * @param {object} ctx Describe context (`dbdefs`, `vocab`, `lang`).
  * @param {number|null} scopeRty Record type id the predicate is evaluated within.
+ * @param {{wrap?:boolean}} [opts] `wrap` brackets a linked sub-query's description.
  * @returns {string}
  */
-function describePredicate(base, suffix, value, ctx, scopeRty) {
+function describePredicate(base, suffix, rawValue, ctx, scopeRty, { wrap = false } = {}) {
+  const value = linkValue(base, rawValue);
   // linked / related sub-query
   if (isLinkPredicate(base) && Array.isArray(value)) {
     const phraseKey = LINK_PHRASE[base] || 'related';
     const subRty = subqueryRectype(value, ctx);
     const subquery = describeGroup(value, ctx, { top: false, scopeRty: subRty });
-    return fill(phrase(ctx, phraseKey), { subquery });
+    return fill(phrase(ctx, phraseKey), { subquery: wrap ? `(${subquery})` : subquery });
   }
 
   // header keyword (title, added, owner, …)
@@ -157,6 +167,14 @@ function describePredicate(base, suffix, value, ctx, scopeRty) {
     const kind = kindFor(ctx.vocab, null, base);
     const { op, val } = describeOpValue(kind, value, null, ctx, { literalText: true });
     return fill(phrase(ctx, 'header_cond'), { field: fieldText, op, value: val }).trim();
+  }
+
+  // spatial  geo:<id>  -> that geo field; bare `geo` -> any location
+  if (base === 'geo') {
+    const dtyId = /^\d+$/.test(suffix.parts[0] ?? '') ? Number(suffix.parts[0]) : null;
+    const fieldText = dtyId == null ? 'Location' : fieldName(dtyId, scopeRty, ctx);
+    const { op, val } = describeOpValue('geo', value, dtyId, ctx);
+    return fill(phrase(ctx, 'field_cond'), { field: fieldText, op, value: val }).trim();
   }
 
   // field value count  fc:<id>  -> "number of <field> values <op> <n>"
@@ -253,6 +271,14 @@ function describeOpValue(kind, rawValue, dtyId, ctx, opts = {}) {
   let bare = value;
   let opKey = null;
 
+  // a<>b on a number/date -> "is between a and b"
+  const range = token === '' && !negate && (kind === 'number' || kind === 'date')
+    ? /^(.+?)<>(.+)$/.exec(bare) : null;
+  if (range) {
+    const [a, b] = [range[1], range[2]].map((p) => humanizeValue(kind, p, dtyId, ctx));
+    return { op: str(ctx.vocab, ctx.lang, 'op.between'), val: `${a}${phrase(ctx, 'and')}${b}` };
+  }
+
   // %val / val% -> starts/ends with (token stays '')
   if (token === '' && !negate) {
     if (/^%.+/.test(bare) && !/%$/.test(bare)) { opKey = 'op.ends_with'; bare = bare.slice(1); }
@@ -261,7 +287,8 @@ function describeOpValue(kind, rawValue, dtyId, ctx, opts = {}) {
 
   if (!opKey) opKey = operatorKeyForToken(kind, token, negate, ctx);
 
-  const parts = bare.includes(',') ? bare.split(',').map((s) => s.trim()) : [bare];
+  // a comma list means "or" - except in WKT, where commas separate coordinates
+  const parts = kind !== 'geo' && bare.includes(',') ? bare.split(',').map((s) => s.trim()) : [bare];
   const humanized = parts.map((p) => humanizeValue(kind, p, dtyId, ctx, opts.literalText)).filter((p) => p !== '');
   const val = humanized.join(' ' + phrase(ctx, 'or').trim() + ' ');
 
@@ -306,6 +333,8 @@ function humanizeValue(kind, value, dtyId, ctx, known = false) {
   const v = String(value ?? '').trim();
   if (v === '') return '';
   if (PARAM_RE.test(v)) return '?';   // parameter placeholder, filled in at run time
+  const withParams = v.replace(PARAM_ANY_RE, '?');   // e.g. a date range `$A$/$B$`
+  if (withParams !== v) return withParams;
   if ((kind === 'enum' || kind === 'term') && ctx.dbdefs && /^\d+$/.test(v)) {
     return quote(ctx.dbdefs.termLabel?.(Number(v)) || v);
   }
@@ -477,6 +506,25 @@ function firstOf(value) {
     return '';
   }
   return value;
+}
+
+/** True when a sub-query array has a linked/related sub-query of its own. */
+function hasLinks(arr) {
+  return arr.some((p) => {
+    const e = firstPredicateEntry(p);
+    if (!e) return false;
+    const { base } = splitPredicateKey(e[0]);
+    return isLinkPredicate(base) && Array.isArray(linkValue(base, e[1]));
+  });
+}
+
+/**
+ * A linked sub-query may be written as one predicate object instead of an
+ * array: `{"lt:134":{"ids":51}}` == `{"lt:134":[{"ids":51}]}`.
+ */
+function linkValue(base, value) {
+  return isLinkPredicate(base) && value && typeof value === 'object' && !Array.isArray(value)
+    ? [value] : value;
 }
 
 /** Render a predicate's raw key/value verbatim, for predicates the describer cannot phrase. */

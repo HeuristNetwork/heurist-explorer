@@ -400,6 +400,8 @@ function fieldRowFromPredicate(predicate) {
 
 /** @returns {LinkRow|null} */
 function linkRowFromPredicate(base, suffix, value) {
+  // `{"lt:134":{"ids":51}}` is shorthand for `{"lt:134":[{"ids":51}]}`
+  if (value && typeof value === 'object' && !Array.isArray(value)) value = [value];
   if (!Array.isArray(value)) return null;
   const row = {
     type: 'link',

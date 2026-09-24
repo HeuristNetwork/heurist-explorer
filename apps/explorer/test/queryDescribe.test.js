@@ -139,3 +139,35 @@ test('several record types', () => {
 test('$NAME$ parameters render as ?', () => {
   assert.equal(say([{ t: '10' }, { 'f:12': '$X1$' }]), 'Find Persons where Family name contains ?');
 });
+
+test('a nested sub-query followed by a sibling link is bracketed', () => {
+  assert.equal(
+    say([{ t: '10' },
+      { 'lt:240': [{ t: '48' }, { 'lt:134': [{ t: '12' }] }] },
+      { 'lt:241': [{ t: '12' }, { 'f:26': 'Athens' }] }]),
+    'Find Persons linked to (Events linked to Places) and linked to Places where Name contains "Athens"'
+  );
+});
+
+test('$NAME$ parameters inside ranges and geo values render as ?', () => {
+  assert.equal(say([{ 'f:5': '$X3$<>$X4$' }]), 'Find records where Year of birth is between ? and ?');
+  assert.equal(say([{ 'geo:28': '$X5$' }]), 'Find records where field 28 is within ?');
+});
+
+test('a<>b on a number field is "between"', () => {
+  assert.equal(say([{ 'f:5': '1900<>2000' }]), 'Find records where Year of birth is between 1900 and 2000');
+});
+
+test('geo: with a field id names the field; bare geo is "Location"', () => {
+  const geo = { ...DBDEFS, fieldName: (_rty, dty) => (dty === 28 ? 'Geo Location' : DBDEFS.fieldName(_rty, dty)) };
+  assert.equal(
+    queryDescribe([{ 'geo:28': 'POLYGON((0 0,1 1,0 0))' }], { vocabulary: VOCAB, dbdefs: geo }),
+    'Find records where Geo Location is within POLYGON((0 0,1 1,0 0))'
+  );
+  assert.equal(say([{ geo: '$X$' }]), 'Find records where Location is within ?');
+});
+
+test('a linked sub-query may be a single predicate object', () => {
+  assert.equal(say([{ t: '10' }, { 'lt:134': { ids: 51 } }]), say([{ t: '10' }, { 'lt:134': [{ ids: 51 }] }]));
+  assert.equal(say([{ t: '10' }, { 'lt:134': { ids: 51 } }]), 'Find Persons linked to records where record ID is 51');
+});

@@ -286,17 +286,19 @@ export class HFilterBuilder extends HBaseWidget {
 
   /** @param {Array|string|object} query */
   setQuery(query) {
-    let definition = query;
-    if (typeof query === 'string') {
-      const text = query.trim();
+    // JSON or plain Heurist text (`t:10 lt240(t:48 …)`), either as the whole
+    // argument or inside a `{query|q, filterForm}` definition
+    const fromText = (value) => {
+      if (typeof value !== 'string') return value;
+      const text = value.trim();
       if (text.startsWith('{') || text.startsWith('[')) {
-        try { definition = JSON.parse(text); }
-        catch { definition = parseTextQuery(text, { dbdefs: this.dbdefs }); }
-      } else {
-        definition = parseTextQuery(text, { dbdefs: this.dbdefs });
+        try { return JSON.parse(text); }
+        catch { /* not JSON - fall through to the text syntax */ }
       }
-    }
-    const queryArray = definition?.query || definition?.q || definition;
+      return parseTextQuery(text, { dbdefs: this.dbdefs });
+    };
+    const definition = fromText(query);
+    const queryArray = fromText(definition?.query || definition?.q || definition);
     this.model = parseQuery(queryArray, this.vocab);
     if (this._fixedRecordTypeId != null) this.model.rtyId = this._fixedRecordTypeId;
     this.form = definition?.filterForm || null;
@@ -311,6 +313,22 @@ export class HFilterBuilder extends HBaseWidget {
       }
     };
     if (this._allowParameters) restore(this.model.rows);
+    // text queries carry enum values as labels (`f:237:"Lived at"`); the term
+    // picker selects by id
+    const resolveTerms = (rows) => {
+      for (const row of rows || []) {
+        if (row.type === 'link') { resolveTerms(row.rows); continue; }
+        const root = /^\d+$/.test(String(row.dty)) && !row.enumField
+          ? this.dbdefs?.vocabRoot?.(row.dty) || 0 : 0;
+        if (!root) continue;
+        row.values = (row.values || []).map((v) => {
+          if (!v || /^\d+$/.test(v) || /^\$\w+\$$/.test(v)) return v;
+          const id = this.dbdefs.termIdByLabel?.(root, v);
+          return id ? String(id) : v;
+        });
+      }
+    };
+    resolveTerms(this.model.rows);
     if (!this.model.lang) this.model.lang = this.lang;
     if (this.isRendered) this._syncFromModel();
     this._recompose();

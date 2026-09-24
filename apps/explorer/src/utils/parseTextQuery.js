@@ -81,12 +81,13 @@ function parseSequence(tokens, cursor, dbdefs) {
 
     const colon = raw.indexOf(':');
     if (colon < 0) {
-      // bare word: a leading record-type name, otherwise an any-field match
+      // bare word: a leading record-type name, otherwise a title match
+      // (`f:Athens` is the explicit any-field form)
       if (!out.length && !rtyCtx && dbdefs) {
         const id = resolveRectype(raw, dbdefs);
         if (id) { out.push({ t: String(id) }); rtyCtx = String(id); continue; }
       }
-      out.push({ f: negate ? `-${unquote(raw)}` : unquote(raw) });
+      out.push({ title: applyNegate(unquote(raw), negate) });
       continue;
     }
 
@@ -104,8 +105,14 @@ function parseSequence(tokens, cursor, dbdefs) {
       // fc:<id>:<value>   field value count, e.g. fc:12:>2
       const parts = rest.split(':');
       if (/^\d+$/.test(parts[0])) {
-        out.push({ [`fc:${parts[0]}`]: applyNegate(parts.slice(1).join(':'), negate) });
+        out.push({ [`fc:${parts[0]}`]: applyNegate(unquote(parts.slice(1).join(':')), negate) });
       }
+      continue;
+    }
+    if (base === 'geo') {
+      // geo:<value>  or  geo:<id>:<value>
+      const m = /^(\d+):(.*)$/.exec(rest);
+      out.push(m ? { [`geo:${m[1]}`]: unquote(m[2]) } : { geo: rest });
       continue;
     }
     if (base === 'sortby') {
@@ -116,14 +123,18 @@ function parseSequence(tokens, cursor, dbdefs) {
       // f:<id>[:<enumField>]:<value>   (value may carry a leading operator token)
       const parts = rest.split(':');
       const id = /^\d+$/.test(parts[0]) ? parts[0] : null;
-      if (!id) continue;
+      if (!id) {
+        // f:<value> -> any field
+        if (rest) out.push({ f: applyNegate(rest, negate) });
+        continue;
+      }
       let fieldKey = `f:${id}`;
       let value = parts.slice(1).join(':');
       if (['term', 'code', 'conceptid', 'desc'].includes(parts[1])) {
         fieldKey += `:${parts[1]}`;
         value = parts.slice(2).join(':');
       }
-      out.push({ [fieldKey]: applyNegate(value, negate) });
+      out.push({ [fieldKey]: applyNegate(unquote(value), negate) });
       continue;
     }
     if (HEADER_BASES.has(base)) {
@@ -131,11 +142,19 @@ function parseSequence(tokens, cursor, dbdefs) {
       continue;
     }
 
-    // otherwise treat `key` as a field NAME, scoped to the current record type
-    const fieldId = dbdefs?.fieldIdByName?.(rtyCtx || '', key);
-    const oneId = Array.isArray(fieldId) ? fieldId[0] : fieldId;
-    if (oneId) {
-      out.push({ [`f:${oneId}`]: applyNegate(rest, negate) });
+    // f<id>:<value>  (f1:Athens)
+    const compact = /^f(\d+)$/.exec(key);
+    if (compact) {
+      out.push({ [`f:${compact[1]}`]: applyNegate(rest, negate) });
+      continue;
+    }
+
+    // otherwise treat `key` as a field NAME, scoped to the current record type;
+    // `f<Name>:` (fGender:male) is the explicit field-name form
+    const fieldId = fieldIdFor(key, rtyCtx, dbdefs)
+      ?? (key.length > 1 && key[0] === 'f' ? fieldIdFor(key.slice(1), rtyCtx, dbdefs) : null);
+    if (fieldId) {
+      out.push({ [`f:${fieldId}`]: applyNegate(rest, negate) });
     } else {
       // keep it rather than drop it - queryDescribe renders unknown keys verbatim
       out.push({ [key]: applyNegate(rest, negate) });
@@ -192,6 +211,12 @@ function applyNegate(value, negate) {
   const v = String(value ?? '');
   if (!negate) return v;
   return v.charAt(0) === '-' ? v : `-${v}`;
+}
+
+/** Resolve a field name within a record type to one field id, or `null`. */
+function fieldIdFor(name, rtyCtx, dbdefs) {
+  const hit = dbdefs?.fieldIdByName?.(rtyCtx || '', name);
+  return (Array.isArray(hit) ? hit[0] : hit) || null;
 }
 
 /**

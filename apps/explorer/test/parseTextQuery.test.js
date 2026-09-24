@@ -22,8 +22,8 @@ test('leading bare record-type name becomes t:', () => {
   assert.deepEqual(p('Person year:>1900'), [{ t: '10' }, { 'f:5': '>1900' }]);
 });
 
-test('bare words that are not a record type become any-field matches', () => {
-  assert.deepEqual(p('hello world'), [{ f: 'hello' }, { f: 'world' }]);
+test('bare words that are not a record type become title matches', () => {
+  assert.deepEqual(p('hello world'), [{ title: 'hello' }, { title: 'world' }]);
 });
 
 test('field name resolves via HDbDefs and keeps the operator token', () => {
@@ -38,7 +38,7 @@ test('f:<id>:<value> form and enum sub-part', () => {
 
 test('quoted phrase stays one value', () => {
   assert.deepEqual(p('name:"John Smith"'), [{ 'f:12': 'John Smith' }]);
-  assert.deepEqual(p('"John Smith"'), [{ f: 'John Smith' }]);
+  assert.deepEqual(p('"John Smith"'), [{ title: 'John Smith' }]);
 });
 
 test('negation prefix', () => {
@@ -80,4 +80,16 @@ test('lt<id>( … ) linked sub-queries nest, other ( … ) groups flatten', () =
   );
   assert.deepEqual(p('t:10 linked_to:240(t:48) f:1:x'), [{ t: '10' }, { 'lt:240': [{ t: '48' }] }, { 'f:1': 'x' }]);
   assert.deepEqual(p('(f:1:a) f:2:b'), [{ 'f:1': 'a' }, { 'f:2': 'b' }]);
+});
+
+test('f<id>:, f<Name>: and bare f: forms', () => {
+  assert.deepEqual(p('t:12 f26:Athens'), [{ t: '12' }, { 'f:26': 'Athens' }]);
+  assert.deepEqual(p('t:10 fYear:1900'), [{ t: '10' }, { 'f:5': '1900' }]);
+  assert.deepEqual(p('t:12 f:Athens'), [{ t: '12' }, { f: 'Athens' }]);
+  assert.deepEqual(p('t:12 Athens'), [{ t: '12' }, { title: 'Athens' }]);
+});
+
+test('geo:<value> and geo:<id>:<value>', () => {
+  assert.deepEqual(p('geo:28:$X$'), [{ 'geo:28': '$X$' }]);
+  assert.deepEqual(p('geo:$X$'), [{ geo: '$X$' }]);
 });

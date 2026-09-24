@@ -76,3 +76,23 @@ test('an incomplete range keeps its defined endpoint as a form default', () => {
   const definition = builder.getDefinition();
   assert.deepEqual(definition, { query: [{ 'f:12': '10<>$X1$' }], filterForm: null });
 });
+
+test('setQuery() accepts keyword text inside a {query, filterForm} definition', () => {
+  const builder = new HFilterBuilder({ dbdefs: dbdefsStub, vocabulary: VOCAB });
+  builder.setQuery({ query: 't:10', filterForm: null });
+  assert.deepEqual(builder.getQuery(), [{ t: '10' }]);
+});
+
+test('setQuery() loads nested linked text queries and resolves enum labels to term ids', () => {
+  const dbdefs = {
+    ...dbdefsStub,
+    vocabRoot: (dty) => (Number(dty) === 237 ? 5370 : 0),
+    termIdByLabel: (root, label) => (root === 5370 && label === 'Lived at' ? 5381 : null)
+  };
+  const builder = new HFilterBuilder({ dbdefs, vocabulary: VOCAB });
+  builder.setQuery({ query: 't:10 lt240(t:48 f:237:"Lived at" lt134(t:12 title:@+athens))', filterForm: null });
+  assert.deepEqual(builder.getQuery(), [
+    { t: '10' },
+    { 'lt:240': [{ t: '48' }, { 'f:237': '5381' }, { 'lt:134': [{ t: '12' }, { title: '@+athens' }] }] }
+  ]);
+});
