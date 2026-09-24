@@ -733,41 +733,15 @@ This stabilization is a prerequisite for parameterized queries because Builder b
 
 ## Rule
 
-Parameterized queries are supported **only in JSON query format**.
+The authoritative contract is [HInput-and-Form-Format-Development-Plan.md](HInput-and-Form-Format-Development-Plan.md), section 1.
 
-A plain query has no parameter metadata and no filter form.
+A parameterized query remains a bare Heurist JSON array. A placeholder in a criterion value is the only parameter binding:
 
-Once Builder is used, the JSON query may define parameters associated with criteria values.
-
-Conceptually:
-
-```js
-{
-  // existing structured query
-  ...,
-
-  parameters: {
-    place: {
-      type: 'record',
-      label: 'Place',
-      required: false,
-      default: null
-    },
-    fromDate: {
-      type: 'date',
-      label: 'From date',
-      required: false,
-      default: null
-    }
-  },
-
-  form: {
-    // HFormDesigner definition
-  }
-}
+```json
+[{"t":"10"},{"f:1":"$X1$"}]
 ```
 
-The exact serialization should extend the existing query JSON format rather than introduce a parallel query schema.
+The optional Filter Form layout is stored separately in QuerySource `DT_FILTER_FORM` (concept `2-1165`). It uses `version`, `groups`, and inline `children`, with only non-default presentation properties. No `parameters`, `builderModel`, or `form` is stored in the query. The runtime derives input type and default label from the query path and database definitions. The QuerySource textarea is read-only for queries containing placeholders; Run and selecting that source open the Filter Form. Close returns to QuerySourceEditor.
 
 ## Builder UI
 
@@ -999,10 +973,6 @@ Conceptually:
   request: {
     q: resolvedJsonQuery
   },
-  parameters: {
-    place: 45,
-    fromDate: '1900-01-01'
-  },
   presentation: { ... }
 }
 ```
@@ -1169,17 +1139,16 @@ Before adding parameters:
 - verify modal Apply/Cancel lifecycle;
 - add focused tests around query round-trip.
 
-### 2. Add parameter definitions to HFilterBuilder
+### 2. Add placeholders to HFilterBuilder
 
 Tasks:
 
-1. Extend existing JSON query model with parameter metadata.
-2. Allow supported criterion values to become parameters.
-3. Add create/edit/delete parameter UI.
-4. Validate names and parameter type compatibility.
-5. Preserve parameters through Builder reopen/Apply.
-6. Show parameter count/status in `QuerySourceEditor`.
-7. Add `Design Filter Form…` button in Builder.
+1. Insert named placeholders directly in JSON criterion values.
+2. Allow supported criterion values to become placeholders.
+3. Validate placeholder names and uniqueness.
+4. Preserve placeholders through Builder reopen/Apply.
+5. Show parameter count/status in `QuerySourceEditor`.
+6. Add `Design Filter Form…` button in Builder.
 
 Parameterized queries remain JSON-only.
 
@@ -1192,8 +1161,8 @@ Tasks:
 3. Implement initial `HInput` base/classes needed by filter parameters.
 4. Implement `HFormDesigner(mode:'filter')`.
 5. Supply parameter list from `HFilterBuilder`.
-6. Configure order, labels, widgets, required/default state and orientation.
-7. Return form definition to Builder/query model.
+6. Configure order, non-default labels, widgets and orientation.
+7. Return an optional, separate form layout to QuerySource presentation.
 8. Leave extension point for future `mode:'record'`.
 
 ### 4. Implement shared HFilterForm
@@ -1201,7 +1170,7 @@ Tasks:
 Tasks:
 
 1. Move/rewrite current `HFilterForm` into shared.
-2. Render form from parameter + form definitions.
+2. Derive inputs from query placeholders and render the optional form layout.
 3. Support vertical/horizontal layout.
 4. Resolve parameter values into executable JSON query/request.
 5. Emit filter execution without exposing raw query language.
