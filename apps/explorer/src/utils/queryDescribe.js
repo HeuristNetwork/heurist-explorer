@@ -100,8 +100,12 @@ function describeGroup(arr, ctx, { top, scopeRty }) {
       continue;
     }
     if (base === 'sortby') {
-      const s = describeSort(String(firstOf(value) ?? ''), rectypeId, ctx);
-      if (s) sorts.push(s);
+      // a comma list or an array of sort expressions
+      const items = Array.isArray(value) ? value : String(value ?? '').split(',');
+      for (const item of items) {
+        const s = describeSort(String(item ?? '').trim(), rectypeId, ctx);
+        if (s) sorts.push(s);
+      }
       continue;
     }
     if (isLinkPredicate(base) && Array.isArray(value)) {
@@ -182,11 +186,28 @@ function describePredicate(base, suffix, rawValue, ctx, scopeRty, { wrap = false
     return fill(phrase(ctx, 'field_cond'), { field: `relationship ${label}`, op, value: val }).trim();
   }
 
+  // after / since / before: "date modified" > / <= (the server's meaning)
+  if (base === 'after' || base === 'before') {
+    const date = String(value ?? '').trim().replace(/^(>=|<=|>|<|=)/, '');
+    const { val } = describeOpValue('date', date, null, ctx, { literalText: true });
+    return fill(phrase(ctx, 'header_cond'), {
+      field: HEADER_LABELS.modified,
+      op: str(ctx.vocab, ctx.lang, base === 'after' ? 'op.after' : 'op.on_or_before'),
+      value: val
+    }).trim();
+  }
+
   // header keyword (title, added, owner, …)
   if (HEADER_KEYWORDS[base]) {
     const fieldText = HEADER_LABELS[base] || base;
     const kind = kindFor(ctx.vocab, null, base);
-    const { op, val } = describeOpValue(kind, value, null, ctx, { literalText: true });
+    let { op, val } = describeOpValue(kind, value, null, ctx, { literalText: true });
+    // users, groups and visibility match by id or exact name: "is", not "contains"
+    if (['owner', 'addedby', 'access', 'user'].includes(base)) {
+      const negated = /^-/.test(String(value ?? '')) && !/^-NULL$/i.test(String(value));
+      if (!/NULL$/i.test(String(value ?? ''))) op = str(ctx.vocab, ctx.lang, negated ? 'op.is_not' : 'op.is');
+      if (base === 'user' && /^"?current"?$/i.test(val)) val = 'the current user';
+    }
     return fill(phrase(ctx, 'header_cond'), { field: fieldText, op, value: val }).trim();
   }
 
@@ -197,8 +218,9 @@ function describePredicate(base, suffix, rawValue, ctx, scopeRty, { wrap = false
     const mode = GEO_MODES.includes(last) ? last : null;
     const { dtyId, label } = fieldRef(mode && parts.length === 1 ? '' : parts[0], scopeRty, ctx, 'Location');
     const raw = String(isExtent(value) ? '' : (value ?? ''));
-    if (raw === 'NULL' || raw === '-NULL') {
-      const { op } = describeOpValue('geo', raw, dtyId, ctx);
+    if (raw === 'NULL' || raw === '-NULL' || (raw.trim() === '' && !isExtent(value))) {
+      // an empty value means "has any geometry"
+      const { op } = describeOpValue('geo', raw.trim() === '' ? '-NULL' : raw, dtyId, ctx);
       return fill(phrase(ctx, 'field_cond'), { field: label, op, value: '' }).trim();
     }
     // without a mode the server treats WKT as `within` and an extent as `intersects`
@@ -230,7 +252,9 @@ function describePredicate(base, suffix, rawValue, ctx, scopeRty, { wrap = false
     const { kind, known } = dtyId == null && parts[0]
       ? { kind: 'text', known: false }
       : fieldKind(dtyId, scopeRty, ctx, enumField);
-    const { op, val } = describeOpValue(kind, value, dtyId, ctx, { literalText: known });
+    let { op, val } = describeOpValue(kind, value, dtyId, ctx, { literalText: known });
+    // an enum sub-part (label / code / concept) names one term: "is", not "contains"
+    if (enumField && op === str(ctx.vocab, ctx.lang, 'op.contains')) op = str(ctx.vocab, ctx.lang, 'op.is');
     return fill(phrase(ctx, 'field_cond'), { field: fieldText, op, value: val }).trim();
   }
 
@@ -274,14 +298,19 @@ function describeGroupWrapper(base, value, ctx, scopeRty) {
  *          predicate value (string, or an `{any|all:[…]}` multi-value wrapper).
  */
 function describeOpValue(kind, rawValue, dtyId, ctx, opts = {}) {
+  // a list value (e.g. {"ids":[152,153]}) is any of its members
   if (Array.isArray(rawValue)) {
-    return { op: str(ctx.vocab, ctx.lang, 'op.is'), val: '' };
+    const parts = rawValue.filter((v) => v == null || typeof v !== 'object')
+      .map((v) => humanizeValue(kind, String(v), dtyId, ctx, opts.literalText)).filter(Boolean);
+    return { op: str(ctx.vocab, ctx.lang, 'op.is'), val: parts.join(phrase(ctx, 'or')) };
   }
   if (rawValue && typeof rawValue === 'object') {
     const entry = firstPredicateEntry(rawValue);
     if (entry && Array.isArray(entry[1])) {
+      // {any|all:[…]}: members are plain values (tag ids/names) or predicates
       const joinWord = entry[0] === 'all' ? phrase(ctx, 'and') : phrase(ctx, 'or');
       const parts = entry[1].map((p) => {
+        if (p == null || typeof p !== 'object') return humanizeValue(kind, String(p), dtyId, ctx, opts.literalText);
         const e = firstPredicateEntry(p);
         return e ? describeOpValue(kind, e[1], dtyId, ctx, opts).val : '';
       }).filter(Boolean);
@@ -305,6 +334,32 @@ function describeOpValue(kind, rawValue, dtyId, ctx, opts = {}) {
   }
   let bare = value;
   let opKey = null;
+
+  // leading range forms <>a/b and ><a/b (also "a,b" / "a to b"): numbers are
+  // "between"; dates keep overlaps / entirely-within with "a to b"
+  const leading = (token === '<>' || token === '><') && (kind === 'number' || kind === 'date')
+    ? /^(.+?)\s*(?:\/|,|\bto\b)\s*(.+)$/i.exec(bare) : null;
+  if (leading) {
+    const [a, b] = [leading[1], leading[2]].map((p) => humanizeValue(kind, p, dtyId, ctx));
+    if (kind === 'number') {
+      return { op: str(ctx.vocab, ctx.lang, 'op.between'), val: `${a}${phrase(ctx, 'and')}${b}` };
+    }
+    return { op: str(ctx.vocab, ctx.lang, token === '><' ? 'op.within_range' : 'op.overlaps'), val: `${a} to ${b}` };
+  }
+
+  // fulltext word list with explicit +required / -excluded words (Boolean mode)
+  if (token === '@' && /(^|\s)[+-]\S/.test(bare)) {
+    const words = bare.trim().split(/\s+/);
+    const quoteAll = (list) => list.map((w) => `"${w}"`).join(' ');
+    const required = words.filter((w) => w.startsWith('+')).map((w) => w.slice(1));
+    const excluded = words.filter((w) => w.startsWith('-')).map((w) => w.slice(1));
+    const optional = words.filter((w) => !/^[+-]/.test(w));
+    const segments = [];
+    if (required.length) segments.push(`${str(ctx.vocab, ctx.lang, 'op.all_words')} ${quoteAll(required)}`);
+    if (optional.length) segments.push(`${str(ctx.vocab, ctx.lang, 'op.any_word')} ${quoteAll(optional)}`);
+    if (excluded.length) segments.push(`${str(ctx.vocab, ctx.lang, 'op.no_words')} ${quoteAll(excluded)}`);
+    return { op: segments.join(phrase(ctx, 'and')), val: '' };
+  }
 
   // a<>b on a number/date -> "is between a and b"
   const range = token === '' && !negate && (kind === 'number' || kind === 'date')
@@ -332,7 +387,8 @@ function describeOpValue(kind, rawValue, dtyId, ctx, opts = {}) {
 
 /** Map a raw operator token back to the best i18n key for the field kind. */
 function operatorKeyForToken(kind, token, negate, ctx) {
-  const list = operatorsFor(ctx.vocab, kind);
+  // "count of values" is never a token reading (it comes only from an fc: key)
+  const list = operatorsFor(ctx.vocab, kind).filter((o) => o.i18nKey !== 'op.count');
   if (negate) {
     const neg = list.find((o) => (o.token || '') === '-' && !o.pattern)
       || list.find((o) => (o.token || '').startsWith('-'));
@@ -375,6 +431,12 @@ function humanizeValue(kind, value, dtyId, ctx, known = false) {
   }
   if (kind === 'record' && ctx.dbdefs && /^\d+$/.test(v)) {
     return `record ${v}`;
+  }
+  // translated values carry a language prefix: eng:London, all:Capital
+  const lang = dtyId != null && kind === 'text' ? /^([a-z]{2,3}):(.+)$/i.exec(v) : null;
+  if (lang) {
+    const text = known ? quote(lang[2]) : lang[2];
+    return lang[1].toLowerCase() === 'all' ? `${text} (any language)` : `${text} (${lang[1].toLowerCase()})`;
   }
   return known && QUOTED_KINDS.has(kind) ? quote(v) : v;
 }
@@ -522,14 +584,24 @@ function fieldKind(dtyId, scopeRty, ctx, enumField) {
 function describeSort(raw, scopeRty, ctx) {
   if (!raw) return '';
   const desc = raw.startsWith('-');
-  const field = desc ? raw.slice(1) : raw;
+  const field = desc || raw.startsWith('+') ? raw.slice(1) : raw;
+  const lower = field.toLowerCase();
   let text;
   if (/^\d+$/.test(field)) text = fieldName(Number(field), scopeRty, ctx);
-  else if (field === 'title') text = 'record title';
-  else if (HEADER_LABELS[canonicalPredicate(field) || field]) text = HEADER_LABELS[canonicalPredicate(field) || field];
+  else if (/^(f|field):/i.test(field)) text = fieldRef(field.replace(/^(f|field):/i, ''), scopeRty, ctx, field).label;
+  else if (SORT_LABELS[lower]) text = SORT_LABELS[lower];
+  else if (HEADER_LABELS[canonicalPredicate(lower) || lower]) text = HEADER_LABELS[canonicalPredicate(lower) || lower];
   else text = field;
   return desc ? `${text} (descending)` : text;
 }
+
+/** Labels of the server's sort keywords and their short aliases. */
+const SORT_LABELS = {
+  id: 'record ID', ids: 'record ID', title: 'record title', t: 'record title',
+  type: 'record type', rt: 'record type', modified: 'date modified', m: 'date modified',
+  added: 'date added', a: 'date added', url: 'URL', u: 'URL', popularity: 'popularity', p: 'popularity',
+  rating: 'rating', r: 'rating', set: 'the given ID order', fixed: 'the given ID order'
+};
 
 // --------------------------------------------------------------------- helpers ---
 
@@ -578,8 +650,13 @@ function hasLinks(arr) {
  * array: `{"lt:134":{"ids":51}}` == `{"lt:134":[{"ids":51}]}`.
  */
 function linkValue(base, value) {
-  return isLinkPredicate(base) && value && typeof value === 'object' && !Array.isArray(value)
-    ? [value] : value;
+  if (!isLinkPredicate(base) || base === 'r' || base === 'relf') return value;
+  if (value && typeof value === 'object' && !Array.isArray(value)) return [value];
+  // {"lt:134":51}: linked record id(s) without a sub-query
+  if ((typeof value === 'number' || typeof value === 'string') && /^\s*\d+(\s*,\s*\d+)*\s*$/.test(String(value))) {
+    return [{ ids: String(value).replace(/\s+/g, '') }];
+  }
+  return value;
 }
 
 /** Render a predicate's raw key/value verbatim, for predicates the describer cannot phrase. */

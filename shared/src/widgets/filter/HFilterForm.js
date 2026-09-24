@@ -83,6 +83,7 @@ export class HFilterForm extends HBaseWidget {
         host.className = 'h-filter-form-field';
         const widget = createHInput(inputType(parameter), host, {
           label: config.label || parameter.label || id,
+          help: config.help || '',
           value: parameter.range ? {
             from: parameter.fixedValue?.from ?? this.values[id] ?? null,
             to: parameter.fixedValue?.to ?? this.values[parameter.endInput || id] ?? null
@@ -150,6 +151,10 @@ export class HFilterForm extends HBaseWidget {
 
       this._showErrors([]);
       const values = this.getValues();
+      if (layout.settings?.skipEmptySearch && Object.values(values).every(isBlankValue)) {
+        this._showErrors(['Enter at least one value to search']);
+        return;
+      }
       const query = this.options.composeQuery?.(this.definition, values)
         ?? resolveQueryParameters(this.query, values);
       this.options.onSubmit?.({ values, query, definition: this.definition });
@@ -281,6 +286,12 @@ export function defaultLayout(parameters = {}) {
 function inputType(parameter) {
   return { number: 'numeric', term: 'enum', bool: 'enum', record: 'text' }[parameter.type]
     || parameter.type || 'text';
+}
+
+/** @returns {boolean} True when a form value is empty (no criterion). */
+function isBlankValue(value) {
+  if (value == null || value === '') return true;
+  return Array.isArray(value) && value.length === 0;
 }
 
 /** @returns {HTMLButtonElement} A localizable action button. */

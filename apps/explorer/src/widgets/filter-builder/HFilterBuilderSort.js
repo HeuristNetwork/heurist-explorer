@@ -25,7 +25,12 @@ const HEADER_SORTS = [
   ['title', 'Record title'],
   ['modified', 'Date modified'],
   ['added', 'Date added'],
-  ['id', 'Record ID']
+  ['id', 'Record ID'],
+  ['type', 'Record type'],
+  ['url', 'URL'],
+  ['popularity', 'Popularity'],
+  ['rating', 'Rating (current user)'],
+  ['set', 'Order of the given record IDs']
 ];
 
 /** One "sort by" row (field + direction) in the Filter Builder. */

@@ -34,7 +34,7 @@ import { kindFor, operatorsFor, str } from '../../utils/vocabHelpers.js';
 import './HFilterInlineHelper.css';
 
 const HEADER_BASES = new Set([
-  'title', 'url', 'notes', 'added', 'modified', 'ids', 'owner', 'addedby', 'access', 'tag', 'user'
+  'title', 'url', 'notes', 'added', 'modified', 'after', 'before', 'ids', 'owner', 'addedby', 'access', 'tag', 'user'
 ]);
 const IDLE_MS = 700;
 const HINT_DEBOUNCE_MS = 120;
@@ -322,7 +322,9 @@ export class HFilterInlineHelper extends HBaseWidget {
     this.input.setSelectionRange(pos, pos);
     this.input.focus();
     this._closeHints();
-    this._scheduleHints();
+    // a programmatic value change fires no `input` event: raise one so the sentence
+    // (and any host listener) follow the inserted text exactly as if it were typed
+    this.input.dispatchEvent(new Event('input', { bubbles: true }));
     this._onChange?.(this.input.value);
   }
 
@@ -352,11 +354,16 @@ export class HFilterInlineHelper extends HBaseWidget {
   _computeHints(value, caret) {
     if (!this.dbdefs) return null;
     const before = value.slice(0, caret);
-    const scope = currentScope(before);
+    const stack = scopeStack(before);
+    const scope = stack[stack.length - 1].text;
     const curr = scope.slice(Math.max(0, scope.search(/\S*$/)));
     const tokenStart = before.length - curr.length;
     const priorTokens = scope.slice(0, scope.length - curr.length).trim().split(/\s+/).filter(Boolean);
     const rtyCtx = this._rtyContext(priorTokens);
+    // inside related( … ): the Relationship record's conditions are offered too
+    const inRelation = stack.length > 1 && isRelationOpener(stack[stack.length - 1].opener);
+    const outerRty = inRelation
+      ? this._rtyContext(stack[stack.length - 2].text.trim().split(/\s+/).filter(Boolean)) : '';
 
     const ci = curr.indexOf(':');
 
@@ -370,6 +377,7 @@ export class HFilterInlineHelper extends HBaseWidget {
           items.push({ label: rt.name, sub: $HR('record type'), insert: `t:${rt.id} ` });
         }
       } else if (rtyCtx) {
+        if (inRelation) items.push({ label: $HR('Relation type'), sub: $HR('relationship'), insert: 'r:' });
         items.push(...this._fieldItems(rtyCtx));
       }
       for (const base of HEADER_BASES) {
@@ -388,6 +396,19 @@ export class HFilterInlineHelper extends HBaseWidget {
         label: rt.name, sub: $HR('record type'), insert: `t:${rt.id} `
       }));
       return { tokenStart, items: filterByLabel(items, valSoFar.toLowerCase()) };
+    }
+
+    // r: inside related( … ) -> relation types (inserted as ids; the server needs ids)
+    if (base === 'r' && inRelation && !/^\d+:/.test(valSoFar)) {
+      const typed = valSoFar.split(',').pop();
+      const done = valSoFar.slice(0, valSoFar.length - typed.length);
+      const items = [];
+      for (const root of this._relationVocabRoots(outerRty, rtyCtx)) {
+        for (const { term, depth } of this._vocabTerms(root)) {
+          items.push({ label: term.label, sub: $HR('relation type'), insert: `r:${done}${term.id} `, depth });
+        }
+      }
+      return { tokenStart, items: filterByLabel(items, typed.toLowerCase()) };
     }
 
     // geo[:<id>] -> offer the match mode; once chosen, the value is free WKT
@@ -478,6 +499,33 @@ export class HFilterInlineHelper extends HBaseWidget {
       }
     }
     return items;
+  }
+
+  /**
+   * Vocabulary roots for relation types: those of the outer record type's relmarkers
+   * that reach the related record type; else of every relmarker in the database.
+   *
+   * @private
+   * @param {number|string} outerRty Record type the related( … ) group hangs off.
+   * @param {number|string} innerRty Related record type (`t:` inside the group).
+   * @returns {number[]}
+   */
+  _relationVocabRoots(outerRty, innerRty) {
+    const collect = (rtyIds) => {
+      const roots = new Set();
+      for (const rty of rtyIds) {
+        for (const f of this.dbdefs.fields(rty) || []) {
+          if (f.type !== 'relmarker') continue;
+          const targets = (this.dbdefs.fieldGlobal?.(f.id)?.targetTypes || []).map(Number);
+          if (Number(innerRty) > 0 && targets.length && !targets.includes(Number(innerRty))) continue;
+          const root = this.dbdefs.vocabRoot?.(f.id);
+          if (root) roots.add(root);
+        }
+      }
+      return [...roots];
+    };
+    const own = Number(outerRty) > 0 ? collect([Number(outerRty)]) : [];
+    return own.length ? own : collect((this.dbdefs.rectypes() || []).map((rt) => rt.id));
   }
 
   /**
@@ -633,21 +681,30 @@ function el(tag, className) {
 }
 
 /**
- * Text of the innermost still-open `( … )` group before the caret, with closed
- * groups collapsed out (double-quoted text is kept verbatim).
+ * Still-open `( … )` groups before the caret, outermost first. Each has the
+ * keyword that opened it (`related`, `lt134` …; `''` at top level) and its text
+ * so far, with closed groups collapsed out (double-quoted text is kept verbatim).
+ *
+ * @returns {{opener:string, text:string}[]}
  */
-function currentScope(before) {
-  const stack = [''];
+function scopeStack(before) {
+  const stack = [{ opener: '', text: '' }];
   let quoted = false;
   for (const ch of before) {
-    const top = stack.length - 1;
-    if (quoted) { stack[top] += ch; if (ch === '"') quoted = false; }
-    else if (ch === '"') { quoted = true; stack[top] += ch; }
-    else if (ch === '(') stack.push('');
-    else if (ch === ')') { if (stack.length > 1) stack.pop(); stack[stack.length - 1] += ' '; }
-    else stack[top] += ch;
+    const top = stack[stack.length - 1];
+    if (quoted) { top.text += ch; if (ch === '"') quoted = false; }
+    else if (ch === '"') { quoted = true; top.text += ch; }
+    else if (ch === '(') stack.push({ opener: (top.text.match(/\S*$/)?.[0] || '').toLowerCase(), text: '' });
+    else if (ch === ')') { if (stack.length > 1) stack.pop(); stack[stack.length - 1].text += ' '; }
+    else top.text += ch;
   }
-  return stack[stack.length - 1];
+  return stack;
+}
+
+/** Whether a group opener (`related`, `rt`, `relatedfrom:12` …) starts a relationship sub-query. */
+function isRelationOpener(opener) {
+  const base = String(opener || '').split(':')[0].replace(/\d+$/, '');
+  return ['related', 'rt', 'rf'].includes(canonicalPredicate(base) || base);
 }
 
 /** Filter and rank items by label: prefix matches first, then substring matches. */

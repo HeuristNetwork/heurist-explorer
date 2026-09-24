@@ -34,6 +34,10 @@ const HEADER_FIELDS = [
   { dty: 'modified', label: 'Modified', fieldType: 'date' },
   { dty: 'addedby', label: 'Creator', fieldType: 'enum' },
   { dty: 'url', label: 'URL', fieldType: 'freetext' },
+  // query-only header conditions (not output fields for column/map/timeline editors)
+  { dty: 'notes', label: 'Notes', fieldType: 'freetext', builderOnly: true },
+  { dty: 'tag', label: 'Tags', fieldType: 'tag', builderOnly: true },
+  { dty: 'user', label: 'Bookmarked by', fieldType: 'user', builderOnly: true },
   { dty: 'owner', label: 'Owner', fieldType: 'enum' },
   { dty: 'access', label: 'Visibility', fieldType: 'enum' }
 ];
@@ -54,6 +58,16 @@ export class HFieldTree {
     this._onDocClick = (event) => {
       if (this.element && !this.element.contains(event.target)) this.close();
     };
+    // Escape closes the popover only (not the dialog under it)
+    this._onKeyDown = (event) => {
+      if (event.key !== 'Escape' || !this.element) return;
+      event.preventDefault();
+      event.stopPropagation();
+      this.close();
+    };
+    // the host dialog closed by any route (Esc, button, code): never leave the popover behind
+    this._onHostClose = () => this.close();
+    this._host = null;
   }
 
   /**
@@ -115,7 +129,10 @@ export class HFieldTree {
     // Append inside the modal <dialog> when there is one - a modal dialog makes
     // everything outside its subtree inert, so a popover on document.body would
     // render behind the backdrop and be unclickable.
-    (anchor.closest('dialog') || document.body).append(el);
+    this._host = anchor.closest('dialog');
+    (this._host || document.body).append(el);
+    this._host?.addEventListener('close', this._onHostClose);
+    document.addEventListener('keydown', this._onKeyDown, true);
     this._renderBody();
     positionNear(el, anchor);
 
@@ -131,6 +148,9 @@ export class HFieldTree {
    */
   close() {
     document.removeEventListener('click', this._onDocClick);
+    document.removeEventListener('keydown', this._onKeyDown, true);
+    this._host?.removeEventListener('close', this._onHostClose);
+    this._host = null;
     this.element?.remove();
     this.element = null;
     this._body = null;
@@ -178,20 +198,52 @@ export class HFieldTree {
       this._scopeNodes(rtyId, [], this._linkedContext)));
 
     if (this._showReverse && !this._flatOnly) {
-      const reverse = this.dbdefs.linkedRectypes(rtyId, { direction: 'from' });
-      for (const fromRty of reverse) {
-        const pointerIds = this.dbdefs.pointerFieldsBetween(fromRty, rtyId);
-        const dty = pointerIds[0];
-        if (dty == null) continue;
+      for (const folder of this._reverseLinks(rtyId)) {
         this._body.append(this._linkFolder({
-          label: `« ${this.dbdefs.rectypeName(fromRty)}`,
-          key: `lf:${dty}:${fromRty}`,
-          via: { link: 'lf', dty, targetRty: fromRty },
-          childRtyId: fromRty,
+          label: folder.label,
+          key: `${folder.link}:${folder.dty}:${folder.fromRty}`,
+          via: { link: folder.link, dty: folder.dty, targetRty: folder.fromRty },
+          childRtyId: folder.fromRty,
           viaChain: []
         }));
       }
     }
+  }
+
+  /**
+   * Record types that point at `rtyId`, one entry per field, sorted by label:
+   * resource fields (`lf`), and in the Filter Builder relmarker fields as
+   * bidirectional `related` branches.
+   *
+   * @private
+   * @param {number} rtyId Scope record type.
+   * @returns {{label:string, link:'lf'|'related', dty:number, fromRty:number}[]}
+   */
+  _reverseLinks(rtyId) {
+    const out = [];
+    const collect = (relation) => {
+      const wanted = relation ? 'relmarker' : 'resource';
+      for (const fromRty of this.dbdefs.linkedRectypes(rtyId, { direction: 'from', relation })) {
+        for (const dty of this.dbdefs.pointerFieldsBetween(fromRty, rtyId)) {
+          if (this.dbdefs.fieldGlobal(dty)?.type !== wanted) continue;
+          const field = this.dbdefs.fieldName?.(fromRty, dty) || this.dbdefs.fieldGlobal(dty)?.name || `field ${dty}`;
+          out.push({
+            label: `« ${this.dbdefs.rectypeName(fromRty)} · ${field}${relation ? ` (${$HR('relationship')})` : ''}`,
+            link: relation ? 'related' : 'lf',
+            dty: Number(dty),
+            fromRty: Number(fromRty)
+          });
+        }
+      }
+    };
+    collect(false);
+    if (this._builderMode) collect(true);
+    return out.sort((a, b) => a.label.localeCompare(b.label, undefined, { numeric: true, sensitivity: 'base' }));
+  }
+
+  /** Record header fields offered here; query-only ones appear in the Filter Builder only. */
+  _headerFields() {
+    return HEADER_FIELDS.filter((field) => this._builderMode || !field.builderOnly);
   }
 
   /** Leaves every record has, for a scope without a record type: any field, title, metadata. */
@@ -200,7 +252,7 @@ export class HFieldTree {
     if (this._includeHeaders) {
       nodes.push(
         this._headerLeaf({ dty: 'title', label: 'Title', fieldType: 'freetext' }, viaChain),
-        ...HEADER_FIELDS.map((field) => this._headerLeaf(field, viaChain))
+        ...this._headerFields().map((field) => this._headerLeaf(field, viaChain))
       );
     }
     return nodes;
@@ -234,7 +286,7 @@ export class HFieldTree {
     if (this._includeHeaders) {
       nodes.push(this._headerLeaf({ dty: 'title', label: 'Title', fieldType: 'freetext' }, viaChain));
       nodes.push(this._sectionFolder($HR('metadata'), `${pathKey(viaChain)}:metadata:${rtyId}`, () =>
-        HEADER_FIELDS.map((field) => this._headerLeaf(field, viaChain))));
+        this._headerFields().map((field) => this._headerLeaf(field, viaChain))));
     }
     nodes.push(this._sectionFolder($HR('fields'), `${pathKey(viaChain)}:fields:${rtyId}`, () => [
       this._headerLeaf({ dty: 'anyfield', label: 'Any field', fieldType: 'freetext' }, viaChain),

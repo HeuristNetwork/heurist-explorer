@@ -225,7 +225,7 @@ test('sort entries append as sortby', () => {
     sort: [{ field: 'modified', dir: 'desc' }, { field: 12, dir: 'asc' }]
   });
   assert.deepEqual(compose(m), [
-    { t: '10' }, { 'f:12': 'x' }, { sortby: '-modified' }, { sortby: '12' }
+    { t: '10' }, { 'f:12': 'x' }, { sortby: '-modified' }, { sortby: 'f:12' }
   ]);
 });
 
@@ -425,4 +425,39 @@ test('relationships: relf:<name> resolves within the Relationship record type', 
   };
   assert.deepEqual(resolveQueryNames([{ t: '10' }, { related: [{ t: '10' }, { 'relf:Start date/time': '1900' }] }], dbdefs),
     [{ t: '10' }, { related: [{ t: '10' }, { 'relf:10': '1900' }] }]);
+});
+
+test('reference-document queries load and save unchanged in meaning (builder pipeline)', async () => {
+  const { reconcileModel } = await import('../src/utils/queryModel.js');
+  const types = { 9: 'date', 1160: 'integer', 1: 'freetext', 134: 'resource' };
+  const pipeline = (q) => compose(reconcileModel(parseQuery(q, VOCAB), VOCAB, { fieldType: (d) => types[d] }));
+  const same = (q) => assert.deepEqual(pipeline(q), q, JSON.stringify(q));
+  // after/since/before are "date modified" > / <=
+  assert.deepEqual(pipeline([{ after: '2026-08-20' }]), [{ modified: '>2026-08-20' }]);
+  assert.deepEqual(pipeline([{ since: '2026-08-20' }]), [{ modified: '>2026-08-20' }]);
+  assert.deepEqual(pipeline([{ before: '2026-09-01' }]), [{ modified: '<=2026-09-01' }]);
+  // tag groups, record-id lists, a linked record id
+  same([{ tag: { any: ['1', '2'] } }]);
+  same([{ tag: { all: ['1', '2'] } }]);
+  same([{ tag: 'NULL' }]);
+  assert.deepEqual(pipeline([{ ids: [152, 153] }]), [{ ids: '152,153' }]);
+  assert.deepEqual(pipeline([{ t: '10' }, { 'lt:134': 51 }]), [{ t: '10' }, { 'lt:134': [{ ids: '51' }] }]);
+  // number ranges: both leading forms are "between"
+  assert.deepEqual(pipeline([{ 'f:1160': '<>4000000/5000000' }]), [{ 'f:1160': '4000000<>5000000' }]);
+  assert.deepEqual(pipeline([{ 'f:1160': '><4000000/5000000' }]), [{ 'f:1160': '4000000<>5000000' }]);
+  // dates: a bare value is not "count of values"; < and > are kept
+  same([{ 'f:9': '2025' }]);
+  same([{ 'f:9': 'today' }]);
+  same([{ 'f:9': '<100 years ago' }]);
+  same([{ 'f:9': '>2000' }]);
+  same([{ added: '2026-08' }]);
+  // sorting: comma lists and arrays split; aliases; fields as f:<id>
+  assert.deepEqual(pipeline([{ sortby: '-modified,title' }]), [{ sortby: '-modified' }, { sortby: 'title' }]);
+  assert.deepEqual(pipeline([{ sortby: ['f:1160', 'title'] }]), [{ sortby: 'f:1160' }, { sortby: 'title' }]);
+  assert.deepEqual(pipeline([{ sortby: '-p' }]), [{ sortby: '-popularity' }]);
+});
+
+test('tag "is any of" composes as a tag group, not a prefixed value', () => {
+  const row = fieldRow({ dty: 'tag', kind: 'tag', op: 'op.any_of', values: ['key1', 'key2'], selected: true });
+  assert.deepEqual(compose(model({ rows: [row] })), [{ tag: { any: ['key1', 'key2'] } }]);
 });

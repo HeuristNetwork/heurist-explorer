@@ -20,7 +20,8 @@
  * @since       8.0
  */
 
-import { canonicalPredicate, isLinkPredicate, isGroupPredicate } from './queryPredicates.js';
+import { canonicalPredicate, isLinkPredicate, isGroupPredicate, HEADER_KEYWORDS } from './queryPredicates.js';
+import { kindFor, operatorForToken } from './vocabHelpers.js';
 import { extentToWkt, isExtent } from '#shared/utils';
 
 /**
@@ -122,7 +123,9 @@ export function composeQuery(model, vocabulary) {
 
   for (const entry of model?.sort || []) {
     if (!entry || entry.field === '' || entry.field == null) continue;
-    out.push({ sortby: (entry.dir === 'desc' ? '-' : '') + String(entry.field) });
+    // a detail field sorts as f:<id>; the server rejects a bare number
+    const field = /^\d+$/.test(String(entry.field)) ? `f:${Number(entry.field)}` : String(entry.field);
+    out.push({ sortby: (entry.dir === 'desc' ? '-' : '') + field });
   }
 
   // a lone {t:} with nothing else is still a valid, runnable query
@@ -184,6 +187,11 @@ function compileFieldRow(row, vocab) {
   const values = (row.values || []).map((v) => String(v ?? '').trim()).filter((v) => v !== '');
   if (!values.length) return null;
 
+  // tag "is any of" / "is all of": {"tag":{"any"|"all":[…]}} (the token names the group)
+  if (key === 'tag' && (op.token === 'any' || op.token === 'all')) {
+    return { tag: { [op.token]: values } };
+  }
+
   // range operators consume two values into one predicate
   if (op.pattern && /\{a\}/.test(op.pattern)) {
     const rendered = op.pattern.replace('{a}', values[0]).replace('{b}', values[1] ?? values[0]);
@@ -198,8 +206,8 @@ function compileFieldRow(row, vocab) {
 
   const conj = row.valueConj === 'all' ? 'all' : 'any';
 
-  // enum / term / record / tag: OR of ids collapses to one comma-joined value
-  if (conj === 'any' && ['enum', 'term', 'record'].includes(row.kind) && key !== 'tag') {
+  // enum / term / record ids and record IDs: OR of ids collapses to one comma-joined value
+  if (conj === 'any' && (['enum', 'term', 'record'].includes(row.kind) || key === 'ids') && key !== 'tag') {
     const joined = rendered.map(stripLeadingDash).join(',');
     return wrap(key, (row.negate ? '-' : '') + joined);
   }
@@ -322,6 +330,16 @@ function resolveLevel(list, dbdefs, scope) {
     const { base, suffix } = splitKey(key);
     if (base === 't') return { [key]: rtyOf(firstScalar(value)) };
     if (isGroupPredicate(base) && Array.isArray(value)) return { [key]: resolveLevel(value, dbdefs, rty) };
+    // sortby f:<name> -> f:<id> within this level's record type
+    if (base === 'sortby' && rty != null) {
+      const resolveSort = (expr) => String(expr).replace(/^([+-]?)f:(.+)$/i, (whole, dir, name) => {
+        if (/^\d+$/.test(name)) return whole;
+        const id = firstId(dbdefs.fieldIdByName?.(rty, name.trim()));
+        return id ? `${dir}f:${id}` : whole;
+      });
+      return { [key]: Array.isArray(value) ? value.map(resolveSort)
+        : String(value ?? '').split(',').map((part) => resolveSort(part.trim())).join(',') };
+    }
 
     // field name in the key -> id, within this level's record type
     let outKey = key;
@@ -364,10 +382,8 @@ export function parseQuery(input, vocabulary) { // eslint-disable-line no-unused
     if (base === 't') { model.rtyId = firstScalar(value); continue; }
 
     if (base === 'sortby') {
-      const raw = String(firstScalar(value) ?? '');
-      const desc = raw.startsWith('-');
-      const field = desc ? raw.slice(1) : raw;
-      if (field) model.sort.push({ field: /^\d+$/.test(field) ? Number(field) : field, dir: desc ? 'desc' : 'asc' });
+      // "-modified,title", ["f:1160","title"]: every expression is its own sort entry
+      model.sort.push(...parseSortValue(value));
       continue;
     }
 
@@ -415,6 +431,24 @@ function fieldRowFromPredicate(predicate) {
     seed.values = inner.map(([, v]) => stripToken(String(v)).value);
     seed.valueConj = base;
     return seed;
+  }
+
+  // after/since/before are "date modified" with > / <= (the server's meaning)
+  if (base === 'after' || base === 'before') {
+    const raw = String(value ?? '').trim();
+    return emptyFieldRow({
+      dty: 'modified', kind: 'date', selected: true,
+      opToken: base === 'after' ? '>' : '<=', values: [raw.replace(/^(>=|<=|>|<|=)/, '')]
+    });
+  }
+  // tag {any|all:[…]} and an ids array are one multi-value row
+  if (base === 'tag' && value && typeof value === 'object' && !Array.isArray(value)) {
+    const conj = Array.isArray(value.all) ? 'all' : 'any';
+    const list = Array.isArray(value[conj]) ? value[conj].map(String) : [];
+    return emptyFieldRow({ dty: 'tag', kind: 'tag', selected: true, opToken: '', values: list.length ? list : [''], valueConj: conj });
+  }
+  if (base === 'ids' && Array.isArray(value)) {
+    return emptyFieldRow({ dty: 'ids', kind: 'number', selected: true, opToken: '', values: value.map(String), valueConj: 'any' });
   }
 
   const dty = fieldDtyFromKey(base, suffix);
@@ -486,6 +520,10 @@ function fieldRowFromPredicate(predicate) {
 function linkRowFromPredicate(base, suffix, value) {
   // `{"lt:134":{"ids":51}}` is shorthand for `{"lt:134":[{"ids":51}]}`
   if (value && typeof value === 'object' && !Array.isArray(value)) value = [value];
+  // `{"lt:134":51}` / `"51,52"`: linked record id(s) without a sub-query
+  if ((typeof value === 'number' || typeof value === 'string') && /^\s*\d+(\s*,\s*\d+)*\s*$/.test(String(value))) {
+    value = [{ ids: String(value).replace(/\s+/g, '') }];
+  }
   if (!Array.isArray(value)) return null;
   const numericSuffix = suffix.parts.length && /^\d+$/.test(suffix.parts[0]) ? Number(suffix.parts[0]) : '';
   const row = {
@@ -642,6 +680,72 @@ function fieldDtyFromKey(base, suffix) {
     return base;
   }
   return null;
+}
+
+/**
+ * Give every parsed row its field kind and pick its operator from the raw token,
+ * the way a rendered builder row does - so a loaded query composes back
+ * unchanged even before (or without) rendering. Parsing alone cannot know kinds:
+ * `<>a/b` is "between" on a number but "overlaps" on a date, and a bare date
+ * value is not a text "contains".
+ *
+ * @param {BuilderModel} model Parsed model (changed in place).
+ * @param {object} vocabulary queryVocabulary.json.
+ * @param {{fieldType?:(dty:number)=>string}} [defs] Field type lookup (HDbDefs#fieldType).
+ * @returns {BuilderModel} The same model.
+ */
+export function reconcileModel(model, vocabulary, { fieldType } = {}) {
+  const visit = (rows) => {
+    for (const row of rows || []) {
+      if (row?.type === 'link') { visit(row.rows); continue; }
+      if (!row || row.dty === 'reltype' || row.kind === 'exists' || row.op === 'op.count') continue;
+      if (/^\d+$/.test(String(row.dty)) && row.kind !== 'geo') {
+        const type = fieldType?.(Number(row.dty));
+        if (type) row.kind = kindFor(vocabulary, type);
+      } else if (HEADER_KEYWORDS[row.dty]) {
+        row.kind = kindFor(vocabulary, null, row.dty);
+      }
+      if (!row.op && row.opToken != null && row.kind !== 'geo') {
+        row.op = operatorForToken(vocabulary, row.kind, row.opToken);
+      }
+    }
+  };
+  visit(model?.rows);
+  return model;
+}
+
+/** Server sort aliases -> the names the Filter Builder offers. */
+const SORT_ALIASES = {
+  ids: 'id', t: 'title', rt: 'type', m: 'modified', a: 'added', u: 'url',
+  p: 'popularity', r: 'rating', fixed: 'set', field: 'f'
+};
+
+/**
+ * Sort entries from a `sortby` value: a comma list or an array of expressions,
+ * each with an optional leading `-` (descending) or `+`. `f:<id>` and a bare
+ * number become a numeric field id; `f:<name>` is kept for name resolution.
+ *
+ * @param {string|Array} value
+ * @returns {{field:(number|string), dir:'asc'|'desc'}[]}
+ */
+function parseSortValue(value) {
+  const items = Array.isArray(value) ? value : String(value ?? '').split(',');
+  const out = [];
+  for (const item of items) {
+    let text = String(item ?? '').trim();
+    if (!text) continue;
+    const desc = text.startsWith('-');
+    if (desc || text.startsWith('+')) text = text.slice(1);
+    const [head, ...rest] = text.split(':');
+    const base = SORT_ALIASES[head.toLowerCase()] || head.toLowerCase();
+    let field;
+    if (/^\d+$/.test(text)) field = Number(text);
+    else if (base === 'f' && /^\d+$/.test(rest.join(':'))) field = Number(rest.join(':'));
+    else if (base === 'f') field = `f:${rest.join(':')}`;
+    else field = base;
+    out.push({ field, dir: desc ? 'desc' : 'asc' });
+  }
+  return out;
 }
 
 /** Spatial match modes a geo key may carry: `geo[:<id>]:within|intersects`. */

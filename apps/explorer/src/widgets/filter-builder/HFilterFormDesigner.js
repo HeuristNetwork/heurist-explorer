@@ -70,9 +70,20 @@ export class HFilterFormDesigner extends HBaseWidget {
     const previewToggle = this._label('Show Form Preview', showPreview);
     previewToggle.classList.add('h-filter-form-designer-preview-toggle');
 
+    const skipEmpty = document.createElement('input');
+    skipEmpty.type = 'checkbox';
+    skipEmpty.className = 'h-checkbox';
+    skipEmpty.checked = Boolean(this.layout.settings?.skipEmptySearch);
+    this.listen(skipEmpty, 'change', () => {
+      this.layout.settings ||= {};
+      this.layout.settings.skipEmptySearch = skipEmpty.checked;
+      this._schedulePreview();
+    });
+
     const toolbar = document.createElement('div');
     toolbar.className = 'h-filter-form-designer-toolbar';
-    toolbar.append(this._label('Orientation', orientation), previewToggle);
+    toolbar.append(this._label('Orientation', orientation),
+      this._label("Don't search when the form is empty", skipEmpty), previewToggle);
     this.container.append(toolbar);
 
     this.workspace = document.createElement('div');
@@ -134,8 +145,11 @@ export class HFilterFormDesigner extends HBaseWidget {
       if (child.orientation === 'column') delete child.orientation;
       if (child.multiple === false) delete child.multiple;
       if (child.widget?.control === 'direct') delete child.widget;
+      if (!String(child.help ?? '').trim()) delete child.help;
     }
-    if (layout.settings?.orientation === 'vertical') delete layout.settings;
+    if (layout.settings?.orientation === 'vertical') delete layout.settings.orientation;
+    if (layout.settings && !layout.settings.skipEmptySearch) delete layout.settings.skipEmptySearch;
+    if (layout.settings && !Object.keys(layout.settings).length) delete layout.settings;
     return layout;
   }
 
@@ -206,7 +220,13 @@ export class HFilterFormDesigner extends HBaseWidget {
       label.value = config.label || parameter.label || id;
       label.setAttribute('aria-label', `Label for ${id}`);
       this.listen(label, 'input', () => { config.label = label.value; this._schedulePreview(); });
-      row.append(drag, enabled, name, label);
+      const help = document.createElement('input');
+      help.className = 'h-input h-filter-form-designer-help';
+      help.value = config.help || '';
+      help.placeholder = 'Help text';
+      help.setAttribute('aria-label', `Help text for ${id}`);
+      this.listen(help, 'input', () => { config.help = help.value; this._schedulePreview(); });
+      row.append(drag, enabled, name, label, help);
 
       if (parameter.type === 'enum') {
         const mode = this._select(['select', 'radio', 'checkbox'], config.mode || 'select');

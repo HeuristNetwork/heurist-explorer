@@ -105,3 +105,12 @@ test('related( … ) with r:<types> and relf:<id>:<value> / r:<id>:<value>', () 
     { related: [{ t: '10' }, { r: '3115,3116' }, { 'relf:10': '>=1900' }, { 'relf:1': 'Grand son' }] }
   ]);
 });
+
+test('keyword value form and compact field keys, as the server accepts', () => {
+  assert.deepEqual(p('t 10 f1 Johnson'), [{ t: '10' }, { 'f:1': 'Johnson' }]);
+  assert.deepEqual(p('fc240:>2'), [{ 'fc:240': '>2' }]);
+  assert.deepEqual(p('count240:>2'), [{ 'fc:240': '>2' }]);
+  assert.deepEqual(p('lt134:51'), [{ 'lt:134': '51' }]);
+  // plain words are still title words
+  assert.deepEqual(p('Johnson Smith'), [{ title: 'Johnson' }, { title: 'Smith' }]);
+});

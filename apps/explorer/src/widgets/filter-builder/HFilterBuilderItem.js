@@ -27,14 +27,14 @@ import { extentToWkt, isExtent, roundExtent } from '#shared/utils';
 import { $HR } from '#shared/ui';
 import { emptyFieldRow } from '../../utils/queryModel.js';
 import { HEADER_KEYWORDS } from '../../utils/queryPredicates.js';
-import { str, kindFor, operatorsFor, operatorByKey } from '../../utils/vocabHelpers.js';
+import { str, kindFor, operatorsFor, operatorByKey, operatorForToken } from '../../utils/vocabHelpers.js';
 
 const HEADER_LABELS = {
   title: 'Title', url: 'URL', notes: 'Notes', added: 'Date added',
   modified: 'Date modified', ids: 'Record ID', owner: 'Owner',
   addedby: 'Creator', access: 'Visibility', tag: 'Tags', user: 'Bookmarked by'
 };
-const MULTI_INPUTS = ['text', 'term', 'record', 'tag'];
+const MULTI_INPUTS = ['text', 'term', 'record', 'tag', 'tags'];
 
 /** One flat field criterion row (field · operator · value) in the Filter Builder. */
 export class HFilterBuilderItem extends HBaseWidget {
@@ -140,6 +140,9 @@ export class HFilterBuilderItem extends HBaseWidget {
       const fieldType = this.dbdefs?.fieldType?.(this.scopeRtyId, this.row.dty)
         || this.dbdefs?.fieldGlobal?.(this.row.dty)?.type;
       if (fieldType) this.row.kind = kindFor(this.vocab, fieldType);
+    } else if (HEADER_KEYWORDS[this.row.dty]) {
+      // header keywords have a fixed kind (dates, record ids, tags …)
+      this.row.kind = kindFor(this.vocab, null, this.row.dty);
     }
     if (!Array.isArray(this.row.values) || !this.row.values.length) this.row.values = [''];
     if (this.isRendered) {
@@ -264,6 +267,8 @@ export class HFilterBuilderItem extends HBaseWidget {
   _operators() {
     // relation types are matched only positively (`r` has no negation)
     if (this.row.dty === 'reltype') return [{ token: '', input: 'term', i18nKey: 'op.is' }];
+    // bookmarked by: a user id, login name or "current"
+    if (this.row.dty === 'user') return [{ token: '', input: 'text', i18nKey: 'op.is' }];
     const list = operatorsFor(this.vocab, this.row.kind)
       .filter((op) => !this.row.rel || op.i18nKey !== 'op.count');   // relf has no count form
     if (['owner', 'access', 'addedby'].includes(this.row.dty)) {
@@ -284,10 +289,7 @@ export class HFilterBuilderItem extends HBaseWidget {
       return 'op.is_not';
     }
     if (this.row.opToken != null) {
-      const exact = list.filter((o) => (o.token || '') === this.row.opToken && !o.pattern);
-      if (exact.length) return exact[0].i18nKey;
-      const any = list.find((o) => (o.token || '') === this.row.opToken);
-      if (any) return any.i18nKey;
+      return operatorForToken(this.vocab, this.row.kind, this.row.opToken, list);
     }
     return list[0]?.i18nKey ?? null;
   }
@@ -412,6 +414,8 @@ export class HFilterBuilderItem extends HBaseWidget {
   _valueControl(input, index, placeholder = '') {
     const set = (v) => { this.row.values[index] = v; this._emit(); };
     const current = this.row.values[index] ?? '';
+    if (this.row.dty === 'user' && !placeholder) placeholder = $HR('current, login name or user ID');
+    if (this.row.dty === 'tag' && !placeholder) placeholder = $HR('tag text or ID');
 
     if (this.row.dty === 'access') {
       return choiceControl([

@@ -24,6 +24,7 @@ import { DataSourceFavorites } from './DataSourceFavorites.js';
 import { DataSourceHistory } from './DataSourceHistory.js';
 import { ExplorerWorkspace } from './ExplorerWorkspace.js';
 import { SavedFilterManager } from './SavedFilterManager.js';
+import { LegacySavedFilterConverter } from '../legacy/LegacySavedFilterConverter.js';
 import { RecordTypeManager } from './RecordTypeManager.js';
 import { QuerySourceManager } from './QuerySourceManager.js';
 import { SyncEngine } from './SyncEngine.js';
@@ -105,7 +106,10 @@ export class ExplorerApplication {
       headers: this.config.requestHeaders
     });
     this.apiClient = apiClient;
-    this.savedFilters = new SavedFilterManager({ apiClient });
+    this.savedFilters = new SavedFilterManager({
+      apiClient,
+      legacyConverter: new LegacySavedFilterConverter({ getDbDefs: () => this._ensureDbDefs() })
+    });
     this.recordTypes = new RecordTypeManager({
       apiClient,
       dbDefsProvider: () => this._ensureDbDefs(),
@@ -714,8 +718,11 @@ export class ExplorerApplication {
    * @returns {Promise<object|null>} Reusable data module, or `null` when unresolved.
    */
   async activateFavorite(entry) {
-    const dataSource = await this.favorites.resolve(entry);
-    return dataSource ? this.activateDataSource(dataSource) : null;
+    let dataSource;
+    try { dataSource = await this.favorites.resolve(entry); } catch (error) { this._showOpenError(error); return null; }
+    const module = dataSource ? await this.activateDataSource(dataSource) : null;
+    this._showDataSourceWarnings(dataSource);
+    return module;
   }
 
   /**
@@ -725,8 +732,58 @@ export class ExplorerApplication {
    * @returns {Promise<object|null>} Reusable data module, or `null` when unresolved.
    */
   async activateSavedFilter(id) {
-    const dataSource = await this.savedFilters.resolveDataSource(id, { origin: 'filter' });
-    return dataSource ? this.activateDataSource(dataSource) : null;
+    let dataSource;
+    try { dataSource = await this.savedFilters.resolveDataSource(id, { origin: 'filter' }); } catch (error) { this._showOpenError(error); return null; }
+    const module = dataSource ? await this.activateDataSource(dataSource) : null;
+    this._showDataSourceWarnings(dataSource);
+    return module;
+  }
+
+  /**
+   * Show non-fatal warnings attached to a resolved DataSource (`meta.warnings`),
+   * e.g. parts of a legacy saved filter that could not be converted.
+   *
+   * @private
+   * @param {object|null} dataSource Resolved DataSource.
+   * @returns {void}
+   */
+  _showDataSourceWarnings(dataSource) {
+    const warnings = dataSource?.meta?.warnings;
+    if (!Array.isArray(warnings) || !warnings.length) return;
+    const body = document.createElement('div');
+    const intro = document.createElement('p');
+    intro.className = 'h-i18n';
+    intro.textContent = $HR('Some parts of this filter could not be converted:');
+    const list = document.createElement('ul');
+    for (const warning of warnings) {
+      const item = document.createElement('li');
+      item.textContent = warning;
+      list.append(item);
+    }
+    body.append(intro, list);
+    HMsg.showMsgDlg(body, { title: dataSource.title || 'Saved filter', buttons: { [$HR('OK')]: () => HMsg.closeMsgDlg() } });
+  }
+
+  /**
+   * Report a DataSource that cannot be opened, including a legacy query when available.
+   *
+   * @private
+   * @param {Error} error Resolution error.
+   * @returns {void}
+   */
+  _showOpenError(error) {
+    if (error?.name === 'AbortError') return;
+    const body = document.createElement('div');
+    const message = document.createElement('p');
+    message.textContent = error?.message || String(error);
+    body.append(message);
+    if (error?.legacyQuery) {
+      const query = document.createElement('pre');
+      query.className = 'h-explorer-legacy-query';
+      query.textContent = error.legacyQuery;
+      body.append(query);
+    }
+    HMsg.showMsgErr(body);
   }
 
   /**
@@ -1066,10 +1123,25 @@ export class ExplorerApplication {
     });
     builder.attach(host).render();
     builder.setQuery({ query: query || [], filterForm });
+    // its own dialog: flash messages use the shared message dialog, and opening
+    // one there would replace the builder
+    const dialogId = 'h-filter-builder-dialog';
     return new Promise((resolve) => {
-      const finish = async (value) => { HMsg.closeMsgDlg?.(); await builder.destroy(); resolve(value); };
-      HMsg.showMsgDlg(host, {
-        title: 'Filter builder', preventClose: true,
+      let settled = false;
+      let dlg = null;
+      const finish = async (value) => {
+        if (settled) return;
+        settled = true;
+        dlg?.removeEventListener('close', onDialogClose);
+        HMsg.closeMsgDlg?.(dialogId);
+        await builder.destroy();
+        resolve(value);
+      };
+      // the browser may close the dialog on Escape despite preventClose (it only
+      // honours one cancel per user activation) - treat that as Cancel
+      const onDialogClose = () => void finish(null);
+      dlg = HMsg.showMsgDlg(host, {
+        dialogId, title: 'Filter builder', preventClose: true,
         buttons: [
           { label: 'Apply', class: 'h-btn h-btn-primary', onClick: () => {
             try {
@@ -1081,6 +1153,7 @@ export class ExplorerApplication {
           { label: 'Cancel', class: 'h-btn', onClick: () => void finish(null) }
         ]
       });
+      dlg?.addEventListener('close', onDialogClose);
     });
   }
 

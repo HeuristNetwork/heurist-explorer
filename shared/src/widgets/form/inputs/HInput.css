@@ -9,6 +9,11 @@
   font-weight: 600;
 }
 
+.h-form-input-help {
+  color: var(--h-color-text-muted);
+  font-size: var(--h-font-size-small, 0.85em);
+}
+
 .h-form-input-control {
   display: flex;
   align-items: center;

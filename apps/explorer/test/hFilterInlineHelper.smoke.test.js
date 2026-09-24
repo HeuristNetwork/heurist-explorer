@@ -139,3 +139,35 @@ test('relmarker fields insert a bidirectional related( … ) sub-query', () => {
   assert.equal(item.insert, 'related(t:10 )');
   assert.equal(item.caretBack, 1);
 });
+
+test('inside related( … ): Relation type is offered and r: lists relation types as ids', () => {
+  const dbdefs = {
+    ...DBDEFS,
+    fields: (rty) => (rty === 10 ? [{ id: 235, name: 'Related Person(s)', type: 'relmarker' }, { id: 12, name: 'Family name', type: 'freetext' }] : []),
+    fieldGlobal: (id) => (id === 235 ? { targetTypes: [10] } : {}),
+    vocabRoot: (id) => (id === 235 ? 3110 : 0),
+    termTree: () => ({ id: 3110, children: [{ id: 3115, label: 'IsGrandParentOf' }, { id: 3116, label: 'IsGrandChildOf' }] })
+  };
+  const h = new HFilterInlineHelper({ vocabulary: VOCAB, dbdefs });
+  const inRel = h._computeHints('t:10 related(t:10 ', 19).items;
+  assert.equal(inRel[0].label, 'Relation type');
+  assert.equal(inRel[0].insert, 'r:');
+  assert.ok(!h._computeHints('t:10 lt235(t:10 ', 16).items.some((i) => i.label === 'Relation type'));
+  const types = h._computeHints('t:10 related(t:10 r:grandc', 26).items;
+  assert.deepEqual(types.map((i) => i.insert), ['r:3116 ']);
+  assert.deepEqual(h._computeHints('t:10 related(t:10 r:3115,', 25).items.map((i) => i.insert), ['r:3115,3115 ', 'r:3115,3116 ']);
+});
+
+test('applying a hint raises an input event so the sentence follows the inserted text', () => {
+  const h = new HFilterInlineHelper({ vocabulary: VOCAB, dbdefs: DBDEFS });
+  const events = [];
+  h.input = {
+    value: 't:10 related(t:10 r:iswi', selectionStart: 24,
+    setSelectionRange() {}, focus() {},
+    dispatchEvent: (event) => events.push(event.type)
+  };
+  h._tokenStart = 18;   // start of "r:iswi"
+  h._applyHint({ insert: 'r:5368 ' });
+  assert.equal(h.input.value, 't:10 related(t:10 r:5368 ');
+  assert.deepEqual(events, ['input']);
+});

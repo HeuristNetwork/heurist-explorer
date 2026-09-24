@@ -91,7 +91,7 @@ export function resolveQueryParameters(query, values = {}) {
         if (nested === null || (Array.isArray(nested) && !nested.length)) continue;
         if (/^(?:lt|lf|rt|rf|related)(?::|$)/.test(key)
           && Array.isArray(nested)
-          && nested.every((item) => Object.keys(item).every((name) => name === 't'))) continue;
+          && nested.every((item) => Object.keys(item).every((name) => name === 't' || name === 'r'))) continue;
         result[key] = nested;
         continue;
       }

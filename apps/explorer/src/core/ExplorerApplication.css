@@ -117,3 +117,10 @@
     min-height: 0;
     color: var(--h-color-text-muted);
 }
+
+.h-explorer-legacy-query {
+  max-height: 12em;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
+}

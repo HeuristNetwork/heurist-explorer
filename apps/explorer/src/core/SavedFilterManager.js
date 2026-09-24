@@ -22,12 +22,15 @@ export class SavedFilterManager {
    * @param {import('#shared/api').HeuristApiClient} options.apiClient Heurist API client.
    * @param {Array<number|string>|null} [options.filterIds] Restrict loading to these filter record ids.
    * @param {Function|null} [options.classifyFilter] Overrides `simple`/`parametrized` classification for a loaded filter.
+   * @param {object|null} [options.legacyConverter] Optional legacy `svs_Query` converter
+   *   (`LegacySavedFilterConverter`): `isParameterized(stored)` and async `convert(stored)`.
    */
-  constructor({ apiClient, filterIds = null, classifyFilter = null } = {}) {
+  constructor({ apiClient, filterIds = null, classifyFilter = null, legacyConverter = null } = {}) {
     if (!apiClient) throw new TypeError('SavedFilterManager requires apiClient');
     this.apiClient = apiClient;
     this.filterIds = normalizeIds(filterIds);
     this.classifyFilter = typeof classifyFilter === 'function' ? classifyFilter : null;
+    this.legacyConverter = legacyConverter || null;
     this.filters = [];
     this._loadController = null;
   }
@@ -83,19 +86,34 @@ export class SavedFilterManager {
    * @param {number|string} id Filter record id.
    * @param {{origin?: string}} [options] `origin` tags the resulting DataSource's metadata.
    * @returns {Promise<object|null>} Resolved DataSource, or `null` when the filter or its request is empty.
+   *   Conversion warnings are returned in `meta.warnings`.
+   * @throws {Error} When the legacy converter reports the filter as unsupported (`error.legacyQuery` is set).
    */
   async resolveDataSource(id, { origin = 'filter' } = {}) {
     const filter = await this._loadOne(id);
     if (!filter) return null;
 
-    const request = executableRequest(filter.definition);
+    let definition = filter.definition;
+    const meta = { origin };
+    if (this.legacyConverter) {
+      const converted = await this.legacyConverter.convert(filter.query);
+      if (converted.status === 'unsupported') {
+        const error = new Error(`${filter.title}: ${converted.warnings.join(' ') || 'legacy, cannot open.'}`);
+        error.legacyQuery = converted.legacyQuery;
+        throw error;
+      }
+      definition = converted.definition;
+      if (converted.warnings.length) meta.warnings = converted.warnings;
+    }
+
+    const request = executableRequest(definition);
     if (isEmptySearchRequest(request)) return null;
     return normalizeDataSource({
       reference: { type: 'filter', id: filter.id },
-      title: filter.title,
+      title: definition.title || filter.title,
       request,
-      presentation: {},
-      meta: { origin }
+      presentation: definition.filterForm ? { filterForm: definition.filterForm } : {},
+      meta
     });
   }
 
@@ -136,7 +154,7 @@ export class SavedFilterManager {
     const definition = parseSavedFilterDefinition(query);
     const kind = this.classifyFilter
       ? this.classifyFilter(value, definition)
-      : inferFilterKind(value, definition);
+      : this.legacyConverter?.isParameterized(query) ? 'parametrized' : inferFilterKind(value, definition);
     return {
       id,
       title: String(value?.rec_Title ?? value?.title ?? `Filter ${id}`),

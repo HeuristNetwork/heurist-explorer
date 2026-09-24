@@ -65,3 +65,25 @@ export function operatorByKey(vocab, kind, i18nKey) {
   if (!list.length) return null;
   return list.find((o) => o.i18nKey === i18nKey) || list[0];
 }
+
+/**
+ * The operator a raw value token stands for, for a field kind. "count of values"
+ * is never chosen from a token (it comes only from an `fc:` key), and on numbers
+ * both leading range forms (`<>a/b`, `><a/b`) mean "between".
+ *
+ * @param {object} vocab
+ * @param {string} kind Field kind; see `kindFor`.
+ * @param {?string} token Raw token (`''` for none).
+ * @param {object[]} [list] Operators to choose from (default: all for the kind).
+ * @returns {?string} i18nKey, or `null` when the kind has no operators.
+ */
+export function operatorForToken(vocab, kind, token, list = operatorsFor(vocab, kind)) {
+  const candidates = list.filter((o) => o.i18nKey !== 'op.count');
+  if (kind === 'number' && (token === '<>' || token === '><')
+      && candidates.some((o) => o.i18nKey === 'op.between')) return 'op.between';
+  const t = token ?? '';
+  const exact = candidates.find((o) => (o.token || '') === t && !o.pattern);
+  if (exact) return exact.i18nKey;
+  const any = candidates.find((o) => (o.token || '') === t);
+  return (any || candidates[0] || list[0])?.i18nKey ?? null;
+}

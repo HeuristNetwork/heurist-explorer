@@ -24,7 +24,7 @@
 
 import { HBaseWidget } from '#shared/widgets/HBaseWidget.js';
 import { $HR, HMsg } from '#shared/ui';
-import { composeQuery, parseQuery, emptyFieldRow, resolveQueryNames } from '../../utils/queryModel.js';
+import { composeQuery, parseQuery, emptyFieldRow, resolveQueryNames, reconcileModel } from '../../utils/queryModel.js';
 import { describeGeoValue } from '#shared/widgets/form/inputs/HInputGeo.js';
 import { queryDescribe } from '../../utils/queryDescribe.js';
 import { HFilterBuilderItem } from './HFilterBuilderItem.js';
@@ -300,7 +300,9 @@ export class HFilterBuilder extends HBaseWidget {
     const definition = fromText(query);
     const queryArray = fromText(definition?.query || definition?.q || definition);
     // record-type / field names (`{"t":"Life event"}`, `f:Date of event`) -> ids
-    this.model = parseQuery(resolveQueryNames(queryArray, this.dbdefs), this.vocab);
+    this.model = reconcileModel(parseQuery(resolveQueryNames(queryArray, this.dbdefs), this.vocab), this.vocab, {
+      fieldType: (dty) => this.dbdefs.fieldType?.(null, dty) || this.dbdefs.fieldGlobal?.(dty)?.type
+    });
     if (this._fixedRecordTypeId != null) this.model.rtyId = this._fixedRecordTypeId;
     this.form = definition?.filterForm || null;
     const restore = (rows) => {

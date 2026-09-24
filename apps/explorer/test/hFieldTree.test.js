@@ -90,3 +90,43 @@ test('a relmarker in the Filter Builder is a related branch: Relation type first
   const [, relFields] = tree._relationNodes([]);
   assert.deepEqual(relFields.children[1].children.map(text), ['Start date/time', 'Title for relationship']);
 });
+
+test('linked-from list: one entry per field, relmarkers as related (Filter Builder only), sorted alphanumerically', () => {
+  const dbdefs = {
+    ...RELATION_DBDEFS,
+    rectypeName: (id) => ({ 10: 'Person', 48: 'Life event', 2: 'Type 2', 11: 'Type 10' }[id] || ''),
+    linkedRectypes: (_rty, { relation }) => (relation ? [48] : [11, 2, 48]),
+    pointerFieldsBetween: (from) => ({ 48: [134, 246], 11: [5], 2: [6] }[from] || []),
+    fieldGlobal: (id) => ({ type: id === 246 ? 'relmarker' : 'resource', name: `field ${id}` }),
+    fieldName: (_rty, id) => ({ 134: 'Place(s)', 246: 'Other persons involved', 5: 'Owner', 6: 'Owner' }[id])
+  };
+  const tree = new HFieldTree({ dbdefs });
+  tree._builderMode = true;
+  assert.deepEqual(tree._reverseLinks(10).map((x) => `${x.link} ${x.label}`), [
+    'related « Life event · Other persons involved (relationship)',
+    'lf « Life event · Place(s)',
+    'lf « Type 2 · Owner',
+    'lf « Type 10 · Owner'
+  ]);
+  // field-path editors (not the Filter Builder) get no relationship entries
+  tree._builderMode = false;
+  assert.ok(tree._reverseLinks(10).every((x) => x.link === 'lf'));
+});
+
+test('Escape and the host dialog closing both close the popover', () => {
+  const listeners = [];
+  globalThis.document.addEventListener ??= (...args) => listeners.push(args);
+  globalThis.document.removeEventListener ??= () => {};
+  const tree = new HFieldTree({ dbdefs: RELATION_DBDEFS });
+  let closed = 0;
+  tree.close = () => { closed++; };
+  tree.element = {};
+  let prevented = false;
+  tree._onKeyDown({ key: 'Escape', preventDefault: () => { prevented = true; }, stopPropagation: () => {} });
+  assert.equal(closed, 1);
+  assert.ok(prevented, 'Escape is consumed so the dialog underneath stays open');
+  tree._onKeyDown({ key: 'Enter', preventDefault: () => {}, stopPropagation: () => {} });
+  assert.equal(closed, 1);
+  tree._onHostClose();
+  assert.equal(closed, 2);
+});

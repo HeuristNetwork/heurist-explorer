@@ -25,6 +25,14 @@
 
 import { canonicalPredicate, isLinkPredicate } from './queryPredicates.js';
 
+/** Keywords that may take their value as the next word: `t 10`, `f1 Johnson`. */
+const SPACED_KEYWORDS = new Set([
+  't', 'ids', 'title', 'url', 'notes', 'added', 'modified', 'before', 'after', 'addedby', 'owner',
+  'access', 'user', 'tag', 'f', 'fc', 'geo', 'sortby'
+]);
+/** Keywords whose field id may be glued on: f1, fc240, count240, lt134, geo28. */
+const COMPACT_BASES = new Set(['f', 'fc', 'geo', 'lt', 'lf', 'rt', 'rf']);
+
 const HEADER_BASES = new Set([
   'title', 'url', 'notes', 'added', 'modified', 'ids', 'owner', 'addedby',
   'access', 'tag', 'user', 'before', 'after'
@@ -79,6 +87,23 @@ function parseSequence(tokens, cursor, dbdefs) {
       raw = raw.slice(1);
     }
 
+    // "keyword value" (no colon), as the server accepts: t 10 f1 Johnson
+    if (!raw.includes(':')) {
+      const kw = /^([a-z_]+?)(\d*)$/i.exec(raw);
+      const kwBase = kw ? canonicalPredicate(kw[1].toLowerCase()) : null;
+      const next = tokens[cursor.pos];
+      if (kwBase && SPACED_KEYWORDS.has(kwBase) && next != null && next !== ')' && !next.endsWith('(')) {
+        cursor.pos++;
+        raw = `${kw[1]}${kw[2] ? `:${kw[2]}` : ''}:${next}`;
+      }
+    }
+
+    // compact field keys: fc240:>2, count240:>2, lt134:51 -> base:<id>:value
+    const compactKey = /^([a-z_]+?)(\d+):/i.exec(raw);
+    if (compactKey && COMPACT_BASES.has(canonicalPredicate(compactKey[1].toLowerCase()))) {
+      raw = `${compactKey[1]}:${compactKey[2]}:${raw.slice(compactKey[0].length)}`;
+    }
+
     const colon = raw.indexOf(':');
     if (colon < 0) {
       // bare word: a leading record-type name, otherwise a title match
@@ -99,6 +124,12 @@ function parseSequence(tokens, cursor, dbdefs) {
       // t:48,10 -> several record types
       const ids = rest.split(',').map((part) => resolveRectype(part, dbdefs)).filter(Boolean);
       if (ids.length) { out.push({ t: ids.join(',') }); rtyCtx = String(ids[0]); }
+      continue;
+    }
+    if (isLinkPredicate(base) && base !== 'r' && base !== 'relf') {
+      // lt:134:51 -> linked record id(s) without a sub-query
+      const m = /^(\d+):(.+)$/.exec(rest);
+      out.push(m ? { [`${base}:${m[1]}`]: m[2] } : { [base]: rest });
       continue;
     }
     if (base === 'fc') {

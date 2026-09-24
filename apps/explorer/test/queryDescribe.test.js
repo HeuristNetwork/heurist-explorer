@@ -72,7 +72,7 @@ test('header keyword predicates', () => {
 test('date overlap range uses human operator text', () => {
   assert.equal(
     say([{ added: '<>1900-01-01/2000-01-01' }]),
-    'Find records where date added falls in or overlaps 1900-01-01/2000-01-01'
+    'Find records where date added falls in or overlaps 1900-01-01 to 2000-01-01'
   );
 });
 
@@ -219,4 +219,23 @@ test('relationships: relation type and Relationship-record fields are described'
   // legacy related:<types> reads the same as r
   assert.equal(tell([{ t: '10' }, { 'related:3115': [{ t: '10' }] }]),
     'Find Persons related to Persons where relation type is "IsGrandParentOf"');
+});
+
+test('reference-document forms read naturally', () => {
+  assert.equal(say([{ ids: [152, 153] }]), 'Find records where record ID is 152 or 153');
+  assert.equal(say([{ after: '2026-08-20' }]), 'Find records where date modified is after 2026-08-20');
+  assert.equal(say([{ before: '2026-09-01' }]), 'Find records where date modified is on or before 2026-09-01');
+  assert.equal(say([{ added: '2026-08' }]), 'Find records where date added falls in 2026-08');
+  assert.equal(say([{ usr: 'current' }]), 'Find records where bookmarked by is the current user');
+  assert.equal(say([{ owner: 'editors' }]), 'Find records where owner is "editors"');
+  assert.equal(say([{ tag: { all: [1, 2] } }]), 'Find records where tag is "1" and "2"');
+  assert.equal(say([{ t: '10' }, { 'lt:134': 51 }]), 'Find Persons linked to records where record ID is 51');
+  assert.equal(say([{ 'f:5': '><1900/2000' }]), 'Find records where Year of birth is between 1900 and 2000');
+  assert.equal(say([{ 'f:237:code': 'capital' }]), 'Find records where Event type (code) is "capital"');
+  assert.equal(say([{ 'f:12': 'eng:London' }]), 'Find records where Family name contains "London" (eng)');
+  assert.equal(say([{ f: '@Johnson -Berlin' }]),
+    'Find records where any field contains any of the words "Johnson" and contains none of the words "Berlin"');
+  assert.equal(say([{ geo: '' }]), 'Find records where Location has a value');
+  assert.equal(say([{ t: '10' }, { sortby: ['-f:12', 'p', 'set'] }]),
+    'Find Persons, sorted by Family name (descending), popularity, the given ID order');
 });

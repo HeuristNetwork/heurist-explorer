@@ -86,6 +86,16 @@ export class HInput extends HBaseWidget {
     controlHost.append(this.clearButton);
     this._syncClearButton();
 
+    const help = String(this.options.help ?? '').trim();
+    if (help) {
+      const helpText = document.createElement('div');
+      helpText.className = 'h-form-input-help';
+      helpText.id = `${this.control?.id || `h-input-${++nextInputId}`}-help`;
+      helpText.textContent = help;
+      this.container.append(helpText);
+      this.control?.setAttribute('aria-describedby', helpText.id);
+    }
+
     this.state = 'rendered';
     return this;
   }
