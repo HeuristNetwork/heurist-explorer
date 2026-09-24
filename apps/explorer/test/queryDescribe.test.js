@@ -36,18 +36,18 @@ test('empty / unparseable query -> empty string', () => {
 
 test('record type only', () => {
   assert.equal(say([{ t: '10' }]), 'Find Persons');
-  assert.equal(say([{ f: 'x' }]), 'Find records where any field contains x');
+  assert.equal(say([{ f: 'x' }]), 'Find records where any field contains "x"');
 });
 
 test('flat field predicate with operator', () => {
-  assert.equal(say([{ t: '10' }, { 'f:12': '=Smith' }]), 'Find Persons where Family name is Smith');
-  assert.equal(say([{ 'f:12': '-Smith' }]), 'Find records where Family name does not contain Smith');
+  assert.equal(say([{ t: '10' }, { 'f:12': '=Smith' }]), 'Find Persons where Family name is "Smith"');
+  assert.equal(say([{ 'f:12': '-Smith' }]), 'Find records where Family name does not contain "Smith"');
   assert.equal(say([{ t: '10' }, { 'f:5': '>=1900' }]), 'Find Persons where Year of birth is at least 1900');
 });
 
 test('wildcard % maps back to starts/ends with', () => {
-  assert.equal(say([{ 'f:12': 'Smith%' }]), 'Find records where Family name starts with Smith');
-  assert.equal(say([{ 'f:12': '%son' }]), 'Find records where Family name ends with son');
+  assert.equal(say([{ 'f:12': 'Smith%' }]), 'Find records where Family name starts with "Smith"');
+  assert.equal(say([{ 'f:12': '%son' }]), 'Find records where Family name ends with "son"');
 });
 
 test('NULL operators', () => {
@@ -56,8 +56,8 @@ test('NULL operators', () => {
 });
 
 test('enum values resolve to term labels; comma list -> "or"', () => {
-  assert.equal(say([{ 'f:237': '10443' }]), 'Find records where Event type is Death');
-  assert.equal(say([{ 'f:237': '5,6' }]), 'Find records where Event type is Baptism or Marriage');
+  assert.equal(say([{ 'f:237': '10443' }]), 'Find records where Event type is "Death"');
+  assert.equal(say([{ 'f:237': '5,6' }]), 'Find records where Event type is "Baptism" or "Marriage"');
 });
 
 test('header keyword predicates', () => {
@@ -79,21 +79,21 @@ test('date overlap range uses human operator text', () => {
 test('single linked sub-query - matches the plan example', () => {
   assert.equal(
     say([{ t: '12' }, { 'lf:134': [{ t: '48' }, { 'f:237': '10443' }] }]),
-    'Find Places linked from Events where Event type is Death'
+    'Find Places linked from Events where Event type is "Death"'
   );
 });
 
 test('top-level any wrapper', () => {
   assert.equal(
     say([{ any: [{ 'f:12': 'a' }, { 'f:26': 'b' }] }]),
-    'Find records where any of (Family name contains a, Name contains b)'
+    'Find records where any of (Family name contains "a", Name contains "b")'
   );
 });
 
 test('sortby clause', () => {
   assert.equal(
     say([{ t: '10' }, { 'f:12': 'Smith' }, { sortby: '-modified' }]),
-    'Find Persons where Family name contains Smith, sorted by date modified (descending)'
+    'Find Persons where Family name contains "Smith", sorted by date modified (descending)'
   );
 });
 
@@ -112,4 +112,30 @@ test('capitalize option only forces the leading character (phrase.find is alread
     say([{ 'f:12': 'smith' }], { capitalize: false }),
     say([{ 'f:12': 'smith' }])
   );
+});
+
+test('fc: field value count', () => {
+  assert.equal(say([{ t: '10' }, { 'fc:12': '>2' }]), 'Find Persons where number of Family name values is greater than 2');
+});
+
+test('comparison tokens on a known text field are literal', () => {
+  assert.equal(say([{ t: '10' }, { 'f:12': '>2' }]), 'Find Persons where Family name contains ">2"');
+  assert.equal(say([{ t: '10' }, { 'f:5': '>2' }]), 'Find Persons where Year of birth is greater than 2');
+});
+
+test('nested linked sub-queries follow the conditions of their own record type', () => {
+  assert.equal(
+    say([{ t: '10' }, { 'f:12': 'son%' },
+      { 'lt:240': [{ t: '48' }, { 'lt:134': [{ t: '12' }, { 'f:26': 'Athens' }] }, { 'f:237': '10443' }] }]),
+    'Find Persons where Family name starts with "son" and linked to Events where Event type is "Death"'
+      + ' and linked to Places where Name contains "Athens"'
+  );
+});
+
+test('several record types', () => {
+  assert.equal(say([{ t: '48,10' }]), 'Find Events or Persons');
+});
+
+test('$NAME$ parameters render as ?', () => {
+  assert.equal(say([{ t: '10' }, { 'f:12': '$X1$' }]), 'Find Persons where Family name contains ?');
 });

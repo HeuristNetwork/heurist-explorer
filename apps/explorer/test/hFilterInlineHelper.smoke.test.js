@@ -70,3 +70,49 @@ test('no hints without dbdefs', () => {
   const h = new HFilterInlineHelper({ vocabulary: VOCAB });
   assert.equal(h._computeHints('t:10 ', 5)?.items?.length ?? 0, 0);
 });
+
+const LINKED_DBDEFS = {
+  ...DBDEFS,
+  fields: (rty) => (rty === 10
+    ? [{ id: 12, name: 'Family name', type: 'freetext' }, { id: 134, name: 'Birth place', type: 'resource' }]
+    : (rty === 12 ? [{ id: 1, name: 'Place name', type: 'freetext' }] : [])),
+  field: (_rty, dty) => (dty === 134 ? { id: 134, type: 'resource', targetTypes: [12] } : null),
+  termTree: () => ({
+    id: 500,
+    children: [
+      { id: 501, label: 'Active', children: [{ id: 511, label: 'Part time' }] },
+      { id: 502, label: 'Retired' }
+    ]
+  })
+};
+const linkedHelper = () => new HFilterInlineHelper({ vocabulary: VOCAB, dbdefs: LINKED_DBDEFS });
+
+test('resource field inserts a linked sub-query with the caret inside it', () => {
+  const item = linkedHelper()._computeHints('t:10 bir', 8).items.find((i) => i.label === 'Birth place');
+  assert.equal(item.insert, 'lt134(t:12 )');
+  assert.equal(item.caretBack, 1);
+});
+
+test('inside lt(...) -> fields of the linked record type', () => {
+  const text = 't:10 lt134(t:12 )';
+  const plan = linkedHelper()._computeHints(text, text.length - 1);
+  assert.ok(labels(plan).includes('Place name'));
+  assert.ok(!labels(plan).includes('Family name'));
+});
+
+test('after a closed lt(...) group -> outer record type again', () => {
+  const text = 't:10 lt134(t:12 f:1:x) ';
+  assert.ok(labels(linkedHelper()._computeHints(text, text.length)).includes('Family name'));
+});
+
+test('bare f: lists the scope record type fields', () => {
+  assert.ok(labels(linkedHelper()._computeHints('t:10 f:', 7)).includes('Family name'));
+});
+
+test('enum terms include every level, indented', () => {
+  const plan = linkedHelper()._computeHints('t:10 f:9:', 9);
+  const sub = plan.items.find((i) => i.label === 'Part time');
+  assert.ok(sub);
+  assert.equal(sub.depth, 1);
+  assert.equal(sub.insert, 'f:9:"Part time" ');
+});

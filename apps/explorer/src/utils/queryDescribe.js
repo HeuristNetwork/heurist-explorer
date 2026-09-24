@@ -3,12 +3,13 @@
  * @brief Task A-min: render a Heurist `q`-array query as a plain human sentence.
  *
  * Pure (DOM-free) client describer for the inline helper's post-parse display
- * (plan D6 / M4). Covers flat predicates + one linked sub-query level + sort;
+ * (plan D6 / M4). Covers flat predicates + nested linked sub-queries (placed
+ * after the conditions of the record type they hang off) + sort;
  * anything it cannot phrase is rendered verbatim rather than dropped or thrown.
  * The canonical, fully-nested describer is the server `QueryDescriber` (M7).
  *
  * e.g. [{t:"10"},{"f:12":"=Smith"},{"sortby":"-modified"}]
- *      -> "Find Persons where Family name is Smith, sorted by Date modified"
+ *      -> 'Find Persons where Family name is "Smith", sorted by date modified (descending)'
  *
  * @project     Heurist academic knowledge management system
  * @package     heurist-explorer
@@ -41,6 +42,11 @@ const HEADER_LABELS = {
   addedby: 'creator', access: 'visibility', tag: 'tag', user: 'bookmarked by'
 };
 
+/** Kinds whose values are literals shown in quotes. */
+const QUOTED_KINDS = new Set(['text', 'enum', 'term', 'tag']);
+/** Whole-value parameter token `$NAME$` (D9). */
+const PARAM_RE = /^\$[A-Za-z_]\w*\$$/;
+
 const LINK_PHRASE = {
   lt: 'linked_to', lf: 'linked_from', rt: 'related_to', rf: 'related_from',
   related: 'related', links: 'related', relf: 'related', r: 'related'
@@ -71,8 +77,9 @@ export function queryDescribe(query, { dbdefs = null, vocabulary, lang = 'eng', 
  * @returns {string}
  */
 function describeGroup(arr, ctx, { top, scopeRty }) {
-  let rectypeId = scopeRty ?? null;
-  const linkClauses = [];   // "linked to …" / "related to …" - attach to the rectype
+  let rectypeIds = scopeRty != null ? [scopeRty] : [];
+  let rectypeId = scopeRty ?? null;   // scope for field names: the first rectype
+  const linkClauses = [];   // "linked to …" / "related to …" - placed after the conditions
   const conditions = [];    // field / header / group conditions - go inside "where"
   const sorts = [];
 
@@ -83,7 +90,8 @@ function describeGroup(arr, ctx, { top, scopeRty }) {
     const { base, suffix } = splitPredicateKey(rawKey);
 
     if (base === 't') {
-      rectypeId = resolveRectypeId(firstOf(value), ctx) ?? rectypeId;
+      const ids = resolveRectypeIds(firstOf(value), ctx);
+      if (ids.length) { rectypeIds = ids; rectypeId = ids[0]; }
       continue;
     }
     if (base === 'sortby') {
@@ -104,14 +112,18 @@ function describeGroup(arr, ctx, { top, scopeRty }) {
     if (clause) conditions.push(clause);
   }
 
-  const rectypeText = rectypeId
-    ? rectypeName(rectypeId, ctx, { plural: true })
+  const rectypeText = rectypeIds.length
+    ? rectypeIds.map((id) => rectypeName(id, ctx, { plural: true })).join(phrase(ctx, 'or'))
     : phrase(ctx, 'any_type');
 
+  // own conditions first, linked sub-queries last, so each field reads next to
+  // the record type it belongs to
   let out = top ? fill(phrase(ctx, 'find'), { rectype: rectypeText }) : rectypeText;
-  if (linkClauses.length) out += ' ' + linkClauses.join(phrase(ctx, 'and'));
   if (conditions.length) {
     out += ' ' + fill(phrase(ctx, 'where'), { conditions: joinConditions(conditions, ctx) });
+  }
+  if (linkClauses.length) {
+    out += (conditions.length ? phrase(ctx, 'and') : ' ') + linkClauses.join(phrase(ctx, 'and'));
   }
   if (top && sorts.length) {
     out += ', ' + fill(phrase(ctx, 'sort_by'), { fields: sorts.join(', ') });
@@ -143,19 +155,29 @@ function describePredicate(base, suffix, value, ctx, scopeRty) {
   if (HEADER_KEYWORDS[base]) {
     const fieldText = HEADER_LABELS[base] || base;
     const kind = kindFor(ctx.vocab, null, base);
-    const { op, val } = describeOpValue(kind, value, null, ctx);
+    const { op, val } = describeOpValue(kind, value, null, ctx, { literalText: true });
     return fill(phrase(ctx, 'header_cond'), { field: fieldText, op, value: val }).trim();
   }
 
-  // field predicate  f:<id>[:<enumField>]  /  fc:<id>
-  if (base === 'f' || base === 'fc') {
+  // field value count  fc:<id>  -> "number of <field> values <op> <n>"
+  if (base === 'fc') {
+    const dtyId = /^\d+$/.test(suffix.parts[0] ?? '') ? Number(suffix.parts[0]) : null;
+    const fieldText = dtyId == null ? 'any field' : fieldName(dtyId, scopeRty, ctx);
+    const { op, val } = describeOpValue('number', value, null, ctx);
+    return fill(phrase(ctx, 'field_cond'), {
+      field: fill(phrase(ctx, 'field_count'), { field: fieldText }), op, value: val
+    }).trim();
+  }
+
+  // field predicate  f:<id>[:<enumField>]
+  if (base === 'f') {
     const parts = suffix.parts;
     const dtyId = parts.length && /^\d+$/.test(parts[0]) ? Number(parts[0]) : null;
     const enumField = dtyId != null && parts.length > 1 ? parts[1] : null;
     let fieldText = dtyId == null ? 'any field' : fieldName(dtyId, scopeRty, ctx);
     if (enumField) fieldText += ` (${enumField})`;
-    const kind = fieldKind(dtyId, scopeRty, ctx, enumField);
-    const { op, val } = describeOpValue(kind, value, dtyId, ctx);
+    const { kind, known } = fieldKind(dtyId, scopeRty, ctx, enumField);
+    const { op, val } = describeOpValue(kind, value, dtyId, ctx, { literalText: known });
     return fill(phrase(ctx, 'field_cond'), { field: fieldText, op, value: val }).trim();
   }
 
@@ -198,7 +220,7 @@ function describeGroupWrapper(base, value, ctx, scopeRty) {
  * @returns {{op:string, val:string}} operator text + value text for a raw
  *          predicate value (string, or an `{any|all:[…]}` multi-value wrapper).
  */
-function describeOpValue(kind, rawValue, dtyId, ctx) {
+function describeOpValue(kind, rawValue, dtyId, ctx, opts = {}) {
   if (Array.isArray(rawValue)) {
     return { op: str(ctx.vocab, ctx.lang, 'op.is'), val: '' };
   }
@@ -208,7 +230,7 @@ function describeOpValue(kind, rawValue, dtyId, ctx) {
       const joinWord = entry[0] === 'all' ? phrase(ctx, 'and') : phrase(ctx, 'or');
       const parts = entry[1].map((p) => {
         const e = firstPredicateEntry(p);
-        return e ? describeOpValue(kind, e[1], dtyId, ctx).val : '';
+        return e ? describeOpValue(kind, e[1], dtyId, ctx, opts).val : '';
       }).filter(Boolean);
       return { op: str(ctx.vocab, ctx.lang, 'op.is'), val: parts.join(joinWord) };
     }
@@ -221,7 +243,13 @@ function describeOpValue(kind, rawValue, dtyId, ctx) {
     return { op: str(ctx.vocab, ctx.lang, raw === 'NULL' ? 'op.is_empty' : 'op.is_set'), val: '' };
   }
 
-  const { negate, token, value } = stripValueToken(raw);
+  let { negate, token, value } = stripValueToken(raw);
+  // a known text field has no comparison operators: `>2` is the literal ">2"
+  if (token && opts.literalText && kind === 'text'
+      && !operatorsFor(ctx.vocab, kind).some((o) => (o.token || '') === token)) {
+    value = token + value;
+    token = '';
+  }
   let bare = value;
   let opKey = null;
 
@@ -234,7 +262,7 @@ function describeOpValue(kind, rawValue, dtyId, ctx) {
   if (!opKey) opKey = operatorKeyForToken(kind, token, negate, ctx);
 
   const parts = bare.includes(',') ? bare.split(',').map((s) => s.trim()) : [bare];
-  const humanized = parts.map((p) => humanizeValue(kind, p, dtyId, ctx)).filter((p) => p !== '');
+  const humanized = parts.map((p) => humanizeValue(kind, p, dtyId, ctx, opts.literalText)).filter((p) => p !== '');
   const val = humanized.join(' ' + phrase(ctx, 'or').trim() + ' ');
 
   return { op: str(ctx.vocab, ctx.lang, opKey), val };
@@ -271,18 +299,25 @@ function operatorKeyForToken(kind, token, negate, ctx) {
  * @param {string} value Raw value segment.
  * @param {number|null} dtyId Field id, when known.
  * @param {object} ctx Describe context (`dbdefs`, `vocab`, `lang`).
+ * @param {boolean} [known] Field kind is known: quote text/term literals.
  * @returns {string}
  */
-function humanizeValue(kind, value, dtyId, ctx) {
+function humanizeValue(kind, value, dtyId, ctx, known = false) {
   const v = String(value ?? '').trim();
   if (v === '') return '';
+  if (PARAM_RE.test(v)) return '?';   // parameter placeholder, filled in at run time
   if ((kind === 'enum' || kind === 'term') && ctx.dbdefs && /^\d+$/.test(v)) {
-    return ctx.dbdefs.termLabel?.(Number(v)) || v;
+    return quote(ctx.dbdefs.termLabel?.(Number(v)) || v);
   }
   if (kind === 'record' && ctx.dbdefs && /^\d+$/.test(v)) {
     return `record ${v}`;
   }
-  return v;
+  return known && QUOTED_KINDS.has(kind) ? quote(v) : v;
+}
+
+/** Wrap a literal in double quotes (once). */
+function quote(v) {
+  return /^".*"$/.test(v) ? v : `"${v}"`;
 }
 
 // ---------------------------------------------------------------- name lookups ---
@@ -295,7 +330,25 @@ function humanizeValue(kind, value, dtyId, ctx) {
  * @returns {number|null}
  */
 function resolveRectypeId(value, ctx) {
-  const raw = String(value ?? '').split(',')[0].trim();
+  return resolveRectypeIds(value, ctx)[0] ?? null;
+}
+
+/**
+ * Resolve a `t:` predicate's comma-separated value (`48,10`) to rectype ids.
+ *
+ * @param {*} value Raw `t:` predicate value.
+ * @param {object} ctx Describe context (`dbdefs`, `vocab`, `lang`).
+ * @returns {number[]}
+ */
+function resolveRectypeIds(value, ctx) {
+  return String(value ?? '').split(',')
+    .map((part) => resolveOneRectype(part, ctx))
+    .filter((id) => id != null);
+}
+
+/** Resolve one rectype id or name to an id, or `null`. */
+function resolveOneRectype(part, ctx) {
+  const raw = String(part ?? '').trim();
   if (!raw) return null;
   if (/^\d+$/.test(raw)) return Number(raw);
   if (ctx.dbdefs?.rectypeIdByName) {
@@ -363,15 +416,15 @@ function fieldName(dtyId, scopeRty, ctx) {
  * @param {number|null} scopeRty Record type the field is scoped to, when known.
  * @param {object} ctx Describe context (`dbdefs`, `vocab`, `lang`).
  * @param {string|null} enumField Enum sub-part (`term`/`code`/`conceptid`/`desc`), when present.
- * @returns {string}
+ * @returns {{kind:string, known:boolean}} `known` is false when the kind is only a guess
+ *          (no dbdefs / unknown field), so value tokens must not be reinterpreted.
  */
 function fieldKind(dtyId, scopeRty, ctx, enumField) {
-  if (dtyId == null) return 'text';
-  if (enumField && enumField !== 'internalid') return 'text'; // label/code sub-part is a string
+  if (dtyId == null) return { kind: 'text', known: true };
+  if (enumField && enumField !== 'internalid') return { kind: 'text', known: true }; // label/code sub-part is a string
   const type = ctx.dbdefs?.fieldType?.(scopeRty ?? '', dtyId)
-    || ctx.dbdefs?.fieldGlobal?.(dtyId)?.type
-    || 'freetext';
-  return kindFor(ctx.vocab, type);
+    || ctx.dbdefs?.fieldGlobal?.(dtyId)?.type;
+  return { kind: kindFor(ctx.vocab, type || 'freetext'), known: Boolean(type) };
 }
 
 /**

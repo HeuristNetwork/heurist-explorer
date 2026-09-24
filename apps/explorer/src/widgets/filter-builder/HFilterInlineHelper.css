@@ -1,11 +1,16 @@
 /* ------------------------------------------------------------------ *
  * HFilterInlineHelper - token hints + post-parse sentence            *
  * ------------------------------------------------------------------ */
+/* fixed + top-layer popover: positioned from the input's rect in JS so
+   ancestor overflow (e.g. the Query Source editor) cannot clip it */
 .h-fih-hints {
-    position: absolute;
+    position: fixed;
     z-index: 1400;
-    top: calc(100% + 2px);
+    inset: auto;
+    top: 0;
     left: 0;
+    margin: 0;
+    color: inherit;
     min-width: 220px;
     max-width: 420px;
     max-height: 260px;

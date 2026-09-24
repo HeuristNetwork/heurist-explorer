@@ -4,8 +4,9 @@
  *
  * Pure (DOM-free). Understands only the *flat keyword* subset of the query
  * language - `t:<rty>`, `<field>:<value>`, `f:<id>:<value>`, header keywords
- * (`title:`, `added:` …), `sortby:` - joined implicitly with AND. Prose,
- * `OR`/parentheses grouping and linked/related sub-queries are out of scope
+ * (`title:`, `added:` …), `sortby:` - joined implicitly with AND. Prose and
+ * `OR` grouping are out of scope; `lt134(t:12 …)` style linked/related
+ * sub-queries are parsed recursively
  * (server `RecordQueryParser::textToJson` / Task B M8 are canonical).
  *
  * Used by `HFilterInlineHelper` to feed `queryDescribe()` and to seed the
@@ -22,7 +23,7 @@
  * @since       8.0
  */
 
-import { canonicalPredicate } from './queryPredicates.js';
+import { canonicalPredicate, isLinkPredicate } from './queryPredicates.js';
 
 const HEADER_BASES = new Set([
   'title', 'url', 'notes', 'added', 'modified', 'ids', 'owner', 'addedby',
@@ -37,12 +38,39 @@ const HEADER_BASES = new Set([
 export function parseTextQuery(text, { dbdefs = null } = {}) {
   const tokens = tokenize(String(text ?? ''));
   if (!tokens.length) return [];
+  return parseSequence(tokens, { pos: 0 }, dbdefs);
+}
 
+/**
+ * Parse tokens from `cursor.pos` up to a closing `)` (consumed) or the end.
+ * `lt134(`…`)` / `linked_to:134(`…`)` style tokens open a linked sub-query;
+ * any other `(` group is flattened into the current level.
+ *
+ * @param {string[]} tokens
+ * @param {{pos:number}} cursor Shared read position.
+ * @param {object|null} dbdefs
+ * @returns {Array<object>}
+ */
+function parseSequence(tokens, cursor, dbdefs) {
   const out = [];
   let rtyCtx = '';
 
-  for (const token of tokens) {
+  while (cursor.pos < tokens.length) {
+    const token = tokens[cursor.pos++];
+    if (token === ')') break;
     if (/^(and|or)$/i.test(token)) continue; // flat parser: ignore explicit conjunctions
+
+    if (token.endsWith('(')) {
+      const inner = parseSequence(tokens, cursor, dbdefs);
+      const m = /^([a-z_]+?):?(\d*)$/i.exec(token.slice(0, -1));
+      const base = m ? (canonicalPredicate(m[1].toLowerCase()) || '') : '';
+      if (base && isLinkPredicate(base)) {
+        out.push({ [m[2] ? `${base}:${m[2]}` : base]: inner });
+      } else {
+        out.push(...inner);
+      }
+      continue;
+    }
 
     let raw = token;
     let negate = false;
@@ -67,8 +95,17 @@ export function parseTextQuery(text, { dbdefs = null } = {}) {
     const base = canonicalPredicate(key) || key;
 
     if (base === 't') {
-      const id = resolveRectype(rest, dbdefs);
-      if (id) { out.push({ t: String(id) }); rtyCtx = String(id); }
+      // t:48,10 -> several record types
+      const ids = rest.split(',').map((part) => resolveRectype(part, dbdefs)).filter(Boolean);
+      if (ids.length) { out.push({ t: ids.join(',') }); rtyCtx = String(ids[0]); }
+      continue;
+    }
+    if (base === 'fc') {
+      // fc:<id>:<value>   field value count, e.g. fc:12:>2
+      const parts = rest.split(':');
+      if (/^\d+$/.test(parts[0])) {
+        out.push({ [`fc:${parts[0]}`]: applyNegate(parts.slice(1).join(':'), negate) });
+      }
       continue;
     }
     if (base === 'sortby') {
@@ -127,6 +164,12 @@ function tokenize(text) {
       cur += ch;
     } else if (/\s/.test(ch)) {
       if (cur) { out.push(cur); cur = ''; }
+    } else if (ch === '(') {
+      out.push(cur + ch);   // `lt134(` - the opener keeps its key
+      cur = '';
+    } else if (ch === ')') {
+      if (cur) { out.push(cur); cur = ''; }
+      out.push(ch);
     } else {
       cur += ch;
     }

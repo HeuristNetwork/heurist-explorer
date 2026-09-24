@@ -38,7 +38,7 @@ const HEADER_BASES = new Set([
 ]);
 const IDLE_MS = 700;
 const HINT_DEBOUNCE_MS = 120;
-const MAX_HINTS = 12;
+const MAX_HINTS = 500;
 
 /** Binds token-hint autocomplete and a post-parse sentence readout to a query input. */
 export class HFilterInlineHelper extends HBaseWidget {
@@ -100,10 +100,16 @@ export class HFilterInlineHelper extends HBaseWidget {
     if (this._row) this._row.style.position = this._row.style.position || 'relative';
 
     // hint dropdown - kept inside the row so the surrounding flyout's
-    // outside-pointer close logic does not treat it as "outside"
+    // outside-pointer close logic does not treat it as "outside", but shown as
+    // a manual popover (top layer, fixed position) so ancestor `overflow` and
+    // the flyout's own bounds cannot clip it
     this._hintBox = el('div', 'h-fih-hints');
     this._hintBox.hidden = true;
+    if (typeof this._hintBox.showPopover === 'function') this._hintBox.popover = 'manual';
     this._row.append(this._hintBox);
+    const reposition = () => { if (!this._hintBox.hidden) this._positionHints(); };
+    this.listen(window, 'resize', reposition);
+    this.listen(window, 'scroll', reposition, true);
 
     // sentence panel - normal flow, right after the input's section
     this._sentence = el('div', 'h-fih-sentence');
@@ -162,7 +168,8 @@ export class HFilterInlineHelper extends HBaseWidget {
   }
 
   /**
-   * Handle hint-navigation keys (arrows, Escape, Enter/Tab to apply) while the hint dropdown is open.
+   * Handle hint-navigation keys (arrows, Escape, Tab to apply) while the hint dropdown is open.
+   * Enter is left to the host (it starts the search) and only closes the dropdown.
    *
    * @private
    * @param {KeyboardEvent} event Originating keydown event.
@@ -173,7 +180,8 @@ export class HFilterInlineHelper extends HBaseWidget {
     if (event.key === 'ArrowDown') { event.preventDefault(); this._moveHint(1); }
     else if (event.key === 'ArrowUp') { event.preventDefault(); this._moveHint(-1); }
     else if (event.key === 'Escape') { event.preventDefault(); this._closeHints(); }
-    else if ((event.key === 'Enter' || event.key === 'Tab') && this._activeHint >= 0) {
+    else if (event.key === 'Enter') { clearTimeout(this._hintTimer); this._closeHints(); }
+    else if (event.key === 'Tab' && !event.shiftKey && this._activeHint >= 0) {
       event.preventDefault();
       this._applyHint(this._hintItems[this._activeHint]);
     }
@@ -240,6 +248,7 @@ export class HFilterInlineHelper extends HBaseWidget {
       if (i === this._activeHint) b.classList.add('is-active');
       const label = el('span', 'h-fih-hint-label');
       label.textContent = item.label;
+      if (item.depth) label.style.paddingInlineStart = `${item.depth * 14}px`;
       b.append(label);
       if (item.sub) {
         const sub = el('span', 'h-fih-hint-sub');
@@ -251,6 +260,33 @@ export class HFilterInlineHelper extends HBaseWidget {
       this._hintBox.append(b);
     });
     this._hintBox.hidden = false;
+    if (this._hintBox.popover && !this._hintBox.matches(':popover-open')) {
+      try { this._hintBox.showPopover(); } catch { /* detached or unsupported */ }
+    }
+    this._positionHints();
+    this._hintBox.children[this._activeHint]?.scrollIntoView?.({ block: 'nearest' });
+  }
+
+  /**
+   * Place the fixed-position hint dropdown under the input, or above it when
+   * there is not enough room below, clamped to the viewport.
+   *
+   * @private
+   * @returns {void}
+   */
+  _positionHints() {
+    const box = this._hintBox;
+    if (!box || !this.input) return;
+    const r = this.input.getBoundingClientRect();
+    const vw = window.innerWidth || document.documentElement.clientWidth;
+    const vh = window.innerHeight || document.documentElement.clientHeight;
+    box.style.minWidth = `${Math.min(Math.max(220, r.width), 420)}px`;
+    const h = box.offsetHeight;
+    const w = box.offsetWidth;
+    const below = vh - r.bottom;
+    const top = (below < h + 4 && r.top > below) ? Math.max(4, r.top - h - 2) : r.bottom + 2;
+    box.style.top = `${top}px`;
+    box.style.left = `${Math.max(4, Math.min(r.left, vw - w - 4))}px`;
   }
 
   /**
@@ -282,7 +318,7 @@ export class HFilterInlineHelper extends HBaseWidget {
     const tail = value.slice(caret);
     const insert = item.insert;
     this.input.value = head + insert + tail;
-    const pos = head.length + insert.length;
+    const pos = head.length + insert.length - (item.caretBack || 0);
     this.input.setSelectionRange(pos, pos);
     this.input.focus();
     this._closeHints();
@@ -297,20 +333,29 @@ export class HFilterInlineHelper extends HBaseWidget {
    * @returns {void}
    */
   _closeHints() {
+    if (this._hintBox?.popover && this._hintBox.matches(':popover-open')) {
+      try { this._hintBox.hidePopover(); } catch { /* already closed */ }
+    }
     if (this._hintBox) this._hintBox.hidden = true;
     this._hintItems = [];
     this._activeHint = -1;
   }
 
   /**
-   * @returns {{tokenStart:number, items:{label:string,sub?:string,insert:string}[]}|null}
+   * Hints for the token at the caret. Context (prior tokens, scope record type)
+   * comes from the innermost open `( … )` group, so `lt134(t:12 |)` offers the
+   * fields of record type 12.
+   *
+   * @returns {{tokenStart:number, items:{label:string,sub?:string,insert:string,
+   *           caretBack?:number,depth?:number}[]}|null}
    */
   _computeHints(value, caret) {
     if (!this.dbdefs) return null;
     const before = value.slice(0, caret);
-    const tokenStart = Math.max(0, before.search(/\S*$/));
-    const curr = before.slice(tokenStart);
-    const priorTokens = before.slice(0, tokenStart).trim().split(/\s+/).filter(Boolean);
+    const scope = currentScope(before);
+    const curr = scope.slice(Math.max(0, scope.search(/\S*$/)));
+    const tokenStart = before.length - curr.length;
+    const priorTokens = scope.slice(0, scope.length - curr.length).trim().split(/\s+/).filter(Boolean);
     const rtyCtx = this._rtyContext(priorTokens);
 
     const ci = curr.indexOf(':');
@@ -325,9 +370,7 @@ export class HFilterInlineHelper extends HBaseWidget {
           items.push({ label: rt.name, sub: $HR('record type'), insert: `t:${rt.id} ` });
         }
       } else if (rtyCtx) {
-        for (const f of this.dbdefs.fields(rtyCtx)) {
-          items.push({ label: f.name, sub: f.type, insert: `f:${f.id}:` });
-        }
+        items.push(...this._fieldItems(rtyCtx));
       }
       for (const base of HEADER_BASES) {
         items.push({ label: base, sub: $HR('record property'), insert: `${base}:` });
@@ -353,6 +396,10 @@ export class HFilterInlineHelper extends HBaseWidget {
     if (base === 'f') {
       const m = /^(\d+)(?::)?(.*)$/.exec(valSoFar);
       if (m) { dtyId = Number(m[1]); keyPrefix = `f:${m[1]}:`; }
+      else if (rtyCtx) {
+        // bare `f:` -> offer the scope record type's fields
+        return { tokenStart, items: filterByLabel(this._fieldItems(rtyCtx), valSoFar.toLowerCase()) };
+      }
     } else if (!HEADER_BASES.has(base)) {
       const hit = this.dbdefs.fieldIdByName?.(rtyCtx || '', keyPart);
       const one = Array.isArray(hit) ? hit[0] : hit;
@@ -381,17 +428,60 @@ export class HFilterInlineHelper extends HBaseWidget {
       }
     }
 
-    // enum term values
+    // enum term values - whole vocabulary, depth-first, indented by level
     if (kind === 'enum' && dtyId != null) {
       const root = this.dbdefs.vocabRoot?.(dtyId) || 0;
-      const terms = root ? this.dbdefs.termTree(root, { flat: true }) : [];
-      for (const t of terms) {
-        if (!t || t.id === root) continue;
-        items.push({ label: t.label, sub: $HR('term'), insert: `${keyPrefix}${t.label} ` });
+      for (const { term: t, depth } of root ? this._vocabTerms(root) : []) {
+        const val = /[\s()]/.test(t.label) ? `"${t.label}"` : t.label;
+        items.push({ label: t.label, sub: $HR('term'), insert: `${keyPrefix}${val} `, depth });
       }
     }
 
     return { tokenStart, items: filterByLabel(items, valTail.toLowerCase()) };
+  }
+
+  /**
+   * Field hints for a record type. Resource (pointer) fields insert a linked
+   * sub-query `lt<dty>(t:<targets> )` with the caret left inside the parentheses.
+   *
+   * @private
+   * @param {number|string} rtyId Scope record type.
+   * @returns {{label:string,sub:string,insert:string,caretBack?:number}[]}
+   */
+  _fieldItems(rtyId) {
+    const items = [];
+    for (const f of this.dbdefs.fields(rtyId) || []) {
+      if (f.type === 'resource') {
+        const def = this.dbdefs.field?.(rtyId, f.id) || this.dbdefs.fieldGlobal?.(f.id);
+        const targets = def?.targetTypes || [];
+        const inner = targets.length ? `t:${targets.join(',')} ` : '';
+        items.push({ label: f.name, sub: f.type, insert: `lt${f.id}(${inner})`, caretBack: 1 });
+      } else {
+        items.push({ label: f.name, sub: f.type, insert: `f:${f.id}:` });
+      }
+    }
+    return items;
+  }
+
+  /**
+   * Flatten a vocabulary depth-first (root excluded), keeping each term's level.
+   *
+   * @private
+   * @param {number} root Vocabulary root term id.
+   * @returns {{term:{id:number,label:string}, depth:number}[]}
+   */
+  _vocabTerms(root) {
+    const tree = this.dbdefs.termTree(root);
+    const out = [];
+    const walk = (nodes, depth) => {
+      for (const n of nodes || []) {
+        if (!n || n.id === root) continue;
+        if (n.label) out.push({ term: n, depth });
+        walk(n.children, depth + 1);
+      }
+    };
+    walk(Array.isArray(tree) ? tree : tree?.children, 0);
+    return out;
   }
 
   /**
@@ -523,6 +613,24 @@ function el(tag, className) {
   const node = document.createElement(tag);
   if (className) node.className = className;
   return node;
+}
+
+/**
+ * Text of the innermost still-open `( … )` group before the caret, with closed
+ * groups collapsed out (double-quoted text is kept verbatim).
+ */
+function currentScope(before) {
+  const stack = [''];
+  let quoted = false;
+  for (const ch of before) {
+    const top = stack.length - 1;
+    if (quoted) { stack[top] += ch; if (ch === '"') quoted = false; }
+    else if (ch === '"') { quoted = true; stack[top] += ch; }
+    else if (ch === '(') stack.push('');
+    else if (ch === ')') { if (stack.length > 1) stack.pop(); stack[stack.length - 1] += ' '; }
+    else stack[top] += ch;
+  }
+  return stack[stack.length - 1];
 }
 
 /** Filter and rank items by label: prefix matches first, then substring matches. */

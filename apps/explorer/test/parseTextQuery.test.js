@@ -63,3 +63,21 @@ test('works without dbdefs (no name resolution, tokens kept)', () => {
     { t: '10' }, { 'f:5': '>1900' }, { foo: 'bar' }
   ]);
 });
+
+test('fc:<id>:<value> -> field value count', () => {
+  assert.deepEqual(p('t:10 fc:12:>2'), [{ t: '10' }, { 'fc:12': '>2' }]);
+});
+
+test('t: with several record types', () => {
+  assert.deepEqual(p('t:48,10'), [{ t: '48,10' }]);
+});
+
+test('lt<id>( … ) linked sub-queries nest, other ( … ) groups flatten', () => {
+  assert.deepEqual(
+    p('t:10 f:1:son% lt240(t:48 lt134(t:12 f:1:Athens) f:237:5381)'),
+    [{ t: '10' }, { 'f:1': 'son%' },
+      { 'lt:240': [{ t: '48' }, { 'lt:134': [{ t: '12' }, { 'f:1': 'Athens' }] }, { 'f:237': '5381' }] }]
+  );
+  assert.deepEqual(p('t:10 linked_to:240(t:48) f:1:x'), [{ t: '10' }, { 'lt:240': [{ t: '48' }] }, { 'f:1': 'x' }]);
+  assert.deepEqual(p('(f:1:a) f:2:b'), [{ 'f:1': 'a' }, { 'f:2': 'b' }]);
+});
