@@ -13,6 +13,8 @@
  * @since       8.0
  */
 
+import { extentToWkt } from '../utils/geoExtent.js';
+
 const TOKEN = /\$([A-Za-z][A-Za-z0-9_]*)\$/g;
 
 /** Return parameter names in query order, without duplicates. */
@@ -118,15 +120,6 @@ export function resolveQueryParameters(query, values = {}) {
     return Object.keys(result).length ? result : null;
   };
   return { q: resolve(query) || [], extent: null };
-}
-
-/** Convert map bounds into the WKT polygon required by a geo field predicate. */
-function extentToWkt(extent) {
-  const coordinates = ['west', 'south', 'east', 'north'];
-  if (!extent || typeof extent !== 'object'
-    || !coordinates.every((key) => Number.isFinite(Number(extent[key])))) return '';
-  const { west, south, east, north } = extent;
-  return `POLYGON((${west} ${south},${east} ${south},${east} ${north},${west} ${north},${west} ${south}))`;
 }
 
 /** Visit scalar query values while retaining each predicate key. */

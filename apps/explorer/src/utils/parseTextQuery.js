@@ -110,9 +110,10 @@ function parseSequence(tokens, cursor, dbdefs) {
       continue;
     }
     if (base === 'geo') {
-      // geo:<value>  or  geo:<id>:<value>
-      const m = /^(\d+):(.*)$/.exec(rest);
-      out.push(m ? { [`geo:${m[1]}`]: unquote(m[2]) } : { geo: rest });
+      // geo[:<id>][:within|intersects]:<value>
+      const m = /^(?:(\d+):)?(?:(within|intersects):)?([\s\S]*)$/i.exec(rest);
+      const geoKey = ['geo', m[1], m[2]?.toLowerCase()].filter(Boolean).join(':');
+      out.push({ [geoKey]: unquote(m[3]) });
       continue;
     }
     if (base === 'sortby') {

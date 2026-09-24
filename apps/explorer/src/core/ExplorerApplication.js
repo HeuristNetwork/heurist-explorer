@@ -15,6 +15,7 @@
 
 import { hasQueryParameters } from '#shared/data/queryParameters.js';
 import { HeuristApiClient } from '#shared/api';
+import { extentFromGeoJson, extentFromWkt, extentToGeoJson, isExtent } from '#shared/utils';
 import { HostAdapter } from '#shared/host';
 import { HMsg, $HR } from '#shared/ui';
 import { LayoutManager } from './LayoutManager.js';
@@ -1153,7 +1154,7 @@ export class ExplorerApplication {
     const dlg = this._filterExtentDialog;
     const module = this._filterExtentModule;
     try {
-      await module.api.beginDrawing({ mode: 'filter', geojson: polygonFromBounds(current) });
+      await module.api.beginDrawing({ mode: 'filter', geojson: extentToGeoJson(current) });
     } catch (error) {
       dlg.close();
       throw error;
@@ -1169,7 +1170,7 @@ export class ExplorerApplication {
         dlg.close();
         resolve(value);
       };
-      const onFinished = (event) => finish(boundsFromGeometry(event.detail?.result?.geojson));
+      const onFinished = (event) => finish(extentFromGeoJson(event.detail?.result?.geojson));
       const onCancelled = () => finish(null);
       const onDialogClose = () => finish(null, true);
       const cleanup = () => {
@@ -1194,14 +1195,14 @@ export class ExplorerApplication {
   }
 
   /**
-   * Zoom the active layout's Map module to a WKT geometry's bounding extent.
+   * Zoom the active layout's Map module to a WKT geometry's (or an extent's) bounds.
    *
-   * @param {string} wkt WKT geometry text.
+   * @param {string|object} wkt WKT geometry text, or a `{west,south,east,north}` extent.
    * @returns {Promise<boolean>} Whether the map viewport was changed.
    */
   async zoomActiveMapToExtent(wkt) {
     const module = [...this.modules.values()].find((item) => item.type === 'map' && item.api);
-    const bounds = wktBounds(wkt);
+    const bounds = isExtent(wkt) ? wkt : extentFromWkt(wkt);
     if (!module || !bounds) return false;
     await module.api.fitBounds(bounds);
     return true;
@@ -1363,55 +1364,3 @@ function normalizeLayout(value) {
 
 function queryDefined(q) { return q != null && (typeof q !== 'string' || q.trim().length > 0); }
 
-/** Convert west/south/east/north bounds to a rectangular GeoJSON polygon, or null. */
-function polygonFromBounds(bounds) {
-  if (!bounds || !['west', 'south', 'east', 'north'].every((key) => Number.isFinite(Number(bounds[key])))) return null;
-  const { west, south, east, north } = bounds;
-  return { type: 'Polygon', coordinates: [[
-    [Number(west), Number(south)],
-    [Number(east), Number(south)],
-    [Number(east), Number(north)],
-    [Number(west), Number(north)],
-    [Number(west), Number(south)]
-  ]] };
-}
-
-/** Convert a drawn GeoJSON geometry to Map's viewport extent shape. */
-function boundsFromGeometry(geojson) {
-  const positions = [];
-  const visit = (node) => {
-    if (!node) return;
-    if (Array.isArray(node) && node.length >= 2 && node.every((value) => typeof value === 'number')) {
-      positions.push(node);
-      return;
-    }
-
-    if (Array.isArray(node)) {
-      for (const item of node) visit(item);
-      return;
-    }
-
-    if (typeof node === 'object') visit(node.coordinates || node.geometry || node.features || node.geometries);
-  };
-  visit(geojson);
-  if (!positions.length) return null;
-  return {
-    west: Math.min(...positions.map((point) => point[0])),
-    south: Math.min(...positions.map((point) => point[1])),
-    east: Math.max(...positions.map((point) => point[0])),
-    north: Math.max(...positions.map((point) => point[1]))
-  };
-}
-
-/** Compute west/south/east/north bounds from a WKT geometry's coordinate pairs, or null. */
-function wktBounds(wkt) {
-  const pairs = String(wkt || '').match(/-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?\s+-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?/g);
-  if (!pairs || !pairs.length) return null;
-  const points = pairs.map((pair) => pair.trim().split(/\s+/).map(Number));
-  return {
-    west: Math.min(...points.map((point) => point[0])),
-    south: Math.min(...points.map((point) => point[1])),
-    east: Math.max(...points.map((point) => point[0])),
-    north: Math.max(...points.map((point) => point[1]))
-  };
-}

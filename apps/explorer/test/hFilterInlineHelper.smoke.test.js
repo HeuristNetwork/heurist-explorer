@@ -116,3 +116,14 @@ test('enum terms include every level, indented', () => {
   assert.equal(sub.depth, 1);
   assert.equal(sub.insert, 'f:9:"Part time" ');
 });
+
+test('geo fields insert geo:<id>: and then offer the match mode', () => {
+  const dbdefs = {
+    ...DBDEFS,
+    fields: () => [{ id: 28, name: 'Location', type: 'geo' }]
+  };
+  const h = new HFilterInlineHelper({ vocabulary: VOCAB, dbdefs });
+  assert.equal(h._computeHints('t:12 loc', 8).items.find((i) => i.label === 'Location').insert, 'geo:28:');
+  const modes = h._computeHints('t:12 geo:28:', 12).items.map((i) => i.insert);
+  assert.deepEqual(modes, ['geo:28:intersects:', 'geo:28:within:']);
+});

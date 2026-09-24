@@ -194,3 +194,12 @@ test('f:<field name> keys resolve within the record type', () => {
   // unresolved name: shown as written, operator tokens still honoured
   assert.equal(tell([{ t: '48' }, { 'f:Date of event': '>=1900' }]), 'Find Events where Date of event is at least 1900');
 });
+
+test('geo match mode: explicit in the key, else WKT = within and extent = intersects', () => {
+  const extent = { west: -16, south: 32, east: 40, north: 72 };
+  assert.equal(say([{ geo: extent }]), 'Find records where Location intersects W -16, S 32, E 40, N 72');
+  assert.equal(say([{ 'geo:within': extent }]), 'Find records where Location is within W -16, S 32, E 40, N 72');
+  assert.equal(say([{ 'geo:28': '$X$' }]), 'Find records where field 28 is within ?');
+  assert.equal(say([{ 'geo:28:intersects': '$X$' }]), 'Find records where field 28 intersects ?');
+  assert.equal(say([{ 'geo:28:within': 'NULL' }]), 'Find records where field 28 has no value');
+});

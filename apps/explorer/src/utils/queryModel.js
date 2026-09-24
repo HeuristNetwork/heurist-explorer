@@ -21,6 +21,7 @@
  */
 
 import { canonicalPredicate, isLinkPredicate, isGroupPredicate } from './queryPredicates.js';
+import { extentToWkt, isExtent } from '#shared/utils';
 
 /**
  * @typedef {Object} FieldRow
@@ -33,6 +34,8 @@ import { canonicalPredicate, isLinkPredicate, isGroupPredicate } from './queryPr
  * @property {boolean} negate
  * @property {string[]} values
  * @property {'any'|'all'} valueConj
+ * @property {?{west:number,south:number,east:number,north:number}} [geoExtent]
+ *           Map extent of a geo row; composed as the extent object itself.
  */
 
 /**
@@ -153,12 +156,15 @@ function resolveOperator(row, vocab) {
 /** @returns {object|null} predicate */
 function compileFieldRow(row, vocab) {
   if (!row) return null;
-  const key = fieldKey(row);
+  const op = resolveOperator(row, vocab);
+  const key = fieldKey(row, op);
   if (!key) return null;
 
-  const op = resolveOperator(row, vocab);
-
-
+  // a map extent is sent as-is: {"geo":{"west":…,"south":…,"east":…,"north":…}}
+  if (row.kind === 'geo' && row.op !== 'op.count' && isExtent(row.geoExtent)) {
+    const { west, south, east, north } = row.geoExtent;
+    return wrap(key, { west: Number(west), south: Number(south), east: Number(east), north: Number(north) });
+  }
 
   if (op.whole) {
     return wrap(key, op.token);
@@ -222,11 +228,18 @@ function compileLinkRow(row, vocab) {
   return { [key]: sub };
 }
 
-/** Build a predicate key (`f`, `f:<id>[:<enumField>]`, or a header keyword) from a field row. */
-function fieldKey(row) {
+/**
+ * Build a predicate key (`f`, `f:<id>[:<enumField>]`, `geo[:<id>]:<mode>`, or a header
+ * keyword) from a field row. A geo key always carries its match mode
+ * (`within` | `intersects`), so a saved query never depends on the server default.
+ */
+function fieldKey(row, op = {}) {
   const d = row.dty;
+  // count of values applies to any field type, geo included
+  if (row.op === 'op.count' && /^\d+$/.test(String(d))) return `fc:${Number(d)}`;
   if (row.kind === 'geo' || d === 'geo') {
-    return /^\d+$/.test(String(d)) ? `geo:${Number(d)}` : 'geo';
+    const key = /^\d+$/.test(String(d)) ? `geo:${Number(d)}` : 'geo';
+    return op.geoMode ? `${key}:${op.geoMode}` : key;
   }
   if (d === 'exists') return 'exists';
   if (d === 'anyfield' || d === '' || d == null || d === 'f') return 'f';
@@ -303,7 +316,8 @@ function resolveLevel(list, dbdefs, scope) {
     // field name in the key -> id, within this level's record type
     let outKey = key;
     const name = suffix.parts[0];
-    if (name && !/^\d+$/.test(name) && rty != null
+    const isGeoMode = base === 'geo' && GEO_MODES.includes(String(name).toLowerCase());
+    if (name && !/^\d+$/.test(name) && !isGeoMode && rty != null
         && (base === 'f' || base === 'fc' || base === 'geo' || isLinkPredicate(base))) {
       const id = firstId(dbdefs.fieldIdByName?.(rty, name));
       if (id) outKey = [key.split(':')[0], id, ...suffix.parts.slice(1)].join(':');
@@ -406,7 +420,16 @@ function fieldRowFromPredicate(predicate) {
     return row;
   }
   if (base === 'geo') {
-    row.values = [String(value ?? '')];
+    // match mode from the key; without one the server treats WKT as `within`
+    // and an extent as `intersects`
+    const mode = geoModeFromSuffix(suffix) || (isExtent(value) ? 'intersects' : 'within');
+    row.op = `op.${mode}`;
+    if (isExtent(value)) {
+      row.geoExtent = { ...value };
+      row.values = [extentToWkt(value)];   // non-blank, so it is not taken for a parameter
+    } else {
+      row.values = [String(value ?? '')];
+    }
     return row;
   }
   // for an `f:<id>[:<enumField>]` key the enum sub-part is the SECOND suffix segment
@@ -567,6 +590,7 @@ function splitKey(rawKey) {
  */
 function fieldDtyFromKey(base, suffix) {
   if (base === 'geo') {
+    // geo[:<id>][:within|intersects]
     return suffix.parts.length && /^\d+$/.test(suffix.parts[0])
       ? Number(suffix.parts[0]) : 'geo';
   }
@@ -578,6 +602,18 @@ function fieldDtyFromKey(base, suffix) {
     return base;
   }
   return null;
+}
+
+/** Spatial match modes a geo key may carry: `geo[:<id>]:within|intersects`. */
+export const GEO_MODES = Object.freeze(['within', 'intersects']);
+
+/**
+ * @param {{parts: string[]}} suffix Split geo key suffix.
+ * @returns {'within'|'intersects'|null} The key's match mode, if any.
+ */
+function geoModeFromSuffix(suffix) {
+  const mode = String(suffix.parts.at(-1) ?? '').toLowerCase();
+  return GEO_MODES.includes(mode) ? mode : null;
 }
 
 /**

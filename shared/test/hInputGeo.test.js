@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { describeGeoValue, extentToWkt } from '../src/widgets/form/inputs/HInputGeo.js';
+import { describeGeoValue } from '../src/widgets/form/inputs/HInputGeo.js';
+import { extentToWkt } from '../src/utils/geoExtent.js';
 
 test('geographic values show concise coordinate-aware summaries', () => {
   assert.equal(describeGeoValue('POINT(149.1 -34.2)'), 'POINT (-34.2 149.1 lat long)');

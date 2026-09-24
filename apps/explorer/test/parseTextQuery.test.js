@@ -93,3 +93,8 @@ test('geo:<value> and geo:<id>:<value>', () => {
   assert.deepEqual(p('geo:28:$X$'), [{ 'geo:28': '$X$' }]);
   assert.deepEqual(p('geo:$X$'), [{ geo: '$X$' }]);
 });
+
+test('geo[:<id>][:within|intersects]:<value>', () => {
+  assert.deepEqual(p('geo:28:within:"POLYGON ((0 0, 1 0, 1 1, 0 0))"'), [{ 'geo:28:within': 'POLYGON ((0 0, 1 0, 1 1, 0 0))' }]);
+  assert.deepEqual(p('geo:Intersects:$X$'), [{ 'geo:intersects': '$X$' }]);
+});

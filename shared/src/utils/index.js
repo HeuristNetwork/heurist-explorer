@@ -1,6 +1,6 @@
 /**
  * @file index.js
- * @brief Barrel export for the shared record-collection utility.
+ * @brief Barrel export for the shared utilities (record collection, geographic extents).
  *
  * @project     Heurist academic knowledge management system
  * @package     heurist-client-core
@@ -14,3 +14,6 @@
  */
 
 export { HCollection, normalizeCollectionIds } from './HCollection.js';
+export {
+  isExtent, extentToWkt, extentToGeoJson, extentFromGeoJson, extentFromWkt, roundExtent
+} from './geoExtent.js';

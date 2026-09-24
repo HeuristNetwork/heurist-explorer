@@ -23,7 +23,7 @@
 
 import { HBaseWidget } from '#shared/widgets/HBaseWidget.js';
 import { createHInput } from '#shared/widgets/form/inputs/createHInput.js';
-import { extentToWkt } from '#shared/widgets/form/inputs/HInputGeo.js';
+import { extentToWkt, isExtent, roundExtent } from '#shared/utils';
 import { $HR } from '#shared/ui';
 import { emptyFieldRow } from '../../utils/queryModel.js';
 import { HEADER_KEYWORDS } from '../../utils/queryPredicates.js';
@@ -96,8 +96,14 @@ export class HFilterBuilderItem extends HBaseWidget {
     this._opSel = document.createElement('select');
     this._opSel.className = 'h-select h-fbitem-op';
     this._opSel.addEventListener('change', () => {
+      const wasCount = this.row.op === 'op.count';
       this.row.op = this._opSel.value;
-      if (operatorByKey(this.vocab, this.row.kind, this.row.op)?.input !== 'range') {
+      if (wasCount !== (this.row.op === 'op.count')) {
+        // a count and a field value are different things (a number vs a date,
+        // WKT, text …) - never carry one over as the other
+        this.row.values = [''];
+        this.row.geoExtent = null;
+      } else if (operatorByKey(this.vocab, this.row.kind, this.row.op)?.input !== 'range') {
         this.row.values = [this.row.values[0] ?? ''];
       }
       this._renderValues();
@@ -474,8 +480,12 @@ export class HFilterBuilderItem extends HBaseWidget {
       });
       host.addEventListener('h-input-change', () => {
         const value = widget.getValue();
-        this.row.geoExtent = value && typeof value === 'object' ? value : null;
-        set(typeof value === 'string' ? value : extentToWkt(value));
+        // an extent is kept (and composed) as {west,south,east,north}, rounded
+        // to a precision that suits its size; the WKT copy only marks the row as filled
+        const extent = isExtent(value) ? roundExtent(value) : null;
+        if (extent) widget.setValue(extent);
+        this.row.geoExtent = extent;
+        set(extent ? extentToWkt(extent) : String(value ?? ''));
       });
       this._valueWidgets.push(widget);
       return host;

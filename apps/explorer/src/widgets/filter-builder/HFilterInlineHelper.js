@@ -390,6 +390,17 @@ export class HFilterInlineHelper extends HBaseWidget {
       return { tokenStart, items: filterByLabel(items, valSoFar.toLowerCase()) };
     }
 
+    // geo[:<id>] -> offer the match mode; once chosen, the value is free WKT
+    if (base === 'geo') {
+      const m = /^(?:(\d+):?)?([a-z]*)$/i.exec(valSoFar);
+      if (!m) return null;
+      const prefix = m[1] ? `geo:${m[1]}:` : 'geo:';
+      const items = operatorsFor(this.vocab, 'geo').filter((op) => op.geoMode).map((op) => ({
+        label: str(this.vocab, this.lang, op.i18nKey), sub: $HR('operator'), insert: `${prefix}${op.geoMode}:`
+      }));
+      return { tokenStart, items: filterByLabel(items, m[2].toLowerCase()) };
+    }
+
     // resolve to a concrete field id + kind
     let dtyId = null;
     let keyPrefix = `${keyPart}:`;
@@ -457,7 +468,8 @@ export class HFilterInlineHelper extends HBaseWidget {
         const inner = targets.length ? `t:${targets.join(',')} ` : '';
         items.push({ label: f.name, sub: f.type, insert: `lt${f.id}(${inner})`, caretBack: 1 });
       } else {
-        items.push({ label: f.name, sub: f.type, insert: `f:${f.id}:` });
+        // geo fields use the spatial predicate; its hints then offer the match mode
+        items.push({ label: f.name, sub: f.type, insert: f.type === 'geo' ? `geo:${f.id}:` : `f:${f.id}:` });
       }
     }
     return items;

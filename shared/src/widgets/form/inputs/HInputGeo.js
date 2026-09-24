@@ -15,6 +15,7 @@
 
 import { HInput } from './HInput.js';
 import { $HR } from '../../../ui/i18n/index.js';
+import { isExtent } from '../../../utils/geoExtent.js';
 import './HInputGeo.css';
 
 const COORDINATES = ['west', 'south', 'east', 'north'];
@@ -110,19 +111,6 @@ export function describeGeoValue(value) {
     return `${kind === 'LINESTRING' ? 'LINE' : 'POLYGON'} ${count} ${$HR('vertices')}`;
   }
   return text;
-}
-
-/** Convert Map bounds to polygon WKT for a geographic field predicate. */
-export function extentToWkt(extent) {
-  if (!isExtent(extent)) return '';
-  const { west, south, east, north } = extent;
-  return `POLYGON((${west} ${south},${east} ${south},${east} ${north},${west} ${north},${west} ${south}))`;
-}
-
-/** @returns {boolean} Whether a value carries all four map bounds. */
-function isExtent(value) {
-  return value && typeof value === 'object'
-    && COORDINATES.every((key) => value[key] !== '' && value[key] != null);
 }
 
 /** Format a coordinate without insignificant trailing zeros. */

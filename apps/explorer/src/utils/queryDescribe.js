@@ -26,7 +26,8 @@ import {
   queryToArray,
   firstPredicateEntry,
   splitPredicateKey,
-  stripValueToken
+  stripValueToken,
+  GEO_MODES
 } from './queryModel.js';
 import {
   canonicalPredicate,
@@ -35,6 +36,7 @@ import {
   HEADER_KEYWORDS
 } from './queryPredicates.js';
 import { str, kindFor, operatorsFor } from './vocabHelpers.js';
+import { isExtent } from '#shared/utils';
 
 const HEADER_LABELS = {
   title: 'title', url: 'URL', notes: 'notes', added: 'date added',
@@ -169,11 +171,23 @@ function describePredicate(base, suffix, rawValue, ctx, scopeRty, { wrap = false
     return fill(phrase(ctx, 'header_cond'), { field: fieldText, op, value: val }).trim();
   }
 
-  // spatial  geo:<id|name>  -> that geo field; bare `geo` -> any location
+  // spatial  geo[:<id|name>][:within|intersects]  -> that geo field; no field -> any location
   if (base === 'geo') {
-    const { dtyId, label } = fieldRef(suffix.parts[0], scopeRty, ctx, 'Location');
-    const { op, val } = describeOpValue('geo', value, dtyId, ctx);
-    return fill(phrase(ctx, 'field_cond'), { field: label, op, value: val }).trim();
+    const parts = suffix.parts;
+    const last = String(parts.at(-1) ?? '').toLowerCase();
+    const mode = GEO_MODES.includes(last) ? last : null;
+    const { dtyId, label } = fieldRef(mode && parts.length === 1 ? '' : parts[0], scopeRty, ctx, 'Location');
+    const raw = String(isExtent(value) ? '' : (value ?? ''));
+    if (raw === 'NULL' || raw === '-NULL') {
+      const { op } = describeOpValue('geo', raw, dtyId, ctx);
+      return fill(phrase(ctx, 'field_cond'), { field: label, op, value: '' }).trim();
+    }
+    // without a mode the server treats WKT as `within` and an extent as `intersects`
+    const opKey = `op.${mode || (isExtent(value) ? 'intersects' : 'within')}`;
+    const val = isExtent(value)
+      ? `W ${value.west}, S ${value.south}, E ${value.east}, N ${value.north}`
+      : describeOpValue('geo', value, dtyId, ctx).val;
+    return fill(phrase(ctx, 'field_cond'), { field: label, op: str(ctx.vocab, ctx.lang, opKey), value: val }).trim();
   }
 
   // field value count  fc:<id|name>  -> "number of <field> values <op> <n>"

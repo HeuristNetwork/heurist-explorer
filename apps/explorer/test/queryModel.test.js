@@ -33,7 +33,8 @@ test('creator is/not is and geographic fields use their dedicated predicates', (
   assert.deepEqual(compose(model({ rows: [fieldRow({ dty: 'addedby', op: 'op.is_not', values: ['3'] })] })),
     [{ addedby: '-3' }]);
   const wkt = 'POLYGON((10 -5,20 -5,20 8,10 8,10 -5))';
-  const query = [{ t: '10' }, { 'geo:28': wkt }];
+  // a new geo row defaults to intersects; the mode is always written into the key
+  const query = [{ t: '10' }, { 'geo:28:intersects': wkt }];
   assert.deepEqual(compose(model({ rtyId: 10, rows: [fieldRow({ dty: 28, kind: 'geo', values: [wkt] })] })), query);
   assert.deepEqual(compose(parseQuery(query, VOCAB)), query);
 });
@@ -348,4 +349,38 @@ test('resolveQueryNames: record-type and field names -> ids, per level', async (
   );
   // unresolved names stay as written; ids pass through
   assert.deepEqual(resolveQueryNames([{ t: 'Nope,10' }, { 'f:Whatever': 'x' }], dbdefs), [{ t: 'Nope,10' }, { 'f:Whatever': 'x' }]);
+});
+
+test('geo extent rows compose as the extent object and parse back', async () => {
+  const { parseQuery: parse, composeQuery: compose } = await import('../src/utils/queryModel.js');
+  const vocab = JSON.parse(readFileSync(new URL('../src/utils/queryVocabulary.json', import.meta.url), 'utf8'));
+  const query = [{ t: '12' }, { 'geo:28:intersects': { west: -16, south: 32, east: 40, north: 72 } }];
+  const model = parse(query);
+  assert.deepEqual(model.rows[0].geoExtent, { west: -16, south: 32, east: 40, north: 72 });
+  assert.deepEqual(compose(model, vocab), query);
+});
+
+test('count of values on a geo field composes as fc:<id>', async () => {
+  const { composeQuery: compose, emptyFieldRow: row } = await import('../src/utils/queryModel.js');
+  const vocab = JSON.parse(readFileSync(new URL('../src/utils/queryVocabulary.json', import.meta.url), 'utf8'));
+  const model = { rtyId: '12', rows: [row({ dty: 28, kind: 'geo', op: 'op.count', values: ['>2'], selected: true,
+    geoExtent: { west: 0, south: 0, east: 1, north: 1 } })] };
+  assert.deepEqual(compose(model, vocab), [{ t: '12' }, { 'fc:28': '>2' }]);
+});
+
+test('geo match mode: parsed from the key (or the value form) and always composed explicitly', async () => {
+  const { parseQuery: parse, composeQuery: compose, resolveQueryNames } = await import('../src/utils/queryModel.js');
+  const vocab = JSON.parse(readFileSync(new URL('../src/utils/queryVocabulary.json', import.meta.url), 'utf8'));
+  const wkt = 'POLYGON((0 0,1 0,1 1,0 0))';
+  const extent = { west: -16, south: 32, east: 40, north: 72 };
+  const roundTrip = (q) => compose(parse(q), vocab);
+  // bare keys keep the server's meaning: WKT = within, extent = intersects
+  assert.deepEqual(roundTrip([{ t: '12' }, { 'geo:28': wkt }]), [{ t: '12' }, { 'geo:28:within': wkt }]);
+  assert.deepEqual(roundTrip([{ t: '12' }, { 'geo:28': extent }]), [{ t: '12' }, { 'geo:28:intersects': extent }]);
+  // explicit modes are kept, with or without a field id
+  assert.deepEqual(roundTrip([{ t: '12' }, { 'geo:28:within': extent }]), [{ t: '12' }, { 'geo:28:within': extent }]);
+  assert.deepEqual(roundTrip([{ t: '12' }, { 'geo:intersects': wkt }]), [{ t: '12' }, { 'geo:intersects': wkt }]);
+  // a mode is not a field name
+  const dbdefs = { rectypeIdByName: () => 12, fieldIdByName: () => { throw new Error('looked up'); } };
+  assert.deepEqual(resolveQueryNames([{ t: '12' }, { 'geo:within': wkt }], dbdefs), [{ t: '12' }, { 'geo:within': wkt }]);
 });
