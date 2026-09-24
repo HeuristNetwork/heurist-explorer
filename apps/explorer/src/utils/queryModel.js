@@ -20,7 +20,7 @@
  * @since       8.0
  */
 
-import { canonicalPredicate, isLinkPredicate } from './queryPredicates.js';
+import { canonicalPredicate, isLinkPredicate, isGroupPredicate } from './queryPredicates.js';
 
 /**
  * @typedef {Object} FieldRow
@@ -266,6 +266,54 @@ function stripLeadingDash(value) {
 // ---------------------------------------------------------------------- parse ---
 
 /**
+ * Replace record-type and field NAMES with ids so the query can be modelled:
+ *   [{"t":"Life event"},{"f:Date of event":"=2026-09-23"}]
+ *   -> [{"t":"48"},{"f:9":"=2026-09-23"}]
+ * Field names (in `f:`/`fc:`/`geo:` keys and link pointer keys `lt:<name>`) resolve
+ * within the record type of their own level; linked sub-queries use their own `t`.
+ * Names that do not resolve are left as written.
+ *
+ * @param {Array|string|object} input Query in any shape `parseQuery` accepts.
+ * @param {object|null} dbdefs `HDbDefs` (needs `rectypeIdByName`, `fieldIdByName`).
+ * @returns {Array<object>} Normalized predicate list.
+ */
+export function resolveQueryNames(input, dbdefs) {
+  const list = toArray(input);
+  return dbdefs ? resolveLevel(list, dbdefs, null) : list;
+}
+
+/** Resolve names in one predicate level; `scope` is the enclosing rectype for groups. */
+function resolveLevel(list, dbdefs, scope) {
+  const firstId = (hit) => Number(Array.isArray(hit) ? hit[0] : hit) || null;
+  const rtyOf = (value) => String(value ?? '').split(',').map((part) => {
+    const raw = part.trim();
+    return /^\d+$/.test(raw) ? raw : String(firstId(dbdefs.rectypeIdByName?.(raw)) || raw);
+  }).join(',');
+
+  const tEntry = list.find((p) => splitKey(Object.keys(p)[0]).base === 't');
+  const rtyText = tEntry ? rtyOf(firstScalar(Object.values(tEntry)[0])) : '';
+  const rty = /^\d+/.test(rtyText) ? Number(rtyText.split(',')[0]) : scope;
+
+  return list.map((predicate) => {
+    const [key, value] = Object.entries(predicate)[0];
+    const { base, suffix } = splitKey(key);
+    if (base === 't') return { [key]: rtyOf(firstScalar(value)) };
+    if (isGroupPredicate(base) && Array.isArray(value)) return { [key]: resolveLevel(value, dbdefs, rty) };
+
+    // field name in the key -> id, within this level's record type
+    let outKey = key;
+    const name = suffix.parts[0];
+    if (name && !/^\d+$/.test(name) && rty != null
+        && (base === 'f' || base === 'fc' || base === 'geo' || isLinkPredicate(base))) {
+      const id = firstId(dbdefs.fieldIdByName?.(rty, name));
+      if (id) outKey = [key.split(':')[0], id, ...suffix.parts.slice(1)].join(':');
+    }
+    if (isLinkPredicate(base) && Array.isArray(value)) return { [outKey]: resolveLevel(value, dbdefs, null) };
+    return { [outKey]: value };
+  });
+}
+
+/**
  * Heurist `q`-array (array | JSON string | `{q: […]}`) → editable model.
  * Best-effort for the flat + single-level-linked subset; anything it cannot
  * model is preserved verbatim in `model.unsupported`.
@@ -450,21 +498,40 @@ function linkedChildFromPredicate(predicate) {
  * @returns {Array<object>} Normalized predicate array; `[]` when unparseable.
  */
 function toArray(input) {
-  if (Array.isArray(input)) return input;
-  if (input && typeof input === 'object' && Array.isArray(input.q)) return input.q;
-  if (input && typeof input === 'object' && !Array.isArray(input)) return [input];
   if (typeof input === 'string') {
     const text = input.trim();
     if (!text) return [];
-    try {
-      const parsed = JSON.parse(text);
-      return Array.isArray(parsed) ? parsed : (Array.isArray(parsed?.q) ? parsed.q
-        : parsed && typeof parsed === 'object' ? [parsed] : []);
-    } catch {
-      return [];
+    try { input = JSON.parse(text); } catch { return []; }
+  }
+  if (input && typeof input === 'object' && !Array.isArray(input) && 'q' in input) input = input.q;
+  return normalizePredicates(input);
+}
+
+/**
+ * Canonical predicate list: one key per predicate object. Heurist also accepts
+ * several keys in one object (implicit AND) and a single object where a
+ * sub-query array is expected, so
+ *   `{"t":10,"lt:134":{"t":12,"title":"Baghdad"}}`
+ * becomes `[{"t":10},{"lt:134":[{"t":12},{"title":"Baghdad"}]}]`.
+ * Link (`lt`/`lf`/…) and group (`any`/`all`/`not`) values are normalized
+ * recursively; other values (e.g. a field's `{any:[…]}` value list) are kept.
+ *
+ * @param {*} input Predicate array or object.
+ * @returns {Array<object>}
+ */
+function normalizePredicates(input) {
+  const list = Array.isArray(input) ? input : (input && typeof input === 'object' ? [input] : []);
+  const out = [];
+  for (const predicate of list) {
+    if (!predicate || typeof predicate !== 'object' || Array.isArray(predicate)) continue;
+    for (const [key, value] of Object.entries(predicate)) {
+      const { base } = splitKey(key);
+      const nested = (isLinkPredicate(base) || isGroupPredicate(base))
+        && value && typeof value === 'object';
+      out.push({ [key]: nested ? normalizePredicates(value) : value });
     }
   }
-  return [];
+  return out;
 }
 
 /**

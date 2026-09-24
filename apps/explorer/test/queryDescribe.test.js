@@ -175,3 +175,22 @@ test('a linked sub-query may be a single predicate object', () => {
 test('enum "=" token reads "is exactly"', () => {
   assert.equal(say([{ 'f:237': '=10443' }]), 'Find records where Event type is exactly "Death"');
 });
+
+test('multi-key predicate objects are an implicit AND, at any level', () => {
+  assert.equal(say({ t: 10, 'f:237': 10443 }), 'Find Persons where Event type is "Death"');
+  assert.equal(
+    say({ t: 10, 'lt:134': { t: 12, 'f:26': 'Baghdad' } }),
+    'Find Persons linked to Places where Name contains "Baghdad"'
+  );
+});
+
+test('f:<field name> keys resolve within the record type', () => {
+  const named = {
+    ...DBDEFS,
+    fieldIdByName: (rty, name) => (Number(rty) === 48 && /^event type$/i.test(name) ? 237 : null)
+  };
+  const tell = (q) => queryDescribe(q, { vocabulary: VOCAB, dbdefs: named });
+  assert.equal(tell([{ t: '48' }, { 'f:Event type': '=10443' }]), 'Find Events where Event type is exactly "Death"');
+  // unresolved name: shown as written, operator tokens still honoured
+  assert.equal(tell([{ t: '48' }, { 'f:Date of event': '>=1900' }]), 'Find Events where Date of event is at least 1900');
+});

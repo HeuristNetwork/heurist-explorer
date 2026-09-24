@@ -104,3 +104,22 @@ test('enum fields offer "is exactly" and round-trip its = token', async () => {
   builder.setQuery([{ t: '48' }, { 'f:237': '=5381' }]);
   assert.deepEqual(builder.getQuery(), [{ t: '48' }, { 'f:237': '=5381' }]);
 });
+
+test('setQuery() accepts multi-key predicate objects and single-object sub-queries', () => {
+  const builder = new HFilterBuilder({ dbdefs: dbdefsStub, vocabulary: VOCAB });
+  builder.setQuery({ query: '{"t":10,"lt:134":{"t":12,"title":"Baghdad"}}', filterForm: null });
+  assert.deepEqual(builder.getQuery(), [{ t: '10' }, { 'lt:134': [{ t: '12' }, { title: 'Baghdad' }] }]);
+  builder.setQuery({ t: 10, 'f:20': 414 });
+  assert.deepEqual(builder.getQuery(), [{ t: '10' }, { 'f:20': '414' }]);
+});
+
+test('setQuery() resolves record-type and field names to ids', () => {
+  const dbdefs = {
+    ...dbdefsStub,
+    rectypeIdByName: (t) => (/^life event$/i.test(t) ? 48 : null),
+    fieldIdByName: (rty, name) => (Number(rty) === 48 && /^date of event$/i.test(name) ? 9 : null)
+  };
+  const builder = new HFilterBuilder({ dbdefs, vocabulary: VOCAB });
+  builder.setQuery('[{"t":"Life event"},{"f:Date of event":"=2026-09-23"}]');
+  assert.deepEqual(builder.getQuery(), [{ t: '48' }, { 'f:9': '=2026-09-23' }]);
+});

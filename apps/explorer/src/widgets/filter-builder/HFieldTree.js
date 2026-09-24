@@ -156,6 +156,17 @@ export class HFieldTree {
     this._body.replaceChildren();
 
     const rtyId = Number(this._rtyId) > 0 ? Number(this._rtyId) : null;
+    if (!rtyId && this._builderMode) {
+      // no record type: only what every record has - any field, title, metadata
+      this._body.append(this._headerLeaf({ dty: 'anyfield', label: 'Any field', fieldType: 'freetext' }));
+      if (this._includeHeaders) {
+        this._body.append(
+          this._headerLeaf({ dty: 'title', label: 'Title', fieldType: 'freetext' }),
+          ...HEADER_FIELDS.map((field) => this._headerLeaf(field))
+        );
+      }
+      return;
+    }
     if (!rtyId) {
       const hint = document.createElement('div');
       hint.className = 'h-fbtree-hint h-i18n';

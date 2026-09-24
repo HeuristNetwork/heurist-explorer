@@ -169,32 +169,34 @@ function describePredicate(base, suffix, rawValue, ctx, scopeRty, { wrap = false
     return fill(phrase(ctx, 'header_cond'), { field: fieldText, op, value: val }).trim();
   }
 
-  // spatial  geo:<id>  -> that geo field; bare `geo` -> any location
+  // spatial  geo:<id|name>  -> that geo field; bare `geo` -> any location
   if (base === 'geo') {
-    const dtyId = /^\d+$/.test(suffix.parts[0] ?? '') ? Number(suffix.parts[0]) : null;
-    const fieldText = dtyId == null ? 'Location' : fieldName(dtyId, scopeRty, ctx);
+    const { dtyId, label } = fieldRef(suffix.parts[0], scopeRty, ctx, 'Location');
     const { op, val } = describeOpValue('geo', value, dtyId, ctx);
-    return fill(phrase(ctx, 'field_cond'), { field: fieldText, op, value: val }).trim();
+    return fill(phrase(ctx, 'field_cond'), { field: label, op, value: val }).trim();
   }
 
-  // field value count  fc:<id>  -> "number of <field> values <op> <n>"
+  // field value count  fc:<id|name>  -> "number of <field> values <op> <n>"
   if (base === 'fc') {
-    const dtyId = /^\d+$/.test(suffix.parts[0] ?? '') ? Number(suffix.parts[0]) : null;
-    const fieldText = dtyId == null ? 'any field' : fieldName(dtyId, scopeRty, ctx);
+    const { label } = fieldRef(suffix.parts[0], scopeRty, ctx, 'any field');
     const { op, val } = describeOpValue('number', value, null, ctx);
     return fill(phrase(ctx, 'field_cond'), {
-      field: fill(phrase(ctx, 'field_count'), { field: fieldText }), op, value: val
+      field: fill(phrase(ctx, 'field_count'), { field: label }), op, value: val
     }).trim();
   }
 
-  // field predicate  f:<id>[:<enumField>]
+  // field predicate  f:<id|name>[:<enumField>]   e.g. {"f:Date of event":"=2026-09-23"}
   if (base === 'f') {
     const parts = suffix.parts;
-    const dtyId = parts.length && /^\d+$/.test(parts[0]) ? Number(parts[0]) : null;
-    const enumField = dtyId != null && parts.length > 1 ? parts[1] : null;
-    let fieldText = dtyId == null ? 'any field' : fieldName(dtyId, scopeRty, ctx);
+    const ref = fieldRef(parts[0], scopeRty, ctx, 'any field');
+    const dtyId = ref.dtyId;
+    const enumField = parts[0] && parts.length > 1 ? parts[1] : null;
+    let fieldText = ref.label;
     if (enumField) fieldText += ` (${enumField})`;
-    const { kind, known } = fieldKind(dtyId, scopeRty, ctx, enumField);
+    // a name that did not resolve has an unknown type - keep its operator tokens
+    const { kind, known } = dtyId == null && parts[0]
+      ? { kind: 'text', known: false }
+      : fieldKind(dtyId, scopeRty, ctx, enumField);
     const { op, val } = describeOpValue(kind, value, dtyId, ctx, { literalText: known });
     return fill(phrase(ctx, 'field_cond'), { field: fieldText, op, value: val }).trim();
   }
@@ -436,6 +438,26 @@ function fieldName(dtyId, scopeRty, ctx) {
     if (n) return n;
   }
   return `field ${dtyId}`;
+}
+
+/**
+ * Resolve the field part of a predicate key - a numeric id or a field name
+ * (`f:Date of event`), the name looked up within the scope record type.
+ *
+ * @param {string|undefined} ref Key part after the base (`12`, `Date of event`, or empty).
+ * @param {number|null} scopeRty Record type the field is scoped to, when known.
+ * @param {object} ctx Describe context (`dbdefs`, `vocab`, `lang`).
+ * @param {string} fallback Label when there is no field part (`any field`, `Location`).
+ * @returns {{dtyId:number|null, label:string}} `dtyId` is null for an unknown name,
+ *          whose label is then the name as written.
+ */
+function fieldRef(ref, scopeRty, ctx, fallback) {
+  const raw = String(ref ?? '').trim();
+  if (!raw) return { dtyId: null, label: fallback };
+  if (/^\d+$/.test(raw)) return { dtyId: Number(raw), label: fieldName(Number(raw), scopeRty, ctx) };
+  const hit = scopeRty != null ? ctx.dbdefs?.fieldIdByName?.(scopeRty, raw) : null;
+  const dtyId = Number(Array.isArray(hit) ? hit[0] : hit) || null;
+  return dtyId ? { dtyId, label: fieldName(dtyId, scopeRty, ctx) } : { dtyId: null, label: raw };
 }
 
 /**

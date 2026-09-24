@@ -329,3 +329,23 @@ test('compose -> parse -> compose is stable for common shapes', () => {
     assert.deepEqual(twice, once, `unstable: ${JSON.stringify(q)}`);
   }
 });
+
+test('resolveQueryNames: record-type and field names -> ids, per level', async () => {
+  const { resolveQueryNames } = await import('../src/utils/queryModel.js');
+  const dbdefs = {
+    rectypeIdByName: (t) => ({ 'life event': 48, person: 10, place: 12 }[String(t).toLowerCase()] || null),
+    fieldIdByName: (rty, name) => ({
+      '48:date of event': 9, '10:life events': 240, '48:place(s)': 134, '12:place name': 1
+    }[`${rty}:${String(name).toLowerCase()}`] || null)
+  };
+  assert.deepEqual(
+    resolveQueryNames([{ t: 'Life event' }, { 'f:Date of event': '=2026-09-23' }], dbdefs),
+    [{ t: '48' }, { 'f:9': '=2026-09-23' }]
+  );
+  assert.deepEqual(
+    resolveQueryNames({ t: 'Person', 'lt:Life events': { t: 'Life event', 'lt:Place(s)': { t: 'Place', 'f:Place name': 'Athens' } } }, dbdefs),
+    [{ t: '10' }, { 'lt:240': [{ t: '48' }, { 'lt:134': [{ t: '12' }, { 'f:1': 'Athens' }] }] }]
+  );
+  // unresolved names stay as written; ids pass through
+  assert.deepEqual(resolveQueryNames([{ t: 'Nope,10' }, { 'f:Whatever': 'x' }], dbdefs), [{ t: 'Nope,10' }, { 'f:Whatever': 'x' }]);
+});
