@@ -384,3 +384,45 @@ test('geo match mode: parsed from the key (or the value form) and always compose
   const dbdefs = { rectypeIdByName: () => 12, fieldIdByName: () => { throw new Error('looked up'); } };
   assert.deepEqual(resolveQueryNames([{ t: '12' }, { 'geo:within': wkt }], dbdefs), [{ t: '12' }, { 'geo:within': wkt }]);
 });
+
+test('relationships: related with r / relf round-trips; legacy related:<types> becomes r', () => {
+  const q = [{ t: '10' }, { related: [{ t: '10' }, { r: '3115,3116' }, { 'relf:1': 'Grand' }] }];
+  assert.deepEqual(compose(parseQuery(q, VOCAB)), q);
+  assert.deepEqual(compose(parseQuery([{ t: '10' }, { 'related:3115': [{ t: '10' }] }], VOCAB)),
+    [{ t: '10' }, { related: [{ t: '10' }, { r: '3115' }] }]);
+  // r:<id> is the short spelling of relf:<id>; rt:<relmarker> keeps its field id
+  assert.deepEqual(compose(parseQuery([{ t: '10' }, { related: { t: 10, 'r:1': 'x' } }], VOCAB)),
+    [{ t: '10' }, { related: [{ t: '10' }, { 'relf:1': 'x' }] }]);
+  assert.deepEqual(compose(parseQuery([{ t: '48' }, { 'rt:245': [{ t: '10' }, { r: '5419' }] }], VOCAB)),
+    [{ t: '48' }, { 'rt:245': [{ t: '10' }, { r: '5419' }] }]);
+});
+
+test('relationships: a related row never writes its relmarker id into the key', () => {
+  const row = { type: 'link', link: 'related', dty: 235, targetRty: 10, conjunction: 'all',
+    rows: [fieldRow({ dty: 'reltype', kind: 'term', rel: true, op: 'op.is', values: ['3115', '3116'], selected: true })] };
+  assert.deepEqual(compose(model({ rtyId: 10, rows: [row] })),
+    [{ t: '10' }, { related: [{ t: '10' }, { r: '3115,3116' }] }]);
+});
+
+test('relationships: tree picks of Relation type / a Relationship field become related rows', () => {
+  const via = { via: { link: 'related', dty: 235, targetRty: 10 } };
+  const typeRow = rowForPath([via, { dty: 'reltype', fieldType: 'relationtype', rel: true }], VOCAB);
+  assert.equal(typeRow.link, 'related');
+  assert.deepEqual({ ...typeRow.rows[0], values: undefined },
+    { ...typeRow.rows[0], dty: 'reltype', kind: 'term', rel: true, op: 'op.is', values: undefined });
+  const fieldPick = rowForPath([via, { dty: 10, fieldType: 'date', rel: true }], VOCAB);
+  Object.assign(fieldPick.rows[0], { op: 'op.on', values: ['1900'] });
+  assert.deepEqual(compose(model({ rtyId: 10, rows: [fieldPick] })),
+    [{ t: '10' }, { related: [{ t: '10' }, { 'relf:10': '=1900' }] }]);
+});
+
+test('relationships: relf:<name> resolves within the Relationship record type', async () => {
+  const { resolveQueryNames } = await import('../src/utils/queryModel.js');
+  const dbdefs = {
+    rectypeIdByName: () => 10,
+    dbconst: (name) => (name === 'RT_RELATION' ? 1 : null),
+    fieldIdByName: (rty, name) => (Number(rty) === 1 && /^start date\/time$/i.test(name) ? 10 : null)
+  };
+  assert.deepEqual(resolveQueryNames([{ t: '10' }, { related: [{ t: '10' }, { 'relf:Start date/time': '1900' }] }], dbdefs),
+    [{ t: '10' }, { related: [{ t: '10' }, { 'relf:10': '1900' }] }]);
+});

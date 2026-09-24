@@ -907,11 +907,45 @@ class LinkPanel {
   /** Refresh the read-only linked-query header from its selected path. */
   _syncHead() {
     if (!this._linkText) return;
-    this._linkText.textContent = this.row.link === 'lf' ? $HR('linked from') : $HR('linked to');
+    this._linkText.textContent = {
+      lf: $HR('linked from'), related: $HR('related to'), rt: $HR('related to'), rf: $HR('related from')
+    }[this.row.link] || $HR('linked to');
     this._targetText.textContent = this.row.targetRty
       ? this.dbdefs.rectypeName(this.row.targetRty) : $HR('any record type');
     this._pointerText.textContent = this.row.dty
       ? `${$HR('via')} ${this.dbdefs.fieldGlobal(this.row.dty)?.name || this.row.dty}` : '';
+  }
+
+  /** Whether this block is a relationship (`related` / `rt` / `rf`) sub-query. */
+  _isRelation() {
+    return ['related', 'rt', 'rf'].includes(this.row.link);
+  }
+
+  /**
+   * Vocabulary roots for the relation-type picker: the branch's relmarker vocabulary;
+   * when the relmarker is not known (a loaded query), the vocabularies of the scope
+   * record type's relmarkers that reach the target, else of every relmarker.
+   *
+   * @private
+   * @returns {number[]}
+   */
+  _relationVocabRoots() {
+    const own = Number(this.row.dty) > 0 ? this.dbdefs.vocabRoot?.(this.row.dty) : 0;
+    if (own) return [own];
+    const scope = Number(this.scopeRtyId) > 0 ? [Number(this.scopeRtyId)]
+      : (this.dbdefs.rectypes?.() || []).map((rt) => rt.id);
+    const target = Number(this.row.targetRty) > 0 ? Number(this.row.targetRty) : null;
+    const roots = new Set();
+    for (const rty of scope) {
+      for (const field of this.dbdefs.fields(rty) || []) {
+        if (field.type !== 'relmarker') continue;
+        const targets = this.dbdefs.fieldGlobal(field.id)?.targetTypes || [];
+        if (target && targets.length && !targets.map(Number).includes(target)) continue;
+        const root = this.dbdefs.vocabRoot?.(field.id);
+        if (root) roots.add(root);
+      }
+    }
+    return [...roots];
   }
 
   /**
@@ -932,6 +966,7 @@ class LinkPanel {
       lang: this.builder.lang,
       scopeRtyId: this.row.targetRty,
       selectExtent: this.builder.selectExtent,
+      relationVocabRoots: () => this._relationVocabRoots(),
       onRequestFieldPick: (it, anchor) => this._pickField(it, anchor),
       onChange: (evt) => {
         if (evt?.removed) {
@@ -956,10 +991,11 @@ class LinkPanel {
     const excludedFields = this.items.filter((entry) => entry instanceof HFilterBuilderItem && entry !== item)
       .map((entry) => entry.row)
       .filter((row) => row.selected || row.dty !== 'anyfield')
-      .map((row) => row.dty);
+      .map(fieldIdentity);
     this.builder.tree.open(anchor, {
       rtyId: this.row.targetRty,
       linkedContext: true,
+      relationContext: this._isRelation(),
       builderMode: true,
       excludedLinks: selectedLinkBranches(this.items),
       excludedFields,
@@ -968,7 +1004,7 @@ class LinkPanel {
       if (!path?.length) return;
       if (path.length === 1) {
         if (this.items.some((entry) => entry instanceof HFilterBuilderItem && entry !== item
-          && String(entry.row.dty) === String(path[0].dty)
+          && fieldIdentity(entry.row) === fieldIdentity(path[0])
           && (entry.row.selected || entry.row.dty !== 'anyfield'))) return;
         item.setField(path[0]);
         this._emit();
@@ -1060,7 +1096,7 @@ class LinkPanel {
   setRowModel(row) {
     this.row = {
       type: 'link',
-      link: row.link === 'lf' ? 'lf' : 'lt',
+      link: ['lf', 'related', 'rt', 'rf'].includes(row.link) ? row.link : 'lt',
       dty: row.dty ?? '',
       targetRty: row.targetRty ?? '',
       conjunction: row.conjunction === 'any' ? 'any' : 'all',
@@ -1142,6 +1178,14 @@ function labelled(text, control) {
   return wrap;
 }
 
+/**
+ * Identity of a field row / tree pick for duplicate checks: a Relationship-record
+ * field (`rel`) is distinct from an endpoint field with the same id.
+ */
+function fieldIdentity(row) {
+  return row?.rel && /^\d+$/.test(String(row.dty)) ? `rel:${row.dty}` : String(row?.dty);
+}
+
 /** Coerce a rectype select value to a number, or `''` when empty/absent. */
 function coerceRty(value) {
   return value === '' || value == null ? '' : Number(value);
@@ -1155,8 +1199,9 @@ export function rowForPath(path, vocabulary) {
     selected: true,
     kind: field.dty === 'exists' ? 'exists'
       : kindFor(vocabulary, field.fieldType || 'freetext'),
-    op: field.dty === 'exists' ? 'op.exists' : null
+    op: field.dty === 'exists' ? 'op.exists' : field.dty === 'reltype' ? 'op.is' : null
   });
+  if (field.rel) row.rel = true;   // condition on the Relationship record of a related branch
   for (let index = path.length - 2; index >= 0; index--) {
     const via = path[index].via;
     row = {

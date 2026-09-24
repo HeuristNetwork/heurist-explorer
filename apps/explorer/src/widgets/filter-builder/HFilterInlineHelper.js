@@ -462,7 +462,12 @@ export class HFilterInlineHelper extends HBaseWidget {
   _fieldItems(rtyId) {
     const items = [];
     for (const f of this.dbdefs.fields(rtyId) || []) {
-      if (f.type === 'resource') {
+      if (f.type === 'relmarker') {
+        // relationships are bidirectional: related(t:<targets> …), relation type via r:<id>
+        const targets = (this.dbdefs.field?.(rtyId, f.id) || this.dbdefs.fieldGlobal?.(f.id))?.targetTypes || [];
+        const inner = targets.length ? `t:${targets.join(',')} ` : '';
+        items.push({ label: f.name, sub: f.type, insert: `related(${inner})`, caretBack: 1 });
+      } else if (f.type === 'resource') {
         const def = this.dbdefs.field?.(rtyId, f.id) || this.dbdefs.fieldGlobal?.(f.id);
         const targets = def?.targetTypes || [];
         const inner = targets.length ? `t:${targets.join(',')} ` : '';

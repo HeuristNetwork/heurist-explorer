@@ -36,6 +36,9 @@ import { extentToWkt, isExtent } from '#shared/utils';
  * @property {'any'|'all'} valueConj
  * @property {?{west:number,south:number,east:number,north:number}} [geoExtent]
  *           Map extent of a geo row; composed as the extent object itself.
+ * @property {boolean} [rel]      Condition on the Relationship record inside a `related`
+ *           (`rt`/`rf`) sub-query: `dty:'reltype'` composes as `r` (relation types),
+ *           a numeric `dty` as `relf:<id>` (a Relationship-record field).
  */
 
 /**
@@ -43,6 +46,9 @@ import { extentToWkt, isExtent } from '#shared/utils';
  * @property {'link'} type
  * @property {'lt'|'lf'|'rt'|'rf'|'related'} link
  * @property {number|string} dty        Pointer field id (`''` = any pointer → bare `lt`/`lf`/…).
+ *           For `related` it is the relmarker field the branch came from - UI only (its
+ *           vocabulary feeds the relation-type picker); the key stays bare `related`,
+ *           whose suffix would mean relation types.
  * @property {number|string} targetRty  Linked rectype (`''` = any).
  * @property {'any'|'all'} conjunction   Between sub-rows.
  * @property {FieldRow[]} rows           One level only.
@@ -209,7 +215,8 @@ function compileFieldRow(row, vocab) {
 function compileLinkRow(row, vocab) {
   if (!row || !row.link) return null;
   let key = row.link;
-  if (row.dty !== '' && row.dty != null && Number(row.dty) > 0) {
+  // `related:<n>` would mean relation type n, so the relmarker id is not written
+  if (row.link !== 'related' && row.dty !== '' && row.dty != null && Number(row.dty) > 0) {
     key += ':' + Number(row.dty);
   }
 
@@ -235,6 +242,9 @@ function compileLinkRow(row, vocab) {
  */
 function fieldKey(row, op = {}) {
   const d = row.dty;
+  // Relationship-record conditions inside a related sub-query
+  if (d === 'reltype') return 'r';
+  if (row.rel && /^\d+$/.test(String(d))) return `relf:${Number(d)}`;
   // count of values applies to any field type, geo included
   if (row.op === 'op.count' && /^\d+$/.test(String(d))) return `fc:${Number(d)}`;
   if (row.kind === 'geo' || d === 'geo') {
@@ -317,9 +327,12 @@ function resolveLevel(list, dbdefs, scope) {
     let outKey = key;
     const name = suffix.parts[0];
     const isGeoMode = base === 'geo' && GEO_MODES.includes(String(name).toLowerCase());
-    if (name && !/^\d+$/.test(name) && !isGeoMode && rty != null
+    // relf:<name> / r:<name> name a Relationship-record field; `related:` lists relation types
+    const isRelField = base === 'relf' || base === 'r';
+    const fieldScope = isRelField ? (dbdefs.dbconst?.('RT_RELATION') ?? 1) : rty;
+    if (name && !/^\d+$/.test(name) && !isGeoMode && base !== 'related' && fieldScope != null
         && (base === 'f' || base === 'fc' || base === 'geo' || isLinkPredicate(base))) {
-      const id = firstId(dbdefs.fieldIdByName?.(rty, name));
+      const id = firstId(dbdefs.fieldIdByName?.(fieldScope, name));
       if (id) outKey = [key.split(':')[0], id, ...suffix.parts.slice(1)].join(':');
     }
     if (isLinkPredicate(base) && Array.isArray(value)) return { [outKey]: resolveLevel(value, dbdefs, null) };
@@ -474,14 +487,19 @@ function linkRowFromPredicate(base, suffix, value) {
   // `{"lt:134":{"ids":51}}` is shorthand for `{"lt:134":[{"ids":51}]}`
   if (value && typeof value === 'object' && !Array.isArray(value)) value = [value];
   if (!Array.isArray(value)) return null;
+  const numericSuffix = suffix.parts.length && /^\d+$/.test(suffix.parts[0]) ? Number(suffix.parts[0]) : '';
   const row = {
     type: 'link',
     link: base === 'related' ? 'related' : base,
-    dty: suffix.parts.length && /^\d+$/.test(suffix.parts[0]) ? Number(suffix.parts[0]) : '',
+    // for `related` the suffix lists relation types (kept as a relation-type row below)
+    dty: base === 'related' ? '' : numericSuffix,
     targetRty: '',
     conjunction: 'all',
     rows: []
   };
+  if (base === 'related' && suffix.raw) {
+    row.rows.push(relationTypeRow(suffix.raw));
+  }
   for (const inner of value) {
     const entry = firstEntry(inner);
     if (!entry) continue;
@@ -507,9 +525,31 @@ function linkedChildFromPredicate(predicate) {
   const entry = firstEntry(predicate);
   if (!entry) return null;
   const { base, suffix } = splitKey(entry[0]);
+  // Relationship-record conditions: `r` (relation types), `relf:<id>` / `r:<id>` (fields)
+  if (base === 'r' && !suffix.raw) return relationTypeRow(entry[1]);
+  if (base === 'relf' || base === 'r') {
+    if (!suffix.raw) return null;
+    const row = fieldRowFromPredicate({ [`f:${suffix.raw}`]: entry[1] });
+    if (row) row.rel = true;
+    return row;
+  }
   return isLinkPredicate(base)
     ? linkRowFromPredicate(base, suffix, entry[1])
     : fieldRowFromPredicate(predicate);
+}
+
+/**
+ * Relation-type condition row (`r`) from a comma list or array of term ids.
+ *
+ * @param {*} value Relation type id(s).
+ * @returns {FieldRow}
+ */
+function relationTypeRow(value) {
+  const ids = (Array.isArray(value) ? value : String(value ?? '').split(','))
+    .map((id) => String(id).trim()).filter(Boolean);
+  return emptyFieldRow({
+    dty: 'reltype', kind: 'term', rel: true, selected: true, op: 'op.is', values: ids.length ? ids : ['']
+  });
 }
 
 // --------------------------------------------------------------------- helpers ---

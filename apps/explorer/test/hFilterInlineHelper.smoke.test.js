@@ -127,3 +127,15 @@ test('geo fields insert geo:<id>: and then offer the match mode', () => {
   const modes = h._computeHints('t:12 geo:28:', 12).items.map((i) => i.insert);
   assert.deepEqual(modes, ['geo:28:intersects:', 'geo:28:within:']);
 });
+
+test('relmarker fields insert a bidirectional related( … ) sub-query', () => {
+  const dbdefs = {
+    ...DBDEFS,
+    fields: () => [{ id: 235, name: 'Related Person(s)', type: 'relmarker' }],
+    field: () => ({ id: 235, type: 'relmarker', targetTypes: [10] })
+  };
+  const item = new HFilterInlineHelper({ vocabulary: VOCAB, dbdefs })._computeHints('t:10 rel', 8)
+    .items.find((i) => i.label === 'Related Person(s)');
+  assert.equal(item.insert, 'related(t:10 )');
+  assert.equal(item.caretBack, 1);
+});

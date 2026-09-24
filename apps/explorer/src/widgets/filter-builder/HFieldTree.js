@@ -79,6 +79,9 @@ export class HFieldTree {
     this._excludedLinks = new Set((scope?.excludedLinks || []).map(String));
     this._excludedFields = new Set((scope?.excludedFields || []).map(String));
     this._showSort = scope?.showSort !== false;
+    // opened inside a `related` sub-query: offer the Relationship record's own
+    // conditions (relation type, relationship fields) above the endpoint's fields
+    this._relationContext = scope?.relationContext === true;
     this._onPick = onPick;
     this._openKeys.clear();
     this._openKeys.add(`rty:${this._rtyId}`);
@@ -156,15 +159,11 @@ export class HFieldTree {
     this._body.replaceChildren();
 
     const rtyId = Number(this._rtyId) > 0 ? Number(this._rtyId) : null;
+    if (this._relationContext && this._builderMode) {
+      this._body.append(...this._relationNodes([]));
+    }
     if (!rtyId && this._builderMode) {
-      // no record type: only what every record has - any field, title, metadata
-      this._body.append(this._headerLeaf({ dty: 'anyfield', label: 'Any field', fieldType: 'freetext' }));
-      if (this._includeHeaders) {
-        this._body.append(
-          this._headerLeaf({ dty: 'title', label: 'Title', fieldType: 'freetext' }),
-          ...HEADER_FIELDS.map((field) => this._headerLeaf(field))
-        );
-      }
+      this._body.append(...this._anyRecordNodes([]));
       return;
     }
     if (!rtyId) {
@@ -193,6 +192,37 @@ export class HFieldTree {
         }));
       }
     }
+  }
+
+  /** Leaves every record has, for a scope without a record type: any field, title, metadata. */
+  _anyRecordNodes(viaChain) {
+    const nodes = [this._headerLeaf({ dty: 'anyfield', label: 'Any field', fieldType: 'freetext' }, viaChain)];
+    if (this._includeHeaders) {
+      nodes.push(
+        this._headerLeaf({ dty: 'title', label: 'Title', fieldType: 'freetext' }, viaChain),
+        ...HEADER_FIELDS.map((field) => this._headerLeaf(field, viaChain))
+      );
+    }
+    return nodes;
+  }
+
+  /**
+   * Relationship-record conditions of a `related` branch: "Relation type" (the most
+   * used, so at the top) and a "Relationship Fields" folder with the Relationship
+   * record type's other fields (source, target and type are implied by the branch).
+   */
+  _relationNodes(viaChain) {
+    const relRty = this.dbdefs.dbconst?.('RT_RELATION') ?? 1;
+    const implied = new Set(['DT_PRIMARY_RESOURCE', 'DT_TARGET_RESOURCE', 'DT_RELATION_TYPE']
+      .map((name) => this.dbdefs.dbconst?.(name)).filter((id) => id != null).map(Number));
+    return [
+      this._headerLeaf({ dty: 'reltype', label: 'Relation type', fieldType: 'relationtype', rel: true }, viaChain),
+      this._sectionFolder($HR('Relationship Fields'), `${pathKey(viaChain)}:relfields`, () =>
+        (this.dbdefs.fields(relRty) || [])
+          .filter((field) => !implied.has(Number(field.id)) && field.type !== 'file')
+          .map((field) => this._headerLeaf(
+            { dty: field.id, label: field.name, fieldType: field.type, rel: true, translate: false }, viaChain)))
+    ];
   }
 
   /** Build the record's Title, metadata and field sections. */
@@ -260,10 +290,13 @@ export class HFieldTree {
       if (field.type === 'file' || (this._hideUnselectable && !selectable && !linkable)) continue;
       if (linkable && viaChain.length < this._maxDepth && !this._flatOnly) {
         const targets = this.dbdefs.fieldGlobal(field.id)?.targetTypes || [];
+        // in the Filter Builder a relmarker is a bidirectional `related` branch;
+        // field-path editors keep the plain link path
+        const link = this._builderMode && field.type === 'relmarker' ? 'related' : 'lt';
         out.push(this._linkFolder({
           label: field.name,
-          key: `${pathKey(viaChain)}:lt:${field.id}`,
-          via: { link: 'lt', dty: field.id, targetRty: targets.length === 1 ? targets[0] : '' },
+          key: `${pathKey(viaChain)}:${link}:${field.id}`,
+          via: { link, dty: field.id, targetRty: targets.length === 1 ? targets[0] : '' },
           childRtyId: targets.length === 1 ? targets[0] : null,
           targets,
           viaChain
@@ -279,17 +312,22 @@ export class HFieldTree {
     const row = document.createElement('button');
     row.type = 'button';
     row.className = 'h-menu-item h-fbtree-leaf h-fbtree-header-leaf';
-    row.textContent = $HR(item.label);
+    // field names come from the database; only built-in labels are translated
+    row.textContent = item.translate === false ? item.label : $HR(item.label);
     const type = document.createElement('span');
     type.className = 'h-fbtree-type';
     type.textContent = item.fieldType;
     row.append(type);
-    if (!viaChain.length && this._excludedFields.has(String(item.dty))) {
+    // a relationship field and an endpoint field may share an id
+    const excludedKey = item.rel ? `rel:${item.dty}` : String(item.dty);
+    if (!viaChain.length && this._excludedFields.has(excludedKey)) {
       row.disabled = true;
       row.classList.add('h-fbtree-leaf-disabled');
     }
     row.addEventListener('click', () => {
-      this._onPick?.([...viaChain, { dty: item.dty, fieldType: item.fieldType }]);
+      const pick = { dty: item.dty, fieldType: item.fieldType };
+      if (item.rel) pick.rel = true;
+      this._onPick?.([...viaChain, pick]);
       this.close();
     });
     return row;
@@ -353,8 +391,16 @@ export class HFieldTree {
     const kids = document.createElement('div');
     kids.className = 'h-fbtree-children';
 
+    // a relationship branch starts with the Relationship record's own conditions
+    const relation = via.link === 'related';
+    const rty = Number(childRtyId) > 0 ? Number(childRtyId) : null;
+    const ambiguous = !childRtyId && targets.length > 1;   // each target sub-folder lists them
+    if (relation && !ambiguous) {
+      kids.append(...this._relationNodes([...viaChain, { via: { ...via, targetRty: rty || '' } }]));
+    }
+
     // ambiguous target: let the user pick which linked rectype to descend into
-    if (!childRtyId && targets.length > 1) {
+    if (ambiguous) {
       for (const target of targets) {
         kids.append(this._linkFolder({
           label: this.dbdefs.rectypeName(target),
@@ -368,12 +414,14 @@ export class HFieldTree {
       return wrap;
     }
 
-    const rty = Number(childRtyId) > 0 ? Number(childRtyId) : null;
     if (rty) {
       const nextChain = [...viaChain, { via: { ...via, targetRty: rty } }];
       for (const node of this._scopeNodes(rty, nextChain, true)) {
         kids.append(node);
       }
+    } else if (relation) {
+      // relationship to any record type
+      kids.append(...this._anyRecordNodes([...viaChain, { via: { ...via, targetRty: '' } }]));
     }
     wrap.append(kids);
     return wrap;

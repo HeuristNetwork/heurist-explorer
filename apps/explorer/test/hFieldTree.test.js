@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 // Minimal DOM stand-in: HFieldTree._renderBody only builds buttons/divs.
 function fakeElement(tag) {
   return {
-    tag, children: [], textContent: '', className: '', disabled: false,
+    tag, children: [], textContent: '', className: '', disabled: false, dataset: {},
     classList: { add() {} },
     append(...nodes) {
       for (const node of nodes) {
@@ -44,4 +44,49 @@ test('no record type in the Filter Builder -> any field + title + metadata', () 
 
 test('no record type outside the Filter Builder still asks for one', () => {
   assert.deepEqual(labelsFor({ rtyId: '' }), ['Choose a record type first']);
+});
+
+// Relationship support: a relmarker is a `related` branch that starts with the
+// Relationship record's own conditions.
+const RELATION_DBDEFS = {
+  rectypeName: (id) => ({ 10: 'Person', 1: 'Record relationship' }[id] || ''),
+  dbconst: (name) => ({ RT_RELATION: 1, DT_PRIMARY_RESOURCE: 7, DT_TARGET_RESOURCE: 5, DT_RELATION_TYPE: 6 }[name] ?? null),
+  fields: (rty) => (rty === 1
+    ? [{ id: 7, name: 'Source record', type: 'resource' }, { id: 6, name: 'Relationship type', type: 'relationtype' },
+      { id: 5, name: 'Target record', type: 'resource' }, { id: 10, name: 'Start date/time', type: 'date' },
+      { id: 1, name: 'Title for relationship', type: 'freetext' }]
+    : [{ id: 1, name: 'Name', type: 'freetext' }, { id: 235, name: 'Related Person(s)', type: 'relmarker' }]),
+  fieldGlobal: (id) => (id === 235 ? { targetTypes: [10] } : {})
+};
+
+function relationTree() {
+  const tree = new HFieldTree({ dbdefs: RELATION_DBDEFS });
+  Object.assign(tree, {
+    _body: fakeElement('div'), _rtyId: 10, _builderMode: true, _includeHeaders: true,
+    _excludedFields: new Set(), _maxDepth: 3, _excludedLinks: new Set()
+  });
+  return tree;
+}
+// a leaf carries its label; a folder carries it on its head button
+const text = (node) => (node.textContent || node.children[0]?.textContent || '').replace(/^[▾▸]\s*/, '');
+
+test('a relmarker in the Filter Builder is a related branch: Relation type first, then Relationship Fields', () => {
+  const tree = relationTree();
+  const field = tree._fieldNodes(10, []).find((node) => text(node.children[0] || node) === 'Related Person(s)');
+  assert.ok(field, 'relmarker folder rendered');
+  const key = field.children[0].dataset.treeKey;
+  assert.match(key, /related:235$/);
+
+  tree._openKeys.add(key);
+  const open = tree._linkFolder({
+    label: 'Related Person(s)', key, via: { link: 'related', dty: 235, targetRty: 10 },
+    childRtyId: 10, targets: [10], viaChain: []
+  });
+  const kids = open.children[1].children.map(text);
+  assert.deepEqual(kids.slice(0, 3), ['Relation type', 'Relationship Fields', 'Person records']);
+
+  // the Relationship Fields folder omits source, target and type (implied by the branch)
+  tree._openKeys.add(tree._relationNodes([])[1].children[0].dataset.treeKey);
+  const [, relFields] = tree._relationNodes([]);
+  assert.deepEqual(relFields.children[1].children.map(text), ['Start date/time', 'Title for relationship']);
 });

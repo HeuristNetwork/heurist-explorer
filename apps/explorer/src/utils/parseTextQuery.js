@@ -116,6 +116,13 @@ function parseSequence(tokens, cursor, dbdefs) {
       out.push({ [geoKey]: unquote(m[3]) });
       continue;
     }
+    if (base === 'r' || base === 'relf') {
+      // relationship conditions: r:<type ids>, r:<id>:<value> / relf:<id>:<value> (field)
+      const m = /^(\d+):([\s\S]*)$/.exec(rest);
+      if (m) out.push({ [`relf:${m[1]}`]: applyNegate(unquote(m[2]), negate) });
+      else if (base === 'r' && rest) out.push({ r: rest });
+      continue;
+    }
     if (base === 'sortby') {
       if (rest) out.push({ sortby: rest });
       continue;

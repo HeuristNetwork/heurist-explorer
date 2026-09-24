@@ -98,3 +98,10 @@ test('geo[:<id>][:within|intersects]:<value>', () => {
   assert.deepEqual(p('geo:28:within:"POLYGON ((0 0, 1 0, 1 1, 0 0))"'), [{ 'geo:28:within': 'POLYGON ((0 0, 1 0, 1 1, 0 0))' }]);
   assert.deepEqual(p('geo:Intersects:$X$'), [{ 'geo:intersects': '$X$' }]);
 });
+
+test('related( … ) with r:<types> and relf:<id>:<value> / r:<id>:<value>', () => {
+  assert.deepEqual(p('t:10 related(t:10 r:3115,3116 relf:10:>=1900 r:1:"Grand son")'), [
+    { t: '10' },
+    { related: [{ t: '10' }, { r: '3115,3116' }, { 'relf:10': '>=1900' }, { 'relf:1': 'Grand son' }] }
+  ]);
+});

@@ -40,11 +40,14 @@ const MULTI_INPUTS = ['text', 'term', 'record', 'tag'];
 export class HFilterBuilderItem extends HBaseWidget {
   /**
    * @param {{dbdefs:object, vocabulary:object, lang:string,
-   *          onChange?:Function, onRequestFieldPick?:Function, scopeRtyId?:(number|string)}} deps
+   *          onChange?:Function, onRequestFieldPick?:Function, scopeRtyId?:(number|string),
+   *          relationVocabRoots?:(() => number[])}} deps
    */
   constructor({ dbdefs, vocabulary, lang = 'eng', onChange, onRequestFieldPick,
-    selectExtent, scopeRtyId = '' } = {}) {
+    selectExtent, scopeRtyId = '', relationVocabRoots = null } = {}) {
     super();
+    // vocabulary roots for a relation-type row of a related branch (set by LinkPanel)
+    this._relationVocabRoots = relationVocabRoots;
     this.dbdefs = dbdefs;
     this.vocab = vocabulary;
     this.lang = lang;
@@ -148,11 +151,12 @@ export class HFilterBuilderItem extends HBaseWidget {
   }
 
   /** Called by the field-tree pick. @param {{dty:(number|string), fieldType?:string}} pick */
-  setField({ dty, fieldType }) {
+  setField({ dty, fieldType, rel = false }) {
     this.row.dty = dty;
     this.row.selected = true;
-    const isHeader = typeof dty === 'string' && !/^\d+$/.test(dty) && dty !== 'anyfield';
-    this.row.kind = dty === 'exists' ? 'exists' : isHeader
+    this.row.rel = rel;
+    const isHeader = typeof dty === 'string' && !/^\d+$/.test(dty) && dty !== 'anyfield' && dty !== 'reltype';
+    this.row.kind = dty === 'exists' ? 'exists' : dty === 'reltype' ? 'term' : isHeader
       ? kindFor(this.vocab, null, HEADER_KEYWORDS[dty] ? dty : null)
       : kindFor(this.vocab, fieldType || this.dbdefs?.fieldType?.(null, dty) || 'freetext');
     if (this.row.kind !== 'enum') this.row.enumField = null;
@@ -194,7 +198,12 @@ export class HFilterBuilderItem extends HBaseWidget {
   _syncField() {
     const d = this.row.dty;
     let label;
-    if (d === 'anyfield' || d === '' || d == null) label = this.row.selected ? $HR('Any field') : $HR('Select field');
+    if (d === 'reltype') label = $HR('Relation type');
+    else if (this.row.rel && /^\d+$/.test(String(d))) {
+      const relRty = this.dbdefs?.dbconst?.('RT_RELATION') ?? 1;
+      label = `${$HR('Relationship')} · ${this.dbdefs?.fieldName?.(relRty, d) || `field ${d}`}`;
+    }
+    else if (d === 'anyfield' || d === '' || d == null) label = this.row.selected ? $HR('Any field') : $HR('Select field');
     else if (typeof d === 'string' && !/^\d+$/.test(d)) label = $HR(HEADER_LABELS[d] || d);
     else {
       label = this.dbdefs?.fieldName?.(this.scopeRtyId, d) || this.dbdefs?.fieldGlobal?.(d)?.name || `field ${d}`;
@@ -235,9 +244,28 @@ export class HFilterBuilderItem extends HBaseWidget {
     this._opSel.value = this.row.op || (list[0]?.i18nKey ?? '');
   }
 
+  /**
+   * Terms offered by a term/enum value picker: the field's vocabulary, or for the
+   * relation type of a related branch the relmarker's vocabulary. With several
+   * vocabularies (branch of unknown relmarker) each root is kept as a heading term.
+   *
+   * @private
+   * @returns {Array<{id:number,label:string,depth:number}>}
+   */
+  _termOptions() {
+    const roots = this.row.dty === 'reltype'
+      ? (this._relationVocabRoots?.() || [])
+      : [this.dbdefs?.vocabRoot?.(this.row.dty) || 0].filter(Boolean);
+    if (roots.length === 1) return flattenTerms(this.dbdefs.termTree(roots[0])).slice(1);
+    return roots.flatMap((root) => flattenTerms(this.dbdefs.termTree(root)));
+  }
+
   /** Operators available for the selected field. */
   _operators() {
-    const list = operatorsFor(this.vocab, this.row.kind);
+    // relation types are matched only positively (`r` has no negation)
+    if (this.row.dty === 'reltype') return [{ token: '', input: 'term', i18nKey: 'op.is' }];
+    const list = operatorsFor(this.vocab, this.row.kind)
+      .filter((op) => !this.row.rel || op.i18nKey !== 'op.count');   // relf has no count form
     if (['owner', 'access', 'addedby'].includes(this.row.dty)) {
       return [
         { token: '', input: 'text', i18nKey: 'op.is' },
@@ -405,8 +433,7 @@ export class HFilterBuilderItem extends HBaseWidget {
       const host = document.createElement('div');
       host.className = 'h-fbitem-value-widget';
       const type = { text: 'text', number: 'numeric', date: 'date', term: 'enum' }[input];
-      const root = input === 'term' ? this.dbdefs?.vocabRoot?.(this.row.dty) || 0 : 0;
-      const terms = root ? flattenTerms(this.dbdefs.termTree(root)).slice(1) : [];
+      const terms = input === 'term' ? this._termOptions() : [];
       const widget = createHInput(type, host, {
         suppressLabel: true,
         value: current,

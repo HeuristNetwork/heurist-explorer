@@ -159,8 +159,27 @@ function describePredicate(base, suffix, rawValue, ctx, scopeRty, { wrap = false
   if (isLinkPredicate(base) && Array.isArray(value)) {
     const phraseKey = LINK_PHRASE[base] || 'related';
     const subRty = subqueryRectype(value, ctx);
-    const subquery = describeGroup(value, ctx, { top: false, scopeRty: subRty });
+    // `related:<types>` is the legacy spelling of a relation-type condition
+    const withTypes = base === 'related' && suffix.raw ? [{ r: suffix.raw }, ...value] : value;
+    const subquery = describeGroup(withTypes, ctx, { top: false, scopeRty: subRty });
     return fill(phrase(ctx, phraseKey), { subquery: wrap ? `(${subquery})` : subquery });
+  }
+
+  // Relationship record of a related sub-query: `r` = relation types,
+  // `relf:<id>` / `r:<id>` = a field of the Relationship record
+  if (base === 'r' && !suffix.raw) {
+    const { val } = describeOpValue('term', String(value ?? ''), null, ctx, { literalText: true });
+    return fill(phrase(ctx, 'field_cond'), {
+      field: 'relation type', op: str(ctx.vocab, ctx.lang, 'op.is'), value: val
+    }).trim();
+  }
+  if ((base === 'relf' || base === 'r') && suffix.raw) {
+    const relRty = ctx.dbdefs?.dbconst?.('RT_RELATION') ?? 1;
+    const { dtyId, label } = fieldRef(suffix.parts[0], relRty, ctx, 'any field');
+    const { kind, known } = dtyId == null
+      ? { kind: 'text', known: false } : fieldKind(dtyId, relRty, ctx, null);
+    const { op, val } = describeOpValue(kind, value, dtyId, ctx, { literalText: known });
+    return fill(phrase(ctx, 'field_cond'), { field: `relationship ${label}`, op, value: val }).trim();
   }
 
   // header keyword (title, added, owner, …)

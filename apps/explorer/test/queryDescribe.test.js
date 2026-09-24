@@ -203,3 +203,20 @@ test('geo match mode: explicit in the key, else WKT = within and extent = inters
   assert.equal(say([{ 'geo:28:intersects': '$X$' }]), 'Find records where field 28 intersects ?');
   assert.equal(say([{ 'geo:28:within': 'NULL' }]), 'Find records where field 28 has no value');
 });
+
+test('relationships: relation type and Relationship-record fields are described', () => {
+  const rel = {
+    ...DBDEFS,
+    dbconst: (name) => (name === 'RT_RELATION' ? 1 : null),
+    fieldName: (rty, dty) => (Number(rty) === 1 && Number(dty) === 10 ? 'Start date/time' : DBDEFS.fieldName(rty, dty)),
+    fieldType: (_rty, dty) => (Number(dty) === 10 ? 'date' : fieldType(dty)),
+    termLabel: (id) => ({ 3115: 'IsGrandParentOf', 3116: 'IsGrandChildOf' }[id] || String(id))
+  };
+  const tell = (q) => queryDescribe(q, { vocabulary: VOCAB, dbdefs: rel });
+  assert.equal(tell([{ t: '10' }, { related: [{ t: '10' }, { r: '3115,3116' }, { 'relf:10': '>=1900' }] }]),
+    'Find Persons related to Persons where relation type is "IsGrandParentOf" or "IsGrandChildOf"'
+      + ' and relationship Start date/time is on or after 1900');
+  // legacy related:<types> reads the same as r
+  assert.equal(tell([{ t: '10' }, { 'related:3115': [{ t: '10' }] }]),
+    'Find Persons related to Persons where relation type is "IsGrandParentOf"');
+});
