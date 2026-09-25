@@ -85,8 +85,7 @@ export class ExplorerControlPanel {
   }
 
   /**
-   * Toggle the current Data module's Query Source editor and actions. If its
-   * runtime Filter Form is open, return to the visible editor.
+   * Show or hide the authoring pane (Query Source editor or runtime Filter Form).
    *
    * @param {HTMLElement|null} [anchor] Element to anchor the flyout to; defaults to the rail's Search button.
    * @returns {Promise<boolean|undefined>} Whether the editor is visible after toggling.

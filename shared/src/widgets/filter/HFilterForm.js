@@ -125,7 +125,7 @@ export class HFilterForm extends HBaseWidget {
       // submit-type control in the form for the browser to invoke.
       const filter = button('Filter', 'h-btn h-btn-primary');
       filter.type = 'button';
-      this.listen(filter, 'click', () => scheduleSubmit());
+      this.listen(filter, 'click', () => scheduleSubmit('button'));
       actions.append(filter);
     }
     const reset = button('Reset', 'h-btn');
@@ -145,22 +145,24 @@ export class HFilterForm extends HBaseWidget {
       actions.append(close);
     }
     form.append(actions);
-    const submit = () => {
+    // trigger: 'input' (a committed value: blur or Enter) or 'button' (explicit Filter click)
+    const submit = (trigger) => {
       const errors = this.validate();
       if (errors.length) {
         this._showErrors(errors);
-        return;
+        return false;
       }
 
       this._showErrors([]);
       const values = this.getValues();
       if (layout.settings?.skipEmptySearch && Object.values(values).every(isBlankValue)) {
         this._showErrors(['Enter at least one value to search']);
-        return;
+        return false;
       }
       const query = this.options.composeQuery?.(this.definition, values)
         ?? resolveQueryParameters(this.query, values);
-      this.options.onSubmit?.({ values, query, definition: this.definition });
+      this.options.onSubmit?.({ values, query, definition: this.definition, trigger });
+      return true;
     };
     // Clicking Filter while a field still has focus blurs that field first,
     // committing an edited value via h-input-change, and the click's own
@@ -171,22 +173,26 @@ export class HFilterForm extends HBaseWidget {
     // trigger restarts the timer, so anything landing within the window
     // (blur immediately followed by its own click) collapses into one call.
     this._submitTimer = null;
-    const scheduleSubmit = () => {
-      if(this._submitTimer!==null){
-          return; // already scheduled, don't schedule again
+    let lastSubmitOk = false;
+    const scheduleSubmit = (trigger) => {
+      if (this._submitTimer === null) {
+        lastSubmitOk = submit(trigger);
+        this._submitTimer = setTimeout(() => {
+          this._submitTimer = null;
+        }, 500);
       }
-      submit();
-      clearTimeout(this._submitTimer);
-      this._submitTimer = setTimeout(() => {
-        this._submitTimer = null;
-      }, 500);
+      // An explicit Filter click is reported even when the debounce swallowed
+      // it (blur-commit + click): hosts may hide the form only on this event.
+      if (trigger === 'button' && lastSubmitOk) {
+        this.container?.dispatchEvent(new CustomEvent('h-filter-form-apply', { bubbles: true }));
+      }
     };
     // Defensive only: no control in this form has type="submit", so the
     // browser's native implicit form submission (Enter with no field
     // committing a change of its own) shouldn't reach this - but if it ever
     // does, still block navigation without submitting a second time.
     this.listen(form, 'submit', (event) => event.preventDefault());
-    this.listen(form, 'h-input-change', () => scheduleSubmit());
+    this.listen(form, 'h-input-change', () => scheduleSubmit('input'));
     this.listen(form, 'h-input-error', (event) => {
       this._showErrors([event.detail?.error?.message || 'Input error']);
     });

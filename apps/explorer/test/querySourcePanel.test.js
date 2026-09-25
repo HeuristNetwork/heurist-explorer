@@ -28,7 +28,7 @@ test('setDataSource preserves the query while the editor input is synchronized',
   assert.equal(editor._query.value, JSON.stringify(source.request.q));
 });
 
-test('Clear detaches a persisted Query Source but preserves its query', () => {
+test('Clear detaches a persisted Query Source and clears its query', () => {
   const editor = new QuerySourceEditor({ dbdefs: {} });
   editor.setDataSource({
     reference: { type: 'source', id: 44, key: 'source:44' },
@@ -41,9 +41,31 @@ test('Clear detaches a persisted Query Source but preserves its query', () => {
   editor.clearSettings();
 
   assert.deepEqual(editor.draft.reference, { type: 'query', id: null, key: 'query:draft' });
-  assert.equal(editor.draft.request.q, 't:10');
+  assert.equal(editor.draft.request.q, '');
   assert.equal(editor.draft.title, '');
   assert.equal(editor.draft.presentation.data, null);
   assert.equal(editor.draft.presentation.filterForm, null);
   assert.equal(editor.draft.meta, undefined);
+});
+
+test('Clear turns a parameterized query into an empty, editable one', () => {
+  const editor = new QuerySourceEditor({ dbdefs: {} });
+  editor.setDataSource({
+    reference: { type: 'source', id: 45, key: 'source:45' },
+    request: { q: [{ t: '10' }, { 'f:1': '$X1$' }] },
+    presentation: { filterForm: { groups: [] } }
+  });
+  editor.clearSettings();
+  assert.equal(editor.draft.request.q, '');
+  assert.equal(editor.draft.presentation.filterForm, null);
+});
+
+test('the editor is always expanded unless created collapsible', () => {
+  const fixed = new QuerySourceEditor({ dbdefs: {} });
+  fixed.setExpanded(false);
+  assert.equal(fixed.isExpanded(), true);
+  const collapsible = new QuerySourceEditor({ dbdefs: {}, collapsible: true });
+  assert.equal(collapsible.isExpanded(), false);
+  collapsible.setExpanded(true);
+  assert.equal(collapsible.isExpanded(), true);
 });

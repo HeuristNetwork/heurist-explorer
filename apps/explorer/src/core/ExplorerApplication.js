@@ -37,6 +37,8 @@ import { RecordTypeProvider } from '#shared/data/RecordTypeProvider.js';
 import queryVocabulary from '../utils/queryVocabulary.json';
 import { HFilterBuilder } from '../widgets/filter-builder/HFilterBuilder.js';
 import { QuerySourcePanel } from '../widgets/query-source/QuerySourcePanel.js';
+import { ExplorerAuthoringDock } from '../ui/ExplorerAuthoringDock.js';
+import { ExplorerCompactMode } from '../ui/ExplorerCompactMode.js';
 import './ExplorerApplication.css';
 
 /** Explorer's top-level application controller: modules, layout, datasource, and synchronization. */
@@ -72,7 +74,11 @@ export class ExplorerApplication {
     this.querySources = null;
     this._moduleCounter = 0;
     this.layoutDefinitions = [];
-    this.querySourcePanels = new Map();
+    // the single Query Source editor / Filter Form, in the authoring dock's west pane
+    this.querySourcePanel = null;
+    this.authoringDock = null;
+    // narrow-screen presentation; removable, see ExplorerCompactMode
+    this.compactMode = null;
     this._filterExtentDialog = null;
     this._filterExtentModule = null;
     // Each embedded module (map, timeline, ...) owns its own persisted user
@@ -137,13 +143,17 @@ export class ExplorerApplication {
     }
 
     this.uiConfigValue = this.uiConfig.load();
-    this.layout = new LayoutManager(workspace).bindModules(this.modules);
+    // outer layout: authoring pane (west) beside the presentation-module layout (center)
+    this.authoringDock = new ExplorerAuthoringDock(workspace, { database: this.config.database });
+    this.layout = new LayoutManager(this.authoringDock.modulesElement).bindModules(this.modules);
     this.controlPanel = new ExplorerControlPanel({
       application: this,
       initiallyCollapsed: this.config.settings?.controlPanel?.initiallyCollapsed === true
     });
     await this.controlPanel.mount(this.container);
+    await this._createQuerySourcePanel();
     await this.applyLayout(this.config.settings.layout || defaultLayout());
+    this.compactMode = new ExplorerCompactMode({ application: this }).start();
     if (this.config.state.dataSource) await this.activateDataSource(this.config.state.dataSource);
     if (this.config.state.selection) await this.sync.setSelection(this.config.state.selection);
     return this;
@@ -185,8 +195,7 @@ export class ExplorerApplication {
    * @throws {Error} When `direct` mode is requested for a module type with no entry in `DIRECT_MOUNTERS`.
    */
   async _createModule(definition) {
-    const slot = this.layout.createSlot(definition.id, definition.type);
-    const moduleContainer = await this._prepareModuleContainer(definition, slot);
+    const moduleContainer = this.layout.createSlot(definition.id, definition.type);
     const mode = definition.mode || this.config.moduleModes?.[definition.type] || 'iframe';
     const mountModule = DIRECT_MOUNTERS[definition.type];
     if (mode === 'direct' && !mountModule) {
@@ -239,23 +248,22 @@ export class ExplorerApplication {
     return module;
   }
 
-  /** Prepare a generic Explorer module shell. The current Data presentation also receives
-   * the Query Source authoring panel; the same shell can host it for other modules later. */
-  async _prepareModuleContainer(definition, slot) {
-    const attachAuthoring = definition.authoring === true
-      || definition.context?.querySourceAuthoring === true
-      || (definition.type === 'data' && definition.context?.role === 'current');
-    if (!attachAuthoring) return slot;
-    const shell = document.createElement('div');
-    shell.className = 'h-explorer-module-shell';
-    const authoring = document.createElement('div');
-    authoring.className = 'h-explorer-authoring';
-    const content = document.createElement('div');
-    content.className = 'h-explorer-module-content';
-    shell.append(authoring, content);
-    slot.replaceChildren(shell);
-
-    const dbdefs = await this._ensureDbDefs();
+  /**
+   * Create the single Query Source panel (editor or runtime Filter Form) in the
+   * authoring dock. Without database definitions the pane is hidden.
+   *
+   * @private
+   * @returns {Promise<void>}
+   */
+  async _createQuerySourcePanel() {
+    let dbdefs;
+    try { dbdefs = await this._ensureDbDefs(); }
+    catch (error) {
+      this.authoringDock.hide();
+      this.syncSearchButton();
+      HMsg.showMsgErr?.($HR('Unable to load database structure') + ': ' + (error?.message || error));
+      return;
+    }
     const panel = new QuerySourcePanel({
       dbdefs,
       lang: this.config.language,
@@ -274,15 +282,18 @@ export class ExplorerApplication {
       onWorkspaceRemove: (source) => this.removeDataSourceFromWorkspace(source),
       selectExtent: (current) => this.selectFilterExtent(current),
       isInWorkspace: (source) => this.isDataSourceInWorkspace(source),
-      onClearResults: () => this.clearCurrentResult()
+      onClearResults: () => this.clearCurrentResult(),
+      onShow: () => this.showQuerySourcePanel(),
+      onModeChange: (mode) => this.authoringDock?.setMode(mode)
     });
-    panel.attach(authoring).render();
-    this.querySourcePanels.set(String(definition.id), panel);
-    this.controlPanel?.leftRail?.setActive('search', true);
-    if (this.sync.dataSource) panel.setDataSource(this.sync.dataSource);
-    return content;
+    // own host element: the panel replaces its container's class, and the pane
+    // must keep `h-explorer-authoring` (its scroll container)
+    const host = document.createElement('div');
+    this.authoringDock.paneElement.append(host);
+    panel.attach(host).render();
+    this.querySourcePanel = panel;
+    this.syncSearchButton();
   }
-
 
   /** Apply the Query Source draft to synchronized presentations without persisting it. */
   async _applyQuerySourceDraft(source) {
@@ -351,24 +362,32 @@ export class ExplorerApplication {
   }
 
   _currentQuerySourcePanel() {
-    const activeId = this.layout?.activeModuleId;
-    if (activeId && this.querySourcePanels.has(String(activeId))) {
-      return this.querySourcePanels.get(String(activeId));
-    }
-    const module = this.layout?.findCurrentResultDataModule?.();
-    return module ? this.querySourcePanels.get(String(module.id)) || null : null;
+    return this.querySourcePanel;
   }
 
-  /** Toggle the current data module's Query Source editor/actions. */
+  /** Show or hide the authoring pane (Query Source editor / Filter Form). @returns {Promise<boolean>} New visibility. */
   async toggleQuerySourceEditor() {
-    const panel = this._currentQuerySourcePanel() || [...this.querySourcePanels.values()][0];
-    return panel ? panel.toggleEditor() : false;
+    if (!this.querySourcePanel || !this.authoringDock) return false;
+    const visible = this.authoringDock.toggle();
+    this.syncSearchButton();
+    return visible;
   }
 
-  /** Whether the current data module's Query Source panel is visible. */
+  /** Whether the authoring pane is visible. */
   isQuerySourceEditorVisible() {
-    const panel = this._currentQuerySourcePanel() || [...this.querySourcePanels.values()][0];
-    return panel?.isVisible?.() === true;
+    return Boolean(this.querySourcePanel) && this.authoringDock?.isVisible() === true;
+  }
+
+  /** Reveal the authoring pane, e.g. when a filter or query source is picked from a list. */
+  showQuerySourcePanel() {
+    if (!this.querySourcePanel || !this.authoringDock) return;
+    this.authoringDock.show();
+    this.syncSearchButton();
+  }
+
+  /** Mirror the authoring pane's visibility on the toolbar Search button. */
+  syncSearchButton() {
+    this.controlPanel?.leftRail?.setActive('search', this.isQuerySourceEditorVisible());
   }
 
   /** Clear the reusable current result while retaining the editor's draft/source. */
@@ -448,12 +467,10 @@ export class ExplorerApplication {
     }
 
     const requestedSource = normalizeDataSource(source);
-    if (hasQueryParameters(requestedSource.request?.q)) {
-      const panel = panelBefore || [...this.querySourcePanels.values()][0];
-      if (panel) {
-        panel.setDataSource(requestedSource);
-        return null;
-      }
+    if (hasQueryParameters(requestedSource.request?.q) && panelBefore) {
+      // opens the Filter Form, which reveals the pane
+      panelBefore.setDataSource(requestedSource);
+      return null;
     }
 
     const dataSource = await this._withResultCount(requestedSource);
@@ -477,8 +494,9 @@ export class ExplorerApplication {
     this.controlPanel?.refreshNavigationLists?.();
 
     this.layout.activateModule(dataModule.id);
-    if (syncOptions.keepEditorDraft !== true) {
-      for (const panel of this.querySourcePanels.values()) panel.setDataSource(dataSource);
+    if (syncOptions.keepEditorDraft !== true && this.querySourcePanel) {
+      this.querySourcePanel.setDataSource(dataSource);
+      this.showQuerySourcePanel();
     }
     this.controlPanel?.refreshActiveTool?.();
     return dataModule;
@@ -918,6 +936,60 @@ export class ExplorerApplication {
   }
 
   /**
+   * Show a record in Explorer's Record view: make that module visible (creating it
+   * when needed; in compact mode also scrolled to) and select the record, which
+   * every synchronized module follows. Used for a module's "view record" request.
+   * Without a configured Record view the request goes to the outer host bridge.
+   *
+   * @param {number|string} id Record id.
+   * @returns {Promise<*>} The Record view module, or the bridge's result.
+   */
+  async viewRecord(id) {
+    const recordId = Number(id);
+    if (!Number.isInteger(recordId) || recordId < 1) return null;
+    const module = await this.showPresentation('recordview');
+    if (!module) return this.config.hostBridge?.viewRecord?.(recordId);
+    await this.sync.setSelection([recordId]);
+    return module;
+  }
+
+  /**
+   * Make a presentation module visible in its configured region, creating it when
+   * needed. Unlike togglePresentation() it never hides the module.
+   *
+   * @param {'data'|'map'|'graph'|'timeline'|'recordview'} type Module type.
+   * @returns {Promise<object|null>} The module, or null when its type has no region.
+   */
+  async showPresentation(type) {
+    if (this.layout?.isToolMode()) {
+      this.layout.exitToolMode();
+      this.controlPanel?.clearToolSelection?.();
+    }
+    const region = this.uiConfigValue.regions[type];
+    if (!region) return null;
+
+    let module = [...this.modules.values()].find((item) => item.type === type);
+    if (!module) {
+      module = await this._createPresentation(type, region);
+    } else if (!(this.layout.cardinal.getState()[region]?.visible && this.layout.getModuleForRegion(region) === module.id)) {
+      this.layout.assignModule(module.id, region);
+      this.layout.showModule(module.id);
+      await module.resize();
+    }
+    this.controlPanel?.refreshPresentationState?.();
+    this.compactMode?.scrollToPresentation(type);
+    return module || null;
+  }
+
+  /** Add a presentation module of this type to the layout, in the given region. */
+  async _createPresentation(type, region) {
+    const definition = { id: type, type, region };
+    this.layoutDefinitions.push(definition);
+    this.layout.addDefinition(definition);
+    return this._createModule(definition);
+  }
+
+  /**
    * Toggles a presentation module in its default cardinal region.
    * Map and Graph share the center and behave as a radio pair.
    *
@@ -936,16 +1008,17 @@ export class ExplorerApplication {
       }
     }
 
+    // compact (stacked) layout: a visible module off screen is scrolled to, not hidden
+    const compact = this.compactMode?.togglePresentation(type);
+    if (compact != null) return compact;
+
     const region = this.uiConfigValue.regions[type];
     if (!region) return false;
 
     let module = [...this.modules.values()].find((item) => item.type === type);
 
     if (!module) {
-      const definition = { id: type, type, region };
-      this.layoutDefinitions.push(definition);
-      this.layout.addDefinition(definition);
-      module = await this._createModule(definition);
+      module = await this._createPresentation(type, region);
       this.controlPanel?.refreshPresentationState?.();
       return Boolean(module);
     }
@@ -1000,6 +1073,7 @@ export class ExplorerApplication {
     }
 
     this.controlPanel?.applyToolbarConfig(saved.toolbar);
+    this.compactMode?.refresh();
     this.controlPanel?.refreshPresentationState?.();
     return saved;
   }
@@ -1076,7 +1150,8 @@ export class ExplorerApplication {
     const bridge = this.config.hostBridge || {};
     return {
       editRecord: (id) => bridge.editRecord?.(id),
-      viewRecord: (id) => bridge.viewRecord?.(id),
+      // shown in Explorer's own Record view; see viewRecord()
+      viewRecord: (id) => this.viewRecord(id),
       addRecord: (rt) => bridge.addRecord?.(rt),
       editSymbology: (value, options) => bridge.editSymbology?.(value, options),
       editExtent: (value, options) => bridge.editExtent?.(value, options),
@@ -1351,12 +1426,16 @@ export class ExplorerApplication {
     this._filterExtentDialog?.remove?.();
     this._filterExtentModule = null;
     this._filterExtentDialog = null;
+    this.compactMode?.destroy();
+    this.compactMode = null;
     await Promise.all([...this.modules.values()].map((module) => module.destroy()));
     this.modules.clear();
     this.sync.destroy();
-    for (const panel of this.querySourcePanels.values()) void panel.destroy?.();
-    this.querySourcePanels.clear();
+    void this.querySourcePanel?.destroy?.();
+    this.querySourcePanel = null;
     this.layout?.destroy();
+    this.authoringDock?.destroy();
+    this.authoringDock = null;
     this.savedFilters?.destroy?.();
     this.recordTypes?.destroy?.();
     this.querySources?.destroy?.();

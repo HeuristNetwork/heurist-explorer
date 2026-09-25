@@ -1,0 +1,132 @@
+/*
+ * Compact (narrow-screen) presentation. Every rule applies only under
+ * `.h-compact`, which ExplorerCompactMode toggles on the Explorer root.
+ * Inline grid templates written by HCardinalLayout are overridden, never removed,
+ * so leaving compact mode restores the desktop layout unchanged.
+ */
+.h-compact {
+    --h-compact-rail-width: 32px;
+    --h-compact-strip-height: 26px;
+}
+
+/* ---- authoring drawer (outer dock: west = Query Source editor / Filter Form) ---- */
+
+.h-compact .h-explorer-authoring-dock > .h-cardinal-middle {
+    position: relative;
+    /* rail column + modules; the expanded drawer overlays instead of splitting */
+    grid-template-columns: var(--h-compact-rail-width) 0 minmax(0, 1fr) 0 0 !important;
+}
+
+.h-compact .h-explorer-authoring-dock > .h-cardinal-middle > .h-cardinal-splitter {
+    display: none !important;
+}
+
+.h-compact .h-explorer-authoring-dock > .h-cardinal-middle > .h-cardinal-west:not(.is-collapsed) {
+    position: absolute;
+    inset: 0;
+    z-index: 40;
+    box-shadow: var(--h-shadow-dialog);
+}
+
+.h-compact .h-explorer-authoring-dock > .h-cardinal-middle > .h-cardinal-west:not(.is-collapsed) > .h-explorer-authoring {
+    padding-top: 36px; /* room for the close button */
+}
+
+.h-compact-drawer-rail,
+.h-compact-drawer-close {
+    display: none;
+}
+
+.h-compact .h-explorer-authoring-dock > .h-cardinal-middle > .h-cardinal-west.is-collapsed {
+    border-right: 1px solid var(--h-color-border);
+}
+
+/* rail: Show search fills the height above the previous/next module buttons */
+.h-compact .h-explorer-authoring-dock > .h-cardinal-middle > .h-cardinal-west.is-collapsed > .h-compact-drawer-rail {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    position: absolute;
+    inset: 0;
+    padding: 2px 0;
+    box-sizing: border-box;
+    visibility: visible;
+    pointer-events: auto;
+}
+
+.h-compact-drawer-rail > .h-btn {
+    flex: 0 0 auto;
+    width: calc(var(--h-compact-rail-width) - 4px);
+    padding-inline: 0;
+    justify-content: center;
+}
+
+.h-compact-drawer-rail > .h-compact-drawer-search {
+    flex: 1 1 auto;
+    min-height: 0;
+}
+
+/* Direct-mode modules (Data, Record) raise their control panels with a large
+ * z-index; keep everything in the module area below the expanded drawer. */
+.h-compact .h-explorer-modules {
+    isolation: isolate;
+}
+
+.h-compact .h-explorer-authoring-dock > .h-cardinal-middle > .h-cardinal-west:not(.is-collapsed) > .h-compact-drawer-close {
+    display: inline-flex;
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    z-index: 1;
+}
+
+/* ---- presentation modules: one scrollable vertical stack, one screen per module ---- */
+
+.h-compact .h-explorer-modules > .h-cardinal-layout {
+    display: flex;
+    flex-direction: column;
+    overflow-x: hidden;
+    overflow-y: auto;
+    scroll-snap-type: y proximity;
+}
+
+.h-compact .h-explorer-modules > .h-cardinal-layout > .h-cardinal-middle {
+    display: contents;
+}
+
+.h-compact .h-explorer-modules > .h-cardinal-layout .h-cardinal-splitter {
+    display: none !important;
+}
+
+.h-compact .h-explorer-modules > .h-cardinal-layout .h-cardinal-region {
+    flex: 0 0 100%;
+    box-sizing: border-box;
+    /* title strip: a touch target that scrolls the stack (maps/iframes capture touch) */
+    padding-top: var(--h-compact-strip-height);
+    scroll-snap-align: start;
+    border-bottom: 1px solid var(--h-color-border);
+}
+
+.h-compact .h-explorer-modules > .h-cardinal-layout .h-cardinal-region::before {
+    content: attr(data-compact-title);
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: var(--h-compact-strip-height);
+    box-sizing: border-box;
+    padding: 0 8px;
+    line-height: var(--h-compact-strip-height);
+    font-size: var(--h-font-size-small);
+    font-weight: 600;
+    color: var(--h-color-text-muted);
+    background: var(--h-color-surface, var(--h-color-bg));
+    border-bottom: 1px solid var(--h-color-border);
+}
+
+/* a region collapsed on the desktop is shown in full in the stack */
+.h-compact .h-explorer-modules > .h-cardinal-layout .h-cardinal-region.is-collapsed > * {
+    visibility: visible;
+    pointer-events: auto;
+}

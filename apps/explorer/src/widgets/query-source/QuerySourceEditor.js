@@ -39,8 +39,10 @@ export class QuerySourceEditor extends HBaseWidget {
    * @param {Function} [options.onExecute] Called with the draft DataSource when the user runs the query.
    * @param {Function} [options.onApply] Called with the draft DataSource when the user tests/applies presentation settings.
    * @param {Function} [options.onDirtyChange] Called with (dirty, draft) whenever the dirty state changes.
+   * @param {boolean} [options.collapsible=false] Offer the More/Less toggle; otherwise the
+   *        presentation settings are always shown (the editor lives in a tall pane).
    */
-  constructor({ dbdefs, lang = 'eng', openFilterBuilder, editRules, describeRules, onExecute, onApply, onDirtyChange } = {}) {
+  constructor({ dbdefs, lang = 'eng', openFilterBuilder, editRules, describeRules, onExecute, onApply, onDirtyChange, collapsible = false } = {}) {
     super();
     if (!dbdefs) throw new TypeError('QuerySourceEditor requires dbdefs');
     this.dbdefs = dbdefs;
@@ -55,7 +57,8 @@ export class QuerySourceEditor extends HBaseWidget {
     this.draft = null;
     this._dirty = false;
     this._baseline = null;
-    this._expanded = false;
+    this.collapsible = collapsible === true;
+    this._expanded = !this.collapsible;
     this.inlineHelper = null;
     this._syncingDraft = false;
     this._acceptedQuery = null;
@@ -79,7 +82,7 @@ export class QuerySourceEditor extends HBaseWidget {
     const queryRow = div('h-qse-query-row');
     this._query = document.createElement('textarea');
     this._query.className = 'h-input h-qse-query';
-    this._query.rows = 1;
+    this._query.rows = 6;
     this._query.setAttribute('aria-label', $HR('Query'));
     this._query.addEventListener('keydown', (event) => {
       if (event.key === 'Enter' && !event.shiftKey && !event.ctrlKey && !event.altKey) {
@@ -100,17 +103,20 @@ export class QuerySourceEditor extends HBaseWidget {
       void this._ensureRecordTypeConsistency();
     });
 
-    this._run = button('', $HR('Filter'), () => void this.execute(), 'h-btn h-btn-primary h-qse-run');
+    this._run = button('', $HR('Filter'), () => void this._runClicked(), 'h-btn h-btn-primary h-qse-run');
     const run = this._run;
     run.innerHTML = '<i class="fa-solid fa-filter" aria-hidden="true"></i><span class="h-qse-run-caption">' + escapeHtml($HR('Filter')) + '</span>';
     const builder = button($HR('Builder'), $HR('Open the Filter Builder'), () => void this._openBuilder());
+    const clear = button($HR('Clear'), $HR('Clear the query and detach from Query Source, clearing its title and presentation settings'), () => this.clearSettings(), 'h-btn h-qse-clear');
+    // More/Less is kept for a collapsible (compact) placement; hidden while always expanded
     this._more = button('', $HR('More Query Source options'), () => this.setExpanded(!this._expanded), 'h-btn h-btn-small h-qse-more');
+    this._more.hidden = !this.collapsible;
     this._renderMoreButton();
-    queryRow.append(this._query, run, builder, this._more);
+    queryRow.append(this._query, run, builder, clear, this._more);
     compact.append(queryRow);
 
     this._advanced = div('h-qse-advanced');
-    this._advanced.hidden = true;
+    this._advanced.hidden = !this._expanded;
     this._advanced.append(
       this._configRow('Expansion rules', 'rules', 'fa-hexagon-nodes', () => void this.openRuleBuilder(), 'Rules used by Graph to expand the result through linked records.'),
       this._configRow('Geographic fields', 'geo', 'fa-map-location-dot', () => void this.openGeoFieldSelector(), 'Fields used by Map to obtain geometry, including linked geographic fields.'),
@@ -118,12 +124,11 @@ export class QuerySourceEditor extends HBaseWidget {
       this._configRow('Column fields', 'fields', 'fa-table', () => void this.openFieldSetEditor(), 'Columns and formatting used by the Data table presentation.')
     );
     const testRow = div('h-qse-test-row');
-    const clear = button($HR('Clear'), $HR('Detach from Query Source and clear its title and presentation settings'), () => this.clearSettings(), 'h-btn h-btn-small h-qse-clear');
     const titleLabel = document.createElement('span'); titleLabel.className = 'h-qse-title-label'; titleLabel.textContent = $HR('Title');
     this._title = document.createElement('input'); this._title.className = 'h-input h-qse-title'; this._title.type = 'text';
     this._title.addEventListener('input', () => { if (this.draft) { this.draft.title = this._title.value; this._markDirty(); } });
     this._test = button($HR('Test'), $HR('Test Query Source settings'), () => void this.apply(), 'h-btn');
-    testRow.append(clear, titleLabel, this._title, this._test);
+    testRow.append(titleLabel, this._title, this._test);
     this._advanced.append(testRow);
 
     this.container.append(compact, this._advanced);
@@ -197,7 +202,7 @@ export class QuerySourceEditor extends HBaseWidget {
    * @returns {QuerySourceEditor} this, for chaining.
    */
   setExpanded(value) {
-    this._expanded = value === true;
+    this._expanded = value === true || !this.collapsible;
     if (this._advanced) this._advanced.hidden = !this._expanded;
     this._renderMoreButton();
     return this;
@@ -215,8 +220,9 @@ export class QuerySourceEditor extends HBaseWidget {
   resetDraft() { this.setDataSource(this.dataSource); return this; }
 
   /**
-   * Detach the draft from a persisted Query Source and clear its title and
-   * presentation settings, keeping only the query as a transient search.
+   * Clear the query and detach the draft from a persisted Query Source, clearing
+   * its title and presentation settings. A parameterized query becomes an empty,
+   * editable one.
    * @returns {QuerySourceEditor} this, for chaining.
    */
   clearSettings() {
@@ -224,6 +230,7 @@ export class QuerySourceEditor extends HBaseWidget {
     this.draft.reference = { type: 'query', id: null, key: 'query:draft' };
     this.draft.title = '';
     this.draft.request ||= {};
+    this.draft.request.q = '';
     this.draft.request.rules = [];
     this.draft.request.rulesonly = 0;
     this.draft.presentation ||= {};
@@ -265,6 +272,22 @@ export class QuerySourceEditor extends HBaseWidget {
     const source = this.getDraftDataSource();
     if (!hasQuery(source?.request?.q) || typeof this.onExecute !== 'function') return null;
     return this.onExecute(source);
+  }
+
+  /**
+   * Explicit Filter-button click. After a search actually ran, dispatch a bubbling
+   * `h-query-source-run` event (hosts may then hide the editor, e.g. the compact
+   * drawer). Enter in the query box and a parameterized query, which opens the
+   * Filter Form instead, do not dispatch it.
+   */
+  async _runClicked() {
+    this._commitQueryInput();
+    const query = this.draft?.request?.q;
+    const searches = hasQuery(query) && !hasQueryParameters(query);
+    const result = await this.execute();
+    if (searches && result != null) {
+      this.container?.dispatchEvent(new CustomEvent('h-query-source-run', { bubbles: true }));
+    }
   }
 
   /** Commit the query input and invoke `onApply` with the draft DataSource, if a query is present. */
