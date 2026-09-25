@@ -130,3 +130,8 @@
     visibility: visible;
     pointer-events: auto;
 }
+
+/* toolbar: fixed to small icons while compact, so its view-mode toggle is hidden */
+.h-compact .h-explorer-rail-viewmode-toggle {
+    display: none !important;
+}

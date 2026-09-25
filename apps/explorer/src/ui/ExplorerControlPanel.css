@@ -24,6 +24,16 @@
     max-height: 100%;
 }
 
+/* Horizontal toolbar: the panel opens below the toolbar (top and
+   --h-tool-panel-top are set by ExplorerControlPanel#_alignFlyout). */
+.h-toolbar-horizontal .h-explorer-tool-panel {
+    max-height: min(78vh, 680px, calc(100% - var(--h-tool-panel-top, 0px)));
+}
+
+.h-toolbar-horizontal .h-explorer-tool-panel.h-explorer-tool-panel-tall {
+    max-height: calc(100% - var(--h-tool-panel-top, 0px));
+}
+
 .h-explorer-tool-panel.h-explorer-filter-panel .h-filter-query {
     width: 430px;
 }

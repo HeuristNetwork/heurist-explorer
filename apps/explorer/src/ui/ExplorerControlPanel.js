@@ -1315,6 +1315,15 @@ export class ExplorerControlPanel {
     }
 
     const parentRect = this.parent.getBoundingClientRect();
+    // horizontal toolbar: open below it (its height grows when the buttons wrap)
+    if (this._toolbarPosition === 'horizontal' && this.leftRail?.element) {
+      const below = Math.max(0, Math.round(this.leftRail.element.getBoundingClientRect().bottom - parentRect.top));
+      this.flyout.style.top = `${below}px`;
+      this.flyout.style.setProperty('--h-tool-panel-top', `${below}px`);
+      return;
+    }
+    this.flyout.style.removeProperty('--h-tool-panel-top');
+
     const anchorRect = anchor.getBoundingClientRect();
     const requestedTop = anchorRect.top - parentRect.top;
     const maximumTop = Math.max(0, parentRect.height - this.flyout.offsetHeight);
