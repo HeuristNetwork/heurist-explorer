@@ -106,7 +106,7 @@ For kind C the query is a template containing `$NAME$` placeholders (`/^\$[A-Za-
 | `ui_additional_filter_label` | label | child `label` | |
 | `ui_spatial_filter` | show map-extent input | placeholder `{"geo":"$GEO$"}` + child `{input:"GEO"}` (HInputGeo) | |
 | `ui_spatial_filter_label` | label | child `label` | |
-| `ui_spatial_filter_initial` + `ui_spatial_filter_init` | initial WKT, applied at start | literal `{"geo":…}` | §12-6 |
+| `ui_spatial_filter_initial` + `ui_spatial_filter_init` | initial WKT, applied at start (without `_init` it only seeds the map digitizer) | shown filter: child `default` of the `GEO` field; hidden filter: literal `{"geo":…}`; without `_init`: dropped | §12-6 (amended 2026-09-25) |
 | `ui_temporal_filter_initial` | e.g. `after:"1 week ago"`, applied **only when the form is empty** | literal `{"after":…}` | §12-6 |
 | `search_on_reset` | run search with empty form (init/reset) | `filterForm.settings.skipEmptySearch` | `search_on_reset:false` ⇒ `true` §12-7 |
 | `sort_order` | `t`, `-a`, `f:9`, `id`, … ; absent → `sortby:t` | `{"sortby":…}` appended to `q` | always emit; legacy default `t`. If `sup_filter` also has `sortby`, prefer `sort_order`. |
@@ -367,7 +367,7 @@ link (`lt…`, `lf…`, `rt…`, `rf…`) append `0:title` (linked record title)
 | 3 | Preliminary filter `sup_filter` | If it converts to JSON → merged into the parameterized query. Otherwise → **warning to the user showing the old query**; the user converts it manually. | Text `sup_filter` is converted with the client `parseTextQuery`; failure (OR, parentheses, prose) ⇒ warning, the rest of the filter still opens without it. |
 | 4 | `rulesonly` 1/2/3 | **Ignored for now** (value kept in `request.rulesonly`, not honoured). | – |
 | 5 | `ui_prelim_filter_toggle*` | **Dropped.** | `sup_filter` is merged, when initially active — see §3. |
-| 6 | `ui_spatial_filter_initial`, `ui_temporal_filter_initial` | Become **literal predicates** of the query — no form field. | Spatial: `{"geo":<saved area>}`. Temporal: `after:"1 week ago"` → `{"after":"1 week ago"}` (text converted like `sup_filter`; failure ⇒ warning). Now always applied (legacy: only while the form was empty). `ui_spatial_filter` without an initial area still gets a `$GEO$` form field. |
+| 6 | `ui_spatial_filter_initial`, `ui_temporal_filter_initial` | Become **literal predicates** of the query — no form field. **Amended 2026-09-25 for spatial:** when `ui_spatial_filter` shows the field, the initial area (applied only if `ui_spatial_filter_init`) is the `GEO` field's layout `default` — prefilled, restored by Reset, clearable; the literal predicate remains only for a hidden spatial filter. | Spatial: `{"geo":<saved area>}`. Temporal: `after:"1 week ago"` → `{"after":"1 week ago"}` (text converted like `sup_filter`; failure ⇒ warning). Now always applied (legacy: only while the form was empty). `ui_spatial_filter` without an initial area still gets a `$GEO$` form field. |
 | 7 | `search_on_reset` | New layout setting **“don't search when the form is empty”**: `filterForm.settings.skipEmptySearch` (default `false`). | `search_on_reset:false` ⇒ `skipEmptySearch:true`. |
 | 8 | `ui_title`; `help` | `ui_title` → **Query Source / DataSource title** (when non-empty). Per-field help text → new **HInput `help` option** (shared with edit forms); layout `child.help`. | New shared HInput feature; filter form is a narrow case of the edit form. |
 | 9 | `typename` / `typeid` facets | **Reported as unsupported**; the facet is skipped. | J&R:3, J&R:24, LR:41. |

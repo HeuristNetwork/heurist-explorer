@@ -148,7 +148,7 @@ test('faceted: linked paths share branches; lists, multiselect, help, spatial an
   const { definition, warnings } = await converter.convert({
     rectypes: ['12'], version: 2, search_on_reset: true, domain: 'bookmark', ui_title: 'Places',
     ui_additional_filter: true, ui_additional_filter_label: 'Text search',
-    ui_spatial_filter: false, ui_spatial_filter_initial: 'POLYGON((0 0,1 0,1 1,0 1,0 0))',
+    ui_spatial_filter: false, ui_spatial_filter_init: true, ui_spatial_filter_initial: 'POLYGON((0 0,1 0,1 1,0 1,0 0))',
     sort_order: '-a',
     facets: [
       { var: 1, code: '12:lf90:16:89', title: 'Usage type', isfacet: '3', multisel: true, type: 'enum', help: 'Pick one or more' },
@@ -279,4 +279,26 @@ test('SavedFilterManager uses the legacy converter for classification and resolu
     assert.equal(error.legacyQuery, DH_20);
     return true;
   });
+});
+
+test('faceted: shown spatial filter becomes a GEO field; the initial area is its default', async () => {
+  const area = 'POLYGON((0 0,1 0,1 1,0 1,0 0))';
+  const shown = await converter.convert({
+    rectypes: ['12'], version: 2, facets: [],
+    ui_spatial_filter: true, ui_spatial_filter_label: 'Map area',
+    ui_spatial_filter_init: true, ui_spatial_filter_initial: { geo: area }
+  });
+  assert.deepEqual(shown.definition.q, [{ t: '12' }, { geo: '$GEO$' }, { sortby: 't' }]);
+  assert.deepEqual(shown.definition.filterForm.groups[0].children,
+    [{ input: 'GEO', label: 'Map area', default: area }]);
+
+  // not applied at start: the initial area only seeded the legacy map digitizer
+  const notApplied = await converter.convert({
+    rectypes: ['12'], version: 2, facets: [], ui_spatial_filter: true, ui_spatial_filter_initial: area
+  });
+  assert.deepEqual(notApplied.definition.filterForm.groups[0].children, [{ input: 'GEO' }]);
+  const hidden = await converter.convert({
+    rectypes: ['12'], version: 2, facets: [], ui_spatial_filter: false, ui_spatial_filter_initial: area
+  });
+  assert.deepEqual(hidden.definition.q, [{ t: '12' }, { sortby: 't' }]);
 });

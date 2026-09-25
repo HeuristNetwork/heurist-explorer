@@ -5,6 +5,13 @@
   min-width: 0;
 }
 
+.h-form-input-header {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
 .h-form-input-label {
   font-weight: 600;
 }
@@ -26,13 +33,10 @@
   min-width: 0;
 }
 
+/* shown whenever the field has a value (see HInput#_syncClearButton) */
 .h-form-input-clear {
   flex: 0 0 auto;
-  opacity: 0;
 }
-
-.h-form-input-control:hover .h-form-input-clear,
-.h-form-input-clear:focus-visible { opacity: 1; }
 
 .h-form-input-clear[hidden] { display: none; }
 

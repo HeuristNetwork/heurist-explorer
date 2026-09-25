@@ -60,7 +60,14 @@ export class HInput extends HBaseWidget {
     const controlWrap = document.createElement('div');
     controlWrap.className = 'h-form-input-control-wrap';
     controlHost.append(controlWrap);
-    if (!this.options.suppressLabel) this.container.append(label);
+    // label row: the label plus the clear action, so the action stays in view
+    // above tall controls (term lists, checkbox groups)
+    const header = document.createElement('div');
+    header.className = 'h-form-input-header';
+    if (!this.options.suppressLabel) {
+      header.append(label);
+      this.container.append(header);
+    }
     this.container.append(controlHost);
 
     this.label = label;
@@ -83,7 +90,8 @@ export class HInput extends HBaseWidget {
       this.setValue(fixed && typeof fixed === 'object' ? { ...fixed } : null);
       this.notifyChange();
     });
-    controlHost.append(this.clearButton);
+    // without a label row, keep the action beside the control
+    (this.options.suppressLabel ? controlHost : header).append(this.clearButton);
     this._syncClearButton();
 
     const help = String(this.options.help ?? '').trim();

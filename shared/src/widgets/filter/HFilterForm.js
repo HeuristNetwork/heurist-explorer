@@ -54,6 +54,7 @@ export class HFilterForm extends HBaseWidget {
     const companionInputs = new Set(Object.values(parameters)
       .map((parameter) => parameter.endInput).filter(Boolean));
     this.inputs.clear();
+    this.defaults = {};
     this.container.replaceChildren();
     this.container.className = `h-widget h-filter-form h-filter-form-${layout.settings?.orientation === 'horizontal' ? 'horizontal' : 'vertical'}`;
 
@@ -79,6 +80,8 @@ export class HFilterForm extends HBaseWidget {
         if (!parameter) throw new Error(`Unknown filter parameter: ${id}`);
         if (this.inputs.has(id)) throw new Error(`Filter parameter occurs twice: ${id}`);
         const config = child;
+        // layout default: the initial value and the value Reset restores
+        if (config.default != null && config.default !== '' && !parameter.range) this.defaults[id] = config.default;
         const host = document.createElement('div');
         host.className = 'h-filter-form-field';
         const widget = createHInput(inputType(parameter), host, {
@@ -87,7 +90,7 @@ export class HFilterForm extends HBaseWidget {
           value: parameter.range ? {
             from: parameter.fixedValue?.from ?? this.values[id] ?? null,
             to: parameter.fixedValue?.to ?? this.values[parameter.endInput || id] ?? null
-          } : this.values[id] ?? null,
+          } : this.values[id] ?? this.defaults[id] ?? null,
           fixedValue: parameter.fixedValue || null,
           required: Boolean(parameter.required),
           range: config.widget?.type === 'range' || parameter.range === true,
@@ -236,9 +239,9 @@ export class HFilterForm extends HBaseWidget {
     return errors;
   }
 
-  /** Reset inputs to parameter defaults. */
+  /** Reset inputs to their layout defaults (blank when none). */
   reset() {
-    this.setValues({});
+    this.setValues({ ...this.defaults });
     this._showErrors([]);
     this.container?.dispatchEvent(new CustomEvent('h-filter-form-reset', { bubbles: true }));
   }

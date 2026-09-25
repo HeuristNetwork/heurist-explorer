@@ -202,13 +202,20 @@ function appendRuntimeFilters(definition, query, children, warnings) {
     children.push(label ? { input: 'SEARCH', label } : { input: 'SEARCH', label: 'Search everything' });
   }
 
-  const area = spatialValue(definition.ui_spatial_filter_initial);
-  if (area) {
-    query.push({ geo: area });
-  } else if (definition.ui_spatial_filter) {
+  // legacy applies the initial area only when `ui_spatial_filter_init` is set;
+  // otherwise it merely seeds the map digitizer, which has no equivalent here
+  const area = definition.ui_spatial_filter_init ? spatialValue(definition.ui_spatial_filter_initial) : null;
+  if (definition.ui_spatial_filter) {
+    // shown spatial filter -> a GEO form field; the initial area is its default value
     query.push({ geo: '$GEO$' });
+    const child = { input: 'GEO' };
     const label = String(definition.ui_spatial_filter_label || '').trim();
-    children.push(label ? { input: 'GEO', label } : { input: 'GEO' });
+    if (label) child.label = label;
+    if (area) child.default = area;
+    children.push(child);
+  } else if (area) {
+    // hidden spatial filter still applied at start -> literal predicate
+    query.push({ geo: area });
   }
 
   const temporal = String(definition.ui_temporal_filter_initial || '').trim();
