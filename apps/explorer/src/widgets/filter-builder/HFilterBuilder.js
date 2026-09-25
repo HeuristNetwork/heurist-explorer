@@ -40,9 +40,10 @@ import './HFilterBuilder.css';
 /** Visual Heurist query builder: record type, field/link rows, sort, and a live JSON preview. */
 export class HFilterBuilder extends HBaseWidget {
   /**
-   * @param {{dbdefs:object, vocabulary:object, lang?:string, onChange?:Function}} deps
+   * @param {{dbdefs:object, vocabulary:object, lang?:string, onChange?:Function, hideUnusedRectypes?:boolean}} deps
+   *        `hideUnusedRectypes` is the initial state of the "hide record types without records" checkbox.
    */
-  constructor({ dbdefs, vocabulary, lang = 'eng', onChange, selectExtent } = {}) {
+  constructor({ dbdefs, vocabulary, lang = 'eng', onChange, selectExtent, hideUnusedRectypes = true } = {}) {
     super();
     if (!dbdefs) throw new TypeError('HFilterBuilder requires dbdefs (HDbDefs)');
     if (!vocabulary) throw new TypeError('HFilterBuilder requires vocabulary (queryVocabulary.json)');
@@ -59,6 +60,7 @@ export class HFilterBuilder extends HBaseWidget {
     this.form = null;
     this._fixedRecordTypeId = null;
     this._allowParameters = true;
+    this._hideUnused = hideUnusedRectypes !== false; // hide record types without records from selectors and the field tree
   }
 
   /**
@@ -97,6 +99,13 @@ export class HFilterBuilder extends HBaseWidget {
     });
 
     header.append(labelled($HR('Record type'), this._rtySel));
+    if (this.dbdefs.hasRectypeCounts?.()) {
+      header.append(hideUnusedToggle(this._hideUnused, (on) => {
+        this._hideUnused = on;
+        this._populateRectypes();
+        this._rtySel.value = this.model.rtyId === '' || this.model.rtyId == null ? '' : String(this.model.rtyId);
+      }));
+    }
 
     const langs = this.dbdefs.languages?.() || [];
     if (langs.length > 1) {
@@ -213,6 +222,7 @@ export class HFilterBuilder extends HBaseWidget {
     this._fixedRecordTypeId = locked && value !== '' ? value : null;
     this.model.rtyId = value;
     if (this.isRendered) {
+      this._populateRectypes();
       this._rtySel.value = value === '' || value == null ? '' : String(value);
       this._rtySel.disabled = Boolean(this._fixedRecordTypeId);
       if (this._guidance) {
@@ -445,7 +455,10 @@ export class HFilterBuilder extends HBaseWidget {
       o.value = val; o.textContent = label; this._rtySel.append(o);
     }
     const groups = new Map();
+    const current = String(this.model.rtyId ?? '');
     for (const rt of this.dbdefs.rectypes()) {
+      // the selected type stays listed even when it has no records
+      if (this._hideUnused && String(rt.id) !== current && this.dbdefs.isRectypeUsed?.(rt.id) === false) continue;
       const gid = rt.group ?? 0;
       if (!groups.has(gid)) groups.set(gid, []);
       groups.get(gid).push(rt);
@@ -471,6 +484,7 @@ export class HFilterBuilder extends HBaseWidget {
    * @returns {void}
    */
   _syncFromModel() {
+    this._populateRectypes();
     this._rtySel.value = this.model.rtyId === '' || this.model.rtyId == null ? '' : String(this.model.rtyId);
     this._rtySel.disabled = Boolean(this._fixedRecordTypeId);
     this._conjSel.value = this.model.conjunction === 'any' ? 'any' : 'all';
@@ -658,6 +672,7 @@ export class HFilterBuilder extends HBaseWidget {
       rtyId: this.model.rtyId,
       maxDepth: 3,
       builderMode: true,
+      hideUnusedRectypes: this._hideUnused,
       excludedLinks: selectedLinkBranches(this._entries),
       excludedFields
     }, (path) => {
@@ -999,6 +1014,7 @@ class LinkPanel {
       linkedContext: true,
       relationContext: this._isRelation(),
       builderMode: true,
+      hideUnusedRectypes: this.builder._hideUnused,
       excludedLinks: selectedLinkBranches(this.items),
       excludedFields,
       maxDepth: Math.max(0, 3 - this.depth)
@@ -1172,6 +1188,19 @@ function btn(text, className, onClick) {
 }
 
 /** Wrap a control in a `<label>` with a leading text span. */
+/** Checkbox toggling whether record types without records are offered. */
+export function hideUnusedToggle(checked, onChange) {
+  const wrap = el('label', 'h-fb-hide-unused');
+  const input = document.createElement('input');
+  input.type = 'checkbox';
+  input.className = 'h-checkbox';
+  input.checked = Boolean(checked);
+  input.addEventListener('change', () => onChange(input.checked));
+  wrap.title = $HR('Record types without records are not offered in selectors and field lists');
+  wrap.append(input, document.createTextNode(` ${$HR('Hide record types without records')}`));
+  return wrap;
+}
+
 function labelled(text, control) {
   const wrap = el('label', 'h-fb-labelled');
   const span = document.createElement('span');

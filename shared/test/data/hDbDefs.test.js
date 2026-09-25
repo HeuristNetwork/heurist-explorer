@@ -221,3 +221,25 @@ test('concept codes: localId() / conceptId() round-trip', () => {
     assert.equal(d.conceptId('rty', Number(id)), r.concept);
   }
 });
+
+test('rectype counts: unknown usage counts as used; absent ids count as zero', () => {
+  const d = defs();
+  const [first, second] = d.rectypes().map((rt) => rt.id);
+  assert.equal(d.hasRectypeCounts(), false);
+  assert.equal(d.rectypeCount(first), null);
+  assert.equal(d.isRectypeUsed(first), true);
+
+  d.setRectypeCounts([{ id: first, count: 4 }]);
+  assert.equal(d.hasRectypeCounts(), true);
+  assert.equal(d.rectypeCount(first), 4);
+  assert.equal(d.rectypeCount(second), 0);
+  assert.equal(d.isRectypeUsed(first), true);
+  assert.equal(d.isRectypeUsed(String(second)), false);
+
+  d.setRectypeCounts({ [second]: '2' });
+  assert.equal(d.isRectypeUsed(first), false);
+  assert.equal(d.rectypeCount(second), 2);
+
+  d.setRectypeCounts(null);
+  assert.equal(d.isRectypeUsed(first), true);
+});

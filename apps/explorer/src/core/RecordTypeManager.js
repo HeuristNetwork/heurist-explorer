@@ -56,9 +56,12 @@ export class RecordTypeManager {
       this.dbDefsProvider()
     ]);
     this.dbDefs = dbDefs;
+    const counts = normalizeCounts(payload?.rectypes);
+    // publish the counts on the shared definitions so every widget can hide unused types
+    dbDefs.setRectypeCounts?.(counts);
     const definitions = new Map(dbDefs.rectypes().map((item) => [item.id, item]));
     const groups = new Map(dbDefs.rectypeGroups().map((item, index) => [item.id, { ...item, index }]));
-    this.recordTypes = normalizeCounts(payload?.rectypes).map(({ id, count }) => {
+    this.recordTypes = counts.map(({ id, count }) => {
       const definition = definitions.get(id);
       const groupId = definition?.group ?? null;
       const group = groups.get(groupId);

@@ -25,7 +25,9 @@
 
 /* Expansion rule builder --------------------------------------------------- */
 .h-rule-builder { display:flex; flex-direction:column; gap:var(--h-spacing-sm,8px); width:min(1180px,92vw); min-width:min(900px,92vw); }
-.h-rule-builder-help { margin:0; }
+.h-rule-builder-head { display:flex; align-items:flex-start; gap:var(--h-spacing-sm,8px); }
+.h-rule-builder-help { margin:0; flex:1 1 auto; }
+.h-rule-builder-head .h-fb-hide-unused { margin-left:auto; }
 .h-rule-builder-list,.h-rule-children { display:flex; flex-direction:column; gap:6px; }
 .h-rule-row-wrap { display:flex; flex-direction:column; gap:5px; }
 .h-rule-row { display:grid; grid-template-columns:58px minmax(135px,1fr) minmax(180px,1.4fr) minmax(135px,1fr) minmax(135px,1fr) minmax(180px,1.3fr) 30px 30px; gap:6px; align-items:center; margin-left:calc(var(--h-rule-depth,0) * 22px); padding:6px; border:1px solid var(--h-color-border); border-radius:var(--h-border-radius,4px); }

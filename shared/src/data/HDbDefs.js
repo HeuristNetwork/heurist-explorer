@@ -77,6 +77,7 @@ export class HDbDefs {
     this._fieldGroups = snap.fieldGroups || {};
     this._structure = Array.isArray(snap.structure) ? snap.structure : [];
     this._termlinks = Array.isArray(snap.termlinks) ? snap.termlinks : [];
+    this._rectypeCounts = null;
 
     this._buildIndexes();
   }
@@ -289,6 +290,57 @@ export class HDbDefs {
     const r = this._rectypes[id];
     if (!r) return '';
     return plural ? (r.plural || r.name) : r.name;
+  }
+
+  // --------------------------------------------------------- rectype usage ---
+
+  /**
+   * Attach per-rectype record counts. Counts are database content, not
+   * definitions: they are not part of the cached snapshot and are supplied by
+   * the host (Explorer's RecordTypeManager) after it loads them.
+   *
+   * @param {Map<number,number>|Record<string,number>|Array<{id:number,count:number}>|null} counts
+   *        `null` clears them (every rectype then counts as used).
+   * @returns {HDbDefs} This instance.
+   */
+  setRectypeCounts(counts) {
+    if (counts == null) {
+      this._rectypeCounts = null;
+      return this;
+    }
+    const entries = counts instanceof Map ? [...counts]
+      : Array.isArray(counts) ? counts.map((row) => [row?.id, row?.count])
+        : Object.entries(counts);
+    this._rectypeCounts = new Map();
+    for (const [id, count] of entries) {
+      const rty = Number(id);
+      if (Number.isInteger(rty) && rty > 0) this._rectypeCounts.set(rty, Math.max(0, Number(count) || 0));
+    }
+    return this;
+  }
+
+  /** @returns {boolean} Whether record counts have been attached. */
+  hasRectypeCounts() {
+    return this._rectypeCounts !== null;
+  }
+
+  /**
+   * @param {number|string} id Rectype id.
+   * @returns {number|null} Record count (`0` when absent from the counts), or
+   *          `null` when no counts are attached.
+   */
+  rectypeCount(id) {
+    if (!this._rectypeCounts) return null;
+    return this._rectypeCounts.get(Number(id)) || 0;
+  }
+
+  /**
+   * @param {number|string} id Rectype id.
+   * @returns {boolean} `false` only when counts are attached and the rectype has
+   *          no records; unknown usage counts as used.
+   */
+  isRectypeUsed(id) {
+    return !this._rectypeCounts || this.rectypeCount(id) > 0;
   }
 
   // ---------------------------------------------------------------- fields ---

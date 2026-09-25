@@ -59,3 +59,15 @@ function dbDefs() {
     ]
   };
 }
+
+test('RecordTypeManager publishes usage counts on the shared definitions', async () => {
+  const defs = dbDefs();
+  let published = null;
+  defs.setRectypeCounts = (counts) => { published = counts; };
+  const manager = new RecordTypeManager({
+    apiClient: { get: async () => ({ rectypes: { 12: 4, 10: 0 } }) },
+    dbDefsProvider: async () => defs
+  });
+  await manager.load();
+  assert.deepEqual(published, [{ id: 10, count: 0 }, { id: 12, count: 4 }]);
+});

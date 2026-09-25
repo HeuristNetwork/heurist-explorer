@@ -130,3 +130,20 @@ test('Escape and the host dialog closing both close the popover', () => {
   tree._onHostClose();
   assert.equal(closed, 2);
 });
+
+// Linked-from branches whose source record type has no records are hidden
+// (always in field-path editors; per the checkbox in the Filter Builder).
+test('linked-from branches skip record types without records when requested', () => {
+  const dbdefs = {
+    rectypeName: (id) => ({ 10: 'Place', 20: 'Event', 30: 'Letter' }[id] || ''),
+    linkedRectypes: () => [20, 30],
+    pointerFieldsBetween: (from) => (from === 20 ? [4] : [5]),
+    fieldGlobal: () => ({ type: 'resource', name: 'Where' }),
+    isRectypeUsed: (id) => id !== 30
+  };
+  const tree = new HFieldTree({ dbdefs });
+  tree._hideUnused = true;
+  assert.deepEqual(tree._reverseLinks(10).map((item) => item.fromRty), [20]);
+  tree._hideUnused = false;
+  assert.deepEqual(tree._reverseLinks(10).map((item) => item.fromRty), [20, 30]);
+});

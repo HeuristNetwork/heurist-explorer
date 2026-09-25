@@ -373,7 +373,7 @@ export class HFilterInlineHelper extends HBaseWidget {
       const items = [];
 
       if (priorTokens.length === 0) {
-        for (const rt of this.dbdefs.rectypes()) {
+        for (const rt of this._usedRectypes()) {
           items.push({ label: rt.name, sub: $HR('record type'), insert: `t:${rt.id} ` });
         }
       } else if (rtyCtx) {
@@ -392,7 +392,7 @@ export class HFilterInlineHelper extends HBaseWidget {
     const base = canonicalPredicate(keyPart) || keyPart;
 
     if (base === 't') {
-      const items = this.dbdefs.rectypes().map((rt) => ({
+      const items = this._usedRectypes().map((rt) => ({
         label: rt.name, sub: $HR('record type'), insert: `t:${rt.id} `
       }));
       return { tokenStart, items: filterByLabel(items, valSoFar.toLowerCase()) };
@@ -470,6 +470,11 @@ export class HFilterInlineHelper extends HBaseWidget {
     }
 
     return { tokenStart, items: filterByLabel(items, valTail.toLowerCase()) };
+  }
+
+  /** Record types that have records (all of them while usage counts are unknown). */
+  _usedRectypes() {
+    return this.dbdefs.rectypes().filter((rt) => this.dbdefs.isRectypeUsed?.(rt.id) !== false);
   }
 
   /**

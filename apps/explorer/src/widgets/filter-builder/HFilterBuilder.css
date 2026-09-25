@@ -41,6 +41,7 @@
 .h-fb-labelled > span { color: var(--h-color-text-muted); font-size: var(--h-font-size-small); }
 .h-fb-rectype { min-width: 240px; max-width: 340px; }
 .h-fb-lang { min-width: 120px; }
+.h-fb-hide-unused { display: inline-flex; align-items: center; gap: 4px; color: var(--h-color-text-muted); font-size: var(--h-font-size-small); white-space: nowrap; }
 .h-fb-clear { margin-left: auto; }
 .h-fb-form-actions { display: flex; gap: var(--h-gap); }
 .h-fb-form-actions[hidden] { display: none; }

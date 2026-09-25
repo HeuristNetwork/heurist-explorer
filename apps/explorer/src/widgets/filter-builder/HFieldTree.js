@@ -74,7 +74,9 @@ export class HFieldTree {
    * Open the popover anchored under a button, scoped to a record type.
    *
    * @param {HTMLElement} anchor Button the popover attaches under.
-   * @param {{rtyId:(number|string)}} scope
+   * @param {{rtyId:(number|string), hideUnusedRectypes?:boolean}} scope `hideUnusedRectypes`
+   *        drops linked-from branches of record types without records (default: on
+   *        unless `builderMode`).
    * @param {(path:Array)=>void} onPick
    * @returns {HFieldTree} This instance, for chaining.
    */
@@ -89,6 +91,9 @@ export class HFieldTree {
     this._includeHeaders = scope?.includeHeaders !== false;
     this._linkedContext = scope?.linkedContext === true;
     this._builderMode = scope?.builderMode === true;
+    // linked-from branches whose source record type has no records are hidden;
+    // always for field-path editors, on request in the Filter Builder
+    this._hideUnused = scope?.hideUnusedRectypes ?? !this._builderMode;
     this._disableLinks = scope?.disableLinks === true;
     this._excludedLinks = new Set((scope?.excludedLinks || []).map(String));
     this._excludedFields = new Set((scope?.excludedFields || []).map(String));
@@ -224,6 +229,7 @@ export class HFieldTree {
     const collect = (relation) => {
       const wanted = relation ? 'relmarker' : 'resource';
       for (const fromRty of this.dbdefs.linkedRectypes(rtyId, { direction: 'from', relation })) {
+        if (this._hideUnused && this.dbdefs.isRectypeUsed?.(fromRty) === false) continue;
         for (const dty of this.dbdefs.pointerFieldsBetween(fromRty, rtyId)) {
           if (this.dbdefs.fieldGlobal(dty)?.type !== wanted) continue;
           const field = this.dbdefs.fieldName?.(fromRty, dty) || this.dbdefs.fieldGlobal(dty)?.name || `field ${dty}`;

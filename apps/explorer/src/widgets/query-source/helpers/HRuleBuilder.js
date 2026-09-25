@@ -14,7 +14,7 @@
 
 import { HBaseWidget } from '#shared/widgets/HBaseWidget.js';
 import { $HR, HMsg } from '#shared/ui';
-import { HFilterBuilder } from '../../filter-builder/HFilterBuilder.js';
+import { HFilterBuilder, hideUnusedToggle } from '../../filter-builder/HFilterBuilder.js';
 import queryVocabulary from '../../../utils/queryVocabulary.json' with { type: 'json' };
 import './QuerySourceHelpers.css';
 
@@ -38,6 +38,8 @@ export class HRuleBuilder extends HBaseWidget {
     this.rules = [];
     this.recordTypes = [];
     this._rows = [];
+    // shared by every row: hide record types without records from the selectors
+    this._prefs = { hideUnused: true };
   }
 
   setRules(rules) {
@@ -100,14 +102,23 @@ export class HRuleBuilder extends HBaseWidget {
     this.container.className = 'h-rule-builder';
     this.container.replaceChildren();
 
+    const head = document.createElement('div');
+    head.className = 'h-rule-builder-head';
     const help = document.createElement('p');
     help.className = 'h-rule-builder-help h-muted';
     help.textContent = $HR('Expand the result by following pointers or relationships. Add a step to continue from the records found by the previous step.');
+    head.append(help);
+    if (this.dbdefs.hasRectypeCounts?.()) {
+      head.append(hideUnusedToggle(this._prefs.hideUnused, (on) => {
+        this._prefs.hideUnused = on;
+        for (const row of this._rows) row.refresh();
+      }));
+    }
 
     this._list = document.createElement('div');
     this._list.className = 'h-rule-builder-list';
     this._add = button(`+ ${$HR('Add rule')}`, $HR('Add expansion rule'), () => this._addRoot());
-    this.container.append(help, this._list, this._add);
+    this.container.append(head, this._list, this._add);
     this.state = 'rendered';
     this._syncRows();
     return this;
@@ -136,6 +147,7 @@ export class HRuleBuilder extends HBaseWidget {
       level: 1,
       rule,
       recordTypes: this.recordTypes,
+      prefs: this._prefs,
       onRemove: (item) => {
         item.destroy();
         this._rows = this._rows.filter((x) => x !== item);
@@ -148,8 +160,9 @@ export class HRuleBuilder extends HBaseWidget {
 }
 
 class RuleRow {
-  constructor({ dbdefs, lang, level, rule = null, recordTypes = [], sourceType = null, onRemove }) {
+  constructor({ dbdefs, lang, level, rule = null, recordTypes = [], sourceType = null, prefs = {}, onRemove }) {
     this.dbdefs = dbdefs;
+    this.prefs = prefs;
     this.lang = lang;
     this.level = level;
     this.recordTypes = recordTypes;
@@ -167,6 +180,26 @@ class RuleRow {
   destroy() {
     for (const child of this.children) child.destroy();
     this.children = [];
+  }
+
+  /** Rebuild the selectors after the "hide record types without records" preference changed. */
+  refresh() {
+    const saved = { source: this.source.value, field: this.field.value, relation: this.relation.value, target: this.target.value };
+    this._fillSources();
+    this.source.value = saved.source;
+    this._sourceChanged();
+    if (this._fields.has(saved.field)) this.field.value = saved.field;
+    this._fieldChanged();
+    this.relation.value = saved.relation;
+    if ([...this.target.options].some((option) => option.value === saved.target)) this.target.value = saved.target;
+    this._syncParentLock();
+    this._syncAddStep();
+    for (const child of this.children) child.refresh();
+  }
+
+  /** Whether a record type is offered: used, or already chosen (current or loaded rule value). */
+  _offered(id, keep) {
+    return !this.prefs.hideUnused || keep.has(String(id)) || this.dbdefs.isRectypeUsed?.(id) !== false;
   }
 
   getRule() {
@@ -220,9 +253,11 @@ class RuleRow {
   }
 
   _fillSources() {
-    this.source.replaceChildren();
+    const keep = new Set([this.source.value, String(this._initial?.source || '')]);
     const allowed = this.fixedSourceType ? [this.fixedSourceType]
-      : (this.recordTypes.length ? this.recordTypes : this.dbdefs.rectypes().map((rt) => rt.id));
+      : (this.recordTypes.length ? this.recordTypes : this.dbdefs.rectypes().map((rt) => rt.id))
+        .filter((id) => this._offered(id, keep));
+    this.source.replaceChildren();
     if (!this.fixedSourceType && allowed.length !== 1) addOption(this.source, '', $HR('select…'));
     for (const id of allowed) addOption(this.source, id, this.dbdefs.rectypeName(id) || String(id));
     if (this.fixedSourceType) {
@@ -233,8 +268,11 @@ class RuleRow {
 
   _sourceChanged() {
     const source = Number(this.source.value) || 0;
-    this._fields = collectLinkFields(this.dbdefs, source);
     const current = this.field.value;
+    const keep = new Set([current, this._initial?.fieldKey || '']);
+    // a reverse pointer is hidden when the record type holding it has no records
+    this._fields = new Map([...collectLinkFields(this.dbdefs, source)]
+      .filter(([key, item]) => !item.reverse || keep.has(key) || this._offered(item.targets[0], keep)));
     this.field.replaceChildren();
     const values = [...this._fields.values()];
     const hasPointer = values.some((x) => !x.isRelation);
@@ -263,8 +301,9 @@ class RuleRow {
       addOption(this.relation, '', '');
     }
 
+    const keep = new Set([this.target.value, String(this._initial?.target || '')]);
     this.target.replaceChildren();
-    const targets = item ? item.targets : collectAnyTargets(this._fields);
+    const targets = (item ? item.targets : collectAnyTargets(this._fields)).filter((id) => this._offered(id, keep));
     if (targets.length !== 1) addOption(this.target, '', $HR('Any record type'));
     for (const id of targets) addOption(this.target, id, this.dbdefs.rectypeName(id) || String(id));
     if (targets.length === 1) this.target.value = String(targets[0]);
@@ -296,6 +335,7 @@ class RuleRow {
       level: this.level + 1,
       rule,
       sourceType: target,
+      prefs: this.prefs,
       onRemove: (item) => {
         item.destroy();
         this.children = this.children.filter((x) => x !== item);
@@ -327,7 +367,9 @@ class RuleRow {
       HMsg.showMsgFlash?.($HR('Select a target record type first'));
       return;
     }
-    const builder = new HFilterBuilder({ dbdefs: this.dbdefs, vocabulary: queryVocabulary, lang: this.lang });
+    const builder = new HFilterBuilder({
+      dbdefs: this.dbdefs, vocabulary: queryVocabulary, lang: this.lang, hideUnusedRectypes: this.prefs.hideUnused
+    });
     const host = document.createElement('div');
     host.className = 'h-rule-filter-builder';
     builder.attach(host).render();

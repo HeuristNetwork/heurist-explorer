@@ -43,7 +43,7 @@ export class SavedFilterManager {
   async load() {
     this._loadController?.abort();
     this._loadController = new AbortController();
-    const q = { t: 'filter', filterType: 'filter' };
+    const q = { t: 'filter', filterType: ['filter','faceted'] };
     if (this.filterIds.length) q.ids = this.filterIds.join(',');
     const payload = await this.apiClient.get('/sys', {
       query: { q, fields: 'query,filterType' },
