@@ -26,6 +26,7 @@ import { ExplorerWorkspace } from './ExplorerWorkspace.js';
 import { SavedFilterManager } from './SavedFilterManager.js';
 import { LegacySavedFilterConverter } from '../legacy/LegacySavedFilterConverter.js';
 import { RecordTypeManager } from './RecordTypeManager.js';
+import { UserGroupManager } from './UserGroupManager.js';
 import { QuerySourceManager } from './QuerySourceManager.js';
 import { SyncEngine } from './SyncEngine.js';
 import { IframeModuleAdapter } from '../modules/IframeModuleAdapter.js';
@@ -122,6 +123,10 @@ export class ExplorerApplication {
       baseUrl: this.config.baseUrl,
       database: this.config.database
     });
+    this.userGroups = new UserGroupManager({
+      apiClient,
+      dbDefsProvider: () => this._ensureDbDefs()
+    });
     this.querySources = new QuerySourceManager({
       apiClient,
       recordTypeProvider: new RecordTypeProvider({ apiClient })
@@ -136,6 +141,10 @@ export class ExplorerApplication {
     } catch (error) {
       if (error?.name !== 'AbortError') HMsg.showMsgErr(error?.message || String(error));
     }
+    // users/groups for owner/creator pickers; optional - a failure only means direct input
+    this.userGroups.load().catch((error) => {
+      if (error?.name !== 'AbortError') console.warn('Users and groups could not be loaded', error);
+    });
     try {
       await this.querySources.load();
     } catch (error) {
@@ -266,6 +275,7 @@ export class ExplorerApplication {
     }
     const panel = new QuerySourcePanel({
       dbdefs,
+      apiClient: this.apiClient,
       lang: this.config.language,
       openFilterBuilder: (query, filterForm) => this._editQueryWithBuilder(query, filterForm,
         (current) => panel.selectExtent(current)),
@@ -1194,7 +1204,7 @@ export class ExplorerApplication {
     }
     const host = document.createElement('div');
     const builder = new HFilterBuilder({
-      dbdefs, vocabulary: queryVocabulary, lang: this.config.language, selectExtent
+      dbdefs, vocabulary: queryVocabulary, lang: this.config.language, selectExtent, apiClient: this.apiClient
     });
     builder.attach(host).render();
     builder.setQuery({ query: query || [], filterForm });

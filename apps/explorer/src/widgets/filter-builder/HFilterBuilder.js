@@ -40,13 +40,17 @@ import './HFilterBuilder.css';
 /** Visual Heurist query builder: record type, field/link rows, sort, and a live JSON preview. */
 export class HFilterBuilder extends HBaseWidget {
   /**
-   * @param {{dbdefs:object, vocabulary:object, lang?:string, onChange?:Function, hideUnusedRectypes?:boolean}} deps
+   * @param {{dbdefs:object, vocabulary:object, lang?:string, onChange?:Function, hideUnusedRectypes?:boolean,
+   *          apiClient?:object}} deps
    *        `hideUnusedRectypes` is the initial state of the "hide record types without records" checkbox.
+   *        `apiClient` lets the filter form preview count facets and list text values; the
+   *        builder itself never asks the server for values (V5).
    */
-  constructor({ dbdefs, vocabulary, lang = 'eng', onChange, selectExtent, hideUnusedRectypes = true } = {}) {
+  constructor({ dbdefs, vocabulary, lang = 'eng', onChange, selectExtent, hideUnusedRectypes = true, apiClient = null } = {}) {
     super();
     if (!dbdefs) throw new TypeError('HFilterBuilder requires dbdefs (HDbDefs)');
     if (!vocabulary) throw new TypeError('HFilterBuilder requires vocabulary (queryVocabulary.json)');
+    this.apiClient = apiClient;
     this.dbdefs = dbdefs;
     this.vocab = vocabulary;
     this.lang = lang;
@@ -370,6 +374,7 @@ export class HFilterBuilder extends HBaseWidget {
       query: definition.query,
       layout: this.form,
       dbdefs: this.dbdefs,
+      apiClient: this.apiClient,
       selectExtent: this.selectExtent
     }).render();
     const id = 'h-filter-form-designer-dialog';
@@ -418,12 +423,13 @@ export class HFilterBuilder extends HBaseWidget {
     form.attach(formHost, {
       definition,
       dbdefs: this.dbdefs,
+      apiClient: this.apiClient,
       selectExtent: this.selectExtent,
       preview: true,
-      composeQuery: (source, values) => resolveQueryParameters(source.query, values),
+      composeQuery: (source, values) => resolveQueryParameters(source.query, values, source.filterForm),
     }).render();
     const update = () => {
-      const request = resolveQueryParameters(definition.query, form.getValues());
+      const request = resolveQueryParameters(definition.query, form.getValues(), definition.filterForm);
       updateQueryPreview(preview, request.q, this.dbdefs, this.vocab, this.lang, request.extent);
     };
     host.addEventListener('h-input-change', update);

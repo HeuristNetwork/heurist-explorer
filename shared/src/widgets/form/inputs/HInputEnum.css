@@ -21,3 +21,48 @@
   gap: 4px;
   cursor: pointer;
 }
+
+.h-input-enum-count {
+  color: var(--h-color-text-muted);
+  font-size: var(--h-font-size-small);
+}
+
+.h-input-enum-counts-brackets .h-input-enum-count::before {
+  content: '(';
+}
+
+.h-input-enum-counts-brackets .h-input-enum-count::after {
+  content: ')';
+}
+
+.h-input-enum-counts-badge .h-input-enum-count {
+  min-width: 1.6em;
+  padding: 0 5px;
+  border-radius: 8px;
+  background: var(--h-color-surface);
+  border: 1px solid var(--h-color-border);
+  line-height: 1.4;
+  text-align: center;
+}
+
+.h-input-enum-counts-none .h-input-enum-count {
+  display: none;
+}
+
+/* counts at the right edge of a column list */
+.h-input-enum-column.h-input-enum-counts-right .h-input-enum-choice {
+  display: flex;
+}
+
+.h-input-enum-column.h-input-enum-counts-right .h-input-enum-count {
+  margin-left: auto;
+}
+
+.h-input-enum-combo {
+  display: flex;
+  min-width: 0;
+}
+
+.h-input-enum-combo > .h-value-combo-host {
+  flex: 1 1 auto;
+}

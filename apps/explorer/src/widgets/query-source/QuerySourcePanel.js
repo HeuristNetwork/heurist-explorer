@@ -114,8 +114,9 @@ export class QuerySourcePanel {
     this.form.attach(this.formHost, {
       definition: { query, filterForm: source.presentation?.filterForm || null },
       dbdefs: this.options.dbdefs,
+      apiClient: this.options.apiClient,
       selectExtent: this.options.selectExtent,
-      composeQuery: (item, values) => resolveQueryParameters(item.query, values),
+      composeQuery: (item, values) => resolveQueryParameters(item.query, values, item.filterForm),
       runtimeMode: 'main',
       onOpenBuilder: () => this._openFilterFormBuilder(),
       onClose: () => void this.closeFilterForm(),

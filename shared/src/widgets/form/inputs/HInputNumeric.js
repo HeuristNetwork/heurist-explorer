@@ -36,6 +36,7 @@ export class HInputNumeric extends HInput {
       this.endControl.readOnly = this.options.fixedValue?.to != null;
       host.classList.add('h-input-numeric-range');
       host.append(this.endControl);
+      this._rangeHost = host;
       if (this.options.rangeControl === 'slider'
         && Number.isFinite(Number(this.options.min))
         && Number.isFinite(Number(this.options.max))) {
@@ -88,6 +89,26 @@ export class HInputNumeric extends HInput {
       const endpoint = index ? 'to' : 'from';
       slider.disabled = Boolean(readOnly) || this.options.fixedValue?.[endpoint] != null;
     }
+    return this;
+  }
+
+  /**
+   * Set the slider bounds after render (bounds requested from the server).
+   * The sliders appear once the bounds make a non-empty interval.
+   *
+   * @param {number|null} min Lower bound.
+   * @param {number|null} max Upper bound.
+   * @returns {HInputNumeric} This input.
+   */
+  setBounds(min, max) {
+    this.options.min = min;
+    this.options.max = max;
+    const valid = Number.isFinite(Number(min)) && Number.isFinite(Number(max)) && Number(min) < Number(max);
+    if (!valid || this.options.rangeControl !== 'slider' || !this._rangeHost) return this;
+    if (!this.sliders) this._addSliders(this._rangeHost);
+    else for (const slider of this.sliders) { slider.min = String(min); slider.max = String(max); }
+    this._syncSliders();
+    this.setReadOnly(Boolean(this.options.readOnly));
     return this;
   }
 

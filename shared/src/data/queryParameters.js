@@ -16,6 +16,10 @@
 import { extentToWkt } from '../utils/geoExtent.js';
 
 const TOKEN = /\$([A-Za-z][A-Za-z0-9_]*)\$/g;
+/** A value that is one token behind an optional operator, e.g. `=$X1$` or `-$X1$`. */
+const WHOLE_TOKEN = /^([-=~@!<>]*)\$([A-Za-z][A-Za-z0-9_]*)\$$/;
+/** Link keys whose value is a sub-query of other records. */
+const NESTED_KEY = /^(?:lt|lf|rt|rf|related|links)(?::|$)/;
 
 /** Return parameter names in query order, without duplicates. */
 export function queryParameterNames(query) {
@@ -35,7 +39,7 @@ export function hasQueryParameters(query) {
 /** Infer transient input descriptions from the query and database definitions. */
 export function describeQueryParameters(query, dbdefs) {
   const parameters = {};
-  visit(query, (value, key, recordTypeId) => {
+  visit(query, (value, key, recordTypeId, nested, scopes) => {
     if (typeof value !== 'string') return;
     const names = [...value.matchAll(TOKEN)].map((match) => match[1]);
     if (!names.length) return;
@@ -55,8 +59,16 @@ export function describeQueryParameters(query, dbdefs) {
         type,
         integer: type === 'number' && (key === 'ids' || ['integer', 'year'].includes(fieldType)),
         fieldId: fieldId ? Number(fieldId) : null,
+        // predicate name (f, owner, addedby, ...) and scope, for value lists / facets
+        predicate: String(key).split(':')[0],
+        recordTypeId: recordTypeId ?? null,
+        nested: Boolean(nested),
+        // operator before a whole-value token (`''` = contains / falls in); null inside ranges
+        operator: WHOLE_TOKEN.exec(value)?.[1] ?? null,
         label: fieldLabel,
-        pathLabel
+        pathLabel,
+        // record types from the top level down to the field's own, e.g. ['Event', 'Person']
+        hierarchy: scopes.map((scope) => rectypeNames(scope, dbdefs))
       };
     }
     if (/<>|></.test(value)) {
@@ -79,13 +91,50 @@ export function describeQueryParameters(query, dbdefs) {
   return parameters;
 }
 
-/** Replace runtime values and omit predicates whose values remain blank. */
-export function resolveQueryParameters(query, values = {}) {
+/**
+ * Names of text parameters picked from a value list (layout children with
+ * `exact: true`): their values match exactly (V12).
+ *
+ * @param {object|null} filterForm Filter form layout.
+ * @returns {Set<string>} Parameter names.
+ */
+export function exactParameterNames(filterForm) {
+  const names = new Set();
+  for (const group of filterForm?.groups || []) {
+    for (const child of group.children || []) if (child?.exact === true && child.input) names.add(child.input);
+  }
+  return names;
+}
+
+/**
+ * Replace runtime values and omit predicates whose values remain blank.
+ *
+ * @param {Array|object} query Query template with `$NAME$` tokens.
+ * @param {object} [values] Values by parameter name.
+ * @param {object|null} [filterForm] Layout; text parameters marked `exact`
+ *        (picked from a list) become exact matches, several values an OR group.
+ * @returns {{q: Array, extent: null}} Resolved query.
+ */
+export function resolveQueryParameters(query, values = {}, filterForm = null) {
+  const exact = exactParameterNames(filterForm);
   const resolve = (node) => {
     if (Array.isArray(node)) return node.map(resolve).filter((item) => item !== null);
     if (!node || typeof node !== 'object') return node;
     const result = {};
     for (const [key, value] of Object.entries(node)) {
+      const whole = typeof value === 'string' ? WHOLE_TOKEN.exec(value) : null;
+      if (whole && exact.has(whole[2])) {
+        // "<operator>$X$" picked from a list: exact value(s), OR between several
+        const list = (Array.isArray(values[whole[2]]) ? values[whole[2]] : [values[whole[2]]])
+          .filter((item) => item != null && item !== '');
+        if (!list.length) continue;
+        // a negated template ("-$X$", "!=$X$") excludes each value: != and AND
+        const negate = whole[1].startsWith('-') || whole[1].startsWith('!');
+        const terms = list.map((item) => `${negate ? '!=' : '='}${item}`);
+        if (terms.length === 1) result[key] = terms[0];
+        else result[negate ? 'all' : 'any'] = terms.map((term) => ({ [key]: term }));
+        continue;
+      }
       if (Array.isArray(value) || (value && typeof value === 'object')) {
         const nested = resolve(value);
         if (nested === null || (Array.isArray(nested) && !nested.length)) continue;
@@ -123,13 +172,22 @@ export function resolveQueryParameters(query, values = {}) {
 }
 
 /** Visit scalar query values while retaining each predicate key. */
-function visit(node, callback, key = '', recordTypeId = null) {
+function visit(node, callback, key = '', recordTypeId = null, nested = false, scopes = []) {
   if (Array.isArray(node)) {
     const typePredicate = node.find((child) => child && typeof child === 'object'
       && !Array.isArray(child) && Object.hasOwn(child, 't'));
     const scope = typePredicate?.t ?? recordTypeId;
-    for (const child of node) visit(child, callback, key, scope);
+    const path = typePredicate ? [...scopes, typePredicate.t] : scopes;
+    for (const child of node) visit(child, callback, key, scope, nested, path);
   } else if (node && typeof node === 'object') {
-    for (const [name, value] of Object.entries(node)) visit(value, callback, name, recordTypeId);
-  } else callback(node, key, recordTypeId);
+    for (const [name, value] of Object.entries(node)) {
+      visit(value, callback, name, recordTypeId, nested || NESTED_KEY.test(name), scopes);
+    }
+  } else callback(node, key, recordTypeId, nested, scopes);
+}
+
+/** @returns {string} Names of a `t` value's record types (`"10,12"` → `"Person / Place"`). */
+function rectypeNames(value, dbdefs) {
+  return String(value).split(',').map((id) => id.trim()).filter(Boolean)
+    .map((id) => dbdefs?.rectypeName?.(id) || id).join(' / ');
 }

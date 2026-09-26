@@ -16,6 +16,39 @@
   font-weight: 600;
 }
 
+/* entity hierarchy above the label: "Event > Person" */
+.h-form-input-hierarchy {
+  margin-bottom: calc(var(--h-gap) * -1 + 2px);
+  overflow: hidden;
+  color: var(--h-color-text-muted);
+  font-size: var(--h-font-size-small, 0.85em);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* accordion view: the label toggles the control */
+.h-form-input.is-collapsible .h-form-input-label {
+  cursor: pointer;
+  user-select: none;
+}
+
+.h-form-input.is-collapsible .h-form-input-label::before {
+  content: '▾';
+  display: inline-block;
+  width: 1em;
+  color: var(--h-color-icon);
+  transition: transform 0.12s;
+}
+
+.h-form-input.is-collapsed .h-form-input-label::before {
+  transform: rotate(-90deg);
+}
+
+.h-form-input.is-collapsed > .h-form-input-control,
+.h-form-input.is-collapsed > .h-form-input-help {
+  display: none;
+}
+
 .h-form-input-help {
   color: var(--h-color-text-muted);
   font-size: var(--h-font-size-small, 0.85em);

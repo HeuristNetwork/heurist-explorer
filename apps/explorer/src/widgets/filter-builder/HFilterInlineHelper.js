@@ -25,6 +25,7 @@
  */
 
 import { HBaseWidget } from '#shared/widgets/HBaseWidget.js';
+import { UserGroupSource } from '#shared/data/valueSources/index.js';
 import { $HR } from '#shared/ui';
 import { parseTextQuery } from '../../utils/parseTextQuery.js';
 import { queryDescribe } from '../../utils/queryDescribe.js';
@@ -467,6 +468,24 @@ export class HFilterInlineHelper extends HBaseWidget {
         const val = /[\s()]/.test(t.label) ? `"${t.label}"` : t.label;
         items.push({ label: t.label, sub: $HR('term'), insert: `${keyPrefix}${val} `, depth });
       }
+    }
+
+    // owner / creator / bookmarked-by values: the visible groups and users from
+    // HDbDefs (V5, no server request); inserted as IDs after any typed "-" sign
+    if (['owner', 'addedby', 'user'].includes(base) && this.dbdefs.hasUserGroups?.()) {
+      const sign = /^-/.test(valTail) ? '-' : '';
+      const typed = valTail.replace(/^-/, '');
+      const people = new UserGroupSource(this.dbdefs, { groups: base === 'owner' }).items();
+      // text operators do not apply: users and groups match by ID ("-" negates)
+      items.length = 0;
+      for (const person of people) {
+        items.push({
+          label: person.label,
+          sub: person.group === 'groups' ? $HR('group') : $HR('user'),
+          insert: `${keyPrefix}${sign}${person.value} `
+        });
+      }
+      return { tokenStart, items: filterByLabel(items, typed.toLowerCase()) };
     }
 
     return { tokenStart, items: filterByLabel(items, valTail.toLowerCase()) };

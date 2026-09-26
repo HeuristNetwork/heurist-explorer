@@ -23,6 +23,7 @@
 
 import { HBaseWidget } from '#shared/widgets/HBaseWidget.js';
 import { createHInput } from '#shared/widgets/form/inputs/createHInput.js';
+import { UserGroupSource } from '#shared/data/valueSources/index.js';
 import { extentToWkt, isExtent, roundExtent } from '#shared/utils';
 import { $HR } from '#shared/ui';
 import { emptyFieldRow } from '../../utils/queryModel.js';
@@ -424,12 +425,22 @@ export class HFilterBuilderItem extends HBaseWidget {
       ], current, set);
     }
 
-    if (this.row.dty === 'owner' || this.row.dty === 'addedby') {
-      const user = globalThis.window?.hWin?.HAPI4?.currentUser;
-      if (user?.ugr_ID) {
-        const options = [['', '— select —'], [String(user.ugr_ID), user.ugr_FullName || 'Current user']];
-        if (current && !options.some(([value]) => value === current)) options.push([current, current]);
-        return choiceControl(options, current, set);
+    // owner: groups and users; creator / bookmarked by: users - all visible ones from
+    // HDbDefs, no server request (V5); guests (nothing visible) type an ID instead
+    if (['owner', 'addedby', 'user'].includes(this.row.dty)) {
+      const source = new UserGroupSource(this.dbdefs, { groups: this.row.dty === 'owner' });
+      if (this.dbdefs?.hasUserGroups?.() && source.isAvailable()) {
+        const host = document.createElement('div');
+        host.className = 'h-fbitem-value-widget';
+        const widget = createHInput('enum', host, {
+          suppressLabel: true,
+          source,
+          value: /^\d+$/.test(String(current)) ? Number(current) : null,
+          emptyLabel: $HR('— select —')
+        });
+        host.addEventListener('h-input-change', () => set(widget.getValue() == null ? '' : String(widget.getValue())));
+        this._valueWidgets.push(widget);
+        return host;
       }
     }
 

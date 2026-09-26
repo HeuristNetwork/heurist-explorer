@@ -78,6 +78,7 @@ export class HDbDefs {
     this._structure = Array.isArray(snap.structure) ? snap.structure : [];
     this._termlinks = Array.isArray(snap.termlinks) ? snap.termlinks : [];
     this._rectypeCounts = null;
+    this._userGroups = null;
 
     this._buildIndexes();
   }
@@ -341,6 +342,84 @@ export class HDbDefs {
    */
   isRectypeUsed(id) {
     return !this._rectypeCounts || this.rectypeCount(id) > 0;
+  }
+
+  // ---------------------------------------------------------- users/groups ---
+
+  /**
+   * Attach the users and groups visible to the current user - a runtime
+   * overlay like the rectype counts, published by the host (Explorer's
+   * UserGroupManager) after it loads them from `/sys`.
+   *
+   * @param {{currentUserId?: number, isDbAdmin?: boolean,
+   *          groups?: Array<{id:number, name:string, role?:string}>,
+   *          users?: Array<{id:number, name:string}>}|null} data `null` clears
+   *        them (guest, or not loaded).
+   * @returns {HDbDefs} This instance.
+   */
+  setUserGroups(data) {
+    if (data == null) {
+      this._userGroups = null;
+      return this;
+    }
+    const clean = (list, withRole) => (Array.isArray(list) ? list : [])
+      .map((row) => ({
+        id: Number(row?.id),
+        name: String(row?.name ?? ''),
+        ...(withRole ? { role: ['admin', 'member'].includes(row?.role) ? row.role : 'none' } : {})
+      }))
+      .filter((row) => Number.isInteger(row.id) && row.id >= 0);
+    const groups = clean(data.groups, true);
+    const users = clean(data.users, false);
+    this._userGroups = {
+      currentUserId: Number(data.currentUserId) || 0,
+      isDbAdmin: Boolean(data.isDbAdmin),
+      groups,
+      users,
+      names: new Map([...groups, ...users].map((row) => [row.id, row.name]))
+    };
+    return this;
+  }
+
+  /** @returns {boolean} Whether users/groups have been attached. */
+  hasUserGroups() {
+    return this._userGroups !== null;
+  }
+
+  /** @returns {Array<{id:number, name:string, role:string}>} Visible groups with the current user's role. */
+  groups() {
+    return (this._userGroups?.groups || []).map((row) => ({ ...row }));
+  }
+
+  /** @returns {Array<{id:number, name:string}>} Visible users. */
+  users() {
+    return (this._userGroups?.users || []).map((row) => ({ ...row }));
+  }
+
+  /**
+   * @param {number|string} id User or group ID.
+   * @returns {string} Its name, or `''` when not visible.
+   */
+  userGroupName(id) {
+    return this._userGroups?.names.get(Number(id)) || '';
+  }
+
+  /**
+   * @param {number|string} id Group ID.
+   * @returns {'admin'|'member'|'none'} Current user's role in the group.
+   */
+  groupRole(id) {
+    return this._userGroups?.groups.find((row) => row.id === Number(id))?.role || 'none';
+  }
+
+  /** @returns {boolean} Whether the current user administers the database (sees all users and groups). */
+  isDbAdmin() {
+    return Boolean(this._userGroups?.isDbAdmin);
+  }
+
+  /** @returns {number} Current user ID from the overlay (`0` for guests or when not loaded). */
+  currentUserId() {
+    return this._userGroups?.currentUserId || 0;
   }
 
   // ---------------------------------------------------------------- fields ---

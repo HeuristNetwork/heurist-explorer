@@ -113,10 +113,10 @@ For kind C the query is a template containing `$NAME$` placeholders (`/^\$[A-Za-
 | `ui_title` | header text of the facet panel | Query Source / DataSource `title` | when non-empty §12-8 |
 | `ui_name`, `ui_notes` | name/notes | `title`/`notes` | as §2 |
 | `ui_viewmode` | result view mode | – | drop |
-| `title_hierarchy` | show facet path in header | – | drop |
-| `viewport` | show N values then “more” | – | drop (Phase 3 facet counts) |
-| `accordion_view`, `show_accordion_icons` | collapsible facets | – | drop |
-| `ui_counts_mode`, `ui_counts_align` | count badge style | – | drop (Phase 3) |
+| `title_hierarchy` | show facet path in header | `filterForm.settings.showHierarchy` | when true |
+| `viewport` | show N values then “more” (default 5, 0 = all) | `filterForm.settings.listThreshold` | missing ⇒ 5, 0 ⇒ 1000; omitted when 20 (new default) |
+| `accordion_view`, `show_accordion_icons` | collapsible facets | `filterForm.settings.accordion` | `accordion_view` only; icons always shown |
+| `ui_counts_mode`, `ui_counts_align` | count badge style | `settings.countsMode` (`badge`/`brackets`/`none`), `settings.countsAlign` (`right`/`label`) | `bracket` ⇒ `brackets`, `left` ⇒ `label`; legacy defaults (badge, right) are the new defaults |
 | `ui_separate_line` | label on own line | `filterForm.settings.orientation`? | drop; default vertical |
 | `ui_exit_button`, `ui_exit_button_label` | close button | – | drop (Explorer always has Close) |
 | `language` | UI language | – | drop |
@@ -221,7 +221,7 @@ relation type.
 | `isfacet` | 0/`"0"`/false = direct input; 1 = dropdown (enum) / slider+histogram (date, numeric); 2 = inline list; 3 = wrapped list/column; true/null → 1 | child `mode` / `widget` | §9 |
 | `multisel` | several values selectable | child `multiple:true` (enum) | OR semantics (§12-11) |
 | `trm_tree` | show term hierarchy | ✗ | report |
-| `groupby` | date: `year`/`month`/`decade`/`century`; freetext: `firstchar` | ✗ | date → plain range; report |
+| `groupby` | date: `year`/`month`/`decade`/`century`; freetext: `firstchar` | child `groupBy` (date list facets) | date list (isfacet 2/3) ⇒ `mode:radio` + `groupBy` (default year); runtime grouping is HValuePicker phase 8; freetext dropped |
 | `srange` | date comparison: `between` (`><`) or overlap (`<>`, default) | operator in template | `$A$><$B$` vs `$A$<>$B$` |
 | `orderby` | `count`/`desc`/null ordering of values | ✗ | Phase 3 |
 | `hide_histogram` | | ✗ | drop |
@@ -371,7 +371,7 @@ link (`lt…`, `lf…`, `rt…`, `rf…`) append `0:title` (linked record title)
 | 7 | `search_on_reset` | New layout setting **“don't search when the form is empty”**: `filterForm.settings.skipEmptySearch` (default `false`). | `search_on_reset:false` ⇒ `skipEmptySearch:true`. |
 | 8 | `ui_title`; `help` | `ui_title` → **Query Source / DataSource title** (when non-empty). Per-field help text → new **HInput `help` option** (shared with edit forms); layout `child.help`. | New shared HInput feature; filter form is a narrow case of the edit form. |
 | 9 | `typename` / `typeid` facets | **Reported as unsupported**; the facet is skipped. | J&R:3, J&R:24, LR:41. |
-| 10 | Numeric/date sliders | **Direct inputs** (`control:"direct"`) until facet counts exist. | |
+| 10 | Numeric/date sliders | **Direct inputs** (`control:"direct"`) until facet counts exist. **Amended 2026-09-26:** slider facets (`isfacet:1`) become `control:"slider"` without bounds ("auto"): the Filter Form requests the field's bounds with `detail=minmax`. | |
 | 11 | Enum `multisel` | **OR** (new behaviour: `f:74:"a,b"`). | Documented behaviour change vs legacy AND. |
 | 12 | Faceted v1 and other unusable rows | Listed but marked **“legacy, cannot open”**. | DH:20, DH:26. |
 

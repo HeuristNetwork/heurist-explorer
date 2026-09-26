@@ -207,6 +207,13 @@ function describePredicate(base, suffix, rawValue, ctx, scopeRty, { wrap = false
       const negated = /^-/.test(String(value ?? '')) && !/^-NULL$/i.test(String(value));
       if (!/NULL$/i.test(String(value ?? ''))) op = str(ctx.vocab, ctx.lang, negated ? 'op.is_not' : 'op.is');
       if (base === 'user' && /^"?current"?$/i.test(val)) val = 'the current user';
+      // IDs of visible users/groups read as names (HDbDefs users/groups overlay)
+      if (base !== 'access' && ctx.dbdefs?.userGroupName) {
+        const names = String(value ?? '').replace(/^-/, '').split(',').map((part) => part.trim());
+        if (names.length && names.every((id) => /^\d+$/.test(id) && ctx.dbdefs.userGroupName(id))) {
+          val = names.map((id) => quote(ctx.dbdefs.userGroupName(id))).join(', ');
+        }
+      }
     }
     return fill(phrase(ctx, 'header_cond'), { field: fieldText, op, value: val }).trim();
   }

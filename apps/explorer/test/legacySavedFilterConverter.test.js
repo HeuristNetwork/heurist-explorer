@@ -118,11 +118,11 @@ test('faceted search becomes a parameterized query and filter form', async () =>
   ]);
   assert.deepEqual(result.definition.filterForm, {
     version: 1,
-    settings: { skipEmptySearch: true },
+    settings: { skipEmptySearch: true, listThreshold: 5 },
     groups: [{ id: 'main', type: 'section', children: [
       { input: 'X1' },
       { input: 'X2', label: 'Type of event' },
-      { input: 'X3', label: 'Start date', widget: { type: 'range', control: 'direct' } },
+      { input: 'X3', label: 'Start date', widget: { type: 'range', control: 'slider' } },
       { input: 'X4', label: 'Start (general time of day)' },
       { input: 'X5', label: 'Source type' }
     ] }]
@@ -169,7 +169,7 @@ test('faceted: linked paths share branches; lists, multiselect, help, spatial an
   ]);
   assert.equal(definition.w, 'bookmark');
   assert.equal(definition.title, 'Places');
-  assert.equal(definition.filterForm.settings, undefined);
+  assert.deepEqual(definition.filterForm.settings, { listThreshold: 5 });
   assert.deepEqual(definition.filterForm.groups[0].children[0],
     { input: 'X1', label: 'Usage type', help: 'Pick one or more', mode: 'checkbox', multiple: true });
   assert.deepEqual(definition.filterForm.groups[0].children.at(-1), { input: 'SEARCH', label: 'Text search' });
@@ -301,4 +301,36 @@ test('faceted: shown spatial filter becomes a GEO field; the initial area is its
     rectypes: ['12'], version: 2, facets: [], ui_spatial_filter: false, ui_spatial_filter_initial: area
   });
   assert.deepEqual(hidden.definition.q, [{ t: '12' }, { sortby: 't' }]);
+});
+
+test('faceted: hierarchy, accordion, list size and counts become form settings', async () => {
+  const convert = async (options) => (await converter.convert({
+    rectypes: ['12'], version: 2, search_on_reset: true, facets: [], ...options
+  })).definition.filterForm.settings;
+  assert.deepEqual(await convert({
+    title_hierarchy: true, accordion_view: true, viewport: 10, ui_counts_align: 'left', ui_counts_mode: 'bracket'
+  }), { showHierarchy: true, accordion: true, listThreshold: 10, countsAlign: 'label', countsMode: 'brackets' });
+  // legacy defaults: right-aligned badges; viewport 0 shows every value
+  assert.deepEqual(await convert({ viewport: 0, ui_counts_align: 'right', ui_counts_mode: 'badge' }), { listThreshold: 1000 });
+  assert.equal(await convert({ viewport: 20, ui_counts_mode: 'none' }).then((s) => s.countsMode), 'none');
+  assert.equal(await convert({ viewport: 20 }), undefined);
+});
+
+test('faceted: a date list keeps its grouping', async () => {
+  const { definition } = await converter.convert({
+    rectypes: ['14'], version: 2, facets: [
+      { var: 1, code: '14:10', title: 'Start date', isfacet: '3', groupby: 'decade', type: 'date' },
+      { var: 2, code: '14:11', title: 'End date', isfacet: '2', type: 'date' },
+      { var: 3, code: '14:12', title: 'Other date', isfacet: '1', groupby: 'month', type: 'date' }
+    ]
+  });
+  const [start, end, other] = definition.filterForm.groups[0].children;
+  assert.equal(start.mode, 'radio');
+  assert.equal(start.groupBy, 'decade');
+  assert.equal(start.orientation, undefined);
+  assert.equal(end.orientation, 'inline');
+  assert.equal(end.groupBy, 'year');
+  assert.equal(other.groupBy, undefined);
+  // slider mode: bounds are requested at run time (auto)
+  assert.deepEqual(other.widget, { type: 'range', control: 'slider' });
 });

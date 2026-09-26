@@ -1,12 +1,16 @@
 .h-filter-form-designer {
+  /* compact controls: the designer lists many inputs */
+  --h-control-height: 26px;
+  container: h-filter-form-designer / inline-size;
   display: flex;
   flex-direction: column;
   gap: 12px;
-  min-width: min(1320px, calc(100vw - 64px));
+  width: 100%;
 }
 
-#h-filter-form-designer-dialog {
-  width: min(1400px, calc(100vw - 32px));
+.h-dialog#h-filter-form-designer-dialog {
+  width: min(1400px, 90vw);
+  max-width: 90vw;
   min-height: min(620px, calc(100vh - 32px));
 }
 
@@ -15,25 +19,145 @@
 }
 
 .h-filter-form-designer-setting,
-.h-filter-form-designer-row {
+.h-filter-form-designer-line {
   display: flex;
   align-items: center;
   gap: var(--h-gap);
-  position: relative;
 }
 
+.h-filter-form-designer-setting {
+  margin: 2px 8px;
+}
+
+/* checkboxes and radios centred on their captions */
+.h-filter-form-designer-toolbar :is(input[type='checkbox'], input[type='radio']),
+.h-filter-form-designer-rows input[type='checkbox'] {
+  margin: 0;
+  vertical-align: middle;
+}
+
+/* space between the designer's own inputs (not the preview's) */
+.h-filter-form-designer-toolbar :is(.h-input, .h-select),
+.h-filter-form-designer-rows :is(.h-input, .h-select) {
+  margin: 4px;
+  padding: 2px 6px;
+}
+
+/* form-wide options */
+.h-filter-form-designer-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 8px 16px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--h-color-border);
+}
+
+.h-filter-form-designer-general,
+.h-filter-form-designer-lists,
+.h-filter-form-designer-counts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.h-filter-form-designer-lists {
+  margin: 0;
+  padding: 2px 6px 4px;
+  border: 1px solid var(--h-color-border);
+  border-radius: var(--h-radius);
+}
+
+.h-filter-form-designer-lists > legend {
+  padding: 0 4px;
+  font-weight: 600;
+}
+
+/* "Counts alignment" and "Show counts as" wrap together */
+.h-filter-form-designer-counts {
+  padding: 0 2px;
+  border-left: 1px solid var(--h-color-border);
+}
+
+.h-filter-form-designer-radios {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+}
+
+.h-filter-form-designer-radios > label {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  cursor: pointer;
+}
+
+.h-filter-form-designer-preview-toggle {
+  flex-direction: row-reverse;
+}
+
+/* one bordered item per input: drag handle and visibility, then the lines
+   (label, presentation, help, field name) aligned on one left edge */
 .h-filter-form-designer-rows {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  min-width: 0;
+}
+
+.h-filter-form-designer-row {
+  display: grid;
+  grid-template-columns: 20px auto minmax(0, 1fr);
+  align-items: center;
+  column-gap: var(--h-gap);
+  position: relative;
+  margin: 4px 0;
+  padding: 4px 8px;
+  border: 1px solid var(--h-color-border);
+  border-radius: 4px;
+  background: var(--h-color-bg);
+}
+
+.h-filter-form-designer-row > .h-filter-form-designer-drag,
+.h-filter-form-designer-row > input[type='checkbox'] {
+  grid-row: 1;
+}
+
+.h-filter-form-designer-row > .h-filter-form-designer-line,
+.h-filter-form-designer-row > .h-filter-form-designer-name {
+  grid-column: 3;
+}
+
+.h-filter-form-designer-line {
+  flex-wrap: wrap;
+  gap: 0 var(--h-gap);
+  min-width: 0;
+}
+
+.h-filter-form-designer-line > .h-filter-form-designer-label,
+.h-filter-form-designer-line > .h-filter-form-designer-help {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* the options line starts with the presentation, flush with the label */
+.h-filter-form-designer-options > .h-filter-form-designer-setting:first-child {
+  margin-left: 4px;
 }
 
 .h-filter-form-designer-name {
-  min-width: 190px;
+  margin: 0 4px 2px;
+  overflow: hidden;
+  color: var(--h-color-text-muted);
+  font-size: var(--h-font-size-small);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.h-filter-form-designer-ranges {
+  width: 64px;
 }
 
 .h-filter-form-designer-drag {
-  flex: 0 0 20px;
   cursor: grab;
   color: var(--h-color-text-muted, #666);
   font-size: 20px;
@@ -45,58 +169,46 @@
   opacity: 0.45;
 }
 
+.h-filter-form-designer-row.is-hidden-input {
+  background: var(--h-color-surface);
+}
+
 .h-filter-form-designer-row.is-hidden-input .h-filter-form-designer-drag {
   cursor: default;
   opacity: 0.25;
 }
 
-.h-filter-form-designer-row > .h-input {
-  flex: 1 1 auto;
-}
-
-.h-filter-form-designer-row > .h-filter-form-designer-bound {
+.h-filter-form-designer-line > .h-filter-form-designer-bound {
   flex: 0 1 115px;
   min-width: 95px;
 }
 
-
-.h-filter-form-designer-toolbar {
-  display: flex;
-  align-items: center;
-  gap: 24px;
-}
-
-.h-filter-form-designer-preview-toggle {
-  flex-direction: row-reverse;
-}
-
+/* designer and preview: the preview wraps below the fields unless the
+   orientation is vertical and the designer is wider than 800px */
 .h-filter-form-designer-workspace {
   display: grid;
-  min-height: 360px;
-}
-
-.h-filter-form-designer-workspace.is-preview-side {
-  grid-template-columns: minmax(0, 3fr) minmax(320px, 2fr);
-}
-
-.h-filter-form-designer-workspace.is-preview-below {
   grid-template-columns: minmax(0, 1fr);
+  min-height: 360px;
 }
 
 .h-filter-form-designer-preview-pane {
   min-width: 0;
+  margin-top: 16px;
   padding: 12px;
+  border-top: 4px solid var(--h-color-border-strong, #777);
   background: var(--h-color-bg, #fff);
 }
 
-.h-filter-form-designer-workspace.is-preview-side .h-filter-form-designer-preview-pane {
-  margin-left: 16px;
-  border-left: 4px solid var(--h-color-border-strong, #777);
-}
+@container h-filter-form-designer (min-width: 801px) {
+  .h-filter-form-designer-workspace.is-preview-side {
+    grid-template-columns: minmax(0, 1fr) 300px;
+  }
 
-.h-filter-form-designer-workspace.is-preview-below .h-filter-form-designer-preview-pane {
-  margin-top: 16px;
-  border-top: 4px solid var(--h-color-border-strong, #777);
+  .h-filter-form-designer-workspace.is-preview-side .h-filter-form-designer-preview-pane {
+    margin: 0 0 0 16px;
+    border-top: 0;
+    border-left: 4px solid var(--h-color-border-strong, #777);
+  }
 }
 
 .h-filter-form-designer-preview-title {
@@ -108,5 +220,37 @@
   min-height: 110px;
   padding: 6px;
   border: 1px solid var(--h-color-border, #aaa);
-  border-radius: var(--h-border-radius, 3px);
+  border-radius: var(--h-radius, 3px);
+}
+
+/* the preview's Reset stays in place instead of sticking to the dialog bottom */
+.h-filter-form-designer-preview .h-filter-form-actions {
+  position: static;
+}
+
+/* floating jumps between the fields and the preview below them */
+.h-filter-form-designer-jumps {
+  position: sticky;
+  bottom: 8px;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-self: flex-end;
+  height: 0;
+  overflow: visible;
+  justify-content: flex-end;
+}
+
+.h-filter-form-designer-jump {
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border-radius: 50%;
+  font-size: 16px;
+  box-shadow: 0 2px 6px rgb(0 0 0 / 25%);
+}
+
+.h-filter-form-designer-jump[hidden] {
+  display: none;
 }

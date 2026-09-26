@@ -65,8 +65,17 @@ export class HInput extends HBaseWidget {
     const header = document.createElement('div');
     header.className = 'h-form-input-header';
     if (!this.options.suppressLabel) {
+      const hierarchy = String(this.options.hierarchy ?? '').trim();
+      if (hierarchy) {
+        const path = document.createElement('div');
+        path.className = 'h-form-input-hierarchy';
+        path.textContent = hierarchy;
+        path.title = hierarchy;
+        this.container.append(path);
+      }
       header.append(label);
       this.container.append(header);
+      if (this.options.collapsible) this._makeCollapsible(label);
     }
     this.container.append(controlHost);
 
@@ -195,6 +204,34 @@ export class HInput extends HBaseWidget {
       bubbles: true,
       detail: { input: this, value: this.getValue() }
     }));
+  }
+
+  /**
+   * Let the label collapse and expand the control and help (accordion view).
+   *
+   * @param {HTMLLabelElement} label Field label.
+   * @returns {void}
+   */
+  _makeCollapsible(label) {
+    const container = this.container;
+    container.classList.add('is-collapsible');
+    label.tabIndex = 0;
+    label.setAttribute('role', 'button');
+    const toggle = (collapsed) => {
+      container.classList.toggle('is-collapsed', collapsed);
+      label.setAttribute('aria-expanded', String(!collapsed));
+    };
+    toggle(Boolean(this.options.collapsed));
+    // preventDefault: a label click would otherwise focus (and open) the control
+    this.listen(label, 'click', (event) => {
+      event.preventDefault();
+      toggle(!container.classList.contains('is-collapsed'));
+    });
+    this.listen(label, 'keydown', (event) => {
+      if (event.key !== 'Enter' && event.key !== ' ') return;
+      event.preventDefault();
+      toggle(!container.classList.contains('is-collapsed'));
+    });
   }
 
   /** Show the clear action only when the input currently has a value. */

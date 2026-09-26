@@ -22,12 +22,19 @@ import { normalizeJsonQuery, parseJson, relationTypePredicate, strictTextToJson 
 import { convertLegacyRules } from './legacyRules.js';
 
 const FT_INPUT = 0;
+const FT_SLIDER = 1;
 const FT_LIST = 2;
 const FT_COLUMN = 3;
 
 const RANGE_TYPES = new Set(['date', 'year', 'integer', 'float']);
 const HEADER_FIELDS = new Set(['title', 'added', 'modified', 'url', 'notes', 'addedby', 'owner']);
 const UNSUPPORTED_FIELDS = new Set(['typename', 'typeid']);
+const DATE_GROUPS = new Set(['month', 'year', 'decade', 'century']);
+/** Legacy default `viewport`, and the list size standing for "show all" (`viewport: 0`). */
+const LEGACY_VIEWPORT = 5;
+const VIEWPORT_ALL = 1000;
+/** HFilterForm's default list size (not imported: this module stays DOM-free). */
+const DEFAULT_LIST_THRESHOLD = 20;
 
 /**
  * Convert a parsed faceted-search definition.
@@ -68,7 +75,8 @@ export function convertFacetedSearch(definition, { dbdefs = null } = {}) {
   query.push({ sortby: String(definition.sort_order ?? '').trim() || preliminarySort || 't' });
 
   const filterForm = { version: 1, groups: [{ id: 'main', type: 'section', children }] };
-  if (!definition.search_on_reset) filterForm.settings = { skipEmptySearch: true };
+  const settings = formSettings(definition);
+  if (Object.keys(settings).length) filterForm.settings = settings;
 
   const result = {
     q: query,
@@ -181,7 +189,17 @@ function layoutChild(name, facet, path, isRange, dbdefs) {
   const help = String(facet.help || '').trim();
   if (help) child.help = help;
 
-  if (isRange) child.widget = { type: 'range', control: 'direct' };
+  // legacy slider mode (1): a slider whose bounds the form requests (detail=minmax, plan §12 #10)
+  if (isRange) child.widget = { type: 'range', control: isFacetMode(facet) === FT_SLIDER ? 'slider' : 'direct' };
+  // a date list grouped by month/year/…
+  if (isRange && facet.type === 'date') {
+    const mode = isFacetMode(facet);
+    if (mode === FT_LIST || mode === FT_COLUMN) {
+      child.mode = 'radio';
+      if (mode === FT_LIST) child.orientation = 'inline';
+      child.groupBy = DATE_GROUPS.has(facet.groupby) ? facet.groupby : 'year';
+    }
+  }
 
   if (facet.type === 'enum' || facet.type === 'relationtype') {
     const mode = isFacetMode(facet);
@@ -192,6 +210,31 @@ function layoutChild(name, facet, path, isRange, dbdefs) {
     if (facet.multisel) child.multiple = true;
   }
   return child;
+}
+
+/**
+ * Form-wide presentation settings (only values that differ from the new defaults
+ * are written; the designer drops the rest anyway).
+ *
+ * @param {object} definition Legacy faceted definition.
+ * @returns {object} `filterForm.settings`.
+ */
+function formSettings(definition) {
+  const settings = {};
+  if (!definition.search_on_reset) settings.skipEmptySearch = true;
+  if (definition.title_hierarchy === true || definition.title_hierarchy === 'true') settings.showHierarchy = true;
+  if (definition.accordion_view === true || definition.accordion_view === 'true') settings.accordion = true;
+
+  // legacy `viewport`: items shown before "more"; 0 = all, missing/invalid = 5
+  const viewport = Number(definition.viewport);
+  const listThreshold = viewport === 0 ? VIEWPORT_ALL : viewport > 0 ? Math.round(viewport) : LEGACY_VIEWPORT;
+  if (listThreshold !== DEFAULT_LIST_THRESHOLD) settings.listThreshold = listThreshold;
+
+  // legacy defaults are the new ones: counts as badges at the right
+  if (definition.ui_counts_align === 'left') settings.countsAlign = 'label';
+  if (definition.ui_counts_mode === 'bracket') settings.countsMode = 'brackets';
+  else if (definition.ui_counts_mode === 'none') settings.countsMode = 'none';
+  return settings;
 }
 
 /** Add the “search everything” and map-extent form fields and the initial spatial/temporal filters. */

@@ -41,6 +41,7 @@ export class HInputDate extends HInput {
       first.readOnly = this.options.fixedValue?.from != null;
       this.endControl.readOnly = this.options.fixedValue?.to != null;
       host.classList.add('h-input-date-range');
+      this._rangeHost = host;
       if (this.options.rangeControl === 'slider' && dateDay(this.options.min) !== null
         && dateDay(this.options.max) !== null) {
         this._addSliders(host);
@@ -87,6 +88,30 @@ export class HInputDate extends HInput {
       const endpoint = index ? 'to' : 'from';
       slider.disabled = Boolean(readOnly) || this.options.fixedValue?.[endpoint] != null;
     }
+    return this;
+  }
+
+  /**
+   * Set the slider bounds after render (bounds requested from the server).
+   * The sliders appear once the bounds are ISO dates making a non-empty
+   * interval; other dates (e.g. before year 1) leave the direct inputs only.
+   *
+   * @param {string|null} min Lower bound, YYYY-MM-DD.
+   * @param {string|null} max Upper bound, YYYY-MM-DD.
+   * @returns {HInputDate} This input.
+   */
+  setBounds(min, max) {
+    this.options.min = min;
+    this.options.max = max;
+    const from = dateDay(min);
+    const to = dateDay(max);
+    if (from === null || to === null || from >= to || this.options.rangeControl !== 'slider' || !this._rangeHost) {
+      return this;
+    }
+    if (!this.sliders) this._addSliders(this._rangeHost);
+    else for (const slider of this.sliders) { slider.min = String(from); slider.max = String(to); }
+    this._syncSliders();
+    this.setReadOnly(Boolean(this.options.readOnly));
     return this;
   }
 
