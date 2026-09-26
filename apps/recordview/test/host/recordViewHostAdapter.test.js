@@ -19,7 +19,7 @@ import { StandaloneHostAdapter } from "#shared/host";
 
 test("getCapabilities reflects editing support and FrontController configuration", () => {
   const configured = new HeuristRecordViewHostAdapter({
-    bridge: { editRecord: () => {} },
+    bridge: { editRecord: () => {}, canEditRecords: () => true },
     baseUrl: "http://example.test/heurist/",
     database: "demo",
   });

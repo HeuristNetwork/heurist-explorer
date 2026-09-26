@@ -2,6 +2,8 @@
 .h-qse.is-dirty { box-shadow:inset 3px 0 0 var(--h-color-accent,#777); }
 /* vertical pane: the query takes its own full-width line, the buttons wrap below */
 .h-qse-query-row { display:flex; flex-wrap:wrap; align-items:center; gap:6px; }
+/* Filter | Builder | Clear: one height, whatever their content (icon, caption) */
+.h-qse-run,.h-qse-builder,.h-qse-clear { box-sizing:border-box; height:var(--h-control-height); min-height:0; padding-block:0; }
 .h-qse-query { flex:1 1 100%; min-width:0; resize:vertical; height:150px; min-height:30px; max-height:200px; }
 .h-qse-query[readonly] { background: var(--h-color-bg-disabled, #ededed); color: var(--h-color-text-muted, #666); }
 .h-qse-structured { flex:1 1 auto; min-width:220px; padding:5px 7px; background:var(--h-color-surface); border:1px solid var(--h-color-border); border-radius:var(--h-radius); }

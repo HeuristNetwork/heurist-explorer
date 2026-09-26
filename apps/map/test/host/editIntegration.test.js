@@ -8,6 +8,7 @@ test('HeuristHostAdapter exposes generic record editing only when bridge support
   const calls = [];
   const adapter = new HeuristHostAdapter({
     bridge: {
+      canEditRecords: () => true,
       editRecord(recordId) {
         calls.push(recordId);
         return Promise.resolve({ saved: true, recordId });

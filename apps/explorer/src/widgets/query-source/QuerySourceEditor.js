@@ -106,7 +106,7 @@ export class QuerySourceEditor extends HBaseWidget {
     this._run = button('', $HR('Filter'), () => void this._runClicked(), 'h-btn h-btn-primary h-qse-run');
     const run = this._run;
     run.innerHTML = '<i class="fa-solid fa-filter" aria-hidden="true"></i><span class="h-qse-run-caption">' + escapeHtml($HR('Filter')) + '</span>';
-    const builder = button($HR('Builder'), $HR('Open the Filter Builder'), () => void this._openBuilder());
+    const builder = button($HR('Builder'), $HR('Open the Filter Builder'), () => void this._openBuilder(), 'h-btn h-qse-builder');
     const clear = button($HR('Clear'), $HR('Clear the query and detach from Query Source, clearing its title and presentation settings'), () => this.clearSettings(), 'h-btn h-qse-clear');
     // More/Less is kept for a collapsible (compact) placement; hidden while always expanded
     this._more = button('', $HR('More Query Source options'), () => this.setExpanded(!this._expanded), 'h-btn h-btn-small h-qse-more');

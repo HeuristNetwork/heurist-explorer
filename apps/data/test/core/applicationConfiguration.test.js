@@ -185,3 +185,19 @@ test("a superseded load's abort signal carries a named AbortError, not a bare st
   });
   await second;
 });
+
+test("the row pen and Save as Filter/Source follow the host's editing ability, not only the setting", () => {
+  const options = (supportsEditing, editEnabled = true) => new DataApplication({
+    container: {},
+    config: { source: {}, engineOptions: { interaction: { editEnabled, popupEnabled: true } } },
+    engine: { setData: async () => {} },
+    host: { supportsEditing: () => supportsEditing },
+    loaders: {},
+  })._engineOptions();
+  assert.equal(options(false).interaction.editEnabled, false, "guest: no pen");
+  assert.equal(options(false).sourceSaveEnabled, false);
+  assert.equal(options(false).interaction.popupEnabled, true, "other interactions untouched");
+  assert.equal(options(true).interaction.editEnabled, true);
+  assert.equal(options(true).sourceSaveEnabled, true);
+  assert.equal(options(true, false).interaction.editEnabled, false, "the setting still turns it off");
+});

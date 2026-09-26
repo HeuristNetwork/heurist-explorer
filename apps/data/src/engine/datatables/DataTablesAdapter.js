@@ -226,6 +226,7 @@ export class DataTablesAdapter extends DataEngineAdapter {
       this.saveSourceButton,
     );
     this.sourceActions.hidden = this.options.sourceActionsEnabled !== true;
+    this._syncSourceSaveButtons();
     this.sourceActions.addEventListener("click", (event) => {
       const button = event.target.closest("[data-source-action]");
       if (!button) return;
@@ -251,6 +252,14 @@ export class DataTablesAdapter extends DataEngineAdapter {
         controls.selectionActions === false;
     if (this.sourceActions)
       this.sourceActions.hidden = this.options.sourceActionsEnabled !== true;
+    this._syncSourceSaveButtons();
+  }
+
+  /** Save as Filter / Save as Source only when the host can save (`sourceSaveEnabled`). */
+  _syncSourceSaveButtons() {
+    const hidden = this.options.sourceSaveEnabled === false;
+    if (this.saveFilterButton) this.saveFilterButton.hidden = hidden;
+    if (this.saveSourceButton) this.saveSourceButton.hidden = hidden;
   }
 
   /**

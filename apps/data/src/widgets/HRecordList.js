@@ -224,6 +224,8 @@ export class HRecordList extends HBaseWidget {
       host.append(button);
     }
     host.hidden = this.options.sourceActionsEnabled !== true;
+    this.sourceActionsHost = host;
+    this._syncSourceSaveButtons();
     const selection = this.$('[data-control="selectionActions"]');
     selection?.after(host);
     this.listen(host, "click", (event) => {
@@ -839,7 +841,16 @@ export class HRecordList extends HBaseWidget {
     this._applyControlVisibility();
     if (this.sourceActions)
       this.sourceActions.hidden = this.options.sourceActionsEnabled !== true;
+    this._syncSourceSaveButtons();
     this._render();
+  }
+
+  /** Save as Filter / Save as Source only when the host can save (`sourceSaveEnabled`). */
+  _syncSourceSaveButtons() {
+    const hidden = this.options.sourceSaveEnabled === false;
+    for (const button of this.sourceActionsHost?.querySelectorAll?.("[data-source-action]") || []) {
+      if (button.dataset.sourceAction !== "workspace") button.hidden = hidden;
+    }
   }
 
   /**

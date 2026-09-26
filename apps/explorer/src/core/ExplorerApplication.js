@@ -295,6 +295,8 @@ export class ExplorerApplication {
       }),
       onApply: (source) => this._applyQuerySourceDraft(source),
       onSaveFilter: (source) => this.saveDatasourceAsFilter(source),
+      canSaveFilter: () => this.canEditSavedFilters(),
+      canSaveSource: () => this.canSaveSources(),
       onSaveSource: (source) => this._saveQuerySourceDraft(source),
       onUpdateSource: (source, id) => this._saveQuerySourceDraft(source, id),
       onWorkspaceAdd: (source) => this.addDataSourceToWorkspace(source),
@@ -351,7 +353,8 @@ export class ExplorerApplication {
         title: $HR('Unsaved Query Source changes'),
         preventClose: true,
         buttons: [
-          { label: sourceId > 0 ? $HR('Update Source') : $HR('Save as Source'), class: 'h-btn h-btn-primary', onClick: () => void save() },
+          // saving needs a host that can save sources (a logged-in user)
+          ...(this.canSaveSources() ? [{ label: sourceId > 0 ? $HR('Update Source') : $HR('Save as Source'), class: 'h-btn h-btn-primary', onClick: () => void save() }] : []),
           { label: $HR('Discard'), class: 'h-btn', onClick: () => finish(true) },
           { label: $HR('Cancel'), class: 'h-btn', onClick: () => finish(false) }
         ]
@@ -925,12 +928,27 @@ export class ExplorerApplication {
     return result || null;
   }
 
+  /** @returns {boolean} Whether the host record editor can be used (logged in, editor available). */
+  canEditRecords() {
+    return hostCan(this.config.hostBridge, 'editRecord', 'canEditRecords');
+  }
+
+  /** @returns {boolean} Whether the host Saved Filter editor can be used. */
+  canEditSavedFilters() {
+    return hostCan(this.config.hostBridge, 'editSavedFilter', 'canEditSavedFilters');
+  }
+
+  /** @returns {boolean} Whether the host can save a Query Source record. */
+  canSaveSources() {
+    return hostCan(this.config.hostBridge, 'saveDatasourceAsSource', 'canSaveSources');
+  }
+
   /** Open a Query Source record in the host record editor. */
   async editQuerySource(id) {
     const recordId = Number(id);
     if (!Number.isFinite(recordId) || recordId <= 0) return null;
     const bridge = this.config.hostBridge || {};
-    if (typeof bridge.editRecord !== 'function') {
+    if (!this.canEditRecords()) {
       throw new Error($HR('Record editor is not available'));
     }
     return bridge.editRecord(recordId);
@@ -1169,6 +1187,8 @@ export class ExplorerApplication {
     const bridge = this.config.hostBridge || {};
     return {
       editRecord: (id) => bridge.editRecord?.(id),
+      // modules show edit actions only when the outer host can really edit
+      canEditRecords: () => this.canEditRecords(),
       // shown in Explorer's own Record view; see viewRecord()
       viewRecord: (id) => this.viewRecord(id),
       addRecord: (rt) => bridge.addRecord?.(rt),
@@ -1535,3 +1555,22 @@ function normalizeLayout(value) {
 
 function queryDefined(q) { return q != null && (typeof q !== 'string' || q.trim().length > 0); }
 
+/**
+ * Whether a host bridge action can be used: the action exists and the bridge's
+ * `can…()` check answers true. A bridge without the check cannot prove it
+ * (e.g. an older cached host script), so the action is not offered.
+ *
+ * @param {object|null} bridge Host bridge.
+ * @param {string} action Action name (e.g. `editRecord`).
+ * @param {string} check Check name (e.g. `canEditRecords`).
+ * @returns {boolean} Whether the action is usable.
+ */
+function hostCan(bridge, action, check) {
+  if (typeof bridge?.[action] !== 'function') return false;
+  if (typeof bridge[check] !== 'function') return false;
+  try {
+    return bridge[check]() === true;
+  } catch {
+    return false;
+  }
+}

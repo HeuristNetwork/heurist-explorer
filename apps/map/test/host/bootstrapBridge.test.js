@@ -307,6 +307,7 @@ test('HeuristHostAdapter delegates record editing to the parent bridge', async (
   const edited = [];
   const adapter = new HeuristHostAdapter({
     bridge: {
+      canEditRecords: () => true,
       editRecord(recordId) {
         edited.push(recordId);
         return Promise.resolve({ saved: true, recordId });

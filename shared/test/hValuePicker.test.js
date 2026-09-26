@@ -151,3 +151,22 @@ test('combobox shows the selection label and closes after a single pick', async 
   assert.equal(combo.buttonText.textContent, 'Select a value');
   await combo.destroy();
 });
+
+test('a combo near the bottom opens its list above, touching the button (bottom-anchored)', async () => {
+  const { HValueCombo: Combo } = await import('../src/widgets/picker/HValueCombo.js');
+  const { StaticSource: Source } = await import('../src/data/valueSources/index.js');
+  const host = document.createElement('div');
+  document.body.append(host);
+  const combo = new Combo().attach(host, { source: new Source([{ value: 1, label: 'One' }]) }).render();
+  // button close to the bottom of an 800px viewport
+  combo.button.getBoundingClientRect = () => ({ top: 700, bottom: 730, left: 10, right: 210, width: 200, height: 30 });
+  await combo.open();
+  assert.equal(combo.popover.style.top, 'auto');
+  assert.equal(combo.popover.style.bottom, `${800 - 700 + 2}px`);
+  combo.close();
+  combo.button.getBoundingClientRect = () => ({ top: 100, bottom: 130, left: 10, right: 210, width: 200, height: 30 });
+  await combo.open();
+  assert.equal(combo.popover.style.top, '132px');
+  assert.equal(combo.popover.style.bottom, 'auto');
+  combo.close();
+});

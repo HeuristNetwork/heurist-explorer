@@ -109,11 +109,29 @@ export class DataApplication extends EventTarget {
     return this;
   }
 
+  /**
+   * Engine options with the host's abilities applied: record editing (the row
+   * pen) and saving a filter/source need a host that can really edit
+   * (`host.supportsEditing()`: a logged-in user with the record editor); the
+   * configured "Enable edit" setting is kept as it is.
+   *
+   * @returns {object} Options for the rendering engine.
+   */
+  _engineOptions() {
+    const options = this.config.engineOptions || {};
+    const canEdit = this.host.supportsEditing?.() === true;
+    return {
+      ...options,
+      interaction: { ...options.interaction, editEnabled: options.interaction?.editEnabled !== false && canEdit },
+      sourceSaveEnabled: canEdit,
+    };
+  }
+
   /** Build the callback/options context passed to the rendering engine's `initialize`. */
   _engineContext() {
     return {
       container: this.container,
-      options: this.config.engineOptions,
+      options: this._engineOptions(),
       onSelectionChange: (ids) => this._selectionFromEngine(ids),
       onEditRecord: (id) => this.requestEditRecord(id),
       onViewRecord: (id) => this.requestViewRecord(id),
@@ -638,7 +656,7 @@ export class DataApplication extends EventTarget {
       return normalized;
     }
     await this._configureCollection();
-    await this.engine.applyConfiguration?.(this.config.engineOptions);
+    await this.engine.applyConfiguration?.(this._engineOptions());
     this.dispatch("heurist-data-configuration-changed", {
       options: normalized.options,
       config: normalized.config,

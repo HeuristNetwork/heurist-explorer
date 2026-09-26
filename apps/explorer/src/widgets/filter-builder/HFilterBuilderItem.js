@@ -213,7 +213,16 @@ export class HFilterBuilderItem extends HBaseWidget {
       label = this.dbdefs?.fieldName?.(this.scopeRtyId, d) || this.dbdefs?.fieldGlobal?.(d)?.name || `field ${d}`;
       if (this.row.enumField) label += ` · ${this.row.enumField}`;
     }
-    this._fieldBtn.textContent = label + ' ▾';
+    // label and caret apart: a long field name is cut with an ellipsis, the caret stays
+    const text = document.createElement('span');
+    text.className = 'h-fbitem-field-label';
+    text.textContent = label;
+    const caret = document.createElement('span');
+    caret.className = 'h-fbitem-field-caret';
+    caret.setAttribute('aria-hidden', 'true');
+    caret.textContent = '▾';
+    this._fieldBtn.replaceChildren(text, caret);
+    this._fieldBtn.title = label;
   }
 
   /**

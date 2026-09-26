@@ -3,3 +3,4 @@
 .h-dsa-status.is-persisted { font-weight:600; color:var(--h-color-text); }
 .h-dsa-status.is-workspace::before { content:'◆ '; }
 .h-dsa-buttons { display:flex; gap:5px; flex-wrap:wrap; justify-content:flex-end; }
+.h-dsa-buttons > [hidden] { display:none; }

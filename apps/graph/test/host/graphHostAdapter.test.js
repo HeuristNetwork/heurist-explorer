@@ -20,6 +20,7 @@ test("record editing and creation are exposed only when the bridge supports them
   const calls = [];
   const adapter = new HeuristGraphHostAdapter({
     bridge: {
+      canEditRecords: () => true,
       editRecord(recordId) {
         calls.push(["edit", recordId]);
         return Promise.resolve({ saved: true, recordId });
@@ -44,7 +45,7 @@ test("record editing and creation are exposed only when the bridge supports them
 
 test("getCapabilities reflects editing support and FrontController configuration", () => {
   const configured = new HeuristGraphHostAdapter({
-    bridge: { editRecord: () => {} },
+    bridge: { editRecord: () => {}, canEditRecords: () => true },
     baseUrl: "http://example.test/heurist/",
     database: "demo",
   });

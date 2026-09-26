@@ -214,7 +214,10 @@ export class HValueCombo extends HBaseWidget {
       minWidth: `${width}px`,
       maxHeight: `${height}px`,
       left: `${Math.max(margin, Math.min(rect.left, window.innerWidth - width - margin))}px`,
-      top: openBelow ? `${rect.bottom + 2}px` : `${Math.max(margin, rect.top - height - 2)}px`
+      // above: anchor the bottom edge to the button, so a list shorter than
+      // maxHeight still touches it (a top edge at rect.top - maxHeight left a gap)
+      top: openBelow ? `${rect.bottom + 2}px` : 'auto',
+      bottom: openBelow ? 'auto' : `${window.innerHeight - rect.top + 2}px`
     });
   }
 

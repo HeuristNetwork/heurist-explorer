@@ -43,9 +43,20 @@ export class HostAdapter {
   /** Perform any asynchronous setup the host adapter requires. No-op by default. */
   async initialize() {}
 
-  /** Whether the host can edit or create records (delegates to the bridge's `editRecord`). */
+  /**
+   * Whether the host can edit or create records: the bridge has `editRecord`
+   * and its `canEditRecords()` answers true (a logged-in user with the host's
+   * record editor loaded). A bridge that does not answer cannot prove it, so
+   * edit actions stay hidden.
+   */
   supportsEditing() {
-    return typeof this.bridge?.editRecord === "function";
+    if (typeof this.bridge?.editRecord !== "function") return false;
+    if (typeof this.bridge.canEditRecords !== "function") return false;
+    try {
+      return this.bridge.canEditRecords() === true;
+    } catch {
+      return false;
+    }
   }
 
   /**

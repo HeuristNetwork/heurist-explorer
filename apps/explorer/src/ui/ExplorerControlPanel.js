@@ -884,7 +884,8 @@ export class ExplorerControlPanel {
     edit.setAttribute('aria-label', edit.title);
     edit.innerHTML = '<span class="fa-solid fa-pen" aria-hidden="true"></span>';
     edit.addEventListener('click', () => void this._editQuerySource(source.id));
-    row.append(star, select, edit);
+    row.append(star, select);
+    if (this.application.canEditRecords?.() === true) row.append(edit);
     return row;
   }
 
@@ -1147,7 +1148,8 @@ export class ExplorerControlPanel {
     edit.setAttribute('aria-label', edit.title);
     edit.innerHTML = '<span class="fa-solid fa-pen" aria-hidden="true"></span>';
     edit.addEventListener('click', () => void this._editSavedFilter(filter.id));
-    row.append(star, select, edit);
+    row.append(star, select);
+    if (this.application.canEditSavedFilters?.() === true) row.append(edit);
     return row;
   }
 

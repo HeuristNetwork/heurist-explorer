@@ -29,10 +29,14 @@ export class DataSourceActions extends HBaseWidget {
    * @param {Function} [options.onWorkspaceRemove] Called with the draft DataSource to remove it from the Workspace.
    * @param {Function} [options.isInWorkspace] Predicate resolving whether a DataSource is currently in the Workspace.
    * @param {Function} [options.prepareSourceDraft] Returns a save-ready draft, e.g. with an auto-generated title.
+   * @param {Function} [options.canSaveFilter] `() → boolean`: whether Save as Filter is offered (default yes).
+   * @param {Function} [options.canSaveSource] `() → boolean`: whether Save/Update Source is offered (default yes).
    */
-  constructor({ onSaveFilter, onSaveSource, onUpdateSource, onWorkspaceAdd, onWorkspaceRemove, isInWorkspace, prepareSourceDraft } = {}) {
+  constructor({ onSaveFilter, onSaveSource, onUpdateSource, onWorkspaceAdd, onWorkspaceRemove, isInWorkspace, prepareSourceDraft,
+    canSaveFilter = null, canSaveSource = null } = {}) {
     super();
-    Object.assign(this, { onSaveFilter, onSaveSource, onUpdateSource, onWorkspaceAdd, onWorkspaceRemove, isInWorkspace, prepareSourceDraft });
+    Object.assign(this, { onSaveFilter, onSaveSource, onUpdateSource, onWorkspaceAdd, onWorkspaceRemove, isInWorkspace, prepareSourceDraft,
+      canSaveFilter, canSaveSource });
     this.dataSource = null;
     this.getDraft = null;
     this.dirty = false;
@@ -86,6 +90,10 @@ export class DataSourceActions extends HBaseWidget {
       this._status.classList.toggle('is-workspace', !!inWorkspace);
     }
     const hasQuery = queryDefined((typeof this.getDraft === 'function' ? this.getDraft() : ds)?.request?.q);
+    // not offered at all when the host cannot save (a guest, a published page)
+    const allowed = (check) => typeof check !== 'function' || check() === true;
+    if (this._filter) this._filter.hidden = !allowed(this.canSaveFilter);
+    if (this._source) this._source.hidden = !allowed(this.canSaveSource);
     if (this._filter) this._filter.disabled = !hasQuery;
     if (this._source) {
       this._source.textContent = sourceId ? $HR('Update Source') : $HR('Save as Source');
