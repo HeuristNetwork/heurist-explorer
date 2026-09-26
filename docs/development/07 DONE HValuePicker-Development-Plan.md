@@ -291,21 +291,35 @@ Where the code is and where it differs from the plan above.
 - Bounds note: auto sliders show the field's range under the control (`HInput.setNote`,
   `boundsNote`: a bound on a year boundary shows the year alone).
 
-> **TODO — Implement slider for prehistoric dates.** Date sliders only handle 4-digit years (0001–9999;
-> `HInputDate` day numbers via `Date`). A field with values outside that range (e.g. -1 000 000 000 in
-> osmak_mapping, field 9) shows the direct From/To inputs with the bounds as a note below. A prehistoric
-> slider needs a year-based scale (possibly logarithmic for deep time) instead of day numbers.
+> **TODO — Implement slider for prehistoric dates.** Since 2026-09-26 the date slider reads signed years
+> (`-0500-01-01`, `-12000-06-01`; `sliderDay`/`sliderDate` in `HInputDate`) within JavaScript's date range,
+> about ±271 000 years; the calendar still holds 0000–9999 only, other slider values are written as text.
+> Deeper time (e.g. -1 000 000 000 in osmak_mapping, field 9) shows the direct From/To inputs with the
+> bounds as a note below. A deep-time slider needs a year-based scale (possibly logarithmic) instead of
+> day numbers.
+>
+> Also 2026-09-26: Filter Form date inputs accept any text the server reads (`1850`, `1850-07`, `-500`;
+> `allowLegacyText`) instead of rejecting everything but YYYY-MM-DD, and the From ≤ To check compares days
+> (it compared strings: `-0500` > `-0100`, `900` > `1850`) and is skipped for partial dates.
 
 **Fixed 2026-09-26:** `detailDateCondition` accepts the infix forms `from<>to` / `from><to` as the prefix
 forms `<>from/to` / `><from/to` (they were rejected as invalid temporal values).
 
-**Findings, not fixed (server, pre-existing; documented in `Temporal::getMinMax`, `decimalToYMD`,
+**Fixed 2026-09-26 in `srv/Utilities/Temporal.php` only** (legacy `hserv/utilities/Temporal.php` unchanged):
+search values cover whole periods (`2026` → [2026, 2026.1231], `2026-07` → a month, `-100` →
+[-100.1231, -100]; bounds on Jan 1 / Dec 31 or the first/last day of a month include values stored with
+year/month precision); `decimalToYMD($date, $upper = null)` fixed (keeps precision, or full lower/upper
+dates) and, with `decimalParts` / `daysInMonth`, shared by `FieldValueRange` / `FieldValueBuckets`.
+Stored (non-search) bounds are unchanged; no reindex. Live test `tests/TemporalSearchTest.php`.
+The findings below marked *(fixed)* are resolved by this.
+
+**Findings (server, pre-existing; documented in `Temporal::getMinMax`, `decimalToYMD`,
 `FieldPredicateCompiler::detailDateCondition`/`fieldCondition`):**
-- **A plain year finds almost nothing:** `f:9:"2026"` finds 0 of the 25 records dated in 2026 (only
+- *(fixed)* **A plain year finds almost nothing:** `f:9:"2026"` finds 0 of the 25 records dated in 2026 (only
   values stored as the plain year match); `2026/2026` finds all 25.
-- **Negative years with month/day** are indexed as `-100.0401` (numerically *before* year -100), and
+- *(fixed for whole years; month ranges inside negative years still wrong)* **Negative years with month/day** are indexed as `-100.0401` (numerically *before* year -100), and
   `Temporal("-100")` gives `[-100, -100]`, so a search for the year -100 does not find "April -100"; the
   ranges agree with the search and leave it out too.
-- **Plain month values** (`f:9:"2026-07"`, "falls in") find nothing: `Temporal("2026-07", true)` gives
+- *(fixed)* **Plain month values** (`f:9:"2026-07"`, "falls in") find nothing: `Temporal("2026-07", true)` gives
   `[2026, 7.1231]`. Ranges use explicit `YYYY-MM-01/YYYY-MM-DD`, which works.
 - **`year` fields** compare as strings in the search (`scalarCondition`), while ranges/minmax compare numbers.

@@ -453,3 +453,11 @@ layout `child.help` → HInput `help`. Warnings travel in DataSource `meta.warni
 rejects for detail dates ("Invalid temporal value"). (The server accepts the infix form since the same day; the converter keeps the prefix form.) Dates now use the prefix form `<>$X$/$X_to$` /
 `><$X$/$X_to$`; numeric facets keep `$X$<>$X_to$`. Date list facets (`isfacet` 2/3 with `groupby`) now run
 as lists of ranges (`detail=ranges`).
+
+**2026-09-26 presentation fixes:** enum facets convert with `facets: true` (legacy always listed the terms
+that occur, with counts). Text facets keep their wizard mode: `1` dropdown → `mode:"select"`, `3` list →
+`mode:"radio"` (column), `2` wrapped → `orientation:"inline"`, `multisel` → `checkbox` / `multiple`,
+`0`/unset → input; a detail text field in a list mode gets `exact: true`; owner/creator lists use the
+users/groups picker; header text (title, url, notes) stays an input. Server: several term IDs
+(`f:237:"5374,5381"`, a multi-value enum selection) were rejected by `QueryValueResolver::resolveEnumValue`
+("Unknown term for field") — they now pass through and search as OR.
