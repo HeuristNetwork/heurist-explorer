@@ -241,6 +241,7 @@ export class HInput extends HBaseWidget {
     const toggle = (collapsed) => {
       container.classList.toggle('is-collapsed', collapsed);
       label.setAttribute('aria-expanded', String(!collapsed));
+      if (!collapsed) this._onExpand?.();
     };
     toggle(Boolean(this.options.collapsed));
     // preventDefault: a label click would otherwise focus (and open) the control

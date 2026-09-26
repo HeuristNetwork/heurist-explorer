@@ -210,3 +210,100 @@ test('auto slider without values shows a note instead of the slider', async () =
   assert.equal(input.noteElement.textContent, 'No values');
   return form.destroy();
 });
+
+/** Records API whose detail=values answers wait until released; tracks concurrency and aborts. */
+function gatedApi(table) {
+  const log = { requests: [], aborted: 0, active: 0, maxActive: 0, pending: [] };
+  return {
+    log,
+    get(path, { query, signal }) {
+      log.requests.push(structuredClone(query));
+      log.active++; log.maxActive = Math.max(log.maxActive, log.active);
+      return new Promise((resolve, reject) => {
+        const done = () => { log.active--; };
+        signal?.addEventListener('abort', () => { log.aborted++; done(); reject(Object.assign(new Error('aborted'), { name: 'AbortError' })); });
+        log.pending.push(() => { done(); resolve({ total: (table[query.field] || []).length, values: table[query.field] || [] }); });
+      });
+    },
+    release() { while (log.pending.length) log.pending.shift()(); }
+  };
+}
+
+function mountFacets(api, children, settings, onSubmit) {
+  const host = document.createElement('div');
+  document.body.append(host);
+  return new HFilterForm().attach(host, {
+    definition: { query: [{ t: '10' }, { 'f:26': '$X1$' }, { 'f:1': '$X2$' }, { 'f:3': '$X3$' }],
+      filterForm: layoutOf(children, settings) },
+    dbdefs: { ...dbdefs, fieldGlobal: (id) => ({ 26: { type: 'enum', name: 'Country' }, 1: { type: 'freetext', name: 'Name' },
+      3: { type: 'freetext', name: 'City' } })[id] || null },
+    apiClient: api,
+    onSubmit
+  }).render();
+}
+
+test('facet rounds: after the search, one request at a time; a new search cancels the round', async () => {
+  const api = gatedApi({ 26: [{ value: 12, count: 4 }], 1: [{ value: 'Rossi', count: 2 }], 3: [{ value: 'Rome', count: 1 }] });
+  let finishSearch;
+  const form = mountFacets(api, [
+    { input: 'X1', facets: true, mode: 'checkbox' }, { input: 'X2', mode: 'radio', exact: true }, { input: 'X3', mode: 'radio', exact: true }
+  ], null, () => new Promise((resolve) => { finishSearch = resolve; }));
+  await flush();
+  api.release(); await flush();          // initial loads (in parallel, at render)
+  const initial = api.log.requests.length;
+  api.log.maxActive = 0;
+
+  form.inputs.get('X1').setValue([12]);
+  form.inputs.get('X1').notifyChange();
+  await flush();
+  assert.equal(api.log.requests.length, initial, 'no recount while the search runs');
+  finishSearch(); await flush();
+  assert.equal(api.log.requests.length, initial + 1, 'first facet of the round');
+  assert.equal(api.log.requests.at(-1).field, '1', 'X1 changed: its own counts are skipped');
+  assert.equal(api.log.active, 1);
+
+  // a new search: the request in flight is aborted, the rest of the round dropped
+  await flush(600);                      // past the submit debounce
+  form.inputs.get('X2').setValue('Rossi');
+  form.inputs.get('X2').notifyChange();
+  await flush();
+  assert.equal(api.log.aborted, 1);
+  finishSearch(); await flush();
+  api.release(); await flush();
+  api.release(); await flush();
+  assert.equal(api.log.maxActive, 1, 'never two facet requests at once after the initial load');
+  const fields = api.log.requests.slice(initial + 1).map((request) => request.field);
+  assert.deepEqual(fields, ['26', '3'], 'second round: X1 then X3 (X2 changed)');
+  return form.destroy();
+});
+
+test('facet rounds: a picker (select) is only marked stale; it loads when opened', async () => {
+  const api = gatedApi({ 26: [{ value: 12, count: 4 }] });
+  const form = mountFacets(api, [{ input: 'X1', facets: true }, { input: 'X2', mode: 'radio', exact: true }], null, () => undefined);
+  await flush();
+  api.release(); await flush();
+  const before = api.log.requests.filter((request) => request.field === '26').length;
+  form.inputs.get('X2').setValue('Rossi');
+  form.inputs.get('X2').notifyChange();
+  await flush(20);
+  assert.equal(api.log.requests.filter((request) => request.field === '26').length, before, 'closed picker: no request');
+  const opening = form.inputs.get('X1').combo.open();
+  await flush();
+  assert.equal(api.log.requests.filter((request) => request.field === '26').length, before + 1, 'loads on open');
+  api.release(); await opening;
+  return form.destroy();
+});
+
+test('facetsInitOnly: counts of the initial load are kept', async () => {
+  const api = gatedApi({ 26: [{ value: 12, count: 4 }], 1: [{ value: 'Rossi', count: 2 }] });
+  const form = mountFacets(api, [{ input: 'X1', facets: true, mode: 'checkbox' }, { input: 'X2', mode: 'radio', exact: true }],
+    { facetsInitOnly: true }, () => undefined);
+  await flush();
+  api.release(); await flush();
+  const initial = api.log.requests.length;
+  form.inputs.get('X2').setValue('Rossi');
+  form.inputs.get('X2').notifyChange();
+  await flush(20);
+  assert.equal(api.log.requests.length, initial);
+  return form.destroy();
+});

@@ -189,13 +189,25 @@ export class HFilterFormDesigner extends HBaseWidget {
     const legend = document.createElement('legend');
     legend.className = 'h-i18n';
     legend.textContent = 'Lists';
+    // stored as facetsInitOnly when unchecked: counts are calculated once, when the form opens
+    const updateCounts = document.createElement('input');
+    updateCounts.type = 'checkbox';
+    updateCounts.className = 'h-checkbox';
+    updateCounts.checked = settings.facetsInitOnly !== true;
+    this.listen(updateCounts, 'change', () => {
+      settings.facetsInitOnly = !updateCounts.checked;
+      this._schedulePreview();
+    });
+    const updateCountsLabel = this._label('Update counts after each search', updateCounts);
+    updateCountsLabel.title = 'Unchecked: counts are calculated once, when the form opens - fewer requests, '
+      + 'but they can promise records a search will not find';
     const accordionLabel = this._label('Accordion view', accordion);
     accordionLabel.title = 'Each list collapses by a click on its label';
     // the two counts options wrap together
     const counts = document.createElement('div');
     counts.className = 'h-filter-form-designer-counts';
     counts.append(this._label('Counts alignment', countsAlign), this._label('Show counts as', countsMode));
-    lists.append(legend, this._label('Size', listThreshold), accordionLabel, counts);
+    lists.append(legend, this._label('Size', listThreshold), accordionLabel, updateCountsLabel, counts);
 
     const toolbar = document.createElement('div');
     toolbar.className = 'h-filter-form-designer-toolbar';
@@ -306,7 +318,7 @@ export class HFilterFormDesigner extends HBaseWidget {
     }
     const settings = layout.settings || {};
     if (settings.orientation === 'vertical') delete settings.orientation;
-    for (const flag of ['skipEmptySearch', 'showHierarchy', 'accordion']) if (!settings[flag]) delete settings[flag];
+    for (const flag of ['skipEmptySearch', 'showHierarchy', 'accordion', 'facetsInitOnly']) if (!settings[flag]) delete settings[flag];
     for (const [key, value] of Object.entries(FILTER_FORM_LIST_DEFAULTS)) {
       if ((settings[key] || value) === value) delete settings[key];
     }

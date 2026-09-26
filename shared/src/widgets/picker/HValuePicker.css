@@ -5,7 +5,8 @@
   flex-direction: column;
   min-height: 0;
   max-height: inherit;
-  overflow: auto;
+  overflow-x: hidden;
+  overflow-y: auto;
   background: var(--h-color-bg);
 }
 
@@ -64,6 +65,7 @@
 
 .h-value-picker-label {
   flex: 1 1 auto;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
 }
@@ -131,6 +133,7 @@
 
 .h-value-combo-popover {
   z-index: 10000;
+  max-width: calc(100vw - 16px);
   display: flex;
   flex-direction: column;
   box-sizing: border-box;

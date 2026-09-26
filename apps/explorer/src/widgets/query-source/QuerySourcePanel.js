@@ -125,7 +125,8 @@ export class QuerySourcePanel {
         runtimeSource.request.q = query.q;
         if (query.extent) runtimeSource.request.extent = query.extent;
         this.setLoading(true);
-        Promise.resolve(this.options.onExecute?.(runtimeSource)).finally(() => this.setLoading(false));
+        // returned: the form recounts its facets when the search is done
+        return Promise.resolve(this.options.onExecute?.(runtimeSource)).finally(() => this.setLoading(false));
       }
     }).render();
     this.formHost.classList.add('h-query-source-form-host');

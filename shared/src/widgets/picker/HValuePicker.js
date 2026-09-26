@@ -140,6 +140,18 @@ export class HValuePicker extends HBaseWidget {
   }
 
   /**
+   * Forget the loaded list without loading: the next `open()` loads it (a
+   * facet recount for a closed picker). A pending load is cancelled.
+   *
+   * @returns {void}
+   */
+  markStale() {
+    this._abort?.abort();
+    this._loaded = false;
+    this._complete = true;
+  }
+
+  /**
    * (Re)load the list with the current filter text.
    *
    * @returns {Promise<void>}
@@ -394,6 +406,7 @@ export class HValuePicker extends HBaseWidget {
     const label = document.createElement('span');
     label.className = 'h-value-picker-label';
     label.textContent = item.label ?? String(item.value);
+    label.title = label.textContent;
     if (item.depth) label.style.paddingInlineStart = `${Number(item.depth) * 1.25}em`;
     row.append(label);
     if (showCounts && item.count != null) {

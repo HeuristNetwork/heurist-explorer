@@ -180,6 +180,17 @@ export class HValueCombo extends HBaseWidget {
     this._syncButton();
   }
 
+  /**
+   * Values changed on the server side (a facet recount): reload now when the
+   * list is open, otherwise when it is next opened. The button needs no load.
+   *
+   * @returns {Promise<void>}
+   */
+  async markStale() {
+    if (this.isOpen()) await this.picker?.load();
+    else this.picker?.markStale();
+  }
+
   /** @returns {Promise<void>} Completion after the popover is removed. */
   async destroy() {
     this._removeGlobalListeners();
@@ -208,12 +219,15 @@ export class HValueCombo extends HBaseWidget {
     const above = rect.top - margin;
     const openBelow = below >= 240 || below >= above;
     const height = Math.max(120, Math.min(360, openBelow ? below : above));
-    const width = Math.max(rect.width, 220);
+    // never wider than the viewport: long labels are cut with an ellipsis instead
+    const maxWidth = Math.max(120, window.innerWidth - 2 * margin);
+    const width = Math.min(Math.max(rect.width, 220), maxWidth);
+    Object.assign(this.popover.style, { position: 'fixed', minWidth: `${width}px`, maxWidth: `${maxWidth}px` });
+    // keep the whole popover on screen, using its real (content) width
+    const actual = Math.min(Math.max(this.popover.offsetWidth || 0, width), maxWidth);
     Object.assign(this.popover.style, {
-      position: 'fixed',
-      minWidth: `${width}px`,
       maxHeight: `${height}px`,
-      left: `${Math.max(margin, Math.min(rect.left, window.innerWidth - width - margin))}px`,
+      left: `${Math.max(margin, Math.min(rect.left, window.innerWidth - actual - margin))}px`,
       // above: anchor the bottom edge to the button, so a list shorter than
       // maxHeight still touches it (a top edge at rect.top - maxHeight left a gap)
       top: openBelow ? `${rect.bottom + 2}px` : 'auto',

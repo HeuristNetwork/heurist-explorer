@@ -151,3 +151,8 @@ test('date slider bounds may be negative years', () => {
   assert.throws(() => designer([{ input: 'X6', widget: { type: 'range', control: 'slider', min: '-0100-01-01', max: '-0500-01-01' } }]).getLayout(),
     /requires both bounds/);
 });
+
+test('"Update counts after each search" is stored only when switched off', () => {
+  assert.deepEqual(designer([{ input: 'X1' }], { facetsInitOnly: true }).getLayout().settings, { facetsInitOnly: true });
+  assert.equal(designer([{ input: 'X1' }], { facetsInitOnly: false }).getLayout().settings, undefined);
+});

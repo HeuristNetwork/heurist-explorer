@@ -125,6 +125,30 @@ export class HInputEnum extends HInput {
     else await this.combo?.refresh();
   }
 
+  /**
+   * Recount for a facet round after a search: a visible list reloads now (the
+   * request is cancelled with `signal`); a picker, or a collapsed field, only
+   * when it is next shown. The source's cache is kept: a query that did not
+   * change is answered without a request.
+   *
+   * @param {{signal?: AbortSignal}} [options] Round cancellation.
+   * @returns {Promise<void>}
+   */
+  async updateFacet({ signal } = {}) {
+    if (!this.listHost) { await this.combo?.markStale(); return; }
+    this.moreCombo?.markStale();
+    if (this.container?.classList.contains('is-collapsed')) { this._staleList = true; return; }
+    this._staleList = false;
+    await this._loadChoices(signal);
+  }
+
+  /** A collapsed list that missed a recount loads when expanded. */
+  _onExpand() {
+    if (!this._staleList || !this.listHost) return;
+    this._staleList = false;
+    void this._loadChoices();
+  }
+
   /** @returns {string[]} Validation errors. */
   validate() {
     const value = this.getValue();
@@ -161,13 +185,15 @@ export class HInputEnum extends HInput {
     return this.combo;
   }
 
-  /** Load the list items, then render the explicit list. */
-  async _loadChoices() {
+  /** Load the list items, then render the explicit list (nothing when `signal` aborts it). */
+  async _loadChoices(signal = undefined) {
     try {
-      const result = await this.source.load({});
+      const result = await this.source.load({ signal });
+      if (signal?.aborted) return undefined;
       this._items = result?.items || [];
     } catch (error) {
-      if (this._useFallback()) return this._loadChoices();
+      if (signal?.aborted || error?.name === 'AbortError') return undefined;
+      if (this._useFallback()) return this._loadChoices(signal);
       this._items = [];
       this.container?.dispatchEvent(new CustomEvent('h-input-error', { bubbles: true, detail: { input: this, error } }));
     }

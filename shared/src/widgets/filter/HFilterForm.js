@@ -26,8 +26,6 @@ const LIST_MODES = new Set(['select', 'radio', 'checkbox']);
 const HEADER_VALUE_FIELDS = new Set(['owner', 'addedby', 'tag', 'access']);
 /** Header predicates whose bounds `detail=minmax` can find. */
 const HEADER_RANGE_FIELDS = new Set(['added', 'modified']);
-/** Delay before other facets are recounted after a change. */
-const FACET_REFRESH_DELAY = 300;
 
 /**
  * Defaults of the form-wide list settings (`layout.settings`); the designer
@@ -203,7 +201,9 @@ export class HFilterForm extends HBaseWidget {
       }
       const query = this.options.composeQuery?.(this.definition, values)
         ?? resolveQueryParameters(this.query, values, layout);
-      this.options.onSubmit?.({ values, query, definition: this.definition, trigger });
+      // a host may return the search's promise: facets recount once it is done
+      const search = this.options.onSubmit?.({ values, query, definition: this.definition, trigger });
+      this._recountAfter(search, trigger === 'input' ? this._lastChangedInput : null);
       return true;
     };
     // Clicking Filter while a field still has focus blurs that field first,
@@ -235,7 +235,7 @@ export class HFilterForm extends HBaseWidget {
     // does, still block navigation without submitting a second time.
     this.listen(form, 'submit', (event) => event.preventDefault());
     this.listen(form, 'h-input-change', (event) => {
-      this._scheduleFacetRefresh(event.detail?.input);
+      this._lastChangedInput = event.detail?.input || null;
       scheduleSubmit('input');
     });
     this.listen(form, 'h-input-error', (event) => {
@@ -297,7 +297,7 @@ export class HFilterForm extends HBaseWidget {
   /** Reset inputs to their layout defaults (blank when none). */
   reset() {
     this.setValues({ ...this.defaults });
-    this._scheduleFacetRefresh(null);
+    this._recountAfter(null, null);
     this._showErrors([]);
     this.container?.dispatchEvent(new CustomEvent('h-filter-form-reset', { bubbles: true }));
   }
@@ -305,8 +305,9 @@ export class HFilterForm extends HBaseWidget {
   /** @returns {Promise<void>} Completion after child cleanup. */
   async destroy() {
     this._rangeRequests?.abort();
+    this._facetRound?.abort();
+    this._searchSeq = (this._searchSeq || 0) + 1;
     clearTimeout(this._submitTimer);
-    clearTimeout(this._facetTimer);
     for (const input of this.inputs.values()) await input.destroy();
     this.inputs.clear();
     await super.destroy();
@@ -435,15 +436,47 @@ export class HFilterForm extends HBaseWidget {
     return resolveQueryParameters(this.query, values, this.layout).q;
   }
 
-  /** Recount the other facet inputs shortly after a value changed (V15). */
-  _scheduleFacetRefresh(changedInput) {
-    if (!this._facetInputs.size) return;
-    clearTimeout(this._facetTimer);
-    this._facetTimer = setTimeout(() => {
-      for (const [id, input] of this.inputs) {
-        if (input !== changedInput && this._facetInputs.has(id)) void input.refresh?.();
+  /**
+   * Recount the facets once a search is done (V15), unless the layout keeps
+   * the counts of the initial load (`settings.facetsInitOnly`). A new search
+   * cancels the running round at once; the next round starts when it returns.
+   *
+   * @param {*} search What `onSubmit` returned (a promise, or nothing).
+   * @param {object|null} changedInput The input whose change started the search; its own counts are unchanged.
+   * @returns {void}
+   */
+  _recountAfter(search, changedInput) {
+    if (!this._facetInputs.size || this.layout?.settings?.facetsInitOnly === true) return;
+    this._facetRound?.abort();
+    const token = this._searchSeq = (this._searchSeq || 0) + 1;
+    Promise.resolve(search).catch(() => {}).finally(() => {
+      if (token === this._searchSeq && this.state !== 'destroyed') void this._runFacetRound(changedInput);
+    });
+  }
+
+  /**
+   * One facet round: the facets top to bottom, one request at a time. Pickers
+   * and collapsed fields are only marked stale (they load when shown). A newer
+   * round aborts this one: its request in flight and everything still queued,
+   * which counts over values that are no longer current.
+   *
+   * @param {object|null} changedInput Input to skip.
+   * @returns {Promise<void>}
+   */
+  async _runFacetRound(changedInput) {
+    this._facetRound?.abort();
+    const round = new AbortController();
+    this._facetRound = round;
+    for (const [id, input] of this.inputs) {
+      if (round.signal.aborted) return;
+      if (!this._facetInputs.has(id) || input === changedInput) continue;
+      try {
+        if (typeof input.updateFacet === 'function') await input.updateFacet({ signal: round.signal });
+        else await input.refresh?.();
+      } catch (error) {
+        if (round.signal.aborted || error?.name === 'AbortError') return;
       }
-    }, FACET_REFRESH_DELAY);
+    }
   }
 
   /** @returns {Array<object>} Terms for an enum parameter. */

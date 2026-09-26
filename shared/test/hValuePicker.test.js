@@ -170,3 +170,20 @@ test('a combo near the bottom opens its list above, touching the button (bottom-
   assert.equal(combo.popover.style.bottom, 'auto');
   combo.close();
 });
+
+test('the combo popover never extends past the viewport', async () => {
+  const { HValueCombo: Combo } = await import('../src/widgets/picker/HValueCombo.js');
+  const { StaticSource: Source } = await import('../src/data/valueSources/index.js');
+  const host = document.createElement('div');
+  document.body.append(host);
+  const combo = new Combo().attach(host, { source: new Source([{ value: 1, label: 'x'.repeat(500) }]) }).render();
+  // button near the right edge of a 1200px viewport; the list content is wider than the screen
+  combo.button.getBoundingClientRect = () => ({ top: 100, bottom: 130, left: 1100, right: 1190, width: 90, height: 30 });
+  Object.defineProperty(combo.popover, 'offsetWidth', { get: () => 3000, configurable: true });
+  await combo.open();
+  assert.equal(combo.popover.style.maxWidth, `${1200 - 16}px`);
+  assert.equal(combo.popover.style.left, '8px', 'moved left so its real width fits');
+  const label = combo.popover.querySelector('.h-value-picker-label');
+  assert.equal(label.title, 'x'.repeat(500), 'the full label stays readable as a tooltip');
+  combo.close();
+});
