@@ -76,7 +76,8 @@ test('date and numeric ranges picked from a list keep their grouping; other mode
   assert.deepEqual(size, { input: 'X7', mode: 'select', ranges: 20 });
   // "falls in" (a plain date token) is a range operator; "after" is not
   assert.deepEqual(end, { input: 'X8', mode: 'checkbox', multiple: true, groupBy: 'year' });
-  assert.deepEqual(born, { input: 'X9', mode: 'select' });
+  // any operator: a picked range is searched as that range
+  assert.deepEqual(born, { input: 'X9', mode: 'select', groupBy: 'year' });
   assert.deepEqual(country, { input: 'X1' });
 });
 

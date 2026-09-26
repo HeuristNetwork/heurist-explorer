@@ -64,7 +64,9 @@ export function convertFacetedSearch(definition, { dbdefs = null } = {}) {
     const name = `X${++counter}`;
     const isRange = RANGE_TYPES.has(facet.type) && isFacetMode(facet) !== FT_INPUT;
     const operator = facet.srange === 'between' ? '><' : '<>';
-    const value = isRange ? `$${name}$${operator}$${name}_to$` : `$${name}$`;
+    // detail dates only accept the prefix form `<>from/to` (`from<>to` is rejected); numbers use `from<>to`
+    const value = !isRange ? `$${name}$`
+      : facet.type === 'date' ? `${operator}$${name}$/$${name}_to$` : `$${name}$<>$${name}_to$`;
 
     insertPath(query, path, value);
     children.push(layoutChild(name, facet, path, isRange, dbdefs));

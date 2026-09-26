@@ -68,7 +68,9 @@ export class HInputEnum extends HInput {
       this.listHost = document.createElement('div');
       this.listHost.className = `h-input-enum-list h-input-enum-${this.options.orientation === 'inline' ? 'inline' : 'column'}`
         + ` h-input-enum-counts-${countsMode(this.options.countsMode)}`
-        + (this.options.countsAlign === 'right' ? ' h-input-enum-counts-right' : '');
+        + (this.options.countsAlign === 'right' ? ' h-input-enum-counts-right' : '')
+        // single choice: no radio circles, a click on the item selects it
+        + (this.options.mode === 'radio' ? ' h-input-enum-single' : '');
       this.listHost.setAttribute('role', this.options.mode === 'radio' ? 'radiogroup' : 'group');
       host.append(this.listHost);
       void this._loadChoices();
@@ -186,7 +188,7 @@ export class HInputEnum extends HInput {
     for (const item of explicit) {
       const label = document.createElement('label');
       label.className = 'h-input-enum-choice';
-      label.style.paddingInlineStart = `${Math.max(0, Number(item.depth) || 0) * 1.25}em`;
+      label.style.setProperty('--h-enum-depth', String(Math.max(0, Number(item.depth) || 0)));
       const control = document.createElement('input');
       control.type = this.options.mode;
       control.name = this._radioName;
@@ -204,6 +206,16 @@ export class HInputEnum extends HInput {
       }
       nodes.push(label);
       this.choices.push(control);
+      if (this.options.mode === 'radio') {
+        // a click on the selected item clears it (a radio cannot be unchecked otherwise);
+        // 'click' runs before 'change', so _selected still holds the previous choice
+        this.listen(control, 'click', () => {
+          if (!this._selected.some((selected) => String(selected) === String(item.value))) return;
+          control.checked = false;
+          this._selected = [];
+          this.notifyChange();
+        });
+      }
       this.listen(control, 'change', () => {
         const value = this._cast(item.value);
         if (this.options.mode === 'radio') this._selected = control.checked ? [value] : [];
@@ -211,6 +223,12 @@ export class HInputEnum extends HInput {
         else this._selected = this._selected.filter((selected) => String(selected) !== String(value));
         this.notifyChange();
       });
+    }
+    if (!nodes.length) {
+      const empty = document.createElement('div');
+      empty.className = 'h-input-enum-empty h-i18n';
+      empty.textContent = 'No values';
+      nodes.push(empty);
     }
     this.listHost.replaceChildren(...nodes);
 

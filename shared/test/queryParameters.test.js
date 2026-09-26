@@ -85,3 +85,30 @@ test('geographic parameters remain geo field predicates', () => {
     extent: null
   });
 });
+
+test('ranges picked from a list fill the template; several become an OR group', async () => {
+  const { resolveQueryParameters: resolve, describeQueryParameters: describe, splitRangeValue } =
+    await import('../src/data/queryParameters.js');
+  const layout = { version: 1, groups: [{ id: 'main', children: [
+    { input: 'D', mode: 'checkbox', groupBy: 'decade' },
+    { input: 'N', mode: 'radio', ranges: 5 },
+    { input: 'F', mode: 'select', groupBy: 'year' }
+  ] }] };
+  const query = [{ 'f:10': '<>$D$/$D_to$' }, { 'f:3': '$N$<>$N_to$' }, { 'f:11': '$F$' }];
+  assert.deepEqual(resolve(query, { D: ['1990/1999'], N: '-5/10', F: '1850/1850' }, layout).q,
+    [{ 'f:10': '<>1990/1999' }, { 'f:3': '-5<>10' }, { 'f:11': '1850/1850' }]);
+  assert.deepEqual(resolve(query, { D: ['1990/1999', '-0500/-0491'] }, layout).q,
+    [{ any: [{ 'f:10': '<>1990/1999' }, { 'f:10': '<>-0500/-0491' }] }]);
+  assert.deepEqual(resolve(query, { D: [], N: '', F: null }, layout).q, []);
+  // any other operator: the picked range replaces it
+  const single = { version: 1, groups: [{ id: 'main', children: [
+    { input: 'A', mode: 'select', groupBy: 'year' }, { input: 'B', mode: 'radio', ranges: 5 }
+  ] }] };
+  assert.deepEqual(resolve([{ 'f:10': '>$A$' }, { 'f:3': '=$B$' }], { A: '1990/1999', B: '0/100' }, single).q,
+    [{ 'f:10': '1990/1999' }, { 'f:3': '0<>100' }]);
+  assert.deepEqual(splitRangeValue('-5/10'), ['-5', '10']);
+  assert.equal(splitRangeValue('1850'), null);
+  // the operator decides how a date span counts
+  assert.equal(describe([{ 'f:10': '><$D$/$D_to$' }]).D.rangeOperator, '><');
+  assert.equal(describe([{ 'f:10': '<>$D$/$D_to$' }]).D.rangeOperator, '<>');
+});

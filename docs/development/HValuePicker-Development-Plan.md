@@ -177,7 +177,7 @@ Response:
 | 5 | Designer + static facets | Designer options §3 (enum facets yes/no + presentation; text direct/select/radio/checkbox; form-wide list threshold); `FacetTermSource`; values over the base query; exact-match composition for text (V12) | reuses 4 |
 | 6 | Dynamic facets | Per-parameter query without that parameter; recompute on change (debounced, cache keyed by field + other values); counts, sort by count; hide zero-count values except the selected one (V15) | reuses 4 |
 | 7 | Resources & tags | `detail=values` for resource/relmarker (`rec_ID`, `rty`, title) and tags; form presentation for resource fields | yes |
-| 8 | Later | Edit-form resource/term lookup (`HInputResource`); dates grouped by year; numeric min/max for sliders (**done 2026-09-26**: `detail=minmax`, see §9) | – |
+| 8 | Later | Edit-form resource/term lookup (`HInputResource`); dates grouped by year (**done 2026-09-26**: `detail=ranges`); numeric min/max for sliders (**done 2026-09-26**: `detail=minmax`, see §9) | – |
 
 Every phase: `npm test`, the affected independent build, and the heurist tests for server phases.
 
@@ -261,3 +261,51 @@ Where the code is and where it differs from the plan above.
   direct From/To inputs remain. Date bounds before year 1 cannot drive the slider (direct inputs only).
 - Designer: slider `[] auto` (checked = no bounds stored). Legacy slider facets (`isfacet:1`) now convert to
   auto sliders (conversion plan §12 #10 amended).
+
+### 2026-09-26 — `detail=ranges` (date/number lists of ranges)
+
+- Decision (Artem): counts **follow the field's operator**: overlap (`<>`, "falls in") counts a date in
+  every range its span touches; within (`><`) only in the range holding its whole span. So selecting a
+  range finds exactly its count (the sum of counts may exceed the total).
+- Server: `Records/Query/FieldValueBuckets.php`; `detail=ranges&field=<dty|added|modified>` with
+  `groupby=month|year|decade|century` (dates) or `ranges=1..20` (numbers), `match=overlap|within` →
+  `{field, type, groupby|ranges, match, total, truncated, buckets:[{from, to, label, count}]}`. Ranges are a
+  derived table joined on the search's own comparison; detail date bounds come from `Temporal` exactly as
+  the search parses `from/to`. Decades/centuries start at multiples of 10/100 (legacy). Numbers: round
+  steps (1, 2, 2.5, 5 × 10^n), integer fields whole non-overlapping ranges. More than 1000 ranges
+  (months across millennia, prehistoric years): sparse — only ranges holding a start/end, at most 1000
+  (`truncated`). Live test `tests/FieldValueBucketsTest.php` checks **every** bucket against the search.
+- Client: `RangeBucketSource` (item value `"from/to"`); `HFilterForm` presents a date/number with a range
+  operator + list mode + `groupBy`/`ranges` as an enum over it (facet-refreshed);
+  `resolveQueryParameters` fills `<>$A$/$B$`, `$A$<>$B$` or a single `$A$` (→ `from/to`), several picked
+  ranges → `any`. Designer offers all presentations for date/number (Artem, 2026-09-26): with a
+  non-range operator (`$A$`, `>$A$`, `=$A$`) the picked range replaces the operator — dates `from/to`,
+  numbers `from<>to`; a negation is dropped. Single-choice lists show no radio circles (click selects,
+  click on the selected item clears).
+- Also fixed: `detail=values` and `detail=minmax` did not apply `detailVisibilityCondition` — hidden
+  detail values could be listed/bounded for guests and non-owners. Now all three detail modes apply it
+  (`QueryBuilder::detailVisibilityCondition`). Numbers compare as `CAST(... AS DECIMAL(65,20))` like the
+  search. Not tested as a guest (the live tests run as the database owner).
+- "No values": an auto slider without values keeps the From/To inputs with a note "No values"; an empty
+  radio/checkbox list shows "No values"; the picker already did.
+- Bounds note: auto sliders show the field's range under the control (`HInput.setNote`,
+  `boundsNote`: a bound on a year boundary shows the year alone).
+
+> **TODO — Implement slider for prehistoric dates.** Date sliders only handle 4-digit years (0001–9999;
+> `HInputDate` day numbers via `Date`). A field with values outside that range (e.g. -1 000 000 000 in
+> osmak_mapping, field 9) shows the direct From/To inputs with the bounds as a note below. A prehistoric
+> slider needs a year-based scale (possibly logarithmic for deep time) instead of day numbers.
+
+**Fixed 2026-09-26:** `detailDateCondition` accepts the infix forms `from<>to` / `from><to` as the prefix
+forms `<>from/to` / `><from/to` (they were rejected as invalid temporal values).
+
+**Findings, not fixed (server, pre-existing; documented in `Temporal::getMinMax`, `decimalToYMD`,
+`FieldPredicateCompiler::detailDateCondition`/`fieldCondition`):**
+- **A plain year finds almost nothing:** `f:9:"2026"` finds 0 of the 25 records dated in 2026 (only
+  values stored as the plain year match); `2026/2026` finds all 25.
+- **Negative years with month/day** are indexed as `-100.0401` (numerically *before* year -100), and
+  `Temporal("-100")` gives `[-100, -100]`, so a search for the year -100 does not find "April -100"; the
+  ranges agree with the search and leave it out too.
+- **Plain month values** (`f:9:"2026-07"`, "falls in") find nothing: `Temporal("2026-07", true)` gives
+  `[2026, 7.1231]`. Ranges use explicit `YYYY-MM-01/YYYY-MM-DD`, which works.
+- **`year` fields** compare as strings in the search (`scalarCondition`), while ranges/minmax compare numbers.

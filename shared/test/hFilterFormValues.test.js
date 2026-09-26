@@ -164,3 +164,49 @@ test('a slider without bounds requests detail=minmax and shows the sliders', asy
   assert.equal(requests.length, 0);
   return fixed.destroy();
 });
+
+test('a date list of ranges requests detail=ranges and submits the picked range', async () => {
+  const requests = [];
+  const api = { async get(path, { query }) {
+    requests.push(query);
+    return { buckets: [{ from: '1990', to: '1999', label: '1990–1999', count: 4 }, { from: '2000', to: '2009', label: '2000–2009', count: 2 }] };
+  } };
+  const dateDefs = { ...dbdefs, fieldGlobal: () => ({ type: 'date', name: 'Start' }) };
+  const host = document.createElement('div');
+  document.body.append(host);
+  const submits = [];
+  const form = new HFilterForm().attach(host, {
+    definition: { query: [{ t: '10' }, { 'f:10': '><$X1$/$X1_to$' }],
+      filterForm: layoutOf([{ input: 'X1', mode: 'radio', groupBy: 'decade' }]) },
+    dbdefs: dateDefs,
+    apiClient: api,
+    onSubmit: (event) => submits.push(event.query.q)
+  }).render();
+  await flush();
+  assert.equal(requests[0].detail, 'ranges');
+  assert.equal(requests[0].groupby, 'decade');
+  assert.equal(requests[0].match, 'within', '"><" counts spans within a range');
+  const input = form.inputs.get('X1');
+  assert.deepEqual(input.choices.map((choice) => choice.value), ['1990/1999', '2000/2009']);
+  input.choices[1].checked = true;
+  input.choices[1].fire('change');
+  await flush();
+  assert.deepEqual(submits.at(-1), [{ t: '10' }, { 'f:10': '><2000/2009' }]);
+  return form.destroy();
+});
+
+test('auto slider without values shows a note instead of the slider', async () => {
+  const api = { async get() { return { min: null, max: null, count: 0 }; } };
+  const numberDefs = { ...dbdefs, fieldGlobal: () => ({ type: 'integer', name: 'Size' }) };
+  const form = new HFilterForm().attach(document.createElement('div'), {
+    definition: { query: [{ 'f:3': '$X1$<>$X1_to$' }],
+      filterForm: layoutOf([{ input: 'X1', widget: { type: 'range', control: 'slider' } }]) },
+    dbdefs: numberDefs,
+    apiClient: api
+  }).render();
+  await flush();
+  const input = form.inputs.get('X1');
+  assert.equal(input.sliders, undefined);
+  assert.equal(input.noteElement.textContent, 'No values');
+  return form.destroy();
+});

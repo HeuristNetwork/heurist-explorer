@@ -448,3 +448,8 @@ Filter legacy support = delete the folder and the two wiring lines.
 
 Shared additions used by converted filters (not legacy-specific): `filterForm.settings.skipEmptySearch`,
 layout `child.help` → HInput `help`. Warnings travel in DataSource `meta.warnings`.
+
+**2026-09-26 fix:** date range facets were converted to `$X$<>$X_to$` / `$X$><$X_to$`, which the server
+rejects for detail dates ("Invalid temporal value"). (The server accepts the infix form since the same day; the converter keeps the prefix form.) Dates now use the prefix form `<>$X$/$X_to$` /
+`><$X$/$X_to$`; numeric facets keep `$X$<>$X_to$`. Date list facets (`isfacet` 2/3 with `groupby`) now run
+as lists of ranges (`detail=ranges`).

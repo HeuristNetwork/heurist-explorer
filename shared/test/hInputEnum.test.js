@@ -97,3 +97,36 @@ test('hierarchy line sits above the label; a collapsible label toggles the contr
   input.label.fire('click');
   assert.ok(!element.classList.contains('is-collapsed'));
 });
+
+test('an empty list says so', async () => {
+  const input = createHInput('enum', host(), { terms: [], mode: 'checkbox' });
+  await flush();
+  assert.equal(input.listHost.querySelector('.h-input-enum-empty')?.textContent, 'No values');
+});
+
+test('date bounds note: year alone on year boundaries, prehistoric years readable (widget needs a browser: flatpickr)', async () => {
+  const { boundsNote } = await import('../src/widgets/form/inputs/HInputDate.js');
+  assert.equal(boundsNote('-1000000000-01-01', '2026-09-18'), '-1000000000 – 2026-09-18');
+  assert.equal(boundsNote('1850-01-01', '1850-12-31'), '1850');
+  assert.equal(boundsNote(null, '2000-01-01'), '');
+});
+
+test('single-choice list: no radio circles; clicking the selected item clears it', async () => {
+  const changes = [];
+  const element = host();
+  element.addEventListener('h-input-change', (event) => changes.push(event.detail.value));
+  const input = createHInput('enum', element, { terms: terms(3), mode: 'radio', value: 2 });
+  await flush();
+  assert.ok(input.listHost.classList.contains('h-input-enum-single'));
+  const selected = input.choices[1];
+  assert.equal(selected.checked, true);
+  selected.fire('click');
+  assert.equal(input.getValue(), null);
+  assert.equal(selected.checked, false);
+  assert.deepEqual(changes, [null]);
+  // clicking another item still selects it (change)
+  input.choices[2].checked = true;
+  input.choices[2].fire('click');
+  input.choices[2].fire('change');
+  assert.equal(input.getValue(), 3);
+});

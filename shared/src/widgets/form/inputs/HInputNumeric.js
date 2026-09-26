@@ -103,6 +103,7 @@ export class HInputNumeric extends HInput {
   setBounds(min, max) {
     this.options.min = min;
     this.options.max = max;
+    this.setNote(min == null || max == null ? '' : String(min) === String(max) ? String(min) : `${min} – ${max}`);
     const valid = Number.isFinite(Number(min)) && Number.isFinite(Number(max)) && Number(min) < Number(max);
     if (!valid || this.options.rangeControl !== 'slider' || !this._rangeHost) return this;
     if (!this.sliders) this._addSliders(this._rangeHost);

@@ -15,7 +15,9 @@
   flex-wrap: wrap;
 }
 
+/* --h-enum-depth: term level below the top (indentation) */
 .h-input-enum-choice {
+  padding-inline-start: calc(var(--h-enum-depth, 0) * 1.25em);
   display: inline-flex;
   align-items: center;
   gap: 4px;
@@ -56,6 +58,42 @@
 
 .h-input-enum-column.h-input-enum-counts-right .h-input-enum-count {
   margin-left: auto;
+}
+
+/* single choice: the item is the control; the radio stays for keyboard and screen readers */
+.h-input-enum-single .h-input-enum-choice {
+  position: relative;
+  padding: 1px 6px;
+  padding-inline-start: calc(6px + var(--h-enum-depth, 0) * 1.25em);
+  border-radius: var(--h-radius);
+}
+
+.h-input-enum-single .h-input-enum-choice > input[type='radio'] {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.h-input-enum-single .h-input-enum-choice:hover {
+  background: var(--h-color-surface-hover);
+}
+
+.h-input-enum-single .h-input-enum-choice:has(> input:checked) {
+  background: var(--h-color-selected);
+  box-shadow: inset 0 0 0 1px var(--h-color-selected-border);
+}
+
+.h-input-enum-single .h-input-enum-choice:has(> input:focus-visible) {
+  outline: 2px solid color-mix(in srgb, var(--h-color-primary) 45%, transparent);
+  outline-offset: 1px;
+}
+
+.h-input-enum-empty {
+  color: var(--h-color-text-muted);
+  font-style: italic;
 }
 
 .h-input-enum-combo {

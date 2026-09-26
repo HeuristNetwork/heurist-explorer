@@ -161,6 +161,75 @@ export class FacetTermSource {
 }
 
 /**
+ * Ranges of a date or numeric field over a (possibly changing) query, with
+ * record counts (`GET /records/?detail=ranges`). Item values are `"from/to"`,
+ * which `resolveQueryParameters` puts into the parameter's template; a count
+ * equals the number of records selecting that range finds.
+ */
+export class RangeBucketSource {
+  /**
+   * @param {object} api HeuristApiClient (needs `get`).
+   * @param {object} options Source options.
+   * @param {Array|object|Function} options.query Query, or a function returning one.
+   * @param {number|string} options.field Detail type ID, or `added` / `modified`.
+   * @param {string} [options.groupBy] Dates: `month` | `year` | `decade` | `century`.
+   * @param {number} [options.ranges] Numbers: how many ranges (1–20).
+   * @param {'overlap'|'within'} [options.match='overlap'] How a date span counts.
+   * @param {Function} [options.selected] `() → values` kept visible when absent (V15).
+   */
+  constructor(api, { query = [], field, groupBy = null, ranges = null, match = 'overlap', selected = null } = {}) {
+    if (!api?.get) throw new TypeError('RangeBucketSource requires an API client');
+    if (field == null || field === '') throw new TypeError('RangeBucketSource requires a field');
+    this.api = api;
+    this.query = query;
+    this.field = String(field);
+    this.grouping = groupBy ? { groupby: groupBy } : { ranges: String(ranges || '') };
+    this.match = match === 'within' ? 'within' : 'overlap';
+    this.selected = selected;
+    this._cache = new Map();
+    this._labels = new Map();
+  }
+
+  /** Forget cached ranges (another facet changed). */
+  invalidate() {
+    this._cache.clear();
+  }
+
+  /** @returns {Promise<{items: Array<object>, total: number, complete: boolean}>} Ranges. */
+  async load({ signal } = {}) {
+    const query = await resolveQuery(this.query);
+    const key = JSON.stringify(query);
+    let payload = this._cache.get(key);
+    if (!payload) {
+      payload = await this.api.get('/records/', {
+        query: { q: query, detail: 'ranges', field: this.field, ...this.grouping, match: this.match },
+        signal
+      });
+      this._cache.set(key, payload);
+      if (this._cache.size > CACHE_SIZE) this._cache.delete(this._cache.keys().next().value);
+    }
+    const items = (Array.isArray(payload?.buckets) ? payload.buckets : []).map((bucket) => {
+      const value = `${bucket.from}/${bucket.to}`;
+      const label = String(bucket.label ?? value);
+      this._labels.set(value, label);
+      return { value, label, count: Number(bucket.count) || 0 };
+    });
+    // a selected range that no longer occurs stays visible (count 0)
+    for (const value of (this.selected?.() || []).map(String)) {
+      if (!items.some((item) => item.value === value)) items.push({ value, label: this.labelFor(value), count: 0 });
+    }
+    return { items, total: items.length, complete: true };
+  }
+
+  /** @returns {string} Label seen from the server, else `from – to`. */
+  labelFor(value) {
+    const text = String(value ?? '');
+    const cut = text.indexOf('/', 1);
+    return this._labels.get(text) || (cut > 0 ? `${text.slice(0, cut)} – ${text.slice(cut + 1)}` : text);
+  }
+}
+
+/**
  * Smallest and largest value of a numeric or date field over a query
  * (`GET /records/?detail=minmax`), for sliders without configured bounds.
  *

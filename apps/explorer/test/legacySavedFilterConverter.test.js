@@ -110,7 +110,7 @@ test('faceted search becomes a parameterized query and filter form', async () =>
     { t: '14' },
     { 'f:1': '$X1$' },
     { 'f:74': '$X2$' },
-    { 'f:10': '$X3$<>$X3_to$' },
+    { 'f:10': '<>$X3$/$X3_to$' },
     { 'f:75': '$X4$' },
     { related: [{ t: '15' }, { r: 5100 }, { 'f:77': '$X5$' }] },
     { 'f:10': '1912-12-31T23:59:59.999Z<>1930-12-31T23:59:59.999Z' },
@@ -160,7 +160,7 @@ test('faceted: linked paths share branches; lists, multiselect, help, spatial an
   assert.deepEqual(warnings, []);
   assert.deepEqual(definition.q, [
     { t: '12' },
-    { 'lf:90': [{ t: '16' }, { 'f:89': '$X1$' }, { 'f:10': '$X2$><$X2_to$' }] },
+    { 'lf:90': [{ t: '16' }, { 'f:89': '$X1$' }, { 'f:10': '><$X2$/$X2_to$' }] },
     { 'lt:73': [{ t: '11' }, { 'f:1': '$X3$' }] },
     { 'lt:238': [{ title: '$X4$' }] },
     { f: '$SEARCH$' },

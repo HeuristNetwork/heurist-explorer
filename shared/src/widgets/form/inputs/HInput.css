@@ -45,8 +45,15 @@
 }
 
 .h-form-input.is-collapsed > .h-form-input-control,
+.h-form-input.is-collapsed > .h-form-input-note,
 .h-form-input.is-collapsed > .h-form-input-help {
   display: none;
+}
+
+/* e.g. the range of the field's values, under a slider or From/To inputs */
+.h-form-input-note {
+  color: var(--h-color-text-muted);
+  font-size: var(--h-font-size-small, 0.85em);
 }
 
 .h-form-input-help {

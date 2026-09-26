@@ -15,4 +15,4 @@
 
 export * from './valueList.js';
 export { StaticSource, TermSource, UserGroupSource, vocabularyItems } from './localSources.js';
-export { FieldValueSource, FacetTermSource, fetchFieldRange } from './FieldValueSource.js';
+export { FieldValueSource, FacetTermSource, RangeBucketSource, fetchFieldRange } from './FieldValueSource.js';

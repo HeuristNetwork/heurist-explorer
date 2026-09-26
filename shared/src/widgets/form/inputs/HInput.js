@@ -207,6 +207,27 @@ export class HInput extends HBaseWidget {
   }
 
   /**
+   * Show a short note under the control (e.g. the range of the field's values),
+   * or remove it with an empty text.
+   *
+   * @param {string} text Note text.
+   * @returns {HInput} This input.
+   */
+  setNote(text) {
+    const value = String(text ?? '').trim();
+    if (!value) { this.noteElement?.remove(); this.noteElement = null; return this; }
+    if (!this.noteElement) {
+      this.noteElement = document.createElement('div');
+      this.noteElement.className = 'h-form-input-note';
+      const controlHost = this.container?.querySelector('.h-form-input-control');
+      if (controlHost) controlHost.after(this.noteElement);
+      else this.container?.append(this.noteElement);
+    }
+    this.noteElement.textContent = value;
+    return this;
+  }
+
+  /**
    * Let the label collapse and expand the control and help (accordion view).
    *
    * @param {HTMLLabelElement} label Field label.

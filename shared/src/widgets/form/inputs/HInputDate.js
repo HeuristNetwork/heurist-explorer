@@ -103,6 +103,7 @@ export class HInputDate extends HInput {
   setBounds(min, max) {
     this.options.min = min;
     this.options.max = max;
+    this.setNote(boundsNote(min, max));
     const from = dateDay(min);
     const to = dateDay(max);
     if (from === null || to === null || from >= to || this.options.rangeControl !== 'slider' || !this._rangeHost) {
@@ -257,6 +258,20 @@ function dateDay(value) {
   return Number.isFinite(time) && new Date(time).toISOString().slice(0, 10) === value
     ? Math.floor(time / 86400000)
     : null;
+}
+
+/**
+ * Note for the range of a field's dates. A bound on a year boundary shows the
+ * year alone (`-1000000000 – 2026-09-18`), which also keeps prehistoric years readable.
+ *
+ * @returns {string} Note text, or '' without bounds.
+ */
+export function boundsNote(min, max) {
+  if (min == null || max == null || min === '' || max === '') return '';
+  const short = (value, suffix) => (String(value).endsWith(suffix) ? String(value).slice(0, -suffix.length) : String(value));
+  const from = short(min, '-01-01');
+  const to = short(max, '-12-31');
+  return from === to ? from : `${from} – ${to}`;
 }
 
 /** @returns {string} ISO simple date for a UTC day number. */

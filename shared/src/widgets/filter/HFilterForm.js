@@ -17,7 +17,7 @@ import { HBaseWidget } from '../HBaseWidget.js';
 import { createHInput } from '../form/inputs/createHInput.js';
 import { describeQueryParameters, resolveQueryParameters } from '../../data/queryParameters.js';
 import { TermSource, UserGroupSource } from '../../data/valueSources/localSources.js';
-import { FieldValueSource, FacetTermSource, fetchFieldRange } from '../../data/valueSources/FieldValueSource.js';
+import { FieldValueSource, FacetTermSource, RangeBucketSource, fetchFieldRange } from '../../data/valueSources/FieldValueSource.js';
 import './HFilterForm.css';
 
 /** Presentations that pick from a list (plan §3). */
@@ -77,6 +77,8 @@ export class HFilterForm extends HBaseWidget {
     const layout = this.definition.filterForm || defaultLayout(parameters);
     this.layout = layout;
     this._facetInputs = new Set();
+    // date/number inputs picking ranges from a list: values are "from/to" strings
+    this._rangeListInputs = new Set();
     this._rangeRequests?.abort();
     this._rangeRequests = new AbortController();
     const companionInputs = new Set(Object.values(parameters)
@@ -123,7 +125,7 @@ export class HFilterForm extends HBaseWidget {
             && ['radio', 'checkbox'].includes(presentation.options.mode ?? config.mode),
           countsMode: settings.countsMode || FILTER_FORM_LIST_DEFAULTS.countsMode,
           countsAlign: settings.countsAlign || FILTER_FORM_LIST_DEFAULTS.countsAlign,
-          value: parameter.range ? {
+          value: this._rangeListInputs.has(id) ? this.values[id] ?? null : parameter.range ? {
             from: parameter.fixedValue?.from ?? this.values[id] ?? null,
             to: parameter.fixedValue?.to ?? this.values[parameter.endInput || id] ?? null
           } : this.values[id] ?? this.defaults[id] ?? null,
@@ -252,7 +254,10 @@ export class HFilterForm extends HBaseWidget {
     for (const [id, input] of this.inputs) {
       const value = input.getValue();
       const endInput = this.parameters[id]?.endInput;
-      if (endInput) { values[id] = value?.from ?? ''; values[endInput] = value?.to ?? ''; }
+      if (this._rangeListInputs?.has(id)) {
+        values[id] = value ?? '';
+        if (endInput) values[endInput] = '';
+      } else if (endInput) { values[id] = value?.from ?? ''; values[endInput] = value?.to ?? ''; }
       else if (this.parameters[id]?.range) {
         values[id] = value?.[this.parameters[id].endpoint] ?? '';
       } else values[id] = value;
@@ -270,6 +275,7 @@ export class HFilterForm extends HBaseWidget {
     for (const [id, input] of this.inputs) {
       const endInput = this.parameters[id]?.endInput;
       const parameter = this.parameters[id];
+      if (this._rangeListInputs?.has(id)) { input.setValue(values[id] ?? null); continue; }
       input.setValue(endInput ? { from: values[id] ?? null, to: values[endInput] ?? null }
         : parameter?.range ? { ...parameter.fixedValue, [parameter.endpoint]: values[id] ?? null }
           : values[id] ?? null);
@@ -318,6 +324,9 @@ export class HFilterForm extends HBaseWidget {
     const factory = this.options.valueSourceFactory;
     const custom = factory?.(parameter, { id, config, query: () => this._facetQuery(id), selected });
 
+    const rangeList = this._rangeListPresentation(id, parameter, config, { custom, selected, listThreshold });
+    if (rangeList) return rangeList;
+
     if (parameter.type === 'enum' && !Array.isArray(parameter.terms)) {
       const vocabId = this.options.dbdefs?.vocabRoot?.(parameter.fieldId) || 0;
       const vocabulary = vocabId ? new TermSource(this.options.dbdefs, vocabId) : null;
@@ -356,6 +365,32 @@ export class HFilterForm extends HBaseWidget {
   }
 
   /**
+   * A date or number picked from a list of ranges (layout `groupBy` / `ranges`
+   * in a list mode): the field's ranges over the form's query, with counts
+   * (`detail=ranges`). Dates count by the template's operator: `><` within,
+   * otherwise overlap. Without the records API the input stays a direct range.
+   *
+   * @returns {{type: string, options: object}|null} Presentation, or null when not applicable.
+   */
+  _rangeListPresentation(id, parameter, config, { custom, selected, listThreshold }) {
+    if (!(parameter.type === 'date' || parameter.type === 'number') || !LIST_MODES.has(config.mode)) return null;
+    if (!(config.groupBy || config.ranges)) return null;
+    const field = parameter.fieldId || (HEADER_RANGE_FIELDS.has(parameter.predicate) ? parameter.predicate : null);
+    const source = custom || (this.apiClient && field ? new RangeBucketSource(this.apiClient, {
+      query: () => this._facetQuery(id),
+      field,
+      groupBy: parameter.type === 'date' ? config.groupBy || 'year' : null,
+      ranges: parameter.type === 'number' ? config.ranges : null,
+      match: parameter.rangeOperator === '><' ? 'within' : 'overlap',
+      selected
+    }) : null);
+    if (!source) return null;
+    this._rangeListInputs.add(id);
+    this._facetInputs.add(id);
+    return { type: 'enum', options: { source, numeric: false, listThreshold } };
+  }
+
+  /**
    * A slider without both bounds ("auto") asks the server for the field's
    * smallest and largest value over the form's query (other filled parameters
    * applied, this one left out) once, when the form renders. Until then, or
@@ -369,7 +404,12 @@ export class HFilterForm extends HBaseWidget {
     if (!field) return;
     const { signal } = this._rangeRequests;
     fetchFieldRange(this.apiClient, { query: this._facetQuery(id), field, signal })
-      .then((range) => { if (!signal.aborted && range.count) widget.setBounds(range.min, range.max); })
+      .then((range) => {
+        if (signal.aborted) return;
+        // no values: From/To inputs only, with a note instead of the slider
+        if (range.count) widget.setBounds(range.min, range.max);
+        else widget.setNote?.('No values');
+      })
       .catch((error) => {
         if (signal.aborted) return;
         widget.container?.dispatchEvent(new CustomEvent('h-input-error', { bubbles: true, detail: { input: widget, error } }));

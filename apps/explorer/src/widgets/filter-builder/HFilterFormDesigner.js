@@ -54,22 +54,12 @@ function isScalar(parameter) {
   return parameter?.type === 'date' || parameter?.type === 'number';
 }
 
-/**
- * Whether the parameter's operator selects a span of values: between, overlaps,
- * within, or a date "falls in" (a plain token, e.g. a year).
- *
- * @param {object} parameter Parameter description.
- * @returns {boolean} True for a range operator.
- */
-function hasRangeOperator(parameter) {
-  return parameter?.range === true || (parameter?.type === 'date' && parameter.operator === '');
-}
-
 /** @returns {string[]} Presentation choices offered for a parameter (empty: none). */
 function presentationsFor(parameter) {
   if (parameter?.type === 'enum') return ['select', 'list-column', 'list-inline'];
   if (isTextList(parameter)) return ['direct', 'select', 'list-column', 'list-inline'];
   if (isScalar(parameter)) {
+    // select/list: ranges of the field (detail=ranges); a picked range is searched as that range
     return ['direct', ...(parameter.range ? ['slider'] : []), 'select', 'list-column', 'list-inline'];
   }
   return [];
@@ -98,8 +88,7 @@ function isListPresentation(presentation) {
 
 /** Whether a layout child shows the date grouping / number of ranges row. */
 function hasGrouping(config, parameter) {
-  return isScalar(parameter) && hasRangeOperator(parameter)
-    && isListPresentation(presentationOf(config, parameter));
+  return isScalar(parameter) && isListPresentation(presentationOf(config, parameter));
 }
 
 /**
@@ -175,7 +164,6 @@ export class HFilterFormDesigner extends HBaseWidget {
     showPreview.className = 'h-checkbox';
     showPreview.checked = true;
     const previewToggle = this._label('Show Form Preview', showPreview);
-    previewToggle.classList.add('h-filter-form-designer-preview-toggle');
 
     const skipEmpty = this._settingCheckbox('skipEmptySearch');
     const showHierarchy = this._settingCheckbox('showHierarchy');
@@ -300,7 +288,9 @@ export class HFilterFormDesigner extends HBaseWidget {
           else delete child.exact;
         } else { delete child.mode; delete child.exact; delete child.orientation; delete child.multiple; }
       } else if (isScalar(parameter)) {
-        if (!LIST_MODES.includes(child.mode)) { delete child.mode; delete child.orientation; delete child.multiple; }
+        if (!LIST_MODES.includes(child.mode)) {
+          delete child.mode; delete child.orientation; delete child.multiple;
+        }
       } else if (child.mode === 'select') delete child.mode;
       if (hasGrouping(child, parameter ?? {})) {
         if (parameter.type === 'date') child.groupBy = DATE_GROUPS.includes(child.groupBy) ? child.groupBy : DEFAULT_DATE_GROUP;

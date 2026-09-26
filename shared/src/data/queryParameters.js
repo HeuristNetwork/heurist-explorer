@@ -79,6 +79,8 @@ export function describeQueryParameters(query, dbdefs) {
       if (first && second) {
         parameters[first[1]].endInput = second[1];
         parameters[first[1]].range = true;
+        // overlaps / between ('<>') or lies within ('><')
+        parameters[first[1]].rangeOperator = value.includes('><') ? '><' : '<>';
       } else if (first || second) {
         const parameter = parameters[(first || second)[1]];
         parameter.range = true;
@@ -107,16 +109,62 @@ export function exactParameterNames(filterForm) {
 }
 
 /**
+ * Names of date/number parameters picked from a list of ranges (layout
+ * children with `groupBy` or `ranges` in a list mode): their values are
+ * `"from/to"` strings (`detail=ranges`).
+ *
+ * @param {object|null} filterForm Filter form layout.
+ * @returns {Map<string, 'date'|'number'>} Parameter names and their kind (`groupBy`: date).
+ */
+export function rangeListParameterNames(filterForm) {
+  const names = new Map();
+  for (const group of filterForm?.groups || []) {
+    for (const child of group.children || []) {
+      if (child?.input && (child.groupBy || child.ranges) && ['select', 'radio', 'checkbox'].includes(child.mode)) {
+        names.set(child.input, child.groupBy ? 'date' : 'number');
+      }
+    }
+  }
+  return names;
+}
+
+/**
+ * Split a picked range `"from/to"` (a leading minus belongs to `from`).
+ *
+ * @param {string} value Range value.
+ * @returns {[string, string]|null} Bounds, or null for a value without `/`.
+ */
+export function splitRangeValue(value) {
+  const text = String(value ?? '');
+  const cut = text.indexOf('/', 1);
+  return cut > 0 ? [text.slice(0, cut), text.slice(cut + 1)] : null;
+}
+
+/** Put one predicate, or an OR group of several, into a resolved level. */
+function addAlternatives(result, key, terms, joiner = 'any') {
+  if (terms.length === 1) { result[key] = terms[0]; return; }
+  const group = terms.map((term) => ({ [key]: term }));
+  // a second OR group at the same level must not replace the first
+  if (!result[joiner]) result[joiner] = group;
+  else (result.all ||= []).push({ [joiner]: group });
+}
+
+/**
  * Replace runtime values and omit predicates whose values remain blank.
  *
  * @param {Array|object} query Query template with `$NAME$` tokens.
  * @param {object} [values] Values by parameter name.
  * @param {object|null} [filterForm] Layout; text parameters marked `exact`
- *        (picked from a list) become exact matches, several values an OR group.
+ *        (picked from a list) become exact matches, several values an OR group;
+ *        date/number ranges picked from a list fill the template's bounds
+ *        (`<>$A$/$B$`, `$A$<>$B$`); a single value with any operator
+ *        (`$A$`, `>$A$`, `=$A$`) is replaced by the range itself - dates
+ *        `from/to` (falls in), numbers `from<>to` - and a negation is dropped.
  * @returns {{q: Array, extent: null}} Resolved query.
  */
 export function resolveQueryParameters(query, values = {}, filterForm = null) {
   const exact = exactParameterNames(filterForm);
+  const ranged = rangeListParameterNames(filterForm);
   const resolve = (node) => {
     if (Array.isArray(node)) return node.map(resolve).filter((item) => item !== null);
     if (!node || typeof node !== 'object') return node;
@@ -131,8 +179,7 @@ export function resolveQueryParameters(query, values = {}, filterForm = null) {
         // a negated template ("-$X$", "!=$X$") excludes each value: != and AND
         const negate = whole[1].startsWith('-') || whole[1].startsWith('!');
         const terms = list.map((item) => `${negate ? '!=' : '='}${item}`);
-        if (terms.length === 1) result[key] = terms[0];
-        else result[negate ? 'all' : 'any'] = terms.map((term) => ({ [key]: term }));
+        addAlternatives(result, key, terms, negate ? 'all' : 'any');
         continue;
       }
       if (Array.isArray(value) || (value && typeof value === 'object')) {
@@ -155,6 +202,20 @@ export function resolveQueryParameters(query, values = {}, filterForm = null) {
       if ((key === 'geo' || key.startsWith('geo:'))
         && present(names[0]) && typeof values[names[0]] === 'object') {
         result[key] = extentToWkt(values[names[0]]);
+        continue;
+      }
+      const bucketed = names.find((name) => ranged.has(name));
+      if (bucketed) {
+        // ranges picked from a list: each fills the template, several are alternatives
+        const other = names.find((name) => name !== bucketed);
+        const single = other ? null : WHOLE_TOKEN.exec(value);
+        const range = ([from, to]) => (ranged.get(bucketed) === 'number' ? `${from}<>${to}` : `${from}/${to}`);
+        const terms = (Array.isArray(values[bucketed]) ? values[bucketed] : [values[bucketed]])
+          .map(splitRangeValue).filter(Boolean)
+          .map((bounds) => (single ? range(bounds)
+            : value.replace(TOKEN, (_, name) => (name !== bucketed ? bounds[1] : other ? bounds[0] : range(bounds)))));
+        TOKEN.lastIndex = 0;
+        if (terms.length) addAlternatives(result, key, terms);
         continue;
       }
       if (names.length === 2 && /<>|></.test(value)) {

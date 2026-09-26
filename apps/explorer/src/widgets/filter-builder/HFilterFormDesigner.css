@@ -92,8 +92,9 @@
   cursor: pointer;
 }
 
-.h-filter-form-designer-preview-toggle {
-  flex-direction: row-reverse;
+/* the hidden attribute must win over the flex layouts above (multi selection, slider bounds) */
+.h-filter-form-designer [hidden] {
+  display: none !important;
 }
 
 /* one bordered item per input: drag handle and visibility, then the lines
