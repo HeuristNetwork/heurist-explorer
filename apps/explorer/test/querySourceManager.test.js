@@ -19,8 +19,8 @@ test('loads RT_QUERY_SOURCE records and resolves all presentation profiles', asy
     apiClient,
     recordTypeProvider: { getIdByConceptCode: async (code) => (code === '3-1021' ? 77 : null) }
   });
-  assert.deepEqual(await manager.load(), [{ id: 8, title: 'Places source' }]);
-  assert.equal(calls[0][1].query.q, 't:77');
+  assert.deepEqual(await manager.load(), [{ id: 8, title: 'Places source', ownerGroupId: null, parametrized: false, hasRules: false }]);
+  assert.deepEqual(calls[0][1].query.q, [{ t: '77' }]);
   const source = await manager.resolveDataSource(8);
   assert.equal(source.reference.key, 'source:8');
   assert.equal(source.request.q, 't:12');
@@ -63,4 +63,28 @@ test('degrades to an empty list when RT_QUERY_SOURCE is not registered in this d
 test('constructor requires both apiClient and recordTypeProvider', () => {
   assert.throws(() => new QuerySourceManager({ recordTypeProvider: {} }), TypeError);
   assert.throws(() => new QuerySourceManager({ apiClient: {} }), TypeError);
+});
+
+test('loads only the owner scope, with owner, parameter and rules marks', async () => {
+  const calls = [];
+  const manager = new QuerySourceManager({
+    apiClient: {
+      async get(path, options) {
+        calls.push(options.query);
+        return { records: [
+          { rec_ID: 1, rec_Title: 'Plain', rec_OwnerUGrpID: '0', details: { 12: ['[{"t":"10"}]'] } },
+          { rec_ID: 2, rec_Title: 'Form', rec_OwnerUGrpID: '6', details: { 12: ['[{"t":"10"},{"f:1":"$X1$"}]'], 1172: ['[]'] } },
+          { rec_ID: 3, rec_Title: 'Rules', rec_OwnerUGrpID: '2', details: { 12: ['t:10'], 1172: ['[{"query":"t:12 linkedfrom:10"}]'] } }
+        ] };
+      }
+    },
+    recordTypeProvider: { getIdByConceptCode: async () => 29 },
+    ownerIds: () => [0, 4, 6, 2],
+    dbDefsProvider: async () => ({ localId: (kind, code) => ({ '2-12': 12, '2-1163': 1172 })[code] || 0 })
+  });
+  const list = await manager.load();
+  assert.deepEqual(calls[0].q, [{ t: '29' }, { owner: '0,4,6,2' }]);
+  assert.equal(calls[0].fields, 'rec_OwnerUGrpID,12,1172');
+  assert.deepEqual(list.map(({ id, ownerGroupId, parametrized, hasRules }) => [id, ownerGroupId, parametrized, hasRules]),
+    [[2, 6, true, false], [1, 0, false, false], [3, 2, false, true]]);
 });

@@ -15,6 +15,7 @@
 
 import { HBaseWidget } from '#shared/widgets';
 import { HFilterForm, defaultLayout, FILTER_FORM_LIST_DEFAULTS } from '#shared/widgets/filter/HFilterForm.js';
+import { sliderDay } from '#shared/widgets/form/inputs/HInputDate.js';
 import flatpickr from 'flatpickr';
 import './HFilterFormDesigner.css';
 
@@ -270,7 +271,7 @@ export class HFilterFormDesigner extends HBaseWidget {
       if (isBlank(min) && isBlank(max)) continue;
       const type = this.parameters[id]?.type;
       const valid = type === 'date'
-        ? /^\d{4}-\d{2}-\d{2}$/.test(min || '') && /^\d{4}-\d{2}-\d{2}$/.test(max || '') && min < max
+        ? sliderDay(min) !== null && sliderDay(max) !== null && sliderDay(min) < sliderDay(max)
         : min !== '' && max !== '' && Number.isFinite(Number(min)) && Number.isFinite(Number(max))
           && Number(min) < Number(max);
       if (!valid) throw new Error(`Slider for ${id} requires both bounds (minimum below maximum), or auto`);

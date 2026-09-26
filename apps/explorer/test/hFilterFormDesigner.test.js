@@ -142,3 +142,12 @@ test('the auto checkbox hides the bounds; unchecking shows them', () => {
   assert.deepEqual(bounds.map((input) => input.hidden), [false, false]);
   return form.destroy();
 });
+
+test('date slider bounds may be negative years', () => {
+  const ok = designer([{ input: 'X6', widget: { type: 'range', control: 'slider', min: '-0500-01-01', max: '0100-12-31' } }]);
+  assert.deepEqual(ok.getLayout().groups[0].children[0].widget,
+    { type: 'range', control: 'slider', min: '-0500-01-01', max: '0100-12-31' });
+  // compared as days, not strings ('-0100' < '-0500' as text)
+  assert.throws(() => designer([{ input: 'X6', widget: { type: 'range', control: 'slider', min: '-0100-01-01', max: '-0500-01-01' } }]).getLayout(),
+    /requires both bounds/);
+});

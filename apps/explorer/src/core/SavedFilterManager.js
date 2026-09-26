@@ -24,13 +24,16 @@ export class SavedFilterManager {
    * @param {Function|null} [options.classifyFilter] Overrides `simple`/`parametrized` classification for a loaded filter.
    * @param {object|null} [options.legacyConverter] Optional legacy `svs_Query` converter
    *   (`LegacySavedFilterConverter`): `isParameterized(stored)` and async `convert(stored)`.
+   * @param {Function|Array<number>|null} [options.ownerIds] Owners (`svs_UGrpID`) to load, or a
+   *   function returning them (see `ownerScope`); `null` loads whatever the server permits.
    */
-  constructor({ apiClient, filterIds = null, classifyFilter = null, legacyConverter = null } = {}) {
+  constructor({ apiClient, filterIds = null, classifyFilter = null, legacyConverter = null, ownerIds = null } = {}) {
     if (!apiClient) throw new TypeError('SavedFilterManager requires apiClient');
     this.apiClient = apiClient;
     this.filterIds = normalizeIds(filterIds);
     this.classifyFilter = typeof classifyFilter === 'function' ? classifyFilter : null;
     this.legacyConverter = legacyConverter || null;
+    this.ownerIds = ownerIds;
     this.filters = [];
     this._loadController = null;
   }
@@ -45,8 +48,10 @@ export class SavedFilterManager {
     this._loadController = new AbortController();
     const q = { t: 'filter', filterType: ['filter','faceted'] };
     if (this.filterIds.length) q.ids = this.filterIds.join(',');
+    const owners = ownerList(typeof this.ownerIds === 'function' ? this.ownerIds() : this.ownerIds);
+    if (owners) q.owner = owners.join(',');
     const payload = await this.apiClient.get('/sys', {
-      query: { q, fields: 'query,filterType' },
+      query: { q, fields: 'query,filterType,owner' },
       signal: this._loadController.signal
     });
     const source = Array.isArray(payload) ? payload : payload?.items || payload?.filters || payload?.records || [];
@@ -62,11 +67,11 @@ export class SavedFilterManager {
    */
   list({ text = '', group = null, type = '' } = {}) {
     const search = String(text || '').trim().toLowerCase();
-    const groupId = positiveId(group);
+    const groupId = group === '' ? null : ownerId(group);
     const kind = String(type || '');
     return clone(this.filters.filter((filter) => {
       if (search && !filter.title.toLowerCase().includes(search)) return false;
-      if (groupId && filter.ownerGroupId !== groupId) return false;
+      if (groupId !== null && filter.ownerGroupId !== groupId) return false;
       return !kind || filter.kind === kind;
     }));
   }
@@ -77,7 +82,7 @@ export class SavedFilterManager {
    * @returns {Array<number>} Distinct, sorted owner group ids.
    */
   groups() {
-    return [...new Set(this.filters.map((filter) => filter.ownerGroupId).filter(Boolean))].sort((a, b) => a - b);
+    return [...new Set(this.filters.map((filter) => filter.ownerGroupId).filter((id) => id !== null))].sort((a, b) => a - b);
   }
 
   /**
@@ -158,11 +163,13 @@ export class SavedFilterManager {
     return {
       id,
       title: String(value?.rec_Title ?? value?.title ?? `Filter ${id}`),
-      ownerGroupId: positiveId(value?.rec_OwnerUGrpID ?? value?.ownerGroupId ?? value?.svs_UGrpID),
+      // 0 is a real owner: Everyone
+      ownerGroupId: ownerId(value?.rec_OwnerUGrpID ?? value?.ownerGroupId ?? value?.svs_UGrpID),
       query,
       definition,
       storedType,
       kind,
+      hasRules: hasExpansionRules(query, definition),
       raw: value
     };
   }
@@ -234,6 +241,46 @@ function inferFilterKind(value, definition) {
     ?? definition?.filterKind ?? definition?.parameterized ?? definition?.parametrized;
   return explicit === true || ['parametrized', 'parameterized'].includes(String(explicit).toLowerCase())
     ? 'parametrized' : 'simple';
+}
+
+/**
+ * Whether a stored filter has expansion rules: a `rules` member of its JSON
+ * definition, or a `rules=` parameter of a legacy URL-style query.
+ *
+ * @param {*} query Stored query (JSON text or legacy URL parameters).
+ * @param {object} definition Parsed definition.
+ * @returns {boolean} True when rules are present.
+ */
+export function hasExpansionRules(query, definition) {
+  if (nonEmptyRules(definition?.rules)) return true;
+  const text = typeof query === 'string' ? query : '';
+  const match = /(?:^|[?&])rules=([^&]*)/.exec(text);
+  if (!match) return false;
+  let value = match[1];
+  try { value = decodeURIComponent(value); } catch { /* keep the raw text */ }
+  return nonEmptyRules(value);
+}
+
+/** @returns {boolean} True for rules that are not empty (`[]`, `""`, `null`). */
+function nonEmptyRules(rules) {
+  if (rules == null) return false;
+  if (Array.isArray(rules)) return rules.length > 0;
+  const text = String(rules).trim();
+  return text !== '' && text !== '[]' && text !== 'null' && text !== '{}';
+}
+
+/** Owner (user/group) id: a non-negative integer (0 is Everyone), or `null`. */
+function ownerId(value) {
+  if (value === null || value === undefined || value === '') return null;
+  const id = Number(value);
+  return Number.isInteger(id) && id >= 0 ? id : null;
+}
+
+/** @returns {number[]|null} Distinct owner ids, or `null` when none are given. */
+function ownerList(value) {
+  if (!Array.isArray(value)) return null;
+  const ids = [...new Set(value.map(ownerId).filter((id) => id !== null))];
+  return ids.length ? ids : null;
 }
 
 /** Read the first value of a Heurist `details` field entry, or `null` when absent. */

@@ -133,6 +133,8 @@ export class HFilterForm extends HBaseWidget {
           required: Boolean(parameter.required),
           range: config.widget?.type === 'range' || parameter.range === true,
           rangeControl: config.widget?.control || 'direct',
+          // dates: any text the server's Temporal reads (1850, 1850-07, -500), not only YYYY-MM-DD
+          allowLegacyText: true,
           min: config.widget?.min,
           max: config.widget?.max,
           step: config.widget?.step,

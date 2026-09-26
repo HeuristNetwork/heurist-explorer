@@ -23,10 +23,15 @@ import { convertLegacyRules } from './legacyRules.js';
 
 const FT_INPUT = 0;
 const FT_SLIDER = 1;
+/** Mode 1 for enum and text facets: a dropdown (for numbers and dates it is the slider). */
+const FT_SELECT = 1;
 const FT_LIST = 2;
 const FT_COLUMN = 3;
 
 const RANGE_TYPES = new Set(['date', 'year', 'integer', 'float']);
+const ENUM_TYPES = new Set(['enum', 'relationtype', 'reltype']);
+const TEXT_TYPES = new Set(['freetext', 'blocktext']);
+const USER_FIELDS = new Set(['owner', 'addedby']);
 const HEADER_FIELDS = new Set(['title', 'added', 'modified', 'url', 'notes', 'addedby', 'owner']);
 const UNSUPPORTED_FIELDS = new Set(['typename', 'typeid']);
 const DATE_GROUPS = new Set(['month', 'year', 'decade', 'century']);
@@ -203,14 +208,22 @@ function layoutChild(name, facet, path, isRange, dbdefs) {
     }
   }
 
-  if (facet.type === 'enum' || facet.type === 'relationtype') {
+  const isEnum = ENUM_TYPES.has(facet.type);
+  // text lists pick the values of a detail field (detail=values), or users/groups for owner/creator
+  const isTextList = TEXT_TYPES.has(facet.type) && (Boolean(path.fieldId) || USER_FIELDS.has(path.leaf));
+  if (isEnum || isTextList) {
+    // wizard modes: 1 dropdown, 3 list (column), 2 wrapped (inline); 0 input (text only)
     const mode = isFacetMode(facet);
     if (mode === FT_LIST || mode === FT_COLUMN) {
       child.mode = facet.multisel ? 'checkbox' : 'radio';
       if (mode === FT_LIST) child.orientation = 'inline';
-    }
-    if (facet.multisel) child.multiple = true;
+    } else if (mode === FT_SELECT && isTextList) child.mode = 'select';
+    if (mode !== FT_INPUT && facet.multisel) child.multiple = true;
+    // a text value picked from the field's values matches exactly (V12); users/groups are IDs
+    if (isTextList && child.mode && path.fieldId) child.exact = true;
   }
+  // legacy facets always list the terms that occur, with counts
+  if (isEnum) child.facets = true;
   return child;
 }
 
@@ -299,10 +312,10 @@ function preliminaryFilterActive(definition) {
   return checked !== reverse;
 }
 
-/** Legacy `isfacet` → numeric mode (`true`/null → 1, `false` → 0). */
+/** Legacy `isfacet` → numeric mode (`false` → 0; `true`/null → 0 for text, 1 otherwise, as the wizard). */
 function isFacetMode(facet) {
   const value = facet.isfacet;
-  if (value == null || value === true) return 1;
+  if (value == null || value === true) return TEXT_TYPES.has(facet.type) ? FT_INPUT : 1;
   if (value === false) return 0;
   const mode = Number(value);
   return Number.isInteger(mode) ? mode : 1;

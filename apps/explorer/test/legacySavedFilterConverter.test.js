@@ -121,10 +121,10 @@ test('faceted search becomes a parameterized query and filter form', async () =>
     settings: { skipEmptySearch: true, listThreshold: 5 },
     groups: [{ id: 'main', type: 'section', children: [
       { input: 'X1' },
-      { input: 'X2', label: 'Type of event' },
+      { input: 'X2', label: 'Type of event', facets: true },
       { input: 'X3', label: 'Start date', widget: { type: 'range', control: 'slider' } },
-      { input: 'X4', label: 'Start (general time of day)' },
-      { input: 'X5', label: 'Source type' }
+      { input: 'X4', label: 'Start (general time of day)', facets: true },
+      { input: 'X5', label: 'Source type', facets: true }
     ] }]
   });
   assert.deepEqual(result.definition.rules[1], {
@@ -171,7 +171,10 @@ test('faceted: linked paths share branches; lists, multiselect, help, spatial an
   assert.equal(definition.title, 'Places');
   assert.deepEqual(definition.filterForm.settings, { listThreshold: 5 });
   assert.deepEqual(definition.filterForm.groups[0].children[0],
-    { input: 'X1', label: 'Usage type', help: 'Pick one or more', mode: 'checkbox', multiple: true });
+    { input: 'X1', label: 'Usage type', help: 'Pick one or more', mode: 'checkbox', multiple: true, facets: true });
+  // a text facet shown as a wrapped list picks exact values of the field
+  assert.deepEqual(definition.filterForm.groups[0].children[2],
+    { input: 'X3', label: 'Street name', mode: 'radio', orientation: 'inline', exact: true });
   assert.deepEqual(definition.filterForm.groups[0].children.at(-1), { input: 'SEARCH', label: 'Text search' });
 });
 
@@ -333,4 +336,27 @@ test('faceted: a date list keeps its grouping', async () => {
   assert.equal(other.groupBy, undefined);
   // slider mode: bounds are requested at run time (auto)
   assert.deepEqual(other.widget, { type: 'range', control: 'slider' });
+});
+
+test('faceted: text facets keep their presentation (input, dropdown, list, wrapped; multiselect)', async () => {
+  const { definition } = await converter.convert({
+    rectypes: ['12'], version: 2, facets: [
+      { var: 1, code: '12:1', title: 'A', isfacet: '1', type: 'freetext' },
+      { var: 2, code: '12:2', title: 'B', isfacet: '3', multisel: true, type: 'freetext' },
+      { var: 3, code: '12:3', title: 'C', isfacet: '0', type: 'freetext' },
+      { var: 4, code: '12:4', title: 'D', type: 'freetext' },
+      { var: 5, code: '12:title', title: 'E', isfacet: '2', type: 'freetext' },
+      { var: 6, code: '12:addedby', title: 'F', isfacet: '3', type: 'freetext' },
+      { var: 7, code: '12:5', title: 'G', isfacet: '1', multisel: true, type: 'freetext' }
+    ]
+  });
+  const children = definition.filterForm.groups[0].children;
+  const pick = (index) => { const { input, label, ...rest } = children[index]; return rest; };
+  assert.deepEqual(pick(0), { mode: 'select', exact: true }, 'dropdown');
+  assert.deepEqual(pick(1), { mode: 'checkbox', multiple: true, exact: true }, 'list, several values');
+  assert.deepEqual(pick(2), {}, 'input');
+  assert.deepEqual(pick(3), {}, 'text without a mode is an input (wizard default)');
+  assert.deepEqual(pick(4), {}, 'title cannot be listed: input');
+  assert.deepEqual(pick(5), { mode: 'radio' }, 'creator: users/groups list, IDs (not exact text)');
+  assert.deepEqual(pick(6), { mode: 'select', multiple: true, exact: true }, 'dropdown, several values');
 });

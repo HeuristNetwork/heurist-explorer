@@ -42,8 +42,8 @@ export class HInputDate extends HInput {
       this.endControl.readOnly = this.options.fixedValue?.to != null;
       host.classList.add('h-input-date-range');
       this._rangeHost = host;
-      if (this.options.rangeControl === 'slider' && dateDay(this.options.min) !== null
-        && dateDay(this.options.max) !== null) {
+      if (this.options.rangeControl === 'slider' && sliderDay(this.options.min) !== null
+        && sliderDay(this.options.max) !== null) {
         this._addSliders(host);
       }
     }
@@ -93,8 +93,9 @@ export class HInputDate extends HInput {
 
   /**
    * Set the slider bounds after render (bounds requested from the server).
-   * The sliders appear once the bounds are ISO dates making a non-empty
-   * interval; other dates (e.g. before year 1) leave the direct inputs only.
+   * The sliders appear once the bounds are dates making a non-empty interval,
+   * negative years included (-YYYY-MM-DD, within JavaScript's range of about
+   * ±271 000 years); deeper time leaves the direct inputs only.
    *
    * @param {string|null} min Lower bound, YYYY-MM-DD.
    * @param {string|null} max Upper bound, YYYY-MM-DD.
@@ -104,8 +105,8 @@ export class HInputDate extends HInput {
     this.options.min = min;
     this.options.max = max;
     this.setNote(boundsNote(min, max));
-    const from = dateDay(min);
-    const to = dateDay(max);
+    const from = sliderDay(min);
+    const to = sliderDay(max);
     if (from === null || to === null || from >= to || this.options.rangeControl !== 'slider' || !this._rangeHost) {
       return this;
     }
@@ -122,7 +123,9 @@ export class HInputDate extends HInput {
     const empty = this.options.range ? !value.from && !value.to : !value;
     const errors = this.options.required && empty ? ['A value is required'] : [];
 
-    if (this.options.range && value.from && value.to && value.from > value.to) {
+    const fromDay = this.options.range ? sliderDay(value.from) : null;
+    const toDay = this.options.range ? sliderDay(value.to) : null;
+    if (fromDay !== null && toDay !== null && fromDay > toDay) {
       errors.push('Range start must not exceed range end');
     }
 
@@ -184,8 +187,8 @@ export class HInputDate extends HInput {
     for (const [index, endpoint] of [this.control, this.endControl].entries()) {
       const slider = document.createElement('input');
       slider.type = 'range';
-      slider.min = String(dateDay(this.options.min));
-      slider.max = String(dateDay(this.options.max));
+      slider.min = String(sliderDay(this.options.min));
+      slider.max = String(sliderDay(this.options.max));
       slider.step = '1';
       slider.setAttribute('aria-label', endpoint.placeholder);
       slider.disabled = endpoint.readOnly;
@@ -195,8 +198,11 @@ export class HInputDate extends HInput {
           ? Math.max(Number(slider.value), Number(other.value))
           : Math.min(Number(slider.value), Number(other.value)));
         // Update the date without triggering flatpickr's onChange (which
-        // calls notifyChange) on every intermediate drag tick.
-        this.pickers[index].setDate(dayDate(Number(slider.value)), false, 'Y-m-d');
+        // calls notifyChange) on every intermediate drag tick. The calendar
+        // cannot hold years before 0000 or after 9999: those are set as text.
+        const text = sliderDate(Number(slider.value));
+        if (dateDay(text) !== null) this.pickers[index].setDate(text, false, 'Y-m-d');
+        else { this.pickers[index].clear(false); endpoint.value = text; }
         this._syncSliderFill(wrapper);
       });
       // 'change' fires once when the drag/keypress commits.
@@ -214,8 +220,8 @@ export class HInputDate extends HInput {
   _syncSliders() {
     if (!this.sliders) return;
     for (const [index, endpoint] of [this.control, this.endControl].entries()) {
-      this.sliders[index].value = String(dateDay(endpoint.value)
-        ?? dateDay(index ? this.options.max : this.options.min));
+      this.sliders[index].value = String(sliderDay(endpoint.value)
+        ?? sliderDay(index ? this.options.max : this.options.min));
     }
     this._syncSliderFill(this.sliderWrapper);
   }
@@ -223,8 +229,8 @@ export class HInputDate extends HInput {
   /** Paint the selected interval between the two slider handles. */
   _syncSliderFill(wrapper) {
     if (!wrapper || this.sliders?.length !== 2) return;
-    const min = dateDay(this.options.min);
-    const span = dateDay(this.options.max) - min;
+    const min = sliderDay(this.options.min);
+    const span = sliderDay(this.options.max) - min;
     if (!(span > 0)) return;
     wrapper.style.setProperty('--h-range-from', `${(Number(this.sliders[0].value) - min) / span * 100}%`);
     wrapper.style.setProperty('--h-range-to', `${(Number(this.sliders[1].value) - min) / span * 100}%`);
@@ -274,7 +280,37 @@ export function boundsNote(min, max) {
   return from === to ? from : `${from} – ${to}`;
 }
 
-/** @returns {string} ISO simple date for a UTC day number. */
-function dayDate(day) {
-  return new Date(day * 86400000).toISOString().slice(0, 10);
+/**
+ * UTC day number of a date with a signed year (`1850-07-15`, `-0500-01-01`,
+ * `-12000-06-01`), as used by the slider scale. JavaScript dates reach about
+ * ±271 000 years; beyond that (and for anything but a full date) null.
+ *
+ * @param {*} value Date text.
+ * @returns {number|null} Day number.
+ */
+export function sliderDay(value) {
+  const match = typeof value === 'string' ? /^(-?)(\d{4,6})-(\d{2})-(\d{2})$/.exec(value.trim()) : null;
+  if (!match) return null;
+  const [, sign, year, month, day] = match;
+  // extended ISO years (±YYYYYY) for years outside 0000-9999
+  const iso = sign || year.length > 4 ? `${sign || '+'}${year.padStart(6, '0')}` : year;
+  const time = Date.parse(`${iso}-${month}-${day}T00:00:00Z`);
+  if (!Number.isFinite(time)) return null;
+  const result = Math.floor(time / 86400000);
+  // reject overflowing days (2023-02-30) by formatting back
+  return sliderDate(result) === `${sign}${year.replace(/^0+(?=\d{4})/, '')}-${month}-${day}` ? result : null;
+}
+
+/**
+ * Date with a signed year (at least 4 digits) for a UTC day number: the
+ * inverse of sliderDay (`-0500-01-01`, `1850-07-15`).
+ *
+ * @param {number} day Day number.
+ * @returns {string} Date text.
+ */
+export function sliderDate(day) {
+  const iso = new Date(day * 86400000).toISOString();
+  const match = /^([+-]?)(\d+)-(\d{2})-(\d{2})/.exec(iso);
+  const year = match[2].replace(/^0+(?=\d{4})/, '');
+  return `${match[1] === '-' ? '-' : ''}${year}-${match[3]}-${match[4]}`;
 }

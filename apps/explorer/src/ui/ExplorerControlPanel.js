@@ -35,7 +35,9 @@ export class ExplorerControlPanel {
     this.application = application;
     this.activeTool = null;
     this.pinnedPanels = new Map();
-    this._savedFilterView = { text: '', group: '', type: '' };
+    this._savedFilterView = { text: '', type: '' };
+    // owner sections the user collapsed, per list ('filters' | 'sources')
+    this._collapsedOwners = { filters: new Set(), sources: new Set() };
     this._recordTypeView = { sort: 'usage', groups: false };
     this._querySourceView = { text: '' };
     this._onDocumentPointerDown = (event) => this._handleOutsidePointer(event);
@@ -826,7 +828,7 @@ export class ExplorerControlPanel {
     search.value = this._querySourceView.text;
     controls.append(search);
     const list = document.createElement('div');
-    list.className = 'h-explorer-source-list';
+    list.className = 'h-explorer-source-list h-explorer-owner-list';
     const render = () => {
       list.replaceChildren();
       const sources = this.application.getQuerySources(this._querySourceView);
@@ -834,39 +836,7 @@ export class ExplorerControlPanel {
         list.append(this._emptyMessage('No query sources'));
         return;
       }
-      for (const source of sources) {
-        const reference = { type: 'source', id: source.id };
-        const favorite = this.application.favorites?.has?.(reference) === true;
-        const row = document.createElement('div');
-        row.className = 'h-explorer-source-row h-explorer-query-source-row';
-        const star = document.createElement('button');
-        star.type = 'button';
-        star.className = 'heurist-icon-button h-explorer-filter-favorite';
-        star.title = $HR(favorite ? 'Remove from favorites' : 'Add to favorites');
-        star.setAttribute('aria-label', star.title);
-        star.setAttribute('aria-pressed', String(favorite));
-        star.innerHTML = `<span class="${favorite ? 'fa-solid fa-star' : 'fa-regular fa-star'}" aria-hidden="true"></span>`;
-        star.addEventListener('click', () => this.application.toggleFavorite(reference, source.title));
-        const select = document.createElement('button');
-        select.type = 'button';
-        select.className = 'h-explorer-source-select';
-        select.title = source.title;
-        select.innerHTML = '<span class="fa-solid fa-database" aria-hidden="true"></span>';
-        const title = document.createElement('span');
-        title.className = 'h-explorer-source-title';
-        title.textContent = source.title;
-        select.append(title);
-        select.addEventListener('click', () => void this._activateQuerySource(source.id));
-        const edit = document.createElement('button');
-        edit.type = 'button';
-        edit.className = 'heurist-icon-button h-explorer-filter-edit';
-        edit.title = $HR('Edit Query Source record');
-        edit.setAttribute('aria-label', edit.title);
-        edit.innerHTML = '<span class="fa-solid fa-pen" aria-hidden="true"></span>';
-        edit.addEventListener('click', () => void this._editQuerySource(source.id));
-        row.append(star, select, edit);
-        list.append(row);
-      }
+      this._appendOwnerSections(list, sources, 'sources', (source) => this._querySourceRow(source));
     };
     search.addEventListener('input', () => {
       this._querySourceView.text = search.value;
@@ -875,6 +845,109 @@ export class ExplorerControlPanel {
     panel.append(controls, list);
     render();
     return panel;
+  }
+
+  /**
+   * One Query Source row: favorite star, title with its marks, edit.
+   *
+   * @private
+   * @param {{id: number, title: string, parametrized?: boolean, hasRules?: boolean}} source List item.
+   * @returns {HTMLElement} The row.
+   */
+  _querySourceRow(source) {
+    const reference = { type: 'source', id: source.id };
+    const favorite = this.application.favorites?.has?.(reference) === true;
+    const row = document.createElement('div');
+    row.className = 'h-explorer-source-row h-explorer-query-source-row';
+    const star = document.createElement('button');
+    star.type = 'button';
+    star.className = 'heurist-icon-button h-explorer-filter-favorite';
+    star.title = $HR(favorite ? 'Remove from favorites' : 'Add to favorites');
+    star.setAttribute('aria-label', star.title);
+    star.setAttribute('aria-pressed', String(favorite));
+    star.innerHTML = `<span class="${favorite ? 'fa-solid fa-star' : 'fa-regular fa-star'}" aria-hidden="true"></span>`;
+    star.addEventListener('click', () => this.application.toggleFavorite(reference, source.title));
+    const select = document.createElement('button');
+    select.type = 'button';
+    select.className = 'h-explorer-source-select';
+    select.title = source.title;
+    select.innerHTML = '<span class="fa-solid fa-database" aria-hidden="true"></span>';
+    const title = document.createElement('span');
+    title.className = 'h-explorer-source-title';
+    title.textContent = source.title;
+    select.append(title, this._sourceMarks(source));
+    select.addEventListener('click', () => void this._activateQuerySource(source.id));
+    const edit = document.createElement('button');
+    edit.type = 'button';
+    edit.className = 'heurist-icon-button h-explorer-filter-edit';
+    edit.title = $HR('Edit Query Source record');
+    edit.setAttribute('aria-label', edit.title);
+    edit.innerHTML = '<span class="fa-solid fa-pen" aria-hidden="true"></span>';
+    edit.addEventListener('click', () => void this._editQuerySource(source.id));
+    row.append(star, select, edit);
+    return row;
+  }
+
+  /**
+   * Icons after a filter/source title: expansion rules, parameters (Filter Form).
+   *
+   * @private
+   * @param {{parametrized?: boolean, kind?: string, hasRules?: boolean}} item List item.
+   * @returns {HTMLElement} The marks (empty when neither applies).
+   */
+  _sourceMarks(item) {
+    const marks = document.createElement('span');
+    marks.className = 'h-explorer-source-marks';
+    const mark = (icon, text) => {
+      const element = document.createElement('span');
+      element.className = `fa-solid ${icon}`;
+      element.title = $HR(text);
+      element.setAttribute('role', 'img');
+      element.setAttribute('aria-label', element.title);
+      marks.append(element);
+    };
+    if (item.hasRules) mark('fa-hexagon-nodes', 'Has expansion rules');
+    if (item.parametrized || item.kind === 'parametrized') mark('fa-sliders', 'Parameterized: opens a Filter Form');
+    return marks;
+  }
+
+  /**
+   * Append items grouped by owner (user/group) as collapsible sections: the
+   * current user first, then their groups by name, Website filters, Everyone.
+   * A collapsed section stays collapsed while the panel is rebuilt; a search
+   * opens every section that has matches.
+   *
+   * @private
+   * @param {HTMLElement} list List container.
+   * @param {Array<{ownerGroupId: number|null}>} items Items to show.
+   * @param {'filters'|'sources'} kind Which list (keeps its own collapsed state).
+   * @param {Function} renderRow `item → HTMLElement`.
+   * @returns {void}
+   */
+  _appendOwnerSections(list, items, kind, renderRow) {
+    const searching = Boolean(String((kind === 'filters' ? this._savedFilterView : this._querySourceView).text || '').trim());
+    const collapsed = this._collapsedOwners[kind];
+    for (const section of ownerSections(items, this.application.userGroups?.data || null)) {
+      const details = document.createElement('details');
+      details.className = 'h-explorer-owner-section';
+      details.open = searching || !collapsed.has(section.key);
+      const summary = document.createElement('summary');
+      summary.className = 'h-explorer-owner-summary';
+      const name = document.createElement('span');
+      name.className = 'h-explorer-owner-name';
+      name.textContent = section.label;
+      const count = document.createElement('span');
+      count.className = 'h-explorer-owner-count';
+      count.textContent = String(section.items.length);
+      summary.append(name, count);
+      details.append(summary, ...section.items.map(renderRow));
+      details.addEventListener('toggle', () => {
+        if (searching) return;
+        if (details.open) collapsed.delete(section.key);
+        else collapsed.add(section.key);
+      });
+      list.append(details);
+    }
   }
 
   /**
@@ -990,15 +1063,6 @@ export class ExplorerControlPanel {
     search.placeholder = $HR('Search filters');
     search.value = this._savedFilterView.text;
 
-    const group = document.createElement('select');
-    group.className = 'h-select';
-    group.setAttribute('aria-label', $HR('User group'));
-    group.append(new Option($HR('All groups'), ''));
-    for (const id of this.application.savedFilters?.groups?.() || []) {
-      group.append(new Option(`${$HR('Group')} ${id}`, String(id)));
-    }
-    group.value = this._savedFilterView.group;
-
     const type = document.createElement('select');
     type.className = 'h-select';
     type.setAttribute('aria-label', $HR('Filter type'));
@@ -1008,17 +1072,13 @@ export class ExplorerControlPanel {
       new Option($HR('Parametrized'), 'parametrized')
     );
     type.value = this._savedFilterView.type;
-    controls.append(search, group, type);
+    controls.append(search, type);
 
     const list = document.createElement('div');
-    list.className = 'h-explorer-source-list';
+    list.className = 'h-explorer-source-list h-explorer-owner-list';
     const render = () => this._renderSavedFilterRows(list);
     search.addEventListener('input', () => {
       this._savedFilterView.text = search.value;
-      render();
-    });
-    group.addEventListener('change', () => {
-      this._savedFilterView.group = group.value;
       render();
     });
     type.addEventListener('change', () => {
@@ -1045,44 +1105,50 @@ export class ExplorerControlPanel {
       return;
     }
 
-    for (const filter of filters) {
-      const reference = { type: 'filter', id: filter.id };
-      const favorite = this.application.favorites?.has?.(reference) === true;
-      const row = document.createElement('div');
-      row.className = 'h-explorer-source-row h-explorer-saved-filter-row';
+    this._appendOwnerSections(list, filters, 'filters', (filter) => this._savedFilterRow(filter));
+  }
 
-      const star = document.createElement('button');
-      star.type = 'button';
-      star.className = 'heurist-icon-button h-explorer-filter-favorite';
-      star.title = $HR(favorite ? 'Remove from favorites' : 'Add to favorites');
-      star.setAttribute('aria-label', star.title);
-      star.setAttribute('aria-pressed', String(favorite));
-      star.innerHTML = `<span class="${favorite ? 'fa-solid fa-star' : 'fa-regular fa-star'}" aria-hidden="true"></span>`;
-      star.addEventListener('click', () => this.application.toggleFavorite(reference, filter.title));
+  /**
+   * One Saved Filter row: favorite star, title with its marks, edit.
+   *
+   * @private
+   * @param {{id: number, title: string, kind?: string, hasRules?: boolean}} filter List item.
+   * @returns {HTMLElement} The row.
+   */
+  _savedFilterRow(filter) {
+    const reference = { type: 'filter', id: filter.id };
+    const favorite = this.application.favorites?.has?.(reference) === true;
+    const row = document.createElement('div');
+    row.className = 'h-explorer-source-row h-explorer-saved-filter-row';
 
-      const select = document.createElement('button');
-      select.type = 'button';
-      select.className = 'h-explorer-source-select';
-      select.title = filter.title;
-      const title = document.createElement('span');
-      title.className = 'h-explorer-source-title';
-      title.textContent = filter.title;
-      const meta = document.createElement('span');
-      meta.className = 'h-explorer-source-meta';
-      meta.textContent = filter.kind === 'parametrized' ? $HR('Parametrized') : '';
-      select.append(title, meta);
-      select.addEventListener('click', () => void this._activateSavedFilter(filter.id));
+    const star = document.createElement('button');
+    star.type = 'button';
+    star.className = 'heurist-icon-button h-explorer-filter-favorite';
+    star.title = $HR(favorite ? 'Remove from favorites' : 'Add to favorites');
+    star.setAttribute('aria-label', star.title);
+    star.setAttribute('aria-pressed', String(favorite));
+    star.innerHTML = `<span class="${favorite ? 'fa-solid fa-star' : 'fa-regular fa-star'}" aria-hidden="true"></span>`;
+    star.addEventListener('click', () => this.application.toggleFavorite(reference, filter.title));
 
-      const edit = document.createElement('button');
-      edit.type = 'button';
-      edit.className = 'heurist-icon-button h-explorer-filter-edit';
-      edit.title = $HR('Edit saved filter');
-      edit.setAttribute('aria-label', edit.title);
-      edit.innerHTML = '<span class="fa-solid fa-pen" aria-hidden="true"></span>';
-      edit.addEventListener('click', () => void this._editSavedFilter(filter.id));
-      row.append(star, select, edit);
-      list.append(row);
-    }
+    const select = document.createElement('button');
+    select.type = 'button';
+    select.className = 'h-explorer-source-select';
+    select.title = filter.title;
+    const title = document.createElement('span');
+    title.className = 'h-explorer-source-title';
+    title.textContent = filter.title;
+    select.append(title, this._sourceMarks(filter));
+    select.addEventListener('click', () => void this._activateSavedFilter(filter.id));
+
+    const edit = document.createElement('button');
+    edit.type = 'button';
+    edit.className = 'heurist-icon-button h-explorer-filter-edit';
+    edit.title = $HR('Edit saved filter');
+    edit.setAttribute('aria-label', edit.title);
+    edit.innerHTML = '<span class="fa-solid fa-pen" aria-hidden="true"></span>';
+    edit.addEventListener('click', () => void this._editSavedFilter(filter.id));
+    row.append(star, select, edit);
+    return row;
   }
 
   /**
@@ -1446,4 +1512,44 @@ function rightButtons() {
     { id: 'options', icon: 'fa-solid fa-gear', title: 'Options', hint: 'Toolbar and layout configuration', group: 'settings' },
     { id: 'publish', icon: 'fa-solid fa-share-nodes', title: 'Publish', hint: 'Publish the current view (coming soon)', group: 'settings' }
   ];
+}
+
+/**
+ * Group list items by owner (user/group id) into ordered sections: the current
+ * user, their other groups by name, Website filters (4), Everyone (0), then
+ * any other owner by id.
+ *
+ * @param {Array<{ownerGroupId: number|null, title: string}>} items List items.
+ * @param {object|null} userData UserGroupManager data (`currentUserId`, `groups`, `users`).
+ * @returns {Array<{key: string, label: string, items: Array<object>}>} Sections, items by title.
+ */
+export function ownerSections(items, userData) {
+  const currentUserId = Number(userData?.currentUserId) || 0;
+  const names = new Map([...(userData?.users || []), ...(userData?.groups || [])]
+    .map((owner) => [Number(owner.id), String(owner.name || '')]));
+  const byOwner = new Map();
+  for (const item of items) {
+    const owner = item.ownerGroupId ?? null;
+    if (!byOwner.has(owner)) byOwner.set(owner, []);
+    byOwner.get(owner).push(item);
+  }
+  const rank = (owner) => (owner === currentUserId && owner > 0 ? 0
+    : owner === 4 ? 2 : owner === 0 ? 3 : owner === null ? 5 : names.has(owner) ? 1 : 4);
+  const label = (owner) => {
+    if (owner === null) return $HR('Other');
+    if (owner === currentUserId && owner > 0) return `${$HR('Mine')}${names.get(owner) ? ` (${names.get(owner)})` : ''}`;
+    if (owner === 0) return $HR('Everyone');
+    if (owner === 4) return names.get(4) || $HR('Website filters');
+    return names.get(owner) || `${$HR('Group')} ${owner}`;
+  };
+  return [...byOwner.entries()]
+    .map(([owner, list]) => ({
+      owner,
+      key: String(owner),
+      label: label(owner),
+      items: list.slice().sort((a, b) => String(a.title).localeCompare(String(b.title), undefined, { sensitivity: 'base' }))
+    }))
+    .sort((a, b) => rank(a.owner) - rank(b.owner) || a.label.localeCompare(b.label, undefined, { sensitivity: 'base' })
+      || (a.owner ?? 0) - (b.owner ?? 0))
+    .map(({ owner, ...section }) => section);
 }

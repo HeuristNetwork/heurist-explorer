@@ -80,6 +80,30 @@ export class UserGroupManager {
   }
 }
 
+/** Workgroup "Everyone" (legacy public scope of saved filters). */
+export const EVERYONE_GROUP = 0;
+/** Workgroup "Website filters": readable by everyone, guests included. */
+export const WEB_FILTERS_GROUP = 4;
+
+/**
+ * Owners whose Saved Filters and Query Sources the current user lists:
+ * Everyone, Website filters, the groups they are a member or admin of, and
+ * themselves. A guest (`data` null) gets Everyone and Website filters.
+ *
+ * @param {object|null} data UserGroupManager data (`currentUserId`, `groups[{id, role}]`).
+ * @returns {number[]} Owner (user/group) IDs.
+ */
+export function ownerScope(data) {
+  const ids = [EVERYONE_GROUP, WEB_FILTERS_GROUP];
+  if (data?.currentUserId > 0) {
+    ids.push(Number(data.currentUserId));
+    for (const group of data.groups || []) {
+      if (group.role === 'member' || group.role === 'admin') ids.push(Number(group.id));
+    }
+  }
+  return [...new Set(ids.filter((id) => Number.isInteger(id) && id >= 0))];
+}
+
 /** @returns {Array<object>} Records of a `/sys` payload. */
 function records(payload) {
   return Array.isArray(payload?.records) ? payload.records : [];

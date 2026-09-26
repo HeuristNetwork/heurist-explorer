@@ -26,7 +26,7 @@ import { ExplorerWorkspace } from './ExplorerWorkspace.js';
 import { SavedFilterManager } from './SavedFilterManager.js';
 import { LegacySavedFilterConverter } from '../legacy/LegacySavedFilterConverter.js';
 import { RecordTypeManager } from './RecordTypeManager.js';
-import { UserGroupManager } from './UserGroupManager.js';
+import { UserGroupManager, ownerScope } from './UserGroupManager.js';
 import { QuerySourceManager } from './QuerySourceManager.js';
 import { SyncEngine } from './SyncEngine.js';
 import { IframeModuleAdapter } from '../modules/IframeModuleAdapter.js';
@@ -113,9 +113,13 @@ export class ExplorerApplication {
       headers: this.config.requestHeaders
     });
     this.apiClient = apiClient;
+    // Saved Filters and Query Sources of the current user's scope: Everyone,
+    // Website filters, their groups and themselves (ownerScope)
+    const ownerIds = () => ownerScope(this.userGroups?.data || null);
     this.savedFilters = new SavedFilterManager({
       apiClient,
-      legacyConverter: new LegacySavedFilterConverter({ getDbDefs: () => this._ensureDbDefs() })
+      legacyConverter: new LegacySavedFilterConverter({ getDbDefs: () => this._ensureDbDefs() }),
+      ownerIds
     });
     this.recordTypes = new RecordTypeManager({
       apiClient,
@@ -129,8 +133,17 @@ export class ExplorerApplication {
     });
     this.querySources = new QuerySourceManager({
       apiClient,
-      recordTypeProvider: new RecordTypeProvider({ apiClient })
+      recordTypeProvider: new RecordTypeProvider({ apiClient }),
+      ownerIds,
+      dbDefsProvider: () => this._ensureDbDefs()
     });
+    // users/groups first: they decide which filters and sources are listed, and
+    // feed the owner/creator pickers. A failure (or a guest) leaves the public scope.
+    try {
+      await this.userGroups.load();
+    } catch (error) {
+      if (error?.name !== 'AbortError') console.warn('Users and groups could not be loaded', error);
+    }
     try {
       await this.savedFilters.load();
     } catch (error) {
@@ -141,10 +154,6 @@ export class ExplorerApplication {
     } catch (error) {
       if (error?.name !== 'AbortError') HMsg.showMsgErr(error?.message || String(error));
     }
-    // users/groups for owner/creator pickers; optional - a failure only means direct input
-    this.userGroups.load().catch((error) => {
-      if (error?.name !== 'AbortError') console.warn('Users and groups could not be loaded', error);
-    });
     try {
       await this.querySources.load();
     } catch (error) {

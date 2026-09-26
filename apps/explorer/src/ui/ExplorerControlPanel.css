@@ -280,3 +280,69 @@
         max-height: 85%;
     }
 }
+
+/* Saved Filters / Query Sources grouped by owner (user or group): one collapsible section each */
+.h-explorer-owner-list {
+    border-top: 0;
+}
+
+.h-explorer-owner-section + .h-explorer-owner-section {
+    margin-top: 4px;
+}
+
+.h-explorer-owner-summary {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 7px;
+    border-top: 1px solid var(--h-color-border);
+    border-bottom: 1px solid var(--h-color-border);
+    background: var(--h-color-surface);
+    font-weight: 600;
+    cursor: pointer;
+    list-style: none;
+    user-select: none;
+}
+
+.h-explorer-owner-summary::-webkit-details-marker {
+    display: none;
+}
+
+.h-explorer-owner-summary::before {
+    content: '\f0da';
+    flex: 0 0 10px;
+    color: var(--h-color-icon);
+    font: var(--fa-font-solid);
+    transition: transform 0.12s;
+}
+
+.h-explorer-owner-section[open] > .h-explorer-owner-summary::before {
+    transform: rotate(90deg);
+}
+
+.h-explorer-owner-name {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.h-explorer-owner-count {
+    flex: 0 0 auto;
+    color: var(--h-color-text-muted);
+    font-weight: normal;
+    font-size: var(--h-font-size-small);
+}
+
+/* expansion rules / parameters marks after a title */
+.h-explorer-source-marks {
+    display: inline-flex;
+    flex: 0 0 auto;
+    gap: 6px;
+    color: var(--h-color-icon);
+}
+
+.h-explorer-source-marks:empty {
+    display: none;
+}

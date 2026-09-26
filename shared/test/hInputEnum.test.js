@@ -130,3 +130,16 @@ test('single-choice list: no radio circles; clicking the selected item clears it
   input.choices[2].fire('change');
   assert.equal(input.getValue(), 3);
 });
+
+test('slider scale reads signed years: -0500-01-01 … 12000-06-01; deep time and partial dates are not on it', async () => {
+  const { sliderDay, sliderDate } = await import('../src/widgets/form/inputs/HInputDate.js');
+  for (const value of ['1850-07-15', '0000-12-31', '-0500-01-01', '-0001-12-31', '-12000-06-01', '12000-06-01']) {
+    assert.equal(sliderDate(sliderDay(value)), value, `${value} round-trips`);
+  }
+  assert.ok(sliderDay('-0500-01-01') < sliderDay('-0100-01-01'), '500 BCE before 100 BCE');
+  assert.ok(sliderDay('-0001-12-31') < sliderDay('0000-01-01'));
+  assert.equal(sliderDay('0000-01-01') - sliderDay('-0001-12-31'), 1, 'consecutive days across year 0');
+  for (const value of ['-1000000000-01-01', '1850', '1850-07', '2023-02-30', '', null]) {
+    assert.equal(sliderDay(value), null, `${value} is not on the slider scale`);
+  }
+});
