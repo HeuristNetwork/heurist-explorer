@@ -38,3 +38,28 @@
   Live test: each value's count equals the search (resource and `related` paths).
 - Not yet: range lists and slider bounds (`detail=ranges` / `detail=minmax`) of a parameter in a linked
   branch still count over the linked record type; a parameter inside an any/all group keeps the old count.
+
+### 2026-09-27 — Tags (keywords)
+
+- `/sys` type **tag** (`usrTags`: id, title = tag text, owner = user or group, modified, field
+  `description`): database admins see all, others their personal and their groups' tags, guests none.
+  Predicate `user=<id|current>`: a user's tags (personal + groups'); with `t=group` the groups a user
+  belongs to. `owner` takes lists. `record=<id,…>`: the tags on those records; virtual field `ownername`;
+  tag responses carry `meta.currentUser`. OpenAPI updated.
+- Bootstrap (UserGroupManager) loads only `{t:"tag", user:"current"}` (limit 5000) - an admin no longer
+  receives every user's tags.
+- Same text under several owners: plain texts stay global (legacy, public websites); `"Owner\text"`
+  (user/group name, backslash, text; JSON `"Database Managers\\key1"`) picks one owner's tag.
+- Record View footer: tags of the record grouped by owner - "Personal tags: …" first, then
+  "<group> tags: …" (`RecordDataProvider.loadTags`, `tagGroups`).
+- Record search `tag`: IDs and tag texts interchangeable and mixable (a text matches every tag with that
+  text, as legacy): `"1,6"`, `[1,6]`, `["key1","DBM 1"]` (any); `{"all":[…]}`; `{"not":{…}}`; `"-1,6"` (none);
+  `NULL` / `-NULL`. Live tests: `SystemQueryTest`, `FieldValueCounterTest`.
+- Filter Builder: tag operators **is, is not** | exists, missing (vocabulary: "is any of"/"is all of"
+  removed — both copies); values picked from `TagSource` (HDbDefs overlay loaded by UserGroupManager:
+  personal tags first, then each group of the user, with headings); OR → `"1,2,3"` / `"-1,2,3"`, AND →
+  `{"all":[4,5]}` / `{"not":{"all":[4,5]}}`; a blank value is a parameter (`$X1$`). Older `{any:[…]}` /
+  arrays read back as the same row.
+- Filter Form: tag in a list mode lists the user's tags (grouped); **Facets** (designer checkbox, now also
+  for tags) lists only tags in the result with counts (`FacetTagSource` over `detail=values&field=tag`,
+  also through linked branches via `via`). Picker/list group headings: item `groupLabel`.

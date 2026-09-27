@@ -437,8 +437,7 @@ test('reference-document queries load and save unchanged in meaning (builder pip
   assert.deepEqual(pipeline([{ since: '2026-08-20' }]), [{ modified: '>2026-08-20' }]);
   assert.deepEqual(pipeline([{ before: '2026-09-01' }]), [{ modified: '<=2026-09-01' }]);
   // tag groups, record-id lists, a linked record id
-  same([{ tag: { any: ['1', '2'] } }]);
-  same([{ tag: { all: ['1', '2'] } }]);
+  // tag lists are covered by the tag test below (they compose to their short forms)
   same([{ tag: 'NULL' }]);
   assert.deepEqual(pipeline([{ ids: [152, 153] }]), [{ ids: '152,153' }]);
   assert.deepEqual(pipeline([{ t: '10' }, { 'lt:134': 51 }]), [{ t: '10' }, { 'lt:134': [{ ids: '51' }] }]);
@@ -457,9 +456,22 @@ test('reference-document queries load and save unchanged in meaning (builder pip
   assert.deepEqual(pipeline([{ sortby: '-p' }]), [{ sortby: '-popularity' }]);
 });
 
-test('tag "is any of" composes as a tag group, not a prefixed value', () => {
-  const row = fieldRow({ dty: 'tag', kind: 'tag', op: 'op.any_of', values: ['key1', 'key2'], selected: true });
-  assert.deepEqual(compose(model({ rows: [row] })), [{ tag: { any: ['key1', 'key2'] } }]);
+test('tags: is / is not as comma lists, AND as {all} / {not:{all}}, exists / missing, and read back', () => {
+  const tags = (op, values, valueConj = 'any') => compose(model({ rows: [fieldRow({ dty: 'tag', kind: 'tag', op, values, valueConj, selected: true })] }));
+  assert.deepEqual(tags('op.is', ['1']), [{ tag: '1' }]);
+  assert.deepEqual(tags('op.is', ['1', '2', '3']), [{ tag: '1,2,3' }]);
+  assert.deepEqual(tags('op.is_not', ['1']), [{ tag: '-1' }]);
+  assert.deepEqual(tags('op.is_not', ['1', '2', '3']), [{ tag: '-1,2,3' }]);
+  assert.deepEqual(tags('op.is', ['4', '5'], 'all'), [{ tag: { all: [4, 5] } }]);
+  assert.deepEqual(tags('op.is_not', ['4', '5'], 'all'), [{ tag: { not: { all: [4, 5] } } }]);
+  assert.deepEqual(tags('op.is_set', ['']), [{ tag: '-NULL' }]);
+  assert.deepEqual(tags('op.is_empty', ['']), [{ tag: 'NULL' }]);
+  for (const query of [[{ tag: '-1,2,3' }], [{ tag: { all: [4, 5] } }], [{ tag: { not: { all: [4, 5] } } }]]) {
+    assert.deepEqual(compose(parseQuery(query, VOCAB)), query, JSON.stringify(query));
+  }
+  // older forms read as the same rows
+  assert.deepEqual(compose(parseQuery([{ tag: { any: ['1', '2'] } }], VOCAB)), [{ tag: '1,2' }]);
+  assert.deepEqual(compose(parseQuery([{ tag: [1, 6] }], VOCAB)), [{ tag: '1,6' }]);
 });
 
 test('several owners, creators or visibilities are one comma list (not an any group), and read back', () => {

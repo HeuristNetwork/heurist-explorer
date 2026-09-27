@@ -211,7 +211,15 @@ export class HInputEnum extends HInput {
     this._radioName ||= `h-enum-${Math.random().toString(36).slice(2)}`;
     const nodes = [];
 
+    let group;
     for (const item of explicit) {
+      if (item.groupLabel && item.group !== group) {
+        const heading = document.createElement('div');
+        heading.className = 'h-input-enum-group';
+        heading.textContent = item.groupLabel;
+        nodes.push(heading);
+      }
+      group = item.group;
       const label = document.createElement('label');
       label.className = 'h-input-enum-choice';
       label.style.setProperty('--h-enum-depth', String(Math.max(0, Number(item.depth) || 0)));

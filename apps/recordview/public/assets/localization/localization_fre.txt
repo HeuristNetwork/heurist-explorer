@@ -53,3 +53,5 @@
 #Viewable#Visible
 #Public#Public
 #Data in system format#Données au format système
+#Personal tags#Mots-clés personnels
+#tags#mots-clés

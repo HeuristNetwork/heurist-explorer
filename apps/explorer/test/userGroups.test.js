@@ -59,7 +59,8 @@ test('UserGroupManager loads groups (with roles) and users and publishes them', 
   const manager = new UserGroupManager({ apiClient: api, dbDefsProvider: async () => defs });
   await manager.load();
   assert.deepEqual(api.requests.map((request) => [request.path, request.query.q.t, request.query.fields]),
-    [['/sys', 'group', 'role'], ['/sys', 'user', undefined]]);
+    [['/sys', 'group', 'role'], ['/sys', 'user', undefined], ['/sys', 'tag', 'owner']]);
+  assert.equal(api.requests[2].query.q.user, 'current', "only the current user's tags");
   assert.deepEqual(defs.groups(), [{ id: 6, name: 'Test group', role: 'admin' }]);
   assert.equal(defs.isDbAdmin(), true);
   assert.equal(defs.currentUserId(), 2);

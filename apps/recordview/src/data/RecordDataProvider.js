@@ -58,4 +58,34 @@ export class RecordDataProvider {
     }
     return response.records[0] || null;
   }
+
+  /**
+   * Tags of one record that the current user sees: their personal tags and the
+   * tags of their groups (`GET /sys` `{t:"tag", record, user:"current"}`), each
+   * with its owner's name. Guests and failures give no tags - the view still renders.
+   *
+   * @param {{id: number|string, signal?: AbortSignal}} options Load options.
+   * @returns {Promise<{currentUserId: number, tags: Array<{id:number, name:string, owner:number, ownerName:string}>}>}
+   */
+  async loadTags({ id, signal } = {}) {
+    const recordId = Number(id);
+    const none = { currentUserId: 0, tags: [] };
+    if (!Number.isInteger(recordId) || recordId < 1 || typeof this.apiClient?.get !== "function") return none;
+    try {
+      const response = await this.apiClient.get("/sys", {
+        signal,
+        query: { q: { t: "tag", record: String(recordId), user: "current" }, fields: "owner,ownername", limit: 1000 },
+      });
+      const tags = (Array.isArray(response?.records) ? response.records : []).map((row) => ({
+        id: Number(row.rec_ID),
+        name: String(row.rec_Title ?? ""),
+        owner: Number(row.rec_OwnerUGrpID),
+        ownerName: String(row.details?.ownerName?.[0]?.value ?? ""),
+      }));
+      return { currentUserId: Number(response?.meta?.currentUser?.id) || 0, tags };
+    } catch (error) {
+      if (error?.name === "AbortError") throw error;
+      return none;
+    }
+  }
 }

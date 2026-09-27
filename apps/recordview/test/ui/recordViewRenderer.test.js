@@ -106,7 +106,7 @@ test("each field value renders on its own line, so the label sits inline with th
   assert.match(rendererSource, /heurist-recordview-value-line/);
 });
 
-test("the footer shows created/modified/owner/visibility and omits rating/tags (deferred)", () => {
+test("the footer shows created/modified/owner/visibility and omits rating (deferred)", () => {
   assert.match(rendererSource, /\$HR\("Created"\)/);
   assert.match(rendererSource, /\$HR\("Modified"\)/);
   assert.match(rendererSource, /\$HR\("Owner"\)/);
@@ -117,4 +117,21 @@ test("the footer shows created/modified/owner/visibility and omits rating/tags (
 test("icon/media links are skipped entirely when baseUrl/database are not configured", () => {
   assert.match(rendererSource, /#isConfigured\(\) \{\s*return Boolean\(this\.baseUrl && this\.database\);/);
   assert.match(rendererSource, /if \(!this\.#isConfigured\(\)\) return null;/);
+});
+
+test("footer tag entries: personal tags first, then each group's tags by name", async () => {
+  const { tagGroups } = await import("../../src/ui/RecordViewRenderer.js");
+  const groups = tagGroups({ currentUserId: 2, tags: [
+    { name: "WEBFIL 1", owner: 4, ownerName: "Website filters" },
+    { name: "key2", owner: 2, ownerName: "osmakov" },
+    { name: "DBM 25", owner: 1, ownerName: "Database Managers" },
+    { name: "key1", owner: 2, ownerName: "osmakov" },
+    { name: "new tag 34", owner: 1, ownerName: "Database Managers" }
+  ] });
+  assert.deepEqual(groups, [
+    { label: "Personal tags", names: ["key1", "key2"] },
+    { label: "Database Managers tags", names: ["DBM 25", "new tag 34"] },
+    { label: "Website filters tags", names: ["WEBFIL 1"] }
+  ]);
+  assert.deepEqual(tagGroups(null), []);
 });

@@ -352,3 +352,28 @@ test('a facet inside a linked branch counts main records: detail=values with q a
   assert.deepEqual(request.via, [{ 'lt:240': [{ t: '48' }] }]);
   return form.destroy();
 });
+
+test('tag lists: the user\'s tags by owner; with Facets only tags in the result, with counts', async () => {
+  const tagDefs = { ...dbdefs, currentUserId: () => 2, groups: () => [{ id: 6, name: 'Test group', role: 'member' }],
+    tags: () => [{ id: 1, name: 'key1', owner: 2 }, { id: 2, name: 'Keyword2', owner: 2 }, { id: 7, name: 'WEB', owner: 6 }],
+    tagName: (id) => ({ 1: 'key1', 2: 'Keyword2', 7: 'WEB' })[id] || '' };
+  const mount = (child, api) => {
+    const host = document.createElement('div');
+    document.body.append(host);
+    return new HFilterForm().attach(host, {
+      definition: { query: [{ t: '10' }, { tag: '$T$' }], filterForm: layoutOf([child]) }, dbdefs: tagDefs, apiClient: api
+    }).render();
+  };
+  const plain = mount({ input: 'T', mode: 'checkbox', multiple: true }, null);
+  await flush();
+  const labels = (form) => form.inputs.get('T').listHost.querySelectorAll('label').map((label) => label.querySelector('span').textContent);
+  assert.deepEqual(labels(plain), ['key1', 'Keyword2', 'WEB']);
+  assert.deepEqual(plain.inputs.get('T').listHost.querySelectorAll('.h-input-enum-group').map((node) => node.textContent), ['My tags', 'Test group']);
+  const api = valuesApi({ tag: [{ value: 7, count: 3 }] });
+  const facets = mount({ input: 'T', mode: 'checkbox', multiple: true, facets: true }, api);
+  await flush();
+  assert.equal(api.requests.at(-1).field, 'tag');
+  assert.deepEqual(labels(facets), ['WEB']);
+  await plain.destroy();
+  return facets.destroy();
+});

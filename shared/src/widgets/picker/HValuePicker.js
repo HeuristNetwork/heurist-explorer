@@ -365,7 +365,15 @@ export class HValuePicker extends HBaseWidget {
     const nodes = [];
     let group = rows[0]?.group;
     rows.forEach((item, index) => {
-      if (index && item.group !== group) {
+      // a named group (e.g. tags: "My tags", then each group) gets a heading;
+      // an unnamed change of group a separator line
+      if (item.groupLabel && (!index || item.group !== group)) {
+        const heading = document.createElement('li');
+        heading.className = 'h-value-picker-group';
+        heading.setAttribute('role', 'presentation');
+        heading.textContent = item.groupLabel;
+        nodes.push(heading);
+      } else if (index && item.group !== group) {
         const separator = document.createElement('li');
         separator.className = 'h-value-picker-separator';
         separator.setAttribute('role', 'separator');

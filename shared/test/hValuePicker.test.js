@@ -187,3 +187,18 @@ test('the combo popover never extends past the viewport', async () => {
   assert.equal(label.title, 'x'.repeat(500), 'the full label stays readable as a tooltip');
   combo.close();
 });
+
+test('named groups get headings in the picker (tags: "My tags", then each group)', async () => {
+  const { HValuePicker: Picker } = await import('../src/widgets/picker/HValuePicker.js');
+  const { StaticSource: Source } = await import('../src/data/valueSources/index.js');
+  const host = document.createElement('div');
+  document.body.append(host);
+  const picker = new Picker().attach(host, { source: new Source([
+    { value: 1, label: 'key1', group: 'owner:2', groupLabel: 'My tags' },
+    { value: 2, label: 'Keyword2', group: 'owner:2', groupLabel: 'My tags' },
+    { value: 6, label: 'DBM 1', group: 'owner:1', groupLabel: 'Database Managers' }
+  ]) }).render();
+  await picker.open();
+  assert.deepEqual(host.querySelectorAll('.h-value-picker-group').map((node) => node.textContent), ['My tags', 'Database Managers']);
+  return picker.destroy();
+});

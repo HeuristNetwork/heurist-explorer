@@ -54,3 +54,19 @@ test("load() rejects a response missing the records array", async () => {
   const provider = new RecordDataProvider({ apiClient: { post: async () => ({}) } });
   await assert.rejects(() => provider.load({ id: 151 }), { name: "TypeError" });
 });
+
+test("loadTags() asks /sys for the current user's tags on the record, with owner names; guests get none", async () => {
+  const calls = [];
+  const provider = new RecordDataProvider({ apiClient: {
+    async get(path, options) {
+      calls.push([path, options.query]);
+      return { records: [{ rec_ID: 1, rec_Title: "key1", rec_OwnerUGrpID: 2, details: { ownerName: [{ value: "osmakov" }] } }],
+        meta: { currentUser: { id: 2 } } };
+    }
+  } });
+  const result = await provider.loadTags({ id: 81 });
+  assert.deepEqual(calls[0], ["/sys", { q: { t: "tag", record: "81", user: "current" }, fields: "owner,ownername", limit: 1000 }]);
+  assert.deepEqual(result, { currentUserId: 2, tags: [{ id: 1, name: "key1", owner: 2, ownerName: "osmakov" }] });
+  const guest = new RecordDataProvider({ apiClient: { async get() { throw Object.assign(new Error("401"), { status: 401 }); } } });
+  assert.deepEqual(await guest.loadTags({ id: 81 }), { currentUserId: 0, tags: [] });
+});

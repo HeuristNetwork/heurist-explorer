@@ -155,3 +155,13 @@ test('a linked-record parameter reads back into the records row and keeps its na
   assert.equal(row.op, 'op.is_not');
   assert.deepEqual(builder.getDefinition().query, query);
 });
+
+test('a tag condition without a value becomes a parameter', () => {
+  const builder = new HFilterBuilder({ dbdefs: dbdefsStub, vocabulary: VOCAB });
+  builder.model.rows = [
+    { type: 'field', dty: 'tag', kind: 'tag', selected: true, op: 'op.is', values: [''] },
+    { type: 'field', dty: 'tag', kind: 'tag', selected: true, op: 'op.is_not', values: [''] },
+    { type: 'field', dty: 'tag', kind: 'tag', selected: true, op: 'op.is_set', values: [''] }
+  ];
+  assert.deepEqual(builder.getDefinition().query, [{ tag: '$X1$' }, { tag: '-$X2$' }, { tag: '-NULL' }]);
+});

@@ -323,9 +323,11 @@ export class RecordViewApplication extends EventTarget {
           return;
         }
         const recordTypeId = Number(record.rec_RecTypeID) || 0;
-        const [sections, recordTypes] = await Promise.all([
+        const [sections, recordTypes, tags] = await Promise.all([
           this.structureProvider.fieldSections(recordTypeId, { signal: this.abortController.signal }),
           this.vocabularyProvider.getRecordTypeNames([recordTypeId], { signal: this.abortController.signal }),
+          // the current user's tags on this record (none for guests)
+          this.recordDataProvider.loadTags?.({ id, signal: this.abortController.signal }) ?? null,
         ]);
         if (generation !== this.generation) return;
         const recordTypeName = recordTypes.get(recordTypeId) || null;
@@ -342,6 +344,7 @@ export class RecordViewApplication extends EventTarget {
           onNavigate: (recordId) => this.navigateToRecord(recordId),
           canZoomExtent: Boolean(canZoomExtent),
           onZoomExtent: (wkt) => this.host?.zoomToExtent?.(wkt),
+          tags,
         });
       } else {
         this.recordTitle = null;

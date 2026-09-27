@@ -1297,7 +1297,7 @@ function isImplicitParameter(row, vocabulary) {
   if (!row || row.type === 'link') return false;
   if (row.dty === '' || row.dty == null || (row.dty === 'anyfield' && !row.selected)) return false;
   // "<record type> records is / is not" without a picked record: a runtime parameter ({"ids":"$X1$"})
-  if (!['text', 'number', 'date', 'enum', 'geo', 'exists'].includes(row.kind)) return false;
+  if (!['text', 'number', 'date', 'enum', 'geo', 'exists', 'tag'].includes(row.kind)) return false;
   if (operatorByKey(vocabulary, row.kind, row.op)?.whole) return false;
   const values = row.values || [];
   const blank = (value) => String(value ?? '').trim() === '';

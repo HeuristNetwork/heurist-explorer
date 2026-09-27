@@ -91,6 +91,13 @@
   outline-offset: 1px;
 }
 
+.h-input-enum-group {
+  flex-basis: 100%;
+  color: var(--h-color-text-muted);
+  font-size: var(--h-font-size-small);
+  font-weight: 600;
+}
+
 .h-input-enum-empty {
   color: var(--h-color-text-muted);
   font-style: italic;

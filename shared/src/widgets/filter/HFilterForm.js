@@ -16,8 +16,8 @@
 import { HBaseWidget } from '../HBaseWidget.js';
 import { createHInput } from '../form/inputs/createHInput.js';
 import { describeQueryParameters, resolveQueryParameters, linkedFacetRequest } from '../../data/queryParameters.js';
-import { TermSource, UserGroupSource } from '../../data/valueSources/localSources.js';
-import { FieldValueSource, FacetTermSource, RangeBucketSource, RecordTitleSource, fetchFieldRange } from '../../data/valueSources/FieldValueSource.js';
+import { TermSource, UserGroupSource, TagSource } from '../../data/valueSources/localSources.js';
+import { FieldValueSource, FacetTermSource, FacetTagSource, RangeBucketSource, RecordTitleSource, fetchFieldRange } from '../../data/valueSources/FieldValueSource.js';
 import './HFilterForm.css';
 
 /** Presentations that pick from a list (plan §3). */
@@ -356,6 +356,17 @@ export class HFilterForm extends HBaseWidget {
         return { type: 'enum', options: { source: people, mode: config.mode || 'select', listThreshold } };
       }
       return { type: 'text', options: {} };
+    }
+
+    // tags: the user's tags by owner; with Facets only those in the result, with counts
+    if (parameter.predicate === 'tag' && LIST_MODES.has(config.mode) && !custom) {
+      const tags = new TagSource(this.options.dbdefs);
+      if (config.facets === true && this.apiClient) {
+        this._facetInputs.add(id);
+        const counts = new FieldValueSource(this.apiClient, { query: () => this._facetRequest(id), field: 'tag', selected });
+        return { type: 'enum', options: { source: new FacetTagSource(tags, counts, { selected }), numeric: true, listThreshold } };
+      }
+      if (tags.isAvailable()) return { type: 'enum', options: { source: tags, numeric: true, listThreshold } };
     }
 
     if (parameter.type === 'text' && LIST_MODES.has(config.mode)) {

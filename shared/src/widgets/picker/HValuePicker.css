@@ -81,6 +81,17 @@
   color: var(--h-color-icon);
 }
 
+.h-value-picker-group {
+  padding: 4px 8px 2px;
+  color: var(--h-color-text-muted);
+  font-size: var(--h-font-size-small);
+  font-weight: 600;
+}
+
+.h-value-picker-group:not(:first-child) {
+  border-top: 1px solid var(--h-color-border);
+}
+
 .h-value-picker-separator {
   height: 0;
   margin: 3px 0;

@@ -324,6 +324,45 @@ export async function fetchFieldRange(api, { query = [], field, signal } = {}) {
   return { min: payload?.min ?? null, max: payload?.max ?? null, count: Number(payload?.count) || 0 };
 }
 
+/**
+ * Tag facet: the user's tags (TagSource: personal first, then each group) that
+ * occur in the result, with counts from `detail=values&field=tag`, plus selected
+ * tags (count 0).
+ */
+export class FacetTagSource {
+  /**
+   * @param {object} tags TagSource.
+   * @param {FieldValueSource} values Source of the tag counts.
+   * @param {{selected?: Function}} [options] `() → values` kept visible.
+   */
+  constructor(tags, values, { selected = null } = {}) {
+    this.tags = tags;
+    this.values = values;
+    this.selected = selected;
+  }
+
+  /** Forget cached counts. */
+  invalidate() {
+    this.values.invalidate?.();
+  }
+
+  /** @returns {Promise<{items: Array<object>, total: number, complete: boolean}>} Tags with counts. */
+  async load({ signal } = {}) {
+    const result = await this.values.load({ text: '', signal });
+    const counts = new Map(result.items.filter((item) => item.count > 0).map((item) => [String(item.value), item.count]));
+    const keep = new Set((this.selected?.() || []).map(String));
+    const items = this.tags.items()
+      .filter((item) => counts.has(String(item.value)) || keep.has(String(item.value)))
+      .map((item) => ({ ...item, count: counts.get(String(item.value)) || 0 }));
+    return { items, total: items.length, complete: true };
+  }
+
+  /** @returns {string} Tag text. */
+  labelFor(value) {
+    return this.tags.labelFor(value);
+  }
+}
+
 /** @returns {Promise<Array|object>} The query a source option describes. */
 async function resolveQuery(query) {
   const value = typeof query === 'function' ? await query() : query;

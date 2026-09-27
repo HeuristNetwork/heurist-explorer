@@ -446,8 +446,8 @@ export class HFilterFormDesigner extends HBaseWidget {
       options.append(presentation, multipleLabel);
     }
 
-    if (parameter.type === 'enum') {
-      // facets: list only the terms that occur in the result, with counts
+    if (parameter.type === 'enum' || parameter.predicate === 'tag') {
+      // facets: list only the terms (tags) that occur in the result, with counts
       const facets = document.createElement('input');
       facets.type = 'checkbox';
       facets.className = 'h-checkbox';

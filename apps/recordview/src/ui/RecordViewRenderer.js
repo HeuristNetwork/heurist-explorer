@@ -83,13 +83,13 @@ export class RecordViewRenderer {
    */
   showBuiltin(record, {
     sections = [], recordTypeName = null, canEdit = false, onEdit = () => {}, onNavigate = () => {},
-    canZoomExtent = false, onZoomExtent = () => {},
+    canZoomExtent = false, onZoomExtent = () => {}, tags = null,
   } = {}) {
     const children = [this.#buildHeader(record, { recordTypeName, canEdit, onEdit })];
     const media = this.#buildMedia(record, sections);
     if (media) children.push(media);
     children.push(this.#buildSections(record, sections, { onNavigate, canZoomExtent, onZoomExtent }));
-    children.push(this.#buildFooter(record));
+    children.push(this.#buildFooter(record, tags));
     this.body.replaceChildren(...children);
     this.#alignFieldLabels();
   }
@@ -364,8 +364,11 @@ export class RecordViewRenderer {
     }
   }
 
-  /** Footer: created/modified dates, owner group id, and a visibility label. No rating/tags row (deferred). */
-  #buildFooter(record) {
+  /**
+   * Footer: created/modified dates, owner group id, a visibility label, and one entry
+   * per tag owner - "Personal tags: …" first, then "<group> tags: …". No rating (deferred).
+   */
+  #buildFooter(record, tags = null) {
     const footer = document.createElement("div");
     footer.className = "heurist-recordview-footer";
     const visibility = String(record?.rec_NonOwnerVisibility || "").toLowerCase();
@@ -380,6 +383,12 @@ export class RecordViewRenderer {
       const span = document.createElement("span");
       span.className = "heurist-recordview-footer-item";
       span.textContent = `${label}: ${value}`;
+      footer.append(span);
+    }
+    for (const group of tagGroups(tags)) {
+      const span = document.createElement("span");
+      span.className = "heurist-recordview-footer-item heurist-recordview-tags";
+      span.textContent = `${group.label}: ${group.names.join(", ")}`;
       footer.append(span);
     }
     return footer;
@@ -451,4 +460,27 @@ function formatDate(value) {
   } catch {
     return text;
   }
+}
+
+/**
+ * Tags grouped by owner for the footer: the current user's personal tags first,
+ * then each group's tags by group name; names sorted within each owner.
+ *
+ * @param {{currentUserId?: number, tags?: Array<{name:string, owner:number, ownerName:string}>}|null} data Record tags.
+ * @returns {Array<{label: string, names: string[]}>} Footer entries.
+ */
+export function tagGroups(data) {
+  const me = Number(data?.currentUserId) || 0;
+  const byOwner = new Map();
+  for (const tag of data?.tags || []) {
+    if (!byOwner.has(tag.owner)) byOwner.set(tag.owner, { owner: tag.owner, ownerName: tag.ownerName, names: [] });
+    byOwner.get(tag.owner).names.push(tag.name);
+  }
+  const collator = (a, b) => a.localeCompare(b, undefined, { sensitivity: "base", numeric: true });
+  return [...byOwner.values()]
+    .sort((a, b) => (b.owner === me) - (a.owner === me) || collator(a.ownerName || "", b.ownerName || ""))
+    .map((entry) => ({
+      label: entry.owner === me ? $HR("Personal tags") : `${entry.ownerName || `#${entry.owner}`} ${$HR("tags")}`,
+      names: entry.names.sort(collator),
+    }));
 }

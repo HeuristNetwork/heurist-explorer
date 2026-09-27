@@ -155,3 +155,42 @@ export class UserGroupSource extends LocalSource {
     return this.dbdefs?.userGroupName?.(value) || '';
   }
 }
+
+/**
+ * Tags (keywords) of the current user from the HDbDefs overlay, by owner: the
+ * personal tags first ("My tags"), then the tags of each group the user
+ * belongs to (member or admin), under the group's name. Values are tag IDs.
+ */
+export class TagSource extends LocalSource {
+  /** @param {object} dbdefs HDbDefs with the users/groups/tags overlay. */
+  constructor(dbdefs) {
+    super();
+    this.dbdefs = dbdefs;
+  }
+
+  /** @returns {Array<object>} Tag items with `group` / `groupLabel`, personal first. */
+  items() {
+    const me = Number(this.dbdefs?.currentUserId?.()) || 0;
+    const groups = (this.dbdefs?.groups?.() || []).filter((group) => group.role === 'member' || group.role === 'admin');
+    const byName = (a, b) => a.label.localeCompare(b.label, undefined, { sensitivity: 'base', numeric: true });
+    const tags = this.dbdefs?.tags?.() || [];
+    const block = (owner, label) => tags.filter((tag) => tag.owner === owner)
+      .map((tag) => ({ value: tag.id, label: tag.name, group: `owner:${owner}`, groupLabel: label }))
+      .sort(byName);
+    const list = me ? block(me, 'My tags') : [];
+    for (const group of [...groups].sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }))) {
+      list.push(...block(group.id, group.name));
+    }
+    return list;
+  }
+
+  /** @returns {boolean} True when there are tags to pick. */
+  isAvailable() {
+    return this.items().length > 0;
+  }
+
+  /** @returns {string} Tag text from HDbDefs. */
+  labelFor(value) {
+    return this.dbdefs?.tagName?.(value) || '';
+  }
+}

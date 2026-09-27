@@ -219,3 +219,19 @@ test('RecordTitleSource: records of a type by title, server-side title search, l
   assert.deepEqual(requests[2].q, [{ ids: '280' }], 'only unknown titles are fetched');
   assert.equal(source.labelFor(280), 'Rome');
 });
+
+test('TagSource: the user\'s tags by owner, personal first, then each group they belong to', async () => {
+  const { TagSource } = await import('../../src/data/valueSources/index.js');
+  const dbdefs = {
+    currentUserId: () => 2,
+    groups: () => [{ id: 6, name: 'Test group', role: 'admin' }, { id: 1, name: 'Database Managers', role: 'member' }, { id: 9, name: 'Other', role: 'none' }],
+    tags: () => [{ id: 7, name: 'WEB', owner: 6 }, { id: 2, name: 'Keyword2', owner: 2 }, { id: 1, name: 'key1', owner: 2 },
+      { id: 6, name: 'DBM 1', owner: 1 }, { id: 4, name: 'timma', owner: 5 }, { id: 8, name: 'hidden', owner: 9 }],
+    tagName: (id) => ({ 1: 'key1' })[id] || ''
+  };
+  const source = new TagSource(dbdefs);
+  const { items } = await source.load();
+  assert.deepEqual(items.map((item) => [item.groupLabel, item.label]),
+    [['My tags', 'key1'], ['My tags', 'Keyword2'], ['Database Managers', 'DBM 1'], ['Test group', 'WEB']]);
+  assert.equal(source.labelFor(1), 'key1');
+});

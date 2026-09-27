@@ -46,14 +46,17 @@ export class UserGroupManager {
     this._loadController?.abort();
     const controller = new AbortController();
     this._loadController = controller;
-    const request = (type, fields) => this.apiClient.get('/sys', {
-      query: { q: { t: type }, limit: 1000, ...(fields ? { fields } : {}) },
+    const request = (type, fields, scope = {}, limit = 1000) => this.apiClient.get('/sys', {
+      query: { q: { t: type, ...scope }, limit, ...(fields ? { fields } : {}) },
       signal: controller.signal
     });
-    const [dbDefs, groups, users] = await Promise.all([
+    const [dbDefs, groups, users, tags] = await Promise.all([
       this.dbDefsProvider(),
       request('group', 'role').catch((error) => guestOrThrow(error)),
-      request('user').catch((error) => guestOrThrow(error))
+      request('user').catch((error) => guestOrThrow(error)),
+      // tags (keywords) of the current user only - personal and of their groups - even for
+      // an administrator, who could otherwise read every user's tags
+      request('tag', 'owner', { user: 'current' }, 5000).catch((error) => guestOrThrow(error))
     ]);
     if (controller.signal.aborted) return this.data;
     const currentUser = groups?.meta?.currentUser || users?.meta?.currentUser || null;
@@ -66,7 +69,10 @@ export class UserGroupManager {
         name: String(record.rec_Title ?? ''),
         role: record.details?.role?.[0]?.value || 'none'
       })),
-      users: records(users).map((record) => ({ id: Number(record.rec_ID), name: String(record.rec_Title ?? '') }))
+      users: records(users).map((record) => ({ id: Number(record.rec_ID), name: String(record.rec_Title ?? '') })),
+      tags: records(tags).map((record) => ({
+        id: Number(record.rec_ID), name: String(record.rec_Title ?? ''), owner: Number(record.rec_OwnerUGrpID)
+      }))
     } : null;
     dbDefs?.setUserGroups?.(this.data);
     return this.data;

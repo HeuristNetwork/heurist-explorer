@@ -371,14 +371,37 @@ export class HDbDefs {
       .filter((row) => Number.isInteger(row.id) && row.id >= 0);
     const groups = clean(data.groups, true);
     const users = clean(data.users, false);
+    const tags = (Array.isArray(data.tags) ? data.tags : [])
+      .map((row) => ({ id: Number(row?.id), name: String(row?.name ?? ''), owner: Number(row?.owner) }))
+      .filter((row) => Number.isInteger(row.id) && row.id > 0);
     this._userGroups = {
       currentUserId: Number(data.currentUserId) || 0,
       isDbAdmin: Boolean(data.isDbAdmin),
       groups,
       users,
-      names: new Map([...groups, ...users].map((row) => [row.id, row.name]))
+      tags,
+      names: new Map([...groups, ...users].map((row) => [row.id, row.name])),
+      tagNames: new Map(tags.map((row) => [row.id, row.name]))
     };
     return this;
+  }
+
+  /** @returns {boolean} Whether tags (keywords) of the current user are attached. */
+  hasTags() {
+    return Boolean(this._userGroups?.tags?.length);
+  }
+
+  /** @returns {Array<{id:number, name:string, owner:number}>} Tags visible to the current user (owner: user or group). */
+  tags() {
+    return (this._userGroups?.tags || []).map((row) => ({ ...row }));
+  }
+
+  /**
+   * @param {number|string} id Tag ID.
+   * @returns {string} Tag text, or `''` when not visible.
+   */
+  tagName(id) {
+    return this._userGroups?.tagNames?.get(Number(id)) || '';
   }
 
   /** @returns {boolean} Whether users/groups have been attached. */

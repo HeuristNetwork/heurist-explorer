@@ -23,7 +23,7 @@
 
 import { HBaseWidget } from '#shared/widgets/HBaseWidget.js';
 import { createHInput } from '#shared/widgets/form/inputs/createHInput.js';
-import { UserGroupSource, RecordTitleSource } from '#shared/data/valueSources/index.js';
+import { UserGroupSource, RecordTitleSource, TagSource } from '#shared/data/valueSources/index.js';
 import { extentToWkt, isExtent, roundExtent } from '#shared/utils';
 import { $HR } from '#shared/ui';
 import { emptyFieldRow } from '../../utils/queryModel.js';
@@ -250,7 +250,10 @@ export class HFilterBuilderItem extends HBaseWidget {
       }
       const o = document.createElement('option');
       o.value = op.i18nKey;
-      o.textContent = op.i18nKey === 'op.count' ? $HR('count of values')
+      // tags: "is set" / "is empty" read as exists / missing
+      const tagWord = this.row.kind === 'tag' && { 'op.is_set': 'exists', 'op.is_empty': 'missing' }[op.i18nKey];
+      o.textContent = tagWord ? $HR(tagWord)
+        : op.i18nKey === 'op.count' ? $HR('count of values')
         : op.i18nKey === 'op.exists' ? $HR('exists')
           : op.i18nKey === 'op.missing' ? $HR('missing')
             : str(this.vocab, this.lang, op.i18nKey);
@@ -440,6 +443,25 @@ export class HFilterBuilderItem extends HBaseWidget {
     const current = this.row.values[index] ?? '';
     if (this.row.dty === 'user' && !placeholder) placeholder = $HR('current, login name or user ID');
     if (this.row.dty === 'tag' && !placeholder) placeholder = $HR('tag text or ID');
+
+    // tags: the current user's tags by owner (personal first); guests type a tag text or ID
+    if (this.row.dty === 'tag') {
+      const source = new TagSource(this.dbdefs);
+      if (source.isAvailable()) {
+        const host = document.createElement('div');
+        host.className = 'h-fbitem-value-widget';
+        const widget = createHInput('enum', host, {
+          suppressLabel: true,
+          source,
+          value: /^\d+$/.test(String(current)) ? Number(current) : null,
+          multiple: false,
+          emptyLabel: $HR('— select tag —')
+        });
+        host.addEventListener('h-input-change', () => set(widget.getValue() == null ? '' : String(widget.getValue())));
+        this._valueWidgets.push(widget);
+        return host;
+      }
+    }
 
     if (this.row.dty === 'access') {
       return choiceControl([

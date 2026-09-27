@@ -190,11 +190,6 @@ function compileFieldRow(row, vocab) {
   const values = (row.values || []).map((v) => String(v ?? '').trim()).filter((v) => v !== '');
   if (!values.length) return null;
 
-  // tag "is any of" / "is all of": {"tag":{"any"|"all":[…]}} (the token names the group)
-  if (key === 'tag' && (op.token === 'any' || op.token === 'all')) {
-    return { tag: { [op.token]: values } };
-  }
-
   // range operators consume two values into one predicate
   if (op.pattern && /\{a\}/.test(op.pattern)) {
     const rendered = op.pattern.replace('{a}', values[0]).replace('{b}', values[1] ?? values[0]);
@@ -210,24 +205,26 @@ function compileFieldRow(row, vocab) {
   // one linked record cannot be several records: picked records are always OR
   const conj = row.valueConj === 'all' && row.kind !== 'exists' ? 'all' : 'any';
 
+  // tags, every one of them: {"tag":{"all":[4,5]}}; "is not": {"tag":{"not":{"all":[4,5]}}}
+  if (key === 'tag' && conj === 'all') {
+    const list = rendered.map(stripLeadingDash).map((v) => (/^\d+$/.test(v) ? Number(v) : v));
+    return { tag: row.negate || op.token === '-' ? { not: { all: list } } : { all: list } };
+  }
+
   // enum / term / record ids, record IDs, owner / creator (IDs or names) and visibility:
   // OR of values collapses to one comma-joined value ("-a,b" excludes them all)
-  if (conj === 'any' && (['enum', 'term', 'record'].includes(row.kind) || COMMA_LIST_KEYS.has(key)) && key !== 'tag') {
+  if (conj === 'any' && (['enum', 'term', 'record'].includes(row.kind) || COMMA_LIST_KEYS.has(key))) {
     const joined = rendered.map(stripLeadingDash).join(',');
     // "is not" is either the row's negation or the operator's own "-" token (owner, access, …)
     const negated = row.negate || op.token === '-';
     return wrap(key, (negated ? '-' : '') + joined);
   }
 
-  if (key === 'tag') {
-    return { tag: { [conj]: rendered.map(stripLeadingDash) } };
-  }
-
   return { [conj]: rendered.map((v) => wrap(key, v)) };
 }
 
 /** Header keys whose several values are one comma list (the server reads it as OR / NOT IN). */
-const COMMA_LIST_KEYS = new Set(['ids', 'owner', 'addedby', 'access']);
+const COMMA_LIST_KEYS = new Set(['ids', 'owner', 'addedby', 'access', 'tag']);
 
 /** @returns {object|null} predicate */
 function compileLinkRow(row, vocab) {
@@ -452,11 +449,16 @@ function fieldRowFromPredicate(predicate) {
       opToken: base === 'after' ? '>' : '<=', values: [raw.replace(/^(>=|<=|>|<|=)/, '')]
     });
   }
-  // tag {any|all:[…]} and an ids array are one multi-value row
-  if (base === 'tag' && value && typeof value === 'object' && !Array.isArray(value)) {
-    const conj = Array.isArray(value.all) ? 'all' : 'any';
-    const list = Array.isArray(value[conj]) ? value[conj].map(String) : [];
-    return emptyFieldRow({ dty: 'tag', kind: 'tag', selected: true, opToken: '', values: list.length ? list : [''], valueConj: conj });
+  // tags: {any|all:[…]}, {not:{…}} and an array are one multi-value row (is / is not)
+  if (base === 'tag' && value && typeof value === 'object') {
+    const negated = !Array.isArray(value) && value.not && typeof value.not === 'object';
+    const group = negated ? value.not : value;
+    const conj = !Array.isArray(group) && Array.isArray(group?.all) ? 'all' : 'any';
+    const list = (Array.isArray(group) ? group : Array.isArray(group?.[conj]) ? group[conj] : []).map(String);
+    return emptyFieldRow({
+      dty: 'tag', kind: 'tag', selected: true, op: negated ? 'op.is_not' : 'op.is', opToken: negated ? '-' : '',
+      values: list.length ? list : [''], valueConj: conj
+    });
   }
   if (base === 'ids' && Array.isArray(value)) {
     return emptyFieldRow({ dty: 'ids', kind: 'number', selected: true, opToken: '', values: value.map(String), valueConj: 'any' });
