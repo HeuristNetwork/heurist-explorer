@@ -219,6 +219,30 @@ export class RecordViewApplication extends EventTarget {
   }
 
   /**
+   * Ask the host to show a record with every record linked or related to it: a dynamic
+   * Query Source - the record itself, expanded by two rules (links, relationships).
+   *
+   * @param {{rec_ID: number|string, rec_Title?: string}} record The shown record.
+   * @returns {*} Result of the host's action, or `null` when unsupported.
+   */
+  showLinkedRecords(record) {
+    const id = Number(record?.rec_ID);
+    if (!Number.isInteger(id) || id < 1) return null;
+    const title = String(record?.rec_Title ?? "").replace(/<[^>]*>/g, "").trim() || `#${id}`;
+    return this.host?.showDatasource?.({
+      reference: { type: "query" },
+      title: `${$HR("Linked and related")}: ${title}`,
+      request: {
+        q: { ids: id },
+        rules: [
+          { query: { links: id }, levels: [], name: `all linked to ${title}` },
+          { query: { related: id }, levels: [], name: `all related to ${title}` },
+        ],
+      },
+    }) ?? null;
+  }
+
+  /**
    * Clear the current selection and displayed record.
    *
    * @returns {Promise<object>} Updated application state; see `getState`.
@@ -385,6 +409,7 @@ export class RecordViewApplication extends EventTarget {
           tags,
           relations,
           onSearchTag: typeof this.host?.showDatasource === "function" ? (tag) => this.searchTag(tag) : null,
+          onShowLinks: typeof this.host?.showDatasource === "function" ? (shown) => this.showLinkedRecords(shown) : null,
         });
       } else {
         this.recordTitle = null;

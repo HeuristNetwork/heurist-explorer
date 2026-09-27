@@ -208,3 +208,28 @@ test("getState reports recordId, selection, selectionMode, engine and options", 
   assert.equal(state.engine, "builtin");
   assert.ok(state.options);
 });
+
+test("the links button shows the record expanded by its links and relationships", async () => {
+  const shown = [];
+  const records = new Map([[153, { rec_ID: 153, rec_Title: "<i>Petersen</i>, Peter", details: {} }]]);
+  const { application, renderer } = createApplication({ records, host: { showDatasource: (source) => shown.push(source) } });
+  await application.setRecord(153);
+  const options = renderer.calls.find((call) => call[0] === "showBuiltin")[2];
+  assert.equal(typeof options.onShowLinks, "function");
+  options.onShowLinks({ rec_ID: 153, rec_Title: "<i>Petersen</i>, Peter" });
+  assert.deepEqual(shown, [{
+    reference: { type: "query" },
+    title: "Linked and related: Petersen, Peter",
+    request: {
+      q: { ids: 153 },
+      rules: [
+        { query: { links: 153 }, levels: [], name: "all linked to Petersen, Peter" },
+        { query: { related: 153 }, levels: [], name: "all related to Petersen, Peter" },
+      ],
+    },
+  }]);
+
+  const { application: standalone, renderer: plain } = createApplication({ records });
+  await standalone.setRecord(153);
+  assert.equal(plain.calls.find((call) => call[0] === "showBuiltin")[2].onShowLinks, null);
+});

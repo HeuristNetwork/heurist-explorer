@@ -81,14 +81,18 @@ export class RecordViewRenderer {
    * @param {(wkt: string) => void} [options.onZoomExtent] Invoked with a geo field's WKT value when its zoom button is activated.
    * @param {object|null} [options.tags] The record's tags, from `RecordDataProvider#loadTags`.
    * @param {object|null} [options.relations] Relationships and incoming links, from `RecordRelationsProvider#load`.
+   * @param {((record: object) => void)|null} [options.onShowLinks] Shows the records linked/related to this one; the
+   *   header button appears only with it and when the record has any link or relationship.
    * @param {((tag: {id:number, name:string}) => void)|null} [options.onSearchTag] Runs a search for a tag; without it tags are plain text.
    * @returns {void}
    */
   showBuiltin(record, {
     sections = [], recordTypeName = null, canEdit = false, onEdit = () => {}, onNavigate = () => {},
     canZoomExtent = false, onZoomExtent = () => {}, tags = null, relations = null, onSearchTag = null,
+    onShowLinks = null,
   } = {}) {
-    const children = [this.#buildHeader(record, { recordTypeName, canEdit, onEdit })];
+    const showLinks = typeof onShowLinks === "function" && hasLinks(record, relations) ? onShowLinks : null;
+    const children = [this.#buildHeader(record, { recordTypeName, canEdit, onEdit, onShowLinks: showLinks })];
     const media = this.#buildMedia(record, sections);
     if (media) children.push(media);
     const body = this.#buildSections(record, sections, {
@@ -130,7 +134,7 @@ export class RecordViewRenderer {
   }
 
   /** Header: rectype icon, title, and a meta line (rectype name + id, with an edit pencil right next to the id, gated on `canEdit`). */
-  #buildHeader(record, { recordTypeName, canEdit, onEdit }) {
+  #buildHeader(record, { recordTypeName, canEdit, onEdit, onShowLinks = null }) {
     const header = document.createElement("div");
     header.className = "heurist-recordview-header";
     const recordTypeId = Number(record?.rec_RecTypeID) || 0;
@@ -163,6 +167,16 @@ export class RecordViewRenderer {
       edit.textContent = "✎";
       edit.addEventListener("click", () => onEdit(record?.rec_ID));
       meta.append(edit);
+    }
+    if (onShowLinks) {
+      const links = document.createElement("button");
+      links.type = "button";
+      links.className = "heurist-recordview-edit-button heurist-recordview-links-button";
+      links.title = $HR("Show linked and related records");
+      links.setAttribute("aria-label", $HR("Show linked and related records"));
+      links.innerHTML = '<span class="fa-solid fa-hexagon-nodes" aria-hidden="true"></span>';
+      links.addEventListener("click", () => onShowLinks(record));
+      meta.append(links);
     }
     text.append(title, meta);
     header.append(text);
@@ -607,4 +621,21 @@ function groupBy(items, labelOf) {
     groups.get(label).push(entry);
   }
   return groups;
+}
+
+/**
+ * Whether a record has any link or relationship: a pointer among its own fields, a
+ * relationship of a relmarker field, a relationship to it or a record linking to it.
+ *
+ * @param {object} record Resolved record (`details` values of pointer fields carry `rec_ID`).
+ * @param {object|null} relations From `RecordRelationsProvider#load`.
+ * @returns {boolean}
+ */
+export function hasLinks(record, relations) {
+  const pointer = Object.values(record?.details || {})
+    .some((values) => Array.isArray(values) && values.some((value) => Number(value?.rec_ID) > 0));
+  return pointer
+    || Object.values(relations?.related || {}).some((items) => items?.length > 0)
+    || Boolean(relations?.relationsFrom?.length)
+    || Boolean(relations?.linkedFrom?.length);
 }

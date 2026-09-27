@@ -142,3 +142,13 @@ test("tags are a separate \"Tags\" section of links that search the tag", () => 
   assert.match(rendererSource, /onSearchTag\(tag\)/);
   assert.doesNotMatch(rendererSource, /heurist-recordview-footer-item heurist-recordview-tags/);
 });
+
+test("the links button appears only for a record with links or relationships", async () => {
+  const { hasLinks } = await import("../../src/ui/RecordViewRenderer.js");
+  assert.equal(hasLinks({ details: { 1: [{ value: "x" }] } }, null), false);
+  assert.equal(hasLinks({ details: { 134: [{ value: "41", rec_ID: "41" }] } }, null), true);
+  assert.equal(hasLinks({ details: {} }, { related: { 245: [{ id: 5 }] } }), true);
+  assert.equal(hasLinks({ details: {} }, { related: { 245: [] }, relationsFrom: [], linkedFrom: [{ id: 76 }] }), true);
+  assert.equal(hasLinks({ details: {} }, { related: {}, relationsFrom: [], linkedFrom: [] }), false);
+  assert.match(rendererSource, /fa-solid fa-hexagon-nodes/);
+});

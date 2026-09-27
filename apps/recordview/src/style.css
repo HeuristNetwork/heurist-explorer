@@ -129,6 +129,7 @@ html, body, .heurist-recordview-root { width: 100%; height: 100%; margin: 0; ove
   color: var(--h-color-text-muted);
 }
 .heurist-recordview-edit-button:hover { color: var(--h-color-primary); }
+.heurist-recordview-links-button { font-size: 12px; }
 
 .heurist-recordview-media {
   display: flex;
