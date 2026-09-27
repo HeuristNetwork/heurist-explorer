@@ -95,6 +95,7 @@ test('entering compact mode: root class, drawer, small toolbar, rail buttons, re
   assert.equal(app.container.classList.contains('h-compact'), true);
   assert.equal(app.authoringDock.drawer, true);
   assert.equal(app.toolbarCalls.at(-1).buttonSize, 'small');
+  assert.equal(app.toolbarCalls.at(-1).position, 'horizontal', 'compact: rails as one toolbar on top');
   assert.equal(dockWest.children.length, 2);
   assert.equal(regions.west.dataset.compactTitle, 'Data');
   assert.equal(regions.center.dataset.compactTitle, 'Map');
@@ -125,6 +126,7 @@ test('leaving compact mode restores the configured toolbar and removes compact s
   assert.equal(app.container.classList.contains('h-compact'), false);
   assert.equal(app.authoringDock.drawer, false);
   assert.equal(app.toolbarCalls.at(-1).buttonSize, 'large-caption');
+  assert.equal(app.toolbarCalls.at(-1).position, 'vertical', 'leaving compact restores the configured position');
   assert.equal(dockWest.children.length, 0);
   assert.equal(regions.west.dataset.compactTitle, undefined);
   await new Promise((resolve) => setTimeout(resolve, 5));

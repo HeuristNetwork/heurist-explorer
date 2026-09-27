@@ -200,11 +200,17 @@ export class ExplorerCompactMode {
     requestFrame(() => { for (const module of app.modules?.values?.() || []) void module.resize?.(); });
   }
 
-  /** Small icons without captions while compact; the configured size otherwise. */
+  /**
+   * While compact: both rails as one horizontal toolbar on top, with small
+   * icons and no captions - whatever the configuration says (vertical rails
+   * take width a phone does not have). Leaving compact restores the configured
+   * position and size.
+   */
   _applyToolbar(compact) {
     const toolbar = this.application.uiConfigValue?.toolbar || {};
     this.application.controlPanel?.applyToolbarConfig({
       ...toolbar,
+      position: compact ? 'horizontal' : toolbar.position,
       buttonSize: compact ? 'small' : toolbar.buttonSize
     });
   }
