@@ -112,3 +112,19 @@ test('ranges picked from a list fill the template; several become an OR group', 
   assert.equal(describe([{ 'f:10': '><$D$/$D_to$' }]).D.rangeOperator, '><');
   assert.equal(describe([{ 'f:10': '<>$D$/$D_to$' }]).D.rangeOperator, '<>');
 });
+
+test('linked facet request: main query without the branch, and the branch path with its other values', async () => {
+  const { linkedFacetRequest } = await import('../src/data/queryParameters.js');
+  const query = [{ t: '10' }, { 'f:1': '$N$' }, { 'lt:240': [{ t: '48' }, { 'f:237': '$X1$' }, { 'f:10': '$D$' }] }];
+  assert.deepEqual(linkedFacetRequest(query, { N: 'Rossi', D: '' }, null, 'X1'),
+    { q: [{ t: '10' }, { 'f:1': 'Rossi' }], via: [{ 'lt:240': [{ t: '48' }] }] });
+  assert.deepEqual(linkedFacetRequest(query, { N: '', D: '1900' }, null, 'X1'),
+    { q: [{ t: '10' }], via: [{ 'lt:240': [{ t: '48' }, { 'f:10': '1900' }] }] }, 'other values of the branch stay on the path');
+  // two levels
+  const deep = [{ t: '10' }, { 'lt:240': [{ t: '48' }, { 'lt:241': [{ t: '12' }, { 'f:26': '$C$' }] }] }];
+  assert.deepEqual(linkedFacetRequest(deep, {}, null, 'C'),
+    { q: [{ t: '10' }], via: [{ 'lt:240': [{ t: '48' }] }, { 'lt:241': [{ t: '12' }] }] });
+  // top level, or inside an any group: no path
+  assert.equal(linkedFacetRequest(query, {}, null, 'N'), null);
+  assert.equal(linkedFacetRequest([{ any: [{ 'lt:240': [{ 'f:237': '$X1$' }] }] }], {}, null, 'X1'), null);
+});

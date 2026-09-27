@@ -15,7 +15,7 @@
 
 import { HBaseWidget } from '../HBaseWidget.js';
 import { createHInput } from '../form/inputs/createHInput.js';
-import { describeQueryParameters, resolveQueryParameters } from '../../data/queryParameters.js';
+import { describeQueryParameters, resolveQueryParameters, linkedFacetRequest } from '../../data/queryParameters.js';
 import { TermSource, UserGroupSource } from '../../data/valueSources/localSources.js';
 import { FieldValueSource, FacetTermSource, RangeBucketSource, RecordTitleSource, fetchFieldRange } from '../../data/valueSources/FieldValueSource.js';
 import './HFilterForm.css';
@@ -325,7 +325,7 @@ export class HFilterForm extends HBaseWidget {
     const listThreshold = Number(layout.settings?.listThreshold) || FILTER_FORM_LIST_DEFAULTS.listThreshold;
     const selected = () => toList(this.inputs.get(id)?.getValue());
     const factory = this.options.valueSourceFactory;
-    const custom = factory?.(parameter, { id, config, query: () => this._facetQuery(id), selected });
+    const custom = factory?.(parameter, { id, config, query: () => this._facetRequest(id), selected });
 
     // records ("<record type> records is / is not"): picked by title, several → "234,235"
     if (parameter.predicate === 'ids' && !parameter.range && ['', '-'].includes(parameter.operator ?? '')
@@ -343,7 +343,7 @@ export class HFilterForm extends HBaseWidget {
       let source = custom || vocabulary;
       if (!custom && config.facets === true && this.apiClient && vocabulary && parameter.fieldId) {
         source = new FacetTermSource(this.options.dbdefs, vocabId, new FieldValueSource(this.apiClient, {
-          query: () => this._facetQuery(id), field: parameter.fieldId, selected
+          query: () => this._facetRequest(id), field: parameter.fieldId, selected
         }), { selected });
         this._facetInputs.add(id);
       }
@@ -361,7 +361,7 @@ export class HFilterForm extends HBaseWidget {
     if (parameter.type === 'text' && LIST_MODES.has(config.mode)) {
       const field = parameter.fieldId || (HEADER_VALUE_FIELDS.has(parameter.predicate) ? parameter.predicate : null);
       const source = custom || (this.apiClient && field ? new FieldValueSource(this.apiClient, {
-        query: () => this._facetQuery(id), field, sort: 'count', selected
+        query: () => this._facetRequest(id), field, sort: 'count', selected
       }) : null);
       if (source) {
         this._facetInputs.add(id);
@@ -434,6 +434,22 @@ export class HFilterForm extends HBaseWidget {
    * @param {string} id Parameter ID.
    * @returns {Array} Resolved query.
    */
+  /**
+   * What a value facet of `id` counts over: the form's query with the other
+   * filled parameters (`_facetQuery`), or for a parameter inside linked branches
+   * `{q, via}` - main records counted through the branch path (detail=values&via).
+   *
+   * @param {string} id Parameter ID.
+   * @returns {Array|{q: Array, via: Array}} Query, or query and link path.
+   */
+  _facetRequest(id) {
+    const parameter = this.parameters[id];
+    if (!parameter?.nested) return this._facetQuery(id);
+    const values = this.inputs.size ? this.getValues() : { ...this.values };
+    delete values[id];
+    return linkedFacetRequest(this.query, values, this.layout, id) || this._facetQuery(id);
+  }
+
   _facetQuery(id) {
     const parameter = this.parameters[id];
     if (parameter?.nested) return parameter.recordTypeId ? [{ t: String(parameter.recordTypeId) }] : [];

@@ -341,3 +341,14 @@ test('record ids in a list mode list records by title and submit an id list', as
   assert.deepEqual(submits.at(-1), [{ t: '10' }, { 'lt:240': [{ t: '12' }, { ids: '-234,235' }] }]);
   return form.destroy();
 });
+
+test('a facet inside a linked branch counts main records: detail=values with q and via', async () => {
+  const api = valuesApi({ 26: [{ value: 12, count: 1 }] });
+  const { form } = mountForm([{ t: '10' }, { 'lt:240': [{ t: '48' }, { 'f:26': '$X1$' }] }],
+    layoutOf([{ input: 'X1', facets: true, mode: 'checkbox' }]), api);
+  await flush();
+  const request = api.requests.find((entry) => entry.field === '26');
+  assert.deepEqual(request.q, [{ t: '10' }]);
+  assert.deepEqual(request.via, [{ 'lt:240': [{ t: '48' }] }]);
+  return form.destroy();
+});

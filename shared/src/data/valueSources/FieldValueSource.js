@@ -31,6 +31,7 @@ export class FieldValueSource {
    * @param {object} options Source options.
    * @param {Array|object|Function} options.query Query, or a function returning
    *        one (or a promise of one) - evaluated on every load (dynamic facets).
+   *        `{q, via}` counts a field of linked records by the main records (detail=values&via).
    * @param {number|string} options.field Detail type ID or header keyword
    *        (`owner`, `addedby`, `tag`, `rectype`, `access`).
    * @param {'label'|'count'} [options.sort='label'] Client order (V8).
@@ -64,14 +65,18 @@ export class FieldValueSource {
    * @returns {Promise<{items: Array<object>, total: number, complete: boolean}>} Values.
    */
   async load({ text = '', limit = this.limit, signal } = {}) {
-    const query = await resolveQuery(this.query);
+    const resolved = await resolveQuery(this.query);
+    const linked = resolved && !Array.isArray(resolved) && Array.isArray(resolved.via);
+    const query = linked ? resolved.q : resolved;
+    const via = linked ? resolved.via : null;
     const filter = String(text ?? '').trim();
-    const key = JSON.stringify([query, filter, limit]);
+    const key = JSON.stringify([query, via, filter, limit]);
     let payload = this._cache.get(key);
     if (!payload) {
       payload = await this.api.get('/records/', {
         query: {
           q: query,
+          ...(via ? { via } : {}),
           detail: 'values',
           field: this.field,
           ...(filter ? { text: filter } : {}),

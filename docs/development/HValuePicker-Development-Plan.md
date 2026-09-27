@@ -26,3 +26,15 @@
   record cannot be two records, so AND is not offered. (Two *different* linked records, "linked to 234
   and to 235", would need two branches; not generated.) A blank "is" is not a runtime parameter.
 - Default operator on picking the row stays "exists".
+
+### 2026-09-27 — Facets of fields in linked records (fix)
+
+- Bug: a facet of a parameter inside a linked branch counted the **linked** records (`[{"t":"48"}]`):
+  two "Visited" Events of one Person gave 2. Now the form sends `detail=values&q=<query without the
+  branch>&via=[{"lt:240":[{"t":"48"}, …other filled conditions of the branch]}, …]` and the server counts
+  **main records** per value (the Person once) — `linkedFacetRequest` (client), `RecordSearchService::
+  linkedPathTargets` (walks lt/lf/rt/rf/related with the search's own edge functions, now shared via
+  `matchingResourceEdges` / `matchingRelationshipEdges`) and `FieldValueCounter::countThroughLinks`.
+  Live test: each value's count equals the search (resource and `related` paths).
+- Not yet: range lists and slider bounds (`detail=ranges` / `detail=minmax`) of a parameter in a linked
+  branch still count over the linked record type; a parameter inside an any/all group keeps the old count.

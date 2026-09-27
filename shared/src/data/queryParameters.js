@@ -232,6 +232,52 @@ export function resolveQueryParameters(query, values = {}, filterForm = null) {
   return { q: resolve(query) || [], extent: null };
 }
 
+/** Marks the facet's own value while its path is located (never sent). */
+const FACET_MARK = '\u0000facet\u0000';
+/** Link keys a facet path can follow (`detail=values&via=`). */
+const LINK_STEP = /^(?:lt|lf|rt|rf|related)(?::|$)/;
+
+/**
+ * Facet request for a parameter inside linked branches: the main query without
+ * the branch (`q`) and the branch path (`via`, outer first, each step keeping
+ * its other filled conditions), so the server counts main records per value -
+ * not the linked records (a Person with two "Visited" Events counts once).
+ *
+ * @param {Array} query Query template.
+ * @param {object} values Values of the other parameters (this one left out).
+ * @param {object|null} filterForm Layout.
+ * @param {string} name The facet's parameter.
+ * @returns {{q: Array, via: Array}|null} Request, or null when the parameter is not
+ *          in a linked branch or sits in an any/all group (not expressible as a path).
+ */
+export function linkedFacetRequest(query, values, filterForm, name) {
+  const resolved = resolveQueryParameters(query, { ...values, [name]: FACET_MARK }, filterForm).q;
+  const holds = (value) => JSON.stringify(value ?? '').includes(JSON.stringify(FACET_MARK).slice(1, -1));
+  const split = (level) => {
+    for (let index = 0; index < level.length; index++) {
+      const predicate = level[index];
+      if (!predicate || typeof predicate !== 'object' || !holds(predicate)) continue;
+      for (const [key, value] of Object.entries(predicate)) {
+        if (!holds(value)) continue;
+        const without = () => {
+          const rest = { ...predicate };
+          delete rest[key];
+          return [...level.slice(0, index), ...(Object.keys(rest).length ? [rest] : []), ...level.slice(index + 1)];
+        };
+        if (typeof value === 'string') return { rest: without(), via: [] };
+        if (LINK_STEP.test(key) && Array.isArray(value)) {
+          const inner = split(value);
+          return inner ? { rest: without(), via: [{ [key]: inner.rest }, ...inner.via] } : null;
+        }
+        return null;   // inside an any/all group or another structure
+      }
+    }
+    return null;
+  };
+  const found = Array.isArray(resolved) ? split(resolved) : null;
+  return found && found.via.length ? { q: found.rest, via: found.via } : null;
+}
+
 /** Visit scalar query values while retaining each predicate key. */
 function visit(node, callback, key = '', recordTypeId = null, nested = false, scopes = []) {
   if (Array.isArray(node)) {
