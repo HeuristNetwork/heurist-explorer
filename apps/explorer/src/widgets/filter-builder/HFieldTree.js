@@ -42,6 +42,17 @@ const HEADER_FIELDS = [
   { dty: 'access', label: 'Visibility', fieldType: 'enum' }
 ];
 
+/** Type filter of the tree header: option → field types it shows (`all`: no filter). */
+const TYPE_FILTERS = {
+  all: null,
+  text: ['freetext', 'blocktext'],
+  enum: ['enum', 'relationtype'],
+  date: ['date', 'year'],
+  numeric: ['integer', 'float'],
+  geo: ['geo']
+  // file fields stay hidden until there is a proper way to select them
+};
+
 /** Framework-free hierarchical field picker popover for the Filter Builder. */
 export class HFieldTree {
   /**
@@ -54,6 +65,9 @@ export class HFieldTree {
     this._rtyId = null;
     this._showReverse = false;
     this._alpha = false;
+    // header: metadata sections shown, type filter (kept between openings)
+    this._showMetadata = true;
+    this._typeFilter = 'all';
     this._openKeys = new Set();
     this._onDocClick = (event) => {
       if (this.element && !this.element.contains(event.target)) this.close();
@@ -114,18 +128,46 @@ export class HFieldTree {
     // be false - swallow every click inside the popover so it never reaches it.
     el.addEventListener('click', (event) => event.stopPropagation());
 
+    // header: ordering and linked-from types | metadata and the type filter
     const toolbar = document.createElement('div');
     toolbar.className = 'h-fbtree-toolbar';
+    const first = document.createElement('div');
+    first.className = 'h-fbtree-toolbar-column';
+    const second = document.createElement('div');
+    second.className = 'h-fbtree-toolbar-column';
     if (this._showSort) {
-      toolbar.append(this._toggle($HR('Alphabetic'), this._alpha, (on) => {
+      first.append(this._toggle($HR('Alphabetic'), this._alpha, (on) => {
         this._alpha = on;
         this._renderBody();
       }));
     }
-    toolbar.append(this._toggle($HR('Show linked-from types'), this._showReverse, (on) => {
+    first.append(this._toggle($HR('Show linked-from types'), this._showReverse, (on) => {
       this._showReverse = on;
       this._renderBody();
     }));
+    if (this._includeHeaders) {
+      second.append(this._toggle($HR('metadata'), this._showMetadata, (on) => {
+        this._showMetadata = on;
+        this._renderBody();
+      }));
+    }
+    const typeFilter = document.createElement('select');
+    typeFilter.className = 'h-select h-fbtree-type-filter';
+    typeFilter.setAttribute('aria-label', $HR('Field type'));
+    typeFilter.title = $HR('Show fields of this type');
+    for (const value of Object.keys(TYPE_FILTERS)) {
+      const option = document.createElement('option');
+      option.value = value;
+      option.textContent = $HR(value);
+      typeFilter.append(option);
+    }
+    typeFilter.value = this._typeFilter;
+    typeFilter.addEventListener('change', () => {
+      this._typeFilter = typeFilter.value;
+      this._renderBody();
+    });
+    second.append(typeFilter);
+    toolbar.append(first, second);
 
     this._body = document.createElement('div');
     this._body.className = 'h-fbtree-body';
@@ -252,14 +294,26 @@ export class HFieldTree {
     return HEADER_FIELDS.filter((field) => this._builderMode || !field.builderOnly);
   }
 
+  /** @returns {boolean} Whether a field type passes the header's type filter. */
+  _typeShown(type) {
+    const types = TYPE_FILTERS[this._typeFilter];
+    return !types || types.includes(String(type || '').toLowerCase());
+  }
+
+  /** @returns {HTMLElement[]} Metadata leaves passing the type filter (none when metadata is hidden). */
+  _metadataLeaves(viaChain) {
+    if (!this._showMetadata) return [];
+    return this._headerFields().filter((field) => this._typeShown(field.fieldType))
+      .map((field) => this._headerLeaf(field, viaChain));
+  }
+
   /** Leaves every record has, for a scope without a record type: any field, title, metadata. */
   _anyRecordNodes(viaChain) {
-    const nodes = [this._headerLeaf({ dty: 'anyfield', label: 'Any field', fieldType: 'freetext' }, viaChain)];
+    const nodes = [];
+    if (this._typeShown('freetext')) nodes.push(this._headerLeaf({ dty: 'anyfield', label: 'Any field', fieldType: 'freetext' }, viaChain));
     if (this._includeHeaders) {
-      nodes.push(
-        this._headerLeaf({ dty: 'title', label: 'Title', fieldType: 'freetext' }, viaChain),
-        ...this._headerFields().map((field) => this._headerLeaf(field, viaChain))
-      );
+      if (this._typeShown('freetext')) nodes.push(this._headerLeaf({ dty: 'title', label: 'Title', fieldType: 'freetext' }, viaChain));
+      nodes.push(...this._metadataLeaves(viaChain));
     }
     return nodes;
   }
@@ -274,10 +328,11 @@ export class HFieldTree {
     const implied = new Set(['DT_PRIMARY_RESOURCE', 'DT_TARGET_RESOURCE', 'DT_RELATION_TYPE']
       .map((name) => this.dbdefs.dbconst?.(name)).filter((id) => id != null).map(Number));
     return [
-      this._headerLeaf({ dty: 'reltype', label: 'Relation type', fieldType: 'relationtype', rel: true }, viaChain),
+      ...(this._typeShown('relationtype')
+        ? [this._headerLeaf({ dty: 'reltype', label: 'Relation type', fieldType: 'relationtype', rel: true }, viaChain)] : []),
       this._sectionFolder($HR('Relationship Fields'), `${pathKey(viaChain)}:relfields`, () =>
         (this.dbdefs.fields(relRty) || [])
-          .filter((field) => !implied.has(Number(field.id)) && field.type !== 'file')
+          .filter((field) => !implied.has(Number(field.id)) && field.type !== 'file' && this._typeShown(field.type))
           .map((field) => this._headerLeaf(
             { dty: field.id, label: field.name, fieldType: field.type, rel: true, translate: false }, viaChain)))
     ];
@@ -286,16 +341,19 @@ export class HFieldTree {
   /** Build the record's Title, metadata and field sections. */
   _scopeNodes(rtyId, viaChain, linkedContext) {
     const nodes = [];
-    if (linkedContext) {
+    if (linkedContext && this._typeFilter === 'all') {
       nodes.push(this._headerLeaf({ dty: 'exists', label: `${this.dbdefs.rectypeName(rtyId)} records`, fieldType: 'exists' }, viaChain));
     }
     if (this._includeHeaders) {
-      nodes.push(this._headerLeaf({ dty: 'title', label: 'Title', fieldType: 'freetext' }, viaChain));
-      nodes.push(this._sectionFolder($HR('metadata'), `${pathKey(viaChain)}:metadata:${rtyId}`, () =>
-        this._headerFields().map((field) => this._headerLeaf(field, viaChain))));
+      if (this._typeShown('freetext')) nodes.push(this._headerLeaf({ dty: 'title', label: 'Title', fieldType: 'freetext' }, viaChain));
+      // hidden by the header checkbox, or when no metadata field has the chosen type
+      if (this._metadataLeaves(viaChain).length) {
+        nodes.push(this._sectionFolder($HR('metadata'), `${pathKey(viaChain)}:metadata:${rtyId}`, () =>
+          this._metadataLeaves(viaChain)));
+      }
     }
     nodes.push(this._sectionFolder($HR('fields'), `${pathKey(viaChain)}:fields:${rtyId}`, () => [
-      this._headerLeaf({ dty: 'anyfield', label: 'Any field', fieldType: 'freetext' }, viaChain),
+      ...(this._typeShown('freetext') ? [this._headerLeaf({ dty: 'anyfield', label: 'Any field', fieldType: 'freetext' }, viaChain)] : []),
       ...this._fieldNodes(rtyId, viaChain)
     ]));
     return nodes;
@@ -345,7 +403,11 @@ export class HFieldTree {
       }
       if (linkable && this._builderMode && viaChain.length >= this._maxDepth) continue;
       const selectable = !this._selectableTypes || this._selectableTypes.has(String(field.type || '').toLowerCase());
-      if (field.type === 'file' || (this._hideUnselectable && !selectable && !linkable)) continue;
+      // file fields are not offered (no proper way to select them yet); a type filter
+      // keeps the pointer branches, so fields of that type in linked records stay reachable
+      if (field.type === 'file') continue;
+      if (this._hideUnselectable && !selectable && !linkable) continue;
+      if (!linkable && !this._typeShown(field.type)) continue;
       if (linkable && viaChain.length < this._maxDepth && !this._flatOnly) {
         const targets = this.dbdefs.fieldGlobal(field.id)?.targetTypes || [];
         // in the Filter Builder a relmarker is a bidirectional `related` branch;

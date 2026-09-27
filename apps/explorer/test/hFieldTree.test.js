@@ -147,3 +147,53 @@ test('linked-from branches skip record types without records when requested', ()
   tree._hideUnused = false;
   assert.deepEqual(tree._reverseLinks(10).map((item) => item.fromRty), [20, 30]);
 });
+
+/** All texts of a rendered tree, depth-first (folder heads and leaves). */
+function texts(node) {
+  return [node.textContent, ...node.children.flatMap((child) => texts(child))].filter(Boolean);
+}
+
+function recordTree({ typeFilter = 'all', showMetadata = true } = {}) {
+  const fields = [
+    { id: 1, name: 'Name', type: 'freetext' }, { id: 2, name: 'Notes', type: 'blocktext' },
+    { id: 10, name: 'Start', type: 'date' }, { id: 26, name: 'Country', type: 'enum' },
+    { id: 3, name: 'Size', type: 'float' }, { id: 5, name: 'Photo', type: 'file' },
+    { id: 7, name: 'Place', type: 'resource' }
+  ];
+  const tree = new HFieldTree({ dbdefs: {
+    rectypeName: () => 'Event', fields: () => fields.map((field) => ({ ...field })),
+    fieldGlobal: (id) => ({ targetTypes: [12] })
+  } });
+  Object.assign(tree, {
+    _body: fakeElement('div'), _rtyId: 10, _builderMode: true, _includeHeaders: true,
+    _excludedFields: new Set(), _excludedLinks: new Set(), _maxDepth: 1,
+    _typeFilter: typeFilter, _showMetadata: showMetadata
+  });
+  tree._openKeys.add('rty:10');
+  tree._openKeys.add('root:fields:10');
+  tree._openKeys.add('root:metadata:10');
+  tree._renderBody();
+  return texts(tree._body).map((text) => text.replace(/^[▾▸] /, ''));
+}
+
+test('metadata checkbox hides the metadata section; fields stay', () => {
+  assert.ok(recordTree().includes('metadata'));
+  const hidden = recordTree({ showMetadata: false });
+  assert.ok(!hidden.includes('metadata'));
+  assert.ok(!hidden.includes('Added'));
+  assert.ok(hidden.includes('Title') && hidden.includes('Name'));
+});
+
+test('type filter groups: text, date, numeric, enum; branches stay; file fields hidden', () => {
+  const pick = (filter) => recordTree({ typeFilter: filter });
+  assert.deepEqual(['Name', 'Notes', 'Title', 'Any field'].filter((label) => pick('text').includes(label)), ['Name', 'Notes', 'Title', 'Any field']);
+  assert.ok(!pick('text').includes('Start'));
+  const date = pick('date');
+  assert.ok(date.includes('Start') && date.includes('Added') && date.includes('Modified'));
+  assert.ok(!date.includes('Name') && !date.includes('Title') && !date.includes('Any field'));
+  assert.ok(date.includes('Place'), 'pointer branch kept');
+  assert.ok(pick('numeric').includes('Size') && pick('numeric').includes('ID'));
+  assert.ok(pick('enum').includes('Country') && pick('enum').includes('Owner'));
+  assert.ok(!pick('all').includes('Photo'), 'file fields stay hidden');
+  assert.ok(!pick('geo').includes('metadata'), 'metadata folder without matches is dropped');
+});
