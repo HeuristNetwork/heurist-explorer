@@ -23,7 +23,9 @@ const LIST_MODES = ['select', 'radio', 'checkbox'];
 /** Choices of the form-wide list size (radio/checkbox items shown before the "more" picker). */
 const LIST_SIZES = [5, 10, 20, 50];
 /** Header predicates whose values can be listed (detail=values). */
-const TEXT_LIST_PREDICATES = new Set(['tag', 'access']);
+const TEXT_LIST_PREDICATES = new Set(['tag', 'access', 'title']);
+/** Header text predicates whose listed values match exactly (tag/visibility values are IDs/keywords). */
+const EXACT_HEADER_PREDICATES = new Set(['title']);
 /** Presentation choices of one input: value → label. */
 const PRESENTATIONS = {
   direct: 'direct',
@@ -297,7 +299,7 @@ export class HFilterFormDesigner extends HBaseWidget {
         // text: direct input is the default; a list mode picks exact values (V12).
         // Tag/visibility values are IDs/keywords the predicate already matches exactly.
         if (LIST_MODES.includes(child.mode)) {
-          if (parameter.fieldId) child.exact = true;
+          if (parameter.fieldId || EXACT_HEADER_PREDICATES.has(parameter.predicate)) child.exact = true;
           else delete child.exact;
         } else { delete child.mode; delete child.exact; delete child.orientation; delete child.multiple; }
       } else if (isScalar(parameter)) {
@@ -572,7 +574,9 @@ export class HFilterFormDesigner extends HBaseWidget {
     const layout = structuredClone(this.layout);
     for (const child of layout.groups.flatMap((group) => group.children || [])) {
       const parameter = this.parameters[child.input];
-      if (isTextList(parameter)) child.exact = Boolean(parameter.fieldId) && LIST_MODES.includes(child.mode);
+      if (isTextList(parameter)) {
+        child.exact = Boolean(parameter.fieldId || EXACT_HEADER_PREDICATES.has(parameter.predicate)) && LIST_MODES.includes(child.mode);
+      }
     }
     return layout;
   }

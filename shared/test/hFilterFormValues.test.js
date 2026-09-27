@@ -307,3 +307,15 @@ test('facetsInitOnly: counts of the initial load are kept', async () => {
   assert.equal(api.log.requests.length, initial);
   return form.destroy();
 });
+
+test('title in a list mode lists record titles (detail=values field=title) and submits an exact title', async () => {
+  const api = valuesApi({ title: [{ value: 'Rome', count: 2 }, { value: 'Paris', count: 1 }] });
+  const { form, submits } = mountForm([{ t: '10' }, { title: '$T$' }], layoutOf([{ input: 'T', mode: 'radio', exact: true }]), api);
+  await flush();
+  assert.equal(api.requests.at(-1).field, 'title');
+  const input = form.inputs.get('T');
+  input.choices[0].checked = true;
+  input.choices[0].fire('change');
+  assert.deepEqual(submits.at(-1), [{ t: '10' }, { title: '=Rome' }]);
+  return form.destroy();
+});

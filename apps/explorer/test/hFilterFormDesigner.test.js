@@ -156,3 +156,19 @@ test('"Update counts after each search" is stored only when switched off', () =>
   assert.deepEqual(designer([{ input: 'X1' }], { facetsInitOnly: true }).getLayout().settings, { facetsInitOnly: true });
   assert.equal(designer([{ input: 'X1' }], { facetsInitOnly: false }).getLayout().settings, undefined);
 });
+
+test('title is a text parameter with list presentations; a picked title matches exactly', () => {
+  const parameters = { T: { type: 'text', fieldId: null, predicate: 'title', label: 'title' } };
+  const make = (children) => new HFilterFormDesigner().attach(document.createElement('div'), {
+    parameters, layout: { version: 1, groups: [{ id: 'main', children }] }
+  });
+  assert.deepEqual(make([{ input: 'T', mode: 'select' }]).getLayout().groups[0].children, [{ input: 'T', mode: 'select', exact: true }]);
+  assert.deepEqual(make([{ input: 'T', mode: 'direct' }]).getLayout().groups[0].children, [{ input: 'T' }]);
+  const host = document.createElement('div');
+  const form = new HFilterFormDesigner().attach(host, {
+    parameters, query: [{ title: '$T$' }], layout: { version: 1, groups: [{ id: 'main', children: [{ input: 'T' }] }] }
+  }).render();
+  const presentation = host.querySelector('.h-filter-form-designer-presentation');
+  assert.deepEqual(presentation.children.map((option) => option.value), ['direct', 'select', 'list-column', 'list-inline']);
+  return form.destroy();
+});

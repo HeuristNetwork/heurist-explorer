@@ -210,7 +210,7 @@ function layoutChild(name, facet, path, isRange, dbdefs) {
 
   const isEnum = ENUM_TYPES.has(facet.type);
   // text lists pick the values of a detail field (detail=values), or users/groups for owner/creator
-  const isTextList = TEXT_TYPES.has(facet.type) && (Boolean(path.fieldId) || USER_FIELDS.has(path.leaf));
+  const isTextList = TEXT_TYPES.has(facet.type) && (Boolean(path.fieldId) || USER_FIELDS.has(path.leaf) || path.leaf === 'title');
   if (isEnum || isTextList) {
     // wizard modes: 1 dropdown, 3 list (column), 2 wrapped (inline); 0 input (text only)
     const mode = isFacetMode(facet);
@@ -220,7 +220,7 @@ function layoutChild(name, facet, path, isRange, dbdefs) {
     } else if (mode === FT_SELECT && isTextList) child.mode = 'select';
     if (mode !== FT_INPUT && facet.multisel) child.multiple = true;
     // a text value picked from the field's values matches exactly (V12); users/groups are IDs
-    if (isTextList && child.mode && path.fieldId) child.exact = true;
+    if (isTextList && child.mode && (path.fieldId || path.leaf === 'title')) child.exact = true;
   }
   // legacy facets always list the terms that occur, with counts
   if (isEnum) child.facets = true;

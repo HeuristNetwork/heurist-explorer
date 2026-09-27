@@ -356,7 +356,7 @@ test('faceted: text facets keep their presentation (input, dropdown, list, wrapp
   assert.deepEqual(pick(1), { mode: 'checkbox', multiple: true, exact: true }, 'list, several values');
   assert.deepEqual(pick(2), {}, 'input');
   assert.deepEqual(pick(3), {}, 'text without a mode is an input (wizard default)');
-  assert.deepEqual(pick(4), {}, 'title cannot be listed: input');
+  assert.deepEqual(pick(4), { mode: 'radio', orientation: 'inline', exact: true }, 'title: a list of record titles, exact');
   assert.deepEqual(pick(5), { mode: 'radio' }, 'creator: users/groups list, IDs (not exact text)');
   assert.deepEqual(pick(6), { mode: 'select', multiple: true, exact: true }, 'dropdown, several values');
 });

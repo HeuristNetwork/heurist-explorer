@@ -23,7 +23,7 @@ import './HFilterForm.css';
 /** Presentations that pick from a list (plan §3). */
 const LIST_MODES = new Set(['select', 'radio', 'checkbox']);
 /** Header predicates whose values `detail=values` can list. */
-const HEADER_VALUE_FIELDS = new Set(['owner', 'addedby', 'tag', 'access']);
+const HEADER_VALUE_FIELDS = new Set(['owner', 'addedby', 'tag', 'access', 'title']);
 /** Header predicates whose bounds `detail=minmax` can find. */
 const HEADER_RANGE_FIELDS = new Set(['added', 'modified']);
 
