@@ -26,6 +26,7 @@
  */
 import { $HR } from "#shared/ui";
 import { normalizeRecordViewConfigurationSettings } from "../ui/config/recordViewConfigurationSchema.js";
+import { RecentRecords } from "./RecentRecords.js";
 
 const SETTABLE_DEFAULTS = [
   "engine",
@@ -47,6 +48,7 @@ export class RecordViewApplication extends EventTarget {
    * @param {object} options.recordContentProvider Builds the `legacy`/`smarty` renderer URL.
    * @param {object} options.renderer `RecordViewRenderer` instance the application renders into.
    * @param {object} options.host Host adapter.
+   * @param {RecentRecords} [options.recentRecords] Last viewed records; defaults to this database's browser list.
    */
   constructor({
     config,
@@ -56,6 +58,7 @@ export class RecordViewApplication extends EventTarget {
     recordContentProvider,
     renderer,
     host,
+    recentRecords = null,
   }) {
     super();
     this.config = config;
@@ -73,6 +76,16 @@ export class RecordViewApplication extends EventTarget {
     this.recordTitle = null;
     this.generation = 0;
     this.abortController = null;
+    this.recentRecords = recentRecords || new RecentRecords({ database: config.database });
+  }
+
+  /**
+   * The last viewed records (at most 12), most recent first.
+   *
+   * @returns {Array<{id:number, title:string}>}
+   */
+  getRecentRecords() {
+    return this.recentRecords.list();
   }
 
   /** Current render-engine selection (`'builtin'|'legacy'|'smarty'`). */
@@ -184,6 +197,22 @@ export class RecordViewApplication extends EventTarget {
     this.dispatch("heurist-recordview-selection-changed", { selection: [recordId] });
     this.host?.publishSelection?.([recordId]);
     return this.getState();
+  }
+
+  /**
+   * Ask the host to search the records carrying a tag: `[{"tag":<tag id>}]`.
+   *
+   * @param {{id: number, name?: string}} tag Tag to search by.
+   * @returns {*} Result of the host's search action, or `null` when unsupported.
+   */
+  searchTag(tag) {
+    const id = Number(tag?.id);
+    if (!Number.isInteger(id) || id < 1) return null;
+    return this.host?.showDatasource?.({
+      reference: { type: "query" },
+      title: tag.name ? `${$HR("Tag")}: ${tag.name}` : null,
+      request: { q: [{ tag: id }] },
+    }) ?? null;
   }
 
   /**
@@ -345,6 +374,7 @@ export class RecordViewApplication extends EventTarget {
           canZoomExtent: Boolean(canZoomExtent),
           onZoomExtent: (wkt) => this.host?.zoomToExtent?.(wkt),
           tags,
+          onSearchTag: typeof this.host?.showDatasource === "function" ? (tag) => this.searchTag(tag) : null,
         });
       } else {
         this.recordTitle = null;
@@ -355,6 +385,7 @@ export class RecordViewApplication extends EventTarget {
         }
         this.renderer.showFrame(url);
       }
+      this.recentRecords.add(id, this.recordTitle);
       this.dispatch("heurist-recordview-loaded", { recordId: id, title: this.recordTitle });
     } catch (error) {
       if (error?.name === "AbortError") return;

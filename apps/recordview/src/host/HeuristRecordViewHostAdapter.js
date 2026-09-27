@@ -42,7 +42,18 @@ export class HeuristRecordViewHostAdapter extends HostAdapter {
       recordViewPreferences: Boolean(this.baseUrl && this.database),
       recordViewPublishing: Boolean(this.baseUrl && this.database),
       mapZoom: typeof this.bridge?.zoomToExtent === "function",
+      showDatasource: typeof this.bridge?.showDatasource === "function",
     };
+  }
+
+  /**
+   * Ask the host to run and show a search (e.g. the records carrying a tag).
+   *
+   * @param {object} source Datasource: `{reference:{type:"query"}, title, request:{q}}`.
+   * @returns {*} Result of the host's action, or `null` when unsupported.
+   */
+  showDatasource(source) {
+    return this.bridge?.showDatasource?.(source) ?? null;
   }
 
   /**

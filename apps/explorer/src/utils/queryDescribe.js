@@ -436,6 +436,10 @@ function humanizeValue(kind, value, dtyId, ctx, known = false) {
   if ((kind === 'enum' || kind === 'term') && ctx.dbdefs && /^\d+$/.test(v)) {
     return quote(ctx.dbdefs.termLabel?.(Number(v)) || v);
   }
+  // tag ids: the user's tag names (HDbDefs overlay), else the id
+  if (kind === 'tag' && /^\d+$/.test(v)) {
+    return quote(ctx.dbdefs?.tagName?.(Number(v)) || v);
+  }
   if (kind === 'record' && ctx.dbdefs && /^\d+$/.test(v)) {
     return `record ${v}`;
   }

@@ -111,7 +111,7 @@ test("the footer shows created/modified/owner/visibility and omits rating (defer
   assert.match(rendererSource, /\$HR\("Modified"\)/);
   assert.match(rendererSource, /\$HR\("Owner"\)/);
   assert.match(rendererSource, /\$HR\("Visibility"\)/);
-  assert.doesNotMatch(rendererSource, /\$HR\("Rating"\)|\$HR\("Tags"\)/);
+  assert.doesNotMatch(rendererSource, /\$HR\("Rating"\)/);
 });
 
 test("icon/media links are skipped entirely when baseUrl/database are not configured", () => {
@@ -119,19 +119,26 @@ test("icon/media links are skipped entirely when baseUrl/database are not config
   assert.match(rendererSource, /if \(!this\.#isConfigured\(\)\) return null;/);
 });
 
-test("footer tag entries: personal tags first, then each group's tags by name", async () => {
+test("Tags section rows: personal tags first, then each group's tags by name", async () => {
   const { tagGroups } = await import("../../src/ui/RecordViewRenderer.js");
   const groups = tagGroups({ currentUserId: 2, tags: [
-    { name: "WEBFIL 1", owner: 4, ownerName: "Website filters" },
-    { name: "key2", owner: 2, ownerName: "osmakov" },
-    { name: "DBM 25", owner: 1, ownerName: "Database Managers" },
-    { name: "key1", owner: 2, ownerName: "osmakov" },
-    { name: "new tag 34", owner: 1, ownerName: "Database Managers" }
+    { id: 7, name: "WEBFIL 1", owner: 4, ownerName: "Website filters" },
+    { id: 2, name: "key2", owner: 2, ownerName: "osmakov" },
+    { id: 6, name: "DBM 25", owner: 1, ownerName: "Database Managers" },
+    { id: 1, name: "key1", owner: 2, ownerName: "osmakov" },
+    { id: 9, name: "new tag 34", owner: 1, ownerName: "Database Managers" }
   ] });
   assert.deepEqual(groups, [
-    { label: "Personal tags", names: ["key1", "key2"] },
-    { label: "Database Managers tags", names: ["DBM 25", "new tag 34"] },
-    { label: "Website filters tags", names: ["WEBFIL 1"] }
+    { label: "Personal tags", tags: [{ id: 1, name: "key1" }, { id: 2, name: "key2" }] },
+    { label: "Database Managers tags", tags: [{ id: 6, name: "DBM 25" }, { id: 9, name: "new tag 34" }] },
+    { label: "Website filters tags", tags: [{ id: 7, name: "WEBFIL 1" }] }
   ]);
   assert.deepEqual(tagGroups(null), []);
+});
+
+test("tags are a separate \"Tags\" section of links that search the tag", () => {
+  assert.match(rendererSource, /legend\.textContent = \$HR\("Tags"\)/);
+  assert.match(rendererSource, /heurist-recordview-tag-link/);
+  assert.match(rendererSource, /onSearchTag\(tag\)/);
+  assert.doesNotMatch(rendererSource, /heurist-recordview-footer-item heurist-recordview-tags/);
 });

@@ -239,3 +239,9 @@ test('reference-document forms read naturally', () => {
   assert.equal(say([{ t: '10' }, { sortby: ['-f:12', 'p', 'set'] }]),
     'Find Persons, sorted by Family name (descending), popularity, the given ID order');
 });
+
+test('tag ids are described by the user\'s tag names', () => {
+  const dbdefs = { tagName: (id) => ({ 6: 'DBM 1' })[id] || '' };
+  assert.equal(queryDescribe([{ tag: 6 }], { dbdefs, vocabulary: VOCAB }), 'Find records where tag is "DBM 1"');
+  assert.equal(queryDescribe([{ tag: '9' }], { dbdefs, vocabulary: VOCAB }), 'Find records where tag is "9"');
+});

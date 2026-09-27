@@ -16,8 +16,14 @@
 import { cloneDataSource, dataSourceKey, dataSourceTitle, normalizeDataSource } from './DataSource.js';
 
 const DEFAULT_LIMIT = 12;
+const UNTITLED = 'Untitled search';
 
-/** Database-scoped, most-recently-used DataSource history. */
+/**
+ * Database-scoped, most-recently-used DataSource history. One entry per query:
+ * running the same request again (as a saved filter, a source or typed in)
+ * moves it to the top. An untitled entry is named by `describe` - the query
+ * in words, e.g. 'Find Persons where Gender is not "Male"'.
+ */
 export class DataSourceHistory {
   /**
    * @param {object} options History store configuration.
@@ -25,11 +31,13 @@ export class DataSourceHistory {
    * @param {Storage|null} [options.storage] Storage backend; defaults to `localStorage`.
    * @param {number} [options.limit=DEFAULT_LIMIT] Maximum number of entries retained.
    * @param {Function} [options.clock] Returns the current time in ms; defaults to `Date.now`.
+   * @param {(q: *) => string} [options.describe] Human-readable sentence for a query, titling untitled entries.
    */
-  constructor({ database, storage = null, limit = DEFAULT_LIMIT, clock = Date.now } = {}) {
+  constructor({ database, storage = null, limit = DEFAULT_LIMIT, clock = Date.now, describe = null } = {}) {
     this.storage = storage ?? defaultStorage();
     this.limit = positiveInteger(limit) || DEFAULT_LIMIT;
     this.clock = typeof clock === 'function' ? clock : Date.now;
+    this.describe = typeof describe === 'function' ? describe : null;
     this.storageKey = `heurist.explorer.${storageScope(database)}.history`;
   }
 
@@ -52,11 +60,12 @@ export class DataSourceHistory {
     if (!key) return null;
     const entry = {
       key,
-      title: dataSourceTitle(dataSource, requestTitle(dataSource)),
+      title: dataSourceTitle(dataSource, requestTitle(dataSource, this.describe)),
       dataSource: cloneDataSource(dataSource),
       usedAt: Number(this.clock()) || Date.now()
     };
-    const entries = this._read().filter((item) => item.key !== key);
+    const request = requestKey(dataSource);
+    const entries = this._read().filter((item) => item.key !== key && requestKey(item.dataSource) !== request);
     entries.unshift(entry);
     this._write(entries.slice(0, this.limit));
     return clone(entry);
@@ -113,11 +122,15 @@ export class DataSourceHistory {
       try {
         const dataSource = normalizeDataSource(item?.dataSource);
         const key = dataSourceKey(dataSource);
-        if (!key || seen.has(key)) continue;
+        const request = requestKey(dataSource);
+        if (!key || seen.has(key) || seen.has(request)) continue;
         seen.add(key);
+        seen.add(request);
+        // entries stored before queries were described still say "Untitled search"
+        const stored = text(item?.title);
         entries.push({
           key,
-          title: text(item?.title) || dataSourceTitle(dataSource, requestTitle(dataSource)),
+          title: (stored !== UNTITLED && stored) || dataSourceTitle(dataSource, requestTitle(dataSource, this.describe)),
           dataSource,
           usedAt: finiteNumber(item?.usedAt)
         });
@@ -140,11 +153,41 @@ export class DataSourceHistory {
   }
 }
 
-/** Derive a fallback title from a datasource's query text, or a generic placeholder. */
-function requestTitle(source) {
+/** Derive a fallback title: the query in words, else its text, else a generic placeholder. */
+function requestTitle(source, describe = null) {
   const q = source?.request?.q;
+  let described = '';
+  try { described = text(describe?.(q)); } catch { /* an undescribable query keeps its text */ }
+  if (described) return described;
   if (typeof q === 'string' && q.trim()) return q.trim();
-  return 'Untitled search';
+  return UNTITLED;
+}
+
+/**
+ * Identity of a datasource's request, whatever produced it: the same query as a saved
+ * filter, a source or typed in is one history entry. A JSON-text `q` is compared as
+ * JSON, object keys in any order, and `10` equals `"10"`.
+ */
+function requestKey(source) {
+  const request = { ...(source?.request || {}) };
+  if (typeof request.q === 'string') {
+    const q = request.q.trim();
+    try { request.q = /^[[{]/.test(q) ? JSON.parse(q) : q; } catch { request.q = q; }
+  }
+  return `request:${JSON.stringify(canonical(request))}`;
+}
+
+/** Sort object keys and turn numbers into strings, so equal queries serialize identically. */
+function canonical(value) {
+  if (Array.isArray(value)) return value.map(canonical);
+  if (value && typeof value === 'object') {
+    const result = {};
+    for (const key of Object.keys(value).sort()) {
+      if (value[key] != null) result[key] = canonical(value[key]);
+    }
+    return result;
+  }
+  return typeof value === 'number' ? String(value) : value;
 }
 
 /** Resolve the storage key for a history entry from a string key, entry, or datasource. */

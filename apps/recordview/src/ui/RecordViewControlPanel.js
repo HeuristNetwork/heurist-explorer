@@ -1,6 +1,6 @@
 /**
  * @file RecordViewControlPanel.js
- * @brief Header-only control panel: title strip plus Help/Options/Publish, no dropdown body.
+ * @brief Header-only control panel: title strip plus Recent/Help/Options/Publish, no dropdown body.
  *
  * Uses the same shared chrome every other module's control panel uses
  * (`.heurist-module-control-panel`/`.heurist-module-panel-header` from
@@ -52,10 +52,13 @@ export class RecordViewControlPanel {
     header.className = "heurist-module-panel-header";
     this.actions = document.createElement("span");
     this.actions.className = "h-inline heurist-module-panel-actions";
+    this.recentButton = iconButton("fa-solid fa-clock-rotate-left", "Recently viewed records", () => this.toggleRecent());
+    this.recentButton.setAttribute("aria-haspopup", "menu");
+    this.recentButton.setAttribute("aria-expanded", "false");
     this.helpButton = iconButton("fa-solid fa-circle-question", "Help", () => this.openHelp());
     this.optionsButton = iconButton("fa-solid fa-gear", "Options", () => this.api.openPreferencesDialog());
     this.publishButton = iconButton("fa-solid fa-share-nodes", "Publish", () => this.api.openPublishDialog());
-    this.actions.append(this.helpButton, this.optionsButton, this.publishButton);
+    this.actions.append(this.recentButton, this.helpButton, this.optionsButton, this.publishButton);
     header.append(this.actions);
     this.element.append(header);
 
@@ -113,6 +116,63 @@ export class RecordViewControlPanel {
     this.sourceHeader.textContent = $HR("Record View");
   }
 
+  /**
+   * Open or close the list of recently viewed records. It hangs below the panel
+   * inside the panel's container (the panel itself clips its overflow).
+   */
+  toggleRecent() {
+    if (this.recentMenu) { this.closeRecent(); return; }
+    const menu = document.createElement("div");
+    menu.className = "heurist-recordview-recent h-widget";
+    menu.setAttribute("role", "menu");
+    menu.setAttribute("aria-label", $HR("Recently viewed records"));
+    const records = this.api.getRecentRecords?.() || [];
+    if (!records.length) {
+      const empty = document.createElement("div");
+      empty.className = "heurist-recordview-recent-empty";
+      empty.textContent = $HR("No recently viewed records");
+      menu.append(empty);
+    }
+    const current = Number(this.api.getState?.()?.recordId) || 0;
+    for (const record of records) {
+      const item = document.createElement("button");
+      item.type = "button";
+      item.className = "heurist-recordview-recent-item";
+      item.setAttribute("role", "menuitem");
+      item.classList.toggle("is-current", record.id === current);
+      item.innerHTML = sanitizeTextHtml(record.title || `#${record.id}`);
+      item.title = `${item.textContent} (#${record.id})`;
+      item.addEventListener("click", () => {
+        this.closeRecent();
+        Promise.resolve(this.api.navigateToRecord?.(record.id)).catch(() => {});
+      });
+      menu.append(item);
+    }
+    (this.element.parentElement || document.body).append(menu);
+    this.recentMenu = menu;
+    this.recentButton.setAttribute("aria-expanded", "true");
+    // close on a click elsewhere or Escape
+    this.recentDismiss = (event) => {
+      if (event.type === "keydown" ? event.key === "Escape"
+        : !menu.contains(event.target) && !this.recentButton.contains(event.target)) this.closeRecent();
+    };
+    document.addEventListener("pointerdown", this.recentDismiss, true);
+    document.addEventListener("keydown", this.recentDismiss, true);
+    menu.querySelector("button")?.focus?.();
+  }
+
+  /** Close the recently viewed records list. */
+  closeRecent() {
+    if (this.recentDismiss) {
+      document.removeEventListener("pointerdown", this.recentDismiss, true);
+      document.removeEventListener("keydown", this.recentDismiss, true);
+      this.recentDismiss = null;
+    }
+    this.recentMenu?.remove();
+    this.recentMenu = null;
+    this.recentButton?.setAttribute("aria-expanded", "false");
+  }
+
   /** Load the module user manual for the active language into a full-viewport overlay. */
   openHelp() {
     this.helpOverlay ||= new InlineHelp({ moduleName: "recordview", baseUrl: this.options.helpBaseUrl || null });
@@ -159,6 +219,7 @@ export class RecordViewControlPanel {
   destroy() {
     for (const [name, handler] of this.listeners) this.api.removeEventListener(name, handler);
     this.helpOverlay?.close();
+    this.closeRecent();
     this.sourceHeader?.remove();
     this.element?.remove();
   }

@@ -28,6 +28,7 @@ test("getCapabilities reflects editing support and FrontController configuration
     recordViewPreferences: true,
     recordViewPublishing: true,
     mapZoom: false,
+    showDatasource: false,
   });
 
   const unconfigured = new HeuristRecordViewHostAdapter();
@@ -36,7 +37,17 @@ test("getCapabilities reflects editing support and FrontController configuration
     recordViewPreferences: false,
     recordViewPublishing: false,
     mapZoom: false,
+    showDatasource: false,
   });
+});
+
+test("showDatasource passes a search to the host bridge", () => {
+  const calls = [];
+  const host = new HeuristRecordViewHostAdapter({ bridge: { showDatasource: (source) => calls.push(source) } });
+  assert.equal(host.getCapabilities().showDatasource, true);
+  host.showDatasource({ request: { q: [{ tag: 6 }] } });
+  assert.deepEqual(calls, [{ request: { q: [{ tag: 6 }] } }]);
+  assert.equal(new HeuristRecordViewHostAdapter().showDatasource({}), null);
 });
 
 test("preferences round-trip through the keyed FrontController contract", async () => {

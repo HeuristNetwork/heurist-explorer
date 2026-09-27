@@ -55,3 +55,8 @@
 #Data in system format#Data in system format
 #Personal tags#Personal tags
 #tags#tags
+#Tags#Tags
+#Tag#Tag
+#Find records with this tag#Find records with this tag
+#Recently viewed records#Recently viewed records
+#No recently viewed records#No recently viewed records

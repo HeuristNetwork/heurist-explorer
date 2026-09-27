@@ -47,11 +47,13 @@
   belongs to. `owner` takes lists. `record=<id,…>`: the tags on those records; virtual field `ownername`;
   tag responses carry `meta.currentUser`. OpenAPI updated.
 - Bootstrap (UserGroupManager) loads only `{t:"tag", user:"current"}` (limit 5000) - an admin no longer
-  receives every user's tags.
+  receives every user's tags. Kept deliberately (tags are little used); what uses the list and the
+  lazy alternative: [tags-loading.md](tags-loading.md).
 - Same text under several owners: plain texts stay global (legacy, public websites); `"Owner\text"`
   (user/group name, backslash, text; JSON `"Database Managers\\key1"`) picks one owner's tag.
-- Record View footer: tags of the record grouped by owner - "Personal tags: …" first, then
-  "<group> tags: …" (`RecordDataProvider.loadTags`, `tagGroups`).
+- Record View "Tags" section: tags of the record grouped by owner - "Personal tags" first, then
+  "<group> tags"; each tag a link searching `[{"tag":<id>}]` via the host's `showDatasource`
+  (`RecordDataProvider.loadTags`, `tagGroups`).
 - Record search `tag`: IDs and tag texts interchangeable and mixable (a text matches every tag with that
   text, as legacy): `"1,6"`, `[1,6]`, `["key1","DBM 1"]` (any); `{"all":[…]}`; `{"not":{…}}`; `"-1,6"` (none);
   `NULL` / `-NULL`. Live tests: `SystemQueryTest`, `FieldValueCounterTest`.

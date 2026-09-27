@@ -79,17 +79,22 @@ export class RecordViewRenderer {
    * @param {(recordId: number) => void} [options.onNavigate] Invoked when a resource-field link is followed.
    * @param {boolean} [options.canZoomExtent] Whether the host has an active map module to zoom, gating the geo field's zoom button.
    * @param {(wkt: string) => void} [options.onZoomExtent] Invoked with a geo field's WKT value when its zoom button is activated.
+   * @param {object|null} [options.tags] The record's tags, from `RecordDataProvider#loadTags`.
+   * @param {((tag: {id:number, name:string}) => void)|null} [options.onSearchTag] Runs a search for a tag; without it tags are plain text.
    * @returns {void}
    */
   showBuiltin(record, {
     sections = [], recordTypeName = null, canEdit = false, onEdit = () => {}, onNavigate = () => {},
-    canZoomExtent = false, onZoomExtent = () => {}, tags = null,
+    canZoomExtent = false, onZoomExtent = () => {}, tags = null, onSearchTag = null,
   } = {}) {
     const children = [this.#buildHeader(record, { recordTypeName, canEdit, onEdit })];
     const media = this.#buildMedia(record, sections);
     if (media) children.push(media);
-    children.push(this.#buildSections(record, sections, { onNavigate, canZoomExtent, onZoomExtent }));
-    children.push(this.#buildFooter(record, tags));
+    const body = this.#buildSections(record, sections, { onNavigate, canZoomExtent, onZoomExtent });
+    const tagSection = this.#buildTags(tags, onSearchTag);
+    if (tagSection) body.append(tagSection);
+    children.push(body);
+    children.push(this.#buildFooter(record));
     this.body.replaceChildren(...children);
     this.#alignFieldLabels();
   }
@@ -365,10 +370,48 @@ export class RecordViewRenderer {
   }
 
   /**
-   * Footer: created/modified dates, owner group id, a visibility label, and one entry
-   * per tag owner - "Personal tags: …" first, then "<group> tags: …". No rating (deferred).
+   * "Tags" section: one row per tag owner - "Personal tags" first, then "<group> tags" -
+   * each tag a link that searches the records carrying it (`onSearchTag`), or plain
+   * text when the host cannot run a search.
    */
-  #buildFooter(record, tags = null) {
+  #buildTags(tags, onSearchTag) {
+    const groups = tagGroups(tags);
+    if (!groups.length) return null;
+    const fieldset = document.createElement("fieldset");
+    fieldset.className = "heurist-recordview-section heurist-recordview-tags";
+    const legend = document.createElement("legend");
+    legend.textContent = $HR("Tags");
+    const dl = document.createElement("dl");
+    dl.className = "heurist-recordview-section-fields";
+    for (const group of groups) {
+      const dt = document.createElement("dt");
+      dt.textContent = group.label;
+      const dd = document.createElement("dd");
+      const line = document.createElement("div");
+      line.className = "heurist-recordview-value-line heurist-recordview-tag-list";
+      group.tags.forEach((tag, index) => {
+        if (index) line.append(", ");
+        if (typeof onSearchTag !== "function") { line.append(tag.name); return; }
+        const link = document.createElement("a");
+        link.href = "#";
+        link.className = "heurist-recordview-tag-link";
+        link.textContent = tag.name;
+        link.title = $HR("Find records with this tag");
+        link.addEventListener("click", (event) => {
+          event.preventDefault();
+          onSearchTag(tag);
+        });
+        line.append(link);
+      });
+      dd.append(line);
+      dl.append(dt, dd);
+    }
+    fieldset.append(legend, dl);
+    return fieldset;
+  }
+
+  /** Footer: created/modified dates, owner group id, and a visibility label. No rating (deferred). */
+  #buildFooter(record) {
     const footer = document.createElement("div");
     footer.className = "heurist-recordview-footer";
     const visibility = String(record?.rec_NonOwnerVisibility || "").toLowerCase();
@@ -383,12 +426,6 @@ export class RecordViewRenderer {
       const span = document.createElement("span");
       span.className = "heurist-recordview-footer-item";
       span.textContent = `${label}: ${value}`;
-      footer.append(span);
-    }
-    for (const group of tagGroups(tags)) {
-      const span = document.createElement("span");
-      span.className = "heurist-recordview-footer-item heurist-recordview-tags";
-      span.textContent = `${group.label}: ${group.names.join(", ")}`;
       footer.append(span);
     }
     return footer;
@@ -463,24 +500,24 @@ function formatDate(value) {
 }
 
 /**
- * Tags grouped by owner for the footer: the current user's personal tags first,
- * then each group's tags by group name; names sorted within each owner.
+ * Tags grouped by owner for the "Tags" section: the current user's personal tags
+ * first, then each group's tags by group name; tags sorted by name within each owner.
  *
- * @param {{currentUserId?: number, tags?: Array<{name:string, owner:number, ownerName:string}>}|null} data Record tags.
- * @returns {Array<{label: string, names: string[]}>} Footer entries.
+ * @param {{currentUserId?: number, tags?: Array<{id:number, name:string, owner:number, ownerName:string}>}|null} data Record tags.
+ * @returns {Array<{label: string, tags: Array<{id:number, name:string}>}>} Rows of the section.
  */
 export function tagGroups(data) {
   const me = Number(data?.currentUserId) || 0;
   const byOwner = new Map();
   for (const tag of data?.tags || []) {
-    if (!byOwner.has(tag.owner)) byOwner.set(tag.owner, { owner: tag.owner, ownerName: tag.ownerName, names: [] });
-    byOwner.get(tag.owner).names.push(tag.name);
+    if (!byOwner.has(tag.owner)) byOwner.set(tag.owner, { owner: tag.owner, ownerName: tag.ownerName, tags: [] });
+    byOwner.get(tag.owner).tags.push({ id: Number(tag.id), name: String(tag.name ?? "") });
   }
   const collator = (a, b) => a.localeCompare(b, undefined, { sensitivity: "base", numeric: true });
   return [...byOwner.values()]
     .sort((a, b) => (b.owner === me) - (a.owner === me) || collator(a.ownerName || "", b.ownerName || ""))
     .map((entry) => ({
       label: entry.owner === me ? $HR("Personal tags") : `${entry.ownerName || `#${entry.owner}`} ${$HR("tags")}`,
-      names: entry.names.sort(collator),
+      tags: entry.tags.sort((a, b) => collator(a.name, b.name)),
     }));
 }

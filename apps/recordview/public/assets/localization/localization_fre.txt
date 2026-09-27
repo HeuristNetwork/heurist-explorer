@@ -55,3 +55,8 @@
 #Data in system format#Données au format système
 #Personal tags#Mots-clés personnels
 #tags#mots-clés
+#Tags#Mots-clés
+#Tag#Mot-clé
+#Find records with this tag#Rechercher les enregistrements avec ce mot-clé
+#Recently viewed records#Enregistrements consultés récemment
+#No recently viewed records#Aucun enregistrement consulté récemment

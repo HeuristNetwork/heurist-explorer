@@ -36,6 +36,7 @@ import { applyUiRegions, ExplorerUiConfig } from './ExplorerUiConfig.js';
 import { HDbDefs } from '#shared/data/HDbDefs.js';
 import { RecordTypeProvider } from '#shared/data/RecordTypeProvider.js';
 import queryVocabulary from '../utils/queryVocabulary.json';
+import { queryDescribe } from '../utils/queryDescribe.js';
 import { HFilterBuilder } from '../widgets/filter-builder/HFilterBuilder.js';
 import { QuerySourcePanel } from '../widgets/query-source/QuerySourcePanel.js';
 import { ExplorerAuthoringDock } from '../ui/ExplorerAuthoringDock.js';
@@ -52,7 +53,8 @@ export class ExplorerApplication {
   constructor({ container, config }) {
     this.container = container;
     this.config = config;
-    this.history = new DataSourceHistory({ database: config.database });
+    // untitled searches are named by the query in words (once definitions are loaded)
+    this.history = new DataSourceHistory({ database: config.database, describe: (q) => this._describeQuery(q) });
     this.workspace = new ExplorerWorkspace({
       database: config.database,
       resolver: (reference) => this.resolveDataSourceReference(reference)
@@ -512,6 +514,7 @@ export class ExplorerApplication {
       dataModuleId: dataModule.id
     });
 
+    if (!this._dbDefs && !dataSource.title) await this._ensureDbDefs().catch(() => null);
     this.history.add(dataSource);
     this.controlPanel?.refreshNavigationLists?.();
 
@@ -1215,12 +1218,31 @@ export class ExplorerApplication {
   async _ensureDbDefs() {
     if (!this._dbDefsPromise) {
       const url = this.apiClient.buildUrl('/def/snapshot');
-      this._dbDefsPromise = HDbDefs.load(url, { lang: this.config.language }).catch((error) => {
+      this._dbDefsPromise = HDbDefs.load(url, { lang: this.config.language }).then((dbdefs) => {
+        this._dbDefs = dbdefs;
+        return dbdefs;
+      }, (error) => {
         this._dbDefsPromise = null;
         throw error;
       });
     }
     return this._dbDefsPromise;
+  }
+
+  /**
+   * A query in words for titles, e.g. 'Find Persons where Gender is not "Male"';
+   * `''` when it cannot be described.
+   *
+   * @private
+   * @param {*} q Query (array, object or text).
+   * @returns {string}
+   */
+  _describeQuery(q) {
+    try {
+      return queryDescribe(q, { dbdefs: this._dbDefs || null, vocabulary: queryVocabulary, lang: this.config.language }) || '';
+    } catch {
+      return '';
+    }
   }
 
   /** Open HFilterBuilder as a value editor and resolve with its JSON query, or null on cancel. */

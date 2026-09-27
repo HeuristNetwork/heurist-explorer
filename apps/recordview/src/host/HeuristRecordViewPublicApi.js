@@ -143,6 +143,26 @@ export class HeuristRecordViewPublicApi {
   }
 
   /**
+   * Show a record the user picked (e.g. from the recently viewed list) and publish it
+   * as the selection, like following a link inside the record.
+   *
+   * @param {number|string} id Record id to display.
+   * @returns {Promise<object>} Updated application state; see `getState`.
+   */
+  navigateToRecord(id) {
+    return this.application.navigateToRecord(id);
+  }
+
+  /**
+   * The last viewed records (at most 12), most recent first.
+   *
+   * @returns {Array<{id:number, title:string}>}
+   */
+  getRecentRecords() {
+    return this.application.getRecentRecords?.() || [];
+  }
+
+  /**
    * Apply a new shared selection, choosing the primary record per `selectionMode`.
    *
    * @param {Array<number>} ids Selected record IDs.
