@@ -17,6 +17,8 @@ import { HeuristApiClient } from "#shared/api";
 import { RecordViewApplication } from "./core/RecordViewApplication.js";
 import { RecordDataProvider } from "./data/RecordDataProvider.js";
 import { RecordStructureProvider } from "./data/RecordStructureProvider.js";
+import { RecordRelationsProvider } from "./data/RecordRelationsProvider.js";
+import { HDbDefs } from "#shared/data/HDbDefs.js";
 import { VocabularyProvider } from "#shared/data/VocabularyProvider.js";
 import { RecordContentProvider } from "./data/RecordContentProvider.js";
 import { ReportTemplateProvider } from "./data/ReportTemplateProvider.js";
@@ -44,12 +46,23 @@ export async function initHeuristRecordView(config) {
     headers: config.requestHeaders,
   });
   const heuristBaseUrl = resolveHeuristBaseUrl(config);
+  // database definitions, loaded once on first use: relationship type/field IDs by
+  // concept code, relmarker vocabularies and constraints, inverse relation types
+  let dbDefsPromise = null;
+  const dbDefsProvider = () => {
+    dbDefsPromise ||= HDbDefs.load(apiClient.buildUrl("/def/snapshot"), { lang: config.language }).catch((error) => {
+      dbDefsPromise = null;
+      throw error;
+    });
+    return dbDefsPromise;
+  };
 
   const application = new RecordViewApplication({
     config,
     recordDataProvider: new RecordDataProvider({ apiClient }),
     vocabularyProvider: new VocabularyProvider({ apiClient }),
     structureProvider: new RecordStructureProvider({ apiClient }),
+    relationsProvider: new RecordRelationsProvider({ apiClient, dbDefsProvider }),
     recordContentProvider: new RecordContentProvider({ baseUrl: heuristBaseUrl, database: config.database }),
     // The renderer owns everything inside <main> except the source header
     // (RecordViewControlPanel prepends that once it mounts) - same split as

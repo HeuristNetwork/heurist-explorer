@@ -60,3 +60,6 @@
 #Find records with this tag#Find records with this tag
 #Recently viewed records#Recently viewed records
 #No recently viewed records#No recently viewed records
+#Linked from#Linked from
+#Related#Related
+#Records#Records

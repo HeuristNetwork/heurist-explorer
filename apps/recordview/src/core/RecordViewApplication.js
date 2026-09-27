@@ -48,6 +48,7 @@ export class RecordViewApplication extends EventTarget {
    * @param {object} options.recordContentProvider Builds the `legacy`/`smarty` renderer URL.
    * @param {object} options.renderer `RecordViewRenderer` instance the application renders into.
    * @param {object} options.host Host adapter.
+   * @param {object} [options.relationsProvider] Loads relationships and incoming links, for the `builtin` engine.
    * @param {RecentRecords} [options.recentRecords] Last viewed records; defaults to this database's browser list.
    */
   constructor({
@@ -58,6 +59,7 @@ export class RecordViewApplication extends EventTarget {
     recordContentProvider,
     renderer,
     host,
+    relationsProvider = null,
     recentRecords = null,
   }) {
     super();
@@ -68,6 +70,7 @@ export class RecordViewApplication extends EventTarget {
     this.recordContentProvider = recordContentProvider;
     this.renderer = renderer;
     this.host = host;
+    this.relationsProvider = relationsProvider;
     this.settings = config.persistedSettings;
     this.selection = normalizeIds(config.selection);
     this.recordId = config.recordId || null;
@@ -352,11 +355,17 @@ export class RecordViewApplication extends EventTarget {
           return;
         }
         const recordTypeId = Number(record.rec_RecTypeID) || 0;
-        const [sections, recordTypes, tags] = await Promise.all([
-          this.structureProvider.fieldSections(recordTypeId, { signal: this.abortController.signal }),
+        const signal = this.abortController.signal;
+        const sectionsLoad = this.structureProvider.fieldSections(recordTypeId, { signal });
+        const [sections, recordTypes, tags, relations] = await Promise.all([
+          sectionsLoad,
           this.vocabularyProvider.getRecordTypeNames([recordTypeId], { signal: this.abortController.signal }),
           // the current user's tags on this record (none for guests)
           this.recordDataProvider.loadTags?.({ id, signal: this.abortController.signal }) ?? null,
+          // relmarker fields' relationships, and relationships/records linking here
+          this.relationsProvider?.load
+            ? sectionsLoad.then((loaded) => this.relationsProvider.load({ id, rty: recordTypeId, sections: loaded, signal }))
+            : null,
         ]);
         if (generation !== this.generation) return;
         const recordTypeName = recordTypes.get(recordTypeId) || null;
@@ -374,6 +383,7 @@ export class RecordViewApplication extends EventTarget {
           canZoomExtent: Boolean(canZoomExtent),
           onZoomExtent: (wkt) => this.host?.zoomToExtent?.(wkt),
           tags,
+          relations,
           onSearchTag: typeof this.host?.showDatasource === "function" ? (tag) => this.searchTag(tag) : null,
         });
       } else {

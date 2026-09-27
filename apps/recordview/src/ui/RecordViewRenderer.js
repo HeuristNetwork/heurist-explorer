@@ -80,17 +80,22 @@ export class RecordViewRenderer {
    * @param {boolean} [options.canZoomExtent] Whether the host has an active map module to zoom, gating the geo field's zoom button.
    * @param {(wkt: string) => void} [options.onZoomExtent] Invoked with a geo field's WKT value when its zoom button is activated.
    * @param {object|null} [options.tags] The record's tags, from `RecordDataProvider#loadTags`.
+   * @param {object|null} [options.relations] Relationships and incoming links, from `RecordRelationsProvider#load`.
    * @param {((tag: {id:number, name:string}) => void)|null} [options.onSearchTag] Runs a search for a tag; without it tags are plain text.
    * @returns {void}
    */
   showBuiltin(record, {
     sections = [], recordTypeName = null, canEdit = false, onEdit = () => {}, onNavigate = () => {},
-    canZoomExtent = false, onZoomExtent = () => {}, tags = null, onSearchTag = null,
+    canZoomExtent = false, onZoomExtent = () => {}, tags = null, relations = null, onSearchTag = null,
   } = {}) {
     const children = [this.#buildHeader(record, { recordTypeName, canEdit, onEdit })];
     const media = this.#buildMedia(record, sections);
     if (media) children.push(media);
-    const body = this.#buildSections(record, sections, { onNavigate, canZoomExtent, onZoomExtent });
+    const body = this.#buildSections(record, sections, {
+      onNavigate, canZoomExtent, onZoomExtent, related: relations?.related || {},
+    });
+    const linkedFrom = this.#buildLinkedFrom(relations, onNavigate);
+    if (linkedFrom) body.append(linkedFrom);
     const tagSection = this.#buildTags(tags, onSearchTag);
     if (tagSection) body.append(tagSection);
     children.push(body);
@@ -252,14 +257,22 @@ export class RecordViewRenderer {
     return link;
   }
 
-  /** Fields grouped into `<fieldset>`s per section; only populated, non-`file` fields are shown. */
-  #buildSections(record, sections, { onNavigate, canZoomExtent, onZoomExtent }) {
+  /**
+   * Fields grouped into `<fieldset>`s per section; only populated, non-`file` fields are shown.
+   * A relmarker field lists its relationships (`related`): relation type and related record.
+   */
+  #buildSections(record, sections, { onNavigate, canZoomExtent, onZoomExtent, related = {} }) {
     const wrapper = document.createElement("div");
     wrapper.className = "heurist-recordview-sections";
     for (const section of sections) {
       const rows = [];
       for (const field of section.fields) {
         if (field.type === "file") continue;
+        if (field.type === "relmarker") {
+          const items = related[String(field.id)] || [];
+          if (items.length) rows.push(this.#buildLinksRow(field.name || `Field ${field.id}`, items, onNavigate, true));
+          continue;
+        }
         const values = record?.details?.[String(field.id)];
         if (!Array.isArray(values) || !values.length) continue;
         rows.push(this.#buildFieldRow(record, field, values, { onNavigate, canZoomExtent, onZoomExtent }));
@@ -367,6 +380,63 @@ export class RecordViewRenderer {
     for (const dl of this.body.querySelectorAll(".heurist-recordview-section-fields")) {
       dl.style.setProperty("--heurist-recordview-label-width", `${maxWidth}px`);
     }
+  }
+
+  /**
+   * "Linked from" section: relationships that point at this record (one row per
+   * relation type, inverse where defined), then records linking here through their
+   * pointer fields (one row per record type).
+   */
+  #buildLinkedFrom(relations, onNavigate) {
+    const rows = [];
+    for (const [label, items] of groupBy(relations?.relationsFrom || [], (entry) => entry.relation || $HR("Related"))) {
+      rows.push(this.#buildLinksRow(label, items, onNavigate));
+    }
+    const rtyName = (rty) => relations?.dbdefs?.rectypeName?.(rty) || $HR("Records");
+    for (const [label, items] of groupBy(relations?.linkedFrom || [], (entry) => rtyName(entry.rty))) {
+      rows.push(this.#buildLinksRow(label, items, onNavigate));
+    }
+    if (!rows.length) return null;
+    const fieldset = document.createElement("fieldset");
+    fieldset.className = "heurist-recordview-section heurist-recordview-linked-from";
+    const legend = document.createElement("legend");
+    legend.textContent = $HR("Linked from");
+    const dl = document.createElement("dl");
+    dl.className = "heurist-recordview-section-fields";
+    for (const [dt, dd] of rows) dl.append(dt, dd);
+    fieldset.append(legend, dl);
+    return fieldset;
+  }
+
+  /**
+   * One row of record links (titles follow `onNavigate`), each on its own line;
+   * `withRelation` puts the relation type before each title.
+   */
+  #buildLinksRow(label, items, onNavigate, withRelation = false) {
+    const dt = document.createElement("dt");
+    dt.textContent = label;
+    const dd = document.createElement("dd");
+    for (const entry of items) {
+      const line = document.createElement("div");
+      line.className = "heurist-recordview-value-line";
+      if (withRelation && entry.relation) {
+        const relation = document.createElement("span");
+        relation.className = "heurist-recordview-relation-type";
+        relation.textContent = entry.relation;
+        line.append(relation, " ");
+      }
+      const link = document.createElement("a");
+      link.href = "#";
+      link.className = "heurist-recordview-resource-link";
+      link.innerHTML = sanitizeTextHtml(entry.title || `#${entry.id}`);
+      link.addEventListener("click", (event) => {
+        event.preventDefault();
+        onNavigate(entry.id);
+      });
+      line.append(link);
+      dd.append(line);
+    }
+    return [dt, dd];
   }
 
   /**
@@ -520,4 +590,21 @@ export function tagGroups(data) {
       label: entry.owner === me ? $HR("Personal tags") : `${entry.ownerName || `#${entry.owner}`} ${$HR("tags")}`,
       tags: entry.tags.sort((a, b) => collator(a.name, b.name)),
     }));
+}
+
+/**
+ * Group items by a label, keeping first-seen order of labels and items.
+ *
+ * @param {Array<object>} items Items.
+ * @param {(item: object) => string} labelOf Group label of an item.
+ * @returns {Map<string, Array<object>>}
+ */
+function groupBy(items, labelOf) {
+  const groups = new Map();
+  for (const entry of items) {
+    const label = labelOf(entry);
+    if (!groups.has(label)) groups.set(label, []);
+    groups.get(label).push(entry);
+  }
+  return groups;
 }

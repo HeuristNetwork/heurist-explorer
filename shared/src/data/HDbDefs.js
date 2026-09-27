@@ -606,6 +606,14 @@ export class HDbDefs {
   }
 
   /**
+   * @param {number|string} id Relation type (term) id.
+   * @returns {number} The inverse relation type ("is Secretary Of" -> "has Secretary"), or `0`.
+   */
+  termInverse(id) {
+    return Number(this._terms[id]?.inverse) || 0;
+  }
+
+  /**
    * @param {number|string} id
    * @returns {number[]} Direct child term ids (order preserved from `termlinks`).
    */
