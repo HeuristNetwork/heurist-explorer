@@ -21,7 +21,7 @@
  */
 
 import { canonicalPredicate, isLinkPredicate, isGroupPredicate, HEADER_KEYWORDS } from './queryPredicates.js';
-import { kindFor, operatorForToken, LINKED_RECORD_OPERATORS } from './vocabHelpers.js';
+import { kindFor, operatorsFor, operatorForToken, LINKED_RECORD_OPERATORS } from './vocabHelpers.js';
 import { extentToWkt, isExtent } from '#shared/utils';
 
 /**
@@ -728,6 +728,14 @@ export function reconcileModel(model, vocabulary, { fieldType } = {}) {
         if (type) row.kind = kindFor(vocabulary, type);
       } else if (HEADER_KEYWORDS[row.dty]) {
         row.kind = kindFor(vocabulary, null, row.dty);
+      }
+      // a bare "-" prefix ("-415", "-1,6") is the kind's negating operator (is not, not
+      // equals, does not contain) - not a hidden flag the operator menu cannot clear.
+      // Kinds without one (a date: "-2020" is a negative year) keep the prefix.
+      if (!row.op && row.negate && !row.opToken
+        && operatorsFor(vocabulary, row.kind).some((op) => op.token === '-')) {
+        row.opToken = '-';
+        row.negate = false;
       }
       if (!row.op && row.opToken != null && row.kind !== 'geo') {
         row.op = operatorForToken(vocabulary, row.kind, row.opToken);

@@ -165,3 +165,21 @@ test('a tag condition without a value becomes a parameter', () => {
   ];
   assert.deepEqual(builder.getDefinition().query, [{ tag: '$X1$' }, { tag: '-$X2$' }, { tag: '-NULL' }]);
 });
+
+test('a "-" prefix opens as the "is not" operator, and another operator drops it', () => {
+  const dbdefs = { ...dbdefsStub, fieldType: (rty, dty) => (Number(dty ?? rty) === 20 ? 'enum' : Number(dty ?? rty) === 9 ? 'date' : 'freetext') };
+  const builder = new HFilterBuilder({ dbdefs, vocabulary: VOCAB });
+  const query = [{ t: '10' }, { 'f:20': '-415' }, { tag: '-1,6' }, { owner: '-2' }, { 'f:9': '-2020' }];
+  builder.setQuery(query);
+  const [enumRow, tagRow, ownerRow, dateRow] = builder.model.rows;
+  for (const row of [enumRow, tagRow]) {
+    assert.equal(row.op, 'op.is_not');
+    assert.equal(row.negate, false);
+  }
+  assert.equal(ownerRow.negate, false);
+  assert.equal(dateRow.negate, true, 'a negative year keeps its sign');
+  assert.deepEqual(builder.getQuery(), query);
+  enumRow.op = 'op.is';
+  tagRow.op = 'op.is';
+  assert.deepEqual(builder.getQuery().slice(1, 3), [{ 'f:20': '415' }, { tag: '1,6' }]);
+});

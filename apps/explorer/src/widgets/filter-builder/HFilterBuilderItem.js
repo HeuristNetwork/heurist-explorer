@@ -106,6 +106,9 @@ export class HFilterBuilderItem extends HBaseWidget {
     this._opSel.addEventListener('change', () => {
       const wasCount = this.row.op === 'op.count';
       this.row.op = this._opSel.value;
+      // where an operator negates ("is not"), the picked operator alone decides negation:
+      // drop a "-" prefix read from the query (a date keeps it - it is a negative year)
+      if (this._operators().some((op) => op.token === '-')) this.row.negate = false;
       if (wasCount !== (this.row.op === 'op.count')) {
         // a count and a field value are different things (a number vs a date,
         // WKT, text …) - never carry one over as the other
@@ -170,6 +173,7 @@ export class HFilterBuilderItem extends HBaseWidget {
     if (this.row.kind !== 'enum') this.row.enumField = null;
     // "<record type> records" keeps "exists" as its default ("is" needs a picked record)
     this.row.op = dty === 'exists' ? 'op.exists' : this._operators()[0]?.i18nKey || null;
+    this.row.negate = false;
     this.row.values = [''];
     this.row.geoExtent = null;
     this.row.placeholderIds = [];
@@ -302,9 +306,12 @@ export class HFilterBuilderItem extends HBaseWidget {
 
   /** Pick an operator i18nKey from a raw token carried over by parseQuery. */
   _reconcileOp(list) {
-    if (['owner', 'access', 'addedby'].includes(this.row.dty) && this.row.negate) {
+    // a plain "-" prefix ("-415", "-1,6") is the operator whose token is "-" (is not,
+    // not equals, does not contain): show it and let it, not the flag, negate
+    const negation = this.row.negate && !this.row.opToken && list.find((op) => op.token === '-');
+    if (negation) {
       this.row.negate = false;
-      return 'op.is_not';
+      return negation.i18nKey;
     }
     if (this.row.opToken != null) {
       return operatorForToken(this.vocab, this.row.kind, this.row.opToken, list);
