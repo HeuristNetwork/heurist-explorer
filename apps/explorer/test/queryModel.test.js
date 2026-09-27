@@ -461,3 +461,12 @@ test('tag "is any of" composes as a tag group, not a prefixed value', () => {
   const row = fieldRow({ dty: 'tag', kind: 'tag', op: 'op.any_of', values: ['key1', 'key2'], selected: true });
   assert.deepEqual(compose(model({ rows: [row] })), [{ tag: { any: ['key1', 'key2'] } }]);
 });
+
+test('several owners, creators or visibilities are one comma list (not an any group), and read back', () => {
+  const rows = (dty, values, op = 'op.is') => model({ rows: [fieldRow({ dty, op, values, valueConj: 'any' })] });
+  assert.deepEqual(compose(rows('owner', ['2', '5'])), [{ owner: '2,5' }]);
+  assert.deepEqual(compose(rows('addedby', ['timma', 'osmakov'])), [{ addedby: 'timma,osmakov' }]);
+  assert.deepEqual(compose(rows('access', ['viewable', 'public'])), [{ access: 'viewable,public' }]);
+  assert.deepEqual(compose(rows('owner', ['2', '5'], 'op.is_not')), [{ owner: '-2,5' }]);
+  assert.deepEqual(compose(parseQuery([{ t: '10' }, { access: 'viewable,public' }], VOCAB)), [{ t: '10' }, { access: 'viewable,public' }]);
+});

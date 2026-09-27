@@ -206,10 +206,13 @@ function compileFieldRow(row, vocab) {
 
   const conj = row.valueConj === 'all' ? 'all' : 'any';
 
-  // enum / term / record ids and record IDs: OR of ids collapses to one comma-joined value
-  if (conj === 'any' && (['enum', 'term', 'record'].includes(row.kind) || key === 'ids') && key !== 'tag') {
+  // enum / term / record ids, record IDs, owner / creator (IDs or names) and visibility:
+  // OR of values collapses to one comma-joined value ("-a,b" excludes them all)
+  if (conj === 'any' && (['enum', 'term', 'record'].includes(row.kind) || COMMA_LIST_KEYS.has(key)) && key !== 'tag') {
     const joined = rendered.map(stripLeadingDash).join(',');
-    return wrap(key, (row.negate ? '-' : '') + joined);
+    // "is not" is either the row's negation or the operator's own "-" token (owner, access, …)
+    const negated = row.negate || op.token === '-';
+    return wrap(key, (negated ? '-' : '') + joined);
   }
 
   if (key === 'tag') {
@@ -218,6 +221,9 @@ function compileFieldRow(row, vocab) {
 
   return { [conj]: rendered.map((v) => wrap(key, v)) };
 }
+
+/** Header keys whose several values are one comma list (the server reads it as OR / NOT IN). */
+const COMMA_LIST_KEYS = new Set(['ids', 'owner', 'addedby', 'access']);
 
 /** @returns {object|null} predicate */
 function compileLinkRow(row, vocab) {
