@@ -17,7 +17,7 @@ import { HBaseWidget } from '../HBaseWidget.js';
 import { createHInput } from '../form/inputs/createHInput.js';
 import { describeQueryParameters, resolveQueryParameters } from '../../data/queryParameters.js';
 import { TermSource, UserGroupSource } from '../../data/valueSources/localSources.js';
-import { FieldValueSource, FacetTermSource, RangeBucketSource, fetchFieldRange } from '../../data/valueSources/FieldValueSource.js';
+import { FieldValueSource, FacetTermSource, RangeBucketSource, RecordTitleSource, fetchFieldRange } from '../../data/valueSources/FieldValueSource.js';
 import './HFilterForm.css';
 
 /** Presentations that pick from a list (plan §3). */
@@ -326,6 +326,13 @@ export class HFilterForm extends HBaseWidget {
     const selected = () => toList(this.inputs.get(id)?.getValue());
     const factory = this.options.valueSourceFactory;
     const custom = factory?.(parameter, { id, config, query: () => this._facetQuery(id), selected });
+
+    // records ("<record type> records is / is not"): picked by title, several → "234,235"
+    if (parameter.predicate === 'ids' && !parameter.range && ['', '-'].includes(parameter.operator ?? '')
+      && LIST_MODES.has(config.mode) && (custom || this.apiClient)) {
+      const source = custom || new RecordTitleSource(this.apiClient, { rtyId: parameter.recordTypeId });
+      return { type: 'enum', options: { source, numeric: true, listThreshold } };
+    }
 
     const rangeList = this._rangeListPresentation(id, parameter, config, { custom, selected, listThreshold });
     if (rangeList) return rangeList;

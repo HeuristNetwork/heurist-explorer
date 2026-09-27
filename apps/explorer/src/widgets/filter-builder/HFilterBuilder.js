@@ -582,6 +582,7 @@ export class HFilterBuilder extends HBaseWidget {
       dbdefs: this.dbdefs,
       vocabulary: this.vocab,
       lang: this.lang,
+      apiClient: this.apiClient,
       scopeRtyId: this.model.rtyId,
       selectExtent: this.selectExtent,
       onRequestFieldPick: (it, anchor) => this._pickField(it, anchor),
@@ -987,6 +988,7 @@ class LinkPanel {
       dbdefs: this.dbdefs,
       vocabulary: this.vocab,
       lang: this.builder.lang,
+      apiClient: this.builder.apiClient,
       scopeRtyId: this.row.targetRty,
       selectExtent: this.builder.selectExtent,
       relationVocabRoots: () => this._relationVocabRoots(),
@@ -1294,12 +1296,16 @@ function countBlankCriteria(rows, vocabulary) {
 function isImplicitParameter(row, vocabulary) {
   if (!row || row.type === 'link') return false;
   if (row.dty === '' || row.dty == null || (row.dty === 'anyfield' && !row.selected)) return false;
-  if (!['text', 'number', 'date', 'enum', 'geo'].includes(row.kind)) return false;
+  // "<record type> records is / is not" without a picked record: a runtime parameter ({"ids":"$X1$"})
+  if (!['text', 'number', 'date', 'enum', 'geo', 'exists'].includes(row.kind)) return false;
   if (operatorByKey(vocabulary, row.kind, row.op)?.whole) return false;
   const values = row.values || [];
-  const required = operatorByKey(vocabulary, row.kind, row.op)?.input === 'range' ? 2 : 1;
-  return Array.from({ length: required }, (_, index) => values[index])
-    .some((value) => String(value ?? '').trim() === '');
+  const blank = (value) => String(value ?? '').trim() === '';
+  // a range may keep one edge fixed: a blank edge is a parameter
+  if (operatorByKey(vocabulary, row.kind, row.op)?.input === 'range') return blank(values[0]) || blank(values[1]);
+  // otherwise only a row without any value is a parameter; blank entries beside
+  // defined values (e.g. an empty first term of several) are simply dropped
+  return values.every(blank);
 }
 
 /** Detect explicit and implicit parameter rows at every linked depth. */

@@ -123,3 +123,35 @@ test('setQuery() resolves record-type and field names to ids', () => {
   builder.setQuery('[{"t":"Life event"},{"f:Date of event":"=2026-09-23"}]');
   assert.deepEqual(builder.getQuery(), [{ t: '48' }, { 'f:9': '=2026-09-23' }]);
 });
+
+test('several values with a blank one: the defined values are the condition, not a parameter', () => {
+  const builder = new HFilterBuilder({ dbdefs: dbdefsStub, vocabulary: VOCAB });
+  builder.model.rows = [
+    { type: 'field', dty: 20, kind: 'enum', op: 'op.is', values: ['', '415'], valueConj: 'any' },
+    { type: 'field', dty: 21, kind: 'enum', op: 'op.is', values: ['', '', '7', '9'], valueConj: 'any' },
+    { type: 'field', dty: 22, kind: 'enum', op: 'op.is', values: ['', ''], valueConj: 'any' }
+  ];
+  assert.deepEqual(builder.getDefinition().query, [{ 'f:20': '415' }, { 'f:21': '7,9' }, { 'f:22': '$X1$' }]);
+});
+
+test('"<record type> records is / is not" without a picked record becomes a parameter; exists / missing do not', () => {
+  const builder = new HFilterBuilder({ dbdefs: dbdefsStub, vocabulary: VOCAB });
+  const branch = (op) => ({ type: 'link', link: 'lt', dty: 240, targetRty: 12, conjunction: 'all',
+    rows: [{ type: 'field', dty: 'exists', kind: 'exists', selected: true, op, values: [''], valueConj: 'any' }] });
+  builder.model.rows = [branch('op.is'), branch('op.is_not'), branch('op.exists')];
+  assert.deepEqual(builder.getDefinition().query, [
+    { 'lt:240': [{ t: '12' }, { ids: '$X1$' }] },
+    { 'lt:240': [{ t: '12' }, { ids: '-$X2$' }] },
+    { 'lt:240': [{ t: '12' }, { exists: '' }] }
+  ]);
+});
+
+test('a linked-record parameter reads back into the records row and keeps its name', () => {
+  const builder = new HFilterBuilder({ dbdefs: dbdefsStub, vocabulary: VOCAB });
+  const query = [{ t: '10' }, { 'lt:240': [{ t: '12' }, { ids: '-$X2$' }] }];
+  builder.setQuery({ query, filterForm: null });
+  const row = builder.model.rows[0].rows[0];
+  assert.equal(row.dty, 'exists');
+  assert.equal(row.op, 'op.is_not');
+  assert.deepEqual(builder.getDefinition().query, query);
+});

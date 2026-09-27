@@ -21,7 +21,7 @@
  */
 
 import { canonicalPredicate, isLinkPredicate, isGroupPredicate, HEADER_KEYWORDS } from './queryPredicates.js';
-import { kindFor, operatorForToken } from './vocabHelpers.js';
+import { kindFor, operatorForToken, LINKED_RECORD_OPERATORS } from './vocabHelpers.js';
 import { extentToWkt, isExtent } from '#shared/utils';
 
 /**
@@ -140,6 +140,9 @@ export function composeQuery(model, vocabulary) {
  * @returns {{token:string, pattern?:string, whole?:boolean, input?:string}}
  */
 function resolveOperator(row, vocab) {
+  if (row.kind === 'exists' || row.dty === 'exists') {
+    return LINKED_RECORD_OPERATORS.find((op) => op.i18nKey === row.op) || LINKED_RECORD_OPERATORS[2];
+  }
   if (['owner', 'access', 'addedby'].includes(row.dty) && row.op === 'op.is') return { token: '' };
   if (['owner', 'access', 'addedby'].includes(row.dty) && row.op === 'op.is_not') return { token: '-' };
   if (row.op === 'op.count') return { token: '', input: 'count' };
@@ -204,7 +207,8 @@ function compileFieldRow(row, vocab) {
     return wrap(key, rendered[0]);
   }
 
-  const conj = row.valueConj === 'all' ? 'all' : 'any';
+  // one linked record cannot be several records: picked records are always OR
+  const conj = row.valueConj === 'all' && row.kind !== 'exists' ? 'all' : 'any';
 
   // enum / term / record ids, record IDs, owner / creator (IDs or names) and visibility:
   // OR of values collapses to one comma-joined value ("-a,b" excludes them all)
@@ -265,7 +269,8 @@ function fieldKey(row, op = {}) {
     const key = /^\d+$/.test(String(d)) ? `geo:${Number(d)}` : 'geo';
     return op.geoMode ? `${key}:${op.geoMode}` : key;
   }
-  if (d === 'exists') return 'exists';
+  // "<record type> records": is / is not picked records -> ids; exists / missing
+  if (d === 'exists') return row.op === 'op.is' || row.op === 'op.is_not' ? 'ids' : 'exists';
   if (d === 'anyfield' || d === '' || d == null || d === 'f') return 'f';
 
   if (typeof d === 'string' && !/^\d+$/.test(d)) {
@@ -576,6 +581,17 @@ function linkedChildFromPredicate(predicate) {
     const row = fieldRowFromPredicate({ [`f:${suffix.raw}`]: entry[1] });
     if (row) row.rel = true;
     return row;
+  }
+  // a plain record id list inside a branch is its "<record type> records is / is not"
+  if ((base === 'ids' || base === 'id') && !suffix.raw) {
+    const text = String(Array.isArray(entry[1]) ? entry[1].join(',') : entry[1] ?? '').replace(/\s+/g, '');
+    const match = /^(-?)(\d+(?:,\d+)*|\$[A-Za-z][A-Za-z0-9_]*\$)$/.exec(text);
+    if (match) {
+      return emptyFieldRow({
+        dty: 'exists', kind: 'exists', selected: true, op: match[1] ? 'op.is_not' : 'op.is',
+        values: match[2].split(','), valueConj: 'any'
+      });
+    }
   }
   return isLinkPredicate(base)
     ? linkRowFromPredicate(base, suffix, entry[1])

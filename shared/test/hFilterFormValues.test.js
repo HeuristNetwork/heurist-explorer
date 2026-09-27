@@ -319,3 +319,25 @@ test('title in a list mode lists record titles (detail=values field=title) and s
   assert.deepEqual(submits.at(-1), [{ t: '10' }, { title: '=Rome' }]);
   return form.destroy();
 });
+
+test('record ids in a list mode list records by title and submit an id list', async () => {
+  const requests = [];
+  const api = { async get(path, { query }) { requests.push(query); return { records: [{ rec_ID: '234', rec_Title: 'Berlin' }, { rec_ID: '235', rec_Title: 'Rome' }], pagination: { total: 2 } }; } };
+  const host = document.createElement('div');
+  document.body.append(host);
+  const submits = [];
+  const form = new HFilterForm().attach(host, {
+    definition: { query: [{ t: '10' }, { 'lt:240': [{ t: '12' }, { ids: '-$R$' }] }],
+      filterForm: layoutOf([{ input: 'R', mode: 'checkbox', multiple: true }]) },
+    dbdefs, apiClient: api, onSubmit: (event) => submits.push(event.query.q)
+  }).render();
+  await flush();
+  assert.deepEqual(requests[0].q, [{ t: '12' }, { sortby: 't' }], 'records of the branch record type');
+  const input = form.inputs.get('R');
+  input.choices[0].checked = true; input.choices[0].fire('change');
+  await flush(600);
+  input.choices[1].checked = true; input.choices[1].fire('change');
+  await flush();
+  assert.deepEqual(submits.at(-1), [{ t: '10' }, { 'lt:240': [{ t: '12' }, { ids: '-234,235' }] }]);
+  return form.destroy();
+});

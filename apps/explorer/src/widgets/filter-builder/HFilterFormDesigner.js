@@ -57,9 +57,22 @@ function isScalar(parameter) {
   return parameter?.type === 'date' || parameter?.type === 'number';
 }
 
+/**
+ * Whether a parameter picks records: record ids (`ids`) with "is" (`$X$`) or "is not"
+ * (`-$X$`), e.g. a linked branch's "<record type> records". Its lists show records by
+ * title - not numeric ranges; other operators (`>`, between …) keep it a number.
+ *
+ * @param {object} parameter Parameter description.
+ * @returns {boolean} True for a record parameter.
+ */
+function isRecordParameter(parameter) {
+  return parameter?.predicate === 'ids' && !parameter.range && ['', '-'].includes(parameter.operator ?? '');
+}
+
 /** @returns {string[]} Presentation choices offered for a parameter (empty: none). */
 function presentationsFor(parameter) {
   if (parameter?.type === 'enum') return ['select', 'list-column', 'list-inline'];
+  if (isRecordParameter(parameter)) return ['direct', 'select', 'list-column', 'list-inline'];
   if (isTextList(parameter)) return ['direct', 'select', 'list-column', 'list-inline'];
   if (isScalar(parameter)) {
     // select/list: ranges of the field (detail=ranges); a picked range is searched as that range
@@ -91,7 +104,7 @@ function isListPresentation(presentation) {
 
 /** Whether a layout child shows the date grouping / number of ranges row. */
 function hasGrouping(config, parameter) {
-  return isScalar(parameter) && isListPresentation(presentationOf(config, parameter));
+  return isScalar(parameter) && !isRecordParameter(parameter) && isListPresentation(presentationOf(config, parameter));
 }
 
 /**

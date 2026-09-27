@@ -161,6 +161,76 @@ export class FacetTermSource {
 }
 
 /**
+ * Records of one record type (or any), as `{value: rec_ID, label: rec_Title}`,
+ * from `GET /records/`: the first `limit` by title, then each filter text is a
+ * title search on the server. Labels of values not loaded yet (e.g. a saved
+ * condition) come from `fetchLabels`.
+ */
+export class RecordTitleSource {
+  /**
+   * @param {object} api HeuristApiClient (needs `get`).
+   * @param {{rtyId?: number|string|null, limit?: number}} [options] Record type (none: any), page size.
+   */
+  constructor(api, { rtyId = null, limit = 200 } = {}) {
+    if (!api?.get) throw new TypeError('RecordTitleSource requires an API client');
+    this.api = api;
+    this.rtyId = Number(rtyId) > 0 ? Number(rtyId) : null;
+    this.limit = Math.max(1, Number(limit) || 200);
+    this._labels = new Map();
+  }
+
+  /** Nothing cached besides labels. */
+  invalidate() {}
+
+  /** @returns {Promise<{items: Array<object>, total: number, complete: boolean}>} Records by title. */
+  async load({ text = '', signal } = {}) {
+    const filter = String(text ?? '').trim();
+    const q = [];
+    if (this.rtyId) q.push({ t: String(this.rtyId) });
+    if (filter) q.push({ title: filter });
+    q.push({ sortby: 't' });
+    const payload = await this.api.get('/records/', { query: { q, limit: this.limit }, signal });
+    const rows = recordRows(payload);
+    const items = rows.map((row) => this._item(row)).filter(Boolean);
+    const total = Number(payload?.pagination?.total ?? payload?.total) || items.length;
+    return { items, total, complete: !filter && items.length >= total };
+  }
+
+  /** @returns {string} Title of a record seen before, else ''. */
+  labelFor(value) {
+    return this._labels.get(String(value)) || '';
+  }
+
+  /**
+   * Load the titles of given records (for values chosen earlier).
+   *
+   * @param {Array<number|string>} ids Record ids.
+   * @returns {Promise<void>}
+   */
+  async fetchLabels(ids) {
+    const missing = [...new Set((ids || []).map(String).filter((id) => /^\d+$/.test(id) && !this._labels.has(id)))];
+    if (!missing.length) return;
+    const payload = await this.api.get('/records/', { query: { q: [{ ids: missing.join(',') }], limit: missing.length } });
+    for (const row of recordRows(payload)) this._item(row);
+  }
+
+  /** @returns {object|null} Picker item for one record row (remembers its title). */
+  _item(row) {
+    const id = Number(row?.rec_ID ?? row?.id);
+    if (!(id > 0)) return null;
+    const label = String(row?.rec_Title ?? row?.title ?? '') || `#${id}`;
+    this._labels.set(String(id), label);
+    return { value: id, label };
+  }
+}
+
+/** @returns {Array<object>} Record rows of a `/records/` payload. */
+function recordRows(payload) {
+  if (Array.isArray(payload)) return payload;
+  return payload?.records || payload?.items || [];
+}
+
+/**
  * Ranges of a date or numeric field over a (possibly changing) query, with
  * record counts (`GET /records/?detail=ranges`). Item values are `"from/to"`,
  * which `resolveQueryParameters` puts into the parameter's template; a count

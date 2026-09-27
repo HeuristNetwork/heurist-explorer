@@ -23,7 +23,7 @@
 
 import { HBaseWidget } from '#shared/widgets/HBaseWidget.js';
 import { createHInput } from '#shared/widgets/form/inputs/createHInput.js';
-import { UserGroupSource } from '#shared/data/valueSources/index.js';
+import { UserGroupSource, RecordTitleSource } from '#shared/data/valueSources/index.js';
 import { extentToWkt, isExtent, roundExtent } from '#shared/utils';
 import { $HR } from '#shared/ui';
 import { emptyFieldRow } from '../../utils/queryModel.js';
@@ -33,9 +33,11 @@ import { str, kindFor, operatorsFor, operatorByKey, operatorForToken } from '../
 const HEADER_LABELS = {
   title: 'Title', url: 'URL', notes: 'Notes', added: 'Date added',
   modified: 'Date modified', ids: 'Record ID', owner: 'Owner',
-  addedby: 'Creator', access: 'Visibility', tag: 'Tags', user: 'Bookmarked by'
+  addedby: 'Creator', access: 'Visibility', tag: 'Tags', user: 'Bookmarked by',
+  // the "<record type> records" row of a linked branch
+  exists: 'records'
 };
-const MULTI_INPUTS = ['text', 'term', 'record', 'tag', 'tags'];
+const MULTI_INPUTS = ['text', 'term', 'record', 'tag', 'tags', 'linkedrecord'];
 
 /** One flat field criterion row (field · operator · value) in the Filter Builder. */
 export class HFilterBuilderItem extends HBaseWidget {
@@ -45,8 +47,10 @@ export class HFilterBuilderItem extends HBaseWidget {
    *          relationVocabRoots?:(() => number[])}} deps
    */
   constructor({ dbdefs, vocabulary, lang = 'eng', onChange, onRequestFieldPick,
-    selectExtent, scopeRtyId = '', relationVocabRoots = null } = {}) {
+    selectExtent, scopeRtyId = '', relationVocabRoots = null, apiClient = null } = {}) {
     super();
+    // records API: titles of linked records for "<record type> records is …"
+    this.apiClient = apiClient;
     // vocabulary roots for a relation-type row of a related branch (set by LinkPanel)
     this._relationVocabRoots = relationVocabRoots;
     this.dbdefs = dbdefs;
@@ -164,7 +168,8 @@ export class HFilterBuilderItem extends HBaseWidget {
       ? kindFor(this.vocab, null, HEADER_KEYWORDS[dty] ? dty : null)
       : kindFor(this.vocab, fieldType || this.dbdefs?.fieldType?.(null, dty) || 'freetext');
     if (this.row.kind !== 'enum') this.row.enumField = null;
-    this.row.op = this._operators()[0]?.i18nKey || null;
+    // "<record type> records" keeps "exists" as its default ("is" needs a picked record)
+    this.row.op = dty === 'exists' ? 'op.exists' : this._operators()[0]?.i18nKey || null;
     this.row.values = [''];
     this.row.geoExtent = null;
     this.row.placeholderIds = [];
@@ -236,7 +241,7 @@ export class HFilterBuilderItem extends HBaseWidget {
     this._opSel.replaceChildren();
     for (let index = 0; index < list.length; index++) {
       const op = list[index];
-      if (index > 0 && (op.i18nKey === 'op.is_set'
+      if (index > 0 && (op.i18nKey === 'op.is_set' || op.i18nKey === 'op.exists'
         || (op.i18nKey === 'op.count' && !list.some((entry) => entry.i18nKey === 'op.is_set')))) {
         const separator = document.createElement('option');
         separator.disabled = true;
@@ -388,6 +393,15 @@ export class HFilterBuilderItem extends HBaseWidget {
       return slot;
     }
 
+    // several picked linked records are always alternatives (one record cannot be two)
+    if (index >= 1 && this.row.kind === 'exists') {
+      this.row.valueConj = 'any';
+      const lbl = document.createElement('span');
+      lbl.className = 'h-fbitem-conjlabel';
+      lbl.textContent = this._conjWord();
+      return lbl;
+    }
+
     if (index === 1) {
       const sel = document.createElement('select');
       sel.className = 'h-select h-fbitem-conj';
@@ -491,6 +505,35 @@ export class HFilterBuilderItem extends HBaseWidget {
       sel.value = current;
       sel.addEventListener('change', () => set(sel.value));
       return sel;
+    }
+
+    // a linked record, picked by title (one per value line; + adds alternatives)
+    if (input === 'linkedrecord') {
+      if (!this.apiClient) {
+        const inp = document.createElement('input');
+        inp.type = 'text';
+        inp.className = 'h-input';
+        inp.placeholder = $HR('record id');
+        inp.value = current;
+        inp.addEventListener('input', () => set(inp.value.trim()));
+        return inp;
+      }
+      const host = document.createElement('div');
+      host.className = 'h-fbitem-value-widget';
+      const source = new RecordTitleSource(this.apiClient, { rtyId: this.scopeRtyId });
+      const selected = /^\d+$/.test(String(current)) ? Number(current) : null;
+      const widget = createHInput('enum', host, {
+        suppressLabel: true,
+        source,
+        value: selected,
+        multiple: false,
+        emptyLabel: $HR('— select record —')
+      });
+      host.addEventListener('h-input-change', () => set(widget.getValue() == null ? '' : String(widget.getValue())));
+      this._valueWidgets.push(widget);
+      // a saved condition: show its title once known
+      if (selected) void source.fetchLabels([selected]).then(() => widget.setValue(selected)).catch(() => {});
+      return host;
     }
 
     if (input === 'bool') {

@@ -45,11 +45,19 @@ export function kindFor(vocab, fieldType, headerKeyword = null) {
  * @param {object} vocab @param {string} kind
  * @returns {Array<{token:string,input:string,i18nKey:string,pattern?:string,whole?:boolean}>}
  */
+/**
+ * Operators of the "<record type> records" row of a linked branch: the linked
+ * record is (not) one of the picked records, or a linked record exists / is missing.
+ */
+export const LINKED_RECORD_OPERATORS = Object.freeze([
+  { token: '', input: 'linkedrecord', i18nKey: 'op.is' },
+  { token: '-', input: 'linkedrecord', i18nKey: 'op.is_not' },
+  { token: '', input: 'none', whole: true, i18nKey: 'op.exists' },
+  { token: 'NULL', input: 'none', whole: true, i18nKey: 'op.missing' }
+]);
+
 export function operatorsFor(vocab, kind) {
-  if (kind === 'exists') return [
-    { token: '', input: 'none', whole: true, i18nKey: 'op.exists' },
-    { token: 'NULL', input: 'none', whole: true, i18nKey: 'op.missing' }
-  ];
+  if (kind === 'exists') return [...LINKED_RECORD_OPERATORS];
   const own = vocab?.operators?.[kind] || [];
   const shared = (vocab?.commonAppliesTo || []).includes(kind) ? (vocab?.common || []) : [];
   const count = kind === 'none' ? [] : [{ token: '', input: 'count', i18nKey: 'op.count' }];

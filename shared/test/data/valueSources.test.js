@@ -199,3 +199,23 @@ test('FacetTermSource reduces a vocabulary to the terms in the result', async ()
   assert.deepEqual(labels(result.items), ['Europe', 'France', 'Paris', 'Asia', 'Japan']);
   assert.equal(result.complete, true);
 });
+
+test('RecordTitleSource: records of a type by title, server-side title search, labels of saved ids', async () => {
+  const { RecordTitleSource } = await import('../../src/data/valueSources/index.js');
+  const requests = [];
+  const api = { async get(path, { query }) {
+    requests.push(query);
+    if (query.q[0].ids) return { records: [{ rec_ID: '280', rec_Title: 'Rome' }] };
+    return { records: [{ rec_ID: '234', rec_Title: 'Berlin' }, { rec_ID: '235', rec_Title: '' }], pagination: { total: 2 } };
+  } };
+  const source = new RecordTitleSource(api, { rtyId: 12 });
+  const all = await source.load();
+  assert.deepEqual(all.items, [{ value: 234, label: 'Berlin' }, { value: 235, label: '#235' }]);
+  assert.equal(all.complete, true);
+  assert.deepEqual(requests[0].q, [{ t: '12' }, { sortby: 't' }]);
+  await source.load({ text: 'Ber' });
+  assert.deepEqual(requests[1].q, [{ t: '12' }, { title: 'Ber' }, { sortby: 't' }]);
+  await source.fetchLabels([280, 234]);
+  assert.deepEqual(requests[2].q, [{ ids: '280' }], 'only unknown titles are fetched');
+  assert.equal(source.labelFor(280), 'Rome');
+});

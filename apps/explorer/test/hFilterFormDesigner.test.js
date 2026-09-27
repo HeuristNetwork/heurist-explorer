@@ -172,3 +172,23 @@ test('title is a text parameter with list presentations; a picked title matches 
   assert.deepEqual(presentation.children.map((option) => option.value), ['direct', 'select', 'list-column', 'list-inline']);
   return form.destroy();
 });
+
+test('record ids with is / is not: record lists, no slider and no ranges; other operators stay numeric', () => {
+  const parameters = {
+    R: { type: 'number', fieldId: null, predicate: 'ids', operator: '', recordTypeId: 12, label: 'ids' },
+    N: { type: 'number', fieldId: null, predicate: 'ids', operator: '-', recordTypeId: 12, label: 'ids' },
+    G: { type: 'number', fieldId: null, predicate: 'ids', operator: '>', label: 'ids' }
+  };
+  const host = document.createElement('div');
+  const form = new HFilterFormDesigner().attach(host, {
+    parameters, query: [{ ids: '$R$' }, { ids: '-$N$' }, { ids: '>$G$' }],
+    layout: { version: 1, groups: [{ id: 'main', children: [{ input: 'R', mode: 'checkbox', multiple: true }, { input: 'N' }, { input: 'G' }] }] }
+  }).render();
+  const presentations = host.querySelectorAll('.h-filter-form-designer-presentation').map((select) => select.children.map((option) => option.value));
+  assert.deepEqual(presentations[0], ['direct', 'select', 'list-column', 'list-inline']);
+  assert.deepEqual(presentations[1], ['direct', 'select', 'list-column', 'list-inline']);
+  assert.ok(presentations[2].includes('select'), '"> id" stays a number (ranges)');
+  assert.equal(host.querySelectorAll('.h-filter-form-designer-ranges').length, 0, 'no "Number of ranges" for records');
+  assert.deepEqual(form.getLayout().groups[0].children[0], { input: 'R', mode: 'checkbox', multiple: true });
+  return form.destroy();
+});

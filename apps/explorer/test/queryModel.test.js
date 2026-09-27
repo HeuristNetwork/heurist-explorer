@@ -470,3 +470,20 @@ test('several owners, creators or visibilities are one comma list (not an any gr
   assert.deepEqual(compose(rows('owner', ['2', '5'], 'op.is_not')), [{ owner: '-2,5' }]);
   assert.deepEqual(compose(parseQuery([{ t: '10' }, { access: 'viewable,public' }], VOCAB)), [{ t: '10' }, { access: 'viewable,public' }]);
 });
+
+test('"<record type> records" is / is not picked records: an ids list inside the branch, read back', () => {
+  const branch = (row) => model({ rtyId: 10, rows: [{ type: 'link', link: 'lt', dty: 240, targetRty: 12, conjunction: 'all', rows: [row] }] });
+  const records = (op, values, valueConj = 'any') => fieldRow({ dty: 'exists', kind: 'exists', selected: true, op, values, valueConj });
+  assert.deepEqual(compose(branch(records('op.is', ['234']))), [{ t: '10' }, { 'lt:240': [{ t: '12' }, { ids: '234' }] }]);
+  assert.deepEqual(compose(branch(records('op.is_not', ['234']))), [{ t: '10' }, { 'lt:240': [{ t: '12' }, { ids: '-234' }] }]);
+  assert.deepEqual(compose(branch(records('op.is', ['234', '', '235', '280']))), [{ t: '10' }, { 'lt:240': [{ t: '12' }, { ids: '234,235,280' }] }]);
+  // AND cannot apply to one linked record: still one list (OR)
+  assert.deepEqual(compose(branch(records('op.is', ['234', '235'], 'all'))), [{ t: '10' }, { 'lt:240': [{ t: '12' }, { ids: '234,235' }] }]);
+  assert.deepEqual(compose(branch(records('op.missing', ['']))), [{ t: '10' }, { 'lt:240': [{ t: '12' }, { exists: 'NULL' }] }]);
+  const parsed = parseQuery([{ t: '10' }, { 'lt:240': [{ t: '12' }, { ids: '-234,235' }] }], VOCAB).rows[0].rows[0];
+  assert.equal(parsed.dty, 'exists');
+  assert.equal(parsed.op, 'op.is_not');
+  assert.deepEqual(parsed.values, ['234', '235']);
+  assert.deepEqual(compose(parseQuery([{ t: '10' }, { 'lt:240': [{ t: '12' }, { id: '234' }] }], VOCAB)),
+    [{ t: '10' }, { 'lt:240': [{ t: '12' }, { ids: '234' }] }]);
+});
