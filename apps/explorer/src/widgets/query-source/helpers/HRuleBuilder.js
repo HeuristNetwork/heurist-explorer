@@ -5,6 +5,8 @@
  * Reimplements the legacy hclient/widgets/search/ruleBuilder dialog without
  * jQuery, iframe or host callbacks. Persisted rule objects remain unchanged:
  *   { query: Object, levels: Array<Object> }
+ * An empty parent query (`{"t":10,"lf":[]}`) starts from any record type, i.e.
+ * the parent result; `connected` follows pointers and relationships.
  *
  * @project     Heurist academic knowledge management system
  * @package     heurist-explorer
@@ -14,12 +16,30 @@
 
 import { HBaseWidget } from '#shared/widgets/HBaseWidget.js';
 import { $HR, HMsg } from '#shared/ui';
+import { createHInput } from '#shared/widgets/form/inputs/createHInput.js';
+import { TermSource } from '#shared/data/valueSources/index.js';
 import { HFilterBuilder, hideUnusedToggle } from '../../filter-builder/HFilterBuilder.js';
 import queryVocabulary from '../../../utils/queryVocabulary.json' with { type: 'json' };
 import './QuerySourceHelpers.css';
 
 const MAX_LEVEL = 3;
-const LINK_NAMES = ['links', 'lt', 'lf', 'rt', 'rf', 'related'];
+const LINK_NAMES = ['connected', 'links', 'lt', 'lf', 'rt', 'rf', 'related'];
+/** Source/target select value for "Any record type" (an empty parent query). */
+export const ANY_TYPE = '*';
+/**
+ * Traversals without a field, in menu order. `rf`/`rt` are offered only to keep
+ * a loaded rule that uses them.
+ */
+const GENERIC_KINDS = [
+  { kind: 'connected', label: 'Any pointer or relationship', pointers: true, relations: true },
+  { kind: 'links', label: 'Any pointer', pointers: true },
+  { kind: 'lf', label: 'Any outgoing pointer', pointers: true, reverse: false },
+  { kind: 'lt', label: 'Any incoming pointer', pointers: true, reverse: true },
+  { kind: 'related', label: 'Any relationship', relations: true },
+  { kind: 'rf', label: 'Any outgoing relationship', relations: true, reverse: false, legacyOnly: true },
+  { kind: 'rt', label: 'Any incoming relationship', relations: true, reverse: true, legacyOnly: true }
+];
+const genericKey = (kind) => `any:${kind}`;
 
 /** Native expansion-rule editor. `open()` is the dialog facade used by QuerySourceEditor. */
 export class HRuleBuilder extends HBaseWidget {
@@ -53,10 +73,10 @@ export class HRuleBuilder extends HBaseWidget {
     return clone(this.rules);
   }
 
-  /** Restrict the starting type(s) of first-level rules. */
+  /** Record type(s) of the current data source: listed first and preselected in new rules. */
   setRecordTypes(recordTypes) {
     const values = Array.isArray(recordTypes) ? recordTypes : [recordTypes];
-    this.recordTypes = values.map(Number).filter((id) => id > 0);
+    this.recordTypes = [...new Set(values.map(Number).filter((id) => id > 0))];
     return this;
   }
 
@@ -118,6 +138,7 @@ export class HRuleBuilder extends HBaseWidget {
     this._list = document.createElement('div');
     this._list.className = 'h-rule-builder-list';
     this._add = button(`+ ${$HR('Add rule')}`, $HR('Add expansion rule'), () => this._addRoot());
+    this._add.classList.add('h-rule-add');
     this.container.append(head, this._list, this._add);
     this.state = 'rendered';
     this._syncRows();
@@ -130,13 +151,13 @@ export class HRuleBuilder extends HBaseWidget {
     return super.destroy();
   }
 
+  /** Rebuild rows from `rules`. With no rules the list stays empty until "Add rule". */
   _syncRows() {
     if (!this._list) return;
     for (const row of this._rows) row.destroy();
     this._rows = [];
     this._list.replaceChildren();
     for (const rule of this.rules) this._addRoot(rule);
-    if (!this._rows.length) this._addRoot();
   }
 
   _addRoot(rule = null) {
@@ -170,27 +191,31 @@ class RuleRow {
     this.onRemove = onRemove;
     this.children = [];
     this._initial = rule ? decodeRule(rule) : null;
-    this._genericKind = this._initial?.kind === 'related' ? 'related' : null;
+    this._relationWidget = null;
+    this._relationValue = this._initial?.relation || 0;
 
     this.element = document.createElement('div');
     this.element.className = 'h-rule-row-wrap';
+    this.element.style.setProperty('--h-rule-depth', String(this.level - 1));
     this._render();
   }
 
   destroy() {
     for (const child of this.children) child.destroy();
     this.children = [];
+    void this._relationWidget?.destroy?.();
+    this._relationWidget = null;
   }
 
   /** Rebuild the selectors after the "hide record types without records" preference changed. */
   refresh() {
-    const saved = { source: this.source.value, field: this.field.value, relation: this.relation.value, target: this.target.value };
+    const saved = { source: this.source.value, field: this.field.value, target: this.target.value };
+    this._relationValue = this._relation();
     this._fillSources();
-    this.source.value = saved.source;
+    if ([...this.source.options].some((option) => option.value === saved.source)) this.source.value = saved.source;
     this._sourceChanged();
     if (this._fields.has(saved.field)) this.field.value = saved.field;
     this._fieldChanged();
-    this.relation.value = saved.relation;
     if ([...this.target.options].some((option) => option.value === saved.target)) this.target.value = saved.target;
     this._syncParentLock();
     this._syncAddStep();
@@ -202,13 +227,20 @@ class RuleRow {
     return !this.prefs.hideUnused || keep.has(String(id)) || this.dbdefs.isRectypeUsed?.(id) !== false;
   }
 
+  /** Selected source type; 0 for "Any record type". */
+  _source() {
+    return this.source.value === ANY_TYPE ? 0 : (Number(this.source.value) || 0);
+  }
+
+  _relation() {
+    return this._relationWidget ? (Number(this._relationWidget.getValue()) || 0) : 0;
+  }
+
   getRule() {
-    const source = Number(this.source.value) || 0;
-    if (!source) return null;
+    const source = this._source();
     const selected = this._fields.get(this.field.value) || null;
     const target = Number(this.target.value) || 0;
-    const relation = Number(this.relation.value) || 0;
-    const query = encodeRuleQuery({ source, selected, target, relation, filter: this.filter.value, kindOverride: !selected ? this._genericKind : null });
+    const query = encodeRuleQuery({ source, selected, target, relation: this._relation(), filter: this.filter.value });
     const rule = { query, levels: this.children.map((child) => child.getRule()).filter(Boolean) };
     return Object.assign(rule, describeExpansionRule(rule, this.dbdefs));
   }
@@ -216,7 +248,6 @@ class RuleRow {
   _render() {
     const card = document.createElement('div');
     card.className = 'h-rule-row';
-    card.style.setProperty('--h-rule-depth', String(this.level - 1));
 
     const step = document.createElement('span');
     step.className = 'h-rule-step';
@@ -224,7 +255,9 @@ class RuleRow {
 
     this.source = select('h-rule-source', $HR('Starting record type'));
     this.field = select('h-rule-field', $HR('Pointer or relationship'));
-    this.relation = select('h-rule-relation', $HR('Relationship type'));
+    this.relation = document.createElement('div');
+    this.relation.className = 'h-rule-relation';
+    this.relation.title = $HR('Relationship type');
     this.target = select('h-rule-target', $HR('Target record type'));
     this.filter = document.createElement('input');
     this.filter.type = 'text';
@@ -240,11 +273,11 @@ class RuleRow {
     this.childHost.className = 'h-rule-children';
     this.addStep = button(`+ ${$HR('Add step')}`, $HR('Add another step to this rule'), () => this._addChild());
     this.addStep.classList.add('h-btn-small', 'h-rule-add-step');
-    if (this.level >= MAX_LEVEL) this.addStep.hidden = true;
+    this.addStep.hidden = this.level >= MAX_LEVEL;
 
     this.element.append(card, this.addStep, this.childHost);
     this.source.addEventListener('change', () => this._sourceChanged());
-    this.field.addEventListener('change', () => { this._genericKind = null; this._fieldChanged(); });
+    this.field.addEventListener('change', () => { this._relationValue = 0; this._fieldChanged(); });
     this.target.addEventListener('change', () => this._syncAddStep());
 
     this._fillSources();
@@ -254,70 +287,76 @@ class RuleRow {
 
   _fillSources() {
     const keep = new Set([this.source.value, String(this._initial?.source || '')]);
-    const allowed = this.fixedSourceType ? [this.fixedSourceType]
-      : (this.recordTypes.length ? this.recordTypes : this.dbdefs.rectypes().map((rt) => rt.id))
-        .filter((id) => this._offered(id, keep));
     this.source.replaceChildren();
-    if (!this.fixedSourceType && allowed.length !== 1) addOption(this.source, '', $HR('select…'));
-    for (const id of allowed) addOption(this.source, id, this.dbdefs.rectypeName(id) || String(id));
     if (this.fixedSourceType) {
+      addOption(this.source, this.fixedSourceType, this.dbdefs.rectypeName(this.fixedSourceType) || String(this.fixedSourceType));
       this.source.value = String(this.fixedSourceType);
       this.source.disabled = true;
+      return;
     }
+    fillGroups(this.source, rectypeOptionGroups(this.dbdefs, {
+      priority: this.recordTypes,
+      offered: (id) => this._offered(id, keep),
+      any: true
+    }));
+    // a new rule starts from the data source's record type
+    if (!this._initial && this.recordTypes.length) this.source.value = String(this.recordTypes[0]);
   }
 
   _sourceChanged() {
-    const source = Number(this.source.value) || 0;
+    const source = this._source();
     const current = this.field.value;
     const keep = new Set([current, this._initial?.fieldKey || '']);
     // a reverse pointer is hidden when the record type holding it has no records
-    this._fields = new Map([...collectLinkFields(this.dbdefs, source)]
-      .filter(([key, item]) => !item.reverse || keep.has(key) || this._offered(item.targets[0], keep)));
-    this.field.replaceChildren();
-    const values = [...this._fields.values()];
-    const hasPointer = values.some((x) => !x.isRelation);
-    const hasRelation = values.some((x) => x.isRelation);
-    addOption(this.field, '', hasPointer && hasRelation ? $HR('Any pointer or relationship') : hasRelation ? $HR('Any relationship') : $HR('Any pointer'));
-    for (const item of values.filter((x) => !x.reverse)) addOption(this.field, item.key, item.label);
-    for (const item of values.filter((x) => x.reverse)) addOption(this.field, item.key, item.label);
-    this.field.value = this._fields.has(current) ? current : '';
+    const fields = [...collectLinkFields(this.dbdefs, source)]
+      .filter(([key, item]) => !item.reverse || keep.has(key) || this._offered(item.targets[0], keep));
+    const groups = fieldOptionGroups(new Map(fields), { anySource: !source, keep: this._initial?.fieldKey || '' });
+    this._fields = new Map(groups.flatMap((group) => group.options.map((option) => [option.value, option.item])));
+    fillGroups(this.field, groups);
+    this.field.value = this._fields.has(current) ? current : (groups[0]?.options[0]?.value ?? '');
     this._fieldChanged();
   }
 
   _fieldChanged() {
     const item = this._fields.get(this.field.value) || null;
-    this.relation.replaceChildren();
-    this.relation.hidden = !item?.isRelation;
-    this.relation.disabled = !item?.isRelation;
-    if (item?.isRelation) {
-      addOption(this.relation, '', $HR('Any relationship type'));
-      const root = Number(item.vocabulary) || 0;
-      const terms = root ? this.dbdefs.termTree(root, { flat: true }) : [];
-      for (const term of terms) {
-        if (Number(term.id) === root) continue;
-        addOption(this.relation, term.id, term.label || String(term.id));
-      }
-    } else {
-      addOption(this.relation, '', '');
-    }
+    this._renderRelation(item);
 
     const keep = new Set([this.target.value, String(this._initial?.target || '')]);
+    const allTypes = () => this.dbdefs.rectypes().map((rt) => Number(rt.id));
+    const targets = linkTargets(item, this._fields, allTypes).filter((id) => this._offered(id, keep));
     this.target.replaceChildren();
-    const targets = (item ? item.targets : collectAnyTargets(this._fields)).filter((id) => this._offered(id, keep));
-    if (targets.length !== 1) addOption(this.target, '', $HR('Any record type'));
-    for (const id of targets) addOption(this.target, id, this.dbdefs.rectypeName(id) || String(id));
+    if (targets.length === 1) addOption(this.target, targets[0], this.dbdefs.rectypeName(targets[0]) || String(targets[0]));
+    else fillGroups(this.target, rectypeOptionGroups(this.dbdefs, { ids: targets, any: true, anyValue: '' }));
     if (targets.length === 1) this.target.value = String(targets[0]);
     this.target.disabled = targets.length <= 1;
     this._syncAddStep();
   }
 
+  /** Relationship-type picker for a relation-marker field; hidden otherwise. */
+  _renderRelation(item) {
+    void this._relationWidget?.destroy?.();
+    this._relationWidget = null;
+    this.relation.replaceChildren();
+    const vocabulary = item?.isRelation ? Number(item.vocabulary) || 0 : 0;
+    this.relation.hidden = !vocabulary;
+    if (!vocabulary) return;
+    // own host per picker: a replaced picker's async destroy() clears its container later
+    const host = document.createElement('div');
+    this.relation.append(host);
+    this._relationWidget = createHInput('enum', host, {
+      suppressLabel: true,
+      source: new TermSource(this.dbdefs, vocabulary),
+      value: this._relationValue || null,
+      multiple: false,
+      emptyLabel: $HR('Any relationship type')
+    });
+  }
+
   _restore(data) {
-    this.source.value = data.source ? String(data.source) : this.source.value;
+    this.source.value = this.fixedSourceType ? String(this.fixedSourceType) : (data.source ? String(data.source) : ANY_TYPE);
     this._sourceChanged();
-    if (data.fieldKey && this._fields.has(data.fieldKey)) this.field.value = data.fieldKey;
-    else this.field.value = '';
+    if (this._fields.has(data.fieldKey)) this.field.value = data.fieldKey;
     this._fieldChanged();
-    if (data.relation) this.relation.value = String(data.relation);
     if (data.target) this.target.value = String(data.target);
     this.filter.value = data.filter || '';
     for (const rule of data.levels || []) this._addChild(rule);
@@ -352,7 +391,7 @@ class RuleRow {
     const locked = this.children.length > 0;
     this.source.disabled = locked || Boolean(this.fixedSourceType);
     this.field.disabled = locked;
-    this.relation.disabled = locked || this.relation.hidden;
+    this._relationWidget?.setReadOnly?.(locked);
     this.target.disabled = locked || this.target.options.length <= 1;
   }
 
@@ -396,7 +435,7 @@ class RuleRow {
   }
 }
 
-/** Decode the stable persisted rule format into editor values. */
+/** Decode the stable persisted rule format into editor values. `source` 0 = any record type. */
 export function decodeRule(rule) {
   const query = rule?.query && typeof rule.query === 'object' && !Array.isArray(rule.query) ? rule.query : {};
   const linkKey = Object.keys(query).find((key) => LINK_NAMES.includes(key.split(':')[0])) || '';
@@ -407,7 +446,7 @@ export function decodeRule(rule) {
   const target = Number(query.t) || 0;
   const fieldId = Number(fieldPart) || 0;
   const reverse = kind === 'lt' || kind === 'rt';
-  const fieldKey = fieldId ? `${fieldId}${reverse ? `r${target || ''}` : ''}` : '';
+  const fieldKey = fieldId ? `${fieldId}${reverse ? `r${target || ''}` : ''}` : genericKey(kind);
   const extras = Object.entries(query).filter(([key]) => key !== 't' && key !== linkKey);
   let filter = '';
   if (extras.length === 1 && extras[0][0] === 'plain') filter = String(extras[0][1] ?? '');
@@ -415,16 +454,20 @@ export function decodeRule(rule) {
   return { source, target, relation, kind, fieldId, fieldKey, filter, levels: Array.isArray(rule?.levels) ? rule.levels : [] };
 }
 
-/** Encode one editor row using the same query form produced by the legacy ruleBuilder. */
+/**
+ * Encode one editor row using the query form produced by the legacy ruleBuilder.
+ * `selected` is a field item, a generic `{ generic: kind }`, or null (`kindOverride` or links).
+ * Source 0 (any record type) gives an empty parent query: the parent result.
+ */
 export function encodeRuleQuery({ source, selected, target = 0, relation = 0, filter = '', kindOverride = null }) {
-  let kind = kindOverride === 'related' ? 'related' : 'links';
-  if (selected) {
+  let kind = selected?.generic || (kindOverride === 'related' ? 'related' : 'links');
+  if (selected && !selected.generic) {
     if (selected.isRelation) kind = selected.reverse ? 'rt' : 'rf';
     else kind = selected.reverse ? 'lt' : 'lf';
   }
   const key = selected?.id ? `${kind}:${selected.id}` : kind;
   const query = target > 0 ? { t: target } : {};
-  query[key] = [{ t: source }];
+  query[key] = source > 0 ? [{ t: source }] : [];
   if (selected?.isRelation && relation > 0) query[key].push({ r: relation });
   mergeFilter(query, filter);
   return query;
@@ -436,11 +479,12 @@ export function describeExpansionRule(rule, dbdefs) {
   const typeName = (id) => id ? (dbdefs.rectypeName(id) || `${$HR('Record type')} ${id}`) : $HR('Records');
   const step = (value) => {
     const q = predicates(value?.query);
-    const key = Object.keys(q).find((item) => /^(lf|lt|rf|rt|links|related)(:|$)/.test(item)) || 'links';
+    const key = Object.keys(q).find((item) => /^(lf|lt|rf|rt|links|related|connected)(:|$)/.test(item)) || 'links';
     const parent = predicates(q[key]);
     const arrow = /^(lf|rf)(:|$)/.test(key) ? ' → ' : /^(lt|rt)(:|$)/.test(key) ? ' ← ' : ' ↔ ';
     const fieldId = Number(key.split(':')[1]) || 0;
-    const field = fieldId ? (dbdefs.fieldGlobal(fieldId)?.name || `${$HR('Field')} ${fieldId}`) : $HR('Links');
+    const generic = GENERIC_KINDS.find((item) => item.kind === key.split(':')[0]);
+    const field = fieldId ? (dbdefs.fieldGlobal(fieldId)?.name || `${$HR('Field')} ${fieldId}`) : $HR(generic?.label || 'Links');
     return { source: typeName(parent.t), target: typeName(q.t), arrow, field };
   };
   const continuation = (value) => {
@@ -465,6 +509,116 @@ export function describeExpansionRule(rule, dbdefs) {
   };
   const first = step(rule);
   return { name: first.source + continuation(rule), description: paths(rule, first.source).join('\n') };
+}
+
+/**
+ * Record-type select groups: "Any record type" first, then the priority types
+ * (current data source), then every rectype group, alphabetical within a group.
+ *
+ * @param {object} dbdefs HDbDefs.
+ * @param {object} [options]
+ * @param {number[]} [options.priority] Types listed first (and not repeated below).
+ * @param {number[]} [options.ids] Restrict to these types (default: every rectype).
+ * @param {Function} [options.offered] `(id) => boolean` visibility filter.
+ * @param {boolean} [options.any] Add the "Any record type" entry.
+ * @param {string} [options.anyValue] Its option value (default `*`).
+ * @returns {Array<{label: string, options: Array<{value: string, label: string}>}>} Groups; label '' = no optgroup.
+ */
+export function rectypeOptionGroups(dbdefs, { priority = [], ids = null, offered = () => true, any = false, anyValue = ANY_TYPE } = {}) {
+  const allowed = ids ? new Set(ids.map(Number)) : null;
+  const types = dbdefs.rectypes().filter((rt) => (!allowed || allowed.has(Number(rt.id))) && offered(Number(rt.id)));
+  const option = (rt) => ({ value: String(rt.id), label: rt.name || dbdefs.rectypeName(rt.id) || String(rt.id) });
+  const byName = (a, b) => String(a.label).localeCompare(String(b.label));
+  const groups = [];
+  if (any) groups.push({ label: '', options: [{ value: anyValue, label: $HR('Any record type') }] });
+
+  const first = priority.map(Number).filter((id) => types.some((rt) => Number(rt.id) === id));
+  if (first.length) {
+    groups.push({ label: $HR('Current data source'), options: first.map((id) => option(types.find((rt) => Number(rt.id) === id))) });
+  }
+  const rest = types.filter((rt) => !first.includes(Number(rt.id)));
+  const named = new Map((dbdefs.rectypeGroups?.() || []).map((group) => [String(group.id), group.name]));
+  const byGroup = new Map();
+  for (const rt of rest) {
+    const key = rt.group != null && named.has(String(rt.group)) ? String(rt.group) : '';
+    if (!byGroup.has(key)) byGroup.set(key, []);
+    byGroup.get(key).push(option(rt));
+  }
+  // rectypes() is already in group display order
+  for (const [key, options] of byGroup) {
+    groups.push({ label: key ? named.get(key) : (named.size ? $HR('Other') : ''), options: options.sort(byName) });
+  }
+  return groups;
+}
+
+/**
+ * Pointer/relationship select groups: the generic traversals first, then this
+ * type's pointer and relationship fields, then fields referencing it.
+ *
+ * @param {Map<string, object>} fields `collectLinkFields` result.
+ * @param {object} [options]
+ * @param {boolean} [options.anySource] Source is any record type: only the generic group.
+ * @param {string} [options.keep] Key of a loaded rule's traversal, kept even when not otherwise offered.
+ * @returns {Array<{label: string, options: Array<{value: string, label: string, item: object}>}>} Groups.
+ */
+export function fieldOptionGroups(fields, { anySource = false, keep = '' } = {}) {
+  const items = [...fields.values()];
+  const has = (test) => anySource || items.some(test);
+  const available = {
+    pointers: has((x) => !x.isRelation), relations: has((x) => x.isRelation),
+    forward: has((x) => !x.isRelation && !x.reverse), backward: has((x) => !x.isRelation && x.reverse)
+  };
+  const generic = GENERIC_KINDS.filter((spec) => {
+    if (genericKey(spec.kind) === keep) return true;
+    if (spec.legacyOnly) return false;
+    if (spec.pointers && !available.pointers) return false;
+    if (spec.relations && !available.relations) return false;
+    if (spec.reverse === false && spec.pointers) return available.forward;
+    if (spec.reverse === true && spec.pointers) return available.backward;
+    return true;
+  }).map((spec) => ({ value: genericKey(spec.kind), label: $HR(spec.label), item: { generic: spec.kind } }));
+
+  const groups = [{ label: $HR('Any'), options: generic }];
+  if (anySource) return groups.filter((group) => group.options.length);
+  const option = (item) => ({ value: item.key, label: item.label, item });
+  const forward = items.filter((x) => !x.reverse);
+  const reverse = items.filter((x) => x.reverse);
+  if (forward.length) {
+    const pointers = forward.some((x) => !x.isRelation);
+    const relations = forward.some((x) => x.isRelation);
+    const label = pointers && relations ? 'Pointers > and Relationships >>' : (pointers ? 'Pointers >' : 'Relationships >>');
+    groups.push({ label: $HR(label), options: forward.map(option) });
+  }
+  if (reverse.length) groups.push({ label: $HR('Referenced by'), options: reverse.map(option) });
+  return groups.filter((group) => group.options.length);
+}
+
+/**
+ * Target types for a traversal: a field's target types, or for a generic kind the
+ * targets of the matching fields. All types when the source is any record type
+ * or a matching pointer is unconstrained.
+ */
+export function linkTargets(item, fields, allTypes) {
+  if (item && !item.generic) return item.targets.length ? item.targets : allTypes();
+  const kind = item?.generic || 'links';
+  const matches = [...fields.values()].filter((x) => !x.generic && matchesKind(x, kind));
+  if (!matches.length || matches.some((x) => !x.targets.length)) return allTypes();
+  const ids = new Set();
+  for (const x of matches) for (const id of x.targets) if (Number(id) > 0) ids.add(Number(id));
+  return [...ids];
+}
+
+function matchesKind(item, kind) {
+  switch (kind) {
+    case 'connected': return true;
+    case 'links': return !item.isRelation;
+    case 'lf': return !item.isRelation && !item.reverse;
+    case 'lt': return !item.isRelation && item.reverse;
+    case 'related': return item.isRelation;
+    case 'rf': return item.isRelation && !item.reverse;
+    case 'rt': return item.isRelation && item.reverse;
+    default: return false;
+  }
 }
 
 function collectLinkFields(dbdefs, source) {
@@ -500,12 +654,6 @@ function collectLinkFields(dbdefs, source) {
   return map;
 }
 
-function collectAnyTargets(fields) {
-  const ids = new Set();
-  for (const item of fields.values()) for (const id of item.targets) if (Number(id) > 0) ids.add(Number(id));
-  return [...ids].sort((a, b) => a - b);
-}
-
 function mergeFilter(query, text) {
   const value = String(text || '').trim();
   if (!value) return;
@@ -520,6 +668,20 @@ function mergeFilter(query, text) {
     if (merged) return;
   } catch { /* plain legacy query fragment */ }
   query.plain = value;
+}
+
+/** Replace a select's options with groups; a group without a label is added ungrouped. */
+function fillGroups(selectEl, groups) {
+  selectEl.replaceChildren();
+  for (const group of groups) {
+    let parent = selectEl;
+    if (group.label) {
+      parent = document.createElement('optgroup');
+      parent.label = group.label;
+      selectEl.append(parent);
+    }
+    for (const option of group.options) addOption(parent, option.value, option.label);
+  }
 }
 
 export function filterToBuilderQuery(filter, target) {

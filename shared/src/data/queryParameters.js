@@ -19,7 +19,7 @@ const TOKEN = /\$([A-Za-z][A-Za-z0-9_]*)\$/g;
 /** A value that is one token behind an optional operator, e.g. `=$X1$` or `-$X1$`. */
 const WHOLE_TOKEN = /^([-=~@!<>]*)\$([A-Za-z][A-Za-z0-9_]*)\$$/;
 /** Link keys whose value is a sub-query of other records. */
-const NESTED_KEY = /^(?:lt|lf|rt|rf|related|links)(?::|$)/;
+const NESTED_KEY = /^(?:lt|lf|rt|rf|related|links|connected)(?::|$)/;
 
 /** Return parameter names in query order, without duplicates. */
 export function queryParameterNames(query) {
