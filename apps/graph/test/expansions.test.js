@@ -70,6 +70,8 @@ test('forks use parent targets; prune drops descendants while overlap with base 
     return field==='2' ? { ids:[2,4], edges:[edge(3,2,2),edge(3,4,2)] } : { ids:[4,5], edges:[edge(3,4,3),edge(3,5,3)] };
   });
   await enable(0);
+  assert.deepEqual(app.graph.recordIds, [1,2,3], 'checking a rule loads it to the current level only');
+  await app.setExpansionDepth(2);
   assert.deepEqual(app.graph.recordIds, [1,2,3,4,5]);
   await app.pruneExpansion();
   assert.deepEqual(app.graph.recordIds, [1,2,3]);
@@ -127,18 +129,6 @@ test('late response cannot resurrect an unchecked rule or a replaced graph', asy
   assert.deepEqual(app.graph.recordIds, [1,2]);
 });
 
-test('selected-node descendants suspend when their seed loses its last source', async () => {
-  const { app, enable } = await fixture([rule(1),rule(2)], async (field, seeds) => field==='1'
-    ? { ids:seeds.includes(1) ? [3] : [], edges:seeds.includes(1) ? [edge(1,3)] : [] }
-    : { ids:seeds.includes(3) ? [4] : [], edges:seeds.includes(3) ? [edge(3,4,2)] : [] });
-  await enable(0); await enable(1); await app.expandNode(3);
-  assert.deepEqual(app.graph.recordIds, [1,2,3,4]);
-  await app.setRuleEnabled(app.getLegend().rules[0].id, false);
-  assert.deepEqual(app.graph.recordIds, [1,2]);
-  await enable(0);
-  assert.deepEqual(app.graph.recordIds, [1,2,3,4]);
-});
-
 test('source overrides stay local to their Query Source and Current Results', async () => {
   const { app } = await fixture([], async () => ({ ids:[], edges:[] }));
   app.querySourceProvider = { load:async id => ({ title:`Query Source ${id}`, source:{query:'t:10'}, rules:[rule(id)] }) };
@@ -172,13 +162,61 @@ test('prune uses the displayed effective depth after the longest rule is uncheck
   assert.equal(app.getExpansionState().depth, 0);
 });
 
-test('a multi-selection keeps the surviving seed contribution when another seed disappears', async () => {
-  const { app, enable } = await fixture([rule(1),rule(2)], async (field,seeds) => {
-    if(field==='1') return { ids:seeds.includes(1)?[3]:[], edges:seeds.includes(1)?[edge(1,3)]:[] };
-    return { ids:seeds.includes(3)?[4]:[5], edges:seeds.includes(3)?[edge(3,4,2)]:[edge(2,5,2)] };
-  });
-  await enable(0); await enable(1);
-  await app.setExpansionDepth(1,[2,3]);
-  await app.setRuleEnabled(app.getLegend().rules[0].id,false);
-  assert.deepEqual(app.graph.recordIds,[1,2,5]);
+
+test('the level applies to the whole graph and ignores the selection', async () => {
+  const { app, enable } = await fixture([rule(1, [rule(2)])], async field => field === '1'
+    ? { ids:[3], edges:[edge(1,3)] } : { ids:[4], edges:[edge(3,4,2)] });
+  await enable(0);
+  await app.setSelection([2]);
+  await app.advanceExpansion();
+  assert.equal(app.getExpansionState().depth, 2);
+  assert.deepEqual(app.graph.recordIds, [1,2,3,4]);
+});
+
+test('changed rules apply without reloading: cache, enabled state and level are kept', async () => {
+  const { app, enable, calls } = await fixture([rule(1)], async field => ({ ids:[Number(field)+2], edges:[edge(1,Number(field)+2)] }));
+  let loads = 0;
+  const load = app.load.bind(app);
+  app.load = (...args) => { loads += 1; return load(...args); };
+  await enable(0);
+  // the rule grows a step: its first level is reused, the rule stays checked
+  await app.setDataSourceRules([rule(1, [rule(2)])]);
+  assert.equal(app.getLegend().rules[0].enabled, true);
+  assert.equal(app.getExpansionState().depth, 1);
+  await app.advanceExpansion();
+  assert.deepEqual(app.graph.recordIds, [1,2,3,4]);
+  assert.equal(calls.length, 2, 'only the new step is fetched');
+  assert.equal(loads, 0, 'the base graph is not reloaded');
+});
+
+test('a DataSource that differs only in rules does not reload the graph', async () => {
+  const { app } = await fixture([], async () => ({ ids:[], edges:[] }));
+  await app.setDataSource({ request:{ q:'t:10', rules:[] } });
+  let loads = 0;
+  const load = app.load.bind(app);
+  app.load = (...args) => { loads += 1; return load(...args); };
+  await app.setDataSource({ request:{ q:'t:10', rules:[rule(1)] } });
+  assert.equal(loads, 0);
+  assert.deepEqual(app.getExpansionRules(), [rule(1)]);
+  await app.setDataSource({ request:{ q:'t:48', rules:[rule(1)] } });
+  assert.equal(loads, 1, 'a new query reloads');
+});
+
+test('quick expansion saves a connected step through the host and shows it (authors only)', async () => {
+  const { app } = await fixture([rule(1)], async (field, seeds) => ({ ids:[9], edges:[edge(seeds[0],9)] }));
+  assert.equal(app.canQuickExpand(), false, 'hidden without the host capability');
+  let saved = null;
+  app.host = {
+    getCapabilities: () => ({ rulesEditing:true }),
+    updateRules: async (rules) => { saved = rules; await app.setDataSourceRules(rules); return rules; },
+  };
+  app.provider.load = async request => {
+    if (!request.rule) return { graph:graph([1,2]), total:2 };
+    return { graph:graph([...request.query.ids, 9], [edge(request.query.ids[0], 9)]), expansion:{ targetIds:[9] } };
+  };
+  assert.equal(app.canQuickExpand(), true);
+  assert.equal(await app.quickExpand(), true);
+  assert.deepEqual(saved[0].levels, [{ query:{ connected:[{ t:10 }] }, levels:[] }]);
+  assert.equal(app.getExpansionState().depth, 2);
+  assert.equal(app.getLegend().rules[0].enabled, true);
 });

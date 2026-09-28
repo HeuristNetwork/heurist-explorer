@@ -37,7 +37,12 @@
 .h-rule-step { font-size:var(--h-font-size-small); color:var(--h-color-text-muted); white-space:nowrap; }
 .h-rule-source,.h-rule-field,.h-rule-relation,.h-rule-target,.h-rule-filter { min-width:0; width:100%; }
 .h-rule-relation[hidden] { display:block; visibility:hidden; }
+.h-rule-source .h-form-input-control,.h-rule-source .h-input-enum-combo,.h-rule-target .h-form-input-control,.h-rule-target .h-input-enum-combo,
 .h-rule-relation .h-form-input-control,.h-rule-relation .h-input-enum-combo { min-width:0; width:100%; }
+.h-rule-preview { display:flex; flex-direction:column; gap:4px; border-top:1px solid var(--h-color-border); padding-top:6px; }
+.h-rule-preview-toggle { display:inline-flex; align-items:center; gap:4px; font-size:var(--h-font-size-small); }
+.h-rule-preview-text { width:100%; min-height:140px; max-height:30vh; font-family:monospace; font-size:var(--h-font-size-small); resize:vertical; box-sizing:border-box; }
+.h-rule-preview-text[hidden] { display:none; }
 .h-rule-icon { min-width:28px; padding-inline:5px; }
 .h-rule-add-step { align-self:flex-start; margin-left:calc((var(--h-rule-depth,0) + 1) * 22px); }
 /* .h-btn sets display, which would otherwise override [hidden] (no step after Step 2) */

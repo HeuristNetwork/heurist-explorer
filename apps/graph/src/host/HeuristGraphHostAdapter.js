@@ -40,18 +40,37 @@ export class HeuristGraphHostAdapter extends HostAdapter {
   describeRules(rules) { return this.bridge?.describeRules?.(rules) || rules; }
 
   /**
-   * Return optional capabilities: editing support, whether graph preferences/publishing are
-   * configured, and whether the host can display the active DataSource.
+   * Ask the host to edit the active DataSource's expansion rules in its dialog.
+   * The host applies the result back through `setDataSourceRules`.
    *
-   * @returns {{editing: boolean, graphPreferences: boolean, graphPublishing: boolean, showDatasource?: boolean}}
+   * @returns {Promise<Array<object>|null>} Applied rules, or `null` when cancelled/unsupported.
+   */
+  async editRules() { return (await this.bridge?.editRules?.()) ?? null; }
+
+  /**
+   * Ask the host to save new expansion rules into the active DataSource and apply them.
+   *
+   * @param {Array<object>} rules New expansion rules.
+   * @returns {Promise<Array<object>|null>} Applied rules, or `null` when unsupported.
+   */
+  async updateRules(rules) { return (await this.bridge?.updateRules?.(rules)) ?? null; }
+
+  /**
+   * Return optional capabilities: editing support, whether graph preferences/publishing are
+   * configured, whether the host can display the active DataSource, and whether it lets
+   * this view edit the DataSource's expansion rules (authors only).
+   *
+   * @returns {{editing: boolean, graphPreferences: boolean, graphPublishing: boolean, showDatasource?: boolean, rulesEditing?: boolean}}
    */
   getCapabilities() {
     const showDatasource = typeof this.bridge?.showDatasource === "function";
+    const rulesEditing = typeof this.bridge?.updateRules === "function" && this.bridge?.canEditRules?.() === true;
     return {
       editing: this.supportsEditing(),
       graphPreferences: Boolean(this.baseUrl && this.database),
       graphPublishing: Boolean(this.baseUrl && this.database),
       ...(showDatasource ? { showDatasource: true } : {}),
+      ...(rulesEditing ? { rulesEditing: true } : {}),
     };
   }
 

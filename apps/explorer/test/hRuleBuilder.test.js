@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { HRuleBuilder, decodeRule, encodeRuleQuery, describeExpansionRule, fieldOptionGroups, linkTargets, rectypeOptionGroups, ANY_TYPE } from '../src/widgets/query-source/helpers/HRuleBuilder.js';
+import { HRuleBuilder, decodeRule, encodeRuleQuery, describeExpansionRule, fieldOptionGroups, linkTargets, rulesPreview } from '../src/widgets/query-source/helpers/HRuleBuilder.js';
 
 const dbdefs = {
   rectypes: () => [{ id: 5, name: 'Person' }, { id: 10, name: 'Place' }],
@@ -113,20 +113,23 @@ test('generic traversal targets come from the matching fields', () => {
   assert.deepEqual(linkTargets(fields.get('15'), fields, all), [10]);
 });
 
-test('source list: any, current data source, then rectype groups sorted by name', () => {
-  const defs = {
-    rectypes: () => [
-      { id: 5, name: 'Person', group: 1 }, { id: 3, name: 'Event', group: 1 },
-      { id: 10, name: 'Place', group: 2 }, { id: 12, name: 'Area', group: 2 }
-    ],
-    rectypeGroups: () => [{ id: 1, name: 'People' }, { id: 2, name: 'Places' }],
-    rectypeName: () => ''
-  };
-  const groups = rectypeOptionGroups(defs, { priority: [10], any: true, offered: (id) => id !== 3 });
-  assert.deepEqual(groups.map((group) => [group.label, values(group)]), [
-    ['', [ANY_TYPE]],
-    ['Current data source', ['10']],
-    ['People', ['5']],
-    ['Places', ['12']]
-  ]);
+test('several source and target types encode as lists and decode back', () => {
+  const query = encodeRuleQuery({ source: [5, 7], target: [10, 12], selected: { generic: 'connected' } });
+  assert.deepEqual(query, { t: [10, 12], connected: [{ t: [5, 7] }] });
+  const decoded = decodeRule({ query });
+  assert.deepEqual([decoded.sources, decoded.targets, decoded.source, decoded.target], [[5, 7], [10, 12], 5, 10]);
+  assert.deepEqual(encodeRuleQuery({ source: [5], target: [], selected: { generic: 'lf' } }), { lf: [{ t: 5 }] });
+  assert.deepEqual(decodeRule({ query: { t: '10,12', lf: [] } }).targets, [10, 12]);
+});
+
+test('descriptions list several record types', () => {
+  const labels = describeExpansionRule({ query: { t: [10, 12], connected: [{ t: 5 }] } }, {
+    rectypeName: (id) => ({ 5: 'Person', 10: 'Place', 12: 'Area' }[id] || ''), fieldGlobal: () => null
+  });
+  assert.equal(labels.name, 'Person ↔ Place, Area');
+});
+
+test('preview shows only the executable rule tree', () => {
+  const text = rulesPreview([{ query: { connected: [] }, name: 'x', description: 'y', levels: [{ query: { lt: [] } }] }]);
+  assert.deepEqual(JSON.parse(text), [{ query: { connected: [] }, levels: [{ query: { lt: [] }, levels: [] }] }]);
 });

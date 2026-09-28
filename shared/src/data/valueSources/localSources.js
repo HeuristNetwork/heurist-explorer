@@ -114,6 +114,54 @@ export class TermSource extends LocalSource {
 }
 
 /**
+ * Record types from HDbDefs: the `priority` types first ("Current data source"),
+ * then every record-type group in display order, alphabetical within a group.
+ * Values are record-type IDs.
+ */
+export class RectypeSource extends LocalSource {
+  /**
+   * @param {object} dbdefs HDbDefs (`rectypes`, `rectypeGroups`, `rectypeName`).
+   * @param {object} [options]
+   * @param {number[]|null} [options.ids] Offer only these types (default: all).
+   * @param {number[]} [options.priority] Types listed first.
+   * @param {Function} [options.filter] `(id) => boolean`, e.g. hide types without records.
+   */
+  constructor(dbdefs, { ids = null, priority = [], filter = null } = {}) {
+    super();
+    this.dbdefs = dbdefs;
+    this.ids = ids ? new Set(ids.map(Number)) : null;
+    this.priority = priority.map(Number);
+    this.filter = filter;
+  }
+
+  /** @returns {Array<object>} Record-type items with `group` / `groupLabel`. */
+  items() {
+    const types = (this.dbdefs?.rectypes?.() || []).filter((rt) => (!this.ids || this.ids.has(Number(rt.id)))
+      && (!this.filter || this.filter(Number(rt.id))));
+    const item = (rt, group, groupLabel) => ({ value: Number(rt.id), label: rt.name || String(rt.id), group, groupLabel });
+    const byName = (a, b) => a.label.localeCompare(b.label, undefined, { sensitivity: 'base', numeric: true });
+    const first = this.priority.map((id) => types.find((rt) => Number(rt.id) === id)).filter(Boolean);
+    const list = first.map((rt) => item(rt, 'current', 'Current data source'));
+    const names = new Map((this.dbdefs?.rectypeGroups?.() || []).map((group) => [String(group.id), group.name]));
+    const blocks = new Map();
+    for (const rt of types) {
+      if (first.includes(rt)) continue;
+      const key = rt.group != null && names.has(String(rt.group)) ? String(rt.group) : '';
+      if (!blocks.has(key)) blocks.set(key, []);
+      blocks.get(key).push(item(rt, `group:${key}`, key ? names.get(key) : 'Other'));
+    }
+    // rectypes() is already in group display order
+    for (const block of blocks.values()) list.push(...block.sort(byName));
+    return list;
+  }
+
+  /** @returns {string} Record-type name from HDbDefs. */
+  labelFor(value) {
+    return this.dbdefs?.rectypeName?.(value) || '';
+  }
+}
+
+/**
  * Groups, then users (alphabetical within each block), from the HDbDefs
  * users/groups overlay (V6). Empty for guests.
  */

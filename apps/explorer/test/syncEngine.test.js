@@ -146,3 +146,27 @@ test('SyncEngine supports a datasource-only HFilter participant', async () => {
   await sync.setSelection([1, 2]);
   assert.deepEqual(sync.selection, [1, 2]);
 });
+
+test('rules-only changes reach rule-aware modules without re-sending the datasource', async () => {
+  const sync = new SyncEngine();
+  const calls = [];
+  const graph = new ExplorerModule({ id: 'g', type: 'graph', container: null });
+  const data = new ExplorerModule({ id: 'd', type: 'data', container: null });
+  graph.setRules = async (rules) => { calls.push(['graph-rules', rules]); };
+  for (const module of [graph, data]) {
+    const own = module.setDataSource.bind(module);
+    module.setDataSource = async (source, options) => { calls.push([module.type, 'datasource']); return own(source, options); };
+    sync.register(module);
+  }
+  await sync.setDataSource({ reference: { type: 'query' }, request: { q: 't:10', rules: [] } });
+  calls.length = 0;
+  const rules = [{ query: { connected: [] }, levels: [] }];
+  const source = await sync.setRules(rules);
+  assert.deepEqual(calls, [['graph-rules', rules]]);
+  assert.deepEqual(source.request.rules, rules);
+  assert.equal(sync.dataSource.request.q, 't:10');
+});
+
+test('rules-only changes need an active datasource', async () => {
+  assert.equal(await new SyncEngine().setRules([]), null);
+});

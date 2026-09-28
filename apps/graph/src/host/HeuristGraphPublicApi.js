@@ -224,16 +224,6 @@ export class HeuristGraphPublicApi {
   }
 
   /**
-   * Expand one node by one additional depth level.
-   *
-   * @param {number|string} recordId Record id to expand from.
-   * @returns {Promise<boolean>} True when the id was valid and expansion was requested.
-   */
-  expandNode(recordId) {
-    return this.application.expandNode(recordId);
-  }
-
-  /**
    * Legend model derived from the loaded graph; see `GraphApplication#getLegend`.
    *
    * @returns {object} Legend model.
@@ -250,6 +240,35 @@ export class HeuristGraphPublicApi {
   resetExpansionRules() { return this.application.resetExpansionRules(); }
 
   /**
+   * Apply changed expansion rules of the active DataSource without reloading the graph.
+   *
+   * @param {Array<object>} rules Expansion rules.
+   * @returns {Promise<object>} Updated application state.
+   */
+  setDataSourceRules(rules) { return this.application.setDataSourceRules(rules); }
+
+  /** @returns {boolean} Whether this view may edit the DataSource's rules (authors only). */
+  canEditRules() { return this.application.canEditRules(); }
+
+  /**
+   * Open the host's Expansion rules dialog for the active DataSource.
+   *
+   * @returns {Promise<Array<object>|null>} Applied rules, or `null`.
+   */
+  editRules() { return this.application.editRules(); }
+
+  /**
+   * Add one "any pointer or relationship" step to every rule branch that can grow,
+   * save the rules into the DataSource and show the new deepest level.
+   *
+   * @returns {Promise<boolean>} Whether the rules grew.
+   */
+  quickExpand() { return this.application.quickExpand(); }
+
+  /** @returns {boolean} Whether quick expansion can add a step. */
+  canQuickExpand() { return this.application.canQuickExpand(); }
+
+  /**
    * Enable or disable one expansion rule.
    *
    * @param {number|string} id Expansion rule id.
@@ -259,37 +278,33 @@ export class HeuristGraphPublicApi {
   setRuleEnabled(id, enabled) { return this.application.setRuleEnabled(id, enabled); }
 
   /**
-   * Current expansion depth/max-depth/busy state.
+   * Current expansion level of the whole graph, its maximum and busy state.
    *
-   * @param {Array<number>} [ids] Seed record ids to scope the state to; omit for the base scope.
    * @returns {{depth: number, maxDepth: number, busy: boolean}}
    */
-  getExpansionState(ids) { return this.application.getExpansionState(ids); }
+  getExpansionState() { return this.application.getExpansionState(); }
 
   /**
-   * Set the expansion depth for one or more seeds (or the base scope).
+   * Set the expansion level of the whole graph.
    *
-   * @param {number} depth Target depth.
-   * @param {Array<number>} [ids] Seed record ids to scope the change to; omit for the base scope.
+   * @param {number} depth Target level.
    * @returns {Promise<void>}
    */
-  setExpansionDepth(depth, ids) { return this.application.setExpansionDepth(depth, ids); }
+  setExpansionDepth(depth) { return this.application.setExpansionDepth(depth); }
 
   /**
-   * Expand one additional depth level for one or more seeds (or the base scope).
+   * Expand the whole graph by one level.
    *
-   * @param {Array<number>} [ids] Seed record ids; omit for the base scope.
    * @returns {Promise<void>}
    */
-  advanceExpansion(ids) { return this.application.advanceExpansion(ids); }
+  advanceExpansion() { return this.application.advanceExpansion(); }
 
   /**
-   * Retreat one depth level for one or more seeds (or the base scope).
+   * Retreat the whole graph by one level.
    *
-   * @param {Array<number>} [ids] Seed record ids; omit for the base scope.
    * @returns {Promise<void>}
    */
-  pruneExpansion(ids) { return this.application.pruneExpansion(ids); }
+  pruneExpansion() { return this.application.pruneExpansion(); }
 
   /**
    * Show or hide specific relationship types within a link group without reloading.

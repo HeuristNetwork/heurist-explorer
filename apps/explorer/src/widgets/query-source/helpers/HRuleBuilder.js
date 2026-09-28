@@ -6,7 +6,8 @@
  * jQuery, iframe or host callbacks. Persisted rule objects remain unchanged:
  *   { query: Object, levels: Array<Object> }
  * An empty parent query (`{"t":10,"lf":[]}`) starts from any record type, i.e.
- * the parent result; `connected` follows pointers and relationships.
+ * the parent result; `connected` follows pointers and relationships. `t` may
+ * list several record types (`{"t":[10,12]}`).
  *
  * @project     Heurist academic knowledge management system
  * @package     heurist-explorer
@@ -17,15 +18,13 @@
 import { HBaseWidget } from '#shared/widgets/HBaseWidget.js';
 import { $HR, HMsg } from '#shared/ui';
 import { createHInput } from '#shared/widgets/form/inputs/createHInput.js';
-import { TermSource } from '#shared/data/valueSources/index.js';
+import { TermSource, RectypeSource } from '#shared/data/valueSources/index.js';
+import { MAX_RULE_DEPTH, typeIds } from '#shared/data/expansionRules.js';
 import { HFilterBuilder, hideUnusedToggle } from '../../filter-builder/HFilterBuilder.js';
 import queryVocabulary from '../../../utils/queryVocabulary.json' with { type: 'json' };
 import './QuerySourceHelpers.css';
 
-const MAX_LEVEL = 3;
 const LINK_NAMES = ['connected', 'links', 'lt', 'lf', 'rt', 'rf', 'related'];
-/** Source/target select value for "Any record type" (an empty parent query). */
-export const ANY_TYPE = '*';
 /**
  * Traversals without a field, in menu order. `rf`/`rt` are offered only to keep
  * a loaded rule that uses them.
@@ -139,7 +138,11 @@ export class HRuleBuilder extends HBaseWidget {
     this._list.className = 'h-rule-builder-list';
     this._add = button(`+ ${$HR('Add rule')}`, $HR('Add expansion rule'), () => this._addRoot());
     this._add.classList.add('h-rule-add');
-    this.container.append(head, this._list, this._add);
+    this.container.append(head, this._list, this._add, this._renderPreview());
+    // any edit (selects, pickers, filter text, added/removed rows) refreshes the preview
+    for (const type of ['change', 'input', 'h-input-change', 'click']) {
+      this.container.addEventListener(type, () => this._schedulePreview());
+    }
     this.state = 'rendered';
     this._syncRows();
     return this;
@@ -149,6 +152,42 @@ export class HRuleBuilder extends HBaseWidget {
     for (const row of this._rows) row.destroy();
     this._rows = [];
     return super.destroy();
+  }
+
+  /** `[ ] Preview` and the read-only rule queries below it. */
+  _renderPreview() {
+    const wrap = document.createElement('div');
+    wrap.className = 'h-rule-preview';
+    const label = document.createElement('label');
+    label.className = 'h-rule-preview-toggle';
+    this._previewToggle = document.createElement('input');
+    this._previewToggle.type = 'checkbox';
+    const caption = document.createElement('span');
+    caption.textContent = $HR('Preview');
+    label.append(this._previewToggle, caption);
+    this._previewText = document.createElement('textarea');
+    this._previewText.className = 'h-input h-rule-preview-text';
+    this._previewText.readOnly = true;
+    this._previewText.hidden = true;
+    this._previewText.setAttribute('aria-label', $HR('Rule queries'));
+    this._previewToggle.addEventListener('change', () => {
+      this._previewText.hidden = !this._previewToggle.checked;
+      this._updatePreview();
+    });
+    wrap.append(label, this._previewText);
+    return wrap;
+  }
+
+  _schedulePreview() {
+    if (!this._previewToggle?.checked || this._previewPending) return;
+    this._previewPending = true;
+    // after the row handlers that react to the same event
+    setTimeout(() => { this._previewPending = false; this._updatePreview(); }, 0);
+  }
+
+  _updatePreview() {
+    if (!this._previewToggle?.checked || !this._list) return;
+    this._previewText.value = rulesPreview(this._rows.map((row) => row.getRule()).filter(Boolean));
   }
 
   /** Rebuild rows from `rules`. With no rules the list stays empty until "Add rule". */
@@ -181,18 +220,27 @@ export class HRuleBuilder extends HBaseWidget {
 }
 
 class RuleRow {
-  constructor({ dbdefs, lang, level, rule = null, recordTypes = [], sourceType = null, prefs = {}, onRemove }) {
+  /**
+   * @param {object} options
+   * @param {number[]|null} [options.parentTypes] Previous step's target types: null for a rule,
+   *        [] when the previous target is any record type.
+   */
+  constructor({ dbdefs, lang, level, rule = null, recordTypes = [], parentTypes = null, prefs = {}, onRemove }) {
     this.dbdefs = dbdefs;
     this.prefs = prefs;
     this.lang = lang;
     this.level = level;
     this.recordTypes = recordTypes;
-    this.fixedSourceType = Number(sourceType) || null;
+    this.parentTypes = parentTypes;
     this.onRemove = onRemove;
     this.children = [];
     this._initial = rule ? decodeRule(rule) : null;
     this._relationWidget = null;
     this._relationValue = this._initial?.relation || 0;
+    this._sourceValue = this._initialSources();
+    this._targetValue = this._initial?.targets || [];
+    this._sourceWidget = null;
+    this._targetWidget = null;
 
     this.element = document.createElement('div');
     this.element.className = 'h-rule-row-wrap';
@@ -203,44 +251,51 @@ class RuleRow {
   destroy() {
     for (const child of this.children) child.destroy();
     this.children = [];
-    void this._relationWidget?.destroy?.();
-    this._relationWidget = null;
+    for (const widget of [this._relationWidget, this._sourceWidget, this._targetWidget]) void widget?.destroy?.();
+    this._relationWidget = this._sourceWidget = this._targetWidget = null;
   }
 
   /** Rebuild the selectors after the "hide record types without records" preference changed. */
   refresh() {
-    const saved = { source: this.source.value, field: this.field.value, target: this.target.value };
+    const field = this.field.value;
+    this._sourceValue = this._sources();
+    this._targetValue = this._targets();
     this._relationValue = this._relation();
-    this._fillSources();
-    if ([...this.source.options].some((option) => option.value === saved.source)) this.source.value = saved.source;
+    this._renderSource();
     this._sourceChanged();
-    if (this._fields.has(saved.field)) this.field.value = saved.field;
+    if (this._fields.has(field)) this.field.value = field;
     this._fieldChanged();
-    if ([...this.target.options].some((option) => option.value === saved.target)) this.target.value = saved.target;
     this._syncParentLock();
-    this._syncAddStep();
     for (const child of this.children) child.refresh();
+  }
+
+  /** A loaded rule's source types, a step's single parent type, or the data source's type for a new rule. */
+  _initialSources() {
+    if (this.parentTypes?.length === 1) return [this.parentTypes[0]];
+    if (this._initial) return this._initial.sources;
+    return this.parentTypes === null && this.recordTypes.length ? [this.recordTypes[0]] : [];
   }
 
   /** Whether a record type is offered: used, or already chosen (current or loaded rule value). */
   _offered(id, keep) {
-    return !this.prefs.hideUnused || keep.has(String(id)) || this.dbdefs.isRectypeUsed?.(id) !== false;
+    return !this.prefs.hideUnused || keep.has(Number(id)) || this.dbdefs.isRectypeUsed?.(id) !== false;
   }
 
-  /** Selected source type; 0 for "Any record type". */
-  _source() {
-    return this.source.value === ANY_TYPE ? 0 : (Number(this.source.value) || 0);
-  }
+  /** Selected source types; [] = any record type. */
+  _sources() { return this._sourceWidget ? typeIds(this._sourceWidget.getValue()) : this._sourceValue; }
+
+  /** Selected target types; [] = any record type. */
+  _targets() { return this._targetWidget ? typeIds(this._targetWidget.getValue()) : this._targetValue; }
 
   _relation() {
     return this._relationWidget ? (Number(this._relationWidget.getValue()) || 0) : 0;
   }
 
   getRule() {
-    const source = this._source();
     const selected = this._fields.get(this.field.value) || null;
-    const target = Number(this.target.value) || 0;
-    const query = encodeRuleQuery({ source, selected, target, relation: this._relation(), filter: this.filter.value });
+    const query = encodeRuleQuery({
+      source: this._sources(), selected, target: this._targets(), relation: this._relation(), filter: this.filter.value
+    });
     const rule = { query, levels: this.children.map((child) => child.getRule()).filter(Boolean) };
     return Object.assign(rule, describeExpansionRule(rule, this.dbdefs));
   }
@@ -253,12 +308,10 @@ class RuleRow {
     step.className = 'h-rule-step';
     step.textContent = this.level === 1 ? $HR('Rule') : `${$HR('Step')} ${this.level - 1}`;
 
-    this.source = select('h-rule-source', $HR('Starting record type'));
+    this.source = pickerHost('h-rule-source', $HR('Starting record type'));
     this.field = select('h-rule-field', $HR('Pointer or relationship'));
-    this.relation = document.createElement('div');
-    this.relation.className = 'h-rule-relation';
-    this.relation.title = $HR('Relationship type');
-    this.target = select('h-rule-target', $HR('Target record type'));
+    this.relation = pickerHost('h-rule-relation', $HR('Relationship type'));
+    this.target = pickerHost('h-rule-target', $HR('Target record type'));
     this.filter = document.createElement('input');
     this.filter.type = 'text';
     this.filter.className = 'h-input h-rule-filter';
@@ -273,44 +326,49 @@ class RuleRow {
     this.childHost.className = 'h-rule-children';
     this.addStep = button(`+ ${$HR('Add step')}`, $HR('Add another step to this rule'), () => this._addChild());
     this.addStep.classList.add('h-btn-small', 'h-rule-add-step');
-    this.addStep.hidden = this.level >= MAX_LEVEL;
+    this.addStep.hidden = this.level >= MAX_RULE_DEPTH;
 
     this.element.append(card, this.addStep, this.childHost);
-    this.source.addEventListener('change', () => this._sourceChanged());
     this.field.addEventListener('change', () => { this._relationValue = 0; this._fieldChanged(); });
-    this.target.addEventListener('change', () => this._syncAddStep());
 
-    this._fillSources();
+    this._renderSource();
+    this._sourceChanged();
     if (this._initial) this._restore(this._initial);
-    else this._sourceChanged();
   }
 
-  _fillSources() {
-    const keep = new Set([this.source.value, String(this._initial?.source || '')]);
-    this.source.replaceChildren();
-    if (this.fixedSourceType) {
-      addOption(this.source, this.fixedSourceType, this.dbdefs.rectypeName(this.fixedSourceType) || String(this.fixedSourceType));
-      this.source.value = String(this.fixedSourceType);
-      this.source.disabled = true;
-      return;
-    }
-    fillGroups(this.source, rectypeOptionGroups(this.dbdefs, {
-      priority: this.recordTypes,
-      offered: (id) => this._offered(id, keep),
-      any: true
-    }));
-    // a new rule starts from the data source's record type
-    if (!this._initial && this.recordTypes.length) this.source.value = String(this.recordTypes[0]);
+  /**
+   * Source picker. A rule: every record type, the data source's types first. A step:
+   * locked to the previous step's single target, limited to its several targets, or
+   * every type when the previous target is any record type.
+   */
+  _renderSource() {
+    const keep = new Set(this._sourceValue);
+    const locked = this.parentTypes?.length === 1;
+    const ids = this.parentTypes?.length > 1 ? this.parentTypes : null;
+    this._sourceWidget = this._picker(this.source, this._sourceWidget, {
+      source: new RectypeSource(this.dbdefs, {
+        ids, priority: this.parentTypes === null ? this.recordTypes : [],
+        filter: ids || locked ? null : (id) => this._offered(id, keep)
+      }),
+      value: this._sourceValue,
+      emptyLabel: $HR(ids ? 'Any of the previous types' : 'Any record type'),
+      onChange: () => this._sourceChanged()
+    });
+    this._sourceWidget.setReadOnly?.(locked);
   }
 
   _sourceChanged() {
-    const source = this._source();
+    const sources = this._sources();
     const current = this.field.value;
     const keep = new Set([current, this._initial?.fieldKey || '']);
+    const keepTypes = new Set(this._targets());
     // a reverse pointer is hidden when the record type holding it has no records
-    const fields = [...collectLinkFields(this.dbdefs, source)]
-      .filter(([key, item]) => !item.reverse || keep.has(key) || this._offered(item.targets[0], keep));
-    const groups = fieldOptionGroups(new Map(fields), { anySource: !source, keep: this._initial?.fieldKey || '' });
+    const offeredFields = (source) => [...collectLinkFields(this.dbdefs, source)]
+      .filter(([key, item]) => !item.reverse || keep.has(key) || this._offered(item.targets[0], keepTypes));
+    const single = sources.length === 1 ? offeredFields(sources[0]) : [];
+    // several sources: only the generic traversals; their targets come from every source's fields
+    this._targetFields = new Map(sources.length > 1 ? sources.flatMap(offeredFields) : single);
+    const groups = fieldOptionGroups(new Map(single), { anySource: sources.length !== 1, keep: this._initial?.fieldKey || '' });
     this._fields = new Map(groups.flatMap((group) => group.options.map((option) => [option.value, option.item])));
     fillGroups(this.field, groups);
     this.field.value = this._fields.has(current) ? current : (groups[0]?.options[0]?.value ?? '');
@@ -321,30 +379,33 @@ class RuleRow {
     const item = this._fields.get(this.field.value) || null;
     this._renderRelation(item);
 
-    const keep = new Set([this.target.value, String(this._initial?.target || '')]);
+    const current = this._targets();
+    const keep = new Set(current);
     const allTypes = () => this.dbdefs.rectypes().map((rt) => Number(rt.id));
-    const targets = linkTargets(item, this._fields, allTypes).filter((id) => this._offered(id, keep));
-    this.target.replaceChildren();
-    if (targets.length === 1) addOption(this.target, targets[0], this.dbdefs.rectypeName(targets[0]) || String(targets[0]));
-    else fillGroups(this.target, rectypeOptionGroups(this.dbdefs, { ids: targets, any: true, anyValue: '' }));
-    if (targets.length === 1) this.target.value = String(targets[0]);
-    this.target.disabled = targets.length <= 1;
-    this._syncAddStep();
+    const fields = this._targetFields?.size ? this._targetFields : this._fields;
+    const targets = linkTargets(item, fields, allTypes).filter((id) => this._offered(id, keep));
+    // a field with a single target type fixes it; a generic traversal keeps "any"
+    this._singleTarget = Boolean(item && !item.generic) && targets.length === 1;
+    this._targetValue = this._singleTarget ? [targets[0]] : current.filter((id) => targets.includes(id));
+    this._targetWidget = this._picker(this.target, this._targetWidget, {
+      source: new RectypeSource(this.dbdefs, { ids: targets }),
+      value: this._targetValue,
+      emptyLabel: $HR('Any record type')
+    });
+    this._targetWidget.setReadOnly?.(this._singleTarget || this.children.length > 0);
   }
 
   /** Relationship-type picker for a relation-marker field; hidden otherwise. */
   _renderRelation(item) {
-    void this._relationWidget?.destroy?.();
-    this._relationWidget = null;
-    this.relation.replaceChildren();
     const vocabulary = item?.isRelation ? Number(item.vocabulary) || 0 : 0;
     this.relation.hidden = !vocabulary;
-    if (!vocabulary) return;
-    // own host per picker: a replaced picker's async destroy() clears its container later
-    const host = document.createElement('div');
-    this.relation.append(host);
-    this._relationWidget = createHInput('enum', host, {
-      suppressLabel: true,
+    if (!vocabulary) {
+      void this._relationWidget?.destroy?.();
+      this._relationWidget = null;
+      this.relation.replaceChildren();
+      return;
+    }
+    this._relationWidget = this._picker(this.relation, this._relationWidget, {
       source: new TermSource(this.dbdefs, vocabulary),
       value: this._relationValue || null,
       multiple: false,
@@ -352,28 +413,37 @@ class RuleRow {
     });
   }
 
+  /**
+   * Replace a picker. Each picker gets its own host: a replaced picker's async
+   * destroy() clears its container later and must not wipe the new one.
+   */
+  _picker(container, previous, { source, value, multiple = true, emptyLabel, onChange = null }) {
+    void previous?.destroy?.();
+    container.replaceChildren();
+    const host = document.createElement('div');
+    container.append(host);
+    const widget = createHInput('enum', host, { suppressLabel: true, source, value, multiple, emptyLabel });
+    if (onChange) host.addEventListener('h-input-change', onChange);
+    return widget;
+  }
+
   _restore(data) {
-    this.source.value = this.fixedSourceType ? String(this.fixedSourceType) : (data.source ? String(data.source) : ANY_TYPE);
-    this._sourceChanged();
     if (this._fields.has(data.fieldKey)) this.field.value = data.fieldKey;
+    this._targetValue = data.targets;
     this._fieldChanged();
-    if (data.target) this.target.value = String(data.target);
     this.filter.value = data.filter || '';
     for (const rule of data.levels || []) this._addChild(rule);
     this._syncParentLock();
-    this._syncAddStep();
   }
 
   _addChild(rule = null) {
-    if (this.level >= MAX_LEVEL) return;
-    const target = Number(this.target.value) || 0;
-    if (!target) return;
+    if (this.level >= MAX_RULE_DEPTH) return;
     const child = new RuleRow({
       dbdefs: this.dbdefs,
       lang: this.lang,
       level: this.level + 1,
       rule,
-      sourceType: target,
+      parentTypes: this._targets(),
       prefs: this.prefs,
       onRemove: (item) => {
         item.destroy();
@@ -387,25 +457,22 @@ class RuleRow {
     this._syncParentLock();
   }
 
+  /** A step's source depends on this row's target: lock the row while it has steps. */
   _syncParentLock() {
     const locked = this.children.length > 0;
-    this.source.disabled = locked || Boolean(this.fixedSourceType);
+    this._sourceWidget?.setReadOnly?.(locked || this.parentTypes?.length === 1);
     this.field.disabled = locked;
     this._relationWidget?.setReadOnly?.(locked);
-    this.target.disabled = locked || this.target.options.length <= 1;
-  }
-
-  _syncAddStep() {
-    if (!this.addStep) return;
-    this.addStep.disabled = !(Number(this.target.value) > 0);
+    this._targetWidget?.setReadOnly?.(locked || this._singleTarget);
   }
 
   async _editFilter() {
-    const target = Number(this.target.value) || 0;
-    if (!target) {
-      HMsg.showMsgFlash?.($HR('Select a target record type first'));
+    const targets = this._targets();
+    if (targets.length !== 1) {
+      HMsg.showMsgFlash?.($HR('Select one target record type first'));
       return;
     }
+    const target = targets[0];
     const builder = new HFilterBuilder({
       dbdefs: this.dbdefs, vocabulary: queryVocabulary, lang: this.lang, hideUnusedRectypes: this.prefs.hideUnused
     });
@@ -435,15 +502,30 @@ class RuleRow {
   }
 }
 
-/** Decode the stable persisted rule format into editor values. `source` 0 = any record type. */
+/** Rule queries for the preview: the executable part only (no name/description). */
+export function rulesPreview(rules) {
+  const strip = (rule) => ({
+    query: rule.query,
+    ...(rule.ignore ? { ignore: true } : {}),
+    levels: (rule.levels || []).map(strip)
+  });
+  return JSON.stringify((rules || []).map(strip), null, 2);
+}
+
+/**
+ * Decode the stable persisted rule format into editor values. `sources`/`targets`
+ * are record-type lists ([] = any record type); `source`/`target` their first entry or 0.
+ */
 export function decodeRule(rule) {
   const query = rule?.query && typeof rule.query === 'object' && !Array.isArray(rule.query) ? rule.query : {};
   const linkKey = Object.keys(query).find((key) => LINK_NAMES.includes(key.split(':')[0])) || '';
   const [kind = 'links', fieldPart = ''] = linkKey.split(':');
   const linkData = Array.isArray(query[linkKey]) ? query[linkKey] : [];
-  const source = Number(linkData.find((item) => item && item.t != null)?.t) || 0;
+  const sources = typeIds(linkData.find((item) => item && item.t != null)?.t);
   const relation = Number(linkData.find((item) => item && item.r != null)?.r) || 0;
-  const target = Number(query.t) || 0;
+  const targets = typeIds(query.t);
+  const [source = 0] = sources;
+  const [target = 0] = targets;
   const fieldId = Number(fieldPart) || 0;
   const reverse = kind === 'lt' || kind === 'rt';
   const fieldKey = fieldId ? `${fieldId}${reverse ? `r${target || ''}` : ''}` : genericKey(kind);
@@ -451,13 +533,17 @@ export function decodeRule(rule) {
   let filter = '';
   if (extras.length === 1 && extras[0][0] === 'plain') filter = String(extras[0][1] ?? '');
   else if (extras.length) filter = JSON.stringify(extras.map(([key, value]) => ({ [key]: value })));
-  return { source, target, relation, kind, fieldId, fieldKey, filter, levels: Array.isArray(rule?.levels) ? rule.levels : [] };
+  return {
+    source, target, sources, targets, relation, kind, fieldId, fieldKey, filter,
+    levels: Array.isArray(rule?.levels) ? rule.levels : []
+  };
 }
 
 /**
  * Encode one editor row using the query form produced by the legacy ruleBuilder.
  * `selected` is a field item, a generic `{ generic: kind }`, or null (`kindOverride` or links).
- * Source 0 (any record type) gives an empty parent query: the parent result.
+ * `source`/`target` are a record-type ID or list; none (0, []) is any record type:
+ * no `t`, and an empty parent query - the parent result.
  */
 export function encodeRuleQuery({ source, selected, target = 0, relation = 0, filter = '', kindOverride = null }) {
   let kind = selected?.generic || (kindOverride === 'related' ? 'related' : 'links');
@@ -466,8 +552,11 @@ export function encodeRuleQuery({ source, selected, target = 0, relation = 0, fi
     else kind = selected.reverse ? 'lt' : 'lf';
   }
   const key = selected?.id ? `${kind}:${selected.id}` : kind;
-  const query = target > 0 ? { t: target } : {};
-  query[key] = source > 0 ? [{ t: source }] : [];
+  const types = (value) => { const ids = typeIds(value); return ids.length > 1 ? ids : ids[0]; };
+  const targets = types(target);
+  const sources = types(source);
+  const query = targets ? { t: targets } : {};
+  query[key] = sources ? [{ t: sources }] : [];
   if (selected?.isRelation && relation > 0) query[key].push({ r: relation });
   mergeFilter(query, filter);
   return query;
@@ -476,7 +565,12 @@ export function encodeRuleQuery({ source, selected, target = 0, relation = 0, fi
 /** Generate the same reusable name/description labels as the legacy UI helper. */
 export function describeExpansionRule(rule, dbdefs) {
   const predicates = (value) => Array.isArray(value) ? Object.assign({}, ...value) : (value || {});
-  const typeName = (id) => id ? (dbdefs.rectypeName(id) || `${$HR('Record type')} ${id}`) : $HR('Records');
+  const typeName = (value) => {
+    const ids = typeIds(value);
+    return ids.length
+      ? ids.map((id) => dbdefs.rectypeName(id) || `${$HR('Record type')} ${id}`).join(', ')
+      : $HR('Records');
+  };
   const step = (value) => {
     const q = predicates(value?.query);
     const key = Object.keys(q).find((item) => /^(lf|lt|rf|rt|links|related|connected)(:|$)/.test(item)) || 'links';
@@ -509,46 +603,6 @@ export function describeExpansionRule(rule, dbdefs) {
   };
   const first = step(rule);
   return { name: first.source + continuation(rule), description: paths(rule, first.source).join('\n') };
-}
-
-/**
- * Record-type select groups: "Any record type" first, then the priority types
- * (current data source), then every rectype group, alphabetical within a group.
- *
- * @param {object} dbdefs HDbDefs.
- * @param {object} [options]
- * @param {number[]} [options.priority] Types listed first (and not repeated below).
- * @param {number[]} [options.ids] Restrict to these types (default: every rectype).
- * @param {Function} [options.offered] `(id) => boolean` visibility filter.
- * @param {boolean} [options.any] Add the "Any record type" entry.
- * @param {string} [options.anyValue] Its option value (default `*`).
- * @returns {Array<{label: string, options: Array<{value: string, label: string}>}>} Groups; label '' = no optgroup.
- */
-export function rectypeOptionGroups(dbdefs, { priority = [], ids = null, offered = () => true, any = false, anyValue = ANY_TYPE } = {}) {
-  const allowed = ids ? new Set(ids.map(Number)) : null;
-  const types = dbdefs.rectypes().filter((rt) => (!allowed || allowed.has(Number(rt.id))) && offered(Number(rt.id)));
-  const option = (rt) => ({ value: String(rt.id), label: rt.name || dbdefs.rectypeName(rt.id) || String(rt.id) });
-  const byName = (a, b) => String(a.label).localeCompare(String(b.label));
-  const groups = [];
-  if (any) groups.push({ label: '', options: [{ value: anyValue, label: $HR('Any record type') }] });
-
-  const first = priority.map(Number).filter((id) => types.some((rt) => Number(rt.id) === id));
-  if (first.length) {
-    groups.push({ label: $HR('Current data source'), options: first.map((id) => option(types.find((rt) => Number(rt.id) === id))) });
-  }
-  const rest = types.filter((rt) => !first.includes(Number(rt.id)));
-  const named = new Map((dbdefs.rectypeGroups?.() || []).map((group) => [String(group.id), group.name]));
-  const byGroup = new Map();
-  for (const rt of rest) {
-    const key = rt.group != null && named.has(String(rt.group)) ? String(rt.group) : '';
-    if (!byGroup.has(key)) byGroup.set(key, []);
-    byGroup.get(key).push(option(rt));
-  }
-  // rectypes() is already in group display order
-  for (const [key, options] of byGroup) {
-    groups.push({ label: key ? named.get(key) : (named.size ? $HR('Other') : ''), options: options.sort(byName) });
-  }
-  return groups;
 }
 
 /**
@@ -719,6 +773,9 @@ function inferRecordTypeId(query) {
   return Number(match?.[1]) || 0;
 }
 
+function pickerHost(className, title) {
+  const el = document.createElement('div'); el.className = className; el.title = title; return el;
+}
 function select(className, title) {
   const el = document.createElement('select'); el.className = `h-select ${className}`; el.title = title; return el;
 }

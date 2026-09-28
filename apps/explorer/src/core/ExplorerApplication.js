@@ -28,6 +28,7 @@ import { LegacySavedFilterConverter } from '../legacy/LegacySavedFilterConverter
 import { RecordTypeManager } from './RecordTypeManager.js';
 import { UserGroupManager, ownerScope } from './UserGroupManager.js';
 import { QuerySourceManager } from './QuerySourceManager.js';
+import { HRuleBuilder, describeExpansionRule } from '../widgets/query-source/helpers/HRuleBuilder.js';
 import { SyncEngine } from './SyncEngine.js';
 import { IframeModuleAdapter } from '../modules/IframeModuleAdapter.js';
 import { DirectModuleAdapter } from '../modules/DirectModuleAdapter.js';
@@ -1197,7 +1198,10 @@ export class ExplorerApplication {
       addRecord: (rt) => bridge.addRecord?.(rt),
       editSymbology: (value, options) => bridge.editSymbology?.(value, options),
       editExtent: (value, options) => bridge.editExtent?.(value, options),
-      editRules: (value, options) => bridge.editRules?.(value, options),
+      // expansion rules of the active DataSource, edited in Explorer's own dialog
+      editRules: () => this.editDataSourceRules(),
+      updateRules: (rules) => this.updateDataSourceRules(rules),
+      canEditRules: () => this.canEditRules(),
       describeRules: (rules) => bridge.describeRules?.(rules),
       editFieldset: (value, options) => bridge.editFieldset?.(value, options),
       zoomToExtent: (wkt) => this.zoomActiveMapToExtent(wkt),
@@ -1206,6 +1210,44 @@ export class ExplorerApplication {
       }),
       showDatasource: (source, options) => this.showDatasource(source, options)
     };
+  }
+
+  /** @returns {boolean} Whether presentations may edit the active DataSource's rules (authoring is available). */
+  canEditRules() {
+    return Boolean(this.querySourcePanel && this.sync?.dataSource);
+  }
+
+  /**
+   * Open the Expansion rules dialog for the active DataSource and apply the result.
+   *
+   * @returns {Promise<Array<object>|null>} Applied rules, or `null` when cancelled or unchanged.
+   */
+  async editDataSourceRules() {
+    const source = this.sync?.dataSource;
+    if (!this.canEditRules()) return null;
+    const dbdefs = await this._ensureDbDefs();
+    const current = source.request?.rules || [];
+    const builder = new HRuleBuilder({ dbdefs, lang: this.config.language });
+    const rules = await builder.setRules(current).open({ dataSource: cloneDataSource(source) });
+    if (JSON.stringify(rules) === JSON.stringify(current)) return null;
+    return this.updateDataSourceRules(rules);
+  }
+
+  /**
+   * Replace the active DataSource's expansion rules: described, pushed to the
+   * presentations that use rules (no reload) and into the Query Source draft,
+   * which becomes dirty so the author can save it.
+   *
+   * @param {Array<object>} rules New expansion rules.
+   * @returns {Promise<Array<object>|null>} Applied rules, or `null` when rules can't be edited.
+   */
+  async updateDataSourceRules(rules) {
+    if (!this.canEditRules() || !Array.isArray(rules)) return null;
+    const dbdefs = await this._ensureDbDefs();
+    const described = rules.map((rule) => (rule?.name ? rule : { ...rule, ...describeExpansionRule(rule, dbdefs) }));
+    this.querySourcePanel?.setRules(described);
+    await this.sync.setRules(described);
+    return structuredClone(described);
   }
 
   /**

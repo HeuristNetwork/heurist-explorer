@@ -117,6 +117,8 @@ export class IframeModuleAdapter extends ExplorerModule {
       editSymbology: (value, options) => outer.editSymbology?.(value, options),
       editExtent: (value, options) => outer.editExtent?.(value, options),
       editRules: (value, options) => outer.editRules?.(value, options),
+      updateRules: (rules) => outer.updateRules?.(rules),
+      canEditRules: () => outer.canEditRules?.() === true,
       describeRules: (rules) => outer.describeRules?.(rules),
       editFieldset: (value, options) => outer.editFieldset?.(value, options),
       zoomToExtent: (wkt) => outer.zoomToExtent?.(wkt),
@@ -354,6 +356,19 @@ export class IframeModuleAdapter extends ExplorerModule {
     return api.setDynamicDataSources({
       workspaceDataSources: clone(workspaceDataSources)
     });
+  }
+
+  /**
+   * Apply changed expansion rules of the active DataSource without reloading.
+   * Only Graph uses rules so far.
+   *
+   * @param {Array<object>} rules Expansion rules.
+   * @returns {Promise<*>} The child's result, or `null` when the module has no rules.
+   */
+  async setRules(rules) {
+    if (this.type !== 'graph') return null;
+    const api = await this._readyApi();
+    return api.setDataSourceRules?.(rules) ?? null;
   }
 
   /**

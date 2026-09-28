@@ -169,6 +169,22 @@ export class QuerySourceEditor extends HBaseWidget {
     return this;
   }
 
+  /**
+   * Replace the draft's expansion rules (edited or extended from a presentation);
+   * the draft becomes dirty so the author can save them.
+   *
+   * @param {Array<object>} rules Expansion rules.
+   * @returns {QuerySourceEditor} this, for chaining.
+   */
+  setRules(rules) {
+    if (!this.draft) return this;
+    this.draft.request ||= {};
+    this.draft.request.rules = clone(Array.isArray(rules) ? rules : []);
+    this._markDirty();
+    this._renderSummary();
+    return this;
+  }
+
   /** @returns {object|null} A clone of the current draft DataSource, with the query input committed. */
   getDraftDataSource() {
     this._commitQueryInput();

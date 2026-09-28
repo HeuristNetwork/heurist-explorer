@@ -124,6 +124,23 @@ export class SyncEngine {
     return cloneDataSource(this.dataSource);
   }
 
+  /**
+   * Replace only the expansion rules of the active DataSource. Modules that use
+   * rules (`setRules`) apply them without reloading; the others are not touched.
+   *
+   * @param {Array<object>} rules New expansion rules.
+   * @returns {Promise<object|null>} Cloned active datasource, or `null` when there is none.
+   */
+  async setRules(rules) {
+    if (!this.dataSource) return null;
+    this.dataSource.request ||= {};
+    this.dataSource.request.rules = structuredClone(Array.isArray(rules) ? rules : []);
+    await Promise.all([...this.modules.values()]
+      .filter((module) => typeof module.setRules === 'function')
+      .map((module) => module.setRules(structuredClone(this.dataSource.request.rules))));
+    return cloneDataSource(this.dataSource);
+  }
+
   /** Synchronize document identity only; band visibility and viewport remain local. */
   async setActiveMapDocument(documentId, { origin = null } = {}) {
     if (documentId == null) return;

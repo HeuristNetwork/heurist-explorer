@@ -62,14 +62,17 @@ export class GraphControlPanel {
     this.expansionNavigator = document.createElement("span");
     this.expansionNavigator.className = "heurist-graph-expansion-navigator";
     this.expandButton = iconButton("fa-solid fa-angle-right", "Expand graph", () => this.expandGraph());
-    this.pruneButton = iconButton('fa-solid fa-angle-left', 'Prune one level', () => this.api.pruneExpansion(this.expansionSeeds()).catch(error => this.reportError(error, 'expansion')));
+    this.pruneButton = iconButton('fa-solid fa-angle-left', 'Prune one level', () => this.api.pruneExpansion().catch(error => this.reportError(error, 'expansion')));
     this.levelSelector = document.createElement('select');
     this.levelSelector.setAttribute('aria-label', $HR('Current expansion level'));
     this.levelSelector.className = 'h-select heurist-graph-level-selector';
     this.levelSelector.addEventListener('change', () => {
-      void this.api.setExpansionDepth(this.levelSelector.value, this.expansionSeeds()).catch(error => this.reportError(error, 'expansion'));
+      void this.api.setExpansionDepth(this.levelSelector.value).catch(error => this.reportError(error, 'expansion'));
     });
-    this.expansionNavigator.append(this.pruneButton, this.levelSelector, this.expandButton);
+    // authors only: edit the DataSource's rules, or add one "any link" step to every branch
+    this.editRulesButton = iconButton('fa-solid fa-pen', 'Edit expansion rules', () => this.editRules());
+    this.quickExpandButton = iconButton('fa-solid fa-circle-plus', 'Quick expansion: add a step to every rule - any pointer or relationship to any record type', () => this.quickExpand());
+    this.expansionNavigator.append(this.pruneButton, this.levelSelector, this.expandButton, this.editRulesButton, this.quickExpandButton);
 
     const toggle = iconButton("fa-solid fa-layer-group", "Show or hide graph controls", () => this.toggleFullyCollapsed());
     toggle.classList.add("heurist-module-panel-toggle");
@@ -107,7 +110,6 @@ export class GraphControlPanel {
     this.bind('heurist-graph-expansions-changed', () => this.renderLegend());
     this.bind('heurist-graph-pin-changed', () => { void this.render().catch(error => this.reportError(error)); });
     this.bind('heurist-graph-datasource-loading-changed', () => { void this.render().catch(error => this.reportError(error)); });
-    this.bind('heurist-graph-selection-changed', () => this.renderExpansionControls());
     this.bind("heurist-graph-configuration-changed", (event) => {
       void this.applyOptions(event.detail).catch((error) => this.reportError(error, "apply-options"));
     });
@@ -189,23 +191,12 @@ export class GraphControlPanel {
   }
 
   /**
-   * The current selection, restricted to record ids present in the loaded graph.
-   *
-   * @returns {Array<number>|null} Seed record ids, or `null` to scope expansion controls to the base graph.
-   */
-  expansionSeeds() {
-    const state = this.api.getState();
-    const ids = (state.selection || []).filter(id => state.recordIds.includes(id));
-    return ids.length ? ids : null;
-  }
-
-  /**
    * Rebuild the expansion-level select and prune/expand button states from the current expansion state.
    *
    * @returns {void}
    */
   renderExpansionControls() {
-    const state = this.api.getExpansionState(this.expansionSeeds());
+    const state = this.api.getExpansionState();
     this.levelSelector.replaceChildren();
     for (let depth = 0; depth <= state.maxDepth; depth++) {
       const option = document.createElement('option');
@@ -213,7 +204,7 @@ export class GraphControlPanel {
       this.levelSelector.append(option);
     }
     this.levelSelector.value = String(Math.min(state.depth, state.maxDepth));
-    this.levelSelector.title = $HR(this.expansionSeeds() ? 'Expansion depth for selected records' : 'Expansion depth for the base graph');
+    this.levelSelector.title = $HR('Expansion level: 0 is the current result, n what step n of the enabled rules reaches');
     this.levelSelector.disabled = state.busy || !state.maxDepth;
     this.pruneButton.disabled = state.busy || !state.depth;
     // maxDepth is 0 until a rule is enabled; defined-but-disabled rules still
@@ -221,6 +212,23 @@ export class GraphControlPanel {
     const hasRules = (this.api.getLegend?.()?.rules?.length || 0) > 0;
     const canUnlockRules = hasRules && state.maxDepth === 0;
     this.expandButton.disabled = state.busy || (!canUnlockRules && state.depth >= state.maxDepth);
+    const canEdit = this.api.canEditRules?.() === true && this.options.showExpand !== false;
+    this.editRulesButton.hidden = !canEdit;
+    this.quickExpandButton.hidden = !canEdit;
+    this.editRulesButton.disabled = state.busy;
+    this.quickExpandButton.disabled = state.busy || this.api.canQuickExpand?.() !== true;
+  }
+
+  /** Open the Expansion rules dialog of the host (authors only); the host applies the result. */
+  async editRules() {
+    try { await this.api.editRules(); }
+    catch (error) { this.reportError(error, 'expansion'); }
+  }
+
+  /** Add one "any pointer or relationship" step to every rule branch and show it. */
+  async quickExpand() {
+    try { await this.api.quickExpand(); }
+    catch (error) { this.reportError(error, 'expansion'); }
   }
 
   /** React to settings edited/saved in the Configuration dialog while the panel is mounted. */
@@ -241,12 +249,12 @@ export class GraphControlPanel {
   }
 
   /**
-   * Expand the current selection (or the base graph) by one additional depth level.
+   * Expand the whole graph by one level.
    *
    * @returns {Promise<void>}
    */
   async expandGraph() {
-    try { return await this.api.advanceExpansion(this.expansionSeeds()); }
+    try { return await this.api.advanceExpansion(); }
     catch (error) { this.reportError(error, 'expansion'); }
   }
 

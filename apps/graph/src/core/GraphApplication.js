@@ -16,6 +16,7 @@
 import { GraphDocument } from "./GraphDocument.js";
 import { GraphExpansions } from './GraphExpansions.js';
 import { QuerySource } from "#shared/data/QuerySource.js";
+import { appendQuickStep } from "#shared/data/expansionRules.js";
 import { normalizeGraphConfigurationSettings } from "../ui/config/graphConfigurationSchema.js";
 
 /** Coordinates graph loading, merging, selection, expansions, legend state, and rendering. */
@@ -101,7 +102,6 @@ export class GraphApplication extends EventTarget {
       container,
       options: this.config.engineOptions,
       onSelectionChange: (ids) => this.setSelection(ids, { fromEngine: true }),
-      onNodeActivate: (id) => this.expandNode(id).catch(error => this.dispatch('heurist-graph-error', { error, operation:'expansion' })),
       onPopupContentRequest: (request) => this.requestPopupContent(request),
     });
     await this.#restoreInitialView();
@@ -431,6 +431,11 @@ export class GraphApplication extends EventTarget {
   async setDataSource(dataSource) {
     if (this.pinned) return this.getState();
     const query = dataSource?.request?.q ?? dataSource?.query ?? null;
+    // only the rules changed (e.g. the Query Source editor applied edited rules): keep the graph
+    if (this.expansions && this.activeLoad?.type === "datasource" && sameExceptRules(this.dataSource, dataSource)) {
+      this.dataSource = { ...this.dataSource, title: dataSource.title };
+      return this.setDataSourceRules(dataSource?.request?.rules || []);
+    }
     this.querySource = null;
     this.dataSource = dataSource || null;
     // A restored/current rule override belongs to the previous datasource.
@@ -552,7 +557,7 @@ export class GraphApplication extends EventTarget {
     // Gravity/scaling/label length only take effect on vis-network through a
     // fresh render (scaling recomputes each node's `value`, labels are
     // re-truncated); re-render the graph already on screen instead of
-    // waiting for the next load()/expandNode().
+    // waiting for the next load().
     await this.#renderVisible();
     this.dispatch("heurist-graph-configuration-changed", {
       options: normalized.options,
@@ -575,19 +580,6 @@ export class GraphApplication extends EventTarget {
     link.click();
     URL.revokeObjectURL(link.href);
     return payload;
-  }
-
-  /**
-   * Expand one node by one additional depth level.
-   *
-   * @param {number|string} recordId Record id to expand from.
-   * @returns {Promise<boolean>} True when the id was valid and expansion was requested.
-   */
-  async expandNode(recordId) {
-    const id = Number(recordId);
-    if (!Number.isInteger(id) || id < 1) return false;
-    await this.advanceExpansion([id]);
-    return true;
   }
 
   /**
@@ -617,22 +609,23 @@ export class GraphApplication extends EventTarget {
   }
 
   /**
-   * Current expansion depth/max-depth/busy state, for one seed set or the whole graph.
+   * Current expansion level of the whole graph: level 0 is the current result,
+   * level n what step n of every enabled rule reaches. It does not depend on the selection.
    *
-   * @param {Array<number>|null} [seedIds] Seed record ids to scope the state to; omit for the base scope.
    * @returns {{depth: number, maxDepth: number, busy: boolean}}
    */
-  getExpansionState(seedIds = null) {
+  getExpansionState() {
     const state = this.expansions;
-    const scopes = state ? (seedIds?.length ? seedIds.map(id => state.scope([id])) : [state.scope()]) : [];
     const maxDepth = Math.max(0, ...(state?.rules || []).filter(r => r.enabled).map(r => r.maxDepth));
-    return { depth: scopes.length ? Math.min(maxDepth, ...scopes.map(s => s.depth)) : 0,
+    return { depth: state ? Math.min(maxDepth, state.scope().depth) : 0,
       maxDepth,
       busy: !!this.expansionBusy };
   }
 
   /**
-   * Enable or disable one expansion rule, running it immediately when enabled.
+   * Enable or disable one expansion rule. An enabled rule is loaded down to the
+   * current level (level 1 when the graph shows only the result), not to its own
+   * full depth, so the level does not jump.
    *
    * @param {number|string} id Expansion rule id.
    * @param {boolean} enabled New enabled state.
@@ -646,7 +639,7 @@ export class GraphApplication extends EventTarget {
     if (!enabled) return this.renderExpansions();
     const scope = state.scope();
     const previousDepth = scope.depth;
-    scope.depth = Math.max(scope.depth, rule.maxDepth);
+    scope.depth = Math.max(scope.depth, 1);
     try { await this.runExpansion(state, rule, scope); }
     catch (error) {
       rule.enabled = false; scope.depth = previousDepth;
@@ -656,28 +649,17 @@ export class GraphApplication extends EventTarget {
   }
 
   /**
-   * Set the expansion depth for one or more seeds (or the base scope), running enabled rules to that depth.
+   * Set the expansion level of the whole graph, running enabled rules to that level.
    *
-   * @param {number} depth Target depth, clamped to `[0, maxDepth]`.
-   * @param {Array<number>|null} [seedIds] Seed record ids to scope the change to; omit for the base scope.
+   * @param {number} depth Target level, clamped to `[0, maxDepth]`.
    * @returns {Promise<void>}
    */
-  async setExpansionDepth(depth, seedIds = null) {
+  async setExpansionDepth(depth) {
     const state = this.expansions;
     if (!state) return;
-    // Individual seed memberships keep a multi-selection's surviving branches
-    // active when another selected seed loses its last contributing source.
-    if (seedIds?.length > 1) {
-      for (const id of seedIds) {
-        if (state !== this.expansions) return;
-        await this.setExpansionDepth(depth, [id]);
-      }
-      return;
-    }
-    const scope = state.scope(seedIds);
-    if (!scope.seeds.every(id => this.graph.recordIds.includes(id))) return;
+    const scope = state.scope();
     const previous = scope.depth;
-    scope.depth = Math.max(0, Math.min(Number(depth) || 0, this.getExpansionState(seedIds).maxDepth));
+    scope.depth = Math.max(0, Math.min(Number(depth) || 0, this.getExpansionState().maxDepth));
     try {
       for (const rule of state.rules.filter(r => r.enabled)) await this.runExpansion(state, rule, scope);
       if (state === this.expansions) await this.renderExpansions();
@@ -689,7 +671,7 @@ export class GraphApplication extends EventTarget {
   }
 
   /**
-   * Expand one additional depth level for one or more seeds (or the base scope).
+   * Expand the whole graph by one level.
    *
    * Defined expansion rules start disabled, which otherwise leaves this at a
    * dead end: `maxDepth` is 0 until a rule is enabled, so there is nothing to
@@ -697,24 +679,87 @@ export class GraphApplication extends EventTarget {
    * shows the first level, instead of requiring the viewer to first find and
    * check each rule in the legend.
    *
-   * @param {Array<number>|null} [seedIds] Seed record ids; omit for the base scope.
    * @returns {Promise<void>}
    */
-  advanceExpansion(seedIds = null) {
-    const state = this.getExpansionState(seedIds);
+  advanceExpansion() {
+    const state = this.getExpansionState();
     if (state.depth === 0 && state.maxDepth === 0 && this.expansions?.rules?.length) {
       for (const rule of this.expansions.rules) rule.enabled = true;
     }
-    return this.setExpansionDepth(this.getExpansionState(seedIds).depth + 1, seedIds);
+    return this.setExpansionDepth(this.getExpansionState().depth + 1);
   }
 
   /**
-   * Retreat one depth level for one or more seeds (or the base scope).
+   * Retreat the whole graph by one level.
    *
-   * @param {Array<number>|null} [seedIds] Seed record ids; omit for the base scope.
    * @returns {Promise<void>}
    */
-  pruneExpansion(seedIds = null) { return this.setExpansionDepth(this.getExpansionState(seedIds).depth - 1, seedIds); }
+  pruneExpansion() { return this.setExpansionDepth(this.getExpansionState().depth - 1); }
+
+  /**
+   * Apply changed expansion rules of the active DataSource without reloading the
+   * graph: unchanged rules keep their cached results, enabled state and the level.
+   *
+   * @param {Array<object>} rules New expansion rules.
+   * @returns {Promise<object>} Updated application state.
+   */
+  async setDataSourceRules(rules) {
+    const next = structuredClone(Array.isArray(rules) ? rules : []);
+    if (this.dataSource) {
+      this.dataSource = { ...this.dataSource, request: { ...(this.dataSource.request || {}), rules: next } };
+    } else {
+      this.config.rules = next;
+    }
+    // rules pushed by the host replace a restored (published) override
+    this.ruleOverrides.delete(this.config.querySourceId ? `querySource:${this.config.querySourceId}` : 'current');
+    if (this.expansions) {
+      this.expansions.setRules(this.getExpansionRules());
+      await this.renderExpansions();
+    }
+    return this.getState();
+  }
+
+  /** @returns {boolean} Whether the host lets this view edit the DataSource's rules (authors only). */
+  canEditRules() {
+    return this.getHostCapabilities().rulesEditing === true;
+  }
+
+  /**
+   * Open the host's Expansion rules dialog for the active DataSource. The host
+   * applies the result through `setDataSourceRules`.
+   *
+   * @returns {Promise<Array<object>|null>} Applied rules, or `null` when cancelled or unsupported.
+   */
+  async editRules() {
+    if (!this.canEditRules()) return null;
+    return (await this.host.editRules?.()) ?? null;
+  }
+
+  /**
+   * Quick expansion: add one "any record type → any pointer or relationship →
+   * any record type" step to every rule branch that can still grow, save the
+   * rules into the DataSource through the host, then show every rule to the
+   * new deepest level.
+   *
+   * @returns {Promise<boolean>} Whether the rules grew.
+   */
+  async quickExpand() {
+    if (!this.canEditRules() || !this.expansions) return false;
+    const rules = appendQuickStep(this.getExpansionRules());
+    if (!rules) return false;
+    const applied = await this.host.updateRules?.(rules);
+    if (!applied) return false;
+    // the host has pushed the rules back through setDataSourceRules
+    if (!this.expansions) return false;
+    for (const rule of this.expansions.rules) rule.enabled = true;
+    await this.setExpansionDepth(this.getExpansionState().maxDepth);
+    return true;
+  }
+
+  /** @returns {boolean} Whether quick expansion can add a step (some branch is shorter than MAX_RULE_DEPTH). */
+  canQuickExpand() {
+    return this.canEditRules() && appendQuickStep(this.getExpansionRules()) !== null;
+  }
 
   /**
    * Queue and run one expansion rule to its scope's current depth, serialized against other expansions.
@@ -1058,4 +1103,14 @@ function abortError(message) {
   const error = new Error(message);
   error.name = "AbortError";
   return error;
+}
+
+/** Whether two DataSources run the same request (query, links, options) and differ at most in rules and title. */
+function sameExceptRules(a, b) {
+  if (!a || !b) return false;
+  const shape = (source) => {
+    const { rules, ...request } = source.request || {};
+    return JSON.stringify({ request, links: source.links ?? null, query: source.query ?? null });
+  };
+  return shape(a) === shape(b);
 }

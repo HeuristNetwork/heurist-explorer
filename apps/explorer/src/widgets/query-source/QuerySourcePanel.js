@@ -200,6 +200,9 @@ export class QuerySourcePanel {
   /** @returns {object|null} The editor's current draft DataSource, or the last committed one. */
   getDraftDataSource() { return this.editor?.getDraftDataSource() || this.dataSource; }
 
+  /** Replace the draft's expansion rules; see QuerySourceEditor#setRules. */
+  setRules(rules) { this.editor?.setRules(rules); }
+
   /** @returns {object|null} A save-ready draft, e.g. with an auto-generated title when blank. */
   prepareDraftForSave() { return this.editor?.prepareDraftForSave?.() || this.getDraftDataSource(); }
 
