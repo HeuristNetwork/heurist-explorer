@@ -80,7 +80,7 @@ export function fieldCodeLabel(code, dbdefs) {
       // Record-type ids are structural separators in a path. A final numeric token is a field id.
       continue;
     }
-    const link = token.match(/^(lt|lf)(\d+)$/i);
+    const link = token.match(/^(lt|lf|rt|rf)(\d+)$/i);
     if (link) {
       const field = dbdefs?.fieldGlobal?.(Number(link[2]));
       if (field?.name) labels.push(field.name);
@@ -95,6 +95,22 @@ export function fieldCodeLabel(code, dbdefs) {
 }
 
 /**
+ * Repair a path code whose relationship (relmarker) hops were saved as pointer
+ * hops: `10:lt155:14:10` → `10:rt155:14:10` (and `lf` → `rf`).
+ * @param {string} code Field/path code.
+ * @param {object|null} dbdefs Database definitions used to recognise relmarker fields.
+ * @returns {string} The code with relationship hops as rt/rf.
+ */
+export function relationLinkCode(code, dbdefs) {
+  if (!dbdefs?.fieldGlobal || !code.includes(':')) return code;
+  return code.split(':').map((token) => {
+    const link = token.match(/^(lt|lf)(\d+)$/i);
+    if (!link || dbdefs.fieldGlobal(Number(link[2]))?.type !== 'relmarker') return token;
+    return `${link[1].toLowerCase() === 'lt' ? 'rt' : 'rf'}${link[2]}`;
+  }).join(':');
+}
+
+/**
  * Normalize a mixed list of field codes/ids and partial descriptors into `{ field, title, ... }` objects.
  * @param {Array} [values] Field codes/ids or partial field descriptors.
  * @param {object|null} [dbdefs] Database definitions used to derive a missing title.
@@ -104,11 +120,11 @@ export function normalizeFieldDescriptors(values = [], dbdefs = null) {
   if (!Array.isArray(values)) return [];
   return values.map((value) => {
     if (typeof value === 'string' || typeof value === 'number') {
-      const field = String(value);
+      const field = relationLinkCode(String(value), dbdefs);
       return { field, title: dbdefs ? fieldCodeLabel(field, dbdefs) : null };
     }
     if (!value || typeof value !== 'object') return null;
-    const field = String(value.field ?? value.code ?? '').trim();
+    const field = relationLinkCode(String(value.field ?? value.code ?? '').trim(), dbdefs);
     if (!field) return null;
     const title = value.title || (dbdefs ? fieldCodeLabel(field, dbdefs) : null);
     return { ...value, field, title };

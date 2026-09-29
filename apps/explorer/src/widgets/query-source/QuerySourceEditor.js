@@ -376,9 +376,11 @@ export class QuerySourceEditor extends HBaseWidget {
     editor.attach(host).render();
     return new Promise((resolve) => {
       let dlg = null;
-      const finish = async (value) => { dlg?.classList.remove('h-qse-dialog-wide-shell'); HMsg.closeMsgDlg?.(); await editor.destroy(); resolve(value); };
+      // own dialog: a message shown meanwhile (e.g. a flash) must not replace the editor
+      const dialogId = 'h-qse-editor-dialog';
+      const finish = async (value) => { dlg?.classList.remove('h-qse-dialog-wide-shell'); HMsg.closeMsgDlg?.(dialogId); await editor.destroy(); resolve(value); };
       dlg = HMsg.showMsgDlg(host, {
-        title: $HR(title), preventClose: true,
+        dialogId, title: $HR(title), preventClose: true,
         buttons: [
           { label: $HR('Apply'), class: 'h-btn h-btn-primary', onClick: () => void finish(getResult()) },
           { label: $HR('Cancel'), class: 'h-btn', onClick: () => void finish(null) }

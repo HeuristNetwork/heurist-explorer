@@ -92,7 +92,8 @@ export class HFieldSelectionEditor extends HBaseWidget {
       maxDepth: 3,
       includeHeaders: this.includeHeaders,
       hideUnselectable: this.hideUnselectable,
-      showSort: this.showSort
+      showSort: this.showSort,
+      tall: true
     }, (path) => {
       const field = fieldPathCode(path, this.recordTypeId);
       if (!field || this.fields.some((item) => item.field === field)) return;

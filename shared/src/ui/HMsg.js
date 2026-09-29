@@ -204,6 +204,8 @@ export class HMsg {
   static showMsgFlash(message, options = {}) {
     const opts = {
       ...options,
+      // own dialog, so a flash never replaces the dialog it is shown over
+      dialogId: options.dialogId || 'dialog-flash-messages',
       hideHeader: options.hideHeader !== false,
       hideFooter: options.hideFooter !== false,
       preventClose: options.preventClose !== false,

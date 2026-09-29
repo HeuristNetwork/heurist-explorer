@@ -197,3 +197,45 @@ test('type filter groups: text, date, numeric, enum; branches stay; file fields 
   assert.ok(!pick('all').includes('Photo'), 'file fields stay hidden');
   assert.ok(!pick('geo').includes('metadata'), 'metadata folder without matches is dropped');
 });
+
+// Field-path editors (geo/time/columns): directed paths, trees limited to their types.
+function pathTree(dbdefs, scope = {}) {
+  const tree = new HFieldTree({ dbdefs });
+  const selectable = scope.selectableTypes ? new Set(scope.selectableTypes) : null;
+  Object.assign(tree, {
+    _body: fakeElement('div'), _rtyId: 10, _builderMode: false, _includeHeaders: false,
+    _excludedFields: new Set(), _excludedLinks: new Set(), _maxDepth: 3, _openKeys: new Set(),
+    _selectableTypes: selectable, _hideUnselectable: Boolean(selectable),
+    _fixedTypes: Boolean(selectable)
+  });
+  return tree;
+}
+
+test('field-path editors follow a relationship with rt and a pointer with lt', () => {
+  const dbdefs = {
+    rectypeName: () => '',
+    fields: () => [{ id: 155, name: 'Located at', type: 'relmarker' }, { id: 134, name: 'Place', type: 'resource' }],
+    fieldGlobal: (id) => ({ targetTypes: [14] })
+  };
+  const tree = pathTree(dbdefs, { selectableTypes: ['geo'] });
+  const links = [];
+  tree._linkFolder = (options) => { links.push(options.via.link + options.via.dty); return fakeElement('div'); };
+  tree._fieldNodes(10, []);
+  assert.deepEqual(links, ['rt155', 'lt134']);
+});
+
+test('a tree limited to its types has no Any field, "<type> records" or type filter', () => {
+  const dbdefs = {
+    rectypeName: (id) => ({ 14: 'Place' }[id] || ''),
+    fields: () => [{ id: 28, name: 'Location', type: 'geo' }, { id: 1, name: 'Name', type: 'freetext' }],
+    fieldGlobal: () => ({})
+  };
+  const tree = pathTree(dbdefs, { selectableTypes: ['geo'] });
+  const via = [{ via: { link: 'rt', dty: 155, targetRty: 14 } }];
+  tree._openKeys.add('rt:155:14:fields:14');
+  const [fields, ...rest] = tree._scopeNodes(14, via, true);
+  assert.equal(rest.length, 0, 'no "Place records" leaf');
+  const labels = fields.children[1].children.map((node) => node.textContent);
+  assert.deepEqual(labels, ['Location']);
+  assert.equal(tree._typeShown('freetext'), false);
+});

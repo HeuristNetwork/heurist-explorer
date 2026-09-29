@@ -102,6 +102,11 @@ export class HFieldTree {
     this._selectableTypes = Array.isArray(scope?.selectableTypes) && scope.selectableTypes.length
       ? new Set(scope.selectableTypes.map((value) => String(value).toLowerCase())) : null;
     this._hideUnselectable = scope?.hideUnselectable === true;
+    // a tree limited to its selectable types (geo, date fields): no type filter and
+    // no leaves of other types (Any field, "<type> records", title, metadata)
+    this._fixedTypes = Boolean(this._selectableTypes && this._hideUnselectable);
+    // field-path editors: a taller popover, bounded by the window rather than the dialog
+    this._tall = scope?.tall === true;
     this._includeHeaders = scope?.includeHeaders !== false;
     this._linkedContext = scope?.linkedContext === true;
     this._builderMode = scope?.builderMode === true;
@@ -151,6 +156,31 @@ export class HFieldTree {
         this._renderBody();
       }));
     }
+    if (!this._fixedTypes) second.append(this._typeFilterSelect());
+    toolbar.append(first, second);
+
+    this._body = document.createElement('div');
+    this._body.className = 'h-fbtree-body';
+
+    el.append(toolbar, this._body);
+    el.classList.toggle('h-fbtree-tall', this._tall);
+    // Append inside the modal <dialog> when there is one - a modal dialog makes
+    // everything outside its subtree inert, so a popover on document.body would
+    // render behind the backdrop and be unclickable.
+    this._host = anchor.closest('dialog');
+    (this._host || document.body).append(el);
+    this._host?.addEventListener('close', this._onHostClose);
+    document.addEventListener('keydown', this._onKeyDown, true);
+    this._renderBody();
+    positionNear(el, anchor, { viewport: this._tall });
+
+    // defer so the click that opened us does not immediately close it
+    setTimeout(() => document.addEventListener('click', this._onDocClick), 0);
+    return this;
+  }
+
+  /** @returns {HTMLSelectElement} The "show fields of this type" filter. */
+  _typeFilterSelect() {
     const typeFilter = document.createElement('select');
     typeFilter.className = 'h-select h-fbtree-type-filter';
     typeFilter.setAttribute('aria-label', $HR('Field type'));
@@ -166,26 +196,7 @@ export class HFieldTree {
       this._typeFilter = typeFilter.value;
       this._renderBody();
     });
-    second.append(typeFilter);
-    toolbar.append(first, second);
-
-    this._body = document.createElement('div');
-    this._body.className = 'h-fbtree-body';
-
-    el.append(toolbar, this._body);
-    // Append inside the modal <dialog> when there is one - a modal dialog makes
-    // everything outside its subtree inert, so a popover on document.body would
-    // render behind the backdrop and be unclickable.
-    this._host = anchor.closest('dialog');
-    (this._host || document.body).append(el);
-    this._host?.addEventListener('close', this._onHostClose);
-    document.addEventListener('keydown', this._onKeyDown, true);
-    this._renderBody();
-    positionNear(el, anchor);
-
-    // defer so the click that opened us does not immediately close it
-    setTimeout(() => document.addEventListener('click', this._onDocClick), 0);
-    return this;
+    return typeFilter;
   }
 
   /**
@@ -296,6 +307,7 @@ export class HFieldTree {
 
   /** @returns {boolean} Whether a field type passes the header's type filter. */
   _typeShown(type) {
+    if (this._fixedTypes) return this._selectableTypes.has(String(type || '').toLowerCase());
     const types = TYPE_FILTERS[this._typeFilter];
     return !types || types.includes(String(type || '').toLowerCase());
   }
@@ -341,7 +353,7 @@ export class HFieldTree {
   /** Build the record's Title, metadata and field sections. */
   _scopeNodes(rtyId, viaChain, linkedContext) {
     const nodes = [];
-    if (linkedContext && this._typeFilter === 'all') {
+    if (linkedContext && this._typeFilter === 'all' && !this._fixedTypes) {
       nodes.push(this._headerLeaf({ dty: 'exists', label: `${this.dbdefs.rectypeName(rtyId)} records`, fieldType: 'exists' }, viaChain));
     }
     if (this._includeHeaders) {
@@ -411,8 +423,8 @@ export class HFieldTree {
       if (linkable && viaChain.length < this._maxDepth && !this._flatOnly) {
         const targets = this.dbdefs.fieldGlobal(field.id)?.targetTypes || [];
         // in the Filter Builder a relmarker is a bidirectional `related` branch;
-        // field-path editors keep the plain link path
-        const link = this._builderMode && field.type === 'relmarker' ? 'related' : 'lt';
+        // field-path editors write a directed path: lt for a pointer, rt for a relationship
+        const link = field.type === 'relmarker' ? (this._builderMode ? 'related' : 'rt') : 'lt';
         out.push(this._linkFolder({
           label: field.name,
           key: `${pathKey(viaChain)}:${link}:${field.id}`,
@@ -588,18 +600,30 @@ function pathKey(viaChain) {
     (via?.link || 'lt') + ':' + (via?.dty ?? '') + ':' + (via?.targetRty ?? '')).join('>') || 'root';
 }
 
-/** Place the field tree below its anchor, or above when more room is available there. */
-function positionNear(el, anchor) {
+/**
+ * Place the field tree below its anchor, or above when more room is available there.
+ * Bounded by the enclosing dialog, or by the window with `viewport`.
+ */
+function positionNear(el, anchor, { viewport = false } = {}) {
   const rect = anchor.getBoundingClientRect();
-  const dialogRect = anchor.closest('dialog')?.getBoundingClientRect();
+  const dialogRect = viewport ? null : anchor.closest('dialog')?.getBoundingClientRect();
   const topLimit = Math.max(8, dialogRect?.top ?? 8);
   const bottomLimit = Math.min(window.innerHeight - 8, dialogRect?.bottom ?? window.innerHeight - 8);
   const below = bottomLimit - rect.bottom - 4;
   const above = rect.top - topLimit - 4;
   const openBelow = below >= el.offsetHeight || below >= above;
-  const height = Math.max(80, Math.min(el.offsetHeight, openBelow ? below : above));
-  el.style.maxHeight = `${height}px`;
+  // The limit is the room on the chosen side (and the CSS cap: 60vh, 85vh when tall), not
+  // the height at opening - that is only the collapsed folders, and expanded ones must fit.
+  const cap = window.innerHeight * (viewport ? 0.85 : 0.6);
+  el.style.maxHeight = `${Math.max(80, Math.min(cap, openBelow ? below : above))}px`;
   el.style.position = 'fixed';
-  el.style.top = `${Math.max(topLimit, openBelow ? rect.bottom + 2 : rect.top - height - 2)}px`;
+  if (openBelow) {
+    el.style.top = `${rect.bottom + 2}px`;
+    el.style.bottom = '';
+  } else {
+    // anchored by its bottom edge, so it grows upwards as folders open
+    el.style.top = '';
+    el.style.bottom = `${window.innerHeight - rect.top + 2}px`;
+  }
   el.style.left = `${Math.max(8, Math.min(rect.left, window.innerWidth - el.offsetWidth - 8))}px`;
 }
