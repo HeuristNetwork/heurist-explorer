@@ -1296,8 +1296,9 @@ function countBlankCriteria(rows, vocabulary) {
 function isImplicitParameter(row, vocabulary) {
   if (!row || row.type === 'link') return false;
   if (row.dty === '' || row.dty == null || (row.dty === 'anyfield' && !row.selected)) return false;
-  // "<record type> records is / is not" without a picked record: a runtime parameter ({"ids":"$X1$"})
-  if (!['text', 'number', 'date', 'enum', 'geo', 'exists', 'tag'].includes(row.kind)) return false;
+  // "<record type> records is / is not" without a picked record: a runtime parameter ({"ids":"$X1$"});
+  // a relation type without a picked term: {"r":"$X1$"} (terms of the branch's relationship field)
+  if (!['text', 'number', 'date', 'enum', 'geo', 'exists', 'tag'].includes(row.kind) && row.dty !== 'reltype') return false;
   if (operatorByKey(vocabulary, row.kind, row.op)?.whole) return false;
   const values = row.values || [];
   const blank = (value) => String(value ?? '').trim() === '';

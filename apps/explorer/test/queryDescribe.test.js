@@ -216,8 +216,8 @@ test('relationships: relation type and Relationship-record fields are described'
   assert.equal(tell([{ t: '10' }, { related: [{ t: '10' }, { r: '3115,3116' }, { 'relf:10': '>=1900' }] }]),
     'Find Persons related to Persons where relation type is "IsGrandParentOf" or "IsGrandChildOf"'
       + ' and relationship Start date/time is on or after 1900');
-  // legacy related:<types> reads the same as r
-  assert.equal(tell([{ t: '10' }, { 'related:3115': [{ t: '10' }] }]),
+  // related:<field> names the relationship field; the relation type is r
+  assert.equal(tell([{ t: '10' }, { 'related:235': [{ t: '10' }, { r: '3115' }] }]),
     'Find Persons related to Persons where relation type is "IsGrandParentOf"');
 });
 

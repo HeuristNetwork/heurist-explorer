@@ -211,7 +211,7 @@ function pathTree(dbdefs, scope = {}) {
   return tree;
 }
 
-test('field-path editors follow a relationship with rt and a pointer with lt', () => {
+test('field-path editors follow a relationship with r (either direction) and a pointer with lt', () => {
   const dbdefs = {
     rectypeName: () => '',
     fields: () => [{ id: 155, name: 'Located at', type: 'relmarker' }, { id: 134, name: 'Place', type: 'resource' }],
@@ -221,7 +221,7 @@ test('field-path editors follow a relationship with rt and a pointer with lt', (
   const links = [];
   tree._linkFolder = (options) => { links.push(options.via.link + options.via.dty); return fakeElement('div'); };
   tree._fieldNodes(10, []);
-  assert.deepEqual(links, ['rt155', 'lt134']);
+  assert.deepEqual(links, ['r155', 'lt134']);
 });
 
 test('a tree limited to its types has no Any field, "<type> records" or type filter', () => {
@@ -231,8 +231,8 @@ test('a tree limited to its types has no Any field, "<type> records" or type fil
     fieldGlobal: () => ({})
   };
   const tree = pathTree(dbdefs, { selectableTypes: ['geo'] });
-  const via = [{ via: { link: 'rt', dty: 155, targetRty: 14 } }];
-  tree._openKeys.add('rt:155:14:fields:14');
+  const via = [{ via: { link: 'r', dty: 155, targetRty: 14 } }];
+  tree._openKeys.add('r:155:14:fields:14');
   const [fields, ...rest] = tree._scopeNodes(14, via, true);
   assert.equal(rest.length, 0, 'no "Place records" leaf');
   const labels = fields.children[1].children.map((node) => node.textContent);

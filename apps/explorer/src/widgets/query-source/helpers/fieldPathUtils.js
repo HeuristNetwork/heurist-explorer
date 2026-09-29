@@ -80,7 +80,7 @@ export function fieldCodeLabel(code, dbdefs) {
       // Record-type ids are structural separators in a path. A final numeric token is a field id.
       continue;
     }
-    const link = token.match(/^(lt|lf|rt|rf)(\d+)$/i);
+    const link = token.match(/^(lt|lf|rt|rf|r)(\d+)$/i);
     if (link) {
       const field = dbdefs?.fieldGlobal?.(Number(link[2]));
       if (field?.name) labels.push(field.name);
@@ -95,18 +95,19 @@ export function fieldCodeLabel(code, dbdefs) {
 }
 
 /**
- * Repair a path code whose relationship (relmarker) hops were saved as pointer
- * hops: `10:lt155:14:10` → `10:rt155:14:10` (and `lf` → `rf`).
+ * Repair a path code whose relationship (relmarker) hops were saved as pointer or
+ * directed hops: `10:lt155:14:10` / `10:rt155:14:10` → `10:r155:14:10`. Field-path
+ * editors follow a relationship field in either direction (`r` = related).
  * @param {string} code Field/path code.
  * @param {object|null} dbdefs Database definitions used to recognise relmarker fields.
- * @returns {string} The code with relationship hops as rt/rf.
+ * @returns {string} The code with relationship hops as r.
  */
 export function relationLinkCode(code, dbdefs) {
   if (!dbdefs?.fieldGlobal || !code.includes(':')) return code;
   return code.split(':').map((token) => {
-    const link = token.match(/^(lt|lf)(\d+)$/i);
+    const link = token.match(/^(lt|lf|rt|rf)(\d+)$/i);
     if (!link || dbdefs.fieldGlobal(Number(link[2]))?.type !== 'relmarker') return token;
-    return `${link[1].toLowerCase() === 'lt' ? 'rt' : 'rf'}${link[2]}`;
+    return `r${link[2]}`;
   }).join(':');
 }
 

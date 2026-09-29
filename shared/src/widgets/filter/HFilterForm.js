@@ -341,7 +341,9 @@ export class HFilterForm extends HBaseWidget {
       const vocabId = this.options.dbdefs?.vocabRoot?.(parameter.fieldId) || 0;
       const vocabulary = vocabId ? new TermSource(this.options.dbdefs, vocabId) : null;
       let source = custom || vocabulary;
-      if (!custom && config.facets === true && this.apiClient && vocabulary && parameter.fieldId) {
+      // relation types have no field-value counts
+      if (!custom && config.facets === true && this.apiClient && vocabulary && parameter.fieldId
+        && parameter.predicate !== 'r') {
         source = new FacetTermSource(this.options.dbdefs, vocabId, new FieldValueSource(this.apiClient, {
           query: () => this._facetRequest(id), field: parameter.fieldId, selected
         }), { selected });

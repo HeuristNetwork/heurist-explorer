@@ -66,11 +66,21 @@ test('field count and any-field predicates round-trip through the Builder model'
   assert.deepEqual(compose(parseQuery(query, VOCAB)), query);
 });
 
-test('linked record existence and missing predicates round-trip', () => {
-  for (const value of ['', 'NULL']) {
-    const query = [{ t: '10' }, { 'lt:134': [{ t: '12' }, { exists: value }] }];
-    assert.deepEqual(compose(parseQuery(query, VOCAB)), query);
+test('linked record missing round-trips; existence is the branch itself (no exists entry)', () => {
+  const missing = [{ t: '10' }, { 'related:109': [{ t: '12' }, { exists: 'NULL' }] }];
+  assert.deepEqual(compose(parseQuery(missing, VOCAB)), missing);
+  for (const value of ['', '-NULL']) {
+    assert.deepEqual(compose(parseQuery([{ t: '10' }, { 'lt:134': [{ t: '12' }, { exists: value }] }], VOCAB)),
+      [{ t: '10' }, { 'lt:134': [{ t: '12' }] }]);
   }
+  // a branch with only "records exist" and no record type: has any such link
+  const branch = { type: 'link', link: 'related', dty: 109, targetRty: '', conjunction: 'all',
+    rows: [fieldRow({ dty: 'exists', kind: 'exists', selected: true, op: 'op.exists', values: [] })] };
+  assert.deepEqual(compose(model({ rtyId: 14, rows: [branch] })), [{ t: '14' }, { 'related:109': [] }]);
+  // "any of" with "records exist": the other conditions do not narrow the branch
+  const anyOf = { ...branch, targetRty: 10, conjunction: 'any',
+    rows: [...branch.rows, fieldRow({ dty: 1, kind: 'text', selected: true, op: 'op.contains', values: ['x'] })] };
+  assert.deepEqual(compose(model({ rtyId: 14, rows: [anyOf] })), [{ t: '14' }, { 'related:109': [{ t: '10' }] }]);
 });
 
 // ------------------------------------------------------------------- compose ---
@@ -385,11 +395,11 @@ test('geo match mode: parsed from the key (or the value form) and always compose
   assert.deepEqual(resolveQueryNames([{ t: '12' }, { 'geo:within': wkt }], dbdefs), [{ t: '12' }, { 'geo:within': wkt }]);
 });
 
-test('relationships: related with r / relf round-trips; legacy related:<types> becomes r', () => {
+test('relationships: related with r / relf round-trips; related:<field> keeps its relationship field', () => {
   const q = [{ t: '10' }, { related: [{ t: '10' }, { r: '3115,3116' }, { 'relf:1': 'Grand' }] }];
   assert.deepEqual(compose(parseQuery(q, VOCAB)), q);
-  assert.deepEqual(compose(parseQuery([{ t: '10' }, { 'related:3115': [{ t: '10' }] }], VOCAB)),
-    [{ t: '10' }, { related: [{ t: '10' }, { r: '3115' }] }]);
+  assert.deepEqual(compose(parseQuery([{ t: '10' }, { 'related:235': [{ t: '10' }, { r: '3115' }] }], VOCAB)),
+    [{ t: '10' }, { 'related:235': [{ t: '10' }, { r: '3115' }] }]);
   // r:<id> is the short spelling of relf:<id>; rt:<relmarker> keeps its field id
   assert.deepEqual(compose(parseQuery([{ t: '10' }, { related: { t: 10, 'r:1': 'x' } }], VOCAB)),
     [{ t: '10' }, { related: [{ t: '10' }, { 'relf:1': 'x' }] }]);
@@ -397,11 +407,11 @@ test('relationships: related with r / relf round-trips; legacy related:<types> b
     [{ t: '48' }, { 'rt:245': [{ t: '10' }, { r: '5419' }] }]);
 });
 
-test('relationships: a related row never writes its relmarker id into the key', () => {
+test('relationships: a related row writes its relationship field into the key', () => {
   const row = { type: 'link', link: 'related', dty: 235, targetRty: 10, conjunction: 'all',
     rows: [fieldRow({ dty: 'reltype', kind: 'term', rel: true, op: 'op.is', values: ['3115', '3116'], selected: true })] };
   assert.deepEqual(compose(model({ rtyId: 10, rows: [row] })),
-    [{ t: '10' }, { related: [{ t: '10' }, { r: '3115,3116' }] }]);
+    [{ t: '10' }, { 'related:235': [{ t: '10' }, { r: '3115,3116' }] }]);
 });
 
 test('relationships: tree picks of Relation type / a Relationship field become related rows', () => {
@@ -413,7 +423,7 @@ test('relationships: tree picks of Relation type / a Relationship field become r
   const fieldPick = rowForPath([via, { dty: 10, fieldType: 'date', rel: true }], VOCAB);
   Object.assign(fieldPick.rows[0], { op: 'op.on', values: ['1900'] });
   assert.deepEqual(compose(model({ rtyId: 10, rows: [fieldPick] })),
-    [{ t: '10' }, { related: [{ t: '10' }, { 'relf:10': '=1900' }] }]);
+    [{ t: '10' }, { 'related:235': [{ t: '10' }, { 'relf:10': '=1900' }] }]);
 });
 
 test('relationships: relf:<name> resolves within the Relationship record type', async () => {

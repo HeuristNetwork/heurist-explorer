@@ -153,3 +153,28 @@ The level query of §7 as a separate map layer / timeline group with its own sty
   (`fa-circle-plus`) only with the host capability `rulesEditing`.
 - Server: `t` lists in rule steps needed no change (covered by
   `tests/ConnectedPredicateTest.php`).
+
+## 11. Relationship predicates and paths (agreed 2026-09-29)
+
+One meaning in search, graph steps, `ExpansionEngine` (linked output fields, map, timeline)
+and path notation. *Outer* = the record the predicate is on; *linked* = the records in its value.
+
+| Form | Direction | Relationship types | Record types (field N: owners O, targets T; empty = any) |
+|---|---|---|---|
+| `rt[:N]` | strict: outer is the stored **source** | stored type ∈ `r` / vocabulary of N (+ child terms) | outer ∈ O, linked ∈ T |
+| `rf[:N]` | strict: outer is the stored **target** | stored type ∈ `r` / vocabulary of N (+ child terms) | outer ∈ T, linked ∈ O |
+| `related[:N]` | **either** stored direction | stored type or its inverse ∈ `r` / vocabulary of N | (outer ∈ O and linked ∈ T) or (outer ∈ T and linked ∈ O) |
+
+- **N is always a relationship (relmarker) field**, never a relationship type. It supplies
+  the vocabulary and the owner/target record-type pair. (`related:N` used to mean relation
+  types; legacy ignores that suffix, so only modern queries change.)
+- **`r` inside the value is the stored relation type** (= `relf:<DT_RELATION_TYPE>`), with
+  child terms. No perspective conversion for `rt`/`rf`; for `related` the term or its inverse
+  matches. With both N and `r`, both must hold.
+- Relationship-record fields go **inside** the value: `r`, `relf:K`, `r:K`.
+- The record-type pair applies always; a `t` in the value narrows it further.
+- **Path notation** (map/time/column fields, compact rules): `lt`, `lf`, `rt`, `rf`, **`r`**
+  (= `related`), each followed by a field ID: `10:r155:14:10`.
+- **Client:** field-path editors write `r<field>` for relationship fields (saved
+  `lt/lf/rt/rf` relmarker hops are converted when opened); the rule builder and the Filter
+  Builder write relationship fields as `related:<field>` (+ `r`).

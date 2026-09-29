@@ -163,9 +163,7 @@ function describePredicate(base, suffix, rawValue, ctx, scopeRty, { wrap = false
   if (isLinkPredicate(base) && Array.isArray(value)) {
     const phraseKey = LINK_PHRASE[base] || 'related';
     const subRty = subqueryRectype(value, ctx);
-    // `related:<types>` is the legacy spelling of a relation-type condition
-    const withTypes = base === 'related' && suffix.raw ? [{ r: suffix.raw }, ...value] : value;
-    const subquery = describeGroup(withTypes, ctx, { top: false, scopeRty: subRty });
+    const subquery = describeGroup(value, ctx, { top: false, scopeRty: subRty });
     return fill(phrase(ctx, phraseKey), { subquery: wrap ? `(${subquery})` : subquery });
   }
 

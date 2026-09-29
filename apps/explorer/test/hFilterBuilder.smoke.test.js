@@ -142,7 +142,8 @@ test('"<record type> records is / is not" without a picked record becomes a para
   assert.deepEqual(builder.getDefinition().query, [
     { 'lt:240': [{ t: '12' }, { ids: '$X1$' }] },
     { 'lt:240': [{ t: '12' }, { ids: '-$X2$' }] },
-    { 'lt:240': [{ t: '12' }, { exists: '' }] }
+    // records exist: the branch itself (no exists entry)
+    { 'lt:240': [{ t: '12' }] }
   ]);
 });
 
@@ -182,4 +183,11 @@ test('a "-" prefix opens as the "is not" operator, and another operator drops it
   enumRow.op = 'op.is';
   tagRow.op = 'op.is';
   assert.deepEqual(builder.getQuery().slice(1, 3), [{ 'f:20': '415' }, { tag: '1,6' }]);
+});
+
+test('a relation type without a picked term becomes a parameter', () => {
+  const builder = new HFilterBuilder({ dbdefs: dbdefsStub, vocabulary: VOCAB });
+  builder.model.rows = [{ type: 'link', link: 'related', dty: 109, targetRty: 10, conjunction: 'all',
+    rows: [{ type: 'field', dty: 'reltype', kind: 'term', rel: true, selected: true, op: 'op.is', values: [''] }] }];
+  assert.deepEqual(builder.getDefinition().query, [{ 'related:109': [{ t: '10' }, { r: '$X1$' }] }]);
 });

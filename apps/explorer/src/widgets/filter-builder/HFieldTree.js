@@ -423,8 +423,8 @@ export class HFieldTree {
       if (linkable && viaChain.length < this._maxDepth && !this._flatOnly) {
         const targets = this.dbdefs.fieldGlobal(field.id)?.targetTypes || [];
         // in the Filter Builder a relmarker is a bidirectional `related` branch;
-        // field-path editors write a directed path: lt for a pointer, rt for a relationship
-        const link = field.type === 'relmarker' ? (this._builderMode ? 'related' : 'rt') : 'lt';
+        // field-path editors write lt for a pointer and r (related, either direction) for a relationship
+        const link = field.type === 'relmarker' ? (this._builderMode ? 'related' : 'r') : 'lt';
         out.push(this._linkFolder({
           label: field.name,
           key: `${pathKey(viaChain)}:${link}:${field.id}`,

@@ -128,3 +128,16 @@ test('linked facet request: main query without the branch, and the branch path w
   assert.equal(linkedFacetRequest(query, {}, null, 'N'), null);
   assert.equal(linkedFacetRequest([{ any: [{ 'lt:240': [{ 'f:237': '$X1$' }] }] }], {}, null, 'X1'), null);
 });
+
+test('a relation-type parameter lists the terms of its relationship field and keeps a picked branch', async () => {
+  const { describeQueryParameters, resolveQueryParameters } = await import('../src/data/queryParameters.js');
+  const dbdefs = { fieldGlobal: (id) => ({ 109: { type: 'relmarker', name: 'Person involved' }, 6: { type: 'relationtype' } }[id] || null),
+    dbconst: (name) => (name === 'DT_RELATION_TYPE' ? 6 : null), rectypeName: () => '' };
+  const query = [{ t: '14' }, { 'related:109': [{ t: '10' }, { r: '$X1$' }] }];
+  const parameter = describeQueryParameters(query, dbdefs).X1;
+  assert.deepEqual([parameter.type, parameter.fieldId, parameter.predicate, parameter.label], ['enum', 109, 'r', 'Relation type']);
+  // without a relationship field: the Relationship record's relation-type field
+  assert.equal(describeQueryParameters([{ related: [{ r: '$X1$' }] }], dbdefs).X1.fieldId, 6);
+  assert.deepEqual(resolveQueryParameters(query, { X1: '4501' }).q, [{ t: '14' }, { 'related:109': [{ t: '10' }, { r: '4501' }] }]);
+  assert.deepEqual(resolveQueryParameters(query, {}).q, [{ t: '14' }], 'left blank: no condition');
+});

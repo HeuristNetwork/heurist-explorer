@@ -428,7 +428,11 @@ class RuleRow {
   }
 
   _restore(data) {
-    if (this._fields.has(data.fieldKey)) this.field.value = data.fieldKey;
+    // related:<field> names the field, not its side: this type's own field or one referencing it
+    const relationField = data.fieldId && ['related', 'rt', 'rf'].includes(data.kind)
+      ? [...this._fields.values()].find((item) => item.isRelation && item.id === data.fieldId) : null;
+    if (relationField) this.field.value = relationField.key;
+    else if (this._fields.has(data.fieldKey)) this.field.value = data.fieldKey;
     this._targetValue = data.targets;
     this._fieldChanged();
     this.filter.value = data.filter || '';
@@ -548,7 +552,8 @@ export function decodeRule(rule) {
 export function encodeRuleQuery({ source, selected, target = 0, relation = 0, filter = '', kindOverride = null }) {
   let kind = selected?.generic || (kindOverride === 'related' ? 'related' : 'links');
   if (selected && !selected.generic) {
-    if (selected.isRelation) kind = selected.reverse ? 'rt' : 'rf';
+    // a relationship field is followed in either direction: related:<field>
+    if (selected.isRelation) kind = 'related';
     else kind = selected.reverse ? 'lt' : 'lf';
   }
   const key = selected?.id ? `${kind}:${selected.id}` : kind;

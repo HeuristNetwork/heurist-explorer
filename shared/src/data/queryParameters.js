@@ -39,20 +39,25 @@ export function hasQueryParameters(query) {
 /** Infer transient input descriptions from the query and database definitions. */
 export function describeQueryParameters(query, dbdefs) {
   const parameters = {};
-  visit(query, (value, key, recordTypeId, nested, scopes) => {
+  visit(query, (value, key, recordTypeId, nested, scopes, link) => {
     if (typeof value !== 'string') return;
     const names = [...value.matchAll(TOKEN)].map((match) => match[1]);
     if (!names.length) return;
-    const fieldId = /^(?:f|fc|geo):([0-9]+)/.exec(key)?.[1] || null;
+    // r = relation type: the terms of the branch's relationship field (related:N, rt:N, rf:N),
+    // or of the Relationship record's relation-type field (every relation type)
+    const relationType = key === 'r';
+    const fieldId = relationType
+      ? (/^(?:rt|rf|related):([0-9]+)$/.exec(link || '')?.[1] || dbdefs?.dbconst?.('DT_RELATION_TYPE') || null)
+      : /^(?:f|fc|geo):([0-9]+)/.exec(key)?.[1] || null;
     const field = fieldId ? dbdefs?.fieldGlobal?.(Number(fieldId)) : null;
-    const fieldType = field?.type || 'text';
+    const fieldType = relationType ? 'relationtype' : field?.type || 'text';
     const type = key === 'geo' || key.startsWith('geo:') ? 'geo'
       : ['added', 'modified'].includes(key) ? 'date'
         : key === 'ids' || ['integer', 'float', 'year', 'numeric'].includes(fieldType) ? 'number'
           : ['enum', 'relationtype'].includes(fieldType) ? 'enum'
             : fieldType === 'date' ? 'date' : 'text';
     const recordType = recordTypeId ? dbdefs?.rectypeName?.(recordTypeId) : '';
-    const fieldLabel = field?.name || key;
+    const fieldLabel = relationType ? 'Relation type' : field?.name || key;
     const pathLabel = recordType ? `${recordType}.${fieldLabel}` : fieldLabel;
     for (const name of names) {
       parameters[name] ||= {
@@ -185,8 +190,12 @@ export function resolveQueryParameters(query, values = {}, filterForm = null) {
       if (Array.isArray(value) || (value && typeof value === 'object')) {
         const nested = resolve(value);
         if (nested === null || (Array.isArray(nested) && !nested.length)) continue;
+        // a branch whose parameters were all left blank is dropped; a relation type picked
+        // for an {"r":"$X$"} parameter is a condition and keeps it
+        const pickedRelationType = Array.isArray(value) && value.some((item) => typeof item?.r === 'string'
+          && WHOLE_TOKEN.test(item.r)) && nested.some((item) => Object.hasOwn(item, 'r'));
         if (/^(?:lt|lf|rt|rf|related)(?::|$)/.test(key)
-          && Array.isArray(nested)
+          && Array.isArray(nested) && !pickedRelationType
           && nested.every((item) => Object.keys(item).every((name) => name === 't' || name === 'r'))) continue;
         result[key] = nested;
         continue;
@@ -279,18 +288,20 @@ export function linkedFacetRequest(query, values, filterForm, name) {
 }
 
 /** Visit scalar query values while retaining each predicate key. */
-function visit(node, callback, key = '', recordTypeId = null, nested = false, scopes = []) {
+function visit(node, callback, key = '', recordTypeId = null, nested = false, scopes = [], link = null) {
   if (Array.isArray(node)) {
     const typePredicate = node.find((child) => child && typeof child === 'object'
       && !Array.isArray(child) && Object.hasOwn(child, 't'));
     const scope = typePredicate?.t ?? recordTypeId;
     const path = typePredicate ? [...scopes, typePredicate.t] : scopes;
-    for (const child of node) visit(child, callback, key, scope, nested, path);
+    for (const child of node) visit(child, callback, key, scope, nested, path, link);
   } else if (node && typeof node === 'object') {
     for (const [name, value] of Object.entries(node)) {
-      visit(value, callback, name, recordTypeId, nested || NESTED_KEY.test(name), scopes);
+      // the enclosing link key (e.g. related:109) travels down to its conditions
+      const inner = NESTED_KEY.test(name) ? name : link;
+      visit(value, callback, name, recordTypeId, nested || NESTED_KEY.test(name), scopes, inner);
     }
-  } else callback(node, key, recordTypeId, nested, scopes);
+  } else callback(node, key, recordTypeId, nested, scopes, link);
 }
 
 /** @returns {string} Names of a `t` value's record types (`"10,12"` → `"Person / Place"`). */

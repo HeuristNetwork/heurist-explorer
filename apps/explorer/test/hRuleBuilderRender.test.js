@@ -50,3 +50,21 @@ test('a new rule starts from the data source type; the dialog allows three steps
   row._addChild();
   assert.equal(row.children.length, 0);
 });
+
+test('related:<field> rules reopen on the relationship field, own or referencing', () => {
+  const defs = {
+    ...dbdefs,
+    fields: (rty) => (Number(rty) === 5 ? [{ id: 22, type: 'relmarker', name: 'Lived in' }] : []),
+    fieldGlobal: (id) => (Number(id) === 22 ? { name: 'Lived in', targetTypes: [10], vocabulary: 0 } : null)
+  };
+  const own = { query: { t: 10, 'related:22': [{ t: 5 }] }, levels: [] };
+  const referencing = { query: { t: 5, 'related:22': [{ t: 10 }] }, levels: [] };
+  for (const rule of [own, referencing]) {
+    const builder = new HRuleBuilder({ dbdefs: defs });
+    builder.attach(document.createElement('div')).render();
+    builder.setRules([rule]);
+    const row = builder._rows[0];
+    assert.equal(row._fields.get(row.field.value)?.id, 22, JSON.stringify(rule.query));
+    assert.deepEqual(builder.getRules()[0].query, rule.query);
+  }
+});

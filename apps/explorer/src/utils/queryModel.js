@@ -47,9 +47,8 @@ import { extentToWkt, isExtent } from '#shared/utils';
  * @property {'link'} type
  * @property {'lt'|'lf'|'rt'|'rf'|'related'} link
  * @property {number|string} dty        Pointer field id (`''` = any pointer → bare `lt`/`lf`/…).
- *           For `related` it is the relmarker field the branch came from - UI only (its
- *           vocabulary feeds the relation-type picker); the key stays bare `related`,
- *           whose suffix would mean relation types.
+ *           For `rt`/`rf`/`related` it is the relationship field (`related:<id>`): its
+ *           vocabulary and record types constrain the branch and feed the relation-type picker.
  * @property {number|string} targetRty  Linked rectype (`''` = any).
  * @property {'any'|'all'} conjunction   Between sub-rows.
  * @property {FieldRow[]} rows           One level only.
@@ -230,8 +229,8 @@ const COMMA_LIST_KEYS = new Set(['ids', 'owner', 'addedby', 'access', 'tag']);
 function compileLinkRow(row, vocab) {
   if (!row || !row.link) return null;
   let key = row.link;
-  // `related:<n>` would mean relation type n, so the relmarker id is not written
-  if (row.link !== 'related' && row.dty !== '' && row.dty != null && Number(row.dty) > 0) {
+  // lt/lf: pointer field; rt/rf/related: relationship field (its vocabulary and record types)
+  if (row.dty !== '' && row.dty != null && Number(row.dty) > 0) {
     key += ':' + Number(row.dty);
   }
 
@@ -239,8 +238,16 @@ function compileLinkRow(row, vocab) {
   if (row.targetRty !== '' && row.targetRty != null && Number(row.targetRty) > 0) {
     sub.push({ t: String(row.targetRty) });
   }
-  const preds = (row.rows || []).map((r) => r?.type === 'link'
+  // "<type> records exist" is what a branch means anyway: it writes nothing (only
+  // "missing" needs exists:NULL); alone, the branch is written with an empty value
+  const exists = (r) => r?.type !== 'link' && (r?.kind === 'exists' || r?.dty === 'exists')
+    && (r.op === 'op.exists' || !r.op);
+  const rows = row.rows || [];
+  // in an "any of" branch an "exists" row alone satisfies it: the other rows do not narrow it
+  const anyExists = row.conjunction === 'any' && rows.some(exists);
+  const preds = anyExists ? [] : rows.filter((r) => !exists(r)).map((r) => r?.type === 'link'
     ? compileLinkRow(r, vocab) : compileFieldRow(r, vocab)).filter(Boolean);
+  if (!sub.length && !preds.length && rows.some(exists)) return { [key]: [] };
   if (preds.length > 1 && row.conjunction === 'any') {
     sub.push({ any: preds });
   } else {
@@ -353,10 +360,10 @@ function resolveLevel(list, dbdefs, scope) {
     let outKey = key;
     const name = suffix.parts[0];
     const isGeoMode = base === 'geo' && GEO_MODES.includes(String(name).toLowerCase());
-    // relf:<name> / r:<name> name a Relationship-record field; `related:` lists relation types
+    // relf:<name> / r:<name> name a Relationship-record field; related:<name> a relationship field
     const isRelField = base === 'relf' || base === 'r';
     const fieldScope = isRelField ? (dbdefs.dbconst?.('RT_RELATION') ?? 1) : rty;
-    if (name && !/^\d+$/.test(name) && !isGeoMode && base !== 'related' && fieldScope != null
+    if (name && !/^\d+$/.test(name) && !isGeoMode && fieldScope != null
         && (base === 'f' || base === 'fc' || base === 'geo' || isLinkPredicate(base))) {
       const id = firstId(dbdefs.fieldIdByName?.(fieldScope, name));
       if (id) outKey = [key.split(':')[0], id, ...suffix.parts.slice(1)].join(':');
@@ -541,16 +548,13 @@ function linkRowFromPredicate(base, suffix, value) {
   const numericSuffix = suffix.parts.length && /^\d+$/.test(suffix.parts[0]) ? Number(suffix.parts[0]) : '';
   const row = {
     type: 'link',
-    link: base === 'related' ? 'related' : base,
-    // for `related` the suffix lists relation types (kept as a relation-type row below)
-    dty: base === 'related' ? '' : numericSuffix,
+    link: base,
+    // pointer field (lt/lf) or relationship field (rt/rf/related)
+    dty: numericSuffix,
     targetRty: '',
     conjunction: 'all',
     rows: []
   };
-  if (base === 'related' && suffix.raw) {
-    row.rows.push(relationTypeRow(suffix.raw));
-  }
   for (const inner of value) {
     const entry = firstEntry(inner);
     if (!entry) continue;

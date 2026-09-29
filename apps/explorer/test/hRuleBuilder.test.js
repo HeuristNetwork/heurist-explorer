@@ -24,16 +24,16 @@ test('legacy-style direct pointer rule round-trips through decoder/encoder', () 
   }), rule.query);
 });
 
-test('reverse relationship preserves relation term and extra filter', () => {
-  const query = encodeRuleQuery({
-    source: 5, target: 10, relation: 77, filter: '[{"plain":"abc"}]',
-    selected: { id: 22, reverse: true, isRelation: true }
-  });
-  assert.deepEqual(query, { t: 10, 'rt:22': [{ t: 5 }, { r: 77 }], plain: 'abc' });
-  const decoded = decodeRule({ query, levels: [] });
-  assert.equal(decoded.fieldKey, '22r10');
-  assert.equal(decoded.relation, 77);
-  assert.equal(decoded.filter, 'abc');
+test('a relationship field (own or referencing) is related:<field>, with relation term and extra filter', () => {
+  for (const reverse of [false, true]) {
+    const query = encodeRuleQuery({
+      source: 5, target: 10, relation: 77, filter: '[{"plain":"abc"}]',
+      selected: { id: 22, reverse, isRelation: true }
+    });
+    assert.deepEqual(query, { t: 10, 'related:22': [{ t: 5 }, { r: 77 }], plain: 'abc' });
+    const decoded = decodeRule({ query, levels: [] });
+    assert.deepEqual([decoded.kind, decoded.fieldId, decoded.relation, decoded.filter], ['related', 22, 77, 'abc']);
+  }
 });
 
 test('generic links rule is supported without a selected field', () => {

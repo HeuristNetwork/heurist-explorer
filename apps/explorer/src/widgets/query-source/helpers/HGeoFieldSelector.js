@@ -119,8 +119,8 @@ export class HGeoFieldSelector extends HFieldSelectionEditor {
         const targets = this.dbdefs.fieldGlobal(field.id)?.targetTypes || [];
         return targets.map(Number).includes(placeRty);
       });
-      // a pointer is followed with lt, a relationship with rt
-      if (pointer) code = `${rootRty}:${pointer.type === 'relmarker' ? 'rt' : 'lt'}${pointer.id}:${placeRty}:${geoDty}`;
+      // a pointer is followed with lt, a relationship with r (either direction)
+      if (pointer) code = `${rootRty}:${pointer.type === 'relmarker' ? 'r' : 'lt'}${pointer.id}:${placeRty}:${geoDty}`;
     }
 
     if (!code) {

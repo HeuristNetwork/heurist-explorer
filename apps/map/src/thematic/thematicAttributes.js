@@ -279,7 +279,7 @@ function pathSteps(code) {
   if (!tokens.length || !/^\d+$/.test(tokens[0])) return null;
   const steps = [];
   for (let index = 1; index + 1 < tokens.length; index += 2) {
-    if (!/^(lt|lf|rt|rf)\d*$/i.test(tokens[index]) || !/^\d+$/.test(tokens[index + 1])) break;
+    if (!/^(lt|lf|rt|rf|r)\d*$/i.test(tokens[index]) || !/^\d+$/.test(tokens[index + 1])) break;
     steps.push({ operator: tokens[index].toLowerCase(), recordType: tokens[index + 1] });
   }
   return { root: tokens[0], steps };
