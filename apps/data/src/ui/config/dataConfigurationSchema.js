@@ -85,6 +85,7 @@ function normalizeOptions(source, defaults) {
         defaults.ui.showSourceHeader,
       ),
       showOptions: boolean(ui.showOptions, defaults.ui.showOptions),
+      showExpansion: boolean(ui.showExpansion, defaults.ui.showExpansion),
       language: enumValue(
         ui.language,
         ["auto", "eng", "fre", "ger", "por"],

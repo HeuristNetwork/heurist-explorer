@@ -52,6 +52,96 @@ export class HeuristDataPublicApi {
     return this.application.setDataSource(dataSource, options);
   }
 
+  /**
+   * Apply changed expansion rules of the active DataSource (the host's rules-only update).
+   *
+   * @param {Array<object>} rules Expansion rules.
+   * @returns {Promise<void>}
+   */
+  setDataSourceRules(rules) {
+    return this.application.setDataSourceRules(rules);
+  }
+
+  /**
+   * Current state of the expansion-level pane.
+   *
+   * @returns {object|null} See `ExpansionLevelView#getState`, or `null` without the pane.
+   */
+  getExpansionState() {
+    return this.application.expansion?.getState() ?? null;
+  }
+
+  /**
+   * Show or hide the expansion-level pane.
+   *
+   * @param {boolean} active Whether the pane is shown.
+   * @returns {Promise<void>}
+   */
+  setExpansionActive(active) {
+    return this.application.expansion?.setActive(active);
+  }
+
+  /**
+   * Show another expansion level.
+   *
+   * @param {number} level Level 1–4.
+   * @returns {Promise<void>}
+   */
+  setExpansionLevel(level) {
+    return this.application.expansion?.setLevel(level);
+  }
+
+  /**
+   * Enable or disable one expansion rule in the level pane.
+   *
+   * @param {number} index Rule position.
+   * @param {boolean} enabled Whether the rule is used.
+   * @returns {Promise<void>}
+   */
+  setExpansionRuleEnabled(index, enabled) {
+    return this.application.expansion?.setRuleEnabled(index, enabled);
+  }
+
+  /**
+   * Show exactly level n, or all levels 1..n.
+   *
+   * @param {boolean} cumulative Whether the lower levels are included.
+   * @returns {Promise<void>}
+   */
+  setExpansionCumulative(cumulative) {
+    return this.application.expansion?.setCumulative(cumulative);
+  }
+
+  /**
+   * Filter the level by the main list's selection, or not.
+   *
+   * @param {boolean} value Whether the selection filters the level.
+   * @returns {Promise<void>}
+   */
+  setExpansionFilterBySelection(value) {
+    return this.application.expansion?.setFilterBySelection(value);
+  }
+
+  /** @returns {boolean} Whether the host lets this user edit expansion rules. */
+  canEditRules() {
+    return this.application.canEditRules();
+  }
+
+  /** @returns {boolean} Whether quick expansion can add a step. */
+  canQuickExpand() {
+    return this.application.canQuickExpand();
+  }
+
+  /** Open the host's Expansion rules dialog (authors only). */
+  editRules() {
+    return this.application.editRules();
+  }
+
+  /** Add one "any pointer or relationship" step to every rule branch and show it. */
+  quickExpand() {
+    return this.application.quickExpand();
+  }
+
   /** Show or hide a loading indicator, called by the host around its setDataSource() call. */
   setLoading(loading) {
     return this.application.setLoading(loading);

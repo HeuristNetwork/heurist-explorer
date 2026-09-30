@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { MAX_RULE_DEPTH, ruleDepth, typeIds, ruleTargetTypes, appendQuickStep } from '../src/data/expansionRules.js';
+import { MAX_RULE_DEPTH, ruleDepth, rulesDepth, typeIds, ruleTargetTypes, appendQuickStep, expansionLevelQuery } from '../src/data/expansionRules.js';
 import { RectypeSource } from '../src/data/valueSources/localSources.js';
 
 test('rule depth counts the rule query as level 1', () => {
@@ -58,4 +58,34 @@ test('record types: current data source first, then groups sorted by name', () =
     [[10, 'Current data source'], [5, 'People'], [12, 'Places']]);
   assert.deepEqual(new RectypeSource(dbdefs, { ids: [12, 10] }).items().map((item) => item.value), [12, 10]);
   assert.equal(new RectypeSource(dbdefs).labelFor(5), 'Person');
+});
+
+test('level query: a step gets its parent level as a condition of its traversal', () => {
+  const rules = [{ query: { t: 10, lf: [{ t: 5 }] }, levels: [{ query: { 'lt:4': [] } }] }];
+  assert.deepEqual(expansionLevelQuery('t:5', rules, 1), { t: 10, lf: [{ t: 5 }, { all: 't:5' }] });
+  assert.deepEqual(expansionLevelQuery({ t: 5 }, rules, 2),
+    { 'lt:4': [{ all: { t: 10, lf: [{ t: 5 }, { all: { t: 5 } }] } }] });
+  assert.equal(expansionLevelQuery('t:5', rules, 3), null, 'no rule reaches level 3');
+  assert.equal(expansionLevelQuery('t:5', rules, 0), null);
+  assert.deepEqual(rules[0].query.lf, [{ t: 5 }], 'rules are not modified');
+});
+
+test('level query: branches are joined with any; cumulative adds the lower levels', () => {
+  const rules = [{ query: { connected: [] }, levels: [{ query: { rt: [] } }] }, { query: [{ t: 3 }, { 'lf:7': '12,13' }] }];
+  assert.deepEqual(expansionLevelQuery('Q', rules, 1), { any: [
+    { all: { connected: [{ all: 'Q' }] } },
+    { all: [{ t: 3 }, { 'lf:7': [{ ids: '12,13' }, { all: 'Q' }] }] }
+  ] });
+  const level1 = { connected: [{ all: 'Q' }] };
+  assert.deepEqual(expansionLevelQuery('Q', rules, 2), { rt: [{ all: level1 }] });
+  assert.equal(expansionLevelQuery('Q', rules, 2, { cumulative: true }).any.length, 3);
+});
+
+test('level query: the selection replaces the base query; ignored rules are skipped', () => {
+  const rules = [{ query: { connected: [] } }, { query: { lt: [] }, ignore: true }];
+  assert.deepEqual(expansionLevelQuery('Q', rules, 1, { parentIds: [4, '5', 'x'] }), { connected: [{ all: { ids: [4, 5] } }] });
+  assert.deepEqual(expansionLevelQuery('Q', rules, 1, { parentIds: [] }), { connected: [{ all: 'Q' }] });
+  assert.equal(rulesDepth(rules), 1);
+  assert.equal(rulesDepth([]), 0);
+  assert.equal(expansionLevelQuery('Q', [{ query: { t: 5 } }], 1), null, 'a step without traversal reaches nothing');
 });

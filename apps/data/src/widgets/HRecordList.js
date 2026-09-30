@@ -40,7 +40,6 @@ export class HRecordList extends HBaseWidget {
    * @param {Function} context.onDataRequest Called with `{offset, limit, sort, filter}` to request a page of data.
    * @param {Function} context.onRecordContentRequest Called to lazily load a record's presentation HTML.
    * @param {Function} context.onViewRecord Called with a record ID to view.
-   * @param {Function} context.onExport Called with an export format to export the current results.
    * @param {Function} context.onViewModeChange Called with the new view mode.
    * @param {Function} context.onDataSourceAction Called with a datasource action id (workspace/save-filter/save-source).
    * @returns {Promise<void>}
@@ -55,7 +54,6 @@ export class HRecordList extends HBaseWidget {
     onDataRequest,
     onRecordContentRequest,
     onViewRecord,
-    onExport,
     onViewModeChange,
     onDataSourceAction,
   }) {
@@ -68,7 +66,6 @@ export class HRecordList extends HBaseWidget {
       onDataRequest,
       onRecordContentRequest,
       onViewRecord,
-      onExport,
       onViewModeChange,
       onDataSourceAction,
     });
@@ -171,11 +168,6 @@ export class HRecordList extends HBaseWidget {
         void this._collectionAction(target.dataset.collectionActionName);
       },
     );
-    this.delegate(this.container, "click", "[data-export]", (event, target) => {
-      event.preventDefault();
-      this._closeDropdown(target);
-      void this._export(target.dataset.export);
-    });
     this.delegate(
       this.content,
       "click",
@@ -289,6 +281,16 @@ export class HRecordList extends HBaseWidget {
   _setLoading(loading) {
     this._loadingCount = Math.max(0, (this._loadingCount || 0) + (loading ? 1 : -1));
     this.container.classList.toggle("h-recordlist-loading", this._loadingCount > 0);
+  }
+
+  /**
+   * Request the first page again through `onDataRequest` (the source changed outside the widget).
+   *
+   * @returns {Promise<void>}
+   */
+  reload() {
+    this.offset = 0;
+    return this._requestPage();
   }
 
   /** Request the current offset/page-length/filter page of data and re-render, tolerating supersession/abort. */
@@ -774,52 +776,6 @@ export class HRecordList extends HBaseWidget {
   }
 
   /**
-   * Export the current results in the given format.
-   *
-   * @param {'copy'|'csv'|'excel'|'pdf'} format Export format.
-   * @returns {Promise<void>}
-   * @todo The implementation below is currently commented out, so this is a no-op until it is restored.
-   */
-  async _export(format) {
-/*
-    if (this.onExport) {
-      return this.onExport({
-        format,
-        records: this.records,
-        selection: [...this.selected],
-      });
-    }
-    const rows = exportRows(this.records, this.querySource?.fields || []);
-    if (format === "copy")
-      return navigator.clipboard?.writeText(toDelimited(rows, "\t"));
-    if (format === "csv")
-      return downloadBlob(
-        toDelimited(rows, ","),
-        "heurist-records.csv",
-        "text/csv;charset=utf-8",
-      );
-    if (format === "excel") {
-      const table = `<table>${rows.map((row) => `<tr>${row.map((value) => `<td>${escapeHtml(value)}</td>`).join("")}</tr>`).join("")}</table>`;
-      return downloadBlob(
-        table,
-        "heurist-records.xls",
-        "application/vnd.ms-excel;charset=utf-8",
-      );
-    }
-    if (format === "pdf") {
-      const [{ default: pdfMake }, { default: pdfFonts }] = await Promise.all([
-        import("pdfmake/build/pdfmake.js"),
-        import("pdfmake/build/vfs_fonts.js"),
-      ]);
-      pdfMake.addVirtualFileSystem(pdfFonts);
-      pdfMake
-        .createPdf({ content: [{ table: { body: rows } }] })
-        .download("heurist-records.pdf");
-    }
-*/
-  }
-
-  /**
    * Apply updated engine options: merges into the current options, refreshes toolbar controls, and re-renders.
    *
    * @param {object} [options] Updated engine options, merged into `this.options`.
@@ -900,7 +856,6 @@ function normalizeOptions(options) {
       pageSize: true,
       search: true,
       counter: true,
-      export: true,
       pagination: true,
       viewMode: true,
       selectionActions: true,
@@ -962,73 +917,6 @@ function pageEntries(current, count) {
       result.push(page);
     });
   return result;
-}
-
-/** Build a header + data row matrix (ID plus visible field titles/values) for export. */
-function exportRows(records, fields) {
-  const visible = fields.filter((field) => field.visible !== false);
-  return [
-    ["ID", ...visible.map((field) => field.title || field.field)],
-    ...records.map((record) => [
-      record.rec_ID,
-      ...visible.map((field) => displayFieldValue(record, field)),
-    ]),
-  ];
-}
-
-/** Serialize a row matrix to a quoted, delimited text block (CSV/TSV). */
-function toDelimited(rows, delimiter) {
-  return rows
-    .map((row) =>
-      row
-        .map((value) => `"${String(value ?? "").replaceAll('"', '""')}"`)
-        .join(delimiter),
-    )
-    .join("\r\n");
-}
-
-/** Trigger a browser download of a value (text or Blob) as a named file. */
-function downloadBlob(value, filename, type) {
-  const blob = value instanceof Blob ? value : new Blob([value], { type });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = filename;
-  link.click();
-  setTimeout(() => URL.revokeObjectURL(url), 0);
-}
-
-/** Read and project a field's values, joined into one display string. */
-function displayFieldValue(record, field, separator = " | ") {
-  const raw = String(field?.field || "").startsWith("rec_")
-    ? record?.[field.field]
-    : record?.details?.[field?.field];
-  const values = Array.isArray(raw) ? raw : raw == null ? [] : [raw];
-  return values.map((item) => projectFieldValue(item, field?.ext)).join(separator);
-}
-
-/** Project one detail value to a display string per its fieldset output option (`ext`). */
-function projectFieldValue(item, ext = null) {
-  if (item == null) return "";
-  if (typeof item !== "object") return item;
-  const key = String(ext || "").toLowerCase();
-  const first = (...values) => values.find((value) => value !== null && value !== undefined) ?? "";
-  if (key === "term") return first(item.trm_Label, item.term, item.label, item.value);
-  if (key === "code") return first(item.trm_Code, item.code, item.value);
-  if (key === "conceptid") return first(item.trm_ConceptCode, item.conceptId, item.conceptid);
-  if (key === "id") return first(item.trm_ID, item.rec_ID, item.file?.ulf_ID, item.ulf_ID, item.id, item.value);
-  if (key === "url") return first(item.file?.ulf_ExternalFileReference, item.file?.fullPath, item.url, item.fileUrl);
-  if (key === "thumb") return first(item.file?.thumbnailUrl, item.thumbnailUrl, item.thumbnail, item.thumb);
-  if (key === "wkt") return first(item.geo?.wkt, item.wkt);
-  if (key && item[ext] != null) return serializeValue(item[ext]);
-  return serializeValue(first(item.trm_Label, item.rec_Title, item.file?.ulf_Caption, item.file?.ulf_OrigFileName, item.file?.ulf_ExternalFileReference, item.file?.fullPath, item.geo?.wkt, item.value, item.label, item.title, item.code, item.id, ""));
-}
-
-/** JSON-stringify an object value; pass scalars through, and `''` for `null`/`undefined`. */
-function serializeValue(value) {
-  if (value == null) return "";
-  if (typeof value !== "object") return value;
-  try { return JSON.stringify(value); } catch { return String(value); }
 }
 
 /** Strip HTML down to a small allowlist of inline formatting tags (`u`, `i`, `b`, `strong`, `em`). */

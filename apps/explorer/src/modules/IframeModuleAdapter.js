@@ -360,13 +360,13 @@ export class IframeModuleAdapter extends ExplorerModule {
 
   /**
    * Apply changed expansion rules of the active DataSource without reloading.
-   * Only Graph uses rules so far.
+   * Graph and Data use rules so far.
    *
    * @param {Array<object>} rules Expansion rules.
    * @returns {Promise<*>} The child's result, or `null` when the module has no rules.
    */
   async setRules(rules) {
-    if (this.type !== 'graph') return null;
+    if (!['graph', 'data'].includes(this.type)) return null;
     const api = await this._readyApi();
     return api.setDataSourceRules?.(rules) ?? null;
   }

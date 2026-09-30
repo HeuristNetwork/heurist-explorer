@@ -148,3 +148,19 @@
 #Remove from workspace#Remove from workspace
 #Save as Filter#Save as Filter
 #Save as Source#Save as Source
+#Expansion#Expansion
+#Show records linked through the expansion rules#Show records linked through the expansion rules
+#The current source has no expansion rules#The current source has no expansion rules
+#Filter by selection: show only records linked to the records selected in the main list#Filter by selection: show only records linked to the records selected in the main list
+#Previous level#Previous level
+#Expansion level#Expansion level
+#Expansion level: n is what step n of the enabled rules reaches from the main list#Expansion level: n is what step n of the enabled rules reaches from the main list
+#Next level#Next level
+#Show all levels up to the selected one#Show all levels up to the selected one
+#Edit expansion rules#Edit expansion rules
+#Quick expansion: add a step to every rule - any pointer or relationship to any record type#Quick expansion: add a step to every rule - any pointer or relationship to any record type
+#Expansion Rules#Expansion Rules
+#Expansion rules#Expansion rules
+#Rule#Rule
+#linked to selection#linked to selection
+#No linked records#No linked records

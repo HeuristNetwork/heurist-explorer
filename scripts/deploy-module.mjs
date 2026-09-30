@@ -16,7 +16,7 @@ async function deployModule(moduleTarget) {
   const moduleName = `heurist-${moduleTarget}`;
   const sourceDirectory = path.resolve("dist", moduleName);
   const distributionRoot =
-    process.env.HEURIST_CLIENT_DIST_ROOT || "C:/xampp/htdocs/heurist/hclient/bundles/";
+    process.env.HEURIST_CLIENT_DIST_ROOT || "D:/xampp/htdocs/heurist/hclient/bundles/";
   const destinationDirectory = path.join(distributionRoot, moduleName);
   const stagingDirectory = `${destinationDirectory}.new-${process.pid}`;
   const previousDirectory = `${destinationDirectory}.old-${process.pid}`;

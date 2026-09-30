@@ -243,6 +243,34 @@ export class HeuristDataHostAdapter extends HostAdapter {
     return this.bridge.saveDatasourceAsSource?.(source, options);
   }
 
+  /** Whether the host lets the user edit the DataSource's expansion rules (authors only). */
+  supportsRulesEditing() {
+    return (
+      typeof this.bridge?.updateRules === "function" &&
+      this.bridge?.canEditRules?.() === true
+    );
+  }
+
+  /**
+   * Open the host's Expansion rules dialog. The host saves the result into the
+   * DataSource and applies it back through `setDataSourceRules`.
+   *
+   * @returns {Promise<Array<object>|null>} New rules, or `null` when cancelled or unavailable.
+   */
+  async editRules() {
+    return (await this.bridge?.editRules?.()) ?? null;
+  }
+
+  /**
+   * Write rules into the host's DataSource without a dialog (quick expansion).
+   *
+   * @param {Array<object>} rules New expansion rules.
+   * @returns {Promise<*>} Host result, or `null` when unavailable.
+   */
+  async updateRules(rules) {
+    return (await this.bridge?.updateRules?.(rules)) ?? null;
+  }
+
   /**
    * Destroy the persistent collection and release base adapter resources.
    *

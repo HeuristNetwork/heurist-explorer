@@ -148,3 +148,19 @@
 #Remove from workspace#Retirer de l’espace de travail
 #Save as Filter#Enregistrer comme filtre
 #Save as Source#Enregistrer comme source
+#Expansion#Expansion
+#Show records linked through the expansion rules#Afficher les enregistrements liés par les règles d’expansion
+#The current source has no expansion rules#La source actuelle n’a pas de règles d’expansion
+#Filter by selection: show only records linked to the records selected in the main list#Filtrer par la sélection : afficher uniquement les enregistrements liés aux enregistrements sélectionnés dans la liste principale
+#Previous level#Niveau précédent
+#Expansion level#Niveau d’expansion
+#Expansion level: n is what step n of the enabled rules reaches from the main list#Niveau d’expansion : n correspond à ce que l’étape n des règles actives atteint depuis la liste principale
+#Next level#Niveau suivant
+#Show all levels up to the selected one#Afficher tous les niveaux jusqu’au niveau choisi
+#Edit expansion rules#Modifier les règles d’expansion
+#Quick expansion: add a step to every rule - any pointer or relationship to any record type#Expansion rapide : ajouter une étape à chaque règle - tout pointeur ou relation vers tout type d’enregistrement
+#Expansion Rules#Règles d’expansion
+#Expansion rules#Règles d’expansion
+#Rule#Règle
+#linked to selection#liés à la sélection
+#No linked records#Aucun enregistrement lié

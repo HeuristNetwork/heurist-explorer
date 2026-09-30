@@ -17,13 +17,15 @@ export const HEURIST_DATA_OPTIONS_DEFAULTS = Object.freeze({
     initiallyExpanded: true,
     showSourceHeader: false,
     showOptions: true,
+    // Expansion button: level list of the DataSource's expansion rules (plan 09 §7)
+    showExpansion: true,
     language: "auto",
   }),
   nativeControls: Object.freeze({
     pageSize: true,
-    search: true,
+    search: false,
     counter: true,
-    export: true,
+    export: false,
     viewMode: true,
     selectionActions: true,
   }),

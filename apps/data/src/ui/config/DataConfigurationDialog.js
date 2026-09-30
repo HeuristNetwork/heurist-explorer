@@ -193,7 +193,10 @@ export class DataConfigurationDialog {
         sourceHeader,
       );
     }
-    body.append(this.check("options.ui.showOptions", "Options"));
+    body.append(
+      this.check("options.ui.showOptions", "Options"),
+      this.check("options.ui.showExpansion", "Expansion rules"),
+    );
     const controls = el("fieldset", "heurist-config-subgroup");
     const legend = el("legend", "h-i18n");
     legend.textContent = "Native controls";

@@ -14,6 +14,7 @@
  */
 
 import { $HR, applyI18n, InlineHelp } from "#shared/ui";
+import { DataExpansionBar } from "./DataExpansionBar.js";
 
 /**
  * Fixed header-only bar overlaying the DataTables toolbar: source caption plus
@@ -67,7 +68,14 @@ export class DataControlPanel {
       this.api.openPublishDialog(),
     );
     this.actions.append(this.helpButton, this.optionsButton, this.publishButton);
-    header.append(this.actions);
+    // Expansion button and level bar stay visible (the actions show on hover only)
+    this.expansionBar = new DataExpansionBar({
+      api: this.api,
+      onError: (error, operation) => this.reportError(error, operation),
+    });
+    const expansion = this.expansionBar.create();
+    this.expansionButton = expansion.button;
+    header.append(expansion.bar, expansion.button, this.actions);
 
     this.collapseToggle = iconButton(
       "fa-solid fa-layer-group",
@@ -212,6 +220,7 @@ export class DataControlPanel {
     if (this.publishButton)
       this.publishButton.hidden =
         readonly || this.options.runtimeMode !== "main";
+    this.expansionBar?.setEnabled(this.options.showExpansion !== false);
     if (this.sourceHeader)
       this.sourceHeader.hidden = this.options.showSourceHeader !== true;
     this.tableContainer.classList.toggle(
@@ -234,6 +243,7 @@ export class DataControlPanel {
       this.helpButton,
       this.optionsButton,
       this.publishButton,
+      this.expansionButton,
     ].some((button) => button && !button.hidden);
     this.element.hidden = !hasVisibleToolButton;
     this.updateExpandedState();
@@ -247,6 +257,7 @@ export class DataControlPanel {
   destroy() {
     for (const [name, handler] of this.listeners)
       this.api.removeEventListener(name, handler);
+    this.expansionBar?.destroy();
     this.tableContainer?.classList.remove("heurist-has-source-header");
     this.sourceHeader?.remove();
     this.helpOverlay?.close();

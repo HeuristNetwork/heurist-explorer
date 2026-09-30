@@ -14,12 +14,15 @@
  */
 
 import { normalizeDataConfigurationSettings } from "../ui/config/dataConfigurationSchema.js";
+import { appendQuickStep } from "#shared/data/expansionRules.js";
+import { ExpansionLevelView } from "./ExpansionLevelView.js";
 
 /** Coordinates host integration, data loading, engine rendering, and state. */
 export class DataApplication extends EventTarget {
   /**
    * @param {object} options Application dependencies.
    * @param {HTMLElement} options.container Element the rendering engine mounts into.
+   * @param {HTMLElement|null} [options.frame] Module frame around `container`; the expansion-level pane is added to it.
    * @param {object} options.config Runtime configuration produced by `getHeuristDataConfig`.
    * @param {object} options.engine Rendering engine adapter (e.g. HRecordList or DataTablesAdapter).
    * @param {Function|null} [options.engineFactory] Factory used to swap engines when the configured engine changes.
@@ -29,6 +32,7 @@ export class DataApplication extends EventTarget {
    */
   constructor({
     container,
+    frame = null,
     config,
     engine,
     engineFactory = null,
@@ -38,6 +42,7 @@ export class DataApplication extends EventTarget {
   }) {
     super();
     this.container = container;
+    this.expansion = frame ? new ExpansionLevelView({ application: this, frame }) : null;
     this.config = config;
     this.engine = engine;
     this.engineFactory = engineFactory;
@@ -77,6 +82,7 @@ export class DataApplication extends EventTarget {
     }
     await this.engine.initialize(this._engineContext());
     await this._configureCollection();
+    await this.expansion?.setRules(this.dataSource?.request?.rules, { reset: true, reload: false });
     if (this.config.source.querySourceId) {
       await this.setQuerySource(
         this.config.source.querySourceId,
@@ -252,10 +258,19 @@ export class DataApplication extends EventTarget {
     this.engine.setLoading?.(Boolean(loading));
   }
 
-  /** Apply Explorer's complete normalized DataSource without losing identity. */
-  setDataSource(dataSource, options = {}) {
+  /**
+   * Apply Explorer's complete normalized DataSource without losing identity.
+   * A different DataSource hides the expansion-level pane and resets its level;
+   * a new request of the same one (e.g. a parameterized search) keeps it (U7).
+   */
+  async setDataSource(dataSource, options = {}) {
     const request = dataSource?.request || {};
     const fields = dataSource?.presentation?.data?.fields;
+    if (this.expansion) {
+      const same = sameDataSource(this.dataSource, dataSource);
+      if (!same && this.expansion.active) await this.expansion.setActive(false);
+      await this.expansion.setRules(request.rules, { reset: !same, reload: false });
+    }
     return this.setQuery(request.q ?? dataSource?.query, {
       ...options,
       dataSource,
@@ -324,7 +339,60 @@ export class DataApplication extends EventTarget {
       pagination: result.response.pagination || {},
     });
     await this._syncDataSourceActions();
+    // a new main result is a new level 0; the main list does not wait for it
+    void this.expansion?.reload();
     return this.getState();
+  }
+
+  /**
+   * Apply changed expansion rules of the active DataSource without reloading the main list.
+   *
+   * @param {Array<object>} rules Expansion rules.
+   * @returns {Promise<void>}
+   */
+  async setDataSourceRules(rules) {
+    if (this.dataSource) {
+      this.dataSource.request ||= {};
+      this.dataSource.request.rules = cloneValue(Array.isArray(rules) ? rules : []);
+    }
+    await this.expansion?.setRules(rules);
+  }
+
+  /** Whether the host lets this user edit the DataSource's expansion rules. */
+  canEditRules() {
+    return this.host.supportsRulesEditing?.() === true;
+  }
+
+  /**
+   * Open the host's Expansion rules dialog; the host applies the result back
+   * through `setDataSourceRules`.
+   *
+   * @returns {Promise<Array<object>|null>} New rules, or `null` when cancelled or unavailable.
+   */
+  async editRules() {
+    if (!this.canEditRules()) return null;
+    return (await this.host.editRules()) ?? null;
+  }
+
+  /** Whether quick expansion can add a step (authors only; some branch is shorter than the limit). */
+  canQuickExpand() {
+    return this.canEditRules() && appendQuickStep(this.expansion?.rules || []) !== null;
+  }
+
+  /**
+   * Quick expansion: add one "any pointer or relationship" step to every rule
+   * branch, save the rules into the DataSource (through the host) and show the
+   * new deepest level.
+   *
+   * @returns {Promise<boolean>} Whether the rules changed.
+   */
+  async quickExpand() {
+    if (!this.canQuickExpand()) return false;
+    const rules = appendQuickStep(this.expansion.rules);
+    await this.host.updateRules(rules);
+    await this.expansion.setActive(true);
+    await this.expansion.setLevel(this.expansion.maxDepth());
+    return true;
   }
 
   /** Set the active load descriptor and dispatch a pending `heurist-data-source-changed` event. */
@@ -367,6 +435,7 @@ export class DataApplication extends EventTarget {
   async setSelection(recordIds, options = {}) {
     this.selection = normalizeIds(recordIds);
     await this.engine.setSelection(this.selection, options);
+    this.expansion?.selectionChanged();
     return [...this.selection];
   }
 
@@ -403,6 +472,7 @@ export class DataApplication extends EventTarget {
       pagination: this.response.pagination,
     });
     await this._syncDataSourceActions();
+    void this.expansion?.reload();
     return this.getState();
   }
 
@@ -412,6 +482,7 @@ export class DataApplication extends EventTarget {
     this.dispatch("heurist-data-selection-changed", {
       recordIds: [...this.selection],
     });
+    this.expansion?.selectionChanged();
   }
 
   /** Request record editing through the host or dispatch a host event. */
@@ -649,6 +720,7 @@ export class DataApplication extends EventTarget {
     this._setConfiguration(normalized);
     if (this.config.engine !== previousEngine) {
       await this._replaceEngine();
+      await this.expansion?.applyConfiguration();
       this.dispatch("heurist-data-configuration-changed", {
         options: normalized.options,
         config: normalized.config,
@@ -657,6 +729,7 @@ export class DataApplication extends EventTarget {
     }
     await this._configureCollection();
     await this.engine.applyConfiguration?.(this._engineOptions());
+    await this.expansion?.applyConfiguration();
     this.dispatch("heurist-data-configuration-changed", {
       options: normalized.options,
       config: normalized.config,
@@ -742,6 +815,7 @@ export class DataApplication extends EventTarget {
   async destroy() {
     this.requestGeneration += 1;
     this.abortController?.abort(abortError("Application destroyed"));
+    await this.expansion?.destroy();
     await this.engine.destroy();
     this.unsubscribeCollection?.();
     this.unsubscribeCollection = null;
@@ -757,6 +831,17 @@ function normalizeIds(values) {
     .filter(
       (id) => Number.isInteger(id) && id > 0 && !seen.has(id) && seen.add(id),
     );
+}
+
+/**
+ * Whether two DataSources are the same saved source or filter (their request may
+ * differ, e.g. after a parameterized search). Ad-hoc queries are never the same.
+ */
+function sameDataSource(a, b) {
+  const left = a?.reference;
+  const right = b?.reference;
+  if (!left || !right || left.type === "query" || left.id == null) return false;
+  return left.type === right.type && String(left.id) === String(right.id);
 }
 
 /** Build an ad-hoc query-type DataSource for a raw query and optional title. */

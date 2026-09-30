@@ -1,5 +1,20 @@
 :root { font-family: var(--h-font-family); color: var(--h-color-text); font-size: var(--h-font-size); }
-html, body, .heurist-data-root { width: 100%; height: 100%; margin: 0; overflow: hidden; }
+html, body, .heurist-data-frame, .heurist-data-root { width: 100%; height: 100%; margin: 0; overflow: hidden; }
+/* Frame: the main list, and with Expansion on the level pane beside it
+   (under it when narrow, see ExpansionLevelView). */
+.heurist-data-frame { position: relative; display: flex; flex-direction: row; box-sizing: border-box;
+  container-type: inline-size; background: var(--h-color-bg); }
+.heurist-data-frame > .heurist-data-root { flex: 1 1 0; width: auto; min-width: 0; min-height: 0; }
+.heurist-data-level-pane { display: flex; flex-direction: column; flex: 1 1 0; min-width: 0; min-height: 0;
+  box-sizing: border-box; padding: 4px; border-left: 1px solid var(--h-color-border-strong); }
+.heurist-data-level-pane[hidden] { display: none; }
+.heurist-data-level-pane > .heurist-source-header { flex: 0 0 auto; margin: -4px -4px 2px; }
+.heurist-data-frame.heurist-data-narrow { flex-direction: column; }
+.heurist-data-frame.heurist-data-narrow > .heurist-data-root { width: 100%; }
+.heurist-data-frame.heurist-data-narrow .heurist-data-level-pane { border-left: 0; border-top: 1px solid var(--h-color-border-strong); }
+.heurist-data-level-list { flex: 1 1 auto; min-width: 0; min-height: 0; }
+.heurist-data-level-list.h-recordlist-host > .h-recordlist { box-sizing: border-box; height: 100%; min-height: 0; overflow: hidden; }
+.heurist-data-level-list.h-recordlist-host .h-recordlist-content { min-height: 0; overflow: auto; }
 .heurist-data-root {
   box-sizing: border-box;
   padding: 4px !important;
@@ -187,4 +202,22 @@ label.heurist-data-query-source { display:flex; align-items:center; gap:6px; fon
 }
 
 .heurist-data-help-button { margin-left:6px; }
+
+/* Expansion button and level bar in the header (see DataExpansionBar.js) */
+.heurist-module-control-panel:has(.heurist-data-expansion-bar:not([hidden])) { width:auto; max-width:calc(100% - 8px); }
+/* the rules menu drops out of the header-only panel */
+.heurist-module-control-panel:not(.fully-collapsed) { overflow:visible; }
+.heurist-module-control-panel .heurist-module-panel-header { flex-wrap:wrap; }
+.heurist-data-expansion-button { display:inline-flex; align-items:center; gap:5px; margin-left:4px; }
+.heurist-data-expansion-button.active { color:var(--h-color-primary); border-color:var(--h-color-primary); }
+.heurist-data-expansion-bar { display:inline-flex; align-items:center; gap:2px; margin-left:4px; }
+.heurist-data-expansion-bar[hidden] { display:none; }
+.heurist-data-toggle.active { color:var(--h-color-primary); background:var(--h-color-selected); }
+.heurist-data-level-selector { min-height:24px; width:auto; padding:1px 16px 1px 4px; }
+.heurist-data-rules-menu > summary { display:inline-flex; align-items:center; }
+.heurist-data-rules-menu > summary::after { margin-left:3px; }
+.heurist-data-rules-list { left:auto; right:0; max-height:50vh; overflow:auto; padding:4px 0; }
+.heurist-data-rule-row { display:flex; align-items:center; gap:6px; padding:4px 10px; white-space:nowrap; cursor:pointer; }
+.heurist-data-rule-row:hover { background:var(--h-color-surface-hover); }
+@container (max-width: 620px) { .heurist-data-expansion-caption { display:none; } }
 .heurist-data-pin-button.active { outline:1px solid var(--h-color-border-strong); }

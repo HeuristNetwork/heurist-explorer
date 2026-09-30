@@ -26,7 +26,9 @@ import { DataConfigurationDialog } from "../../src/ui/config/DataConfigurationDi
 
 test("data configuration defaults expose the requested controls", () => {
   const value = createDataConfigurationDefaults();
-  assert.equal(value.options.nativeControls.export, true);
+  assert.equal(value.options.nativeControls.export, false);
+  assert.equal(value.options.nativeControls.search, false);
+  assert.equal(value.options.ui.showExpansion, true);
   assert.equal(value.options.ui.language, "auto");
   assert.equal(value.options.ui.showSourceHeader, false);
   assert.equal(value.config.defaults.fontSize, 14);

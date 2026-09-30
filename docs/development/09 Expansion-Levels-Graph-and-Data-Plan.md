@@ -1,7 +1,8 @@
 # Expansion levels in Graph and Data — development plan
 
-Status: **Phases 1–2 implemented 2026-09-28 (not committed).** Phase 3 (Data) is next; Phase 4
-(Map, Timeline) is postponed. §10 lists where the implementation differs from this plan.
+Status: **Phases 1–2 implemented 2026-09-28, committed (`ec2aef1`); §11 committed (`8aa2890` /
+server `9bca7dafe`).** Phase 3 (Data) implemented 2026-09-30, not committed, not yet checked in
+a browser — decisions and notes in §7; Phase 4 (Map, Timeline) is postponed. §10 lists where the implementation differs from this plan.
 
 ---
 
@@ -112,13 +113,79 @@ Unchanged, plus several record types per step:
 - A shared helper `expansionLevelQuery(q, rules, level, { parentIds })` turns a level into an
   ordinary query: a step's parent query is the previous level
   (`{t:10, lf:[{t:5}]}` from `Q` → `{t:10, lf:[{t:5}, {all: Q}]}`), branches are
-  `{any: […]}`. A text `Q` is wrapped as `{plain: Q}`. With `parentIds` the base is
+  `{any: […]}`. A text `Q` is embedded as is (`{all: "t:5"}`, see implementation notes). With `parentIds` the base is
   `{ids: parentIds}` instead of `Q` — the selection filter (E8).
 - These queries compile to SQL (`links`, `related`, `connected`, relation markers are
   `EXISTS … OR EXISTS …` since 2026-09-28), so they page, sort and count like any result.
 - UI: a level selector in `h-recordlist-toolbar` (None / 1–4, only levels the rules have);
   a second `HRecordList` beside the main one (wrapped under it when narrow), with its own
   paging. Selecting records in the main list filters the second one.
+
+### Decisions (agreed 2026-09-30)
+
+Background: legacy search merged rule results on the server (`rulesonly` 0–3: original +
+all rules, all rules only, last rule only, original + last rule) and downloaded the whole
+set. The new Data module loads by page, so it cannot do that.
+
+| # | Decision |
+|---|---|
+| D1 | **Data loads its own level data**; it does not mirror the Graph. It does **not** use `/graph` (ID lists between steps, capped by `maxNodes`, cannot be paged). A level is a plain `/records` query built by `expansionLevelQuery`. |
+| D2 | The query is built **on the client** by the shared helper in `shared/src/data/expansionRules.js` (to be written; Map/Timeline reuse it in Phase 4). The base is the **current query `Q`**, not record IDs — Data only knows the current page's IDs. IDs are used only for the selection filter (`parentIds`). |
+| D3 | **Paging works**: each level is its own query, so the server pages, counts and sorts it like any result. No per-level download, no client-side splitting. |
+| D4 | **Level modes** in the second list: *Level n only* (= legacy `rulesonly=2`) and *All levels 1..n* (`{any: [level 1 … level n]}`, = `rulesonly=1`). "Main + levels" (`rulesonly=0/3`) is not a list mode — see D8. |
+| D5 | **No exclusion of lower levels.** A level shows every record its step reaches, including records already in level 0 or a lower level: a record can refer to itself directly or through several steps, and that is real data. |
+| D6 | Data has its **own level selector and rule list** (all rules enabled by default). Syncing level and enabled rules with the Graph through the host (`SyncEngine`, like selection) is a **later step** — Graph levels are cumulative (0..n) and its enabled rules are Graph-local state, so the meaning must be agreed first. |
+| D7 | **Selection filters** the level list (E8): `parentIds` = the main list's selection. No selection, or *select all*, → no filter. Highlighting instead of filtering is optional later: one extra request `{ids: <visible page ids>, all: levelQuery(parentIds = selection)}` returns the rows to mark. |
+| D8 | **No cached level DataSources.** A level is a deterministic query from (`Q`, rules, level, mode, selection); `HRecordList`'s normal page cache is enough. It is reset when the query, rules or selection change. The level query can be **saved as a filter / opened as a new DataSource** (this also covers "main + levels" as `{any: [Q, …]}`), and is the Map layer / Timeline band of Phase 4. |
+| D9 | **Graph and Data may differ.** Graph levels start from the loaded seed page (default 1,000) and each step from the previous step's returned IDs (capped); the Graph composes at most 5,000 nodes on the client. Data queries the full result. This is accepted for all presentation modules: each shows "X of total Y" when its data is partial (Graph legend, Map layer panel). |
+
+### UI (agreed 2026-09-30)
+
+| # | Decision |
+|---|---|
+| U1 | Data configuration: **Search in results** and **Export (CSV, Excel, PDF)** are OFF by default. New option **Expansion rules**, ON by default. |
+| U2 | `HRecordList` never shows the Export dropdown — export is the Table (DataTables) view's feature. |
+| U3 | With *Expansion rules* ON, the module header toolbar (`DataControlPanel`, right side) gets an **Expansion** button (`fa-hexagon-nodes`), caption hidden in a narrow panel (as in the Query Source editor). It toggles the level pane and a level bar in the header: the Graph's level navigator (`heurist-graph-expansion-navigator`) plus the list of rules (the DataSource's own and added ones). |
+| U4 | The level pane is **not a nested data module** but `ExpansionLevelView` (`apps/data/src/core/`): a second `HRecordList` with its own load state (level query, generation, abort) sharing the main list's loaders and providers. No search, export, source actions or header. View mode follows the main list (List when the main list is Table). Its selection is **local** (view/edit only) — it is not sent to the host, so it never replaces the main selection that filters it. The pane sits right of the main list, below it when narrow. |
+| U5 | `ExpansionLevelView` holds a list of *level panes* (one `HRecordList` + load state each). Now there is one; showing several levels (1–4) at once later only adds panes. |
+| U6 | Toggle **Filter by selection** (`fa-link`) before the level navigator, **ON** by default (D7). |
+| U7 | A new query for the same DataSource (e.g. parameterized search) reloads the level pane. `setDataSource` with a different DataSource hides the pane and resets the level to None; no rules → the Expansion button is disabled. Rules-only updates (`SyncEngine#setRules`) must reach Data (new `setRules` in its host adapter / public API). |
+| U8 | `.h-recordlist-footer` `min-height: 25px`. |
+
+### Implementation notes (Phase 3, 2026-09-30, not committed)
+
+- **Text query inside a level.** `{plain: Q}` did not exist on the server (`plain` was a known but
+  not executable predicate). Instead `all` / `any` / `not` now accept a plain-text query and parse
+  it (`RecordQueryParser::expandTextGroups`, its sort is dropped); the helper embeds `Q` as is:
+  `{connected: [{all: "t:10"}]}`. Branches are always `{any: [{all: …}, …]}` (`any` needs
+  predicate objects, not strings). Test: `tests/QueryTextParserTest.php`.
+- `expansionLevelQuery(q, rules, level, {parentIds, cumulative})` and `rulesDepth(rules)` in
+  `shared/src/data/expansionRules.js`. A step without a traversal, and rules with `ignore`,
+  reach nothing (as in the Graph).
+- Checked on `osmak_mapping` (`t:10`, `connected` twice): level 1 equals the Graph step exactly.
+  Level 2 has one record more (204877): the Graph's server step skips a node reached through
+  an edge it already recorded from the other direction; the record is at level 1 in the Graph
+  anyway. The level query is the correct one.
+- **Frame.** The module element is now `.heurist-data-frame` (flex, container for queries); the
+  main list keeps its `.heurist-data-root` element inside it, so its CSS is unchanged. The level
+  pane is `.heurist-data-level-pane` beside it, with its own source-header caption ("Expansion
+  level n[, linked to selection]"), which also leaves room for the header panel overlay. Below
+  700px of module width the pane goes under the main list (`ResizeObserver`).
+- The level list is created by the application's engine factory (`recordlist`), so
+  `DataApplication` stays loadable in Node tests.
+- Header: `DataExpansionBar` (Expansion button + level bar) sits outside
+  `.heurist-module-panel-actions` (those show on hover only). Bar: Filter by selection, previous /
+  level / next, *all levels up to n* (`fa-layer-group`, D4), rules menu (`fa-list-check`, checkboxes),
+  Edit rules / Quick expansion for authors. The panel overflow is visible so the rules menu can
+  drop out. Caption hidden below 620px (container query).
+- "Same DataSource" (U7) = same `reference.type` and `id` of a saved source or filter. An ad-hoc
+  query DataSource is never the same.
+- `HRecordList`: public `reload()`; the Export dropdown and its dead code are removed.
+- Not checked in a browser yet.
+
+To do with D9: Timeline's band shows only a fixed "Partial load: only part of the result
+set was loaded." (`TimelineLayerPanel.js`, not localized) — show "first X of Y records"
+like the Map layer panel and localize it.
 
 ## 8. Map and Timeline (Phase 4, postponed)
 

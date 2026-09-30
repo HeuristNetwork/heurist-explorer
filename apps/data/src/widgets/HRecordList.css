@@ -2,7 +2,7 @@
 .h-recordlist-toolbar,.h-recordlist-footer { flex:0 0 auto; min-height:42px; padding:4px; font-size:var(--h-font-size); color:var(--h-color-text-muted); background:var(--h-color-surface); }
 .h-recordlist-toolbar { border-bottom:1px solid var(--h-color-border); }
 .h-recordlist-toolbar.h-toolbar { min-height:25px; padding:2px; }
-.h-recordlist-footer { border-top:1px solid var(--h-color-border); justify-content:space-between; gap:8px; }
+.h-recordlist-footer { border-top:1px solid var(--h-color-border); justify-content:space-between; gap:8px; min-height:25px; }
 .h-recordlist-pagination { margin:auto; }
 .h-recordlist-search { width:min(260px,100%); }
 .h-recordlist-search .h-input { width:100%; min-height:26px; }

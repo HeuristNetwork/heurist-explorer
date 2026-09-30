@@ -35,9 +35,15 @@ import { RecordContentProvider } from "./data/RecordContentProvider.js";
  * @throws {Error} When `config.containerId` does not match an element in the document.
  */
 export async function initHeuristData(config) {
-  const container = document.getElementById(config.containerId);
-  if (!container)
+  const frame = document.getElementById(config.containerId);
+  if (!frame)
     throw new Error(`Data container #${config.containerId} was not found`);
+  // The frame holds the main list and the expansion-level pane beside it;
+  // the main list keeps the `heurist-data-root` element it always had.
+  frame.classList.add("heurist-data-frame");
+  const container = document.createElement("div");
+  container.className = "heurist-data-root heurist-data-main";
+  frame.replaceChildren(container);
   const apiClient = new HeuristApiClient({
     apiBaseUrl: config.apiBaseUrl,
     database: config.database,
@@ -55,6 +61,7 @@ export async function initHeuristData(config) {
   };
   const application = new DataApplication({
     container,
+    frame,
     config,
     engine: await createDataEngine(config.engine),
     engineFactory: createDataEngine,
@@ -98,7 +105,6 @@ export async function initHeuristData(config) {
     return originalDestroy();
   };
   api.setReadyPromise(readyWithPanel);
-  container.classList.add("heurist-data-root");
   if (config.exposeGlobal !== false) globalThis.heuristData = api;
   return readyWithPanel;
 }

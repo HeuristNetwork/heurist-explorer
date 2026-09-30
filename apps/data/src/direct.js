@@ -40,7 +40,6 @@ export async function mountHeuristData({
   if (!container) throw new Error("A container is required to mount Heurist Data");
   const containerId = container.id || uniqueContainerId();
   container.id = containerId;
-  container.classList.add("heurist-data-root");
   await extendLocale(bootstrap.runtime?.language, assetBaseUrl);
   const config = createHeuristDataConfig(bootstrap, { bridge, containerId });
   config.exposeGlobal = false;
