@@ -142,6 +142,26 @@ export class HeuristDataPublicApi {
     return this.application.quickExpand();
   }
 
+  /**
+   * Smart expansion: record types (with counts) the next step would reach.
+   *
+   * @param {{signal?: AbortSignal}} [options]
+   * @returns {Promise<Array<{id: number, label: string, count: number}>|null>}
+   */
+  smartExpansionTypes(options) {
+    return this.application.smartExpansionTypes(options);
+  }
+
+  /**
+   * Smart expansion: add a step reaching only the chosen record types and show it.
+   *
+   * @param {Array<number>} types Chosen record types.
+   * @returns {Promise<boolean>} Whether the rules changed.
+   */
+  smartExpand(types) {
+    return this.application.smartExpand(types);
+  }
+
   /** Show or hide a loading indicator, called by the host around its setDataSource() call. */
   setLoading(loading) {
     return this.application.setLoading(loading);

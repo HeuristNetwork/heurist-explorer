@@ -37,7 +37,7 @@ test("every direct $HR string in runtime source is present in module dictionarie
   );
   const sourceFiles = [
     "../../src/ui/RecordViewControlPanel.js",
-    "../../src/ui/RecordViewRenderer.js",
+    "../../../../shared/src/recordview/RecordViewRenderer.js",
     "../../src/ui/recordViewMessages.js",
     "../../src/ui/config/RecordViewConfigurationDialog.js",
     "../../src/core/RecordViewApplication.js",

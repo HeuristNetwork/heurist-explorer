@@ -1,0 +1,55 @@
+/**
+ * @file MapPopupController.css
+ * @brief Map feature popup: popup frame and the record selector list (the record
+ *        itself is styled by the shared RecordPopupContent.css).
+ *
+ * @project     Heurist academic knowledge management system
+ * @package     heurist-map
+ * @license     https://www.gnu.org/licenses/gpl-3.0.txt GNU License 3.0
+ * @since       8.0
+ */
+
+.heurist-map-popup .leaflet-popup-content {
+  margin: 10px 12px;
+  font: var(--h-font-size)/1.35 var(--h-font-family);
+  color: var(--h-color-text);
+}
+
+/* Selector list: about ten lines visible, then scrolling */
+.heurist-map-popup-list {
+  display: flex;
+  flex-direction: column;
+  max-height: calc(10 * 24px);
+  overflow-y: auto;
+}
+.heurist-map-popup-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+  min-height: 24px;
+  padding: 2px 6px;
+  border: 0;
+  border-radius: var(--h-radius);
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.heurist-map-popup-item:not(.heurist-map-popup-item-static):hover,
+.heurist-map-popup-item:focus-visible { background: var(--h-color-surface-hover); outline: none; }
+/* Built-in (basic): a line is the whole card, nothing to open */
+.heurist-map-popup-item-static { cursor: default; }
+.heurist-map-popup-item-icon {
+  width: 16px;
+  height: 16px;
+  flex: none;
+  object-fit: contain;
+}
+.heurist-map-popup-item-title {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}

@@ -138,7 +138,11 @@ function normalizeOptions(source, defaults) {
  */
 function normalizeConfig(source, defaults) {
   const configured = source.defaults || {};
-  const legacyTemplate = nullableString(configured.popupTemplate);
+  // A configuration from before the card/view templates had only
+  // `popupTemplate`, used for both; migrate it there once. Since then
+  // `popupTemplate` is the "i" action popup of its own.
+  const legacy = !Object.hasOwn(configured, "cardTemplate") && !Object.hasOwn(configured, "viewTemplate");
+  const legacyTemplate = legacy ? nullableString(configured.popupTemplate) : null;
   const migratedTemplate =
     legacyTemplate && legacyTemplate !== "standard" ? legacyTemplate : null;
   // View mode is the single source of truth for the rendering engine. The
@@ -196,6 +200,9 @@ function normalizeConfig(source, defaults) {
         nullableString(configured.viewTemplate) ||
         migratedTemplate ||
         defaults.defaults.viewTemplate,
+      popupTemplate:
+        nullableString(configured.popupTemplate) ??
+        defaults.defaults.popupTemplate,
     },
   };
 }

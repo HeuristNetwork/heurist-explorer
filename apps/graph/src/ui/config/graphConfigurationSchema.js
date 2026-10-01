@@ -120,8 +120,9 @@ function normalizeOptions(source, defaults) {
  */
 function normalizeConfig(source, defaults) {
   const configured = source.defaults || {};
-  // A legacy `popupTemplate` of "standard" (or empty) means the built-in
-  // vis-native popup; any other value is a Heurist report-template name.
+  // Popup template: "none", "builtin" (the record view) or a Heurist report-template
+  // name; empty - and the legacy "standard" - is Built-in (vis basic): title, record
+  // ID and type (see normalizePopupMode in #shared/recordview/RecordPopupContent.js).
   const legacyTemplate = nullableString(configured.popupTemplate);
   const migratedTemplate =
     legacyTemplate && legacyTemplate !== "standard" ? legacyTemplate : null;
@@ -155,8 +156,8 @@ function normalizeConfig(source, defaults) {
         1,
         5,
       ),
-      // heurist-graph's node popup reads this directly: a Heurist report
-      // template name, or null for the built-in vis-native popup.
+      // heurist-graph's node popup mode: "none", "builtin", a Heurist report
+      // template name, or null for Built-in (vis basic).
       popupTemplate: migratedTemplate,
     },
   };

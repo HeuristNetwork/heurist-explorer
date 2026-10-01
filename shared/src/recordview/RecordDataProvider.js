@@ -8,7 +8,7 @@
  * or any presentation module's DataSource currently is.
  *
  * @project     Heurist academic knowledge management system
- * @package     heurist-recordview
+ * @package     heurist-client-core
  *
  * @link        https://HeuristNetwork.org
  * @copyright   (C) 2024 onwards Heurist Network
@@ -57,6 +57,32 @@ export class RecordDataProvider {
       throw new TypeError("Records API response is missing records");
     }
     return response.records[0] || null;
+  }
+
+  /**
+   * Load several records in one request, each with every detail value resolved
+   * (as `load`), e.g. one page of the Data module's Extended view.
+   *
+   * @param {{ids: Array<number|string>, signal?: AbortSignal}} options Load options.
+   * @returns {Promise<Map<number, object>>} Record ID -> resolved record, for the records found.
+   * @throws {TypeError} When the response is missing `records`.
+   */
+  async loadMany({ ids = [], signal } = {}) {
+    const recordIds = [...new Set(ids.map(Number).filter((id) => Number.isInteger(id) && id > 0))];
+    if (!recordIds.length) return new Map();
+    const response = await this.apiClient.post("/records", {
+      signal,
+      body: {
+        q: `ids:${recordIds.join(",")}`,
+        limit: recordIds.length,
+        resolveDetails: 1,
+        fields: ["_all", ...FOOTER_FIELDS].join(","),
+      },
+    });
+    if (!response || !Array.isArray(response.records)) {
+      throw new TypeError("Records API response is missing records");
+    }
+    return new Map(response.records.map((record) => [Number(record.rec_ID), record]));
   }
 
   /**

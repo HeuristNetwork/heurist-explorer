@@ -155,3 +155,43 @@
 #Expansion depth for selected records#Profondeur d’expansion des fiches sélectionnées
 #Expansion depth for the base graph#Profondeur d’expansion du graphe initial
 #Level#Niveau
+#Smarty templates#Modèles Smarty
+#Expansion level: 0 is the current result, n what step n of the enabled rules reaches#Niveau d’expansion : 0 est le résultat actuel, n ce qu’atteint l’étape n des règles activées
+#The next expansion step reaches no records#L’étape d’expansion suivante n’atteint aucun enregistrement
+#Records the next step reaches, by record type. Choose the types to add.#Enregistrements atteints par l’étape suivante, par type d’enregistrement. Choisissez les types à ajouter.
+#Smart expansion#Expansion sélective
+#Smart expansion: choose the record types the next step reaches#Expansion sélective : choisir les types d’enregistrement atteints par l’étape suivante
+#Expand#Développer
+#Loading data source#Chargement de la source de données
+#Record type#Type d’enregistrement
+#Back#Retour
+#Loading...#Chargement…
+#Record not found#Enregistrement introuvable
+#Popup content could not be loaded#Le contenu de la fenêtre contextuelle n’a pas pu être chargé
+#Record#Enregistrement
+#Type#Type
+#Edit#Modifier
+#Show linked and related records#Afficher les enregistrements liés et en relation
+#More...#Plus...
+#Zoom to extent#Zoomer sur l’étendue
+#Data in system format#Données au format système
+#Related#Lié
+#Records#Enregistrements
+#Linked from#Lié depuis
+#Tags#Mots-clés
+#Find records with this tag#Rechercher les enregistrements avec ce mot-clé
+#Created#Créé
+#Modified#Modifié
+#Owner#Propriétaire
+#Visibility#Visibilité
+#Personal tags#Mots-clés personnels
+#tags#mots-clés
+#Built-in (vis basic)#Intégré (vis simple)
+#Built-in#Intégré
+#Show in OSD#Afficher dans OSD
+#Show in Mirador#Afficher dans Mirador
+#Show in new tab#Afficher dans un nouvel onglet
+#Hidden#Masqué
+#Viewable#Visible
+#Public#Public
+#Maximum allowed nodes limit is#La limite maximale de nœuds autorisés est

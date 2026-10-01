@@ -26,6 +26,7 @@ import { ReportTemplateProvider } from "./data/ReportTemplateProvider.js";
 import { RecordContentProvider } from "./data/RecordContentProvider.js";
 import { VocabularyProvider } from "#shared/data/VocabularyProvider.js";
 import { GraphConfigurationDialog } from "./ui/config/GraphConfigurationDialog.js";
+import { RecordViewLoader } from "#shared/recordview/RecordViewLoader.js";
 
 /**
  * Create providers, engine, host adapter, and application, mount the control panel,
@@ -60,6 +61,9 @@ export async function initHeuristGraph(config) {
     // Resolves edge detail-type (dty_ID) and relation-type (trm_ID) labels
     // after each load, for the graph edge labels and the legend.
     vocabularyProvider: new VocabularyProvider({ apiClient }),
+    // Built-in popup: the shared record renderer of heurist-recordview (as heurist-map)
+    recordViewLoader: RecordViewLoader.create({ apiClient, language: config.language }),
+    heuristBaseUrl,
   });
   const api = new HeuristGraphPublicApi(application);
   api.addEventListener('heurist-graph-error', event => showGraphMessage(event.detail?.error || event.detail?.message, { error: true }));

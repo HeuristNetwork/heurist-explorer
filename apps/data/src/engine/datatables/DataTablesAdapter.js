@@ -18,8 +18,10 @@ import "datatables.net-dt/css/dataTables.dataTables.css";
 import "datatables.net-buttons-dt";
 import "datatables.net-buttons-dt/css/buttons.dataTables.css";
 import "datatables.net-buttons/js/buttons.html5.mjs";
+import "./DataTablesAdapter.css";
 import { DataEngineAdapter } from "../DataEngineAdapter.js";
 import { $HR } from "#shared/ui";
+import { dataPopupMode } from "../../core/recordTemplates.js";
 import {
   fieldValues,
   sanitizeTextHtml,
@@ -376,7 +378,12 @@ export class DataTablesAdapter extends DataEngineAdapter {
     const fields =
       querySource?.fields?.filter((field) => field.visible !== false) || [];
     const projected = projectRecords(records, fields);
-    const interaction = this.options.interaction || {};
+    // no "i" without popups: switched off, or Popup template "None"
+    const interaction = {
+      ...(this.options.interaction || {}),
+      popupEnabled: this.options.interaction?.popupEnabled === true
+        && dataPopupMode(this.options.popupTemplate) !== "none",
+    };
     const collectionEnabled = interaction.persistentSelectionEnabled === true;
     const adminEnabled = interaction.adminInfoEnabled === true;
     const actionEnabled =
@@ -608,7 +615,7 @@ export class DataTablesAdapter extends DataEngineAdapter {
       action.blur();
       action.dataset.action === "edit"
         ? this.onEditRecord?.(id)
-        : this.onViewRecord?.(id);
+        : this.onViewRecord?.(id, action);
       return;
     }
     const row = event.target.closest("tr");

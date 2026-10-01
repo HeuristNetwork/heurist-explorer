@@ -13,7 +13,7 @@
 
 import test from "node:test";
 import assert from "node:assert/strict";
-import { RecordRelationsProvider, relationshipIds } from "../../src/data/RecordRelationsProvider.js";
+import { RecordRelationsProvider, relationshipIds } from "../../src/recordview/RecordRelationsProvider.js";
 
 // relationship type 1, fields 5 (target), 6 (type), 7 (source); relmarker 245 on type 4
 const dbdefs = {

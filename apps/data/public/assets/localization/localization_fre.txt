@@ -164,3 +164,40 @@
 #Rule#Règle
 #linked to selection#liés à la sélection
 #No linked records#Aucun enregistrement lié
+#Smarty templates#Modèles Smarty
+#Record#Enregistrement
+#Record type#Type d’enregistrement
+#Back#Retour
+#Loading...#Chargement…
+#Record not found#Enregistrement introuvable
+#Popup content could not be loaded#Le contenu de la fenêtre contextuelle n’a pas pu être chargé
+#Type#Type
+#Show linked and related records#Afficher les enregistrements liés et en relation
+#More...#Plus...
+#Zoom to extent#Zoomer sur l’étendue
+#Data in system format#Données au format système
+#Related#Lié
+#Records#Enregistrements
+#Linked from#Lié depuis
+#Tags#Mots-clés
+#Find records with this tag#Rechercher les enregistrements avec ce mot-clé
+#Created#Créé
+#Modified#Modifié
+#Owner#Propriétaire
+#Visibility#Visibilité
+#Personal tags#Mots-clés personnels
+#tags#mots-clés
+#Records the next step reaches, by record type. Choose the types to add.#Enregistrements atteints par l’étape suivante, par type d’enregistrement. Choisissez les types à ajouter.
+#Smart expansion#Expansion sélective
+#Expand#Développer
+#The next expansion step reaches no records#L’étape d’expansion suivante n’atteint aucun enregistrement
+#Built-in#Intégré
+#Standard (Legacy)#Standard (ancien)
+#Show in OSD#Afficher dans OSD
+#Show in Mirador#Afficher dans Mirador
+#Show in new tab#Afficher dans un nouvel onglet
+#Hidden#Masqué
+#Viewable#Visible
+#Public#Public
+#Smart expansion: choose the record types the next step reaches#Expansion sélective : choisir les types d’enregistrement atteints par l’étape suivante
+#Show or hide the expansion rules and the records linked through them#Afficher ou masquer les règles d’expansion et les enregistrements liés par elles

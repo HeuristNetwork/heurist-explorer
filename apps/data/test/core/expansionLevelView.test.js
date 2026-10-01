@@ -122,7 +122,7 @@ test("the main selection filters the level; disabled rules are left out", async 
   assert.deepEqual(loads.at(-1).query, { connected: [{ all: "t:10" }] });
 });
 
-test("a new request of the same DataSource keeps the pane; another DataSource hides it", async () => {
+test("the same DataSource and query keeps the pane; a changed query or another DataSource hides it (U7, 2026-10-01)", async () => {
   const requests = [];
   const { application, loads } = await createApplication(requests);
   const source = { reference: { type: "source", id: 5 }, request: { q: "t:10", rules: RULES } };
@@ -130,12 +130,21 @@ test("a new request of the same DataSource keeps the pane; another DataSource hi
   const view = application.expansion;
   await view.setActive(true);
   await view.setLevel(2);
+  const resets = [];
+  application.addEventListener("heurist-data-expansion-reset", () => resets.push(true));
+
+  await application.setDataSource({ ...source, request: { q: "t:10", rules: RULES } });
+  await settle();
+  assert.equal(view.active, true, "the same source and query keeps the pane");
+  assert.equal(view.level, 2);
+  assert.deepEqual(loads.at(-1).query, { connected: [{ all: { connected: [{ all: "t:10" }] } }] });
+  assert.equal(resets.length, 0);
 
   await application.setDataSource({ ...source, request: { q: "t:10 f:1:x", rules: RULES } });
-  await settle();
-  assert.equal(view.active, true, "parameterized search keeps the pane");
-  assert.equal(view.level, 2);
-  assert.deepEqual(loads.at(-1).query, { connected: [{ all: { connected: [{ all: "t:10 f:1:x" }] } }] });
+  assert.equal(view.active, false, "a changed query (e.g. parameterized search) hides the pane");
+  assert.equal(view.level, 1);
+  assert.equal(resets.length, 1, "the control panel closes its expansion section");
+  await view.setActive(true);
 
   await application.setDataSource({ reference: { type: "filter", id: 9 }, request: { q: "t:12", rules: RULES } });
   assert.equal(view.active, false, "another DataSource hides the pane");
@@ -158,4 +167,36 @@ test("rules-only updates keep the level while the rules reach it", async () => {
   assert.equal(application.dataSource.request.rules.length, 3);
   await application.setDataSourceRules([{ query: { rt: [] } }]);
   assert.equal(view.level, 1, "the new rules have one level only");
+});
+
+test("smart expansion counts the record types one step further, then expands to the chosen ones", async () => {
+  const requests = [];
+  const { application } = await createApplication(requests);
+  await application.setDataSource({ reference: { type: "source", id: 5 }, request: { q: "t:10", rules: [{ query: { t: 48, lt: [{ t: 10 }] }, levels: [] }] } });
+  let saved = null;
+  application.host.supportsRulesEditing = () => true;
+  application.host.updateRules = async (rules) => { saved = rules; await application.setDataSourceRules(rules); };
+  const counted = [];
+  application.providers.recordDataProvider = {
+    rectypes: async ({ query }) => { counted.push(query); return { total: 13, rectypes: [{ rec_RecTypeID: 12, count: 4 }, { rec_RecTypeID: 10, count: 9 }] }; },
+  };
+  application.providers.recordView = { vocabularyProvider: { getRecordTypeNames: async () => new Map([[12, "Place"], [10, "Person"]]) } };
+
+  const types = await application.smartExpansionTypes();
+  assert.deepEqual(types, [{ id: 10, count: 9, label: "Person" }, { id: 12, count: 4, label: "Place" }]);
+  assert.ok(counted[0].connected, "counts one connected step further");
+  assert.equal(saved, null, "nothing changes before the choice");
+
+  assert.equal(await application.smartExpand([12]), true);
+  assert.deepEqual(saved[0].levels, [{ query: { t: 12, connected: [{ t: 48 }] }, levels: [] }]);
+  assert.equal(application.expansion.active, true);
+  assert.equal(application.expansion.level, 2, "the new deepest level is shown");
+});
+
+test("smart expansion is for authors only", async () => {
+  const { application } = await createApplication([]);
+  await application.setDataSource({ reference: { type: "source", id: 5 }, request: { q: "t:10", rules: RULES } });
+  application.providers.recordDataProvider = { rectypes: async () => assert.fail("must not count without rules editing") };
+  assert.equal(await application.smartExpansionTypes(), null);
+  assert.equal(await application.smartExpand([12]), false);
 });

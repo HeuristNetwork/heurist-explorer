@@ -46,24 +46,43 @@ export function ruleTargetTypes(rule) {
 }
 
 /**
+ * The step quick expansion adds below a rule: any pointer or relationship from
+ * the rule's target record types (`connected`), to any record type or to `types`.
+ *
+ * @param {?object} rule Parent rule step; `null` for a rule starting from the whole result.
+ * @param {number[]} [types] Record types the step may reach; empty for any.
+ * @returns {object} Step query.
+ */
+function quickStepQuery(rule, types = []) {
+  const parent = rule ? ruleTargetTypes(rule) : [];
+  return {
+    ...(types.length ? { t: types.length === 1 ? types[0] : [...types] } : {}),
+    connected: parent.length ? [{ t: parent.length === 1 ? parent[0] : parent }] : []
+  };
+}
+
+/**
  * Quick expansion: add one "any record type → any pointer or relationship → any
  * record type" step (`connected`) to every branch shorter than `maxDepth`. With no
  * rules, one such rule starting from the whole result. Changed rules lose their
- * `name`/`description` so the host can describe them again.
+ * `name`/`description` so the host can describe them again. Smart expansion
+ * passes `types`: the new steps reach only those record types.
  *
  * @param {Array<object>} rules Current rules (not modified).
  * @param {number} [maxDepth=MAX_RULE_DEPTH] Deepest allowed level.
+ * @param {object} [options]
+ * @param {Array<number|string>} [options.types] Record types the new steps may reach; empty for any.
  * @returns {Array<object>|null} New rules, or `null` when no branch can grow.
  */
-export function appendQuickStep(rules, maxDepth = MAX_RULE_DEPTH) {
+export function appendQuickStep(rules, maxDepth = MAX_RULE_DEPTH, { types = [] } = {}) {
+  const targets = typeIds(types);
   const list = Array.isArray(rules) ? rules : [];
-  if (!list.length) return [{ query: { connected: [] }, levels: [] }];
+  if (!list.length) return [{ query: quickStepQuery(null, targets), levels: [] }];
   let grown = false;
   const grow = (rule, level) => {
     const copy = { ...rule, levels: (rule.levels || []).map((child) => grow(child, level + 1)) };
     if (!copy.levels.length && level < maxDepth) {
-      const parent = ruleTargetTypes(rule);
-      copy.levels = [{ query: { connected: parent.length ? [{ t: parent.length === 1 ? parent[0] : parent }] : [] }, levels: [] }];
+      copy.levels = [{ query: quickStepQuery(rule, targets), levels: [] }];
       grown = true;
     }
     if (JSON.stringify(copy.levels) !== JSON.stringify(rule.levels || [])) {
@@ -74,6 +93,38 @@ export function appendQuickStep(rules, maxDepth = MAX_RULE_DEPTH) {
   };
   const result = list.map((rule) => grow(rule, 1));
   return grown ? result : null;
+}
+
+/**
+ * One record query for the records the next quick-expansion step would reach
+ * (smart expansion counts them per record type before the real expansion): for
+ * every branch end shorter than `maxDepth`, "connected to the records this branch
+ * reaches from `query`". Branches are joined with `any`.
+ *
+ * @param {object|Array|string} query Current (level 0) query.
+ * @param {Array<object>} rules Current rules.
+ * @param {number} [maxDepth=MAX_RULE_DEPTH] Deepest allowed level.
+ * @returns {object|null} The query, or `null` when no branch can grow.
+ */
+export function quickStepReachQuery(query, rules, maxDepth = MAX_RULE_DEPTH) {
+  if (query == null || query === '') return null;
+  const list = Array.isArray(rules) ? rules : [];
+  if (!list.length) return attachParent(quickStepQuery(null), query);
+  const branches = [];
+  const walk = (rule, level, parent) => {
+    if (!rule || rule.ignore) return;
+    const step = attachParent(rule.query, parent);
+    if (!step) return;
+    const children = rule.levels || [];
+    if (!children.length) {
+      if (level < maxDepth) branches.push(attachParent(quickStepQuery(rule), step));
+      return;
+    }
+    for (const child of children) walk(child, level + 1, step);
+  };
+  for (const rule of list) walk(rule, 1, query);
+  if (!branches.length) return null;
+  return branches.length === 1 ? branches[0] : { any: branches.map((branch) => ({ all: branch })) };
 }
 
 /** @returns {boolean} Whether a rule-query key is a traversal (lt, lf, rt, rf, links, related, connected). */

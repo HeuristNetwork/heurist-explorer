@@ -17,7 +17,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 
-const rendererSource = await readFile(new URL("../../src/ui/RecordViewRenderer.js", import.meta.url), "utf8");
+const rendererSource = await readFile(new URL("../../src/recordview/RecordViewRenderer.js", import.meta.url), "utf8");
 
 test("record type icon uses the legacy ?db=&icon= convention", () => {
   assert.match(rendererSource, /\?db=\$\{encodeURIComponent\(this\.database\)\}&icon=\$\{recordTypeId\}/);
@@ -62,8 +62,12 @@ test("the edit button only renders when canEdit is true, sits inside the meta li
 
 test("each render measures the widest section label and pins every section's dt column to it", () => {
   assert.match(rendererSource, /this\.#alignFieldLabels\(\);/);
-  assert.match(rendererSource, /#alignFieldLabels\(\) \{/);
+  assert.match(rendererSource, /#alignFieldLabels\(retry = true\) \{/);
   assert.match(rendererSource, /dl\.style\.setProperty\("--heurist-recordview-label-width", `\$\{maxWidth\}px`\);/);
+});
+
+test("labels keep their natural width when measured before the record is on the page (no 0px column)", () => {
+  assert.match(rendererSource, /if \(!maxWidth\) \{\s*if \(retry && typeof requestAnimationFrame === "function"\) \{\s*requestAnimationFrame\(\(\) => this\.#alignFieldLabels\(false\)\);/);
 });
 
 test("media items are built only from file-type fields, keyed by detail-type id", () => {
@@ -87,7 +91,7 @@ test("resource-field link titles are rendered as sanitized HTML, matching the re
 });
 
 test("non-resource, non-file, non-blocktext fields render plain text via the shared FieldValueFormatter", () => {
-  assert.match(rendererSource, /import \{ fieldValues, sanitizeTextHtml, looksLikeJson \} from "..\/core\/FieldValueFormatter\.js"/);
+  assert.match(rendererSource, /import \{ fieldValues, sanitizeTextHtml, looksLikeJson \} from "\.\/FieldValueFormatter\.js"/);
   assert.match(rendererSource, /line\.textContent = String\(text \?\? ""\)/);
 });
 
@@ -120,7 +124,7 @@ test("icon/media links are skipped entirely when baseUrl/database are not config
 });
 
 test("Tags section rows: personal tags first, then each group's tags by name", async () => {
-  const { tagGroups } = await import("../../src/ui/RecordViewRenderer.js");
+  const { tagGroups } = await import("../../src/recordview/RecordViewRenderer.js");
   const groups = tagGroups({ currentUserId: 2, tags: [
     { id: 7, name: "WEBFIL 1", owner: 4, ownerName: "Website filters" },
     { id: 2, name: "key2", owner: 2, ownerName: "osmakov" },
@@ -144,7 +148,7 @@ test("tags are a separate \"Tags\" section of links that search the tag", () => 
 });
 
 test("the links button appears only for a record with links or relationships", async () => {
-  const { hasLinks } = await import("../../src/ui/RecordViewRenderer.js");
+  const { hasLinks } = await import("../../src/recordview/RecordViewRenderer.js");
   assert.equal(hasLinks({ details: { 1: [{ value: "x" }] } }, null), false);
   assert.equal(hasLinks({ details: { 134: [{ value: "41", rec_ID: "41" }] } }, null), true);
   assert.equal(hasLinks({ details: {} }, { related: { 245: [{ id: 5 }] } }), true);

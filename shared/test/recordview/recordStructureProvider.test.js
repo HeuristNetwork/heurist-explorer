@@ -13,7 +13,7 @@
 
 import test from "node:test";
 import assert from "node:assert/strict";
-import { RecordStructureProvider } from "../../src/data/RecordStructureProvider.js";
+import { RecordStructureProvider } from "../../src/recordview/RecordStructureProvider.js";
 
 // Modeled on rectype 10 ("Person") in `osmak_mapping`, confirmed live: a real
 // `separator` row starts the first section, followed by ordinary fields.

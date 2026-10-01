@@ -38,6 +38,11 @@ test("every direct $HR string in runtime source is present in module dictionarie
   const sourceFiles = [
     "../../src/ui/config/GraphConfigurationDialog.js",
     "../../src/ui/GraphLegend.js",
+    "../../src/ui/GraphControlPanel.js",
+    "../../src/core/GraphApplication.js",
+    // the shared record popup (Built-in popup modes)
+    "../../../../shared/src/recordview/RecordPopupContent.js",
+    "../../../../shared/src/recordview/RecordViewRenderer.js",
   ];
   const sources = await Promise.all(
     sourceFiles.map((file) =>
@@ -45,7 +50,7 @@ test("every direct $HR string in runtime source is present in module dictionarie
     ),
   );
   const keys = sources.flatMap((source) =>
-    [...source.matchAll(/\$HR\('([^']+)'/g)].map((match) => match[1]),
+    [...source.matchAll(/\$HR\(["']([^"']+)["']/g)].map((match) => match[1]),
   );
   assert.deepEqual(
     keys.filter((key) => !(key in english)),

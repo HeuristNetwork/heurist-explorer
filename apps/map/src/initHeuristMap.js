@@ -28,6 +28,7 @@ import { RecordTypeProvider } from './data/RecordTypeProvider.js';
 import { MapDocumentListProvider } from './data/MapDocumentListProvider.js';
 import { PopupProvider } from './data/PopupProvider.js';
 import { ReportTemplateProvider } from './data/ReportTemplateProvider.js';
+import { RecordViewLoader } from '#shared/recordview/RecordViewLoader.js';
 import { MapControlPanel } from './ui/MapControlPanel.js';
 import { MapConfigurationDialog } from './ui/config/MapConfigurationDialog.js';
 import { createLayerLoaderRegistry } from './engine/loaders/createLayerLoaderRegistry.js';
@@ -87,6 +88,8 @@ export async function initHeuristMap(config) {
     queryGeoData: new QueryGeoDataProvider({ apiClient }),
     thematicAttributes: new ThematicAttributeProvider({ apiClient }),
     popup: new PopupProvider({ baseUrl: heuristBaseUrl, database: config.database }),
+    // "Built-in" popup mode: the shared record renderer of heurist-recordview
+    recordView: RecordViewLoader.create({ apiClient, language: config.language }),
     reportTemplates: new ReportTemplateProvider({ baseUrl: heuristBaseUrl, database: config.database })
   };
   const layerLoaders = createLayerLoaderRegistry({

@@ -19,6 +19,7 @@ import {
 } from "./graphConfigurationSchema.js";
 import { $HR, applyI18n, HMsg } from "#shared/ui";
 import { showGraphMessage } from "../graphMessages.js";
+import { normalizePopupMode } from "#shared/recordview/RecordPopupContent.js";
 
 /** Edits and serializes heurist-graph settings in a modal dialog. */
 export class GraphConfigurationDialog {
@@ -241,9 +242,7 @@ export class GraphConfigurationDialog {
     );
     this.number(body, "config.defaults.labelLength", "Label length", 20, 100);
     this.number(body, "config.defaults.popupDelay", "Popup delay (seconds)", 1, 5);
-    this.select(body, "config.defaults.popupTemplate", "Popup template", [
-      ["", "Built-in renderer (vis native)"],
-    ]);
+    this.select(body, "config.defaults.popupTemplate", "Popup template", POPUP_MODE_CHOICES);
     this.textarea(body, "config.defaults.emptyResultMessage", "Empty result message", 3);
 
   }
@@ -414,6 +413,7 @@ export class GraphConfigurationDialog {
       const value = getPath(this.value, path);
       const control = field.control;
       if (control.type === "checkbox") control.checked = Boolean(value);
+      else if (path === "config.defaults.popupTemplate") control.value = popupChoiceValue(value);
       else control.value = value ?? "";
     }
   }
@@ -458,13 +458,26 @@ export class GraphConfigurationDialog {
     if (!this.reportTemplateProvider) return;
     const control = this.fields.get("config.defaults.popupTemplate")?.control;
     if (!control) return;
-    const items = normalizeItems(await callList(this.reportTemplateProvider));
+    const builtIn = new Set(["none", "basic", "builtin", "standard"]);
+    const items = normalizeItems(await callList(this.reportTemplateProvider))
+      .filter((item) => !builtIn.has(String(item.value).trim().toLowerCase()));
     const current = getPath(this.value, "config.defaults.popupTemplate");
-    fillSelect(control, [
-      { value: "", label: "Built-in renderer (vis native)", i18n: true },
-      ...items,
-    ]);
-    control.value = current || "";
+    fillSelect(control, POPUP_MODE_CHOICES);
+    if (items.length) {
+      // the Smarty report templates follow the built-in modes as one group
+      const group = el("optgroup");
+      group.label = $HR("Smarty templates");
+      fillSelect(group, items);
+      control.append(group);
+    }
+    control.value = popupChoiceValue(current);
+    // a template no longer listed stays selectable, so it is kept on save
+    if (control.value !== popupChoiceValue(current)) {
+      const option = el("option");
+      option.value = option.textContent = String(current);
+      control.append(option);
+      control.value = String(current);
+    }
   }
 
   /**
@@ -676,6 +689,19 @@ function fillSelect(node, items) {
       return option;
     }),
   );
+}
+
+/** Popup modes before the Smarty templates; empty is the default Built-in (vis basic) (see normalizePopupMode). */
+const POPUP_MODE_CHOICES = [
+  ["none", "None"],
+  ["", "Built-in (vis basic)"],
+  ["builtin", "Built-in"],
+];
+
+/** Select value for a stored popup template: the default Built-in (vis basic) mode is the empty value. */
+function popupChoiceValue(value) {
+  const mode = normalizePopupMode(value);
+  return mode === "basic" ? "" : mode;
 }
 
 /** Deep-clone a JSON-safe value. */

@@ -79,7 +79,7 @@ export class HRuleBuilder extends HBaseWidget {
     return this;
   }
 
-  /** Open the native rule builder dialog. Resolves to edited rules or the original rules on Cancel. */
+  /** Open the native rule builder dialog. Resolves to the edited rules, or `null` on Cancel. */
   async open(options = {}) {
     if (options.recordTypes) this.setRecordTypes(options.recordTypes);
     if (!this.recordTypes.length) {
@@ -87,7 +87,6 @@ export class HRuleBuilder extends HBaseWidget {
       if (rty) this.setRecordTypes([rty]);
     }
 
-    const original = this.getRules();
     const host = document.createElement('div');
     host.className = 'h-rule-builder-dialog';
     this.attach(host).render();
@@ -98,10 +97,10 @@ export class HRuleBuilder extends HBaseWidget {
       const finish = async (apply) => {
         if (finished) return;
         finished = true;
-        const value = apply ? this.getRules() : original;
+        const value = apply ? this.getRules() : null;
         HMsg.closeMsgDlg(id);
         await this.destroy();
-        resolve(clone(value));
+        resolve(value == null ? null : clone(value));
       };
       const dlg = HMsg.showMsgDlg(host, {
         dialogId: id,

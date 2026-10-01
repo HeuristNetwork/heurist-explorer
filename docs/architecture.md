@@ -81,6 +81,15 @@ never a DataSource push. Selection sync is one-way by default — displaying a
 followed selection never re-emits it — with an explicit exception for
 following a linked record from within the rendered content.
 
+The `builtin` renderer and its data providers live in `shared/src/recordview/`
+(`RecordViewRenderer`, `RecordDataProvider`, `RecordStructureProvider`,
+`RecordRelationsProvider`, `FieldValueFormatter`, and `RecordViewLoader`, which
+loads everything one rendering needs), and `RecordPopupContent` (one record in a
+popup mode: basic card, Built-in, Smarty template). Map, Graph and Data use them for record
+popups; Data also renders its Built-in Extended view with them.
+For example, the Map "Built-in" popup mode uses the renderer's `compact` card
+(header and thumbnail, with "More..." for the full record).
+
 ## CSS and localization
 
 Every application has exactly one application-level `src/style.css`. Component

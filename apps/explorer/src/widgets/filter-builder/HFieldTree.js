@@ -124,6 +124,7 @@ export class HFieldTree {
     this._openKeys.clear();
     this._openKeys.add(`rty:${this._rtyId}`);
     this._openKeys.add(`root:fields:${this._rtyId}`);
+    if (this._fixedTypes && Number(this._rtyId) > 0) this._openFirstSelectable(this._rtyId);
 
     const el = document.createElement('div');
     el.className = 'h-fbtree';
@@ -364,11 +365,54 @@ export class HFieldTree {
           this._metadataLeaves(viaChain)));
       }
     }
-    nodes.push(this._sectionFolder($HR('fields'), `${pathKey(viaChain)}:fields:${rtyId}`, () => [
+    const fieldNodes = () => [
       ...(this._typeShown('freetext') ? [this._headerLeaf({ dty: 'anyfield', label: 'Any field', fieldType: 'freetext' }, viaChain)] : []),
       ...this._fieldNodes(rtyId, viaChain)
-    ]));
+    ];
+    // without title/metadata (geo and time field editors) a "fields" folder
+    // would be the only section: list the fields directly
+    if (!nodes.length) return fieldNodes();
+    nodes.push(this._sectionFolder($HR('fields'), `${pathKey(viaChain)}:fields:${rtyId}`, fieldNodes));
     return nodes;
+  }
+
+  /**
+   * Open the folders leading to the nearest selectable field (fewest link hops),
+   * so a tree limited to its types (geo, date fields) shows one at once.
+   * Follows the same forward links as `_fieldNodes`.
+   *
+   * @private
+   * @param {number} rtyId Scope record type.
+   * @returns {void}
+   */
+  _openFirstSelectable(rtyId) {
+    const queue = [{ rty: Number(rtyId), viaChain: [], keys: [] }];
+    const visited = new Set();
+    while (queue.length) {
+      const { rty, viaChain, keys } = queue.shift();
+      if (visited.has(rty)) continue;
+      visited.add(rty);
+      const fields = this.dbdefs.fields(rty) || [];
+      if (fields.some((field) => field.type !== 'file' && this._selectableTypes?.has(String(field.type || '').toLowerCase()))) {
+        for (const key of keys) this._openKeys.add(key);
+        return;
+      }
+      if (viaChain.length >= this._maxDepth || this._flatOnly) continue;
+      for (const field of fields) {
+        if (!LINKABLE.has(field.type)) continue;
+        const targets = (this.dbdefs.fieldGlobal(field.id)?.targetTypes || []).map(Number).filter((id) => id > 0);
+        const link = field.type === 'relmarker' ? (this._builderMode ? 'related' : 'r') : 'lt';
+        const key = `${pathKey(viaChain)}:${link}:${field.id}`;
+        for (const target of targets) {
+          queue.push({
+            rty: target,
+            viaChain: [...viaChain, { via: { link, dty: field.id, targetRty: target } }],
+            // an ambiguous pointer has one sub-folder per target record type
+            keys: [...keys, key, ...(targets.length > 1 ? [`${key}>${target}`] : [])]
+          });
+        }
+      }
+    }
   }
 
   /** Render one expandable section, preserving its open state. */

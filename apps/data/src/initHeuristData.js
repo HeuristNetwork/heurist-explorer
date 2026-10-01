@@ -25,6 +25,7 @@ import { DataConfigurationDialog } from "./ui/config/DataConfigurationDialog.js"
 import { ReportTemplateProvider } from "./data/ReportTemplateProvider.js";
 import { DataControlPanel } from "./ui/DataControlPanel.js";
 import { RecordContentProvider } from "./data/RecordContentProvider.js";
+import { RecordViewLoader } from "#shared/recordview/RecordViewLoader.js";
 
 /**
  * Create providers, engine, host adapter, and application, mount the control panel,
@@ -58,6 +59,9 @@ export async function initHeuristData(config) {
       baseUrl: heuristBaseUrl,
       database: config.database,
     }),
+    // Built-in popup and Extended view: the shared record renderer (as heurist-recordview)
+    recordView: RecordViewLoader.create({ apiClient, language: config.language }),
+    heuristBaseUrl,
   };
   const application = new DataApplication({
     container,

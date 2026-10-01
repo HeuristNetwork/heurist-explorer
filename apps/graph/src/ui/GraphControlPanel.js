@@ -14,7 +14,8 @@
  */
 import { showGraphMessage } from "./graphMessages.js";
 import { GraphLegend } from "./GraphLegend.js";
-import { $HR, applyI18n, InlineHelp } from "#shared/ui";
+import { $HR, applyI18n, InlineHelp, HMsg } from "#shared/ui";
+import { runSmartExpansion } from "#shared/ui/SmartExpansionDialog.js";
 import { showDataSourceAction } from "#shared/ui/documents/SourceActions.js";
 
 /** Owns Graph's control panel: current-source row, legend, expansion controls, and toolbar actions. */
@@ -72,7 +73,11 @@ export class GraphControlPanel {
     // authors only: edit the DataSource's rules, or add one "any link" step to every branch
     this.editRulesButton = iconButton('fa-solid fa-pen', 'Edit expansion rules', () => this.editRules());
     this.quickExpandButton = iconButton('fa-solid fa-circle-plus', 'Quick expansion: add a step to every rule - any pointer or relationship to any record type', () => this.quickExpand());
-    this.expansionNavigator.append(this.pruneButton, this.levelSelector, this.expandButton, this.editRulesButton, this.quickExpandButton);
+    this.smartExpandButton = iconButton('fa-solid fa-wand-magic-sparkles', 'Smart expansion: choose the record types the next step reaches', () => this.smartExpand());
+    this.editRulesButton.classList.add('heurist-graph-edit-rules');
+    // Quick and Smart expansion, the levels navigator, Edit rules at the right
+    this.expansionNavigator.append(this.quickExpandButton, this.smartExpandButton,
+      this.pruneButton, this.levelSelector, this.expandButton, this.editRulesButton);
 
     const toggle = iconButton("fa-solid fa-layer-group", "Show or hide graph controls", () => this.toggleFullyCollapsed());
     toggle.classList.add("heurist-module-panel-toggle");
@@ -91,10 +96,17 @@ export class GraphControlPanel {
     label.append(this.currentSourceTitle);
     this.currentSourceRow.append(label);
     currentSource.content.append(this.currentSourceRow);
+    currentSource.section.classList.add('heurist-graph-panel-top');
+    // fixed top (pin, name, show data) and bottom (expansion rules); only the
+    // nodes/edges legend between them scrolls
     this.legendSection = document.createElement('section');
-    this.legendSection.className = 'heurist-graph-legend';
+    this.legendSection.className = 'heurist-graph-legend heurist-graph-legend-scroll';
+    this.rulesFooter = document.createElement('section');
+    this.rulesFooter.className = 'heurist-graph-legend heurist-graph-rules-footer';
+    body.append(this.legendSection, this.rulesFooter);
 
     this.legend = new GraphLegend({ api: this.api, container: this.legendSection,
+      footer: this.rulesFooter,
       expansionNavigator: this.expansionNavigator,
       onError: (error, operation) => this.reportError(error, operation) });
     this.element.append(header, body);
@@ -166,14 +178,13 @@ export class GraphControlPanel {
   }
 
   /**
-   * Attach the legend to the current-source row, add a show-data action when the host
-   * supports it, and re-render it.
+   * Add a show-data action to the current-source row when the host supports it,
+   * and re-render the legend and its expansion-rules footer.
    *
    * @returns {void}
    */
   renderLegend() {
     const app = this.api.application;
-    this.currentSourceRow.append(this.legendSection);
     this.currentSourceRow.querySelectorAll('.heurist-graph-query-source-action').forEach(button => button.remove());
     // Persisted-record lifecycle (add/edit/save a Query Source) is fully host-owned;
     // offer to display the active DataSource instead - shown on hover/focus,
@@ -184,7 +195,7 @@ export class GraphControlPanel {
       const actions = document.createElement('span');
       actions.className = 'heurist-graph-query-source-action heurist-graph-row-actions';
       if (capabilities.showDatasource) actions.append(showDataSourceAction(this.api, report));
-      if (actions.childElementCount) this.currentSourceRow.insertBefore(actions, this.legendSection);
+      if (actions.childElementCount) this.currentSourceRow.append(actions);
     }
     this.legend.render();
     this.renderExpansionControls();
@@ -215,8 +226,10 @@ export class GraphControlPanel {
     const canEdit = this.api.canEditRules?.() === true && this.options.showExpand !== false;
     this.editRulesButton.hidden = !canEdit;
     this.quickExpandButton.hidden = !canEdit;
+    this.smartExpandButton.hidden = !canEdit;
     this.editRulesButton.disabled = state.busy;
     this.quickExpandButton.disabled = state.busy || this.api.canQuickExpand?.() !== true;
+    this.smartExpandButton.disabled = this.quickExpandButton.disabled || this.countingTypes === true;
   }
 
   /** Open the Expansion rules dialog of the host (authors only); the host applies the result. */
@@ -227,8 +240,48 @@ export class GraphControlPanel {
 
   /** Add one "any pointer or relationship" step to every rule branch and show it. */
   async quickExpand() {
+    if (this.nodeLimitMessage()) return;
     try { await this.api.quickExpand(); }
     catch (error) { this.reportError(error, 'expansion'); }
+  }
+
+  /**
+   * Flash "Maximum allowed nodes limit is NNN" when the graph already has the
+   * maximum number of nodes (Configuration: Maximum nodes) - expanding adds none.
+   *
+   * @returns {boolean} Whether the limit is reached.
+   */
+  nodeLimitMessage() {
+    const max = this.api.nodeLimitReached?.() || 0;
+    if (max) HMsg.showMsgFlash?.(`${$HR('Maximum allowed nodes limit is')} ${max}`);
+    return max > 0;
+  }
+
+  /**
+   * Smart expansion: count the records the next step (any pointer or relationship
+   * from the end of every rule branch) would reach per record type, let the user
+   * choose record types, then expand to those only.
+   *
+   * @returns {Promise<void>}
+   */
+  async smartExpand() {
+    if (this.nodeLimitMessage()) return;
+    this.countingTypes = true;
+    this.renderExpansionControls();
+    try {
+      await runSmartExpansion(this.api, {
+        onEmpty: (message) => {
+          this.countingTypes = false;
+          this.renderExpansionControls();
+          showGraphMessage(message, { title: 'Graph' });
+        },
+      });
+    } catch (error) {
+      this.reportError(error, 'expansion');
+    } finally {
+      this.countingTypes = false;
+      this.renderExpansionControls();
+    }
   }
 
   /** React to settings edited/saved in the Configuration dialog while the panel is mounted. */

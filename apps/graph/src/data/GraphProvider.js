@@ -78,6 +78,22 @@ export class GraphProvider {
       expansion: payload.expansion || null,
     };
   }
+
+  /**
+   * Count the records of a query per record type (`/records` with `detail=rectypes`).
+   *
+   * @param {object} options
+   * @param {*} options.query Record query.
+   * @param {AbortSignal} [options.signal]
+   * @returns {Promise<Array<{id: number, count: number}>>} Record types with their counts.
+   */
+  async countRecordTypes({ query, signal } = {}) {
+    if (query == null || query === "") throw new TypeError("A query is required");
+    const payload = await this.apiClient.post("/records", { signal, body: { q: query, detail: "rectypes" } });
+    return (Array.isArray(payload?.rectypes) ? payload.rectypes : [])
+      .map((row) => ({ id: Number(row.rec_RecTypeID), count: Number(row.count) || 0 }))
+      .filter((row) => Number.isInteger(row.id) && row.id > 0);
+  }
 }
 
 /** Accept `"all"`, a comma string, or an array of compact link specs. */

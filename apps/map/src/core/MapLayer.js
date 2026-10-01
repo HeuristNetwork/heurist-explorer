@@ -44,7 +44,8 @@ export function normalizeMapLayer(value = {}, { defaults = {} } = {}) {
     markerClusterMaxLevel: !Object.hasOwn(sourceOptions, 'markerClusterMaxLevel'),
     maxAllowedFeatures: !Object.hasOwn(sourceOptions, 'maxAllowedFeatures'),
     dynamicRequests: !Object.hasOwn(sourceOptions, 'dynamicRequests'),
-    popupTemplate: !Object.hasOwn(sourceOptions, 'popupTemplate'),
+    // A persisted MapLayer always sends the key; an empty value still inherits.
+    popupTemplate: nullableString(sourceOptions.popupTemplate) == null,
     sourceLimit: source.source?.type === 'heurist-query'
       && (source.source.limit === null || source.source.limit === undefined || source.source.limit === '')
   };

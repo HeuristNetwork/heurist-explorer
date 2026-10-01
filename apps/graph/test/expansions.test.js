@@ -220,3 +220,34 @@ test('quick expansion saves a connected step through the host and shows it (auth
   assert.equal(app.getExpansionState().depth, 2);
   assert.equal(app.getLegend().rules[0].enabled, true);
 });
+
+test('smart expansion lists the reached record types, then expands to the chosen ones only', async () => {
+  const { app } = await fixture([rule(1)], async (field, seeds) => ({ ids:[9], edges:[edge(seeds[0],9)] }));
+  let saved = null;
+  app.host = {
+    getCapabilities: () => ({ rulesEditing:true }),
+    updateRules: async (rules) => { saved = rules; await app.setDataSourceRules(rules); return rules; },
+  };
+  const counted = [];
+  app.provider.countRecordTypes = async ({ query }) => { counted.push(query); return [{ id:12, count:4 }, { id:48, count:9 }]; };
+  app.vocabularyProvider = { getRecordTypeNames: async () => new Map([[12, 'Place'], [48, 'Life event']]) };
+  app.provider.load = async request => {
+    if (!request.rule) return { graph:graph([1,2]), total:2 };
+    return { graph:graph([...request.query.ids, 9], [edge(request.query.ids[0], 9)]), expansion:{ targetIds:[9] } };
+  };
+  const types = await app.smartExpansionTypes();
+  assert.deepEqual(types, [{ id:48, count:9, label:'Life event' }, { id:12, count:4, label:'Place' }]);
+  assert.ok(counted[0].connected, 'counts the records one connected step further');
+  assert.equal(saved, null, 'nothing is expanded before the choice');
+
+  assert.equal(await app.smartExpand([12]), true);
+  assert.deepEqual(saved[0].levels, [{ query:{ t:12, connected:[{ t:10 }] }, levels:[] }]);
+  assert.equal(app.getExpansionState().depth, 2);
+});
+
+test('smart expansion is for authors only', async () => {
+  const { app } = await fixture([rule(1)], async () => ({ ids:[], edges:[] }));
+  app.provider.countRecordTypes = async () => assert.fail('must not count without the rules-editing capability');
+  assert.equal(await app.smartExpansionTypes(), null);
+  assert.equal(await app.smartExpand([12]), false);
+});

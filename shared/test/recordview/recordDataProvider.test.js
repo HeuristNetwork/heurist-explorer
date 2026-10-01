@@ -13,7 +13,7 @@
 
 import test from "node:test";
 import assert from "node:assert/strict";
-import { RecordDataProvider } from "../../src/data/RecordDataProvider.js";
+import { RecordDataProvider } from "../../src/recordview/RecordDataProvider.js";
 
 test("load() requests a single-record ids query with the _all sentinel plus footer fields", async () => {
   let request;

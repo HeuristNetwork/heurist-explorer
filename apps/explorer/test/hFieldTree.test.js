@@ -232,10 +232,41 @@ test('a tree limited to its types has no Any field, "<type> records" or type fil
   };
   const tree = pathTree(dbdefs, { selectableTypes: ['geo'] });
   const via = [{ via: { link: 'r', dty: 155, targetRty: 14 } }];
-  tree._openKeys.add('r:155:14:fields:14');
-  const [fields, ...rest] = tree._scopeNodes(14, via, true);
-  assert.equal(rest.length, 0, 'no "Place records" leaf');
-  const labels = fields.children[1].children.map((node) => node.textContent);
-  assert.deepEqual(labels, ['Location']);
+  // no title/metadata: the fields are listed directly, without a "fields" folder
+  const labels = tree._scopeNodes(14, via, true).map((node) => node.textContent);
+  assert.deepEqual(labels, ['Location'], 'no "Place records" leaf, no "fields" folder');
   assert.equal(tree._typeShown('freetext'), false);
+});
+
+// Person -> Life event (lt240) -> Place (lt134) -> Location (geo); a direct Notes field
+const CHAIN_DBDEFS = {
+  rectypeName: (id) => ({ 10: 'Person', 48: 'Life event', 12: 'Place' }[id] || ''),
+  fields: (rty) => ({
+    10: [{ id: 3, name: 'Notes', type: 'blocktext' }, { id: 240, name: 'Life events', type: 'resource' }],
+    48: [{ id: 9, name: 'Date', type: 'date' }, { id: 134, name: 'Location (place)', type: 'resource' }],
+    12: [{ id: 1, name: 'Name', type: 'freetext' }, { id: 28, name: 'Mappable location', type: 'geo' }]
+  }[rty] || []),
+  fieldGlobal: (id) => ({ 240: { targetTypes: [48] }, 134: { targetTypes: [12] } }[id] || {})
+};
+
+test('a geo field tree opens the branches leading to the nearest geo field', () => {
+  const tree = pathTree(CHAIN_DBDEFS, { selectableTypes: ['geo'] });
+  tree._openFirstSelectable(10);
+  assert.deepEqual([...tree._openKeys], ['root:lt:240', 'lt:240:48:lt:134']);
+  tree._renderBody = HFieldTree.prototype._renderBody;
+  tree._openKeys.add('rty:10');
+  tree._renderBody();
+  const texts = [];
+  const walk = (node) => { if (node.textContent) texts.push(node.textContent); (node.children || []).forEach(walk); };
+  walk(tree._body);
+  assert.ok(texts.includes('Mappable location'), 'first geo field visible');
+});
+
+test('a time field tree stops at the nearest record type with a date field', () => {
+  const tree = pathTree(CHAIN_DBDEFS, { selectableTypes: ['date', 'year'] });
+  tree._openFirstSelectable(10);
+  assert.deepEqual([...tree._openKeys], ['root:lt:240']);
+  const direct = pathTree(CHAIN_DBDEFS, { selectableTypes: ['blocktext'] });
+  direct._openFirstSelectable(10);
+  assert.deepEqual([...direct._openKeys], [], 'a direct field needs no branch opened');
 });

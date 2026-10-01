@@ -37,7 +37,8 @@ export class QuerySourceEditor extends HBaseWidget {
    * @param {Function} [options.editRules] Opens the host Rule Builder for expansion rules.
    * @param {Function} [options.describeRules] Resolves expansion rules to human-readable summaries.
    * @param {Function} [options.onExecute] Called with the draft DataSource when the user runs the query.
-   * @param {Function} [options.onApply] Called with the draft DataSource when the user tests/applies presentation settings.
+   * @param {Function} [options.onApply] Called with the draft DataSource when presentation settings change
+   *        (on Apply of the rules, geographic, time or column field dialog), so modules show them at once.
    * @param {Function} [options.onDirtyChange] Called with (dirty, draft) whenever the dirty state changes.
    * @param {boolean} [options.collapsible=false] Offer the More/Less toggle; otherwise the
    *        presentation settings are always shown (the editor lives in a tall pane).
@@ -123,13 +124,12 @@ export class QuerySourceEditor extends HBaseWidget {
       this._configRow('Time fields', 'time', 'fa-clock', () => void this.openTimeFieldSelector(), 'Date and year fields used by Timeline.'),
       this._configRow('Column fields', 'fields', 'fa-table', () => void this.openFieldSetEditor(), 'Columns and formatting used by the Data table presentation.')
     );
-    const testRow = div('h-qse-test-row');
+    const titleRow = div('h-qse-title-row');
     const titleLabel = document.createElement('span'); titleLabel.className = 'h-qse-title-label'; titleLabel.textContent = $HR('Title');
     this._title = document.createElement('input'); this._title.className = 'h-input h-qse-title'; this._title.type = 'text';
     this._title.addEventListener('input', () => { if (this.draft) { this.draft.title = this._title.value; this._markDirty(); } });
-    this._test = button($HR('Test'), $HR('Test Query Source settings'), () => void this.apply(), 'h-btn');
-    testRow.append(titleLabel, this._title, this._test);
-    this._advanced.append(testRow);
+    titleRow.append(titleLabel, this._title);
+    this._advanced.append(titleRow);
 
     this.container.append(compact, this._advanced);
     this.inlineHelper = new HFilterInlineHelper({
@@ -306,7 +306,10 @@ export class QuerySourceEditor extends HBaseWidget {
     }
   }
 
-  /** Commit the query input and invoke `onApply` with the draft DataSource, if a query is present. */
+  /**
+   * Commit the query input and invoke `onApply` with the draft DataSource, if a query
+   * is present. Called after each presentation dialog is applied.
+   */
   async apply() {
     this._commitQueryInput();
     if (!(await this._ensureRecordTypeConsistency())) return null;
@@ -334,7 +337,10 @@ export class QuerySourceEditor extends HBaseWidget {
     const editor = new HRuleBuilder({ dbdefs: this.dbdefs, lang: this.lang, describeRules: this.describeRules });
     editor.setRules(this.draft.request.rules || []).setRecordTypes([this._recordTypeId()]);
     const rules = await editor.open({ dataSource: this.getDraftDataSource() });
-    if (rules) { this.draft.request.rules = clone(rules); this._markDirty(); this._renderSummary(); }
+    // Cancel resolves null; an unchanged Apply changes nothing either
+    if (!rules || JSON.stringify(rules) === JSON.stringify(this.draft.request.rules || [])) return;
+    this.draft.request.rules = clone(rules);
+    this._settingsChanged();
   }
 
   /** Open the Data-presentation column field-set editor and apply the result to the draft. */
@@ -352,7 +358,9 @@ export class QuerySourceEditor extends HBaseWidget {
     editor.setRecordType(this._recordTypeId());
     editor.setMapProfile(this.draft.presentation?.map || {});
     const applied = await this._showEditorDialog('Geographic fields', editor, () => editor.getMapProfile());
-    if (applied) { this.draft.presentation.map = applied; this._markDirty(); this._renderSummary(); }
+    if (!applied || JSON.stringify(applied) === JSON.stringify(this.draft.presentation?.map || {})) return;
+    this.draft.presentation.map = applied;
+    this._settingsChanged();
   }
 
   /** Open the Timeline date/year field editor and apply the result to the draft. */
@@ -367,7 +375,18 @@ export class QuerySourceEditor extends HBaseWidget {
     if (!this.draft) return;
     editor.setRecordType(this._recordTypeId()).setValue(value);
     const result = await this._showEditorDialog(title, editor, () => editor.getValue());
-    if (result) { apply(result); this._markDirty(); this._renderSummary(); }
+    if (!result) return;
+    const before = editableFingerprint(this.draft);
+    apply(result);
+    // an unchanged Apply does not reload the modules
+    if (editableFingerprint(this.draft) !== before) this._settingsChanged();
+  }
+
+  /** A presentation dialog was applied: mark the draft dirty and apply it to the modules at once. */
+  _settingsChanged() {
+    this._markDirty();
+    this._renderSummary();
+    void this.apply();
   }
 
   _showEditorDialog(title, editor, getResult) {
@@ -478,7 +497,6 @@ export class QuerySourceEditor extends HBaseWidget {
       : parseQueryText(this._query?.value ?? '');
     const enabled = hasQuery(current);
     if (this._run) this._run.disabled = !enabled;
-    if (this._test) this._test.disabled = !enabled;
   }
 
   /** Return a persisted Query Source draft with an automatic human-readable title when blank. */

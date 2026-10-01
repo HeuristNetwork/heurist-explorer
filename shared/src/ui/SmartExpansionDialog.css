@@ -1,0 +1,13 @@
+/**
+ * @file SmartExpansionDialog.css
+ * @brief Smart expansion dialog: record types the next expansion step reaches.
+ *
+ * @project     Heurist academic knowledge management system
+ * @package     heurist-client-core
+ * @license     https://www.gnu.org/licenses/gpl-3.0.txt GNU License 3.0
+ * @since       8.0
+ */
+
+.h-smart-expansion { width: min(360px, calc(100vw - 48px)); }
+.h-smart-expansion-hint { margin: 0 0 6px; color: var(--h-color-text-muted); }
+.h-smart-expansion .h-value-picker { max-height: min(50vh, 360px); }

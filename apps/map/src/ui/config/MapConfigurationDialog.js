@@ -24,10 +24,19 @@ import { getDefaultBaseMaps } from '../../basemaps/defaultBasemaps.js';
 import { createSymbolPreview } from '../legend/LegendRenderer.js';
 import { DEFAULT_MAP_SYMBOL, normalizeMapSymbol } from '../../utils/normalizeMapSymbol.js';
 import { $HR, applyI18n, HMsg } from '#shared/ui';
+import { normalizePopupMode } from '../../data/PopupProvider.js';
 
 const ZOOM_LEVEL_TOOLTIP = 'Level 1 = ~10,000km (15 deg.) to ~65,000 km (equator). Level 18 = ~50m (15 deg.) to ~250m (equator)';
 /** Remembers each mode's "Advanced settings" toggle state across dialog instances. */
 const advancedStateByMode = new Map();
+
+// Popup modes before the list of Smarty templates; see normalizePopupMode().
+const POPUP_MODE_CHOICES = [
+  ['none', 'None'],
+  ['basic', 'Built-in (basic)'],
+  ['builtin', 'Built-in'],
+  ['standard', 'Standard (Legacy)']
+];
 
 /** Edits and serializes persisted heurist-map settings in a modal dialog. */
 export class MapConfigurationDialog {
@@ -405,11 +414,16 @@ export class MapConfigurationDialog {
     this.select(body, 'config.defaults.maxAllowedFeatures', 'Maximum allowed features', [
       ['500', '500'], ['1000', '1,000'], ['2000', '2,000'], ['5000', '5,000']
     ], { kind: 'positive-int' });
-    this.select(body, 'config.defaults.popupTemplate', 'Popup template', [
-      ['standard', 'Standard'],
-      ['minimal', 'Minimal'],
-      ['none', 'None']
-    ], { advanced: true });
+    this.select(body, 'config.defaults.popupTemplate', 'Popup template', POPUP_MODE_CHOICES, { advanced: true });
+    const popupField = this.fields.get('config.defaults.popupTemplate');
+    if (popupField) {
+      popupField.onPopulate = () => {
+        // the former "minimal" mode is shown as "Built-in (basic)"; empty means Built-in (basic)
+        const current = normalizePopupMode(getPath(this.value, 'config.defaults.popupTemplate'));
+        ensureSelectOption(popupField.control, current);
+        popupField.control.value = current;
+      };
+    }
     void this.loadReportTemplates();
   }
 
@@ -423,45 +437,40 @@ export class MapConfigurationDialog {
     const field = this.fields.get('config.defaults.popupTemplate');
     const control = field?.control;
     if (!control || !this.reportTemplateProvider?.isConfigured?.()) return;
+    let templates = [];
     try {
-      const templates = await this.reportTemplateProvider.list();
-      if (!this.form || !control.isConnected) return;
-      const current = getPath(this.value, 'config.defaults.popupTemplate');
-      control.replaceChildren();
-      for (const [value, label] of [['standard', 'Standard'], ['minimal', 'Minimal'], ['none', 'None']]) {
-        const option = document.createElement('option');
-        option.value = value;
-        option.className = 'h-i18n';
-        option.textContent = label;
-        control.append(option);
-      }
-      for (const item of templates) {
-        if (['standard', 'minimal', 'none'].includes(String(item.value || '').trim().toLowerCase())) continue;
+      templates = await this.reportTemplateProvider.list();
+    } catch {
+      // Template discovery is configuration assistance only; keep the current
+      // value usable even if the legacy ReportController is unavailable.
+      return;
+    }
+    if (!this.form || !control.isConnected) return;
+    const current = normalizePopupMode(getPath(this.value, 'config.defaults.popupTemplate'));
+    const selected = control.value || current;
+    control.replaceChildren();
+    for (const [value, label] of POPUP_MODE_CHOICES) {
+      const option = document.createElement('option');
+      option.value = value;
+      option.className = 'h-i18n';
+      option.textContent = label;
+      control.append(option);
+    }
+    const smarty = templates.filter((item) => !POPUP_MODE_CHOICES.some(([value]) => value === String(item.value || '').trim().toLowerCase()));
+    if (smarty.length) {
+      const group = document.createElement('optgroup');
+      group.label = $HR('Smarty templates');
+      for (const item of smarty) {
         const option = document.createElement('option');
         option.value = item.value;
         option.textContent = item.label;
-        control.append(option);
+        group.append(option);
       }
-      if (current && ![...control.options].some((option) => option.value === String(current))) {
-        const option = document.createElement('option');
-        option.value = String(current);
-        option.textContent = String(current);
-        control.append(option);
-      }
-      control.value = current == null || current === '' ? 'standard' : String(current);
-      applyI18n(control);
-    } catch (error) {
-      // Template discovery is configuration assistance only; keep the current
-      // value usable even if the legacy ReportController is unavailable.
-      const current = getPath(this.value, 'config.defaults.popupTemplate');
-      if (current && ![...control.options].some((option) => option.value === String(current))) {
-        const option = document.createElement('option');
-        option.value = String(current);
-        option.textContent = String(current);
-        control.append(option);
-        control.value = String(current);
-      }
+      control.append(group);
     }
+    ensureSelectOption(control, selected);
+    control.value = selected;
+    applyI18n(control);
   }
 
   /**
@@ -666,17 +675,27 @@ export class MapConfigurationDialog {
     ]) {
       const control = this.fields.get(path)?.control;
       if (control) control.disabled = disabled
-        || (this.mode === 'website' && ['options.ui.showOptions', 'options.ui.showPublish'].includes(path));
+        || (this.mode === 'website' && ['options.ui.showOptions', 'options.ui.showPublish'].includes(path))
+        || (this.mode === 'preferences' && path === 'options.ui.showOptions');
     }
   }
 
   /**
    * Force the Options/Publish controls off and disabled in website mode, since
-   * a website embed never shows the preferences/publish icons.
+   * a website embed never shows the preferences/publish icons. In preferences
+   * mode Options is forced on and disabled (the dialog is opened from it).
    *
    * @returns {void}
    */
   applyModeControlState() {
+    if (this.mode === 'preferences') {
+      const control = this.fields.get('options.ui.showOptions')?.control;
+      if (control) {
+        control.checked = true;
+        control.disabled = true;
+      }
+      return;
+    }
     if (this.mode !== 'website') return;
     for (const path of ['options.ui.showOptions', 'options.ui.showPublish']) {
       const control = this.fields.get(path)?.control;
@@ -1543,6 +1562,14 @@ function submitButton(text) { const item = document.createElement('button'); ite
  */
 function prepareModeConfiguration(value, mode) {
   if (mode === 'publish') return preparePublishConfiguration(value);
+  if (mode === 'preferences') {
+    // The Options icon is how this dialog is reached; it cannot be switched off
+    // here (same rule as heurist-data and heurist-graph).
+    const result = clone(value);
+    result.options = result.options || {};
+    result.options.ui = { ...(result.options.ui || {}), showOptions: true };
+    return result;
+  }
   if (mode !== 'website') return value;
   const result = clone(value);
   result.options = result.options || {};
@@ -1733,3 +1760,20 @@ function setPath(object, path, value) {
 
 /** Deep-clone a JSON-safe value. */
 function clone(value) { return JSON.parse(JSON.stringify(value)); }
+
+/**
+ * Add an option for a stored value missing from a `<select>` (e.g. a template
+ * that is no longer listed), so the value is shown and kept on save.
+ *
+ * @param {HTMLSelectElement} control Select control.
+ * @param {?string} value Value that must be selectable.
+ * @returns {void}
+ */
+function ensureSelectOption(control, value) {
+  if (!control || value == null || value === '') return;
+  if ([...control.options].some((option) => option.value === String(value))) return;
+  const option = document.createElement('option');
+  option.value = String(value);
+  option.textContent = String(value);
+  control.append(option);
+}

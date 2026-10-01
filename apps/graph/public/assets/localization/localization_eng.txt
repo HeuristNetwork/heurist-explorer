@@ -155,3 +155,43 @@
 #Expansion depth for selected records#Expansion depth for selected records
 #Expansion depth for the base graph#Expansion depth for the base graph
 #Level#Level
+#Smarty templates#Smarty templates
+#Expansion level: 0 is the current result, n what step n of the enabled rules reaches#Expansion level: 0 is the current result, n what step n of the enabled rules reaches
+#The next expansion step reaches no records#The next expansion step reaches no records
+#Records the next step reaches, by record type. Choose the types to add.#Records the next step reaches, by record type. Choose the types to add.
+#Smart expansion#Smart expansion
+#Smart expansion: choose the record types the next step reaches#Smart expansion: choose the record types the next step reaches
+#Expand#Expand
+#Loading data source#Loading data source
+#Record type#Record type
+#Back#Back
+#Loading...#Loading...
+#Record not found#Record not found
+#Popup content could not be loaded#Popup content could not be loaded
+#Record#Record
+#Type#Type
+#Edit#Edit
+#Show linked and related records#Show linked and related records
+#More...#More...
+#Zoom to extent#Zoom to extent
+#Data in system format#Data in system format
+#Related#Related
+#Records#Records
+#Linked from#Linked from
+#Tags#Tags
+#Find records with this tag#Find records with this tag
+#Created#Created
+#Modified#Modified
+#Owner#Owner
+#Visibility#Visibility
+#Personal tags#Personal tags
+#tags#tags
+#Built-in (vis basic)#Built-in (vis basic)
+#Built-in#Built-in
+#Show in OSD#Show in OSD
+#Show in Mirador#Show in Mirador
+#Show in new tab#Show in new tab
+#Hidden#Hidden
+#Viewable#Viewable
+#Public#Public
+#Maximum allowed nodes limit is#Maximum allowed nodes limit is

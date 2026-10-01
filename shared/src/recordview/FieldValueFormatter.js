@@ -2,18 +2,14 @@
  * @file FieldValueFormatter.js
  * @brief Resolve Heurist detail values according to fieldset output options.
  *
- * NOTE: this is now the *third* independent copy of this exact field-value
- * projection logic (heurist-data, heurist-graph, heurist-recordview). Per
- * `docs/architecture.md`'s migration policy ("shared extraction requires
- * explicit common contracts plus passing tests for both consumers"), three
- * real, identical consumers is the point at which extracting a shared
- * `#shared` contract should be seriously considered. Not done as part of
- * adding RecordView, to keep that change's scope to the new application —
- * but the next person touching any of these three copies should weigh
- * unifying them instead of editing a fourth place independently.
+ * NOTE: heurist-data and heurist-graph still have their own copies of this
+ * field-value projection logic. This copy moved to `shared/src/recordview`
+ * with the shared record renderer (used by heurist-recordview and the
+ * heurist-map popups); the other two copies should be unified with it
+ * rather than edited independently.
  *
  * @project     Heurist academic knowledge management system
- * @package     heurist-recordview
+ * @package     heurist-client-core
  *
  * @link        https://HeuristNetwork.org
  * @copyright   (C) 2024 onwards Heurist Network

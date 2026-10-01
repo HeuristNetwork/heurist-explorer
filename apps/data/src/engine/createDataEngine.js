@@ -13,7 +13,6 @@
  * @since       8.0
  */
 
-import { DataTablesAdapter } from "./datatables/DataTablesAdapter.js";
 import { HRecordList } from "../widgets/HRecordList.js";
 
 /**
@@ -24,10 +23,13 @@ import { HRecordList } from "../widgets/HRecordList.js";
  * @throws {Error} When `name` is not a known engine.
  */
 export async function createDataEngine(name = "datatables") {
-  if (name === "datatables") return new DataTablesAdapter();
-  if (name === "recordlist") {
-    //const { HRecordList } = await import("#shared/widgets");
-    return new HRecordList();
+  if (name === "datatables") {
+    // DataTables (with its Buttons extension and CSS) is loaded only when the
+    // Table view is used; its export libraries load later still, only with the
+    // Export control on (DataTablesAdapter#_initializeExportButtons).
+    const { DataTablesAdapter } = await import("./datatables/DataTablesAdapter.js");
+    return new DataTablesAdapter();
   }
+  if (name === "recordlist") return new HRecordList();
   throw new Error(`Unknown Heurist Data engine: ${name}`);
 }

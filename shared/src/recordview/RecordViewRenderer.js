@@ -1,9 +1,10 @@
 /**
  * @file RecordViewRenderer.js
- * @brief Renders the currently displayed record into the module body.
+ * @brief Renders one record into a container: the full view of heurist-recordview,
+ *        or a compact card (header and thumbnail) for record popups of other modules.
  *
  * @project     Heurist academic knowledge management system
- * @package     heurist-recordview
+ * @package     heurist-client-core
  *
  * @link        https://HeuristNetwork.org
  * @copyright   (C) 2024 onwards Heurist Network
@@ -13,7 +14,8 @@
  * @since       8.0
  */
 import { $HR } from "#shared/ui";
-import { fieldValues, sanitizeTextHtml, looksLikeJson } from "../core/FieldValueFormatter.js";
+import { fieldValues, sanitizeTextHtml, looksLikeJson } from "./FieldValueFormatter.js";
+import "./RecordViewRenderer.css";
 
 const VISIBILITY_LABELS = { hidden: "Hidden", viewable: "Viewable", public: "Public" };
 
@@ -84,13 +86,24 @@ export class RecordViewRenderer {
    * @param {((record: object) => void)|null} [options.onShowLinks] Shows the records linked/related to this one; the
    *   header button appears only with it and when the record has any link or relationship.
    * @param {((tag: {id:number, name:string}) => void)|null} [options.onSearchTag] Runs a search for a tag; without it tags are plain text.
+   * @param {boolean} [options.compact] Render only the header and the first file's thumbnail (no viewer
+   *   links, no audio/video players), followed by a "More..." link when `onExpand` is given.
+   * @param {(() => void)|null} [options.onExpand] Invoked by the compact card's "More..." link.
    * @returns {void}
    */
   showBuiltin(record, {
     sections = [], recordTypeName = null, canEdit = false, onEdit = () => {}, onNavigate = () => {},
     canZoomExtent = false, onZoomExtent = () => {}, tags = null, relations = null, onSearchTag = null,
-    onShowLinks = null,
+    onShowLinks = null, compact = false, onExpand = null,
   } = {}) {
+    if (compact) {
+      const card = [this.#buildHeader(record, { recordTypeName, canEdit, onEdit })];
+      const thumbnail = this.#buildCompactMedia(record, sections);
+      if (thumbnail) card.push(thumbnail);
+      if (typeof onExpand === "function") card.push(this.#buildMore(onExpand));
+      this.body.replaceChildren(...card);
+      return;
+    }
     const showLinks = typeof onShowLinks === "function" && hasLinks(record, relations) ? onShowLinks : null;
     const children = [this.#buildHeader(record, { recordTypeName, canEdit, onEdit, onShowLinks: showLinks })];
     const media = this.#buildMedia(record, sections);
@@ -203,6 +216,43 @@ export class RecordViewRenderer {
       media.append(this.#buildMediaItem(file));
     }
     return media.childElementCount ? media : null;
+  }
+
+  /** Compact card media: the thumbnail of the record's first file only, without viewer links or players. */
+  #buildCompactMedia(record, sections) {
+    if (!this.#isConfigured()) return null;
+    for (const section of sections) {
+      for (const field of section.fields) {
+        if (field.type !== "file") continue;
+        const values = record?.details?.[String(field.id)];
+        const file = (Array.isArray(values) ? values : []).find((value) => value?.file?.ulf_ObfuscatedFileID)?.file;
+        if (!file) continue;
+        const media = document.createElement("div");
+        media.className = "heurist-recordview-media heurist-recordview-media-compact";
+        const thumb = document.createElement("img");
+        thumb.className = "heurist-recordview-media-thumb";
+        thumb.src = this.#thumbUrl(file.ulf_ObfuscatedFileID);
+        thumb.alt = file.ulf_Caption || file.ulf_OrigFileName || "";
+        media.append(thumb);
+        return media;
+      }
+    }
+    return null;
+  }
+
+  /** The compact card's "More..." link, which asks the caller to show the full record. */
+  #buildMore(onExpand) {
+    const more = document.createElement("div");
+    more.className = "heurist-recordview-more";
+    const link = document.createElement("a");
+    link.href = "#";
+    link.textContent = $HR("More...");
+    link.addEventListener("click", (event) => {
+      event.preventDefault();
+      onExpand();
+    });
+    more.append(link);
+    return more;
   }
 
   /**
@@ -386,11 +436,21 @@ export class RecordViewRenderer {
    * natural (already `max-content`-sized) width, then pins every section's column to the
    * widest one via a shared CSS variable.
    */
-  #alignFieldLabels() {
+  #alignFieldLabels(retry = true) {
     const dts = this.body.querySelectorAll(".heurist-recordview-section-fields dt");
     if (!dts.length) return;
     let maxWidth = 0;
     for (const dt of dts) maxWidth = Math.max(maxWidth, dt.getBoundingClientRect().width);
+    // Rendered before it is on the page (e.g. Data's Extended view builds the
+    // record, then inserts it): nothing is measured yet. A 0px label column would
+    // put the labels over the values - keep each section's natural (max-content)
+    // column and align once the record is laid out.
+    if (!maxWidth) {
+      if (retry && typeof requestAnimationFrame === "function") {
+        requestAnimationFrame(() => this.#alignFieldLabels(false));
+      }
+      return;
+    }
     for (const dl of this.body.querySelectorAll(".heurist-recordview-section-fields")) {
       dl.style.setProperty("--heurist-recordview-label-width", `${maxWidth}px`);
     }

@@ -16,6 +16,11 @@
  * @since       8.0
  */
 
+import { normalizePopupMode, isServerPopupMode } from '#shared/recordview/RecordPopupContent.js';
+
+// popup modes are shared with heurist-graph; re-exported for existing imports
+export { normalizePopupMode, isServerPopupMode };
+
 /** Lazily loads Heurist record-popup HTML for a clicked map feature. */
 export class PopupProvider {
   /**
@@ -40,7 +45,7 @@ export class PopupProvider {
    *
    * @param {number|string} recordId Heurist record ID.
    * @param {string|null} [template] Popup mode/template; see `normalizePopupMode`.
-   * @returns {string|null} Popup URL, or `null` for `'none'`/`'minimal'` modes.
+   * @returns {string|null} Popup URL, or `null` for the `'none'`/`'basic'`/`'builtin'` modes.
    * @throws {Error} When the provider is unconfigured, or `recordId` is invalid.
    */
   buildUrl(recordId, template = null) {
@@ -49,7 +54,7 @@ export class PopupProvider {
     if (!(id > 0)) throw new Error('A valid Heurist record ID is required for a map popup');
 
     const mode = normalizePopupMode(template);
-    if (mode === 'none' || mode === 'minimal') return null;
+    if (!isServerPopupMode(mode)) return null;
     const templateName = mode === 'standard' ? null : mode;
     if (templateName) {
       const url = new URL(this.baseUrl, globalThis.location?.href || 'http://localhost/');
@@ -70,17 +75,19 @@ export class PopupProvider {
   }
 
   /**
-   * Load popup content for a record: fetched HTML for a template, a built-in minimal card, or `null` when disabled.
+   * Load popup content for a record: fetched HTML for the standard renderer or a
+   * template, a minimal card for `'basic'`, or `null` for `'none'` and `'builtin'`
+   * (the built-in renderer is rendered client-side by `MapPopupController`).
    *
    * @param {number|string} recordId Heurist record ID.
    * @param {{template?: string|null, signal?: AbortSignal, properties?: object|null}} [options] Load options; `properties` seeds the minimal popup.
-   * @returns {Promise<string|null>} Popup HTML, or `null` when popups are disabled for this mode.
+   * @returns {Promise<string|null>} Popup HTML, or `null` when this mode is not server-rendered.
    * @throws {Error} When the popup request fails.
    */
   async load(recordId, { template = null, signal, properties = null } = {}) {
     const mode = normalizePopupMode(template);
-    if (mode === 'none') return null;
-    if (mode === 'minimal') return buildMinimalPopup(properties);
+    if (mode === 'none' || mode === 'builtin') return null;
+    if (mode === 'basic') return buildMinimalPopup(properties);
 
     const url = this.buildUrl(recordId, mode);
     const response = await this.fetchImpl(url, {
@@ -106,20 +113,6 @@ function nullableString(value) {
   if (value === null || value === undefined) return null;
   const text = String(value).trim();
   return text || null;
-}
-
-/**
- * Normalize a popup mode/template value to `'standard'`, `'none'`, `'minimal'`, or a report template name.
- *
- * @param {*} value Raw popup mode/template value.
- * @returns {string} Normalized mode.
- */
-export function normalizePopupMode(value) {
-  const text = nullableString(value);
-  if (!text) return 'standard';
-  const lower = text.toLowerCase();
-  if (lower === 'none' || lower === 'minimal' || lower === 'standard') return lower;
-  return text;
 }
 
 /**

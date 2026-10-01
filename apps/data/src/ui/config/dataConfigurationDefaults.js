@@ -48,7 +48,10 @@ export const HEURIST_DATA_CONFIG_DEFAULTS = Object.freeze({
     colorScheme: "default",
     emptyResultMessage: "No records",
     cardTemplate: null,
+    // Extended view: null is the Built-in record view, "standard" the legacy one
     viewTemplate: null,
+    // "i" action popup: null is Built-in, "none" hides the action
+    popupTemplate: null,
   }),
 });
 

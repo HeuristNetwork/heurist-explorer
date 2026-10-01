@@ -1,6 +1,7 @@
 /**
  * @file DataControlPanel.js
- * @brief Renders the Data module's header-only control bar (source caption, help/options/publish).
+ * @brief Renders the Data module's control panel: header (Expansion, help/options/publish)
+ *        and, when the DataSource has expansion rules, a drop-down body with them.
  *
  * @project     Heurist academic knowledge management system
  * @package     heurist-data
@@ -13,12 +14,14 @@
  * @since       8.0
  */
 
-import { $HR, applyI18n, InlineHelp } from "#shared/ui";
+import { $HR, applyI18n, InlineHelp, HMsg } from "#shared/ui";
 import { DataExpansionBar } from "./DataExpansionBar.js";
 
 /**
- * Fixed header-only bar overlaying the DataTables toolbar: source caption plus
- * help/options/publish actions. The module no longer browses Query Sources or
+ * Control panel overlaying the top of the module: a header with the Expansion
+ * button and the help/options/publish actions and - when expansion rules are
+ * offered - a drop-down body with the Expansion Rules section (as the Graph and
+ * Timeline control panels). The module no longer browses Query Sources or
  * Filters itself - the host resolves and pushes a complete DataSource.
  */
 export class DataControlPanel {
@@ -68,14 +71,21 @@ export class DataControlPanel {
       this.api.openPublishDialog(),
     );
     this.actions.append(this.helpButton, this.optionsButton, this.publishButton);
-    // Expansion button and level bar stay visible (the actions show on hover only)
+    // The Expansion button stays visible (the actions show on hover only); the
+    // expansion rules and level controls are in the drop-down body
     this.expansionBar = new DataExpansionBar({
       api: this.api,
       onError: (error, operation) => this.reportError(error, operation),
+      onMessage: (message) => HMsg.showMsgFlash?.(message),
+      onChange: () => this.updateBody(),
+      // the Expansion button shows/hides the body together with the level pane
+      onOpenChange: (open) => this.setBodyOpen(open),
     });
     const expansion = this.expansionBar.create();
     this.expansionButton = expansion.button;
-    header.append(expansion.bar, expansion.button, this.actions);
+    this.angleToggle = iconButton("fa-solid fa-angle-up", "Show or hide panels", () => this.toggleBody());
+    this.angleToggle.classList.add("heurist-module-panel-angle-toggle");
+    header.append(this.angleToggle, this.actions, expansion.button);
 
     this.collapseToggle = iconButton(
       "fa-solid fa-layer-group",
@@ -85,7 +95,12 @@ export class DataControlPanel {
     this.collapseToggle.classList.add("heurist-module-panel-toggle");
     header.append(this.collapseToggle);
 
-    this.element.append(header);
+    this.body = document.createElement("div");
+    this.body.className = "heurist-module-panel-body";
+    this.body.append(expansion.section);
+    this.element.append(header, this.body);
+    // closed until the Expansion button opens it
+    this.element.classList.add("body-collapsed");
     const target = this.tableContainer.parentElement || document.body;
     if (target && globalThis.getComputedStyle?.(target).position === "static")
       target.style.position = "relative";
@@ -105,9 +120,47 @@ export class DataControlPanel {
       this.applyVisibility();
     });
     this.applyVisibility();
+    this.updateBody();
     this.updateSourceHeader();
     applyI18n(this.element);
     return this.element;
+  }
+
+  /**
+   * Show the drop-down body (and its toggle) only while there is something in it:
+   * the expansion rules of the active DataSource.
+   *
+   * @returns {void}
+   */
+  updateBody() {
+    if (!this.body) return;
+    const available = this.expansionBar?.isAvailable() === true;
+    this.body.hidden = !available;
+    if (this.angleToggle) this.angleToggle.hidden = !available;
+    this.element.classList.toggle("heurist-data-has-body", available);
+    this.updateExpandedState();
+  }
+
+  /**
+   * Show or hide the drop-down body (with the Expansion button).
+   *
+   * @param {boolean} open Whether the body is shown.
+   * @returns {void}
+   */
+  setBodyOpen(open) {
+    this.element?.classList.toggle("body-collapsed", !open);
+    this.updateExpandedState();
+  }
+
+  /**
+   * Show or hide the drop-down body.
+   *
+   * @returns {void}
+   */
+  toggleBody() {
+    if (this.element.classList.contains("fully-collapsed")) return;
+    this.element.classList.toggle("body-collapsed");
+    this.updateExpandedState();
   }
 
   /**
@@ -143,12 +196,19 @@ export class DataControlPanel {
     this.updateExpandedState();
   }
 
-  /** Sync the collapse toggle's `aria-expanded` state with the current collapse state. */
+  /** Sync the toggles' `aria-expanded` state and the angle icon with the current collapse state. */
   updateExpandedState() {
     const fullyCollapsed = this.element.classList.contains("fully-collapsed");
     this.element
       .querySelector(".heurist-module-panel-toggle")
       ?.setAttribute("aria-expanded", String(!fullyCollapsed));
+    if (this.angleToggle) {
+      const expanded = !fullyCollapsed && !this.element.classList.contains("body-collapsed");
+      this.angleToggle.setAttribute("aria-expanded", String(expanded));
+      const icon = this.angleToggle.querySelector(".fa-solid");
+      icon?.classList.toggle("fa-angle-up", expanded);
+      icon?.classList.toggle("fa-angle-down", !expanded);
+    }
   }
 
   /** Load the module user manual for the active language into a full-viewport overlay. */

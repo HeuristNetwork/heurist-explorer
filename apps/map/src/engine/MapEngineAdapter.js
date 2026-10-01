@@ -62,9 +62,14 @@ export class MapEngineAdapter {
     throw new Error('MapEngineAdapter.setNativeControls() is not implemented');
   }
 
-  /** Lazily bind/open HTML popup content for one rendered feature. */
-  async openFeaturePopup() {
+  /** Open the single feature popup with the given content; returns a handle `{update, close, isOpen}` or `null`. */
+  openFeaturePopup() {
     throw new Error('MapEngineAdapter.openFeaturePopup() is not implemented');
+  }
+
+  /** Return the rendered features drawn at the same spot as one feature, the given one first. */
+  getCoincidentFeatures() {
+    return [];
   }
 
   /** Apply selected feature IDs for one layer. */

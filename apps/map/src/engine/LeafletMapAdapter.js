@@ -587,31 +587,109 @@ export class LeafletMapAdapter extends MapEngineAdapter {
   }
 
   /**
-   * Open a popup for one rendered feature, binding HTML lazily when supplied.
+   * Open the map's single feature popup for one rendered feature. The popup is
+   * anchored at the clicked geometry: a marker's own position (respecting its
+   * icon's popup anchor), otherwise the clicked coordinate. Content is never
+   * bound to the feature, so every click shows freshly built content.
    *
    * @param {string|number} layerId Runtime layer identifier.
    * @param {string|number} featureId Rendered feature identifier.
-   * @param {?string} [html=null] Popup HTML to bind before opening; reuses an already-bound
-   *        popup when omitted.
-   * @returns {Promise<boolean>} Resolves with whether the popup was opened.
+   * @param {HTMLElement|string} content Popup content.
+   * @param {Object} [options={}] Popup options.
+   * @param {?{latitude: number, longitude: number}} [options.latlng=null] Clicked coordinate.
+   * @returns {?{update: Function, close: Function, isOpen: Function}} Handle of the opened popup
+   *          (`update()` re-lays it out after its content changed), or `null` when there is no position.
    * @throws {Error} When the layer is not registered.
    */
-  async openFeaturePopup(layerId, featureId, html = null) {
+  openFeaturePopup(layerId, featureId, content, { latlng = null } = {}) {
+    if (!this.map) return null;
     const entry = this.getLayerEntry(layerId);
     const id = String(featureId);
     const nativeLayer = entry.featurePopupLayers?.get(id)
       || getFirstPopupCapableLayer(entry.featureLayers?.get(id));
-    if (!nativeLayer || typeof nativeLayer.openPopup !== 'function') return false;
 
-    if (html !== null && html !== undefined) {
-      if (typeof nativeLayer.bindPopup !== 'function') return false;
-      nativeLayer.bindPopup(String(html));
-    } else if (typeof nativeLayer.getPopup === 'function' && !nativeLayer.getPopup()) {
-      return false;
+    let position = latlng ? L.latLng(latlng.latitude, latlng.longitude) : null;
+    let offset = L.point(0, 7); // Leaflet's default popup offset
+    if (nativeLayer && typeof nativeLayer.getLatLng === 'function') {
+      position = nativeLayer.getLatLng();
+      const anchor = nativeLayer.options?.icon?.options?.popupAnchor;
+      if (anchor) offset = offset.add(L.point(anchor));
     }
+    if (!position && typeof nativeLayer?.getBounds === 'function') position = nativeLayer.getBounds().getCenter();
+    if (!position) return null;
 
-    nativeLayer.openPopup();
-    return true;
+    const popup = L.popup({
+      className: 'heurist-map-popup',
+      minWidth: 220,
+      maxWidth: 380,
+      maxHeight: 420,
+      offset
+    }).setLatLng(position).setContent(content).openOn(this.map);
+    return {
+      update: () => { if (popup.isOpen()) popup.update(); },
+      close: () => this.map?.closePopup(popup),
+      isOpen: () => popup.isOpen()
+    };
+  }
+
+  /**
+   * Find the rendered features drawn at the same spot as one clicked feature,
+   * across all visible GeoJSON layers: point features within a few pixels of
+   * the clicked point, or features with exactly the clicked line/polygon geometry.
+   *
+   * @param {string|number} layerId Runtime layer identifier of the clicked feature.
+   * @param {string|number} featureId Clicked feature identifier.
+   * @param {Object} [options={}] Options.
+   * @param {number} [options.tolerance=3] Pixel distance at which points coincide.
+   * @returns {Array<{layerId: string, featureId: string, recordId: ?number, properties: Object}>}
+   *          The coincident features, the clicked one first.
+   */
+  getCoincidentFeatures(layerId, featureId, { tolerance = 3 } = {}) {
+    const entry = this.map ? this.layers.get(layerId) : null;
+    const id = String(featureId);
+    const clicked = entry?.featureLayers?.get(id);
+    if (!clicked) return [];
+
+    const clickedLeaf = entry.featurePopupLayers?.get(id) || getFirstPopupCapableLayer(clicked);
+    const clickedLatLng = originalPointLatLng(clickedLeaf);
+    const origin = clickedLatLng ? this.map.latLngToContainerPoint(clickedLatLng) : null;
+    const clickedBounds = !origin && typeof clicked.getBounds === 'function' ? clicked.getBounds() : null;
+    let clickedGeometry = null;
+    const coincides = (nativeLayer) => {
+      if (origin) {
+        return someLeafLayer(nativeLayer, (leaf) => {
+          const latlng = originalPointLatLng(leaf);
+          return Boolean(latlng) && this.map.latLngToContainerPoint(latlng).distanceTo(origin) <= tolerance;
+        });
+      }
+      // Lines/polygons coincide only when their geometry is identical; compare
+      // bounds first so the full coordinate comparison is rarely needed.
+      if (!clickedBounds?.isValid?.() || typeof nativeLayer.getBounds !== 'function') return false;
+      const bounds = nativeLayer.getBounds();
+      if (!bounds?.isValid?.() || !bounds.equals(clickedBounds)) return false;
+      clickedGeometry ??= JSON.stringify(clicked.feature?.geometry ?? null);
+      return JSON.stringify(nativeLayer.feature?.geometry ?? null) === clickedGeometry;
+    };
+
+    const result = [];
+    for (const [candidateLayerId, candidate] of this.layers) {
+      if (candidateLayerId === '__base__' || !candidate.featureLayers) continue;
+      if (!candidate.visible || !this.map.hasLayer(candidate.layer)) continue;
+      for (const [candidateFeatureId, nativeLayer] of candidate.featureLayers) {
+        const isClicked = candidateLayerId === layerId && candidateFeatureId === id;
+        if (!isClicked && !coincides(nativeLayer)) continue;
+        const metadata = getFeatureSelectionMetadata(nativeLayer.feature);
+        const item = {
+          layerId: candidateLayerId,
+          featureId: candidateFeatureId,
+          recordId: metadata.recordId,
+          properties: metadata.popupProperties
+        };
+        if (isClicked) result.unshift(item);
+        else result.push(item);
+      }
+    }
+    return result;
   }
 
   /**
@@ -1812,6 +1890,37 @@ function getFirstPopupCapableLayer(layer) {
     return found;
   }
   return typeof layer.openPopup === 'function' ? layer : null;
+}
+
+/**
+ * Data position of a point layer (marker or circle marker): its position before
+ * a marker cluster spiderfied it, otherwise its current position.
+ *
+ * @param {?Object} layer Native Leaflet leaf layer.
+ * @returns {?Object} Leaflet LatLng, or `null` for a non-point layer.
+ */
+function originalPointLatLng(layer) {
+  if (!layer || typeof layer.getLatLng !== 'function') return null;
+  return layer._preSpiderfyLatlng || layer.getLatLng();
+}
+
+/**
+ * Whether a native layer (or any leaf of a compound layer) satisfies a predicate.
+ *
+ * @param {?Object} layer Native Leaflet layer (or group).
+ * @param {Function} predicate Called with each leaf layer.
+ * @returns {boolean} `true` when some leaf matches.
+ */
+function someLeafLayer(layer, predicate) {
+  if (!layer) return false;
+  if (typeof layer.eachLayer === 'function') {
+    let found = false;
+    layer.eachLayer((child) => {
+      if (!found) found = someLeafLayer(child, predicate);
+    });
+    return found;
+  }
+  return predicate(layer) === true;
 }
 
 /**

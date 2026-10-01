@@ -245,3 +245,44 @@ and path notation. *Outer* = the record the predicate is on; *linked* = the reco
 - **Client:** field-path editors write `r<field>` for relationship fields (saved
   `lt/lf/rt/rf` relmarker hops are converted when opened); the rule builder and the Filter
   Builder write relationship fields as `related:<field>` (+ `r`).
+
+## 12. Smart expansion (Graph, implemented 2026-10-01, not committed)
+
+A third author button next to **Quick expansion** (`fa-wand-magic-sparkles`, same
+visibility and enabled state):
+
+1. A temporary copy of the rules gets the quick-expansion step at every branch end
+   (any pointer or relationship, any record type). Nothing is saved yet.
+2. One `/records` request with `detail=rectypes` counts what these new steps reach
+   from the current result (`quickStepReachQuery()` in `shared/src/data/expansionRules.js`;
+   branches joined with `any`, rules marked `ignore` skipped).
+3. An `HValuePicker` dialog lists the reached record types with their counts (most
+   first), several can be chosen. No records reached: a message, no dialog.
+4. **Expand**: the same step, restricted to the chosen types
+   (`appendQuickStep(rules, MAX_RULE_DEPTH, { types })` → `{t:[…], connected:[…]}`),
+   is written into the DataSource through the host and every rule is shown to the
+   new deepest level, exactly as Quick expansion.
+
+The Graph control panel now has a fixed top (pin, title, show data) and a fixed
+bottom (expansion rules and the level/expand buttons); only the nodes and edges
+legend between them scrolls.
+
+**Data module (2026-10-01)**: when expansion rules are offered and the DataSource has
+rules, the Data control panel has a drop-down body (angle toggle, as Graph/Timeline)
+with the Expansion Rules section: the rule list, then Filter by selection, previous /
+level / next, all levels up to n and, for authors, Edit rules / Quick expansion /
+**Smart expansion**. The Expansion button (show the level pane) stays in the header; the
+level controls are disabled while the pane is hidden. The record-type dialog is shared
+(`shared/src/ui/SmartExpansionDialog.js`, used by Graph too).
+
+**Changed 2026-10-01 (replaces U7 for Data)**: the Expansion button is always enabled
+while the "Expansion rules" option is on (without rules the section offers Quick /
+Smart expansion to create them). It opens and closes the panel's drop-down body
+together with the level pane; the angle toggle (now first in the header) shows or
+hides the body only. `setDataSource` with another DataSource **or a changed query**
+(also a parameterized search of the same source) resets and hides the pane and closes
+the section (`heurist-data-expansion-reset`). Navigator order in Graph and Data:
+Link (Data only), Quick expansion, Smart expansion, previous / level / next, all levels
+(Data only), Edit rules at the right. Graph: Quick/Smart expansion show "Maximum allowed
+nodes limit is NNN" and do nothing when the graph already has the maximum nodes; the
+main result shows a rotating loading indicator instead of "No records" while it loads.

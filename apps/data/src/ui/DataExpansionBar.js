@@ -1,10 +1,12 @@
 /**
  * @file DataExpansionBar.js
- * @brief Expansion controls in the Data module header: the Expansion button and the level bar.
+ * @brief Expansion controls of the Data module: the Expansion button in the panel
+ *        header and the "Expansion Rules" section of the panel's drop-down body.
  *
- * The level bar mirrors the Graph's expansion navigator (previous / level / next,
- * and for authors Edit rules / Quick expansion), plus the Filter by selection
- * toggle, the "all levels up to n" toggle and the list of rules (plan 09 §7, U3–U6).
+ * The section mirrors the Graph's control panel footer: the list of rules, then
+ * the navigator - Filter by selection, previous / level / next, "all levels up
+ * to n" and, for authors, Edit rules / Quick expansion / Smart expansion
+ * (plan 09 §7, §12).
  *
  * @project     Heurist academic knowledge management system
  * @package     heurist-data
@@ -17,41 +19,64 @@
  */
 
 import { $HR } from "#shared/ui";
+import { runSmartExpansion } from "#shared/ui/SmartExpansionDialog.js";
 
-/** Expansion button plus the level bar shown while the level pane is open. */
+/** Expansion button plus the "Expansion Rules" section of the control panel. */
 export class DataExpansionBar {
   /**
    * @param {object} options Bar dependencies.
    * @param {object} options.api Data public API instance.
    * @param {function(Error, string): void} options.onError Called when an action fails.
+   * @param {function(string): void} [options.onMessage] Shows an information message.
+   * @param {function(): void} [options.onChange] Called after the controls were re-rendered
+   *        (the panel shows or hides its drop-down body).
+   * @param {function(boolean): void} [options.onOpenChange] Called when expansion is opened or
+   *        closed (the panel shows or hides its drop-down body with it).
    */
-  constructor({ api, onError }) {
+  constructor({ api, onError, onMessage = null, onChange = null, onOpenChange = null }) {
     this.api = api;
     this.onError = onError;
+    this.onMessage = onMessage;
+    this.onChange = onChange;
+    this.onOpenChange = onOpenChange;
     this.enabled = true;
+    this.countingTypes = false;
+    // Expansion "open": the panel body and the level pane are shown together
+    this.open = false;
+    this.wasActive = false;
   }
 
   /**
-   * Build the button and the bar.
+   * Build the header button and the panel section.
    *
-   * @returns {{button: HTMLElement, bar: HTMLElement}} Elements for the panel header.
+   * @returns {{button: HTMLElement, section: HTMLElement}} Elements for the panel header and body.
    */
   create() {
     this.button = document.createElement("button");
     this.button.type = "button";
     this.button.className = "h-btn h-btn-small heurist-data-expansion-button";
-    this.button.innerHTML = '<span class="fa-solid fa-hexagon-nodes" aria-hidden="true"></span>'
-      + '<span class="heurist-data-expansion-caption"></span>';
-    this.button.querySelector(".heurist-data-expansion-caption").textContent = $HR("Expansion");
-    this.button.title = $HR("Show records linked through the expansion rules");
+    const icon = document.createElement("span");
+    icon.className = "fa-solid fa-hexagon-nodes";
+    icon.setAttribute("aria-hidden", "true");
+    const caption = document.createElement("span");
+    caption.className = "heurist-data-expansion-caption";
+    caption.textContent = $HR("Expansion");
+    this.button.append(icon, caption);
+    this.button.title = $HR("Show or hide the expansion rules and the records linked through them");
     this.button.addEventListener("click", (event) => {
       event.stopPropagation();
-      const state = this.api.getExpansionState();
-      this.run(() => this.api.setExpansionActive(!state?.active));
+      this.setOpen(!this.open);
     });
 
-    this.bar = document.createElement("span");
-    this.bar.className = "heurist-data-expansion-bar";
+    this.section = document.createElement("section");
+    this.section.className = "heurist-data-expansion-section";
+    const heading = document.createElement("h4");
+    heading.textContent = $HR("Expansion Rules");
+    this.rulesList = document.createElement("div");
+    this.rulesList.className = "heurist-data-rules-list";
+
+    this.navigator = document.createElement("div");
+    this.navigator.className = "heurist-data-expansion-navigator";
     this.filterButton = toggleButton("fa-solid fa-link", "Filter by selection: show only records linked to the records selected in the main list",
       () => this.run(() => this.api.setExpansionFilterBySelection(!this.api.getExpansionState().filterBySelection)));
     this.prevButton = iconButton("fa-solid fa-angle-left", "Previous level",
@@ -67,77 +92,122 @@ export class DataExpansionBar {
     this.cumulativeButton = toggleButton("fa-solid fa-layer-group", "Show all levels up to the selected one",
       () => this.run(() => this.api.setExpansionCumulative(!this.api.getExpansionState().cumulative)));
     this.editButton = iconButton("fa-solid fa-pen", "Edit expansion rules", () => this.run(() => this.api.editRules()));
+    this.editButton.classList.add("heurist-data-edit-rules");
     this.quickButton = iconButton("fa-solid fa-circle-plus",
       "Quick expansion: add a step to every rule - any pointer or relationship to any record type",
       () => this.run(() => this.api.quickExpand()));
+    this.smartButton = iconButton("fa-solid fa-wand-magic-sparkles",
+      "Smart expansion: choose the record types the next step reaches",
+      () => this.run(() => this.smartExpand()));
+    // as in Graph: Link, Quick and Smart expansion, the levels navigator, all levels, Edit rules at the right
+    this.navigator.append(this.filterButton, this.quickButton, this.smartButton, this.prevButton, this.levelSelector,
+      this.nextButton, this.cumulativeButton, this.editButton);
 
-    this.rulesMenu = document.createElement("details");
-    this.rulesMenu.className = "h-dropdown heurist-data-rules-menu";
-    const summary = document.createElement("summary");
-    summary.className = "heurist-icon-button";
-    summary.title = $HR("Expansion Rules");
-    summary.innerHTML = '<span class="fa-solid fa-list-check" aria-hidden="true"></span>';
-    this.rulesList = document.createElement("div");
-    this.rulesList.className = "h-menu heurist-data-rules-list";
-    this.rulesMenu.append(summary, this.rulesList);
-    this.closeMenu = (event) => {
-      if (!this.rulesMenu.contains(event.target)) this.rulesMenu.removeAttribute("open");
-    };
-    document.addEventListener("click", this.closeMenu);
-
-    this.bar.append(this.filterButton, this.prevButton, this.levelSelector, this.nextButton,
-      this.cumulativeButton, this.rulesMenu, this.editButton, this.quickButton);
+    this.section.append(heading, this.rulesList, this.navigator);
     this.onChanged = () => this.render();
     this.api.addEventListener("heurist-data-expansion-changed", this.onChanged);
+    // another source or a changed query: close (also when there were no rules to show)
+    this.onReset = () => { if (this.open) this.setOpen(false); };
+    this.api.addEventListener("heurist-data-expansion-reset", this.onReset);
     this.render();
-    return { button: this.button, bar: this.bar };
+    return { button: this.button, section: this.section };
   }
 
   /**
    * Show or hide the whole feature (option "Expansion rules").
    *
-   * @param {boolean} enabled Whether the Expansion button is offered.
+   * @param {boolean} enabled Whether the Expansion button and section are offered.
    * @returns {void}
    */
   setEnabled(enabled) {
     this.enabled = enabled !== false;
-    if (!this.enabled && this.api.getExpansionState()?.active) this.run(() => this.api.setExpansionActive(false));
+    if (!this.enabled && this.open) this.setOpen(false);
     this.render();
+  }
+
+  /**
+   * Open or close expansion: the panel's drop-down body and the level pane
+   * together (the pane only when the DataSource has rules).
+   *
+   * @param {boolean} open Whether expansion is shown.
+   * @returns {void}
+   */
+  setOpen(open) {
+    this.open = open === true && this.enabled;
+    this.onOpenChange?.(this.open);
+    // until the pane has followed, its state must not re-open/close the section
+    this.syncing = true;
+    this.run(async () => {
+      try { await this.api.setExpansionActive(this.open); }
+      finally {
+        this.syncing = false;
+        this.render();
+      }
+    });
+    this.render();
+  }
+
+  /**
+   * Whether the panel offers the section: the "Expansion rules" option is on
+   * (without rules it shows Quick / Smart expansion to create them).
+   *
+   * @returns {boolean}
+   */
+  isAvailable() {
+    return this.enabled && Boolean(this.api.getExpansionState());
   }
 
   /** Refresh every control from the level pane's state. */
   render() {
     if (!this.button) return;
     const state = this.api.getExpansionState();
-    this.button.hidden = !this.enabled || !state;
-    if (!state) { this.bar.hidden = true; return; }
-    this.button.disabled = !state.available;
-    this.button.title = $HR(state.available
-      ? "Show records linked through the expansion rules"
-      : "The current source has no expansion rules");
-    this.button.classList.toggle("active", state.active);
-    this.button.setAttribute("aria-pressed", String(state.active));
-    this.bar.hidden = !this.enabled || !state.active;
-    if (this.bar.hidden) return;
-
-    setPressed(this.filterButton, state.filterBySelection);
-    setPressed(this.cumulativeButton, state.cumulative);
-    this.levelSelector.replaceChildren();
-    for (let level = 1; level <= Math.max(1, state.maxDepth); level++) {
-      const option = document.createElement("option");
-      option.value = String(level);
-      option.textContent = String(level);
-      this.levelSelector.append(option);
+    // the level pane was hidden by the module (another source or query): close
+    if (this.syncing) {
+      // the Expansion button is showing/hiding the pane
+    } else if (state && this.wasActive && !state.active && this.open) {
+      this.open = false;
+      this.onOpenChange?.(false);
+    } else if (state?.active && !this.open) {
+      // shown by Quick / Smart expansion
+      this.open = true;
+      this.onOpenChange?.(true);
     }
-    this.levelSelector.value = String(state.level);
-    this.levelSelector.disabled = !state.maxDepth;
-    this.prevButton.disabled = state.level <= 1;
-    this.nextButton.disabled = state.level >= state.maxDepth;
-    const canEdit = this.api.canEditRules?.() === true;
-    this.editButton.hidden = !canEdit;
-    this.quickButton.hidden = !canEdit;
-    this.quickButton.disabled = this.api.canQuickExpand?.() !== true;
-    this.renderRules(state.rules);
+    this.wasActive = Boolean(state?.active);
+    this.button.hidden = !this.enabled || !state;
+    this.section.hidden = !this.isAvailable();
+    if (state) {
+      // always enabled: without rules it opens Quick / Smart expansion to create them
+      this.button.disabled = false;
+      this.button.classList.toggle("active", this.open);
+      this.button.setAttribute("aria-pressed", String(this.open));
+    }
+    if (!this.section.hidden) {
+      setPressed(this.filterButton, state.filterBySelection);
+      setPressed(this.cumulativeButton, state.cumulative);
+      this.levelSelector.replaceChildren();
+      for (let level = 1; level <= Math.max(1, state.maxDepth); level++) {
+        const option = document.createElement("option");
+        option.value = String(level);
+        option.textContent = String(level);
+        this.levelSelector.append(option);
+      }
+      this.levelSelector.value = String(state.level);
+      // the level controls work on the shown level pane (the Expansion button)
+      const inactive = !state.active;
+      this.filterButton.disabled = inactive;
+      this.cumulativeButton.disabled = inactive;
+      this.levelSelector.disabled = inactive || !state.maxDepth;
+      this.prevButton.disabled = inactive || state.level <= 1;
+      this.nextButton.disabled = inactive || state.level >= state.maxDepth;
+      const canEdit = this.api.canEditRules?.() === true;
+      this.editButton.hidden = !canEdit;
+      this.quickButton.hidden = !canEdit;
+      this.smartButton.hidden = !canEdit;
+      this.quickButton.disabled = this.api.canQuickExpand?.() !== true;
+      this.smartButton.disabled = this.quickButton.disabled || this.countingTypes;
+      this.renderRules(state.rules);
+    }
+    this.onChange?.();
   }
 
   /** Rebuild the checkbox list of rules. */
@@ -160,6 +230,23 @@ export class DataExpansionBar {
     }
   }
 
+  /**
+   * Smart expansion: count the records the next step would reach per record
+   * type, let the user choose record types, then expand to those only.
+   *
+   * @returns {Promise<void>}
+   */
+  async smartExpand() {
+    this.countingTypes = true;
+    this.render();
+    try {
+      await runSmartExpansion(this.api, { onEmpty: (message) => this.onMessage?.(message) });
+    } finally {
+      this.countingTypes = false;
+      this.render();
+    }
+  }
+
   /** Run an action, reporting a failure. */
   run(action) {
     Promise.resolve().then(action).catch((error) => this.onError?.(error, "expansion"));
@@ -167,8 +254,8 @@ export class DataExpansionBar {
 
   /** Remove listeners. */
   destroy() {
-    document.removeEventListener("click", this.closeMenu);
     this.api.removeEventListener("heurist-data-expansion-changed", this.onChanged);
+    this.api.removeEventListener("heurist-data-expansion-reset", this.onReset);
   }
 }
 

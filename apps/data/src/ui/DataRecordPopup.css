@@ -1,0 +1,32 @@
+/**
+ * @file DataRecordPopup.css
+ * @brief Floating record popup of the Data module (the record itself is styled
+ *        by the shared RecordPopupContent.css).
+ *
+ * @project     Heurist academic knowledge management system
+ * @package     heurist-data
+ * @license     https://www.gnu.org/licenses/gpl-3.0.txt GNU License 3.0
+ * @since       8.0
+ */
+
+.heurist-data-popup {
+  position: fixed;
+  z-index: 1200;
+  box-sizing: border-box;
+  width: min(380px, calc(100vw - 8px));
+  max-height: min(70vh, 520px);
+  overflow: auto;
+  padding: 8px 10px;
+  background: var(--h-color-bg);
+  border: 1px solid var(--h-color-border-strong);
+  border-radius: var(--h-radius);
+  box-shadow: 0 4px 14px rgb(0 0 0 / 22%);
+  font: var(--h-font-size)/1.35 var(--h-font-family);
+  color: var(--h-color-text);
+}
+.heurist-data-popup-close {
+  float: right;
+  margin: -4px -6px 0 4px;
+  font-size: 16px;
+  line-height: 1;
+}

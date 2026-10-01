@@ -265,8 +265,27 @@ export class HeuristGraphPublicApi {
    */
   quickExpand() { return this.application.quickExpand(); }
 
+  /** @returns {number} The maximum allowed nodes when the graph already has that many, otherwise 0. */
+  nodeLimitReached() { return this.application.nodeLimitReached(); }
+
   /** @returns {boolean} Whether quick expansion can add a step. */
   canQuickExpand() { return this.application.canQuickExpand(); }
+
+  /**
+   * Smart expansion: record types (with counts) the next step would reach.
+   *
+   * @param {{signal?: AbortSignal}} [options]
+   * @returns {Promise<Array<{id: number, label: string, count: number}>|null>}
+   */
+  smartExpansionTypes(options) { return this.application.smartExpansionTypes(options); }
+
+  /**
+   * Smart expansion: add a step reaching only the chosen record types and show it.
+   *
+   * @param {Array<number>} types Chosen record types.
+   * @returns {Promise<boolean>} Whether the rules grew.
+   */
+  smartExpand(types) { return this.application.smartExpand(types); }
 
   /**
    * Enable or disable one expansion rule.

@@ -33,6 +33,8 @@ export class VisNetworkAdapter extends GraphEngineAdapter {
    * @param {function(Array<number>): void} [options.onSelectionChange] Called with the new selection when it changes in the engine.
    * @param {function(number): void} [options.onNodeActivate] Called with a record id on double-click.
    * @param {function({recordId: number, signal: AbortSignal}): Promise<string|null>} [options.onPopupContentRequest] Fetches server-rendered popup content for a node.
+   * @param {function({recordId: number, node: object, onLayout: Function}): (HTMLElement|null)} [options.onPopupContent]
+   *        Builds a node's interactive popup content (`null`: no popup); `onLayout` re-positions it after a change.
    * @returns {Promise<void>}
    */
   async initialize({
@@ -41,12 +43,14 @@ export class VisNetworkAdapter extends GraphEngineAdapter {
     onSelectionChange,
     onNodeActivate,
     onPopupContentRequest,
+    onPopupContent,
   } = {}) {
     this.container = container;
     this.options = options;
     this.onSelectionChange = onSelectionChange;
     this.onNodeActivate = onNodeActivate;
     this.onPopupContentRequest = onPopupContentRequest;
+    this.onPopupContent = onPopupContent;
     // A fit requested while the container is hidden (e.g. an inactive Explorer
     // panel, width/height 0) can't compute a meaningful viewport; remember to
     // run it once `resize()` reports the container is visible again.
@@ -378,6 +382,8 @@ export class VisNetworkAdapter extends GraphEngineAdapter {
     this.popup.style.left = `${position.x}px`;
     this.popup.style.top = `${position.y}px`;
     this.popup.hidden = false;
+    this.popup.classList.remove("heurist-graph-popup-interactive", "heurist-graph-popup-below");
+    this.popup.style.marginLeft = "";
 
     if (edge) {
       this.popupAbortController?.abort();
@@ -387,6 +393,21 @@ export class VisNetworkAdapter extends GraphEngineAdapter {
       const endpoints = document.createElement('div');
       endpoints.textContent = (this.nodes.get(edge.from)?.title || edge.from) + (edge.relationshipId ? ' ↔ ' : ' → ') + (this.nodes.get(edge.to)?.title || edge.to);
       this.popup.replaceChildren(title, endpoints);
+      return;
+    }
+    if (typeof this.onPopupContent === "function") {
+      // record popup in the configured mode (shared with heurist-map); it has
+      // links ("More...", Back, edit), so it takes pointer events
+      this.popupAbortController?.abort();
+      const content = this.onPopupContent({
+        recordId: Number(nodeId),
+        node,
+        onLayout: () => { if (generation === this.popupGeneration) this.#fitPopup(); },
+      });
+      if (!content) { this.#hidePopup(); return; }
+      this.popup.classList.add("heurist-graph-popup-interactive");
+      this.popup.replaceChildren(content);
+      this.#fitPopup();
       return;
     }
     const template = this.options?.popupTemplate;
@@ -412,6 +433,28 @@ export class VisNetworkAdapter extends GraphEngineAdapter {
       return;
     }
     this.popup.replaceChildren(this.#renderPopupContent(node));
+  }
+
+  /**
+   * Keep the popup inside the graph canvas: shown above the clicked point, or
+   * below it when there is no room above; shifted sideways at the edges.
+   *
+   * @private
+   * @returns {void}
+   */
+  #fitPopup() {
+    const popup = this.popup;
+    if (!popup || popup.hidden || !this.container?.getBoundingClientRect) return;
+    popup.classList.remove("heurist-graph-popup-below");
+    popup.style.marginLeft = "";
+    const box = this.container.getBoundingClientRect();
+    let rect = popup.getBoundingClientRect();
+    if (rect.top < box.top) {
+      popup.classList.add("heurist-graph-popup-below");
+      rect = popup.getBoundingClientRect();
+    }
+    if (rect.left < box.left) popup.style.marginLeft = `${box.left - rect.left + 4}px`;
+    else if (rect.right > box.right) popup.style.marginLeft = `${box.right - rect.right - 4}px`;
   }
 
   /**

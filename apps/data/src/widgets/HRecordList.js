@@ -18,6 +18,7 @@
 
 import { HBaseWidget } from '#shared/widgets';
 import { $HR } from '#shared/ui';
+import { dataPopupMode, extendedViewTemplate } from "../core/recordTemplates.js";
 import template from "./HRecordList.html?raw";
 import "./HRecordList.css";
 
@@ -442,13 +443,18 @@ export class HRecordList extends HBaseWidget {
     return `<div class="h-recordlist-card-top">${this._collectionHtml(record)}${this._typeIconHtml(record)}${this._adminHtml(record)}</div>${loader}${this._actionsHtml(record)}`;
   }
 
-  /** Report-template name configured for the active view mode, or `null` when using the built-in renderer. */
+  /**
+   * Template of the active view mode: a report-template name, or `null` for the
+   * card/row built-in markup. The Extended view always has one: `'builtin'` (the
+   * shared record renderer, also for an empty value), `'standard'` (the legacy
+   * record view) or a report-template name.
+   */
   _templateForMode() {
     if (this.options.viewMode === "card" || this.options.viewMode === "row") {
       return nullableTemplate(this.options.cardTemplate);
     }
     if (this.options.viewMode === "big")
-      return nullableTemplate(this.options.viewTemplate);
+      return extendedViewTemplate(this.options.viewTemplate);
     return null;
   }
   /** Build the record-type icon URL used as a card/row thumbnail fallback. */
@@ -522,8 +528,9 @@ export class HRecordList extends HBaseWidget {
       this.options.interaction.editEnabled === false
         ? ""
         : `<button class="h-recordlist-icon-button" data-record-action="edit" data-record-id="${id}" title="${escapeAttr($HR("Edit"))}"><i class="fa-solid fa-pen"></i></button>`;
+    // no "i" without popups: switched off, or Popup template "None"
     const view =
-      this.options.interaction.popupEnabled === false
+      this.options.interaction.popupEnabled === false || dataPopupMode(this.options.popupTemplate) === "none"
         ? ""
         : `<button class="h-recordlist-icon-button" data-record-action="view" data-record-id="${id}" title="${escapeAttr($HR("View"))}"><i class="fa-solid fa-circle-info"></i></button>`;
     return `<span class="h-recordlist-actions">${edit}${view}</span>`;
@@ -566,13 +573,18 @@ export class HRecordList extends HBaseWidget {
         const replacement =
           html == null
             ? this._fallbackExtendedHtml(item._record)
-            : String(html);
+            : html;
+        // a rendered element (Built-in Extended view) or server HTML
+        const place = (element) => {
+          if (replacement instanceof Node) element.replaceChildren(replacement);
+          else element.innerHTML = String(replacement);
+        };
         if (target) {
           target.classList.remove("h-recordlist-placeholder");
-          target.innerHTML = replacement;
+          place(target);
         } else {
           item.classList.remove("h-recordlist-placeholder");
-          item.innerHTML = replacement;
+          place(item);
         }
       });
       this._applyCollection();
@@ -621,7 +633,7 @@ export class HRecordList extends HBaseWidget {
     const id = Number(target.dataset.recordId);
     target.dataset.recordAction === "edit"
       ? this.onEditRecord?.(id)
-      : this.onViewRecord?.(id);
+      : this.onViewRecord?.(id, target);
   }
 
   /** Toggle persistent collection membership for the record whose checkbox changed. */

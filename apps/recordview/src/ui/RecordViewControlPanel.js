@@ -21,7 +21,7 @@
  * @since       8.0
  */
 import { $HR, applyI18n, InlineHelp } from "#shared/ui";
-import { sanitizeTextHtml } from "../core/FieldValueFormatter.js";
+import { sanitizeTextHtml } from "#shared/recordview/FieldValueFormatter.js";
 
 /** Header-only `<aside class="heurist-module-control-panel">`, sibling of the module's `<main>`. */
 export class RecordViewControlPanel {

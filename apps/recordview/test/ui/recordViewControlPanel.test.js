@@ -19,7 +19,7 @@ import { readFile } from "node:fs/promises";
 const panelSource = await readFile(new URL("../../src/ui/RecordViewControlPanel.js", import.meta.url), "utf8");
 
 test("the record's own title is rendered as sanitized HTML, matching the builtin engine's header", () => {
-  assert.match(panelSource, /import \{ sanitizeTextHtml \} from "..\/core\/FieldValueFormatter\.js"/);
+  assert.match(panelSource, /import \{ sanitizeTextHtml \} from "#shared\/recordview\/FieldValueFormatter\.js"/);
   assert.match(panelSource, /this\.sourceHeader\.innerHTML = sanitizeTextHtml\(fallbackTitle\)/);
 });
 

@@ -266,7 +266,7 @@ export class ExpansionLevelView {
       // the main selection that filters this list
       onSelectionChange: (ids) => { pane.selection = ids; },
       onEditRecord: (id) => app.requestEditRecord(id),
-      onViewRecord: (id) => app.requestViewRecord(id),
+      onViewRecord: (id, anchor) => app.requestViewRecord(id, anchor),
       onCollectionToggle: (id, collected) => app.setRecordCollected(id, collected),
       onCollectionAction: (action, ids) => (action === "show" ? false : app.applyCollectionAction(action, ids)),
       onRecordContentRequest: (request) => app.requestRecordContent(request),

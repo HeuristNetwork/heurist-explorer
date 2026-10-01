@@ -21,7 +21,7 @@
  * definitions only the "linked from" records are loaded.
  *
  * @project     Heurist academic knowledge management system
- * @package     heurist-recordview
+ * @package     heurist-client-core
  *
  * @link        https://HeuristNetwork.org
  * @copyright   (C) 2024 onwards Heurist Network

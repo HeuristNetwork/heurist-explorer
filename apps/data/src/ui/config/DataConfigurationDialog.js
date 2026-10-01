@@ -204,18 +204,11 @@ export class DataConfigurationDialog {
       "options.nativeControls.export",
       "Export (CSV, Excel, PDF)",
     );
-    const exportWarning = el(
-      "button",
-      "h-btn h-btn-small heurist-data-config-export-warning h-i18n",
-    );
-    exportWarning.type = "button";
-    exportWarning.textContent = "Export warning";
-    exportWarning.addEventListener("click", () =>
-      HMsg.showMsgDlg("Export_warning", {
-        title: "Export",
-        buttons: { OK: () => HMsg.closeMsgDlg() },
-      }),
-    );
+    // shown while Export is on: exports cover the loaded page only
+    this.exportWarning = el("p", "heurist-data-config-export-warning");
+    this.exportWarning.innerHTML = $HR("Export_warning");
+    this.fields.get("options.nativeControls.export")
+      .control.addEventListener("change", () => this.applyDependencies());
     controls.append(
       legend,
       this.check("options.nativeControls.pageSize", "Page size"),
@@ -227,7 +220,7 @@ export class DataConfigurationDialog {
         "options.nativeControls.selectionActions",
         "Selection actions",
       ),
-      exportWarning,
+      this.exportWarning,
     );
     body.append(controls);
     if (this.mode === "publish" || this.mode === "website") {
@@ -269,12 +262,8 @@ export class DataConfigurationDialog {
     this.select(body, "config.defaults.cardTemplate", "Card and row template", [
       ["", "Built-in renderer"],
     ]);
-    this.select(
-      body,
-      "config.defaults.viewTemplate",
-      "Extended view template",
-      [["", "Standard record view"]],
-    );
+    this.select(body, "config.defaults.viewTemplate", "Extended view template", VIEW_TEMPLATE_CHOICES);
+    this.select(body, "config.defaults.popupTemplate", "Popup template", POPUP_TEMPLATE_CHOICES);
     this.fields
       .get("config.defaults.viewMode")
       .control.addEventListener("change", () => this.applyDependencies());
@@ -476,20 +465,34 @@ export class DataConfigurationDialog {
    */
   async loadTemplateOptions() {
     if (!this.reportTemplateProvider) return;
-    const items = normalizeItems(await callList(this.reportTemplateProvider));
+    const builtIn = new Set(["", "none", "builtin", "standard"]);
+    const items = normalizeItems(await callList(this.reportTemplateProvider))
+      .filter((item) => !builtIn.has(String(item.value).trim().toLowerCase()));
     const controls = [
-      ["config.defaults.cardTemplate", "Built-in renderer"],
-      ["config.defaults.viewTemplate", "Standard record view"],
+      ["config.defaults.cardTemplate", [["", "Built-in renderer"]]],
+      ["config.defaults.viewTemplate", VIEW_TEMPLATE_CHOICES],
+      ["config.defaults.popupTemplate", POPUP_TEMPLATE_CHOICES],
     ];
-    controls.forEach(([path, defaultLabel]) => {
+    controls.forEach(([path, choices]) => {
       const control = this.fields.get(path)?.control;
       if (!control) return;
       const current = getPath(this.value, path);
-      fillSelect(control, [
-        { value: "", label: defaultLabel, i18n: true },
-        ...items,
-      ]);
+      fillSelect(control, choices);
+      if (items.length) {
+        // the Smarty report templates follow the built-in choices as one group
+        const group = el("optgroup");
+        group.label = $HR("Smarty templates");
+        fillSelect(group, items);
+        control.append(group);
+      }
       control.value = current || "";
+      // a template no longer listed stays selectable, so it is kept on save
+      if (current && control.value !== String(current)) {
+        const option = el("option");
+        option.value = option.textContent = String(current);
+        control.append(option);
+        control.value = String(current);
+      }
     });
   }
 
@@ -509,8 +512,9 @@ export class DataConfigurationDialog {
     const cardRow = this.fields.get("config.defaults.cardTemplate")?.row;
     if (cardRow)
       cardRow.hidden = !["card", "row"].includes(viewModeValue);
-    const viewRow = this.fields.get("config.defaults.viewTemplate")?.row;
-    if (viewRow) viewRow.hidden = viewModeValue !== "big";
+    // the Extended view template stays visible: the view mode can be switched in the list
+    if (this.exportWarning)
+      this.exportWarning.hidden = this.fields.get("options.nativeControls.export")?.control?.checked !== true;
     if (this.mode === "publish") {
       const control = this.fields.get(
         "options.nativeControls.selectionActions",
@@ -721,6 +725,19 @@ function fillSelect(node, items) {
     }),
   );
 }
+
+/** Extended view template choices before the Smarty templates; empty is Built-in. */
+const VIEW_TEMPLATE_CHOICES = [
+  ["", "Built-in"],
+  ["standard", "Standard (Legacy)"],
+];
+
+/** Popup ("i" action) choices before the Smarty templates; empty is Built-in. */
+const POPUP_TEMPLATE_CHOICES = [
+  ["none", "None"],
+  ["", "Built-in"],
+  ["standard", "Standard (Legacy)"],
+];
 
 /** Deep-clone a JSON-safe value. */
 function clone(value) {

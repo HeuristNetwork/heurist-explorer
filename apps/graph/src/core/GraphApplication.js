@@ -16,8 +16,10 @@
 import { GraphDocument } from "./GraphDocument.js";
 import { GraphExpansions } from './GraphExpansions.js';
 import { QuerySource } from "#shared/data/QuerySource.js";
-import { appendQuickStep } from "#shared/data/expansionRules.js";
+import { $HR } from "#shared/ui";
+import { appendQuickStep, quickStepReachQuery } from "#shared/data/expansionRules.js";
 import { normalizeGraphConfigurationSettings } from "../ui/config/graphConfigurationSchema.js";
+import { RecordPopupContent, normalizePopupMode } from "#shared/recordview/RecordPopupContent.js";
 
 /** Coordinates graph loading, merging, selection, expansions, legend state, and rendering. */
 export class GraphApplication extends EventTarget {
@@ -30,6 +32,8 @@ export class GraphApplication extends EventTarget {
    * @param {object|null} [options.querySourceProvider] Loads persisted Query Source records.
    * @param {object|null} [options.recordContentProvider] Loads per-record popup content.
    * @param {object|null} [options.vocabularyProvider] Resolves field/relation-type/record-type display names.
+   * @param {object|null} [options.recordViewLoader] Shared `RecordViewLoader` for the Built-in popup.
+   * @param {string|null} [options.heuristBaseUrl] Heurist base URL, for record type icons and media in popups.
    */
   constructor({
     config,
@@ -39,6 +43,8 @@ export class GraphApplication extends EventTarget {
     querySourceProvider = null,
     recordContentProvider = null,
     vocabularyProvider = null,
+    recordViewLoader = null,
+    heuristBaseUrl = null,
   }) {
     super();
     this.config = config;
@@ -48,6 +54,8 @@ export class GraphApplication extends EventTarget {
     this.querySourceProvider = querySourceProvider;
     this.recordContentProvider = recordContentProvider;
     this.vocabularyProvider = vocabularyProvider;
+    this.recordViewLoader = recordViewLoader;
+    this.heuristBaseUrl = heuristBaseUrl;
     this.graph = null;
     this.ruleOverrides = new Map();
     this.expansionQueue = Promise.resolve();
@@ -103,6 +111,7 @@ export class GraphApplication extends EventTarget {
       options: this.config.engineOptions,
       onSelectionChange: (ids) => this.setSelection(ids, { fromEngine: true }),
       onPopupContentRequest: (request) => this.requestPopupContent(request),
+      onPopupContent: (request) => this.createPopupContent(request),
     });
     await this.#restoreInitialView();
     return this;
@@ -285,6 +294,23 @@ export class GraphApplication extends EventTarget {
     }
 
     const generation = ++this.generation;
+    // the main result: a rotating indicator in the main area instead of "No records"
+    if (!merge) this.#setMainLoading(true);
+    try {
+      return await this.#loadResult({ normalizedQuery, links, merge, generation });
+    } finally {
+      if (!merge && generation === this.generation) this.#setMainLoading(false);
+    }
+  }
+
+  /**
+   * The request and rendering part of `load()` (after the query is settled).
+   *
+   * @private
+   * @param {{normalizedQuery: *, links: *, merge: boolean, generation: number}} request
+   * @returns {Promise<object>} Updated application state.
+   */
+  async #loadResult({ normalizedQuery, links, merge, generation }) {
     // A plain string reason (rather than a named AbortError) makes the
     // signal's own consumers (fetch, and our own AbortError checks) reject
     // with that bare string per the AbortController spec - losing `.name`
@@ -503,9 +529,14 @@ export class GraphApplication extends EventTarget {
     return this.host?.getCapabilities?.() || {};
   }
 
-  /** Load per-record popup content from the configured presentation template. */
-  async requestPopupContent({ recordId, signal } = {}) {
-    const template = this.config.engineOptions?.popupTemplate;
+  /**
+   * Load server-rendered popup HTML for one record.
+   *
+   * @param {{recordId: number, signal?: AbortSignal, template?: string}} request The
+   *        template defaults to the configured Popup template.
+   * @returns {Promise<string|null>} HTML, or `null` without a template.
+   */
+  async requestPopupContent({ recordId, signal, template = this.config.engineOptions?.popupTemplate } = {}) {
     if (!template || !this.recordContentProvider) return null;
     const id = Number(recordId);
     if (!Number.isInteger(id) || id < 1) return null;
@@ -515,6 +546,41 @@ export class GraphApplication extends EventTarget {
       signal,
     });
     return content.get(id) ?? content.get(String(id)) ?? null;
+  }
+
+  /**
+   * Build the click popup of a node in the configured Popup template mode: Built-in
+   * (basic) card, Built-in record view (compact, "More..." for the full record) or
+   * a Smarty template, through the shared `RecordPopupContent` (as heurist-map).
+   *
+   * @param {{recordId: number, node?: object, onLayout?: Function}} request Node and a
+   *        callback re-positioning the popup after its content changed.
+   * @returns {HTMLElement|null} Popup content, or `null` for the "None" mode.
+   */
+  createPopupContent({ recordId, node = null, onLayout = null } = {}) {
+    const mode = normalizePopupMode(this.config.engineOptions?.popupTemplate);
+    const id = Number(recordId);
+    if (mode === "none" || !Number.isInteger(id) || id < 1) return null;
+    this.popupContent?.cancel();
+    this.popupContent = new RecordPopupContent({
+      recordViewLoader: this.recordViewLoader,
+      loadHtml: this.recordContentProvider
+        ? (recordId, template, signal) => this.requestPopupContent({ recordId, template, signal })
+        : null,
+      baseUrl: this.heuristBaseUrl,
+      database: this.config.database,
+      // same condition as the other edit actions: the host can edit and the view is not read-only
+      canEditRecords: () => this.config.persistedSettings?.options?.interaction?.readonly !== true
+        && this.getHostCapabilities().editing === true,
+      editRecord: typeof this.host?.editRecord === "function" ? (recordId) => this.host.editRecord(recordId) : null,
+      onLayout,
+    });
+    this.popupContent.showRecord({
+      id,
+      rty: Number(node?.recordTypeId) || null,
+      title: node?.title || node?.label || "",
+    }, mode);
+    return this.popupContent.element;
   }
 
   /**
@@ -747,6 +813,11 @@ export class GraphApplication extends EventTarget {
     if (!this.canEditRules() || !this.expansions) return false;
     const rules = appendQuickStep(this.getExpansionRules());
     if (!rules) return false;
+    return this.#applyGrownRules(rules);
+  }
+
+  /** Save grown rules into the DataSource through the host and show all rules to the deepest level. */
+  async #applyGrownRules(rules) {
     const applied = await this.host.updateRules?.(rules);
     if (!applied) return false;
     // the host has pushed the rules back through setDataSourceRules
@@ -754,6 +825,42 @@ export class GraphApplication extends EventTarget {
     for (const rule of this.expansions.rules) rule.enabled = true;
     await this.setExpansionDepth(this.getExpansionState().maxDepth);
     return true;
+  }
+
+  /**
+   * Smart expansion, first part: the record types the next quick-expansion step
+   * would reach (any pointer or relationship from the end of every rule branch,
+   * from the current result), with their record counts. Nothing is expanded yet.
+   *
+   * @param {{signal?: AbortSignal}} [options]
+   * @returns {Promise<Array<{id: number, label: string, count: number}>|null>} Record types by
+   *          count, or `null` when no rule branch can grow.
+   */
+  async smartExpansionTypes({ signal } = {}) {
+    if (!this.canEditRules() || !this.expansions || !this.provider.countRecordTypes) return null;
+    const query = quickStepReachQuery(this.config.query, this.getExpansionRules());
+    if (!query) return null;
+    const counts = await this.provider.countRecordTypes({ query, signal });
+    const names = await this.vocabularyProvider?.getRecordTypeNames?.(counts.map((row) => row.id), { signal })
+      .catch((error) => { if (error?.name === 'AbortError') throw error; return new Map(); }) || new Map();
+    return counts
+      .map((row) => ({ ...row, label: names.get(row.id) || `${$HR('Record type')} ${row.id}` }))
+      .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
+  }
+
+  /**
+   * Smart expansion, second part: add one step reaching only the chosen record
+   * types to every rule branch (as quick expansion), save the rules through the
+   * host, then show every rule to the new deepest level.
+   *
+   * @param {Array<number>} types Record types chosen from `smartExpansionTypes()`.
+   * @returns {Promise<boolean>} Whether the rules grew.
+   */
+  async smartExpand(types) {
+    if (!this.canEditRules() || !this.expansions || !types?.length) return false;
+    const rules = appendQuickStep(this.getExpansionRules(), undefined, { types });
+    if (!rules) return false;
+    return this.#applyGrownRules(rules);
   }
 
   /** @returns {boolean} Whether quick expansion can add a step (some branch is shorter than MAX_RULE_DEPTH). */
@@ -963,6 +1070,33 @@ export class GraphApplication extends EventTarget {
       paths: graph.paths,
       limits: graph.limits,
     });
+  }
+
+  /**
+   * Show or hide the loading indicator over the main area while the main result
+   * loads; the empty-result message waits until the result is there.
+   *
+   * @param {boolean} loading Whether the main result is loading.
+   * @returns {void}
+   */
+  #setMainLoading(loading) {
+    const area = this.canvasElement?.parentElement;
+    area?.classList.toggle("heurist-graph-loading", loading);
+    if (loading) {
+      if (this.messageElement) this.messageElement.hidden = true;
+    } else {
+      this.#setEmptyState(!this.graph?.records?.length);
+    }
+  }
+
+  /**
+   * The node limit, when the graph already shows that many nodes (expansion would add none).
+   *
+   * @returns {number} Maximum allowed nodes when reached, otherwise 0.
+   */
+  nodeLimitReached() {
+    const max = Number(this.config.limits?.maxNodes) || 5000;
+    return (this.graph?.records?.length || 0) >= max ? max : 0;
   }
 
   /** Hide the vis-network canvas and show the configured empty-result message. */

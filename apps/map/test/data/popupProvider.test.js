@@ -6,7 +6,7 @@ import { MapApplication } from '../../src/core/MapApplication.js';
 
 test('PopupProvider builds legacy built-in and Smarty popup URLs', () => {
   const provider = new PopupProvider({ baseUrl: 'http://127.0.0.1/heurist/', database: 'osmak_mapping', fetchImpl: async () => null });
-  const builtin = new URL(provider.buildUrl(123));
+  const builtin = new URL(provider.buildUrl(123, 'standard'));
   assert.equal(builtin.pathname, '/heurist/viewers/record/renderRecordData.php');
   assert.equal(builtin.searchParams.get('mapPopup'), '1');
   assert.equal(builtin.searchParams.get('recID'), '123');
@@ -54,41 +54,6 @@ test('ReportTemplateProvider uses legacy ReportController list endpoint', async 
     { value: 'A.tpl', label: 'A.tpl' },
     { value: 'B.tpl', label: 'Template B' }
   ]);
-});
-
-test('feature click selects first, lazily loads popup once, then reopens cached native popup', async () => {
-  const calls = [];
-  let popupBound = false;
-  const engine = {
-    openFeaturePopup: async (_layerId, _featureId, html) => {
-      calls.push(html ? 'open-new-popup' : 'try-cached-popup');
-      if (!html) return popupBound;
-      popupBound = true;
-      return true;
-    },
-    setFeatureSelection: async () => { calls.push('select'); },
-    getFeatureRecordId: () => 55,
-    getFeatureIdsByRecord: () => ['f1']
-  };
-  let loads = 0;
-  const application = Object.create(MapApplication.prototype);
-  application.config = { interaction: { selectionEnabled: true, zoomOnSelection: false } };
-  application.mapEngine = engine;
-  application.providers = { popup: { isConfigured: () => true, load: async () => { loads += 1; calls.push('load-popup'); return '<b>x</b>'; } } };
-  application.layers = new Map([['L1', { id: 'L1', selectable: true, visible: true, loadState: 'loaded', popup: { enabled: true, template: 'x.tpl' } }]]);
-  application.selectedFeatures = new Map();
-  application.selectionLayerId = null;
-  application.dispatch = () => {};
-  application.zoomToSelection = async () => {};
-
-  await application.handleFeatureClick({ layerId: 'L1', featureId: 'f1', recordId: 55, selectable: true });
-  assert.deepEqual(calls, ['select', 'try-cached-popup', 'load-popup', 'open-new-popup']);
-  assert.equal(loads, 1);
-
-  calls.length = 0;
-  await application.handleFeatureClick({ layerId: 'L1', featureId: 'f1', recordId: 55, selectable: true });
-  assert.deepEqual(calls, ['select', 'try-cached-popup']);
-  assert.equal(loads, 1);
 });
 
 test('PopupProvider supports none, minimal, standard and named-template modes', async () => {

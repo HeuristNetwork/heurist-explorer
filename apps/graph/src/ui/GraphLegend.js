@@ -19,12 +19,14 @@ export class GraphLegend {
   /**
    * @param {object} options Legend dependencies.
    * @param {object} options.api Graph public API instance.
-   * @param {HTMLElement} options.container Element to render the legend into.
+   * @param {HTMLElement} options.container Element to render the nodes and edges sections into.
+   * @param {HTMLElement} [options.footer] Element for the expansion-rules section (kept out of the
+   *        scrolling legend by the control panel); defaults to `container`.
    * @param {HTMLElement} [options.expansionNavigator] Depth navigator element, re-appended below the expansion-rules list on each render.
    * @param {Function} options.onError Called with `(error, operation)` when an action fails.
    */
-  constructor({ api, container, expansionNavigator = null, onError }) {
-    Object.assign(this, { api, container, expansionNavigator, onError });
+  constructor({ api, container, footer = null, expansionNavigator = null, onError }) {
+    Object.assign(this, { api, container, footer, expansionNavigator, onError });
     this.open = new Set();
   }
 
@@ -35,8 +37,11 @@ export class GraphLegend {
    */
   render() {
     const model = this.api.getLegend?.() || { recordTypes: [], links: [], rules: [] };
-    const focusKey = this.container.contains(document.activeElement) ? document.activeElement?.dataset?.legendKey : null;
+    const footer = this.footer || this.container;
+    const focusKey = this.container.contains(document.activeElement) || footer.contains(document.activeElement)
+      ? document.activeElement?.dataset?.legendKey : null;
     this.container.replaceChildren();
+    if (footer !== this.container) footer.replaceChildren();
     this.container.append(element('h4', $HR('Nodes (Record types)')));
     const nodesSection = element('section', null, 'heurist-graph-legend-items');
     this.container.append(nodesSection);
@@ -88,19 +93,22 @@ export class GraphLegend {
       actions.append(this.action('Reset: Use saved expansion rules', 'fa-rotate-left', () => this.api.resetExpansionRules()));
       rulesHeading.append(actions);
     }
-    this.container.append(rulesHeading);
+    footer.append(rulesHeading);
+    const rulesList = element('div', null, 'heurist-graph-rules-list');
+    footer.append(rulesList);
     for (const [index, rule] of (model.rules || []).entries()) {
       const row = this.checkbox(rule.name || rule.title || `${$HR('Rule')} ${index + 1}`, null,
         !!rule.enabled, false, `rule:${rule.id}`, value => this.api.setRuleEnabled(rule.id, value));
       row.querySelector('input').disabled = !!this.api.getExpansionState?.().busy && !rule.enabled;
       row.title = rule.description || '';
-      this.container.append(row);
+      rulesList.append(row);
     }
-    if (!model.rules?.length) this.container.append(element('p', $HR('No expansion rules')));
+    if (!model.rules?.length) rulesList.append(element('p', $HR('No expansion rules')));
     // Re-append (not re-create) the persistent navigator element so its
     // listeners survive across renders.
-    if (this.expansionNavigator) this.container.append(this.expansionNavigator);
-    if (focusKey) [...this.container.querySelectorAll('input')].find(input => input.dataset.legendKey === focusKey)?.focus();
+    if (this.expansionNavigator) footer.append(this.expansionNavigator);
+    if (focusKey) [...this.container.querySelectorAll('input'), ...(footer !== this.container ? footer.querySelectorAll('input') : [])]
+      .find(input => input.dataset.legendKey === focusKey)?.focus();
   }
 
   /**

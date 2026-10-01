@@ -1,0 +1,30 @@
+/**
+ * @file RecordPopupContent.css
+ * @brief Record content of module popups: Back link, basic card, compact record view.
+ *
+ * @project     Heurist academic knowledge management system
+ * @package     heurist-client-core
+ * @license     https://www.gnu.org/licenses/gpl-3.0.txt GNU License 3.0
+ * @since       8.0
+ */
+
+.h-record-popup-back {
+  display: inline-block;
+  margin-bottom: 6px;
+  font-size: 12px;
+}
+
+/* Built-in (basic): title, then "Record NNN · Type: YYY" */
+.h-record-popup-basic-title { font-weight: 600; margin: 0 0 3px; overflow-wrap: anywhere; }
+.h-record-popup-basic-meta { color: var(--h-color-text-muted); }
+
+.h-record-popup-message { color: var(--h-color-text-muted); font-style: italic; }
+
+/* Built-in: the shared record renderer inside a popup */
+.h-record-popup-record { container-type: inline-size; }
+.h-record-popup-record .heurist-recordview-header { padding: 0 0 6px; }
+.h-record-popup-record .heurist-recordview-media { padding: 6px 0; }
+.h-record-popup-record .heurist-recordview-media-compact { border-bottom: 0; }
+.h-record-popup-record .heurist-recordview-sections { padding: 4px 0; }
+.h-record-popup-record .heurist-recordview-footer { padding: 6px 0 0; }
+.h-record-popup-record .heurist-recordview-more { padding: 2px 0 0; }

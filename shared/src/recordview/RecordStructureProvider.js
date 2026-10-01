@@ -14,7 +14,7 @@
  * for real fields this same column is the field's own default value).
  *
  * @project     Heurist academic knowledge management system
- * @package     heurist-recordview
+ * @package     heurist-client-core
  *
  * @link        https://HeuristNetwork.org
  * @copyright   (C) 2024 onwards Heurist Network

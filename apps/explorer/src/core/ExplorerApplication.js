@@ -298,7 +298,8 @@ export class ExplorerApplication {
       }),
       onApply: (source) => this._applyQuerySourceDraft(source),
       onSaveFilter: (source) => this.saveDatasourceAsFilter(source),
-      canSaveFilter: () => this.canEditSavedFilters(),
+      // the QSE offers no "Save as Filter" (decided 2026-10-01); kept off here, not removed
+      canSaveFilter: () => false,
       canSaveSource: () => this.canSaveSources(),
       onSaveSource: (source) => this._saveQuerySourceDraft(source),
       onUpdateSource: (source, id) => this._saveQuerySourceDraft(source, id),
@@ -1197,7 +1198,11 @@ export class ExplorerApplication {
       viewRecord: (id) => this.viewRecord(id),
       addRecord: (rt) => bridge.addRecord?.(rt),
       editSymbology: (value, options) => bridge.editSymbology?.(value, options),
-      editExtent: (value, options) => bridge.editExtent?.(value, options),
+      // same draw-mode Map dialog as the Filter Builder extent picker;
+      // the outer host editor is only a fallback without a Map module URL
+      editExtent: (value, options) => (this.config.moduleUrls?.map
+        ? this.selectFilterExtent(value)
+        : bridge.editExtent?.(value, options)),
       // expansion rules of the active DataSource, edited in Explorer's own dialog
       editRules: () => this.editDataSourceRules(),
       updateRules: (rules) => this.updateDataSourceRules(rules),
@@ -1229,7 +1234,7 @@ export class ExplorerApplication {
     const current = source.request?.rules || [];
     const builder = new HRuleBuilder({ dbdefs, lang: this.config.language });
     const rules = await builder.setRules(current).open({ dataSource: cloneDataSource(source) });
-    if (JSON.stringify(rules) === JSON.stringify(current)) return null;
+    if (rules == null || JSON.stringify(rules) === JSON.stringify(current)) return null;
     return this.updateDataSourceRules(rules);
   }
 

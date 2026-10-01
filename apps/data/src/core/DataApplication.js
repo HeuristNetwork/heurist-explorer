@@ -14,8 +14,11 @@
  */
 
 import { normalizeDataConfigurationSettings } from "../ui/config/dataConfigurationSchema.js";
-import { appendQuickStep } from "#shared/data/expansionRules.js";
+import { appendQuickStep, quickStepReachQuery } from "#shared/data/expansionRules.js";
+import { RecordViewRenderer } from "#shared/recordview/RecordViewRenderer.js";
+import { $HR } from "#shared/ui";
 import { ExpansionLevelView } from "./ExpansionLevelView.js";
+import { DataRecordPopup } from "../ui/DataRecordPopup.js";
 
 /** Coordinates host integration, data loading, engine rendering, and state. */
 export class DataApplication extends EventTarget {
@@ -28,7 +31,8 @@ export class DataApplication extends EventTarget {
    * @param {Function|null} [options.engineFactory] Factory used to swap engines when the configured engine changes.
    * @param {object} options.host Host adapter used for lifecycle and preference delegation.
    * @param {object} options.loaders Loader registry used to load persisted Query Sources and direct queries.
-   * @param {object} [options.providers] Supporting providers (record content, field values, etc.).
+   * @param {object} [options.providers] Supporting providers (record content, field values, etc.;
+   *        `recordView`: shared `RecordViewLoader` for the Built-in renderer, `heuristBaseUrl`).
    */
   constructor({
     container,
@@ -140,7 +144,7 @@ export class DataApplication extends EventTarget {
       options: this._engineOptions(),
       onSelectionChange: (ids) => this._selectionFromEngine(ids),
       onEditRecord: (id) => this.requestEditRecord(id),
-      onViewRecord: (id) => this.requestViewRecord(id),
+      onViewRecord: (id, anchor) => this.requestViewRecord(id, anchor),
       onCollectionToggle: (id, collected) =>
         this.setRecordCollected(id, collected),
       onCollectionAction: (action, ids) =>
@@ -267,9 +271,13 @@ export class DataApplication extends EventTarget {
     const request = dataSource?.request || {};
     const fields = dataSource?.presentation?.data?.fields;
     if (this.expansion) {
-      const same = sameDataSource(this.dataSource, dataSource);
+      // another source or a changed query: the level pane is reset and hidden
+      const same = sameDataSource(this.dataSource, dataSource)
+        && sameQuery(this.dataSource?.request?.q, request.q);
       if (!same && this.expansion.active) await this.expansion.setActive(false);
       await this.expansion.setRules(request.rules, { reset: !same, reload: false });
+      // the control panel closes its expansion section too
+      if (!same) this.dispatch("heurist-data-expansion-reset", {});
     }
     return this.setQuery(request.q ?? dataSource?.query, {
       ...options,
@@ -395,6 +403,48 @@ export class DataApplication extends EventTarget {
     return true;
   }
 
+  /**
+   * Smart expansion, first part: the record types the next quick-expansion step
+   * would reach from the main result (any pointer or relationship from the end of
+   * every rule branch), with their record counts. Nothing changes yet.
+   *
+   * @param {{signal?: AbortSignal}} [options]
+   * @returns {Promise<Array<{id: number, label: string, count: number}>|null>} Record types by
+   *          count, or `null` when no rule branch can grow.
+   */
+  async smartExpansionTypes({ signal } = {}) {
+    if (!this.canQuickExpand() || !this.providers.recordDataProvider?.rectypes) return null;
+    const query = quickStepReachQuery(this.getState().query, this.expansion.rules);
+    if (!query) return null;
+    const summary = await this.providers.recordDataProvider.rectypes({ query, signal });
+    const counts = summary.rectypes
+      .map((row) => ({ id: Number(row.rec_RecTypeID), count: Number(row.count) || 0 }))
+      .filter((row) => Number.isInteger(row.id) && row.id > 0);
+    const names = await this.providers.recordView?.vocabularyProvider?.getRecordTypeNames?.(counts.map((row) => row.id), { signal })
+      .catch((error) => { if (error?.name === "AbortError") throw error; return new Map(); }) || new Map();
+    return counts
+      .map((row) => ({ ...row, label: names.get(row.id) || `${$HR("Record type")} ${row.id}` }))
+      .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
+  }
+
+  /**
+   * Smart expansion, second part: add one step reaching only the chosen record
+   * types to every rule branch, save the rules through the host and show the new
+   * deepest level (as quick expansion).
+   *
+   * @param {Array<number>} types Record types chosen from `smartExpansionTypes()`.
+   * @returns {Promise<boolean>} Whether the rules changed.
+   */
+  async smartExpand(types) {
+    if (!this.canQuickExpand() || !types?.length) return false;
+    const rules = appendQuickStep(this.expansion.rules, undefined, { types });
+    if (!rules) return false;
+    await this.host.updateRules(rules);
+    await this.expansion.setActive(true);
+    await this.expansion.setLevel(this.expansion.maxDepth());
+    return true;
+  }
+
   /** Set the active load descriptor and dispatch a pending `heurist-data-source-changed` event. */
   _resetActiveLoad(activeLoad) {
     this.activeLoad = activeLoad;
@@ -494,8 +544,28 @@ export class DataApplication extends EventTarget {
     return null;
   }
 
-  /** Request record viewing through the host or dispatch a host event. */
-  async requestViewRecord(recordId) {
+  /**
+   * Show a record in the module's popup (a record's "i" action), in the configured
+   * Popup template mode. Without the providers the popup needs, the host viewer
+   * (or the `heurist-data-view-record-requested` event) is used instead.
+   *
+   * @param {number|string} recordId Record ID.
+   * @param {?HTMLElement} [anchor] Clicked action, the popup is placed beside it.
+   * @returns {Promise<*>}
+   */
+  async requestViewRecord(recordId, anchor = null) {
+    if (this.providers.recordView || this.providers.recordContent) {
+      this.recordPopup ??= new DataRecordPopup({
+        recordViewLoader: this.providers.recordView || null,
+        recordContent: this.providers.recordContent || null,
+        baseUrl: this.providers.heuristBaseUrl || this.config.engineOptions?.baseUrl || null,
+        database: this.config.database,
+        // same condition as the row pen: "Enable edit" and a host that can edit
+        canEditRecords: () => this._engineOptions().interaction?.editEnabled === true,
+        editRecord: (id) => this.requestEditRecord(id),
+      });
+      return this.recordPopup.open({ recordId, anchor, mode: this.config.engineOptions?.popupTemplate });
+    }
     if (this.host.supportsViewing?.()) return this.host.viewRecord(recordId);
     this.dispatch("heurist-data-view-record-requested", {
       recordId: Number(recordId),
@@ -562,9 +632,46 @@ export class DataApplication extends EventTarget {
     return true;
   }
 
-  /** Load deferred record presentation content. */
+  /**
+   * Load deferred record presentation content: server HTML for a template (or
+   * the legacy standard view), or - for the Built-in Extended view - the shared
+   * record renderer's full view, one element per record.
+   *
+   * @param {{records?: Array<object>, template?: string, signal?: AbortSignal}} [request]
+   * @returns {Promise<Map<number, string|HTMLElement>|null>} Content by record ID.
+   */
   async requestRecordContent(request = {}) {
+    if (request.template === "builtin") return this.renderBuiltinRecords(request);
     return this.providers.recordContent?.load?.(request) ?? null;
+  }
+
+  /**
+   * Render records with the shared record renderer (the RecordView "builtin"
+   * view, without tags and incoming links): one batch request for the records.
+   *
+   * @param {{records?: Array<object>, signal?: AbortSignal}} request
+   * @returns {Promise<Map<number, HTMLElement>>} Rendered record views by record ID.
+   */
+  async renderBuiltinRecords({ records = [], signal } = {}) {
+    const loader = this.providers.recordView;
+    if (!loader?.loadMany) return new Map();
+    const loaded = await loader.loadMany(records.map((record) => record?.rec_ID), { signal });
+    const result = new Map();
+    for (const [id, data] of loaded) {
+      const container = document.createElement("div");
+      container.className = "heurist-data-record-view";
+      new RecordViewRenderer({
+        container,
+        baseUrl: this.providers.heuristBaseUrl || this.config.engineOptions?.baseUrl || null,
+        database: this.config.database,
+      }).showBuiltin(data.record, {
+        sections: data.sections,
+        recordTypeName: data.recordTypeName,
+        onNavigate: (recordId) => void this.requestViewRecord(recordId),
+      });
+      result.set(id, container);
+    }
+    return result;
   }
 
   /** Return the current engine-neutral application state. */
@@ -842,6 +949,11 @@ function sameDataSource(a, b) {
   const right = b?.reference;
   if (!left || !right || left.type === "query" || left.id == null) return false;
   return left.type === right.type && String(left.id) === String(right.id);
+}
+
+/** Whether two queries are the same (structurally). */
+function sameQuery(a, b) {
+  return JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
 }
 
 /** Build an ad-hoc query-type DataSource for a raw query and optional title. */

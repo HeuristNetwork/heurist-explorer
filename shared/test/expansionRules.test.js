@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { MAX_RULE_DEPTH, ruleDepth, rulesDepth, typeIds, ruleTargetTypes, appendQuickStep, expansionLevelQuery } from '../src/data/expansionRules.js';
+import { MAX_RULE_DEPTH, ruleDepth, rulesDepth, typeIds, ruleTargetTypes, appendQuickStep, expansionLevelQuery, quickStepReachQuery } from '../src/data/expansionRules.js';
 import { RectypeSource } from '../src/data/valueSources/localSources.js';
 
 test('rule depth counts the rule query as level 1', () => {
@@ -88,4 +88,21 @@ test('level query: the selection replaces the base query; ignored rules are skip
   assert.equal(rulesDepth(rules), 1);
   assert.equal(rulesDepth([]), 0);
   assert.equal(expansionLevelQuery('Q', [{ query: { t: 5 } }], 1), null, 'a step without traversal reaches nothing');
+});
+
+test('smart expansion: the new step reaches only the chosen record types', () => {
+  const rules = [{ query: { t: 48, lt: [{ t: 10 }] }, levels: [] }];
+  assert.deepEqual(appendQuickStep(rules, MAX_RULE_DEPTH, { types: [12, '48'] })[0].levels,
+    [{ query: { t: [12, 48], connected: [{ t: 48 }] }, levels: [] }]);
+  assert.deepEqual(appendQuickStep([], MAX_RULE_DEPTH, { types: [12] }), [{ query: { t: 12, connected: [] }, levels: [] }]);
+});
+
+test('smart expansion counts what the next quick step reaches from every branch end', () => {
+  const rules = [{ query: { t: 48, lt: [{ t: 10 }] }, levels: [] }, { query: { rt: [] }, levels: [], ignore: true }];
+  assert.deepEqual(quickStepReachQuery('t:10', rules),
+    { connected: [{ t: 48 }, { all: { t: 48, lt: [{ t: 10 }, { all: 't:10' }] } }] });
+  assert.deepEqual(quickStepReachQuery('t:10', []), { connected: [{ all: 't:10' }] });
+  const full = [{ query: { lt: [] }, levels: [{ query: { lt: [] }, levels: [{ query: { lt: [] }, levels: [{ query: { lt: [] } }] }] }] }];
+  assert.equal(quickStepReachQuery('t:10', full), null, 'no branch can grow');
+  assert.equal(quickStepReachQuery('', rules), null);
 });

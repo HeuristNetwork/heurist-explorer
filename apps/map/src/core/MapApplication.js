@@ -22,7 +22,8 @@ import { createMapEnvironment } from './createMapEnvironment.js';
 import { normalizeMapConfigurationSettings } from '../ui/config/mapConfigurationSchema.js';
 import { getDefaultBaseMaps } from '../basemaps/defaultBasemaps.js';
 import { activateThematicMap } from '../thematic/thematicAttributes.js';
-import { normalizePopupMode } from '../data/PopupProvider.js';
+import { normalizePopupMode, buildMinimalPopup } from '../data/PopupProvider.js';
+import { MapPopupController } from '../ui/popup/MapPopupController.js';
 import { DEFAULT_MAP_SYMBOL, normalizeMapSymbol } from '../utils/normalizeMapSymbol.js';
 
 /**
@@ -1066,27 +1067,38 @@ export class MapApplication {
       }
     }
 
-    const configuredPopupMode = normalizePopupMode(layer?.popup?.template);
-    const heuristBackedPopup = layer?.source?.type === 'heurist-query' || layer?.source?.type === 'record';
-    const popupMode = heuristBackedPopup || configuredPopupMode === 'none' || configuredPopupMode === 'minimal'
-      ? configuredPopupMode
-      : 'minimal';
-    if (layer?.popup?.enabled === false || popupMode === 'none') return;
-    if (popupMode !== 'minimal' && payload.recordId == null) return;
+    if (layer?.popup?.enabled === false || this.config.interaction?.popupEnabled === false) return;
+    // The mode is read from the current settings on every click, so a changed
+    // Popup template applies at once, without reloading the layer.
+    const popupMode = normalizePopupMode(this.currentPopupTemplate(detail.layerId, layer));
+    if (popupMode === 'none') return;
+    const popup = this.getPopupController();
     try {
-      // Reopen a popup already fetched/bound for this runtime feature without
-      // repeating the HTTP request. Runtime layer replacement clears this cache.
-      const opened = await this.mapEngine.openFeaturePopup?.(detail.layerId, payload.featureId, null);
-      if (opened) return;
-
-      const popupProvider = this.providers.popup;
-      if (!popupProvider) return;
-      if (popupMode !== 'minimal' && !popupProvider.isConfigured?.()) return;
-      const html = await popupProvider.load(heuristBackedPopup ? payload.recordId : null, {
-        template: popupMode,
-        properties: detail.popupProperties || null
+      if (!isHeuristBackedLayer(layer)) {
+        // Features of files/external services have no record: show their properties.
+        popup.openHtml({
+          layerId: detail.layerId,
+          featureId: payload.featureId,
+          latlng: payload.latlng,
+          html: buildMinimalPopup(detail.popupProperties || null)
+        });
+        return;
+      }
+      if (payload.recordId == null) return;
+      const clicked = {
+        layerId: detail.layerId,
+        featureId: payload.featureId,
+        recordId: payload.recordId,
+        properties: detail.popupProperties || {}
+      };
+      const features = this.mapEngine.getCoincidentFeatures?.(detail.layerId, payload.featureId) || [];
+      popup.open({
+        layerId: detail.layerId,
+        featureId: payload.featureId,
+        latlng: payload.latlng,
+        mode: popupMode,
+        entries: this.popupEntries(features.length ? features : [clicked])
       });
-      if (html) await this.mapEngine.openFeaturePopup?.(detail.layerId, payload.featureId, html);
     } catch (error) {
       if (error?.name === 'AbortError') return;
       this.dispatch('heurist-map-warning', {
@@ -1096,6 +1108,81 @@ export class MapApplication {
         error: serializeError(error)
       });
     }
+  }
+
+  /**
+   * Popup template in effect for one layer now: the layer's own template, or the
+   * current global default when the layer inherits it.
+   *
+   * @param {string} layerId Runtime layer identifier.
+   * @param {?Object} layer Runtime layer.
+   * @returns {?string} Raw popup mode/template; see `normalizePopupMode`.
+   */
+  currentPopupTemplate(layerId, layer) {
+    const documentEntry = this.mapDocuments?.get?.(this.activeMapDocumentId) || null;
+    const stored = documentEntry ? findStoredLayer(documentEntry, layerId) : null;
+    if (stored?.mapLayer?._defaulted?.popupTemplate) {
+      return this.getLayerDefaults(documentEntry).popupTemplate ?? null;
+    }
+    return stored?.mapLayer?.options?.popupTemplate ?? layer?.popup?.template ?? null;
+  }
+
+  /**
+   * The popup content controller, created on first use.
+   *
+   * @returns {MapPopupController} Popup controller.
+   */
+  getPopupController() {
+    this.popupController ??= new MapPopupController({
+      mapEngine: this.mapEngine,
+      popupProvider: this.providers?.popup || null,
+      recordViewLoader: this.providers?.recordView || null,
+      baseUrl: this.providers?.popup?.baseUrl || null,
+      database: this.config?.database || null,
+      // same condition as MapDocument editing and the `editing` capability
+      canEditRecords: () => !this.config?.readonly && this.host?.supportsEditing?.() === true,
+      editRecord: (recordId) => this.host.editRecord(recordId)
+    });
+    return this.popupController;
+  }
+
+  /**
+   * Describe rendered Heurist features as popup entries: the record of the
+   * feature, or - for a feature found through a linked geo field in
+   * "Individual Linked Map Features" mode - the path of records from the mapped
+   * record to the record holding the geometry (titles from the linked records
+   * returned with the layer data).
+   *
+   * @param {Array<{layerId: string, recordId: ?number, properties: Object}>} features Rendered features.
+   * @returns {Array<{chain: Array<{id: number, rty: ?number, title: string}>}>} Popup entries.
+   */
+  popupEntries(features) {
+    const entries = [];
+    for (const feature of features) {
+      const layer = this.layers.get(feature.layerId);
+      if (!isHeuristBackedLayer(layer)) continue;
+      const properties = feature.properties || {};
+      const metadata = properties.heurist || {};
+      const top = {
+        id: Number(feature.recordId ?? metadata.recordId),
+        rty: positiveIntegerOrNull(metadata.recordTypeId ?? properties.rec_RecTypeID),
+        title: String(metadata.title || properties.rec_Title || '')
+      };
+      const path = Array.isArray(properties._path?.recordIDs) ? properties._path.recordIDs.map(Number) : [];
+      if (path.length < 2) {
+        entries.push({ chain: [top] });
+        continue;
+      }
+      const linked = layer.linkedRecords || new Map();
+      entries.push({
+        chain: path.map((id, index) => {
+          if (index === 0) return top;
+          const record = linked.get(id);
+          return { id, rty: positiveIntegerOrNull(record?.rec_RecTypeID), title: String(record?.rec_Title || '') };
+        })
+      });
+    }
+    return entries;
   }
 
   /**
@@ -3443,7 +3530,7 @@ function createFailedMapLayer(reference) {
  */
 function createLayerState(definition) {
   const dataSource = definition.options?.dataSource || dataSourceFromLayerDefinition(definition);
-  return {
+  const state = {
     id: definition.id,
     recordId: definition.recordId ?? null,
     title: definition.title ?? '',
@@ -3468,6 +3555,14 @@ function createLayerState(definition) {
     loadState: 'loading',
     error: null
   };
+  // Titles/types of linked records for popups; private like the GeoJSON itself.
+  Object.defineProperty(state, 'linkedRecords', {
+    value: linkedRecordIndex(definition.data?.meta?.records),
+    enumerable: false,
+    configurable: true,
+    writable: true
+  });
+  return state;
 }
 
 /**
@@ -3505,6 +3600,44 @@ function finiteNumberOrNull(value) {
   if (value === null || value === undefined || value === '') return null;
   const number = Number(value);
   return Number.isFinite(number) ? number : null;
+}
+
+/**
+ * Coerce a value to a positive integer, or `null`.
+ *
+ * @param {*} value Candidate value.
+ * @returns {?number} The positive integer, or `null`.
+ */
+function positiveIntegerOrNull(value) {
+  const number = Number(value);
+  return Number.isInteger(number) && number > 0 ? number : null;
+}
+
+/**
+ * Whether a runtime layer shows Heurist records (its features have record IDs
+ * whose popups are rendered from the database).
+ *
+ * @param {?Object} layer Runtime layer.
+ * @returns {boolean} `true` for query and record sources.
+ */
+function isHeuristBackedLayer(layer) {
+  return layer?.source?.type === 'heurist-query' || layer?.source?.type === 'record';
+}
+
+/**
+ * Index the linked records (`meta.records`) returned with a layer's features in
+ * "Individual Linked Map Features" mode by record ID.
+ *
+ * @param {?Array<Object>} records `{rec_ID, rec_RecTypeID, rec_Title}` rows.
+ * @returns {Map<number, {rec_RecTypeID: *, rec_Title: *}>} Record ID -> type and title.
+ */
+function linkedRecordIndex(records) {
+  const index = new Map();
+  for (const record of Array.isArray(records) ? records : []) {
+    const id = positiveIntegerOrNull(record?.rec_ID);
+    if (id) index.set(id, { rec_RecTypeID: record.rec_RecTypeID ?? null, rec_Title: record.rec_Title ?? '' });
+  }
+  return index;
 }
 
 /**
