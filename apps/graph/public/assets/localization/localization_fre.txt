@@ -195,3 +195,11 @@
 #Viewable#Visible
 #Public#Public
 #Maximum allowed nodes limit is#La limite maximale de nœuds autorisés est
+#Stop expansion#Arrêter l’expansion
+#Expansion stopped: too many source records#Expansion arrêtée : trop d’enregistrements sources
+#Restrict the rules to record types or reduce the result.#Limitez les règles à des types d’enregistrements ou réduisez le résultat.
+#The expansion step reached too many records#L’étape d’expansion a atteint trop d’enregistrements
+#The expansion step grew too fast#L’étape d’expansion a grandi trop vite
+#The expansion step was slow#L’étape d’expansion a été lente
+#Deeper expansion levels were not loaded.#Les niveaux d’expansion plus profonds n’ont pas été chargés.
+#Click Expand again to continue anyway.#Cliquez de nouveau sur Développer pour continuer quand même.

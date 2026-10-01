@@ -274,3 +274,33 @@
         display: none;
     }
 }
+
+/* Stop button: shown while data requests run, above the view-mode control */
+.h-explorer-rail-stop {
+    position: absolute;
+    left: 4px;
+    bottom: 44px;
+    z-index: 2;
+    color: var(--h-color-danger);
+    background: var(--h-color-surface);
+}
+
+.h-explorer-rail-stop[hidden] {
+    display: none;
+}
+
+.h-explorer-rail-stop-count {
+    position: absolute;
+    top: -2px;
+    right: -2px;
+    min-width: 12px;
+    font-size: 9px;
+    line-height: 12px;
+    color: #fff;
+    background: var(--h-color-danger);
+    border-radius: 6px;
+}
+
+.h-explorer-rail-stop-count:empty {
+    display: none;
+}

@@ -90,16 +90,17 @@ export class GraphExpansions {
    * @param {number} depth Maximum depth to load (inclusive).
    * @param {function(Array<number>, {query: *}): Promise<{graph: GraphDocument, expansion: {targetIds: Array<number>}}>} load Loader for one level's expansion.
    * @param {function(): boolean} valid Called before applying each loaded level; abandons the walk once it returns `false` (e.g. after a superseding request).
+   * @param {function(): boolean} [canDescend] Called before loading deeper levels; `false` keeps the loaded levels but stops the walk (expansion limits).
    * @returns {Promise<void>}
    * @throws {Error} When a loaded level's response has no expansion target membership.
    */
-  async ensure(rule, scope, depth, load, valid) {
+  async ensure(rule, scope, depth, load, valid, canDescend = () => true) {
     const visit = async (definition, seeds, parentKey, level) => {
       if (level > depth || level > rule.maxDepth || !seeds.length || definition.ignore) return;
       const key = stepKey(parentKey, definition);
       let entry = this.entries.get(key);
       if (!entry) {
-        const result = await load(seeds, { query: definition.query });
+        const result = await load(seeds, { query: definition.query }, level);
         if (!valid()) return;
         const graph = result.graph;
         if (!Array.isArray(result.expansion?.targetIds)) throw new Error('Graph endpoint did not return expansion membership.');
@@ -115,7 +116,7 @@ export class GraphExpansions {
         this.entries.set(key, entry);
       }
       for (const child of definition.levels || []) {
-        if (!valid()) return;
+        if (!valid() || !canDescend()) return;
         await visit(child, entry.targets, key, level + 1);
       }
     };

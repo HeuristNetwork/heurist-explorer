@@ -14,7 +14,7 @@
  */
 
 import { hasQueryParameters } from '#shared/data/queryParameters.js';
-import { HeuristApiClient } from '#shared/api';
+import { HeuristApiClient, RequestMonitor } from '#shared/api';
 import { extentFromGeoJson, extentFromWkt, extentToGeoJson, isExtent } from '#shared/utils';
 import { HostAdapter } from '#shared/host';
 import { HMsg, $HR } from '#shared/ui';
@@ -109,11 +109,15 @@ export class ExplorerApplication {
     this.container.replaceChildren(workspace);
     this.workspaceElement = workspace;
 
+    // Every data request of Explorer and its modules: query trace panel, Stop button
+    this.requestMonitor = new RequestMonitor({ source: 'explorer', traceEnabled: readTracePreference() });
+    this.requestMonitor.addEventListener('tracechange', (event) => writeTracePreference(event.detail.enabled));
     const apiClient = new HeuristApiClient({
       apiBaseUrl: this.config.apiBaseUrl,
       database: this.config.database,
       accessToken: this.config.accessToken,
-      headers: this.config.requestHeaders
+      headers: this.config.requestHeaders,
+      requestMonitor: this.requestMonitor
     });
     this.apiClient = apiClient;
     // Saved Filters and Query Sources of the current user's scope: Everyone,
@@ -172,6 +176,7 @@ export class ExplorerApplication {
       initiallyCollapsed: this.config.settings?.controlPanel?.initiallyCollapsed === true
     });
     await this.controlPanel.mount(this.container);
+    this._bindRunningQueries();
     await this._createQuerySourcePanel();
     // modules of panes not expanded at start are created when first opened
     await this.applyLayout(this.config.settings.layout || defaultLayout(), { deferHidden: true });
@@ -321,7 +326,9 @@ export class ExplorerApplication {
       isInWorkspace: (source) => this.isDataSourceInWorkspace(source),
       onClearResults: () => this.clearCurrentResult(),
       onShow: () => this.showQuerySourcePanel(),
-      onModeChange: (mode) => this.authoringDock?.setMode(mode)
+      onModeChange: (mode) => this.authoringDock?.setMode(mode),
+      requestMonitor: this.requestMonitor,
+      onStop: () => this.stopAllQueries()
     });
     // own host element: the panel replaces its container's class, and the pane
     // must keep `h-explorer-authoring` (its scroll container)
@@ -1228,8 +1235,52 @@ export class ExplorerApplication {
       getHostContext: () => ({
         name: 'heurist-explorer', runtimeMode: 'main', hasMapModule: this.hasActiveMapModule()
       }),
-      showDatasource: (source, options) => this.showDatasource(source, options)
+      showDatasource: (source, options) => this.showDatasource(source, options),
+      // module request monitors report to Explorer's monitor (trace, Stop)
+      registerRequestMonitor: (monitor) => this.requestMonitor.attachChild(monitor)
     };
+  }
+
+  /**
+   * Stop every running data request of Explorer and all modules. Fetches are
+   * aborted and the server is asked to stop the running SQL.
+   *
+   * @returns {string[]} Request ids that were stopped.
+   */
+  stopAllQueries() {
+    return this.requestMonitor?.abortAll() || [];
+  }
+
+  /**
+   * Show the rail Stop button while requests run. It appears after a short
+   * delay so quick queries do not make it flicker.
+   *
+   * @private
+   * @returns {void}
+   */
+  _bindRunningQueries() {
+    const rail = this.controlPanel?.leftRail;
+    if (!rail || !this.requestMonitor) return;
+    let timer = null;
+    const update = () => {
+      const count = this.requestMonitor.inFlightCount;
+      if (!count) {
+        clearTimeout(timer);
+        timer = null;
+        rail.setRunningQueries(0);
+        return;
+      }
+      if (rail.isShowingRunningQueries()) {
+        rail.setRunningQueries(count, () => this.stopAllQueries());
+        return;
+      }
+      timer ??= setTimeout(() => {
+        timer = null;
+        const current = this.requestMonitor.inFlightCount;
+        rail.setRunningQueries(current, () => this.stopAllQueries());
+      }, RUNNING_QUERY_DELAY);
+    };
+    this.requestMonitor.addEventListener('change', update);
   }
 
   /** @returns {boolean} Whether presentations may edit the active DataSource's rules (authoring is available). */
@@ -1656,5 +1707,29 @@ function hostCan(bridge, action, check) {
     return bridge[check]() === true;
   } catch {
     return false;
+  }
+}
+
+/** Milliseconds a request must run before the rail shows the Stop button. */
+const RUNNING_QUERY_DELAY = 300;
+
+/** localStorage key of the query trace switch (per browser). */
+const TRACE_PREFERENCE_KEY = 'heurist-explorer-query-trace';
+
+/** @returns {boolean} Whether the query trace was switched on in this browser. */
+function readTracePreference() {
+  try {
+    return globalThis.localStorage?.getItem(TRACE_PREFERENCE_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+/** @param {boolean} enabled Remember the query trace switch in this browser. */
+function writeTracePreference(enabled) {
+  try {
+    globalThis.localStorage?.setItem(TRACE_PREFERENCE_KEY, enabled ? '1' : '0');
+  } catch {
+    // storage blocked: the switch is not remembered
   }
 }

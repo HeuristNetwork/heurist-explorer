@@ -14,7 +14,7 @@ import { showGraphMessage } from "./ui/graphMessages.js";
  * @since       8.0
  */
 
-import { HeuristApiClient } from "#shared/api";
+import { HeuristApiClient, createModuleRequestMonitor } from "#shared/api";
 import { GraphApplication } from "./core/GraphApplication.js";
 import { GraphProvider } from "./data/GraphProvider.js";
 import { createGraphEngine } from "./engine/createGraphEngine.js";
@@ -45,6 +45,8 @@ export async function initHeuristGraph(config) {
     database: config.database,
     accessToken: config.accessToken,
     headers: config.requestHeaders,
+    // trace and stop of running queries in Explorer
+    requestMonitor: createModuleRequestMonitor(config.host?.bridge, "graph"),
   });
   const heuristBaseUrl = resolveHeuristBaseUrl(config);
   const application = new GraphApplication({

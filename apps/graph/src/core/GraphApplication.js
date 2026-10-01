@@ -21,6 +21,13 @@ import { appendQuickStep, quickStepReachQuery } from "#shared/data/expansionRule
 import { normalizeGraphConfigurationSettings } from "../ui/config/graphConfigurationSchema.js";
 import { RecordPopupContent, normalizePopupMode } from "#shared/recordview/RecordPopupContent.js";
 
+/**
+ * Default expansion limits (Graph configuration `limits` can override them):
+ * source records per step, records reached by a step, growth factor of a step,
+ * and the time of a step after which deeper levels wait for the user.
+ */
+const EXPANSION_GUARDS = { maxSeeds: 500, maxResults: 2000, maxGrowth: 20, slowMs: 5000 };
+
 /** Coordinates graph loading, merging, selection, expansions, legend state, and rendering. */
 export class GraphApplication extends EventTarget {
   /**
@@ -726,6 +733,9 @@ export class GraphApplication extends EventTarget {
     const scope = state.scope();
     const previous = scope.depth;
     scope.depth = Math.max(0, Math.min(Number(depth) || 0, this.getExpansionState().maxDepth));
+    // after a growth/time warning, the next deeper request continues anyway
+    this.expansionGuardsRelaxed = this.expansionGuardHit === true && scope.depth > previous;
+    this.expansionGuardHit = false;
     try {
       for (const rule of state.rules.filter(r => r.enabled)) await this.runExpansion(state, rule, scope);
       if (state === this.expansions) await this.renderExpansions();
@@ -883,13 +893,38 @@ export class GraphApplication extends EventTarget {
       if (!valid() || generation !== this.generation) return;
       this.expansionBusy = true;
       this.dispatch('heurist-graph-expansions-changed', {});
+      // own controller: Stop ends expansions only; a new main load ends them too
+      const controller = new AbortController();
+      const mainSignal = this.abortController?.signal;
+      const onMainAbort = () => controller.abort();
+      if (mainSignal?.aborted) controller.abort();
+      else mainSignal?.addEventListener('abort', onMainAbort, { once: true });
+      this.expansionController = controller;
+      let stopAt = null;
       try {
-        await state.ensure(rule, scope, scope.depth, (seeds, step) => this.provider.load({
-          query: { ids: seeds }, rule: step, limit: seeds.length,
-          limits: this.config.limits, signal: this.abortController?.signal,
-        }), () => valid() && generation === this.generation);
+        await state.ensure(rule, scope, scope.depth, async (seeds, step, level) => {
+          this.#checkExpansionSeeds(seeds);
+          const started = Date.now();
+          const result = await this.provider.load({
+            query: { ids: seeds }, rule: step, limit: seeds.length,
+            limits: this.config.limits, signal: controller.signal,
+          });
+          const warning = this.#expansionWarning(seeds.length, result, Date.now() - started);
+          if (warning && level < scope.depth) {
+            stopAt = level;
+            this.dispatch('heurist-graph-warning', { message: warning });
+          }
+          return result;
+        }, () => valid() && generation === this.generation, () => stopAt === null);
+        if (stopAt !== null && valid()) {
+          // the deeper levels were not loaded: the graph stays at the last loaded level
+          scope.depth = Math.min(scope.depth, stopAt);
+          this.expansionGuardHit = true;
+        }
         if (valid() && generation === this.generation) await this.renderExpansions();
       } finally {
+        mainSignal?.removeEventListener('abort', onMainAbort);
+        if (this.expansionController === controller) this.expansionController = null;
         this.expansionBusy = false;
         this.dispatch('heurist-graph-expansions-changed', {});
       }
@@ -897,6 +932,55 @@ export class GraphApplication extends EventTarget {
     const pending = this.expansionQueue.then(run);
     this.expansionQueue = pending.catch(() => {});
     return pending;
+  }
+
+  /**
+   * Stop the running expansion requests (the Stop button of the levels navigator).
+   * The main graph keeps loading. The API client asks the server to stop the SQL
+   * of the aborted requests.
+   *
+   * @returns {void}
+   */
+  stopExpansion() {
+    this.expansionController?.abort();
+  }
+
+  /** Expansion limits: Graph configuration `limits`, or the defaults. */
+  #expansionGuards() {
+    const limits = this.config.limits || {};
+    return {
+      maxSeeds: Number(limits.maxExpansionSeeds) || EXPANSION_GUARDS.maxSeeds,
+      maxResults: Number(limits.maxExpansionResults) || EXPANSION_GUARDS.maxResults,
+      maxGrowth: Number(limits.maxExpansionGrowth) || EXPANSION_GUARDS.maxGrowth,
+      slowMs: Number(limits.slowExpansionMs) || EXPANSION_GUARDS.slowMs
+    };
+  }
+
+  /** Refuse to expand from too many source records: such requests explode. */
+  #checkExpansionSeeds(seeds) {
+    const { maxSeeds } = this.#expansionGuards();
+    if (seeds.length > maxSeeds) {
+      throw new Error(`${$HR('Expansion stopped: too many source records')} (${seeds.length} > ${maxSeeds}). `
+        + $HR('Restrict the rules to record types or reduce the result.'));
+    }
+  }
+
+  /**
+   * Warning text when a loaded level is too large, grows too fast or was slow;
+   * deeper levels are then not loaded until the user asks again.
+   */
+  #expansionWarning(seedCount, result, ms) {
+    if (this.expansionGuardsRelaxed) return null;
+    const guards = this.#expansionGuards();
+    const count = result?.expansion?.targetIds?.length || 0;
+    const reason = count > guards.maxResults
+      ? `${$HR('The expansion step reached too many records')} (${count})`
+      : (count > 50 && count > seedCount * guards.maxGrowth
+        ? `${$HR('The expansion step grew too fast')} (${seedCount} → ${count})`
+        : (ms > guards.slowMs ? `${$HR('The expansion step was slow')} (${Math.round(ms / 100) / 10} s)` : null));
+    if (!reason) return null;
+    return `${reason}. ${$HR('Deeper expansion levels were not loaded.')} `
+      + $HR('Click Expand again to continue anyway.');
   }
 
   /**

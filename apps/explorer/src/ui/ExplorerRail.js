@@ -191,6 +191,48 @@ export class ExplorerRail extends EventTarget {
   }
 
   /**
+   * Show the Stop button while data requests are running. It sits at the
+   * bottom of the rail, outside the pointer-following button cluster.
+   *
+   * @param {number} count Running requests; 0 hides the button.
+   * @param {Function|null} [onStop] Called when the button is clicked.
+   * @returns {void}
+   */
+  setRunningQueries(count, onStop = null) {
+    if (!this.element) return;
+    if (!this._stopButton) {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'heurist-icon-button h-explorer-rail-button h-explorer-rail-stop';
+      button.title = $HR('Stop running queries');
+      button.setAttribute('aria-label', $HR('Stop running queries'));
+      const icon = document.createElement('span');
+      icon.className = 'fa-solid fa-circle-stop';
+      icon.setAttribute('aria-hidden', 'true');
+      const label = document.createElement('span');
+      label.className = 'h-explorer-rail-button-label h-i18n';
+      label.textContent = $HR('Stop');
+      this._stopCount = document.createElement('span');
+      this._stopCount.className = 'h-explorer-rail-stop-count';
+      button.append(icon, label, this._stopCount);
+      button.addEventListener('click', (event) => {
+        event.stopPropagation();
+        this._onStop?.();
+      });
+      this.element.append(button);
+      this._stopButton = button;
+    }
+    this._onStop = onStop;
+    this._stopButton.hidden = !(count > 0);
+    this._stopCount.textContent = count > 1 ? String(count) : '';
+  }
+
+  /** @returns {boolean} Whether the Stop button is shown. */
+  isShowingRunningQueries() {
+    return Boolean(this._stopButton && !this._stopButton.hidden);
+  }
+
+  /**
    * Toggles whole-rail visibility.
    *
    * @returns {boolean} New collapsed state.

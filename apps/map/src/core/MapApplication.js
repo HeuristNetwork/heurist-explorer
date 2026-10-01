@@ -17,6 +17,7 @@ import { normalizeRuntimeDataSource, uniqueDataSources, stableHash, dataSourceFr
  */
 
 import { normalizeMapDocument } from './MapDocument.js';
+import { $HR } from '#shared/ui';
 import { normalizeMapLayer, reapplyMapLayerDefaults } from './MapLayer.js';
 import { createMapEnvironment } from './createMapEnvironment.js';
 import { normalizeMapConfigurationSettings } from '../ui/config/mapConfigurationSchema.js';
@@ -71,6 +72,8 @@ export class MapApplication {
     this.dynamicRefreshController = null;
     this.dynamicRefreshSerial = 0;
     this.dynamicRefreshDelay = 250;
+    // viewport loading paused after a result at the feature limit or a slow query
+    this.dynamicPause = null;
     this.dynamicRequestKeys = new Map();
     this.dynamicDocumentId = String(config.dynamicDocument?.id || 'dynamic');
     this.currentDataSource = null;
@@ -2908,11 +2911,18 @@ export class MapApplication {
       return this.getLayer(winnerId);
     }
 
+    const queryKey = JSON.stringify(winner.mapLayer.source?.query ?? null);
+    if (this.#dynamicLoadingPaused(winnerId, queryKey, currentView.bounds)) {
+      if (currentState?.loadState === 'loaded') await this.mapEngine.setLayerVisibility(winnerRuntimeKey, true);
+      return this.getLayer(winnerId);
+    }
+
     this.dynamicRefreshController?.abort(new DOMException('Superseded by a newer viewport request', 'AbortError'));
     const controller = new AbortController();
     this.dynamicRefreshController = controller;
     const serial = ++this.dynamicRefreshSerial;
     const layerId = winnerId;
+    const started = Date.now();
     const selectedRecordIds = this.selectionLayerId === layerId
       ? [...new Set(this.selectedFeatures.values())]
       : [];
@@ -2943,6 +2953,7 @@ export class MapApplication {
       runtimeLayer.visible = true;
       await this.renderRuntimeLayer(runtimeLayer);
       if (requestKey) this.dynamicRequestKeys.set(layerId, requestKey);
+      this.#checkDynamicLoad(layerId, queryKey, currentView.bounds, runtimeLayer.resultMeta, Date.now() - started);
       if (selectedRecordIds.length) {
         try { await this.selectRecords(layerId, selectedRecordIds, { replace: true, zoom: false }); } catch { /* selected records may be outside the new viewport */ }
       }
@@ -2956,6 +2967,52 @@ export class MapApplication {
     } finally {
       if (this.dynamicRefreshController === controller) this.dynamicRefreshController = null;
     }
+  }
+
+  /**
+   * Whether viewport loading of a layer is paused. The pause ends when the query
+   * changes or the user zooms in to a clearly smaller extent.
+   *
+   * @param {string} layerId Winning dynamic layer.
+   * @param {string} queryKey Serialized layer query.
+   * @param {Object} bounds Current viewport bounds.
+   * @returns {boolean} Whether to skip the request.
+   */
+  #dynamicLoadingPaused(layerId, queryKey, bounds) {
+    const pause = this.dynamicPause;
+    if (!pause) return false;
+    if (pause.layerId !== layerId || pause.queryKey !== queryKey
+      || boundsArea(bounds) < pause.area * DYNAMIC_RESUME_AREA_RATIO) {
+      this.dynamicPause = null;
+      return false;
+    }
+    return true;
+  }
+
+  /**
+   * Pause viewport loading after a result at the feature limit or a slow query:
+   * further panning would repeat the same expensive request.
+   *
+   * @param {string} layerId Dynamic layer.
+   * @param {string} queryKey Serialized layer query.
+   * @param {Object} bounds Viewport bounds of the request.
+   * @param {?Object} meta Result meta of the loaded layer.
+   * @param {number} ms Load time in milliseconds.
+   * @returns {void}
+   */
+  #checkDynamicLoad(layerId, queryKey, bounds, meta, ms) {
+    const slowMs = Number(this.config?.dynamicLoadingSlowMs) || DYNAMIC_SLOW_MS;
+    const partial = meta?.isPartial === true;
+    if (!partial && ms <= slowMs) return;
+    this.dynamicPause = { layerId, queryKey, area: boundsArea(bounds) };
+    const reason = partial
+      ? $HR('The result reached the maximum number of features')
+      : `${$HR('The query was slow')} (${Math.round(ms / 100) / 10} s)`;
+    this.dispatch('heurist-map-warning', {
+      code: 'dynamic-loading-paused',
+      layerIds: [layerId],
+      message: `${reason}. ${$HR('Loading by map extent is paused: zoom in or refine the query.')}`
+    });
   }
 
   /**
@@ -3668,6 +3725,24 @@ function layerReferenceLatitude(mapLayer, viewState) {
   if (bounds) return (Number(bounds.south) + Number(bounds.north)) / 2;
   const latitude = viewState?.center?.latitude;
   return Number.isFinite(Number(latitude)) ? Number(latitude) : 0;
+}
+
+/** Load time (ms) after which viewport loading pauses; map configuration `dynamicLoadingSlowMs` overrides it. */
+const DYNAMIC_SLOW_MS = 5000;
+
+/** Paused viewport loading resumes when the extent shrinks below this part of the paused one. */
+const DYNAMIC_RESUME_AREA_RATIO = 0.8;
+
+/**
+ * Area of viewport bounds in square degrees, for comparing extents.
+ *
+ * @param {?Object} bounds Bounds with west/south/east/north.
+ * @returns {number} Area, or `Infinity` when unknown.
+ */
+function boundsArea(bounds) {
+  const width = Number(bounds?.east) - Number(bounds?.west);
+  const height = Number(bounds?.north) - Number(bounds?.south);
+  return Number.isFinite(width) && Number.isFinite(height) ? Math.abs(width * height) : Infinity;
 }
 
 /**

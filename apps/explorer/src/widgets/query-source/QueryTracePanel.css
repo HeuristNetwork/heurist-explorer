@@ -1,0 +1,75 @@
+/* Query trace under the DataSource actions; stays usable above the loading veil. */
+.h-qtrace {
+  position:relative;
+  z-index:22;
+  margin-top:6px;
+  border-top:1px solid var(--h-color-border);
+  background:var(--h-color-bg);
+  font-size:12px;
+}
+.h-qtrace-header {
+  display:flex;
+  align-items:center;
+  gap:6px;
+  padding:4px 2px;
+}
+.h-qtrace-toggle {
+  display:flex;
+  align-items:center;
+  gap:6px;
+  flex:1 1 auto;
+  min-width:0;
+  padding:0;
+  border:0;
+  background:none;
+  color:var(--h-color-text);
+  font:inherit;
+  font-weight:600;
+  cursor:pointer;
+  text-align:left;
+}
+.h-qtrace.is-collapsed .h-qtrace-toggle .fa-chevron-down { transform:rotate(-90deg); }
+.h-qtrace.is-collapsed .h-qtrace-log { display:none; }
+.h-qtrace-running { color:var(--h-color-text-muted); white-space:nowrap; }
+.h-qtrace-running.is-active { color:var(--h-color-primary); }
+.h-qtrace-enable { display:flex; align-items:center; gap:3px; white-space:nowrap; cursor:pointer; }
+.h-qtrace-log {
+  max-height:320px;
+  overflow:auto;
+  font-family:ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size:11px;
+}
+.h-qtrace-empty { padding:6px 2px; color:var(--h-color-text-muted); font-family:inherit; }
+.h-qtrace-line {
+  padding:3px 2px;
+  border-bottom:1px solid var(--h-color-border);
+  cursor:pointer;
+}
+.h-qtrace-line:hover { background:var(--h-color-surface-hover); }
+.h-qtrace-head { display:flex; flex-wrap:wrap; gap:0 8px; }
+.h-qtrace-time, .h-qtrace-source { color:var(--h-color-text-muted); }
+.h-qtrace-ms { font-weight:600; }
+.h-qtrace-status { font-weight:600; }
+.h-qtrace-line.is-error .h-qtrace-status,
+.h-qtrace-line.is-timeout .h-qtrace-status { color:var(--h-color-danger); }
+.h-qtrace-line.is-aborted .h-qtrace-status,
+.h-qtrace-line.is-cancelled .h-qtrace-status { color:var(--h-color-text-muted); }
+.h-qtrace-summary {
+  display:block;
+  overflow:hidden;
+  color:var(--h-color-text-muted);
+  white-space:nowrap;
+  text-overflow:ellipsis;
+}
+.h-qtrace-details { margin-top:3px; padding:4px; background:var(--h-color-surface); cursor:auto; }
+.h-qtrace-row { display:flex; gap:8px; }
+.h-qtrace-key { flex:0 0 80px; color:var(--h-color-text-muted); }
+.h-qtrace-value { min-width:0; overflow-wrap:anywhere; }
+.h-qtrace-sql {
+  max-height:180px;
+  margin:4px 0;
+  overflow:auto;
+  white-space:pre-wrap;
+  overflow-wrap:anywhere;
+  user-select:text;
+}

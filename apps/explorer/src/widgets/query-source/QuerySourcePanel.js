@@ -15,6 +15,8 @@
 
 import { QuerySourceEditor } from './QuerySourceEditor.js';
 import { DataSourceActions } from './DataSourceActions.js';
+import { QueryTracePanel } from './QueryTracePanel.js';
+import { $HR } from '#shared/ui';
 import { HFilterForm } from '#shared/widgets/filter/HFilterForm.js';
 import { hasQueryParameters, resolveQueryParameters } from '#shared/data/queryParameters.js';
 import './QuerySourcePanel.css';
@@ -29,6 +31,8 @@ export class QuerySourcePanel {
    * @param {object} [options] Forwarded to QuerySourceEditor and DataSourceActions; see their constructors.
    * @param {Function} [options.onShow] Asks the host to make the panel visible.
    * @param {Function} [options.onModeChange] Receives `'editor'` or `'form'` when the panel switches.
+   * @param {object} [options.requestMonitor] Explorer's RequestMonitor; shows the query trace when given.
+   * @param {Function} [options.onStop] Stops the running queries (Stop button on the loading veil).
    */
   constructor(options = {}) {
     this.options = options;
@@ -53,16 +57,32 @@ export class QuerySourcePanel {
     const formHost = document.createElement('div');
     formHost.className = 'h-query-source-form-host';
     formHost.addEventListener('h-filter-form-reset', () => void this.options.onClearResults?.());
-    this.container.replaceChildren(editorHost, actionsHost, formHost);
+    const traceHost = document.createElement('div'); traceHost.className = 'h-query-trace-host';
+    // Stop button on the loading veil, for the editor and the Filter Form
+    const stop = document.createElement('button');
+    stop.type = 'button';
+    stop.className = 'h-btn h-btn-small h-btn-danger h-query-source-stop';
+    stop.innerHTML = '<span class="fa-solid fa-circle-stop" aria-hidden="true"></span> ';
+    stop.append($HR('Stop'));
+    stop.title = $HR('Stop the running query');
+    stop.hidden = true;
+    stop.addEventListener('click', () => void this.options.onStop?.());
+    this.container.replaceChildren(editorHost, actionsHost, formHost, traceHost, stop);
     this.editorHost = editorHost;
     this.actionsHost = actionsHost;
     this.formHost = formHost;
+    this.traceHost = traceHost;
+    this.stopButton = stop;
+    if (this.options.requestMonitor) {
+      this.trace = new QueryTracePanel({ monitor: this.options.requestMonitor });
+      this.trace.attach(traceHost).render();
+    }
     this.editor = new QuerySourceEditor({
       dbdefs: this.options.dbdefs, lang: this.options.lang,
       openFilterBuilder: this.options.openFilterBuilder,
       editRules: this.options.editRules, describeRules: this.options.describeRules,
       onExecute: (source) => hasQueryParameters(source?.request?.q)
-        ? this.openFilterForm() : this.options.onExecute?.(source),
+        ? this.openFilterForm() : this._execute(source),
       onApply: (source) => this.options.onApply?.(source),
       onDirtyChange: (dirty, draft) => {
         this._updateFormAction(draft);
@@ -124,9 +144,8 @@ export class QuerySourcePanel {
         const runtimeSource = structuredClone(source);
         runtimeSource.request.q = query.q;
         if (query.extent) runtimeSource.request.extent = query.extent;
-        this.setLoading(true);
         // returned: the form recounts its facets when the search is done
-        return Promise.resolve(this.options.onExecute?.(runtimeSource)).finally(() => this.setLoading(false));
+        return this._execute(runtimeSource);
       }
     }).render();
     this.formHost.classList.add('h-query-source-form-host');
@@ -135,16 +154,30 @@ export class QuerySourcePanel {
   }
 
   /**
-   * Show or hide a loading veil over the runtime Filter Form while its
-   * submitted search is in flight. The form's own inputs/engine have no
-   * visibility into that - it's a host-owned widget, not part of the data
-   * module - so this is set directly around the onSubmit -> onExecute call.
+   * Run a search from the editor or the Filter Form with the loading veil shown.
+   *
+   * @private
+   * @param {object} source DataSource to execute.
+   * @returns {Promise<*>} Resolves when the search is done (or stopped).
+   */
+  _execute(source) {
+    this.setLoading(true);
+    return Promise.resolve(this.options.onExecute?.(source)).finally(() => this.setLoading(false));
+  }
+
+  /**
+   * Show or hide a loading veil over the whole panel while a submitted search
+   * is in flight. The veil blocks the editor and the Filter Form; the Stop
+   * button and the query trace stay usable above it.
    *
    * @param {boolean} loading Whether a load is in progress.
    * @returns {void}
    */
   setLoading(loading) {
-    this.formHost?.classList.toggle('is-loading', Boolean(loading));
+    this._loadingCount = Math.max(0, (this._loadingCount || 0) + (loading ? 1 : -1));
+    const active = this._loadingCount > 0;
+    this.container?.classList.toggle('is-loading', active);
+    if (this.stopButton) this.stopButton.hidden = !active;
   }
 
   /** Open the Filter Builder on the runtime Filter Form's current query source, then refresh the form. */
@@ -220,6 +253,7 @@ export class QuerySourcePanel {
     await this.closeFilterForm();
     await this.editor?.destroy?.();
     await this.actions?.destroy?.();
+    await this.trace?.destroy?.();
     this.container?.replaceChildren();
   }
 }

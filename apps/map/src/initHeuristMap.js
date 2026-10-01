@@ -19,7 +19,7 @@ import { applyPersistedSettings } from './mapConfig.js';
 import { createMapEngine } from './engine/createMapEngine.js';
 import { createHostAdapter } from './host/createHostAdapter.js';
 import { HeuristMapPublicApi } from './host/HeuristMapPublicApi.js';
-import { HeuristApiClient } from '#shared/api';
+import { HeuristApiClient, createModuleRequestMonitor } from '#shared/api';
 import { MapDocumentProvider } from './data/MapDocumentProvider.js';
 import { MapLayerProvider } from './data/MapLayerProvider.js';
 import { QueryGeoDataProvider } from './data/QueryGeoDataProvider.js';
@@ -75,7 +75,9 @@ export async function initHeuristMap(config) {
     apiBaseUrl: config.apiBaseUrl,
     database: config.database,
     accessToken: config.accessToken,
-    headers: config.requestHeaders
+    headers: config.requestHeaders,
+    // trace and stop of running queries in Explorer
+    requestMonitor: createModuleRequestMonitor(config.host?.bridge, 'map')
   });
 
   const recordTypes = new RecordTypeProvider({ apiClient });

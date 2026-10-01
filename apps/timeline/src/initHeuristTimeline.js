@@ -13,7 +13,7 @@
  * @since       8.0
  */
 
-import { HeuristApiClient } from "#shared/api";
+import { HeuristApiClient, createModuleRequestMonitor } from "#shared/api";
 import { createHostAdapter } from "./host/createHostAdapter.js";
 import { validateTimelineConfig } from "./validateTimelineConfig.js";
 import { showTimelineMessage } from "./ui/timelineMessages.js";
@@ -47,6 +47,8 @@ export async function initHeuristTimeline(config) {
     database: safeConfig.database,
     accessToken: safeConfig.accessToken,
     headers: safeConfig.requestHeaders,
+    // trace and stop of running queries in Explorer
+    requestMonitor: createModuleRequestMonitor(config.host?.bridge, "timeline"),
   });
 
   const application = new TimelineDocumentApplication({

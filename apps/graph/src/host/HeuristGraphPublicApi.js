@@ -312,6 +312,13 @@ export class HeuristGraphPublicApi {
   setExpansionDepth(depth) { return this.application.setExpansionDepth(depth); }
 
   /**
+   * Stop the running expansion requests; the main graph is not affected.
+   *
+   * @returns {void}
+   */
+  stopExpansion() { return this.application.stopExpansion(); }
+
+  /**
    * Expand the whole graph by one level.
    *
    * @returns {Promise<void>}

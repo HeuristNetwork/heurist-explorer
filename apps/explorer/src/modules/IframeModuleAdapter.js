@@ -122,6 +122,11 @@ export class IframeModuleAdapter extends ExplorerModule {
       describeRules: (rules) => outer.describeRules?.(rules),
       editFieldset: (value, options) => outer.editFieldset?.(value, options),
       zoomToExtent: (wkt) => outer.zoomToExtent?.(wkt),
+      registerRequestMonitor: (monitor) => {
+        this._unregisterRequestMonitor?.();
+        if (monitor && this.id) monitor.source = this.id;
+        this._unregisterRequestMonitor = outer.registerRequestMonitor?.(monitor) || null;
+      },
       showDatasource: (source) => {
         if (['map', 'timeline'].includes(this.type)) this.dataSource = clone(source);
         return outer.showDatasource?.(source, ['map', 'timeline'].includes(this.type) ? { origin: this.id } : {});
@@ -425,6 +430,8 @@ export class IframeModuleAdapter extends ExplorerModule {
    * @returns {Promise<void>}
    */
   async destroy() {
+    this._unregisterRequestMonitor?.();
+    this._unregisterRequestMonitor = null;
     if (this.api && this._eventBindings) {
       this._eventBindings.forEach(([name, handler]) => this.api.removeEventListener?.(name, handler));
     }

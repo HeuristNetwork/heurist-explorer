@@ -28,3 +28,18 @@
 
 #Expanded when Explorer starts#Expanded when Explorer starts
 #Drag a module into the pane it should default to. Checked panes are expanded when Explorer starts.#Drag a module into the pane it should default to. Checked panes are expanded when Explorer starts.
+#Query trace#Query trace
+#Show or hide the query trace#Show or hide the query trace
+#Ask the server for SQL timings of every request#Ask the server for SQL timings of every request
+#Debug#Debug
+#Clear#Clear
+#running#running
+#No requests yet#No requests yet
+#Switch on Debug to see server timings#Switch on Debug to see server timings
+#No server timings: switch on Debug#No server timings: switch on Debug
+#Copy#Copy
+#Copy this request and its debug data#Copy this request and its debug data
+#main SQL / all SQL / server total / browser (ms)#main SQL / all SQL / server total / browser (ms)
+#Stop#Stop
+#Stop the running query#Stop the running query
+#Stop running queries#Stop running queries

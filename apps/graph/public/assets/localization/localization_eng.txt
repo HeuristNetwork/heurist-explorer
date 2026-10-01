@@ -195,3 +195,11 @@
 #Viewable#Viewable
 #Public#Public
 #Maximum allowed nodes limit is#Maximum allowed nodes limit is
+#Stop expansion#Stop expansion
+#Expansion stopped: too many source records#Expansion stopped: too many source records
+#Restrict the rules to record types or reduce the result.#Restrict the rules to record types or reduce the result.
+#The expansion step reached too many records#The expansion step reached too many records
+#The expansion step grew too fast#The expansion step grew too fast
+#The expansion step was slow#The expansion step was slow
+#Deeper expansion levels were not loaded.#Deeper expansion levels were not loaded.
+#Click Expand again to continue anyway.#Click Expand again to continue anyway.

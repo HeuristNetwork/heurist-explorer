@@ -13,7 +13,7 @@
  * @since       8.0
  */
 
-import { HeuristApiClient } from "#shared/api";
+import { HeuristApiClient, createModuleRequestMonitor } from "#shared/api";
 import { DataApplication } from "./core/DataApplication.js";
 import { QuerySourceProvider } from "#shared/data/QuerySourceProvider.js";
 import { RecordDataProvider } from "./data/RecordDataProvider.js";
@@ -50,6 +50,8 @@ export async function initHeuristData(config) {
     database: config.database,
     accessToken: config.accessToken,
     headers: config.requestHeaders,
+    // trace and stop of running queries in Explorer
+    requestMonitor: createModuleRequestMonitor(config.host?.bridge, "data"),
   });
   const heuristBaseUrl = resolveHeuristBaseUrl(config);
   const providers = {

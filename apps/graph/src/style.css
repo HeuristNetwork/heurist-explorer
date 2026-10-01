@@ -117,6 +117,8 @@ label.heurist-graph-query-source { display:flex; align-items:center; gap:6px; fo
 
 .heurist-graph-expansion-navigator { display: flex; align-items: center; gap: 2px; margin: .4rem 0 0; }
 .heurist-graph-expansion-navigator > .heurist-graph-edit-rules { margin-left: auto; }
+.heurist-graph-stop-expansion { color: var(--h-color-danger); }
+.heurist-graph-stop-expansion[hidden] { display: none; }
 
 /* Main result loading: rotating indicator over the main area (as heurist-data) */
 .heurist-graph-loading { position: relative; cursor: progress; }

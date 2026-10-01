@@ -28,3 +28,18 @@
 
 #Expanded when Explorer starts#Développé au démarrage d’Explorer
 #Drag a module into the pane it should default to. Checked panes are expanded when Explorer starts.#Faites glisser un module dans le volet où il doit apparaître par défaut. Les volets cochés sont développés au démarrage d’Explorer.
+#Query trace#Trace des requêtes
+#Show or hide the query trace#Afficher ou masquer la trace des requêtes
+#Ask the server for SQL timings of every request#Demander au serveur les durées SQL de chaque requête
+#Debug#Débogage
+#Clear#Effacer
+#running#en cours
+#No requests yet#Aucune requête
+#Switch on Debug to see server timings#Activez Débogage pour voir les durées du serveur
+#No server timings: switch on Debug#Pas de durées du serveur : activez Débogage
+#Copy#Copier
+#Copy this request and its debug data#Copier cette requête et ses données de débogage
+#main SQL / all SQL / server total / browser (ms)#SQL principal / tout le SQL / total serveur / navigateur (ms)
+#Stop#Arrêter
+#Stop the running query#Arrêter la requête en cours
+#Stop running queries#Arrêter les requêtes en cours

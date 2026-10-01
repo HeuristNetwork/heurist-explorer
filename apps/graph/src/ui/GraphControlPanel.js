@@ -75,9 +75,13 @@ export class GraphControlPanel {
     this.quickExpandButton = iconButton('fa-solid fa-circle-plus', 'Quick expansion: add a step to every rule - any pointer or relationship to any record type', () => this.quickExpand());
     this.smartExpandButton = iconButton('fa-solid fa-wand-magic-sparkles', 'Smart expansion: choose the record types the next step reaches', () => this.smartExpand());
     this.editRulesButton.classList.add('heurist-graph-edit-rules');
+    // shown while expansion requests run
+    this.stopExpansionButton = iconButton('fa-solid fa-circle-stop', 'Stop expansion', () => this.api.stopExpansion?.());
+    this.stopExpansionButton.classList.add('heurist-graph-stop-expansion');
+    this.stopExpansionButton.hidden = true;
     // Quick and Smart expansion, the levels navigator, Edit rules at the right
     this.expansionNavigator.append(this.quickExpandButton, this.smartExpandButton,
-      this.pruneButton, this.levelSelector, this.expandButton, this.editRulesButton);
+      this.pruneButton, this.levelSelector, this.expandButton, this.stopExpansionButton, this.editRulesButton);
 
     const toggle = iconButton("fa-solid fa-layer-group", "Show or hide graph controls", () => this.toggleFullyCollapsed());
     toggle.classList.add("heurist-module-panel-toggle");
@@ -223,6 +227,7 @@ export class GraphControlPanel {
     const hasRules = (this.api.getLegend?.()?.rules?.length || 0) > 0;
     const canUnlockRules = hasRules && state.maxDepth === 0;
     this.expandButton.disabled = state.busy || (!canUnlockRules && state.depth >= state.maxDepth);
+    this.stopExpansionButton.hidden = !state.busy;
     const canEdit = this.api.canEditRules?.() === true && this.options.showExpand !== false;
     this.editRulesButton.hidden = !canEdit;
     this.quickExpandButton.hidden = !canEdit;
@@ -414,6 +419,8 @@ export class GraphControlPanel {
    * @returns {void}
    */
   reportError(error, operation) {
+    // a stopped request is not an error
+    if (error?.name === 'AbortError') return;
     this.api.application?.dispatch?.("heurist-graph-error", { error, operation });
   }
 

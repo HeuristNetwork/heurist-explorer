@@ -15,3 +15,4 @@
 
 export { HeuristApiClient } from './HeuristApiClient.js';
 export { HeuristApiError } from './HeuristApiError.js';
+export { RequestMonitor, createModuleRequestMonitor } from './RequestMonitor.js';

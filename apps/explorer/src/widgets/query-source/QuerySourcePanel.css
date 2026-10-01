@@ -1,6 +1,7 @@
 /* Fills the authoring pane (ExplorerAuthoringDock), which is the scroll container;
  * the panel itself does not scroll, so the Filter Form's sticky actions pin to the pane. */
 .h-query-source-panel {
+  position:relative;
   min-width:0;
   min-height:100%;
   box-sizing:border-box;
@@ -9,20 +10,22 @@
 .h-query-source-panel[hidden] { display:none; }
 .h-query-source-form-host { padding: 8px 4px; position:relative; }
 .h-query-source-form-host:empty { display: none; }
-.h-query-source-form-host.is-loading::before {
+/* Loading veil over the editor and the Filter Form: blocks input while a search
+ * runs. The query trace (z-index 22) and the Stop button stay above it. */
+.h-query-source-panel.is-loading::before {
   content:"";
   position:absolute;
   z-index:20;
   inset:0;
   background:color-mix(in srgb, var(--h-color-bg) 55%, transparent);
-  pointer-events:none;
+  cursor:progress;
 }
-.h-query-source-form-host.is-loading::after {
+.h-query-source-panel.is-loading::after {
   content:"\f110";
   position:absolute;
   z-index:21;
   left:50%;
-  top:50%;
+  top:90px;
   color:var(--h-color-primary);
   font:var(--fa-font-solid);
   font-size:28px;
@@ -33,5 +36,14 @@
   from { transform:translate(-50%, -50%) rotate(0deg); }
   to { transform:translate(-50%, -50%) rotate(360deg); }
 }
+.h-query-source-stop {
+  position:absolute;
+  z-index:23;
+  left:50%;
+  top:120px;
+  transform:translateX(-50%);
+  background:var(--h-color-bg);
+}
+.h-query-source-stop[hidden] { display:none; }
 .h-query-source-panel.is-filter-form-open > .h-query-source-editor-host,
 .h-query-source-panel.is-filter-form-open > .h-data-source-actions-host { display: none; }
