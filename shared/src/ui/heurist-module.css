@@ -43,8 +43,10 @@
   pointer-events: none;
   transition: opacity .12s ease;
 }
+/* Keyboard focus keeps them shown; a mouse click on a header button must not
+   (focus stays on it, which would pin the actions until the next click elsewhere). */
 .heurist-module-panel-header:hover .heurist-module-panel-actions,
-.heurist-module-panel-header:focus-within .heurist-module-panel-actions {
+.heurist-module-panel-header:has(:focus-visible) .heurist-module-panel-actions {
   opacity: 1;
   visibility: visible;
   pointer-events: auto;

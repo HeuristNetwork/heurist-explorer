@@ -23,23 +23,26 @@ import { getHeuristExplorerConfig } from './explorerConfig.js';
 import { initHeuristExplorer } from './initHeuristExplorer.js';
 
 const config = getHeuristExplorerConfig();
-const startup = initLocale(
-  config.language,
-  config.localeBaseUrl || moduleBaseUrl(),
-).then(() => initHeuristExplorer(config));
+// The public API is exposed at once - a legacy host polls for it from the
+// frame's load event - and the application initializes once the locale is loaded.
+const startup = initHeuristExplorer(config, {
+  before: initLocale(config.language, config.localeBaseUrl || moduleBaseUrl()),
+});
 
 /**
  * Resolve assets beside the deployed bundle, not beside the host page.
  *
- * `import.meta.url` alone is wrong here: under `vite dev` it points at this
- * module's location in the dev server's module graph (`/src/main.js`), not
- * at the served document root where `public/`, and the user-manual copies,
- * actually live. Resolving Vite's own `BASE_URL` against the current
- * document's location gives the right root in both dev and a built bundle
- * (where this script and the manuals are copied side by side).
+ * Under `vite dev`, `import.meta.url` points at this module's location in the
+ * dev server's module graph (`/src/main.js`), not at the served document root
+ * where `public/` lives, so Vite's `BASE_URL` is resolved against the page.
+ * A built bundle uses its own location: the page hosting it may live elsewhere
+ * (the main Heurist UI loads hclient/modules/explorer/explorerViewer.html, while
+ * the bundle and its assets are in hclient/bundles/heurist-explorer/).
  */
 function moduleBaseUrl() {
-  return new URL(import.meta.env.BASE_URL, window.location.href).href;
+  return import.meta.env.DEV
+    ? new URL(import.meta.env.BASE_URL, window.location.href).href
+    : new URL('./', import.meta.url).href;
 }
 
 startup.catch((error) => {

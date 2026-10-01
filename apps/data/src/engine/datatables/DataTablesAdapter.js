@@ -185,6 +185,12 @@ export class DataTablesAdapter extends DataEngineAdapter {
         button.textContent = $HR(item.label);
         if (item.selection) button.dataset.selectionAction = item.selection;
         else button.dataset.collectionActionName = item.collection;
+        if (item.collection === "show") {
+          // "Show collection (N)"
+          this.collectionCount = document.createElement("span");
+          this.collectionCount.className = "h-recordlist-collection-count";
+          button.append(" ", this.collectionCount);
+        }
         li.append(button);
       }
       menu.append(li);
@@ -314,13 +320,15 @@ export class DataTablesAdapter extends DataEngineAdapter {
     else if (name === "remove-selected")
       await this.onCollectionAction?.("remove", selected);
     else if (name === "clear") await this.onCollectionAction?.("clear", []);
-    else if (name === "show") await this.onCollectionAction?.("show", []);
+    // nothing to show in an empty collection
+    else if (name === "show" && this.collected.size) await this.onCollectionAction?.("show", []);
   }
 
-  /** Refresh the selection-count toolbar button's label. */
+  /** Refresh the selection-count toolbar button's label and the collection count. */
   _updateSelectionButton() {
     if (this.selectionButton)
       this.selectionButton.textContent = `${$HR("Selected")}: ${this.selected.size}`;
+    if (this.collectionCount) this.collectionCount.textContent = `(${this.collected?.size || 0})`;
   }
 
   /** Move the toolbar to sit between the source header and the DataTables container. */
@@ -574,6 +582,7 @@ export class DataTablesAdapter extends DataEngineAdapter {
   async setCollection(recordIds) {
     this.collected = new Set(recordIds.map(Number));
     this._applyCollectionClasses();
+    this._updateSelectionButton();
   }
 
   /** Coalesce duplicate DataTables draws while an identical request is active. */

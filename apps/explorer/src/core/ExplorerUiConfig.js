@@ -74,8 +74,11 @@ export function applyUiRegions(definitions, value) {
 function defaults() {
   return {
     version: 1,
-    toolbar: { position: 'vertical', buttonSize: 'small' },
-    regions: { data: 'west', map: 'center', graph: 'center', timeline: 'south', recordview: 'east' }
+    // toolbar rails on top by default (decided 2026-10-01)
+    toolbar: { position: 'horizontal', buttonSize: 'small' },
+    regions: { data: 'west', map: 'center', graph: 'center', timeline: 'south', recordview: 'east' },
+    // panes expanded when Explorer starts; the others start hidden (opened from the toolbar)
+    panes: { north: false, west: true, center: false, east: false, south: false }
   };
 }
 
@@ -92,11 +95,16 @@ function normalize(value) {
       position: TOOLBAR_POSITIONS.includes(toolbar.position) ? toolbar.position : fallback.toolbar.position,
       buttonSize: BUTTON_SIZES.includes(toolbar.buttonSize) ? toolbar.buttonSize : fallback.toolbar.buttonSize
     },
-    regions: {}
+    regions: {},
+    panes: {}
   };
 
   for (const type of REGION_TYPES) {
     normalized.regions[type] = REGIONS.includes(regions[type]) ? regions[type] : fallback.regions[type];
+  }
+  const panes = source.panes && typeof source.panes === 'object' ? source.panes : {};
+  for (const region of REGIONS) {
+    normalized.panes[region] = typeof panes[region] === 'boolean' ? panes[region] : fallback.panes[region];
   }
 
   return normalized;

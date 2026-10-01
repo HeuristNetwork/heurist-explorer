@@ -136,7 +136,8 @@ export class DataControlPanel {
     if (!this.body) return;
     const available = this.expansionBar?.isAvailable() === true;
     this.body.hidden = !available;
-    if (this.angleToggle) this.angleToggle.hidden = !available;
+    // the body toggle is offered only while Expansion is on
+    if (this.angleToggle) this.angleToggle.hidden = !available || this.expansionBar?.open !== true;
     this.element.classList.toggle("heurist-data-has-body", available);
     this.updateExpandedState();
   }
@@ -149,6 +150,7 @@ export class DataControlPanel {
    */
   setBodyOpen(open) {
     this.element?.classList.toggle("body-collapsed", !open);
+    if (this.angleToggle) this.angleToggle.hidden = !open || this.expansionBar?.isAvailable() !== true;
     this.updateExpandedState();
   }
 

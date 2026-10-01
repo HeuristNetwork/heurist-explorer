@@ -51,6 +51,7 @@ export class ExplorerConfigurationDialog {
     this.onCancel = typeof onCancel === 'function' ? onCancel : null;
     this.chips = new Map();
     this.paneLists = new Map();
+    this.paneChecks = new Map();
     this.element = null;
   }
 
@@ -185,7 +186,7 @@ export class ExplorerConfigurationDialog {
    */
   buildLayoutSection(body) {
     const hint = el('p', 'h-explorer-config-hint h-i18n');
-    hint.textContent = 'Drag a module into the pane it should default to.';
+    hint.textContent = 'Drag a module into the pane it should default to. Checked panes are expanded when Explorer starts.';
     body.append(hint);
 
     const cardinal = el('div', 'h-explorer-config-cardinal');
@@ -214,8 +215,19 @@ export class ExplorerConfigurationDialog {
    */
   _buildPane(region) {
     const pane = el('div', `h-explorer-config-pane h-explorer-config-pane-${region.id}`);
+    const head = el('div', 'h-explorer-config-pane-head');
     const label = el('div', 'h-explorer-config-pane-label h-i18n');
     label.textContent = region.label;
+    // checked: the pane is expanded when Explorer starts, otherwise it starts hidden
+    const expanded = el('input', 'h-checkbox h-explorer-config-pane-expanded');
+    expanded.classList.remove('h-input');
+    expanded.type = 'checkbox';
+    expanded.checked = this.value.panes[region.id] === true;
+    expanded.title = $HR('Expanded when Explorer starts');
+    expanded.setAttribute('aria-label', `${$HR(region.label)}: ${expanded.title}`);
+    expanded.addEventListener('change', () => { this.value.panes[region.id] = expanded.checked; });
+    this.paneChecks.set(region.id, expanded);
+    head.append(label, expanded);
     const list = el('div', 'h-explorer-config-pane-list');
     list.dataset.region = region.id;
 
@@ -235,7 +247,7 @@ export class ExplorerConfigurationDialog {
       this.value.regions[moduleType] = region.id;
     });
 
-    pane.append(label, list);
+    pane.append(head, list);
     this.paneLists.set(region.id, list);
     return pane;
   }
@@ -274,12 +286,17 @@ export class ExplorerConfigurationDialog {
    * @returns {void}
    */
   resetLayout() {
-    const defaults = ExplorerUiConfig.defaults().regions;
-    for (const [type, region] of Object.entries(defaults)) {
+    const defaults = ExplorerUiConfig.defaults();
+    for (const [type, region] of Object.entries(defaults.regions)) {
       this.value.regions[type] = region;
       const chip = this.chips.get(type);
       const list = this.paneLists.get(region);
       if (chip && list) list.append(chip);
+    }
+    for (const [region, expanded] of Object.entries(defaults.panes)) {
+      this.value.panes[region] = expanded;
+      const check = this.paneChecks.get(region);
+      if (check) check.checked = expanded;
     }
   }
 
@@ -377,6 +394,7 @@ export class ExplorerConfigurationDialog {
     this.element = this.dialog = this.form = null;
     this.chips.clear();
     this.paneLists.clear();
+    this.paneChecks.clear();
     this.previousFocus?.focus?.();
     this.previousFocus = null;
   }
@@ -387,7 +405,8 @@ function mergeDefaults(value) {
   const defaults = ExplorerUiConfig.defaults();
   return {
     toolbar: { ...defaults.toolbar, ...(value?.toolbar || {}) },
-    regions: { ...defaults.regions, ...(value?.regions || {}) }
+    regions: { ...defaults.regions, ...(value?.regions || {}) },
+    panes: { ...defaults.panes, ...(value?.panes || {}) }
   };
 }
 

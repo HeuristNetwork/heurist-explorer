@@ -26,3 +26,5 @@
 #Saved Filter editor is not available#L’éditeur de filtre enregistré n’est pas disponible
 #Unable to load database structure#Impossible de charger la structure de la base
 
+#Expanded when Explorer starts#Développé au démarrage d’Explorer
+#Drag a module into the pane it should default to. Checked panes are expanded when Explorer starts.#Faites glisser un module dans le volet où il doit apparaître par défaut. Les volets cochés sont développés au démarrage d’Explorer.

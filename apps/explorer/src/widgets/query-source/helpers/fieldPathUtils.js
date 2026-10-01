@@ -132,37 +132,8 @@ export function normalizeFieldDescriptors(values = [], dbdefs = null) {
   }).filter(Boolean);
 }
 
-/**
- * Find the record type id (`t:<id>`) constraint anywhere within a keyword or structured query.
- * @param {*} query Query to search (string, array or object).
- * @returns {number|null} The record type id, or null if none is present.
- */
-export function inferRecordTypeId(query) {
-  const find = (value) => {
-    if (!value) return null;
-    if (typeof value === 'string') {
-      const match = value.match(/(?:^|\s)t\s*:\s*(\d+)/i);
-      return match ? Number(match[1]) : null;
-    }
-    if (Array.isArray(value)) {
-      for (const item of value) {
-        const hit = find(item);
-        if (hit) return hit;
-      }
-      return null;
-    }
-    if (typeof value === 'object') {
-      if (value.t != null && Number(value.t) > 0) return Number(value.t);
-      if (value.q != null) return find(value.q);
-      for (const child of Object.values(value)) {
-        const hit = find(child);
-        if (hit) return hit;
-      }
-    }
-    return null;
-  };
-  return find(query);
-}
+// moved to shared (also used by heurist-data); re-exported for existing imports
+export { inferRecordTypeId } from '#shared/data/queryRecordType.js';
 
 function headerFieldLabel(code) {
   return ({

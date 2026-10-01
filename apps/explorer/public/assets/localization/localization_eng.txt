@@ -26,3 +26,5 @@
 #Saved Filter editor is not available#Saved Filter editor is not available
 #Unable to load database structure#Unable to load database structure
 
+#Expanded when Explorer starts#Expanded when Explorer starts
+#Drag a module into the pane it should default to. Checked panes are expanded when Explorer starts.#Drag a module into the pane it should default to. Checked panes are expanded when Explorer starts.

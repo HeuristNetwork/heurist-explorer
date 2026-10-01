@@ -279,9 +279,11 @@ level controls are disabled while the pane is hidden. The record-type dialog is 
 while the "Expansion rules" option is on (without rules the section offers Quick /
 Smart expansion to create them). It opens and closes the panel's drop-down body
 together with the level pane; the angle toggle (now first in the header) shows or
-hides the body only. `setDataSource` with another DataSource **or a changed query**
-(also a parameterized search of the same source) resets and hides the pane and closes
-the section (`heurist-data-expansion-reset`). Navigator order in Graph and Data:
+hides the body only. Expansion is closed and reset (pane hidden, level 1, section
+closed - `heurist-data-expansion-reset`) only by: loading another Query Source or Saved
+Filter, a changed record type of the query (QSE), or removed rules (QSE Clear)
+(`sameExpansionContext` in DataApplication.js). A Filter Form submit, or another query
+of the same record type, keeps the pane (corrected the same day). Navigator order in Graph and Data:
 Link (Data only), Quick expansion, Smart expansion, previous / level / next, all levels
 (Data only), Edit rules at the right. Graph: Quick/Smart expansion show "Maximum allowed
 nodes limit is NNN" and do nothing when the graph already has the maximum nodes; the

@@ -645,13 +645,19 @@ export class HRecordList extends HBaseWidget {
     });
   }
 
-  /** Apply a toolbar selection shortcut ('page' selects the loaded page, 'none' clears, 'show' filters to selection). */
+  /**
+   * Apply a toolbar selection shortcut: 'page' selects the loaded page, 'none'
+   * clears the selection (and "Show selected"), 'show' toggles showing only the
+   * selected records - nothing to show without a selection.
+   */
   _selectionAction(action) {
     if (action === "page") {
       this.records.forEach((record) => this.selected.add(recordId(record)));
     } else if (action === "none") {
       this.selected.clear();
+      this.showSelectionOnly = false;
     } else if (action === "show") {
+      if (!this.showSelectionOnly && !this.selected.size) return;
       this.showSelectionOnly = !this.showSelectionOnly;
     }
     this._render();
@@ -669,7 +675,8 @@ export class HRecordList extends HBaseWidget {
     else if (action === "remove-selected")
       await this.onCollectionAction?.("remove", selected);
     else if (action === "clear") await this.onCollectionAction?.("clear", []);
-    else if (action === "show") await this.onCollectionAction?.("show", []);
+    // nothing to show in an empty collection
+    else if (action === "show" && this.collected.size) await this.onCollectionAction?.("show", []);
   }
   /**
    * Apply the current record selection to the rendered items and scroll the first into view.
@@ -700,6 +707,7 @@ export class HRecordList extends HBaseWidget {
   async setCollection(ids) {
     this.collected = new Set((ids || []).map(Number));
     this._applyCollection();
+    this._updateSelectionButton();
   }
 
   /** Sync the selection toolbar button and each rendered item's selected-item class. */
@@ -720,11 +728,18 @@ export class HRecordList extends HBaseWidget {
     });
   }
 
-  /** Refresh the selection-count toolbar button's label. */
+  /** Refresh the selection-count button's label, the "Show selected" check and the collection count. */
   _updateSelectionButton() {
     const button = this.$('[data-role="selection-button"]');
     if (button)
       button.textContent = `${$HR("Selected")}: ${this.selected?.size || 0}`;
+    const show = this.$('[data-selection-action="show"]');
+    if (show) {
+      show.classList.toggle("is-checked", this.showSelectionOnly === true);
+      show.setAttribute("aria-pressed", String(this.showSelectionOnly === true));
+    }
+    const count = this.$('[data-role="collection-count"]');
+    if (count) count.textContent = `(${this.collected?.size || 0})`;
   }
 
   /** Rebuild the pagination control from the current offset, page length, and filtered total. */

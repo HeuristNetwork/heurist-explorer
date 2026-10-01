@@ -12,6 +12,17 @@
     gap: 6px 18px;
 }
 
+/* the shared .heurist-config-row input { width: 100% } must not stretch the radios
+   (it squeezed each label into a narrow wrapped column) */
+.h-explorer-config-radio-group input[type='radio'] {
+    width: auto;
+    flex: none;
+}
+
+.h-explorer-config-radio-group .heurist-config-check {
+    white-space: nowrap;
+}
+
 .h-explorer-config-hint {
     margin: 0 0 10px;
     color: var(--h-color-text-muted);
@@ -39,6 +50,12 @@
     flex-direction: column;
     gap: 4px;
     min-width: 0;
+}
+
+.h-explorer-config-pane-head {
+    display: flex;
+    align-items: center;
+    gap: 6px;
 }
 
 .h-explorer-config-pane-label {

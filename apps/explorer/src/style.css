@@ -12,3 +12,22 @@ body {
     color: var(--h-color-text);
     background: var(--h-color-bg);
 }
+
+/* Startup: rotating indicator until Explorer is ready (see initHeuristExplorer.js) */
+.h-explorer-booting { position: relative; min-height: 120px; cursor: progress; }
+.h-explorer-booting::after {
+  content: "\f110";
+  position: absolute;
+  z-index: 50;
+  left: 50%;
+  top: 50%;
+  color: var(--h-color-primary);
+  font: var(--fa-font-solid);
+  font-size: 32px;
+  animation: h-explorer-boot-spin .9s linear infinite;
+  pointer-events: none;
+}
+@keyframes h-explorer-boot-spin {
+  from { transform: translate(-50%, -50%) rotate(0deg); }
+  to { transform: translate(-50%, -50%) rotate(360deg); }
+}

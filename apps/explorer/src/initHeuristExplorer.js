@@ -17,19 +17,29 @@ import { ExplorerApplication } from './core/ExplorerApplication.js';
 import { HeuristExplorerPublicApi } from './host/HeuristExplorerPublicApi.js';
 
 /**
- * Create, initialize, and expose the Explorer application as `window.heuristExplorer`.
+ * Create the Explorer application, expose it as `window.heuristExplorer` at once
+ * and initialize it.
+ *
+ * The API is exposed before initialization (and before `before`, e.g. the
+ * locale), so a host polling for it finds it immediately; the host waits for
+ * `api.ready()` before calling anything else.
  *
  * @param {object} config Normalized Explorer configuration; see `explorerConfig.js`.
+ * @param {object} [options]
+ * @param {Promise<*>|null} [options.before] Work to finish before the application initializes.
  * @returns {Promise<HeuristExplorerPublicApi>} Resolves once the application has initialized.
  * @throws {Error} When `config.containerId` does not match an element in the document.
  */
-export async function initHeuristExplorer(config) {
+export async function initHeuristExplorer(config, { before = null } = {}) {
   const container = document.getElementById(config.containerId);
   if (!container) throw new Error(`#${config.containerId} was not found`);
 
   const application = new ExplorerApplication({ container, config });
   const api = new HeuristExplorerPublicApi(application);
-  const ready = application.initialize().then(() => api);
+  // a rotating indicator until Explorer is ready (locale, sources, layout)
+  container.classList.add('h-explorer-booting');
+  const ready = Promise.resolve(before).then(() => application.initialize()).then(() => api)
+    .finally(() => container.classList.remove('h-explorer-booting'));
   api.setReadyPromise(ready);
   globalThis.heuristExplorer = api;
   return ready;

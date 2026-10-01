@@ -15,6 +15,7 @@
 
 import { normalizeDataConfigurationSettings } from "../ui/config/dataConfigurationSchema.js";
 import { appendQuickStep, quickStepReachQuery } from "#shared/data/expansionRules.js";
+import { inferRecordTypeId } from "#shared/data/queryRecordType.js";
 import { RecordViewRenderer } from "#shared/recordview/RecordViewRenderer.js";
 import { $HR } from "#shared/ui";
 import { ExpansionLevelView } from "./ExpansionLevelView.js";
@@ -271,9 +272,9 @@ export class DataApplication extends EventTarget {
     const request = dataSource?.request || {};
     const fields = dataSource?.presentation?.data?.fields;
     if (this.expansion) {
-      // another source or a changed query: the level pane is reset and hidden
-      const same = sameDataSource(this.dataSource, dataSource)
-        && sameQuery(this.dataSource?.request?.q, request.q);
+      // another Query Source / Saved Filter, another record type, or the rules
+      // removed (QSE Clear) reset and hide expansion; a Filter Form submit keeps it
+      const same = sameExpansionContext(this.dataSource, dataSource);
       if (!same && this.expansion.active) await this.expansion.setActive(false);
       await this.expansion.setRules(request.rules, { reset: !same, reload: false });
       // the control panel closes its expansion section too
@@ -617,7 +618,8 @@ export class DataApplication extends EventTarget {
     else if (action === "clear")
       this.collection = await this.host.removeFromCollection(this.collection);
     else if (action === "show") {
-      if (!this.collection.length) return this.clearData();
+      // nothing to show in an empty collection: the current result stays
+      if (!this.collection.length) return false;
       return this.setQuery(
         { ids: [...this.collection] },
         {
@@ -951,9 +953,25 @@ function sameDataSource(a, b) {
   return left.type === right.type && String(left.id) === String(right.id);
 }
 
-/** Whether two queries are the same (structurally). */
-function sameQuery(a, b) {
-  return JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
+/**
+ * Whether a new DataSource keeps the expansion (level pane and panel section).
+ * It is reset by another saved Query Source or Saved Filter, a change of the
+ * query's record type (in the QSE), or rules that were removed (QSE Clear);
+ * a new query of the same source - e.g. a Filter Form submit - keeps it.
+ *
+ * @param {object|null} previous Current DataSource.
+ * @param {object|null} next New DataSource.
+ * @returns {boolean} Whether expansion is kept.
+ */
+export function sameExpansionContext(previous, next) {
+  if (!previous || !next) return false;
+  const saved = (reference) => ["source", "filter"].includes(reference?.type) && reference?.id != null;
+  if (saved(previous.reference) || saved(next.reference)) {
+    if (!sameDataSource(previous, next)) return false;
+  }
+  if (inferRecordTypeId(previous.request?.q) !== inferRecordTypeId(next.request?.q)) return false;
+  const rules = (source) => (Array.isArray(source?.request?.rules) ? source.request.rules.length : 0);
+  return !(rules(previous) > 0 && rules(next) === 0);
 }
 
 /** Build an ad-hoc query-type DataSource for a raw query and optional title. */

@@ -122,7 +122,7 @@ test("the main selection filters the level; disabled rules are left out", async 
   assert.deepEqual(loads.at(-1).query, { connected: [{ all: "t:10" }] });
 });
 
-test("the same DataSource and query keeps the pane; a changed query or another DataSource hides it (U7, 2026-10-01)", async () => {
+test("a Filter Form submit keeps the pane; another source, record type or removed rules hide it (U7, 2026-10-01)", async () => {
   const requests = [];
   const { application, loads } = await createApplication(requests);
   const source = { reference: { type: "source", id: 5 }, request: { q: "t:10", rules: RULES } };
@@ -133,19 +133,30 @@ test("the same DataSource and query keeps the pane; a changed query or another D
   const resets = [];
   application.addEventListener("heurist-data-expansion-reset", () => resets.push(true));
 
-  await application.setDataSource({ ...source, request: { q: "t:10", rules: RULES } });
+  await application.setDataSource({ ...source, request: { q: "t:10 f:1:x", rules: RULES } });
   await settle();
-  assert.equal(view.active, true, "the same source and query keeps the pane");
+  assert.equal(view.active, true, "parameterized search (Filter Form) keeps the pane");
   assert.equal(view.level, 2);
-  assert.deepEqual(loads.at(-1).query, { connected: [{ all: { connected: [{ all: "t:10" }] } }] });
+  assert.deepEqual(loads.at(-1).query, { connected: [{ all: { connected: [{ all: "t:10 f:1:x" }] } }] });
   assert.equal(resets.length, 0);
 
-  await application.setDataSource({ ...source, request: { q: "t:10 f:1:x", rules: RULES } });
-  assert.equal(view.active, false, "a changed query (e.g. parameterized search) hides the pane");
-  assert.equal(view.level, 1);
-  assert.equal(resets.length, 1, "the control panel closes its expansion section");
+  // QSE: another record type
+  const draft = { reference: { type: "query", id: null, key: "query:draft" }, request: { q: "t:10", rules: RULES } };
+  await application.setDataSource(draft);
   await view.setActive(true);
+  await application.setDataSource({ ...draft, request: { q: "t:12", rules: RULES } });
+  assert.equal(view.active, false, "another record type hides the pane");
+  assert.equal(resets.length, 2, "and closes the section");
 
+  // QSE: Clear removes the rules
+  await application.setDataSource({ ...draft, request: { q: "t:12", rules: RULES } });
+  await view.setActive(true);
+  await application.setDataSource({ ...draft, request: { q: "t:12" } });
+  assert.equal(view.active, false, "Clear (rules removed) hides the pane");
+  assert.equal(resets.length, 3);
+
+  await application.setDataSource({ reference: { type: "source", id: 5 }, request: { q: "t:10", rules: RULES } });
+  await view.setActive(true);
   await application.setDataSource({ reference: { type: "filter", id: 9 }, request: { q: "t:12", rules: RULES } });
   assert.equal(view.active, false, "another DataSource hides the pane");
   assert.equal(view.level, 1);

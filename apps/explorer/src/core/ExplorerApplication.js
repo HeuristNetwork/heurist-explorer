@@ -173,7 +173,8 @@ export class ExplorerApplication {
     });
     await this.controlPanel.mount(this.container);
     await this._createQuerySourcePanel();
-    await this.applyLayout(this.config.settings.layout || defaultLayout());
+    // modules of panes not expanded at start are created when first opened
+    await this.applyLayout(this.config.settings.layout || defaultLayout(), { deferHidden: true });
     this.compactMode = new ExplorerCompactMode({ application: this }).start();
     if (this.config.state.dataSource) await this.activateDataSource(this.config.state.dataSource);
     if (this.config.state.selection) await this.sync.setSelection(this.config.state.selection);
@@ -184,10 +185,21 @@ export class ExplorerApplication {
    * Apply a new module layout: create newly-listed modules, and destroy modules no longer present.
    *
    * @param {Array<object>|{modules: Array<object>}} layout Layout definition; see `normalizeLayout`.
+   * @param {object} [options]
+   * @param {boolean} [options.deferHidden=false] At startup: modules of panes that are not
+   *        expanded at start (Explorer configuration, Layout) are not created now - they
+   *        are created, from the kept definition, when first opened from the toolbar.
    * @returns {Promise<ExplorerApplication>} This instance, for chaining.
    */
-  async applyLayout(layout) {
-    const moduleDefs = applyUiRegions(normalizeLayout(layout), this.uiConfigValue);
+  async applyLayout(layout, { deferHidden = false } = {}) {
+    let moduleDefs = applyUiRegions(normalizeLayout(layout), this.uiConfigValue);
+    if (deferHidden) {
+      const panes = this.uiConfigValue?.panes || {};
+      this.deferredDefinitions = new Map(moduleDefs
+        .filter((item) => panes[item.region] === false)
+        .map((item) => [item.type, { ...item }]));
+      moduleDefs = moduleDefs.filter((item) => panes[item.region] !== false);
+    }
     this.layoutDefinitions = moduleDefs.map((item) => ({ ...item }));
     this.layout.setLayout(moduleDefs);
     const active = new Set(moduleDefs.map((item) => item.id));
@@ -1025,7 +1037,10 @@ export class ExplorerApplication {
 
   /** Add a presentation module of this type to the layout, in the given region. */
   async _createPresentation(type, region) {
-    const definition = { id: type, type, region };
+    // a module deferred at startup keeps its layout definition (settings, state, context)
+    const deferred = this.deferredDefinitions?.get(type);
+    this.deferredDefinitions?.delete(type);
+    const definition = { ...(deferred || {}), id: deferred?.id || type, type, region };
     this.layoutDefinitions.push(definition);
     this.layout.addDefinition(definition);
     return this._createModule(definition);
