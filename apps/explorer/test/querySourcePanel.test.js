@@ -60,12 +60,22 @@ test('Clear turns a parameterized query into an empty, editable one', () => {
   assert.equal(editor.draft.presentation.filterForm, null);
 });
 
-test('the editor is always expanded unless created collapsible', () => {
-  const fixed = new QuerySourceEditor({ dbdefs: {} });
-  fixed.setExpanded(false);
-  assert.equal(fixed.isExpanded(), true);
-  const collapsible = new QuerySourceEditor({ dbdefs: {}, collapsible: true });
-  assert.equal(collapsible.isExpanded(), false);
-  collapsible.setExpanded(true);
-  assert.equal(collapsible.isExpanded(), true);
+test('the More state is the host\'s: hidden by default, kept when a source is loaded or saved', () => {
+  const editor = new QuerySourceEditor({ dbdefs: {} });
+  assert.equal(editor.isExpanded(), false);
+  const shown = new QuerySourceEditor({ dbdefs: {}, expanded: true });
+  shown.setDataSource({ reference: { type: 'source', id: 3, key: 'source:3' }, request: { q: 't:10' }, presentation: {} });
+  shown.markCommitted();
+  assert.equal(shown.isExpanded(), true);
+  shown.setExpanded(false);
+  assert.equal(shown.isExpanded(), false);
+});
+
+test('orientation: vertical by default, set by the host', () => {
+  const editor = new QuerySourceEditor({ dbdefs: {} });
+  assert.equal(editor.getOrientation(), 'vertical');
+  editor.setOrientation('horizontal');
+  assert.equal(editor.getOrientation(), 'horizontal');
+  editor.setOrientation('anything');
+  assert.equal(editor.getOrientation(), 'vertical');
 });

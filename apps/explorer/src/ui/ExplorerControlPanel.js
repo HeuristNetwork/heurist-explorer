@@ -218,9 +218,9 @@ export class ExplorerControlPanel {
   }
 
   /**
-   * Opens the query-language help over the Explorer root.
+   * Opens the query-language help over the Explorer root (Help in the Query Source editor).
    */
-  _openFilterHelp() {
+  openFilterHelp() {
     this.filterHelpOverlay ||= new InlineHelp({
       parent: this.application.container,
       moduleName: 'explorer',
@@ -376,7 +376,8 @@ export class ExplorerControlPanel {
     this.closeToolPanel();
     new ExplorerConfigurationDialog({
       value: this.application.uiConfigValue,
-      onSave: (value) => this.application.applyUiConfig(value)
+      onSave: (value) => this.application.applyUiConfig(value),
+      onGettingStarted: () => this.application.showWelcome()
     }).open();
   }
 
@@ -386,7 +387,7 @@ export class ExplorerControlPanel {
    * @param {{position?: 'vertical'|'horizontal', buttonSize?: string}} [config] Toolbar configuration.
    * @returns {void}
    */
-  applyToolbarConfig({ position = 'vertical', buttonSize = 'small' } = {}) {
+  applyToolbarConfig({ position = 'vertical', buttonSize = 'large-caption' } = {}) {
     this._toolbarPosition = position;
     this.application.container?.classList.toggle('h-toolbar-horizontal', position === 'horizontal');
     this.leftRail?.setViewMode(buttonSize);
@@ -1485,7 +1486,8 @@ export class ExplorerControlPanel {
 /** Build the left rail's button definitions. */
 function leftButtons() {
   return [
-    { id: 'search', icon: 'fa-solid fa-magnifying-glass', title: 'Search', hint: 'Query builder and source editor', group: 'find' },
+    // Search (the Query Source editor) is separated from the lists that feed it (2026-10-03)
+    { id: 'search', icon: 'fa-solid fa-magnifying-glass', title: 'Search', hint: 'Query builder and source editor', group: 'author' },
     { id: 'saved-filters', icon: 'fa-solid fa-filter', title: 'Filters', hint: 'Browse and apply saved filters', group: 'find' },
     { id: 'record-types', icon: 'fa-solid fa-shapes', title: 'Entities', hint: 'Search by record type', group: 'find' },
     { id: 'query-sources', icon: 'fa-solid fa-database', title: 'Sources', hint: 'Saved data sources (filter and presentation settings)', group: 'find' },

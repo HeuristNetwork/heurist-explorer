@@ -31,12 +31,15 @@ export class DataSourceActions extends HBaseWidget {
    * @param {Function} [options.prepareSourceDraft] Returns a save-ready draft, e.g. with an auto-generated title.
    * @param {Function} [options.canSaveFilter] `() → boolean`: whether Save as Filter is offered (default yes).
    * @param {Function} [options.canSaveSource] `() → boolean`: whether Save/Update Source is offered (default yes).
+   * @param {boolean} [options.inline=false] Render only Save and Add as icon+caption buttons, without the
+   *        status line (its text goes into the button tooltips); the host lays them out (Query Source editor).
    */
   constructor({ onSaveFilter, onSaveSource, onUpdateSource, onWorkspaceAdd, onWorkspaceRemove, isInWorkspace, prepareSourceDraft,
-    canSaveFilter = null, canSaveSource = null } = {}) {
+    canSaveFilter = null, canSaveSource = null, inline = false } = {}) {
     super();
     Object.assign(this, { onSaveFilter, onSaveSource, onUpdateSource, onWorkspaceAdd, onWorkspaceRemove, isInWorkspace, prepareSourceDraft,
       canSaveFilter, canSaveSource });
+    this.inline = inline === true;
     this.dataSource = null;
     this.getDraft = null;
     this.dirty = false;
@@ -45,6 +48,7 @@ export class DataSourceActions extends HBaseWidget {
   /** @returns {DataSourceActions} this, for chaining. */
   render() {
     if (!this.container) throw new Error('DataSourceActions must be attached before render');
+    if (this.inline) return this._renderInline();
     this.container.className = 'h-dsa';
     this._status = document.createElement('div'); this._status.className = 'h-dsa-status';
     this._buttons = document.createElement('div'); this._buttons.className = 'h-dsa-buttons';
@@ -55,6 +59,21 @@ export class DataSourceActions extends HBaseWidget {
     this._workspace = action($HR('Add to Workspace'), () => void this._run('workspace'));
     this._buttons.append(this._filter, this._source, this._workspace);
     this.container.replaceChildren(this._status, this._buttons);
+    this.state = 'rendered';
+    void this.refresh();
+    return this;
+  }
+
+  /** Inline mode: Save and Add only, as icon+caption buttons laid out by the host. */
+  _renderInline() {
+    this.container.className = 'h-dsa-inline';
+    this._status = null;
+    this._filter = null;
+    this._source = action('', () => void this._run('source'), 'h-btn h-dsa-save');
+    this._source.innerHTML = '<i class="fa-solid fa-floppy-disk" aria-hidden="true"></i><span class="h-qse-caption"></span>';
+    this._workspace = action('', () => void this._run('workspace'), 'h-btn h-dsa-workspace');
+    this._workspace.innerHTML = '<i class="fa-solid fa-folder-plus" aria-hidden="true"></i><span class="h-qse-caption"></span>';
+    this.container.replaceChildren(this._source, this._workspace);
     this.state = 'rendered';
     void this.refresh();
     return this;
@@ -80,12 +99,13 @@ export class DataSourceActions extends HBaseWidget {
     const sourceId = ds?.reference?.type === 'source' ? ds.reference.id : null;
     let inWorkspace = false;
     try { inWorkspace = ds && typeof this.isInWorkspace === 'function' ? await this.isInWorkspace(ds) : false; } catch { /* status only */ }
+    const bits = [];
+    if (sourceId) bits.push(`${$HR('Query Source')} #${sourceId}`);
+    else bits.push($HR('Unsaved source'));
+    if (inWorkspace) bits.push($HR('In Workspace'));
+    const status = bits.join(' · ');
     if (this._status) {
-      const bits = [];
-      if (sourceId) bits.push(`${$HR('Query Source')} #${sourceId}`);
-      else bits.push($HR('Unsaved source'));
-      if (inWorkspace) bits.push($HR('In Workspace'));
-      this._status.textContent = bits.join(' · ');
+      this._status.textContent = status;
       this._status.classList.toggle('is-persisted', !!sourceId);
       this._status.classList.toggle('is-workspace', !!inWorkspace);
     }
@@ -96,16 +116,24 @@ export class DataSourceActions extends HBaseWidget {
     if (this._source) this._source.hidden = !allowed(this.canSaveSource);
     if (this._filter) this._filter.disabled = !hasQuery;
     if (this._source) {
-      this._source.textContent = sourceId ? $HR('Update Source') : $HR('Save as Source');
+      if (this.inline) {
+        setCaption(this._source, $HR('Save'));
+        this._source.title = `${sourceId ? $HR('Update Source') : $HR('Save as Source')}: ${$HR('Save the query together with presentation settings for reuse.')} (${status})`;
+      } else this._source.textContent = sourceId ? $HR('Update Source') : $HR('Save as Source');
       this._source.disabled = !hasQuery;
     }
     if (this._workspace) {
-      this._workspace.textContent = inWorkspace ? $HR('Remove from Workspace') : $HR('Add to Workspace');
+      if (this.inline) {
+        setCaption(this._workspace, inWorkspace ? $HR('Remove') : $HR('Add'));
+        this._workspace.querySelector('i')?.classList.toggle('fa-folder-plus', !inWorkspace);
+        this._workspace.querySelector('i')?.classList.toggle('fa-folder-minus', inWorkspace);
+      } else this._workspace.textContent = inWorkspace ? $HR('Remove from Workspace') : $HR('Add to Workspace');
       this._workspace.disabled = !(sourceId > 0) || (!inWorkspace && this.dirty);
       this._workspace.title = sourceId > 0
         ? (inWorkspace ? $HR('Remove this saved Query Source from Workspace.') : $HR('Add this saved Query Source to Workspace.'))
         : $HR('Save as Source before adding it to Workspace.');
       if (sourceId > 0 && !inWorkspace && this.dirty) this._workspace.title = $HR('Update Source before adding it to Workspace.');
+      if (this.inline) this._workspace.title += ` (${status})`;
     }
     this._inWorkspace = inWorkspace;
   }
@@ -138,6 +166,9 @@ export class DataSourceActions extends HBaseWidget {
 }
 
 function action(label, handler, className = 'h-btn h-btn-small') { const b = document.createElement('button'); b.type = 'button'; b.className = className; b.textContent = label; b.addEventListener('click', handler); return b; }
+
+/** Set an inline button's caption (its `.h-qse-caption` span). */
+function setCaption(button, text) { const caption = button.querySelector('.h-qse-caption'); if (caption) caption.textContent = text; else button.textContent = text; }
 
 function safeClone(source) { try { return cloneDataSource(source); } catch { return source == null ? null : (typeof structuredClone === 'function' ? structuredClone(source) : JSON.parse(JSON.stringify(source))); } }
 

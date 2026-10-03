@@ -76,7 +76,8 @@ export class HFilterInlineHelper extends HBaseWidget {
    * Attach the helper to the query input it will augment.
    *
    * @param {HTMLInputElement|HTMLTextAreaElement} input Input to bind to.
-   * @param {{showBuilderButton?: boolean}} [options] Attach options.
+   * @param {{showBuilderButton?: boolean, sentenceHost?: HTMLElement}} [options] Attach options;
+   *        `sentenceHost` receives the sentence panel instead of the place after the input's section.
    * @returns {HFilterInlineHelper} This instance, for chaining.
    * @throws {TypeError} When `input` is not an `HTMLElement`.
    */
@@ -115,7 +116,8 @@ export class HFilterInlineHelper extends HBaseWidget {
     // sentence panel - normal flow, right after the input's section
     this._sentence = el('div', 'h-fih-sentence');
     this._sentence.hidden = true;
-    (input.closest('.h-filter-direct') || this._row).after(this._sentence);
+    if (this.options.sentenceHost instanceof HTMLElement) this.options.sentenceHost.append(this._sentence);
+    else (input.closest('.h-filter-direct') || this._row).after(this._sentence);
 
     if (this.options.showBuilderButton && typeof this._onOpenBuilder === 'function') {
       this._builderBtn = el('button', 'h-btn h-btn-small h-fih-builder');

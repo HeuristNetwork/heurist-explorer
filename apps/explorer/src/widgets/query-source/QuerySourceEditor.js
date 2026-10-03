@@ -40,10 +40,17 @@ export class QuerySourceEditor extends HBaseWidget {
    * @param {Function} [options.onApply] Called with the draft DataSource when presentation settings change
    *        (on Apply of the rules, geographic, time or column field dialog), so modules show them at once.
    * @param {Function} [options.onDirtyChange] Called with (dirty, draft) whenever the dirty state changes.
-   * @param {boolean} [options.collapsible=false] Offer the More/Less toggle; otherwise the
-   *        presentation settings are always shown (the editor lives in a tall pane).
+   * @param {'vertical'|'horizontal'} [options.orientation='vertical'] Layout: west pane (vertical) or north pane (horizontal).
+   * @param {boolean} [options.expanded=false] Whether the presentation settings (More) are shown at start.
+   * @param {Function} [options.onExpandedChange] Called with the new More state when the user toggles it.
+   * @param {Function} [options.onLayoutChange] Called with `'vertical'` or `'horizontal'` when the user picks a
+   *        layout in the Layout menu; without it the editor only changes its own orientation.
+   * @param {Function} [options.canChangeLayout] `() → boolean`: whether Vertical/Horizontal are offered
+   *        (not in compact mode, which is always vertical).
+   * @param {Function} [options.onHelp] Opens the query language help; the Help button is hidden without it.
    */
-  constructor({ dbdefs, lang = 'eng', openFilterBuilder, editRules, describeRules, onExecute, onApply, onDirtyChange, collapsible = false } = {}) {
+  constructor({ dbdefs, lang = 'eng', openFilterBuilder, editRules, describeRules, onExecute, onApply, onDirtyChange,
+    orientation = 'vertical', expanded = false, onExpandedChange, onLayoutChange, canChangeLayout, onHelp } = {}) {
     super();
     if (!dbdefs) throw new TypeError('QuerySourceEditor requires dbdefs');
     this.dbdefs = dbdefs;
@@ -58,8 +65,14 @@ export class QuerySourceEditor extends HBaseWidget {
     this.draft = null;
     this._dirty = false;
     this._baseline = null;
-    this.collapsible = collapsible === true;
-    this._expanded = !this.collapsible;
+    this.orientation = orientation === 'horizontal' ? 'horizontal' : 'vertical';
+    this._expanded = expanded === true;
+    this.onExpandedChange = onExpandedChange;
+    this.onLayoutChange = onLayoutChange;
+    this.canChangeLayout = canChangeLayout;
+    this.onHelp = onHelp;
+    /** Host for the Save/Add buttons (DataSourceActions inline mode), laid out beside Filter and Builder. */
+    this.actionsSlot = null;
     this.inlineHelper = null;
     this._syncingDraft = false;
     this._acceptedQuery = null;
@@ -78,12 +91,16 @@ export class QuerySourceEditor extends HBaseWidget {
     if (!this.container) throw new Error('QuerySourceEditor must be attached before render');
     this.container.className = 'h-qse';
     this.container.replaceChildren();
+    this._applyOrientation();
 
-    const compact = div('h-qse-compact');
-    const queryRow = div('h-qse-query-row');
+    // panes: p1 query, p2 main actions, p4 presentation settings (More), p5 small tools;
+    // p3 the query sentence. CSS arranges them per orientation (see the stylesheet).
+    const body = div('h-qse-body');
+    const row = div('h-qse-row1');
+    const p1 = div('h-qse-p1');
     this._query = document.createElement('textarea');
     this._query.className = 'h-input h-qse-query';
-    this._query.rows = 6;
+    this._query.rows = 3;
     this._query.setAttribute('aria-label', $HR('Query'));
     this._query.addEventListener('keydown', (event) => {
       if (event.key === 'Enter' && !event.shiftKey && !event.ctrlKey && !event.altKey) {
@@ -103,18 +120,21 @@ export class QuerySourceEditor extends HBaseWidget {
       this.draft.request.q = parseQueryText(this._query.value);
       void this._ensureRecordTypeConsistency();
     });
+    // p0: Clear and Help, always a column left of the query
+    const p0 = div('h-qse-p0');
+    const clear = iconButton('fa-eraser', $HR('Clear the query and detach from Query Source, clearing its title and presentation settings'), () => this.clearSettings(), 'h-qse-clear');
+    const help = iconButton('fa-circle-question', $HR('Query language help'), () => this.onHelp?.(), 'h-qse-help');
+    help.hidden = typeof this.onHelp !== 'function';
+    p0.append(clear, help);
+    p1.append(p0, this._query);
 
+    const p2 = div('h-qse-p2');
     this._run = button('', $HR('Filter'), () => void this._runClicked(), 'h-btn h-btn-primary h-qse-run');
-    const run = this._run;
-    run.innerHTML = '<i class="fa-solid fa-filter" aria-hidden="true"></i><span class="h-qse-run-caption">' + escapeHtml($HR('Filter')) + '</span>';
-    const builder = button($HR('Builder'), $HR('Open the Filter Builder'), () => void this._openBuilder(), 'h-btn h-qse-builder');
-    const clear = button($HR('Clear'), $HR('Clear the query and detach from Query Source, clearing its title and presentation settings'), () => this.clearSettings(), 'h-btn h-qse-clear');
-    // More/Less is kept for a collapsible (compact) placement; hidden while always expanded
-    this._more = button('', $HR('More Query Source options'), () => this.setExpanded(!this._expanded), 'h-btn h-btn-small h-qse-more');
-    this._more.hidden = !this.collapsible;
-    this._renderMoreButton();
-    queryRow.append(this._query, run, builder, clear, this._more);
-    compact.append(queryRow);
+    this._run.innerHTML = iconCaption('fa-filter', $HR('Filter'));
+    const builder = button('', $HR('Open the Filter Builder'), () => void this._openBuilder(), 'h-btn h-qse-builder');
+    builder.innerHTML = iconCaption('fa-sliders', $HR('Builder'));
+    this.actionsSlot = div('h-qse-actions');
+    p2.append(this._run, builder, this.actionsSlot);
 
     this._advanced = div('h-qse-advanced');
     this._advanced.hidden = !this._expanded;
@@ -127,11 +147,32 @@ export class QuerySourceEditor extends HBaseWidget {
     const titleRow = div('h-qse-title-row');
     const titleLabel = document.createElement('span'); titleLabel.className = 'h-qse-title-label'; titleLabel.textContent = $HR('Title');
     this._title = document.createElement('input'); this._title.className = 'h-input h-qse-title'; this._title.type = 'text';
+    this._title.placeholder = $HR('Title');
+    this._title.setAttribute('aria-label', $HR('Title'));
     this._title.addEventListener('input', () => { if (this.draft) { this.draft.title = this._title.value; this._markDirty(); } });
     titleRow.append(titleLabel, this._title);
     this._advanced.append(titleRow);
 
-    this.container.append(compact, this._advanced);
+    const p5 = div('h-qse-p5');
+    this._layoutButton = iconButton('fa-ellipsis', $HR('Layout and more options'), () => this._toggleLayoutMenu(), 'h-qse-layout');
+    this._layoutButton.setAttribute('aria-haspopup', 'menu');
+    p5.append(this._layoutButton);
+
+    const p3 = div('h-qse-p3');
+    row.append(p1, p2, this._advanced, p5);
+    body.append(row, p3);
+    this._menu = this._buildLayoutMenu();
+    this.container.append(body, this._menu);
+    Object.assign(this, { _row: row, _p1: p1, _p2: p2, _p5: p5 });
+    if (typeof ResizeObserver === 'function') {
+      this._fitObserver = new ResizeObserver(() => this._fitHorizontal());
+      this._fitObserver.observe(row);
+    }
+    // Save/Add (DataSourceActions) may be hidden later, e.g. for a guest
+    if (typeof MutationObserver === 'function') {
+      this._fitMutations = new MutationObserver(() => this._fitHorizontal());
+      this._fitMutations.observe(p2, { subtree: true, childList: true, attributeFilter: ['hidden'] });
+    }
     this.inlineHelper = new HFilterInlineHelper({
       vocabulary: queryVocabulary,
       lang: this.lang,
@@ -147,7 +188,7 @@ export class QuerySourceEditor extends HBaseWidget {
         }
       }
     });
-    this.inlineHelper.attach(this._query, { showBuilderButton: false }).render();
+    this.inlineHelper.attach(this._query, { showBuilderButton: false, sentenceHost: p3 }).render();
     this.state = 'rendered';
     this._syncFromDraft();
     return this;
@@ -158,7 +199,6 @@ export class QuerySourceEditor extends HBaseWidget {
    * @returns {QuerySourceEditor} this, for chaining.
    */
   setDataSource(source) {
-    this.setExpanded(false);
     this.dataSource = source ? clone(source) : null;
     this.draft = this.dataSource ? clone(this.dataSource) : blankDraft();
     this._baseline = editableFingerprint(this.draft);
@@ -218,18 +258,165 @@ export class QuerySourceEditor extends HBaseWidget {
    * @returns {QuerySourceEditor} this, for chaining.
    */
   setExpanded(value) {
-    this._expanded = value === true || !this.collapsible;
+    this._expanded = value === true;
     if (this._advanced) this._advanced.hidden = !this._expanded;
-    this._renderMoreButton();
+    this._fitHorizontal();
     return this;
   }
 
-  _renderMoreButton() {
-    if (!this._more) return;
-    const label = this._expanded ? $HR('Less') : $HR('More');
-    const icon = this._expanded ? 'fa-angle-up' : 'fa-angle-down';
-    this._more.innerHTML = `<i class="fa-solid ${icon}" aria-hidden="true"></i><span class="h-qse-more-caption">${escapeHtml(label)}</span>`;
-    this._more.title = this._expanded ? $HR('Less Query Source options') : $HR('More Query Source options');
+  /** @returns {'vertical'|'horizontal'} The current layout. */
+  getOrientation() { return this.orientation; }
+
+  /**
+   * Lay the editor out for the west pane (vertical) or the north pane (horizontal).
+   * Only classes change; nothing is rebuilt.
+   *
+   * @param {'vertical'|'horizontal'} orientation Layout.
+   * @returns {QuerySourceEditor} this, for chaining.
+   */
+  setOrientation(orientation) {
+    this.orientation = orientation === 'horizontal' ? 'horizontal' : 'vertical';
+    this._applyOrientation();
+    this._fitHorizontal();
+    return this;
+  }
+
+  _applyOrientation() {
+    this.container?.classList.toggle('is-horizontal', this.orientation === 'horizontal');
+    this.container?.classList.toggle('is-vertical', this.orientation !== 'horizontal');
+  }
+
+  /**
+   * Horizontal layout: choose how the p2 and p4 buttons are arranged. In order of
+   * preference, with the query at its full width: buttons with captions in one
+   * row, then wrapped into more rows (as many as the pane height allows), then
+   * without captions (one row, then wrapped). Only when nothing fits does the query
+   * shrink to its minimum width, trying the same order again. All buttons have one
+   * width. p4 puts its Title after the buttons in one row, or on its own row below
+   * them when wrapped.
+   */
+  _fitHorizontal() {
+    const root = this.container;
+    if (!root || !this._row) return;
+    const vars = ['--qse-btn-w', '--qse-p2-columns', '--qse-p4-columns'];
+    if (this.orientation !== 'horizontal') {
+      for (const name of vars) root.style.removeProperty?.(name);
+      root.classList.remove('is-collapsed', 'is-wrapped');
+      return;
+    }
+    const width = this._row.clientWidth;
+    const height = this._row.clientHeight;
+    if (!(width > 0)) return;
+    const visible = (el) => !el.hidden && !el.closest('[hidden]');
+    const buttons = [...this._p2.querySelectorAll('.h-btn')].filter(visible).length;
+    const advanced = this._expanded;
+    const fixed = this._p5.offsetWidth || 22;
+    const maxRows = Math.max(1, Math.floor((height + FIT.gap) / (FIT.button + FIT.gap)));
+    const span = (count, size) => count * size + (count - 1) * FIT.gap;
+    const layout = (query, size, rows) => {
+      const p2 = Math.ceil(buttons / rows);
+      const p4 = rows === 1 ? FIT.config : Math.ceil(FIT.config / (rows - 1));
+      let total = query + FIT.paneGap + span(p2, size) + FIT.paneGap + fixed;
+      if (advanced) total += FIT.paneGap + FIT.p4Padding + span(p4, size) + (rows === 1 ? FIT.gap + FIT.title : 0);
+      return { size, rows, p2, p4, fits: total <= width };
+    };
+    let chosen = null;
+    for (const query of [FIT.queryMax, FIT.queryMin]) {
+      for (const size of [FIT.captioned, FIT.button]) {
+        for (let rows = 1; rows <= maxRows && !chosen; rows++) {
+          const candidate = layout(query, size, rows);
+          if (candidate.fits) chosen = candidate;
+        }
+      }
+      if (chosen) break;
+    }
+    chosen ||= layout(FIT.queryMin, FIT.button, maxRows);
+    root.classList.toggle('is-collapsed', chosen.size === FIT.button);
+    root.classList.toggle('is-wrapped', chosen.rows > 1);
+    root.style.setProperty('--qse-btn-w', `${chosen.size}px`);
+    root.style.setProperty('--qse-p2-columns', `repeat(${chosen.p2}, ${chosen.size}px)`);
+    root.style.setProperty('--qse-p4-columns', chosen.rows === 1
+      ? `repeat(${FIT.config}, ${chosen.size}px) ${FIT.title}px`
+      : `repeat(${chosen.p4}, ${chosen.size}px)`);
+  }
+
+  /**
+   * Layout menu: Vertical, Horizontal (not in compact mode) and More/Less. Shown as
+   * a popover in the top layer, so the north pane's overflow cannot clip it.
+   */
+  _buildLayoutMenu() {
+    const menu = div('h-menu h-qse-layout-menu');
+    menu.hidden = true;
+    menu.setAttribute('role', 'menu');
+    if (typeof menu.showPopover === 'function') menu.popover = 'manual';
+    const item = (key, label, handler) => {
+      const b = button('', '', handler, 'h-menu-item h-qse-layout-item');
+      b.dataset.item = key;
+      b.setAttribute('role', 'menuitem');
+      const check = document.createElement('i');
+      check.className = 'fa-solid fa-check fa-fw h-qse-layout-check';
+      check.setAttribute('aria-hidden', 'true');
+      b.caption = document.createElement('span');
+      b.caption.textContent = $HR(label);
+      b.append(check, b.caption);
+      return b;
+    };
+    this._menuItems = {
+      vertical: item('vertical', 'Vertical', () => this._pickLayout('vertical')),
+      horizontal: item('horizontal', 'Horizontal', () => this._pickLayout('horizontal')),
+      more: item('more', 'More', () => {
+        this._closeLayoutMenu();
+        this.setExpanded(!this._expanded);
+        this.onExpandedChange?.(this._expanded);
+      })
+    };
+    this._menuDivider = document.createElement('hr');
+    this._menuDivider.className = 'h-menu-divider';
+    menu.append(this._menuItems.vertical, this._menuItems.horizontal, this._menuDivider, this._menuItems.more);
+    return menu;
+  }
+
+  _toggleLayoutMenu() {
+    if (this._menu?.hidden === false) this._closeLayoutMenu();
+    else this._openLayoutMenu();
+  }
+
+  _openLayoutMenu() {
+    if (!this._menu) return;
+    const layouts = typeof this.canChangeLayout !== 'function' || this.canChangeLayout() === true;
+    for (const key of ['vertical', 'horizontal']) {
+      this._menuItems[key].hidden = !layouts;
+      this._menuItems[key].classList.toggle('is-current', this.orientation === key);
+    }
+    this._menuDivider.hidden = !layouts;
+    this._menuItems.more.caption.textContent =this._expanded ? $HR('Less') : $HR('More');
+    this._menuItems.more.title = this._expanded ? $HR('Hide the presentation settings') : $HR('Show the presentation settings');
+    this._menu.hidden = false;
+    try { this._menu.showPopover?.(); } catch { /* not supported: shown in place */ }
+    const rect = this._layoutButton.getBoundingClientRect();
+    this._menu.style.top = `${Math.round(rect.bottom + 2)}px`;
+    this._menu.style.left = `${Math.max(4, Math.round(rect.right - (this._menu.offsetWidth || 150)))}px`;
+    this._onMenuOutside = (event) => {
+      if (!this._menu.contains(event.target) && !this._layoutButton.contains(event.target)) this._closeLayoutMenu();
+    };
+    this._onMenuKey = (event) => { if (event.key === 'Escape') this._closeLayoutMenu(); };
+    document.addEventListener('pointerdown', this._onMenuOutside, true);
+    document.addEventListener('keydown', this._onMenuKey, true);
+  }
+
+  _closeLayoutMenu() {
+    if (!this._menu || this._menu.hidden) return;
+    try { this._menu.hidePopover?.(); } catch { /* not shown as a popover */ }
+    this._menu.hidden = true;
+    document.removeEventListener('pointerdown', this._onMenuOutside, true);
+    document.removeEventListener('keydown', this._onMenuKey, true);
+  }
+
+  _pickLayout(orientation) {
+    this._closeLayoutMenu();
+    if (orientation === this.orientation) return;
+    if (typeof this.onLayoutChange === 'function') this.onLayoutChange(orientation);
+    else this.setOrientation(orientation);
   }
 
   /** @returns {QuerySourceEditor} this, for chaining. Discards the draft and reloads it from the last committed DataSource. */
@@ -270,7 +457,6 @@ export class QuerySourceEditor extends HBaseWidget {
       this.dataSource = this.draft ? clone(this.draft) : null;
       this._baseline = editableFingerprint(this.draft);
       this._setDirty(false);
-      this.setExpanded(false);
     }
     return this;
   }
@@ -413,6 +599,7 @@ export class QuerySourceEditor extends HBaseWidget {
     const row = div('h-qse-config-row');
     const edit = button('', hint ? $HR(hint) : `${$HR('Edit')} ${$HR(label)}`, onEdit);
     edit.classList.add('h-qse-config-edit');
+    edit.dataset.hint = edit.title;
     edit.innerHTML = `<i class="fa-solid ${icon}" aria-hidden="true"></i><span class="h-qse-config-caption">${escapeHtml($HR(label))}…</span>`;
     edit.setAttribute('aria-label', $HR(label));
     const value = div('h-qse-config-value h-muted'); value.dataset.summary = key;
@@ -552,7 +739,8 @@ export class QuerySourceEditor extends HBaseWidget {
       return true;
     }
 
-    if (this._expanded && this._hasSourceConfiguration()) {
+    // asked whether or not the settings (More) are shown: they are lost either way
+    if (this._hasSourceConfiguration()) {
       const accepted = await confirmRecordTypeChange();
       if (!accepted) {
         this.draft.request.q = clone(this._acceptedQuery);
@@ -571,10 +759,25 @@ export class QuerySourceEditor extends HBaseWidget {
   }
 
   /** Tear down the inline query helper and the widget itself. */
-  async destroy() { await this.inlineHelper?.destroy?.(); this.inlineHelper = null; await super.destroy(); }
+  async destroy() { this._closeLayoutMenu(); this._fitObserver?.disconnect(); this._fitMutations?.disconnect(); await this.inlineHelper?.destroy?.(); this.inlineHelper = null; await super.destroy(); }
 }
 
+/**
+ * Horizontal layout sizes (px), mirrored in QuerySourceEditor.css: button height and
+ * gap, button width with and without caption, query width range, the gap between
+ * panes, the p4 left padding, the number of p4 config buttons, and the Title width
+ * (4 buttons without captions).
+ */
+const FIT = { button: 30, gap: 4, captioned: 90, queryMin: 270, queryMax: 600, paneGap: 6, p4Padding: 8, config: 4, title: 4 * 30 + 3 * 4 };
+
 function div(className) { const el = document.createElement('div'); el.className = className; return el; }
+function iconCaption(icon, caption) { return `<i class="fa-solid ${icon}" aria-hidden="true"></i><span class="h-qse-caption">${escapeHtml(caption)}</span>`; }
+function iconButton(icon, title, handler, className) {
+  const b = button('', title, handler, `heurist-icon-button ${className}`);
+  b.innerHTML = `<i class="fa-solid ${icon}" aria-hidden="true"></i>`;
+  b.setAttribute('aria-label', title);
+  return b;
+}
 function button(text, title, handler, className = 'h-btn h-btn-small') { const b = document.createElement('button'); b.type = 'button'; b.className = className; b.textContent = text; b.title = title; b.addEventListener('click', handler); return b; }
 function clone(value) { return value == null ? value : (typeof structuredClone === 'function' ? structuredClone(value) : JSON.parse(JSON.stringify(value))); }
 function summarizeFields(value, dbdefs, emptyLabel = 'default') {
@@ -588,7 +791,14 @@ function summarizeLabels(labels, noun) {
   const rest = labels.length - 3;
   return rest > 0 ? `${shown} · ${rest} ${$HR('more ' + noun + (rest === 1 ? '' : 's'))}` : shown;
 }
-function setSummary(root, key, text) { const el = root?.querySelector(`[data-summary="${key}"]`); if (el) el.textContent = text; }
+function setSummary(root, key, text) {
+  const el = root?.querySelector(`[data-summary="${key}"]`);
+  if (!el) return;
+  el.textContent = text;
+  // horizontal layout hides the value: the button tooltip carries it
+  const edit = el.parentElement?.querySelector('.h-qse-config-edit');
+  if (edit) edit.title = `${edit.dataset.hint || ''}\n${$HR('Current')}: ${text}`.trim();
+}
 function editableFingerprint(source) {
   if (!source) return '';
   const request = source.request || {};

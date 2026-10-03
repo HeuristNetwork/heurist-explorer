@@ -74,8 +74,8 @@ export function applyUiRegions(definitions, value) {
 function defaults() {
   return {
     version: 1,
-    // toolbar rails on top by default (decided 2026-10-01)
-    toolbar: { position: 'horizontal', buttonSize: 'small' },
+    // toolbar rails on top (decided 2026-10-01), large icons with captions (2026-10-03)
+    toolbar: { position: 'horizontal', buttonSize: 'large-caption' },
     regions: { data: 'west', map: 'center', graph: 'center', timeline: 'south', recordview: 'east' },
     // panes expanded when Explorer starts; the others start hidden (opened from the toolbar)
     panes: { north: false, west: true, center: false, east: false, south: false }

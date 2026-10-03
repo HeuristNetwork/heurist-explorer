@@ -3,6 +3,8 @@
 Status: decisions agreed with Artem, 2026-09-25. Part A and Part B implemented
 (not yet verified in a browser). Part B will be tuned with the publication work
 ([Explorer-Publication-and-Website-Development-Plan.md](Explorer-Publication-and-Website-Development-Plan.md)).
+Part C (compact QSE, Vertical/Horizontal placement) agreed and implemented 2026-10-03,
+not yet checked in a browser.
 
 ## Problem
 
@@ -141,6 +143,75 @@ overflow horizontally or are cramped. Each needs its own narrow-screen layout.
 Likely the same fix applies to the other Query Source helper dialogs that share
 `.h-qse-helper` (`min-width: 420px`): geographic and time field selectors, rule builder.
 
+## Part C — compact QSE: Vertical / Horizontal placement (2026-10-03)
+
+Users found the QSE too large (too many buttons and rows) and some wanted it above
+the modules, as the old search box was. Agreed with Artem 2026-10-03.
+
+**Five panes.** p1 `h-qse-query` · p2 Filter, Builder, Save (Query Source), Add (to
+Workspace) — the last two are DataSourceActions in a new `inline` mode, rendered into
+the editor's `actionsSlot` · p3 `h-fih-sentence` (HFilterInlineHelper `sentenceHost`
+option) · p4 `h-qse-advanced` (config buttons, Title) · p5 small icon buttons: Clear
+(`h-qse-clear`), Help (`searchQueryLanguageEng.htm`, refreshed from the legacy
+`documentation/context_help/searchQueryLanguage.htm`), Layout (`fa-ellipsis`) with a menu
+Vertical / Horizontal / More.
+
+**Placement.** Vertical = west pane (as before), Horizontal = north pane. The dock moves
+only the pane element (`ExplorerAuthoringDock.setPlacement`, appended, not set as region
+content, so the compact rail stays); the module layout is never re-parented. The dock
+dispatches `placementchange`; Explorer sets the panel orientation from the region.
+Stored per database with the widths: `{ widths, northHeight, placement, advanced }`
+(old widths-only values still load). Compact mode is always vertical (`setDrawerMode`
+moves the pane west and restores the placement on leaving); the menu then hides
+Vertical/Horizontal.
+
+**Layout rules.** Supports width 300px (vertical) and height 66px (horizontal, `minNorth`, `.h-qse.is-horizontal` min-height; 50px at first, raised 2026-10-03).
+- Horizontal: row 1 = p1 p2 p4 p5, row 2 = p3. p1 is 270–600px wide and shrinks when the
+  others reach their minimum; its height is the pane height minus the sentence (30–300px).
+  p2/p4 buttons 30×30 without captions up to 90×30, wrapping; `h-qse-config-value` hidden
+  (the summary is in the button tooltip). p5 right aligned.
+- Vertical: p1..p5 stacked; wider than 400px p1 and a column of p2 buttons share a row,
+  p1 taking p2's height unless resized taller (max 300px). p4 as before (rows with values).
+- Vertical caption breakpoints (container queries) are starting values, to tune in the
+  browser: p2 < 330px, p4 < 520px. Horizontal is fitted by the editor (see the revision below).
+
+**More.** Hidden by default, remembered per database. The editor no longer collapses it
+on `setDataSource`/`markCommitted`. The record-type change confirmation is now asked
+whenever the draft has Query Source settings (before, only when expanded — which was
+always).
+
+**Title and status.** Title stays in p4 (a narrow input in horizontal). The h-dsa status
+line is removed; its text ("Query Source #12 · In Workspace") is in the Save/Add tooltips.
+
+**Filter Form in Horizontal.** Decided by the form's own `layout.settings.orientation`:
+a horizontal form stays in north (fields max 300px, wrapping); a vertical form (the
+default) moves the pane west while open (`setTemporaryPlacement`) and back on close.
+
+**Revision 2026-10-03 (after the first look).**
+- p0 = Clear and Help, a column of two 20px icons left of the query, inside p1 (both
+  orientations). p5 keeps only Layout.
+- Horizontal: Filter, Builder, Save, Add and the p4 buttons have one width (90px with
+  captions, 30px without). `QuerySourceEditor#_fitHorizontal` (ResizeObserver on row 1,
+  MutationObserver on p2 for hidden Save/Add) chooses the arrangement, in this order, with
+  the query at 600px: captions in one row → captions wrapped into as many rows as the
+  height allows → no captions in one row → no captions wrapped; only if nothing fits the
+  same order is tried with the query at 270px. It sets `--qse-btn-w`,
+  `--qse-p2-columns`, `--qse-p4-columns`, `.is-collapsed`, `.is-wrapped`. Sizes are in its
+  `FIT` constant.
+- Title: in one row it follows the buttons, as wide as 4 buttons without captions (132px);
+  when wrapped it takes its own row under the buttons, as wide as they are.
+- Icons in buttons without captions are centred.
+- Horizontal Filter Form in the north pane (QuerySourcePanel.css only, the shared form is
+  unchanged): fields and `h-filter-form-actions` wrap in one flow, each max 300px, top
+  aligned; groups give up their box (`display:contents`, a heading takes a full row);
+  the actions are not sticky and have no top border.
+
+**Query trace** hidden for now (`TRACE_PANEL_SHOWN = false` in ExplorerApplication; the
+RequestMonitor runs with tracing off, so requests carry no `debug` flag). Stop stays.
+
+Tests: `test/explorerAuthoringDock.test.js`, additions in `querySourcePanel.test.js` and
+`querySourceEditorApply.test.js`.
+
 ## Changelog
 
 - 2026-09-25 — Document created; Part A implemented (not yet verified in a browser):
@@ -175,3 +246,5 @@ Likely the same fix applies to the other Query Source helper dialogs that share
   LayoutManager `modechange`) scrolls to its panel in the center region, whose
   title strip shows the tool name. Explorer `viewRecord` host action shows the
   Record view (scrolled to in compact mode) and selects the record.
+- 2026-10-03 — Part C: compact QSE (five panes), Vertical/Horizontal placement through the
+  Layout menu, More remembered, query trace hidden. Not yet checked in a browser.

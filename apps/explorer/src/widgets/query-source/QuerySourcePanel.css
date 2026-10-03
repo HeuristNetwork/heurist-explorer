@@ -47,3 +47,25 @@
 .h-query-source-stop[hidden] { display:none; }
 .h-query-source-panel.is-filter-form-open > .h-query-source-editor-host,
 .h-query-source-panel.is-filter-form-open > .h-data-source-actions-host { display: none; }
+/* horizontal layout (north pane): the editor fills the pane height; the veil's
+ * spinner and Stop button are centred in the low strip */
+.h-query-source-panel.is-horizontal { height:100%; min-height:0; display:flex; flex-direction:column; padding:0; }
+.h-query-source-panel.is-horizontal > .h-query-source-editor-host { flex:1 1 auto; min-height:0; }
+.h-query-source-panel.is-horizontal.is-loading::after { top:50%; left:40%; }
+.h-query-source-panel.is-horizontal > .h-query-source-stop { top:50%; transform:translate(10px, -50%); }
+/* a horizontal Filter Form stays in the north pane: fields and actions wrap in one
+ * flow (groups give up their box; a group heading takes a full row), top aligned */
+.h-query-source-panel.is-horizontal .h-filter-form-horizontal .h-filter-form-body {
+  flex-direction:row; flex-wrap:wrap; align-items:flex-start;
+}
+.h-query-source-panel.is-horizontal .h-filter-form-horizontal .h-filter-form-group { display:contents; }
+.h-query-source-panel.is-horizontal .h-filter-form-horizontal .h-filter-form-group > h3 { flex:0 0 100%; }
+.h-query-source-panel.is-horizontal .h-filter-form-field { max-width:300px; }
+.h-query-source-panel.is-horizontal .h-filter-form-horizontal { padding:8px 8px; }
+/* top margin = a field's label line + its gap, so the buttons line up with the inputs */
+.h-query-source-panel.is-horizontal .h-filter-form-horizontal .h-filter-form-actions {
+  position:static; max-width:300px; padding:0; border-top:0; flex-wrap:wrap;
+  margin-top:calc(1.2em + var(--h-gap));
+  margin-top:calc(1lh + var(--h-gap));
+}
+.h-query-source-panel.is-horizontal.is-filter-form-open { height:auto; min-height:100%; }

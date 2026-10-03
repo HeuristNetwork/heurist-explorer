@@ -31,8 +31,13 @@ export class QuerySourcePanel {
    * @param {object} [options] Forwarded to QuerySourceEditor and DataSourceActions; see their constructors.
    * @param {Function} [options.onShow] Asks the host to make the panel visible.
    * @param {Function} [options.onModeChange] Receives `'editor'` or `'form'` when the panel switches.
-   * @param {object} [options.requestMonitor] Explorer's RequestMonitor; shows the query trace when given.
+   * @param {object} [options.requestMonitor] Explorer's RequestMonitor (the query trace is hidden for now, 2026-10-03).
    * @param {Function} [options.onStop] Stops the running queries (Stop button on the loading veil).
+   * @param {'vertical'|'horizontal'} [options.orientation='vertical'] Editor layout (west or north pane).
+   * @param {Function} [options.onFormPlacement] Called with `'west'` when a vertical Filter Form opens in the
+   *        horizontal layout (it needs height), and with `null` when it closes.
+   * Editor layout options (`expanded`, `onExpandedChange`, `onLayoutChange`, `canChangeLayout`, `onHelp`)
+   * are forwarded to QuerySourceEditor.
    */
   constructor(options = {}) {
     this.options = options;
@@ -40,6 +45,7 @@ export class QuerySourcePanel {
     this.editor = null;
     this.actions = null;
     this.dataSource = null;
+    this.orientation = options.orientation === 'horizontal' ? 'horizontal' : 'vertical';
   }
 
   /**
@@ -52,8 +58,8 @@ export class QuerySourcePanel {
   render() {
     if (!this.container) throw new Error('QuerySourcePanel must be attached before render');
     this.container.className = 'h-query-source-panel';
+    this.container.classList.toggle('is-horizontal', this.orientation === 'horizontal');
     const editorHost = document.createElement('div'); editorHost.className = 'h-query-source-editor-host';
-    const actionsHost = document.createElement('div'); actionsHost.className = 'h-data-source-actions-host';
     const formHost = document.createElement('div');
     formHost.className = 'h-query-source-form-host';
     formHost.addEventListener('h-filter-form-reset', () => void this.options.onClearResults?.());
@@ -67,13 +73,13 @@ export class QuerySourcePanel {
     stop.title = $HR('Stop the running query');
     stop.hidden = true;
     stop.addEventListener('click', () => void this.options.onStop?.());
-    this.container.replaceChildren(editorHost, actionsHost, formHost, traceHost, stop);
+    this.container.replaceChildren(editorHost, formHost, traceHost, stop);
     this.editorHost = editorHost;
-    this.actionsHost = actionsHost;
     this.formHost = formHost;
     this.traceHost = traceHost;
     this.stopButton = stop;
-    if (this.options.requestMonitor) {
+    // query trace hidden for now (2026-10-03, see plan 10): a better place is to be found
+    if (this.options.requestMonitor && this.options.showTrace === true) {
       this.trace = new QueryTracePanel({ monitor: this.options.requestMonitor });
       this.trace.attach(traceHost).render();
     }
@@ -81,6 +87,9 @@ export class QuerySourcePanel {
       dbdefs: this.options.dbdefs, lang: this.options.lang,
       openFilterBuilder: this.options.openFilterBuilder,
       editRules: this.options.editRules, describeRules: this.options.describeRules,
+      orientation: this.orientation, expanded: this.options.expanded,
+      onExpandedChange: this.options.onExpandedChange, onLayoutChange: this.options.onLayoutChange,
+      canChangeLayout: this.options.canChangeLayout, onHelp: this.options.onHelp,
       onExecute: (source) => hasQueryParameters(source?.request?.q)
         ? this.openFilterForm() : this._execute(source),
       onApply: (source) => this.options.onApply?.(source),
@@ -92,15 +101,30 @@ export class QuerySourcePanel {
       }
     });
     this.editor.attach(editorHost).render();
+    // Save and Add sit beside Filter and Builder in the editor (p2)
     this.actions = new DataSourceActions({
       ...this.options,
+      inline: true,
       prepareSourceDraft: () => this.editor?.prepareDraftForSave?.() || this.editor?.getDraftDataSource?.()
     });
-    this.actions.attach(actionsHost).render();
+    this.actions.attach(this.editor.actionsSlot).render();
     this.setDataSource(this.dataSource);
     this._updateFormAction();
     return this;
   }
+  /**
+   * Lay the panel out for the west pane (vertical) or the north pane (horizontal).
+   *
+   * @param {'vertical'|'horizontal'} orientation Layout.
+   * @returns {QuerySourcePanel} this, for chaining.
+   */
+  setOrientation(orientation) {
+    this.orientation = orientation === 'horizontal' ? 'horizontal' : 'vertical';
+    this.container?.classList.toggle('is-horizontal', this.orientation === 'horizontal');
+    this.editor?.setOrientation(this.orientation);
+    return this;
+  }
+
   /**
    * @param {object|null} source DataSource to load into the editor and actions.
    * @returns {QuerySourcePanel} this, for chaining.
@@ -128,6 +152,13 @@ export class QuerySourcePanel {
     if (!hasQueryParameters(query)) return;
     this.options.onShow?.();
     await this.options.onClearResults?.();
+    // a vertical form needs height: in the horizontal layout it opens in the west pane
+    const horizontalForm = source.presentation?.filterForm?.settings?.orientation === 'horizontal';
+    // reopened while already moved: the panel is vertical now, but still returns on close
+    if (!this._formPlaced && !horizontalForm && this.orientation === 'horizontal') {
+      this._formPlaced = true;
+      this.options.onFormPlacement?.('west');
+    }
     this._setFilterFormVisible(true);
     await this.closeFilterForm({ restoreEditor: false });
     this.form = new HFilterForm();
@@ -199,7 +230,11 @@ export class QuerySourcePanel {
   async closeFilterForm({ restoreEditor = true } = {}) {
     if (this.form) await this.form.destroy();
     this.form = null;
-    if (restoreEditor) this._setFilterFormVisible(false);
+    if (restoreEditor) {
+      this._setFilterFormVisible(false);
+      if (this._formPlaced) this.options.onFormPlacement?.(null);
+      this._formPlaced = false;
+    }
     if (this.formHost) this.formHost.replaceChildren();
     this._updateFormAction();
   }
@@ -207,11 +242,10 @@ export class QuerySourcePanel {
   /** Show either the runtime Filter Form or the Query Source editing controls. */
   _setFilterFormVisible(visible) {
     this.container?.classList.toggle('is-filter-form-open', visible);
-    for (const host of [this.editorHost, this.actionsHost]) {
-      if (!host) continue;
-      host.hidden = visible;
-      if (visible) host.style.setProperty('display', 'none', 'important');
-      else host.style.removeProperty('display');
+    if (this.editorHost) {
+      this.editorHost.hidden = visible;
+      if (visible) this.editorHost.style.setProperty('display', 'none', 'important');
+      else this.editorHost.style.removeProperty('display');
     }
     if (this.formHost) {
       this.formHost.hidden = !visible;

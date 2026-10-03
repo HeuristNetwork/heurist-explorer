@@ -4,3 +4,6 @@
 .h-dsa-status.is-workspace::before { content:'◆ '; }
 .h-dsa-buttons { display:flex; gap:5px; flex-wrap:wrap; justify-content:flex-end; }
 .h-dsa-buttons > [hidden] { display:none; }
+/* inline mode: Save and Add laid out by the host (the Query Source editor p2 pane) */
+.h-dsa-inline { display:contents; }
+.h-dsa-inline > [hidden] { display:none; }

@@ -1,37 +1,123 @@
-.h-qse { display:flex; flex-direction:column; gap:6px; padding:6px 8px; border-bottom:1px solid var(--h-color-border); background:var(--h-color-bg); }
+/*
+ * Query Source editor: five panes, arranged per orientation (set by the host).
+ *   p1 .h-qse-p1 query, with p0 .h-qse-p0 (Clear, Help) as a column on its left
+ *   p2 .h-qse-p2 Filter/Builder/Save/Add · p3 .h-qse-p3 sentence
+ *   p4 .h-qse-advanced presentation settings (More) · p5 .h-qse-p5 Layout
+ * Horizontal (north pane): row 1 = p1 p2 p4 p5, row 2 = p3. The editor chooses the button
+ * width, columns and wrapping (QuerySourceEditor#_fitHorizontal, sizes in its FIT
+ * constant) and sets --qse-btn-w, --qse-p2-columns, --qse-p4-columns, .is-collapsed
+ * (no captions) and .is-wrapped.
+ * Vertical (west pane): p1..p5 stacked; p1 and p2 share a row when wider than 400px.
+ * `.h-qse` is the size container; the layout is on `.h-qse-body`.
+ */
+.h-qse { container-type:inline-size; box-sizing:border-box; padding:6px 8px; border-bottom:1px solid var(--h-color-border); background:var(--h-color-bg); }
 .h-qse.is-dirty { box-shadow:inset 3px 0 0 var(--h-color-accent,#777); }
-/* vertical pane: the query takes its own full-width line, the buttons wrap below */
-.h-qse-query-row { display:flex; flex-wrap:wrap; align-items:center; gap:6px; }
-/* Filter | Builder | Clear: one height, whatever their content (icon, caption) */
-.h-qse-run,.h-qse-builder,.h-qse-clear { box-sizing:border-box; height:var(--h-control-height); min-height:0; padding-block:0; }
-.h-qse-query { flex:1 1 100%; min-width:0; resize:vertical; height:150px; min-height:30px; max-height:200px; }
+.h-qse-query { box-sizing:border-box; width:100%; min-width:0; min-height:30px; max-height:300px; }
 .h-qse-query[readonly] { background: var(--h-color-bg-disabled, #ededed); color: var(--h-color-text-muted, #666); }
-.h-qse-structured { flex:1 1 auto; min-width:220px; padding:5px 7px; background:var(--h-color-surface); border:1px solid var(--h-color-border); border-radius:var(--h-radius); }
-.h-qse-sentence { min-height:0; padding-left:2px; }
-.h-qse-advanced { display:grid; gap:4px; padding-top:4px; }
-.h-qse-config-row { display:grid; grid-template-columns:130px 1fr auto; align-items:center; gap:8px; min-height:28px; }
-.h-qse-config-value { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.h-qse { container-type:inline-size; }
+.h-qse-p1 { position:relative; display:flex; align-items:stretch; gap:4px; min-width:0; }
+.h-qse-p1 > .h-qse-query { flex:1 1 auto; }
+/* p0: Clear and Help, a column left of the query (two fit the 66px minimum height) */
+.h-qse-p0 { display:flex; flex-direction:column; flex:0 0 auto; gap:0; }
+.h-qse-p0 .heurist-icon-button { width:20px; height:20px; padding:0; font-size:13px; line-height:20px; }
+.h-qse-p0 .heurist-icon-button[hidden] { display:none; }
+.h-qse-p3:empty { display:none; }
+.h-qse-p3 > .h-fih-sentence { margin-top:0; }
+
+/* p2: main actions (Save/Add come from DataSourceActions through .h-qse-actions) */
+.h-qse-p2 { display:flex; flex-wrap:wrap; align-items:flex-start; gap:4px; min-width:30px; }
+.h-qse-p2 .h-btn,
+.h-qse-config-edit {
+  box-sizing:border-box; display:inline-flex; align-items:center; justify-content:center; gap:5px;
+  height:30px; min-height:0; min-width:30px; padding:0 7px; overflow:hidden;
+}
+.h-qse-p2 .h-btn[hidden] { display:none; }
+.h-qse-caption,
+.h-qse-config-caption { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+
+/* p4: presentation settings */
+.h-qse-advanced { display:grid; gap:4px; }
 .h-qse-advanced[hidden] { display:none; }
-.h-qse-config-row { grid-template-columns:150px minmax(0,1fr); }
-.h-qse-config-edit { justify-self:stretch; text-align:left; display:inline-flex; align-items:center; gap:6px; }
-.h-qse-title-row { display:flex; align-items:center; gap:8px; padding-top:5px; }
+.h-qse-config-row { display:grid; grid-template-columns:150px minmax(0,1fr); align-items:center; gap:8px; min-height:28px; }
+.h-qse-config-edit { justify-content:flex-start; text-align:left; }
+.h-qse-config-value { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.h-qse-title-row { display:flex; align-items:center; gap:8px; padding-top:2px; }
 .h-qse-title-label { flex:0 0 auto; }
-.h-qse-title { flex:1 1 auto; min-width:160px; }
-.h-qse-run,.h-qse-more { display:inline-flex; align-items:center; gap:5px; }
-.h-qse-more[hidden] { display:none; }
-@container (max-width: 620px) { .h-qse-more-caption { display:none; } }
+.h-qse-title { flex:1 1 auto; min-width:120px; }
+
+/* p5: Layout menu button, right aligned */
+.h-qse-p5 { display:flex; align-items:center; justify-content:flex-end; gap:2px; flex:0 0 auto; }
+.h-qse-p5 .heurist-icon-button { width:22px; height:22px; padding:0; font-size:14px; line-height:22px; }
+.h-qse-p5 .heurist-icon-button[hidden] { display:none; }
+
+/* Layout menu: a popover in the top layer, positioned by the editor */
+.h-qse-layout-menu { position:fixed; inset:auto; margin:0; min-width:150px; }
+.h-qse-layout-menu[hidden] { display:none; }
+.h-qse-layout-item { display:flex; align-items:center; gap:6px; }
+.h-qse-layout-item[hidden],
+.h-qse-layout-menu .h-menu-divider[hidden] { display:none; }
+.h-qse-layout-check { visibility:hidden; }
+.h-qse-layout-item.is-current .h-qse-layout-check { visibility:visible; }
+
+/* ---- horizontal (north pane) ---- */
+.h-qse.is-horizontal { height:100%; min-height:66px; padding:4px 8px; }
+.h-qse.is-horizontal .h-qse-body { display:grid; grid-template-rows:minmax(30px,1fr) auto; gap:4px; height:100%; }
+.h-qse.is-horizontal .h-qse-row1 { display:flex; align-items:flex-start; gap:6px; min-height:0; }
+.h-qse.is-horizontal .h-qse-p1 { flex:1 1 600px; min-width:270px; max-width:600px; align-self:stretch; }
+.h-qse.is-horizontal .h-qse-query { height:auto; resize:none; }
+/* p2 and p4: one button width for all; columns and wrapping chosen by the editor */
+.h-qse.is-horizontal .h-qse-p2 { display:grid; grid-template-columns:var(--qse-p2-columns, repeat(4, 90px)); gap:4px; flex:0 0 auto; }
+.h-qse.is-horizontal .h-qse-p2 .h-btn,
+.h-qse.is-horizontal .h-qse-config-edit { width:var(--qse-btn-w, 90px); max-width:none; }
+.h-qse.is-horizontal .h-qse-advanced:not([hidden]) {
+  display:grid; grid-template-columns:var(--qse-p4-columns, repeat(4, 90px) 132px); gap:4px; flex:0 0 auto; align-items:center;
+  padding-left:8px;
+}
+.h-qse.is-horizontal .h-qse-config-row { display:contents; }
+.h-qse.is-horizontal .h-qse-config-value,
+.h-qse.is-horizontal .h-qse-title-label { display:none; }
+/* Title: after the buttons (as wide as 4 buttons without captions), or below them when wrapped */
+.h-qse.is-horizontal .h-qse-title-row { padding-top:0; min-width:0; }
+.h-qse.is-horizontal.is-wrapped .h-qse-title-row { grid-column:1 / -1; }
+.h-qse.is-horizontal .h-qse-title { flex:1 1 auto; width:100%; min-width:0; height:30px; box-sizing:border-box; }
+.h-qse.is-horizontal .h-qse-p5 { margin-left:auto; }
+/* without captions: icon only, centred */
+.h-qse.is-horizontal.is-collapsed .h-qse-caption,
+.h-qse.is-horizontal.is-collapsed .h-qse-config-caption { display:none; }
+.h-qse.is-horizontal.is-collapsed .h-qse-p2 .h-btn,
+.h-qse.is-horizontal.is-collapsed .h-qse-config-edit { justify-content:center; padding:0; gap:0; }
+
+/* ---- vertical (west pane) ---- */
+.h-qse.is-vertical .h-qse-body { display:grid; grid-template-columns:minmax(0,1fr); gap:6px; }
+.h-qse.is-vertical .h-qse-row1 { display:contents; }
+.h-qse.is-vertical .h-qse-p1 { order:1; }
+.h-qse.is-vertical .h-qse-p2 { order:2; }
+.h-qse.is-vertical .h-qse-p3 { order:3; }
+.h-qse.is-vertical .h-qse-advanced { order:4; }
+.h-qse.is-vertical .h-qse-p5 { order:5; }
+.h-qse.is-vertical .h-qse-query { resize:vertical; }
+.h-qse.is-vertical .h-qse-p2 .h-btn { flex:0 1 auto; }
+
+@container (min-width: 400px) {
+  /* p1 beside a column of p2 buttons; p1 takes p2's height unless resized taller */
+  .h-qse.is-vertical .h-qse-body { grid-template-columns:minmax(0,1fr) auto; }
+  .h-qse.is-vertical .h-qse-p3,
+  .h-qse.is-vertical .h-qse-advanced,
+  .h-qse.is-vertical .h-qse-p5 { grid-column:1 / -1; }
+  .h-qse.is-vertical .h-qse-p1 { align-self:stretch; max-height:300px; }
+  .h-qse.is-vertical .h-qse-p2 { flex-direction:column; flex-wrap:nowrap; align-items:stretch; }
+  .h-qse.is-vertical .h-qse-p2 .h-btn { justify-content:flex-start; max-width:120px; }
+}
+
+@container (max-width: 520px) {
+  .h-qse.is-vertical .h-qse-config-caption { display:none; }
+  .h-qse.is-vertical .h-qse-config-row { grid-template-columns:34px minmax(0,1fr); }
+  .h-qse.is-vertical .h-qse-config-edit { justify-content:center; padding-inline:7px; }
+}
+
+@container (max-width: 330px) {
+  .h-qse.is-vertical .h-qse-p2 .h-qse-caption { display:none; }
+}
+
 .h-qse-dialog-wide { width:100%; min-width:0; }
 .h-dialog.h-qse-dialog-wide-shell { width:calc(100vw - 24px) !important; max-width:none !important; }
 .h-qse-dialog { min-width:min(620px, 82vw); }
-
-@container (max-width: 520px) {
-  .h-qse-config-caption { display:none; }
-  .h-qse-config-row { grid-template-columns:34px minmax(0,1fr); }
-  .h-qse-config-edit { justify-content:center; padding-inline:7px; }
-}
-
-@container (max-width: 370px) {
-  .h-qse-run,.h-qse-query-row > .h-btn { flex:1 1 auto; justify-content:center; }
-  .h-qse-more-caption { display:inline; }
-}
