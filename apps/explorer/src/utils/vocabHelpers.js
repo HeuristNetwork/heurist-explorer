@@ -43,7 +43,7 @@ export function kindFor(vocab, fieldType, headerKeyword = null) {
 /**
  * The ordered operator list offered for a kind (kind-specific + shared NULL ops).
  * @param {object} vocab @param {string} kind
- * @returns {Array<{token:string,input:string,i18nKey:string,pattern?:string,whole?:boolean}>}
+ * @returns {Array<{token:string,input:string,i18nKey:string,pattern?:string,whole?:boolean,hidden?:boolean}>}
  */
 /**
  * Operators of the "<record type> records" row of a linked branch: the linked

@@ -37,7 +37,7 @@
       { "token": "=",  "input": "text", "i18nKey": "op.exact" },
       { "token": "==", "input": "text", "i18nKey": "op.exact_cs" },
       { "token": "",   "input": "text", "pattern": "{v}%", "i18nKey": "op.starts_with" },
-      { "token": "",   "input": "text", "pattern": "%{v}", "i18nKey": "op.ends_with" },
+      { "token": "",   "input": "text", "pattern": "%{v}", "i18nKey": "op.ends_with", "hidden": true },
       { "token": "@+", "input": "text", "i18nKey": "op.all_words" },
       { "token": "@",  "input": "text", "i18nKey": "op.any_word" },
       { "token": "@-", "input": "text", "i18nKey": "op.no_words" },

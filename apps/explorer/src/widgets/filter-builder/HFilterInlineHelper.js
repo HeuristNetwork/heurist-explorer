@@ -452,6 +452,7 @@ export class HFilterInlineHelper extends HBaseWidget {
     // operators (only while the value part is still empty-ish)
     if (valTail === '' || /^[<>=@~!-]+$/.test(valTail)) {
       for (const op of operatorsFor(this.vocab, kind)) {
+        if (op.hidden) continue;
         const sym = op.whole ? op.token : (op.token || '=');
         items.push({
           label: `${sym}  ${str(this.vocab, this.lang, op.i18nKey)}`,

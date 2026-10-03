@@ -300,8 +300,10 @@ export class HFilterBuilderItem extends HBaseWidget {
       ];
     }
     const noNull = ['ids', 'title', 'added', 'modified', 'addedby', 'owner', 'access', 'anyfield'].includes(this.row.dty);
+    // hidden operators (ends with: no index can serve it) stay only for a loaded query using one
     return list.filter((op) => (!noNull || !['op.is_set', 'op.is_empty'].includes(op.i18nKey))
-      && (/^\d+$/.test(String(this.row.dty)) || op.i18nKey !== 'op.count'));
+      && (/^\d+$/.test(String(this.row.dty)) || op.i18nKey !== 'op.count')
+      && (!op.hidden || op.i18nKey === this.row.op));
   }
 
   /** Pick an operator i18nKey from a raw token carried over by parseQuery. */
