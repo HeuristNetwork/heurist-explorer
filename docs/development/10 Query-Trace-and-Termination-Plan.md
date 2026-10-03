@@ -221,3 +221,31 @@ Every request pays about 70–110 ms for the legacy bootstrap (`bootMs`), before
   next Expand click continues anyway. Hub records (`debug.hubs`) were not done.
 - Legacy hosts in `heurist/hclient` need no change: the new bridge functions are optional.
 
+
+## Text "contains" uses the FULLTEXT index (agreed with Artem 2026-10-03)
+
+`LIKE '%Orange%'` cannot use an index. On a 200K-record database a title-field search took 14 s
+locally / 4.8 s on production, run twice (ids + count). `Records.rec_Title` and
+`recDetails.dtl_Value` already have FULLTEXT indexes, so:
+
+- **Contains** on these two columns compiles to
+  `MATCH(col) AGAINST('+word1* +word2*' IN BOOLEAN MODE)`: every word, as a word or the start
+  of a word. This is a behaviour change: `Orange` finds "Orange", "Oranges", but no longer
+  "Blood-range"-style substrings in the middle of a word. Applies to `title`, freetext/blocktext
+  fields (`f:N`, also with a language prefix), any-field search (`f`) and the value-picker text
+  filter (`detail=values&text=`, `FieldValueCounter::appendText`).
+- When the text is more than one indexable word, a `LIKE '%text%'` on the narrowed rows keeps
+  the phrase and the short words / stopwords that the index skips (length < 3, legacy stopword list).
+- Falls back to LIKE when the text has no indexable word (e.g. `an`) or the index is missing
+  (`admin/utilities/purgeFullTextIndexes.php` drops it on inactive databases; checked once per
+  request in `information_schema.STATISTICS`). Unlike legacy, the search does not create it.
+- **Does not contain** (`-text`) uses `NOT (MATCH …)` with the same meaning, so contains and
+  not-contains still split the records. It cannot use the index and stays slow.
+- **Starts with** (`text%`) and any value with `%` / `_` stay LIKE (`'Orange%'` uses the normal index).
+- **Ends with** is hidden in the Filter Builder operator list and the inline helper
+  (`"hidden": true` in `queryVocabulary.json`); queries that already use `%text` still load,
+  show "ends with" and run as LIKE.
+- Code: `FieldPredicateCompiler::containsCondition()` / `wordPrefixMatch()`,
+  `QueryBuilder::wordPrefixMatch()`.
+- Measured on `osmak_mapping` (203K records), title contains "Santa": LIKE 126 ms, MATCH 6 ms
+  once warm (the first MATCH after a restart loads the FULLTEXT cache, about 0.7–2 s).
