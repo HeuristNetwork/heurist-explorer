@@ -8,13 +8,86 @@
   <link rel="stylesheet" href="./heurist-explorer.css">
   <style>
     body{overflow:auto;padding:20px;max-width:900px;margin:0 auto;line-height:1.5}
-    h1,h2{color:var(--h-color-primary)}
+    h1,h2,h3{color:var(--h-color-primary)}
+    nav ol{padding-left:20px}
+    .todo{color:var(--h-color-text-muted);font-style:italic}
   </style>
 </head>
 <body>
   <h1>Heurist Explorer</h1>
-  <p>Explorer combines data, map, timeline and graph views around a shared data source and selection.</p>
-  <h2>Control panel</h2>
-  <p><strong>New search</strong> opens the search/filter selector. <strong>Open data views</strong> lists the data views currently present in the workspace. Filter and Dataset management tools will be added later.</p>
+  <p>Explorer is the module that allows filtering, analysing, visualising and publishing data in
+  your database. You define <strong>query sources</strong> (what to show), look at them in
+  independent <strong>presentation modules</strong> (how to show it), and publish the result as a
+  standalone page or a website.</p>
+
+  <nav>
+    <h2>Getting started</h2>
+    <ol>
+      <li><a href="#query-source-editor">Filter builder and source editor</a></li>
+      <li><a href="#toolbar-lists">Saved filters and sources on the toolbar</a></li>
+      <li><a href="#presentation-modules">Presentation modules</a></li>
+      <li><a href="#tools">Tools</a></li>
+      <li><a href="#publication">Publication</a></li>
+    </ol>
+  </nav>
+
+  <h2 id="query-source-editor">1. Filter builder and source editor</h2>
+  <p><strong>Search</strong> on the toolbar opens the Query Source editor. It defines a query
+  source: the query and the settings the presentation modules use with it. It can sit on the
+  left (Vertical) or above the modules (Horizontal); choose with the <strong>…</strong> button.</p>
+  <h3 id="inline-query-helper">Inline query helper</h3>
+  <p>Type a query in the query box. The helper suggests record types, fields and operators as
+  you type, and shows the query as a sentence below the box. Press Enter or
+  <strong>Filter</strong> to run it.</p>
+  <h3 id="filter-builder">Filter Builder</h3>
+  <p><strong>Builder</strong> opens the Filter Builder, where a query is put together from
+  conditions without typing the query language.</p>
+  <h3 id="parameterized-filter">Parameterized filter and Filter Form</h3>
+  <p>A condition can be a parameter instead of a fixed value. A query with parameters is shown
+  as a <strong>Filter Form</strong>: the user fills in the values (text, dates, lists, facets)
+  and runs the search. This replaces the former faceted search.</p>
+  <h3 id="presentation-fields">Geographic, time and column fields</h3>
+  <p><strong>More</strong> (in the <strong>…</strong> menu) shows the presentation settings:
+  which fields Map uses for geometry and Timeline for dates (also through linked records,
+  when the records have none of their own), and which columns Data shows.</p>
+  <h3 id="expansion-rules">Expansion rules</h3>
+  <p>Rules that add linked and related records to the result, level by level. Graph uses
+  them to expand the network; Data can show each level.</p>
+  <p><strong>Save</strong> stores the query with its settings as a Query Source;
+  <strong>Add</strong> puts a saved source into your Workspace.</p>
+
+  <h2 id="toolbar-lists">2. Saved filters and sources on the toolbar</h2>
+  <p><strong>Filters</strong>, <strong>Entities</strong> (record types) and
+  <strong>Sources</strong> list what can be opened in the Query Source editor.</p>
+  <h3 id="favorites">Favorites</h3>
+  <p>Star a filter, record type or source to keep it in Favorites.</p>
+  <h3 id="workspace">Workspace</h3>
+  <p>A saved working set of query sources you are working with now.</p>
+  <h3 id="subsets">Subsets</h3>
+  <p>Restrict further searches to a subset of records.</p>
+
+  <h2 id="presentation-modules">3. Presentation modules</h2>
+  <p>Each module is an independent application that shows the current result and selection;
+  selecting records in one module highlights them in the others. Each can also be published
+  on its own.</p>
+  <ul>
+    <li><strong>Data</strong>: the result as a list, table or cards.</li>
+    <li><strong>Map</strong>: records with geographic data, in layers.</li>
+    <li><strong>Graph</strong>: records and their links and relationships as a network.</li>
+    <li><strong>Timeline</strong>: records with dates, in bands.</li>
+    <li><strong>Record view</strong>: the full content of the selected record.</li>
+  </ul>
+  <p>Modules have their own manuals, opened with the help button in the module.</p>
+  <h3 id="layout-configuration">Layout configuration</h3>
+  <p>Explorer configuration (<strong>Options</strong>, the gear button on the toolbar) sets the toolbar position and button size, and which
+  pane each module occupies. Several modules in one pane work as tabs: one is visible at a
+  time.</p>
+
+  <h2 id="tools">4. Tools</h2>
+  <p>Reports, Crosstabs, Actions, Export.</p>
+  <p class="todo">Content to be provided.</p>
+
+  <h2 id="publication">5. Publication</h2>
+  <p class="todo">Content to be provided.</p>
 </body>
 </html>

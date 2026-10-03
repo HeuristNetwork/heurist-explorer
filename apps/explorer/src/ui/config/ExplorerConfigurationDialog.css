@@ -102,3 +102,6 @@
 .h-explorer-config-reset {
     margin-top: 12px;
 }
+
+/* Getting started sits on the left of the footer, apart from Cancel/Apply */
+.heurist-config-getting-started { margin-right:auto; }

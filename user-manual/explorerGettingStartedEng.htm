@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Heurist Explorer - Getting started</title>
+  <!--
+    Texts of the Explorer getting-started tour (ExplorerTour, explorerTourSteps.js).
+    One <section id="step-id"> per step: a heading (the popup title) and 2-5 sentences.
+    A recording is added as:
+      <video src="media/step-id.webm" preload="none"></video>
+    (silent loop, 5-15 s; paths are relative to this file). Steps without a section
+    use their fallback title from explorerTourSteps.js.
+  -->
+</head>
+<body>
+
+<!-- 1. Filter builder and source editor -->
+<section id="qse-intro">
+  <h3>Query Source editor</h3>
+  <p>This is where you define what Explorer shows: a query together with the settings the
+  presentation modules use with it. All modules show its result.</p>
+</section>
+
+<section id="qse-query">
+  <h3>Inline query helper</h3>
+  <p>Type a query here. The helper suggests record types, fields and operators as you type,
+  and shows the query as a sentence below the box.</p>
+  <p>Press Enter or <strong>Filter</strong> to run it.</p>
+</section>
+
+<section id="qse-builder">
+  <h3>Filter Builder</h3>
+  <p>Put a query together from conditions, without typing the query language.</p>
+</section>
+
+<section id="qse-parameters">
+  <h3>Parameterized filter and Filter Form</h3>
+  <p>In the Filter Builder a condition can be a parameter instead of a fixed value. A query
+  with parameters is shown as a <strong>Filter Form</strong>: fill in the values (text, dates,
+  lists, facets) and run the search. It replaces the former faceted search.</p>
+</section>
+
+<section id="qse-settings">
+  <h3>Geographic, time and column fields</h3>
+  <p>Which fields Map uses for geometry and Timeline for dates - also through linked records,
+  when the records have none of their own - and which columns Data shows.</p>
+</section>
+
+<section id="qse-rules">
+  <h3>Expansion rules</h3>
+  <p>Rules that add linked and related records to the result, level by level. Graph uses them
+  to expand the network; Data can show each level.</p>
+</section>
+
+<section id="qse-save">
+  <h3>Save and Add</h3>
+  <p><strong>Save</strong> stores the query with its settings as a Query Source, to reuse and
+  publish. <strong>Add</strong> puts a saved source into your Workspace.</p>
+</section>
+
+<section id="qse-layout">
+  <h3>Layout and more options</h3>
+  <p>Place the editor on the left (<strong>Vertical</strong>) or above the modules
+  (<strong>Horizontal</strong>), and show or hide the settings with <strong>More</strong>.</p>
+</section>
+
+<!-- 2. Saved filters and sources on the toolbar -->
+<section id="toolbar-search">
+  <h3>Search</h3>
+  <p>Shows or hides the Query Source editor.</p>
+</section>
+
+<section id="toolbar-lists">
+  <h3>Filters, Entities and Sources</h3>
+  <p>Saved filters, record types and saved Query Sources. Pick one to open it in the editor
+  and show its result.</p>
+</section>
+
+<section id="toolbar-favorites">
+  <h3>Favorites</h3>
+  <p>Star a filter, record type or source to keep it here.</p>
+</section>
+
+<section id="toolbar-history">
+  <h3>History</h3>
+  <p>The queries and sources you used recently. Explorer reopens the last one when it starts.</p>
+</section>
+
+<section id="toolbar-workspace">
+  <h3>Workspace</h3>
+  <p>A saved working set of the Query Sources you are working with now.</p>
+</section>
+
+<section id="toolbar-subsets">
+  <h3>Subsets</h3>
+  <p>Restrict further searches to a subset of records.</p>
+</section>
+
+<!-- 3. Presentation modules -->
+<section id="module-data">
+  <h3>Data</h3>
+  <p>The result as a list, table or cards. Each module is independent: show, hide or move it
+  as you need; selecting records in one module highlights them in the others.</p>
+</section>
+
+<section id="module-map">
+  <h3>Map</h3>
+  <p>Records with geographic data, in layers. Each layer can show its records in Data.</p>
+</section>
+
+<section id="module-graph">
+  <h3>Graph</h3>
+  <p>Records and their links and relationships as a network, expanded with the expansion rules.</p>
+</section>
+
+<section id="module-timeline">
+  <h3>Timeline</h3>
+  <p>Records with dates, in bands.</p>
+</section>
+
+<section id="module-recordview">
+  <h3>Record view</h3>
+  <p>The full content of the selected record.</p>
+</section>
+
+<section id="module-layout">
+  <h3>Layout configuration</h3>
+  <p>Toolbar position and button size, and which pane each module occupies. Several modules in
+  one pane work as tabs: one is visible at a time.</p>
+</section>
+
+<!-- 4. Tools (content to be provided) -->
+<section id="tools">
+  <h3>Tools</h3>
+  <p>Reports, Crosstabs, Actions and Export work on the current result or selection.</p>
+</section>
+
+<!-- 5. Publication (content to be provided) -->
+<section id="publication">
+  <h3>Publication</h3>
+  <p>Publish a module or a set of modules with your Query Sources as a standalone page or a
+  website.</p>
+</section>
+
+</body>
+</html>

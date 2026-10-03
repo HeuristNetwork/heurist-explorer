@@ -1,0 +1,47 @@
+/*
+ * Guided tour (ExplorerTour): popup next to the described element, highlight ring
+ * around it, no veil. Both are popovers in the top layer (fixed, positioned by JS);
+ * the UA popover defaults (inset, margin, border, padding) are reset here.
+ */
+.h-tour,
+.h-tour-ring { position:fixed; inset:auto; margin:0; }
+.h-tour {
+  z-index:3000; box-sizing:border-box; width:min(340px, calc(100vw - 16px)); max-height:calc(100vh - 16px);
+  overflow:visible; display:flex; flex-direction:column; gap:6px; padding:10px 12px;
+  border:1px solid var(--h-color-border); border-radius:var(--h-radius, 4px);
+  background:var(--h-color-bg); color:var(--h-color-text); box-shadow:0 8px 24px rgb(0 0 0 / 22%);
+  line-height:1.4;
+}
+.h-tour-ring {
+  z-index:2999; box-sizing:border-box; padding:0; pointer-events:none; background:transparent;
+  border:2px solid var(--h-color-primary); border-radius:var(--h-radius, 4px);
+  box-shadow:0 0 0 4px color-mix(in srgb, var(--h-color-primary) 22%, transparent);
+  transition:top .15s, left .15s, width .15s, height .15s;
+}
+.h-tour-ring[hidden],
+.h-tour-arrow[hidden],
+.h-tour-more[hidden] { display:none; }
+
+.h-tour-header { display:flex; align-items:center; gap:6px; }
+.h-tour-topic { flex:1 1 auto; min-width:0; color:var(--h-color-text-muted); font-size:var(--h-font-size-small); }
+.h-tour-close { flex:0 0 auto; width:22px; height:22px; padding:0; }
+.h-tour-title { margin:0; font-size:1.05em; color:var(--h-color-primary); }
+.h-tour-text { overflow:auto; min-height:0; }
+.h-tour-text > :first-child { margin-top:0; }
+.h-tour-text > :last-child { margin-bottom:0; }
+.h-tour-text p { margin:0 0 6px; }
+.h-tour-text ul { margin:0 0 6px; padding-left:18px; }
+.h-tour-text video,
+.h-tour-text img { display:block; max-width:100%; height:auto; margin:6px 0; border:1px solid var(--h-color-border); }
+.h-tour-footer { display:flex; align-items:center; gap:6px; padding-top:4px; }
+.h-tour-count { margin-left:auto; color:var(--h-color-text-muted); font-size:var(--h-font-size-small); }
+
+/* arrow: a rotated square on the edge facing the target (data-side = popup's side of the target) */
+.h-tour-arrow {
+  position:absolute; width:12px; height:12px; background:var(--h-color-bg);
+  border:1px solid var(--h-color-border); transform:translate(-50%, -50%) rotate(45deg);
+}
+.h-tour[data-side="right"] .h-tour-arrow { left:0; border-top-color:transparent; border-right-color:transparent; }
+.h-tour[data-side="left"] .h-tour-arrow { left:100%; border-bottom-color:transparent; border-left-color:transparent; }
+.h-tour[data-side="bottom"] .h-tour-arrow { top:0; border-right-color:transparent; border-bottom-color:transparent; }
+.h-tour[data-side="top"] .h-tour-arrow { top:100%; border-top-color:transparent; border-left-color:transparent; }

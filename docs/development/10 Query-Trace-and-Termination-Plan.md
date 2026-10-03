@@ -158,6 +158,11 @@ After each change, compare the debug numbers against the Phase 1 measurements, a
 
 ---
 
+**2026-10-03 — trace panel hidden.** Agreed with Artem: the query trace panel is hidden
+until a better place is found (`TRACE_PANEL_SHOWN = false` in `ExplorerApplication`; the
+panel code stays). While hidden, the RequestMonitor runs with tracing off, so requests carry
+no `debug` flag. Stop and the guards are unchanged. See plan 06 Part C.
+
 ## Implementation notes (2026-10-01)
 
 ### Measurements (osmak_mapping, anonymous user, local XAMPP)

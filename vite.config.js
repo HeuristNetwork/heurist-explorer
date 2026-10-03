@@ -12,6 +12,7 @@ const targets = Object.freeze({
     manuals: [
       "explorerUserManualEng.htm",
       "explorerUserManualFre.htm",
+      "explorerGettingStartedEng.htm",
       "searchQueryLanguageEng.htm",
       "searchQueryLanguageFre.htm",
     ],

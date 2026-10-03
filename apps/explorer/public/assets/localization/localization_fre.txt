@@ -43,3 +43,38 @@
 #Stop#Arrêter
 #Stop the running query#Arrêter la requête en cours
 #Stop running queries#Arrêter les requêtes en cours
+#Vertical#Vertical
+#Horizontal#Horizontal
+#More#Plus
+#Less#Moins
+#Save#Enregistrer
+#Add#Ajouter
+#Remove#Retirer
+#Title#Titre
+#Current#Actuel
+#Query language help#Aide sur le langage de requête
+#Layout and more options#Disposition et autres options
+#Show the presentation settings#Afficher les paramètres de présentation
+#Hide the presentation settings#Masquer les paramètres de présentation
+#Getting started#Prise en main
+#Welcome to Heurist Explorer#Bienvenue dans Heurist Explorer
+#Show the welcome popup and the getting started guide#Afficher l'accueil et le guide de prise en main
+#Explorer is the module that allows filtering, analysing, visualising and publishing data in your database.#Explorer est le module qui permet de filtrer, d'analyser, de visualiser et de publier les données de votre base.
+#Query sources.#Sources de requête.
+#A query - fixed, or with parameters shown as a Filter Form - together with its geographic, time and column fields and expansion rules. Build them with Search (the Query Source editor) and save them for reuse.#Une requête - fixe, ou avec des paramètres présentés sous forme de formulaire de filtre - avec ses champs géographiques, temporels et de colonnes et ses règles d'expansion. Créez-les avec Rechercher (l'éditeur de source de requête) et enregistrez-les pour les réutiliser.
+#Presentation modules.#Modules de présentation.
+#Data, Map, Graph, Timeline and Record view show the same result and selection. Each module is independent: arrange, hide or show it as you need.#Données, Carte, Graphe, Chronologie et Fiche affichent le même résultat et la même sélection. Chaque module est indépendant : disposez-le, masquez-le ou affichez-le selon vos besoins.
+#Publication.#Publication.
+#Publish a module or a set of modules with your query sources as a standalone page or a website.#Publiez un module ou un ensemble de modules avec vos sources de requête sous forme de page autonome ou de site web.
+#Back#Précédent
+#Next#Suivant
+#Finish#Terminer
+#Read more#En savoir plus
+#Previous step#Étape précédente
+#Next step#Étape suivante
+#Open this topic in the manual#Ouvrir ce sujet dans le manuel
+#Filter builder and source editor#Constructeur de filtres et éditeur de sources
+#Saved filters and sources on the toolbar#Filtres et sources enregistrés dans la barre d'outils
+#Presentation modules#Modules de présentation
+#Tools#Outils
+#Publication#Publication

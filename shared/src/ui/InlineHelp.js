@@ -50,9 +50,10 @@ export class InlineHelp {
   /**
    * Open the full-viewport manual dialog, loading the manual iframe for the active language.
    *
+   * @param {string|null} [anchor] Section id to scroll to (`#anchor` in the manual).
    * @returns {void}
    */
-  open() {
+  open(anchor = null) {
     const dlg = HMsg.getMsgDlg(this.dialogId);
     (this.parent || document.body).append(dlg);
     dlg.classList.add('h-dialog-fullscreen');
@@ -67,7 +68,7 @@ export class InlineHelp {
 
     const frame = document.createElement('iframe');
     frame.className = 'h-dialog-iframe';
-    frame.src = this.manualUrl();
+    frame.src = this.manualUrl() + (anchor ? `#${encodeURIComponent(anchor)}` : '');
     frame.title = $HR('Help');
     body.append(frame);
 

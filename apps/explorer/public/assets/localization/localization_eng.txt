@@ -43,3 +43,38 @@
 #Stop#Stop
 #Stop the running query#Stop the running query
 #Stop running queries#Stop running queries
+#Vertical#Vertical
+#Horizontal#Horizontal
+#More#More
+#Less#Less
+#Save#Save
+#Add#Add
+#Remove#Remove
+#Title#Title
+#Current#Current
+#Query language help#Query language help
+#Layout and more options#Layout and more options
+#Show the presentation settings#Show the presentation settings
+#Hide the presentation settings#Hide the presentation settings
+#Getting started#Getting started
+#Welcome to Heurist Explorer#Welcome to Heurist Explorer
+#Show the welcome popup and the getting started guide#Show the welcome popup and the getting started guide
+#Explorer is the module that allows filtering, analysing, visualising and publishing data in your database.#Explorer is the module that allows filtering, analysing, visualising and publishing data in your database.
+#Query sources.#Query sources.
+#A query - fixed, or with parameters shown as a Filter Form - together with its geographic, time and column fields and expansion rules. Build them with Search (the Query Source editor) and save them for reuse.#A query - fixed, or with parameters shown as a Filter Form - together with its geographic, time and column fields and expansion rules. Build them with Search (the Query Source editor) and save them for reuse.
+#Presentation modules.#Presentation modules.
+#Data, Map, Graph, Timeline and Record view show the same result and selection. Each module is independent: arrange, hide or show it as you need.#Data, Map, Graph, Timeline and Record view show the same result and selection. Each module is independent: arrange, hide or show it as you need.
+#Publication.#Publication.
+#Publish a module or a set of modules with your query sources as a standalone page or a website.#Publish a module or a set of modules with your query sources as a standalone page or a website.
+#Back#Back
+#Next#Next
+#Finish#Finish
+#Read more#Read more
+#Previous step#Previous step
+#Next step#Next step
+#Open this topic in the manual#Open this topic in the manual
+#Filter builder and source editor#Filter builder and source editor
+#Saved filters and sources on the toolbar#Saved filters and sources on the toolbar
+#Presentation modules#Presentation modules
+#Tools#Tools
+#Publication#Publication

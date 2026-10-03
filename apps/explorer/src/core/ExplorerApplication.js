@@ -17,7 +17,7 @@ import { hasQueryParameters } from '#shared/data/queryParameters.js';
 import { HeuristApiClient, RequestMonitor } from '#shared/api';
 import { extentFromGeoJson, extentFromWkt, extentToGeoJson, isExtent } from '#shared/utils';
 import { HostAdapter } from '#shared/host';
-import { HMsg, $HR } from '#shared/ui';
+import { HMsg, $HR, InlineHelp, getActiveLanguage, getAssetBaseUrl } from '#shared/ui';
 import { LayoutManager } from './LayoutManager.js';
 import { cloneDataSource, dataSourceKey, dataSourceRole, normalizeDataSource } from './DataSource.js';
 import { DataSourceFavorites } from './DataSourceFavorites.js';
@@ -42,6 +42,9 @@ import { HFilterBuilder } from '../widgets/filter-builder/HFilterBuilder.js';
 import { QuerySourcePanel } from '../widgets/query-source/QuerySourcePanel.js';
 import { ExplorerAuthoringDock } from '../ui/ExplorerAuthoringDock.js';
 import { ExplorerCompactMode } from '../ui/ExplorerCompactMode.js';
+import { ExplorerWelcome } from '../ui/ExplorerWelcome.js';
+import { ExplorerTour, loadTourText } from '../ui/ExplorerTour.js';
+import { explorerTourSteps, explorerTourTopics } from '../ui/explorerTourSteps.js';
 import './ExplorerApplication.css';
 
 /** Explorer's top-level application controller: modules, layout, datasource, and synchronization. */
@@ -109,8 +112,9 @@ export class ExplorerApplication {
     this.container.replaceChildren(workspace);
     this.workspaceElement = workspace;
 
-    // Every data request of Explorer and its modules: query trace panel, Stop button
-    this.requestMonitor = new RequestMonitor({ source: 'explorer', traceEnabled: readTracePreference() });
+    // Every data request of Explorer and its modules: Stop button (and the query trace,
+    // hidden for now - 2026-10-03; while hidden, requests carry no debug flag)
+    this.requestMonitor = new RequestMonitor({ source: 'explorer', traceEnabled: TRACE_PANEL_SHOWN && readTracePreference() });
     this.requestMonitor.addEventListener('tracechange', (event) => writeTracePreference(event.detail.enabled));
     const apiClient = new HeuristApiClient({
       apiBaseUrl: this.config.apiBaseUrl,
@@ -168,8 +172,12 @@ export class ExplorerApplication {
     }
 
     this.uiConfigValue = this.uiConfig.load();
-    // outer layout: authoring pane (west) beside the presentation-module layout (center)
+    // outer layout: authoring pane (west or north) beside the presentation-module layout (center)
     this.authoringDock = new ExplorerAuthoringDock(workspace, { database: this.config.database });
+    // compact mode and a vertical Filter Form move the pane; the editor follows its region
+    this.authoringDock.addEventListener('placementchange', (event) => {
+      this.querySourcePanel?.setOrientation(event.detail.region === 'north' ? 'horizontal' : 'vertical');
+    });
     this.layout = new LayoutManager(this.authoringDock.modulesElement).bindModules(this.modules);
     this.controlPanel = new ExplorerControlPanel({
       application: this,
@@ -182,6 +190,7 @@ export class ExplorerApplication {
     await this.applyLayout(this.config.settings.layout || defaultLayout(), { deferHidden: true });
     this.compactMode = new ExplorerCompactMode({ application: this }).start();
     if (this.config.state.dataSource) await this.activateDataSource(this.config.state.dataSource);
+    else await this._startUp();
     if (this.config.state.selection) await this.sync.setSelection(this.config.state.selection);
     return this;
   }
@@ -328,7 +337,20 @@ export class ExplorerApplication {
       onShow: () => this.showQuerySourcePanel(),
       onModeChange: (mode) => this.authoringDock?.setMode(mode),
       requestMonitor: this.requestMonitor,
-      onStop: () => this.stopAllQueries()
+      showTrace: TRACE_PANEL_SHOWN,
+      onStop: () => this.stopAllQueries(),
+      // layout: Vertical (west) / Horizontal (north), More, Help
+      orientation: this.authoringDock.getRegion() === 'north' ? 'horizontal' : 'vertical',
+      expanded: this.authoringDock.getAdvanced(),
+      onExpandedChange: (expanded) => this.authoringDock?.setAdvanced(expanded),
+      onLayoutChange: (orientation) => {
+        this.authoringDock?.setPlacement(orientation === 'horizontal' ? 'north' : 'west');
+        this.authoringDock?.show();
+        this.syncSearchButton();
+      },
+      canChangeLayout: () => this.authoringDock?.isDrawerMode() !== true,
+      onFormPlacement: (region) => this.authoringDock?.setTemporaryPlacement(region),
+      onHelp: () => this.controlPanel?.openFilterHelp()
     });
     // own host element: the panel replaces its container's class, and the pane
     // must keep `h-explorer-authoring` (its scroll container)
@@ -561,6 +583,65 @@ export class ExplorerApplication {
     else this.favorites.add(reference, { title });
     this.controlPanel?.refreshNavigationLists?.();
     return !removed;
+  }
+
+  /**
+   * Start without a DataSource in the bootstrap state: reopen the most recent
+   * history entry (a parameterized query opens the Filter Form, any other runs at
+   * once), or on the very first visit show the welcome popup (plan 11).
+   *
+   * @private
+   * @returns {Promise<void>}
+   */
+  async _startUp() {
+    const last = this.history.list()[0];
+    if (last?.dataSource) {
+      try { await this.activateHistoryEntry(last); }
+      catch (error) { if (error?.name !== 'AbortError') HMsg.showMsgErr?.(error?.message || String(error)); }
+      return;
+    }
+    if (new ExplorerWelcome().isFirstVisit()) this.showWelcome();
+  }
+
+  /** Show the welcome popup (first visit, or Getting started in the configuration dialog). */
+  showWelcome() {
+    new ExplorerWelcome({ onGettingStarted: () => this.openGettingStarted() }).open();
+  }
+
+  /**
+   * Getting started: the guided tour over the Explorer interface (plan 11). The
+   * Query Source editor's More state is restored when the tour closes.
+   *
+   * @param {number} [index=0] Step to start with.
+   * @returns {Promise<boolean>} Whether the tour opened.
+   */
+  async openGettingStarted(index = 0) {
+    if (this._tour?.isOpen()) return true;
+    const editor = this.querySourcePanel?.editor;
+    const expanded = editor?.isExpanded?.();
+    const base = String(getAssetBaseUrl() || '').replace(/\/+$/, '');
+    const language = getActiveLanguage();
+    const suffix = language.charAt(0).toUpperCase() + language.slice(1);
+    this._tour = new ExplorerTour({
+      steps: explorerTourSteps(this),
+      topics: explorerTourTopics(),
+      // texts per language; the English file when a translation is missing
+      loadText: () => loadTourText(`${base}/explorerGettingStarted${suffix}.htm`, `${base}/explorerGettingStartedEng.htm`),
+      onReadMore: (anchor) => this.openManual(anchor),
+      isCompact: () => this.compactMode?.active === true,
+      onClose: () => { if (expanded != null) editor?.setExpanded(expanded); }
+    });
+    return this._tour.start(index);
+  }
+
+  /**
+   * Open the Explorer manual, optionally at a section.
+   *
+   * @param {string|null} [anchor] Section id in the manual.
+   */
+  openManual(anchor = null) {
+    this._manualHelp ||= new InlineHelp({ parent: this.container, moduleName: 'explorer' });
+    this._manualHelp.open(anchor);
   }
 
   /**
@@ -1715,6 +1796,8 @@ const RUNNING_QUERY_DELAY = 300;
 
 /** localStorage key of the query trace switch (per browser). */
 const TRACE_PREFERENCE_KEY = 'heurist-explorer-query-trace';
+/** The query trace panel is hidden for now (2026-10-03, plan 10): a better place is to be found. */
+const TRACE_PANEL_SHOWN = false;
 
 /** @returns {boolean} Whether the query trace was switched on in this browser. */
 function readTracePreference() {

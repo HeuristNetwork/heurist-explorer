@@ -43,12 +43,14 @@ export class ExplorerConfigurationDialog {
    * @param {Element|null} [options.parent] Element to append the dialog to; defaults to `document.body`.
    * @param {Function|null} [options.onSave] Called with the new value on save; returning `false` keeps the dialog open.
    * @param {Function|null} [options.onCancel] Called with the (unsaved) current value when the dialog is cancelled.
+   * @param {Function|null} [options.onGettingStarted] Offers a Getting started button: it closes the dialog and calls this.
    */
-  constructor({ value = null, parent = null, onSave = null, onCancel = null } = {}) {
+  constructor({ value = null, parent = null, onSave = null, onCancel = null, onGettingStarted = null } = {}) {
     this.value = mergeDefaults(value);
     this.parent = parent;
     this.onSave = typeof onSave === 'function' ? onSave : null;
     this.onCancel = typeof onCancel === 'function' ? onCancel : null;
+    this.onGettingStarted = typeof onGettingStarted === 'function' ? onGettingStarted : null;
     this.chips = new Map();
     this.paneLists = new Map();
     this.paneChecks = new Map();
@@ -93,6 +95,12 @@ export class ExplorerConfigurationDialog {
     );
 
     const footer = el('footer', 'heurist-config-footer h-dialog-footer');
+    if (this.onGettingStarted) {
+      // closes the dialog first (asking about unsaved changes as Cancel does)
+      const start = button('Getting started', () => { if (this.cancel() !== false) this.onGettingStarted(); }, 'Show the welcome popup and the getting started guide');
+      start.classList.add('heurist-config-getting-started');
+      footer.append(start);
+    }
     footer.append(button('Cancel', () => this.cancel()), submitButton('Apply'));
     this.form.append(this.content, footer);
     this.dialog.append(header, this.form);
