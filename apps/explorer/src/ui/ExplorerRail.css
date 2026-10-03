@@ -285,8 +285,20 @@
     background: var(--h-color-surface);
 }
 
+/* !important: the caption modes give rail buttons `display:flex` with a more
+   specific selector, which kept the hidden Stop button visible */
 .h-explorer-rail-stop[hidden] {
-    display: none;
+    display: none !important;
+}
+
+/* horizontal toolbar: Stop takes its place in the row (absolute at the bottom-left
+   it would cover the first button, Search) */
+.h-toolbar-horizontal .h-explorer-rail-stop {
+    position: relative;
+    left: auto;
+    bottom: auto;
+    align-self: center;
+    margin-left: 8px;
 }
 
 .h-explorer-rail-stop-count {
