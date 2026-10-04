@@ -1,8 +1,8 @@
 # Expansion levels in Graph and Data — development plan
 
-Status: **Phases 1–2 implemented 2026-09-28, committed (`ec2aef1`); §11 committed (`8aa2890` /
-server `9bca7dafe`).** Phase 3 (Data) implemented 2026-09-30, not committed, not yet checked in
-a browser — decisions and notes in §7; Phase 4 (Map, Timeline) is postponed. §10 lists where the implementation differs from this plan.
+Status: **Phases 1–2 committed (`ec2aef1`); §11 committed (`8aa2890` / server `9bca7dafe`);
+Phase 3 (Data) and §12 Smart expansion committed (`a35d5ab`, `a0f44b6`). Phase 4 (Map,
+Timeline) is postponed; the remaining small items are listed in §13.** §10 lists where the implementation differs from this plan.
 
 ---
 
@@ -288,3 +288,14 @@ Link (Data only), Quick expansion, Smart expansion, previous / level / next, all
 (Data only), Edit rules at the right. Graph: Quick/Smart expansion show "Maximum allowed
 nodes limit is NNN" and do nothing when the graph already has the maximum nodes; the
 main result shows a rotating loading indicator instead of "No records" while it loads.
+
+## 13. Open items (2026-10-03)
+
+- Phase 4: level query as a Map layer / Timeline group (postponed, E9).
+- D6: sync level and enabled rules between Data and Graph through the host — meaning to be
+  agreed first (Graph levels are cumulative, its enabled rules are local).
+- D7 (optional): highlight level records in the main list instead of filtering.
+- U5: several level panes at once (only adds panes).
+- D9 leftover: Timeline band shows a fixed, not localized "Partial load: only part of the
+  result set was loaded." (`TimelineLayerPanel.js:72`) — show "first X of Y records" like Map.
+- §9 test "Data level queries equal the Graph's level membership on a fixture" — not found.

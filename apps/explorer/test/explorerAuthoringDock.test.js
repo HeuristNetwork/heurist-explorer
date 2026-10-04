@@ -82,3 +82,44 @@ test('setAdvanced is remembered', () => {
   d.setAdvanced(true);
   assert.equal(JSON.parse(storage.data[KEY]).advanced, true);
 });
+
+test('docked list: West shows the pane and/or the list; hidden when it holds neither', () => {
+  const { dock: d } = dock();
+  const west = () => d.cardinal.state.west.visible;
+  d.setListShown(true);
+  assert.equal(west(), true);
+  assert.equal(d.listElement.hidden, false);
+  assert.ok(d.cardinal.getRegionElement('west').classList.contains('has-list'), 'pane above the list');
+  assert.equal(d.listElement.parentElement, d.paneElement.parentElement);
+
+  d.hide();
+  assert.equal(west(), true, 'the list alone keeps the West');
+  assert.equal(d.paneElement.hidden, true);
+  assert.ok(!d.cardinal.getRegionElement('west').classList.contains('has-list'));
+
+  d.setListShown(false);
+  assert.equal(west(), false, 'nothing in the West: hidden');
+  d.show();
+  assert.equal(west(), true);
+});
+
+test('docked list: with a horizontal QSE the list is alone in the West', () => {
+  const { dock: d } = dock({ placement: 'north' });
+  d.setListShown(true);
+  assert.equal(d.cardinal.state.north.visible, true);
+  assert.equal(d.cardinal.state.west.visible, true);
+  assert.equal(d.paneElement.parentElement?.dataset.region, 'north');
+  assert.ok(!d.cardinal.getRegionElement('west').classList.contains('has-list'));
+});
+
+test('docked list: the Filter Form in the West hides the list until it closes', () => {
+  const { dock: d } = dock();
+  d.setListShown(true);
+  d.setFormCover(true);
+  assert.equal(d.listElement.hidden, true);
+  assert.equal(d.isListShown(), false);
+  assert.equal(d.cardinal.state.west.visible, true, 'the form fills the West');
+  d.setFormCover(false);
+  assert.equal(d.listElement.hidden, false);
+  assert.equal(d.isListShown(), true);
+});

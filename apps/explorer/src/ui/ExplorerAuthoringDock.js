@@ -52,6 +52,11 @@ export class ExplorerAuthoringDock extends EventTarget {
     this._splitVisible = true;
     this._temporary = null;
     this.region = 'west';
+    // the pane (QSE / Filter Form) and the docked list each have their own visibility;
+    // the West region is shown while either of them is in it
+    this._paneShown = true;
+    this._listShown = false;
+    this._formCover = false;
 
     this.cardinal = new HCardinalLayout(container, {
       westSize: this.widths.editor,
@@ -67,7 +72,12 @@ export class ExplorerAuthoringDock extends EventTarget {
     /** Host for the presentation-module layout (LayoutManager). */
     this.modulesElement = document.createElement('div');
     this.modulesElement.className = 'h-explorer-modules';
+    /** Host for the docked Filters / Entities / Sources list, below the pane in the West. */
+    this.listElement = document.createElement('div');
+    this.listElement.className = 'h-explorer-authoring-list';
+    this.listElement.hidden = true;
     this.cardinal.setContent('west', this.paneElement);
+    this.cardinal.getRegionElement('west').append(this.listElement);
     this.cardinal.setContent('center', this.modulesElement);
 
     this._onResize = (event) => {
@@ -159,15 +169,20 @@ export class ExplorerAuthoringDock extends EventTarget {
     const next = on === true;
     if (next === this._drawer) return this;
     if (next) {
-      this._splitVisible = this.isVisible();
-      this._moveTo('west');
+      this._splitVisible = this._paneShown;
       this._drawer = true;
+      this._moveTo('west');
+      // the drawer holds only the pane: no docked list
+      this.paneElement.hidden = false;
+      this.listElement.hidden = true;
+      this.cardinal.getRegionElement('west').classList.remove('has-list');
       this.cardinal.collapse('west');
     } else {
       this._drawer = false;
       this.cardinal.expand('west');
-      if (!this._splitVisible) this.cardinal.hide('west');
+      this._paneShown = this._splitVisible;
       this._moveTo(this._effectiveRegion());
+      this._syncRegions();
     }
     return this;
   }
@@ -176,16 +191,60 @@ export class ExplorerAuthoringDock extends EventTarget {
   isDrawerMode() { return this._drawer; }
 
   /** Show the authoring pane (expand the drawer). @returns {boolean} True when state changed. */
-  show() { return this._drawer ? this.cardinal.expand('west') : this.cardinal.show(this.region); }
+  show() {
+    if (this._drawer) return this.cardinal.expand('west');
+    const changed = !this._paneShown;
+    this._paneShown = true;
+    this._syncRegions();
+    return changed;
+  }
 
   /** Hide the authoring pane (collapse the drawer to its rail). @returns {boolean} True when state changed. */
-  hide() { return this._drawer ? this.cardinal.collapse('west') : this.cardinal.hide(this.region); }
+  hide() {
+    if (this._drawer) return this.cardinal.collapse('west');
+    const changed = this._paneShown;
+    this._paneShown = false;
+    this._syncRegions();
+    return changed;
+  }
 
   /** @returns {boolean} Whether the authoring pane is visible (drawer: expanded). */
   isVisible() {
     const state = this.cardinal.state[this.region];
-    return state.visible === true && !(this._drawer && state.collapsed);
+    if (this._drawer) return state.visible === true && !state.collapsed;
+    return this._paneShown && state.visible === true;
   }
+
+  /**
+   * Show or hide the docked list (Filters, Entities or Sources) below the pane in
+   * the West region. Not used in drawer mode.
+   *
+   * @param {boolean} shown Whether the list is shown.
+   * @returns {ExplorerAuthoringDock} This dock.
+   */
+  setListShown(shown) {
+    this._listShown = shown === true;
+    this._syncRegions();
+    return this;
+  }
+
+  /** @returns {boolean} Whether the docked list is shown (and not covered by the Filter Form). */
+  isListShown() { return this._listShown && !this._formCover && !this._drawer; }
+
+  /**
+   * The Filter Form fills the whole West region: the docked list is hidden while it is open.
+   *
+   * @param {boolean} cover Whether the Filter Form is open in the West region.
+   * @returns {ExplorerAuthoringDock} This dock.
+   */
+  setFormCover(cover) {
+    this._formCover = cover === true;
+    this._syncRegions();
+    return this;
+  }
+
+  /** @returns {boolean} Whether the Filter Form fills the West region. */
+  isFormCover() { return this._formCover; }
 
   /** @returns {boolean} The new visibility. */
   toggle() {
@@ -221,14 +280,40 @@ export class ExplorerAuthoringDock extends EventTarget {
   _moveTo(region) {
     const target = this.cardinal.getRegionElement(region);
     if (region === this.region && this.paneElement.parentElement === target) return;
-    const visible = this.isVisible();
     const previous = this.region;
-    if (previous !== region) this.cardinal.hide(previous);
-    target.append(this.paneElement);
+    // in the West the pane goes first: the docked list stays below it
+    if (region === 'west') target.prepend(this.paneElement);
+    else target.append(this.paneElement);
     this.region = region;
-    if (visible) this.cardinal.show(region);
-    else this.cardinal.hide(region);
+    if (this._drawer) {
+      if (previous !== region) this.cardinal.hide(previous);
+      this.cardinal.show(region);
+    } else {
+      this._syncRegions();
+    }
     if (previous !== region) this.dispatchEvent(new CustomEvent('placementchange', { detail: { region } }));
+  }
+
+  /**
+   * Show the regions that hold something: north while the pane is there and shown;
+   * West while the pane is there and shown, or a list is docked. The Filter Form
+   * in the West hides the list.
+   *
+   * @private
+   * @returns {void}
+   */
+  _syncRegions() {
+    if (this._drawer) return;
+    const list = this._listShown && !(this._formCover && this.region === 'west');
+    const paneWest = this.region === 'west' && this._paneShown;
+    this.paneElement.hidden = !this._paneShown;
+    this.listElement.hidden = !list;
+    const west = this.cardinal.getRegionElement('west');
+    west.classList.toggle('has-list', list && paneWest);
+    if (this.region === 'north' && this._paneShown) this.cardinal.show('north');
+    else this.cardinal.hide('north');
+    if (paneWest || list) this.cardinal.show('west');
+    else this.cardinal.hide('west');
   }
 
   /** @private Persist widths, north height, placement and the More state. */

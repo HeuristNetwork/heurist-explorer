@@ -97,7 +97,7 @@ export class ExplorerWelcome {
 /** Short description of Explorer: its three main ideas. */
 const POINTS = [
   ['Query sources.', 'A query - fixed, or with parameters shown as a Filter Form - together with its geographic, time and column fields and expansion rules. Build them with Search (the Query Source editor) and save them for reuse.'],
-  ['Presentation modules.', 'Data, Map, Graph, Timeline and Record view show the same result and selection. Each module is independent: arrange, hide or show it as you need.'],
+  ['Presentation modules.', 'Results, Map, Graph, Timeline and Record view show the same result and selection. Each module is independent: arrange, hide or show it as you need.'],
   ['Publication.', 'Publish a module or a set of modules with your query sources as a standalone page or a website.']
 ];
 

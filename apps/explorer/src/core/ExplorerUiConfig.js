@@ -17,6 +17,9 @@ const TOOLBAR_POSITIONS = ['vertical', 'horizontal'];
 const BUTTON_SIZES = ['small', 'small-caption', 'large', 'large-caption'];
 const REGION_TYPES = ['data', 'map', 'graph', 'timeline', 'recordview'];
 const REGIONS = ['north', 'west', 'center', 'east', 'south'];
+const LIST_MODES = ['docked', 'popup'];
+/** Interface languages; `auto` follows the language given by the host (Heurist preferences). */
+export const UI_LANGUAGES = ['auto', 'eng', 'fre', 'ger', 'por'];
 
 /** Database-scoped persistent Explorer toolbar position/size and module-to-region layout. */
 export class ExplorerUiConfig {
@@ -70,15 +73,69 @@ export function applyUiRegions(definitions, value) {
   }));
 }
 
+/**
+ * The interface language to use: the configured one, or the host's language for `auto`.
+ *
+ * @param {object} value Configuration value; see `ExplorerUiConfig.load()`.
+ * @param {string} hostLanguage Language given by the host bootstrap.
+ * @returns {string} Three-letter language code.
+ */
+export function resolveUiLanguage(value, hostLanguage) {
+  const language = value?.language;
+  return language && language !== 'auto' && UI_LANGUAGES.includes(language) ? language : (hostLanguage || 'eng');
+}
+
+/**
+ * The module type shown first in each pane: the first type of the configured
+ * order assigned to that pane.
+ *
+ * @param {object} value Configuration value; see `ExplorerUiConfig.load()`.
+ * @returns {Map<string, string>} Region → module type.
+ */
+export function leadingPaneTypes(value) {
+  const regions = value?.regions || {};
+  const order = Array.isArray(value?.order) ? value.order : defaults().order;
+  const leading = new Map();
+  for (const type of order) {
+    const region = regions[type];
+    if (region && !leading.has(region)) leading.set(region, type);
+  }
+  return leading;
+}
+
+/**
+ * Module types in toolbar order: pane by pane (north, west, center, east, south),
+ * and within a pane in the configured order.
+ *
+ * @param {object} value Configuration value; see `ExplorerUiConfig.load()`.
+ * @returns {Array<string>} Module types.
+ */
+export function moduleTypesInOrder(value) {
+  const regions = value?.regions || {};
+  const order = Array.isArray(value?.order) ? value.order : defaults().order;
+  const paneIndex = (type) => {
+    const index = REGIONS.indexOf(regions[type]);
+    return index < 0 ? REGIONS.length : index;
+  };
+  return [...order].sort((a, b) => paneIndex(a) - paneIndex(b) || order.indexOf(a) - order.indexOf(b));
+}
+
 /** Build a fresh copy of the default configuration. */
 function defaults() {
   return {
     version: 1,
     // toolbar rails on top (decided 2026-10-01), large icons with captions (2026-10-03)
     toolbar: { position: 'horizontal', buttonSize: 'large-caption' },
-    regions: { data: 'west', map: 'center', graph: 'center', timeline: 'south', recordview: 'east' },
+    // Result west; Record View, Map, Graph center (2026-10-04)
+    regions: { data: 'west', map: 'center', graph: 'center', timeline: 'south', recordview: 'center' },
+    // module order within a pane: the first module of an expanded pane is shown at start
+    order: ['data', 'recordview', 'map', 'graph', 'timeline'],
     // panes expanded when Explorer starts; the others start hidden (opened from the toolbar)
-    panes: { north: false, west: true, center: false, east: false, south: false }
+    panes: { north: false, west: true, center: true, east: false, south: false },
+    // Filters, Entities and Sources lists: docked in the West pane or popup (2026-10-04)
+    lists: 'docked',
+    // interface language for Explorer and every module; auto = the host's language
+    language: 'auto'
   };
 }
 
@@ -96,12 +153,18 @@ function normalize(value) {
       buttonSize: BUTTON_SIZES.includes(toolbar.buttonSize) ? toolbar.buttonSize : fallback.toolbar.buttonSize
     },
     regions: {},
-    panes: {}
+    order: [],
+    panes: {},
+    lists: LIST_MODES.includes(source.lists) ? source.lists : fallback.lists,
+    language: UI_LANGUAGES.includes(source.language) ? source.language : fallback.language
   };
 
   for (const type of REGION_TYPES) {
     normalized.regions[type] = REGIONS.includes(regions[type]) ? regions[type] : fallback.regions[type];
   }
+  // known types once each, in the saved order; missing ones follow in default order
+  const order = Array.isArray(source.order) ? source.order : [];
+  normalized.order = [...new Set([...order.filter((type) => REGION_TYPES.includes(type)), ...fallback.order])];
   const panes = source.panes && typeof source.panes === 'object' ? source.panes : {};
   for (const region of REGIONS) {
     normalized.panes[region] = typeof panes[region] === 'boolean' ? panes[region] : fallback.panes[region];

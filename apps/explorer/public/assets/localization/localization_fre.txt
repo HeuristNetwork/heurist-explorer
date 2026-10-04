@@ -27,7 +27,23 @@
 #Unable to load database structure#Impossible de charger la structure de la base
 
 #Expanded when Explorer starts#Développé au démarrage d’Explorer
-#Drag a module into the pane it should default to. Checked panes are expanded when Explorer starts.#Faites glisser un module dans le volet où il doit apparaître par défaut. Les volets cochés sont développés au démarrage d’Explorer.
+#Drag a module into a pane, or within a pane to change its order. Checked panes are expanded when Explorer starts and show their first module.#Faites glisser un module dans un volet, ou à l’intérieur d’un volet pour changer son ordre. Les volets cochés sont développés au démarrage d’Explorer et affichent leur premier module.
+#At least one module must stay visible#Au moins un module doit rester visible
+#Result#Résultat
+#Interface#Interface
+#Toolbar position#Position de la barre d’outils
+#Toolbar buttons size#Taille des boutons de la barre d’outils
+#Language#Langue
+#Auto#Auto
+#English#Anglais
+#French#Français
+#German#Allemand
+#Portuguese#Portugais
+#Popup#Fenêtre contextuelle
+#Docked in the left pane#Ancrées dans le volet gauche
+#Filters, Entities and Sources lists#Listes Filtres, Entités et Sources
+#Hide the query sentence#Masquer la phrase de la requête
+#Show the query as a sentence#Afficher la requête sous forme de phrase
 #Query trace#Trace des requêtes
 #Show or hide the query trace#Afficher ou masquer la trace des requêtes
 #Ask the server for SQL timings of every request#Demander au serveur les durées SQL de chaque requête
@@ -63,7 +79,7 @@
 #Query sources.#Sources de requête.
 #A query - fixed, or with parameters shown as a Filter Form - together with its geographic, time and column fields and expansion rules. Build them with Search (the Query Source editor) and save them for reuse.#Une requête - fixe, ou avec des paramètres présentés sous forme de formulaire de filtre - avec ses champs géographiques, temporels et de colonnes et ses règles d'expansion. Créez-les avec Rechercher (l'éditeur de source de requête) et enregistrez-les pour les réutiliser.
 #Presentation modules.#Modules de présentation.
-#Data, Map, Graph, Timeline and Record view show the same result and selection. Each module is independent: arrange, hide or show it as you need.#Données, Carte, Graphe, Chronologie et Fiche affichent le même résultat et la même sélection. Chaque module est indépendant : disposez-le, masquez-le ou affichez-le selon vos besoins.
+#Results, Map, Graph, Timeline and Record view show the same result and selection. Each module is independent: arrange, hide or show it as you need.#Résultats, Carte, Graphe, Chronologie et Fiche affichent le même résultat et la même sélection. Chaque module est indépendant : disposez-le, masquez-le ou affichez-le selon vos besoins.
 #Publication.#Publication.
 #Publish a module or a set of modules with your query sources as a standalone page or a website.#Publiez un module ou un ensemble de modules avec vos sources de requête sous forme de page autonome ou de site web.
 #Back#Précédent
@@ -78,3 +94,116 @@
 #Presentation modules#Modules de présentation
 #Tools#Outils
 #Publication#Publication
+
+#Query builder and source editor#Constructeur de requêtes et éditeur de sources
+#Filters#Filtres
+#Browse and apply saved filters#Parcourir et appliquer les filtres enregistrés
+#Entities#Entités
+#Search by record type#Rechercher par type d’enregistrement
+#Sources#Sources
+#Saved data sources (filter and presentation settings)#Sources de données enregistrées (filtre et paramètres de présentation)
+#Favorites#Favoris
+#Starred filters, record types and sources#Filtres, types d’enregistrement et sources marqués
+#History#Historique
+#Recently viewed data sources#Sources de données consultées récemment
+#Workspace#Espace de travail
+#Saved working set of data sources#Ensemble de sources de données enregistré
+#Subsets#Sous-ensembles
+#Restrict further searches to a subset of records#Limiter les recherches suivantes à un sous-ensemble d’enregistrements
+#List, cards or tabular presentation of records#Présentation des enregistrements en liste, fiches ou tableau
+#Map#Carte
+#Map view of records#Vue cartographique des enregistrements
+#Graph#Graphe
+#Network graph of linked records#Graphe des enregistrements liés
+#Timeline#Chronologie
+#Timeline view of dated records#Chronologie des enregistrements datés
+#Record#Fiche
+#Detailed information for the selected record#Informations détaillées sur l’enregistrement sélectionné
+#Report#Rapport
+#Custom reports editor#Éditeur de rapports personnalisés
+#Crosstabs#Tableaux croisés
+#Cross-tabulation and chart analysis#Analyse par tableaux croisés et graphiques
+#Actions#Actions
+#Dashboard of actions for the current filtered result or selection#Tableau de bord des actions pour le résultat filtré ou la sélection
+#Export#Exporter
+#Export records in various formats#Exporter les enregistrements dans divers formats
+#Explorer help and user guide#Aide et guide d’utilisation d’Explorer
+#Options#Options
+#Toolbar and layout configuration#Configuration de la barre d’outils et de la disposition
+#Publish#Publier
+#Publish the current view (coming soon)#Publier la vue actuelle (bientôt disponible)
+#Will be implemented soon...#Sera bientôt disponible...
+#Not implemented yet#Pas encore disponible
+#Small icons#Petites icônes
+#Small icons with captions#Petites icônes avec libellés
+#Large icons#Grandes icônes
+#Large icons with captions#Grandes icônes avec libellés
+#Saved Filters#Filtres enregistrés
+#Record Types#Types d’enregistrement
+#Query Sources#Sources de requête
+#Sort by#Trier par
+#Usage#Utilisation
+#Name#Nom
+#Groups#Groupes
+#Filter type#Type de filtre
+#All types#Tous les types
+#Simple#Simple
+#Parametrized#Paramétré
+#Edit saved filter#Modifier le filtre enregistré
+#Edit Query Source record#Modifier l’enregistrement de la source de requête
+#Other#Autre
+#Mine#Les miens
+#Everyone#Tout le monde
+#Website filters#Filtres du site web
+#Group#Groupe
+#No favorites#Aucun favori
+#No record types#Aucun type d’enregistrement
+#No query sources#Aucune source de requête
+#No history#Aucun historique
+#No workspace items#Aucun élément dans l’espace de travail
+#No filters#Aucun filtre
+#Clear the query and detach from Query Source, clearing its title and presentation settings#Effacer la requête et la détacher de la source de requête (titre et paramètres de présentation effacés)
+#Open the Filter Builder#Ouvrir le constructeur de filtres
+#Apply#Appliquer
+#Cancel#Annuler
+#Edit#Modifier
+#Parameterized queries are edited in Filter Builder.#Les requêtes paramétrées se modifient dans le constructeur de filtres.
+#load by extent#chargement par emprise
+#individual linked map features#objets cartographiques liés individuels
+#none#aucun
+#None#Aucun
+#Rule#Règle
+#Query Source#Source de requête
+#more#plus
+#Changing the record type will clear the Query Source title and presentation configuration. Continue?#Changer le type d’enregistrement effacera le titre et la configuration de présentation de la source de requête. Continuer ?
+#Change record type#Changer le type d’enregistrement
+#Expansion rules#Règles d’expansion
+#Geographic fields#Champs géographiques
+#Time fields#Champs temporels
+#Column fields#Champs des colonnes
+#Rules used by Graph to expand the result through linked records.#Règles utilisées par le Graphe pour étendre le résultat aux enregistrements liés.
+#Fields used by Map to obtain geometry, including linked geographic fields.#Champs utilisés par la Carte pour obtenir la géométrie, y compris les champs géographiques liés.
+#Date and year fields used by Timeline.#Champs de date et d’année utilisés par la Chronologie.
+#Columns and formatting used by the Data table presentation.#Colonnes et mise en forme utilisées par la présentation en tableau du Résultat.
+#record type#type d’enregistrement
+#Relation type#Type de relation
+#relationship#relation
+#record property#propriété de l’enregistrement
+#relation type#type de relation
+#operator#opérateur
+#term#terme
+#group#groupe
+#user#utilisateur
+#Save as Filter#Enregistrer comme filtre
+#Save only the reusable search definition.#Enregistrer seulement la définition de recherche réutilisable.
+#Save as Source#Enregistrer comme source
+#Save the query together with presentation settings for reuse.#Enregistrer la requête avec les paramètres de présentation pour la réutiliser.
+#Add to Workspace#Ajouter à l’espace de travail
+#Unsaved source#Source non enregistrée
+#In Workspace#Dans l’espace de travail
+#Update Source#Mettre à jour la source
+#Remove from Workspace#Retirer de l’espace de travail
+#Remove this saved Query Source from Workspace.#Retirer cette source de requête enregistrée de l’espace de travail.
+#Add this saved Query Source to Workspace.#Ajouter cette source de requête enregistrée à l’espace de travail.
+#Save as Source before adding it to Workspace.#Enregistrez comme source avant de l’ajouter à l’espace de travail.
+#Update Source before adding it to Workspace.#Mettez à jour la source avant de l’ajouter à l’espace de travail.

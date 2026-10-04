@@ -9,6 +9,28 @@
     overflow: auto;
 }
 
+/* West region with the docked Filters / Entities / Sources list: a column, the pane
+ * (Query Source editor) on top at its own height, the list fills the rest. */
+.h-cardinal-west:has(> .h-explorer-authoring-list) {
+    display: flex;
+    flex-direction: column;
+}
+.h-cardinal-west:has(> .h-explorer-authoring-list) > .h-explorer-authoring { flex: 1 1 auto; }
+.h-cardinal-west.has-list > .h-explorer-authoring {
+    flex: 0 0 auto;
+    height: auto;
+    max-height: 60%;
+    border-bottom: 1px solid var(--h-color-border);
+}
+.h-explorer-authoring[hidden],
+.h-explorer-authoring-list[hidden] { display: none; }
+.h-explorer-authoring-list {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+}
+
 /* Host of the presentation-module HCardinalLayout. */
 .h-explorer-modules {
     position: relative;

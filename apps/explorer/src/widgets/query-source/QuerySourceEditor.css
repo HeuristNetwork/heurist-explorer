@@ -18,10 +18,23 @@
 .h-qse-p1 > .h-qse-query { flex:1 1 auto; }
 /* p0: Clear and Help, a column left of the query (two fit the 66px minimum height) */
 .h-qse-p0 { display:flex; flex-direction:column; flex:0 0 auto; gap:0; }
-.h-qse-p0 .heurist-icon-button { width:20px; height:20px; padding:0; font-size:13px; line-height:20px; }
+.h-qse-p0 .heurist-icon-button,
+.h-qse .h-qse-sentence-show,
+.h-qse .h-qse-sentence-hide { width:16px; height:16px; padding:0; font-size:12px; line-height:16px; }
 .h-qse-p0 .heurist-icon-button[hidden] { display:none; }
 .h-qse-p3:empty { display:none; }
-.h-qse-p3 > .h-fih-sentence { margin-top:0; }
+.h-qse-p3 > .h-fih-sentence { margin-top:0; padding-right:24px; }
+/* query sentence: hidden by default (.is-off) and while there is no sentence;
+ * glasses at the query's bottom right show it, × at the sentence's bottom right hides it */
+.h-qse-p3 { position:relative; }
+.h-qse-p3.is-off,
+.h-qse-p3:has(> .h-fih-sentence[hidden]) { display:none; }
+.h-qse .h-qse-sentence-show,
+.h-qse .h-qse-sentence-hide { position:absolute; right:4px; bottom:4px; z-index:1; }
+.h-qse .h-qse-sentence-show[hidden] { display:none; }
+.h-qse-p1 > .h-qse-query { padding-right:22px; }
+/* clear of the textarea's resize grip */
+.h-qse.is-vertical .h-qse-sentence-show { right:16px; }
 
 /* p2: main actions (Save/Add come from DataSourceActions through .h-qse-actions) */
 .h-qse-p2 { display:flex; flex-wrap:wrap; align-items:flex-start; gap:4px; min-width:30px; }

@@ -28,11 +28,20 @@ const REGIONS = [
 
 /** Presentation module types, with the same icon/title used on the right rail. */
 const MODULES = [
-  { type: 'data', icon: 'fa-solid fa-table', title: 'Data' },
+  { type: 'data', icon: 'fa-solid fa-table', title: 'Result' },
   { type: 'map', icon: 'fa-solid fa-map-location-dot', title: 'Map' },
   { type: 'graph', icon: 'fa-solid fa-hexagon-nodes', title: 'Graph' },
   { type: 'timeline', icon: 'fa-regular fa-clock', title: 'Timeline' },
   { type: 'recordview', icon: 'fa-regular fa-address-card', title: 'Record View' }
+];
+
+/** Interface languages, as in the modules' configuration dialogs. */
+const LANGUAGES = [
+  ['auto', 'Auto'],
+  ['eng', 'English'],
+  ['fre', 'French'],
+  ['ger', 'German'],
+  ['por', 'Portuguese']
 ];
 
 /** Editor for Explorer's toolbar and layout configuration, saved via `onSave`. */
@@ -90,7 +99,7 @@ export class ExplorerConfigurationDialog {
     });
     this.content = el('div', 'heurist-config-content h-dialog-body');
     this.content.append(
-      this.section('Toolbar', (body) => this.buildToolbarSection(body), true),
+      this.section('Interface', (body) => this.buildInterfaceSection(body), true),
       this.section('Layout', (body) => this.buildLayoutSection(body), true)
     );
 
@@ -133,19 +142,56 @@ export class ExplorerConfigurationDialog {
   }
 
   /**
-   * Build the "Toolbar" section's fields: rail position and button size, both radio groups.
+   * Build the "Interface" section's fields: toolbar position and button size, the
+   * lists mode and the interface language.
    *
    * @param {HTMLElement} body Section body to append fields into.
    * @returns {void}
    */
-  buildToolbarSection(body) {
-    this.radioGroup(body, 'Position', [
+  buildInterfaceSection(body) {
+    this.radioGroup(body, 'Toolbar position', [
       ['vertical', 'Vertical (side rails)'],
       ['horizontal', 'Horizontal (top toolbar)']
     ], this.value.toolbar.position, (next) => { this.value.toolbar.position = next; });
 
-    this.radioGroup(body, 'Buttons size', VIEW_MODES.map((mode) => [mode.id, mode.label]),
+    this.radioGroup(body, 'Toolbar buttons size', VIEW_MODES.map((mode) => [mode.id, mode.label]),
       this.value.toolbar.buttonSize, (next) => { this.value.toolbar.buttonSize = next; });
+
+    this.radioGroup(body, 'Filters, Entities and Sources lists', [
+      ['docked', 'Docked in the left pane'],
+      ['popup', 'Popup']
+    ], this.value.lists, (next) => { this.value.lists = next; });
+
+    // Explorer and every module use this language; changing it reloads Explorer
+    this.selectRow(body, 'Language', LANGUAGES, this.value.language, (next) => { this.value.language = next; });
+  }
+
+  /**
+   * Build and append a labeled select row.
+   *
+   * @param {HTMLElement} parent Element to append the row into.
+   * @param {string} labelText Field label.
+   * @param {Array<[string, string]>} options Option `[value, label]` pairs.
+   * @param {string} selected Initially selected value.
+   * @param {function(string): void} onChange Called with the newly selected value.
+   * @returns {HTMLElement} The generated row element.
+   */
+  selectRow(parent, labelText, options, selected, onChange) {
+    const row = el('label', 'heurist-config-row');
+    const caption = el('span', 'h-i18n');
+    caption.textContent = labelText;
+    const select = el('select', 'h-explorer-config-select');
+    for (const [value, optionLabel] of options) {
+      const option = el('option', 'h-i18n');
+      option.value = value;
+      option.textContent = optionLabel;
+      select.append(option);
+    }
+    select.value = selected;
+    select.addEventListener('change', () => onChange(select.value));
+    row.append(caption, select);
+    parent.append(row);
+    return row;
   }
 
   /**
@@ -194,7 +240,7 @@ export class ExplorerConfigurationDialog {
    */
   buildLayoutSection(body) {
     const hint = el('p', 'h-explorer-config-hint h-i18n');
-    hint.textContent = 'Drag a module into the pane it should default to. Checked panes are expanded when Explorer starts.';
+    hint.textContent = 'Drag a module into a pane, or within a pane to change its order. Checked panes are expanded when Explorer starts and show their first module.';
     body.append(hint);
 
     const cardinal = el('div', 'h-explorer-config-cardinal');
@@ -204,10 +250,9 @@ export class ExplorerConfigurationDialog {
     body.append(cardinal);
 
     for (const module of MODULES) {
-      const chip = this._buildChip(module);
-      this.chips.set(module.type, chip);
-      this.paneLists.get(this.value.regions[module.type])?.append(chip);
+      this.chips.set(module.type, this._buildChip(module));
     }
+    this._placeChips();
 
     const reset = button('Reset', () => this.resetLayout(), 'Restore the default layout');
     reset.classList.add('h-explorer-config-reset');
@@ -243,16 +288,26 @@ export class ExplorerConfigurationDialog {
       event.preventDefault();
       event.dataTransfer.dropEffect = 'move';
       list.classList.add('h-drag-over');
+      this._markDropTarget(dropPosition(event));
     });
-    list.addEventListener('dragleave', () => list.classList.remove('h-drag-over'));
+    list.addEventListener('dragleave', (event) => {
+      if (list.contains(event.relatedTarget)) return;
+      list.classList.remove('h-drag-over');
+      this._markDropTarget(null);
+    });
     list.addEventListener('drop', (event) => {
       event.preventDefault();
       list.classList.remove('h-drag-over');
+      this._markDropTarget(null);
       const moduleType = event.dataTransfer.getData('text/plain');
       const chip = this.chips.get(moduleType);
       if (!chip) return;
-      list.append(chip);
+      // dropped on another chip: placed before or after it; otherwise last in the pane
+      const target = dropPosition(event);
+      if (target && target.chip !== chip) target.chip[target.after ? 'after' : 'before'](chip);
+      else if (!target) list.append(chip);
       this.value.regions[moduleType] = region.id;
+      this._readOrder();
     });
 
     pane.append(head, list);
@@ -283,9 +338,53 @@ export class ExplorerConfigurationDialog {
       event.dataTransfer.effectAllowed = 'move';
       chip.classList.add('h-dragging');
     });
-    chip.addEventListener('dragend', () => chip.classList.remove('h-dragging'));
+    chip.addEventListener('dragend', () => {
+      chip.classList.remove('h-dragging');
+      this._markDropTarget(null);
+    });
 
     return chip;
+  }
+
+  /**
+   * Put every module chip into its pane, in the configured order.
+   *
+   * @private
+   * @returns {void}
+   */
+  _placeChips() {
+    for (const type of this.value.order) {
+      const chip = this.chips.get(type);
+      if (chip) this.paneLists.get(this.value.regions[type])?.append(chip);
+    }
+  }
+
+  /**
+   * Rebuild the module order from the chips, pane by pane.
+   *
+   * @private
+   * @returns {void}
+   */
+  _readOrder() {
+    const order = [];
+    for (const list of this.paneLists.values()) {
+      for (const chip of list.querySelectorAll('.h-explorer-config-chip')) order.push(chip.dataset.module);
+    }
+    this.value.order = order;
+  }
+
+  /**
+   * Show where a dragged chip will be dropped: a marker before or after the target chip.
+   *
+   * @private
+   * @param {{chip: HTMLElement, after: boolean}|null} target Drop target, or null to clear.
+   * @returns {void}
+   */
+  _markDropTarget(target) {
+    for (const chip of this.chips.values()) {
+      chip.classList.toggle('h-drop-before', target?.chip === chip && !target.after);
+      chip.classList.toggle('h-drop-after', target?.chip === chip && target.after);
+    }
   }
 
   /**
@@ -295,12 +394,9 @@ export class ExplorerConfigurationDialog {
    */
   resetLayout() {
     const defaults = ExplorerUiConfig.defaults();
-    for (const [type, region] of Object.entries(defaults.regions)) {
-      this.value.regions[type] = region;
-      const chip = this.chips.get(type);
-      const list = this.paneLists.get(region);
-      if (chip && list) list.append(chip);
-    }
+    this.value.regions = { ...defaults.regions };
+    this.value.order = [...defaults.order];
+    this._placeChips();
     for (const [region, expanded] of Object.entries(defaults.panes)) {
       this.value.panes[region] = expanded;
       const check = this.paneChecks.get(region);
@@ -414,8 +510,22 @@ function mergeDefaults(value) {
   return {
     toolbar: { ...defaults.toolbar, ...(value?.toolbar || {}) },
     regions: { ...defaults.regions, ...(value?.regions || {}) },
-    panes: { ...defaults.panes, ...(value?.panes || {}) }
+    order: [...new Set([...(Array.isArray(value?.order) ? value.order : []), ...defaults.order])],
+    panes: { ...defaults.panes, ...(value?.panes || {}) },
+    lists: value?.lists === 'popup' ? 'popup' : defaults.lists,
+    language: LANGUAGES.some(([code]) => code === value?.language) ? value.language : defaults.language
   };
+}
+
+/**
+ * The chip a drag is over, and whether the drop goes after it (pointer past its
+ * horizontal middle).
+ */
+function dropPosition(event) {
+  const chip = event.target?.closest?.('.h-explorer-config-chip');
+  if (!chip) return null;
+  const box = chip.getBoundingClientRect();
+  return { chip, after: event.clientX > box.left + box.width / 2 };
 }
 
 /** Create an element, applying the shared `h-input`/`h-select`/`h-btn` classes by tag. */

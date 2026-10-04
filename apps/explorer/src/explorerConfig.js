@@ -15,6 +15,7 @@
 
 import { getFrameHostBridge, getGlobalBootstrap } from '#shared/host';
 import { resolveModuleBootstrap } from '#shared/config';
+import { ExplorerUiConfig, resolveUiLanguage } from './core/ExplorerUiConfig.js';
 
 /**
  * Build the normalized Explorer configuration from the host bridge or standalone bootstrap.
@@ -31,6 +32,10 @@ export function getHeuristExplorerConfig() {
   const settings = bootstrap.settings || {};
   const state = bootstrap.state || {};
   const baseUrl = ensureSlash(runtime.baseUrl || '');
+  const hostLanguage = normalizeLanguage(runtime.language);
+  // the interface language chosen in Explorer configuration wins over the host's;
+  // Explorer passes it on to every module (runtime.language)
+  const uiConfig = new ExplorerUiConfig({ database: runtime.database }).load();
 
   return {
     containerId: 'heurist-explorer',
@@ -39,7 +44,8 @@ export function getHeuristExplorerConfig() {
     baseUrl: baseUrl || null,
     accessToken: runtime.accessToken || null,
     requestHeaders: runtime.requestHeaders || {},
-    language: normalizeLanguage(runtime.language),
+    language: resolveUiLanguage(uiConfig, hostLanguage),
+    hostLanguage,
     hostBridge: bridge || null,
     moduleModes: {
       data: normalizeMode(runtime.moduleModes?.data, 'direct'),

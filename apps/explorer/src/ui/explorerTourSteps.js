@@ -66,7 +66,7 @@ export function explorerTourSteps(app) {
     step('toolbar', 'toolbar-workspace', 'Workspace', rail('leftRail', 'workspace'), { manualAnchor: 'workspace' }),
     step('toolbar', 'toolbar-subsets', 'Subsets', rail('leftRail', 'subsets'), { manualAnchor: 'subsets' }),
 
-    step('modules', 'module-data', 'Data', module('data'), { manualAnchor: 'presentation-modules' }),
+    step('modules', 'module-data', 'Result', module('data'), { manualAnchor: 'presentation-modules' }),
     step('modules', 'module-map', 'Map', module('map'), { manualAnchor: 'presentation-modules' }),
     step('modules', 'module-graph', 'Graph', module('graph'), { manualAnchor: 'presentation-modules' }),
     step('modules', 'module-timeline', 'Timeline', module('timeline'), { manualAnchor: 'presentation-modules' }),

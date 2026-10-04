@@ -126,7 +126,9 @@ export class QuerySourceEditor extends HBaseWidget {
     const help = iconButton('fa-circle-question', $HR('Query language help'), () => this.onHelp?.(), 'h-qse-help');
     help.hidden = typeof this.onHelp !== 'function';
     p0.append(clear, help);
-    p1.append(p0, this._query);
+    // the query sentence is hidden by default: glasses (query corner) show it, × hides it
+    this._sentenceShow = iconButton('fa-glasses', $HR('Show the query as a sentence'), () => this._setSentenceShown(true), 'h-qse-sentence-show');
+    p1.append(p0, this._query, this._sentenceShow);
 
     const p2 = div('h-qse-p2');
     this._run = button('', $HR('Filter'), () => void this._runClicked(), 'h-btn h-btn-primary h-qse-run');
@@ -159,6 +161,7 @@ export class QuerySourceEditor extends HBaseWidget {
     p5.append(this._layoutButton);
 
     const p3 = div('h-qse-p3');
+    this._sentenceHide = iconButton('fa-circle-xmark', $HR('Hide the query sentence'), () => this._setSentenceShown(false), 'h-qse-sentence-hide');
     row.append(p1, p2, this._advanced, p5);
     body.append(row, p3);
     this._menu = this._buildLayoutMenu();
@@ -189,6 +192,10 @@ export class QuerySourceEditor extends HBaseWidget {
       }
     });
     this.inlineHelper.attach(this._query, { showBuilderButton: false, sentenceHost: p3 }).render();
+    // after the sentence panel, so the button sits at its bottom right corner
+    p3.append(this._sentenceHide);
+    this._p3 = p3;
+    this._setSentenceShown(this._sentenceShown === true);
     this.state = 'rendered';
     this._syncFromDraft();
     return this;
@@ -284,6 +291,21 @@ export class QuerySourceEditor extends HBaseWidget {
   _applyOrientation() {
     this.container?.classList.toggle('is-horizontal', this.orientation === 'horizontal');
     this.container?.classList.toggle('is-vertical', this.orientation !== 'horizontal');
+  }
+
+  /**
+   * Show or hide the query sentence (p3). Hidden by default; the glasses button in
+   * the query's corner shows it, the × button in the sentence's corner hides it.
+   *
+   * @private
+   * @param {boolean} shown Whether the sentence is shown.
+   * @returns {void}
+   */
+  _setSentenceShown(shown) {
+    this._sentenceShown = Boolean(shown);
+    this._p3?.classList.toggle('is-off', !this._sentenceShown);
+    if (this._sentenceShow) this._sentenceShow.hidden = this._sentenceShown;
+    this._fitHorizontal();
   }
 
   /**

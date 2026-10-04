@@ -1,6 +1,6 @@
 # Query trace, termination and expansion guards — development plan
 
-Status: **agreed with Artem 2026-10-01; Phases 1–4 and Phase 5 items 1 (as a candidate pre-filter) and 3 implemented 2026-10-01, not committed, not yet checked in a browser.** Server tests: `tests/QueryTraceTest.php` (19 checks); client: `shared/test/requestMonitor.test.js`. §Implementation notes at the end lists measurements and where the implementation differs from this plan.
+Status: **agreed with Artem 2026-10-01; Phases 1–4 and Phase 5 items 1 (as a candidate pre-filter) and 3 committed (`a0f44b6`); FULLTEXT "contains" committed (server `8df18a96d`). Trace panel hidden since 2026-10-03. Open items: §Open items at the end.** Server tests: `tests/QueryTraceTest.php` (19 checks); client: `shared/test/requestMonitor.test.js`. §Implementation notes at the end lists measurements and where the implementation differs from this plan.
 
 
 ## Context
@@ -254,3 +254,12 @@ locally / 4.8 s on production, run twice (ids + count). `Records.rec_Title` and
   `QueryBuilder::wordPrefixMatch()`.
 - Measured on `osmak_mapping` (203K records), title contains "Santa": LIKE 126 ms, MATCH 6 ms
   once warm (the first MATCH after a restart loads the FULLTEXT cache, about 0.7–2 s).
+
+## Open items (2026-10-03)
+
+- Trace panel: hidden; find a better place (e.g. a developer option) and show it again.
+- Hub records (`debug.hubs`) in the trace and excluding them from expansion — not done.
+- Server tests planned but not written: `StatementLimitTest.php`, `CancelTest.php`; no test
+  for the FULLTEXT "contains" compilation.
+- "Does not contain" (`NOT MATCH`) cannot use the index and stays slow.
+- The browser checks listed under Verification were not recorded as done.

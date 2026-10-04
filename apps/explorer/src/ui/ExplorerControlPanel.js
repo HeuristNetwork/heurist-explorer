@@ -14,6 +14,7 @@
  */
 
 import { $HR, applyI18n, HMsg, InlineHelp } from '#shared/ui';
+import { moduleTypesInOrder } from '../core/ExplorerUiConfig.js';
 import { ExplorerRail } from './ExplorerRail.js';
 import { ExplorerConfigurationDialog } from './config/ExplorerConfigurationDialog.js';
 import './ExplorerControlPanel.css';
@@ -77,6 +78,7 @@ export class ExplorerControlPanel {
     this.rightRail.addEventListener('viewmodechange', (event) => this._onRightViewModeChange(event.detail.mode));
 
     this._buildFlyout(parent);
+    this.applyModuleOrder(this.application.uiConfigValue);
     this._syncPresentationButtons();
     this.applyToolbarConfig(this.application.uiConfigValue?.toolbar);
 
@@ -95,8 +97,7 @@ export class ExplorerControlPanel {
   async openSearch(_anchor = null) {
     this.closeToolPanel();
     const visible = await this.application.toggleQuerySourceEditor?.();
-    this.leftRail?.clearActive();
-    this.leftRail?.setActive('search', visible === true);
+    this.syncAuthoringButtons();
     return visible;
   }
 
@@ -151,6 +152,7 @@ export class ExplorerControlPanel {
    * @param {HTMLElement|null} [anchor] Element to anchor the flyout to; defaults to the rail's Saved Filters button.
    */
   openSavedFilters(anchor = null) {
+    if (this._dockList('saved-filters')) return;
     if (this._toggleIfActive('saved-filters')) return;
     this._setActiveTool('saved-filters');
     this._showToolPanel(
@@ -167,6 +169,7 @@ export class ExplorerControlPanel {
    * @param {HTMLElement|null} [anchor] Element to anchor the flyout to; defaults to the rail's Record Types button.
    */
   openRecordTypes(anchor = null) {
+    if (this._dockList('record-types')) return;
     if (this._toggleIfActive('record-types')) return;
     this._setActiveTool('record-types');
     this._showToolPanel(
@@ -183,6 +186,7 @@ export class ExplorerControlPanel {
    * @param {HTMLElement|null} [anchor] Element to anchor the flyout to; defaults to the rail's Query Sources button.
    */
   openQuerySources(anchor = null) {
+    if (this._dockList('query-sources')) return;
     if (this._toggleIfActive('query-sources')) return;
     this._setActiveTool('query-sources');
     this._showToolPanel(
@@ -201,6 +205,10 @@ export class ExplorerControlPanel {
    * @returns {void}
    */
   refreshNavigationLists() {
+    if (this.dockedList && this._dockedListBody?.isConnected) {
+      this._dockedListBody.replaceChildren(DOCKED_LISTS[this.dockedList].build.call(this));
+      applyI18n(this._dockedListBody);
+    }
     if (this.flyout?.hidden) return;
     if (this.activeTool === 'favorites') {
       this.flyoutBody.replaceChildren(this._buildFavoritesPanel());
@@ -242,8 +250,124 @@ export class ExplorerControlPanel {
     this.flyout.hidden = true;
     this.flyout.classList.remove('open');
     this._setActiveTool(null);
-    this.leftRail?.setActive('search', this.application.isQuerySourceEditorVisible?.() === true);
     return true;
+  }
+
+  /**
+   * Filters, Entities and Sources in the docked mode: toggle the list in the West
+   * pane instead of opening the popup.
+   *
+   * @private
+   * @param {string} id List id (`saved-filters` | `record-types` | `query-sources`).
+   * @returns {boolean} Whether the list is docked (the click is handled here).
+   */
+  _dockList(id) {
+    if (this.application.isListsDocked?.() !== true || !DOCKED_LISTS[id]) return false;
+    void this._toggleDockedList(id);
+    return true;
+  }
+
+  /**
+   * One docked list at a time, like the modules of one pane: a click shows the list,
+   * a second click hides it. A Filter Form covering the West pane is closed first:
+   * the editor and the list come back.
+   *
+   * @private
+   * @param {string} id List id.
+   * @returns {Promise<void>}
+   */
+  async _toggleDockedList(id) {
+    const dock = this.application.authoringDock;
+    if (!dock) return;
+    this.closeToolPanel();
+    const formClosed = await this.application.closeCoveringFilterForm?.();
+    if (!formClosed && this.dockedList === id && dock.isListShown()) {
+      dock.setListShown(false);
+    } else {
+      this._showDockedList(id);
+    }
+    this.syncAuthoringButtons();
+  }
+
+  /**
+   * Render a list into the West pane's list host and show it.
+   *
+   * @private
+   * @param {string} id List id.
+   * @returns {void}
+   */
+  _showDockedList(id) {
+    const dock = this.application.authoringDock;
+    const definition = DOCKED_LISTS[id];
+    const panel = document.createElement('section');
+    panel.className = 'h-explorer-pinned-tool h-explorer-docked-list';
+    panel.dataset.list = id;
+
+    const header = document.createElement('div');
+    header.className = 'h-toolbar h-explorer-pinned-tool-header';
+    const heading = document.createElement('strong');
+    heading.className = 'h-i18n';
+    heading.textContent = definition.title;
+    const close = document.createElement('button');
+    close.type = 'button';
+    close.className = 'heurist-icon-button';
+    close.title = $HR('Close');
+    close.setAttribute('aria-label', close.title);
+    close.innerHTML = '<span class="fa-solid fa-xmark" aria-hidden="true"></span>';
+    close.addEventListener('click', () => {
+      dock.setListShown(false);
+      this.syncAuthoringButtons();
+    });
+    const actions = document.createElement('div');
+    actions.className = 'h-explorer-tool-panel-actions';
+    actions.append(close);
+    header.append(heading, actions);
+
+    const body = document.createElement('div');
+    body.className = 'h-explorer-pinned-tool-body';
+    body.append(definition.build.call(this));
+    panel.append(header, body);
+
+    dock.listElement.replaceChildren(panel);
+    this.dockedList = id;
+    this._dockedListBody = body;
+    applyI18n(panel);
+    dock.setListShown(true);
+  }
+
+  /**
+   * Switch the Filters, Entities and Sources lists between docked and popup
+   * (Explorer configuration): the list open in the other mode is closed.
+   *
+   * @returns {void}
+   */
+  applyListMode() {
+    if (this.application.isListsDocked?.()) {
+      if (DOCKED_LISTS[this.activeTool]) this.closeToolPanel();
+    } else {
+      this.application.authoringDock?.setListShown(false);
+    }
+    this.syncAuthoringButtons();
+  }
+
+  /**
+   * Reflect the authoring pane and the docked list on the left rail: Search is
+   * selected while the editor is shown, a list button while its list is docked and
+   * shown. A Filter Form covering the West pane deselects both.
+   *
+   * @returns {void}
+   */
+  syncAuthoringButtons() {
+    const app = this.application;
+    const covered = app.authoringDock?.isFormCover?.() === true;
+    this.leftRail?.setActive('search', app.isQuerySourceEditorVisible?.() === true && !covered);
+    const docked = app.isListsDocked?.() === true;
+    for (const id of Object.keys(DOCKED_LISTS)) {
+      const active = docked
+        ? this.dockedList === id && app.authoringDock?.isListShown() === true
+        : this.activeTool === id;
+      this.leftRail?.setActive(id, active);
+    }
   }
 
   /**
@@ -392,6 +516,26 @@ export class ExplorerControlPanel {
     this.application.container?.classList.toggle('h-toolbar-horizontal', position === 'horizontal');
     this.leftRail?.setViewMode(buttonSize);
     this.rightRail?.setViewMode(buttonSize);
+  }
+
+  /**
+   * Orders the module buttons as the layout: pane by pane (north, west, center,
+   * east, south), and within a pane in the configured order. The buttons are moved,
+   * not rebuilt, so their pressed state stays.
+   *
+   * @param {object} [config] Explorer configuration; see `ExplorerUiConfig`.
+   * @returns {void}
+   */
+  applyModuleOrder(config) {
+    const buttons = moduleTypesInOrder(config)
+      .map((type) => this.rightRail?.getButtonElement(type))
+      .filter(Boolean);
+    if (!buttons.length) return;
+    const parent = buttons[0].parentElement;
+    // the node after the last module button (the separator before the tools)
+    const last = [...parent.children].findLast((node) => buttons.includes(node));
+    const marker = last.nextSibling;
+    for (const button of buttons) parent.insertBefore(button, marker);
   }
 
   /**
@@ -969,9 +1113,7 @@ export class ExplorerControlPanel {
     try {
       await this.application.editQuerySource(id);
       await this.application.querySources?.load?.();
-      if (this.activeTool === 'query-sources') {
-        this.flyoutBody?.replaceChildren(this._buildQuerySourcesPanel());
-      }
+      this.refreshNavigationLists();
     } catch (error) {
       HMsg.showMsgErr(error?.message || String(error));
     }
@@ -1425,12 +1567,15 @@ export class ExplorerControlPanel {
    * @returns {void}
    */
   _setActiveTool(id) {
+    const previous = this.activeTool;
     this.activeTool = id;
-    this.leftRail?.clearActive();
+    // only the popup's button changes; Search and a docked list keep their state
+    if (previous && previous !== id) this.leftRail?.setActive(previous, false);
 
     if (id) {
       this.leftRail?.setActive(id, true);
     }
+    this.syncAuthoringButtons();
   }
 
   /**
@@ -1483,6 +1628,16 @@ export class ExplorerControlPanel {
   }
 }
 
+/**
+ * Lists that can be docked in the West pane (Explorer configuration), by left-rail
+ * button id: title and content builder (called with the control panel as `this`).
+ */
+const DOCKED_LISTS = {
+  'saved-filters': { title: 'Saved Filters', build() { return this._buildSavedFiltersPanel(); } },
+  'record-types': { title: 'Record Types', build() { return this._buildRecordTypesPanel(); } },
+  'query-sources': { title: 'Query Sources', build() { return this._buildQuerySourcesPanel(); } }
+};
+
 /** Build the left rail's button definitions. */
 function leftButtons() {
   return [
@@ -1503,7 +1658,7 @@ function leftButtons() {
 /** Build the right rail's button definitions. */
 function rightButtons() {
   return [
-    { id: 'data', icon: 'fa-solid fa-table', title: 'Data', hint: 'List, cards or tabular presentation of records', group: 'presentations', toggle: true },
+    { id: 'data', icon: 'fa-solid fa-table', title: 'Result', hint: 'List, cards or tabular presentation of records', group: 'presentations', toggle: true },
     { id: 'map', icon: 'fa-solid fa-map-location-dot', title: 'Map', hint: 'Map view of records', group: 'presentations', toggle: true },
     { id: 'graph', icon: 'fa-solid fa-hexagon-nodes', title: 'Graph', hint: 'Network graph of linked records', group: 'presentations', toggle: true },
     { id: 'timeline', icon: 'fa-regular fa-clock', title: 'Timeline', hint: 'Timeline view of dated records', group: 'presentations', toggle: true },

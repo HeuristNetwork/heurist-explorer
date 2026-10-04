@@ -27,7 +27,23 @@
 #Unable to load database structure#Unable to load database structure
 
 #Expanded when Explorer starts#Expanded when Explorer starts
-#Drag a module into the pane it should default to. Checked panes are expanded when Explorer starts.#Drag a module into the pane it should default to. Checked panes are expanded when Explorer starts.
+#Drag a module into a pane, or within a pane to change its order. Checked panes are expanded when Explorer starts and show their first module.#Drag a module into a pane, or within a pane to change its order. Checked panes are expanded when Explorer starts and show their first module.
+#At least one module must stay visible#At least one module must stay visible
+#Result#Result
+#Interface#Interface
+#Toolbar position#Toolbar position
+#Toolbar buttons size#Toolbar buttons size
+#Language#Language
+#Auto#Auto
+#English#English
+#French#French
+#German#German
+#Portuguese#Portuguese
+#Popup#Popup
+#Docked in the left pane#Docked in the left pane
+#Filters, Entities and Sources lists#Filters, Entities and Sources lists
+#Hide the query sentence#Hide the query sentence
+#Show the query as a sentence#Show the query as a sentence
 #Query trace#Query trace
 #Show or hide the query trace#Show or hide the query trace
 #Ask the server for SQL timings of every request#Ask the server for SQL timings of every request
@@ -63,7 +79,7 @@
 #Query sources.#Query sources.
 #A query - fixed, or with parameters shown as a Filter Form - together with its geographic, time and column fields and expansion rules. Build them with Search (the Query Source editor) and save them for reuse.#A query - fixed, or with parameters shown as a Filter Form - together with its geographic, time and column fields and expansion rules. Build them with Search (the Query Source editor) and save them for reuse.
 #Presentation modules.#Presentation modules.
-#Data, Map, Graph, Timeline and Record view show the same result and selection. Each module is independent: arrange, hide or show it as you need.#Data, Map, Graph, Timeline and Record view show the same result and selection. Each module is independent: arrange, hide or show it as you need.
+#Results, Map, Graph, Timeline and Record view show the same result and selection. Each module is independent: arrange, hide or show it as you need.#Results, Map, Graph, Timeline and Record view show the same result and selection. Each module is independent: arrange, hide or show it as you need.
 #Publication.#Publication.
 #Publish a module or a set of modules with your query sources as a standalone page or a website.#Publish a module or a set of modules with your query sources as a standalone page or a website.
 #Back#Back
@@ -78,3 +94,116 @@
 #Presentation modules#Presentation modules
 #Tools#Tools
 #Publication#Publication
+
+#Query builder and source editor#Query builder and source editor
+#Filters#Filters
+#Browse and apply saved filters#Browse and apply saved filters
+#Entities#Entities
+#Search by record type#Search by record type
+#Sources#Sources
+#Saved data sources (filter and presentation settings)#Saved data sources (filter and presentation settings)
+#Favorites#Favorites
+#Starred filters, record types and sources#Starred filters, record types and sources
+#History#History
+#Recently viewed data sources#Recently viewed data sources
+#Workspace#Workspace
+#Saved working set of data sources#Saved working set of data sources
+#Subsets#Subsets
+#Restrict further searches to a subset of records#Restrict further searches to a subset of records
+#List, cards or tabular presentation of records#List, cards or tabular presentation of records
+#Map#Map
+#Map view of records#Map view of records
+#Graph#Graph
+#Network graph of linked records#Network graph of linked records
+#Timeline#Timeline
+#Timeline view of dated records#Timeline view of dated records
+#Record#Record
+#Detailed information for the selected record#Detailed information for the selected record
+#Report#Report
+#Custom reports editor#Custom reports editor
+#Crosstabs#Crosstabs
+#Cross-tabulation and chart analysis#Cross-tabulation and chart analysis
+#Actions#Actions
+#Dashboard of actions for the current filtered result or selection#Dashboard of actions for the current filtered result or selection
+#Export#Export
+#Export records in various formats#Export records in various formats
+#Explorer help and user guide#Explorer help and user guide
+#Options#Options
+#Toolbar and layout configuration#Toolbar and layout configuration
+#Publish#Publish
+#Publish the current view (coming soon)#Publish the current view (coming soon)
+#Will be implemented soon...#Will be implemented soon...
+#Not implemented yet#Not implemented yet
+#Small icons#Small icons
+#Small icons with captions#Small icons with captions
+#Large icons#Large icons
+#Large icons with captions#Large icons with captions
+#Saved Filters#Saved Filters
+#Record Types#Record Types
+#Query Sources#Query Sources
+#Sort by#Sort by
+#Usage#Usage
+#Name#Name
+#Groups#Groups
+#Filter type#Filter type
+#All types#All types
+#Simple#Simple
+#Parametrized#Parametrized
+#Edit saved filter#Edit saved filter
+#Edit Query Source record#Edit Query Source record
+#Other#Other
+#Mine#Mine
+#Everyone#Everyone
+#Website filters#Website filters
+#Group#Group
+#No favorites#No favorites
+#No record types#No record types
+#No query sources#No query sources
+#No history#No history
+#No workspace items#No workspace items
+#No filters#No filters
+#Clear the query and detach from Query Source, clearing its title and presentation settings#Clear the query and detach from Query Source, clearing its title and presentation settings
+#Open the Filter Builder#Open the Filter Builder
+#Apply#Apply
+#Cancel#Cancel
+#Edit#Edit
+#Parameterized queries are edited in Filter Builder.#Parameterized queries are edited in Filter Builder.
+#load by extent#load by extent
+#individual linked map features#individual linked map features
+#none#none
+#None#None
+#Rule#Rule
+#Query Source#Query Source
+#more#more
+#Changing the record type will clear the Query Source title and presentation configuration. Continue?#Changing the record type will clear the Query Source title and presentation configuration. Continue?
+#Change record type#Change record type
+#Expansion rules#Expansion rules
+#Geographic fields#Geographic fields
+#Time fields#Time fields
+#Column fields#Column fields
+#Rules used by Graph to expand the result through linked records.#Rules used by Graph to expand the result through linked records.
+#Fields used by Map to obtain geometry, including linked geographic fields.#Fields used by Map to obtain geometry, including linked geographic fields.
+#Date and year fields used by Timeline.#Date and year fields used by Timeline.
+#Columns and formatting used by the Data table presentation.#Columns and formatting used by the Data table presentation.
+#record type#record type
+#Relation type#Relation type
+#relationship#relationship
+#record property#record property
+#relation type#relation type
+#operator#operator
+#term#term
+#group#group
+#user#user
+#Save as Filter#Save as Filter
+#Save only the reusable search definition.#Save only the reusable search definition.
+#Save as Source#Save as Source
+#Save the query together with presentation settings for reuse.#Save the query together with presentation settings for reuse.
+#Add to Workspace#Add to Workspace
+#Unsaved source#Unsaved source
+#In Workspace#In Workspace
+#Update Source#Update Source
+#Remove from Workspace#Remove from Workspace
+#Remove this saved Query Source from Workspace.#Remove this saved Query Source from Workspace.
+#Add this saved Query Source to Workspace.#Add this saved Query Source to Workspace.
+#Save as Source before adding it to Workspace.#Save as Source before adding it to Workspace.
+#Update Source before adding it to Workspace.#Update Source before adding it to Workspace.

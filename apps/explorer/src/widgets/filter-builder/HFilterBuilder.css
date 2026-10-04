@@ -170,7 +170,8 @@
 .h-fbsort-dir { min-width: 130px; }
 
 /* --- preview --- */
-.h-fb-preview-label { color: var(--h-color-text-muted); font-size: var(--h-font-size-small); margin-bottom: 2px; }
+.h-fb-preview-label { display: inline-flex; align-items: center; gap: 4px; color: var(--h-color-text-muted); font-size: var(--h-font-size-small); margin-bottom: 2px; cursor: pointer; }
+.h-fb-preview-json[hidden] { display: none; }
 .h-fb-criteria-info { color: var(--h-color-text-muted); font-size: var(--h-font-size-small); align-self: center; }
 .h-fb-preview-json {
     margin: 0;

@@ -212,6 +212,27 @@ RequestMonitor runs with tracing off, so requests carry no `debug` flag). Stop s
 Tests: `test/explorerAuthoringDock.test.js`, additions in `querySourcePanel.test.js` and
 `querySourceEditorApply.test.js`.
 
+## Part D — docked Filters / Entities / Sources lists (2026-10-04)
+
+Agreed with Artem 2026-10-04. Explorer configuration → Toolbar: **Filters, Entities and Sources
+lists**: *Docked in the left pane* (default) or *Popup* (the old flyout). Docked:
+
+- The lists live in the outer West pane (`ExplorerAuthoringDock.listElement`), below the pane
+  (QSE). One list at a time; the toolbar buttons toggle them like modules sharing a pane, the
+  active one selected. Picking an item does not close the list.
+- QSE vertical: QSE on top, the list fills the rest. QSE horizontal: the list alone in the West.
+- A Filter Form in the West fills it: QSE and list hidden, Search and list buttons deselected.
+  Search or a list button closes the form and brings back the editor and the list; so does the
+  form's own close.
+- The West pane is hidden when it holds no list, no Filter Form and no vertical QSE.
+- Compact mode (drawer): the lists stay popups. No list at start; not remembered.
+
+Implementation: the dock keeps the pane's and the list's visibility separately
+(`_paneShown`, `_listShown`, `_formCover`, `_syncRegions()`); QuerySourcePanel reports
+`onFormVisible`; `ExplorerControlPanel._toggleDockedList()` / `syncAuthoringButtons()`;
+`ExplorerApplication.isListsDocked()` / `closeCoveringFilterForm()`; config `lists`.
+Tests: `explorerDockedLists.test.js`, additions in `explorerAuthoringDock.test.js`.
+
 ## Changelog
 
 - 2026-09-25 — Document created; Part A implemented (not yet verified in a browser):
@@ -248,3 +269,28 @@ Tests: `test/explorerAuthoringDock.test.js`, additions in `querySourcePanel.test
   Record view (scrolled to in compact mode) and selects the record.
 - 2026-10-03 — Part C: compact QSE (five panes), Vertical/Horizontal placement through the
   Layout menu, More remembered, query trace hidden. Not yet checked in a browser.
+- 2026-10-04 — Module layout (agreed with Artem): default panes West = Result, Center = Record
+  View, Map, Graph (Timeline stays South); West and Center expanded at start. New `order` in
+  `ExplorerUiConfig` (one list of module types; order within a pane = this list filtered by the
+  pane). In the Configuration dialog chips can be dragged within a pane (drop before/after a
+  chip). At start an expanded pane creates only its first module; the others are created when
+  first opened (`leadingPaneTypes()`, `applyLayout`). The Result module created by a search now
+  uses its configured pane. "Data" caption renamed "Result" (dialog, compact title, tour).
+  The toolbar no longer hides the last visible module (flash message). The last history query
+  at start shows the QSE loading veil and Stop, not the start-up spinner in the screen centre.
+  Not yet checked in a browser.
+- 2026-10-04 — Module West pane takes 50% of the module area by default (`HCardinalLayout`
+  `westRatio`, set by `LayoutManager`). Toolbar module buttons follow the layout: pane by pane
+  (north, west, center, east, south), then the order within the pane (`moduleTypesInOrder()`,
+  `ExplorerControlPanel.applyModuleOrder()`, also after Apply in the Configuration dialog).
+  QSE: p0 buttons 16px; the query sentence (p3) is hidden by default — a small glasses button
+  at the query's bottom right shows it, a × button at the sentence's bottom right hides it
+  (not remembered). Not yet checked in a browser.
+- 2026-10-04 — Part D: Filters / Entities / Sources lists docked in the West pane (option, default
+  docked). Not yet checked in a browser.
+- 2026-10-04 — Configuration dialog: section "Toolbar" renamed "Interface" (Toolbar position,
+  Toolbar buttons size, lists mode, Language). Language (`auto` = host language, or eng / fre /
+  ger / por) is kept in `ExplorerUiConfig.language`; `explorerConfig.js` resolves it before the
+  locale loads, so Explorer and every module (runtime.language) start in it. Changing it reloads
+  Explorer. Record View hides its own Language selector in preferences mode (shown for
+  publication / website, as Graph). Not yet checked in a browser.

@@ -111,6 +111,10 @@ export class HFilterBuilder extends HBaseWidget {
       }));
     }
 
+    // Filter Form actions are offered both in the header and below the criteria.
+    this._formActionBars = [];
+    header.append(this._makeFormActions());
+
     const langs = this.dbdefs.languages?.() || [];
     if (langs.length > 1) {
       this._langSel = document.createElement('select');
@@ -182,14 +186,9 @@ export class HFilterBuilder extends HBaseWidget {
     sortSec.append(addSortBtn);
     this.container.append(sortSec);
 
-    const formActions = el('div', 'h-fb-form-actions');
-    formActions.append(
-      btn($HR('Design Filter Form…'), 'h-btn', () => void this.openFormDesigner()),
-      btn($HR('Preview Filter Form'), 'h-btn', () => void this.previewFilterForm())
-    );
+    const formActions = this._makeFormActions();
     this._criteriaInfo = el('span', 'h-fb-criteria-info h-i18n');
     formActions.append(this._criteriaInfo);
-    this._formActions = formActions;
     this.container.append(formActions);
 
     // ---- preview ----
@@ -723,6 +722,23 @@ export class HFilterBuilder extends HBaseWidget {
   }
 
   /**
+   * Create one bar with the Design / Preview Filter Form buttons. Every bar is
+   * shown or hidden together by `_recompose()`.
+   *
+   * @private
+   * @returns {HTMLElement} The action bar.
+   */
+  _makeFormActions() {
+    const bar = el('div', 'h-fb-form-actions');
+    bar.append(
+      btn($HR('Design Filter Form…'), 'h-btn h-btn-primary', () => void this.openFormDesigner()),
+      btn($HR('Preview Filter Form'), 'h-btn', () => void this.previewFilterForm())
+    );
+    this._formActionBars.push(bar);
+    return bar;
+  }
+
+  /**
    * Recompose the model into a `q`-array, refresh the preview/sentence/unsupported note, and notify `onChange`.
    *
    * @private
@@ -732,7 +748,7 @@ export class HFilterBuilder extends HBaseWidget {
     this.model = this._readModel();
     const q = this.getDefinition().query;
     const hasParameters = this._allowParameters && hasParameterRows(this.model.rows, this.vocab);
-    if (this._formActions) this._formActions.hidden = !this._allowParameters || !hasParameters;
+    for (const bar of this._formActionBars || []) bar.hidden = !this._allowParameters || !hasParameters;
     if (this._criteriaInfo) {
       const count = countCriteria(this.model.rows);
       const criteria = count === 1 ? $HR('criterion') : $HR('criteria');
@@ -1260,10 +1276,16 @@ function makeQueryPreview() {
   const element = el('div', 'h-fb-preview');
   const sentence = el('div', 'h-fb-sentence');
   sentence.hidden = true;
-  const label = el('div', 'h-fb-preview-label');
-  label.textContent = $HR('Query');
+  const label = el('label', 'h-fb-preview-label');
+  const toggle = document.createElement('input');
+  toggle.type = 'checkbox';
+  toggle.className = 'h-checkbox';
+  toggle.checked = false;
+  label.append(toggle, document.createTextNode(` ${$HR('Query')}`));
   const json = document.createElement('pre');
   json.className = 'h-fb-preview-json';
+  json.hidden = true;
+  toggle.addEventListener('change', () => { json.hidden = !toggle.checked; });
   element.append(sentence, label, json);
   return { element, sentence, json };
 }

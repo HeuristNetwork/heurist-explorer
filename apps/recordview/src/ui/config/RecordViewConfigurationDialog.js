@@ -164,13 +164,17 @@ export class RecordViewConfigurationDialog {
         ["single-only", "Single selection only"],
       ]);
     }
-    this.select("options.ui.language", "Language", [
-      ["auto", "Auto"],
-      ["eng", "English"],
-      ["fre", "French"],
-      ["ger", "German"],
-      ["por", "Portuguese"],
-    ]);
+    // in preferences the language comes from the host (Explorer configuration);
+    // a publication or website fixes its own (as Graph)
+    if (this.mode === "publish" || this.mode === "website") {
+      this.select("options.ui.language", "Language", [
+        ["auto", "Auto"],
+        ["eng", "English"],
+        ["fre", "French"],
+        ["ger", "German"],
+        ["por", "Portuguese"],
+      ]);
+    }
     this.check("config.defaults.showHeader", "Show header");
     this.text("config.defaults.headerTitle", "Header title");
     this.text("config.defaults.emptyMessage", "Empty message");

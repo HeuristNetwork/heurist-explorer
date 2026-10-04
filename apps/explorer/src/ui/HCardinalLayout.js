@@ -60,9 +60,11 @@ export class HCardinalLayout extends EventTarget {
       || container.clientWidth
       || globalThis.innerWidth
       || 960;
+    // without an explicit westSize, west takes `westRatio` of the width (default a third)
+    const westRatio = Number(options.westRatio) > 0 && Number(options.westRatio) < 1 ? Number(options.westRatio) : 1 / 3;
     const defaults = {
       ...DEFAULT_OPTIONS,
-      westSize: Math.max(DEFAULT_OPTIONS.minWest, Math.round(visibleWidth / 3))
+      westSize: Math.max(DEFAULT_OPTIONS.minWest, Math.round(visibleWidth * westRatio))
     };
     this.options = { ...defaults, ...options };
     this.regions = new Map();

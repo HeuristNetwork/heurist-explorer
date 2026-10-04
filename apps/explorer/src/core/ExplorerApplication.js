@@ -33,7 +33,7 @@ import { SyncEngine } from './SyncEngine.js';
 import { IframeModuleAdapter } from '../modules/IframeModuleAdapter.js';
 import { DirectModuleAdapter } from '../modules/DirectModuleAdapter.js';
 import { ExplorerControlPanel } from '../ui/ExplorerControlPanel.js';
-import { applyUiRegions, ExplorerUiConfig } from './ExplorerUiConfig.js';
+import { applyUiRegions, ExplorerUiConfig, leadingPaneTypes, resolveUiLanguage } from './ExplorerUiConfig.js';
 import { HDbDefs } from '#shared/data/HDbDefs.js';
 import { RecordTypeProvider } from '#shared/data/RecordTypeProvider.js';
 import queryVocabulary from '../utils/queryVocabulary.json';
@@ -209,10 +209,19 @@ export class ExplorerApplication {
     let moduleDefs = applyUiRegions(normalizeLayout(layout), this.uiConfigValue);
     if (deferHidden) {
       const panes = this.uiConfigValue?.panes || {};
+      // an expanded pane starts with the first module of the configured order;
+      // its other modules wait, like those of hidden panes, until first opened
+      const leading = leadingPaneTypes(this.uiConfigValue);
+      for (const [region, type] of leading) {
+        if (panes[region] !== false && !moduleDefs.some((item) => item.type === type)) {
+          moduleDefs.push({ id: type, type, region, context: type === 'data' ? { role: 'current' } : null });
+        }
+      }
+      const shown = (item) => panes[item.region] !== false && leading.get(item.region) === item.type;
       this.deferredDefinitions = new Map(moduleDefs
-        .filter((item) => panes[item.region] === false)
+        .filter((item) => !shown(item))
         .map((item) => [item.type, { ...item }]));
-      moduleDefs = moduleDefs.filter((item) => panes[item.region] !== false);
+      moduleDefs = moduleDefs.filter(shown);
     }
     this.layoutDefinitions = moduleDefs.map((item) => ({ ...item }));
     this.layout.setLayout(moduleDefs);
@@ -350,6 +359,11 @@ export class ExplorerApplication {
       },
       canChangeLayout: () => this.authoringDock?.isDrawerMode() !== true,
       onFormPlacement: (region) => this.authoringDock?.setTemporaryPlacement(region),
+      // a Filter Form in the West pane covers it: the docked list is hidden meanwhile
+      onFormVisible: (visible) => {
+        this.authoringDock?.setFormCover(visible && this.authoringDock.getRegion() === 'west');
+        this.syncSearchButton();
+      },
       onHelp: () => this.controlPanel?.openFilterHelp()
     });
     // own host element: the panel replaces its container's class, and the pane
@@ -435,9 +449,34 @@ export class ExplorerApplication {
   /** Show or hide the authoring pane (Query Source editor / Filter Form). @returns {Promise<boolean>} New visibility. */
   async toggleQuerySourceEditor() {
     if (!this.querySourcePanel || !this.authoringDock) return false;
+    // a Filter Form covering the West pane: Search closes it and returns to the editor
+    if (this.authoringDock.isFormCover()) {
+      await this.closeCoveringFilterForm();
+      this.authoringDock.show();
+      this.syncSearchButton();
+      return true;
+    }
     const visible = this.authoringDock.toggle();
     this.syncSearchButton();
     return visible;
+  }
+
+  /**
+   * Close the Filter Form when it covers the West pane, so the Query Source editor
+   * and the docked list come back.
+   *
+   * @returns {Promise<boolean>} Whether a form was closed.
+   */
+  async closeCoveringFilterForm() {
+    if (!this.authoringDock?.isFormCover()) return false;
+    await this.querySourcePanel?.closeFilterForm();
+    this.authoringDock.setFormCover(false);
+    return true;
+  }
+
+  /** Whether the Filters, Entities and Sources lists are docked in the West pane (not in compact mode). */
+  isListsDocked() {
+    return this.uiConfigValue?.lists !== 'popup' && this.authoringDock?.isDrawerMode() !== true;
   }
 
   /** Whether the authoring pane is visible. */
@@ -452,9 +491,10 @@ export class ExplorerApplication {
     this.syncSearchButton();
   }
 
-  /** Mirror the authoring pane's visibility on the toolbar Search button. */
+  /** Mirror the authoring pane's (and docked list's) visibility on the toolbar buttons. */
   syncSearchButton() {
-    this.controlPanel?.leftRail?.setActive('search', this.isQuerySourceEditorVisible());
+    if (this.controlPanel?.syncAuthoringButtons) this.controlPanel.syncAuthoringButtons();
+    else this.controlPanel?.leftRail?.setActive('search', this.isQuerySourceEditorVisible());
   }
 
   /** Clear the reusable current result while retaining the editor's draft/source. */
@@ -478,12 +518,17 @@ export class ExplorerApplication {
   async _createDataModule(source, context = null) {
     const role = context?.role || dataSourceRole(source);
     const id = this._nextDataModuleId(source, role);
+    // the Result module deferred at startup keeps its layout definition
+    const deferred = role === 'current' ? this.deferredDefinitions?.get('data') : null;
+    if (deferred) this.deferredDefinitions.delete('data');
     const definition = {
+      ...(deferred || {}),
       id,
       type: 'data',
+      region: this.uiConfigValue?.regions?.data || deferred?.region,
       title: source?.title || (role === 'current' ? 'Current result' : 'Data'),
-      context: { ...(context || {}), role },
-      settings: { title: source?.title || undefined }
+      context: { ...(deferred?.context || {}), ...(context || {}), role },
+      settings: { ...(deferred?.settings || {}), title: source?.title || undefined }
     };
     this.layout.addDefinition(definition);
     return this._createModule(definition);
@@ -596,8 +641,13 @@ export class ExplorerApplication {
   async _startUp() {
     const last = this.history.list()[0];
     if (last?.dataSource) {
+      // the workspace is ready: the query's progress is the Query Source loading
+      // veil (with Stop), not the start-up indicator over the whole screen
+      this.container?.classList?.remove('h-explorer-booting');
+      this.querySourcePanel?.setLoading(true);
       try { await this.activateHistoryEntry(last); }
       catch (error) { if (error?.name !== 'AbortError') HMsg.showMsgErr?.(error?.message || String(error)); }
+      finally { this.querySourcePanel?.setLoading(false); }
       return;
     }
     if (new ExplorerWelcome().isFirstVisit()) this.showWelcome();
@@ -1173,6 +1223,14 @@ export class ExplorerApplication {
     const isVisible = cardinalState[region]?.visible && currentId === module.id;
 
     if (isVisible) {
+      // the last visible module stays: hiding it would leave a blank workspace
+      const othersVisible = PRESENTATION_TYPES
+        .some((other) => other !== type && this.layout.isPresentationVisible(other));
+      if (!othersVisible) {
+        HMsg.showMsgFlash?.($HR('At least one module must stay visible'));
+        this.controlPanel?.refreshPresentationState?.();
+        return true;
+      }
       this.layout.hideModule(module.id);
       this.controlPanel?.refreshPresentationState?.();
       return false;
@@ -1197,6 +1255,13 @@ export class ExplorerApplication {
     const saved = this.uiConfig.save(next);
     this.uiConfigValue = saved;
 
+    // another interface language: Explorer reloads, and passes it to every module at start
+    const language = resolveUiLanguage(saved, this.config.hostLanguage || this.config.language);
+    if (language !== this.config.language && typeof globalThis.location?.reload === 'function') {
+      globalThis.location.reload();
+      return saved;
+    }
+
     const vacatedRegions = new Set();
     for (const module of this.modules.values()) {
       const newRegion = saved.regions[module.type];
@@ -1218,6 +1283,8 @@ export class ExplorerApplication {
     }
 
     this.controlPanel?.applyToolbarConfig(saved.toolbar);
+    this.controlPanel?.applyModuleOrder(saved);
+    this.controlPanel?.applyListMode();
     this.compactMode?.refresh();
     this.controlPanel?.refreshPresentationState?.();
     return saved;
@@ -1725,6 +1792,9 @@ const DIRECT_MOUNTERS = {
   data: mountDirectData,
   recordview: mountDirectRecordView
 };
+
+/** Presentation module types toggled from the toolbar. */
+const PRESENTATION_TYPES = ['data', 'map', 'graph', 'timeline', 'recordview'];
 
 /** Explorer's built-in default layout: Data west, Map center. */
 function defaultLayout() {

@@ -97,7 +97,7 @@ test('entering compact mode: root class, drawer, small toolbar, rail buttons, re
   assert.equal(app.toolbarCalls.at(-1).buttonSize, 'small');
   assert.equal(app.toolbarCalls.at(-1).position, 'horizontal', 'compact: rails as one toolbar on top');
   assert.equal(dockWest.children.length, 2);
-  assert.equal(regions.west.dataset.compactTitle, 'Data');
+  assert.equal(regions.west.dataset.compactTitle, 'Result');
   assert.equal(regions.center.dataset.compactTitle, 'Map');
   assert.equal(regions.south.dataset.compactTitle, undefined);
   compact.destroy();

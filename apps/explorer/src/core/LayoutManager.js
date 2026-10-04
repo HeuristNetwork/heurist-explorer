@@ -23,7 +23,7 @@ const DEFAULT_REGION_BY_TYPE = {
   map: 'center',
   graph: 'center',
   timeline: 'south',
-  recordview: 'east'
+  recordview: 'center'
 };
 
 /**
@@ -52,7 +52,8 @@ export class LayoutManager extends EventTarget {
     this.activeToolId = null;
     this._toolSnapshot = null;
     this._toolSlotId = '__explorer-tool';
-    this.cardinal = new HCardinalLayout(container, options.cardinal || {});
+    // modules: west and center share the width equally by default (2026-10-04)
+    this.cardinal = new HCardinalLayout(container, { westRatio: 0.5, ...(options.cardinal || {}) });
 
     this._forwardCardinalEvents();
   }
@@ -72,7 +73,7 @@ export class LayoutManager extends EventTarget {
    * Applies module definitions and assigns them to cardinal regions.
    *
    * A definition may specify `region`. Otherwise defaults are:
-   * data=west, map/graph=center, recordview=east, timeline=south.
+   * data=west, map/graph/recordview=center, timeline=south.
    *
    * @param {Array<object>} definitions Module definitions.
    * @returns {LayoutManager}

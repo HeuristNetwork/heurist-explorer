@@ -98,6 +98,26 @@ test('render: five panes, the sentence in p3, More from the Layout menu', async 
   await qse.destroy();
 });
 
+test('render: the query sentence is hidden by default; glasses show it, × hides it', async () => {
+  const qse = new QuerySourceEditor({ dbdefs: {} });
+  qse.attach(document.createElement('div')).render();
+  const root = qse.container;
+  const p3 = root.querySelector('.h-qse-p3');
+  const show = qse._sentenceShow;
+  const hide = qse._sentenceHide;
+  assert.equal(show.parentElement, root.querySelector('.h-qse-p1'), 'glasses beside the query');
+  assert.equal(hide.parentElement, p3, '× in the sentence pane');
+  assert.ok(p3.classList.contains('is-off'));
+  assert.equal(show.hidden, false);
+  show.click();
+  assert.ok(!p3.classList.contains('is-off'));
+  assert.equal(show.hidden, true);
+  hide.click();
+  assert.ok(p3.classList.contains('is-off'));
+  assert.equal(show.hidden, false);
+  await qse.destroy();
+});
+
 test('horizontal fit: wrap when the height allows, otherwise drop captions, then shrink the query', async () => {
   const qse = new QuerySourceEditor({ dbdefs: {}, orientation: 'horizontal', expanded: true });
   qse.attach(document.createElement('div')).render();

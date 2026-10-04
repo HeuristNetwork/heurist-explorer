@@ -36,6 +36,7 @@ export class QuerySourcePanel {
    * @param {'vertical'|'horizontal'} [options.orientation='vertical'] Editor layout (west or north pane).
    * @param {Function} [options.onFormPlacement] Called with `'west'` when a vertical Filter Form opens in the
    *        horizontal layout (it needs height), and with `null` when it closes.
+   * @param {Function} [options.onFormVisible] Called with `true`/`false` when the Filter Form opens or closes.
    * Editor layout options (`expanded`, `onExpandedChange`, `onLayoutChange`, `canChangeLayout`, `onHelp`)
    * are forwarded to QuerySourceEditor.
    */
@@ -252,6 +253,7 @@ export class QuerySourcePanel {
       if (visible) this.formHost.style.removeProperty('display');
     }
     this.options.onModeChange?.(visible ? 'form' : 'editor');
+    this.options.onFormVisible?.(visible);
   }
 
   /** Whether the runtime Filter Form is currently open. */

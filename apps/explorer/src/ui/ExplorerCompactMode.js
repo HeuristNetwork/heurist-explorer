@@ -43,7 +43,7 @@ export const COMPACT_MEDIA_QUERY = '(max-width: 700px)';
 
 const COMPACT_CLASS = 'h-compact';
 const REGIONS = ['north', 'west', 'center', 'east', 'south'];
-const MODULE_TITLES = { data: 'Data', map: 'Map', graph: 'Graph', timeline: 'Timeline', recordview: 'Record' };
+const MODULE_TITLES = { data: 'Result', map: 'Map', graph: 'Graph', timeline: 'Timeline', recordview: 'Record' };
 const TOOL_TITLES = { report: 'Report', crosstabs: 'Crosstabs', actions: 'Actions', export: 'Export' };
 
 /** Switches an ExplorerApplication between its desktop and compact presentations. */

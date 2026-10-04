@@ -99,6 +99,10 @@
     opacity: 0.4;
 }
 
+/* drop marker: the dragged chip goes before / after this one */
+.h-explorer-config-chip.h-drop-before { box-shadow: -3px 0 0 var(--h-color-primary); }
+.h-explorer-config-chip.h-drop-after { box-shadow: 3px 0 0 var(--h-color-primary); }
+
 .h-explorer-config-reset {
     margin-top: 12px;
 }
