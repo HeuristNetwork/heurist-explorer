@@ -1,0 +1,72 @@
+/* HJobMonitor: progress of one background job */
+.h-job-monitor {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px 8px;
+  border: 1px solid var(--h-color-border, #cfd4da);
+  border-radius: var(--h-radius, 3px);
+  background: var(--h-color-surface, #f5f6f7);
+  font-size: var(--h-font-size, 12px);
+}
+
+.h-job-monitor-head {
+  display: flex;
+  align-items: center;
+  gap: var(--h-gap, 6px);
+  min-width: 0;
+}
+
+.h-job-monitor-title {
+  font-weight: bold;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.h-job-monitor-status { white-space: nowrap; }
+.h-job-monitor-elapsed { margin-left: auto; white-space: nowrap; }
+
+.h-job-monitor[data-status="done"] .h-job-monitor-status { color: #2e7d32; }
+.h-job-monitor[data-status="failed"] .h-job-monitor-status,
+.h-job-monitor[data-status="timeout"] .h-job-monitor-status,
+.h-job-monitor[data-status="lost"] .h-job-monitor-status { color: var(--h-color-danger, #b42318); }
+.h-job-monitor[data-status="cancelled"] .h-job-monitor-status { color: var(--h-color-warning, #9a5b00); }
+
+.h-job-monitor-bar {
+  position: relative;
+  height: 6px;
+  overflow: hidden;
+  border-radius: 3px;
+  background: var(--h-color-border, #cfd4da);
+}
+
+.h-job-monitor-bar[hidden],
+.h-job-monitor-stop[hidden] { display: none; }
+
+.h-job-monitor-fill {
+  height: 100%;
+  width: 0;
+  background: var(--h-color-primary, #285b82);
+  transition: width 0.3s ease;
+}
+
+.h-job-monitor-bar-indeterminate .h-job-monitor-fill {
+  position: absolute;
+  width: 30% !important;
+  animation: h-job-monitor-slide 1.2s ease-in-out infinite;
+}
+
+@keyframes h-job-monitor-slide {
+  from { left: -30%; }
+  to { left: 100%; }
+}
+
+.h-job-monitor-message:empty,
+.h-job-monitor-result:empty { display: none; }
+
+.h-job-monitor-error { color: var(--h-color-danger, #b42318); }
+
+.h-job-monitor-compact { flex-direction: row; align-items: center; }
+.h-job-monitor-compact .h-job-monitor-bar { flex: 1 1 80px; }

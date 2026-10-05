@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta http-equiv="Expires" content="Fri, Jan 01 1900 00:00:00 GMT">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Cache-Control" content="no-cache">
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<meta http-equiv="Lang" content="fr">
+<meta name="author" content="Heurist Network">
+<meta name="description" content="Guide d'utilisation du gestionnaire de rapports Heurist">
+<meta name="keywords" content="Heurist, rapports, Smarty, modèles">
+<title>Rapports Heurist - manuel</title>
+<link rel="stylesheet" type="text/css" href="../../h4styles.css">
+</head>
+<body>
+<h1>Rapports Heurist</h1>
+<p>Le gestionnaire de rapports liste les modèles de rapport Smarty de la base. Un
+rapport est un enregistrement <i>Custom Report</i> (titre, description, fichier modèle,
+indicateur « fiche »); le texte du modèle est conservé dans un fichier. Les modèles
+sans enregistrement sont listés sous <i>Modèles sans enregistrement de rapport</i> et
+peuvent en recevoir un.</p>
+
+<h2 id="types">Deux sortes de rapport</h2>
+<ul>
+<li><b>Un seul enregistrement (fiche)</b> : affiche un enregistrement. Ces rapports sont
+proposés pour les popups, les fiches et la vue enregistrement de Carte, Données, Graphe
+et Vue enregistrement.</li>
+<li><b>Ensemble d'enregistrements</b> : un rapport sur de nombreux enregistrements. Il
+n'est pas exécuté à la demande : il est <i>généré</i> dans un fichier en arrière-plan,
+et ce fichier peut être utilisé dans les sites web.</li>
+</ul>
+
+<h2 id="editor">Modifier un modèle</h2>
+<p>Choisissez un rapport et cliquez <b>Modifier le modèle</b>. Placez le curseur dans le
+texte, choisissez un type d'enregistrement à droite et cliquez un champ pour l'insérer.
+Les options d'insertion décident si le nom du champ, un saut de ligne, un test de
+valeur vide ou une boucle pour les valeurs répétées sont ajoutés. Pour un champ de
+vocabulaire choisissez son libellé, son code ou son identifiant interne.
+<b>Insérer un motif</b> ajoute des blocs prêts à l'emploi (boucle d'enregistrements,
+tableau, ...).</p>
+<p><b>Tester</b> exécute le modèle tel qu'il est dans l'éditeur (enregistré ou non) sur
+les enregistrements sélectionnés, ou sur les 50 premiers du résultat courant. Un rapport
+d'enregistrement unique (fiche) est testé sur un seul enregistrement : le premier
+enregistrement sélectionné, ou le premier du résultat. Le test peut être arrêté et a une
+durée limite.</p>
+
+<h2 id="generate">Génération et planifications</h2>
+<p><b>Générer</b> écrit un rapport pour le résultat courant ou une Query Source dans un
+fichier. Cela se fait en arrière-plan : la progression est affichée et <b>Arrêter</b> y
+met fin. La génération continue si vous fermez le gestionnaire de rapports ou rechargez
+la page ; à votre retour, elle est de nouveau affichée avec sa progression. Une seule
+génération à la fois est possible. Un nouveau <b>Test</b> remplace un test encore en
+cours. Une <b>planification</b> (enregistrement Custom Report Schedule) régénère un
+fichier de rapport à partir d'une Query Source à intervalle régulier. Seuls le groupe
+propriétaire d'un rapport et le propriétaire de la base peuvent ajouter des
+planifications. Les rapports planifiés ne contiennent que des enregistrements publics.</p>
+</body>
+</html>

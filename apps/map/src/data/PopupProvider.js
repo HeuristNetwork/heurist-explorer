@@ -17,6 +17,7 @@
  */
 
 import { normalizePopupMode, isServerPopupMode } from '#shared/recordview/RecordPopupContent.js';
+import { buildReportRenderUrl } from '#shared/data/reportRenderUrl.js';
 
 // popup modes are shared with heurist-graph; re-exported for existing imports
 export { normalizePopupMode, isServerPopupMode };
@@ -57,14 +58,7 @@ export class PopupProvider {
     if (!isServerPopupMode(mode)) return null;
     const templateName = mode === 'standard' ? null : mode;
     if (templateName) {
-      const url = new URL(this.baseUrl, globalThis.location?.href || 'http://localhost/');
-      url.searchParams.set('snippet', '1');
-      url.searchParams.set('publish', '1');
-      url.searchParams.set('debug', '0');
-      url.searchParams.set('q', `ids:${id}`);
-      url.searchParams.set('db', this.database);
-      url.searchParams.set('template', templateName);
-      return url.toString();
+      return buildReportRenderUrl(this.baseUrl, this.database, templateName, id).toString();
     }
 
     const url = new URL('viewers/record/renderRecordData.php', this.baseUrl);

@@ -181,3 +181,5 @@
 #The result reached the maximum number of features#The result reached the maximum number of features
 #The query was slow#The query was slow
 #Loading by map extent is paused: zoom in or refine the query.#Loading by map extent is paused: zoom in or refine the query.
+#Generic_Title#Heurist
+#Error_Title#Info

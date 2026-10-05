@@ -1,0 +1,252 @@
+#1 day#1 day
+#1 hour#1 hour
+#1 month#1 month
+#6 months#6 months
+#7 days#7 days
+#A report is being generated#A report is being generated
+#A report is still being generated. Wait for it to finish, or stop it.#A report is still being generated. Wait for it to finish, or stop it.
+#a value is required#a value is required
+#Add#Add
+#Add a schedule to this report#Add a schedule to this report
+#Add fields#Add fields
+#Add schedule#Add schedule
+#Add Selected Fields#Add Selected Fields
+#Added#Added
+#After the last value of a loop#After the last value of a loop
+#all#all
+#All groups#All groups
+#All reports#All reports
+#All types#All types
+#Alphabetic#Alphabetic
+#and its template file#and its template file
+#Any field#Any field
+#Ask the database owner to install them.#Ask the database owner to install them.
+#Back to presentation#Back to presentation
+#Before the first value of a loop#Before the first value of a loop
+#Block with spacing#Block with spacing
+#Bookmarked by#Bookmarked by
+#Cancel#Cancel
+#Card reports are offered for record popups, cards and Record view.#Card reports are offered for record popups, cards and Record view.
+#Choose a Query Source#Choose a Query Source
+#Choose a record type#Choose a record type
+#Choose a report you can edit in the list above#Choose a report you can edit in the list above
+#Close#Close
+#Close the editor#Close the editor
+#Close without saving#Close without saving
+#Code#Code
+#Concept ID#Concept ID
+#Create#Create
+#Create a new report#Create a new report
+#Create report record#Create report record
+#Create the report record of this template#Create the report record of this template
+#Creator#Creator
+#Current result#Current result
+#date#date
+#day#day
+#days#days
+#Delete#Delete
+#Delete file#Delete file
+#Delete report#Delete report
+#Delete schedule#Delete schedule
+#Delete template file#Delete template file
+#Delete the report#Delete the report
+#Description#Description
+#Done#Done
+#Download the template with concept codes (.gpl), to import into another database#Download the template with concept codes (.gpl), to import into another database
+#Edit#Edit
+#Edit schedule#Edit schedule
+#Edit template#Edit template
+#Edit the template#Edit the template
+#Edit title, description and card flag in the record editor#Edit title, description and card flag in the record editor
+#Empty: generate only on request.#Empty: generate only on request.
+#enum#enum
+#Error reporting of the test run#Error reporting of the test run
+#Error_Title#Info
+#Errors: all#Errors: all
+#Errors: debug console#Errors: debug console
+#Errors: notices#Errors: notices
+#Errors: off#Errors: off
+#every#every
+#Everyone#Everyone
+#Export#Export
+#Failed#Failed
+#Field#Field
+#Field name as comment#Field name as comment
+#Field type#Field type
+#fields#fields
+#File name#File name
+#Finished#Finished
+#Format#Format
+#Generate#Generate
+#Generate now#Generate now
+#Generate report#Generate report
+#Generated files#Generated files
+#Generated files are kept.#Generated files are kept.
+#Generated files of this report#Generated files of this report
+#Generic_Title#Heurist
+#geo#geo
+#Group#Group
+#Heading for record type#Heading for record type
+#Hide the pane#Hide the pane
+#ID#ID
+#Import#Import
+#Import a report template (.gpl or .tpl)#Import a report template (.gpl or .tpl)
+#Include line break#Include line break
+#Insert a pattern at the cursor#Insert a pattern at the cursor
+#Insert all#Insert all
+#Insert all applies these settings to the remaining fields but does not change those already inserted.#Insert all applies these settings to the remaining fields but does not change those already inserted.
+#Insert field#Insert field
+#Insert pattern...#Insert pattern...
+#Insert Patterns/Variable#Insert Patterns/Variable
+#Inserting#Inserting
+#Inserting fields in report#Inserting fields in report
+#Install#Install
+#Install report record types#Install report record types
+#Internal ID#Internal ID
+#Label#Label
+#Large files can make the page slow. Show it here anyway?#Large files can make the page slow. Show it here anyway?
+#Last generated#Last generated
+#Letters A-Z, digits, "-", "_" and spaces. Changing it renames the template file.#Letters A-Z, digits, "-", "_" and spaces. Changing it renames the template file.
+#Letters A-Z, digits, "-", "_" and spaces. Empty: made from the title.#Letters A-Z, digits, "-", "_" and spaces. Empty: made from the title.
+#Letters A-Z, digits, "-", "_", "(", ")" and spaces. Changing it renames the template file.#Letters A-Z, digits, "-", "_", "(", ")" and spaces. Changing it renames the template file.
+#Letters A-Z, digits, "-", "_", "(", ")" and spaces. Empty: made from the title.#Letters A-Z, digits, "-", "_", "(", ")" and spaces. Empty: made from the title.
+#Loading editor...#Loading editor...
+#Loading...#Loading...
+#Loop for repeating/multiple values in field#Loop for repeating/multiple values in field
+#Mark the fields to add in the tree#Mark the fields to add in the tree
+#metadata#metadata
+#Mine#Mine
+#Modified#Modified
+#Name#Name
+#New#New
+#New report#New report
+#No#No
+#No generated files for this report#No generated files for this report
+#No reports#No reports
+#No schedules#No schedules
+#No schedules. A schedule regenerates a report file from a Query Source at an interval.#No schedules. A schedule regenerates a report file from a Query Source at an interval.
+#none#none
+#not generated yet#not generated yet
+#Notes#Notes
+#numeric#numeric
+#OK#OK
+#on request#on request
+#Open in a new window#Open in a new window
+#Optional end of the file name. Your user id is added; for a shared file use a schedule.#Optional end of the file name. Your user id is added; for a shared file use a schedule.
+#Optional end of the file name; the file is written to generated-reports.#Optional end of the file name; the file is written to generated-reports.
+#Other#Other
+#Output file name#Output file name
+#Owner#Owner
+#Patterns#Patterns
+#Place the cursor in the template, mark fields in the tree, then add them#Place the cursor in the template, mark fields in the tree, then add them
+#Please confirm#Please confirm
+#Precede with field name#Precede with field name
+#Properties#Properties
+#Query Source#Query Source
+#Query Source record id#Query Source record id
+#Query Sources with parameters (Filter Form) are not listed.#Query Sources with parameters (Filter Form) are not listed.
+#read only#read only
+#Record#Record
+#Record set#Record set
+#Record type#Record type
+#records#records
+#Records#Records
+#Records loop#Records loop
+#Refresh#Refresh
+#Regenerate#Regenerate
+#Regenerate every (minutes)#Regenerate every (minutes)
+#Register#Register
+#Related records#Related records
+#Relation#Relation
+#Relation EndDate#Relation EndDate
+#Relation Notes#Relation Notes
+#Relation StartDate#Relation StartDate
+#Relation type#Relation type
+#Relation Type#Relation Type
+#relationship#relationship
+#Relationship#Relationship
+#Relationship Fields#Relationship Fields
+#Reload the list of reports#Reload the list of reports
+#Report#Report
+#Report output#Report output
+#Report properties#Report properties
+#Report schedules#Report schedules
+#Report setup#Report setup
+#Report type#Report type
+#Reports#Reports
+#Run the report on the first selected record, or on the first record of the current result#Run the report on the first selected record, or on the first record of the current result
+#Run the report on the selected records, or on the first 50 records of the current result#Run the report on the selected records, or on the first 50 records of the current result
+#Running#Running
+#running report#running report
+#Save#Save
+#Save As#Save As
+#Save as a new report#Save as a new report
+#Save the template (Ctrl+S)#Save the template (Ctrl+S)
+#Schedule#Schedule
+#Schedules#Schedules
+#Schedules that regenerate the report file#Schedules that regenerate the report file
+#Search reports#Search reports
+#Search schedules#Search schedules
+#searching records#searching records
+#Select a report#Select a report
+#Select a report in the list, or create a new one.#Select a report in the list, or create a new one.
+#Select a report, or create a new one.#Select a report, or create a new one.
+#Select all visible options#Select all visible options
+#Select records, or search for records first: the test runs on them.#Select records, or search for records first: the test runs on them.
+#Select report#Select report
+#Show#Show
+#Show fields of this type#Show fields of this type
+#show here#show here
+#Show here#Show here
+#Show linked-from types#Show linked-from types
+#Show the pane#Show the pane
+#Simple table#Simple table
+#Single record (card)#Single record (card)
+#Single record (card) report#Single record (card) report
+#Skip#Skip
+#Stop#Stop
+#Stop this job#Stop this job
+#Stopped#Stopped
+#Stopped: the server process ended#Stopped: the server process ended
+#Stopped: time limit reached#Stopped: time limit reached
+#Stopping...#Stopping...
+#Tags#Tags
+#Template#Template
+#Template file#Template file
+#Template file name#Template file name
+#Template saved#Template saved
+#Template without a report record#Template without a report record
+#Templates without a report record#Templates without a report record
+#Term#Term
+#Test#Test
+#Test Area#Test Area
+#Test if value exists (if...)#Test if value exists (if...)
+#Test result#Test result
+#Test runs the template as shown (saved or not) on the first selected record, or on the first record of the current result.#Test runs the template as shown (saved or not) on the first selected record, or on the first record of the current result.
+#Test runs the template as shown (saved or not) on the selected records, or on the first 50 records of the current result.#Test runs the template as shown (saved or not) on the selected records, or on the first 50 records of the current result.
+#Test shows the report for the first selected record, or the first record of the current result.#Test shows the report for the first selected record, or the first record of the current result.
+#Test shows the report for the selected records, or the first 50 of the current result. Generate writes it to a file.#Test shows the report for the selected records, or the first 50 of the current result. Generate writes it to a file.
+#text#text
+#The field tree is not available#The field tree is not available
+#The report file is ready#The report file is ready
+#The report record types (Custom Report, Custom Report Schedule) are not installed in this database. Ask the database owner to install them.#The report record types (Custom Report, Custom Report Schedule) are not installed in this database. Ask the database owner to install them.
+#The report record types (Custom Report, Custom Report Schedule) are not installed in this database. Install them now?#The report record types (Custom Report, Custom Report Schedule) are not installed in this database. Install them now?
+#The report record types (Custom Report, Custom Report Schedule) are not installed in this database. Templates are listed without records.#The report record types (Custom Report, Custom Report Schedule) are not installed in this database. Templates are listed without records.
+#The report template has unsaved changes. Close it without saving?#The report template has unsaved changes. Close it without saving?
+#The template file of this report does not exist.#The template file of this report does not exist.
+#The template has unsaved changes. Close the editor without saving?#The template has unsaved changes. Close the editor without saving?
+#This linked branch is already present. Add more conditions inside its table.#This linked branch is already present. Add more conditions inside its table.
+#Title#Title
+#Title, description, card flag and file name#Title, description, card flag and file name
+#Unsaved changes#Unsaved changes
+#URL#URL
+#View template#View template
+#Visibility#Visibility
+#Waiting to start#Waiting to start
+#Website filters#Website filters
+#Without extension; the file is written to generated-reports.#Without extension; the file is written to generated-reports.
+#Without report record#Without report record
+#Wrapper e.g. <img> tags (always applied to media)#Wrapper e.g. <img> tags (always applied to media)
+#Write the report to a file in the background#Write the report to a file in the background
+#Yes#Yes
+#Your user id is added to the name. For a shared file add a schedule.#Your user id is added to the name. For a shared file add a schedule.

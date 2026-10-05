@@ -27,7 +27,7 @@ import { ThematicAttributeProvider } from './data/ThematicAttributeProvider.js';
 import { RecordTypeProvider } from './data/RecordTypeProvider.js';
 import { MapDocumentListProvider } from './data/MapDocumentListProvider.js';
 import { PopupProvider } from './data/PopupProvider.js';
-import { ReportTemplateProvider } from './data/ReportTemplateProvider.js';
+import { ReportTemplateProvider } from '#shared/data/ReportTemplateProvider.js';
 import { RecordViewLoader } from '#shared/recordview/RecordViewLoader.js';
 import { MapControlPanel } from './ui/MapControlPanel.js';
 import { MapConfigurationDialog } from './ui/config/MapConfigurationDialog.js';

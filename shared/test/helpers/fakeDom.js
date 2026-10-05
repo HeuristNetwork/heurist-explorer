@@ -204,6 +204,11 @@ export function installFakeDom() {
     body,
     activeElement: null,
     createElement: (tag) => new FakeElement(tag),
+    createTextNode: (text) => {
+      const node = new FakeElement('#text');
+      node.textContent = text;
+      return node;
+    },
     addEventListener: (...args) => listeners.addEventListener(...args),
     removeEventListener: (...args) => listeners.removeEventListener(...args)
   };

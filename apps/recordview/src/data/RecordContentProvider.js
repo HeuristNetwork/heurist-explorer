@@ -16,6 +16,8 @@
  * @license     https://www.gnu.org/licenses/gpl-3.0.txt GNU License 3.0
  * @since       8.0
  */
+import { buildReportRenderUrl } from "#shared/data/reportRenderUrl.js";
+
 /** Builds the legacy/Smarty record renderer URL for one record. */
 export class RecordContentProvider {
   /**
@@ -45,14 +47,7 @@ export class RecordContentProvider {
   buildUrl(id, engine, template = null) {
     if (!this.isConfigured()) return null;
     if (engine === "smarty" && template) {
-      const url = new URL(this.baseUrl, globalThis.location?.href || "http://localhost/");
-      url.searchParams.set("snippet", "1");
-      url.searchParams.set("publish", "1");
-      url.searchParams.set("debug", "0");
-      url.searchParams.set("q", `ids:${id}`);
-      url.searchParams.set("db", this.database);
-      url.searchParams.set("template", String(template));
-      return url;
+      return buildReportRenderUrl(this.baseUrl, this.database, String(template), id);
     }
     const url = new URL("viewers/record/renderRecordData.php", this.baseUrl);
     url.searchParams.set("recID", String(id));

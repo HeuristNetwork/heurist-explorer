@@ -207,3 +207,13 @@
 #Add this saved Query Source to Workspace.#Ajouter cette source de requête enregistrée à l’espace de travail.
 #Save as Source before adding it to Workspace.#Enregistrez comme source avant de l’ajouter à l’espace de travail.
 #Update Source before adding it to Workspace.#Mettez à jour la source avant de l’ajouter à l’espace de travail.
+#Reports#Rapports
+#Custom reports manager and editor#Gestionnaire et éditeur de rapports personnalisés
+#Loading...#Chargement...
+#The report template has unsaved changes. Close it without saving?#Le modèle de rapport a des modifications non enregistrées. Le fermer sans enregistrer ?
+#Label#Libellé
+#Code#Code
+#Internal ID#ID interne
+#Back to presentation#Retour à la présentation
+#Generic_Title#Heurist
+#Error_Title#Information

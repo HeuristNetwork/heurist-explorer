@@ -1,19 +1,7 @@
-/**
- * @file recordContentProvider.test.js
- * @brief Tests record presentation content loading.
- * @project     Heurist academic knowledge management system
- * @package     heurist-data
- * @link        https://HeuristNetwork.org
- * @copyright   (C) 2024 onwards Heurist Network
- * @author      Artem Osmakov   <osmakov@gmail.com>
- * @author      Ian Johnson <ian.johnson.heurist@gmail.com>
- * @license     https://www.gnu.org/licenses/gpl-3.0.txt GNU License 3.0
- * @since       8.0
- */
-
 import test from "node:test";
 import assert from "node:assert/strict";
-import { RecordContentProvider } from "../../src/data/RecordContentProvider.js";
+import { RecordContentProvider } from "../../src/recordview/RecordContentProvider.js";
+import { buildReportRenderUrl } from "../../src/data/reportRenderUrl.js";
 
 test("RecordContentProvider batches lazy Smarty presentation requests", async () => {
   const urls = [];
@@ -31,8 +19,7 @@ test("RecordContentProvider batches lazy Smarty presentation requests", async ()
   });
   assert.equal(result.get(3), "<p>record</p>");
   assert.equal(urls.length, 2);
-  assert.match(urls[0], /q=ids%3A3/);
-  assert.match(urls[0], /template=cards.tpl/);
+  assert.equal(urls[0], "https://example.test/heurist/api/demo/reports/cards.tpl/render?rec=3");
 });
 
 test("RecordContentProvider preserves successful content when one request fails", async () => {
@@ -40,7 +27,7 @@ test("RecordContentProvider preserves successful content when one request fails"
     baseUrl: "https://example.test/heurist/",
     database: "demo",
     fetchImpl: async (url) => {
-      if (String(url).includes("ids%3A4")) {
+      if (String(url).includes("rec=4")) {
         throw new Error("temporary failure");
       }
       return { ok: true, text: async () => "<p>record 3</p>" };
@@ -51,4 +38,18 @@ test("RecordContentProvider preserves successful content when one request fails"
     template: "cards.tpl",
   });
   assert.deepEqual([...result], [[3, "<p>record 3</p>"]]);
+});
+
+test("RecordContentProvider uses the standard renderer for 'standard'", () => {
+  const provider = new RecordContentProvider({ baseUrl: "https://example.test/heurist", database: "demo" });
+  assert.equal(String(provider.buildUrl(7, "standard")),
+    "https://example.test/heurist/viewers/record/renderRecordData.php?recID=7&db=demo");
+});
+
+test("buildReportRenderUrl adds .tpl, encodes the name and keeps def/ templates on the legacy URL", () => {
+  assert.equal(String(buildReportRenderUrl("https://x.test/h/", "db 1", "Basic (initial)", 5)),
+    "https://x.test/h/api/db%201/reports/Basic%20(initial).tpl/render?rec=5");
+  const legacy = buildReportRenderUrl("https://x.test/h/", "demo", "def/cards", 5);
+  assert.equal(legacy.searchParams.get("template"), "def/cards");
+  assert.equal(legacy.searchParams.get("q"), "ids:5");
 });

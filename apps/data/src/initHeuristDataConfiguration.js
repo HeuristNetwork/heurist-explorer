@@ -14,7 +14,7 @@
  */
 
 import { HeuristDataConfigurationApi } from "./host/HeuristDataConfigurationApi.js";
-import { ReportTemplateProvider } from "./data/ReportTemplateProvider.js";
+import { ReportTemplateProvider } from "#shared/data/ReportTemplateProvider.js";
 import { HeuristApiClient } from "#shared/api";
 
 /** Start the small configuration-only build without creating DataTables. */

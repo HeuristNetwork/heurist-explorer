@@ -1,0 +1,123 @@
+/* Template editor: three panes (HCardinalLayout) over the whole screen.
+   west - patterns and fields, center - Smarty text, east - test area */
+.h-reports-editor {
+  height: 100%;
+  min-height: 0;
+}
+
+.h-reports-editor-pane {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+}
+
+.h-reports-editor-pane-header {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 6px;
+  padding: 0 6px 0 9px;
+}
+
+.h-reports-editor-west .h-reports-editor-pane-header { padding-right: 4px; }
+.h-reports-editor-east .h-reports-editor-pane-header { padding-left: 4px; }
+
+.h-reports-editor-pane-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.h-reports-editor-pane-tools {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 6px;
+  font-weight: normal;
+}
+
+.h-reports-editor-pane-tools:empty { display: none; }
+.h-reports-editor-pane-toggle { flex: 0 0 auto; }
+
+.h-reports-editor-pane-body {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.h-reports-editor-separator {
+  width: 1px;
+  height: 20px;
+  background: var(--h-color-border, #cfd4da);
+}
+
+.h-reports-editor-modified { color: var(--h-color-danger, #b42318); font-weight: bold; }
+.h-reports-editor-level { max-width: 160px; }
+
+/* folded side pane: a 40px strip, the toggle on top and the title written upwards */
+.h-reports-editor .h-cardinal-region.is-collapsed > .h-reports-editor-pane {
+  visibility: visible;
+  pointer-events: auto;
+}
+
+.h-reports-editor-pane.is-collapsed .h-reports-editor-pane-header {
+  flex: 1 1 auto;
+  flex-direction: column;
+  justify-content: flex-start;
+  height: auto;
+  padding: 4px 0;
+  white-space: nowrap;
+  border-bottom: 0;
+}
+
+.h-reports-editor-pane.is-collapsed .h-reports-editor-pane-toggle { order: -1; }
+
+.h-reports-editor-pane.is-collapsed .h-reports-editor-pane-title {
+  flex: 0 0 auto;
+  margin-top: 8px;
+  overflow: visible;
+  /* rotate(-90deg): read from bottom to top */
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+}
+
+.h-reports-editor-pane.is-collapsed .h-reports-editor-pane-tools,
+.h-reports-editor-pane.is-collapsed .h-reports-editor-pane-body { display: none; }
+
+/* west: patterns, record type, Add Selected Fields, tree */
+.h-reports-editor-west .h-reports-editor-pane-body { background: var(--h-color-surface, #f5f6f7); }
+.h-reports-editor-row { display: flex; flex-direction: column; gap: 2px; padding: 6px 8px 0; }
+.h-reports-editor-section { padding: 10px 8px 0; font-weight: bold; border-top: 1px solid var(--h-color-border, #cfd4da); margin-top: 8px; }
+
+.h-reports-editor-add {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin: 8px;
+  min-height: 34px;
+  font-size: 14px;
+}
+
+.h-reports-editor-tree {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+  border-top: 1px solid var(--h-color-border, #cfd4da);
+  background: var(--h-color-bg, #fff);
+}
+
+/* center: the text fills the pane */
+.h-reports-editor-text { min-width: 0; }
+
+/* east: progress and output frame */
+.h-reports-editor-east .h-reports-editor-pane-body { overflow: hidden; }
+
+@media (max-width: 800px) {
+  .h-reports-editor-center-tools .h-reports-tool-label { display: none; }
+}

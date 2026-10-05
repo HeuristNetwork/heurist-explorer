@@ -1,6 +1,7 @@
 /**
  * @file HFieldTree.js
- * @brief Framework-free hierarchical field picker for the Filter Builder.
+ * @brief Framework-free hierarchical field picker (Filter Builder, field-path editors,
+ *        Smarty template editor).
  *
  * Replaces the legacy jQuery/Fancytree field tree in
  * `hclient/widgets/search/searchBuilder.js`. Shows the fields of a record type;
@@ -12,9 +13,18 @@
  *   [{ dty, fieldType }]                         flat field on the scope rectype
  *   [{ via:{ link:'lt'|'lf', dty, targetRty } }, // one pointer hop
  *    { dty, fieldType }]
+ *   [{ dty, fieldType, term:'term'|'code'|'conceptid'|'desc'|'internalid' }]  enum output (scope.enumOutputs)
+ *   [{ dty, fieldType, relationship:true }]      relationship of the record (scope.relationships):
+ *                                                 dty is a property (recRelationType, ...) or a field id
+ *
+ * Shown as a popover under a button (open) or inline in a panel that stays
+ * open after a pick (mount: the Smarty template editor). With `scope.multiSelect`
+ * a click marks a leaf instead of picking it; the host reads `getSelectedPaths()`.
+ *
+ * Moved from the Explorer filter builder to shared on 2026-10-05 (plan 12, Phase 5).
  *
  * @project     Heurist academic knowledge management system
- * @package     heurist-explorer
+ * @package     heurist-client-core
  *
  * @link        https://HeuristNetwork.org
  * @copyright   (C) 2024 onwards Heurist Network
@@ -24,7 +34,7 @@
  * @since       8.0
  */
 
-import { $HR } from '#shared/ui';
+import { $HR } from '../../ui/i18n/HResource.js';
 import './HFieldTree.css';
 
 const LINKABLE = new Set(['resource', 'relmarker']);
@@ -41,6 +51,27 @@ const HEADER_FIELDS = [
   { dty: 'owner', label: 'Owner', fieldType: 'enum' },
   { dty: 'access', label: 'Visibility', fieldType: 'enum' }
 ];
+
+/** Outputs of an enum field offered with `scope.enumOutputs`: Smarty subfield → label. */
+const ENUM_OUTPUTS = [
+  { term: 'term', label: 'Term' },
+  { term: 'code', label: 'Code' },
+  { term: 'conceptid', label: 'Concept ID' },
+  { term: 'desc', label: 'Description' },
+  { term: 'internalid', label: 'Internal ID' }
+];
+
+/** Properties of a relationship (`scope.relationships`), as in the legacy report editor. */
+const RELATIONSHIP_PROPS = [
+  { dty: 'recRelationType', label: 'Relation Type' },
+  { dty: 'recRelationNotes', label: 'Relation Notes' },
+  { dty: 'recRelationStartDate', label: 'Relation StartDate' },
+  { dty: 'recRelationEndDate', label: 'Relation EndDate' }
+];
+
+/** Relationship record fields already given by the properties above (or by the branch). */
+const RELATIONSHIP_SKIPPED = ['DT_PRIMARY_RESOURCE', 'DT_TARGET_RESOURCE', 'DT_RELATION_TYPE',
+  'DT_SHORT_SUMMARY', 'DT_START_DATE', 'DT_END_DATE'];
 
 /** Type filter of the tree header: option → field types it shows (`all`: no filter). */
 const TYPE_FILTERS = {
@@ -69,6 +100,9 @@ export class HFieldTree {
     this._showMetadata = true;
     this._typeFilter = 'all';
     this._openKeys = new Set();
+    // multiSelect: marked leaves (path key -> path, in marking order) and inserted ones
+    this._selected = new Map();
+    this._done = new Set();
     this._onDocClick = (event) => {
       if (this.element && !this.element.contains(event.target)) this.close();
     };
@@ -96,7 +130,69 @@ export class HFieldTree {
    */
   open(anchor, scope, onPick) {
     this.close();
+    this._inline = false;
+    const el = this._build(scope, onPick);
+    el.classList.toggle('h-fbtree-tall', this._tall);
+    // Append inside the modal <dialog> when there is one - a modal dialog makes
+    // everything outside its subtree inert, so a popover on document.body would
+    // render behind the backdrop and be unclickable.
+    this._host = anchor.closest('dialog');
+    (this._host || document.body).append(el);
+    this._host?.addEventListener('close', this._onHostClose);
+    document.addEventListener('keydown', this._onKeyDown, true);
+    this._renderBody();
+    positionNear(el, anchor, { viewport: this._tall });
+
+    // defer so the click that opened us does not immediately close it
+    setTimeout(() => document.addEventListener('click', this._onDocClick), 0);
+    return this;
+  }
+
+  /**
+   * Show the tree inline in a container; it stays open after a pick.
+   *
+   * @param {HTMLElement} container Panel the tree fills.
+   * @param {object} scope Same options as `open`, plus `enumOutputs` (enum fields
+   *        expand to Label / Code / Internal ID) and `includeFiles` (file fields).
+   * @param {(path:Array)=>void} onPick Called with the path of each picked leaf.
+   * @returns {HFieldTree} This instance, for chaining.
+   */
+  mount(container, scope, onPick) {
+    this.close();
+    this._inline = true;
+    const el = this._build(scope, onPick);
+    el.classList.add('h-fbtree-inline');
+    container.replaceChildren(el);
+    this._renderBody();
+    return this;
+  }
+
+  /**
+   * Show another record type (inline tree).
+   *
+   * @param {number|string} rtyId Record type.
+   * @returns {void}
+   */
+  setRecordType(rtyId) {
+    this._rtyId = rtyId ?? '';
+    this._openKeys.clear();
+    this._openKeys.add(`rty:${this._rtyId}`);
+    this._openKeys.add(`root:fields:${this._rtyId}`);
+    this._renderBody();
+  }
+
+  /**
+   * Read the scope options and build the tree element with its toolbar.
+   *
+   * @private
+   * @param {object} scope See `open` and `mount`.
+   * @param {(path:Array)=>void} onPick
+   * @returns {HTMLElement}
+   */
+  _build(scope, onPick) {
     this._rtyId = scope?.rtyId ?? '';
+    this._enumOutputs = scope?.enumOutputs === true;
+    this._includeFiles = scope?.includeFiles === true;
     this._flatOnly = scope?.flatOnly === true;
     this._maxDepth = Number.isInteger(Number(scope?.maxDepth)) ? Math.max(0, Number(scope.maxDepth)) : 1;
     this._selectableTypes = Array.isArray(scope?.selectableTypes) && scope.selectableTypes.length
@@ -120,6 +216,12 @@ export class HFieldTree {
     // opened inside a `related` sub-query: offer the Relationship record's own
     // conditions (relation type, relationship fields) above the endpoint's fields
     this._relationContext = scope?.relationContext === true;
+    // report editor: a click marks leaves; a "Relationship" folder with the relationships of the record
+    this._multiSelect = scope?.multiSelect === true;
+    this._onSelectionChange = typeof scope?.onSelectionChange === 'function' ? scope.onSelectionChange : null;
+    this._relationships = scope?.relationships === true;
+    // valuesOnly (report editor): no query-only leaves - "Any field" and "<type> records" (exists)
+    this._valuesOnly = scope?.valuesOnly === true;
     this._onPick = onPick;
     this._openKeys.clear();
     this._openKeys.add(`rty:${this._rtyId}`);
@@ -159,25 +261,18 @@ export class HFieldTree {
     }
     if (!this._fixedTypes) second.append(this._typeFilterSelect());
     toolbar.append(first, second);
+    if (this._multiSelect) {
+      const all = this._toggle($HR('Select all visible options'), false, (on) => this.selectVisible(on));
+      all.classList.add('h-fbtree-select-all');
+      this._selectAllBox = all.querySelector('input');
+      toolbar.append(all);
+    }
 
     this._body = document.createElement('div');
     this._body.className = 'h-fbtree-body';
 
     el.append(toolbar, this._body);
-    el.classList.toggle('h-fbtree-tall', this._tall);
-    // Append inside the modal <dialog> when there is one - a modal dialog makes
-    // everything outside its subtree inert, so a popover on document.body would
-    // render behind the backdrop and be unclickable.
-    this._host = anchor.closest('dialog');
-    (this._host || document.body).append(el);
-    this._host?.addEventListener('close', this._onHostClose);
-    document.addEventListener('keydown', this._onKeyDown, true);
-    this._renderBody();
-    positionNear(el, anchor, { viewport: this._tall });
-
-    // defer so the click that opened us does not immediately close it
-    setTimeout(() => document.addEventListener('click', this._onDocClick), 0);
-    return this;
+    return el;
   }
 
   /** @returns {HTMLSelectElement} The "show fields of this type" filter. */
@@ -201,6 +296,102 @@ export class HFieldTree {
   }
 
   /**
+   * Marked leaves of a multiSelect tree, in the order they were marked.
+   *
+   * @returns {Array<Array<object>>} Paths.
+   */
+  getSelectedPaths() {
+    return [...this._selected.values()];
+  }
+
+  /**
+   * Unmark leaves; with `inserted` they are shown as already inserted.
+   *
+   * @param {Array<Array<object>>|null} [paths] Paths to unmark (all when null).
+   * @param {{inserted?: boolean}} [options]
+   * @returns {void}
+   */
+  clearSelection(paths = null, { inserted = false } = {}) {
+    const keys = paths ? paths.map(selectionKey) : [...this._selected.keys()];
+    for (const key of keys) {
+      this._selected.delete(key);
+      if (inserted) this._done.add(key);
+    }
+    if (this._selectAllBox) this._selectAllBox.checked = false;
+    this._renderBody();
+    this._onSelectionChange?.(this._selected.size);
+  }
+
+  /**
+   * Mark or unmark every leaf that is shown now (in open folders), as the legacy
+   * "Select All Visible Options".
+   *
+   * @param {boolean} on Mark (true) or unmark.
+   * @returns {void}
+   */
+  selectVisible(on) {
+    if (!this._body) return;
+    for (const row of this._body.querySelectorAll('.h-fbtree-leaf')) {
+      if (row.disabled || !row._fbPath) continue;
+      const key = selectionKey(row._fbPath);
+      if (on) this._selected.set(key, row._fbPath);
+      else this._selected.delete(key);
+    }
+    this._renderBody();
+    this._onSelectionChange?.(this._selected.size);
+  }
+
+  /**
+   * Pick a leaf (single mode) or switch its mark (multiSelect).
+   *
+   * @private
+   * @param {HTMLElement} row Leaf row.
+   * @param {Array<object>} path Leaf path.
+   * @returns {void}
+   */
+  _choose(row, path) {
+    if (!this._multiSelect) {
+      this._onPick?.(path);
+      if (!this._inline) this.close();
+      return;
+    }
+    const key = selectionKey(path);
+    if (this._selected.has(key)) this._selected.delete(key);
+    else this._selected.set(key, path);
+    this._markRow(row, path);
+    this._onSelectionChange?.(this._selected.size);
+  }
+
+  /**
+   * Prepare a leaf row: its path and, in multiSelect, the mark icon and state.
+   *
+   * @private
+   * @param {HTMLElement} row Leaf row.
+   * @param {Array<object>} path Leaf path.
+   * @returns {void}
+   */
+  _setupLeaf(row, path) {
+    row._fbPath = path;
+    if (!this._multiSelect) return;
+    const mark = document.createElement('i');
+    mark.className = 'h-fbtree-mark';
+    mark.setAttribute('aria-hidden', 'true');
+    row.prepend(mark);
+    this._markRow(row, path);
+  }
+
+  /** Show the marked / inserted state of a multiSelect leaf. */
+  _markRow(row, path) {
+    const key = selectionKey(path);
+    const on = this._selected.has(key);
+    row.setAttribute('aria-pressed', on ? 'true' : 'false');
+    row.classList.toggle('is-selected', on);
+    row.classList.toggle('is-inserted', this._done.has(key));
+    const mark = row.querySelector('.h-fbtree-mark');
+    if (mark) mark.className = `h-fbtree-mark ${on ? 'fa-solid fa-square-check' : 'fa-regular fa-square'}`;
+  }
+
+  /**
    * Close the popover and remove its outside-click listener.
    *
    * @returns {void}
@@ -213,6 +404,7 @@ export class HFieldTree {
     this.element?.remove();
     this.element = null;
     this._body = null;
+    this._selectAllBox = null;
     this._onPick = null;
   }
 
@@ -255,6 +447,9 @@ export class HFieldTree {
 
     this._body.append(this._sectionFolder(this.dbdefs.rectypeName(rtyId), `rty:${rtyId}`, () =>
       this._scopeNodes(rtyId, [], this._linkedContext)));
+    if (this._relationships) {
+      this._body.append(this._sectionFolder($HR('Relationship'), 'relationship', () => this._relationshipLeaves()));
+    }
 
     if (this._showReverse && !this._flatOnly) {
       for (const folder of this._reverseLinks(rtyId)) {
@@ -351,10 +546,29 @@ export class HFieldTree {
     ];
   }
 
+  /**
+   * Leaves of the "Relationship" folder: the properties of a relationship and the
+   * other fields of the Relationship record type (legacy report editor, mode 7).
+   *
+   * @private
+   * @returns {HTMLElement[]}
+   */
+  _relationshipLeaves() {
+    const relRty = this.dbdefs.dbconst?.('RT_RELATION') ?? 1;
+    const skipped = new Set(RELATIONSHIP_SKIPPED.map((name) => this.dbdefs.dbconst?.(name))
+      .filter((id) => id != null).map(Number));
+    const items = RELATIONSHIP_PROPS.map((prop) => ({ ...prop, fieldType: 'relationship', relationship: true }));
+    for (const field of this.dbdefs.fields(relRty) || []) {
+      if (skipped.has(Number(field.id)) || field.type === 'file' || !this._typeShown(field.type)) continue;
+      items.push({ dty: field.id, label: `${$HR('Relation')} ${field.name}`, fieldType: field.type, relationship: true, translate: false });
+    }
+    return items.map((item) => this._headerLeaf(item, []));
+  }
+
   /** Build the record's Title, metadata and field sections. */
   _scopeNodes(rtyId, viaChain, linkedContext) {
     const nodes = [];
-    if (linkedContext && this._typeFilter === 'all' && !this._fixedTypes) {
+    if (linkedContext && this._typeFilter === 'all' && !this._fixedTypes && !this._valuesOnly) {
       nodes.push(this._headerLeaf({ dty: 'exists', label: `${this.dbdefs.rectypeName(rtyId)} records`, fieldType: 'exists' }, viaChain));
     }
     if (this._includeHeaders) {
@@ -366,7 +580,7 @@ export class HFieldTree {
       }
     }
     const fieldNodes = () => [
-      ...(this._typeShown('freetext') ? [this._headerLeaf({ dty: 'anyfield', label: 'Any field', fieldType: 'freetext' }, viaChain)] : []),
+      ...(!this._valuesOnly && this._typeShown('freetext') ? [this._headerLeaf({ dty: 'anyfield', label: 'Any field', fieldType: 'freetext' }, viaChain)] : []),
       ...this._fieldNodes(rtyId, viaChain)
     ];
     // without title/metadata (geo and time field editors) a "fields" folder
@@ -461,7 +675,7 @@ export class HFieldTree {
       const selectable = !this._selectableTypes || this._selectableTypes.has(String(field.type || '').toLowerCase());
       // file fields are not offered (no proper way to select them yet); a type filter
       // keeps the pointer branches, so fields of that type in linked records stay reachable
-      if (field.type === 'file') continue;
+      if (field.type === 'file' && !this._includeFiles) continue;
       if (this._hideUnselectable && !selectable && !linkable) continue;
       if (!linkable && !this._typeShown(field.type)) continue;
       if (linkable && viaChain.length < this._maxDepth && !this._flatOnly) {
@@ -477,6 +691,8 @@ export class HFieldTree {
           targets,
           viaChain
         }));
+      } else if (this._enumOutputs && ['enum', 'relationtype'].includes(field.type)) {
+        out.push(this._enumFolder(field, viaChain));
       } else if (!this._hideUnselectable || selectable) {
         out.push(this._leaf(field, viaChain));
       }
@@ -500,12 +716,12 @@ export class HFieldTree {
       row.disabled = true;
       row.classList.add('h-fbtree-leaf-disabled');
     }
-    row.addEventListener('click', () => {
-      const pick = { dty: item.dty, fieldType: item.fieldType };
-      if (item.rel) pick.rel = true;
-      this._onPick?.([...viaChain, pick]);
-      this.close();
-    });
+    const pick = { dty: item.dty, fieldType: item.fieldType };
+    if (item.rel) pick.rel = true;
+    if (item.relationship) pick.relationship = true;
+    const path = [...viaChain, pick];
+    this._setupLeaf(row, path);
+    row.addEventListener('click', () => this._choose(row, path));
     return row;
   }
 
@@ -530,12 +746,35 @@ export class HFieldTree {
     type.className = 'h-fbtree-type';
     type.textContent = field.type;
     row.append(type);
-    row.addEventListener('click', () => {
-      const path = [...viaChain, { dty: field.id, fieldType: field.type }];
-      this._onPick?.(path);
-      this.close();
-    });
+    const path = [...viaChain, { dty: field.id, fieldType: field.type }];
+    this._setupLeaf(row, path);
+    row.addEventListener('click', () => this._choose(row, path));
     return row;
+  }
+
+  /**
+   * Folder of an enum field with one leaf per output (label, code, internal id).
+   *
+   * @private
+   * @param {object} field Field descriptor; see `HDbDefs#fields`.
+   * @param {Array} viaChain Pointer-hop prefix leading to this field's scope rectype.
+   * @returns {HTMLElement}
+   */
+  _enumFolder(field, viaChain) {
+    return this._sectionFolder(field.name, `${pathKey(viaChain)}:enum:${field.id}`, () => ENUM_OUTPUTS.map((output) => {
+      const row = document.createElement('button');
+      row.type = 'button';
+      row.className = 'h-menu-item h-fbtree-leaf h-fbtree-term-leaf';
+      row.textContent = $HR(output.label);
+      const type = document.createElement('span');
+      type.className = 'h-fbtree-type';
+      type.textContent = output.term;
+      row.append(type);
+      const path = [...viaChain, { dty: field.id, fieldType: field.type, term: output.term }];
+      this._setupLeaf(row, path);
+      row.addEventListener('click', () => this._choose(row, path));
+      return row;
+    }));
   }
 
   /**
@@ -637,6 +876,11 @@ export class HFieldTree {
   }
 }
 
+
+/** Identity of a leaf path (marked leaves). */
+function selectionKey(path) {
+  return JSON.stringify(path);
+}
 
 /** Return a stable branch identifier for a linked path. */
 function pathKey(viaChain) {

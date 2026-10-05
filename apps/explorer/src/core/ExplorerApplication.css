@@ -104,10 +104,25 @@
     background: var(--h-color-bg);
 }
 
+/* uses heurist-source-header (same look as the module source headers) */
 .h-explorer-tool-workspace-header {
+    display: flex;
     flex: 0 0 auto;
+    align-items: center;
     justify-content: space-between;
-    border-bottom: 1px solid var(--h-color-border);
+    gap: 8px;
+    padding: 0 4px 0 9px;
+}
+
+.h-explorer-tool-workspace-title {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.h-explorer-tool-workspace-close {
+    flex: 0 0 auto;
+    font-size: 18px;
 }
 
 .h-explorer-tool-workspace-body {
@@ -116,6 +131,14 @@
     place-items: center;
     min-height: 0;
     color: var(--h-color-text-muted);
+}
+
+/* Reports tool: heurist-reports fills the body */
+.h-explorer-tool-reports-body {
+    display: flex;
+    width: 100%;
+    overflow: hidden;
+    color: inherit;
 }
 
 .h-explorer-legacy-query {

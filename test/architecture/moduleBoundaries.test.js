@@ -4,12 +4,12 @@ import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 
 const appsRoot = path.resolve("apps");
-const appNames = ["explorer", "data", "graph", "map", "timeline", "recordview"];
+const appNames = ["explorer", "data", "graph", "map", "timeline", "recordview", "reports"];
 // Explorer's `direct` module mode dynamically imports each direct-capable
 // application's public direct-bootstrap entry point (architecture.md: "Explorer
 // may import only a presentation application's explicit direct-bootstrap entry
 // point"). List every app that exposes one here.
-const directEntryApps = ["data", "recordview"];
+const directEntryApps = ["data", "recordview", "reports"];
 
 test("applications do not import sibling applications", async () => {
   for (const appName of appNames) {

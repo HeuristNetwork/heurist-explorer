@@ -207,3 +207,13 @@
 #Add this saved Query Source to Workspace.#Add this saved Query Source to Workspace.
 #Save as Source before adding it to Workspace.#Save as Source before adding it to Workspace.
 #Update Source before adding it to Workspace.#Update Source before adding it to Workspace.
+#Reports#Reports
+#Custom reports manager and editor#Custom reports manager and editor
+#Loading...#Loading...
+#The report template has unsaved changes. Close it without saving?#The report template has unsaved changes. Close it without saving?
+#Label#Label
+#Code#Code
+#Internal ID#Internal ID
+#Back to presentation#Back to presentation
+#Generic_Title#Heurist
+#Error_Title#Info

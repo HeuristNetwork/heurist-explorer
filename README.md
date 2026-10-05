@@ -1,6 +1,6 @@
 # Heurist Explorer client applications
 
-This repository contains six independently built Heurist browser applications:
+This repository contains seven independently built Heurist browser applications:
 
 - `heurist-explorer`
 - `heurist-data`
@@ -8,6 +8,7 @@ This repository contains six independently built Heurist browser applications:
 - `heurist-map`
 - `heurist-timeline`
 - `heurist-recordview`
+- `heurist-reports` (reports manager and Smarty template editor)
 
 They share the neutral code under `shared/`, but no application imports another
 application. Explorer loads presentation applications in iframes and communicates
@@ -30,6 +31,7 @@ npm run dev:graph
 npm run dev:map
 npm run dev:timeline
 npm run dev:recordview
+npm run dev:reports
 ```
 
 The target application becomes the Vite root. Its `index.html`, source tree and
@@ -44,6 +46,7 @@ npm run build:graph
 npm run build:map
 npm run build:timeline
 npm run build:recordview
+npm run build:reports
 npm run build:all
 ```
 
@@ -61,6 +64,7 @@ npm run test:graph
 npm run test:map
 npm run test:timeline
 npm run test:recordview
+npm run test:reports
 npm run test:shared
 ```
 

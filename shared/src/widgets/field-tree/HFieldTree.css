@@ -33,3 +33,22 @@
 .h-fbtree-folder-head { font-style: italic; }
 .h-fbtree-section { padding:5px 8px 3px; font-weight:600; color:var(--h-color-text-muted); border-top:1px solid var(--h-color-border); }
 .h-fbtree-section:first-child { border-top:0; }
+/* inline tree (Smarty template editor): fills its panel, stays open */
+.h-fbtree-inline {
+    position: static;
+    z-index: auto;
+    width: auto;
+    height: 100%;
+    max-height: none;
+    box-shadow: none;
+    border: 0;
+    border-radius: 0;
+}
+.h-fbtree-inline .h-fbtree-body { flex: 1 1 auto; min-height: 0; }
+.h-fbtree-term-leaf { padding-left: 18px; }
+/* multiSelect (report editor): marked and already inserted leaves */
+.h-fbtree-mark { width: 1.1em; margin-right: 4px; color: var(--h-color-icon); }
+.h-fbtree-leaf.is-selected { background: var(--h-color-surface-hover); }
+.h-fbtree-leaf.is-selected .h-fbtree-mark { color: var(--h-color-primary); }
+.h-fbtree-leaf.is-inserted { color: var(--h-color-success, #2e7d32); }
+.h-fbtree-select-all { grid-column: 1 / -1; }

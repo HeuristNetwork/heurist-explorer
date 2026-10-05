@@ -20,6 +20,7 @@ contract. They must not access application or engine internals.
 | Map | `HeuristMapPublicApi` | `heuristMap` |
 | Timeline | `HeuristTimelinePublicApi` | `heuristTimeline` |
 | Record View | `HeuristRecordViewPublicApi` | `heuristRecordview` |
+| Reports | `HeuristReportsPublicApi` | `heuristReports` |
 
 Explorer's iframe and direct adapters talk only to these public surfaces.
 DataSource, selection and collection synchronization must not bypass them.
@@ -35,6 +36,9 @@ Explorer hosts Data directly by default. Set `runtime.moduleModes.data` to
 its own `mode`. `runtime.moduleAssetUrls.data` may override the Data bundle base
 used for localization and the Data manual; its default is
 `hclient/bundles/heurist-data` below the configured Heurist base URL.
+`runtime.moduleAssetUrls.reports` does the same for the reports manager
+(default `hclient/bundles/heurist-reports`), which Explorer mounts directly in
+its Report tool.
 
 ## Distribution workflow
 
@@ -55,6 +59,7 @@ hclient/bundles/heurist-graph/
 hclient/bundles/heurist-map/
 hclient/bundles/heurist-timeline/
 hclient/bundles/heurist-recordview/
+hclient/bundles/heurist-reports/
 ```
 
 ## Change rules

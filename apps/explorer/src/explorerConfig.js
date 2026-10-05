@@ -63,7 +63,8 @@ export function getHeuristExplorerConfig() {
     },
     moduleAssetUrls: {
       data: runtime.moduleAssetUrls?.data || (baseUrl ? `${baseUrl}hclient/bundles/heurist-data` : null),
-      recordview: runtime.moduleAssetUrls?.recordview || (baseUrl ? `${baseUrl}hclient/bundles/heurist-recordview` : null)
+      recordview: runtime.moduleAssetUrls?.recordview || (baseUrl ? `${baseUrl}hclient/bundles/heurist-recordview` : null),
+      reports: runtime.moduleAssetUrls?.reports || (baseUrl ? `${baseUrl}hclient/bundles/heurist-reports` : null)
     },
     settings,
     state

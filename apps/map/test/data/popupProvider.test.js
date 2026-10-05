@@ -1,7 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { PopupProvider } from '../../src/data/PopupProvider.js';
-import { ReportTemplateProvider } from '../../src/data/ReportTemplateProvider.js';
 import { MapApplication } from '../../src/core/MapApplication.js';
 
 test('PopupProvider builds legacy built-in and Smarty popup URLs', () => {
@@ -13,13 +12,8 @@ test('PopupProvider builds legacy built-in and Smarty popup URLs', () => {
   assert.equal(builtin.searchParams.get('db'), 'osmak_mapping');
 
   const smarty = new URL(provider.buildUrl(123, 'Map popup.tpl'));
-  assert.equal(smarty.pathname, '/heurist/');
-  assert.equal(smarty.searchParams.get('snippet'), '1');
-  assert.equal(smarty.searchParams.get('publish'), '1');
-  assert.equal(smarty.searchParams.get('debug'), '0');
-  assert.equal(smarty.searchParams.get('q'), 'ids:123');
-  assert.equal(smarty.searchParams.get('db'), 'osmak_mapping');
-  assert.equal(smarty.searchParams.get('template'), 'Map popup.tpl');
+  assert.equal(smarty.pathname, '/heurist/api/osmak_mapping/reports/Map%20popup.tpl/render');
+  assert.equal(smarty.searchParams.get('rec'), '123');
 });
 
 test('PopupProvider fetches HTML lazily with same-origin credentials', async () => {
@@ -34,26 +28,7 @@ test('PopupProvider fetches HTML lazily with same-origin credentials', async () 
   const html = await provider.load(7, { template: 'x.tpl' });
   assert.equal(html, '<div>popup</div>');
   assert.equal(request.init.credentials, 'same-origin');
-  assert.equal(new URL(request.url).searchParams.get('template'), 'x.tpl');
-});
-
-test('ReportTemplateProvider uses legacy ReportController list endpoint', async () => {
-  let requested = null;
-  const provider = new ReportTemplateProvider({
-    baseUrl: 'http://localhost/heurist/', database: 'db1',
-    fetchImpl: async (url) => {
-      requested = new URL(url);
-      return { ok: true, json: async () => ({ data: ['A.tpl', { name: 'B.tpl', title: 'Template B' }] }) };
-    }
-  });
-  const templates = await provider.list();
-  assert.equal(requested.searchParams.get('controller'), 'ReportController');
-  assert.equal(requested.searchParams.get('action'), 'list');
-  assert.equal(requested.searchParams.get('db'), 'db1');
-  assert.deepEqual(templates, [
-    { value: 'A.tpl', label: 'A.tpl' },
-    { value: 'B.tpl', label: 'Template B' }
-  ]);
+  assert.equal(new URL(request.url).pathname, '/heurist/api/db1/reports/x.tpl/render');
 });
 
 test('PopupProvider supports none, minimal, standard and named-template modes', async () => {
@@ -79,7 +54,8 @@ test('PopupProvider supports none, minimal, standard and named-template modes', 
   assert.equal(standard.searchParams.get('recID'), '7');
 
   const named = new URL(provider.buildUrl(7, 'My template.tpl'));
-  assert.equal(named.searchParams.get('template'), 'My template.tpl');
+  assert.equal(named.pathname, '/heurist/api/db1/reports/My%20template.tpl/render');
+  assert.equal(named.searchParams.get('rec'), '7');
 });
 
 test('minimal popup supports non-Heurist file features without a record ID', async () => {

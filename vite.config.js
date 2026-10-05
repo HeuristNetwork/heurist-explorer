@@ -42,6 +42,11 @@ const targets = Object.freeze({
     port: 5178,
     manuals: ["recordviewUserManualEng.htm", "recordviewUserManualFre.htm"],
   },
+  reports: {
+    version: "0.1.0",
+    port: 5179,
+    manuals: ["reportsUserManualEng.htm", "reportsUserManualFre.htm"],
+  },
 });
 
 export default defineConfig(({ mode }) => {

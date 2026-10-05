@@ -49,6 +49,9 @@ export class HMsg {
     });
     dlg.addEventListener('click', (event) => {
       if (dlg.dataset.preventClose === 'true') return;
+      // only a click on the backdrop targets the dialog itself; a click on an option of a
+      // native <select> list may report coordinates outside the dialog box (2026-10-05)
+      if (event.target !== dlg) return;
       const rect = dlg.getBoundingClientRect();
       const outside = event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom;
       if (outside) dlg.close();

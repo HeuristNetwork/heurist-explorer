@@ -15,7 +15,7 @@
 
 import { HBaseWidget } from '#shared/widgets/HBaseWidget.js';
 import { $HR } from '#shared/ui';
-import { HFieldTree } from '../../filter-builder/HFieldTree.js';
+import { HFieldTree } from '#shared/widgets/field-tree/HFieldTree.js';
 import { fieldPathCode, fieldPathLabel, fieldCodeLabel, normalizeFieldDescriptors } from './fieldPathUtils.js';
 import './QuerySourceHelpers.css';
 

@@ -3,7 +3,7 @@
 ## Repository purpose
 
 This repository unifies maintenance and builds without merging the runtime
-applications. Explorer, Data, Graph, Map, Timeline and Record View remain
+applications. Explorer, Data, Graph, Map, Timeline, Record View and Reports remain
 autonomous programs. Each owns its bootstrap, application object, engine
 adapter, host adapter, public API, styles, localization and tests.
 
@@ -20,12 +20,16 @@ apps/graph ──────────► shared
 apps/map ────────────► shared
 apps/timeline ───────► shared
 apps/recordview ─────► shared
+apps/reports ────────► shared
 ```
 
 Explorer may import only a presentation application's explicit direct-bootstrap
 entry point. It must not import MapApplication, DataApplication, GraphApplication,
-TimelineApplication, widgets, engines, or other module internals. Data currently
-provides `apps/data/src/direct.js`; the other applications remain iframe-hosted.
+TimelineApplication, widgets, engines, or other module internals. Data, Record View
+and Reports provide `src/direct.js`; the other applications remain iframe-hosted.
+Reports is not a presentation module: Explorer imports its direct entry lazily
+(dynamic import) when the Report tool is opened, so the manager and its
+CodeMirror editor are separate chunks, not part of Explorer's main bundle.
 
 ## Host boundaries
 
@@ -89,6 +93,26 @@ popup mode: basic card, Built-in, Smarty template). Map, Graph and Data use them
 popups; Data also renders its Built-in Extended view with them.
 For example, the Map "Built-in" popup mode uses the renderer's `compact` card
 (header and thumbnail, with "More..." for the full record).
+
+### Reports
+
+Owns the reports manager and the Smarty template editor (plan 12): the list of
+Custom Report records and unregistered template files grouped by owner group,
+details, schedules, generated files, test runs and generation as background
+jobs (`/api/{db}/reports`, `/api/{db}/jobs`). It is shown in Explorer's Tools
+mode (Data | Reports) and is never part of a publication. The host bridge
+gives it the record editor, the current result, the selection, the Query
+Sources and the users/groups (`ReportsHostAdapter`).
+
+Shared parts used by Reports and meant for other Smarty editors (calculated
+fields, record titles): `shared/src/smarty/` (`HSmartyEditor`, tokenizer,
+snippet builder, patterns), `shared/src/widgets/field-tree/HFieldTree.js`,
+`shared/src/widgets/job/HJobMonitor.js` and `shared/src/api/JobClient.js`.
+The five-region resizable layout `shared/src/widgets/layout/HCardinalLayout.js`
+is shared too: Explorer's module layout and authoring dock, and the Reports
+template editor.
+Single-record report rendering for popups, cards and Record view uses
+`shared/src/data/ReportTemplateProvider.js` and `reportRenderUrl.js`.
 
 ## CSS and localization
 

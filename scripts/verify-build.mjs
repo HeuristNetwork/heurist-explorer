@@ -8,6 +8,7 @@ const targets = {
   map: ["mapUserManualEng.htm", "mapUserManualFre.htm"],
   timeline: ["timelineUserManualEng.htm", "timelineUserManualFre.htm"],
   recordview: ["recordviewUserManualEng.htm", "recordviewUserManualFre.htm"],
+  reports: ["reportsUserManualEng.htm", "reportsUserManualFre.htm"],
 };
 
 for (const [target, manuals] of Object.entries(targets)) {
@@ -26,5 +27,5 @@ for (const [target, manuals] of Object.entries(targets)) {
   }
 }
 
-console.log("Verified six independent Heurist module distributions.");
+console.log(`Verified ${Object.keys(targets).length} independent Heurist module distributions.`);
 

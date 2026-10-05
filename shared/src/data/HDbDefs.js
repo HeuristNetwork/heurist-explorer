@@ -453,7 +453,7 @@ export class HDbDefs {
    * rows whose global field is missing (separators) are excluded. Order-sorted.
    *
    * @param {number|string} rtyId
-   * @returns {Array<{id,name,type,group,order,req}>}
+   * @returns {Array<{id,name,type,group,order,req,max}>}
    */
   fields(rtyId) {
     const rows = this._structByRty.get(Number(rtyId)) || EMPTY;
@@ -468,7 +468,8 @@ export class HDbDefs {
         type: global.type,
         group: global.group ?? null,
         order: row.order ?? 0,
-        req: row.req || 'optional'
+        req: row.req || 'optional',
+        max: row.max ?? null
       });
     }
     return out;
@@ -480,7 +481,7 @@ export class HDbDefs {
    *
    * @param {number|string} rtyId
    * @param {number|string} dtyId
-   * @returns {{id,name,type,group,order,req,vocabulary?,targetTypes?}|null}
+   * @returns {{id,name,type,group,order,req,max,vocabulary?,targetTypes?}|null}
    */
   field(rtyId, dtyId) {
     const rows = this._structByRty.get(Number(rtyId)) || EMPTY;
@@ -495,13 +496,27 @@ export class HDbDefs {
       type: global.type,
       group: global.group ?? null,
       order: row.order ?? 0,
-      req: row.req || 'optional'
+      req: row.req || 'optional',
+      max: row.max ?? null
     };
     if (global.vocabulary) result.vocabulary = Number(global.vocabulary);
     if (Array.isArray(global.targetTypes) && global.targetTypes.length) {
       result.targetTypes = global.targetTypes.slice();
     }
     return result;
+  }
+
+  /**
+   * Whether a field can have several values in a rectype (max values 0 = unlimited,
+   * or more than 1). Unknown (older server, field not placed): false.
+   *
+   * @param {number|string} rtyId
+   * @param {number|string} dtyId
+   * @returns {boolean}
+   */
+  isRepeatable(rtyId, dtyId) {
+    const max = this.field(rtyId, dtyId)?.max;
+    return max != null && Number(max) !== 1;
   }
 
   /**

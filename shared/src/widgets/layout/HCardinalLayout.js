@@ -6,7 +6,7 @@
  * types or DataSources. LayoutManager assigns semantic modules to its regions.
  *
  * @project     Heurist academic knowledge management system
- * @package     heurist-explorer
+ * @package     heurist-client-core
  *
  * @link        https://HeuristNetwork.org
  * @copyright   (C) 2024 onwards Heurist Network

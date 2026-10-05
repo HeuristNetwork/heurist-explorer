@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { access, readFile } from "node:fs/promises";
 import path from "node:path";
 
-const targets = ["explorer", "data", "graph", "map", "timeline", "recordview"];
+const targets = ["explorer", "data", "graph", "map", "timeline", "recordview", "reports"];
 
 test("each application owns its entry, style, tests and localization", async () => {
   for (const target of targets) {

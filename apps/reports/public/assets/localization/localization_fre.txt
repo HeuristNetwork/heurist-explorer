@@ -1,0 +1,252 @@
+#1 day#1 jour
+#1 hour#1 heure
+#1 month#1 mois
+#6 months#6 mois
+#7 days#7 jours
+#A report is being generated#Un rapport est en cours de génération
+#A report is still being generated. Wait for it to finish, or stop it.#Un rapport est encore en cours de génération. Attendez la fin ou arrêtez-le.
+#a value is required#une valeur est requise
+#Add#Ajouter
+#Add a schedule to this report#Ajouter une planification à ce rapport
+#Add fields#Ajouter des champs
+#Add schedule#Ajouter une planification
+#Add Selected Fields#Ajouter les champs sélectionnés
+#Added#Ajouté
+#After the last value of a loop#Après la dernière valeur d'une boucle
+#all#tous
+#All groups#Tous les groupes
+#All reports#Tous les rapports
+#All types#Tous les types
+#Alphabetic#Alphabétique
+#and its template file#et son fichier modèle
+#Any field#N'importe quel champ
+#Ask the database owner to install them.#Demandez au propriétaire de la base de les installer.
+#Back to presentation#Retour à la présentation
+#Before the first value of a loop#Avant la première valeur d'une boucle
+#Block with spacing#Bloc avec espacement
+#Bookmarked by#Mis en favori par
+#Cancel#Annuler
+#Card reports are offered for record popups, cards and Record view.#Les rapports fiche sont proposés pour les popups, les fiches et la vue enregistrement.
+#Choose a Query Source#Choisissez une Query Source
+#Choose a record type#Choisissez un type d'enregistrement
+#Choose a report you can edit in the list above#Choisissez dans la liste ci-dessus un rapport que vous pouvez modifier
+#Close#Fermer
+#Close the editor#Fermer l'éditeur
+#Close without saving#Fermer sans enregistrer
+#Code#Code
+#Concept ID#ID de concept
+#Create#Créer
+#Create a new report#Créer un nouveau rapport
+#Create report record#Créer l'enregistrement du rapport
+#Create the report record of this template#Créer l'enregistrement de rapport de ce modèle
+#Creator#Créateur
+#Current result#Résultat courant
+#date#date
+#day#jour
+#days#jours
+#Delete#Supprimer
+#Delete file#Supprimer le fichier
+#Delete report#Supprimer le rapport
+#Delete schedule#Supprimer la planification
+#Delete template file#Supprimer le fichier modèle
+#Delete the report#Supprimer le rapport
+#Description#Description
+#Done#Terminé
+#Download the template with concept codes (.gpl), to import into another database#Télécharger le modèle avec les codes de concept (.gpl), pour l'importer dans une autre base
+#Edit#Modifier
+#Edit schedule#Modifier la planification
+#Edit template#Modifier le modèle
+#Edit the template#Modifier le modèle
+#Edit title, description and card flag in the record editor#Modifier le titre, la description et l'indicateur fiche dans l'éditeur d'enregistrement
+#Empty: generate only on request.#Vide : générer seulement à la demande.
+#enum#vocabulaire
+#Error reporting of the test run#Affichage des erreurs du test
+#Error_Title#Information
+#Errors: all#Erreurs : toutes
+#Errors: debug console#Erreurs : console de débogage
+#Errors: notices#Erreurs : avis
+#Errors: off#Erreurs : aucune
+#every#toutes les
+#Everyone#Tout le monde
+#Export#Exporter
+#Failed#Échec
+#Field#Champ
+#Field name as comment#Nom du champ en commentaire
+#Field type#Type de champ
+#fields#champs
+#File name#Nom du fichier
+#Finished#Terminé
+#Format#Format
+#Generate#Générer
+#Generate now#Générer maintenant
+#Generate report#Générer le rapport
+#Generated files#Fichiers générés
+#Generated files are kept.#Les fichiers générés sont conservés.
+#Generated files of this report#Fichiers générés de ce rapport
+#Generic_Title#Heurist
+#geo#géo
+#Group#Groupe
+#Heading for record type#Titre par type d'enregistrement
+#Hide the pane#Masquer le panneau
+#ID#ID
+#Import#Importer
+#Import a report template (.gpl or .tpl)#Importer un modèle de rapport (.gpl ou .tpl)
+#Include line break#Inclure un saut de ligne
+#Insert a pattern at the cursor#Insérer un motif au curseur
+#Insert all#Tout insérer
+#Insert all applies these settings to the remaining fields but does not change those already inserted.#Tout insérer applique ces réglages aux champs restants, sans modifier ceux déjà insérés.
+#Insert field#Insérer le champ
+#Insert pattern...#Insérer un motif...
+#Insert Patterns/Variable#Insérer des modèles/variables
+#Inserting#Insertion
+#Inserting fields in report#Insertion de champs dans le rapport
+#Install#Installer
+#Install report record types#Installer les types d'enregistrement de rapport
+#Internal ID#ID interne
+#Label#Libellé
+#Large files can make the page slow. Show it here anyway?#Les gros fichiers peuvent ralentir la page. L'afficher ici quand même ?
+#Last generated#Dernière génération
+#Letters A-Z, digits, "-", "_" and spaces. Changing it renames the template file.#Lettres A-Z, chiffres, « - », « _ » et espaces. Le modifier renomme le fichier modèle.
+#Letters A-Z, digits, "-", "_" and spaces. Empty: made from the title.#Lettres A-Z, chiffres, « - », « _ » et espaces. Vide : créé à partir du titre.
+#Letters A-Z, digits, "-", "_", "(", ")" and spaces. Changing it renames the template file.#Lettres A-Z, chiffres, « - », « _ », « ( », « ) » et espaces. Le modifier renomme le fichier modèle.
+#Letters A-Z, digits, "-", "_", "(", ")" and spaces. Empty: made from the title.#Lettres A-Z, chiffres, « - », « _ », « ( », « ) » et espaces. Vide : créé à partir du titre.
+#Loading editor...#Chargement de l'éditeur...
+#Loading...#Chargement...
+#Loop for repeating/multiple values in field#Boucle pour les valeurs répétées/multiples du champ
+#Mark the fields to add in the tree#Cochez dans l'arbre les champs à ajouter
+#metadata#métadonnées
+#Mine#Les miens
+#Modified#Modifié
+#Name#Nom
+#New#Nouveau
+#New report#Nouveau rapport
+#No#Non
+#No generated files for this report#Aucun fichier généré pour ce rapport
+#No reports#Aucun rapport
+#No schedules#Aucune planification
+#No schedules. A schedule regenerates a report file from a Query Source at an interval.#Aucune planification. Une planification régénère un fichier de rapport à partir d'une Query Source à intervalle régulier.
+#none#aucun
+#not generated yet#pas encore généré
+#Notes#Notes
+#numeric#numérique
+#OK#OK
+#on request#à la demande
+#Open in a new window#Ouvrir dans une nouvelle fenêtre
+#Optional end of the file name. Your user id is added; for a shared file use a schedule.#Fin facultative du nom de fichier. Votre identifiant d'utilisateur est ajouté ; pour un fichier partagé, utilisez une planification.
+#Optional end of the file name; the file is written to generated-reports.#Fin facultative du nom de fichier ; le fichier est écrit dans generated-reports.
+#Other#Autre
+#Output file name#Nom du fichier produit
+#Owner#Propriétaire
+#Patterns#Modèles
+#Place the cursor in the template, mark fields in the tree, then add them#Placez le curseur dans le modèle, cochez des champs dans l'arbre, puis ajoutez-les
+#Please confirm#Veuillez confirmer
+#Precede with field name#Précéder du nom du champ
+#Properties#Propriétés
+#Query Source#Query Source
+#Query Source record id#ID de l'enregistrement Query Source
+#Query Sources with parameters (Filter Form) are not listed.#Les Query Sources avec paramètres (formulaire de filtre) ne sont pas listées.
+#read only#lecture seule
+#Record#Enregistrement
+#Record set#Ensemble d'enregistrements
+#Record type#Type d'enregistrement
+#records#enregistrements
+#Records#Enregistrements
+#Records loop#Boucle d'enregistrements
+#Refresh#Actualiser
+#Regenerate#Régénérer
+#Regenerate every (minutes)#Régénérer toutes les (minutes)
+#Register#Enregistrer
+#Related records#Enregistrements liés
+#Relation#Relation
+#Relation EndDate#Relation date de fin
+#Relation Notes#Relation notes
+#Relation StartDate#Relation date de début
+#Relation type#Type de relation
+#Relation Type#Type de relation
+#relationship#relation
+#Relationship#Relation
+#Relationship Fields#Champs de la relation
+#Reload the list of reports#Recharger la liste des rapports
+#Report#Rapport
+#Report output#Résultat du rapport
+#Report properties#Propriétés du rapport
+#Report schedules#Planifications des rapports
+#Report setup#Installation des rapports
+#Report type#Type de rapport
+#Reports#Rapports
+#Run the report on the first selected record, or on the first record of the current result#Exécuter le rapport sur le premier enregistrement sélectionné, ou sur le premier enregistrement du résultat courant
+#Run the report on the selected records, or on the first 50 records of the current result#Exécuter le rapport sur les enregistrements sélectionnés, ou sur les 50 premiers du résultat courant
+#Running#En cours
+#running report#exécution du rapport
+#Save#Enregistrer
+#Save As#Enregistrer sous
+#Save as a new report#Enregistrer comme nouveau rapport
+#Save the template (Ctrl+S)#Enregistrer le modèle (Ctrl+S)
+#Schedule#Planifier
+#Schedules#Planifications
+#Schedules that regenerate the report file#Planifications qui régénèrent le fichier du rapport
+#Search reports#Rechercher des rapports
+#Search schedules#Rechercher des planifications
+#searching records#recherche des enregistrements
+#Select a report#Choisir un rapport
+#Select a report in the list, or create a new one.#Sélectionnez un rapport dans la liste, ou créez-en un nouveau.
+#Select a report, or create a new one.#Choisissez un rapport, ou créez-en un nouveau.
+#Select all visible options#Sélectionner toutes les options visibles
+#Select records, or search for records first: the test runs on them.#Sélectionnez des enregistrements, ou faites d'abord une recherche : le test s'exécute sur eux.
+#Select report#Choisir un rapport
+#Show#Afficher
+#Show fields of this type#Afficher les champs de ce type
+#show here#afficher ici
+#Show here#Afficher ici
+#Show linked-from types#Afficher les types qui pointent vers celui-ci
+#Show the pane#Afficher le panneau
+#Simple table#Tableau simple
+#Single record (card)#Un seul enregistrement (fiche)
+#Single record (card) report#Rapport pour un seul enregistrement (fiche)
+#Skip#Passer
+#Stop#Arrêter
+#Stop this job#Arrêter cette tâche
+#Stopped#Arrêté
+#Stopped: the server process ended#Arrêté : le processus du serveur s'est terminé
+#Stopped: time limit reached#Arrêté : durée limite atteinte
+#Stopping...#Arrêt...
+#Tags#Mots-clés
+#Template#Modèle
+#Template file#Fichier modèle
+#Template file name#Nom du fichier modèle
+#Template saved#Modèle enregistré
+#Template without a report record#Modèle sans enregistrement de rapport
+#Templates without a report record#Modèles sans enregistrement de rapport
+#Term#Terme
+#Test#Tester
+#Test Area#Zone de test
+#Test if value exists (if...)#Tester si la valeur existe (if...)
+#Test result#Résultat du test
+#Test runs the template as shown (saved or not) on the first selected record, or on the first record of the current result.#Tester exécute le modèle tel qu'affiché (enregistré ou non) sur le premier enregistrement sélectionné, ou sur le premier enregistrement du résultat courant.
+#Test runs the template as shown (saved or not) on the selected records, or on the first 50 records of the current result.#Test exécute le modèle tel qu'affiché (enregistré ou non) sur les enregistrements sélectionnés, ou sur les 50 premiers enregistrements du résultat courant.
+#Test shows the report for the first selected record, or the first record of the current result.#Tester affiche le rapport pour le premier enregistrement sélectionné, ou le premier enregistrement du résultat courant.
+#Test shows the report for the selected records, or the first 50 of the current result. Generate writes it to a file.#Tester affiche le rapport pour les enregistrements sélectionnés, ou les 50 premiers du résultat courant. Générer l'écrit dans un fichier.
+#text#texte
+#The field tree is not available#L'arbre des champs n'est pas disponible
+#The report file is ready#Le fichier du rapport est prêt
+#The report record types (Custom Report, Custom Report Schedule) are not installed in this database. Ask the database owner to install them.#Les types d'enregistrement de rapport (Custom Report, Custom Report Schedule) ne sont pas installés dans cette base. Demandez au propriétaire de la base de les installer.
+#The report record types (Custom Report, Custom Report Schedule) are not installed in this database. Install them now?#Les types d'enregistrement de rapport (Custom Report, Custom Report Schedule) ne sont pas installés dans cette base. Les installer maintenant ?
+#The report record types (Custom Report, Custom Report Schedule) are not installed in this database. Templates are listed without records.#Les types d'enregistrement de rapport (Custom Report, Custom Report Schedule) ne sont pas installés dans cette base. Les modèles sont listés sans enregistrement.
+#The report template has unsaved changes. Close it without saving?#Le modèle de rapport a des modifications non enregistrées. Le fermer sans enregistrer ?
+#The template file of this report does not exist.#Le fichier modèle de ce rapport n'existe pas.
+#The template has unsaved changes. Close the editor without saving?#Le modèle a des modifications non enregistrées. Fermer l'éditeur sans enregistrer ?
+#This linked branch is already present. Add more conditions inside its table.#Cette branche liée est déjà présente. Ajoutez d'autres conditions dans son tableau.
+#Title#Titre
+#Title, description, card flag and file name#Titre, description, indicateur fiche et nom de fichier
+#Unsaved changes#Modifications non enregistrées
+#URL#URL
+#View template#Voir le modèle
+#Visibility#Visibilité
+#Waiting to start#En attente de démarrage
+#Website filters#Filtres du site web
+#Without extension; the file is written to generated-reports.#Sans extension ; le fichier est écrit dans generated-reports.
+#Without report record#Sans enregistrement de rapport
+#Wrapper e.g. <img> tags (always applied to media)#Balises englobantes, p. ex. <img> (toujours appliquées aux médias)
+#Write the report to a file in the background#Écrire le rapport dans un fichier en arrière-plan
+#Yes#Oui
+#Your user id is added to the name. For a shared file add a schedule.#Votre identifiant d'utilisateur est ajouté au nom. Pour un fichier partagé, ajoutez une planification.

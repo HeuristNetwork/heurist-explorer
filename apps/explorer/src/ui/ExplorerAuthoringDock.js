@@ -20,7 +20,7 @@
  * @since       8.0
  */
 
-import { HCardinalLayout } from './HCardinalLayout.js';
+import { HCardinalLayout } from '../../../../shared/src/widgets/layout/HCardinalLayout.js';
 import './ExplorerAuthoringDock.css';
 
 export const AUTHORING_MIN_WIDTH = 300;

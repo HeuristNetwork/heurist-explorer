@@ -29,7 +29,7 @@ import { describeGeoValue } from '#shared/widgets/form/inputs/HInputGeo.js';
 import { queryDescribe } from '../../utils/queryDescribe.js';
 import { HFilterBuilderItem } from './HFilterBuilderItem.js';
 import { HFilterBuilderSort } from './HFilterBuilderSort.js';
-import { HFieldTree } from './HFieldTree.js';
+import { HFieldTree } from '#shared/widgets/field-tree/HFieldTree.js';
 import { HFilterFormDesigner } from './HFilterFormDesigner.js';
 import { HFilterForm } from '#shared/widgets/filter/HFilterForm.js';
 import { describeQueryParameters, hasQueryParameters, resolveQueryParameters } from '#shared/data/queryParameters.js';

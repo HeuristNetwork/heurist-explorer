@@ -203,3 +203,5 @@
 #The expansion step was slow#L’étape d’expansion a été lente
 #Deeper expansion levels were not loaded.#Les niveaux d’expansion plus profonds n’ont pas été chargés.
 #Click Expand again to continue anyway.#Cliquez de nouveau sur Développer pour continuer quand même.
+#Generic_Title#Heurist
+#Error_Title#Information

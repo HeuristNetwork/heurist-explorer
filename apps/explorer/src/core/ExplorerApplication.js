@@ -19,7 +19,7 @@ import { extentFromGeoJson, extentFromWkt, extentToGeoJson, isExtent } from '#sh
 import { HostAdapter } from '#shared/host';
 import { HMsg, $HR, InlineHelp, getActiveLanguage, getAssetBaseUrl } from '#shared/ui';
 import { LayoutManager } from './LayoutManager.js';
-import { cloneDataSource, dataSourceKey, dataSourceRole, normalizeDataSource } from './DataSource.js';
+import { cloneDataSource, dataSourceKey, dataSourceRequest, dataSourceRole, normalizeDataSource } from './DataSource.js';
 import { DataSourceFavorites } from './DataSourceFavorites.js';
 import { DataSourceHistory } from './DataSourceHistory.js';
 import { ExplorerWorkspace } from './ExplorerWorkspace.js';
@@ -1302,19 +1302,124 @@ export class ExplorerApplication {
    */
   openTool(type) {
     if (this.layout?.isToolMode(type)) {
+      if (!this._closeReportsTool()) return true;
       this.layout.exitToolMode();
       this.controlPanel?.refreshPresentationState?.();
       return false;
     }
+    if (!this._closeReportsTool()) return this.layout?.isToolMode() === true;
 
-    const panel = this._createToolPlaceholder(type);
+    const panel = type === 'report' ? this._createReportsTool() : this._createToolPlaceholder(type);
     this.layout?.enterToolMode(type, panel, {
-      onClose: () => {
-        this.layout?.exitToolMode();
-        this.controlPanel?.clearToolSelection?.();
-      }
+      onClose: () => this._exitTool()
     });
     return true;
+  }
+
+  /**
+   * Leave Tools mode (the Back button of a tool).
+   *
+   * @private
+   * @returns {void}
+   */
+  _exitTool() {
+    if (!this._closeReportsTool()) return;
+    this.layout?.exitToolMode();
+    this.controlPanel?.clearToolSelection?.();
+  }
+
+  /**
+   * Build the Reports tool: header and a body where heurist-reports is mounted.
+   * The reports app (and its CodeMirror editor) is loaded only now, by a dynamic
+   * import of its public direct entry. Explorer in publication mode has no tools.
+   *
+   * @private
+   * @returns {HTMLElement} The tool panel element.
+   */
+  _createReportsTool() {
+    const panel = document.createElement('div');
+    panel.className = 'h-explorer-tool-workspace h-explorer-tool-reports';
+
+    const header = toolHeader($HR('Custom reports manager and editor'), () => this._exitTool());
+
+    const body = document.createElement('div');
+    body.className = 'h-explorer-tool-workspace-body h-explorer-tool-reports-body';
+    body.textContent = $HR('Loading...');
+    panel.append(header, body);
+
+    const mount = this._reportsMounter || mountDirectReports;
+    this._reportsTool = null;
+    const pending = Promise.resolve(mount({
+      container: body,
+      bootstrap: {
+        runtime: {
+          database: this.config.database,
+          apiBaseUrl: this.config.apiBaseUrl,
+          baseUrl: this.config.baseUrl,
+          accessToken: this.config.accessToken,
+          requestHeaders: this.config.requestHeaders,
+          language: this.config.language,
+          runtimeMode: 'main'
+        }
+      },
+      bridge: this._reportsBridge(),
+      assetBaseUrl: this.config.moduleAssetUrls?.reports || null
+    })).then((api) => {
+      if (this._reportsPending === pending) this._reportsTool = api;
+      else api?.destroy?.();
+      return api;
+    }).catch((error) => {
+      body.textContent = error?.message || String(error);
+      console.error('Unable to open the reports manager', error);
+    });
+    this._reportsPending = pending;
+    return panel;
+  }
+
+  /**
+   * Remove the Reports tool; asks first when its template editor has unsaved changes.
+   *
+   * @private
+   * @returns {boolean} False when the user kept the tool open.
+   */
+  _closeReportsTool() {
+    const api = this._reportsTool;
+    if (!api && !this._reportsPending) return true;
+    if (api?.hasUnsavedChanges?.()
+      && !globalThis.confirm?.($HR('The report template has unsaved changes. Close it without saving?'))) {
+      return false;
+    }
+    api?.destroy?.();
+    this._reportsTool = null;
+    this._reportsPending = null;
+    return true;
+  }
+
+  /**
+   * Host bridge given to heurist-reports: record editor, current result,
+   * selection, Query Sources and users/groups of Explorer.
+   *
+   * @private
+   * @returns {object} Bridge object.
+   */
+  _reportsBridge() {
+    const bridge = this.config.hostBridge || {};
+    return {
+      editRecord: (id) => bridge.editRecord?.(id),
+      addRecord: (rt) => bridge.addRecord?.(rt),
+      canEditRecords: () => this.canEditRecords(),
+      getCurrentQuery: () => {
+        const source = this.sync?.dataSource;
+        const query = source ? dataSourceRequest(source)?.q ?? null : null;
+        const total = Number(source?.meta?.count);
+        return query ? { query, title: source.title || '', total: Number.isFinite(total) ? total : null } : null;
+      },
+      getSelection: () => [...(this.sync?.selection || [])],
+      getQuerySources: () => this.getQuerySources().map((item) => ({
+        id: item.id, title: item.title, parametrized: item.parametrized === true || item.kind === 'parametrized'
+      })),
+      getUserGroups: () => this.userGroups?.data || null
+    };
   }
 
   /**
@@ -1328,17 +1433,7 @@ export class ExplorerApplication {
     const panel = document.createElement('div');
     panel.className = 'h-explorer-tool-workspace';
 
-    const header = document.createElement('div');
-    header.className = 'h-toolbar h-explorer-tool-workspace-header';
-
-    const title = document.createElement('strong');
-    title.textContent = toolTitle(type);
-
-    const close = document.createElement('button');
-    close.type = 'button';
-    close.className = 'h-btn';
-    close.textContent = 'Back to presentation';
-    close.addEventListener('click', () => {
+    const header = toolHeader(toolTitle(type), () => {
       this.layout?.exitToolMode();
       this.controlPanel?.clearToolSelection?.();
     });
@@ -1347,7 +1442,6 @@ export class ExplorerApplication {
     body.className = 'h-explorer-tool-workspace-body';
     body.textContent = `${toolTitle(type)} is not implemented yet.`;
 
-    header.append(title, close);
     panel.append(header, body);
     return panel;
   }
@@ -1765,6 +1859,35 @@ export class ExplorerApplication {
   }
 }
 
+
+/**
+ * Header of a Tools mode workspace: caption (source header style) and an icon
+ * button that returns to the presentation.
+ *
+ * @param {string} caption Header caption.
+ * @param {function(): void} onClose Called by the close button.
+ * @returns {HTMLElement}
+ */
+function toolHeader(caption, onClose) {
+  const header = document.createElement('div');
+  header.className = 'heurist-source-header h-explorer-tool-workspace-header';
+
+  const title = document.createElement('span');
+  title.className = 'h-explorer-tool-workspace-title';
+  title.textContent = caption;
+
+  const close = document.createElement('button');
+  close.type = 'button';
+  close.className = 'heurist-icon-button h-explorer-tool-workspace-close';
+  close.title = $HR('Back to presentation');
+  close.setAttribute('aria-label', close.title);
+  close.innerHTML = '<span class="fa-solid fa-times-circle" aria-hidden="true"></span>';
+  close.addEventListener('click', onClose);
+
+  header.append(title, close);
+  return header;
+}
+
 /** Resolve a tool id to its display title. */
 function toolTitle(type) {
   return {
@@ -1779,6 +1902,12 @@ function toolTitle(type) {
 async function mountDirectData(options) {
   const { mountHeuristData } = await import('../../../data/src/direct.js');
   return mountHeuristData(options);
+}
+
+/** Load and mount heurist-reports' direct bootstrap into the Reports tool. */
+async function mountDirectReports(options) {
+  const { mountHeuristReports } = await import('../../../reports/src/direct.js');
+  return mountHeuristReports(options);
 }
 
 /** Load and mount heurist-recordview's direct (same-realm) bootstrap for `direct` module mode. */

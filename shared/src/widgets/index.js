@@ -14,3 +14,4 @@
  */
 
 export { HBaseWidget } from './HBaseWidget.js';
+export { HJobMonitor, formatSeconds } from './job/HJobMonitor.js';

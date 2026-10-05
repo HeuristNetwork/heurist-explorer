@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta http-equiv="Expires" content="Fri, Jan 01 1900 00:00:00 GMT">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Cache-Control" content="no-cache">
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<meta http-equiv="Lang" content="en">
+<meta name="author" content="Heurist Network">
+<meta name="description" content="User guide to the Heurist reports manager">
+<meta name="keywords" content="Heurist, reports, Smarty, templates">
+<title>Heurist Reports User Manual</title>
+<link rel="stylesheet" type="text/css" href="../../h4styles.css">
+</head>
+<body>
+<h1>Heurist Reports</h1>
+<p>The reports manager lists the Smarty report templates of the database. A report
+is a <i>Custom Report</i> record (title, description, template file, card flag); the
+template text is kept in a file. Templates without a record are listed under
+<i>Templates without a report record</i> and can be given one.</p>
+
+<h2 id="types">Two kinds of report</h2>
+<ul>
+<li><b>Single record (card)</b>: shows one record. These reports are offered for record
+popups, cards and Record view in Map, Data, Graph and Record view.</li>
+<li><b>Record set</b>: a report over many records. It is not run on request: it is
+<i>generated</i> to a file in the background, and the file can be used in websites.</li>
+</ul>
+
+<h2 id="editor">Editing a template</h2>
+<p>Choose a report and click <b>Edit template</b>. Place the cursor in the text, choose
+a record type on the right and click a field to insert it. The insert options decide
+whether the field name, a line break, a test for an empty value or a loop for
+repeating values are added. For an enumeration field choose its label, code or
+internal id. <b>Insert pattern</b> adds ready-made blocks (records loop, table, ...).</p>
+<p><b>Test</b> runs the template as it is in the editor (saved or not) on the selected
+records, or on the first 50 records of the current result. A single record (card) report
+is tested on one record only: the first selected record, or the first record of the
+result. The test can be stopped and has a time limit.</p>
+
+<h2 id="generate">Generating and schedules</h2>
+<p><b>Generate</b> writes a report for the current result or a Query Source to a file.
+It runs in the background: the progress is shown and <b>Stop</b> ends it. The
+generation continues when you close the reports manager or reload the page; when you
+come back, it is shown again with its progress. You can run one generation at a time.
+A new <b>Test</b> replaces a test that is still running. A
+<b>schedule</b> (Custom Report Schedule record) regenerates a report file from a Query
+Source at an interval. Only the owner group of a report and the database owner can
+add schedules. Scheduled reports contain public records only.</p>
+</body>
+</html>

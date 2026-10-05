@@ -22,9 +22,9 @@ import { createLoaderRegistry } from "./engine/loaders/createLoaderRegistry.js";
 import { createHostAdapter } from "./host/createHostAdapter.js";
 import { HeuristDataPublicApi } from "./host/HeuristDataPublicApi.js";
 import { DataConfigurationDialog } from "./ui/config/DataConfigurationDialog.js";
-import { ReportTemplateProvider } from "./data/ReportTemplateProvider.js";
+import { ReportTemplateProvider } from "#shared/data/ReportTemplateProvider.js";
 import { DataControlPanel } from "./ui/DataControlPanel.js";
-import { RecordContentProvider } from "./data/RecordContentProvider.js";
+import { RecordContentProvider } from "#shared/recordview/RecordContentProvider.js";
 import { RecordViewLoader } from "#shared/recordview/RecordViewLoader.js";
 
 /**

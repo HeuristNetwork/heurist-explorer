@@ -201,3 +201,5 @@
 #Public#Public
 #Smart expansion: choose the record types the next step reaches#Smart expansion: choose the record types the next step reaches
 #Show or hide the expansion rules and the records linked through them#Show or hide the expansion rules and the records linked through them
+#Generic_Title#Heurist
+#Error_Title#Info

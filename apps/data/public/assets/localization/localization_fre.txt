@@ -201,3 +201,5 @@
 #Public#Public
 #Smart expansion: choose the record types the next step reaches#Expansion sélective : choisir les types d’enregistrement atteints par l’étape suivante
 #Show or hide the expansion rules and the records linked through them#Afficher ou masquer les règles d’expansion et les enregistrements liés par elles
+#Generic_Title#Heurist
+#Error_Title#Information

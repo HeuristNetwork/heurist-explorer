@@ -203,3 +203,5 @@
 #The expansion step was slow#The expansion step was slow
 #Deeper expansion levels were not loaded.#Deeper expansion levels were not loaded.
 #Click Expand again to continue anyway.#Click Expand again to continue anyway.
+#Generic_Title#Heurist
+#Error_Title#Info

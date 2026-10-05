@@ -181,3 +181,5 @@
 #The result reached the maximum number of features#Le résultat a atteint le nombre maximal d’entités
 #The query was slow#La requête a été lente
 #Loading by map extent is paused: zoom in or refine the query.#Le chargement par l’étendue de la carte est suspendu : zoomez ou affinez la requête.
+#Generic_Title#Heurist
+#Error_Title#Information

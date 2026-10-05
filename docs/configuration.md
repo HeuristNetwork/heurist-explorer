@@ -12,6 +12,7 @@ One `vite.config.js` defines six targets selected through Vite mode:
 | timeline | 5176 | `dist/heurist-timeline/` |
 | graph | 5177 | `dist/heurist-graph/` |
 | recordview | 5178 | `dist/heurist-recordview/` |
+| reports | 5179 | `dist/heurist-reports/` |
 
 Each invocation sets its app directory as Vite's root and its own `public/`
 directory as `publicDir`. Consequently only the selected app's localization and
@@ -39,6 +40,7 @@ The exact allowed values remain application-owned:
 - `apps/map/src/mapConfig.js`
 - `apps/timeline/src/timelineConfig.js`
 - `apps/recordview/src/recordViewConfig.js`
+- `apps/reports/src/reportsConfig.js`
 
 Persisted settings are normalized by each application's configuration schema.
 Bootstrap/runtime state and persisted settings are not interchangeable.

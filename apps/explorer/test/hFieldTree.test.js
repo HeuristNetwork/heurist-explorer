@@ -18,7 +18,7 @@ function fakeElement(tag) {
 }
 globalThis.document ??= { createElement: fakeElement };
 
-const { HFieldTree } = await import('../src/widgets/filter-builder/HFieldTree.js');
+const { HFieldTree } = await import('../../../shared/src/widgets/field-tree/HFieldTree.js');
 
 /** Top-level labels rendered for a scope (leaf text is set before its type badge is appended). */
 function labelsFor(scope) {

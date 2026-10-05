@@ -21,7 +21,7 @@ import { RecordRelationsProvider } from "#shared/recordview/RecordRelationsProvi
 import { HDbDefs } from "#shared/data/HDbDefs.js";
 import { VocabularyProvider } from "#shared/data/VocabularyProvider.js";
 import { RecordContentProvider } from "./data/RecordContentProvider.js";
-import { ReportTemplateProvider } from "./data/ReportTemplateProvider.js";
+import { ReportTemplateProvider } from "#shared/data/ReportTemplateProvider.js";
 import { HeuristRecordViewPublicApi } from "./host/HeuristRecordViewPublicApi.js";
 import { RecordViewRenderer } from "#shared/recordview/RecordViewRenderer.js";
 import { RecordViewControlPanel } from "./ui/RecordViewControlPanel.js";
