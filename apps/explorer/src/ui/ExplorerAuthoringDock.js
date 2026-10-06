@@ -56,6 +56,7 @@ export class ExplorerAuthoringDock extends EventTarget {
     // the West region is shown while either of them is in it
     this._paneShown = true;
     this._listShown = false;
+    this._traceShown = false;
     this._formCover = false;
 
     this.cardinal = new HCardinalLayout(container, {
@@ -76,8 +77,12 @@ export class ExplorerAuthoringDock extends EventTarget {
     this.listElement = document.createElement('div');
     this.listElement.className = 'h-explorer-authoring-list';
     this.listElement.hidden = true;
+    /** Host for the query trace, below the pane in the West; a docked list covers it. */
+    this.traceElement = document.createElement('div');
+    this.traceElement.className = 'h-explorer-authoring-list h-explorer-authoring-trace';
+    this.traceElement.hidden = true;
     this.cardinal.setContent('west', this.paneElement);
-    this.cardinal.getRegionElement('west').append(this.listElement);
+    this.cardinal.getRegionElement('west').append(this.listElement, this.traceElement);
     this.cardinal.setContent('center', this.modulesElement);
 
     this._onResize = (event) => {
@@ -172,9 +177,10 @@ export class ExplorerAuthoringDock extends EventTarget {
       this._splitVisible = this._paneShown;
       this._drawer = true;
       this._moveTo('west');
-      // the drawer holds only the pane: no docked list
+      // the drawer holds only the pane: no docked list, no query trace
       this.paneElement.hidden = false;
       this.listElement.hidden = true;
+      this.traceElement.hidden = true;
       this.cardinal.getRegionElement('west').classList.remove('has-list');
       this.cardinal.collapse('west');
     } else {
@@ -230,6 +236,22 @@ export class ExplorerAuthoringDock extends EventTarget {
 
   /** @returns {boolean} Whether the docked list is shown (and not covered by the Filter Form). */
   isListShown() { return this._listShown && !this._formCover && !this._drawer; }
+
+  /**
+   * Show or hide the query trace below the pane in the West region. A docked list
+   * and the Filter Form cover it; it comes back when they close. Not used in drawer mode.
+   *
+   * @param {boolean} shown Whether the query trace is shown.
+   * @returns {ExplorerAuthoringDock} This dock.
+   */
+  setTraceShown(shown) {
+    this._traceShown = shown === true;
+    this._syncRegions();
+    return this;
+  }
+
+  /** @returns {boolean} Whether the query trace is switched on (it may be covered by a docked list). */
+  isTraceShown() { return this._traceShown; }
 
   /**
    * The Filter Form fills the whole West region: the docked list is hidden while it is open.
@@ -296,23 +318,26 @@ export class ExplorerAuthoringDock extends EventTarget {
 
   /**
    * Show the regions that hold something: north while the pane is there and shown;
-   * West while the pane is there and shown, or a list is docked. The Filter Form
-   * in the West hides the list.
+   * West while the pane is there and shown, or a list is docked, or the query trace
+   * is on. The list covers the trace; the Filter Form in the West hides both.
    *
    * @private
    * @returns {void}
    */
   _syncRegions() {
     if (this._drawer) return;
-    const list = this._listShown && !(this._formCover && this.region === 'west');
+    const covered = this._formCover && this.region === 'west';
+    const list = this._listShown && !covered;
+    const trace = this._traceShown && !list && !covered;
     const paneWest = this.region === 'west' && this._paneShown;
     this.paneElement.hidden = !this._paneShown;
     this.listElement.hidden = !list;
+    this.traceElement.hidden = !trace;
     const west = this.cardinal.getRegionElement('west');
-    west.classList.toggle('has-list', list && paneWest);
+    west.classList.toggle('has-list', (list || trace) && paneWest);
     if (this.region === 'north' && this._paneShown) this.cardinal.show('north');
     else this.cardinal.hide('north');
-    if (paneWest || list) this.cardinal.show('west');
+    if (paneWest || list || trace) this.cardinal.show('west');
     else this.cardinal.hide('west');
   }
 

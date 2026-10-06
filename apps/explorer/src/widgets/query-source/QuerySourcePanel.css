@@ -11,7 +11,7 @@
 .h-query-source-form-host { padding: 8px 4px; position:relative; }
 .h-query-source-form-host:empty { display: none; }
 /* Loading veil over the editor and the Filter Form: blocks input while a search
- * runs. The query trace (z-index 22) and the Stop button stay above it. */
+ * runs. The Stop button stays above it. */
 .h-query-source-panel.is-loading::before {
   content:"";
   position:absolute;

@@ -40,6 +40,7 @@ import queryVocabulary from '../utils/queryVocabulary.json';
 import { queryDescribe } from '../utils/queryDescribe.js';
 import { HFilterBuilder } from '../widgets/filter-builder/HFilterBuilder.js';
 import { QuerySourcePanel } from '../widgets/query-source/QuerySourcePanel.js';
+import { QueryTracePanel } from '../widgets/query-source/QueryTracePanel.js';
 import { ExplorerAuthoringDock } from '../ui/ExplorerAuthoringDock.js';
 import { ExplorerCompactMode } from '../ui/ExplorerCompactMode.js';
 import { ExplorerWelcome } from '../ui/ExplorerWelcome.js';
@@ -83,6 +84,8 @@ export class ExplorerApplication {
     this.layoutDefinitions = [];
     // the single Query Source editor / Filter Form, in the authoring dock's west pane
     this.querySourcePanel = null;
+    // the query trace, below the editor in the west pane (Query tracer in the configuration dialog)
+    this.queryTracePanel = null;
     this.authoringDock = null;
     // narrow-screen presentation; removable, see ExplorerCompactMode
     this.compactMode = null;
@@ -112,10 +115,13 @@ export class ExplorerApplication {
     this.container.replaceChildren(workspace);
     this.workspaceElement = workspace;
 
-    // Every data request of Explorer and its modules: Stop button (and the query trace,
-    // hidden for now - 2026-10-03; while hidden, requests carry no debug flag)
-    this.requestMonitor = new RequestMonitor({ source: 'explorer', traceEnabled: TRACE_PANEL_SHOWN && readTracePreference() });
-    this.requestMonitor.addEventListener('tracechange', (event) => writeTracePreference(event.detail.enabled));
+    // Every data request of Explorer and its modules: Stop button and the query trace
+    // (while the trace is closed, requests carry no debug flag)
+    this.requestMonitor = new RequestMonitor({ source: 'explorer', traceEnabled: readTraceShown() && readTracePreference() });
+    this.requestMonitor.addEventListener('tracechange', (event) => {
+      // closing the trace switches Debug off but keeps the user's choice for next time
+      if (this.queryTracePanel) writeTracePreference(event.detail.enabled);
+    });
     const apiClient = new HeuristApiClient({
       apiBaseUrl: this.config.apiBaseUrl,
       database: this.config.database,
@@ -186,6 +192,7 @@ export class ExplorerApplication {
     await this.controlPanel.mount(this.container);
     this._bindRunningQueries();
     await this._createQuerySourcePanel();
+    if (readTraceShown()) this.showQueryTrace();
     // modules of panes not expanded at start are created when first opened
     await this.applyLayout(this.config.settings.layout || defaultLayout(), { deferHidden: true });
     this.compactMode = new ExplorerCompactMode({ application: this }).start();
@@ -345,8 +352,6 @@ export class ExplorerApplication {
       onClearResults: () => this.clearCurrentResult(),
       onShow: () => this.showQuerySourcePanel(),
       onModeChange: (mode) => this.authoringDock?.setMode(mode),
-      requestMonitor: this.requestMonitor,
-      showTrace: TRACE_PANEL_SHOWN,
       onStop: () => this.stopAllQueries(),
       // layout: Vertical (west) / Horizontal (north), More, Help
       orientation: this.authoringDock.getRegion() === 'north' ? 'horizontal' : 'vertical',
@@ -651,6 +656,47 @@ export class ExplorerApplication {
       return;
     }
     if (new ExplorerWelcome().isFirstVisit()) this.showWelcome();
+  }
+
+  /**
+   * Show the query trace in the West region, below the Query Source editor (Query
+   * tracer in the Explorer configuration dialog). A docked list covers it.
+   *
+   * @returns {void}
+   */
+  showQueryTrace() {
+    const dock = this.authoringDock;
+    if (!dock) return;
+    if (!this.queryTracePanel) {
+      this.queryTracePanel = new QueryTracePanel({
+        monitor: this.requestMonitor,
+        onClose: () => this.hideQueryTrace()
+      });
+      // own host element: the panel replaces its container's class, and the dock's
+      // trace host must keep its classes (and its [hidden] rule)
+      const host = document.createElement('div');
+      dock.traceElement.replaceChildren(host);
+      this.queryTracePanel.attach(host).render();
+      this.requestMonitor.traceEnabled = readTracePreference();
+    }
+    dock.setTraceShown(true);
+    writeTraceShown(true);
+  }
+
+  /** Close the query trace; requests stop asking for server timings. */
+  hideQueryTrace() {
+    const panel = this.queryTracePanel;
+    this.queryTracePanel = null;
+    void panel?.destroy?.();
+    this.authoringDock?.traceElement.replaceChildren();
+    this.authoringDock?.setTraceShown(false);
+    if (this.requestMonitor) this.requestMonitor.traceEnabled = false;
+    writeTraceShown(false);
+  }
+
+  /** @returns {boolean} Whether the query trace is open (it may be covered by a docked list). */
+  isQueryTraceShown() {
+    return Boolean(this.queryTracePanel) && this.authoringDock?.isTraceShown() === true;
   }
 
   /** Show the welcome popup (first visit, or Getting started in the configuration dialog). */
@@ -1849,6 +1895,8 @@ export class ExplorerApplication {
     this.sync.destroy();
     void this.querySourcePanel?.destroy?.();
     this.querySourcePanel = null;
+    void this.queryTracePanel?.destroy?.();
+    this.queryTracePanel = null;
     this.layout?.destroy();
     this.authoringDock?.destroy();
     this.authoringDock = null;
@@ -1995,8 +2043,26 @@ const RUNNING_QUERY_DELAY = 300;
 
 /** localStorage key of the query trace switch (per browser). */
 const TRACE_PREFERENCE_KEY = 'heurist-explorer-query-trace';
-/** The query trace panel is hidden for now (2026-10-03, plan 10): a better place is to be found. */
-const TRACE_PANEL_SHOWN = false;
+/** localStorage key of the query trace pane being open (per browser). */
+const TRACE_SHOWN_KEY = 'heurist-explorer-query-trace-shown';
+
+/** @returns {boolean} Whether the query trace pane was left open in this browser. */
+function readTraceShown() {
+  try {
+    return globalThis.localStorage?.getItem(TRACE_SHOWN_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+/** @param {boolean} shown Remember whether the query trace pane is open in this browser. */
+function writeTraceShown(shown) {
+  try {
+    globalThis.localStorage?.setItem(TRACE_SHOWN_KEY, shown ? '1' : '0');
+  } catch {
+    // storage blocked: the pane is not reopened next time
+  }
+}
 
 /** @returns {boolean} Whether the query trace was switched on in this browser. */
 function readTracePreference() {

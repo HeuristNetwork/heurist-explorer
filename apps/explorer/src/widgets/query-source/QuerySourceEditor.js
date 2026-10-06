@@ -295,8 +295,19 @@ export class QuerySourceEditor extends HBaseWidget {
   }
 
   _applyOrientation() {
-    this.container?.classList.toggle('is-horizontal', this.orientation === 'horizontal');
-    this.container?.classList.toggle('is-vertical', this.orientation !== 'horizontal');
+    const horizontal = this.orientation === 'horizontal';
+    this.container?.classList.toggle('is-horizontal', horizontal);
+    this.container?.classList.toggle('is-vertical', !horizontal);
+    // horizontal: the query fills the pane height (minus the sentence), so the height
+    // set by resizing it in the vertical layout is put aside and restored on return
+    if (!this._query) return;
+    if (horizontal) {
+      if (this._query.style.height) this._verticalQueryHeight = this._query.style.height;
+      this._query.style.height = '';
+    } else if (this._verticalQueryHeight) {
+      this._query.style.height = this._verticalQueryHeight;
+      this._verticalQueryHeight = '';
+    }
   }
 
   /**

@@ -1,6 +1,6 @@
 # Query trace, termination and expansion guards — development plan
 
-Status: **agreed with Artem 2026-10-01; Phases 1–4 and Phase 5 items 1 (as a candidate pre-filter) and 3 committed (`a0f44b6`); FULLTEXT "contains" committed (server `8df18a96d`). Trace panel hidden since 2026-10-03. Open items: §Open items at the end.** Server tests: `tests/QueryTraceTest.php` (19 checks); client: `shared/test/requestMonitor.test.js`. §Implementation notes at the end lists measurements and where the implementation differs from this plan.
+Status: **agreed with Artem 2026-10-01; Phases 1–4 and Phase 5 items 1 (as a candidate pre-filter) and 3 committed (`a0f44b6`); FULLTEXT "contains" committed (server `8df18a96d`). Trace panel hidden 2026-10-03, back 2026-10-06 in the West pane (Query tracer in Explorer configuration). Open items: §Open items at the end.** Server tests: `tests/QueryTraceTest.php` (19 checks); client: `shared/test/requestMonitor.test.js`. §Implementation notes at the end lists measurements and where the implementation differs from this plan.
 
 
 ## Context
@@ -163,6 +163,28 @@ until a better place is found (`TRACE_PANEL_SHOWN = false` in `ExplorerApplicati
 panel code stays). While hidden, the RequestMonitor runs with tracing off, so requests carry
 no `debug` flag. Stop and the guards are unchanged. See plan 06 Part C.
 
+**2026-10-06 — trace panel in the West pane.** Agreed with Artem:
+- A **Query tracer** button in the Explorer configuration dialog, next to Getting started
+  (both close the dialog first). It opens the trace; the header's × closes it. Open/closed is
+  remembered per browser (`heurist-explorer-query-trace-shown`).
+- The trace sits in the West region below the Query Source editor, in its own host
+  (`ExplorerAuthoringDock.traceElement`, `setTraceShown()`), not inside `QuerySourcePanel` any
+  more. A docked list (Filters … Workspace) covers it and it comes back when the list closes;
+  a Filter Form filling the West hides it too. Not shown in compact (drawer) mode.
+- Same header as the docked lists (`h-explorer-pinned-tool`): title, running count, Debug,
+  Clear, Close. The collapse toggle is gone.
+- The West region is hidden when it holds no editor, no docked list and no trace.
+- Debug (the `debug` flag on requests) is off while the trace is closed; the user's Debug choice
+  is kept for the next time it opens.
+
+**2026-10-06 — paging does not count again.** The trace showed the count query (12.6 s for
+`[{"t":"117"},{"f:1160":"<>50000/500000"}]`, 170k values without a usable index) repeated on every
+page. The Data app now remembers the total per source and page filter (`activeLoad.totals`), and
+the expansion level pane per level query (`pane.total`). The next page or another sort sends
+`total: false`, so the server skips the count (`pagination.total` = -1) and the client keeps the known
+total. A new filter, source or level query counts again. Still open: the numeric probe (`resolve`,
+2.5–3 s) runs on every page and is thrown away when it finds more than 5,000 ids; numeric index (schema).
+
 ## Implementation notes (2026-10-01)
 
 ### Measurements (osmak_mapping, anonymous user, local XAMPP)
@@ -257,7 +279,7 @@ locally / 4.8 s on production, run twice (ids + count). `Records.rec_Title` and
 
 ## Open items (2026-10-03)
 
-- Trace panel: hidden; find a better place (e.g. a developer option) and show it again.
+- Trace panel in the West pane (2026-10-06): not yet checked in a browser.
 - Hub records (`debug.hubs`) in the trace and excluding them from expansion — not done.
 - Server tests planned but not written: `StatementLimitTest.php`, `CancelTest.php`; no test
   for the FULLTEXT "contains" compilation.

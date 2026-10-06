@@ -17,26 +17,25 @@ import { HBaseWidget } from '#shared/widgets/HBaseWidget.js';
 import { $HR } from '#shared/ui';
 import './QueryTracePanel.css';
 
-/** localStorage key of the collapsed state. */
-const COLLAPSED_KEY = 'heurist-explorer-query-trace-collapsed';
-
 /** Number of log lines rendered; the monitor keeps more. */
 const MAX_LINES = 100;
 
 /**
- * Collapsible "Query trace" pane under the DataSource actions. While tracing is
- * on, every data request asks the server for a `debug` section (SQL timings);
- * the pane lists finished requests, newest first. Running requests are counted
- * in the header.
+ * "Query trace" pane in Explorer's West region (below the Query Source editor, behind
+ * a docked list), with the same header as the docked lists. While Debug is on, every
+ * data request asks the server for a `debug` section (SQL timings); the pane lists
+ * finished requests, newest first. Running requests are counted in the header.
  */
 export class QueryTracePanel extends HBaseWidget {
   /**
    * @param {object} options Widget configuration.
    * @param {import('#shared/api').RequestMonitor} options.monitor Explorer's request monitor.
+   * @param {Function|null} [options.onClose] Offers a Close button in the header; called when pressed.
    */
-  constructor({ monitor } = {}) {
+  constructor({ monitor, onClose = null } = {}) {
     super();
     this.monitor = monitor;
+    this.onClose = typeof onClose === 'function' ? onClose : null;
     this.expanded = new Set();
     this._renderQueued = false;
   }
@@ -44,20 +43,16 @@ export class QueryTracePanel extends HBaseWidget {
   /** @returns {QueryTracePanel} this, for chaining. */
   render() {
     if (!this.container) throw new Error('QueryTracePanel must be attached before render');
-    this.container.className = 'h-qtrace';
-    this.container.classList.toggle('is-collapsed', readCollapsed());
+    this.container.className = 'h-explorer-pinned-tool h-qtrace';
 
     const header = document.createElement('div');
-    header.className = 'h-qtrace-header';
-    const toggle = document.createElement('button');
-    toggle.type = 'button';
-    toggle.className = 'h-qtrace-toggle';
-    toggle.innerHTML = '<span class="fa-solid fa-chevron-down" aria-hidden="true"></span>';
-    const title = document.createElement('span');
-    title.className = 'h-qtrace-title h-i18n';
+    header.className = 'h-toolbar h-explorer-pinned-tool-header';
+    const title = document.createElement('strong');
+    title.className = 'h-i18n';
     title.textContent = $HR('Query trace');
-    toggle.append(title);
-    toggle.title = $HR('Show or hide the query trace');
+
+    this._running = document.createElement('span');
+    this._running.className = 'h-qtrace-running';
 
     const enable = document.createElement('label');
     enable.className = 'h-qtrace-enable';
@@ -69,24 +64,30 @@ export class QueryTracePanel extends HBaseWidget {
     enableText.textContent = $HR('Debug');
     enable.append(this._enable, enableText);
 
-    this._running = document.createElement('span');
-    this._running.className = 'h-qtrace-running';
-
     const clear = document.createElement('button');
     clear.type = 'button';
     clear.className = 'h-btn h-btn-small h-qtrace-clear';
     clear.textContent = $HR('Clear');
 
-    header.append(toggle, this._running, enable, clear);
+    const actions = document.createElement('div');
+    actions.className = 'h-explorer-tool-panel-actions';
+    actions.append(this._running, enable, clear);
+    if (this.onClose) {
+      const close = document.createElement('button');
+      close.type = 'button';
+      close.className = 'heurist-icon-button';
+      close.title = $HR('Close');
+      close.setAttribute('aria-label', close.title);
+      close.innerHTML = '<span class="fa-solid fa-xmark" aria-hidden="true"></span>';
+      this.listen(close, 'click', () => this.onClose());
+      actions.append(close);
+    }
+    header.append(title, actions);
+
     this._log = document.createElement('div');
-    this._log.className = 'h-qtrace-log';
+    this._log.className = 'h-explorer-pinned-tool-body h-qtrace-log';
     this.container.replaceChildren(header, this._log);
 
-    this.listen(toggle, 'click', () => {
-      const collapsed = !this.container.classList.contains('is-collapsed');
-      this.container.classList.toggle('is-collapsed', collapsed);
-      writeCollapsed(collapsed);
-    });
     this.listen(this._enable, 'change', () => { this.monitor.traceEnabled = this._enable.checked; });
     this.listen(clear, 'click', () => { this.expanded.clear(); this.monitor.clear(); });
     this.listen(this.monitor, 'change', () => this._queueRender());
@@ -252,20 +253,4 @@ function round(value) {
 function formatClock(time) {
   const date = new Date(time || Date.now());
   return date.toTimeString().slice(0, 8);
-}
-
-function readCollapsed() {
-  try {
-    return globalThis.localStorage?.getItem(COLLAPSED_KEY) === '1';
-  } catch {
-    return false;
-  }
-}
-
-function writeCollapsed(collapsed) {
-  try {
-    globalThis.localStorage?.setItem(COLLAPSED_KEY, collapsed ? '1' : '0');
-  } catch {
-    // storage blocked: the state is not remembered
-  }
 }

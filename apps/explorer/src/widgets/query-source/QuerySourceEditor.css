@@ -58,7 +58,9 @@
 
 /* ---- horizontal (north pane) ---- */
 .h-qse.is-horizontal { height:100%; min-height:66px; padding:4px 8px; }
-.h-qse.is-horizontal .h-qse-body { display:grid; grid-template-rows:minmax(30px,1fr) auto; gap:4px; height:100%; }
+.h-qse.is-horizontal .h-qse-body { display:grid; grid-template-rows:minmax(30px,1fr) auto; gap:0; height:100%; }
+/* the gap is on the sentence, so a hidden sentence leaves the query the whole height */
+.h-qse.is-horizontal .h-qse-p3 { margin-top:4px; }
 .h-qse.is-horizontal .h-qse-row1 { display:flex; align-items:flex-start; gap:6px; min-height:0; }
 .h-qse.is-horizontal .h-qse-p1 { flex:1 1 600px; min-width:270px; max-width:600px; align-self:stretch; }
 .h-qse.is-horizontal .h-qse-query { height:auto; resize:none; }

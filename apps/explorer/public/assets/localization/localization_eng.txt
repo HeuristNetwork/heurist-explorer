@@ -45,7 +45,8 @@
 #Hide the query sentence#Hide the query sentence
 #Show the query as a sentence#Show the query as a sentence
 #Query trace#Query trace
-#Show or hide the query trace#Show or hide the query trace
+#Query tracer#Query tracer
+#Show the query trace below the search editor#Show the query trace below the search editor
 #Ask the server for SQL timings of every request#Ask the server for SQL timings of every request
 #Debug#Debug
 #Clear#Clear

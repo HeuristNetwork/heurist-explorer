@@ -107,5 +107,5 @@
     margin-top: 12px;
 }
 
-/* Getting started sits on the left of the footer, apart from Cancel/Apply */
-.heurist-config-getting-started { margin-right:auto; }
+/* Getting started and Query tracer sit on the left of the footer, apart from Cancel/Apply */
+.heurist-config-footer-extras { display:flex; gap:6px; margin-right:auto; }

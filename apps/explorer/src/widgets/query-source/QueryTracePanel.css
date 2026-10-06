@@ -1,41 +1,11 @@
-/* Query trace under the DataSource actions; stays usable above the loading veil. */
-.h-qtrace {
-  position:relative;
-  z-index:22;
-  margin-top:6px;
-  border-top:1px solid var(--h-color-border);
-  background:var(--h-color-bg);
-  font-size:12px;
-}
-.h-qtrace-header {
-  display:flex;
-  align-items:center;
-  gap:6px;
-  padding:4px 2px;
-}
-.h-qtrace-toggle {
-  display:flex;
-  align-items:center;
-  gap:6px;
-  flex:1 1 auto;
-  min-width:0;
-  padding:0;
-  border:0;
-  background:none;
-  color:var(--h-color-text);
-  font:inherit;
-  font-weight:600;
-  cursor:pointer;
-  text-align:left;
-}
-.h-qtrace.is-collapsed .h-qtrace-toggle .fa-chevron-down { transform:rotate(-90deg); }
-.h-qtrace.is-collapsed .h-qtrace-log { display:none; }
+/* Query trace in the West region; the frame and header are .h-explorer-pinned-tool's. */
+.h-qtrace { font-size:12px; }
+.h-qtrace .h-explorer-tool-panel-actions { gap:6px; }
 .h-qtrace-running { color:var(--h-color-text-muted); white-space:nowrap; }
 .h-qtrace-running.is-active { color:var(--h-color-primary); }
 .h-qtrace-enable { display:flex; align-items:center; gap:3px; white-space:nowrap; cursor:pointer; }
 .h-qtrace-log {
-  max-height:320px;
-  overflow:auto;
+  padding:0 4px;
   font-family:ui-monospace, SFMono-Regular, Consolas, monospace;
   font-size:11px;
 }

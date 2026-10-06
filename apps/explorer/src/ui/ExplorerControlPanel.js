@@ -505,7 +505,8 @@ export class ExplorerControlPanel {
     new ExplorerConfigurationDialog({
       value: this.application.uiConfigValue,
       onSave: (value) => this.application.applyUiConfig(value),
-      onGettingStarted: () => this.application.showWelcome()
+      onGettingStarted: () => this.application.showWelcome(),
+      onQueryTrace: () => this.application.showQueryTrace()
     }).open();
   }
 

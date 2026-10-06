@@ -215,6 +215,10 @@ default) moves the pane west while open (`setTemporaryPlacement`) and back on cl
   pushed to the right edge (no `margin-left:auto`).
 - Compact mode re-applies the editor orientation after `setDrawerMode`, so the Layout button
   is hidden/shown even when the region does not change.
+- Horizontal: the query fills the pane height minus the sentence. The height from resizing
+  the query in the vertical layout (inline `style.height`) is put aside on switching to
+  horizontal and restored on switching back. The 4px gap above the sentence is now its
+  `margin-top`, so a hidden sentence leaves the query the whole height.
 
 **Query trace** hidden for now (`TRACE_PANEL_SHOWN = false` in ExplorerApplication; the
 RequestMonitor runs with tracing off, so requests carry no `debug` flag). Stop stays.

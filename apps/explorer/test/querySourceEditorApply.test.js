@@ -148,3 +148,15 @@ test('horizontal fit: wrap when the height allows, otherwise drop captions, then
   assert.equal(root.classList.contains('is-wrapped'), false, 'vertical clears the horizontal fit');
   await qse.destroy();
 });
+
+test('horizontal: the query fills the pane height; the vertical resize height comes back', async () => {
+  const qse = new QuerySourceEditor({ dbdefs: {} });
+  qse.attach(document.createElement('div')).render();
+  const query = qse.container.querySelector('.h-qse-query');
+  query.style.height = '180px';
+  qse.setOrientation('horizontal');
+  assert.equal(query.style.height, '', 'no fixed height in the north pane');
+  qse.setOrientation('vertical');
+  assert.equal(query.style.height, '180px');
+  await qse.destroy();
+});

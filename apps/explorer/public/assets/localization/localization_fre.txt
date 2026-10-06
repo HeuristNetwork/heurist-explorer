@@ -45,7 +45,8 @@
 #Hide the query sentence#Masquer la phrase de la requête
 #Show the query as a sentence#Afficher la requête sous forme de phrase
 #Query trace#Trace des requêtes
-#Show or hide the query trace#Afficher ou masquer la trace des requêtes
+#Query tracer#Traceur de requêtes
+#Show the query trace below the search editor#Afficher la trace des requêtes sous l'éditeur de recherche
 #Ask the server for SQL timings of every request#Demander au serveur les durées SQL de chaque requête
 #Debug#Débogage
 #Clear#Effacer

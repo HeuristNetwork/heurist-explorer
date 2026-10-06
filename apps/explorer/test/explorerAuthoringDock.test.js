@@ -123,3 +123,46 @@ test('docked list: the Filter Form in the West hides the list until it closes', 
   assert.equal(d.listElement.hidden, false);
   assert.equal(d.isListShown(), true);
 });
+
+test('query trace: below the pane in the West, behind a docked list', () => {
+  const { dock: d } = dock();
+  const west = () => d.cardinal.state.west.visible;
+  d.setTraceShown(true);
+  assert.equal(d.traceElement.hidden, false);
+  assert.equal(d.traceElement.parentElement, d.paneElement.parentElement);
+  assert.ok(d.cardinal.getRegionElement('west').classList.contains('has-list'), 'pane above the trace');
+
+  d.setListShown(true);
+  assert.equal(d.listElement.hidden, false);
+  assert.equal(d.traceElement.hidden, true, 'the list covers the trace');
+  d.setListShown(false);
+  assert.equal(d.traceElement.hidden, false, 'the trace comes back');
+
+  d.hide();
+  assert.equal(west(), true, 'the trace alone keeps the West');
+  d.setTraceShown(false);
+  assert.equal(west(), false, 'no pane, no list, no trace: West hidden');
+});
+
+test('query trace: with a horizontal QSE the trace is alone in the West; the Filter Form hides it', () => {
+  const { dock: d } = dock({ placement: 'north' });
+  assert.equal(d.cardinal.state.west.visible, false);
+  d.setTraceShown(true);
+  assert.equal(d.cardinal.state.west.visible, true);
+
+  const { dock: w } = dock();
+  w.setTraceShown(true);
+  w.setFormCover(true);
+  assert.equal(w.traceElement.hidden, true);
+  w.setFormCover(false);
+  assert.equal(w.traceElement.hidden, false);
+});
+
+test('query trace: not shown in drawer mode, back afterwards', () => {
+  const { dock: d } = dock();
+  d.setTraceShown(true);
+  d.setDrawerMode(true);
+  assert.equal(d.traceElement.hidden, true);
+  d.setDrawerMode(false);
+  assert.equal(d.traceElement.hidden, false);
+});

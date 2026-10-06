@@ -53,13 +53,15 @@ export class ExplorerConfigurationDialog {
    * @param {Function|null} [options.onSave] Called with the new value on save; returning `false` keeps the dialog open.
    * @param {Function|null} [options.onCancel] Called with the (unsaved) current value when the dialog is cancelled.
    * @param {Function|null} [options.onGettingStarted] Offers a Getting started button: it closes the dialog and calls this.
+   * @param {Function|null} [options.onQueryTrace] Offers a Query tracer button: it closes the dialog and calls this.
    */
-  constructor({ value = null, parent = null, onSave = null, onCancel = null, onGettingStarted = null } = {}) {
+  constructor({ value = null, parent = null, onSave = null, onCancel = null, onGettingStarted = null, onQueryTrace = null } = {}) {
     this.value = mergeDefaults(value);
     this.parent = parent;
     this.onSave = typeof onSave === 'function' ? onSave : null;
     this.onCancel = typeof onCancel === 'function' ? onCancel : null;
     this.onGettingStarted = typeof onGettingStarted === 'function' ? onGettingStarted : null;
+    this.onQueryTrace = typeof onQueryTrace === 'function' ? onQueryTrace : null;
     this.chips = new Map();
     this.paneLists = new Map();
     this.paneChecks = new Map();
@@ -104,12 +106,19 @@ export class ExplorerConfigurationDialog {
     );
 
     const footer = el('footer', 'heurist-config-footer h-dialog-footer');
+    // Getting started and Query tracer close the dialog first (asking about unsaved changes as Cancel does)
+    const extras = el('div', 'heurist-config-footer-extras');
     if (this.onGettingStarted) {
-      // closes the dialog first (asking about unsaved changes as Cancel does)
       const start = button('Getting started', () => { if (this.cancel() !== false) this.onGettingStarted(); }, 'Show the welcome popup and the getting started guide');
       start.classList.add('heurist-config-getting-started');
-      footer.append(start);
+      extras.append(start);
     }
+    if (this.onQueryTrace) {
+      const trace = button('Query tracer', () => { if (this.cancel() !== false) this.onQueryTrace(); }, 'Show the query trace below the search editor');
+      trace.classList.add('heurist-config-query-trace');
+      extras.append(trace);
+    }
+    if (this.onGettingStarted || this.onQueryTrace) footer.append(extras);
     footer.append(button('Cancel', () => this.cancel()), submitButton('Apply'));
     this.form.append(this.content, footer);
     this.dialog.append(header, this.form);
