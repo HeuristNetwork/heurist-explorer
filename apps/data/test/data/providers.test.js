@@ -59,6 +59,22 @@ test("RecordDataProvider sends Heurist pagination, sort and filter parameters", 
   });
 });
 
+test("RecordDataProvider asks for no count when the caller knows the total", async () => {
+  let request;
+  const provider = new RecordDataProvider({
+    apiClient: {
+      post: async (_path, options) => {
+        request = options.body;
+        return { records: [], meta: {}, pagination: { total: -1 } };
+      },
+    },
+  });
+  await provider.load({ query: "t:10", offset: 100, limit: 100, countTotal: false });
+  assert.equal(request.total, false);
+  await provider.load({ query: "t:10" });
+  assert.equal("total" in request, false, "counted by default");
+});
+
 test("RecordDataProvider omits an unspecified sort so query ordering is retained", async () => {
   let request;
   const provider = new RecordDataProvider({

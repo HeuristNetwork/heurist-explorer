@@ -29,6 +29,8 @@ export class RecordDataProvider {
    * @param {number} [options.offset=0] Result offset.
    * @param {string} [options.sort] Sort specification.
    * @param {string} [options.filter] Extra filter expression.
+   * @param {boolean} [options.countTotal=true] False: the server skips the count query on a full
+   *        page (the caller knows the total already); `pagination.total` is then -1.
    * @param {AbortSignal} [options.signal] Abort signal for cancellation.
    * @returns {Promise<{records: Array<object>, pagination?: object, meta?: object}>} The response payload.
    * @throws {TypeError} When the response is missing a `records` array.
@@ -40,6 +42,7 @@ export class RecordDataProvider {
     offset = 0,
     sort,
     filter,
+    countTotal = true,
     signal,
   } = {}) {
     const request = {
@@ -51,6 +54,7 @@ export class RecordDataProvider {
     };
     if (sort !== undefined) request.sort = sort;
     if (filter != null && filter !== "") request.filter = filter;
+    if (countTotal === false) request.total = false;
     const response = await this.apiClient.post("/records", {
       signal,
       body: request,

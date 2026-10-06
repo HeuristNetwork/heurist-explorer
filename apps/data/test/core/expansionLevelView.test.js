@@ -211,3 +211,27 @@ test("smart expansion is for authors only", async () => {
   assert.equal(await application.smartExpansionTypes(), null);
   assert.equal(await application.smartExpand([12]), false);
 });
+
+test("paging a counted result does not count again; a new filter or level query does (2026-10-06)", async () => {
+  const requests = [];
+  const { application, loads } = await createApplication(requests);
+  await application.setDataSource({ reference: { type: "source", id: 5 }, request: { q: "t:10", rules: RULES } });
+  assert.equal(loads.at(-1).countTotal, undefined, "the first page counts");
+
+  const page = await application._loadPage({ offset: 100, limit: 100 });
+  assert.equal(loads.at(-1).countTotal, false, "the next page does not");
+  assert.equal(page.recordsFiltered, 3);
+  await application._loadPage({ offset: 0, limit: 100, filter: "London" });
+  assert.equal(loads.at(-1).countTotal, undefined, "a new filter counts");
+  await application._loadPage({ offset: 100, limit: 100, filter: "London" });
+  assert.equal(loads.at(-1).countTotal, false);
+
+  const view = application.expansion;
+  await view.setActive(true);
+  await settle();
+  assert.equal(loads.at(-1).countTotal, undefined, "the level's first page counts");
+  await view.panes[0].list.context.onDataRequest({ offset: 100, limit: 100 });
+  assert.equal(loads.at(-1).countTotal, false, "its next page does not");
+  await view.setLevel(2);
+  assert.equal(loads.at(-1).countTotal, undefined, "another level counts again");
+});

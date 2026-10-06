@@ -335,6 +335,7 @@ export class DataApplication extends EventTarget {
   async _applyResult(result) {
     this.response = result.response;
     this.recordsTotal = Number(result.response.pagination?.total) || 0;
+    this.activeLoad?.totals?.set(filterKey(this.activeLoad.options?.filter), this.recordsTotal);
     await this.engine.setData({
       querySource: result.querySource,
       records: result.response.records || [],
@@ -448,7 +449,8 @@ export class DataApplication extends EventTarget {
 
   /** Set the active load descriptor and dispatch a pending `heurist-data-source-changed` event. */
   _resetActiveLoad(activeLoad) {
-    this.activeLoad = activeLoad;
+    // totals already counted for this source, per page filter: paging does not count again
+    this.activeLoad = { ...activeLoad, totals: new Map() };
     this.recordsTotal = null;
     this.dispatch("heurist-data-source-changed", {
       source: activeLoad.type,
@@ -469,8 +471,16 @@ export class DataApplication extends EventTarget {
     if (this.activeLoad.type === "source")
       request.querySourceId = this.activeLoad.querySourceId;
     else request.query = this.activeLoad.query;
+    // another page or sort of a counted query and filter: no count query on the server
+    const totals = this.activeLoad.totals;
+    const key = filterKey(filter);
+    const known = totals?.get(key);
+    if (known != null) request.countTotal = false;
     const result = await this._load(this.activeLoad.type, request);
-    const filteredTotal = Number(result.response.pagination?.total) || 0;
+    const reported = Number(result.response.pagination?.total);
+    const filteredTotal = Number.isFinite(reported) && reported >= 0 ? reported : (known ?? 0);
+    totals?.set(key, filteredTotal);
+    if (result.response.pagination) result.response.pagination.total = filteredTotal;
     if (filter == null || filter === "") this.recordsTotal = filteredTotal;
     this.response = result.response;
     return {
@@ -1002,6 +1012,11 @@ function abortError(message) {
   const error = new Error(message);
   error.name = "AbortError";
   return error;
+}
+
+/** Key of a page filter in the known totals: no filter is ''. */
+function filterKey(filter) {
+  return filter == null || filter === "" ? "" : JSON.stringify(filter);
 }
 
 /** Build the engine's initial page options from a persisted pagination offset. */

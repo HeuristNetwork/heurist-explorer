@@ -300,17 +300,21 @@ export class ExpansionLevelView {
     pane.loading = true;
     this._changed();
     try {
+      // pane.total is the level query's count (reset when the query changes): paging does not count again
+      const known = pane.total;
       const result = await this.application.loaders.load("query", {
         query: pane.query,
         limit,
         offset,
         sort,
+        countTotal: known == null ? undefined : false,
         includeQuerySourceFields: false,
         additionalFields: this.application._presentationFields(),
         signal: controller.signal,
       });
       if (generation !== pane.generation) throw abortError();
-      const total = Number(result.response.pagination?.total) || 0;
+      const reported = Number(result.response.pagination?.total);
+      const total = Number.isFinite(reported) && reported >= 0 ? reported : (known ?? 0);
       pane.total = total;
       return { querySource: result.querySource, records: result.response.records || [],
         meta: result.response.meta || {}, recordsTotal: total, recordsFiltered: total };

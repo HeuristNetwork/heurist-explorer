@@ -34,6 +34,7 @@ export class DirectQueryLoader {
    * @param {number} [options.offset] Page offset.
    * @param {*} [options.sort] Sort specification.
    * @param {*} [options.filter] Additional filter.
+   * @param {boolean} [options.countTotal=true] False: no count query (the total is known); see RecordDataProvider.
    * @param {AbortSignal} [options.signal] Abort signal for cancellation.
    * @returns {Promise<{querySource: import('#shared/data/QuerySource.js').QuerySource, response: object}>}
    */
@@ -46,6 +47,7 @@ export class DirectQueryLoader {
     offset,
     sort,
     filter,
+    countTotal,
     signal,
   } = {}) {
     const normalizedFields = normalizeQuerySourceFields(
@@ -71,6 +73,7 @@ export class DirectQueryLoader {
       offset,
       sort,
       filter,
+      countTotal,
       signal,
     });
     return { querySource, response };

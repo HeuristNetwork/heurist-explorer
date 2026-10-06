@@ -38,6 +38,7 @@ export class DataSourceLoader {
    * @param {number} [options.offset] Result offset.
    * @param {string} [options.sort] Sort specification.
    * @param {string} [options.filter] Extra filter expression.
+   * @param {boolean} [options.countTotal=true] False: no count query (the total is known); see RecordDataProvider.
    * @param {AbortSignal} [options.signal] Abort signal for cancellation.
    * @returns {Promise<{querySource: QuerySource, response: object}>} The loaded Query Source and its record page.
    */
@@ -49,6 +50,7 @@ export class DataSourceLoader {
     offset,
     sort,
     filter,
+    countTotal,
     signal,
   } = {}) {
     const querySource = new QuerySource(
@@ -64,6 +66,7 @@ export class DataSourceLoader {
       offset,
       sort,
       filter,
+      countTotal,
       signal,
     });
     return { querySource, response };
