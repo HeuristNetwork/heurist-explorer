@@ -25,7 +25,7 @@
 #Native table controls#Native table controls
 #Search#Search
 #Counter#Counter
-#Export Gephi#Export Gephi
+#Export GEXF (Gephi)#Export GEXF (Gephi)
 #Language#Language
 #Auto#Auto
 #English#English

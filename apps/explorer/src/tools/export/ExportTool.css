@@ -1,0 +1,183 @@
+/**
+ * @file ExportTool.css
+ * @brief Export tool of Explorer Tools mode (plan 13).
+ *
+ * @project     Heurist academic knowledge management system
+ * @package     heurist-explorer
+ * @license     https://www.gnu.org/licenses/gpl-3.0.txt GNU License 3.0
+ * @since       8.0
+ */
+
+/* the body of the tool workspace scrolls; the form keeps a readable width */
+.h-explorer-tool-export-body {
+    display: block;
+    width: 100%;
+    overflow: auto;
+    color: var(--h-color-text);
+    place-items: initial;
+}
+
+.h-export-tool {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    max-width: 980px;
+    padding: 10px 14px 16px;
+    box-sizing: border-box;
+}
+
+.h-export-intro {
+    font-weight: 600;
+}
+
+.h-export-sections {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 10px;
+}
+
+.h-export-section {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
+    margin: 0;
+    padding: 8px 10px 10px;
+    border: 1px solid var(--h-color-border);
+    border-radius: var(--h-radius, 4px);
+}
+
+.h-export-section[hidden] {
+    display: none;
+}
+
+.h-export-section > legend {
+    padding: 0 4px;
+    font-weight: 600;
+}
+
+/* columns and rules need the full width */
+.h-export-section:has(.h-export-editors),
+.h-export-section:has(.h-export-rules) {
+    grid-column: 1 / -1;
+}
+
+.h-export-row {
+    display: grid;
+    grid-template-columns: minmax(120px, 40%) minmax(0, 1fr);
+    align-items: center;
+    gap: 8px;
+}
+
+.h-export-row[hidden] {
+    display: none;
+}
+
+.h-export-row-label {
+    color: var(--h-color-text-muted);
+}
+
+.h-export-check {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.h-export-note {
+    font-size: var(--h-font-size-small, 12px);
+}
+
+.h-export-rectypes {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 14px;
+    max-height: 160px;
+    overflow: auto;
+}
+
+.h-export-rectypes[hidden] {
+    display: none;
+}
+
+.h-export-editors {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.h-export-rectype {
+    border: 1px solid var(--h-color-border);
+    border-radius: var(--h-radius, 4px);
+}
+
+.h-export-rectype-summary {
+    padding: 5px 8px;
+    cursor: pointer;
+    font-weight: 600;
+}
+
+.h-export-rectype-body {
+    padding: 4px 8px 8px;
+}
+
+/* the column editor is used inside the form: no dialog minimum width
+   (compact rows come from QuerySourceHelpers.css) */
+.h-export-rectype-body .h-qse-helper {
+    min-width: 0;
+}
+
+.h-export-rules.is-off {
+    opacity: 0.55;
+}
+
+.h-export-rule-list {
+    margin: 2px 0;
+    padding-left: 18px;
+}
+
+.h-export-footer {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+}
+
+.h-export-problems {
+    flex: 1 1 100%;
+}
+
+.h-export-problem {
+    color: var(--h-color-text-muted);
+}
+
+.h-export-error {
+    color: #b42318;
+}
+
+.h-export-monitor {
+    flex: 1 1 320px;
+    min-width: 0;
+}
+
+.h-export-props-csv,
+.h-export-props-names {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.h-export-props-csv[hidden],
+.h-export-props-names[hidden] {
+    display: none;
+}
+
+@media (max-width: 640px) {
+    .h-export-tool {
+        padding: 8px;
+    }
+
+    .h-export-row {
+        grid-template-columns: 1fr;
+        gap: 2px;
+    }
+}

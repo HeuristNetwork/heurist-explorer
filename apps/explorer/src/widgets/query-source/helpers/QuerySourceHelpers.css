@@ -1,7 +1,11 @@
-.h-qse-helper { display:flex; flex-direction:column; gap:var(--h-spacing-sm,8px); min-width:420px; }
+.h-qse-helper { display:flex; flex-direction:column; gap:var(--h-spacing-sm,8px); min-width:420px; margin:4px; }
 .h-qse-helper-toolbar,.h-qse-helper-row,.h-qse-helper-options { display:flex; align-items:center; gap:var(--h-spacing-sm,8px); }
-.h-qse-helper-rows { display:flex; flex-direction:column; gap:4px; max-height:48vh; overflow:auto; }
-.h-qse-helper-row { border-bottom:1px solid var(--h-border-color,#ddd); padding:5px 0; }
+.h-qse-helper-rows { display:flex; flex-direction:column; gap:0; padding:0; max-height:48vh; overflow:auto; }
+.h-qse-helper-row { border-bottom:1px solid var(--h-border-color,#ddd); padding:0; }
+.h-qse-helper-row[draggable="true"] { cursor:grab; }
+.h-qse-helper-row.is-dragging,.h-qse-fieldset-row.is-dragging { opacity:0.5; }
+/* compact field lists: small buttons of the helpers */
+.h-qse-helper .h-btn-small { min-height:16px; }
 .h-qse-helper-label { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .h-qse-helper-icon { min-width:28px; padding-inline:6px; }
 .h-qse-helper-options { flex-wrap:wrap; border-top:1px solid var(--h-border-color,#ddd); padding-top:8px; }
@@ -9,7 +13,7 @@
 .h-qse-zoom { width:5em; }
 .h-qse-rule-summary { display:flex; gap:8px; align-items:center; }
 .h-qse-rule-summary > div { flex:1; }
-.h-qse-fieldset-row { display:grid; grid-template-columns:auto minmax(110px,1.2fr) minmax(130px,1fr) 70px 90px auto auto auto; align-items:center; gap:5px; padding:4px 0; border-bottom:1px solid var(--h-color-border); }
+.h-qse-fieldset-row { display:grid; grid-template-columns:auto minmax(110px,1.2fr) minmax(130px,1fr) 70px 90px auto auto auto; align-items:center; gap:5px; padding:0; border-bottom:1px solid var(--h-color-border); }
 .h-qse-fieldset-code { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:var(--h-font-size-small); }
 .h-qse-fieldset-title { min-width:90px; }
 .h-qse-fieldset-width { width:65px; }

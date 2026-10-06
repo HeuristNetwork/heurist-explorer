@@ -15,5 +15,24 @@
   <p>Explorer réunit les vues données, carte, chronologie et graphe autour d'une source de données et d'une sélection partagées.</p>
   <h2>Panneau de contrôle</h2>
   <p><strong>Nouvelle recherche</strong> ouvre le sélecteur de recherche/filtre. <strong>Vues de données ouvertes</strong> affiche les vues de données présentes dans l'espace de travail.</p>
+  <h2 id="export">Exporter</h2>
+  <p><strong>Exporter</strong> (barre de droite) écrit les enregistrements de la source de données
+  courante dans un fichier. Le fichier est créé sur le serveur ; quand il est prêt, un lien permet
+  de le télécharger. Vous seul pouvez le télécharger ; il est conservé 7 jours. Un export en cours
+  continue si vous fermez l'outil ou rechargez la page ; <strong>Arrêter</strong> l'interrompt.</p>
+  <ul>
+    <li><strong>Portée</strong> : le résultat courant, les enregistrements sélectionnés ou certains
+    types d'enregistrements du résultat.</li>
+    <li><strong>Format</strong> : CSV ou TSV (un tableau par type d'enregistrement, regroupés dans un
+    zip), JSON, GeoJSON, KML, XML (HML, importable dans une autre base Heurist) ou Gephi (GEXF).</li>
+    <li><strong>Colonnes</strong> (CSV, TSV, GeoJSON, KML, Gephi) : les champs de chaque type
+    d'enregistrement, éventuellement repris des champs de colonnes de la source. En CSV la première
+    colonne est toujours <code>H-ID</code>. Un terme peut être écrit comme Terme, Code, ID de
+    concept, Description ou ID interne.</li>
+    <li><strong>Règles d'expansion</strong> : exporter aussi les enregistrements atteints par les
+    règles ; chaque enregistrement est écrit une seule fois.</li>
+    <li><strong>Formats des valeurs</strong>, <strong>options CSV</strong>, nombre maximum
+    d'enregistrements et nom du fichier.</li>
+  </ul>
 </body>
 </html>

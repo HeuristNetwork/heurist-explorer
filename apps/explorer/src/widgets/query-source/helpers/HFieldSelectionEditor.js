@@ -19,9 +19,13 @@ import { HFieldTree } from '#shared/widgets/field-tree/HFieldTree.js';
 import { fieldPathCode, fieldPathLabel, fieldCodeLabel, normalizeFieldDescriptors } from './fieldPathUtils.js';
 import './QuerySourceHelpers.css';
 
-/** Enum outputs offered in a multiSelect tree → column `ext` (the description has no column output). */
-const ENUM_EXT = { term: 'term', code: 'code', conceptid: 'conceptid', internalid: 'id' };
-const ENUM_EXT_LABELS = { code: 'Code', conceptid: 'Concept ID', id: 'Internal ID' };
+/**
+ * Enum outputs offered in a multiSelect tree → column `ext` (the description has no column output).
+ * The names are those of the report field tree (plan 13); columns saved before store "id" for the
+ * internal id, which the presentations and the export still read.
+ */
+const ENUM_EXT = { term: 'term', code: 'code', conceptid: 'conceptid', internalid: 'internalid' };
+const ENUM_EXT_LABELS = { code: 'Code', conceptid: 'Concept ID', internalid: 'Internal ID', id: 'Internal ID' };
 
 /** Base multi-field selector used by fieldset, geo and time Query Source helpers. */
 export class HFieldSelectionEditor extends HBaseWidget {
@@ -36,8 +40,10 @@ export class HFieldSelectionEditor extends HBaseWidget {
    * @param {boolean} [options.showSort] Whether the field tree offers a sort control.
    * @param {boolean} [options.multiSelect] Mark several fields in the tree and add them with
    *        "Add selected fields"; enum fields expand to their outputs (Term, Code, ...).
+   * @param {boolean} [options.removeAll] Show a "Remove all fields" button.
+   * @param {function(Array): void} [options.onChange] Called after every change of the list.
    */
-  constructor({ dbdefs, title = 'Fields', selectableTypes = null, allowReorder = true, includeHeaders = false, hideUnselectable = false, showSort = true, multiSelect = false } = {}) {
+  constructor({ dbdefs, title = 'Fields', selectableTypes = null, allowReorder = true, includeHeaders = false, hideUnselectable = false, showSort = true, multiSelect = false, removeAll = false, onChange = null } = {}) {
     super();
     if (!dbdefs) throw new TypeError('HFieldSelectionEditor requires dbdefs');
     this.dbdefs = dbdefs;
@@ -48,6 +54,8 @@ export class HFieldSelectionEditor extends HBaseWidget {
     this.hideUnselectable = hideUnselectable;
     this.showSort = showSort !== false;
     this.multiSelect = multiSelect === true;
+    this.removeAll = removeAll === true;
+    this.onChange = typeof onChange === 'function' ? onChange : null;
     this.tree = new HFieldTree({ dbdefs });
     this.recordTypeId = null;
     this.fields = [];
@@ -82,6 +90,14 @@ export class HFieldSelectionEditor extends HBaseWidget {
     this._add.textContent = `+ ${$HR('Add field')}`;
     this._add.addEventListener('click', () => this._openTree());
     toolbar.append(this._add);
+    if (this.removeAll) {
+      this._clear = document.createElement('button');
+      this._clear.type = 'button';
+      this._clear.className = 'h-btn h-btn-small';
+      this._clear.textContent = $HR('Remove all fields');
+      this._clear.addEventListener('click', () => { this.fields = []; this._renderRows(); });
+      toolbar.append(this._clear);
+    }
 
     this._rows = document.createElement('div');
     this._rows.className = 'h-qse-helper-rows';
@@ -141,6 +157,8 @@ export class HFieldSelectionEditor extends HBaseWidget {
   _renderRows() {
     if (!this._rows) return;
     this._rows.replaceChildren();
+    if (this._clear) this._clear.disabled = !this.fields.length;
+    this.onChange?.(this.getValue());
     if (!this.fields.length) {
       const empty = document.createElement('div');
       empty.className = 'h-muted';
@@ -162,23 +180,48 @@ export class HFieldSelectionEditor extends HBaseWidget {
     label.title = field.field;
 
     const remove = smallButton('×', $HR('Remove'), () => { this.fields.splice(index, 1); this._renderRows(); });
-    row.append(label);
     if (this.allowReorder) {
-      row.append(
-        smallButton('↑', $HR('Move up'), () => this._move(index, -1)),
-        smallButton('↓', $HR('Move down'), () => this._move(index, 1))
-      );
+      row.append(this._dragHandle());
+      this._enableDrag(row, index);
     }
-    row.append(remove);
+    row.append(label, remove);
     return row;
   }
 
-  _move(index, delta) {
-    const next = index + delta;
-    if (next < 0 || next >= this.fields.length) return;
-    const [item] = this.fields.splice(index, 1);
-    this.fields.splice(next, 0, item);
-    this._renderRows();
+  /** @returns {HTMLElement} Drag handle of a reorderable row. */
+  _dragHandle() {
+    const drag = document.createElement('span');
+    drag.className = 'h-qse-drag';
+    drag.textContent = '↕';
+    drag.title = $HR('Drag to reorder');
+    return drag;
+  }
+
+  /**
+   * Make a row draggable: dropping it on another row moves the field there.
+   *
+   * @param {HTMLElement} row Row element.
+   * @param {number} index Index of its field.
+   */
+  _enableDrag(row, index) {
+    row.draggable = true;
+    row.addEventListener('dragstart', (event) => {
+      this._dragIndex = index;
+      event.dataTransfer?.setData('text/plain', String(index));
+      event.dataTransfer?.setDragImage?.(row, 12, 12);
+      row.classList.add('is-dragging');
+    });
+    row.addEventListener('dragend', () => { row.classList.remove('is-dragging'); this._dragIndex = null; });
+    row.addEventListener('dragover', (event) => event.preventDefault());
+    row.addEventListener('drop', (event) => {
+      event.preventDefault();
+      const from = Number(event.dataTransfer?.getData('text/plain') ?? this._dragIndex);
+      if (!Number.isInteger(from) || from === index || from < 0 || from >= this.fields.length) return;
+      const [item] = this.fields.splice(from, 1);
+      const target = from < index ? index - 1 : index;
+      this.fields.splice(target, 0, item);
+      this._renderRows();
+    });
   }
 
   /** Tear down the field tree popover and the widget itself. */

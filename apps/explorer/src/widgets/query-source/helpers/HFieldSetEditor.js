@@ -31,29 +31,8 @@ export class HFieldSetEditor extends HFieldSelectionEditor {
     const row = document.createElement('div');
     row.className = 'h-qse-fieldset-row';
     row.dataset.field = field.field;
-    row.draggable = true;
-    row.addEventListener('dragstart', (event) => {
-      this._dragIndex = index;
-      event.dataTransfer?.setData('text/plain', String(index));
-      event.dataTransfer?.setDragImage?.(row, 12, 12);
-      row.classList.add('is-dragging');
-    });
-    row.addEventListener('dragend', () => { row.classList.remove('is-dragging'); this._dragIndex = null; });
-    row.addEventListener('dragover', (event) => event.preventDefault());
-    row.addEventListener('drop', (event) => {
-      event.preventDefault();
-      const from = Number(event.dataTransfer?.getData('text/plain') ?? this._dragIndex);
-      if (!Number.isInteger(from) || from === index || from < 0 || from >= this.fields.length) return;
-      const [item] = this.fields.splice(from, 1);
-      const target = from < index ? index - 1 : index;
-      this.fields.splice(target, 0, item);
-      this._renderRows();
-    });
-
-    const drag = document.createElement('span');
-    drag.className = 'h-qse-drag';
-    drag.textContent = '↕';
-    drag.title = $HR('Drag to reorder');
+    this._enableDrag(row, index);
+    const drag = this._dragHandle();
 
     const visible = document.createElement('input');
     visible.type = 'checkbox';

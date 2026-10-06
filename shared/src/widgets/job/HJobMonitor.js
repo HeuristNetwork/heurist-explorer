@@ -183,7 +183,22 @@ export class HJobMonitor extends HBaseWidget {
     this.update(job);
     const result = this.root.querySelector('.h-job-monitor-result');
     result.replaceChildren();
-    if (job.status === 'done' && job.result?.url) {
+    if (job.status === 'done' && job.result?.download && this.options.jobClient) {
+      // a result file kept with the job (e.g. an export): only its owner can download it
+      const link = document.createElement('a');
+      link.href = this.options.jobClient.resultUrl(job.id);
+      link.download = job.result.file || '';
+      link.className = 'h-job-monitor-download';
+      link.innerHTML = '<span class="fa-solid fa-download" aria-hidden="true"></span> ';
+      link.append(document.createTextNode(job.result.file || $HR('Download')));
+      result.append(link);
+      if (Number(job.result.size) > 0) {
+        const size = document.createElement('span');
+        size.className = 'h-job-monitor-size';
+        size.textContent = ` (${formatSize(Number(job.result.size))})`;
+        result.append(size);
+      }
+    } else if (job.status === 'done' && job.result?.url) {
       const link = document.createElement('a');
       link.href = job.result.url;
       link.target = '_blank';
@@ -222,4 +237,12 @@ export function formatSeconds(seconds) {
   const value = Math.max(0, Math.round(Number(seconds) || 0));
   if (value < 60) return `${value} s`;
   return `${Math.floor(value / 60)} min ${String(value % 60).padStart(2, '0')} s`;
+}
+
+/** "850 B", "12.4 KB" or "3.1 MB". */
+export function formatSize(bytes) {
+  const value = Math.max(0, Number(bytes) || 0);
+  if (value < 1024) return `${value} B`;
+  if (value < 1024 * 1024) return `${(value / 1024).toFixed(1)} KB`;
+  return `${(value / (1024 * 1024)).toFixed(1)} MB`;
 }

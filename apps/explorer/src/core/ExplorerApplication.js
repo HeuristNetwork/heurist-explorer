@@ -1349,13 +1349,17 @@ export class ExplorerApplication {
   openTool(type) {
     if (this.layout?.isToolMode(type)) {
       if (!this._closeReportsTool()) return true;
+      this._closeExportTool();
       this.layout.exitToolMode();
       this.controlPanel?.refreshPresentationState?.();
       return false;
     }
     if (!this._closeReportsTool()) return this.layout?.isToolMode() === true;
+    this._closeExportTool();
 
-    const panel = type === 'report' ? this._createReportsTool() : this._createToolPlaceholder(type);
+    const panel = type === 'report' ? this._createReportsTool()
+      : type === 'export' ? this._createExportTool()
+        : this._createToolPlaceholder(type);
     this.layout?.enterToolMode(type, panel, {
       onClose: () => this._exitTool()
     });
@@ -1370,6 +1374,7 @@ export class ExplorerApplication {
    */
   _exitTool() {
     if (!this._closeReportsTool()) return;
+    this._closeExportTool();
     this.layout?.exitToolMode();
     this.controlPanel?.clearToolSelection?.();
   }
@@ -1439,6 +1444,67 @@ export class ExplorerApplication {
     this._reportsTool = null;
     this._reportsPending = null;
     return true;
+  }
+
+  /**
+   * Build the Export tool (plan 13): header and the export form for the current
+   * DataSource. The tool is loaded only now (dynamic import, its own chunk).
+   *
+   * @private
+   * @returns {HTMLElement} The tool panel element.
+   */
+  _createExportTool() {
+    const panel = document.createElement('div');
+    panel.className = 'h-explorer-tool-workspace h-explorer-tool-export';
+    const header = toolHeader($HR('Export records'), () => this._exitTool());
+    const body = document.createElement('div');
+    body.className = 'h-explorer-tool-workspace-body h-explorer-tool-export-body';
+    body.textContent = $HR('Loading...');
+    panel.append(header, body);
+
+    const pending = (this._exportLoader || loadExportTool)().then(async ({ ExportTool }) => {
+      if (this._exportPending !== pending) return null;
+      const tool = new ExportTool({
+        apiClient: this.apiClient,
+        getDbDefs: () => this._ensureDbDefs(),
+        getDataSource: () => (this.sync?.dataSource ? cloneDataSource(this.sync.dataSource) : null),
+        getSelection: () => [...(this.sync?.selection || [])],
+        database: this.config.database,
+        language: this.config.language
+      });
+      body.replaceChildren();
+      tool.attach(body);
+      this._exportTool = tool;
+      await tool.render();
+      // follow DataSource, selection and rule changes like a module (no events of its own)
+      this.sync?.register({
+        id: EXPORT_TOOL_SYNC_ID,
+        type: 'tool',
+        setDataSource: (source) => tool.setDataSource(source),
+        setSelection: (ids) => tool.setSelection(ids),
+        setRules: (rules) => tool.setRules(rules)
+      });
+      return tool;
+    }).catch((error) => {
+      body.textContent = error?.message || String(error);
+      console.error('Unable to open the export tool', error);
+    });
+    this._exportPending = pending;
+    return panel;
+  }
+
+  /**
+   * Remove the Export tool. A running export continues on the server and is shown
+   * again when the tool is opened.
+   *
+   * @private
+   * @returns {void}
+   */
+  _closeExportTool() {
+    this.sync?.unregister?.(EXPORT_TOOL_SYNC_ID);
+    this._exportTool?.destroy?.();
+    this._exportTool = null;
+    this._exportPending = null;
   }
 
   /**
@@ -1942,7 +2008,7 @@ function toolTitle(type) {
     report: 'Report',
     crosstabs: 'Crosstabs / Charts',
     actions: 'Actions Dashboard',
-    export: 'Export Dashboard'
+    export: 'Export records'
   }[type] || 'Tool';
 }
 
@@ -1950,6 +2016,14 @@ function toolTitle(type) {
 async function mountDirectData(options) {
   const { mountHeuristData } = await import('../../../data/src/direct.js');
   return mountHeuristData(options);
+}
+
+/** SyncEngine id of the open Export tool. */
+const EXPORT_TOOL_SYNC_ID = 'tool:export';
+
+/** Load the Export tool (its own lazy chunk). */
+function loadExportTool() {
+  return import('../tools/export/ExportTool.js');
 }
 
 /** Load and mount heurist-reports' direct bootstrap into the Reports tool. */

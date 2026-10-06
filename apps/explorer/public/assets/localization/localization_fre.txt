@@ -224,3 +224,111 @@
 #Back to presentation#Retour à la présentation
 #Generic_Title#Heurist
 #Error_Title#Information
+#Export records#Exporter des enregistrements
+#All#Tous
+#All fields of the records; record types, fields and terms with concept codes.#Tous les champs des enregistrements ; types d'enregistrements, champs et termes avec leurs codes de concept.
+#Also export the records reached by the expansion rules#Exporter aussi les enregistrements atteints par les règles d'expansion
+#As stored (temporal objects as JSON)#Tel qu'enregistré (objets temporels en JSON)
+#Automatic#Automatique
+#By record types in the result#Par types d'enregistrements du résultat
+#CSV (comma-separated)#CSV (séparé par des virgules)
+#CSV options#Options CSV
+#Choose at least one record type#Choisissez au moins un type d'enregistrement
+#Choose the columns for each record type. The first column is always H-ID (record ID).#Choisissez les colonnes de chaque type d'enregistrement. La première colonne est toujours H-ID (identifiant).
+#Choose the columns to export#Choisissez les colonnes à exporter
+#Columns#Colonnes
+#columns#colonnes
+#Comma#Virgule
+#Database definitions are not available#Les définitions de la base ne sont pas disponibles
+#Dates#Dates
+#Description#Description
+#Double quote#Guillemet double
+#Download#Télécharger
+#Each record type is written to its own file; several files are packed in a zip.#Chaque type d'enregistrement est écrit dans son propre fichier ; plusieurs fichiers sont regroupés dans un zip.
+#Edit rules for this export#Modifier les règles pour cet export
+#Edited for this export (the data source is not changed)#Modifiées pour cet export (la source de données n'est pas modifiée)
+#Every record is written once: the result first, then the records each level reaches.#Chaque enregistrement est écrit une seule fois : d'abord le résultat, puis les enregistrements atteints à chaque niveau.
+#File ID#ID du fichier
+#File URL#URL du fichier
+#File details (ID, name, type, URL)#Détails du fichier (ID, nom, type, URL)
+#File format#Format de fichier
+#File name#Nom du fichier
+#Files#Fichiers
+#Format#Format
+#GeoJSON#GeoJSON
+#Geographic values are written as WKT (GeoJSON and KML: as geometry). A term column may have its own output.#Les valeurs géographiques sont écrites en WKT (GeoJSON et KML : en géométrie). Une colonne de terme peut avoir sa propre sortie.
+#Gephi (GEXF)#Gephi (GEXF)
+#Header row with column names#Ligne d'en-tête avec les noms des colonnes
+#Heurist XML (HML) that can be imported into another Heurist database.#XML Heurist (HML) qui peut être importé dans une autre base Heurist.
+#JSON#JSON
+#KML#KML
+#Line ends#Fins de ligne
+#Network for Gephi: records are nodes, pointers and relationships between them are edges.#Réseau pour Gephi : les enregistrements sont les nœuds, les pointeurs et relations entre eux sont les arêtes.
+#No record types in scope#Aucun type d'enregistrement dans la portée
+#No record types in the result#Aucun type d'enregistrement dans le résultat
+#No records are selected#Aucun enregistrement sélectionné
+#One feature per record with geographic values; chosen columns are properties.#Une entité par enregistrement avec des valeurs géographiques ; les colonnes choisies sont les propriétés.
+#One placemark per geographic value, with its date or start/end date.#Un repère par valeur géographique, avec sa date ou ses dates de début et de fin.
+#One table per record type, first column H-ID.#Un tableau par type d'enregistrement, première colonne H-ID.
+#Optional: fields written as properties / attributes. Leave empty for ID, type and title only.#Facultatif : champs écrits comme propriétés / attributs. Laissez vide pour l'ID, le type et le titre seulement.
+#Output#Sortie
+#Quote#Guillemet
+#Record ID#ID de l'enregistrement
+#Record ID and title#ID et titre de l'enregistrement
+#Record limit (0 = all)#Nombre maximum d'enregistrements (0 = tous)
+#Record pointers#Pointeurs d'enregistrements
+#Records to export#Enregistrements à exporter
+#Repeated values separator#Séparateur des valeurs répétées
+#Scope#Portée
+#Selection#Sélection
+#Semicolon#Point-virgule
+#Separator#Séparateur
+#Single quote#Apostrophe
+#Start and end date#Dates de début et de fin
+#Start date#Date de début
+#TSV (tab-separated)#TSV (séparé par des tabulations)
+#Tab#Tabulation
+#Terms (vocabularies)#Termes (vocabulaires)
+#The CSV separator must be one character#Le séparateur CSV doit être un seul caractère
+#The data source has no column fields#La source de données n'a pas de champs de colonnes
+#The data source has no expansion rules#La source de données n'a pas de règles d'expansion
+#The file is created on the server; only you can download it. It is kept for 7 days.#Le fichier est créé sur le serveur ; vous seul pouvez le télécharger. Il est conservé 7 jours.
+#The file name may contain only letters, digits, spaces, "-", "_", "(" and ")"#Le nom du fichier ne peut contenir que des lettres, des chiffres, des espaces, « - », « _ », « ( » et « ) »
+#There is no current result#Il n'y a pas de résultat courant
+#There is no current result. Run a search first.#Il n'y a pas de résultat courant. Lancez d'abord une recherche.
+#Unix / macOS (LF)#Unix / macOS (LF)
+#Use the column fields of the data source#Utiliser les champs de colonnes de la source de données
+#Value formats#Formats des valeurs
+#Vertical bar#Barre verticale
+#Windows (CR LF)#Windows (CR LF)
+#XML (HML)#XML (HML)
+#packing the file#création du fichier
+#reading links#lecture des liens
+#records#enregistrements
+#searching records#recherche des enregistrements
+#writing records#écriture des enregistrements
+#Add field#Ajouter un champ
+#Additional properties#Propriétés supplémentaires
+#Also export linked records#Exporter aussi les enregistrements liés
+#Any#Tous
+#Any incoming pointer#Tout pointeur entrant
+#Any link#Tout lien
+#Any outgoing pointer#Tout pointeur sortant
+#Any pointer#Tout pointeur
+#Any pointer or relationship#Tout pointeur ou relation
+#Any relationship#Toute relation
+#Custom expansion rules#Règles d'expansion personnalisées
+#Define the custom expansion rules#Définissez les règles d'expansion personnalisées
+#Depth (levels)#Profondeur (niveaux)
+#Drag to reorder#Glisser pour réordonner
+#Edit custom rules#Modifier les règles personnalisées
+#Include human-readable names and local IDs for everything#Inclure les noms lisibles et les identifiants locaux partout
+#Link#Lien
+#Network for Gephi: records are nodes, pointers and relationships between them are edges. At most 10,000 records.#Réseau pour Gephi : les enregistrements sont les nœuds, les pointeurs et relations entre eux sont les arêtes. Au plus 10 000 enregistrements.
+#No expansion#Pas d'expansion
+#No fields selected#Aucun champ sélectionné
+#No rules#Aucune règle
+#Record limit#Nombre maximum d'enregistrements
+#Remove all fields#Retirer tous les champs
+#Use the expansion rules of the data source#Utiliser les règles d'expansion de la source de données
+#Without them record types, fields and terms are identified by concept codes only.#Sans eux, les types d'enregistrements, les champs et les termes sont identifiés uniquement par leurs codes de concept.

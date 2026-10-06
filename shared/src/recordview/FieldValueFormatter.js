@@ -35,7 +35,8 @@ export function projectFieldValue(item, ext = null) {
   if (key === "code") return first(item.trm_Code, item.code, item.value);
   if (key === "conceptid")
     return first(item.trm_ConceptCode, item.conceptId, item.conceptid);
-  if (key === "id")
+  // "internalid": enum output name of the report field tree and the export (plan 13)
+  if (key === "id" || key === "internalid")
     return first(
       item.trm_ID,
       item.rec_ID,

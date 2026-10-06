@@ -224,3 +224,111 @@
 #Back to presentation#Back to presentation
 #Generic_Title#Heurist
 #Error_Title#Info
+#Export records#Export records
+#All#All
+#All fields of the records; record types, fields and terms with concept codes.#All fields of the records; record types, fields and terms with concept codes.
+#Also export the records reached by the expansion rules#Also export the records reached by the expansion rules
+#As stored (temporal objects as JSON)#As stored (temporal objects as JSON)
+#Automatic#Automatic
+#By record types in the result#By record types in the result
+#CSV (comma-separated)#CSV (comma-separated)
+#CSV options#CSV options
+#Choose at least one record type#Choose at least one record type
+#Choose the columns for each record type. The first column is always H-ID (record ID).#Choose the columns for each record type. The first column is always H-ID (record ID).
+#Choose the columns to export#Choose the columns to export
+#Columns#Columns
+#columns#columns
+#Comma#Comma
+#Database definitions are not available#Database definitions are not available
+#Dates#Dates
+#Description#Description
+#Double quote#Double quote
+#Download#Download
+#Each record type is written to its own file; several files are packed in a zip.#Each record type is written to its own file; several files are packed in a zip.
+#Edit rules for this export#Edit rules for this export
+#Edited for this export (the data source is not changed)#Edited for this export (the data source is not changed)
+#Every record is written once: the result first, then the records each level reaches.#Every record is written once: the result first, then the records each level reaches.
+#File ID#File ID
+#File URL#File URL
+#File details (ID, name, type, URL)#File details (ID, name, type, URL)
+#File format#File format
+#File name#File name
+#Files#Files
+#Format#Format
+#GeoJSON#GeoJSON
+#Geographic values are written as WKT (GeoJSON and KML: as geometry). A term column may have its own output.#Geographic values are written as WKT (GeoJSON and KML: as geometry). A term column may have its own output.
+#Gephi (GEXF)#Gephi (GEXF)
+#Header row with column names#Header row with column names
+#Heurist XML (HML) that can be imported into another Heurist database.#Heurist XML (HML) that can be imported into another Heurist database.
+#JSON#JSON
+#KML#KML
+#Line ends#Line ends
+#Network for Gephi: records are nodes, pointers and relationships between them are edges.#Network for Gephi: records are nodes, pointers and relationships between them are edges.
+#No record types in scope#No record types in scope
+#No record types in the result#No record types in the result
+#No records are selected#No records are selected
+#One feature per record with geographic values; chosen columns are properties.#One feature per record with geographic values; chosen columns are properties.
+#One placemark per geographic value, with its date or start/end date.#One placemark per geographic value, with its date or start/end date.
+#One table per record type, first column H-ID.#One table per record type, first column H-ID.
+#Optional: fields written as properties / attributes. Leave empty for ID, type and title only.#Optional: fields written as properties / attributes. Leave empty for ID, type and title only.
+#Output#Output
+#Quote#Quote
+#Record ID#Record ID
+#Record ID and title#Record ID and title
+#Record limit (0 = all)#Record limit (0 = all)
+#Record pointers#Record pointers
+#Records to export#Records to export
+#Repeated values separator#Repeated values separator
+#Scope#Scope
+#Selection#Selection
+#Semicolon#Semicolon
+#Separator#Separator
+#Single quote#Single quote
+#Start and end date#Start and end date
+#Start date#Start date
+#TSV (tab-separated)#TSV (tab-separated)
+#Tab#Tab
+#Terms (vocabularies)#Terms (vocabularies)
+#The CSV separator must be one character#The CSV separator must be one character
+#The data source has no column fields#The data source has no column fields
+#The data source has no expansion rules#The data source has no expansion rules
+#The file is created on the server; only you can download it. It is kept for 7 days.#The file is created on the server; only you can download it. It is kept for 7 days.
+#The file name may contain only letters, digits, spaces, "-", "_", "(" and ")"#The file name may contain only letters, digits, spaces, "-", "_", "(" and ")"
+#There is no current result#There is no current result
+#There is no current result. Run a search first.#There is no current result. Run a search first.
+#Unix / macOS (LF)#Unix / macOS (LF)
+#Use the column fields of the data source#Use the column fields of the data source
+#Value formats#Value formats
+#Vertical bar#Vertical bar
+#Windows (CR LF)#Windows (CR LF)
+#XML (HML)#XML (HML)
+#packing the file#packing the file
+#reading links#reading links
+#records#records
+#searching records#searching records
+#writing records#writing records
+#Add field#Add field
+#Additional properties#Additional properties
+#Also export linked records#Also export linked records
+#Any#Any
+#Any incoming pointer#Any incoming pointer
+#Any link#Any link
+#Any outgoing pointer#Any outgoing pointer
+#Any pointer#Any pointer
+#Any pointer or relationship#Any pointer or relationship
+#Any relationship#Any relationship
+#Custom expansion rules#Custom expansion rules
+#Define the custom expansion rules#Define the custom expansion rules
+#Depth (levels)#Depth (levels)
+#Drag to reorder#Drag to reorder
+#Edit custom rules#Edit custom rules
+#Include human-readable names and local IDs for everything#Include human-readable names and local IDs for everything
+#Link#Link
+#Network for Gephi: records are nodes, pointers and relationships between them are edges. At most 10,000 records.#Network for Gephi: records are nodes, pointers and relationships between them are edges. At most 10,000 records.
+#No expansion#No expansion
+#No fields selected#No fields selected
+#No rules#No rules
+#Record limit#Record limit
+#Remove all fields#Remove all fields
+#Use the expansion rules of the data source#Use the expansion rules of the data source
+#Without them record types, fields and terms are identified by concept codes only.#Without them record types, fields and terms are identified by concept codes only.

@@ -26,7 +26,7 @@
 #Page size#Taille de page
 #Search#Rechercher
 #Counter#Compteur
-#Export Gephi#Exporter Gephi
+#Export GEXF (Gephi)#Exporter GEXF (Gephi)
 #Language#Langue
 #Auto#Automatique
 #English#Anglais

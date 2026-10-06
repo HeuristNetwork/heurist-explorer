@@ -251,3 +251,4 @@
 #Write the report to a file in the background#Write the report to a file in the background
 #Yes#Yes
 #Your user id is added to the name. For a shared file add a schedule.#Your user id is added to the name. For a shared file add a schedule.
+#Download#Download

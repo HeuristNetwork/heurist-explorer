@@ -51,7 +51,7 @@ export class GraphControlPanel {
 
     this.actions = document.createElement("span");
     this.actions.className = "heurist-module-panel-actions";
-    this.exportButton = iconButton("fa-solid fa-file-export", "Export Gephi", () => this.api.exportGephi?.());
+    this.exportButton = iconButton("fa-solid fa-file-export", "Export GEXF (Gephi)", () => this.api.exportGephi?.());
     this.helpButton = iconButton("fa-solid fa-circle-question", "Help", () => this.openHelp());
     this.optionsButton = iconButton("fa-solid fa-gear", "Options", () => this.api.openPreferencesDialog?.());
     this.publishButton = iconButton("fa-solid fa-share-nodes", "Publish", () => this.api.openPublishDialog?.());

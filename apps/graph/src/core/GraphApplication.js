@@ -14,6 +14,7 @@
  */
 
 import { GraphDocument } from "./GraphDocument.js";
+import { buildGexf } from "./gexfWriter.js";
 import { GraphExpansions } from './GraphExpansions.js';
 import { QuerySource } from "#shared/data/QuerySource.js";
 import { $HR } from "#shared/ui";
@@ -640,16 +641,23 @@ export class GraphApplication extends EventTarget {
   }
 
   /**
-   * Serialize and download the current graph as Gephi-compatible JSON.
+   * Download the graph as shown (hidden record types and links left out) as a
+   * GEXF 1.2 file for Gephi, with the attribute layout of the server export (plan 13).
    *
-   * @returns {string} The serialized JSON payload (also returned in non-browser environments, without triggering a download).
+   * @returns {string} The GEXF text (also returned in non-browser environments, without a download).
    */
   exportGephi() {
-    const payload = JSON.stringify({ nodes: this.graph?.records || [], edges: this.graph?.edges || [] }, null, 2);
+    const graph = this.#filterGraph(this.graph || new GraphDocument());
+    const payload = buildGexf(graph, {
+      fields: this.edgeLabels.fields,
+      relationTypes: this.edgeLabels.relationTypes,
+      baseUrl: this.heuristBaseUrl,
+      database: this.config.database
+    });
     if (typeof document === "undefined") return payload;
     const link = document.createElement("a");
-    link.href = URL.createObjectURL(new Blob([payload], { type: "application/json" }));
-    link.download = "heurist-graph.gephi.json";
+    link.href = URL.createObjectURL(new Blob([payload], { type: "application/xml" }));
+    link.download = "heurist-graph.gexf";
     link.click();
     URL.revokeObjectURL(link.href);
     return payload;
