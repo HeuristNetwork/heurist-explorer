@@ -54,14 +54,14 @@ export class DataExpansionBar {
   create() {
     this.button = document.createElement("button");
     this.button.type = "button";
-    this.button.className = "h-btn h-btn-small heurist-data-expansion-button";
+    this.button.className = "h-btn heurist-icon-button"; // h-btn-small heurist-data-expansion-button
     const icon = document.createElement("span");
     icon.className = "fa-solid fa-hexagon-nodes";
     icon.setAttribute("aria-hidden", "true");
-    const caption = document.createElement("span");
-    caption.className = "heurist-data-expansion-caption";
-    caption.textContent = $HR("Expansion");
-    this.button.append(icon, caption);
+    //const caption = document.createElement("span");
+    //caption.className = "heurist-data-expansion-caption";
+    //caption.textContent = $HR("Expansion");
+    this.button.append(icon); //, caption
     this.button.title = $HR("Show or hide the expansion rules and the records linked through them");
     this.button.addEventListener("click", (event) => {
       event.stopPropagation();

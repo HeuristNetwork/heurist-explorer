@@ -67,6 +67,9 @@
     margin: 10px 0;
     background: var(--h-color-border);
 }
+.h-mode-small-caption  .h-explorer-rail-separator{
+    width: 150px;
+}
 
 /* -------------------------------------------------- button presentation modes --- */
 
@@ -243,7 +246,9 @@
     height: 22px;
     margin: 0 8px;
 }
-
+.h-toolbar-horizontal .h-explorer-rail.h-mode-large-caption .h-explorer-rail-separator {
+    height: 60px;
+}
 .h-toolbar-horizontal .h-explorer-rail.h-mode-small-caption .h-explorer-rail-separator {
     margin: 0 2px;
 }

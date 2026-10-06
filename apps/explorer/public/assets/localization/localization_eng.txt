@@ -70,6 +70,8 @@
 #Current#Current
 #Query language help#Query language help
 #Layout and more options#Layout and more options
+#Switch to the vertical layout#Switch to the vertical layout
+#Switch to the horizontal layout#Switch to the horizontal layout
 #Show the presentation settings#Show the presentation settings
 #Hide the presentation settings#Hide the presentation settings
 #Getting started#Getting started

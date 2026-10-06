@@ -206,6 +206,16 @@ default) moves the pane west while open (`setTemporaryPlacement`) and back on cl
   aligned; groups give up their box (`display:contents`, a heading takes a full row);
   the actions are not sticky and have no top border.
 
+**Revision 2026-10-06 (Artem).**
+- p0 = Clear, Help and the sentence glasses (`h-qse-sentence-show`, was in the query's corner).
+- p5 = two small buttons (16px, as in p0) instead of the Layout menu: `h-qse-layout` switches
+  Vertical/Horizontal (icon `fa-ellipsis-vertical` in vertical, `fa-ellipsis` in horizontal;
+  hidden in compact mode), `h-qse-toggle-advanced` shows/hides p4 (`fa-angles-down`/`-up` in
+  vertical, `-right`/`-left` in horizontal). The menu is removed. Horizontal p5 is no longer
+  pushed to the right edge (no `margin-left:auto`).
+- Compact mode re-applies the editor orientation after `setDrawerMode`, so the Layout button
+  is hidden/shown even when the region does not change.
+
 **Query trace** hidden for now (`TRACE_PANEL_SHOWN = false` in ExplorerApplication; the
 RequestMonitor runs with tracing off, so requests carry no `debug` flag). Stop stays.
 

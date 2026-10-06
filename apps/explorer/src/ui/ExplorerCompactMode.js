@@ -175,6 +175,8 @@ export class ExplorerCompactMode {
 
     app.container?.classList.toggle(COMPACT_CLASS, next);
     dock?.setDrawerMode(next);
+    // the editor's Layout button is hidden in compact mode (the region may not change)
+    app.querySourcePanel?.setOrientation(dock?.getRegion() === 'north' ? 'horizontal' : 'vertical');
     this._applyToolbar(next);
 
     if (next) {

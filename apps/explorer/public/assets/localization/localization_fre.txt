@@ -70,6 +70,8 @@
 #Current#Actuel
 #Query language help#Aide sur le langage de requête
 #Layout and more options#Disposition et autres options
+#Switch to the vertical layout#Passer à la disposition verticale
+#Switch to the horizontal layout#Passer à la disposition horizontale
 #Show the presentation settings#Afficher les paramètres de présentation
 #Hide the presentation settings#Masquer les paramètres de présentation
 #Getting started#Prise en main

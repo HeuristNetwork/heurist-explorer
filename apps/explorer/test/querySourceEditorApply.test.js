@@ -76,7 +76,7 @@ test('changing the record type asks before dropping settings, also while More is
   }
 });
 
-test('render: five panes, the sentence in p3, More from the Layout menu', async () => {
+test('render: five panes, the sentence in p3, Layout and More/Less buttons in p5', async () => {
   const changes = [];
   const qse = new QuerySourceEditor({ dbdefs: {}, onExpandedChange: (value) => changes.push(value), onHelp: () => {} });
   qse.attach(document.createElement('div')).render();
@@ -88,13 +88,23 @@ test('render: five panes, the sentence in p3, More from the Layout menu', async 
   assert.ok(root.querySelector('.h-qse-p3').querySelector('.h-fih-sentence'), 'sentence placed in p3');
   assert.equal(qse.actionsSlot.parentElement, root.querySelector('.h-qse-p2'));
   assert.equal(root.querySelector('.h-qse-advanced').hidden, true);
-  qse._openLayoutMenu();
-  qse._menuItems.more.click();
+  assert.equal(root.querySelector('.h-qse-sentence-show').parentElement, root.querySelector('.h-qse-p0'));
+  const icon = (selector) => root.querySelector(selector).innerHTML;
+  const more = root.querySelector('.h-qse-toggle-advanced');
+  assert.equal(more.parentElement, root.querySelector('.h-qse-p5'));
+  assert.match(icon('.h-qse-toggle-advanced'), /fa-angles-down/);
+  assert.match(icon('.h-qse-layout'), /fa-ellipsis-vertical/);
+  more.click();
   assert.equal(root.querySelector('.h-qse-advanced').hidden, false);
   assert.deepEqual(changes, [true]);
-  qse.setOrientation('horizontal');
+  assert.match(icon('.h-qse-toggle-advanced'), /fa-angles-up/);
+  root.querySelector('.h-qse-layout').click();
   assert.ok(root.classList.contains('is-horizontal'));
   assert.ok(!root.classList.contains('is-vertical'));
+  assert.match(icon('.h-qse-layout'), /fa-ellipsis"/);
+  assert.match(icon('.h-qse-toggle-advanced'), /fa-angles-left/);
+  more.click();
+  assert.match(icon('.h-qse-toggle-advanced'), /fa-angles-right/);
   await qse.destroy();
 });
 
@@ -105,7 +115,7 @@ test('render: the query sentence is hidden by default; glasses show it, × hides
   const p3 = root.querySelector('.h-qse-p3');
   const show = qse._sentenceShow;
   const hide = qse._sentenceHide;
-  assert.equal(show.parentElement, root.querySelector('.h-qse-p1'), 'glasses beside the query');
+  assert.equal(show.parentElement, root.querySelector('.h-qse-p0'), 'glasses: third button in p0');
   assert.equal(hide.parentElement, p3, '× in the sentence pane');
   assert.ok(p3.classList.contains('is-off'));
   assert.equal(show.hidden, false);

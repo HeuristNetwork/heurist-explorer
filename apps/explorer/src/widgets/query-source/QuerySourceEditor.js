@@ -44,8 +44,8 @@ export class QuerySourceEditor extends HBaseWidget {
    * @param {boolean} [options.expanded=false] Whether the presentation settings (More) are shown at start.
    * @param {Function} [options.onExpandedChange] Called with the new More state when the user toggles it.
    * @param {Function} [options.onLayoutChange] Called with `'vertical'` or `'horizontal'` when the user picks a
-   *        layout in the Layout menu; without it the editor only changes its own orientation.
-   * @param {Function} [options.canChangeLayout] `() → boolean`: whether Vertical/Horizontal are offered
+   *        layout with the Layout button; without it the editor only changes its own orientation.
+   * @param {Function} [options.canChangeLayout] `() → boolean`: whether the Layout button is offered
    *        (not in compact mode, which is always vertical).
    * @param {Function} [options.onHelp] Opens the query language help; the Help button is hidden without it.
    */
@@ -120,15 +120,15 @@ export class QuerySourceEditor extends HBaseWidget {
       this.draft.request.q = parseQueryText(this._query.value);
       void this._ensureRecordTypeConsistency();
     });
-    // p0: Clear and Help, always a column left of the query
+    // p0: Clear, Help and Show sentence, always a column left of the query
     const p0 = div('h-qse-p0');
     const clear = iconButton('fa-eraser', $HR('Clear the query and detach from Query Source, clearing its title and presentation settings'), () => this.clearSettings(), 'h-qse-clear');
     const help = iconButton('fa-circle-question', $HR('Query language help'), () => this.onHelp?.(), 'h-qse-help');
     help.hidden = typeof this.onHelp !== 'function';
-    p0.append(clear, help);
-    // the query sentence is hidden by default: glasses (query corner) show it, × hides it
+    // the query sentence is hidden by default: glasses (third in p0) show it, × hides it
     this._sentenceShow = iconButton('fa-glasses', $HR('Show the query as a sentence'), () => this._setSentenceShown(true), 'h-qse-sentence-show');
-    p1.append(p0, this._query, this._sentenceShow);
+    p0.append(clear, help, this._sentenceShow);
+    p1.append(p0, this._query);
 
     const p2 = div('h-qse-p2');
     this._run = button('', $HR('Filter'), () => void this._runClicked(), 'h-btn h-btn-primary h-qse-run');
@@ -155,18 +155,22 @@ export class QuerySourceEditor extends HBaseWidget {
     titleRow.append(titleLabel, this._title);
     this._advanced.append(titleRow);
 
+    // p5: Vertical/Horizontal switch and More/Less (2026-10-06: two buttons, no menu)
     const p5 = div('h-qse-p5');
-    this._layoutButton = iconButton('fa-ellipsis', $HR('Layout and more options'), () => this._toggleLayoutMenu(), 'h-qse-layout');
-    this._layoutButton.setAttribute('aria-haspopup', 'menu');
-    p5.append(this._layoutButton);
+    this._layoutButton = iconButton('fa-ellipsis-vertical', '', () => this._switchLayout(), 'h-qse-layout');
+    this._advancedButton = iconButton('fa-angles-down', '', () => {
+      this.setExpanded(!this._expanded);
+      this.onExpandedChange?.(this._expanded);
+    }, 'h-qse-toggle-advanced');
+    p5.append(this._advancedButton, this._layoutButton);
 
     const p3 = div('h-qse-p3');
     this._sentenceHide = iconButton('fa-circle-xmark', $HR('Hide the query sentence'), () => this._setSentenceShown(false), 'h-qse-sentence-hide');
     row.append(p1, p2, this._advanced, p5);
     body.append(row, p3);
-    this._menu = this._buildLayoutMenu();
-    this.container.append(body, this._menu);
+    this.container.append(body);
     Object.assign(this, { _row: row, _p1: p1, _p2: p2, _p5: p5 });
+    this._syncLayoutButtons();
     if (typeof ResizeObserver === 'function') {
       this._fitObserver = new ResizeObserver(() => this._fitHorizontal());
       this._fitObserver.observe(row);
@@ -267,6 +271,7 @@ export class QuerySourceEditor extends HBaseWidget {
   setExpanded(value) {
     this._expanded = value === true;
     if (this._advanced) this._advanced.hidden = !this._expanded;
+    this._syncLayoutButtons();
     this._fitHorizontal();
     return this;
   }
@@ -284,6 +289,7 @@ export class QuerySourceEditor extends HBaseWidget {
   setOrientation(orientation) {
     this.orientation = orientation === 'horizontal' ? 'horizontal' : 'vertical';
     this._applyOrientation();
+    this._syncLayoutButtons();
     this._fitHorizontal();
     return this;
   }
@@ -363,80 +369,40 @@ export class QuerySourceEditor extends HBaseWidget {
   }
 
   /**
-   * Layout menu: Vertical, Horizontal (not in compact mode) and More/Less. Shown as
-   * a popover in the top layer, so the north pane's overflow cannot clip it.
+   * Icons and titles of the p5 buttons. Layout: ellipsis-vertical in the vertical
+   * layout, ellipsis (horizontal) in the horizontal one; hidden when the layout cannot
+   * change (compact mode). More/Less: double angle pointing where the settings
+   * open or close - down/up in the vertical layout, right/left in the horizontal one.
+   *
+   * @private
+   * @returns {void}
    */
-  _buildLayoutMenu() {
-    const menu = div('h-menu h-qse-layout-menu');
-    menu.hidden = true;
-    menu.setAttribute('role', 'menu');
-    if (typeof menu.showPopover === 'function') menu.popover = 'manual';
-    const item = (key, label, handler) => {
-      const b = button('', '', handler, 'h-menu-item h-qse-layout-item');
-      b.dataset.item = key;
-      b.setAttribute('role', 'menuitem');
-      const check = document.createElement('i');
-      check.className = 'fa-solid fa-check fa-fw h-qse-layout-check';
-      check.setAttribute('aria-hidden', 'true');
-      b.caption = document.createElement('span');
-      b.caption.textContent = $HR(label);
-      b.append(check, b.caption);
-      return b;
-    };
-    this._menuItems = {
-      vertical: item('vertical', 'Vertical', () => this._pickLayout('vertical')),
-      horizontal: item('horizontal', 'Horizontal', () => this._pickLayout('horizontal')),
-      more: item('more', 'More', () => {
-        this._closeLayoutMenu();
-        this.setExpanded(!this._expanded);
-        this.onExpandedChange?.(this._expanded);
-      })
-    };
-    this._menuDivider = document.createElement('hr');
-    this._menuDivider.className = 'h-menu-divider';
-    menu.append(this._menuItems.vertical, this._menuItems.horizontal, this._menuDivider, this._menuItems.more);
-    return menu;
-  }
-
-  _toggleLayoutMenu() {
-    if (this._menu?.hidden === false) this._closeLayoutMenu();
-    else this._openLayoutMenu();
-  }
-
-  _openLayoutMenu() {
-    if (!this._menu) return;
-    const layouts = typeof this.canChangeLayout !== 'function' || this.canChangeLayout() === true;
-    for (const key of ['vertical', 'horizontal']) {
-      this._menuItems[key].hidden = !layouts;
-      this._menuItems[key].classList.toggle('is-current', this.orientation === key);
+  _syncLayoutButtons() {
+    const horizontal = this.orientation === 'horizontal';
+    if (this._layoutButton) {
+      this._layoutButton.hidden = typeof this.canChangeLayout === 'function' && this.canChangeLayout() !== true;
+      setIcon(this._layoutButton, horizontal ? 'fa-ellipsis' : 'fa-ellipsis-vertical');
+      setTitle(this._layoutButton, horizontal ? $HR('Switch to the vertical layout') : $HR('Switch to the horizontal layout'));
     }
-    this._menuDivider.hidden = !layouts;
-    this._menuItems.more.caption.textContent =this._expanded ? $HR('Less') : $HR('More');
-    this._menuItems.more.title = this._expanded ? $HR('Hide the presentation settings') : $HR('Show the presentation settings');
-    this._menu.hidden = false;
-    try { this._menu.showPopover?.(); } catch { /* not supported: shown in place */ }
-    const rect = this._layoutButton.getBoundingClientRect();
-    this._menu.style.top = `${Math.round(rect.bottom + 2)}px`;
-    this._menu.style.left = `${Math.max(4, Math.round(rect.right - (this._menu.offsetWidth || 150)))}px`;
-    this._onMenuOutside = (event) => {
-      if (!this._menu.contains(event.target) && !this._layoutButton.contains(event.target)) this._closeLayoutMenu();
-    };
-    this._onMenuKey = (event) => { if (event.key === 'Escape') this._closeLayoutMenu(); };
-    document.addEventListener('pointerdown', this._onMenuOutside, true);
-    document.addEventListener('keydown', this._onMenuKey, true);
+    if (this._advancedButton) {
+      const icon = horizontal
+        ? (this._expanded ? 'fa-angles-left' : 'fa-angles-right')
+        : (this._expanded ? 'fa-angles-up' : 'fa-angles-down');
+      setIcon(this._advancedButton, icon);
+      setTitle(this._advancedButton, this._expanded ? $HR('Hide the presentation settings') : $HR('Show the presentation settings'));
+      this._advancedButton.setAttribute('aria-expanded', String(this._expanded));
+    }
   }
 
-  _closeLayoutMenu() {
-    if (!this._menu || this._menu.hidden) return;
-    try { this._menu.hidePopover?.(); } catch { /* not shown as a popover */ }
-    this._menu.hidden = true;
-    document.removeEventListener('pointerdown', this._onMenuOutside, true);
-    document.removeEventListener('keydown', this._onMenuKey, true);
-  }
-
-  _pickLayout(orientation) {
-    this._closeLayoutMenu();
-    if (orientation === this.orientation) return;
+  /**
+   * Switch between the vertical (west) and horizontal (north) layout.
+   *
+   * @private
+   * @returns {void}
+   */
+  _switchLayout() {
+    if (typeof this.canChangeLayout === 'function' && this.canChangeLayout() !== true) return;
+    const orientation = this.orientation === 'horizontal' ? 'vertical' : 'horizontal';
     if (typeof this.onLayoutChange === 'function') this.onLayoutChange(orientation);
     else this.setOrientation(orientation);
   }
@@ -781,7 +747,7 @@ export class QuerySourceEditor extends HBaseWidget {
   }
 
   /** Tear down the inline query helper and the widget itself. */
-  async destroy() { this._closeLayoutMenu(); this._fitObserver?.disconnect(); this._fitMutations?.disconnect(); await this.inlineHelper?.destroy?.(); this.inlineHelper = null; await super.destroy(); }
+  async destroy() { this._fitObserver?.disconnect(); this._fitMutations?.disconnect(); await this.inlineHelper?.destroy?.(); this.inlineHelper = null; await super.destroy(); }
 }
 
 /**
@@ -800,6 +766,8 @@ function iconButton(icon, title, handler, className) {
   b.setAttribute('aria-label', title);
   return b;
 }
+function setIcon(b, icon) { b.innerHTML = `<i class="fa-solid ${icon}" aria-hidden="true"></i>`; }
+function setTitle(b, title) { b.title = title; b.setAttribute('aria-label', title); }
 function button(text, title, handler, className = 'h-btn h-btn-small') { const b = document.createElement('button'); b.type = 'button'; b.className = className; b.textContent = text; b.title = title; b.addEventListener('click', handler); return b; }
 function clone(value) { return value == null ? value : (typeof structuredClone === 'function' ? structuredClone(value) : JSON.parse(JSON.stringify(value))); }
 function summarizeFields(value, dbdefs, emptyLabel = 'default') {

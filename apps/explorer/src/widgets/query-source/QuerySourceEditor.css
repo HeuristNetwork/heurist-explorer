@@ -1,8 +1,8 @@
 /*
  * Query Source editor: five panes, arranged per orientation (set by the host).
- *   p1 .h-qse-p1 query, with p0 .h-qse-p0 (Clear, Help) as a column on its left
+ *   p1 .h-qse-p1 query, with p0 .h-qse-p0 (Clear, Help, Show sentence) as a column on its left
  *   p2 .h-qse-p2 Filter/Builder/Save/Add · p3 .h-qse-p3 sentence
- *   p4 .h-qse-advanced presentation settings (More) · p5 .h-qse-p5 Layout
+ *   p4 .h-qse-advanced presentation settings (More) · p5 .h-qse-p5 Layout, More/Less
  * Horizontal (north pane): row 1 = p1 p2 p4 p5, row 2 = p3. The editor chooses the button
  * width, columns and wrapping (QuerySourceEditor#_fitHorizontal, sizes in its FIT
  * constant) and sets --qse-btn-w, --qse-p2-columns, --qse-p4-columns, .is-collapsed
@@ -16,25 +16,20 @@
 .h-qse-query[readonly] { background: var(--h-color-bg-disabled, #ededed); color: var(--h-color-text-muted, #666); }
 .h-qse-p1 { position:relative; display:flex; align-items:stretch; gap:4px; min-width:0; }
 .h-qse-p1 > .h-qse-query { flex:1 1 auto; }
-/* p0: Clear and Help, a column left of the query (two fit the 66px minimum height) */
+/* p0: Clear, Help and Show sentence, a column left of the query */
 .h-qse-p0 { display:flex; flex-direction:column; flex:0 0 auto; gap:0; }
 .h-qse-p0 .heurist-icon-button,
-.h-qse .h-qse-sentence-show,
+.h-qse-p5 .heurist-icon-button,
 .h-qse .h-qse-sentence-hide { width:16px; height:16px; padding:0; font-size:12px; line-height:16px; }
 .h-qse-p0 .heurist-icon-button[hidden] { display:none; }
 .h-qse-p3:empty { display:none; }
 .h-qse-p3 > .h-fih-sentence { margin-top:0; padding-left:24px; }
 /* query sentence: hidden by default (.is-off) and while there is no sentence;
- * glasses at the query's bottom right show it, × at the sentence's bottom right hides it */
+ * glasses in p0 show it, × at the sentence's bottom left hides it */
 .h-qse-p3 { position:relative; }
 .h-qse-p3.is-off,
 .h-qse-p3:has(> .h-fih-sentence[hidden]) { display:none; }
-.h-qse .h-qse-sentence-show,
 .h-qse .h-qse-sentence-hide { position:absolute; left:2px; bottom:4px; z-index:1; }
-.h-qse .h-qse-sentence-show[hidden] { display:none; }
-.h-qse-p1 > .h-qse-query { padding-right:22px; }
-/* clear of the textarea's resize grip */
-.h-qse.is-vertical .h-qse-sentence-show { right:16px; }
 
 /* p2: main actions (Save/Add come from DataSourceActions through .h-qse-actions) */
 .h-qse-p2 { display:flex; flex-wrap:wrap; align-items:flex-start; gap:4px; min-width:30px; }
@@ -57,19 +52,9 @@
 .h-qse-title-label { flex:0 0 auto; }
 .h-qse-title { flex:1 1 auto; min-width:120px; }
 
-/* p5: Layout menu button, right aligned */
+/* p5: Layout (vertical/horizontal) and More/Less, small buttons as in p0 */
 .h-qse-p5 { display:flex; align-items:center; justify-content:flex-end; gap:2px; flex:0 0 auto; }
-.h-qse-p5 .heurist-icon-button { width:22px; height:22px; padding:0; font-size:14px; line-height:22px; }
 .h-qse-p5 .heurist-icon-button[hidden] { display:none; }
-
-/* Layout menu: a popover in the top layer, positioned by the editor */
-.h-qse-layout-menu { position:fixed; inset:auto; margin:0; min-width:150px; }
-.h-qse-layout-menu[hidden] { display:none; }
-.h-qse-layout-item { display:flex; align-items:center; gap:6px; }
-.h-qse-layout-item[hidden],
-.h-qse-layout-menu .h-menu-divider[hidden] { display:none; }
-.h-qse-layout-check { visibility:hidden; }
-.h-qse-layout-item.is-current .h-qse-layout-check { visibility:visible; }
 
 /* ---- horizontal (north pane) ---- */
 .h-qse.is-horizontal { height:100%; min-height:66px; padding:4px 8px; }
@@ -92,7 +77,6 @@
 .h-qse.is-horizontal .h-qse-title-row { padding-top:0; min-width:0; }
 .h-qse.is-horizontal.is-wrapped .h-qse-title-row { grid-column:1 / -1; }
 .h-qse.is-horizontal .h-qse-title { flex:1 1 auto; width:100%; min-width:0; height:30px; box-sizing:border-box; }
-.h-qse.is-horizontal .h-qse-p5 { margin-left:auto; }
 /* without captions: icon only, centred */
 .h-qse.is-horizontal.is-collapsed .h-qse-caption,
 .h-qse.is-horizontal.is-collapsed .h-qse-config-caption { display:none; }
