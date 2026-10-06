@@ -138,7 +138,6 @@ export class DataControlPanel {
     this.body.hidden = !available;
     // the body toggle is offered only while Expansion is on
     if (this.angleToggle) this.angleToggle.hidden = !available || this.expansionBar?.open !== true;
-    this.element.classList.toggle("heurist-data-has-body", available);
     this.updateExpandedState();
   }
 
@@ -198,9 +197,14 @@ export class DataControlPanel {
     this.updateExpandedState();
   }
 
-  /** Sync the toggles' `aria-expanded` state and the angle icon with the current collapse state. */
+  /** Sync the toggles' `aria-expanded` state, the angle icon and the panel width with the current collapse state. */
   updateExpandedState() {
     const fullyCollapsed = this.element.classList.contains("fully-collapsed");
+    // wide panel only while the expansion body is shown; otherwise the narrow header bar
+    const bodyShown = this.expansionBar?.isAvailable() === true
+      && !this.element.classList.contains("body-collapsed");
+    this.element.classList.toggle("heurist-data-has-body", bodyShown);
+    this.element.classList.toggle("main-mode", this.main === true && bodyShown);
     this.element
       .querySelector(".heurist-module-panel-toggle")
       ?.setAttribute("aria-expanded", String(!fullyCollapsed));

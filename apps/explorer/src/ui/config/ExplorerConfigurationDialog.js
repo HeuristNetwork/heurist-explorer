@@ -157,7 +157,7 @@ export class ExplorerConfigurationDialog {
     this.radioGroup(body, 'Toolbar buttons size', VIEW_MODES.map((mode) => [mode.id, mode.label]),
       this.value.toolbar.buttonSize, (next) => { this.value.toolbar.buttonSize = next; });
 
-    this.radioGroup(body, 'Filters, Entities and Sources lists', [
+    this.radioGroup(body, 'Lists (Filters, Entities, Sources, Favorites, History, Workspace)', [
       ['docked', 'Docked in the left pane'],
       ['popup', 'Popup']
     ], this.value.lists, (next) => { this.value.lists = next; });

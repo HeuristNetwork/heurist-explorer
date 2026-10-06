@@ -28,10 +28,11 @@ function setup({ lists = 'docked', cover = false } = {}) {
   const panel = new ExplorerControlPanel({ application });
   panel.leftRail = new ExplorerRail({
     side: 'left',
-    buttons: ['search', 'saved-filters', 'record-types', 'query-sources'].map((id) => ({ id, title: id }))
+    buttons: ['search', 'saved-filters', 'record-types', 'query-sources', 'favorites', 'history', 'workspace'].map((id) => ({ id, title: id }))
   });
   panel.leftRail.mount(document.createElement('div'));
-  for (const name of ['_buildSavedFiltersPanel', '_buildRecordTypesPanel', '_buildQuerySourcesPanel']) {
+  for (const name of ['_buildSavedFiltersPanel', '_buildRecordTypesPanel', '_buildQuerySourcesPanel',
+    '_buildFavoritesPanel', '_buildHistoryPanel', '_buildWorkspacePanel']) {
     panel[name] = () => Object.assign(document.createElement('div'), { textContent: name });
   }
   const active = (id) => panel.leftRail.getButtonElement(id).classList.contains('active');
@@ -71,4 +72,24 @@ test('popup mode leaves the West pane alone', () => {
   const { dock, panel } = setup({ lists: 'popup' });
   assert.equal(panel._dockList('saved-filters'), false);
   assert.equal(dock.isListShown(), false);
+});
+
+test('Favorites, History and Workspace dock like the other lists', async () => {
+  const { dock, panel, active } = setup();
+  panel.openFavorites();
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.equal(panel.dockedList, 'favorites');
+  assert.equal(dock.isListShown(), true);
+  assert.equal(panel.flyout, undefined, 'no popup');
+  assert.ok(active('favorites'));
+
+  panel.openHistory();
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.equal(panel.dockedList, 'history');
+  assert.ok(!active('favorites'));
+
+  panel.openWorkspace();
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.equal(panel.dockedList, 'workspace');
+  assert.ok(active('workspace'));
 });

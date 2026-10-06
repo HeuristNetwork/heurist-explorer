@@ -40,6 +40,7 @@
 #Create report record#Create report record
 #Create the report record of this template#Create the report record of this template
 #Creator#Creator
+#CSS and Javascript are disabled by default. Request authorisation from server admin if required#CSS and Javascript are disabled by default. Request authorisation from server admin if required
 #Current result#Current result
 #date#date
 #day#day

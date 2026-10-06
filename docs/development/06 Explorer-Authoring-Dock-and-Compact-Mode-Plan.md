@@ -233,6 +233,11 @@ Implementation: the dock keeps the pane's and the list's visibility separately
 `ExplorerApplication.isListsDocked()` / `closeCoveringFilterForm()`; config `lists`.
 Tests: `explorerDockedLists.test.js`, additions in `explorerAuthoringDock.test.js`.
 
+2026-10-06 (Artem): **Favorites, History and Workspace** follow the same setting - docked in
+the West pane or popup, one list at a time with Filters/Entities/Sources (`DOCKED_LISTS`).
+The configuration label is now *Lists (Filters, Entities, Sources, Favorites, History,
+Workspace)*.
+
 ## Changelog
 
 - 2026-09-25 — Document created; Part A implemented (not yet verified in a browser):

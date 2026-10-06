@@ -41,7 +41,7 @@
 #Portuguese#Portugais
 #Popup#Fenêtre contextuelle
 #Docked in the left pane#Ancrées dans le volet gauche
-#Filters, Entities and Sources lists#Listes Filtres, Entités et Sources
+#Lists (Filters, Entities, Sources, Favorites, History, Workspace)#Listes (Filtres, Entités, Sources, Favoris, Historique, Espace de travail)
 #Hide the query sentence#Masquer la phrase de la requête
 #Show the query as a sentence#Afficher la requête sous forme de phrase
 #Query trace#Trace des requêtes

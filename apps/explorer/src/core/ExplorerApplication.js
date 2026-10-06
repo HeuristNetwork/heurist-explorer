@@ -474,7 +474,7 @@ export class ExplorerApplication {
     return true;
   }
 
-  /** Whether the Filters, Entities and Sources lists are docked in the West pane (not in compact mode). */
+  /** Whether the toolbar lists (Filters ... Workspace) are docked in the West pane (not in compact mode). */
   isListsDocked() {
     return this.uiConfigValue?.lists !== 'popup' && this.authoringDock?.isDrawerMode() !== true;
   }

@@ -140,3 +140,15 @@ test('configuration normalization', () => {
   assert.equal(config.initialReport, 5);
   assert.equal(config.containerId, 'heurist-reports');
 });
+
+test('the test record limit and the JavaScript setting come from the server list', () => {
+  assert.equal(ReportsApplication.testLimit({ isCardView: false }, { testRecordLimit: 20 }), 20);
+  assert.equal(ReportsApplication.testLimit({ isCardView: true }, { testRecordLimit: 20 }), 1, 'card reports: one record');
+  assert.equal(ReportsApplication.testLimit(null, null), TEST_RECORD_LIMIT);
+  const application = app(fakeApi());
+  application.data = { settings: { javaScriptAllowed: true, testRecordLimit: 20 } };
+  assert.equal(application.scriptsAllowed(), true);
+  assert.ok(application.testTip({}).includes('20'));
+  application.data = {};
+  assert.equal(application.scriptsAllowed(), false);
+});

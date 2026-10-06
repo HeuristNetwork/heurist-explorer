@@ -40,6 +40,7 @@
 #Create report record#Créer l'enregistrement du rapport
 #Create the report record of this template#Créer l'enregistrement de rapport de ce modèle
 #Creator#Créateur
+#CSS and Javascript are disabled by default. Request authorisation from server admin if required#CSS et Javascript sont désactivés par défaut. Demandez une autorisation à l'administrateur du serveur si nécessaire
 #Current result#Résultat courant
 #date#date
 #day#jour

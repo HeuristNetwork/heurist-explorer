@@ -214,8 +214,9 @@ export class ReportEditorPanel extends HBaseWidget {
     }
     this.levelSelect = level;
     this.testButton = this.button(tools, 'h-btn', 'fa-solid fa-flask', 'Test', () => this.test(),
-      ReportsApplication.testTip(this.report));
+      this.app.testTip(this.report));
     this.output = new ReportViewer().attach(body, { jobClient: this.app.jobs });
+    this.output.setScriptsAllowed(this.app.scriptsAllowed());
     const hint = el('div', 'h-reports-placeholder h-muted');
     hint.textContent = $HR(this.report.isCardView
       ? 'Test runs the template as shown (saved or not) on the first selected record, or on the first record of the current result.'

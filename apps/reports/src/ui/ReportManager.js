@@ -111,6 +111,13 @@ export class ReportManager extends HBaseWidget {
     this.buttons.generated = caret;
     this.buttons.schedule = this.tool(this.runTools, 'fa-solid fa-calendar-days', 'Schedule', 'Schedules that regenerate the report file', () => this.schedules());
 
+    // the database may not run JavaScript/CSS blocks in reports (server setting)
+    this.jsWarning = el('span', 'h-reports-js-warning', toolbar);
+    this.jsWarning.title = $HR('CSS and Javascript are disabled by default. Request authorisation from server admin if required');
+    el('i', 'fa-solid fa-triangle-exclamation', this.jsWarning).setAttribute('aria-hidden', 'true');
+    el('span', 'h-reports-js-warning-text', this.jsWarning).textContent = this.jsWarning.title;
+    this.jsWarning.hidden = true;
+
     this.main = el('div', 'h-reports-main', root);
     this.viewerHost = el('div', 'h-reports-viewer-host', this.main);
     this.viewer = new ReportViewer().attach(this.viewerHost, { jobClient: this.app.jobs });
@@ -165,7 +172,9 @@ export class ReportManager extends HBaseWidget {
     this.runTools.hidden = !report;
     const runnable = Boolean(report) && report.fileExists !== false;
     this.buttons.test.disabled = !runnable || this.testing;
-    this.buttons.test.title = $HR(ReportsApplication.testTip(report));
+    this.buttons.test.title = this.app.testTip(report);
+    this.jsWarning.hidden = !this.app.data.settings || this.app.scriptsAllowed();
+    this.viewer.setScriptsAllowed(this.app.scriptsAllowed());
     const generatable = runnable && !report.isCardView;
     this.buttons.generate.disabled = !generatable;
     this.buttons.generated.disabled = !report;

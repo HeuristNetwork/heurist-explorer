@@ -40,6 +40,20 @@
 .h-reports-tool-group[hidden],
 .h-reports-split[hidden] { display: none; }
 
+/* JavaScript and CSS blocks are removed from report output on this database
+   (always on its own row, below the buttons) */
+.h-reports-js-warning {
+  display: inline-flex;
+  flex: 0 0 100%;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  color: var(--h-color-text-muted, #6b7280);
+  font-size: var(--h-font-size-small, 11px);
+}
+.h-reports-js-warning .fa-triangle-exclamation { color: var(--h-color-warning, #b45309); }
+.h-reports-js-warning[hidden] { display: none; }
+
 .h-reports-separator {
   align-self: stretch;
   width: 1px;

@@ -41,7 +41,7 @@
 #Portuguese#Portuguese
 #Popup#Popup
 #Docked in the left pane#Docked in the left pane
-#Filters, Entities and Sources lists#Filters, Entities and Sources lists
+#Lists (Filters, Entities, Sources, Favorites, History, Workspace)#Lists (Filters, Entities, Sources, Favorites, History, Workspace)
 #Hide the query sentence#Hide the query sentence
 #Show the query as a sentence#Show the query as a sentence
 #Query trace#Query trace

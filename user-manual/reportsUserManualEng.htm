@@ -37,6 +37,10 @@ internal id. <b>Insert pattern</b> adds ready-made blocks (records loop, table, 
 records, or on the first 50 records of the current result. A single record (card) report
 is tested on one record only: the first selected record, or the first record of the
 result. The test can be stopped and has a time limit.</p>
+<p>By default, report output may not run JavaScript or use style blocks: they are removed,
+and the toolbar shows "CSS and Javascript are disabled by default". The server administrator
+can authorise a database (file <code>js_in_database_authorised.txt</code> on the server); then
+scripts run in the output, e.g. the media viewer of image thumbnails.</p>
 
 <h2 id="generate">Generating and schedules</h2>
 <p><b>Generate</b> writes a report for the current result or a Query Source to a file.

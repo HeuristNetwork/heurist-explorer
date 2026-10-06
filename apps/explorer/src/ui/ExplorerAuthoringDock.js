@@ -216,7 +216,7 @@ export class ExplorerAuthoringDock extends EventTarget {
   }
 
   /**
-   * Show or hide the docked list (Filters, Entities or Sources) below the pane in
+   * Show or hide the docked list (Filters, Entities, Sources, Favorites, History or Workspace) below the pane in
    * the West region. Not used in drawer mode.
    *
    * @param {boolean} shown Whether the list is shown.

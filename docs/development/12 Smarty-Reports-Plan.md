@@ -714,3 +714,19 @@ comparison (`JobRunnerTest`, `ReportsApiTest`, `ReportEngineCompareTest`).
 - Removed (2026-10-05): the job interrupt callback of the legacy engine (`ReportExecute::setInterrupt`,
   `ReportRecord::startInterruptCallback`) and the job context in `SmartyReportRenderer::renderIds`: jobs always
   use the srv engine. The legacy files differ from git only by the `setForceCompile` fix of the editor test.
+
+### Report settings for the client (2026-10-05, agreed with Artem)
+
+The new apps had no server settings (the legacy client gets them in sysinfo, e.g. `custom_js_allowed`).
+`GET /reports` now gives logged-in users `settings: {javaScriptAllowed, testRecordLimit}`
+(`ReportService::listReports`; `javaScriptAllowed` from `isJavaScriptAllowed()`, read only for this list).
+- Client: `ReportsApplication.testLimit(report, settings)` uses `testRecordLimit` (card reports 1);
+  `scriptsAllowed()`; the Test tip shows the limit.
+- Output frame sandbox (`ReportViewer.setScriptsAllowed`): always `allow-same-origin` (requests carry
+  the login: test result, files of private records), `allow-popups` (links open new tabs) and
+  `allow-popups-to-escape-sandbox` (those tabs are normal pages); `allow-scripts` only when the
+  database is authorised. With scripts and same origin together, a script in the frame has the rights
+  of the Heurist page — acceptable only for databases the server admin authorised.
+- When JavaScript is not allowed the toolbar shows "CSS and Javascript are disabled by default. Request
+  authorisation from server admin if required" (text hidden on narrow screens, kept as tooltip).
+- No client check of `generateMaxRecords`: the server refuses and its message is shown.

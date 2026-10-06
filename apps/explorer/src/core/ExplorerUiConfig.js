@@ -132,7 +132,8 @@ function defaults() {
     order: ['data', 'recordview', 'map', 'graph', 'timeline'],
     // panes expanded when Explorer starts; the others start hidden (opened from the toolbar)
     panes: { north: false, west: true, center: true, east: false, south: false },
-    // Filters, Entities and Sources lists: docked in the West pane or popup (2026-10-04)
+    // toolbar lists (Filters, Entities, Sources; Favorites, History, Workspace since
+    // 2026-10-06): docked in the West pane or popup (2026-10-04)
     lists: 'docked',
     // interface language for Explorer and every module; auto = the host's language
     language: 'auto'

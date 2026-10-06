@@ -38,12 +38,25 @@ export class ReportViewer extends HBaseWidget {
     this.jobHost.hidden = true;
     this.info = el('div', 'h-reports-info', root);
     this.frame = el('iframe', 'h-reports-preview-frame', root);
-    // no scripts in report output; same origin so that the frame request carries the login
-    this.frame.setAttribute('sandbox', 'allow-same-origin allow-popups allow-popups-to-escape-sandbox');
+    this.setScriptsAllowed(false);
     this.frame.title = $HR('Report output');
     this.frame.hidden = true;
     this.container.replaceChildren(root);
     return this;
+  }
+
+  /**
+   * Sandbox of the output frame. Same origin: the frame requests carry the login
+   * (test result, files of private records); popups: links open normal tabs.
+   * Scripts run only when the database is authorised to run JavaScript in
+   * reports (the server removes them otherwise). Applies to the next output.
+   *
+   * @param {boolean} allowed
+   */
+  setScriptsAllowed(allowed) {
+    this.frame.setAttribute('sandbox', allowed
+      ? 'allow-same-origin allow-scripts allow-popups allow-popups-to-escape-sandbox'
+      : 'allow-same-origin allow-popups allow-popups-to-escape-sandbox');
   }
 
   /**

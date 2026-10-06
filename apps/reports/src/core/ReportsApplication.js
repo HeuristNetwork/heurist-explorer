@@ -107,21 +107,42 @@ export class ReportsApplication extends EventTarget {
     return this.allReports().find((report) => (report.id != null ? String(report.id) === ref : report.file === ref)) || null;
   }
 
-  /** Number of records of a test run: 1 for a card report, else TEST_RECORD_LIMIT. */
-  static testLimit(report) {
-    return report?.isCardView === true ? 1 : TEST_RECORD_LIMIT;
+  /**
+   * Number of records of a test run: 1 for a card report, else the server's
+   * limit (settings.testRecordLimit of the list; TEST_RECORD_LIMIT without it).
+   *
+   * @param {object|null} report
+   * @param {object|null} [settings] Report settings of the server.
+   * @returns {number}
+   */
+  static testLimit(report, settings = null) {
+    if (report?.isCardView === true) return 1;
+    const limit = Number(settings?.testRecordLimit);
+    return Number.isInteger(limit) && limit > 0 ? limit : TEST_RECORD_LIMIT;
   }
 
   /**
-   * Tip of the Test button of a report.
+   * Tip of the Test button of a report (translated, with the record limit).
    *
    * @param {object|null} report
-   * @returns {string} Resource key.
+   * @returns {string}
    */
-  static testTip(report) {
-    return report?.isCardView === true
-      ? 'Run the report on the first selected record, or on the first record of the current result'
-      : 'Run the report on the selected records, or on the first 50 records of the current result';
+  testTip(report) {
+    if (report?.isCardView === true) {
+      return $HR('Run the report on the first selected record, or on the first record of the current result');
+    }
+    return $HR('Run the report on the selected records, or on the first 50 records of the current result')
+      .replace('50', String(ReportsApplication.testLimit(report, this.data.settings)));
+  }
+
+  /**
+   * Whether report output may run JavaScript and CSS blocks: the database is
+   * authorised by the server admin (settings.javaScriptAllowed of the list).
+   *
+   * @returns {boolean}
+   */
+  scriptsAllowed() {
+    return this.data.settings?.javaScriptAllowed === true;
   }
 
   /** Reference of a report: record id, or the file name of an unregistered file. */
@@ -308,7 +329,7 @@ export class ReportsApplication extends EventTarget {
    * @returns {Promise<{ids: number[], source: string}>}
    */
   async testRecordIds(report = null) {
-    const limit = ReportsApplication.testLimit(report);
+    const limit = ReportsApplication.testLimit(report, this.data.settings);
     const selection = await this.host.getSelection();
     if (selection.length) {
       return { ids: selection.slice(0, limit), source: 'selection', total: selection.length };

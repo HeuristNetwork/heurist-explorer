@@ -43,6 +43,11 @@ les enregistrements sélectionnés, ou sur les 50 premiers du résultat courant.
 d'enregistrement unique (fiche) est testé sur un seul enregistrement : le premier
 enregistrement sélectionné, ou le premier du résultat. Le test peut être arrêté et a une
 durée limite.</p>
+<p>Par défaut, le résultat d'un rapport ne peut pas exécuter de JavaScript ni utiliser de blocs
+de style : ils sont supprimés, et la barre d'outils affiche « CSS et Javascript sont désactivés
+par défaut ». L'administrateur du serveur peut autoriser une base (fichier
+<code>js_in_database_authorised.txt</code> sur le serveur) ; les scripts s'exécutent alors dans le
+résultat, par exemple la visionneuse des vignettes d'images.</p>
 
 <h2 id="generate">Génération et planifications</h2>
 <p><b>Générer</b> écrit un rapport pour le résultat courant ou une Query Source dans un

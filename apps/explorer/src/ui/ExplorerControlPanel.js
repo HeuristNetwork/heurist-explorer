@@ -108,6 +108,7 @@ export class ExplorerControlPanel {
    * @param {HTMLElement|null} [anchor] Element to anchor the flyout to; defaults to the rail's Favorites button.
    */
   openFavorites(anchor = null) {
+    if (this._dockList('favorites')) return;
     if (this._toggleIfActive('favorites')) return;
     this._setActiveTool('favorites');
     this._showToolPanel(
@@ -123,6 +124,7 @@ export class ExplorerControlPanel {
    * @param {HTMLElement|null} [anchor] Element to anchor the flyout to; defaults to the rail's History button.
    */
   openHistory(anchor = null) {
+    if (this._dockList('history')) return;
     if (this._toggleIfActive('history')) return;
     this._setActiveTool('history');
     this._showToolPanel(
@@ -138,6 +140,7 @@ export class ExplorerControlPanel {
    * @param {HTMLElement|null} [anchor] Element to anchor the flyout to; defaults to the rail's Workspace button.
    */
   openWorkspace(anchor = null) {
+    if (this._dockList('workspace')) return;
     if (this._toggleIfActive('workspace')) return;
     this._setActiveTool('workspace');
     this._showToolPanel(
@@ -255,11 +258,11 @@ export class ExplorerControlPanel {
   }
 
   /**
-   * Filters, Entities and Sources in the docked mode: toggle the list in the West
-   * pane instead of opening the popup.
+   * Filters, Entities, Sources, Favorites, History and Workspace in the docked mode:
+   * toggle the list in the West pane instead of opening the popup.
    *
    * @private
-   * @param {string} id List id (`saved-filters` | `record-types` | `query-sources`).
+   * @param {string} id List id (a key of `DOCKED_LISTS`).
    * @returns {boolean} Whether the list is docked (the click is handled here).
    */
   _dockList(id) {
@@ -337,7 +340,7 @@ export class ExplorerControlPanel {
   }
 
   /**
-   * Switch the Filters, Entities and Sources lists between docked and popup
+   * Switch the Filters, Entities, Sources, Favorites, History and Workspace lists between docked and popup
    * (Explorer configuration): the list open in the other mode is closed.
    *
    * @returns {void}
@@ -1636,7 +1639,10 @@ export class ExplorerControlPanel {
 const DOCKED_LISTS = {
   'saved-filters': { title: 'Saved Filters', build() { return this._buildSavedFiltersPanel(); } },
   'record-types': { title: 'Record Types', build() { return this._buildRecordTypesPanel(); } },
-  'query-sources': { title: 'Query Sources', build() { return this._buildQuerySourcesPanel(); } }
+  'query-sources': { title: 'Query Sources', build() { return this._buildQuerySourcesPanel(); } },
+  favorites: { title: 'Favorites', build() { return this._buildFavoritesPanel(); } },
+  history: { title: 'History', build() { return this._buildHistoryPanel(); } },
+  workspace: { title: 'Workspace', build() { return this._buildWorkspacePanel(); } }
 };
 
 /** Build the left rail's button definitions. */

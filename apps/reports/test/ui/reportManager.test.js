@@ -187,3 +187,22 @@ test('closing the manager stops its own test run, not a generation', async () =>
   await view.destroy();
   assert.deepEqual(jobs.cancelled, ['t1']);
 });
+
+test('JavaScript not allowed: toolbar warning and an output frame without scripts', async () => {
+  const { view, application } = await mount({ ...LIST, settings: { javaScriptAllowed: false, testRecordLimit: 50 } });
+  assert.equal(view.jsWarning.hidden, false);
+  assert.ok(!view.viewer.frame.getAttribute('sandbox').includes('allow-scripts'));
+
+  application.data.settings.javaScriptAllowed = true;
+  view.update();
+  assert.equal(view.jsWarning.hidden, true);
+  assert.ok(view.viewer.frame.getAttribute('sandbox').includes('allow-scripts'));
+  assert.ok(view.viewer.frame.getAttribute('sandbox').includes('allow-same-origin'));
+  await view.destroy();
+});
+
+test('no settings in the list (anonymous): no warning', async () => {
+  const { view } = await mount();
+  assert.equal(view.jsWarning.hidden, true);
+  await view.destroy();
+});
