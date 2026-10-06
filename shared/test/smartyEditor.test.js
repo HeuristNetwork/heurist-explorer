@@ -169,3 +169,27 @@ test('HFieldTree valuesOnly: no "Any field" and no "<type> records" leaf in link
   assert.ok(labels({}).includes('Place records') && labels({}).includes('Any field'), 'shown by default');
   assert.deepEqual(labels({ valuesOnly: true }), ['Name', 'Place name']);
 });
+
+test('HFieldTree enumOutputs list and "Add selected fields" (column fields)', () => {
+  const host = document.createElement('div');
+  const added = [];
+  const tree = new HFieldTree({ dbdefs: DBDEFS }).mount(host, {
+    rtyId: 10, includeHeaders: false, multiSelect: true, valuesOnly: true,
+    enumOutputs: ['term', 'code', 'conceptid', 'internalid'],
+    onAddSelected: (paths) => added.push(paths)
+  }, () => {});
+  const add = host.querySelector('.h-fbtree-footer').querySelector('button');
+  assert.equal(add.disabled, true, 'nothing marked yet');
+
+  host.querySelectorAll('.h-fbtree-folder-head').find((head) => head.textContent.includes('Gender')).click();
+  const outputs = host.querySelectorAll('.h-fbtree-term-leaf');
+  assert.deepEqual(outputs.map((node) => node.textContent.replace(/(term|code|conceptid|internalid)$/, '')),
+    ['Term', 'Code', 'Concept ID', 'Internal ID'], 'no description');
+  outputs[0].click();
+  host.querySelectorAll('.h-fbtree-leaf').find((node) => node.textContent.startsWith('Name')).click();
+  assert.equal(add.disabled, false);
+  add.click();
+  assert.deepEqual(added, [[[{ dty: 20, fieldType: 'enum', term: 'term' }], [{ dty: 1, fieldType: 'freetext' }]]]);
+  assert.deepEqual(tree.getSelectedPaths(), [], 'selection cleared after adding');
+  tree.destroy();
+});

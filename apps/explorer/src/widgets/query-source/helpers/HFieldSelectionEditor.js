@@ -19,6 +19,10 @@ import { HFieldTree } from '#shared/widgets/field-tree/HFieldTree.js';
 import { fieldPathCode, fieldPathLabel, fieldCodeLabel, normalizeFieldDescriptors } from './fieldPathUtils.js';
 import './QuerySourceHelpers.css';
 
+/** Enum outputs offered in a multiSelect tree → column `ext` (the description has no column output). */
+const ENUM_EXT = { term: 'term', code: 'code', conceptid: 'conceptid', internalid: 'id' };
+const ENUM_EXT_LABELS = { code: 'Code', conceptid: 'Concept ID', id: 'Internal ID' };
+
 /** Base multi-field selector used by fieldset, geo and time Query Source helpers. */
 export class HFieldSelectionEditor extends HBaseWidget {
   /**
@@ -30,8 +34,10 @@ export class HFieldSelectionEditor extends HBaseWidget {
    * @param {boolean} [options.includeHeaders] Whether record header fields appear in the tree.
    * @param {boolean} [options.hideUnselectable] Whether non-selectable fields are hidden rather than shown disabled.
    * @param {boolean} [options.showSort] Whether the field tree offers a sort control.
+   * @param {boolean} [options.multiSelect] Mark several fields in the tree and add them with
+   *        "Add selected fields"; enum fields expand to their outputs (Term, Code, ...).
    */
-  constructor({ dbdefs, title = 'Fields', selectableTypes = null, allowReorder = true, includeHeaders = false, hideUnselectable = false, showSort = true } = {}) {
+  constructor({ dbdefs, title = 'Fields', selectableTypes = null, allowReorder = true, includeHeaders = false, hideUnselectable = false, showSort = true, multiSelect = false } = {}) {
     super();
     if (!dbdefs) throw new TypeError('HFieldSelectionEditor requires dbdefs');
     this.dbdefs = dbdefs;
@@ -41,6 +47,7 @@ export class HFieldSelectionEditor extends HBaseWidget {
     this.includeHeaders = includeHeaders;
     this.hideUnselectable = hideUnselectable;
     this.showSort = showSort !== false;
+    this.multiSelect = multiSelect === true;
     this.tree = new HFieldTree({ dbdefs });
     this.recordTypeId = null;
     this.fields = [];
@@ -93,13 +100,42 @@ export class HFieldSelectionEditor extends HBaseWidget {
       includeHeaders: this.includeHeaders,
       hideUnselectable: this.hideUnselectable,
       showSort: this.showSort,
-      tall: true
+      tall: true,
+      // column fields: several at once, values only (no "Any field" / "<type> records")
+      ...(this.multiSelect ? {
+        multiSelect: true,
+        valuesOnly: true,
+        enumOutputs: Object.keys(ENUM_EXT),
+        onAddSelected: (paths) => {
+          paths.forEach((path) => this._addPath(path));
+          this._renderRows();
+        }
+      } : {})
     }, (path) => {
-      const field = fieldPathCode(path, this.recordTypeId);
-      if (!field || this.fields.some((item) => item.field === field)) return;
-      this.fields.push({ field, title: fieldPathLabel(path, this.dbdefs) || fieldCodeLabel(field, this.dbdefs), visible: true, _type: path.at(-1)?.fieldType || null });
-      this._renderRows();
+      if (this._addPath(path)) this._renderRows();
     });
+  }
+
+  /**
+   * Append the field of a tree path unless it is already selected.
+   *
+   * @param {Array<object>} path Field-tree path.
+   * @returns {boolean} Whether a field was added.
+   */
+  _addPath(path) {
+    const field = fieldPathCode(path, this.recordTypeId);
+    const leaf = path.at(-1) || {};
+    const ext = leaf.term ? ENUM_EXT[leaf.term] || null : null;
+    if (!field || this.fields.some((item) => item.field === field && (item.ext || null) === ext)) return false;
+    const label = fieldPathLabel(path, this.dbdefs) || fieldCodeLabel(field, this.dbdefs);
+    this.fields.push({
+      field,
+      title: ext && ENUM_EXT_LABELS[ext] ? `${label} (${$HR(ENUM_EXT_LABELS[ext])})` : label,
+      visible: true,
+      ...(ext ? { ext } : {}),
+      _type: leaf.fieldType || null
+    });
+    return true;
   }
 
   _renderRows() {

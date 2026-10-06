@@ -52,3 +52,9 @@
 .h-fbtree-leaf.is-selected .h-fbtree-mark { color: var(--h-color-primary); }
 .h-fbtree-leaf.is-inserted { color: var(--h-color-success, #2e7d32); }
 .h-fbtree-select-all { grid-column: 1 / -1; }
+.h-fbtree-footer {
+    display: flex;
+    justify-content: flex-end;
+    padding: 6px 8px;
+    border-top: 1px solid var(--h-color-border);
+}

@@ -19,7 +19,8 @@
  *
  * Shown as a popover under a button (open) or inline in a panel that stays
  * open after a pick (mount: the Smarty template editor). With `scope.multiSelect`
- * a click marks a leaf instead of picking it; the host reads `getSelectedPaths()`.
+ * a click marks a leaf instead of picking it; the host reads `getSelectedPaths()`,
+ * or, in a popover with `scope.onAddSelected`, gets them from the "Add selected fields" button.
  *
  * Moved from the Explorer filter builder to shared on 2026-10-05 (plan 12, Phase 5).
  *
@@ -153,7 +154,8 @@ export class HFieldTree {
    *
    * @param {HTMLElement} container Panel the tree fills.
    * @param {object} scope Same options as `open`, plus `enumOutputs` (enum fields
-   *        expand to Label / Code / Internal ID) and `includeFiles` (file fields).
+   *        expand to Term / Code / Internal ID ...; true or a list of outputs) and
+   *        `includeFiles` (file fields).
    * @param {(path:Array)=>void} onPick Called with the path of each picked leaf.
    * @returns {HFieldTree} This instance, for chaining.
    */
@@ -191,7 +193,10 @@ export class HFieldTree {
    */
   _build(scope, onPick) {
     this._rtyId = scope?.rtyId ?? '';
-    this._enumOutputs = scope?.enumOutputs === true;
+    // true: every output; a list: only these outputs (column fields: no description)
+    this._enumOutputs = scope?.enumOutputs === true
+      ? ENUM_OUTPUTS
+      : (Array.isArray(scope?.enumOutputs) ? ENUM_OUTPUTS.filter((output) => scope.enumOutputs.includes(output.term)) : null);
     this._includeFiles = scope?.includeFiles === true;
     this._flatOnly = scope?.flatOnly === true;
     this._maxDepth = Number.isInteger(Number(scope?.maxDepth)) ? Math.max(0, Number(scope.maxDepth)) : 1;
@@ -219,6 +224,10 @@ export class HFieldTree {
     // report editor: a click marks leaves; a "Relationship" folder with the relationships of the record
     this._multiSelect = scope?.multiSelect === true;
     this._onSelectionChange = typeof scope?.onSelectionChange === 'function' ? scope.onSelectionChange : null;
+    // popover (column fields): an "Add selected fields" button hands the marked leaves over
+    this._onAddSelected = this._multiSelect && typeof scope?.onAddSelected === 'function' ? scope.onAddSelected : null;
+    this._selected.clear();
+    this._done.clear();
     this._relationships = scope?.relationships === true;
     // valuesOnly (report editor): no query-only leaves - "Any field" and "<type> records" (exists)
     this._valuesOnly = scope?.valuesOnly === true;
@@ -272,7 +281,36 @@ export class HFieldTree {
     this._body.className = 'h-fbtree-body';
 
     el.append(toolbar, this._body);
+    if (this._onAddSelected) el.append(this._addSelectedFooter());
     return el;
+  }
+
+  /** @returns {HTMLElement} Footer with the "Add selected fields" button (popover multiSelect). */
+  _addSelectedFooter() {
+    const footer = document.createElement('div');
+    footer.className = 'h-fbtree-footer';
+    const add = document.createElement('button');
+    add.type = 'button';
+    add.className = 'h-btn h-btn-small h-btn-primary';
+    add.textContent = $HR('Add selected fields');
+    add.disabled = true;
+    add.addEventListener('click', () => {
+      const paths = this.getSelectedPaths();
+      if (!paths.length) return;
+      const onAdd = this._onAddSelected;
+      this.clearSelection();
+      onAdd(paths);
+      if (!this._inline) this.close();
+    });
+    this._addSelectedButton = add;
+    footer.append(add);
+    return footer;
+  }
+
+  /** Report a changed selection to the host and update the "Add selected fields" button. */
+  _selectionChanged() {
+    if (this._addSelectedButton) this._addSelectedButton.disabled = !this._selected.size;
+    this._onSelectionChange?.(this._selected.size);
   }
 
   /** @returns {HTMLSelectElement} The "show fields of this type" filter. */
@@ -319,7 +357,7 @@ export class HFieldTree {
     }
     if (this._selectAllBox) this._selectAllBox.checked = false;
     this._renderBody();
-    this._onSelectionChange?.(this._selected.size);
+    this._selectionChanged();
   }
 
   /**
@@ -338,7 +376,7 @@ export class HFieldTree {
       else this._selected.delete(key);
     }
     this._renderBody();
-    this._onSelectionChange?.(this._selected.size);
+    this._selectionChanged();
   }
 
   /**
@@ -359,7 +397,7 @@ export class HFieldTree {
     if (this._selected.has(key)) this._selected.delete(key);
     else this._selected.set(key, path);
     this._markRow(row, path);
-    this._onSelectionChange?.(this._selected.size);
+    this._selectionChanged();
   }
 
   /**
@@ -405,6 +443,7 @@ export class HFieldTree {
     this.element = null;
     this._body = null;
     this._selectAllBox = null;
+    this._addSelectedButton = null;
     this._onPick = null;
   }
 
@@ -518,7 +557,7 @@ export class HFieldTree {
   /** Leaves every record has, for a scope without a record type: any field, title, metadata. */
   _anyRecordNodes(viaChain) {
     const nodes = [];
-    if (this._typeShown('freetext')) nodes.push(this._headerLeaf({ dty: 'anyfield', label: 'Any field', fieldType: 'freetext' }, viaChain));
+    if (!this._valuesOnly && this._typeShown('freetext')) nodes.push(this._headerLeaf({ dty: 'anyfield', label: 'Any field', fieldType: 'freetext' }, viaChain));
     if (this._includeHeaders) {
       if (this._typeShown('freetext')) nodes.push(this._headerLeaf({ dty: 'title', label: 'Title', fieldType: 'freetext' }, viaChain));
       nodes.push(...this._metadataLeaves(viaChain));
@@ -691,7 +730,7 @@ export class HFieldTree {
           targets,
           viaChain
         }));
-      } else if (this._enumOutputs && ['enum', 'relationtype'].includes(field.type)) {
+      } else if (this._enumOutputs?.length && ['enum', 'relationtype'].includes(field.type)) {
         out.push(this._enumFolder(field, viaChain));
       } else if (!this._hideUnselectable || selectable) {
         out.push(this._leaf(field, viaChain));
@@ -761,7 +800,7 @@ export class HFieldTree {
    * @returns {HTMLElement}
    */
   _enumFolder(field, viaChain) {
-    return this._sectionFolder(field.name, `${pathKey(viaChain)}:enum:${field.id}`, () => ENUM_OUTPUTS.map((output) => {
+    return this._sectionFolder(field.name, `${pathKey(viaChain)}:enum:${field.id}`, () => this._enumOutputs.map((output) => {
       const row = document.createElement('button');
       row.type = 'button';
       row.className = 'h-menu-item h-fbtree-leaf h-fbtree-term-leaf';

@@ -217,6 +217,10 @@
 #Label#Label
 #Code#Code
 #Internal ID#Internal ID
+#Add selected fields#Add selected fields
+#Select all visible options#Select all visible options
+#Term#Term
+#Concept ID#Concept ID
 #Back to presentation#Back to presentation
 #Generic_Title#Heurist
 #Error_Title#Info

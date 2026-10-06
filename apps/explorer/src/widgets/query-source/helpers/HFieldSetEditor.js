@@ -19,8 +19,8 @@ import { $HR } from '#shared/ui';
 
 /** Ordered Data-presentation column field-set editor built on HFieldTree. */
 export class HFieldSetEditor extends HFieldSelectionEditor {
-  /** @param {object} [options] Forwarded to HFieldSelectionEditor; `title`, `includeHeaders` and `allowReorder` are fixed. */
-  constructor(options = {}) { super({ ...options, title: 'Column fields', includeHeaders: true, allowReorder: true }); }
+  /** @param {object} [options] Forwarded to HFieldSelectionEditor; `title`, `includeHeaders`, `allowReorder` and `multiSelect` are fixed. */
+  constructor(options = {}) { super({ ...options, title: 'Column fields', includeHeaders: true, allowReorder: true, multiSelect: true }); }
 
   /** @returns {Array} A clone of the selected columns, stripped of the internal `_type` hint. */
   getValue() {
@@ -64,7 +64,8 @@ export class HFieldSetEditor extends HFieldSelectionEditor {
     const name = document.createElement('span');
     name.className = 'h-qse-fieldset-name';
     name.textContent = fieldCodeLabel(field.field, this.dbdefs) || field.title || field.field;
-    name.title = field.field;
+    if (field.ext) name.textContent += ` [${field.ext}]`;
+    name.title = field.ext ? `${field.field} (${field.ext})` : field.field;
 
     const title = document.createElement('input');
     title.type = 'text';

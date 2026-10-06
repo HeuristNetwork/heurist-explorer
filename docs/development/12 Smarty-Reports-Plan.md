@@ -730,3 +730,21 @@ The new apps had no server settings (the legacy client gets them in sysinfo, e.g
 - When JavaScript is not allowed the toolbar shows "CSS and Javascript are disabled by default. Request
   authorisation from server admin if required" (text hidden on narrow screens, kept as tooltip).
 - No client check of `generateMaxRecords`: the server refuses and its message is shown.
+
+### Field tree in the QSE column fields (2026-10-06, requested by Artem)
+
+The "Column fields" editor of the QSE (`HFieldSetEditor`) uses the field tree as the report
+editor does:
+- `valuesOnly`: no "Any field" and no "<record type> records" leaves (also hidden now in a
+  relationship branch to any record type);
+- enum fields expand to their outputs; `enumOutputs` now also takes a list, here
+  `term`, `code`, `conceptid`, `internalid` (Description has no column output). The output is
+  saved as the column `ext` (`internalid` → `id`), the title gets "(Code)", "(Concept ID)" or
+  "(Internal ID)";
+- `multiSelect` with "Select all visible options", and a new scope option `onAddSelected`:
+  the popover gets a footer button **Add selected fields** (disabled while nothing is
+  marked); it adds the marked fields in marking order, skips ones already in the list (same
+  field and output) and closes the popover. A new opening starts with no marks.
+- Geo and time field editors are unchanged (single pick).
+- The Data table already applies `ext` (it loads records with `resolveDetails`, so enum values
+  carry label, code and concept id).
