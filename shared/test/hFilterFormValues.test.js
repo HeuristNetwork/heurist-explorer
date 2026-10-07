@@ -7,7 +7,7 @@ const { HFilterForm } = await import('../src/widgets/filter/HFilterForm.js');
 const { resolveQueryParameters, describeQueryParameters, exactParameterNames } = await import('../src/data/queryParameters.js');
 
 // field 26 = enum (vocabulary 100), field 1 = text
-const TREE = { id: 100, children: [{ id: 11, label: 'France' }, { id: 12, label: 'Italy' }, { id: 13, label: 'Spain' }] };
+const TREE = { internalid: 100, children: [{ internalid: 11, term: 'France' }, { internalid: 12, term: 'Italy' }, { internalid: 13, term: 'Spain' }] };
 const dbdefs = {
   fieldGlobal: (id) => ({ 26: { type: 'enum', name: 'Country' }, 1: { type: 'freetext', name: 'Name' } })[id] || null,
   rectypeName: () => '',

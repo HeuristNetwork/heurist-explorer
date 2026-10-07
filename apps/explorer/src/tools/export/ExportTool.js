@@ -4,18 +4,22 @@
  *
  * Loaded lazily by ExplorerApplication.openTool('export') (plan 13). Sections:
  * - Scope: current result, selection, or one record type of the result;
- * - Format;
- * - Columns (CSV, TSV, GeoJSON, KML, Gephi): one field list per record type, pre-filled
- *   from the DataSource column fields;
- * - Expansion: none, "any" link kind with a depth, the DataSource rules, or custom rules
- *   (rule builder dialog, for this export only);
+ * - Format (XML/HML by default);
+ * - Columns (CSV, TSV, GeoJSON, KML, Gephi): per record type a preset - minimal (id,
+ *   record type, title), metadata, all, or custom (field selector) - merged with the marked
+ *   data source settings: column fields, geo fields (GeoJSON, KML), time fields;
+ * - Expansion (JSON, XML, Gephi): none, "any" link kind with a depth, the DataSource rules,
+ *   or custom rules (rule builder dialog, for this export only);
  * - Value formats (formats with columns only; JSON and HML write values as stored);
  * - Additional properties: CSV options (CSV, TSV) or names and local ids (JSON, HML);
  * - Output: record limit (Gephi at most 10K) and file name.
  * The tool follows DataSource, selection and rule changes (ExplorerApplication registers
- * it with the SyncEngine). The export runs as the background job "export"; HJobMonitor
- * shows progress, Stop and the download link, also after a page reload. The last
- * settings are remembered per DataSource in the browser.
+ * it with the SyncEngine). Toolbar on top: Export, and Export results (dropdown of the
+ * user's finished exports: download, delete). The export runs as the background job
+ * "export"; while it runs only HJobMonitor (progress, Stop) is shown, and afterwards the
+ * form again with the download link. A running export is shown at once when the tool is
+ * opened (also after a page reload). The last settings are remembered per DataSource in
+ * the browser.
  *
  * @project     Heurist academic knowledge management system
  * @package     heurist-explorer
@@ -31,12 +35,14 @@
 import { JobClient, ACTIVE_JOB_STATUSES } from '#shared/api/JobClient.js';
 import { HJobMonitor } from '#shared/widgets/job/HJobMonitor.js';
 import { HBaseWidget } from '#shared/widgets/HBaseWidget.js';
-import { $HR } from '#shared/ui';
+import { $HR, HMsg } from '#shared/ui';
+import { showPopover, closePopover } from '#shared/widgets/popover/popover.js';
 import { HFieldSelectionEditor } from '../../widgets/query-source/helpers/HFieldSelectionEditor.js';
 import { HRuleBuilder, describeExpansionRule } from '../../widgets/query-source/helpers/HRuleBuilder.js';
 import {
-  ANY_DEPTHS, ANY_LINK_KINDS, EXPORT_FORMATS, VALUE_CHOICES, buildExportParams, columnsForRecordType,
-  defaultExportState, effectiveLimit, exportFormat, exportProblems, limitChoices, recordTypeList, scopeRecordType
+  ANY_DEPTHS, ANY_LINK_KINDS, COLUMN_MODES, EXPORT_FORMATS, VALUE_CHOICES, buildExportParams, dataSourceFields,
+  defaultExportState, defaultLimit, effectiveLimit, exportFormat, exportProblems, limitChoices, recordTypeList,
+  scopeRecordType
 } from './exportParams.js';
 import './ExportTool.css';
 
@@ -68,9 +74,12 @@ export class ExportTool extends HBaseWidget {
     this.selection = [];
     this.settings = defaultExportState();
     this.recordTypes = [];
+    this.resultTotal = null;
     this.editors = new Map();
     this.monitor = null;
     this.runningJob = null;
+    /** @type {Array<object>|null} Finished and running export jobs (brief), newest first. */
+    this.exportJobs = null;
   }
 
   /**
@@ -80,8 +89,33 @@ export class ExportTool extends HBaseWidget {
    */
   async render() {
     if (!this.container) throw new Error('ExportTool must be attached before render');
-    this.container.classList.add('h-export-tool');
-    this.container.textContent = $HR('Loading...');
+    const root = this.container;
+    root.classList.add('h-export-tool');
+    root.replaceChildren();
+
+    this._toolbar = element('div', 'h-export-toolbar');
+    this._exportButton = element('button', 'h-btn h-btn-primary h-export-start');
+    this._exportButton.type = 'button';
+    this._exportButton.innerHTML = '<span class="fa-solid fa-file-export" aria-hidden="true"></span> ';
+    this._exportButton.append(document.createTextNode($HR('Export')));
+    this._exportButton.addEventListener('click', () => this._start());
+    this._resultsButton = element('button', 'h-btn h-export-results-button');
+    this._resultsButton.type = 'button';
+    this._resultsButton.innerHTML = '<span class="fa-solid fa-folder-open" aria-hidden="true"></span> ';
+    this._resultsButton.append(document.createTextNode(`${$HR('Export results')} `));
+    this._resultsButton.insertAdjacentHTML?.('beforeend', '<span class="fa-solid fa-caret-down" aria-hidden="true"></span>');
+    this._resultsButton.addEventListener('click', () => this._toggleResults());
+    this._toolbar.append(this._exportButton, this._resultsButton);
+    this._problems = element('div', 'h-export-problems');
+    this._monitorBox = element('div', 'h-export-monitor');
+    this._monitorBox.hidden = true;
+    this._form = element('div', 'h-export-form');
+    this._form.textContent = $HR('Loading...');
+    root.append(this._toolbar, this._problems, this._monitorBox, this._form);
+    this._exportButton.disabled = true;
+
+    // a running export is shown without waiting for the definitions and counts
+    const restoring = this._restoreJob();
     try {
       this.dbdefs = await this.getDbDefs();
     } catch (error) {
@@ -94,7 +128,8 @@ export class ExportTool extends HBaseWidget {
     await this._loadRecordTypes();
     this._build();
     this.state = 'rendered';
-    await this._restoreJob();
+    await restoring;
+    this._setRunning(this.isRunning());
     return this;
   }
 
@@ -112,7 +147,7 @@ export class ExportTool extends HBaseWidget {
     this.settings = this._restoreState();
     await this._loadRecordTypes();
     this._build();
-    if (this.isRunning()) this._follow(this.runningJob);
+    this._setRunning(this.isRunning());
   }
 
   /**
@@ -146,6 +181,7 @@ export class ExportTool extends HBaseWidget {
 
   /** Stop polling; a running export continues on the server and is shown again on the next open. */
   async destroy() {
+    closePopover();
     this._saveState();
     for (const editor of this.editors.values()) await editor.destroy?.();
     this.editors.clear();
@@ -163,7 +199,9 @@ export class ExportTool extends HBaseWidget {
       title: this.source?.title || '',
       selection: this.selection,
       rules: Array.isArray(request.rules) && request.rules.length ? request.rules : null,
-      total: Number(this.source?.meta?.count)
+      source: this.source,
+      recordTypes: this.recordTypes.map((item) => item.id),
+      dbdefs: this.dbdefs
     };
   }
 
@@ -171,10 +209,15 @@ export class ExportTool extends HBaseWidget {
   async _loadRecordTypes() {
     const query = this._context().query;
     this.recordTypes = [];
+    this.resultTotal = null;
     if (query == null || query === '') return;
     try {
       const response = await this.apiClient.post('/records', { body: { q: query, detail: 'rectypes' } });
-      this.recordTypes = recordTypeList(response?.rectypes || response?.data?.rectypes, this.dbdefs);
+      const data = response?.rectypes ? response : response?.data || {};
+      this.recordTypes = recordTypeList(data.rectypes, this.dbdefs);
+      // the count of the query itself (a direct search has no meta.count)
+      const total = Number(data.total);
+      this.resultTotal = Number.isFinite(total) ? total : null;
     } catch (error) {
       console.warn('Export: record type counts are not available', error);
     }
@@ -189,7 +232,7 @@ export class ExportTool extends HBaseWidget {
   // ------------------------------------------------------------------ form
 
   _build() {
-    const root = this.container;
+    const root = this._form;
     for (const editor of this.editors.values()) editor.destroy?.();
     this.editors.clear();
     root.replaceChildren();
@@ -214,23 +257,32 @@ export class ExportTool extends HBaseWidget {
     );
     root.append(sections);
     this._renderRulesSection();
-
-    const footer = element('div', 'h-export-footer');
-    this._problems = element('div', 'h-export-problems');
-    this._exportButton = element('button', 'h-btn h-btn-primary h-export-start');
-    this._exportButton.type = 'button';
-    this._exportButton.innerHTML = '<span class="fa-solid fa-file-export" aria-hidden="true"></span> ';
-    this._exportButton.append(document.createTextNode($HR('Export')));
-    this._exportButton.addEventListener('click', () => this._start());
-    this._monitorBox = element('div', 'h-export-monitor');
-    footer.append(this._problems, this._exportButton, this._monitorBox);
-    root.append(footer);
+    const bottom = element('div', 'h-export-bottom');
+    this._bottomExportButton = element('button', 'h-btn h-btn-primary h-export-start-bottom');
+    this._bottomExportButton.type = 'button';
+    this._bottomExportButton.innerHTML = '<span class="fa-solid fa-file-export" aria-hidden="true"></span> ';
+    this._bottomExportButton.append(document.createTextNode($HR('Export')));
+    this._bottomExportButton.addEventListener('click', () => this._start());
+    bottom.append(this._bottomExportButton);
+    root.append(bottom);
     this._refresh();
   }
 
+  /** While an export runs only the job monitor is shown (no toolbar, no form). */
+  _setRunning(running) {
+    if (this._toolbar) this._toolbar.hidden = running;
+    if (this._problems) this._problems.hidden = running;
+    if (this._form) this._form.hidden = running;
+    if (running) closePopover();
+    this._refresh();
+  }
+
+  /** Records of the current result: the server count of the query, else the DataSource count. */
   _total() {
-    const total = Number(this.source?.meta?.count);
-    return Number.isFinite(total) ? total : this.recordTypes.reduce((sum, item) => sum + item.count, 0);
+    if (this.resultTotal != null) return this.resultTotal;
+    const count = this.source?.meta?.count;
+    if (count != null && Number.isFinite(Number(count)) && Number(count) > 0) return Number(count);
+    return this.recordTypes.reduce((sum, item) => sum + item.count, 0);
   }
 
   _scopeSection() {
@@ -275,6 +327,7 @@ export class ExportTool extends HBaseWidget {
     select.value = exportFormat(this.settings.format).value;
     select.addEventListener('change', () => {
       this.settings.format = select.value;
+      this.settings.limit = defaultLimit(select.value);
       this._fillLimitSelect();
       this._renderColumnEditors();
       this._refresh();
@@ -287,34 +340,34 @@ export class ExportTool extends HBaseWidget {
   _columnsSection() {
     const section = fieldset($HR('Columns'));
     this._columnsSectionEl = section;
-    const sourceFields = this.source?.presentation?.data?.fields || [];
-    const fromSource = checkbox($HR('Use the column fields of the data source'),
-      this.settings.useColumns && sourceFields.length > 0, (checked) => {
-        this.settings.useColumns = checked;
-        if (checked) this._fillColumnsFromSource(true);
+    const fromSource = dataSourceFields(this.source);
+    this._sourceBox = element('div', 'h-export-source-fields');
+    this._sourceChecks = [];
+    const caption = element('span', 'h-export-row-label');
+    caption.textContent = $HR('Use data source settings');
+    this._sourceBox.append(caption);
+    const add = (key, text, available) => {
+      if (!available) return null;
+      const box = checkbox(text, this.settings[key] !== false, (checked) => {
+        this.settings[key] = checked;
         this._renderColumnEditors();
         this._refresh();
       });
-    fromSource.input.disabled = !sourceFields.length;
-    fromSource.title = sourceFields.length ? '' : $HR('The data source has no column fields');
+      this._sourceBox.append(box);
+      this._sourceChecks.push(box);
+      return box;
+    };
+    add('useColumnFields', $HR('column fields'), fromSource.columns.length > 0);
+    this._geoFieldsBox = add('useGeoFields', $HR('geo fields'), fromSource.geo.length > 0);
+    add('useTimeFields', $HR('time fields'), fromSource.time.length > 0);
     this._columnsNote = element('div', 'h-muted h-export-note');
     this._editorsBox = element('div', 'h-export-editors');
-    section.append(fromSource, this._columnsNote, this._editorsBox);
-    if (this.settings.useColumns && !Object.keys(this.settings.columns).length) this._fillColumnsFromSource(false);
+    section.append(this._sourceBox, this._columnsNote, this._editorsBox);
     this._renderColumnEditors();
     return section;
   }
 
-  /** Columns of each record type from the DataSource column fields. */
-  _fillColumnsFromSource(replace) {
-    const fields = this.source?.presentation?.data?.fields || [];
-    for (const item of this.recordTypes) {
-      if (!replace && this.settings.columns[item.id]?.length) continue;
-      this.settings.columns[item.id] = columnsForRecordType(fields, item.id, this.dbdefs);
-    }
-  }
-
-  /** One collapsible column editor per record type in scope. */
+  /** Per record type in scope: preset radio group; the field selector only for "custom". */
   _renderColumnEditors() {
     if (!this._editorsBox) return;
     const format = exportFormat(this.settings.format);
@@ -323,49 +376,76 @@ export class ExportTool extends HBaseWidget {
     this._editorsBox.replaceChildren();
     this._columnsSectionEl.hidden = !format.columns;
     if (!format.columns) return;
-    this._columnsNote.textContent = format.required
-      ? $HR('Choose the columns for each record type. The first column is always H-ID (record ID).')
-      : $HR('Optional: fields written as properties / attributes. Leave empty for ID, type and title only.');
+    if (this._geoFieldsBox) this._geoFieldsBox.hidden = !format.geo;
+    // "Use data source settings" only when one of its checkboxes is shown
+    this._sourceBox.hidden = !this._sourceChecks.some((box) => !box.hidden);
+    this._columnsNote.textContent = (format.value === 'csv' || format.value === 'tsv')
+      ? $HR('The first column is always H-ID (record ID).')
+      : $HR('Fields written as properties / attributes.');
+    const types = this._scopeRecordTypes();
+    types.forEach((item) => this._editorsBox.append(this._recordTypeColumns(item)));
+    if (!types.length) this._editorsBox.textContent = $HR('No record types in scope');
+  }
+
+  /** One record type: name, preset radio group and (custom) the field selector. */
+  _recordTypeColumns(item) {
+    const box = element('div', 'h-export-rectype');
+    const head = element('div', 'h-export-rectype-head');
+    const name = element('span', 'h-export-rectype-name');
+    name.textContent = `${item.name} (${item.count})`;
+    const modes = element('span', 'h-export-modes');
+    const group = `h-export-mode-${item.id}-${Math.random().toString(36).slice(2, 8)}`;
+    const body = element('div', 'h-export-rectype-body');
+    const mode = this.settings.columnModes[item.id] || 'minimal';
+    for (const [value, text] of COLUMN_MODES) {
+      const label = element('label', 'h-export-check');
+      const radio = document.createElement('input');
+      radio.type = 'radio';
+      radio.name = group;
+      radio.value = value;
+      radio.checked = value === mode;
+      radio.addEventListener('change', () => {
+        if (!radio.checked) return;
+        this.settings.columnModes[item.id] = value;
+        this._showCustomEditor(item, body, value === 'custom');
+        this._refresh();
+      });
+      label.append(radio, document.createTextNode(` ${$HR(text)}`));
+      modes.append(label);
+    }
+    head.append(name, modes);
+    box.append(head, body);
+    this._showCustomEditor(item, body, mode === 'custom');
+    return box;
+  }
+
+  /** Show (mount once) or hide the field selector of a record type. */
+  _showCustomEditor(item, body, show) {
+    body.hidden = !show;
+    if (!show || this.editors.has(item.id)) return;
     if (!this.dbdefs) {
-      this._editorsBox.textContent = $HR('Database definitions are not available');
+      body.textContent = $HR('Database definitions are not available');
       return;
     }
-    const types = this._scopeRecordTypes();
-    types.forEach((item, index) => {
-      const details = element('details', 'h-export-rectype');
-      details.open = index === 0 || types.length <= 3;
-      const summary = element('summary', 'h-export-rectype-summary');
-      const caption = () => {
-        summary.textContent = `${item.name} (${item.count}) · ${(this.settings.columns[item.id] || []).length} ${$HR('columns')}`;
-      };
-      caption();
-      const body = element('div', 'h-export-rectype-body');
-      details.append(summary, body);
-      const mountEditor = () => {
-        if (this.editors.has(item.id)) return;
-        const editor = new HFieldSelectionEditor({
-          dbdefs: this.dbdefs,
-          title: $HR('Columns'),
-          includeHeaders: true,
-          allowReorder: true,
-          multiSelect: true,
-          removeAll: true,
-          onChange: (fields) => {
-            this.settings.columns[item.id] = fields.map(({ field, title, ext }) => ({ field, title, ...(ext ? { ext } : {}) }));
-            caption();
-            this._refresh();
-          }
-        });
-        editor.setRecordType(item.id).setValue(this.settings.columns[item.id] || []);
-        editor.attach(body);
-        editor.render();
-        this.editors.set(item.id, editor);
-      };
-      if (details.open) mountEditor();
-      details.addEventListener('toggle', () => { if (details.open) mountEditor(); });
-      this._editorsBox.append(details);
+    const editor = new HFieldSelectionEditor({
+      dbdefs: this.dbdefs,
+      title: $HR('Columns'),
+      includeHeaders: true,
+      allowReorder: true,
+      multiSelect: true,
+      removeAll: true,
+      onChange: (fields) => {
+        this.settings.columns[item.id] = fields.map(({ field, title, ext }) => ({ field, title, ...(ext ? { ext } : {}) }));
+        this._refresh();
+      }
     });
-    if (!types.length) this._editorsBox.textContent = $HR('No record types in scope');
+    editor.setRecordType(item.id).setValue(this.settings.columns[item.id] || []);
+    // own element: the editor replaces the class of its container (body keeps [hidden] working)
+    const holder = element('div', 'h-export-custom-columns');
+    body.append(holder);
+    editor.attach(holder);
+    editor.render();
+    this.editors.set(item.id, editor);
   }
 
   /** Expansion: none | any link kind with depth | rules of the data source | custom rules. */
@@ -395,10 +475,7 @@ export class ExportTool extends HBaseWidget {
 
     if (this.settings.rulesMode === 'any') {
       const kind = element('select', 'h-select h-export-any-kind');
-      const group = document.createElement('optgroup');
-      group.label = $HR('Any');
-      addOptions(group, ANY_LINK_KINDS.map(([value, text]) => [value, $HR(text)]));
-      kind.append(group);
+      addOptions(kind, ANY_LINK_KINDS.map(([value, text]) => [value, $HR(text)]));
       kind.value = this.settings.anyKind;
       kind.addEventListener('change', () => { this.settings.anyKind = kind.value; });
       const depth = element('select', 'h-select h-export-any-depth');
@@ -459,14 +536,21 @@ export class ExportTool extends HBaseWidget {
   _valuesSection() {
     const section = fieldset($HR('Value formats'));
     this._valuesSectionEl = section;
-    const captions = { date: 'Dates', file: 'Files', pointer: 'Record pointers', enum: 'Terms (vocabularies)' };
+    const captions = { date: 'Temporals', file: 'Files' };
     for (const [kind, choices] of Object.entries(VALUE_CHOICES)) {
       const select = element('select', `h-select h-export-value-${kind}`);
       addOptions(select, choices.map(([value, text]) => [value, $HR(text)]));
-      select.value = this.settings.values[kind] || choices[0][0];
+      if (!choices.some(([value]) => value === this.settings.values[kind])) this.settings.values[kind] = choices[0][0];
+      select.value = this.settings.values[kind];
       select.addEventListener('change', () => { this.settings.values[kind] = select.value; });
       section.append(labelled($HR(captions[kind]), select));
     }
+    section.append(
+      checkbox($HR('Title for target pointers'), this.settings.values.pointerTitle === true,
+        (checked) => { this.settings.values.pointerTitle = checked; }),
+      checkbox($HR('Terms hierarchy'), this.settings.values.termHierarchy === true,
+        (checked) => { this.settings.values.termHierarchy = checked; })
+    );
     const note = element('div', 'h-muted h-export-note');
     note.textContent = $HR('Geographic values are written as WKT (GeoJSON and KML: as geometry). A term column may have its own output.');
     section.append(note);
@@ -489,7 +573,8 @@ export class ExportTool extends HBaseWidget {
     quote.addEventListener('change', () => { this.settings.csv.quote = quote.value === 'none' ? '' : quote.value; });
     const mvsep = element('input', 'h-input h-export-csv-mvsep');
     mvsep.value = this.settings.csv.mvsep;
-    mvsep.maxLength = 5;
+    mvsep.size = 1;
+    mvsep.maxLength = 1;
     mvsep.addEventListener('input', () => { this.settings.csv.mvsep = mvsep.value || '|'; });
     const eol = element('select', 'h-select h-export-csv-eol');
     addOptions(eol, [['nix', $HR('Unix / macOS (LF)')], ['win', $HR('Windows (CR LF)')]]);
@@ -530,7 +615,7 @@ export class ExportTool extends HBaseWidget {
     });
     section.append(labelled($HR('Record limit'), this._limitSelect), labelled($HR('File name'), name));
     const note = element('div', 'h-muted h-export-note');
-    note.textContent = $HR('The file is created on the server; only you can download it. It is kept for 7 days.');
+    note.textContent = $HR('The file is created on the server; only you can download it. It is kept for 24 hours.');
     section.append(note);
     return section;
   }
@@ -543,6 +628,7 @@ export class ExportTool extends HBaseWidget {
     const choices = limitChoices(format);
     select.replaceChildren();
     addOptions(select, choices.map((value) => [String(value), value ? formatCount(value) : $HR('All')]));
+    if (!choices.includes(Number(this.settings.limit))) this.settings.limit = defaultLimit(format);
     this.settings.limit = effectiveLimit(this.settings.limit, format);
     if (!choices.includes(this.settings.limit)) this.settings.limit = choices.at(-1);
     select.value = String(this.settings.limit);
@@ -553,6 +639,7 @@ export class ExportTool extends HBaseWidget {
     const format = exportFormat(this.settings.format);
     const table = format.value === 'csv' || format.value === 'tsv';
     if (this._valuesSectionEl) this._valuesSectionEl.hidden = !format.columns;
+    if (this._rulesSection) this._rulesSection.hidden = !format.rules;
     if (this._propertiesSectionEl) this._propertiesSectionEl.hidden = !table && !format.names;
     if (this._csvBox) this._csvBox.hidden = !table;
     if (this._csvSep) this._csvSep.hidden = format.value === 'tsv';
@@ -568,8 +655,13 @@ export class ExportTool extends HBaseWidget {
         gephi: 'Network for Gephi: records are nodes, pointers and relationships between them are edges. At most 10,000 records.'
       }[format.value] || '');
     }
-    if (!this._problems) return;
+    if (!this._problems || !this._exportButton) return;
+    if (!this.isRendered) {
+      this._exportButton.disabled = true;
+      return;
+    }
     const problems = exportProblems(this.settings, this._context());
+    if (this._bottomExportButton) this._bottomExportButton.disabled = problems.length > 0 || this.isRunning();
     this._problems.replaceChildren(...problems.map((text) => {
       const item = element('div', 'h-export-problem');
       item.textContent = $HR(text);
@@ -595,34 +687,172 @@ export class ExportTool extends HBaseWidget {
     }
   }
 
-  /** Show a job with progress, Stop and the download link. */
+  /** Show a job with progress, Stop and the download link; the form is hidden while it runs. */
   _follow(job) {
     this.runningJob = job;
+    this._monitorBox.hidden = false;
     this.monitor?.destroy?.();
     this.monitor = new HJobMonitor();
     this.monitor.attach(this._monitorBox, {
       jobClient: this.jobs,
-      onFinish: (finished) => { this.runningJob = finished; this._refresh(); }
+      onFinish: (finished) => {
+        this.runningJob = finished;
+        this._rememberJob(finished);
+        this._setRunning(false);
+      }
     });
-    this.monitor.follow(job).catch((error) => this._showError(error));
-    this._refresh();
+    this.monitor.follow(job).catch((error) => {
+      this._showError(error);
+      this.runningJob = null;
+      this._setRunning(false);
+    });
+    this._setRunning(this.isRunning());
   }
 
-  /** After a page reload: show the user's running export. */
+  /** Open or close the dropdown of finished exports. */
+  _toggleResults() {
+    if (this._resultsButton.getAttribute?.('aria-expanded') === 'true') {
+      closePopover();
+      return;
+    }
+    showPopover(this._resultsButton, this._resultsList(), { className: 'h-export-results-popover' });
+  }
+
+  /**
+   * Finished exports of the user, newest first: mark, file name (download), date, size, open in
+   * a new tab, download; bottom panel: Remove marked, Remove all. The list kept from the last
+   * request is shown at once and refreshed.
+   */
+  _resultsList() {
+    const root = element('div', 'h-export-results');
+    const list = element('div', 'h-export-results-list');
+    const footer = element('div', 'h-export-results-footer');
+    const marked = new Set();
+    const removeMarked = element('button', 'h-btn h-btn-small');
+    removeMarked.type = 'button';
+    removeMarked.textContent = $HR('Remove marked');
+    removeMarked.disabled = true;
+    removeMarked.addEventListener('click', () => this._removeResults([...marked]));
+    const removeAll = element('button', 'h-btn h-btn-small');
+    removeAll.type = 'button';
+    removeAll.textContent = $HR('Remove all');
+    footer.append(removeMarked, removeAll);
+    root.append(list, footer);
+    let done = [];
+    const onMark = (job, on) => {
+      if (on) marked.add(job.id); else marked.delete(job.id);
+      removeMarked.disabled = marked.size === 0;
+    };
+    removeAll.addEventListener('click', () => this._removeResults(done.map((job) => job.id)));
+    const render = (jobs) => {
+      list.replaceChildren();
+      done = (Array.isArray(jobs) ? jobs : []).filter((job) => job.status === 'done' && job.result?.download);
+      for (const id of [...marked]) if (!done.some((job) => job.id === id)) marked.delete(id);
+      removeMarked.disabled = marked.size === 0;
+      removeAll.disabled = done.length === 0;
+      if (!done.length) {
+        list.append(Object.assign(element('div', 'h-muted h-export-results-empty'), { textContent: $HR('No export results') }));
+        return;
+      }
+      for (const job of done) list.append(this._resultRow(job, marked.has(job.id), onMark));
+    };
+    if (Array.isArray(this.exportJobs)) render(this.exportJobs);
+    else list.append(Object.assign(element('div', 'h-muted h-export-results-empty'), { textContent: $HR('Loading...') }));
+    this._loadExportJobs().then(render).catch((error) => {
+      list.replaceChildren(Object.assign(element('div', 'h-export-error'), { textContent: error?.message || String(error) }));
+    });
+    return root;
+  }
+
+  /** One finished export: mark, name (download), date, size, open in a new tab, download. */
+  _resultRow(job, checked, onMark) {
+    const row = element('div', 'h-export-results-row');
+    const url = this.jobs.resultUrl(job.id);
+    const mark = element('input', 'h-export-results-mark');
+    mark.type = 'checkbox';
+    mark.checked = checked;
+    mark.title = $HR('Mark');
+    mark.addEventListener('change', () => onMark(job, mark.checked));
+    const name = element('a', 'h-export-results-name');
+    name.href = url;
+    name.download = job.result.file || '';
+    name.textContent = job.result.file || job.title || job.id;
+    name.title = `${job.title || ''}${job.result.records ? ` - ${job.result.records} ${$HR('records')}` : ''}`;
+    const date = element('span', 'h-export-results-date h-muted');
+    date.textContent = formatDate(job.finishedAt);
+    const size = element('span', 'h-export-results-size h-muted');
+    size.textContent = formatSize(job.result.size);
+    // a zip cannot be shown in the browser
+    const open = element('a', 'heurist-icon-button h-export-results-icon');
+    if (/\.zip$/i.test(job.result.file || '')) {
+      open.classList.add('h-export-results-icon-none');
+    } else {
+      open.href = `${url}${url.includes('?') ? '&' : '?'}inline=1`;
+      open.target = '_blank';
+      open.rel = 'noopener';
+      open.title = $HR('Open in a new tab');
+      open.innerHTML = '<span class="fa-solid fa-up-right-from-square" aria-hidden="true"></span>';
+    }
+    const download = element('a', 'heurist-icon-button h-export-results-icon');
+    download.href = url;
+    download.download = job.result.file || '';
+    download.title = $HR('Download');
+    download.innerHTML = '<span class="fa-solid fa-download" aria-hidden="true"></span>';
+    row.append(mark, name, date, size, open, download);
+    return row;
+  }
+
+  /** Close the list at once (no second click), confirm with the Heurist dialog, remove the files. */
+  async _removeResults(ids) {
+    closePopover();
+    if (!ids.length) return;
+    const question = ids.length === 1
+      ? `${$HR('Remove export result')} "${(this.exportJobs || []).find((job) => job.id === ids[0])?.result?.file || ids[0]}"?`
+      : `${$HR('Remove export results')}: ${ids.length}?`;
+    if (!(await confirmDialog(question))) return;
+    const failed = [];
+    for (const id of ids) {
+      try {
+        await this.jobs.remove(id);
+        if (Array.isArray(this.exportJobs)) this.exportJobs = this.exportJobs.filter((item) => item.id !== id);
+      } catch (error) {
+        failed.push(error?.message || String(error));
+      }
+    }
+    if (failed.length) HMsg.showMsgErr(failed[0]);
+  }
+
+  /** After a page reload: show the user's running export; keep the list for Export results. */
   async _restoreJob() {
     try {
-      const jobs = await this.jobs.list();
-      const running = (Array.isArray(jobs) ? jobs : []).find((job) => job.type === 'export'
-        && ACTIVE_JOB_STATUSES.includes(job.status));
+      await this._loadExportJobs();
+      const running = (this.exportJobs || []).find((job) => ACTIVE_JOB_STATUSES.includes(job.status));
       if (running) this._follow(running);
     } catch (error) {
       console.warn('Export: running jobs are not available', error);
     }
   }
 
+  /** Export jobs of the user without their parameters (`GET /jobs?type=export&brief=1`). */
+  async _loadExportJobs() {
+    const jobs = await this.jobs.list({ type: 'export', brief: true });
+    this.exportJobs = (Array.isArray(jobs) ? jobs : []).filter((job) => job.type === 'export');
+    return this.exportJobs;
+  }
+
+  /** Put a finished job at the top of the kept list. */
+  _rememberJob(job) {
+    if (!job?.id || !Array.isArray(this.exportJobs)) return;
+    this.exportJobs = [job, ...this.exportJobs.filter((item) => item.id !== job.id)];
+  }
+
+  /** Warning with an icon: the server's own message (e.g. "Your export folder is full ..."). */
   _showError(error) {
     const box = element('div', 'h-export-problem h-export-error');
-    box.textContent = error?.message || String(error);
+    const icon = element('span', 'fa-solid fa-triangle-exclamation');
+    icon.setAttribute('aria-hidden', 'true');
+    box.append(icon, document.createTextNode(` ${errorText(error)}`));
+    this._monitorBox.hidden = false;
     this._monitorBox.replaceChildren(box);
   }
 
@@ -641,13 +871,19 @@ export class ExportTool extends HBaseWidget {
         Object.assign(state, saved, {
           values: { ...state.values, ...saved.values },
           csv: { ...state.csv, ...saved.csv },
-          columns: saved.columns && typeof saved.columns === 'object' ? saved.columns : {}
+          columns: saved.columns && typeof saved.columns === 'object' ? saved.columns : {},
+          columnModes: saved.columnModes && typeof saved.columnModes === 'object' ? saved.columnModes : {}
         });
+        // settings saved before 2026-10-07: one-character separator
+        if (String(state.csv.mvsep).length !== 1) state.csv.mvsep = '|';
+        if (!EXPORT_FORMATS.some((item) => item.value === state.format)) state.format = 'xml';
       }
     } catch {
       // private window or blocked storage: defaults
     }
-    if (!(this.source?.presentation?.data?.fields || []).length) state.useColumns = false;
+    // checked whenever the tool opens (not remembered)
+    state.values.pointerTitle = true;
+    state.values.termHierarchy = true;
     return state;
   }
 
@@ -713,7 +949,63 @@ function addOptions(parent, options) {
   });
 }
 
-/** 1000 → "1K", 500000 → "500K". */
+/**
+ * Heurist confirmation dialog (HMsg): resolves true for the confirm button.
+ *
+ * @param {string} message Question.
+ * @returns {Promise<boolean>}
+ */
+function confirmDialog(message) {
+  return new Promise((resolve) => {
+    let settled = false;
+    const finish = (value) => {
+      if (settled) return;
+      settled = true;
+      HMsg.closeMsgDlg?.();
+      resolve(value);
+    };
+    const text = document.createElement('div');
+    text.textContent = message;
+    const dialog = HMsg.showMsgDlg(text, {
+      title: 'Please confirm',
+      buttons: [
+        { label: $HR('Remove'), class: 'h-btn h-btn-primary', onClick: () => finish(true) },
+        { label: $HR('Cancel'), class: 'h-btn', onClick: () => finish(false) }
+      ]
+    });
+    dialog?.addEventListener?.('close', () => finish(false), { once: true });
+  });
+}
+
+/**
+ * Message of an error for the user: the server's message (without the API client's
+ * "Heurist API request failed:" prefix), else the error text.
+ *
+ * @param {*} error Error or HeuristApiError.
+ * @returns {string}
+ */
+function errorText(error) {
+  const details = error?.details;
+  const server = details?.message ?? details?.error?.message;
+  if (typeof server === 'string' && server.trim()) return server.trim();
+  return String(error?.message || error || '').replace(/^Heurist API request failed:\s*/, '');
+}
+
+/** Local date and time of a job time (seconds). */
+function formatDate(seconds) {
+  const date = new Date(Number(seconds) * 1000);
+  return Number.isNaN(date.getTime()) || !seconds ? '' : date.toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' });
+}
+
+/** "12 KB" */
+function formatSize(bytes) {
+  const value = Number(bytes) || 0;
+  if (value < 1024) return `${value} B`;
+  if (value < 1024 * 1024) return `${Math.round(value / 1024)} KB`;
+  return `${(value / 1024 / 1024).toFixed(1)} MB`;
+}
+
+/** 50 → "50", 1000 → "1K", 500000 → "500K". */
 function formatCount(value) {
   return value >= 1000 ? `${value / 1000}K` : String(value);
 }

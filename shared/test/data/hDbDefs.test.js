@@ -147,14 +147,28 @@ test('vocabRoot()', () => {
   assert.equal(d.vocabRoot(1), 0); // freetext, no vocabulary
 });
 
-test('term() / termLabel()', () => {
+test('term() / termLabel(): the names of the report field tree', () => {
   const d = defs();
   const t = d.term(460);
-  assert.equal(t.label, 'English (EN, ENG)');
+  assert.deepEqual(Object.keys(t).sort(), ['code', 'conceptid', 'desc', 'internalid', 'term'],
+    'internalid, term, code, conceptid, desc - nothing else');
+  assert.equal(t.internalid, 460);
+  assert.equal(t.term, 'English (EN, ENG)');
   assert.equal(t.code, 'ENG');
-  assert.equal(t.concept, '2-460');
+  assert.equal(t.conceptid, '2-460');
+  assert.equal(typeof t.desc, 'string');
   assert.equal(d.termLabel(460), 'English (EN, ENG)');
   assert.equal(d.term(999999), null);
+});
+
+test('term(): snapshot format 3 (term, conceptid, desc) and older snapshots (label, concept)', () => {
+  const meta = { dbId: 7, format: 3 };
+  const current = new HDbDefs({ meta, terms: { 5: { term: 'Red', conceptid: '7-5', code: 'R', desc: 'colour' } } });
+  assert.deepEqual(current.term(5), { internalid: 5, term: 'Red', code: 'R', conceptid: '7-5', desc: 'colour' });
+  assert.equal(current.localId('trm', '7-5'), 5);
+  const older = new HDbDefs({ meta, terms: { 5: { label: 'Red', concept: '7-5' } } });
+  assert.deepEqual(older.term(5), { internalid: 5, term: 'Red', code: '', conceptid: '7-5', desc: '' });
+  assert.equal(older.conceptId('trm', 5), '7-5');
 });
 
 test('termChildren() / termTree() / termDescendants()', () => {
@@ -163,12 +177,12 @@ test('termChildren() / termTree() / termDescendants()', () => {
   assert.ok(kids.includes(460) && kids.includes(461));
 
   const tree = d.termTree(496);
-  assert.equal(tree.id, 496);
+  assert.equal(tree.internalid, 496);
   assert.ok(Array.isArray(tree.children));
-  assert.ok(tree.children.some((n) => n.id === 460));
+  assert.ok(tree.children.some((n) => n.internalid === 460 && n.term === 'English (EN, ENG)'));
 
   const flat = d.termTree(496, { flat: true });
-  assert.ok(flat.some((n) => n.id === 460));
+  assert.ok(flat.some((n) => n.internalid === 460));
 
   const desc = d.termDescendants([496]);
   assert.ok(desc.includes(496) && desc.includes(460));

@@ -241,7 +241,7 @@
 .h-reports-generated-popover { width: 520px; }
 .h-reports-generated-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto auto auto;
+  grid-template-columns: auto minmax(0, 1fr) auto auto auto auto;
   align-items: center;
   gap: 6px;
   padding: 3px 8px;
@@ -264,6 +264,15 @@
 .h-reports-generated-size { white-space: nowrap; font-size: var(--h-font-size-small, 11px); }
 .h-reports-generated-large { color: var(--h-color-warning, #9a5b00); font-weight: bold; }
 .h-reports-generated-empty { padding: 10px; }
+.h-reports-generated-mark { margin: 0; }
+/* bottom panel: Remove marked, Remove all (as Export results in Explorer) */
+.h-reports-generated-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+  padding: 6px 8px;
+  border-top: 1px solid var(--h-color-border, #cfd4da);
+}
 .h-reports-icon { text-decoration: none; }
 
 /* schedules dialog */

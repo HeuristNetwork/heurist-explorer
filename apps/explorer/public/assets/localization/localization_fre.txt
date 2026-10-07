@@ -332,3 +332,34 @@
 #Remove all fields#Retirer tous les champs
 #Use the expansion rules of the data source#Utiliser les règles d'expansion de la source de données
 #Without them record types, fields and terms are identified by concept codes only.#Sans eux, les types d'enregistrements, les champs et les termes sont identifiés uniquement par leurs codes de concept.
+#Custom#Personnalisé
+#Fields written as properties / attributes.#Champs écrits comme propriétés / attributs.
+#Full info#Informations complètes
+#Human readable#Lisible
+#Metadata#Métadonnées
+#Minimal#Minimal
+#Raw#Brut
+#Temporals#Dates
+#Terms hierarchy#Hiérarchie des termes
+#The first column is always H-ID (record ID).#La première colonne est toujours H-ID (identifiant).
+#Title for target pointers#Titre des enregistrements pointés
+#Use data source settings#Utiliser les paramètres de la source de données
+#column fields#champs de colonnes
+#geo fields#champs géographiques
+#time fields#champs temporels
+#Delete file#Supprimer le fichier
+#Export results#Résultats d'export
+#Gephi#Gephi
+#No export results#Aucun résultat d'export
+#The server exports at most#Le serveur exporte au plus
+#at most#au plus
+#records (expanded records included)#enregistrements (enregistrements liés compris)
+#Delete#Supprimer
+#Please confirm#Veuillez confirmer
+#Remove marked#Retirer les fichiers marqués
+#Remove all#Tout retirer
+#Mark#Marquer
+#Open in a new tab#Ouvrir dans un nouvel onglet
+#Remove export result#Retirer le résultat d’export
+#Remove export results#Retirer les résultats d’export
+#The file is created on the server; only you can download it. It is kept for 24 hours.#Le fichier est créé sur le serveur ; vous seul pouvez le télécharger. Il est conservé 24 heures.

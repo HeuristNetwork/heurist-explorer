@@ -21,6 +21,7 @@
     display: flex;
     flex-direction: column;
     gap: 10px;
+    min-width: 380px;
     max-width: 980px;
     padding: 10px 14px 16px;
     box-sizing: border-box;
@@ -110,20 +111,42 @@
     border-radius: var(--h-radius, 4px);
 }
 
-.h-export-rectype-summary {
-    padding: 5px 8px;
-    cursor: pointer;
+/* record type name and its column preset (minimal | metadata | all | custom) */
+.h-export-rectype-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 4px 12px;
+    padding: 4px 8px;
+}
+
+.h-export-rectype-name {
     font-weight: 600;
 }
 
-.h-export-rectype-body {
-    padding: 4px 8px 8px;
+.h-export-modes {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: 2px 10px;
 }
 
-/* the column editor is used inside the form: no dialog minimum width
-   (compact rows come from QuerySourceHelpers.css) */
-.h-export-rectype-body .h-qse-helper {
-    min-width: 0;
+.h-export-rectype-body {
+    padding: 0 4px 4px;
+}
+
+.h-export-rectype-body[hidden],
+.h-export-source-fields[hidden],
+.h-export-source-fields .h-export-check[hidden] {
+    display: none;
+}
+
+/* "Use data source settings: [] column fields [] geo fields [] time fields" */
+.h-export-source-fields {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 12px;
 }
 
 .h-export-rules.is-off {
@@ -135,27 +158,38 @@
     padding-left: 18px;
 }
 
-.h-export-footer {
+.h-export-toolbar {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
+    gap: 6px;
+}
+
+.h-export-toolbar[hidden],
+.h-export-problems[hidden],
+.h-export-form[hidden] {
+    display: none;
+}
+
+.h-export-form {
+    display: flex;
+    flex-direction: column;
     gap: 10px;
 }
 
-.h-export-problems {
-    flex: 1 1 100%;
+.h-export-problems:empty,
+.h-export-monitor[hidden] {
+    display: none;
 }
 
-.h-export-problem {
-    color: var(--h-color-text-muted);
+.h-export-bottom {
+    display: flex;
+    justify-content: flex-start;
 }
 
-.h-export-error {
-    color: #b42318;
-}
-
+/* in the column of the tool: only the height of the job monitor */
 .h-export-monitor {
-    flex: 1 1 320px;
+    flex: 0 0 auto;
     min-width: 0;
 }
 
@@ -180,4 +214,82 @@
         grid-template-columns: 1fr;
         gap: 2px;
     }
+}
+
+/* "Export results" dropdown: same layout as the generated files of the reports manager */
+.h-export-results-popover {
+    width: 520px;
+}
+
+.h-export-results {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    flex: 1 1 auto;
+}
+
+.h-export-results-list {
+    overflow: auto;
+    min-height: 0;
+    flex: 1 1 auto;
+}
+
+.h-export-results-row {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto auto auto auto;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 8px;
+    border-bottom: 1px solid #f0f2f4;
+}
+
+.h-export-results-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    padding: 2px 0;
+    color: var(--h-color-link, #315b8a);
+    text-decoration: none;
+}
+
+.h-export-results-name:hover {
+    text-decoration: underline;
+}
+
+.h-export-results-date,
+.h-export-results-size {
+    white-space: nowrap;
+    font-size: var(--h-font-size-small, 11px);
+}
+
+.h-export-results-empty {
+    padding: 10px;
+}
+
+.h-export-results-mark {
+    margin: 0;
+}
+
+/* no "open in a new tab" for a zip: keep the column */
+.h-export-results-icon-none {
+    visibility: hidden;
+}
+
+/* bottom panel of the dropdown: Remove marked, Remove all */
+.h-export-results-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 6px;
+    padding: 6px 8px;
+    border-top: 1px solid var(--h-color-border, #cfd4da);
+}
+
+
+/* a refused export (e.g. "Your export folder is full ..."): the reports manager's warning icon */
+.h-export-error {
+    color: var(--h-color-text);
+}
+
+.h-export-error .fa-triangle-exclamation {
+    color: var(--h-color-warning, #b45309);
 }

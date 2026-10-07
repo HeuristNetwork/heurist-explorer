@@ -252,3 +252,10 @@
 #Yes#Oui
 #Your user id is added to the name. For a shared file add a schedule.#Votre identifiant d'utilisateur est ajouté au nom. Pour un fichier partagé, ajoutez une planification.
 #Download#Télécharger
+#Remove marked#Retirer les fichiers marqués
+#Remove all#Tout retirer
+#Remove generated file#Retirer le fichier généré
+#Remove generated files#Retirer les fichiers générés
+#Mark#Marquer
+#Open in a new tab#Ouvrir dans un nouvel onglet
+#Remove#Retirer

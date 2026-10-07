@@ -31,3 +31,21 @@ test('relationship hops are r; saved lt/lf/rt/rf relationship hops are repaired'
   assert.equal(normalizeFieldDescriptors(['10:lt155:14:28'], dbdefs)[0].field, '10:r155:14:28');
   assert.equal(fieldCodeLabel('10:r155:14:28', dbdefs), 'Located at > Location');
 });
+
+test('header (metadata) leaves give /records header codes, also for linked records', async () => {
+  const { fieldCodeLabel, fieldPathLabel } = await import('../src/widgets/query-source/helpers/fieldPathUtils.js');
+  // the record itself: no record type prefix (was "10" = field 10 "Start date")
+  assert.equal(fieldPathCode([{ dty: 'title', fieldType: 'freetext' }], 10), 'rec_Title');
+  assert.equal(fieldPathCode([{ dty: 'ids', fieldType: 'integer' }], 10), 'rec_ID');
+  assert.equal(fieldPathCode([{ dty: 'added', fieldType: 'date' }], 10), 'rec_Added');
+  // linked records: the header field ends the path (was "10:lt241:12", refused by the server)
+  const linked = [{ via: { link: 'lt', dty: 241, targetRty: 12 } }, { dty: 'ids', fieldType: 'integer' }];
+  assert.equal(fieldPathCode(linked, 10), '10:lt241:12:rec_ID');
+  assert.equal(fieldPathCode([{ via: { link: 'lf', dty: 134, targetRty: 12 } }, { dty: 'title' }], 10), '10:lf134:12:rec_Title');
+  // a leaf that is not an output field gives no code
+  assert.equal(fieldPathCode([{ dty: 'anyfield' }], 10), '');
+  const dbdefs = { fieldGlobal: (id) => ({ 241: { name: 'Place of death' }, 10: { name: 'Start date' } }[id] || null) };
+  assert.equal(fieldCodeLabel('rec_Title', dbdefs), 'Title');
+  assert.equal(fieldCodeLabel('10:lt241:12:rec_ID', dbdefs), 'Place of death > Record ID');
+  assert.equal(fieldPathLabel(linked, dbdefs), 'Place of death > Record ID');
+});

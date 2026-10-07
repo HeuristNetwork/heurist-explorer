@@ -14,7 +14,25 @@
  */
 
 /**
+ * Header (metadata) leaves of the field tree → header field codes of `/records`
+ * (`fields=rec_Title`, linked: `10:lt241:12:rec_ID`).
+ */
+const HEADER_LEAF_CODES = {
+  ids: 'rec_ID',
+  title: 'rec_Title',
+  added: 'rec_Added',
+  modified: 'rec_Modified',
+  addedby: 'rec_AddedByUGrpID',
+  url: 'rec_URL',
+  owner: 'rec_OwnerUGrpID',
+  access: 'rec_NonOwnerVisibility',
+  notes: 'rec_ScratchPad'
+};
+
+/**
  * Encode a field-tree selection path as a persisted field/path code (e.g. `123:lt45:678`).
+ * A header leaf (ID, Title, Added, ...) gives its `/records` header code: `rec_Title` for
+ * the record itself, `123:lt45:678:rec_ID` for linked records.
  * @param {Array} [path] Field-tree path steps, root to leaf.
  * @param {number|null} [rootRtyId] Root record type id, prefixed when the path starts below it.
  * @returns {string} The path code, or '' if the path cannot be encoded.
@@ -22,6 +40,9 @@
 export function fieldPathCode(path = [], rootRtyId = null) {
   if (!Array.isArray(path) || !path.length) return '';
   if (path.length === 1 && path[0]?.code) return String(path[0].code);
+  const leafHeader = HEADER_LEAF_CODES[String(path.at(-1)?.dty ?? '').toLowerCase()] || null;
+  // a header field of the record itself does not depend on the record type
+  if (leafHeader && path.length === 1) return leafHeader;
   const root = Number(rootRtyId);
   const parts = root > 0 ? [String(root)] : [];
   for (const step of path) {
@@ -34,6 +55,10 @@ export function fieldPathCode(path = [], rootRtyId = null) {
       if (Number(via.targetRty) > 0) parts.push(String(Number(via.targetRty)));
     } else if (Number(step?.dty) > 0) {
       parts.push(String(Number(step.dty)));
+    } else if (step === path.at(-1) && leafHeader) {
+      parts.push(leafHeader);
+    } else {
+      return ''; // a leaf that is not an output field (e.g. "Any field")
     }
   }
   return parts.join(':');
@@ -51,6 +76,9 @@ export function fieldPathLabel(path = [], dbdefs) {
   for (const step of path) {
     if (step?.label) labels.push(step.label);
     else if (step?.code) labels.push(headerFieldLabel(step.code));
+    else if (HEADER_LEAF_CODES[String(step?.dty ?? '').toLowerCase()]) {
+      labels.push(headerFieldLabel(HEADER_LEAF_CODES[String(step.dty).toLowerCase()]));
+    }
     else if (step?.via) {
       const via = step.via;
       const field = dbdefs?.fieldGlobal?.(Number(via.dty));
@@ -90,6 +118,8 @@ export function fieldCodeLabel(code, dbdefs) {
   if (final && /^\d+$/.test(final)) {
     const field = dbdefs?.fieldGlobal?.(Number(final));
     if (field?.name) labels.push(field.name);
+  } else if (final && /^rec_/i.test(final)) {
+    labels.push(headerFieldLabel(final)); // header field of linked records
   }
   return labels.length ? labels.join(' > ') : text;
 }
@@ -141,6 +171,11 @@ function headerFieldLabel(code) {
     rec_Title: 'Title',
     rec_RecTypeID: 'Record type',
     rec_Modified: 'Modified',
-    rec_Added: 'Added'
+    rec_Added: 'Added',
+    rec_AddedByUGrpID: 'Creator',
+    rec_URL: 'URL',
+    rec_OwnerUGrpID: 'Owner',
+    rec_NonOwnerVisibility: 'Visibility',
+    rec_ScratchPad: 'Notes'
   })[String(code)] || String(code).replace(/^rec_/, '').replace(/_/g, ' ');
 }

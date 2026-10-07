@@ -198,6 +198,22 @@ export class HJobMonitor extends HBaseWidget {
         size.textContent = ` (${formatSize(Number(job.result.size))})`;
         result.append(size);
       }
+      // shown in the browser (?inline=1); a zip can only be downloaded
+      if (!/\.zip$/i.test(job.result.file || '')) {
+        const url = link.href;
+        const open = document.createElement('a');
+        open.className = 'heurist-icon-button h-job-monitor-open';
+        open.href = `${url}${url.includes('?') ? '&' : '?'}inline=1`;
+        open.target = '_blank';
+        open.rel = 'noopener';
+        open.title = $HR('Open in a new tab');
+        open.setAttribute('aria-label', open.title);
+        const icon = document.createElement('span');
+        icon.className = 'fa-solid fa-up-right-from-square';
+        icon.setAttribute('aria-hidden', 'true');
+        open.append(icon);
+        result.append(' ', open);
+      }
     } else if (job.status === 'done' && job.result?.url) {
       const link = document.createElement('a');
       link.href = job.result.url;

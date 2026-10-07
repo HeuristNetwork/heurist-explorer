@@ -97,7 +97,8 @@ export class HRuleBuilder extends HBaseWidget {
       const finish = async (apply) => {
         if (finished) return;
         finished = true;
-        const value = apply ? this.getRules() : null;
+        // the same source, link and target can be added several times: keep one of each
+        const value = apply ? dedupeRules(this.getRules()) : null;
         HMsg.closeMsgDlg(id);
         await this.destroy();
         resolve(value == null ? null : clone(value));
@@ -792,4 +793,41 @@ function button(text, title, onClick) {
 function iconButton(icon, title, onClick) {
   const el = button('', title, onClick); el.classList.add('h-btn-small', 'h-rule-icon'); el.innerHTML = `<i class="fa-solid ${icon}" aria-hidden="true"></i>`; return el;
 }
+/**
+ * Rules without duplicates: two rules are the same when their queries and their steps
+ * (compared the same way, at every level) are equal; names and descriptions are ignored.
+ * The first of the same rules is kept, in the original order.
+ *
+ * @param {Array<object>} rules Expansion rules.
+ * @returns {Array<object>} Rules without duplicates (steps deduplicated too).
+ */
+export function dedupeRules(rules) {
+  if (!Array.isArray(rules)) return [];
+  const seen = new Set();
+  const result = [];
+  for (const rule of rules) {
+    if (!rule || typeof rule !== 'object') continue;
+    const levels = dedupeRules(rule.levels || []);
+    const key = stableJson({ query: rule.query ?? null, levels: levels.map(ruleKeyPart) });
+    if (seen.has(key)) continue;
+    seen.add(key);
+    result.push(Array.isArray(rule.levels) ? { ...rule, levels } : rule);
+  }
+  return result;
+}
+
+/** The part of a rule that defines what it reaches (query and steps). */
+function ruleKeyPart(rule) {
+  return { query: rule?.query ?? null, levels: (rule?.levels || []).map(ruleKeyPart) };
+}
+
+/** JSON with sorted object keys, so equal queries give equal text. */
+function stableJson(value) {
+  if (Array.isArray(value)) return `[${value.map(stableJson).join(',')}]`;
+  if (value && typeof value === 'object') {
+    return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${stableJson(value[key])}`).join(',')}}`;
+  }
+  return JSON.stringify(value ?? null);
+}
+
 function clone(value) { return value == null ? value : (typeof structuredClone === 'function' ? structuredClone(value) : JSON.parse(JSON.stringify(value))); }

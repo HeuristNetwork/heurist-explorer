@@ -23,7 +23,9 @@ import { confirmDialog } from './formDialog.js';
 export const LARGE_FILE = 5 * 1024 * 1024;
 
 /**
- * Build the list of generated files of a report.
+ * Build the list of generated files of a report: mark, name (shows the file), date, size,
+ * open in a new window, download; bottom panel: Remove marked, Remove all (same layout as
+ * the Export results of Explorer).
  *
  * @param {import('../core/ReportsApplication.js').ReportsApplication} app Controller.
  * @param {object} report Selected report.
@@ -35,16 +37,52 @@ export const LARGE_FILE = 5 * 1024 * 1024;
 export function buildGeneratedList(app, report, { onShow, onClose }) {
   const root = el('div', 'h-reports-generated');
   const list = el('div', 'h-reports-generated-list', root);
+  const footer = el('div', 'h-reports-generated-footer', root);
+  const removeMarked = el('button', 'h-btn h-btn-small', footer);
+  removeMarked.type = 'button';
+  removeMarked.textContent = $HR('Remove marked');
+  removeMarked.disabled = true;
+  const removeAll = el('button', 'h-btn h-btn-small', footer);
+  removeAll.type = 'button';
+  removeAll.textContent = $HR('Remove all');
+  removeAll.disabled = true;
   el('div', 'h-muted h-reports-generated-empty', list).textContent = $HR('Loading...');
 
-  const render = (files) => {
+  const marked = new Set();
+  let files = [];
+
+  /** Close the list at once (no second click), confirm, remove the files one by one. */
+  const remove = (names) => run(async () => {
+    onClose();
+    if (!names.length) return;
+    const question = names.length === 1
+      ? `${$HR('Remove generated file')} "${names[0]}"?`
+      : `${$HR('Remove generated files')}: ${names.length}?`;
+    if (!(await confirmDialog(question, { yesLabel: 'Remove' }))) return;
+    for (const name of names) await app.deleteGenerated(name);
+  });
+  removeMarked.addEventListener('click', () => remove([...marked]));
+  removeAll.addEventListener('click', () => remove(files.map((file) => file.file)));
+
+  const render = (items) => {
+    files = Array.isArray(items) ? items : [];
     list.replaceChildren();
+    marked.clear();
+    removeMarked.disabled = true;
+    removeAll.disabled = files.length === 0;
     if (!files.length) {
       el('div', 'h-muted h-reports-generated-empty', list).textContent = $HR('No generated files for this report');
       return;
     }
     for (const file of files) {
       const row = el('div', 'h-reports-generated-row', list);
+      const mark = el('input', 'h-reports-generated-mark', row);
+      mark.type = 'checkbox';
+      mark.title = $HR('Mark');
+      mark.addEventListener('change', () => {
+        if (mark.checked) marked.add(file.file); else marked.delete(file.file);
+        removeMarked.disabled = marked.size === 0;
+      });
       const name = el('button', 'h-reports-generated-name', row);
       name.type = 'button';
       name.textContent = file.file;
@@ -67,11 +105,11 @@ export function buildGeneratedList(app, report, { onShow, onClose }) {
       open.rel = 'noopener';
       open.title = $HR('Open in a new window');
       el('i', 'fa-solid fa-up-right-from-square', open).setAttribute('aria-hidden', 'true');
-      button(row, 'fa-solid fa-trash', 'Delete file', async () => {
-        if (!(await confirmDialog(`${$HR('Delete file')} "${file.file}"?`, { yesLabel: 'Delete' }))) return;
-        await app.deleteGenerated(file.file);
-        render(await app.generatedFiles(report));
-      });
+      const download = el('a', 'heurist-icon-button h-reports-icon', row);
+      download.href = file.url;
+      download.download = file.file;
+      download.title = $HR('Download');
+      el('i', 'fa-solid fa-download', download).setAttribute('aria-hidden', 'true');
     }
   };
 
@@ -80,17 +118,6 @@ export function buildGeneratedList(app, report, { onShow, onClose }) {
     el('div', 'h-reports-warning', list).textContent = error?.message || String(error);
   });
   return root;
-}
-
-/** Icon button that runs an action and shows its error. */
-function button(parent, icon, title, action) {
-  const element = el('button', 'heurist-icon-button h-reports-icon', parent);
-  element.type = 'button';
-  element.title = $HR(title);
-  element.setAttribute('aria-label', element.title);
-  el('i', icon, element).setAttribute('aria-hidden', 'true');
-  element.addEventListener('click', () => run(action));
-  return element;
 }
 
 /** Run an action and show its error. */

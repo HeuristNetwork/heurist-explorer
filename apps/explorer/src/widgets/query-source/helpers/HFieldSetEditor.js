@@ -61,17 +61,9 @@ export class HFieldSetEditor extends HFieldSelectionEditor {
     width.title = $HR('Width');
     width.addEventListener('input', () => { field.width = width.value || null; });
 
-    const aggregation = document.createElement('select');
-    aggregation.className = 'h-select h-qse-fieldset-aggregation';
-    for (const [value, label] of [['', ''], ['count', 'Count'], ['sum', 'Sum'], ['avg', 'Average'], ['min', 'Minimum'], ['max', 'Maximum']]) {
-      const option = document.createElement('option'); option.value = value; option.textContent = label; aggregation.append(option);
-    }
-    aggregation.value = field.aggregation || '';
-    aggregation.title = $HR('Aggregation');
-    aggregation.addEventListener('change', () => { field.aggregation = aggregation.value || null; });
-
+    // aggregation is not offered here (Crosstabs); a stored value is kept in the field
     const remove = smallButton('×', $HR('Remove'), () => { this.fields.splice(index, 1); this._renderRows(); });
-    row.append(drag, visible, name, title, width, aggregation, remove);
+    row.append(drag, visible, name, title, width, remove);
     return row;
   }
 }

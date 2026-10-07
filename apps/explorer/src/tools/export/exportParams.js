@@ -1,11 +1,15 @@
 /**
  * @file exportParams.js
- * @brief Pure helpers of the Export tool: settings, column fields per record type and job parameters.
+ * @brief Pure helpers of the Export tool: settings, columns per record type and job parameters.
  *
  * The Export tool (plan 13) starts the background job type "export"; the server checks
  * the parameters again (srv/Records/Export/ExportRequest.php). Field codes are those of
  * the /records `fields` parameter and of the QSE column fields; enum outputs use the
  * report names term | code | conceptid | desc | internalid.
+ *
+ * Columns of a record type = its preset (minimal | metadata | all | custom; custom without
+ * fields = minimal) merged with the marked data source settings (column fields, geo fields,
+ * time fields) that fit the record type.
  *
  * @project     Heurist academic knowledge management system
  * @package     heurist-explorer
@@ -19,28 +23,39 @@
  */
 
 /**
- * Export formats: value, caption, whether columns (and value formats) are used,
- * whether columns are required, whether the "names and local ids" option applies.
+ * Export formats: value, caption and what applies to them - columns (with value formats),
+ * expansion rules, geo fields (geometry), the "names and local ids" option.
  */
 export const EXPORT_FORMATS = [
-  { value: 'csv', label: 'CSV (comma-separated)', columns: true, required: true, names: false },
-  { value: 'tsv', label: 'TSV (tab-separated)', columns: true, required: true, names: false },
-  { value: 'json', label: 'JSON', columns: false, required: false, names: true },
-  { value: 'geojson', label: 'GeoJSON', columns: true, required: false, names: false },
-  { value: 'kml', label: 'KML', columns: true, required: false, names: false },
-  { value: 'xml', label: 'XML (HML)', columns: false, required: false, names: true },
-  { value: 'gephi', label: 'Gephi (GEXF)', columns: true, required: false, names: false }
+  { value: 'xml', label: 'XML (HML)', columns: false, rules: true, geo: false, names: true },
+  { value: 'json', label: 'JSON', columns: false, rules: true, geo: false, names: true },
+  { value: 'csv', label: 'CSV (comma-separated)', columns: true, rules: false, geo: false, names: false },
+  { value: 'tsv', label: 'TSV (tab-separated)', columns: true, rules: false, geo: false, names: false },
+  { value: 'geojson', label: 'GeoJSON', columns: true, rules: false, geo: true, names: false },
+  { value: 'kml', label: 'KML', columns: true, rules: false, geo: true, names: false },
+  { value: 'gephi', label: 'Gephi (GEXF)', columns: true, rules: true, geo: false, names: false }
 ];
 
-/** Value format choices per field type (first = default); used by the formats with columns only. */
+/** Value format choices (first = default); used by the formats with columns only. */
 export const VALUE_CHOICES = {
-  date: [['asis', 'As stored (temporal objects as JSON)'], ['start', 'Start date'], ['range', 'Start and end date']],
-  file: [['url', 'File URL'], ['id', 'File ID'], ['details', 'File details (ID, name, type, URL)']],
-  pointer: [['id', 'Record ID'], ['title', 'Record ID and title']],
-  enum: [['term', 'Term'], ['code', 'Code'], ['conceptid', 'Concept ID'], ['desc', 'Description'], ['internalid', 'Internal ID']]
+  date: [['raw', 'Raw'], ['readable', 'Human readable']],
+  file: [['url', 'File URL'], ['details', 'Full info'], ['id', 'ID']]
 };
 
-/** "Any" link kinds of the expansion (the "Any" group of the rule builder). */
+/** Column presets of a record type. */
+export const COLUMN_MODES = [['minimal', 'Minimal'], ['metadata', 'Metadata'], ['all', 'All'], ['custom', 'Custom']];
+
+/** Minimal columns: record id, record type and title. */
+export const MINIMAL_FIELDS = ['rec_ID', 'rec_RecTypeID', 'rec_Title'];
+
+/** Metadata columns: the minimal columns and the other header fields. */
+export const METADATA_FIELDS = [...MINIMAL_FIELDS, 'rec_URL', 'rec_Added', 'rec_Modified', 'rec_AddedByUGrpID',
+  'rec_OwnerUGrpID', 'rec_NonOwnerVisibility'];
+
+/** Field types that have no values to export (layout and relationship markers). */
+const NO_VALUE_TYPES = new Set(['separator', 'relmarker']);
+
+/** "Any" link kinds of the expansion. */
 export const ANY_LINK_KINDS = [
   ['connected', 'Any pointer or relationship'],
   ['links', 'Any pointer'],
@@ -53,7 +68,7 @@ export const ANY_LINK_KINDS = [
 export const ANY_DEPTHS = [1, 2, 3, 4];
 
 /** Record limit choices (0 = all). */
-export const LIMIT_CHOICES = [0, 1000, 5000, 10000, 100000, 500000];
+export const LIMIT_CHOICES = [0, 50, 1000, 5000, 10000, 100000, 500000];
 
 /** Records of a Gephi export at most (server: ExportRequest::GEPHI_MAX). */
 export const GEPHI_MAX = 10000;
@@ -62,14 +77,17 @@ export const GEPHI_MAX = 10000;
 export function defaultExportState() {
   return {
     scope: 'result',
-    format: 'csv',
-    useColumns: true,
+    format: 'xml',
+    columnModes: {},
     columns: {},
+    useColumnFields: true,
+    useGeoFields: true,
+    useTimeFields: true,
     rulesMode: 'none',
     anyKind: 'connected',
     anyDepth: 1,
     customRules: null,
-    values: { date: 'asis', file: 'url', pointer: 'id', enum: 'term' },
+    values: { date: 'raw', file: 'url', pointerTitle: true, termHierarchy: true },
     csv: { sep: ',', quote: '"', mvsep: '|', header: true, eol: 'nix' },
     names: false,
     limit: 0,
@@ -81,7 +99,7 @@ export function defaultExportState() {
  * Format descriptor.
  *
  * @param {string} format Format value.
- * @returns {{value:string,label:string,columns:boolean,required:boolean,names:boolean}}
+ * @returns {{value:string,label:string,columns:boolean,rules:boolean,geo:boolean,names:boolean}}
  */
 export function exportFormat(format) {
   return EXPORT_FORMATS.find((item) => item.value === format) || EXPORT_FORMATS[0];
@@ -106,6 +124,16 @@ export function scopeRecordType(scope) {
  */
 export function limitChoices(format) {
   return format === 'gephi' ? LIMIT_CHOICES.filter((value) => value > 0 && value <= GEPHI_MAX) : LIMIT_CHOICES;
+}
+
+/**
+ * The limit after a format change: "All", or the largest choice of Gephi.
+ *
+ * @param {string} format Format value.
+ * @returns {number}
+ */
+export function defaultLimit(format) {
+  return limitChoices(format)[0] === 0 ? 0 : limitChoices(format).at(-1);
 }
 
 /**
@@ -151,11 +179,11 @@ export function fieldCodeRecordType(code) {
 }
 
 /**
- * Column fields of the DataSource that fit one record type: header fields, fields of
- * its structure and paths that start from it. The QSE "id" enum output is kept; the
- * server reads it as "internalid".
+ * Fields of the DataSource (column, geo or time fields) that fit one record type: header
+ * fields, fields of its structure and paths that start from it. The QSE "id" enum output
+ * is kept; the server reads it as "internalid".
  *
- * @param {Array<object>} fields DataSource column fields (`presentation.data.fields`).
+ * @param {Array<object|string>} fields Field descriptors or codes.
  * @param {number} rtyId Record type.
  * @param {object|null} dbdefs Definitions (HDbDefs); without them every plain field fits.
  * @returns {Array<{field:string,title:string,ext?:string}>}
@@ -179,13 +207,85 @@ export function columnsForRecordType(fields, rtyId, dbdefs = null) {
 }
 
 /**
- * Expansion rules of the settings, or null for none.
+ * Column, geo and time fields of a DataSource.
+ *
+ * @param {object|null} source DataSource.
+ * @returns {{columns:Array, geo:string[], time:string[]}}
+ */
+export function dataSourceFields(source) {
+  const presentation = source?.presentation || {};
+  const codes = (list) => (Array.isArray(list) ? list : [])
+    .map((item) => String(typeof item === 'object' && item ? item.field ?? '' : item ?? '').trim())
+    .filter(Boolean);
+  return {
+    columns: Array.isArray(presentation.data?.fields) ? presentation.data.fields : [],
+    geo: codes(presentation.map?.geoFields ?? presentation.map?.geofields),
+    time: codes(presentation.timeline?.fields ?? presentation.timeline?.timefields)
+  };
+}
+
+/**
+ * Columns of the preset of a record type.
+ *
+ * @param {string} mode minimal | metadata | all | custom.
+ * @param {number} rtyId Record type.
+ * @param {Array<object>} custom Custom columns (custom without fields = minimal).
+ * @param {object|null} dbdefs Definitions (fields of the record type for "all").
+ * @returns {Array<{field:string,ext?:string}>}
+ */
+export function presetColumns(mode, rtyId, custom = [], dbdefs = null) {
+  const fields = (codes) => codes.map((field) => ({ field }));
+  switch (mode) {
+    case 'metadata':
+      return fields(METADATA_FIELDS);
+    case 'all':
+      return [...fields(METADATA_FIELDS), ...(dbdefs?.fields?.(rtyId) || [])
+        .filter((field) => !NO_VALUE_TYPES.has(field.type))
+        .map((field) => ({ field: String(field.id) }))];
+    case 'custom':
+      return Array.isArray(custom) && custom.length
+        ? custom.map((column) => (column.ext ? { field: column.field, ext: column.ext } : { field: column.field }))
+        : fields(MINIMAL_FIELDS);
+    default:
+      return fields(MINIMAL_FIELDS);
+  }
+}
+
+/**
+ * Columns of a record type: its preset merged with the marked data source fields
+ * (geo fields only for the geo formats), each field and output once.
+ *
+ * @param {object} state Form state.
+ * @param {number} rtyId Record type.
+ * @param {object|null} source DataSource.
+ * @param {object|null} dbdefs Definitions.
+ * @returns {Array<{field:string,ext?:string}>}
+ */
+export function recordTypeColumns(state, rtyId, source = null, dbdefs = null) {
+  const format = exportFormat(state.format);
+  const fromSource = dataSourceFields(source);
+  const list = [...presetColumns(state.columnModes?.[rtyId] || 'minimal', rtyId, state.columns?.[rtyId], dbdefs)];
+  if (state.useColumnFields) list.push(...columnsForRecordType(fromSource.columns, rtyId, dbdefs));
+  if (state.useGeoFields && format.geo) list.push(...columnsForRecordType(fromSource.geo, rtyId, dbdefs));
+  if (state.useTimeFields) list.push(...columnsForRecordType(fromSource.time, rtyId, dbdefs));
+  const seen = new Set();
+  return list.filter((column) => {
+    const key = `${column.field}|${column.ext || ''}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  }).map((column) => (column.ext ? { field: column.field, ext: column.ext } : { field: column.field }));
+}
+
+/**
+ * Expansion rules of the settings, or null for none (only the formats with expansion).
  *
  * @param {object} state Form state.
  * @param {Array<object>|null} sourceRules Rules of the DataSource.
  * @returns {Array<object>|null}
  */
 export function exportRules(state, sourceRules = null) {
+  if (!exportFormat(state.format).rules) return null;
   switch (state.rulesMode) {
     case 'any': return anyRules(state.anyKind, state.anyDepth);
     case 'source': return Array.isArray(sourceRules) && sourceRules.length ? sourceRules : null;
@@ -198,7 +298,8 @@ export function exportRules(state, sourceRules = null) {
  * Parameters of the "export" job.
  *
  * @param {object} state Form state (see defaultExportState()).
- * @param {object} context Current data: `query`, `title`, `selection` (ids), `rules` (of the DataSource).
+ * @param {object} context Current data: `query`, `title`, `selection` (ids), `rules` (of the
+ *        DataSource), `source` (the DataSource), `recordTypes` (ids of the result), `dbdefs`.
  * @returns {object} Job parameters.
  */
 export function buildExportParams(state, context = {}) {
@@ -221,18 +322,16 @@ export function buildExportParams(state, context = {}) {
 
   if (format.columns) {
     params.values = { ...state.values };
-    if (state.useColumns || format.required) {
-      const columns = {};
-      for (const [rtyId, list] of Object.entries(state.columns || {})) {
-        if (rectype && Number(rtyId) !== rectype) continue;
-        const items = (list || []).map((column) => (column.ext
-          ? { field: column.field, ext: column.ext }
-          : column.field)).filter(Boolean);
-        if (items.length) columns[rtyId] = items;
-      }
-      // Gephi has one attribute list: the columns of every record type together
-      params.columns = format.value === 'gephi' ? mergedColumns(columns) : columns;
+    const columns = {};
+    for (const rtyId of rectype ? [rectype] : (context.recordTypes || [])) {
+      const list = recordTypeColumns(state, rtyId, context.source, context.dbdefs)
+        .map((column) => (column.ext ? column : column.field));
+      if (list.length) columns[rtyId] = list;
     }
+    params.columns = columns;
+    const fromSource = dataSourceFields(context.source);
+    if (format.geo && state.useGeoFields && fromSource.geo.length) params.geofields = fromSource.geo;
+    if (format.value === 'kml' && state.useTimeFields && fromSource.time.length) params.timefields = fromSource.time;
   }
   if (format.names) params.names = state.names === true;
   if (format.value === 'csv' || format.value === 'tsv') {
@@ -253,13 +352,8 @@ export function exportProblems(state, context = {}) {
   if (state.scope === 'selection' && !(context.selection || []).length) problems.push('No records are selected');
   if (state.scope !== 'selection' && (context.query == null || context.query === '')) problems.push('There is no current result');
   const format = exportFormat(state.format);
-  const rectype = scopeRecordType(state.scope);
-  const lists = Object.entries(state.columns || {})
-    .filter(([rtyId]) => !rectype || Number(rtyId) === rectype)
-    .map(([, list]) => list || []);
-  if (format.required && !lists.some((list) => list.length)) problems.push('Choose the columns to export');
-  if (state.rulesMode === 'source' && !(context.rules || []).length) problems.push('The data source has no expansion rules');
-  if (state.rulesMode === 'custom' && !(state.customRules || []).length) problems.push('Define the custom expansion rules');
+  if (format.rules && state.rulesMode === 'source' && !(context.rules || []).length) problems.push('The data source has no expansion rules');
+  if (format.rules && state.rulesMode === 'custom' && !(state.customRules || []).length) problems.push('Define the custom expansion rules');
   if (state.fileName && !/^[A-Za-z0-9 _\-()]{1,100}$/.test(state.fileName)) {
     problems.push('The file name may contain only letters, digits, spaces, "-", "_", "(" and ")"');
   }
@@ -283,19 +377,4 @@ export function recordTypeList(rows, dbdefs = null) {
     }))
     .filter((row) => row.id > 0)
     .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
-}
-
-/** Columns of all record types as one "*" list, each field (and output) once. */
-function mergedColumns(columns) {
-  const seen = new Set();
-  const all = [];
-  for (const list of Object.values(columns)) {
-    for (const item of list) {
-      const key = typeof item === 'string' ? item : `${item.field}|${item.ext}`;
-      if (seen.has(key)) continue;
-      seen.add(key);
-      all.push(item);
-    }
-  }
-  return all.length ? { '*': all } : {};
 }

@@ -408,7 +408,7 @@ export class HFilterInlineHelper extends HBaseWidget {
       const items = [];
       for (const root of this._relationVocabRoots(outerRty, rtyCtx)) {
         for (const { term, depth } of this._vocabTerms(root)) {
-          items.push({ label: term.label, sub: $HR('relation type'), insert: `r:${done}${term.id} `, depth });
+          items.push({ label: term.term, sub: $HR('relation type'), insert: `r:${done}${term.internalid} `, depth });
         }
       }
       return { tokenStart, items: filterByLabel(items, typed.toLowerCase()) };
@@ -468,8 +468,8 @@ export class HFilterInlineHelper extends HBaseWidget {
     if (kind === 'enum' && dtyId != null) {
       const root = this.dbdefs.vocabRoot?.(dtyId) || 0;
       for (const { term: t, depth } of root ? this._vocabTerms(root) : []) {
-        const val = /[\s()]/.test(t.label) ? `"${t.label}"` : t.label;
-        items.push({ label: t.label, sub: $HR('term'), insert: `${keyPrefix}${val} `, depth });
+        const val = /[\s()]/.test(t.term) ? `"${t.term}"` : t.term;
+        items.push({ label: t.term, sub: $HR('term'), insert: `${keyPrefix}${val} `, depth });
       }
     }
 
@@ -560,15 +560,15 @@ export class HFilterInlineHelper extends HBaseWidget {
    *
    * @private
    * @param {number} root Vocabulary root term id.
-   * @returns {{term:{id:number,label:string}, depth:number}[]}
+   * @returns {{term:{internalid:number,term:string}, depth:number}[]}
    */
   _vocabTerms(root) {
     const tree = this.dbdefs.termTree(root);
     const out = [];
     const walk = (nodes, depth) => {
       for (const n of nodes || []) {
-        if (!n || n.id === root) continue;
-        if (n.label) out.push({ term: n, depth });
+        if (!n || n.internalid === root) continue;
+        if (n.term) out.push({ term: n, depth });
         walk(n.children, depth + 1);
       }
     };

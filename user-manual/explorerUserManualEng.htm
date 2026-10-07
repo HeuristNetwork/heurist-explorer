@@ -90,30 +90,31 @@
   <h3 id="export">Export</h3>
   <p><strong>Export</strong> (right toolbar) writes the records of the current data source into a
   file. The file is made on the server; when it is ready, a link downloads it. Only you can
-  download it, and it is kept for 7 days. You can close the tool or reload the page: a running
-  export continues and is shown again when you open Export. <strong>Stop</strong> ends it.</p>
+  download it, and it is kept for 24 hours. You can close the tool or reload the page: a running
+  export continues and is shown again when you open Export. <strong>Stop</strong> ends it.
+  <strong>Export results</strong> lists your finished exports: download them, open them in a new tab, or mark them and remove them. A new export is refused while your export results take more than 100 MB.</p>
   <ul>
     <li><strong>Scope</strong>: the current result, the selected records, or one record type of
     the result. The tool follows the current data source and selection.</li>
-    <li><strong>Format</strong>: CSV or TSV (one table per record type; several tables are packed
-    in a zip), JSON, GeoJSON, KML, XML (HML, can be imported into another Heurist database) or
-    Gephi (GEXF, at most 10,000 records).</li>
-    <li><strong>Columns</strong> (CSV, TSV, GeoJSON, KML, Gephi): the fields to write for each
-    record type, in the order you drag them to. They can be taken from the column fields of the
-    data source. In CSV the first column is always <code>H-ID</code>, the record ID. A term field
-    can be written as Term, Code, Concept ID, Description or Internal ID.</li>
-    <li><strong>Expansion rules</strong>: also export linked records - through any link of a kind
-    (any pointer or relationship, any pointer, outgoing or incoming pointers, relationships) up to
-    4 levels, through the rules of the data source, or through custom rules for this export only.
-    Each record is written once.</li>
-    <li><strong>Value formats</strong> (formats with columns): dates (as stored, start date, or start
-    and end date), files (URL, ID or details), record pointers (ID, or ID and title) and terms.
-    JSON and XML write the values as stored.</li>
+    <li><strong>Format</strong>: XML (HML, can be imported into another Heurist database; the
+    default), JSON, CSV or TSV (one table per record type; several tables are packed in a zip),
+    GeoJSON, KML or Gephi (GEXF, at most 10,000 records).</li>
+    <li><strong>Columns</strong> (CSV, TSV, GeoJSON, KML, Gephi): for each record type choose
+    <em>Minimal</em> (ID, record type, title), <em>Metadata</em> (also URL, dates, owner,
+    visibility), <em>All</em> (also every field) or <em>Custom</em> (pick and drag the fields).
+    <em>Use data source settings</em> adds the column, geographic and time fields of the data
+    source. In CSV the first column is always <code>H-ID</code>, the record ID.</li>
+    <li><strong>Expansion rules</strong> (XML, JSON, Gephi): also export linked records - through
+    any link of a kind up to 4 levels, through the rules of the data source, or through custom
+    rules for this export only. Each record is written once.</li>
+    <li><strong>Value formats</strong> (formats with columns): temporals raw or human readable;
+    files as URL, full information or ID; titles of pointed records; terms with their
+    hierarchy. XML and JSON write the values as stored.</li>
     <li><strong>Additional properties</strong>: CSV options (separator, quote, separator of repeated
-    values, header row, line ends); for JSON and XML, <em>Include human-readable names and local
+    values, header row, line ends); for XML and JSON, <em>Include human-readable names and local
     IDs for everything</em> - without it record types, fields and terms are identified by concept
     codes only.</li>
-    <li><strong>Output</strong>: a record limit (All, 1K ... 500K) and the file name.</li>
+    <li><strong>Output</strong>: a record limit (All, 50 ... 500K) and the file name.</li>
   </ul>
   <p>The number of records in one export is limited by the database setting
   (100,000 by default, expanded records included).</p>

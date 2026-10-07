@@ -1,0 +1,24 @@
+/**
+ * @file popover.css
+ * @brief Frame of the popover under a toolbar button (popover.js).
+ *
+ * @project     Heurist academic knowledge management system
+ * @package     heurist-shared
+ * @license     https://www.gnu.org/licenses/gpl-3.0.txt GNU License 3.0
+ * @since       8.0
+ */
+
+.h-popover {
+  z-index: 2147483000;
+  display: flex;
+  flex-direction: column;
+  width: 380px;
+  max-width: calc(100vw - 16px);
+  max-height: 70vh;
+  overflow: hidden;
+  background: var(--h-color-bg, #fff);
+  border: 1px solid var(--h-color-border, #cfd4da);
+  border-radius: var(--h-radius, 3px);
+  box-shadow: var(--h-shadow-dialog, 0 12px 35px rgb(0 0 0 / 22%));
+  font-size: var(--h-font-size, 12px);
+}

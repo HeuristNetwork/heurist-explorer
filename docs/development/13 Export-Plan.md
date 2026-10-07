@@ -2,8 +2,8 @@
 
 Status: **agreed with Artem 2026-10-06 (two review rounds of the draft; see §Agreed decisions).
 Phases 2-5 implemented 2026-10-06 (heurist and heurist-explorer); nothing committed, not yet checked in a
-browser by Artem. Tests: heurist `tests/ExportWriterTest.php` (67 checks), `JobRunnerTest` (40) and
-`ReportsApiTest` (28) unchanged; client `npm test` (1037).** §Implementation notes at the end list where
+browser by Artem. Tests: heurist `tests/ExportWriterTest.php` (81 checks), `JobRunnerTest` (40) and
+`ReportsApiTest` (28) unchanged; client `npm test` (1050).** §Implementation notes at the end list where
 the implementation differs from this plan.
 
 ## Context
@@ -372,4 +372,167 @@ Server:
 - Test: `tests/ExportWriterTest.php` 67 checks; client `exportTool.test.js` and new
   `exportToolRender.test.js` (fake DOM: scope options, DataSource/selection updates, format
   sections, expansion modes, Gephi limits, job parameters).
+
+### Review by Artem, 2026-10-07
+
+Export tool:
+- **Direct search**: its DataSource has no `meta.count`, so the result was shown with 0 records. The
+  total now comes from the `detail=rectypes` answer (the count of the query); `meta.count` only when
+  that is missing.
+- **XML (HML) is the default format**; formats are listed XML, JSON, CSV, TSV, GeoJSON, KML, Gephi.
+- **Expansion** only for JSON, XML and Gephi (hidden otherwise; the server ignores `rules` for csv,
+  tsv, geojson, kml). The "Any" link select has no option group.
+- **Columns** only for CSV, TSV, GeoJSON, KML and Gephi:
+  - "Use data source settings: [] column fields [] geo fields [] time fields" (each shown when the
+    DataSource has such fields; geo fields only for GeoJSON and KML);
+  - per record type a radio group Minimal | Metadata | All | Custom; the field selector is shown only
+    for Custom; Custom without fields = Minimal. Minimal = `rec_ID`, `rec_RecTypeID`, `rec_Title`;
+    Metadata = these and `rec_URL`, `rec_Added`, `rec_Modified`, `rec_AddedByUGrpID`,
+    `rec_OwnerUGrpID`, `rec_NonOwnerVisibility`; All = Metadata and every field of the record type
+    (no separators, no relationship markers);
+  - the marked data source settings are merged with the preset (each field and output once);
+  - geo fields of the data source are also sent as `geofields` (GeoJSON, KML: the geometry comes
+    from them, linked paths included); time fields as `timefields` (KML: time span of their values).
+- **Gephi** has expansion and columns; columns are sent per record type and the GEXF has one
+  attribute per distinct column; record types without columns (e.g. reached by expansion) get the
+  minimal attributes (name = title, rectype, url). CSV: a record type without columns gets
+  H-ID, Record type ID, Title (was the title only).
+- **Value formats**: Temporals Raw | Human readable (`Temporal::toReadable`); Files File URL | Full
+  info | ID; checkboxes "Title for target pointers" (`pointerTitle`, was a select) and "Terms
+  hierarchy" (`termHierarchy`: "Parent.Child" without the vocabulary, as the legacy
+  `getTermLabel(..., true)`). The default term output select was removed (term columns keep their
+  own output; default Term). The old date formats start/range were removed (`asis` is read as
+  `raw`).
+- CSV repeated values separator: one character (input size 1).
+- Record limit: All, 50, 1K, 5K, 10K, 100K, 500K (Gephi 50 ... 10K); a format change resets it to
+  All (Gephi: 10K).
+- CSS: `.h-qse-helper` min-width 300px (all field helpers); `.h-export-tool` min-width 380px.
+
+Tests: heurist `tests/ExportWriterTest.php` 77 checks (readable temporal "1990 to 1996", term
+hierarchy, minimal CSV columns, GEXF attributes per record type, geo fields, rules ignored for CSV);
+client `exportTool.test.js` 12, `exportToolRender.test.js` 7; `npm test` 1042.
+
+### Review by Artem, 2026-10-07 (second round)
+
+- **No progress, "Loading..." when reopened** while an export ran: the job's PHP process kept the
+  session lock, so every other request of the browser (polling, the tool's own requests) waited until
+  the job ended. Legacy `SessionStore::get()` reopens the session and does not close it;
+  `JobController::sendAndRun` now closes the session before the job runs (once the response is sent,
+  the session cannot be started again). This also affected long report generations.
+- The tool shows a running export at once: `jobs.list()` runs in parallel with the definitions and
+  counts; the form is filled when they arrive.
+- **Toolbar on top**: Export (the bottom button was removed) and **Export results** - a dropdown of the
+  user's finished exports, laid out as the generated files of the reports manager: name (download),
+  date, size, download icon, delete (new `DELETE /jobs/{id}`, `JobClient.remove`). The popover moved
+  from `apps/reports/src/ui/popover.js` to `shared/src/widgets/popover/` (frame class `.h-popover`); the
+  reports file is a wrapper that adds `.h-reports-popover`.
+- **While an export runs** the toolbar, the problems and the form (intro and sections) are hidden;
+  only the job monitor is shown. Afterwards the form is shown again, the monitor keeps the download
+  link.
+- **Columns**: the field selector was shown for every preset - `HFieldSelectionEditor` replaces the
+  class of its container, so the `[hidden]` rule of the record type body no longer applied. The editor
+  now has its own element; the selector is shown only for Custom. "Use data source settings" is
+  hidden when none of its checkboxes is shown (e.g. only geo fields and CSV).
+- "Title for target pointers" and "Terms hierarchy" are checked by default.
+
+### Review by Artem, 2026-10-07 (third round)
+
+- The job monitor is hidden until an export starts (or an error is shown).
+- "Title for target pointers" and "Terms hierarchy" are checked whenever the tool opens; they are no
+  longer restored from the settings remembered in the browser (old saved settings kept them off).
+- Export button also at the bottom of the form (hidden with the form while an export runs).
+- **Export results was slow**: every `GET /jobs` sent all jobs of the user with their stored parameters
+  (report test jobs keep the template text). New `GET /jobs?type=export&brief=1` (`JobRunner::listJobs`
+  type and brief); the tool loads this list once when it opens (also to find a running export) and
+  shows it at once in the dropdown, refreshed in the background.
+- Delete in Export results closes the list at once (no second click) and asks with the Heurist
+  dialog (`HMsg`), not the browser's confirm.
+- **Removed** the server limits text in Output and its endpoint `GET /jobs/types/{type}`
+  (`JobRunner::typeInfo`, `ExportJob::info`, `JobClient.typeInfo`): one value did not justify an
+  endpoint. `DELETE /jobs/{id}` stays (delete of results).
+
+### Review by Artem, 2026-10-07 (fourth round)
+
+- **Expansion rules dialog** (`HRuleBuilder`, also used by the Export tool's custom rules): Apply removes
+  duplicate rules - the same source, link and target can be added several times. `dedupeRules()`:
+  same query (object keys in any order) and same steps, compared at every level; names are ignored;
+  the first is kept. Test in `hRuleBuilder.test.js`.
+- **Column fields** (`HFieldSetEditor`): the Aggregation select is not shown (a stored value stays in
+  the field); the title and width inputs are lower (22px).
+- **Tools header** (Reports, Export): the close icon is `fa-xmark`, as in the other panels (was
+  `fa-times-circle`).
+
+### 2026-10-07 (fifth round)
+
+- `maxRecords` default raised to **500,000** (Export settings; up to 5,000,000). The time limit stays
+  600 s - see the memory/time notes discussed earlier (expansion, HML/GEXF links, heartbeat).
+- Fixed: `QuerySourcePresentationService::validateOptions` refused the column output `internalid`,
+  which the QSE column editor saves since 2026-10-06; it now accepts `term, code, conceptid, desc,
+  internalid` and the older `id`.
+- One definitions loader and consistent term names: agreed and done the same day (see below).
+
+### One definitions loader, consistent term names (2026-10-07, agreed with Artem)
+
+- **`srv/Definitions/DefinitionLookup.php`** (moved from `Records/Export/ExportDefinitions.php`): the one
+  srv loader of record types, fields, structure names, terms and user/group names, and the one
+  concept-code rule `conceptCodeFor()` (other database's origin and id, else registered id - 0 when not
+  registered - and local id). Used by `DefinitionSnapshotService`, `Reports/Smarty/ReportDefinitions`
+  (its own term loader was removed), record export and `RecordDataService`.
+- **Term names everywhere**: `internalid, term, code, conceptid, desc` - the names of the report field
+  tree and the Smarty term subfields (existing templates use them). `DefinitionLookup::term()` gives them
+  (plus parent, inverse, domain); the **snapshot** (format 3; cached `def-snapshot.json` files are rebuilt)
+  has `{term, code?, conceptid, desc?, domain?, inverse?}`; **`HDbDefs.term()`** returns
+  `{internalid, term, code, conceptid, desc}` and `termTree()` nodes the same (+ children). `HDbDefs`
+  still reads `label`/`concept` of older snapshots (browser cache, test fixtures).
+- Updated users: filter builder (term select, operators list), inline helper (term and relation-type
+  suggestions), `vocabularyItems` (value pickers), `HFilterForm` term options (HInput options keep their own
+  `{id, label, depth}` shape and are mapped explicitly), export writers, `ReportDefinitions`/`TemplateApi`.
+- Unchanged on purpose: `/records` values (`trm_ID, trm_Label, trm_Code, trm_ConceptCode` - public API) and
+  the query-language aliases (`label`, `concept`); the Smarty record arrays keep their legacy meaning
+  (`term` = label with hierarchy, `label` = translated label).
+- Concept codes now follow one rule; it differs from the legacy `ConceptCode` only in edge cases (origin
+  0-0 gave "0-0", an unregistered database "0000-<id>"). `ReportEngineCompareTest`: all 10 templates the
+  same.
+- Tests: heurist `DefinitionSnapshotTest` 41 (term names), `ExportWriterTest` 86, `ReportsApiTest` 28,
+  `JobRunnerTest` 40, `ReportEngineCompareTest` same 10; client `hDbDefs.test.js` checks that `term()` has
+  exactly the five names and reads older snapshots; `npm test` 1051.
+- **The deployed bundles must be redeployed** (`npm run deploy:all`): bundles built before this change read
+  `label`/`concept` from the snapshot.
+
+### Metadata (header) fields in column fields and export (2026-10-07, bug reported by Artem)
+
+- **Bug**: header leaves of the field tree (ID, Title, Added, ...) have a name, not a field id
+  (`{dty: 'title'}`), and `fieldPathCode()` dropped them: Title of the record gave `10` (the record type
+  id, shown and exported as field 10 "Start date"); ID of linked records gave `10:lt241:12` (shown as the
+  last link, refused by the server).
+- `fieldPathCode()` maps the header leaves to the `/records` header codes (`ids`→`rec_ID`, `title`→
+  `rec_Title`, `added`→`rec_Added`, `modified`→`rec_Modified`, `addedby`→`rec_AddedByUGrpID`,
+  `url`→`rec_URL`, `owner`→`rec_OwnerUGrpID`, `access`→`rec_NonOwnerVisibility`, `notes`→
+  `rec_ScratchPad`): the record itself `rec_Title`, linked records `10:lt241:12:rec_ID`.
+  `fieldCodeLabel()`/`fieldPathLabel()` name them ("Place of death > Record ID").
+- **Server**: a linked path may end with a header field (`RecordFieldSelector`: entry `header`, fieldId 0);
+  `RecordDataService::attachLinkedHeaders()` reads the Records columns of the linked records and attaches
+  `{value, path}` entries as for linked field values; field metadata `dty_Type: header`. Export captions
+  name them ("<link> > Record ID").
+- Columns saved with the wrong codes before this fix (e.g. `10` for Title) stay wrong: re-add them.
+- Tests: `querySourceFieldPath.test.js` (codes and labels), `ExportWriterTest` (CSV with linked
+  `rec_ID`/`rec_Title`).
+
+### Export folder (2026-10-07, Artem)
+
+- **Kept 24 hours** (was 7 days): `ExportJob::keepSeconds()` = 86400; `JobRunner` removes finished jobs of a
+  type with `keepSeconds()` after that time (`JobStore::cleanupType`), on start and on every list.
+- **100 MB per user**: `ExportJob::maxResultBytes()`; `JobRunner::start` refuses a new export with "Clear your
+  export folder first" while the user's export result files (`JobStore::resultBytes`) take more.
+- **Export results** dropdown: a checkbox before each name, no delete icon; bottom panel "Remove marked" and
+  "Remove all" (the list closes at once, Heurist confirmation, then `DELETE /jobs/{id}` per file). New icon
+  **Open in a new tab**: `GET /jobs/{id}/result?inline=1` (Content-Disposition inline; JSON and XML as such,
+  CSV/TSV/GeoJSON/KML/GEXF as plain text; not offered for a zip).
+- The same list layout is meant for the generated files of the reports manager later (not changed yet).
+- CSV pointer columns: "<field> H-ID" and "<field> Record Title" (legacy names); a linked record id column
+  "<link> > H-ID".
+- (later the same day) `HJobMonitor` shows **Open in a new tab** (`?inline=1`, not for a zip) next to the
+  download link of a finished export. The **reports manager's generated files** got the same list: checkbox
+  before the name (the name still shows the file in the frame), date, size, open in a new window, download;
+  no delete icon; bottom panel Remove marked / Remove all (Heurist confirmation, the list closes at once).
 

@@ -523,7 +523,7 @@ export class HFilterForm extends HBaseWidget {
     if (!root) return [];
     const terms = [];
     const visit = (term, depth) => {
-      if (depth) terms.push({ ...term, depth });
+      if (depth) terms.push({ id: term.internalid, label: term.term, code: term.code, depth });
       for (const child of term.children || []) visit(child, depth + 1);
     };
     visit(dbdefs.termTree(root), 0);

@@ -133,3 +133,16 @@ test('preview shows only the executable rule tree', () => {
   const text = rulesPreview([{ query: { connected: [] }, name: 'x', description: 'y', levels: [{ query: { lt: [] } }] }]);
   assert.deepEqual(JSON.parse(text), [{ query: { connected: [] }, levels: [{ query: { lt: [] }, levels: [] }] }]);
 });
+
+test('dedupeRules keeps one of the same rules (query and steps), at every level', async () => {
+  const { dedupeRules } = await import('../src/widgets/query-source/helpers/HRuleBuilder.js');
+  const a = { name: 'Places', query: { t: 12, 'lf:134': [{ t: 10 }] }, levels: [] };
+  const sameAsA = { name: 'Places again', query: { 'lf:134': [{ t: 10 }], t: 12 }, levels: [] };
+  const withStep = { query: { t: 12, 'lf:134': [{ t: 10 }] }, levels: [{ query: { connected: [] }, levels: [] }] };
+  const steps = { query: { t: 5 }, levels: [{ query: { links: [] } }, { query: { links: [] } }] };
+  const result = dedupeRules([a, sameAsA, withStep, withStep, steps]);
+  assert.equal(result.length, 3, 'duplicates removed, a rule with a step is different');
+  assert.equal(result[0].name, 'Places', 'the first one is kept');
+  assert.equal(result[2].levels.length, 1, 'duplicate steps removed');
+  assert.deepEqual(dedupeRules(null), []);
+});

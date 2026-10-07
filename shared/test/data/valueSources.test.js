@@ -8,12 +8,12 @@ import {
 
 // vocabulary 100: Europe > (France > Paris, Germany), Asia > Japan
 const TREE = {
-  id: 100, label: 'Places', children: [
-    { id: 1, label: 'Europe', children: [
-      { id: 11, label: 'France', children: [{ id: 111, label: 'Paris' }] },
-      { id: 12, label: 'Germany' }
+  internalid: 100, term: 'Places', children: [
+    { internalid: 1, term: 'Europe', children: [
+      { internalid: 11, term: 'France', children: [{ internalid: 111, term: 'Paris' }] },
+      { internalid: 12, term: 'Germany' }
     ] },
-    { id: 2, label: 'Asia', children: [{ id: 21, label: 'Japan' }] }
+    { internalid: 2, term: 'Asia', children: [{ internalid: 21, term: 'Japan' }] }
   ]
 };
 const LABELS = { 1: 'Europe', 11: 'France', 111: 'Paris', 12: 'Germany', 2: 'Asia', 21: 'Japan' };

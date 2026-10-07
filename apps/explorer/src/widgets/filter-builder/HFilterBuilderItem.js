@@ -527,10 +527,10 @@ export class HFilterBuilderItem extends HBaseWidget {
       blank.textContent = $HR('— select —');
       sel.append(blank);
       for (const term of opts) {
-        if (!term || term.id === root) continue;
+        if (!term || term.internalid === root) continue;
         const o = document.createElement('option');
-        o.value = String(term.id);
-        o.textContent = term.label;
+        o.value = String(term.internalid);
+        o.textContent = term.term;
         sel.append(o);
       }
       sel.value = current;
@@ -650,12 +650,12 @@ export class HFilterBuilderItem extends HBaseWidget {
   }
 }
 
-/** Flatten a vocabulary tree while retaining each term's depth. */
+/** Flatten a vocabulary tree to HInput term options `{id, label, depth}`. */
 function flattenTerms(root) {
   if (!root) return [];
   const result = [];
   const visit = (term, depth) => {
-    result.push({ ...term, depth });
+    result.push({ id: term.internalid, label: term.term, code: term.code, depth });
     for (const child of term.children || []) visit(child, depth + 1);
   };
   visit(root, 0);

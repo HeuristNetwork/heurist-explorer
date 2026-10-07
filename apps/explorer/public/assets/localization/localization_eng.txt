@@ -332,3 +332,34 @@
 #Remove all fields#Remove all fields
 #Use the expansion rules of the data source#Use the expansion rules of the data source
 #Without them record types, fields and terms are identified by concept codes only.#Without them record types, fields and terms are identified by concept codes only.
+#Custom#Custom
+#Fields written as properties / attributes.#Fields written as properties / attributes.
+#Full info#Full info
+#Human readable#Human readable
+#Metadata#Metadata
+#Minimal#Minimal
+#Raw#Raw
+#Temporals#Temporals
+#Terms hierarchy#Terms hierarchy
+#The first column is always H-ID (record ID).#The first column is always H-ID (record ID).
+#Title for target pointers#Title for target pointers
+#Use data source settings#Use data source settings
+#column fields#column fields
+#geo fields#geo fields
+#time fields#time fields
+#Delete file#Delete file
+#Export results#Export results
+#Gephi#Gephi
+#No export results#No export results
+#The server exports at most#The server exports at most
+#at most#at most
+#records (expanded records included)#records (expanded records included)
+#Delete#Delete
+#Please confirm#Please confirm
+#Remove marked#Remove marked
+#Remove all#Remove all
+#Mark#Mark
+#Open in a new tab#Open in a new tab
+#Remove export result#Remove export result
+#Remove export results#Remove export results
+#The file is created on the server; only you can download it. It is kept for 24 hours.#The file is created on the server; only you can download it. It is kept for 24 hours.

@@ -85,14 +85,30 @@ export class JobClient {
   }
 
   /**
-   * Jobs of the current user (managers: all jobs with `all`).
+   * Jobs of the current user, newest first (managers: all jobs with `all`).
    *
-   * @param {{all?: boolean}} [options]
+   * @param {{all?: boolean, type?: string, brief?: boolean}} [options] `type`: only jobs of this
+   *        type; `brief`: without the stored parameters (small answer for lists).
    * @returns {Promise<Array<object>>}
    */
-  async list({ all = false } = {}) {
-    const response = await this.apiClient.get('/jobs', { query: all ? { all: 1 } : null });
+  async list({ all = false, type = null, brief = false } = {}) {
+    const query = {};
+    if (all) query.all = 1;
+    if (type) query.type = type;
+    if (brief) query.brief = 1;
+    const response = await this.apiClient.get('/jobs', { query: Object.keys(query).length ? query : null });
     return response?.data ?? response ?? [];
+  }
+
+  /**
+   * Remove a finished job and its result files.
+   *
+   * @param {string} id Job id.
+   * @returns {Promise<{id: string, deleted: boolean}>}
+   */
+  async remove(id) {
+    const response = await this.apiClient.request(`/jobs/${encodeURIComponent(id)}`, { method: 'DELETE' });
+    return response?.data ?? response;
   }
 
   /**

@@ -252,3 +252,10 @@
 #Yes#Yes
 #Your user id is added to the name. For a shared file add a schedule.#Your user id is added to the name. For a shared file add a schedule.
 #Download#Download
+#Remove marked#Remove marked
+#Remove all#Remove all
+#Remove generated file#Remove generated file
+#Remove generated files#Remove generated files
+#Mark#Mark
+#Open in a new tab#Open in a new tab
+#Remove#Remove

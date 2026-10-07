@@ -72,7 +72,7 @@ export class HDbDefs {
     this.meta = snap.meta || {};
     this._rectypes = snap.rectypes || {};
     this._fields = snap.fields || {};
-    this._terms = snap.terms || {};
+    this._terms = normalizeTerms(snap.terms);
     this._rectypeGroups = snap.rectypeGroups || {};
     this._fieldGroups = snap.fieldGroups || {};
     this._structure = Array.isArray(snap.structure) ? snap.structure : [];
@@ -124,7 +124,7 @@ export class HDbDefs {
       if (f.concept) this._conceptToLocal.dty.set(f.concept, Number(id));
     }
     for (const [id, t] of Object.entries(this._terms)) {
-      if (t.concept) this._conceptToLocal.trm.set(t.concept, Number(id));
+      if (t.conceptid) this._conceptToLocal.trm.set(t.conceptid, Number(id));
     }
 
     this._buildLinkGraph();
@@ -598,26 +598,30 @@ export class HDbDefs {
   }
 
   /**
+   * A term with the names of the report field tree and the Smarty term subfields
+   * (the same names on the server: srv/Definitions/DefinitionLookup).
+   *
    * @param {number|string} id Term id.
-   * @returns {{id,label,code,concept}|null}
+   * @returns {{internalid:number, term:string, code:string, conceptid:string, desc:string}|null}
    */
   term(id) {
     const t = this._terms[id];
     if (!t) return null;
     return {
-      id: Number(id),
-      label: t.label,
+      internalid: Number(id),
+      term: t.term,
       code: t.code || '',
-      concept: t.concept || this.conceptId('trm', Number(id))
+      conceptid: t.conceptid || this.conceptId('trm', Number(id)),
+      desc: t.desc || ''
     };
   }
 
   /**
    * @param {number|string} id
-   * @returns {string} Term label, or `''`.
+   * @returns {string} Term label (`term`), or `''`.
    */
   termLabel(id) {
-    return this._terms[id]?.label || '';
+    return this._terms[id]?.term || '';
   }
 
   /**
@@ -641,8 +645,8 @@ export class HDbDefs {
    *
    * @param {number|string} rootId Vocabulary root term id.
    * @param {{flat?:boolean}} [opts]
-   * @returns {object|Array} `{id,label,code,concept,children?}` tree, or a flat
-   *          array of `term()` objects (root first) when `flat` is set.
+   * @returns {object|Array} `{internalid,term,code,conceptid,desc,children?}` tree, or a
+   *          flat array of `term()` objects (root first) when `flat` is set.
    */
   termTree(rootId, { flat = false } = {}) {
     const root = Number(rootId);
@@ -652,7 +656,7 @@ export class HDbDefs {
     const build = (id, seen) => {
       if (seen.has(id)) return null; // guard against a cyclic termlink
       seen.add(id);
-      const node = this.term(id) || { id, label: '', code: '', concept: '' };
+      const node = this.term(id) || { internalid: id, term: '', code: '', conceptid: '', desc: '' };
       const children = (this._termChildren.get(id) || EMPTY)
         .map((child) => build(child, seen))
         .filter(Boolean);
@@ -702,7 +706,7 @@ export class HDbDefs {
       for (const id of candidates) {
         const t = this._terms[id];
         if (!t) continue;
-        if ((t.label || '').toLowerCase() === segment || (t.code || '').toLowerCase() === segment) {
+        if ((t.term || '').toLowerCase() === segment || (t.code || '').toLowerCase() === segment) {
           matched = id;
           break;
         }
@@ -712,7 +716,7 @@ export class HDbDefs {
           const hits = this.termDescendants([root]).filter((id) => {
             if (id === root) return false;
             const t = this._terms[id];
-            return t && ((t.label || '').toLowerCase() === segment || (t.code || '').toLowerCase() === segment);
+            return t && ((t.term || '').toLowerCase() === segment || (t.code || '').toLowerCase() === segment);
           });
           return hits.length === 1 ? hits[0] : null;
         }
@@ -799,13 +803,31 @@ export class HDbDefs {
    */
   conceptId(kind, localId) {
     const source = { rty: this._rectypes, dty: this._fields, trm: this._terms }[kind];
-    const stored = source?.[localId]?.concept;
+    const stored = kind === 'trm' ? source?.[localId]?.conceptid : source?.[localId]?.concept;
     if (stored) return stored;
     return `${this.dbId()}-${Number(localId)}`;
   }
 }
 
 // -------------------------------------------------------------------- helpers ---
+
+/**
+ * Snapshot terms with the names of the report field tree: `{term, code, conceptid, desc,
+ * domain?, inverse?}`. Snapshots before format 3 (cached in the browser, test fixtures)
+ * have `label` and `concept`.
+ *
+ * @param {object} terms Snapshot `terms`.
+ * @returns {Record<string, object>}
+ */
+function normalizeTerms(terms) {
+  const out = {};
+  for (const [id, t] of Object.entries(terms || {})) {
+    if (!t || typeof t !== 'object') continue;
+    const { label, concept, ...rest } = t;
+    out[id] = { ...rest, term: t.term ?? label ?? '', conceptid: t.conceptid ?? concept ?? '' };
+  }
+  return out;
+}
 
 /**
  * @param {Record<string,{name:string,order?:number}>} groups

@@ -1995,7 +1995,7 @@ function toolHeader(caption, onClose) {
   close.className = 'heurist-icon-button h-explorer-tool-workspace-close';
   close.title = $HR('Back to presentation');
   close.setAttribute('aria-label', close.title);
-  close.innerHTML = '<span class="fa-solid fa-times-circle" aria-hidden="true"></span>';
+  close.innerHTML = '<span class="fa-solid fa-xmark" aria-hidden="true"></span>';
   close.addEventListener('click', onClose);
 
   header.append(title, close);

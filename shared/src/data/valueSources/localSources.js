@@ -80,7 +80,7 @@ export function vocabularyItems(dbdefs, vocabId) {
   const items = [];
   const visit = (node, depth) => {
     for (const child of node?.children || []) {
-      items.push({ value: Number(child.id), label: child.label || String(child.id), depth });
+      items.push({ value: Number(child.internalid), label: child.term || String(child.internalid), depth });
       visit(child, depth + 1);
     }
   };

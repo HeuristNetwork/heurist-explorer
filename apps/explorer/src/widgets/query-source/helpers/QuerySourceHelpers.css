@@ -1,4 +1,4 @@
-.h-qse-helper { display:flex; flex-direction:column; gap:var(--h-spacing-sm,8px); min-width:420px; margin:4px; }
+.h-qse-helper { display:flex; flex-direction:column; gap:var(--h-spacing-sm,8px); min-width:300px; margin:4px; }
 .h-qse-helper-toolbar,.h-qse-helper-row,.h-qse-helper-options { display:flex; align-items:center; gap:var(--h-spacing-sm,8px); }
 .h-qse-helper-rows { display:flex; flex-direction:column; gap:0; padding:0; max-height:48vh; overflow:auto; }
 .h-qse-helper-row { border-bottom:1px solid var(--h-border-color,#ddd); padding:0; }
@@ -17,9 +17,10 @@
 .h-qse-fieldset-code { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:var(--h-font-size-small); }
 .h-qse-fieldset-title { min-width:90px; }
 .h-qse-fieldset-width { width:65px; }
-.h-qse-fieldset-aggregation { width:86px; }
 .h-qse-dialog-wide .h-qse-helper { width:min(1500px,94vw); min-width:min(1200px,94vw); }
-.h-qse-fieldset-row { grid-template-columns:24px auto minmax(180px,1.35fr) minmax(160px,1fr) 78px 100px auto; }
+.h-qse-fieldset-row { grid-template-columns:24px auto minmax(180px,1.35fr) minmax(160px,1fr) 78px auto; }
+/* compact inputs of the column fields (title, width) */
+.h-qse-fieldset-title,.h-qse-fieldset-width { height:22px; min-height:22px; padding-block:1px; line-height:18px; }
 .h-qse-fieldset-name { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .h-qse-drag { cursor:ns-resize; text-align:center; color:var(--h-color-text-muted); user-select:none; }
 .h-qse-fieldset-row.is-dragging { opacity:.55; }

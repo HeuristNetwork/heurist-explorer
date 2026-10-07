@@ -19,7 +19,7 @@ const DBDEFS = {
   fieldIdByName: (_rty, name) => ({ 'family name': 12, status: 9 }[String(name).toLowerCase()] || null),
   fieldType: (_rty, dty) => ({ 12: 'freetext', 9: 'enum' }[dty] || 'freetext'),
   vocabRoot: (dty) => (dty === 9 ? 500 : 0),
-  termTree: () => [{ id: 501, label: 'Active' }, { id: 502, label: 'Retired' }]
+  termTree: () => [{ internalid: 501, term: 'Active' }, { internalid: 502, term: 'Retired' }]
 };
 
 const helper = () => new HFilterInlineHelper({ vocabulary: VOCAB, dbdefs: DBDEFS });
@@ -80,8 +80,8 @@ const LINKED_DBDEFS = {
   termTree: () => ({
     id: 500,
     children: [
-      { id: 501, label: 'Active', children: [{ id: 511, label: 'Part time' }] },
-      { id: 502, label: 'Retired' }
+      { internalid: 501, term: 'Active', children: [{ internalid: 511, term: 'Part time' }] },
+      { internalid: 502, term: 'Retired' }
     ]
   })
 };
@@ -146,7 +146,7 @@ test('inside related( … ): Relation type is offered and r: lists relation type
     fields: (rty) => (rty === 10 ? [{ id: 235, name: 'Related Person(s)', type: 'relmarker' }, { id: 12, name: 'Family name', type: 'freetext' }] : []),
     fieldGlobal: (id) => (id === 235 ? { targetTypes: [10] } : {}),
     vocabRoot: (id) => (id === 235 ? 3110 : 0),
-    termTree: () => ({ id: 3110, children: [{ id: 3115, label: 'IsGrandParentOf' }, { id: 3116, label: 'IsGrandChildOf' }] })
+    termTree: () => ({ internalid: 3110, children: [{ internalid: 3115, term: 'IsGrandParentOf' }, { internalid: 3116, term: 'IsGrandChildOf' }] })
   };
   const h = new HFilterInlineHelper({ vocabulary: VOCAB, dbdefs });
   const inRel = h._computeHints('t:10 related(t:10 ', 19).items;

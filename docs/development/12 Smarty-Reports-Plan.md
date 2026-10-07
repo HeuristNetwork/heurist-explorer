@@ -748,3 +748,12 @@ editor does:
 - Geo and time field editors are unchanged (single pick).
 - The Data table already applies `ext` (it loads records with `resolveDetails`, so enum values
   carry label, code and concept id).
+
+### Generated files list (2026-10-07, Artem)
+
+Same layout as Export results in Explorer (plan 13): a checkbox before each name (a click on the name still
+shows the file in the output frame), date, size, open in a new window, **download** (new); the delete icon
+was removed; bottom panel **Remove marked** and **Remove all** (the list closes at once, Heurist confirmation,
+then `DELETE /reports/generated/{file}` per file). The popover moved to `shared/src/widgets/popover/`
+(`apps/reports/src/ui/popover.js` is a wrapper that adds `.h-reports-popover`).
+
