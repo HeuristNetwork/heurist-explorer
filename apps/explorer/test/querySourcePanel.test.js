@@ -79,3 +79,12 @@ test('orientation: vertical by default, set by the host', () => {
   editor.setOrientation('anything');
   assert.equal(editor.getOrientation(), 'vertical');
 });
+
+test('the panel returns a copy of the last Filter Form values of a source', () => {
+  const panel = new QuerySourcePanel();
+  assert.equal(panel.lastParameterValues('source:5'), null);
+  panel._lastValues.set('source:5', { X1: '12' });
+  const values = panel.lastParameterValues('source:5');
+  values.X1 = 'changed';
+  assert.deepEqual(panel.lastParameterValues('source:5'), { X1: '12' });
+});

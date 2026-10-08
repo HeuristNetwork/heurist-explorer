@@ -1356,3 +1356,15 @@ For the next implementation cycle:
 ```
 
 Only after this Phase 1 path is stable should work continue with `HFilterBuilder` glitch fixes and parameterized filters.
+
+## Parameterized sources in the Workspace (2026-10-08)
+
+- Map and Timeline do not load a Workspace source whose query still has `$X$` values; the row shows
+  "Click 'Show data' to define parameters for query".
+- Explorer remembers the last executed request per DataSource key (`ExplorerApplication.resolvedRequests`,
+  this session only) and sends a parameterized Workspace source with it. Map and Timeline also take the
+  resolved request when that source becomes current, and keep it when another source becomes current.
+- `QuerySourcePanel` remembers the last Filter Form values per source (this session only); a reopened
+  Filter Form is filled with them.
+- Show data on a Workspace layer/band that keeps such a result opens the saved query's Filter Form filled
+  with those values and runs the search again; the editor keeps the template, never the resolved query.

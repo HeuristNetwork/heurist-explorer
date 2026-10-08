@@ -895,7 +895,35 @@ export class ExplorerApplication {
    */
   async showDatasource(source, options = {}) {
     const dataSource = await this._resolveRequestedDataSource(source);
-    return dataSource ? this.activateDataSource(dataSource, options) : null;
+    if (!dataSource) return null;
+    // a Workspace layer/band keeps the result of a parameterized source: show its Filter
+    // Form filled with the values of that search, with the result, not the resolved query
+    const template = await this._parameterizedTemplate(dataSource);
+    const values = template ? this.querySourcePanel.lastParameterValues(dataSource.reference.key) : null;
+    if (values) {
+      this.querySourcePanel.setDataSource(template, { values, keepResults: true });
+      this.showQuerySourcePanel();
+      return this.activateDataSource(dataSource, { ...options, keepEditorDraft: true });
+    }
+    return this.activateDataSource(template || dataSource, options);
+  }
+
+  /**
+   * The saved parameterized query of a resolved Query Source (its `$X$` values filled).
+   *
+   * @private
+   * @param {object} dataSource Resolved DataSource.
+   * @returns {Promise<object|null>} The saved source with its template, or null.
+   */
+  async _parameterizedTemplate(dataSource) {
+    if (dataSource.reference?.type !== 'source' || !this.querySourcePanel
+      || hasQueryParameters(dataSource.request?.q)) return null;
+    try {
+      const saved = await this.resolveDataSourceReference(dataSource.reference);
+      return hasQueryParameters(saved?.request?.q) ? normalizeDataSource(saved) : null;
+    } catch {
+      return null;
+    }
   }
 
   /**

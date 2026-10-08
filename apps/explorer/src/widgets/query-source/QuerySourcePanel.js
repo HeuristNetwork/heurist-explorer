@@ -45,6 +45,8 @@ export class QuerySourcePanel {
     this.actions = null;
     this.dataSource = null;
     this.orientation = options.orientation === 'horizontal' ? 'horizontal' : 'vertical';
+    /** Last Filter Form values per DataSource key (this session): a reopened form is filled with them. */
+    this._lastValues = new Map();
   }
 
   /**
@@ -119,17 +121,27 @@ export class QuerySourcePanel {
 
   /**
    * @param {object|null} source DataSource to load into the editor and actions.
+   * @param {object} [formOptions] For a parameterized query; see `openFilterForm`.
    * @returns {QuerySourcePanel} this, for chaining.
    */
-  setDataSource(source) {
+  setDataSource(source, formOptions = {}) {
     this.dataSource = source;
     this.editor?.setDataSource(source);
     this.actions?.setDataSource(source, { getDraft: () => this.editor?.getDraftDataSource() });
     this.actions?.setDirty(false);
     this._updateFormAction();
-    if (hasQueryParameters(source?.request?.q)) void this.openFilterForm();
+    if (hasQueryParameters(source?.request?.q)) void this.openFilterForm(formOptions);
     else void this.closeFilterForm();
     return this;
+  }
+
+  /**
+   * @param {string} key DataSource reference key.
+   * @returns {object|null} Values of the last Filter Form search of that source, if any.
+   */
+  lastParameterValues(key) {
+    const values = key ? this._lastValues.get(key) : null;
+    return values ? structuredClone(values) : null;
   }
 
   /** Open the Explorer map's extent selector for a geographic filter value. */
@@ -137,13 +149,20 @@ export class QuerySourcePanel {
     return this.options.selectExtent?.(current) ?? Promise.resolve(null);
   }
 
-  /** Show the runtime form for the editor's parameterized query. */
-  async openFilterForm() {
+  /**
+   * Show the runtime form for the editor's parameterized query.
+   *
+   * @param {object} [options]
+   * @param {object|null} [options.values] Values to fill in; default: the last search of this source.
+   * @param {boolean} [options.keepResults=false] Keep the current result (it is the search of these values).
+   */
+  async openFilterForm({ values = null, keepResults = false } = {}) {
     const source = this.getDraftDataSource();
     const query = source?.request?.q;
     if (!hasQueryParameters(query)) return;
+    const key = source.reference?.key || null;
     this.options.onShow?.();
-    await this.options.onClearResults?.();
+    if (!keepResults) await this.options.onClearResults?.();
     // a vertical form needs height: in the horizontal layout it opens in the west pane
     const horizontalForm = source.presentation?.filterForm?.settings?.orientation === 'horizontal';
     // reopened while already moved: the panel is vertical now, but still returns on close
@@ -156,6 +175,7 @@ export class QuerySourcePanel {
     this.form = new HFilterForm();
     this.form.attach(this.formHost, {
       definition: { query, filterForm: source.presentation?.filterForm || null },
+      values: values || this.lastParameterValues(key) || {},
       dbdefs: this.options.dbdefs,
       apiClient: this.options.apiClient,
       selectExtent: this.options.selectExtent,
@@ -163,7 +183,8 @@ export class QuerySourcePanel {
       runtimeMode: 'main',
       onOpenBuilder: () => this._openFilterFormBuilder(),
       onClose: () => void this.closeFilterForm(),
-      onSubmit: ({ query }) => {
+      onSubmit: ({ query, values: submitted }) => {
+        if (key) this._lastValues.set(key, structuredClone(submitted || {}));
         const runtimeSource = structuredClone(source);
         runtimeSource.request.q = query.q;
         if (query.extent) runtimeSource.request.extent = query.extent;
