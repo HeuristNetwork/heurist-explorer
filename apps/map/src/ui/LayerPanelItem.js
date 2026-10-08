@@ -18,6 +18,9 @@ import { $HR } from '#shared/ui';
 import { showDataAction } from '#shared/ui/documents/SourceActions.js';
 import { showMapMessage } from './mapMessages.js';
 
+/** Tooltip of a Workspace layer whose query has `$X$` values not defined yet. */
+const PARAMETERS_REQUIRED = "Click 'Show data' to define parameters for query";
+
 /** Renders one MapLayer row, its state control, actions, thematic selector, and legend. */
 export class LayerPanelItem {
   /**
@@ -65,6 +68,7 @@ export class LayerPanelItem {
     const presentation = getLayerPresentation(this.layer);
     title.textContent = presentation.label;
     title.title = presentation.title;
+    if (this.layer.options?.parametersRequired === true) title.title = $HR(PARAMETERS_REQUIRED);
     titleBlock.append(title);
     if (presentation.warning) {
       const warning = document.createElement('small');
@@ -260,12 +264,14 @@ export class LayerPanelItem {
     checkbox.type = 'checkbox';
     checkbox.classList.add('h-checkbox');
     checkbox.checked = this.layer.visible;
-    checkbox.disabled = this.layer.options?.emptyCurrentResult === true
+    const parametersRequired = this.layer.options?.parametersRequired === true;
+    checkbox.disabled = this.layer.options?.emptyCurrentResult === true || parametersRequired
       || (this.empty && String(this.layer.id) !== 'current-results');
     checkbox.title = this.layer.loadState === 'deferred'
       ? $HR('Layer has not been loaded')
       : $HR('Layer loaded');
     if (this.empty) checkbox.title = getLayerPresentation(this.layer).title;
+    if (parametersRequired) checkbox.title = $HR(PARAMETERS_REQUIRED);
     checkbox.addEventListener('change', async () => {
       const requested = checkbox.checked;
       try {

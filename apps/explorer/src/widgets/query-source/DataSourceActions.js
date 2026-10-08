@@ -147,12 +147,14 @@ export class DataSourceActions extends HBaseWidget {
       else if (kind === 'source') {
         const prepared = typeof this.prepareSourceDraft === 'function' ? (this.prepareSourceDraft() || draft) : draft;
         const id = prepared.reference?.type === 'source' ? prepared.reference.id : null;
-        await (id ? this.onUpdateSource?.(prepared, id) : this.onSaveSource?.(prepared));
+        const result = await (id ? this.onUpdateSource?.(prepared, id) : this.onSaveSource?.(prepared));
+        if (result?.saved === true) flash($HR('Saved'));
       } else {
         const sourceId = draft.reference?.type === 'source' ? Number(draft.reference.id) : 0;
         if (!(sourceId > 0)) return;
-        if (this._inWorkspace) await this.onWorkspaceRemove?.(draft);
-        else await this.onWorkspaceAdd?.(draft);
+        if (this._inWorkspace) {
+          if (await this.onWorkspaceRemove?.(draft)) flash($HR('Removed'));
+        } else if (await this.onWorkspaceAdd?.(draft)) flash($HR('Added'));
       }
       // Refresh against the exact source acted on. The active DataSource may
       // still be the pre-edit version while the editor holds a dirty draft.
@@ -164,6 +166,9 @@ export class DataSourceActions extends HBaseWidget {
     }
   }
 }
+
+/** Short confirmation of a finished action. */
+function flash(message) { HMsg.showMsgFlash?.(message, { showDelay: 1000 }); }
 
 function action(label, handler, className = 'h-btn h-btn-small') { const b = document.createElement('button'); b.type = 'button'; b.className = className; b.textContent = label; b.addEventListener('click', handler); return b; }
 

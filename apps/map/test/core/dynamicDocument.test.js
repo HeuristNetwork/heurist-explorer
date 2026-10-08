@@ -242,6 +242,31 @@ test('Show Data selects an existing row without replacing current-result or load
   assert.deepEqual(calls.map((source) => source.title), ['Workspace', 'Current']);
 });
 
+test('a parameterized Workspace source loads only after its Filter Form search and keeps that result', async () => {
+  const { application, rendered } = createApplication({ initiallyActive: true });
+  const template = [{ t: '48' }, { 'f:237': '$X1$' }];
+  const workspace = dataSource('source:5', 'Parameterized', template, null);
+  await application.setDynamicDataSources({ workspaceDataSources: [workspace] });
+  const pending = application.getLayers().find((layer) => layer.id !== 'current-results');
+  assert.equal(pending.options.parametersRequired, true);
+  assert.equal(pending.visible, false);
+  assert.equal(rendered.some((layer) => JSON.stringify(layer.source.query).includes('$X1$')), false);
+
+  const resolved = dataSource('source:5', 'Parameterized', [{ t: '48' }, { 'f:237': '12' }], 3);
+  await application.setDynamicDataSources({ currentDataSource: resolved });
+  const loaded = application.getLayers().find((layer) => layer.id !== 'current-results');
+  assert.equal(loaded.options.parametersRequired, false);
+  assert.equal(loaded.visible, true);
+  assert.deepEqual(rendered.at(-1).source.query, resolved.request.q);
+
+  // another source becomes current: the Workspace layer keeps its result
+  const count = rendered.length;
+  await application.setDynamicDataSources({ currentDataSource: dataSource('query:1', 'Other', 't:1', 10) });
+  assert.deepEqual(application.getLayer(loaded.id).source.query, resolved.request.q);
+  assert.equal(rendered.length, count + 1);
+  assert.equal(rendered.at(-1).id, 'current-results');
+});
+
 function dataSource(key, title, q, count, map = {}) {
   const [type, id] = key.split(':');
   return {

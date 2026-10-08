@@ -27,6 +27,7 @@
 #Loading layer#Loading layer
 #Layer loading failed; click to retry#Layer loading failed; click to retry
 #Layer has not been loaded#Layer has not been loaded
+#Click 'Show data' to define parameters for query#Click 'Show data' to define parameters for query
 #Layer loaded#Layer loaded
 #Set layer opacity#Set layer opacity
 #Close opacity control#Close opacity control

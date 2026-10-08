@@ -21,6 +21,7 @@ import { loadMapRecord } from '#shared/data/MapRecordProvider.js';
 import { MapDocumentListProvider } from '#shared/data/MapDocumentListProvider.js';
 import { RecordTypeProvider } from '#shared/data/RecordTypeProvider.js';
 import { normalizeRuntimeDataSource, uniqueDataSources, stableHash, dataSourceFromLayerDefinition } from '#shared/data/DocumentDataSources.js';
+import { hasQueryParameters } from '#shared/data/queryParameters.js';
 
 /** Document organization shared with map, with temporal loading and local band visibility. */
 export class TimelineDocumentApplication extends TimelineApplication {
@@ -207,7 +208,9 @@ export class TimelineDocumentApplication extends TimelineApplication {
       id, title: source?.title || 'Current result', query: source?.request?.q ?? null,
       request: structuredClone(source?.request || {}), timefields: profile.timefields ?? profile.timeFields ?? profile.fields ?? null,
       fields: profile.fields || [], visible: profile.visible !== false, options: { ...profile, dataSource: source },
-      loadState: 'deferred', items: [], ...overrides
+      loadState: 'deferred', items: [], ...overrides,
+      // a Workspace query with $X$ values not yet searched with its Filter Form is not loaded
+      parametersRequired: overrides.workspaceEntry === true && hasQueryParameters(source?.request?.q)
     };
   }
 
@@ -226,7 +229,8 @@ export class TimelineDocumentApplication extends TimelineApplication {
     const bands = desired.map((band) => {
       const old = previous.find((item) => item.id === band.id);
       if (old && JSON.stringify([old.request, old.timefields, old.fields]) === JSON.stringify([band.request, band.timefields, band.fields])) {
-        return Object.assign(old, { title: band.title, options: band.options, workspaceEntry: band.workspaceEntry });
+        return Object.assign(old, { title: band.title, options: band.options, workspaceEntry: band.workspaceEntry,
+          parametersRequired: band.parametersRequired });
       }
       if (old) band.visible = band.workspaceEntry
         ? (band.options.visible ?? old.visible) : old.visible;
@@ -254,8 +258,10 @@ export class TimelineDocumentApplication extends TimelineApplication {
       this.activeLayerId = matching?.id || null;
       if (workspace && source) {
         // QuerySourceEditor Test may push a draft with the same stable identity
-        // as an existing Workspace source. Use that draft as the runtime band
-        // snapshot without mutating Explorer's persisted Workspace entry.
+        // as an existing Workspace source, and a parameterized one comes resolved
+        // by its Filter Form. Use it as the runtime band snapshot (kept when another
+        // source becomes current) without mutating Explorer's persisted Workspace entry.
+        if (hasQueryParameters(source.request?.q)) source.request = this.workspaceDataSources[workspaceIndex].request;
         const previous = this.workspaceDataSources[workspaceIndex];
         this.workspaceDataSources[workspaceIndex] = {
           ...previous,
@@ -313,6 +319,7 @@ export class TimelineDocumentApplication extends TimelineApplication {
    * @returns {Promise<void>} Resolves once the load attempt completes.
    */
   async loadBand(band) {
+    if (band.parametersRequired) return;
     const controller = new AbortController();
     this.abortControllers.get(band.id)?.abort();
     this.abortControllers.set(band.id, controller);
@@ -366,7 +373,7 @@ export class TimelineDocumentApplication extends TimelineApplication {
       error: band.error, count: band.items?.length || 0, emptyStub: band.emptyStub,
       partial: band.response?.pagination?.hasMore === true || band.response?.pagination?.isPartial === true
         || Number(band.response?.pagination?.total) > Number(band.response?.records?.length),
-      options: band.options, workspaceEntry: band.workspaceEntry,
+      options: band.options, workspaceEntry: band.workspaceEntry, parametersRequired: band.parametersRequired === true,
       activeDataSource: Boolean(this.activeDataSourceKey && band.options?.dataSource?.reference.key === this.activeDataSourceKey && (!preferred || preferred.id === band.id))
     }));
   }

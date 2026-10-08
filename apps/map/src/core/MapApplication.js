@@ -18,6 +18,7 @@ import { normalizeRuntimeDataSource, uniqueDataSources, stableHash, dataSourceFr
 
 import { normalizeMapDocument } from './MapDocument.js';
 import { $HR } from '#shared/ui';
+import { hasQueryParameters } from '#shared/data/queryParameters.js';
 import { normalizeMapLayer, reapplyMapLayerDefaults } from './MapLayer.js';
 import { createMapEnvironment } from './createMapEnvironment.js';
 import { normalizeMapConfigurationSettings } from '../ui/config/mapConfigurationSchema.js';
@@ -1679,9 +1680,21 @@ export class MapApplication {
       const matching = key && this.getLayers().find((layer) =>
         layer.options?.dataSource?.reference?.key === key
         && (String(this.activeMapDocumentId) !== this.dynamicDocumentId || layer.id !== 'current-results'));
-      const workspace = key && this.workspaceDataSources.some((item) => item.reference.key === key);
+      const workspaceIndex = key ? this.workspaceDataSources.findIndex((item) => item.reference.key === key) : -1;
+      const workspace = workspaceIndex >= 0;
       this.activeDataSourceKey = key;
       this.activeDataSourceLayerId = matching?.id || null;
+      const previous = workspace ? this.workspaceDataSources[workspaceIndex] : null;
+      if (previous && source && !hasQueryParameters(source.request.q)
+        && JSON.stringify(previous.request) !== JSON.stringify(source.request)) {
+        // a parameterized Workspace source searched with the Filter Form: its layer
+        // shows this result and keeps it when another source becomes current
+        this.workspaceDataSources[workspaceIndex] = {
+          ...previous,
+          request: clonePlain(source.request),
+          meta: { ...(previous.meta || {}), ...(source.meta || {}) }
+        };
+      }
       if (!matching && !workspace) this.currentDataSource = source;
     }
     this.hasExplorerDataSourceSnapshot = true;
@@ -1882,6 +1895,8 @@ export class MapApplication {
   persistWorkspaceLayerState(layerId) {
     const layer = this.getLayer(layerId);
     if (layer?.options?.workspaceEntry !== true) return null;
+    // hidden only until its parameters are defined: keep the stored visibility
+    if (layer.options.parametersRequired === true) return null;
     return this.host.updateDataSourceInWorkspace?.(
       this.dataSourceWithLayerState(layer.options.dataSource, layer)
     );
@@ -3326,13 +3341,15 @@ function createExplorerDynamicLayers(current, workspace, defaults) {
       source,
       id: `workspace-${stableHash(source.reference.key)}`,
       current: false,
-      workspaceEntry: true
+      workspaceEntry: true,
+      // a query with $X$ values not yet searched with its Filter Form is not loaded
+      parametersRequired: hasQueryParameters(source.request?.q)
     });
   }
 
   const viewportCandidates = sources.filter((item) => {
     const map = item.source.presentation?.map || {};
-    return map.visible !== false && requestedViewportLoading(map, defaults);
+    return map.visible !== false && !item.parametersRequired && requestedViewportLoading(map, defaults);
   });
   viewportCandidates.sort((a, b) => resultCount(b.source) - resultCount(a.source)
     || String(a.source.reference.key).localeCompare(String(b.source.reference.key)));
@@ -3344,7 +3361,7 @@ function createExplorerDynamicLayers(current, workspace, defaults) {
     const definition = {
       id: item.id,
       title: item.source.title || (item.current ? 'Current result' : 'Workspace result'),
-      visible: map.visible !== false,
+      visible: map.visible !== false && !item.parametersRequired,
       selectable: true,
       source: {
         type: 'heurist-query',
@@ -3361,6 +3378,7 @@ function createExplorerDynamicLayers(current, workspace, defaults) {
         dataSourceKey: item.source.reference.key,
         dataSource: item.source.request.q == null ? null : clonePlain(item.source),
         emptyCurrentResult: item.current && item.source.request.q == null,
+        parametersRequired: item.parametersRequired === true,
         dynamicRequests: item.source.reference.key === viewportWinnerKey,
         minZoom: finiteNumberOrNull(map.minZoom),
         maxZoom: finiteNumberOrNull(map.maxZoom)

@@ -107,3 +107,20 @@ test('restoration applies hidden band state before fetching temporal records', a
   assert.equal(calls.length, 0);
   assert.equal(app.getLayers()[0].visible, false);
 });
+
+test('a parameterized Workspace band loads only after its Filter Form search and keeps that result', async () => {
+  const { app, calls } = fixture();
+  const template = [{ t: '48' }, { 'f:237': '$X1$' }];
+  await app.setDynamicDataSources({ workspaceDataSources: [source(5, template)] });
+  const band = app.getLayers().find((layer) => layer.workspaceEntry);
+  assert.equal(band.parametersRequired, true);
+  assert.equal(calls.some((query) => JSON.stringify(query).includes('$X1$')), false);
+  const resolved = [{ t: '48' }, { 'f:237': '12' }];
+  await app.setDynamicDataSources({ currentDataSource: source(5, resolved) });
+  assert.equal(app.getLayers().find((layer) => layer.workspaceEntry).parametersRequired, false);
+  assert.deepEqual(calls.at(-1), resolved);
+  await app.setDynamicDataSources({ currentDataSource: source(1) });
+  const kept = app.contexts.find((item) => item.workspaceEntry);
+  assert.deepEqual(kept.query, resolved);
+  assert.equal(kept.loadState, 'loaded');
+});

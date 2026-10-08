@@ -27,6 +27,7 @@
 #Loading layer#Chargement de la couche
 #Layer loading failed; click to retry#Échec du chargement de la couche ; cliquez pour réessayer
 #Layer has not been loaded#La couche n’a pas été chargée
+#Click 'Show data' to define parameters for query#Cliquez sur « Afficher les données » pour définir les paramètres de la requête
 #Layer loaded#Couche chargée
 #Set layer opacity#Définir l’opacité de la couche
 #Close opacity control#Fermer le contrôle d’opacité

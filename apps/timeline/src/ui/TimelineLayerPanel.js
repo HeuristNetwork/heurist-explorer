@@ -16,6 +16,9 @@
 import { sourceAction, showDataAction } from '#shared/ui/documents/SourceActions.js';
 import { showTimelineMessage } from './timelineMessages.js';
 
+/** Tooltip of a Workspace band whose query has `$X$` values not defined yet. */
+const PARAMETERS_REQUIRED = "Click 'Show data' to define parameters for query";
+
 /**
  * Renders the active document's bands as layer-panel rows.
  *
@@ -56,7 +59,7 @@ export class TimelineLayerPanel {
         control = element('input', 'h-checkbox');
         control.type = 'checkbox';
         control.checked = layer.visible;
-        control.disabled = empty && layer.id !== 'current-results';
+        control.disabled = layer.parametersRequired || (empty && layer.id !== 'current-results');
         control.setAttribute('aria-label', `Show ${layer.title}`);
         control.addEventListener('change', () => Promise.resolve(this.api.setLayerVisibility(layer.id, control.checked)).catch(report));
       }
@@ -66,6 +69,8 @@ export class TimelineLayerPanel {
       title.title = layer.loadState === 'loaded' ? `${layer.count} timeline items` : 'Band has not been loaded';
       if (empty) title.title = layer.partial ? 'No timeline items found in the loaded results.' : 'No timeline items found.';
       if (empty && layer.options?.dataSource) title.title += ' Records are still available through Show Data.';
+      if (layer.parametersRequired) title.title = PARAMETERS_REQUIRED;
+      if (layer.parametersRequired && control.tagName === 'INPUT') control.title = PARAMETERS_REQUIRED;
       block.append(title);
       if (layer.partial) {
         const warning = element('small', 'heurist-map-layer-partial-warning');
