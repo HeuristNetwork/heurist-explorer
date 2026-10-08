@@ -115,6 +115,7 @@
 #Loading...#Chargement...
 #Loop for repeating/multiple values in field#Boucle pour les valeurs répétées/multiples du champ
 #Mark the fields to add in the tree#Cochez dans l'arbre les champs à ajouter
+#enum fields#champs énumérés
 #metadata#métadonnées
 #Mine#Les miens
 #Modified#Modifié

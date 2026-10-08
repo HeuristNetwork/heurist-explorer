@@ -28,6 +28,7 @@ function labelsFor(scope) {
     _rtyId: scope.rtyId,
     _builderMode: scope.builderMode === true,
     _includeHeaders: scope.includeHeaders !== false,
+    _showMetadata: scope.showMetadata === true,
     _excludedFields: new Set()
   });
   tree._renderBody();
@@ -35,7 +36,7 @@ function labelsFor(scope) {
 }
 
 test('no record type in the Filter Builder -> any field + title + metadata', () => {
-  const labels = labelsFor({ rtyId: '', builderMode: true });
+  const labels = labelsFor({ rtyId: '', builderMode: true, showMetadata: true });
   assert.equal(labels[0], 'Any field');
   for (const label of ['Title', 'ID', 'Added', 'Modified', 'Creator', 'URL', 'Owner', 'Visibility']) {
     assert.ok(labels.includes(label), `missing ${label}`);
@@ -176,12 +177,19 @@ function recordTree({ typeFilter = 'all', showMetadata = true } = {}) {
   return texts(tree._body).map((text) => text.replace(/^[▾▸] /, ''));
 }
 
-test('metadata checkbox hides the metadata section; fields stay', () => {
-  assert.ok(recordTree().includes('metadata'));
+test('metadata checkbox: off lists Title and the fields directly under the record type', () => {
+  const shown = recordTree();
+  assert.ok(shown.includes('metadata') && shown.includes('fields'));
   const hidden = recordTree({ showMetadata: false });
-  assert.ok(!hidden.includes('metadata'));
+  assert.ok(!hidden.includes('metadata') && !hidden.includes('fields'), 'no metadata / fields folders');
   assert.ok(!hidden.includes('Added'));
-  assert.ok(hidden.includes('Title') && hidden.includes('Name'));
+  assert.deepEqual(hidden.filter((text) => ['Event', 'Title', 'Any field', 'Name'].includes(text)),
+    ['Event', 'Title', 'Any field', 'Name']);
+  assert.ok(!labelsFor({ rtyId: '', builderMode: true }).includes('Added'), 'no metadata without a record type either');
+});
+
+test('metadata is off by default', () => {
+  assert.equal(new HFieldTree({ dbdefs: {} })._showMetadata, false);
 });
 
 test('type filter groups: text, date, numeric, enum; branches stay; file fields hidden', () => {

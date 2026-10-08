@@ -13,9 +13,15 @@
  *   [{ dty, fieldType }]                         flat field on the scope rectype
  *   [{ via:{ link:'lt'|'lf', dty, targetRty } }, // one pointer hop
  *    { dty, fieldType }]
- *   [{ dty, fieldType, term:'term'|'code'|'conceptid'|'desc'|'internalid' }]  enum output (scope.enumOutputs)
+ *   [{ dty, fieldType, term:'term'|'code'|'conceptid'|'desc'|'internalid' }]  enum output (scope.enumOutputs);
+ *                                                 with "enum fields" unchecked an enum field is one leaf, term:'term'
  *   [{ dty, fieldType, relationship:true }]      relationship of the record (scope.relationships):
  *                                                 dty is a property (recRelationType, ...) or a field id
+ *
+ * Header checkboxes (off by default): "metadata" - without it Title and the fields are
+ * listed directly under the record type (no metadata / fields folders); "enum fields"
+ * (only with `scope.enumOutputs`, type filter all or enum) - an enum field becomes a
+ * folder with its outputs.
  *
  * Shown as a popover under a button (open) or inline in a panel that stays
  * open after a pick (mount: the Smarty template editor). With `scope.multiSelect`
@@ -98,7 +104,8 @@ export class HFieldTree {
     this._showReverse = false;
     this._alpha = false;
     // header: metadata sections shown, type filter (kept between openings)
-    this._showMetadata = true;
+    this._showMetadata = false;
+    this._showEnumOutputs = false;
     this._typeFilter = 'all';
     this._openKeys = new Set();
     // multiSelect: marked leaves (path key -> path, in marking order) and inserted ones
@@ -269,6 +276,16 @@ export class HFieldTree {
       }));
     }
     if (!this._fixedTypes) second.append(this._typeFilterSelect());
+    // enum outputs as a sub-level: only where several outputs are offered
+    this._enumToggle = null;
+    if (this._enumOutputs?.length && !this._fixedTypes) {
+      this._enumToggle = this._toggle($HR('enum fields'), this._showEnumOutputs, (on) => {
+        this._showEnumOutputs = on;
+        this._renderBody();
+      });
+      second.append(this._enumToggle);
+      this._updateEnumToggle();
+    }
     toolbar.append(first, second);
     if (this._multiSelect) {
       const all = this._toggle($HR('Select all visible options'), false, (on) => this.selectVisible(on));
@@ -328,9 +345,15 @@ export class HFieldTree {
     typeFilter.value = this._typeFilter;
     typeFilter.addEventListener('change', () => {
       this._typeFilter = typeFilter.value;
+      this._updateEnumToggle();
       this._renderBody();
     });
     return typeFilter;
+  }
+
+  /** The "enum fields" checkbox is shown for the type filters all and enum only. */
+  _updateEnumToggle() {
+    if (this._enumToggle) this._enumToggle.hidden = !['all', 'enum'].includes(this._typeFilter);
   }
 
   /**
@@ -444,6 +467,7 @@ export class HFieldTree {
     this._body = null;
     this._selectAllBox = null;
     this._addSelectedButton = null;
+    this._enumToggle = null;
     this._onPick = null;
   }
 
@@ -612,21 +636,28 @@ export class HFieldTree {
     }
     if (this._includeHeaders) {
       if (this._typeShown('freetext')) nodes.push(this._headerLeaf({ dty: 'title', label: 'Title', fieldType: 'freetext' }, viaChain));
-      // hidden by the header checkbox, or when no metadata field has the chosen type
+      // without metadata: Title and the fields directly under the record type
+      if (!this._showMetadata) return [...nodes, ...this._fieldsWithAny(rtyId, viaChain)];
+      // no metadata field has the chosen type
       if (this._metadataLeaves(viaChain).length) {
         nodes.push(this._sectionFolder($HR('metadata'), `${pathKey(viaChain)}:metadata:${rtyId}`, () =>
           this._metadataLeaves(viaChain)));
       }
     }
-    const fieldNodes = () => [
-      ...(!this._valuesOnly && this._typeShown('freetext') ? [this._headerLeaf({ dty: 'anyfield', label: 'Any field', fieldType: 'freetext' }, viaChain)] : []),
-      ...this._fieldNodes(rtyId, viaChain)
-    ];
+    const fieldNodes = () => this._fieldsWithAny(rtyId, viaChain);
     // without title/metadata (geo and time field editors) a "fields" folder
     // would be the only section: list the fields directly
     if (!nodes.length) return fieldNodes();
     nodes.push(this._sectionFolder($HR('fields'), `${pathKey(viaChain)}:fields:${rtyId}`, fieldNodes));
     return nodes;
+  }
+
+  /** "Any field" (query trees) and the field rows of a record type. */
+  _fieldsWithAny(rtyId, viaChain) {
+    return [
+      ...(!this._valuesOnly && this._typeShown('freetext') ? [this._headerLeaf({ dty: 'anyfield', label: 'Any field', fieldType: 'freetext' }, viaChain)] : []),
+      ...this._fieldNodes(rtyId, viaChain)
+    ];
   }
 
   /**
@@ -731,7 +762,8 @@ export class HFieldTree {
           viaChain
         }));
       } else if (this._enumOutputs?.length && ['enum', 'relationtype'].includes(field.type)) {
-        out.push(this._enumFolder(field, viaChain));
+        // one leaf standing for the term label unless "enum fields" is checked
+        out.push(this._showEnumOutputs ? this._enumFolder(field, viaChain) : this._leaf(field, viaChain, 'term'));
       } else if (!this._hideUnselectable || selectable) {
         out.push(this._leaf(field, viaChain));
       }
@@ -770,9 +802,10 @@ export class HFieldTree {
    * @private
    * @param {object} field Field descriptor; see `HDbDefs#fields`.
    * @param {Array} viaChain Pointer-hop prefix leading to this field's scope rectype.
+   * @param {string} [term] Enum output the leaf stands for.
    * @returns {HTMLButtonElement}
    */
-  _leaf(field, viaChain) {
+  _leaf(field, viaChain, term = null) {
     const row = document.createElement('button');
     row.type = 'button';
     row.className = 'h-menu-item h-fbtree-leaf';
@@ -785,7 +818,7 @@ export class HFieldTree {
     type.className = 'h-fbtree-type';
     type.textContent = field.type;
     row.append(type);
-    const path = [...viaChain, { dty: field.id, fieldType: field.type }];
+    const path = [...viaChain, { dty: field.id, fieldType: field.type, ...(term ? { term } : {}) }];
     this._setupLeaf(row, path);
     row.addEventListener('click', () => this._choose(row, path));
     return row;

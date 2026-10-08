@@ -115,6 +115,7 @@
 #Loading...#Loading...
 #Loop for repeating/multiple values in field#Loop for repeating/multiple values in field
 #Mark the fields to add in the tree#Mark the fields to add in the tree
+#enum fields#enum fields
 #metadata#metadata
 #Mine#Mine
 #Modified#Modified

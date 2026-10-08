@@ -83,7 +83,9 @@ const DBDEFS = {
 test('HFieldTree inline: enum outputs and file fields, stays open after a pick', () => {
   const host = document.createElement('div');
   const picks = [];
-  const tree = new HFieldTree({ dbdefs: DBDEFS }).mount(host, {
+  const tree = new HFieldTree({ dbdefs: DBDEFS });
+  tree._showEnumOutputs = true;
+  tree.mount(host, {
     rtyId: 10, enumOutputs: true, includeFiles: true, includeHeaders: false
   }, (path) => picks.push(path));
   const leafText = (node) => node.textContent.replace(/(freetext|enum|file|term|code|conceptid|desc|internalid)$/, '');
@@ -142,8 +144,8 @@ test('HFieldTree multiSelect: clicks mark leaves, "Select all visible options", 
   const all = host.querySelector('.h-fbtree-select-all').querySelector('input');
   all.checked = true;
   all.fire('change');
-  // Name (no Any field; Photo hidden without includeFiles), 4 properties + Note
-  assert.equal(tree.getSelectedPaths().length, 6);
+  // Name, Gender (one term leaf; no Any field; Photo hidden without includeFiles), 4 properties + Note
+  assert.equal(tree.getSelectedPaths().length, 7);
   all.checked = false;
   all.fire('change');
   assert.equal(tree.getSelectedPaths().length, 0);
@@ -173,7 +175,9 @@ test('HFieldTree valuesOnly: no "Any field" and no "<type> records" leaf in link
 test('HFieldTree enumOutputs list and "Add selected fields" (column fields)', () => {
   const host = document.createElement('div');
   const added = [];
-  const tree = new HFieldTree({ dbdefs: DBDEFS }).mount(host, {
+  const tree = new HFieldTree({ dbdefs: DBDEFS });
+  tree._showEnumOutputs = true;
+  tree.mount(host, {
     rtyId: 10, includeHeaders: false, multiSelect: true, valuesOnly: true,
     enumOutputs: ['term', 'code', 'conceptid', 'internalid'],
     onAddSelected: (paths) => added.push(paths)
@@ -192,4 +196,38 @@ test('HFieldTree enumOutputs list and "Add selected fields" (column fields)', ()
   assert.deepEqual(added, [[[{ dty: 20, fieldType: 'enum', term: 'term' }], [{ dty: 1, fieldType: 'freetext' }]]]);
   assert.deepEqual(tree.getSelectedPaths(), [], 'selection cleared after adding');
   tree.destroy();
+});
+
+test('HFieldTree "enum fields" checkbox: off by default, only with enumOutputs and the all/enum filter', () => {
+  const enumToggle = (host) => host.querySelectorAll('.h-fbtree-toggle').find((node) => node.textContent.includes('enum fields'));
+
+  const host = document.createElement('div');
+  const picks = [];
+  const tree = new HFieldTree({ dbdefs: DBDEFS }).mount(host, {
+    rtyId: 10, enumOutputs: true, includeHeaders: false
+  }, (path) => picks.push(path));
+  const toggle = enumToggle(host);
+  assert.ok(toggle, 'shown with enumOutputs');
+  assert.equal(toggle.querySelector('input').checked, false);
+  assert.ok(!host.querySelectorAll('.h-fbtree-folder-head').some((head) => head.textContent.includes('Gender')), 'no enum folder');
+  host.querySelectorAll('.h-fbtree-leaf').find((node) => node.textContent.startsWith('Gender')).click();
+  assert.deepEqual(picks.at(-1), [{ dty: 20, fieldType: 'enum', term: 'term' }], 'the field stands for its term');
+
+  const filter = host.querySelector('.h-fbtree-type-filter');
+  filter.value = 'date';
+  filter.fire('change');
+  assert.equal(toggle.hidden, true, 'hidden for other type filters');
+  filter.value = 'enum';
+  filter.fire('change');
+  assert.equal(toggle.hidden, false);
+
+  const input = toggle.querySelector('input');
+  input.checked = true;
+  input.fire('change');
+  assert.ok(host.querySelectorAll('.h-fbtree-folder-head').some((head) => head.textContent.includes('Gender')), 'enum folder when checked');
+  tree.destroy();
+
+  const plain = document.createElement('div');
+  new HFieldTree({ dbdefs: DBDEFS }).mount(plain, { rtyId: 10, includeHeaders: false }, () => {});
+  assert.equal(enumToggle(plain), undefined, 'not offered without enumOutputs (Filter Builder, single fields)');
 });

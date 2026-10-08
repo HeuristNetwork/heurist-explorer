@@ -757,3 +757,17 @@ was removed; bottom panel **Remove marked** and **Remove all** (the list closes 
 then `DELETE /reports/generated/{file}` per file). The popover moved to `shared/src/widgets/popover/`
 (`apps/reports/src/ui/popover.js` is a wrapper that adds `.h-reports-popover`).
 
+
+### Field tree: flat by default (2026-10-08, Artem)
+
+`HFieldTree` (all users: Filter Builder, Column fields, Report editor, geo/time editors):
+- **metadata** checkbox is off by default. Off: no *metadata* and no *fields* folders -
+  Title, Any field and the fields are listed directly under the record type (at every level,
+  also in linked branches). On: the previous layout.
+- New checkbox **enum fields** below the field type filter, off by default. Only where
+  `scope.enumOutputs` is given (Report editor, Column fields - not Filter Builder, not geo/time
+  or single-field editors) and only while the type filter is *all* or *enum*. Off: an enum field
+  is one leaf with the path `{dty, fieldType, term:'term'}` (the term label: `{$r.f20.term}` in
+  a report, `ext:'term'` in a column). On: the folder with Term / Code / Concept ID / ...
+- Both choices are kept between openings of the same tree. Tests: `hFieldTree.test.js`,
+  `shared/test/smartyEditor.test.js`.
