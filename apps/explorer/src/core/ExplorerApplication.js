@@ -64,6 +64,9 @@ export class ExplorerApplication {
       database: config.database,
       resolver: (reference) => this.resolveDataSourceReference(reference)
     });
+    // last executed request per DataSource key: a parameterized Workspace source
+    // is sent to Map/Timeline with the values of its last Filter Form search
+    this.resolvedRequests = new Map();
     this.favorites = new DataSourceFavorites({
       database: config.database,
       resolver: (reference) => this.resolveDataSourceReference(reference)
@@ -591,6 +594,8 @@ export class ExplorerApplication {
     }
 
     const dataSource = await this._withResultCount(requestedSource);
+    const key = dataSource.reference?.key;
+    if (key) this.resolvedRequests.set(key, { request: structuredClone(dataSource.request), meta: { ...(dataSource.meta || {}) } });
     let dataModule = this.layout.findCurrentResultDataModule();
 
     if (!dataModule) {
@@ -823,12 +828,23 @@ export class ExplorerApplication {
 
   /**
    * Resolve every workspace entry to an executable DataSource with a result count.
+   * A parameterized query gets the request of its last Filter Form search; before
+   * the first search it keeps its template, which Map and Timeline do not load.
    *
    * @returns {Promise<Array<object>>} Resolved workspace datasources.
    */
   async getWorkspaceDataSources() {
     const values = await Promise.all(this.workspace.list().map((entry) => this.workspace.resolve(entry)));
-    return Promise.all(values.filter(Boolean).map((source) => this._withResultCount(source)));
+    return Promise.all(values.filter(Boolean).map((source) => {
+      if (!hasQueryParameters(source.request?.q)) return this._withResultCount(source);
+      const resolved = this.resolvedRequests.get(source.reference?.key);
+      if (!resolved || hasQueryParameters(resolved.request?.q)) return source;
+      return normalizeDataSource({
+        ...source,
+        request: structuredClone(resolved.request),
+        meta: { ...(source.meta || {}), ...resolved.meta }
+      });
+    }));
   }
 
   /**

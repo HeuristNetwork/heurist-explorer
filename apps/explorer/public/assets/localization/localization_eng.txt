@@ -363,3 +363,7 @@
 #Remove export result#Remove export result
 #Remove export results#Remove export results
 #The file is created on the server; only you can download it. It is kept for 24 hours.#The file is created on the server; only you can download it. It is kept for 24 hours.
+#Saved#Saved
+#Added#Added
+#Removed#Removed
+#format#format

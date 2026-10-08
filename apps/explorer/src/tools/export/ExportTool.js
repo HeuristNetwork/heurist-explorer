@@ -238,24 +238,28 @@ export class ExportTool extends HBaseWidget {
     root.replaceChildren();
     const context = this._context();
 
-    const intro = element('div', 'h-export-intro');
+    const intro = element('h3', 'h-export-intro');
     intro.textContent = context.query == null
       ? $HR('There is no current result. Run a search first.')
       : `${$HR('Data source')}: ${context.title || $HR('Current result')} · ${this._total()} ${$HR('records')}`;
     root.append(intro);
 
     const sections = element('div', 'h-export-sections');
+    sections.append(this._scopeSection(), this._formatSection());
+    // the settings of the chosen format: full width, below a separator, "<Format> format"
+    const formatOptions = element('div', 'h-export-format-options');
+    this._formatHeader = element('h3', 'h-export-format-header');
+    const formatSections = element('div', 'h-export-format-sections');
     this._rulesSection = fieldset($HR('Expansion rules'));
-    sections.append(
-      this._scopeSection(),
-      this._formatSection(),
+    formatSections.append(
       this._columnsSection(),
       this._rulesSection,
       this._valuesSection(),
       this._propertiesSection(),
       this._outputSection()
     );
-    root.append(sections);
+    formatOptions.append(this._formatHeader, formatSections);
+    root.append(sections, formatOptions);
     this._renderRulesSection();
     const bottom = element('div', 'h-export-bottom');
     this._bottomExportButton = element('button', 'h-btn h-btn-primary h-export-start-bottom');
@@ -644,6 +648,7 @@ export class ExportTool extends HBaseWidget {
     if (this._csvBox) this._csvBox.hidden = !table;
     if (this._csvSep) this._csvSep.hidden = format.value === 'tsv';
     if (this._namesBox) this._namesBox.hidden = !format.names;
+    if (this._formatHeader) this._formatHeader.textContent = `${$HR(format.label)} ${$HR('format')}`;
     if (this._formatNote) {
       this._formatNote.textContent = $HR({
         csv: 'One table per record type, first column H-ID.',

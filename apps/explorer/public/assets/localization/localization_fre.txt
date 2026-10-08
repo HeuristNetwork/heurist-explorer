@@ -363,3 +363,7 @@
 #Remove export result#Retirer le résultat d’export
 #Remove export results#Retirer les résultats d’export
 #The file is created on the server; only you can download it. It is kept for 24 hours.#Le fichier est créé sur le serveur ; vous seul pouvez le télécharger. Il est conservé 24 heures.
+#Saved#Enregistré
+#Added#Ajouté
+#Removed#Retiré
+#format#format

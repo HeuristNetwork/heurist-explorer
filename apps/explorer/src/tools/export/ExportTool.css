@@ -27,14 +27,29 @@
     box-sizing: border-box;
 }
 
-.h-export-intro {
+.h-export-intro,
+.h-export-format-header {
+    margin: 0;
+    font-size: 1.1em;
     font-weight: 600;
 }
 
-.h-export-sections {
+/* Scope and Format; the sections of the chosen format wrap the same way */
+.h-export-sections,
+.h-export-format-sections {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
     gap: 10px;
+}
+
+/* settings of the chosen format: full width below a separator, "<Format> format" */
+.h-export-format-options {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    width: 100%;
+    padding-top: 10px;
+    border-top: 1px solid var(--h-color-border);
 }
 
 .h-export-section {
