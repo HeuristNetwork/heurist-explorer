@@ -57,7 +57,8 @@ export function describeQueryParameters(query, dbdefs) {
           : ['enum', 'relationtype'].includes(fieldType) ? 'enum'
             : fieldType === 'date' ? 'date' : 'text';
     const recordType = recordTypeId ? dbdefs?.rectypeName?.(recordTypeId) : '';
-    const fieldLabel = relationType ? 'Relation type' : field?.name || key;
+    const fieldLabel = relationType ? 'Relation type'
+      : (fieldId && structureFieldName(recordTypeId, fieldId, dbdefs)) || field?.name || key;
     const pathLabel = recordType ? `${recordType}.${fieldLabel}` : fieldLabel;
     for (const name of names) {
       parameters[name] ||= {
@@ -302,6 +303,19 @@ function visit(node, callback, key = '', recordTypeId = null, nested = false, sc
       visit(value, callback, name, recordTypeId, nested || NESTED_KEY.test(name), scopes, inner);
     }
   } else callback(node, key, recordTypeId, nested, scopes, link);
+}
+
+/**
+ * @returns {string} The field's name in the record structure (`rst_DisplayName`) of
+ *          the first of the `t` value's record types that has it, or `''`.
+ */
+function structureFieldName(recordTypeId, fieldId, dbdefs) {
+  if (recordTypeId == null || typeof dbdefs?.field !== 'function') return '';
+  for (const id of String(recordTypeId).split(',').map((item) => item.trim()).filter(Boolean)) {
+    const name = dbdefs.field(id, fieldId)?.name;
+    if (name) return name;
+  }
+  return '';
 }
 
 /** @returns {string} Names of a `t` value's record types (`"10,12"` → `"Person / Place"`). */

@@ -41,6 +41,18 @@ test('fixed range endpoint is part of the query, not the layout', () => {
     [{ 'f:20': '10<>30' }]);
 });
 
+test('labels take the record structure name (rst_DisplayName), else the base field name', () => {
+  const dbdefs = {
+    fieldGlobal: () => ({ type: 'freetext', name: 'Name / title' }),
+    field: (rty, dty) => (Number(rty) === 12 && Number(dty) === 1 ? { name: 'Place name' } : null),
+    rectypeName: (id) => ({ 10: 'Person', 12: 'Place' }[id] || '')
+  };
+  const descriptors = describeQueryParameters([{ t: '10,12' }, { 'f:1': '$X1$' },
+    { 'lt:240': [{ t: '48' }, { 'f:1': '$X2$' }] }], dbdefs);
+  assert.equal(descriptors.X1.label, 'Place name');
+  assert.equal(descriptors.X2.label, 'Name / title');
+});
+
 test('date overlap and containment operators expose one two-ended parameter', () => {
   const dbdefs = { fieldGlobal: () => ({ type: 'date', name: 'Date' }) };
   for (const value of ['<>$DateFrom$/$DateTo$', '><$DateFrom$/$DateTo$']) {

@@ -77,6 +77,7 @@ export class QuerySourceEditor extends HBaseWidget {
     this._syncingDraft = false;
     this._acceptedQuery = null;
     this._acceptedRecordTypeId = null;
+    this._acceptedFilterForm = null;
   }
 
   /**
@@ -215,6 +216,7 @@ export class QuerySourceEditor extends HBaseWidget {
     this._baseline = editableFingerprint(this.draft);
     this._acceptedQuery = clone(this.draft?.request?.q);
     this._acceptedRecordTypeId = inferRecordTypeId(this._acceptedQuery);
+    this._acceptedFilterForm = clone(this.draft?.presentation?.filterForm || null);
     this._setDirty(false);
     if (this.isRendered) this._syncFromDraft();
     return this;
@@ -442,6 +444,10 @@ export class QuerySourceEditor extends HBaseWidget {
     this.draft.presentation.timeline = null;
     this.draft.presentation.filterForm = null;
     delete this.draft.meta;
+    // nothing is left to protect: the next query starts a new record type
+    this._acceptedQuery = '';
+    this._acceptedRecordTypeId = null;
+    this._acceptedFilterForm = null;
     this._markDirty();
     this._syncFromDraft();
     return this;
@@ -699,12 +705,22 @@ export class QuerySourceEditor extends HBaseWidget {
     return description || $HR('Query Source');
   }
 
-  _hasSourceConfiguration() {
+  /**
+   * Settings lost on a record type change that are worth asking about: expansion
+   * rules, presentation profiles with values, and a Filter Form of the previous
+   * query. The title is not asked about, and a Filter Form that came with the new
+   * query (Filter Builder, setQuery) belongs to it.
+   *
+   * @private
+   * @param {boolean} freshForm Whether the Filter Form came with the new query.
+   * @returns {boolean} Whether to ask before clearing them.
+   */
+  _hasSourceConfiguration(freshForm) {
     const d = this.draft || {};
     const p = d.presentation || {};
-    return !!String(d.title || '').trim()
-      || (Array.isArray(d.request?.rules) && d.request.rules.length > 0)
-      || hasProfile(p.data) || hasProfile(p.map) || hasProfile(p.graph) || hasProfile(p.timeline) || hasProfile(p.filterForm);
+    return (Array.isArray(d.request?.rules) && d.request.rules.length > 0)
+      || hasValues(p.data) || hasValues(p.map) || hasValues(p.graph) || hasValues(p.timeline)
+      || (!freshForm && hasValues(p.filterForm));
   }
 
   /** True when a transient query has Query Source-specific configuration worth protecting on navigation. */
@@ -715,14 +731,19 @@ export class QuerySourceEditor extends HBaseWidget {
       || hasProfile(p.data) || hasProfile(p.map) || hasProfile(p.graph) || hasProfile(p.timeline) || hasProfile(p.filterForm);
   }
 
-  _detachForRecordTypeChange() {
+  /**
+   * @private
+   * @param {object|null} [filterForm] Filter Form of the new query, kept.
+   * @returns {void}
+   */
+  _detachForRecordTypeChange(filterForm = null) {
     if (!this.draft) return;
     this.draft.reference = { type: 'query', id: null, key: 'query:draft' };
     this.draft.title = '';
     this.draft.request ||= {};
     this.draft.request.rules = [];
     this.draft.request.rulesonly = 0;
-    this.draft.presentation = { data: null, map: null, graph: null, timeline: null, filterForm: null };
+    this.draft.presentation = { data: null, map: null, graph: null, timeline: null, filterForm: clone(filterForm) };
     this.draft.count = null;
     this.draft.origin = 'search';
   }
@@ -730,28 +751,35 @@ export class QuerySourceEditor extends HBaseWidget {
   async _ensureRecordTypeConsistency() {
     if (!this.draft) return true;
     const query = clone(this.draft.request?.q);
+    const filterForm = clone(this.draft.presentation?.filterForm || null);
     const nextType = inferRecordTypeId(query);
     const previousType = this._acceptedRecordTypeId;
     if (!(previousType > 0) || !(nextType > 0) || previousType === nextType) {
       if (nextType > 0) this._acceptedRecordTypeId = nextType;
       this._acceptedQuery = query;
+      this._acceptedFilterForm = filterForm;
       return true;
     }
 
+    // a Filter Form that changed with the query belongs to the new query
+    const freshForm = JSON.stringify(filterForm) !== JSON.stringify(this._acceptedFilterForm ?? null);
+
     // asked whether or not the settings (More) are shown: they are lost either way
-    if (this._hasSourceConfiguration()) {
+    if (this._hasSourceConfiguration(freshForm)) {
       const accepted = await confirmRecordTypeChange();
       if (!accepted) {
         this.draft.request.q = clone(this._acceptedQuery);
+        this.draft.presentation.filterForm = clone(this._acceptedFilterForm);
         this._syncFromDraft();
         this._markDirty();
         return false;
       }
     }
 
-    this._detachForRecordTypeChange();
+    this._detachForRecordTypeChange(freshForm ? filterForm : null);
     this._acceptedRecordTypeId = nextType;
     this._acceptedQuery = query;
+    this._acceptedFilterForm = freshForm ? filterForm : null;
     this._markDirty();
     this._syncFromDraft();
     return true;
@@ -825,6 +853,13 @@ function editableFingerprint(source) {
 function blankDraft() { return { reference: { type: 'query', id: null, key: 'query:draft' }, title: null, request: { q: '' }, presentation: { data: null, map: null, graph: null, timeline: null, filterForm: null } }; }
 function hasQuery(q) { return q != null && (typeof q !== 'string' || q.trim().length > 0); }
 function hasProfile(value) { return value != null && (typeof value !== 'object' || Object.keys(value).length > 0); }
+/** Whether a profile holds any value: empty strings, arrays and objects (also nested) do not count. */
+function hasValues(value) {
+  if (value == null || value === '') return false;
+  if (Array.isArray(value)) return value.some(hasValues);
+  if (typeof value === 'object') return Object.values(value).some(hasValues);
+  return true;
+}
 function queryToInputText(query) {
   if (query == null) return '';
   if (typeof query === 'string') return query;

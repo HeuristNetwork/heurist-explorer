@@ -60,6 +60,39 @@ test('Clear turns a parameterized query into an empty, editable one', () => {
   assert.equal(editor.draft.presentation.filterForm, null);
 });
 
+test('after Clear, a new parameterized query of another type keeps its Filter Form without asking', async () => {
+  const editor = new QuerySourceEditor({ dbdefs: {} });
+  editor.setDataSource({
+    reference: { type: 'source', id: 46, key: 'source:46' },
+    title: 'Old',
+    request: { q: [{ t: '10' }] },
+    presentation: { filterForm: { groups: [{ id: 'old' }] } }
+  });
+  editor.clearSettings();
+  const form = { groups: [{ id: 'new' }] };
+  editor.draft.request.q = [{ t: '12' }, { 'f:1': '$X1$' }];
+  editor.draft.presentation.filterForm = form;
+  editor._hasSourceConfiguration = () => { throw new Error('should not ask'); };
+  assert.equal(await editor._ensureRecordTypeConsistency(), true);
+  assert.deepEqual(editor.draft.presentation.filterForm, form);
+});
+
+test('a Filter Form that came with a query of another type is kept; empty profiles and the title do not ask', async () => {
+  const editor = new QuerySourceEditor({ dbdefs: {} });
+  editor.setDataSource({
+    title: 'Some title',
+    request: { q: [{ t: '10' }] },
+    presentation: { data: { fields: [] }, map: { geo: null } }
+  });
+  const form = { groups: [{ id: 'new' }] };
+  editor.draft.request.q = [{ t: '12' }, { 'f:1': '$X1$' }];
+  editor.draft.presentation.filterForm = form;
+  assert.equal(editor._hasSourceConfiguration(true), false);
+  assert.equal(await editor._ensureRecordTypeConsistency(), true);
+  assert.deepEqual(editor.draft.presentation.filterForm, form);
+  assert.equal(editor.draft.title, '');
+});
+
 test('the More state is the host\'s: hidden by default, kept when a source is loaded or saved', () => {
   const editor = new QuerySourceEditor({ dbdefs: {} });
   assert.equal(editor.isExpanded(), false);
