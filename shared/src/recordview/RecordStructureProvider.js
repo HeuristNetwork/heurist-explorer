@@ -24,6 +24,8 @@
  * @since       8.0
  */
 
+import { EDIT_STRUCTURE_DETAILS, buildEditStructure } from "../data/recordEditStructure.js";
+
 const STRUCTURE_DETAILS =
   "rst_DetailTypeID,rst_DisplayName,rst_DisplayOrder,rst_RequirementType,rst_DefaultValue,rst_DisplayHelpText,dty_Type";
 
@@ -33,6 +35,36 @@ export class RecordStructureProvider {
   constructor({ apiClient }) {
     this.apiClient = apiClient;
     this.cache = new Map(); // rectypeId -> Promise<Array<section>>
+    this.editCache = new Map(); // rectypeId -> Promise<Array<row>> (edit columns)
+  }
+
+  /**
+   * Edit form structure of one record type (plan 14): groups of fields with
+   * requirement, max values, default, vocabulary, pointer targets and size.
+   * The `/rst` rows are loaded once per record type.
+   *
+   * @param {number|string} rectypeId Record type id.
+   * @param {{signal?: AbortSignal, multilangIds?: number[], dbdefs?: object}} [options]
+   *        `multilangIds`: fields with translations; `dbdefs`: concept codes of fields.
+   * @returns {Promise<{rty: number, groups: Array<object>}>} See recordEditStructure.js.
+   * @throws {TypeError} When `rectypeId` is invalid.
+   */
+  async editStructure(rectypeId, { signal, multilangIds = [], dbdefs = null } = {}) {
+    const rty = Number(rectypeId);
+    if (!Number.isInteger(rty) || rty < 1) {
+      throw new TypeError("A valid Heurist record type id is required");
+    }
+    if (!this.editCache.has(rty)) {
+      const promise = this.apiClient
+        .get(`/rst/${rty}`, { signal, query: { details: EDIT_STRUCTURE_DETAILS } })
+        .then((payload) => (Array.isArray(payload?.items) ? payload.items : []))
+        .catch((error) => {
+          this.editCache.delete(rty);
+          throw error;
+        });
+      this.editCache.set(rty, promise);
+    }
+    return buildEditStructure(await this.editCache.get(rty), { rty, multilangIds, dbdefs });
   }
 
   /**

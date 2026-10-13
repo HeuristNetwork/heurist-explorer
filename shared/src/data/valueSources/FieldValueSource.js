@@ -174,12 +174,14 @@ export class FacetTermSource {
 export class RecordTitleSource {
   /**
    * @param {object} api HeuristApiClient (needs `get`).
-   * @param {{rtyId?: number|string|null, limit?: number}} [options] Record type (none: any), page size.
+   * @param {{rtyId?: number|string|Array<number|string>|null, limit?: number}} [options]
+   *        Record type or types (none: any), page size.
    */
   constructor(api, { rtyId = null, limit = 200 } = {}) {
     if (!api?.get) throw new TypeError('RecordTitleSource requires an API client');
     this.api = api;
-    this.rtyId = Number(rtyId) > 0 ? Number(rtyId) : null;
+    const types = (Array.isArray(rtyId) ? rtyId : [rtyId]).map(Number).filter((id) => id > 0);
+    this.rtyId = types.length ? types.join(',') : null;
     this.limit = Math.max(1, Number(limit) || 200);
     this._labels = new Map();
   }
@@ -204,6 +206,17 @@ export class RecordTitleSource {
   /** @returns {string} Title of a record seen before, else ''. */
   labelFor(value) {
     return this._labels.get(String(value)) || '';
+  }
+
+  /**
+   * Remember the title of a record known from elsewhere (e.g. a resolved pointer value).
+   *
+   * @param {number|string} id Record id.
+   * @param {string} title Record title.
+   * @returns {void}
+   */
+  rememberLabel(id, title) {
+    if (Number(id) > 0 && title) this._labels.set(String(Number(id)), String(title));
   }
 
   /**

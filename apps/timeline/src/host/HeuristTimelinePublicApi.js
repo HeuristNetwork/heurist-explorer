@@ -30,7 +30,7 @@ export class HeuristTimelinePublicApi {
   reloadLayer(id) { return this.application.reloadLayer(id); }
   requestEditMapDocument(id) { return this.application.requestEditMapDocument(id); }
   requestEditLayer(id) { return this.application.requestEditLayer(id); }
-  getCapabilities() { return { editing: this.application.host.supportsEditing() }; }
+  getCapabilities() { return { editing: this.application.host.supportsEditing('RT_MAP_DOCUMENT') }; }
   getHostCapabilities() {
     const host = this.application.host;
     return { mapPreferences: true, mapPublishing: Boolean(host.baseUrl && host.database),

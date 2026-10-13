@@ -1,0 +1,169 @@
+.h-record-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  padding: 4px 0;
+}
+
+.h-record-field-header {
+  display: flex;
+  align-items: center;
+  gap: var(--h-gap);
+  min-width: 0;
+}
+
+.h-record-field-label {
+  flex: 0 1 auto;
+  font-weight: 600;
+}
+
+.h-record-field.is-required .h-record-field-label::after {
+  content: ' *';
+  color: var(--h-color-danger);
+}
+
+.h-record-field-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+}
+
+.h-record-field-values {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.h-record-field-value {
+  display: flex;
+  align-items: flex-start;
+  gap: 4px;
+  min-width: 0;
+}
+
+.h-record-field-input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* value hidden from the public */
+.h-record-field-value.is-hidden .h-record-field-input {
+  opacity: 0.7;
+}
+
+.h-record-field-hidden.is-hidden {
+  color: var(--h-color-warning);
+}
+
+.h-record-field-note,
+.h-record-field-help {
+  color: var(--h-color-text-muted);
+  font-size: var(--h-font-size-small, 0.85em);
+}
+
+.h-record-field-translations {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.h-record-field-translations:empty {
+  display: none;
+}
+
+.h-record-field-translation {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  border: 1px solid var(--h-color-border);
+  border-radius: var(--h-radius);
+  background: var(--h-color-surface);
+}
+
+.h-record-field-translation-text {
+  overflow: hidden;
+  max-width: 24em;
+  border: 0;
+  padding: 2px 6px;
+  background: transparent;
+  color: var(--h-color-text);
+  cursor: pointer;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.h-record-field-translation-remove {
+  padding: 0 4px;
+}
+
+.h-record-field-translate-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--h-gap);
+  width: 22em;
+  max-width: calc(100vw - 32px);
+  padding: var(--h-gap);
+}
+
+.h-record-field-translate-buttons {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--h-gap);
+}
+
+.h-record-field-issues:empty {
+  display: none;
+}
+
+.h-record-field-issue {
+  font-size: var(--h-font-size-small, 0.85em);
+}
+
+.h-record-field-issue.is-error {
+  color: var(--h-color-danger);
+}
+
+.h-record-field-issue.is-warning {
+  color: var(--h-color-warning);
+}
+
+.h-record-field.has-error .h-record-field-label {
+  color: var(--h-color-danger);
+}
+
+/* special field: readable value, Show raw, Edit */
+.h-record-field-special {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--h-gap);
+  min-width: 0;
+}
+
+.h-record-field-value.is-special {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.h-record-field-special-summary {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 4px 6px;
+  border: 1px solid var(--h-color-border);
+  border-radius: var(--h-radius);
+  background: var(--h-color-surface);
+  overflow-wrap: anywhere;
+}
+
+.h-record-field-special-summary.is-empty {
+  color: var(--h-color-text-muted);
+  font-style: italic;
+}
+
+.h-record-field-special-buttons {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 4px;
+}

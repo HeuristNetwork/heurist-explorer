@@ -28,6 +28,9 @@ import { LegacySavedFilterConverter } from '../legacy/LegacySavedFilterConverter
 import { RecordTypeManager } from './RecordTypeManager.js';
 import { UserGroupManager, ownerScope } from './UserGroupManager.js';
 import { QuerySourceManager } from './QuerySourceManager.js';
+import { RecordEditorHost } from './RecordEditorHost.js';
+import { querySourceDetails } from './querySourceRecord.js';
+import { RecordEditError } from '#shared/data/RecordEditClient.js';
 import { HRuleBuilder, describeExpansionRule } from '../widgets/query-source/helpers/HRuleBuilder.js';
 import { SyncEngine } from './SyncEngine.js';
 import { IframeModuleAdapter } from '../modules/IframeModuleAdapter.js';
@@ -150,6 +153,22 @@ export class ExplorerApplication {
     this.userGroups = new UserGroupManager({
       apiClient,
       dbDefsProvider: () => this._ensureDbDefs()
+    });
+    // system records (query sources, map documents/layers, reports, website pages)
+    // open in Explorer's record editor, also without the legacy host (plan 14)
+    this.recordEditing = new RecordEditorHost({
+      apiClient,
+      getDbDefs: () => this._dbDefs || null,
+      ensureDbDefs: () => this._ensureDbDefs(),
+      getBridge: () => this.config.hostBridge || null,
+      isLoggedIn: () => Number(this.userGroups?.data?.currentUserId) > 0,
+      selectExtent: this.config.moduleUrls?.map ? (current) => this.selectFilterExtent(current) : null,
+      editQuery: (query, filterForm) => this._editQueryWithBuilder(query, filterForm),
+      describeQuery: (q) => this._describeQuery(q),
+      onSaved: ({ record }) => this._recordSaved(record),
+      language: this.config.language,
+      baseUrl: this.config.baseUrl,
+      database: this.config.database
     });
     this.querySources = new QuerySourceManager({
       apiClient,
@@ -429,7 +448,7 @@ export class ExplorerApplication {
     });
   }
 
-  /** Persist a QuerySourceEditor draft through the host bridge and refresh its stable reference. */
+  /** Persist a QuerySourceEditor draft with the record API and refresh its stable reference. */
   async _saveQuerySourceDraft(source, id = null) {
     const panel = this._currentQuerySourcePanel();
     const prepared = !String(source?.title || '').trim() ? (panel?.prepareDraftForSave?.() || source) : source;
@@ -940,27 +959,39 @@ export class ExplorerApplication {
   }
 
   /**
-   * Delegate to the host's source editor to save a datasource (or the active one) as an RT_QUERY_SOURCE record.
+   * Save a datasource (or the active one) as a Query Source record with the record
+   * API (plan 14): a new record (POST), or an update (PATCH) of the fields the Query
+   * Source editor owns, so the other fields of the record (summary, creators...) stay.
    *
    * @param {object|null} [source] Datasource to save; defaults to `this.sync.dataSource`.
-   * @param {object} [options] Options forwarded to the host's `saveDatasourceAsSource`.
-   * @returns {Promise<*>} Result of the host action.
-   * @throws {Error} When there is no datasource to save, or the host doesn't support source editing.
+   * @param {{id?: number}} [options] `id`: the Query Source record to update.
+   * @returns {Promise<{saved: boolean, recordId: number|null, record: object|null}>}
+   * @throws {Error} When there is nothing to save, the user cannot save, or the server refuses
+   *         (the message lists the invalid fields).
    */
   async saveDatasourceAsSource(source = null, options = {}) {
     const dataSource = await this._resolveRequestedDataSource(source || this.sync.dataSource);
     if (!dataSource) throw new Error($HR('No data source to save'));
-    const action = this.config.hostBridge?.saveDatasourceAsSource;
-    if (typeof action !== 'function') {
-      throw new Error($HR('Source editor is not available'));
-    }
+    if (!this.canSaveSources()) throw new Error($HR('Source editor is not available'));
     const dbdefs = await this._ensureDbDefs();
-    const querySourceDbconst = {};
-    for (const name of ['DT_GEO_OUTPUTMODE', 'DT_IS_LOADED_BY_EXTENT', 'TRM_NO', 'TRM_YES']) {
-      const id = dbdefs.dbconst?.(name);
-      if (Number(id) > 0) querySourceDbconst[name] = Number(id);
+    const rectypeId = Number(dbdefs.dbconst?.('RT_QUERY_SOURCE')) || 0;
+    if (!(rectypeId > 0)) throw new Error($HR('Query Source record type is not available'));
+    const { details } = querySourceDetails(dataSource, dbdefs);
+    const reference = dataSource.reference;
+    const recordId = Number(options.id || (reference?.type === 'source' ? reference.id : 0)) || 0;
+    const client = this.recordEditing.client;
+    try {
+      const result = recordId > 0
+        ? await client.patch(recordId, { details })
+        : await client.insert({ rec_ID: '0', rec_RecTypeID: String(rectypeId), details });
+      return { saved: true, recordId: Number(result.record?.rec_ID) || recordId || null, record: result.record };
+    } catch (error) {
+      if (error instanceof RecordEditError && error.issues.length) {
+        const messages = error.issues.filter((issue) => issue.severity !== 'warning').map((issue) => issue.message);
+        throw new Error(`${$HR('The Query Source could not be saved')}: ${messages.join('; ') || error.message}`);
+      }
+      throw error;
     }
-    return action(dataSource, { ...options, dbconst: querySourceDbconst });
   }
 
   /**
@@ -1185,18 +1216,69 @@ export class ExplorerApplication {
 
   /** @returns {boolean} Whether the host can save a Query Source record. */
   canSaveSources() {
-    return hostCan(this.config.hostBridge, 'saveDatasourceAsSource', 'canSaveSources');
+    // the record API (plan 14): any logged-in user; the server checks the ownership
+    return this.canEditRecordType('RT_QUERY_SOURCE');
   }
 
-  /** Open a Query Source record in the host record editor. */
+  /**
+   * Whether records of a type can be edited: system record types in Explorer's
+   * record editor (logged-in user), any type in the legacy host editor.
+   *
+   * @param {number|string} recordType Record type id or code name (`RT_QUERY_SOURCE`).
+   * @returns {boolean}
+   */
+  canEditRecordType(recordType) {
+    return this.recordEditing?.canEditRecordType(recordType) === true;
+  }
+
+  /**
+   * Edit a record: system records in Explorer's record editor, others in the host editor.
+   *
+   * @param {number|string} id Record id.
+   * @param {{recordType?: number|string}} [options] Record type id or code name, when known.
+   * @returns {Promise<{saved: boolean, recordId: number}|*>}
+   */
+  async editRecord(id, options = {}) {
+    return this.recordEditing.editRecord(id, options);
+  }
+
+  /**
+   * Create a record of a type (Explorer's record editor for system record types).
+   *
+   * @param {number|string} recordType Record type id or code name.
+   * @returns {Promise<{saved: boolean, recordId: number}|*>}
+   */
+  async addRecord(recordType) {
+    return this.recordEditing.addRecord(recordType);
+  }
+
+  /** Open a Query Source record in the record editor. */
   async editQuerySource(id) {
     const recordId = Number(id);
     if (!Number.isFinite(recordId) || recordId <= 0) return null;
-    const bridge = this.config.hostBridge || {};
-    if (!this.canEditRecords()) {
+    if (!this.canEditRecordType('RT_QUERY_SOURCE')) {
       throw new Error($HR('Record editor is not available'));
     }
-    return bridge.editRecord(recordId);
+    return this.editRecord(recordId, { recordType: 'RT_QUERY_SOURCE' });
+  }
+
+  /**
+   * A record was saved in Explorer's record editor: refresh the lists that show it.
+   *
+   * @private
+   * @param {object} record Saved record.
+   * @returns {Promise<void>}
+   */
+  async _recordSaved(record) {
+    const rectypeId = Number(record?.rec_RecTypeID);
+    if (rectypeId > 0 && rectypeId === Number(this._dbDefs?.dbconst?.('RT_QUERY_SOURCE'))) {
+      try {
+        await this.querySources?.load?.();
+        this.controlPanel?.refreshNavigationLists?.();
+      } catch (error) {
+        console.warn('Query sources could not be reloaded', error);
+      }
+    }
   }
 
 
@@ -1559,11 +1641,11 @@ export class ExplorerApplication {
    * @returns {object} Bridge object.
    */
   _reportsBridge() {
-    const bridge = this.config.hostBridge || {};
     return {
-      editRecord: (id) => bridge.editRecord?.(id),
-      addRecord: (rt) => bridge.addRecord?.(rt),
-      canEditRecords: () => this.canEditRecords(),
+      // report records are system records: Explorer's record editor (plan 14)
+      editRecord: (id) => this.editRecord(id),
+      addRecord: (rt) => this.addRecord(rt),
+      canEditRecords: () => this.canEditRecordType('RT_CUSTOM_REPORT'),
       getCurrentQuery: () => {
         const source = this.sync?.dataSource;
         const query = source ? dataSourceRequest(source)?.q ?? null : null;
@@ -1611,12 +1693,14 @@ export class ExplorerApplication {
   _hostActions() {
     const bridge = this.config.hostBridge || {};
     return {
-      editRecord: (id) => bridge.editRecord?.(id),
+      // system records in Explorer's record editor, other records in the host editor
+      editRecord: (id, options) => this.editRecord(id, options),
       // modules show edit actions only when the outer host can really edit
       canEditRecords: () => this.canEditRecords(),
+      canEditRecordType: (recordType) => this.canEditRecordType(recordType),
       // shown in Explorer's own Record view; see viewRecord()
       viewRecord: (id) => this.viewRecord(id),
-      addRecord: (rt) => bridge.addRecord?.(rt),
+      addRecord: (rt) => this.addRecord(rt),
       editSymbology: (value, options) => bridge.editSymbology?.(value, options),
       // same draw-mode Map dialog as the Filter Builder extent picker;
       // the outer host editor is only a fallback without a Map module URL

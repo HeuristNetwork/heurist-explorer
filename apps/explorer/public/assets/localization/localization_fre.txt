@@ -226,7 +226,7 @@
 #Error_Title#Information
 #Export records#Exporter des enregistrements
 #All#Tous
-#All fields of the records; record types, fields and terms with concept codes.#Tous les champs des enregistrements ; types d'enregistrements, champs et termes avec leurs codes de concept.
+#All fields of the records in the format of the /records API; concept codes in the metadata.#Tous les champs des enregistrements au format de l'API /records ; codes de concept dans les métadonnées.
 #Also export the records reached by the expansion rules#Exporter aussi les enregistrements atteints par les règles d'expansion
 #As stored (temporal objects as JSON)#Tel qu'enregistré (objets temporels en JSON)
 #Automatic#Automatique
@@ -323,6 +323,8 @@
 #Drag to reorder#Glisser pour réordonner
 #Edit custom rules#Modifier les règles personnalisées
 #Include human-readable names and local IDs for everything#Inclure les noms lisibles et les identifiants locaux partout
+#Include human-readable names for everything (term labels, record titles, file details)#Inclure les noms lisibles partout (libellés des termes, titres des enregistrements, détails des fichiers)
+#Without them values are stored ids. Record types, fields and terms with names and concept codes are always listed in the metadata.#Sans eux, les valeurs sont les identifiants enregistrés. Les types d'enregistrements, champs et termes avec leurs noms et codes de concept sont toujours listés dans les métadonnées.
 #Link#Lien
 #Network for Gephi: records are nodes, pointers and relationships between them are edges. At most 10,000 records.#Réseau pour Gephi : les enregistrements sont les nœuds, les pointeurs et relations entre eux sont les arêtes. Au plus 10 000 enregistrements.
 #No expansion#Pas d'expansion
@@ -367,3 +369,63 @@
 #Added#Ajouté
 #Removed#Retiré
 #format#format
+# record editor (plan 14)
+#Yes#Oui
+#No#Non
+#OK#OK
+#Select record…#Choisir un enregistrement…
+#Select…#Choisir…
+#ID of an uploaded file#ID d'un fichier téléversé
+#Relationships are not edited in this editor yet#Les relations ne sont pas encore modifiables dans cet éditeur
+#A value is required#Une valeur est requise
+#value#valeur
+#Remove this value#Supprimer cette valeur
+#Translate#Traduire
+#Add the value in another language#Ajouter la valeur dans une autre langue
+#Add a value#Ajouter une valeur
+#Hidden from the public - click to show#Masqué au public - cliquer pour afficher
+#Visible to the public - click to hide#Visible par le public - cliquer pour masquer
+#Edit translation#Modifier la traduction
+#Remove translation#Supprimer la traduction
+#Translated value#Valeur traduite
+#The record does not exist or you cannot see it#L'enregistrement n'existe pas ou vous ne pouvez pas le voir
+#Please correct the marked fields#Veuillez corriger les champs signalés
+#This record was changed by someone else after you opened it. Save your version anyway?#Cet enregistrement a été modifié par quelqu'un d'autre après son ouverture. Enregistrer quand même votre version ?
+#Record changed#Enregistrement modifié
+#Not saved: the record was changed by someone else#Non enregistré : l'enregistrement a été modifié par quelqu'un d'autre
+#The record could not be saved#L'enregistrement n'a pas pu être enregistré
+#Close without saving your changes?#Fermer sans enregistrer vos modifications ?
+#Unsaved changes#Modifications non enregistrées
+#Loading…#Chargement…
+#New record#Nouvel enregistrement
+#Ownership and access#Propriété et accès
+#Nobody else#Personne d'autre
+#Saved, with warnings#Enregistré, avec des avertissements
+#Not saved: please correct the marked fields#Non enregistré : veuillez corriger les champs signalés
+#Everyone (any logged-in user)#Tout le monde (tout utilisateur connecté)
+#Logged-in users#Utilisateurs connectés
+#Public#Public
+#Public, pending approval#Public, en attente d'approbation
+#Owner only#Propriétaire seulement
+#Save and close#Enregistrer et fermer
+#Owner#Propriétaire
+#Visible to#Visible par
+#Only these groups#Seulement ces groupes
+#Also editable by#Également modifiable par
+#Show raw#Afficher le texte brut
+#Hide raw#Masquer le texte brut
+#Not defined#Non défini
+#The raw value is not valid JSON#La valeur brute n'est pas un JSON valide
+#Edit record#Modifier l'enregistrement
+#A valid record ID is required#Un ID d'enregistrement valide est requis
+#Record editor is not available#L'éditeur d'enregistrement n'est pas disponible
+#input#champ
+#inputs#champs
+#rules#règles
+#line#ligne
+#fill#remplissage
+#icon#icône
+#thematic maps#cartes thématiques
+#Symbology defined#Symbologie définie
+#The Query Source could not be saved#La source de requête n'a pas pu être enregistrée
+#Query Source record type is not available#Le type d'enregistrement Source de requête n'est pas disponible

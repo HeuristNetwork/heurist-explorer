@@ -366,6 +366,8 @@ Server:
   [values]}}` - term = its concept code, pointer = record id, file = {nonce, name, mime,
   description, url}; meta `form: "concepts"`, `registeredId`. With names: the `/records` envelope
   as before (`form: "full"`).
+  *Replaced 2026-10-09 by the common JSON format (section at the end): both forms are the
+  `/records` envelope.*
 - **HML without names** = the flathml default: `conceptID` / `termConceptID` only (term label as
   text); with names: `id`, `name`, `basename`, `termID`, term labels (flathml
   human_readable_names). The legacy import reads both (fields by concept code, test).
@@ -536,3 +538,40 @@ client `exportTool.test.js` 12, `exportToolRender.test.js` 7; `npm test` 1042.
   before the name (the name still shows the file in the frame), date, size, open in a new window, download;
   no delete icon; bottom panel Remove marked / Remove all (Heurist confirmation, the list closes at once).
 
+## Common JSON format (2026-10-09)
+
+Artem found three JSON outputs for one record: `/records?q=...&fields=...`, the export JSON (two forms) and
+`/records/{id}`. Search and export already shared the record code (`RecordPageAssembler` →
+`RecordDataService`). `/records/{id}` was legacy (`record_output.php` → `ExportRecordsJSON`: details
+`{dty_ID: {dtl_ID: value}}`, pointers `{id, type, title, hhash}`, no concept codes) and did not match its
+OpenAPI description.
+
+Agreed:
+- One format, the `/records` one: details are arrays `{"19": ["97", "96"]}` (no `dtl_ID`). With
+  `resolveDetails=1` values are objects with the column names (`rec_ID`, `rec_Title`, `rec_Hash`, `trm_ID`,
+  `trm_Label`, `trm_ConceptCode`, `ulf_*`).
+- Concept codes are in `meta`, not in record keys: `meta.fields.details[].dty_ConceptCode` (always), and
+  with the new option **`defs=1`** `meta.recordTypes {id: {rty_Name, rty_ConceptCode}}` and
+  `meta.terms {id: {trm_Label, trm_Code, trm_ConceptCode}}`. Record types: the records and resolved pointer
+  targets (pointers that are not resolved carry only the record id).
+- `fields=_all` now lists the definitions of every field present in the records (before: empty list).
+- **Export JSON** = `/records?fields=_all&defs=1`; with "Include human-readable names" also
+  `resolveDetails=1`. Meta adds `title`, `exported`, `total`; no pagination. The concept-code form
+  (`rec_RecTypeConceptID`, `form`, `registeredId`) is removed; nothing read it.
+- **`GET /records/{id}`** is served by srv (`RecordQueryController::outputItem`): the same record object and
+  meta as `/records?ids={id}`, `fields` default `_all`, `detail=ids`, `resolveDetails`, `defs`; no pagination.
+- All definition data comes from `DefinitionLookup`; `RecordDataService` no longer has its own
+  `defDetailTypes` / registered-id queries.
+
+Client impact (checked): new modules never call `/records/{id}`; changes to `/records` are additions
+(`DataTablesAdapter` looks up names in `meta.fields.details`). Legacy `hclient/core/utils_dbs.js` reads a
+Reference Index record with `Object.values(details[1091])[0]`, which works with arrays. The legacy
+export/import (`ExportRecordsJSON`, `importHeurist.php`) is unchanged. External scripts that read
+`dtl_ID` keys of `/records/{id}` would need the array format.
+
+Files: heurist `srv/Records/Data/RecordDataService.php`, `RecordPageAssembler.php`,
+`srv/Records/Query/SearchRequest.php`, `srv/Controller/RecordQueryController.php`,
+`srv/Records/Export/ExportService.php`, `Writer/JsonExportWriter.php`, `hserv/controller/api.php`,
+`documentation/api/heurist-openapi.yaml`, READMEs; this repo `apps/explorer/src/tools/export/ExportTool.js`
+(checkbox label and note per format) and localization. Test: `tests/ExportWriterTest.php` 87 checks (both
+JSON forms equal the API output).

@@ -226,7 +226,7 @@
 #Error_Title#Info
 #Export records#Export records
 #All#All
-#All fields of the records; record types, fields and terms with concept codes.#All fields of the records; record types, fields and terms with concept codes.
+#All fields of the records in the format of the /records API; concept codes in the metadata.#All fields of the records in the format of the /records API; concept codes in the metadata.
 #Also export the records reached by the expansion rules#Also export the records reached by the expansion rules
 #As stored (temporal objects as JSON)#As stored (temporal objects as JSON)
 #Automatic#Automatic
@@ -323,6 +323,8 @@
 #Drag to reorder#Drag to reorder
 #Edit custom rules#Edit custom rules
 #Include human-readable names and local IDs for everything#Include human-readable names and local IDs for everything
+#Include human-readable names for everything (term labels, record titles, file details)#Include human-readable names for everything (term labels, record titles, file details)
+#Without them values are stored ids. Record types, fields and terms with names and concept codes are always listed in the metadata.#Without them values are stored ids. Record types, fields and terms with names and concept codes are always listed in the metadata.
 #Link#Link
 #Network for Gephi: records are nodes, pointers and relationships between them are edges. At most 10,000 records.#Network for Gephi: records are nodes, pointers and relationships between them are edges. At most 10,000 records.
 #No expansion#No expansion
@@ -367,3 +369,63 @@
 #Added#Added
 #Removed#Removed
 #format#format
+# record editor (plan 14)
+#Yes#Yes
+#No#No
+#OK#OK
+#Select record…#Select record…
+#Select…#Select…
+#ID of an uploaded file#ID of an uploaded file
+#Relationships are not edited in this editor yet#Relationships are not edited in this editor yet
+#A value is required#A value is required
+#value#value
+#Remove this value#Remove this value
+#Translate#Translate
+#Add the value in another language#Add the value in another language
+#Add a value#Add a value
+#Hidden from the public - click to show#Hidden from the public - click to show
+#Visible to the public - click to hide#Visible to the public - click to hide
+#Edit translation#Edit translation
+#Remove translation#Remove translation
+#Translated value#Translated value
+#The record does not exist or you cannot see it#The record does not exist or you cannot see it
+#Please correct the marked fields#Please correct the marked fields
+#This record was changed by someone else after you opened it. Save your version anyway?#This record was changed by someone else after you opened it. Save your version anyway?
+#Record changed#Record changed
+#Not saved: the record was changed by someone else#Not saved: the record was changed by someone else
+#The record could not be saved#The record could not be saved
+#Close without saving your changes?#Close without saving your changes?
+#Unsaved changes#Unsaved changes
+#Loading…#Loading…
+#New record#New record
+#Ownership and access#Ownership and access
+#Nobody else#Nobody else
+#Saved, with warnings#Saved, with warnings
+#Not saved: please correct the marked fields#Not saved: please correct the marked fields
+#Everyone (any logged-in user)#Everyone (any logged-in user)
+#Logged-in users#Logged-in users
+#Public#Public
+#Public, pending approval#Public, pending approval
+#Owner only#Owner only
+#Save and close#Save and close
+#Owner#Owner
+#Visible to#Visible to
+#Only these groups#Only these groups
+#Also editable by#Also editable by
+#Show raw#Show raw
+#Hide raw#Hide raw
+#Not defined#Not defined
+#The raw value is not valid JSON#The raw value is not valid JSON
+#Edit record#Edit record
+#A valid record ID is required#A valid record ID is required
+#Record editor is not available#Record editor is not available
+#input#input
+#inputs#inputs
+#rules#rules
+#line#line
+#fill#fill
+#icon#icon
+#thematic maps#thematic maps
+#Symbology defined#Symbology defined
+#The Query Source could not be saved#The Query Source could not be saved
+#Query Source record type is not available#Query Source record type is not available

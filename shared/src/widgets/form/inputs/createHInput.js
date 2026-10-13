@@ -18,6 +18,9 @@ import { HInputNumeric } from './HInputNumeric.js';
 import { HInputEnum } from './HInputEnum.js';
 import { HInputDate } from './HInputDate.js';
 import { HInputGeo } from './HInputGeo.js';
+import { HInputBoolean } from './HInputBoolean.js';
+import { HInputResource } from './HInputResource.js';
+import { HInputFile } from './HInputFile.js';
 
 const TYPES = {
   text: HInputText,
@@ -31,7 +34,10 @@ const TYPES = {
   enum: HInputEnum,
   relationtype: HInputEnum,
   date: HInputDate,
-  geo: HInputGeo
+  geo: HInputGeo,
+  boolean: HInputBoolean,
+  resource: HInputResource,
+  file: HInputFile
 };
 
 /**

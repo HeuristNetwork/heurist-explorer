@@ -592,12 +592,14 @@ export class ExportTool extends HBaseWidget {
     this._csvBox.append(this._csvSep, labelled($HR('Quote'), quote), labelled($HR('Repeated values separator'), mvsep),
       labelled($HR('Line ends'), eol), header, csvNote);
 
+    // JSON: resolveDetails of the /records API; HML: names and local ids (texts set in _refresh)
     this._namesBox = element('div', 'h-export-props-names');
-    const names = checkbox($HR('Include human-readable names and local IDs for everything'), this.settings.names === true,
+    this._namesCheck = checkbox('', this.settings.names === true,
       (checked) => { this.settings.names = checked; });
-    const namesNote = element('div', 'h-muted h-export-note');
-    namesNote.textContent = $HR('Without them record types, fields and terms are identified by concept codes only.');
-    this._namesBox.append(names, namesNote);
+    this._namesText = element('span', 'h-export-names-text');
+    this._namesCheck.append(this._namesText);
+    this._namesNote = element('div', 'h-muted h-export-note');
+    this._namesBox.append(this._namesCheck, this._namesNote);
 
     section.append(this._csvBox, this._namesBox);
     return section;
@@ -648,12 +650,21 @@ export class ExportTool extends HBaseWidget {
     if (this._csvBox) this._csvBox.hidden = !table;
     if (this._csvSep) this._csvSep.hidden = format.value === 'tsv';
     if (this._namesBox) this._namesBox.hidden = !format.names;
+    if (this._namesCheck) {
+      const json = format.value === 'json';
+      this._namesText.textContent = $HR(json
+        ? 'Include human-readable names for everything (term labels, record titles, file details)'
+        : 'Include human-readable names and local IDs for everything');
+      this._namesNote.textContent = $HR(json
+        ? 'Without them values are stored ids. Record types, fields and terms with names and concept codes are always listed in the metadata.'
+        : 'Without them record types, fields and terms are identified by concept codes only.');
+    }
     if (this._formatHeader) this._formatHeader.textContent = `${$HR(format.label)} ${$HR('format')}`;
     if (this._formatNote) {
       this._formatNote.textContent = $HR({
         csv: 'One table per record type, first column H-ID.',
         tsv: 'One table per record type, first column H-ID.',
-        json: 'All fields of the records; record types, fields and terms with concept codes.',
+        json: 'All fields of the records in the format of the /records API; concept codes in the metadata.',
         geojson: 'One feature per record with geographic values; chosen columns are properties.',
         kml: 'One placemark per geographic value, with its date or start/end date.',
         xml: 'Heurist XML (HML) that can be imported into another Heurist database.',

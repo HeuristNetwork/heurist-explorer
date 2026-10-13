@@ -1035,7 +1035,7 @@ export class ExplorerControlPanel {
     edit.innerHTML = '<span class="fa-solid fa-pen" aria-hidden="true"></span>';
     edit.addEventListener('click', () => void this._editQuerySource(source.id));
     row.append(star, select);
-    if (this.application.canEditRecords?.() === true) row.append(edit);
+    if (this.application.canEditRecordType?.('RT_QUERY_SOURCE') === true) row.append(edit);
     return row;
   }
 

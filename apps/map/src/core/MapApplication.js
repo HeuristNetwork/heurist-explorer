@@ -1213,8 +1213,8 @@ export class MapApplication {
     const recordId = Number(documentId);
     if (!(recordId > 0)) throw new Error('A persisted MapDocument record ID is required for editing');
 
-    if (!this.config.readonly && this.host.supportsEditing()) {
-      const result = await this.host.editRecord(recordId);
+    if (!this.config.readonly && this.host.supportsEditing('RT_MAP_DOCUMENT')) {
+      const result = await this.host.editRecord(recordId, { recordType: 'RT_MAP_DOCUMENT' });
       if (result?.saved === true) {
         await this.reloadMapDocument(recordId);
       }
@@ -1235,7 +1235,7 @@ export class MapApplication {
    * @throws {Error} When the MapDocument record type cannot be resolved.
    */
   async requestAddMapDocument() {
-    if (!this.config.readonly && this.host.supportsEditing()) {
+    if (!this.config.readonly && this.host.supportsEditing('RT_MAP_DOCUMENT')) {
       const typeResult = await this.providers.mapDocumentList?.search(false);
       const recordTypeId = Number(typeResult?.recordTypeId);
       if (!(recordTypeId > 0)) throw new Error('MapDocument record type is not available');
@@ -1268,8 +1268,8 @@ export class MapApplication {
     const recordId = Number(layer?.recordId);
     if (!(recordId > 0)) throw new Error(`Layer "${layerId}" is not backed by a persisted MapLayer record`);
 
-    if (!this.config.readonly && this.host.supportsEditing()) {
-      const result = await this.host.editRecord(recordId);
+    if (!this.config.readonly && this.host.supportsEditing('RT_MAP_LAYER')) {
+      const result = await this.host.editRecord(recordId, { recordType: 'RT_MAP_LAYER' });
       if (result?.saved === true) {
         await this.reloadLayer(layerId);
       }
@@ -2678,7 +2678,8 @@ export class MapApplication {
       queryGeoJson: Boolean(this.providers.queryGeoData),
       remoteGeoJson: true,
       timeline: false,
-      editing: !this.config.readonly && this.host.supportsEditing(),
+      // map documents and layers: Explorer's record editor (plan 14) or the legacy host editor
+      editing: !this.config.readonly && this.host.supportsEditing('RT_MAP_DOCUMENT'),
       symbologyEditing: !this.config.readonly && this.host.supportsSymbologyEditing()
     };
   }

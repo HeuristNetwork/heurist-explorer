@@ -1,0 +1,204 @@
+.h-record-editor {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+}
+
+.h-record-editor.is-busy {
+  cursor: progress;
+}
+
+.h-record-editor-loading {
+  padding: var(--h-gap);
+  color: var(--h-color-text-muted);
+}
+
+.h-record-editor-title {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: baseline;
+  gap: var(--h-gap);
+  min-width: 0;
+  padding: var(--h-gap);
+  border-bottom: 1px solid var(--h-color-border);
+}
+
+.h-record-editor-type {
+  color: var(--h-color-text-muted);
+  white-space: nowrap;
+}
+
+.h-record-editor-record {
+  overflow: hidden;
+  flex: 1 1 auto;
+  min-width: 0;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.h-record-editor-id {
+  color: var(--h-color-text-muted);
+  font-size: var(--h-font-size-small, 0.85em);
+  white-space: nowrap;
+}
+
+.h-record-editor-body {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: var(--h-gap);
+  min-height: 0;
+  overflow: auto;
+  padding: var(--h-gap);
+}
+
+.h-record-editor-ownership,
+.h-record-editor-group {
+  min-width: 0;
+  margin: 0;
+  border: 1px solid var(--h-color-border);
+  border-radius: var(--h-radius);
+  padding: 4px var(--h-gap) var(--h-gap);
+}
+
+.h-record-editor-ownership > legend,
+.h-record-editor-group > legend {
+  padding: 0 4px;
+  font-weight: 600;
+}
+
+.h-record-editor-ownership-row {
+  display: grid;
+  grid-template-columns: minmax(8em, 12em) minmax(0, 1fr);
+  align-items: center;
+  gap: var(--h-gap);
+  padding: 2px 0;
+}
+
+.h-record-editor-ownership-row[hidden] {
+  display: none;
+}
+
+.h-record-editor-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.h-record-editor-accordion {
+  border: 1px solid var(--h-color-border);
+  border-radius: var(--h-radius);
+}
+
+.h-record-editor-accordion > summary {
+  padding: 4px var(--h-gap);
+  background: var(--h-color-surface);
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.h-record-editor-accordion > .h-record-editor-fields {
+  padding: 4px var(--h-gap) var(--h-gap);
+}
+
+.h-record-editor-tabs {
+  min-width: 0;
+  border: 1px solid var(--h-color-border);
+  border-radius: var(--h-radius);
+}
+
+.h-record-editor-tab-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  border-bottom: 1px solid var(--h-color-border);
+  padding: 4px 4px 0;
+  background: var(--h-color-surface);
+}
+
+.h-record-editor-tab {
+  border: 1px solid transparent;
+  border-bottom: 0;
+  border-radius: var(--h-radius) var(--h-radius) 0 0;
+  padding: 4px 10px;
+  background: transparent;
+  color: var(--h-color-text);
+  cursor: pointer;
+}
+
+.h-record-editor-tab.is-active {
+  border-color: var(--h-color-border);
+  background: var(--h-color-bg);
+  font-weight: 600;
+}
+
+.h-record-editor-tab-panel {
+  padding: 4px var(--h-gap) var(--h-gap);
+}
+
+.h-record-editor-tab-panel[hidden] {
+  display: none;
+}
+
+.h-record-editor-messages {
+  flex: 0 0 auto;
+  padding: 0 var(--h-gap);
+}
+
+.h-record-editor-messages:empty {
+  display: none;
+}
+
+.h-record-editor-message {
+  padding: 2px 0;
+}
+
+.h-record-editor-message.is-error {
+  color: var(--h-color-danger);
+}
+
+.h-record-editor-message.is-warning {
+  color: var(--h-color-warning);
+}
+
+.h-record-editor-message.is-info {
+  color: var(--h-color-text-muted);
+}
+
+.h-record-editor-footer {
+  display: flex;
+  flex: 0 0 auto;
+  justify-content: flex-end;
+  gap: var(--h-gap);
+  padding: var(--h-gap);
+  border-top: 1px solid var(--h-color-border);
+}
+
+/* the editor in a message dialog (Explorer's RecordEditorHost) */
+.h-dialog.h-dialog-record-editor[open] {
+  display: flex;
+  flex-direction: column;
+  width: min(960px, calc(100vw - 24px));
+  height: min(900px, calc(100vh - 24px));
+  max-height: calc(100vh - 24px);
+}
+
+.h-dialog-record-editor .h-dialog-body {
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: none;
+  padding: 0;
+}
+
+.h-record-editor-host {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}

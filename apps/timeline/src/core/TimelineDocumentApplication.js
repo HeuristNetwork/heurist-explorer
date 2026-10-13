@@ -444,7 +444,10 @@ export class TimelineDocumentApplication extends TimelineApplication {
    * @param {*} id MapDocument id.
    * @returns {Promise<object|null>} The reactivated MapDocument entry.
    */
-  async requestEditMapDocument(id) { await this.host.editRecord(id); return this.activateMapDocument(id, { force: true }); }
+  async requestEditMapDocument(id) {
+    await this.host.editRecord(id, { recordType: 'RT_MAP_DOCUMENT' });
+    return this.activateMapDocument(id, { force: true });
+  }
 
   /**
    * Request host editing of a persisted MapLayer record, then reactivate the owning document.
@@ -454,7 +457,10 @@ export class TimelineDocumentApplication extends TimelineApplication {
    */
   async requestEditLayer(id) {
     const band = this.contexts.find((item) => item.id === id);
-    if (band?.recordId) { await this.host.editRecord(band.recordId); await this.activateMapDocument(this.activeDocumentId, { force: true }); }
+    if (band?.recordId) {
+      await this.host.editRecord(band.recordId, { recordType: 'RT_MAP_LAYER' });
+      await this.activateMapDocument(this.activeDocumentId, { force: true });
+    }
   }
 
   /**

@@ -1,0 +1,350 @@
+/**
+ * @file RecordEditorHost.js
+ * @brief Explorer as record editor host (plan 14, Phase 3).
+ *
+ * Records of the system record types (query sources, map documents and
+ * layers, reports, website pages - shared/src/data/writableRecordTypes.js)
+ * open in HRecordEditor, in an Explorer dialog, for a logged-in user - also
+ * without the legacy Heurist host. Other records keep the host's record editor
+ * (title masks, calculated fields...). Modules reach this through the host
+ * bridge: `editRecord(id, {recordType})`, `addRecord(rtyId)`,
+ * `canEditRecordType(recordType)`.
+ *
+ * The special fields of these record types get a readable value plus the
+ * editors Explorer already has: the query and its filter form (HFilterBuilder),
+ * expansion rules (HRuleBuilder) and symbology (legacy host editor, when there).
+ *
+ * @project     Heurist academic knowledge management system
+ * @package     heurist-explorer
+ *
+ * @link        https://HeuristNetwork.org
+ * @copyright   (C) 2024 onwards Heurist Network
+ * @author      Artem Osmakov   <osmakov@gmail.com>
+ * @author      Ian Johnson <ian.johnson.heurist@gmail.com>
+ * @license     https://www.gnu.org/licenses/gpl-3.0.txt GNU License 3.0
+ * @since       8.0
+ */
+
+import { HMsg, $HR } from '#shared/ui';
+import { HRecordEditor } from '#shared/widgets/record-editor/HRecordEditor.js';
+import { RecordEditClient } from '#shared/data/RecordEditClient.js';
+import { RecordStructureProvider } from '#shared/recordview/RecordStructureProvider.js';
+import { WRITABLE_RECORD_TYPE_CODES, isWritableRecordType } from '#shared/data/writableRecordTypes.js';
+import { HRuleBuilder, describeExpansionRule } from '../widgets/query-source/helpers/HRuleBuilder.js';
+
+/** Id of the record editor dialog. */
+const DIALOG_ID = 'h-record-editor-dialog';
+
+/** Opens system records in HRecordEditor; other records in the legacy host editor. */
+export class RecordEditorHost {
+  /**
+   * @param {object} options
+   * @param {object} options.apiClient HeuristApiClient.
+   * @param {Function} options.getDbDefs Returns the loaded HDbDefs or null (sync).
+   * @param {Function} options.ensureDbDefs Resolves with HDbDefs.
+   * @param {Function} options.getBridge Returns the legacy host bridge (may be null).
+   * @param {Function} options.isLoggedIn Whether a user is logged in.
+   * @param {Function} [options.selectExtent] Map extent picker for geo fields.
+   * @param {Function} [options.editQuery] `(query, filterForm) => Promise<{query, filterForm}|null>` (HFilterBuilder).
+   * @param {Function} [options.describeQuery] Query in words.
+   * @param {Function} [options.onSaved] Called with `{record, created}` after each save.
+   * @param {string} [options.language] UI language.
+   */
+  constructor(options = {}) {
+    this.options = options;
+    this.client = new RecordEditClient({ apiClient: options.apiClient });
+    this.structures = new RecordStructureProvider({ apiClient: options.apiClient });
+  }
+
+  /**
+   * Whether records of a type can be edited: system types in Explorer's editor
+   * (logged-in user), any type with the legacy host editor.
+   *
+   * @param {number|string} recordType Record type id or code name (`RT_MAP_LAYER`).
+   * @returns {boolean}
+   */
+  canEditRecordType(recordType) {
+    return (this.options.isLoggedIn() && this._isWritable(recordType)) || this.canEditInHost();
+  }
+
+  /** @returns {boolean} Whether the legacy host record editor can be used. */
+  canEditInHost() {
+    const bridge = this.options.getBridge() || {};
+    if (typeof bridge.editRecord !== 'function' || typeof bridge.canEditRecords !== 'function') return false;
+    try {
+      return bridge.canEditRecords() === true;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Edit a record: system records in Explorer's editor, others in the host editor.
+   *
+   * @param {number|string} recordId Record id.
+   * @param {{recordType?: number|string|null}} [options] Record type id or code name, when known.
+   * @returns {Promise<{saved: boolean, recordId: number}|*>} Result of the editor.
+   * @throws {Error} When no editor can edit the record.
+   */
+  async editRecord(recordId, { recordType = null } = {}) {
+    const id = Number(recordId);
+    if (!(id > 0)) throw new Error($HR('A valid record ID is required'));
+    if (this.options.isLoggedIn()) {
+      const rectypeId = await this._rectypeOf(id, recordType);
+      if (this._isWritable(rectypeId)) return this.open({ recordId: id });
+    }
+    if (this.canEditInHost()) return this.options.getBridge().editRecord(id);
+    throw new Error($HR('Record editor is not available'));
+  }
+
+  /**
+   * Create a record of a type: system types in Explorer's editor, others in the host editor.
+   *
+   * @param {number|string} recordType Record type id or code name.
+   * @returns {Promise<{saved: boolean, recordId: number}|*>}
+   */
+  async addRecord(recordType) {
+    const rectypeId = await this._rectypeId(recordType);
+    if (this.options.isLoggedIn() && this._isWritable(rectypeId)) return this.open({ rectypeId });
+    const bridge = this.options.getBridge() || {};
+    if (this.canEditInHost() && typeof bridge.addRecord === 'function') return bridge.addRecord(rectypeId);
+    throw new Error($HR('Record editor is not available'));
+  }
+
+  /**
+   * Open HRecordEditor in a dialog.
+   *
+   * @param {{recordId?: number, rectypeId?: number}} target Record to edit, or record type of a new record.
+   * @returns {Promise<{saved: boolean, recordId: number, record: object|null}>} When the dialog closes.
+   */
+  async open({ recordId = 0, rectypeId = 0 } = {}) {
+    const dbdefs = await this.options.ensureDbDefs();
+    const host = document.createElement('div');
+    host.className = 'h-record-editor-host';
+    const editor = new HRecordEditor().attach(host, {
+      apiClient: this.options.apiClient,
+      dbdefs,
+      recordId,
+      rectypeId,
+      client: this.client,
+      structureProvider: this.structures,
+      selectExtent: this.options.selectExtent,
+      specialEditors: this.specialEditors(dbdefs),
+      fileUrl: (file) => this._fileUrl(file)
+    });
+    let saved = null;
+    return new Promise((resolve) => {
+      let settled = false;
+      let dialog = null;
+      const finish = async () => {
+        if (settled) return;
+        settled = true;
+        dialog?.removeEventListener('close', onDialogClose);
+        HMsg.closeMsgDlg(DIALOG_ID);
+        await editor.destroy();
+        resolve({ saved: Boolean(saved), recordId: Number(saved?.rec_ID ?? recordId) || 0, record: saved });
+      };
+      // Escape closes the browser dialog even with preventClose: that is Close (unsaved changes are lost)
+      const onDialogClose = () => void finish();
+      host.addEventListener('h-record-editor-saved', (event) => {
+        saved = event.detail.record;
+        this.options.onSaved?.({ record: event.detail.record, created: event.detail.created });
+      });
+      host.addEventListener('h-record-editor-close', () => void finish());
+      dialog = HMsg.showMsgDlg(host, {
+        dialogId: DIALOG_ID,
+        title: recordId > 0 ? $HR('Edit record') : $HR('New record'),
+        hideFooter: true,
+        preventClose: true
+      });
+      dialog?.classList.add('h-dialog-record-editor');
+      dialog?.addEventListener('close', onDialogClose);
+      editor.open().catch((error) => {
+        HMsg.showMsgErr?.(error?.message || String(error));
+        void finish();
+      });
+    });
+  }
+
+  /**
+   * Special fields of the system record types, by local field id.
+   *
+   * @param {object} dbdefs HDbDefs.
+   * @returns {Object<number, {json: boolean, describe: Function, edit?: Function}>}
+   */
+  specialEditors(dbdefs) {
+    const id = (code) => Number(dbdefs?.dbconst?.(code)) || 0;
+    const query = id('DT_QUERY_STRING');
+    const form = id('DT_FILTER_FORM');
+    const rules = id('DT_EXPANSION_RULES');
+    const columns = id('DT_TABLE_FIELDS');
+    const symbology = id('DT_SYMBOLOGY');
+    const editQuery = this.options.editQuery;
+    const specials = {};
+
+    // query and filter form: one Filter Builder edits both
+    const editDefinition = async (context) => {
+      const definition = await editQuery(parseJson(context.getValue(query)) ?? context.getValue(query) ?? [],
+        form ? parseJson(context.getValue(form)) : null);
+      if (!definition) return null;
+      if (query) context.setValue(query, JSON.stringify(definition.query ?? []));
+      if (form) context.setValue(form, definition.filterForm ? JSON.stringify(definition.filterForm) : '');
+      return definition;
+    };
+    if (query) {
+      specials[query] = {
+        json: false, // legacy query strings are text
+        describe: (value) => this.options.describeQuery?.(parseJson(value) ?? value) || '',
+        edit: editQuery ? async (value, context) => {
+          const definition = await editDefinition(context);
+          return definition ? JSON.stringify(definition.query ?? []) : undefined;
+        } : undefined
+      };
+    }
+    if (form) {
+      specials[form] = {
+        json: true,
+        describe: (value) => describeFilterForm(parseJson(value)),
+        edit: editQuery ? async (value, context) => {
+          const definition = await editDefinition(context);
+          if (!definition) return undefined;
+          return definition.filterForm ? JSON.stringify(definition.filterForm) : '';
+        } : undefined
+      };
+    }
+    if (rules) {
+      specials[rules] = {
+        json: true,
+        describe: (value) => describeRules(parseJson(value), dbdefs),
+        edit: async (value, context) => {
+          const current = asArray(parseJson(value));
+          const builder = new HRuleBuilder({ dbdefs, lang: this.options.language });
+          const result = await builder.setRules(current).open({
+            dataSource: { request: { q: query ? parseJson(context.getValue(query)) ?? context.getValue(query) : null } }
+          });
+          return result == null ? undefined : (result.length ? JSON.stringify(result) : '');
+        }
+      };
+    }
+    if (columns) {
+      specials[columns] = { json: true, describe: (value) => describeColumns(parseJson(value)) };
+    }
+    if (symbology) {
+      const bridge = this.options.getBridge() || {};
+      specials[symbology] = {
+        json: true,
+        describe: (value) => describeSymbology(parseJson(value)),
+        // the symbology editor is still the legacy host's (a native one is the next plan)
+        edit: typeof bridge.editSymbology === 'function' ? async (value, context) => {
+          const result = await bridge.editSymbology(parseJson(value) || {}, {
+            recordId: Number(context.record?.rec_ID) || null, thematic: false, persist: false
+          });
+          return result == null ? undefined : JSON.stringify(result);
+        } : undefined
+      };
+    }
+    return specials;
+  }
+
+  /** Whether a record type (id or code name) is written by the new editor. */
+  _isWritable(recordType) {
+    if (typeof recordType === 'string' && /^RT_/.test(recordType)) return WRITABLE_RECORD_TYPE_CODES.includes(recordType);
+    const dbdefs = this.options.getDbDefs();
+    return Boolean(dbdefs) && isWritableRecordType(dbdefs, recordType);
+  }
+
+  /** Local id of a record type given by id or code name. */
+  async _rectypeId(recordType) {
+    if (typeof recordType === 'string' && /^RT_/.test(recordType)) {
+      const dbdefs = await this.options.ensureDbDefs();
+      return Number(dbdefs?.dbconst?.(recordType)) || 0;
+    }
+    return Number(recordType) || 0;
+  }
+
+  /** Record type of a record: given, or read from the server. */
+  async _rectypeOf(recordId, recordType) {
+    if (recordType != null && recordType !== '') return this._rectypeId(recordType);
+    try {
+      const payload = await this.options.apiClient.get(`/records/${recordId}`, { query: { fields: 'rec_RecTypeID' } });
+      return Number(payload?.records?.[0]?.rec_RecTypeID) || 0;
+    } catch {
+      return 0;
+    }
+  }
+
+  /** Link to view an uploaded file. */
+  _fileUrl(file) {
+    const obfuscated = String(file?.ulf_ObfuscatedFileID || '').replace(/[^a-z0-9]/gi, '');
+    if (!obfuscated) return file?.ulf_ExternalFileReference || '';
+    const base = String(this.options.baseUrl || '').replace(/\?$/, '');
+    if (!base) return '';
+    return `${base}${base.includes('?') ? '&' : '?'}db=${encodeURIComponent(this.options.database || '')}&file=${obfuscated}`;
+  }
+}
+
+/** @returns {*} Parsed JSON, or null when the text is not JSON. */
+export function parseJson(value) {
+  if (value === null || value === undefined) return null;
+  if (typeof value !== 'string') return value;
+  const text = value.trim();
+  if (!text) return null;
+  try {
+    return JSON.parse(text);
+  } catch {
+    return null;
+  }
+}
+
+/** @returns {Array} The value as an array. */
+function asArray(value) {
+  return Array.isArray(value) ? value : value ? [value] : [];
+}
+
+/** Filter form in words: its inputs. */
+export function describeFilterForm(form) {
+  if (!form || typeof form !== 'object') return '';
+  const groups = Array.isArray(form.groups) ? form.groups : [];
+  const inputs = groups.flatMap((group) => group?.children || []);
+  const labels = inputs.map((input) => input?.label).filter(Boolean);
+  const count = `${inputs.length} ${inputs.length === 1 ? $HR('input') : $HR('inputs')}`;
+  return labels.length ? `${count}: ${labels.join(', ')}` : count;
+}
+
+/** Expansion rules in words: their names. */
+export function describeRules(rules, dbdefs) {
+  const list = asArray(rules);
+  if (!list.length) return '';
+  const names = list.map((rule) => {
+    if (rule?.name) return rule.name;
+    try {
+      return describeExpansionRule(rule, dbdefs)?.name || '';
+    } catch {
+      return '';
+    }
+  }).filter(Boolean);
+  return names.length ? names.join('; ') : `${list.length} ${$HR('rules')}`;
+}
+
+/** Column fields in words: their number. */
+export function describeColumns(columns) {
+  if (Array.isArray(columns)) return `${columns.length} ${$HR('columns')}`;
+  if (columns && typeof columns === 'object') {
+    const list = columns.fields || columns.columns;
+    if (Array.isArray(list)) return `${list.length} ${$HR('columns')}`;
+  }
+  return '';
+}
+
+/** Symbology in words: colours, icon, thematic maps. */
+export function describeSymbology(symbology) {
+  if (!symbology || typeof symbology !== 'object') return '';
+  const symbol = symbology.symbol && typeof symbology.symbol === 'object' ? symbology.symbol : symbology;
+  const parts = [];
+  if (symbol.color) parts.push(`${$HR('line')} ${symbol.color}`);
+  if (symbol.fillColor) parts.push(`${$HR('fill')} ${symbol.fillColor}`);
+  if (symbol.iconType || symbol.iconUrl) parts.push(`${$HR('icon')} ${symbol.iconType || ''}`.trim());
+  const thematic = Array.isArray(symbology.thematic) ? symbology.thematic.length : 0;
+  if (thematic) parts.push(`${thematic} ${$HR('thematic maps')}`);
+  return parts.join(', ') || $HR('Symbology defined');
+}

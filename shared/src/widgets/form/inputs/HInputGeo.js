@@ -89,7 +89,7 @@ export class HInputGeo extends HInput {
         && COORDINATES.every((key) => Number.isFinite(Number(extent[key])))
         ? [] : ['Invalid geographic extent'];
     }
-    return typeof this.value === 'string' && /^(POINT|LINESTRING|POLYGON)\s*\(/i.test(this.value.trim())
+    return typeof this.value === 'string' && /^((MULTI)?(POINT|LINESTRING|POLYGON)|GEOMETRYCOLLECTION)\s*\(/i.test(this.value.trim())
       ? [] : ['Invalid WKT geometry'];
   }
 }

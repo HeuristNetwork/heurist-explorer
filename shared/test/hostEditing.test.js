@@ -21,3 +21,21 @@ test('the answer follows the host (e.g. after login)', () => {
   loggedIn = true;
   assert.equal(host.supportsEditing(), true);
 });
+
+test('system record types can be edited without the legacy editor (canEditRecordType, plan 14)', async () => {
+  const calls = [];
+  const bridge = {
+    editRecord: (id, options) => { calls.push([id, options]); return { saved: true }; },
+    canEditRecords: () => false, // no legacy host editor
+    canEditRecordType: (type) => type === 'RT_MAP_DOCUMENT'
+  };
+  const host = adapter(bridge);
+  assert.equal(host.supportsEditing(), false, 'any record: legacy answer');
+  assert.equal(host.supportsEditing('RT_MAP_DOCUMENT'), true);
+  assert.equal(host.supportsEditing('RT_PERSON'), false);
+  assert.deepEqual(await host.editRecord(5, { recordType: 'RT_MAP_DOCUMENT' }), { saved: true });
+  assert.deepEqual(calls[0], [5, { recordType: 'RT_MAP_DOCUMENT' }]);
+  await assert.rejects(() => host.editRecord(5), /not available/);
+  // an older bridge without canEditRecordType keeps the legacy answer
+  assert.equal(adapter({ editRecord() {}, canEditRecords: () => true }).supportsEditing('RT_MAP_DOCUMENT'), true);
+});

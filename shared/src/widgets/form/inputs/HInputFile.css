@@ -1,0 +1,23 @@
+.h-input-file {
+  display: flex;
+  align-items: center;
+  gap: var(--h-gap);
+  min-width: 0;
+}
+
+.h-input-file-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.h-input-file-name:empty {
+  display: none;
+}
+
+.h-input-file-id {
+  flex: 0 0 8em;
+  width: 8em;
+}

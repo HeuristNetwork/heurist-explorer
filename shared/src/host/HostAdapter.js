@@ -48,11 +48,22 @@ export class HostAdapter {
    * and its `canEditRecords()` answers true (a logged-in user with the host's
    * record editor loaded). A bridge that does not answer cannot prove it, so
    * edit actions stay hidden.
+   *
+   * With a record type, the bridge's `canEditRecordType(recordType)` answers
+   * when it has one: Explorer edits the system record types (query sources, map
+   * documents and layers, reports, website pages) in its own record editor, also
+   * without the legacy host (plan 14).
+   *
+   * @param {number|string|null} [recordType] Record type id or code name (e.g. `RT_MAP_LAYER`).
+   * @returns {boolean}
    */
-  supportsEditing() {
+  supportsEditing(recordType = null) {
     if (typeof this.bridge?.editRecord !== "function") return false;
-    if (typeof this.bridge.canEditRecords !== "function") return false;
     try {
+      if (recordType != null && recordType !== "" && typeof this.bridge.canEditRecordType === "function") {
+        return this.bridge.canEditRecordType(recordType) === true;
+      }
+      if (typeof this.bridge.canEditRecords !== "function") return false;
       return this.bridge.canEditRecords() === true;
     } catch {
       return false;
@@ -63,16 +74,17 @@ export class HostAdapter {
    * Ask the host to open its record editor for an existing record.
    *
    * @param {number|string} recordId Heurist record ID to edit.
-   * @returns {Promise<*>} Result of the host's edit action.
+   * @param {{recordType?: number|string|null}} [options] Record type id or code name, when known.
+   * @returns {Promise<*>} Result of the host's edit action (`{saved, recordId}`).
    * @throws {Error} When `recordId` is invalid or the host cannot edit records.
    */
-  async editRecord(recordId) {
+  async editRecord(recordId, { recordType = null } = {}) {
     const id = Number(recordId);
     if (!(id > 0))
       throw new Error("A valid Heurist record ID is required for editing");
-    if (!this.supportsEditing())
+    if (!this.supportsEditing(recordType))
       throw new Error("Record editing is not available from the Heurist host");
-    return this.bridge.editRecord(id);
+    return recordType != null ? this.bridge.editRecord(id, { recordType }) : this.bridge.editRecord(id);
   }
 
   /**
@@ -86,7 +98,7 @@ export class HostAdapter {
     const id = Number(recordTypeId);
     if (!(id > 0))
       throw new Error("A valid Heurist record type ID is required for creation");
-    if (!this.supportsEditing() || typeof this.bridge?.addRecord !== "function")
+    if (!this.supportsEditing(id) || typeof this.bridge?.addRecord !== "function")
       throw new Error("Record creation is not available from the Heurist host");
     return this.bridge.addRecord(id);
   }

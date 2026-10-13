@@ -40,6 +40,25 @@ used for localization and the Data manual; its default is
 (default `hclient/bundles/heurist-reports`), which Explorer mounts directly in
 its Report tool.
 
+## Record editing
+
+Modules ask their host to edit records through the bridge:
+
+- `editRecord(id, {recordType})` opens the record.
+- `addRecord(recordTypeId)` creates a new record.
+- `canEditRecords()` says whether any record can be edited (the legacy host editor).
+- `canEditRecordType(recordType)` says whether records of one type can be edited. `recordType`
+  is an id or a code name such as `RT_MAP_LAYER`.
+
+`HostAdapter.supportsEditing(recordType)` uses `canEditRecordType` when the bridge has it, and
+`canEditRecords` otherwise.
+
+Explorer edits the system record types in its own record editor for a logged-in user, also
+without the legacy host (plan 14). These are query sources, map documents, layers and sources,
+reports and schedules, and website home and pages. Other records go to the legacy host editor.
+Older bridges without `canEditRecordType` keep the old behaviour, so the legacy wrappers need no
+change.
+
 ## Distribution workflow
 
 Build a single module with `npm run build:<target>` or all modules with

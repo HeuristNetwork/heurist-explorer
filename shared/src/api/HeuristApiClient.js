@@ -32,6 +32,9 @@ const TRACED_PATH = /^\/(records|graph|map|time)(\/|$)/;
 /** Endpoint that cancels running queries on the server; never traced itself. */
 const CANCEL_PATH = '/records/cancel';
 
+/** Record writes (plan 14): never traced, so Stop cannot abort a save half-way. */
+const RECORD_WRITE_PATH = /^\/records\/-?\d+(\/|$)/;
+
 let requestCounter = 0;
 
 /**
@@ -170,7 +173,8 @@ export class HeuristApiClient {
     this.assertConfigured();
 
     const apiPath = String(path || '').startsWith('/') ? String(path) : `/${String(path || '')}`;
-    const traced = TRACED_PATH.test(apiPath) && !apiPath.startsWith(CANCEL_PATH);
+    const traced = TRACED_PATH.test(apiPath) && !apiPath.startsWith(CANCEL_PATH)
+      && !(method !== 'GET' && RECORD_WRITE_PATH.test(apiPath));
     const monitor = traced ? this.requestMonitor : null;
     if (monitor?.traceEnabled) {
       query = { ...(query || {}), debug: 1 };

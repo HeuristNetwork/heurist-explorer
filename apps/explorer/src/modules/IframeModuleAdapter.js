@@ -109,9 +109,11 @@ export class IframeModuleAdapter extends ExplorerModule {
       },
       updateState: (state) => { this.state = clone(state); },
       getHostContext: () => outer.getHostContext?.() || { name: 'heurist-explorer', runtimeMode: 'main' },
-      editRecord: (id) => outer.editRecord?.(id),
+      editRecord: (id, options) => outer.editRecord?.(id, options),
       // editRecord above always exists; this says whether the outer host can really edit
       canEditRecords: () => outer.canEditRecords?.() === true,
+      // system record types (query sources, map documents/layers...) open in Explorer's record editor (plan 14)
+      canEditRecordType: (recordType) => outer.canEditRecordType?.(recordType) === true,
       viewRecord: (id) => outer.viewRecord?.(id),
       addRecord: (recordTypeId) => outer.addRecord?.(recordTypeId),
       editSymbology: (value, options) => outer.editSymbology?.(value, options),
