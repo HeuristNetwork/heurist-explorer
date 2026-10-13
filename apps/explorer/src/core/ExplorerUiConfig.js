@@ -13,7 +13,8 @@
  * @since       8.0
  */
 
-const TOOLBAR_POSITIONS = ['vertical', 'horizontal'];
+// compact: buttons next to the panes they act on (2026-10-13, plan 16)
+const TOOLBAR_POSITIONS = ['vertical', 'horizontal', 'compact'];
 const BUTTON_SIZES = ['small', 'small-caption', 'large', 'large-caption'];
 const REGION_TYPES = ['data', 'map', 'graph', 'timeline', 'recordview'];
 const REGIONS = ['north', 'west', 'center', 'east', 'south'];

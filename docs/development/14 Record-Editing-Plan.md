@@ -6,7 +6,9 @@ Phase 1 (server, heurist repo: `srv/Records/Edit/`, `RecordEditController`, `api
 OpenAPI; `tests/RecordEditApiTest.php` 65 checks with `--write`), Phase 2 (client base: `RecordEditClient`,
 edit structure, `HRecordEditor` + `HRecordField`, new inputs) and Phase 3 (special fields, Explorer
 `RecordEditorHost`, edit pens of system record types without the legacy host; `npm test` 1087).
-Next: Phase 4 (Records manager).** §9 lists where the implementation differs from the plan.
+Title mask fill and calculated fields on save implemented 2026-10-13 (after plan 15), not committed.
+Next: Phase 4 (Records manager), deferred (Artem 2026-10-13).** §9 lists where the implementation
+differs from the plan.
 
 ## Context
 
@@ -646,3 +648,35 @@ then `RecordMgr.saveRecord`, then legacy `recordSave`). Two problems:
 - **Tests:** `apps/explorer/test/querySourceRecord.test.js` (3); `tests/RecordEditApiTest.php`
   checks that an editor PATCH keeps the summary (68 checks).
 
+### Title mask and calculated fields on save (2026-10-13, after plan 15)
+
+- **Agreed (Artem 2026-10-13):** port only the TitleMask *fill* for `rec_Title` on save; without a
+  mask, DT_NAME, else "Record #NNN"; no API, no mask editor, no converters (check, coded <-> human
+  readable); run the Smarty formulas of calculated fields on save. Waited for plan 15 (data access
+  layer), so the port reads through `DefinitionLookup`, `RecordRepository` and `FileRepository`.
+- **`srv/Records/Edit/TitleMask`:** port of `TitleMask::execute` mode 0 (field lookup in the
+  structure by id, display name or concept code, then all fields; term attributes; pointer and
+  relationship paths with `{record type}`, any depth, `.` or `..`; special fields; `[[ ]]`;
+  conditional sections; legacy clean-up of punctuation). `fill(recordId)` returns null when the mask
+  is not defined, has an error or all its fields are blank; legacy writes a message as the title in
+  these cases ("Invalid title mask...", "Record ID n - no data..."); srv then uses the name rule.
+  `fillMask(mask, recordId)` fills a given mask (tests).
+- **`srv/Records/Edit/CalculatedFields`:** for each field with `rst_CalcFunctionID`, the formula runs
+  in the srv Smarty engine (`SmartyTemplateRunner::run`, mode txt, new option `record` assigns `$r`
+  as legacy `executeSmarty`); NAN/INF/NULL = no value; unchanged values are not written
+  (`RecordStore::setFieldValue`); a formula error leaves the field and is returned as a warning
+  issue (`code: calculation`). Calculated fields of *other* records that depend on the saved one
+  (legacy `findAndUpdateAffectedCalcFields`) are not updated.
+- **Save order:** values, calculated fields, title (as legacy). `RecordSaveService` and
+  `RecordDuplicateService` take the optional `TitleMask` (and `CalculatedFields` for save);
+  `ServiceFactory` wires them.
+- **Effect:** the title follows the mask of the record type, as legacy. For Query Sources the mask is
+  `[name] [ q = [query] ]` and joins all name values: "Edit test QS, Essai [ q = t:10 ]" (before:
+  "Edit test QS").
+- **Tests:** new `tests/TitleMaskCompareTest.php`: 1051 records of all types, the same title as
+  legacy. 22 extra masks (conditional sections, max length, `[[ ]]`, names, special fields, terms,
+  pointer paths, parent entity, unknown fields) on 400 records: 8800 comparisons, no difference
+  (legacy message <-> srv null counted as fallback). The calculated field of the test database
+  (`{$r.f26.code} - [{$r.f1160}]`) gives the same output as legacy `executeSmarty` for all 6
+  records, and `update()` stores it (checked in a rolled-back transaction).
+  `RecordEditApiTest --write`: title checks now expect the filled mask (68 checks pass).

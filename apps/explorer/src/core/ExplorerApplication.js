@@ -46,6 +46,7 @@ import { QuerySourcePanel } from '../widgets/query-source/QuerySourcePanel.js';
 import { QueryTracePanel } from '../widgets/query-source/QueryTracePanel.js';
 import { ExplorerAuthoringDock } from '../ui/ExplorerAuthoringDock.js';
 import { ExplorerCompactMode } from '../ui/ExplorerCompactMode.js';
+import { ExplorerCompactToolbar } from '../ui/ExplorerCompactToolbar.js';
 import { ExplorerWelcome } from '../ui/ExplorerWelcome.js';
 import { ExplorerTour, loadTourText } from '../ui/ExplorerTour.js';
 import { explorerTourSteps, explorerTourTopics } from '../ui/explorerTourSteps.js';
@@ -207,6 +208,8 @@ export class ExplorerApplication {
       this.querySourcePanel?.setOrientation(event.detail.region === 'north' ? 'horizontal' : 'vertical');
     });
     this.layout = new LayoutManager(this.authoringDock.modulesElement).bindModules(this.modules);
+    // Compact toolbar position: switched on by the control panel's toolbar configuration
+    this.compactToolbar = new ExplorerCompactToolbar({ application: this });
     this.controlPanel = new ExplorerControlPanel({
       application: this,
       initiallyCollapsed: this.config.settings?.controlPanel?.initiallyCollapsed === true
@@ -217,6 +220,7 @@ export class ExplorerApplication {
     if (readTraceShown()) this.showQueryTrace();
     // modules of panes not expanded at start are created when first opened
     await this.applyLayout(this.config.settings.layout || defaultLayout(), { deferHidden: true });
+    this.compactToolbar.refresh();
     this.compactMode = new ExplorerCompactMode({ application: this }).start();
     if (this.config.state.dataSource) await this.activateDataSource(this.config.state.dataSource);
     else await this._startUp();
@@ -1382,17 +1386,10 @@ export class ExplorerApplication {
     const region = this.uiConfigValue.regions[type];
     if (!region) return false;
 
-    let module = [...this.modules.values()].find((item) => item.type === type);
-
-    if (!module) {
-      module = await this._createPresentation(type, region);
-      this.controlPanel?.refreshPresentationState?.();
-      return Boolean(module);
-    }
-
+    const module = [...this.modules.values()].find((item) => item.type === type);
     const currentId = this.layout.getModuleForRegion(region);
     const cardinalState = this.layout.cardinal.getState();
-    const isVisible = cardinalState[region]?.visible && currentId === module.id;
+    const isVisible = module && cardinalState[region]?.visible && currentId === module.id;
 
     if (isVisible) {
       // the last visible module stays: hiding it would leave a blank workspace
@@ -1406,6 +1403,34 @@ export class ExplorerApplication {
       this.layout.hideModule(module.id);
       this.controlPanel?.refreshPresentationState?.();
       return false;
+    }
+
+    return this.showPresentation(type);
+  }
+
+  /**
+   * Shows a presentation module in its configured pane, creating it when it was
+   * deferred at start; never hides (Compact toolbar: pane tabs and dividers).
+   * Leaves Tools mode first.
+   *
+   * @param {'data'|'map'|'graph'|'timeline'|'recordview'} type Module type.
+   * @returns {Promise<boolean>} Whether the module is shown.
+   */
+  async showPresentation(type) {
+    if (this.layout?.isToolMode()) {
+      this.layout.exitToolMode();
+      this.controlPanel?.clearToolSelection?.();
+    }
+
+    const region = this.uiConfigValue.regions[type];
+    if (!region) return false;
+
+    let module = [...this.modules.values()].find((item) => item.type === type);
+
+    if (!module) {
+      module = await this._createPresentation(type, region);
+      this.controlPanel?.refreshPresentationState?.();
+      return Boolean(module);
     }
 
     this.layout.assignModule(module.id, region);
@@ -1458,6 +1483,7 @@ export class ExplorerApplication {
     this.controlPanel?.applyModuleOrder(saved);
     this.controlPanel?.applyListMode();
     this.compactMode?.refresh();
+    this.compactToolbar?.refresh();
     this.controlPanel?.refreshPresentationState?.();
     return saved;
   }
@@ -2083,6 +2109,7 @@ export class ExplorerApplication {
     this._filterExtentModule = null;
     this._filterExtentDialog = null;
     this.compactMode?.destroy();
+    this.compactToolbar?.destroy();
     this.compactMode = null;
     await Promise.all([...this.modules.values()].map((module) => module.destroy()));
     this.modules.clear();

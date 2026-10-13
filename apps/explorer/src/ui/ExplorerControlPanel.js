@@ -65,7 +65,10 @@ export class ExplorerControlPanel {
       side: 'left',
       followPointer: false,
       buttons: leftButtons(),
-      onRailClick: () => this.openSearch(this.leftRail?.getButtonElement('search'))
+      // Compact toolbar: no Search button, the editor stays shown
+      onRailClick: () => {
+        if (this._toolbarPosition !== 'compact') this.openSearch(this.leftRail?.getButtonElement('search'));
+      }
     });
     this.leftRail.mount(parent);
     this.leftRail.addEventListener('toolselect', (event) => this._handleLeftTool(event.detail.id));
@@ -511,16 +514,19 @@ export class ExplorerControlPanel {
   }
 
   /**
-   * Applies a toolbar position/size configuration to both rails.
+   * Applies a toolbar position/size configuration to both rails. Compact: small
+   * buttons next to the panes (ExplorerCompactToolbar), whatever the size says.
    *
-   * @param {{position?: 'vertical'|'horizontal', buttonSize?: string}} [config] Toolbar configuration.
+   * @param {{position?: 'vertical'|'horizontal'|'compact', buttonSize?: string}} [config] Toolbar configuration.
    * @returns {void}
    */
   applyToolbarConfig({ position = 'vertical', buttonSize = 'large-caption' } = {}) {
+    const compact = position === 'compact';
     this._toolbarPosition = position;
     this.application.container?.classList.toggle('h-toolbar-horizontal', position === 'horizontal');
-    this.leftRail?.setViewMode(buttonSize);
-    this.rightRail?.setViewMode(buttonSize);
+    this.leftRail?.setViewMode(compact ? 'small' : buttonSize);
+    this.rightRail?.setViewMode(compact ? 'small' : buttonSize);
+    this.application.compactToolbar?.setActive(compact);
   }
 
   /**
@@ -1531,6 +1537,17 @@ export class ExplorerControlPanel {
     }
 
     const parentRect = this.parent.getBoundingClientRect();
+    // Compact toolbar: the buttons are in the West pane; open below the clicked one
+    if (this._toolbarPosition === 'compact') {
+      const rect = anchor.getBoundingClientRect();
+      const below = Math.max(0, Math.round(rect.bottom - parentRect.top));
+      const maximumLeft = Math.max(0, parentRect.width - this.flyout.offsetWidth);
+      this.flyout.style.top = `${below}px`;
+      this.flyout.style.left = `${Math.round(Math.max(0, Math.min(rect.left - parentRect.left, maximumLeft)))}px`;
+      this.flyout.style.setProperty('--h-tool-panel-top', `${below}px`);
+      return;
+    }
+    this.flyout.style.removeProperty('left');
     // horizontal toolbar: open below it (its height grows when the buttons wrap)
     if (this._toolbarPosition === 'horizontal' && this.leftRail?.element) {
       const below = Math.max(0, Math.round(this.leftRail.element.getBoundingClientRect().bottom - parentRect.top));
@@ -1663,8 +1680,8 @@ function leftButtons() {
   ];
 }
 
-/** Build the right rail's button definitions. */
-function rightButtons() {
+/** Build the right rail's button definitions (also the module icons/titles of the Compact toolbar's pane tabs). */
+export function rightButtons() {
   return [
     { id: 'data', icon: 'fa-solid fa-table', title: 'Result', hint: 'List, cards or tabular presentation of records', group: 'presentations', toggle: true },
     { id: 'map', icon: 'fa-solid fa-map-location-dot', title: 'Map', hint: 'Map view of records', group: 'presentations', toggle: true },

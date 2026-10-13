@@ -15,10 +15,21 @@
  * @license     https://www.gnu.org/licenses/gpl-3.0.txt GNU License 3.0
  * @since       8.0
  */
+import { $HR } from '../../ui/i18n/HResource.js';
 import './HCardinalLayout.css';
 
 const REGIONS = ['north', 'west', 'center', 'east', 'south'];
 const EDGE_REGIONS = ['north', 'west', 'east', 'south'];
+const MIDDLE_REGIONS = ['west', 'center', 'east'];
+const OPPOSITE = { north: 'south', south: 'north', west: 'east', east: 'west' };
+
+/** Divider buttons: icon of the button that shrinks and of the one that grows each edge region. */
+const SPLITTER_ICONS = {
+  west: { shrink: 'fa-chevron-left', grow: 'fa-chevron-right' },
+  east: { grow: 'fa-chevron-left', shrink: 'fa-chevron-right' },
+  north: { shrink: 'fa-chevron-up', grow: 'fa-chevron-down' },
+  south: { grow: 'fa-chevron-up', shrink: 'fa-chevron-down' }
+};
 
 const DEFAULT_OPTIONS = {
   northSize: 140,
@@ -32,15 +43,19 @@ const DEFAULT_OPTIONS = {
   minEast: 180,
   minSouth: 120,
   minCenterWidth: 240,
-  minCenterHeight: 180
+  minCenterHeight: 180,
+  // narrow collapse/maximize buttons on the dividers (setSplitterButtons)
+  splitterButtons: false
 };
 
 /**
  * Controls north, west, center, east and south layout regions.
  *
- * Public state distinguishes three conditions:
+ * Public state distinguishes these conditions:
  * - visible and expanded;
  * - visible and collapsed (edge regions only);
+ * - visible and maximized (edge regions only, one at a time): it takes the space
+ *   of its axis, the other regions there are squeezed to collapsed strips;
  * - hidden, where the region consumes no layout space.
  */
 export class HCardinalLayout extends EventTarget {
@@ -83,6 +98,7 @@ export class HCardinalLayout extends EventTarget {
     };
 
     this._build();
+    this.setSplitterButtons(this.options.splitterButtons === true);
     this._applyState();
   }
 
@@ -160,6 +176,7 @@ export class HCardinalLayout extends EventTarget {
     }
 
     this.state[region].visible = false;
+    this.state[region].maximized = false;
     this._applyState();
     this._emit('regionvisibilitychange', { region, visible: false });
     return true;
@@ -181,6 +198,7 @@ export class HCardinalLayout extends EventTarget {
 
     this.state[region].visible = true;
     this.state[region].collapsed = true;
+    this.state[region].maximized = false;
     this._applyState();
     this._emit('regioncollapsechange', { region, collapsed: true });
     return true;
@@ -222,6 +240,107 @@ export class HCardinalLayout extends EventTarget {
     }
 
     return this.state[region].collapsed;
+  }
+
+  /**
+   * Maximizes an edge region: it takes the whole space of its axis and the other
+   * regions there (center included) are squeezed to collapsed strips. Its normal
+   * size is kept for restore(). Only one region is maximized at a time.
+   *
+   * @param {string} region Edge region name.
+   * @returns {boolean} True when state changed.
+   */
+  maximize(region) {
+    this._assertEdgeRegion(region);
+
+    if (this.state[region].maximized && this.state[region].visible) {
+      return false;
+    }
+
+    for (const other of EDGE_REGIONS) {
+      this.state[other].maximized = false;
+    }
+
+    this.state[region].visible = true;
+    this.state[region].collapsed = false;
+    this.state[region].maximized = true;
+    this._applyState();
+    this._emit('regionmaximizechange', { region, maximized: true });
+    return true;
+  }
+
+  /**
+   * Returns a maximized edge region to its normal size.
+   *
+   * @param {string} region Edge region name.
+   * @returns {boolean} True when state changed.
+   */
+  restore(region) {
+    this._assertEdgeRegion(region);
+
+    if (!this.state[region].maximized) {
+      return false;
+    }
+
+    this.state[region].maximized = false;
+    this._applyState();
+    this._emit('regionmaximizechange', { region, maximized: false });
+    return true;
+  }
+
+  /**
+   * One step larger: collapsed → normal → maximized.
+   *
+   * @param {string} region Edge region name.
+   * @returns {boolean} True when state changed.
+   */
+  grow(region) {
+    this._assertEdgeRegion(region);
+
+    if (this.state[region].collapsed) {
+      return this.expand(region);
+    }
+
+    return this.maximize(region);
+  }
+
+  /**
+   * One step smaller: maximized → normal → collapsed.
+   *
+   * @param {string} region Edge region name.
+   * @returns {boolean} True when state changed.
+   */
+  shrink(region) {
+    this._assertEdgeRegion(region);
+
+    if (this.state[region].maximized) {
+      return this.restore(region);
+    }
+
+    return this.collapse(region);
+  }
+
+  /**
+   * Whether an edge region is maximized.
+   *
+   * @param {string} region Region name.
+   * @returns {boolean}
+   */
+  isMaximized(region) {
+    this._assertRegion(region);
+    return this.state[region].maximized === true;
+  }
+
+  /**
+   * Shows or hides the narrow collapse/maximize buttons on the dividers.
+   *
+   * @param {boolean} on Whether the buttons are shown.
+   * @returns {HCardinalLayout}
+   */
+  setSplitterButtons(on) {
+    this.options.splitterButtons = on === true;
+    this.root.classList.toggle('has-splitter-buttons', this.options.splitterButtons);
+    return this;
   }
 
   /**
@@ -321,6 +440,9 @@ export class HCardinalLayout extends EventTarget {
       this.state[region].collapsed = EDGE_REGIONS.includes(region)
         ? incoming.collapsed === true
         : false;
+      this.state[region].maximized = EDGE_REGIONS.includes(region)
+        && incoming.maximized === true
+        && !this.state[region].collapsed;
 
       if (EDGE_REGIONS.includes(region) && Number.isFinite(Number(incoming.size))) {
         this.state[region].size = this._clampRegionSize(region, Number(incoming.size));
@@ -435,9 +557,45 @@ export class HCardinalLayout extends EventTarget {
     splitter.addEventListener('pointerdown', (event) => this._startDrag(event, region));
     splitter.addEventListener('dblclick', () => this.toggle(region));
     splitter.addEventListener('keydown', (event) => this._handleSplitterKey(event, region));
+    splitter.append(this._createSplitterButtons(region));
 
     this.splitters.set(region, splitter);
     return splitter;
+  }
+
+  /**
+   * Build a splitter's shrink and grow buttons (shown with `setSplitterButtons(true)`).
+   * They swallow pointerdown/dblclick, so a click never starts a drag or a toggle.
+   *
+   * @private
+   * @param {string} region Edge region name.
+   * @returns {HTMLElement} The buttons' wrapper.
+   */
+  _createSplitterButtons(region) {
+    const wrap = document.createElement('div');
+    wrap.className = 'h-cardinal-splitter-buttons';
+    const icons = SPLITTER_ICONS[region];
+    // left/up first
+    const actions = region === 'west' || region === 'north' ? ['shrink', 'grow'] : ['grow', 'shrink'];
+
+    for (const action of actions) {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = `h-cardinal-splitter-button h-cardinal-splitter-${action}`;
+      button.dataset.action = action;
+      button.tabIndex = -1;
+      button.innerHTML = `<span class="fa-solid ${icons[action]}" aria-hidden="true"></span>`;
+      button.addEventListener('pointerdown', (event) => event.stopPropagation());
+      button.addEventListener('dblclick', (event) => event.stopPropagation());
+      button.addEventListener('click', (event) => {
+        event.stopPropagation();
+        if (action === 'grow') this.grow(region);
+        else this.shrink(region);
+      });
+      wrap.append(button);
+    }
+
+    return wrap;
   }
 
   /**
@@ -449,7 +607,7 @@ export class HCardinalLayout extends EventTarget {
    * @returns {void}
    */
   _startDrag(event, region) {
-    if (!this.state[region].visible || this.state[region].collapsed) {
+    if (!this.state[region].visible || this.state[region].collapsed || this._maximizedRegion()) {
       return;
     }
 
@@ -591,6 +749,8 @@ export class HCardinalLayout extends EventTarget {
    * @returns {void}
    */
   _applyState() {
+    const maximized = this._maximizedRegion();
+
     for (const region of REGIONS) {
       const element = this.regions.get(region);
       const regionStateValue = this.state[region];
@@ -598,7 +758,8 @@ export class HCardinalLayout extends EventTarget {
       const visible = focused ? focused === region : regionStateValue.visible;
 
       element.hidden = !visible;
-      element.classList.toggle('is-collapsed', regionStateValue.collapsed);
+      element.classList.toggle('is-collapsed', regionStateValue.collapsed === true || this._isSqueezed(region, maximized));
+      element.classList.toggle('is-maximized', region === maximized);
     }
 
     for (const region of EDGE_REGIONS) {
@@ -612,13 +773,15 @@ export class HCardinalLayout extends EventTarget {
       }
 
       splitter.hidden = !visible;
+      this._syncSplitterButtons(region);
     }
 
-    const north = this._effectiveSize('north');
-    const west = this._effectiveSize('west');
-    const east = this._effectiveSize('east');
-    const south = this._effectiveSize('south');
+    const north = this._effectiveSize('north', maximized);
+    const west = this._effectiveSize('west', maximized);
+    const east = this._effectiveSize('east', maximized);
+    const south = this._effectiveSize('south', maximized);
     const splitter = this.options.splitterSize;
+    const strip = this.options.collapsedSize;
     const focused = this.state.focused;
 
     if (focused) {
@@ -640,7 +803,11 @@ export class HCardinalLayout extends EventTarget {
 
     const northSplitter = this.state.north.visible ? splitter : 0;
     const southSplitter = this.state.south.visible ? splitter : 0;
-    this.root.style.gridTemplateRows = `${north}px ${northSplitter}px minmax(0, 1fr) ${southSplitter}px ${south}px`;
+    // a maximized north/south takes the rest; the middle row is squeezed to a strip
+    const northTrack = maximized === 'north' ? 'minmax(0, 1fr)' : `${north}px`;
+    const southTrack = maximized === 'south' ? 'minmax(0, 1fr)' : `${south}px`;
+    const middleTrack = maximized === 'north' || maximized === 'south' ? `${strip}px` : 'minmax(0, 1fr)';
+    this.root.style.gridTemplateRows = `${northTrack} ${northSplitter}px ${middleTrack} ${southSplitter}px ${southTrack}`;
 
     const westVisible = this.state.west.visible;
     const centerVisible = this.state.center.visible;
@@ -652,7 +819,12 @@ export class HCardinalLayout extends EventTarget {
     let westTrack = westVisible ? `${west}px` : '0';
     let eastTrack = eastVisible ? `${east}px` : '0';
 
-    if (!centerVisible) {
+    if (maximized === 'west' || maximized === 'east') {
+      // the maximized region takes the rest; center and the opposite edge are strips
+      if (centerVisible) centerTrack = `${strip}px`;
+      if (maximized === 'west') westTrack = 'minmax(0, 1fr)';
+      else eastTrack = 'minmax(0, 1fr)';
+    } else if (!centerVisible) {
       if (westVisible && eastVisible) {
         westTrack = `minmax(0, ${Math.max(1, west)}fr)`;
         eastTrack = `minmax(0, ${Math.max(1, east)}fr)`;
@@ -667,20 +839,87 @@ export class HCardinalLayout extends EventTarget {
   }
 
   /**
-   * The pixel size a region currently occupies: 0 hidden, collapsed size, or its expanded size.
+   * Show the splitter buttons that can act now and title them by what they do.
+   *
+   * @private
+   * @param {string} region Edge region name.
+   * @returns {void}
+   */
+  _syncSplitterButtons(region) {
+    const splitter = this.splitters.get(region);
+    const state = this.state[region];
+    const shrink = splitter?.querySelector('.h-cardinal-splitter-shrink');
+    const grow = splitter?.querySelector('.h-cardinal-splitter-grow');
+
+    if (!shrink || !grow) {
+      return;
+    }
+
+    shrink.hidden = state.collapsed === true;
+    grow.hidden = state.maximized === true;
+    shrink.title = $HR(state.maximized ? 'Restore pane size' : 'Collapse pane');
+    grow.title = $HR(state.collapsed ? 'Expand pane' : 'Maximize pane');
+    shrink.setAttribute('aria-label', shrink.title);
+    grow.setAttribute('aria-label', grow.title);
+  }
+
+  /**
+   * The visible, expanded edge region that is maximized, if any.
+   *
+   * @private
+   * @returns {string|null}
+   */
+  _maximizedRegion() {
+    if (this.state.focused) {
+      return null;
+    }
+
+    return EDGE_REGIONS.find((region) => {
+      const value = this.state[region];
+      return value.maximized && value.visible && !value.collapsed;
+    }) || null;
+  }
+
+  /**
+   * Whether a region is squeezed to a strip by the maximized region of its axis.
    *
    * @private
    * @param {string} region Region name.
+   * @param {string|null} maximized The maximized region.
+   * @returns {boolean}
+   */
+  _isSqueezed(region, maximized) {
+    if (!maximized || region === maximized || !this.state[region].visible) {
+      return false;
+    }
+
+    if (region === OPPOSITE[maximized]) {
+      return true;
+    }
+
+    // west/east maximized squeeze center; north/south squeeze the whole middle row
+    return maximized === 'west' || maximized === 'east'
+      ? region === 'center'
+      : MIDDLE_REGIONS.includes(region);
+  }
+
+  /**
+   * The pixel size a region currently occupies: 0 hidden, collapsed size (also when
+   * squeezed by a maximized region), or its expanded size.
+   *
+   * @private
+   * @param {string} region Region name.
+   * @param {string|null} [maximized] The maximized region.
    * @returns {number}
    */
-  _effectiveSize(region) {
+  _effectiveSize(region, maximized = null) {
     const value = this.state[region];
 
     if (!value.visible) {
       return 0;
     }
 
-    return value.collapsed ? this.options.collapsedSize : value.size;
+    return value.collapsed || this._isSqueezed(region, maximized) ? this.options.collapsedSize : value.size;
   }
 
   /**
@@ -772,7 +1011,7 @@ export class HCardinalLayout extends EventTarget {
 
 /** Build one region's state record. */
 function regionState(visible, collapsed, size) {
-  return { visible, collapsed, size };
+  return { visible, collapsed, size, maximized: false };
 }
 
 /** Deep-copy a geometry state object. */

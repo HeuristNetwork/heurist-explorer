@@ -1,0 +1,98 @@
+/* Compact toolbar: tab strips on the module panes (ExplorerPaneTabs). */
+
+.h-cardinal-region.has-pane-tabs {
+    display: flex;
+    flex-direction: column;
+}
+
+.h-cardinal-region.has-pane-tabs > .h-explorer-slot {
+    flex: 1 1 auto;
+    height: auto;
+    min-height: 0;
+}
+
+.h-explorer-pane-tabs {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: flex-end;
+    gap: 2px;
+    padding: 3px 4px 0;
+    overflow-x: auto;
+    overflow-y: hidden;
+    background: var(--h-color-surface);
+    border-bottom: 1px solid var(--h-color-border);
+    scrollbar-width: none;
+}
+
+/* a pane with one module: its strip is shown only while the pane is collapsed */
+.h-explorer-pane-tabs.is-single {
+    display: none;
+}
+
+.h-explorer-pane-tab {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: 6px;
+    height: 26px;
+    padding: 0 10px;
+    font-size: 12px;
+    white-space: nowrap;
+    color: var(--h-color-text-muted);
+    background: none;
+    border: 1px solid transparent;
+    border-bottom: 0;
+    border-radius: 3px 3px 0 0;
+    cursor: pointer;
+}
+
+.h-explorer-pane-tab:hover {
+    color: var(--h-color-primary);
+}
+
+.h-explorer-pane-tab.active {
+    margin-bottom: -1px;
+    color: var(--h-color-text);
+    background: var(--h-color-bg);
+    border-color: var(--h-color-border);
+}
+
+/* collapsed (or squeezed by a maximized pane): only the module icons, which give the
+   pane its space back; a column in a narrow side strip, a row in a low strip */
+.h-cardinal-region.is-collapsed > .h-explorer-pane-tabs {
+    display: flex;
+    visibility: visible;
+    pointer-events: auto;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 0;
+    background: none;
+    border: 0;
+}
+
+.h-cardinal-west.is-collapsed > .h-explorer-pane-tabs,
+.h-cardinal-center.is-collapsed > .h-explorer-pane-tabs,
+.h-cardinal-east.is-collapsed > .h-explorer-pane-tabs {
+    flex-direction: column;
+}
+
+.h-cardinal-layout:has(> .h-cardinal-north.is-maximized, > .h-cardinal-south.is-maximized) .h-cardinal-region.is-collapsed > .h-explorer-pane-tabs,
+.h-cardinal-north.is-collapsed > .h-explorer-pane-tabs,
+.h-cardinal-south.is-collapsed > .h-explorer-pane-tabs {
+    flex-direction: row;
+    padding: 0 4px;
+}
+
+.h-cardinal-region.is-collapsed .h-explorer-pane-tab {
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 2px;
+}
+
+.h-cardinal-region.is-collapsed .h-explorer-pane-tab-label {
+    display: none;
+}

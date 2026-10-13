@@ -117,6 +117,8 @@ export class ExplorerRail extends EventTarget {
       if (previousGroup !== null && group !== previousGroup) {
         const separator = document.createElement('div');
         separator.className = 'h-explorer-rail-separator';
+        // the separator belongs to the group before it (hidden with it)
+        separator.dataset.group = previousGroup;
         this.cluster.append(separator);
       }
 
@@ -324,6 +326,7 @@ export class ExplorerRail extends EventTarget {
     button.type = 'button';
     button.className = 'heurist-icon-button h-explorer-rail-button';
     button.dataset.tool = definition.id;
+    button.dataset.group = definition.group || 'default';
     button.title = $HR(definition.hint || definition.title || definition.id);
     button.setAttribute('aria-label', $HR(definition.hint || definition.title || definition.id));
 

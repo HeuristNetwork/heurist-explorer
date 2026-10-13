@@ -1,0 +1,125 @@
+/* Toolbar position "Compact" (ExplorerCompactToolbar): small buttons next to the panes.
+   The authoring dock's own West region is `.h-explorer-authoring-dock > .h-cardinal-middle
+   > .h-cardinal-west` (the module layout inside it has West regions too). */
+
+/* small buttons in both rails, whatever the configured size; no size toggle */
+.h-toolbar-compact .h-explorer-rail-button {
+    width: 26px;
+    height: 26px;
+    font-size: 13px;
+}
+
+.h-toolbar-compact .h-explorer-rail-viewmode {
+    display: none;
+}
+
+/* ------------------------------------------------ right rail: tools only --- */
+
+.h-toolbar-compact .h-explorer-rail-right {
+    flex-basis: 32px;
+    width: 32px;
+}
+
+.h-toolbar-compact .h-explorer-rail-right .h-explorer-rail-cluster {
+    padding: 3px 0;
+}
+
+.h-toolbar-compact .h-explorer-rail-right [data-group="presentations"] {
+    display: none;
+}
+
+/* ------------------------------- left rail: a row at the top of the West pane --- */
+
+.h-toolbar-compact .h-explorer-authoring-dock > .h-cardinal-middle > .h-cardinal-west > .h-explorer-rail-left {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: 2px;
+    width: 100%;
+    height: auto;
+    min-height: 0;
+    padding: 2px 4px;
+    overflow: visible;
+    border-right: 0;
+    border-bottom: 1px solid var(--h-color-border);
+}
+
+.h-toolbar-compact .h-explorer-rail-left .h-explorer-rail-cluster {
+    position: static;
+    flex: 1 1 auto;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 2px;
+    width: auto;
+    padding: 0;
+    transform: none;
+}
+
+/* Search: the editor is always shown in Compact */
+.h-toolbar-compact .h-explorer-rail-left [data-group="author"] {
+    display: none;
+}
+
+.h-toolbar-compact .h-explorer-rail-left .h-explorer-rail-separator {
+    width: 1px;
+    height: 18px;
+    margin: 0 4px;
+}
+
+.h-toolbar-compact .h-explorer-rail-left .h-explorer-rail-stop {
+    position: relative;
+    left: auto;
+    bottom: auto;
+    order: 1;
+}
+
+.h-explorer-compact-pane-toggle {
+    flex: 0 0 auto;
+    order: 2;
+    width: 26px;
+    height: 26px;
+    margin-left: auto;
+    font-size: 13px;
+}
+
+/* collapsed West pane: only the buttons, in a column, «/» first */
+.h-toolbar-compact .h-explorer-authoring-dock > .h-cardinal-middle > .h-cardinal-west.is-collapsed > :not(.h-explorer-rail-left) {
+    display: none;
+}
+
+.h-toolbar-compact .h-explorer-authoring-dock > .h-cardinal-middle > .h-cardinal-west.is-collapsed > .h-explorer-rail-left {
+    flex-direction: column;
+    height: 100%;
+    padding: 3px 0;
+    overflow: hidden;
+    visibility: visible;
+    pointer-events: auto;
+    border-bottom: 0;
+}
+
+.h-toolbar-compact .h-cardinal-west.is-collapsed > .h-explorer-rail-left .h-explorer-rail-cluster {
+    flex: 0 0 auto;
+    flex-direction: column;
+    flex-wrap: nowrap;
+    align-items: center;
+}
+
+.h-toolbar-compact .h-cardinal-west.is-collapsed > .h-explorer-rail-left .h-explorer-rail-separator {
+    width: 18px;
+    height: 1px;
+    margin: 4px 0;
+}
+
+.h-toolbar-compact .h-cardinal-west.is-collapsed > .h-explorer-rail-left .h-explorer-compact-pane-toggle {
+    order: -1;
+    margin: 0 0 4px;
+}
+
+/* popup lists open below the clicked button (ExplorerControlPanel#_alignFlyout) */
+.h-toolbar-compact .h-explorer-tool-panel {
+    max-height: min(78vh, 680px, calc(100% - var(--h-tool-panel-top, 0px)));
+}
+
+.h-toolbar-compact .h-explorer-tool-panel.h-explorer-tool-panel-tall {
+    max-height: calc(100% - var(--h-tool-panel-top, 0px));
+}

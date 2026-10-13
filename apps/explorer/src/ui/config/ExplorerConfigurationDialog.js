@@ -158,13 +158,21 @@ export class ExplorerConfigurationDialog {
    * @returns {void}
    */
   buildInterfaceSection(body) {
+    // Compact: small buttons next to the panes, so the buttons size does not apply
+    const syncSize = () => {
+      const compact = this.value.toolbar.position === 'compact';
+      sizeRow.classList.toggle('is-disabled', compact);
+      for (const input of sizeRow.querySelectorAll('input')) input.disabled = compact;
+    };
     this.radioGroup(body, 'Toolbar position', [
       ['vertical', 'Vertical (side rails)'],
-      ['horizontal', 'Horizontal (top toolbar)']
-    ], this.value.toolbar.position, (next) => { this.value.toolbar.position = next; });
+      ['horizontal', 'Horizontal (top toolbar)'],
+      ['compact', 'Compact (buttons next to the panes)']
+    ], this.value.toolbar.position, (next) => { this.value.toolbar.position = next; syncSize(); });
 
-    this.radioGroup(body, 'Toolbar buttons size', VIEW_MODES.map((mode) => [mode.id, mode.label]),
+    const sizeRow = this.radioGroup(body, 'Toolbar buttons size', VIEW_MODES.map((mode) => [mode.id, mode.label]),
       this.value.toolbar.buttonSize, (next) => { this.value.toolbar.buttonSize = next; });
+    syncSize();
 
     this.radioGroup(body, 'Lists (Filters, Entities, Sources, Favorites, History, Workspace)', [
       ['docked', 'Docked in the left pane'],

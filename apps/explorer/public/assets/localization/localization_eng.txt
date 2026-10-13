@@ -429,3 +429,10 @@
 #Symbology defined#Symbology defined
 #The Query Source could not be saved#The Query Source could not be saved
 #Query Source record type is not available#Query Source record type is not available
+#Compact (buttons next to the panes)#Compact (buttons next to the panes)
+#Show the left pane#Show the left pane
+#Hide the left pane#Hide the left pane
+#Collapse pane#Collapse pane
+#Expand pane#Expand pane
+#Maximize pane#Maximize pane
+#Restore pane size#Restore pane size

@@ -26,6 +26,8 @@ import './ExplorerAuthoringDock.css';
 export const AUTHORING_MIN_WIDTH = 300;
 export const AUTHORING_MIN_HEIGHT = 66;
 const AUTHORING_DEFAULT_HEIGHT = 100;
+/** Collapsed West strip with the Compact toolbar's buttons in a column. */
+const TOOLBAR_STRIP_SIZE = 34;
 const MODES = ['editor', 'form'];
 const PLACEMENTS = ['west', 'north'];
 
@@ -58,6 +60,8 @@ export class ExplorerAuthoringDock extends EventTarget {
     this._listShown = false;
     this._traceShown = false;
     this._formCover = false;
+    // Compact toolbar: the West region holds the toolbar buttons, so it is always shown
+    this._toolbar = null;
 
     this.cardinal = new HCardinalLayout(container, {
       westSize: this.widths.editor,
@@ -66,6 +70,7 @@ export class ExplorerAuthoringDock extends EventTarget {
       minNorth: AUTHORING_MIN_HEIGHT
     });
     this.cardinal.root?.classList.add('h-explorer-authoring-dock');
+    this._defaultStripSize = this.cardinal.options.collapsedSize;
 
     /** Host for the Query Source panel. */
     this.paneElement = document.createElement('div');
@@ -196,13 +201,37 @@ export class ExplorerAuthoringDock extends EventTarget {
   /** @returns {boolean} Whether drawer mode is on. */
   isDrawerMode() { return this._drawer; }
 
+  /**
+   * Compact toolbar (see ExplorerCompactToolbar): the toolbar buttons go first in the
+   * West region, which is then always shown; it collapses to a wider strip (the
+   * buttons in a column) instead of being hidden. With the pane in the north and no
+   * list, the West region is collapsed (it would hold the buttons only); showing a
+   * list expands it. `null` gives the region back.
+   *
+   * @param {HTMLElement|null} element Toolbar element, or null.
+   * @returns {ExplorerAuthoringDock} This dock.
+   */
+  setToolbar(element) {
+    const next = element instanceof HTMLElement ? element : null;
+    if (next === this._toolbar) return this;
+    this._toolbar = next;
+    this.cardinal.options.collapsedSize = next ? TOOLBAR_STRIP_SIZE : this._defaultStripSize;
+    if (next) this.cardinal.getRegionElement('west').prepend(next);
+    else if (!this._drawer) this.cardinal.expand('west');
+    this._syncRegions();
+    this.cardinal.resize();
+    return this;
+  }
+
   /** Show the authoring pane (expand the drawer). @returns {boolean} True when state changed. */
   show() {
     if (this._drawer) return this.cardinal.expand('west');
     const changed = !this._paneShown;
     this._paneShown = true;
+    // West with the toolbar collapsed to its strip: showing the pane there expands it
+    const expanded = Boolean(this._toolbar) && this.region === 'west' && this.cardinal.expand('west');
     this._syncRegions();
-    return changed;
+    return changed || expanded;
   }
 
   /** Hide the authoring pane (collapse the drawer to its rail). @returns {boolean} True when state changed. */
@@ -230,6 +259,7 @@ export class ExplorerAuthoringDock extends EventTarget {
    */
   setListShown(shown) {
     this._listShown = shown === true;
+    if (this._listShown && this._toolbar) this.cardinal.expand('west');
     this._syncRegions();
     return this;
   }
@@ -303,9 +333,10 @@ export class ExplorerAuthoringDock extends EventTarget {
     const target = this.cardinal.getRegionElement(region);
     if (region === this.region && this.paneElement.parentElement === target) return;
     const previous = this.region;
-    // in the West the pane goes first: the docked list stays below it
+    // in the West the pane goes first (after the Compact toolbar): the docked list stays below it
     if (region === 'west') target.prepend(this.paneElement);
     else target.append(this.paneElement);
+    if (this._toolbar) this.cardinal.getRegionElement('west').prepend(this._toolbar);
     this.region = region;
     if (this._drawer) {
       if (previous !== region) this.cardinal.hide(previous);
@@ -337,8 +368,13 @@ export class ExplorerAuthoringDock extends EventTarget {
     west.classList.toggle('has-list', (list || trace) && paneWest);
     if (this.region === 'north' && this._paneShown) this.cardinal.show('north');
     else this.cardinal.hide('north');
-    if (paneWest || list || trace) this.cardinal.show('west');
+    if (paneWest || list || trace || this._toolbar) this.cardinal.show('west');
     else this.cardinal.hide('west');
+    // toolbar in the West with the pane in the north: only the buttons are left without a list
+    if (this._toolbar && this.region === 'north') {
+      if (list || trace) this.cardinal.expand('west');
+      else this.cardinal.collapse('west');
+    }
   }
 
   /** @private Persist widths, north height, placement and the More state. */

@@ -746,6 +746,7 @@ export class LayoutManager extends EventTarget {
       'regionresize',
       'regionvisibilitychange',
       'regioncollapsechange',
+      'regionmaximizechange',
       'focuschange',
       'layoutchange'
     ];

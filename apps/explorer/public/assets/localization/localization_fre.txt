@@ -429,3 +429,10 @@
 #Symbology defined#Symbologie définie
 #The Query Source could not be saved#La source de requête n'a pas pu être enregistrée
 #Query Source record type is not available#Le type d'enregistrement Source de requête n'est pas disponible
+#Compact (buttons next to the panes)#Compact (boutons à côté des panneaux)
+#Show the left pane#Afficher le panneau de gauche
+#Hide the left pane#Masquer le panneau de gauche
+#Collapse pane#Réduire le panneau
+#Expand pane#Déplier le panneau
+#Maximize pane#Agrandir le panneau
+#Restore pane size#Restaurer la taille du panneau

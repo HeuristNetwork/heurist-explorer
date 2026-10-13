@@ -6,6 +6,11 @@
     align-items: flex-start;
 }
 
+/* Toolbar buttons size while the Compact toolbar is chosen */
+.heurist-config-radio-row.is-disabled {
+    opacity: 0.5;
+}
+
 .h-explorer-config-radio-group {
     display: flex;
     flex-wrap: wrap;
