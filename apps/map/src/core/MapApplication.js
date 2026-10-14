@@ -22,6 +22,7 @@ import { hasQueryParameters } from '#shared/data/queryParameters.js';
 import { normalizeMapLayer, reapplyMapLayerDefaults } from './MapLayer.js';
 import { createMapEnvironment } from './createMapEnvironment.js';
 import { normalizeMapConfigurationSettings } from '../ui/config/mapConfigurationSchema.js';
+import { applySimplifiedMapSettings } from '../ui/config/simplifiedMapSettings.js';
 import { getDefaultBaseMaps } from '../basemaps/defaultBasemaps.js';
 import { activateThematicMap } from '../thematic/thematicAttributes.js';
 import { normalizePopupMode, buildMinimalPopup } from '../data/PopupProvider.js';
@@ -721,7 +722,9 @@ export class MapApplication {
   }
 
   /**
-   * Open the host symbology editor and apply the returned canonical DT_SYMBOLOGY value.
+   * Open the symbology editor (the shared editors, plan 17) and apply the returned
+   * canonical DT_SYMBOLOGY value; a persisted Map Layer record is saved first
+   * (`PATCH /records/{id}` through SymbologyService).
    *
    * @param {string|number} layerId Runtime layer identifier.
    * @param {Object} [options={}] Editor options.
@@ -733,7 +736,7 @@ export class MapApplication {
   async requestEditLayerSymbology(layerId, { thematic = false } = {}) {
     const layer = this.layers.get(layerId);
     if (!layer) throw new Error(`Layer "${layerId}" is not registered`);
-    if (this.config.readonly || !this.host.supportsSymbologyEditing()) return null;
+    if (!this.canEditSymbology()) return null;
 
     const isCurrentResults = String(layerId) === 'current-results';
     const isWorkspaceLayer = layer.options?.workspaceEntry === true;
@@ -765,15 +768,20 @@ export class MapApplication {
     const parentSymbol = usesGlobalDefault
       ? normalizeMapSymbol({}, DEFAULT_MAP_SYMBOL)
       : normalizeMapSymbol(this.config.defaults?.symbology ?? {}, DEFAULT_MAP_SYMBOL);
-    const value = await this.host.editSymbology(currentValue, {
+    const persist = !isCurrentResults && !isWorkspaceLayer && recordId > 0;
+    const value = await this.editSymbology(currentValue, {
       recordId: recordId > 0 ? recordId : null,
       layerId,
       query: layer.source?.query ?? null,
       thematic: thematic === true,
       parentSymbol,
-      persist: !isCurrentResults && !isWorkspaceLayer && recordId > 0
+      persist
     });
     if (value == null) return null;
+    // the Map Layer record keeps its symbology (unchanged: nothing to write)
+    if (persist && !sameJson(value, currentValue)) {
+      await this.providers.symbology.saveLayerSymbology(recordId, value);
+    }
 
     if (usesGlobalDefault) {
       const canonical = canonicalVectorSymbology(value);
@@ -805,6 +813,37 @@ export class MapApplication {
       return this.reloadLayer(layerId);
     }
     return this.setLayerStyle(layerId, value);
+  }
+
+  /** @returns {boolean} Whether symbology may be edited: the editors are there and the map is not read-only. */
+  canEditSymbology() {
+    return !this.config.readonly && typeof this.providers?.symbology?.edit === 'function';
+  }
+
+  /**
+   * Open the symbology editor for a value (no persistence; see requestEditLayerSymbology).
+   * The style editor keeps the thematic renderers of the value; the thematic editor
+   * edits them (legacy host bridge editSymbology, plan 17).
+   *
+   * @param {*} value Symbology value.
+   * @param {Object} [options={}] Editor options.
+   * @param {boolean} [options.thematic=false] Thematic map editor.
+   * @param {?Object} [options.parentSymbol] Effective parent symbol.
+   * @param {*} [options.query] Layer query (thematic maps).
+   * @param {number} [options.editorMode] 2: drawing style.
+   * @param {boolean} [options.complete=false] A complete configuration value (keeps its icon type).
+   * @returns {Promise<?Object>} The edited value, or `null` when cancelled.
+   * @throws {Error} When symbology editing is not available.
+   */
+  async editSymbology(value, { thematic = false, parentSymbol = null, query = null, editorMode = null, complete = false } = {}) {
+    if (!this.canEditSymbology()) throw new Error('Symbology editor is not available');
+    return this.providers.symbology.edit(value ?? null, {
+      kind: thematic === true ? 'thematic' : 'style',
+      mode: Number(editorMode) === 2 ? 'draw' : 'symbol',
+      parentSymbol,
+      query,
+      complete
+    });
   }
 
   /**
@@ -2390,6 +2429,8 @@ export class MapApplication {
   async applyConfiguration(settings = {}) {
     this.assertActive();
     const normalized = normalizeMapConfigurationSettings(settings);
+    // simplified interface: its fixed settings, whatever the dialog or preferences say
+    if (this.config.simplified === true) applySimplifiedMapSettings(normalized);
     const previous = this.config.persistedSettings || normalizeMapConfigurationSettings({});
     const previousDefaults = previous.config.defaults || {};
     const nextDefaults = normalized.config.defaults || {};
@@ -2680,7 +2721,7 @@ export class MapApplication {
       timeline: false,
       // map documents and layers: Explorer's record editor (plan 14) or the legacy host editor
       editing: !this.config.readonly && this.host.supportsEditing('RT_MAP_DOCUMENT'),
-      symbologyEditing: !this.config.readonly && this.host.supportsSymbologyEditing()
+      symbologyEditing: this.canEditSymbology()
     };
   }
 

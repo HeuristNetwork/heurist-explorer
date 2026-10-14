@@ -22,17 +22,17 @@ function dock(stored = null) {
 
 const regionOf = (d) => d.paneElement.parentElement?.dataset.region;
 
-test('settings in the old format (widths only) still load; placement defaults to west', () => {
+test('settings in the old format (widths only) still load; placement defaults to north (Horizontal, 2026-10-14)', () => {
   const { dock: d } = dock({ widths: { editor: 420, form: 360 } });
   assert.equal(d.widths.editor, 420);
-  assert.equal(d.getPlacement(), 'west');
+  assert.equal(d.getPlacement(), 'north');
   assert.equal(d.getAdvanced(), false);
-  assert.equal(regionOf(d), 'west');
+  assert.equal(regionOf(d), 'north');
   assert.equal(d.isVisible(), true);
 });
 
 test('setPlacement moves only the pane, keeps its visibility and is remembered', () => {
-  const { dock: d, storage } = dock();
+  const { dock: d, storage } = dock({ placement: 'west' });
   const moves = [];
   d.addEventListener('placementchange', (event) => moves.push(event.detail.region));
   const modules = d.modulesElement.parentElement;
@@ -84,7 +84,7 @@ test('setAdvanced is remembered', () => {
 });
 
 test('docked list: West shows the pane and/or the list; hidden when it holds neither', () => {
-  const { dock: d } = dock();
+  const { dock: d } = dock({ placement: 'west' });
   const west = () => d.cardinal.state.west.visible;
   d.setListShown(true);
   assert.equal(west(), true);
@@ -113,7 +113,7 @@ test('docked list: with a horizontal QSE the list is alone in the West', () => {
 });
 
 test('docked list: the Filter Form in the West hides the list until it closes', () => {
-  const { dock: d } = dock();
+  const { dock: d } = dock({ placement: 'west' });
   d.setListShown(true);
   d.setFormCover(true);
   assert.equal(d.listElement.hidden, true);
@@ -125,7 +125,7 @@ test('docked list: the Filter Form in the West hides the list until it closes', 
 });
 
 test('query trace: below the pane in the West, behind a docked list', () => {
-  const { dock: d } = dock();
+  const { dock: d } = dock({ placement: 'west' });
   const west = () => d.cardinal.state.west.visible;
   d.setTraceShown(true);
   assert.equal(d.traceElement.hidden, false);
@@ -150,7 +150,7 @@ test('query trace: with a horizontal QSE the trace is alone in the West; the Fil
   d.setTraceShown(true);
   assert.equal(d.cardinal.state.west.visible, true);
 
-  const { dock: w } = dock();
+  const { dock: w } = dock({ placement: 'west' });
   w.setTraceShown(true);
   w.setFormCover(true);
   assert.equal(w.traceElement.hidden, true);
@@ -165,4 +165,35 @@ test('query trace: not shown in drawer mode, back afterwards', () => {
   assert.equal(d.traceElement.hidden, true);
   d.setDrawerMode(false);
   assert.equal(d.traceElement.hidden, false);
+});
+
+test('simplified interface: a forced region does not change the stored placement', () => {
+  const { dock: d, storage } = dock({ placement: 'west' });
+  d.setForcedPlacement('north');
+  assert.equal(regionOf(d), 'north');
+  assert.equal(d.getPlacement(), 'west');
+  assert.equal(JSON.parse(storage.data[KEY]).placement, 'west', 'the stored placement stays');
+  d.setForcedPlacement(null);
+  assert.equal(regionOf(d), 'west');
+});
+
+test('simplified interface: the pane in an outside host (Result); the Filter Form still opens in the West', () => {
+  const { dock: d } = dock({ placement: 'north' });
+  const host = document.createElement('div');
+  const regions = [];
+  d.addEventListener('placementchange', (event) => regions.push(event.detail.region));
+  d.setExternalHost(host);
+  assert.equal(d.paneElement.parentElement, host);
+  assert.equal(d.getRegion(), 'external');
+  assert.equal(d.cardinal.state.north.visible, false, 'the north pane is empty');
+  assert.equal(d.isVisible(), true);
+
+  d.setTemporaryPlacement('west');
+  assert.equal(regionOf(d), 'west', 'the Filter Form opens in the Search pane');
+  d.setTemporaryPlacement(null);
+  assert.equal(d.paneElement.parentElement, host, 'and the editor goes back into Result');
+
+  d.setExternalHost(null);
+  assert.equal(regionOf(d), 'north');
+  assert.deepEqual(regions, ['external', 'west', 'external', 'north']);
 });

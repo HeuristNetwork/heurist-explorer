@@ -249,6 +249,7 @@ export class HeuristTimelinePublicApi {
     this.application.config.settings = settings;
     const ui = { ...this.application.config.ui };
     for (const key of ['showSourceHeader', 'initiallyExpanded']) if (key in options) ui[key] = options[key] === true;
+    if (this.application.config.simplified === true) ui.initiallyExpanded = false;
     this.application.config.ui = ui;
     if ('showSourceHeader' in options || 'initiallyExpanded' in options) this.application.controlPanel?.applyOptions(ui);
     this.application.host?.bridge?.updateSettings?.({ options: { timeline: settings, ui: this.application.config.ui,

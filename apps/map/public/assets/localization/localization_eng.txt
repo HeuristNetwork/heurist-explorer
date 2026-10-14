@@ -184,3 +184,120 @@
 #Loading by map extent is paused: zoom in or refine the query.#Loading by map extent is paused: zoom in or refine the query.
 #Generic_Title#Heurist
 #Error_Title#Info
+#A layer can have several renderers, for example one showing population, another a category or status, another chronology. One renderer is displayed at a time; users switch between the default symbology of the layer and its renderers.#A layer can have several renderers, for example one showing population, another a category or status, another chronology. One renderer is displayed at a time; users switch between the default symbology of the layer and its renderers.
+#A renderer may use several fields: for example Country can control colour, Population symbol size and City type the marker icon; these changes are combined.#A renderer may use several fields: for example Country can control colour, Population symbol size and City type the marker icon; these changes are combined.
+#A thematic renderer styles layer features according to their attribute values.#A thematic renderer styles layer features according to their attribute values.
+#Fields determine how attribute values change the appearance of map features. Define ranges or categories for a field, then the symbol to use for matching values.#Fields determine how attribute values change the appearance of map features. Define ranges or categories for a field, then the symbol to use for matching values.
+#Active by default#Active by default
+#Add a thematic renderer#Add a thematic renderer
+#Add field#Add field
+#Add fields to this renderer#Add fields to this renderer
+#Add range#Add range
+#Add renderer#Add renderer
+#Are you sure?#Are you sure?
+#Area fill#Area fill
+#Base symbol#Base symbol
+#Choose colour#Choose colour
+#Circle#Circle
+#Click to edit symbol#Click to edit symbol
+#Dash array#Dash array
+#Defaults to the stroke color#Defaults to the stroke color
+#Define filters#Define filters
+#Define ranges#Define ranges
+#Define symbology#Define symbology
+#Define symbology gradient values#Define symbology gradient values
+#Define thematic mapping#Define thematic mapping
+#Delete#Delete
+#Delete thematic renderer#Delete thematic renderer
+#Draw the outline of points, lines and areas#Draw the outline of points, lines and areas
+#Drawing style#Drawing style
+#Fields#Fields
+#Fill#Fill
+#Fill areas and circles with colour#Fill areas and circles with colour
+#Fill color#Fill color
+#Fill color from#Fill color from
+#Fill opacity#Fill opacity
+#Fill opacity from#Fill opacity from
+#From#From
+#Generate ranges...#Generate ranges...
+#Gradient#Gradient
+#Icon#Icon
+#Icon URL#Icon URL
+#Icon font#Icon font
+#Icon size#Icon size
+#Icon size from#Icon size from
+#Icon size in pixels#Icon size in pixels
+#Icon source#Icon source
+#Image#Image
+#Intervals count#Intervals count
+#Label#Label
+#Layer record type#Layer record type
+#Legend caption#Legend caption
+#Loading#Loading
+#Max / Range to#Max / Range to
+#Min / Range from#Min / Range from
+#Mode#Mode
+#Name of an icon of Font Awesome (e.g. fa-house) or of the jQuery UI icon font (e.g. location)#Name of an icon of Font Awesome (e.g. fa-house) or of the jQuery UI icon font (e.g. location)
+#No#No
+#No fields#No fields
+#No ranges#No ranges
+#No record types#No record types
+#No thematic renderers#No thematic renderers
+#Not supported for current data source#Not supported for current data source
+#Only one renderer can be active by default. If none is active, the layer opens with its default symbology.#Only one renderer can be active by default. If none is active, the layer opens with its default symbology.
+#Open symbology editor#Open symbology editor
+#Open thematic maps editor#Open thematic maps editor
+#Outline#Outline
+#Preview#Preview
+#Ranges / categories#Ranges / categories
+#Record type icon#Record type icon
+#Record types in layer#Record types in layer
+#Remove all ranges#Remove all ranges
+#Remove range#Remove range
+#Renderer#Renderer
+#Reset#Reset
+#Reset to inherited symbology#Reset to inherited symbology
+#Rounding#Rounding
+#Stroke#Stroke
+#Stroke color#Stroke color
+#Stroke color from#Stroke color from
+#Stroke dash pattern, e.g. 5, 5 (SVG stroke-dasharray)#Stroke dash pattern, e.g. 5, 5 (SVG stroke-dasharray)
+#Stroke opacity#Stroke opacity
+#Stroke opacity from#Stroke opacity from
+#Stroke width#Stroke width
+#Stroke width in pixels#Stroke width in pixels
+#Style#Style
+#Symbol gradient...#Symbol gradient...
+#Symbology defined#Symbology defined
+#Symbology for thematic map range/category#Symbology for thematic map range/category
+#Symbols#Symbols
+#Thematic maps#Thematic maps
+#Thematic renderer#Thematic renderer
+#Thematic renderer titles must differ#Thematic renderer titles must differ
+#Thematic renderers#Thematic renderers
+#To#To
+#To base a thematic map on values of linked records, the query of the map layer must be in JSON format#To base a thematic map on values of linked records, the query of the map layer must be in JSON format
+#Type and source of the icon#Type and source of the icon
+#Use actual values from database#Use actual values from database
+#Use all terms#Use all terms
+#Value from 0 (transparent) to 1 (opaque)#Value from 0 (transparent) to 1 (opaque)
+#Values of the layer are not available#Values of the layer are not available
+#Yes#Yes
+#blur#blur
+#brightness#brightness
+#categories#categories
+#centuries#centuries
+#contrast#contrast
+#decades#decades
+#grayscale#grayscale
+#hue-rotate#hue-rotate
+#invert#invert
+#needs at least one field with ranges/categories#needs at least one field with ranges/categories
+#opacity#opacity
+#ranges#ranges
+#saturate#saturate
+#sepia#sepia
+#to#to
+#transparent color#transparent color
+#years#years
+#Show header#Show header

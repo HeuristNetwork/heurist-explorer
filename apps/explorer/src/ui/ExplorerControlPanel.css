@@ -346,3 +346,11 @@
 .h-explorer-source-marks:empty {
     display: none;
 }
+
+/* built-in filters (Recent, All by date) above the Saved Filters search, apart from the list */
+.h-explorer-builtin-filters {
+    flex: 0 0 auto;
+    margin-bottom: 7px;
+    padding: 2px 0 4px;
+    border-bottom: 1px solid var(--h-color-border);
+}

@@ -1,6 +1,7 @@
 /**
  * @file RecordViewControlPanel.js
  * @brief Header-only control panel: title strip plus Recent/Help/Options/Publish, no dropdown body.
+ *        Recently viewed records is always shown; the other buttons when the pointer is over the panel.
  *
  * Uses the same shared chrome every other module's control panel uses
  * (`.heurist-module-control-panel`/`.heurist-module-panel-header` from
@@ -58,9 +59,12 @@ export class RecordViewControlPanel {
     this.helpButton = iconButton("fa-solid fa-circle-question", "Help", () => this.openHelp());
     this.optionsButton = iconButton("fa-solid fa-gear", "Options", () => this.api.openPreferencesDialog());
     this.publishButton = iconButton("fa-solid fa-share-nodes", "Publish", () => this.api.openPublishDialog());
-    this.actions.append(this.recentButton, this.helpButton, this.optionsButton, this.publishButton);
-    header.append(this.actions);
+    this.actions.append(this.helpButton, this.optionsButton, this.publishButton);
+    // always shown (pinned); the panel is shrunk to it until the pointer is over the panel
+    this.recentButton.classList.add("heurist-panel-pinned");
+    header.append(this.actions, this.recentButton);
     this.element.append(header);
+    this.element.classList.add("is-shrunk");
 
     // Positioned absolute (not fixed, unlike Graph's viewport-docked panel):
     // Record View also supports `direct` module mode, where it can be
@@ -73,6 +77,9 @@ export class RecordViewControlPanel {
     this.sourceHeader = document.createElement("div");
     this.sourceHeader.className = "heurist-source-header";
     this.container.prepend(this.sourceHeader);
+    // the shrunk panel's width is kept free at the right of the source header
+    this.resizeObserver = globalThis.ResizeObserver ? new ResizeObserver(() => this.reserveSpace()) : null;
+    this.resizeObserver?.observe(this.element);
 
     this.bind("heurist-recordview-loaded", (event) => this.updateTitle(event.detail));
     this.bind("heurist-recordview-cleared", () => this.updateTitle(null));
@@ -173,6 +180,23 @@ export class RecordViewControlPanel {
     this.recentButton?.setAttribute("aria-expanded", "false");
   }
 
+  /**
+   * Keep the shrunk panel's width free at the right of the source header:
+   * `--heurist-panel-reserve` on the panel's container (not measured while the pointer
+   * is over the panel, which is wider then).
+   *
+   * @returns {void}
+   */
+  reserveSpace() {
+    const host = this.element?.parentElement;
+    if (!host) return;
+    (globalThis.requestAnimationFrame || ((fn) => setTimeout(fn, 0)))(() => {
+      if (!this.element || this.element.matches?.(":hover")) return;
+      const width = this.element.hidden ? 0 : this.element.offsetWidth;
+      host.style.setProperty("--heurist-panel-reserve", `${width ? width + 8 : 0}px`);
+    });
+  }
+
   /** Load the module user manual for the active language into a full-viewport overlay. */
   openHelp() {
     this.helpOverlay ||= new InlineHelp({ moduleName: "recordview", baseUrl: this.options.helpBaseUrl || null });
@@ -209,6 +233,7 @@ export class RecordViewControlPanel {
     if (this.publishButton) this.publishButton.hidden = readonly || this.options.showPublish === false;
     if (this.sourceHeader) this.sourceHeader.hidden = this.options.showHeader === false;
     this.element.classList.toggle("with-source-header", this.options.showHeader !== false);
+    this.reserveSpace();
   }
 
   /**
@@ -219,6 +244,7 @@ export class RecordViewControlPanel {
   destroy() {
     for (const [name, handler] of this.listeners) this.api.removeEventListener(name, handler);
     this.helpOverlay?.close();
+    this.resizeObserver?.disconnect();
     this.closeRecent();
     this.sourceHeader?.remove();
     this.element?.remove();

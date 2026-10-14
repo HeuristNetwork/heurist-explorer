@@ -116,7 +116,6 @@ export class IframeModuleAdapter extends ExplorerModule {
       canEditRecordType: (recordType) => outer.canEditRecordType?.(recordType) === true,
       viewRecord: (id) => outer.viewRecord?.(id),
       addRecord: (recordTypeId) => outer.addRecord?.(recordTypeId),
-      editSymbology: (value, options) => outer.editSymbology?.(value, options),
       editExtent: (value, options) => outer.editExtent?.(value, options),
       editRules: (value, options) => outer.editRules?.(value, options),
       updateRules: (rules) => outer.updateRules?.(rules),
@@ -124,6 +123,10 @@ export class IframeModuleAdapter extends ExplorerModule {
       describeRules: (rules) => outer.describeRules?.(rules),
       editFieldset: (value, options) => outer.editFieldset?.(value, options),
       zoomToExtent: (wkt) => outer.zoomToExtent?.(wkt),
+      // dialogs shown in Explorer's window instead of the iframe (2026-10-14); a method
+      // is offered only when Explorer has it, so the module can fall back to its own
+      ...(outer.editSymbology ? { editSymbology: (value, options) => outer.editSymbology(value, options) } : {}),
+      ...(outer.openHelp ? { openHelp: (request) => outer.openHelp(request) } : {}),
       registerRequestMonitor: (monitor) => {
         this._unregisterRequestMonitor?.();
         if (monitor && this.id) monitor.source = this.id;

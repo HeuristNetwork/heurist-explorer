@@ -13,11 +13,19 @@
  * @since       8.0
  */
 
-// compact: buttons next to the panes they act on (2026-10-13, plan 16)
-const TOOLBAR_POSITIONS = ['vertical', 'horizontal', 'compact'];
+// panes: buttons and tabs in the panes they act on (2026-10-13, plan 16; named
+// 'compact' until 2026-10-14, still read)
+const TOOLBAR_POSITIONS = ['vertical', 'horizontal', 'panes'];
 const BUTTON_SIZES = ['small', 'small-caption', 'large', 'large-caption'];
-const REGION_TYPES = ['data', 'map', 'graph', 'timeline', 'recordview'];
 const REGIONS = ['north', 'west', 'center', 'east', 'south'];
+/** Presentation modules (iframe or direct apps). */
+export const PRESENTATION_TYPES = ['data', 'map', 'graph', 'timeline', 'recordview'];
+/** Tools placed in panes like the presentations (2026-10-14, plan 16 Part 2). */
+export const TOOL_TYPES = ['report', 'crosstabs', 'actions', 'export', 'publish'];
+/** Everything that can be placed in a pane. */
+export const MODULE_TYPES = [...PRESENTATION_TYPES, ...TOOL_TYPES];
+/** The configuration's bucket for modules not shown at all; Result can not go there. */
+export const UNUSED_REGION = 'unused';
 const LIST_MODES = ['docked', 'popup'];
 /** Interface languages; `auto` follows the language given by the host (Heurist preferences). */
 export const UI_LANGUAGES = ['auto', 'eng', 'fre', 'ger', 'por'];
@@ -65,13 +73,26 @@ export class ExplorerUiConfig {
   }
 }
 
-/** Apply persisted module-to-pane assignments to normalized layout definitions. */
+/**
+ * Apply persisted module-to-pane assignments to normalized layout definitions.
+ * Modules placed in Unused are left out.
+ */
 export function applyUiRegions(definitions, value) {
   const regions = value?.regions || {};
-  return (Array.isArray(definitions) ? definitions : []).map((definition) => ({
-    ...definition,
-    region: regions[definition.type] || definition.region
-  }));
+  return (Array.isArray(definitions) ? definitions : [])
+    .map((definition) => ({ ...definition, region: regions[definition.type] || definition.region }))
+    .filter((definition) => definition.region !== UNUSED_REGION);
+}
+
+/**
+ * Whether a module type is placed in a pane (not in Unused).
+ *
+ * @param {object} value Configuration value; see `ExplorerUiConfig.load()`.
+ * @param {string} type Module type.
+ * @returns {boolean}
+ */
+export function isModuleUsed(value, type) {
+  return REGIONS.includes(value?.regions?.[type]);
 }
 
 /**
@@ -99,14 +120,14 @@ export function leadingPaneTypes(value) {
   const leading = new Map();
   for (const type of order) {
     const region = regions[type];
-    if (region && !leading.has(region)) leading.set(region, type);
+    if (REGIONS.includes(region) && !leading.has(region)) leading.set(region, type);
   }
   return leading;
 }
 
 /**
  * Module types in toolbar order: pane by pane (north, west, center, east, south),
- * and within a pane in the configured order.
+ * and within a pane in the configured order. Modules in Unused are left out.
  *
  * @param {object} value Configuration value; see `ExplorerUiConfig.load()`.
  * @returns {Array<string>} Module types.
@@ -114,11 +135,9 @@ export function leadingPaneTypes(value) {
 export function moduleTypesInOrder(value) {
   const regions = value?.regions || {};
   const order = Array.isArray(value?.order) ? value.order : defaults().order;
-  const paneIndex = (type) => {
-    const index = REGIONS.indexOf(regions[type]);
-    return index < 0 ? REGIONS.length : index;
-  };
-  return [...order].sort((a, b) => paneIndex(a) - paneIndex(b) || order.indexOf(a) - order.indexOf(b));
+  const paneIndex = (type) => REGIONS.indexOf(regions[type]);
+  return order.filter((type) => paneIndex(type) >= 0)
+    .sort((a, b) => paneIndex(a) - paneIndex(b) || order.indexOf(a) - order.indexOf(b));
 }
 
 /** Build a fresh copy of the default configuration. */
@@ -127,17 +146,55 @@ function defaults() {
     version: 1,
     // toolbar rails on top (decided 2026-10-01), large icons with captions (2026-10-03)
     toolbar: { position: 'horizontal', buttonSize: 'large-caption' },
-    // Result west; Record View, Map, Graph center (2026-10-04)
-    regions: { data: 'west', map: 'center', graph: 'center', timeline: 'south', recordview: 'center' },
+    // Result west; Record View, Map, Graph center (2026-10-04); the tools center after
+    // Graph (2026-10-14)
+    regions: {
+      data: 'west', map: 'center', graph: 'center', timeline: 'south', recordview: 'center',
+      report: 'center', crosstabs: 'center', actions: 'center', export: 'center', publish: 'center'
+    },
     // module order within a pane: the first module of an expanded pane is shown at start
-    order: ['data', 'recordview', 'map', 'graph', 'timeline'],
+    order: ['data', 'recordview', 'map', 'graph', 'report', 'crosstabs', 'actions', 'export', 'publish', 'timeline'],
     // panes expanded when Explorer starts; the others start hidden (opened from the toolbar)
     panes: { north: false, west: true, center: true, east: false, south: false },
     // toolbar lists (Filters, Entities, Sources; Favorites, History, Workspace since
     // 2026-10-06): docked in the West pane or popup (2026-10-04)
     lists: 'docked',
     // interface language for Explorer and every module; auto = the host's language
-    language: 'auto'
+    language: 'auto',
+    // "Interface for dummies (v7 like)": fixed toolbar and layout, fewer buttons; the
+    // other settings above are kept for when it is switched off (2026-10-14)
+    isSimplifiedUI: true
+  };
+}
+
+/** Toolbar, lists and layout of the simplified interface (Artem, 2026-10-14). */
+const SIMPLIFIED = {
+  toolbar: { position: 'panes', buttonSize: 'small' },
+  lists: 'docked',
+  regions: {
+    data: 'west', recordview: 'center', map: 'center', graph: 'center', report: 'center', export: 'center',
+    timeline: 'south', publish: UNUSED_REGION, crosstabs: UNUSED_REGION, actions: UNUSED_REGION
+  },
+  order: ['data', 'recordview', 'map', 'graph', 'report', 'export', 'timeline', 'publish', 'crosstabs', 'actions']
+};
+
+/**
+ * The configuration Explorer applies: the saved one, or for the simplified interface
+ * (`isSimplifiedUI`) its fixed toolbar, lists and layout over it. The saved value keeps
+ * the user's own choices for when the simplified interface is switched off.
+ *
+ * @param {object} value Normalized configuration; see `ExplorerUiConfig.load()`.
+ * @returns {object} The configuration to apply.
+ */
+export function effectiveUiConfig(value) {
+  if (value?.isSimplifiedUI !== true) return value;
+  return {
+    ...value,
+    toolbar: { ...SIMPLIFIED.toolbar },
+    lists: SIMPLIFIED.lists,
+    regions: { ...SIMPLIFIED.regions },
+    order: [...SIMPLIFIED.order],
+    panes: { ...defaults().panes }
   };
 }
 
@@ -151,28 +208,44 @@ function normalize(value) {
   const normalized = {
     version: 1,
     toolbar: {
-      position: TOOLBAR_POSITIONS.includes(toolbar.position) ? toolbar.position : fallback.toolbar.position,
+      position: toolbar.position === 'compact' ? 'panes'
+        : TOOLBAR_POSITIONS.includes(toolbar.position) ? toolbar.position : fallback.toolbar.position,
       buttonSize: BUTTON_SIZES.includes(toolbar.buttonSize) ? toolbar.buttonSize : fallback.toolbar.buttonSize
     },
     regions: {},
     order: [],
     panes: {},
     lists: LIST_MODES.includes(source.lists) ? source.lists : fallback.lists,
-    language: UI_LANGUAGES.includes(source.language) ? source.language : fallback.language
+    language: UI_LANGUAGES.includes(source.language) ? source.language : fallback.language,
+    isSimplifiedUI: typeof source.isSimplifiedUI === 'boolean' ? source.isSimplifiedUI : fallback.isSimplifiedUI
   };
 
-  for (const type of REGION_TYPES) {
-    normalized.regions[type] = REGIONS.includes(regions[type]) ? regions[type] : fallback.regions[type];
+  for (const type of MODULE_TYPES) {
+    // Result always has a pane: a DataSource is shown there (and so not everything is unused)
+    const placed = REGIONS.includes(regions[type]) || (regions[type] === UNUSED_REGION && type !== 'data');
+    normalized.regions[type] = placed ? regions[type] : fallback.regions[type];
   }
-  // known types once each, in the saved order; missing ones follow in default order
-  const order = Array.isArray(source.order) ? source.order : [];
-  normalized.order = [...new Set([...order.filter((type) => REGION_TYPES.includes(type)), ...fallback.order])];
+  normalized.order = normalizeOrder(source.order, fallback.order);
   const panes = source.panes && typeof source.panes === 'object' ? source.panes : {};
   for (const region of REGIONS) {
     normalized.panes[region] = typeof panes[region] === 'boolean' ? panes[region] : fallback.panes[region];
   }
 
   return normalized;
+}
+
+/**
+ * Known module types once each, in the saved order. A missing type goes after its
+ * predecessor in the default order (the tools of an older configuration after Graph).
+ */
+function normalizeOrder(saved, fallback) {
+  const order = [...new Set(Array.isArray(saved) ? saved.filter((type) => MODULE_TYPES.includes(type)) : [])];
+  for (const [index, type] of fallback.entries()) {
+    if (order.includes(type)) continue;
+    const previous = fallback.slice(0, index).findLast((other) => order.includes(other));
+    order.splice(previous ? order.indexOf(previous) + 1 : 0, 0, type);
+  }
+  return order;
 }
 
 /** URL-encode a database name for use in a storage key, defaulting to `'default'`. */

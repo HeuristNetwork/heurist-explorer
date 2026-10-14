@@ -3,12 +3,12 @@ import assert from 'node:assert/strict';
 import { describeGeoValue } from '../src/widgets/form/inputs/HInputGeo.js';
 import { extentToWkt } from '../src/utils/geoExtent.js';
 
-test('geographic values show concise coordinate-aware summaries', () => {
-  assert.equal(describeGeoValue('POINT(149.1 -34.2)'), 'POINT (-34.2 149.1 lat long)');
-  assert.equal(describeGeoValue('LINESTRING(0 0,1 1,2 2)'), 'LINE 3 vertices');
-  assert.equal(describeGeoValue('POLYGON((0 0,1 0,1 1,0 0))'), 'POLYGON 3 vertices');
+test('geographic values show the shared readable text', () => {
+  assert.equal(describeGeoValue('POINT(149.1 -34.2)'), 'Point (X 149.1 Y -34.2)');
+  assert.equal(describeGeoValue('LINESTRING(0 0,1 1,2 2)'), 'LineString n=3 (X 0,2 Y 0,2)');
+  assert.equal(describeGeoValue('POLYGON((0 0,1 0,1 1,0 0))'), 'Polygon n=4 (X 0,1 Y 0,1)');
   assert.equal(describeGeoValue({ west: 10, south: -5, east: 20, north: 8 }),
-    'BBOX (-5 20 – 8 10 lat long)');
+    'BBOX (X 10,20 Y -5,8)');
 });
 
 test('a selected map extent becomes polygon WKT for Builder field predicates', () => {

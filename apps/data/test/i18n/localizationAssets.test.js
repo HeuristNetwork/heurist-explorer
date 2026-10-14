@@ -43,6 +43,7 @@ test("every direct $HR string in runtime source is present in module dictionarie
     "../../src/ui/DataRecordPopup.js",
     "../../src/core/DataApplication.js",
     "../../src/widgets/HRecordList.js",
+    "../../src/ui/ListToolControls.js",
     // shared record popup, renderer and smart expansion dialog
     "../../../../shared/src/recordview/RecordPopupContent.js",
     "../../../../shared/src/recordview/RecordViewRenderer.js",

@@ -12,7 +12,7 @@
  *
  * The special fields of these record types get a readable value plus the
  * editors Explorer already has: the query and its filter form (HFilterBuilder),
- * expansion rules (HRuleBuilder) and symbology (legacy host editor, when there).
+ * expansion rules (HRuleBuilder) and symbology (the shared symbology editors, plan 17).
  *
  * @project     Heurist academic knowledge management system
  * @package     heurist-explorer
@@ -31,6 +31,7 @@ import { RecordEditClient } from '#shared/data/RecordEditClient.js';
 import { RecordStructureProvider } from '#shared/recordview/RecordStructureProvider.js';
 import { WRITABLE_RECORD_TYPE_CODES, isWritableRecordType } from '#shared/data/writableRecordTypes.js';
 import { HRuleBuilder, describeExpansionRule } from '../widgets/query-source/helpers/HRuleBuilder.js';
+import { SymbologyService } from '#shared/symbology/SymbologyService.js';
 
 /** Id of the record editor dialog. */
 const DIALOG_ID = 'h-record-editor-dialog';
@@ -48,12 +49,18 @@ export class RecordEditorHost {
    * @param {Function} [options.editQuery] `(query, filterForm) => Promise<{query, filterForm}|null>` (HFilterBuilder).
    * @param {Function} [options.describeQuery] Query in words.
    * @param {Function} [options.onSaved] Called with `{record, created}` after each save.
+   * @param {Function} [options.rectypeIconUrl] `(rectypeId) → url` of record type icons (symbol previews).
    * @param {string} [options.language] UI language.
    */
   constructor(options = {}) {
     this.options = options;
     this.client = new RecordEditClient({ apiClient: options.apiClient });
     this.structures = new RecordStructureProvider({ apiClient: options.apiClient });
+    this.symbology = new SymbologyService({
+      api: options.apiClient,
+      loadDbDefs: () => options.ensureDbDefs(),
+      iconUrl: options.rectypeIconUrl || null
+    });
   }
 
   /**
@@ -229,21 +236,92 @@ export class RecordEditorHost {
     if (columns) {
       specials[columns] = { json: true, describe: (value) => describeColumns(parseJson(value)) };
     }
-    if (symbology) {
-      const bridge = this.options.getBridge() || {};
-      specials[symbology] = {
-        json: true,
-        describe: (value) => describeSymbology(parseJson(value)),
-        // the symbology editor is still the legacy host's (a native one is the next plan)
-        edit: typeof bridge.editSymbology === 'function' ? async (value, context) => {
-          const result = await bridge.editSymbology(parseJson(value) || {}, {
-            recordId: Number(context.record?.rec_ID) || null, thematic: false, persist: false
-          });
-          return result == null ? undefined : JSON.stringify(result);
-        } : undefined
-      };
-    }
+    if (symbology) specials[symbology] = this._symbologySpecial(dbdefs);
     return specials;
+  }
+
+  /**
+   * DT_SYMBOLOGY (plan 17 §6): Style (symbol editor; image filters for a Map Layer of an
+   * image source) and, for a Map Layer, Thematic maps - its data source is read on every
+   * click (it may change while the form is open). The website colour scheme of
+   * RT_CMS_HOME stays raw JSON.
+   *
+   * @private
+   * @param {object} dbdefs HDbDefs.
+   * @returns {object} Special field definition.
+   */
+  _symbologySpecial(dbdefs) {
+    const id = (code) => Number(dbdefs?.dbconst?.(code)) || 0;
+    const mapLayer = id('RT_MAP_LAYER');
+    const cmsHome = id('RT_CMS_HOME');
+    const describe = (value) => describeSymbology(parseJson(value));
+    const store = (result) => (result == null ? undefined : (Object.keys(result).length ? JSON.stringify(result) : ''));
+    const isRectype = (context, rty) => rty > 0 && Number(context.rectypeId || context.record?.rec_RecTypeID) === rty;
+    const style = {
+      label: 'Style',
+      title: 'Open symbology editor',
+      primary: true,
+      run: async (value, context) => {
+        if (isRectype(context, cmsHome)) return undefined;
+        if (!isRectype(context, mapLayer)) return store(await this.symbology.edit(parseJson(value)));
+        const source = await this._mapLayerSource(context, dbdefs);
+        const kind = source?.image ? 'image' : 'style';
+        return store(await this.symbology.edit(parseJson(value), { kind, query: source?.query || null }));
+      }
+    };
+    const thematic = {
+      label: 'Thematic maps',
+      title: 'Open thematic maps editor',
+      run: async (value, context) => {
+        const source = await this._mapLayerSource(context, dbdefs);
+        if (!source?.query) {
+          HMsg.showMsgFlash?.($HR('Not supported for current data source'), 2000);
+          return undefined;
+        }
+        return store(await this.symbology.edit(parseJson(value), { kind: 'thematic', query: source.query }));
+      }
+    };
+    return {
+      json: true,
+      describe,
+      // per record type: RT_CMS_HOME raw only, a Map Layer both editors, others the style editor
+      actionsFor: (context) => {
+        if (isRectype(context, cmsHome)) return [];
+        return isRectype(context, mapLayer) ? [style, thematic] : [style];
+      }
+    };
+  }
+
+  /**
+   * The data source of the Map Layer being edited: its record type, and the query of a
+   * Query Source; `image` for an image / tiled image source.
+   *
+   * @private
+   * @param {object} context Special field context (`getValue`).
+   * @param {object} dbdefs HDbDefs.
+   * @returns {Promise<{recordId: number, rectypeId: number, query: *, image: boolean}|null>}
+   */
+  async _mapLayerSource(context, dbdefs) {
+    const id = (code) => Number(dbdefs?.dbconst?.(code)) || 0;
+    const field = id('DT_DATA_SOURCE');
+    let sourceId = field ? context.getValue?.(field) : null;
+    if (Array.isArray(sourceId)) sourceId = sourceId[0];
+    if (sourceId && typeof sourceId === 'object') sourceId = sourceId.id ?? sourceId.rec_ID ?? sourceId.value;
+    const recordId = Number(sourceId) || 0;
+    if (!recordId) return null;
+    const payload = await this.options.apiClient.get('/records', { query: { q: `ids:${recordId}`, fields: '_all' } });
+    const record = payload?.records?.[0];
+    if (!record) return null;
+    const rectypeId = Number(record.rec_RecTypeID) || 0;
+    const queryField = id('DT_QUERY_STRING');
+    const raw = rectypeId === id('RT_QUERY_SOURCE') && queryField ? record.details?.[queryField]?.[0] ?? null : null;
+    const text = raw && typeof raw === 'object' ? raw.value ?? null : raw;
+    return {
+      recordId,
+      rectypeId,
+      query: text ? (parseJson(text) ?? text) : null,
+      image: [id('RT_IMAGE_SOURCE'), id('RT_TILED_IMAGE_SOURCE')].filter(Boolean).includes(rectypeId)
+    };
   }
 
   /** Whether a record type (id or code name) is written by the new editor. */

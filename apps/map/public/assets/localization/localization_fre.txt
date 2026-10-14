@@ -184,3 +184,120 @@
 #Loading by map extent is paused: zoom in or refine the query.#Le chargement par l’étendue de la carte est suspendu : zoomez ou affinez la requête.
 #Generic_Title#Heurist
 #Error_Title#Information
+#A layer can have several renderers, for example one showing population, another a category or status, another chronology. One renderer is displayed at a time; users switch between the default symbology of the layer and its renderers.#Une couche peut avoir plusieurs rendus, par exemple l'un montrant la population, un autre une catégorie ou un statut, un autre la chronologie. Un seul rendu est affiché à la fois ; les utilisateurs passent de la symbologie par défaut de la couche à ses rendus.
+#A renderer may use several fields: for example Country can control colour, Population symbol size and City type the marker icon; these changes are combined.#Un rendu peut utiliser plusieurs champs : par exemple Pays pour la couleur, Population pour la taille du symbole et Type de ville pour l'icône ; ces changements se combinent.
+#A thematic renderer styles layer features according to their attribute values.#Un rendu thématique met en forme les entités de la couche selon les valeurs de leurs attributs.
+#Fields determine how attribute values change the appearance of map features. Define ranges or categories for a field, then the symbol to use for matching values.#Les champs déterminent comment les valeurs des attributs changent l'apparence des entités. Définissez des plages ou des catégories pour un champ, puis le symbole des valeurs correspondantes.
+#Active by default#Actif par défaut
+#Add a thematic renderer#Ajouter un rendu thématique
+#Add field#Ajouter un champ
+#Add fields to this renderer#Ajouter des champs à ce rendu
+#Add range#Ajouter une plage
+#Add renderer#Ajouter un rendu
+#Are you sure?#Êtes-vous sûr ?
+#Area fill#Remplissage
+#Base symbol#Symbole de base
+#Choose colour#Choisir une couleur
+#Circle#Cercle
+#Click to edit symbol#Cliquer pour modifier le symbole
+#Dash array#Motif de tirets
+#Defaults to the stroke color#Par défaut la couleur du trait
+#Define filters#Définir les filtres
+#Define ranges#Définir les plages
+#Define symbology#Définir la symbologie
+#Define symbology gradient values#Définir les valeurs du dégradé
+#Define thematic mapping#Définir la cartographie thématique
+#Delete#Supprimer
+#Delete thematic renderer#Supprimer le rendu thématique
+#Draw the outline of points, lines and areas#Tracer le contour des points, lignes et surfaces
+#Drawing style#Style de dessin
+#Fields#Champs
+#Fill#Remplir
+#Fill areas and circles with colour#Remplir les surfaces et les cercles de couleur
+#Fill color#Couleur de remplissage
+#Fill color from#Couleur de remplissage de
+#Fill opacity#Opacité du remplissage
+#Fill opacity from#Opacité du remplissage de
+#From#De
+#Generate ranges...#Générer des plages...
+#Gradient#Dégradé
+#Icon#Icône
+#Icon URL#URL de l'icône
+#Icon font#Police d'icônes
+#Icon size#Taille de l'icône
+#Icon size from#Taille de l'icône de
+#Icon size in pixels#Taille de l'icône en pixels
+#Icon source#Source de l'icône
+#Image#Image
+#Intervals count#Nombre d'intervalles
+#Label#Libellé
+#Layer record type#Type de fiche de la couche
+#Legend caption#Légende
+#Loading#Chargement
+#Max / Range to#Max / Plage à
+#Min / Range from#Min / Plage de
+#Mode#Mode
+#Name of an icon of Font Awesome (e.g. fa-house) or of the jQuery UI icon font (e.g. location)#Nom d'une icône Font Awesome (par ex. fa-house) ou de la police d'icônes jQuery UI (par ex. location)
+#No#Non
+#No fields#Aucun champ
+#No ranges#Aucune plage
+#No record types#Aucun type de fiche
+#No thematic renderers#Aucun rendu thématique
+#Not supported for current data source#Non disponible pour la source de données actuelle
+#Only one renderer can be active by default. If none is active, the layer opens with its default symbology.#Un seul rendu peut être actif par défaut. Si aucun ne l'est, la couche s'ouvre avec sa symbologie par défaut.
+#Open symbology editor#Ouvrir l'éditeur de symbologie
+#Open thematic maps editor#Ouvrir l'éditeur de cartes thématiques
+#Outline#Contour
+#Preview#Aperçu
+#Ranges / categories#Plages / catégories
+#Record type icon#Icône du type de fiche
+#Record types in layer#Types de fiche de la couche
+#Remove all ranges#Supprimer toutes les plages
+#Remove range#Supprimer la plage
+#Renderer#Rendu
+#Reset#Réinitialiser
+#Reset to inherited symbology#Revenir à la symbologie héritée
+#Rounding#Arrondi
+#Stroke#Trait
+#Stroke color#Couleur du trait
+#Stroke color from#Couleur du trait de
+#Stroke dash pattern, e.g. 5, 5 (SVG stroke-dasharray)#Motif de tirets du trait, par ex. 5, 5 (stroke-dasharray SVG)
+#Stroke opacity#Opacité du trait
+#Stroke opacity from#Opacité du trait de
+#Stroke width#Épaisseur du trait
+#Stroke width in pixels#Épaisseur du trait en pixels
+#Style#Style
+#Symbol gradient...#Dégradé de symboles...
+#Symbology defined#Symbologie définie
+#Symbology for thematic map range/category#Symbologie d'une plage/catégorie de carte thématique
+#Symbols#Symboles
+#Thematic maps#Cartes thématiques
+#Thematic renderer#Rendu thématique
+#Thematic renderer titles must differ#Les titres des rendus thématiques doivent être différents
+#Thematic renderers#Rendus thématiques
+#To#À
+#To base a thematic map on values of linked records, the query of the map layer must be in JSON format#Pour fonder une carte thématique sur les valeurs de fiches liées, la requête de la couche doit être au format JSON
+#Type and source of the icon#Type et source de l'icône
+#Use actual values from database#Utiliser les valeurs de la base de données
+#Use all terms#Utiliser tous les termes
+#Value from 0 (transparent) to 1 (opaque)#Valeur de 0 (transparent) à 1 (opaque)
+#Values of the layer are not available#Les valeurs de la couche ne sont pas disponibles
+#Yes#Oui
+#blur#flou
+#brightness#luminosité
+#categories#catégories
+#centuries#siècles
+#contrast#contraste
+#decades#décennies
+#grayscale#niveaux de gris
+#hue-rotate#rotation de teinte
+#invert#inversion
+#needs at least one field with ranges/categories#doit avoir au moins un champ avec des plages/catégories
+#opacity#opacité
+#ranges#plages
+#saturate#saturation
+#sepia#sépia
+#to#à
+#transparent color#couleur transparente
+#years#années
+#Show header#Afficher l'en-tête

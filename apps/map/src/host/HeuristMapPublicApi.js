@@ -61,18 +61,16 @@ export class HeuristMapPublicApi {
   }
 
   /**
-   * Open the host symbology editor without persistence (used by map configuration).
+   * Open the symbology editor without persistence (used by map configuration: the
+   * default and selection symbology are complete values).
    *
    * @param {object} value Symbol/style value to edit.
-   * @param {object} [options] Editor options.
-   * @returns {Promise<*>} Resolves with the edited value.
-   * @throws {Error} When the host does not support symbology editing.
+   * @param {object} [options] Editor options (`parentSymbol`, `thematic`, `editorMode`).
+   * @returns {Promise<*>} Resolves with the edited value, or null when cancelled.
+   * @throws {Error} When symbology editing is not available.
    */
   editSymbology(value, options = {}) {
-    if (!this.application.host.supportsSymbologyEditing()) {
-      throw new Error('Symbology editor is not available from this host');
-    }
-    return this.application.host.editSymbology(value, { ...options, persist: false });
+    return this.application.editSymbology(value, { complete: options.thematic !== true, ...options });
   }
 
   /**
@@ -176,21 +174,15 @@ export class HeuristMapPublicApi {
   setDrawingOptions(options = {}) { return this.drawController?.updateOptions(options); }
 
   /**
-   * Edit and apply drawing style through the host's existing symbology editor.
+   * Edit and apply drawing style with the symbology editor (drawing style mode).
    *
    * @returns {Promise<object|null>} Resolves with the edited style, or `null` when cancelled.
-   * @throws {Error} When no draw controller is available, or the host does not support symbology editing.
+   * @throws {Error} When no draw controller is available, or symbology editing is not available.
    */
   async editDrawingStyle() {
     if (!this.drawController) throw new Error('Drawing is not available');
-    if (!this.application.host.supportsSymbologyEditing()) {
-      throw new Error('Symbology editor is not available from this host');
-    }
     const current = this.drawController.getOptions().style || {};
-    const result = await this.application.host.editSymbology(current, {
-      persist: false,
-      editorMode: 2
-    });
+    const result = await this.application.editSymbology(current, { editorMode: 2 });
     if (result) await this.drawController.updateOptions({ style: result });
     return result;
   }
@@ -274,6 +266,8 @@ export class HeuristMapPublicApi {
   async openPreferencesDialog(options = {}) {
     const saved = await this.loadPreferences();
     return this.openConfigurationDialog({
+      // heurist-explorer's simplified interface: fewer settings (it sets them itself)
+      simplified: this.application.config.simplified === true,
       ...options,
       mode: 'preferences',
       value: saved || this.application.config.persistedSettings || null,

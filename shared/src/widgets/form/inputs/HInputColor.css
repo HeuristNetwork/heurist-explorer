@@ -1,0 +1,5 @@
+/* HInputColor: swatch (native colour picker) and the colour text */
+.h-input-color { display:inline-flex; align-items:center; gap:4px; }
+.h-input-color-swatch { flex:0 0 auto; width:28px; height:24px; padding:0; border:1px solid var(--h-color-border); border-radius:var(--h-radius); background:none; cursor:pointer; }
+.h-input-color-swatch.is-empty { opacity:.45; }
+.h-input-color-text { width:9em; }

@@ -31,7 +31,6 @@
   padding: 0;
   box-sizing: border-box;
   background: var(--h-color-surface);
-  border-bottom: 1px solid var(--h-color-border);
 }
 .heurist-module-panel-actions {
   display: flex;
@@ -79,6 +78,23 @@
 
 .heurist-module-panel-toggle { width: 30px; height: 30px; padding: 0 !important; margin-left: 9px; }
 
+/* Shrunk panel (Data without its body, Record View): only the pinned button (Expansion,
+   Recently viewed records), at the right, until the pointer is over the panel; it then
+   widens to the left, over the source header. The module keeps the shrunk width free at
+   the right of the source header with --heurist-panel-reserve. */
+.heurist-module-control-panel.is-shrunk { width: auto; }
+.heurist-module-control-panel.is-shrunk .heurist-module-panel-header { justify-content: flex-end; }
+.heurist-module-control-panel.is-shrunk:not(:hover):not(:has(:focus-visible)) .heurist-module-panel-header > :not(.heurist-panel-pinned),
+.heurist-module-control-panel.is-shrunk:not(:hover):not(:has(:focus-visible)) .heurist-module-panel-actions > :not(.heurist-panel-pinned) {
+  display: none;
+}
+.heurist-module-control-panel.is-shrunk:not(:hover):not(:has(:focus-visible)) .heurist-panel-pinned { margin-left: 0; }
+/* the pinned button is as high as the other header buttons (Data's is an h-btn, 30px
+   high), and the shrunk header no higher than it: it must not cover the source
+   header's bottom border (2026-10-14) */
+.heurist-module-panel-header > .heurist-panel-pinned { min-height: 0; }
+.heurist-module-control-panel.is-shrunk:not(:hover):not(:has(:focus-visible)) .heurist-module-panel-header { min-height: 0; }
+
 .heurist-module-control-panel.with-source-header { border: 1px solid var(--h-color-surface); }
 /*
 .heurist-module-panel-body.with-source-header { border: 1px solid var(--h-color-border); border-radius: var(--h-radius); border-top: none; }
@@ -98,7 +114,7 @@
   background: var(--h-color-surface);
   border-bottom: 1px solid var(--h-color-border);
   height: 36px;
-  padding: 10px 9px;
+  padding: 10px calc(9px + var(--heurist-panel-reserve, 0px)) 10px 9px;
   font: 600 14px/1.35 Arial, sans-serif;
   overflow: hidden;
 }

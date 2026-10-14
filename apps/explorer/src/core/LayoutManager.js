@@ -23,7 +23,12 @@ const DEFAULT_REGION_BY_TYPE = {
   map: 'center',
   graph: 'center',
   timeline: 'south',
-  recordview: 'center'
+  recordview: 'center',
+  report: 'center',
+  crosstabs: 'center',
+  actions: 'center',
+  export: 'center',
+  publish: 'center'
 };
 
 /**
@@ -48,10 +53,6 @@ export class LayoutManager extends EventTarget {
     this.definitions = [];
     this.modules = null;
     this.activeModuleId = null;
-    this.mode = 'presentation';
-    this.activeToolId = null;
-    this._toolSnapshot = null;
-    this._toolSlotId = '__explorer-tool';
     // modules: west and center share the width equally by default (2026-10-04)
     this.cardinal = new HCardinalLayout(container, { westRatio: 0.5, ...(options.cardinal || {}) });
 
@@ -508,125 +509,17 @@ export class LayoutManager extends EventTarget {
   }
 
   /**
-   * Returns true when Tools mode is active.
+   * Returns whether a module of this type is shown (its pane visible and it the
+   * pane's occupant).
    *
-   * @param {string|null} [toolId] Optional tool id to match.
-   * @returns {boolean}
-   */
-  isToolMode(toolId = null) {
-    if (this.mode !== 'tool') {
-      return false;
-    }
-
-    return toolId == null || this.activeToolId === String(toolId);
-  }
-
-  /**
-   * Temporarily switches the cardinal layout to Data | Tool.
-   *
-   * The complete presentation geometry and region occupancy are preserved and
-   * restored by exitToolMode(). Presentation modules remain mounted.
-   *
-   * @param {string} toolId Tool id.
-   * @param {HTMLElement} content Tool content element.
-   * @param {object} [options] Reserved tool options.
-   * @returns {boolean}
-   */
-  enterToolMode(toolId, content, options = {}) {
-    if (!(content instanceof HTMLElement)) {
-      return false;
-    }
-
-    if (this.mode !== 'tool') {
-      this._toolSnapshot = {
-        cardinal: this.cardinal.getState(),
-        regions: Object.fromEntries(this.regionAssignments),
-        activeModuleId: this.activeModuleId
-      };
-    }
-
-    this.mode = 'tool';
-    this.activeToolId = String(toolId || 'tool');
-
-    const toolSlot = this.createSlot(this._toolSlotId, 'tool');
-    toolSlot.replaceChildren(content);
-    this.assignModule(this._toolSlotId, 'center');
-
-    const dataModule = this.findCurrentResultDataModule();
-
-    if (dataModule) {
-      this.assignModule(dataModule.id, 'west');
-      this.showModule(dataModule.id);
-    } else {
-      this.cardinal.hide('west');
-    }
-
-    this.cardinal.hide('north');
-    this.cardinal.hide('east');
-    this.cardinal.hide('south');
-    this.cardinal.show('center');
-    toolSlot.hidden = false;
-
-    this._emit('modechange', {
-      mode: this.mode,
-      toolId: this.activeToolId,
-      options
-    });
-    return true;
-  }
-
-  /**
-   * Restores the presentation layout saved by enterToolMode().
-   *
-   * @returns {boolean}
-   */
-  exitToolMode() {
-    if (this.mode !== 'tool') {
-      return false;
-    }
-
-    const snapshot = this._toolSnapshot;
-    this.removeSlot(this._toolSlotId);
-    this.mode = 'presentation';
-    this.activeToolId = null;
-
-    if (snapshot) {
-      for (const [region, moduleId] of Object.entries(snapshot.regions || {})) {
-        if (moduleId && this.slots.has(moduleId)) {
-          this.assignModule(moduleId, region);
-        }
-      }
-
-      this.cardinal.setState(snapshot.cardinal || {});
-      this.activeModuleId = snapshot.activeModuleId || null;
-    }
-
-    this._toolSnapshot = null;
-    this._emit('modechange', { mode: this.mode, toolId: null });
-    return true;
-  }
-
-  /**
-   * Returns presentation visibility independent of temporary Tools mode.
-   *
-   * @param {string} type Presentation module type.
+   * @param {string} type Module type.
    * @returns {boolean}
    */
   isPresentationVisible(type) {
-    const sourceState = this.mode === 'tool' && this._toolSnapshot
-      ? this._toolSnapshot
-      : {
-        cardinal: this.cardinal.getState(),
-        regions: Object.fromEntries(this.regionAssignments)
-      };
+    const state = this.cardinal.getState();
 
-    for (const [region, moduleId] of Object.entries(sourceState.regions || {})) {
-      const slot = moduleId ? this.getSlot(moduleId) : null;
-
-      if (
-        sourceState.cardinal?.[region]?.visible
-        && slot?.dataset.moduleType === type
-      ) {
+    for (const [region, moduleId] of this.regionAssignments) {
+      if (state[region]?.visible && this.getSlot(moduleId)?.dataset.moduleType === type) {
         return true;
       }
     }
@@ -641,8 +534,6 @@ export class LayoutManager extends EventTarget {
    */
   getState() {
     return {
-      mode: this.mode,
-      activeToolId: this.activeToolId,
       cardinal: this.cardinal.getState(),
       assignments: Object.fromEntries(this.assignments),
       regions: Object.fromEntries(this.regionAssignments),
@@ -696,9 +587,6 @@ export class LayoutManager extends EventTarget {
     this.regionAssignments.clear();
     this.definitions = [];
     this.modules = null;
-    this._toolSnapshot = null;
-    this.activeToolId = null;
-    this.mode = 'presentation';
   }
 
   /**

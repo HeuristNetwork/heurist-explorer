@@ -34,6 +34,8 @@ export class QuerySourcePanel {
    * @param {'vertical'|'horizontal'} [options.orientation='vertical'] Editor layout (west or north pane).
    * @param {Function} [options.onFormPlacement] Called with `'west'` when a vertical Filter Form opens in the
    *        horizontal layout (it needs height), and with `null` when it closes.
+   * @param {Function} [options.isOutsideSearchPane] `() → boolean`: the editor is outside the dock (in
+   *        Result): any Filter Form opens in the West pane (onFormPlacement).
    * @param {Function} [options.onFormVisible] Called with `true`/`false` when the Filter Form opens or closes.
    * Editor layout options (`expanded`, `onExpandedChange`, `onLayoutChange`, `canChangeLayout`, `onHelp`)
    * are forwarded to QuerySourceEditor.
@@ -84,6 +86,9 @@ export class QuerySourcePanel {
       orientation: this.orientation, expanded: this.options.expanded,
       onExpandedChange: this.options.onExpandedChange, onLayoutChange: this.options.onLayoutChange,
       canChangeLayout: this.options.canChangeLayout, onHelp: this.options.onHelp,
+      simplified: this.options.simplified === true,
+      onSaveFilterForReuse: this.options.onSaveFilterForReuse,
+      canSaveFilterForReuse: this.options.canSaveFilterForReuse,
       onExecute: (source) => hasQueryParameters(source?.request?.q)
         ? this.openFilterForm() : this._execute(source),
       onApply: (source) => this.options.onApply?.(source),
@@ -106,6 +111,18 @@ export class QuerySourcePanel {
     this._updateFormAction();
     return this;
   }
+  /**
+   * Switch the editor's simplified interface on or off.
+   *
+   * @param {boolean} on Whether it is on.
+   * @returns {QuerySourcePanel} this, for chaining.
+   */
+  setSimplified(on) {
+    this.options.simplified = on === true;
+    this.editor?.setSimplified(on === true);
+    return this;
+  }
+
   /**
    * Lay the panel out for the west pane (vertical) or the north pane (horizontal).
    *
@@ -166,7 +183,9 @@ export class QuerySourcePanel {
     // a vertical form needs height: in the horizontal layout it opens in the west pane
     const horizontalForm = source.presentation?.filterForm?.settings?.orientation === 'horizontal';
     // reopened while already moved: the panel is vertical now, but still returns on close
-    if (!this._formPlaced && !horizontalForm && this.orientation === 'horizontal') {
+    // the editor outside the dock (in Result, simplified interface): every form opens in the Search pane
+    const outside = this.options.isOutsideSearchPane?.() === true;
+    if (!this._formPlaced && (outside || (!horizontalForm && this.orientation === 'horizontal'))) {
       this._formPlaced = true;
       this.options.onFormPlacement?.('west');
     }
@@ -182,7 +201,7 @@ export class QuerySourcePanel {
       composeQuery: (item, values) => resolveQueryParameters(item.query, values, item.filterForm),
       runtimeMode: 'main',
       onOpenBuilder: () => this._openFilterFormBuilder(),
-      onClose: () => void this.closeFilterForm(),
+      onClose: () => void this.closeFilterForm({ clearEditor: this.options.simplified === true }),
       onSubmit: ({ query, values: submitted }) => {
         if (key) this._lastValues.set(key, structuredClone(submitted || {}));
         const runtimeSource = structuredClone(source);
@@ -239,8 +258,17 @@ export class QuerySourcePanel {
     else void this.options.onExecute?.(updated);
   }
 
-  /** Hide the runtime form and return to the Query Source editor. */
-  async closeFilterForm({ restoreEditor = true } = {}) {
+  /**
+   * Hide the runtime form and return to the Query Source editor.
+   *
+   * @param {object} [options]
+   * @param {boolean} [options.restoreEditor=true] Show the editor again.
+   * @param {boolean} [options.clearEditor=false] The user closed the form in the simplified
+   *        interface: the editor is cleared, not left with the parameterized query (2026-10-14).
+   * @returns {Promise<void>}
+   */
+  async closeFilterForm({ restoreEditor = true, clearEditor = false } = {}) {
+    const wasOpen = Boolean(this.form);
     if (this.form) await this.form.destroy();
     this.form = null;
     if (restoreEditor) {
@@ -250,6 +278,7 @@ export class QuerySourcePanel {
     }
     if (this.formHost) this.formHost.replaceChildren();
     this._updateFormAction();
+    if (clearEditor && wasOpen && restoreEditor) this.setDataSource(null);
   }
 
   /** Show either the runtime Filter Form or the Query Source editing controls. */

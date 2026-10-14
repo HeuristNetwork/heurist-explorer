@@ -6,4 +6,6 @@
 .h-dsa-buttons > [hidden] { display:none; }
 /* inline mode: Save and Add laid out by the host (the Query Source editor p2 pane) */
 .h-dsa-inline { display:contents; }
+/* hidden by the Query Source editor (simplified interface): display:contents ignores [hidden] */
+.h-dsa-inline[hidden] { display:none; }
 .h-dsa-inline > [hidden] { display:none; }

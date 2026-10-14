@@ -43,8 +43,11 @@ export const COMPACT_MEDIA_QUERY = '(max-width: 700px)';
 
 const COMPACT_CLASS = 'h-compact';
 const REGIONS = ['north', 'west', 'center', 'east', 'south'];
-const MODULE_TITLES = { data: 'Result', map: 'Map', graph: 'Graph', timeline: 'Timeline', recordview: 'Record' };
-const TOOL_TITLES = { report: 'Report', crosstabs: 'Crosstabs', actions: 'Actions', export: 'Export' };
+// presentations and tools (tools are pane modules since 2026-10-14)
+const MODULE_TITLES = {
+  data: 'Result', map: 'Map', graph: 'Graph', timeline: 'Timeline', recordview: 'Record',
+  report: 'Report', crosstabs: 'Crosstabs', actions: 'Actions', export: 'Export', publish: 'Publish'
+};
 
 /** Switches an ExplorerApplication between its desktop and compact presentations. */
 export class ExplorerCompactMode {
@@ -73,12 +76,6 @@ export class ExplorerCompactMode {
       if (event.detail?.visible) this._reveal(event.detail.region);
     };
     this._onAssignment = () => { if (this.active) this._labelRegions(); };
-    // a tool panel takes the center region: scroll to it on activation
-    this._onModeChange = (event) => {
-      if (!this.active) return;
-      this._labelRegions();
-      if (event.detail?.mode === 'tool') this._reveal('center');
-    };
   }
 
   /** Start watching the breakpoint and apply the current state. @returns {ExplorerCompactMode} This instance. */
@@ -176,7 +173,7 @@ export class ExplorerCompactMode {
     app.container?.classList.toggle(COMPACT_CLASS, next);
     dock?.setDrawerMode(next);
     // the editor's Layout button is hidden in compact mode (the region may not change)
-    app.querySourcePanel?.setOrientation(dock?.getRegion() === 'north' ? 'horizontal' : 'vertical');
+    app.querySourcePanel?.setOrientation(dock?.getRegion() === 'west' ? 'vertical' : 'horizontal');
     this._applyToolbar(next);
 
     if (next) {
@@ -185,7 +182,6 @@ export class ExplorerCompactMode {
       dock?.paneElement.addEventListener('h-query-source-run', this._onFilterApply);
       layout?.addEventListener('modulevisibilitychange', this._onModuleVisibility);
       layout?.addEventListener('moduleassignmentchange', this._onAssignment);
-      layout?.addEventListener('modechange', this._onModeChange);
       this._labelRegions();
     } else {
       this._unmountDrawerControls();
@@ -193,7 +189,6 @@ export class ExplorerCompactMode {
       dock?.paneElement.removeEventListener('h-query-source-run', this._onFilterApply);
       layout?.removeEventListener('modulevisibilitychange', this._onModuleVisibility);
       layout?.removeEventListener('moduleassignmentchange', this._onAssignment);
-      layout?.removeEventListener('modechange', this._onModeChange);
       this._clearRegionLabels();
     }
 
@@ -254,9 +249,7 @@ export class ExplorerCompactMode {
       const element = layout.cardinal.getRegionElement(region);
       const moduleId = layout.getModuleForRegion(region);
       const module = moduleId ? this.application.modules?.get(moduleId) : null;
-      // the tool panel's slot is not a module
-      const tool = moduleId && !module && layout.isToolMode?.() ? layout.activeToolId : null;
-      const title = module ? (MODULE_TITLES[module.type] || module.type) : (tool ? (TOOL_TITLES[tool] || tool) : '');
+      const title = module ? (MODULE_TITLES[module.type] || module.type) : '';
       if (title) element.dataset.compactTitle = $HR(title);
       else delete element.dataset.compactTitle;
     }

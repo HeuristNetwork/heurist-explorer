@@ -22,6 +22,7 @@ import "./DataTablesAdapter.css";
 import { DataEngineAdapter } from "../DataEngineAdapter.js";
 import { $HR } from "#shared/ui";
 import { dataPopupMode } from "../../core/recordTemplates.js";
+import { createOwnersToggle, createSortSelect } from "../../ui/ListToolControls.js";
 import {
   fieldValues,
   sanitizeTextHtml,
@@ -59,9 +60,13 @@ export class DataTablesAdapter extends DataEngineAdapter {
     onDataRequest,
     onViewModeChange,
     onDataSourceAction,
+    getListSort,
+    onListSortChange,
+    onOwnersToggle,
   }) {
     this.container = container;
     this.options = options;
+    Object.assign(this, { getListSort, onListSortChange, onOwnersToggle });
     this.onSelectionChange = onSelectionChange;
     this.onEditRecord = onEditRecord;
     this.onViewRecord = onViewRecord;
@@ -243,6 +248,23 @@ export class DataTablesAdapter extends DataEngineAdapter {
     });
 
     bar.append(searchLabel, viewLabel, actions, this.sourceActions);
+    // simplified interface: the list's Sort and See/hide owners, as in the record list
+    if (this.options.simplified === true) {
+      bar.append(
+        createSortSelect({
+          value: this.getListSort?.() ?? null,
+          onChange: (value) => {
+            this.onListSortChange?.(value);
+            // a column order would win over the Sort selector: clear it and reload
+            this.instance?.order([]).draw();
+          },
+        }),
+        (this.ownersToggle = createOwnersToggle({
+          shown: interaction.adminInfoEnabled === true,
+          onToggle: () => this.onOwnersToggle?.(),
+        })),
+      );
+    }
     this.toolbarElement = bar;
     this.searchLabel = searchLabel;
     this.selectionActionsEl = actions;
@@ -260,6 +282,7 @@ export class DataTablesAdapter extends DataEngineAdapter {
         controls.selectionActions === false;
     if (this.sourceActions)
       this.sourceActions.hidden = this.options.sourceActionsEnabled !== true;
+    this.ownersToggle?.syncShown(interaction.adminInfoEnabled === true);
     this._syncSourceSaveButtons();
   }
 
@@ -543,8 +566,9 @@ export class DataTablesAdapter extends DataEngineAdapter {
   }
 
   /**
-   * Native DataTables layout. The custom toolbar and the fixed ControlPanel are
-   * rendered outside the DataTables container, so the top row stays empty.
+   * Native DataTables layout. The custom toolbar is rendered above the DataTables
+   * container; the export buttons and the counter are its top row, under the toolbar
+   * (2026-10-13); page size and pagination the bottom row.
    */
   _layoutOptions() {
     const controls = this.options.controls || {};
@@ -553,11 +577,9 @@ export class DataTablesAdapter extends DataEngineAdapter {
         ? { buttons: this.exportButtons }
         : null;
     return {
-      topStart: null,
-      topEnd: null,
+      topStart: buttons,
+      topEnd: controls.counter === false ? null : "info",
       bottomStart: controls.pageSize === false ? null : "pageLength",
-      bottom2Start: buttons,
-      bottom2End: controls.counter === false ? null : "info",
       bottomEnd: "paging",
     };
   }

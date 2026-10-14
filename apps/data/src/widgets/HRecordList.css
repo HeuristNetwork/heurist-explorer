@@ -4,6 +4,8 @@
 .h-recordlist-toolbar.h-toolbar { min-height:25px; padding:2px; }
 .h-recordlist-footer { border-top:1px solid var(--h-color-border); justify-content:space-between; gap:8px; min-height:25px; }
 .h-recordlist-pagination { margin:auto; }
+/* the counter is at the right end of the toolbar */
+.h-recordlist-counter { margin-left:auto; white-space:nowrap; }
 .h-recordlist-search { width:min(260px,100%); }
 .h-recordlist-search .h-input { width:100%; min-height:26px; }
 .h-recordlist-toolbar { flex-wrap:wrap; }
@@ -97,3 +99,21 @@
 .h-recordlist-menu-check { margin-left:auto; visibility:hidden; }
 .is-checked > .h-recordlist-menu-check { visibility:visible; }
 .h-recordlist-collection-count { color:var(--h-color-text-muted); }
+
+/* simplified interface (_buildSimplifiedToolbar): Counter, Pagination, View, Selected, Sort,
+   See/hide owners in one row; the footer (page size only) is not shown */
+.h-recordlist.is-simplified > .h-recordlist-footer { display:none; }
+.h-recordlist.is-simplified .h-recordlist-toolbar { gap:4px 10px; align-items:center; }
+.h-recordlist.is-simplified .h-recordlist-counter { margin-left:0; }
+.h-recordlist.is-simplified .h-recordlist-toolbar > .h-recordlist-pagination { margin:0; }
+
+/* pagination: hidden with one page; in a narrow pane a select instead of the page buttons
+   (HRecordList#_renderPageSelect, 2026-10-14) */
+.h-recordlist { container-type: inline-size; }
+.h-recordlist-pagination[hidden] { display:none; }
+.h-recordlist-pagination { display:flex; align-items:center; }
+.h-recordlist-page-select { display:none; width:auto; }
+@container (max-width: 520px) {
+  .h-recordlist-pagination > .h-pagination { display:none; }
+  .h-recordlist-page-select { display:inline-block; }
+}

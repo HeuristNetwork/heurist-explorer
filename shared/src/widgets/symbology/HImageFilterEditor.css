@@ -1,0 +1,10 @@
+/* HImageFilterEditor: one slider per CSS filter */
+.h-image-filter-dialog { width:min(380px, calc(100vw - 32px)); }
+.h-image-filter { display:flex; flex-direction:column; gap:4px; min-width:min(320px, 86vw); }
+.h-image-filter-row { display:grid; grid-template-columns:110px minmax(0, 1fr) 56px; align-items:center; gap:6px; }
+.h-image-filter-name { text-align:right; }
+.h-image-filter-value { color:var(--h-color-text-muted); font-variant-numeric:tabular-nums; }
+.h-image-filter-colour { display:block; margin-top:6px; }
+.h-image-filter-colour > .h-form-input { display:grid; grid-template-columns:110px minmax(0, 1fr); align-items:center; column-gap:6px; }
+.h-image-filter-colour .h-form-input-header { justify-content:flex-end; }
+.h-image-filter-sample { display:block; max-width:100%; max-height:160px; margin:8px auto 0; object-fit:contain; }

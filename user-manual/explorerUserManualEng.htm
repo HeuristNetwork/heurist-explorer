@@ -81,23 +81,28 @@
   <h3 id="layout-configuration">Layout configuration</h3>
   <p>Explorer configuration (<strong>Options</strong>, the gear button on the toolbar) sets the toolbar position and button size, and which
   pane each module occupies. Several modules in one pane work as tabs: one is visible at a
-  time.</p>
-  <p>Toolbar position <strong>Compact</strong> puts the buttons next to what they act on. The search
+  time. The tools (Report, Crosstabs, Actions, Export, Publish) are placed in panes like the
+  other modules; by default they are in the center pane after Graph. Modules dragged to
+  <strong>Unused</strong> are not shown at all (Result always has a pane).</p>
+  <p>Toolbar position <strong>In panes</strong> puts the buttons next to what they act on. The search
   buttons (Filters, Entities, Sources, Favorites, History, Workspace) are a row of small buttons at the
   top of the left pane; the search editor is always shown there, and the <strong>&laquo;</strong> button
-  folds the left pane to a narrow strip (<strong>&raquo;</strong> opens it again). The tools (Report,
-  Crosstabs, Actions, Export, Help, Options) are a narrow column on the right. Modules are shown with
-  tabs at the top of their pane, and the small arrows on the dividers between panes fold a pane, bring it
-  back, or enlarge it to take the whole width (or height); a folded pane shows the icons of its modules.</p>
+  folds the left pane to a narrow strip (<strong>&raquo;</strong> opens it again). The gear button at the
+  end of that row opens Configuration, Help, Getting started and the Query tracer. There is no toolbar
+  on the right: modules and tools are shown with tabs at the top of their pane (only icons when the
+  pane is too narrow for the names), and the small arrows on the dividers between panes fold a pane,
+  bring it back, or enlarge it to take the whole width (or height); a folded pane shows the icons of its
+  modules.</p>
 
   <h2 id="tools">4. Tools</h2>
-  <p>Reports, Crosstabs, Actions, Export.</p>
+  <p>Reports, Crosstabs, Actions, Export, Publish. Each tool is shown in its pane like a module
+  (Explorer configuration, Layout) and follows the current result and selection.</p>
   <p class="todo">Content to be provided.</p>
 
   <h3 id="export">Export</h3>
-  <p><strong>Export</strong> (right toolbar) writes the records of the current data source into a
+  <p><strong>Export</strong> (a toolbar button or pane tab) writes the records of the current data source into a
   file. The file is made on the server; when it is ready, a link downloads it. Only you can
-  download it, and it is kept for 24 hours. You can close the tool or reload the page: a running
+  download it, and it is kept for 24 hours. You can switch to another module or reload the page: a running
   export continues and is shown again when you open Export. <strong>Stop</strong> ends it.
   <strong>Export results</strong> lists your finished exports: download them, open them in a new tab, or mark them and remove them. A new export is refused while your export results take more than 100 MB.</p>
   <ul>

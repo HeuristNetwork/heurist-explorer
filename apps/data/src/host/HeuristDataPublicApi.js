@@ -196,6 +196,28 @@ export class HeuristDataPublicApi {
     return this.application.getState();
   }
 
+  /**
+   * Show a host's element under the source header, or remove it with `null`
+   * (heurist-explorer's simplified interface puts its Query Source editor there).
+   * Only an element of this document: in direct mode, not through an iframe.
+   *
+   * @param {HTMLElement|null} element Element to show, or null.
+   * @returns {boolean} Whether the element is shown.
+   */
+  setHeaderContent(element) {
+    return this.headerContentHandler?.(element) === true;
+  }
+
+  /**
+   * Set the handler of setHeaderContent (the control panel, once mounted).
+   *
+   * @param {Function|null} handler `(element) → boolean`.
+   * @returns {void}
+   */
+  setHeaderContentHandler(handler) {
+    this.headerContentHandler = typeof handler === "function" ? handler : null;
+  }
+
   /** Resize the active rendering engine. */
   resize() {
     return this.application.resize();
@@ -296,6 +318,8 @@ export class HeuristDataPublicApi {
   async openPreferencesDialog(options = {}) {
     const dialogOptions = {
       runtimeMode: this.application.config.runtimeMode,
+      // heurist-explorer's simplified interface: fewer sections (it sets them itself)
+      simplified: this.application.config.simplified === true,
       ...options,
       mode: "preferences",
       value: options.value || this.application.config.persistedSettings,

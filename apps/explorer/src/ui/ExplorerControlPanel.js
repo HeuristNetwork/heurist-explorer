@@ -15,7 +15,7 @@
 
 import { $HR, applyI18n, HMsg, InlineHelp } from '#shared/ui';
 import { ownerSections } from '#shared/utils/ownerSections.js';
-import { moduleTypesInOrder } from '../core/ExplorerUiConfig.js';
+import { isModuleUsed, MODULE_TYPES, moduleTypesInOrder } from '../core/ExplorerUiConfig.js';
 import { ExplorerRail } from './ExplorerRail.js';
 import { ExplorerConfigurationDialog } from './config/ExplorerConfigurationDialog.js';
 import './ExplorerControlPanel.css';
@@ -65,9 +65,9 @@ export class ExplorerControlPanel {
       side: 'left',
       followPointer: false,
       buttons: leftButtons(),
-      // Compact toolbar: no Search button, the editor stays shown
+      // "In panes" toolbar: no Search button, the editor stays shown
       onRailClick: () => {
-        if (this._toolbarPosition !== 'compact') this.openSearch(this.leftRail?.getButtonElement('search'));
+        if (this._toolbarPosition !== 'panes') this.openSearch(this.leftRail?.getButtonElement('search'));
       }
     });
     this.leftRail.mount(parent);
@@ -287,13 +287,44 @@ export class ExplorerControlPanel {
     const dock = this.application.authoringDock;
     if (!dock) return;
     this.closeToolPanel();
+    // a closed (collapsed) search pane is reopened with the list: one click, even when
+    // that list was the one shown before (2026-10-14)
+    const reopened = this._reopenSearchPane();
     const formClosed = await this.application.closeCoveringFilterForm?.();
-    if (!formClosed && this.dockedList === id && dock.isListShown()) {
+    if (!formClosed && !reopened && this.dockedList === id && dock.isListShown()) {
       dock.setListShown(false);
     } else {
       this._showDockedList(id);
     }
     this.syncAuthoringButtons();
+  }
+
+  /**
+   * The search pane was opened with its expand button: show the Saved Filters list
+   * (docked lists only) unless another list is shown (2026-10-14).
+   *
+   * @returns {boolean} Whether the Saved Filters list was opened.
+   */
+  showDefaultList() {
+    const dock = this.application.authoringDock;
+    if (!dock || this.application.isListsDocked?.() !== true || dock.isListShown()) return false;
+    this._showDockedList('saved-filters');
+    this.syncAuthoringButtons();
+    return true;
+  }
+
+  /**
+   * "In panes" toolbar: the toolbar buttons sit in the search (West) pane; a click on
+   * one while that pane is collapsed (`«`) opens it again.
+   *
+   * @private
+   * @returns {boolean} Whether the pane was collapsed and is now open.
+   */
+  _reopenSearchPane() {
+    const cardinal = this.application.authoringDock?.cardinal;
+    if (this._toolbarPosition !== 'panes' || cardinal?.state?.west?.collapsed !== true) return false;
+    cardinal.expand('west');
+    return true;
   }
 
   /**
@@ -476,19 +507,6 @@ export class ExplorerControlPanel {
   }
 
   /**
-   * Clears active state from right-rail tool buttons.
-   *
-   * @returns {ExplorerControlPanel}
-   */
-  clearToolSelection() {
-    for (const id of ['report', 'crosstabs', 'actions', 'export']) {
-      this.rightRail?.setActive(id, false);
-    }
-
-    return this;
-  }
-
-  /**
    * Opens Explorer user help over the Explorer root.
    */
   openHelp() {
@@ -506,7 +524,8 @@ export class ExplorerControlPanel {
   openConfiguration() {
     this.closeToolPanel();
     new ExplorerConfigurationDialog({
-      value: this.application.uiConfigValue,
+      // the saved value: the simplified interface overrides some of it only when applied
+      value: this.application.uiConfigSaved || this.application.uiConfigValue,
       onSave: (value) => this.application.applyUiConfig(value),
       onGettingStarted: () => this.application.showWelcome(),
       onQueryTrace: () => this.application.showQueryTrace()
@@ -514,39 +533,52 @@ export class ExplorerControlPanel {
   }
 
   /**
-   * Applies a toolbar position/size configuration to both rails. Compact: small
-   * buttons next to the panes (ExplorerCompactToolbar), whatever the size says.
+   * Applies a toolbar position/size configuration to both rails. In panes: small
+   * buttons next to the panes (ExplorerPaneToolbar), whatever the size says.
    *
-   * @param {{position?: 'vertical'|'horizontal'|'compact', buttonSize?: string}} [config] Toolbar configuration.
+   * @param {{position?: 'vertical'|'horizontal'|'panes', buttonSize?: string}} [config] Toolbar configuration.
    * @returns {void}
    */
   applyToolbarConfig({ position = 'vertical', buttonSize = 'large-caption' } = {}) {
-    const compact = position === 'compact';
+    const panes = position === 'panes';
     this._toolbarPosition = position;
     this.application.container?.classList.toggle('h-toolbar-horizontal', position === 'horizontal');
-    this.leftRail?.setViewMode(compact ? 'small' : buttonSize);
-    this.rightRail?.setViewMode(compact ? 'small' : buttonSize);
-    this.application.compactToolbar?.setActive(compact);
+    this.leftRail?.setViewMode(panes ? 'small' : buttonSize);
+    this.rightRail?.setViewMode(panes ? 'small' : buttonSize);
+    this.application.paneToolbar?.setActive(panes);
   }
 
   /**
    * Orders the module buttons as the layout: pane by pane (north, west, center,
-   * east, south), and within a pane in the configured order. The buttons are moved,
-   * not rebuilt, so their pressed state stays.
+   * east, south), and within a pane in the configured order; presentations and
+   * tools each keep their own group. Buttons of modules in Unused are hidden (and
+   * the separator of a group left empty). The buttons are moved, not rebuilt, so
+   * their pressed state stays.
    *
    * @param {object} [config] Explorer configuration; see `ExplorerUiConfig`.
    * @returns {void}
    */
   applyModuleOrder(config) {
-    const buttons = moduleTypesInOrder(config)
-      .map((type) => this.rightRail?.getButtonElement(type))
-      .filter(Boolean);
-    if (!buttons.length) return;
-    const parent = buttons[0].parentElement;
-    // the node after the last module button (the separator before the tools)
-    const last = [...parent.children].findLast((node) => buttons.includes(node));
-    const marker = last.nextSibling;
-    for (const button of buttons) parent.insertBefore(button, marker);
+    const ordered = moduleTypesInOrder(config);
+    for (const group of ['presentations', 'tools']) {
+      const buttons = MODULE_TYPES
+        .map((type) => this.rightRail?.getButtonElement(type))
+        .filter((button) => button?.dataset.group === group);
+      if (!buttons.length) continue;
+      const parent = buttons[0].parentElement;
+      // the node after the group's last button (the separator before the next group)
+      const marker = [...parent.children].findLast((node) => buttons.includes(node)).nextSibling;
+      const rank = (button) => {
+        const index = ordered.indexOf(button.dataset.tool);
+        return index < 0 ? ordered.length : index;
+      };
+      for (const button of [...buttons].sort((a, b) => rank(a) - rank(b))) {
+        button.hidden = !isModuleUsed(config, button.dataset.tool);
+        parent.insertBefore(button, marker);
+      }
+      const separator = parent.querySelector(`.h-explorer-rail-separator[data-group="${group}"]`);
+      if (separator) separator.hidden = buttons.every((button) => button.hidden);
+    }
   }
 
   /**
@@ -654,6 +686,8 @@ export class ExplorerControlPanel {
    * @returns {void}
    */
   _handleLeftTool(id) {
+    // docked lists reopen the search pane themselves (_toggleDockedList)
+    if (!(this.application.isListsDocked?.() === true && DOCKED_LISTS[id])) this._reopenSearchPane();
     switch (id) {
       case 'search':
         this.openSearch(this.leftRail?.getButtonElement('search'));
@@ -705,14 +739,15 @@ export class ExplorerControlPanel {
   }
 
   /**
-   * Dispatch a right-rail toolselect event: toggle a presentation, or open a tool.
+   * Dispatch a right-rail toolselect event: toggle a module (presentation or
+   * tool, both placed in panes), or open Help / the configuration.
    *
    * @private
    * @param {string} id Right-rail button id.
    * @returns {Promise<void>}
    */
   async _handleRightTool(id) {
-    if (['data', 'map', 'graph', 'timeline', 'recordview'].includes(id)) {
+    if (MODULE_TYPES.includes(id)) {
       await this.application.togglePresentation(id);
       this._syncPresentationButtons();
       return;
@@ -725,19 +760,6 @@ export class ExplorerControlPanel {
 
     if (id === 'options') {
       this.openConfiguration();
-      return;
-    }
-
-    if (id === 'publish') {
-      HMsg.showMsgFlash('Will be implemented soon...');
-      return;
-    }
-
-    const active = this.application.openTool?.(id) === true;
-    this.clearToolSelection();
-
-    if (active) {
-      this.rightRail?.setActive(id, true);
     }
   }
 
@@ -1240,7 +1262,11 @@ export class ExplorerControlPanel {
       this._savedFilterView.type = type.value;
       render();
     });
-    panel.append(controls, list);
+    // the built-in filters, apart from the saved ones: at the top, above the search (2026-10-14)
+    const builtin = document.createElement('div');
+    builtin.className = 'h-explorer-builtin-filters';
+    builtin.append(...BUILTIN_FILTERS.map((item) => this._builtinFilterRow({ ...item, title: $HR(item.title) })));
+    panel.append(builtin, controls, list);
     render();
     return panel;
   }
@@ -1261,6 +1287,34 @@ export class ExplorerControlPanel {
     }
 
     this._appendOwnerSections(list, filters, 'filters', (filter) => this._savedFilterRow(filter));
+  }
+
+  /**
+   * A built-in filter's row: title only (not a record: no favorite star, no edit). It
+   * runs its query as a plain query DataSource.
+   *
+   * @private
+   * @param {{title: string, query: string}} filter Built-in list item.
+   * @returns {HTMLElement} The row.
+   */
+  _builtinFilterRow(filter) {
+    const row = document.createElement('div');
+    row.className = 'h-explorer-source-row h-explorer-saved-filter-row h-explorer-builtin-filter-row';
+    const select = document.createElement('button');
+    select.type = 'button';
+    select.className = 'h-explorer-source-select';
+    select.title = `${filter.title}: ${filter.query}`;
+    const title = document.createElement('span');
+    title.className = 'h-explorer-source-title';
+    title.textContent = filter.title;
+    select.append(title);
+    select.addEventListener('click', () => void this._activateFromList(() => this.application.activateDataSource({
+      reference: { type: 'query' },
+      title: filter.title,
+      request: { q: filter.query }
+    })));
+    row.append(select);
+    return row;
   }
 
   /**
@@ -1537,8 +1591,8 @@ export class ExplorerControlPanel {
     }
 
     const parentRect = this.parent.getBoundingClientRect();
-    // Compact toolbar: the buttons are in the West pane; open below the clicked one
-    if (this._toolbarPosition === 'compact') {
+    // "In panes" toolbar: the buttons are in the West pane; open below the clicked one
+    if (this._toolbarPosition === 'panes') {
       const rect = anchor.getBoundingClientRect();
       const below = Math.max(0, Math.round(rect.bottom - parentRect.top));
       const maximumLeft = Math.max(0, parentRect.width - this.flyout.offsetWidth);
@@ -1611,7 +1665,7 @@ export class ExplorerControlPanel {
       return;
     }
 
-    for (const type of ['data', 'map', 'graph', 'timeline', 'recordview']) {
+    for (const type of MODULE_TYPES) {
       this.rightRail.setActive(
         type,
         this.application.layout.isPresentationVisible(type)
@@ -1651,6 +1705,15 @@ export class ExplorerControlPanel {
 }
 
 /**
+ * Filters every user has at the top of the Saved Filters list, above its search
+ * (Artem, 2026-10-14); not records: they run their query as a plain query.
+ */
+const BUILTIN_FILTERS = [
+  { id: 'builtin:recent', title: 'Recent', query: 'sortby:-m after:"1 week ago"' },
+  { id: 'builtin:all-by-date', title: 'All by date', query: 'sortby:-m' }
+];
+
+/**
  * Lists that can be docked in the West pane (Explorer configuration), by left-rail
  * button id: title and content builder (called with the control panel as `this`).
  */
@@ -1680,7 +1743,7 @@ function leftButtons() {
   ];
 }
 
-/** Build the right rail's button definitions (also the module icons/titles of the Compact toolbar's pane tabs). */
+/** Build the right rail's button definitions (also the module icons/titles of the pane tabs ("In panes" toolbar)). */
 export function rightButtons() {
   return [
     { id: 'data', icon: 'fa-solid fa-table', title: 'Result', hint: 'List, cards or tabular presentation of records', group: 'presentations', toggle: true },
@@ -1688,13 +1751,14 @@ export function rightButtons() {
     { id: 'graph', icon: 'fa-solid fa-hexagon-nodes', title: 'Graph', hint: 'Network graph of linked records', group: 'presentations', toggle: true },
     { id: 'timeline', icon: 'fa-regular fa-clock', title: 'Timeline', hint: 'Timeline view of dated records', group: 'presentations', toggle: true },
     { id: 'recordview', icon: 'fa-regular fa-address-card', title: 'Record', hint: 'Detailed information for the selected record', group: 'presentations', toggle: true },
-    { id: 'report', icon: 'fa-regular fa-file', title: 'Report', hint: 'Custom reports editor', group: 'tools' },
-    { id: 'crosstabs', icon: 'fa-solid fa-chart-column', title: 'Crosstabs', hint: 'Cross-tabulation and chart analysis', group: 'tools' },
-    { id: 'actions', icon: 'fa-solid fa-bolt', title: 'Actions', hint: 'Dashboard of actions for the current filtered result or selection', group: 'tools' },
-    { id: 'export', icon: 'fa-solid fa-file-export', title: 'Export', hint: 'Export records in various formats', group: 'tools' },
+    { id: 'report', icon: 'fa-regular fa-file', title: 'Report', hint: 'Custom reports editor', group: 'tools', toggle: true },
+    { id: 'crosstabs', icon: 'fa-solid fa-chart-column', title: 'Crosstabs', hint: 'Cross-tabulation and chart analysis', group: 'tools', toggle: true },
+    { id: 'actions', icon: 'fa-solid fa-bolt', title: 'Actions', hint: 'Dashboard of actions for the current filtered result or selection', group: 'tools', toggle: true },
+    { id: 'export', icon: 'fa-solid fa-file-export', title: 'Export', hint: 'Export records in various formats', group: 'tools', toggle: true },
+    // a tool placed in a pane since 2026-10-14 (was in the settings group)
+    { id: 'publish', icon: 'fa-solid fa-share-nodes', title: 'Publish', hint: 'Publish the current view (coming soon)', group: 'tools', toggle: true },
     { id: 'help', icon: 'fa-solid fa-circle-question', title: 'Help', hint: 'Explorer help and user guide', group: 'settings' },
-    { id: 'options', icon: 'fa-solid fa-gear', title: 'Options', hint: 'Toolbar and layout configuration', group: 'settings' },
-    { id: 'publish', icon: 'fa-solid fa-share-nodes', title: 'Publish', hint: 'Publish the current view (coming soon)', group: 'settings' }
+    { id: 'options', icon: 'fa-solid fa-gear', title: 'Options', hint: 'Toolbar and layout configuration', group: 'settings' }
   ];
 }
 

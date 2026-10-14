@@ -28,7 +28,7 @@ export const HEURIST_RECORDVIEW_CONFIG_DEFAULTS = Object.freeze({
     engine: "builtin",
     template: null,
     selectionMode: "last",
-    showHeader: true,
+    showHeader: false,
     headerTitle: null,
     emptyMessage: "Select a record",
   }),

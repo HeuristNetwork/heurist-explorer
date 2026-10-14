@@ -22,6 +22,7 @@ import { HeuristApiClient } from '#shared/api';
 import { RecordTypeProvider } from './data/RecordTypeProvider.js';
 import { MapDocumentListProvider } from './data/MapDocumentListProvider.js';
 import { getLeafletBaseMapCatalog } from './engine/leaflet/LeafletBasemapCatalog.js';
+import { createSymbologyService } from './host/createSymbologyService.js';
 
 /**
  * Initialize the configuration-only map bootstrap and expose its public API.
@@ -52,7 +53,11 @@ export async function initHeuristMapConfiguration(config = {}) {
     mapDocumentListProvider,
     baseMapCatalog: getLeafletBaseMapCatalog(),
     hostBridge: config.host?.bridge || null,
-    host: createHostAdapter(config.host)
+    host: createHostAdapter(config.host),
+    // default and selection symbology: the shared symbol editor (plan 17)
+    symbology: createSymbologyService({
+      apiClient, language: config.language, database: config.database, hostBridge: config.host?.bridge || null
+    })
   });
   window.heuristMap = publicApi;
   return publicApi;

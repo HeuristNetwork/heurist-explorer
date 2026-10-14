@@ -27,13 +27,15 @@ export class HeuristMapConfigurationApi {
    * @param {Array<object>} [options.baseMapCatalog] Available base-map definitions.
    * @param {object|null} [options.hostBridge] Same-origin host bridge, when embedded in an iframe.
    * @param {object|null} [options.host] Host adapter, used to self-heal a missing preferences value.
+   * @param {object|null} [options.symbology] SymbologyService (default and selection symbology).
    */
-  constructor({ mapDocumentListProvider = null, baseMapCatalog = [], hostBridge = null, host = null } = {}) {
+  constructor({ mapDocumentListProvider = null, baseMapCatalog = [], hostBridge = null, host = null, symbology = null } = {}) {
     this.configurationDialog = null;
     this.mapDocumentListProvider = mapDocumentListProvider;
     this.baseMapCatalog = Array.isArray(baseMapCatalog) ? baseMapCatalog : [];
     this.hostBridge = hostBridge || null;
     this.host = host || null;
+    this.symbology = symbology || null;
   }
 
   /**
@@ -66,8 +68,9 @@ export class HeuristMapConfigurationApi {
       value,
       mapDocumentListProvider: options.mapDocumentListProvider || this.mapDocumentListProvider,
       baseMapCatalog: options.baseMapCatalog || this.baseMapCatalog,
-      onEditSymbology: options.onEditSymbology || (typeof this.hostBridge?.editSymbology === 'function'
-        ? ((value, editorOptions) => this.hostBridge.editSymbology(value, { ...editorOptions, persist: false }))
+      // configuration values are complete symbols (see SymbologyService.edit)
+      onEditSymbology: options.onEditSymbology || (this.symbology
+        ? ((value, editorOptions) => this.symbology.edit(value, { parentSymbol: editorOptions?.parentSymbol || null, complete: true }))
         : null),
       onEditExtent: options.onEditExtent || (typeof this.hostBridge?.editExtent === 'function'
         ? ((bounds, editorOptions) => this.hostBridge.editExtent(bounds, editorOptions))

@@ -1,0 +1,13 @@
+/* Sort selector and See/hide owners link (simplified interface, ListToolControls.js) */
+.heurist-data-sort { gap: 4px; }
+.heurist-data-sort-select { width: 140px; }
+.heurist-data-owners-toggle {
+    padding: 0 2px;
+    font: inherit;
+    color: var(--h-color-primary);
+    white-space: nowrap;
+    background: none;
+    border: 0;
+    cursor: pointer;
+}
+.heurist-data-owners-toggle:hover { text-decoration: underline; }

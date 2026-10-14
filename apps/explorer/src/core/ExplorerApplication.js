@@ -36,7 +36,11 @@ import { SyncEngine } from './SyncEngine.js';
 import { IframeModuleAdapter } from '../modules/IframeModuleAdapter.js';
 import { DirectModuleAdapter } from '../modules/DirectModuleAdapter.js';
 import { ExplorerControlPanel } from '../ui/ExplorerControlPanel.js';
-import { applyUiRegions, ExplorerUiConfig, leadingPaneTypes, resolveUiLanguage } from './ExplorerUiConfig.js';
+import {
+  applyUiRegions, ExplorerUiConfig, isModuleUsed, leadingPaneTypes, MODULE_TYPES, resolveUiLanguage, TOOL_TYPES,
+  UNUSED_REGION, effectiveUiConfig
+} from './ExplorerUiConfig.js';
+import { ExplorerToolModule } from '../tools/ExplorerToolModule.js';
 import { HDbDefs } from '#shared/data/HDbDefs.js';
 import { RecordTypeProvider } from '#shared/data/RecordTypeProvider.js';
 import queryVocabulary from '../utils/queryVocabulary.json';
@@ -46,7 +50,7 @@ import { QuerySourcePanel } from '../widgets/query-source/QuerySourcePanel.js';
 import { QueryTracePanel } from '../widgets/query-source/QueryTracePanel.js';
 import { ExplorerAuthoringDock } from '../ui/ExplorerAuthoringDock.js';
 import { ExplorerCompactMode } from '../ui/ExplorerCompactMode.js';
-import { ExplorerCompactToolbar } from '../ui/ExplorerCompactToolbar.js';
+import { ExplorerPaneToolbar } from '../ui/ExplorerPaneToolbar.js';
 import { ExplorerWelcome } from '../ui/ExplorerWelcome.js';
 import { ExplorerTour, loadTourText } from '../ui/ExplorerTour.js';
 import { explorerTourSteps, explorerTourTopics } from '../ui/explorerTourSteps.js';
@@ -167,6 +171,8 @@ export class ExplorerApplication {
       editQuery: (query, filterForm) => this._editQueryWithBuilder(query, filterForm),
       describeQuery: (q) => this._describeQuery(q),
       onSaved: ({ record }) => this._recordSaved(record),
+      // record type icons in the symbol previews of the symbology editors (plan 17)
+      rectypeIconUrl: (id) => this.recordTypes?.iconUrl?.(id) || '',
       language: this.config.language,
       baseUrl: this.config.baseUrl,
       database: this.config.database
@@ -200,16 +206,18 @@ export class ExplorerApplication {
       if (error?.name !== 'AbortError') HMsg.showMsgErr(error?.message || String(error));
     }
 
-    this.uiConfigValue = this.uiConfig.load();
+    // the saved configuration (edited in the dialog) and the one applied (simplified interface)
+    this.uiConfigSaved = this.uiConfig.load();
+    this.uiConfigValue = effectiveUiConfig(this.uiConfigSaved);
     // outer layout: authoring pane (west or north) beside the presentation-module layout (center)
     this.authoringDock = new ExplorerAuthoringDock(workspace, { database: this.config.database });
     // compact mode and a vertical Filter Form move the pane; the editor follows its region
     this.authoringDock.addEventListener('placementchange', (event) => {
-      this.querySourcePanel?.setOrientation(event.detail.region === 'north' ? 'horizontal' : 'vertical');
+      this.querySourcePanel?.setOrientation(event.detail.region === 'west' ? 'vertical' : 'horizontal');
     });
     this.layout = new LayoutManager(this.authoringDock.modulesElement).bindModules(this.modules);
-    // Compact toolbar position: switched on by the control panel's toolbar configuration
-    this.compactToolbar = new ExplorerCompactToolbar({ application: this });
+    // "In panes" toolbar position: switched on by the control panel's toolbar configuration
+    this.paneToolbar = new ExplorerPaneToolbar({ application: this });
     this.controlPanel = new ExplorerControlPanel({
       application: this,
       initiallyCollapsed: this.config.settings?.controlPanel?.initiallyCollapsed === true
@@ -217,10 +225,12 @@ export class ExplorerApplication {
     await this.controlPanel.mount(this.container);
     this._bindRunningQueries();
     await this._createQuerySourcePanel();
-    if (readTraceShown()) this.showQueryTrace();
+    // the simplified interface has no query tracer
+    if (readTraceShown() && !this.isSimplifiedUI()) this.showQueryTrace();
+    this.applySimplifiedUI();
     // modules of panes not expanded at start are created when first opened
     await this.applyLayout(this.config.settings.layout || defaultLayout(), { deferHidden: true });
-    this.compactToolbar.refresh();
+    this.paneToolbar.refresh();
     this.compactMode = new ExplorerCompactMode({ application: this }).start();
     if (this.config.state.dataSource) await this.activateDataSource(this.config.state.dataSource);
     else await this._startUp();
@@ -259,13 +269,8 @@ export class ExplorerApplication {
     this.layoutDefinitions = moduleDefs.map((item) => ({ ...item }));
     this.layout.setLayout(moduleDefs);
     const active = new Set(moduleDefs.map((item) => item.id));
-    for (const [id, module] of this.modules) {
-      if (!active.has(id)) {
-        this.sync.unregister(id);
-        await module.destroy();
-        this.modules.delete(id);
-        this.layout.removeSlot(id);
-      }
+    for (const id of [...this.modules.keys()]) {
+      if (!active.has(id)) await this._removeModule(id);
     }
 
     for (const definition of moduleDefs) {
@@ -276,7 +281,49 @@ export class ExplorerApplication {
   }
 
   /**
-   * Create, mount, and register one presentation-module adapter from a layout definition.
+   * Unregister, destroy and remove one module with its layout slot and definition.
+   *
+   * @private
+   * @param {string} id Module id.
+   * @returns {Promise<void>}
+   */
+  async _removeModule(id) {
+    const module = this.modules.get(id);
+    // the Query Source editor shown in this Result module goes back to the dock first
+    if (id === this._resultEditorModuleId) {
+      this.authoringDock?.setExternalHost(null);
+      this._resultEditorModuleId = null;
+    }
+    this.sync.unregister(id);
+    this.modules.delete(id);
+    await module?.destroy();
+    this.layout.removeDefinition(id);
+    this.layoutDefinitions = (this.layoutDefinitions || []).filter((item) => item.id !== id);
+  }
+
+  /**
+   * Simplified interface: the Query Source editor is shown in the Result module,
+   * under its header (`setHeaderContent` of heurist-data, direct mode only). The
+   * Filter Form still opens in the Search pane (ExplorerAuthoringDock#setExternalHost).
+   * Without that API, or in iframe mode, the editor stays in its north pane.
+   *
+   * @private
+   * @param {import('./ExplorerModule.js').ExplorerModule} module A newly created module.
+   * @returns {void}
+   */
+  _attachEditorToResult(module) {
+    if (!this.isSimplifiedUI() || module.type !== 'data' || module.context?.role !== 'current') return;
+    if (this._resultEditorModuleId || typeof module.api?.setHeaderContent !== 'function') return;
+    const slot = document.createElement('div');
+    slot.className = 'h-explorer-result-editor';
+    if (module.api.setHeaderContent(slot) === false) return;
+    this.authoringDock?.setExternalHost(slot);
+    this._resultEditorModuleId = module.id;
+  }
+
+  /**
+   * Create, mount, and register one module adapter from a layout definition: a
+   * presentation (iframe or direct) or a tool.
    *
    * @private
    * @param {object} definition Layout definition for one module.
@@ -284,6 +331,7 @@ export class ExplorerApplication {
    * @throws {Error} When `direct` mode is requested for a module type with no entry in `DIRECT_MOUNTERS`.
    */
   async _createModule(definition) {
+    if (TOOL_TYPES.includes(definition.type)) return this._createToolModule(definition);
     const moduleContainer = this.layout.createSlot(definition.id, definition.type);
     const mode = definition.mode || this.config.moduleModes?.[definition.type] || 'iframe';
     const mountModule = DIRECT_MOUNTERS[definition.type];
@@ -306,7 +354,9 @@ export class ExplorerApplication {
         baseUrl: this.config.baseUrl,
         accessToken: this.config.accessToken,
         requestHeaders: this.config.requestHeaders,
-        language: this.config.language
+        language: this.config.language,
+        // "Interface for dummies": modules simplify themselves (Data, plan 16 Part 4)
+        simplifiedUI: this.isSimplifiedUI()
       },
       settings: { ...(this.modulePreferences[definition.type] || {}), ...(definition.settings || {}) },
       state: definition.state || null,
@@ -317,6 +367,7 @@ export class ExplorerApplication {
     this.modules.set(definition.id, module);
     await module.mount();
     this.sync.register(module);
+    this._attachEditorToResult(module);
     if (['map', 'timeline'].includes(module.type)) {
       if (this.sync.activeMapDocument != null) await module.setActiveMapDocument(this.sync.activeMapDocument);
       else {
@@ -380,7 +431,7 @@ export class ExplorerApplication {
       onModeChange: (mode) => this.authoringDock?.setMode(mode),
       onStop: () => this.stopAllQueries(),
       // layout: Vertical (west) / Horizontal (north), More, Help
-      orientation: this.authoringDock.getRegion() === 'north' ? 'horizontal' : 'vertical',
+      orientation: this.authoringDock.getRegion() === 'west' ? 'vertical' : 'horizontal',
       expanded: this.authoringDock.getAdvanced(),
       onExpandedChange: (expanded) => this.authoringDock?.setAdvanced(expanded),
       onLayoutChange: (orientation) => {
@@ -390,12 +441,19 @@ export class ExplorerApplication {
       },
       canChangeLayout: () => this.authoringDock?.isDrawerMode() !== true,
       onFormPlacement: (region) => this.authoringDock?.setTemporaryPlacement(region),
+      isOutsideSearchPane: () => this.authoringDock?.getRegion() === 'external',
       // a Filter Form in the West pane covers it: the docked list is hidden meanwhile
       onFormVisible: (visible) => {
         this.authoringDock?.setFormCover(visible && this.authoringDock.getRegion() === 'west');
         this.syncSearchButton();
       },
-      onHelp: () => this.controlPanel?.openFilterHelp()
+      onHelp: () => this.controlPanel?.openFilterHelp(),
+      // simplified interface: "Save filter for re-use" opens the legacy "Add new filter"
+      // dialog with the query text (2026-10-14)
+      simplified: this.isSimplifiedUI(),
+      onSaveFilterForReuse: (query) => this.editSavedFilter(null, query)
+        .catch((error) => HMsg.showMsgErr?.(error?.message || String(error))),
+      canSaveFilterForReuse: () => this.canEditSavedFilters()
     });
     // own host element: the panel replaces its container's class, and the pane
     // must keep `h-explorer-authoring` (its scroll container)
@@ -500,7 +558,7 @@ export class ExplorerApplication {
    */
   async closeCoveringFilterForm() {
     if (!this.authoringDock?.isFormCover()) return false;
-    await this.querySourcePanel?.closeFilterForm();
+    await this.querySourcePanel?.closeFilterForm({ clearEditor: this.isSimplifiedUI() });
     this.authoringDock.setFormCover(false);
     return true;
   }
@@ -722,9 +780,45 @@ export class ExplorerApplication {
     writeTraceShown(false);
   }
 
+  /** @returns {boolean} Whether the simplified interface ("Interface for dummies (v7 like)") is on. */
+  isSimplifiedUI() {
+    return this.uiConfigValue?.isSimplifiedUI === true;
+  }
+
+  /**
+   * Apply the simplified interface (or leave it): fewer toolbar buttons (root class
+   * `h-explorer-simplified`), the Query Source editor's simple button row, no query
+   * tracer. Its toolbar and layout come with the configuration (`effectiveUiConfig`).
+   *
+   * @returns {void}
+   */
+  applySimplifiedUI() {
+    const on = this.isSimplifiedUI();
+    this.container?.classList.toggle('h-explorer-simplified', on);
+    // the editor is always horizontal (its north pane, or inside Result)
+    this.authoringDock?.setForcedPlacement(on ? 'north' : null);
+    this.querySourcePanel?.setSimplified?.(on);
+    if (on && this.queryTracePanel) this.hideQueryTrace();
+  }
+
   /** @returns {boolean} Whether the query trace is open (it may be covered by a docked list). */
   isQueryTraceShown() {
     return Boolean(this.queryTracePanel) && this.authoringDock?.isTraceShown() === true;
+  }
+
+  /**
+   * Show a module's user manual over Explorer (the module asked from its iframe,
+   * see `useHostHelp`). The module resolves the manual's URL: it is in its bundle.
+   *
+   * @param {{moduleName?: string, url?: string, anchor?: string|null}} [request] Manual to show.
+   * @returns {boolean} Whether a manual was shown.
+   */
+  openModuleHelp({ moduleName = 'module', url = '', anchor = null } = {}) {
+    if (!url) return false;
+    this._moduleHelp?.close();
+    this._moduleHelp = new InlineHelp({ parent: this.container, moduleName, url });
+    this._moduleHelp.open(anchor);
+    return true;
   }
 
   /** Show the welcome popup (first visit, or Getting started in the configuration dialog). */
@@ -906,7 +1000,8 @@ export class ExplorerApplication {
    */
   async _syncWorkspaceMap(module = null) {
     const targets = module ? [module] : [...this.modules.values()].filter((item) => ['map', 'timeline'].includes(item.type));
-    const sources = await this.getWorkspaceDataSources();
+    // simplified interface: Map and Timeline show the current result only, no Workspace sources
+    const sources = this.isSimplifiedUI() ? [] : await this.getWorkspaceDataSources();
     return Promise.all(targets.map((target) => target.setWorkspaceDataSources?.(sources)));
   }
 
@@ -1190,14 +1285,23 @@ export class ExplorerApplication {
    * Delegate to the host's Saved Filter editor, refreshing local state when it saves.
    *
    * @param {number|string|null} svsID Existing saved-filter id, or `null` to create one.
-   * @param {*} [squery] Seed query/definition for the editor.
-   * @returns {Promise<object|null>} Editor result, or `null` when the host returned nothing.
+   * @param {*} [squery] Seed query/definition for the editor. A new filter with a
+   *        parameterized query is refused (message): it belongs in a Query Source.
+   * @returns {Promise<object|null>} Editor result, or `null` when the host returned nothing (or refused).
    * @throws {Error} When the host doesn't support editing saved filters.
    */
   async editSavedFilter(svsID, squery = null) {
     const bridge = this.config.hostBridge;
     if (!bridge || typeof bridge.editSavedFilter !== 'function') {
       throw new Error($HR('Saved Filter editor is not available'));
+    }
+    // a parameterized query (Filter Form) is not saved as a new Saved Filter: the legacy
+    // format can not hold it; it is a Query Source (Artem, 2026-10-14)
+    const isNew = !(Number(svsID) > 0);
+    if (isNew && hasQueryParameters(squery && typeof squery === 'object' && !Array.isArray(squery) ? squery.q : squery)) {
+      HMsg.showMsgDlg?.('A query with parameters (Filter Form) can not be saved as a Saved Filter. Save it as a Query Source.',
+        { title: 'Save filter' });
+      return null;
     }
     const result = await bridge.editSavedFilter(svsID, squery);
     if (result?.saved) {
@@ -1285,7 +1389,6 @@ export class ExplorerApplication {
     }
   }
 
-
   /**
    * Auto-favorite a newly-saved filter that was already favorited under a placeholder reference.
    *
@@ -1322,19 +1425,16 @@ export class ExplorerApplication {
   }
 
   /**
-   * Make a presentation module visible in its configured region, creating it when
-   * needed. Unlike togglePresentation() it never hides the module.
+   * Make a module (presentation or tool) visible in its configured pane, creating
+   * it when needed (deferred at start). Unlike togglePresentation() it never hides
+   * the module. Used by the pane tabs and dividers of the "In panes" toolbar too.
    *
-   * @param {'data'|'map'|'graph'|'timeline'|'recordview'} type Module type.
-   * @returns {Promise<object|null>} The module, or null when its type has no region.
+   * @param {string} type Module type; see `MODULE_TYPES`.
+   * @returns {Promise<object|null>} The module, or null when its type is not placed in a pane.
    */
   async showPresentation(type) {
-    if (this.layout?.isToolMode()) {
-      this.layout.exitToolMode();
-      this.controlPanel?.clearToolSelection?.();
-    }
+    if (!isModuleUsed(this.uiConfigValue, type)) return null;
     const region = this.uiConfigValue.regions[type];
-    if (!region) return null;
 
     let module = [...this.modules.values()].find((item) => item.type === type);
     if (!module) {
@@ -1361,30 +1461,19 @@ export class ExplorerApplication {
   }
 
   /**
-   * Toggles a presentation module in its default cardinal region.
-   * Map and Graph share the center and behave as a radio pair.
+   * Toggles a module (presentation or tool) in its configured pane. Modules
+   * sharing a pane behave as a radio group.
    *
-   * @param {'data'|'map'|'graph'|'timeline'|'recordview'} type Module type.
+   * @param {string} type Module type; see `MODULE_TYPES`.
    * @returns {Promise<boolean>} New visible state.
    */
   async togglePresentation(type) {
-    if (this.layout?.isToolMode()) {
-      const wasVisible = this.layout.isPresentationVisible(type);
-      this.layout.exitToolMode();
-      this.controlPanel?.clearToolSelection?.();
-
-      if (wasVisible) {
-        this.controlPanel?.refreshPresentationState?.();
-        return true;
-      }
-    }
-
     // compact (stacked) layout: a visible module off screen is scrolled to, not hidden
     const compact = this.compactMode?.togglePresentation(type);
     if (compact != null) return compact;
 
+    if (!isModuleUsed(this.uiConfigValue, type)) return false;
     const region = this.uiConfigValue.regions[type];
-    if (!region) return false;
 
     const module = [...this.modules.values()].find((item) => item.type === type);
     const currentId = this.layout.getModuleForRegion(region);
@@ -1393,7 +1482,7 @@ export class ExplorerApplication {
 
     if (isVisible) {
       // the last visible module stays: hiding it would leave a blank workspace
-      const othersVisible = PRESENTATION_TYPES
+      const othersVisible = MODULE_TYPES
         .some((other) => other !== type && this.layout.isPresentationVisible(other));
       if (!othersVisible) {
         HMsg.showMsgFlash?.($HR('At least one module must stay visible'));
@@ -1409,48 +1498,36 @@ export class ExplorerApplication {
   }
 
   /**
-   * Shows a presentation module in its configured pane, creating it when it was
-   * deferred at start; never hides (Compact toolbar: pane tabs and dividers).
-   * Leaves Tools mode first.
-   *
-   * @param {'data'|'map'|'graph'|'timeline'|'recordview'} type Module type.
-   * @returns {Promise<boolean>} Whether the module is shown.
-   */
-  async showPresentation(type) {
-    if (this.layout?.isToolMode()) {
-      this.layout.exitToolMode();
-      this.controlPanel?.clearToolSelection?.();
-    }
-
-    const region = this.uiConfigValue.regions[type];
-    if (!region) return false;
-
-    let module = [...this.modules.values()].find((item) => item.type === type);
-
-    if (!module) {
-      module = await this._createPresentation(type, region);
-      this.controlPanel?.refreshPresentationState?.();
-      return Boolean(module);
-    }
-
-    this.layout.assignModule(module.id, region);
-    this.layout.showModule(module.id);
-    await module.resize();
-    this.controlPanel?.refreshPresentationState?.();
-    return true;
-  }
-
-  /**
    * Persists a new toolbar/layout configuration and applies it live: already-created
-   * presentation modules whose type moved to a different region are reassigned there.
+   * modules whose type moved to a different region are reassigned there; those
+   * moved to Unused are destroyed (a tool with unsaved work is confirmed first).
    *
    * @param {object} next Configuration value; see `ExplorerUiConfig`'s shape.
-   * @returns {Promise<object>} The normalized, persisted configuration.
+   * @returns {Promise<object|false>} The normalized, persisted configuration; false
+   *          when the user kept a tool with unsaved work (the dialog stays open).
    */
   async applyUiConfig(next) {
+    const nextRegions = effectiveUiConfig(next || {})?.regions || {};
+    const unused = [...this.modules.values()].filter((module) => nextRegions[module.type] === UNUSED_REGION);
+    if (unused.some((module) => module.hasUnsavedChanges?.())
+      && !globalThis.confirm?.($HR('The report template has unsaved changes. Close it without saving?'))) {
+      return false;
+    }
+    for (const module of unused) await this._removeModule(module.id);
+
     const previousRegions = this.uiConfigValue.regions;
+    const wasSimplified = this.isSimplifiedUI();
     const saved = this.uiConfig.save(next);
-    this.uiConfigValue = saved;
+    // the simplified interface reaches the modules at start (runtime.simplifiedUI): reload
+    if (saved.isSimplifiedUI !== wasSimplified && typeof globalThis.location?.reload === 'function') {
+      globalThis.location.reload();
+      return saved;
+    }
+    // the simplified interface applies its own toolbar and layout over the saved value
+    const applied = effectiveUiConfig(saved);
+    this.uiConfigSaved = saved;
+    this.uiConfigValue = applied;
+    this.applySimplifiedUI();
 
     // another interface language: Explorer reloads, and passes it to every module at start
     const language = resolveUiLanguage(saved, this.config.hostLanguage || this.config.language);
@@ -1461,7 +1538,7 @@ export class ExplorerApplication {
 
     const vacatedRegions = new Set();
     for (const module of this.modules.values()) {
-      const newRegion = saved.regions[module.type];
+      const newRegion = applied.regions[module.type];
       if (!newRegion || newRegion === previousRegions[module.type]) continue;
       const oldRegion = this.layout.getRegionForModule(module.id);
       this.layout.assignModule(module.id, newRegion);
@@ -1479,80 +1556,54 @@ export class ExplorerApplication {
       if (promoted) await promoted.resize();
     }
 
-    this.controlPanel?.applyToolbarConfig(saved.toolbar);
-    this.controlPanel?.applyModuleOrder(saved);
+    this.controlPanel?.applyToolbarConfig(applied.toolbar);
+    this.controlPanel?.applyModuleOrder(applied);
     this.controlPanel?.applyListMode();
     this.compactMode?.refresh();
-    this.compactToolbar?.refresh();
+    this.paneToolbar?.refresh();
     this.controlPanel?.refreshPresentationState?.();
     return saved;
   }
 
   /**
-   * Opens or closes Explorer Tools mode.
+   * Create, mount and register a tool module (Report, Crosstabs, Actions, Export,
+   * Publish). The tool follows DataSource, selection and rules like a presentation.
    *
-   * Tools mode temporarily presents Data | Tool and preserves the complete
-   * presentation layout so it can be restored without changing presentation
-   * toggle state.
-   *
-   * @param {string} type Tool id.
-   * @returns {boolean} True while Tools mode is active.
+   * @private
+   * @param {object} definition Layout definition for the tool.
+   * @returns {Promise<ExplorerToolModule>} The mounted, registered module.
    */
-  openTool(type) {
-    if (this.layout?.isToolMode(type)) {
-      if (!this._closeReportsTool()) return true;
-      this._closeExportTool();
-      this.layout.exitToolMode();
-      this.controlPanel?.refreshPresentationState?.();
-      return false;
-    }
-    if (!this._closeReportsTool()) return this.layout?.isToolMode() === true;
-    this._closeExportTool();
-
-    const panel = type === 'report' ? this._createReportsTool()
-      : type === 'export' ? this._createExportTool()
-        : this._createToolPlaceholder(type);
-    this.layout?.enterToolMode(type, panel, {
-      onClose: () => this._exitTool()
+  async _createToolModule(definition) {
+    const module = new ExplorerToolModule({
+      id: definition.id,
+      type: definition.type,
+      container: this.layout.createSlot(definition.id, definition.type),
+      title: TOOL_TITLES[definition.type],
+      create: {
+        report: (body) => this._createReportsTool(body),
+        export: (body) => this._createExportTool(body)
+      }[definition.type] || null
     });
-    return true;
+    this.modules.set(definition.id, module);
+    await module.mount();
+    this.sync.register(module);
+    if (this.sync.dataSource) await module.setDataSource(cloneDataSource(this.sync.dataSource));
+    if (this.sync.selection.length) await module.setSelection(this.sync.selection);
+    return module;
   }
 
   /**
-   * Leave Tools mode (the Back button of a tool).
+   * Mount heurist-reports into the Report tool's body. The reports app (and its
+   * CodeMirror editor) is loaded only now, by a dynamic import of its public direct
+   * entry. Explorer in publication mode has no tools.
    *
    * @private
-   * @returns {void}
+   * @param {HTMLElement} body Tool body.
+   * @returns {Promise<object>} The reports app API (`hasUnsavedChanges`, `destroy`).
    */
-  _exitTool() {
-    if (!this._closeReportsTool()) return;
-    this._closeExportTool();
-    this.layout?.exitToolMode();
-    this.controlPanel?.clearToolSelection?.();
-  }
-
-  /**
-   * Build the Reports tool: header and a body where heurist-reports is mounted.
-   * The reports app (and its CodeMirror editor) is loaded only now, by a dynamic
-   * import of its public direct entry. Explorer in publication mode has no tools.
-   *
-   * @private
-   * @returns {HTMLElement} The tool panel element.
-   */
-  _createReportsTool() {
-    const panel = document.createElement('div');
-    panel.className = 'h-explorer-tool-workspace h-explorer-tool-reports';
-
-    const header = toolHeader($HR('Custom reports manager and editor'), () => this._exitTool());
-
-    const body = document.createElement('div');
-    body.className = 'h-explorer-tool-workspace-body h-explorer-tool-reports-body';
-    body.textContent = $HR('Loading...');
-    panel.append(header, body);
-
+  _createReportsTool(body) {
     const mount = this._reportsMounter || mountDirectReports;
-    this._reportsTool = null;
-    const pending = Promise.resolve(mount({
+    return mount({
       container: body,
       bootstrap: {
         runtime: {
@@ -1567,96 +1618,32 @@ export class ExplorerApplication {
       },
       bridge: this._reportsBridge(),
       assetBaseUrl: this.config.moduleAssetUrls?.reports || null
-    })).then((api) => {
-      if (this._reportsPending === pending) this._reportsTool = api;
-      else api?.destroy?.();
-      return api;
-    }).catch((error) => {
-      body.textContent = error?.message || String(error);
-      console.error('Unable to open the reports manager', error);
     });
-    this._reportsPending = pending;
-    return panel;
   }
 
   /**
-   * Remove the Reports tool; asks first when its template editor has unsaved changes.
+   * Create the Export tool (plan 13) in its body: the export form for the current
+   * DataSource. Loaded only now (dynamic import, its own chunk). A running export
+   * continues on the server when the tool is destroyed and is shown again on the next open.
    *
    * @private
-   * @returns {boolean} False when the user kept the tool open.
+   * @param {HTMLElement} body Tool body.
+   * @returns {Promise<object>} The ExportTool.
    */
-  _closeReportsTool() {
-    const api = this._reportsTool;
-    if (!api && !this._reportsPending) return true;
-    if (api?.hasUnsavedChanges?.()
-      && !globalThis.confirm?.($HR('The report template has unsaved changes. Close it without saving?'))) {
-      return false;
-    }
-    api?.destroy?.();
-    this._reportsTool = null;
-    this._reportsPending = null;
-    return true;
-  }
-
-  /**
-   * Build the Export tool (plan 13): header and the export form for the current
-   * DataSource. The tool is loaded only now (dynamic import, its own chunk).
-   *
-   * @private
-   * @returns {HTMLElement} The tool panel element.
-   */
-  _createExportTool() {
-    const panel = document.createElement('div');
-    panel.className = 'h-explorer-tool-workspace h-explorer-tool-export';
-    const header = toolHeader($HR('Export records'), () => this._exitTool());
-    const body = document.createElement('div');
-    body.className = 'h-explorer-tool-workspace-body h-explorer-tool-export-body';
-    body.textContent = $HR('Loading...');
-    panel.append(header, body);
-
-    const pending = (this._exportLoader || loadExportTool)().then(async ({ ExportTool }) => {
-      if (this._exportPending !== pending) return null;
-      const tool = new ExportTool({
-        apiClient: this.apiClient,
-        getDbDefs: () => this._ensureDbDefs(),
-        getDataSource: () => (this.sync?.dataSource ? cloneDataSource(this.sync.dataSource) : null),
-        getSelection: () => [...(this.sync?.selection || [])],
-        database: this.config.database,
-        language: this.config.language
-      });
-      body.replaceChildren();
-      tool.attach(body);
-      this._exportTool = tool;
-      await tool.render();
-      // follow DataSource, selection and rule changes like a module (no events of its own)
-      this.sync?.register({
-        id: EXPORT_TOOL_SYNC_ID,
-        type: 'tool',
-        setDataSource: (source) => tool.setDataSource(source),
-        setSelection: (ids) => tool.setSelection(ids),
-        setRules: (rules) => tool.setRules(rules)
-      });
-      return tool;
-    }).catch((error) => {
-      body.textContent = error?.message || String(error);
-      console.error('Unable to open the export tool', error);
+  async _createExportTool(body) {
+    const { ExportTool } = await (this._exportLoader || loadExportTool)();
+    const tool = new ExportTool({
+      apiClient: this.apiClient,
+      getDbDefs: () => this._ensureDbDefs(),
+      getDataSource: () => (this.sync?.dataSource ? cloneDataSource(this.sync.dataSource) : null),
+      getSelection: () => [...(this.sync?.selection || [])],
+      database: this.config.database,
+      language: this.config.language
     });
-    this._exportPending = pending;
-    return panel;
-  }
-
-  /**
-   * Remove the Export tool. A running export continues on the server and is shown
-   * again when the tool is opened.
-   *
-   * @private
-   * @returns {void}
-   */
-  _closeExportTool() {
-    this.sync?.unregister?.(EXPORT_TOOL_SYNC_ID);
-    this._exportTool?.destroy?.();
-    this._exportTool = null;
-    this._exportPending = null;
+    body.replaceChildren();
+    tool.attach(body);
+    await tool.render();
+    return tool;
   }
 
   /**
@@ -1687,30 +1674,6 @@ export class ExplorerApplication {
   }
 
   /**
-   * Build the placeholder panel shown for a not-yet-implemented tool.
-   *
-   * @private
-   * @param {string} type Tool id.
-   * @returns {HTMLElement} The placeholder panel element.
-   */
-  _createToolPlaceholder(type) {
-    const panel = document.createElement('div');
-    panel.className = 'h-explorer-tool-workspace';
-
-    const header = toolHeader(toolTitle(type), () => {
-      this.layout?.exitToolMode();
-      this.controlPanel?.clearToolSelection?.();
-    });
-
-    const body = document.createElement('div');
-    body.className = 'h-explorer-tool-workspace-body';
-    body.textContent = `${toolTitle(type)} is not implemented yet.`;
-
-    panel.append(header, body);
-    return panel;
-  }
-
-  /**
    * Build the host action callbacks exposed to mounted presentation modules.
    *
    * @private
@@ -1727,7 +1690,6 @@ export class ExplorerApplication {
       // shown in Explorer's own Record view; see viewRecord()
       viewRecord: (id) => this.viewRecord(id),
       addRecord: (rt) => this.addRecord(rt),
-      editSymbology: (value, options) => bridge.editSymbology?.(value, options),
       // same draw-mode Map dialog as the Filter Builder extent picker;
       // the outer host editor is only a fallback without a Map module URL
       editExtent: (value, options) => (this.config.moduleUrls?.map
@@ -1740,6 +1702,11 @@ export class ExplorerApplication {
       describeRules: (rules) => bridge.describeRules?.(rules),
       editFieldset: (value, options) => bridge.editFieldset?.(value, options),
       zoomToExtent: (wkt) => this.zoomActiveMapToExtent(wkt),
+      // symbol / thematic map / image filter editors in Explorer's window, not in the
+      // module's iframe (2026-10-14); the module saves the result itself
+      editSymbology: (value, options) => this.recordEditing.symbology.edit(value, options),
+      // a module's manual in Explorer's window (InlineHelp of the module, useHostHelp)
+      openHelp: (request) => this.openModuleHelp(request),
       getHostContext: () => ({
         name: 'heurist-explorer', runtimeMode: 'main', hasMapModule: this.hasActiveMapModule()
       }),
@@ -2109,7 +2076,7 @@ export class ExplorerApplication {
     this._filterExtentModule = null;
     this._filterExtentDialog = null;
     this.compactMode?.destroy();
-    this.compactToolbar?.destroy();
+    this.paneToolbar?.destroy();
     this.compactMode = null;
     await Promise.all([...this.modules.values()].map((module) => module.destroy()));
     this.modules.clear();
@@ -2128,53 +2095,11 @@ export class ExplorerApplication {
   }
 }
 
-
-/**
- * Header of a Tools mode workspace: caption (source header style) and an icon
- * button that returns to the presentation.
- *
- * @param {string} caption Header caption.
- * @param {function(): void} onClose Called by the close button.
- * @returns {HTMLElement}
- */
-function toolHeader(caption, onClose) {
-  const header = document.createElement('div');
-  header.className = 'heurist-source-header h-explorer-tool-workspace-header';
-
-  const title = document.createElement('span');
-  title.className = 'h-explorer-tool-workspace-title';
-  title.textContent = caption;
-
-  const close = document.createElement('button');
-  close.type = 'button';
-  close.className = 'heurist-icon-button h-explorer-tool-workspace-close';
-  close.title = $HR('Back to presentation');
-  close.setAttribute('aria-label', close.title);
-  close.innerHTML = '<span class="fa-solid fa-xmark" aria-hidden="true"></span>';
-  close.addEventListener('click', onClose);
-
-  header.append(title, close);
-  return header;
-}
-
-/** Resolve a tool id to its display title. */
-function toolTitle(type) {
-  return {
-    report: 'Report',
-    crosstabs: 'Crosstabs / Charts',
-    actions: 'Actions Dashboard',
-    export: 'Export records'
-  }[type] || 'Tool';
-}
-
 /** Load and mount heurist-data's direct (same-realm) bootstrap for `direct` module mode. */
 async function mountDirectData(options) {
   const { mountHeuristData } = await import('../../../data/src/direct.js');
   return mountHeuristData(options);
 }
-
-/** SyncEngine id of the open Export tool. */
-const EXPORT_TOOL_SYNC_ID = 'tool:export';
 
 /** Load the Export tool (its own lazy chunk). */
 function loadExportTool() {
@@ -2199,8 +2124,14 @@ const DIRECT_MOUNTERS = {
   recordview: mountDirectRecordView
 };
 
-/** Presentation module types toggled from the toolbar. */
-const PRESENTATION_TYPES = ['data', 'map', 'graph', 'timeline', 'recordview'];
+/** Header captions of the tool modules. */
+const TOOL_TITLES = {
+  report: 'Custom reports manager and editor',
+  crosstabs: 'Crosstabs / Charts',
+  actions: 'Actions Dashboard',
+  export: 'Export records',
+  publish: 'Publish'
+};
 
 /** Explorer's built-in default layout: Data west, Map center. */
 function defaultLayout() {

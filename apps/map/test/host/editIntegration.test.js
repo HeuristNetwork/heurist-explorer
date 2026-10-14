@@ -119,14 +119,16 @@ test('persisted layer ordinary symbology edit passes canonical value and redraws
       }
     }]
   }]]);
-  app.host = {
-    supportsSymbologyEditing: () => true,
-    async editSymbology(value, options) {
-      calls.push(['edit', value, options]);
-      return {
-        symbol: { iconType: 'circle', color: '#222222' },
-        thematic: value.thematic
-      };
+  app.providers = {
+    symbology: {
+      async edit(value, options) {
+        calls.push(['edit', value, options]);
+        return {
+          symbol: { iconType: 'circle', color: '#222222' },
+          thematic: value.thematic
+        };
+      },
+      async saveLayerSymbology(recordId, value) { calls.push(['save', recordId, value]); }
     }
   };
   app.setLayerStyle = async (layerId, value) => {
@@ -141,11 +143,13 @@ test('persisted layer ordinary symbology edit passes canonical value and redraws
     symbol: { iconType: 'circle', color: '#111111' },
     thematic: [{ title: 'Population', fields: [{ code: '10:1109', ranges: [] }] }]
   });
-  assert.equal(calls[0][2].persist, true);
+  assert.equal(calls[0][2].kind, 'style');
   assert.equal(calls[0][2].query, 't:10');
   assert.equal(calls[0][2].parentSymbol.color, '#ff0000');
   assert.equal(calls[0][2].parentSymbol.opacity, 1);
   assert.equal(calls[0][2].parentSymbol.fillOpacity, 0.2);
+  // the Map Layer record is saved with the new API (plan 17)
+  assert.deepEqual(calls.find((call) => call[0] === 'save').slice(1, 2), [122]);
   assert.equal(calls.some((call) => call[0] === 'reload'), false);
   assert.equal(calls.at(-1)[0], 'style');
 });
@@ -160,14 +164,16 @@ test('persisted layer thematic edit reloads layer so thematic attributes are ref
     source: { type: 'heurist-query', query: 't:10' },
     style: { symbol: { iconType: 'circle' }, thematic: [] }
   }]]);
-  app.host = {
-    supportsSymbologyEditing: () => true,
-    async editSymbology(value, options) {
-      calls.push(['edit', value, options]);
-      return {
-        symbol: { iconType: 'circle' },
-        thematic: [{ title: 'Type', fields: [{ code: '10:12', ranges: [] }] }]
-      };
+  app.providers = {
+    symbology: {
+      async edit(value, options) {
+        calls.push(['edit', value, options]);
+        return {
+          symbol: { iconType: 'circle' },
+          thematic: [{ title: 'Type', fields: [{ code: '10:12', ranges: [] }] }]
+        };
+      },
+      async saveLayerSymbology(recordId, value) { calls.push(['save', recordId, value]); }
     }
   };
   app.setLayerStyle = async (layerId, value) => calls.push(['style', layerId, value]);
@@ -178,7 +184,8 @@ test('persisted layer thematic edit reloads layer so thematic attributes are ref
 
   await app.requestEditLayerSymbology('map-layer-122', { thematic: true });
 
-  assert.equal(calls[0][2].thematic, true);
+  assert.equal(calls[0][2].kind, 'thematic');
+  assert.equal(calls.some((call) => call[0] === 'save'), true);
   assert.equal(calls[0][2].parentSymbol.color, '#ff0000');
   assert.deepEqual(calls.at(-1), ['reload', 'map-layer-122']);
   assert.equal(calls.some((call) => call[0] === 'style'), true);
@@ -203,15 +210,19 @@ test('current-results default symbology edit persists map preferences and reappl
     style: { symbol: { iconType: 'circle', color: '#111111' }, thematic: [] }
   }]]);
   app.host = {
-    supportsSymbologyEditing: () => true,
     getCapabilities: () => ({ mapPreferences: true }),
-    async editSymbology(value, options) {
-      calls.push(['edit', value, options]);
-      return { iconType: 'iconfont', iconFont: 'location' };
-    },
     async savePreferences(settings) {
       calls.push(['savePreferences', settings]);
       return settings;
+    }
+  };
+  app.providers = {
+    symbology: {
+      async edit(value, options) {
+        calls.push(['edit', value, options]);
+        return { iconType: 'iconfont', iconFont: 'location' };
+      },
+      async saveLayerSymbology() { calls.push(['save']); }
     }
   };
   app.applyConfiguration = async (settings) => {
@@ -223,7 +234,7 @@ test('current-results default symbology edit persists map preferences and reappl
 
   await app.requestEditLayerSymbology('current-results');
 
-  assert.equal(calls[0][2].persist, false);
+  assert.equal(calls.some((call) => call[0] === 'save'), false, 'no Map Layer record');
   assert.equal(calls[0][2].parentSymbol.color, '#ff0000');
   assert.equal(calls[0][2].parentSymbol.fillOpacity, 0.2);
   assert.deepEqual(app.config.defaults.symbology, { iconType: 'iconfont', iconFont: 'location' });
@@ -248,14 +259,18 @@ test('workspace symbology remains local and never persists a MapLayer record or 
   }]]);
   app.mapDocuments = new Map();
   app.host = {
-    supportsSymbologyEditing: () => true,
     getCapabilities: () => ({ mapPreferences: true }),
-    async editSymbology(value, options) {
-      calls.push(['edit', value, options]);
-      return { symbol: { iconType: 'circle', color: '#abcdef' }, thematic: [] };
-    },
     async savePreferences(settings) {
       calls.push(['savePreferences', settings]);
+    }
+  };
+  app.providers = {
+    symbology: {
+      async edit(value, options) {
+        calls.push(['edit', value, options]);
+        return { symbol: { iconType: 'circle', color: '#abcdef' }, thematic: [] };
+      },
+      async saveLayerSymbology() { calls.push(['save']); }
     }
   };
   app.setLayerStyle = async (layerId, value) => calls.push(['style', layerId, value]);
@@ -263,8 +278,7 @@ test('workspace symbology remains local and never persists a MapLayer record or 
 
   await app.requestEditLayerSymbology('workspace-source-17');
 
-  assert.equal(calls[0][2].recordId, null);
-  assert.equal(calls[0][2].persist, false);
+  assert.equal(calls.some((call) => call[0] === 'save'), false);
   assert.equal(calls.some((call) => call[0] === 'savePreferences'), false);
   assert.equal(calls.some((call) => call[0] === 'applyConfiguration'), false);
   assert.deepEqual(calls.at(-1), [

@@ -53,9 +53,11 @@ export class HRecordField extends HBaseWidget {
    * @param {Function} [options.fileUrl] Link to view a file of a file field.
    * @param {boolean} [options.allowHidden=true] Show the "hidden from the public" switch.
    * @param {boolean} [options.readOnly] Display only.
-   * @param {{json?: boolean, describe?: Function, edit?: Function}|null} [options.special] Special field:
+   * @param {{json?: boolean, describe?: Function, edit?: Function, actions?: Array<object>}|null} [options.special] Special field:
    *        `describe(value, context)` readable text, `edit(value, context)` resolves with the new
-   *        value (undefined: cancelled), `json` the raw value must be JSON.
+   *        value (undefined: cancelled), `json` the raw value must be JSON; `actions`
+   *        (`[{label, title?, primary?, run(value, context)}]`) several editors instead of `edit`,
+   *        or `actionsFor(context)` returning them for the record (type) being edited.
    * @param {object} [options.context] Passed to `describe`/`edit`: `{field, getValue(dty), setValue(dty, value)}`.
    * @returns {HRecordField} This field.
    */
@@ -278,23 +280,32 @@ export class HRecordField extends HBaseWidget {
       raw.textContent = host.hidden ? $HR('Show raw') : $HR('Hide raw');
       raw.setAttribute('aria-expanded', String(!host.hidden));
     });
-    if (typeof special.edit === 'function' && !this.options.readOnly) {
-      const edit = document.createElement('button');
-      edit.type = 'button';
-      edit.className = 'h-btn h-btn-small h-btn-primary h-i18n';
-      edit.textContent = $HR('Edit');
-      this.listen(edit, 'click', async () => {
-        try {
-          const next = await special.edit(row.input.getValue(), this.options.context || {});
-          if (next === undefined) return;
-          row.input.setValue(next);
-          this._syncSpecial(row);
-          this._changed();
-        } catch (error) {
-          this.setIssues([{ severity: 'error', message: error?.message || String(error) }]);
-        }
-      });
-      buttons.append(edit);
+    // several editors (symbology: Style, Thematic maps), or the one Edit
+    const listed = typeof special.actionsFor === 'function' ? special.actionsFor(this.options.context || {}) : special.actions;
+    const actions = Array.isArray(listed)
+      ? listed
+      : (typeof special.edit === 'function' ? [{ label: 'Edit', primary: true, run: special.edit }] : []);
+    if (!this.options.readOnly) {
+      for (const action of actions) {
+        if (typeof action?.run !== 'function') continue;
+        const edit = document.createElement('button');
+        edit.type = 'button';
+        edit.className = `h-btn h-btn-small h-i18n${action.primary ? ' h-btn-primary' : ''}`;
+        edit.textContent = $HR(action.label || 'Edit');
+        if (action.title) edit.title = $HR(action.title);
+        this.listen(edit, 'click', async () => {
+          try {
+            const next = await action.run(row.input.getValue(), this.options.context || {});
+            if (next === undefined) return;
+            row.input.setValue(next);
+            this._syncSpecial(row);
+            this._changed();
+          } catch (error) {
+            this.setIssues([{ severity: 'error', message: error?.message || String(error) }]);
+          }
+        });
+        buttons.append(edit);
+      }
     }
     box.append(row.summary, buttons);
     row.element.prepend(box);

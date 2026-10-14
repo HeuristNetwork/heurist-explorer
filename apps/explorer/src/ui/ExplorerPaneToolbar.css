@@ -1,0 +1,145 @@
+/* Toolbar position "In panes" (ExplorerPaneToolbar): small buttons next to the panes.
+   The authoring dock's own West region is `.h-explorer-authoring-dock > .h-cardinal-middle
+   > .h-cardinal-west` (the module layout inside it has West regions too). */
+
+/* small buttons in both rails, whatever the configured size; no size toggle */
+.h-toolbar-panes .h-explorer-rail-button {
+    width: 22px;
+    height: 26px;
+    font-size: 13px;
+}
+
+.h-toolbar-panes .h-explorer-rail-viewmode {
+    display: none;
+}
+
+/* no right rail: modules and tools are pane tabs, settings in the gear menu (2026-10-14) */
+.h-toolbar-panes .h-explorer-rail-right {
+    display: none;
+}
+
+/* ------------------------------- left rail: a row at the top of the West pane --- */
+
+.h-toolbar-panes .h-explorer-authoring-dock > .h-cardinal-middle > .h-cardinal-west > .h-explorer-rail-left {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: 2px;
+    width: 100%;
+    height: auto;
+    min-height: 0;
+    padding: 2px 4px;
+    overflow: visible;
+    border-right: 0;
+    border-bottom: 1px solid var(--h-color-border);
+}
+
+.h-toolbar-panes .h-explorer-rail-left .h-explorer-rail-cluster {
+    position: static;
+    flex: 1 1 auto;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 2px;
+    width: auto;
+    padding: 0;
+    transform: none;
+}
+
+/* Search: the editor is always shown "In panes" */
+.h-toolbar-panes .h-explorer-rail-left [data-group="author"] {
+    display: none;
+}
+
+.h-toolbar-panes .h-explorer-rail-left .h-explorer-rail-separator {
+    width: 1px;
+    height: 18px;
+    margin: 0 4px;
+}
+
+.h-toolbar-panes .h-explorer-rail-left .h-explorer-rail-stop {
+    position: relative;
+    left: auto;
+    bottom: auto;
+    order: 1;
+}
+
+.h-explorer-pane-toolbar-toggle {
+    flex: 0 0 auto;
+    order: 3;
+    width: 26px;
+    height: 26px;
+    font-size: 13px;
+}
+
+/* gear menu (Configuration, Help, Getting started, Query tracer), before «/» */
+.h-explorer-pane-toolbar-settings {
+    flex: 0 0 auto;
+    order: 2;
+    margin-left: auto;
+}
+
+.h-explorer-pane-toolbar-settings > summary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    font-size: 13px;
+    cursor: pointer;
+}
+
+.h-explorer-pane-toolbar-settings > summary::after {
+    content: none;
+}
+
+/* placed by placeMenu() in fixed position */
+.h-explorer-pane-toolbar-settings > .h-menu {
+    z-index: 1100;
+}
+
+/* collapsed West pane: only the buttons, in a column, «/» first */
+.h-toolbar-panes .h-explorer-authoring-dock > .h-cardinal-middle > .h-cardinal-west.is-collapsed > :not(.h-explorer-rail-left) {
+    display: none;
+}
+
+.h-toolbar-panes .h-explorer-authoring-dock > .h-cardinal-middle > .h-cardinal-west.is-collapsed > .h-explorer-rail-left {
+    flex-direction: column;
+    height: 100%;
+    padding: 3px 0;
+    overflow: hidden;
+    visibility: visible;
+    pointer-events: auto;
+    border-bottom: 0;
+}
+
+.h-toolbar-panes .h-cardinal-west.is-collapsed > .h-explorer-rail-left .h-explorer-rail-cluster {
+    flex: 0 0 auto;
+    flex-direction: column;
+    flex-wrap: nowrap;
+    align-items: center;
+}
+
+.h-toolbar-panes .h-cardinal-west.is-collapsed > .h-explorer-rail-left .h-explorer-rail-separator {
+    width: 18px;
+    height: 1px;
+    margin: 4px 0;
+}
+
+.h-toolbar-panes .h-cardinal-west.is-collapsed > .h-explorer-rail-left .h-explorer-pane-toolbar-toggle {
+    order: -1;
+    margin: 0 0 4px;
+}
+
+/* the gear at the bottom of the strip */
+.h-toolbar-panes .h-cardinal-west.is-collapsed > .h-explorer-rail-left .h-explorer-pane-toolbar-settings {
+    margin: auto 0 0;
+}
+
+/* popup lists open below the clicked button (ExplorerControlPanel#_alignFlyout) */
+.h-toolbar-panes .h-explorer-tool-panel {
+    max-height: min(78vh, 680px, calc(100% - var(--h-tool-panel-top, 0px)));
+}
+
+.h-toolbar-panes .h-explorer-tool-panel.h-explorer-tool-panel-tall {
+    max-height: calc(100% - var(--h-tool-panel-top, 0px));
+}

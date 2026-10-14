@@ -95,6 +95,9 @@ export async function initHeuristRecordView(config) {
 
   const ready = application.initialize().then(async () => {
     await controlPanel.mount();
+    // initialize() may have loaded the saved preferences (Show header...): the panel
+    // was built from the bootstrap settings (2026-10-14)
+    controlPanel.applyOptions(application.settings);
     return api;
   });
   api.setReadyPromise(ready);

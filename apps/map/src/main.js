@@ -28,13 +28,15 @@ import { showMapMessage } from './ui/mapMessages.js';
 import { getHeuristMapConfig } from './mapConfig.js';
 import { initHeuristMap } from './initHeuristMap.js';
 import { initHeuristMapConfiguration } from './initHeuristMapConfiguration.js';
-import { initLocale, $HR } from '#shared/ui';
+import { initLocale, $HR, useHostHelp } from '#shared/ui';
 
 // Leaflet.markercluster 1.x is distributed as a UMD plugin and expects a
 // browser-global `L` while it is being evaluated. A static plugin import runs
 // before this module body, so expose Leaflet first and load the plugin only
 // afterwards.
 const config = getHeuristMapConfig();
+// in Explorer's iframe the help manual opens in Explorer's window (2026-10-14)
+useHostHelp(config.host?.bridge);
 const messageContainer = document.getElementById(config.containerId);
 const onWarning = (event) => showMapMessage(event.detail?.message);
 const onError = (event) => showMapMessage(event.detail?.error || event.detail?.message, { error: true, title: 'Map error' });

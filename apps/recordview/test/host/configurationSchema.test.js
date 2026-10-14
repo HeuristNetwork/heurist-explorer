@@ -27,7 +27,7 @@ test("record view configuration defaults expose the requested controls", () => {
   const value = createRecordViewConfigurationDefaults();
   assert.equal(value.config.defaults.engine, "builtin");
   assert.equal(value.config.defaults.selectionMode, "last");
-  assert.equal(value.config.defaults.showHeader, true);
+  assert.equal(value.config.defaults.showHeader, false, "no header by default (2026-10-14)");
   assert.equal(value.config.defaults.headerTitle, null);
   assert.equal(value.config.defaults.emptyMessage, "Select a record");
   assert.equal(value.options.ui.language, "auto");

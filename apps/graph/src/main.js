@@ -21,9 +21,11 @@ import "@fortawesome/fontawesome-free/css/fontawesome.min.css";
 import "@fortawesome/fontawesome-free/css/solid.min.css";
 import { getHeuristGraphConfig } from "./graphConfig.js";
 import { initHeuristGraph } from "./initHeuristGraph.js";
-import { initLocale } from "#shared/ui";
+import { initLocale, useHostHelp } from "#shared/ui";
 
 const config = getHeuristGraphConfig();
+// in Explorer's iframe the help manual opens in Explorer's window (2026-10-14)
+useHostHelp(config.host?.bridge);
 const bootstrap = initLocale(
   config.language,
   config.localeBaseUrl || moduleBaseUrl(),

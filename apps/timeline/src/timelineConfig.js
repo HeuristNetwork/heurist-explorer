@@ -70,7 +70,12 @@ export function getHeuristTimelineConfig() {
       query: rawSettings.options?.mapDocuments?.allowed ?? null,
       initiallyActive: rawSettings.options?.mapDocuments?.initiallyActive ?? 'dynamic'
     },
-    ui: { showSourceHeader: false, initiallyExpanded: true, ...(rawSettings.options?.ui || rawSettings.ui || {}) },
+    // heurist-explorer's "Interface for dummies": the control panel starts collapsed (2026-10-14)
+    simplified: runtime.simplifiedUI === true,
+    ui: {
+      showSourceHeader: false, initiallyExpanded: true, ...(rawSettings.options?.ui || rawSettings.ui || {}),
+      ...(runtime.simplifiedUI === true ? { initiallyExpanded: false } : {})
+    },
     source: {
       contexts,
       selection: normalizeIds(source.selection),

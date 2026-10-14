@@ -203,3 +203,12 @@
 #Show or hide the expansion rules and the records linked through them#Show or hide the expansion rules and the records linked through them
 #Generic_Title#Heurist
 #Error_Title#Info
+#Sort#Sort
+#Default#Default
+#Title A-Z#Title A-Z
+#Title Z-A#Title Z-A
+#Modified (newest)#Modified (newest)
+#Added (newest)#Added (newest)
+#See owners#See owners
+#Hide owners#Hide owners
+#Page#Page

@@ -13,7 +13,7 @@
  * @since       8.0
  */
 import { $HR, applyI18n, HMsg } from '#shared/ui';
-import { ExplorerUiConfig } from '../../core/ExplorerUiConfig.js';
+import { ExplorerUiConfig, UNUSED_REGION } from '../../core/ExplorerUiConfig.js';
 import { VIEW_MODES } from '../ExplorerRail.js';
 import './ExplorerConfigurationDialog.css';
 
@@ -26,14 +26,26 @@ const REGIONS = [
   { id: 'south', label: 'South' }
 ];
 
-/** Presentation module types, with the same icon/title used on the right rail. */
+/** The bucket for modules not shown at all (no checkbox). */
+const UNUSED = { id: UNUSED_REGION, label: 'Unused' };
+
+/** Module types (presentations and tools), with the same icon/title used on the right rail. */
 const MODULES = [
   { type: 'data', icon: 'fa-solid fa-table', title: 'Result' },
   { type: 'map', icon: 'fa-solid fa-map-location-dot', title: 'Map' },
   { type: 'graph', icon: 'fa-solid fa-hexagon-nodes', title: 'Graph' },
   { type: 'timeline', icon: 'fa-regular fa-clock', title: 'Timeline' },
-  { type: 'recordview', icon: 'fa-regular fa-address-card', title: 'Record View' }
+  { type: 'recordview', icon: 'fa-regular fa-address-card', title: 'Record View' },
+  // tools are placed in panes like the presentations (2026-10-14)
+  { type: 'report', icon: 'fa-regular fa-file', title: 'Report' },
+  { type: 'crosstabs', icon: 'fa-solid fa-chart-column', title: 'Crosstabs' },
+  { type: 'actions', icon: 'fa-solid fa-bolt', title: 'Actions' },
+  { type: 'export', icon: 'fa-solid fa-file-export', title: 'Export' },
+  { type: 'publish', icon: 'fa-solid fa-share-nodes', title: 'Publish' }
 ];
+
+/** Result always has a pane: a DataSource is shown there (and so not everything is unused). */
+const ALWAYS_USED = new Set(['data']);
 
 /** Interface languages, as in the modules' configuration dialogs. */
 const LANGUAGES = [
@@ -100,10 +112,12 @@ export class ExplorerConfigurationDialog {
       void this.save();
     });
     this.content = el('div', 'heurist-config-content h-dialog-body');
+    const layoutSection = this.section('Layout', (body) => this.buildLayoutSection(body), true);
     this.content.append(
       this.section('Interface', (body) => this.buildInterfaceSection(body), true),
-      this.section('Layout', (body) => this.buildLayoutSection(body), true)
+      layoutSection
     );
+    this._advancedControls.push(layoutSection);
 
     const footer = el('footer', 'heurist-config-footer h-dialog-footer');
     // Getting started and Query tracer close the dialog first (asking about unsaved changes as Cancel does)
@@ -117,7 +131,9 @@ export class ExplorerConfigurationDialog {
       const trace = button('Query tracer', () => { if (this.cancel() !== false) this.onQueryTrace(); }, 'Show the query trace below the search editor');
       trace.classList.add('heurist-config-query-trace');
       extras.append(trace);
+      this._advancedControls.push(trace);
     }
+    this._syncSimplified();
     if (this.onGettingStarted || this.onQueryTrace) footer.append(extras);
     footer.append(button('Cancel', () => this.cancel()), submitButton('Apply'));
     this.form.append(this.content, footer);
@@ -158,29 +174,58 @@ export class ExplorerConfigurationDialog {
    * @returns {void}
    */
   buildInterfaceSection(body) {
-    // Compact: small buttons next to the panes, so the buttons size does not apply
+    // the simplified interface fixes toolbar, lists and layout (effectiveUiConfig):
+    // their controls are hidden while it is checked (2026-10-14)
+    const simplifiedRow = el('label', 'heurist-config-row h-explorer-config-simplified');
+    const simplified = el('input', 'h-checkbox');
+    simplified.classList.remove('h-input');
+    simplified.type = 'checkbox';
+    simplified.checked = this.value.isSimplifiedUI === true;
+    simplified.addEventListener('change', () => {
+      this.value.isSimplifiedUI = simplified.checked;
+      this._syncSimplified();
+    });
+    const simplifiedCaption = el('span', 'h-i18n');
+    simplifiedCaption.textContent = 'Interface for dummies (v7 like)';
+    simplifiedRow.append(simplifiedCaption, simplified);
+    body.append(simplifiedRow);
+
+    // In panes: small buttons next to the panes, so the buttons size does not apply
     const syncSize = () => {
-      const compact = this.value.toolbar.position === 'compact';
-      sizeRow.classList.toggle('is-disabled', compact);
-      for (const input of sizeRow.querySelectorAll('input')) input.disabled = compact;
+      const panes = this.value.toolbar.position === 'panes';
+      sizeRow.classList.toggle('is-disabled', panes);
+      for (const input of sizeRow.querySelectorAll('input')) input.disabled = panes;
     };
-    this.radioGroup(body, 'Toolbar position', [
+    const positionRow = this.radioGroup(body, 'Toolbar position', [
       ['vertical', 'Vertical (side rails)'],
       ['horizontal', 'Horizontal (top toolbar)'],
-      ['compact', 'Compact (buttons next to the panes)']
+      ['panes', 'In panes (buttons and tabs in the panes)']
     ], this.value.toolbar.position, (next) => { this.value.toolbar.position = next; syncSize(); });
 
     const sizeRow = this.radioGroup(body, 'Toolbar buttons size', VIEW_MODES.map((mode) => [mode.id, mode.label]),
       this.value.toolbar.buttonSize, (next) => { this.value.toolbar.buttonSize = next; });
     syncSize();
 
-    this.radioGroup(body, 'Lists (Filters, Entities, Sources, Favorites, History, Workspace)', [
-      ['docked', 'Docked in the left pane'],
+    const listsRow = this.radioGroup(body, 'Lists (Filters, Entities, Sources, Favorites, History, Workspace)', [
+      ['docked', 'Docked in the search pane'],
       ['popup', 'Popup']
     ], this.value.lists, (next) => { this.value.lists = next; });
+    this._advancedControls = [positionRow, sizeRow, listsRow];
 
     // Explorer and every module use this language; changing it reloads Explorer
     this.selectRow(body, 'Language', LANGUAGES, this.value.language, (next) => { this.value.language = next; });
+  }
+
+  /**
+   * Hide the toolbar, lists and layout controls and the Query tracer button while the
+   * simplified interface is checked: it sets them itself.
+   *
+   * @private
+   * @returns {void}
+   */
+  _syncSimplified() {
+    const on = this.value.isSimplifiedUI === true;
+    for (const control of this._advancedControls || []) control.hidden = on;
   }
 
   /**
@@ -257,14 +302,14 @@ export class ExplorerConfigurationDialog {
    */
   buildLayoutSection(body) {
     const hint = el('p', 'h-explorer-config-hint h-i18n');
-    hint.textContent = 'Drag a module into a pane, or within a pane to change its order. Checked panes are expanded when Explorer starts and show their first module.';
+    hint.textContent = 'Drag a module into a pane, or within a pane to change its order. Checked panes are expanded when Explorer starts and show their first module. Modules in Unused are not shown.';
     body.append(hint);
 
     const cardinal = el('div', 'h-explorer-config-cardinal');
     for (const region of REGIONS) {
       cardinal.append(this._buildPane(region));
     }
-    body.append(cardinal);
+    body.append(cardinal, this._buildPane(UNUSED));
 
     for (const module of MODULES) {
       this.chips.set(module.type, this._buildChip(module));
@@ -284,24 +329,35 @@ export class ExplorerConfigurationDialog {
    * @returns {HTMLElement} The generated pane element.
    */
   _buildPane(region) {
+    const unused = region.id === UNUSED_REGION;
     const pane = el('div', `h-explorer-config-pane h-explorer-config-pane-${region.id}`);
     const head = el('div', 'h-explorer-config-pane-head');
     const label = el('div', 'h-explorer-config-pane-label h-i18n');
     label.textContent = region.label;
+    head.append(label);
     // checked: the pane is expanded when Explorer starts, otherwise it starts hidden
-    const expanded = el('input', 'h-checkbox h-explorer-config-pane-expanded');
-    expanded.classList.remove('h-input');
-    expanded.type = 'checkbox';
-    expanded.checked = this.value.panes[region.id] === true;
-    expanded.title = $HR('Expanded when Explorer starts');
-    expanded.setAttribute('aria-label', `${$HR(region.label)}: ${expanded.title}`);
-    expanded.addEventListener('change', () => { this.value.panes[region.id] = expanded.checked; });
-    this.paneChecks.set(region.id, expanded);
-    head.append(label, expanded);
+    if (!unused) {
+      const expanded = el('input', 'h-checkbox h-explorer-config-pane-expanded');
+      expanded.classList.remove('h-input');
+      expanded.type = 'checkbox';
+      expanded.checked = this.value.panes[region.id] === true;
+      expanded.title = $HR('Expanded when Explorer starts');
+      expanded.setAttribute('aria-label', `${$HR(region.label)}: ${expanded.title}`);
+      expanded.addEventListener('change', () => { this.value.panes[region.id] = expanded.checked; });
+      this.paneChecks.set(region.id, expanded);
+      head.append(expanded);
+    }
     const list = el('div', 'h-explorer-config-pane-list');
     list.dataset.region = region.id;
+    if (unused) list.title = $HR('Modules not shown. Result always has a pane.');
+    // Result can not be unused (the drag type is unreadable during dragover, so it is kept)
+    const refused = () => unused && ALWAYS_USED.has(this._dragType);
 
     list.addEventListener('dragover', (event) => {
+      if (refused()) {
+        list.classList.add('h-drop-refused');
+        return;
+      }
       event.preventDefault();
       event.dataTransfer.dropEffect = 'move';
       list.classList.add('h-drag-over');
@@ -309,16 +365,16 @@ export class ExplorerConfigurationDialog {
     });
     list.addEventListener('dragleave', (event) => {
       if (list.contains(event.relatedTarget)) return;
-      list.classList.remove('h-drag-over');
+      list.classList.remove('h-drag-over', 'h-drop-refused');
       this._markDropTarget(null);
     });
     list.addEventListener('drop', (event) => {
       event.preventDefault();
-      list.classList.remove('h-drag-over');
+      list.classList.remove('h-drag-over', 'h-drop-refused');
       this._markDropTarget(null);
       const moduleType = event.dataTransfer.getData('text/plain');
       const chip = this.chips.get(moduleType);
-      if (!chip) return;
+      if (!chip || (unused && ALWAYS_USED.has(moduleType))) return;
       // dropped on another chip: placed before or after it; otherwise last in the pane
       const target = dropPosition(event);
       if (target && target.chip !== chip) target.chip[target.after ? 'after' : 'before'](chip);
@@ -354,10 +410,13 @@ export class ExplorerConfigurationDialog {
       event.dataTransfer.setData('text/plain', module.type);
       event.dataTransfer.effectAllowed = 'move';
       chip.classList.add('h-dragging');
+      this._dragType = module.type;
     });
     chip.addEventListener('dragend', () => {
       chip.classList.remove('h-dragging');
       this._markDropTarget(null);
+      this._dragType = null;
+      for (const list of this.paneLists.values()) list.classList.remove('h-drop-refused');
     });
 
     return chip;
@@ -530,7 +589,8 @@ function mergeDefaults(value) {
     order: [...new Set([...(Array.isArray(value?.order) ? value.order : []), ...defaults.order])],
     panes: { ...defaults.panes, ...(value?.panes || {}) },
     lists: value?.lists === 'popup' ? 'popup' : defaults.lists,
-    language: LANGUAGES.some(([code]) => code === value?.language) ? value.language : defaults.language
+    language: LANGUAGES.some(([code]) => code === value?.language) ? value.language : defaults.language,
+    isSimplifiedUI: typeof value?.isSimplifiedUI === 'boolean' ? value.isSimplifiedUI : defaults.isSimplifiedUI
   };
 }
 

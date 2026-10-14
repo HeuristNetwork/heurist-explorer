@@ -108,6 +108,11 @@ export class DataControlPanel {
     this.sourceHeader = document.createElement("div");
     this.sourceHeader.className = "heurist-source-header";
     this.tableContainer.prepend(this.sourceHeader);
+    // the shrunk panel's width is kept free at the right of the source header (or toolbar)
+    this.resizeObserver = globalThis.ResizeObserver
+      ? new ResizeObserver(() => this.reserveSpace())
+      : null;
+    this.resizeObserver?.observe(this.element);
     if (this.options.initiallyExpanded === false && !this.main)
       this.element.classList.add("fully-collapsed");
     this.bind("heurist-data-configuration-changed", (event) => {
@@ -124,6 +129,29 @@ export class DataControlPanel {
     this.updateSourceHeader();
     applyI18n(this.element);
     return this.element;
+  }
+
+  /**
+   * Show a host's element under the source header (heurist-explorer's simplified
+   * interface: its Query Source editor), or remove it with `null`. Only an element
+   * of this document (direct mode).
+   *
+   * @param {HTMLElement|null} element Element to show, or null.
+   * @returns {boolean} Whether the element is shown (false: another document, or null).
+   */
+  setHeaderContent(element) {
+    const next =
+      element && element.ownerDocument === this.tableContainer.ownerDocument
+        ? element
+        : null;
+    if (this.headerContent && this.headerContent !== next) {
+      this.headerContent.classList.remove("heurist-data-header-content");
+      this.headerContent.remove();
+    }
+    this.headerContent = next;
+    next?.classList.add("heurist-data-header-content");
+    this.applyVisibility();
+    return Boolean(next);
   }
 
   /**
@@ -205,6 +233,13 @@ export class DataControlPanel {
       && !this.element.classList.contains("body-collapsed");
     this.element.classList.toggle("heurist-data-has-body", bodyShown);
     this.element.classList.toggle("main-mode", this.main === true && bodyShown);
+    // without the body: one button (Expansion, else the collapse toggle) until the pointer
+    // is over the panel; with neither the actions stay
+    const pinned = [this.expansionButton, this.collapseToggle].find((button) => button && !button.hidden) || null;
+    for (const button of [this.expansionButton, this.collapseToggle])
+      button?.classList.toggle("heurist-panel-pinned", button === pinned);
+    this.element.classList.toggle("is-shrunk", !bodyShown && !fullyCollapsed && pinned !== null);
+    this.reserveSpace();
     this.element
       .querySelector(".heurist-module-panel-toggle")
       ?.setAttribute("aria-expanded", String(!fullyCollapsed));
@@ -215,6 +250,24 @@ export class DataControlPanel {
       icon?.classList.toggle("fa-angle-up", expanded);
       icon?.classList.toggle("fa-angle-down", !expanded);
     }
+  }
+
+  /**
+   * Keep the panel's width free at the right of the source header (or of the toolbar
+   * when the header is hidden):
+   * `--heurist-panel-reserve` on the panel's container. Not measured while the pointer
+   * is over the panel (it is wider then, over the header).
+   *
+   * @returns {void}
+   */
+  reserveSpace() {
+    const host = this.element?.parentElement;
+    if (!host) return;
+    (globalThis.requestAnimationFrame || ((fn) => setTimeout(fn, 0)))(() => {
+      if (!this.element || this.element.matches?.(":hover")) return;
+      const width = this.element.hidden ? 0 : this.element.offsetWidth;
+      host.style.setProperty("--heurist-panel-reserve", `${width ? width + 8 : 0}px`);
+    });
   }
 
   /** Load the module user manual for the active language into a full-viewport overlay. */
@@ -280,6 +333,13 @@ export class DataControlPanel {
       String(this.options.runtimeMode || "").toLowerCase() === "readonly";
     if (this.sourceHeader && !this.sourceHeader.isConnected)
       this.tableContainer.prepend(this.sourceHeader);
+    // the engines re-render the container: the host's content goes back after the header
+    if (this.headerContent && !this.headerContent.isConnected)
+      this.sourceHeader.after(this.headerContent);
+    this.tableContainer.classList.toggle(
+      "heurist-has-header-content",
+      Boolean(this.headerContent),
+    );
     if (this.optionsButton)
       this.optionsButton.hidden =
         readonly || standalone || this.options.showOptions === false;
@@ -324,6 +384,7 @@ export class DataControlPanel {
     for (const [name, handler] of this.listeners)
       this.api.removeEventListener(name, handler);
     this.expansionBar?.destroy();
+    this.resizeObserver?.disconnect();
     this.tableContainer?.classList.remove("heurist-has-source-header");
     this.sourceHeader?.remove();
     this.helpOverlay?.close();

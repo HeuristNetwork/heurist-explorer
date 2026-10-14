@@ -16,6 +16,7 @@
 import { HInput } from './HInput.js';
 import { $HR } from '../../../ui/i18n/index.js';
 import { isExtent } from '../../../utils/geoExtent.js';
+import { geoToHuman } from '../../../utils/geoText.js';
 import './HInputGeo.css';
 
 const COORDINATES = ['west', 'south', 'east', 'north'];
@@ -94,27 +95,13 @@ export class HInputGeo extends HInput {
   }
 }
 
-/** Summarize a WKT geometry or extent without exposing raw coordinate syntax. */
+/**
+ * Readable text of a WKT geometry or extent, without raw coordinate syntax: the shared
+ * `geoToHuman` (feature type, vertices, coordinate ranges), as everywhere else.
+ *
+ * @param {string|object|null} value WKT text or Map extent.
+ * @returns {string} The text.
+ */
 export function describeGeoValue(value) {
-  if (isExtent(value)) {
-    return `BBOX (${format(value.south)} ${format(value.east)} – ${format(value.north)} ${format(value.west)} ${$HR('lat long')})`;
-  }
-  const text = String(value ?? '').trim();
-  if (!text) return '';
-  const point = /^POINT\s*\(\s*([^\s,()]+)\s+([^\s,()]+)\s*\)/i.exec(text);
-  if (point) return `POINT (${format(point[2])} ${format(point[1])} ${$HR('lat long')})`;
-  const kind = /^(LINESTRING|POLYGON)\s*\(/i.exec(text)?.[1]?.toUpperCase();
-  if (kind) {
-    const vertices = text.match(/-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?\s+-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?/g) || [];
-    const count = kind === 'POLYGON' && vertices.length > 1 && vertices[0] === vertices.at(-1)
-      ? vertices.length - 1 : vertices.length;
-    return `${kind === 'LINESTRING' ? 'LINE' : 'POLYGON'} ${count} ${$HR('vertices')}`;
-  }
-  return text;
-}
-
-/** Format a coordinate without insignificant trailing zeros. */
-function format(value) {
-  const number = Number(value);
-  return Number.isFinite(number) ? String(Number(number.toFixed(6))) : String(value);
+  return geoToHuman(value);
 }

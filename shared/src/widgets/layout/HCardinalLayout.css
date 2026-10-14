@@ -102,7 +102,8 @@
     cursor: row-resize;
 }
 
-/* Divider buttons (setSplitterButtons): narrow shrink/grow arrows centred on the splitter */
+/* Divider buttons (setSplitterButtons): shrink/grow arrows centred on the splitter, as
+   thick as the splitter itself (2026-10-14) */
 .h-cardinal-splitter-buttons {
     display: none;
 }
@@ -110,49 +111,53 @@
 .has-splitter-buttons > .h-cardinal-splitter > .h-cardinal-splitter-buttons,
 .has-splitter-buttons > .h-cardinal-middle > .h-cardinal-splitter > .h-cardinal-splitter-buttons {
     position: absolute;
-    top: 50%;
-    left: 50%;
     z-index: 1;
     display: flex;
     gap: 2px;
-    transform: translate(-50%, -50%);
 }
 
-.h-cardinal-splitter-north > .h-cardinal-splitter-buttons,
-.h-cardinal-splitter-south > .h-cardinal-splitter-buttons {
+.has-splitter-buttons .h-cardinal-splitter-north > .h-cardinal-splitter-buttons,
+.has-splitter-buttons .h-cardinal-splitter-south > .h-cardinal-splitter-buttons {
+    top: 0;
+    left: 50%;
     flex-direction: row;
+    height: 100%;
+    transform: translateX(-50%);
 }
 
-.h-cardinal-splitter-west > .h-cardinal-splitter-buttons,
-.h-cardinal-splitter-east > .h-cardinal-splitter-buttons {
+.has-splitter-buttons .h-cardinal-splitter-west > .h-cardinal-splitter-buttons,
+.has-splitter-buttons .h-cardinal-splitter-east > .h-cardinal-splitter-buttons {
+    top: 50%;
+    left: 0;
     flex-direction: column;
+    width: 100%;
+    transform: translateY(-50%);
 }
 
 .h-cardinal-splitter-button {
     display: grid;
     place-items: center;
-    width: 12px;
+    width: 100%;
     height: 24px;
     padding: 0;
-    font-size: 9px;
+    font-size: 6px;
     line-height: 1;
     color: var(--h-color-text-muted);
     background: var(--h-color-surface);
-    border: 1px solid var(--h-color-border);
-    border-radius: 3px;
+    border: none;
+    border-radius: 0;
     cursor: pointer;
 }
 
 .h-cardinal-splitter-north .h-cardinal-splitter-button,
 .h-cardinal-splitter-south .h-cardinal-splitter-button {
     width: 24px;
-    height: 12px;
+    height: 100%;
 }
 
 .h-cardinal-splitter-button:hover {
     color: #fff;
     background: var(--h-color-primary);
-    border-color: var(--h-color-primary);
 }
 
 .h-cardinal-splitter-button[hidden] {

@@ -180,7 +180,7 @@ export class GraphConfigurationDialog {
    * @returns {void}
    */
   buildInterface(body) {
-    const sourceHeader = this.check("options.ui.showSourceHeader", "Header");
+    const sourceHeader = this.check("options.ui.showSourceHeader", "Show header");
     sourceHeader.title = $HR("source_header_hint");
     body.append(
       this.check("options.ui.initiallyExpanded", "Initially expanded"),

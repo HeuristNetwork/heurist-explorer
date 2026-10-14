@@ -1,8 +1,9 @@
 /**
  * @file ExportTool.js
- * @brief Export tool of Explorer Tools mode: exports the current DataSource into a file.
+ * @brief Export tool of Explorer (a pane module): exports the current DataSource into a file.
  *
- * Loaded lazily by ExplorerApplication.openTool('export') (plan 13). Sections:
+ * Loaded lazily when the Export tool module is first shown (plan 13; a pane module since
+ * 2026-10-14, plan 16 Part 2). Sections:
  * - Scope: current result, selection, or one record type of the result;
  * - Format (XML/HML by default);
  * - Columns (CSV, TSV, GeoJSON, KML, Gephi): per record type a preset - minimal (id,

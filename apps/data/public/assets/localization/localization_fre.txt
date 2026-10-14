@@ -203,3 +203,12 @@
 #Show or hide the expansion rules and the records linked through them#Afficher ou masquer les règles d’expansion et les enregistrements liés par elles
 #Generic_Title#Heurist
 #Error_Title#Information
+#Sort#Tri
+#Default#Par défaut
+#Title A-Z#Titre A-Z
+#Title Z-A#Titre Z-A
+#Modified (newest)#Modifié (plus récent)
+#Added (newest)#Ajouté (plus récent)
+#See owners#Voir les propriétaires
+#Hide owners#Masquer les propriétaires
+#Page#Page

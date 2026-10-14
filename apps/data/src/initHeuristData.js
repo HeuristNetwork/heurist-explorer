@@ -103,6 +103,7 @@ export async function initHeuristData(config) {
       },
     });
     await panel.mount();
+    api.setHeaderContentHandler((element) => panel.setHeaderContent(element));
     return api;
   });
   const originalDestroy = api.destroy.bind(api);

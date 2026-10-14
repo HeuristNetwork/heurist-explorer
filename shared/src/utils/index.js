@@ -17,3 +17,5 @@ export { HCollection, normalizeCollectionIds } from './HCollection.js';
 export {
   isExtent, extentToWkt, extentToGeoJson, extentFromGeoJson, extentFromWkt, roundExtent
 } from './geoExtent.js';
+export { geoToHuman, wktVertices } from './geoText.js';
+export { temporalToHuman } from './temporal.js';

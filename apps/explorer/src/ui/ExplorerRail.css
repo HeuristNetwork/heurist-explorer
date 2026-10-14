@@ -321,3 +321,10 @@
 .h-explorer-rail-stop-count:empty {
     display: none;
 }
+
+/* buttons of modules placed in Unused (ExplorerControlPanel#applyModuleOrder), and the
+   separator of a group left empty: hidden in every toolbar position (2026-10-14) */
+.h-explorer-rail-button[hidden],
+.h-explorer-rail-separator[hidden] {
+    display: none !important;
+}

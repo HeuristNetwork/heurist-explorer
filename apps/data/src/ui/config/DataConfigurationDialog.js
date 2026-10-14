@@ -43,13 +43,16 @@ export class DataConfigurationDialog {
     reportTemplateProvider = null,
     publishContext = null,
     runtimeMode = null,
+    simplified = false,
   } = {}) {
     this.mode = normalizeDataConfigurationMode(mode);
+    // heurist-explorer's simplified interface sets Interface, Interaction and the
+    // Extended view / Popup templates itself (simplifiedDataSettings.js): not shown
+    this.simplified = simplified === true;
     this.runtimeMode = String(runtimeMode || "").toLowerCase();
     this.value = prepareMode(
       normalizeDataConfigurationSettings(value || {}),
       this.mode,
-      this.runtimeMode,
     );
     this.parent = parent;
     this.title = title || defaultTitle(this.mode);
@@ -76,7 +79,6 @@ export class DataConfigurationDialog {
     this.value = prepareMode(
       normalizeDataConfigurationSettings(value || {}),
       this.mode,
-      this.runtimeMode,
     );
     return this;
   }
@@ -157,9 +159,11 @@ export class DataConfigurationDialog {
 
   /** Append every settings section applicable to the current mode/runtime. */
   buildSections() {
-    this.content.append(
-      this.section("Interface", (body) => this.buildInterface(body), true),
-    );
+    if (!this.simplified || this.mode === "publish") {
+      this.content.append(
+        this.section("Interface", (body) => this.buildInterface(body), true),
+      );
+    }
     if (this.mode === "publish") {
       this.content.append(
         this.section(
@@ -177,6 +181,7 @@ export class DataConfigurationDialog {
         true,
       ),
     );
+    if (this.simplified) return;
     this.content.append(
       this.section("Interaction", (body) => this.buildInteraction(body)),
     );
@@ -184,14 +189,13 @@ export class DataConfigurationDialog {
 
   /** Build the "Interface" section: panel visibility, layout, and native-control toggles. */
   buildInterface(body) {
-    // In "main" runtime the panel layout is fixed, so its toggles are not offered.
+    // the header (title, counter) can be hidden in every runtime, Explorer's "main" too
+    const sourceHeader = this.check("options.ui.showSourceHeader", "Show header");
+    sourceHeader.title = $HR("source_header_hint");
+    body.append(sourceHeader);
+    // In "main" runtime the panel is always expanded, so that toggle is not offered.
     if (!this.isMain) {
-      const sourceHeader = this.check("options.ui.showSourceHeader", "Header");
-      sourceHeader.title = $HR("source_header_hint");
-      body.append(
-        this.check("options.ui.initiallyExpanded", "Initially expanded"),
-        sourceHeader,
-      );
+      body.append(this.check("options.ui.initiallyExpanded", "Initially expanded"));
     }
     body.append(
       this.check("options.ui.showOptions", "Options"),
@@ -513,6 +517,11 @@ export class DataConfigurationDialog {
     if (cardRow)
       cardRow.hidden = !["card", "row"].includes(viewModeValue);
     // the Extended view template stays visible: the view mode can be switched in the list
+    // (not in the simplified interface, which uses the Built-in ones)
+    for (const path of ["config.defaults.viewTemplate", "config.defaults.popupTemplate"]) {
+      const row = this.fields.get(path)?.row;
+      if (row && this.simplified) row.hidden = true;
+    }
     if (this.exportWarning)
       this.exportWarning.hidden = this.fields.get("options.nativeControls.export")?.control?.checked !== true;
     if (this.mode === "publish") {
@@ -630,14 +639,10 @@ export class DataConfigurationDialog {
   }
 }
 
-/** Apply mode restrictions, then fix the interface for Explorer's "main" runtime. */
-function prepareMode(value, mode, runtimeMode = "") {
-  const result = prepareForMode(value, mode);
-  if (runtimeMode === "main") {
-    // The module in the main Heurist editor uses a fixed interface: header always on.
-    result.options.ui.showSourceHeader = true;
-  }
-  return result;
+/** Apply mode restrictions. */
+function prepareMode(value, mode) {
+  // "main" no longer forces the header on: "Show header" is offered there too (2026-10-13)
+  return prepareForMode(value, mode);
 }
 
 /** Clone settings and force the fields each mode (publish/preferences/website) restricts. */

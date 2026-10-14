@@ -1,0 +1,10 @@
+/* Map symbol samples (symbolPreview.js) */
+.h-symbol-preview { display:inline-flex; align-items:center; justify-content:center; gap:5px; min-width:56px; height:34px; padding:1px 3px; box-sizing:border-box; vertical-align:middle; }
+.h-symbol-preview-point { display:inline-flex; width:24px; height:28px; align-items:center; justify-content:center; overflow:hidden; }
+.h-symbol-preview-point > .ui-icon,
+.h-symbol-preview-point > [class*="fa-"] { display:inline-flex; align-items:center; justify-content:center; }
+.h-symbol-preview-image { max-width:24px; max-height:28px; object-fit:contain; }
+.h-symbol-preview-circle { display:inline-block; box-sizing:border-box; border-radius:50%; }
+.h-symbol-preview-shape { display:inline-flex; width:18px; height:28px; align-items:center; justify-content:center; }
+.h-symbol-preview-line { display:block; width:18px; height:0; }
+.h-symbol-preview-polygon { display:block; width:16px; height:16px; box-sizing:border-box; }

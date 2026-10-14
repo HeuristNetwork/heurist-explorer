@@ -16,6 +16,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  box-sizing: border-box; /* the padding inside the 100%: no scroll bar in an empty Record view */
   height: 100%;
   color: var(--h-color-text-muted);
   font-style: italic;

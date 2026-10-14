@@ -34,6 +34,7 @@ import { MapConfigurationDialog } from './ui/config/MapConfigurationDialog.js';
 import { createLayerLoaderRegistry } from './engine/loaders/createLayerLoaderRegistry.js';
 import { DrawController } from './draw/DrawController.js';
 import { DrawPanel } from './ui/DrawPanel.js';
+import { createSymbologyService } from './host/createSymbologyService.js';
 
 /**
  * Initialize the standalone map and expose its stable same-origin public API.
@@ -92,7 +93,13 @@ export async function initHeuristMap(config) {
     popup: new PopupProvider({ baseUrl: heuristBaseUrl, database: config.database }),
     // "Built-in" popup mode: the shared record renderer of heurist-recordview
     recordView: RecordViewLoader.create({ apiClient, language: config.language }),
-    reportTemplates: new ReportTemplateProvider({ baseUrl: heuristBaseUrl, database: config.database })
+    reportTemplates: new ReportTemplateProvider({ baseUrl: heuristBaseUrl, database: config.database }),
+    // the symbology and thematic map editors, and saving a Map Layer's DT_SYMBOLOGY (plan 17);
+    // in Explorer the editors open in Explorer's window (hostBridge.editSymbology)
+    symbology: createSymbologyService({
+      apiClient, language: config.language, heuristBaseUrl, database: config.database,
+      hostBridge: config.host?.bridge || null
+    })
   };
   const layerLoaders = createLayerLoaderRegistry({
     queryGeoData: providers.queryGeoData,

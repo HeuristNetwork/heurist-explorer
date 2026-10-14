@@ -21,6 +21,21 @@ import { HMsg } from './HMsg.js';
 import { $HR, getActiveLanguage, getAssetBaseUrl } from './i18n/HResource.js';
 
 let helpDialogSeq = 0;
+// a host that shows the manuals of this document (a module in Explorer's iframe)
+let helpHost = null;
+
+/**
+ * Let the host show this document's manuals in its own window (heurist-explorer's
+ * `openHelp` bridge method): every InlineHelp of this document then asks the host.
+ * Only a module in an iframe registers it; a directly mounted one shares the host's
+ * document already.
+ *
+ * @param {object|null} bridge Frame host bridge; without `openHelp` the manuals open here.
+ * @returns {void}
+ */
+export function useHostHelp(bridge) {
+  helpHost = typeof bridge?.openHelp === 'function' ? (request) => bridge.openHelp(request) : null;
+}
 
 /** Full-viewport dialog that displays a module's own user manual in an iframe. */
 export class InlineHelp {
@@ -36,12 +51,15 @@ export class InlineHelp {
    *   module's manual on its behalf - e.g. heurist-explorer hosting
    *   heurist-map's help - must pass that module's own asset base
    *   explicitly, since it lives in a different bundle.
+   * @param {string} [options.url] The complete manual URL (a host showing a module's manual
+   *   on its behalf, see useHostHelp); overrides `baseUrl` and the language suffix.
    */
-  constructor({ parent = null, moduleName, fileBase = null, baseUrl = null } = {}) {
+  constructor({ parent = null, moduleName, fileBase = null, baseUrl = null, url = null } = {}) {
     if (!moduleName) throw new Error('InlineHelp requires a moduleName');
     this.moduleName = moduleName;
     this.fileBase = fileBase || `${moduleName}UserManual`;
     this.baseUrl = baseUrl;
+    this.url = url;
     this.parent = parent;
     this.dialogId = `dialog-inline-help-${++helpDialogSeq}`;
     this.dlg = null;
@@ -54,6 +72,11 @@ export class InlineHelp {
    * @returns {void}
    */
   open(anchor = null) {
+    if (helpHost) {
+      // the manual's location is resolved here: the host lives in another bundle
+      helpHost({ moduleName: this.moduleName, url: this.manualUrl(), anchor: anchor || null });
+      return;
+    }
     const dlg = HMsg.getMsgDlg(this.dialogId);
     (this.parent || document.body).append(dlg);
     dlg.classList.add('h-dialog-fullscreen');
@@ -91,6 +114,7 @@ export class InlineHelp {
    * @returns {string} Absolute or relative URL of the manual HTML file.
    */
   manualUrl() {
+    if (this.url) return this.url;
     const language = getActiveLanguage();
     const suffix = language.charAt(0).toUpperCase() + language.slice(1);
     const base = String(this.baseUrl ?? getAssetBaseUrl() ?? '').replace(/\/+$/, '');

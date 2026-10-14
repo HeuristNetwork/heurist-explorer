@@ -48,7 +48,7 @@ export class MapConfigurationDialog {
    * @param {?string} [options.title=null] Dialog title; defaults from `defaultTitle(mode)`.
    * @param {?Function} [options.onSave=null] Called with `(value, context)` on save; returning `false` keeps the dialog open.
    * @param {?Function} [options.onCancel=null] Called with `(value, {mode})` when the dialog is cancelled.
-   * @param {?Function} [options.onEditSymbology=null] Opens the host symbology editor; returns the edited value.
+   * @param {?Function} [options.onEditSymbology=null] Opens the symbology editor; returns the edited value.
    * @param {?Function} [options.onEditExtent=null] Opens the host extent/bounds editor; returns the edited bounds.
    * @param {?Object} [options.reportTemplateProvider=null] Provider used to list popup report templates.
    * @param {?Object} [options.mapDocumentListProvider=null] Provider used to list available MapDocuments.
@@ -59,8 +59,11 @@ export class MapConfigurationDialog {
   constructor({
     mode = 'preferences', value = null, parent = null, title = null,
     onSave = null, onCancel = null, onEditSymbology = null, onEditExtent = null, reportTemplateProvider = null,
-    mapDocumentListProvider = null, baseMapCatalog = [], publishContext = null
+    mapDocumentListProvider = null, baseMapCatalog = [], publishContext = null, simplified = false
   } = {}) {
+    // heurist-explorer's simplified interface (simplifiedMapSettings.js): no advanced
+    // settings, only the native map controls, no Workspace/Filtered Result section
+    this.simplified = simplified === true;
     this.mode = normalizeMapConfigurationMode(mode);
     this.value = normalizeMapConfigurationSettings(value || {});
     this.value = prepareModeConfiguration(this.value, this.mode);
@@ -81,7 +84,7 @@ export class MapConfigurationDialog {
     this.form = null;
     this.fields = new Map();
     this.previousFocus = null;
-    this.advanced = advancedStateByMode.get(this.mode) === true;
+    this.advanced = !this.simplified && advancedStateByMode.get(this.mode) === true;
     this.initialFormState = null;
   }
 
@@ -152,7 +155,7 @@ export class MapConfigurationDialog {
     this.form.className = 'heurist-map-config-form';
     this.form.addEventListener('submit', (event) => { event.preventDefault(); void this.save(); });
 
-    if (this.mode !== 'publish') this.form.append(this.buildAdvancedPanel());
+    if (this.mode !== 'publish' && !this.simplified) this.form.append(this.buildAdvancedPanel());
     this.buildSections();
 
     const footer = document.createElement('footer');
@@ -305,7 +308,7 @@ export class MapConfigurationDialog {
     }
     this.form.append(
       this.section('Interface', (body) => this.buildInterface(body), { open: true }),
-      this.section('Workspace/Filtered Result Map', (body) => this.buildCurrentResults(body), { open: true }),
+      ...(this.simplified ? [] : [this.section('Workspace/Filtered Result Map', (body) => this.buildCurrentResults(body), { open: true })]),
       this.section('Default settings', (body) => this.buildDefaults(body), { open: true }),
       this.section('Map documents', (body) => this.buildMapDocuments(body), { advanced: true }),
       this.section('Base maps', (body) => this.buildBaseMaps(body), { advanced: true }),
@@ -602,7 +605,7 @@ export class MapConfigurationDialog {
     heuristSection.append(primary);
 
     this.checkbox(heuristSection, 'options.ui.initiallyExpanded', 'Initially expanded');
-    const sourceHeader = this.checkbox(heuristSection, 'options.ui.showSourceHeader', 'Header');
+    const sourceHeader = this.checkbox(heuristSection, 'options.ui.showSourceHeader', 'Show header');
     sourceHeader.title = $HR('Show a header above the map with the active map document title.');
 
     const secondary = document.createElement('div');
@@ -646,6 +649,8 @@ export class MapConfigurationDialog {
 
     controls.append(heuristSection, nativeSection);
     body.append(controls);
+    // display:flex of the section would win over [hidden]
+    if (this.simplified) heuristSection.style.display = 'none';
 
     if (masterControl) {
       masterControl.addEventListener('change', () => this.updateHeuristControlState());
@@ -1213,13 +1218,14 @@ export class MapConfigurationDialog {
       if (!this.onEditSymbology) return;
       try {
         const current = getPath(this.readForm(), path);
-        const result = await this.withHostEditor(() => this.onEditSymbology(current, {
+        // the shared symbol editor (plan 17) is a modal dialog above this one
+        const result = await this.onEditSymbology(current, {
           path,
           selection: options.selection === true,
           mode: this.mode,
           // Configuration-level symbols inherit directly from the built-in map symbol.
           parentSymbol: normalizeMapSymbol({}, DEFAULT_MAP_SYMBOL)
-        }));
+        });
         if (result == null) return;
         setPath(this.value, path, clone(result));
         raw.value = JSON.stringify(result, null, 2);

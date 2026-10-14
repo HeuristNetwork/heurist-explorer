@@ -18,6 +18,7 @@ import {
 } from "#shared/host";
 import { resolveModuleBootstrap } from "#shared/config";
 import { normalizeDataConfigurationSettings } from "./ui/config/dataConfigurationSchema.js";
+import { applySimplifiedDataSettings, hasAdminInfoSetting } from "./ui/config/simplifiedDataSettings.js";
 
 /**
  * Build the normalized Data configuration from the host bridge or standalone bootstrap.
@@ -45,14 +46,23 @@ export function createHeuristDataConfig(
   );
   const persistedSettings = normalizeDataConfigurationSettings(settings);
   if (String(runtime.runtimeMode || "").toLowerCase() === "main") {
-    // The module hosted in the main Heurist editor uses a fixed interface:
-    // header always shown.
-    persistedSettings.options.ui.showSourceHeader = true;
+    // The module hosted in the main Heurist editor shows its header unless the
+    // user switched it off ("Show header").
+    if (settings?.options?.ui?.showSourceHeader == null) {
+      persistedSettings.options.ui.showSourceHeader = true;
+    }
     // Main UI starts without a second client-side search layer unless the
     // setting was explicitly persisted by the user.
     if (settings?.options?.nativeControls?.search == null) {
       persistedSettings.options.nativeControls.search = false;
     }
+  }
+  // heurist-explorer's "Interface for dummies": fixed settings (plan 16 Part 4)
+  const simplified = runtime.simplifiedUI === true;
+  if (simplified) {
+    Object.assign(persistedSettings, applySimplifiedDataSettings(persistedSettings, {
+      adminInfoSaved: hasAdminInfoSetting(settings),
+    }));
   }
   const configuredLanguage = persistedSettings.options.ui.language;
   const language = normalizeLanguage(
@@ -77,6 +87,7 @@ export function createHeuristDataConfig(
     viewerMode:
       runtime.viewerMode === "configuration" ? "configuration" : "data",
     runtimeMode: runtime.runtimeMode || "standalone",
+    simplified,
     readonly,
     language,
     searchRealm: runtime.searchRealm ?? runtime.search_realm ?? null,
@@ -103,6 +114,8 @@ export function createHeuristDataConfig(
         persistedSettings.config.defaults.viewMode,
       initialOffset: Math.max(0, Number(source.pagination?.offset) || 0),
       controls: persistedSettings.options.nativeControls,
+      // simplified interface: toolbar Counter, Pagination, View, Selected, Sort, owners
+      simplified,
       interaction,
       // Let the record-list widget offer the engine-switching "Table" option.
       engineSwitch: true,

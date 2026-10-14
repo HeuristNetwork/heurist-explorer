@@ -26,6 +26,10 @@ html, body, .heurist-data-frame, .heurist-data-root { width: 100%; height: 100%;
    padding-top above) rather than taking flow space, so it can sit under the
    overlaid control panel instead of pushing it down. */
 .heurist-data-root .heurist-source-header { position:absolute; top:0; left:0; right:0; }
+/* Without the source header the toolbar is at the top, under the overlaid control
+   panel: keep the shrunk panel's width free at its right (DataControlPanel#reserveSpace). */
+.heurist-data-root:not(.heurist-has-source-header) > .h-recordlist > .h-recordlist-toolbar,
+.heurist-data-root:not(.heurist-has-source-header) > .heurist-data-toolbar { padding-right:calc(2px + var(--heurist-panel-reserve, 0px)); }
 /* Controls keep the module font size (the Table view scales its content, see DataTablesAdapter.css). */
 .heurist-data-root,
 .heurist-data-root button { font-size:var(--h-font-size); }
@@ -102,3 +106,19 @@ label.heurist-data-query-source { display:flex; align-items:center; gap:6px; fon
 .heurist-data-record-view { container-type:inline-size; }
 .heurist-data-record-view .heurist-recordview-body { overflow:visible; }
 .heurist-data-pin-button.active { outline:1px solid var(--h-color-border-strong); }
+
+/* A host's element under the source header (heurist-explorer's simplified interface: its
+   Query Source editor, DataControlPanel#setHeaderContent). Pinned like the source header,
+   so the engines' layouts do not change: the root's top gutter grows by its height. */
+.heurist-data-root { --heurist-header-content-height: 68px; }
+.heurist-data-root .heurist-data-header-content { position:absolute; top:0; left:0; right:0;
+  height:var(--heurist-header-content-height); box-sizing:border-box; overflow:hidden;
+  border-bottom:1px solid var(--h-color-border); }
+.heurist-data-root.heurist-has-source-header .heurist-data-header-content { top:36px; }
+.heurist-data-root.heurist-has-header-content { position:relative; padding-top:calc(4px + var(--heurist-header-content-height)) !important; }
+.heurist-data-root.heurist-has-source-header.heurist-has-header-content { padding-top:calc(38px + var(--heurist-header-content-height)) !important; }
+/* the host moved its element away for a while (Explorer: the Filter Form opens in the Search
+   pane): no empty gap under the header */
+.heurist-data-root .heurist-data-header-content:empty { display:none; }
+.heurist-data-root.heurist-has-header-content:has(> .heurist-data-header-content:empty) { padding-top:4px !important; }
+.heurist-data-root.heurist-has-source-header.heurist-has-header-content:has(> .heurist-data-header-content:empty) { padding-top:38px !important; }

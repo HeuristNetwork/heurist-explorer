@@ -59,9 +59,8 @@
 /* Dedicated toolbar rendered between the source header and the DataTables
    container, styled to match the HRecordList toolbar. */
 .heurist-data-toolbar { display:flex; flex-wrap:wrap; align-items:center; gap:8px;
-  box-sizing:border-box; min-height:25px; padding:2px 310px 2px 2px;
+  box-sizing:border-box; min-height:25px; padding:2px;
   border-bottom:1px solid var(--h-color-border); background:var(--h-color-bg); }
-@media (max-width:800px) { .heurist-data-toolbar { padding-right:4px; } }
 .heurist-data-toolbar[hidden] { display:none !important; }
 .heurist-data-toolbar-label { color:var(--h-color-text-muted); }
 .heurist-data-toolbar-search { width:min(260px,100%); }
@@ -133,3 +132,8 @@
   background:var(--h-color-surface-hover);
   border-color:var(--h-color-border-strong);
 }
+
+/* Top row of the table, under the toolbar: export buttons (left) and the counter (right) */
+.heurist-data-root div.dt-container .dt-buttons { display:inline-flex; gap:2px; }
+.heurist-data-root div.dt-container .dt-buttons .dt-button { min-height:24px; margin:0; padding:1px 6px; font-size:var(--h-font-size-small); }
+.heurist-data-root div.dt-container .dt-info { padding:0; color:var(--h-color-text-muted); }

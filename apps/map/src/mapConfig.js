@@ -19,6 +19,7 @@
 
 import { normalizeMapDocument } from './core/MapDocument.js';
 import { normalizeMapConfigurationSettings } from './ui/config/mapConfigurationSchema.js';
+import { applySimplifiedMapSettings } from './ui/config/simplifiedMapSettings.js';
 import { getDefaultBaseMaps } from './basemaps/defaultBasemaps.js';
 import {
   getFrameHostBridge,
@@ -85,6 +86,8 @@ export function getHeuristMapConfig() {
     loadPreferencesOnInit: !hasPersistedSettings && runtimeMode !== 'website' && runtimeMode !== 'standalone',
 
     readonly: runtime.readonly === true,
+    // heurist-explorer's "Interface for dummies": fixed settings (simplifiedMapSettings.js)
+    simplified: runtime.simplifiedUI === true,
 
     // Internal mutable representation of the currently rendered MapDocument.
     // It is intentionally not part of heuristModuleBootstrap.
@@ -111,6 +114,7 @@ export function applyPersistedSettings(config, rawSettings) {
   if (!configuredDynamicTitle) {
     settings.config.dynamicDocument.title = config.explorerHost ? 'Workspace' : 'Filtered Result';
   }
+  if (config.simplified === true) applySimplifiedMapSettings(settings);
 
   const configuredDefaultDocumentId = settings.options.mapDocuments.initiallyActive;
   const defaultDocumentId = configuredDefaultDocumentId == null ? 'dynamic' : configuredDefaultDocumentId;

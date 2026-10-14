@@ -22,9 +22,11 @@ import "@fortawesome/fontawesome-free/css/regular.min.css";
 import { getHeuristDataConfig } from "./dataConfig.js";
 import { initHeuristData } from "./initHeuristData.js";
 import { initHeuristDataConfiguration } from "./initHeuristDataConfiguration.js";
-import { initLocale } from "#shared/ui";
+import { initLocale, useHostHelp } from "#shared/ui";
 
 const config = getHeuristDataConfig();
+// in Explorer's iframe the help manual opens in Explorer's window (2026-10-14)
+useHostHelp(config.host?.bridge);
 const startup = initLocale(
   config.language,
   config.localeBaseUrl || moduleBaseUrl(),

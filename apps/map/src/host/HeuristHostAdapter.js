@@ -29,11 +29,6 @@ export class HeuristHostAdapter extends HostAdapter {
     super({ bridge, baseUrl, database, fetchImpl, moduleType: 'map' });
   }
 
-  /** Whether the host can open its symbology editor. */
-  supportsSymbologyEditing() {
-    return typeof this.bridge?.editSymbology === 'function';
-  }
-
   /**
    * Return the embedding host's identity.
    *
@@ -87,21 +82,6 @@ export class HeuristHostAdapter extends HostAdapter {
    * @returns {*} Result of the host bridge's call, or `undefined` when unsupported.
    */
   showDatasource(source) { return this.bridge?.showDatasource?.(source); }
-
-  /**
-   * Ask the host to open its symbology editor.
-   *
-   * @param {*} value Current symbology value.
-   * @param {object} [options] Editor options.
-   * @returns {Promise<*>} The host's edited symbology result.
-   * @throws {Error} When the host does not support symbology editing.
-   */
-  async editSymbology(value, options = {}) {
-    if (!this.supportsSymbologyEditing()) {
-      throw new Error('Symbology editing is not available from the Heurist host');
-    }
-    return this.bridge.editSymbology(value ?? null, options || {});
-  }
 
   /**
    * Return optional capabilities: preferences/publishing support, and workspace/datasource integration.

@@ -26,7 +26,7 @@ import './ExplorerAuthoringDock.css';
 export const AUTHORING_MIN_WIDTH = 300;
 export const AUTHORING_MIN_HEIGHT = 66;
 const AUTHORING_DEFAULT_HEIGHT = 100;
-/** Collapsed West strip with the Compact toolbar's buttons in a column. */
+/** Collapsed West strip with the "In panes" toolbar's buttons in a column. */
 const TOOLBAR_STRIP_SIZE = 34;
 const MODES = ['editor', 'form'];
 const PLACEMENTS = ['west', 'north'];
@@ -53,6 +53,9 @@ export class ExplorerAuthoringDock extends EventTarget {
     this._drawer = false;
     this._splitVisible = true;
     this._temporary = null;
+    // simplified interface: a forced region (north), and the pane outside the dock (in Result)
+    this._forced = null;
+    this._externalHost = null;
     this.region = 'west';
     // the pane (QSE / Filter Form) and the docked list each have their own visibility;
     // the West region is shown while either of them is in it
@@ -60,7 +63,7 @@ export class ExplorerAuthoringDock extends EventTarget {
     this._listShown = false;
     this._traceShown = false;
     this._formCover = false;
-    // Compact toolbar: the West region holds the toolbar buttons, so it is always shown
+    // "In panes" toolbar: the West region holds the toolbar buttons, so it is always shown
     this._toolbar = null;
 
     this.cardinal = new HCardinalLayout(container, {
@@ -119,7 +122,10 @@ export class ExplorerAuthoringDock extends EventTarget {
   /** @returns {'west'|'north'} The user's placement: west (Vertical) or north (Horizontal). */
   getPlacement() { return this.settings.placement; }
 
-  /** @returns {'west'|'north'} The region the pane occupies now (compact mode and the Filter Form may force west). */
+  /**
+   * @returns {'west'|'north'|'external'} The region the pane occupies now (compact mode and the
+   *          Filter Form may force west; 'external': in the host given to setExternalHost).
+   */
   getRegion() { return this.region; }
 
   /**
@@ -147,6 +153,34 @@ export class ExplorerAuthoringDock extends EventTarget {
    */
   setTemporaryPlacement(region) {
     this._temporary = PLACEMENTS.includes(region) ? region : null;
+    this._moveTo(this._effectiveRegion());
+    return this;
+  }
+
+  /**
+   * Place the pane in a region whatever the user's placement (which stays stored),
+   * e.g. north (Horizontal) in the simplified interface; null gives it back.
+   *
+   * @param {'west'|'north'|null} region Region, or null.
+   * @returns {ExplorerAuthoringDock} This dock.
+   */
+  setForcedPlacement(region) {
+    this._forced = PLACEMENTS.includes(region) ? region : null;
+    this._moveTo(this._effectiveRegion());
+    return this;
+  }
+
+  /**
+   * Put the pane into an element outside the dock (simplified interface: under the
+   * Result module's header). A temporary placement (the Filter Form) still moves it
+   * into its region and back afterwards. The West region keeps the toolbar and the
+   * docked lists, as with the pane in the north. null gives the pane its region back.
+   *
+   * @param {HTMLElement|null} element Host element, or null.
+   * @returns {ExplorerAuthoringDock} This dock.
+   */
+  setExternalHost(element) {
+    this._externalHost = element instanceof HTMLElement ? element : null;
     this._moveTo(this._effectiveRegion());
     return this;
   }
@@ -202,7 +236,7 @@ export class ExplorerAuthoringDock extends EventTarget {
   isDrawerMode() { return this._drawer; }
 
   /**
-   * Compact toolbar (see ExplorerCompactToolbar): the toolbar buttons go first in the
+   * "In panes" toolbar (see ExplorerPaneToolbar): the toolbar buttons go first in the
    * West region, which is then always shown; it collapses to a wider strip (the
    * buttons in a column) instead of being hidden. With the pane in the north and no
    * list, the West region is collapsed (it would hold the buttons only); showing a
@@ -245,6 +279,7 @@ export class ExplorerAuthoringDock extends EventTarget {
 
   /** @returns {boolean} Whether the authoring pane is visible (drawer: expanded). */
   isVisible() {
+    if (this.region === 'external') return this._paneShown;
     const state = this.cardinal.state[this.region];
     if (this._drawer) return state.visible === true && !state.collapsed;
     return this._paneShown && state.visible === true;
@@ -313,11 +348,13 @@ export class ExplorerAuthoringDock extends EventTarget {
 
   /**
    * @private
-   * @returns {'west'|'north'} Region the pane belongs in now.
+   * @returns {'west'|'north'|'external'} Region the pane belongs in now.
    */
   _effectiveRegion() {
     if (this._drawer) return 'west';
-    return this._temporary || this.settings.placement;
+    if (this._temporary) return this._temporary;
+    if (this._externalHost) return 'external';
+    return this._forced || this.settings.placement;
   }
 
   /**
@@ -326,20 +363,20 @@ export class ExplorerAuthoringDock extends EventTarget {
    * e.g. the compact drawer's rail, stay.
    *
    * @private
-   * @param {'west'|'north'} region Target region.
+   * @param {'west'|'north'|'external'} region Target region.
    * @returns {void}
    */
   _moveTo(region) {
-    const target = this.cardinal.getRegionElement(region);
+    const target = region === 'external' ? this._externalHost : this.cardinal.getRegionElement(region);
     if (region === this.region && this.paneElement.parentElement === target) return;
     const previous = this.region;
-    // in the West the pane goes first (after the Compact toolbar): the docked list stays below it
+    // in the West the pane goes first (after the "In panes" toolbar): the docked list stays below it
     if (region === 'west') target.prepend(this.paneElement);
     else target.append(this.paneElement);
     if (this._toolbar) this.cardinal.getRegionElement('west').prepend(this._toolbar);
     this.region = region;
     if (this._drawer) {
-      if (previous !== region) this.cardinal.hide(previous);
+      if (previous !== region && previous !== 'external') this.cardinal.hide(previous);
       this.cardinal.show(region);
     } else {
       this._syncRegions();
@@ -370,8 +407,8 @@ export class ExplorerAuthoringDock extends EventTarget {
     else this.cardinal.hide('north');
     if (paneWest || list || trace || this._toolbar) this.cardinal.show('west');
     else this.cardinal.hide('west');
-    // toolbar in the West with the pane in the north: only the buttons are left without a list
-    if (this._toolbar && this.region === 'north') {
+    // toolbar in the West with the pane in the north (or outside): only the buttons are left without a list
+    if (this._toolbar && this.region !== 'west') {
       if (list || trace) this.cardinal.expand('west');
       else this.cardinal.collapse('west');
     }
@@ -394,7 +431,7 @@ function loadSettings(storage, key) {
   return {
     widths,
     northHeight: Number.isFinite(height) && height >= AUTHORING_MIN_HEIGHT ? Math.round(height) : AUTHORING_DEFAULT_HEIGHT,
-    placement: PLACEMENTS.includes(stored?.placement) ? stored.placement : 'west',
+    placement: PLACEMENTS.includes(stored?.placement) ? stored.placement : 'north', // Horizontal by default (2026-10-14)
     advanced: stored?.advanced === true
   };
 }

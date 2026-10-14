@@ -19,6 +19,8 @@
 import { HBaseWidget } from '#shared/widgets';
 import { $HR } from '#shared/ui';
 import { dataPopupMode, extendedViewTemplate } from "../core/recordTemplates.js";
+import { createOwnersToggle, createSortSelect } from "../ui/ListToolControls.js";
+import { pageEntries } from "./pageEntries.js";
 import template from "./HRecordList.html?raw";
 import "./HRecordList.css";
 
@@ -57,7 +59,12 @@ export class HRecordList extends HBaseWidget {
     onViewRecord,
     onViewModeChange,
     onDataSourceAction,
+    getListSort,
+    onListSortChange,
+    onOwnersToggle,
   }) {
+    // set before attach: the simplified toolbar is built while rendering
+    Object.assign(this, { getListSort, onListSortChange, onOwnersToggle });
     this.attach(container, normalizeOptions(options));
     Object.assign(this, {
       onSelectionChange,
@@ -110,6 +117,7 @@ export class HRecordList extends HBaseWidget {
     this.viewModeSelect.value = this.options.viewMode;
     this._applyControlVisibility();
     this._createDataSourceActions();
+    if (this.options.simplified === true) this._buildSimplifiedToolbar();
     this._updateSelectionButton();
     let searchTimer;
     this.listen(search, "input", () => {
@@ -189,6 +197,13 @@ export class HRecordList extends HBaseWidget {
       "click",
       ".h-recordlist-item",
       (event, target) => this._recordClicked(event, target),
+    );
+    // double-click = the pen button, when editing is allowed
+    this.delegate(
+      this.content,
+      "dblclick",
+      ".h-recordlist-item",
+      (event, target) => this._recordDoubleClicked(event, target),
     );
   }
 
@@ -636,6 +651,14 @@ export class HRecordList extends HBaseWidget {
       : this.onViewRecord?.(id, target);
   }
 
+  /** Edit the double-clicked record, as its pen button does (only when the pen is offered). */
+  _recordDoubleClicked(event, item) {
+    if (this.options.interaction.editEnabled === false) return;
+    if (event.target.closest("button,input,a,select,textarea")) return;
+    const id = Number(item.dataset.recordId);
+    if (Number.isInteger(id) && id > 0) this.onEditRecord?.(id);
+  }
+
   /** Toggle persistent collection membership for the record whose checkbox changed. */
   _collectionChanged(target) {
     const id = Number(target.dataset.recordId);
@@ -755,7 +778,12 @@ export class HRecordList extends HBaseWidget {
       pages - 1,
       Math.floor(this.offset / this.options.pageLength),
     );
-    pageEntries(current, pages).forEach((page) => {
+    // one page: no pagination (2026-10-14)
+    const nav = host.closest(".h-recordlist-pagination");
+    if (nav) nav.hidden = pages <= 1;
+    const entries = pageEntries(current, pages);
+    this._renderPageSelect(nav, entries, current);
+    entries.forEach((page) => {
       const li = document.createElement("li");
       li.className = "h-page-item";
       const button = document.createElement("button");
@@ -768,6 +796,40 @@ export class HRecordList extends HBaseWidget {
     });
   }
 
+  /**
+   * The pagination as a select, shown instead of the page buttons in a narrow pane
+   * (container query in HRecordList.css); the same entries, gaps as disabled "…".
+   *
+   * @private
+   * @param {HTMLElement|null} nav The pagination element.
+   * @param {Array<number|null>} entries Page indices, `null` for a gap.
+   * @param {number} current Current page index.
+   * @returns {void}
+   */
+  _renderPageSelect(nav, entries, current) {
+    if (!nav) return;
+    if (!this._pageSelect) {
+      this._pageSelect = document.createElement("select");
+      this._pageSelect.className = "h-select h-recordlist-page-select";
+      this._pageSelect.setAttribute("aria-label", $HR("Page"));
+      this.listen(this._pageSelect, "change", () => {
+        const page = Number(this._pageSelect.value);
+        if (!Number.isInteger(page)) return;
+        this.offset = page * this.options.pageLength;
+        void this._requestPage();
+      });
+    }
+    if (this._pageSelect.parentElement !== nav) nav.append(this._pageSelect);
+    this._pageSelect.replaceChildren(...entries.map((page) => {
+      const option = document.createElement("option");
+      option.value = page === null ? "" : String(page);
+      option.textContent = page === null ? "…" : String(page + 1);
+      option.disabled = page === null;
+      return option;
+    }));
+    this._pageSelect.value = String(current);
+  }
+
   /** Refresh the "start–end / total" record counter, including a filtered-count suffix when filtered. */
   _updateCounter() {
     const start = this.filteredTotal ? this.offset + 1 : 0;
@@ -778,6 +840,41 @@ export class HRecordList extends HBaseWidget {
         : "";
     this.$('[data-role="counter"]').textContent =
       `${start}–${end} / ${this.filteredTotal}${suffix}`;
+  }
+
+  /**
+   * Simplified interface (heurist-explorer "Interface for dummies"): one toolbar row
+   * Counter, Pagination (moved from the footer, which is hidden), View, Selected,
+   * Sort and See/hide owners.
+   *
+   * @private
+   * @returns {void}
+   */
+  _buildSimplifiedToolbar() {
+    const toolbar = this.$('[data-role="toolbar"]');
+    this.$(".h-recordlist")?.classList.add("is-simplified");
+    this._sortControl = createSortSelect({
+      value: this.getListSort?.() ?? null,
+      onChange: (value) => {
+        this.onListSortChange?.(value);
+        this.offset = 0;
+        void this._requestPage();
+      },
+    });
+    this._ownersToggle = createOwnersToggle({
+      shown: this.options.interaction.adminInfoEnabled === true,
+      onToggle: () => this.onOwnersToggle?.(),
+    });
+    toolbar.prepend(
+      ...[
+        this.$('[data-role="counter"]'),
+        this.$(".h-recordlist-pagination"),
+        this.$('[data-control="viewMode"]'),
+        this.$('[data-control="selectionActions"]'),
+        this._sortControl,
+        this._ownersToggle,
+      ].filter(Boolean),
+    );
   }
 
   /** Show/hide toolbar controls per the configured `controls`/`interaction` options. */
@@ -822,6 +919,7 @@ export class HRecordList extends HBaseWidget {
     if (this.pageSizeSelect) this.pageSizeSelect.value = String(this.options.pageLength);
     if (this.viewModeSelect) this.viewModeSelect.value = this.options.viewMode;
     this._applyControlVisibility();
+    this._ownersToggle?.syncShown(this.options.interaction.adminInfoEnabled === true);
     if (this.sourceActions)
       this.sourceActions.hidden = this.options.sourceActionsEnabled !== true;
     this._syncSourceSaveButtons();
@@ -913,37 +1011,6 @@ function nullableTemplate(value) {
 /** Extract a record's numeric id. */
 function recordId(record) {
   return Number(record?.rec_ID);
-}
-
-/**
- * Build the page-number list for pagination controls: first, last, a window around
- * the current page, and `null` gaps where pages are skipped.
- *
- * @param {number} current Current page index (0-based).
- * @param {number} count Total page count.
- * @returns {Array<number|null>} Page indices to render, with `null` marking an ellipsis gap.
- */
-function pageEntries(current, count) {
-  if (count <= 9) return Array.from({ length: count }, (_, i) => i);
-  const values = new Set(
-    [
-      0,
-      count - 1,
-      current - 2,
-      current - 1,
-      current,
-      current + 1,
-      current + 2,
-    ].filter((page) => page >= 0 && page < count),
-  );
-  const result = [];
-  [...values]
-    .sort((a, b) => a - b)
-    .forEach((page, index, sorted) => {
-      if (index && page - sorted[index - 1] > 1) result.push(null);
-      result.push(page);
-    });
-  return result;
 }
 
 /** Strip HTML down to a small allowlist of inline formatting tags (`u`, `i`, `b`, `strong`, `em`). */

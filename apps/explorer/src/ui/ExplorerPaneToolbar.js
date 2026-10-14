@@ -1,18 +1,19 @@
 /**
- * @file ExplorerCompactToolbar.js
- * @brief Toolbar position "Compact": the toolbar buttons next to the panes they act
+ * @file ExplorerPaneToolbar.js
+ * @brief Toolbar position "In panes": the toolbar buttons next to the panes they act
  *        on. All switching into and out of it lives here; the other toolbar
  *        positions do not know it exists.
  *
- * While active, the Explorer root carries `h-toolbar-compact` and:
+ * While active, the Explorer root carries `h-toolbar-panes` and:
  * - the left rail is a row of small buttons at the top of the West pane (a column in
  *   its collapsed strip). Search is hidden: the Query Source editor is always shown
  *   (unless a Filter Form covers it); a «/» button collapses and expands the pane.
  *   With the editor placed north (Horizontal), the buttons stay in the West pane;
- * - the right rail is a narrow column of small tool buttons, without the
- *   presentation buttons;
- * - presentations are switched by tabs on the module panes (ExplorerPaneTabs) and by
- *   shrink/grow buttons on the dividers (collapsed → normal → maximized). A pane
+ *   a gear at the end of the row opens a menu: Configuration, Help, Getting started,
+ *   Query tracer;
+ * - there is no right rail: presentations and tools (both placed in panes by the
+ *   configuration) are switched by tabs on the module panes (ExplorerPaneTabs) and
+ *   by shrink/grow buttons on the dividers (collapsed → normal → maximized). A pane
  *   with configured modules is never hidden, only collapsed; growing an empty pane
  *   creates its first module.
  *
@@ -33,23 +34,27 @@
 
 import { $HR } from '#shared/ui';
 import { ExplorerPaneTabs } from './ExplorerPaneTabs.js';
-import './ExplorerCompactToolbar.css';
+import './ExplorerPaneToolbar.css';
 
-const COMPACT_CLASS = 'h-toolbar-compact';
+const PANES_CLASS = 'h-toolbar-panes';
 const EDGE_REGIONS = ['north', 'west', 'east', 'south'];
 
-/** Switches Explorer's toolbar into and out of the Compact position. */
-export class ExplorerCompactToolbar {
+/** Switches Explorer's toolbar into and out of the "In panes" position. */
+export class ExplorerPaneToolbar {
   /**
    * @param {object} options
    * @param {import('../core/ExplorerApplication.js').ExplorerApplication} options.application Explorer instance.
    */
   constructor({ application } = {}) {
-    if (!application) throw new TypeError('ExplorerCompactToolbar requires application');
+    if (!application) throw new TypeError('ExplorerPaneToolbar requires application');
     this.application = application;
     this.active = false;
     this.tabs = new ExplorerPaneTabs({ application });
     this._toggle = null;
+    this._settings = null;
+    this._onOutsidePointer = (event) => {
+      if (this._settings?.open && !this._settings.contains(event.target)) this._settings.open = false;
+    };
     this._onWestChange = () => {
       this._syncToggle();
       this._resizeModules();
@@ -60,11 +65,11 @@ export class ExplorerCompactToolbar {
     };
   }
 
-  /** @returns {boolean} Whether the Compact toolbar is on. */
+  /** @returns {boolean} Whether the "In panes" toolbar is on. */
   isActive() { return this.active; }
 
   /**
-   * Switch the Compact toolbar on or off (called by the control panel's toolbar configuration).
+   * Switch the "In panes" toolbar on or off (called by the control panel's toolbar configuration).
    *
    * @param {boolean} on Whether it should be active.
    * @returns {void}
@@ -78,11 +83,12 @@ export class ExplorerCompactToolbar {
     const layout = app.layout;
     const rail = app.controlPanel?.leftRail;
 
-    app.container?.classList.toggle(COMPACT_CLASS, next);
+    app.container?.classList.toggle(PANES_CLASS, next);
 
     if (next) {
       // the editor is always shown; collapsing the West pane is the only way to hide it
       dock?.show();
+      this._mountSettings(rail);
       this._mountToggle(rail);
       dock?.setToolbar(rail?.element || null);
       dock?.cardinal.addEventListener('regioncollapsechange', this._onWestChange);
@@ -102,6 +108,9 @@ export class ExplorerCompactToolbar {
       if (rail?.element) app.container?.append(rail.element);
       this._toggle?.remove();
       this._toggle = null;
+      this._settings?.remove();
+      this._settings = null;
+      document.removeEventListener('pointerdown', this._onOutsidePointer, true);
     }
 
     app.syncSearchButton?.();
@@ -128,6 +137,74 @@ export class ExplorerCompactToolbar {
   }
 
   /**
+   * The gear at the end of the left rail (before «/»): a menu with what the right
+   * rail's settings buttons offer in the other toolbar positions.
+   *
+   * @private
+   * @param {import('./ExplorerRail.js').ExplorerRail|null} rail Left rail.
+   * @returns {void}
+   */
+  _mountSettings(rail) {
+    if (!rail?.element) return;
+    const app = this.application;
+    const details = document.createElement('details');
+    details.className = 'h-dropdown h-explorer-pane-toolbar-settings';
+    const summary = document.createElement('summary');
+    summary.className = 'heurist-icon-button';
+    summary.title = $HR('Configuration and help');
+    summary.setAttribute('aria-label', summary.title);
+    const icon = document.createElement('span');
+    icon.className = 'fa-solid fa-gear';
+    icon.setAttribute('aria-hidden', 'true');
+    summary.append(icon);
+
+    const menu = document.createElement('ul');
+    menu.className = 'h-menu';
+    menu.setAttribute('role', 'menu');
+    const items = [
+      ['Configuration', () => app.controlPanel?.openConfiguration()],
+      ['Help', () => app.controlPanel?.openHelp()],
+      ['Getting started', () => app.showWelcome?.()],
+      ['Query tracer', () => app.showQueryTrace?.()]
+    ];
+    for (const [label, action] of items) {
+      const item = document.createElement('li');
+      // no query tracer in the simplified interface (CSS on h-explorer-simplified)
+      if (label === 'Query tracer') item.className = 'h-explorer-pane-toolbar-trace';
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'h-menu-item h-i18n';
+      button.setAttribute('role', 'menuitem');
+      button.textContent = $HR(label);
+      button.addEventListener('click', () => {
+        details.open = false;
+        action();
+      });
+      item.append(button);
+      menu.append(item);
+    }
+
+    details.append(summary, menu);
+    // fixed position next to the gear: the collapsed West strip clips its content
+    details.addEventListener('toggle', () => {
+      if (details.open) {
+        placeMenu(menu, summary);
+        document.addEventListener('pointerdown', this._onOutsidePointer, true);
+      } else {
+        document.removeEventListener('pointerdown', this._onOutsidePointer, true);
+      }
+    });
+    details.addEventListener('keydown', (event) => {
+      if (event.key !== 'Escape' || !details.open) return;
+      event.stopPropagation();
+      details.open = false;
+      summary.focus();
+    });
+    rail.element.append(details);
+    this._settings = details;
+  }
+
+  /**
    * The «/» button at the end of the left rail: collapses / expands the West pane.
    *
    * @private
@@ -138,13 +215,17 @@ export class ExplorerCompactToolbar {
     if (!rail?.element) return;
     const button = document.createElement('button');
     button.type = 'button';
-    button.className = 'heurist-icon-button h-explorer-compact-pane-toggle';
+    button.className = 'heurist-icon-button h-explorer-pane-toolbar-toggle';
     const icon = document.createElement('span');
     icon.setAttribute('aria-hidden', 'true');
     button.append(icon);
     button.addEventListener('click', (event) => {
       event.stopPropagation();
-      this.application.authoringDock?.cardinal.toggle('west');
+      const cardinal = this.application.authoringDock?.cardinal;
+      const opening = cardinal?.state.west.collapsed === true;
+      cardinal?.toggle('west');
+      // opened by «/»: the Saved Filters list unless another list is shown (2026-10-14)
+      if (opening) this.application.controlPanel?.showDefaultList?.();
     });
     this._toggleIcon = icon;
     rail.element.append(button);
@@ -158,24 +239,29 @@ export class ExplorerCompactToolbar {
     if (!button) return;
     const collapsed = this.application.authoringDock?.cardinal.state.west.collapsed === true;
     this._toggleIcon.className = `fa-solid ${collapsed ? 'fa-angles-right' : 'fa-angles-left'}`;
-    button.title = $HR(collapsed ? 'Show the left pane' : 'Hide the left pane');
+    button.title = $HR(collapsed ? 'Show the search pane' : 'Hide the search pane');
     button.setAttribute('aria-label', button.title);
     button.setAttribute('aria-expanded', String(!collapsed));
   }
 
   /**
-   * A pane with configured modules is never hidden in Compact: a hidden one (its
+   * A pane with configured modules is never hidden "In panes": a hidden one (its
    * modules deferred at start, or hidden before) becomes a collapsed strip with
-   * its modules' icons. Not in Tools mode, which owns the layout meanwhile.
+   * its modules' icons. A pane left without modules (all moved elsewhere or to
+   * Unused) is hidden.
    *
    * @private
    * @returns {void}
    */
   _revealConfiguredPanes() {
     const layout = this.application.layout;
-    if (!layout || layout.isToolMode?.()) return;
+    if (!layout) return;
     const cardinal = layout.cardinal;
-    for (const [region, types] of this.tabs.paneTypes()) {
+    const panes = this.tabs.paneTypes();
+    for (const region of EDGE_REGIONS) {
+      if (!panes.has(region) && !layout.getModuleForRegion(region)) cardinal.hide(region);
+    }
+    for (const [region, types] of panes) {
       if (!types.length || cardinal.state[region]?.visible) continue;
       if (!EDGE_REGIONS.includes(region)) void this.application.showPresentation(types[0]);
       // hidden while collapsed keeps the flag: collapse() would not show it
@@ -195,14 +281,14 @@ export class ExplorerCompactToolbar {
   async _fillRegion(region) {
     const layout = this.application.layout;
     const state = region ? layout?.cardinal.state[region] : null;
-    if (!state?.visible || state.collapsed || layout.isToolMode?.()) return;
+    if (!state?.visible || state.collapsed) return;
     if (layout.getModuleForRegion(region)) return;
     const type = this.tabs.paneTypes().get(region)?.[0];
     if (type) await this.application.showPresentation(type);
   }
 
   /**
-   * Leaving Compact: maximized panes back to normal, collapsed ones expanded, and
+   * Leaving "In panes": maximized panes back to normal, collapsed ones expanded, and
    * the strips of panes without a module hidden again.
    *
    * @private
@@ -210,7 +296,7 @@ export class ExplorerCompactToolbar {
    */
   _restoreRegions() {
     const layout = this.application.layout;
-    if (!layout || layout.isToolMode?.()) return;
+    if (!layout) return;
     const cardinal = layout.cardinal;
     for (const region of EDGE_REGIONS) {
       cardinal.restore(region);
@@ -228,4 +314,24 @@ export class ExplorerCompactToolbar {
       for (const module of modules.values()) void module.resize?.();
     });
   }
+}
+
+/**
+ * Put a dropdown menu next to its button, in fixed position: below it, or to the
+ * right of it when the button is in the narrow collapsed strip; kept in the window.
+ *
+ * @param {HTMLElement} menu The `.h-menu` list.
+ * @param {HTMLElement} anchor The button that opened it.
+ * @returns {void}
+ */
+function placeMenu(menu, anchor) {
+  const box = anchor.getBoundingClientRect();
+  const width = menu.offsetWidth || 180;
+  const height = menu.offsetHeight || 0;
+  const inStrip = Boolean(anchor.closest('.h-cardinal-west.is-collapsed'));
+  let left = inStrip ? box.right + 2 : box.right - width;
+  let top = inStrip ? box.bottom - height : box.bottom + 2;
+  left = Math.max(4, Math.min(left, window.innerWidth - width - 4));
+  top = Math.max(4, Math.min(top, window.innerHeight - height - 4));
+  Object.assign(menu.style, { position: 'fixed', left: `${left}px`, top: `${top}px`, right: 'auto', bottom: 'auto' });
 }

@@ -91,6 +91,7 @@
 .h-qse.is-vertical .h-qse-p1 { order:1; }
 .h-qse.is-vertical .h-qse-p2 { order:2; }
 .h-qse.is-vertical .h-qse-p3 { order:3; }
+.h-qse.is-vertical .h-qse-p6 { order:3; }
 .h-qse.is-vertical .h-qse-advanced { order:4; }
 .h-qse.is-vertical .h-qse-p5 { order:5; }
 .h-qse.is-vertical .h-qse-query { resize:vertical; }
@@ -100,6 +101,7 @@
   /* p1 beside a column of p2 buttons; p1 takes p2's height unless resized taller */
   .h-qse.is-vertical .h-qse-body { grid-template-columns:minmax(0,1fr) auto; }
   .h-qse.is-vertical .h-qse-p3,
+  .h-qse.is-vertical .h-qse-p6,
   .h-qse.is-vertical .h-qse-advanced,
   .h-qse.is-vertical .h-qse-p5 { grid-column:1 / -1; }
   .h-qse.is-vertical .h-qse-p1 { align-self:stretch; max-height:300px; }
@@ -120,3 +122,17 @@
 .h-qse-dialog-wide { width:100%; min-width:0; }
 .h-dialog.h-qse-dialog-wide-shell { width:calc(100vw - 24px) !important; max-width:none !important; }
 .h-qse-dialog { min-width:min(620px, 82vw); }
+
+/* ---- simplified interface ("Interface for dummies", 2026-10-14) ----
+ * no p0, p3 (sentence), p5 or presentation settings; Builder and Save/Add are hidden by
+ * the editor (they count in the button fitting); p6 takes the place of p3 */
+.h-qse-p6 { display:none; }
+.h-qse.is-simplified .h-qse-p0,
+.h-qse.is-simplified .h-qse-p3,
+.h-qse.is-simplified .h-qse-p5,
+.h-qse.is-simplified .h-qse-advanced { display:none !important; }
+.h-qse.is-simplified .h-qse-p6 { display:flex; flex-wrap:wrap; align-items:center; gap:2px 12px; }
+.h-qse.is-horizontal .h-qse-p6 { margin-top:4px; }
+.h-qse .h-qse-p6-button { display:inline-flex; align-items:center; gap:4px; width:auto; height:20px; padding:0 4px; font-size:12px; }
+.h-qse .h-qse-p6-button[hidden] { display:none; }
+.h-qse-p6-caption { font-size:var(--h-font-size-small); white-space:nowrap; }

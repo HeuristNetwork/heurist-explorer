@@ -191,17 +191,16 @@ test('scrollToPresentation scrolls to a shown module only while compact', async 
   compact.destroy();
 });
 
-test('activating a tool scrolls to its panel (center) and titles it', async () => {
+test('showing a tool (a pane module) scrolls to its pane and titles it', async () => {
   const { app, regions, scrolled } = fakeApplication();
   globalThis.matchMedia = () => media(true);
   const compact = new ExplorerCompactMode({ application: app }).start();
-  // tool mode: the tool slot (not a module) occupies the center region
-  Object.assign(app.layout, {
-    isToolMode: () => true,
-    activeToolId: 'crosstabs',
-    getModuleForRegion: (name) => ({ west: 'data', center: '__explorer-tool' }[name] || null)
-  });
-  app.layout.dispatchEvent(new CustomEvent('modechange', { detail: { mode: 'tool', toolId: 'crosstabs' } }));
+  // tools are modules placed in panes (2026-10-14): Crosstabs shown in the center
+  app.modules.set('crosstabs', { id: 'crosstabs', type: 'crosstabs', resize: async () => {} });
+  app.layout.getModuleForRegion = (name) => ({ west: 'data', center: 'crosstabs' }[name] || null);
+  app.layout.dispatchEvent(new CustomEvent('modulevisibilitychange', {
+    detail: { id: 'crosstabs', visible: true, region: 'center' }
+  }));
   await new Promise((resolve) => setTimeout(resolve, 5));
   assert.deepEqual(scrolled, ['center']);
   assert.equal(regions.center.dataset.compactTitle, 'Crosstabs');

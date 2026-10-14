@@ -126,3 +126,21 @@ test('programmatic Map selection feedback does not clear Graph selection', async
   assert.deepEqual(adapter.selection, [17]);
   assert.deepEqual(forwarded, []);
 });
+
+test('help and the symbology editors open in Explorer only when Explorer offers them', async () => {
+  const calls = [];
+  const adapter = new IframeModuleAdapter({
+    id: 'map', type: 'map', container: null, url: '', hostActions: {
+      editSymbology: async (value, options) => { calls.push(['symbology', value, options.kind]); return { color: '#f00' }; },
+      openHelp: (request) => { calls.push(['help', request.url]); return true; }
+    }
+  });
+  const bridge = adapter._createChildHostBridge();
+  assert.deepEqual(await bridge.editSymbology({ color: '#000' }, { kind: 'thematic' }), { color: '#f00' });
+  assert.equal(bridge.openHelp({ url: 'm/mapUserManualEng.htm' }), true);
+  assert.deepEqual(calls, [['symbology', { color: '#000' }, 'thematic'], ['help', 'm/mapUserManualEng.htm']]);
+
+  const bare = new IframeModuleAdapter({ id: 'map', type: 'map', container: null, url: '', hostActions: {} })._createChildHostBridge();
+  assert.equal('editSymbology' in bare, false, 'the module opens its own editors');
+  assert.equal('openHelp' in bare, false);
+});

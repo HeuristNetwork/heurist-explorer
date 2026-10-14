@@ -15,7 +15,7 @@
 export const HEURIST_GRAPH_OPTIONS_DEFAULTS = Object.freeze({
   ui: Object.freeze({
     initiallyExpanded: true,
-    showSourceHeader: true,
+    showSourceHeader: false,
     showOptions: true,
     showExpand: true,
     language: "auto",

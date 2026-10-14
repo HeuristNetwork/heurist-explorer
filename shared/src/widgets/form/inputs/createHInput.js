@@ -21,6 +21,7 @@ import { HInputGeo } from './HInputGeo.js';
 import { HInputBoolean } from './HInputBoolean.js';
 import { HInputResource } from './HInputResource.js';
 import { HInputFile } from './HInputFile.js';
+import { HInputColor } from './HInputColor.js';
 
 const TYPES = {
   text: HInputText,
@@ -37,7 +38,8 @@ const TYPES = {
   geo: HInputGeo,
   boolean: HInputBoolean,
   resource: HInputResource,
-  file: HInputFile
+  file: HInputFile,
+  color: HInputColor
 };
 
 /**

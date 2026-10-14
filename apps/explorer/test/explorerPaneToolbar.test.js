@@ -8,7 +8,7 @@ globalThis.requestAnimationFrame ??= (callback) => setTimeout(callback, 0);
 const { ExplorerAuthoringDock } = await import('../src/ui/ExplorerAuthoringDock.js');
 const { LayoutManager } = await import('../src/core/LayoutManager.js');
 const { ExplorerRail } = await import('../src/ui/ExplorerRail.js');
-const { ExplorerCompactToolbar } = await import('../src/ui/ExplorerCompactToolbar.js');
+const { ExplorerPaneToolbar } = await import('../src/ui/ExplorerPaneToolbar.js');
 const { ExplorerUiConfig } = await import('../src/core/ExplorerUiConfig.js');
 
 /**
@@ -46,21 +46,21 @@ function setup({ placement = 'west' } = {}) {
       return true;
     }
   };
-  const toolbar = new ExplorerCompactToolbar({ application });
+  const toolbar = new ExplorerPaneToolbar({ application });
   return { application, dock, layout, leftRail, toolbar, shown, container };
 }
 
 const strip = (layout, region) => layout.cardinal.getRegionElement(region).querySelector('.h-explorer-pane-tabs');
 const tabTypes = (layout, region) => strip(layout, region)?.querySelectorAll('.h-explorer-pane-tab').map((tab) => tab.dataset.type);
 
-test('Compact moves the left rail to the top of the West pane, with the pane toggle', () => {
+test('"In panes" moves the left rail to the top of the West pane, with the pane toggle', () => {
   const { toolbar, dock, leftRail, container, layout } = setup();
   toolbar.setActive(true);
   const west = dock.cardinal.getRegionElement('west');
-  assert.ok(container.classList.contains('h-toolbar-compact'));
+  assert.ok(container.classList.contains('h-toolbar-panes'));
   assert.equal(leftRail.element.parentElement, west);
   assert.equal(west.children[0], leftRail.element, 'the buttons go first, above the editor');
-  assert.ok(leftRail.element.querySelector('.h-explorer-compact-pane-toggle'));
+  assert.ok(leftRail.element.querySelector('.h-explorer-pane-toolbar-toggle'));
   assert.ok(layout.cardinal.root.classList.contains('has-splitter-buttons'));
 
   // the editor moved north and back: the buttons stay first
@@ -72,7 +72,7 @@ test('Compact moves the left rail to the top of the West pane, with the pane tog
 test('the pane toggle collapses and expands the West pane', () => {
   const { toolbar, dock, leftRail } = setup();
   toolbar.setActive(true);
-  const toggle = leftRail.element.querySelector('.h-explorer-compact-pane-toggle');
+  const toggle = leftRail.element.querySelector('.h-explorer-pane-toolbar-toggle');
   assert.equal(toggle.querySelector('span').className, 'fa-solid fa-angles-left');
   toggle.click();
   assert.equal(dock.cardinal.state.west.collapsed, true);
@@ -101,7 +101,8 @@ test('a configured pane without a module is a collapsed strip; growing it create
 test('a pane with several modules has tabs; a tab shows its module', async () => {
   const { toolbar, layout, shown } = setup();
   toolbar.setActive(true);
-  assert.deepEqual(tabTypes(layout, 'center'), ['recordview', 'map', 'graph']);
+  // the tools are center modules after Graph by default (2026-10-14)
+  assert.deepEqual(tabTypes(layout, 'center'), ['recordview', 'map', 'graph', 'report', 'crosstabs', 'actions', 'export', 'publish']);
   assert.ok(!strip(layout, 'center').classList.contains('is-single'));
   const active = () => strip(layout, 'center').querySelectorAll('.h-explorer-pane-tab').filter((tab) => tab.classList.contains('active')).map((tab) => tab.dataset.type);
   assert.deepEqual(active(), ['map']);
@@ -121,15 +122,15 @@ test('a tab in a pane squeezed by a maximized one restores that pane first', asy
   assert.equal(layout.cardinal.isMaximized('west'), false);
 });
 
-test('leaving Compact puts everything back', () => {
+test('leaving "In panes" puts everything back', () => {
   const { toolbar, dock, leftRail, container, layout } = setup();
   toolbar.setActive(true);
   layout.cardinal.maximize('west');
   dock.cardinal.collapse('west');
   toolbar.setActive(false);
-  assert.ok(!container.classList.contains('h-toolbar-compact'));
+  assert.ok(!container.classList.contains('h-toolbar-panes'));
   assert.equal(leftRail.element.parentElement, container);
-  assert.equal(leftRail.element.querySelector('.h-explorer-compact-pane-toggle'), null);
+  assert.equal(leftRail.element.querySelector('.h-explorer-pane-toolbar-toggle'), null);
   assert.equal(dock.cardinal.state.west.collapsed, false);
   assert.equal(layout.cardinal.isMaximized('west'), false);
   assert.equal(layout.cardinal.state.south.visible, false, 'the strip of a pane without a module is hidden again');
@@ -151,12 +152,51 @@ test('editor placed north: the buttons stay in the West pane, collapsed without 
   assert.equal(dock.cardinal.state.west.collapsed, true);
 });
 
-test('the toolbar position compact is kept by the configuration', () => {
+test('the toolbar position "In panes" is kept by the configuration; the old name is read', () => {
   const data = {};
   const storage = { getItem: (key) => data[key] ?? null, setItem: (key, value) => { data[key] = value; } };
   const config = new ExplorerUiConfig({ database: 'db', storage });
-  config.save({ toolbar: { position: 'compact', buttonSize: 'large' } });
-  assert.equal(config.load().toolbar.position, 'compact');
+  config.save({ toolbar: { position: 'panes', buttonSize: 'large' } });
+  assert.equal(config.load().toolbar.position, 'panes');
+  data['heurist.explorer.db.uiConfig'] = JSON.stringify({ toolbar: { position: 'compact' } });
+  assert.equal(config.load().toolbar.position, 'panes');
   config.save({ toolbar: { position: 'sideways' } });
   assert.equal(config.load().toolbar.position, 'horizontal');
+});
+
+test('"In panes": a gear menu before «/», and modules in Unused have no tab', () => {
+  const { toolbar, leftRail, layout, application } = setup();
+  application.uiConfigValue.regions.graph = 'unused';
+  application.uiConfigValue.regions.report = 'unused';
+  toolbar.setActive(true);
+  const settings = leftRail.element.querySelector('.h-explorer-pane-toolbar-settings');
+  assert.ok(settings);
+  assert.deepEqual(settings.querySelectorAll('.h-menu-item').map((item) => item.textContent),
+    ['Configuration', 'Help', 'Getting started', 'Query tracer']);
+  assert.ok(!tabTypes(layout, 'center').includes('graph'));
+  assert.ok(!tabTypes(layout, 'center').includes('report'));
+  toolbar.setActive(false);
+  assert.equal(leftRail.element.querySelector('.h-explorer-pane-toolbar-settings'), null);
+});
+
+test('opening the search pane with its expand button shows the Saved Filters list', () => {
+  const { toolbar, dock, leftRail, application } = setup();
+  const calls = [];
+  application.controlPanel.showDefaultList = () => calls.push('saved-filters');
+  toolbar.setActive(true);
+  const toggle = leftRail.element.querySelector('.h-explorer-pane-toolbar-toggle');
+  toggle.click();
+  assert.deepEqual(calls, [], 'closing shows nothing');
+  toggle.click();
+  assert.equal(dock.cardinal.state.west.collapsed, false);
+  assert.deepEqual(calls, ['saved-filters']);
+});
+
+test('two built-in filters (Recent, All by date) above the Saved Filters search, not in the list', async () => {
+  const { readFile } = await import('node:fs/promises');
+  const panel = await readFile(new URL('../src/ui/ExplorerControlPanel.js', import.meta.url), 'utf8');
+  assert.match(panel, /\{ id: 'builtin:recent', title: 'Recent', query: 'sortby:-m after:"1 week ago"' \}/);
+  assert.match(panel, /\{ id: 'builtin:all-by-date', title: 'All by date', query: 'sortby:-m' \}/);
+  assert.match(panel, /panel\.append\(builtin, controls, list\);/);
+  assert.doesNotMatch(panel, /_builtinFilters\(/);
 });

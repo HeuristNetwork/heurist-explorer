@@ -14,6 +14,7 @@
  * @since       8.0
  */
 
+import { rangeMatches } from '#shared/data/ranges/rangeDefinitions.js';
 import { getActiveThematicMap } from './thematicAttributes.js';
 
 const GEO_FIELD_CODE = 'rec_GeoField';
@@ -121,7 +122,7 @@ export function getFeatureThematicValues(feature, code) {
 }
 
 /**
- * Match one value against a persisted thematic range.
+ * Match one value against a persisted thematic range (shared rangeMatches).
  *
  * Supported legacy forms:
  * - "a,b,c"       membership list;
@@ -135,90 +136,8 @@ export function getFeatureThematicValues(feature, code) {
  * @returns {boolean} `true` when `value` matches `range`.
  */
 export function thematicRangeMatches(value, range) {
-  if (!range) return false;
-
-  if (Array.isArray(range.value)) {
-    return range.value.some((candidate) => valuesEqual(value, candidate));
-  }
-
-  if (range.min != null && range.max != null) {
-    return betweenInclusive(value, range.min, range.max);
-  }
-
-  if (typeof range.value === 'string') {
-    const text = range.value.trim();
-    if (text.includes(',')) {
-      return text.split(',').map((item) => item.trim()).some((candidate) => valuesEqual(value, candidate));
-    }
-    const separator = text.indexOf('<>');
-    if (separator >= 0) {
-      const min = text.slice(0, separator).trim();
-      const max = text.slice(separator + 2).trim();
-      if (min !== '' && max !== '') return betweenInclusive(value, min, max);
-    }
-  }
-
-  return valuesEqual(value, range.value);
-}
-
-/**
- * Whether a value falls inclusively between `min` and `max`, numerically or lexically.
- *
- * @param {*} value Candidate value.
- * @param {*} min Lower bound.
- * @param {*} max Upper bound.
- * @returns {boolean} `true` when `value` falls within `[min, max]`.
- */
-function betweenInclusive(value, min, max) {
-  const numericValue = toFiniteNumber(value);
-  const numericMin = toFiniteNumber(min);
-  const numericMax = toFiniteNumber(max);
-  if (numericValue != null && numericMin != null && numericMax != null) {
-    return numericValue >= numericMin && numericValue <= numericMax;
-  }
-
-  const text = scalarText(value);
-  const minText = scalarText(min);
-  const maxText = scalarText(max);
-  if (text == null || minText == null || maxText == null) return false;
-  return text >= minText && text <= maxText;
-}
-
-/**
- * Whether two values are equal, numerically when both parse as numbers, otherwise as text.
- *
- * @param {*} left First value.
- * @param {*} right Second value.
- * @returns {boolean} `true` when the two values are equal.
- */
-function valuesEqual(left, right) {
-  const leftNumber = toFiniteNumber(left);
-  const rightNumber = toFiniteNumber(right);
-  if (leftNumber != null && rightNumber != null) return leftNumber === rightNumber;
-  return scalarText(left) === scalarText(right);
-}
-
-/**
- * Coerce a value to a finite number, or `null` when it is not a plain numeric scalar.
- *
- * @param {*} value Candidate value.
- * @returns {number|null} The finite number, or `null`.
- */
-function toFiniteNumber(value) {
-  if (value == null || value === '' || typeof value === 'boolean' || isObject(value) || Array.isArray(value)) return null;
-  const number = Number(value);
-  return Number.isFinite(number) ? number : null;
-}
-
-/**
- * Coerce a value to its scalar string form, or `null` for objects/arrays/nullish values.
- *
- * @param {*} value Candidate value.
- * @returns {string|null} The scalar string, or `null`.
- */
-function scalarText(value) {
-  if (value == null || isObject(value) || Array.isArray(value)) return null;
-  return String(value);
+  // the shared range definitions (plan 17 §2): the editor and the map match alike
+  return rangeMatches(value, range);
 }
 
 /**

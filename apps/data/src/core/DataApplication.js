@@ -13,7 +13,11 @@
  * @since       8.0
  */
 
-import { normalizeDataConfigurationSettings } from "../ui/config/dataConfigurationSchema.js";
+import {
+  normalizeDataConfigurationSettings,
+  serializeDataConfigurationSettings,
+} from "../ui/config/dataConfigurationSchema.js";
+import { applySimplifiedDataSettings, hasAdminInfoSetting } from "../ui/config/simplifiedDataSettings.js";
 import { appendQuickStep, quickStepReachQuery } from "#shared/data/expansionRules.js";
 import { inferRecordTypeId } from "#shared/data/queryRecordType.js";
 import { RecordViewRenderer } from "#shared/recordview/RecordViewRenderer.js";
@@ -61,6 +65,8 @@ export class DataApplication extends EventTarget {
     this.abortController = null;
     this.requestGeneration = 0;
     this.activeLoad = null;
+    // Sort of the list (`/records` sort token), this module only: the DataSource is not changed
+    this.listSort = null;
     this.dataSource = cloneValue(config.source?.dataSource);
     this.sourceTitle = text(config.source?.title ?? this.dataSource?.title);
     this.hostContext = null;
@@ -153,6 +159,10 @@ export class DataApplication extends EventTarget {
       onRecordContentRequest: (request) => this.requestRecordContent(request),
       onDataRequest: (request) => this._loadPage(request),
       onViewModeChange: (mode) => this.requestViewMode(mode),
+      // simplified interface: Sort and See/hide owners in the toolbar
+      getListSort: () => this.listSort,
+      onListSortChange: (value) => this.setListSort(value),
+      onOwnersToggle: () => this.toggleAdminInfo(),
       onDataSourceAction: async (action) => {
         try {
           return await this.requestDataSourceAction(action);
@@ -182,6 +192,51 @@ export class DataApplication extends EventTarget {
     return this.getState();
   }
 
+  /**
+   * Set the list's sort (the Sort selector); the engine requests the first page
+   * again. Only this module's loads use it: the shared DataSource does not change.
+   *
+   * @param {string|null} value `/records` sort token (`title`, `-modified`...), or null for the query's own.
+   * @returns {string|null} The applied sort.
+   */
+  setListSort(value) {
+    this.listSort = value ? String(value) : null;
+    return this.listSort;
+  }
+
+  /**
+   * See/hide owners: switch the Admin info option, apply it and save the preferences
+   * (as the configuration dialog does).
+   *
+   * @returns {Promise<boolean>} Whether the owners are shown now.
+   */
+  async toggleAdminInfo() {
+    const settings = JSON.parse(JSON.stringify(this.config.persistedSettings));
+    const interaction = settings.options.interaction;
+    interaction.adminInfoEnabled = interaction.adminInfoEnabled !== true;
+    await this.applyConfiguration(settings);
+    try {
+      await this.host.savePreferences?.(serializeDataConfigurationSettings(settings));
+    } catch (error) {
+      this.dispatch("heurist-data-error", { error, operation: "save-preferences" });
+    }
+    return interaction.adminInfoEnabled;
+  }
+
+  /**
+   * heurist-explorer's simplified interface: its fixed settings over the given ones,
+   * so saved preferences cannot undo them (see simplifiedDataSettings.js).
+   *
+   * @private
+   * @param {object} normalized Normalized settings.
+   * @param {object|null} raw The settings before normalization (is Admin info set?).
+   * @returns {object} The settings to apply.
+   */
+  _simplified(normalized, raw) {
+    if (this.config.simplified !== true) return normalized;
+    return applySimplifiedDataSettings(normalized, { adminInfoSaved: hasAdminInfoSetting(raw) });
+  }
+
   /** Load and apply the host's persisted configuration, when not already embedded at bootstrap. */
   async _loadInitialPreferences() {
     if (
@@ -199,7 +254,7 @@ export class DataApplication extends EventTarget {
       ) {
         normalized.options.nativeControls.search = false;
       }
-      this._setConfiguration(normalized);
+      this._setConfiguration(this._simplified(normalized, saved));
     } catch (error) {
       this.dispatch("heurist-data-error", {
         error,
@@ -303,6 +358,8 @@ export class DataApplication extends EventTarget {
     try {
       const result = await this.loaders.load(type, {
         ...request,
+        // the list's Sort (simplified interface) unless the engine sorts itself (Table columns)
+        sort: request.sort ?? this.listSort ?? undefined,
         includeQuerySourceFields: this.config.engine !== "recordlist",
         // IMPORTANT: presentation-only virtual fields are fetched but are not
         // inserted into the user's persisted Query Source fieldset.
@@ -834,7 +891,7 @@ export class DataApplication extends EventTarget {
    * @returns {Promise<object>} The normalized, applied settings.
    */
   async applyConfiguration(settings) {
-    const normalized = normalizeDataConfigurationSettings(settings);
+    const normalized = this._simplified(normalizeDataConfigurationSettings(settings), settings);
     const previousEngine = this.engineName;
     this._setConfiguration(normalized);
     if (this.config.engine !== previousEngine) {

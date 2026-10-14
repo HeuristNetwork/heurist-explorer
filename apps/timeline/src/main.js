@@ -22,18 +22,31 @@ import "@fortawesome/fontawesome-free/css/solid.min.css";
 
 import { getHeuristTimelineConfig } from "./timelineConfig.js";
 import { initHeuristTimeline } from "./initHeuristTimeline.js";
+import { initLocale, useHostHelp } from "#shared/ui";
 
 const config = getHeuristTimelineConfig();
+// in Explorer's iframe the help manual opens in Explorer's window (2026-10-14)
+useHostHelp(config.host?.bridge);
 
-initHeuristTimeline(config).catch((error) => {
-  showTimelineMessage(error, { error: true, title: "Unable to initialize the timeline" });
-  const container = document.getElementById("heurist-timeline");
-  if (container) {
-    container.textContent = error?.message || String(error);
-  }
+// the locale also sets the asset base: without it the help manual is looked for at the
+// server root (404) and the interface strings are not translated (2026-10-14)
+initLocale(config.language, config.localeBaseUrl || moduleBaseUrl())
+  .catch((error) => console.warn("Unable to load heurist-timeline localization", error))
+  .then(() => initHeuristTimeline(config))
+  .catch((error) => {
+    showTimelineMessage(error, { error: true, title: "Unable to initialize the timeline" });
+    const container = document.getElementById("heurist-timeline");
+    if (container) {
+      container.textContent = error?.message || String(error);
+    }
 
-  console.error("Unable to initialize heurist-timeline", error);
-});
+    console.error("Unable to initialize heurist-timeline", error);
+  });
+
+/** Base URL of this bundle (its `assets/` and user manuals). */
+function moduleBaseUrl() {
+  return new URL("./", import.meta.url).href;
+}
 
 
 import '#shared/ui/documents/document-controls.css';

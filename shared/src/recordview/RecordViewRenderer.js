@@ -15,6 +15,8 @@
  */
 import { $HR } from "#shared/ui";
 import { fieldValues, sanitizeTextHtml, looksLikeJson } from "./FieldValueFormatter.js";
+import { geoToHuman } from "../utils/geoText.js";
+import { temporalToHuman } from "../utils/temporal.js";
 import "./RecordViewRenderer.css";
 
 const VISIBILITY_LABELS = { hidden: "Hidden", viewable: "Viewable", public: "Public" };
@@ -361,8 +363,9 @@ export class RecordViewRenderer {
   /**
    * One field row: a resource field renders as links that trigger `onNavigate`; a blocktext
    * field renders sanitized rich text (or a system-format notice when its content is JSON);
-   * a geo field renders a compact summary (geometry kind plus a couple of coordinates, never
-   * the raw WKT) with an optional zoom button; everything else renders as plain text. Each
+   * a geo field renders its readable text (`geoToHuman`: type, vertices, coordinate ranges, never
+   * the raw WKT) with an optional zoom button; a date field its readable date
+   * (`temporalToHuman`); everything else renders as plain text. Each
    * value gets its own line within `dd`, so the label sits inline with the first value and
    * further values stack beneath it.
    */
@@ -391,7 +394,7 @@ export class RecordViewRenderer {
         line.className = "heurist-recordview-value-line heurist-recordview-geo-line";
         const summary = document.createElement("span");
         summary.className = "heurist-recordview-geo-summary";
-        summary.textContent = summarizeWkt(wkt);
+        summary.textContent = geoToHuman(wkt);
         line.append(summary);
         if (canZoomExtent && String(wkt ?? "").trim()) {
           const zoom = document.createElement("button");
@@ -416,6 +419,14 @@ export class RecordViewRenderer {
         } else {
           line.innerHTML = sanitizeTextHtml(plain, { extraTags: ["p"] });
         }
+        dd.append(line);
+      }
+    } else if (field.type === "date") {
+      // plain dates and temporal objects (JSON) as readable text
+      for (const text of fieldValues(record, { field: String(field.id) })) {
+        const line = document.createElement("div");
+        line.className = "heurist-recordview-value-line";
+        line.textContent = temporalToHuman(text);
         dd.append(line);
       }
     } else {
@@ -605,28 +616,6 @@ export class RecordViewRenderer {
   #miradorUrl(fileId) {
     return `${this.baseUrl}hclient/widgets/viewers/miradorViewer.php?db=${encodeURIComponent(this.database)}&id=${encodeURIComponent(fileId)}`;
   }
-}
-
-/**
- * Summarize a WKT geometry for display: its kind plus up to two coordinate
- * pairs, ellipsized when the geometry has more — never the full raw WKT
- * (matches the shared `HInputGeo` input's compact-summary treatment).
- */
-function summarizeWkt(wkt) {
-  const text = String(wkt ?? "").trim();
-  if (!text) return "";
-  const kind = /^([A-Z]+)\s*\(/i.exec(text)?.[1]?.toUpperCase() || "";
-  const pairs = text.match(/-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?\s+-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?/g) || [];
-  if (!pairs.length) return text;
-  const shown = pairs.slice(0, 2).map((pair) => pair.trim().split(/\s+/).map(formatCoordinate).join(" "));
-  const suffix = pairs.length > shown.length ? ", …" : "";
-  return kind ? `${kind} (${shown.join(", ")}${suffix})` : `${shown.join(", ")}${suffix}`;
-}
-
-/** Format a coordinate without insignificant trailing zeros. */
-function formatCoordinate(value) {
-  const number = Number(value);
-  return Number.isFinite(number) ? String(Number(number.toFixed(6))) : String(value);
 }
 
 /** Format a Heurist `YYYY-MM-DD...` date string as a locale-medium date, falling back to the raw text. */

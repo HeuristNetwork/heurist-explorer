@@ -91,7 +91,7 @@ export class TimelineConfigurationDialog {
     row.append(stack, label);
     body.append(row);
 
-    for (const [name, caption] of [['showSourceHeader', 'Show source header'], ['initiallyExpanded', 'Expand control panel initially']]) {
+    for (const [name, caption] of [['showSourceHeader', 'Show header'], ['initiallyExpanded', 'Expand control panel initially']]) {
       const row = document.createElement('label');
       row.className = 'h-inline';
       const checkbox = document.createElement('input');
@@ -102,6 +102,8 @@ export class TimelineConfigurationDialog {
       label.textContent = $HR(caption);
       row.append(checkbox, label);
       this.fields.set(name, checkbox);
+      // simplified interface (heurist-explorer): always collapsed at start, not offered
+      if (name === 'initiallyExpanded' && this.api.application?.config?.simplified === true) row.style.display = 'none';
       body.append(row);
     }
 

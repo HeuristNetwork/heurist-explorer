@@ -1,13 +1,14 @@
 /**
  * @file ExplorerPaneTabs.js
- * @brief Compact toolbar: a tab strip (icon and name) on each module pane that holds
- *        more than one module; a collapsed pane shows its modules' icons.
+ * @brief "In panes" toolbar position: a tab strip (icon and name) on each module pane
+ *        that holds more than one module; a collapsed pane shows its modules' icons.
  *
  * The tabs list the module types configured for the pane (Explorer configuration,
- * Layout), also those deferred at start and not created yet. A tab shows its module
- * (ExplorerApplication#showPresentation); in a collapsed or squeezed pane it first
- * gives the pane its space back. HCardinalLayout stays module-agnostic: the strips
- * are Explorer's. See docs/development/16 Compact-Toolbar-Plan.md.
+ * Layout): presentations and tools, also those deferred at start and not created
+ * yet. A tab shows its module (ExplorerApplication#showPresentation); in a collapsed
+ * or squeezed pane it first gives the pane its space back. When the names do not fit
+ * the pane's width, the strip shows icons only and wraps. HCardinalLayout stays
+ * module-agnostic: the strips are Explorer's. See docs/development/16 Compact-Toolbar-Plan.md.
  *
  * @project     Heurist academic knowledge management system
  * @package     heurist-explorer
@@ -27,9 +28,9 @@ import './ExplorerPaneTabs.css';
 
 const REGIONS = ['north', 'west', 'center', 'east', 'south'];
 const EDGE_REGIONS = ['north', 'west', 'east', 'south'];
-const LAYOUT_EVENTS = ['moduleassignmentchange', 'modulevisibilitychange', 'modechange'];
+const LAYOUT_EVENTS = ['moduleassignmentchange', 'modulevisibilitychange'];
 
-/** Tab strips over the presentation-module panes. */
+/** Tab strips over the module panes. */
 export class ExplorerPaneTabs {
   /**
    * @param {object} options
@@ -40,8 +41,13 @@ export class ExplorerPaneTabs {
     this.application = application;
     this.active = false;
     this.strips = new Map();
+    // width of each strip with the tab names, measured while they were shown
+    this._fullWidths = new Map();
     this._buttons = new Map(rightButtons().map((definition) => [definition.id, definition]));
     this._onLayoutChange = () => this.render();
+    this._resizeObserver = typeof ResizeObserver === 'function'
+      ? new ResizeObserver(() => this._fitAll())
+      : null;
   }
 
   /** Show the strips and follow the layout. @returns {ExplorerPaneTabs} This instance. */
@@ -58,11 +64,12 @@ export class ExplorerPaneTabs {
     if (!this.active) return;
     this.active = false;
     for (const name of LAYOUT_EVENTS) this.application.layout?.removeEventListener(name, this._onLayoutChange);
+    this._resizeObserver?.disconnect();
     for (const region of [...this.strips.keys()]) this._removeStrip(region);
   }
 
   /**
-   * Module types configured for each pane, in toolbar order.
+   * Module types configured for each pane, in toolbar order (none in Unused).
    *
    * @returns {Map<string, Array<string>>} Region → module types.
    */
@@ -84,18 +91,15 @@ export class ExplorerPaneTabs {
     const layout = this.application.layout;
     if (!layout) return;
     const panes = this.paneTypes();
-    const toolRegion = layout.isToolMode?.() ? 'center' : null;
 
     for (const region of REGIONS) {
       const types = panes.get(region) || [];
-      const tabs = types.map((type) => ({ id: type, ...this._definition(type) }));
-      // Tools mode: the tool panel occupies the center, with its own tab
-      if (region === toolRegion) tabs.push({ id: layout.activeToolId, tool: true, ...this._definition(layout.activeToolId) });
-      if (!tabs.length) {
+      if (!types.length) {
         this._removeStrip(region);
         continue;
       }
-      this._renderStrip(region, tabs, this._activeTab(region, toolRegion));
+      const tabs = types.map((type) => ({ id: type, ...this._definition(type) }));
+      this._renderStrip(region, tabs, this._activeTab(region));
     }
   }
 
@@ -104,36 +108,27 @@ export class ExplorerPaneTabs {
    * squeezed by a maximized pane), then show the module.
    *
    * @param {string} region Pane region.
-   * @param {string} type Module type, or the active tool's id.
+   * @param {string} type Module type.
    * @returns {Promise<boolean>} Whether a module is shown.
    */
   async select(region, type) {
-    const layout = this.application.layout;
-    const cardinal = layout?.cardinal;
+    const cardinal = this.application.layout?.cardinal;
     if (!cardinal) return false;
-    if (layout.isToolMode?.()) {
-      // the tool's own tab: nothing to switch
-      if (type === layout.activeToolId) return true;
-      // first: leaving Tools mode restores the layout from before it
-      layout.exitToolMode();
-      this.application.controlPanel?.clearToolSelection?.();
-    }
     for (const other of EDGE_REGIONS) {
       if (other !== region && cardinal.isMaximized(other)) cardinal.restore(other);
     }
     if (region !== 'center' && cardinal.state[region]?.collapsed) cardinal.expand(region);
-    return this.application.showPresentation(type);
+    return Boolean(await this.application.showPresentation(type));
   }
 
-  /** @private The module type shown in a pane (the tool's id while it occupies the center). */
-  _activeTab(region, toolRegion) {
+  /** @private The module type shown in a pane. */
+  _activeTab(region) {
     const layout = this.application.layout;
-    if (region === toolRegion) return layout.activeToolId;
     const moduleId = layout.getModuleForRegion(region);
     return moduleId ? layout.getSlot(moduleId)?.dataset.moduleType || null : null;
   }
 
-  /** @private Icon and title of a module type or tool (the right rail's buttons). */
+  /** @private Icon and title of a module type (the right rail's buttons). */
   _definition(id) {
     const definition = this._buttons.get(id);
     return { icon: definition?.icon || 'fa-solid fa-square', title: definition?.title || String(id || '') };
@@ -157,13 +152,47 @@ export class ExplorerPaneTabs {
       strip.className = 'h-explorer-pane-tabs';
       strip.setAttribute('role', 'tablist');
       this.strips.set(region, strip);
+      this._resizeObserver?.observe(host);
     }
     if (strip.parentElement !== host || host.children?.[0] !== strip) host.prepend(strip);
     strip.classList.toggle('is-single', tabs.length < 2);
     host.classList.add('has-pane-tabs');
     host.classList.toggle('has-pane-tab-strip', tabs.length > 1);
 
+    // other tabs: their names are measured again
+    const key = tabs.map((tab) => tab.id).join(',');
+    if (strip.dataset.tabs !== key) {
+      this._fullWidths.delete(region);
+      strip.classList.remove('is-icons');
+    }
+    strip.dataset.tabs = key;
     strip.replaceChildren(...tabs.map((tab) => this._tab(region, tab, tab.id === activeId)));
+    this._fit(region);
+  }
+
+  /** @private Re-fit every strip (a pane was resized). */
+  _fitAll() {
+    for (const region of this.strips.keys()) this._fit(region);
+  }
+
+  /**
+   * Icons only (wrapped) when the tab names do not fit the pane's width; the names
+   * come back when the pane is wide enough for them again.
+   *
+   * @private
+   * @param {string} region Pane region.
+   * @returns {void}
+   */
+  _fit(region) {
+    const strip = this.strips.get(region);
+    if (!strip || strip.classList.contains('is-single') || !strip.clientWidth) return;
+    if (!strip.classList.contains('is-icons')) {
+      if (strip.scrollWidth <= strip.clientWidth) return;
+      this._fullWidths.set(region, strip.scrollWidth);
+      strip.classList.add('is-icons');
+    } else if (strip.clientWidth >= (this._fullWidths.get(region) || Infinity)) {
+      strip.classList.remove('is-icons');
+    }
   }
 
   /** @private One tab button. */
@@ -190,8 +219,11 @@ export class ExplorerPaneTabs {
   /** @private Remove a pane's strip and its classes. */
   _removeStrip(region) {
     const strip = this.strips.get(region);
-    strip?.parentElement?.classList.remove('has-pane-tabs', 'has-pane-tab-strip');
+    const host = strip?.parentElement;
+    host?.classList.remove('has-pane-tabs', 'has-pane-tab-strip');
+    if (host) this._resizeObserver?.unobserve(host);
     strip?.remove();
     this.strips.delete(region);
+    this._fullWidths.delete(region);
   }
 }

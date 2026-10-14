@@ -91,7 +91,7 @@
 }
 
 /* -------------------------------------------------------------------------
- * Explorer Tools mode
+ * Explorer tool modules (ExplorerToolModule): header and body of a tool in its pane
  * ---------------------------------------------------------------------- */
 
 .h-explorer-tool-workspace {
@@ -120,11 +120,6 @@
     text-overflow: ellipsis;
 }
 
-.h-explorer-tool-workspace-close {
-    flex: 0 0 auto;
-    font-size: 18px;
-}
-
 .h-explorer-tool-workspace-body {
     flex: 1 1 auto;
     display: grid;
@@ -134,7 +129,7 @@
 }
 
 /* Reports tool: heurist-reports fills the body */
-.h-explorer-tool-reports-body {
+.h-explorer-tool-report-body {
     display: flex;
     width: 100%;
     overflow: hidden;
@@ -146,4 +141,16 @@
   overflow: auto;
   white-space: pre-wrap;
   word-break: break-all;
+}
+
+/* -------------------------------------------------------------------------
+ * Simplified interface ("Interface for dummies (v7 like)", isSimplifiedUI,
+ * 2026-10-14): no Sources, History, Workspace or Subsets buttons (nor the
+ * separator before Subsets), no query tracer in the gear menu
+ * ---------------------------------------------------------------------- */
+
+.h-explorer-simplified .h-explorer-rail-button:is([data-tool="query-sources"], [data-tool="history"], [data-tool="workspace"], [data-tool="subsets"]),
+.h-explorer-simplified .h-explorer-rail-left .h-explorer-rail-separator[data-group="activity"],
+.h-explorer-simplified .h-explorer-pane-toolbar-trace {
+    display: none !important;
 }

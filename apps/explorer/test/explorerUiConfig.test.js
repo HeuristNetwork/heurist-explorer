@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { applyUiRegions, ExplorerUiConfig, leadingPaneTypes, moduleTypesInOrder, resolveUiLanguage } from '../src/core/ExplorerUiConfig.js';
+import { applyUiRegions, effectiveUiConfig, ExplorerUiConfig, isModuleUsed, leadingPaneTypes, moduleTypesInOrder, resolveUiLanguage } from '../src/core/ExplorerUiConfig.js';
 
 test('load() returns defaults when nothing is persisted', () => {
   const config = new ExplorerUiConfig({ database: 'demo', storage: memoryStorage() });
@@ -12,11 +12,15 @@ test('save() persists and load() round-trips a valid value', () => {
   const config = new ExplorerUiConfig({ database: 'demo', storage });
   const value = {
     toolbar: { position: 'horizontal', buttonSize: 'large-caption' },
-    regions: { data: 'east', map: 'west', graph: 'west', timeline: 'north', recordview: 'south' },
-    order: ['map', 'data', 'graph', 'timeline', 'recordview'],
+    regions: {
+      data: 'east', map: 'west', graph: 'west', timeline: 'north', recordview: 'south',
+      report: 'east', crosstabs: 'unused', actions: 'unused', export: 'south', publish: 'center'
+    },
+    order: ['map', 'data', 'graph', 'timeline', 'recordview', 'publish', 'export', 'report', 'crosstabs', 'actions'],
     panes: { north: true, west: false, center: true, east: false, south: true },
     lists: 'popup',
-    language: 'fre'
+    language: 'fre',
+    isSimplifiedUI: false
   };
   const saved = config.save(value);
   assert.deepEqual(saved, { version: 1, ...value });
@@ -92,12 +96,16 @@ function memoryStorage() {
   };
 }
 
-test('defaults: toolbar on top, West (Result) and Center (Record View, Map, Graph) expanded at start', () => {
+test('defaults: toolbar on top, West (Result) and Center (Record View, Map, Graph, tools) expanded at start', () => {
   const defaults = ExplorerUiConfig.defaults();
   assert.equal(defaults.toolbar.position, 'horizontal');
   assert.deepEqual(defaults.panes, { north: false, west: true, center: true, east: false, south: false });
-  assert.deepEqual(defaults.regions, { data: 'west', map: 'center', graph: 'center', timeline: 'south', recordview: 'center' });
-  assert.deepEqual(defaults.order, ['data', 'recordview', 'map', 'graph', 'timeline']);
+  assert.deepEqual(defaults.regions, {
+    data: 'west', map: 'center', graph: 'center', timeline: 'south', recordview: 'center',
+    report: 'center', crosstabs: 'center', actions: 'center', export: 'center', publish: 'center'
+  });
+  assert.deepEqual(defaults.order,
+    ['data', 'recordview', 'map', 'graph', 'report', 'crosstabs', 'actions', 'export', 'publish', 'timeline']);
   const config = new ExplorerUiConfig({ database: 'demo', storage: memoryStorage() });
   assert.deepEqual(config.save({ panes: { center: false, east: 'yes' } }).panes,
     { north: false, west: true, center: false, east: false, south: false }, 'invalid values fall back');
@@ -119,10 +127,13 @@ test('language: auto by default follows the host; a chosen language wins', () =>
   assert.equal(resolveUiLanguage({ language: 'auto' }, ''), 'eng');
 });
 
-test('order keeps known types once each and appends the missing ones in default order', () => {
+test('order keeps known types once each; a missing one goes after its default predecessor', () => {
   const config = new ExplorerUiConfig({ database: 'demo', storage: memoryStorage() });
   assert.deepEqual(config.save({ order: ['graph', 'bogus', 'map', 'graph'] }).order,
-    ['graph', 'map', 'data', 'recordview', 'timeline']);
+    ['data', 'recordview', 'graph', 'report', 'crosstabs', 'actions', 'export', 'publish', 'timeline', 'map']);
+  // a configuration saved before the tools were modules: the tools come after Graph
+  assert.deepEqual(config.save({ order: ['data', 'map', 'graph', 'recordview', 'timeline'] }).order,
+    ['data', 'map', 'graph', 'report', 'crosstabs', 'actions', 'export', 'publish', 'recordview', 'timeline']);
   assert.deepEqual(config.save({ order: 'map' }).order, ExplorerUiConfig.defaults().order);
 });
 
@@ -146,17 +157,52 @@ test('Explorer starts with only the first module of the panes configured as expa
 });
 
 test('moduleTypesInOrder() orders the toolbar by pane (N, W, C, E, S), then by the configured order', () => {
-  assert.deepEqual(moduleTypesInOrder(ExplorerUiConfig.defaults()), ['data', 'recordview', 'map', 'graph', 'timeline']);
+  assert.deepEqual(moduleTypesInOrder(ExplorerUiConfig.defaults()),
+    ['data', 'recordview', 'map', 'graph', 'report', 'crosstabs', 'actions', 'export', 'publish', 'timeline']);
   const value = {
     regions: { data: 'east', map: 'center', graph: 'north', timeline: 'center', recordview: 'west' },
     order: ['data', 'timeline', 'map', 'graph', 'recordview']
   };
   assert.deepEqual(moduleTypesInOrder(value), ['graph', 'recordview', 'timeline', 'map', 'data']);
+  // modules in Unused are left out
+  value.regions.graph = 'unused';
+  assert.deepEqual(moduleTypesInOrder(value), ['recordview', 'timeline', 'map', 'data']);
+});
+
+test('Unused: any module but Result; such modules get no layout definition', () => {
+  const config = new ExplorerUiConfig({ database: 'demo', storage: memoryStorage() });
+  const saved = config.save({ regions: { data: 'unused', map: 'unused', export: 'unused' } });
+  assert.equal(saved.regions.data, 'west', 'Result always has a pane');
+  assert.equal(saved.regions.map, 'unused');
+  assert.equal(saved.regions.export, 'unused');
+  assert.equal(isModuleUsed(saved, 'map'), false);
+  assert.equal(isModuleUsed(saved, 'graph'), true);
+  const definitions = applyUiRegions([{ id: 'data', type: 'data' }, { id: 'map', type: 'map' }], saved);
+  assert.deepEqual(definitions.map((item) => item.id), ['data']);
+  assert.equal(leadingPaneTypes({ ...saved, order: ['map', 'recordview'] }).get('unused'), undefined);
 });
 
 test('the toolbar does not hide the last visible module', async () => {
   const { readFile } = await import('node:fs/promises');
   const source = await readFile(new URL('../src/core/ExplorerApplication.js', import.meta.url), 'utf8');
-  assert.match(source, /PRESENTATION_TYPES\s*\.some\(\(other\) => other !== type && this\.layout\.isPresentationVisible\(other\)\)/);
+  assert.match(source, /MODULE_TYPES\s*\.some\(\(other\) => other !== type && this\.layout\.isPresentationVisible\(other\)\)/);
   assert.match(source, /At least one module must stay visible/);
+});
+
+test('simplified interface: on by default; fixed toolbar, lists and layout over the saved choices', () => {
+  const config = new ExplorerUiConfig({ database: 'demo', storage: memoryStorage() });
+  assert.equal(ExplorerUiConfig.defaults().isSimplifiedUI, true);
+  const saved = config.save({ toolbar: { position: 'vertical', buttonSize: 'large' }, lists: 'popup', regions: { map: 'east' } });
+  const applied = effectiveUiConfig(saved);
+  assert.deepEqual(applied.toolbar, { position: 'panes', buttonSize: 'small' });
+  assert.equal(applied.lists, 'docked');
+  assert.equal(applied.regions.map, 'center');
+  assert.equal(applied.regions.data, 'west');
+  for (const type of ['publish', 'crosstabs', 'actions']) assert.equal(isModuleUsed(applied, type), false);
+  for (const type of ['recordview', 'graph', 'report', 'export']) assert.equal(applied.regions[type], 'center');
+  // the saved choices stay for when it is switched off
+  assert.equal(saved.toolbar.position, 'vertical');
+  assert.equal(saved.regions.map, 'east');
+  const off = config.save({ ...saved, isSimplifiedUI: false });
+  assert.equal(effectiveUiConfig(off).toolbar.position, 'vertical');
 });

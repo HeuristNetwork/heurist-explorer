@@ -27,7 +27,7 @@ import { GraphConfigurationDialog } from "../../src/ui/config/GraphConfiguration
 test("graph configuration defaults expose the requested controls", () => {
   const value = createGraphConfigurationDefaults();
   assert.equal(value.options.ui.language, "auto");
-  assert.equal(value.options.ui.showSourceHeader, true);
+  assert.equal(value.options.ui.showSourceHeader, false, "no header by default (2026-10-14)");
   assert.equal(value.options.ui.showExpand, true);
   assert.equal(value.options.nativeControls.zoom, true);
   assert.equal(value.options.nativeControls.pan, true);

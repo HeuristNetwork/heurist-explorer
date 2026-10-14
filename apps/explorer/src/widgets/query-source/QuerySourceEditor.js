@@ -48,9 +48,14 @@ export class QuerySourceEditor extends HBaseWidget {
    * @param {Function} [options.canChangeLayout] `() → boolean`: whether the Layout button is offered
    *        (not in compact mode, which is always vertical).
    * @param {Function} [options.onHelp] Opens the query language help; the Help button is hidden without it.
+   * @param {boolean} [options.simplified=false] Simplified interface: no Builder, Save, Add, p0, p5 or
+   *        sentence (p3); instead p6 with Filter builder, Save filter for re-use and Filter help.
+   * @param {Function} [options.onSaveFilterForReuse] Called with the query text (Save filter for re-use).
+   * @param {Function} [options.canSaveFilterForReuse] `() → boolean`: whether that button is offered.
    */
   constructor({ dbdefs, lang = 'eng', openFilterBuilder, editRules, describeRules, onExecute, onApply, onDirtyChange,
-    orientation = 'vertical', expanded = false, onExpandedChange, onLayoutChange, canChangeLayout, onHelp } = {}) {
+    orientation = 'vertical', expanded = false, onExpandedChange, onLayoutChange, canChangeLayout, onHelp,
+    simplified = false, onSaveFilterForReuse = null, canSaveFilterForReuse = null } = {}) {
     super();
     if (!dbdefs) throw new TypeError('QuerySourceEditor requires dbdefs');
     this.dbdefs = dbdefs;
@@ -71,6 +76,9 @@ export class QuerySourceEditor extends HBaseWidget {
     this.onLayoutChange = onLayoutChange;
     this.canChangeLayout = canChangeLayout;
     this.onHelp = onHelp;
+    this._simplified = simplified === true;
+    this.onSaveFilterForReuse = onSaveFilterForReuse;
+    this.canSaveFilterForReuse = canSaveFilterForReuse;
     /** Host for the Save/Add buttons (DataSourceActions inline mode), laid out beside Filter and Builder. */
     this.actionsSlot = null;
     this.inlineHelper = null;
@@ -136,6 +144,7 @@ export class QuerySourceEditor extends HBaseWidget {
     this._run.innerHTML = iconCaption('fa-filter', $HR('Filter'));
     const builder = button('', $HR('Open the Filter Builder'), () => void this._openBuilder(), 'h-btn h-qse-builder');
     builder.innerHTML = iconCaption('fa-sliders', $HR('Builder'));
+    this._builder = builder;
     this.actionsSlot = div('h-qse-actions');
     p2.append(this._run, builder, this.actionsSlot);
 
@@ -167,10 +176,22 @@ export class QuerySourceEditor extends HBaseWidget {
 
     const p3 = div('h-qse-p3');
     this._sentenceHide = iconButton('fa-circle-xmark', $HR('Hide the query sentence'), () => this._setSentenceShown(false), 'h-qse-sentence-hide');
+    // p6 (simplified interface): in place of the sentence (p3), small buttons with captions
+    const p6 = div('h-qse-p6');
+    this._saveForReuse = iconButton('fa-floppy-disk', $HR('Save filter for re-use'), () => {
+      this._commitQueryInput();
+      this.onSaveFilterForReuse?.(queryText(this.draft?.request?.q));
+    }, 'h-qse-save-filter');
+    p6.append(
+      captionedIcon(iconButton('fa-sliders', $HR('Filter builder'), () => void this._openBuilder(), 'h-qse-p6-builder'), $HR('Filter builder')),
+      captionedIcon(this._saveForReuse, $HR('Save filter for re-use')),
+      captionedIcon(iconButton('fa-circle-question', $HR('Filter help'), () => this.onHelp?.(), 'h-qse-p6-help'), $HR('Filter help'))
+    );
     row.append(p1, p2, this._advanced, p5);
-    body.append(row, p3);
+    body.append(row, p3, p6);
     this.container.append(body);
-    Object.assign(this, { _row: row, _p1: p1, _p2: p2, _p5: p5 });
+    Object.assign(this, { _row: row, _p1: p1, _p2: p2, _p5: p5, _p6: p6 });
+    this._applySimplified();
     this._syncLayoutButtons();
     if (typeof ResizeObserver === 'function') {
       this._fitObserver = new ResizeObserver(() => this._fitHorizontal());
@@ -336,6 +357,38 @@ export class QuerySourceEditor extends HBaseWidget {
    * width. p4 puts its Title after the buttons in one row, or on its own row below
    * them when wrapped.
    */
+  /**
+   * Switch the simplified interface on or off (Explorer configuration, Interface).
+   *
+   * @param {boolean} on Whether it is on.
+   * @returns {QuerySourceEditor} this, for chaining.
+   */
+  setSimplified(on) {
+    this._simplified = on === true;
+    if (this.isRendered) {
+      this._applySimplified();
+      this._fitHorizontal();
+    }
+    return this;
+  }
+
+  /**
+   * Simplified interface: Builder and Save/Add hidden (with `hidden`, so the button
+   * fitting counts only Filter); p0, p3, p5 and the presentation settings by the
+   * `is-simplified` class; p6 shown instead of p3.
+   *
+   * @private
+   * @returns {void}
+   */
+  _applySimplified() {
+    const on = this._simplified;
+    this.container.classList.toggle('is-simplified', on);
+    if (this._query) this._query.rows = on ? 1 : 3;
+    if (this._builder) this._builder.hidden = on;
+    if (this.actionsSlot) this.actionsSlot.hidden = on;
+    if (this._saveForReuse) this._saveForReuse.hidden = this.canSaveFilterForReuse?.() === false;
+  }
+
   _fitHorizontal() {
     const root = this.container;
     if (!root || !this._row) return;
@@ -350,7 +403,7 @@ export class QuerySourceEditor extends HBaseWidget {
     if (!(width > 0)) return;
     const visible = (el) => !el.hidden && !el.closest('[hidden]');
     const buttons = [...this._p2.querySelectorAll('.h-btn')].filter(visible).length;
-    const advanced = this._expanded;
+    const advanced = this._expanded && !this._simplified;
     const fixed = this._p5.offsetWidth || 22;
     const maxRows = Math.max(1, Math.floor((height + FIT.gap) / (FIT.button + FIT.gap)));
     const span = (count, size) => count * size + (count - 1) * FIT.gap;
@@ -894,3 +947,17 @@ function confirmRecordTypeChange() {
   });
 }
 function escapeHtml(value) { return String(value ?? '').replace(/[&<>"]/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+/** A p6 icon button with its caption beside the icon. */
+function captionedIcon(b, caption) {
+  const label = document.createElement('span');
+  label.className = 'h-qse-p6-caption';
+  label.textContent = caption;
+  b.classList.add('h-qse-p6-button');
+  b.append(label);
+  return b;
+}
+/** The query as text, as the legacy saved filter editor takes it. */
+function queryText(query) {
+  if (query == null) return '';
+  return typeof query === 'string' ? query : JSON.stringify(query);
+}
