@@ -558,3 +558,21 @@
 #All by date#Tout par date
 #A query with parameters (Filter Form) can not be saved as a Saved Filter. Save it as a Query Source.#Une requête avec paramètres (formulaire de filtre) ne peut pas être enregistrée comme filtre. Enregistrez-la comme source de requête.
 #Save filter#Enregistrer le filtre
+#Clear the value#Effacer la valeur
+#Non-standard fields#Champs non standard
+#Record summary#Résumé de l'enregistrement
+#Show the record summary#Afficher le résumé de l'enregistrement
+#Hide the record summary#Masquer le résumé de l'enregistrement
+#Admin#Administration
+#Private#Privé
+#Tags#Étiquettes
+#Linked records#Enregistrements liés
+#Scratchpad#Bloc-notes
+#Bookmark, rating and reminders: coming soon#Signet, évaluation et rappels : bientôt disponible
+#Tags: coming soon#Étiquettes : bientôt disponible
+#Save the record to see its links#Enregistrez l'enregistrement pour voir ses liens
+#No linked records#Aucun enregistrement lié
+#Added by#Ajouté par
+#Updated#Mis à jour
+#Related#Lié
+#Linked from#Lié depuis

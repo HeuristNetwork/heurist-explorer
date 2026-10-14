@@ -8,6 +8,8 @@ import assert from 'node:assert/strict';
 import { installFakeDom, flush } from './helpers/fakeDom.js';
 
 const document = installFakeDom();
+// HCardinalLayout (Record summary pane, plan 18) uses Node
+globalThis.Node ??= globalThis.HTMLElement;
 const { HRecordEditor } = await import('../src/widgets/record-editor/HRecordEditor.js');
 const { RecordEditError } = await import('../src/data/RecordEditClient.js');
 const { createHInput } = await import('../src/widgets/form/inputs/createHInput.js');

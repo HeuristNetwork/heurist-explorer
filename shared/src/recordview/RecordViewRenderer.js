@@ -467,61 +467,14 @@ export class RecordViewRenderer {
     }
   }
 
-  /**
-   * "Linked from" section: relationships that point at this record (one row per
-   * relation type, inverse where defined), then records linking here through their
-   * pointer fields (one row per record type).
-   */
+  /** "Linked from" section (buildLinkedFromSection, shared with the record editor). */
   #buildLinkedFrom(relations, onNavigate) {
-    const rows = [];
-    for (const [label, items] of groupBy(relations?.relationsFrom || [], (entry) => entry.relation || $HR("Related"))) {
-      rows.push(this.#buildLinksRow(label, items, onNavigate));
-    }
-    const rtyName = (rty) => relations?.dbdefs?.rectypeName?.(rty) || $HR("Records");
-    for (const [label, items] of groupBy(relations?.linkedFrom || [], (entry) => rtyName(entry.rty))) {
-      rows.push(this.#buildLinksRow(label, items, onNavigate));
-    }
-    if (!rows.length) return null;
-    const fieldset = document.createElement("fieldset");
-    fieldset.className = "heurist-recordview-section heurist-recordview-linked-from";
-    const legend = document.createElement("legend");
-    legend.textContent = $HR("Linked from");
-    const dl = document.createElement("dl");
-    dl.className = "heurist-recordview-section-fields";
-    for (const [dt, dd] of rows) dl.append(dt, dd);
-    fieldset.append(legend, dl);
-    return fieldset;
+    return buildLinkedFromSection(relations, onNavigate);
   }
 
-  /**
-   * One row of record links (titles follow `onNavigate`), each on its own line;
-   * `withRelation` puts the relation type before each title.
-   */
+  /** One row of record links (buildLinksRow). */
   #buildLinksRow(label, items, onNavigate, withRelation = false) {
-    const dt = document.createElement("dt");
-    dt.textContent = label;
-    const dd = document.createElement("dd");
-    for (const entry of items) {
-      const line = document.createElement("div");
-      line.className = "heurist-recordview-value-line";
-      if (withRelation && entry.relation) {
-        const relation = document.createElement("span");
-        relation.className = "heurist-recordview-relation-type";
-        relation.textContent = entry.relation;
-        line.append(relation, " ");
-      }
-      const link = document.createElement("a");
-      link.href = "#";
-      link.className = "heurist-recordview-resource-link";
-      link.innerHTML = sanitizeTextHtml(entry.title || `#${entry.id}`);
-      link.addEventListener("click", (event) => {
-        event.preventDefault();
-        onNavigate(entry.id);
-      });
-      line.append(link);
-      dd.append(line);
-    }
-    return [dt, dd];
+    return buildLinksRow(label, items, onNavigate, withRelation);
   }
 
   /**
@@ -687,4 +640,62 @@ export function hasLinks(record, relations) {
     || Object.values(relations?.related || {}).some((items) => items?.length > 0)
     || Boolean(relations?.relationsFrom?.length)
     || Boolean(relations?.linkedFrom?.length);
+}
+
+/**
+ * (Shared with the record editor's Record summary, plan 18.)
+ * "Linked from" section: relationships that point at this record (one row per
+ * relation type, inverse where defined), then records linking here through their
+ * pointer fields (one row per record type).
+ */
+export function buildLinkedFromSection(relations, onNavigate) {
+  const rows = [];
+  for (const [label, items] of groupBy(relations?.relationsFrom || [], (entry) => entry.relation || $HR("Related"))) {
+    rows.push(buildLinksRow(label, items, onNavigate));
+  }
+  const rtyName = (rty) => relations?.dbdefs?.rectypeName?.(rty) || $HR("Records");
+  for (const [label, items] of groupBy(relations?.linkedFrom || [], (entry) => rtyName(entry.rty))) {
+    rows.push(buildLinksRow(label, items, onNavigate));
+  }
+  if (!rows.length) return null;
+  const fieldset = document.createElement("fieldset");
+  fieldset.className = "heurist-recordview-section heurist-recordview-linked-from";
+  const legend = document.createElement("legend");
+  legend.textContent = $HR("Linked from");
+  const dl = document.createElement("dl");
+  dl.className = "heurist-recordview-section-fields";
+  for (const [dt, dd] of rows) dl.append(dt, dd);
+  fieldset.append(legend, dl);
+  return fieldset;
+}
+
+/**
+ * One row of record links (titles follow `onNavigate`), each on its own line;
+ * `withRelation` puts the relation type before each title.
+ */
+export function buildLinksRow(label, items, onNavigate, withRelation = false) {
+  const dt = document.createElement("dt");
+  dt.textContent = label;
+  const dd = document.createElement("dd");
+  for (const entry of items) {
+    const line = document.createElement("div");
+    line.className = "heurist-recordview-value-line";
+    if (withRelation && entry.relation) {
+      const relation = document.createElement("span");
+      relation.className = "heurist-recordview-relation-type";
+      relation.textContent = entry.relation;
+      line.append(relation, " ");
+    }
+    const link = document.createElement("a");
+    link.href = "#";
+    link.className = "heurist-recordview-resource-link";
+    link.innerHTML = sanitizeTextHtml(entry.title || `#${entry.id}`);
+    link.addEventListener("click", (event) => {
+      event.preventDefault();
+      onNavigate(entry.id);
+    });
+    line.append(link);
+    dd.append(line);
+  }
+  return [dt, dd];
 }

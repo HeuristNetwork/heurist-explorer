@@ -558,3 +558,21 @@
 #All by date#All by date
 #A query with parameters (Filter Form) can not be saved as a Saved Filter. Save it as a Query Source.#A query with parameters (Filter Form) can not be saved as a Saved Filter. Save it as a Query Source.
 #Save filter#Save filter
+#Clear the value#Clear the value
+#Non-standard fields#Non-standard fields
+#Record summary#Record summary
+#Show the record summary#Show the record summary
+#Hide the record summary#Hide the record summary
+#Admin#Admin
+#Private#Private
+#Tags#Tags
+#Linked records#Linked records
+#Scratchpad#Scratchpad
+#Bookmark, rating and reminders: coming soon#Bookmark, rating and reminders: coming soon
+#Tags: coming soon#Tags: coming soon
+#Save the record to see its links#Save the record to see its links
+#No linked records#No linked records
+#Added by#Added by
+#Updated#Updated
+#Related#Related
+#Linked from#Linked from

@@ -1,0 +1,64 @@
+/* Layout options of edit forms (formLayout.js, plan 18). */
+
+.h-form-layout {
+  --h-form-label-width: 150px;
+  container-type: inline-size;
+}
+
+/* labels inline: label column and value column */
+.h-form-labels-inline .h-form-layout-field {
+  display: grid;
+  grid-template-columns: var(--h-form-label-width) minmax(0, 1fr);
+  align-items: start;
+  column-gap: 8px;
+}
+
+.h-form-labels-inline .h-form-layout-field > .h-form-layout-label {
+  grid-column: 1;
+  padding-top: 4px;
+}
+
+.h-form-labels-inline .h-form-layout-field > :not(.h-form-layout-label) {
+  grid-column: 2;
+}
+
+/* auto: inline when the form is wide enough, otherwise above */
+@container (min-width: 520px) {
+  .h-form-labels-auto .h-form-layout-field {
+    display: grid;
+    grid-template-columns: var(--h-form-label-width) minmax(0, 1fr);
+    align-items: start;
+    column-gap: 8px;
+  }
+
+  .h-form-labels-auto .h-form-layout-field > .h-form-layout-label {
+    grid-column: 1;
+    padding-top: 4px;
+  }
+
+  .h-form-labels-auto .h-form-layout-field > :not(.h-form-layout-label) {
+    grid-column: 2;
+  }
+}
+
+/* inputs flow: fields side by side within a group, wrapping */
+.h-form-inputs-flow .h-form-layout-group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  column-gap: 16px;
+}
+
+.h-form-inputs-flow .h-form-layout-group > .h-form-layout-field {
+  flex: 1 1 280px;
+  min-width: 0;
+}
+
+.h-form-inputs-flow .h-form-layout-group > :not(.h-form-layout-field) {
+  flex: 1 1 100%;
+}
+
+/* a field hidden by its form (e.g. shown only for some choices) */
+.h-form-layout-field[hidden] {
+  display: none !important;
+}

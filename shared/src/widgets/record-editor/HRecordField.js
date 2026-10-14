@@ -28,6 +28,7 @@
 
 import { HBaseWidget } from '../HBaseWidget.js';
 import { createHInput } from '../form/inputs/createHInput.js';
+import { FORM_FIELD_CLASS, FORM_LABEL_CLASS } from '../form/formLayout.js';
 import { TermSource } from '../../data/valueSources/localSources.js';
 import { showPopover, closePopover } from '../popover/popover.js';
 import { $HR } from '../../ui/i18n/HResource.js';
@@ -35,6 +36,9 @@ import './HRecordField.css';
 
 /** Languages offered for translations when the host gives none (3-letter codes). */
 export const DEFAULT_LANGUAGES = Object.freeze(['ENG', 'FRE', 'GER', 'SPA', 'ITA', 'POR', 'DUT', 'RUS', 'CHI', 'JPN', 'ARA']);
+
+/** Field types whose input follows rst_DisplayWidth. */
+const SIZED_TYPES = new Set(['freetext', 'blocktext', 'url', 'integer', 'float', 'year', 'date']);
 
 /** Field types without values to edit here. */
 const NO_INPUT_TYPES = new Set(['relmarker', 'separator']);
@@ -81,20 +85,22 @@ export class HRecordField extends HBaseWidget {
     if (!this.container) throw new Error('HRecordField must be attached before render');
     const field = this.field;
     this.container.replaceChildren();
-    this.container.className = 'h-record-field';
+    // a field of the form layout (labelPos / inputPos of the editor, formLayout.js)
+    this.container.className = `h-record-field ${FORM_FIELD_CLASS}`;
     this.container.dataset.dty = String(field.dty);
     this.container.classList.toggle('is-required', field.req === 'required');
+    // label colour and weight by requirement (plan 18): required, recommended, optional
+    this.container.classList.toggle('is-recommended', field.req === 'recommended');
 
     const header = document.createElement('div');
-    header.className = 'h-record-field-header';
+    header.className = `h-record-field-header ${FORM_LABEL_CLASS}`;
     const label = document.createElement('label');
     label.className = 'h-record-field-label';
     label.textContent = field.label;
     header.append(label);
     this.labelElement = label;
-    this.actions = document.createElement('div');
-    this.actions.className = 'h-record-field-actions';
-    header.append(this.actions);
+    // Add a value / Translate: after the input of the last value (HInput#setActions, plan 18)
+    this.actionButtons = [];
     this.container.append(header);
 
     this.valuesHost = document.createElement('div');
@@ -217,7 +223,11 @@ export class HRecordField extends HBaseWidget {
     await super.destroy();
   }
 
-  /** Add one value row: input, hidden switch, remove button. */
+  /**
+   * Add one value row. The input carries its value tools (plan 18): the remove /
+   * clear icon (removes the value when the field has several, otherwise clears it)
+   * and the "hidden from the public" eye; the field only answers their events.
+   */
   _addRow(entry) {
     const row = { entry };
     row.element = document.createElement('div');
@@ -227,29 +237,25 @@ export class HRecordField extends HBaseWidget {
     row.element.append(host);
     this.valuesHost.append(row.element);
     row.input = createHInput(inputType(this.field), host, this._inputOptions(entry));
+    // rst_DisplayWidth (characters) of text-like inputs; the value tools come beside it
+    if (this.field.width > 0 && SIZED_TYPES.has(this.field.type) && !this.options.special) {
+      host.classList.add('has-display-width');
+      host.style.setProperty('--h-field-width', `${Math.min(this.field.width, 200)}ch`);
+    }
     if (this.options.special) this._renderSpecial(row, host);
-
-    if (this.options.allowHidden !== false) {
-      row.hiddenButton = document.createElement('button');
-      row.hiddenButton.type = 'button';
-      row.hiddenButton.className = 'heurist-icon-button h-record-field-hidden';
-      this.listen(row.hiddenButton, 'click', () => {
-        row.entry.hidden = !row.entry.hidden;
-        this._syncHidden(row);
-        this._changed();
-      });
-      row.element.append(row.hiddenButton);
+    row.removeButton = row.input.clearButton || null;
+    row.hiddenButton = row.input.visibilityButton || null;
+    this.listen(host, 'h-input-remove', (event) => {
+      event.stopPropagation();
+      this._removeRow(row);
+    });
+    this.listen(host, 'h-input-visibility-change', (event) => {
+      event.stopPropagation();
+      row.entry.hidden = event.detail?.hidden === true;
       this._syncHidden(row);
-    }
-    if (this.isRepeatable) {
-      row.removeButton = document.createElement('button');
-      row.removeButton.type = 'button';
-      row.removeButton.className = 'heurist-icon-button h-record-field-remove';
-      row.removeButton.textContent = '−';
-      row.removeButton.title = $HR('Remove this value');
-      this.listen(row.removeButton, 'click', () => this._removeRow(row));
-      row.element.append(row.removeButton);
-    }
+      this._changed();
+    });
+    if (row.hiddenButton) this._syncHidden(row);
     if (this.options.readOnly) row.input.setReadOnly(true);
     this._rows.push(row);
     this._syncRows();
@@ -355,7 +361,16 @@ export class HRecordField extends HBaseWidget {
   _inputOptions(entry) {
     const field = this.field;
     const options = { value: entry.value ?? null, suppressLabel: true, label: field.label };
-    if (this.options.special) return { ...options, multiline: true, rows: 6 }; // raw (JSON) text
+    // raw (JSON) text of a special field: no value tools (it is shown on request only)
+    if (this.options.special) return { ...options, multiline: true, rows: 6, clearButton: false };
+    // remove / clear and the eye beside the input, the field's Add / Translate after them
+    Object.assign(options, {
+      valueTools: true,
+      removable: false,
+      visibilityToggle: this.options.allowHidden !== false && !this.options.readOnly,
+      valueHidden: entry.hidden === true,
+      readOnly: Boolean(this.options.readOnly)
+    });
     switch (field.type) {
       case 'blocktext':
         return { ...options, multiline: true, rows: Math.min(12, Math.max(3, field.height || 3)) };
@@ -365,8 +380,12 @@ export class HRecordField extends HBaseWidget {
       case 'date':
         return { ...options, allowLegacyText: true };
       case 'enum':
-      case 'relationtype':
-        return { ...options, source: new TermSource(this.options.dbdefs, field.vocabulary), mode: 'select' };
+      case 'relationtype': {
+        const source = new TermSource(this.options.dbdefs, field.vocabulary);
+        // a unique choice among a few terms: inline radio group (plan 18)
+        const radios = !this.isRepeatable && isSmallFlatVocabulary(source.items());
+        return { ...options, source, mode: radios ? 'radio' : 'select', ...(radios ? { orientation: 'inline', radioStyle: 'standard' } : {}) };
+      }
       case 'resource':
         return { ...options, apiClient: this.options.apiClient, targetTypes: field.targetTypes, valueLabel: entry.label || '' };
       case 'file':
@@ -380,45 +399,50 @@ export class HRecordField extends HBaseWidget {
 
   /** Add button (repeatable) or Translate button (multilingual). */
   _renderActions() {
-    this.actions.replaceChildren();
+    this.actionButtons = [];
     if (this.options.readOnly) return;
     if (this.field.multilang) {
       const translate = document.createElement('button');
       translate.type = 'button';
-      translate.className = 'h-btn h-btn-small h-record-field-translate h-i18n';
-      translate.textContent = $HR('Translate');
+      translate.className = 'heurist-icon-button h-record-field-translate';
+      translate.append(iconElement('fa-language'));
       translate.title = $HR('Add the value in another language');
+      translate.setAttribute('aria-label', translate.title);
       this.listen(translate, 'click', () => this._editTranslation(translate, null));
-      this.actions.append(translate);
+      this.actionButtons.push(translate);
     } else if (this.isRepeatable) {
       this.addButton = document.createElement('button');
       this.addButton.type = 'button';
       this.addButton.className = 'heurist-icon-button h-record-field-add';
-      this.addButton.textContent = '+';
+      this.addButton.append(iconElement('fa-plus'));
       this.addButton.title = $HR('Add a value');
+      this.addButton.setAttribute('aria-label', this.addButton.title);
       this.listen(this.addButton, 'click', () => {
         const row = this._addRow({ value: null, hidden: false });
         row.input.control?.focus?.();
       });
-      this.actions.append(this.addButton);
-      this._syncRows();
+      this.actionButtons.push(this.addButton);
     }
+    this._syncRows();
   }
 
-  /** Remove buttons only with several rows; no add button at rst_MaxValues. */
+  /**
+   * Remove icon: removes a value when there are several, clears the last one; Add and
+   * Translate after the input of the last value; no Add at rst_MaxValues.
+   */
   _syncRows() {
     const many = this._rows.length > 1;
-    for (const row of this._rows) if (row.removeButton) row.removeButton.hidden = !many || Boolean(this.options.readOnly);
+    for (const [index, row] of this._rows.entries()) {
+      row.input.setRemovable?.(many);
+      row.input.setActions?.(index === this._rows.length - 1 ? this.actionButtons : null);
+    }
     if (this.addButton) this.addButton.hidden = this.field.max > 0 && this._rows.length >= this.field.max;
   }
 
   /** Show the state of the "hidden from the public" switch. */
   _syncHidden(row) {
     const hidden = Boolean(row.entry.hidden);
-    row.hiddenButton.classList.toggle('is-hidden', hidden);
-    row.hiddenButton.textContent = hidden ? '◌' : '●';
-    row.hiddenButton.title = hidden ? $HR('Hidden from the public - click to show') : $HR('Visible to the public - click to hide');
-    row.hiddenButton.setAttribute('aria-pressed', String(hidden));
+    if (row.input.isValueHidden?.() !== hidden) row.input.setValueHidden?.(hidden);
     row.element.classList.toggle('is-hidden', hidden);
   }
 
@@ -561,4 +585,18 @@ function isEmpty(value) {
 function shorten(value) {
   const text = String(value ?? '').replace(/<[^>]*>/g, '').trim();
   return text.length > 40 ? `${text.slice(0, 39)}…` : text;
+}
+
+/** Whether a vocabulary is a few terms without hierarchy (shown as radios): at most 5, one level. */
+export function isSmallFlatVocabulary(items) {
+  const list = Array.isArray(items) ? items : [];
+  return list.length > 0 && list.length <= 5 && list.every((item) => !(item.depth > 0));
+}
+
+/** A Font Awesome icon element. */
+function iconElement(icon) {
+  const element = document.createElement('span');
+  element.className = `fa-solid ${icon}`;
+  element.setAttribute('aria-hidden', 'true');
+  return element;
 }

@@ -202,3 +202,130 @@
   min-width: 0;
   min-height: 0;
 }
+
+/* ------------------------------------------------ Record summary (plan 18) --- */
+
+/* the form (center) and the Record summary (east) of an HCardinalLayout */
+.h-record-editor-layout {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.h-record-editor-layout .h-record-editor-body {
+  box-sizing: border-box;
+  height: 100%;
+}
+
+.h-record-editor-summary {
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  height: 100%;
+  overflow: auto;
+  background: var(--h-color-surface);
+}
+
+.h-record-editor-summary-head {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px;
+  border-bottom: 1px solid var(--h-color-border);
+}
+
+.h-record-editor-summary-toggle {
+  flex: 0 0 auto;
+  padding: 2px 4px;
+  font-size: 18px;
+}
+
+.h-record-editor-summary-caption {
+  font-weight: 600;
+  font-style: italic;
+  color: var(--h-color-header);
+  white-space: nowrap;
+}
+
+.h-record-editor-summary-section {
+  border-bottom: 1px solid var(--h-color-border);
+}
+
+.h-record-editor-summary-section > summary {
+  padding: 5px 8px;
+  font-weight: 600;
+  color: var(--h-color-header);
+  cursor: pointer;
+}
+
+.h-record-editor-summary-body {
+  padding: 2px 8px 8px;
+}
+
+.h-record-editor-summary-body .h-record-editor-ownership {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.h-record-editor-summary-note {
+  color: var(--h-color-text-muted);
+  font-style: italic;
+}
+
+.h-record-editor-admin-info {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 2px 8px;
+  margin: 6px 0 0;
+}
+
+.h-record-editor-admin-info dt {
+  color: var(--h-color-text-muted);
+}
+
+.h-record-editor-admin-info dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+/* linked records: titles are links only when the host can open a record */
+.h-record-editor-summary-body:not(.can-open) .heurist-recordview-resource-link {
+  color: inherit;
+  pointer-events: none;
+  text-decoration: none;
+}
+
+.h-record-editor-scratchpad {
+  box-sizing: border-box;
+  width: 100%;
+  resize: vertical;
+}
+
+/* collapsed: only the large «/» and the caption, read upwards */
+.h-cardinal-region.is-collapsed > .h-record-editor-summary {
+  visibility: visible;
+  pointer-events: auto;
+  overflow: hidden;
+}
+
+.h-cardinal-region.is-collapsed > .h-record-editor-summary > :not(.h-record-editor-summary-head) {
+  display: none;
+}
+
+.h-cardinal-region.is-collapsed > .h-record-editor-summary > .h-record-editor-summary-head {
+  flex-direction: column;
+  height: 100%;
+  padding: 4px 0;
+  border-bottom: 0;
+}
+
+.h-cardinal-region.is-collapsed .h-record-editor-summary-caption {
+  writing-mode: vertical-rl;
+}
+
+/* Drop changes: apart from Save / Save and close / Close */
+.h-record-editor-drop {
+  margin-left: 16px;
+}

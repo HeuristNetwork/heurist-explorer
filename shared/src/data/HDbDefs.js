@@ -211,6 +211,16 @@ export class HDbDefs {
   }
 
   /**
+   * Languages offered for translations of values (record editor): the database setting
+   * "Languages" (legacy db_languages.json; the server gives a default list without it).
+   *
+   * @returns {string[]} 3-letter codes; `languages()` when the server does not send them.
+   */
+  translationLanguages() {
+    return Array.isArray(this.meta.translationLanguages) ? this.meta.translationLanguages.slice() : this.languages();
+  }
+
+  /**
    * @param {string} name e.g. `RT_RELATION`, `DT_TARGET_RESOURCE`.
    * @returns {number|null} Reserved definition id, or null when absent.
    */

@@ -5,6 +5,11 @@
   min-width: 0;
 }
 
+/* the input host hidden by its owner (e.g. the raw value of a special field) */
+.h-form-input[hidden] {
+  display: none;
+}
+
 .h-form-input-header {
   display: flex;
   align-items: center;
@@ -124,4 +129,56 @@
   border-radius: 50%;
   background: var(--h-color-bg, #fff);
   cursor: pointer;
+}
+
+/* value tools (record editor, plan 18): clear / remove and visibility beside the control,
+   shown on mouse over or focus; the owner's actions (Add, Translate) after them, always shown */
+.h-form-input.has-value-tools > .h-form-input-control {
+  align-items: center;
+}
+
+.h-form-input.has-value-tools.is-multiline > .h-form-input-control {
+  align-items: flex-start;
+}
+
+.h-form-input-tool,
+.h-form-input-actions .heurist-icon-button {
+  flex: 0 0 auto;
+  padding: 2px 3px;
+  font-size: 10px;
+  line-height: 1;
+}
+
+.h-form-input-tool {
+  opacity: 0;
+  transition: opacity .12s ease;
+}
+
+.h-form-input.has-value-tools:hover .h-form-input-tool,
+.h-form-input.has-value-tools:focus-within .h-form-input-tool,
+.h-form-input-tool.is-hidden {
+  opacity: 1;
+}
+
+.h-form-input-tool[hidden] {
+  display: none;
+}
+
+.h-form-input-visibility.is-hidden {
+  color: var(--h-color-warning);
+}
+
+.h-form-input.is-value-hidden .h-form-input-control-wrap {
+  opacity: 0.7;
+}
+
+.h-form-input-actions {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 1px;
+}
+
+.h-form-input-actions:empty {
+  display: none;
 }

@@ -51,7 +51,7 @@ export class FakeElement {
     this.classList = new FakeClassList(this);
     this.attributes = {};
     this.dataset = {};
-    this.style = { setProperty(name, value) { this[name] = value; } };
+    this.style = { setProperty(name, value) { this[name] = value; }, removeProperty(name) { delete this[name]; } };
     this.hidden = false;
     this.disabled = false;
     this.value = '';

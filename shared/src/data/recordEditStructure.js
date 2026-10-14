@@ -105,6 +105,46 @@ export function structureFields(structure) {
   return (structure?.groups || []).flatMap((group) => group.children || []);
 }
 
+/**
+ * Fields with values in the record that the structure of its type does not have
+ * (plan 18): the last group "Non-standard fields", editable with inputs of their
+ * field types. Their values were always kept on save (buildRecordBody).
+ *
+ * @param {object|null} record Record in the write format (`details` keyed by field id).
+ * @param {{groups: Array<object>}} structure Edit structure.
+ * @param {object|null} dbdefs HDbDefs (field names, types, vocabularies).
+ * @param {string} label Group caption.
+ * @returns {object|null} The group, or null when there are no such values.
+ */
+export function nonStandardGroup(record, structure, dbdefs, label = 'Non-standard fields') {
+  const known = new Set(structureFields(structure).map((field) => String(field.dty)));
+  const children = [];
+  for (const [key, values] of Object.entries(record?.details || {})) {
+    if (known.has(key) || !/^\d+$/.test(key)) continue;
+    if (!(Array.isArray(values) ? values.length : values != null)) continue;
+    const global = dbdefs?.fieldGlobal?.(key) || null;
+    const type = global?.type || 'freetext';
+    if (type === 'separator') continue;
+    children.push({
+      dty: Number(key),
+      type,
+      label: global?.name || `#${key}`,
+      help: '',
+      req: 'optional',
+      max: 0,
+      default: '',
+      vocabulary: global?.vocabulary || null,
+      targetTypes: global?.targetTypes || [],
+      width: 0,
+      height: 0,
+      multilang: false,
+      concept: global?.concept || null,
+      nonStandard: true
+    });
+  }
+  return children.length ? { id: null, type: 'group', label, help: '', children, nonStandard: true } : null;
+}
+
 /** @returns {number[]} Positive integers of a CSV list or JSON id tree. */
 function idList(value) {
   return [...new Set(String(value ?? '').match(/\d+/g)?.map(Number).filter((id) => id > 0) || [])];

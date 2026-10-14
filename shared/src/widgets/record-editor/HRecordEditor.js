@@ -34,6 +34,11 @@ import { RecordEditClient, RecordEditError } from '../../data/RecordEditClient.j
 import { RecordStructureProvider } from '../../recordview/RecordStructureProvider.js';
 import { buildRecordBody, defaultFieldValues, recordFieldValues } from '../../data/recordEditValues.js';
 import { multilangFieldIds } from '../../data/writableRecordTypes.js';
+import { nonStandardGroup, structureFields } from '../../data/recordEditStructure.js';
+import { HCardinalLayout } from '../layout/HCardinalLayout.js';
+import { applyFormLayout, FORM_GROUP_CLASS } from '../form/formLayout.js';
+import { RecordRelationsProvider } from '../../recordview/RecordRelationsProvider.js';
+import { buildLinkedFromSection, buildLinksRow } from '../../recordview/RecordViewRenderer.js';
 import { HMsg } from '../../ui/HMsg.js';
 import { $HR } from '../../ui/i18n/HResource.js';
 import './HRecordEditor.css';
@@ -68,6 +73,11 @@ export class HRecordEditor extends HBaseWidget {
    * @param {Function} [options.onSaved] Called after a save with `{record, issues, created}`.
    * @param {Function} [options.onClose] Called when the editor asks to close, with `{saved}`.
    * @param {boolean} [options.readOnly] Display only.
+   * @param {'inline'|'above'|'auto'} [options.labelPos='auto'] Labels beside or above the inputs
+   *        (auto: beside when the form is wide enough), see formLayout.js.
+   * @param {'flow'|'stack'} [options.inputPos='stack'] One field per line, or side by side.
+   * @param {boolean} [options.summary=true] The Record summary pane on the right.
+   * @param {Function} [options.onOpenRecord] Called with a record id: a linked record of the summary.
    * @returns {HRecordEditor} This editor.
    */
   attach(container, options = {}) {
@@ -112,9 +122,12 @@ export class HRecordEditor extends HBaseWidget {
       throw new TypeError('HRecordEditor needs recordId or rectypeId');
     }
     const rty = this.rectypeId;
-    this.structure = await this.structureProvider.editStructure(rty, {
+    const structure = await this.structureProvider.editStructure(rty, {
       signal, dbdefs: this.dbdefs, multilangIds: multilangFieldIds(this.dbdefs, rty)
     });
+    // values of fields the structure does not have: last group (a copy: the structure is cached)
+    const extra = nonStandardGroup(this.record, structure, this.dbdefs, $HR('Non-standard fields'));
+    this.structure = extra ? { ...structure, groups: [...structure.groups, extra] } : structure;
     this.render();
     return this;
   }
@@ -134,11 +147,20 @@ export class HRecordEditor extends HBaseWidget {
     this.messages.className = 'h-record-editor-messages';
     this.messages.setAttribute('role', 'status');
     const footer = this._renderFooter();
-    this.container.append(this.titleElement, this.body, this.messages, footer);
-    this._renderTitle();
-
+    // labels inline / above, fields stacked / side by side (plan 18)
+    applyFormLayout(this.body, { labelPos: this.options.labelPos || 'auto', inputPos: this.options.inputPos || 'stack' });
     const header = this._initialHeader();
-    this.body.append(this._renderOwnership(header));
+    if (this.options.summary === false) {
+      this.container.append(this.titleElement, this.body, this.messages, footer);
+      this.body.append(this._renderOwnership(header));
+    } else {
+      // the form and, on the right, the Record summary (owner and access are in its Admin panel)
+      this.layoutHost = document.createElement('div');
+      this.layoutHost.className = 'h-record-editor-layout';
+      this.container.append(this.titleElement, this.layoutHost, this.messages, footer);
+      this._renderLayout(header);
+    }
+    this._renderTitle();
     const values = this.record ? recordFieldValues(this.record, this.structure) : defaultFieldValues(this.structure);
     this._fieldWidgets = new Map();
     this._tabButtons = new Map(); // field dty -> tab button of its group
@@ -158,13 +180,16 @@ export class HRecordEditor extends HBaseWidget {
   getRecord() {
     const fields = new Map();
     for (const [dty, widget] of this._fieldWidgets || []) fields.set(dty, widget.getState());
-    return buildRecordBody({
+    const body = buildRecordBody({
       record: this.record,
       rectypeId: this.rectypeId,
       header: this._header(),
       fields,
       structure: this.structure
     });
+    // Scratchpad panel of the Record summary
+    if (this.scratchpad) body.rec_ScratchPad = this.scratchpad.value;
+    return body;
   }
 
   /** @returns {boolean} Whether something changed since the record was loaded or saved. */
@@ -248,12 +273,36 @@ export class HRecordEditor extends HBaseWidget {
     return true;
   }
 
-  /** @returns {Promise<void>} Completion after the inputs are removed. */
-  async destroy() {
+  /**
+   * Drop the unsaved changes: the form again with the values of the record as it was
+   * loaded or last saved (confirmed first when something changed).
+   *
+   * @returns {Promise<boolean>} True when the form was reloaded.
+   */
+  async dropChanges() {
+    if (this.isDirty()
+      && !(await confirmDialog($HR('Drop your changes and show the saved values again?'), $HR('Drop changes')))) {
+      return false;
+    }
+    await this._destroyForm();
+    this.render();
+    return true;
+  }
+
+  /** Remove the inputs and the layout of the form (before render() again or destroy()). */
+  async _destroyForm() {
+    this._relationsAbort?.abort();
+    this.cardinal?.destroy();
+    this.cardinal = null;
     for (const widget of this._fieldWidgets?.values() || []) await widget.destroy();
     for (const combo of this._combos || []) await combo.destroy();
     this._fieldWidgets = new Map();
     this._combos = [];
+  }
+
+  /** @returns {Promise<void>} Completion after the inputs are removed. */
+  async destroy() {
+    await this._destroyForm();
     await super.destroy();
   }
 
@@ -304,21 +353,171 @@ export class HRecordEditor extends HBaseWidget {
     this.saveButton = button('Save', 'h-btn-primary', () => this.save());
     this.saveCloseButton = button('Save and close', '', () => this.save({ close: true }));
     button('Close', '', () => this.close());
+    // Drop changes: the form again with the values of the record as loaded or last saved
+    this.dropButton = button('Drop changes', 'h-record-editor-drop', () => void this.dropChanges());
     if (this.options.readOnly) {
       this.saveButton.hidden = true;
       this.saveCloseButton.hidden = true;
+      this.dropButton.hidden = true;
     }
     return footer;
   }
 
+  /**
+   * The form in the center and the Record summary on the right (HCardinalLayout):
+   * resizable, collapsed to a strip with a large «/» button and its caption.
+   */
+  _renderLayout(header) {
+    const collapsed = readSummaryCollapsed();
+    this.cardinal = new HCardinalLayout(this.layoutHost, { eastSize: 300, minEast: 220, collapsedSize: 30, minCenterWidth: 280 });
+    this.cardinal.setContent('center', this.body);
+    this.cardinal.hide('west');
+    this.summary = this._renderSummary(header);
+    this.cardinal.setContent('east', this.summary);
+    this.cardinal.show('east');
+    if (collapsed) this.cardinal.collapse('east');
+    const sync = () => {
+      const isCollapsed = this.cardinal.state.east.collapsed === true;
+      this.summaryToggleIcon.className = `fa-solid ${isCollapsed ? 'fa-angles-left' : 'fa-angles-right'}`;
+      this.summaryToggle.title = isCollapsed ? $HR('Show the record summary') : $HR('Hide the record summary');
+      this.summaryToggle.setAttribute('aria-label', this.summaryToggle.title);
+      this.summaryToggle.setAttribute('aria-expanded', String(!isCollapsed));
+      writeSummaryCollapsed(isCollapsed);
+    };
+    this.cardinal.addEventListener('regioncollapsechange', sync);
+    sync();
+  }
+
+  /** Record summary: Admin, Private, Tags, Linked records, Scratchpad (plan 18). */
+  _renderSummary(header) {
+    const pane = document.createElement('div');
+    pane.className = 'h-record-editor-summary';
+    const head = document.createElement('div');
+    head.className = 'h-record-editor-summary-head';
+    this.summaryToggle = document.createElement('button');
+    this.summaryToggle.type = 'button';
+    this.summaryToggle.className = 'heurist-icon-button h-record-editor-summary-toggle';
+    this.summaryToggleIcon = iconElement('fa-angles-right');
+    this.summaryToggle.append(this.summaryToggleIcon);
+    this.listen(this.summaryToggle, 'click', () => this.cardinal.toggle('east'));
+    const caption = document.createElement('span');
+    caption.className = 'h-record-editor-summary-caption h-i18n';
+    caption.textContent = $HR('Record summary');
+    head.append(this.summaryToggle, caption);
+    pane.append(head);
+
+    const section = (title, open, build) => {
+      const details = document.createElement('details');
+      details.className = 'h-record-editor-summary-section';
+      details.open = open;
+      const summary = document.createElement('summary');
+      summary.className = 'h-i18n';
+      summary.textContent = $HR(title);
+      const body = document.createElement('div');
+      body.className = 'h-record-editor-summary-body';
+      build(body);
+      details.append(summary, body);
+      pane.append(details);
+      return details;
+    };
+    this.adminSection = section('Admin', true, (body) => this._renderAdmin(body, header));
+    section('Private', false, (body) => body.append(note($HR('Bookmark, rating and reminders: coming soon'))));
+    section('Tags', false, (body) => body.append(note($HR('Tags: coming soon'))));
+    section('Linked records', true, (body) => this._renderLinkedRecords(body));
+    section('Scratchpad', false, (body) => {
+      this.scratchpad = document.createElement('textarea');
+      this.scratchpad.className = 'h-input h-record-editor-scratchpad';
+      this.scratchpad.rows = 6;
+      this.scratchpad.value = this.record?.rec_ScratchPad || '';
+      this.scratchpad.readOnly = Boolean(this.options.readOnly);
+      this.scratchpad.setAttribute('aria-label', $HR('Scratchpad'));
+      this.listen(this.scratchpad, 'input', () => this._onChange());
+      body.append(this.scratchpad);
+    });
+    return pane;
+  }
+
+  /** Admin: owner and access (editable), added by, added and updated. */
+  _renderAdmin(body, header) {
+    body.append(this._renderOwnership(header, { legend: false }));
+    if (this.isNew) return;
+    const users = new UserGroupSource(this.dbdefs);
+    const info = document.createElement('dl');
+    info.className = 'h-record-editor-admin-info';
+    const row = (label, value) => {
+      if (!value) return;
+      const dt = document.createElement('dt');
+      dt.className = 'h-i18n';
+      dt.textContent = $HR(label);
+      const dd = document.createElement('dd');
+      dd.textContent = value;
+      info.append(dt, dd);
+    };
+    const addedBy = Number(this.record.rec_AddedByUGrpID) || 0;
+    row('Added by', addedBy ? users.labelFor(addedBy) || `#${addedBy}` : '');
+    row('Added', localTime(this.record.rec_Added));
+    row('Updated', localTime(this.record.rec_Modified));
+    body.append(info);
+  }
+
+  /**
+   * Linked records: relationships of the relmarker fields and the records linking
+   * here, with the code of Record View's built-in renderer (RecordRelationsProvider,
+   * buildLinksRow, buildLinkedFromSection).
+   */
+  _renderLinkedRecords(body) {
+    if (this.isNew) {
+      body.append(note($HR('Save the record to see its links')));
+      return;
+    }
+    body.append(note($HR('Loading…')));
+    const provider = new RecordRelationsProvider({ apiClient: this.options.apiClient, dbDefsProvider: async () => this.dbdefs });
+    const relmarkers = structureFields(this.structure).filter((field) => field.type === 'relmarker');
+    const onNavigate = (id) => this.options.onOpenRecord?.(id);
+    this._relationsAbort = new AbortController();
+    provider.load({
+      id: Number(this.record.rec_ID),
+      rty: this.rectypeId,
+      sections: [{ fields: relmarkers.map((field) => ({ id: field.dty, type: 'relmarker' })) }],
+      signal: this._relationsAbort.signal
+    }).then((relations) => {
+      const parts = [];
+      const rows = [];
+      for (const field of relmarkers) {
+        const items = relations.related?.[String(field.dty)] || [];
+        if (items.length) rows.push(buildLinksRow(field.label, items, onNavigate, true));
+      }
+      if (rows.length) {
+        const fieldset = document.createElement('fieldset');
+        fieldset.className = 'heurist-recordview-section heurist-recordview-related';
+        const legend = document.createElement('legend');
+        legend.textContent = $HR('Related');
+        const dl = document.createElement('dl');
+        dl.className = 'heurist-recordview-section-fields';
+        for (const [dt, dd] of rows) dl.append(dt, dd);
+        fieldset.append(legend, dl);
+        parts.push(fieldset);
+      }
+      const linkedFrom = buildLinkedFromSection(relations, onNavigate);
+      if (linkedFrom) parts.push(linkedFrom);
+      body.replaceChildren(...(parts.length ? parts : [note($HR('No linked records'))]));
+      body.classList.toggle('can-open', typeof this.options.onOpenRecord === 'function');
+    }).catch((error) => {
+      if (error?.name === 'AbortError') return;
+      body.replaceChildren(note(error?.message || String(error)));
+    });
+  }
+
   /** Owner, visibility, view groups and edit groups. */
-  _renderOwnership(header) {
+  _renderOwnership(header, { legend: withLegend = true } = {}) {
     const pane = document.createElement('fieldset');
     pane.className = 'h-record-editor-ownership';
-    const legend = document.createElement('legend');
-    legend.className = 'h-i18n';
-    legend.textContent = $HR('Ownership and access');
-    pane.append(legend);
+    if (withLegend) {
+      const legend = document.createElement('legend');
+      legend.className = 'h-i18n';
+      legend.textContent = $HR('Ownership and access');
+      pane.append(legend);
+    }
     this._combos = [];
 
     const row = (label, control) => {
@@ -462,7 +661,7 @@ export class HRecordEditor extends HBaseWidget {
   /** Fields of one group. */
   _renderGroupFields(group, values) {
     const host = document.createElement('div');
-    host.className = 'h-record-editor-fields';
+    host.className = `h-record-editor-fields ${FORM_GROUP_CLASS}`;
     if (group.help) {
       const help = document.createElement('div');
       help.className = 'h-record-field-help';
@@ -477,7 +676,8 @@ export class HRecordEditor extends HBaseWidget {
         state: values.get(field.dty),
         apiClient: this.options.apiClient,
         dbdefs: this.dbdefs,
-        languages: this.options.languages || this.dbdefs?.languages?.() || [],
+        // the database setting "Languages" (was: the languages of definition translations)
+        languages: this.options.languages || this.dbdefs?.translationLanguages?.() || this.dbdefs?.languages?.() || [],
         selectExtent: this.options.selectExtent,
         fileUrl: this.options.fileUrl,
         readOnly: this.options.readOnly,
@@ -570,6 +770,11 @@ export class HRecordEditor extends HBaseWidget {
     }
     for (const [dty, widget] of this._fieldWidgets) widget.setIssues(byField.get(String(dty)) || []);
     this.ownershipIssues.replaceChildren(...header.map((issue) => issueElement(issue)));
+    // owner/access problems: show them in the Record summary
+    if (header.length && this.cardinal) {
+      this.cardinal.expand('east');
+      if (this.adminSection) this.adminSection.open = true;
+    }
     const errors = (issues || []).filter((issue) => issue.severity !== 'warning');
     const summary = errors.length
       ? [{ severity: 'error', message: $HR('Not saved: please correct the marked fields') }]
@@ -655,4 +860,40 @@ function confirmDialog(message, title) {
     });
     dialog?.addEventListener?.('close', () => answer(false), { once: true });
   });
+}
+
+/** A muted note of the Record summary. */
+function note(text) {
+  const element = document.createElement('div');
+  element.className = 'h-record-editor-summary-note';
+  element.textContent = text;
+  return element;
+}
+
+/** A stored date-time (server time) with the browser's local time. */
+function localTime(value) {
+  const text = String(value || '').trim();
+  if (!text) return '';
+  const date = new Date(text.replace(' ', 'T'));
+  return Number.isNaN(date.getTime()) ? text : `${text} (${date.toLocaleString()})`;
+}
+
+const SUMMARY_KEY = 'heurist.recordEditor.summaryCollapsed';
+
+/** @returns {boolean} Whether the user collapsed the Record summary last time. */
+function readSummaryCollapsed() {
+  try { return globalThis.localStorage?.getItem(SUMMARY_KEY) === '1'; } catch { return false; }
+}
+
+/** Remember whether the Record summary is collapsed. */
+function writeSummaryCollapsed(collapsed) {
+  try { globalThis.localStorage?.setItem(SUMMARY_KEY, collapsed ? '1' : '0'); } catch { /* storage may be unavailable */ }
+}
+
+/** A Font Awesome icon element. */
+function iconElement(icon) {
+  const element = document.createElement('span');
+  element.className = `fa-solid ${icon}`;
+  element.setAttribute('aria-hidden', 'true');
+  return element;
 }

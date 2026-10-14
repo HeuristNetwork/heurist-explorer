@@ -36,7 +36,8 @@ export class HInputEnum extends HInput {
    * @param {HTMLElement} container Input host.
    * @param {object} options Input options; besides the HInput ones:
    *        `source`, `terms`, `mode` (`select`|`radio`|`checkbox`), `multiple`,
-   *        `orientation` (`column`|`inline`), `listThreshold`, `numeric`
+   *        `orientation` (`column`|`inline`), `radioStyle` (`standard`: ordinary radio buttons;
+   *        default: the facet style without circles), `listThreshold`, `numeric`
    *        (values are numbers; default true unless a source says otherwise),
    *        `fallbackSource` (used when `source` fails), `emptyLabel`,
    *        `countsMode` (`brackets` default | `badge` | `none`),
@@ -69,8 +70,9 @@ export class HInputEnum extends HInput {
       this.listHost.className = `h-input-enum-list h-input-enum-${this.options.orientation === 'inline' ? 'inline' : 'column'}`
         + ` h-input-enum-counts-${countsMode(this.options.countsMode)}`
         + (this.options.countsAlign === 'right' ? ' h-input-enum-counts-right' : '')
-        // single choice: no radio circles, a click on the item selects it
-        + (this.options.mode === 'radio' ? ' h-input-enum-single' : '');
+        // single choice (filter facets): no radio circles, a click on the item selects it;
+        // radioStyle 'standard' (edit forms, plan 18): ordinary radio buttons
+        + (this.options.mode === 'radio' && this.options.radioStyle !== 'standard' ? ' h-input-enum-single' : '');
       this.listHost.setAttribute('role', this.options.mode === 'radio' ? 'radiogroup' : 'group');
       host.append(this.listHost);
       void this._loadChoices();

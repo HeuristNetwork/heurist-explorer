@@ -27,6 +27,7 @@
 
 import { HBaseWidget } from '../HBaseWidget.js';
 import { createHInput } from '../form/inputs/createHInput.js';
+import { applyFormLayout, FORM_GROUP_CLASS, markInputField } from '../form/formLayout.js';
 import { HMsg } from '../../ui/HMsg.js';
 import { $HR } from '../../ui/i18n/HResource.js';
 import { DEFAULT_MAP_SYMBOL } from '../../symbology/normalizeMapSymbol.js';
@@ -196,6 +197,8 @@ export class HSymbolEditor extends HBaseWidget {
   render() {
     if (!this.container) throw new Error('HSymbolEditor must be attached before render');
     this.container.className = `h-widget h-symbol-editor h-symbol-editor-${this.mode}`;
+    // labels beside their inputs, one field per line (shared form layout, plan 18)
+    applyFormLayout(this.container, { labelPos: this.options.labelPos || 'inline', inputPos: this.options.inputPos || 'stack' });
     this.container.replaceChildren();
     const values = this.options.value || {};
     const groups = this.mode === 'gradient' ? GRADIENT_GROUPS : this.mode === 'draw' ? DRAW_GROUPS : SYMBOL_GROUPS;
@@ -244,7 +247,7 @@ export class HSymbolEditor extends HBaseWidget {
   /** A titled group of fields. */
   _group(title, pairs = false) {
     const group = document.createElement('fieldset');
-    group.className = `h-symbol-editor-group${pairs ? ' is-pairs' : ''}`;
+    group.className = `h-symbol-editor-group ${FORM_GROUP_CLASS}${pairs ? ' is-pairs' : ''}`;
     if (title) {
       const legend = document.createElement('legend');
       legend.className = 'h-i18n';
@@ -274,6 +277,7 @@ export class HSymbolEditor extends HBaseWidget {
         numeric: false,
         mode: 'radio',
         orientation: 'inline',
+        radioStyle: 'standard',
         countsMode: 'none'
       });
     }
@@ -281,6 +285,8 @@ export class HSymbolEditor extends HBaseWidget {
       Object.assign(options, { integer: field.type === 'integer', min: field.min, max: field.max, step: field.step });
     }
     const input = createHInput(field.type, row, options);
+    // the row is the input's root (.h-form-input): a field of the form layout
+    markInputField(input.container || row);
     this.inputs.set(field.key, { input, field });
     this.rows.set(field.key, row);
   }

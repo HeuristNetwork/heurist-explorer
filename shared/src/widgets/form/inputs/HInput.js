@@ -14,6 +14,7 @@
  */
 
 import { HBaseWidget } from '../../HBaseWidget.js';
+import { $HR } from '../../../ui/i18n/HResource.js';
 import './HInput.css';
 
 let nextInputId = 0;
@@ -29,6 +30,14 @@ export class HInput extends HBaseWidget {
 
   /**
    * Attach the input and its field definition.
+   *
+   * Value tools (record editor, plan 18): with `valueTools: true` the clear action and
+   * the value visibility switch sit beside the control, shown on mouse over, and an
+   * actions slot after them holds the owner's buttons (Add a value, Translate).
+   * - `removable`: the clear action removes the value (event `h-input-remove`, the owner
+   *   removes the input) instead of clearing it; see setRemovable();
+   * - `visibilityToggle` / `valueHidden`: the "hidden from the public" switch (eye);
+   *   event `h-input-visibility-change` with `{hidden}`.
    *
    * @param {HTMLElement} container Input host.
    * @param {object} options Input definition and initial value.
@@ -88,20 +97,13 @@ export class HInput extends HBaseWidget {
       this.setReadOnly(Boolean(this.options.readOnly));
     }
 
-    this.clearButton = document.createElement('button');
-    this.clearButton.type = 'button';
-    this.clearButton.className = 'heurist-icon-button h-form-input-clear';
-    this.clearButton.textContent = '×';
-    this.clearButton.title = 'Clear value';
-    this.clearButton.setAttribute('aria-label', 'Clear value');
-    this.listen(this.clearButton, 'click', () => {
-      const fixed = this.options.fixedValue;
-      this.setValue(fixed && typeof fixed === 'object' ? { ...fixed } : null);
-      this.notifyChange();
-    });
-    // without a label row, keep the action beside the control
-    (this.options.suppressLabel ? controlHost : header).append(this.clearButton);
-    this._syncClearButton();
+    if (this.options.valueTools) {
+      this.container.classList.add('has-value-tools');
+      this.container.classList.toggle('is-multiline', this.options.multiline === true);
+      this._renderValueTools(controlHost);
+    } else if (this.options.clearButton !== false) {
+      this._renderClearButton(header, controlHost);
+    }
 
     const help = String(this.options.help ?? '').trim();
     if (help) {
@@ -257,12 +259,140 @@ export class HInput extends HBaseWidget {
   }
 
   /** Show the clear action only when the input currently has a value. */
+  /** The clear button: beside the label, or beside the control without a label row. */
+  _renderClearButton(header, controlHost) {
+    this.clearButton = document.createElement('button');
+    this.clearButton.type = 'button';
+    this.clearButton.className = 'heurist-icon-button h-form-input-clear';
+    this.clearButton.textContent = '×';
+    this.clearButton.title = 'Clear value';
+    this.clearButton.setAttribute('aria-label', 'Clear value');
+    this.listen(this.clearButton, 'click', () => {
+      const fixed = this.options.fixedValue;
+      this.setValue(fixed && typeof fixed === 'object' ? { ...fixed } : null);
+      this.notifyChange();
+    });
+    // without a label row, keep the action beside the control
+    (this.options.suppressLabel ? controlHost : header).append(this.clearButton);
+    this._syncClearButton();
+  }
+
+  /**
+   * Value tools beside the control: clear / remove, visibility, then the owner's actions.
+   *
+   * @param {HTMLElement} controlHost The control row.
+   * @returns {void}
+   */
+  _renderValueTools(controlHost) {
+    this.clearButton = toolButton('fa-xmark', 'h-form-input-tool h-form-input-clear');
+    this.listen(this.clearButton, 'click', () => {
+      if (this.options.removable) {
+        this.container.dispatchEvent(new CustomEvent('h-input-remove', { bubbles: true, detail: { input: this } }));
+        return;
+      }
+      const fixed = this.options.fixedValue;
+      this.setValue(fixed && typeof fixed === 'object' ? { ...fixed } : null);
+      this.notifyChange();
+    });
+    controlHost.append(this.clearButton);
+    if (this.options.visibilityToggle) {
+      this.visibilityButton = toolButton('fa-eye', 'h-form-input-tool h-form-input-visibility');
+      this.listen(this.visibilityButton, 'click', () => {
+        this.setValueHidden(!this.isValueHidden());
+        this.container.dispatchEvent(new CustomEvent('h-input-visibility-change', {
+          bubbles: true, detail: { input: this, hidden: this.isValueHidden() }
+        }));
+      });
+      controlHost.append(this.visibilityButton);
+      this.setValueHidden(this.options.valueHidden === true);
+    }
+    this.actionsHost = document.createElement('span');
+    this.actionsHost.className = 'h-form-input-actions';
+    controlHost.append(this.actionsHost);
+    this.setRemovable(this.options.removable === true);
+  }
+
+  /**
+   * Whether the clear action removes the value (several values of a field) or clears it.
+   *
+   * @param {boolean} removable Remove instead of clear.
+   * @returns {HInput} This input.
+   */
+  setRemovable(removable) {
+    this.options.removable = removable === true;
+    if (this.clearButton && this.options.valueTools) {
+      this.clearButton.title = this.options.removable ? $HR('Remove this value') : $HR('Clear the value');
+      this.clearButton.setAttribute('aria-label', this.clearButton.title);
+      this._syncClearButton();
+    }
+    return this;
+  }
+
+  /** @returns {boolean} Whether the value is hidden from the public (visibility switch). */
+  isValueHidden() {
+    return this._valueHidden === true;
+  }
+
+  /**
+   * Set the "hidden from the public" state of the value (the eye).
+   *
+   * @param {boolean} hidden Hidden.
+   * @returns {HInput} This input.
+   */
+  setValueHidden(hidden) {
+    this._valueHidden = hidden === true;
+    const button = this.visibilityButton;
+    if (button) {
+      button.replaceChildren(iconElement(this._valueHidden ? 'fa-eye-slash' : 'fa-eye'));
+      button.classList.toggle('is-hidden', this._valueHidden);
+      button.title = this._valueHidden ? $HR('Hidden from the public - click to show') : $HR('Visible to the public - click to hide');
+      button.setAttribute('aria-label', button.title);
+      button.setAttribute('aria-pressed', String(this._valueHidden));
+    }
+    this.container?.classList.toggle('is-value-hidden', this._valueHidden);
+    return this;
+  }
+
+  /**
+   * Put the owner's buttons (Add a value, Translate) after the value tools; null or
+   * an empty list removes them.
+   *
+   * @param {Array<HTMLElement>|null} elements Buttons.
+   * @returns {HInput} This input.
+   */
+  setActions(elements) {
+    this.actionsHost?.replaceChildren(...(elements || []));
+    return this;
+  }
+
   _syncClearButton() {
     if (!this.clearButton) return;
+    // value tools: remove is always offered; clear only when there is a value
+    if (this.options.valueTools && this.options.removable) {
+      this.clearButton.hidden = Boolean(this.options.readOnly);
+      return;
+    }
     const value = this.getValue();
     const present = Array.isArray(value) ? value.length > 0
       : value && typeof value === 'object' ? Object.values(value).some((part) => part != null && part !== '')
         : value != null && value !== '';
     this.clearButton.hidden = !present || Boolean(this.options.readOnly);
   }
+}
+
+/** A small icon button of the value tools. */
+function toolButton(icon, className) {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = `heurist-icon-button ${className}`;
+  button.append(iconElement(icon));
+  return button;
+}
+
+/** A Font Awesome icon element. */
+function iconElement(icon) {
+  const element = document.createElement('span');
+  element.className = `fa-solid ${icon}`;
+  element.setAttribute('aria-hidden', 'true');
+  return element;
 }
