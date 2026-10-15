@@ -44,3 +44,28 @@ test("showing an empty collection keeps the current result", async () => {
   app.setQuery = () => assert.fail("nothing to show");
   assert.equal(await app.applyCollectionAction("show"), false);
 });
+
+test("collectionMode: a permanent checkbox or a +/- row action (default mouseover); collected records highlighted", () => {
+  assert.match(list, /collectionMode: options\.collectionMode === "permanent" \? "permanent" : "mouseover"/);
+  assert.match(list, /if \(this\.options\.collectionMode !== "permanent"\) return "";/);
+  assert.match(list, /data-record-action="collect"/);
+  assert.match(list, /item\.classList\.toggle\("h-recordlist-collected"/);
+  assert.match(css, /\.h-recordlist-item\.h-recordlist-collected \{ background:#e6fdeb; \}/);
+  assert.match(css, /\.h-recordlist-item\.h-recordlist-selected\.h-recordlist-collected \{ background:#80e8da; \}/);
+});
+
+test("Table view: the same collectionMode and collected-row colours", () => {
+  assert.match(table, /const collectionColumn = collectionEnabled && this\.options\.collectionMode === "permanent";/);
+  assert.match(table, /data-action="collect"/);
+  assert.match(table, /node\.classList\.toggle\("heurist-data-collected", inCollection\)/);
+});
+
+test("Table view: rows get their collected state when drawn (first draw runs before this.instance is set)", () => {
+  assert.match(table, /rowCallback: \(row, data\) => \{/);
+  assert.match(table, /this\._syncRowCollection\(row, id\);/);
+});
+
+test("list and Table view share the admin info markup (regular eye and bookmark icons)", () => {
+  assert.match(list, /adminInfoHtml\(record, "h-recordlist"\)/);
+  assert.match(table, /adminInfoHtml\(\s*record,\s*"heurist-data"/);
+});

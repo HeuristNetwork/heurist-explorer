@@ -7,7 +7,9 @@
  * Layout): presentations and tools, also those deferred at start and not created
  * yet. A tab shows its module (ExplorerApplication#showPresentation); in a collapsed
  * or squeezed pane it first gives the pane its space back. When the names do not fit
- * the pane's width, the strip shows icons only and wraps. HCardinalLayout stays
+ * the pane's width, the strip shows icons only and wraps. A collapsed pane shows its
+ * tabs in the toolbar buttons size (Explorer configuration), and a click anywhere
+ * on it expands it with its shown module. HCardinalLayout stays
  * module-agnostic: the strips are Explorer's. See docs/development/16 Compact-Toolbar-Plan.md.
  *
  * @project     Heurist academic knowledge management system
@@ -45,6 +47,8 @@ export class ExplorerPaneTabs {
     this._fullWidths = new Map();
     this._buttons = new Map(rightButtons().map((definition) => [definition.id, definition]));
     this._onLayoutChange = () => this.render();
+    // hosts given the click-to-expand listener
+    this._clickHosts = new WeakSet();
     this._resizeObserver = typeof ResizeObserver === 'function'
       ? new ResizeObserver(() => this._fitAll())
       : null;
@@ -155,6 +159,10 @@ export class ExplorerPaneTabs {
       this._resizeObserver?.observe(host);
     }
     if (strip.parentElement !== host || host.children?.[0] !== strip) host.prepend(strip);
+    if (!this._clickHosts.has(host)) {
+      this._clickHosts.add(host);
+      host.addEventListener('click', (event) => this._onCollapsedClick(region, host, event));
+    }
     strip.classList.toggle('is-single', tabs.length < 2);
     host.classList.add('has-pane-tabs');
     host.classList.toggle('has-pane-tab-strip', tabs.length > 1);
@@ -168,6 +176,23 @@ export class ExplorerPaneTabs {
     strip.dataset.tabs = key;
     strip.replaceChildren(...tabs.map((tab) => this._tab(region, tab, tab.id === activeId)));
     this._fit(region);
+  }
+
+  /**
+   * A click anywhere on a collapsed (or squeezed) pane, other than on a tab, expands
+   * it with the module it shows (its first module when it has none yet).
+   *
+   * @private
+   * @param {string} region Pane region.
+   * @param {HTMLElement} host The pane's region element.
+   * @param {MouseEvent} event The click.
+   * @returns {void}
+   */
+  _onCollapsedClick(region, host, event) {
+    if (!this.active || !host.classList.contains('is-collapsed')) return;
+    if (event.target?.closest?.('.h-explorer-pane-tab')) return;
+    const type = this._activeTab(region) || this.paneTypes().get(region)?.[0];
+    if (type) void this.select(region, type);
   }
 
   /** @private Re-fit every strip (a pane was resized). */

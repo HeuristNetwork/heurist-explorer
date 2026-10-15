@@ -190,27 +190,22 @@ export class ExplorerConfigurationDialog {
     simplifiedRow.append(simplifiedCaption, simplified);
     body.append(simplifiedRow);
 
-    // In panes: small buttons next to the panes, so the buttons size does not apply
-    const syncSize = () => {
-      const panes = this.value.toolbar.position === 'panes';
-      sizeRow.classList.toggle('is-disabled', panes);
-      for (const input of sizeRow.querySelectorAll('input')) input.disabled = panes;
-    };
     const positionRow = this.radioGroup(body, 'Toolbar position', [
       ['vertical', 'Vertical (side rails)'],
       ['horizontal', 'Horizontal (top toolbar)'],
       ['panes', 'In panes (buttons and tabs in the panes)']
-    ], this.value.toolbar.position, (next) => { this.value.toolbar.position = next; syncSize(); });
+    ], this.value.toolbar.position, (next) => { this.value.toolbar.position = next; });
 
-    const sizeRow = this.radioGroup(body, 'Toolbar buttons size', VIEW_MODES.map((mode) => [mode.id, mode.label]),
+    // every toolbar position, also "In panes" and the simplified interface: the left
+    // rail and the tabs of collapsed panes (2026-10-15)
+    this.radioGroup(body, 'Toolbar buttons size', VIEW_MODES.map((mode) => [mode.id, mode.label]),
       this.value.toolbar.buttonSize, (next) => { this.value.toolbar.buttonSize = next; });
-    syncSize();
 
     const listsRow = this.radioGroup(body, 'Lists (Filters, Entities, Sources, Favorites, History, Workspace)', [
       ['docked', 'Docked in the search pane'],
       ['popup', 'Popup']
     ], this.value.lists, (next) => { this.value.lists = next; });
-    this._advancedControls = [positionRow, sizeRow, listsRow];
+    this._advancedControls = [positionRow, listsRow];
 
     // Explorer and every module use this language; changing it reloads Explorer
     this.selectRow(body, 'Language', LANGUAGES, this.value.language, (next) => { this.value.language = next; });

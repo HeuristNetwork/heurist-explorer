@@ -252,3 +252,54 @@ first … 3 before, current, 3 after … last (`widgets/pageEntries.js`); in a p
   — "Save filter for re-use" and the Data module's "Save as Filter" — shows a message instead. Saving
   them in legacy faceted v2 and opening the legacy faceted wizard was assessed (save silently with
   `ssearch_save`, then `showSearchFacetedWizard({svsID})`; reverse converter ~350 lines) and not done.
+
+# Part 7 (2026-10-15)
+
+Requests (Artem, 2026-10-15), implemented the same day, not committed, not checked in a browser.
+
+Explorer:
+- **Toolbar buttons size** is always shown and enabled in the configuration (also "In panes" and in
+  the simplified interface; `effectiveUiConfig()` keeps the user's `buttonSize`, default *Large icons
+  with captions*). "In panes" it applies to the left rail (row and collapsed strip) and to the tabs
+  of **collapsed** panes (root class `h-pane-buttons-<size>`, `ExplorerPaneTabs.css`); expanded panes
+  keep the normal tabs. The strips are sized to match (`STRIP_SIZES` in `ExplorerPaneToolbar.js`):
+  search pane 34 / 160 / 68 / 68 px, module panes (width × north/south height) 26×26, 120×32, 66×66,
+  70×78 px for small / small-caption / large / large-caption. New `HCardinalLayout` option
+  `collapsedHeight` (north/south strips and the squeezed middle row; null = `collapsedSize`) and
+  `ExplorerAuthoringDock#setToolbarStripSize`.
+- A click anywhere on a collapsed pane (not on a button or tab) expands it: a module pane with the
+  module it shows (`ExplorerPaneTabs#_onCollapsedClick`), the search pane like `»` (default list).
+- Lists: an empty star (not a favorite) is shown on mouse over only; a favorite's star always.
+- Built-in filters Recent / All by date: `margin-left: 24px` on their title (`.h-explorer-source-title`), not the row.
+- "In panes": a click on the shown list's button no longer hides the list (and so no longer
+  collapses the search pane).
+- The gear (Options) menu shows no ▴ while open.
+
+Data module (`HRecordList`):
+- Internal option `collectionMode`: `permanent` (the collection checkbox, as before) or `mouseover`
+  (**default**: a +/- button with the row actions, shown on mouse over). Not in the settings dialog.
+- Collected records: class `h-recordlist-collected`, background `#e6fdeb`; selected and collected
+  `#80e8da`. (The class is new; collection state is now also applied on every render.)
+- The same in the Table view (`DataTablesAdapter`, same internal `collectionMode`): the checkbox column
+  only with `permanent`, else a +/- button first in the row actions (column 4.5em); rows
+  `heurist-data-collected` `#e6fdeb`, selected and collected `#80e8da`.
+- Table view fix: collected rows were not marked after switching to the Table view (the first draw
+  runs inside the DataTables constructor, before `this.instance` is set); every drawn row now gets
+  its selected / collected state in `rowCallback`.
+- Admin info (owner, visibility, bookmark) and the record-type icon URL: one shared renderer
+  `apps/data/src/ui/recordAdminInfo.js` for HRecordList and the Table view; both use
+  `fa-regular fa-eye` / `fa-regular fa-bookmark`.
+
+Simplified interface, QSE p6 (2026-10-15):
+- **Filter builder** (`fa-solid fa-filter`) opens the **legacy search builder** (`searchBuilder.js`
+  `showSearchBuilder`) via the existing host bridge `openSearchBuilder({query})` (Explorer
+  `openSearchBuilder(query)`): it starts with the query text, its result replaces the query (a Filter
+  Form is dropped) and runs. Without that bridge method our Filter Builder opens, as before.
+- New **Facet builder** (`fa-solid fa-sliders`) after it: the legacy faceted search wizard for a new
+  faceted Saved Filter, `HSvsEdit.showSavedFilterEditDialog('faceted', …)`. New bridge method
+  `editFacetedFilter()` (heurist `HeuristModuleExplorer.js`; `HEURIST4.ui.editSavedFilter(svsID, squery,
+  mode)` got the `mode` argument). It resolves when the filter is saved (the wizard calls back
+  `(event, request)`); closing the wizard without saving leaves it pending (the wizard has no close
+  callback). Explorer reloads the Saved Filters on save. Shown only with the bridge method and
+  `canEditSavedFilters`.
+- The Filter Form has no **Builder** button in the simplified interface.

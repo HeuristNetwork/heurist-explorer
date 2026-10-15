@@ -21,12 +21,12 @@ import { $HR } from '#shared/ui';
 import { dataPopupMode, extendedViewTemplate } from "../core/recordTemplates.js";
 import { createOwnersToggle, createSortSelect } from "../ui/ListToolControls.js";
 import { pageEntries } from "./pageEntries.js";
+import { adminInfoHtml, recordTypeIconUrl } from "../ui/recordAdminInfo.js";
 import template from "./HRecordList.html?raw";
 import "./HRecordList.css";
 
 const PAGE_SIZES = [50, 100, 500, 1000, 5000];
 const VIEW_MODES = ["list", "card", "row", "big"];
-const RECORD_TYPE_ICON_TOKEN = Date.now();
 
 /** Renders records using native DOM/CSS without a UI framework. */
 export class HRecordList extends HBaseWidget {
@@ -366,6 +366,7 @@ export class HRecordList extends HBaseWidget {
     }
     this._renderPagination();
     this._updateCounter();
+    this._applyCollection();
     this._applySelection();
   }
 
@@ -474,11 +475,7 @@ export class HRecordList extends HBaseWidget {
   }
   /** Build the record-type icon URL used as a card/row thumbnail fallback. */
   _recordTypeThumbnail(record) {
-    const typeId = Number(record?.rec_RecTypeID);
-    const baseUrl = String(this.options.baseUrl || "");
-    if (!(typeId > 0) || !baseUrl) return "";
-    const heuristRoot = baseUrl.endsWith("/") ? baseUrl : `${baseUrl}/`;
-    return `${heuristRoot}?db=${encodeURIComponent(this.options.database || "")}&icon=${typeId}&t=${RECORD_TYPE_ICON_TOKEN}&version=thumb`;
+    return recordTypeIconUrl(record, this.options);
   }
   /** Build fallback "big" view-mode markup used when no report template or content is available. */
   _fallbackExtendedHtml(record) {
@@ -489,9 +486,14 @@ export class HRecordList extends HBaseWidget {
       this._actionsHtml(record)
     );
   }
-  /** Build the persistent-collection checkbox markup, when that interaction is enabled. */
+  /**
+   * Build the persistent-collection checkbox markup, when that interaction is enabled
+   * and `collectionMode` is "permanent" (with "mouseover" the +/- button in the row
+   * actions adds and removes, see `_actionsHtml`).
+   */
   _collectionHtml(record) {
     if (!this.options.interaction.persistentSelectionEnabled) return "";
+    if (this.options.collectionMode !== "permanent") return "";
     return (
       `<input type="checkbox" class="h-checkbox h-recordlist-collection"` +
       ` data-record-id="${recordId(record)}" aria-label="${escapeAttr($HR("In collection"))}">`
@@ -500,42 +502,18 @@ export class HRecordList extends HBaseWidget {
 
   /** Build the record-type icon markup shown on each list item. */
   _typeIconHtml(record) {
-    const baseUrl = String(this.options.baseUrl || "");
-    const heuristRoot =
-      baseUrl && !baseUrl.endsWith("/") ? `${baseUrl}/` : baseUrl;
-    const database = String(this.options.database || "");
-    const typeId = Number(record?.rec_RecTypeID);
-    const typeIcon =
-      typeId > 0 && heuristRoot
-        ? `${heuristRoot}?db=${encodeURIComponent(database)}&icon=${typeId}&t=${RECORD_TYPE_ICON_TOKEN}&version=thumb`
-        : "";
+    const typeIcon = recordTypeIconUrl(record, this.options);
     return typeIcon
       ? `<img class="h-recordlist-rectype-icon" src="${escapeAttr(typeIcon)}" width="18" height="18" alt="">`
       : '<span class="h-recordlist-rectype-icon"></span>';
   }
 
-  /** Build the owner/visibility/bookmark admin-info markup, when that interaction is enabled. */
+  /** Build the owner/visibility/bookmark admin-info markup (shared with the Table view), when enabled. */
   _adminHtml(record) {
     if (!this.options.interaction.adminInfoEnabled) return "";
-    const visibility = String(
-      record?.rec_NonOwnerVisibility || "",
-    ).toLowerCase();
-    const visibilityInfo = {
-      hidden: { icon: "fa-eye-slash", hint: "hidden_hint", color: "#c62828" },
-      visible: { icon: "fa-eye", hint: "visible_hint", color: "#e07b00" },
-      pending: { icon: "fa-eye", hint: "pending_hint", color: "#2e8b57" },
-      public: { icon: "fa-eye", hint: "public_hint", color: "#777" },
-    }[visibility] || { icon: "fa-eye", hint: "public_hint", color: "#777" };
-    const visibilityHint = $HR(visibilityInfo.hint);
-    const bookmarked = Number(record?.rec_Bookmarked) !== 0;
-    return (
-      '<span class="h-recordlist-admin">' +
-      `<span class="h-recordlist-owner" title="${escapeAttr(record?.rec_OwnerName || "")}">${escapeHtml(record?.rec_OwnerName || "")}</span>` +
-      `<span class="h-recordlist-visibility" title="${escapeAttr(visibilityHint)}"><i class="fa-solid ${visibilityInfo.icon}" style="color:${visibilityInfo.color}" aria-label="${escapeAttr(visibilityHint)}"></i></span>` +
-      `<i class="fa-solid fa-bookmark h-recordlist-bookmark${bookmarked ? "" : " is-placeholder"}" title="Bookmarked" aria-label="Bookmarked"></i>` +
-      "</span>"
-    );
+    return adminInfoHtml(record, "h-recordlist");
   }
+
   /** Build the edit/view row-action buttons markup, per enabled interactions. */
   _actionsHtml(record) {
     const id = recordId(record);
@@ -548,7 +526,12 @@ export class HRecordList extends HBaseWidget {
       this.options.interaction.popupEnabled === false || dataPopupMode(this.options.popupTemplate) === "none"
         ? ""
         : `<button class="h-recordlist-icon-button" data-record-action="view" data-record-id="${id}" title="${escapeAttr($HR("View"))}"><i class="fa-solid fa-circle-info"></i></button>`;
-    return `<span class="h-recordlist-actions">${edit}${view}</span>`;
+    // collectionMode "mouseover": +/- shown with the other actions (_applyCollection sets it)
+    const collect =
+      this.options.interaction.persistentSelectionEnabled && this.options.collectionMode !== "permanent"
+        ? `<button class="h-recordlist-icon-button h-recordlist-collect" data-record-action="collect" data-record-id="${id}"><i class="fa-solid fa-plus"></i></button>`
+        : "";
+    return `<span class="h-recordlist-actions">${collect}${edit}${view}</span>`;
   }
 
   /** Create the IntersectionObserver that lazily loads template content for scrolled-into-view items. */
@@ -643,12 +626,19 @@ export class HRecordList extends HBaseWidget {
     this.onSelectionChange?.([...this.selected]);
   }
 
-  /** Dispatch a row-action button click (edit or view) for its record. */
+  /** Dispatch a row-action button click (collect, edit or view) for its record. */
   _recordAction(target) {
     const id = Number(target.dataset.recordId);
-    target.dataset.recordAction === "edit"
-      ? this.onEditRecord?.(id)
-      : this.onViewRecord?.(id, target);
+    const action = target.dataset.recordAction;
+    if (action === "collect") this._collectToggled(id);
+    else if (action === "edit") this.onEditRecord?.(id);
+    else this.onViewRecord?.(id, target);
+  }
+
+  /** The +/- button (collectionMode "mouseover"): add the record to the collection or remove it. */
+  _collectToggled(id) {
+    const collected = !this.collected.has(id);
+    Promise.resolve(this.onCollectionToggle?.(id, collected)).catch(() => {});
   }
 
   /** Edit the double-clicked record, as its pen button does (only when the pen is offered). */
@@ -744,10 +734,24 @@ export class HRecordList extends HBaseWidget {
     this._updateSelectionButton();
   }
 
-  /** Sync each rendered item's collection checkbox with `this.collected`. */
+  /**
+   * Sync each rendered item with `this.collected`: its `h-recordlist-collected` class,
+   * its checkbox (collectionMode "permanent") or its +/- button ("mouseover").
+   */
   _applyCollection() {
+    this.$$(".h-recordlist-item").forEach((item) => {
+      item.classList.toggle("h-recordlist-collected", this.collected.has(Number(item.dataset.recordId)));
+    });
     this.$$(".h-recordlist-collection").forEach((input) => {
       input.checked = this.collected.has(Number(input.dataset.recordId));
+    });
+    this.$$(".h-recordlist-collect").forEach((button) => {
+      const collected = this.collected.has(Number(button.dataset.recordId));
+      button.title = $HR(collected ? "Remove from collection" : "Add to collection");
+      button.setAttribute("aria-label", button.title);
+      button.setAttribute("aria-pressed", String(collected));
+      const icon = button.querySelector("i");
+      if (icon) icon.className = `fa-solid ${collected ? "fa-minus" : "fa-plus"}`;
     });
   }
 
@@ -977,6 +981,9 @@ function normalizeOptions(options) {
       : 100,
     fontSize: Number(options.fontSize) || 14,
     viewMode: normalizeViewMode(options.viewMode),
+    // how a record is added to / removed from the collection: "permanent" checkbox, or
+    // "mouseover" +/- button with the row actions (internal, not in the settings; 2026-10-15)
+    collectionMode: options.collectionMode === "permanent" ? "permanent" : "mouseover",
     controls: {
       pageSize: true,
       search: true,

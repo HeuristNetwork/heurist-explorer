@@ -65,6 +65,8 @@ export class ExplorerAuthoringDock extends EventTarget {
     this._formCover = false;
     // "In panes" toolbar: the West region holds the toolbar buttons, so it is always shown
     this._toolbar = null;
+    // width of its collapsed strip, by the toolbar buttons size (setToolbarStripSize)
+    this._toolbarStripSize = TOOLBAR_STRIP_SIZE;
 
     this.cardinal = new HCardinalLayout(container, {
       westSize: this.widths.editor,
@@ -249,11 +251,29 @@ export class ExplorerAuthoringDock extends EventTarget {
     const next = element instanceof HTMLElement ? element : null;
     if (next === this._toolbar) return this;
     this._toolbar = next;
-    this.cardinal.options.collapsedSize = next ? TOOLBAR_STRIP_SIZE : this._defaultStripSize;
+    this.cardinal.options.collapsedSize = next ? this._toolbarStripSize : this._defaultStripSize;
     if (next) this.cardinal.getRegionElement('west').prepend(next);
     else if (!this._drawer) this.cardinal.expand('west');
     this._syncRegions();
     this.cardinal.resize();
+    return this;
+  }
+
+  /**
+   * Width of the collapsed West strip while it holds the "In panes" toolbar (the
+   * buttons size: small icons fit 34px, captions need more).
+   *
+   * @param {number} size Strip width in pixels.
+   * @returns {ExplorerAuthoringDock} This dock.
+   */
+  setToolbarStripSize(size) {
+    const next = Number.isFinite(size) && size > 0 ? size : TOOLBAR_STRIP_SIZE;
+    if (next === this._toolbarStripSize) return this;
+    this._toolbarStripSize = next;
+    if (this._toolbar) {
+      this.cardinal.options.collapsedSize = next;
+      this.cardinal.resize();
+    }
     return this;
   }
 

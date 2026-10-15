@@ -2,7 +2,8 @@
    The authoring dock's own West region is `.h-explorer-authoring-dock > .h-cardinal-middle
    > .h-cardinal-west` (the module layout inside it has West regions too). */
 
-/* small buttons in both rails, whatever the configured size; no size toggle */
+/* small buttons (no h-mode-* class); the other sizes keep ExplorerRail.css's rules,
+   which are more specific (2026-10-15); no size toggle */
 .h-toolbar-panes .h-explorer-rail-button {
     width: 22px;
     height: 26px;
@@ -50,10 +51,20 @@
     display: none;
 }
 
-.h-toolbar-panes .h-explorer-rail-left .h-explorer-rail-separator {
+.h-toolbar-panes .h-explorer-rail.h-explorer-rail-left .h-explorer-rail-separator {
     width: 1px;
     height: 18px;
     margin: 0 4px;
+}
+
+.h-toolbar-panes .h-explorer-rail.h-explorer-rail-left:is(.h-mode-large, .h-mode-large-caption) .h-explorer-rail-separator {
+    height: 44px;
+}
+
+/* small icons with captions in the row: each button as wide as its caption */
+.h-toolbar-panes .h-cardinal-west:not(.is-collapsed) > .h-explorer-rail-left.h-mode-small-caption .h-explorer-rail-button {
+    width: auto;
+    padding: 0 6px;
 }
 
 .h-toolbar-panes .h-explorer-rail-left .h-explorer-rail-stop {
@@ -88,7 +99,9 @@
     cursor: pointer;
 }
 
-.h-explorer-pane-toolbar-settings > summary::after {
+/* no ▾/▴ marker, also while open (the shared .h-dropdown[open] rule is more specific) */
+.h-explorer-pane-toolbar-settings > summary::after,
+.h-explorer-pane-toolbar-settings[open] > summary::after {
     content: none;
 }
 
@@ -117,6 +130,21 @@
     flex-direction: column;
     flex-wrap: nowrap;
     align-items: center;
+}
+
+.h-toolbar-panes .h-cardinal-west.is-collapsed > .h-explorer-rail-left .h-explorer-rail-cluster {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 0 3px;
+}
+
+.h-toolbar-panes .h-cardinal-west.is-collapsed > .h-explorer-rail-left.h-mode-small-caption .h-explorer-rail-cluster {
+    align-items: stretch;
+}
+
+/* a click on the strip (not on a button) expands it (ExplorerPaneToolbar#_onWestClick) */
+.h-toolbar-panes .h-explorer-authoring-dock > .h-cardinal-middle > .h-cardinal-west.is-collapsed {
+    cursor: pointer;
 }
 
 .h-toolbar-panes .h-cardinal-west.is-collapsed > .h-explorer-rail-left .h-explorer-rail-separator {

@@ -37,6 +37,8 @@ const DEFAULT_OPTIONS = {
   eastSize: 300,
   southSize: 240,
   collapsedSize: 26,
+  // height of a collapsed north/south strip (and of the squeezed middle row); null = collapsedSize
+  collapsedHeight: null,
   splitterSize: 7,
   minNorth: 80,
   minWest: 250,
@@ -782,6 +784,7 @@ export class HCardinalLayout extends EventTarget {
     const south = this._effectiveSize('south', maximized);
     const splitter = this.options.splitterSize;
     const strip = this.options.collapsedSize;
+    const stripHeight = this._stripSize('north');
     const focused = this.state.focused;
 
     if (focused) {
@@ -806,7 +809,7 @@ export class HCardinalLayout extends EventTarget {
     // a maximized north/south takes the rest; the middle row is squeezed to a strip
     const northTrack = maximized === 'north' ? 'minmax(0, 1fr)' : `${north}px`;
     const southTrack = maximized === 'south' ? 'minmax(0, 1fr)' : `${south}px`;
-    const middleTrack = maximized === 'north' || maximized === 'south' ? `${strip}px` : 'minmax(0, 1fr)';
+    const middleTrack = maximized === 'north' || maximized === 'south' ? `${stripHeight}px` : 'minmax(0, 1fr)';
     this.root.style.gridTemplateRows = `${northTrack} ${northSplitter}px ${middleTrack} ${southSplitter}px ${southTrack}`;
 
     const westVisible = this.state.west.visible;
@@ -919,7 +922,19 @@ export class HCardinalLayout extends EventTarget {
       return 0;
     }
 
-    return value.collapsed || this._isSqueezed(region, maximized) ? this.options.collapsedSize : value.size;
+    return value.collapsed || this._isSqueezed(region, maximized) ? this._stripSize(region) : value.size;
+  }
+
+  /**
+   * The size of a region's collapsed strip: its height for north/south, else its width.
+   *
+   * @private
+   * @param {string} region Region name.
+   * @returns {number}
+   */
+  _stripSize(region) {
+    const height = this.options.collapsedHeight;
+    return (region === 'north' || region === 'south') && Number.isFinite(height) ? height : this.options.collapsedSize;
   }
 
   /**

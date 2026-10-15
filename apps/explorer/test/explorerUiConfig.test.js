@@ -194,7 +194,7 @@ test('simplified interface: on by default; fixed toolbar, lists and layout over 
   assert.equal(ExplorerUiConfig.defaults().isSimplifiedUI, true);
   const saved = config.save({ toolbar: { position: 'vertical', buttonSize: 'large' }, lists: 'popup', regions: { map: 'east' } });
   const applied = effectiveUiConfig(saved);
-  assert.deepEqual(applied.toolbar, { position: 'panes', buttonSize: 'small' });
+  assert.deepEqual(applied.toolbar, { position: 'panes', buttonSize: 'large' });
   assert.equal(applied.lists, 'docked');
   assert.equal(applied.regions.map, 'center');
   assert.equal(applied.regions.data, 'west');

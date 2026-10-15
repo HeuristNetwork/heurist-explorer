@@ -453,7 +453,13 @@ export class ExplorerApplication {
       simplified: this.isSimplifiedUI(),
       onSaveFilterForReuse: (query) => this.editSavedFilter(null, query)
         .catch((error) => HMsg.showMsgErr?.(error?.message || String(error))),
-      canSaveFilterForReuse: () => this.canEditSavedFilters()
+      canSaveFilterForReuse: () => this.canEditSavedFilters(),
+      // simplified interface p6: legacy search builder and faceted search wizard (2026-10-15)
+      openSearchBuilder: typeof this.config.hostBridge?.openSearchBuilder === 'function'
+        ? (query) => this.openSearchBuilder(query) : null,
+      onFacetBuilder: () => this.editFacetedFilter()
+        .catch((error) => HMsg.showMsgErr?.(error?.message || String(error))),
+      canFacetBuilder: () => this.canEditFacetedFilters()
     });
     // own host element: the panel replaces its container's class, and the pane
     // must keep `h-explorer-authoring` (its scroll container)
@@ -1310,6 +1316,48 @@ export class ExplorerApplication {
       this.controlPanel?.refreshNavigationLists?.();
     }
     return result || null;
+  }
+
+  /**
+   * Open the host's legacy search builder (searchBuilder.js) as a query designer.
+   *
+   * @param {string} [query=''] Query text it starts with.
+   * @returns {Promise<string|null>} The composed query text, or null when closed without one.
+   * @throws {Error} When the host has no search builder.
+   */
+  async openSearchBuilder(query = '') {
+    const bridge = this.config.hostBridge;
+    if (typeof bridge?.openSearchBuilder !== 'function') {
+      throw new Error($HR('Search Builder is not available'));
+    }
+    const result = await bridge.openSearchBuilder({ query: String(query ?? '') });
+    return result == null ? null : String(result);
+  }
+
+  /**
+   * Open the host's faceted search wizard for a new faceted Saved Filter; the Saved
+   * Filters are reloaded when it saves.
+   *
+   * @returns {Promise<object|null>} Editor result, or null.
+   * @throws {Error} When the host has no faceted search wizard.
+   */
+  async editFacetedFilter() {
+    const bridge = this.config.hostBridge;
+    if (typeof bridge?.editFacetedFilter !== 'function') {
+      throw new Error($HR('Faceted search wizard is not available'));
+    }
+    const result = await bridge.editFacetedFilter();
+    if (result?.saved) {
+      await this.savedFilters.load();
+      this._savedFilterSaved(result);
+      this.controlPanel?.refreshNavigationLists?.();
+    }
+    return result || null;
+  }
+
+  /** @returns {boolean} Whether the host faceted search wizard can be used (as the Saved Filter editor). */
+  canEditFacetedFilters() {
+    return hostCan(this.config.hostBridge, 'editFacetedFilter', 'canEditSavedFilters');
   }
 
   /** @returns {boolean} Whether the host record editor can be used (logged in, editor available). */

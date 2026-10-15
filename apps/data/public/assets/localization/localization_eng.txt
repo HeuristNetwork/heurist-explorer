@@ -212,3 +212,5 @@
 #See owners#See owners
 #Hide owners#Hide owners
 #Page#Page
+#Add to collection#Add to collection
+#Remove from collection#Remove from collection

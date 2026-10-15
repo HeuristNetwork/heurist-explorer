@@ -112,3 +112,58 @@
 .h-cardinal-region.is-collapsed .h-explorer-pane-tab-label {
     display: none;
 }
+
+/* a click on a collapsed pane, other than on a tab, expands it (ExplorerPaneTabs#_onCollapsedClick) */
+.h-toolbar-panes .h-cardinal-region.has-pane-tabs.is-collapsed {
+    cursor: pointer;
+}
+
+/* ---- collapsed tabs in the toolbar buttons size (h-pane-buttons-<size> on the Explorer
+   root, ExplorerPaneToolbar; small = the rules above). The strips are sized to match. */
+
+.h-pane-buttons-small-caption .h-cardinal-region.is-collapsed > .h-explorer-pane-tabs {
+    align-items: stretch;
+    padding: 4px 3px;
+}
+
+.h-pane-buttons-small-caption .h-cardinal-region.is-collapsed > .h-explorer-pane-tabs > .h-explorer-pane-tab {
+    justify-content: flex-start;
+    gap: 6px;
+    width: auto;
+    min-width: 0;
+    height: 24px;
+    padding: 0 6px;
+}
+
+.h-pane-buttons-small-caption .h-cardinal-region.is-collapsed > .h-explorer-pane-tabs > .h-explorer-pane-tab > .h-explorer-pane-tab-label {
+    display: block;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.h-pane-buttons-large .h-cardinal-region.is-collapsed > .h-explorer-pane-tabs > .h-explorer-pane-tab {
+    width: 60px;
+    height: 60px;
+    font-size: 28px;
+}
+
+.h-pane-buttons-large-caption .h-cardinal-region.is-collapsed > .h-explorer-pane-tabs > .h-explorer-pane-tab {
+    flex-direction: column;
+    justify-content: center;
+    gap: 4px;
+    width: 64px;
+    height: auto;
+    min-height: 70px;
+    padding: 6px 2px;
+    font-size: 28px;
+}
+
+.h-pane-buttons-large-caption .h-cardinal-region.is-collapsed > .h-explorer-pane-tabs > .h-explorer-pane-tab > .h-explorer-pane-tab-label {
+    display: block;
+    font-size: 10px;
+    line-height: 1.15;
+    text-align: center;
+    white-space: normal;
+    word-break: break-word;
+}

@@ -167,9 +167,10 @@ function defaults() {
   };
 }
 
-/** Toolbar, lists and layout of the simplified interface (Artem, 2026-10-14). */
+/** Toolbar, lists and layout of the simplified interface (Artem, 2026-10-14); the
+ *  buttons size stays the user's choice (2026-10-15). */
 const SIMPLIFIED = {
-  toolbar: { position: 'panes', buttonSize: 'small' },
+  toolbar: { position: 'panes' },
   lists: 'docked',
   regions: {
     data: 'west', recordview: 'center', map: 'center', graph: 'center', report: 'center', export: 'center',
@@ -190,7 +191,7 @@ export function effectiveUiConfig(value) {
   if (value?.isSimplifiedUI !== true) return value;
   return {
     ...value,
-    toolbar: { ...SIMPLIFIED.toolbar },
+    toolbar: { ...value.toolbar, ...SIMPLIFIED.toolbar },
     lists: SIMPLIFIED.lists,
     regions: { ...SIMPLIFIED.regions },
     order: [...SIMPLIFIED.order],

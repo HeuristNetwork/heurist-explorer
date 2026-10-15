@@ -84,6 +84,9 @@
 .heurist-data-root table.dataTable>tbody>tr>td { padding:3px 3px !important; }
 .heurist-data-table tbody tr { cursor: pointer; }
 .heurist-data-table tbody tr.heurist-data-selected > * { background: var(--h-color-selected) !important; }
+/* in the collection (2026-10-15, as HRecordList); selected and collected: a stronger colour */
+.heurist-data-table tbody tr.heurist-data-collected > * { background: #e6fdeb !important; }
+.heurist-data-table tbody tr.heurist-data-selected.heurist-data-collected > * { background: #80e8da !important; }
 .heurist-data-record { border: 0; background: transparent; color: var(--h-color-link); cursor: pointer; text-decoration: underline; }
 .heurist-data-admin { display:flex; align-items:center; gap:4px; white-space:nowrap; color:var(--h-color-text-muted); }
 .heurist-data-admin .fa-regular { width:12px; height:12px; font-size:var(--h-font-size); line-height:12px; text-align:center; }

@@ -260,6 +260,17 @@
     opacity: 0;
 }
 
+/* not a favorite (empty star): shown on mouse over the row only; a favorite's star
+   is always shown (2026-10-15) */
+.h-explorer-filter-favorite[aria-pressed="false"] {
+    opacity: 0;
+}
+
+.h-explorer-source-row:hover .h-explorer-filter-favorite,
+.h-explorer-source-row:focus-within .h-explorer-filter-favorite {
+    opacity: 1;
+}
+
 .h-explorer-saved-filter-row:hover .h-explorer-filter-edit,
 .h-explorer-saved-filter-row:focus-within .h-explorer-filter-edit,
 .h-explorer-query-source-row:hover .h-explorer-filter-edit,
@@ -353,4 +364,9 @@
     margin-bottom: 7px;
     padding: 2px 0 4px;
     border-bottom: 1px solid var(--h-color-border);
+}
+
+/* no star: the titles line up with the list's titles below */
+.h-explorer-builtin-filter-row .h-explorer-source-title {
+    margin-left: 24px;
 }

@@ -5,8 +5,9 @@
  *        positions do not know it exists.
  *
  * While active, the Explorer root carries `h-toolbar-panes` and:
- * - the left rail is a row of small buttons at the top of the West pane (a column in
- *   its collapsed strip). Search is hidden: the Query Source editor is always shown
+ * - the left rail is a row of buttons at the top of the West pane (a column in its
+ *   collapsed strip), in the configured buttons size; a click anywhere on the
+ *   collapsed strip expands it. Search is hidden: the Query Source editor is always shown
  *   (unless a Filter Form covers it); a «/» button collapses and expands the pane.
  *   With the editor placed north (Horizontal), the buttons stay in the West pane;
  *   a gear at the end of the row opens a menu: Configuration, Help, Getting started,
@@ -38,6 +39,17 @@ import './ExplorerPaneToolbar.css';
 
 const PANES_CLASS = 'h-toolbar-panes';
 const EDGE_REGIONS = ['north', 'west', 'east', 'south'];
+const BUTTON_SIZES = ['small', 'small-caption', 'large', 'large-caption'];
+/** Collapsed strips by the toolbar buttons size: the West strip with the left rail
+ *  (`search`), the module panes with their tabs (`width` west/east, `height` north/south). */
+const STRIP_SIZES = {
+  small: { search: 34, width: 26, height: 26 },
+  'small-caption': { search: 160, width: 120, height: 32 },
+  large: { search: 68, width: 66, height: 66 },
+  'large-caption': { search: 68, width: 70, height: 78 }
+};
+/** The module layout's own strip size, given back when "In panes" is left. */
+const DEFAULT_TAB_STRIP = 26;
 
 /** Switches Explorer's toolbar into and out of the "In panes" position. */
 export class ExplorerPaneToolbar {
@@ -52,6 +64,14 @@ export class ExplorerPaneToolbar {
     this.tabs = new ExplorerPaneTabs({ application });
     this._toggle = null;
     this._settings = null;
+    this.buttonSize = 'large-caption';
+    // a click on the collapsed West strip (not on a button) expands it, as «/» does
+    this._onWestClick = (event) => {
+      const cardinal = this.application.authoringDock?.cardinal;
+      if (cardinal?.state.west.collapsed !== true) return;
+      if (event.target?.closest?.('button, summary, details, a, input, select')) return;
+      this._expandWest();
+    };
     this._onOutsidePointer = (event) => {
       if (this._settings?.open && !this._settings.contains(event.target)) this._settings.open = false;
     };
@@ -63,6 +83,20 @@ export class ExplorerPaneToolbar {
       void this._fillRegion(event.detail?.region);
       this._resizeModules();
     };
+  }
+
+  /**
+   * The toolbar buttons size (Explorer configuration): the left rail's buttons (set
+   * by the control panel) and the tabs of collapsed panes, and so the strips' sizes.
+   *
+   * @param {string} size One of 'small', 'small-caption', 'large', 'large-caption'.
+   * @returns {void}
+   */
+  setButtonSize(size) {
+    const next = BUTTON_SIZES.includes(size) ? size : 'large-caption';
+    if (next === this.buttonSize) return;
+    this.buttonSize = next;
+    if (this.active) this._applyButtonSize();
   }
 
   /** @returns {boolean} Whether the "In panes" toolbar is on. */
@@ -90,7 +124,10 @@ export class ExplorerPaneToolbar {
       dock?.show();
       this._mountSettings(rail);
       this._mountToggle(rail);
+      dock?.setToolbarStripSize(STRIP_SIZES[this.buttonSize].search);
       dock?.setToolbar(rail?.element || null);
+      dock?.cardinal.getRegionElement('west')?.addEventListener('click', this._onWestClick);
+      this._applyButtonSize();
       dock?.cardinal.addEventListener('regioncollapsechange', this._onWestChange);
       layout?.cardinal.setSplitterButtons(true);
       layout?.addEventListener('regioncollapsechange', this._onModuleRegionChange);
@@ -99,6 +136,8 @@ export class ExplorerPaneToolbar {
       this.refresh();
     } else {
       dock?.cardinal.removeEventListener('regioncollapsechange', this._onWestChange);
+      dock?.cardinal.getRegionElement('west')?.removeEventListener('click', this._onWestClick);
+      this._clearButtonSize();
       layout?.removeEventListener('regioncollapsechange', this._onModuleRegionChange);
       layout?.removeEventListener('regionmaximizechange', this._onModuleRegionChange);
       this.tabs.stop();
@@ -222,15 +261,55 @@ export class ExplorerPaneToolbar {
     button.addEventListener('click', (event) => {
       event.stopPropagation();
       const cardinal = this.application.authoringDock?.cardinal;
-      const opening = cardinal?.state.west.collapsed === true;
-      cardinal?.toggle('west');
-      // opened by «/»: the Saved Filters list unless another list is shown (2026-10-14)
-      if (opening) this.application.controlPanel?.showDefaultList?.();
+      if (cardinal?.state.west.collapsed === true) this._expandWest();
+      else cardinal?.collapse('west');
     });
     this._toggleIcon = icon;
     rail.element.append(button);
     this._toggle = button;
     this._syncToggle();
+  }
+
+  /**
+   * Expand the collapsed West pane: opened by «/» or a click on its strip, it shows
+   * the Saved Filters list unless another list is shown (2026-10-14).
+   *
+   * @private
+   * @returns {void}
+   */
+  _expandWest() {
+    this.application.authoringDock?.cardinal.expand('west');
+    this.application.controlPanel?.showDefaultList?.();
+  }
+
+  /**
+   * Size the collapsed strips for the buttons size: the West strip (left rail) and
+   * the module panes (their tabs); `h-pane-buttons-<size>` styles the tabs.
+   *
+   * @private
+   * @returns {void}
+   */
+  _applyButtonSize() {
+    const app = this.application;
+    const sizes = STRIP_SIZES[this.buttonSize];
+    for (const size of BUTTON_SIZES) app.container?.classList.toggle(`h-pane-buttons-${size}`, size === this.buttonSize);
+    app.authoringDock?.setToolbarStripSize(sizes.search);
+    const cardinal = app.layout?.cardinal;
+    if (!cardinal) return;
+    cardinal.options.collapsedSize = sizes.width;
+    cardinal.options.collapsedHeight = sizes.height;
+    cardinal.resize();
+  }
+
+  /** @private Leaving "In panes": the module layout's own strip size and no size class. */
+  _clearButtonSize() {
+    const app = this.application;
+    for (const size of BUTTON_SIZES) app.container?.classList.remove(`h-pane-buttons-${size}`);
+    const cardinal = app.layout?.cardinal;
+    if (!cardinal) return;
+    cardinal.options.collapsedSize = DEFAULT_TAB_STRIP;
+    cardinal.options.collapsedHeight = null;
+    cardinal.resize();
   }
 
   /** @private Icon and tip of the «/» button from the West pane's state. */

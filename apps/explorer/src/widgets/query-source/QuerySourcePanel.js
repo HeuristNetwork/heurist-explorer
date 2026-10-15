@@ -89,6 +89,9 @@ export class QuerySourcePanel {
       simplified: this.options.simplified === true,
       onSaveFilterForReuse: this.options.onSaveFilterForReuse,
       canSaveFilterForReuse: this.options.canSaveFilterForReuse,
+      openSearchBuilder: this.options.openSearchBuilder,
+      onFacetBuilder: this.options.onFacetBuilder,
+      canFacetBuilder: this.options.canFacetBuilder,
       onExecute: (source) => hasQueryParameters(source?.request?.q)
         ? this.openFilterForm() : this._execute(source),
       onApply: (source) => this.options.onApply?.(source),
@@ -200,7 +203,8 @@ export class QuerySourcePanel {
       selectExtent: this.options.selectExtent,
       composeQuery: (item, values) => resolveQueryParameters(item.query, values, item.filterForm),
       runtimeMode: 'main',
-      onOpenBuilder: () => this._openFilterFormBuilder(),
+      // no Builder button in the simplified interface (2026-10-15)
+      onOpenBuilder: this.options.simplified === true ? null : () => this._openFilterFormBuilder(),
       onClose: () => void this.closeFilterForm({ clearEditor: this.options.simplified === true }),
       onSubmit: ({ query, values: submitted }) => {
         if (key) this._lastValues.set(key, structuredClone(submitted || {}));

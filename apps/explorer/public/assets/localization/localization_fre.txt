@@ -576,3 +576,6 @@
 #Updated#Mis à jour
 #Related#Lié
 #Linked from#Lié depuis
+#Facet builder#Constructeur de facettes
+#Search Builder is not available#Le constructeur de recherche n’est pas disponible
+#Faceted search wizard is not available#L’assistant de recherche à facettes n’est pas disponible

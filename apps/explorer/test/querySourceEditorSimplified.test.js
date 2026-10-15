@@ -19,7 +19,7 @@ test('simplified interface: p6 buttons instead of Builder/Save/Add; Save filter 
   assert.equal(qse._builder.hidden, true);
   assert.equal(qse.actionsSlot.hidden, true);
   const captions = qse._p6.querySelectorAll('.h-qse-p6-caption').map((label) => label.textContent);
-  assert.deepEqual(captions, ['Filter builder', 'Save filter for re-use', 'Filter help']);
+  assert.deepEqual(captions, ['Filter builder', 'Facet builder', 'Save filter for re-use', 'Filter help']);
   qse._saveForReuse.click();
   assert.deepEqual(saved, ['[{"t":10}]'], 'the JSON query as text');
 
@@ -60,4 +60,37 @@ test('a parameterized query is not saved as a new Saved Filter (legacy format ca
   assert.equal(hasQueryParameters('[{"t":"10"},{"f:1":"$X1$"}]'), true, 'JSON text from the editor');
   assert.equal(hasQueryParameters([{ t: '10' }, { 'f:1': '$X1$' }]), true);
   assert.equal(hasQueryParameters('sortby:-m'), false);
+});
+
+test('p6 Filter builder opens the legacy search builder with the query text and runs its result', async () => {
+  const asked = [];
+  const qse = rendered({ simplified: true, openSearchBuilder: async (text) => { asked.push(text); return 't:12'; } });
+  let executed = 0;
+  qse.execute = async () => { executed += 1; };
+  await qse._openP6Builder();
+  assert.deepEqual(asked, ['[{"t":10}]']);
+  assert.equal(qse.draft.request.q, 't:12');
+  assert.equal(executed, 1);
+});
+
+test('p6 Facet builder is offered only with the faceted wizard', () => {
+  assert.equal(rendered({ simplified: true })._facetBuilder.hidden, true);
+  const opened = [];
+  const qse = rendered({ simplified: true, onFacetBuilder: () => opened.push(1), canFacetBuilder: () => true });
+  assert.equal(qse._facetBuilder.hidden, false);
+  qse._facetBuilder.click();
+  assert.equal(opened.length, 1);
+});
+
+test('simplified interface: the Filter Form has no Builder button', async () => {
+  const { readFile } = await import('node:fs/promises');
+  const panel = await readFile(new URL('../src/widgets/query-source/QuerySourcePanel.js', import.meta.url), 'utf8');
+  assert.match(panel, /onOpenBuilder: this\.options\.simplified === true \? null :/);
+});
+
+test('p6 icons: Filter builder fa-filter, Facet builder fa-sliders', async () => {
+  const { readFile } = await import('node:fs/promises');
+  const editor = await readFile(new URL('../src/widgets/query-source/QuerySourceEditor.js', import.meta.url), 'utf8');
+  assert.match(editor, /iconButton\('fa-filter', \$HR\('Filter builder'\)/);
+  assert.match(editor, /iconButton\('fa-sliders', \$HR\('Facet builder'\)/);
 });

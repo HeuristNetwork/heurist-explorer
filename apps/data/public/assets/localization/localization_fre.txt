@@ -212,3 +212,5 @@
 #See owners#Voir les propriétaires
 #Hide owners#Masquer les propriétaires
 #Page#Page
+#Add to collection#Ajouter à la collection
+#Remove from collection#Retirer de la collection

@@ -52,10 +52,15 @@ export class QuerySourceEditor extends HBaseWidget {
    *        sentence (p3); instead p6 with Filter builder, Save filter for re-use and Filter help.
    * @param {Function} [options.onSaveFilterForReuse] Called with the query text (Save filter for re-use).
    * @param {Function} [options.canSaveFilterForReuse] `() → boolean`: whether that button is offered.
+   * @param {Function} [options.openSearchBuilder] p6 Filter builder: the legacy search builder, called with
+   *        the query text, resolves the new query text or null (without it p6 opens our Filter Builder).
+   * @param {Function} [options.onFacetBuilder] p6 Facet builder: opens the legacy faceted search wizard.
+   * @param {Function} [options.canFacetBuilder] `() → boolean`: whether Facet builder is offered.
    */
   constructor({ dbdefs, lang = 'eng', openFilterBuilder, editRules, describeRules, onExecute, onApply, onDirtyChange,
     orientation = 'vertical', expanded = false, onExpandedChange, onLayoutChange, canChangeLayout, onHelp,
-    simplified = false, onSaveFilterForReuse = null, canSaveFilterForReuse = null } = {}) {
+    simplified = false, onSaveFilterForReuse = null, canSaveFilterForReuse = null,
+    openSearchBuilder = null, onFacetBuilder = null, canFacetBuilder = null } = {}) {
     super();
     if (!dbdefs) throw new TypeError('QuerySourceEditor requires dbdefs');
     this.dbdefs = dbdefs;
@@ -79,6 +84,9 @@ export class QuerySourceEditor extends HBaseWidget {
     this._simplified = simplified === true;
     this.onSaveFilterForReuse = onSaveFilterForReuse;
     this.canSaveFilterForReuse = canSaveFilterForReuse;
+    this.openSearchBuilder = openSearchBuilder;
+    this.onFacetBuilder = onFacetBuilder;
+    this.canFacetBuilder = canFacetBuilder;
     /** Host for the Save/Add buttons (DataSourceActions inline mode), laid out beside Filter and Builder. */
     this.actionsSlot = null;
     this.inlineHelper = null;
@@ -182,8 +190,12 @@ export class QuerySourceEditor extends HBaseWidget {
       this._commitQueryInput();
       this.onSaveFilterForReuse?.(queryText(this.draft?.request?.q));
     }, 'h-qse-save-filter');
+    // Filter builder: the legacy search builder (searchBuilder.js) when the host has it;
+    // Facet builder: the legacy faceted search wizard (2026-10-15)
+    this._facetBuilder = iconButton('fa-sliders', $HR('Facet builder'), () => void this.onFacetBuilder?.(), 'h-qse-p6-facets');
     p6.append(
-      captionedIcon(iconButton('fa-sliders', $HR('Filter builder'), () => void this._openBuilder(), 'h-qse-p6-builder'), $HR('Filter builder')),
+      captionedIcon(iconButton('fa-filter', $HR('Filter builder'), () => void this._openP6Builder(), 'h-qse-p6-builder'), $HR('Filter builder')),
+      captionedIcon(this._facetBuilder, $HR('Facet builder')),
       captionedIcon(this._saveForReuse, $HR('Save filter for re-use')),
       captionedIcon(iconButton('fa-circle-question', $HR('Filter help'), () => this.onHelp?.(), 'h-qse-p6-help'), $HR('Filter help'))
     );
@@ -387,6 +399,9 @@ export class QuerySourceEditor extends HBaseWidget {
     if (this._builder) this._builder.hidden = on;
     if (this.actionsSlot) this.actionsSlot.hidden = on;
     if (this._saveForReuse) this._saveForReuse.hidden = this.canSaveFilterForReuse?.() === false;
+    if (this._facetBuilder) {
+      this._facetBuilder.hidden = typeof this.onFacetBuilder !== 'function' || this.canFacetBuilder?.() === false;
+    }
   }
 
   _fitHorizontal() {
@@ -560,6 +575,34 @@ export class QuerySourceEditor extends HBaseWidget {
     const source = this.getDraftDataSource();
     if (!hasQuery(source?.request?.q) || typeof this.onApply !== 'function') return null;
     return this.onApply(source);
+  }
+
+  /**
+   * p6 Filter builder (simplified interface): the legacy search builder with the
+   * query text; its result replaces the query (and drops a Filter Form) and runs.
+   * Without the legacy builder, our Filter Builder.
+   *
+   * @private
+   * @returns {Promise<void>}
+   */
+  async _openP6Builder() {
+    if (typeof this.openSearchBuilder !== 'function') return this._openBuilder();
+    if (!this.draft) return;
+    this._commitQueryInput();
+    let text;
+    try {
+      text = await this.openSearchBuilder(queryText(this.draft.request.q));
+    } catch (error) {
+      HMsg.showMsgErr?.(error?.message || String(error));
+      return;
+    }
+    if (text == null || String(text).trim() === '') return;
+    this.draft.request.q = parseQueryText(String(text));
+    if (this.draft.presentation) this.draft.presentation.filterForm = null;
+    if (!(await this._ensureRecordTypeConsistency())) return;
+    this._markDirty();
+    this._syncFromDraft();
+    await this.execute();
   }
 
   async _openBuilder() {

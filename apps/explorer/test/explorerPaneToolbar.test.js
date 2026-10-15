@@ -77,11 +77,53 @@ test('the pane toggle collapses and expands the West pane', () => {
   toggle.click();
   assert.equal(dock.cardinal.state.west.collapsed, true);
   assert.equal(toggle.querySelector('span').className, 'fa-solid fa-angles-right');
-  assert.equal(dock.cardinal.options.collapsedSize, 34, 'a strip wide enough for the buttons');
+  assert.equal(dock.cardinal.options.collapsedSize, 68, 'a strip wide enough for the (large) buttons');
 
   // picking a filter shows the editor: the pane expands
   dock.show();
   assert.equal(dock.cardinal.state.west.collapsed, false);
+});
+
+test('the buttons size sizes the collapsed strips and styles the tabs of collapsed panes', () => {
+  const { toolbar, dock, layout, container } = setup();
+  toolbar.setButtonSize('small');
+  toolbar.setActive(true);
+  assert.ok(container.classList.contains('h-pane-buttons-small'));
+  assert.equal(dock.cardinal.options.collapsedSize, 34);
+  assert.equal(layout.cardinal.options.collapsedSize, 26);
+
+  toolbar.setButtonSize('small-caption');
+  assert.ok(container.classList.contains('h-pane-buttons-small-caption'));
+  assert.ok(!container.classList.contains('h-pane-buttons-small'));
+  assert.equal(dock.cardinal.options.collapsedSize, 160);
+  assert.equal(layout.cardinal.options.collapsedSize, 120);
+  assert.equal(layout.cardinal.options.collapsedHeight, 32);
+
+  // leaving "In panes": the module layout's own strips
+  toolbar.setActive(false);
+  assert.ok(!container.classList.contains('h-pane-buttons-small-caption'));
+  assert.equal(layout.cardinal.options.collapsedSize, 26);
+  assert.equal(layout.cardinal.options.collapsedHeight, null);
+});
+
+test('a click on the collapsed West strip (not on a button) expands it', () => {
+  const { toolbar, dock } = setup();
+  toolbar.setActive(true);
+  dock.cardinal.collapse('west');
+  const west = dock.cardinal.getRegionElement('west');
+  west.dispatchEvent(Object.assign(new Event('click', { bubbles: true }), {}));
+  assert.equal(dock.cardinal.state.west.collapsed, false);
+});
+
+test('a click on a collapsed module pane, not on a tab, expands it with its module', async () => {
+  const { toolbar, layout, shown } = setup();
+  toolbar.setActive(true);
+  const south = layout.cardinal.getRegionElement('south');
+  assert.equal(layout.cardinal.state.south.collapsed, true);
+  south.dispatchEvent(new Event('click', { bubbles: true }));
+  await flush();
+  assert.equal(layout.cardinal.state.south.collapsed, false);
+  assert.deepEqual(shown.slice(-1), ['timeline']);
 });
 
 test('a configured pane without a module is a collapsed strip; growing it creates the module', async () => {

@@ -292,7 +292,9 @@ export class ExplorerControlPanel {
     const reopened = this._reopenSearchPane();
     const formClosed = await this.application.closeCoveringFilterForm?.();
     if (!formClosed && !reopened && this.dockedList === id && dock.isListShown()) {
-      dock.setListShown(false);
+      // "In panes": a click on the shown list's button keeps it, so the search pane
+      // is not collapsed by it (2026-10-15)
+      if (this._toolbarPosition !== 'panes') dock.setListShown(false);
     } else {
       this._showDockedList(id);
     }
@@ -533,8 +535,8 @@ export class ExplorerControlPanel {
   }
 
   /**
-   * Applies a toolbar position/size configuration to both rails. In panes: small
-   * buttons next to the panes (ExplorerPaneToolbar), whatever the size says.
+   * Applies a toolbar position/size configuration to both rails. In panes: the size
+   * applies to the left rail and the tabs of collapsed panes (ExplorerPaneToolbar).
    *
    * @param {{position?: 'vertical'|'horizontal'|'panes', buttonSize?: string}} [config] Toolbar configuration.
    * @returns {void}
@@ -543,8 +545,9 @@ export class ExplorerControlPanel {
     const panes = position === 'panes';
     this._toolbarPosition = position;
     this.application.container?.classList.toggle('h-toolbar-horizontal', position === 'horizontal');
-    this.leftRail?.setViewMode(panes ? 'small' : buttonSize);
-    this.rightRail?.setViewMode(panes ? 'small' : buttonSize);
+    this.leftRail?.setViewMode(buttonSize);
+    this.rightRail?.setViewMode(buttonSize);
+    this.application.paneToolbar?.setButtonSize(buttonSize);
     this.application.paneToolbar?.setActive(panes);
   }
 

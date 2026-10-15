@@ -576,3 +576,6 @@
 #Updated#Updated
 #Related#Related
 #Linked from#Linked from
+#Facet builder#Facet builder
+#Search Builder is not available#Search Builder is not available
+#Faceted search wizard is not available#Faceted search wizard is not available

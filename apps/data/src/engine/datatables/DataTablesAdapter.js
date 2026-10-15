@@ -22,14 +22,13 @@ import "./DataTablesAdapter.css";
 import { DataEngineAdapter } from "../DataEngineAdapter.js";
 import { $HR } from "#shared/ui";
 import { dataPopupMode } from "../../core/recordTemplates.js";
+import { adminInfoHtml, recordTypeIconUrl } from "../../ui/recordAdminInfo.js";
 import { createOwnersToggle, createSortSelect } from "../../ui/ListToolControls.js";
 import {
   fieldValues,
   sanitizeTextHtml,
   stripHtml,
 } from "../../core/FieldValueFormatter.js";
-
-const RECORD_TYPE_ICON_TOKEN = Date.now();
 
 /** Renders application data with DataTables.net. */
 export class DataTablesAdapter extends DataEngineAdapter {
@@ -415,12 +414,16 @@ export class DataTablesAdapter extends DataEngineAdapter {
       popupEnabled: this.options.interaction?.popupEnabled === true
         && dataPopupMode(this.options.popupTemplate) !== "none",
     };
+    // collectionMode (as HRecordList): "permanent" checkbox column, or "mouseover"
+    // (default) +/- button with the row actions (2026-10-15)
     const collectionEnabled = interaction.persistentSelectionEnabled === true;
+    const collectionColumn = collectionEnabled && this.options.collectionMode === "permanent";
+    interaction.collectEnabled = collectionEnabled && !collectionColumn;
     const adminEnabled = interaction.adminInfoEnabled === true;
     const actionEnabled =
-      interaction.editEnabled === true || interaction.popupEnabled === true;
+      interaction.editEnabled === true || interaction.popupEnabled === true || interaction.collectEnabled;
     const columns = [
-      ...(collectionEnabled
+      ...(collectionColumn
         ? [
             {
               title: "",
@@ -463,7 +466,7 @@ export class DataTablesAdapter extends DataEngineAdapter {
             {
               title: "",
               data: "rec_ID",
-              width: "3em",
+              width: interaction.collectEnabled ? "4.5em" : "3em",
               orderable: false,
               searchable: false,
               className: "heurist-data-actions-cell",
@@ -481,6 +484,13 @@ export class DataTablesAdapter extends DataEngineAdapter {
       pageLength: Number(this.options.pageLength) || 100,
       lengthMenu: [50, 100, 500, 1000, 5000],
       layout: this._layoutOptions(),
+      // every drawn row gets its selected / collected state here: the first draw runs
+      // inside the constructor, before this.instance is set (2026-10-15)
+      rowCallback: (row, data) => {
+        const id = Number(data?.rec_ID);
+        row.classList.toggle("heurist-data-selected", this.selected.has(id));
+        this._syncRowCollection(row, id);
+      },
       serverSide: true,
       processing: true,
       ajax: async (request, callback) => {
@@ -499,7 +509,7 @@ export class DataTablesAdapter extends DataEngineAdapter {
             const order = request.order?.[0];
             const columnIndex = order ? Number(order.column) : -1;
             const firstFieldColumn =
-              (collectionEnabled ? 1 : 0) + (adminEnabled ? 1 : 0);
+              (collectionColumn ? 1 : 0) + (adminEnabled ? 1 : 0);
             const field =
               columnIndex >= firstFieldColumn
                 ? fields[columnIndex - firstFieldColumn]
@@ -644,9 +654,10 @@ export class DataTablesAdapter extends DataEngineAdapter {
     if (action) {
       const id = Number(action.dataset.recordId);
       action.blur();
-      action.dataset.action === "edit"
-        ? this.onEditRecord?.(id)
-        : this.onViewRecord?.(id, action);
+      if (action.dataset.action === "collect") {
+        Promise.resolve(this.onCollectionToggle?.(id, !this.collected.has(id))).catch(() => {});
+      } else if (action.dataset.action === "edit") this.onEditRecord?.(id);
+      else this.onViewRecord?.(id, action);
       return;
     }
     const row = event.target.closest("tr");
@@ -678,15 +689,32 @@ export class DataTablesAdapter extends DataEngineAdapter {
     });
   }
 
-  /** Sync each visible row's collection checkbox with `this.collected`. */
+  /**
+   * Sync each visible row with `this.collected`: its `heurist-data-collected` class,
+   * its checkbox (collectionMode "permanent") or its +/- button ("mouseover").
+   */
   _applyCollectionClasses() {
     if (!this.instance) return;
-    const collected = this.collected;
+    const adapter = this;
     this.instance.rows().every(function () {
-      const id = Number(this.data()?.rec_ID);
-      const checkbox = this.node()?.querySelector(".heurist-data-collection");
-      if (checkbox) checkbox.checked = collected.has(id);
+      adapter._syncRowCollection(this.node(), Number(this.data()?.rec_ID));
     });
+  }
+
+  /** Sync one row's collected class, checkbox and +/- button with `this.collected`. */
+  _syncRowCollection(node, id) {
+    if (!node) return;
+    const inCollection = this.collected.has(id);
+    node.classList.toggle("heurist-data-collected", inCollection);
+    const checkbox = node.querySelector(".heurist-data-collection");
+    if (checkbox) checkbox.checked = inCollection;
+    const button = node.querySelector('.heurist-data-row-action[data-action="collect"]');
+    if (!button) return;
+    button.title = $HR(inCollection ? "Remove from collection" : "Add to collection");
+    button.setAttribute("aria-label", button.title);
+    button.setAttribute("aria-pressed", String(inCollection));
+    const icon = button.querySelector("i");
+    if (icon) icon.className = `fa-solid ${inCollection ? "fa-minus" : "fa-plus"}`;
   }
 
   /**
@@ -873,41 +901,13 @@ function escapeHtml(value) {
 
 /** Render the admin-only owner/visibility/bookmark/record-type-icon column HTML for one record. */
 function renderAdminInfo(record, options) {
-  const visibility = String(record?.rec_NonOwnerVisibility || "").toLowerCase();
-  const visibilityInfo = {
-    hidden: { icon: "fa-eye-slash", hint: "hidden_hint", color: "#c62828" },
-    visible: { icon: "fa-eye", hint: "visible_hint", color: "#e07b00" },
-    pending: { icon: "fa-eye", hint: "pending_hint", color: "#2e8b57" },
-    public: { icon: "fa-eye", hint: "public_hint", color: "#777" },
-  }[visibility] || { icon: "fa-eye", hint: "public_hint", color: "#777" };
-  const visibilityHint = $HR(visibilityInfo.hint);
-  const baseUrl = String(
-    options?.baseUrl ||
-      globalThis.heuristModuleBootstrap?.runtime?.baseUrl ||
-      "",
-  );
-  const heuristRoot =
-    baseUrl && !baseUrl.endsWith("/") ? `${baseUrl}/` : baseUrl;
-  const database = String(
-    options?.database ||
-      globalThis.heuristModuleBootstrap?.runtime?.database ||
-      "",
-  );
-  const typeId = Number(record?.rec_RecTypeID);
-  const typeIcon =
-    typeId > 0 && heuristRoot
-      ? `${heuristRoot}?db=${encodeURIComponent(database)}&icon=${typeId}&t=${RECORD_TYPE_ICON_TOKEN}&version=thumb`
-      : "";
-  const bookmarked = Number(record?.rec_Bookmarked) !== 0;
-  return (
-    '<span class="heurist-data-admin">' +
-    `<span class="heurist-data-owner" title="${escapeHtml(record?.rec_OwnerName || "")}">${escapeHtml(record?.rec_OwnerName || "")}</span>` +
-    `<span class="heurist-data-visibility" title="${escapeHtml(visibilityHint)}"><i class="fa-regular ${visibilityInfo.icon}" style="color:${visibilityInfo.color}" aria-label="${escapeHtml(visibilityHint)}"></i></span>` +
-    `<i class="fa-regular fa-bookmark heurist-data-bookmark${bookmarked ? "" : " is-placeholder"}" title="Bookmarked" aria-label="Bookmarked"></i>` +
-    (typeIcon
+  const typeIcon = recordTypeIconUrl(record, options);
+  return adminInfoHtml(
+    record,
+    "heurist-data",
+    typeIcon
       ? `<img class="heurist-data-rectype-icon" src="${escapeHtml(typeIcon)}" width="18" height="18" alt="">`
-      : '<span class="heurist-data-rectype-icon"></span>') +
-    "</span>"
+      : '<span class="heurist-data-rectype-icon"></span>',
   );
 }
 
@@ -970,6 +970,9 @@ function renderRowActions(value, interaction) {
   const id = Number(value);
   return (
     '<span class="heurist-data-row-actions">' +
+    (interaction.collectEnabled === true
+      ? `<button class="heurist-data-row-action" data-action="collect" data-record-id="${id}"><i class="fa-solid fa-plus"></i></button>`
+      : "") +
     (interaction.editEnabled === true
       ? `<button class="heurist-data-row-action" data-action="edit" data-record-id="${id}" title="Edit"><i class="fa-solid fa-pen"></i></button>`
       : "") +
