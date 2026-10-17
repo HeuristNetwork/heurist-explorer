@@ -22,7 +22,7 @@ test('HSymbolEditor shows the effective symbol; unchanged it saves nothing new',
   assert.equal(value.stroke, true, 'Yes/No as a boolean');
   assert.deepEqual(sparseSymbol(value, parent), { weight: 7 });
   // the icon URL field is shown only for the Image icon source
-  assert.equal(editor.rows.get('iconUrl').hidden, true);
+  assert.equal(editor.form.getFieldWidget('iconUrl').container.hidden, true);
   await editor.destroy();
 });
 
@@ -74,5 +74,34 @@ test('HThematicMapEditor keeps the layer symbol, drops empty ranges and fields, 
 
   editor.renderers.push({ title: 'Nothing', active: false, symbol: '', fields: [] });
   assert.match(editor.validate(), /needs at least one field/);
+  await editor.destroy();
+});
+
+test('HSymbolEditor on HEditForm: icon source shows its field; stored 1/0 are booleans; gradient columns', async () => {
+  const editor = new HSymbolEditor().attach(document.createElement('div'), { mode: 'symbol', value: { iconType: 'url', iconUrl: 'a.png', stroke: '0', fill: 1 } });
+  editor.render();
+  await flush();
+  assert.equal(editor.form.getFieldWidget('iconUrl').container.hidden, false);
+  assert.equal(editor.form.getFieldWidget('iconFont').container.hidden, true);
+  assert.deepEqual([editor.getValue().stroke, editor.getValue().fill], [false, true]);
+  await editor.form.setValue('iconType', 'iconfont');
+  assert.equal(editor.form.getFieldWidget('iconUrl').container.hidden, true);
+  assert.equal('iconUrl' in editor.getValue(), false, 'a hidden field is not in the value');
+  assert.equal(editor.previews.length, 3, 'a preview per group slot');
+  await editor.destroy();
+
+  const gradient = new HSymbolEditor().attach(document.createElement('div'), { mode: 'gradient' });
+  gradient.render();
+  assert.ok(gradient.container.querySelector('.has-columns'), 'from/to in two columns');
+  await gradient.destroy();
+});
+
+test('HSymbolEditor Yes/No radios show the stored boolean', async () => {
+  const editor = new HSymbolEditor().attach(document.createElement('div'), { mode: 'symbol', value: { stroke: true, fill: '0' } });
+  editor.render();
+  await flush();
+  const checked = (name) => editor.form.getFieldWidget(name)._rows[0].input.choices.filter((radio) => radio.checked).map((radio) => radio.value);
+  assert.deepEqual(checked('stroke'), ['true']);
+  assert.deepEqual(checked('fill'), ['false']);
   await editor.destroy();
 });

@@ -1,29 +1,19 @@
-/* HSymbolEditor: groups of symbol fields with previews */
+/* HSymbolEditor: an HEditForm of symbol fields (symbolEditorForms.js) with previews */
 .h-symbol-editor-dialog { width:min(620px, calc(100vw - 32px)); }
 .h-symbol-editor { display:flex; flex-direction:column; gap:8px; min-width:min(540px, 90vw); }
-.h-symbol-editor-group { margin:0; padding:6px 10px 8px; border:1px solid var(--h-color-border); border-radius:var(--h-radius); }
-.h-symbol-editor-group > legend { padding:0 4px; font-weight:600; color:var(--h-color-header); }
-.h-symbol-editor-field[hidden] { display:none !important; }
+.h-symbol-editor .h-edit-form-group > legend { color:var(--h-color-header); }
 
-/* label column and control column, as the legacy editor: the shared form layout
-   (labelPos inline, formLayout.css); here the right-aligned labels and the row spacing */
-.h-symbol-editor-field.h-form-input { align-items:center; margin:3px 0; }
-.h-symbol-editor-field.h-form-input > .h-form-input-header { justify-content:flex-end; text-align:right; }
-.h-symbol-editor-field.h-form-input > .h-form-input-help { margin-top:1px; }
-.h-symbol-editor-field .h-input-numeric,
-.h-symbol-editor-field input[type="number"] { width:7em; }
+/* label column and control column, as the legacy editor (labelPos inline): labels right-aligned */
+.h-symbol-editor .h-edit-field-header { justify-content:flex-end; text-align:right; }
+.h-symbol-editor .h-edit-field { padding:2px 0; }
 
-/* gradient: "from" and "to" side by side */
-.h-symbol-editor-group.is-pairs { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); column-gap:12px; }
-.h-symbol-editor-group.is-pairs > legend,
-.h-symbol-editor-group.is-pairs > .h-symbol-editor-preview-row { grid-column:1 / -1; }
-.h-symbol-editor-group.is-pairs .h-symbol-editor-field.h-form-input { grid-template-columns:130px minmax(0, 1fr); }
-.h-symbol-editor-group.is-pairs .h-symbol-editor-field.h-form-input:nth-of-type(even) { grid-template-columns:30px minmax(0, 1fr); }
+/* gradient: "from" and "to" side by side (group columns: 2); the "to" label is short */
+.h-symbol-editor-gradient .h-edit-field { --h-form-label-width:130px; }
+.h-symbol-editor-gradient .h-edit-field[data-name$="2"] { --h-form-label-width:30px; }
 
 .h-symbol-editor-preview-row { display:flex; align-items:center; gap:6px; min-height:36px; margin:2px 0 4px; }
 .h-symbol-editor-preview-label { width:150px; text-align:right; color:var(--h-color-text-muted); }
 .h-symbol-editor-preview-caption { margin-left:8px; color:var(--h-color-text-muted); }
 @media (max-width:560px) {
-  .h-symbol-editor-group.is-pairs { grid-template-columns:1fr; }
   .h-symbol-editor-preview-label { width:auto; }
 }

@@ -6,7 +6,8 @@
  *        the database, or every term of the vocabulary), with a preview (plan 17 §5).
  *
  * The ranges themselves come from the shared range definitions
- * (data/ranges/rangeDefinitions.js), which crosstabs will use too.
+ * (data/ranges/rangeDefinitions.js), which crosstabs will use too. The settings
+ * are an HEditForm (plan 14a); the preview is a table.
  *
  * @project     Heurist academic knowledge management system
  * @package     heurist-client-core
@@ -21,10 +22,12 @@
 
 import { HMsg } from '../../ui/HMsg.js';
 import { $HR } from '../../ui/i18n/HResource.js';
+import { HEditForm } from '../edit-form/HEditForm.js';
 import {
   DATE_ROUNDINGS, NUMBER_ROUNDINGS, categoryRanges, formatRange, generateRanges, isIntervalType
 } from '../../data/ranges/rangeDefinitions.js';
 import { fieldBounds, fieldCodeDty, fieldCodeType, fieldValues } from '../../symbology/thematicFields.js';
+import './HRangeGenerator.css';
 
 /**
  * Open the dialog for one field.
@@ -40,80 +43,97 @@ export function openRangeGenerator({ code, api, dbdefs, query }) {
   const type = fieldCodeType(code, dbdefs);
   const interval = isIntervalType(type);
   const date = type === 'date' || type === 'year';
+  const terms = type === 'enum' || type === 'relationtype';
   const host = document.createElement('div');
   host.className = 'h-range-generator';
-  const preview = document.createElement('div');
-  preview.className = 'h-range-generator-preview';
+  const formHost = document.createElement('div');
   const status = document.createElement('p');
   status.className = 'h-range-generator-status h-muted';
+  const preview = document.createElement('div');
+  preview.className = 'h-range-generator-preview';
+  host.append(formHost, status, preview);
   let ranges = [];
+  let form = null;
 
-  const show = (items) => {
+  // the ranges as a table: From / To, or the value (term id), its label and the record count
+  const show = (items, { counts = false } = {}) => {
     ranges = items;
-    preview.replaceChildren(...items.map((range) => {
-      const row = document.createElement('div');
-      row.className = 'h-range-generator-row';
-      if (range.min != null) {
-        row.textContent = `${range.min}  –  ${range.max}`;
-      } else {
-        row.textContent = range.label ? `${range.label}` : range.value;
-        row.title = String(range.value);
-      }
-      return row;
-    }));
+    preview.replaceChildren();
     status.textContent = items.length ? `${items.length} ${$HR(interval ? 'ranges' : 'categories')}` : $HR('No ranges');
+    if (!items.length) return;
+    if (interval) {
+      preview.append(rangeTable(['From', 'To'], items.map((range) => [range.min, range.max]), [true, true]));
+      return;
+    }
+    const headers = [terms ? 'Term ID' : 'Value', ...(terms ? ['Label'] : []), ...(counts ? ['Records'] : [])];
+    const rows = items.map((range) => [range.value, ...(terms ? [range.label || ''] : []), ...(counts ? [range.count ?? ''] : [])]);
+    preview.append(rangeTable(headers, rows, [terms, false, true]));
+  };
+
+  // the settings: labels beside the inputs, one per line
+  const settings = (fields, onChange) => {
+    form = new HEditForm().attach(formHost, {
+      form: { format: 'heurist-edit-form/1', groups: [{ type: 'group', children: fields }] },
+      labelPos: 'inline',
+      onChange
+    }).render();
   };
 
   if (interval) {
-    const count = numberInput(10, { min: 1, max: 50 });
-    const min = textInput();
-    const max = textInput();
-    const rounding = document.createElement('select');
-    rounding.className = 'h-select';
-    for (const [value, label] of date ? DATE_ROUNDINGS : NUMBER_ROUNDINGS) rounding.append(new Option($HR(label), String(value)));
-    rounding.value = '0';
-    const recompute = () => show(generateRanges({
-      fieldType: type, min: min.value, max: max.value, count: Number(count.value), rounding: Number(rounding.value)
-    }));
-    for (const control of [count, min, max, rounding]) control.addEventListener('input', recompute);
-    rounding.addEventListener('change', recompute);
-    host.append(
-      row('Intervals count', count),
-      row('Min / Range from', min),
-      row('Max / Range to', max),
-      row('Rounding', rounding),
-      status, preview
-    );
+    const roundings = (date ? DATE_ROUNDINGS : NUMBER_ROUNDINGS).map(([value, label]) => ({ id: Number(value), label }));
+    const recompute = () => {
+      const values = form.getValues();
+      show(generateRanges({
+        fieldType: type,
+        min: values.min ?? '',
+        max: values.max ?? '',
+        count: Number(values.count) || 0,
+        rounding: Number(values.rounding) || 0
+      }));
+    };
+    settings([
+      { name: 'count', type: 'integer', label: 'Intervals count', default: 10, clearable: false, minValue: 1, maxValue: 50, width: '7em' },
+      { name: 'min', type: 'freetext', label: 'Min / Range from', width: 20 },
+      { name: 'max', type: 'freetext', label: 'Max / Range to', width: 20 },
+      { name: 'rounding', type: 'enum', label: 'Rounding', mode: 'select', default: 0, clearable: false, terms: roundings, width: 20 }
+    ], recompute);
     status.textContent = $HR('Loading');
-    fieldBounds(api, code, query).then((bounds) => {
-      min.value = bounds.min ?? '';
-      max.value = bounds.max ?? '';
+    fieldBounds(api, code, query).then(async (bounds) => {
+      await form.setValue('min', bounds.min ?? '');
+      await form.setValue('max', bounds.max ?? '');
       recompute();
     }, (error) => { status.textContent = error?.message || String(error); });
   } else {
-    const actual = radio('h-range-enum', true, 'Use actual values from database');
-    const all = radio('h-range-enum', false, 'Use all terms');
     const recompute = async () => {
-      if (all.input.checked) {
+      if (form.getValue('source') === 'all') {
         const vocab = dbdefs?.vocabRoot?.(fieldCodeDty(code));
-        const terms = vocab ? (dbdefs.termTree(vocab, { flat: true }) || []).slice(1) : [];
-        show(categoryRanges(terms.map((term) => term.internalid))
-          .map((range) => ({ ...range, label: dbdefs.termLabel(range.value) })));
+        const ids = vocab ? (dbdefs.termTree(vocab, { flat: true }) || []).slice(1).map((term) => term.internalid) : [];
+        show(categoryRanges(ids).map((range) => ({ ...range, label: dbdefs.termLabel(range.value) })));
         return;
       }
       status.textContent = $HR('Loading');
       try {
+        // detail=values gives the term ids only: the labels come from the definitions
         const values = await fieldValues(api, code, query);
-        show(categoryRanges(values).map((range) => ({
-          ...range, label: values.find((item) => item.value === range.value)?.label || range.value
-        })));
+        const byValue = new Map(values.map((item) => [item.value, item]));
+        show(categoryRanges(values).map((range) => {
+          const item = byValue.get(String(range.value));
+          const label = terms ? dbdefs?.termLabel?.(range.value) || '' : item?.label || '';
+          return { ...range, label, count: item?.count ?? null };
+        }), { counts: true });
       } catch (error) {
         status.textContent = error?.message || String(error);
       }
     };
-    actual.input.addEventListener('change', recompute);
-    all.input.addEventListener('change', recompute);
-    host.append(actual.label, all.label, status, preview);
+    settings([
+      {
+        name: 'source', type: 'enum', label: 'Values', mode: 'radio', default: 'actual', clearable: false,
+        terms: [
+          { id: 'actual', label: 'Use actual values from database' },
+          ...(terms ? [{ id: 'all', label: 'Use all terms' }] : [])
+        ]
+      }
+    ], () => void recompute());
     void recompute();
   }
 
@@ -124,6 +144,7 @@ export function openRangeGenerator({ code, api, dbdefs, query }) {
       if (finished) return;
       finished = true;
       HMsg.closeMsgDlg(id);
+      void form?.destroy();
       resolve(apply && ranges.length
         ? ranges.map((range, index) => ({ value: range.min != null
           ? formatRange(date ? yearText(range.min) : range.min, date ? dateRangeEnd(range.max, index === ranges.length - 1) : range.max)
@@ -159,44 +180,37 @@ function yearText(year) {
   return Number.isFinite(value) && value >= 0 ? String(value).padStart(4, '0') : String(year);
 }
 
-/** A labelled row. */
-function row(label, control) {
-  const element = document.createElement('label');
-  element.className = 'h-range-generator-field';
-  const caption = document.createElement('span');
-  caption.className = 'h-i18n';
-  caption.textContent = $HR(label);
-  element.append(caption, control);
-  return element;
-}
-
-/** A number box. */
-function numberInput(value, { min, max }) {
-  const input = document.createElement('input');
-  input.type = 'number';
-  input.className = 'h-input';
-  Object.assign(input, { min, max, value: String(value) });
-  return input;
-}
-
-/** A text box. */
-function textInput() {
-  const input = document.createElement('input');
-  input.type = 'text';
-  input.className = 'h-input';
-  return input;
-}
-
-/** A radio button with its label. */
-function radio(name, checked, text) {
-  const label = document.createElement('label');
-  label.className = 'h-range-generator-choice';
-  const input = document.createElement('input');
-  input.type = 'radio';
-  input.name = name;
-  input.checked = checked;
-  const caption = document.createElement('span');
-  caption.textContent = $HR(text);
-  label.append(input, caption);
-  return { label, input };
+/**
+ * The ranges as a table.
+ *
+ * @param {string[]} headers Column headings.
+ * @param {Array<Array<*>>} rows Cells.
+ * @param {boolean[]} numeric Right-aligned columns.
+ * @returns {HTMLTableElement} The table.
+ */
+function rangeTable(headers, rows, numeric) {
+  const table = document.createElement('table');
+  table.className = 'h-range-generator-table';
+  const head = document.createElement('thead');
+  const headRow = document.createElement('tr');
+  for (const [index, text] of headers.entries()) {
+    const cell = document.createElement('th');
+    cell.className = `h-i18n${numeric[index] ? ' is-number' : ''}`;
+    cell.textContent = $HR(text);
+    headRow.append(cell);
+  }
+  head.append(headRow);
+  const body = document.createElement('tbody');
+  for (const values of rows) {
+    const row = document.createElement('tr');
+    for (const [index, value] of values.entries()) {
+      const cell = document.createElement('td');
+      if (numeric[index]) cell.className = 'is-number';
+      cell.textContent = value == null ? '' : String(value);
+      row.append(cell);
+    }
+    body.append(row);
+  }
+  table.append(head, body);
+  return table;
 }

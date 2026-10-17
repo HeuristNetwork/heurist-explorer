@@ -68,6 +68,8 @@ The record edit structure of plan 14 (`recordEditStructure.js`) is the same JSON
 - `showWhen`: the group is shown only for these values (see below).
 - `slot`: name of an empty element at the top of the group; the owner fills it in `onReady`
   (`getSlot(name)`), e.g. symbol previews.
+- `columns`: the fields in a grid of n columns, row by row (e.g. from / to pairs); one column in a
+  narrow form.
 
 **Field**
 
@@ -90,6 +92,7 @@ The record edit structure of plan 14 (`recordEditStructure.js`) is the same JSON
 | `geoKind` | `geo` field: `extent` (a bounding box, value `{west, south, east, north}`; the map extent picker) or `feature` (default; value WKT; the map button opens the Map draw mode: points, lines, polygons, Add Geometry to paste WKT or GeoJSON, Get Geometry). |
 | `multilang` | One value plus translations (`"fre:text"`). |
 | `readOnly` | The value cannot be changed. |
+| `clearable` | `false`: no clear button (a setting that must always have a value; single value fields). Default `true`. |
 | `showWhen` | `{field: value \| [values], ...}`: shown when every listed field has one of the values. Text comparison (`"1"` = `1`, `"true"` = `true`). |
 | `special` | Id of a special editor given by the host (`specialEditors`), e.g. `"query"`; the record editor also finds them by dty. A `special` field without an editor shows the readable value and *Show raw* only. |
 
@@ -200,7 +203,18 @@ Tests: 1198 pass (new: geo feature drawing and extent picker).
 
 Tests: 1200 pass (new: width forms; width on radios and text).
 
-## 11. Open points
+## 11. Symbology editor on HEditForm (2026-10-17)
+
+First consumer of Phase 4, done before the bridge (Artem: "Next Symbology editor?").
+- `HSymbolEditor` builds an HEditForm of `symbolEditorForm(mode)` (`symbolEditorForms.js`); details in plan 17,
+  "Change 2026-10-17".
+- New group property `columns` (§3) for the gradient from/to pairs.
+- Bug found on the way: `HInputEnum` turned the term id `true` into 1 (`Number(true)`), so Yes/No radios showed
+  nothing selected; boolean ids stay text now.
+- Checked in headless Edge (symbol and gradient modes). Tests: 1202 pass (new: icon source showWhen, stored
+  1/0 booleans, gradient columns, Yes/No radios).
+
+## 12. Open points
 
 - Agree the JSON format (§3) with the tool, especially: native value types in `getValues`,
   `maxValue` vs `max`, `showWhen` as "all of" with text comparison, dotted names.

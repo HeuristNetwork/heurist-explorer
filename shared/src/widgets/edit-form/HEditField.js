@@ -460,6 +460,10 @@ export class HEditField extends HBaseWidget {
     const options = { value: entry.value ?? null, suppressLabel: true, label: field.label };
     // raw (JSON) text of a special field: no value tools (it is shown on request only)
     if (this.options.special) return { ...options, multiline: true, rows: 6, clearButton: false };
+    // a setting that always has a value: no clear button (and no value tools)
+    if (field.clearable === false && !this.isRepeatable) {
+      return { ...options, clearButton: false, readOnly: this.isReadOnly, ...this._typeOptions(entry) };
+    }
     // remove / clear and the eye beside the input, the field's Add / Translate after them
     Object.assign(options, {
       valueTools: true,
@@ -469,6 +473,13 @@ export class HEditField extends HBaseWidget {
       valueHidden: entry.hidden === true,
       readOnly: this.isReadOnly
     });
+    return { ...options, ...this._typeOptions(entry) };
+  }
+
+  /** Input options of the field type. */
+  _typeOptions(entry) {
+    const field = this.field;
+    const options = {};
     switch (field.type) {
       case 'blocktext':
         return { ...options, multiline: true, rows: Math.min(12, Math.max(3, field.rows || field.height || 3)) };

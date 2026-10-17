@@ -4,10 +4,10 @@
  *        `showWhen` conditions, and values in and out of the form.
  *
  *   {format: 'heurist-edit-form/1', localized, groups: [{id, type: 'tabs'|'accordion'|'group',
- *    label, help, showWhen, slot, children: [field]}]}
+ *    label, help, showWhen, slot, columns, children: [field]}]}
  *   field: {name, type, label, help, req, max, default, terms, vocabulary, mode, minValue, maxValue,
  *           step, maxLength, pattern, patternMessage, rows, width, targetTypes, geoKind, multilang,
- *           readOnly, showWhen, special, dty?}
+ *           readOnly, clearable, showWhen, special, dty?}
  *
  * `max` is the number of values (1 default, 0 any); `minValue` / `maxValue` limit a number.
  * `width` is a number of characters (as rst_DisplayWidth) or a CSS length ("400px",
@@ -83,6 +83,8 @@ export function normalizeEditForm(json) {
       help: String(group?.help ?? ''),
       showWhen: conditionOf(group?.showWhen),
       slot: group?.slot ? String(group.slot) : null,
+      // fields in a grid of n columns, row by row (e.g. from / to pairs)
+      columns: Number(group?.columns) > 1 ? Math.min(Math.floor(Number(group.columns)), 6) : 1,
       children,
       ...(group?.nonStandard ? { nonStandard: true } : {})
     };
@@ -147,6 +149,8 @@ function normalizeField(item, warnings, where) {
     geoKind: item.geoKind === 'extent' ? 'extent' : 'feature',
     multilang: item.multilang === true,
     readOnly: item.readOnly === true,
+    // false: no clear button (a setting that always has a value; single value fields only)
+    clearable: item.clearable !== false,
     showWhen: conditionOf(item.showWhen),
     special: item.special ?? null
   };

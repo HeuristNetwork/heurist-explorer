@@ -227,3 +227,28 @@ null). Saving (the Map Layer's DT_SYMBOLOGY, Map configuration) stays in the Map
 Not checked in a browser. Same day: module help manuals open in Explorer's window too
 (`useHostHelp` in `shared/src/ui/InlineHelp.js`, bridge `openHelp`); Configuration and Publish
 dialogs of the modules stay in their iframes for now (decided with Artem).
+
+## Change 2026-10-17: HSymbolEditor on HEditForm (plan 14a)
+
+- The fields of the four modes are HEditForm JSON in `shared/src/widgets/symbology/symbolEditorForms.js`
+  (`symbolEditorForm(mode)`); the `show` functions are `showWhen` (`iconType`), Yes/No are radios with the ids
+  `true` / `false` (stored 1/0 or "true" are read as booleans), number inputs have `width: "7em"`.
+- The previews are drawn in the group slots (`preview-point`, `-line`, `-polygon`, `-gradient`, `-shapes`) and
+  redrawn on every change. The gradient pairs use the new group property `columns: 2`.
+- `open()`, the inheritance from the parent symbol and the sparse value are unchanged; the thematic map editor
+  and the callers need no change.
+
+## Thematic map cosmetics (Artem, 2026-10-17)
+
+| Point | Change |
+|---|---|
+| Actual values from the database show term ids | `/records?detail=values&field=<dty>` returns only `{value, count}` (checked on osmak_mapping), so the range generator takes the labels from HDbDefs (`termLabel`). The list is a table: Term ID, Label, Records. |
+| Does Thematic use `/records?detail=values&field=xxx`? | Yes: `thematicFields.fieldValues` (enum and text fields, `limit 1000, sort value`); numbers and dates use `detail=minmax` (`fieldBounds`). |
+| "Remove all ranges" question stays open after the deletion | `HMsg.showMsgDlg` with a function as `buttons`: Yes ran the action but did not close the dialog. Yes now closes, then runs the action (as legacy). Same fix for "Delete thematic renderer". |
+| Define ranges: the settings in the header are jammed | The dialog had no CSS. The settings are now an HEditForm (labels beside, one per line; count, rounding and the values choice have no clear button: new field property `clearable: false`, plan 14a); new `HRangeGenerator.css`. |
+| Ranges as a table with From / To | Preview table: From, To for intervals; Term ID, Label, Records (or Value, Records) for categories. |
+| Remove range icon | `fa-circle-minus`. |
+| "Add" buttons of the renderer and field lists small | Normal size (no `h-btn-small`). |
+
+Checked in headless Edge with a stubbed API (number and enum fields).
+

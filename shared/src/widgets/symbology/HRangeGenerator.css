@@ -1,0 +1,11 @@
+/* Define ranges (HRangeGenerator): the settings form, then the ranges as a table */
+.h-range-generator-dialog { width:min(560px, calc(100vw - 32px)); }
+.h-range-generator { display:flex; flex-direction:column; gap:6px; min-width:min(460px, 85vw); }
+.h-range-generator-status { margin:4px 0 0; }
+.h-range-generator-preview { max-height:min(50vh, 420px); overflow:auto; border:1px solid var(--h-color-border); border-radius:var(--h-radius); }
+.h-range-generator-preview:empty { display:none; }
+.h-range-generator-table { width:100%; border-collapse:collapse; }
+.h-range-generator-table th { position:sticky; top:0; padding:4px 8px; background:var(--h-color-surface); border-bottom:1px solid var(--h-color-border); text-align:left; font-weight:600; }
+.h-range-generator-table td { padding:3px 8px; border-bottom:1px solid var(--h-color-border); }
+.h-range-generator-table tr:last-child td { border-bottom:0; }
+.h-range-generator-table .is-number { text-align:right; font-variant-numeric:tabular-nums; }

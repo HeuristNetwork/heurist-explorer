@@ -393,6 +393,10 @@ export class HEditForm extends HBaseWidget {
     const host = document.createElement('div');
     host.className = `h-edit-form-fields ${FORM_GROUP_CLASS}`;
     host.dataset.group = group.id;
+    if (group.columns > 1) {
+      host.classList.add('has-columns');
+      host.style.setProperty('--h-edit-form-columns', String(group.columns));
+    }
     if (group.help) {
       const help = document.createElement('div');
       help.className = 'h-edit-field-help';

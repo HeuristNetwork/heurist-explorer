@@ -14,6 +14,9 @@
  * properties that differ from the parent (legacy showEditSymbologyDialog). The
  * thematic renderers of a stored value are kept.
  *
+ * The fields are an HEditForm (plan 14a) of the JSON in symbolEditorForms.js; the
+ * previews are drawn in the slots of its groups.
+ *
  * @project     Heurist academic knowledge management system
  * @package     heurist-client-core
  *
@@ -26,85 +29,14 @@
  */
 
 import { HBaseWidget } from '../HBaseWidget.js';
-import { createHInput } from '../form/inputs/createHInput.js';
-import { applyFormLayout, FORM_GROUP_CLASS, markInputField } from '../form/formLayout.js';
+import { HEditForm } from '../edit-form/HEditForm.js';
+import { BOOLEAN_FIELDS, symbolEditorForm } from './symbolEditorForms.js';
 import { HMsg } from '../../ui/HMsg.js';
 import { $HR } from '../../ui/i18n/HResource.js';
 import { DEFAULT_MAP_SYMBOL } from '../../symbology/normalizeMapSymbol.js';
 import { buildSymbology, effectiveSymbol, sparseSymbol, splitSymbology } from '../../symbology/symbology.js';
 import { renderSymbolPreview } from '../../symbology/symbolPreview.js';
 import './HSymbolEditor.css';
-
-const YES_NO = [{ id: '1', label: 'Yes' }, { id: '0', label: 'No' }];
-const ICON_TYPES = [
-  { id: 'url', label: 'Image' },
-  { id: 'iconfont', label: 'Icon font' },
-  { id: 'circle', label: 'Circle' },
-  { id: 'rectype', label: 'Record type icon' }
-];
-const OPACITY = { min: 0, max: 1, step: 0.1 };
-
-/** Field groups of the `symbol` / `range` modes; `preview` is the sample shown above the group. */
-const SYMBOL_GROUPS = [
-  {
-    title: 'Symbols', preview: 'point', fields: [
-      { key: 'iconType', type: 'enum', label: 'Icon source', terms: ICON_TYPES, help: 'Type and source of the icon' },
-      { key: 'iconUrl', type: 'url', label: 'Icon URL', show: (values) => values.iconType === 'url' },
-      {
-        key: 'iconFont', type: 'freetext', label: 'Icon', show: (values) => values.iconType === 'iconfont',
-        help: 'Name of an icon of Font Awesome (e.g. fa-house) or of the jQuery UI icon font (e.g. location)'
-      },
-      { key: 'iconSize', type: 'integer', label: 'Icon size', min: 0, help: 'Icon size in pixels' }
-    ]
-  },
-  {
-    title: 'Outline', preview: 'line', fields: [
-      { key: 'stroke', type: 'enum', label: 'Stroke', terms: YES_NO, boolean: true, help: 'Draw the outline of points, lines and areas' },
-      { key: 'color', type: 'color', label: 'Stroke color' },
-      { key: 'weight', type: 'float', label: 'Stroke width', min: 0, step: 1, help: 'Stroke width in pixels' },
-      { key: 'dashArray', type: 'freetext', label: 'Dash array', help: 'Stroke dash pattern, e.g. 5, 5 (SVG stroke-dasharray)' },
-      { key: 'opacity', type: 'float', label: 'Stroke opacity', ...OPACITY, help: 'Value from 0 (transparent) to 1 (opaque)' }
-    ]
-  },
-  {
-    title: 'Area fill', preview: 'polygon', fields: [
-      { key: 'fill', type: 'enum', label: 'Fill', terms: YES_NO, boolean: true, help: 'Fill areas and circles with colour' },
-      { key: 'fillColor', type: 'color', label: 'Fill color', help: 'Defaults to the stroke color' },
-      { key: 'fillOpacity', type: 'float', label: 'Fill opacity', ...OPACITY, help: 'Value from 0 (transparent) to 1 (opaque)' }
-    ]
-  }
-];
-
-/** Field groups of the `gradient` mode: from/to pairs. */
-const GRADIENT_GROUPS = [
-  {
-    title: 'Gradient', preview: 'gradient', pairs: true, fields: [
-      { key: 'strokeColor1', type: 'color', label: 'Stroke color from' },
-      { key: 'strokeColor2', type: 'color', label: 'to' },
-      { key: 'strokeOpacity1', type: 'float', label: 'Stroke opacity from', ...OPACITY },
-      { key: 'strokeOpacity2', type: 'float', label: 'to', ...OPACITY },
-      { key: 'fillColor1', type: 'color', label: 'Fill color from' },
-      { key: 'fillColor2', type: 'color', label: 'to' },
-      { key: 'fillOpacity1', type: 'float', label: 'Fill opacity from', ...OPACITY },
-      { key: 'fillOpacity2', type: 'float', label: 'to', ...OPACITY },
-      { key: 'iconSize1', type: 'integer', label: 'Icon size from', min: 0 },
-      { key: 'iconSize2', type: 'integer', label: 'to', min: 0 }
-    ]
-  }
-];
-
-/** Field groups of the `draw` mode. */
-const DRAW_GROUPS = [
-  {
-    title: 'Drawing style', preview: 'shapes', fields: [
-      { key: 'color', type: 'color', label: 'Stroke color' },
-      { key: 'weight', type: 'integer', label: 'Stroke width', min: 0, help: 'Stroke width in pixels' },
-      { key: 'opacity', type: 'float', label: 'Stroke opacity', ...OPACITY, help: 'Value from 0 (transparent) to 1 (opaque)' },
-      { key: 'fillColor', type: 'color', label: 'Fill color', help: 'Defaults to the stroke color' },
-      { key: 'fillOpacity', type: 'float', label: 'Fill opacity', ...OPACITY, help: 'Value from 0 (transparent) to 1 (opaque)' }
-    ]
-  }
-];
 
 const TITLES = {
   symbol: 'Define symbology',
@@ -181,14 +113,14 @@ export class HSymbolEditor extends HBaseWidget {
 
   /**
    * @param {HTMLElement} container Host.
-   * @param {object} options `mode`, `value` (form values), `parentSymbol`, `iconUrl`, `rectypeId`.
+   * @param {object} options `mode`, `value` (form values), `parentSymbol`, `iconUrl`, `rectypeId`,
+   *        `labelPos` (default inline), `inputPos` (default stack).
    * @returns {HSymbolEditor} This editor.
    */
   attach(container, options = {}) {
     super.attach(container, options);
     this.mode = TITLES[options.mode] ? options.mode : 'symbol';
-    this.inputs = new Map();
-    this.rows = new Map();
+    this.form = null;
     this.previews = [];
     return this;
   }
@@ -196,23 +128,21 @@ export class HSymbolEditor extends HBaseWidget {
   /** @returns {HSymbolEditor} This editor. */
   render() {
     if (!this.container) throw new Error('HSymbolEditor must be attached before render');
+    void this.form?.destroy();
     this.container.className = `h-widget h-symbol-editor h-symbol-editor-${this.mode}`;
-    // labels beside their inputs, one field per line (shared form layout, plan 18)
-    applyFormLayout(this.container, { labelPos: this.options.labelPos || 'inline', inputPos: this.options.inputPos || 'stack' });
     this.container.replaceChildren();
-    const values = this.options.value || {};
-    const groups = this.mode === 'gradient' ? GRADIENT_GROUPS : this.mode === 'draw' ? DRAW_GROUPS : SYMBOL_GROUPS;
-
-    if (this.mode === 'range') {
-      const caption = this._group(null);
-      this._field(caption, { key: 'legendLabel', type: 'freetext', label: 'Legend caption' }, values);
-    }
-    for (const group of groups) {
-      const body = this._group(group.title, group.pairs);
-      this._preview(body, group.preview);
-      for (const field of group.fields) this._field(body, field, values);
-    }
-    this.listen(this.container, 'h-input-change', () => this._refresh());
+    const host = document.createElement('div');
+    this.container.append(host);
+    this.previews = [];
+    this.form = new HEditForm().attach(host, {
+      form: symbolEditorForm(this.mode),
+      values: formValuesOf(this.options.value || {}),
+      // labels beside their inputs, one field per line (shared form layout, plan 18)
+      labelPos: this.options.labelPos || 'inline',
+      inputPos: this.options.inputPos || 'stack',
+      onReady: (form) => this._renderPreviews(form),
+      onChange: () => this._refresh()
+    }).render();
     this.state = 'rendered';
     this._refresh();
     return this;
@@ -220,75 +150,37 @@ export class HSymbolEditor extends HBaseWidget {
 
   /**
    * The edited values: symbol properties (booleans for Yes/No, numbers, colours),
-   * without empty ones.
+   * without empty ones and without fields that are not shown.
    *
    * @returns {object} Values.
    */
   getValue() {
     const result = {};
-    for (const [key, { input, field }] of this.inputs) {
-      if (field.show && this.rows.get(key)?.hidden) continue;
-      let value = input.getValue();
-      if (Array.isArray(value)) value = value[0];
+    for (const [key, value] of Object.entries(this.form?.getValues() || {})) {
       if (value === null || value === undefined || (typeof value === 'string' && !value.trim())) continue;
-      if (field.boolean) value = String(value) === '1' || value === true;
       result[key] = typeof value === 'string' ? value.trim() : value;
     }
     return result;
   }
 
-  /** Remove the inputs. */
+  /** @returns {object} The values, as getValue (the previews use the shown fields only). */
+  getValueWithHidden() {
+    return this.getValue();
+  }
+
+  /** Remove the form. */
   async destroy() {
-    for (const { input } of this.inputs.values()) await input.destroy?.();
-    this.inputs.clear();
+    await this.form?.destroy();
+    this.form = null;
     await super.destroy();
   }
 
-  /** A titled group of fields. */
-  _group(title, pairs = false) {
-    const group = document.createElement('fieldset');
-    group.className = `h-symbol-editor-group ${FORM_GROUP_CLASS}${pairs ? ' is-pairs' : ''}`;
-    if (title) {
-      const legend = document.createElement('legend');
-      legend.className = 'h-i18n';
-      legend.textContent = $HR(title);
-      group.append(legend);
+  /** Preview rows in the slots of the groups (`preview-<kind>`). */
+  _renderPreviews(form) {
+    for (const kind of ['point', 'line', 'polygon', 'gradient', 'shapes']) {
+      const slot = form.getSlot(`preview-${kind}`);
+      if (slot) this._preview(slot, kind);
     }
-    this.container.append(group);
-    return group;
-  }
-
-  /** One field: a shared input of its type. */
-  _field(parent, field, values) {
-    const row = document.createElement('div');
-    row.className = 'h-symbol-editor-field';
-    row.dataset.key = field.key;
-    parent.append(row);
-    let value = values[field.key];
-    if (field.boolean && value != null) value = value === true || value === 1 || value === '1' || value === 'true' ? '1' : '0';
-    const options = {
-      label: $HR(field.label),
-      help: field.help ? $HR(field.help) : '',
-      value: value ?? null
-    };
-    if (field.type === 'enum') {
-      Object.assign(options, {
-        terms: field.terms.map((term) => ({ id: term.id, label: $HR(term.label), depth: 1 })),
-        numeric: false,
-        mode: 'radio',
-        orientation: 'inline',
-        radioStyle: 'standard',
-        countsMode: 'none'
-      });
-    }
-    if (field.type === 'integer' || field.type === 'float') {
-      Object.assign(options, { integer: field.type === 'integer', min: field.min, max: field.max, step: field.step });
-    }
-    const input = createHInput(field.type, row, options);
-    // the row is the input's root (.h-form-input): a field of the form layout
-    markInputField(input.container || row);
-    this.inputs.set(field.key, { input, field });
-    this.rows.set(field.key, row);
   }
 
   /** A preview row above a group. */
@@ -316,12 +208,10 @@ export class HSymbolEditor extends HBaseWidget {
     parent.append(row);
   }
 
-  /** Show/hide dependent fields and redraw the previews. */
+  /** Redraw the previews. */
   _refresh() {
-    const values = this.getValueWithHidden();
-    for (const [key, { field }] of this.inputs) {
-      if (field.show) this.rows.get(key).hidden = !field.show(values);
-    }
+    if (!this.form) return;
+    const values = this.getValue();
     const parent = this.options.parentSymbol || DEFAULT_MAP_SYMBOL;
     for (const preview of this.previews) {
       const options = { iconUrl: this.options.iconUrl, rectypeId: this.options.rectypeId };
@@ -339,16 +229,15 @@ export class HSymbolEditor extends HBaseWidget {
       }
     }
   }
+}
 
-  /** Values including those of hidden fields (to decide what to show). */
-  getValueWithHidden() {
-    const result = {};
-    for (const [key, { input, field }] of this.inputs) {
-      let value = input.getValue();
-      if (Array.isArray(value)) value = value[0];
-      if (value === null || value === undefined || value === '') continue;
-      result[key] = field.boolean ? String(value) === '1' : value;
-    }
-    return result;
+/** Form values of a symbol: Yes/No properties as booleans (stored as 1/0, "true", "yes"...). */
+function formValuesOf(symbol) {
+  const values = { ...symbol };
+  for (const key of BOOLEAN_FIELDS) {
+    const value = values[key];
+    if (value === null || value === undefined || value === '') continue;
+    values[key] = value === true || value === 1 || ['1', 'true', 'yes', 'y'].includes(String(value).toLowerCase());
   }
+  return values;
 }

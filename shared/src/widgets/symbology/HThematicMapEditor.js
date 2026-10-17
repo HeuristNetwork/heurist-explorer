@@ -477,10 +477,10 @@ export class HThematicMapEditor extends HBaseWidget {
     const vocabulary = enumField ? this.options.dbdefs?.vocabRoot?.(fieldCodeDty(field.code)) : 0;
     this.rangeList.replaceChildren(...field.ranges.map((range, index) => {
       const row = element('div', 'h-thematic-range');
-      const remove = linkButton('×', $HR('Remove range'), () => {
+      const remove = linkButton('', $HR('Remove range'), () => {
         field.ranges.splice(index, 1);
         this._renderRangeRows();
-      });
+      }, 'fa-circle-minus');
       remove.classList.add('h-thematic-range-remove');
       const values = element('div', 'h-thematic-range-values');
       if (enumField && vocabulary) {
@@ -716,7 +716,7 @@ function sectionHeading(title, addLabel, onAdd) {
   text.textContent = $HR(title);
   const add = document.createElement('button');
   add.type = 'button';
-  add.className = 'h-btn h-btn-small h-thematic-add';
+  add.className = 'h-btn h-thematic-add';
   add.innerHTML = '<span class="fa-solid fa-circle-plus" aria-hidden="true"></span>';
   add.append(` ${$HR(addLabel)}`);
   add.addEventListener('click', onAdd);
@@ -776,11 +776,17 @@ function symbolButton(title, onClick) {
 }
 
 /** A small text button. */
-function linkButton(text, title, onClick) {
+function linkButton(text, title, onClick, icon = '') {
   const link = document.createElement('button');
   link.type = 'button';
   link.className = 'heurist-icon-button h-thematic-link';
   link.textContent = text;
+  if (icon) {
+    const glyph = document.createElement('span');
+    glyph.className = `fa-solid ${icon}`;
+    glyph.setAttribute('aria-hidden', 'true');
+    link.append(glyph);
+  }
   link.title = title;
   link.setAttribute('aria-label', title);
   link.addEventListener('click', onClick);

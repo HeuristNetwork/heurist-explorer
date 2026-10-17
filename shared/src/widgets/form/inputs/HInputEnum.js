@@ -323,6 +323,8 @@ export class HInputEnum extends HInput {
 
 /** @returns {number|string} A term id: a number when it is numeric, else the text. */
 function numericId(id) {
+  // true / false ids (Yes / No) stay text: Number(true) is 1
+  if (typeof id === 'boolean') return String(id);
   const number = Number(id);
   return typeof id === 'number' || (String(id ?? '').trim() !== '' && Number.isFinite(number)) ? number : String(id ?? '');
 }

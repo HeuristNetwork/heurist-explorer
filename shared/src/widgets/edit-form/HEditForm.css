@@ -32,6 +32,24 @@
   display: none;
 }
 
+/* group `columns`: the fields in a grid, row by row; help and slot over the whole row;
+   one column in a narrow form */
+.h-edit-form .h-edit-form-fields.has-columns {
+  display: grid;
+  grid-template-columns: repeat(var(--h-edit-form-columns, 2), minmax(0, 1fr));
+  column-gap: 12px;
+}
+
+.h-edit-form-fields.has-columns > :not(.h-edit-field) {
+  grid-column: 1 / -1;
+}
+
+@container (max-width: 480px) {
+  .h-edit-form .h-edit-form-fields.has-columns {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 .h-edit-form-fields {
   display: flex;
   flex-direction: column;

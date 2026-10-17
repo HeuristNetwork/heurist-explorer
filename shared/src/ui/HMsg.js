@@ -147,7 +147,8 @@ export class HMsg {
     let list;
     if (typeof buttons === 'function') {
       list = [
-        { label: 'Yes', class: 'h-btn h-btn-primary', onClick: () => buttons.call(context) },
+        // Yes closes the question, then runs the action (as the legacy dialog did)
+        { label: 'Yes', class: 'h-btn h-btn-primary', onClick: () => { dlg?.close(); buttons.call(context); } },
         { label: 'No', class: 'h-btn', onClick: () => dlg?.close() },
       ];
     } else if (Array.isArray(buttons)) {
