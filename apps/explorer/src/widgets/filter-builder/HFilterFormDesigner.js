@@ -49,7 +49,7 @@ const DEFAULT_NUMBER_RANGES = 10;
  */
 function isTextList(parameter) {
   return parameter?.type === 'text' && !parameter.range
-    && (Boolean(parameter.fieldId) || TEXT_LIST_PREDICATES.has(parameter.predicate));
+    && (Boolean(parameter.fieldId) || TEXT_LIST_PREDICATES.has(parameter.predicate) || parameter.enumPart === 'code');
 }
 
 /** @returns {boolean} True for a date or numeric parameter. */
@@ -184,6 +184,10 @@ export class HFilterFormDesigner extends HBaseWidget {
     const skipEmpty = this._settingCheckbox('skipEmptySearch');
     const showHierarchy = this._settingCheckbox('showHierarchy');
     const accordion = this._settingCheckbox('accordion');
+    const showSeparators = this._settingCheckbox('showSeparators');
+    const showOperators = this._settingCheckbox('showOperators');
+    const operatorsLabel = this._label('Show operators', showOperators);
+    operatorsLabel.title = 'Show the comparison beside the field label when it is not "is" (contains, is before, count of values ...)';
 
     // form-wide size of explicit radio/checkbox lists; longer lists get a picker below (V14)
     const listSize = settings.listThreshold || FILTER_FORM_LIST_DEFAULTS.listThreshold;
@@ -231,6 +235,8 @@ export class HFilterFormDesigner extends HBaseWidget {
     general.append(this._label('Orientation', orientation),
       this._label("Don't search when the form is empty", skipEmpty),
       this._label('Show entity hierarchy above field label', showHierarchy),
+      this._label('Show separating lines', showSeparators),
+      operatorsLabel,
       previewToggle);
     toolbar.append(general, lists);
     this.container.append(toolbar);
@@ -312,7 +318,7 @@ export class HFilterFormDesigner extends HBaseWidget {
         // text: direct input is the default; a list mode picks exact values (V12).
         // Tag/visibility values are IDs/keywords the predicate already matches exactly.
         if (LIST_MODES.includes(child.mode)) {
-          if (parameter.fieldId || EXACT_HEADER_PREDICATES.has(parameter.predicate)) child.exact = true;
+          if (parameter.fieldId || parameter.enumPart === 'code' || EXACT_HEADER_PREDICATES.has(parameter.predicate)) child.exact = true;
           else delete child.exact;
         } else { delete child.mode; delete child.exact; delete child.orientation; delete child.multiple; }
       } else if (isScalar(parameter)) {
@@ -333,7 +339,9 @@ export class HFilterFormDesigner extends HBaseWidget {
     }
     const settings = layout.settings || {};
     if (settings.orientation === 'vertical') delete settings.orientation;
-    for (const flag of ['skipEmptySearch', 'showHierarchy', 'accordion', 'facetsInitOnly']) if (!settings[flag]) delete settings[flag];
+    for (const flag of ['skipEmptySearch', 'showHierarchy', 'accordion', 'facetsInitOnly', 'showSeparators', 'showOperators']) {
+      if (!settings[flag]) delete settings[flag];
+    }
     for (const [key, value] of Object.entries(FILTER_FORM_LIST_DEFAULTS)) {
       if ((settings[key] || value) === value) delete settings[key];
     }
@@ -588,7 +596,8 @@ export class HFilterFormDesigner extends HBaseWidget {
     for (const child of layout.groups.flatMap((group) => group.children || [])) {
       const parameter = this.parameters[child.input];
       if (isTextList(parameter)) {
-        child.exact = Boolean(parameter.fieldId || EXACT_HEADER_PREDICATES.has(parameter.predicate)) && LIST_MODES.includes(child.mode);
+        child.exact = Boolean(parameter.fieldId || parameter.enumPart === 'code' || EXACT_HEADER_PREDICATES.has(parameter.predicate))
+          && LIST_MODES.includes(child.mode);
       }
     }
     return layout;

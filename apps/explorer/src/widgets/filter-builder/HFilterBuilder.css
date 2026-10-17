@@ -91,7 +91,9 @@
     color: var(--h-color-text-muted);
 }
 
-.h-fb-addrow { margin-top: 2px; padding-left: 50px; }  /* align + under .h-fbitem */
+.h-fb-addrow { display: flex; align-items: center; gap: 10px; margin-top: 2px; padding-left: 50px; }  /* align + under .h-fbitem */
+.h-fb-asknew { display: inline-flex; align-items: center; gap: 4px; color: var(--h-color-text-muted); font-size: var(--h-font-size-small); white-space: nowrap; }
+.h-fb-asknew[hidden] { display: none; }
 .h-fb-addbig { width: 34px; padding: 0; font-size: 1.3rem; line-height: 1; }
 
 /* --- one criterion row --- */
@@ -134,12 +136,13 @@
     background: transparent;
     width: 100%;
     min-width: 0;
+    max-width: 180px;
 }
 .h-fbitem-op:focus { border-color: var(--h-color-border); }
 
 /* --- value column --- */
 .h-fbitem-values { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
-.h-fbitem-valrow { display: grid; grid-template-columns: 54px minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: 6px; }
+.h-fbitem-valrow { display: grid; grid-template-columns: 54px auto minmax(0, 1fr) auto; align-items: center; gap: 6px; }
 .h-fbitem-value-widget { min-width: 0; }
 .h-fbitem-conjslot,
 .h-fbitem-conj,
@@ -158,6 +161,36 @@
 .h-fbitem-rangesep { color: var(--h-color-text-muted); }
 .h-fbitem-values .h-input,
 .h-fbitem-values .h-select { min-width: 0; width: 100%; }
+/* numbers, counts and dates: wide enough for 13 digits, not the whole column (2026-10-17) */
+.h-fbitem-values .h-input-numeric,
+.h-fbitem-values .h-input-date,
+.h-fbitem-values .flatpickr-wrapper,
+.h-fbitem-count .h-input { width: 9em; max-width: 100%; }
+.h-fbitem-valrow.h-fbitem-range { grid-template-columns: 54px auto auto auto auto auto; justify-content: start; }
+
+/* "Ask the user": the value is an input of the Filter Form (2026-10-17) */
+.h-fbitem-ask {
+    min-height: var(--h-control-height);
+    padding: 1px 5px;
+    font-size: 10px;
+    line-height: 1.1;
+    white-space: normal;
+    text-align: center;
+}
+.h-fbitem-ask[aria-pressed='true'] {
+    background: var(--h-color-attention-selected);
+    border-color: var(--h-color-border-strong);
+}
+.h-fbitem-askslot,
+.h-fbitem-asked { min-width: 0; }
+
+/* clear and "−" (remove value) appear on hover of the row, as the row's × */
+.h-fbitem .h-form-input-clear,
+.h-fbitem-delval { opacity: 0; transition: opacity 0.1s ease; }
+.h-fbitem:hover .h-form-input-clear,
+.h-fbitem:hover .h-fbitem-delval,
+.h-fbitem .h-form-input-clear:focus-visible,
+.h-fbitem-delval:focus-visible { opacity: 1; }
 .h-fbitem-wkt { min-width: 240px; font-family: monospace; }
 .h-fbitem-record { display: inline-flex; gap: 4px; }
 .h-fbitem-addval,

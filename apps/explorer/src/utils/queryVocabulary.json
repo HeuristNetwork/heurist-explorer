@@ -166,7 +166,7 @@
       "phrase.all_of": "all of ({conditions})",
       "phrase.field_cond": "{field} {op} {value}",
       "phrase.header_cond": "{field} {op} {value}",
-      "phrase.field_count": "number of {field} values",
+      "phrase.field_count": "count of {field} values",
       "phrase.linked_to": "linked to {subquery}",
       "phrase.linked_from": "linked from {subquery}",
       "phrase.related_to": "related to {subquery}",

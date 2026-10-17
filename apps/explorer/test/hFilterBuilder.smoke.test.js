@@ -53,28 +53,40 @@ test('setQuery() accepts keyword syntax from the Query Source editor', () => {
   assert.deepEqual(builder.getQuery(), [{ t: '10' }, { 'f:12': 'Smith' }]);
 });
 
-test('blank selected values become runtime parameters, but NULL operators do not', () => {
+test('values marked "Ask the user" become runtime parameters, but NULL operators do not; a blank fixed value is left out', () => {
   const builder = new HFilterBuilder({ dbdefs: dbdefsStub, vocabulary: VOCAB });
   builder.model.rows = [
-    { type: 'field', dty: 12, kind: 'text', op: 'op.contains', values: [''] },
-    { type: 'field', dty: 13, kind: 'text', op: 'op.is_empty', values: [''] }
+    { type: 'field', dty: 12, kind: 'text', op: 'op.contains', values: [''], ask: [true] },
+    { type: 'field', dty: 13, kind: 'text', op: 'op.is_empty', values: [''], ask: [true] },
+    { type: 'field', dty: 14, kind: 'text', op: 'op.contains', values: [''] },
+    // the fixed value is kept for the toggle, the parameter replaces it
+    { type: 'field', dty: 15, kind: 'text', op: 'op.contains', values: ['Smith'], ask: [true] }
   ];
 
   const definition = builder.getDefinition();
   assert.deepEqual(definition, {
-    query: [{ 'f:12': '$X1$' }, { 'f:13': 'NULL' }],
+    query: [{ 'f:12': '$X1$' }, { 'f:13': 'NULL' }, { 'f:15': '$X2$' }],
     filterForm: null
   });
 });
 
-test('an incomplete range keeps its defined endpoint as a form default', () => {
+test('a range endpoint is asked separately; the other keeps its fixed value', () => {
   const builder = new HFilterBuilder({ dbdefs: dbdefsStub, vocabulary: VOCAB });
   builder.model.rows = [
-    { type: 'field', dty: 12, kind: 'number', op: 'op.between', values: ['10', ''] }
+    { type: 'field', dty: 12, kind: 'number', op: 'op.between', values: ['10', ''], ask: [false, true] },
+    // a blank fixed endpoint: incomplete, left out
+    { type: 'field', dty: 13, kind: 'number', op: 'op.between', values: ['10', ''] }
   ];
 
   const definition = builder.getDefinition();
   assert.deepEqual(definition, { query: [{ 'f:12': '10<>$X1$' }], filterForm: null });
+});
+
+test('a parameter read from a query is marked "Ask the user"', () => {
+  const builder = new HFilterBuilder({ dbdefs: dbdefsStub, vocabulary: VOCAB });
+  builder.setQuery([{ t: '10' }, { 'f:12': '$X3$' }]);
+  assert.deepEqual(builder.model.rows[0].ask, [true, false]);
+  assert.deepEqual(builder.getQuery(), [{ t: '10' }, { 'f:12': '$X3$' }]);
 });
 
 test('setQuery() accepts keyword text inside a {query, filterForm} definition', () => {
@@ -129,15 +141,15 @@ test('several values with a blank one: the defined values are the condition, not
   builder.model.rows = [
     { type: 'field', dty: 20, kind: 'enum', op: 'op.is', values: ['', '415'], valueConj: 'any' },
     { type: 'field', dty: 21, kind: 'enum', op: 'op.is', values: ['', '', '7', '9'], valueConj: 'any' },
-    { type: 'field', dty: 22, kind: 'enum', op: 'op.is', values: ['', ''], valueConj: 'any' }
+    { type: 'field', dty: 22, kind: 'enum', op: 'op.is', values: ['', ''], valueConj: 'any', ask: [true] }
   ];
   assert.deepEqual(builder.getDefinition().query, [{ 'f:20': '415' }, { 'f:21': '7,9' }, { 'f:22': '$X1$' }]);
 });
 
-test('"<record type> records is / is not" without a picked record becomes a parameter; exists / missing do not', () => {
+test('"<record type> records is / is not" marked "Ask the user" becomes a parameter; exists / missing do not', () => {
   const builder = new HFilterBuilder({ dbdefs: dbdefsStub, vocabulary: VOCAB });
   const branch = (op) => ({ type: 'link', link: 'lt', dty: 240, targetRty: 12, conjunction: 'all',
-    rows: [{ type: 'field', dty: 'exists', kind: 'exists', selected: true, op, values: [''], valueConj: 'any' }] });
+    rows: [{ type: 'field', dty: 'exists', kind: 'exists', selected: true, op, values: [''], valueConj: 'any', ask: [true] }] });
   builder.model.rows = [branch('op.is'), branch('op.is_not'), branch('op.exists')];
   assert.deepEqual(builder.getDefinition().query, [
     { 'lt:240': [{ t: '12' }, { ids: '$X1$' }] },
@@ -157,12 +169,12 @@ test('a linked-record parameter reads back into the records row and keeps its na
   assert.deepEqual(builder.getDefinition().query, query);
 });
 
-test('a tag condition without a value becomes a parameter', () => {
+test('a tag condition marked "Ask the user" becomes a parameter', () => {
   const builder = new HFilterBuilder({ dbdefs: dbdefsStub, vocabulary: VOCAB });
   builder.model.rows = [
-    { type: 'field', dty: 'tag', kind: 'tag', selected: true, op: 'op.is', values: [''] },
-    { type: 'field', dty: 'tag', kind: 'tag', selected: true, op: 'op.is_not', values: [''] },
-    { type: 'field', dty: 'tag', kind: 'tag', selected: true, op: 'op.is_set', values: [''] }
+    { type: 'field', dty: 'tag', kind: 'tag', selected: true, op: 'op.is', values: [''], ask: [true] },
+    { type: 'field', dty: 'tag', kind: 'tag', selected: true, op: 'op.is_not', values: [''], ask: [true] },
+    { type: 'field', dty: 'tag', kind: 'tag', selected: true, op: 'op.is_set', values: [''], ask: [true] }
   ];
   assert.deepEqual(builder.getDefinition().query, [{ tag: '$X1$' }, { tag: '-$X2$' }, { tag: '-NULL' }]);
 });
@@ -185,9 +197,44 @@ test('a "-" prefix opens as the "is not" operator, and another operator drops it
   assert.deepEqual(builder.getQuery().slice(1, 3), [{ 'f:20': '415' }, { tag: '1,6' }]);
 });
 
-test('a relation type without a picked term becomes a parameter', () => {
+test('a relation type marked "Ask the user" becomes a parameter', () => {
   const builder = new HFilterBuilder({ dbdefs: dbdefsStub, vocabulary: VOCAB });
   builder.model.rows = [{ type: 'link', link: 'related', dty: 109, targetRty: 10, conjunction: 'all',
-    rows: [{ type: 'field', dty: 'reltype', kind: 'term', rel: true, selected: true, op: 'op.is', values: [''] }] }];
+    rows: [{ type: 'field', dty: 'reltype', kind: 'term', rel: true, selected: true, op: 'op.is', values: [''], ask: [true] }] }];
   assert.deepEqual(builder.getDefinition().query, [{ 'related:109': [{ t: '10' }, { r: '$X1$' }] }]);
+});
+
+test('an enum sub-part (f:20:code) round-trips as a text value, not a term id (2026-10-17)', async () => {
+  const { rowForPath } = await import('../src/widgets/filter-builder/HFilterBuilder.js');
+  const dbdefs = { ...dbdefsStub, fieldType: (rty, dty) => (Number(dty ?? rty) === 20 ? 'enum' : 'freetext') };
+  const builder = new HFilterBuilder({ dbdefs, vocabulary: VOCAB });
+  builder.setQuery([{ t: '10' }, { 'f:20:code': '=F' }]);
+  assert.deepEqual(builder.getQuery(), [{ t: '10' }, { 'f:20:code': '=F' }]);
+  // an "enum fields" leaf of the field tree
+  const row = rowForPath([{ dty: 20, fieldType: 'enum', term: 'code' }], VOCAB);
+  assert.equal(row.enumField, 'code');
+  assert.equal(row.kind, 'text');
+  assert.equal(rowForPath([{ dty: 20, fieldType: 'enum', term: 'internalid' }], VOCAB).enumField, null);
+});
+
+test('enum fields in the tree: "term" is the field itself; code / concept id / description are sub-parts (2026-10-17)', async () => {
+  const { rowForPath } = await import('../src/widgets/filter-builder/HFilterBuilder.js');
+  // the leaf of an enum field while "enum fields" is off, and the Term output
+  const term = rowForPath([{ dty: 20, fieldType: 'enum', term: 'term' }], VOCAB);
+  assert.equal(term.enumField, null);
+  assert.equal(term.kind, 'enum');
+  for (const part of ['code', 'conceptid', 'desc']) {
+    const row = rowForPath([{ dty: 20, fieldType: 'enum', term: part }], VOCAB);
+    assert.equal(row.enumField, part);
+    assert.equal(row.kind, 'text');
+  }
+});
+
+test('code and concept id compose as is (=) / is not (-) (2026-10-17)', async () => {
+  const { composeQuery, emptyFieldRow } = await import('../src/utils/queryModel.js');
+  const model = (enumField, op) => ({ rtyId: 10, conjunction: 'all', sort: [],
+    rows: [emptyFieldRow({ dty: 20, kind: 'text', enumField, op, selected: true, values: ['F'] })] });
+  assert.deepEqual(composeQuery(model('code', 'op.is'), VOCAB)[1], { 'f:20:code': '=F' });
+  assert.deepEqual(composeQuery(model('code', 'op.is_not'), VOCAB)[1], { 'f:20:code': '-F' });
+  assert.deepEqual(composeQuery(model('conceptid', 'op.is'), VOCAB)[1], { 'f:20:conceptid': '=F' });
 });

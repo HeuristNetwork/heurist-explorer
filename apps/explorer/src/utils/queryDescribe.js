@@ -236,10 +236,15 @@ function describePredicate(base, suffix, rawValue, ctx, scopeRty, { wrap = false
     return fill(phrase(ctx, 'field_cond'), { field: label, op: str(ctx.vocab, ctx.lang, opKey), value: val }).trim();
   }
 
-  // field value count  fc:<id|name>  -> "number of <field> values <op> <n>"
+  // field value count  fc:<id|name>  -> "count of <field> values <op> <n>"; the server
+  // reads a single "<>N" (like "-N") as "is not N", not as a range (2026-10-17)
   if (base === 'fc') {
     const { label } = fieldRef(suffix.parts[0], scopeRty, ctx, 'any field');
-    const { op, val } = describeOpValue('number', value, null, ctx);
+    const raw = String(value ?? '');
+    const notEqual = /^(?:<>|-)(?!.*<>)/.test(raw);
+    const { op, val } = notEqual
+      ? { op: str(ctx.vocab, ctx.lang, 'op.not_equals'), val: describeOpValue('number', raw.replace(/^(?:<>|-)/, ''), null, ctx).val }
+      : describeOpValue('number', value, null, ctx);
     return fill(phrase(ctx, 'field_cond'), {
       field: fill(phrase(ctx, 'field_count'), { field: label }), op, value: val
     }).trim();

@@ -82,7 +82,7 @@ export class ReportManager extends HBaseWidget {
     this.selectIcon = el('i', 'fa-solid fa-list', select);
     this.selectIcon.setAttribute('aria-hidden', 'true');
     this.selectLabel = el('span', 'h-reports-select-label', select);
-    el('i', 'fa-solid fa-caret-down', select).setAttribute('aria-hidden', 'true');
+    el('span', 'h-caret', select).setAttribute('aria-hidden', 'true');
     this.listen(select, 'click', () => this.toggleList(select));
     this.buttons.select = select;
 
@@ -106,7 +106,7 @@ export class ReportManager extends HBaseWidget {
     caret.title = $HR('Generated files of this report');
     caret.setAttribute('aria-label', caret.title);
     caret.setAttribute('aria-haspopup', 'true');
-    el('i', 'fa-solid fa-caret-down', caret).setAttribute('aria-hidden', 'true');
+    el('span', 'h-caret', caret).setAttribute('aria-hidden', 'true');
     this.listen(caret, 'click', () => this.toggleGenerated(caret));
     this.buttons.generated = caret;
     this.buttons.schedule = this.tool(this.runTools, 'fa-solid fa-calendar-days', 'Schedule', 'Schedules that regenerate the report file', () => this.schedules());

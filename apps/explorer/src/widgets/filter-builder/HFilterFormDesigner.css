@@ -73,6 +73,14 @@
   font-weight: 600;
 }
 
+/* vertical lines between the form-wide options (2026-10-17) */
+.h-filter-form-designer-general > .h-filter-form-designer-setting + .h-filter-form-designer-setting,
+.h-filter-form-designer-lists > .h-filter-form-designer-setting + .h-filter-form-designer-setting {
+  margin-left: 0;
+  padding-left: 8px;
+  border-left: 1px solid var(--h-color-border);
+}
+
 /* "Counts alignment" and "Show counts as" wrap together */
 .h-filter-form-designer-counts {
   padding: 0 2px;

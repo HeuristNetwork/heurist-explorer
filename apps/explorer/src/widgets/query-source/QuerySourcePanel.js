@@ -193,6 +193,8 @@ export class QuerySourcePanel {
       this.options.onFormPlacement?.('west');
     }
     this._setFilterFormVisible(true);
+    // the form must be seen: a collapsed (or squeezed) Search pane is expanded
+    this.options.onRevealForm?.();
     await this.closeFilterForm({ restoreEditor: false });
     this.form = new HFilterForm();
     this.form.attach(this.formHost, {

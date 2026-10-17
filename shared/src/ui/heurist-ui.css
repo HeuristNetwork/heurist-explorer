@@ -18,6 +18,8 @@
   --h-color-border-strong: #aeb7c0;
   --h-color-selected: #dcecff;
   --h-color-selected-border: #3983b7;
+  --h-color-attention: #e6fdeb;
+  --h-color-attention-selected: #80e8da;
   --h-color-danger: #b42318;
   --h-color-danger-bg: #fef3f2;
   --h-color-danger-header: #d92d20;
@@ -33,6 +35,10 @@
   --h-radius: 3px;
   --h-gap: 6px;
   --h-shadow-dialog: 0 12px 35px rgb(0 0 0 / 22%);
+  /* one dropdown chevron for select.h-select, .h-caret and .h-dropdown (2026-10-17);
+     the stroke colour of --h-chevron-select is --h-color-icon */
+  --h-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3.5 6l4.5 4.5L12.5 6' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  --h-chevron-select: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3.5 6l4.5 4.5L12.5 6' fill='none' stroke='%23777' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
 }
 
 .h-widget,
@@ -61,6 +67,29 @@ h4 { font-weight: bolder; }
   color: var(--h-color-text);
   padding: 4px 8px;
 }
+
+/* the browser's own chevron differs between browsers: draw the shared one */
+select.h-select:not([multiple]):not([size]) {
+  appearance: none;
+  padding-right: 24px;
+  background-image: var(--h-chevron-select);
+  background-repeat: no-repeat;
+  background-position: right 6px center;
+  background-size: 12px 12px;
+}
+
+/* dropdown chevron in a button: <span class="h-caret" aria-hidden="true"></span> */
+.h-caret {
+  display: inline-block;
+  flex: none;
+  width: 12px;
+  height: 12px;
+  color: var(--h-color-icon);
+  background-color: currentColor;
+  -webkit-mask: var(--h-chevron) center / contain no-repeat;
+  mask: var(--h-chevron) center / contain no-repeat;
+}
+.h-btn-primary .h-caret { color: inherit; }
 
 .h-input:focus,
 .h-select:focus,
@@ -100,8 +129,20 @@ h4 { font-weight: bolder; }
 .h-dropdown { position:relative; display:inline-block; }
 .h-dropdown > summary { list-style:none; }
 .h-dropdown > summary::-webkit-details-marker { display:none; }
-.h-dropdown > summary::after { content:"▾"; margin-left:6px; font-size:.8em; }
-.h-dropdown[open] > summary::after { content:"▴"; }
+.h-dropdown > summary::after {
+  content:"";
+  display:inline-block;
+  width:12px;
+  height:12px;
+  margin-left:6px;
+  vertical-align:middle;
+  color:var(--h-color-icon);
+  background-color:currentColor;
+  -webkit-mask:var(--h-chevron) center / contain no-repeat;
+  mask:var(--h-chevron) center / contain no-repeat;
+}
+.h-dropdown[open] > summary::after { transform:rotate(180deg); }
+.h-dropdown > summary.h-btn::after { margin-left:0; } /* .h-btn has its own gap */
 .h-menu {
   position:absolute;
   z-index:1000;

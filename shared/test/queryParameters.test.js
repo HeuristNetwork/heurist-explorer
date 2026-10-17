@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  queryParameterNames, describeQueryParameters, resolveQueryParameters
+  queryParameterNames, describeQueryParameters, resolveQueryParameters, parameterOperatorLabel
 } from '../src/data/queryParameters.js';
 
 test('multiple query paths with the same detail type retain distinct parameters', () => {
@@ -152,4 +152,31 @@ test('a relation-type parameter lists the terms of its relationship field and ke
   assert.equal(describeQueryParameters([{ related: [{ r: '$X1$' }] }], dbdefs).X1.fieldId, 6);
   assert.deepEqual(resolveQueryParameters(query, { X1: '4501' }).q, [{ t: '14' }, { 'related:109': [{ t: '10' }, { r: '4501' }] }]);
   assert.deepEqual(resolveQueryParameters(query, {}).q, [{ t: '14' }], 'left blank: no condition');
+});
+
+test('a count of values is a whole number without the field values (2026-10-17)', () => {
+  const dbdefs = { fieldGlobal: () => ({ type: 'enum', name: 'Type' }) };
+  const { X1 } = describeQueryParameters([{ t: '10' }, { 'fc:5': '$X1$' }], dbdefs);
+  assert.equal(X1.type, 'number');
+  assert.equal(X1.integer, true);
+  assert.equal(X1.fieldId, null);
+  assert.equal(X1.countFieldId, 5);
+  assert.equal(parameterOperatorLabel(X1), 'count of values');
+});
+
+test('operator words beside the Filter Form label; none for "is"', () => {
+  const dbdefs = { fieldGlobal: (id) => ({ 1: { type: 'freetext' }, 2: { type: 'date' }, 3: { type: 'enum' }, 4: { type: 'integer' } })[id] };
+  const words = (query) => Object.values(describeQueryParameters(query, dbdefs)).map(parameterOperatorLabel);
+  assert.deepEqual(words([{ 'f:1': '$A$' }, { 'f:1': '=$B$' }, { 'f:1': '$C$%' }]), ['contains', '', 'starts with']);
+  // C: the range's end, never shown on its own
+  assert.deepEqual(words([{ 'f:2': '<$A$' }, { 'f:2': '<>$B$/$C$' }]), ['is before', 'falls in or overlaps', '']);
+  assert.deepEqual(words([{ 'f:3': '$A$' }, { 'f:3': '-$B$' }, { 'f:4': '$C$' }, { 'f:4': '>=$D$' }]),
+    ['', 'is not', '', 'is at least']);
+});
+
+test('an enum sub-part parameter (f:20:code) is a text input, not a term list (2026-10-17)', () => {
+  const { X1 } = describeQueryParameters([{ 'f:20:code': '$X1$' }], { fieldGlobal: () => ({ type: 'enum', name: 'Type' }) });
+  assert.equal(X1.type, 'text');
+  assert.equal(X1.fieldId, null);
+  assert.equal(X1.enumPart, 'code');
 });

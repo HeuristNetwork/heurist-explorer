@@ -62,7 +62,7 @@ export class HValueCombo extends HBaseWidget {
     this.buttonText = document.createElement('span');
     this.buttonText.className = 'h-value-combo-text';
     const caret = document.createElement('span');
-    caret.className = 'fa-solid fa-caret-down h-value-combo-caret';
+    caret.className = 'h-caret h-value-combo-caret';
     caret.setAttribute('aria-hidden', 'true');
     this.button.append(this.buttonText, caret);
     this.container.append(this.button);

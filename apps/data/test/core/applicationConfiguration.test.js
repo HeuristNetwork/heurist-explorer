@@ -201,3 +201,27 @@ test("the row pen and Save as Filter/Source follow the host's editing ability, n
   assert.equal(options(true).sourceSaveEnabled, true);
   assert.equal(options(true, false).interaction.editEnabled, false, "the setting still turns it off");
 });
+
+test("a failed new result shows an empty list, not the previous records (2026-10-17)", async () => {
+  const pages = [];
+  let fail = false;
+  const querySource = { id: null, source: { query: "t:10" }, fields: [], toJSON() { return this; } };
+  const loaders = {
+    load: async () => {
+      if (fail) throw new Error("Invalid query");
+      return { querySource, response: { records: [{ rec_ID: 1 }], meta: {}, pagination: { total: 1 } } };
+    },
+  };
+  const application = new DataApplication({
+    container: {},
+    config: { source: {} },
+    engine: { setData: async (data) => { pages.push(data.records.length); } },
+    host: {},
+    loaders,
+  });
+  application.dispatch = () => {};
+  await application.setQuery("t:10");
+  fail = true;
+  await assert.rejects(application.setQuery("t:10 f:20:abc"), /Invalid query/);
+  assert.deepEqual(pages, [1, 0]);
+});

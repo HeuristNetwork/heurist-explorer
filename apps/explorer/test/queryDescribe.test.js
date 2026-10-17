@@ -115,7 +115,9 @@ test('capitalize option only forces the leading character (phrase.find is alread
 });
 
 test('fc: field value count', () => {
-  assert.equal(say([{ t: '10' }, { 'fc:12': '>2' }]), 'Find Persons where number of Family name values is greater than 2');
+  assert.equal(say([{ t: '10' }, { 'fc:12': '>2' }]), 'Find Persons where count of Family name values is greater than 2');
+  // a single "<>N" is "is not N" on the server, not a range
+  assert.equal(say([{ t: '10' }, { 'fc:12': '<>2' }]), 'Find Persons where count of Family name values is not 2');
 });
 
 test('comparison tokens on a known text field are literal', () => {

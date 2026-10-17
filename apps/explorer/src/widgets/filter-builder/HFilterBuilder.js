@@ -27,7 +27,7 @@ import { $HR, HMsg } from '#shared/ui';
 import { composeQuery, parseQuery, emptyFieldRow, resolveQueryNames, reconcileModel } from '../../utils/queryModel.js';
 import { describeGeoValue } from '#shared/widgets/form/inputs/HInputGeo.js';
 import { queryDescribe } from '../../utils/queryDescribe.js';
-import { HFilterBuilderItem } from './HFilterBuilderItem.js';
+import { HFilterBuilderItem, ENUM_PICK_PARTS } from './HFilterBuilderItem.js';
 import { HFilterBuilderSort } from './HFilterBuilderSort.js';
 import { HFieldTree } from '#shared/widgets/field-tree/HFieldTree.js';
 import { HFilterFormDesigner } from './HFilterFormDesigner.js';
@@ -36,6 +36,13 @@ import { describeQueryParameters, hasQueryParameters, resolveQueryParameters } f
 import { parseTextQuery } from '../../utils/parseTextQuery.js';
 import { str, kindFor, operatorByKey } from '../../utils/vocabHelpers.js';
 import './HFilterBuilder.css';
+
+/** Enum outputs of the field tree; no internal id - that is the term itself (2026-10-17). */
+const BUILDER_ENUM_OUTPUTS = ['term', 'code', 'conceptid', 'desc'];
+
+/** Guidance under the header while values may be asked in the Filter Form (2026-10-17). */
+const GUIDANCE_PARAMETERS = 'Select fields, comparison operators and values. Choose “Ask the user” to add an input '
+  + 'to the Faceted search / Filter Form. For ranges, choose separately for each endpoint.';
 
 /** Visual Heurist query builder: record type, field/link rows, sort, and a live JSON preview. */
 export class HFilterBuilder extends HBaseWidget {
@@ -65,6 +72,7 @@ export class HFilterBuilder extends HBaseWidget {
     this._fixedRecordTypeId = null;
     this._allowParameters = true;
     this._hideUnused = hideUnusedRectypes !== false; // hide record types without records from selectors and the field tree
+    this._askNew = false; // "Add parameters": new fields start with their values marked "Ask the user"
   }
 
   /**
@@ -130,13 +138,13 @@ export class HFilterBuilder extends HBaseWidget {
       header.append(labelled($HR('Language'), this._langSel));
     }
 
-    const clearBtn = btn($HR('Clear all'), 'h-btn h-btn-small h-fb-clear', () => this.setQuery([]));
+    const clearBtn = btn($HR('Clear all'), 'h-btn h-btn-small h-fb-clear', () => this._confirmClear());
     header.append(clearBtn);
     this.container.append(header);
 
     const guidance = el('p', 'h-fb-guidance h-i18n');
     guidance.textContent = this._allowParameters
-      ? 'Select fields, comparison operators and values. Leave a value blank to let the user enter it in the Filter Form when the Query Source runs.'
+      ? GUIDANCE_PARAMETERS
       : 'Select fields, comparison operators and values.';
     this._guidance = guidance;
     this.container.append(guidance);
@@ -164,13 +172,20 @@ export class HFilterBuilder extends HBaseWidget {
     crit.append(this._rowsHost);
 
     const addRow = el('div', 'h-fb-addrow');
-    const addBtn = btn('+', 'h-btn h-fb-addbig', () => {
-      const entry = this._addFieldEntry();
-      this._recompose();
-      entry.item.openFieldPicker();
-    });
-    addBtn.title = $HR('add field');
-    addRow.append(addBtn);
+    // several fields at once: mark them in the tree, "Add selected fields" adds a row each
+    const addBtn = btn('+', 'h-btn h-fb-addbig', () => this._pickFields(addBtn));
+    addBtn.title = $HR('add fields');
+    const askNew = el('label', 'h-fb-asknew');
+    const askNewBox = document.createElement('input');
+    askNewBox.type = 'checkbox';
+    askNewBox.className = 'h-checkbox';
+    askNewBox.checked = this._askNew;
+    askNewBox.addEventListener('change', () => { this._askNew = askNewBox.checked; });
+    askNew.title = $HR('New fields start with their values marked “Ask the user”');
+    askNew.append(askNewBox, document.createTextNode(` ${$HR('Add parameters')}`));
+    askNew.hidden = !this._allowParameters;
+    this._askNewToggle = askNew;
+    addRow.append(addBtn, askNew);
     crit.append(addRow);
     this.container.append(crit);
 
@@ -228,9 +243,10 @@ export class HFilterBuilder extends HBaseWidget {
       this._populateRectypes();
       this._rtySel.value = value === '' || value == null ? '' : String(value);
       this._rtySel.disabled = Boolean(this._fixedRecordTypeId);
+      if (this._askNewToggle) this._askNewToggle.hidden = !this._allowParameters;
       if (this._guidance) {
         this._guidance.textContent = this._allowParameters
-          ? 'Select fields, comparison operators and values. Leave a value blank to let the user enter it in the Filter Form when the Query Source runs.'
+          ? GUIDANCE_PARAMETERS
           : 'Select fields, comparison operators and values.';
       }
       this._onScopeChanged();
@@ -273,14 +289,18 @@ export class HFilterBuilder extends HBaseWidget {
         if (row.type === 'link') { visit(row.rows); continue; }
         const range = operatorByKey(this.vocab, row.kind, row.op)?.input === 'range';
         if (operatorByKey(this.vocab, row.kind, row.op)?.whole) continue;
+        // only values marked "Ask the user" become parameters; a blank fixed value is an
+        // incomplete criterion and is left out of the query (2026-10-17)
         if (isImplicitParameter(row, this.vocab)) {
           const count = range ? 2 : 1;
+          if (!range) row.values = [row.values?.[0] ?? ''];
           for (let i = 0; i < count; i++) {
-            if (!String(row.values?.[i] ?? '').trim()) {
+            if (row.ask?.[i]) {
               const id = row.placeholderIds?.[i] || nextId();
               row.values[i] = `$${id}$`;
             }
           }
+          if (row.ask?.[0]) row.geoExtent = null;
         }
       }
     };
@@ -324,6 +344,7 @@ export class HFilterBuilder extends HBaseWidget {
         const first = /^\$([A-Za-z][A-Za-z0-9_]*)\$$/.exec(row.values?.[0] || '');
         const second = /^\$([A-Za-z][A-Za-z0-9_]*)\$$/.exec(row.values?.[1] || '');
         row.placeholderIds = [];
+        row.ask = [Boolean(first), Boolean(second)];
         if (first) { row.placeholderIds[0] = first[1]; row.values[0] = ''; }
         if (second) { row.placeholderIds[1] = second[1]; row.values[1] = ''; }
       }
@@ -390,7 +411,7 @@ export class HFilterBuilder extends HBaseWidget {
     };
     HMsg.showMsgDlg(host, {
       dialogId: id,
-      title: 'Filter form designer',
+      title: 'Filter Form / Faceted search designer',
       preventClose: true,
       buttons: [
         { label: 'Apply', class: 'h-btn h-btn-primary', onClick: () => void close(true) },
@@ -584,6 +605,8 @@ export class HFilterBuilder extends HBaseWidget {
       apiClient: this.apiClient,
       scopeRtyId: this.model.rtyId,
       selectExtent: this.selectExtent,
+      allowParameters: () => this._allowParameters,
+      askByDefault: () => this._askDefault(),
       onRequestFieldPick: (it, anchor) => this._pickField(it, anchor),
       onChange: (evt) => {
         if (evt?.removed) this._removeEntry(entry);
@@ -668,41 +691,137 @@ export class HFilterBuilder extends HBaseWidget {
     this._sorts.push(sort);
   }
 
-  /** Field-tree picker for a top-level field row. */
-  _pickField(item, anchor) {
-    const excludedFields = this._entries.filter((entry) => entry.kind === 'field' && entry.item !== item)
+  /**
+   * Ask before "Clear all" removes every criterion, the sort and the Filter Form layout.
+   *
+   * @private
+   * @returns {void}
+   */
+  _confirmClear() {
+    const id = 'h-fb-clear-confirm';
+    const finish = (clear) => {
+      HMsg.closeMsgDlg(id);
+      if (clear) this.setQuery([]);
+    };
+    HMsg.showMsgDlg($HR('Remove all criteria, the sort and the Filter Form layout?'), {
+      dialogId: id,
+      title: $HR('Clear all'),
+      preventClose: true,
+      buttons: [
+        { label: $HR('Clear all'), class: 'h-btn h-btn-primary', onClick: () => finish(true) },
+        { label: $HR('Cancel'), class: 'h-btn', onClick: () => finish(false) }
+      ]
+    });
+  }
+
+  /**
+   * Fields already used by the top-level field rows (except `item`): the tree disables them.
+   *
+   * @private
+   * @param {HFilterBuilderItem|null} [item] Row being re-picked.
+   * @returns {Array<number|string>} Field codes.
+   */
+  _usedFields(item = null) {
+    return this._entries.filter((entry) => entry.kind === 'field' && entry.item !== item)
       .map((entry) => entry.item.row)
       .filter((row) => row.selected || row.dty !== 'anyfield')
-      .map((row) => row.dty);
-    this.tree.open(anchor, {
+      .map(fieldIdentity);
+  }
+
+  /** @returns {boolean} Whether new fields start with "Ask the user" ("Add parameters"). */
+  _askDefault() {
+    return this._allowParameters && this._askNew;
+  }
+
+  /** @returns {object} Field-tree scope shared by the single and the bulk pick. */
+  _treeScope(item = null) {
+    return {
       rtyId: this.model.rtyId,
       maxDepth: 3,
       builderMode: true,
       hideUnusedRectypes: this._hideUnused,
       excludedLinks: selectedLinkBranches(this._entries),
-      excludedFields
-    }, (path) => {
-      if (!path?.length) return;
-      if (path.length === 1) {
-        if (this._entries.some((entry) => entry.kind === 'field' && entry.item !== item
-          && String(entry.item.row.dty) === String(path[0].dty)
-          && (entry.item.row.selected || entry.item.row.dty !== 'anyfield'))) return;
-        item.setField(path[0]);
-        this._recompose();
-        return;
-      }
-      // one pointer hop -> convert this field row into a link entry
-      const entry = this._entries.find((e) => e.item === item);
-      const rowModel = rowForPath(path, this.vocab);
-      const link = this._addLinkEntry();
-      // move new link entry to the old row's position, drop the old row
-      if (entry) {
-        this._rowsHost.insertBefore(link.el, entry.el);
-        this._removeEntry(entry);
-      }
-      link.panel.setRowModel(rowModel);
-      this._recompose();
+      excludedFields: this._usedFields(item),
+      // "enum fields": the term (f:<id>, term picker), its code, concept id or description
+      enumOutputs: BUILDER_ENUM_OUTPUTS
+    };
+  }
+
+  /** Field-tree picker for a top-level field row. */
+  _pickField(item, anchor) {
+    this.tree.open(anchor, this._treeScope(item), (path) => {
+      if (this._applyPath(item, path)) this._recompose();
     });
+  }
+
+  /**
+   * Bulk pick (the "+" under the criteria): mark several fields in the tree, as in the
+   * Column fields helper; each one becomes a row. A blank first row is filled first.
+   * Fields reached through the same link go into one linked block (2026-10-17).
+   *
+   * @private
+   * @param {HTMLElement} anchor Button the tree opens under.
+   * @returns {void}
+   */
+  _pickFields(anchor) {
+    this.tree.open(anchor, {
+      ...this._treeScope(),
+      multiSelect: true,
+      onAddSelected: (paths) => {
+        const singles = new Map();
+        const rows = mergeLinkRows(paths.filter((path) => path?.length).map((path) => {
+          if (path.length > 1) return rowForPath(path, this.vocab, { ask: this._askDefault() });
+          const row = { type: 'field' };
+          singles.set(row, path);
+          return row;
+        }));
+        for (const row of rows) {
+          const last = this._entries.at(-1);
+          const blank = last?.kind === 'field' && !last.item.row.selected && last.item.row.dty === 'anyfield';
+          if (row.type === 'link') {
+            const link = this._addLinkEntry();
+            if (blank) {
+              this._rowsHost.insertBefore(link.el, last.el);
+              this._removeEntry(last);
+            }
+            link.panel.setRowModel(row);
+            continue;
+          }
+          const item = blank ? last.item : this._addFieldEntry().item;
+          if (!this._applyPath(item, singles.get(row)) && !blank) this._removeEntry(this._entries.at(-1));
+        }
+        this._recompose();
+      }
+    }, () => {});
+  }
+
+  /**
+   * Put a tree path into a field row: one field sets the row, a pointer path turns the
+   * row into a link entry at the same position.
+   *
+   * @private
+   * @param {HFilterBuilderItem} item Row to set.
+   * @param {Array<object>} path Field-tree path.
+   * @returns {boolean} Whether the path was used (false: empty, or the field is already used).
+   */
+  _applyPath(item, path) {
+    if (!path?.length) return false;
+    if (path.length === 1) {
+      if (this._usedFields(item).includes(fieldIdentity(path[0]))) return false;
+      item.setField(path[0]);
+      return true;
+    }
+    // one pointer hop -> convert this field row into a link entry
+    const entry = this._entries.find((e) => e.item === item);
+    const rowModel = rowForPath(path, this.vocab, { ask: this._askDefault() });
+    const link = this._addLinkEntry();
+    // move new link entry to the old row's position, drop the old row
+    if (entry) {
+      this._rowsHost.insertBefore(link.el, entry.el);
+      this._removeEntry(entry);
+    }
+    link.panel.setRowModel(rowModel);
+    return true;
   }
 
   /**
@@ -753,10 +872,9 @@ export class HFilterBuilder extends HBaseWidget {
       const count = countCriteria(this.model.rows);
       const criteria = count === 1 ? $HR('criterion') : $HR('criteria');
       if (this._allowParameters) {
-        const blank = countBlankCriteria(this.model.rows, this.vocab);
-        const blanks = blank === 1 ? $HR('has a blank value') : $HR('have blank values');
+        const asked = countAskedValues(this.model.rows, this.vocab);
         this._criteriaInfo.textContent = `${count} ${criteria} ${$HR('defined')}. `
-          + `${blank} ${blanks}; ${$HR('users can supply them in the Filter Form')}.`;
+          + `${asked} ${$HR('Value(s) marked “Ask the user”. They become inputs in the Filter Form')}.`;
       } else {
         this._criteriaInfo.textContent = `${count} ${criteria} ${$HR('defined')}.`;
       }
@@ -867,6 +985,7 @@ class LinkPanel {
     this.container.append(this._subHost);
 
     this._subConj = document.createElement('select');
+    this._subConj.className = 'h-select h-fb-conj';
     for (const [v, key] of [['all', 'phrase.and'], ['any', 'phrase.or']]) {
       const o = document.createElement('option');
       o.value = v; o.textContent = (str(this.vocab, this.builder.lang, key).trim() || v).toUpperCase();
@@ -1007,6 +1126,8 @@ class LinkPanel {
       apiClient: this.builder.apiClient,
       scopeRtyId: this.row.targetRty,
       selectExtent: this.builder.selectExtent,
+      allowParameters: () => this.builder._allowParameters,
+      askByDefault: () => this.builder._askDefault(),
       relationVocabRoots: () => this._relationVocabRoots(),
       onRequestFieldPick: (it, anchor) => this._pickField(it, anchor),
       onChange: (evt) => {
@@ -1041,6 +1162,7 @@ class LinkPanel {
       hideUnusedRectypes: this.builder._hideUnused,
       excludedLinks: selectedLinkBranches(this.items),
       excludedFields,
+      enumOutputs: BUILDER_ENUM_OUTPUTS,
       maxDepth: Math.max(0, 3 - this.depth)
     }, async (path) => {
       if (!path?.length) return;
@@ -1058,7 +1180,7 @@ class LinkPanel {
       const host = item.container;
       await item.destroy();
       host.classList.add('h-fb-nested');
-      const panel = this._makeNestedPanel(host, rowForPath(path, this.vocab));
+      const panel = this._makeNestedPanel(host, rowForPath(path, this.vocab, { ask: this.builder._askDefault() }));
       this.items[index] = panel;
       this._emit();
     });
@@ -1235,10 +1357,13 @@ function labelled(text, control) {
 
 /**
  * Identity of a field row / tree pick for duplicate checks: a Relationship-record
- * field (`rel`) is distinct from an endpoint field with the same id.
+ * field (`rel`) is distinct from an endpoint field with the same id, and an enum
+ * field's code / concept id / description from the field itself.
  */
 function fieldIdentity(row) {
-  return row?.rel && /^\d+$/.test(String(row.dty)) ? `rel:${row.dty}` : String(row?.dty);
+  const base = row?.rel && /^\d+$/.test(String(row.dty)) ? `rel:${row.dty}` : String(row?.dty);
+  const part = row?.enumField || (ENUM_PICK_PARTS.includes(row?.term) ? row.term : null);
+  return part ? `${base}:${part}` : base;
 }
 
 /** Coerce a rectype select value to a number, or `''` when empty/absent. */
@@ -1246,8 +1371,34 @@ function coerceRty(value) {
   return value === '' || value == null ? '' : Number(value);
 }
 
-/** Turn a field-tree path into nested linked rows ending in one field row. */
-export function rowForPath(path, vocabulary) {
+/**
+ * Join linked rows of the same branch (link, pointer field, target type) into one,
+ * at every depth, keeping the order of first appearance; other rows stay as they are.
+ *
+ * @param {Array<object>} rows Field and link row models.
+ * @returns {Array<object>} Rows with one link row per branch.
+ */
+export function mergeLinkRows(rows) {
+  const merged = [];
+  for (const row of rows || []) {
+    if (row?.type !== 'link') { merged.push(row); continue; }
+    const same = merged.find((other) => other?.type === 'link' && other.link === row.link
+      && String(other.dty ?? '') === String(row.dty ?? '') && String(other.targetRty ?? '') === String(row.targetRty ?? ''));
+    if (same) same.rows = mergeLinkRows([...same.rows, ...(row.rows || [])]);
+    else merged.push({ ...row, rows: mergeLinkRows(row.rows) });
+  }
+  return merged;
+}
+
+/**
+ * Turn a field-tree path into nested linked rows ending in one field row.
+ *
+ * @param {Array<object>} path Field-tree path.
+ * @param {object} vocabulary Query vocabulary.
+ * @param {{ask?: boolean}} [options] `ask`: the field's values start marked "Ask the user".
+ * @returns {object} Field or link row model.
+ */
+export function rowForPath(path, vocabulary, { ask = false } = {}) {
   const field = path[path.length - 1];
   let row = emptyFieldRow({
     dty: field.dty,
@@ -1257,6 +1408,12 @@ export function rowForPath(path, vocabulary) {
     op: field.dty === 'exists' ? 'op.exists' : field.dty === 'reltype' ? 'op.is' : null
   });
   if (field.rel) row.rel = true;   // condition on the Relationship record of a related branch
+  // an "enum fields" leaf other than the term: a text value of the term (f:<id>:code)
+  if (row.kind === 'enum' && ENUM_PICK_PARTS.includes(field.term)) {
+    row.enumField = field.term;
+    row.kind = 'text';
+  }
+  if (ask) row.ask = [true, true];
   for (let index = path.length - 2; index >= 0; index--) {
     const via = path[index].via;
     row = {
@@ -1307,14 +1464,17 @@ function countCriteria(rows) {
     : row.selected || row.dty !== 'anyfield' ? 1 : 0), 0);
 }
 
-/** Count criteria whose values will be supplied by the runtime form. */
-function countBlankCriteria(rows, vocabulary) {
-  return (rows || []).reduce((count, row) => count + (row.type === 'link'
-    ? countBlankCriteria(row.rows, vocabulary)
-    : isImplicitParameter(row, vocabulary) ? 1 : 0), 0);
+/** Count the values marked "Ask the user" (a range: each endpoint) at every linked depth. */
+function countAskedValues(rows, vocabulary) {
+  return (rows || []).reduce((count, row) => {
+    if (row.type === 'link') return count + countAskedValues(row.rows, vocabulary);
+    if (!isImplicitParameter(row, vocabulary)) return count;
+    const range = operatorByKey(vocabulary, row.kind, row.op)?.input === 'range';
+    return count + (row.ask?.[0] ? 1 : 0) + (range && row.ask?.[1] ? 1 : 0);
+  }, 0);
 }
 
-/** True when a selected field has no literal and needs a runtime form value. */
+/** True when a selected field has a value marked "Ask the user": a runtime form value. */
 function isImplicitParameter(row, vocabulary) {
   if (!row || row.type === 'link') return false;
   if (row.dty === '' || row.dty == null || (row.dty === 'anyfield' && !row.selected)) return false;
@@ -1322,13 +1482,9 @@ function isImplicitParameter(row, vocabulary) {
   // a relation type without a picked term: {"r":"$X1$"} (terms of the branch's relationship field)
   if (!['text', 'number', 'date', 'enum', 'geo', 'exists', 'tag'].includes(row.kind) && row.dty !== 'reltype') return false;
   if (operatorByKey(vocabulary, row.kind, row.op)?.whole) return false;
-  const values = row.values || [];
-  const blank = (value) => String(value ?? '').trim() === '';
-  // a range may keep one edge fixed: a blank edge is a parameter
-  if (operatorByKey(vocabulary, row.kind, row.op)?.input === 'range') return blank(values[0]) || blank(values[1]);
-  // otherwise only a row without any value is a parameter; blank entries beside
-  // defined values (e.g. an empty first term of several) are simply dropped
-  return values.every(blank);
+  // an explicit choice per value (2026-10-17); a range may keep one endpoint fixed
+  if (operatorByKey(vocabulary, row.kind, row.op)?.input === 'range') return Boolean(row.ask?.[0] || row.ask?.[1]);
+  return Boolean(row.ask?.[0]);
 }
 
 /** Detect explicit and implicit parameter rows at every linked depth. */

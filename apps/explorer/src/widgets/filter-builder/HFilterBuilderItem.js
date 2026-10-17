@@ -38,17 +38,35 @@ const HEADER_LABELS = {
   exists: 'records'
 };
 const MULTI_INPUTS = ['text', 'term', 'record', 'tag', 'tags', 'linkedrecord'];
+/** Enum sub-parts (`f:<id>:<part>`): the value is a text of the term, not its id. */
+const ENUM_PART_LABELS = {
+  term: 'Term', label: 'Term', code: 'Code', conceptid: 'Concept ID', concept: 'Concept ID', desc: 'Description'
+};
+/**
+ * Enum outputs picked in the field tree that become a sub-part; "term" (also the leaf
+ * of an enum field while "enum fields" is off) is the field itself with the term picker.
+ */
+export const ENUM_PICK_PARTS = ['code', 'conceptid', 'desc'];
+/** Sub-parts compared as a whole value: only "is" / "is not" (2026-10-17). */
+const ENUM_EXACT_PARTS = ['code', 'conceptid', 'concept'];
+/** Field kinds whose value can be asked in the Filter Form (and the relation type). */
+const ASK_KINDS = ['text', 'number', 'date', 'enum', 'geo', 'exists', 'tag'];
 
 /** One flat field criterion row (field · operator · value) in the Filter Builder. */
 export class HFilterBuilderItem extends HBaseWidget {
   /**
    * @param {{dbdefs:object, vocabulary:object, lang:string,
    *          onChange?:Function, onRequestFieldPick?:Function, scopeRtyId?:(number|string),
-   *          relationVocabRoots?:(() => number[])}} deps
+   *          relationVocabRoots?:(() => number[]), allowParameters?:(() => boolean),
+   *          askByDefault?:(() => boolean)}} deps
    */
   constructor({ dbdefs, vocabulary, lang = 'eng', onChange, onRequestFieldPick,
-    selectExtent, scopeRtyId = '', relationVocabRoots = null, apiClient = null } = {}) {
+    selectExtent, scopeRtyId = '', relationVocabRoots = null, apiClient = null,
+    allowParameters = null, askByDefault = null } = {}) {
     super();
+    // "Ask the user" toggles (values become Filter Form inputs) and their default for a new field
+    this._allowParameters = allowParameters || (() => false);
+    this._askByDefault = askByDefault || (() => false);
     // records API: titles of linked records for "<record type> records is …"
     this.apiClient = apiClient;
     // vocabulary roots for a relation-type row of a related branch (set by LinkPanel)
@@ -148,6 +166,9 @@ export class HFilterBuilderItem extends HBaseWidget {
       const fieldType = this.dbdefs?.fieldType?.(this.scopeRtyId, this.row.dty)
         || this.dbdefs?.fieldGlobal?.(this.row.dty)?.type;
       if (fieldType) this.row.kind = kindFor(this.vocab, fieldType);
+      // f:20:code - a term's label / code / concept id / description: a text value
+      if (ENUM_PART_LABELS[this.row.enumField]) this.row.kind = 'text';
+      else this.row.enumField = null;
     } else if (HEADER_KEYWORDS[this.row.dty]) {
       // header keywords have a fixed kind (dates, record ids, tags …)
       this.row.kind = kindFor(this.vocab, null, this.row.dty);
@@ -161,8 +182,14 @@ export class HFilterBuilderItem extends HBaseWidget {
     return this;
   }
 
-  /** Called by the field-tree pick. @param {{dty:(number|string), fieldType?:string}} pick */
-  setField({ dty, fieldType, rel = false }) {
+  /**
+   * Called by the field-tree pick.
+   *
+   * @param {{dty:(number|string), fieldType?:string, rel?:boolean, term?:string}} pick `term`: the
+   *        enum output of an "enum fields" leaf (term, code, conceptid, desc; internalid = the term id).
+   * @returns {void}
+   */
+  setField({ dty, fieldType, rel = false, term = null }) {
     this.row.dty = dty;
     this.row.selected = true;
     this.row.rel = rel;
@@ -170,13 +197,15 @@ export class HFilterBuilderItem extends HBaseWidget {
     this.row.kind = dty === 'exists' ? 'exists' : dty === 'reltype' ? 'term' : isHeader
       ? kindFor(this.vocab, null, HEADER_KEYWORDS[dty] ? dty : null)
       : kindFor(this.vocab, fieldType || this.dbdefs?.fieldType?.(null, dty) || 'freetext');
-    if (this.row.kind !== 'enum') this.row.enumField = null;
+    this.row.enumField = this.row.kind === 'enum' && ENUM_PICK_PARTS.includes(term) ? term : null;
+    if (this.row.enumField) this.row.kind = 'text';
     // "<record type> records" keeps "exists" as its default ("is" needs a picked record)
     this.row.op = dty === 'exists' ? 'op.exists' : this._operators()[0]?.i18nKey || null;
     this.row.negate = false;
     this.row.values = [''];
     this.row.geoExtent = null;
     this.row.placeholderIds = [];
+    this.row.ask = this._askByDefault() ? [true, true] : [];
     if (this.isRendered) {
       this._syncField();
       this._renderOperators();
@@ -220,16 +249,15 @@ export class HFilterBuilderItem extends HBaseWidget {
     else if (typeof d === 'string' && !/^\d+$/.test(d)) label = $HR(HEADER_LABELS[d] || d);
     else {
       label = this.dbdefs?.fieldName?.(this.scopeRtyId, d) || this.dbdefs?.fieldGlobal?.(d)?.name || `field ${d}`;
-      if (this.row.enumField) label += ` · ${this.row.enumField}`;
+      if (this.row.enumField) label += ` · ${$HR(ENUM_PART_LABELS[this.row.enumField] || this.row.enumField)}`;
     }
     // label and caret apart: a long field name is cut with an ellipsis, the caret stays
     const text = document.createElement('span');
     text.className = 'h-fbitem-field-label';
     text.textContent = label;
     const caret = document.createElement('span');
-    caret.className = 'h-fbitem-field-caret';
+    caret.className = 'h-caret h-fbitem-field-caret';
     caret.setAttribute('aria-hidden', 'true');
-    caret.textContent = '▾';
     this._fieldBtn.replaceChildren(text, caret);
     this._fieldBtn.title = label;
   }
@@ -291,6 +319,13 @@ export class HFilterBuilderItem extends HBaseWidget {
     if (this.row.dty === 'reltype') return [{ token: '', input: 'term', i18nKey: 'op.is' }];
     // bookmarked by: a user id, login name or "current"
     if (this.row.dty === 'user') return [{ token: '', input: 'text', i18nKey: 'op.is' }];
+    // a term's code / concept id is one whole value
+    if (ENUM_EXACT_PARTS.includes(this.row.enumField)) {
+      return [
+        { token: '=', input: 'text', i18nKey: 'op.is' },
+        { token: '-', input: 'text', i18nKey: 'op.is_not' }
+      ];
+    }
     const list = operatorsFor(this.vocab, this.row.kind)
       .filter((op) => !this.row.rel || op.i18nKey !== 'op.count');   // relf has no count form
     if (['owner', 'access', 'addedby'].includes(this.row.dty)) {
@@ -351,28 +386,42 @@ export class HFilterBuilderItem extends HBaseWidget {
     if (input === 'range') {
       if (this.row.values.length < 2) this.row.values = [this.row.values[0] || '', ''];
       const line = valRow();
+      line.classList.add('h-fbitem-range');
+      const kind = this.row.kind === 'date' ? 'date' : 'number';
       line.append(
         conjSlot(),
-        this._valueControl(this.row.kind === 'date' ? 'date' : 'number', 0, $HR('from')),
+        this._askToggle(0),
+        this._askedValue(0, () => this._valueControl(kind, 0, $HR('from'))),
         Object.assign(document.createElement('span'), { className: 'h-fbitem-rangesep', textContent: '–' }),
-        this._valueControl(this.row.kind === 'date' ? 'date' : 'number', 1, $HR('to'))
+        this._askToggle(1),
+        this._askedValue(1, () => this._valueControl(kind, 1, $HR('to')))
       );
       this._valuesHost.append(line);
       return;
     }
 
     if (input === 'count') {
-      const control = this._valueControl('text', 0, $HR('Use >N, <N or <>N where N is count'));
-      control.title = $HR('Use >N, <N or <>N where N is count');
-      this._valuesHost.append(control);
+      const line = valRow();
+      line.append(conjSlot(), this._askToggle(0), this._askedValue(0, () => {
+        const control = this._valueControl('text', 0, $HR('Use >N, <N or <>N where N is count'));
+        control.title = $HR('Use >N, <N or <>N where N is count');
+        control.classList.add('h-fbitem-count');
+        return control;
+      }));
+      this._valuesHost.append(line);
       return;
     }
 
-    const multiOk = MULTI_INPUTS.includes(input);
+    // an asked value is one Filter Form input: no further values beside it
+    const asked = this._canAsk() && this.row.ask?.[0] === true;
+    if (asked) this.row.values = [this.row.values[0] ?? ''];
+    const multiOk = MULTI_INPUTS.includes(input) && !asked;
     for (let i = 0; i < this.row.values.length; i++) {
       const line = valRow();
       line.append(this._conjPrefix(i, multiOk));
-      line.append(this._valueControl(input, i));
+      // several fixed values: no "Ask the user" (one parameter can not stand for one of them)
+      line.append(this.row.values.length === 1 ? this._askToggle(0) : askSlot());
+      line.append(this._askedValue(i, () => this._valueControl(input, i)));
       if (this.row.values.length > 1) {
         line.append(mkbtn('−', 'heurist-icon-button h-fbitem-delval', () => {
           this.row.values.splice(i, 1);
@@ -382,6 +431,62 @@ export class HFilterBuilderItem extends HBaseWidget {
       }
       this._valuesHost.append(line);
     }
+  }
+
+  /**
+   * Whether the row's values may be asked in the Filter Form: parameters are allowed and
+   * a field of an askable kind is chosen.
+   *
+   * @private
+   * @returns {boolean}
+   */
+  _canAsk() {
+    if (!this._allowParameters()) return false;
+    const d = this.row.dty;
+    if (d === '' || d == null || (d === 'anyfield' && !this.row.selected)) return false;
+    return ASK_KINDS.includes(this.row.kind) || d === 'reltype';
+  }
+
+  /**
+   * The "Ask the user" toggle in front of value `index` (an empty cell when values can not
+   * be asked). Pressed: the value is an input of the Filter Form, its control is hidden.
+   *
+   * @private
+   * @param {number} index Value index (0, or 1 for a range's end).
+   * @returns {HTMLElement}
+   */
+  _askToggle(index) {
+    if (!this._canAsk()) return askSlot();
+    const on = this.row.ask?.[index] === true;
+    const toggle = mkbtn('', 'h-btn h-fbitem-ask', () => {
+      this.row.ask = [...(this.row.ask || [])];
+      this.row.ask[index] = !on;
+      this._renderValues();
+      this._emit();
+    });
+    toggle.innerHTML = `${$HR('Ask the')}<br>${$HR('user')}`;
+    toggle.setAttribute('aria-pressed', on ? 'true' : 'false');
+    toggle.title = on ? $HR('Asked in the Filter Form; click to enter a fixed value')
+      : $HR('Let the user enter this value in the Faceted search / Filter Form');
+    return toggle;
+  }
+
+  /**
+   * The value control, or an empty cell while the value is asked in the Filter Form
+   * (the fixed value is kept for when the toggle is switched back).
+   *
+   * @private
+   * @param {number} index Value index.
+   * @param {function(): HTMLElement} make Builds the control.
+   * @returns {HTMLElement}
+   */
+  _askedValue(index, make) {
+    if (this._canAsk() && this.row.ask?.[index] === true) {
+      const cell = document.createElement('span');
+      cell.className = 'h-fbitem-asked';
+      return cell;
+    }
+    return make();
   }
 
   /**
@@ -677,6 +782,13 @@ function valRow() {
   const d = document.createElement('div');
   d.className = 'h-fbitem-valrow';
   return d;
+}
+
+/** Empty cell in the "Ask the user" column (keeps the value controls aligned). */
+function askSlot() {
+  const s = document.createElement('span');
+  s.className = 'h-fbitem-askslot';
+  return s;
 }
 
 /** Build the fixed-width conjunction-prefix slot element. */

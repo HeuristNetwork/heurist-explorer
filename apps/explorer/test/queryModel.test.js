@@ -7,7 +7,7 @@ import {
   emptyModel,
   emptyFieldRow
 } from '../src/utils/queryModel.js';
-import { rowForPath } from '../src/widgets/filter-builder/HFilterBuilder.js';
+import { rowForPath, mergeLinkRows } from '../src/widgets/filter-builder/HFilterBuilder.js';
 
 const VOCAB = JSON.parse(
   readFileSync(new URL('../src/utils/queryVocabulary.json', import.meta.url), 'utf8')
@@ -508,4 +508,18 @@ test('"<record type> records" is / is not picked records: an ids list inside the
   assert.deepEqual(parsed.values, ['234', '235']);
   assert.deepEqual(compose(parseQuery([{ t: '10' }, { 'lt:240': [{ t: '12' }, { id: '234' }] }], VOCAB)),
     [{ t: '10' }, { 'lt:240': [{ t: '12' }, { ids: '234' }] }]);
+});
+
+test('fields marked together through the same link form one linked block (2026-10-17)', () => {
+  const via = { via: { link: 'lt', dty: 240, targetRty: 48 } };
+  const rows = mergeLinkRows([
+    rowForPath([via, { dty: 237, fieldType: 'enum' }], VOCAB),
+    rowForPath([via, { dty: 'title' }], VOCAB),
+    rowForPath([via, { dty: 9, fieldType: 'date' }], VOCAB),
+    fieldRow({ dty: 1, selected: true })
+  ]);
+  assert.equal(rows.length, 2);
+  assert.deepEqual(rows[0].rows.map((row) => row.dty), [237, 'title', 9]);
+  assert.deepEqual([rows[0].link, rows[0].dty, rows[0].targetRty], ['lt', 240, 48]);
+  assert.equal(rows[1].dty, 1);
 });

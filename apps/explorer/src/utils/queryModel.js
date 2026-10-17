@@ -145,6 +145,10 @@ function resolveOperator(row, vocab) {
   if (['owner', 'access', 'addedby'].includes(row.dty) && row.op === 'op.is') return { token: '' };
   if (['owner', 'access', 'addedby'].includes(row.dty) && row.op === 'op.is_not') return { token: '-' };
   if (row.op === 'op.count') return { token: '', input: 'count' };
+  // a term's code / concept id: is (=) / is not (-)
+  if (['code', 'conceptid', 'concept'].includes(row.enumField) && ['op.is', 'op.is_not'].includes(row.op)) {
+    return { token: row.op === 'op.is_not' ? '-' : '=' };
+  }
   if (row.op === 'op.exists') return { token: '', whole: true };
   if (row.op === 'op.missing') return { token: 'NULL', whole: true };
   const groups = vocab.operators || {};

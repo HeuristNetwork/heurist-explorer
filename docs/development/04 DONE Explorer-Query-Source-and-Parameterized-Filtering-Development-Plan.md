@@ -1368,3 +1368,74 @@ Only after this Phase 1 path is stable should work continue with `HFilterBuilder
   Filter Form is filled with them.
 - Show data on a Workspace layer/band that keeps such a result opens the saved query's Filter Form filled
   with those values and runs the search again; the editor keeps the template, never the resolved query.
+
+### Filter Builder / Filter Form cosmetics (Artem, 2026-10-17)
+
+Implemented, not committed, not checked in a browser.
+
+- Filter Builder: *Clear all* asks first; the `+` under the criteria opens the field tree in multi-select
+  (as the Column fields helper) and adds a row per marked field (a blank first row is filled first); a
+  field button still picks one field. Fields marked together through the same link (`lt:240` to Life event)
+  go into one linked block with a row each (`mergeLinkRows()`), not one block per field. The AND/OR select
+  of a linked block has `h-select h-fb-conj`. Operator select at most 180px; number, count and date inputs 9em.
+- Designer dialog titled "Filter Form / Faceted search designer"; new form settings *Show separating lines*
+  (`settings.showSeparators`) and *Show operators* (`settings.showOperators`) before *Show Form Preview*;
+  vertical lines between the form-wide options.
+- Filter Form: with `showOperators` the operator is shown beside the label (small plain text, the
+  hierarchy's style) unless it is "is" (`parameterOperatorLabel()` in `shared/src/data/queryParameters.js`).
+  An `fc:N` (count of values) parameter is an integer number input, not the field's own input
+  (`count: true`, `fieldId: null`, `countFieldId`).
+- Query translation: `fc` reads "count of <field> values …"; a single `<>N` / `-N` reads "is not N"
+  (the server's meaning), no longer "is between N".
+- HInputGeo: button icon `fa-expand` (extent, filters) or `fa-draw-polygon` (`geoKind: 'feature'`, record editor).
+
+### "Ask the user" (Artem, 2026-10-17)
+
+Implemented, not committed, not checked in a browser.
+
+- A value becomes a Filter Form parameter only by an explicit choice: the toggle button *Ask the user*
+  (two lines, small) between the conjunction cell and the value control, and for a range in front of each
+  endpoint (after the `–`). Pressed: the control is hidden, the button has `--h-color-attention-selected`;
+  the fixed value is kept and comes back when it is released. Row model: `ask: [bool, bool]`.
+- A blank fixed value is an incomplete criterion and is left out of the query; it no longer becomes a
+  parameter silently. A `$X$` read from a query sets `ask` for that value.
+- An asked value is one input: the toggle is offered only while the row has one value, and an asked row
+  has no "+" (another value). Several user values come from the Filter Form input itself (list modes
+  with *multiple*), not from a mix like `$X1$,415`: that idea was dropped (Artem, 2026-10-17), and so
+  was a multi-input text parameter.
+- *Add parameters* checkbox beside the `+` under the criteria: new fields (single pick, bulk pick,
+  linked blocks, *add condition*) start with their values asked. Hidden where parameters are not allowed.
+- Texts: guidance "Select fields, comparison operators and values. Choose “Ask the user” to add an input to
+  the Faceted search / Filter Form. For ranges, choose separately for each endpoint."; info "N criteria
+  defined. M Value(s) marked “Ask the user”. They become inputs in the Filter Form."
+- The value clear button and the "−" (remove value) appear on row hover only, as the row's ×.
+
+### Enum sub-parts in the Filter Builder (Artem, 2026-10-17)
+
+`{"f:20:code":"F"}` (also `term`, `conceptid`, `desc`; the server also reads `label`, `concept`) was already
+parsed, composed and described. Now the Filter Builder field tree offers the *enum fields* checkbox
+(`enumOutputs: true`): an enum field becomes a folder Term / Code / Concept ID / Description / Internal ID.
+Internal ID is the usual term picker (`f:20`); the others are a text value (`kind: 'text'`, `enumField`),
+also when such a query is loaded. In the Filter Form a `f:20:code` parameter is a text input
+(`enumPart`, `fieldId: null`), not the field's term list. Implemented, not committed.
+
+### Filter Form visibility and empty results (Artem, 2026-10-17)
+
+- When the Filter Form opens, the Search pane is forced open: `ExplorerAuthoringDock.reveal()` shows the
+  pane, expands its collapsed region and restores a region maximized over it (`onRevealForm`).
+- An empty result was not the problem: a value that matches no term (`f:20:"abc"`, `f:20:code:"F"`) was a
+  400 "Unknown term" on the server, and the Data module kept the previous page after the error. Fixed in
+  both: srv `QueryValueResolver` lets the compiler match such values (no records), and skips the term
+  lookup for `f:N:<term|code|desc|conceptid>`; `DataApplication._loadOrEmpty()` shows the empty list (its
+  "Empty result message") when a new result fails to load. Not committed.
+
+Enum fields, review (Artem, 2026-10-17, replaces the description above):
+
+- Tree outputs in the Filter Builder: Term, Code, Concept ID, Description; no Internal ID. **Term** (and the
+  enum leaf while *enum fields* is off) is the field itself: `f:20` with the term picker, never `f:20:term`.
+- **Code**: a text value, operators *is* (`=F`) / *is not* (`-F`); in the Filter Form designer it may be a list
+  (select / radio / checkbox, column or wrapped) of the vocabulary's codes ("FR - France"), exact match.
+- **Concept ID** (parser, composer and server support it): text, *is* / *is not*, no list.
+- **Description**: text with the text operators, no list.
+- Several enum outputs of one field can be added (the duplicate check knows the sub-part).
+- srv `termCondition` reads `!=` (exact, negated), written by the Filter Form for an *is not* list.

@@ -50,8 +50,8 @@ test("collectionMode: a permanent checkbox or a +/- row action (default mouseove
   assert.match(list, /if \(this\.options\.collectionMode !== "permanent"\) return "";/);
   assert.match(list, /data-record-action="collect"/);
   assert.match(list, /item\.classList\.toggle\("h-recordlist-collected"/);
-  assert.match(css, /\.h-recordlist-item\.h-recordlist-collected \{ background:#e6fdeb; \}/);
-  assert.match(css, /\.h-recordlist-item\.h-recordlist-selected\.h-recordlist-collected \{ background:#80e8da; \}/);
+  assert.match(css, /\.h-recordlist-item\.h-recordlist-collected \{ background: var\(--h-color-attention\); \}/);
+  assert.match(css, /\.h-recordlist-item\.h-recordlist-selected\.h-recordlist-collected \{ background: var\(--h-color-attention-selected\); \}/);
 });
 
 test("Table view: the same collectionMode and collected-row colours", () => {

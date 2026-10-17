@@ -175,18 +175,19 @@ export class ExplorerConfigurationDialog {
    */
   buildInterfaceSection(body) {
     // the simplified interface fixes toolbar, lists and layout (effectiveUiConfig):
-    // their controls are hidden while it is checked (2026-10-14)
+    // their controls are hidden while it is on. The checkbox is "Advanced UI", the
+    // reverse of isSimplifiedUI (2026-10-17)
     const simplifiedRow = el('label', 'heurist-config-row h-explorer-config-simplified');
     const simplified = el('input', 'h-checkbox');
     simplified.classList.remove('h-input');
     simplified.type = 'checkbox';
-    simplified.checked = this.value.isSimplifiedUI === true;
+    simplified.checked = this.value.isSimplifiedUI !== true;
     simplified.addEventListener('change', () => {
-      this.value.isSimplifiedUI = simplified.checked;
+      this.value.isSimplifiedUI = !simplified.checked;
       this._syncSimplified();
     });
     const simplifiedCaption = el('span', 'h-i18n');
-    simplifiedCaption.textContent = 'Interface for dummies (v7 like)';
+    simplifiedCaption.textContent = 'Advanced UI';
     simplifiedRow.append(simplifiedCaption, simplified);
     body.append(simplifiedRow);
 
@@ -213,7 +214,7 @@ export class ExplorerConfigurationDialog {
 
   /**
    * Hide the toolbar, lists and layout controls and the Query tracer button while the
-   * simplified interface is checked: it sets them itself.
+   * simplified interface is on (Advanced UI unchecked): it sets them itself.
    *
    * @private
    * @returns {void}

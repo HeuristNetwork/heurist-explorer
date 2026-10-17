@@ -125,5 +125,5 @@
     cursor: no-drop;
 }
 
-/* "Interface for dummies (v7 like) [ ]": caption, then the checkbox in the control column */
+/* "Advanced UI [ ]" (reverse of isSimplifiedUI): caption, then the checkbox in the control column */
 .h-explorer-config-simplified input[type='checkbox'] { width: auto; justify-self: start; }

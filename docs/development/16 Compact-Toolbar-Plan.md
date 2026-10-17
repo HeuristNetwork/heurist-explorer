@@ -188,6 +188,8 @@ Requests (Artem, 2026-10-14) and agreed answers; implemented the same day, not c
 in a browser.
 
 - Configuration dialog: caption first, then the checkbox (`Interface for dummies (v7 like) [ ]`).
+- 2026-10-17: the checkbox is renamed **"Advanced UI"** and shows the reverse value
+  (checked = `isSimplifiedUI: false`); the config key is unchanged.
 - Toggling `isSimplifiedUI` **reloads Explorer** (like a language change): the modules read it at
   start (`runtime.simplifiedUI`).
 - QSE Save / Add were still visible: `DataSourceActions` inline mode gives the slot

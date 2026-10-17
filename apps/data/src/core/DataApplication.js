@@ -268,7 +268,7 @@ export class DataApplication extends EventTarget {
     this.dataSource = cloneValue(options.dataSource);
     this.sourceTitle = text(options.title ?? this.dataSource?.title);
     this._resetActiveLoad({ type: "source", querySourceId, options });
-    const result = await this._load("source", {
+    const result = await this._loadOrEmpty("source", {
       limit: this.config.engineOptions?.pageLength,
       querySourceId,
       ...options,
@@ -296,7 +296,7 @@ export class DataApplication extends EventTarget {
       return this.getState();
     }
     this._resetActiveLoad({ type: "query", query, options });
-    const result = await this._load("query", {
+    const result = await this._loadOrEmpty("query", {
       limit: this.config.engineOptions?.pageLength,
       query,
       ...options,
@@ -373,6 +373,35 @@ export class DataApplication extends EventTarget {
     } catch (error) {
       if (!controller.signal.aborted && error?.name !== "AbortError") {
         this.dispatch("heurist-data-error", { error, operation: type });
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Load a new main result; when the request fails (not when it is superseded) the
+   * previous records are removed and the list shows its "Empty result message"
+   * instead of keeping the last result (2026-10-17). The error is still reported.
+   *
+   * @private
+   * @param {'query'|'source'} type Loader type.
+   * @param {object} request Load request.
+   * @returns {Promise<object>} Load result.
+   */
+  async _loadOrEmpty(type, request) {
+    const generation = this.requestGeneration + 1;
+    try {
+      return await this._load(type, request);
+    } catch (error) {
+      if (error?.name !== "AbortError" && generation === this.requestGeneration) {
+        this.recordsTotal = 0;
+        this.response = { records: [], meta: {}, pagination: { total: 0, offset: 0, limit: 0 } };
+        await this.engine.setData({
+          querySource: this.querySource,
+          records: [],
+          meta: {},
+          pagination: this.response.pagination,
+        });
       }
       throw error;
     }

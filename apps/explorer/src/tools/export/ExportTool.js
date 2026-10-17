@@ -104,7 +104,7 @@ export class ExportTool extends HBaseWidget {
     this._resultsButton.type = 'button';
     this._resultsButton.innerHTML = '<span class="fa-solid fa-folder-open" aria-hidden="true"></span> ';
     this._resultsButton.append(document.createTextNode(`${$HR('Export results')} `));
-    this._resultsButton.insertAdjacentHTML?.('beforeend', '<span class="fa-solid fa-caret-down" aria-hidden="true"></span>');
+    this._resultsButton.insertAdjacentHTML?.('beforeend', '<span class="h-caret" aria-hidden="true"></span>');
     this._resultsButton.addEventListener('click', () => this._toggleResults());
     this._toolbar.append(this._exportButton, this._resultsButton);
     this._problems = element('div', 'h-export-problems');
