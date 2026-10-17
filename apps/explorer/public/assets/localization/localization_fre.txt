@@ -597,3 +597,4 @@
 #Edited at#Modifié le
 #Not valid JSON#JSON non valide
 #This group is shown by code: showGroup() in onReady and onChange.#Ce groupe est affiché par le code : showGroup() dans onReady et onChange.
+#This record type has no Filter form field (DT_FILTER_FORM); the filter form cannot be saved#Ce type d’enregistrement n’a pas de champ Formulaire de filtre (DT_FILTER_FORM) ; le formulaire de filtre ne peut pas être enregistré

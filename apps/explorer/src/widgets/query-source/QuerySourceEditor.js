@@ -24,6 +24,7 @@ import { HGeoFieldSelector } from './helpers/HGeoFieldSelector.js';
 import { HTimeFieldSelector } from './helpers/HTimeFieldSelector.js';
 import { HRuleBuilder } from './helpers/HRuleBuilder.js';
 import { inferRecordTypeId, fieldCodeLabel } from './helpers/fieldPathUtils.js';
+import { showHelperDialog } from './helpers/showHelperDialog.js';
 import { hasQueryParameters } from '#shared/data/queryParameters.js';
 import './QuerySourceEditor.css';
 
@@ -677,23 +678,7 @@ export class QuerySourceEditor extends HBaseWidget {
   }
 
   _showEditorDialog(title, editor, getResult) {
-    const host = document.createElement('div');
-    host.className = editor instanceof HFieldSetEditor ? 'h-qse-dialog-wide' : 'h-qse-dialog';
-    editor.attach(host).render();
-    return new Promise((resolve) => {
-      let dlg = null;
-      // own dialog: a message shown meanwhile (e.g. a flash) must not replace the editor
-      const dialogId = 'h-qse-editor-dialog';
-      const finish = async (value) => { dlg?.classList.remove('h-qse-dialog-wide-shell'); HMsg.closeMsgDlg?.(dialogId); await editor.destroy(); resolve(value); };
-      dlg = HMsg.showMsgDlg(host, {
-        dialogId, title: $HR(title), preventClose: true,
-        buttons: [
-          { label: $HR('Apply'), class: 'h-btn h-btn-primary', onClick: () => void finish(getResult()) },
-          { label: $HR('Cancel'), class: 'h-btn', onClick: () => void finish(null) }
-        ]
-      });
-      dlg?.classList.toggle('h-qse-dialog-wide-shell', editor instanceof HFieldSetEditor);
-    });
+    return showHelperDialog(title, editor, getResult);
   }
 
   _configRow(label, key, icon, onEdit, hint = '') {

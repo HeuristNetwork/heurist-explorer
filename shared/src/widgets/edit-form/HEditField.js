@@ -13,7 +13,9 @@
  * A special field (query, filter form, expansion rules, symbology...: the host
  * gives a `special` definition) shows a readable value with two actions: "Show
  * raw" toggles a text area with the stored (JSON) value, "Edit" opens the special
- * editor of the host. A `json` field is the raw text area, checked as JSON.
+ * editor of the host. A `json` field is the raw text area, checked as JSON. A special
+ * `list` field is a repeatable field edited as a whole (field codes of a Query Source):
+ * one box, its raw text has one value per line.
  *
  * The field definition is a normalised field of editFormSchema.js (a record
  * structure field has the same properties).
@@ -67,7 +69,7 @@ export class HEditField extends HBaseWidget {
    * @param {Function} [options.fileUrl] Link to view a file of a file field.
    * @param {boolean} [options.allowHidden=true] Show the "hidden from the public" switch.
    * @param {boolean} [options.readOnly] Display only (also `field.readOnly`).
-   * @param {{json?: boolean, describe?: Function, edit?: Function, actions?: Array<object>}|null} [options.special] Special field:
+   * @param {{json?: boolean, list?: boolean, describe?: Function, edit?: Function, actions?: Array<object>}|null} [options.special] Special field:
    *        `describe(value, context)` readable text, `edit(value, context)` resolves with the new
    *        value (undefined: cancelled), `json` the raw value must be JSON; `actions`
    *        (`[{label, title?, primary?, run(value, context)}]`) several editors instead of `edit`,
@@ -90,7 +92,12 @@ export class HEditField extends HBaseWidget {
 
   /** @returns {boolean} Whether the field may have several values. */
   get isRepeatable() {
-    return !this.field.multilang && (this.field.max === 0 || this.field.max > 1);
+    return !this.field.multilang && !this.isList && (this.field.max === 0 || this.field.max > 1);
+  }
+
+  /** @returns {boolean} Whether the values are edited as one list (special `list`: one value per line). */
+  get isList() {
+    return this.options.special?.list === true;
   }
 
   /** @returns {boolean} Whether the values cannot be changed. */
@@ -181,7 +188,11 @@ export class HEditField extends HBaseWidget {
         ...(row.input.geoType ? { geoType: row.input.geoType } : {})
       }))
       .filter((entry) => !isEmpty(entry.value));
-    return { values, translations: this._translations.map((entry) => ({ ...entry })) };
+    // a list field: one value per line of its text
+    const listed = this.isList
+      ? values.flatMap((entry) => listLines(entry.value).map((value) => ({ value, hidden: false })))
+      : values;
+    return { values: listed, translations: this._translations.map((entry) => ({ ...entry })) };
   }
 
   /**
@@ -212,7 +223,7 @@ export class HEditField extends HBaseWidget {
   setValue(value) {
     const row = this._rows[0];
     if (!row) return;
-    row.input.setValue(value);
+    row.input.setValue(this.isList && Array.isArray(value) ? value.join('\n') : value);
     this._syncSpecial(row);
     this._changed();
   }
@@ -299,6 +310,11 @@ export class HEditField extends HBaseWidget {
     const source = state || { values: [], translations: [] };
     this._entries = (source.values || []).map((entry) => ({ ...entry }));
     this._translations = (source.translations || []).map((entry) => ({ ...entry }));
+    // a list field: all values in one text, one per line
+    if (this.isList && this._entries.length) {
+      const text = this._entries.map((entry) => String(entry.value ?? '').trim()).filter(Boolean).join('\n');
+      this._entries = text ? [{ value: text, hidden: false }] : [];
+    }
   }
 
   /**
@@ -398,7 +414,7 @@ export class HEditField extends HBaseWidget {
           try {
             const next = await action.run(row.input.getValue(), this.options.context || {});
             if (next === undefined) return;
-            row.input.setValue(next);
+            row.input.setValue(this.isList && Array.isArray(next) ? next.join('\n') : next);
             this._syncSpecial(row);
             this._changed();
           } catch (error) {
@@ -742,6 +758,11 @@ function patternOf(pattern) {
   } catch {
     return null;
   }
+}
+
+/** @returns {string[]} The non-empty lines of a list field's text. */
+function listLines(value) {
+  return String(value ?? '').split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
 }
 
 /** @returns {boolean} Whether a text is JSON. */

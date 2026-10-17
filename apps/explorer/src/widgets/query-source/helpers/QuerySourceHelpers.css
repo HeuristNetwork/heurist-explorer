@@ -27,6 +27,7 @@
 
 .h-qse-geo-options { align-items:stretch; flex-direction:column; }
 .h-qse-helper-option-row { display:flex; align-items:center; gap:var(--h-spacing-sm,8px); flex-wrap:wrap; }
+.h-qse-helper-option-row[hidden] { display:none; }
 
 /* Expansion rule builder --------------------------------------------------- */
 .h-rule-builder { display:flex; flex-direction:column; gap:var(--h-spacing-sm,8px); width:min(1180px,92vw); min-width:min(900px,92vw); }

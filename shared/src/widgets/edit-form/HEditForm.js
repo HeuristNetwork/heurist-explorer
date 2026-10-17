@@ -49,7 +49,8 @@ export class HEditForm extends HBaseWidget {
    * @param {boolean} [options.allowHidden=false] The "hidden from the public" switch of values.
    * @param {boolean} [options.readOnly] Display only.
    * @param {Object<string, object>} [options.specialEditors] Special field definitions (HEditField `special`)
-   *        by the field's `special` id, its dty or its name.
+   *        by the field's `special` id, its dty or its name. `hidden: true`: the field is not shown and
+   *        not checked, its value is kept (another field's editor sets it, e.g. the filter form of a query).
    * @param {(field: object) => object} [options.specialContext] More properties of the special
    *        editors' context (the record editor adds the record).
    * @param {object} [options.apiClient] HeuristApiClient (record pointer fields).
@@ -75,6 +76,7 @@ export class HEditForm extends HBaseWidget {
     this.fields = new Map(); // name -> HEditField
     this._hiddenFields = new Set(); // hidden by code (showField)
     this._hiddenGroups = new Set(); // hidden by code (showGroup)
+    this._managedFields = new Set(); // special `hidden`: set by another field's editor, kept in the values
     return this;
   }
 
@@ -82,6 +84,7 @@ export class HEditForm extends HBaseWidget {
   render() {
     if (!this.container) throw new Error('HEditForm must be attached before render');
     this._destroyFields();
+    this._managedFields = new Set();
     this.clearListeners();
     this.container.replaceChildren();
     this.container.classList.add('h-widget', 'h-edit-form');
@@ -190,7 +193,7 @@ export class HEditForm extends HBaseWidget {
     for (const field of formFields(this.form)) {
       const widget = this.fields.get(field.name);
       if (!widget) continue;
-      const errors = shown(field) ? widget.validate() : [];
+      const errors = shown(field) && !this._managedFields.has(field.name) ? widget.validate() : [];
       for (const message of errors) problems.push({ field: field.name, message });
     }
     const extra = this.options.validate?.(this.getValues(), this);
@@ -432,6 +435,7 @@ export class HEditForm extends HBaseWidget {
         context: this._specialContext(field)
       }).render();
       this.fields.set(field.name, widget);
+      if (widget.options.special?.hidden === true) this._managedFields.add(field.name);
     }
     return host;
   }
@@ -472,6 +476,7 @@ export class HEditForm extends HBaseWidget {
       form: this,
       getValue: (name) => this.fields.get(String(name))?.getValue() ?? null,
       setValue: (name, value) => this.fields.get(String(name))?.setValue(value),
+      hasField: (name) => this.fields.has(String(name)),
       ...(this.options.specialContext?.(field) || {})
     };
   }
@@ -511,7 +516,10 @@ export class HEditForm extends HBaseWidget {
     const flat = flatValues(this.form, this.getStates());
     for (const field of formFields(this.form)) {
       const widget = this.fields.get(field.name);
-      if (widget?.container) widget.container.hidden = this._hiddenFields.has(field.name) || !isVisible(field.showWhen, flat);
+      if (widget?.container) {
+        widget.container.hidden = this._managedFields.has(field.name) || this._hiddenFields.has(field.name)
+          || !isVisible(field.showWhen, flat);
+      }
     }
     const runs = new Set();
     for (const entry of this._groups.values()) {

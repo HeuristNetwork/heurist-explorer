@@ -31,6 +31,11 @@ import { RecordEditClient } from '#shared/data/RecordEditClient.js';
 import { RecordStructureProvider } from '#shared/recordview/RecordStructureProvider.js';
 import { WRITABLE_RECORD_TYPE_CODES, isWritableRecordType } from '#shared/data/writableRecordTypes.js';
 import { HRuleBuilder, describeExpansionRule } from '../widgets/query-source/helpers/HRuleBuilder.js';
+import { HFieldSetEditor } from '../widgets/query-source/helpers/HFieldSetEditor.js';
+import { HGeoFieldSelector } from '../widgets/query-source/helpers/HGeoFieldSelector.js';
+import { HTimeFieldSelector } from '../widgets/query-source/helpers/HTimeFieldSelector.js';
+import { showHelperDialog } from '../widgets/query-source/helpers/showHelperDialog.js';
+import { fieldCodeLabel, inferRecordTypeId } from '../widgets/query-source/helpers/fieldPathUtils.js';
 import { SymbologyService } from '#shared/symbology/SymbologyService.js';
 import { RecordPopupContent } from '#shared/recordview/RecordPopupContent.js';
 import { RecordViewLoader } from '#shared/recordview/RecordViewLoader.js';
@@ -196,17 +201,28 @@ export class RecordEditorHost {
     const form = id('DT_FILTER_FORM');
     const rules = id('DT_EXPANSION_RULES');
     const columns = id('DT_TABLE_FIELDS');
+    const geoFields = id('DT_GEO_FIELDS');
+    const outputMode = id('DT_GEO_OUTPUTMODE');
+    const timeFields = id('DT_TIMELINE_FIELDS');
+    const yes = id('TRM_YES');
+    const no = id('TRM_NO');
     const symbology = id('DT_SYMBOLOGY');
     const editQuery = this.options.editQuery;
     const specials = {};
 
-    // query and filter form: one Filter Builder edits both
+    // query and filter form: one Filter Builder edits both; the filter form field is hidden
+    // in the form and set from here (plan 14a, 2026-10-17)
     const editDefinition = async (context) => {
+      const hasForm = Boolean(form) && context.hasField?.(form) !== false;
       const definition = await editQuery(parseJson(context.getValue(query)) ?? context.getValue(query) ?? [],
-        form ? parseJson(context.getValue(form)) : null);
+        hasForm ? parseJson(context.getValue(form)) : null);
       if (!definition) return null;
+      if (definition.filterForm && !hasForm) {
+        // the parameters would be saved without their form: keep the values
+        throw new Error($HR('This record type has no Filter form field (DT_FILTER_FORM); the filter form cannot be saved'));
+      }
       if (query) context.setValue(query, JSON.stringify(definition.query ?? []));
-      if (form) context.setValue(form, definition.filterForm ? JSON.stringify(definition.filterForm) : '');
+      if (hasForm) context.setValue(form, definition.filterForm ? JSON.stringify(definition.filterForm) : '');
       return definition;
     };
     if (query) {
@@ -220,15 +236,8 @@ export class RecordEditorHost {
       };
     }
     if (form) {
-      specials[form] = {
-        json: true,
-        describe: (value) => describeFilterForm(parseJson(value)),
-        edit: editQuery ? async (value, context) => {
-          const definition = await editDefinition(context);
-          if (!definition) return undefined;
-          return definition.filterForm ? JSON.stringify(definition.filterForm) : '';
-        } : undefined
-      };
+      // not shown: the Edit of the query field sets it
+      specials[form] = { json: true, hidden: true };
     }
     if (rules) {
       specials[rules] = {
@@ -244,9 +253,57 @@ export class RecordEditorHost {
         }
       };
     }
+    // the helpers of the Query Source editor, for the record type of the current query (plan 14a)
+    const recordTypeOf = (context) => (query ? inferRecordTypeId(parseJson(context.getValue(query)) ?? context.getValue(query)) : null);
+    const labels = (text) => listValues(text).map((code) => fieldCodeLabel(code, dbdefs) || code).join(', ');
     if (columns) {
-      specials[columns] = { json: true, describe: (value) => describeColumns(parseJson(value)) };
+      specials[columns] = {
+        json: true,
+        describe: (value) => describeColumns(parseJson(value)),
+        edit: async (value, context) => {
+          const editor = new HFieldSetEditor({ dbdefs });
+          editor.setRecordType(recordTypeOf(context)).setValue(asArray(parseJson(value)));
+          const result = await this._openHelper('Column fields', editor, () => editor.getValue());
+          return result == null ? undefined : (result.length ? JSON.stringify(result) : '');
+        }
+      };
     }
+    if (timeFields) {
+      specials[timeFields] = {
+        list: true, // one field code per value
+        describe: (value) => labels(value),
+        edit: async (value, context) => {
+          const editor = new HTimeFieldSelector({ dbdefs });
+          editor.setRecordType(recordTypeOf(context)).setValue(listValues(value).map((field) => ({ field })));
+          const result = await this._openHelper('Time fields', editor, () => editor.getValue());
+          return result == null ? undefined : result.map((item) => String(item.field));
+        }
+      };
+    }
+    if (geoFields) {
+      // the dialog also sets the output mode (DT_GEO_OUTPUTMODE, hidden in the form); extent loading and
+      // zoom levels stay fields of the form
+      const features = (context) => outputMode > 0 && Number(context.getValue?.(outputMode)) === yes && yes > 0;
+      specials[geoFields] = {
+        list: true,
+        describe: (value, context) => {
+          const text = labels(value);
+          return text && features(context) ? `${text} (${$HR('individual linked map features')})` : text;
+        },
+        edit: async (value, context) => {
+          const editor = new HGeoFieldSelector({ dbdefs, viewportOptions: false });
+          editor.setRecordType(recordTypeOf(context));
+          editor.setMapProfile({ geoFields: listValues(value), geoOutputMode: features(context) ? 'features' : 'records' });
+          const result = await this._openHelper('Geographic fields', editor, () => editor.getMapProfile());
+          if (result == null) return undefined;
+          if (outputMode > 0 && yes > 0 && no > 0 && context.hasField?.(outputMode) !== false) {
+            context.setValue(outputMode, String(result.geoOutputMode === 'features' ? yes : no));
+          }
+          return (result.geoFields || []).map(String);
+        }
+      };
+    }
+    if (outputMode) specials[outputMode] = { json: false, hidden: true };
     if (symbology) specials[symbology] = this._symbologySpecial(dbdefs);
     return specials;
   }
@@ -408,6 +465,19 @@ export class RecordEditorHost {
     content.showRecord({ id: recId }, 'builtin', { full: true });
   }
 
+  /**
+   * Show a Query Source helper in its dialog (tests replace this method).
+   *
+   * @private
+   * @param {string} title Dialog title.
+   * @param {object} editor Helper widget.
+   * @param {() => *} getResult Reads the result on Apply.
+   * @returns {Promise<*>} The result, or null on Cancel.
+   */
+  _openHelper(title, editor, getResult) {
+    return showHelperDialog(title, editor, getResult);
+  }
+
   /** Link to view an uploaded file. */
   _fileUrl(file) {
     const obfuscated = String(file?.ulf_ObfuscatedFileID || '').replace(/[^a-z0-9]/gi, '');
@@ -416,6 +486,11 @@ export class RecordEditorHost {
     if (!base) return '';
     return `${base}${base.includes('?') ? '&' : '?'}db=${encodeURIComponent(this.options.database || '')}&file=${obfuscated}`;
   }
+}
+
+/** @returns {string[]} The values of a list special field (one per line). */
+export function listValues(text) {
+  return String(text ?? '').split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
 }
 
 /** @returns {*} Parsed JSON, or null when the text is not JSON. */

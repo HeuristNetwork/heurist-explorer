@@ -232,3 +232,46 @@ test('pointer field: Edit and View buttons for the chosen record', async () => {
   assert.ok(input.container.classList.contains('h-form-input-compact'));
   await form.destroy();
 });
+
+test('a hidden special field: not shown, not checked, kept in the values; hasField', async () => {
+  let context = null;
+  const { form } = makeForm({
+    form: { groups: [{ children: [
+      { name: 'query', type: 'blocktext', special: 'query' },
+      { name: 'filterForm', type: 'blocktext', special: 'form', req: 'required' }
+    ] }] },
+    values: { query: 't:10', filterForm: '{"groups":[]}' },
+    specialEditors: {
+      query: { describe: (value, ctx) => { context = ctx; return `q ${value}`; } },
+      form: { json: true, hidden: true }
+    }
+  });
+  const hidden = form.getFieldWidget('filterForm');
+  assert.equal(hidden.container.hidden, true);
+  await form.setValue('filterForm', '');
+  assert.deepEqual(form.validate(), [], 'a hidden required field is not checked');
+  await form.setValue('filterForm', '{"groups":[1]}');
+  assert.equal(form.getValues().filterForm, '{"groups":[1]}', 'kept in the values');
+  assert.equal(context.hasField('filterForm'), true);
+  assert.equal(context.hasField('nope'), false);
+  await form.destroy();
+});
+
+test('a list special field: one box, one value per line, arrays in and out', async () => {
+  const { form } = makeForm({
+    form: { groups: [{ children: [{ name: 'geo', type: 'freetext', max: 0, special: 'codes', req: 'required' }] }] },
+    values: { geo: ['10:28', '10:lt4:12:28'] },
+    specialEditors: { codes: { list: true, describe: (text) => text.split('\n').join(' + '), edit: async () => ['1', '2', '3'] } }
+  });
+  const field = form.getFieldWidget('geo');
+  assert.equal(field.isRepeatable, false, 'no Add button');
+  assert.equal(field._rows.length, 1, 'one box');
+  assert.equal(field._rows[0].summary.textContent, '10:28 + 10:lt4:12:28');
+  assert.deepEqual(form.getValue('geo'), ['10:28', '10:lt4:12:28']);
+  field.container.querySelector('.h-edit-field-special-buttons').children[1].click();
+  await flush();
+  assert.deepEqual(form.getValue('geo'), ['1', '2', '3'], 'the editor result (an array) becomes the values');
+  field.setValue([]);
+  assert.equal(form.validate().length, 1, 'required');
+  await form.destroy();
+});

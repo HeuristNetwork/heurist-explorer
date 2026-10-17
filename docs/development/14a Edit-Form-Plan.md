@@ -223,7 +223,49 @@ First consumer of Phase 4, done before the bridge (Artem: "Next Symbology editor
 
 Checked in headless Edge (Links tab with the value tools shown). Tests: 1203 pass.
 
-## 13. Open points
+## 13. Query Source: query and filter form (Artem, 2026-10-17)
+
+**Question:** DT_QUERY_STRING and DT_FILTER_FORM both opened the Filter Builder; how are they filled? Proposal
+by Artem: drop DT_FILTER_FORM and store a combined JSON in DT_QUERY_STRING, or keep it hidden.
+
+**Decision: keep DT_FILTER_FORM (2-1165), hidden in the edit form.** No format change anywhere (srv
+`QuerySourcePresentationService.parseFilterForm`, `querySourceRecord.js`, QuerySourceManager). Legacy cannot run
+parameterized queries anyway, and RT_QUERY_SOURCE is used by legacy only for Map layers.
+
+- New special property `hidden: true` (HEditForm): the field is not shown and not checked; its value is kept
+  (`getStates`, `getValues`) because another field's editor sets it.
+- `RecordEditorHost.specialEditors`: DT_FILTER_FORM = `{json: true, hidden: true}`; DT_QUERY_STRING has the one
+  Edit (HFilterBuilder with the query and the current filter form; Apply sets both). Its readable value is the
+  query translation only.
+- If the builder returns a filter form and the record type has no DT_FILTER_FORM field (new
+  `context.hasField(name)` of the special context), the edit is refused with a message and nothing changes.
+- Legacy (heurist repo, `viewers/map/mapLayer.js`): a layer whose query has parameters (`$name$`) is not loaded
+  or downloaded; a message says it can be shown only in the new Explorer / Map.
+
+Tests: 1206 pass (new: hidden special field; refused filter form without DT_FILTER_FORM; hidden value saved by
+HRecordEditor).
+
+## 14. Query Source: Geo, Time and Column fields (Artem, 2026-10-17)
+
+DT_GEO_FIELDS (2-1161), DT_TIMELINE_FIELDS (2-1105) and DT_TABLE_FIELDS (2-1164) have an Edit button that opens
+the helper of the Query Source editor, as the expansion rules do.
+
+- **List special fields:** new special property `list: true` (HEditField) for a repeatable field edited as a
+  whole: one box (readable value, Show raw, Edit), no Add button; the raw text has one value per line; an
+  editor result may be an array. Used for the geo and time field codes (one code per value, as
+  `querySourceRecord.js` stores them).
+- **Helpers:** HFieldSetEditor (columns, JSON), HTimeFieldSelector (codes), HGeoFieldSelector (codes) for the
+  record type of the current query (`inferRecordTypeId`). Their dialog moved from QuerySourceEditor to
+  `helpers/showHelperDialog.js` (used by both).
+- **Geo dialog** (agreed): field selection and "Individual Linked Map Features" only (new option
+  `viewportOptions: false` hides "Load dynamically by map extent" and the zoom inputs, which stay fields of the
+  form). Apply also sets DT_GEO_OUTPUTMODE (2-1162) to the Yes / No term; that field is hidden in the form.
+  The readable value of the geo field adds "(individual linked map features)" for Yes.
+- Readable values: field labels (`fieldCodeLabel`); columns as before (`describeColumns`).
+
+Tests: 1208 pass (new: list special field; the three helpers with the output mode).
+
+## 15. Open points
 
 - Agree the JSON format (§3) with the tool, especially: native value types in `getValues`,
   `maxValue` vs `max`, `showWhen` as "all of" with text comparison, dotted names.

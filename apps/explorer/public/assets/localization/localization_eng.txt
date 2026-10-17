@@ -597,3 +597,4 @@
 #Edited at#Edited at
 #Not valid JSON#Not valid JSON
 #This group is shown by code: showGroup() in onReady and onChange.#This group is shown by code: showGroup() in onReady and onChange.
+#This record type has no Filter form field (DT_FILTER_FORM); the filter form cannot be saved#This record type has no Filter form field (DT_FILTER_FORM); the filter form cannot be saved

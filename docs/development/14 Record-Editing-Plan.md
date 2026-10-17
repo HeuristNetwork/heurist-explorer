@@ -599,9 +599,10 @@ Where the implementation differs from §6:
   | Field | Readable value | Edit |
   |---|---|---|
   | DT_QUERY_STRING | the query in words (`queryDescribe`) | HFilterBuilder |
-  | DT_FILTER_FORM | number and labels of the inputs | the same HFilterBuilder; one Apply sets both the query and the form |
+  | DT_FILTER_FORM | hidden in the form (2026-10-17, plan 14a §13) | set by the Edit of DT_QUERY_STRING: one Apply sets both |
   | DT_EXPANSION_RULES | the rule names | HRuleBuilder |
-  | DT_TABLE_FIELDS | number of columns | raw only |
+  | DT_TABLE_FIELDS | number of columns | HFieldSetEditor (2026-10-17, plan 14a §14) |
+  | DT_GEO_FIELDS, DT_TIMELINE_FIELDS | field labels (list special field) | HGeoFieldSelector (also sets the hidden DT_GEO_OUTPUTMODE), HTimeFieldSelector (2026-10-17) |
   | DT_SYMBOLOGY | colours, icon, thematic maps | legacy host `editSymbology` when there (`persist: false`), else raw only; the native editor is the next plan |
 
   - The extent (DT_GEO_OBJECT) is a normal geo field with Explorer's map extent picker.

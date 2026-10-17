@@ -81,8 +81,30 @@ test('special fields: query and filter form are edited together', async () => {
   assert.equal(query, '[{"t":"10"},{"f":1}]');
   assert.deepEqual(JSON.parse(values[1174]), { groups: [], edited: true }, 'filter form set too');
   assert.equal(specials[1174].json, true);
+  assert.equal(specials[1174].hidden, true, 'filter form hidden: set by the Edit of the query');
+  assert.equal(specials[1174].edit, undefined);
   assert.equal(specials[12].json, false, 'legacy query text is allowed');
   assert.equal(specials[177].edit, undefined, 'no symbology editor without the legacy host');
+});
+
+test('a filter form without a DT_FILTER_FORM field in the record type is refused, values kept', async () => {
+  const host = new RecordEditorHost({
+    apiClient: { get: async () => ({}), request: async () => ({}) },
+    getDbDefs: () => dbdefs,
+    ensureDbDefs: async () => dbdefs,
+    getBridge: () => null,
+    isLoggedIn: () => true,
+    editQuery: async (query) => ({ query, filterForm: { groups: [{ children: [] }] } })
+  });
+  const specials = host.specialEditors(dbdefs);
+  const values = { 12: '[{"t":"10"}]' };
+  const context = {
+    getValue: (dty) => values[dty] ?? null,
+    setValue: (dty, value) => { values[dty] = value; },
+    hasField: (dty) => Number(dty) !== 1174
+  };
+  await assert.rejects(specials[12].edit(values[12], context), /DT_FILTER_FORM/);
+  assert.deepEqual(values, { 12: '[{"t":"10"}]' }, 'nothing changed');
 });
 
 test('readable values of special fields', () => {
@@ -94,3 +116,29 @@ test('readable values of special fields', () => {
   assert.equal(parseJson('not json'), null);
   assert.deepEqual(parseJson('[1]'), [1]);
 });
+
+test('geo, time and column fields: Edit opens the Query Source helpers; geo sets the output mode', async () => {
+  const consts = { ...DBCONST, DT_GEO_FIELDS: 1161, DT_GEO_OUTPUTMODE: 1162, DT_TIMELINE_FIELDS: 1105, TRM_YES: 532, TRM_NO: 533 };
+  const defs = { ...dbdefs, dbconst: (name) => consts[name] ?? null };
+  const { host } = makeHost();
+  const opened = [];
+  host._openHelper = async (title, editor, getResult) => {
+    opened.push([title, editor.constructor.name, editor.viewportOptions]);
+    if (title === 'Geographic fields') return { ...getResult(), geoFields: ['10:28', '10:lt4:12:28'], geoOutputMode: 'features' };
+    if (title === 'Time fields') return [{ field: '10:9' }];
+    return [{ field: '10:1' }];
+  };
+  const specials = host.specialEditors(defs);
+  assert.equal(specials[1161].list, true);
+  assert.equal(specials[1105].list, true);
+  assert.equal(specials[1162].hidden, true, 'output mode hidden: set by the Geo dialog');
+  const values = { 12: 't:10', 1162: '533' };
+  const context = { getValue: (dty) => values[dty] ?? null, setValue: (dty, value) => { values[dty] = value; }, hasField: () => true };
+  assert.deepEqual(await specials[1161].edit('10:28', context), ['10:28', '10:lt4:12:28']);
+  assert.equal(values[1162], '532', 'individual features: Yes');
+  assert.deepEqual(await specials[1105].edit('', context), ['10:9']);
+  assert.equal(await specials[1173].edit('', context), '[{"field":"10:1"}]');
+  assert.deepEqual(opened.map((item) => item[0]), ['Geographic fields', 'Time fields', 'Column fields']);
+  assert.equal(opened[0][2], false, 'geo dialog without extent and zoom options');
+});
+

@@ -22,9 +22,14 @@ const DT_GEO_OBJECT = '2-28';
 
 /** Geographic field-path selector plus viewport/zoom Query Source options. */
 export class HGeoFieldSelector extends HFieldSelectionEditor {
-  /** @param {object} [options] Forwarded to HFieldSelectionEditor; `title` and the geo-specific selection settings are fixed. */
+  /**
+   * @param {object} [options] Forwarded to HFieldSelectionEditor; `title` and the geo-specific selection settings are fixed.
+   *        `viewportOptions: false` hides "Load dynamically by map extent" and the zoom inputs (the record
+   *        editor has them as fields); the output mode stays.
+   */
   constructor(options = {}) {
     super({ ...options, title: 'Geographic fields', selectableTypes: ['geo'], hideUnselectable: true, allowReorder: false, showSort: false });
+    this.viewportOptions = options.viewportOptions !== false;
     this.mapOptions = { dynamicRequests: false, minZoom: null, maxZoom: null, geoOutputMode: 'records' };
   }
 
@@ -74,6 +79,7 @@ export class HGeoFieldSelector extends HFieldSelectionEditor {
       labelled($HR('Minimum zoom'), this._min),
       labelled($HR('Maximum zoom'), this._max)
     );
+    dynamicRow.hidden = !this.viewportOptions;
     box.append(featureRow, dynamicRow);
     this.container.append(box);
     this._dynamic.input.addEventListener('change', () => this._readOptions());

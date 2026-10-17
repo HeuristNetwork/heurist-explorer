@@ -47,7 +47,7 @@ const dbdefs = {
 };
 
 /** Editor over a fake client and structure provider. */
-async function openEditor({ record = RECORD, update = null, insert = null, recordId = 7, rectypeId = null } = {}) {
+async function openEditor({ record = RECORD, update = null, insert = null, recordId = 7, rectypeId = null, specialEditors = undefined } = {}) {
   const calls = [];
   const client = {
     async load() { return { record: structuredClone(record), meta: {} }; },
@@ -58,7 +58,7 @@ async function openEditor({ record = RECORD, update = null, insert = null, recor
   const element = host();
   const editor = new HRecordEditor().attach(element, {
     apiClient: { get: async () => ({ records: [] }), request: async () => ({}) },
-    dbdefs, client, structureProvider, recordId, rectypeId
+    dbdefs, client, structureProvider, recordId, rectypeId, specialEditors
   });
   await editor.open();
   return { editor, element, calls };
@@ -203,4 +203,11 @@ test('a special field shows a readable value, the raw text on request and its ed
   row.input.setValue('not json');
   assert.deepEqual(field.validate(), ['The raw value is not valid JSON']);
   await field.destroy();
+});
+
+test('a hidden special field (filter form of a query) is not shown but saved', async () => {
+  const { editor } = await openEditor({ specialEditors: { 12: { json: false, hidden: true } } });
+  assert.equal(editor.editForm.getFieldWidget(12).container.hidden, true);
+  assert.deepEqual(editor.getRecord().details[12], ['t:10'], 'the value is in the record body');
+  await editor.destroy();
 });
