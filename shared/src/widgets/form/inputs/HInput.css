@@ -88,6 +88,12 @@
   min-width: 0;
 }
 
+/* a compact input (record picker, file id) is as wide as its control, so the value
+   tools stay beside it; a width set by the form still applies (2026-10-17) */
+.h-form-input.h-form-input-compact:not(.has-display-width) > .h-form-input-control > .h-form-input-control-wrap {
+  flex: 0 1 auto;
+}
+
 /* shown whenever the field has a value (see HInput#_syncClearButton) */
 .h-form-input-clear {
   flex: 0 0 auto;

@@ -249,6 +249,7 @@ dialogs of the modules stay in their iframes for now (decided with Artem).
 | Ranges as a table with From / To | Preview table: From, To for intervals; Term ID, Label, Records (or Value, Records) for categories. |
 | Remove range icon | `fa-circle-minus`. |
 | "Add" buttons of the renderer and field lists small | Normal size (no `h-btn-small`). |
+| Enum field ranges: a clear button beside the term list | Removed (`clearButton: false`); the row has its remove action. |
 
 Checked in headless Edge with a stubbed API (number and enum fields).
 

@@ -6,7 +6,8 @@
 }
 
 .h-input-file-name {
-  flex: 1 1 auto;
+  flex: 0 1 auto;
+  max-width: 24em;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;

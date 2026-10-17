@@ -59,6 +59,8 @@ export class HEditForm extends HBaseWidget {
    * @param {Function} [options.selectGeometry] Map drawing of geo fields (geoKind feature):
    *        `(wkt) → Promise<{type, wkt}|null>`; without it the extent picker is used.
    * @param {Function} [options.fileUrl] Link to view a file of a file field.
+   * @param {Function} [options.editRecord] Edit button of pointer fields: `(id) → Promise<{saved, record}>`.
+   * @param {Function} [options.viewRecord] View button of pointer fields: `(id)`.
    * @param {(form: HEditForm) => void} [options.onReady] After render (same as `h-edit-form-ready`).
    * @param {(form: HEditForm, change: {name: string, value: *}) => void} [options.onChange] After a value changed.
    * @param {(values: object, form: HEditForm) => Array<{field?: string, message: string}>|string|null} [options.validate]
@@ -421,6 +423,8 @@ export class HEditForm extends HBaseWidget {
         languages: this.options.languages || this.options.dbdefs?.translationLanguages?.() || this.options.dbdefs?.languages?.() || [],
         selectExtent: this.options.selectExtent,
         selectGeometry: this.options.selectGeometry,
+        editRecord: this.options.editRecord,
+        viewRecord: this.options.viewRecord,
         fileUrl: this.options.fileUrl,
         allowHidden: this.options.allowHidden === true,
         readOnly: this.options.readOnly,

@@ -62,6 +62,8 @@ export class HEditField extends HBaseWidget {
    * @param {string[]} [options.languages] Language codes offered for translations.
    * @param {Function} [options.selectExtent] Map extent picker of geo fields (host).
    * @param {Function} [options.selectGeometry] Map drawing of geo feature fields (host).
+   * @param {Function} [options.editRecord] Edit the record of a pointer field (host): `(id) → {saved, record}`.
+   * @param {Function} [options.viewRecord] View the record of a pointer field (host): `(id)`.
    * @param {Function} [options.fileUrl] Link to view a file of a file field.
    * @param {boolean} [options.allowHidden=true] Show the "hidden from the public" switch.
    * @param {boolean} [options.readOnly] Display only (also `field.readOnly`).
@@ -498,7 +500,14 @@ export class HEditField extends HBaseWidget {
       case 'relationtype':
         return { ...options, ...this._choiceOptions() };
       case 'resource':
-        return { ...options, apiClient: this.options.apiClient, targetTypes: field.targetTypes, valueLabel: entry.label || '' };
+        return {
+          ...options,
+          apiClient: this.options.apiClient,
+          targetTypes: field.targetTypes,
+          valueLabel: entry.label || '',
+          editRecord: this.options.editRecord,
+          viewRecord: this.options.viewRecord
+        };
       case 'file':
         return { ...options, file: entry.file || null, fileUrl: this.options.fileUrl };
       case 'geo':

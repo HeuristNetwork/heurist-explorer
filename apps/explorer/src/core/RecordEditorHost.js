@@ -32,9 +32,14 @@ import { RecordStructureProvider } from '#shared/recordview/RecordStructureProvi
 import { WRITABLE_RECORD_TYPE_CODES, isWritableRecordType } from '#shared/data/writableRecordTypes.js';
 import { HRuleBuilder, describeExpansionRule } from '../widgets/query-source/helpers/HRuleBuilder.js';
 import { SymbologyService } from '#shared/symbology/SymbologyService.js';
+import { RecordPopupContent } from '#shared/recordview/RecordPopupContent.js';
+import { RecordViewLoader } from '#shared/recordview/RecordViewLoader.js';
 
-/** Id of the record editor dialog. */
+/** Id prefix of the record editor dialogs (a numbered id each: a pointed record opens over its editor). */
 const DIALOG_ID = 'h-record-editor-dialog';
+
+/** Number of dialogs opened (unique dialog ids). */
+let dialogCount = 0;
 
 /** Opens system records in HRecordEditor; other records in the legacy host editor. */
 export class RecordEditorHost {
@@ -127,6 +132,7 @@ export class RecordEditorHost {
    */
   async open({ recordId = 0, rectypeId = 0 } = {}) {
     const dbdefs = await this.options.ensureDbDefs();
+    const dialogId = `${DIALOG_ID}-${++dialogCount}`;
     const host = document.createElement('div');
     host.className = 'h-record-editor-host';
     const editor = new HRecordEditor().attach(host, {
@@ -138,6 +144,9 @@ export class RecordEditorHost {
       structureProvider: this.structures,
       selectExtent: this.options.selectExtent,
       selectGeometry: this.options.selectGeometry,
+      // Edit / View buttons of pointer fields (plan 14a)
+      editRecord: (id) => this.editRecord(id),
+      viewRecord: (id) => this.viewRecord(id),
       specialEditors: this.specialEditors(dbdefs),
       fileUrl: (file) => this._fileUrl(file)
     });
@@ -149,7 +158,7 @@ export class RecordEditorHost {
         if (settled) return;
         settled = true;
         dialog?.removeEventListener('close', onDialogClose);
-        HMsg.closeMsgDlg(DIALOG_ID);
+        HMsg.closeMsgDlg(dialogId);
         await editor.destroy();
         resolve({ saved: Boolean(saved), recordId: Number(saved?.rec_ID ?? recordId) || 0, record: saved });
       };
@@ -161,7 +170,7 @@ export class RecordEditorHost {
       });
       host.addEventListener('h-record-editor-close', () => void finish());
       dialog = HMsg.showMsgDlg(host, {
-        dialogId: DIALOG_ID,
+        dialogId,
         title: recordId > 0 ? $HR('Edit record') : $HR('New record'),
         hideFooter: true,
         preventClose: true
@@ -365,8 +374,38 @@ export class RecordEditorHost {
       dbdefs: await this.options.ensureDbDefs(),
       selectExtent: this.options.selectExtent || null,
       selectGeometry: this.options.selectGeometry || null,
+      editRecord: (id) => this.editRecord(id),
+      viewRecord: (id) => this.viewRecord(id),
       fileUrl: (file) => this._fileUrl(file)
     };
+  }
+
+  /**
+   * Show a record in a dialog with the built-in record renderer (View button of
+   * pointer fields: the Record view pane is behind the editor dialog).
+   *
+   * @param {number|string} recordId Record id.
+   * @returns {void}
+   */
+  viewRecord(recordId) {
+    const recId = Number(recordId);
+    if (!(recId > 0)) return;
+    this._recordViewLoader ??= RecordViewLoader.create({ apiClient: this.options.apiClient, language: this.options.language });
+    const content = new RecordPopupContent({
+      recordViewLoader: this._recordViewLoader,
+      baseUrl: this.options.baseUrl || null,
+      database: this.options.database || null,
+      canEditRecords: () => false
+    });
+    const dialogId = `h-record-view-dialog-${++dialogCount}`;
+    const dialog = HMsg.showMsgDlg(content.element, {
+      dialogId,
+      title: $HR('Record'),
+      buttons: [{ label: $HR('Close'), class: 'h-btn', onClick: () => HMsg.closeMsgDlg(dialogId) }]
+    });
+    if (dialog) dialog.style.width = 'min(680px, calc(100vw - 24px))';
+    dialog?.addEventListener('close', () => content.cancel(), { once: true });
+    content.showRecord({ id: recId }, 'builtin', { full: true });
   }
 
   /** Link to view an uploaded file. */

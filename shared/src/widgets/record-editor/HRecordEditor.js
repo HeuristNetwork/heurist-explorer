@@ -68,6 +68,8 @@ export class HRecordEditor extends HBaseWidget {
    * @param {string[]} [options.languages] Language codes offered for translations.
    * @param {Function} [options.selectExtent] Map extent picker of geo fields.
    * @param {Function} [options.selectGeometry] Map drawing of geo fields: `(wkt) → Promise<{type, wkt}|null>`.
+   * @param {Function} [options.editRecord] Edit button of pointer fields: `(id) → Promise<{saved, record}>`.
+   * @param {Function} [options.viewRecord] View button of pointer fields: `(id)`.
    * @param {Function} [options.fileUrl] Link to view a file of a file field.
    * @param {Object<number, object>} [options.specialEditors] Special fields by field id: `{json, describe, edit}`
    *        (see HEditField); `describe` and `edit` get `{field, record, getValue(dty), setValue(dty, value)}`.
@@ -601,6 +603,8 @@ export class HRecordEditor extends HBaseWidget {
       languages: this.options.languages,
       selectExtent: this.options.selectExtent,
       selectGeometry: this.options.selectGeometry,
+      editRecord: this.options.editRecord,
+      viewRecord: this.options.viewRecord,
       fileUrl: this.options.fileUrl,
       readOnly: this.options.readOnly,
       specialEditors: this.options.specialEditors || {},

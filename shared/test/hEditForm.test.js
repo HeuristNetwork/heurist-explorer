@@ -211,3 +211,24 @@ test('width on any input type: radios 400px, text 20 characters', async () => {
   assert.equal(host('plain').classList.contains('has-display-width'), false);
   await form.destroy();
 });
+
+test('pointer field: Edit and View buttons for the chosen record', async () => {
+  const calls = [];
+  const { form } = makeForm({
+    form: { groups: [{ children: [{ name: 'ref', type: 'resource' }, { name: 'other', type: 'resource' }] }] },
+    values: { ref: 12 },
+    editRecord: async (id) => { calls.push(['edit', id]); return { saved: true, record: { rec_ID: id, rec_Title: '<b>New title</b>' } }; },
+    viewRecord: (id) => calls.push(['view', id])
+  });
+  const input = form.getFieldWidget('ref')._rows[0].input;
+  assert.equal(input.editButton.hidden, false);
+  assert.equal(input.viewButton.hidden, false);
+  assert.equal(form.getFieldWidget('other')._rows[0].input.editButton.hidden, true, 'no record: no buttons');
+  input.viewButton.click();
+  input.editButton.click();
+  await flush();
+  assert.deepEqual(calls, [['view', 12], ['edit', 12]]);
+  assert.equal(input.source.labelFor(12), 'New title', 'the saved title is shown');
+  assert.ok(input.container.classList.contains('h-form-input-compact'));
+  await form.destroy();
+});

@@ -214,7 +214,16 @@ First consumer of Phase 4, done before the bridge (Artem: "Next Symbology editor
 - Checked in headless Edge (symbol and gradient modes). Tests: 1202 pass (new: icon source showWhen, stored
   1/0 booleans, gradient columns, Yes/No radios).
 
-## 12. Open points
+## 12. Pointer and file inputs (Artem, 2026-10-17)
+
+| Point | Change |
+|---|---|
+| Clear and visibility of HInputResource and HInputFile at the right edge | These inputs are now "compact" (`h-form-input-compact`): the control part is as wide as the picker (22em, at least 10em) or the file name and id box, so the value tools follow it. A `width` set in the form still applies. |
+| Edit and View buttons after the record picker, a small gap before clear/visibility | `HInputResource` shows `fa-pen` (Edit) and `fa-circle-info` (View), styled as the Data list icon buttons, only for a chosen record and only when the host gives `editRecord` / `viewRecord` (options of HEditForm, HRecordEditor). After a save the new title is shown. Explorer (`RecordEditorHost`): Edit = `editRecord` (system types in the new editor, now over the open one: every editor dialog has its own id; other records in the legacy editor); View = a dialog with the shared built-in record renderer (`RecordPopupContent`), because the Record view pane is behind the modal editor. |
+
+Checked in headless Edge (Links tab with the value tools shown). Tests: 1203 pass.
+
+## 13. Open points
 
 - Agree the JSON format (§3) with the tool, especially: native value types in `getValues`,
   `maxValue` vs `max`, `showWhen` as "all of" with text comparison, dotted names.

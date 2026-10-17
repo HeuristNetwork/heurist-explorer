@@ -488,7 +488,8 @@ export class HThematicMapEditor extends HBaseWidget {
         const selected = parsed.kind === 'list' ? parsed.values : (parsed.value ? [parsed.value] : []);
         const input = createHInput('enum', values, {
           source: new TermSource(this.options.dbdefs, vocabulary),
-          mode: 'select', multiple: true, suppressLabel: true, value: selected.map(Number)
+          // no clear button: the row has its own remove action
+          mode: 'select', multiple: true, suppressLabel: true, clearButton: false, value: selected.map(Number)
         });
         values.addEventListener('h-input-change', () => {
           const value = input.getValue();

@@ -41,6 +41,8 @@ export class HInputFile extends HInput {
    * @returns {HTMLInputElement} File id box.
    */
   renderControl(host) {
+    // the input is as wide as the name and the id box: the value tools stay beside it
+    this.container.classList.add('h-form-input-compact');
     const group = document.createElement('div');
     group.className = 'h-input-file';
     this.summary = document.createElement('span');
