@@ -1,0 +1,41 @@
+{
+  "format": "heurist-edit-form/1",
+  "groups": [
+    {
+      "id": "mean", "type": "group",
+      "children": [
+        { "name": "meanType", "type": "enum", "mode": "radio", "label": "Mean date in", "clearable": false, "default": "bce",
+          "terms": [
+            { "id": "bce", "label": "Years BCE" },
+            { "id": "bp", "label": "Years BP (before 1950)" }
+          ] },
+        { "name": "mean", "type": "integer", "label": "Mean date", "req": "required", "width": 10 }
+      ]
+    },
+    {
+      "id": "deviation", "type": "group",
+      "children": [
+        { "name": "devType", "type": "enum", "mode": "radio", "label": "Deviation", "clearable": false, "default": "sym",
+          "terms": [
+            { "id": "sym", "label": "± Standard deviation" },
+            { "id": "asym", "label": "Positive and negative" }
+          ] },
+        { "name": "dev", "type": "integer", "label": "Standard deviation (years)", "minValue": 0, "width": 8,
+          "showWhen": { "devType": "sym" } },
+        { "name": "devPos", "type": "integer", "label": "Positive deviation (years)", "minValue": 0, "width": 8,
+          "showWhen": { "devType": "asym" } },
+        { "name": "devNeg", "type": "integer", "label": "Negative deviation (years)", "minValue": 0, "width": 8,
+          "showWhen": { "devType": "asym" } }
+      ]
+    },
+    {
+      "id": "lab", "type": "group",
+      "children": [
+        { "name": "labcode", "type": "freetext", "label": "Lab code", "width": 16 },
+        { "name": "calibrated", "type": "boolean", "label": "Calibrated", "default": false },
+        { "name": "comment", "type": "freetext", "label": "Comment / original information",
+          "help": "Stored with the date to record the original values entered" }
+      ]
+    }
+  ]
+}

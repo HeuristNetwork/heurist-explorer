@@ -330,7 +330,7 @@ export class HEditField extends HBaseWidget {
     host.className = 'h-edit-field-input';
     row.element.append(host);
     this.valuesHost.append(row.element);
-    row.input = createHInput(inputType(this.field), host, this._inputOptions(entry));
+    row.input = createHInput(inputType(this.field, this.options.special), host, this._inputOptions(entry));
     if (this.field.maxLength > 0 && row.input.control && 'maxLength' in row.input.control) {
       row.input.control.maxLength = this.field.maxLength;
     }
@@ -718,8 +718,14 @@ export class HEditField extends HBaseWidget {
   }
 }
 
-/** @returns {string} createHInput type of a field type. */
-function inputType(field) {
+/**
+ * createHInput type of a field type. A date field has the temporal editor (Show raw,
+ * Edit; plan 19) unless the field sets `temporal: false` or the host gives a special editor.
+ *
+ * @returns {string} Input type.
+ */
+export function inputType(field, special = null) {
+  if (field.type === 'date' && field.temporal !== false && !special) return 'temporal';
   switch (field.type) {
     case 'freetext':
     case 'blocktext':

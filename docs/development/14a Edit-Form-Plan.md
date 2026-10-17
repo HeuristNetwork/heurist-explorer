@@ -94,6 +94,7 @@ The record edit structure of plan 14 (`recordEditStructure.js`) is the same JSON
 | `readOnly` | The value cannot be changed. |
 | `clearable` | `false`: no clear button (a setting that must always have a value; single value fields). Default `true`. |
 | `showWhen` | `{field: value \| [values], ...}`: shown when every listed field has one of the values. Text comparison (`"1"` = `1`, `"true"` = `true`). |
+| `temporal` | `date` field: `false` gives the date input only; default: the date input with *Show raw* and *Edit* (temporal editor, plan 19). |
 | `special` | Id of a special editor given by the host (`specialEditors`), e.g. `"query"`; the record editor also finds them by dty. A `special` field without an editor shows the readable value and *Show raw* only. |
 
 **Values** (`getValues()` and the `values` option)

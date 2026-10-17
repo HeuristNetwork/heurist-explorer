@@ -598,3 +598,82 @@
 #Not valid JSON#Not valid JSON
 #This group is shown by code: showGroup() in onReady and onChange.#This group is shown by code: showGroup() in onReady and onChange.
 #This record type has no Filter form field (DT_FILTER_FORM); the filter form cannot be saved#This record type has no Filter form field (DT_FILTER_FORM); the filter form cannot be saved
+#Temporal object#Temporal object
+#Simple date#Simple date
+#Simple range#Simple range
+#Fuzzy range#Fuzzy range
+#Radiometric#Radiometric
+#Calendar#Calendar
+#Dates in this calendar can be changed in the legacy editor only.#Dates in this calendar can be changed in the legacy editor only.
+#The old temporal format is not supported. Enter the date again.#The old temporal format is not supported. Enter the date again.
+#The value is not a date. It is put in the comment.#The value is not a date. It is put in the comment.
+#The value is not valid JSON.#The value is not valid JSON.
+#The limits of this date (date ± deviation) are not known. Enter the range again.#The limits of this date (date ± deviation) are not known. Enter the range again.
+#Range#Range
+#months#months
+#days apart#days apart
+#Probable begin = Terminus Post Quem#Probable begin = Terminus Post Quem
+#Probable end = Terminus Ante Quem#Probable end = Terminus Ante Quem
+#Raw value#Raw value
+#Compound date: uncertain, range, fuzzy, radiometric#Compound date: uncertain, range, fuzzy, radiometric
+#Enter a year (1624), yyyy-mm or yyyy-mm-dd; minus for BCE (-375)#Enter a year (1624), yyyy-mm or yyyy-mm-dd; minus for BCE (-375)
+#Enter a date#Enter a date
+#Both earliest and latest estimates are required#Both earliest and latest estimates are required
+#Earliest estimate needs to be before latest estimate#Earliest estimate needs to be before latest estimate
+#Terminus Post Quem is required#Terminus Post Quem is required
+#Terminus Ante Quem is required#Terminus Ante Quem is required
+#The dates must be in order: TPQ, probable begin, probable end, TAQ#The dates must be in order: TPQ, probable begin, probable end, TAQ
+#Terminus Post Quem needs to be before Terminus Ante Quem#Terminus Post Quem needs to be before Terminus Ante Quem
+#Enter the mean date#Enter the mean date
+#Date#Date
+#Precision#Precision
+#Exact#Exact
+#Circa / approximate#Circa / approximate
+#Before#Before
+#After#After
+#Time#Time
+#Time zone#Time zone
+#Optional: hh or hh:mm or hh:mm:ss#Optional: hh or hh:mm or hh:mm:ss
+#Optional, with a time: hours from UTC, + for east (Europe, Africa, Asia), - for west (N and S America)#Optional, with a time: hours from UTC, + for east (Europe, Africa, Asia), - for west (N and S America)
+#Enter the time as hh, hh:mm or hh:mm:ss#Enter the time as hh, hh:mm or hh:mm:ss
+#Enter the time zone as +hh or -hh:mm#Enter the time zone as +hh or -hh:mm
+#Type of determination#Type of determination
+#How were the dates arrived at?#How were the dates arrived at?
+#Unknown#Unknown
+#Attested#Attested
+#Conjecture#Conjecture
+#Measurement#Measurement
+#Comment / original information#Comment / original information
+#Stored with the date to record the original values entered#Stored with the date to record the original values entered
+#Year (eg. 1624) or ISO date (yyyy-mm or yyyy-mm-dd). Use minus (-) for BCE dates (eg. -375 for 375 BCE)#Year (eg. 1624) or ISO date (yyyy-mm or yyyy-mm-dd). Use minus (-) for BCE dates (eg. -375 for 375 BCE)
+#Earliest estimate#Earliest estimate
+#Latest estimate#Latest estimate
+#Probability curve#Probability curve
+#Distribution of the likelihood of the date between the limits set by the range#Distribution of the likelihood of the date between the limits set by the range
+#Flat#Flat
+#Central tendency#Central tendency
+#Slow start#Slow start
+#Slow finish#Slow finish
+#Source of the estimate#Source of the estimate
+#Enter only the known values, starting with the year: year (eg. 1624) or ISO date (yyyy-mm or yyyy-mm-dd). Use minus (-) for BCE dates (eg. -375 for 375 BCE)#Enter only the known values, starting with the year: year (eg. 1624) or ISO date (yyyy-mm or yyyy-mm-dd). Use minus (-) for BCE dates (eg. -375 for 375 BCE)
+#Terminus Post Quem#Terminus Post Quem
+#Terminus Ante Quem#Terminus Ante Quem
+#Probable begin#Probable begin
+#Probable end#Probable end
+#The earliest possible date#The earliest possible date
+#The latest possible date#The latest possible date
+#Distribution of the likelihood of the date between the terminus date and the probable date (if in doubt, choose flat: any point is equally likely)#Distribution of the likelihood of the date between the terminus date and the probable date (if in doubt, choose flat: any point is equally likely)
+#Start profile#Start profile
+#End profile#End profile
+#Mean date in#Mean date in
+#Years BCE#Years BCE
+#Years BP (before 1950)#Years BP (before 1950)
+#Mean date#Mean date
+#Deviation#Deviation
+#± Standard deviation#± Standard deviation
+#Positive and negative#Positive and negative
+#Standard deviation (years)#Standard deviation (years)
+#Positive deviation (years)#Positive deviation (years)
+#Negative deviation (years)#Negative deviation (years)
+#Lab code#Lab code
+#Calibrated#Calibrated

@@ -24,7 +24,12 @@
     {
       "id": "choices", "type": "tabs", "label": "Dates and choices",
       "children": [
-        { "name": "date", "type": "date", "label": "Date", "help": "date (text or calendar)", "max": 0 },
+        { "name": "date", "type": "date", "label": "Date", "help": "date (text or calendar) with Show raw and Edit (temporal editor)", "max": 0 },
+        {
+          "name": "dateComplex", "type": "date", "label": "Date (temporal)", "help": "date with a temporal default: circa 1850", "max": 0,
+          "default": "{\"timestamp\":{\"in\":\"1850\",\"type\":\"s\",\"circa\":true}}"
+        },
+        { "name": "datePlain", "type": "date", "temporal": false, "label": "Date (simple)", "help": "temporal: false - the date input only", "max": 0 },
         { "name": "boolean", "type": "boolean", "label": "Yes / No", "help": "boolean", "max": 0 },
         {
           "name": "enumSelect", "type": "enum", "label": "Choice (list)", "help": "enum with static terms, text ids", "max": 0,

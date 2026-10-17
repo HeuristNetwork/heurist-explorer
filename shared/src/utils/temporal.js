@@ -137,7 +137,7 @@ export function dateToString(value, calendar = null) {
  * @param {string} value Date text.
  * @returns {{year:number, month:number, day:number, hour:number, minute:number, second:number, hasDays:boolean, hasSeconds:boolean}|null}
  */
-function parseDate(value) {
+export function parseDate(value) {
   let text = String(value ?? '').trim().replace(/\?\?-/g, '').replace(/\?/g, '');
   if (!text) return null;
   if (/bce/i.test(text)) text = `-${text.replace(/bce/i, '').trim()}`;

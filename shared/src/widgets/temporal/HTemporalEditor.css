@@ -1,0 +1,35 @@
+/* Temporal editor popup (plan 19) */
+
+.h-temporal-editor-dialog {
+  width: min(720px, calc(100vw - 32px));
+}
+
+.h-temporal-editor {
+  display: flex;
+  flex-direction: column;
+  gap: var(--h-gap);
+  min-width: 0;
+}
+
+.h-temporal-editor-note {
+  padding: 6px 8px;
+  border: 1px solid var(--h-color-border);
+  border-radius: var(--h-radius);
+  background: var(--h-color-surface);
+  color: var(--h-color-warning);
+}
+
+.h-temporal-editor-form {
+  padding: 8px;
+  min-height: 300px;
+}
+
+.h-temporal-editor-range {
+  color: var(--h-color-text-muted);
+}
+
+.h-temporal-editor-set {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}

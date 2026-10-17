@@ -164,6 +164,18 @@ export class HInputDate extends HInput {
       onChange: () => { this._syncSliders(); this.notifyChange(); }
     }));
     input.addEventListener('change', () => { this._syncSliders(); this.notifyChange(); });
+    // edit forms: flatpickr parses typed text again on blur and Enter, so a year (1624),
+    // a month (1624-05) or a BCE date (-375) became another date or was cleared; such
+    // text is kept as typed (the event stops at the host, before flatpickr)
+    if (this.options.allowLegacyText) {
+      const keepPartial = (event) => {
+        if (event.target !== input || (event.type === 'keydown' && event.key !== 'Enter')) return;
+        const text = input.value.trim();
+        if (text && dateDay(text) === null) event.stopPropagation();
+      };
+      this.listen(host, 'blur', keepPartial, true);
+      this.listen(host, 'keydown', keepPartial, true);
+    }
     return input;
   }
 

@@ -1,0 +1,38 @@
+/* Date field with the temporal editor (plan 19) */
+
+.h-input-temporal {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.h-input-temporal .h-input-date[hidden],
+.h-input-temporal-summary[hidden],
+.h-input-temporal-raw[hidden] {
+  display: none;
+}
+
+.h-input-temporal-summary {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 4px 6px;
+  border: 1px solid var(--h-color-border);
+  border-radius: var(--h-radius);
+  background: var(--h-color-surface);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.h-input-temporal-buttons {
+  display: inline-flex;
+  flex: 0 0 auto;
+  gap: 4px;
+  margin-left: 4px;
+}
+
+.h-input-temporal-raw {
+  width: 100%;
+  margin-top: 4px;
+  font-family: var(--h-font-mono, monospace);
+}

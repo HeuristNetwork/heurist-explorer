@@ -1,0 +1,45 @@
+{
+  "format": "heurist-edit-form/1",
+  "groups": [
+    {
+      "id": "date", "type": "group",
+      "children": [
+        { "name": "date", "type": "date", "temporal": false, "label": "Date", "req": "required", "width": 16,
+          "help": "Year (eg. 1624) or ISO date (yyyy-mm or yyyy-mm-dd). Use minus (-) for BCE dates (eg. -375 for 375 BCE)" },
+        { "name": "approx", "type": "enum", "label": "Precision", "mode": "radio", "clearable": false, "default": "exact",
+          "terms": [
+            { "id": "exact", "label": "Exact" },
+            { "id": "circa", "label": "Circa / approximate" },
+            { "id": "before", "label": "Before" },
+            { "id": "after", "label": "After" }
+          ] }
+      ]
+    },
+    {
+      "id": "time", "type": "group", "columns": 2,
+      "children": [
+        { "name": "time", "type": "freetext", "label": "Time", "width": 10,
+          "help": "Optional: hh or hh:mm or hh:mm:ss",
+          "pattern": "\\d{1,2}(:\\d{2}){0,2}", "patternMessage": "Enter the time as hh, hh:mm or hh:mm:ss" },
+        { "name": "zone", "type": "freetext", "label": "Time zone", "width": 8,
+          "help": "Optional, with a time: hours from UTC, + for east (Europe, Africa, Asia), - for west (N and S America)",
+          "pattern": "[+-]?\\d{1,2}(:?\\d{2})?", "patternMessage": "Enter the time zone as +hh or -hh:mm" }
+      ]
+    },
+    {
+      "id": "source", "type": "group",
+      "children": [
+        { "name": "determination", "type": "enum", "label": "Type of determination", "help": "How were the dates arrived at?",
+          "clearable": false, "default": 0,
+          "terms": [
+            { "id": 0, "label": "Unknown" },
+            { "id": 1, "label": "Attested" },
+            { "id": 2, "label": "Conjecture" },
+            { "id": 3, "label": "Measurement" }
+          ] },
+        { "name": "comment", "type": "freetext", "label": "Comment / original information",
+          "help": "Stored with the date to record the original values entered" }
+      ]
+    }
+  ]
+}

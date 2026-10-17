@@ -598,3 +598,82 @@
 #Not valid JSON#JSON non valide
 #This group is shown by code: showGroup() in onReady and onChange.#Ce groupe est affiché par le code : showGroup() dans onReady et onChange.
 #This record type has no Filter form field (DT_FILTER_FORM); the filter form cannot be saved#Ce type d’enregistrement n’a pas de champ Formulaire de filtre (DT_FILTER_FORM) ; le formulaire de filtre ne peut pas être enregistré
+#Temporal object#Objet temporel
+#Simple date#Date simple
+#Simple range#Intervalle simple
+#Fuzzy range#Intervalle flou
+#Radiometric#Radiométrique
+#Calendar#Calendrier
+#Dates in this calendar can be changed in the legacy editor only.#Les dates de ce calendrier ne peuvent être modifiées que dans l’ancien éditeur.
+#The old temporal format is not supported. Enter the date again.#L’ancien format temporel n’est pas pris en charge. Saisissez la date à nouveau.
+#The value is not a date. It is put in the comment.#La valeur n’est pas une date. Elle est placée dans le commentaire.
+#The value is not valid JSON.#La valeur n’est pas un JSON valide.
+#The limits of this date (date ± deviation) are not known. Enter the range again.#Les limites de cette date (date ± écart) ne sont pas connues. Saisissez l’intervalle à nouveau.
+#Range#Intervalle
+#months#mois
+#days apart#jours d’écart
+#Probable begin = Terminus Post Quem#Début probable = Terminus Post Quem
+#Probable end = Terminus Ante Quem#Fin probable = Terminus Ante Quem
+#Raw value#Valeur brute
+#Compound date: uncertain, range, fuzzy, radiometric#Date composée : incertaine, intervalle, floue, radiométrique
+#Enter a year (1624), yyyy-mm or yyyy-mm-dd; minus for BCE (-375)#Saisissez une année (1624), aaaa-mm ou aaaa-mm-jj ; un moins pour av. J.-C. (-375)
+#Enter a date#Saisissez une date
+#Both earliest and latest estimates are required#Les estimations la plus ancienne et la plus récente sont requises
+#Earliest estimate needs to be before latest estimate#L’estimation la plus ancienne doit précéder la plus récente
+#Terminus Post Quem is required#Le Terminus Post Quem est requis
+#Terminus Ante Quem is required#Le Terminus Ante Quem est requis
+#The dates must be in order: TPQ, probable begin, probable end, TAQ#Les dates doivent être dans l’ordre : TPQ, début probable, fin probable, TAQ
+#Terminus Post Quem needs to be before Terminus Ante Quem#Le Terminus Post Quem doit précéder le Terminus Ante Quem
+#Enter the mean date#Saisissez la date moyenne
+#Date#Date
+#Precision#Précision
+#Exact#Exacte
+#Circa / approximate#Vers / approximative
+#Before#Avant
+#After#Après
+#Time#Heure
+#Time zone#Fuseau horaire
+#Optional: hh or hh:mm or hh:mm:ss#Facultatif : hh ou hh:mm ou hh:mm:ss
+#Optional, with a time: hours from UTC, + for east (Europe, Africa, Asia), - for west (N and S America)#Facultatif, avec une heure : heures par rapport à UTC, + pour l’est (Europe, Afrique, Asie), - pour l’ouest (Amériques)
+#Enter the time as hh, hh:mm or hh:mm:ss#Saisissez l’heure en hh, hh:mm ou hh:mm:ss
+#Enter the time zone as +hh or -hh:mm#Saisissez le fuseau en +hh ou -hh:mm
+#Type of determination#Type de détermination
+#How were the dates arrived at?#Comment les dates ont-elles été établies ?
+#Unknown#Inconnu
+#Attested#Attestée
+#Conjecture#Conjecture
+#Measurement#Mesure
+#Comment / original information#Commentaire / information d’origine
+#Stored with the date to record the original values entered#Enregistré avec la date pour garder les valeurs saisies à l’origine
+#Year (eg. 1624) or ISO date (yyyy-mm or yyyy-mm-dd). Use minus (-) for BCE dates (eg. -375 for 375 BCE)#Année (ex. 1624) ou date ISO (aaaa-mm ou aaaa-mm-jj). Utilisez le moins (-) pour les dates av. J.-C. (ex. -375 pour 375 av. J.-C.)
+#Earliest estimate#Estimation la plus ancienne
+#Latest estimate#Estimation la plus récente
+#Probability curve#Courbe de probabilité
+#Distribution of the likelihood of the date between the limits set by the range#Répartition de la probabilité de la date entre les limites de l’intervalle
+#Flat#Plate
+#Central tendency#Tendance centrale
+#Slow start#Début lent
+#Slow finish#Fin lente
+#Source of the estimate#Source de l’estimation
+#Enter only the known values, starting with the year: year (eg. 1624) or ISO date (yyyy-mm or yyyy-mm-dd). Use minus (-) for BCE dates (eg. -375 for 375 BCE)#Saisissez seulement les valeurs connues, en commençant par l’année : année (ex. 1624) ou date ISO (aaaa-mm ou aaaa-mm-jj). Utilisez le moins (-) pour les dates av. J.-C. (ex. -375 pour 375 av. J.-C.)
+#Terminus Post Quem#Terminus Post Quem
+#Terminus Ante Quem#Terminus Ante Quem
+#Probable begin#Début probable
+#Probable end#Fin probable
+#The earliest possible date#La date la plus ancienne possible
+#The latest possible date#La date la plus récente possible
+#Distribution of the likelihood of the date between the terminus date and the probable date (if in doubt, choose flat: any point is equally likely)#Répartition de la probabilité de la date entre la date terminus et la date probable (en cas de doute, choisissez plate : tout point est également probable)
+#Start profile#Profil de début
+#End profile#Profil de fin
+#Mean date in#Date moyenne en
+#Years BCE#Années av. J.-C.
+#Years BP (before 1950)#Années BP (avant 1950)
+#Mean date#Date moyenne
+#Deviation#Écart
+#± Standard deviation#± Écart type
+#Positive and negative#Positif et négatif
+#Standard deviation (years)#Écart type (années)
+#Positive deviation (years)#Écart positif (années)
+#Negative deviation (years)#Écart négatif (années)
+#Lab code#Code du laboratoire
+#Calibrated#Calibrée
