@@ -1,6 +1,6 @@
 /**
  * @file recordEditor.test.js
- * @brief HRecordEditor and HRecordField with the fake DOM (plan 14 Phase 2).
+ * @brief HRecordEditor and HEditField with the fake DOM (plan 14 Phase 2).
  */
 
 import test from 'node:test';
@@ -66,7 +66,7 @@ async function openEditor({ record = RECORD, update = null, insert = null, recor
 
 test('the editor shows the record in tab groups and gives it back unchanged', async () => {
   const { editor, element } = await openEditor();
-  assert.equal(element.querySelectorAll('button.h-record-editor-tab').length, 2, 'two tabs');
+  assert.equal(element.querySelectorAll('button.h-edit-form-tab').length, 2, 'two tabs');
   assert.equal(element.querySelector('.h-record-editor-record').textContent, 'Main');
   const body = editor.getRecord();
   assert.equal(body.rec_ID, '7');
@@ -76,14 +76,14 @@ test('the editor shows the record in tab groups and gives it back unchanged', as
   assert.deepEqual(body.details[1105], ['9', '10'], 'repeatable values');
   assert.deepEqual(body.details[32], []);
   assert.equal(editor.isDirty(), false);
-  const chips = element.querySelectorAll('.h-record-field-translation');
+  const chips = element.querySelectorAll('.h-edit-field-translation');
   assert.equal(chips.length, 1, 'translation chip');
   await editor.destroy();
 });
 
 test('a repeatable field adds and removes values; the add button stops at max', async () => {
   const { editor, element } = await openEditor();
-  const field = editor._fieldWidgets.get(1105);
+  const field = editor.editForm.getFieldWidget(1105);
   assert.equal(field.isRepeatable, true);
   field.addButton.click();
   assert.equal(field._rows.length, 3);
@@ -92,16 +92,16 @@ test('a repeatable field adds and removes values; the add button stops at max', 
   assert.equal(editor.isDirty(), true);
   field._rows[0].removeButton.click();
   assert.deepEqual(editor.getRecord().details[1105], ['10', '11']);
-  const single = editor._fieldWidgets.get(32);
+  const single = editor.editForm.getFieldWidget(32);
   assert.equal(single.isRepeatable, false);
-  assert.equal(single.addButton, undefined, 'no add button for max 1');
-  assert.ok(element.querySelector('.h-record-field-translate'), 'multilingual field has Translate');
+  assert.equal(single.addButton ?? null, null, 'no add button for max 1');
+  assert.ok(element.querySelector('.h-edit-field-translate'), 'multilingual field has Translate');
   await editor.destroy();
 });
 
 test('a value can be hidden from the public', async () => {
   const { editor } = await openEditor();
-  const field = editor._fieldWidgets.get(12);
+  const field = editor.editForm.getFieldWidget(12);
   field._rows[0].hiddenButton.click();
   assert.deepEqual(editor.getRecord().details[12], [{ value: 't:10', hidden: true }]);
   await editor.destroy();
@@ -113,7 +113,7 @@ test('save sends PUT, keeps the new rec_Modified and reports saved', async () =>
     update: (body) => ({ record: { ...body, rec_Modified: '2026-10-12 11:00:00', rec_Title: 'Main' }, issues: [] })
   });
   element.addEventListener('h-record-editor-saved', (event) => saved.push(event.detail));
-  editor._fieldWidgets.get(12)._rows[0].input.setValue('t:12');
+  editor.editForm.getFieldWidget(12)._rows[0].input.setValue('t:12');
   assert.equal(await editor.save(), true);
   assert.equal(calls[0][0], 'update');
   assert.deepEqual(calls[0][1].details[12], ['t:12']);
@@ -129,7 +129,7 @@ test('server issues are shown next to their fields', async () => {
     update: () => { throw new RecordEditError('invalid', { status: 422, code: 'validation', issues }); }
   });
   assert.equal(await editor.save(), false);
-  const field = editor._fieldWidgets.get(12);
+  const field = editor.editForm.getFieldWidget(12);
   assert.equal(field.container.classList.contains('has-error'), true);
   assert.match(field.issuesHost.textContent, /required/);
   await editor.destroy();
@@ -137,18 +137,18 @@ test('server issues are shown next to their fields', async () => {
 
 test('missing required values are found before sending', async () => {
   const { editor, calls } = await openEditor();
-  editor._fieldWidgets.get(12)._rows[0].input.setValue('');
+  editor.editForm.getFieldWidget(12)._rows[0].input.setValue('');
   assert.equal(await editor.save(), false);
   assert.equal(calls.length, 0, 'nothing sent');
-  assert.equal(editor._fieldWidgets.get(12).container.classList.contains('has-error'), true);
+  assert.equal(editor.editForm.getFieldWidget(12).container.classList.contains('has-error'), true);
   await editor.destroy();
 });
 
 test('a new record is inserted with the current user as owner', async () => {
   const { editor, calls } = await openEditor({ recordId: 0, rectypeId: 29 });
   assert.equal(editor.isNew, true);
-  editor._fieldWidgets.get(1)._rows[0].input.setValue('New');
-  editor._fieldWidgets.get(12)._rows[0].input.setValue('t:1');
+  editor.editForm.getFieldWidget(1)._rows[0].input.setValue('New');
+  editor.editForm.getFieldWidget(12)._rows[0].input.setValue('t:1');
   assert.equal(await editor.save(), true);
   assert.equal(calls[0][0], 'insert');
   assert.equal(calls[0][1].rec_ID, '0');
@@ -176,9 +176,9 @@ test('boolean, resource and file inputs', () => {
 });
 
 test('a special field shows a readable value, the raw text on request and its editor', async () => {
-  const { HRecordField } = await import('../src/widgets/record-editor/HRecordField.js');
+  const { HEditField } = await import('../src/widgets/edit-form/HEditField.js');
   const values = { 1174: '{"groups":[]}' };
-  const field = new HRecordField().attach(host(), {
+  const field = new HEditField().attach(host(), {
     field: { dty: 1172, type: 'freetext', label: 'Rules', help: '', req: 'optional', max: 1, default: '' },
     state: { values: [{ value: '[{"name":"People"}]', hidden: false }], translations: [] },
     special: {
@@ -190,9 +190,9 @@ test('a special field shows a readable value, the raw text on request and its ed
   }).render();
   const row = field._rows[0];
   assert.equal(row.summary.textContent, 'People');
-  const input = field.container.querySelector('.h-record-field-input');
+  const input = field.container.querySelector('.h-edit-field-input');
   assert.equal(input.hidden, true, 'raw text hidden at first');
-  const [raw, edit] = field.container.querySelector('.h-record-field-special-buttons').children;
+  const [raw, edit] = field.container.querySelector('.h-edit-field-special-buttons').children;
   raw.click();
   assert.equal(input.hidden, false, 'Show raw shows the text');
   edit.click();

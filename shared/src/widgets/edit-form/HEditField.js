@@ -1,19 +1,22 @@
 /**
- * @file HRecordField.js
- * @brief One field of the record editor (plan 14 §6): label, the value inputs
- *        (several for a repeatable field), "hidden from the public" per value,
- *        translations of a multilingual field and the issues of a save.
+ * @file HEditField.js
+ * @brief One field of an edit form (plan 14a; was HRecordField of plan 14 §6):
+ *        label, the value inputs (several for a repeatable field), "hidden from
+ *        the public" per value, translations of a multilingual field and the
+ *        issues of a check or a save.
  *
  * The inputs are the shared HInput classes (createHInput) without their own
  * label. A repeatable field (max values 0 or more than 1) has an "add value"
- * button; a multilingual field (DT_NAME, DT_SHORT_SUMMARY, DT_EXTENDED_DESCRIPTION)
- * has a Translate button instead, and its translations are shown as language
- * chips that open a small popup to edit them.
+ * button; a multilingual field has a Translate button instead, and its
+ * translations are shown as language chips that open a small popup to edit them.
  *
- * A special field (query, filter form, expansion rules, symbology...: the
- * host gives a `special` definition) shows a readable value with two actions:
- * "Show raw" toggles a text area with the stored (JSON) value, "Edit" opens the
- * special editor of the host.
+ * A special field (query, filter form, expansion rules, symbology...: the host
+ * gives a `special` definition) shows a readable value with two actions: "Show
+ * raw" toggles a text area with the stored (JSON) value, "Edit" opens the special
+ * editor of the host. A `json` field is the raw text area, checked as JSON.
+ *
+ * The field definition is a normalised field of editFormSchema.js (a record
+ * structure field has the same properties).
  *
  * @project     Heurist academic knowledge management system
  * @package     heurist-client-core
@@ -32,23 +35,29 @@ import { FORM_FIELD_CLASS, FORM_LABEL_CLASS } from '../form/formLayout.js';
 import { TermSource } from '../../data/valueSources/localSources.js';
 import { showPopover, closePopover } from '../popover/popover.js';
 import { $HR } from '../../ui/i18n/HResource.js';
-import './HRecordField.css';
+import './HEditField.css';
 
 /** Languages offered for translations when the host gives none (3-letter codes). */
 export const DEFAULT_LANGUAGES = Object.freeze(['ENG', 'FRE', 'GER', 'SPA', 'ITA', 'POR', 'DUT', 'RUS', 'CHI', 'JPN', 'ARA']);
 
-/** Field types whose input follows rst_DisplayWidth. */
+/** Field types whose input follows the display width. */
 const SIZED_TYPES = new Set(['freetext', 'blocktext', 'url', 'integer', 'float', 'year', 'date']);
 
 /** Field types without values to edit here. */
 const NO_INPUT_TYPES = new Set(['relmarker', 'separator']);
 
+/** Numeric field types (min / maxValue checks). */
+const NUMERIC_TYPES = new Set(['integer', 'float', 'year']);
+
+/** Text field types (maxLength / pattern checks). */
+const TEXT_TYPES = new Set(['freetext', 'blocktext', 'url']);
+
 /** Editor of the values of one field. */
-export class HRecordField extends HBaseWidget {
+export class HEditField extends HBaseWidget {
   /**
    * @param {HTMLElement} container Field host.
    * @param {object} options
-   * @param {object} options.field Field of the edit structure (recordEditStructure.js).
+   * @param {object} options.field Normalised field (editFormSchema.js) or record structure field.
    * @param {{values: Array<object>, translations: Array<object>}} [options.state] Initial values.
    * @param {object} [options.apiClient] HeuristApiClient (record pointer titles).
    * @param {object} [options.dbdefs] HDbDefs (vocabularies).
@@ -56,23 +65,26 @@ export class HRecordField extends HBaseWidget {
    * @param {Function} [options.selectExtent] Map extent picker of geo fields (host).
    * @param {Function} [options.fileUrl] Link to view a file of a file field.
    * @param {boolean} [options.allowHidden=true] Show the "hidden from the public" switch.
-   * @param {boolean} [options.readOnly] Display only.
+   * @param {boolean} [options.readOnly] Display only (also `field.readOnly`).
    * @param {{json?: boolean, describe?: Function, edit?: Function, actions?: Array<object>}|null} [options.special] Special field:
    *        `describe(value, context)` readable text, `edit(value, context)` resolves with the new
    *        value (undefined: cancelled), `json` the raw value must be JSON; `actions`
    *        (`[{label, title?, primary?, run(value, context)}]`) several editors instead of `edit`,
    *        or `actionsFor(context)` returning them for the record (type) being edited.
-   * @param {object} [options.context] Passed to `describe`/`edit`: `{field, getValue(dty), setValue(dty, value)}`.
-   * @returns {HRecordField} This field.
+   * @param {object} [options.context] Passed to `describe`/`edit`: `{field, getValue(name), setValue(name, value)}`.
+   * @returns {HEditField} This field.
    */
   attach(container, options = {}) {
     super.attach(container, options);
     this.field = options.field;
-    const state = options.state || { values: [], translations: [] };
-    this._entries = (state.values || []).map((entry) => ({ ...entry }));
-    this._translations = (state.translations || []).map((entry) => ({ ...entry }));
+    this._setEntries(options.state);
     this._rows = [];
     return this;
+  }
+
+  /** @returns {string} Name of the field in the form (the dty of a record field). */
+  get name() {
+    return String(this.field.name ?? this.field.dty);
   }
 
   /** @returns {boolean} Whether the field may have several values. */
@@ -80,36 +92,44 @@ export class HRecordField extends HBaseWidget {
     return !this.field.multilang && (this.field.max === 0 || this.field.max > 1);
   }
 
-  /** @returns {HRecordField} This field. */
+  /** @returns {boolean} Whether the values cannot be changed. */
+  get isReadOnly() {
+    return Boolean(this.options.readOnly || this.field.readOnly);
+  }
+
+  /** @returns {HEditField} This field. */
   render() {
-    if (!this.container) throw new Error('HRecordField must be attached before render');
+    if (!this.container) throw new Error('HEditField must be attached before render');
     const field = this.field;
+    this.clearListeners();
     this.container.replaceChildren();
-    // a field of the form layout (labelPos / inputPos of the editor, formLayout.js)
-    this.container.className = `h-record-field ${FORM_FIELD_CLASS}`;
-    this.container.dataset.dty = String(field.dty);
+    // a field of the form layout (labelPos / inputPos of the form, formLayout.js)
+    this.container.className = `h-edit-field ${FORM_FIELD_CLASS}`;
+    this.container.dataset.name = this.name;
+    if (field.dty) this.container.dataset.dty = String(field.dty);
     this.container.classList.toggle('is-required', field.req === 'required');
     // label colour and weight by requirement (plan 18): required, recommended, optional
     this.container.classList.toggle('is-recommended', field.req === 'recommended');
 
     const header = document.createElement('div');
-    header.className = `h-record-field-header ${FORM_LABEL_CLASS}`;
+    header.className = `h-edit-field-header ${FORM_LABEL_CLASS}`;
     const label = document.createElement('label');
-    label.className = 'h-record-field-label';
+    label.className = 'h-edit-field-label';
     label.textContent = field.label;
     header.append(label);
     this.labelElement = label;
     // Add a value / Translate: after the input of the last value (HInput#setActions, plan 18)
     this.actionButtons = [];
+    this.addButton = null;
     this.container.append(header);
 
     this.valuesHost = document.createElement('div');
-    this.valuesHost.className = 'h-record-field-values';
+    this.valuesHost.className = 'h-edit-field-values';
     this.container.append(this.valuesHost);
 
     if (NO_INPUT_TYPES.has(field.type)) {
       const note = document.createElement('div');
-      note.className = 'h-record-field-note h-i18n';
+      note.className = 'h-edit-field-note h-i18n';
       note.textContent = $HR('Relationships are not edited in this editor yet');
       this.valuesHost.append(note);
     } else {
@@ -118,21 +138,22 @@ export class HRecordField extends HBaseWidget {
       this._renderActions();
     }
 
+    this.translationsHost = null;
     if (field.multilang) {
       this.translationsHost = document.createElement('div');
-      this.translationsHost.className = 'h-record-field-translations';
+      this.translationsHost.className = 'h-edit-field-translations';
       this.container.append(this.translationsHost);
       this._renderTranslations();
     }
 
     if (field.help) {
       const help = document.createElement('div');
-      help.className = 'h-record-field-help';
+      help.className = 'h-edit-field-help';
       help.textContent = field.help;
       this.container.append(help);
     }
     this.issuesHost = document.createElement('div');
-    this.issuesHost.className = 'h-record-field-issues';
+    this.issuesHost.className = 'h-edit-field-issues';
     this.container.append(this.issuesHost);
     this.state = 'rendered';
     return this;
@@ -148,6 +169,20 @@ export class HRecordField extends HBaseWidget {
       .map((row) => ({ ...row.entry, value: row.input.getValue(), hidden: row.entry.hidden }))
       .filter((entry) => !isEmpty(entry.value));
     return { values, translations: this._translations.map((entry) => ({ ...entry })) };
+  }
+
+  /**
+   * Replace all values and translations (the inputs are made again).
+   *
+   * @param {{values: Array<object>, translations?: Array<object>}} state New state.
+   * @returns {Promise<void>} Completion after the inputs are replaced.
+   */
+  async setState(state) {
+    closePopover();
+    for (const row of this._rows) await row.input.destroy();
+    this._rows = [];
+    this._setEntries(state);
+    if (this.container) this.render();
   }
 
   /** @returns {*} First value of the field (null when empty). */
@@ -170,20 +205,38 @@ export class HRecordField extends HBaseWidget {
   }
 
   /**
-   * Check the values: a required field needs one, and every input its own rules.
+   * Check the values: a required field needs one, and every input its own rules
+   * (number range, text length and pattern, JSON).
    *
    * @returns {string[]} Error messages.
    */
   validate() {
+    const field = this.field;
     const errors = [];
-    for (const row of this._rows) errors.push(...row.input.validate());
-    if (this.options.special?.json) {
-      for (const row of this._rows) {
-        const text = String(row.input.getValue() ?? '').trim();
-        if (text && !isJson(text)) errors.push($HR('The raw value is not valid JSON'));
+    for (const row of this._rows) errors.push(...row.input.validate().map((message) => $HR(message)));
+    const values = this.getState().values.map((entry) => entry.value);
+    if (this.options.special?.json || field.type === 'json') {
+      for (const value of values) {
+        if (!isJson(String(value ?? '').trim())) errors.push($HR('The raw value is not valid JSON'));
       }
     }
-    if (this.field.req === 'required' && !NO_INPUT_TYPES.has(this.field.type) && !this.getState().values.length) {
+    if (NUMERIC_TYPES.has(field.type)) {
+      for (const value of values) {
+        const number = Number(value);
+        if (!Number.isFinite(number)) errors.push($HR('Enter a number'));
+        else if (field.min !== null && field.min !== undefined && number < field.min) errors.push(`${$HR('The smallest value is')} ${field.min}`);
+        else if (field.maxValue !== null && field.maxValue !== undefined && number > field.maxValue) errors.push(`${$HR('The largest value is')} ${field.maxValue}`);
+      }
+    }
+    if (TEXT_TYPES.has(field.type) && !this.options.special) {
+      const pattern = patternOf(field.pattern);
+      for (const value of values) {
+        const text = String(value ?? '');
+        if (field.maxLength > 0 && text.length > field.maxLength) errors.push(`${$HR('At most this number of characters:')} ${field.maxLength}`);
+        if (pattern && !pattern.test(text)) errors.push(field.patternMessage || $HR('The value has characters that are not allowed'));
+      }
+    }
+    if (field.req === 'required' && !NO_INPUT_TYPES.has(field.type) && !values.length) {
       errors.push($HR('A value is required'));
     }
     return [...new Set(errors)];
@@ -203,7 +256,7 @@ export class HRecordField extends HBaseWidget {
     this.container.classList.toggle('has-warning', list.length > 0 && list.every((issue) => issue.severity === 'warning'));
     for (const issue of list) {
       const item = document.createElement('div');
-      item.className = `h-record-field-issue is-${issue.severity === 'warning' ? 'warning' : 'error'}`;
+      item.className = `h-edit-field-issue is-${issue.severity === 'warning' ? 'warning' : 'error'}`;
       const position = Number.isInteger(issue.index) && this._rows.length > 1 ? ` (${$HR('value')} ${issue.index + 1})` : '';
       item.textContent = String(issue.message || '') + position;
       this.issuesHost.append(item);
@@ -223,6 +276,13 @@ export class HRecordField extends HBaseWidget {
     await super.destroy();
   }
 
+  /** Copy the values and translations of a state. */
+  _setEntries(state) {
+    const source = state || { values: [], translations: [] };
+    this._entries = (source.values || []).map((entry) => ({ ...entry }));
+    this._translations = (source.translations || []).map((entry) => ({ ...entry }));
+  }
+
   /**
    * Add one value row. The input carries its value tools (plan 18): the remove /
    * clear icon (removes the value when the field has several, otherwise clears it)
@@ -231,13 +291,16 @@ export class HRecordField extends HBaseWidget {
   _addRow(entry) {
     const row = { entry };
     row.element = document.createElement('div');
-    row.element.className = 'h-record-field-value';
+    row.element.className = 'h-edit-field-value';
     const host = document.createElement('div');
-    host.className = 'h-record-field-input';
+    host.className = 'h-edit-field-input';
     row.element.append(host);
     this.valuesHost.append(row.element);
     row.input = createHInput(inputType(this.field), host, this._inputOptions(entry));
-    // rst_DisplayWidth (characters) of text-like inputs; the value tools come beside it
+    if (this.field.maxLength > 0 && row.input.control && 'maxLength' in row.input.control) {
+      row.input.control.maxLength = this.field.maxLength;
+    }
+    // display width (characters) of text-like inputs; the value tools come beside it
     if (this.field.width > 0 && SIZED_TYPES.has(this.field.type) && !this.options.special) {
       host.classList.add('has-display-width');
       host.style.setProperty('--h-field-width', `${Math.min(this.field.width, 200)}ch`);
@@ -256,7 +319,7 @@ export class HRecordField extends HBaseWidget {
       this._changed();
     });
     if (row.hiddenButton) this._syncHidden(row);
-    if (this.options.readOnly) row.input.setReadOnly(true);
+    if (this.isReadOnly) row.input.setReadOnly(true);
     this._rows.push(row);
     this._syncRows();
     return row;
@@ -270,11 +333,11 @@ export class HRecordField extends HBaseWidget {
     const special = this.options.special;
     row.element.classList.add('is-special');
     const box = document.createElement('div');
-    box.className = 'h-record-field-special';
+    box.className = 'h-edit-field-special';
     row.summary = document.createElement('div');
-    row.summary.className = 'h-record-field-special-summary';
+    row.summary.className = 'h-edit-field-special-summary';
     const buttons = document.createElement('div');
-    buttons.className = 'h-record-field-special-buttons';
+    buttons.className = 'h-edit-field-special-buttons';
     const raw = document.createElement('button');
     raw.type = 'button';
     raw.className = 'h-btn h-btn-small h-i18n';
@@ -291,7 +354,7 @@ export class HRecordField extends HBaseWidget {
     const actions = Array.isArray(listed)
       ? listed
       : (typeof special.edit === 'function' ? [{ label: 'Edit', primary: true, run: special.edit }] : []);
-    if (!this.options.readOnly) {
+    if (!this.isReadOnly) {
       for (const action of actions) {
         if (typeof action?.run !== 'function') continue;
         const edit = document.createElement('button');
@@ -317,12 +380,16 @@ export class HRecordField extends HBaseWidget {
     row.element.prepend(box);
     // the raw text: readable value again on change; JSON checked on blur
     this.listen(host, 'h-input-change', () => this._syncSpecial(row));
-    this.listen(host, 'focusout', () => {
-      const text = String(row.input.getValue() ?? '').trim();
-      this.setIssues(special.json && text && !isJson(text)
-        ? [{ severity: 'error', message: $HR('The raw value is not valid JSON') }] : []);
-    });
+    this.listen(host, 'focusout', () => this._checkJson(row));
     this._syncSpecial(row);
+  }
+
+  /** Show a JSON error of a raw value at once (on blur). */
+  _checkJson(row) {
+    const json = this.options.special?.json || this.field.type === 'json';
+    const text = String(row.input.getValue() ?? '').trim();
+    this.setIssues(json && text && !isJson(text)
+      ? [{ severity: 'error', message: $HR('The raw value is not valid JSON') }] : []);
   }
 
   /** Readable value of a special field. */
@@ -367,44 +434,75 @@ export class HRecordField extends HBaseWidget {
     Object.assign(options, {
       valueTools: true,
       removable: false,
-      visibilityToggle: this.options.allowHidden !== false && !this.options.readOnly,
+      visibilityToggle: this.options.allowHidden !== false && !this.isReadOnly,
       valueHidden: entry.hidden === true,
-      readOnly: Boolean(this.options.readOnly)
+      readOnly: this.isReadOnly
     });
     switch (field.type) {
       case 'blocktext':
-        return { ...options, multiline: true, rows: Math.min(12, Math.max(3, field.height || 3)) };
+        return { ...options, multiline: true, rows: Math.min(12, Math.max(3, field.rows || field.height || 3)) };
+      case 'json':
+        return { ...options, multiline: true, rows: Math.min(20, Math.max(3, field.rows || 6)) };
+      case 'url':
+        return { ...options, inputType: 'url' };
       case 'integer':
       case 'year':
-        return { ...options, integer: true };
+        return { ...options, integer: true, ...numberRange(field) };
+      case 'float':
+        return { ...options, ...numberRange(field) };
       case 'date':
         return { ...options, allowLegacyText: true };
       case 'enum':
-      case 'relationtype': {
-        const source = new TermSource(this.options.dbdefs, field.vocabulary);
-        // a unique choice among a few terms: inline radio group (plan 18)
-        const radios = !this.isRepeatable && isSmallFlatVocabulary(source.items());
-        return { ...options, source, mode: radios ? 'radio' : 'select', ...(radios ? { orientation: 'inline', radioStyle: 'standard' } : {}) };
-      }
+      case 'relationtype':
+        return { ...options, ...this._choiceOptions() };
       case 'resource':
         return { ...options, apiClient: this.options.apiClient, targetTypes: field.targetTypes, valueLabel: entry.label || '' };
       case 'file':
         return { ...options, file: entry.file || null, fileUrl: this.options.fileUrl };
       case 'geo':
-        return { ...options, selectExtent: this.options.selectExtent };
+        return { ...options, geoKind: 'feature', selectExtent: this.options.selectExtent };
       default:
         return options;
     }
   }
 
+  /**
+   * Choices of an enum field: the static `terms` of the form, or the vocabulary of
+   * the database. A unique choice among a few flat terms is an inline radio group
+   * (plan 18) unless the field sets `mode`.
+   */
+  _choiceOptions() {
+    const field = this.field;
+    let choices;
+    let items;
+    if (Array.isArray(field.terms)) {
+      const terms = field.terms.map((term) => ({ id: term.id, label: term.label, depth: term.depth || 1 }));
+      // text ids stay text; numeric ids (a list of term ids) as numbers
+      const numeric = terms.length > 0 && terms.every((term) => typeof term.id === 'number');
+      choices = { terms, numeric };
+      items = terms.map((term) => ({ ...term, depth: (term.depth || 1) - 1 }));
+    } else {
+      const source = new TermSource(this.options.dbdefs, field.vocabulary);
+      choices = { source };
+      items = source.items();
+    }
+    const mode = field.mode === 'radio' && this.isRepeatable ? 'select'
+      : field.mode || (!this.isRepeatable && isSmallFlatVocabulary(items) ? 'radio' : 'select');
+    return {
+      ...choices,
+      mode,
+      ...(mode === 'radio' || mode === 'checkbox' ? { orientation: 'inline', radioStyle: 'standard', countsMode: 'none' } : {})
+    };
+  }
+
   /** Add button (repeatable) or Translate button (multilingual). */
   _renderActions() {
     this.actionButtons = [];
-    if (this.options.readOnly) return;
+    if (this.isReadOnly) return;
     if (this.field.multilang) {
       const translate = document.createElement('button');
       translate.type = 'button';
-      translate.className = 'heurist-icon-button h-record-field-translate';
+      translate.className = 'heurist-icon-button h-edit-field-translate';
       translate.append(iconElement('fa-language'));
       translate.title = $HR('Add the value in another language');
       translate.setAttribute('aria-label', translate.title);
@@ -413,7 +511,7 @@ export class HRecordField extends HBaseWidget {
     } else if (this.isRepeatable) {
       this.addButton = document.createElement('button');
       this.addButton.type = 'button';
-      this.addButton.className = 'heurist-icon-button h-record-field-add';
+      this.addButton.className = 'heurist-icon-button h-edit-field-add';
       this.addButton.append(iconElement('fa-plus'));
       this.addButton.title = $HR('Add a value');
       this.addButton.setAttribute('aria-label', this.addButton.title);
@@ -428,7 +526,7 @@ export class HRecordField extends HBaseWidget {
 
   /**
    * Remove icon: removes a value when there are several, clears the last one; Add and
-   * Translate after the input of the last value; no Add at rst_MaxValues.
+   * Translate after the input of the last value; no Add at the max values.
    */
   _syncRows() {
     const many = this._rows.length > 1;
@@ -452,20 +550,20 @@ export class HRecordField extends HBaseWidget {
     this.translationsHost.replaceChildren();
     for (const translation of this._translations) {
       const chip = document.createElement('span');
-      chip.className = 'h-record-field-translation';
+      chip.className = 'h-edit-field-translation';
       const open = document.createElement('button');
       open.type = 'button';
-      open.className = 'h-record-field-translation-text';
+      open.className = 'h-edit-field-translation-text';
       const code = document.createElement('strong');
       code.textContent = String(translation.lang).toUpperCase();
       open.append(code, ` ${shorten(translation.value)}`);
       open.title = $HR('Edit translation');
       this.listen(open, 'click', () => this._editTranslation(open, translation));
       chip.append(open);
-      if (!this.options.readOnly) {
+      if (!this.isReadOnly) {
         const remove = document.createElement('button');
         remove.type = 'button';
-        remove.className = 'heurist-icon-button h-record-field-translation-remove';
+        remove.className = 'heurist-icon-button h-edit-field-translation-remove';
         remove.textContent = '×';
         remove.title = $HR('Remove translation');
         this.listen(remove, 'click', () => {
@@ -484,9 +582,9 @@ export class HRecordField extends HBaseWidget {
    * `translation` is null.
    */
   _editTranslation(anchor, translation) {
-    if (this.options.readOnly) return;
+    if (this.isReadOnly) return;
     const form = document.createElement('form');
-    form.className = 'h-record-field-translate-form';
+    form.className = 'h-edit-field-translate-form';
     const languages = [...new Set([...(this.options.languages?.length ? this.options.languages : DEFAULT_LANGUAGES)]
       .map((code) => String(code).toUpperCase()))];
     const select = document.createElement('select');
@@ -509,7 +607,7 @@ export class HRecordField extends HBaseWidget {
     text.value = translation?.value ?? '';
     text.setAttribute('aria-label', $HR('Translated value'));
     const buttons = document.createElement('div');
-    buttons.className = 'h-record-field-translate-buttons';
+    buttons.className = 'h-edit-field-translate-buttons';
     const ok = document.createElement('button');
     ok.type = 'submit';
     ok.className = 'h-btn h-btn-primary h-i18n';
@@ -520,7 +618,7 @@ export class HRecordField extends HBaseWidget {
     cancel.textContent = $HR('Cancel');
     buttons.append(ok, cancel);
     form.append(select, text, buttons);
-    const popover = showPopover(anchor, form, { className: 'h-record-field-translate-popover' });
+    const popover = showPopover(anchor, form, { className: 'h-edit-field-translate-popover' });
     cancel.addEventListener('click', () => popover.close());
     form.addEventListener('submit', (event) => {
       event.preventDefault();
@@ -539,7 +637,7 @@ export class HRecordField extends HBaseWidget {
     setTimeout(() => text.focus?.(), 0);
   }
 
-  /** Tell the editor that a value changed (inputs send h-input-change themselves). */
+  /** Tell the form that a value changed (inputs send h-input-change themselves). */
   _changed() {
     this.container?.dispatchEvent(new CustomEvent('h-input-change', { bubbles: true, detail: { field: this.field } }));
   }
@@ -550,6 +648,7 @@ function inputType(field) {
   switch (field.type) {
     case 'freetext':
     case 'blocktext':
+    case 'url':
     case 'integer':
     case 'float':
     case 'year':
@@ -560,9 +659,29 @@ function inputType(field) {
     case 'file':
     case 'geo':
     case 'boolean':
+    case 'color':
       return field.type;
     default:
       return 'freetext';
+  }
+}
+
+/** @returns {{min?: number, max?: number, step?: number}} Number input limits of a field. */
+function numberRange(field) {
+  const range = {};
+  if (field.min !== null && field.min !== undefined) range.min = field.min;
+  if (field.maxValue !== null && field.maxValue !== undefined) range.max = field.maxValue;
+  if (field.step) range.step = field.step;
+  return range;
+}
+
+/** @returns {RegExp|null} Whole-value expression of a field pattern (null when invalid). */
+function patternOf(pattern) {
+  if (!pattern) return null;
+  try {
+    return new RegExp(`^(?:${pattern})$`, 'u');
+  } catch {
+    return null;
   }
 }
 
@@ -578,7 +697,8 @@ function isJson(text) {
 
 /** @returns {boolean} Whether a value is empty. */
 function isEmpty(value) {
-  return value === null || value === undefined || (typeof value === 'string' && value.trim() === '');
+  return value === null || value === undefined || (typeof value === 'string' && value.trim() === '')
+    || (Array.isArray(value) && value.length === 0);
 }
 
 /** @returns {string} Text cut for a chip. */

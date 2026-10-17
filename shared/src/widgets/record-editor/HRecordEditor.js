@@ -3,6 +3,7 @@
  * @brief Record editor of the new write API (plan 14 §6): ownership, the fields
  *        of the record type in groups (tabs, accordion or plain groups, as set by
  *        the separators of the record structure), save with the server's issues.
+ *        The fields are an HEditForm (plan 14a) of the record structure.
  *
  * For now it edits the system record types of writableRecordTypes.js (query
  * sources, map documents and layers, reports, website pages); other records
@@ -27,7 +28,7 @@
  */
 
 import { HBaseWidget } from '../HBaseWidget.js';
-import { HRecordField } from './HRecordField.js';
+import { HEditForm } from '../edit-form/HEditForm.js';
 import { HValueCombo } from '../picker/HValueCombo.js';
 import { UserGroupSource } from '../../data/valueSources/localSources.js';
 import { RecordEditClient, RecordEditError } from '../../data/RecordEditClient.js';
@@ -36,7 +37,6 @@ import { buildRecordBody, defaultFieldValues, recordFieldValues } from '../../da
 import { multilangFieldIds } from '../../data/writableRecordTypes.js';
 import { nonStandardGroup, structureFields } from '../../data/recordEditStructure.js';
 import { HCardinalLayout } from '../layout/HCardinalLayout.js';
-import { applyFormLayout, FORM_GROUP_CLASS } from '../form/formLayout.js';
 import { RecordRelationsProvider } from '../../recordview/RecordRelationsProvider.js';
 import { buildLinkedFromSection, buildLinksRow } from '../../recordview/RecordViewRenderer.js';
 import { HMsg } from '../../ui/HMsg.js';
@@ -69,7 +69,7 @@ export class HRecordEditor extends HBaseWidget {
    * @param {Function} [options.selectExtent] Map extent picker of geo fields.
    * @param {Function} [options.fileUrl] Link to view a file of a file field.
    * @param {Object<number, object>} [options.specialEditors] Special fields by field id: `{json, describe, edit}`
-   *        (see HRecordField); `describe` and `edit` get `{field, record, getValue(dty), setValue(dty, value)}`.
+   *        (see HEditField); `describe` and `edit` get `{field, record, getValue(dty), setValue(dty, value)}`.
    * @param {Function} [options.onSaved] Called after a save with `{record, issues, created}`.
    * @param {Function} [options.onClose] Called when the editor asks to close, with `{saved}`.
    * @param {boolean} [options.readOnly] Display only.
@@ -88,7 +88,7 @@ export class HRecordEditor extends HBaseWidget {
     this.dbdefs = options.dbdefs || null;
     this.record = null;
     this.structure = null;
-    this.fields = new Map();
+    this.editForm = null;
     this._saved = false;
     return this;
   }
@@ -147,8 +147,6 @@ export class HRecordEditor extends HBaseWidget {
     this.messages.className = 'h-record-editor-messages';
     this.messages.setAttribute('role', 'status');
     const footer = this._renderFooter();
-    // labels inline / above, fields stacked / side by side (plan 18)
-    applyFormLayout(this.body, { labelPos: this.options.labelPos || 'auto', inputPos: this.options.inputPos || 'stack' });
     const header = this._initialHeader();
     if (this.options.summary === false) {
       this.container.append(this.titleElement, this.body, this.messages, footer);
@@ -162,9 +160,7 @@ export class HRecordEditor extends HBaseWidget {
     }
     this._renderTitle();
     const values = this.record ? recordFieldValues(this.record, this.structure) : defaultFieldValues(this.structure);
-    this._fieldWidgets = new Map();
-    this._tabButtons = new Map(); // field dty -> tab button of its group
-    this._renderGroups(values);
+    this._renderForm(values);
 
     this.listen(this.container, 'h-input-change', () => this._onChange());
     this._initial = JSON.stringify(this.getRecord());
@@ -179,7 +175,7 @@ export class HRecordEditor extends HBaseWidget {
    */
   getRecord() {
     const fields = new Map();
-    for (const [dty, widget] of this._fieldWidgets || []) fields.set(dty, widget.getState());
+    for (const [name, state] of this.editForm?.getStates() || []) fields.set(Number(name), state);
     const body = buildRecordBody({
       record: this.record,
       rectypeId: this.rectypeId,
@@ -204,14 +200,9 @@ export class HRecordEditor extends HBaseWidget {
    * @returns {Array<{field: string, message: string}>} Problems; empty when the record can be sent.
    */
   validate() {
-    const problems = [];
-    for (const [dty, widget] of this._fieldWidgets || []) {
-      const errors = widget.validate();
-      widget.setIssues(errors.map((message) => ({ severity: 'error', message })));
-      for (const message of errors) problems.push({ field: String(dty), message });
-    }
+    // the form shows the problems beside the fields and opens the first one
+    const problems = this.editForm ? this.editForm.validate() : [];
     this._showMessages(problems.length ? [{ severity: 'error', message: $HR('Please correct the marked fields') }] : []);
-    if (problems.length) this._revealField(problems[0].field);
     return problems;
   }
 
@@ -294,9 +285,9 @@ export class HRecordEditor extends HBaseWidget {
     this._relationsAbort?.abort();
     this.cardinal?.destroy();
     this.cardinal = null;
-    for (const widget of this._fieldWidgets?.values() || []) await widget.destroy();
+    await this.editForm?.destroy();
+    this.editForm = null;
     for (const combo of this._combos || []) await combo.destroy();
-    this._fieldWidgets = new Map();
     this._combos = [];
   }
 
@@ -560,7 +551,7 @@ export class HRecordEditor extends HBaseWidget {
     this.editGroupsCombo = this._combo(editHost, new UserGroupSource(this.dbdefs), header.editGroups, true);
 
     this.ownershipIssues = document.createElement('div');
-    this.ownershipIssues.className = 'h-record-field-issues';
+    this.ownershipIssues.className = 'h-edit-field-issues';
     pane.append(this.ownershipIssues);
     this._syncViewGroups();
     return pane;
@@ -586,121 +577,36 @@ export class HRecordEditor extends HBaseWidget {
   }
 
   /**
-   * Render the groups of the structure: runs of "tabs" groups as tab sets,
-   * "accordion" groups as collapsible sections (the first one open), other groups
-   * as fieldsets.
+   * The fields of the structure in an HEditForm: groups as tabs, accordion or
+   * fieldsets (the separators), labels inline / above and fields stacked / side by
+   * side (plan 18).
    */
-  _renderGroups(values) {
-    const groups = this.structure.groups;
-    let firstAccordion = true;
-    for (let index = 0; index < groups.length; index++) {
-      const group = groups[index];
-      if (group.type === 'tabs') {
-        const run = [group];
-        while (groups[index + 1]?.type === 'tabs') run.push(groups[++index]);
-        this.body.append(this._renderTabs(run, values));
-      } else if (group.type === 'accordion') {
-        const details = document.createElement('details');
-        details.className = 'h-record-editor-accordion';
-        details.open = firstAccordion;
-        firstAccordion = false;
-        const summary = document.createElement('summary');
-        summary.textContent = group.label || '';
-        details.append(summary, this._renderGroupFields(group, values));
-        this.body.append(details);
-      } else {
-        const fieldset = document.createElement('fieldset');
-        fieldset.className = 'h-record-editor-group';
-        if (group.label) {
-          const legend = document.createElement('legend');
-          legend.textContent = group.label;
-          fieldset.append(legend);
-        }
-        fieldset.append(this._renderGroupFields(group, values));
-        this.body.append(fieldset);
-      }
-    }
-  }
-
-  /** A tab set of consecutive "tabs" groups. */
-  _renderTabs(groups, values) {
-    const element = document.createElement('div');
-    element.className = 'h-record-editor-tabs';
-    const strip = document.createElement('div');
-    strip.className = 'h-record-editor-tab-strip';
-    strip.setAttribute('role', 'tablist');
-    element.append(strip);
-    const panels = [];
-    const select = (selected) => {
-      for (const [position, panel] of panels.entries()) {
-        const active = position === selected;
-        panel.hidden = !active;
-        strip.children[position].classList.toggle('is-active', active);
-        strip.children[position].setAttribute('aria-selected', String(active));
-      }
-    };
-    for (const [position, group] of groups.entries()) {
-      const tab = document.createElement('button');
-      tab.type = 'button';
-      tab.className = 'h-record-editor-tab';
-      tab.setAttribute('role', 'tab');
-      tab.textContent = group.label || `${position + 1}`;
-      this.listen(tab, 'click', () => select(position));
-      strip.append(tab);
-      const panel = this._renderGroupFields(group, values);
-      panel.classList.add('h-record-editor-tab-panel');
-      panel.setAttribute('role', 'tabpanel');
-      element.append(panel);
-      panels.push(panel);
-      for (const field of group.children) this._tabButtons.set(String(field.dty), { tab, show: () => select(position) });
-    }
-    select(0);
-    return element;
-  }
-
-  /** Fields of one group. */
-  _renderGroupFields(group, values) {
+  _renderForm(values) {
     const host = document.createElement('div');
-    host.className = `h-record-editor-fields ${FORM_GROUP_CLASS}`;
-    if (group.help) {
-      const help = document.createElement('div');
-      help.className = 'h-record-field-help';
-      help.textContent = group.help;
-      host.append(help);
-    }
-    for (const field of group.children) {
-      const fieldHost = document.createElement('div');
-      host.append(fieldHost);
-      const widget = new HRecordField().attach(fieldHost, {
-        field,
-        state: values.get(field.dty),
-        apiClient: this.options.apiClient,
-        dbdefs: this.dbdefs,
-        // the database setting "Languages" (was: the languages of definition translations)
-        languages: this.options.languages || this.dbdefs?.translationLanguages?.() || this.dbdefs?.languages?.() || [],
-        selectExtent: this.options.selectExtent,
-        fileUrl: this.options.fileUrl,
-        readOnly: this.options.readOnly,
-        special: this.options.specialEditors?.[field.dty] || null,
-        context: this._specialContext(field)
-      }).render();
-      this._fieldWidgets.set(field.dty, widget);
-    }
-    return host;
+    host.className = 'h-record-editor-form';
+    this.body.append(host);
+    const states = new Map();
+    for (const [dty, state] of values) states.set(String(dty), state);
+    this.editForm = new HEditForm().attach(host, {
+      // labels of the record structure come from the database: not translated
+      form: { localized: true, groups: this.structure.groups },
+      states,
+      allowHidden: true,
+      labelPos: this.options.labelPos || 'auto',
+      inputPos: this.options.inputPos || 'stack',
+      apiClient: this.options.apiClient,
+      dbdefs: this.dbdefs,
+      // the database setting "Languages" (was: the languages of definition translations)
+      languages: this.options.languages,
+      selectExtent: this.options.selectExtent,
+      fileUrl: this.options.fileUrl,
+      readOnly: this.options.readOnly,
+      specialEditors: this.options.specialEditors || {},
+      specialContext: () => ({ record: this.record, rectypeId: this.rectypeId })
+    }).render();
   }
 
   // ------------------------------------------------------------------- state ---
-
-  /** Values of other fields for special editors (a query editor also sets the filter form). */
-  _specialContext(field) {
-    return {
-      field,
-      record: this.record,
-      rectypeId: this.rectypeId,
-      getValue: (dty) => this._fieldWidgets.get(Number(dty))?.getValue() ?? null,
-      setValue: (dty, value) => this._fieldWidgets.get(Number(dty))?.setValue(value)
-    };
-  }
 
   /** Ownership of the loaded record, or of a new record (owner: current user). */
   _initialHeader() {
@@ -757,18 +663,14 @@ export class HRecordEditor extends HBaseWidget {
    * ownership pane; issues of fields not in the form in the message area.
    */
   _showIssues(issues = []) {
-    const byField = new Map();
-    const other = [];
     const header = [];
+    const fieldIssues = [];
     for (const issue of issues || []) {
-      const key = String(issue.field ?? '');
-      if (HEADER_FIELDS.has(key)) header.push(issue);
-      else if (this._fieldWidgets.has(Number(key))) {
-        if (!byField.has(key)) byField.set(key, []);
-        byField.get(key).push(issue);
-      } else other.push(issue);
+      if (HEADER_FIELDS.has(String(issue.field ?? ''))) header.push(issue);
+      else fieldIssues.push(issue);
     }
-    for (const [dty, widget] of this._fieldWidgets) widget.setIssues(byField.get(String(dty)) || []);
+    // issues of fields not in the form come back for the message area
+    const other = this.editForm ? this.editForm.setIssues(fieldIssues) : fieldIssues;
     this.ownershipIssues.replaceChildren(...header.map((issue) => issueElement(issue)));
     // owner/access problems: show them in the Record summary
     if (header.length && this.cardinal) {
@@ -780,8 +682,8 @@ export class HRecordEditor extends HBaseWidget {
       ? [{ severity: 'error', message: $HR('Not saved: please correct the marked fields') }]
       : [];
     this._showMessages([...summary, ...other]);
-    const first = [...byField.keys()][0];
-    if (errors.length && first) this._revealField(first);
+    const first = fieldIssues.find((issue) => !other.includes(issue));
+    if (errors.length && first) this._revealField(first.field);
   }
 
   /** Show messages under the form. */
@@ -791,11 +693,7 @@ export class HRecordEditor extends HBaseWidget {
 
   /** Switch to the tab or open the accordion that holds a field. */
   _revealField(dty) {
-    this._tabButtons.get(String(dty))?.show();
-    const widget = this._fieldWidgets.get(Number(dty));
-    const details = widget?.container?.closest?.('details');
-    if (details) details.open = true;
-    widget?.container?.scrollIntoView?.({ block: 'nearest' });
+    this.editForm?.revealField(String(dty));
   }
 
   /** Dispatch an editor event on the container. */

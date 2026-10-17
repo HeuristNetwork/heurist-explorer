@@ -351,6 +351,21 @@ export class RecordEditorHost {
     }
   }
 
+  /**
+   * Services of the inputs of an HEditForm in Explorer (pointer titles, vocabularies,
+   * map extent, file links), as the record editor has them (plan 14a).
+   *
+   * @returns {Promise<{apiClient: object, dbdefs: object, selectExtent: Function|null, fileUrl: Function}>}
+   */
+  async formServices() {
+    return {
+      apiClient: this.options.apiClient,
+      dbdefs: await this.options.ensureDbDefs(),
+      selectExtent: this.options.selectExtent || null,
+      fileUrl: (file) => this._fileUrl(file)
+    };
+  }
+
   /** Link to view an uploaded file. */
   _fileUrl(file) {
     const obfuscated = String(file?.ulf_ObfuscatedFileID || '').replace(/[^a-z0-9]/gi, '');

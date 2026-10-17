@@ -83,6 +83,14 @@ export class HInput extends HBaseWidget {
         this.container.append(path);
       }
       header.append(label);
+      // comparison operator beside the label ("contains", "is before"; Filter Form)
+      const operator = String(this.options.operator ?? '').trim();
+      if (operator) {
+        const note = document.createElement('span');
+        note.className = 'h-form-input-operator h-i18n';
+        note.textContent = operator;
+        header.append(note);
+      }
       this.container.append(header);
       if (this.options.collapsible) this._makeCollapsible(label);
     }

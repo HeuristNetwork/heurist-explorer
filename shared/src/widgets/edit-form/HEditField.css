@@ -1,4 +1,4 @@
-.h-record-field {
+.h-edit-field {
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -6,7 +6,7 @@
   padding: 4px 0;
 }
 
-.h-record-field-header {
+.h-edit-field-header {
   display: flex;
   align-items: center;
   gap: var(--h-gap);
@@ -15,17 +15,17 @@
 
 /* label by requirement (plan 18): required bold warning colour, recommended bold,
    optional normal weight */
-.h-record-field-label {
+.h-edit-field-label {
   flex: 0 1 auto;
   font-weight: normal;
   color: var(--h-color-header);
 }
 
-.h-record-field.is-recommended .h-record-field-label {
+.h-edit-field.is-recommended .h-edit-field-label {
   font-weight: 600;
 }
 
-.h-record-field.is-required .h-record-field-label {
+.h-edit-field.is-required .h-edit-field-label {
   font-weight: 600;
   color: var(--h-color-warning);
 }
@@ -33,43 +33,43 @@
 /* Add a value / Translate, Remove / Clear and the value visibility are HInput value tools
    (HInput.css, plan 18) */
 
-.h-record-field-values {
+.h-edit-field-values {
   display: flex;
   flex-direction: column;
   gap: 4px;
   min-width: 0;
 }
 
-.h-record-field-value {
+.h-edit-field-value {
   display: flex;
   align-items: flex-start;
   gap: 4px;
   min-width: 0;
 }
 
-.h-record-field-input {
+.h-edit-field-input {
   flex: 1 1 auto;
   min-width: 0;
 }
 
 
-.h-record-field-note,
-.h-record-field-help {
+.h-edit-field-note,
+.h-edit-field-help {
   color: var(--h-color-text-muted);
   font-size: var(--h-font-size-small, 0.85em);
 }
 
-.h-record-field-translations {
+.h-edit-field-translations {
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
 }
 
-.h-record-field-translations:empty {
+.h-edit-field-translations:empty {
   display: none;
 }
 
-.h-record-field-translation {
+.h-edit-field-translation {
   display: inline-flex;
   align-items: center;
   max-width: 100%;
@@ -78,7 +78,7 @@
   background: var(--h-color-surface);
 }
 
-.h-record-field-translation-text {
+.h-edit-field-translation-text {
   overflow: hidden;
   max-width: 24em;
   border: 0;
@@ -90,11 +90,11 @@
   white-space: nowrap;
 }
 
-.h-record-field-translation-remove {
+.h-edit-field-translation-remove {
   padding: 0 4px;
 }
 
-.h-record-field-translate-form {
+.h-edit-field-translate-form {
   display: flex;
   flex-direction: column;
   gap: var(--h-gap);
@@ -103,46 +103,46 @@
   padding: var(--h-gap);
 }
 
-.h-record-field-translate-buttons {
+.h-edit-field-translate-buttons {
   display: flex;
   justify-content: flex-end;
   gap: var(--h-gap);
 }
 
-.h-record-field-issues:empty {
+.h-edit-field-issues:empty {
   display: none;
 }
 
-.h-record-field-issue {
+.h-edit-field-issue {
   font-size: var(--h-font-size-small, 0.85em);
 }
 
-.h-record-field-issue.is-error {
+.h-edit-field-issue.is-error {
   color: var(--h-color-danger);
 }
 
-.h-record-field-issue.is-warning {
+.h-edit-field-issue.is-warning {
   color: var(--h-color-warning);
 }
 
-.h-record-field.has-error .h-record-field-label {
+.h-edit-field.has-error .h-edit-field-label {
   color: var(--h-color-danger);
 }
 
 /* special field: readable value, Show raw, Edit */
-.h-record-field-special {
+.h-edit-field-special {
   display: flex;
   align-items: flex-start;
   gap: var(--h-gap);
   min-width: 0;
 }
 
-.h-record-field-value.is-special {
+.h-edit-field-value.is-special {
   flex-direction: column;
   align-items: stretch;
 }
 
-.h-record-field-special-summary {
+.h-edit-field-special-summary {
   flex: 1 1 auto;
   min-width: 0;
   padding: 4px 6px;
@@ -152,19 +152,19 @@
   overflow-wrap: anywhere;
 }
 
-.h-record-field-special-summary.is-empty {
+.h-edit-field-special-summary.is-empty {
   color: var(--h-color-text-muted);
   font-style: italic;
 }
 
-.h-record-field-special-buttons {
+.h-edit-field-special-buttons {
   display: flex;
   flex: 0 0 auto;
   gap: 4px;
 }
 
 /* rst_DisplayWidth: the input (with its value tools) about as wide as set, never wider than the form */
-.h-record-field-input.has-display-width {
+.h-edit-field-input.has-display-width {
   flex: 0 1 auto;
   width: min(calc(var(--h-field-width) + 4em), 100%);
 }

@@ -441,6 +441,10 @@ export class ExplorerApplication {
       },
       canChangeLayout: () => this.authoringDock?.isDrawerMode() !== true,
       onFormPlacement: (region) => this.authoringDock?.setTemporaryPlacement(region),
+      onRevealForm: () => {
+        this.authoringDock?.reveal();
+        this.syncSearchButton();
+      },
       isOutsideSearchPane: () => this.authoringDock?.getRegion() === 'external',
       // a Filter Form in the West pane covers it: the docked list is hidden meanwhile
       onFormVisible: (visible) => {

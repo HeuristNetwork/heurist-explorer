@@ -10,6 +10,9 @@ Title mask fill and calculated fields on save implemented 2026-10-13 (after plan
 Next: Phase 4 (Records manager), deferred (Artem 2026-10-13).** §9 lists where the implementation
 differs from the plan.
 
+**2026-10-17:** the fields of `HRecordEditor` are now the generic `HEditForm` (`HRecordField` became
+`edit-form/HEditField`), see `14a Edit-Form-Plan.md`.
+
 ## Context
 
 The Web CMS editor and the publication work need a new record editor and manager first.

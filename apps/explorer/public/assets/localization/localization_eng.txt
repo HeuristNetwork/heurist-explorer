@@ -550,7 +550,7 @@
 #Configuration#Configuration
 #Crosstabs / Charts#Crosstabs / Charts
 #Actions Dashboard#Actions Dashboard
-#Interface for dummies (v7 like)#Interface for dummies (v7 like)
+#Advanced UI#Advanced UI
 #Filter builder#Filter builder
 #Save filter for re-use#Save filter for re-use
 #Filter help#Filter help
@@ -579,3 +579,21 @@
 #Facet builder#Facet builder
 #Search Builder is not available#Search Builder is not available
 #Faceted search wizard is not available#Faceted search wizard is not available
+#Enter a number#Enter a number
+#The smallest value is#The smallest value is
+#The largest value is#The largest value is
+#At most this number of characters:#At most this number of characters:
+#The value has characters that are not allowed#The value has characters that are not allowed
+#Test edit form#Test edit form
+#Edit form of a test JSON with every field type#Edit form of a test JSON with every field type
+#Result JSON#Result JSON
+#Form JSON#Form JSON
+#Validate#Validate
+#Reset values#Reset values
+#Hidden switch#Hidden switch
+#Read only#Read only
+#Labels#Labels
+#Inputs#Inputs
+#Edited at#Edited at
+#Not valid JSON#Not valid JSON
+#This group is shown by code: showGroup() in onReady and onChange.#This group is shown by code: showGroup() in onReady and onChange.

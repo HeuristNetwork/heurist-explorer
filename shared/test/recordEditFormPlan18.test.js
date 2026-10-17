@@ -10,7 +10,7 @@ import { installFakeDom } from './helpers/fakeDom.js';
 const document = installFakeDom();
 globalThis.Node ??= globalThis.HTMLElement;
 const { HRecordEditor } = await import('../src/widgets/record-editor/HRecordEditor.js');
-const { isSmallFlatVocabulary } = await import('../src/widgets/record-editor/HRecordField.js');
+const { isSmallFlatVocabulary } = await import('../src/widgets/edit-form/HEditField.js');
 const { nonStandardGroup } = await import('../src/data/recordEditStructure.js');
 const { applyFormLayout } = await import('../src/widgets/form/formLayout.js');
 
@@ -58,12 +58,12 @@ async function openEditor() {
 
 test('one remove icon: deletes a value of a repeatable field, clears the last one', async () => {
   const { editor } = await openEditor();
-  const notes = editor._fieldWidgets.get(1105);
+  const notes = editor.editForm.getFieldWidget(1105);
   assert.equal(notes._rows[0].removeButton.title, 'Remove this value');
   notes._rows[0].removeButton.click();
   assert.equal(notes._rows.length, 1);
   assert.equal(notes._rows[0].removeButton.title, 'Clear the value');
-  const zoom = editor._fieldWidgets.get(32);
+  const zoom = editor.editForm.getFieldWidget(32);
   assert.ok(zoom._rows[0].removeButton, 'a single-value field has the icon too');
   zoom._rows[0].removeButton.click();
   assert.deepEqual(editor.getRecord().details[32] ?? [], [], 'cleared');
@@ -72,9 +72,9 @@ test('one remove icon: deletes a value of a repeatable field, clears the last on
 
 test('labels by requirement; eye icon; Add right after the label', async () => {
   const { editor } = await openEditor();
-  assert.ok(editor._fieldWidgets.get(1).container.classList.contains('is-required'));
-  assert.ok(editor._fieldWidgets.get(1105).container.classList.contains('is-recommended'));
-  const row = editor._fieldWidgets.get(1105)._rows[0];
+  assert.ok(editor.editForm.getFieldWidget(1).container.classList.contains('is-required'));
+  assert.ok(editor.editForm.getFieldWidget(1105).container.classList.contains('is-recommended'));
+  const row = editor.editForm.getFieldWidget(1105)._rows[0];
   assert.equal(row.hiddenButton.children[0].className, 'fa-solid fa-eye');
   row.hiddenButton.click();
   assert.equal(row.hiddenButton.children[0].className, 'fa-solid fa-eye-slash');
@@ -86,7 +86,7 @@ test('values outside the structure: last group "Non-standard fields", kept on sa
   const groups = editor.structure.groups;
   assert.equal(groups.at(-1).label, 'Non-standard fields');
   assert.equal(groups.at(-1).children[0].label, 'Old field');
-  assert.ok(editor._fieldWidgets.get(77), 'editable');
+  assert.ok(editor.editForm.getFieldWidget(77), 'editable');
   assert.deepEqual(editor.getRecord().details[77], ['kept']);
   assert.equal(STRUCTURE.groups.length, 1, 'the cached structure is not changed');
   assert.equal(nonStandardGroup({ details: { 1: ['x'] } }, STRUCTURE, dbdefs), null);
@@ -144,7 +144,7 @@ test('value tools are HInput options: remove event, visibility switch, actions s
 
 test('Add / Translate follow the input of the last value; no duplicate clear button', async () => {
   const { editor } = await openEditor();
-  const notes = editor._fieldWidgets.get(1105);
+  const notes = editor.editForm.getFieldWidget(1105);
   const last = () => notes._rows.at(-1).input.actionsHost;
   assert.equal(notes.addButton.parentElement, last());
   notes.addButton.click();
@@ -158,7 +158,7 @@ test('Add / Translate follow the input of the last value; no duplicate clear but
 
 test('Drop changes shows the saved values again; languages from the database setting', async () => {
   const { editor } = await openEditor();
-  editor._fieldWidgets.get(32)._rows[0].input.setValue('99');
+  editor.editForm.getFieldWidget(32)._rows[0].input.setValue('99');
   assert.equal(editor.isDirty(), true);
   const { HMsg } = await import('../src/ui/HMsg.js');
   const show = HMsg.showMsgDlg;

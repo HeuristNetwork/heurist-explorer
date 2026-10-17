@@ -34,10 +34,15 @@ export class HInputGeo extends HInput {
     this.summary.placeholder = $HR('Select extent on map');
     this.summary.setAttribute('aria-label', $HR('Geographic value'));
 
+    // options.geoKind: 'extent' (filters: a bounding box, the default) or 'feature'
+    // (a field value: a geometry) - only the button icon differs (2026-10-17)
     this.mapButton = document.createElement('button');
     this.mapButton.type = 'button';
     this.mapButton.className = 'h-btn h-input-geo-map';
-    this.mapButton.textContent = '✎';
+    const icon = document.createElement('span');
+    icon.className = this.options.geoKind === 'feature' ? 'fa-solid fa-draw-polygon' : 'fa-solid fa-expand';
+    icon.setAttribute('aria-hidden', 'true');
+    this.mapButton.append(icon);
     this.mapButton.title = $HR('Select extent on map');
     this.mapButton.setAttribute('aria-label', $HR('Select extent on map'));
     this.mapButton.disabled = typeof this.options.selectExtent !== 'function';

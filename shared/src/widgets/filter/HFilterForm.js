@@ -15,8 +15,8 @@
 
 import { HBaseWidget } from '../HBaseWidget.js';
 import { createHInput } from '../form/inputs/createHInput.js';
-import { describeQueryParameters, resolveQueryParameters, linkedFacetRequest } from '../../data/queryParameters.js';
-import { TermSource, UserGroupSource, TagSource } from '../../data/valueSources/localSources.js';
+import { describeQueryParameters, resolveQueryParameters, linkedFacetRequest, parameterOperatorLabel } from '../../data/queryParameters.js';
+import { TermSource, UserGroupSource, TagSource, StaticSource } from '../../data/valueSources/localSources.js';
 import { FieldValueSource, FacetTermSource, FacetTagSource, RangeBucketSource, RecordTitleSource, fetchFieldRange } from '../../data/valueSources/FieldValueSource.js';
 import './HFilterForm.css';
 
@@ -85,6 +85,8 @@ export class HFilterForm extends HBaseWidget {
     this.defaults = {};
     this.container.replaceChildren();
     this.container.className = `h-widget h-filter-form h-filter-form-${layout.settings?.orientation === 'horizontal' ? 'horizontal' : 'vertical'}`;
+    // lines between the entry fields (2026-10-17)
+    this.container.classList.toggle('h-filter-form-separators', layout.settings?.showSeparators === true);
 
     const form = document.createElement('form');
     form.noValidate = true;
@@ -118,6 +120,8 @@ export class HFilterForm extends HBaseWidget {
           label: config.label || parameter.label || id,
           help: config.help || '',
           hierarchy: settings.showHierarchy ? (parameter.hierarchy || []).join(' > ') : '',
+          // the operator when it is not "is" ("contains", "is before", "count of values")
+          operator: settings.showOperators ? parameterOperatorLabel(parameter) : '',
           // accordion: only radio/checkbox lists collapse; a picker or a single input would not gain anything
           collapsible: settings.accordion === true && presentation.type === 'enum'
             && ['radio', 'checkbox'].includes(presentation.options.mode ?? config.mode),
@@ -371,6 +375,12 @@ export class HFilterForm extends HBaseWidget {
       if (tags.isAvailable()) return { type: 'enum', options: { source: tags, numeric: true, listThreshold } };
     }
 
+    // a term's code (f:N:code) picked from the codes of the field's vocabulary
+    if (parameter.enumPart === 'code' && LIST_MODES.has(config.mode)) {
+      const source = custom || new StaticSource(termCodes(this.options.dbdefs, parameter.enumFieldId));
+      return { type: 'enum', options: { source, numeric: false, listThreshold } };
+    }
+
     if (parameter.type === 'text' && LIST_MODES.has(config.mode)) {
       const field = parameter.fieldId || (HEADER_VALUE_FIELDS.has(parameter.predicate) ? parameter.predicate : null);
       const source = custom || (this.apiClient && field ? new FieldValueSource(this.apiClient, {
@@ -570,4 +580,31 @@ function button(text, className) {
   element.className = `${className} h-i18n`;
   element.textContent = text;
   return element;
+}
+
+/**
+ * Codes of the terms of an enum field's vocabulary, as `[code, "code - term"]` pairs
+ * (terms without a code are left out).
+ *
+ * @param {object} dbdefs HDbDefs.
+ * @param {number|null} fieldId Enum field.
+ * @returns {Array<[string, string]>} Items.
+ */
+function termCodes(dbdefs, fieldId) {
+  const root = Number(dbdefs?.vocabRoot?.(fieldId)) || 0;
+  if (!root || !dbdefs?.termTree) return [];
+  const items = [];
+  const seen = new Set();
+  const visit = (node) => {
+    for (const child of node?.children || []) {
+      const code = String(child.code ?? '').trim();
+      if (code && !seen.has(code)) {
+        seen.add(code);
+        items.push([code, child.term ? `${code} - ${child.term}` : code]);
+      }
+      visit(child);
+    }
+  };
+  visit(dbdefs.termTree(root));
+  return items;
 }

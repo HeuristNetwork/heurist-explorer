@@ -21,6 +21,16 @@
   font-weight: 600;
 }
 
+/* comparison operator beside the label, in the hierarchy's style: "Date of birth  is before" */
+.h-form-input-operator {
+  overflow: hidden;
+  color: var(--h-color-text-muted);
+  font-size: var(--h-font-size-small, 0.85em);
+  font-weight: normal;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* entity hierarchy above the label: "Event > Person" */
 .h-form-input-hierarchy {
   margin-bottom: calc(var(--h-gap) * -1 + 2px);

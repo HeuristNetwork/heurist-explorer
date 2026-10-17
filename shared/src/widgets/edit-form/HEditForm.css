@@ -1,0 +1,95 @@
+/* HEditForm (plan 14a): groups as fieldsets, accordion sections or tab sets */
+
+.h-edit-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--h-gap);
+  min-width: 0;
+}
+
+.h-edit-form-group {
+  min-width: 0;
+  margin: 0;
+  border: 1px solid var(--h-color-border);
+  border-radius: var(--h-radius);
+  padding: 4px var(--h-gap) var(--h-gap);
+}
+
+.h-edit-form-group > legend {
+  padding: 0 4px;
+  font-weight: 600;
+}
+
+.h-edit-form-group[hidden],
+.h-edit-form-accordion[hidden],
+.h-edit-form-tabs[hidden],
+.h-edit-form-tab[hidden],
+.h-edit-field[hidden] {
+  display: none;
+}
+
+.h-edit-form-slot:empty {
+  display: none;
+}
+
+.h-edit-form-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.h-edit-form-accordion {
+  border: 1px solid var(--h-color-border);
+  border-radius: var(--h-radius);
+}
+
+.h-edit-form-accordion > summary {
+  padding: 4px var(--h-gap);
+  background: var(--h-color-surface);
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.h-edit-form-accordion > .h-edit-form-fields {
+  padding: 4px var(--h-gap) var(--h-gap);
+}
+
+.h-edit-form-tabs {
+  min-width: 0;
+  border: 1px solid var(--h-color-border);
+  border-radius: var(--h-radius);
+}
+
+.h-edit-form-tab-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  border-bottom: 1px solid var(--h-color-border);
+  padding: 4px 4px 0;
+  background: var(--h-color-surface);
+}
+
+.h-edit-form-tab {
+  border: 1px solid transparent;
+  border-bottom: 0;
+  border-radius: var(--h-radius) var(--h-radius) 0 0;
+  padding: 4px 10px;
+  background: transparent;
+  color: var(--h-color-text);
+  cursor: pointer;
+}
+
+.h-edit-form-tab.is-active {
+  border-color: var(--h-color-border);
+  background: var(--h-color-bg);
+  font-weight: 600;
+}
+
+.h-edit-form-tab-panel {
+  padding: 4px var(--h-gap) var(--h-gap);
+}
+
+.h-edit-form-tab-panel[hidden] {
+  display: none;
+}

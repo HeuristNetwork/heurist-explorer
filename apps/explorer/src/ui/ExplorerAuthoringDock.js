@@ -288,6 +288,23 @@ export class ExplorerAuthoringDock extends EventTarget {
     return changed || expanded;
   }
 
+  /**
+   * Show the pane and make its region really visible: expand it when it was collapsed
+   * (divider button, drawer rail) and give back a region maximized over it. Used when
+   * the Filter Form must be seen (2026-10-17).
+   *
+   * @returns {boolean} True when state changed.
+   */
+  reveal() {
+    let changed = this.show();
+    if (this.region === 'external') return changed;
+    changed = this.cardinal.expand(this.region) || changed;
+    for (const other of ['north', 'west', 'east', 'south']) {
+      if (other !== this.region && this.cardinal.state[other]?.maximized) changed = this.cardinal.restore(other) || changed;
+    }
+    return changed;
+  }
+
   /** Hide the authoring pane (collapse the drawer to its rail). @returns {boolean} True when state changed. */
   hide() {
     if (this._drawer) return this.cardinal.collapse('west');

@@ -377,3 +377,22 @@ test('tag lists: the user\'s tags by owner; with Facets only tags in the result,
   await plain.destroy();
   return facets.destroy();
 });
+
+test('a term code parameter (f:26:code) lists the vocabulary codes and matches exactly (2026-10-17)', async () => {
+  const saved = dbdefs.termTree;
+  dbdefs.termTree = () => ({ internalid: 100, children: [
+    { internalid: 11, term: 'France', code: 'FR' }, { internalid: 12, term: 'Italy', code: 'IT' }, { internalid: 13, term: 'Spain' }] });
+  try {
+    const { form, submits } = mountForm([{ t: '10' }, { 'f:26:code': '=$X1$' }],
+      layoutOf([{ input: 'X1', mode: 'radio', exact: true }]));
+    await flush();
+    const input = form.inputs.get('X1');
+    assert.equal(input.constructor.name, 'HInputEnum');
+    assert.equal(input.choices.length, 2, 'terms without a code are not offered');
+    input.choices[1].checked = true;
+    input.choices[1].fire('change');
+    assert.deepEqual(submits.at(-1), [{ t: '10' }, { 'f:26:code': '=IT' }]);
+  } finally {
+    dbdefs.termTree = saved;
+  }
+});

@@ -55,8 +55,7 @@
   padding: var(--h-gap);
 }
 
-.h-record-editor-ownership,
-.h-record-editor-group {
+.h-record-editor-ownership {
   min-width: 0;
   margin: 0;
   border: 1px solid var(--h-color-border);
@@ -64,8 +63,7 @@
   padding: 4px var(--h-gap) var(--h-gap);
 }
 
-.h-record-editor-ownership > legend,
-.h-record-editor-group > legend {
+.h-record-editor-ownership > legend {
   padding: 0 4px;
   font-weight: 600;
 }
@@ -79,68 +77,6 @@
 }
 
 .h-record-editor-ownership-row[hidden] {
-  display: none;
-}
-
-.h-record-editor-fields {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-}
-
-.h-record-editor-accordion {
-  border: 1px solid var(--h-color-border);
-  border-radius: var(--h-radius);
-}
-
-.h-record-editor-accordion > summary {
-  padding: 4px var(--h-gap);
-  background: var(--h-color-surface);
-  cursor: pointer;
-  font-weight: 600;
-}
-
-.h-record-editor-accordion > .h-record-editor-fields {
-  padding: 4px var(--h-gap) var(--h-gap);
-}
-
-.h-record-editor-tabs {
-  min-width: 0;
-  border: 1px solid var(--h-color-border);
-  border-radius: var(--h-radius);
-}
-
-.h-record-editor-tab-strip {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 2px;
-  border-bottom: 1px solid var(--h-color-border);
-  padding: 4px 4px 0;
-  background: var(--h-color-surface);
-}
-
-.h-record-editor-tab {
-  border: 1px solid transparent;
-  border-bottom: 0;
-  border-radius: var(--h-radius) var(--h-radius) 0 0;
-  padding: 4px 10px;
-  background: transparent;
-  color: var(--h-color-text);
-  cursor: pointer;
-}
-
-.h-record-editor-tab.is-active {
-  border-color: var(--h-color-border);
-  background: var(--h-color-bg);
-  font-weight: 600;
-}
-
-.h-record-editor-tab-panel {
-  padding: 4px var(--h-gap) var(--h-gap);
-}
-
-.h-record-editor-tab-panel[hidden] {
   display: none;
 }
 

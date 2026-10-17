@@ -689,6 +689,11 @@ export class ExplorerControlPanel {
    * @returns {void}
    */
   _handleLeftTool(id) {
+    // temporary test dialog (plan 14a): no pane to open
+    if (id === 'test-edit-form') {
+      void this._openEditFormTest();
+      return;
+    }
     // docked lists reopen the search pane themselves (_toggleDockedList)
     if (!(this.application.isListsDocked?.() === true && DOCKED_LISTS[id])) this._reopenSearchPane();
     switch (id) {
@@ -763,6 +768,22 @@ export class ExplorerControlPanel {
 
     if (id === 'options') {
       this.openConfiguration();
+    }
+  }
+
+  /**
+   * Open the temporary "Test edit form" dialog (plan 14a, lazy chunk).
+   *
+   * @private
+   * @returns {Promise<void>}
+   */
+  async _openEditFormTest() {
+    try {
+      const { EditFormTestTool } = await import('../dev/EditFormTestTool.js');
+      const recordEditing = this.application.recordEditing;
+      await new EditFormTestTool({ services: () => recordEditing?.formServices?.() }).open();
+    } catch (error) {
+      HMsg.showMsgErr?.(error?.message || String(error));
     }
   }
 
@@ -1740,7 +1761,9 @@ function leftButtons() {
     { id: 'favorites', icon: 'fa-solid fa-star', title: 'Favorites', hint: 'Starred filters, record types and sources', group: 'activity' },
     { id: 'history', icon: 'fa-solid fa-clock-rotate-left', title: 'History', hint: 'Recently viewed data sources', group: 'activity' },
     { id: 'workspace', icon: 'fa-regular fa-object-group', title: 'Workspace', hint: 'Saved working set of data sources', group: 'activity' },
-    { id: 'subsets', icon: 'fa-solid fa-arrows-left-right-to-line', title: 'Subsets', hint: 'Restrict further searches to a subset of records', group: 'subsets' }
+    { id: 'subsets', icon: 'fa-solid fa-arrows-left-right-to-line', title: 'Subsets', hint: 'Restrict further searches to a subset of records', group: 'subsets' },
+    // temporary (plan 14a): HEditForm with every field type, removed when the JSON format is agreed
+    { id: 'test-edit-form', icon: 'fa-solid fa-flask', title: 'Test edit form', hint: 'Edit form of a test JSON with every field type', group: 'dev' }
     // Manage Filters / Manage Sources remain hidden until their workflows
     // replace the legacy management widgets.
   ];

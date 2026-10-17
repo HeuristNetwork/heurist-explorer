@@ -550,7 +550,7 @@
 #Configuration#Configuration
 #Crosstabs / Charts#Tableaux croisés / graphiques
 #Actions Dashboard#Tableau de bord des actions
-#Interface for dummies (v7 like)#Interface simplifiée (comme v7)
+#Advanced UI#Interface avancée
 #Filter builder#Constructeur de filtre
 #Save filter for re-use#Enregistrer le filtre pour le réutiliser
 #Filter help#Aide sur les filtres
@@ -579,3 +579,21 @@
 #Facet builder#Constructeur de facettes
 #Search Builder is not available#Le constructeur de recherche n’est pas disponible
 #Faceted search wizard is not available#L’assistant de recherche à facettes n’est pas disponible
+#Enter a number#Saisissez un nombre
+#The smallest value is#La plus petite valeur est
+#The largest value is#La plus grande valeur est
+#At most this number of characters:#Nombre maximum de caractères :
+#The value has characters that are not allowed#La valeur contient des caractères non autorisés
+#Test edit form#Tester le formulaire d’édition
+#Edit form of a test JSON with every field type#Formulaire d’édition d’un JSON de test avec tous les types de champs
+#Result JSON#JSON du résultat
+#Form JSON#JSON du formulaire
+#Validate#Vérifier
+#Reset values#Réinitialiser les valeurs
+#Hidden switch#Bouton masqué
+#Read only#Lecture seule
+#Labels#Libellés
+#Inputs#Champs
+#Edited at#Modifié le
+#Not valid JSON#JSON non valide
+#This group is shown by code: showGroup() in onReady and onChange.#Ce groupe est affiché par le code : showGroup() dans onReady et onChange.

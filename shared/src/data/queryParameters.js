@@ -51,7 +51,12 @@ export function describeQueryParameters(query, dbdefs) {
       : /^(?:f|fc|geo):([0-9]+)/.exec(key)?.[1] || null;
     const field = fieldId ? dbdefs?.fieldGlobal?.(Number(fieldId)) : null;
     const fieldType = relationType ? 'relationtype' : field?.type || 'text';
-    const type = key === 'geo' || key.startsWith('geo:') ? 'geo'
+    // fc:N = count of the field's values: always a whole number, never the field's own values
+    const count = /^(?:fc|count|cnt):/.test(key);
+    // f:N:code etc. = a text of the term (label, code, concept id, description), not its id
+    const enumPart = /^f:\d+:(term|label|code|conceptid|concept|desc)$/.exec(key)?.[1] || null;
+    const type = count ? 'number' : enumPart ? 'text'
+      : key === 'geo' || key.startsWith('geo:') ? 'geo'
       : ['added', 'modified'].includes(key) ? 'date'
         : key === 'ids' || ['integer', 'float', 'year', 'numeric'].includes(fieldType) ? 'number'
           : ['enum', 'relationtype'].includes(fieldType) ? 'enum'
@@ -63,14 +68,22 @@ export function describeQueryParameters(query, dbdefs) {
     for (const name of names) {
       parameters[name] ||= {
         type,
-        integer: type === 'number' && (key === 'ids' || ['integer', 'year'].includes(fieldType)),
-        fieldId: fieldId ? Number(fieldId) : null,
+        integer: type === 'number' && (count || key === 'ids' || ['integer', 'year'].includes(fieldType)),
+        // a count has no field values to list, facet or bound (countFieldId keeps the field)
+        fieldId: fieldId && !count && !enumPart ? Number(fieldId) : null,
+        enumPart,
+        enumFieldId: enumPart && fieldId ? Number(fieldId) : null,
+        count,
+        countFieldId: count && fieldId ? Number(fieldId) : null,
         // predicate name (f, owner, addedby, ...) and scope, for value lists / facets
         predicate: String(key).split(':')[0],
         recordTypeId: recordTypeId ?? null,
         nested: Boolean(nested),
         // operator before a whole-value token (`''` = contains / falls in); null inside ranges
         operator: WHOLE_TOKEN.exec(value)?.[1] ?? null,
+        // "starts with": `$X1$%`
+        startsWith: /^\$[A-Za-z][A-Za-z0-9_]*\$%$/.test(value),
+        geoMode: /^geo(?::\d+)?:(within|intersects)$/.exec(key)?.[1] || null,
         label: fieldLabel,
         pathLabel,
         // record types from the top level down to the field's own, e.g. ['Event', 'Person']
@@ -97,6 +110,40 @@ export function describeQueryParameters(query, dbdefs) {
     }
   });
   return parameters;
+}
+
+/** Comparison words of a parameter's operator token, by parameter type; '' = "is" (none shown). */
+const OPERATOR_WORDS = {
+  text: { '': 'contains', '=': '', '==': 'is exactly (case-sensitive)', '-': 'does not contain',
+    '@+': 'contains all of the words', '@': 'contains any of the words', '@-': 'contains none of the words' },
+  number: { '': '', '=': '', '-': 'is not', '>': 'is greater than', '>=': 'is at least', '<': 'is less than',
+    '<=': 'is at most', '<>': 'is not' },
+  date: { '': 'falls in', '=': 'is on', '>=': 'is on or after', '>': 'is after', '<=': 'is on or before', '<': 'is before' },
+  enum: { '': '', '=': 'is exactly', '-': 'is not' }
+};
+
+/**
+ * Comparison operator of a parameter in words (English, to localize), or '' for
+ * "is" and for operators that can not be read from the template.
+ *
+ * @param {object} parameter Entry of {@link describeQueryParameters}.
+ * @returns {string} E.g. "contains", "is before", "count of values is greater than".
+ */
+export function parameterOperatorLabel(parameter) {
+  if (!parameter) return '';
+  if (parameter.count) {
+    const word = OPERATOR_WORDS.number[parameter.operator ?? ''] ?? '';
+    return word ? `count of values ${word}` : 'count of values';
+  }
+  if (parameter.range && !parameter.endpoint) {
+    if (parameter.type === 'date') return parameter.rangeOperator === '><' ? 'falls entirely within' : 'falls in or overlaps';
+    return 'is between';
+  }
+  if (parameter.type === 'geo') return parameter.geoMode === 'intersects' ? 'intersects' : parameter.geoMode === 'within' ? 'is within' : '';
+  if (parameter.type === 'text' && parameter.startsWith) return 'starts with';
+  if (parameter.operator == null) return '';
+  const words = OPERATOR_WORDS[parameter.type] || OPERATOR_WORDS.enum;
+  return words[parameter.operator] ?? '';
 }
 
 /**
