@@ -32,8 +32,9 @@ export class HInput extends HBaseWidget {
    * Attach the input and its field definition.
    *
    * Value tools (record editor, plan 18): with `valueTools: true` the clear action and
-   * the value visibility switch sit beside the control, shown on mouse over, and an
-   * actions slot after them holds the owner's buttons (Add a value, Translate).
+   * the value visibility switch sit beside the control, shown on mouse over (their space
+   * is kept when they are hidden), and an actions slot in front of the control holds the
+   * owner's buttons (Add a value, Translate).
    * - `removable`: the clear action removes the value (event `h-input-remove`, the owner
    *   removes the input) instead of clearing it; see setRemovable();
    * - `visibilityToggle` / `valueHidden`: the "hidden from the public" switch (eye);
@@ -314,9 +315,10 @@ export class HInput extends HBaseWidget {
       controlHost.append(this.visibilityButton);
       this.setValueHidden(this.options.valueHidden === true);
     }
+    // Add a value / Translate in front of the control (2026-10-17)
     this.actionsHost = document.createElement('span');
     this.actionsHost.className = 'h-form-input-actions';
-    controlHost.append(this.actionsHost);
+    controlHost.prepend(this.actionsHost);
     this.setRemovable(this.options.removable === true);
   }
 
@@ -362,7 +364,7 @@ export class HInput extends HBaseWidget {
   }
 
   /**
-   * Put the owner's buttons (Add a value, Translate) after the value tools; null or
+   * Put the owner's buttons (Add a value, Translate) in front of the control; null or
    * an empty list removes them.
    *
    * @param {Array<HTMLElement>|null} elements Buttons.

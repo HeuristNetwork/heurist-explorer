@@ -33,15 +33,13 @@ import { HBaseWidget } from '../HBaseWidget.js';
 import { createHInput } from '../form/inputs/createHInput.js';
 import { FORM_FIELD_CLASS, FORM_LABEL_CLASS } from '../form/formLayout.js';
 import { TermSource } from '../../data/valueSources/localSources.js';
+import { cssWidth } from '../../data/editFormSchema.js';
 import { showPopover, closePopover } from '../popover/popover.js';
 import { $HR } from '../../ui/i18n/HResource.js';
 import './HEditField.css';
 
 /** Languages offered for translations when the host gives none (3-letter codes). */
 export const DEFAULT_LANGUAGES = Object.freeze(['ENG', 'FRE', 'GER', 'SPA', 'ITA', 'POR', 'DUT', 'RUS', 'CHI', 'JPN', 'ARA']);
-
-/** Field types whose input follows the display width. */
-const SIZED_TYPES = new Set(['freetext', 'blocktext', 'url', 'integer', 'float', 'year', 'date']);
 
 /** Field types without values to edit here. */
 const NO_INPUT_TYPES = new Set(['relmarker', 'separator']);
@@ -63,6 +61,7 @@ export class HEditField extends HBaseWidget {
    * @param {object} [options.dbdefs] HDbDefs (vocabularies).
    * @param {string[]} [options.languages] Language codes offered for translations.
    * @param {Function} [options.selectExtent] Map extent picker of geo fields (host).
+   * @param {Function} [options.selectGeometry] Map drawing of geo feature fields (host).
    * @param {Function} [options.fileUrl] Link to view a file of a file field.
    * @param {boolean} [options.allowHidden=true] Show the "hidden from the public" switch.
    * @param {boolean} [options.readOnly] Display only (also `field.readOnly`).
@@ -108,6 +107,12 @@ export class HEditField extends HBaseWidget {
     this.container.dataset.name = this.name;
     if (field.dty) this.container.dataset.dty = String(field.dty);
     this.container.classList.toggle('is-required', field.req === 'required');
+    // display width (characters or a CSS length, any input type): the input, and in flow
+    // mode the whole card (HEditField.css)
+    const width = this._displayWidth();
+    this.container.classList.toggle('has-display-width', Boolean(width));
+    if (width) this.container.style.setProperty('--h-field-width', width);
+    else this.container.style.removeProperty?.('--h-field-width');
     // label colour and weight by requirement (plan 18): required, recommended, optional
     this.container.classList.toggle('is-recommended', field.req === 'recommended');
 
@@ -166,7 +171,13 @@ export class HEditField extends HBaseWidget {
    */
   getState() {
     const values = this._rows
-      .map((row) => ({ ...row.entry, value: row.input.getValue(), hidden: row.entry.hidden }))
+      // a drawn geometry brings its type (p, l, pl...); a stored one keeps its type
+      .map((row) => ({
+        ...row.entry,
+        value: row.input.getValue(),
+        hidden: row.entry.hidden,
+        ...(row.input.geoType ? { geoType: row.input.geoType } : {})
+      }))
       .filter((entry) => !isEmpty(entry.value));
     return { values, translations: this._translations.map((entry) => ({ ...entry })) };
   }
@@ -224,7 +235,7 @@ export class HEditField extends HBaseWidget {
       for (const value of values) {
         const number = Number(value);
         if (!Number.isFinite(number)) errors.push($HR('Enter a number'));
-        else if (field.min !== null && field.min !== undefined && number < field.min) errors.push(`${$HR('The smallest value is')} ${field.min}`);
+        else if (field.minValue !== null && field.minValue !== undefined && number < field.minValue) errors.push(`${$HR('The smallest value is')} ${field.minValue}`);
         else if (field.maxValue !== null && field.maxValue !== undefined && number > field.maxValue) errors.push(`${$HR('The largest value is')} ${field.maxValue}`);
       }
     }
@@ -276,6 +287,11 @@ export class HEditField extends HBaseWidget {
     await super.destroy();
   }
 
+  /** @returns {string} CSS width of the inputs ('' when the field has none; not for special fields). */
+  _displayWidth() {
+    return this.options.special || NO_INPUT_TYPES.has(this.field.type) ? '' : cssWidth(this.field.width);
+  }
+
   /** Copy the values and translations of a state. */
   _setEntries(state) {
     const source = state || { values: [], translations: [] };
@@ -300,10 +316,18 @@ export class HEditField extends HBaseWidget {
     if (this.field.maxLength > 0 && row.input.control && 'maxLength' in row.input.control) {
       row.input.control.maxLength = this.field.maxLength;
     }
-    // display width (characters) of text-like inputs; the value tools come beside it
-    if (this.field.width > 0 && SIZED_TYPES.has(this.field.type) && !this.options.special) {
+    // the limits on the number spinner too (HInputNumeric sets them only for its sliders)
+    if (NUMERIC_TYPES.has(this.field.type) && row.input.control?.type === 'number') {
+      const range = numberRange(this.field);
+      if (range.min !== undefined) row.input.control.min = String(range.min);
+      if (range.max !== undefined) row.input.control.max = String(range.max);
+      if (range.step !== undefined) row.input.control.step = String(range.step);
+    }
+    // display width of the input; the value tools come beside it
+    const width = this._displayWidth();
+    if (width) {
       host.classList.add('has-display-width');
-      host.style.setProperty('--h-field-width', `${Math.min(this.field.width, 200)}ch`);
+      host.style.setProperty('--h-field-width', width);
     }
     if (this.options.special) this._renderSpecial(row, host);
     row.removeButton = row.input.clearButton || null;
@@ -319,7 +343,13 @@ export class HEditField extends HBaseWidget {
       this._changed();
     });
     if (row.hiddenButton) this._syncHidden(row);
-    if (this.isReadOnly) row.input.setReadOnly(true);
+    if (this.isReadOnly) {
+      row.input.setReadOnly(true);
+      if (row.hiddenButton) {
+        row.hiddenButton.disabled = true;
+        row.hiddenButton.hidden = !entry.hidden;
+      }
+    }
     this._rows.push(row);
     this._syncRows();
     return row;
@@ -434,7 +464,8 @@ export class HEditField extends HBaseWidget {
     Object.assign(options, {
       valueTools: true,
       removable: false,
-      visibilityToggle: this.options.allowHidden !== false && !this.isReadOnly,
+      // also read only: the eye keeps its place (disabled, shown only for a hidden value)
+      visibilityToggle: this.options.allowHidden !== false,
       valueHidden: entry.hidden === true,
       readOnly: this.isReadOnly
     });
@@ -460,7 +491,13 @@ export class HEditField extends HBaseWidget {
       case 'file':
         return { ...options, file: entry.file || null, fileUrl: this.options.fileUrl };
       case 'geo':
-        return { ...options, geoKind: 'feature', selectExtent: this.options.selectExtent };
+        // extent: a bounding box; feature: a geometry (record values; drawing comes later)
+        return {
+          ...options,
+          geoKind: field.geoKind === 'extent' ? 'extent' : 'feature',
+          selectExtent: this.options.selectExtent,
+          selectGeometry: this.options.selectGeometry
+        };
       default:
         return options;
     }
@@ -526,13 +563,15 @@ export class HEditField extends HBaseWidget {
 
   /**
    * Remove icon: removes a value when there are several, clears the last one; Add and
-   * Translate after the input of the last value; no Add at the max values.
+   * Translate in front of the input of the first value only, the other values keep
+   * their place (inputs aligned); no Add at the max values.
    */
   _syncRows() {
     const many = this._rows.length > 1;
+    this.container?.classList.toggle('has-actions', (this.actionButtons || []).length > 0);
     for (const [index, row] of this._rows.entries()) {
       row.input.setRemovable?.(many);
-      row.input.setActions?.(index === this._rows.length - 1 ? this.actionButtons : null);
+      row.input.setActions?.(index === 0 ? this.actionButtons : null);
     }
     if (this.addButton) this.addButton.hidden = this.field.max > 0 && this._rows.length >= this.field.max;
   }
@@ -666,10 +705,10 @@ function inputType(field) {
   }
 }
 
-/** @returns {{min?: number, max?: number, step?: number}} Number input limits of a field. */
+/** @returns {{min?: number, max?: number, step?: number}} Number input limits of a field (minValue / maxValue). */
 function numberRange(field) {
   const range = {};
-  if (field.min !== null && field.min !== undefined) range.min = field.min;
+  if (field.minValue !== null && field.minValue !== undefined) range.min = field.minValue;
   if (field.maxValue !== null && field.maxValue !== undefined) range.max = field.maxValue;
   if (field.step) range.step = field.step;
   return range;

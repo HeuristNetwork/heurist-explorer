@@ -168,6 +168,7 @@ export class ExplorerApplication {
       getBridge: () => this.config.hostBridge || null,
       isLoggedIn: () => Number(this.userGroups?.data?.currentUserId) > 0,
       selectExtent: this.config.moduleUrls?.map ? (current) => this.selectFilterExtent(current) : null,
+      selectGeometry: this.config.moduleUrls?.map ? (current) => this.selectGeometry(current) : null,
       editQuery: (query, filterForm) => this._editQueryWithBuilder(query, filterForm),
       describeQuery: (q) => this._describeQuery(q),
       onSaved: ({ record }) => this._recordSaved(record),
@@ -1942,6 +1943,33 @@ export class ExplorerApplication {
    * @returns {Promise<object|null>} West/south/east/north bounds, or null on cancel.
    */
   async selectFilterExtent(current = null) {
+    const result = await this._drawOnMap({ mode: 'filter', geojson: extentToGeoJson(current) }, $HR('Define map extent'));
+    return result ? extentFromGeoJson(result.geojson) : null;
+  }
+
+  /**
+   * Draw a geometry (points, lines, polygons; WKT or GeoJSON can be pasted with "Add
+   * Geometry") in the same Map dialog as the filter extent: geo fields of the edit
+   * forms (plan 14a).
+   *
+   * @param {string|object|null} current Existing WKT or GeoJSON, drawn first.
+   * @param {{allowMultiple?: boolean}} [options] Several objects in one value.
+   * @returns {Promise<{type: string, wkt: string, geojson: object}|null>} The drawing, or null on cancel.
+   */
+  async selectGeometry(current = null, { allowMultiple = false } = {}) {
+    const seed = typeof current === 'string' ? { wkt: current || null } : { geojson: current || null };
+    return this._drawOnMap({ mode: 'full', allowMultiple, ...seed }, $HR('Define geometry'));
+  }
+
+  /**
+   * Run one drawing session of the dedicated Map instance in a modal dialog.
+   *
+   * @private
+   * @param {object} drawOptions Map `beginDrawing` options (`mode`, `wkt`, `geojson`...).
+   * @param {string} title Dialog title.
+   * @returns {Promise<object|null>} The drawing result `{type, wkt, geojson}`, or null on cancel.
+   */
+  async _drawOnMap(drawOptions, title) {
     const url = this.config.moduleUrls?.map;
     if (!url) throw new Error('Map drawing is not available');
 
@@ -1949,7 +1977,6 @@ export class ExplorerApplication {
       const dlg = HMsg.getMsgDlg('dialog-filter-extent');
       dlg.classList.add('h-dialog-fullscreen');
       dlg.dataset.preventClose = 'false';
-      dlg.querySelector('.h-dialog-title').textContent = $HR('Define map extent');
       dlg.querySelector('.h-dialog-footer').hidden = true;
       const body = dlg.querySelector('.h-dialog-body');
       body.classList.add('h-dialog-body-flush');
@@ -2002,8 +2029,9 @@ export class ExplorerApplication {
 
     const dlg = this._filterExtentDialog;
     const module = this._filterExtentModule;
+    dlg.querySelector('.h-dialog-title').textContent = title;
     try {
-      await module.api.beginDrawing({ mode: 'filter', geojson: extentToGeoJson(current) });
+      await module.api.beginDrawing(drawOptions);
     } catch (error) {
       dlg.close();
       throw error;
@@ -2019,7 +2047,7 @@ export class ExplorerApplication {
         dlg.close();
         resolve(value);
       };
-      const onFinished = (event) => finish(extentFromGeoJson(event.detail?.result?.geojson));
+      const onFinished = (event) => finish(event.detail?.result || null);
       const onCancelled = () => finish(null);
       const onDialogClose = () => finish(null, true);
       const cleanup = () => {

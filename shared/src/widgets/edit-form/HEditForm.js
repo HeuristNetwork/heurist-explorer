@@ -55,7 +55,9 @@ export class HEditForm extends HBaseWidget {
    * @param {object} [options.apiClient] HeuristApiClient (record pointer fields).
    * @param {object} [options.dbdefs] HDbDefs (vocabularies).
    * @param {string[]} [options.languages] Languages of translations.
-   * @param {Function} [options.selectExtent] Map extent picker of geo fields.
+   * @param {Function} [options.selectExtent] Map extent picker of geo fields (geoKind extent).
+   * @param {Function} [options.selectGeometry] Map drawing of geo fields (geoKind feature):
+   *        `(wkt) → Promise<{type, wkt}|null>`; without it the extent picker is used.
    * @param {Function} [options.fileUrl] Link to view a file of a file field.
    * @param {(form: HEditForm) => void} [options.onReady] After render (same as `h-edit-form-ready`).
    * @param {(form: HEditForm, change: {name: string, value: *}) => void} [options.onChange] After a value changed.
@@ -414,6 +416,7 @@ export class HEditForm extends HBaseWidget {
         dbdefs: this.options.dbdefs,
         languages: this.options.languages || this.options.dbdefs?.translationLanguages?.() || this.options.dbdefs?.languages?.() || [],
         selectExtent: this.options.selectExtent,
+        selectGeometry: this.options.selectGeometry,
         fileUrl: this.options.fileUrl,
         allowHidden: this.options.allowHidden === true,
         readOnly: this.options.readOnly,

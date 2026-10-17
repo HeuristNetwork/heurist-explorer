@@ -1,6 +1,7 @@
 /**
  * @file HInputGeo.js
- * @brief Compact geographic value input with a map extent picker.
+ * @brief Compact geographic value input with a map extent picker, or a map
+ *        drawing of a geometry (`geoKind: 'feature'` with `selectGeometry`).
  *
  * @project     Heurist academic knowledge management system
  * @package     heurist-client-core
@@ -15,14 +16,27 @@
 
 import { HInput } from './HInput.js';
 import { $HR } from '../../../ui/i18n/index.js';
-import { isExtent } from '../../../utils/geoExtent.js';
+import { extentToWkt, isExtent } from '../../../utils/geoExtent.js';
 import { geoToHuman } from '../../../utils/geoText.js';
 import './HInputGeo.css';
 
 const COORDINATES = ['west', 'south', 'east', 'north'];
 
-/** Displays a WKT geometry or map extent and lets the user choose an extent on the map. */
+/**
+ * Displays a WKT geometry or map extent and lets the user choose an extent on the map,
+ * or draw a geometry (points, lines, polygons; WKT or GeoJSON can be pasted there).
+ */
 export class HInputGeo extends HInput {
+  /** @returns {boolean} Whether the map button draws a geometry (else it picks an extent). */
+  get drawsGeometry() {
+    return this.options.geoKind === 'feature' && typeof this.options.selectGeometry === 'function';
+  }
+
+  /** @returns {boolean} Whether the host gives a map picker for this input. */
+  get hasPicker() {
+    return this.drawsGeometry || typeof this.options.selectExtent === 'function';
+  }
+
   /** Render the read-only summary and map action. */
   renderControl(host) {
     const group = document.createElement('div');
@@ -31,7 +45,7 @@ export class HInputGeo extends HInput {
     this.summary.className = 'h-input h-input-geo-summary';
     this.summary.type = 'text';
     this.summary.readOnly = true;
-    this.summary.placeholder = $HR('Select extent on map');
+    this.summary.placeholder = this.drawsGeometry ? $HR('Draw on map') : $HR('Select extent on map');
     this.summary.setAttribute('aria-label', $HR('Geographic value'));
 
     // options.geoKind: 'extent' (filters: a bounding box, the default) or 'feature'
@@ -43,11 +57,22 @@ export class HInputGeo extends HInput {
     icon.className = this.options.geoKind === 'feature' ? 'fa-solid fa-draw-polygon' : 'fa-solid fa-expand';
     icon.setAttribute('aria-hidden', 'true');
     this.mapButton.append(icon);
-    this.mapButton.title = $HR('Select extent on map');
-    this.mapButton.setAttribute('aria-label', $HR('Select extent on map'));
-    this.mapButton.disabled = typeof this.options.selectExtent !== 'function';
+    this.mapButton.title = this.drawsGeometry ? $HR('Draw on map') : $HR('Select extent on map');
+    this.mapButton.setAttribute('aria-label', this.mapButton.title);
+    this.mapButton.disabled = !this.hasPicker;
     this.listen(this.mapButton, 'click', async () => {
       try {
+        if (this.drawsGeometry) {
+          // the Map draw mode with points, lines, polygons and Add / Get Geometry (plan 14a)
+          const current = isExtent(this.value) ? extentToWkt(this.value) : (this.value || null);
+          const drawing = await this.options.selectGeometry(current);
+          if (drawing?.wkt) {
+            this.geoType = drawing.type || null;
+            this.setValue(drawing.wkt);
+            this.notifyChange();
+          }
+          return;
+        }
         const current = isExtent(this.value) ? this.value : null;
         const extent = await this.options.selectExtent(current);
         if (extent) {
@@ -79,7 +104,7 @@ export class HInputGeo extends HInput {
   /** Disable or enable the map action. */
   setReadOnly(readOnly) {
     if (this.mapButton) {
-      this.mapButton.disabled = Boolean(readOnly) || typeof this.options.selectExtent !== 'function';
+      this.mapButton.disabled = Boolean(readOnly) || !this.hasPicker;
     }
     return this;
   }

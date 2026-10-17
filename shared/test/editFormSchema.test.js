@@ -93,3 +93,16 @@ test('stateToValue / valueToState round trip; paths', () => {
   assert.equal(getPath({ 'a.b': 2 }, 'a.b'), 2, 'a key with the dot wins');
   assert.equal(getPath(target, 'a.x'), undefined);
 });
+
+test('width: characters or a CSS length', async () => {
+  const { widthOf, cssWidth } = await import('../src/data/editFormSchema.js');
+  assert.equal(widthOf(20), 20);
+  assert.equal(widthOf('20'), 20);
+  assert.equal(widthOf('400px'), '400px');
+  assert.equal(widthOf('50%'), '50%');
+  assert.equal(widthOf('wide'), 0);
+  assert.equal(cssWidth(20), '20ch');
+  assert.equal(cssWidth(999), '200ch', 'at most 200 characters');
+  assert.equal(cssWidth('400px'), '400px');
+  assert.equal(cssWidth(0), '');
+});

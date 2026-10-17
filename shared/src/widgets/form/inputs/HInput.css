@@ -174,6 +174,12 @@
   display: none;
 }
 
+/* a hidden clear / remove keeps its place: the control does not grow and shrink (2026-10-17) */
+.h-form-input.has-value-tools .h-form-input-tool[hidden] {
+  display: inline-block;
+  visibility: hidden;
+}
+
 .h-form-input-visibility.is-hidden {
   color: var(--h-color-warning);
 }

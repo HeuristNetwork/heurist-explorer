@@ -41,17 +41,20 @@
   }
 }
 
-/* inputs flow: fields side by side within a group, wrapping */
+/* inputs flow: fields side by side within a group, wrapping (a row, also when the
+   group is a column otherwise: else every field was 280px high, 2026-10-17) */
 .h-form-inputs-flow .h-form-layout-group {
   display: flex;
+  flex-direction: row;
   flex-wrap: wrap;
   align-items: flex-start;
   column-gap: 16px;
 }
 
 .h-form-inputs-flow .h-form-layout-group > .h-form-layout-field {
-  flex: 1 1 280px;
-  min-width: 0;
+  flex: 1 1 300px;
+  /* a card is at least 300px wide (less only in a narrower form), 2026-10-17 */
+  min-width: min(300px, 100%);
 }
 
 .h-form-inputs-flow .h-form-layout-group > :not(.h-form-layout-field) {

@@ -5,9 +5,13 @@
  *
  *   {format: 'heurist-edit-form/1', localized, groups: [{id, type: 'tabs'|'accordion'|'group',
  *    label, help, showWhen, slot, children: [field]}]}
- *   field: {name, type, label, help, req, max, default, terms, vocabulary, mode, min, maxValue,
- *           step, maxLength, pattern, patternMessage, rows, width, targetTypes, multilang,
+ *   field: {name, type, label, help, req, max, default, terms, vocabulary, mode, minValue, maxValue,
+ *           step, maxLength, pattern, patternMessage, rows, width, targetTypes, geoKind, multilang,
  *           readOnly, showWhen, special, dty?}
+ *
+ * `max` is the number of values (1 default, 0 any); `minValue` / `maxValue` limit a number.
+ * `width` is a number of characters (as rst_DisplayWidth) or a CSS length ("400px",
+ * "20em", "50%"); it sets the width of the input of every field type.
  *
  * The record edit structure (recordEditStructure.js) is the same JSON with `dty`
  * instead of `name`: a field without a name gets `String(dty)`.
@@ -33,6 +37,7 @@
  */
 
 import { splitLanguage, unpackValue } from './recordEditValues.js';
+import { extentToWkt, isExtent } from '../utils/geoExtent.js';
 
 /** Format name of the form JSON. */
 export const EDIT_FORM_FORMAT = 'heurist-edit-form/1';
@@ -130,20 +135,48 @@ function normalizeField(item, warnings, where) {
     terms,
     vocabulary: Number(item.vocabulary) > 0 ? Number(item.vocabulary) : null,
     mode: ['select', 'radio', 'checkbox'].includes(item.mode) ? item.mode : null,
-    min: number(item.min),
+    minValue: number(item.minValue),
     maxValue: number(item.maxValue),
     step: number(item.step),
     maxLength: Number(item.maxLength) > 0 ? Number(item.maxLength) : null,
     pattern: item.pattern ? String(item.pattern) : null,
     patternMessage: item.patternMessage ? String(item.patternMessage) : '',
     rows: Number(item.rows ?? item.height) > 0 ? Number(item.rows ?? item.height) : null,
-    width: Math.max(0, Number(item.width) || 0),
+    width: widthOf(item.width),
     targetTypes: Array.isArray(item.targetTypes) ? item.targetTypes.map(Number).filter((id) => id > 0) : [],
+    geoKind: item.geoKind === 'extent' ? 'extent' : 'feature',
     multilang: item.multilang === true,
     readOnly: item.readOnly === true,
     showWhen: conditionOf(item.showWhen),
     special: item.special ?? null
   };
+}
+
+/** CSS lengths accepted as a field width. */
+const CSS_WIDTH = /^\d+(\.\d+)?(px|em|rem|ch|%)$/;
+
+/**
+ * Width of a field: a number of characters, or a CSS length.
+ *
+ * @param {*} value `width` of the JSON (20, "20", "400px").
+ * @returns {number|string} Characters (0: no width), or the CSS length.
+ */
+export function widthOf(value) {
+  const text = String(value ?? '').trim().toLowerCase();
+  if (CSS_WIDTH.test(text)) return text;
+  return Math.max(0, Number(text) || 0);
+}
+
+/**
+ * CSS width of a field's input.
+ *
+ * @param {number|string} width Normalised width (widthOf).
+ * @returns {string} CSS length, or '' when the field has no width.
+ */
+export function cssWidth(width) {
+  if (typeof width === 'string' && CSS_WIDTH.test(width)) return width;
+  const characters = Number(width) || 0;
+  return characters > 0 ? `${Math.min(characters, 200)}ch` : '';
 }
 
 /** @returns {object|null} A showWhen condition (a plain object), or null. */
@@ -238,6 +271,8 @@ export function valueToState(field, value) {
     // a static term list may have text ids: not the numeric term id of a record value
     const entry = field.terms && (field.type === 'enum' || field.type === 'relationtype')
       ? staticTermEntry(raw)
+      : field.type === 'geo' && (isExtent(raw) || isExtent(raw?.value))
+        ? { value: isExtent(raw) ? raw : raw.value, hidden: Boolean(raw?.hidden) }
       : unpackValue(field.type, typeof raw === 'number' || typeof raw === 'boolean' ? String(raw) : raw);
     if (!entry) continue;
     if (field.type === 'json' && entry.value && typeof entry.value === 'object') entry.value = JSON.stringify(entry.value, null, 2);
@@ -285,6 +320,11 @@ export function nativeValue(field, value) {
     if (term) return term.id;
     const number = Number(value);
     return field.terms ? value : Number.isFinite(number) ? number : value;
+  }
+  if (field.type === 'geo') {
+    // extent: the bounding box {west, south, east, north}; feature: WKT
+    if (field.geoKind === 'extent') return isExtent(value) ? value : String(value);
+    return isExtent(value) ? extentToWkt(value) : String(value);
   }
   if (field.type === 'resource' || field.type === 'file') {
     const number = Number(value);

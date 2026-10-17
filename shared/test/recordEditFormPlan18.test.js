@@ -142,13 +142,15 @@ test('value tools are HInput options: remove event, visibility switch, actions s
   assert.equal(add.parentElement, input.actionsHost);
 });
 
-test('Add / Translate follow the input of the last value; no duplicate clear button', async () => {
+test('Add / Translate in front of the first value only; no duplicate clear button', async () => {
   const { editor } = await openEditor();
   const notes = editor.editForm.getFieldWidget(1105);
-  const last = () => notes._rows.at(-1).input.actionsHost;
-  assert.equal(notes.addButton.parentElement, last());
+  const first = () => notes._rows[0].input.actionsHost;
+  assert.equal(notes.addButton.parentElement, first());
   notes.addButton.click();
-  assert.equal(notes.addButton.parentElement, last(), 'moves to the new last value');
+  assert.equal(notes.addButton.parentElement, first(), 'stays at the first value (2026-10-17)');
+  assert.equal(notes._rows.at(-1).input.actionsHost.children.length, 0, 'the other values keep an empty place');
+  assert.ok(notes.container.classList.contains('has-actions'));
   for (const row of notes._rows) {
     const clears = [...row.element.querySelectorAll('.h-form-input-clear')];
     assert.equal(clears.length, 1, 'one clear / remove icon per value');

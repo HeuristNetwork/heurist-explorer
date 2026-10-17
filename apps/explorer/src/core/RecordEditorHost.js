@@ -46,6 +46,7 @@ export class RecordEditorHost {
    * @param {Function} options.getBridge Returns the legacy host bridge (may be null).
    * @param {Function} options.isLoggedIn Whether a user is logged in.
    * @param {Function} [options.selectExtent] Map extent picker for geo fields.
+   * @param {Function} [options.selectGeometry] Map drawing of a geometry for geo fields: `(wkt) → {type, wkt}|null`.
    * @param {Function} [options.editQuery] `(query, filterForm) => Promise<{query, filterForm}|null>` (HFilterBuilder).
    * @param {Function} [options.describeQuery] Query in words.
    * @param {Function} [options.onSaved] Called with `{record, created}` after each save.
@@ -136,6 +137,7 @@ export class RecordEditorHost {
       client: this.client,
       structureProvider: this.structures,
       selectExtent: this.options.selectExtent,
+      selectGeometry: this.options.selectGeometry,
       specialEditors: this.specialEditors(dbdefs),
       fileUrl: (file) => this._fileUrl(file)
     });
@@ -355,13 +357,14 @@ export class RecordEditorHost {
    * Services of the inputs of an HEditForm in Explorer (pointer titles, vocabularies,
    * map extent, file links), as the record editor has them (plan 14a).
    *
-   * @returns {Promise<{apiClient: object, dbdefs: object, selectExtent: Function|null, fileUrl: Function}>}
+   * @returns {Promise<{apiClient: object, dbdefs: object, selectExtent: Function|null, selectGeometry: Function|null, fileUrl: Function}>}
    */
   async formServices() {
     return {
       apiClient: this.options.apiClient,
       dbdefs: await this.options.ensureDbDefs(),
       selectExtent: this.options.selectExtent || null,
+      selectGeometry: this.options.selectGeometry || null,
       fileUrl: (file) => this._fileUrl(file)
     };
   }

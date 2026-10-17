@@ -16,8 +16,8 @@
     {
       "id": "numbers", "type": "tabs", "label": "Numbers",
       "children": [
-        { "name": "integer", "type": "integer", "label": "Integer", "help": "integer, 1 to 100", "max": 0, "min": 1, "maxValue": 100 },
-        { "name": "float", "type": "float", "label": "Decimal", "help": "float, 0 to 1, step 0.1", "max": 0, "min": 0, "maxValue": 1, "step": 0.1 },
+        { "name": "integer", "type": "integer", "label": "Integer", "help": "integer, minValue 1, maxValue 100", "max": 0, "minValue": 1, "maxValue": 100 },
+        { "name": "float", "type": "float", "label": "Decimal", "help": "float, minValue 0, maxValue 1, step 0.1", "max": 0, "minValue": 0, "maxValue": 1, "step": 0.1 },
         { "name": "year", "type": "year", "label": "Year", "help": "year", "max": 0 }
       ]
     },
@@ -49,7 +49,16 @@
       "children": [
         { "name": "resource", "type": "resource", "label": "Record pointer", "help": "resource, any record type", "max": 0, "targetTypes": [] },
         { "name": "file", "type": "file", "label": "File", "help": "file (id of an uploaded file)", "max": 0 },
-        { "name": "geo", "type": "geo", "label": "Geospatial", "help": "geo (map extent)", "max": 0 }
+        {
+          "name": "extent", "type": "geo", "geoKind": "extent", "label": "Extent (bbox)", "max": 0,
+          "help": "geo, geoKind extent: the value is {west, south, east, north}",
+          "default": { "west": -10, "south": 35, "east": 30, "north": 60 }
+        },
+        {
+          "name": "feature", "type": "geo", "geoKind": "feature", "label": "Geometry (feature)", "max": 0,
+          "help": "geo, geoKind feature: the value is WKT; the map button opens the Map draw mode (points, lines, polygons; Add Geometry pastes WKT or GeoJSON)",
+          "default": "POINT(2.35 48.85)"
+        }
       ]
     },
     {
@@ -65,13 +74,13 @@
       "help": "Required and recommended fields, read only, defaults, showWhen and dotted names.",
       "children": [
         {
-          "name": "mode", "type": "enum", "label": "Marker type", "req": "required", "max": 1, "default": "icon", "mode": "radio",
-          "help": "showWhen: the next three fields depend on it",
+          "name": "mode", "type": "enum", "label": "Marker type", "req": "required", "max": 1, "default": "icon", "mode": "radio", "width": "400px",
+          "help": "width \"400px\" (a CSS length; a number is characters); showWhen: the next three fields depend on it",
           "terms": [{ "id": "icon", "label": "Icon" }, { "id": "circle", "label": "Circle" }, { "id": "image", "label": "Image" }]
         },
         { "name": "icon.font", "type": "freetext", "label": "Icon name", "max": 1, "default": "fa-house", "showWhen": { "mode": "icon" } },
-        { "name": "icon.size", "type": "integer", "label": "Icon size", "max": 1, "min": 4, "maxValue": 64, "default": 16, "showWhen": { "mode": ["icon", "image"] } },
-        { "name": "circle.radius", "type": "integer", "label": "Radius", "max": 1, "min": 1, "maxValue": 100, "default": 8, "showWhen": { "mode": "circle" } },
+        { "name": "icon.size", "type": "integer", "label": "Icon size", "max": 1, "minValue": 4, "maxValue": 64, "default": 16, "showWhen": { "mode": ["icon", "image"] } },
+        { "name": "circle.radius", "type": "integer", "label": "Radius", "max": 1, "minValue": 1, "maxValue": 100, "default": 8, "showWhen": { "mode": "circle" } },
         { "name": "image.url", "type": "url", "label": "Image URL", "req": "required", "max": 1, "showWhen": { "mode": "image" } },
         {
           "name": "fileName", "type": "freetext", "label": "File name", "req": "required", "max": 1, "maxLength": 20,
@@ -93,7 +102,7 @@
     {
       "id": "imageOnly", "type": "group", "label": "Image options (showWhen on the group)", "showWhen": { "mode": "image" },
       "children": [
-        { "name": "image.opacity", "type": "float", "label": "Opacity", "max": 1, "min": 0, "maxValue": 1, "step": 0.1, "default": 1 }
+        { "name": "image.opacity", "type": "float", "label": "Opacity", "max": 1, "minValue": 0, "maxValue": 1, "step": 0.1, "default": 1 }
       ]
     }
   ]

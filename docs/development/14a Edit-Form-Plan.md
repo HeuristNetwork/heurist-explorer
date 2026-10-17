@@ -52,7 +52,7 @@ The record edit structure of plan 14 (`recordEditStructure.js`) is the same JSON
         {
           "name": "icon.size", "type": "integer", "label": "Icon size", "help": "",
           "req": "required | recommended | optional", "max": 1, "default": 16,
-          "min": 4, "maxValue": 64, "step": null,
+          "minValue": 4, "maxValue": 64, "step": null,
           "showWhen": { "mode": ["icon", "image"] }
         }
       ]
@@ -76,16 +76,18 @@ The record edit structure of plan 14 (`recordEditStructure.js`) is the same JSON
 | `name` | Key in the values. A dotted name (`toolbar.position`) is a nested object. Required, unless `dty` is given. |
 | `type` | `freetext`, `blocktext`, `url`, `integer`, `float`, `year`, `date`, `boolean`, `enum`, `relationtype`, `resource`, `file`, `geo`, `color`, `json`, `special` (and `relmarker`, record editor only). Unknown: `freetext` with a warning. |
 | `label`, `help` | Texts. Translated with the Explorer/module dictionary unless the form is `localized`. |
-| `req` | `required`, `recommended` (label colour only), `optional`. `required: true` is accepted too. |
-| `max` | Number of values: 1 (default) one value; 0 any number; n at most n. |
+| `req` | Requirement, shown by the label: `required` (bold, `--h-color-warning`; a value is needed), `recommended` (bold), `optional` (plain text, default). `required: true` is accepted too. |
+| `max` | Number of values (cardinality): 1 (default) one value; 0 any number; n at most n. There is no minimum number of values: `req: "required"` means at least one. |
 | `default` | Value of a new form (`"today"` for a date). |
 | `terms` | Static choices of an `enum`: `[{id, label, depth?}]` or `["a", "b"]`. Text ids stay text, numeric ids stay numbers. |
 | `vocabulary` | Database vocabulary of an `enum` instead of `terms`. |
 | `mode` | `select`, `radio` or `checkbox` for an `enum`. Default: radios for at most 5 flat terms of a single value field (plan 18), else a list. |
-| `min`, `maxValue`, `step` | Numbers. (`max` is the number of values, so the largest value is `maxValue`.) |
+| `minValue`, `maxValue`, `step` | Limits of a number, also set on the spinner. (`max` is the number of values.) |
 | `maxLength`, `pattern`, `patternMessage` | Text checks. `pattern` is a regular expression for the whole value, as text (JSON cannot hold a RegExp). |
-| `rows`, `width` | Rows of a text area; width in characters. |
+| `rows` | Rows of a text area. |
+| `width` | Width of the input, for every field type: a number is characters (as `rst_DisplayWidth`, at most 200), a text is a CSS length (`"400px"`, `"20em"`, `"50%"`). In flow mode the card is as wide as label plus input. |
 | `targetTypes` | Record types of a `resource` field. |
+| `geoKind` | `geo` field: `extent` (a bounding box, value `{west, south, east, north}`; the map extent picker) or `feature` (default; value WKT; the map button opens the Map draw mode: points, lines, polygons, Add Geometry to paste WKT or GeoJSON, Get Geometry). |
 | `multilang` | One value plus translations (`"fre:text"`). |
 | `readOnly` | The value cannot be changed. |
 | `showWhen` | `{field: value \| [values], ...}`: shown when every listed field has one of the values. Text comparison (`"1"` = `1`, `"true"` = `true`). |
@@ -96,6 +98,7 @@ The record edit structure of plan 14 (`recordEditStructure.js`) is the same JSON
 - Native types: numbers, `true`/`false`, term ids as defined, text.
 - A value hidden from the public (only when the form has `allowHidden`) is `{value, hidden: true}`;
   a translation is `"xxx:text"` — the same as a record value (plan 14 §1).
+- Empty fields are in the values: `null` for one value, `[]` for a list (agreed 2026-10-17).
 - Fields that are not shown (by `showWhen` or by code) are not checked and are left out.
 - Missing values get the field's `default`.
 
@@ -160,7 +163,44 @@ from the database; `allowHidden: true`). Its group CSS classes are `h-edit-form-
   `apps/explorer/test/editFormTestSample.test.js` (2); the record editor tests use the new class
   names. `npm test`: 1195 pass.
 
-## 8. Open points
+## 8. Review round 1 (Artem, 2026-10-17)
+
+| Point | Change |
+|---|---|
+| Add value / Translate in front of the input, for the first value only | `HInput` puts its actions slot before the control; `HEditField` gives the buttons to the first value; the other values keep an empty place (`has-actions`), so the inputs stay aligned. Also in the record editor. |
+| Keep the place of clear/remove and of the eye | A hidden value tool is `visibility: hidden` (no more `display: none`); a read-only field keeps a disabled eye place. |
+| Flow mode: fields very high, no second column | The group was a column flexbox, so `flex-basis: 280px` became a height. `formLayout.css` sets `flex-direction: row` for flow. |
+| `width: 20` not applied | Checked in a browser (headless Edge, a scratch page with the sample JSON and width 20 on the first field): the width is applied. Please try again after reload; if it still fails, tell the field and the label/input options. |
+| `max` / `min` cardinality? | `max` is the cardinality only. The number limits are now `minValue` / `maxValue` (`min` removed). |
+| `minValue` / `maxValue` not on the spinner | `HEditField` sets `min`, `max`, `step` on the number input. |
+| Two geo samples | New `geoKind`: `extent` (bbox object) and `feature` (WKT); samples "Extent (bbox)" and "Geometry (feature)" with defaults. |
+| Radios do not work as a group | Bug in `HInputEnum` `termsSource`: every term id went through `Number()`, so text ids (`icon`, `circle`) were all `NaN` - all radios had the same value. Numeric ids stay numbers, text ids stay text. |
+| showWhen works once only | Same bug (the value was `NaN`). Now Circle shows Radius, Icon shows the icon fields again (test added). |
+| Empty values in the result? | Yes: `null` / `[]` (was already so). Fields hidden by `showWhen` are still left out - say if they should be in as empty too. |
+
+Tests: 1197 pass (new: radios with text ids and showWhen back and forth; spinner limits, actions in front,
+extent/feature values, empty values).
+
+## 9. Review round 2 (Artem, 2026-10-17)
+
+| Point | Change |
+|---|---|
+| Requirement levels: required (bold, warning colour), recommended (bold), optional (plain) | Already so (plan 18 CSS of `HEditField`; checked in the browser). The `req` row of §3 now says it. |
+| Geo feature: draw points, polylines, polygons; paste and get WKT or GeoJSON (DrawController) | `ExplorerApplication.selectGeometry(wkt)` runs the Map draw mode `full` (the existing DrawPanel: Allow multiple, Add Geometry = paste WKT/GeoJSON, Get Geometry, Clear, Save) in the same dedicated Map dialog as the filter extent (shared code `_drawOnMap`). It is passed as `selectGeometry` through `RecordEditorHost` (also `formServices`), `HRecordEditor`, `HEditForm`, `HEditField` to `HInputGeo`: a `feature` field draws, an `extent` field keeps the extent picker. The drawn type (`p`, `l`, `pl`...) is kept for the record value (`{geo:{type, wkt}}`). Without `selectGeometry` (no Map module) a feature field falls back to the extent picker. |
+| Flow mode: respect the input width, card at least 300px | Flow cards are `flex: 1 1 300px; min-width: min(300px, 100%)`. A field with `width` gets a card as wide as label plus input (`flex: 0 1 auto`), not a share of the row. |
+
+Tests: 1198 pass (new: geo feature drawing and extent picker).
+
+## 10. Review round 3 (Artem, 2026-10-17)
+
+| Point | Change |
+|---|---|
+| `"width": 400` or `"400px"` on the "Marker type" radios is ignored, the radios wrap | `width` was used only for text, number and date fields, and only as a number (`"400px"` became 0). Now every input type takes it (not special fields), and a text with a unit is a CSS length. Checked in the browser: the radios stay on one line in stack and flow mode. Note: the record editor now also applies `rst_DisplayWidth` to enum, resource, file, geo and boolean fields. |
+| Is `width` characters for freetext / blocktext? | Yes, a number is characters (`ch`), as `rst_DisplayWidth`. Pixels: write `"400px"`. |
+
+Tests: 1200 pass (new: width forms; width on radios and text).
+
+## 11. Open points
 
 - Agree the JSON format (§3) with the tool, especially: native value types in `getValues`,
   `maxValue` vs `max`, `showWhen` as "all of" with text comparison, dotted names.

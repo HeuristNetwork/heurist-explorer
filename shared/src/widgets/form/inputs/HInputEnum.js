@@ -321,6 +321,12 @@ export class HInputEnum extends HInput {
   }
 }
 
+/** @returns {number|string} A term id: a number when it is numeric, else the text. */
+function numericId(id) {
+  const number = Number(id);
+  return typeof id === 'number' || (String(id ?? '').trim() !== '' && Number.isFinite(number)) ? number : String(id ?? '');
+}
+
 /** @returns {string} A supported counts style; unknown values keep the default. */
 function countsMode(mode) {
   return mode === 'badge' || mode === 'none' ? mode : 'brackets';
@@ -329,7 +335,8 @@ function countsMode(mode) {
 /** @returns {StaticSource} Source over legacy `{id, label, depth}` terms (depth 1 = top). */
 function termsSource(terms = []) {
   return new StaticSource((terms || []).map((term) => ({
-    value: Number(term.id ?? term.value),
+    // numeric ids as numbers; text ids ("icon", "circle") stay text - Number() made them all NaN
+    value: numericId(term.id ?? term.value),
     label: term.label || String(term.id ?? term.value),
     depth: Math.max(0, (Number(term.depth) || 1) - 1)
   })));

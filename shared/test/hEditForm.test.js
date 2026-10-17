@@ -29,7 +29,7 @@ const FORM = {
       { name: 'mode', type: 'enum', terms: ['icon', 'image'], default: 'icon', req: 'required' },
       { name: 'image.url', type: 'url', req: 'required', showWhen: { mode: 'image' } },
       { name: 'code', type: 'freetext', pattern: '[a-z]*', patternMessage: 'Small letters only', maxLength: 5 },
-      { name: 'size', type: 'integer', min: 1, maxValue: 10 },
+      { name: 'size', type: 'integer', minValue: 1, maxValue: 10 },
       { name: 'title', type: 'freetext', req: 'required' }
     ] },
     { id: 'extra', type: 'group', label: 'Extra', slot: 'note', children: [{ name: 'extra', type: 'freetext' }] }
@@ -132,5 +132,82 @@ test('issues beside fields; unknown fields come back', async () => {
   assert.deepEqual(other.map((issue) => issue.message), ['Elsewhere']);
   assert.ok(form.getFieldWidget('title').container.classList.contains('has-warning'));
   await flush?.();
+  await form.destroy();
+});
+
+test('radios of text ids are one group; showWhen shows and hides again (2026-10-17)', async () => {
+  const { form } = makeForm({ form: {
+    groups: [{ children: [
+      { name: 'mode', type: 'enum', mode: 'radio', default: 'icon', terms: [{ id: 'icon', label: 'Icon' }, { id: 'circle', label: 'Circle' }] },
+      { name: 'font', type: 'freetext', showWhen: { mode: 'icon' } },
+      { name: 'radius', type: 'integer', showWhen: { mode: 'circle' } }
+    ] }]
+  } });
+  await flush();
+  const radios = form.getFieldWidget('mode')._rows[0].input.choices;
+  assert.deepEqual(radios.map((radio) => radio.value), ['icon', 'circle'], 'text ids, not NaN');
+  assert.equal(new Set(radios.map((radio) => radio.name)).size, 1, 'one radio group');
+  const font = form.getFieldWidget('font').container;
+  const radius = form.getFieldWidget('radius').container;
+  assert.deepEqual([font.hidden, radius.hidden], [false, true]);
+  const pick = (index) => { radios[index].checked = true; radios[index].dispatchEvent(new Event('change')); };
+  pick(1);
+  assert.equal(form.getValue('mode'), 'circle');
+  assert.deepEqual([font.hidden, radius.hidden], [true, false], 'circle shown');
+  pick(0);
+  assert.deepEqual([font.hidden, radius.hidden], [false, true], 'icon shown again');
+  await form.destroy();
+});
+
+test('number limits on the spinner; Add in front of the first value; extent and feature values', async () => {
+  const { form } = makeForm({ form: {
+    groups: [{ children: [
+      { name: 'size', type: 'integer', max: 0, minValue: 1, maxValue: 10 },
+      { name: 'box', type: 'geo', geoKind: 'extent', default: { west: 1, south: 2, east: 3, north: 4 } },
+      { name: 'shape', type: 'geo', default: 'POINT(1 2)' }
+    ] }]
+  } });
+  const size = form.getFieldWidget('size');
+  const control = size._rows[0].input.control;
+  assert.deepEqual([control.min, control.max], ['1', '10']);
+  assert.equal(control.parentElement.parentElement.children[0], size._rows[0].input.actionsHost, 'actions before the control');
+  assert.deepEqual(form.getValues(), { size: [], box: { west: 1, south: 2, east: 3, north: 4 }, shape: 'POINT(1 2)' },
+    'empty fields are in the values');
+  await form.destroy();
+});
+
+test('geo feature: the map button draws a geometry; extent keeps the extent picker', async () => {
+  const calls = [];
+  const { form } = makeForm({
+    form: { groups: [{ children: [
+      { name: 'shape', type: 'geo', default: 'POINT(1 2)' },
+      { name: 'box', type: 'geo', geoKind: 'extent' }
+    ] }] },
+    selectGeometry: async (current) => { calls.push(['draw', current]); return { type: 'pl', wkt: 'POLYGON((0 0,1 0,1 1,0 0))' }; },
+    selectExtent: async () => { calls.push(['extent']); return { west: 1, south: 2, east: 3, north: 4 }; }
+  });
+  const shape = form.getFieldWidget('shape');
+  shape._rows[0].input.mapButton.click();
+  await flush();
+  form.getFieldWidget('box')._rows[0].input.mapButton.click();
+  await flush();
+  assert.deepEqual(calls, [['draw', 'POINT(1 2)'], ['extent']]);
+  assert.equal(form.getValue('shape'), 'POLYGON((0 0,1 0,1 1,0 0))');
+  assert.equal(shape.getState().values[0].geoType, 'pl', 'the drawn type for the record value');
+  assert.deepEqual(form.getValue('box'), { west: 1, south: 2, east: 3, north: 4 });
+  await form.destroy();
+});
+
+test('width on any input type: radios 400px, text 20 characters', async () => {
+  const { form } = makeForm({ form: { groups: [{ children: [
+    { name: 'mode', type: 'enum', mode: 'radio', width: '400px', terms: ['a', 'b'] },
+    { name: 'text', type: 'freetext', width: 20 },
+    { name: 'plain', type: 'freetext' }
+  ] }] } });
+  const host = (name) => form.getFieldWidget(name)._rows[0].element.children[0];
+  assert.ok(host('mode').classList.contains('has-display-width'));
+  assert.equal(host('mode').style['--h-field-width'], '400px');
+  assert.ok(form.getFieldWidget('text').container.classList.contains('has-display-width'));
+  assert.equal(host('plain').classList.contains('has-display-width'), false);
   await form.destroy();
 });

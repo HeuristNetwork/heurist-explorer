@@ -33,6 +33,15 @@
 /* Add a value / Translate, Remove / Clear and the value visibility are HInput value tools
    (HInput.css, plan 18) */
 
+/* Add / Translate only in front of the first value: the next values keep the place */
+.h-edit-field.has-actions .h-form-input-actions {
+  min-width: 18px;
+}
+
+.h-edit-field.has-actions .h-form-input-actions:empty {
+  display: inline-flex;
+}
+
 .h-edit-field-values {
   display: flex;
   flex-direction: column;
@@ -161,6 +170,18 @@
   display: flex;
   flex: 0 0 auto;
   gap: 4px;
+}
+
+/* flow mode: a field with a display width takes a card as wide as its label and input
+   (at least 300px, formLayout.css), not a share of the row (2026-10-17) */
+.h-form-inputs-flow .h-form-layout-group > .h-edit-field.has-display-width {
+  flex: 0 1 auto;
+  width: calc(var(--h-form-label-width) + 8px + var(--h-field-width) + 6em);
+  max-width: 100%;
+}
+
+.h-form-labels-above.h-form-inputs-flow .h-form-layout-group > .h-edit-field.has-display-width {
+  width: calc(var(--h-field-width) + 6em);
 }
 
 /* rst_DisplayWidth: the input (with its value tools) about as wide as set, never wider than the form */
