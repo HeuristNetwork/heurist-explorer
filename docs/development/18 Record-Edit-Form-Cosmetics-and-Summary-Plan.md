@@ -1,5 +1,7 @@
 # Record edit form — cosmetics, layout options, Record summary pane
 
+**Current state 2026-10-18:** Phase 1 committed (`a1f7037`). Open: Phase 2 (Private, Tags: srv endpoints for bookmarks and tags, then editing); linked titles in the summary are not clickable yet.
+
 Status: **agreed 2026-10-14; Phase 1 implemented 2026-10-14, not committed, not checked in a browser.** Phase 2 (Private, Tags)
 needs server work and is not started.
 

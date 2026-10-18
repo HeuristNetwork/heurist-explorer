@@ -1,6 +1,8 @@
 # Data access layer (srv) — development plan
 
-Status: **agreed 2026-10-13 (open points answered, §Agreed decisions). Phases 1 (definitions and
+Status: **DONE 2026-10-18.** Phases 1-6 committed (heurist `d61cde2a4`, `396320f3a`). Leftovers: §Leftovers (@todo) at the end.
+
+Earlier status: **agreed 2026-10-13 (open points answered, §Agreed decisions). Phases 1 (definitions and
 settings), 2 (records), 3 (files and users), 4 (search compiler), 5 (boundary test) and 6 (plan 14 title
 mask and calculated fields) implemented 2026-10-13 in the heurist repo, not committed (§Implementation
 notes). Plan 15 is complete.**
@@ -413,3 +415,9 @@ every phase the server tests run:
   save". The port (`Records/Edit/TitleMask`, `CalculatedFields`) reads only through
   `DefinitionLookup`, `RecordRepository`, `FileRepository` and writes through `RecordStore`
   (`setFieldValue`); `DataAccessBoundaryTest` still passes with an empty exception list.
+
+## Leftovers (@todo)
+
+Collected 2026-10-18.
+
+- @todo None in this plan. Keep `tests/DataAccessBoundaryTest.php` passing: srv services never query the Records / recDetails / recLinks / files / users / def* tables directly.

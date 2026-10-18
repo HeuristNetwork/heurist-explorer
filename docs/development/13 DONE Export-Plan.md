@@ -1,6 +1,8 @@
 # Export — development plan
 
-Status: **agreed with Artem 2026-10-06 (two review rounds of the draft; see §Agreed decisions).
+Status: **DONE 2026-10-18.** Phases 2-5 committed (explorer `7a4937c`, `b4efd23`, `61d16dd`; heurist `c3c1489ea`, `d2de9beb6`, `4a820dad0`). Leftovers: §Leftovers (@todo) at the end.
+
+Earlier status: **agreed with Artem 2026-10-06 (two review rounds of the draft; see §Agreed decisions).
 Phases 2-5 implemented 2026-10-06 (heurist and heurist-explorer); nothing committed, not yet checked in a
 browser by Artem. Tests: heurist `tests/ExportWriterTest.php` (81 checks), `JobRunnerTest` (40) and
 `ReportsApiTest` (28) unchanged; client `npm test` (1050).** §Implementation notes at the end list where
@@ -575,3 +577,10 @@ Files: heurist `srv/Records/Data/RecordDataService.php`, `RecordPageAssembler.ph
 `documentation/api/heurist-openapi.yaml`, READMEs; this repo `apps/explorer/src/tools/export/ExportTool.js`
 (checkbox label and note per format) and localization. Test: `tests/ExportWriterTest.php` 87 checks (both
 JSON forms equal the API output).
+
+## Leftovers (@todo)
+
+Collected 2026-10-18.
+
+- @todo IIIF and RDF exports: not in this plan, to be discussed separately (the legacy exports stay).
+- @todo JSON Lines export was added in the legacy code (heurist `f1810f72b`, 2026-10-16): decide whether the srv `export` job offers it too.

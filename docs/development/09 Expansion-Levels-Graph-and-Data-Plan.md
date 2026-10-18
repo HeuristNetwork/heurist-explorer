@@ -1,5 +1,7 @@
 # Expansion levels in Graph and Data — development plan
 
+**Current state 2026-10-18:** Open: Phase 4 (Map, Timeline; postponed) and §13.
+
 Status: **Phases 1–2 committed (`ec2aef1`); §11 committed (`8aa2890` / server `9bca7dafe`);
 Phase 3 (Data) and §12 Smart expansion committed (`a35d5ab`, `a0f44b6`). Phase 4 (Map,
 Timeline) is postponed; the remaining small items are listed in §13.** §10 lists where the implementation differs from this plan.

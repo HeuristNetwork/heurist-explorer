@@ -1,6 +1,8 @@
 # Temporal editor — development plan
 
-Status: **agreed and implemented 2026-10-17, not committed.** Checked in headless Edge (scratch page:
+Status: **DONE 2026-10-18.** Committed (`ebd8cc7`); cosmetics of 2026-10-18 not committed yet. Leftovers: §Leftovers (@todo) at the end.
+
+Earlier status: **agreed and implemented 2026-10-17, not committed.** Checked in headless Edge (scratch page:
 date fields, popup tabs, OK). Not yet checked in the record editor of Explorer. Native calendars are a
 later phase (§6).
 
@@ -65,8 +67,21 @@ fuzzy date, other calendar, old format, text), checks, range distance, `inputTyp
 *Test edit form* tool has three date fields (with Edit, a temporal default, `temporal: false`).
 `npm test`: all pass.
 
+## 5a. Cosmetics (Artem, 2026-10-18)
+
+Date field: Edit (`fa-calendar-days`) first, then Show raw as a small muted link shown on mouse over, then
+clear and visibility; the display width is the width of the date input only. Popup caption
+"Temporal Object / Compound date". Details in plan 14a §15.
+
 ## 6. Later
 
 - Native calendars: npm `world-calendars` (the jQuery-free core of jquery.calendars) and a port of
   Heurist's Japanese calendar (`hclient/core/jquery.calendars.japanese.js`); a calendar select that
   converts the dates and stores `calendar` + `native`.
+
+## Leftovers (@todo)
+
+Collected 2026-10-18.
+
+- @todo Native calendars (§6): `world-calendars` and a port of the Japanese calendar; calendar select storing `calendar` + `native`.
+- @todo Check in the record editor of Explorer (so far only a headless scratch page).

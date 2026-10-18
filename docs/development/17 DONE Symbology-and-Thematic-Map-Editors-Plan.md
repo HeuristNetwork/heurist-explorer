@@ -1,6 +1,8 @@
 # Symbology and thematic map editors — development plan
 
-Status: **agreed and implemented 2026-10-13 (all phases), not committed, not yet checked in a browser.**
+Status: **DONE 2026-10-18.** All phases committed (explorer `9cc140c`, `a1f7037`; heurist `d569e5674`). Leftovers: §Leftovers (@todo) at the end.
+
+Earlier status: **agreed and implemented 2026-10-13 (all phases), not committed, not yet checked in a browser.**
 Tests: `shared/test/symbology.test.js`, `shared/test/symbologyEditors.test.js`, `apps/map/test/host/editIntegration.test.js`.
 
 ## Context
@@ -253,3 +255,10 @@ dialogs of the modules stay in their iframes for now (decided with Artem).
 
 Checked in headless Edge with a stubbed API (number and enum fields).
 
+## Leftovers (@todo)
+
+Collected 2026-10-18.
+
+- @todo Browser check, especially the thematic map editor inside a small Map pane of Explorer.
+- @todo Configuration and Publish dialogs of the modules still open inside their iframes (decided 2026-10-14); later through the bridge (plan 14a `openEditForm`).
+- @todo Range definitions (`shared/src/data/ranges/`) are ready for crosstabs, not used there yet.

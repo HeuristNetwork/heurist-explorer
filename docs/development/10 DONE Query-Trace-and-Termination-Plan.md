@@ -1,6 +1,8 @@
 # Query trace, termination and expansion guards — development plan
 
-Status: **agreed with Artem 2026-10-01; Phases 1–4 and Phase 5 items 1 (as a candidate pre-filter) and 3 committed (`a0f44b6`); FULLTEXT "contains" committed (server `8df18a96d`). Trace panel hidden 2026-10-03, back 2026-10-06 in the West pane (Query tracer in Explorer configuration). Open items: §Open items at the end.** Server tests: `tests/QueryTraceTest.php` (19 checks); client: `shared/test/requestMonitor.test.js`. §Implementation notes at the end lists measurements and where the implementation differs from this plan.
+Status: **DONE 2026-10-18.** Phases 1-5 committed (explorer `a0f44b6`, trace panel `d10cd7c`; server FULLTEXT "contains" `8df18a96d`). Leftovers: §Leftovers (@todo) at the end.
+
+Earlier status: **agreed with Artem 2026-10-01; Phases 1–4 and Phase 5 items 1 (as a candidate pre-filter) and 3 committed (`a0f44b6`); FULLTEXT "contains" committed (server `8df18a96d`). Trace panel hidden 2026-10-03, back 2026-10-06 in the West pane (Query tracer in Explorer configuration). Open items: §Open items at the end.** Server tests: `tests/QueryTraceTest.php` (19 checks); client: `shared/test/requestMonitor.test.js`. §Implementation notes at the end lists measurements and where the implementation differs from this plan.
 
 
 ## Context
@@ -23,7 +25,7 @@ Agreed with Artem (2026-10-01):
 - **Trace scope:** `/records`, `/graph`, `/map` and `/time`, from Explorer and from all modules.
 - **Performance:** trace first, then fix in this same plan.
 
-On approval, this text is saved as `docs/development/10 Query-Trace-and-Termination-Plan.md`, with a `Status:` line in the same style as plan 09. Decisions and deviations are recorded there with dates.
+On approval, this text is saved as `docs/development/10 DONE Query-Trace-and-Termination-Plan.md`, with a `Status:` line in the same style as plan 09. Decisions and deviations are recorded there with dates.
 
 ---
 
@@ -285,3 +287,12 @@ locally / 4.8 s on production, run twice (ids + count). `Records.rec_Title` and
   for the FULLTEXT "contains" compilation.
 - "Does not contain" (`NOT MATCH`) cannot use the index and stays slow.
 - The browser checks listed under Verification were not recorded as done.
+
+## Leftovers (@todo)
+
+Collected 2026-10-18.
+
+- @todo Hub records (`debug.hubs`) in the trace, and excluding hubs from expansion.
+- @todo Server tests planned but not written: `StatementLimitTest.php`, `CancelTest.php`, a test of the FULLTEXT "contains" compilation.
+- @todo "Does not contain" (`NOT MATCH`) cannot use the FULLTEXT index and stays slow (accepted for now).
+- @todo Browser check of the trace panel in the West pane and of the Verification list.

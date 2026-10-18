@@ -1,5 +1,7 @@
 # Edit form (HEditForm) — development plan
 
+**Current state 2026-10-18:** Phases 1-2 and review rounds 1-3 committed (`a83342a`, `6aa1b6a`, `ad8f57e`, `7bf5506`); rounds 4-5 (§15-16) not committed. Open: agree the format (§17), Phase 3 (bridge `openEditForm`), Phase 4 (consumers), remove the test tool.
+
 Status: **proposal 2026-10-17, Phase 1 and Phase 2 implemented 2026-10-17, not committed, not checked
 in a browser.** The JSON format (§3) is a proposal to agree with the *Test edit form* tool (§6).
 Next: agree the format, then Phase 3 (bridge) and Phase 4 (consumers). Plan 14 (record editing) is
@@ -266,7 +268,34 @@ the helper of the Query Source editor, as the expansion rules do.
 
 Tests: 1208 pass (new: list special field; the three helpers with the output mode).
 
-## 15. Open points
+## 15. Review round 4: value tools, widths, special field buttons (Artem, 2026-10-18)
+
+| Request | Done |
+|---|---|
+| Visibility (eye) only when there is a value, as the clear button | `HInput#_syncClearButton` hides the eye with the clear button (its place is kept). Read only: shown only for a hidden value. New export `hasValue()` (HInput.js). |
+| Special fields (query, expansion rules, geo / time / column fields, symbology) had no clear and no eye | `HEditField#_specialTools`: the same `fa-xmark` / `fa-eye` icons with the same behaviour (shown on mouse over and only for a value; clear respects `clearable: false`, the eye `allowHidden`). |
+| Display width 20 on a date field made the readable text 13.6px wide | The width (`--h-field-width`) is now the width of the control itself (`.h-form-input-control-wrap`: the input or the radio group), not of the row with Edit, Show raw and the value tools. A flow card is as wide as its content (`width: auto`; help and issues wrap, `contain: inline-size`). |
+| "Show / hide raw" less prominent | A small muted link (`.h-input-raw-toggle`, HInput.css), after Edit, shown on mouse over / focus (and while the raw value is open). |
+| Order of the buttons | Date and special fields: Edit, Show raw, clear, visibility. |
+| Icons and tooltips (from the QSE) | Special definitions take `icon` and `title` (per action too). Query `fa-sliders` "Open the Filter Builder"; expansion rules `fa-hexagon-nodes`; geo `fa-map-location-dot`; time `fa-clock`; columns `fa-table` (tooltips as the QSE configuration rows); DT_SYMBOLOGY Style `fa-palette`, Thematic maps `fa-chart-simple` (Map control panel). Date Edit: `fa-calendar-days` (my choice: no QSE icon for it), tooltip "Temporal object / compound date: uncertain, range, fuzzy, radiometric". |
+| Temporal popup caption | "Temporal Object / Compound date" (was the field label). |
+| Geo, column and time field helpers | `HFieldSelectionEditor`: the HFieldTree is built in on the left (`mount`, it stays open; a click adds a field, column fields keep "Add selected fields"), selected fields on the right; "+ Add field" removed. The Auto select (geo) button is above the selected fields, the geo options under them. Also in the Query Source editor (same helpers). Without a record type the tree shows a note. |
+
+Tests: 1216 pass (changed: special field buttons; new: eye only with a value).
+
+## 16. Review round 5: helper dialogs, radiometric widths (Artem, 2026-10-18)
+
+| Request | Done |
+|---|---|
+| Radiometric: Mean date and Standard deviation very narrow | A display width counts visible characters: the control is `width + 2em` (padding, border, number spinner). Radiometric widths 12 (mean) and 10 (deviations). Now 104px / 91px. |
+| Geographic and Time fields wider and lower | Own dialog shell `h-qse-dialog-shell` (980px, was the 640px message dialog), tree 440px wide and 42vh high. |
+| Column fields: headers of the selected list | Header row Field, Header, Width (sticky, same grid as the rows). |
+| HFieldTree: "Select all visible options" and "enum fields" on one line | Multi-select trees: both in one toolbar row (`.h-fbtree-toolbar-row`). |
+
+Checked in headless Edge (scratch pages: radiometric tab; the three helper dialogs with the test snapshot).
+Tests: 1216 pass.
+
+## 17. Open points
 
 - Agree the JSON format (§3) with the tool, especially: native value types in `getValues`,
   `maxValue` vs `max`, `showWhen` as "all of" with text comparison, dotted names.

@@ -1,6 +1,8 @@
 # Smarty Reports — development plan
 
-Status: **agreed with Artem 2026-10-04 (see §Agreed decisions). Phases 1-2 (server) implemented
+Status: **DONE 2026-10-18.** Phases 1-6 committed (explorer `5baa49a`, `b4efd23`; heurist `5a0995865`, `4a820dad0`). Used and reviewed by Artem since 2026-10-05. Leftovers: §Leftovers (@todo) at the end.
+
+Earlier status: **agreed with Artem 2026-10-04 (see §Agreed decisions). Phases 1-2 (server) implemented
 2026-10-04, Phases 3-5 (client) 2026-10-05; nothing committed, not yet checked in a browser by Artem
 (a headless smoke test of the bundle and of the CodeMirror editor passed). Tests: heurist
 `tests/ReportsApiTest.php` (48 checks), `tests/JobRunnerTest.php` (40); client `npm test` (1010).
@@ -771,3 +773,14 @@ then `DELETE /reports/generated/{file}` per file). The popover moved to `shared/
   a report, `ext:'term'` in a column). On: the folder with Term / Code / Concept ID / ...
 - Both choices are kept between openings of the same tree. Tests: `hFieldTree.test.js`,
   `shared/test/smartyEditor.test.js`.
+
+## Leftovers (@todo)
+
+Collected 2026-10-18.
+
+- @todo CMS editor element "Generated report" (`GET /reports/generated`).
+- @todo Legacy hclient: replace `reportViewer` / `reportEditor` with the `heurist-reports` bundle through a wrapper.
+- @todo Record title masks in Smarty (`HSmartyEditor` in `record` mode): needs a decision on speed and on converting the existing masks.
+- @todo Use the job framework for record batch actions.
+- @todo Remove `usrReportSchedule` once all databases are migrated.
+- @todo Report properties / generate / schedule dialogs on HEditForm (plan 14a, Phase 4).

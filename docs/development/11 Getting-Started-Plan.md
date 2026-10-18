@@ -1,5 +1,7 @@
 # Getting started: start-up query, welcome popup and guided tour — development plan
 
+**Current state 2026-10-18:** Phases 1-2 committed (`8b010f9`). Open: Phase 3 content (Tools and Publication texts, recordings from Artem, French translations).
+
 Status: **agreed with Artem 2026-10-03. Phases 1 and 2 implemented 2026-10-03, not committed,
 not yet checked in a browser. Phase 3 (content, recordings) open; first texts for topics 1–3
 are in place.**

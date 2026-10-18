@@ -1,6 +1,8 @@
 # Compact toolbar position — development plan
 
-Status: **Part 1 agreed and implemented 2026-10-13, committed (`bb44f67`). Part 2 (below) agreed
+Status: **DONE 2026-10-18.** Parts 1-7 committed (`bb44f67`, `b54f217`, `8dcd535`). Leftovers: §Leftovers (@todo) at the end.
+
+Earlier status: **Part 1 agreed and implemented 2026-10-13, committed (`bb44f67`). Part 2 (below) agreed
 and implemented 2026-10-14, not committed, not yet checked in a browser.** Since Part 2 the position
 is called **"In panes"** (config value `panes`; files `ExplorerPaneToolbar.*`); Part 1 below keeps
 the old name *Compact*.
@@ -305,3 +307,12 @@ Simplified interface, QSE p6 (2026-10-15):
   callback). Explorer reloads the Saved Filters on save. Shown only with the bridge method and
   `canEditSavedFilters`.
 - The Filter Form has no **Builder** button in the simplified interface.
+
+## Leftovers (@todo)
+
+Collected 2026-10-18.
+
+- @todo Browser checks listed under the two "Open / to check in a browser" sections (row and strip at different widths, redraw after collapse / maximize, tab strip fitting, gear menu position, Report tool state when switching tabs, pinned buttons).
+- @todo Simplified interface: Timeline keeps its default pane (South) - to confirm.
+- @todo Crosstabs and Actions are stubs (pane modules without content).
+- @todo Parameterized queries are not saved as Saved Filters from the new UI (decided 2026-10-14; a reverse converter to the legacy faceted format was not done).

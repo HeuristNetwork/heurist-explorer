@@ -171,12 +171,12 @@ Known M3–M5 simplifications / TODO:
   `OR`/parens, no linked/related sub-queries, no prose. Feeds the inline sentence
   and seeds the builder; the server `RecordQueryParser::textToJson` stays
   canonical (Task B / M8).
-- **@todo Field selector: metadata / header fields.** The tree only lists real
+- **Done (HFieldTree header fields, checked 2026-10-18). Field selector: metadata / header fields.** The tree only lists real
   `rst` fields. Add the legacy "Generic fields" group (Title, Date added, Date
   modified, Creator, URL, Notes, Owner, Visibility, Tags) — `searchBuilderItem.js`
   `topOptions2` (~L282). `queryModel`/`HFilterBuilderItem` already compile header
   keywords; only the picker entry is missing.
-- **@todo Field selector: "ANY field" entry.** Offer an explicit "Any field" leaf
+- **Done (HFieldTree "Any field" leaf, checked 2026-10-18). Field selector: "ANY field" entry.** Offer an explicit "Any field" leaf
   (compiles to bare `f:`); `HFilterBuilderItem` already handles `dty:'anyfield'`.
 - **@todo Links deeper than one level.** `HFieldTree` stops after one pointer hop
   and `LinkPanel` is single-level (D3). Nested `lt:…:[{lt:…:[…]}]` needs a

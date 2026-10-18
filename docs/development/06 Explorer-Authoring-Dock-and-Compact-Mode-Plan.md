@@ -1,5 +1,7 @@
 # Explorer authoring dock and compact mode
 
+**Current state 2026-10-18:** Parts A-C committed (`930e374`, `c894f3d`). Open: narrow-screen leftovers (helper dialogs on a phone, e.g. Column fields rows), floating / pop-out QSE (optional), published mode with the Publication plan.
+
 Status: decisions agreed with Artem, 2026-09-25. Part A and Part B implemented
 (not yet verified in a browser). Part B will be tuned with the publication work
 ([Explorer-Publication-and-Website-Development-Plan.md](Explorer-Publication-and-Website-Development-Plan.md)).

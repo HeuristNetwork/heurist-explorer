@@ -1,5 +1,7 @@
 # Record editing — development plan
 
+**Current state 2026-10-18:** Phases 1-3 committed (explorer `3423c49`; heurist `81526abd7`); title mask and calculated fields committed (heurist `396320f3a`). Open: Phase 4 (Records manager, deferred), DeepL in Translate, file upload API, ordinary user records.
+
 Status: **agreed 2026-10-12 (review rounds 1–2, §Agreed decisions, §8). Implemented 2026-10-12, nothing
 committed, nothing checked in a browser:
 Phase 1 (server, heurist repo: `srv/Records/Edit/`, `RecordEditController`, `api.php` routes, GET additions,
