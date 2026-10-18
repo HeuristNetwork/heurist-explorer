@@ -142,6 +142,22 @@ test('value tools are HInput options: remove event, visibility switch, actions s
   assert.equal(add.parentElement, input.actionsHost);
 });
 
+test('the visibility switch is shown only for a value, as the clear action (2026-10-18)', async () => {
+  const { createHInput } = await import('../src/widgets/form/inputs/createHInput.js');
+  const host = document.createElement('div');
+  document.body.append(host);
+  const input = createHInput('freetext', host, {
+    value: 'a', suppressLabel: true, valueTools: true, visibilityToggle: true
+  });
+  assert.equal(input.visibilityButton.hidden, false);
+  input.clearButton.click();
+  assert.equal(input.clearButton.hidden, true);
+  assert.equal(input.visibilityButton.hidden, true, 'no value: no visibility switch');
+  input.control.value = 'b';
+  input.notifyChange();
+  assert.equal(input.visibilityButton.hidden, false);
+});
+
 test('Add / Translate in front of the first value only; no duplicate clear button', async () => {
   const { editor } = await openEditor();
   const notes = editor.editForm.getFieldWidget(1105);

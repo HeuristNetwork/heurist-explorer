@@ -149,7 +149,7 @@ export function openTemporalEditor(value, options = {}) {
       ];
     const dialog = HMsg.showMsgDlg(body, {
       dialogId: id,
-      title: options.title || $HR('Temporal object'),
+      title: options.title || $HR('Temporal Object / Compound date'),
       preventClose: true,
       buttons: dialogButtons
     });

@@ -192,7 +192,13 @@ test('a special field shows a readable value, the raw text on request and its ed
   assert.equal(row.summary.textContent, 'People');
   const input = field.container.querySelector('.h-edit-field-input');
   assert.equal(input.hidden, true, 'raw text hidden at first');
-  const [raw, edit] = field.container.querySelector('.h-edit-field-special-buttons').children;
+  // Edit, Show raw, clear, visibility (2026-10-18)
+  const [edit, raw, clear, eye] = field.container.querySelector('.h-edit-field-special-buttons').children;
+  assert.ok(edit.classList.contains('h-edit-field-special-edit'));
+  assert.ok(clear.classList.contains('h-form-input-clear'));
+  assert.ok(eye.classList.contains('h-form-input-visibility'));
+  assert.equal(clear.hidden, false, 'clear shown for a value');
+  assert.equal(eye.hidden, false, 'visibility shown for a value');
   raw.click();
   assert.equal(input.hidden, false, 'Show raw shows the text');
   edit.click();
@@ -200,8 +206,14 @@ test('a special field shows a readable value, the raw text on request and its ed
   assert.equal(field.getValue(), '[{"name":"Places"}]');
   assert.equal(row.summary.textContent, 'Places');
   assert.equal(values[1174], '{}', 'the editor may change another field');
+  eye.click();
+  assert.equal(field.getState().values[0].hidden, true, 'the eye hides the value from the public');
   row.input.setValue('not json');
   assert.deepEqual(field.validate(), ['The raw value is not valid JSON']);
+  clear.click();
+  assert.equal(field.getValue(), null, 'clear empties the value');
+  assert.equal(clear.hidden, true, 'no clear without a value');
+  assert.equal(eye.hidden, true, 'no visibility without a value');
   await field.destroy();
 });
 

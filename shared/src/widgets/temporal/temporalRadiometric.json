@@ -9,7 +9,7 @@
             { "id": "bce", "label": "Years BCE" },
             { "id": "bp", "label": "Years BP (before 1950)" }
           ] },
-        { "name": "mean", "type": "integer", "label": "Mean date", "req": "required", "width": 10 }
+        { "name": "mean", "type": "integer", "label": "Mean date", "req": "required", "width": 12 }
       ]
     },
     {
@@ -20,11 +20,11 @@
             { "id": "sym", "label": "± Standard deviation" },
             { "id": "asym", "label": "Positive and negative" }
           ] },
-        { "name": "dev", "type": "integer", "label": "Standard deviation (years)", "minValue": 0, "width": 8,
+        { "name": "dev", "type": "integer", "label": "Standard deviation (years)", "minValue": 0, "width": 10,
           "showWhen": { "devType": "sym" } },
-        { "name": "devPos", "type": "integer", "label": "Positive deviation (years)", "minValue": 0, "width": 8,
+        { "name": "devPos", "type": "integer", "label": "Positive deviation (years)", "minValue": 0, "width": 10,
           "showWhen": { "devType": "asym" } },
-        { "name": "devNeg", "type": "integer", "label": "Negative deviation (years)", "minValue": 0, "width": 8,
+        { "name": "devNeg", "type": "integer", "label": "Negative deviation (years)", "minValue": 0, "width": 10,
           "showWhen": { "devType": "asym" } }
       ]
     },

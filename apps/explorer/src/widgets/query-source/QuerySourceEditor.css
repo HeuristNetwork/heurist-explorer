@@ -122,6 +122,7 @@
 .h-qse-dialog-wide { width:100%; min-width:0; }
 .h-dialog.h-qse-dialog-wide-shell { width:calc(100vw - 24px) !important; max-width:none !important; }
 .h-qse-dialog { min-width:min(620px, 82vw); }
+.h-dialog.h-qse-dialog-shell { width:min(980px, calc(100vw - 32px)); }
 
 /* ---- simplified interface ("Interface for dummies", 2026-10-14) ----
  * no p0, p3 (sentence), p5 or presentation settings; Builder and Save/Add are hidden by

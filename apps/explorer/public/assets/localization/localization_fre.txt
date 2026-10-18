@@ -615,7 +615,10 @@
 #Probable begin = Terminus Post Quem#Début probable = Terminus Post Quem
 #Probable end = Terminus Ante Quem#Fin probable = Terminus Ante Quem
 #Raw value#Valeur brute
-#Compound date: uncertain, range, fuzzy, radiometric#Date composée : incertaine, intervalle, floue, radiométrique
+#Temporal object / compound date: uncertain, range, fuzzy, radiometric#Objet temporel / date composée : incertaine, intervalle, floue, radiométrique
+#Temporal Object / Compound date#Objet temporel / Date composée
+#Show the stored value#Afficher la valeur enregistrée
+#The query has no record type: its fields cannot be listed#La requête n'a pas de type d'enregistrement : ses champs ne peuvent pas être listés
 #Enter a year (1624), yyyy-mm or yyyy-mm-dd; minus for BCE (-375)#Saisissez une année (1624), aaaa-mm ou aaaa-mm-jj ; un moins pour av. J.-C. (-375)
 #Enter a date#Saisissez une date
 #Both earliest and latest estimates are required#Les estimations la plus ancienne et la plus récente sont requises
@@ -677,3 +680,6 @@
 #Negative deviation (years)#Écart négatif (années)
 #Lab code#Code du laboratoire
 #Calibrated#Calibrée
+#Field#Champ
+#Header#En-tête
+#Width#Largeur

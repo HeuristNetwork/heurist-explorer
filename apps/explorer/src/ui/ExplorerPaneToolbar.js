@@ -20,7 +20,7 @@
  *
  * Not to be confused with ExplorerCompactMode (narrow screens), which wins: it
  * switches the toolbar to horizontal, and so this off, below its breakpoint.
- * See docs/development/16 Compact-Toolbar-Plan.md.
+ * See docs/development/16 DONE Compact-Toolbar-Plan.md.
  *
  * @project     Heurist academic knowledge management system
  * @package     heurist-explorer

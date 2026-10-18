@@ -7,7 +7,7 @@
  * created lazily into the body by the `create` callback (its own chunk). DataSource,
  * selection and rule changes reach the tool through the SyncEngine like any module.
  * There is no close button: the tool is shown and hidden like the presentations
- * (toolbar button, pane tab). See docs/development/16 Compact-Toolbar-Plan.md, Part 2.
+ * (toolbar button, pane tab). See docs/development/16 DONE Compact-Toolbar-Plan.md, Part 2.
  *
  * @project     Heurist academic knowledge management system
  * @package     heurist-explorer

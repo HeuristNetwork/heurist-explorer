@@ -36,7 +36,7 @@ export function showHelperDialog(title, editor, getResult) {
     // own dialog: a message shown meanwhile (e.g. a flash) must not replace the editor
     const dialogId = 'h-qse-editor-dialog';
     const finish = async (value) => {
-      dlg?.classList.remove('h-qse-dialog-wide-shell');
+      dlg?.classList.remove('h-qse-dialog-wide-shell', 'h-qse-dialog-shell');
       HMsg.closeMsgDlg?.(dialogId);
       await editor.destroy();
       resolve(value);
@@ -51,5 +51,7 @@ export function showHelperDialog(title, editor, getResult) {
       ]
     });
     dlg?.classList.toggle('h-qse-dialog-wide-shell', wide);
+    // geographic and time fields: wider and lower than a message dialog (2026-10-18)
+    dlg?.classList.toggle('h-qse-dialog-shell', !wide);
   });
 }

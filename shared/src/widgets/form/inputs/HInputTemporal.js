@@ -1,7 +1,8 @@
 /**
  * @file HInputTemporal.js
  * @brief Date field of an edit form (plan 19): the simple date input, plus
- *        "Show raw" and "Edit" (the temporal editor popup).
+ *        "Edit" (the temporal editor popup) and "Show raw" (a small link shown on
+ *        mouse over), before the value tools.
  *
  * The value is the stored text: a plain date (`1969-05-03`, `1624`, `-375`) is
  * edited in the date input; a temporal object (JSON: circa, ranges, radiometric...)
@@ -51,17 +52,22 @@ export class HInputTemporal extends HInputDate {
     return control;
   }
 
-  /** @returns {HInputTemporal} This input, with the Show raw / Edit buttons and the raw text. */
+  /**
+   * Edit and Show raw right after the control, before the value tools (clear, visibility).
+   *
+   * @returns {HInputTemporal} This input, with the Edit / Show raw buttons and the raw text.
+   */
   render() {
     super.render();
     const controlHost = this.container.querySelector('.h-form-input-control');
     const buttons = document.createElement('span');
     buttons.className = 'h-input-temporal-buttons';
-    this.rawButton = button($HR('Show raw'));
-    this.editButton = button($HR('Edit'));
-    this.editButton.title = $HR('Compound date: uncertain, range, fuzzy, radiometric');
-    buttons.append(this.rawButton, this.editButton);
-    controlHost?.append(buttons);
+    this.editButton = editButton();
+    this.rawButton = rawToggle();
+    buttons.append(this.editButton, this.rawButton);
+    const wrap = controlHost?.querySelector('.h-form-input-control-wrap');
+    if (wrap) wrap.after(buttons);
+    else controlHost?.append(buttons);
 
     this.raw = document.createElement('textarea');
     this.raw.className = 'h-input h-input-temporal-raw';
@@ -152,18 +158,35 @@ export class HInputTemporal extends HInputDate {
   /** Open the temporal editor with the current value. */
   async _edit() {
     const { openTemporalEditor } = await import('../../temporal/HTemporalEditor.js');
-    const next = await openTemporalEditor(this.getValue(), { title: this.options.label || undefined });
+    const next = await openTemporalEditor(this.getValue());
     if (next === undefined) return;
     this.setValue(next);
     this.notifyChange();
   }
 }
 
-/** A small text button. */
-function button(label) {
+/** @returns {HTMLButtonElement} Edit: opens the temporal editor (icon and caption). */
+function editButton() {
   const element = document.createElement('button');
   element.type = 'button';
-  element.className = 'h-btn h-btn-small h-i18n';
-  element.textContent = label;
+  element.className = 'h-btn h-btn-small h-input-temporal-edit';
+  const icon = document.createElement('span');
+  icon.className = 'fa-solid fa-calendar-days';
+  icon.setAttribute('aria-hidden', 'true');
+  const caption = document.createElement('span');
+  caption.className = 'h-i18n';
+  caption.textContent = $HR('Edit');
+  element.append(icon, caption);
+  element.title = $HR('Temporal object / compound date: uncertain, range, fuzzy, radiometric');
+  return element;
+}
+
+/** @returns {HTMLButtonElement} Show / Hide raw: a small muted link, shown on mouse over (HInputTemporal.css). */
+function rawToggle() {
+  const element = document.createElement('button');
+  element.type = 'button';
+  element.className = 'h-link-button h-input-raw-toggle h-i18n';
+  element.textContent = $HR('Show raw');
+  element.title = $HR('Show the stored value');
   return element;
 }

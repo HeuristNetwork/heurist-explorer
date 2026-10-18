@@ -314,6 +314,7 @@ export class HInput extends HBaseWidget {
       });
       controlHost.append(this.visibilityButton);
       this.setValueHidden(this.options.valueHidden === true);
+      this._syncClearButton();
     }
     // Add a value / Translate in front of the control (2026-10-17)
     this.actionsHost = document.createElement('span');
@@ -360,6 +361,7 @@ export class HInput extends HBaseWidget {
       button.setAttribute('aria-pressed', String(this._valueHidden));
     }
     this.container?.classList.toggle('is-value-hidden', this._valueHidden);
+    this._syncClearButton();
     return this;
   }
 
@@ -377,17 +379,29 @@ export class HInput extends HBaseWidget {
 
   _syncClearButton() {
     if (!this.clearButton) return;
+    const present = hasValue(this.getValue());
+    // the visibility switch only for a value (as the clear action, 2026-10-18); read only:
+    // shown for a hidden value only
+    if (this.visibilityButton) {
+      this.visibilityButton.hidden = !present || (Boolean(this.options.readOnly) && !this._valueHidden);
+    }
     // value tools: remove is always offered; clear only when there is a value
     if (this.options.valueTools && this.options.removable) {
       this.clearButton.hidden = Boolean(this.options.readOnly);
       return;
     }
-    const value = this.getValue();
-    const present = Array.isArray(value) ? value.length > 0
-      : value && typeof value === 'object' ? Object.values(value).some((part) => part != null && part !== '')
-        : value != null && value !== '';
     this.clearButton.hidden = !present || Boolean(this.options.readOnly);
   }
+}
+
+/**
+ * @param {*} value Value of an input.
+ * @returns {boolean} Whether there is a value (a range or an object: one part set).
+ */
+export function hasValue(value) {
+  return Array.isArray(value) ? value.length > 0
+    : value && typeof value === 'object' ? Object.values(value).some((part) => part != null && part !== '')
+      : value != null && value !== '';
 }
 
 /** A small icon button of the value tools. */

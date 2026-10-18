@@ -7,6 +7,7 @@
 }
 
 .h-input-temporal .h-input-date[hidden],
+.h-input-temporal-edit[hidden],
 .h-input-temporal-summary[hidden],
 .h-input-temporal-raw[hidden] {
   display: none;
@@ -27,8 +28,14 @@
 .h-input-temporal-buttons {
   display: inline-flex;
   flex: 0 0 auto;
+  align-items: center;
   gap: 4px;
-  margin-left: 4px;
+}
+
+.h-input-temporal-edit {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .h-input-temporal-raw {

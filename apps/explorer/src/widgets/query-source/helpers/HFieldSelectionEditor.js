@@ -39,7 +39,8 @@ export class HFieldSelectionEditor extends HBaseWidget {
    * @param {boolean} [options.hideUnselectable] Whether non-selectable fields are hidden rather than shown disabled.
    * @param {boolean} [options.showSort] Whether the field tree offers a sort control.
    * @param {boolean} [options.multiSelect] Mark several fields in the tree and add them with
-   *        "Add selected fields"; enum fields expand to their outputs (Term, Code, ...).
+   *        "Add selected fields"; enum fields expand to their outputs (Term, Code, ...). Otherwise
+   *        a click in the tree adds the field.
    * @param {boolean} [options.removeAll] Show a "Remove all fields" button.
    * @param {function(Array): void} [options.onChange] Called after every change of the list.
    */
@@ -65,7 +66,11 @@ export class HFieldSelectionEditor extends HBaseWidget {
    * @param {number} recordTypeId Record type the field tree is scoped to.
    * @returns {HFieldSelectionEditor} this, for chaining.
    */
-  setRecordType(recordTypeId) { this.recordTypeId = Number(recordTypeId) || null; return this; }
+  setRecordType(recordTypeId) {
+    this.recordTypeId = Number(recordTypeId) || null;
+    if (this.isRendered) this._mountTree();
+    return this;
+  }
 
   /**
    * @param {Array} value Field descriptors (or field codes/ids) to select.
@@ -76,47 +81,63 @@ export class HFieldSelectionEditor extends HBaseWidget {
   /** @returns {Array} A clone of the selected field descriptors. */
   getValue() { return this.fields.map((x) => ({ ...x })); }
 
-  /** @returns {HFieldSelectionEditor} this, for chaining. */
+  /**
+   * The field tree built in on the left (it stays open: a click adds a field, or marks it in a
+   * multiSelect tree for "Add selected fields"), the selected fields on the right (2026-10-18:
+   * was a "+ Add field" button with the tree in a popover).
+   *
+   * @returns {HFieldSelectionEditor} this, for chaining.
+   */
   render() {
     if (!this.container) throw new Error('HFieldSelectionEditor must be attached before render');
-    this.container.className = 'h-qse-helper';
+    this.container.className = 'h-qse-helper h-qse-helper-split';
     this.container.replaceChildren();
 
-    const toolbar = document.createElement('div');
-    toolbar.className = 'h-qse-helper-toolbar';
-    this._add = document.createElement('button');
-    this._add.type = 'button';
-    this._add.className = 'h-btn h-btn-small';
-    this._add.textContent = `+ ${$HR('Add field')}`;
-    this._add.addEventListener('click', () => this._openTree());
-    toolbar.append(this._add);
+    this._treeHost = document.createElement('div');
+    this._treeHost.className = 'h-qse-helper-tree';
+    const selected = document.createElement('div');
+    selected.className = 'h-qse-helper-selected';
+
+    // the helper's own buttons (Auto select, Remove all fields)
+    this._toolbar = document.createElement('div');
+    this._toolbar.className = 'h-qse-helper-toolbar';
     if (this.removeAll) {
       this._clear = document.createElement('button');
       this._clear.type = 'button';
       this._clear.className = 'h-btn h-btn-small';
       this._clear.textContent = $HR('Remove all fields');
       this._clear.addEventListener('click', () => { this.fields = []; this._renderRows(); });
-      toolbar.append(this._clear);
+      this._toolbar.append(this._clear);
     }
 
     this._rows = document.createElement('div');
     this._rows.className = 'h-qse-helper-rows';
-    this.container.append(toolbar, this._rows);
+    selected.append(this._toolbar, this._rows);
+    this.container.append(this._treeHost, selected);
+    this._mountTree();
     this._renderRows();
     this.state = 'rendered';
     return this;
   }
 
-  _openTree() {
-    if (!this.recordTypeId) return;
-    this.tree.open(this._add, {
+  /** Show the field tree of the record type in its panel. */
+  _mountTree() {
+    if (!this._treeHost) return;
+    if (!this.recordTypeId) {
+      this.tree.close();
+      const note = document.createElement('div');
+      note.className = 'h-muted h-qse-helper-note';
+      note.textContent = $HR('The query has no record type: its fields cannot be listed');
+      this._treeHost.replaceChildren(note);
+      return;
+    }
+    this.tree.mount(this._treeHost, {
       rtyId: this.recordTypeId,
       selectableTypes: this.selectableTypes,
       maxDepth: 3,
       includeHeaders: this.includeHeaders,
       hideUnselectable: this.hideUnselectable,
       showSort: this.showSort,
-      tall: true,
       // column fields: several at once, values only (no "Any field" / "<type> records")
       ...(this.multiSelect ? {
         multiSelect: true,

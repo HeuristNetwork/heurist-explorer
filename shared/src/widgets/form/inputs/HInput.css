@@ -180,7 +180,8 @@
   display: none;
 }
 
-/* a hidden clear / remove keeps its place: the control does not grow and shrink (2026-10-17) */
+/* a hidden clear / remove (and the visibility switch without a value, 2026-10-18) keeps its
+   place: the control does not grow and shrink (2026-10-17) */
 .h-form-input.has-value-tools .h-form-input-tool[hidden] {
   display: inline-block;
   visibility: hidden;
@@ -203,4 +204,30 @@
 
 .h-form-input-actions:empty {
   display: none;
+}
+
+/* Show / Hide raw (date and special fields, 2026-10-18): a small muted link after Edit,
+   shown on mouse over or focus, and while the raw value is open */
+.h-input-raw-toggle {
+  flex: 0 0 auto;
+  border: 0;
+  padding: 0 2px;
+  background: transparent;
+  color: var(--h-color-text-muted);
+  font-size: var(--h-font-size-small, 0.85em);
+  text-decoration: underline;
+  white-space: nowrap;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity .12s ease;
+}
+
+.h-input-raw-toggle:hover {
+  color: var(--h-color-primary);
+}
+
+.h-form-input:hover .h-input-raw-toggle,
+.h-form-input:focus-within .h-input-raw-toggle,
+.h-input-raw-toggle[aria-expanded='true'] {
+  opacity: 1;
 }

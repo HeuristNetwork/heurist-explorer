@@ -27,6 +27,23 @@ export class HFieldSetEditor extends HFieldSelectionEditor {
     return this.fields.map(({ _type, ...field }) => ({ ...field }));
   }
 
+  /** The selected columns under a header row: Field, Header, Width (2026-10-18). */
+  _renderRows() {
+    super._renderRows();
+    if (!this._rows || !this.fields.length) return;
+    const head = document.createElement('div');
+    head.className = 'h-qse-fieldset-row h-qse-fieldset-head';
+    for (const text of ['', '', 'Field', 'Header', 'Width', '']) {
+      const cell = document.createElement('span');
+      if (text) {
+        cell.className = 'h-i18n';
+        cell.textContent = $HR(text);
+      }
+      head.append(cell);
+    }
+    this._rows.prepend(head);
+  }
+
   _row(field, index) {
     const row = document.createElement('div');
     row.className = 'h-qse-fieldset-row';

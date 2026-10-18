@@ -11,9 +11,10 @@
  * translations are shown as language chips that open a small popup to edit them.
  *
  * A special field (query, filter form, expansion rules, symbology...: the host
- * gives a `special` definition) shows a readable value with two actions: "Show
- * raw" toggles a text area with the stored (JSON) value, "Edit" opens the special
- * editor of the host. A `json` field is the raw text area, checked as JSON. A special
+ * gives a `special` definition) shows a readable value, then "Edit" (the special
+ * editor of the host, with its icon and tooltip), "Show raw" (a small link shown on
+ * mouse over, toggles a text area with the stored (JSON) value), clear and "hidden
+ * from the public" (shown for a value, as the value tools of other fields). A `json` field is the raw text area, checked as JSON. A special
  * `list` field is a repeatable field edited as a whole (field codes of a Query Source):
  * one box, its raw text has one value per line.
  *
@@ -69,10 +70,11 @@ export class HEditField extends HBaseWidget {
    * @param {Function} [options.fileUrl] Link to view a file of a file field.
    * @param {boolean} [options.allowHidden=true] Show the "hidden from the public" switch.
    * @param {boolean} [options.readOnly] Display only (also `field.readOnly`).
-   * @param {{json?: boolean, list?: boolean, describe?: Function, edit?: Function, actions?: Array<object>}|null} [options.special] Special field:
+   * @param {{json?: boolean, list?: boolean, describe?: Function, edit?: Function, icon?: string, title?: string, actions?: Array<object>}|null} [options.special] Special field:
    *        `describe(value, context)` readable text, `edit(value, context)` resolves with the new
-   *        value (undefined: cancelled), `json` the raw value must be JSON; `actions`
-   *        (`[{label, title?, primary?, run(value, context)}]`) several editors instead of `edit`,
+   *        value (undefined: cancelled), `icon` (Font Awesome class) and `title` (tooltip) of its
+   *        Edit button, `json` the raw value must be JSON; `actions`
+   *        (`[{label, icon?, title?, primary?, run(value, context)}]`) several editors instead of `edit`,
    *        or `actionsFor(context)` returning them for the record (type) being edited.
    * @param {object} [options.context] Passed to `describe`/`edit`: `{field, getValue(name), setValue(name, value)}`.
    * @returns {HEditField} This field.
@@ -347,9 +349,12 @@ export class HEditField extends HBaseWidget {
       host.classList.add('has-display-width');
       host.style.setProperty('--h-field-width', width);
     }
+    // a special field has its own clear and visibility buttons
     if (this.options.special) this._renderSpecial(row, host);
-    row.removeButton = row.input.clearButton || null;
-    row.hiddenButton = row.input.visibilityButton || null;
+    else {
+      row.removeButton = row.input.clearButton || null;
+      row.hiddenButton = row.input.visibilityButton || null;
+    }
     this.listen(host, 'h-input-remove', (event) => {
       event.stopPropagation();
       this._removeRow(row);
@@ -363,10 +368,9 @@ export class HEditField extends HBaseWidget {
     if (row.hiddenButton) this._syncHidden(row);
     if (this.isReadOnly) {
       row.input.setReadOnly(true);
-      if (row.hiddenButton) {
-        row.hiddenButton.disabled = true;
-        row.hiddenButton.hidden = !entry.hidden;
-      }
+      // shown for a hidden value only (HInput#_syncClearButton, _syncSpecial)
+      if (row.hiddenButton) row.hiddenButton.disabled = true;
+      this._syncSpecial(row);
     }
     this._rows.push(row);
     this._syncRows();
@@ -374,8 +378,8 @@ export class HEditField extends HBaseWidget {
   }
 
   /**
-   * Special field: readable value, "Show raw" (the text input, hidden at first)
-   * and "Edit" (the host's editor).
+   * Special field: readable value, "Edit" (the host's editors), "Show raw" (the text
+   * input, hidden at first), clear and visibility.
    */
   _renderSpecial(row, host) {
     const special = this.options.special;
@@ -384,13 +388,14 @@ export class HEditField extends HBaseWidget {
     box.className = 'h-edit-field-special';
     row.summary = document.createElement('div');
     row.summary.className = 'h-edit-field-special-summary';
+    // Edit (the host's editors), Show raw, then clear and visibility (2026-10-18)
     const buttons = document.createElement('div');
     buttons.className = 'h-edit-field-special-buttons';
     const raw = document.createElement('button');
     raw.type = 'button';
-    raw.className = 'h-btn h-btn-small h-i18n';
+    raw.className = 'h-input-raw-toggle h-i18n';
     raw.textContent = $HR('Show raw');
-    buttons.append(raw);
+    raw.title = $HR('Show the stored value');
     host.hidden = true;
     this.listen(raw, 'click', () => {
       host.hidden = !host.hidden;
@@ -401,14 +406,18 @@ export class HEditField extends HBaseWidget {
     const listed = typeof special.actionsFor === 'function' ? special.actionsFor(this.options.context || {}) : special.actions;
     const actions = Array.isArray(listed)
       ? listed
-      : (typeof special.edit === 'function' ? [{ label: 'Edit', primary: true, run: special.edit }] : []);
+      : (typeof special.edit === 'function' ? [{ label: 'Edit', icon: special.icon, title: special.title, primary: true, run: special.edit }] : []);
     if (!this.isReadOnly) {
       for (const action of actions) {
         if (typeof action?.run !== 'function') continue;
         const edit = document.createElement('button');
         edit.type = 'button';
-        edit.className = `h-btn h-btn-small h-i18n${action.primary ? ' h-btn-primary' : ''}`;
-        edit.textContent = $HR(action.label || 'Edit');
+        edit.className = `h-btn h-btn-small h-edit-field-special-edit${action.primary ? ' h-btn-primary' : ''}`;
+        if (action.icon) edit.append(iconElement(action.icon));
+        const caption = document.createElement('span');
+        caption.className = 'h-i18n';
+        caption.textContent = $HR(action.label || 'Edit');
+        edit.append(caption);
         if (action.title) edit.title = $HR(action.title);
         this.listen(edit, 'click', async () => {
           try {
@@ -424,12 +433,43 @@ export class HEditField extends HBaseWidget {
         buttons.append(edit);
       }
     }
+    buttons.append(raw, ...this._specialTools(row));
     box.append(row.summary, buttons);
     row.element.prepend(box);
     // the raw text: readable value again on change; JSON checked on blur
     this.listen(host, 'h-input-change', () => this._syncSpecial(row));
     this.listen(host, 'focusout', () => this._checkJson(row));
     this._syncSpecial(row);
+  }
+
+  /**
+   * Clear and "hidden from the public" of a special field (the raw text input has no
+   * value tools): the same icons and behaviour as HInput's value tools.
+   *
+   * @returns {HTMLButtonElement[]} The buttons.
+   */
+  _specialTools(row) {
+    const tools = [];
+    if (this.field.clearable !== false || this.isRepeatable) {
+      row.removeButton = toolButton('fa-xmark', 'h-form-input-clear');
+      row.removeButton.title = $HR('Clear the value');
+      row.removeButton.setAttribute('aria-label', row.removeButton.title);
+      this.listen(row.removeButton, 'click', () => {
+        this._removeRow(row);
+        this._syncSpecial(row);
+      });
+      tools.push(row.removeButton);
+    }
+    if (this.options.allowHidden !== false) {
+      row.hiddenButton = toolButton('fa-eye', 'h-form-input-visibility');
+      this.listen(row.hiddenButton, 'click', () => {
+        row.entry.hidden = !row.entry.hidden;
+        this._syncHidden(row);
+        this._changed();
+      });
+      tools.push(row.hiddenButton);
+    }
+    return tools;
   }
 
   /** Show a JSON error of a raw value at once (on blur). */
@@ -455,6 +495,10 @@ export class HEditField extends HBaseWidget {
     }
     row.summary.textContent = text || $HR('Not defined');
     row.summary.classList.toggle('is-empty', !text);
+    // clear and visibility only for a value (read only: the eye of a hidden value only)
+    const present = !isEmpty(value);
+    if (row.removeButton) row.removeButton.hidden = !present || this.isReadOnly;
+    if (row.hiddenButton) row.hiddenButton.hidden = !present || (this.isReadOnly && !row.entry.hidden);
   }
 
   /** Remove a value row (the last row only empties). */
@@ -617,6 +661,15 @@ export class HEditField extends HBaseWidget {
     const hidden = Boolean(row.entry.hidden);
     if (row.input.isValueHidden?.() !== hidden) row.input.setValueHidden?.(hidden);
     row.element.classList.toggle('is-hidden', hidden);
+    // the eye of a special field (not a value tool of its input)
+    if (row.summary && row.hiddenButton) {
+      row.hiddenButton.replaceChildren(iconElement(hidden ? 'fa-eye-slash' : 'fa-eye'));
+      row.hiddenButton.classList.toggle('is-hidden', hidden);
+      row.hiddenButton.title = hidden ? $HR('Hidden from the public - click to show') : $HR('Visible to the public - click to hide');
+      row.hiddenButton.setAttribute('aria-label', row.hiddenButton.title);
+      row.hiddenButton.setAttribute('aria-pressed', String(hidden));
+      this._syncSpecial(row);
+    }
   }
 
   /** Language chips of the translations. */
@@ -797,6 +850,15 @@ function shorten(value) {
 export function isSmallFlatVocabulary(items) {
   const list = Array.isArray(items) ? items : [];
   return list.length > 0 && list.length <= 5 && list.every((item) => !(item.depth > 0));
+}
+
+/** A value tool button (clear, visibility) of a special field, styled as HInput's (HInput.css). */
+function toolButton(icon, className) {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = `heurist-icon-button h-form-input-tool ${className}`;
+  button.append(iconElement(icon));
+  return button;
 }
 
 /** A Font Awesome icon element. */

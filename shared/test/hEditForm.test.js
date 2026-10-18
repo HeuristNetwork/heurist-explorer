@@ -268,7 +268,7 @@ test('a list special field: one box, one value per line, arrays in and out', asy
   assert.equal(field._rows.length, 1, 'one box');
   assert.equal(field._rows[0].summary.textContent, '10:28 + 10:lt4:12:28');
   assert.deepEqual(form.getValue('geo'), ['10:28', '10:lt4:12:28']);
-  field.container.querySelector('.h-edit-field-special-buttons').children[1].click();
+  field.container.querySelector('.h-edit-field-special-edit').click();
   await flush();
   assert.deepEqual(form.getValue('geo'), ['1', '2', '3'], 'the editor result (an array) becomes the values');
   field.setValue([]);

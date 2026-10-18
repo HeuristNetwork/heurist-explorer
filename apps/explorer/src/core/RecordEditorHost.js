@@ -228,6 +228,9 @@ export class RecordEditorHost {
     if (query) {
       specials[query] = {
         json: false, // legacy query strings are text
+        // icons and tooltips of the Query Source editor (2026-10-18)
+        icon: 'fa-sliders',
+        title: 'Open the Filter Builder',
         describe: (value) => this.options.describeQuery?.(parseJson(value) ?? value) || '',
         edit: editQuery ? async (value, context) => {
           const definition = await editDefinition(context);
@@ -242,6 +245,8 @@ export class RecordEditorHost {
     if (rules) {
       specials[rules] = {
         json: true,
+        icon: 'fa-hexagon-nodes',
+        title: 'Rules used by Graph to expand the result through linked records.',
         describe: (value) => describeRules(parseJson(value), dbdefs),
         edit: async (value, context) => {
           const current = asArray(parseJson(value));
@@ -259,6 +264,8 @@ export class RecordEditorHost {
     if (columns) {
       specials[columns] = {
         json: true,
+        icon: 'fa-table',
+        title: 'Columns and formatting used by the Data table presentation.',
         describe: (value) => describeColumns(parseJson(value)),
         edit: async (value, context) => {
           const editor = new HFieldSetEditor({ dbdefs });
@@ -271,6 +278,8 @@ export class RecordEditorHost {
     if (timeFields) {
       specials[timeFields] = {
         list: true, // one field code per value
+        icon: 'fa-clock',
+        title: 'Date and year fields used by Timeline.',
         describe: (value) => labels(value),
         edit: async (value, context) => {
           const editor = new HTimeFieldSelector({ dbdefs });
@@ -286,6 +295,8 @@ export class RecordEditorHost {
       const features = (context) => outputMode > 0 && Number(context.getValue?.(outputMode)) === yes && yes > 0;
       specials[geoFields] = {
         list: true,
+        icon: 'fa-map-location-dot',
+        title: 'Fields used by Map to obtain geometry, including linked geographic fields.',
         describe: (value, context) => {
           const text = labels(value);
           return text && features(context) ? `${text} (${$HR('individual linked map features')})` : text;
@@ -327,6 +338,8 @@ export class RecordEditorHost {
     const isRectype = (context, rty) => rty > 0 && Number(context.rectypeId || context.record?.rec_RecTypeID) === rty;
     const style = {
       label: 'Style',
+      // icons of the Map module control panel (2026-10-18)
+      icon: 'fa-palette',
       title: 'Open symbology editor',
       primary: true,
       run: async (value, context) => {
@@ -339,6 +352,7 @@ export class RecordEditorHost {
     };
     const thematic = {
       label: 'Thematic maps',
+      icon: 'fa-chart-simple',
       title: 'Open thematic maps editor',
       run: async (value, context) => {
         const source = await this._mapLayerSource(context, dbdefs);

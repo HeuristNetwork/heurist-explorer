@@ -61,7 +61,7 @@ export class HGeoFieldSelector extends HFieldSelectionEditor {
     auto.innerHTML = '<i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i> ' + $HR('Auto select Place→Location');
     auto.title = $HR('Find a link to Place and select its Location field');
     auto.addEventListener('click', () => this._autoSelectPlaceLocation());
-    this._add.after(auto);
+    this._toolbar.prepend(auto);
 
     const box = document.createElement('div');
     box.className = 'h-qse-helper-options h-qse-geo-options';
@@ -81,7 +81,8 @@ export class HGeoFieldSelector extends HFieldSelectionEditor {
     );
     dynamicRow.hidden = !this.viewportOptions;
     box.append(featureRow, dynamicRow);
-    this.container.append(box);
+    // under the selected fields, right of the tree
+    this._rows.after(box);
     this._dynamic.input.addEventListener('change', () => this._readOptions());
     this._features.input.addEventListener('change', () => this._readOptions());
     this._min.addEventListener('change', () => this._readOptions());

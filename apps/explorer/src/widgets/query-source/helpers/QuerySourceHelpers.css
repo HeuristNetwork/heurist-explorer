@@ -24,10 +24,27 @@
 .h-qse-fieldset-name { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .h-qse-drag { cursor:ns-resize; text-align:center; color:var(--h-color-text-muted); user-select:none; }
 .h-qse-fieldset-row.is-dragging { opacity:.55; }
+/* header row of the column fields (2026-10-18) */
+.h-qse-fieldset-head { position:sticky; top:0; z-index:1; padding:2px 0; background:var(--h-color-bg); color:var(--h-color-text-muted); font-size:var(--h-font-size-small); font-weight:600; }
 
 .h-qse-geo-options { align-items:stretch; flex-direction:column; }
 .h-qse-helper-option-row { display:flex; align-items:center; gap:var(--h-spacing-sm,8px); flex-wrap:wrap; }
 .h-qse-helper-option-row[hidden] { display:none; }
+
+/* field tree built in left of the selected fields (2026-10-18) */
+.h-qse-helper-split { flex-direction:row; align-items:stretch; min-width:0; }
+.h-qse-helper-tree { display:flex; flex-direction:column; flex:0 0 400px; height:60vh; min-height:0; border:1px solid var(--h-color-border); border-radius:var(--h-radius); }
+/* geographic and time fields: a wide, low dialog (2026-10-18) */
+.h-qse-dialog-shell .h-qse-helper-split .h-qse-helper-tree { flex-basis:440px; height:42vh; }
+.h-qse-dialog-shell .h-qse-helper-split .h-qse-helper-rows { max-height:42vh; }
+.h-qse-helper-note { padding:8px; }
+.h-qse-helper-selected { display:flex; flex:1 1 auto; flex-direction:column; gap:var(--h-spacing-sm,8px); min-width:0; }
+.h-qse-helper-toolbar:empty { display:none; }
+.h-qse-helper-split .h-qse-helper-rows { flex:1 1 auto; min-height:0; max-height:60vh; }
+@media (max-width:700px) {
+  .h-qse-helper-split { flex-direction:column; min-width:0; }
+  .h-qse-helper-tree,.h-qse-dialog-shell .h-qse-helper-split .h-qse-helper-tree { flex:0 0 auto; height:40vh; }
+}
 
 /* Expansion rule builder --------------------------------------------------- */
 .h-rule-builder { display:flex; flex-direction:column; gap:var(--h-spacing-sm,8px); width:min(1180px,92vw); min-width:min(900px,92vw); }

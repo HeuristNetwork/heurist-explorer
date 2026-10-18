@@ -10,7 +10,7 @@
  * the pane's width, the strip shows icons only and wraps. A collapsed pane shows its
  * tabs in the toolbar buttons size (Explorer configuration), and a click anywhere
  * on it expands it with its shown module. HCardinalLayout stays
- * module-agnostic: the strips are Explorer's. See docs/development/16 Compact-Toolbar-Plan.md.
+ * module-agnostic: the strips are Explorer's. See docs/development/16 DONE Compact-Toolbar-Plan.md.
  *
  * @project     Heurist academic knowledge management system
  * @package     heurist-explorer

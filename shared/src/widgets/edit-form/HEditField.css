@@ -166,26 +166,57 @@
   font-style: italic;
 }
 
+/* Edit (icon and caption), Show raw, clear, visibility (2026-10-18) */
 .h-edit-field-special-buttons {
   display: flex;
   flex: 0 0 auto;
+  align-items: center;
+  gap: 4px;
+  min-height: 26px;
+}
+
+.h-edit-field-special-edit {
+  display: inline-flex;
+  align-items: center;
   gap: 4px;
 }
 
-/* flow mode: a field with a display width takes a card as wide as its label and input
-   (at least 300px, formLayout.css), not a share of the row (2026-10-17) */
+/* clear, visibility and Show raw on mouse over or focus, as the value tools (HInput.css) */
+.h-edit-field-value.is-special:hover .h-form-input-tool,
+.h-edit-field-value.is-special:focus-within .h-form-input-tool,
+.h-edit-field-value.is-special:hover .h-input-raw-toggle,
+.h-edit-field-value.is-special:focus-within .h-input-raw-toggle {
+  opacity: 1;
+}
+
+.h-edit-field-special-buttons .h-form-input-tool[hidden] {
+  display: inline-block;
+  visibility: hidden;
+}
+
+/* flow mode: a field with a display width takes a card as wide as its label, input and
+   buttons (at least 300px, formLayout.css), not a share of the row (2026-10-17); help and
+   issues wrap within it (2026-10-18) */
 .h-form-inputs-flow .h-form-layout-group > .h-edit-field.has-display-width {
   flex: 0 1 auto;
-  width: calc(var(--h-form-label-width) + 8px + var(--h-field-width) + 6em);
+  width: auto;
   max-width: 100%;
 }
 
-.h-form-labels-above.h-form-inputs-flow .h-form-layout-group > .h-edit-field.has-display-width {
-  width: calc(var(--h-field-width) + 6em);
+.h-form-inputs-flow .h-edit-field.has-display-width > .h-edit-field-help,
+.h-form-inputs-flow .h-edit-field.has-display-width > .h-edit-field-issues {
+  contain: inline-size;
 }
 
-/* rst_DisplayWidth: the input (with its value tools) about as wide as set, never wider than the form */
+/* rst_DisplayWidth is the width of the control itself (input, radio group), not of the row
+   with the buttons and value tools beside it (2026-10-18); never wider than the form */
 .h-edit-field-input.has-display-width {
   flex: 0 1 auto;
-  width: min(calc(var(--h-field-width) + 4em), 100%);
+  max-width: 100%;
+}
+
+.h-edit-field-input.has-display-width > .h-form-input-control > .h-form-input-control-wrap {
+  flex: 0 1 auto;
+  /* characters are visible characters: plus the padding, border and number spinner (2026-10-18) */
+  width: calc(var(--h-field-width) + 2em);
 }

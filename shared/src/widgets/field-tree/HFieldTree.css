@@ -20,6 +20,9 @@
     border-bottom: 1px solid var(--h-color-border);
 }
 .h-fbtree-toolbar-column { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+/* multiSelect: "Select all visible options" and "enum fields" on one line */
+.h-fbtree-toolbar-row { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 16px; min-width: 0; }
+.h-fbtree-toolbar-row > [hidden] { display: none; }
 .h-fbtree-type-filter { min-height: 24px; padding: 1px 4px; font-size: var(--h-font-size-small); }
 .h-fbtree-toggle { font-size: var(--h-font-size-small); color: var(--h-color-text-muted); }
 .h-fbtree-body { overflow: auto; padding: 4px 0; }

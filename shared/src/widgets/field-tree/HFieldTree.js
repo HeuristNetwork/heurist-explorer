@@ -291,7 +291,12 @@ export class HFieldTree {
       const all = this._toggle($HR('Select all visible options'), false, (on) => this.selectVisible(on));
       all.classList.add('h-fbtree-select-all');
       this._selectAllBox = all.querySelector('input');
-      toolbar.append(all);
+      // "enum fields" on the same line (2026-10-18)
+      const row = document.createElement('div');
+      row.className = 'h-fbtree-toolbar-row';
+      row.append(all);
+      if (this._enumToggle) row.append(this._enumToggle);
+      toolbar.append(row);
     }
 
     this._body = document.createElement('div');
