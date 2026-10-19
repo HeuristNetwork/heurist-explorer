@@ -301,3 +301,7 @@
 #transparent color#transparent color
 #years#years
 #Show header#Show header
+
+# record manager, file media, record editor access (plan 21 review)
+#Click to zoom in / out#Click to zoom in / out
+#Download#Download

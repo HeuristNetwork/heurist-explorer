@@ -196,7 +196,7 @@ function layoutChild(name, facet, path, isRange, dbdefs) {
   const help = String(facet.help || '').trim();
   if (help) child.help = help;
 
-  // legacy slider mode (1): a slider whose bounds the form requests (detail=minmax, plan §12 #10)
+  // legacy slider mode (1): a slider whose bounds the form requests (aggregate op=minmax, plan §12 #10)
   if (isRange) child.widget = { type: 'range', control: isFacetMode(facet) === FT_SLIDER ? 'slider' : 'direct' };
   // a date list grouped by month/year/…
   if (isRange && facet.type === 'date') {
@@ -209,7 +209,7 @@ function layoutChild(name, facet, path, isRange, dbdefs) {
   }
 
   const isEnum = ENUM_TYPES.has(facet.type);
-  // text lists pick the values of a detail field (detail=values), or users/groups for owner/creator
+  // text lists pick the values of a detail field (aggregate op=values), or users/groups for owner/creator
   const isTextList = TEXT_TYPES.has(facet.type) && (Boolean(path.fieldId) || USER_FIELDS.has(path.leaf) || path.leaf === 'title');
   if (isEnum || isTextList) {
     // wizard modes: 1 dropdown, 3 list (column), 2 wrapped (inline); 0 input (text only)

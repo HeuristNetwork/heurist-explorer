@@ -79,38 +79,7 @@
   padding: 10px 14px;
   border-bottom: 1px solid var(--h-color-border);
 }
-.heurist-recordview-media-item {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  width: 120px;
-}
-.heurist-recordview-media-item-player { width: 260px; }
-.heurist-recordview-media-item-expanded { width: 480px; }
-.heurist-recordview-media-thumb {
-  max-width: 120px;
-  max-height: 120px;
-  object-fit: contain;
-  border: 1px solid var(--h-color-border);
-}
-.heurist-recordview-media-item-expanded .heurist-recordview-media-thumb {
-  max-width: 480px;
-  max-height: 480px;
-}
-.heurist-recordview-media-thumb-zoomable { cursor: zoom-in; }
-.heurist-recordview-media-item-expanded .heurist-recordview-media-thumb-zoomable { cursor: zoom-out; }
-.heurist-recordview-media-player { max-width: 100%; }
-.heurist-recordview-media-links {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  width: 100%;
-}
-.heurist-recordview-media-link {
-  font-size: 11px;
-  text-align: center;
-}
+/* one media item: fileMediaItem.css */
 
 .heurist-recordview-sections { padding: 4px 14px; }
 .heurist-recordview-section {

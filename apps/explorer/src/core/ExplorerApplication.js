@@ -53,6 +53,7 @@ import { ExplorerWelcome } from '../ui/ExplorerWelcome.js';
 import { ExplorerTour, loadTourText } from '../ui/ExplorerTour.js';
 import { explorerTourSteps, explorerTourTopics } from '../ui/explorerTourSteps.js';
 import './ExplorerApplication.css';
+import { aggregate } from '#shared/data/aggregate.js';
 
 /** Explorer's top-level application controller: modules, layout, datasource, and synchronization. */
 export class ExplorerApplication {
@@ -981,11 +982,10 @@ export class ExplorerApplication {
   async _withResultCount(source) {
     if (Number.isFinite(Number(source?.meta?.count))) return source;
     const request = source?.request || {};
-    const query = { q: request.q, detail: 'count' };
+    const query = { q: request.q };
     if (request.filter != null) query.filter = request.filter;
-    if (request.sort != null) query.sort = request.sort;
     try {
-      const payload = await this.apiClient.get('/records', { query });
+      const payload = await aggregate(this.apiClient, 'count', query);
       const count = Number(payload?.count ?? payload?.total ?? payload?.records_count
         ?? (typeof payload === 'number' ? payload : NaN));
       if (Number.isFinite(count) && count >= 0) {

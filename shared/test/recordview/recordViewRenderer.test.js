@@ -16,8 +16,13 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
+import { installFakeDom } from "../helpers/fakeDom.js";
 
 const rendererSource = await readFile(new URL("../../src/recordview/RecordViewRenderer.js", import.meta.url), "utf8");
+installFakeDom();
+const { buildFileMediaItem, fileMediaUrls } = await import("../../src/recordview/fileMediaItem.js");
+const urls = fileMediaUrls("http://h/heurist/", "db1");
+const linkTexts = (item) => item.querySelectorAll("a").map((a) => a.textContent);
 
 test("record type icon uses the legacy ?db=&icon= convention", () => {
   assert.match(rendererSource, /\?db=\$\{encodeURIComponent\(this\.database\)\}&icon=\$\{recordTypeId\}/);
@@ -27,31 +32,53 @@ test("file thumbnails use the legacy ?db=&thumb= convention", () => {
   assert.match(rendererSource, /\?db=\$\{encodeURIComponent\(this\.database\)\}&thumb=\$\{encodeURIComponent\(fileId\)\}/);
 });
 
-test("images get an OSD link; images/audio/video get a Mirador link", () => {
-  assert.match(rendererSource, /openSeadragonViewer\.php\?db=\$\{encodeURIComponent\(this\.database\)\}&recID=/);
-  assert.match(rendererSource, /miradorViewer\.php\?db=\$\{encodeURIComponent\(this\.database\)\}&id=/);
-  assert.match(rendererSource, /if \(isImage\) links\.append\(this\.#buildMediaLink\(this\.#osdUrl\(fileId\), "Show in OSD"\)\);/);
-  assert.match(rendererSource, /if \(isImage \|\| isAudio \|\| isVideo\) links\.append\(this\.#buildMediaLink\(this\.#miradorUrl\(fileId\), "Show in Mirador"\)\);/);
+test("media items come from the shared file media builder (fileMediaItem.js)", () => {
+  assert.match(rendererSource, /return buildFileMediaItem\(file, \{ urls: fileMediaUrls\(this\.baseUrl, this\.database\) \}\);/);
 });
 
-test("uploaded audio/video render as native <audio>/<video> players, not static thumbnails", () => {
-  assert.match(rendererSource, /const isAudio = mimeType\.startsWith\("audio\/"\);/);
-  assert.match(rendererSource, /const isVideo = mimeType\.startsWith\("video\/"\);/);
-  assert.match(rendererSource, /document\.createElement\(isVideo \? "video" : "audio"\)/);
-  assert.match(rendererSource, /player\.controls = true;/);
+test("file media: OSD for images; Mirador for images/audio/video; legacy ?db=&file= / &thumb= URLs", () => {
+  const image = buildFileMediaItem({ ulf_ObfuscatedFileID: "k1", fxm_MimeType: "image/png" }, { urls });
+  assert.deepEqual(linkTexts(image), ["Show in OSD", "Show in Mirador"]);
+  assert.equal(image.querySelector("a").href, "http://h/heurist/hclient/widgets/viewers/openSeadragonViewer.php?db=db1&recID=k1");
+  assert.equal(image.querySelector("img").src, "http://h/heurist/?db=db1&thumb=k1");
+  const doc = buildFileMediaItem({ ulf_ObfuscatedFileID: "k2", fxm_MimeType: "application/pdf" }, { urls });
+  assert.deepEqual(linkTexts(doc), []);
 });
 
-test("an externally-referenced file gets a 'Show in new tab' link to its raw external URL", () => {
-  assert.match(rendererSource, /if \(externalUrl\) links\.append\(this\.#buildMediaLink\(externalUrl, "Show in new tab"\)\);/);
+test("file media: uploaded audio/video render as native players, not static thumbnails", () => {
+  const video = buildFileMediaItem({ ulf_ObfuscatedFileID: "k3", fxm_MimeType: "video/mp4" }, { urls });
+  const player = video.querySelector("video");
+  assert.ok(player);
+  assert.equal(player.controls, true);
+  assert.equal(player.querySelector("source").src, "http://h/heurist/?db=db1&file=k3");
+  assert.ok(buildFileMediaItem({ ulf_ObfuscatedFileID: "k4", fxm_MimeType: "audio/mpeg" }, { urls }).querySelector("audio"));
 });
 
-test("clicking an image thumbnail toggles it between the thumbnail and full-size URL, in place, and toggles the expanded size class", () => {
-  assert.match(rendererSource, /const expanded = item\.classList\.toggle\("heurist-recordview-media-item-expanded"\);/);
-  assert.match(rendererSource, /thumb\.src = expanded \? mediaSrc : this\.#thumbUrl\(fileId\);/);
+test("file media: an external file gets 'Show in new tab' with its raw URL", () => {
+  const item = buildFileMediaItem({ ulf_ObfuscatedFileID: "k5", ulf_ExternalFileReference: "https://x.org/a.pdf" }, { urls });
+  const link = item.querySelectorAll("a").find((a) => a.textContent === "Show in new tab");
+  assert.equal(link.href, "https://x.org/a.pdf");
 });
 
-test("the full-file URL uses the legacy ?db=&file= convention", () => {
-  assert.match(rendererSource, /\?db=\$\{encodeURIComponent\(this\.database\)\}&file=\$\{encodeURIComponent\(fileId\)\}/);
+test("file media: a click on an image toggles thumbnail / large image and the expanded class", () => {
+  const item = buildFileMediaItem({ ulf_ObfuscatedFileID: "k6", ulf_OrigFileName: "map.JPG" }, { urls });
+  const thumb = item.querySelector("img");
+  assert.ok(thumb.classList.contains("heurist-recordview-media-thumb-zoomable"), "an image by its extension");
+  thumb.click();
+  assert.ok(item.classList.contains("heurist-recordview-media-item-expanded"));
+  assert.equal(thumb.src, "http://h/heurist/?db=db1&file=k6");
+  thumb.click();
+  assert.equal(thumb.src, "http://h/heurist/?db=db1&thumb=k6");
+});
+
+test("file media: Download and Close (the record editor's file input)", () => {
+  let closed = 0;
+  const item = buildFileMediaItem({ ulf_ObfuscatedFileID: "k7", fxm_MimeType: "image/png" },
+    { urls, download: true, onClose: () => { closed++; } });
+  assert.deepEqual(linkTexts(item), ["Show in OSD", "Show in Mirador", "Download", "Close"]);
+  assert.equal(item.querySelectorAll("a")[2].href, "http://h/heurist/?db=db1&download=1&file=k7");
+  item.querySelectorAll("a")[3].click();
+  assert.equal(closed, 1);
 });
 
 test("the edit button only renders when canEdit is true, sits inside the meta line next to the record id, and calls onEdit with the record id", () => {

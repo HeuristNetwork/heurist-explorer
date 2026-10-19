@@ -753,3 +753,15 @@
 #MIME type#MIME type
 #Size (bytes)#Size (bytes)
 #Tag#Tag
+
+# record manager, file media, record editor access (plan 21 review)
+#Show owners#Show owners
+#Show the file#Show the file
+#local#local
+#Change owner and access#Change owner and access
+#Access#Access
+#Owner and members of#Owner and members of
+#Click to zoom in / out#Click to zoom in / out
+#Show in OSD#Show in OSD
+#Show in Mirador#Show in Mirador
+#Show in new tab#Show in new tab

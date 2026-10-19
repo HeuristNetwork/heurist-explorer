@@ -22,9 +22,9 @@ import './HFilterForm.css';
 
 /** Presentations that pick from a list (plan §3). */
 const LIST_MODES = new Set(['select', 'radio', 'checkbox']);
-/** Header predicates whose values `detail=values` can list. */
+/** Header predicates whose values `aggregate op=values` can list. */
 const HEADER_VALUE_FIELDS = new Set(['owner', 'addedby', 'tag', 'access', 'title']);
-/** Header predicates whose bounds `detail=minmax` can find. */
+/** Header predicates whose bounds `aggregate op=minmax` can find. */
 const HEADER_RANGE_FIELDS = new Set(['added', 'modified']);
 
 /**
@@ -400,7 +400,7 @@ export class HFilterForm extends HBaseWidget {
   /**
    * A date or number picked from a list of ranges (layout `groupBy` / `ranges`
    * in a list mode): the field's ranges over the form's query, with counts
-   * (`detail=ranges`). Dates count by the template's operator: `><` within,
+   * (`aggregate op=ranges`). Dates count by the template's operator: `><` within,
    * otherwise overlap. Without the records API the input stays a direct range.
    *
    * @returns {{type: string, options: object}|null} Presentation, or null when not applicable.
@@ -460,7 +460,7 @@ export class HFilterForm extends HBaseWidget {
   /**
    * What a value facet of `id` counts over: the form's query with the other
    * filled parameters (`_facetQuery`), or for a parameter inside linked branches
-   * `{q, via}` - main records counted through the branch path (detail=values&via).
+   * `{q, via}` - main records counted through the branch path (aggregate op=values&via).
    *
    * @param {string} id Parameter ID.
    * @returns {Array|{q: Array, via: Array}} Query, or query and link path.

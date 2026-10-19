@@ -135,13 +135,13 @@ function fakeApi(payload) {
   };
 }
 
-test('FieldValueSource requests detail=values and is complete when all values arrived', async () => {
+test('FieldValueSource requests aggregate op=values and is complete when all values arrived', async () => {
   const api = fakeApi({ total: 2, values: [{ value: 'b', count: 1 }, { value: 'A', count: 3 }] });
   const source = new FieldValueSource(api, { query: [{ t: '10' }], field: 1 });
   const result = await source.load();
   assert.deepEqual(api.calls[0], {
-    path: '/records/',
-    query: { q: [{ t: '10' }], detail: 'values', field: '1', limit: 1000, sort: 'value' }
+    path: '/records/aggregate',
+    query: { q: [{ t: '10' }], op: 'values', field: '1', limit: 1000, sort: 'value' }
   });
   assert.equal(result.complete, true);
   assert.deepEqual(labels(result.items), ['A', 'b']);

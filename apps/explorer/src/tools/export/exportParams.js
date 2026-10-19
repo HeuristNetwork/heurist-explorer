@@ -362,7 +362,7 @@ export function exportProblems(state, context = {}) {
 }
 
 /**
- * Record types with counts from `/records detail=rectypes`, largest first.
+ * Record types with counts from `/records/aggregate?op=rectypes`, largest first.
  *
  * @param {Array<{rec_RecTypeID:number,count:number}>} rows Server rows.
  * @param {object|null} dbdefs Names.

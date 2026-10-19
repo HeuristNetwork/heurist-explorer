@@ -1,6 +1,6 @@
 /**
  * @file FieldValueSource.js
- * @brief Value sources backed by `GET /records/?detail=values` (plan §5.1):
+ * @brief Value sources backed by `GET /records/aggregate?op=values` (plan §5.1):
  *        the values a field actually has in a query result, with counts.
  *
  * `FieldValueSource` implements the complete/incremental rule (V9): the first
@@ -21,6 +21,7 @@
 
 import { VALUE_LOAD_LIMIT, hideZeroCounts, mergeTermCounts, sortItems } from './valueList.js';
 import { vocabularyItems } from './localSources.js';
+import { aggregate } from '../aggregate.js';
 
 const CACHE_SIZE = 8;
 
@@ -31,7 +32,7 @@ export class FieldValueSource {
    * @param {object} options Source options.
    * @param {Array|object|Function} options.query Query, or a function returning
    *        one (or a promise of one) - evaluated on every load (dynamic facets).
-   *        `{q, via}` counts a field of linked records by the main records (detail=values&via).
+   *        `{q, via}` counts a field of linked records by the main records (op=values&via).
    * @param {number|string} options.field Detail type ID or header keyword
    *        (`owner`, `addedby`, `tag`, `rectype`, `access`).
    * @param {'label'|'count'} [options.sort='label'] Client order (V8).
@@ -73,18 +74,14 @@ export class FieldValueSource {
     const key = JSON.stringify([query, via, filter, limit]);
     let payload = this._cache.get(key);
     if (!payload) {
-      payload = await this.api.get('/records/', {
-        query: {
-          q: query,
-          ...(via ? { via } : {}),
-          detail: 'values',
-          field: this.field,
-          ...(filter ? { text: filter } : {}),
-          limit,
-          sort: this.sort === 'count' ? 'count' : 'value'
-        },
-        signal
-      });
+      payload = await aggregate(this.api, 'values', {
+        q: query,
+        ...(via ? { via } : {}),
+        field: this.field,
+        ...(filter ? { text: filter } : {}),
+        limit,
+        sort: this.sort === 'count' ? 'count' : 'value'
+      }, { signal });
       this._cache.set(key, payload);
       if (this._cache.size > CACHE_SIZE) this._cache.delete(this._cache.keys().next().value);
     }
@@ -259,7 +256,7 @@ function recordRows(payload) {
 
 /**
  * Ranges of a date or numeric field over a (possibly changing) query, with
- * record counts (`GET /records/?detail=ranges`). Item values are `"from/to"`,
+ * record counts (`GET /records/aggregate?op=ranges`). Item values are `"from/to"`,
  * which `resolveQueryParameters` puts into the parameter's template; a count
  * equals the number of records selecting that range finds.
  */
@@ -298,10 +295,8 @@ export class RangeBucketSource {
     const key = JSON.stringify(query);
     let payload = this._cache.get(key);
     if (!payload) {
-      payload = await this.api.get('/records/', {
-        query: { q: query, detail: 'ranges', field: this.field, ...this.grouping, match: this.match },
-        signal
-      });
+      payload = await aggregate(this.api, 'ranges',
+        { q: query, field: this.field, ...this.grouping, match: this.match }, { signal });
       this._cache.set(key, payload);
       if (this._cache.size > CACHE_SIZE) this._cache.delete(this._cache.keys().next().value);
     }
@@ -328,7 +323,7 @@ export class RangeBucketSource {
 
 /**
  * Smallest and largest value of a numeric or date field over a query
- * (`GET /records/?detail=minmax`), for sliders without configured bounds.
+ * (`GET /records/aggregate?op=minmax`), for sliders without configured bounds.
  *
  * @param {object} api HeuristApiClient (needs `get`).
  * @param {{query?: Array|object|Function, field: number|string, signal?: AbortSignal}} options
@@ -339,16 +334,13 @@ export class RangeBucketSource {
 export async function fetchFieldRange(api, { query = [], field, signal } = {}) {
   if (!api?.get) throw new TypeError('fetchFieldRange requires an API client');
   if (field == null || field === '') throw new TypeError('fetchFieldRange requires a field');
-  const payload = await api.get('/records/', {
-    query: { q: await resolveQuery(query), detail: 'minmax', field: String(field) },
-    signal
-  });
+  const payload = await aggregate(api, 'minmax', { q: await resolveQuery(query), field: String(field) }, { signal });
   return { min: payload?.min ?? null, max: payload?.max ?? null, count: Number(payload?.count) || 0 };
 }
 
 /**
  * Tag facet: the user's tags (TagSource: personal first, then each group) that
- * occur in the result, with counts from `detail=values&field=tag`, plus selected
+ * occur in the result, with counts from `op=values&field=tag`, plus selected
  * tags (count 0).
  */
 export class FacetTagSource {

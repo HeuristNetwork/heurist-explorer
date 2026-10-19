@@ -47,6 +47,7 @@ test("every direct $HR string in runtime source is present in module dictionarie
     // shared record popup, renderer and smart expansion dialog
     "../../../../shared/src/recordview/RecordPopupContent.js",
     "../../../../shared/src/recordview/RecordViewRenderer.js",
+    "../../../../shared/src/recordview/fileMediaItem.js",
     "../../../../shared/src/ui/SmartExpansionDialog.js",
   ];
   const sources = await Promise.all(

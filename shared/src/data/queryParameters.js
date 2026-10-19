@@ -164,7 +164,7 @@ export function exactParameterNames(filterForm) {
 /**
  * Names of date/number parameters picked from a list of ranges (layout
  * children with `groupBy` or `ranges` in a list mode): their values are
- * `"from/to"` strings (`detail=ranges`).
+ * `"from/to"` strings (`aggregate op=ranges`).
  *
  * @param {object|null} filterForm Filter form layout.
  * @returns {Map<string, 'date'|'number'>} Parameter names and their kind (`groupBy`: date).
@@ -291,7 +291,7 @@ export function resolveQueryParameters(query, values = {}, filterForm = null) {
 
 /** Marks the facet's own value while its path is located (never sent). */
 const FACET_MARK = '\u0000facet\u0000';
-/** Link keys a facet path can follow (`detail=values&via=`). */
+/** Link keys a facet path can follow (`aggregate op=values&via=`). */
 const LINK_STEP = /^(?:lt|lf|rt|rf|related)(?::|$)/;
 
 /**

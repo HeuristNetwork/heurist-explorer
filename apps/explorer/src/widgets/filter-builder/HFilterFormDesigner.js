@@ -22,7 +22,7 @@ import './HFilterFormDesigner.css';
 const LIST_MODES = ['select', 'radio', 'checkbox'];
 /** Choices of the form-wide list size (radio/checkbox items shown before the "more" picker). */
 const LIST_SIZES = [5, 10, 20, 50];
-/** Header predicates whose values can be listed (detail=values). */
+/** Header predicates whose values can be listed (aggregate op=values). */
 const TEXT_LIST_PREDICATES = new Set(['tag', 'access', 'title']);
 /** Header text predicates whose listed values match exactly (tag/visibility values are IDs/keywords). */
 const EXACT_HEADER_PREDICATES = new Set(['title']);
@@ -75,7 +75,7 @@ function presentationsFor(parameter) {
   if (isRecordParameter(parameter)) return ['direct', 'select', 'list-column', 'list-inline'];
   if (isTextList(parameter)) return ['direct', 'select', 'list-column', 'list-inline'];
   if (isScalar(parameter)) {
-    // select/list: ranges of the field (detail=ranges); a picked range is searched as that range
+    // select/list: ranges of the field (aggregate op=ranges); a picked range is searched as that range
     return ['direct', ...(parameter.range ? ['slider'] : []), 'select', 'list-column', 'list-inline'];
   }
   return [];
@@ -300,7 +300,7 @@ export class HFilterFormDesigner extends HBaseWidget {
       const id = config.input;
       if (config.widget?.control !== 'slider') continue;
       const { min, max } = config.widget;
-      // no bounds: "auto", the Filter Form requests the field's bounds (detail=minmax)
+      // no bounds: "auto", the Filter Form requests the field's bounds (aggregate op=minmax)
       if (isBlank(min) && isBlank(max)) continue;
       const type = this.parameters[id]?.type;
       const valid = type === 'date'

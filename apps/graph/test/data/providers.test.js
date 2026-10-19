@@ -88,10 +88,10 @@ test("RecordDataProvider requests count without loading IDs", async () => {
     filter: { f: "London" },
   });
   assert.equal(result.total, 3);
-  assert.equal(calls[0].path, "/records");
+  assert.equal(calls[0].path, "/records/aggregate");
   assert.deepEqual(calls[0].options.body, {
     query: "t:10",
-    detail: "count",
+    op: "count",
     filter: { f: "London" },
   });
 });

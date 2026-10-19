@@ -17,6 +17,7 @@ import { $HR } from "#shared/ui";
 import { fieldValues, sanitizeTextHtml, looksLikeJson } from "./FieldValueFormatter.js";
 import { geoToHuman } from "../utils/geoText.js";
 import { temporalToHuman } from "../utils/temporal.js";
+import { buildFileMediaItem, fileMediaUrls } from "./fileMediaItem.js";
 import "./RecordViewRenderer.css";
 
 const VISIBILITY_LABELS = { hidden: "Hidden", viewable: "Viewable", public: "Public" };
@@ -257,70 +258,9 @@ export class RecordViewRenderer {
     return more;
   }
 
-  /**
-   * One media item. Audio/video render as a native `<audio>`/`<video>` player; everything
-   * else as a thumbnail whose click toggles it between the thumbnail and full-size image
-   * (images only — see `#fileUrl`). Below that, per-type viewer links: OSD for images,
-   * Mirador for images/audio/video, and "open in new tab" for an externally-referenced file.
-   */
+  /** One media item (shared with the file input of the record editor: fileMediaItem.js). */
   #buildMediaItem(file) {
-    const fileId = file.ulf_ObfuscatedFileID;
-    const mimeType = String(file.fxm_MimeType || "");
-    const isImage = mimeType.startsWith("image/");
-    const isAudio = mimeType.startsWith("audio/");
-    const isVideo = mimeType.startsWith("video/");
-    // Matches the legacy renderer's `fileUrl()`: an external reference is embedded directly
-    // unless it's plain (insecure) `http://`, in which case it's proxied through Heurist.
-    const externalUrl = file.ulf_ExternalFileReference || null;
-    const mediaSrc = externalUrl && !/^http:\/\//i.test(externalUrl) ? externalUrl : this.#fileUrl(fileId);
-
-    const item = document.createElement("div");
-    item.className = "heurist-recordview-media-item";
-
-    if (isAudio || isVideo) {
-      item.classList.add("heurist-recordview-media-item-player");
-      const player = document.createElement(isVideo ? "video" : "audio");
-      player.className = "heurist-recordview-media-player";
-      player.controls = true;
-      const source = document.createElement("source");
-      source.src = mediaSrc;
-      if (mimeType) source.type = mimeType;
-      player.append(source);
-      item.append(player);
-    } else {
-      const thumb = document.createElement("img");
-      thumb.className = "heurist-recordview-media-thumb";
-      thumb.src = this.#thumbUrl(fileId);
-      thumb.alt = file.ulf_Caption || file.ulf_OrigFileName || "";
-      if (isImage) {
-        thumb.classList.add("heurist-recordview-media-thumb-zoomable");
-        thumb.addEventListener("click", () => {
-          const expanded = item.classList.toggle("heurist-recordview-media-item-expanded");
-          thumb.src = expanded ? mediaSrc : this.#thumbUrl(fileId);
-        });
-      }
-      item.append(thumb);
-    }
-
-    const links = document.createElement("div");
-    links.className = "heurist-recordview-media-links";
-    if (isImage) links.append(this.#buildMediaLink(this.#osdUrl(fileId), "Show in OSD"));
-    if (isImage || isAudio || isVideo) links.append(this.#buildMediaLink(this.#miradorUrl(fileId), "Show in Mirador"));
-    if (externalUrl) links.append(this.#buildMediaLink(externalUrl, "Show in new tab"));
-    if (links.childElementCount) item.append(links);
-
-    return item;
-  }
-
-  /** One `target="_blank"` viewer link, used inside a media item's link list. */
-  #buildMediaLink(href, label) {
-    const link = document.createElement("a");
-    link.className = "heurist-recordview-media-link";
-    link.href = href;
-    link.target = "_blank";
-    link.rel = "noopener";
-    link.textContent = $HR(label);
-    return link;
+    return buildFileMediaItem(file, { urls: fileMediaUrls(this.baseUrl, this.database) });
   }
 
   /**
@@ -553,21 +493,6 @@ export class RecordViewRenderer {
   /** File thumbnail URL (`?db={db}&thumb={obfuscatedId}`). */
   #thumbUrl(fileId) {
     return `${this.baseUrl}?db=${encodeURIComponent(this.database)}&thumb=${encodeURIComponent(fileId)}`;
-  }
-
-  /** Full uploaded-file URL (`?db={db}&file={obfuscatedId}`), for playback and full-size viewing. */
-  #fileUrl(fileId) {
-    return `${this.baseUrl}?db=${encodeURIComponent(this.database)}&file=${encodeURIComponent(fileId)}`;
-  }
-
-  /** OpenSeadragon viewer URL, for image files. */
-  #osdUrl(fileId) {
-    return `${this.baseUrl}hclient/widgets/viewers/openSeadragonViewer.php?db=${encodeURIComponent(this.database)}&recID=${encodeURIComponent(fileId)}`;
-  }
-
-  /** Mirador viewer URL, for everything else (audio/video/documents). */
-  #miradorUrl(fileId) {
-    return `${this.baseUrl}hclient/widgets/viewers/miradorViewer.php?db=${encodeURIComponent(this.database)}&id=${encodeURIComponent(fileId)}`;
   }
 }
 

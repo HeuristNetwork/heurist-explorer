@@ -352,3 +352,21 @@ test('the filter form pane: west for a vertical form, Filter and Reset reach the
   widget.filterForm.reset();
   assert.deepEqual(applied.at(-1), []);
 });
+
+test('record list of the manager: Sort and Show owners; no selection menu for one record; no type sort for files', async () => {
+  const single = manager({ recordTypes: [10], selectMode: 'select' }).widget._listOptions();
+  assert.equal(single.listTools, true);
+  assert.equal(single.controls.selectionActions, false);
+  const multi = manager({ recordTypes: [10], selectMode: 'select_multi' }).widget._listOptions();
+  assert.equal(multi.controls.selectionActions, undefined, 'the menu stays for several records');
+  const { createSortSelect, createOwnersCheckbox } = await import('../src/widgets/record-list/ListToolControls.js');
+  const sort = createSortSelect({ value: 'title', exclude: ['type'], onChange: () => {} });
+  const tokens = sort.querySelector('select').children.map((option) => option.value);
+  assert.equal(tokens.includes('type'), false);
+  assert.ok(tokens.includes('-modified'));
+  let shown = null;
+  const owners = createOwnersCheckbox({ checked: false, onChange: (value) => { shown = value; } });
+  owners.checkbox.checked = true;
+  owners.checkbox.dispatchEvent(new Event('change'));
+  assert.equal(shown, true);
+});

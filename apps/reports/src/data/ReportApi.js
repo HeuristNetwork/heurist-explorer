@@ -16,6 +16,8 @@
  * @since       8.0
  */
 
+import { aggregate } from '#shared/data/aggregate.js';
+
 /** Reports API calls. */
 export class ReportApi {
   /**
@@ -169,7 +171,7 @@ export class ReportApi {
    * @returns {Promise<number>}
    */
   async queryCount(query) {
-    const response = await this.apiClient.post('/records', { body: { query, detail: 'count' } });
+    const response = await aggregate(this.apiClient, 'count', { query }, { method: 'POST' });
     return Number(response?.total ?? response?.data?.total ?? 0) || 0;
   }
 

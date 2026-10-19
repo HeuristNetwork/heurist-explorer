@@ -771,3 +771,41 @@ HRecordEditor and HRecordAccess; the stored edit groups are kept on save).
 - Tests (`shared/test/recordEditor.test.js`): Upload / URL by value, file chosen in the record
   manager, Edit / View after the control box. 1275 tests pass.
 
+### Review 2 of 2026-10-19 — file preview, layout, list tools, Admin panel
+
+1. **File preview** - `shared/src/recordview/fileMediaItem.js` (+ `.css`): the media item of the
+   built-in record view moved out of RecordViewRenderer (`buildFileMediaItem(file, {urls,
+   download, onClose})`, `fileMediaUrls(baseUrl, database)`, `isImageFile(file)`: MIME type, else
+   the name's extension). RecordViewRenderer uses it (same output); HInputFile: a click on the
+   small thumbnail (zoom-in cursor, only with `fileViewer {baseUrl, database}` from
+   RecordEditorHost through HRecordEditor / HEditForm / HEditField) shows the file below the
+   input - click on the image = large / small (zoom-in / zoom-out), Show in OSD, Show in Mirador,
+   Download (`?db=&download=1&file=`), Close. Another file or none hides it.
+2. HInputFile: the open link (`a.h-input-file-name`) removed; without a picker the name is a
+   plain text (`.h-input-file-text`). `fileUrl` of HInputFile no longer used.
+3. / 4. **Display width = width of the picker / button** (`.h-input-resource-picker`,
+   `.h-input-file-picker`, `.h-input-file-browse`: `width: calc(var(--h-field-width) + 2em)`);
+   the control box of these compact inputs is as wide as its content (HEditField.css), so the
+   thumbnail and the buttons after it do not take from the width. Checked with screenshots
+   (scratch page, headless Edge).
+5. **Record manager list**: HRecordList option `listTools` - Sort (`createSortSelect`, with
+   `sortExclude`; `type` is left out for `/files`) and a *Show owners* checkbox
+   (`createOwnersCheckbox`, switches Admin info of the list) after the search box; the sort goes
+   to `RecordListLoader.setSort`. Select mode: no selection menu (`controls.selectionActions:
+   false`).
+7. **Add record of the picker**: works in a browser test (scratch page: the popover closes,
+   `addRecord` is called, the new record is the value). Errors of the host's `addRecord` /
+   `browseRecords` were lost (`void run()`); HInputResource now shows them (HMsg.showMsgErr).
+   The cause in Artem's case is not known yet - to check which field / record type.
+8. **Added / Updated**: `localTime()` as legacy `getTimeForLocalTimeZone` - the stored time is
+   UTC, shown as `2026-10-19 12:05:09 (14:05:09 local)`.
+9. **Admin panel**: owner and access as read-only lines (`describeAccess()` in HRecordAccess.js)
+   with a pen; the pen opens HRecordAccess inline with Apply / Cancel; Apply closes it, updates
+   the lines and marks the record changed; nothing is saved there (the header goes with Save).
+- Dictionaries: new strings in Explorer, Data, Graph, Map, RecordView (eng + fre); the Data
+  dictionary test also scans `fileMediaItem.js`.
+- Tests: `recordViewRenderer.test.js` (the media item in the fake DOM instead of source checks),
+  `recordEditor.test.js` (preview), `recordAccess.test.js` (describeAccess, Admin panel, local
+  time), `recordManager.test.js` (list tools). 1285 tests pass; Explorer, Data, RecordView, Map,
+  Graph build.
+

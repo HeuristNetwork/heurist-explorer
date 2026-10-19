@@ -12,6 +12,9 @@
  * @license     https://www.gnu.org/licenses/gpl-3.0.txt GNU License 3.0
  * @since       8.0
  */
+
+import { aggregate } from "#shared/data/aggregate.js";
+
 /** Provides selected-field records and count summaries. */
 export class RecordDataProvider {
   /** @param {{apiClient: object}} options Heurist API client. */
@@ -70,9 +73,9 @@ export class RecordDataProvider {
     if (query == null || (typeof query === "string" && !query.trim())) {
       throw new TypeError("A Heurist query is required");
     }
-    const body = { query, detail };
-    if (filter != null && filter !== "") body.filter = filter;
-    const response = await this.apiClient.post("/records", { body, signal });
+    const params = { query };
+    if (filter != null && filter !== "") params.filter = filter;
+    const response = await aggregate(this.apiClient, detail, params, { method: "POST", signal });
     if (!response || !Number.isFinite(Number(response.total))) {
       throw new TypeError(`Records ${detail} response is missing total`);
     }

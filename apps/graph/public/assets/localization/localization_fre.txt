@@ -205,3 +205,7 @@
 #Click Expand again to continue anyway.#Cliquez de nouveau sur Développer pour continuer quand même.
 #Generic_Title#Heurist
 #Error_Title#Information
+
+# record manager, file media, record editor access (plan 21 review)
+#Click to zoom in / out#Cliquer pour agrandir / réduire
+#Download#Télécharger

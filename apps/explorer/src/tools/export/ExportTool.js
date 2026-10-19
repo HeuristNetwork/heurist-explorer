@@ -46,6 +46,7 @@ import {
   scopeRecordType
 } from './exportParams.js';
 import './ExportTool.css';
+import { aggregate } from '#shared/data/aggregate.js';
 
 const STORAGE_PREFIX = 'heurist-export-settings:';
 
@@ -206,14 +207,14 @@ export class ExportTool extends HBaseWidget {
     };
   }
 
-  /** Record types of the current result with counts (`/records detail=rectypes`). */
+  /** Record types of the current result with counts (`/records/aggregate?op=rectypes`). */
   async _loadRecordTypes() {
     const query = this._context().query;
     this.recordTypes = [];
     this.resultTotal = null;
     if (query == null || query === '') return;
     try {
-      const response = await this.apiClient.post('/records', { body: { q: query, detail: 'rectypes' } });
+      const response = await aggregate(this.apiClient, 'rectypes', { q: query }, { method: 'POST' });
       const data = response?.rectypes ? response : response?.data || {};
       this.recordTypes = recordTypeList(data.rectypes, this.dbdefs);
       // the count of the query itself (a direct search has no meta.count)

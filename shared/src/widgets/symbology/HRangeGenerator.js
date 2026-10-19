@@ -113,7 +113,7 @@ export function openRangeGenerator({ code, api, dbdefs, query }) {
       }
       status.textContent = $HR('Loading');
       try {
-        // detail=values gives the term ids only: the labels come from the definitions
+        // aggregate op=values gives the term ids only: the labels come from the definitions
         const values = await fieldValues(api, code, query);
         const byValue = new Map(values.map((item) => [item.value, item]));
         show(categoryRanges(values).map((range) => {

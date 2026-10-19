@@ -214,3 +214,8 @@
 #Page#Page
 #Add to collection#Ajouter à la collection
 #Remove from collection#Retirer de la collection
+
+# record manager, file media, record editor access (plan 21 review)
+#Click to zoom in / out#Cliquer pour agrandir / réduire
+#Download#Télécharger
+#Show owners#Afficher les propriétaires

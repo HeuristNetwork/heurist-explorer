@@ -23,8 +23,8 @@ test('RecordTypeManager joins usage counts with definitions and groups', async (
   });
 
   await manager.load();
-  assert.equal(requests[0].path, '/records/');
-  assert.deepEqual(requests[0].options.query, { detail: 'rectypes' });
+  assert.equal(requests[0].path, '/records/aggregate');
+  assert.deepEqual(requests[0].options.query, { op: 'rectypes' });
   assert.deepEqual(manager.list().map((item) => item.id), [10, 12]);
   assert.deepEqual(manager.list({ sort: 'name' }).map((item) => item.title), ['People', 'Places']);
   assert.deepEqual(manager.groups().map((group) => group.name), ['Entities', 'Locations']);

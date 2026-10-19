@@ -69,6 +69,19 @@ test("Explorer's editor mode does not load the workspace (plan 21 §2.4)", async
   assert.ok(seen.size > 5, `${seen.size} files reached from apps/explorer/src/editor`);
 });
 
+test("counts, values and bounds go through /{domain}/aggregate (plan 20 §9)", async () => {
+  // search keeps detail=records|ids; the other detail values were removed from the server
+  const removed = /\bdetail\s*:\s*["'](?:count|rectypes|values|minmax|ranges)["']|[?&]detail=(?:count|rectypes|values|minmax|ranges)\b/;
+  const roots = [path.resolve("shared", "src"), ...appNames.map((name) => path.join(appsRoot, name, "src"))];
+  for (const root of roots) {
+    for (const filename of await sourceFiles(root)) {
+      const source = await readFile(filename, "utf8");
+      assert.doesNotMatch(source, removed,
+        `${path.relative(process.cwd(), filename)} sends a removed detail value; use shared/src/data/aggregate.js`);
+    }
+  }
+});
+
 async function sourceFiles(directory) {
   const result = [];
   for (const entry of await readdir(directory, { withFileTypes: true })) {

@@ -301,3 +301,7 @@
 #transparent color#couleur transparente
 #years#années
 #Show header#Afficher l'en-tête
+
+# record manager, file media, record editor access (plan 21 review)
+#Click to zoom in / out#Cliquer pour agrandir / réduire
+#Download#Télécharger

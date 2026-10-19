@@ -22,6 +22,8 @@
  * @since       8.0
  */
 
+import { aggregate } from '../data/aggregate.js';
+
 /** Link token of a path code → predicate that reaches the far records from the near ones. */
 const REVERSE_LINK = { lt: 'lf', lf: 'lt', rt: 'rf', rf: 'rt', r: 'related' };
 
@@ -112,10 +114,8 @@ export function fieldValuesQuery(code, layerQuery) {
  * @returns {Promise<Array<{id: number, label: string, count: number}>>} Record types, most records first.
  */
 export async function layerRecordTypes(api, layerQuery, { signal } = {}) {
-  const payload = await api.get('/records/', {
-    query: { q: normalizeQuery(layerQuery) ?? [], detail: 'values', field: 'rectype', limit: 200, sort: 'count' },
-    signal
-  });
+  const payload = await aggregate(api, 'values',
+    { q: normalizeQuery(layerQuery) ?? [], field: 'rectype', limit: 200, sort: 'count' }, { signal });
   return (Array.isArray(payload?.values) ? payload.values : [])
     .map((row) => ({ id: Number(row.value), label: String(row.label ?? row.value), count: Number(row.count) || 0 }))
     .filter((item) => item.id > 0)
@@ -134,10 +134,8 @@ export async function layerRecordTypes(api, layerQuery, { signal } = {}) {
 export async function fieldValues(api, code, layerQuery, { signal } = {}) {
   const { query, error } = fieldValuesQuery(code, layerQuery);
   if (error) throw new Error(error);
-  const payload = await api.get('/records/', {
-    query: { q: query ?? [], detail: 'values', field: String(fieldCodeDty(code)), limit: 1000, sort: 'value' },
-    signal
-  });
+  const payload = await aggregate(api, 'values',
+    { q: query ?? [], field: String(fieldCodeDty(code)), limit: 1000, sort: 'value' }, { signal });
   return (Array.isArray(payload?.values) ? payload.values : []).map((row) => ({
     value: String(row.value ?? ''),
     label: row.label != null && row.label !== '' ? String(row.label) : String(row.value ?? ''),
@@ -157,10 +155,7 @@ export async function fieldValues(api, code, layerQuery, { signal } = {}) {
 export async function fieldBounds(api, code, layerQuery, { signal } = {}) {
   const { query, error } = fieldValuesQuery(code, layerQuery);
   if (error) throw new Error(error);
-  const payload = await api.get('/records/', {
-    query: { q: query ?? [], detail: 'minmax', field: String(fieldCodeDty(code)) },
-    signal
-  });
+  const payload = await aggregate(api, 'minmax', { q: query ?? [], field: String(fieldCodeDty(code)) }, { signal });
   return { min: payload?.min ?? null, max: payload?.max ?? null };
 }
 

@@ -3,7 +3,7 @@
  * @brief Smart expansion: choose the record types the next expansion step reaches.
  *
  * Used by heurist-graph and heurist-data. The caller has counted the records the
- * next step would reach per record type (`detail=rectypes`); the dialog lists
+ * next step would reach per record type (`aggregate op=rectypes`); the dialog lists
  * them (most first) in an HValuePicker and returns the chosen types.
  *
  * @project     Heurist academic knowledge management system

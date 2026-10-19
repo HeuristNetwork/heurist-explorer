@@ -19,7 +19,7 @@ const dbdefs = {
   users: () => [{ id: 5, name: 'timma' }]
 };
 
-/** Records API stub: answers detail=values from a table and records the requests. */
+/** Records API stub: answers aggregate op=values from a table and records the requests. */
 function valuesApi(table) {
   const requests = [];
   return {
@@ -80,7 +80,7 @@ test('enum with facets lists only occurring terms and counts over the other valu
   // facet request leaves X1 itself out
   const facetRequest = api.requests.find((request) => request.field === '26');
   assert.deepEqual(facetRequest.q, [{ t: '10' }]);
-  assert.equal(facetRequest.detail, 'values');
+  assert.equal(facetRequest.op, 'values');
 
   // choosing a name recounts the country facet over it (exact match)
   form.inputs.get('X2').setValue('Rossi');
@@ -131,7 +131,7 @@ test('accordion view collapses list presentations only', () => {
   return form.destroy();
 });
 
-test('a slider without bounds requests detail=minmax and shows the sliders', async () => {
+test('a slider without bounds requests aggregate op=minmax and shows the sliders', async () => {
   const requests = [];
   const api = { async get(path, { query }) { requests.push(query); return { min: 3, max: 40, count: 12 }; } };
   const query = [{ t: '10' }, { 'f:1160': '$X1$<>$X1_to$' }];
@@ -147,7 +147,7 @@ test('a slider without bounds requests detail=minmax and shows the sliders', asy
   assert.equal(input.sliders, undefined, 'no sliders before the bounds arrive');
   await flush();
   assert.equal(requests.length, 1);
-  assert.equal(requests[0].detail, 'minmax');
+  assert.equal(requests[0].op, 'minmax');
   assert.equal(requests[0].field, '1160');
   assert.deepEqual(requests[0].q, [{ t: '10' }]);
   assert.deepEqual(input.sliders.map((slider) => [slider.min, slider.max]), [['3', '40'], ['3', '40']]);
@@ -165,7 +165,7 @@ test('a slider without bounds requests detail=minmax and shows the sliders', asy
   return fixed.destroy();
 });
 
-test('a date list of ranges requests detail=ranges and submits the picked range', async () => {
+test('a date list of ranges requests aggregate op=ranges and submits the picked range', async () => {
   const requests = [];
   const api = { async get(path, { query }) {
     requests.push(query);
@@ -183,7 +183,7 @@ test('a date list of ranges requests detail=ranges and submits the picked range'
     onSubmit: (event) => submits.push(event.query.q)
   }).render();
   await flush();
-  assert.equal(requests[0].detail, 'ranges');
+  assert.equal(requests[0].op, 'ranges');
   assert.equal(requests[0].groupby, 'decade');
   assert.equal(requests[0].match, 'within', '"><" counts spans within a range');
   const input = form.inputs.get('X1');
@@ -211,7 +211,7 @@ test('auto slider without values shows a note instead of the slider', async () =
   return form.destroy();
 });
 
-/** Records API whose detail=values answers wait until released; tracks concurrency and aborts. */
+/** Records API whose aggregate op=values answers wait until released; tracks concurrency and aborts. */
 function gatedApi(table) {
   const log = { requests: [], aborted: 0, active: 0, maxActive: 0, pending: [] };
   return {
@@ -308,7 +308,7 @@ test('facetsInitOnly: counts of the initial load are kept', async () => {
   return form.destroy();
 });
 
-test('title in a list mode lists record titles (detail=values field=title) and submits an exact title', async () => {
+test('title in a list mode lists record titles (aggregate op=values field=title) and submits an exact title', async () => {
   const api = valuesApi({ title: [{ value: 'Rome', count: 2 }, { value: 'Paris', count: 1 }] });
   const { form, submits } = mountForm([{ t: '10' }, { title: '$T$' }], layoutOf([{ input: 'T', mode: 'radio', exact: true }]), api);
   await flush();
@@ -342,7 +342,7 @@ test('record ids in a list mode list records by title and submit an id list', as
   return form.destroy();
 });
 
-test('a facet inside a linked branch counts main records: detail=values with q and via', async () => {
+test('a facet inside a linked branch counts main records: aggregate op=values with q and via', async () => {
   const api = valuesApi({ 26: [{ value: 12, count: 1 }] });
   const { form } = mountForm([{ t: '10' }, { 'lt:240': [{ t: '48' }, { 'f:26': '$X1$' }] }],
     layoutOf([{ input: 'X1', facets: true, mode: 'checkbox' }]), api);

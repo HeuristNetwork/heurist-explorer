@@ -14,6 +14,7 @@
  */
 
 import { normalizeDataSource } from './DataSource.js';
+import { aggregate } from '#shared/data/aggregate.js';
 
 const RECORD_TYPE_ICON_TOKEN = Date.now();
 
@@ -49,10 +50,7 @@ export class RecordTypeManager {
     this._loadController?.abort();
     this._loadController = new AbortController();
     const [payload, dbDefs] = await Promise.all([
-      this.apiClient.get('/records/', {
-        query: { detail: 'rectypes' },
-        signal: this._loadController.signal
-      }),
+      aggregate(this.apiClient, 'rectypes', {}, { signal: this._loadController.signal }),
       this.dbDefsProvider()
     ]);
     this.dbDefs = dbDefs;

@@ -265,7 +265,9 @@ export class RecordEditorHost {
       specialEditors: this.specialEditors(dbdefs),
       fileUrl: (file) => this._fileUrl(file),
       // Edit button of file fields (plan 20)
-      editFile: (id) => this.editFile(id)
+      editFile: (id) => this.editFile(id),
+      // the file below a file field (thumbnail click, plan 21)
+      fileViewer: this.options.baseUrl ? { baseUrl: this.options.baseUrl, database: this.options.database || '' } : null
     });
     host.addEventListener('h-record-editor-saved', (event) => {
       savedRecords.set(host, event.detail.record);
@@ -546,7 +548,8 @@ export class RecordEditorHost {
       browseRecords: (options) => this.browseRecords(options),
       addRecord: (rectypeId) => this.addRecord(rectypeId),
       fileUrl: (file) => this._fileUrl(file),
-      editFile: (id) => this.editFile(id)
+      editFile: (id) => this.editFile(id),
+      fileViewer: this.options.baseUrl ? { baseUrl: this.options.baseUrl, database: this.options.database || '' } : null
     };
   }
 
