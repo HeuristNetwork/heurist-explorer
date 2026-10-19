@@ -220,6 +220,28 @@ test('RecordTitleSource: records of a type by title, server-side title search, l
   assert.equal(source.labelFor(280), 'Rome');
 });
 
+test('FileSource: files from /files by title, extra predicates, thumbnails kept for previews', async () => {
+  const { FileSource } = await import('../../src/data/valueSources/index.js');
+  const requests = [];
+  const api = { async get(path, { query }) {
+    requests.push({ path, query });
+    if (query.q[0].ids) return { records: [{ rec_ID: '9', rec_Title: 'Old.pdf' }] };
+    return { records: [{ rec_ID: '37', rec_Title: 'Map.png', rec_Hash: 'abc', rec_ThumbnailURL: 'http://h/?thumb=abc' },
+      { rec_ID: '34', rec_Title: 'https://youtu.be/x', rec_URL: 'https://youtu.be/x' }], pagination: { total: 2 } };
+  } };
+  const source = new FileSource(api, { query: [{ 'f:29': 'image/*' }] });
+  const result = await source.load({ text: 'map' });
+  assert.equal(requests[0].path, '/files');
+  assert.deepEqual(requests[0].query.q, [{ 'f:29': 'image/*' }, { title: 'map' }, { sortby: 't' }]);
+  assert.match(requests[0].query.fields, /rec_ThumbnailURL/);
+  assert.deepEqual(result.items[0], { value: 37, label: 'Map.png', thumbnail: 'http://h/?thumb=abc', url: null, key: 'abc' });
+  assert.equal(source.fileFor(34).url, 'https://youtu.be/x');
+  await source.fetchLabels([9, 37]);
+  assert.equal(requests[1].path, '/files');
+  assert.deepEqual(requests[1].query.q, [{ ids: '9' }], 'only unknown files are fetched');
+  assert.equal(source.labelFor(9), 'Old.pdf');
+});
+
 test('TagSource: the user\'s tags by owner, personal first, then each group they belong to', async () => {
   const { TagSource } = await import('../../src/data/valueSources/index.js');
   const dbdefs = {

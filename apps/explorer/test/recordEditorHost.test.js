@@ -67,7 +67,10 @@ test('editRecord opens system records in the new editor and other records in the
 test('addRecord creates system records in the new editor', async () => {
   const { host, opened } = makeHost();
   await host.addRecord('RT_MAP_DOCUMENT');
-  assert.deepEqual(opened, [{ rectypeId: 24 }]);
+  assert.equal(opened.length, 1);
+  assert.equal(opened[0].rectypeId, 24);
+  // the remembered owner / visibility of new records; first time: viewable (plan 21)
+  assert.equal(opened[0].access.visibility, 'viewable');
 });
 
 test('special fields: query and filter form are edited together', async () => {

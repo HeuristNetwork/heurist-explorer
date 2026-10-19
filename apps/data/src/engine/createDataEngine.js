@@ -13,7 +13,7 @@
  * @since       8.0
  */
 
-import { HRecordList } from "../widgets/HRecordList.js";
+import { HRecordList } from "#shared/widgets/record-list/HRecordList.js";
 
 /**
  * Create the configured rendering engine adapter.

@@ -3,7 +3,7 @@
  * @brief Template choices of the Data module's record popup and Extended view.
  *
  * @project     Heurist academic knowledge management system
- * @package     heurist-data
+ * @package     heurist-client-core
  *
  * @link        https://HeuristNetwork.org
  * @copyright   (C) 2024 onwards Heurist Network
@@ -12,7 +12,7 @@
  * @since       8.0
  */
 
-import { normalizePopupMode } from "#shared/recordview/RecordPopupContent.js";
+import { normalizePopupMode } from "../../recordview/RecordPopupContent.js";
 
 /**
  * Popup mode of the Data module ("i" action): an empty value is Built-in (the

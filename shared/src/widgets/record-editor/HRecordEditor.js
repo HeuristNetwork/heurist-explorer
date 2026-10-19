@@ -29,7 +29,7 @@
 
 import { HBaseWidget } from '../HBaseWidget.js';
 import { HEditForm } from '../edit-form/HEditForm.js';
-import { HValueCombo } from '../picker/HValueCombo.js';
+import { HRecordAccess } from '../record-access/HRecordAccess.js';
 import { UserGroupSource } from '../../data/valueSources/localSources.js';
 import { RecordEditClient, RecordEditError } from '../../data/RecordEditClient.js';
 import { RecordStructureProvider } from '../../recordview/RecordStructureProvider.js';
@@ -43,14 +43,6 @@ import { HMsg } from '../../ui/HMsg.js';
 import { $HR } from '../../ui/i18n/HResource.js';
 import './HRecordEditor.css';
 
-/** Non-owner visibility values and their labels. */
-const VISIBILITY = [
-  ['viewable', 'Logged-in users'],
-  ['public', 'Public'],
-  ['pending', 'Public, pending approval'],
-  ['hidden', 'Owner only']
-];
-
 /** Header fields of the server issues, shown in the ownership pane. */
 const HEADER_FIELDS = new Set(['rec_OwnerUGrpID', 'rec_NonOwnerVisibility', 'rec_NonOwnerVisibilityGroups', 'rec_EditGroups']);
 
@@ -63,6 +55,8 @@ export class HRecordEditor extends HBaseWidget {
    * @param {object} options.dbdefs HDbDefs (record type names, vocabularies, users and groups, dbconst).
    * @param {number|string} [options.recordId] Record to edit.
    * @param {number|string} [options.rectypeId] Record type of a new record (no recordId).
+   * @param {{owner?: number, visibility?: string, viewGroups?: number[]}} [options.access] Owner and
+   *        visibility of a new record (the remembered ones, plan 21); default: current user, viewable.
    * @param {object} [options.client] RecordEditClient (default: one over apiClient).
    * @param {object} [options.structureProvider] RecordStructureProvider (shared cache).
    * @param {string[]} [options.languages] Language codes offered for translations.
@@ -70,7 +64,10 @@ export class HRecordEditor extends HBaseWidget {
    * @param {Function} [options.selectGeometry] Map drawing of geo fields: `(wkt) → Promise<{type, wkt}|null>`.
    * @param {Function} [options.editRecord] Edit button of pointer fields: `(id) → Promise<{saved, record}>`.
    * @param {Function} [options.viewRecord] View button of pointer fields: `(id)`.
+   * @param {Function} [options.browseRecords] Browse of pointer fields (record manager, plan 21): `(options) → Promise<number[]|null>`.
+   * @param {Function} [options.addRecord] Add of pointer fields (plan 21): `(rectypeId) → Promise<{saved, recordId}>`.
    * @param {Function} [options.fileUrl] Link to view a file of a file field.
+   * @param {Function} [options.editFile] Edit button of file fields (host file editor): `(id) → Promise<{saved, record}>`.
    * @param {Object<number, object>} [options.specialEditors] Special fields by field id: `{json, describe, edit}`
    *        (see HEditField); `describe` and `edit` get `{field, record, getValue(dty), setValue(dty, value)}`.
    * @param {Function} [options.onSaved] Called after a save with `{record, issues, created}`.
@@ -290,8 +287,8 @@ export class HRecordEditor extends HBaseWidget {
     this.cardinal = null;
     await this.editForm?.destroy();
     this.editForm = null;
-    for (const combo of this._combos || []) await combo.destroy();
-    this._combos = [];
+    await this.access?.destroy();
+    this.access = null;
   }
 
   /** @returns {Promise<void>} Completion after the inputs are removed. */
@@ -502,7 +499,10 @@ export class HRecordEditor extends HBaseWidget {
     });
   }
 
-  /** Owner, visibility, view groups and edit groups. */
+  /**
+   * Owner, visibility, view groups and edit groups: HRecordAccess (port of the legacy
+   * access form, plan 21 §6), with the server issues of the header below it.
+   */
   _renderOwnership(header, { legend: withLegend = true } = {}) {
     const pane = document.createElement('fieldset');
     pane.className = 'h-record-editor-ownership';
@@ -512,71 +512,19 @@ export class HRecordEditor extends HBaseWidget {
       legend.textContent = $HR('Ownership and access');
       pane.append(legend);
     }
-    this._combos = [];
-
-    const row = (label, control) => {
-      const item = document.createElement('div');
-      item.className = 'h-record-editor-ownership-row';
-      const caption = document.createElement('label');
-      caption.className = 'h-i18n';
-      caption.textContent = $HR(label);
-      item.append(caption, control);
-      pane.append(item);
-      return item;
-    };
-
-    const ownerHost = document.createElement('div');
-    row('Owner', ownerHost);
-    this.ownerCombo = this._combo(ownerHost, ownerSource(this.dbdefs), header.owner, false);
-
-    this.visibilitySelect = document.createElement('select');
-    this.visibilitySelect.className = 'h-select';
-    for (const [value, label] of VISIBILITY) {
-      const option = document.createElement('option');
-      option.value = value;
-      option.textContent = $HR(label);
-      this.visibilitySelect.append(option);
-    }
-    this.visibilitySelect.value = header.visibility;
-    this.visibilitySelect.disabled = Boolean(this.options.readOnly);
-    this.listen(this.visibilitySelect, 'change', () => {
-      this._syncViewGroups();
-      this._onChange();
-    });
-    row('Visible to', this.visibilitySelect);
-
-    const viewHost = document.createElement('div');
-    this.viewGroupsRow = row('Only these groups', viewHost);
-    this.viewGroupsCombo = this._combo(viewHost, new UserGroupSource(this.dbdefs), header.viewGroups, true);
-
-    const editHost = document.createElement('div');
-    row('Also editable by', editHost);
-    this.editGroupsCombo = this._combo(editHost, new UserGroupSource(this.dbdefs), header.editGroups, true);
-
+    const host = document.createElement('div');
+    pane.append(host);
+    this.access = new HRecordAccess().attach(host, {
+      dbdefs: this.dbdefs,
+      value: header,
+      editGroups: true,
+      readOnly: Boolean(this.options.readOnly),
+      onChange: () => this._onChange()
+    }).render();
     this.ownershipIssues = document.createElement('div');
     this.ownershipIssues.className = 'h-edit-field-issues';
     pane.append(this.ownershipIssues);
-    this._syncViewGroups();
     return pane;
-  }
-
-  /** A value picker of users and groups. */
-  _combo(host, source, value, multiple) {
-    const combo = new HValueCombo().attach(host, {
-      source,
-      multiple,
-      value,
-      emptyLabel: multiple ? $HR('Nobody else') : $HR('Select…'),
-      onChange: () => this._onChange()
-    }).render();
-    combo.setReadOnly(Boolean(this.options.readOnly));
-    this._combos.push(combo);
-    return combo;
-  }
-
-  /** Show the view groups only for "logged-in users" visibility. */
-  _syncViewGroups() {
-    if (this.viewGroupsRow) this.viewGroupsRow.hidden = this.visibilitySelect.value !== 'viewable';
   }
 
   /**
@@ -605,7 +553,10 @@ export class HRecordEditor extends HBaseWidget {
       selectGeometry: this.options.selectGeometry,
       editRecord: this.options.editRecord,
       viewRecord: this.options.viewRecord,
+      browseRecords: this.options.browseRecords,
+      addRecord: this.options.addRecord,
       fileUrl: this.options.fileUrl,
+      editFile: this.options.editFile,
       readOnly: this.options.readOnly,
       specialEditors: this.options.specialEditors || {},
       specialContext: () => ({ record: this.record, rectypeId: this.rectypeId })
@@ -618,7 +569,14 @@ export class HRecordEditor extends HBaseWidget {
   _initialHeader() {
     const record = this.record;
     if (!record) {
-      return { owner: Number(this.dbdefs?.currentUserId?.()) || 0, visibility: 'viewable', viewGroups: [], editGroups: [] };
+      const access = this.options.access || {};
+      const owner = Number(access.owner);
+      return {
+        owner: Number.isFinite(owner) && access.owner != null ? owner : Number(this.dbdefs?.currentUserId?.()) || 0,
+        visibility: access.visibility || 'viewable',
+        viewGroups: (access.viewGroups || []).map(Number),
+        editGroups: []
+      };
     }
     return {
       owner: Number(record.rec_OwnerUGrpID) || 0,
@@ -630,13 +588,7 @@ export class HRecordEditor extends HBaseWidget {
 
   /** Ownership as edited. */
   _header() {
-    if (!this.ownerCombo) return this._initialHeader();
-    return {
-      owner: Number(this.ownerCombo.getValue()) || 0,
-      visibility: this.visibilitySelect.value,
-      viewGroups: toIds(this.viewGroupsCombo.getValue()),
-      editGroups: toIds(this.editGroupsCombo.getValue())
-    };
+    return this.access ? this.access.getValue() : this._initialHeader();
   }
 
   /** A value changed: tell the host whether there are unsaved changes. */
@@ -706,26 +658,6 @@ export class HRecordEditor extends HBaseWidget {
   _emit(type, detail) {
     this.container?.dispatchEvent(new CustomEvent(type, { bubbles: true, detail }));
   }
-}
-
-/** Owner choices: everyone, then groups and users. */
-function ownerSource(dbdefs) {
-  const users = new UserGroupSource(dbdefs);
-  const everyone = { value: 0, label: $HR('Everyone (any logged-in user)') };
-  return {
-    async load() {
-      const items = [everyone, ...users.items()];
-      return { items, total: items.length, complete: true };
-    },
-    labelFor(value) {
-      return Number(value) === 0 ? everyone.label : users.labelFor(value);
-    }
-  };
-}
-
-/** @returns {number[]} Positive ids of a picker value. */
-function toIds(value) {
-  return (Array.isArray(value) ? value : value == null ? [] : [value]).map(Number).filter((id) => id > 0);
 }
 
 /** @returns {HTMLElement} One message or issue line. */

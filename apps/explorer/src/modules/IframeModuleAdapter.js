@@ -116,6 +116,7 @@ export class IframeModuleAdapter extends ExplorerModule {
       canEditRecordType: (recordType) => outer.canEditRecordType?.(recordType) === true,
       viewRecord: (id) => outer.viewRecord?.(id),
       addRecord: (recordTypeId) => outer.addRecord?.(recordTypeId),
+      browseRecords: (options) => outer.browseRecords?.(options),
       editExtent: (value, options) => outer.editExtent?.(value, options),
       editRules: (value, options) => outer.editRules?.(value, options),
       updateRules: (rules) => outer.updateRules?.(rules),

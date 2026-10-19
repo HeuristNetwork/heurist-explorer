@@ -103,6 +103,24 @@ export class HostAdapter {
     return this.bridge.addRecord(id);
   }
 
+  /** Whether the host offers the record manager (plan 21). */
+  supportsBrowse() {
+    return typeof this.bridge?.browseRecords === "function";
+  }
+
+  /**
+   * Ask the host to open the record manager (plan 21): select records of some types.
+   *
+   * @param {{recordTypes?: Array<number>, selectMode?: 'select'|'select_multi', allowAddition?: boolean}} [options]
+   * @returns {Promise<number[]|null>} Selected record ids, or null when cancelled.
+   * @throws {Error} When the host has no record manager.
+   */
+  async browseRecords(options = {}) {
+    if (!this.supportsBrowse())
+      throw new Error("The record manager is not available from the Heurist host");
+    return this.bridge.browseRecords({ ...options });
+  }
+
   /** Whether the host can run a Heurist record search (delegate ON_REC_SEARCHSTART). */
   supportsSearch() {
     return typeof this.bridge?.doSearch === "function";

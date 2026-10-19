@@ -8,7 +8,8 @@
  * without the legacy Heurist host. Other records keep the host's record editor
  * (title masks, calculated fields...). Modules reach this through the host
  * bridge: `editRecord(id, {recordType})`, `addRecord(rtyId)`,
- * `canEditRecordType(recordType)`.
+ * `canEditRecordType(recordType)`, `browseRecords(options)` (the record manager,
+ * plan 21: Browse of pointer fields).
  *
  * The special fields of these record types get a readable value plus the
  * editors Explorer already has: the query and its filter form (HFilterBuilder),
@@ -39,6 +40,7 @@ import { fieldCodeLabel, inferRecordTypeId } from '../widgets/query-source/helpe
 import { SymbologyService } from '#shared/symbology/SymbologyService.js';
 import { RecordPopupContent } from '#shared/recordview/RecordPopupContent.js';
 import { RecordViewLoader } from '#shared/recordview/RecordViewLoader.js';
+import { loadRecordAddDefaults, saveRecordAddDefaults } from '#shared/data/recordAccess.js';
 
 /** Id prefix of the record editor dialogs (a numbered id each: a pointed record opens over its editor). */
 const DIALOG_ID = 'h-record-editor-dialog';
@@ -66,6 +68,8 @@ export class RecordEditorHost {
   constructor(options = {}) {
     this.options = options;
     this.client = new RecordEditClient({ apiClient: options.apiClient });
+    // registered files are records of RT_REGISTERED_FILE written through /files (plan 20)
+    this.fileClient = new RecordEditClient({ apiClient: options.apiClient, domain: 'files' });
     this.structures = new RecordStructureProvider({ apiClient: options.apiClient });
     this.symbology = new SymbologyService({
       api: options.apiClient,
@@ -116,14 +120,42 @@ export class RecordEditorHost {
   }
 
   /**
-   * Create a record of a type: system types in Explorer's editor, others in the host editor.
+   * Edit the details of a registered file (caption, description, copyright...) in the
+   * record editor, written through `/files/{id}` (plan 20). Edit button of file fields.
    *
-   * @param {number|string} recordType Record type id or code name.
-   * @returns {Promise<{saved: boolean, recordId: number}|*>}
+   * @param {number|string} fileId File id.
+   * @returns {Promise<{saved: boolean, recordId: number, record: object|null}>}
    */
-  async addRecord(recordType) {
+  async editFile(fileId) {
+    const id = Number(fileId);
+    if (!(id > 0)) throw new Error($HR('A valid file ID is required'));
+    if (!this.options.isLoggedIn()) throw new Error($HR('Record editor is not available'));
+    return this.open({ recordId: id, domain: 'files' });
+  }
+
+  /**
+   * Create a record of a type: system types in Explorer's editor, others in the host editor.
+   * Without a type (an unconstrained pointer field, plan 21) the Add record dialog asks for
+   * the type and the owner / visibility first. A new record starts with the remembered
+   * owner and visibility of the user's last new record.
+   *
+   * @param {number|string|null} recordType Record type id or code name; null = ask.
+   * @param {{access?: {owner: number, visibility: string, viewGroups: number[]}}} [options] Owner and
+   *        visibility of the new record (default: the remembered ones).
+   * @returns {Promise<{saved: boolean, recordId: number}|*>} `{saved: false}` when the dialog is cancelled.
+   */
+  async addRecord(recordType, { access = null } = {}) {
+    if (recordType == null || recordType === '' || Number(recordType) === 0) {
+      const dbdefs = await this.options.ensureDbDefs();
+      const { openRecordAddDialog } = await import('#shared/widgets/record-access/openRecordAddDialog.js');
+      const choice = await openRecordAddDialog({ dbdefs, database: this.options.database || '' });
+      if (!choice) return { saved: false, recordId: 0, record: null };
+      return this.addRecord(choice.rectypeId, { access: choice.access });
+    }
     const rectypeId = await this._rectypeId(recordType);
-    if (this.options.isLoggedIn() && this._isWritable(rectypeId)) return this.open({ rectypeId });
+    if (this.options.isLoggedIn() && this._isWritable(rectypeId)) {
+      return this.open({ rectypeId, access: access || loadRecordAddDefaults(await this._who()) });
+    }
     const bridge = this.options.getBridge() || {};
     if (this.canEditInHost() && typeof bridge.addRecord === 'function') return bridge.addRecord(rectypeId);
     throw new Error($HR('Record editor is not available'));
@@ -132,10 +164,13 @@ export class RecordEditorHost {
   /**
    * Open HRecordEditor in a dialog.
    *
-   * @param {{recordId?: number, rectypeId?: number}} target Record to edit, or record type of a new record.
+   * @param {{recordId?: number, rectypeId?: number, domain?: 'records'|'files', access?: object}} target Record
+   *        to edit, or record type of a new record (`access`: its owner and visibility); `files`: a
+   *        registered file (plan 20).
    * @returns {Promise<{saved: boolean, recordId: number, record: object|null}>} When the dialog closes.
    */
-  async open({ recordId = 0, rectypeId = 0 } = {}) {
+  async open({ recordId = 0, rectypeId = 0, domain = 'records', access = null } = {}) {
+    const isFile = domain === 'files';
     const dbdefs = await this.options.ensureDbDefs();
     const dialogId = `${DIALOG_ID}-${++dialogCount}`;
     const host = document.createElement('div');
@@ -145,15 +180,20 @@ export class RecordEditorHost {
       dbdefs,
       recordId,
       rectypeId,
-      client: this.client,
+      access,
+      client: isFile ? this.fileClient : this.client,
       structureProvider: this.structures,
       selectExtent: this.options.selectExtent,
       selectGeometry: this.options.selectGeometry,
-      // Edit / View buttons of pointer fields (plan 14a)
+      // Edit / View buttons of pointer fields (plan 14a); Browse / Add (plan 21)
       editRecord: (id) => this.editRecord(id),
       viewRecord: (id) => this.viewRecord(id),
+      browseRecords: (options) => this.browseRecords(options),
+      addRecord: (rectypeId) => this.addRecord(rectypeId),
       specialEditors: this.specialEditors(dbdefs),
-      fileUrl: (file) => this._fileUrl(file)
+      fileUrl: (file) => this._fileUrl(file),
+      // Edit button of file fields (plan 20)
+      editFile: (id) => this.editFile(id)
     });
     let saved = null;
     return new Promise((resolve) => {
@@ -171,12 +211,14 @@ export class RecordEditorHost {
       const onDialogClose = () => void finish();
       host.addEventListener('h-record-editor-saved', (event) => {
         saved = event.detail.record;
+        // the owner / visibility of a new record are the defaults of the next one (plan 21)
+        if (event.detail.created && !isFile) void this._rememberAccess(event.detail.record);
         this.options.onSaved?.({ record: event.detail.record, created: event.detail.created });
       });
       host.addEventListener('h-record-editor-close', () => void finish());
       dialog = HMsg.showMsgDlg(host, {
         dialogId,
-        title: recordId > 0 ? $HR('Edit record') : $HR('New record'),
+        title: isFile ? $HR('File details') : (recordId > 0 ? $HR('Edit record') : $HR('New record')),
         hideFooter: true,
         preventClose: true
       });
@@ -447,8 +489,53 @@ export class RecordEditorHost {
       selectGeometry: this.options.selectGeometry || null,
       editRecord: (id) => this.editRecord(id),
       viewRecord: (id) => this.viewRecord(id),
-      fileUrl: (file) => this._fileUrl(file)
+      browseRecords: (options) => this.browseRecords(options),
+      addRecord: (rectypeId) => this.addRecord(rectypeId),
+      fileUrl: (file) => this._fileUrl(file),
+      editFile: (id) => this.editFile(id)
     };
+  }
+
+  /** @returns {Promise<{database: string, userId: number}>} Key of the remembered access of new records. */
+  async _who() {
+    const dbdefs = await this.options.ensureDbDefs();
+    return { database: this.options.database || '', userId: Number(dbdefs?.currentUserId?.()) || 0 };
+  }
+
+  /** Remember the owner and visibility of a created record. */
+  async _rememberAccess(record) {
+    if (!record) return;
+    saveRecordAddDefaults(await this._who(), {
+      owner: Number(record.rec_OwnerUGrpID) || 0,
+      visibility: record.rec_NonOwnerVisibility || 'viewable',
+      viewGroups: (record.rec_NonOwnerVisibilityGroups || []).map(Number)
+    });
+  }
+
+  /**
+   * Browse records in the record manager (plan 21): pick records for a pointer field,
+   * add new ones with the record editor. The manager is loaded on first use.
+   *
+   * @param {object} [options] HRecordManager options: `recordTypes`, `selectMode`
+   *        (`select` default, `select_multi`, `manager`), `allowAddition`, `query`, `title`.
+   * @returns {Promise<number[]|null>} Selected record ids, or null when cancelled.
+   */
+  async browseRecords(options = {}) {
+    const dbdefs = await this.options.ensureDbDefs();
+    const { openRecordManager } = await import('#shared/widgets/record-manager/openRecordManager.js');
+    return openRecordManager({
+      selectMode: 'select',
+      ...options,
+      apiClient: this.options.apiClient,
+      dbdefs,
+      addRecord: (rectypeId) => this.addRecord(rectypeId),
+      // null = any type (the Add record dialog)
+      canAddRecordType: (rectypeId) => (rectypeId == null ? this.options.isLoggedIn() : this.canEditRecordType(rectypeId)),
+      editRecord: (id) => this.editRecord(id),
+      viewRecord: (id) => this.viewRecord(id),
+      baseUrl: this.options.baseUrl || '',
+      database: this.options.database || ''
+    });
   }
 
   /**

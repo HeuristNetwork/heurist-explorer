@@ -13,7 +13,7 @@ import { readFile } from "node:fs/promises";
 import { installFakeDom } from "../../../../shared/test/helpers/fakeDom.js";
 
 installFakeDom();
-const { dataPopupMode, extendedViewTemplate } = await import("../../src/core/recordTemplates.js");
+const { dataPopupMode, extendedViewTemplate } = await import("../../../../shared/src/widgets/record-list/recordTemplates.js");
 const { DataApplication } = await import("../../src/core/DataApplication.js");
 const { normalizeDataConfigurationSettings } = await import("../../src/ui/config/dataConfigurationSchema.js");
 
@@ -28,7 +28,7 @@ test("the popup and the Extended view default to Built-in", () => {
 });
 
 test("the 'i' action is hidden for the None popup and when popups are off (list and table)", async () => {
-  const list = await readFile(new URL("../../src/widgets/HRecordList.js", import.meta.url), "utf8");
+  const list = await readFile(new URL("../../../../shared/src/widgets/record-list/HRecordList.js", import.meta.url), "utf8");
   assert.match(list, /this\.options\.interaction\.popupEnabled === false \|\| dataPopupMode\(this\.options\.popupTemplate\) === "none"/);
   const table = await readFile(new URL("../../src/engine/datatables/DataTablesAdapter.js", import.meta.url), "utf8");
   assert.match(table, /&& dataPopupMode\(this\.options\.popupTemplate\) !== "none"/);

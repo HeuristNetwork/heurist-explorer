@@ -3,7 +3,7 @@
  * @brief Page numbers shown by the record list's pagination (buttons and select).
  *
  * @project     Heurist academic knowledge management system
- * @package     heurist-data
+ * @package     heurist-client-core
  *
  * @link        https://HeuristNetwork.org
  * @copyright   (C) 2024 onwards Heurist Network

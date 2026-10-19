@@ -67,7 +67,10 @@ export class HEditField extends HBaseWidget {
    * @param {Function} [options.selectGeometry] Map drawing of geo feature fields (host).
    * @param {Function} [options.editRecord] Edit the record of a pointer field (host): `(id) → {saved, record}`.
    * @param {Function} [options.viewRecord] View the record of a pointer field (host): `(id)`.
+   * @param {Function} [options.browseRecords] Record manager of pointer fields (host, plan 21): `(options) → Promise<number[]|null>`.
+   * @param {Function} [options.addRecord] New record of a pointer field (host, plan 21): `(rectypeId) → Promise<{saved, recordId}>`.
    * @param {Function} [options.fileUrl] Link to view a file of a file field.
+   * @param {Function} [options.editFile] Edit button of file fields (host file editor): `(id) → Promise<{saved, record}>`.
    * @param {boolean} [options.allowHidden=true] Show the "hidden from the public" switch.
    * @param {boolean} [options.readOnly] Display only (also `field.readOnly`).
    * @param {{json?: boolean, list?: boolean, describe?: Function, edit?: Function, icon?: string, title?: string, actions?: Array<object>}|null} [options.special] Special field:
@@ -566,10 +569,24 @@ export class HEditField extends HBaseWidget {
           targetTypes: field.targetTypes,
           valueLabel: entry.label || '',
           editRecord: this.options.editRecord,
-          viewRecord: this.options.viewRecord
+          viewRecord: this.options.viewRecord,
+          // rst_PointerMode and the record manager (plan 21 §5)
+          dbdefs: this.options.dbdefs,
+          pointerMode: field.pointerMode || 'dropdown_add',
+          browseFilter: field.browseFilter || '',
+          showBrowse: true,
+          browseRecords: typeof this.options.browseRecords === 'function'
+            ? (request) => this._browsePointer(entry, request) : undefined,
+          addRecord: this.options.addRecord
         };
       case 'file':
-        return { ...options, file: entry.file || null, fileUrl: this.options.fileUrl };
+        return {
+          ...options,
+          file: entry.file || null,
+          fileUrl: this.options.fileUrl,
+          apiClient: this.options.apiClient,
+          editFile: this.options.editFile
+        };
       case 'geo':
         // extent: a bounding box; feature: a geometry (record values; drawing comes later)
         return {
@@ -768,6 +785,32 @@ export class HEditField extends HBaseWidget {
   /** Tell the form that a value changed (inputs send h-input-change themselves). */
   _changed() {
     this.container?.dispatchEvent(new CustomEvent('h-input-change', { bubbles: true, detail: { field: this.field } }));
+  }
+
+  /**
+   * Record manager of a pointer value (plan 21 §5, §9.5): a repeatable field with room
+   * for more values selects several records; the first is this value, the others become
+   * new values; records the field already has are skipped.
+   *
+   * @param {object} entry Entry of the value that asks.
+   * @param {object} request Manager options of HInputResource.
+   * @returns {Promise<number[]|null>} The record for this value, or null.
+   */
+  async _browsePointer(entry, request = {}) {
+    const others = new Set(this._rows
+      .filter((row) => row.entry !== entry)
+      .map((row) => Number(row.input.getValue()))
+      .filter((id) => id > 0));
+    const room = this.field.max > 0 ? this.field.max - this._rows.length : Infinity;
+    const multiple = this.isRepeatable && room > 0 && !this.isReadOnly;
+    const ids = await this.options.browseRecords({ ...request, selectMode: multiple ? 'select_multi' : 'select' });
+    const fresh = [...new Set((ids || []).map(Number))].filter((id) => id > 0 && !others.has(id));
+    if (!fresh.length) return null;
+    const [first, ...rest] = fresh;
+    const added = multiple ? rest.slice(0, room) : [];
+    for (const id of added) this._addRow({ value: id, hidden: false });
+    if (added.length) this._changed();
+    return [first];
   }
 }
 

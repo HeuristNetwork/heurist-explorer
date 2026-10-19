@@ -247,7 +247,6 @@
 #Edit rules for this export#Edit rules for this export
 #Edited for this export (the data source is not changed)#Edited for this export (the data source is not changed)
 #Every record is written once: the result first, then the records each level reaches.#Every record is written once: the result first, then the records each level reaches.
-#File ID#File ID
 #File URL#File URL
 #File details (ID, name, type, URL)#File details (ID, name, type, URL)
 #File format#File format
@@ -373,8 +372,22 @@
 #No#No
 #OK#OK
 #Select record…#Select record…
+#Select file…#Select file…
+#Upload a file#Upload a file
+#Register a URL#Register a URL
+#Edit file details#Edit file details
+#Cancel the upload#Cancel the upload
+#Open the file#Open the file
+#The file is still being uploaded#The file is still being uploaded
+#This file is registered already#This file is registered already
+#Upload file#Upload file
+#Use the registered file#Use the registered file
+#Upload anyway#Upload anyway
+#Register#Register
+#URL of the file or resource#URL of the file or resource
+#File details#File details
+#A valid file ID is required#A valid file ID is required
 #Select…#Select…
-#ID of an uploaded file#ID of an uploaded file
 #Relationships are not edited in this editor yet#Relationships are not edited in this editor yet
 #A value is required#A value is required
 #value#value
@@ -683,3 +696,53 @@
 #Field#Field
 #Header#Header
 #Width#Width
+
+# record list and record manager (plan 21)
+#Add new#Add new
+#Add page to collection#Add page to collection
+#Add selected to collection#Add selected to collection
+#Add to workspace#Add to workspace
+#Browse#Browse
+#Cards#Cards
+#Clear collection#Clear collection
+#Extended#Extended
+#In collection#In collection
+#List#List
+#No records#No records
+#Page#Page
+#Records#Records
+#Remove selected from collection#Remove selected from collection
+#Rows#Rows
+#Select#Select
+#Select all on page#Select all on page
+#Select none#Select none
+#Select record#Select record
+#Selected#Selected
+#Show#Show
+#Show collection#Show collection
+#Show selected#Show selected
+#Sort#Sort
+#Table#Table
+#These record types can not be listed together#These record types can not be listed together
+#View#View
+#filtered from#filtered from
+#hidden_hint#private - hidden from non-owners
+#pending_hint#pending (viewable by anyone, changes pending)
+#public_hint#public (viewable by anyone)
+#visible_hint#visible to any logged-in user
+#Add record#Add record
+
+# record access and Add record dialog (plan 21)
+#Record is owned (editable) by:#Record is owned (editable) by:
+#Record is viewable by:#Record is viewable by:
+#User or group specified above#User or group specified above
+#Any logged-in user can view the record(s)#Any logged-in user can view the record(s)
+#Public - viewable for anyone in published live view, including data export (e.g. XML) without a login#Public - viewable for anyone in published live view, including data export (e.g. XML) without a login
+#Members of the following groups can also view the record(s)#Members of the following groups can also view the record(s)
+#Public, changes pending approval#Public, changes pending approval
+#Also editable by:#Also editable by:
+#Any logged-in user#Any logged-in user
+#Current user#Current user
+#Users#Users
+#Type of record to add:#Type of record to add:
+#Select record type…#Select record type…

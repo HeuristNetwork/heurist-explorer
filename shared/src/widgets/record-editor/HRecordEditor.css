@@ -68,18 +68,6 @@
   font-weight: 600;
 }
 
-.h-record-editor-ownership-row {
-  display: grid;
-  grid-template-columns: minmax(8em, 12em) minmax(0, 1fr);
-  align-items: center;
-  gap: var(--h-gap);
-  padding: 2px 0;
-}
-
-.h-record-editor-ownership-row[hidden] {
-  display: none;
-}
-
 .h-record-editor-messages {
   flex: 0 0 auto;
   padding: 0 var(--h-gap);

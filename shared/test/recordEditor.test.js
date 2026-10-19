@@ -168,11 +168,75 @@ test('boolean, resource and file inputs', () => {
   const resource = createHInput('resource', host(), { value: '5', source, suppressLabel: true });
   assert.equal(resource.getValue(), 5);
   assert.equal(resource.combo.buttonText.textContent, 'Five');
+  // without an API client: the file name only (no picker, no upload)
   const file = createHInput('file', host(), { value: 3, file: { ulf_OrigFileName: 'map.png' }, suppressLabel: true });
   assert.equal(file.getValue(), 3);
   assert.equal(file.summary.textContent, 'map.png');
-  file.control.value = 'abc';
-  assert.equal(file.validate().length, 1);
+  assert.equal(file.uploadButton, undefined);
+});
+
+/** Fake picker source and uploader of HInputFile. */
+function fileFakes({ duplicates = [] } = {}) {
+  const calls = [];
+  const labels = new Map([['7', 'old.png']]);
+  const source = {
+    load: async () => ({ items: [], total: 0, complete: true }),
+    labelFor: (value) => labels.get(String(value)) || '',
+    rememberLabel: (id, label) => labels.set(String(id), label),
+    fetchLabels: async (ids) => { calls.push(['labels', ids]); ids.forEach((id) => labels.set(String(id), `file ${id}`)); },
+    fileFor: () => null
+  };
+  const uploader = {
+    async upload(file, { onProgress }) { calls.push(['upload', file.name]); onProgress(5, 10); return { token: 'tk', duplicates }; },
+    async cancel(token) { calls.push(['cancel', token]); },
+    async register(token) { calls.push(['register', token]); return { rec_ID: '12', rec_Title: 'new.png', rec_Hash: 'abc123abc1' }; },
+    async registerUrl(url) { calls.push(['url', url]); return { rec_ID: '13', rec_Title: url, rec_URL: url }; }
+  };
+  return { calls, source, uploader };
+}
+
+test('file input: upload with progress, then registration; the new file is the value', async () => {
+  const { calls, source, uploader } = fileFakes();
+  const changes = [];
+  const apiClient = { buildUrl: (path) => `http://h/api/db${path}` };
+  const input = createHInput('file', host(), { value: 7, source, uploader, apiClient, suppressLabel: true,
+    onChange: (value) => changes.push(value) });
+  assert.ok(input.uploadButton && input.urlButton, 'Upload and URL buttons');
+  assert.equal(input.cancelButton.hidden, true, 'Cancel only while uploading');
+  const id = await input.uploadFile({ name: 'new.png', size: 10 });
+  assert.equal(id, 12);
+  assert.equal(input.getValue(), 12);
+  assert.deepEqual(calls.map((call) => call[0]), ['upload', 'register']);
+  assert.equal(input.summary.href, 'http://h/api/db/files/abc123abc1/content', 'link to the new content endpoint');
+  assert.equal(input.progress.hidden, true, 'progress hidden after the upload');
+});
+
+test('file input: the same content registered already - use it (upload cancelled) or upload anyway', async () => {
+  let fakes = fileFakes({ duplicates: [9] });
+  let input = createHInput('file', host(), { value: null, source: fakes.source, uploader: fakes.uploader, suppressLabel: true,
+    confirmDuplicate: async (ids) => (ids[0] === 9 ? 'existing' : null) });
+  assert.equal(await input.uploadFile({ name: 'a.png', size: 10 }), 9);
+  assert.equal(input.getValue(), 9);
+  assert.deepEqual(fakes.calls.slice(0, 2), [['upload', 'a.png'], ['cancel', 'tk']]);
+  fakes = fileFakes({ duplicates: [9] });
+  input = createHInput('file', host(), { value: null, source: fakes.source, uploader: fakes.uploader, suppressLabel: true,
+    confirmDuplicate: async () => 'upload' });
+  assert.equal(await input.uploadFile({ name: 'a.png', size: 10 }), 12);
+  assert.ok(fakes.calls.some((call) => call[0] === 'register'));
+});
+
+test('file input: register a URL; read-only hides the buttons', async () => {
+  const { calls, source, uploader } = fileFakes();
+  const input = createHInput('file', host(), { value: null, source, uploader, suppressLabel: true,
+    askUrl: async () => 'https://x.org/a.jpg', editFile: async () => ({ saved: false }) });
+  await input._askUrl();
+  assert.deepEqual(calls.at(-1), ['url', 'https://x.org/a.jpg']);
+  assert.equal(input.getValue(), 13);
+  assert.equal(input.editButton.hidden, false, 'Edit with a value');
+  input.setReadOnly(true);
+  assert.equal(input.uploadButton.hidden, true);
+  assert.equal(input.editButton.hidden, true);
+  assert.equal(await input.uploadFile({ name: 'x.png', size: 1 }), null, 'no upload when read-only');
 });
 
 test('a special field shows a readable value, the raw text on request and its editor', async () => {

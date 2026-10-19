@@ -39,3 +39,13 @@ test('system record types can be edited without the legacy editor (canEditRecord
   // an older bridge without canEditRecordType keeps the legacy answer
   assert.equal(adapter({ editRecord() {}, canEditRecords: () => true }).supportsEditing('RT_MAP_DOCUMENT'), true);
 });
+
+test('browseRecords: the host record manager when the bridge has it (plan 21)', async () => {
+  assert.equal(adapter({}).supportsBrowse(), false);
+  await assert.rejects(adapter({}).browseRecords({ recordTypes: [10] }), /not available/);
+  const calls = [];
+  const host = adapter({ browseRecords: async (options) => { calls.push(options); return [7]; } });
+  assert.equal(host.supportsBrowse(), true);
+  assert.deepEqual(await host.browseRecords({ recordTypes: [10], selectMode: 'select' }), [7]);
+  assert.deepEqual(calls, [{ recordTypes: [10], selectMode: 'select' }]);
+});

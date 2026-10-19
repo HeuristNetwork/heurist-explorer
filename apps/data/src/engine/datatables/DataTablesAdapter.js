@@ -21,9 +21,9 @@ import "datatables.net-buttons/js/buttons.html5.mjs";
 import "./DataTablesAdapter.css";
 import { DataEngineAdapter } from "../DataEngineAdapter.js";
 import { $HR } from "#shared/ui";
-import { dataPopupMode } from "../../core/recordTemplates.js";
-import { adminInfoHtml, recordTypeIconUrl } from "../../ui/recordAdminInfo.js";
-import { createOwnersToggle, createSortSelect } from "../../ui/ListToolControls.js";
+import { dataPopupMode } from "#shared/widgets/record-list/recordTemplates.js";
+import { adminInfoHtml, recordTypeIconUrl } from "#shared/widgets/record-list/recordAdminInfo.js";
+import { createOwnersToggle, createSortSelect } from "#shared/widgets/record-list/ListToolControls.js";
 import {
   fieldValues,
   sanitizeTextHtml,

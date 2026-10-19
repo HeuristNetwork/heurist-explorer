@@ -62,6 +62,10 @@ export class HValuePicker extends HBaseWidget {
    * @param {number} [options.filterThreshold=30] Items above which the filter row shows.
    * @param {number} [options.maxRows=200] Rows rendered at most.
    * @param {string} [options.placeholder] Filter input placeholder.
+   * @param {Array<{id: string, icon: string, title: string, run: Function}>} [options.actions] Icon
+   *        buttons after the filter input (Browse / Add of a pointer field, plan 21); with
+   *        actions the filter row is always shown. A click dispatches `h-value-picker-action`
+   *        (the combo closes) and runs the action.
    * @param {Function} [options.onPick] Called with the picked item.
    * @param {Function} [options.onChange] Called with the new value.
    * @returns {HValuePicker} This picker.
@@ -101,7 +105,7 @@ export class HValuePicker extends HBaseWidget {
     this.clearButton.title = $HR('Clear filter');
     this.clearButton.setAttribute('aria-label', $HR('Clear filter'));
     this.clearButton.hidden = true;
-    this.filterRow.append(icon, this.input, this.clearButton);
+    this.filterRow.append(icon, this.input, this.clearButton, ...this._renderActions());
 
     this.list = document.createElement('ul');
     this.list.id = `${id}-list`;
@@ -131,6 +135,29 @@ export class HValuePicker extends HBaseWidget {
     this._renderList();
     if (this.options.loadOnRender) void this.load();
     return this;
+  }
+
+  /** Icon buttons of `options.actions` (filter row). */
+  _renderActions() {
+    this.actions = (this.options.actions || []).filter((action) => typeof action?.run === 'function');
+    return this.actions.map((action) => {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'heurist-icon-button h-value-picker-action';
+      button.dataset.action = String(action.id || '');
+      button.title = $HR(action.title || '');
+      button.setAttribute('aria-label', button.title);
+      const glyph = document.createElement('i');
+      glyph.className = `fa-solid ${action.icon || 'fa-ellipsis'}`;
+      glyph.setAttribute('aria-hidden', 'true');
+      button.append(glyph);
+      this.listen(button, 'click', (event) => {
+        event.preventDefault();
+        this.container?.dispatchEvent(new CustomEvent('h-value-picker-action', { bubbles: true, detail: { id: action.id } }));
+        void action.run();
+      });
+      return button;
+    });
   }
 
   /** Load values once (first open, V11); later calls reuse them. */
@@ -354,7 +381,8 @@ export class HValuePicker extends HBaseWidget {
     const visible = this._complete ? filterItems(this._items, this._text) : this._items;
     const threshold = Number(this.options.filterThreshold) || FILTER_ROW_THRESHOLD;
     this.filterRow.hidden = Boolean(this.options.controlled)
-      || !(this._loaded && needsFilterRow({ complete: this._complete, total: this._total }, threshold))
+      || !this.actions?.length
+        && !(this._loaded && needsFilterRow({ complete: this._complete, total: this._total }, threshold))
         && !this._text;
     const { rows, shown, total } = limitRows(visible, Number(this.options.maxRows) || MAX_RENDERED_ROWS);
     this._rows = rows;

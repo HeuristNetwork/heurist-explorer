@@ -60,8 +60,11 @@ export class HEditForm extends HBaseWidget {
    * @param {Function} [options.selectGeometry] Map drawing of geo fields (geoKind feature):
    *        `(wkt) → Promise<{type, wkt}|null>`; without it the extent picker is used.
    * @param {Function} [options.fileUrl] Link to view a file of a file field.
+   * @param {Function} [options.editFile] Edit button of file fields (host file editor): `(id) → Promise<{saved, record}>`.
    * @param {Function} [options.editRecord] Edit button of pointer fields: `(id) → Promise<{saved, record}>`.
    * @param {Function} [options.viewRecord] View button of pointer fields: `(id)`.
+   * @param {Function} [options.browseRecords] Browse of pointer fields (record manager, plan 21): `(options) → Promise<number[]|null>`.
+   * @param {Function} [options.addRecord] Add of pointer fields (plan 21): `(rectypeId) → Promise<{saved, recordId}>`.
    * @param {(form: HEditForm) => void} [options.onReady] After render (same as `h-edit-form-ready`).
    * @param {(form: HEditForm, change: {name: string, value: *}) => void} [options.onChange] After a value changed.
    * @param {(values: object, form: HEditForm) => Array<{field?: string, message: string}>|string|null} [options.validate]
@@ -428,7 +431,10 @@ export class HEditForm extends HBaseWidget {
         selectGeometry: this.options.selectGeometry,
         editRecord: this.options.editRecord,
         viewRecord: this.options.viewRecord,
+        browseRecords: this.options.browseRecords,
+        addRecord: this.options.addRecord,
         fileUrl: this.options.fileUrl,
+        editFile: this.options.editFile,
         allowHidden: this.options.allowHidden === true,
         readOnly: this.options.readOnly,
         special: this._special(field),

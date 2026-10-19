@@ -1743,6 +1743,8 @@ export class ExplorerApplication {
       // shown in Explorer's own Record view; see viewRecord()
       viewRecord: (id) => this.viewRecord(id),
       addRecord: (rt) => this.addRecord(rt),
+      // the record manager (plan 21): Select records of some types in a dialog
+      browseRecords: (options) => this.recordEditing.browseRecords(options),
       // same draw-mode Map dialog as the Filter Builder extent picker;
       // the outer host editor is only a fallback without a Map module URL
       editExtent: (value, options) => (this.config.moduleUrls?.map

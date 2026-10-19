@@ -1,0 +1,19 @@
+/* Owner and visibility of a record (plan 21): legacy recordAccess layout */
+.h-record-access { display:flex; flex-direction:column; gap:10px; }
+.h-record-access-section { display:flex; flex-direction:column; gap:4px; }
+.h-record-access-caption { font-weight:600; }
+.h-record-access-picker { display:flex; max-width:32em; }
+.h-record-access-picker > .h-value-combo-host { flex:1 1 auto; min-width:0; }
+.h-record-access-choices { display:flex; flex-direction:column; gap:6px; padding-left:16px; }
+.h-record-access-choice { display:flex; align-items:flex-start; gap:6px; cursor:pointer; }
+.h-record-access-choice[hidden] { display:none; }
+.h-record-access-choice input { margin:2px 0 0; }
+.h-record-access-groups { display:flex; flex-direction:column; gap:4px; padding-left:22px; }
+.h-record-access-groups[hidden] { display:none; }
+.h-record-access-help { color:var(--h-color-text-muted); font-size:var(--h-font-size-small); }
+.h-record-access-pending { padding-left:22px; color:var(--h-color-warning, #b54708); }
+.h-record-access-pending[hidden] { display:none; }
+
+/* Add record dialog: record type, then owner and visibility */
+.h-dialog-record-add { width:min(560px, calc(100vw - 24px)); }
+.h-record-add { display:flex; flex-direction:column; gap:12px; }

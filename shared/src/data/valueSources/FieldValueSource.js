@@ -174,15 +174,20 @@ export class FacetTermSource {
 export class RecordTitleSource {
   /**
    * @param {object} api HeuristApiClient (needs `get`).
-   * @param {{rtyId?: number|string|Array<number|string>|null, limit?: number}} [options]
-   *        Record type or types (none: any), page size.
+   * @param {{rtyId?: number|string|Array<number|string>|null, limit?: number, path?: string,
+   *         query?: Array<object>, fields?: string|null}} [options]
+   *        Record type or types (none: any), page size, API domain (`/records/` or `/files`),
+   *        predicates added to every load, output fields (none: the default headers).
    */
-  constructor(api, { rtyId = null, limit = 200 } = {}) {
+  constructor(api, { rtyId = null, limit = 200, path = '/records/', query = [], fields = null } = {}) {
     if (!api?.get) throw new TypeError('RecordTitleSource requires an API client');
     this.api = api;
     const types = (Array.isArray(rtyId) ? rtyId : [rtyId]).map(Number).filter((id) => id > 0);
     this.rtyId = types.length ? types.join(',') : null;
     this.limit = Math.max(1, Number(limit) || 200);
+    this.path = path;
+    this.query = Array.isArray(query) ? query : [];
+    this.fields = fields;
     this._labels = new Map();
   }
 
@@ -192,11 +197,13 @@ export class RecordTitleSource {
   /** @returns {Promise<{items: Array<object>, total: number, complete: boolean}>} Records by title. */
   async load({ text = '', signal } = {}) {
     const filter = String(text ?? '').trim();
-    const q = [];
+    const q = [...this.query];
     if (this.rtyId) q.push({ t: String(this.rtyId) });
     if (filter) q.push({ title: filter });
     q.push({ sortby: 't' });
-    const payload = await this.api.get('/records/', { query: { q, limit: this.limit }, signal });
+    const query = { q, limit: this.limit };
+    if (this.fields) query.fields = this.fields;
+    const payload = await this.api.get(this.path, { query, signal });
     const rows = recordRows(payload);
     const items = rows.map((row) => this._item(row)).filter(Boolean);
     const total = Number(payload?.pagination?.total ?? payload?.total) || items.length;
@@ -228,7 +235,9 @@ export class RecordTitleSource {
   async fetchLabels(ids) {
     const missing = [...new Set((ids || []).map(String).filter((id) => /^\d+$/.test(id) && !this._labels.has(id)))];
     if (!missing.length) return;
-    const payload = await this.api.get('/records/', { query: { q: [{ ids: missing.join(',') }], limit: missing.length } });
+    const query = { q: [{ ids: missing.join(',') }], limit: missing.length };
+    if (this.fields) query.fields = this.fields;
+    const payload = await this.api.get(this.path, { query });
     for (const row of recordRows(payload)) this._item(row);
   }
 

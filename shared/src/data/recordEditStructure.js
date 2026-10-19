@@ -10,7 +10,11 @@
  *
  *   {rty, groups: [{id, type: 'tabs'|'accordion'|'group', label, help, children: [field]}]}
  *   field: {dty, type, label, help, req, max, default, vocabulary, targetTypes,
- *           width, height, multilang, concept}
+ *           pointerMode, browseFilter, width, height, multilang, concept}
+ *
+ * Pointer types and vocabularies come from the base field only (`dty_PtrTargetRectypeIDs`,
+ * `dty_JsonTermIDTree`); `rst_PtrFilteredIDs` / `rst_FilteredJsonTermIDTree` are ignored
+ * (plan 21, Artem 2026-10-19).
  *
  * @project     Heurist academic knowledge management system
  * @package     heurist-client-core
@@ -23,12 +27,41 @@
  * @since       8.0
  */
 
+import { isWritableRecordType } from './writableRecordTypes.js';
+
 /** `/rst` columns the editor needs. */
 export const EDIT_STRUCTURE_DETAILS = [
   'rst_DetailTypeID', 'rst_DisplayName', 'rst_DisplayOrder', 'rst_RequirementType', 'rst_DefaultValue',
-  'rst_DisplayHelpText', 'rst_MaxValues', 'rst_PtrFilteredIDs', 'rst_FilteredJsonTermIDTree',
+  'rst_DisplayHelpText', 'rst_MaxValues', 'rst_PointerMode', 'rst_PointerBrowseFilter',
   'rst_DisplayWidth', 'rst_DisplayHeight', 'dty_Type', 'dty_Name', 'dty_JsonTermIDTree', 'dty_PtrTargetRectypeIDs'
 ].join(',');
+
+/**
+ * Presentations of a pointer field (`rst_PointerMode`, plan 21 §5): `dropdown_add` value
+ * picker with Browse and Add, `dropdown` picker with Browse, `addorbrowse` the record
+ * manager with Add, `addonly` a new record, `browseonly` the record manager without Add.
+ */
+export const POINTER_MODES = Object.freeze(['dropdown_add', 'dropdown', 'addorbrowse', 'addonly', 'browseonly']);
+
+/**
+ * Pointer mode of a field. The database column has the default `addorbrowse`, so a
+ * stored `addorbrowse` (or nothing) on a pointer to system record types only means
+ * `dropdown_add` (plan 21 §9.2: system types `dropdown_add`, user-data types -
+ * RT_REGISTERED_FILE too - `addorbrowse`); other stored values are kept.
+ *
+ * @param {*} value `rst_PointerMode`.
+ * @param {Array<number>} targetTypes Pointer constraint (empty = any type).
+ * @param {object|null} dbdefs HDbDefs (system record types).
+ * @returns {string} One of POINTER_MODES.
+ */
+export function resolvePointerMode(value, targetTypes = [], dbdefs = null) {
+  const mode = String(value ?? '').trim().toLowerCase();
+  const stored = POINTER_MODES.includes(mode) ? mode : '';
+  const types = (targetTypes || []).map(Number).filter((id) => id > 0);
+  const system = types.length > 0 && types.every((id) => isWritableRecordType(dbdefs, id));
+  if (system && (!stored || stored === 'addorbrowse')) return 'dropdown_add';
+  return stored || 'addorbrowse';
+}
 
 /**
  * Group presentation of a separator (`rst_DefaultValue`): legacy values tabs,
@@ -75,7 +108,7 @@ export function buildEditStructure(rows, { rty, multilangIds = [], dbdefs = null
     if (req === 'forbidden') continue;
     const dty = Number(row.rst_DetailTypeID);
     if (!(dty > 0)) continue;
-    const targets = idList(row.rst_PtrFilteredIDs);
+    const targets = idList(row.dty_PtrTargetRectypeIDs);
     current.children.push({
       dty,
       type,
@@ -84,8 +117,12 @@ export function buildEditStructure(rows, { rty, multilangIds = [], dbdefs = null
       req,
       max: Math.max(0, Number(row.rst_MaxValues) || 0),
       default: String(row.rst_DefaultValue ?? ''),
-      vocabulary: idList(row.rst_FilteredJsonTermIDTree)[0] || idList(row.dty_JsonTermIDTree)[0] || null,
-      targetTypes: targets.length ? targets : idList(row.dty_PtrTargetRectypeIDs),
+      vocabulary: idList(row.dty_JsonTermIDTree)[0] || null,
+      targetTypes: targets,
+      ...(type === 'resource' ? {
+        pointerMode: resolvePointerMode(row.rst_PointerMode, targets, dbdefs),
+        browseFilter: String(row.rst_PointerBrowseFilter ?? '').trim()
+      } : {}),
       width: Math.max(0, Number(row.rst_DisplayWidth) || 0),
       height: Math.max(0, Number(row.rst_DisplayHeight) || 0),
       multilang: multilang.has(dty),
@@ -135,6 +172,7 @@ export function nonStandardGroup(record, structure, dbdefs, label = 'Non-standar
       default: '',
       vocabulary: global?.vocabulary || null,
       targetTypes: global?.targetTypes || [],
+      ...(type === 'resource' ? { pointerMode: resolvePointerMode(null, global?.targetTypes || [], dbdefs), browseFilter: '' } : {}),
       width: 0,
       height: 0,
       multilang: false,

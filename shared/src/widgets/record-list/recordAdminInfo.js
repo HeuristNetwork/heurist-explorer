@@ -4,7 +4,7 @@
  *        shared by the HRecordList views and the Table view, so both show the same icons.
  *
  * @project     Heurist academic knowledge management system
- * @package     heurist-data
+ * @package     heurist-client-core
  *
  * @link        https://HeuristNetwork.org
  * @copyright   (C) 2024 onwards Heurist Network
@@ -14,7 +14,7 @@
  * @since       8.0
  */
 
-import { $HR } from "#shared/ui";
+import { $HR } from "../../ui/i18n/HResource.js";
 
 /** Cache-busting token for record-type icon URLs, one per page load. */
 const RECORD_TYPE_ICON_TOKEN = Date.now();

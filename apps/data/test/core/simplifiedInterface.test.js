@@ -55,7 +55,7 @@ test("the dialog leaves out Interface, Interaction and the Extended view / Popup
 });
 
 test("record list toolbar: Counter, Pagination, View, Selected, Sort, See/hide owners", async () => {
-  const list = await source("../../src/widgets/HRecordList.js");
+  const list = await source("../../../../shared/src/widgets/record-list/HRecordList.js");
   assert.match(list, /toolbar\.prepend\(\s*\.\.\.\[\s*this\.\$\('\[data-role="counter"\]'\),\s*this\.\$\("\.h-recordlist-pagination"\),\s*this\.\$\('\[data-control="viewMode"\]'\),\s*this\.\$\('\[data-control="selectionActions"\]'\),\s*this\._sortControl,\s*this\._ownersToggle,/);
   const table = await source("../../src/engine/datatables/DataTablesAdapter.js");
   assert.match(table, /if \(this\.options\.simplified === true\) \{\s*bar\.append\(\s*createSortSelect/);
@@ -68,7 +68,7 @@ test("the list sort is used by this module's loads only, unless the engine sorts
 });
 
 test("pagination pages: all up to 12; above, first … 3 before, current, 3 after … last", async () => {
-  const { pageEntries } = await import("../../src/widgets/pageEntries.js");
+  const { pageEntries } = await import("../../../../shared/src/widgets/record-list/pageEntries.js");
   assert.deepEqual(pageEntries(0, 12), [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]);
   assert.deepEqual(pageEntries(10, 30), [0, null, 7, 8, 9, 10, 11, 12, 13, null, 29]);
   assert.deepEqual(pageEntries(0, 30), [0, 1, 2, 3, null, 29]);
@@ -76,8 +76,8 @@ test("pagination pages: all up to 12; above, first … 3 before, current, 3 afte
 });
 
 test("pagination: hidden with one page, a select in a narrow pane", async () => {
-  const list = await source("../../src/widgets/HRecordList.js");
-  const css = await source("../../src/widgets/HRecordList.css");
+  const list = await source("../../../../shared/src/widgets/record-list/HRecordList.js");
+  const css = await source("../../../../shared/src/widgets/record-list/HRecordList.css");
   assert.match(list, /if \(nav\) nav\.hidden = pages <= 1;/);
   assert.match(css, /@container \(max-width: 520px\) \{\s*\.h-recordlist-pagination > \.h-pagination \{ display:none; \}\s*\.h-recordlist-page-select \{ display:inline-block; \}/);
 });

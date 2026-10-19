@@ -49,6 +49,8 @@ Modules ask their host to edit records through the bridge:
 - `canEditRecords()` says whether any record can be edited (the legacy host editor).
 - `canEditRecordType(recordType)` says whether records of one type can be edited. `recordType`
   is an id or a code name such as `RT_MAP_LAYER`.
+- `browseRecords({recordTypes, selectMode})` opens the record manager (plan 21) and resolves
+  with the selected record ids, or null when cancelled (`HostAdapter.supportsBrowse()`).
 
 `HostAdapter.supportsEditing(recordType)` uses `canEditRecordType` when the bridge has it, and
 `canEditRecords` otherwise.

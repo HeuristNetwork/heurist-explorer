@@ -35,6 +35,16 @@
   min-width: 0;
 }
 
+/* Browse / Add of a pointer field after the filter input (plan 21) */
+.h-value-picker-action {
+  flex: 0 0 auto;
+  color: var(--h-color-icon);
+}
+
+.h-value-picker-action:hover {
+  color: var(--h-color-primary);
+}
+
 .h-value-picker-list {
   margin: 0;
   padding: 2px 0;

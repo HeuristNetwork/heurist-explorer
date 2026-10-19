@@ -98,6 +98,8 @@ export class HValueCombo extends HBaseWidget {
       }
     });
     this.listen(this.popover, 'h-value-picker-escape', () => this.close({ focus: true }));
+    // an action of the picker (Browse / Add of a pointer field) opens its own dialog
+    this.listen(this.popover, 'h-value-picker-action', () => this.close());
     this.listen(this.popover, 'h-value-picker-change', (event) => event.stopPropagation());
     this._onOutside = (event) => {
       if (!this.container?.contains(event.target) && !this.popover.contains(event.target)) this.close();

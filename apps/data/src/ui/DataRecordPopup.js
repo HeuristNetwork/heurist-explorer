@@ -20,7 +20,7 @@
 
 import { $HR } from "#shared/ui";
 import { RecordPopupContent } from "#shared/recordview/RecordPopupContent.js";
-import { dataPopupMode } from "../core/recordTemplates.js";
+import { dataPopupMode } from "#shared/widgets/record-list/recordTemplates.js";
 import "./DataRecordPopup.css";
 
 /** Floating record popup beside a record's View action. */

@@ -12,10 +12,10 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { DataApplication } from "../../src/core/DataApplication.js";
 
-const list = await readFile(new URL("../../src/widgets/HRecordList.js", import.meta.url), "utf8");
-const html = await readFile(new URL("../../src/widgets/HRecordList.html", import.meta.url), "utf8");
+const list = await readFile(new URL("../../../../shared/src/widgets/record-list/HRecordList.js", import.meta.url), "utf8");
+const html = await readFile(new URL("../../../../shared/src/widgets/record-list/HRecordList.html", import.meta.url), "utf8");
 const table = await readFile(new URL("../../src/engine/datatables/DataTablesAdapter.js", import.meta.url), "utf8");
-const css = await readFile(new URL("../../src/widgets/HRecordList.css", import.meta.url), "utf8");
+const css = await readFile(new URL("../../../../shared/src/widgets/record-list/HRecordList.css", import.meta.url), "utf8");
 
 test("Show selected has a check mark while on; Select none switches it off; nothing to show without a selection", () => {
   assert.match(html, /data-selection-action="show"><span data-label="Show selected"><\/span><i class="fa-solid fa-check h-recordlist-menu-check"/);

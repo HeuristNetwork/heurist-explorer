@@ -59,12 +59,17 @@ export class RecordEditError extends Error {
   }
 }
 
-/** Reads and writes single records through `/records/{id}`. */
+/** Reads and writes single records through `/records/{id}` (or `/files/{id}`: file records, plan 20). */
 export class RecordEditClient {
-  /** @param {{apiClient: object}} options HeuristApiClient (needs `request`). */
-  constructor({ apiClient }) {
+  /**
+   * @param {{apiClient: object, domain?: 'records'|'files'}} options HeuristApiClient (needs `request`);
+   *        API domain of the records (`files`: registered files).
+   */
+  constructor({ apiClient, domain = 'records' }) {
     if (typeof apiClient?.request !== 'function') throw new TypeError('RecordEditClient requires an API client');
+    if (!['records', 'files'].includes(domain)) throw new TypeError(`Unknown record domain: ${domain}`);
     this.apiClient = apiClient;
+    this.domain = domain;
   }
 
   /**
@@ -77,7 +82,7 @@ export class RecordEditClient {
    */
   async load(id, { signal } = {}) {
     const recordId = positiveId(id);
-    const payload = await this._call('GET', `/records/${recordId}`, { query: { fields: '_all', resolveDetails: 1, defs: 1 }, signal });
+    const payload = await this._call('GET', `/${this.domain}/${recordId}`, { query: { fields: '_all', resolveDetails: 1, defs: 1 }, signal });
     return { record: payload?.records?.[0] || null, meta: payload?.meta || {} };
   }
 
@@ -90,7 +95,7 @@ export class RecordEditClient {
   async insert(record) {
     const id = Number(record?.rec_ID) || 0;
     if (id > 0) throw new TypeError('insert() needs rec_ID 0 or a negative id');
-    return this._saved(await this._call('POST', `/records/${id}`, { body: { ...record, rec_ID: String(id) } }));
+    return this._saved(await this._call('POST', `/${this.domain}/${id}`, { body: { ...record, rec_ID: String(id) } }));
   }
 
   /**
@@ -102,7 +107,7 @@ export class RecordEditClient {
    */
   async update(record, { force = false } = {}) {
     const id = positiveId(record?.rec_ID);
-    return this._saved(await this._call('PUT', `/records/${id}`, { body: record, query: force ? { force: 1 } : null }));
+    return this._saved(await this._call('PUT', `/${this.domain}/${id}`, { body: record, query: force ? { force: 1 } : null }));
   }
 
   /**
@@ -114,7 +119,7 @@ export class RecordEditClient {
    * @returns {Promise<{record: object, issues: Array<object>}>}
    */
   async patch(id, changes, { force = false } = {}) {
-    return this._saved(await this._call('PATCH', `/records/${positiveId(id)}`, { body: changes || {}, query: force ? { force: 1 } : null }));
+    return this._saved(await this._call('PATCH', `/${this.domain}/${positiveId(id)}`, { body: changes || {}, query: force ? { force: 1 } : null }));
   }
 
   /**
@@ -126,7 +131,7 @@ export class RecordEditClient {
    * @returns {Promise<{deleted: string[], pointersRemoved: number, relationshipsDeleted: number}>}
    */
   async remove(id, { force = false } = {}) {
-    return this._call('DELETE', `/records/${positiveId(id)}`, { query: force ? { force: 1 } : null });
+    return this._call('DELETE', `/${this.domain}/${positiveId(id)}`, { query: force ? { force: 1 } : null });
   }
 
   /**
@@ -136,7 +141,7 @@ export class RecordEditClient {
    * @returns {Promise<{record: object, issues: Array<object>}>} The new record.
    */
   async duplicate(id) {
-    return this._saved(await this._call('POST', `/records/${positiveId(id)}/duplicate`, { body: {} }));
+    return this._saved(await this._call('POST', `/${this.domain}/${positiveId(id)}/duplicate`, { body: {} }));
   }
 
   /**
@@ -149,7 +154,7 @@ export class RecordEditClient {
   async validate(record) {
     const id = Number(record?.rec_ID) || 0;
     try {
-      const payload = await this._call('POST', `/records/${id}/validate`, { body: record });
+      const payload = await this._call('POST', `/${this.domain}/${id}/validate`, { body: record });
       return { valid: true, issues: payload?.issues || [] };
     } catch (error) {
       if (error instanceof RecordEditError && error.isValidation) return { valid: false, issues: error.issues };

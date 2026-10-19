@@ -12,9 +12,9 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 
 // HRecordList imports its template with ?raw, which node cannot load: read the sources
-const list = await readFile(new URL("../../src/widgets/HRecordList.js", import.meta.url), "utf8");
-const html = await readFile(new URL("../../src/widgets/HRecordList.html", import.meta.url), "utf8");
-const css = await readFile(new URL("../../src/widgets/HRecordList.css", import.meta.url), "utf8");
+const list = await readFile(new URL("../../../../shared/src/widgets/record-list/HRecordList.js", import.meta.url), "utf8");
+const html = await readFile(new URL("../../../../shared/src/widgets/record-list/HRecordList.html", import.meta.url), "utf8");
+const css = await readFile(new URL("../../../../shared/src/widgets/record-list/HRecordList.css", import.meta.url), "utf8");
 const table = await readFile(new URL("../../src/engine/datatables/DataTablesAdapter.js", import.meta.url), "utf8");
 
 test("the record list counter is at the right end of its toolbar, not in the footer", () => {
@@ -32,5 +32,6 @@ test("the Table view's export buttons and counter are the top DataTables row, un
 
 test("double-click edits the record, as the pen button, only when editing is allowed", () => {
   assert.match(list, /"dblclick",\s*"\.h-recordlist-item",/);
-  assert.match(list, /_recordDoubleClicked\(event, item\) \{\s*if \(this\.options\.interaction\.editEnabled === false\) return;/);
+  // without the host's onRecordActivate (the record manager, plan 21) double-click edits
+  assert.match(list, /if \(this\.options\.interaction\.editEnabled === false\) return;\s*this\.onEditRecord\?\.\(id\);/);
 });

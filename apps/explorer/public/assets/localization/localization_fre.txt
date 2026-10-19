@@ -247,7 +247,6 @@
 #Edit rules for this export#Modifier les règles pour cet export
 #Edited for this export (the data source is not changed)#Modifiées pour cet export (la source de données n'est pas modifiée)
 #Every record is written once: the result first, then the records each level reaches.#Chaque enregistrement est écrit une seule fois : d'abord le résultat, puis les enregistrements atteints à chaque niveau.
-#File ID#ID du fichier
 #File URL#URL du fichier
 #File details (ID, name, type, URL)#Détails du fichier (ID, nom, type, URL)
 #File format#Format de fichier
@@ -373,8 +372,22 @@
 #No#Non
 #OK#OK
 #Select record…#Choisir un enregistrement…
+#Select file…#Choisir un fichier…
+#Upload a file#Téléverser un fichier
+#Register a URL#Enregistrer une URL
+#Edit file details#Modifier les détails du fichier
+#Cancel the upload#Annuler le téléversement
+#Open the file#Ouvrir le fichier
+#The file is still being uploaded#Le fichier est encore en cours de téléversement
+#This file is registered already#Ce fichier est déjà enregistré
+#Upload file#Téléverser le fichier
+#Use the registered file#Utiliser le fichier enregistré
+#Upload anyway#Téléverser quand même
+#Register#Enregistrer
+#URL of the file or resource#URL du fichier ou de la ressource
+#File details#Détails du fichier
+#A valid file ID is required#Un ID de fichier valide est requis
 #Select…#Choisir…
-#ID of an uploaded file#ID d'un fichier téléversé
 #Relationships are not edited in this editor yet#Les relations ne sont pas encore modifiables dans cet éditeur
 #A value is required#Une valeur est requise
 #value#valeur
@@ -683,3 +696,53 @@
 #Field#Champ
 #Header#En-tête
 #Width#Largeur
+
+# record list and record manager (plan 21)
+#Add new#Ajouter
+#Add page to collection#Ajouter la page à la collection
+#Add selected to collection#Ajouter la sélection à la collection
+#Add to workspace#Ajouter à l’espace de travail
+#Browse#Parcourir
+#Cards#Cartes
+#Clear collection#Vider la collection
+#Extended#Étendu
+#In collection#Dans la collection
+#List#Liste
+#No records#Aucun enregistrement
+#Page#Page
+#Records#Enregistrements
+#Remove selected from collection#Retirer la sélection de la collection
+#Rows#Rangées
+#Select#Sélectionner
+#Select all on page#Tout sélectionner sur la page
+#Select none#Tout désélectionner
+#Select record#Sélectionner un enregistrement
+#Selected#Sélectionnés
+#Show#Afficher
+#Show collection#Afficher la collection
+#Show selected#Afficher la sélection
+#Sort#Tri
+#Table#Tableau
+#These record types can not be listed together#Ces types d’enregistrement ne peuvent pas être listés ensemble
+#View#Voir
+#filtered from#filtré à partir de
+#hidden_hint#privé - masqué pour les non-propriétaires
+#pending_hint#en attente (visible par tous, modifications en attente)
+#public_hint#public (visible par tous)
+#visible_hint#visible par tout utilisateur connecté
+#Add record#Ajouter un enregistrement
+
+# record access and Add record dialog (plan 21)
+#Record is owned (editable) by:#Propriétaire (peut modifier) :
+#Record is viewable by:#Visible par :
+#User or group specified above#L’utilisateur ou le groupe indiqué ci-dessus
+#Any logged-in user can view the record(s)#Tout utilisateur connecté peut voir le(s) enregistrement(s)
+#Public - viewable for anyone in published live view, including data export (e.g. XML) without a login#Public - visible par tous dans les vues publiées, y compris l’export de données (p. ex. XML) sans connexion
+#Members of the following groups can also view the record(s)#Les membres des groupes suivants peuvent aussi voir le(s) enregistrement(s)
+#Public, changes pending approval#Public, modifications en attente d’approbation
+#Also editable by:#Aussi modifiable par :
+#Any logged-in user#Tout utilisateur connecté
+#Current user#Utilisateur actuel
+#Users#Utilisateurs
+#Type of record to add:#Type d’enregistrement à ajouter :
+#Select record type…#Sélectionner un type d’enregistrement…

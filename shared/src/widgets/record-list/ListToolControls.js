@@ -5,7 +5,7 @@
  *        toolbar and the Table view's toolbar.
  *
  * @project     Heurist academic knowledge management system
- * @package     heurist-data
+ * @package     heurist-client-core
  *
  * @link        https://HeuristNetwork.org
  * @copyright   (C) 2024 onwards Heurist Network
@@ -15,7 +15,7 @@
  * @since       8.0
  */
 
-import { $HR } from "#shared/ui";
+import { $HR } from "../../ui/i18n/HResource.js";
 import "./ListToolControls.css";
 
 /** Sort choices (v7 set): `/records` sort tokens; empty is the query's own sort. */

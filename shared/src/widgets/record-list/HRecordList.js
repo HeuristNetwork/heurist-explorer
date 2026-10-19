@@ -2,11 +2,16 @@
  * @file HRecordList.js
  * @brief Framework-independent reusable Heurist record-list widget.
  *
- * Search ownership and server pagination remain in DataApplication. This class
- * only renders pages and reports interaction through adapter callbacks.
+ * Search ownership and server pagination remain with the host (DataApplication,
+ * or RecordListLoader for other hosts such as the record manager, plan 21). This
+ * class only renders pages and reports interaction through adapter callbacks.
+ *
+ * Options added for other hosts (plan 21): `topBar` (a row above the toolbar,
+ * filled with `setTopBarContent`), `selectionMode: 'multi'|'single'`, and the
+ * `onRecordActivate` callback that replaces "double-click = edit".
  *
  * @project     Heurist academic knowledge management system
- * @package     heurist-data
+ * @package     heurist-client-core
  *
  * @link        https://HeuristNetwork.org
  * @copyright   (C) 2024 onwards Heurist Network
@@ -16,12 +21,12 @@
  * @since       8.0
  */
 
-import { HBaseWidget } from '#shared/widgets';
-import { $HR } from '#shared/ui';
-import { dataPopupMode, extendedViewTemplate } from "../core/recordTemplates.js";
-import { createOwnersToggle, createSortSelect } from "../ui/ListToolControls.js";
+import { HBaseWidget } from '../HBaseWidget.js';
+import { $HR } from '../../ui/i18n/HResource.js';
+import { dataPopupMode, extendedViewTemplate } from "./recordTemplates.js";
+import { createOwnersToggle, createSortSelect } from "./ListToolControls.js";
 import { pageEntries } from "./pageEntries.js";
-import { adminInfoHtml, recordTypeIconUrl } from "../ui/recordAdminInfo.js";
+import { adminInfoHtml, recordTypeIconUrl } from "./recordAdminInfo.js";
 import template from "./HRecordList.html?raw";
 import "./HRecordList.css";
 
@@ -45,6 +50,8 @@ export class HRecordList extends HBaseWidget {
    * @param {Function} context.onViewRecord Called with a record ID to view.
    * @param {Function} context.onViewModeChange Called with the new view mode.
    * @param {Function} context.onDataSourceAction Called with a datasource action id (workspace/save-filter/save-source).
+   * @param {Function} [context.onRecordActivate] Called with a record ID on double-click; when given,
+   *        double-click no longer edits (the record manager selects with it, plan 21).
    * @returns {Promise<void>}
    */
   async initialize({
@@ -62,6 +69,7 @@ export class HRecordList extends HBaseWidget {
     getListSort,
     onListSortChange,
     onOwnersToggle,
+    onRecordActivate,
   }) {
     // set before attach: the simplified toolbar is built while rendering
     Object.assign(this, { getListSort, onListSortChange, onOwnersToggle });
@@ -76,6 +84,7 @@ export class HRecordList extends HBaseWidget {
       onViewRecord,
       onViewModeChange,
       onDataSourceAction,
+      onRecordActivate,
     });
     this.selected = new Set();
     this.collected = new Set();
@@ -93,6 +102,7 @@ export class HRecordList extends HBaseWidget {
     );
     this.container.innerHTML = template;
     this.content = this.$('[data-role="content"]');
+    this.topBar = this.$('[data-role="topbar"]');
     this._initializeControls();
     this._createObserver();
     this.state = "rendered";
@@ -611,7 +621,9 @@ export class HRecordList extends HBaseWidget {
       return;
     const id = Number(item.dataset.recordId);
     const index = Number(item.dataset.recordIndex);
-    if (event.shiftKey && this.lastSelectedIndex >= 0) {
+    if (this._isSingleSelection()) {
+      this.selected = new Set([id]);
+    } else if (event.shiftKey && this.lastSelectedIndex >= 0) {
       const [from, to] = [this.lastSelectedIndex, index].sort((a, b) => a - b);
       this.records
         .slice(from, to + 1)
@@ -641,12 +653,20 @@ export class HRecordList extends HBaseWidget {
     Promise.resolve(this.onCollectionToggle?.(id, collected)).catch(() => {});
   }
 
-  /** Edit the double-clicked record, as its pen button does (only when the pen is offered). */
+  /**
+   * Double-click: the host's `onRecordActivate` when given (the record manager selects
+   * with it), else edit the record as its pen button does (only when the pen is offered).
+   */
   _recordDoubleClicked(event, item) {
-    if (this.options.interaction.editEnabled === false) return;
     if (event.target.closest("button,input,a,select,textarea")) return;
     const id = Number(item.dataset.recordId);
-    if (Number.isInteger(id) && id > 0) this.onEditRecord?.(id);
+    if (!(Number.isInteger(id) && id > 0)) return;
+    if (typeof this.onRecordActivate === "function") {
+      this.onRecordActivate(id);
+      return;
+    }
+    if (this.options.interaction.editEnabled === false) return;
+    this.onEditRecord?.(id);
   }
 
   /** Toggle persistent collection membership for the record whose checkbox changed. */
@@ -665,6 +685,7 @@ export class HRecordList extends HBaseWidget {
    */
   _selectionAction(action) {
     if (action === "page") {
+      if (this._isSingleSelection()) return;
       this.records.forEach((record) => this.selected.add(recordId(record)));
     } else if (action === "none") {
       this.selected.clear();
@@ -698,7 +719,9 @@ export class HRecordList extends HBaseWidget {
    * @returns {Promise<void>}
    */
   async setSelection(ids) {
-    this.selected = new Set((ids || []).map(Number));
+    const list = (ids || []).map(Number);
+    // single selection keeps the last id
+    this.selected = new Set(this._isSingleSelection() ? list.slice(-1) : list);
     this._applySelection();
     this._scrollSelectedIntoView();
   }
@@ -901,6 +924,28 @@ export class HRecordList extends HBaseWidget {
     this.$$("[data-collection-action]").forEach((el) => {
       el.hidden = this.options.interaction.persistentSelectionEnabled !== true;
     });
+    const pageAction = this.$('[data-selection-action="page"]')?.closest("li");
+    if (pageAction) pageAction.hidden = this._isSingleSelection();
+    if (this.topBar) this.topBar.hidden = this.options.topBar !== true || !this.topBar.childElementCount;
+  }
+
+  /** @returns {boolean} Whether only one record can be selected (`selectionMode: 'single'`). */
+  _isSingleSelection() {
+    return this.options.selectionMode === "single";
+  }
+
+  /**
+   * Put host content (the record manager's Add buttons, plan 21) into the row above
+   * the toolbar; the row is shown with the `topBar` option and some content.
+   *
+   * @param {HTMLElement|null} element Content, or null to empty the row.
+   * @returns {HTMLElement|null} The top bar row.
+   */
+  setTopBarContent(element) {
+    if (!this.topBar) return null;
+    this.topBar.replaceChildren(...(element ? [element] : []));
+    this.topBar.hidden = this.options.topBar !== true || !element;
+    return this.topBar;
   }
 
   /**
@@ -981,6 +1026,9 @@ function normalizeOptions(options) {
       : 100,
     fontSize: Number(options.fontSize) || 14,
     viewMode: normalizeViewMode(options.viewMode),
+    // plan 21: one selected record at a time (record manager, select mode)
+    selectionMode: options.selectionMode === "single" ? "single" : "multi",
+    topBar: options.topBar === true,
     // how a record is added to / removed from the collection: "permanent" checkbox, or
     // "mouseover" +/- button with the row actions (internal, not in the settings; 2026-10-15)
     collectionMode: options.collectionMode === "permanent" ? "permanent" : "mouseover",
