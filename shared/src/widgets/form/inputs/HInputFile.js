@@ -41,6 +41,9 @@ export class HInputFile extends HInput {
    * @param {Function} [options.confirmDuplicate] `(ids) → Promise<'existing'|'upload'|null>` when the uploaded
    *        content is registered already (default: a dialog).
    * @param {Function} [options.askUrl] `() → Promise<string|null>` the URL to register (default: a dialog).
+   * @param {Function} [options.browseRecords] Host record manager (plan 21): with it and `fileRecordType`
+   *        the file is chosen there (as a pointer field in `addorbrowse` mode), not in a value picker.
+   * @param {number} [options.fileRecordType] Local id of RT_REGISTERED_FILE (the record manager's type).
    * @returns {HInputFile} This input.
    */
   attach(container, options = {}) {
@@ -76,7 +79,10 @@ export class HInputFile extends HInput {
     this.summary.rel = 'noopener';
     group.append(this.thumb);
     let control = this.summary;
-    if (this.source) {
+    if (this._canBrowse()) {
+      // the record manager of registered files, as a pointer field in addorbrowse mode (plan 21)
+      control = this._renderBrowseButton(group);
+    } else if (this.source) {
       const comboHost = document.createElement('div');
       comboHost.className = 'h-input-file-picker';
       group.append(comboHost);
@@ -100,14 +106,63 @@ export class HInputFile extends HInput {
     this.progress.max = 1;
     this.progress.hidden = true;
     group.append(this.progress);
-    this._renderActions(group);
     host.append(group);
+    // after the control box (rst_DisplayWidth is the width of the picker / button), as HInputResource
+    this._renderActions((actions) => host.after(actions));
     this._bindDrop(group);
     this._renderSummary();
     if (this.value != null && this.source && !this.source.labelFor?.(this.value)) {
-      void this.source.fetchLabels?.([this.value]).then(() => this.combo?.setValue(this.value));
+      void this.source.fetchLabels?.([this.value]).then(() => {
+        this.combo?.setValue(this.value);
+        this._syncBrowseText();
+      });
     }
     return control;
+  }
+
+  /** @returns {boolean} Whether files are chosen in the host's record manager. */
+  _canBrowse() {
+    return typeof this.options.browseRecords === 'function' && Number(this.options.fileRecordType) > 0;
+  }
+
+  /** Select-like button with the file name; a click opens the record manager of files. */
+  _renderBrowseButton(group) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'h-select h-input-file-browse';
+    this.browseText = document.createElement('span');
+    this.browseText.className = 'h-input-file-browse-text';
+    const icon = document.createElement('i');
+    icon.className = 'fa-solid fa-table h-input-file-browse-icon';
+    icon.setAttribute('aria-hidden', 'true');
+    button.append(this.browseText, icon);
+    this.listen(button, 'click', () => void this._browse());
+    this.browseButton = button;
+    group.append(button);
+    return button;
+  }
+
+  /** Choose a registered file in the record manager (Select). */
+  async _browse() {
+    if (this._readOnly || this._busy) return;
+    const ids = await this.options.browseRecords({
+      recordTypes: [Number(this.options.fileRecordType)],
+      selectMode: 'select',
+      // new files come from Upload / URL of this input
+      allowAddition: false
+    });
+    const id = Number(ids?.[0]) || 0;
+    if (id > 0 && id !== this.getValue()) this._choose(id);
+  }
+
+  /** The file name on the browse button. */
+  _syncBrowseText() {
+    if (!this.browseText) return;
+    const id = this.getValue();
+    const name = id ? (this.file ? fileName(this.file) : this.source?.labelFor?.(id) || `#${id}`) : '';
+    this.browseText.textContent = name || $HR('Select file…');
+    this.browseButton.title = name;
+    this.browseButton.classList.toggle('is-empty', !name);
   }
 
   /** @returns {number|null} File id. */
@@ -137,6 +192,7 @@ export class HInputFile extends HInput {
   setReadOnly(readOnly) {
     this._readOnly = Boolean(readOnly);
     this.combo?.setReadOnly(readOnly);
+    if (this.browseButton) this.browseButton.disabled = this._readOnly;
     this._syncActions();
     return this;
   }
@@ -212,8 +268,8 @@ export class HInputFile extends HInput {
     }
   }
 
-  /** Upload, URL, Edit and Cancel buttons (Upload and URL only with an API client). */
-  _renderActions(group) {
+  /** Upload, URL, Edit and Cancel buttons (Upload and URL only with an API client), placed by `place(element)`. */
+  _renderActions(place) {
     const actions = document.createElement('span');
     actions.className = 'h-input-file-actions';
     const make = (icon, title, run) => {
@@ -246,7 +302,7 @@ export class HInputFile extends HInput {
     this.editButton = typeof this.options.editFile === 'function'
       ? make('fa-pen', 'Edit file details', () => this._edit()) : null;
     this.cancelButton = make('fa-xmark', 'Cancel the upload', () => this._busy?.abort());
-    group.append(actions);
+    place(actions);
     this._syncActions();
   }
 
@@ -398,15 +454,21 @@ export class HInputFile extends HInput {
     this.setNote?.(message);
   }
 
-  /** Buttons by state: Cancel only while uploading; no changes in read-only mode. */
+  /**
+   * Buttons by state: Cancel only while uploading; no changes in read-only mode; Upload and
+   * URL only without a file (plan 21: clear the value to choose another way).
+   */
   _syncActions() {
     const busy = Boolean(this._busy);
     const locked = this._readOnly === true;
-    if (this.uploadButton) this.uploadButton.hidden = busy || locked;
-    if (this.urlButton) this.urlButton.hidden = busy || locked;
+    const chosen = this.getValue() > 0;
+    if (this.uploadButton) this.uploadButton.hidden = busy || locked || chosen;
+    if (this.urlButton) this.urlButton.hidden = busy || locked || chosen;
     if (this.editButton) this.editButton.hidden = busy || locked || !(this.getValue() > 0);
     if (this.cancelButton) this.cancelButton.hidden = !busy;
     this.combo?.setReadOnly(locked || busy);
+    if (this.browseButton) this.browseButton.disabled = locked || busy;
+    this._syncBrowseText();
   }
 }
 

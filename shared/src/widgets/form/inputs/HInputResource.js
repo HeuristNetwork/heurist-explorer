@@ -12,7 +12,8 @@
  *        A field without a type constraint adds through the host's Add record dialog
  *        (`addRecord(null)`, plan 21 Phase 4).
  *        Edit and View of the chosen record are shown on mouse over, when the host
- *        gives these actions. Without the host's `browseRecords` / `addRecord` the
+ *        gives these actions, after the control box (rst_DisplayWidth is the width of the
+ *        picker / button; Edit and View do not take from it). Without the host's `browseRecords` / `addRecord` the
  *        input is the plain value picker.
  *
  * @project     Heurist academic knowledge management system
@@ -76,7 +77,8 @@ export class HInputResource extends HInput {
     wrap.append(pickerHost);
     host.append(wrap);
     const control = DROPDOWN_MODES.has(this.mode) ? this._renderCombo(pickerHost) : this._renderButton(pickerHost);
-    this._renderActions(wrap);
+    // after the control box, before the value tools (clear, visibility) of HInput
+    this._renderActions((actions) => host.after(actions));
     if (this.value != null && !this.source.labelFor?.(this.value)) {
       // title of a value given without it
       void this.source.fetchLabels?.([this.value]).then(() => this._showValue());
@@ -278,8 +280,11 @@ export class HInputResource extends HInput {
     this.notifyChange();
   }
 
-  /** Edit and View of the chosen record (each only when the host gives the action; shown on mouse over). */
-  _renderActions(wrap) {
+  /**
+   * Edit and View of the chosen record (each only when the host gives the action; shown on
+   * mouse over), placed by `place(element)`.
+   */
+  _renderActions(place) {
     const actions = document.createElement('span');
     actions.className = 'h-input-resource-actions';
     const make = (icon, title, run) => {
@@ -300,7 +305,7 @@ export class HInputResource extends HInput {
       ? make('fa-pen', 'Edit', () => this._edit()) : null;
     this.viewButton = typeof this.options.viewRecord === 'function'
       ? make('fa-circle-info', 'View', () => this.options.viewRecord(this.getValue())) : null;
-    if (actions.children.length) wrap.append(actions);
+    if (actions.children.length) place(actions);
     this._syncActions();
   }
 

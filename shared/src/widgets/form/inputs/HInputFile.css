@@ -89,3 +89,36 @@
 .h-input-file-action[hidden] {
   display: none;
 }
+
+/* the record manager of files (plan 21): a select-like button with the file name */
+.h-input-file-browse {
+  display: flex;
+  flex: 0 1 22em;
+  align-items: center;
+  gap: 6px;
+  min-width: 10em;
+  text-align: left;
+  cursor: pointer;
+}
+
+.h-form-input.has-display-width .h-input-file-browse {
+  flex: 1 1 auto;
+}
+
+.h-input-file-browse-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.h-input-file-browse.is-empty .h-input-file-browse-text {
+  color: var(--h-color-text-muted);
+}
+
+.h-input-file-browse-icon {
+  flex: 0 0 auto;
+  color: var(--h-color-icon);
+}
+

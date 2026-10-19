@@ -21,12 +21,11 @@
   flex: 1 1 auto;
 }
 
-/* a small gap before the value tools (clear, visibility) */
+/* Edit / View: after the control box (outside the display width), before the value tools */
 .h-input-resource-actions {
   display: inline-flex;
   flex: 0 0 auto;
   gap: 2px;
-  margin-right: 6px;
 }
 
 .h-input-resource-action {
@@ -51,12 +50,12 @@
 
 /* Edit / View on mouse over (or keyboard focus) only, where the device can hover (plan 21) */
 @media (hover: hover) {
-  .h-input-resource .h-input-resource-actions {
+  .h-form-input .h-input-resource-actions {
     visibility: hidden;
   }
 
-  .h-input-resource:hover .h-input-resource-actions,
-  .h-input-resource:focus-within .h-input-resource-actions {
+  .h-form-input:hover .h-input-resource-actions,
+  .h-form-input:focus-within .h-input-resource-actions {
     visibility: visible;
   }
 }
