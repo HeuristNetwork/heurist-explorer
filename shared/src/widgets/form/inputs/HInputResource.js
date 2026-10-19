@@ -32,6 +32,7 @@ import { HValueCombo } from '../../picker/HValueCombo.js';
 import { RecordTitleSource } from '../../../data/valueSources/FieldValueSource.js';
 import { POINTER_MODES } from '../../../data/recordEditStructure.js';
 import { showPopover } from '../../popover/popover.js';
+import { HMsg } from '../../../ui/HMsg.js';
 import { $HR } from '../../../ui/i18n/HResource.js';
 import './HInputResource.css';
 
@@ -225,12 +226,18 @@ export class HInputResource extends HInput {
 
   /** Choose the record in the record manager (Select); its title is fetched for the picker. */
   async _browse() {
-    const ids = await this.options.browseRecords({
-      recordTypes: this.options.targetTypes || [],
-      selectMode: 'select',
-      allowAddition: this.mode !== 'browseonly' && this.mode !== 'dropdown' && this._canAdd(),
-      query: this.options.browseFilter || null
-    });
+    let ids;
+    try {
+      ids = await this.options.browseRecords({
+        recordTypes: this.options.targetTypes || [],
+        selectMode: 'select',
+        allowAddition: this.mode !== 'browseonly' && this.mode !== 'dropdown' && this._canAdd(),
+        query: this.options.browseFilter || null
+      });
+    } catch (error) {
+      HMsg.showMsgErr?.(error?.message || String(error));
+      return;
+    }
     const id = Number(ids?.[0]) || 0;
     if (!(id > 0) || id === this.getValue()) return;
     if (!this.source.labelFor?.(id)) await this.source.fetchLabels?.([id]);
@@ -262,9 +269,18 @@ export class HInputResource extends HInput {
     return null;
   }
 
-  /** New record in the host editor (null type: the host's Add record dialog); a saved one becomes the value. */
+  /**
+   * New record in the host editor (null type: the host's Add record dialog); a saved one becomes
+   * the value. An error of the host (no editor, a failed load) is shown, not lost.
+   */
   async _add(rectypeId) {
-    const result = await this.options.addRecord(rectypeId);
+    let result;
+    try {
+      result = await this.options.addRecord(rectypeId);
+    } catch (error) {
+      HMsg.showMsgErr?.(error?.message || String(error));
+      return;
+    }
     const id = Number(result?.recordId ?? result?.record?.rec_ID) || 0;
     if (!result?.saved || !(id > 0)) return;
     const title = result.record?.rec_Title;

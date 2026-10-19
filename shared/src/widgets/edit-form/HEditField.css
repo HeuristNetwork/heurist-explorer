@@ -220,3 +220,9 @@
   /* characters are visible characters: plus the padding, border and number spinner (2026-10-18) */
   width: calc(var(--h-field-width) + 2em);
 }
+
+/* a pointer or file field: the display width is the width of its picker / button (their CSS);
+   the control box holds the thumbnail too and is as wide as its content (plan 21 review 2026-10-19) */
+.h-edit-field-input.has-display-width.h-form-input-compact > .h-form-input-control > .h-form-input-control-wrap {
+  width: auto;
+}

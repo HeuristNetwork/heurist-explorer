@@ -71,6 +71,7 @@ export class HEditField extends HBaseWidget {
    * @param {Function} [options.addRecord] New record of a pointer field (host, plan 21): `(rectypeId) → Promise<{saved, recordId}>`.
    * @param {Function} [options.fileUrl] Link to view a file of a file field.
    * @param {Function} [options.editFile] Edit button of file fields (host file editor): `(id) → Promise<{saved, record}>`.
+   * @param {{baseUrl: string, database: string}} [options.fileViewer] File fields: show the file below the input.
    * @param {boolean} [options.allowHidden=true] Show the "hidden from the public" switch.
    * @param {boolean} [options.readOnly] Display only (also `field.readOnly`).
    * @param {{json?: boolean, list?: boolean, describe?: Function, edit?: Function, icon?: string, title?: string, actions?: Array<object>}|null} [options.special] Special field:
@@ -586,6 +587,8 @@ export class HEditField extends HBaseWidget {
           fileUrl: this.options.fileUrl,
           apiClient: this.options.apiClient,
           editFile: this.options.editFile,
+          // a click on the thumbnail shows the file below the input (plan 21)
+          fileViewer: this.options.fileViewer || null,
           // the record manager of registered files (plan 21)
           browseRecords: this.options.browseRecords,
           fileRecordType: Number(this.options.dbdefs?.dbconst?.('RT_REGISTERED_FILE')) || 0

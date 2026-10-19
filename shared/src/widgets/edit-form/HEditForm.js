@@ -61,6 +61,7 @@ export class HEditForm extends HBaseWidget {
    *        `(wkt) → Promise<{type, wkt}|null>`; without it the extent picker is used.
    * @param {Function} [options.fileUrl] Link to view a file of a file field.
    * @param {Function} [options.editFile] Edit button of file fields (host file editor): `(id) → Promise<{saved, record}>`.
+   * @param {{baseUrl: string, database: string}} [options.fileViewer] File fields: show the file below the input.
    * @param {Function} [options.editRecord] Edit button of pointer fields: `(id) → Promise<{saved, record}>`.
    * @param {Function} [options.viewRecord] View button of pointer fields: `(id)`.
    * @param {Function} [options.browseRecords] Browse of pointer fields (record manager, plan 21): `(options) → Promise<number[]|null>`.
@@ -435,6 +436,7 @@ export class HEditForm extends HBaseWidget {
         addRecord: this.options.addRecord,
         fileUrl: this.options.fileUrl,
         editFile: this.options.editFile,
+        fileViewer: this.options.fileViewer,
         allowHidden: this.options.allowHidden === true,
         readOnly: this.options.readOnly,
         special: this._special(field),

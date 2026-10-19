@@ -12,9 +12,12 @@
   min-width: 10em;
 }
 
-/* a width set by the form: the picker fills it */
+/* a width set by the form (rst_DisplayWidth): the width of the picker / button itself;
+   Edit and View come after it (plan 21 review 2026-10-19) */
 .h-form-input.has-display-width .h-input-resource-picker {
-  flex: 1 1 auto;
+  flex: 0 0 auto;
+  width: calc(var(--h-field-width) + 2em);
+  max-width: 100%;
 }
 
 .h-input-resource-picker > .h-value-combo-host {

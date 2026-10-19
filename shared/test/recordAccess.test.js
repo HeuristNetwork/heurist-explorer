@@ -150,3 +150,54 @@ test('HInputResource without a type constraint adds through the host dialog (add
   dropdown.render();
   assert.deepEqual(dropdown.combo.picker.actions.map((action) => action.id), ['add']);
 });
+
+test('owner and access in words (Admin panel)', async () => {
+  const { describeAccess } = await import('../src/widgets/record-access/HRecordAccess.js');
+  assert.deepEqual(describeAccess({ owner: 2, visibility: 'viewable' }, dbdefs()), { owner: 'Current user (Ann)', access: 'Any logged-in user' });
+  assert.equal(describeAccess({ owner: 5, visibility: 'viewable', viewGroups: [5, 6] }, dbdefs()).access, 'Owner and members of: Editors, Others');
+  assert.equal(describeAccess({ owner: 0, visibility: 'public' }, dbdefs()).owner, 'Any logged-in user');
+  assert.equal(describeAccess({ owner: 5, visibility: 'hidden' }, dbdefs()).access, 'Owner only');
+  assert.equal(describeAccess({ owner: 5, visibility: 'pending' }, dbdefs()).access, 'Public, changes pending approval');
+});
+
+test('record editor Admin panel: read-only owner / access, the pen opens the form, Apply keeps it for Save', async () => {
+  globalThis.Node ??= globalThis.HTMLElement;
+  const { HRecordEditor } = await import('../src/widgets/record-editor/HRecordEditor.js');
+  const editor = new HRecordEditor().attach(document.createElement('div'), { dbdefs: dbdefs(), apiClient: { get: async () => ({}), request: async () => ({}) } });
+  const pane = editor._renderOwnership({ owner: 2, visibility: 'viewable', viewGroups: [], editGroups: [6] });
+  assert.equal(editor.ownerText.textContent, 'Current user (Ann)');
+  assert.equal(editor.accessText.textContent, 'Any logged-in user');
+  assert.equal(editor.accessFormHost.hidden, true);
+  let changes = 0;
+  editor._onChange = () => { changes++; };
+  editor.accessPen.click();
+  assert.equal(editor.accessFormHost.hidden, false, 'the form inline');
+  assert.equal(editor.accessPen.hidden, true);
+  editor.access.radios.get('public').radio.checked = true;
+  editor.access.radios.get('viewable').radio.checked = false;
+  // Cancel: nothing changes
+  await editor._closeAccessForm(false);
+  assert.equal(editor.accessText.textContent, 'Any logged-in user');
+  assert.equal(changes, 0);
+  editor.accessPen.click();
+  editor.access.radios.get('public').radio.checked = true;
+  editor.access.radios.get('viewable').radio.checked = false;
+  const apply = editor.accessFormHost.querySelector('.h-btn-primary');
+  apply.click();
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.equal(editor.accessFormHost.hidden, true, 'closed after Apply');
+  assert.equal(editor.accessText.textContent, 'Public');
+  assert.equal(changes, 1, 'the record has a change (saved with the record)');
+  assert.deepEqual(editor._header(), { owner: 2, visibility: 'public', viewGroups: [], editGroups: [6] });
+  assert.ok(pane.querySelector('.h-record-editor-access-lines'));
+});
+
+test('Added / Updated: the stored (UTC) time with the local time beside it, as the legacy editor', async () => {
+  const { localTime } = await import('../src/widgets/record-editor/HRecordEditor.js');
+  const text = '2026-10-19 12:05:09';
+  const date = new Date('2026-10-19T12:05:09Z');
+  const pad = (n) => String(n).padStart(2, '0');
+  assert.equal(localTime(text), `${text} (${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())} local)`);
+  assert.equal(localTime(''), '');
+  assert.equal(localTime('not a date'), 'not a date');
+});

@@ -140,7 +140,10 @@ export class HRecordManager extends HBaseWidget {
     this.list = new HRecordList();
     await this.list.initialize({
       container: listHost,
-      options: this._listOptions(),
+      options: { ...this._listOptions(), sortExclude: path === '/records' ? [] : ['type'] },
+      // Sort of the list (listTools): the loader asks the server with it
+      getListSort: () => this.loader?.sort || null,
+      onListSortChange: (value) => this.loader?.setSort(value),
       onDataRequest: (request) => this.loader.load(request),
       onSelectionChange: (ids) => this._selectionChanged(ids),
       onEditRecord: (id) => void this._edit(id),
@@ -266,7 +269,11 @@ export class HRecordManager extends HBaseWidget {
       pageLength: 50,
       ...given,
       topBar: true,
+      // Sort and Show owners after the search (plan 21 review)
+      listTools: true,
       selectionMode: this.mode === 'select' ? 'single' : 'multi',
+      // one record: no selection menu (Select all, Show selected)
+      controls: { ...(given.controls || {}), ...(this.mode === 'select' ? { selectionActions: false } : {}) },
       engineSwitch: false,
       sourceActionsEnabled: false,
       baseUrl: this.options.baseUrl || given.baseUrl,

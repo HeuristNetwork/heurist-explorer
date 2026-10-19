@@ -35,9 +35,10 @@ export const LIST_SORTS = [
  * @param {object} options
  * @param {string|null} [options.value] Current sort token.
  * @param {function(string|null): void} options.onChange Called with the new token (null: default).
+ * @param {string[]} [options.exclude] Sort tokens not offered (e.g. `type` for files).
  * @returns {HTMLElement} A label with the caption and the select.
  */
-export function createSortSelect({ value = null, onChange }) {
+export function createSortSelect({ value = null, onChange, exclude = [] }) {
   const label = document.createElement("label");
   label.className = "h-inline heurist-data-sort";
   const caption = document.createElement("span");
@@ -46,6 +47,7 @@ export function createSortSelect({ value = null, onChange }) {
   select.className = "h-select heurist-data-sort-select";
   select.setAttribute("aria-label", $HR("Sort"));
   for (const [token, text] of LIST_SORTS) {
+    if (exclude.includes(token)) continue;
     const option = document.createElement("option");
     option.value = token;
     option.textContent = $HR(text);
@@ -54,6 +56,28 @@ export function createSortSelect({ value = null, onChange }) {
   select.value = value || "";
   select.addEventListener("change", () => onChange?.(select.value || null));
   label.append(caption, select);
+  return label;
+}
+
+/**
+ * Build the Show owners checkbox (record manager, plan 21): switches the Admin info option.
+ *
+ * @param {object} options
+ * @param {boolean} options.checked Whether the owners (admin info) are shown now.
+ * @param {function(boolean): void} options.onChange Called with the new state.
+ * @returns {HTMLLabelElement} A label with the checkbox and its caption.
+ */
+export function createOwnersCheckbox({ checked = false, onChange }) {
+  const label = document.createElement("label");
+  label.className = "h-inline heurist-data-owners-check";
+  const box = document.createElement("input");
+  box.type = "checkbox";
+  box.checked = Boolean(checked);
+  const caption = document.createElement("span");
+  caption.textContent = $HR("Show owners");
+  box.addEventListener("change", () => onChange?.(box.checked));
+  label.append(box, caption);
+  label.checkbox = box;
   return label;
 }
 

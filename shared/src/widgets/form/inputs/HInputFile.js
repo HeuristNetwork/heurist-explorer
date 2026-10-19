@@ -22,6 +22,7 @@ import { HValueCombo } from '../../picker/HValueCombo.js';
 import { FileSource } from '../../../data/valueSources/FileSource.js';
 import { FileUploader } from '../../../data/FileUploader.js';
 import { HMsg } from '../../../ui/HMsg.js';
+import { buildFileMediaItem, fileMediaUrls, isImageFile } from '../../../recordview/fileMediaItem.js';
 import { $HR } from '../../../ui/i18n/HResource.js';
 import './HInputFile.css';
 
@@ -32,7 +33,6 @@ export class HInputFile extends HInput {
    * @param {object} options HInput options plus:
    * @param {object} [options.file] Resolved file of the value (`{ulf_ID, ulf_OrigFileName, ulf_ObfuscatedFileID,
    *        ulf_ExternalFileReference, fxm_MimeType}`, as `/records?resolveDetails=1`).
-   * @param {Function} [options.fileUrl] `(file) → url` to view a file (none: the `/files/{key}/content` link).
    * @param {object} [options.apiClient] HeuristApiClient: picker, upload, registration (none: no picker, no upload).
    * @param {Function} [options.editFile] Host editor of the file metadata: `(id) → Promise<{saved, record}>`.
    * @param {Array<object>} [options.fileQuery] Predicates of the picker (e.g. `[{'f:29': 'image/*'}]`).
@@ -44,6 +44,9 @@ export class HInputFile extends HInput {
    * @param {Function} [options.browseRecords] Host record manager (plan 21): with it and `fileRecordType`
    *        the file is chosen there (as a pointer field in `addorbrowse` mode), not in a value picker.
    * @param {number} [options.fileRecordType] Local id of RT_REGISTERED_FILE (the record manager's type).
+   * @param {{baseUrl: string, database: string}} [options.fileViewer] Heurist base URL and database: a click
+   *        on the thumbnail shows the file below the input (zoom, OSD, Mirador, Download, Close; the same
+   *        media item as the built-in record view, fileMediaItem.js).
    * @returns {HInputFile} This input.
    */
   attach(container, options = {}) {
@@ -73,12 +76,17 @@ export class HInputFile extends HInput {
     this.thumb.className = 'h-input-file-thumb';
     this.thumb.alt = '';
     this.thumb.hidden = true;
-    this.summary = document.createElement('a');
-    this.summary.className = 'h-input-file-name';
-    this.summary.target = '_blank';
-    this.summary.rel = 'noopener';
+    if (this.options.fileViewer?.baseUrl) {
+      // the thumbnail shows / hides the file below the input
+      this.thumb.classList.add('is-zoomable');
+      this.thumb.title = $HR('Show the file');
+      this.listen(this.thumb, 'click', () => this.togglePreview());
+    }
     group.append(this.thumb);
-    let control = this.summary;
+    // without a picker (no API client): the file name as text
+    this.nameText = document.createElement('span');
+    this.nameText.className = 'h-input-file-text';
+    let control = this.nameText;
     if (this._canBrowse()) {
       // the record manager of registered files, as a pointer field in addorbrowse mode (plan 21)
       control = this._renderBrowseButton(group);
@@ -100,7 +108,7 @@ export class HInputFile extends HInput {
       }).render();
       control = this.combo.button;
     }
-    group.append(this.summary);
+    if (control === this.nameText) group.append(this.nameText);
     this.progress = document.createElement('progress');
     this.progress.className = 'h-input-file-progress';
     this.progress.max = 1;
@@ -109,6 +117,11 @@ export class HInputFile extends HInput {
     host.append(group);
     // after the control box (rst_DisplayWidth is the width of the picker / button), as HInputResource
     this._renderActions((actions) => host.after(actions));
+    // the file below the input (thumbnail click), hidden at start
+    this.preview = document.createElement('div');
+    this.preview.className = 'h-input-file-preview';
+    this.preview.hidden = true;
+    this.container.append(this.preview);
     this._bindDrop(group);
     this._renderSummary();
     if (this.value != null && this.source && !this.source.labelFor?.(this.value)) {
@@ -390,45 +403,52 @@ export class HInputFile extends HInput {
     };
   }
 
-  /** Thumbnail and the link to view the file. */
+  /** Thumbnail, the file name (without a picker) and the open preview of the current file. */
   _renderSummary() {
-    if (!this.summary) return;
+    if (!this.thumb) return;
     const file = this.value ? this.file : null;
-    const url = file ? this._fileUrl(file) : '';
-    // with a picker the name is shown there; the link is a small "open" icon
-    this.summary.replaceChildren();
-    this.summary.hidden = !url && !(file && !this.combo);
-    if (url) this.summary.href = url;
-    else this.summary.removeAttribute('href');
-    if (!url && file && !this.combo) {
-      this.summary.textContent = fileName(file);
-    } else if (url) {
-      if (this.combo) {
-        const glyph = document.createElement('i');
-        glyph.className = 'fa-solid fa-arrow-up-right-from-square';
-        glyph.setAttribute('aria-hidden', 'true');
-        this.summary.title = $HR('Open the file');
-        this.summary.append(glyph);
-      } else {
-        this.summary.textContent = fileName(file);
-      }
-    }
+    if (this.nameText) this.nameText.textContent = file ? fileName(file) : '';
     const thumb = file ? this._thumbUrl(file) : '';
     this.thumb.hidden = !thumb;
     if (thumb) this.thumb.src = thumb;
     else this.thumb.removeAttribute('src');
+    // another file (or none): the preview shows it again on the next click
+    if (this.preview && this._previewKey !== (file?.ulf_ObfuscatedFileID || null)) this.hidePreview();
     this._syncActions();
   }
 
-  /** Link to view a file: the host's, else `/files/{key}/content`, else the external URL. */
-  _fileUrl(file) {
-    if (typeof this.options.fileUrl === 'function') {
-      const url = this.options.fileUrl(file);
-      if (url) return url;
-    }
-    const key = String(file.ulf_ObfuscatedFileID || '').replace(/[^a-z0-9]/gi, '');
-    if (key && this.options.apiClient?.buildUrl) return this.options.apiClient.buildUrl(`/files/${key}/content`);
-    return file.ulf_ExternalFileReference || '';
+  /** Show or hide the file below the input. */
+  togglePreview() {
+    if (this.preview?.hidden === false) this.hidePreview();
+    else this.showPreview();
+  }
+
+  /**
+   * Show the file below the input: the media item of the built-in record view with
+   * Download and Close (fileMediaItem.js).
+   *
+   * @returns {boolean} Whether it is shown.
+   */
+  showPreview() {
+    const file = this.value ? this.file : null;
+    const viewer = this.options.fileViewer;
+    if (!this.preview || !file?.ulf_ObfuscatedFileID || !viewer?.baseUrl) return false;
+    this.preview.replaceChildren(buildFileMediaItem(file, {
+      urls: fileMediaUrls(viewer.baseUrl, viewer.database),
+      download: true,
+      onClose: () => this.hidePreview()
+    }));
+    this.preview.hidden = false;
+    this._previewKey = file.ulf_ObfuscatedFileID;
+    return true;
+  }
+
+  /** Hide the file below the input. */
+  hidePreview() {
+    if (!this.preview) return;
+    this.preview.hidden = true;
+    this.preview.replaceChildren();
+    this._previewKey = null;
   }
 
   /** Thumbnail of a file: the one given, else `/files/{key}/thumbnail` of images and media. */
@@ -436,7 +456,8 @@ export class HInputFile extends HInput {
     if (file.thumbnail) return file.thumbnail;
     const key = String(file.ulf_ObfuscatedFileID || '').replace(/[^a-z0-9]/gi, '');
     const mime = String(file.fxm_MimeType || '').toLowerCase();
-    const media = mime.startsWith('image/') || ['video/youtube', 'video/vimeo', 'audio/soundcloud'].includes(mime);
+    // an image by its MIME type, else by its name (a file picked in this session has no MIME type)
+    const media = isImageFile(file) || ['video/youtube', 'video/vimeo', 'audio/soundcloud'].includes(mime);
     if (!key || !media || !this.options.apiClient?.buildUrl) return '';
     return this.options.apiClient.buildUrl(`/files/${key}/thumbnail`);
   }

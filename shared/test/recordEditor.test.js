@@ -171,7 +171,7 @@ test('boolean, resource and file inputs', () => {
   // without an API client: the file name only (no picker, no upload)
   const file = createHInput('file', host(), { value: 3, file: { ulf_OrigFileName: 'map.png' }, suppressLabel: true });
   assert.equal(file.getValue(), 3);
-  assert.equal(file.summary.textContent, 'map.png');
+  assert.equal(file.nameText.textContent, 'map.png');
   assert.equal(file.uploadButton, undefined);
 });
 
@@ -207,7 +207,7 @@ test('file input: upload with progress, then registration; the new file is the v
   assert.equal(id, 12);
   assert.equal(input.getValue(), 12);
   assert.deepEqual(calls.map((call) => call[0]), ['upload', 'register']);
-  assert.equal(input.summary.href, 'http://h/api/db/files/abc123abc1/content', 'link to the new content endpoint');
+  assert.equal(input.container.querySelector('.h-input-file-name'), null, 'no open link (plan 21 review)');
   assert.equal(input.progress.hidden, true, 'progress hidden after the upload');
 });
 
@@ -237,6 +237,26 @@ test('file input: register a URL; read-only hides the buttons', async () => {
   assert.equal(input.uploadButton.hidden, true);
   assert.equal(input.editButton.hidden, true);
   assert.equal(await input.uploadFile({ name: 'x.png', size: 1 }), null, 'no upload when read-only');
+});
+
+test('file input: a click on the thumbnail shows the file below the input; Close hides it (plan 21)', () => {
+  const { source, uploader } = fileFakes();
+  const input = createHInput('file', host(), { value: 4, source, uploader, suppressLabel: true,
+    file: { ulf_ID: 4, ulf_OrigFileName: 'plan.jpg', ulf_ObfuscatedFileID: 'abc' },
+    apiClient: { buildUrl: (path) => `http://h/api/db${path}` },
+    fileViewer: { baseUrl: 'http://h/heurist/', database: 'db' } });
+  assert.equal(input.thumb.hidden, false, 'an image (by its name) has a thumbnail');
+  assert.ok(input.thumb.classList.contains('is-zoomable'));
+  assert.equal(input.preview.hidden, true);
+  input.thumb.click();
+  assert.equal(input.preview.hidden, false);
+  const links = input.preview.querySelectorAll('a').map((a) => a.textContent);
+  assert.deepEqual(links, ['Show in OSD', 'Show in Mirador', 'Download', 'Close']);
+  input.preview.querySelectorAll('a')[3].click();
+  assert.equal(input.preview.hidden, true, 'Close');
+  input.thumb.click();
+  input.setValue(null);
+  assert.equal(input.preview.hidden, true, 'no file, no preview');
 });
 
 test('file input: Upload and URL only without a file (plan 21)', () => {

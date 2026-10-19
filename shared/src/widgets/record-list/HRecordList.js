@@ -7,8 +7,9 @@
  * class only renders pages and reports interaction through adapter callbacks.
  *
  * Options added for other hosts (plan 21): `topBar` (a row above the toolbar,
- * filled with `setTopBarContent`), `selectionMode: 'multi'|'single'`, and the
- * `onRecordActivate` callback that replaces "double-click = edit".
+ * filled with `setTopBarContent`), `selectionMode: 'multi'|'single'`, `listTools`
+ * (Sort and Show owners after the search; `sortExclude`), and the `onRecordActivate`
+ * callback that replaces "double-click = edit".
  *
  * @project     Heurist academic knowledge management system
  * @package     heurist-client-core
@@ -24,7 +25,7 @@
 import { HBaseWidget } from '../HBaseWidget.js';
 import { $HR } from '../../ui/i18n/HResource.js';
 import { dataPopupMode, extendedViewTemplate } from "./recordTemplates.js";
-import { createOwnersToggle, createSortSelect } from "./ListToolControls.js";
+import { createOwnersCheckbox, createOwnersToggle, createSortSelect } from "./ListToolControls.js";
 import { pageEntries } from "./pageEntries.js";
 import { adminInfoHtml, recordTypeIconUrl } from "./recordAdminInfo.js";
 import template from "./HRecordList.html?raw";
@@ -128,6 +129,7 @@ export class HRecordList extends HBaseWidget {
     this._applyControlVisibility();
     this._createDataSourceActions();
     if (this.options.simplified === true) this._buildSimplifiedToolbar();
+    else if (this.options.listTools === true) this._buildListTools();
     this._updateSelectionButton();
     let searchTimer;
     this.listen(search, "input", () => {
@@ -902,6 +904,34 @@ export class HRecordList extends HBaseWidget {
         this._ownersToggle,
       ].filter(Boolean),
     );
+  }
+
+  /**
+   * Sort and "Show owners" after the search box (option `listTools`, the record manager,
+   * plan 21): the sort through `getListSort` / `onListSortChange` (the host loads with it),
+   * the owners checkbox switches the Admin info of this list.
+   */
+  _buildListTools() {
+    this._sortControl = createSortSelect({
+      value: this.getListSort?.() ?? null,
+      exclude: this.options.sortExclude || [],
+      onChange: (value) => {
+        this.onListSortChange?.(value);
+        this.offset = 0;
+        void this._requestPage();
+      },
+    });
+    this._ownersCheck = createOwnersCheckbox({
+      checked: this.options.interaction.adminInfoEnabled === true,
+      onChange: (checked) => {
+        this.options.interaction.adminInfoEnabled = checked;
+        this._render();
+        this.onOwnersToggle?.(checked);
+      },
+    });
+    const search = this.$('[data-control="search"]');
+    if (search) search.after(this._sortControl, this._ownersCheck);
+    else this.$('[data-role="toolbar"]')?.prepend(this._sortControl, this._ownersCheck);
   }
 
   /** Show/hide toolbar controls per the configured `controls`/`interaction` options. */

@@ -68,6 +68,46 @@
   font-weight: 600;
 }
 
+/* owner and access as text, the pen opens the access form inline (plan 21 review 2026-10-19) */
+.h-record-editor-access {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.h-record-editor-access-lines {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 2px 8px;
+  margin: 0;
+}
+
+.h-record-editor-access-lines dt {
+  color: var(--h-color-text-muted);
+}
+
+.h-record-editor-access-lines dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.h-record-editor-access-edit[hidden],
+.h-record-editor-access-form[hidden] {
+  display: none;
+}
+
+.h-record-editor-access-form {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid var(--h-color-border);
+}
+
+.h-record-editor-access-buttons {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+}
+
 .h-record-editor-messages {
   flex: 0 0 auto;
   padding: 0 var(--h-gap);

@@ -29,7 +29,7 @@
 
 import { HBaseWidget } from '../HBaseWidget.js';
 import { HEditForm } from '../edit-form/HEditForm.js';
-import { HRecordAccess } from '../record-access/HRecordAccess.js';
+import { HRecordAccess, describeAccess } from '../record-access/HRecordAccess.js';
 import { UserGroupSource } from '../../data/valueSources/localSources.js';
 import { RecordEditClient, RecordEditError } from '../../data/RecordEditClient.js';
 import { RecordStructureProvider } from '../../recordview/RecordStructureProvider.js';
@@ -68,6 +68,7 @@ export class HRecordEditor extends HBaseWidget {
    * @param {Function} [options.addRecord] Add of pointer fields (plan 21): `(rectypeId) → Promise<{saved, recordId}>`.
    * @param {Function} [options.fileUrl] Link to view a file of a file field.
    * @param {Function} [options.editFile] Edit button of file fields (host file editor): `(id) → Promise<{saved, record}>`.
+   * @param {{baseUrl: string, database: string}} [options.fileViewer] File fields: show the file below the input.
    * @param {Object<number, object>} [options.specialEditors] Special fields by field id: `{json, describe, edit}`
    *        (see HEditField); `describe` and `edit` get `{field, record, getValue(dty), setValue(dty, value)}`.
    * @param {Function} [options.onSaved] Called after a save with `{record, issues, created}`.
@@ -500,8 +501,10 @@ export class HRecordEditor extends HBaseWidget {
   }
 
   /**
-   * Owner, visibility, view groups and edit groups: HRecordAccess (port of the legacy
-   * access form, plan 21 §6), with the server issues of the header below it.
+   * Owner and access as read-only lines with a pen; the pen opens HRecordAccess (port of
+   * the legacy access form, plan 21 §6) inline, Apply closes it and shows the new values.
+   * Nothing is saved here: the header goes with the record on Save (plan 21 review
+   * 2026-10-19). The server issues of the header are shown below.
    */
   _renderOwnership(header, { legend: withLegend = true } = {}) {
     const pane = document.createElement('fieldset');
@@ -512,23 +515,99 @@ export class HRecordEditor extends HBaseWidget {
       legend.textContent = $HR('Ownership and access');
       pane.append(legend);
     }
-    const host = document.createElement('div');
-    pane.append(host);
-    this.access = new HRecordAccess().attach(host, {
-      dbdefs: this.dbdefs,
-      value: header,
-      // "Also editable by" (rec_EditGroups) is hidden for now - an intentional
-      // simplification, as in the legacy access form (Artem 2026-10-19, plan 21 §11).
-      // The stored edit groups are kept on save (HRecordAccess keeps them without the picker).
-      // Show it again with `editGroups: true`.
-      editGroups: false,
-      readOnly: Boolean(this.options.readOnly),
-      onChange: () => this._onChange()
-    }).render();
+    this.accessValue = { ...header };
+    const view = document.createElement('div');
+    view.className = 'h-record-editor-access';
+    const lines = document.createElement('dl');
+    lines.className = 'h-record-editor-access-lines';
+    const line = (label) => {
+      const dt = document.createElement('dt');
+      dt.className = 'h-i18n';
+      dt.textContent = $HR(label);
+      const dd = document.createElement('dd');
+      lines.append(dt, dd);
+      return dd;
+    };
+    this.ownerText = line('Owner');
+    this.accessText = line('Access');
+    view.append(lines);
+    if (!this.options.readOnly) {
+      const pen = document.createElement('button');
+      pen.type = 'button';
+      pen.className = 'heurist-icon-button h-record-editor-access-edit';
+      pen.title = $HR('Change owner and access');
+      pen.setAttribute('aria-label', pen.title);
+      pen.append(iconElement('fa-pen'));
+      this.listen(pen, 'click', () => this._openAccessForm());
+      view.append(pen);
+      this.accessPen = pen;
+    }
+    this.accessFormHost = document.createElement('div');
+    this.accessFormHost.className = 'h-record-editor-access-form';
+    this.accessFormHost.hidden = true;
+    pane.append(view, this.accessFormHost);
+    this._syncAccessText();
     this.ownershipIssues = document.createElement('div');
     this.ownershipIssues.className = 'h-edit-field-issues';
     pane.append(this.ownershipIssues);
     return pane;
+  }
+
+  /** The owner and access lines of the current header. */
+  _syncAccessText() {
+    if (!this.ownerText) return;
+    const text = describeAccess(this.accessValue || {}, this.dbdefs);
+    this.ownerText.textContent = text.owner;
+    this.accessText.textContent = text.access;
+  }
+
+  /** The access form inline, with Apply and Cancel. */
+  _openAccessForm() {
+    if (this.access || !this.accessFormHost) return;
+    const formHost = document.createElement('div');
+    this.access = new HRecordAccess().attach(formHost, {
+      dbdefs: this.dbdefs,
+      value: this.accessValue,
+      // "Also editable by" (rec_EditGroups) is hidden for now - an intentional
+      // simplification, as in the legacy access form (Artem 2026-10-19, plan 21 §11).
+      // The stored edit groups are kept on save (HRecordAccess keeps them without the picker).
+      // Show it again with `editGroups: true`.
+      editGroups: false
+    }).render();
+    const buttons = document.createElement('div');
+    buttons.className = 'h-record-editor-access-buttons';
+    const apply = document.createElement('button');
+    apply.type = 'button';
+    apply.className = 'h-btn h-btn-primary h-btn-small h-i18n';
+    apply.textContent = $HR('Apply');
+    const cancel = document.createElement('button');
+    cancel.type = 'button';
+    cancel.className = 'h-btn h-btn-small h-i18n';
+    cancel.textContent = $HR('Cancel');
+    this.listen(apply, 'click', () => void this._closeAccessForm(true));
+    this.listen(cancel, 'click', () => void this._closeAccessForm(false));
+    buttons.append(apply, cancel);
+    this.accessFormHost.replaceChildren(formHost, buttons);
+    this.accessFormHost.hidden = false;
+    if (this.accessPen) this.accessPen.hidden = true;
+  }
+
+  /**
+   * Close the inline access form; Apply keeps its values for the next Save.
+   *
+   * @param {boolean} apply Whether to take the form's values.
+   * @returns {Promise<void>}
+   */
+  async _closeAccessForm(apply) {
+    if (!this.access) return;
+    if (apply) this.accessValue = this.access.getValue();
+    await this.access.destroy();
+    this.access = null;
+    this.accessFormHost.replaceChildren();
+    this.accessFormHost.hidden = true;
+    if (this.accessPen) this.accessPen.hidden = false;
+    this._syncAccessText();
+    if (apply) this._onChange();
   }
 
   /**
@@ -561,6 +640,7 @@ export class HRecordEditor extends HBaseWidget {
       addRecord: this.options.addRecord,
       fileUrl: this.options.fileUrl,
       editFile: this.options.editFile,
+      fileViewer: this.options.fileViewer,
       readOnly: this.options.readOnly,
       specialEditors: this.options.specialEditors || {},
       specialContext: () => ({ record: this.record, rectypeId: this.rectypeId })
@@ -592,7 +672,7 @@ export class HRecordEditor extends HBaseWidget {
 
   /** Ownership as edited. */
   _header() {
-    return this.access ? this.access.getValue() : this._initialHeader();
+    return this.accessValue ? { ...this.accessValue } : this._initialHeader();
   }
 
   /** A value changed: tell the host whether there are unsaved changes. */
@@ -711,11 +791,14 @@ function note(text) {
 }
 
 /** A stored date-time (server time) with the browser's local time. */
-function localTime(value) {
+export function localTime(value) {
   const text = String(value || '').trim();
   if (!text) return '';
-  const date = new Date(text.replace(' ', 'T'));
-  return Number.isNaN(date.getTime()) ? text : `${text} (${date.toLocaleString()})`;
+  // as the legacy editor (getTimeForLocalTimeZone): the stored time is UTC, the local time beside it
+  const date = new Date(`${text.replace(' ', 'T')}${/[zZ]|[+-]\d\d:?\d\d$/.test(text) ? '' : 'Z'}`);
+  if (Number.isNaN(date.getTime())) return text;
+  const pad = (number) => String(number).padStart(2, '0');
+  return `${text} (${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())} ${$HR('local')})`;
 }
 
 const SUMMARY_KEY = 'heurist.recordEditor.summaryCollapsed';

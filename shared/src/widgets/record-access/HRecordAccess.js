@@ -86,6 +86,28 @@ export function ownerChoices(dbdefs, current = null) {
   };
 }
 
+/**
+ * Owner and access of a record header in words (the read-only line of the record
+ * editor's Admin panel, plan 21 review 2026-10-19).
+ *
+ * @param {{owner?: number, visibility?: string, viewGroups?: number[]}} header Record header.
+ * @param {object} dbdefs HDbDefs with the users/groups overlay.
+ * @returns {{owner: string, access: string}}
+ */
+export function describeAccess(header = {}, dbdefs = null) {
+  const owner = Number(header.owner) || 0;
+  const ownerName = ownerChoices(dbdefs, owner).labelFor(owner) || `#${owner}`;
+  const groups = (header.viewGroups || []).map((id) => dbdefs?.userGroupName?.(id) || `#${id}`);
+  const visibility = String(header.visibility || 'viewable').toLowerCase();
+  let access;
+  if (visibility === 'public') access = $HR('Public');
+  else if (visibility === 'pending') access = $HR('Public, changes pending approval');
+  else if (visibility === 'hidden') access = $HR('Owner only');
+  else if (groups.length) access = `${$HR('Owner and members of')}: ${groups.join(', ')}`;
+  else access = $HR('Any logged-in user');
+  return { owner: ownerName, access };
+}
+
 /** Owner and visibility form. */
 export class HRecordAccess extends HBaseWidget {
   /**
