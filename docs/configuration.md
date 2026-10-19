@@ -42,6 +42,9 @@ The exact allowed values remain application-owned:
 - `apps/recordview/src/recordViewConfig.js`
 - `apps/reports/src/reportsConfig.js`
 
+Explorer: `runtime.runtimeMode: 'editor'` starts the record editor mode (plan 21; the
+record in `state.recordId` or `state.rectypeId`; see `docs/integration.md`).
+
 Persisted settings are normalized by each application's configuration schema.
 Bootstrap/runtime state and persisted settings are not interchangeable.
 

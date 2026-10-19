@@ -746,3 +746,10 @@
 #Users#Utilisateurs
 #Type of record to add:#Type d’enregistrement à ajouter :
 #Select record type…#Sélectionner un type d’enregistrement…
+
+# record manager filters (plan 21 §7.1)
+#URL#URL
+#File type#Type de fichier
+#MIME type#Type MIME
+#Size (bytes)#Taille (octets)
+#Tag#Mot-clé

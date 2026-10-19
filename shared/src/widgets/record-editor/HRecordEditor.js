@@ -517,7 +517,11 @@ export class HRecordEditor extends HBaseWidget {
     this.access = new HRecordAccess().attach(host, {
       dbdefs: this.dbdefs,
       value: header,
-      editGroups: true,
+      // "Also editable by" (rec_EditGroups) is hidden for now - an intentional
+      // simplification, as in the legacy access form (Artem 2026-10-19, plan 21 §11).
+      // The stored edit groups are kept on save (HRecordAccess keeps them without the picker).
+      // Show it again with `editGroups: true`.
+      editGroups: false,
       readOnly: Boolean(this.options.readOnly),
       onChange: () => this._onChange()
     }).render();

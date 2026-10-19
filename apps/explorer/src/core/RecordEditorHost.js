@@ -2,11 +2,11 @@
  * @file RecordEditorHost.js
  * @brief Explorer as record editor host (plan 14, Phase 3).
  *
- * Records of the system record types (query sources, map documents and
- * layers, reports, website pages - shared/src/data/writableRecordTypes.js)
- * open in HRecordEditor, in an Explorer dialog, for a logged-in user - also
- * without the legacy Heurist host. Other records keep the host's record editor
- * (title masks, calculated fields...). Modules reach this through the host
+ * Records of every type open in HRecordEditor, in an Explorer dialog, for a
+ * logged-in user - also without the legacy Heurist host (plan 21 Phase 5; until
+ * then only the system record types of shared/src/data/writableRecordTypes.js).
+ * The host's (legacy) record editor is the fallback when nobody is logged in to
+ * the new API. Modules reach this through the host
  * bridge: `editRecord(id, {recordType})`, `addRecord(rtyId)`,
  * `canEditRecordType(recordType)`, `browseRecords(options)` (the record manager,
  * plan 21: Browse of pointer fields).
@@ -30,7 +30,6 @@ import { HMsg, $HR } from '#shared/ui';
 import { HRecordEditor } from '#shared/widgets/record-editor/HRecordEditor.js';
 import { RecordEditClient } from '#shared/data/RecordEditClient.js';
 import { RecordStructureProvider } from '#shared/recordview/RecordStructureProvider.js';
-import { WRITABLE_RECORD_TYPE_CODES, isWritableRecordType } from '#shared/data/writableRecordTypes.js';
 import { HRuleBuilder, describeExpansionRule } from '../widgets/query-source/helpers/HRuleBuilder.js';
 import { HFieldSetEditor } from '../widgets/query-source/helpers/HFieldSetEditor.js';
 import { HGeoFieldSelector } from '../widgets/query-source/helpers/HGeoFieldSelector.js';
@@ -47,6 +46,9 @@ const DIALOG_ID = 'h-record-editor-dialog';
 
 /** Number of dialogs opened (unique dialog ids). */
 let dialogCount = 0;
+
+/** Last saved record of each editor host element (open / mount results). */
+const savedRecords = new WeakMap();
 
 /** Opens system records in HRecordEditor; other records in the legacy host editor. */
 export class RecordEditorHost {
@@ -79,14 +81,19 @@ export class RecordEditorHost {
   }
 
   /**
-   * Whether records of a type can be edited: system types in Explorer's editor
-   * (logged-in user), any type with the legacy host editor.
+   * Whether records of a type can be edited: any type in Explorer's editor (logged-in
+   * user), or with the legacy host editor.
    *
    * @param {number|string} recordType Record type id or code name (`RT_MAP_LAYER`).
    * @returns {boolean}
    */
   canEditRecordType(recordType) {
-    return (this.options.isLoggedIn() && this._isWritable(recordType)) || this.canEditInHost();
+    return (this.options.isLoggedIn() && this._usesNewEditor(recordType)) || this.canEditInHost();
+  }
+
+  /** @returns {boolean} Whether records can be edited at all (Explorer's editor or the host's). */
+  canEditRecords() {
+    return this.options.isLoggedIn() || this.canEditInHost();
   }
 
   /** @returns {boolean} Whether the legacy host record editor can be used. */
@@ -101,7 +108,7 @@ export class RecordEditorHost {
   }
 
   /**
-   * Edit a record: system records in Explorer's editor, others in the host editor.
+   * Edit a record in Explorer's editor (logged-in user), else in the host editor.
    *
    * @param {number|string} recordId Record id.
    * @param {{recordType?: number|string|null}} [options] Record type id or code name, when known.
@@ -113,7 +120,7 @@ export class RecordEditorHost {
     if (!(id > 0)) throw new Error($HR('A valid record ID is required'));
     if (this.options.isLoggedIn()) {
       const rectypeId = await this._rectypeOf(id, recordType);
-      if (this._isWritable(rectypeId)) return this.open({ recordId: id });
+      if (this._usesNewEditor(rectypeId)) return this.open({ recordId: id });
     }
     if (this.canEditInHost()) return this.options.getBridge().editRecord(id);
     throw new Error($HR('Record editor is not available'));
@@ -134,7 +141,7 @@ export class RecordEditorHost {
   }
 
   /**
-   * Create a record of a type: system types in Explorer's editor, others in the host editor.
+   * Create a record of a type in Explorer's editor (logged-in user), else in the host editor.
    * Without a type (an unconstrained pointer field, plan 21) the Add record dialog asks for
    * the type and the owner / visibility first. A new record starts with the remembered
    * owner and visibility of the user's last new record.
@@ -153,7 +160,7 @@ export class RecordEditorHost {
       return this.addRecord(choice.rectypeId, { access: choice.access });
     }
     const rectypeId = await this._rectypeId(recordType);
-    if (this.options.isLoggedIn() && this._isWritable(rectypeId)) {
+    if (this.options.isLoggedIn() && this._usesNewEditor(rectypeId)) {
       return this.open({ rectypeId, access: access || loadRecordAddDefaults(await this._who()) });
     }
     const bridge = this.options.getBridge() || {};
@@ -171,10 +178,75 @@ export class RecordEditorHost {
    */
   async open({ recordId = 0, rectypeId = 0, domain = 'records', access = null } = {}) {
     const isFile = domain === 'files';
-    const dbdefs = await this.options.ensureDbDefs();
     const dialogId = `${DIALOG_ID}-${++dialogCount}`;
     const host = document.createElement('div');
     host.className = 'h-record-editor-host';
+    const editor = await this._createEditor(host, { recordId, rectypeId, domain, access });
+    return new Promise((resolve) => {
+      let settled = false;
+      let dialog = null;
+      const finish = async () => {
+        if (settled) return;
+        settled = true;
+        dialog?.removeEventListener('close', onDialogClose);
+        HMsg.closeMsgDlg(dialogId);
+        await editor.destroy();
+        resolve(this._result(host, recordId));
+      };
+      // Escape closes the browser dialog even with preventClose: that is Close (unsaved changes are lost)
+      const onDialogClose = () => void finish();
+      host.addEventListener('h-record-editor-close', () => void finish());
+      dialog = HMsg.showMsgDlg(host, {
+        dialogId,
+        title: isFile ? $HR('File details') : (recordId > 0 ? $HR('Edit record') : $HR('New record')),
+        hideFooter: true,
+        preventClose: true
+      });
+      dialog?.classList.add('h-dialog-record-editor');
+      dialog?.addEventListener('close', onDialogClose);
+      editor.open().catch((error) => {
+        HMsg.showMsgErr?.(error?.message || String(error));
+        void finish();
+      });
+    });
+  }
+
+  /**
+   * Show HRecordEditor in a container of the page (the editor mode, plan 21 Phase 6), not
+   * in a dialog. Records opened from it (pointer Edit, Add, Browse) open dialogs over it.
+   *
+   * @param {HTMLElement} container Host element.
+   * @param {{recordId?: number, rectypeId?: number, access?: object}} target Record to edit, or record
+   *        type of a new record and its owner / visibility (default: the remembered ones).
+   * @returns {Promise<{editor: HRecordEditor, closed: Promise<{saved: boolean, recordId: number, record: object|null}>}>}
+   *          The editor (opened) and a promise of its Close.
+   */
+  async mount(container, { recordId = 0, rectypeId = 0, access = null } = {}) {
+    const id = Number(recordId) || 0;
+    const rty = id > 0 ? 0 : await this._rectypeId(rectypeId);
+    if (!(id > 0) && !(rty > 0)) throw new Error($HR('A valid record ID is required'));
+    const host = document.createElement('div');
+    host.className = 'h-record-editor-host h-record-editor-page';
+    container.replaceChildren(host);
+    const editor = await this._createEditor(host, {
+      recordId: id,
+      rectypeId: rty,
+      access: id > 0 ? null : access || loadRecordAddDefaults(await this._who())
+    });
+    const closed = new Promise((resolve) => {
+      host.addEventListener('h-record-editor-close', async () => {
+        await editor.destroy();
+        resolve(this._result(host, id));
+      }, { once: true });
+    });
+    await editor.open();
+    return { editor, closed };
+  }
+
+  /** HRecordEditor with the services of this host; saves are reported and remembered. */
+  async _createEditor(host, { recordId = 0, rectypeId = 0, domain = 'records', access = null } = {}) {
+    const isFile = domain === 'files';
+    const dbdefs = await this.options.ensureDbDefs();
     const editor = new HRecordEditor().attach(host, {
       apiClient: this.options.apiClient,
       dbdefs,
@@ -195,40 +267,19 @@ export class RecordEditorHost {
       // Edit button of file fields (plan 20)
       editFile: (id) => this.editFile(id)
     });
-    let saved = null;
-    return new Promise((resolve) => {
-      let settled = false;
-      let dialog = null;
-      const finish = async () => {
-        if (settled) return;
-        settled = true;
-        dialog?.removeEventListener('close', onDialogClose);
-        HMsg.closeMsgDlg(dialogId);
-        await editor.destroy();
-        resolve({ saved: Boolean(saved), recordId: Number(saved?.rec_ID ?? recordId) || 0, record: saved });
-      };
-      // Escape closes the browser dialog even with preventClose: that is Close (unsaved changes are lost)
-      const onDialogClose = () => void finish();
-      host.addEventListener('h-record-editor-saved', (event) => {
-        saved = event.detail.record;
-        // the owner / visibility of a new record are the defaults of the next one (plan 21)
-        if (event.detail.created && !isFile) void this._rememberAccess(event.detail.record);
-        this.options.onSaved?.({ record: event.detail.record, created: event.detail.created });
-      });
-      host.addEventListener('h-record-editor-close', () => void finish());
-      dialog = HMsg.showMsgDlg(host, {
-        dialogId,
-        title: isFile ? $HR('File details') : (recordId > 0 ? $HR('Edit record') : $HR('New record')),
-        hideFooter: true,
-        preventClose: true
-      });
-      dialog?.classList.add('h-dialog-record-editor');
-      dialog?.addEventListener('close', onDialogClose);
-      editor.open().catch((error) => {
-        HMsg.showMsgErr?.(error?.message || String(error));
-        void finish();
-      });
+    host.addEventListener('h-record-editor-saved', (event) => {
+      savedRecords.set(host, event.detail.record);
+      // the owner / visibility of a new record are the defaults of the next one (plan 21)
+      if (event.detail.created && !isFile) void this._rememberAccess(event.detail.record);
+      this.options.onSaved?.({ record: event.detail.record, created: event.detail.created });
     });
+    return editor;
+  }
+
+  /** Result of a closed editor: whether it saved, the record id and the saved record. */
+  _result(host, recordId) {
+    const saved = savedRecords.get(host) || null;
+    return { saved: Boolean(saved), recordId: Number(saved?.rec_ID ?? recordId) || 0, record: saved };
   }
 
   /**
@@ -448,11 +499,14 @@ export class RecordEditorHost {
     };
   }
 
-  /** Whether a record type (id or code name) is written by the new editor. */
-  _isWritable(recordType) {
-    if (typeof recordType === 'string' && /^RT_/.test(recordType)) return WRITABLE_RECORD_TYPE_CODES.includes(recordType);
-    const dbdefs = this.options.getDbDefs();
-    return Boolean(dbdefs) && isWritableRecordType(dbdefs, recordType);
+  /**
+   * Whether a record type (id or code name) is edited in the new editor: every known
+   * type (plan 21 Phase 5; the legacy save steps that srv does not do are listed in
+   * plan 21 §6a).
+   */
+  _usesNewEditor(recordType) {
+    if (typeof recordType === 'string' && /^RT_/.test(recordType)) return true;
+    return Number(recordType) > 0;
   }
 
   /** Local id of a record type given by id or code name. */
@@ -523,16 +577,21 @@ export class RecordEditorHost {
   async browseRecords(options = {}) {
     const dbdefs = await this.options.ensureDbDefs();
     const { openRecordManager } = await import('#shared/widgets/record-manager/openRecordManager.js');
+    // registered files (/files, plan 20): edited with editFile, added by Upload / URL of the file input
+    const fileType = Number(dbdefs?.dbconst?.('RT_REGISTERED_FILE')) || 0;
+    const types = (options.recordTypes || []).map(Number).filter((id) => id > 0);
+    const files = fileType > 0 && types.length > 0 && types.every((id) => id === fileType);
     return openRecordManager({
       selectMode: 'select',
       ...options,
+      ...(files ? { allowAddition: false } : {}),
       apiClient: this.options.apiClient,
       dbdefs,
       addRecord: (rectypeId) => this.addRecord(rectypeId),
       // null = any type (the Add record dialog)
       canAddRecordType: (rectypeId) => (rectypeId == null ? this.options.isLoggedIn() : this.canEditRecordType(rectypeId)),
-      editRecord: (id) => this.editRecord(id),
-      viewRecord: (id) => this.viewRecord(id),
+      editRecord: files ? (id) => this.editFile(id) : (id) => this.editRecord(id),
+      viewRecord: files ? null : (id) => this.viewRecord(id),
       baseUrl: this.options.baseUrl || '',
       database: this.options.database || ''
     });

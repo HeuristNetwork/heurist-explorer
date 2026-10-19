@@ -1,11 +1,14 @@
 /**
  * @file writableRecordTypes.js
- * @brief System record types written by the new record API and editor (plan 14).
+ * @brief System record types (plan 14): reports, map documents, layers and their
+ *        sources, query sources, website pages.
  *
- * The same list as the server (`srv/Records/Edit/WritableRecordTypes.php`).
- * Records of these types open in HRecordEditor; every other record type keeps
- * the host (legacy) record editor, which also fills title masks and calculated
- * fields. Local ids come from the definitions snapshot (`meta.dbconst`).
+ * Until plan 21 Phase 5 only these types were written by the new record API and
+ * editor (the server list `WritableRecordTypes` is removed; every type is edited in
+ * HRecordEditor now). The list still marks the system types: their special fields,
+ * the default pointer mode `dropdown_add` of pointers to them, and their exclusion
+ * from unconstrained pointer fields and record lists (plan 21). Local ids come from
+ * the definitions snapshot (`meta.dbconst`).
  *
  * @project     Heurist academic knowledge management system
  * @package     heurist-client-core

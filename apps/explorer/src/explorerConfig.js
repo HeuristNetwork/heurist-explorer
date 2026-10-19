@@ -24,13 +24,16 @@ import { ExplorerUiConfig, resolveUiLanguage } from './core/ExplorerUiConfig.js'
  */
 export function getHeuristExplorerConfig() {
   const bridge = getFrameHostBridge('heuristExplorerHost');
+  const standalone = getGlobalBootstrap('heuristModuleBootstrap');
   const bootstrap = resolveModuleBootstrap({
     bridge,
-    standalone: getGlobalBootstrap('heuristModuleBootstrap')
+    // a page opened by a link (editor mode): the bootstrap from its URL (plan 21 §2.4)
+    standalone: bridge || Object.keys(standalone).length ? standalone : urlBootstrap(globalThis.location)
   });
   const runtime = bootstrap.runtime || {};
   const settings = bootstrap.settings || {};
   const state = bootstrap.state || {};
+  const mode = runtime.runtimeMode === 'editor' ? 'editor' : 'main';
   const baseUrl = ensureSlash(runtime.baseUrl || '');
   const hostLanguage = normalizeLanguage(runtime.language);
   // the interface language chosen in Explorer configuration wins over the host's;
@@ -39,6 +42,9 @@ export function getHeuristExplorerConfig() {
 
   return {
     containerId: 'heurist-explorer',
+    // 'editor': the record editor alone in the page (plan 21 §2.4), see editor/RecordEditorShell.js
+    mode,
+    editor: mode === 'editor' ? editorTarget(state) : null,
     database: runtime.database || null,
     apiBaseUrl: runtime.apiBaseUrl || (baseUrl ? `${baseUrl}api` : null),
     baseUrl: baseUrl || null,
@@ -68,6 +74,46 @@ export function getHeuristExplorerConfig() {
     },
     settings,
     state
+  };
+}
+
+/**
+ * Record of the editor mode from the bootstrap state: `{recordId}` (edit) or
+ * `{rectypeId, access}` (new record).
+ *
+ * @param {object} state Bootstrap state.
+ * @returns {{recordId: number, rectypeId: number|string|null, access: object|null}}
+ */
+export function editorTarget(state = {}) {
+  const recordId = Number(state?.recordId) || 0;
+  const rectypeId = recordId > 0 ? null : (state?.rectypeId ?? null);
+  return { recordId, rectypeId, access: recordId > 0 ? null : state?.access || null };
+}
+
+/**
+ * Bootstrap of a page opened by a link without a host bootstrap or bridge:
+ * `explorerViewer.html?db=NAME&mode=editor&recID=151` (or `&rty=12`). The Heurist
+ * root is three levels above `hclient/modules/explorer/`. Other URLs give nothing.
+ *
+ * @param {Location|URL|null} location Page location.
+ * @returns {object} Bootstrap envelope, or `{}`.
+ */
+export function urlBootstrap(location) {
+  if (!location?.search) return {};
+  const params = new URLSearchParams(location.search);
+  if (params.get('mode') !== 'editor' || !params.get('db')) return {};
+  const baseUrl = new URL('../../../', location.href).href;
+  const recordId = Number(params.get('recID') || params.get('recordId')) || 0;
+  const rectypeId = params.get('rty') || params.get('rectypeId') || null;
+  return {
+    runtime: {
+      runtimeMode: 'editor',
+      database: params.get('db'),
+      baseUrl,
+      apiBaseUrl: `${baseUrl}api`,
+      language: params.get('lang') || 'eng'
+    },
+    state: recordId > 0 ? { recordId } : { rectypeId }
   };
 }
 

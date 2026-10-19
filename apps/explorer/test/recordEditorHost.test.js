@@ -38,18 +38,22 @@ function makeHost({ loggedIn = true, bridge = null, rectypeOf = 29 } = {}) {
   return { host, opened };
 }
 
-test('system record types are editable for a logged-in user without the legacy editor', () => {
+test('every record type is editable for a logged-in user without the legacy editor (plan 21)', () => {
   const { host } = makeHost();
   assert.equal(host.canEditRecordType('RT_QUERY_SOURCE'), true);
   assert.equal(host.canEditRecordType(24), true, 'by id');
-  assert.equal(host.canEditRecordType('RT_PERSON'), false);
-  assert.equal(host.canEditRecordType(10), false);
-  assert.equal(makeHost({ loggedIn: false }).host.canEditRecordType('RT_QUERY_SOURCE'), false, 'guest');
+  assert.equal(host.canEditRecordType('RT_PERSON'), true);
+  assert.equal(host.canEditRecordType(10), true);
+  assert.equal(host.canEditRecordType(0), false, 'no type');
+  assert.equal(host.canEditRecords(), true);
+  const guest = makeHost({ loggedIn: false }).host;
+  assert.equal(guest.canEditRecordType('RT_QUERY_SOURCE'), false, 'guest');
+  assert.equal(guest.canEditRecords(), false);
   const legacy = { editRecord() {}, canEditRecords: () => true };
   assert.equal(makeHost({ loggedIn: false, bridge: legacy }).host.canEditRecordType(10), true, 'legacy editor edits any type');
 });
 
-test('editRecord opens system records in the new editor and other records in the legacy editor', async () => {
+test('editRecord opens every record in the new editor; the legacy editor only without a login', async () => {
   const legacyCalls = [];
   const bridge = { editRecord: (id) => { legacyCalls.push(id); return { saved: false }; }, canEditRecords: () => true };
   const { host, opened } = makeHost({ bridge, rectypeOf: 29 });
@@ -59,18 +63,23 @@ test('editRecord opens system records in the new editor and other records in the
   assert.deepEqual(opened.at(-1), { recordId: 6 });
   const person = makeHost({ bridge, rectypeOf: 10 });
   await person.host.editRecord(7);
-  assert.deepEqual(legacyCalls, [7]);
-  assert.equal(person.opened.length, 0);
-  await assert.rejects(() => makeHost({ rectypeOf: 10 }).host.editRecord(7), /not available/);
+  assert.deepEqual(person.opened, [{ recordId: 7 }]);
+  assert.deepEqual(legacyCalls, []);
+  const guest = makeHost({ bridge, rectypeOf: 10, loggedIn: false });
+  await guest.host.editRecord(8);
+  assert.deepEqual(legacyCalls, [8]);
+  await assert.rejects(() => makeHost({ rectypeOf: 10, loggedIn: false }).host.editRecord(7), /not available/);
 });
 
-test('addRecord creates system records in the new editor', async () => {
+test('addRecord creates records of any type in the new editor', async () => {
   const { host, opened } = makeHost();
   await host.addRecord('RT_MAP_DOCUMENT');
   assert.equal(opened.length, 1);
   assert.equal(opened[0].rectypeId, 24);
   // the remembered owner / visibility of new records; first time: viewable (plan 21)
   assert.equal(opened[0].access.visibility, 'viewable');
+  await host.addRecord(10);
+  assert.equal(opened.at(-1).rectypeId, 10);
 });
 
 test('special fields: query and filter form are edited together', async () => {

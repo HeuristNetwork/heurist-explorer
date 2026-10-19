@@ -585,7 +585,10 @@ export class HEditField extends HBaseWidget {
           file: entry.file || null,
           fileUrl: this.options.fileUrl,
           apiClient: this.options.apiClient,
-          editFile: this.options.editFile
+          editFile: this.options.editFile,
+          // the record manager of registered files (plan 21)
+          browseRecords: this.options.browseRecords,
+          fileRecordType: Number(this.options.dbdefs?.dbconst?.('RT_REGISTERED_FILE')) || 0
         };
       case 'geo':
         // extent: a bounding box; feature: a geometry (record values; drawing comes later)

@@ -20,14 +20,15 @@ import '#shared/ui/heurist-ui.css';
 import './style.css';
 import { initLocale } from '#shared/ui';
 import { getHeuristExplorerConfig } from './explorerConfig.js';
-import { initHeuristExplorer } from './initHeuristExplorer.js';
 
 const config = getHeuristExplorerConfig();
+const before = initLocale(config.language, config.localeBaseUrl || moduleBaseUrl());
 // The public API is exposed at once - a legacy host polls for it from the
 // frame's load event - and the application initializes once the locale is loaded.
-const startup = initHeuristExplorer(config, {
-  before: initLocale(config.language, config.localeBaseUrl || moduleBaseUrl()),
-});
+// Editor mode (plan 21 §2.4): only the record editor; the workspace code is not loaded.
+const startup = config.mode === 'editor'
+  ? import('./editor/initRecordEditorShell.js').then(({ initRecordEditorShell }) => initRecordEditorShell(config, { before }))
+  : import('./initHeuristExplorer.js').then(({ initHeuristExplorer }) => initHeuristExplorer(config, { before }));
 
 /**
  * Resolve assets beside the deployed bundle, not beside the host page.

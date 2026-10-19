@@ -9,8 +9,9 @@
  * - *Record is viewable by* (radios): *User or group specified above* with the
  *   groups that can also view (not offered when the owner is any logged-in user),
  *   *Any logged-in user*, *Public*. The rules are in `data/recordAccess.js`.
- * - Option `editGroups`: the groups that can also edit (`rec_EditGroups`; the
- *   record editor; not in the legacy form).
+ * - Option `editGroups`: the groups that can also edit (`rec_EditGroups`; not in
+ *   the legacy form). Off everywhere for now - an intentional simplification
+ *   (Artem 2026-10-19); without the picker the stored edit groups are kept as they are.
  *
  * Event on the container: `h-record-access-change` (detail `{value}`).
  *

@@ -746,3 +746,10 @@
 #Users#Users
 #Type of record to add:#Type of record to add:
 #Select record type…#Select record type…
+
+# record manager filters (plan 21 §7.1)
+#URL#URL
+#File type#File type
+#MIME type#MIME type
+#Size (bytes)#Size (bytes)
+#Tag#Tag

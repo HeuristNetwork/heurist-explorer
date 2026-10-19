@@ -5,6 +5,10 @@
 .h-record-manager-list .h-recordlist-content { min-height:0; overflow:auto; }
 .h-record-manager-add { display:flex; flex-wrap:wrap; gap:4px; }
 .h-record-manager-add-button { display:inline-flex; align-items:center; gap:5px; }
+/* filter form pane (plan 21 §7.1) and the list in an HCardinalLayout */
+.h-record-manager-layout { flex:1 1 auto; min-height:0; display:flex; flex-direction:column; position:relative; }
+.h-record-manager-filter { height:100%; overflow:auto; padding:6px; box-sizing:border-box; }
+.h-record-manager-layout .h-record-manager-list { height:100%; }
 .h-record-manager-error { padding:12px; color:var(--h-color-danger, #c62828); }
 
 /* the dialog: a fixed large size (resizing and the size per type come with the configuration, §7) */

@@ -1,6 +1,6 @@
 # 21 Record Manager and Pointer Modes Plan
 
-**Status 2026-10-19:** agreed (three rounds with Artem, §9). Phases 1-4 done 2026-10-19 (not committed, not checked in a browser); next: Phase 5.
+**Status 2026-10-19:** agreed (three rounds with Artem, §9). Phases 1-4 committed (explorer `baf99f6`, heurist `4544b38d9`); Phase 5 done 2026-10-19, not committed; nothing checked in a browser. Phase 6 (§2.4, agreed) done 2026-10-19, not committed. Phase 7 (built-in filter forms, §7.1) done 2026-10-19, not committed; configuration in §7.2 (future plans).
 
 Source: Artem's notes of 2026-10-19 (HRecordManager, HInputResource and `rst_PointerMode`,
 value picker buttons; second round: record editing across modules). Continues plan 14
@@ -155,6 +155,58 @@ Why option 2 makes the design simpler:
 Cost of option 2: the editor URL is an Explorer URL; the shell must be kept free of
 workspace imports (an architecture test can check this: `editor/` may not import `core/
 ExplorerApplication.js`, `widgets/query-source/QuerySourcePanel.js`, layout code).
+
+### 2.4 Explorer editor mode — design (Phase 6, agreed 2026-10-19)
+
+Checked 2026-10-19: Explorer has one bundle (`heurist-explorer.js`); the legacy page
+`hclient/modules/explorer/explorerViewer.html` only loads it; the legacy wrapper
+`HeuristModuleExplorer.js` creates the iframe and sets the bridge `heuristExplorerHost` on it
+(`getConfiguration()` gives the bootstrap, plus `editRecord`, `addRecord`, ...); a standalone
+page sets `window.heuristModuleBootstrap`. `ExplorerApplication.initialize()` loads users and
+groups, saved filters, record types, query sources, the UI configuration, the authoring dock,
+the layout and its modules, the control panel and the start-up query.
+
+1. **Same bundle, same page.** The mode comes from the bootstrap:
+   `runtime.runtimeMode: 'editor'` and `state: {recordId}` (edit) or `{rectypeId, access?}`
+   (new record). A page without a bootstrap and bridge (opened by a link) may give it in the
+   URL: `explorerViewer.html?db=NAME&mode=editor&recID=151` or `&rty=12`.
+   `main.js` loads either `initHeuristExplorer` or `editor/initRecordEditorShell.js` with a
+   dynamic `import()`, so the editor page does not load the workspace code (Vite chunks).
+2. **Editor shell** (`apps/explorer/src/editor/RecordEditorShell.js`): creates only
+   `HeuristApiClient`, `UserGroupManager`, `RecordTypeManager` (HDbDefs) and
+   `RecordEditorHost`, and shows the record **in the page** (no dialog): new
+   `RecordEditorHost.mount(container, {recordId | rectypeId, access})`; the existing
+   `open()` (dialog) stays for Explorer and for records opened from the editor (pointer
+   Edit, Add, Browse open dialogs over the page). Not logged in: a message "Log in to edit
+   records" instead of the form.
+3. **EditorServices** (`apps/explorer/src/core/EditorServices.js`): `selectGeometry`,
+   `selectFilterExtent` (+ `_drawOnMap`, the Map module in an iframe dialog),
+   `editQuery` (HFilterBuilder) and `describeQuery` move out of `ExplorerApplication`; both
+   ExplorerApplication and the shell give them to RecordEditorHost. The only refactoring.
+4. **Public API in editor mode** (`window.heuristExplorer`, as now exposed at once):
+   `ready()`, `open({recordId | rectypeId, access})` (another record in the same page),
+   `isDirty()`, `getRecord()`, `close()`; events on the container `h-record-editor-saved`,
+   `h-record-editor-close` (as HRecordEditor).
+5. **Messages to the page that opened the editor**, both ways, so any host can use one:
+   - bridge callbacks when the bridge has them: `onRecordSaved({record, created})`,
+     `onEditorClosed({saved, recordId, record})`;
+   - `postMessage` to `window.parent` (iframe) or `window.opener` (new window):
+     `{source: 'heurist-record-editor', type: 'saved' | 'closed', recordId, rectypeId,
+     created, saved}`, target origin = the page's own origin (one Heurist installation).
+   - A standalone window (opened with `window.open`) closes itself after Close / Save and
+     close.
+6. **Legacy entry** (heurist repo, Phase 6): a small helper
+   `hclient/modules/explorer/recordEditorDialog.js` —
+   `HeuristRecordEditor.open({recordId | rectypeId}) → Promise<{saved, recordId}>`: a
+   jQuery dialog with the iframe `explorerViewer.html`, the bridge (bootstrap with
+   `runtimeMode: 'editor'`), resolved by `onEditorClosed`. Switching legacy callers of the old
+   editor (result list, `editRecord` of the bridges) to it is **not** part of Phase 6.
+7. **Architecture test**: `apps/explorer/src/editor/` may not import `ExplorerApplication`,
+   `LayoutManager`, the authoring dock or `widgets/query-source/QuerySourcePanel.js`.
+
+Agreed (Artem 2026-10-19): 1. bootstrap `runtimeMode: 'editor'` + `state`, URL parameters as
+the fallback; 2. bridge callbacks and postMessage; 3. only the legacy helper now, legacy callers
+later; 4. a standalone window closes itself after Close / Save and close.
 
 ## 3. HRecordManager (shared)
 
@@ -312,11 +364,60 @@ and bookmarks later); a full test range over all record types is needed.
      record types of `osmak_mapping`;
    - browser check list in the plan (one record type per field type group).
 
-## 7. Configuration (later)
+## 7. Default filter forms and configuration
 
-Per record type, set by the database owner/admin: query source(s) and filter form, list
-appearance (HRecordList options) and dialog size (§9.8). Stored with the built-in query
-sources of §8 Phase 5.
+### 7.1 Built-in filter forms (Phase 7, Artem 2026-10-19)
+
+The record manager shows a filter form (north or west pane, HCardinalLayout) made from a
+built-in parameterized query. Two built-in filters for now; others are defined when the
+manager is used for a particular type. All text parameters are direct inputs (no value lists).
+
+1. **Files** (RT_REGISTERED_FILE, `/files`): file name (`f:<DT_ORIGINAL_NAME 2-1185>`), URL
+   (`url`), name / caption (`f:<DT_NAME 2-1>`), type (`f:<DT_REGISTERED_FILE_TYPE 2-1186>`: local,
+   external, IIIF... - terms), MIME type (`f:<DT_MIME_TYPE 2-29>` - terms), size
+   (`f:<DT_FILE_SIZE 2-67>`, a number range). The `/files` query takes numeric field ids, so
+   the query is built at run time from the concept codes (`HDbDefs.localId('dty', code)`);
+   a field the database lacks is left out.
+2. **Generic** (any user-data type; for now also the system types): title (`title`) and tag
+   (`tag` - the user's tags, as in filter forms).
+
+- The built-in definitions live in code (`shared/src/data/recordManagerFilters.js`):
+  `{query, filterForm}` as a Query Source has them, so the configuration (§7.2) can later
+  replace them with a Query Source or the admin's own definition.
+- The filter's conditions are added to the record type query (`t:<types>`); a browse filter
+  of the field (`rst_PointerBrowseFilter`) replaces the built-in filter (§9.7: without
+  parameters only the list's title search).
+- The list's own search box stays (title search in the results).
+
+### 7.2 Configuration - future plans (discussed 2026-10-19, deferred)
+
+An admin task, per record type:
+
+1. **Filter**:
+   a) system record types and files: the built-in filter, or the admin's own;
+   b) user-data types: an existing Query Source, a new one, or the generic filter.
+2. **Filter form**: changed with Filter Builder + Filter Form Designer.
+3. **Record list appearance**: the native controls - a second row with *Search in results*,
+   *Sort*, *Show admin info*; default settings (view mode without *Table*, page size...).
+4. **Storage** (Artem: `HEURIST_FILESTORE/<db>/entity/defRecTypes/filters/NNN.json`, NNN =
+   record type id; later a field of the record type in the database). Comments (2026-10-19):
+   - the folder fits: `entity/defRecTypes/` already holds the record type icons
+     (`icon/NNN.png`, `thumbnail/NNN.png`). But those files are copied by database clone
+     (`DbUtils`) and by the import of a record type from another database (`dbsImport::
+     copyRectypeIcon`, where the id changes); the filter files need the same copying, or they
+     are lost with a cloned / imported type;
+   - one JSON format for the file and for the later database field (`heurist-record-manager/1`:
+     `{filter: {querySource: id} | {query, filterForm} | 'builtin', list: {...}}`), read and
+     written only through one srv class (`Definitions/RecordTypeSettings`), so the move to a
+     database field changes no caller;
+   - a Query Source chosen by the admin is referenced by its **record id**; a filter of the
+     admin's own is stored inline in the file (no extra record);
+   - the client gets it through its own endpoint (e.g. `GET /def/rectypes/{id}/manager`), not
+     the definitions snapshot: the snapshot is cached by the definitions version, which a
+     changed file does not change; write: database admin only;
+   - field ids inside a stored filter are local; on an import into another database they need
+     the same id mapping as the record type (or concept codes, as plan 08 stores them).
+5. Dialog size (§9.8) and the header option buttons (§3.2) belong to the same configuration.
 
 ## 8. Phases
 
@@ -332,9 +433,9 @@ sources of §8 Phase 5.
    Phases 1-4.
 6. **Standalone editor = Explorer editor mode** (§2.3, option 2): bootstrap / URL, shell,
    EditorServices, opener messages, legacy page entry.
-7. **Manager mode and configuration** (I.1b, §7), with plan 14 Phase 4: built-in
-   parameterized QS per system type and a generic one for user types (code or locked
-   records), admin customisation, exclusion of system types from the general search.
+7. **Built-in filter forms** (§7.1): files and generic; filter form pane in HRecordManager.
+8. **Later**: configuration (§7.2), manager mode for system records (I.1b, plan 14 Phase 4),
+   exclusion of system types from the general search.
 
 ## 9. Agreed (Artem, 2026-10-19)
 
@@ -381,8 +482,7 @@ Third round (Artem, 2026-10-19):
 
 ## 10. Open points
 
-None at the moment (2026-10-19). Phase 6 (editor mode) gets its own short design check of
-the bootstrap / URL and the opener messages before coding.
+None at the moment (2026-10-19).
 
 ## 11. Implementation notes
 
@@ -548,4 +648,126 @@ manager (not `addonly`); no separate Browse button; Edit / View on mouse over.
 - Tests: `shared/test/recordAccess.test.js` (rules, remembered defaults, owner list, the form,
   pending, dialog type list, unconstrained Add of HInputResource); the manager and host tests
   updated. 1259 tests pass; Explorer, Data and Map build.
+
+Artem 2026-10-19 on Phase 4: localStorage for the remembered owner / visibility is fine;
+*Also editable by* is hidden for now (an intentional simplification, remarks in
+HRecordEditor and HRecordAccess; the stored edit groups are kept on save).
+
+### Phase 5 — all record types in the new editor (2026-10-19)
+
+- **Client**: `RecordEditorHost._usesNewEditor()` (was `_isWritable`): every record type
+  (id or code name) for a logged-in user; the legacy host editor only without a login.
+  `RecordEditorHost.canEditRecords()` = logged in or the legacy editor; Explorer's
+  `canEditRecords()` (bridge of the modules) uses it, so the modules show their edit
+  actions for a logged-in user also without the legacy host. No setting "back to the legacy
+  editor" (not needed so far). `writableRecordTypes.js` stays as the list of the **system**
+  record types (special fields, default pointer mode, excluded from unconstrained lists).
+- **Server** (heurist): the checks of `WritableRecordTypes` in `RecordSaveService`,
+  `RecordDeleteService`, `RecordDuplicateService` and the class itself removed (`git rm`);
+  `ServiceFactory` updated; `srv/Records/Edit/_README.md` lists what is not ported (§6a.3:
+  none ported in this plan). `RecordEditApiTest`: a type outside the former list is no longer
+  refused (31 checks read-only, 68 with `--write`).
+- **Test range**:
+  - server `tests/RecordEditAllTypesTest.php --db=osmak_mapping --user=2 [--write] [--type=ID]`:
+    one value in every field of every record type (pointers to existing records of a target
+    type, terms of the field vocabulary - any relation term for a relation type field - an
+    existing file, a point); validate, and with `--write` insert, read back field by field,
+    PATCH one text field (the others stay), delete; the test records are removed (checked).
+    Calculated fields are left out (computed on save). Result on osmak_mapping: 75 record
+    types pass, 9 not testable (a required pointer to types without records: Book, Journal
+    volume...), RT_REGISTERED_FILE skipped (`/files`).
+  - client `shared/test/editStructuresAllTypes.test.js` on the fixture
+    `shared/test/fixtures/editStructures.json` (210 KB; made by
+    `node scripts/editStructureFixture.mjs [--db=]` from the local API: `/rst` rows of all 85
+    record types as arrays, a small snapshot): known field types, base-field pointer types,
+    a pointer mode for every pointer; every form renders and > 300 field values come back
+    unchanged. Date fields are rendered as text there (flatpickr does not run in the fake DOM).
+  - 1262 client tests pass; all apps build.
+- **Browser check list** (not done yet): one record of each group, in Explorer (logged in,
+  also without the legacy host):
+  1. a Person / Organisation: text, date (temporal editor), terms, pointers in each pointer mode
+     (Browse, Add, multi select), Admin panel (owner / visibility), save, title mask;
+  2. a Place: geo field (map drawing), file field (upload, pick);
+  3. a record with a calculated field (Admin Boundaries) and one with a workflow stage;
+  4. a relationship record (RT_RELATION) opened from a related record;
+  5. a CMS page and a Map document (system types: special fields still work);
+  6. Data / Map / Graph module edit pens open the new editor; a guest gets no edit actions.
+
+### Phase 6 — Explorer editor mode (2026-10-19)
+
+- **Start**: `explorerConfig.js` gives `mode` (`runtime.runtimeMode === 'editor'`) and `editor`
+  (`editorTarget(state)`: `{recordId}` or `{rectypeId, access}`); without a bridge or a
+  bootstrap, `urlBootstrap(location)` reads `?db=&mode=editor&recID=` / `&rty=` (Heurist root
+  three levels above `hclient/modules/explorer/`). `main.js` loads `initHeuristExplorer` or
+  `editor/initRecordEditorShell.js` with a dynamic `import()`. Build: the editor page loads the
+  20 KB entry, the 4 KB shell and the editor chunks, not the 226 KB workspace chunk
+  (`heurist-explorer-initHeuristExplorer.js`).
+- **EditorServices** (`core/EditorServices.js`): `describeQuery`, `editQuery` (HFilterBuilder),
+  `selectFilterExtent`, `selectGeometry`, `drawOnMap`, `destroy` - moved from
+  ExplorerApplication unchanged; ExplorerApplication keeps thin delegates (`get editorServices`,
+  lazy) so its other callers did not change; the api client is given as a getter.
+- **RecordEditorHost**: `mount(container, target)` → `{editor, closed}` (the editor in the page);
+  `open()` (dialog) and `mount()` share `_createEditor()`; saved records kept in a WeakMap.
+- **Shell** (`editor/RecordEditorShell.js` + `.css`, `initRecordEditorShell.js`): API client,
+  UserGroupManager, RecordTypeManager (icons), EditorServices, RecordEditorHost; guest: "Log in to
+  edit records"; no record: "No record to edit"; after the close a short message. Messages:
+  bridge `onRecordSaved` / `onEditorClosed` and `postMessage` (`EDITOR_MESSAGE_SOURCE`
+  `heurist-record-editor`) to the parent frame or the opener; a top-level window with an opener
+  closes itself. Public API `RecordEditorShellApi`.
+- **Legacy helper** (heurist): `hclient/modules/explorer/recordEditorDialog.js`
+  (`window.HeuristRecordEditor.open`). Not loaded by any legacy page yet (callers later, §2.4.6).
+- **Test loader**: `scripts/cssLoader.mjs` also loads Vite JSON imports (no `with {type: 'json'}`).
+- Tests: `apps/explorer/test/recordEditorShell.test.js` (URL fallback, editor target, messages
+  to a frame and to an opener window, self-closing window, public API);
+  `test/architecture/moduleBoundaries.test.js`: nothing reachable from `apps/explorer/src/editor/`
+  is the workspace (ExplorerApplication, LayoutManager, ExplorerAuthoringDock, QuerySourcePanel,
+  initHeuristExplorer). 1268 tests pass; Explorer, Data, Map build.
+- **Not checked in a browser.** To check: deploy Explorer, open
+  `/heurist/hclient/modules/explorer/explorerViewer.html?db=osmak_mapping&mode=editor&recID=151`
+  (logged in); and from a legacy page's console after loading `recordEditorDialog.js`:
+  `HeuristRecordEditor.open({recordId: 151}).then(console.log)`.
+
+### Phase 7 — built-in filter forms (2026-10-19)
+
+- `shared/src/data/recordManagerFilters.js`: `builtinRecordFilter(dbdefs, types)` - files when
+  every type is RT_REGISTERED_FILE, else generic; `fileFilter(dbdefs)` builds
+  `[{f:<2-1185>: $FILENAME$}, {url: $URL$}, {f:<2-1>: $CAPTION$}, {f:<2-1186>: $FILETYPE$},
+  {f:<2-29>: $MIMETYPE$}, {f:<2-67>: "$SIZE$<>$SIZE_TO$"}]` with local field ids from
+  `HDbDefs.localId('dty', code)` (missing fields left out); `genericFilter()` =
+  `[{title: $TITLE$}, {tag: $TAG$}]`. Layout: one vertical section; text = direct input, file
+  type / MIME type = term lists, tag = the user's tags (`mode: 'select'`); size = one range
+  input (from / to; one bound gives `>=` / `<=`). The system types get the generic filter for
+  now (assumption, to confirm).
+- HRecordManager: `filterDefinition()` (none with a browse filter or `filter: false`; option
+  `filter` = another `{query, filterForm}`), `_renderFilter()` - HCardinalLayout with the form
+  in the west pane (north for a horizontal form) and the list in the centre; HFilterForm
+  without apiClient (no server value lists or counts); Filter → `applyFilter(conditions)` =
+  type query + the resolved conditions, reload; Reset (`h-filter-form-reset`) → type query
+  only. The list's own search box stays.
+- Found while testing: HFilterForm replaces the class of its container - the pane is a wrapper
+  around the form's own element.
+- Explorer localization: the filter labels.
+- Tests (`shared/test/recordManager.test.js`): the two filters (query, layout, missing fields,
+  range resolution), the filter choice, Filter / Reset on the list query, the pane. 1272 tests
+  pass; Explorer and Data build. Not checked in a browser.
+
+### Review of 2026-10-19 — file input and pointer layout
+
+- **HInputFile**: with the host's `browseRecords` and `fileRecordType` (local id of
+  RT_REGISTERED_FILE, from HEditField) the file is chosen like a pointer in `addorbrowse`
+  mode - a select-like button with the file name and a `fa-table` icon; a click opens the
+  record manager of files (`/files`, the files filter of §7.1), Select sets the file (its name
+  fetched by FileSource). Without them: the value picker, as before. Upload and URL are hidden
+  while a file is chosen (clear the value to add another way). RecordEditorHost.browseRecords
+  for files: no Add buttons (`allowAddition: false`; new files come from Upload / URL), the
+  pen = `editFile`, no View.
+- **HInputResource / HInputFile**: Edit / View (and Upload / URL / Edit of files) are placed
+  right after the control box (`.h-form-input-control-wrap`), before the value tools - no longer
+  inside it. With a display width the button / picker now has the whole width; before, the
+  buttons took part of it (the button changed width with a value) and could run into the value
+  tools. Shown on mouse over of the whole input.
+- Checked with screenshots of the real widgets (a scratch Vite page, headless Edge): pointer
+  modes with and without a value, a file chosen and empty, display width 30.
+- Tests (`shared/test/recordEditor.test.js`): Upload / URL by value, file chosen in the record
+  manager, Edit / View after the control box. 1275 tests pass.
 

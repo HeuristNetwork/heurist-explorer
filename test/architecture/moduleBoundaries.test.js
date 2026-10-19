@@ -42,6 +42,33 @@ test("shared code does not import applications", async () => {
   }
 });
 
+test("Explorer's editor mode does not load the workspace (plan 21 §2.4)", async () => {
+  const explorerSrc = path.join(appsRoot, "explorer", "src");
+  // the workspace: application, layout, authoring dock, Query Source panel, its start
+  const forbidden = [
+    "core/ExplorerApplication.js",
+    "core/LayoutManager.js",
+    "initHeuristExplorer.js",
+    "ui/ExplorerAuthoringDock.js",
+    "widgets/query-source/QuerySourcePanel.js",
+  ].map((file) => path.join(explorerSrc, file));
+  const seen = new Set();
+  const queue = await sourceFiles(path.join(explorerSrc, "editor"));
+  while (queue.length) {
+    const filename = queue.shift();
+    if (seen.has(filename)) continue;
+    seen.add(filename);
+    assert.equal(forbidden.includes(filename), false,
+      `the editor mode reaches ${path.relative(process.cwd(), filename)}`);
+    const source = await readFile(filename, "utf8");
+    for (const specifier of importSpecifiers(source)) {
+      if (!specifier.startsWith(".") || !/\.(?:js|mjs)$/.test(specifier)) continue;
+      queue.push(path.resolve(path.dirname(filename), specifier));
+    }
+  }
+  assert.ok(seen.size > 5, `${seen.size} files reached from apps/explorer/src/editor`);
+});
+
 async function sourceFiles(directory) {
   const result = [];
   for (const entry of await readdir(directory, { withFileTypes: true })) {

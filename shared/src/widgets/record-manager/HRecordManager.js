@@ -11,6 +11,11 @@
  * modes; in `manager` mode it edits, as in other record lists.
  * `openRecordManager()` shows the manager in a dialog with Select / Cancel.
  *
+ * Filter form (plan 21 §7.1): the built-in filter of the types (recordManagerFilters.js:
+ * files, generic) in a pane beside the list - west for a vertical form, north for a
+ * horizontal one; Filter adds its conditions to the type query, Reset removes them. A
+ * browse filter of the field (`query`) replaces the built-in filter (no pane).
+ *
  * Events on the container: `h-record-manager-selection` (detail `{ids}`),
  * `h-record-manager-finish` (detail `{ids}`).
  *
@@ -27,6 +32,9 @@
 
 import { HBaseWidget } from '../HBaseWidget.js';
 import { HRecordList } from '../record-list/HRecordList.js';
+import { HFilterForm } from '../filter/HFilterForm.js';
+import { HCardinalLayout } from '../layout/HCardinalLayout.js';
+import { builtinRecordFilter } from '../../data/recordManagerFilters.js';
 import { RecordListLoader } from '../../data/RecordListLoader.js';
 import { recordTypesDomain, userDataRecordTypeIds } from '../../data/recordDomains.js';
 import { $HR } from '../../ui/i18n/HResource.js';
@@ -79,7 +87,10 @@ export class HRecordManager extends HBaseWidget {
    * @param {Function} [options.canAddRecordType] Host: `(rectypeId|null) → boolean`; default: yes.
    * @param {Function} [options.editRecord] Host: `(id) → Promise<{saved}>` (pen button; double-click in `manager` mode).
    * @param {Function} [options.viewRecord] Host: `(id)` ("i" button).
-   * @param {*} [options.query] Extra conditions added to the record type query (`rst_PointerBrowseFilter`, Phase 3).
+   * @param {*} [options.query] Extra conditions added to the record type query (`rst_PointerBrowseFilter`, Phase 3);
+   *        it replaces the built-in filter form.
+   * @param {object|false|null} [options.filter] Filter `{query, filterForm}`; default the built-in filter of the
+   *        types (recordManagerFilters.js), `false` = no filter form.
    * @param {object} [options.listOptions] HRecordList options (view mode, page size...).
    * @param {string} [options.baseUrl] Heurist base URL (record type icons).
    * @param {string} [options.database] Database name (record type icons).
@@ -115,6 +126,7 @@ export class HRecordManager extends HBaseWidget {
     listHost.className = 'h-record-manager-list';
     this.container.replaceChildren(listHost);
     const types = this.unconstrained ? userDataRecordTypeIds(this.dbdefs) : this.recordTypes;
+    this.types = types;
     let path;
     try {
       path = recordTypesDomain(this.dbdefs, types).path;
@@ -124,6 +136,7 @@ export class HRecordManager extends HBaseWidget {
       return this;
     }
     this.loader = new RecordListLoader({ apiClient: this.options.apiClient, path, query: this._query(types) });
+    this._renderFilter(listHost);
     this.list = new HRecordList();
     await this.list.initialize({
       container: listHost,
@@ -170,10 +183,66 @@ export class HRecordManager extends HBaseWidget {
   /** @returns {Promise<void>} Completion after the list is removed. */
   async destroy() {
     this.loader?.abort();
+    await this.filterForm?.destroy();
+    this.filterForm = null;
+    this.layout?.destroy();
+    this.layout = null;
     await this.list?.destroy();
     this.list = null;
     this.container?.classList.remove('h-record-manager');
     await super.destroy();
+  }
+
+  /**
+   * The filter of this manager: none with a browse filter or `filter: false`, else the
+   * given one or the built-in filter of the types.
+   *
+   * @returns {{query: Array<object>, filterForm: object}|null}
+   */
+  filterDefinition() {
+    if (this.options.filter === false || browseFilterQuery(this.options.query) != null) return null;
+    return this.options.filter || builtinRecordFilter(this.dbdefs, this.types || this.recordTypes);
+  }
+
+  /**
+   * The list query with the conditions of the filter form (null: none).
+   *
+   * @param {Array<object>|null} conditions Resolved conditions of the filter form.
+   * @returns {Promise<void>}
+   */
+  async applyFilter(conditions) {
+    const extra = Array.isArray(conditions) ? conditions.filter(Boolean) : [];
+    this.filterConditions = extra;
+    this.loader?.setQuery([...this._query(this.types || this.recordTypes), ...extra]);
+    await this.list?.reload();
+  }
+
+  /** Filter form pane beside the list (west for a vertical form, north for a horizontal one). */
+  _renderFilter(listHost) {
+    const definition = this.filterDefinition();
+    if (!definition) return;
+    const pane = document.createElement('div');
+    pane.className = 'h-record-manager-filter';
+    // HFilterForm sets the class of its own container
+    const formHost = document.createElement('div');
+    pane.append(formHost);
+    const north = definition.filterForm?.settings?.orientation === 'horizontal';
+    const layoutHost = document.createElement('div');
+    layoutHost.className = 'h-record-manager-layout';
+    this.container.replaceChildren(layoutHost);
+    this.layout = new HCardinalLayout(layoutHost, { westSize: 240, minWest: 180, northSize: 120, minCenterWidth: 320 });
+    this.layout.setContent('center', listHost);
+    this.layout.setContent(north ? 'north' : 'west', pane);
+    this.layout.show(north ? 'north' : 'west');
+    this.layout.hide(north ? 'west' : 'north');
+    this.filterForm = new HFilterForm().attach(formHost, {
+      definition: { query: definition.query, filterForm: definition.filterForm },
+      dbdefs: this.dbdefs,
+      // no value lists or counts from the server: the lists are terms and tags (plan 21 §7.1)
+      apiClient: null,
+      onSubmit: ({ query }) => this.applyFilter(query?.q || [])
+    }).render();
+    this.listen(pane, 'h-filter-form-reset', () => void this.applyFilter([]));
   }
 
   /**

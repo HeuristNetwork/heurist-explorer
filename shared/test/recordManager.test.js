@@ -288,3 +288,67 @@ test('HEditField: a repeatable pointer selects several records; new ones become 
   assert.equal(asked[1].selectMode, 'select');
   assert.equal(single._rows.length, 1);
 });
+
+test('built-in filters: files for RT_REGISTERED_FILE (fields by concept code), generic for other types', async () => {
+  const { builtinRecordFilter, fileFilter } = await import('../src/data/recordManagerFilters.js');
+  const { describeQueryParameters, resolveQueryParameters } = await import('../src/data/queryParameters.js');
+  const concepts = { '2-1185': 201, '2-1': 1, '2-1186': 202, '2-29': 203, '2-67': 204 };
+  const defs = { ...dbdefs, localId: (kind, code) => (kind === 'dty' ? concepts[code] || 0 : 0) };
+  const files = builtinRecordFilter(defs, [60]);
+  assert.equal(files.id, 'files');
+  assert.deepEqual(files.query, [
+    { 'f:201': '$FILENAME$' }, { url: '$URL$' }, { 'f:1': '$CAPTION$' },
+    { 'f:202': '$FILETYPE$' }, { 'f:203': '$MIMETYPE$' }, { 'f:204': '$SIZE$<>$SIZE_TO$' }
+  ]);
+  assert.deepEqual(files.filterForm.groups[0].children.map((child) => child.input),
+    ['FILENAME', 'URL', 'CAPTION', 'FILETYPE', 'MIMETYPE', 'SIZE']);
+  // the size is one range input; the empty parameters are left out of the query
+  assert.equal(describeQueryParameters(files.query, defs).SIZE.endInput, 'SIZE_TO');
+  assert.deepEqual(resolveQueryParameters(files.query, { CAPTION: 'map', SIZE: '1000' }, files.filterForm).q,
+    [{ 'f:1': 'map' }, { 'f:204': '>=1000' }]);
+  // a field the database lacks is left out
+  const fewer = fileFilter({ localId: (kind, code) => (code === '2-1' ? 1 : 0) });
+  assert.deepEqual(fewer.query, [{ url: '$URL$' }, { 'f:1': '$CAPTION$' }]);
+  // other types, several types, unconstrained: generic (title, tag)
+  for (const types of [[10], [60, 10], []]) {
+    const generic = builtinRecordFilter(defs, types);
+    assert.equal(generic.id, 'generic');
+    assert.deepEqual(generic.query, [{ title: '$TITLE$' }, { tag: '$TAG$' }]);
+  }
+});
+
+test('filter of the manager: the built-in one; none with a browse filter or filter: false', () => {
+  assert.equal(manager({ recordTypes: [10] }).widget.filterDefinition().id, 'generic');
+  assert.equal(manager({ recordTypes: [10], query: 'f:1:x' }).widget.filterDefinition(), null);
+  assert.equal(manager({ recordTypes: [10], filter: false }).widget.filterDefinition(), null);
+  const own = { query: [{ title: '$X$' }], filterForm: null };
+  assert.equal(manager({ recordTypes: [10], filter: own }).widget.filterDefinition(), own);
+});
+
+test('Filter adds its conditions to the record type query; Reset removes them', async () => {
+  const { widget, calls } = manager({ recordTypes: [10, 11] });
+  const queries = [];
+  widget.loader.setQuery = (query) => queries.push(query);
+  await widget.applyFilter([{ title: 'abc' }, null]);
+  assert.deepEqual(queries.at(-1), [{ t: '10,11' }, { title: 'abc' }]);
+  assert.ok(calls.includes('reload'));
+  await widget.applyFilter([]);
+  assert.deepEqual(queries.at(-1), [{ t: '10,11' }]);
+});
+
+test('the filter form pane: west for a vertical form, Filter and Reset reach the list', async () => {
+  globalThis.Node ??= globalThis.HTMLElement;
+  const { widget } = manager({ recordTypes: [10] });
+  const applied = [];
+  widget.applyFilter = async (conditions) => { applied.push(conditions); };
+  const listHost = document.createElement('div');
+  widget._renderFilter(listHost);
+  assert.ok(widget.filterForm, 'filter form');
+  assert.ok(widget.layout.getRegionElement('center').children.includes(listHost));
+  assert.ok(widget.layout.getRegionElement('west').children[0].classList.contains('h-record-manager-filter'));
+  widget.filterForm.inputs.get('TITLE').setValue('abc');
+  widget.filterForm.container.querySelector('.h-btn-primary').click();
+  assert.deepEqual(applied.at(-1), [{ title: 'abc' }]);
+  widget.filterForm.reset();
+  assert.deepEqual(applied.at(-1), []);
+});

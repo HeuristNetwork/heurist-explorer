@@ -239,6 +239,49 @@ test('file input: register a URL; read-only hides the buttons', async () => {
   assert.equal(await input.uploadFile({ name: 'x.png', size: 1 }), null, 'no upload when read-only');
 });
 
+test('file input: Upload and URL only without a file (plan 21)', () => {
+  const { source, uploader } = fileFakes();
+  const input = createHInput('file', host(), { value: 7, source, uploader, suppressLabel: true });
+  assert.equal(input.uploadButton.hidden, true, 'a file is chosen');
+  assert.equal(input.urlButton.hidden, true);
+  input.setValue(null);
+  assert.equal(input.uploadButton.hidden, false, 'no file');
+  assert.equal(input.urlButton.hidden, false);
+});
+
+test('file input: with the host record manager the file is chosen there, not in a picker (plan 21)', async () => {
+  const { calls, source, uploader } = fileFakes();
+  const asked = [];
+  const changes = [];
+  const input = createHInput('file', host(), { value: null, source, uploader, suppressLabel: true, fileRecordType: 126,
+    browseRecords: async (options) => { asked.push(options); return [21]; }, onChange: (value) => changes.push(value) });
+  assert.equal(input.combo, undefined, 'no value picker');
+  assert.ok(input.browseButton);
+  assert.equal(input.browseText.textContent, 'Select file…');
+  input.browseButton.click();
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.deepEqual(asked, [{ recordTypes: [126], selectMode: 'select', allowAddition: false }]);
+  assert.equal(input.getValue(), 21);
+  assert.ok(calls.some((call) => call[0] === 'labels'), 'the file name is fetched');
+  assert.equal(input.browseText.textContent, 'file 21');
+  assert.equal(input.uploadButton.hidden, true);
+  // without the file record type (or the host function): the value picker
+  const picker = createHInput('file', host(), { value: null, source, uploader, suppressLabel: true, browseRecords: async () => [] });
+  assert.ok(picker.combo);
+});
+
+test('pointer input: Edit / View after the control box, before the value tools (plan 21)', () => {
+  const source = { load: async () => ({ items: [], total: 0, complete: true }), labelFor: () => 'Record 5', fetchLabels: async () => {}, rememberLabel: () => {} };
+  const input = createHInput('resource', host(), { value: 5, source, suppressLabel: true, valueTools: true,
+    editRecord: async () => ({}), viewRecord: () => {} });
+  const wrap = input.container.querySelector('.h-form-input-control-wrap');
+  const actions = input.container.querySelector('.h-input-resource-actions');
+  assert.equal(wrap.querySelector('.h-input-resource-actions'), null, 'not inside the control box');
+  const row = wrap.parentElement.children;
+  assert.equal(row.indexOf(actions), row.indexOf(wrap) + 1, 'right after it');
+  assert.ok(row.indexOf(input.clearButton) > row.indexOf(actions), 'value tools after Edit / View');
+});
+
 test('a special field shows a readable value, the raw text on request and its editor', async () => {
   const { HEditField } = await import('../src/widgets/edit-form/HEditField.js');
   const values = { 1174: '{"groups":[]}' };

@@ -15,7 +15,7 @@
 
 import { hasQueryParameters } from '#shared/data/queryParameters.js';
 import { HeuristApiClient, RequestMonitor } from '#shared/api';
-import { extentFromGeoJson, extentFromWkt, extentToGeoJson, isExtent } from '#shared/utils';
+import { extentFromWkt, isExtent } from '#shared/utils';
 import { HostAdapter } from '#shared/host';
 import { HMsg, $HR, InlineHelp, getActiveLanguage, getAssetBaseUrl } from '#shared/ui';
 import { LayoutManager } from './LayoutManager.js';
@@ -43,9 +43,7 @@ import {
 import { ExplorerToolModule } from '../tools/ExplorerToolModule.js';
 import { HDbDefs } from '#shared/data/HDbDefs.js';
 import { RecordTypeProvider } from '#shared/data/RecordTypeProvider.js';
-import queryVocabulary from '../utils/queryVocabulary.json';
-import { queryDescribe } from '../utils/queryDescribe.js';
-import { HFilterBuilder } from '../widgets/filter-builder/HFilterBuilder.js';
+import { EditorServices } from './EditorServices.js';
 import { QuerySourcePanel } from '../widgets/query-source/QuerySourcePanel.js';
 import { QueryTracePanel } from '../widgets/query-source/QueryTracePanel.js';
 import { ExplorerAuthoringDock } from '../ui/ExplorerAuthoringDock.js';
@@ -100,8 +98,6 @@ export class ExplorerApplication {
     this.authoringDock = null;
     // narrow-screen presentation; removable, see ExplorerCompactMode
     this.compactMode = null;
-    this._filterExtentDialog = null;
-    this._filterExtentModule = null;
     // Each embedded module (map, timeline, ...) owns its own persisted user
     // preference (`heurist-<type>`), separate from the Explorer layout config
     // in this.config.settings. IframeModuleAdapter's bridge only supplies
@@ -1365,9 +1361,12 @@ export class ExplorerApplication {
     return hostCan(this.config.hostBridge, 'editFacetedFilter', 'canEditSavedFilters');
   }
 
-  /** @returns {boolean} Whether the host record editor can be used (logged in, editor available). */
+  /**
+   * @returns {boolean} Whether records can be edited: Explorer's record editor for a
+   *          logged-in user (every record type, plan 21), else the host record editor.
+   */
   canEditRecords() {
-    return hostCan(this.config.hostBridge, 'editRecord', 'canEditRecords');
+    return this.recordEditing?.canEditRecords() === true || hostCan(this.config.hostBridge, 'editRecord', 'canEditRecords');
   }
 
   /** @returns {boolean} Whether the host Saved Filter editor can be used. */
@@ -1382,8 +1381,8 @@ export class ExplorerApplication {
   }
 
   /**
-   * Whether records of a type can be edited: system record types in Explorer's
-   * record editor (logged-in user), any type in the legacy host editor.
+   * Whether records of a type can be edited: Explorer's record editor (logged-in
+   * user, every type), or the legacy host editor.
    *
    * @param {number|string} recordType Record type id or code name (`RT_QUERY_SOURCE`).
    * @returns {boolean}
@@ -1873,6 +1872,23 @@ export class ExplorerApplication {
   }
 
   /**
+   * Map drawing, query editor and query description (EditorServices, plan 21 Phase 6:
+   * shared with the editor mode).
+   *
+   * @returns {EditorServices}
+   */
+  get editorServices() {
+    this._editorServices ??= new EditorServices({
+      config: this.config,
+      apiClient: () => this.apiClient,
+      ensureDbDefs: () => this._ensureDbDefs(),
+      getDbDefs: () => this._dbDefs || null,
+      hostActions: () => this._hostActions()
+    });
+    return this._editorServices;
+  }
+
+  /**
    * A query in words for titles, e.g. 'Find Persons where Gender is not "Male"';
    * `''` when it cannot be described.
    *
@@ -1881,191 +1897,38 @@ export class ExplorerApplication {
    * @returns {string}
    */
   _describeQuery(q) {
-    try {
-      return queryDescribe(q, { dbdefs: this._dbDefs || null, vocabulary: queryVocabulary, lang: this.config.language }) || '';
-    } catch {
-      return '';
-    }
+    return this.editorServices.describeQuery(q);
   }
 
   /** Open HFilterBuilder as a value editor and resolve with its JSON query, or null on cancel. */
   async _editQueryWithBuilder(query, filterForm = null, selectExtent = (current) => this.selectFilterExtent(current)) {
-    let dbdefs;
-    try { dbdefs = await this._ensureDbDefs(); }
-    catch (error) {
-      HMsg.showMsgFlash?.($HR('Unable to load database structure') + ': ' + (error?.message || error));
-      return null;
-    }
-    const host = document.createElement('div');
-    const builder = new HFilterBuilder({
-      dbdefs, vocabulary: queryVocabulary, lang: this.config.language, selectExtent, apiClient: this.apiClient
-    });
-    builder.attach(host).render();
-    builder.setQuery({ query: query || [], filterForm });
-    // its own dialog: flash messages use the shared message dialog, and opening
-    // one there would replace the builder
-    const dialogId = 'h-filter-builder-dialog';
-    return new Promise((resolve) => {
-      let settled = false;
-      let dlg = null;
-      const finish = async (value) => {
-        if (settled) return;
-        settled = true;
-        dlg?.removeEventListener('close', onDialogClose);
-        HMsg.closeMsgDlg?.(dialogId);
-        await builder.destroy();
-        resolve(value);
-      };
-      // the browser may close the dialog on Escape despite preventClose (it only
-      // honours one cancel per user activation) - treat that as Cancel
-      const onDialogClose = () => void finish(null);
-      dlg = HMsg.showMsgDlg(host, {
-        dialogId, title: 'Filter builder', preventClose: true,
-        buttons: [
-          { label: 'Apply', class: 'h-btn h-btn-primary', onClick: () => {
-            try {
-              void finish(builder.getDefinition());
-            } catch (error) {
-              HMsg.showMsgFlash?.(error.message);
-            }
-          } },
-          { label: 'Cancel', class: 'h-btn', onClick: () => void finish(null) }
-        ]
-      });
-      dlg?.addEventListener('close', onDialogClose);
-    });
+    return this.editorServices.editQuery(query, filterForm, selectExtent);
   }
 
   /**
-   * Draw a filter extent with a dedicated Map instance hosted in a modal dialog.
-   * The instance is kept for the Explorer lifetime so reopening the extent editor
-   * does not reload the Map module or discard its draw-mode state.
+   * Draw a filter extent in the dedicated Map dialog (EditorServices).
    *
    * @param {object|null} current Existing bounds, used to seed the drawn rectangle.
    * @returns {Promise<object|null>} West/south/east/north bounds, or null on cancel.
    */
   async selectFilterExtent(current = null) {
-    const result = await this._drawOnMap({ mode: 'filter', geojson: extentToGeoJson(current) }, $HR('Define map extent'));
-    return result ? extentFromGeoJson(result.geojson) : null;
+    return this.editorServices.selectFilterExtent(current);
   }
 
   /**
-   * Draw a geometry (points, lines, polygons; WKT or GeoJSON can be pasted with "Add
-   * Geometry") in the same Map dialog as the filter extent: geo fields of the edit
-   * forms (plan 14a).
+   * Draw a geometry for a geo field of an edit form (EditorServices).
    *
    * @param {string|object|null} current Existing WKT or GeoJSON, drawn first.
    * @param {{allowMultiple?: boolean}} [options] Several objects in one value.
    * @returns {Promise<{type: string, wkt: string, geojson: object}|null>} The drawing, or null on cancel.
    */
-  async selectGeometry(current = null, { allowMultiple = false } = {}) {
-    const seed = typeof current === 'string' ? { wkt: current || null } : { geojson: current || null };
-    return this._drawOnMap({ mode: 'full', allowMultiple, ...seed }, $HR('Define geometry'));
-  }
-
-  /**
-   * Run one drawing session of the dedicated Map instance in a modal dialog.
-   *
-   * @private
-   * @param {object} drawOptions Map `beginDrawing` options (`mode`, `wkt`, `geojson`...).
-   * @param {string} title Dialog title.
-   * @returns {Promise<object|null>} The drawing result `{type, wkt, geojson}`, or null on cancel.
-   */
-  async _drawOnMap(drawOptions, title) {
-    const url = this.config.moduleUrls?.map;
-    if (!url) throw new Error('Map drawing is not available');
-
-    if (!this._filterExtentModule) {
-      const dlg = HMsg.getMsgDlg('dialog-filter-extent');
-      dlg.classList.add('h-dialog-fullscreen');
-      dlg.dataset.preventClose = 'false';
-      dlg.querySelector('.h-dialog-footer').hidden = true;
-      const body = dlg.querySelector('.h-dialog-body');
-      body.classList.add('h-dialog-body-flush');
-      body.replaceChildren();
-      const container = document.createElement('div');
-      container.style.cssText = 'flex:1 1 auto;min-height:0;';
-      body.append(container);
-
-      this._filterExtentDialog = dlg;
-      this._filterExtentModule = new IframeModuleAdapter({
-        id: 'filter-extent-map',
-        type: 'map',
-        container,
-        url,
-        runtime: {
-          database: this.config.database,
-          apiBaseUrl: this.config.apiBaseUrl,
-          baseUrl: this.config.baseUrl,
-          accessToken: this.config.accessToken,
-          requestHeaders: this.config.requestHeaders,
-          language: this.config.language,
-          viewerMode: 'draw'
-        },
-        settings: {
-          options: {
-            ui: {
-              initiallyExpanded: false,
-              showCurrentDocument: false,
-              showMapDocuments: true,
-              showOptions: false,
-              showPublish: false,
-              showSourceHeader: false
-            }
-          }
-        },
-        hostActions: this._hostActions()
-      });
-      dlg.showModal();
-      try {
-        await this._filterExtentModule.mount();
-      } catch (error) {
-        await this._filterExtentModule.destroy();
-        this._filterExtentModule = null;
-        dlg.close();
-        throw error;
-      }
-    } else {
-      this._filterExtentDialog.showModal();
-    }
-
-    const dlg = this._filterExtentDialog;
-    const module = this._filterExtentModule;
-    dlg.querySelector('.h-dialog-title').textContent = title;
-    try {
-      await module.api.beginDrawing(drawOptions);
-    } catch (error) {
-      dlg.close();
-      throw error;
-    }
-
-    return new Promise((resolve) => {
-      let settled = false;
-      const finish = (value, cancelDrawing = false) => {
-        if (settled) return;
-        settled = true;
-        cleanup();
-        if (cancelDrawing) void module.api.cancelDrawing?.();
-        dlg.close();
-        resolve(value);
-      };
-      const onFinished = (event) => finish(event.detail?.result || null);
-      const onCancelled = () => finish(null);
-      const onDialogClose = () => finish(null, true);
-      const cleanup = () => {
-        module.api.removeEventListener('heurist-map-drawing-finished', onFinished);
-        module.api.removeEventListener('heurist-map-drawing-cancelled', onCancelled);
-        dlg.removeEventListener('close', onDialogClose);
-      };
-      module.api.addEventListener('heurist-map-drawing-finished', onFinished);
-      module.api.addEventListener('heurist-map-drawing-cancelled', onCancelled);
-      dlg.addEventListener('close', onDialogClose);
-    });
+  async selectGeometry(current = null, options = {}) {
+    return this.editorServices.selectGeometry(current, options);
   }
 
   /**
    * Whether a Map module is currently mounted in the active layout (not the
-   * hidden dedicated instance `selectFilterExtent` uses for drawing).
+   * hidden dedicated instance of EditorServices used for drawing).
    *
    * @returns {boolean} Whether at least one mounted layout module is a ready Map instance.
    */
@@ -2153,10 +2016,8 @@ export class ExplorerApplication {
    * @returns {Promise<void>}
    */
   async destroy() {
-    await this._filterExtentModule?.destroy?.();
-    this._filterExtentDialog?.remove?.();
-    this._filterExtentModule = null;
-    this._filterExtentDialog = null;
+    await this._editorServices?.destroy();
+    this._editorServices = null;
     this.compactMode?.destroy();
     this.paneToolbar?.destroy();
     this.compactMode = null;

@@ -55,11 +55,33 @@ Modules ask their host to edit records through the bridge:
 `HostAdapter.supportsEditing(recordType)` uses `canEditRecordType` when the bridge has it, and
 `canEditRecords` otherwise.
 
-Explorer edits the system record types in its own record editor for a logged-in user, also
-without the legacy host (plan 14). These are query sources, map documents, layers and sources,
-reports and schedules, and website home and pages. Other records go to the legacy host editor.
-Older bridges without `canEditRecordType` keep the old behaviour, so the legacy wrappers need no
-change.
+Explorer edits records of every type in its own record editor for a logged-in user, also
+without the legacy host (plan 14; all types since plan 21 Phase 5, 2026-10-19 - until then only the
+system types: query sources, map documents, layers and sources, reports and schedules, website home
+and pages). Without a login the legacy host editor is used. Explorer's `canEditRecords()` is true
+for a logged-in user. Older bridges without `canEditRecordType` keep the old behaviour, so the
+legacy wrappers need no change.
+
+## Record editor mode
+
+Explorer can run as the record editor alone (plan 21 §2.4): same bundle and page
+(`hclient/modules/explorer/explorerViewer.html`), without the workspace (no Query Source
+editor, saved filters, layout or modules).
+
+- **Start**: bootstrap `runtime.runtimeMode: 'editor'` with `state: {recordId}` (edit) or
+  `{rectypeId, access}` (new record). A page opened by a link without a bootstrap or bridge
+  may use the URL: `explorerViewer.html?db=NAME&mode=editor&recID=151` (or `&rty=12`).
+- **Public API** (`window.heuristExplorer`): `ready()`, `open({recordId | rectypeId})`,
+  `isDirty()`, `getRecord()`, `close({confirm})`; `mode` is `'editor'`.
+- **Messages to the opener**: bridge callbacks `onRecordSaved({record, created})` and
+  `onEditorClosed({saved, recordId, record})`, and `postMessage` to the parent frame or the
+  opener window: `{source: 'heurist-record-editor', type: 'saved'|'closed', recordId,
+  rectypeId, created, saved}` (target origin: the page's own). A window opened with
+  `window.open` closes itself after the editor closes.
+- **Legacy pages**: `hclient/modules/explorer/recordEditorDialog.js` -
+  `HeuristRecordEditor.open({recordId | rectypeId}) → Promise<{saved, recordId, record}>` (a
+  jQuery dialog with the iframe and the bridge). Legacy callers of the old editor are not
+  switched to it yet.
 
 ## Distribution workflow
 

@@ -17,5 +17,14 @@ export async function load(url, context, nextLoad) {
       shortCircuit: true,
     };
   }
+  // Vite JSON imports without `with { type: 'json' }`: the parsed file as the default export
+  if (url.startsWith("file:") && url.endsWith(".json") && !context.importAttributes?.type) {
+    const text = await readFile(new URL(url), "utf8");
+    return {
+      format: "module",
+      source: `export default ${JSON.stringify(JSON.parse(text))};`,
+      shortCircuit: true,
+    };
+  }
   return nextLoad(url, context);
 }
