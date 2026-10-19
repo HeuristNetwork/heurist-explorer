@@ -59,6 +59,7 @@ export class HeuristApiClient {
    * @param {object} [options.headers] Extra headers merged into every request.
    * @param {Function} [options.fetchImpl] Fetch implementation to use instead of the global `fetch`.
    * @param {import('./RequestMonitor.js').RequestMonitor|null} [options.requestMonitor] Observer of data requests (trace, stop).
+   * @param {Function|null} [options.xhrImpl] Factory of XMLHttpRequest objects for `upload()` (tests).
    */
   constructor({
     apiBaseUrl,
@@ -66,7 +67,8 @@ export class HeuristApiClient {
     accessToken = null,
     headers = {},
     fetchImpl = defaultFetch,
-    requestMonitor = null
+    requestMonitor = null,
+    xhrImpl = null
   } = {}) {
     if (typeof fetchImpl !== 'function') {
       throw new TypeError('A fetch implementation is required');
@@ -78,6 +80,7 @@ export class HeuristApiClient {
     this.headers = { ...headers };
     this.fetchImpl = fetchImpl;
     this.requestMonitor = requestMonitor;
+    this.xhrImpl = xhrImpl;
     this._running = new Map();
     requestMonitor?.attachClient(this);
   }
@@ -283,6 +286,77 @@ export class HeuristApiClient {
   }
 
   /**
+   * Send a binary body (a chunk of a file upload) with upload progress. Uses
+   * XMLHttpRequest: fetch has no upload progress. Errors as `request()`.
+   *
+   * @param {string} path API path relative to the database root.
+   * @param {Blob|ArrayBuffer|Uint8Array} body Request body.
+   * @param {object} [options] Request options.
+   * @param {string} [options.method='PUT'] HTTP method.
+   * @param {object} [options.headers] Extra headers (Content-Range ...).
+   * @param {(loaded: number, total: number) => void} [options.onProgress] Bytes of this body sent so far.
+   * @param {AbortSignal} [options.signal] Abort signal; an abort rejects with an `AbortError`.
+   * @returns {Promise<*>} Parsed JSON response body.
+   * @throws {HeuristApiError} When the network request fails or the API returns an error.
+   */
+  upload(path, body, { method = 'PUT', headers = {}, onProgress, signal } = {}) {
+    this.assertConfigured();
+    const url = this.buildUrl(path);
+    const createXhr = this.xhrImpl || (() => new XMLHttpRequest());
+    return new Promise((resolve, reject) => {
+      if (signal?.aborted) {
+        reject(abortError());
+        return;
+      }
+      const xhr = createXhr();
+      const onAbort = () => xhr.abort();
+      xhr.open(method, url, true);
+      const requestHeaders = {
+        Accept: 'application/json',
+        'Content-Type': 'application/octet-stream',
+        ...this.headers,
+        ...headers
+      };
+      if (this.accessToken) requestHeaders.Authorization = `Bearer ${this.accessToken}`;
+      for (const [name, value] of Object.entries(requestHeaders)) xhr.setRequestHeader(name, String(value));
+      if (onProgress && xhr.upload) {
+        xhr.upload.onprogress = (event) => onProgress(event.loaded, event.lengthComputable ? event.total : 0);
+      }
+      xhr.onload = () => {
+        signal?.removeEventListener?.('abort', onAbort);
+        let payload = null;
+        try {
+          payload = xhr.responseText ? JSON.parse(xhr.responseText) : null;
+        } catch {
+          payload = { message: String(xhr.responseText || '').slice(0, 1000) };
+        }
+        if (xhr.status >= 200 && xhr.status < 300) {
+          resolve(payload);
+          return;
+        }
+        reject(new HeuristApiError(`Heurist API request failed: ${extractErrorMessage(payload) || xhr.status}`, {
+          status: xhr.status,
+          statusText: xhr.statusText,
+          url,
+          method,
+          code: payload?.error?.code ?? payload?.code ?? payload?.error ?? null,
+          details: payload
+        }));
+      };
+      xhr.onerror = () => {
+        signal?.removeEventListener?.('abort', onAbort);
+        reject(new HeuristApiError(`Cannot connect to the Heurist API at ${url}`, { url, method }));
+      };
+      xhr.onabort = () => {
+        signal?.removeEventListener?.('abort', onAbort);
+        reject(abortError());
+      };
+      signal?.addEventListener?.('abort', onAbort, { once: true });
+      xhr.send(body);
+    });
+  }
+
+  /**
    * Build an absolute API URL for the configured database.
    *
    * @param {string} path API path relative to the database root.
@@ -405,6 +479,14 @@ async function readResponsePayload(response) {
       }
     );
   }
+}
+
+/** @returns {Error} The error of an aborted request (name AbortError, as fetch). */
+function abortError() {
+  if (typeof DOMException === 'function') return new DOMException('The request was aborted', 'AbortError');
+  const error = new Error('The request was aborted');
+  error.name = 'AbortError';
+  return error;
 }
 
 /** Build a HeuristApiError describing a non-OK response. */

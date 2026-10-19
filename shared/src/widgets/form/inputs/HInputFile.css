@@ -1,8 +1,45 @@
+/* thumbnail, file picker, open link, progress, then Upload / URL / Edit / Cancel (as the resource input buttons) */
 .h-input-file {
   display: flex;
   align-items: center;
   gap: var(--h-gap);
   min-width: 0;
+  border-radius: var(--h-radius);
+}
+
+/* a file dragged over the input */
+.h-input-file.h-input-file-drop {
+  outline: 2px dashed var(--h-color-primary);
+  outline-offset: 2px;
+}
+
+.h-input-file-thumb {
+  flex: 0 0 auto;
+  width: 32px;
+  height: 32px;
+  object-fit: cover;
+  border: 1px solid var(--h-color-border);
+  border-radius: var(--h-radius);
+  background: var(--h-color-surface);
+}
+
+.h-input-file-thumb[hidden] {
+  display: none;
+}
+
+.h-input-file-picker {
+  display: flex;
+  flex: 0 1 22em;
+  min-width: 10em;
+}
+
+/* a width set by the form: the picker fills it */
+.h-form-input.has-display-width .h-input-file-picker {
+  flex: 1 1 auto;
+}
+
+.h-input-file-picker > .h-value-combo-host {
+  flex: 1 1 auto;
 }
 
 .h-input-file-name {
@@ -12,13 +49,43 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  color: var(--h-color-text-muted);
 }
 
-.h-input-file-name:empty {
+.h-input-file-name[hidden],
+.h-input-file-progress[hidden] {
   display: none;
 }
 
-.h-input-file-id {
+.h-input-file-progress {
   flex: 0 0 8em;
   width: 8em;
+}
+
+/* a small gap before the value tools (clear, visibility) */
+.h-input-file-actions {
+  display: inline-flex;
+  flex: 0 0 auto;
+  gap: 2px;
+  margin-right: 6px;
+}
+
+.h-input-file-action {
+  width: 18px;
+  height: 18px;
+  border: 0;
+  padding: 2px;
+  background: transparent;
+  color: var(--h-color-text-muted);
+  font-size: 12px;
+  line-height: 12px;
+  cursor: pointer;
+}
+
+.h-input-file-action:hover {
+  color: var(--h-color-primary);
+}
+
+.h-input-file-action[hidden] {
+  display: none;
 }
