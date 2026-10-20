@@ -1,7 +1,7 @@
 # System data transition, files and API domains — development plan
 
 Status: **strategy agreed 2026-10-18; Phases 1–2 designed and agreed 2026-10-18 (§8). Phases 1–2
-implemented 2026-10-18 (§8.2.1, §8.3.1), not committed, not yet checked in a browser.** Each phase (§7) gets its own planning
+implemented 2026-10-18 (§8.2.1, §8.3.1), not committed, not yet checked in a browser. Phase 3 designed, agreed and implemented 2026-10-19 (§9, §9.5), not committed.** Each phase (§7) gets its own planning
 session before any code; its detailed design is then added to this file.
 
 ## 1. Context
@@ -231,8 +231,8 @@ Tag ↔ record links (`usrRecTagLinks`) are not fields of a tag. Options to deci
 - It takes the same parameters as today: `q`, `field`, `via`, `groupby`, `ranges`, `match`,
   `text`, `sort`.
 - Search returns records and `total`. `detail=ids` stays a search option.
-- `detail=count|rectypes|values|minmax|ranges` stays as a deprecated alias until the client
-  callers have moved.
+- `detail=count|rectypes|values|minmax|ranges` was to stay as a deprecated alias; on 2026-10-19 it
+  was decided to remove it in Phase 3 (§9.4).
 
 **Special endpoints** stay retrieve-only: `iiif`, `annotations`, `map`, `time`, `graph`.
 
@@ -261,7 +261,7 @@ Each phase is planned in its own session before coding.
 |---|---|---|
 | 1 | File record type and fields (§3.2 settled); mapping registry; `/files` read (search + get) on both backends; switch flag and migration design | done 2026-10-18 (§8.2.1), not committed |
 | 2 | File upload/register/replace/delete on both backends (`LegacyFileStore`, `RecordFileStore` + srv `FileStorage`); migration script; `HInputFile` upload, URL, pick, preview | done 2026-10-18 (§8.3.1) except the migration script; not committed |
-| 3 | `/{domain}/aggregate`; move client callers off `detail=` | not started |
+| 3 | `/{domain}/aggregate`; move client callers off `detail=` | done 2026-10-19 (§9.5), not committed |
 | 4 | `/system` domain; tags read/write there, tag ↔ record links; plan 18 Tags panel | not started |
 | 5 | Bookmarks and reminders on `/system`; plan 18 Private panel | not started |
 | end | `sysRecords` tables; switching databases over (after the legacy UI is gone); port of the rest of `DbRecUploadedFiles` (batch actions) to srv | after approval |
@@ -642,3 +642,144 @@ looked up by the obfuscated key.
 7. **The `file` value inside user records** keeps its current format.
 8. **Listing files:** logged-in users see their own and public files; admins see all; anonymous
    users see none.
+
+## 9. Phase 3 — `/{domain}/aggregate` (agreed 2026-10-19)
+
+Goal (§5): search returns records and `total`; counting, values and bounds go to their own route.
+The client moves to it, and `detail=count|rectypes|values|minmax|ranges` is removed (§9.4 Q2).
+
+### 9.1 What exists now (facts from the code)
+
+- **Server.** `RecordQueryController::buildRequest()`/`execute()` branch on `detail`:
+  - `count`, `rectypes` → `RecordSearchService::search()` summary: `{query, total[, rectypes]}`;
+  - `values` → `countValues()`: `{query, total, values}` (`field`, `text`, `sort` = value order,
+    `via`, `limit` ≤ `FieldValueCounter::MAX_LIMIT`);
+  - `ranges` → `valueBuckets()` (`field`, `groupby`, `ranges`, `match`);
+  - `minmax` → `valueRange()`: `{query, min, max, count}` (`field`);
+  - `ids` and `records` are search outputs and stay there.
+- **`/files`:** `LegacyFileStore` gives `count` and `rectypes`; `values`/`ranges`/`minmax` → 400.
+  `RecordFileStore` goes through `RecordQueryController`, so it would accept them.
+- **`api.php`:** `/records` search reads the JSON contract keys (`detail`, `debug`, …); trace
+  (`debug=1|2`) and Stop (`rid`, `POST /records/cancel`) work for every srv search, so also for
+  facets.
+- **Client callers** (9 files; no legacy `hclient` callers):
+
+  | Caller | Op | Method |
+  |---|---|---|
+  | `apps/explorer/src/core/ExplorerApplication.js` `_withResultCount` | count | GET |
+  | `apps/explorer/src/core/RecordTypeManager.js` `load` | rectypes | GET |
+  | `apps/explorer/src/tools/export/ExportTool.js` | rectypes | POST |
+  | `apps/reports/src/data/ReportApi.js` | count | POST |
+  | `apps/graph/src/data/GraphProvider.js` (Smart expansion) | rectypes | POST |
+  | `apps/graph/src/data/RecordDataProvider.js` `#summary` | count, rectypes | POST |
+  | `apps/data/src/data/RecordDataProvider.js` `#summary` | count, rectypes | POST |
+  | `shared/src/data/valueSources/FieldValueSource.js` (facets, pickers) | values, ranges, minmax | GET |
+  | `shared/src/symbology/thematicFields.js` (thematic maps, ranges) | values ×2, minmax | GET |
+
+- **Server tests** that use `detail=`: `FieldValueCounterTest`, `FieldValueBucketsTest`,
+  `FieldValueRangeTest`, `FileApiTest`.
+
+### 9.2 Proposal
+
+**Route**
+- `GET|POST /{db}/records/aggregate` and `GET|POST /{db}/files/aggregate`. `/system/aggregate`
+  comes with the `/system` domain (Phase 4).
+- `op` = `count | rectypes | values | minmax | ranges`; missing or other → 400.
+- The other parameters are the same as today: `q`/`query`/`ids`, `filter`, `field`, `via`,
+  `text`, `sort`, `limit`, `offset`, `groupby`, `ranges`, `match`, plus `debug` and `rid`, so the
+  trace panel and Stop work as for search.
+- `aggregate` is not a number, so it does not clash with `/records/{id}` or `/files/{id}`; the
+  file content route needs a key *and* `content|thumbnail`.
+
+**Response** — the same shapes as the `detail=` responses today (Q1), so client parsers do not
+change:
+- `count` → `{query, total}`; `rectypes` → `{query, total, rectypes}`;
+- `values` → `{query, total, values}`; `ranges` → as `detail=ranges`; `minmax` → `{query, min, max, count}`.
+
+**Server**
+- `RecordQueryController::aggregate(array $params)`: checks `op`, then runs the code that the
+  `detail` branches run today (moved into private methods). `execute()` with
+  `detail=count|rectypes|values|minmax|ranges` → 400 naming `/aggregate?op=` (no alias, Q2).
+  Search keeps `detail=records|ids`.
+- `SearchRequest` keeps its internal `detail` property; nothing is renamed below the controller.
+- **Files:** `FileStoreInterface::aggregate(array $params)`; `FileController` routes
+  `/files/aggregate`. Both stores give `count` and `rectypes`; `values`/`minmax`/`ranges` → 400 on
+  **both** stores, so both answer the same (Q3).
+- `api.php`: `aggregate` routes next to the search routes, with the same JSON contract keys plus
+  `op`.
+
+**No alias** (Q2): `detail=count|rectypes|values|minmax|ranges` on `/records` and `/files` is
+removed in this phase, after the client callers have moved. §5 said it would stay for a while;
+Artem decided otherwise (2026-10-19).
+
+**Client**
+- One shared helper `shared/src/data/aggregate.js`:
+  `aggregate(apiClient, op, params, {domain = 'records', method = 'GET', signal})` →
+  `/{domain}/aggregate`. It adds `op` and returns the response as it is.
+- All callers of §9.1 move to it; Data/Graph `RecordDataProvider.count()/rectypes()` keep their
+  public methods. `detail: 'ids'` (Reports) stays a search option.
+- **Guard:** a test in `test/architecture` fails when client code (outside tests) sends
+  `detail` with `count|rectypes|values|minmax|ranges`.
+
+**OpenAPI:** `/records/aggregate`, `/files/aggregate`; `detail` lists only `records` and `ids`. Also
+the missing routes of §5 (`/def/snapshot`, `/records/cancel`, `/records/{querysource|document|layer}/{id}`) (Q4).
+
+**Tests**
+- `tests/AggregateApiTest.php`: each op on `/records/aggregate` gives the same answer as the
+  service call; 400 for a missing or unknown `op` and for the removed `detail=` values; `/files/aggregate` count/rectypes the same on
+  both stores (with `--write`, as `FileApiTest`).
+- The `FieldValue*Test` and `FileApiTest` controller calls move from `detail=` to `aggregate()`.
+- Client: helper test; caller tests (`valueSources.test.js`, Data/Graph `providers.test.js`,
+  `recordTypeManager.test.js`) check the new path.
+
+### 9.3 Not in Phase 3
+- New operations (sum/avg, group by several fields).
+- Aggregation on `/system` (Phase 4).
+
+### 9.4 Decisions (Artem, 2026-10-19)
+1. **Response shape:** today's shapes, per op.
+2. **`detail=` alias:** removed once the client has moved (not kept as deprecated).
+3. **`/files/aggregate`:** only `count` and `rectypes`, on both stores.
+4. **OpenAPI:** the routes missing since §5 are added in this phase too.
+
+### 9.5 Phase 3 as implemented (2026-10-19)
+
+**heurist (srv):**
+- **`SearchRequest::AGGREGATE_OPS`** (count, rectypes, values, minmax, ranges). Below the controller
+  they are still `detail` values of `SearchRequest`.
+- **`RecordQueryController`:** `aggregate()` / `outputAggregate()`; `execute()` refuses those
+  `detail` values with 400 `use /{domain}/aggregate?op=…`. `op` is case-insensitive.
+- **Files:** `FileStoreInterface::aggregate()` on both stores; `FileController` routes
+  `/files/aggregate` and checks `op` (missing/unknown → 400; values/minmax/ranges → 422, the code
+  the controller uses for unsupported queries); `LegacyFileStore::search()` and the record store
+  refuse the old `detail` values as `/records` does.
+- **`api.php`:** `GET|POST /records/aggregate` (anonymous allowed, as search) with the JSON keys of
+  §9.2; `/files/aggregate` reads the same JSON contract as the files search (`op` added).
+- **OpenAPI:** `/records/aggregate`, `/files/aggregate`, `/records/cancel`,
+  `/records/{querysource|document|layer}/{id}`, `/def/snapshot`; schemas `RecordAggregateRequest`,
+  `RecordAggregateResponse`; `detail` lists only `records` and `ids`; the value parameters moved
+  from `/records` to `/records/aggregate`.
+- **READMEs:** `srv/Controller/_README.md`, `srv/Files/_README.md`.
+- **Tests:** new `tests/AggregateApiTest.php` (23 checks: each op = the service answer, filter, refused
+  ops and `detail` values, `detail=ids` kept). `FieldValueCounterTest` (45), `FieldValueBucketsTest`
+  (254), `FieldValueRangeTest` (18) call `aggregate()`; `FileApiTest` 45 checks, 51 with `--write`
+  (op=rectypes the same from both stores). `FileWriteTest`, `RecordEditApiTest`, `GraphControllerTest`,
+  `DataAccessBoundaryTest` pass.
+
+**explorer:**
+- **`shared/src/data/aggregate.js`:** `aggregate(api, op, params, {domain, method, signal})`.
+- **Callers moved** (§9.1, same GET/POST as before): Explorer `_withResultCount` (no longer sends
+  `sort`), `RecordTypeManager`, Export tool, Reports `queryCount`, Graph `countRecordTypes`, Data and
+  Graph `RecordDataProvider`, `FieldValueSource` (values, ranges, `fetchFieldRange`),
+  `thematicFields`. Comments say `aggregate op=…`.
+- **Guard:** `test/architecture/moduleBoundaries.test.js` fails on `detail: 'count'` etc. in `shared/src`
+  and `apps/*/src`.
+- **Tests:** `shared/test/data/aggregate.test.js`; caller tests updated. All 1279 client tests pass;
+  all apps built and deployed (the deployed bundles must be current, as the server no longer accepts
+  the old `detail` values).
+
+**Differences from the design:**
+- `/files/aggregate` answers 422 (not 400) for values/minmax/ranges: "supported elsewhere, not here",
+  as the controller does for other unsupported queries.
+- **Not checked yet:** facets, sliders, thematic maps and the Export/Graph counts in a browser.
+

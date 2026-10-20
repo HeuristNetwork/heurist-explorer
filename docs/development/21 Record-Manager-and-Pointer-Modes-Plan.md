@@ -809,3 +809,33 @@ HRecordEditor and HRecordAccess; the stored edit groups are kept on save).
   time), `recordManager.test.js` (list tools). 1285 tests pass; Explorer, Data, RecordView, Map,
   Graph build.
 
+
+### Review of 2026-10-20
+
+1. **HInputFile Edit over the browse button**: Upload / URL / Edit / Cancel are now in the same
+   flex row as the thumbnail and the picker / button (`.h-input-file`), not after the control box,
+   so they can never lie over it. The picker / browse button (and `.h-input-resource-picker`) have
+   `width: 22em` instead of `flex-basis: 22em`: with a flex basis the control box took its width
+   from the (short) file name and the 10em minimum ran over the next element.
+2. **Download in the record view**: `buildFileMediaItem` has `download = true` by default; the
+   record view and HInputFile use the same code (fileMediaItem.js).
+3. **Record manager remembers view mode and sort**: localStorage
+   `heurist.recordManager.list.<database>./records|/files` (`{viewMode, sort}`), read at render,
+   written on change.
+4. HRecordList row actions: Edit, View, then the collect +/- button.
+5. **Add record of the picker**: still works in a test (several target types: the type menu
+   opens, `addRecord` gets the chosen type, the new record is the value). Cause in Artem's case
+   still unknown - need the field, its target types and the browser console.
+6. Admin section: `.h-record-editor-access-form` has `padding: 6px; border: 2px solid
+   var(--h-color-primary)`.
+
+Second round (Artem, 2026-10-20):
+1. HInputFile: the buttons went outside the form and clear / visibility lay over the browse button,
+   so the buttons are after the control box again (as HInputResource), and with a display width the
+   picker / browse button is narrower by the thumbnail: `calc(var(--h-field-width) + 2em - 32px -
+   var(--h-gap))`, so the thumbnail and the button together are as wide as a pointer field's picker.
+2. fileMediaItem.css: the links in a row (wrapped), not a column.
+3. **Add with several target types**: the type popover had no height - `.h-menu` is
+   `position: absolute`, so inside `.h-popover` it took no space. `.h-input-resource-type-popover > .h-menu`
+   is now `position: static` (no own border / shadow).
+

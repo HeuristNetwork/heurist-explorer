@@ -6,9 +6,12 @@
   min-width: 0;
 }
 
+/* a fixed width, not a flex basis: the control box takes its width from it, so Edit / View
+   come after the button even with a short title (review 2026-10-20) */
 .h-input-resource-picker {
   display: flex;
-  flex: 0 1 22em;
+  flex: 0 1 auto;
+  width: 22em;
   min-width: 10em;
 }
 
@@ -104,4 +107,13 @@
   width: auto;
   min-width: 160px;
   overflow-y: auto;
+}
+
+/* .h-menu is a positioned dropdown; inside the popover it is the content (else the popover has no height) */
+.h-input-resource-type-popover > .h-menu {
+  position: static;
+  min-width: 0;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
 }

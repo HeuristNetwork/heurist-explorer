@@ -43,6 +43,9 @@ import './HRecordManager.css';
 /** Modes of the manager. */
 export const RECORD_MANAGER_MODES = Object.freeze(['select', 'select_multi', 'manager']);
 
+/** localStorage key prefix of the list settings (view mode, sort), per database and domain. */
+const SETTINGS_KEY = 'heurist.recordManager.list';
+
 /** Record types of an unconstrained list (moved to recordDomains.js, Phase 4). */
 export { userDataRecordTypeIds };
 
@@ -135,15 +138,24 @@ export class HRecordManager extends HBaseWidget {
       this._showError($HR('These record types can not be listed together'));
       return this;
     }
-    this.loader = new RecordListLoader({ apiClient: this.options.apiClient, path, query: this._query(types) });
+    // the last view mode and sort of this domain (review 2026-10-20)
+    this._settingsKey = `${SETTINGS_KEY}.${this.options.database || ''}.${path}`;
+    const saved = readSettings(this._settingsKey);
+    this.loader = new RecordListLoader({ apiClient: this.options.apiClient, path, query: this._query(types), sort: saved.sort });
     this._renderFilter(listHost);
     this.list = new HRecordList();
+    const listOptions = this._listOptions();
+    if (saved.viewMode) listOptions.viewMode = saved.viewMode;
     await this.list.initialize({
       container: listHost,
-      options: { ...this._listOptions(), sortExclude: path === '/records' ? [] : ['type'] },
+      options: { ...listOptions, sortExclude: path === '/records' ? [] : ['type'] },
       // Sort of the list (listTools): the loader asks the server with it
       getListSort: () => this.loader?.sort || null,
-      onListSortChange: (value) => this.loader?.setSort(value),
+      onListSortChange: (value) => {
+        this.loader?.setSort(value);
+        this._saveSettings();
+      },
+      onViewModeChange: () => this._saveSettings(),
       onDataRequest: (request) => this.loader.load(request),
       onSelectionChange: (ids) => this._selectionChanged(ids),
       onEditRecord: (id) => void this._edit(id),
@@ -366,6 +378,12 @@ export class HRecordManager extends HBaseWidget {
     this._dispatch('h-record-manager-finish', { ids: this.mode === 'select' ? list.slice(-1) : list });
   }
 
+  /** Remember the view mode and sort of the list. */
+  _saveSettings() {
+    if (!this._settingsKey) return;
+    writeSettings(this._settingsKey, { viewMode: this.list?.options?.viewMode || null, sort: this.loader?.sort || null });
+  }
+
   /** Show an error instead of the list. */
   _showError(message) {
     const box = document.createElement('div');
@@ -378,4 +396,19 @@ export class HRecordManager extends HBaseWidget {
   _dispatch(type, detail) {
     this.container?.dispatchEvent(new CustomEvent(type, { bubbles: true, detail }));
   }
+}
+
+/** @returns {{viewMode?: string, sort?: string}} Remembered list settings (none when storage is unavailable). */
+function readSettings(key) {
+  try {
+    const value = JSON.parse(globalThis.localStorage?.getItem(key) || '{}');
+    return value && typeof value === 'object' ? value : {};
+  } catch {
+    return {};
+  }
+}
+
+/** Remember list settings. */
+function writeSettings(key, value) {
+  try { globalThis.localStorage?.setItem(key, JSON.stringify(value)); } catch { /* storage may be unavailable */ }
 }

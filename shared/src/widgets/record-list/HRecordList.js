@@ -538,12 +538,12 @@ export class HRecordList extends HBaseWidget {
       this.options.interaction.popupEnabled === false || dataPopupMode(this.options.popupTemplate) === "none"
         ? ""
         : `<button class="h-recordlist-icon-button" data-record-action="view" data-record-id="${id}" title="${escapeAttr($HR("View"))}"><i class="fa-solid fa-circle-info"></i></button>`;
-    // collectionMode "mouseover": +/- shown with the other actions (_applyCollection sets it)
+    // collectionMode "mouseover": +/- shown with the other actions, after View (_applyCollection sets it)
     const collect =
       this.options.interaction.persistentSelectionEnabled && this.options.collectionMode !== "permanent"
         ? `<button class="h-recordlist-icon-button h-recordlist-collect" data-record-action="collect" data-record-id="${id}"><i class="fa-solid fa-plus"></i></button>`
         : "";
-    return `<span class="h-recordlist-actions">${collect}${edit}${view}</span>`;
+    return `<span class="h-recordlist-actions">${edit}${view}${collect}</span>`;
   }
 
   /** Create the IntersectionObserver that lazily loads template content for scrolled-into-view items. */

@@ -36,13 +36,15 @@ test("media items come from the shared file media builder (fileMediaItem.js)", (
   assert.match(rendererSource, /return buildFileMediaItem\(file, \{ urls: fileMediaUrls\(this\.baseUrl, this\.database\) \}\);/);
 });
 
-test("file media: OSD for images; Mirador for images/audio/video; legacy ?db=&file= / &thumb= URLs", () => {
+test("file media: OSD for images; Mirador for images/audio/video; Download; legacy ?db=&file= / &thumb= URLs", () => {
   const image = buildFileMediaItem({ ulf_ObfuscatedFileID: "k1", fxm_MimeType: "image/png" }, { urls });
-  assert.deepEqual(linkTexts(image), ["Show in OSD", "Show in Mirador"]);
+  assert.deepEqual(linkTexts(image), ["Show in OSD", "Show in Mirador", "Download"]);
   assert.equal(image.querySelector("a").href, "http://h/heurist/hclient/widgets/viewers/openSeadragonViewer.php?db=db1&recID=k1");
   assert.equal(image.querySelector("img").src, "http://h/heurist/?db=db1&thumb=k1");
   const doc = buildFileMediaItem({ ulf_ObfuscatedFileID: "k2", fxm_MimeType: "application/pdf" }, { urls });
-  assert.deepEqual(linkTexts(doc), []);
+  assert.deepEqual(linkTexts(doc), ["Download"]);
+  const plain = buildFileMediaItem({ ulf_ObfuscatedFileID: "k2", fxm_MimeType: "application/pdf" }, { urls, download: false });
+  assert.deepEqual(linkTexts(plain), []);
 });
 
 test("file media: uploaded audio/video render as native players, not static thumbnails", () => {

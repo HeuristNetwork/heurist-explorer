@@ -66,11 +66,11 @@ export function isImageFile(file) {
  *        `ulf_Caption`, `ulf_ExternalFileReference`).
  * @param {object} options
  * @param {object} options.urls `fileMediaUrls(baseUrl, database)`.
- * @param {boolean} [options.download=false] Add the Download link.
+ * @param {boolean} [options.download=true] Add the Download link (record view and file input, review 2026-10-20).
  * @param {Function} [options.onClose] Add a Close link that calls it.
  * @returns {HTMLElement} `div.heurist-recordview-media-item`.
  */
-export function buildFileMediaItem(file, { urls, download = false, onClose = null } = {}) {
+export function buildFileMediaItem(file, { urls, download = true, onClose = null } = {}) {
   const fileId = file.ulf_ObfuscatedFileID;
   const mimeType = String(file.fxm_MimeType || '');
   const isImage = isImageFile(file);

@@ -30,10 +30,12 @@
 .heurist-recordview-media-thumb-zoomable { cursor: zoom-in; }
 .heurist-recordview-media-item-expanded .heurist-recordview-media-thumb-zoomable { cursor: zoom-out; }
 .heurist-recordview-media-player { max-width: 100%; }
+/* the links in a row, wrapped when the item is narrow (review 2026-10-20) */
 .heurist-recordview-media-links {
   display: flex;
-  flex-direction: column;
-  gap: 2px;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 2px 10px;
   width: 100%;
 }
 .heurist-recordview-media-link {

@@ -115,7 +115,7 @@ export class HInputFile extends HInput {
     this.progress.hidden = true;
     group.append(this.progress);
     host.append(group);
-    // after the control box (rst_DisplayWidth is the width of the picker / button), as HInputResource
+    // after the control box (rst_DisplayWidth is the width of the thumbnail and the picker / button), as HInputResource
     this._renderActions((actions) => host.after(actions));
     // the file below the input (thumbnail click), hidden at start
     this.preview = document.createElement('div');
@@ -435,7 +435,6 @@ export class HInputFile extends HInput {
     if (!this.preview || !file?.ulf_ObfuscatedFileID || !viewer?.baseUrl) return false;
     this.preview.replaceChildren(buildFileMediaItem(file, {
       urls: fileMediaUrls(viewer.baseUrl, viewer.database),
-      download: true,
       onClose: () => this.hidePreview()
     }));
     this.preview.hidden = false;

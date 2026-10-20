@@ -96,10 +96,12 @@
   display: none;
 }
 
+/* the open access form stands out in the Admin section (review 2026-10-20) */
 .h-record-editor-access-form {
   margin-top: 6px;
-  padding-top: 6px;
-  border-top: 1px solid var(--h-color-border);
+  padding: 6px;
+  border: 2px solid var(--h-color-primary);
+  border-radius: var(--h-radius);
 }
 
 .h-record-editor-access-buttons {

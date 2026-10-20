@@ -55,17 +55,22 @@
   gap: 4px 12px;
 }
 
+/* a fixed width, not a flex basis: the control box takes its width from it, so the buttons
+   come after it even with a short file name (review 2026-10-20) */
 .h-input-file-picker {
   display: flex;
-  flex: 0 1 22em;
+  flex: 0 1 auto;
+  width: 22em;
   min-width: 10em;
 }
 
-/* a width set by the form (rst_DisplayWidth): the width of the picker itself, not of the
-   thumbnail and buttons beside it (plan 21 review 2026-10-19) */
-.h-form-input.has-display-width .h-input-file-picker {
-  flex: 0 0 auto;
-  width: calc(var(--h-field-width) + 2em);
+/* a width set by the form (rst_DisplayWidth): the thumbnail and the picker together are as wide as a
+   pointer field's picker; Upload / URL / Edit come after them (review 2026-10-20) */
+.h-form-input.has-display-width .h-input-file-picker,
+.h-form-input.has-display-width .h-input-file-browse {
+  flex: 0 1 auto;
+  width: calc(var(--h-field-width) + 2em - 32px - var(--h-gap));
+  min-width: 6em;
   max-width: 100%;
 }
 
@@ -120,21 +125,17 @@
   display: none;
 }
 
-/* the record manager of files (plan 21): a select-like button with the file name */
+/* the record manager of files (plan 21): a select-like button with the file name; a fixed
+   width as the picker above, so the Edit button is not over it (review 2026-10-20) */
 .h-input-file-browse {
   display: flex;
-  flex: 0 1 22em;
+  flex: 0 1 auto;
+  width: 22em;
   align-items: center;
   gap: 6px;
   min-width: 10em;
   text-align: left;
   cursor: pointer;
-}
-
-.h-form-input.has-display-width .h-input-file-browse {
-  flex: 0 0 auto;
-  width: calc(var(--h-field-width) + 2em);
-  max-width: 100%;
 }
 
 .h-input-file-browse-text {
