@@ -35,7 +35,8 @@ import { RecordEditClient, RecordEditError } from '../../data/RecordEditClient.j
 import { RecordStructureProvider } from '../../recordview/RecordStructureProvider.js';
 import { buildRecordBody, defaultFieldValues, recordFieldValues } from '../../data/recordEditValues.js';
 import { multilangFieldIds } from '../../data/writableRecordTypes.js';
-import { nonStandardGroup, structureFields } from '../../data/recordEditStructure.js';
+import { nonStandardGroup, reverseRelmarkerGroup, structureFields } from '../../data/recordEditStructure.js';
+import { loadRelationship, loadRelmarkerStates, relationFits, relationshipBody } from '../../data/relmarkerRelations.js';
 import { HCardinalLayout } from '../layout/HCardinalLayout.js';
 import { RecordRelationsProvider } from '../../recordview/RecordRelationsProvider.js';
 import { buildLinkedFromSection, buildLinksRow } from '../../recordview/RecordViewRenderer.js';
@@ -126,10 +127,16 @@ export class HRecordEditor extends HBaseWidget {
     const structure = await this.structureProvider.editStructure(rty, {
       signal, dbdefs: this.dbdefs, multilangIds: multilangFieldIds(this.dbdefs, rty)
     });
-    // values of fields the structure does not have: last group (a copy: the structure is cached)
+    // relationships of other record types' relmarker fields that target this type (plan 22),
+    // then the values of fields the structure does not have: last groups (a copy: the structure is cached)
+    const reverse = reverseRelmarkerGroup(rty, this.dbdefs, $HR('Relationships from other records'));
     const extra = nonStandardGroup(this.record, structure, this.dbdefs, $HR('Non-standard fields'));
-    this.structure = extra ? { ...structure, groups: [...structure.groups, extra] } : structure;
+    this.structure = reverse || extra
+      ? { ...structure, groups: [...structure.groups, ...(reverse ? [reverse] : []), ...(extra ? [extra] : [])] }
+      : structure;
+    const relationsError = await this._loadRelmarkers(signal);
     this.render();
+    if (relationsError) this._showMessages([{ severity: 'error', message: relationsError }]);
     return this;
   }
 
@@ -176,7 +183,10 @@ export class HRecordEditor extends HBaseWidget {
    */
   getRecord() {
     const fields = new Map();
-    for (const [name, state] of this.editForm?.getStates() || []) fields.set(Number(name), state);
+    // record fields only (reverse relationship fields are named rev:<dty>)
+    for (const [name, state] of this.editForm?.getStates() || []) {
+      if (/^\d+$/.test(name)) fields.set(Number(name), state);
+    }
     const body = buildRecordBody({
       record: this.record,
       rectypeId: this.rectypeId,
@@ -415,7 +425,10 @@ export class HRecordEditor extends HBaseWidget {
     this.adminSection = section('Admin', true, (body) => this._renderAdmin(body, header));
     section('Private', false, (body) => body.append(note($HR('Bookmark, rating and reminders: coming soon'))));
     section('Tags', false, (body) => body.append(note($HR('Tags: coming soon'))));
-    section('Linked records', true, (body) => this._renderLinkedRecords(body));
+    section('Linked records', true, (body) => {
+      this.linkedBody = body;
+      this._renderLinkedRecords(body);
+    });
     section('Scratchpad', false, (body) => {
       this.scratchpad = document.createElement('textarea');
       this.scratchpad.className = 'h-input h-record-editor-scratchpad';
@@ -458,13 +471,15 @@ export class HRecordEditor extends HBaseWidget {
    * buildLinksRow, buildLinkedFromSection).
    */
   _renderLinkedRecords(body) {
+    this._relationsAbort?.abort();
+    body.replaceChildren();
     if (this.isNew) {
       body.append(note($HR('Save the record to see its links')));
       return;
     }
     body.append(note($HR('Loading…')));
     const provider = new RecordRelationsProvider({ apiClient: this.options.apiClient, dbDefsProvider: async () => this.dbdefs });
-    const relmarkers = structureFields(this.structure).filter((field) => field.type === 'relmarker');
+    const relmarkers = structureFields(this.structure).filter((field) => field.type === 'relmarker' && !field.reverse);
     const onNavigate = (id) => this.options.onOpenRecord?.(id);
     this._relationsAbort = new AbortController();
     provider.load({
@@ -621,6 +636,8 @@ export class HRecordEditor extends HBaseWidget {
     this.body.append(host);
     const states = new Map();
     for (const [dty, state] of values) states.set(String(dty), state);
+    // relationships of the relmarker fields (loaded in open, kept up to date by the inputs)
+    for (const [name, state] of this._relmarkerStates || []) states.set(name, state);
     this.editForm = new HEditForm().attach(host, {
       // labels of the record structure come from the database: not translated
       form: { localized: true, groups: this.structure.groups },
@@ -643,8 +660,67 @@ export class HRecordEditor extends HBaseWidget {
       fileViewer: this.options.fileViewer,
       readOnly: this.options.readOnly,
       specialEditors: this.options.specialEditors || {},
-      specialContext: () => ({ record: this.record, rectypeId: this.rectypeId })
+      specialContext: () => ({ record: this.record, rectypeId: this.rectypeId }),
+      relationships: this._relationshipService()
     }).render();
+  }
+
+  /**
+   * Relationships of the relmarker fields of a saved record (plan 22).
+   *
+   * @returns {Promise<string>} A message when they could not be loaded, else ''.
+   */
+  async _loadRelmarkers(signal) {
+    this._relmarkerStates = new Map();
+    const fields = structureFields(this.structure).filter((field) => field.type === 'relmarker');
+    if (this.isNew || !fields.length) return '';
+    try {
+      this._relmarkerStates = await loadRelmarkerStates({
+        apiClient: this.options.apiClient,
+        dbdefs: this.dbdefs,
+        recordId: Number(this.record.rec_ID),
+        fields,
+        signal
+      });
+      return '';
+    } catch (error) {
+      if (error?.name === 'AbortError') throw error;
+      return `${$HR('The relationships could not be loaded')}: ${error?.message || error}`;
+    }
+  }
+
+  /**
+   * The service of the relmarker inputs (HInputRelmarker): a new record is saved before its
+   * first relationship (plan 14 §5: no temporary record); relationships are records of their
+   * own, saved and deleted at once, with the owner and visibility of this record.
+   */
+  _relationshipService() {
+    return {
+      ensureRecord: async () => {
+        if (this.options.readOnly) return null;
+        if (this.isNew && !(await this.save())) return null;
+        return { id: Number(this.record.rec_ID), rty: this.rectypeId, title: stripTags(this.record.rec_Title) };
+      },
+      create: async (relationship) => {
+        const result = await this.client.insert(relationshipBody(this.dbdefs, { ...relationship, header: this._header() }));
+        return Number(result.record?.rec_ID) || 0;
+      },
+      remove: (relId) => this.client.remove(relId),
+      load: (relId) => loadRelationship(this.options.apiClient, this.dbdefs, relId, Number(this.record?.rec_ID)),
+      fits: (field, relation) => relationFits(field, relation, this.dbdefs),
+      changed: () => this._relationshipsChanged()
+    };
+  }
+
+  /** A relationship was added, changed or deleted: keep the states (a new render) and the Linked records. */
+  _relationshipsChanged() {
+    const names = new Set(structureFields(this.structure).filter((field) => field.type === 'relmarker')
+      .map((field) => String(field.name ?? field.dty)));
+    for (const [name, state] of this.editForm?.getStates() || []) {
+      if (names.has(name)) this._relmarkerStates.set(name, state);
+    }
+    if (this.linkedBody) this._renderLinkedRecords(this.linkedBody);
+    this._emit('h-relmarker-change', { recordId: Number(this.record?.rec_ID) || 0 });
   }
 
   // ------------------------------------------------------------------- state ---

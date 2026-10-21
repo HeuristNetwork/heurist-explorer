@@ -24,10 +24,10 @@
  * @since       8.0
  */
 
-import { EDIT_STRUCTURE_DETAILS, buildEditStructure } from "../data/recordEditStructure.js";
+import { EDIT_STRUCTURE_DETAILS, buildEditStructure, byDisplayOrder } from "../data/recordEditStructure.js";
 
 const STRUCTURE_DETAILS =
-  "rst_DetailTypeID,rst_DisplayName,rst_DisplayOrder,rst_RequirementType,rst_DefaultValue,rst_DisplayHelpText,dty_Type";
+  "rst_ID,rst_DetailTypeID,rst_DisplayName,rst_DisplayOrder,rst_RequirementType,rst_DefaultValue,rst_DisplayHelpText,dty_Type";
 
 /** Loads and caches one record type's field structure, split into display sections. */
 export class RecordStructureProvider {
@@ -103,7 +103,7 @@ export class RecordStructureProvider {
 
 /** Sort structure rows by display order, then split into sections at each separator row. */
 function buildSections(rows) {
-  const sorted = [...rows].sort((a, b) => order(a) - order(b));
+  const sorted = [...rows].sort(byDisplayOrder);
   const sections = [];
   let current = { id: null, title: null, helpText: "", layout: null, fields: [] };
   sections.push(current);

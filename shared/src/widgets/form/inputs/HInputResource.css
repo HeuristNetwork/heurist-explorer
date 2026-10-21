@@ -1,26 +1,47 @@
-/* record picker or mode button (plan 21), then Edit / View of the chosen record (as the Data list icon buttons) */
+/* record picker or mode button (plan 21) with the record type icon before it; Edit / View of the
+   chosen record come after this box (as the Data list icon buttons).
+   A fixed width, not a flex basis: the control box takes its width from it, so Edit / View come
+   after the button even with a short title (review 2026-10-20). The width is that of icon + picker:
+   the icon takes its place from the picker, not from Edit / View (review 2026-10-21). */
 .h-input-resource {
   display: flex;
-  align-items: center;
-  gap: 2px;
-  min-width: 0;
-}
-
-/* a fixed width, not a flex basis: the control box takes its width from it, so Edit / View
-   come after the button even with a short title (review 2026-10-20) */
-.h-input-resource-picker {
-  display: flex;
   flex: 0 1 auto;
+  align-items: center;
   width: 22em;
   min-width: 10em;
 }
 
-/* a width set by the form (rst_DisplayWidth): the width of the picker / button itself;
+/* a width set by the form (rst_DisplayWidth): the width of the icon + picker / button;
    Edit and View come after it (plan 21 review 2026-10-19) */
-.h-form-input.has-display-width .h-input-resource-picker {
+.h-form-input.has-display-width .h-input-resource {
   flex: 0 0 auto;
   width: calc(var(--h-field-width) + 2em);
   max-width: 100%;
+}
+
+/* record type icon of the chosen record, before the picker / button */
+.h-input-resource-icon {
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  margin-right: 6px;
+  object-fit: contain;
+}
+
+.h-input-resource-icon[hidden] {
+  display: none;
+}
+
+/* the picker / button fills the box after the icon */
+.h-input-resource-picker {
+  display: flex;
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+/* the box has the minimum width; the combo button (min 10em) must not push out of it */
+.h-input-resource-picker .h-value-combo {
+  min-width: 0;
 }
 
 .h-input-resource-picker > .h-value-combo-host {

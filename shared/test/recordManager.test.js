@@ -116,9 +116,14 @@ test('manager mode needs record types', () => {
 function titleSource() {
   return {
     labels: new Map(),
+    types: new Map(),
     labelFor(id) { return this.labels.get(Number(id)); },
+    rectypeFor(id) { return this.types.get(Number(id)) || null; },
     async fetchLabels(ids) { for (const id of ids) this.labels.set(Number(id), `Record ${id}`); },
-    rememberLabel(id, title) { this.labels.set(Number(id), title); },
+    rememberLabel(id, title, rectype) {
+      this.labels.set(Number(id), title);
+      if (rectype) this.types.set(Number(id), Number(rectype));
+    },
     async load() { return { items: [], total: 0, complete: true }; }
   };
 }
@@ -369,4 +374,18 @@ test('record list of the manager: Sort and Show owners; no selection menu for on
   owners.checkbox.checked = true;
   owners.checkbox.dispatchEvent(new Event('change'));
   assert.equal(shown, true);
+});
+
+test('pointer input: record type icon of the chosen record before the picker', async () => {
+  const iconBase = { baseUrl: 'http://host/heurist/', database: 'db' };
+  const input = await resourceInput({ value: 5, valueLabel: 'Five', valueRectype: 12, targetTypes: [10, 12], iconBase });
+  const icon = input.container.querySelector('.h-input-resource-icon');
+  assert.deepEqual([...icon.parentElement.children].map((node) => node.className.split(' ')[0]), ['h-input-resource-icon', 'h-input-resource-picker']);
+  assert.equal(icon.hidden, false);
+  assert.match(icon.getAttribute('src'), /\?db=db&icon=12&/);
+  input.setValue(null);
+  assert.equal(icon.hidden, true, 'no icon without a record');
+  // type unknown: the only allowed type
+  const one = await resourceInput({ value: 7, targetTypes: [10], iconBase, pointerMode: 'addorbrowse' });
+  assert.match(one.container.querySelector('.h-input-resource-icon').getAttribute('src'), /icon=10&/);
 });

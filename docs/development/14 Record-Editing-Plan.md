@@ -555,7 +555,7 @@ Where the implementation differs from §6:
   `selectExtent`. Drawing a geometry is Phase 3, as a special editor.
 - **Date fields** are text plus calendar (`allowLegacyText`). Complex temporal values are shown
   as stored; a temporal editor comes later.
-- **Relmarker fields** show a note; relationships are not edited yet.
+- **Relmarker fields** show a note; relationships are not edited yet. (2026-10-21: HInputRelmarker, plan 22.)
 - **The ownership pane** has the owner (users, groups, or "Everyone"), visibility, "only these
   groups" (for viewable) and "also editable by". A new record is owned by the current user.
 - **Body sent on save:**

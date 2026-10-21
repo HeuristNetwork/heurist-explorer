@@ -276,11 +276,11 @@ export class HInput extends HBaseWidget {
     this.clearButton.textContent = '×';
     this.clearButton.title = 'Clear value';
     this.clearButton.setAttribute('aria-label', 'Clear value');
-    this.listen(this.clearButton, 'click', () => {
+    this.listen(this.clearButton, 'click', () => this._whenClearAllowed(() => {
       const fixed = this.options.fixedValue;
       this.setValue(fixed && typeof fixed === 'object' ? { ...fixed } : null);
       this.notifyChange();
-    });
+    }));
     // without a label row, keep the action beside the control
     (this.options.suppressLabel ? controlHost : header).append(this.clearButton);
     this._syncClearButton();
@@ -294,7 +294,7 @@ export class HInput extends HBaseWidget {
    */
   _renderValueTools(controlHost) {
     this.clearButton = toolButton('fa-xmark', 'h-form-input-tool h-form-input-clear');
-    this.listen(this.clearButton, 'click', () => {
+    this.listen(this.clearButton, 'click', () => this._whenClearAllowed(() => {
       if (this.options.removable) {
         this.container.dispatchEvent(new CustomEvent('h-input-remove', { bubbles: true, detail: { input: this } }));
         return;
@@ -302,7 +302,7 @@ export class HInput extends HBaseWidget {
       const fixed = this.options.fixedValue;
       this.setValue(fixed && typeof fixed === 'object' ? { ...fixed } : null);
       this.notifyChange();
-    });
+    }));
     controlHost.append(this.clearButton);
     if (this.options.visibilityToggle) {
       this.visibilityButton = toolButton('fa-eye', 'h-form-input-tool h-form-input-visibility');
@@ -321,6 +321,23 @@ export class HInput extends HBaseWidget {
     this.actionsHost.className = 'h-form-input-actions';
     controlHost.prepend(this.actionsHost);
     this.setRemovable(this.options.removable === true);
+  }
+
+  /**
+   * Called before the clear / remove action changes the value; an input that must ask
+   * first or do more (a relationship is deleted, HInputRelmarker) overrides it.
+   *
+   * @returns {Promise<boolean>|boolean} False keeps the value.
+   */
+  beforeClear() {
+    return true;
+  }
+
+  /** Run the clear / remove action when beforeClear allows it (at once for a plain true). */
+  _whenClearAllowed(run) {
+    const allowed = this.beforeClear();
+    if (allowed === true) run();
+    else if (allowed && typeof allowed.then === 'function') void allowed.then((ok) => { if (ok) run(); });
   }
 
   /**

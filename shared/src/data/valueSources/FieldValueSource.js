@@ -186,6 +186,7 @@ export class RecordTitleSource {
     this.query = Array.isArray(query) ? query : [];
     this.fields = fields;
     this._labels = new Map();
+    this._types = new Map();
   }
 
   /** Nothing cached besides labels. */
@@ -212,15 +213,22 @@ export class RecordTitleSource {
     return this._labels.get(String(value)) || '';
   }
 
+  /** @returns {number|null} Record type of a record seen before, else null. */
+  rectypeFor(value) {
+    return this._types.get(String(value)) || null;
+  }
+
   /**
    * Remember the title of a record known from elsewhere (e.g. a resolved pointer value).
    *
    * @param {number|string} id Record id.
    * @param {string} title Record title.
+   * @param {number|string|null} [rectype] Its record type.
    * @returns {void}
    */
-  rememberLabel(id, title) {
+  rememberLabel(id, title, rectype = null) {
     if (Number(id) > 0 && title) this._labels.set(String(Number(id)), String(title));
+    if (Number(id) > 0 && Number(rectype) > 0) this._types.set(String(Number(id)), Number(rectype));
   }
 
   /**
@@ -244,6 +252,7 @@ export class RecordTitleSource {
     if (!(id > 0)) return null;
     const label = String(row?.rec_Title ?? row?.title ?? '') || `#${id}`;
     this._labels.set(String(id), label);
+    if (Number(row?.rec_RecTypeID) > 0) this._types.set(String(id), Number(row.rec_RecTypeID));
     return { value: id, label };
   }
 }

@@ -1,0 +1,108 @@
+/* relationship of a relmarker field (plan 22): Add button, or the relationship in an input-like box */
+.h-input-relmarker {
+  display: flex;
+  flex: 0 1 auto;
+  align-items: center;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.h-input-relmarker-add {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.h-input-relmarker-add[hidden],
+.h-input-relmarker-box[hidden],
+.h-input-relmarker-relicon[hidden],
+.h-input-relmarker-action[hidden] {
+  display: none;
+}
+
+/* as wide as a pointer field's picker; the clear action comes after it */
+.h-input-relmarker-box {
+  display: flex;
+  flex: 0 1 auto;
+  align-items: center;
+  gap: 4px;
+  width: 30em;
+  min-width: 12em;
+  max-width: 100%;
+  min-height: 26px;
+  border: 1px solid var(--h-color-border);
+  border-radius: var(--h-radius);
+  padding: 1px 6px;
+  background: var(--h-color-bg);
+}
+
+.h-input-relmarker-term {
+  flex: 0 0 auto;
+  max-width: 14em;
+  overflow: hidden;
+  color: var(--h-color-text-muted);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.h-input-relmarker-arrow {
+  flex: 0 0 auto;
+  color: var(--h-color-icon);
+  font-size: 12px;
+}
+
+.h-input-relmarker-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.h-input-relmarker-relicon {
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  margin-left: 6px;
+  object-fit: contain;
+}
+
+/* Edit / View of the other record and of the relationship record (as HInputResource) */
+.h-input-relmarker-actions {
+  display: inline-flex;
+  flex: 0 0 auto;
+  gap: 2px;
+}
+
+.h-input-relmarker-action {
+  width: 18px;
+  height: 18px;
+  border: 0;
+  padding: 2px;
+  background: transparent;
+  color: var(--h-color-text-muted);
+  font-size: 12px;
+  line-height: 12px;
+  cursor: pointer;
+}
+
+.h-input-relmarker-action:hover {
+  color: var(--h-color-primary);
+}
+
+/* on mouse over (or keyboard focus) only, where the device can hover */
+@media (hover: hover) {
+  .h-form-input .h-input-relmarker-actions {
+    visibility: hidden;
+  }
+
+  .h-form-input:hover .h-input-relmarker-actions,
+  .h-form-input:focus-within .h-input-relmarker-actions {
+    visibility: visible;
+  }
+}
+
+/* the popup of a new relationship (relationshipDialog.js) */
+.h-relationship-dialog {
+  width: min(720px, calc(100vw - 32px));
+}

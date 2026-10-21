@@ -765,3 +765,23 @@
 #Show in OSD#Show in OSD
 #Show in Mirador#Show in Mirador
 #Show in new tab#Show in new tab
+#Relationships from other records#Relationships from other records
+#The relationships could not be loaded#The relationships could not be loaded
+#Add Relationship#Add Relationship
+#Add Relationship to#Add Relationship to
+#Add Relationship from#Add Relationship from
+#Relationship record#Relationship record
+#Edit relationship record#Edit relationship record
+#View relationship record#View relationship record
+#You are about to delete link between records.<br><br>Are you sure?#You are about to delete link between records.<br><br>Are you sure?
+#Proceed#Proceed
+#Warning#Warning
+#Create relationship between#Create relationship between
+#and#and
+#Source record#Source record
+#Relationship type#Relationship type
+#Target record#Target record
+#Create Link#Create Link
+#Save and Edit Attributes#Save and Edit Attributes
+#The relationship could not be saved#The relationship could not be saved
+#The database has no relationship record type#The database has no relationship record type

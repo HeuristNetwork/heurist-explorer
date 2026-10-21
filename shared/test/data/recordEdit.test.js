@@ -6,7 +6,7 @@
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildEditStructure, separatorLayout, structureFields } from '../../src/data/recordEditStructure.js';
+import { buildEditStructure, separatorType, structureFields } from '../../src/data/recordEditStructure.js';
 import {
   buildRecordBody, defaultFieldValues, fieldsToDetails, packValue, recordFieldValues, splitLanguage, unpackValue
 } from '../../src/data/recordEditValues.js';
@@ -34,19 +34,61 @@ const dbdefs = {
   fieldGlobal: (dty) => ({ concept: `2-${dty}` })
 };
 
-test('separators become tabs, accordion or plain groups', () => {
-  assert.equal(separatorLayout('tabs'), 'tabs');
-  assert.equal(separatorLayout('tabs_new'), 'tabs');
-  assert.equal(separatorLayout('accordion_inner'), 'accordion');
-  assert.equal(separatorLayout('expanded'), 'accordion');
-  assert.equal(separatorLayout('group_break'), 'group');
-  assert.equal(separatorLayout(''), 'group');
+test('separator types: the legacy values, anything else is group', () => {
+  assert.equal(separatorType('tabs_new'), 'tabs_new');
+  assert.equal(separatorType(' Accordion_Inner '), 'accordion_inner');
+  assert.equal(separatorType('collapsed'), 'group');
+  assert.equal(separatorType(''), 'group');
+});
+
+test('separators are placed as in the legacy editor (inner groups, new tab sets, expanded)', () => {
+  let order = 0;
+  const sep = (id, value, extra = {}) => ({ rst_DetailTypeID: String(id), rst_DisplayName: `S${id}`, rst_DisplayOrder: String(order++),
+    dty_Type: 'separator', rst_DefaultValue: value, ...extra });
+  const field = (id) => ({ rst_DetailTypeID: String(id), rst_DisplayName: `F${id}`, rst_DisplayOrder: String(order++), dty_Type: 'freetext' });
+  const rows = [
+    field(1),
+    sep(901, 'group'), field(2), // no outer tabs/accordion yet: an outer group
+    sep(902, 'tabs'), field(3),
+    sep(903, ''), field(4), // inner heading of tab 902
+    sep(904, 'accordion_inner'), field(5),
+    sep(905, 'explanation', { rst_DisplayHelpText: 'Read this' }), // text only
+    sep(906, 'tabs'), field(6),
+    sep(907, 'tabs_new'), field(7),
+    sep(908, 'expanded_inner'), field(8),
+    sep(909, 'group_break'), field(9),
+    sep(910, 'group'), field(10), // after a break: outer
+    sep(911, 'expanded'), field(11),
+    sep(912, 'expanded'), field(12),
+    sep(913, 'tabs', { rst_RequirementType: 'forbidden' }), field(13), // heading hidden: stays in 912
+    sep(914, 'accordion'), field(14)
+  ];
+  const structure = buildEditStructure(rows, { rty: 1 });
+  const shape = structure.groups.map((group) => [group.id, group.type, group.inner === true ? 'inner' : 'outer',
+    group.newTabs ? 'new' : '', group.open === true ? 'open' : '', group.explanation ? 'text' : '',
+    group.children.map((child) => child.dty).join(',')].filter(Boolean).join(' '));
+  assert.deepEqual(shape, [
+    'group outer 1',
+    '901 group outer 2',
+    '902 tabs outer 3',
+    '903 group inner 4',
+    '904 accordion inner 5',
+    '905 group inner text',
+    '906 tabs outer 6',
+    '907 tabs outer new 7',
+    '908 accordion inner open 8',
+    '909 group outer 9',
+    '910 group outer 10',
+    '911 accordion outer open 11',
+    '912 accordion outer 12,13',
+    '914 accordion outer 14'
+  ]);
 });
 
 test('buildEditStructure groups the fields and keeps the edit details', () => {
   const structure = buildEditStructure(ROWS, { rty: 29, multilangIds: [1, 3], dbdefs });
-  assert.deepEqual(structure.groups.map((group) => [group.type, group.label]),
-    [['tabs', 'Description'], ['tabs', 'Map'], ['accordion', 'Extra']]);
+  assert.deepEqual(structure.groups.map((group) => [group.type, group.label, group.newTabs === true]),
+    [['tabs', 'Description', false], ['tabs', 'Map', true], ['accordion', 'Extra', false]]);
   const fields = structureFields(structure);
   assert.deepEqual(fields.map((field) => field.dty), [1, 12, 1164, 28, 15, 3], 'forbidden field left out');
   const query = fields.find((field) => field.dty === 12);
@@ -69,6 +111,16 @@ test('fields before the first separator form a group without heading', () => {
   assert.equal(structure.groups[0].label, null);
 });
 
+test('equal display orders are sorted by rst_ID, as in the legacy editor', () => {
+  const structure = buildEditStructure([
+    { rst_ID: '3381', rst_DetailTypeID: '9', rst_DisplayOrder: '00020', dty_Type: 'separator', rst_DisplayName: 'Birth and death' },
+    { rst_ID: '2384', rst_DetailTypeID: '2', rst_DisplayOrder: '00020', dty_Type: 'resource', rst_DisplayName: 'Place of death' },
+    { rst_ID: '2390', rst_DetailTypeID: '3', rst_DisplayOrder: '00021', dty_Type: 'enum', rst_DisplayName: 'Cause of death' },
+    { rst_ID: '61', rst_DetailTypeID: '1', rst_DisplayOrder: '00001', dty_Type: 'freetext', rst_DisplayName: 'Name' }
+  ], { rty: 10 });
+  assert.deepEqual(structure.groups.map((group) => group.children.map((field) => field.dty)), [[1, 2], [3]]);
+});
+
 test('language prefixes: 3-letter codes, * and common 2-letter codes', () => {
   assert.deepEqual(splitLanguage('fre:Nom'), { lang: 'fre', text: 'Nom' });
   assert.deepEqual(splitLanguage('de:Name'), { lang: 'de', text: 'Name' });
@@ -78,7 +130,7 @@ test('language prefixes: 3-letter codes, * and common 2-letter codes', () => {
 });
 
 test('stored values become editor entries (compact and resolved forms)', () => {
-  assert.deepEqual(unpackValue('resource', { value: '5', rec_ID: '5', rec_Title: 'Five' }), { value: 5, hidden: false, label: 'Five' });
+  assert.deepEqual(unpackValue('resource', { value: '5', rec_ID: '5', rec_RecTypeID: '12', rec_Title: 'Five' }), { value: 5, hidden: false, label: 'Five', rectype: 12 });
   assert.deepEqual(unpackValue('enum', '42'), { value: 42, hidden: false });
   assert.deepEqual(unpackValue('geo', { geo: { type: 'p', wkt: 'POINT(1 2)' }, hidden: true }),
     { value: 'POINT(1 2)', hidden: true, geoType: 'p' });

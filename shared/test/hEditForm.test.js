@@ -275,3 +275,42 @@ test('a list special field: one box, one value per line, arrays in and out', asy
   assert.equal(form.validate().length, 1, 'required');
   await form.destroy();
 });
+
+test('inner groups are rendered inside their outer group; newTabs starts another tab set', () => {
+  const element = host();
+  const form = new HEditForm().attach(element, {
+    apiClient,
+    form: { groups: [
+      { id: 'a', type: 'tabs', label: 'A', children: [{ name: 'a1' }] },
+      { id: 'a-sub', type: 'group', inner: true, label: 'Sub', children: [{ name: 'a2' }] },
+      { id: 'a-acc', type: 'accordion', inner: true, label: 'More', children: [{ name: 'a3' }] },
+      { id: 'b', type: 'tabs', label: 'B', children: [{ name: 'b1' }] },
+      { id: 'c', type: 'tabs', label: 'C', newTabs: true, children: [{ name: 'c1' }] }
+    ] }
+  }).render();
+  assert.deepEqual(form.warnings, []);
+  assert.equal(element.querySelectorAll('.h-edit-form-tabs').length, 2, 'two tab sets');
+  const panel = element.querySelector('.h-edit-form-tab-panel');
+  const sub = panel.querySelector('.h-edit-form-subgroup');
+  assert.equal(sub.querySelector('.h-edit-form-subgroup-heading').textContent, 'Sub');
+  assert.ok(sub.contains(form.getFieldWidget('a2').container));
+  const inner = panel.querySelector('.h-edit-form-accordion.is-inner');
+  assert.equal(inner.open, false);
+  assert.ok(inner.contains(form.getFieldWidget('a3').container));
+
+  form.showGroup('a', false);
+  assert.equal('a2' in form.getValues(), false, 'an inner group is hidden with its outer group');
+  form.showGroup('a', true);
+  form.showGroup('a-sub', false);
+  assert.equal(sub.hidden, true);
+  assert.equal('a1' in form.getValues(), true);
+});
+
+test('an inner group without an outer group before it is an outer group', () => {
+  const form = new HEditForm().attach(host(), {
+    apiClient,
+    form: { groups: [{ id: 'x', type: 'group', inner: true, children: [{ name: 'x1' }] }] }
+  }).render();
+  assert.equal(form.form.groups[0].inner, false);
+  assert.equal(form.warnings.length, 1);
+});

@@ -45,7 +45,7 @@ import './HEditField.css';
 export const DEFAULT_LANGUAGES = Object.freeze(['ENG', 'FRE', 'GER', 'SPA', 'ITA', 'POR', 'DUT', 'RUS', 'CHI', 'JPN', 'ARA']);
 
 /** Field types without values to edit here. */
-const NO_INPUT_TYPES = new Set(['relmarker', 'separator']);
+const NO_INPUT_TYPES = new Set(['separator']);
 
 /** Numeric field types (min / maxValue checks). */
 const NUMERIC_TYPES = new Set(['integer', 'float', 'year']);
@@ -81,6 +81,8 @@ export class HEditField extends HBaseWidget {
    *        (`[{label, icon?, title?, primary?, run(value, context)}]`) several editors instead of `edit`,
    *        or `actionsFor(context)` returning them for the record (type) being edited.
    * @param {object} [options.context] Passed to `describe`/`edit`: `{field, getValue(name), setValue(name, value)}`.
+   * @param {object} [options.relationships] Relmarker fields (plan 22): the record editor's service
+   *        (`ensureRecord`, `create`, `remove`, `load`, `fits`, `changed`); see HInputRelmarker.
    * @returns {HEditField} This field.
    */
   attach(container, options = {}) {
@@ -191,7 +193,9 @@ export class HEditField extends HBaseWidget {
         ...row.entry,
         value: row.input.getValue(),
         hidden: row.entry.hidden,
-        ...(row.input.geoType ? { geoType: row.input.geoType } : {})
+        ...(row.input.geoType ? { geoType: row.input.geoType } : {}),
+        // a relmarker value: the relationship shown (created or changed in the input)
+        ...(row.input.getRelation ? { relation: row.input.getRelation() } : {})
       }))
       .filter((entry) => !isEmpty(entry.value));
     // a list field: one value per line of its text
@@ -266,7 +270,8 @@ export class HEditField extends HBaseWidget {
         if (pattern && !pattern.test(text)) errors.push(field.patternMessage || $HR('The value has characters that are not allowed'));
       }
     }
-    if (field.req === 'required' && !NO_INPUT_TYPES.has(field.type) && !values.length) {
+    // not for relmarker: relationships can be added only after the first save of a record (plan 22)
+    if (field.req === 'required' && !NO_INPUT_TYPES.has(field.type) && field.type !== 'relmarker' && !values.length) {
       errors.push($HR('A value is required'));
     }
     return [...new Set(errors)];
@@ -308,7 +313,7 @@ export class HEditField extends HBaseWidget {
 
   /** @returns {string} CSS width of the inputs ('' when the field has none; not for special fields). */
   _displayWidth() {
-    return this.options.special || NO_INPUT_TYPES.has(this.field.type) ? '' : cssWidth(this.field.width);
+    return this.options.special || NO_INPUT_TYPES.has(this.field.type) || this.field.type === 'relmarker' ? '' : cssWidth(this.field.width);
   }
 
   /** Copy the values and translations of a state. */
@@ -534,8 +539,9 @@ export class HEditField extends HBaseWidget {
     Object.assign(options, {
       valueTools: true,
       removable: false,
-      // also read only: the eye keeps its place (disabled, shown only for a hidden value)
-      visibilityToggle: this.options.allowHidden !== false,
+      // also read only: the eye keeps its place (disabled, shown only for a hidden value);
+      // not for a relationship (plan 22)
+      visibilityToggle: this.options.allowHidden !== false && field.type !== 'relmarker',
       valueHidden: entry.hidden === true,
       readOnly: this.isReadOnly
     });
@@ -569,6 +575,9 @@ export class HEditField extends HBaseWidget {
           apiClient: this.options.apiClient,
           targetTypes: field.targetTypes,
           valueLabel: entry.label || '',
+          valueRectype: entry.rectype || null,
+          // record type icon of the chosen record
+          iconBase: this.options.fileViewer || null,
           editRecord: this.options.editRecord,
           viewRecord: this.options.viewRecord,
           // rst_PointerMode and the record manager (plan 21 §5)
@@ -592,6 +601,21 @@ export class HEditField extends HBaseWidget {
           // the record manager of registered files (plan 21)
           browseRecords: this.options.browseRecords,
           fileRecordType: Number(this.options.dbdefs?.dbconst?.('RT_REGISTERED_FILE')) || 0
+        };
+      case 'relmarker':
+        // relationships (plan 22): created and deleted by the input with the editor's service
+        return {
+          ...options,
+          relation: entry.relation || null,
+          field,
+          relationships: this.options.relationships || null,
+          apiClient: this.options.apiClient,
+          dbdefs: this.options.dbdefs,
+          iconBase: this.options.fileViewer || null,
+          editRecord: this.options.editRecord,
+          viewRecord: this.options.viewRecord,
+          browseRecords: this.options.browseRecords,
+          addRecord: this.options.addRecord
         };
       case 'geo':
         // extent: a bounding box; feature: a geometry (record values; drawing comes later)
@@ -657,6 +681,13 @@ export class HEditField extends HBaseWidget {
       this.addButton.setAttribute('aria-label', this.addButton.title);
       this.listen(this.addButton, 'click', () => {
         const row = this._addRow({ value: null, hidden: false });
+        if (this.field.type === 'relmarker') {
+          // a relationship: its popup at once; cancelled, the new row goes again
+          void row.input.openAddDialog?.().then((created) => {
+            if (!created && this._rows.includes(row) && this._rows.length > 1) this._removeRow(row);
+          });
+          return;
+        }
         row.input.control?.focus?.();
       });
       this.actionButtons.push(this.addButton);
@@ -843,6 +874,7 @@ export function inputType(field, special = null) {
     case 'geo':
     case 'boolean':
     case 'color':
+    case 'relmarker':
       return field.type;
     default:
       return 'freetext';

@@ -23,6 +23,7 @@ import { HInputBoolean } from './HInputBoolean.js';
 import { HInputResource } from './HInputResource.js';
 import { HInputFile } from './HInputFile.js';
 import { HInputColor } from './HInputColor.js';
+import { HInputRelmarker } from './HInputRelmarker.js';
 
 const TYPES = {
   text: HInputText,
@@ -41,7 +42,8 @@ const TYPES = {
   boolean: HInputBoolean,
   resource: HInputResource,
   file: HInputFile,
-  color: HInputColor
+  color: HInputColor,
+  relmarker: HInputRelmarker
 };
 
 /**

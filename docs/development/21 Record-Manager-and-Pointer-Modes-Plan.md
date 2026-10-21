@@ -352,7 +352,7 @@ and bookmarks later); a full test range over all record types is needed.
    - **workflow e-mails** (the stage rules themselves are done);
    - ElasticSearch index (save and delete), HTML cache.
 4. **Edit form**: field types not yet in HEditForm for user data — `relmarker`
-   (HInputRelmaker, later), and checks of `blocktext` HTML editor, `file` with remote URLs,
+   (HInputRelmarker: done 2026-10-21, plan 22), and checks of `blocktext` HTML editor, `file` with remote URLs,
    `relationtype`, `separator` tabs/accordions on big types.
 5. **Test range**:
    - server: `tests/RecordEditAllTypesTest.php` — for every record type of the test
@@ -839,3 +839,15 @@ Second round (Artem, 2026-10-20):
    `position: absolute`, so inside `.h-popover` it took no space. `.h-input-resource-type-popover > .h-menu`
    is now `position: static` (no own border / shadow).
 
+
+**Record type icon (Artem, 2026-10-21).** HInputResource shows the record type icon of the chosen
+record before `h-input-resource-picker` (`img.h-input-resource-icon`, 16px; tooltip = type name):
+one place for the picker and the button modes, the generic HValueCombo is unchanged. The type comes
+from the resolved value (`unpackValue` keeps `rec_RecTypeID` as `entry.rectype`, HEditField passes
+`valueRectype`), from `RecordTitleSource` (remembers `rec_RecTypeID` of loaded rows, `rectypeFor(id)`,
+`rememberLabel(id, title, rectype)`), else the only allowed target type. URL: `recordTypeIconUrl` with
+`iconBase` (HEditField passes its `fileViewer` {baseUrl, database}; default the module bootstrap).
+No record, or an icon that does not load: hidden. Not checked in a browser.
+The width (22em, or `rst_DisplayWidth` + 2em) is now on the `.h-input-resource` box (icon + picker),
+the picker fills the rest (`flex: 1 1 0`): the icon takes its place from the picker, so it does not
+push the picker over Edit / View (review 2026-10-21; a `has-icon` width rule did not work).

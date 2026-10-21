@@ -21,6 +21,7 @@
 }
 
 .h-edit-form-group[hidden],
+.h-edit-form-subgroup[hidden],
 .h-edit-form-accordion[hidden],
 .h-edit-form-tabs[hidden],
 .h-edit-form-tab[hidden],
@@ -71,6 +72,41 @@
 
 .h-edit-form-accordion > .h-edit-form-fields {
   padding: 4px var(--h-gap) var(--h-gap);
+}
+
+/* inner groups (legacy inner separators): a heading with its fields, or a
+   collapsible section, inside the outer group */
+.h-edit-form-accordion.is-inner {
+  margin: 4px 0;
+}
+
+.h-edit-form-accordion.is-inner > summary {
+  font-weight: 500;
+}
+
+.h-edit-form-subgroup {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  margin-top: 6px;
+}
+
+.h-edit-form-subgroup-heading {
+  border-bottom: 1px solid var(--h-color-border);
+  padding: 2px 0;
+  font-weight: 600;
+}
+
+/* explanation: the heading and help are a text of their own */
+.h-edit-form-subgroup.is-explanation > .h-edit-form-fields > .h-edit-field-help:first-child,
+.h-edit-form-group.is-explanation > .h-edit-form-fields > .h-edit-field-help:first-child {
+  padding: 0.5em 0 1em;
+  color: var(--h-color-text);
+}
+
+.h-edit-form-subgroup.is-explanation > .h-edit-form-subgroup-heading {
+  border-bottom: 0;
 }
 
 .h-edit-form-tabs {

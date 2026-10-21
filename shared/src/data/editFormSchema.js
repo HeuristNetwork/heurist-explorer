@@ -4,7 +4,7 @@
  *        `showWhen` conditions, and values in and out of the form.
  *
  *   {format: 'heurist-edit-form/1', localized, groups: [{id, type: 'tabs'|'accordion'|'group',
- *    label, help, showWhen, slot, columns, children: [field]}]}
+ *    label, help, showWhen, slot, columns, inner, newTabs, open, explanation, children: [field]}]}
  *   field: {name, type, label, help, req, max, default, terms, vocabulary, mode, minValue, maxValue,
  *           step, maxLength, pattern, patternMessage, rows, width, targetTypes, geoKind, multilang,
  *           readOnly, clearable, showWhen, special, dty?}
@@ -12,6 +12,13 @@
  * `max` is the number of values (1 default, 0 any); `minValue` / `maxValue` limit a number.
  * `width` is a number of characters (as rst_DisplayWidth) or a CSS length ("400px",
  * "20em", "50%"); it sets the width of the input of every field type.
+ *
+ * Groups are a flat list. An `inner` group (`group` or `accordion`) is a part of the
+ * previous outer group: a heading with its fields, or a collapsible section, inside
+ * it (the legacy inner separators). Consecutive `tabs` groups are one tab set;
+ * `newTabs` starts another one. `open`: an accordion is open (default: the first
+ * outer accordion of the form). `explanation`: the heading and help are a text
+ * of their own (the legacy explanation separator).
  *
  * The record edit structure (recordEditStructure.js) is the same JSON with `dty`
  * instead of `name`: a field without a name gets `String(dty)`.
@@ -65,9 +72,14 @@ export function normalizeEditForm(json) {
   const source = json && typeof json === 'object' ? json : {};
   if (source.format && source.format !== EDIT_FORM_FORMAT) warnings.push(`Unknown format "${source.format}"`);
   const names = new Set();
+  let hasOuter = false;
   const groups = (Array.isArray(source.groups) ? source.groups : []).map((group, index) => {
     const type = GROUP_TYPES.has(group?.type) ? group.type : 'group';
     if (group?.type && type !== group.type) warnings.push(`Group ${index + 1}: unknown type "${group.type}"`);
+    // an inner group needs an outer group before it; tabs are never inner
+    const inner = group?.inner === true && hasOuter && type !== 'tabs';
+    if (group?.inner === true && !inner) warnings.push(`Group ${index + 1}: not an inner group`);
+    if (!inner) hasOuter = true;
     const children = [];
     for (const [position, item] of (Array.isArray(group?.children) ? group.children : []).entries()) {
       const field = normalizeField(item, warnings, `Group ${index + 1}, field ${position + 1}`);
@@ -85,6 +97,10 @@ export function normalizeEditForm(json) {
       slot: group?.slot ? String(group.slot) : null,
       // fields in a grid of n columns, row by row (e.g. from / to pairs)
       columns: Number(group?.columns) > 1 ? Math.min(Math.floor(Number(group.columns)), 6) : 1,
+      inner,
+      newTabs: type === 'tabs' && !inner && group?.newTabs === true,
+      open: typeof group?.open === 'boolean' ? group.open : null,
+      explanation: group?.explanation === true,
       children,
       ...(group?.nonStandard ? { nonStandard: true } : {})
     };

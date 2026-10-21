@@ -1,7 +1,7 @@
 /**
  * @file HEditForm.js
  * @brief Generic edit form made from JSON (plan 14a): groups as tabs, accordion
- *        sections or fieldsets, one HEditField per field, show/hide by the values
+ *        sections or fieldsets (inner groups inside them), one HEditField per field, show/hide by the values
  *        (`showWhen`), required and input checks, issues beside the fields and
  *        the values as JSON.
  *
@@ -66,6 +66,7 @@ export class HEditForm extends HBaseWidget {
    * @param {Function} [options.viewRecord] View button of pointer fields: `(id)`.
    * @param {Function} [options.browseRecords] Browse of pointer fields (record manager, plan 21): `(options) → Promise<number[]|null>`.
    * @param {Function} [options.addRecord] Add of pointer fields (plan 21): `(rectypeId) → Promise<{saved, recordId}>`.
+   * @param {object} [options.relationships] Relmarker fields (plan 22): the record editor's service, see HInputRelmarker.
    * @param {(form: HEditForm) => void} [options.onReady] After render (same as `h-edit-form-ready`).
    * @param {(form: HEditForm, change: {name: string, value: *}) => void} [options.onChange] After a value changed.
    * @param {(values: object, form: HEditForm) => Array<{field?: string, message: string}>|string|null} [options.validate]
@@ -305,8 +306,10 @@ export class HEditForm extends HBaseWidget {
     if (name === undefined || name === null) return;
     this._reveal.get(String(name))?.();
     const widget = this.fields.get(String(name));
-    const details = widget?.container?.closest?.('details');
-    if (details) details.open = true;
+    // every accordion around the field (an inner one in an outer one)
+    for (let details = widget?.container?.closest?.('details'); details; details = details.parentElement?.closest?.('details')) {
+      details.open = true;
+    }
     widget?.container?.scrollIntoView?.({ block: 'nearest' });
   }
 
@@ -319,45 +322,53 @@ export class HEditForm extends HBaseWidget {
   // ----------------------------------------------------------------- render ---
 
   /**
-   * Render the groups: runs of "tabs" groups as tab sets, "accordion" groups as
-   * collapsible sections (the first one open), other groups as fieldsets.
+   * Render the groups: an outer group with the inner groups after it is one
+   * section; runs of "tabs" sections are tab sets (`newTabs` starts another one),
+   * "accordion" sections are collapsible (open by `open`, default the first one),
+   * other sections are fieldsets.
    */
   _renderGroups(states) {
-    const groups = this.form.groups;
+    const sections = [];
+    this._parentOf = new Map(); // inner group id -> outer group id
+    for (const group of this.form.groups) {
+      if (group.inner && sections.length) {
+        sections.at(-1).inner.push(group);
+        this._parentOf.set(group.id, sections.at(-1).group.id);
+      } else {
+        sections.push({ group, inner: [] });
+      }
+    }
     let firstAccordion = true;
-    for (let index = 0; index < groups.length; index++) {
-      const group = groups[index];
+    for (let index = 0; index < sections.length; index++) {
+      const { group } = sections[index];
       if (group.type === 'tabs') {
-        const run = [group];
-        while (groups[index + 1]?.type === 'tabs') run.push(groups[++index]);
+        const run = [sections[index]];
+        while (sections[index + 1]?.group.type === 'tabs' && !sections[index + 1].group.newTabs) run.push(sections[++index]);
         this.container.append(this._renderTabs(run, states));
       } else if (group.type === 'accordion') {
-        const details = document.createElement('details');
-        details.className = 'h-edit-form-accordion';
-        details.open = firstAccordion;
+        const details = this._accordion(group, group.open ?? firstAccordion);
         firstAccordion = false;
-        const summary = document.createElement('summary');
-        summary.textContent = this._text(group.label) || '';
-        details.append(summary, this._renderGroupFields(group, states));
+        details.append(this._renderSection(sections[index], states));
         this.container.append(details);
         this._groups.set(group.id, { group, element: details });
       } else {
         const fieldset = document.createElement('fieldset');
         fieldset.className = 'h-edit-form-group';
+        if (group.explanation) fieldset.classList.add('is-explanation');
         if (group.label) {
           const legend = document.createElement('legend');
           legend.textContent = this._text(group.label);
           fieldset.append(legend);
         }
-        fieldset.append(this._renderGroupFields(group, states));
+        fieldset.append(this._renderSection(sections[index], states));
         this.container.append(fieldset);
         this._groups.set(group.id, { group, element: fieldset });
       }
     }
   }
 
-  /** A tab set of consecutive "tabs" groups. */
-  _renderTabs(groups, states) {
+  /** A tab set of consecutive "tabs" sections. */
+  _renderTabs(sections, states) {
     const element = document.createElement('div');
     element.className = 'h-edit-form-tabs';
     const strip = document.createElement('div');
@@ -376,7 +387,8 @@ export class HEditForm extends HBaseWidget {
       run.selected = selected;
     };
     const run = { element, tabs, panels, select, selected: 0 };
-    for (const [position, group] of groups.entries()) {
+    for (const [position, section] of sections.entries()) {
+      const { group } = section;
       const tab = document.createElement('button');
       tab.type = 'button';
       tab.className = 'h-edit-form-tab';
@@ -385,16 +397,58 @@ export class HEditForm extends HBaseWidget {
       this.listen(tab, 'click', () => select(position));
       strip.append(tab);
       tabs.push(tab);
-      const panel = this._renderGroupFields(group, states);
+      const panel = this._renderSection(section, states);
       panel.classList.add('h-edit-form-tab-panel');
       panel.setAttribute('role', 'tabpanel');
       element.append(panel);
       panels.push(panel);
       this._groups.set(group.id, { group, element: panel, tab, run, position });
-      for (const field of group.children) this._reveal.set(field.name, () => select(position));
+      for (const member of [group, ...section.inner]) {
+        for (const field of member.children) this._reveal.set(field.name, () => select(position));
+      }
     }
     select(0);
     return element;
+  }
+
+  /** Fields of an outer group, then its inner groups. */
+  _renderSection(section, states) {
+    const host = this._renderGroupFields(section.group, states);
+    for (const group of section.inner) host.append(this._renderInnerGroup(group, states));
+    return host;
+  }
+
+  /** An inner group: a collapsible section, or a heading with its fields (legacy inner separators). */
+  _renderInnerGroup(group, states) {
+    let element;
+    if (group.type === 'accordion') {
+      element = this._accordion(group, group.open === true);
+      element.classList.add('is-inner');
+    } else {
+      element = document.createElement('div');
+      element.className = 'h-edit-form-subgroup';
+      if (group.explanation) element.classList.add('is-explanation');
+      if (group.label) {
+        const heading = document.createElement('div');
+        heading.className = 'h-edit-form-subgroup-heading';
+        heading.textContent = this._text(group.label);
+        element.append(heading);
+      }
+    }
+    element.append(this._renderGroupFields(group, states));
+    this._groups.set(group.id, { group, element });
+    return element;
+  }
+
+  /** @returns {HTMLDetailsElement} A collapsible section with the group label. */
+  _accordion(group, open) {
+    const details = document.createElement('details');
+    details.className = 'h-edit-form-accordion';
+    details.open = open;
+    const summary = document.createElement('summary');
+    summary.textContent = this._text(group.label) || '';
+    details.append(summary);
+    return details;
   }
 
   /** Fields of one group (and its slot). */
@@ -434,6 +488,7 @@ export class HEditForm extends HBaseWidget {
         viewRecord: this.options.viewRecord,
         browseRecords: this.options.browseRecords,
         addRecord: this.options.addRecord,
+        relationships: this.options.relationships,
         fileUrl: this.options.fileUrl,
         editFile: this.options.editFile,
         fileViewer: this.options.fileViewer,
@@ -510,10 +565,15 @@ export class HEditForm extends HBaseWidget {
   _shownChecker() {
     const flat = flatValues(this.form, this.getStates());
     const groupOf = new Map();
-    for (const group of this.form.groups) for (const field of group.children) groupOf.set(field.name, group);
+    const byId = new Map();
+    for (const group of this.form.groups) {
+      byId.set(group.id, group);
+      for (const field of group.children) groupOf.set(field.name, group);
+    }
+    const hidden = (group) => Boolean(group) && (this._hiddenGroups.has(group.id) || !isVisible(group.showWhen, flat));
     return (field) => {
       const group = groupOf.get(field.name);
-      if (group && (this._hiddenGroups.has(group.id) || !isVisible(group.showWhen, flat))) return false;
+      if (hidden(group) || hidden(byId.get(this._parentOf?.get(group?.id)))) return false;
       return !this._hiddenFields.has(field.name) && isVisible(field.showWhen, flat);
     };
   }

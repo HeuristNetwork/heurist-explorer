@@ -765,3 +765,23 @@
 #Show in OSD#Afficher dans OSD
 #Show in Mirador#Afficher dans Mirador
 #Show in new tab#Afficher dans un nouvel onglet
+#Relationships from other records#Relations depuis d'autres enregistrements
+#The relationships could not be loaded#Les relations n'ont pas pu être chargées
+#Add Relationship#Ajouter une relation
+#Add Relationship to#Ajouter une relation vers
+#Add Relationship from#Ajouter une relation depuis
+#Relationship record#Enregistrement de relation
+#Edit relationship record#Modifier l'enregistrement de relation
+#View relationship record#Voir l'enregistrement de relation
+#You are about to delete link between records.<br><br>Are you sure?#Vous allez supprimer le lien entre les enregistrements.<br><br>Êtes-vous sûr ?
+#Proceed#Continuer
+#Warning#Avertissement
+#Create relationship between#Créer une relation entre
+#and#et
+#Source record#Enregistrement source
+#Relationship type#Type de relation
+#Target record#Enregistrement cible
+#Create Link#Créer le lien
+#Save and Edit Attributes#Enregistrer et modifier les attributs
+#The relationship could not be saved#La relation n'a pas pu être enregistrée
+#The database has no relationship record type#La base de données n'a pas de type d'enregistrement de relation

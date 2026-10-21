@@ -4,11 +4,17 @@
  *
  * The record structure becomes groups of fields, the same groups/children idea
  * as the HFilterForm layout (plan 05): a separator row starts a group and its
- * `rst_DefaultValue` gives the group presentation (tabs, accordion or a plain
- * group, as in the legacy editor `manageRecords.js`); fields before the first
- * separator form a plain group without a heading.
+ * `rst_DefaultValue` gives the group presentation, as in the legacy editor
+ * (`manageRecords.js`, `editing2.js` __processGroupInside): `tabs`, `tabs_new`,
+ * `accordion`, `expanded` and `group_break` are outer groups; `group`,
+ * `accordion_inner`, `expanded_inner`, `explanation` and `explanation_break` are
+ * inner groups - parts of the previous outer group (outer themselves when there is
+ * no previous tabs/accordion group, e.g. after a `group_break`). Fields before the
+ * first separator form a plain group without a heading. A forbidden separator only
+ * hides its heading: its fields stay in the current group.
  *
- *   {rty, groups: [{id, type: 'tabs'|'accordion'|'group', label, help, children: [field]}]}
+ *   {rty, groups: [{id, type: 'tabs'|'accordion'|'group', label, help, inner, newTabs,
+ *                   open, explanation, children: [field]}]}
  *   field: {dty, type, label, help, req, max, default, vocabulary, targetTypes,
  *           pointerMode, browseFilter, width, height, multilang, concept}
  *
@@ -31,7 +37,7 @@ import { isWritableRecordType } from './writableRecordTypes.js';
 
 /** `/rst` columns the editor needs. */
 export const EDIT_STRUCTURE_DETAILS = [
-  'rst_DetailTypeID', 'rst_DisplayName', 'rst_DisplayOrder', 'rst_RequirementType', 'rst_DefaultValue',
+  'rst_ID', 'rst_DetailTypeID', 'rst_DisplayName', 'rst_DisplayOrder', 'rst_RequirementType', 'rst_DefaultValue',
   'rst_DisplayHelpText', 'rst_MaxValues', 'rst_PointerMode', 'rst_PointerBrowseFilter',
   'rst_DisplayWidth', 'rst_DisplayHeight', 'dty_Type', 'dty_Name', 'dty_JsonTermIDTree', 'dty_PtrTargetRectypeIDs'
 ].join(',');
@@ -63,18 +69,86 @@ export function resolvePointerMode(value, targetTypes = [], dbdefs = null) {
   return stored || 'addorbrowse';
 }
 
+/** Legacy separator types (`rst_DefaultValue`); anything else is `group`. */
+export const SEPARATOR_TYPES = Object.freeze(['group', 'group_break', 'tabs', 'tabs_new', 'accordion',
+  'accordion_inner', 'expanded', 'expanded_inner', 'explanation', 'explanation_break']);
+
+/** Separator types that are a part of the previous outer group. */
+const INNER_TYPES = new Set(['group', 'accordion_inner', 'expanded_inner', 'explanation', 'explanation_break']);
+
 /**
- * Group presentation of a separator (`rst_DefaultValue`): legacy values tabs,
- * tabs_new, accordion, accordion_inner, expanded, group, group_break.
+ * Legacy type of a separator (`rst_DefaultValue`).
  *
  * @param {*} value Separator default value.
- * @returns {'tabs'|'accordion'|'group'}
+ * @returns {string} One of SEPARATOR_TYPES.
  */
-export function separatorLayout(value) {
-  const text = String(value ?? '').toLowerCase();
-  if (text.startsWith('tab')) return 'tabs';
-  if (text.startsWith('accordion') || text === 'expanded' || text === 'collapsed') return 'accordion';
-  return 'group';
+export function separatorType(value) {
+  const text = String(value ?? '').trim().toLowerCase();
+  return SEPARATOR_TYPES.includes(text) ? text : 'group';
+}
+
+/**
+ * Edit form properties of the separator groups, in order (port of legacy
+ * `__processGroupInside`): an inner type after a tabs/accordion group is a part of it;
+ * otherwise it is an outer group of the matching type (`group` becomes `group_break`,
+ * `accordion_inner` an accordion...). A run of `expanded` groups opens its first one,
+ * `accordion` groups are closed.
+ *
+ * @param {Array<object>} groups Groups with the legacy `kind` (null: fields before the first separator).
+ * @returns {void}
+ */
+function placeGroups(groups) {
+  let parent = false; // the previous outer group takes inner groups
+  let previousKind = null;
+  for (const group of groups) {
+    const kind = group.kind;
+    delete group.kind;
+    if (kind === null) continue;
+    const explanation = kind.startsWith('explanation');
+    const accordion = kind.startsWith('accordion') || kind.startsWith('expanded');
+    const expanded = kind.startsWith('expanded');
+    if (INNER_TYPES.has(kind) && parent) {
+      Object.assign(group, { type: accordion ? 'accordion' : 'group', inner: true, open: expanded });
+    } else if (kind === 'tabs' || kind === 'tabs_new') {
+      Object.assign(group, { type: 'tabs', newTabs: kind === 'tabs_new' });
+      parent = true;
+    } else if (kind === 'accordion' || kind === 'expanded') {
+      Object.assign(group, { type: 'accordion', open: expanded && previousKind !== 'expanded' });
+      parent = true;
+    } else {
+      // group_break, or an inner type without a parent
+      if (kind === 'group_break') parent = false;
+      Object.assign(group, accordion ? { type: 'accordion', open: expanded } : { type: 'group' });
+    }
+    if (explanation) group.explanation = true;
+    if (!group.inner) previousKind = kind;
+  }
+}
+
+/**
+ * Groups shown: an inner group with fields (an explanation also with only its text),
+ * an outer group with fields or inner groups. A left-out `tabs_new` passes the new
+ * tab set to the next tabs group.
+ *
+ * @param {Array<object>} groups Placed groups.
+ * @returns {Array<object>} Groups shown.
+ */
+function shownGroups(groups) {
+  const hasText = (group) => group.explanation && Boolean(group.label || group.help);
+  const inner = groups.filter((group) => !group.inner || group.children.length > 0 || hasText(group));
+  const result = [];
+  let newTabs = false;
+  for (const [index, group] of inner.entries()) {
+    const keep = group.inner || group.children.length > 0 || hasText(group) || inner[index + 1]?.inner === true;
+    if (!keep) {
+      newTabs = newTabs || group.newTabs === true;
+      continue;
+    }
+    if (!group.inner && group.type === 'tabs' && newTabs) group.newTabs = true;
+    if (!group.inner) newTabs = false;
+    result.push(group);
+  }
+  return result;
 }
 
 /**
@@ -87,16 +161,20 @@ export function separatorLayout(value) {
  */
 export function buildEditStructure(rows, { rty, multilangIds = [], dbdefs = null } = {}) {
   const multilang = new Set((multilangIds || []).map(Number));
-  const sorted = [...(rows || [])].sort((a, b) => order(a) - order(b));
+  const sorted = [...(rows || [])].sort(byDisplayOrder);
   const groups = [];
-  let current = { id: null, type: 'group', label: null, help: '', children: [] };
+  let current = { id: null, kind: null, type: 'group', label: null, help: '', children: [] };
   groups.push(current);
   for (const row of sorted) {
     const type = String(row.dty_Type || '');
+    const req = String(row.rst_RequirementType || 'optional').toLowerCase();
     if (type === 'separator') {
+      // a forbidden separator hides its heading only (legacy groupTitleVisible)
+      if (req === 'forbidden') continue;
       current = {
         id: Number(row.rst_DetailTypeID) || null,
-        type: separatorLayout(row.rst_DefaultValue),
+        kind: separatorType(row.rst_DefaultValue),
+        type: 'group',
         label: String(row.rst_DisplayName || '') || null,
         help: String(row.rst_DisplayHelpText || ''),
         children: []
@@ -104,7 +182,6 @@ export function buildEditStructure(rows, { rty, multilangIds = [], dbdefs = null
       groups.push(current);
       continue;
     }
-    const req = String(row.rst_RequirementType || 'optional').toLowerCase();
     if (req === 'forbidden') continue;
     const dty = Number(row.rst_DetailTypeID);
     if (!(dty > 0)) continue;
@@ -129,7 +206,8 @@ export function buildEditStructure(rows, { rty, multilangIds = [], dbdefs = null
       concept: dbdefs?.fieldGlobal?.(dty)?.concept || null
     });
   }
-  return { rty: Number(rty) || 0, groups: groups.filter((group) => group.children.length > 0) };
+  placeGroups(groups);
+  return { rty: Number(rty) || 0, groups: shownGroups(groups) };
 }
 
 /**
@@ -183,9 +261,68 @@ export function nonStandardGroup(record, structure, dbdefs, label = 'Non-standar
   return children.length ? { id: null, type: 'group', label, help: '', children, nonStandard: true } : null;
 }
 
+/**
+ * Reverse relationship fields (plan 22): one field for each relmarker field of another
+ * record type that targets this one; it shows (and adds) the relationships in which the
+ * record is the target, with the inverse relation type. The group goes after the fields
+ * of the record type, before "Non-standard fields".
+ *
+ * @param {number} rty Record type.
+ * @param {object|null} dbdefs HDbDefs (link graph, field names, vocabularies).
+ * @param {string} label Group caption.
+ * @returns {object|null} The group, or null when no other type has such a field.
+ */
+export function reverseRelmarkerGroup(rty, dbdefs, label = 'Relationships from other records') {
+  if (typeof dbdefs?.linkedRectypes !== 'function' || typeof dbdefs?.pointerFieldsBetween !== 'function') return null;
+  const byDty = new Map();
+  for (const from of dbdefs.linkedRectypes(rty, { direction: 'from', relation: true })) {
+    for (const dty of dbdefs.pointerFieldsBetween(from, rty)) {
+      if (dbdefs.fieldType?.(from, dty) !== 'relmarker') continue;
+      let field = byDty.get(dty);
+      if (!field) {
+        const global = dbdefs.fieldGlobal?.(dty) || null;
+        field = {
+          name: `rev:${dty}`,
+          dty: null,
+          relmarkerDty: Number(dty),
+          type: 'relmarker',
+          reverse: true,
+          fieldName: dbdefs.fieldName?.(from, dty) || global?.name || `#${dty}`,
+          help: '',
+          req: 'optional',
+          max: 0,
+          default: '',
+          vocabulary: dbdefs.vocabRoot?.(dty) || global?.vocabulary || null,
+          targetTypes: [Number(rty)],
+          sourceTypes: [],
+          width: 0,
+          height: 0,
+          multilang: false,
+          concept: global?.concept || null
+        };
+        byDty.set(dty, field);
+      }
+      field.sourceTypes.push(Number(from));
+    }
+  }
+  const children = [...byDty.values()].map((field) => ({
+    ...field,
+    label: `${field.fieldName} ← ${field.sourceTypes.map((id) => dbdefs.rectypeName?.(id) || `#${id}`).join(', ')}`
+  }));
+  return children.length ? { id: 'reverse-relationships', type: 'group', label, help: '', children, reverseRelations: true } : null;
+}
+
 /** @returns {number[]} Positive integers of a CSV list or JSON id tree. */
 function idList(value) {
   return [...new Set(String(value ?? '').match(/\d+/g)?.map(Number).filter((id) => id > 0) || [])];
+}
+
+/**
+ * Compare structure rows by display order, then by `rst_ID` as the legacy editor does
+ * (`dbsData.php`): equal orders are common and the API returns them in any order.
+ */
+export function byDisplayOrder(a, b) {
+  return order(a) - order(b) || (Number(a?.rst_ID) || 0) - (Number(b?.rst_ID) || 0);
 }
 
 /** @returns {number} Numeric display order of a structure row (zero-padded string in the API). */

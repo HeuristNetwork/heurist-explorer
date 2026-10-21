@@ -6,7 +6,7 @@
  * A loaded record has `details` keyed by field id, arrays of compact or
  * resolved values; `{value, hidden:true}` marks a value hidden from the public.
  * The editor keeps per field `{values: [entry], translations: [{lang, value, hidden}]}`,
- * entry `{value, hidden, label?, file?}`: compact value (text, term id, record id,
+ * entry `{value, hidden, label?, rectype?, file?}`: compact value (text, term id, record id,
  * ulf_ID, date text, WKT) plus what is shown for it. Translations are the values
  * of a multilingual field with a language prefix ("fre:Nom").
  *
@@ -64,7 +64,7 @@ export function unpackValue(type, raw) {
       return { value: String(geo.wkt ?? raw.value ?? ''), hidden, geoType: geo.type || null };
     }
     if (type === 'resource') {
-      return { value: Number(raw.rec_ID ?? raw.value) || null, hidden, label: raw.rec_Title || '' };
+      return { value: Number(raw.rec_ID ?? raw.value) || null, hidden, label: raw.rec_Title || '', rectype: Number(raw.rec_RecTypeID) || null };
     }
     if (type === 'enum' || type === 'relationtype') {
       return { value: Number(raw.trm_ID ?? raw.value) || null, hidden, label: raw.trm_Label || '' };

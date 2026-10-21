@@ -11,6 +11,7 @@
  *          editor of a new record.
  *        A field without a type constraint adds through the host's Add record dialog
  *        (`addRecord(null)`, plan 21 Phase 4).
+ *        The record type icon of the chosen record is shown before the picker / button.
  *        Edit and View of the chosen record are shown on mouse over, when the host
  *        gives these actions, after the control box (rst_DisplayWidth is the width of the
  *        picker / button; Edit and View do not take from it). Without the host's `browseRecords` / `addRecord` the
@@ -31,6 +32,7 @@ import { HInput } from './HInput.js';
 import { HValueCombo } from '../../picker/HValueCombo.js';
 import { RecordTitleSource } from '../../../data/valueSources/FieldValueSource.js';
 import { POINTER_MODES } from '../../../data/recordEditStructure.js';
+import { recordTypeIconUrl } from '../../record-list/recordAdminInfo.js';
 import { showPopover } from '../../popover/popover.js';
 import { HMsg } from '../../../ui/HMsg.js';
 import { $HR } from '../../../ui/i18n/HResource.js';
@@ -45,7 +47,9 @@ export class HInputResource extends HInput {
    * @param {HTMLElement} container Input host.
    * @param {object} options HInput options plus: `apiClient` (needed without `source`),
    *        `targetTypes` (allowed record types, empty = any), `source` (value source),
-   *        `valueLabel` (title of the initial value), `pointerMode` (one of POINTER_MODES,
+   *        `valueLabel` (title of the initial value), `valueRectype` (its record type),
+   *        `iconBase` ({baseUrl, database} of the record type icons; default the module
+   *        bootstrap), `pointerMode` (one of POINTER_MODES,
    *        default `dropdown`), `browseFilter` (`rst_PointerBrowseFilter`, extra query of the
    *        record manager), `showBrowse` (default false; edit forms set it, plan 21 §9.3),
    *        `showAdd` (default true), `dbdefs` (record type names), and the host actions
@@ -57,7 +61,7 @@ export class HInputResource extends HInput {
   attach(container, options = {}) {
     super.attach(container, options);
     this.source = options.source || new RecordTitleSource(options.apiClient, { rtyId: options.targetTypes || null });
-    if (options.valueLabel) this.source.rememberLabel?.(this.value, options.valueLabel);
+    if (options.valueLabel) this.source.rememberLabel?.(this.value, options.valueLabel, options.valueRectype);
     this.mode = this._effectiveMode();
     return this;
   }
@@ -73,9 +77,14 @@ export class HInputResource extends HInput {
     this.container.classList.add('h-form-input-compact');
     const wrap = document.createElement('div');
     wrap.className = `h-input-resource h-input-resource-${this.mode}`;
+    this.typeIcon = document.createElement('img');
+    this.typeIcon.className = 'h-input-resource-icon';
+    this.typeIcon.alt = '';
+    this.typeIcon.hidden = true;
+    this.listen(this.typeIcon, 'error', () => { this.typeIcon.hidden = true; });
     const pickerHost = document.createElement('div');
     pickerHost.className = 'h-input-resource-picker';
-    wrap.append(pickerHost);
+    wrap.append(this.typeIcon, pickerHost);
     host.append(wrap);
     const control = DROPDOWN_MODES.has(this.mode) ? this._renderCombo(pickerHost) : this._renderButton(pickerHost);
     // after the control box, before the value tools (clear, visibility) of HInput
@@ -171,6 +180,7 @@ export class HInputResource extends HInput {
       onChange: (value) => {
         this.value = value ?? null;
         this._syncActions();
+        this._showTypeIcon();
         this.notifyChange();
       }
     }).render();
@@ -214,6 +224,22 @@ export class HInputResource extends HInput {
       this.modeButton.classList.toggle('is-clickable', !(this.mode === 'addonly' && id));
     }
     this._syncActions();
+    this._showTypeIcon();
+  }
+
+  /**
+   * Record type icon of the chosen record: its type when known, else the only allowed type;
+   * hidden without a record or when the icon does not load.
+   */
+  _showTypeIcon() {
+    if (!this.typeIcon) return;
+    const id = this.getValue();
+    const types = (this.options.targetTypes || []).map(Number).filter((type) => type > 0);
+    const rectype = id ? (this.source.rectypeFor?.(id) || (types.length === 1 ? types[0] : null)) : null;
+    const url = rectype ? recordTypeIconUrl({ rec_RecTypeID: rectype }, this.options.iconBase || {}) : '';
+    if (url && this.typeIcon.getAttribute('src') !== url) this.typeIcon.setAttribute('src', url);
+    this.typeIcon.hidden = !url;
+    this.typeIcon.title = rectype ? (this.options.dbdefs?.rectypeName?.(rectype) || '') : '';
   }
 
   /** Text of the empty button: `Add <type>` / `Add record` (addonly), else "Select record…". */
@@ -284,7 +310,7 @@ export class HInputResource extends HInput {
     const id = Number(result?.recordId ?? result?.record?.rec_ID) || 0;
     if (!result?.saved || !(id > 0)) return;
     const title = result.record?.rec_Title;
-    if (title) this.source.rememberLabel?.(id, String(title).replace(/<[^>]*>/g, ''));
+    if (title) this.source.rememberLabel?.(id, String(title).replace(/<[^>]*>/g, ''), result.record?.rec_RecTypeID ?? rectypeId);
     else if (!this.source.labelFor?.(id)) await this.source.fetchLabels?.([id]);
     this._pick(id);
   }

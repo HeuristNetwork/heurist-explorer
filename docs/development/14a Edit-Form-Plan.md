@@ -1,6 +1,6 @@
 # Edit form (HEditForm) — development plan
 
-**Current state 2026-10-18:** Phases 1-2 and review rounds 1-3 committed (`a83342a`, `6aa1b6a`, `ad8f57e`, `7bf5506`); rounds 4-5 (§15-16) not committed. Open: agree the format (§17), Phase 3 (bridge `openEditForm`), Phase 4 (consumers), remove the test tool.
+**Current state 2026-10-21:** Phases 1-2 and review rounds 1-3 committed (`a83342a`, `6aa1b6a`, `ad8f57e`, `7bf5506`); rounds 4-5 (§15-16) not committed. Separator groups as in the legacy editor (§18, 2026-10-21) not committed. Open: agree the format (§17), Phase 3 (bridge `openEditForm`), Phase 4 (consumers), remove the test tool.
 
 Status: **proposal 2026-10-17, Phase 1 and Phase 2 implemented 2026-10-17, not committed, not checked
 in a browser.** The JSON format (§3) is a proposal to agree with the *Test edit form* tool (§6).
@@ -72,6 +72,12 @@ The record edit structure of plan 14 (`recordEditStructure.js`) is the same JSON
   (`getSlot(name)`), e.g. symbol previews.
 - `columns`: the fields in a grid of n columns, row by row (e.g. from / to pairs); one column in a
   narrow form.
+- `inner` (2026-10-21, §18): the group is a part of the previous outer group - a heading with its
+  fields (`group`) or a collapsible section (`accordion`) inside it. Not for `tabs`; an inner group
+  with no outer group before it is an outer group (warning).
+- `newTabs` (§18): this `tabs` group starts a new tab set (otherwise consecutive tabs are one set).
+- `open` (§18): an accordion is open / closed. Not given: the first outer accordion is open.
+- `explanation` (§18): the heading and help are a text of their own (no fields needed).
 
 **Field**
 
@@ -301,3 +307,34 @@ Tests: 1216 pass.
   `maxValue` vs `max`, `showWhen` as "all of" with text comparison, dotted names.
 - Is `showWhen` enough for the module configuration dialogs, or do they need more (e.g. "not",
   "is empty")? More can be added to the JSON later without breaking it.
+
+## 18. Separator groups as in the legacy editor (Artem, 2026-10-21)
+
+The record structure ignored the legacy group rules: every separator was a group on the top level,
+and `tabs_new`, `expanded` and the inner types were only tabs / accordion / group. Now
+`recordEditStructure.js` ports `editing2.js` `__processGroupInside` (and the `manageRecords.js`
+separator list), and HEditForm renders inner groups (§3: `inner`, `newTabs`, `open`, `explanation`).
+
+| Separator (`rst_DefaultValue`) | Group |
+|---|---|
+| `tabs` | next tab of the current tab set |
+| `tabs_new` | first tab of a new tab set (`newTabs`) |
+| `accordion` / `expanded` | outer accordion; `expanded` opens the first of a run of `expanded` |
+| `group_break` | outer fieldset; the next inner types are outer too (until a tabs / accordion group) |
+| `group`, `explanation`, `explanation_break` | inner heading (explanation: text) in the previous tabs / accordion group |
+| `accordion_inner` / `expanded_inner` | inner collapsible section (`expanded_inner` open) |
+| anything else, empty | `group` |
+
+An inner type with no tabs / accordion group before it (at the start, or after `group_break`) is an
+outer group: `group` → fieldset, `accordion_inner` → accordion, `explanation` → fieldset with text.
+A forbidden separator only hides its heading (legacy `groupTitleVisible`): its fields stay in the
+current group. Equal `rst_DisplayOrder` values are sorted by `rst_ID`, as in legacy `dbsData.php`.
+
+Differences from legacy:
+- A group without fields is left out (legacy shows "There are no fields visible under this
+  heading/tab"); an explanation with text, or an outer group with inner groups, stays.
+- The accordion sections are independent `<details>` (legacy jQuery accordion: one open at a time).
+- The Record view sections (`RecordStructureProvider.fieldSections`) do not use these rules.
+
+Tests: `recordEdit.test.js` (every separator type), `hEditForm.test.js` (inner groups, new tab set,
+visibility with the outer group). Not checked in a browser.
