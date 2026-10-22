@@ -530,7 +530,8 @@ export class ExplorerControlPanel {
       value: this.application.uiConfigSaved || this.application.uiConfigValue,
       onSave: (value) => this.application.applyUiConfig(value),
       onGettingStarted: () => this.application.showWelcome(),
-      onQueryTrace: () => this.application.showQueryTrace()
+      onQueryTrace: () => this.application.showQueryTrace(),
+      onManageTags: () => void this.application.manageTags()
     }).open();
   }
 

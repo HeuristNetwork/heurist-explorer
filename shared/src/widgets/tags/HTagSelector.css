@@ -1,0 +1,59 @@
+/* HTagSelector: the tags of one record (plan 20, Phase 4a) */
+
+.h-tag-selector {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.h-tag-selector-note {
+  color: var(--h-color-text-muted);
+  font-style: italic;
+}
+
+.h-tag-selector-group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 6px;
+}
+
+.h-tag-selector-owner {
+  color: var(--h-color-text-muted);
+}
+
+.h-tag-selector-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 0 2px 0 6px;
+  border: 1px solid var(--h-color-border);
+  border-radius: 10px;
+  background: var(--h-color-surface);
+}
+
+.h-tag-selector-remove {
+  padding: 0 4px;
+  line-height: 1;
+}
+
+.h-tag-selector-add {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.h-tag-selector-picker {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.h-tag-selector-owner-select {
+  flex: 0 1 auto;
+  max-width: 45%;
+}
+
+.h-tag-selector-manage {
+  align-self: flex-start;
+  font-size: 12px;
+}

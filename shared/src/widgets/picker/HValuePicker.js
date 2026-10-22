@@ -66,7 +66,7 @@ export class HValuePicker extends HBaseWidget {
    * @param {Array<{id: string, icon: string, title: string, run: Function}>} [options.actions] Icon
    *        buttons after the filter input (Browse / Add of a pointer field, plan 21); with
    *        actions the filter row is always shown. A click dispatches `h-value-picker-action`
-   *        (the combo closes) and runs the action.
+   *        (the combo closes) and runs the action with the filter text: `run(text)`.
    * @param {Function} [options.onPick] Called with the picked item.
    * @param {Function} [options.onChange] Called with the new value.
    * @returns {HValuePicker} This picker.
@@ -155,7 +155,8 @@ export class HValuePicker extends HBaseWidget {
       this.listen(button, 'click', (event) => {
         event.preventDefault();
         this.container?.dispatchEvent(new CustomEvent('h-value-picker-action', { bubbles: true, detail: { id: action.id } }));
-        void action.run();
+        // the text typed in the filter (e.g. the name of a new tag)
+        void action.run(this._text);
       });
       return button;
     });

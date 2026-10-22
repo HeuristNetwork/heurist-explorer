@@ -31,9 +31,11 @@ export class RecordEditError extends Error {
    * @param {Array<object>} [options.issues] Field issues `{field, index, code, severity, message}`.
    * @param {object|null} [options.references] References of a refused delete `{pointers, relationships}`.
    * @param {string|null} [options.recModified] Stored `rec_Modified` of a conflict.
+   * @param {object} [options.details] The whole error body of the server (e.g. `existing` of a refused
+   *        duplicate tag, `usage` and `records` of a tag in use).
    * @param {Error} [options.cause] Underlying error.
    */
-  constructor(message, { status = null, code = null, issues = [], references = null, recModified = null, cause } = {}) {
+  constructor(message, { status = null, code = null, issues = [], references = null, recModified = null, details = {}, cause } = {}) {
     super(message, { cause });
     this.name = 'RecordEditError';
     this.status = status;
@@ -41,6 +43,7 @@ export class RecordEditError extends Error {
     this.issues = issues;
     this.references = references;
     this.recModified = recModified;
+    this.details = details || {};
   }
 
   /** @returns {boolean} The record has invalid values (422). */
@@ -59,17 +62,24 @@ export class RecordEditError extends Error {
   }
 }
 
-/** Reads and writes single records through `/records/{id}` (or `/files/{id}`: file records, plan 20). */
+/**
+ * Reads and writes single records through `/records/{id}`, `/files/{id}` (file records, plan 20)
+ * or `/sys/{type}/{id}` (system records in the record format: tags, plan 20 §10).
+ */
 export class RecordEditClient {
   /**
-   * @param {{apiClient: object, domain?: 'records'|'files'}} options HeuristApiClient (needs `request`);
-   *        API domain of the records (`files`: registered files).
+   * @param {{apiClient: object, domain?: 'records'|'files'|'sys', type?: string}} options HeuristApiClient
+   *        (needs `request`); API domain of the records (`files`: registered files; `sys`: with `type`,
+   *        e.g. `tag`).
    */
-  constructor({ apiClient, domain = 'records' }) {
+  constructor({ apiClient, domain = 'records', type = null }) {
     if (typeof apiClient?.request !== 'function') throw new TypeError('RecordEditClient requires an API client');
-    if (!['records', 'files'].includes(domain)) throw new TypeError(`Unknown record domain: ${domain}`);
+    if (!['records', 'files', 'sys'].includes(domain)) throw new TypeError(`Unknown record domain: ${domain}`);
+    if (domain === 'sys' && !/^[a-z]+$/.test(String(type || ''))) throw new TypeError('A /sys record client needs its type');
     this.apiClient = apiClient;
     this.domain = domain;
+    // path of the records: /records, /files, /sys/<type>
+    this.basePath = domain === 'sys' ? `/sys/${type}` : `/${domain}`;
   }
 
   /**
@@ -82,7 +92,7 @@ export class RecordEditClient {
    */
   async load(id, { signal } = {}) {
     const recordId = positiveId(id);
-    const payload = await this._call('GET', `/${this.domain}/${recordId}`, { query: { fields: '_all', resolveDetails: 1, defs: 1 }, signal });
+    const payload = await this._call('GET', `${this.basePath}/${recordId}`, { query: { fields: '_all', resolveDetails: 1, defs: 1 }, signal });
     return { record: payload?.records?.[0] || null, meta: payload?.meta || {} };
   }
 
@@ -95,7 +105,7 @@ export class RecordEditClient {
   async insert(record) {
     const id = Number(record?.rec_ID) || 0;
     if (id > 0) throw new TypeError('insert() needs rec_ID 0 or a negative id');
-    return this._saved(await this._call('POST', `/${this.domain}/${id}`, { body: { ...record, rec_ID: String(id) } }));
+    return this._saved(await this._call('POST', `${this.basePath}/${id}`, { body: { ...record, rec_ID: String(id) } }));
   }
 
   /**
@@ -107,7 +117,7 @@ export class RecordEditClient {
    */
   async update(record, { force = false } = {}) {
     const id = positiveId(record?.rec_ID);
-    return this._saved(await this._call('PUT', `/${this.domain}/${id}`, { body: record, query: force ? { force: 1 } : null }));
+    return this._saved(await this._call('PUT', `${this.basePath}/${id}`, { body: record, query: force ? { force: 1 } : null }));
   }
 
   /**
@@ -119,7 +129,7 @@ export class RecordEditClient {
    * @returns {Promise<{record: object, issues: Array<object>}>}
    */
   async patch(id, changes, { force = false } = {}) {
-    return this._saved(await this._call('PATCH', `/${this.domain}/${positiveId(id)}`, { body: changes || {}, query: force ? { force: 1 } : null }));
+    return this._saved(await this._call('PATCH', `${this.basePath}/${positiveId(id)}`, { body: changes || {}, query: force ? { force: 1 } : null }));
   }
 
   /**
@@ -131,7 +141,7 @@ export class RecordEditClient {
    * @returns {Promise<{deleted: string[], pointersRemoved: number, relationshipsDeleted: number}>}
    */
   async remove(id, { force = false } = {}) {
-    return this._call('DELETE', `/${this.domain}/${positiveId(id)}`, { query: force ? { force: 1 } : null });
+    return this._call('DELETE', `${this.basePath}/${positiveId(id)}`, { query: force ? { force: 1 } : null });
   }
 
   /**
@@ -141,7 +151,7 @@ export class RecordEditClient {
    * @returns {Promise<{record: object, issues: Array<object>}>} The new record.
    */
   async duplicate(id) {
-    return this._saved(await this._call('POST', `/${this.domain}/${positiveId(id)}/duplicate`, { body: {} }));
+    return this._saved(await this._call('POST', `${this.basePath}/${positiveId(id)}/duplicate`, { body: {} }));
   }
 
   /**
@@ -154,7 +164,7 @@ export class RecordEditClient {
   async validate(record) {
     const id = Number(record?.rec_ID) || 0;
     try {
-      const payload = await this._call('POST', `/${this.domain}/${id}/validate`, { body: record });
+      const payload = await this._call('POST', `${this.basePath}/${id}/validate`, { body: record });
       return { valid: true, issues: payload?.issues || [] };
     } catch (error) {
       if (error instanceof RecordEditError && error.isValidation) return { valid: false, issues: error.issues };
@@ -182,6 +192,7 @@ export class RecordEditClient {
         issues: Array.isArray(details.errors) ? details.errors : [],
         references: details.references || null,
         recModified: details.rec_Modified || null,
+        details,
         cause: error
       });
     }

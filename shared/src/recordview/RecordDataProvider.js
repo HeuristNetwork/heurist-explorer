@@ -100,13 +100,14 @@ export class RecordDataProvider {
     try {
       const response = await this.apiClient.get("/sys", {
         signal,
-        query: { q: { t: "tag", record: String(recordId), user: "current" }, fields: "owner,ownername", limit: 1000 },
+        // tags are in the record format (plan 20, Phase 4a): the owner and its name are headers
+        query: { q: { t: "tag", record: String(recordId), user: "current" }, fields: "rec_OwnerUGrpID,rec_OwnerName", limit: 1000 },
       });
       const tags = (Array.isArray(response?.records) ? response.records : []).map((row) => ({
         id: Number(row.rec_ID),
         name: String(row.rec_Title ?? ""),
         owner: Number(row.rec_OwnerUGrpID),
-        ownerName: String(row.details?.ownerName?.[0]?.value ?? ""),
+        ownerName: String(row.rec_OwnerName ?? ""),
       }));
       return { currentUserId: Number(response?.meta?.currentUser?.id) || 0, tags };
     } catch (error) {

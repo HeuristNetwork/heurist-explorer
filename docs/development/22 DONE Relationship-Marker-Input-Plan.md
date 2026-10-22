@@ -1,9 +1,9 @@
 # Relationship marker input (HInputRelmarker) — development plan
 
-**Current state 2026-10-21:** implemented, not committed, not checked in a browser. Tests pass
+**Current state 2026-10-22: DONE** (Artem). Implemented and committed (`b07bc66`, `3df305f`); browser check done; the dates are not needed in the row (§4). Tests pass
 (`shared/test/relmarker.test.js`, and `editStructuresAllTypes.test.js` renders relmarker fields as inputs).
-The live definitions of `osmak_mapping` give the reverse fields. That database has no relationship records,
-so creating and deleting one through the API has not been tried yet.
+The live definitions of `osmak_mapping` give the reverse fields; the database has some relationship records
+(e.g. to 204986), but creating and deleting one through the editor has not been tried in a browser yet.
 
 Plans 14 (record editing), 14a (HEditForm) and 21 (§4: "HInputRelmaker, later") are the base.
 
@@ -77,5 +77,6 @@ specially (`recordEditStructure.js` `relationRecordStructure`, HRecordEditor opt
 ## 4. Open points
 
 - Browser check: add (forward and reverse), Save and Edit Attributes, Edit / View, delete with the warning, a new
-  record, a read-only editor.
+  record, a read-only editor. **Checked (Artem, 2026-10-22).**
 - Relationship dates / other attributes are not shown in the row (legacy showed start - end dates after the title).
+  **Not needed (Artem, 2026-10-22):** the info icon loads Record View of the relationship record with all its data.

@@ -1,0 +1,75 @@
+/* HRecordPrivate: the bookmark and reminders of the user on a record (plan 20, Phase 4b) */
+
+.h-record-private {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.h-record-private-block {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+}
+
+.h-record-private-heading {
+  font-weight: 600;
+}
+
+.h-record-private-note {
+  color: var(--h-color-text-muted);
+  font-style: italic;
+}
+
+.h-record-private-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.h-record-private-lines {
+  flex: 1 1 auto;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 2px 8px;
+  margin: 0;
+}
+
+.h-record-private-lines dt {
+  color: var(--h-color-text-muted);
+}
+
+.h-record-private-lines dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+  white-space: pre-line;
+}
+
+.h-record-private-reminder {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.h-record-private-message {
+  color: var(--h-color-text-muted);
+  white-space: pre-line;
+}
+
+.h-record-private-tools {
+  flex: 0 0 auto;
+  display: flex;
+  gap: 2px;
+}
+
+.h-record-private-add {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.h-record-private-dialog {
+  min-width: min(480px, 92vw);
+}

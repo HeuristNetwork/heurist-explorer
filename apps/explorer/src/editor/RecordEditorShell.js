@@ -33,6 +33,7 @@ import { UserGroupManager } from '../core/UserGroupManager.js';
 import { RecordTypeManager } from '../core/RecordTypeManager.js';
 import { RecordEditorHost } from '../core/RecordEditorHost.js';
 import { EditorServices } from '../core/EditorServices.js';
+import { openTagManager } from '../ui/ExplorerTagManager.js';
 
 /** `source` of the messages to the opener. */
 export const EDITOR_MESSAGE_SOURCE = 'heurist-record-editor';
@@ -90,7 +91,9 @@ export class RecordEditorShell {
       language: this.config.language,
       baseUrl: this.config.baseUrl,
       database: this.config.database,
-      recordLimits: this.config.recordLimits
+      recordLimits: this.config.recordLimits,
+      // the tag manager of the Tags panel (plan 20, 4a); no search here: there is no result list
+      manageTags: () => openTagManager({ apiClient: this.apiClient, dbdefs: this._dbDefs })
     });
     try {
       await this.userGroups.load();

@@ -581,7 +581,6 @@
 #Tags#Étiquettes
 #Linked records#Enregistrements liés
 #Scratchpad#Bloc-notes
-#Bookmark, rating and reminders: coming soon#Signet, évaluation et rappels : bientôt disponible
 #Tags: coming soon#Étiquettes : bientôt disponible
 #Save the record to see its links#Enregistrez l'enregistrement pour voir ses liens
 #No linked records#Aucun enregistrement lié
@@ -824,3 +823,74 @@
 #Show optional#Afficher les facultatifs
 #Empty only#Vides seulement
 #Show help#Afficher l'aide
+
+# tags (plan 20, Phase 4a)
+#Personal tags#Mots-clés personnels
+#tags#mots-clés
+#Personal#Personnel
+#The tags could not be loaded#Les mots-clés n'ont pas pu être chargés
+#No tags yet#Pas encore de mots-clés
+#Add a tag#Ajouter un mot-clé
+#Click to rename#Cliquer pour renommer
+#Find records with this tag#Chercher les enregistrements avec ce mot-clé
+#Delete the tag#Supprimer le mot-clé
+#Enter the tag#Saisir le mot-clé
+#A tag has at least 3 characters#Un mot-clé a au moins 3 caractères
+#A tag has at most 63 characters#Un mot-clé a au plus 63 caractères
+#This tag exists already#Ce mot-clé existe déjà
+#The tag#Le mot-clé
+#exists already. Merge#existe déjà. Fusionner
+#into it? Its records get the tag#avec lui ? Ses enregistrements reçoivent le mot-clé
+#Merge#Fusionner
+#is on#est sur
+#record(s). Delete it and remove it from the records?#enregistrement(s). Le supprimer et le retirer des enregistrements ?
+#No tags#Aucun mot-clé
+#Manage tags#Gérer les mots-clés
+#Add a tag…#Ajouter un mot-clé…
+#Find or type a new tag#Chercher ou saisir un nouveau mot-clé
+#Add new tag (the typed text)#Ajouter un nouveau mot-clé (le texte saisi)
+#Owner of a new tag#Propriétaire d'un nouveau mot-clé
+#Remove the tag from the record#Retirer le mot-clé de l'enregistrement
+#Save the record to tag it#Enregistrez l'enregistrement pour lui ajouter des mots-clés
+#Log in to see your tags#Connectez-vous pour voir vos mots-clés
+#Tags are not available here#Les mots-clés ne sont pas disponibles ici
+#Log in to manage your tags#Connectez-vous pour gérer vos mots-clés
+#Add, rename, merge and delete your tags and the tags of your groups#Ajouter, renommer, fusionner et supprimer vos mots-clés et ceux de vos groupes
+#Bookmark#Signet
+#Reminders#Rappels
+#Reminder#Rappel
+#Not bookmarked#Pas de signet
+#Rating#Évaluation
+#Not rated#Non évalué
+#Notes#Notes
+#Private note#Note privée
+#Encrypted with another key: it cannot be read#Chiffrée avec une autre clé : elle ne peut pas être lue
+#Edit the bookmark#Modifier le signet
+#Remove the bookmark#Supprimer le signet
+#No reminders#Aucun rappel
+#Edit the reminder#Modifier le rappel
+#Delete the reminder#Supprimer le rappel
+#Add reminder#Ajouter un rappel
+#Edit bookmark#Modifier le signet
+#Edit reminder#Modifier le rappel
+#Send now#Envoyer maintenant
+#Send to#Envoyer à
+#User or group#Utilisateur ou groupe
+#E-mail addresses#Adresses e-mail
+#E-mail#E-mail
+#Message#Message
+#Frequency#Fréquence
+#The reminder has been sent#Le rappel a été envoyé
+#Remove the bookmark (rating and notes) of this record?#Supprimer le signet (évaluation et notes) de cet enregistrement ?
+#Delete this reminder?#Supprimer ce rappel ?
+#The private data could not be loaded#Les données privées n'ont pas pu être chargées
+#It was changed meanwhile (in another window?). Close the form and try again#Il a été modifié entre-temps (dans une autre fenêtre ?). Fermez le formulaire et réessayez
+#Save the record to bookmark it#Enregistrez l'enregistrement pour lui ajouter un signet
+#Bookmarks are not available here#Les signets ne sont pas disponibles ici
+#Log in to bookmark records#Connectez-vous pour ajouter des signets
+#Your rating of the record: 1 to 5 stars#Votre évaluation de l'enregistrement : 1 à 5 étoiles
+#Your personal notes#Vos notes personnelles
+#Only you see it (e.g. a password hint). Stored encrypted, at most 140 characters#Vous seul la voyez (p. ex. un indice de mot de passe). Stockée chiffrée, 140 caractères au plus
+#The user or the members of the group get the reminder#L'utilisateur ou les membres du groupe reçoivent le rappel
+#E-mail addresses, separated by commas#Adresses e-mail, séparées par des virgules
+#The first (or only) date of the reminder#La première (ou seule) date du rappel

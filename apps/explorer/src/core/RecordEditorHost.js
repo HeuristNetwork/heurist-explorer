@@ -67,6 +67,8 @@ export class RecordEditorHost {
    * @param {Function} [options.rectypeIconUrl] `(rectypeId) → url` of record type icons (symbol previews).
    * @param {string} [options.language] UI language.
    * @param {object} [options.recordLimits] Limits of the built-in record view and of Linked records (plan 23).
+   * @param {Function} [options.onTagsChanged] Called with the record id after its tags changed in the editor.
+   * @param {Function} [options.manageTags] Opens the tag manager ("Manage tags" of the Tags panel).
    */
   constructor(options = {}) {
     this.options = options;
@@ -273,8 +275,11 @@ export class RecordEditorHost {
       // the file below a file field (thumbnail click, plan 21)
       fileViewer: this.options.baseUrl ? { baseUrl: this.options.baseUrl, database: this.options.database || '' } : null,
       // links per row in the Record summary's Linked records (plan 23)
-      limits: this.options.recordLimits || null
+      limits: this.options.recordLimits || null,
+      onManageTags: this.options.manageTags || null
     });
+    // tags are saved at once (plan 20, 4a): the host shows them again
+    host.addEventListener('h-record-tags-change', (event) => this.options.onTagsChanged?.(Number(event.detail?.recordId) || 0));
     host.addEventListener('h-record-editor-saved', (event) => {
       savedRecords.set(host, event.detail.record);
       // the owner / visibility of a new record are the defaults of the next one (plan 21)

@@ -581,7 +581,6 @@
 #Tags#Tags
 #Linked records#Linked records
 #Scratchpad#Scratchpad
-#Bookmark, rating and reminders: coming soon#Bookmark, rating and reminders: coming soon
 #Tags: coming soon#Tags: coming soon
 #Save the record to see its links#Save the record to see its links
 #No linked records#No linked records
@@ -824,3 +823,74 @@
 #Show optional#Show optional
 #Empty only#Empty only
 #Show help#Show help
+
+# tags (plan 20, Phase 4a)
+#Personal tags#Personal tags
+#tags#tags
+#Personal#Personal
+#The tags could not be loaded#The tags could not be loaded
+#No tags yet#No tags yet
+#Add a tag#Add a tag
+#Click to rename#Click to rename
+#Find records with this tag#Find records with this tag
+#Delete the tag#Delete the tag
+#Enter the tag#Enter the tag
+#A tag has at least 3 characters#A tag has at least 3 characters
+#A tag has at most 63 characters#A tag has at most 63 characters
+#This tag exists already#This tag exists already
+#The tag#The tag
+#exists already. Merge#exists already. Merge
+#into it? Its records get the tag#into it? Its records get the tag
+#Merge#Merge
+#is on#is on
+#record(s). Delete it and remove it from the records?#record(s). Delete it and remove it from the records?
+#No tags#No tags
+#Manage tags#Manage tags
+#Add a tag…#Add a tag…
+#Find or type a new tag#Find or type a new tag
+#Add new tag (the typed text)#Add new tag (the typed text)
+#Owner of a new tag#Owner of a new tag
+#Remove the tag from the record#Remove the tag from the record
+#Save the record to tag it#Save the record to tag it
+#Log in to see your tags#Log in to see your tags
+#Tags are not available here#Tags are not available here
+#Log in to manage your tags#Log in to manage your tags
+#Add, rename, merge and delete your tags and the tags of your groups#Add, rename, merge and delete your tags and the tags of your groups
+#Bookmark#Bookmark
+#Reminders#Reminders
+#Reminder#Reminder
+#Not bookmarked#Not bookmarked
+#Rating#Rating
+#Not rated#Not rated
+#Notes#Notes
+#Private note#Private note
+#Encrypted with another key: it cannot be read#Encrypted with another key: it cannot be read
+#Edit the bookmark#Edit the bookmark
+#Remove the bookmark#Remove the bookmark
+#No reminders#No reminders
+#Edit the reminder#Edit the reminder
+#Delete the reminder#Delete the reminder
+#Add reminder#Add reminder
+#Edit bookmark#Edit bookmark
+#Edit reminder#Edit reminder
+#Send now#Send now
+#Send to#Send to
+#User or group#User or group
+#E-mail addresses#E-mail addresses
+#E-mail#E-mail
+#Message#Message
+#Frequency#Frequency
+#The reminder has been sent#The reminder has been sent
+#Remove the bookmark (rating and notes) of this record?#Remove the bookmark (rating and notes) of this record?
+#Delete this reminder?#Delete this reminder?
+#The private data could not be loaded#The private data could not be loaded
+#It was changed meanwhile (in another window?). Close the form and try again#It was changed meanwhile (in another window?). Close the form and try again
+#Save the record to bookmark it#Save the record to bookmark it
+#Bookmarks are not available here#Bookmarks are not available here
+#Log in to bookmark records#Log in to bookmark records
+#Your rating of the record: 1 to 5 stars#Your rating of the record: 1 to 5 stars
+#Your personal notes#Your personal notes
+#Only you see it (e.g. a password hint). Stored encrypted, at most 140 characters#Only you see it (e.g. a password hint). Stored encrypted, at most 140 characters
+#The user or the members of the group get the reminder#The user or the members of the group get the reminder
+#E-mail addresses, separated by commas#E-mail addresses, separated by commas
+#The first (or only) date of the reminder#The first (or only) date of the reminder

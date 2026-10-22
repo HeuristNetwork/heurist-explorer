@@ -1,0 +1,103 @@
+/* HTagManager: tags per owner (plan 20, Phase 4a) */
+
+.h-tag-manager {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+}
+
+.h-tag-manager-note,
+.h-tag-manager-empty {
+  padding: 4px 2px;
+  color: var(--h-color-text-muted);
+}
+
+.h-tag-manager-group {
+  border: 1px solid var(--h-color-border);
+  border-radius: var(--h-radius);
+}
+
+.h-tag-manager-group > summary {
+  padding: 5px 8px;
+  font-weight: 600;
+  color: var(--h-color-header);
+  cursor: pointer;
+}
+
+.h-tag-manager-body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 4px 8px 8px;
+}
+
+.h-tag-manager-add {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.h-tag-manager-add-input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.h-tag-manager-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 2px 12px;
+}
+
+.h-tag-manager-tag {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.h-tag-manager-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  padding: 2px 4px;
+  border: 0;
+  border-radius: 3px;
+  background: none;
+  color: var(--h-color-text);
+  font: inherit;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: text;
+}
+
+.h-tag-manager-name:hover {
+  background: var(--h-color-surface-hover);
+}
+
+.h-tag-manager-name[hidden] {
+  display: none;
+}
+
+.h-tag-manager-edit {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.h-tag-manager-usage {
+  flex: 0 0 auto;
+  min-width: 2em;
+  color: var(--h-color-text-muted);
+  text-align: right;
+}
+
+.h-tag-manager-delete {
+  flex: 0 0 auto;
+  visibility: hidden;
+}
+
+.h-tag-manager-tag:hover .h-tag-manager-delete,
+.h-tag-manager-delete:focus-visible {
+  visibility: visible;
+}

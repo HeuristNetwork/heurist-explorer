@@ -40,6 +40,9 @@ import { loadRelationship, loadRelmarkerStates, relationFits, relationshipBody }
 import { HCardinalLayout } from '../layout/HCardinalLayout.js';
 import { recordTypeIconUrl } from '../record-list/recordAdminInfo.js';
 import { FIND_THRESHOLD, HStructureTree } from '../structure-tree/HStructureTree.js';
+import { HTagSelector } from '../tags/HTagSelector.js';
+import { HRecordPrivate } from '../user-data/HRecordPrivate.js';
+import { TagClient } from '../../data/TagClient.js';
 import { RecordRelationsProvider } from '../../recordview/RecordRelationsProvider.js';
 import { buildLinkedFromSection, buildLinksRow } from '../../recordview/RecordViewRenderer.js';
 import { normalizeRecordLimits } from '../../recordview/recordLimits.js';
@@ -88,6 +91,7 @@ export class HRecordEditor extends HBaseWidget {
    * @param {'flow'|'stack'} [options.inputPos='stack'] One field per line, or side by side.
    * @param {boolean} [options.summary=true] The Record summary pane on the right.
    * @param {Function} [options.onOpenRecord] Called with a record id: a linked record of the summary.
+   * @param {Function} [options.onManageTags] Opens the tag manager ("Manage tags" of the Tags panel).
    * @param {object} [options.limits] Limits of the built-in record view (`recordLimits.js`, plan 23): a
    *        group with more than `fields` fields gets collapsed parts, a field shows the inputs of its first
    *        `values` values, the summary's Linked records show `links` records per row.
@@ -325,6 +329,10 @@ export class HRecordEditor extends HBaseWidget {
 
   /** @returns {Promise<void>} Completion after the inputs are removed. */
   async destroy() {
+    await this.tagSelector?.destroy();
+    this.tagSelector = null;
+    await this.privatePanel?.destroy();
+    this.privatePanel = null;
     await this._destroyForm();
     await super.destroy();
   }
@@ -548,8 +556,8 @@ export class HRecordEditor extends HBaseWidget {
       return details;
     };
     this.adminSection = section('Admin', true, (body) => this._renderAdmin(body, header));
-    section('Private', false, (body) => body.append(note($HR('Bookmark, rating and reminders: coming soon'))));
-    section('Tags', false, (body) => body.append(note($HR('Tags: coming soon'))));
+    section('Private', false, (body) => this._renderPrivate(body));
+    section('Tags', true, (body) => this._renderTags(body));
     section('Linked records', true, (body) => {
       this.linkedBody = body;
       this._renderLinkedRecords(body);
@@ -565,6 +573,72 @@ export class HRecordEditor extends HBaseWidget {
       body.append(this.scratchpad);
     });
     return pane;
+  }
+
+  /**
+   * Tags of the record (plan 20, Phase 4a): HTagSelector, the changes are sent at once.
+   * A new record is tagged after its first save; a guest sees no tags.
+   */
+  _renderTags(body) {
+    body.replaceChildren();
+    void this.tagSelector?.destroy();
+    this.tagSelector = null;
+    if (this.isNew) {
+      body.append(note($HR('Save the record to tag it')));
+      return;
+    }
+    const currentUserId = Number(this.dbdefs?.currentUserId?.()) || 0;
+    if (typeof this.options.apiClient?.request !== 'function') {
+      body.append(note($HR('Tags are not available here')));
+      return;
+    }
+    if (currentUserId < 1) {
+      body.append(note($HR('Log in to see your tags')));
+      return;
+    }
+    const host = document.createElement('div');
+    body.append(host);
+    this.tagSelector = new HTagSelector().attach(host, {
+      tagClient: new TagClient({ apiClient: this.options.apiClient, dbdefs: this.dbdefs }),
+      recordId: Number(this.record.rec_ID),
+      currentUserId,
+      groups: (this.dbdefs?.groups?.() || []).map((group) => ({ id: Number(group.id), name: String(group.name ?? '') })),
+      readOnly: Boolean(this.options.readOnly),
+      onManage: typeof this.options.onManageTags === 'function' ? () => this.options.onManageTags() : null,
+      // the host refreshes the record view and its list of tags
+      onChange: (tags) => this._emit('h-record-tags-change', { recordId: Number(this.record?.rec_ID) || 0, tags })
+    }).render();
+  }
+
+  /**
+   * Private (plan 20, Phase 4b): the bookmark and the reminders of the user (HRecordPrivate),
+   * sent at once. A new record gets them after its first save; a guest has none.
+   */
+  _renderPrivate(body) {
+    body.replaceChildren();
+    void this.privatePanel?.destroy();
+    this.privatePanel = null;
+    if (this.isNew) {
+      body.append(note($HR('Save the record to bookmark it')));
+      return;
+    }
+    if (typeof this.options.apiClient?.request !== 'function') {
+      body.append(note($HR('Bookmarks are not available here')));
+      return;
+    }
+    if ((Number(this.dbdefs?.currentUserId?.()) || 0) < 1) {
+      body.append(note($HR('Log in to bookmark records')));
+      return;
+    }
+    const host = document.createElement('div');
+    body.append(host);
+    this.privatePanel = new HRecordPrivate().attach(host, {
+      apiClient: this.options.apiClient,
+      dbdefs: this.dbdefs,
+      recordId: Number(this.record.rec_ID),
+      readOnly: Boolean(this.options.readOnly),
+      onChange: (change) => this._emit('h-record-private-change', { recordId: Number(this.record?.rec_ID) || 0, ...change })
+    }).render();
   }
 
   /** Admin: owner and access (editable), added by, added and updated. */

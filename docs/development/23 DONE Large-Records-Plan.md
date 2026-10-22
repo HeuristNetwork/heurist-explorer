@@ -1,8 +1,8 @@
 # Large records: many fields, many values, many links — development plan
 
-**Current state 2026-10-22:** agreed (Artem, 2026-10-22). **Phases 1 and 2 implemented** (§8, §9; loading indicators §10), not
-committed, not checked in a browser; `npm test` passes, `build:all` builds. Phase 3 (edit workflow, §4) implemented (§11), not committed,
-not checked in a browser. Phase 4 (PATCH of changed fields) needs careful server testing first.
+**Status 2026-10-22: DONE.** Phases 1-3 implemented and committed (`3df305f`), with the loading indicators (§10)
+and three review rounds (§12-§14). What is left is not part of this plan: see **§15 Future tasks** (PATCH save of
+changed fields, batch editing, field-count warnings, edit profiles).
 
 Plans 14 (record editing), 14a (HEditForm), 18 (Record summary), 20 §9 (`/aggregate`) and 22 (relmarker
 input) are the base.
@@ -158,8 +158,8 @@ instead of opening very large records one by one.
 | 1 | Configuration *Record view* (§3.1), field / value / thumbnail limits in RecordView (§3.2) | done 2026-10-22 (§8) |
 | 2 | Linked from and relationships: counts, first N, "Show all in search", host `onSearch` (§3.3) | done 2026-10-22 (§9) |
 | 3 | Edit workflow (§4.1-4.4) | done 2026-10-22 (§11) |
-| 4 | PATCH changed fields (§4.5) | server tests first (heurist repo) |
-| 5 | Field-count warnings in the structure editor (§2) | future |
+| 4 | PATCH changed fields (§4.5) | **future task** (§15) |
+| 5 | Field-count warnings in the structure editor (§2) | **future task** (§15) |
 
 ## 6. Files (main)
 
@@ -333,3 +333,13 @@ made when the pane is opened). Fake DOM: `innerHTML` gives a `textContent` witho
 "Optional only" renamed **"Show optional"**, with the legacy meaning: on (the start state) shows the optional fields,
 off hides them (tree and form). Required only disables it and Empty only; Show optional keeps its state for when
 Required only is off again. Clear filters: Show optional on.
+
+## 15. Future tasks (not in this plan; Artem, 2026-10-22)
+
+1. **PATCH save of changed fields** (§4.5): `PATCH /records/{id}` with only the fields changed since load, from the
+   HEditForm states. Needs careful server tests first: whether PATCH replaces the whole value list of a field (GET
+   format), translations, hidden values, calculated fields, title mask.
+2. **Batch update of records**: one field changed in many records at once, instead of opening very large records one
+   by one (§4.6).
+3. Edit profiles per record type: sets of fields for one task (§4.6).
+4. Field-count warnings in the record structure editor past 100 / 200 fields (§2), with `HEditFormDesigner`.

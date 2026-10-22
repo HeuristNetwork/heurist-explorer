@@ -60,12 +60,12 @@ test("loadTags() asks /sys for the current user's tags on the record, with owner
   const provider = new RecordDataProvider({ apiClient: {
     async get(path, options) {
       calls.push([path, options.query]);
-      return { records: [{ rec_ID: 1, rec_Title: "key1", rec_OwnerUGrpID: 2, details: { ownerName: [{ value: "osmakov" }] } }],
+      return { records: [{ rec_ID: "1", rec_RecTypeID: "0", rec_Title: "key1", rec_OwnerUGrpID: "2", rec_OwnerName: "osmakov" }],
         meta: { currentUser: { id: 2 } } };
     }
   } });
   const result = await provider.loadTags({ id: 81 });
-  assert.deepEqual(calls[0], ["/sys", { q: { t: "tag", record: "81", user: "current" }, fields: "owner,ownername", limit: 1000 }]);
+  assert.deepEqual(calls[0], ["/sys", { q: { t: "tag", record: "81", user: "current" }, fields: "rec_OwnerUGrpID,rec_OwnerName", limit: 1000 }]);
   assert.deepEqual(result, { currentUserId: 2, tags: [{ id: 1, name: "key1", owner: 2, ownerName: "osmakov" }] });
   const guest = new RecordDataProvider({ apiClient: { async get() { throw Object.assign(new Error("401"), { status: 401 }); } } });
   assert.deepEqual(await guest.loadTags({ id: 81 }), { currentUserId: 0, tags: [] });

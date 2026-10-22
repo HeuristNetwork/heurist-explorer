@@ -1,6 +1,6 @@
 # 21 Record Manager and Pointer Modes Plan
 
-**Status 2026-10-19:** agreed (three rounds with Artem, §9). Phases 1-4 committed (explorer `baf99f6`, heurist `4544b38d9`); Phase 5 done 2026-10-19, not committed; nothing checked in a browser. Phase 6 (§2.4, agreed) done 2026-10-19, not committed. Phase 7 (built-in filter forms, §7.1) done 2026-10-19, not committed; configuration in §7.2 (future plans).
+**Status 2026-10-22: DONE.** Phases 1-7 implemented and committed (explorer `baf99f6`, `f158b37` and later; heurist `4544b38d9`). The leftovers of §10 are checked or moved to other tasks (§11).
 
 Source: Artem's notes of 2026-10-19 (HRecordManager, HInputResource and `rst_PointerMode`,
 value picker buttons; second round: record editing across modules). Continues plan 14
@@ -851,3 +851,24 @@ No record, or an icon that does not load: hidden. Not checked in a browser.
 The width (22em, or `rst_DisplayWidth` + 2em) is now on the `.h-input-resource` box (icon + picker),
 the picker fills the rest (`flex: 1 1 0`): the icon takes its place from the picker, so it does not
 push the picker over Edit / View (review 2026-10-21; a `has-icon` width rule did not work).
+
+## 10. Leftovers (2026-10-22)
+
+1. Browser check list (§6a.5, last item): one record type per field type group in the browser; not written yet.
+2. Edit form checks (§6a.4): `blocktext` HTML editor, `file` with remote URLs, `relationtype` fields. (Separator tabs /
+   accordions on big types: done by plan 23.)
+3. What srv save does not do yet for ordinary records (§6a.3; deferred to a later plan): parent/child records
+   (`rst_CreateChildIfRecPtr`), re-titling of relationship and pointing records, entry masks, workflow e-mails,
+   ElasticSearch index and HTML cache.
+4. Tags and bookmarks in the editor (§6a: "tags and bookmarks later"; plan 18 Phase 2, plan 20).
+5. Record manager configuration (§7.2): future plans.
+
+## 11. Leftovers settled (Artem, 2026-10-22)
+
+| §10 item | Outcome |
+|---|---|
+| 1. Browser check | Done. |
+| 2. Edit form checks | `relationtype`: checked; it is used only by RT_RELATION. `file` with remote URLs: registered and shown correctly, except video and audio services (Vimeo, YouTube...), which need a thumbnail in Record View and the editor and a native player when expanded. This is deferred to the **files task** (file record structure, file record manager). `blocktext`: rich HTML and code editors (TinyMCE, CodeMirror) are a **task of their own**. |
+| 3. srv save gaps (parent/child, re-titling, entry masks, workflow e-mails, index / cache) | Unchanged: a later plan. |
+| 4. Tags and bookmarks | Plan 20 §10 (4a, 4b). |
+| 5. Configuration (§7.2) | Future plans. |

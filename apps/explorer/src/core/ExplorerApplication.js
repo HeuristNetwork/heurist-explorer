@@ -55,6 +55,7 @@ import { ExplorerTour, loadTourText } from '../ui/ExplorerTour.js';
 import { explorerTourSteps, explorerTourTopics } from '../ui/explorerTourSteps.js';
 import './ExplorerApplication.css';
 import { aggregate } from '#shared/data/aggregate.js';
+import { openTagManager } from '../ui/ExplorerTagManager.js';
 
 /** Explorer's top-level application controller: modules, layout, datasource, and synchronization. */
 export class ExplorerApplication {
@@ -170,6 +171,9 @@ export class ExplorerApplication {
       editQuery: (query, filterForm) => this._editQueryWithBuilder(query, filterForm),
       describeQuery: (q) => this._describeQuery(q),
       onSaved: ({ record }) => this._recordSaved(record),
+      // tags of a record changed in its editor; "Manage tags" of its Tags panel (plan 20, 4a)
+      onTagsChanged: (recordId) => this._tagsChanged(recordId),
+      manageTags: () => this.manageTags(),
       // record type icons in the symbol previews of the symbology editors (plan 17)
       rectypeIconUrl: (id) => this.recordTypes?.iconUrl?.(id) || '',
       language: this.config.language,
@@ -762,6 +766,47 @@ export class ExplorerApplication {
    *
    * @returns {void}
    */
+  /**
+   * The tag manager of the current user (plan 20, Phase 4a): add, rename, merge and delete
+   * personal and group tags; a usage count searches the records of the tag.
+   *
+   * @returns {Promise<void>} Resolved when the manager closes.
+   */
+  async manageTags() {
+    const dbdefs = await this._ensureDbDefs().catch(() => null);
+    return openTagManager({
+      apiClient: this.apiClient,
+      dbdefs,
+      onSearchTag: (tag) => void this.showDatasource({
+        reference: { type: 'query' },
+        title: `${$HR('Tag')}: ${tag.name}`,
+        request: { q: [{ tag: tag.id }] }
+      }),
+      onChange: () => void this._tagsChanged(0)
+    });
+  }
+
+  /**
+   * Tags changed (the tag manager, or the Tags panel of a record editor): the tag lists
+   * (HDbDefs, filters by tag) load again, and a Record View that shows the record (any
+   * record for a change in the manager) shows its tags again.
+   *
+   * @param {number} recordId The tagged record, or 0.
+   * @returns {Promise<void>}
+   */
+  async _tagsChanged(recordId) {
+    try {
+      await this.userGroups?.load();
+    } catch (error) {
+      if (error?.name !== 'AbortError') console.warn('Tags could not be reloaded', error);
+    }
+    for (const module of this.modules.values()) {
+      if (module.type !== 'recordview') continue;
+      const shown = Number(module.api?.getState?.()?.recordId) || 0;
+      if (shown > 0 && (!recordId || shown === Number(recordId))) await module.api?.setRecord?.(shown);
+    }
+  }
+
   showQueryTrace() {
     const dock = this.authoringDock;
     if (!dock) return;

@@ -1,8 +1,10 @@
 # System data transition, files and API domains — development plan
 
-Status: **strategy agreed 2026-10-18; Phases 1–2 designed and agreed 2026-10-18 (§8). Phases 1–2
-implemented 2026-10-18 (§8.2.1, §8.3.1), not committed, not yet checked in a browser. Phase 3 designed, agreed and implemented 2026-10-19 (§9, §9.5), not committed.** Each phase (§7) gets its own planning
-session before any code; its detailed design is then added to this file.
+Status: **strategy agreed 2026-10-18; Phases 1–3 implemented and committed (§8.2.1, §8.3.1, §9.5).
+Phases 4–5 redesigned 2026-10-22 (§10): `/sys` itself gets the record format and CRUD (no `/system`); order 4a tags →
+4b bookmarks, reminders → 4c saved filters → 4d users, groups, entity images. Phases 4a (§10.8) and 4b (§10.10) done
+2026-10-22 on the imported definitions of §10.3, not committed, not checked in a browser. Next: 4c saved filters.** Each phase (§7) gets its own planning session before any code; its detailed design is then added to
+this file.
 
 ## 1. Context
 
@@ -205,6 +207,9 @@ Tag ↔ record links (`usrRecTagLinks`) are not fields of a tag. Options to deci
 
 ## 5. API domains (agreed 2026-10-18)
 
+> **Changed 2026-10-22 (§10.1):** there is no `/system`. `/sys` itself gets the record format and CRUD; its
+> callers are updated. The text below is the decision of 2026-10-18.
+
 **Domains:** `/{db}/{domain}` and `/{db}/{domain}/{id}`, with `domain` = `records`, `system`,
 `files` or `def`.
 - **`system`** (new, 2026-10-18) is the record-format domain for bookmarks, reminders, tags and so
@@ -259,11 +264,13 @@ Each phase is planned in its own session before coding.
 
 | Phase | Content | Status |
 |---|---|---|
-| 1 | File record type and fields (§3.2 settled); mapping registry; `/files` read (search + get) on both backends; switch flag and migration design | done 2026-10-18 (§8.2.1), not committed |
-| 2 | File upload/register/replace/delete on both backends (`LegacyFileStore`, `RecordFileStore` + srv `FileStorage`); migration script; `HInputFile` upload, URL, pick, preview | done 2026-10-18 (§8.3.1) except the migration script; not committed |
-| 3 | `/{domain}/aggregate`; move client callers off `detail=` | done 2026-10-19 (§9.5), not committed |
-| 4 | `/system` domain; tags read/write there, tag ↔ record links; plan 18 Tags panel | not started |
-| 5 | Bookmarks and reminders on `/system`; plan 18 Private panel | not started |
+| 1 | File record type and fields (§3.2 settled); mapping registry; `/files` read (search + get) on both backends; switch flag and migration design | done 2026-10-18 (§8.2.1), committed |
+| 2 | File upload/register/replace/delete on both backends (`LegacyFileStore`, `RecordFileStore` + srv `FileStorage`); migration script; `HInputFile` upload, URL, pick, preview | done 2026-10-18 (§8.3.1) except the migration script; committed |
+| 3 | `/{domain}/aggregate`; move client callers off `detail=` | done 2026-10-19 (§9.5), committed |
+| 4a | `/sys` in record format + CRUD; shared entity base classes (Files on them); tags read/write, tag ↔ record links, merge; HTagManager, Summary → Tags (§10) | done 2026-10-22 (§10.8), not committed; the definitions are imported (Tag 137, Usage 1189) |
+| 4b | Bookmarks (encrypted private note) and reminders (Send now) on `/sys`; Summary → Private (§10.9) | done 2026-10-22 (§10.10), not committed; the HRecordList bookmark icon stays as it is (Artem) |
+| 4c | Saved filters writes, HEditForm editor (§10) | draft |
+| 4d | Users and groups (membership, password write-only), managers; entity-image mode of HInputFile (§10) | draft |
 | end | `sysRecords` tables; switching databases over (after the legacy UI is gone); port of the rest of `DbRecUploadedFiles` (batch actions) to srv | after approval |
 
 ## 8. Phases 1–2 in detail (draft for discussion, 2026-10-18)
@@ -783,3 +790,378 @@ the missing routes of §5 (`/def/snapshot`, `/records/cancel`, `/records/{querys
   as the controller does for other unsupported queries.
 - **Not checked yet:** facets, sliders, thematic maps and the Export/Graph counts in a browser.
 
+## 10. Phases 4–5 redesign (Artem, 2026-10-22)
+
+### 10.1 Decisions (2026-10-22)
+
+1. **`/sys` itself** gets the record format and CRUD; there is no `/system` (this changes §3 "`/sys` output stays
+   unchanged" and §5). The callers are updated: `UserGroupManager`, `SavedFilterManager`, `RecordDataProvider.loadTags`,
+   `TagSource`.
+   - In queries the type stays a name: `{"t":"user"}`, `/sys/user/123`. In the output, `rec_RecTypeID` is the
+     numeric local id of a real record type.
+   - `details` are keyed by field id (resolved from concept codes); `fields=_all` works.
+2. **QName (later):** a type has `rec_RecTypeQName` "sys:user".
+   - **Proposal:** a record's QName uses its **id**, `sys:user:123`. Names can be renamed (login, group, tag text),
+     and a tag text is unique only per owner.
+   - A readable alias (`sys:user:johnson`) may be accepted for lookup, resolved to the id, never stored.
+   - To agree when QNames are introduced.
+3. **Definitions:** Claude proposes the mapping (§10.3); Artem adds the record types and new fields to the core
+   definitions; then code.
+4. **Order:** 4a tags with the shared server framework → 4b bookmarks and reminders → 4c saved filters → 4d users
+   and groups with entity images.
+5. **Editors:** HEditForm (no Summary, no Structure) on a **hard-coded edit structure in the `/rst` JSON format**,
+   for these entities and for files.
+   - The record types get no `defRecStructure` rows for now. Later the structure comes from `/rst`, without code
+     changes.
+6. **Storage:** the legacy tables stay until the switch (§2.1).
+   - **Tags stay in `usrTags` + `usrRecTagLinks` for good**: there can be many more tags than records (this changes
+     §2.1 "Tags follow the same pattern").
+7. **Password** (4d): never in any output. It is accepted only as a **write-only** value, hashed on the server, never
+   a stored detail.
+   - **Decided (Artem, 2026-10-22):** changing a password is a **separate form** that requires the old password.
+8. **Private note of a bookmark** (4b; was "password reminder", `bkm_PwdReminder`; Artem, 2026-10-22): **encrypted
+   from now on**, reversible, with a server key; visible to its owner only. The legacy read path decrypts it too.
+9. **Staged output** (4a, 2026-10-22): a type gets the record format in its own phase, when its definitions exist:
+   - tag in 4a, bookmark and reminder in 4b, saved filter in 4c, user and group in 4d;
+   - until then a type keeps today's keyword output, so the callers of filter, user and group do not change yet.
+   - A tag uses fields every database has (2-1, 2-3). `rec_RecTypeID` is the Tag type's local id once Artem adds it,
+     0 until then. *Usage count* is left out while the database lacks it, as for file fields.
+
+### 10.2 What exists (facts, 2026-10-22)
+
+- **`/sys` today** (`srv/System/Query`, routing `hserv/controller/api.php:484-517`):
+  - read-only (PUT / PATCH / DELETE 405, POST = search), guests 401;
+  - types `filter|user|group|tag` (`SystemEntitySchemaRegistry.php`);
+  - keyword details (`query`, `filterType`, `email`, `description`, `ownerName`, `role`);
+  - `fields=_all` gives 400 (`SystemQueryService.php:138`);
+  - an item also outputs the query-only `details.record` (bug);
+  - no bookmark or reminder.
+- **No concept codes yet** for these types; only files (2-1106) have them. The client has provisional
+  `RT_USER_BOOKMARKS` / `RT_USER_REMINDERS` → `/system/*` (`shared/src/data/recordDomains.js:36`).
+- **Files stack to generalize:**
+  - `FileRecordMapping` (HEADERS, FIELDS by concept, `toRecord` / `toColumns`, writable);
+  - `LegacyFileTable` (rows);
+  - `FileWriteService` (`RecordInput`, path id, 409 on `rec_Modified`, PUT clears writable columns, permissions);
+  - `FileController`, `FileTransaction`.
+- **Legacy UI to follow:** `hclient/widgets/entity/manageUsrTags.js` (accordions per owner, inline rename with merge,
+  `+` per group, delete, usage count as a search link; compact mode in the record editor), `manageUsrBookmarks.js`,
+  `manageUsrReminders.js`.
+
+### 10.3 Proposed definitions (for Artem to add; "new" = a new 2-xxxx code)
+
+**Agreed codes (Artem, 2026-10-22).** The record types have no structure in the database: their structure is
+hard-coded (in the `/rst` JSON format).
+
+| Record type | Code | | Field | Code | Type |
+|---|---|---|---|---|---|
+| User | 2-1107 | | Usage (tag: the number of tagged records, read-only) | 2-1189 | numeric |
+| Group | 2-1108 | | Rating (bookmark, 0 = not rated) | 2-1190 | numeric 0–5 |
+| Tag | 2-1109 | | Frequency (reminder): once, daily, weekly, monthly, annually | 2-1191 | enum, vocabulary 2-10454 |
+| Bookmark | 2-1110 | | PrivateInfo (bookmark, was "password reminder"; encrypted) | 2-1192 | freetext |
+| Reminder | 2-1111 | | Recipient (reminder): a system user or group | 2-1193 | resource → 2-1107, 2-1108 |
+
+- **Imported into `osmak_mapping` (2026-10-22):** record types 133 System user, 134 System User Group, 135 User
+  Bookmark, 136 User Reminder, 137 User Tag; fields 1185 Rating, 1186 User Private Info, 1187 User or Group (→ 133, 134),
+  1188 Frequency (vocabulary 10450 = 2-10454: Daily, Weekly, Monthly, Annually, Once), 1189 Usage count. Rating and
+  Usage count are *float* fields (numeric). With them, tags give `rec_RecTypeID` 137 and the usage as field 1189 (no
+  `rec_Usage`); `SystemTagTest --write` (35) and `SystemQueryTest` (55) pass.
+- Rating is a numeric field 0–5, not `rec_Popularity`, and not an enum (decided 2026-10-22).
+- A reminder has one recipient pointer (a user **or** a group, as legacy, which allowed only one of
+  `rem_ToWorkgroupID` / `rem_ToUserID`); the e-mail recipient stays DT_EMAIL 2-23.
+- **`bkm_ZoteroID` is not mapped** (Artem: no Zotero field). 2-581 is "GeoNames ID" (float) in the databases, not an
+  external id.
+- **PrivateInfo is at most 140 characters** while it is kept in `bkm_PwdReminder varchar(250)`: the encrypted value
+  is longer than the text. The limit goes with the move to `sysRecords`.
+- Later (4c / 4d): the Saved filter record type and its filter-type enum; the user's login name and Enabled; the
+  group's Admins and Members (two pointer fields to users: the role).
+
+The proposal as it was:
+
+Headers: `rec_ID`, `rec_Added`, `rec_Modified` (concurrency), `rec_OwnerUGrpID`, `rec_Title`.
+
+**Tag** (record type new):
+
+| Column | Maps to |
+|---|---|
+| tag_ID / tag_Modified / tag_UGrpID / tag_AddedByImport | rec_ID / rec_Modified / rec_OwnerUGrpID / rec_AddedByImport |
+| tag_Text | DT_NAME 2-1 (title; required; at least 3 characters; unique per owner) |
+| tag_Description | DT_SHORT_SUMMARY 2-3 |
+| usage (count of `usrRecTagLinks`) | new *Usage count*, integer, read-only |
+
+**Bookmark** (record type new; private to its user):
+
+| Column | Maps to |
+|---|---|
+| bkm_ID / bkm_Added / bkm_Modified / bkm_UGrpID / bkm_AddedByImport | headers (owner = the user) |
+| bkm_RecID | DT_RESOURCE 2-13 (one bookmark per record and user) |
+| bkm_Rating | new *Rating*, enum 0–5 (proposed; see the note below) |
+| bkm_Notes | DT_EXTENDED_DESCRIPTION 2-4 |
+| bkm_PwdReminder | new *Private note* (encrypted, shown to the owner only; see below) |
+| bkm_ZoteroID | DT_EXTERNAL_ID 2-581 |
+| rec_Title | title of the bookmarked record (read-only) |
+
+- **Rating vs `rec_Popularity`** (Artem's question):
+  - possible: an integer header, which on a bookmark record would mean "this user's rating";
+  - proposed: a field, because HEditForm edits fields (an enum with labels), not headers, and `rec_Popularity` already
+    has another meaning on ordinary records (a cron popularity, probably deprecated). **To decide.**
+- **Password reminder** (Artem: "hashed privacy info, shown unhashed to its user only"):
+  - a hash is one-way, so it needs **reversible encryption**: a server key per installation (libsodium, the key in
+    the configuration), decrypted only for the owner;
+  - while the legacy UI is used, its bookmark editor would show the encrypted text, unless the legacy read path
+    decrypts too (hserv may call the srv class). **To decide: now with a legacy decrypt, or at the switch.**
+
+**Reminder** (record type new):
+
+| Column | Maps to |
+|---|---|
+| rem_ID / rem_Modified / rem_OwnerUGrpID | headers |
+| rem_RecID | DT_RESOURCE 2-13 |
+| rem_ToWorkgroupID / rem_ToUserID | new *Recipient group* / *Recipient user* (pointers to the Group / User types) |
+| rem_ToEmail | DT_EMAIL 2-23 |
+| rem_Message | DT_EXTENDED_DESCRIPTION 2-4 |
+| rem_StartDate | DT_START_DATE 2-10 |
+| rem_Freq | new *Frequency*, enum once / daily / weekly / monthly / annually |
+| rem_Nonce | not mapped; "Send now" is an action |
+
+**Saved filter** (4c, draft): svs_Name → 2-1; svs_Query → DT_QUERY_STRING 2-12; filter type → new enum, read-only
+(derived from the query); svs_UGrpID → owner.
+
+**User / Group** (4d, draft):
+- **User:**
+  - ugr_Name → new *Login name*; ugr_LastName → 2-1, ugr_FirstName → DT_GIVEN_NAMES 2-18 (as the core Person type);
+  - ugr_eMail → 2-23; ugr_Enabled → new enum;
+  - organisation / department → new freetext or not mapped;
+  - the password: write-only (§10.1.7);
+  - the image: entity image (§10.6).
+- **Group:**
+  - ugr_Name → 2-1; ugr_LongName → DT_SHORT_NAME 2-2; ugr_Description → 2-4; ugr_URLs → DT_URL 3-1058;
+  - membership (`sysUsrGrpLinks`) → new *Admins* / *Members*, repeatable pointers to users;
+  - the current user's role (read-only).
+
+### 10.4 Server design (4a, heurist repo)
+
+1. **Base classes** extracted from Files, in `srv/System/Entity/`. Files extend them; `FileWriteTest` and `FileApiTest`
+   guard the refactor.
+   - `EntityRecordMapping`: rectype concept, HEADERS, FIELDS (concept → column, converters), writable,
+     `toRecord` / `toColumns`.
+   - `LegacyEntityTable`: table, id column, known columns; row / insert / update / delete.
+   - `EntityWriteService`: parses the body, path id, 409 on `rec_Modified`, PUT vs PATCH, required fields, a
+     `canEdit` hook, a transaction.
+   - A store interface `SystemEntityStore` for the switch (tags: the legacy store only).
+2. **`/sys` output** (`SystemQueryService`):
+   - the record format of §10.1.1; `fields=` accepts field ids and the old keywords;
+   - the predicates (`owner`, `user`, `record`, `ids`, `t`) unchanged;
+   - the `details.record` leak fixed; schemas `bookmark` and `reminder` (4b); the OpenAPI file.
+3. **Writes:**
+   - POST `/sys/{type}/0`, PUT / PATCH / DELETE `/sys/{type}/{id}`, POST `/sys/{type}/{id}/validate`;
+   - `TagWriteService`: the legacy checks; DELETE removes the tag's links.
+4. **Tag ↔ record links:** `POST /sys/tag/assign {records, add, remove}` (the legacy batch);
+   `POST /sys/tag/{id}/merge {into}` (renaming onto an existing tag merges, as legacy `_replaceTag`).
+5. **Permissions as legacy:** a tag can be changed by its owner (the user, or a group they belong to) or an admin.
+6. **Tests:** `tests/SystemApiTest.php`, `tests/SystemWriteTest.php --write`; `DataAccessBoundaryTest`
+   (`System/Entity` owns the legacy tables).
+
+### 10.5 Client design (4a / 4b, this repo)
+
+1. **`shared/src/data/systemEntities.js`:** per type the concept codes and the hard-coded edit structure (`/rst` JSON
+   format) for HEditForm; the same for files later.
+2. **Domains:** `recordDomains.js` → `{domain: 'sys', type}`; `RecordEditClient` accepts `sys`; `RecordListLoader`
+   already works on any path speaking `/records` JSON.
+3. **4a UI:**
+   - **`HTagManager`** (`shared/src/widgets/tags/`):
+     - accordions per owner (Personal first, then the user's groups);
+     - a click on a tag opens an inline HInputText: Enter or blur saves; Esc cancels; an existing name asks to merge;
+     - a delete × with a confirmation; the usage count as a search link;
+     - one input with `+` per group.
+     - Opened from the Explorer menu and from Summary → Tags ("Manage").
+   - **`HTagSelector`** (Summary → Tags):
+     - the record's tags grouped by owner, with × to unassign;
+     - an HValuePicker of the user's tags (owner: Personal or a group) with "Add new tag '…'";
+     - changes are sent at once (`/sys/tag/assign`), as relationships; then RecordView tags and the HDbDefs tag cache
+       are refreshed.
+4. **4b UI:**
+   - Summary → **Private**: the bookmark (rating, notes; Bookmark / Remove) and the reminders (list, Add / Edit /
+     Delete, Send now);
+   - light HEditForm dialogs (`openEditFormDialog`) on the hard-coded structures;
+   - the bookmark icon of HRecordList (`h-recordlist-bookmark`) clickable (host callback), opening the same dialog.
+
+### 10.6 Later (4c / 4d)
+
+- Saved filter writes and their HEditForm editor.
+- User and group managers: HRecordManager on `/sys/user` and `/sys/group`; HEditForm editors (password write-only,
+  members fields).
+- **HInputFile entity-image mode** `{entity, version}`:
+  - images live in `HEURIST_FILESTORE/<db>/entity/<sysUsers|sysGroups|...>/`, not in `recUploadedFiles`;
+  - a new srv `EntityImageStorage` + `GET|PUT|DELETE /sys/{type}/{id}/image` (upload by the existing chunked token),
+    as legacy `fileUpload.php` + `DbEntityBase::renameEntityImage`;
+  - later the database logo, record type icons and term images.
+
+### 10.7 Open points
+
+- Rating: a field or `rec_Popularity` (§10.3).
+- ~~Private note encryption~~: decided, now (§10.1.8).
+- QName of records (§10.1.2): when QNames come.
+- Where Explorer opens the tag manager (menu item; Summary → Tags "Manage").
+
+### 10.8 Phase 4a as implemented (2026-10-22)
+
+**heurist (srv):**
+- **Shared bases** `srv/System/Entity/` (README there):
+  - `EntityRecordMapping`: concept-code fields, writable columns, term lookup, `fieldValue` / `columnValue` hooks;
+  - `LegacyEntityTable`: row writes;
+  - `EntityWriteService`: body, path id, POST / PUT / PATCH, account, 409 conflict, warnings;
+  - `EntityTransaction`.
+  - Files are on them: `FileRecordMapping`, `LegacyFileTable`, and `FileWriteService` for the shared steps.
+    `FileTransaction` delegates. `FileApiTest` (45) and `FileWriteTest --write` (59) unchanged.
+  - **Deviation:** `FileWriteService` keeps its own upload flow. It uses the base for the shared steps only.
+- **Same-site check:** `Controller/SameSiteGuard`, used by `FileController` and the new controller.
+- **Tag storage** `srv/Records/UserData/`: `TagRepository` (rows with usage, by owner and text, records of tags,
+  owners), `LegacyTagTable`, `TagLinkTable` (assign, remove, move, the bookmark of a personal tag). Tables through the
+  `RecordSchema` keys, so `DataAccessBoundaryTest` passes without a change.
+- **Tags** `srv/System/Tags/`: `TagRecordMapping`, `TagRecordOutput` (`/sys` output) and `TagWriteService` (rules of
+  `DbUsrTags`).
+- **Writes:** `Controller/SystemEditController` and `ServiceFactory::systemEditController()`. `api.php` sends
+  POST / PUT / PATCH / DELETE `/sys/{type}/...` there; only tags can be written now (others 405).
+- **Output:** `SystemQueryService` gives `t=tag` in the record format; the other types are unchanged (§10.1.9).
+- **Codes (2026-10-22, §10.3):** Tag 2-1109, Usage 2-1189. In a database without these definitions (still
+  `osmak_mapping`) the output falls back: `rec_RecTypeID` is 0 and the usage is the header `rec_Usage` (asked as
+  `usage`, `rec_Usage` or with `_all`). With them, the usage is the field 2-1189 and there is no `rec_Usage`;
+  `TagClient` reads either.
+- **Legacy rules kept:**
+  - a tag in use is not deleted without `force` (the manager asks, then forces);
+  - assigning a personal tag bookmarks the record;
+  - merge (rename onto an existing name) is within one owner.
+- **New, beyond legacy:** tags are put only on records the user can see; `replace` removes only tags the user may
+  change.
+- **Tests:**
+  - `tests/SystemTagTest.php`: 13 checks without tables, 35 with `--write`; it cleans up its tags, links and new
+    bookmarks;
+  - `tests/SystemQueryTest.php` (55) updated: the tag owner name is `rec_OwnerName`.
+- **OpenAPI:** the four tag paths, and the tag item.
+
+**explorer:**
+- **Data:**
+  - `shared/src/data/TagClient.js`: list, create, update, remove, assign, merge, `tagTextProblem` (the legacy minimum
+    of 3 characters is a client check only);
+  - `RecordEditClient` takes `domain: 'sys'` with `type`; `RecordEditError.details` keeps the whole error body.
+- **Callers:** `RecordDataProvider.loadTags` reads `rec_OwnerName`; `UserGroupManager` asks for `rec_OwnerUGrpID`.
+- **Widgets** `shared/src/widgets/tags/`:
+  - `HTagManager`: accordions per owner, + per group, inline HInputText rename, a merge question, delete with the
+    number of records, usage as a search link;
+  - `HTagSelector`: the record's tags with ×, a picker of the user's other tags, "Add new tag" with the typed text, the
+    owner of new tags;
+  - `tagGroups.js`: `tagOwnerGroups`, `confirmTagAction`.
+- **Small shared changes:** `HValuePicker` actions get the typed text (`run(text)`); fake DOM `innerHTML` has a
+  textContent.
+- **Record editor:** Summary → **Tags** is `HTagSelector` (open), with the event `h-record-tags-change` and the
+  option `onManageTags`.
+- **Explorer:**
+  - `ui/ExplorerTagManager.js` (dialog);
+  - `ExplorerApplication.manageTags()` (search by tag through `showDatasource`) and `_tagsChanged()` (reload the tag
+    cache, refresh the Record View that shows the record);
+  - "Manage tags" in the gear menu and in the configuration dialog footer;
+  - the editor host and the editor shell pass it on.
+- **Strings:** Explorer eng / fre.
+- **Tests:** `shared/test/tags.test.js` (6); updated `recordDataProvider`, `userGroups` and pane toolbar tests. All 1342
+  pass; all apps build; deployed.
+
+Not checked in a browser yet.
+
+### 10.9 Phase 4b design (Artem, 2026-10-22)
+
+Decisions:
+1. **Encryption key** of the private note (PrivateInfo 2-1192): **one per installation** (sysIdentification has no
+   field for it). It is a global in `heurist/../heuristConfigIni.php`, `$privateInfo_Secret`, like `$jwt_Secret`;
+   `configIni.php` gives the empty default.
+   - Without a key the note is kept as text (as legacy) and the API answers with a warning.
+   - The cipher is AES-256-GCM through openssl (sodium is not installed): `enc1:` + base64(iv, tag, text); a value
+     without the prefix is legacy text.
+   - The note is at most 140 characters (`bkm_PwdReminder varchar(250)`, §10.3).
+   - It is decrypted only for the owner of the bookmark. The legacy bookmark editor decrypts and encrypts the same way
+     (hserv calls the srv class).
+2. **Send now** of a reminder: the **legacy mailer** (`DbUsrReminders::batch_action` with the reminder's fields,
+   as the legacy "Send immediately", which does not save). srv calls it through a closure given by
+   `ServiceFactory::fromLegacySystem`.
+3. **Editors:** in the record editor's Summary → **Private**: the values read-only, and a **pen** that opens a small
+   popup with an HEditForm (as HRecordAccess in Admin), on the hard-coded structures. No action in HRecordList for
+   now.
+
+Server (heurist):
+- **Storage** `Records/UserData/` (tables through RecordSchema keys `bookmarks`, `reminders`): `BookmarkRepository`,
+  `LegacyBookmarkTable`, `ReminderRepository`, `LegacyReminderTable`.
+- **Bookmarks** `System/Bookmarks/`: `BookmarkRecordMapping` (RT 2-1110; record 2-13 = bkm_RecID, Rating 2-1190 =
+  bkm_Rating, notes 2-4 = bkm_Notes, PrivateInfo 2-1192 = bkm_PwdReminder), `PrivateInfoCipher`,
+  `BookmarkRecordOutput`, `BookmarkWriteService`.
+  - The owner is the user; one bookmark per record and user (409 duplicate with the existing bookmark).
+  - Only the owner sees or changes a bookmark (also not an administrator).
+  - The title is the title of the bookmarked record.
+- **Reminders** `System/Reminders/`: `ReminderRecordMapping` (RT 2-1111; record 2-13 = rem_RecID, Recipient 2-1193
+  = rem_ToWorkgroupID or rem_ToUserID by the type of the pointed user / group, e-mail 2-23 = rem_ToEmail, message
+  2-4, start date 2-10, Frequency 2-1191 = rem_Freq as a term of 2-10454), `ReminderRecordOutput`,
+  `ReminderWriteService`.
+  - Exactly one recipient (a user or group, or an e-mail); the frequency defaults to once.
+  - The owner (or the database owner) changes it.
+  - `POST /sys/reminder/send` sends a reminder record without saving it.
+- `/sys` schemas `bookmark` and `reminder` (query `record`); `SystemEditController` routes for both;
+  `tests/SystemBookmarkReminderTest.php`.
+
+Client (explorer):
+- `BookmarkClient` / `ReminderClient` (or one `UserDataClient`);
+- the hard-coded structures (`shared/src/data/systemEntities.js`);
+- Summary → Private: a bookmark block (rating, notes, private note; Bookmark / Edit / Remove) and a reminders block
+  (a list; Add / Edit / Delete / Send now), each editing in an `openEditFormDialog`.
+
+### 10.10 Phase 4b as implemented (2026-10-22)
+
+Server (heurist):
+- `srv/Records/UserData/`: `BookmarkRepository` (rows with the record title, `idOf(user, record)`,
+  `hasPersonalTags`), `LegacyBookmarkTable`, `ReminderRepository`, `LegacyReminderTable`;
+  `Users/UserGroupRepository::types()` (user or workgroup of an id: where a recipient is stored).
+- `srv/System/Entity/EntityRecordOutput` — **new base**: the `fields` selection and field metadata of
+  `TagRecordOutput` moved here; `TagRecordOutput`, `BookmarkRecordOutput`, `ReminderRecordOutput` extend it
+  (each adds its rows, headers and former keywords; tags keep the Usage / `rec_Usage` special case).
+- `srv/System/Bookmarks/`: `PrivateInfoCipher` (as §10.9; `fromConfiguration()` reads `$privateInfo_Secret`,
+  default `''` added to `configIni.php`), `BookmarkRecordMapping` (rating 0 = no value; the note is decrypted for
+  the owner only, unreadable notes are left out), `BookmarkRecordOutput` (`meta.privateInfo {encrypted,
+  unreadable}`), `BookmarkWriteService`.
+- `srv/System/Reminders/`: `ReminderRecordMapping` (`frequencyOf`: term id or label → `rem_Freq`; start date
+  1970-01-01 = no value), `ReminderRecordOutput`, `ReminderWriteService` (`send` through a sender closure).
+- `/sys` schemas `bookmark`, `reminder` (query field `record`; `rating`; `startdate`, `frequency`); access in
+  `SystemQueryBuilder::appendAccess` (bookmarks: the owner only, also for administrators; reminders: the owner,
+  the database owner all). `SystemQueryService::recordResponse` serves the three mapped types.
+- `SystemEditController` takes a map of write services by type (`ServiceFactory::systemEditController`); the
+  sender closure `ServiceFactory::$reminderSender` runs `DbUsrReminders::batch_action` with the columns.
+- Legacy: `hserv/entity/DbUsrBookmarks` decrypts on search (owner only) and encrypts on save (a value with the
+  prefix is kept); `hserv/records/search/recordSearch.php` decrypts `bkm_PwdReminder` for the current user (the
+  key icon of the result list).
+- OpenAPI: `/sys/bookmark/{id}` (+ validate), `/sys/reminder/{id}` (+ validate), `/sys/reminder/send`; the type
+  enums list bookmark and reminder.
+- Tests: `tests/SystemBookmarkReminderTest.php` (21 checks, 46 with `--write`; send with a fake mailer, the
+  legacy entity decrypt); `SystemTagTest` (35), `SystemQueryTest` (55), `FileApiTest` (45), `FileWriteTest
+  --write` (59) and `DataAccessBoundaryTest` pass — the boundary test lists `usrBookmarks`, `usrReminders` for the
+  schema registry, as the other `/sys` tables (agreed 2026-10-13).
+
+Client (explorer):
+- `shared/src/data/systemEntities.js`: the Bookmark and Reminder structures in the `/rst` row format with concept
+  codes and a `key` per field; `systemEditRows` / `systemEditStructure` (through `buildEditStructure`) /
+  `systemEditForm` (`omit`, `fields` overrides) / `systemValues` / `systemDetails` / `systemFieldIds`.
+- `shared/src/data/UserDataClient.js`: `BookmarkClient`, `ReminderClient` (one base class), plain items by key.
+- `shared/src/widgets/user-data/HRecordPrivate.js` + css: Summary → Private in HRecordEditor (`_renderPrivate`,
+  event `h-record-private-change`).
+- Localization: Explorer eng/fre. Tests: `shared/test/userData.test.js` (6); all 1349 client tests pass;
+  `build:all` builds; Explorer deployed.
+
+Deviations and details:
+- The changes are **sent at once** (like tags), not with the record's Save: a bookmark or reminder is not a field of
+  the record.
+- The popup is `openEditFormDialog` (a dialog), not inline as HRecordAccess.
+- In the forms the **rating** is radio buttons (Not rated, ★ … ★★★★★) and the **recipient** a list of the users and
+  groups of HDbDefs (a "Send to" radio: User or group / E-mail addresses, with `showWhen`), not the pointer
+  input: users and groups are not records before 4d. The stored structures stay pointer / float.
+- **Send now** is a button of the reminder popup (Save / Send now / Cancel); it sends the form's values and keeps
+  the popup open. Legacy limits stay: the legacy mailer checks the recipient with `FILTER_VALIDATE_EMAIL`, so
+  "Name <address>" (user and group recipients) and several addresses may not be sent — to be checked by Artem.
+- A bookmark of a record with personal tags of the user is not removed (409 `has_personal_tags`), as legacy.
+- No key is set in the local `heuristConfigIni.php`: until `$privateInfo_Secret` is set there, notes are stored as
+  text with the warning `not_encrypted` (the test sets its own key).
+- No action in HRecordList (Artem, §10.9).

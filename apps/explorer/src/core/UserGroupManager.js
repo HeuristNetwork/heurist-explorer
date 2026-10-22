@@ -56,7 +56,8 @@ export class UserGroupManager {
       request('user').catch((error) => guestOrThrow(error)),
       // tags (keywords) of the current user only - personal and of their groups - even for
       // an administrator, who could otherwise read every user's tags
-      request('tag', 'owner', { user: 'current' }, 5000).catch((error) => guestOrThrow(error))
+      // (the record format since plan 20 Phase 4a: the owner is the header rec_OwnerUGrpID)
+      request('tag', 'rec_OwnerUGrpID', { user: 'current' }, 5000).catch((error) => guestOrThrow(error))
     ]);
     if (controller.signal.aborted) return this.data;
     const currentUser = groups?.meta?.currentUser || users?.meta?.currentUser || null;
