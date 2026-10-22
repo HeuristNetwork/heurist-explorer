@@ -1,0 +1,145 @@
+/* HStructureTree: groups and fields of an edit form (plan 23 §4.3) */
+
+/* the filters hide rows and groups: stronger than their display (field rows are flex) */
+.h-structure-tree [hidden] {
+  display: none !important;
+}
+
+.h-structure-tree {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  font-size: 12px;
+}
+
+.h-structure-tree-toolbar {
+  display: flex;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--h-color-border);
+}
+
+.h-structure-tree-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+/* a compact select in the small toolbar */
+.h-structure-tree-type.h-select {
+  max-width: 100%;
+  min-height: 0;
+  padding-top: 1px;
+  padding-bottom: 1px;
+  font-size: 12px;
+}
+
+.h-structure-tree-find {
+  box-sizing: border-box;
+  width: 100%;
+}
+
+.h-structure-tree-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  padding: 4px 0;
+}
+
+.h-structure-tree-group-head {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  padding: 3px 6px;
+  border: 0;
+  background: none;
+  color: var(--h-color-header);
+  font: inherit;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+
+.h-structure-tree-caret {
+  flex: 0 0 auto;
+  width: 10px;
+  color: var(--h-color-text-muted);
+}
+
+.h-structure-tree-group-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.h-structure-tree-children {
+  padding-left: 12px;
+}
+
+.h-structure-tree-field {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 2px 6px;
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.h-structure-tree-field:hover {
+  background: var(--h-color-surface-hover);
+}
+
+.h-structure-tree-field.is-selected {
+  background: var(--h-color-selected);
+  box-shadow: inset 2px 0 0 var(--h-color-selected-border);
+}
+
+.h-structure-tree-field:focus-visible {
+  outline: 2px solid var(--h-color-primary);
+  outline-offset: -2px;
+}
+
+.h-structure-tree-type-mark {
+  flex: 0 0 auto;
+  width: 14px;
+  color: var(--h-color-text-muted);
+  text-align: center;
+}
+
+.h-structure-tree-label {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--h-color-text-muted);
+}
+
+/* label colours by requirement, as in the form (plan 18); a field with values is in normal text */
+.h-structure-tree-field.is-filled .h-structure-tree-label {
+  color: var(--h-color-text);
+}
+
+.h-structure-tree-field.is-required .h-structure-tree-label {
+  font-weight: 600;
+  color: var(--h-color-warning);
+}
+
+.h-structure-tree-field.is-recommended .h-structure-tree-label {
+  font-weight: 600;
+}
+
+.h-structure-tree-count {
+  flex: 0 0 auto;
+  color: var(--h-color-text-muted);
+}
+
+/* Optional only / Empty only while Required only is on */
+.h-structure-tree-check:has(input:disabled) {
+  color: var(--h-color-text-muted);
+}

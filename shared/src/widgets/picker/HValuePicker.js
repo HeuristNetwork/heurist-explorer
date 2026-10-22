@@ -29,6 +29,7 @@ import { $HR } from '../../ui/i18n/HResource.js';
 import {
   FILTER_ROW_THRESHOLD, MAX_RENDERED_ROWS, filterItems, limitRows, needsFilterRow
 } from '../../data/valueSources/valueList.js';
+import { sanitizeTextHtml, stripHtml } from '../../recordview/FieldValueFormatter.js';
 import './HValuePicker.css';
 
 const SEARCH_DELAY = 250;
@@ -441,8 +442,11 @@ export class HValuePicker extends HBaseWidget {
     }
     const label = document.createElement('span');
     label.className = 'h-value-picker-label';
-    label.textContent = item.label ?? String(item.value);
-    label.title = label.textContent;
+    const text = item.label ?? String(item.value);
+    // record titles: the few formatting tags of h-recordlist-title (htmlLabels), the tooltip as text
+    if (this.options.htmlLabels) label.innerHTML = sanitizeTextHtml(text);
+    else label.textContent = text;
+    label.title = this.options.htmlLabels ? stripHtml(text) : text;
     if (item.depth) label.style.paddingInlineStart = `${Number(item.depth) * 1.25}em`;
     row.append(label);
     if (showCounts && item.count != null) {

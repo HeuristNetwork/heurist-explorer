@@ -14,6 +14,7 @@
  */
 import { $HR, applyI18n, HMsg } from '#shared/ui';
 import { ExplorerUiConfig, UNUSED_REGION } from '../../core/ExplorerUiConfig.js';
+import { normalizeRecordLimits, RECORD_LIMIT_OPTIONS } from '#shared/recordview/recordLimits.js';
 import { VIEW_MODES } from '../ExplorerRail.js';
 import './ExplorerConfigurationDialog.css';
 
@@ -54,6 +55,14 @@ const LANGUAGES = [
   ['fre', 'French'],
   ['ger', 'German'],
   ['por', 'Portuguese']
+];
+
+/** Limits of the built-in record view (plan 23 §3.1): key and label. */
+const RECORD_LIMITS = [
+  ['fields', 'Limit fields'],
+  ['values', 'Limit values per field'],
+  ['thumbs', 'Limit thumbnails'],
+  ['links', 'Limit reverse links']
 ];
 
 /** Editor for Explorer's toolbar and layout configuration, saved via `onSave`. */
@@ -115,6 +124,7 @@ export class ExplorerConfigurationDialog {
     const layoutSection = this.section('Layout', (body) => this.buildLayoutSection(body), true);
     this.content.append(
       this.section('Interface', (body) => this.buildInterfaceSection(body), true),
+      this.section('Record View and Edit limits', (body) => this.buildRecordViewSection(body)),
       layoutSection
     );
     this._advancedControls.push(layoutSection);
@@ -210,6 +220,23 @@ export class ExplorerConfigurationDialog {
 
     // Explorer and every module use this language; changing it reloads Explorer
     this.selectRow(body, 'Language', LANGUAGES, this.value.language, (next) => { this.value.language = next; });
+  }
+
+  /**
+   * Build the "Record View and Edit limits" section: how much of a very large record the built-in
+   * record view (Record View, popups, Linked records of the editor) shows before a
+   * "Show all" link (plan 23 §3.1). Changing a limit reloads Explorer.
+   *
+   * @param {HTMLElement} body Section body to append fields into.
+   * @returns {void}
+   */
+  buildRecordViewSection(body) {
+    const options = RECORD_LIMIT_OPTIONS.map((value) => [String(value), String(value)]);
+    for (const [key, label] of RECORD_LIMITS) {
+      this.selectRow(body, label, options, String(this.value.recordLimits[key]), (next) => {
+        this.value.recordLimits[key] = Number(next);
+      });
+    }
   }
 
   /**
@@ -586,7 +613,8 @@ function mergeDefaults(value) {
     panes: { ...defaults.panes, ...(value?.panes || {}) },
     lists: value?.lists === 'popup' ? 'popup' : defaults.lists,
     language: LANGUAGES.some(([code]) => code === value?.language) ? value.language : defaults.language,
-    isSimplifiedUI: typeof value?.isSimplifiedUI === 'boolean' ? value.isSimplifiedUI : defaults.isSimplifiedUI
+    isSimplifiedUI: typeof value?.isSimplifiedUI === 'boolean' ? value.isSimplifiedUI : defaults.isSimplifiedUI,
+    recordLimits: normalizeRecordLimits(value?.recordLimits)
   };
 }
 

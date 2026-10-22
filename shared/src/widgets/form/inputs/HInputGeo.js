@@ -103,6 +103,7 @@ export class HInputGeo extends HInput {
 
   /** Disable or enable the map action. */
   setReadOnly(readOnly) {
+    this._markReadOnly(readOnly);
     if (this.mapButton) {
       this.mapButton.disabled = Boolean(readOnly) || !this.hasPicker;
     }

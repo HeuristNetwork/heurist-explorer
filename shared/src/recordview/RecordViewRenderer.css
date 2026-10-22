@@ -89,6 +89,11 @@
   padding: 8px 0;
 }
 .heurist-recordview-section:first-child { border-top: 0; }
+/* while a record loads (plan 23) */
+.heurist-recordview-loading { padding: 14px; }
+
+/* a section whose fields are all past the fields limit (plan 23) */
+.heurist-recordview-section[hidden] { display: none; }
 .heurist-recordview-section legend {
   padding: 0;
   font-size: 11px;
@@ -127,6 +132,11 @@
 .heurist-recordview-resource-link,
 .heurist-recordview-tag-link { cursor: pointer; }
 .heurist-recordview-relation-type { color: var(--h-color-text-muted); }
+
+/* "Show all (N)" after the values, links, files or fields shown at once (plan 23) */
+.heurist-recordview-show-all { font-size: 12px; }
+.heurist-recordview-sections > .heurist-recordview-show-all { padding: 4px 0 8px; }
+.heurist-recordview-media > .heurist-recordview-show-all { align-self: center; }
 
 .heurist-recordview-geo-line { display: flex; align-items: center; gap: 6px; }
 .heurist-recordview-geo-summary { overflow-wrap: anywhere; }

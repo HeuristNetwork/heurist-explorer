@@ -52,6 +52,8 @@ export function getHeuristExplorerConfig() {
     requestHeaders: runtime.requestHeaders || {},
     language: resolveUiLanguage(uiConfig, hostLanguage),
     hostLanguage,
+    // limits of the built-in record view (plan 23 §3.1), passed on to every module
+    recordLimits: uiConfig.recordLimits,
     hostBridge: bridge || null,
     moduleModes: {
       data: normalizeMode(runtime.moduleModes?.data, 'direct'),

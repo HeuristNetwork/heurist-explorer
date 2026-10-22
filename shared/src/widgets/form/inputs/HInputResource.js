@@ -35,6 +35,7 @@ import { POINTER_MODES } from '../../../data/recordEditStructure.js';
 import { recordTypeIconUrl } from '../../record-list/recordAdminInfo.js';
 import { showPopover } from '../../popover/popover.js';
 import { HMsg } from '../../../ui/HMsg.js';
+import { sanitizeTextHtml, stripHtml } from '../../../recordview/FieldValueFormatter.js';
 import { $HR } from '../../../ui/i18n/HResource.js';
 import './HInputResource.css';
 
@@ -117,6 +118,7 @@ export class HInputResource extends HInput {
   /** Disable or enable the picker / button and the Edit button. */
   setReadOnly(readOnly) {
     this._readOnly = Boolean(readOnly);
+    this._markReadOnly(readOnly);
     this.combo?.setReadOnly(readOnly);
     if (this.modeButton) this.modeButton.disabled = this._readOnly;
     this._syncActions();
@@ -176,6 +178,8 @@ export class HInputResource extends HInput {
       multiple: false,
       value: this.value,
       emptyLabel: $HR('Select record…'),
+      // record titles may have a few formatting tags (as h-recordlist-title)
+      htmlLabels: true,
       actions,
       onChange: (value) => {
         this.value = value ?? null;
@@ -218,8 +222,10 @@ export class HInputResource extends HInput {
     if (this.modeButtonText) {
       const id = this.getValue();
       const title = id ? (this.source.labelFor?.(id) || `#${id}`) : '';
-      this.modeButtonText.textContent = title || this._emptyText();
-      this.modeButton.title = title;
+      // a record title may have a few formatting tags (as h-recordlist-title)
+      if (title) this.modeButtonText.innerHTML = sanitizeTextHtml(title);
+      else this.modeButtonText.textContent = this._emptyText();
+      this.modeButton.title = stripHtml(title);
       this.modeButton.classList.toggle('is-empty', !title);
       this.modeButton.classList.toggle('is-clickable', !(this.mode === 'addonly' && id));
     }

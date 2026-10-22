@@ -20,7 +20,8 @@ test('save() persists and load() round-trips a valid value', () => {
     panes: { north: true, west: false, center: true, east: false, south: true },
     lists: 'popup',
     language: 'fre',
-    isSimplifiedUI: false
+    isSimplifiedUI: false,
+    recordLimits: { fields: 100, values: 20, thumbs: 50, links: 500 }
   };
   const saved = config.save(value);
   assert.deepEqual(saved, { version: 1, ...value });

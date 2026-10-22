@@ -13,7 +13,7 @@ import { installFakeDom, flush } from './helpers/fakeDom.js';
 const document = installFakeDom();
 globalThis.Node ??= globalThis.HTMLElement;
 const { loadRelmarkerStates, relationFits, relationshipBody } = await import('../src/data/relmarkerRelations.js');
-const { reverseRelmarkerGroup } = await import('../src/data/recordEditStructure.js');
+const { relationRecordStructure, reverseRelmarkerGroup } = await import('../src/data/recordEditStructure.js');
 const { createHInput } = await import('../src/widgets/form/inputs/createHInput.js');
 const { relationshipForm, relationshipDialogTitle } = await import('../src/widgets/relationship/relationshipDialog.js');
 const { openEditFormDialog } = await import('../src/widgets/edit-form/editFormDialog.js');
@@ -92,6 +92,25 @@ test('relationships go to the first field that fits; reverse ones show the inver
   assert.equal(relationFits(PERSONS, { reverse: true, term: 101, other: { rty: 10 } }, dbdefs), false, 'direction');
 });
 
+test('more relationships than loaded: onPartial reports loaded and total (plan 23)', async () => {
+  const reports = [];
+  const client = {
+    async get(path, { query }) {
+      const predicate = query.q[1];
+      if (predicate['f:7']) return { records: OUTGOING, pagination: { total: 700 } };
+      return { records: INCOMING, pagination: { total: INCOMING.length } };
+    }
+  };
+  await loadRelmarkerStates({
+    apiClient: client, dbdefs, recordId: 151, fields: [PERSONS], onPartial: (loaded, total) => reports.push([loaded, total])
+  });
+  assert.deepEqual(reports, [[OUTGOING.length + INCOMING.length, 700 + INCOMING.length]]);
+
+  const none = [];
+  await loadRelmarkerStates({ apiClient: apiClient(), dbdefs, recordId: 151, fields: [PERSONS], onPartial: () => none.push(1) });
+  assert.deepEqual(none, [], 'everything loaded: no report');
+});
+
 test('reverse fields: relmarker fields of other record types that target this one', () => {
   const group = reverseRelmarkerGroup(10, dbdefs, 'From others');
   assert.equal(group.label, 'From others');
@@ -99,6 +118,29 @@ test('reverse fields: relmarker fields of other record types that target this on
     [['rev:300', 'Members ← Organisation', true, null, 200]]);
   assert.deepEqual(group.children[0].sourceTypes, [4]);
   assert.equal(reverseRelmarkerGroup(4, dbdefs), null);
+});
+
+test('relationship record: constraints of the relmarker field, else type / source / target read only', () => {
+  const fields = [
+    { dty: 6, type: 'relationtype', vocabulary: 999 },
+    { dty: 7, type: 'resource', targetTypes: [] },
+    { dty: 5, type: 'resource', targetTypes: [] },
+    { dty: 8, type: 'freetext' }
+  ];
+  const structure = { rty: 1, groups: [{ id: null, type: 'group', children: fields }] };
+  const shown = (result) => result.groups[0].children.map((field) => [field.dty, field.readOnly === true, field.vocabulary ?? null, field.targetTypes ?? null]);
+  assert.deepEqual(shown(relationRecordStructure(structure, dbdefs, null)), [
+    [6, true, 999, null], [7, true, null, []], [5, true, null, []], [8, false, null, null]
+  ]);
+  assert.deepEqual(shown(relationRecordStructure(structure, dbdefs, { vocabulary: 100, targetTypes: [10], reverse: false })), [
+    [6, false, 100, null], [7, true, null, []], [5, false, null, [10]], [8, false, null, null]
+  ]);
+  assert.deepEqual(shown(relationRecordStructure(structure, dbdefs, { vocabulary: 200, targetTypes: [4], reverse: true })), [
+    [6, false, 200, null], [7, false, null, [4]], [5, true, null, []], [8, false, null, null]
+  ]);
+  assert.equal(fields[0].readOnly, undefined, 'the cached structure is not changed');
+  const person = { rty: 10, groups: [] };
+  assert.equal(relationRecordStructure(person, dbdefs, null), person, 'other record types');
 });
 
 test('a new relationship record has the owner and visibility of the edited record', () => {
@@ -142,15 +184,21 @@ test('relmarker input: Add button without a relationship', () => {
   assert.equal(readOnly.addButton.hidden, true);
 });
 
-test('relmarker input: type, triangle, title, actions, relationship icon; no visibility switch', () => {
+test('relmarker input: type, triangle, record type icon, title, actions, relationship icon; no visibility switch', () => {
   const relation = { relId: 900, term: 101, termLabel: 'parent of', reverse: false, other: { id: 152, title: 'Anna', rty: 10 } };
   const input = relmarkerInput({ value: 900, relation });
   assert.equal(input.addButton.hidden, true);
   assert.equal(input.box.hidden, false);
   assert.deepEqual(input.box.children.map((child) => child.className.split(' ')[0]), [
-    'h-input-relmarker-term', 'fa-solid', 'h-input-relmarker-title', 'h-input-relmarker-actions',
-    'h-input-relmarker-relicon', 'h-input-relmarker-actions'
+    'h-input-relmarker-term', 'fa-solid', 'h-input-relmarker-othericon', 'h-input-relmarker-title',
+    'h-input-relmarker-actions', 'h-input-relmarker-relicon', 'h-input-relmarker-actions'
   ]);
+  assert.ok(input.container.classList.contains('h-form-input-compact'));
+  assert.ok(input.box.querySelector('.fa-caret-right'));
+  assert.match(input.otherIcon.getAttribute('src'), /icon=10&/);
+  assert.equal(input.otherIcon.hidden, false);
+  const reverse = relmarkerInput({ value: 900, relation: { ...relation, reverse: true }, field: MEMBERS_REVERSE });
+  assert.ok(reverse.box.querySelector('.fa-caret-left'));
   assert.equal(input.termElement.textContent, 'parent of');
   assert.equal(input.titleElement.textContent, 'Anna');
   assert.match(input.relIcon.getAttribute('src'), /icon=1&/);
@@ -188,6 +236,20 @@ test('relmarker input: clear deletes the relationship after the warning; Cancel 
     HMsg.showMsgDlg = show;
     HMsg.closeMsgDlg = close;
   }
+});
+
+test('relmarker input: Edit of the relationship record passes the field constraints; read only class', async () => {
+  const relation = { relId: 903, term: 102, termLabel: 'child of', reverse: true, other: { id: 152, title: 'Anna', rty: 10 } };
+  const edits = [];
+  const input = relmarkerInput({
+    value: 903, relation, field: MEMBERS_REVERSE,
+    editRecord: async (id, options) => { edits.push([id, options]); return { saved: false }; }
+  });
+  await input._editRelationship();
+  assert.deepEqual(edits, [[903, { relation: { vocabulary: 200, targetTypes: [4], reverse: true } }]]);
+  assert.equal(input.container.classList.contains('is-readonly'), false);
+  input.setReadOnly(true);
+  assert.equal(input.container.classList.contains('is-readonly'), true);
 });
 
 test('relmarker input: no popup when the record cannot be saved first', async () => {

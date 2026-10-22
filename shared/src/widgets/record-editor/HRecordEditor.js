@@ -35,13 +35,17 @@ import { RecordEditClient, RecordEditError } from '../../data/RecordEditClient.j
 import { RecordStructureProvider } from '../../recordview/RecordStructureProvider.js';
 import { buildRecordBody, defaultFieldValues, recordFieldValues } from '../../data/recordEditValues.js';
 import { multilangFieldIds } from '../../data/writableRecordTypes.js';
-import { nonStandardGroup, reverseRelmarkerGroup, structureFields } from '../../data/recordEditStructure.js';
+import { nonStandardGroup, relationRecordStructure, reverseRelmarkerGroup, splitLargeGroups, structureFields } from '../../data/recordEditStructure.js';
 import { loadRelationship, loadRelmarkerStates, relationFits, relationshipBody } from '../../data/relmarkerRelations.js';
 import { HCardinalLayout } from '../layout/HCardinalLayout.js';
+import { recordTypeIconUrl } from '../record-list/recordAdminInfo.js';
+import { FIND_THRESHOLD, HStructureTree } from '../structure-tree/HStructureTree.js';
 import { RecordRelationsProvider } from '../../recordview/RecordRelationsProvider.js';
 import { buildLinkedFromSection, buildLinksRow } from '../../recordview/RecordViewRenderer.js';
+import { normalizeRecordLimits } from '../../recordview/recordLimits.js';
 import { HMsg } from '../../ui/HMsg.js';
 import { $HR } from '../../ui/i18n/HResource.js';
+import { fillLoading, loadingIndicator } from '../../ui/loadingIndicator.js';
 import './HRecordEditor.css';
 
 /** Header fields of the server issues, shown in the ownership pane. */
@@ -63,8 +67,12 @@ export class HRecordEditor extends HBaseWidget {
    * @param {string[]} [options.languages] Language codes offered for translations.
    * @param {Function} [options.selectExtent] Map extent picker of geo fields.
    * @param {Function} [options.selectGeometry] Map drawing of geo fields: `(wkt) → Promise<{type, wkt}|null>`.
-   * @param {Function} [options.editRecord] Edit button of pointer fields: `(id) → Promise<{saved, record}>`.
+   * @param {Function} [options.editRecord] Edit button of pointer fields: `(id, options) → Promise<{saved, record}>`
+   *        (a relmarker field passes `{relation}`, see `relation` below).
    * @param {Function} [options.viewRecord] View button of pointer fields: `(id)`.
+   * @param {{vocabulary?: number, targetTypes?: number[], reverse?: boolean}} [options.relation] A relationship
+   *        record (RT_RELATION) opened from a relmarker field: its vocabulary and the allowed types of the other
+   *        record; without it relation type, source and target are read only (`relationRecordStructure`).
    * @param {Function} [options.browseRecords] Browse of pointer fields (record manager, plan 21): `(options) → Promise<number[]|null>`.
    * @param {Function} [options.addRecord] Add of pointer fields (plan 21): `(rectypeId) → Promise<{saved, recordId}>`.
    * @param {Function} [options.fileUrl] Link to view a file of a file field.
@@ -80,6 +88,9 @@ export class HRecordEditor extends HBaseWidget {
    * @param {'flow'|'stack'} [options.inputPos='stack'] One field per line, or side by side.
    * @param {boolean} [options.summary=true] The Record summary pane on the right.
    * @param {Function} [options.onOpenRecord] Called with a record id: a linked record of the summary.
+   * @param {object} [options.limits] Limits of the built-in record view (`recordLimits.js`, plan 23): a
+   *        group with more than `fields` fields gets collapsed parts, a field shows the inputs of its first
+   *        `values` values, the summary's Linked records show `links` records per row.
    * @returns {HRecordEditor} This editor.
    */
   attach(container, options = {}) {
@@ -124,19 +135,22 @@ export class HRecordEditor extends HBaseWidget {
       throw new TypeError('HRecordEditor needs recordId or rectypeId');
     }
     const rty = this.rectypeId;
-    const structure = await this.structureProvider.editStructure(rty, {
+    // a relationship record: constraints of the relmarker field it was opened from (2026-10-22)
+    const structure = relationRecordStructure(await this.structureProvider.editStructure(rty, {
       signal, dbdefs: this.dbdefs, multilangIds: multilangFieldIds(this.dbdefs, rty)
-    });
+    }), this.dbdefs, this.options.relation || null);
     // relationships of other record types' relmarker fields that target this type (plan 22),
     // then the values of fields the structure does not have: last groups (a copy: the structure is cached)
     const reverse = reverseRelmarkerGroup(rty, this.dbdefs, $HR('Relationships from other records'));
     const extra = nonStandardGroup(this.record, structure, this.dbdefs, $HR('Non-standard fields'));
-    this.structure = reverse || extra
+    const groups = reverse || extra
       ? { ...structure, groups: [...structure.groups, ...(reverse ? [reverse] : []), ...(extra ? [extra] : [])] }
       : structure;
-    const relationsError = await this._loadRelmarkers(signal);
+    // a group with more fields than "Limit fields": the others in collapsed parts (plan 23 §4.2)
+    this.structure = splitLargeGroups(groups, this._limits().fields, (from, to) => `${$HR('Fields')} ${from}-${to}`);
+    const relationsMessage = await this._loadRelmarkers(signal);
     this.render();
-    if (relationsError) this._showMessages([{ severity: 'error', message: relationsError }]);
+    if (relationsMessage) this._showMessages([relationsMessage]);
     return this;
   }
 
@@ -169,6 +183,9 @@ export class HRecordEditor extends HBaseWidget {
     this._renderTitle();
     const values = this.record ? recordFieldValues(this.record, this.structure) : defaultFieldValues(this.structure);
     this._renderForm(values);
+    // "Show help" of the Structure pane (remembered; also before the pane is opened)
+    this.editForm.setFieldHelpVisible(readShowFieldHelp());
+    this._renderStructureTree();
 
     this.listen(this.container, 'h-input-change', () => this._onChange());
     this._initial = JSON.stringify(this.getRecord());
@@ -230,6 +247,8 @@ export class HRecordEditor extends HBaseWidget {
     if (this.validate().length) return false;
     const body = this.getRecord();
     this._setBusy(true);
+    // a very large record takes a while to save (plan 23)
+    this._showMessages([{ severity: 'info', message: $HR('Saving…'), busy: true }]);
     try {
       const created = this.isNew;
       const result = created ? await this.client.insert(body) : await this.client.update(body, { force });
@@ -256,6 +275,8 @@ export class HRecordEditor extends HBaseWidget {
       return false;
     } finally {
       this._setBusy(false);
+      // "Saving…" goes when no other message replaced it (issues are shown at their fields)
+      this.messages?.querySelector('.h-loading')?.remove();
     }
   }
 
@@ -314,16 +335,22 @@ export class HRecordEditor extends HBaseWidget {
   _renderLoading() {
     this.container.replaceChildren();
     this.container.classList.add('h-widget', 'h-record-editor');
-    const loading = document.createElement('div');
-    loading.className = 'h-record-editor-loading h-i18n';
-    loading.textContent = $HR('Loading…');
-    this.container.append(loading);
+    this.container.append(loadingIndicator($HR('Loading…'), 'h-record-editor-loading'));
   }
 
   /** Record type, title and id. */
   _renderTitle() {
     const typeName = this.dbdefs?.rectypeName?.(this.rectypeId) || `#${this.rectypeId}`;
     this.titleElement.replaceChildren();
+    // the record type icon before its name (the icon base of the file fields)
+    const iconUrl = recordTypeIconUrl({ rec_RecTypeID: this.rectypeId }, this.options.fileViewer || {});
+    if (iconUrl) {
+      const icon = document.createElement('img');
+      icon.className = 'h-record-editor-type-icon';
+      icon.src = iconUrl;
+      icon.alt = '';
+      this.titleElement.append(icon);
+    }
     const type = document.createElement('span');
     type.className = 'h-record-editor-type';
     type.textContent = typeName;
@@ -371,9 +398,14 @@ export class HRecordEditor extends HBaseWidget {
    */
   _renderLayout(header) {
     const collapsed = readSummaryCollapsed();
-    this.cardinal = new HCardinalLayout(this.layoutHost, { eastSize: 300, minEast: 220, collapsedSize: 30, minCenterWidth: 280 });
+    this.cardinal = new HCardinalLayout(this.layoutHost, {
+      eastSize: 300, minEast: 220, westSize: 240, minWest: 180, collapsedSize: 30, minCenterWidth: 280
+    });
     this.cardinal.setContent('center', this.body);
-    this.cardinal.hide('west');
+    // the Structure of the form on the left (plan 23 §4.3); filled after the form is made
+    this.structurePane = this._renderStructurePane();
+    this.cardinal.setContent('west', this.structurePane);
+    this.cardinal.show('west');
     this.summary = this._renderSummary(header);
     this.cardinal.setContent('east', this.summary);
     this.cardinal.show('east');
@@ -388,6 +420,98 @@ export class HRecordEditor extends HBaseWidget {
     };
     this.cardinal.addEventListener('regioncollapsechange', sync);
     sync();
+    const syncStructure = () => {
+      const isCollapsed = this.cardinal.state.west.collapsed === true;
+      this.structureToggleIcon.className = `fa-solid ${isCollapsed ? 'fa-angles-right' : 'fa-angles-left'}`;
+      this.structureToggle.title = isCollapsed ? $HR('Show the structure') : $HR('Hide the structure');
+      this.structureToggle.setAttribute('aria-label', this.structureToggle.title);
+      this.structureToggle.setAttribute('aria-expanded', String(!isCollapsed));
+    };
+    this.cardinal.addEventListener('regioncollapsechange', (event) => {
+      syncStructure();
+      if (event?.detail?.region !== 'west') return;
+      // the user's choice only (not the start state set by _renderStructureTree)
+      if (!this._structureStarting) writeStructureCollapsed(event.detail.collapsed === true);
+      // the tree is made when the pane is first opened (lazy), its counts when it is opened again
+      if (event.detail.collapsed !== true && this._ensureStructureTree()) this._refreshStructureTree();
+    });
+    this._syncStructureToggle = syncStructure;
+  }
+
+  /** Structure pane (plan 23 §4.3): the head as the Record summary's, then HStructureTree. */
+  _renderStructurePane() {
+    const pane = document.createElement('div');
+    pane.className = 'h-record-editor-summary h-record-editor-structure';
+    const head = document.createElement('div');
+    head.className = 'h-record-editor-summary-head';
+    this.structureToggle = document.createElement('button');
+    this.structureToggle.type = 'button';
+    this.structureToggle.className = 'heurist-icon-button h-record-editor-summary-toggle';
+    this.structureToggleIcon = iconElement('fa-angles-left');
+    this.structureToggle.append(this.structureToggleIcon);
+    // the whole head toggles the pane (the button too: its click reaches the head)
+    this.listen(head, 'click', () => this.cardinal.toggle('west'));
+    const caption = document.createElement('span');
+    caption.className = 'h-record-editor-summary-caption h-i18n';
+    caption.textContent = $HR('Structure');
+    head.append(this.structureToggle, caption);
+    this.structureHost = document.createElement('div');
+    this.structureHost.className = 'h-record-editor-structure-tree';
+    pane.append(head, this.structureHost);
+    return pane;
+  }
+
+  /**
+   * The Structure pane after the form is made: collapsed at start for a small form unless
+   * the user opened it before. Its tree is made only when the pane is open (lazy).
+   */
+  _renderStructureTree() {
+    if (!this.structureHost || !this.editForm) return;
+    this.structureTree = null;
+    const remembered = readStructureCollapsed();
+    const collapsed = remembered ?? structureFields(this.structure).length <= FIND_THRESHOLD;
+    this._structureStarting = true;
+    if (collapsed) this.cardinal.collapse('west');
+    else this.cardinal.expand('west');
+    this._structureStarting = false;
+    this._syncStructureToggle?.();
+    if (!collapsed) this._ensureStructureTree();
+  }
+
+  /**
+   * The tree of the form in the Structure pane (made once): a click shows the field in the
+   * form; its requirement and "Empty only" filters filter the form too (view filter).
+   *
+   * @returns {HStructureTree|null} The tree.
+   */
+  _ensureStructureTree() {
+    if (this.structureTree || !this.structureHost || !this.editForm) return this.structureTree || null;
+    this._structureStates = this.editForm.getStates();
+    this.structureTree = new HStructureTree().attach(this.structureHost, {
+      form: this.editForm.form,
+      valueCount: (name) => this._structureStates?.get(name)?.values?.length || 0,
+      onSelect: (name) => {
+        this.editForm.revealField(name);
+        this.editForm.getFieldWidget(name)?.focus();
+      },
+      onFilterChange: (names) => this.editForm?.setViewFilter(names),
+      showHelp: readShowFieldHelp(),
+      onShowHelpChange: (shown) => {
+        writeShowFieldHelp(shown);
+        this.editForm?.setFieldHelpVisible(shown);
+      }
+    }).render();
+    // a problem in a field the filter hides cleared the form's filter: the tree's too
+    this.listen(this.container, 'h-edit-form-view-filter-cleared', () => this.structureTree?.clearFilters());
+    return this.structureTree;
+  }
+
+  /** The values changed: the counts of the Structure tree. */
+  _refreshStructureTree() {
+    // a collapsed pane is refreshed when it is opened
+    if (!this.structureTree || !this.editForm || this.cardinal?.state?.west?.collapsed === true) return;
+    this._structureStates = this.editForm.getStates();
+    this.structureTree.refresh();
   }
 
   /** Record summary: Admin, Private, Tags, Linked records, Scratchpad (plan 18). */
@@ -401,7 +525,8 @@ export class HRecordEditor extends HBaseWidget {
     this.summaryToggle.className = 'heurist-icon-button h-record-editor-summary-toggle';
     this.summaryToggleIcon = iconElement('fa-angles-right');
     this.summaryToggle.append(this.summaryToggleIcon);
-    this.listen(this.summaryToggle, 'click', () => this.cardinal.toggle('east'));
+    // the whole head toggles the pane (the button too: its click reaches the head)
+    this.listen(head, 'click', () => this.cardinal.toggle('east'));
     const caption = document.createElement('span');
     caption.className = 'h-record-editor-summary-caption h-i18n';
     caption.textContent = $HR('Record summary');
@@ -477,8 +602,12 @@ export class HRecordEditor extends HBaseWidget {
       body.append(note($HR('Save the record to see its links')));
       return;
     }
-    body.append(note($HR('Loading…')));
-    const provider = new RecordRelationsProvider({ apiClient: this.options.apiClient, dbDefsProvider: async () => this.dbdefs });
+    body.append(loadingIndicator($HR('Loading…'), 'h-record-editor-summary-note'));
+    // a row shows `links` records; more of a very large record by "Show more" (plan 23)
+    const linkOptions = { limit: normalizeRecordLimits(this.options.limits).links };
+    const provider = new RecordRelationsProvider({
+      apiClient: this.options.apiClient, dbDefsProvider: async () => this.dbdefs, limit: linkOptions.limit
+    });
     const relmarkers = structureFields(this.structure).filter((field) => field.type === 'relmarker' && !field.reverse);
     const onNavigate = (id) => this.options.onOpenRecord?.(id);
     this._relationsAbort = new AbortController();
@@ -491,8 +620,8 @@ export class HRecordEditor extends HBaseWidget {
       const parts = [];
       const rows = [];
       for (const field of relmarkers) {
-        const items = relations.related?.[String(field.dty)] || [];
-        if (items.length) rows.push(buildLinksRow(field.label, items, onNavigate, true));
+        const group = relations.related?.[String(field.dty)];
+        if (group?.items?.length) rows.push(buildLinksRow(field.label, group, onNavigate, true, linkOptions));
       }
       if (rows.length) {
         const fieldset = document.createElement('fieldset');
@@ -505,7 +634,7 @@ export class HRecordEditor extends HBaseWidget {
         fieldset.append(legend, dl);
         parts.push(fieldset);
       }
-      const linkedFrom = buildLinkedFromSection(relations, onNavigate);
+      const linkedFrom = buildLinkedFromSection(relations, onNavigate, linkOptions);
       if (linkedFrom) parts.push(linkedFrom);
       body.replaceChildren(...(parts.length ? parts : [note($HR('No linked records'))]));
       body.classList.toggle('can-open', typeof this.options.onOpenRecord === 'function');
@@ -661,31 +790,47 @@ export class HRecordEditor extends HBaseWidget {
       readOnly: this.options.readOnly,
       specialEditors: this.options.specialEditors || {},
       specialContext: () => ({ record: this.record, rectypeId: this.rectypeId }),
-      relationships: this._relationshipService()
+      relationships: this._relationshipService(),
+      // very large records (plan 23 §4.1, §4.4): widgets of a group when it is shown,
+      // inputs of the first "Limit values per field" values
+      lazyGroups: true,
+      valueLimit: this._limits().values
     }).render();
+  }
+
+  /** @returns {{fields: number, values: number, thumbs: number, links: number}} The record view limits (plan 23). */
+  _limits() {
+    return normalizeRecordLimits(this.options.limits);
   }
 
   /**
    * Relationships of the relmarker fields of a saved record (plan 22).
    *
-   * @returns {Promise<string>} A message when they could not be loaded, else ''.
+   * @returns {Promise<{severity: string, message: string}|null>} An error when they could not be
+   *          loaded, a warning when the record has more than were loaded (plan 23), else null.
    */
   async _loadRelmarkers(signal) {
     this._relmarkerStates = new Map();
     const fields = structureFields(this.structure).filter((field) => field.type === 'relmarker');
-    if (this.isNew || !fields.length) return '';
+    if (this.isNew || !fields.length) return null;
+    let partial = null;
     try {
       this._relmarkerStates = await loadRelmarkerStates({
         apiClient: this.options.apiClient,
         dbdefs: this.dbdefs,
         recordId: Number(this.record.rec_ID),
         fields,
-        signal
+        signal,
+        onPartial: (loaded, total) => { partial = { loaded, total }; }
       });
-      return '';
+      if (!partial) return null;
+      return {
+        severity: 'warning',
+        message: `${$HR('The relationship fields show')} ${partial.loaded} ${$HR('of')} ${partial.total} ${$HR('relationships of this record')}`
+      };
     } catch (error) {
       if (error?.name === 'AbortError') throw error;
-      return `${$HR('The relationships could not be loaded')}: ${error?.message || error}`;
+      return { severity: 'error', message: `${$HR('The relationships could not be loaded')}: ${error?.message || error}` };
     }
   }
 
@@ -753,6 +898,7 @@ export class HRecordEditor extends HBaseWidget {
 
   /** A value changed: tell the host whether there are unsaved changes. */
   _onChange() {
+    this._refreshStructureTree();
     this._emit('h-record-editor-change', { dirty: this.isDirty() });
   }
 
@@ -820,10 +966,11 @@ export class HRecordEditor extends HBaseWidget {
   }
 }
 
-/** @returns {HTMLElement} One message or issue line. */
+/** @returns {HTMLElement} One message or issue line (`busy`: with the rotating icon). */
 function issueElement(issue) {
   const element = document.createElement('div');
   element.className = `h-record-editor-message is-${issue.severity === 'warning' ? 'warning' : issue.severity === 'info' ? 'info' : 'error'}`;
+  if (issue.busy) return fillLoading(element, String(issue.message || ''));
   element.textContent = String(issue.message || '');
   return element;
 }
@@ -878,6 +1025,33 @@ export function localTime(value) {
 }
 
 const SUMMARY_KEY = 'heurist.recordEditor.summaryCollapsed';
+const STRUCTURE_KEY = 'heurist.recordEditor.structureCollapsed';
+const FIELD_HELP_KEY = 'heurist.recordEditor.showFieldHelp';
+
+/** @returns {boolean} Whether the help texts of the fields are shown ("Show help"; default yes). */
+function readShowFieldHelp() {
+  try { return globalThis.localStorage?.getItem(FIELD_HELP_KEY) !== '0'; } catch { return true; }
+}
+
+/** Remember "Show help". */
+function writeShowFieldHelp(shown) {
+  try { globalThis.localStorage?.setItem(FIELD_HELP_KEY, shown ? '1' : '0'); } catch { /* storage may be unavailable */ }
+}
+
+/** @returns {boolean|null} Whether the user collapsed the Structure pane last time (null: never chosen). */
+function readStructureCollapsed() {
+  try {
+    const value = globalThis.localStorage?.getItem(STRUCTURE_KEY);
+    return value === '1' ? true : value === '0' ? false : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Remember whether the Structure pane is collapsed. */
+function writeStructureCollapsed(collapsed) {
+  try { globalThis.localStorage?.setItem(STRUCTURE_KEY, collapsed ? '1' : '0'); } catch { /* storage may be unavailable */ }
+}
 
 /** @returns {boolean} Whether the user collapsed the Record summary last time. */
 function readSummaryCollapsed() {

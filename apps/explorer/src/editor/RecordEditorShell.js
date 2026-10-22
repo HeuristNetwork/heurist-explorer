@@ -89,7 +89,8 @@ export class RecordEditorShell {
       rectypeIconUrl: (id) => this.recordTypes.iconUrl?.(id) || '',
       language: this.config.language,
       baseUrl: this.config.baseUrl,
-      database: this.config.database
+      database: this.config.database,
+      recordLimits: this.config.recordLimits
     });
     try {
       await this.userGroups.load();

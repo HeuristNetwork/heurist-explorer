@@ -94,6 +94,14 @@
   flex: 0 1 auto;
 }
 
+/* a read-only input (HInput#setReadOnly): inputs, select-like buttons and record boxes on the
+   surface colour (2026-10-22) */
+.h-form-input.is-readonly .h-input,
+.h-form-input.is-readonly .h-select,
+.h-form-input.is-readonly textarea {
+  background: var(--h-color-surface);
+}
+
 /* shown whenever the field has a value (see HInput#_syncClearButton) */
 .h-form-input-clear {
   flex: 0 0 auto;

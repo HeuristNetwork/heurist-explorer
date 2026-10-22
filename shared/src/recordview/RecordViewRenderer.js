@@ -18,6 +18,8 @@ import { fieldValues, sanitizeTextHtml, looksLikeJson } from "./FieldValueFormat
 import { geoToHuman } from "../utils/geoText.js";
 import { temporalToHuman } from "../utils/temporal.js";
 import { buildFileMediaItem, fileMediaUrls } from "./fileMediaItem.js";
+import { DEFAULT_RECORD_LIMITS, normalizeRecordLimits } from "./recordLimits.js";
+import { loadingIndicator } from "../ui/loadingIndicator.js";
 import "./RecordViewRenderer.css";
 
 const VISIBILITY_LABELS = { hidden: "Hidden", viewable: "Viewable", public: "Public" };
@@ -29,9 +31,14 @@ export class RecordViewRenderer {
    * @param {HTMLElement} options.container Element the renderer owns and clears on every render.
    * @param {string|null} [options.baseUrl] Legacy Heurist base URL, for the `builtin` engine's icon/media links.
    * @param {string|null} [options.database] Target Heurist database name, for the same links.
+   * @param {object|null} [options.limits] Fields, values per field, thumbnails and links shown before a
+   *   "Show all" link (`recordLimits.js`, plan 23); defaults for missing values.
+   * @param {(() => void)|null} [options.onGrow] Called after a "Show all" link added content (a popup lays itself out again).
    */
-  constructor({ container, baseUrl, database } = {}) {
+  constructor({ container, baseUrl, database, limits = null, onGrow = null } = {}) {
     this.container = container;
+    this.limits = normalizeRecordLimits(limits);
+    this.onGrow = typeof onGrow === "function" ? onGrow : null;
     const value = String(baseUrl || "").trim();
     this.baseUrl = value ? (value.endsWith("/") ? value : `${value}/`) : null;
     this.database = database == null ? null : String(database);
@@ -73,6 +80,16 @@ export class RecordViewRenderer {
   }
 
   /**
+   * Show "Loading..." with a rotating icon while a record loads (plan 23: a very large
+   * record takes a while).
+   *
+   * @returns {void}
+   */
+  showLoading() {
+    this.body.replaceChildren(loadingIndicator($HR("Loading..."), "heurist-recordview-loading"));
+  }
+
+  /**
    * Render the `builtin` engine's header, media strip, sectioned fields, and footer.
    *
    * @param {object} record Resolved record (`rec_*` fields plus a `details` map), from `RecordDataProvider`.
@@ -89,6 +106,8 @@ export class RecordViewRenderer {
    * @param {((record: object) => void)|null} [options.onShowLinks] Shows the records linked/related to this one; the
    *   header button appears only with it and when the record has any link or relationship.
    * @param {((tag: {id:number, name:string}) => void)|null} [options.onSearchTag] Runs a search for a tag; without it tags are plain text.
+   * @param {((query: Array<object>, title: string) => void)|null} [options.onSearchLinks] Runs the search of a cut
+   *   row of linked records ("Show all (N) in search", plan 23); without it the row offers "Show more".
    * @param {boolean} [options.compact] Render only the header and the first file's thumbnail (no viewer
    *   links, no audio/video players), followed by a "More..." link when `onExpand` is given.
    * @param {(() => void)|null} [options.onExpand] Invoked by the compact card's "More..." link.
@@ -97,8 +116,10 @@ export class RecordViewRenderer {
   showBuiltin(record, {
     sections = [], recordTypeName = null, canEdit = false, onEdit = () => {}, onNavigate = () => {},
     canZoomExtent = false, onZoomExtent = () => {}, tags = null, relations = null, onSearchTag = null,
-    onShowLinks = null, compact = false, onExpand = null,
+    onShowLinks = null, compact = false, onExpand = null, onSearchLinks = null,
   } = {}) {
+    const recordTitle = String(record?.rec_Title ?? "").replace(/<[^>]*>/g, "").trim();
+    this.linkContext = { onSearchLinks, recordTitle };
     if (compact) {
       const card = [this.#buildHeader(record, { recordTypeName, canEdit, onEdit })];
       const thumbnail = this.#buildCompactMedia(record, sections);
@@ -199,7 +220,7 @@ export class RecordViewRenderer {
     return header;
   }
 
-  /** Media strip: one thumbnail + viewer link per `file`-type detail value. */
+  /** Media strip: one thumbnail + viewer link per `file`-type detail value, the first `limits.thumbs` at once. */
   #buildMedia(record, sections) {
     if (!this.#isConfigured()) return null;
     const files = [];
@@ -210,15 +231,14 @@ export class RecordViewRenderer {
         if (Array.isArray(values)) files.push(...values);
       }
     }
-    if (!files.length) return null;
+    const shown = files.map((value) => value?.file).filter((file) => file?.ulf_ObfuscatedFileID);
+    if (!shown.length) return null;
     const media = document.createElement("div");
     media.className = "heurist-recordview-media";
-    for (const value of files) {
-      const file = value?.file;
-      if (!file?.ulf_ObfuscatedFileID) continue;
-      media.append(this.#buildMediaItem(file));
-    }
-    return media.childElementCount ? media : null;
+    appendLimited(media, shown, (file) => this.#buildMediaItem(file), {
+      limit: this.limits.thumbs, label: "Show all files", onGrow: this.onGrow,
+    });
+    return media;
   }
 
   /** Compact card media: the thumbnail of the record's first file only, without viewer links or players. */
@@ -266,24 +286,28 @@ export class RecordViewRenderer {
   /**
    * Fields grouped into `<fieldset>`s per section; only populated, non-`file` fields are shown.
    * A relmarker field lists its relationships (`related`): relation type and related record.
+   * Only the first `limits.fields` fields are built; "Show all fields" builds the others in
+   * their sections (plan 23 §3.2). A section without a shown field stays hidden until then.
    */
   #buildSections(record, sections, { onNavigate, canZoomExtent, onZoomExtent, related = {} }) {
     const wrapper = document.createElement("div");
     wrapper.className = "heurist-recordview-sections";
+    const pending = []; // rows past the limit: {dl, fieldset, build}
+    let total = 0;
     for (const section of sections) {
-      const rows = [];
+      const builders = [];
       for (const field of section.fields) {
         if (field.type === "file") continue;
         if (field.type === "relmarker") {
-          const items = related[String(field.id)] || [];
-          if (items.length) rows.push(this.#buildLinksRow(field.name || `Field ${field.id}`, items, onNavigate, true));
+          const group = related[String(field.id)];
+          if (groupTotal(group)) builders.push(() => this.#buildLinksRow(field.name || `Field ${field.id}`, group, onNavigate, true));
           continue;
         }
         const values = record?.details?.[String(field.id)];
         if (!Array.isArray(values) || !values.length) continue;
-        rows.push(this.#buildFieldRow(record, field, values, { onNavigate, canZoomExtent, onZoomExtent }));
+        builders.push(() => this.#buildFieldRow(record, field, values, { onNavigate, canZoomExtent, onZoomExtent }));
       }
-      if (!rows.length) continue;
+      if (!builders.length) continue;
       const fieldset = document.createElement("fieldset");
       fieldset.className = "heurist-recordview-section";
       if (section.title) {
@@ -293,9 +317,25 @@ export class RecordViewRenderer {
       }
       const dl = document.createElement("dl");
       dl.className = "heurist-recordview-section-fields";
-      for (const [dt, dd] of rows) dl.append(dt, dd);
+      for (const build of builders) {
+        if (++total <= this.limits.fields) dl.append(...build());
+        else pending.push({ dl, fieldset, build });
+      }
+      fieldset.hidden = !dl.childElementCount;
       fieldset.append(dl);
       wrapper.append(fieldset);
+    }
+
+    if (pending.length) {
+      wrapper.append(showAllLink(`${$HR("Show all fields")} (${total})`, (line) => {
+        for (const { dl, fieldset, build } of pending) {
+          dl.append(...build());
+          fieldset.hidden = false;
+        }
+        line.remove();
+        this.#alignFieldLabels();
+        this.onGrow?.();
+      }));
     }
     return wrapper;
   }
@@ -307,16 +347,18 @@ export class RecordViewRenderer {
    * the raw WKT) with an optional zoom button; a date field its readable date
    * (`temporalToHuman`); everything else renders as plain text. Each
    * value gets its own line within `dd`, so the label sits inline with the first value and
-   * further values stack beneath it.
+   * further values stack beneath it. Only the first `limits.values` values are built, then
+   * "Show all values (N)".
    */
   #buildFieldRow(record, field, values, { onNavigate, canZoomExtent, onZoomExtent }) {
     const dt = document.createElement("dt");
     dt.textContent = field.name || `Field ${field.id}`;
     const dd = document.createElement("dd");
+    let items = values;
+    let buildLine;
     if (field.type === "resource") {
-      for (const value of values) {
-        const line = document.createElement("div");
-        line.className = "heurist-recordview-value-line";
+      buildLine = (value) => {
+        const line = valueLine();
         const link = document.createElement("a");
         link.href = "#";
         link.className = "heurist-recordview-resource-link";
@@ -326,12 +368,13 @@ export class RecordViewRenderer {
           if (value?.rec_ID) onNavigate(value.rec_ID);
         });
         line.append(link);
-        dd.append(line);
-      }
+        return line;
+      };
     } else if (field.type === "geo") {
-      for (const wkt of fieldValues(record, { field: String(field.id) })) {
-        const line = document.createElement("div");
-        line.className = "heurist-recordview-value-line heurist-recordview-geo-line";
+      items = fieldValues(record, { field: String(field.id) });
+      buildLine = (wkt) => {
+        const line = valueLine();
+        line.classList.add("heurist-recordview-geo-line");
         const summary = document.createElement("span");
         summary.className = "heurist-recordview-geo-summary";
         summary.textContent = geoToHuman(wkt);
@@ -346,12 +389,12 @@ export class RecordViewRenderer {
           zoom.addEventListener("click", () => onZoomExtent(wkt));
           line.append(zoom);
         }
-        dd.append(line);
-      }
+        return line;
+      };
     } else if (field.type === "blocktext") {
-      for (const text of fieldValues(record, { field: String(field.id) })) {
-        const line = document.createElement("div");
-        line.className = "heurist-recordview-value-line";
+      items = fieldValues(record, { field: String(field.id) });
+      buildLine = (text) => {
+        const line = valueLine();
         const plain = String(text ?? "");
         if (looksLikeJson(plain)) {
           line.classList.add("heurist-recordview-value-systemformat");
@@ -359,24 +402,25 @@ export class RecordViewRenderer {
         } else {
           line.innerHTML = sanitizeTextHtml(plain, { extraTags: ["p"] });
         }
-        dd.append(line);
-      }
+        return line;
+      };
     } else if (field.type === "date") {
       // plain dates and temporal objects (JSON) as readable text
-      for (const text of fieldValues(record, { field: String(field.id) })) {
-        const line = document.createElement("div");
-        line.className = "heurist-recordview-value-line";
+      items = fieldValues(record, { field: String(field.id) });
+      buildLine = (text) => {
+        const line = valueLine();
         line.textContent = temporalToHuman(text);
-        dd.append(line);
-      }
+        return line;
+      };
     } else {
-      for (const text of fieldValues(record, { field: String(field.id) })) {
-        const line = document.createElement("div");
-        line.className = "heurist-recordview-value-line";
+      items = fieldValues(record, { field: String(field.id) });
+      buildLine = (text) => {
+        const line = valueLine();
         line.textContent = String(text ?? "");
-        dd.append(line);
-      }
+        return line;
+      };
     }
+    appendLimited(dd, items, buildLine, { limit: this.limits.values, label: "Show all values", onGrow: this.onGrow });
     return [dt, dd];
   }
 
@@ -409,12 +453,24 @@ export class RecordViewRenderer {
 
   /** "Linked from" section (buildLinkedFromSection, shared with the record editor). */
   #buildLinkedFrom(relations, onNavigate) {
-    return buildLinkedFromSection(relations, onNavigate);
+    return buildLinkedFromSection(relations, onNavigate, this.#linkOptions());
   }
 
   /** One row of record links (buildLinksRow). */
-  #buildLinksRow(label, items, onNavigate, withRelation = false) {
-    return buildLinksRow(label, items, onNavigate, withRelation);
+  #buildLinksRow(label, source, onNavigate, withRelation = false) {
+    return buildLinksRow(label, source, onNavigate, withRelation, this.#linkOptions());
+  }
+
+  /** Options of the link rows: the links limit, `onGrow`, and the search of a row's records (with the record title). */
+  #linkOptions() {
+    const { onSearchLinks, recordTitle } = this.linkContext || {};
+    return {
+      limit: this.limits.links,
+      onGrow: this.onGrow,
+      onSearch: typeof onSearchLinks === "function"
+        ? (query, label) => onSearchLinks(query, recordTitle ? `${label}: ${recordTitle}` : label)
+        : null,
+    };
   }
 
   /**
@@ -534,23 +590,6 @@ export function tagGroups(data) {
 }
 
 /**
- * Group items by a label, keeping first-seen order of labels and items.
- *
- * @param {Array<object>} items Items.
- * @param {(item: object) => string} labelOf Group label of an item.
- * @returns {Map<string, Array<object>>}
- */
-function groupBy(items, labelOf) {
-  const groups = new Map();
-  for (const entry of items) {
-    const label = labelOf(entry);
-    if (!groups.has(label)) groups.set(label, []);
-    groups.get(label).push(entry);
-  }
-  return groups;
-}
-
-/**
  * Whether a record has any link or relationship: a pointer among its own fields, a
  * relationship of a relmarker field, a relationship to it or a record linking to it.
  *
@@ -561,10 +600,11 @@ function groupBy(items, labelOf) {
 export function hasLinks(record, relations) {
   const pointer = Object.values(record?.details || {})
     .some((values) => Array.isArray(values) && values.some((value) => Number(value?.rec_ID) > 0));
+  const filled = (group) => groupTotal(group) > 0;
   return pointer
-    || Object.values(relations?.related || {}).some((items) => items?.length > 0)
-    || Boolean(relations?.relationsFrom?.length)
-    || Boolean(relations?.linkedFrom?.length);
+    || Object.values(relations?.related || {}).some(filled)
+    || (relations?.relationsFrom || []).some(filled)
+    || (relations?.linkedFrom || []).some(filled);
 }
 
 /**
@@ -572,15 +612,20 @@ export function hasLinks(record, relations) {
  * "Linked from" section: relationships that point at this record (one row per
  * relation type, inverse where defined), then records linking here through their
  * pointer fields (one row per record type).
+ *
+ * @param {object|null} relations From `RecordRelationsProvider#load` (groups).
+ * @param {(recordId: number) => void} onNavigate Opens a record.
+ * @param {{limit?: number, onGrow?: Function|null, onSearch?: Function|null}} [options] See buildLinksRow.
+ * @returns {HTMLFieldSetElement|null} The section, or `null` without links.
  */
-export function buildLinkedFromSection(relations, onNavigate) {
+export function buildLinkedFromSection(relations, onNavigate, options = {}) {
   const rows = [];
-  for (const [label, items] of groupBy(relations?.relationsFrom || [], (entry) => entry.relation || $HR("Related"))) {
-    rows.push(buildLinksRow(label, items, onNavigate));
+  for (const group of relations?.relationsFrom || []) {
+    if (groupTotal(group)) rows.push(buildLinksRow(group.label || $HR("Related"), group, onNavigate, false, options));
   }
   const rtyName = (rty) => relations?.dbdefs?.rectypeName?.(rty) || $HR("Records");
-  for (const [label, items] of groupBy(relations?.linkedFrom || [], (entry) => rtyName(entry.rty))) {
-    rows.push(buildLinksRow(label, items, onNavigate));
+  for (const group of relations?.linkedFrom || []) {
+    if (groupTotal(group)) rows.push(buildLinksRow(group.label || rtyName(group.rty), group, onNavigate, false, options));
   }
   if (!rows.length) return null;
   const fieldset = document.createElement("fieldset");
@@ -596,15 +641,35 @@ export function buildLinkedFromSection(relations, onNavigate) {
 
 /**
  * One row of record links (titles follow `onNavigate`), each on its own line;
- * `withRelation` puts the relation type before each title.
+ * `withRelation` puts the relation type before each title. Only the first `limit`
+ * links are built (plan 23); a cut row ends with one link:
+ * - every record loaded: "Show all (N)" builds the others in place;
+ * - a group with more records than loaded and an `onSearch`: "Show all (N) in search";
+ * - otherwise, with the group's `more()`: "Show more (shown / N)", the next `limit` each time.
+ * The label of a cut row has the count: "Persons (1234)".
+ *
+ * @param {string} label Row label.
+ * @param {Array<{id: number, title: string, relation?: string}>|object} source Linked records, or a
+ *   `LinkGroup` of `RecordRelationsProvider` (`items`, `total`, `query`, `more`).
+ * @param {(recordId: number) => void} onNavigate Opens a record.
+ * @param {boolean} [withRelation=false] Show the relation type before each title.
+ * @param {{limit?: number, onGrow?: Function|null, onSearch?: ((query: Array<object>, label: string) => void)|null}} [options]
+ *   `limit`: links shown at once (default `DEFAULT_RECORD_LIMITS.links`); `onGrow`: called after links were
+ *   added; `onSearch`: runs the group's search in the host.
+ * @returns {[HTMLElement, HTMLElement]} The `dt` and `dd` of the row.
  */
-export function buildLinksRow(label, items, onNavigate, withRelation = false) {
+export function buildLinksRow(label, source, onNavigate, withRelation = false, {
+  limit = DEFAULT_RECORD_LIMITS.links, onGrow = null, onSearch = null,
+} = {}) {
+  const group = Array.isArray(source) ? { items: source } : source || {};
+  const items = group.items || [];
+  const total = groupTotal(group);
+  const max = Number(limit) > 0 ? Number(limit) : items.length;
   const dt = document.createElement("dt");
-  dt.textContent = label;
+  dt.textContent = total > max ? `${label} (${total})` : label;
   const dd = document.createElement("dd");
-  for (const entry of items) {
-    const line = document.createElement("div");
-    line.className = "heurist-recordview-value-line";
+  const buildLine = (entry) => {
+    const line = valueLine();
     if (withRelation && entry.relation) {
       const relation = document.createElement("span");
       relation.className = "heurist-recordview-relation-type";
@@ -620,7 +685,99 @@ export function buildLinksRow(label, items, onNavigate, withRelation = false) {
       onNavigate(entry.id);
     });
     line.append(link);
-    dd.append(line);
+    return line;
+  };
+
+  if (items.length >= total) {
+    appendLimited(dd, items, buildLine, { limit: max, label: "Show all", onGrow });
+  } else {
+    let shown = Math.min(max, items.length);
+    for (const entry of items.slice(0, shown)) dd.append(buildLine(entry));
+    if (typeof onSearch === "function" && group.query) {
+      dd.append(showAllLink(`${$HR("Show all")} (${total}) ${$HR("in search")}`, () => onSearch(group.query, label)));
+    } else if (typeof group.more === "function") {
+      const moreText = () => `${$HR("Show more")} (${shown} / ${total})`;
+      let loading = false;
+      const moreLine = showAllLink(moreText(), async (line) => {
+        if (loading) return;
+        loading = true;
+        try {
+          // the loaded records first, then the next page of the group
+          if (shown + max > items.length && items.length < total) await group.more();
+        } catch (error) {
+          if (error?.name !== "AbortError") console.warn("Linked records could not be loaded", error);
+        }
+        loading = false;
+        const next = items.slice(shown, shown + max);
+        for (const entry of next) line.before(buildLine(entry));
+        shown += next.length;
+        if (!next.length || shown >= total) line.remove();
+        else line.querySelector("a").textContent = moreText();
+        onGrow?.();
+      });
+      dd.append(moreLine);
+    }
   }
   return [dt, dd];
+}
+
+/**
+ * Number of records of a row: a `LinkGroup`'s total, or the length of a plain list.
+ *
+ * @param {Array<object>|object|null} group Linked records, or a `LinkGroup`.
+ * @returns {number}
+ */
+function groupTotal(group) {
+  if (Array.isArray(group)) return group.length;
+  const loaded = group?.items?.length || 0;
+  return Math.max(loaded, Number(group?.total) || 0);
+}
+
+/** An empty value line (one value of a field row). */
+function valueLine() {
+  const line = document.createElement("div");
+  line.className = "heurist-recordview-value-line";
+  return line;
+}
+
+/**
+ * Append the elements of the first `limit` items, then a "Show all (N)" link that
+ * builds the others in its place (plan 23 §3.2): a very large record builds only
+ * what is shown.
+ *
+ * @param {HTMLElement} parent Element the items go into.
+ * @param {Array<*>} items Items.
+ * @param {(item: *) => Node} build Builds the element of one item.
+ * @param {{limit: number, label: string, onGrow?: Function|null}} options `label`: translation key of the link.
+ * @returns {void}
+ */
+function appendLimited(parent, items, build, { limit, label, onGrow = null }) {
+  const max = Number(limit) > 0 ? Number(limit) : items.length;
+  for (const item of items.slice(0, max)) parent.append(build(item));
+  if (items.length <= max) return;
+  parent.append(showAllLink(`${$HR(label)} (${items.length})`, (line) => {
+    line.replaceWith(...items.slice(max).map(build));
+    onGrow?.();
+  }));
+}
+
+/**
+ * A "Show all" line: a link that calls `onShow` with the line (which replaces or removes it).
+ *
+ * @param {string} text Link text.
+ * @param {(line: HTMLElement) => void} onShow Called on click.
+ * @returns {HTMLElement} The line.
+ */
+function showAllLink(text, onShow) {
+  const line = document.createElement("div");
+  line.className = "heurist-recordview-show-all";
+  const link = document.createElement("a");
+  link.href = "#";
+  link.textContent = text;
+  link.addEventListener("click", (event) => {
+    event.preventDefault();
+    onShow(line);
+  });
+  line.append(link);
+  return line;
 }

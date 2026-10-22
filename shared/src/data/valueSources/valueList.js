@@ -46,7 +46,8 @@ export function foldText(text) {
 export function filterItems(items, text) {
   const needle = foldText(text);
   if (!needle) return items;
-  const matches = (item) => foldText(item.label ?? item.value).includes(needle);
+  // labels may carry the few HTML tags of a record title (htmlLabels): the text only
+  const matches = (item) => foldText(String(item.label ?? item.value).replace(/<[^>]*>/g, '')).includes(needle);
   if (!items.some((item) => item.depth != null)) return items.filter(matches);
 
   const result = [];

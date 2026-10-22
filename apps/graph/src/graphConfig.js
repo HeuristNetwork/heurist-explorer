@@ -18,6 +18,7 @@ import {
   getGlobalBootstrap,
 } from "#shared/host";
 import { resolveModuleBootstrap } from "#shared/config";
+import { normalizeRecordLimits } from "#shared/recordview/recordLimits.js";
 import { normalizeGraphConfigurationSettings } from "./ui/config/graphConfigurationSchema.js";
 
 /**
@@ -53,6 +54,8 @@ export function getHeuristGraphConfig() {
     accessToken: runtime.accessToken || null,
     requestHeaders: runtime.requestHeaders || {},
     language: /^[a-z]{3}$/.test(language) ? language : "eng",
+    // limits of the built-in record popup, from the Explorer configuration (plan 23 §3.1)
+    recordLimits: normalizeRecordLimits(runtime.recordLimits),
     localeBaseUrl: runtime.localeBaseUrl || runtime.moduleBaseUrl || null,
     host: runtime.baseUrl
       ? {

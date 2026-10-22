@@ -58,12 +58,15 @@ test('editRecord opens every record in the new editor; the legacy editor only wi
   const bridge = { editRecord: (id) => { legacyCalls.push(id); return { saved: false }; }, canEditRecords: () => true };
   const { host, opened } = makeHost({ bridge, rectypeOf: 29 });
   await host.editRecord(5, { recordType: 'RT_QUERY_SOURCE' });
-  assert.deepEqual(opened, [{ recordId: 5 }]);
+  assert.deepEqual(opened, [{ recordId: 5, relation: null }]);
   await host.editRecord(6); // type read from the server: 29
-  assert.deepEqual(opened.at(-1), { recordId: 6 });
+  assert.deepEqual(opened.at(-1), { recordId: 6, relation: null });
   const person = makeHost({ bridge, rectypeOf: 10 });
   await person.host.editRecord(7);
-  assert.deepEqual(person.opened, [{ recordId: 7 }]);
+  assert.deepEqual(person.opened, [{ recordId: 7, relation: null }]);
+  // a relationship record from a relmarker field: its constraints go to the editor
+  await person.host.editRecord(9, { relation: { vocabulary: 100, targetTypes: [10], reverse: false } });
+  assert.deepEqual(person.opened.at(-1), { recordId: 9, relation: { vocabulary: 100, targetTypes: [10], reverse: false } });
   assert.deepEqual(legacyCalls, []);
   const guest = makeHost({ bridge, rectypeOf: 10, loggedIn: false });
   await guest.host.editRecord(8);

@@ -204,6 +204,7 @@ export class HInputFile extends HInput {
   /** Disable or enable the picker and the buttons. */
   setReadOnly(readOnly) {
     this._readOnly = Boolean(readOnly);
+    this._markReadOnly(readOnly);
     this.combo?.setReadOnly(readOnly);
     if (this.browseButton) this.browseButton.disabled = this._readOnly;
     this._syncActions();

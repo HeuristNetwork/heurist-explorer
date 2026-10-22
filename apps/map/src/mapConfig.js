@@ -26,6 +26,7 @@ import {
   getGlobalBootstrap
 } from '#shared/host';
 import { resolveModuleBootstrap } from '#shared/config';
+import { normalizeRecordLimits } from '#shared/recordview/recordLimits.js';
 
 /**
  * Return normalized application configuration from the single bootstrap object.
@@ -68,6 +69,8 @@ export function getHeuristMapConfig() {
     apiBaseUrl: runtime.apiBaseUrl || null,
     database: runtime.database || null,
     language: normalizeLanguage(runtime.language),
+    // limits of the built-in record popup, from the Explorer configuration (plan 23 §3.1)
+    recordLimits: normalizeRecordLimits(runtime.recordLimits),
     localeBaseUrl: runtime.localeBaseUrl || runtime.moduleBaseUrl || null,
     accessToken: runtime.accessToken || null,
     requestHeaders: runtime.requestHeaders || {},

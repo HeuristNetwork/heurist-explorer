@@ -785,3 +785,42 @@
 #Save and Edit Attributes#Enregistrer et modifier les attributs
 #The relationship could not be saved#La relation n'a pas pu être enregistrée
 #The database has no relationship record type#La base de données n'a pas de type d'enregistrement de relation
+
+# record view limits (plan 23)
+#Show all#Tout afficher
+#Show all fields#Afficher tous les champs
+#Show all values#Afficher toutes les valeurs
+#Show all files#Afficher tous les fichiers
+#Record view#Vue enregistrement
+#Limit fields#Limite de champs
+#Limit values per field#Limite de valeurs par champ
+#Limit thumbnails#Limite de vignettes
+#Limit reverse links#Limite de liens inverses
+#Show more#Afficher plus
+#in search#dans la recherche
+#The relationship fields show#Les champs de relation affichent
+#of#sur
+#relationships of this record#relations de cet enregistrement
+#Record View and Edit limits#Limites de Record View et de l'édition
+#Saving…#Enregistrement…
+
+# record editor Structure pane (plan 23)
+#Structure#Structure
+#Show the structure#Afficher la structure
+#Hide the structure#Masquer la structure
+#Required only#Obligatoires seulement
+#Optional#Facultatifs
+#Find field#Chercher un champ
+#Field type#Type de champ
+#Show fields of this type#Afficher les champs de ce type
+#all#tous
+#text#texte
+#enum#terme
+#date#date
+#numeric#numérique
+#geo#géo
+#pointer#lien
+#file#fichier
+#Show optional#Afficher les facultatifs
+#Empty only#Vides seulement
+#Show help#Afficher l'aide

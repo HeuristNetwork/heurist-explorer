@@ -28,6 +28,9 @@ import { $HR } from "#shared/ui";
 import { normalizeRecordViewConfigurationSettings } from "../ui/config/recordViewConfigurationSchema.js";
 import { RecentRecords } from "./RecentRecords.js";
 
+/** A record not shown after this time gets "Loading..." (plan 23). */
+const LOADING_DELAY_MS = 250;
+
 const SETTABLE_DEFAULTS = [
   "engine",
   "template",
@@ -219,6 +222,23 @@ export class RecordViewApplication extends EventTarget {
   }
 
   /**
+   * Ask the host to search the records of one cut row of linked records ("Show all (N) in
+   * search", plan 23): e.g. `[{"t":12},{"lt":151}]` or `[{"rt":[{"ids":151},{"r":5369}]}]`.
+   *
+   * @param {Array<object>} query Search of the row's records (from `RecordRelationsProvider`).
+   * @param {string} title Title of the result (row label and record title).
+   * @returns {*} Result of the host's search action, or `null` when unsupported.
+   */
+  searchLinks(query, title) {
+    if (!Array.isArray(query) || !query.length) return null;
+    return this.host?.showDatasource?.({
+      reference: { type: "query" },
+      title: title || null,
+      request: { q: query },
+    }) ?? null;
+  }
+
+  /**
    * Ask the host to show a record with every record linked or related to it: a dynamic
    * Query Source - the record itself, expanded by two rules (links, relationships).
    *
@@ -369,6 +389,14 @@ export class RecordViewApplication extends EventTarget {
     this.abortController?.abort("Record View superseded");
     this.abortController = new AbortController();
     const engine = this.engineName;
+    // "Loading..." with a rotating icon when the record takes a while (a very large
+    // record, plan 23); a quick load keeps the shown record until the new one is there
+    let loadingShown = false;
+    const loadingTimer = engine === "builtin" ? setTimeout(() => {
+      if (generation !== this.generation) return;
+      loadingShown = true;
+      this.renderer.showLoading?.();
+    }, LOADING_DELAY_MS) : null;
     try {
       if (engine === "builtin") {
         const record = await this.recordDataProvider.load({ id, signal: this.abortController.signal });
@@ -398,6 +426,7 @@ export class RecordViewApplication extends EventTarget {
           field.type === "geo" && record?.details?.[String(field.id)]?.length));
         const canZoomExtent = hasGeoField && (await this.host?.hasMapModule?.());
         if (generation !== this.generation) return;
+        clearTimeout(loadingTimer);
         this.renderer.showBuiltin(record, {
           sections,
           recordTypeName,
@@ -409,6 +438,7 @@ export class RecordViewApplication extends EventTarget {
           tags,
           relations,
           onSearchTag: typeof this.host?.showDatasource === "function" ? (tag) => this.searchTag(tag) : null,
+          onSearchLinks: typeof this.host?.showDatasource === "function" ? (query, title) => this.searchLinks(query, title) : null,
           onShowLinks: typeof this.host?.showDatasource === "function" ? (shown) => this.showLinkedRecords(shown) : null,
         });
       } else {
@@ -424,7 +454,11 @@ export class RecordViewApplication extends EventTarget {
       this.dispatch("heurist-recordview-loaded", { recordId: id, title: this.recordTitle });
     } catch (error) {
       if (error?.name === "AbortError") return;
+      // never leave "Loading..." after a failure
+      if (loadingShown && generation === this.generation) this.renderer.showEmpty(this.#emptyMessage());
       this.dispatch("heurist-recordview-error", { error, operation: "load" });
+    } finally {
+      clearTimeout(loadingTimer);
     }
   }
 

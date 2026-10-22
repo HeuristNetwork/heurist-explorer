@@ -27,7 +27,8 @@
 
 import { relationshipIds } from '../recordview/RecordRelationsProvider.js';
 
-const LIMIT = 500;
+/** Relationships loaded per direction; past it `onPartial` reports the cut (plan 23). */
+export const RELMARKER_LOAD_LIMIT = 500;
 
 /**
  * States of the relmarker fields of a record, by field name.
@@ -39,9 +40,11 @@ const LIMIT = 500;
  * @param {Array<object>} options.fields Relmarker fields of the form, in form order
  *        (`reverse: true` for the reverse fields).
  * @param {AbortSignal} [options.signal] Abort signal.
+ * @param {(loaded: number, total: number) => void} [options.onPartial] Called when the record has more
+ *        relationships than loaded (`RELMARKER_LOAD_LIMIT` per direction): the fields show only some of them.
  * @returns {Promise<Map<string, {values: Array<object>, translations: Array}>>} Empty without relationship definitions.
  */
-export async function loadRelmarkerStates({ apiClient, dbdefs, recordId, fields, signal } = {}) {
+export async function loadRelmarkerStates({ apiClient, dbdefs, recordId, fields, signal, onPartial = null } = {}) {
   const states = new Map();
   for (const field of fields || []) states.set(fieldName(field), { values: [], translations: [] });
   const rel = relationshipIds(dbdefs);
@@ -51,8 +54,11 @@ export async function loadRelmarkerStates({ apiClient, dbdefs, recordId, fields,
     searchRelationships(apiClient, rel, [{ [`f:${rel.source}`]: String(id) }], signal),
     searchRelationships(apiClient, rel, [{ [`f:${rel.target}`]: String(id) }], signal)
   ]);
+  const loaded = outgoing.rows.length + incoming.rows.length;
+  const total = outgoing.total + incoming.total;
+  if (total > loaded) onPartial?.(loaded, total);
   const seen = new Set();
-  for (const row of [...outgoing, ...incoming]) {
+  for (const row of [...outgoing.rows, ...incoming.rows]) {
     const relation = relationOf(row, rel, dbdefs, id);
     if (!relation || seen.has(relation.relId)) continue;
     seen.add(relation.relId);
@@ -74,7 +80,7 @@ export async function loadRelmarkerStates({ apiClient, dbdefs, recordId, fields,
 export async function loadRelationship(apiClient, dbdefs, relId, recordId) {
   const rel = relationshipIds(dbdefs);
   if (!rel || !(Number(relId) > 0)) return null;
-  const rows = await searchRelationships(apiClient, rel, [{ ids: String(Number(relId)) }]);
+  const { rows } = await searchRelationships(apiClient, rel, [{ ids: String(Number(relId)) }]);
   return rows.length ? relationOf(rows[0], rel, dbdefs, Number(recordId)) : null;
 }
 
@@ -138,7 +144,11 @@ function fieldName(field) {
   return String(field.name ?? field.dty);
 }
 
-/** Relationship records by the given predicates, with their three fields resolved. */
+/**
+ * Relationship records by the given predicates, with their three fields resolved.
+ *
+ * @returns {Promise<{rows: Array<object>, total: number}>} The rows (at most `RELMARKER_LOAD_LIMIT`) and their total.
+ */
 async function searchRelationships(apiClient, rel, predicates, signal) {
   const response = await apiClient.get('/records', {
     signal,
@@ -146,10 +156,12 @@ async function searchRelationships(apiClient, rel, predicates, signal) {
       q: [{ t: String(rel.rty) }, ...predicates],
       fields: `rec_RecTypeID,${rel.source},${rel.target},${rel.type}`,
       resolveDetails: 1,
-      limit: LIMIT
+      limit: RELMARKER_LOAD_LIMIT
     }
   });
-  return Array.isArray(response?.records) ? response.records : [];
+  const rows = Array.isArray(response?.records) ? response.records : [];
+  const total = Number(response?.pagination?.total);
+  return { rows, total: Number.isFinite(total) ? Math.max(total, rows.length) : rows.length };
 }
 
 /** The relation of a relationship row for one record (null when the row has no other record). */

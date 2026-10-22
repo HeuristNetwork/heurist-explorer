@@ -1184,7 +1184,8 @@ export class MapApplication {
       database: this.config?.database || null,
       // same condition as MapDocument editing and the `editing` capability
       canEditRecords: () => !this.config?.readonly && this.host?.supportsEditing?.() === true,
-      editRecord: (recordId) => this.host.editRecord(recordId)
+      editRecord: (recordId) => this.host.editRecord(recordId),
+      limits: this.config?.recordLimits || null
     });
     return this.popupController;
   }

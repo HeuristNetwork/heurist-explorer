@@ -660,6 +660,7 @@ export class DataApplication extends EventTarget {
         // same condition as the row pen: "Enable edit" and a host that can edit
         canEditRecords: () => this._engineOptions().interaction?.editEnabled === true,
         editRecord: (id) => this.requestEditRecord(id),
+        limits: this.config.recordLimits,
       });
       return this.recordPopup.open({ recordId, anchor, mode: this.config.engineOptions?.popupTemplate });
     }
@@ -762,6 +763,7 @@ export class DataApplication extends EventTarget {
         container,
         baseUrl: this.providers.heuristBaseUrl || this.config.engineOptions?.baseUrl || null,
         database: this.config.database,
+        limits: this.config.recordLimits,
       }).showBuiltin(data.record, {
         sections: data.sections,
         recordTypeName: data.recordTypeName,

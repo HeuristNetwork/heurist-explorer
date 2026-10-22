@@ -16,24 +16,37 @@
 .h-input-relmarker-add[hidden],
 .h-input-relmarker-box[hidden],
 .h-input-relmarker-relicon[hidden],
+.h-input-relmarker-othericon[hidden],
 .h-input-relmarker-action[hidden] {
   display: none;
 }
 
-/* as wide as a pointer field's picker; the clear action comes after it */
+/* as wide as its content (at least a pointer field's picker), shrinks only when the row has
+   no room; the clear action comes right after it (review 2026-10-22) */
 .h-input-relmarker-box {
   display: flex;
   flex: 0 1 auto;
   align-items: center;
   gap: 4px;
-  width: 30em;
-  min-width: 12em;
+  width: auto;
+  min-width: min(22em, 100%);
   max-width: 100%;
   min-height: 26px;
   border: 1px solid var(--h-color-border);
   border-radius: var(--h-radius);
   padding: 1px 6px;
   background: var(--h-color-bg);
+}
+
+/* read only: the surface colour, as the other inputs (HInput.css) */
+.h-form-input.is-readonly .h-input-relmarker-box {
+  background: var(--h-color-surface);
+}
+
+/* a width set by the form (rst_DisplayWidth), as HInputResource */
+.h-form-input.has-display-width .h-input-relmarker-box {
+  width: calc(var(--h-field-width) + 2em);
+  min-width: min(12em, 100%);
 }
 
 .h-input-relmarker-term {
@@ -59,6 +72,8 @@
   text-overflow: ellipsis;
 }
 
+/* record type icon of the other record, before its title */
+.h-input-relmarker-othericon,
 .h-input-relmarker-relicon {
   flex: 0 0 auto;
   width: 16px;

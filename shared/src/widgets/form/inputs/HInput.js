@@ -167,7 +167,18 @@ export class HInput extends HBaseWidget {
    */
   setReadOnly(readOnly) {
     if (this.control) this.control.disabled = Boolean(readOnly);
+    this._markReadOnly(readOnly);
     return this;
+  }
+
+  /**
+   * The read-only class of the input host (surface background of its controls,
+   * HInput.css); subclasses with their own setReadOnly call it too.
+   *
+   * @param {boolean} readOnly Whether editing is disabled.
+   */
+  _markReadOnly(readOnly) {
+    this.container?.classList.toggle('is-readonly', Boolean(readOnly));
   }
 
   /**

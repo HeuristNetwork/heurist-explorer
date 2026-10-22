@@ -34,6 +34,7 @@
  */
 
 import { isWritableRecordType } from './writableRecordTypes.js';
+import { relationshipIds } from '../recordview/RecordRelationsProvider.js';
 
 /** `/rst` columns the editor needs. */
 export const EDIT_STRUCTURE_DETAILS = [
@@ -211,6 +212,47 @@ export function buildEditStructure(rows, { rty, multilangIds = [], dbdefs = null
 }
 
 /**
+ * Automatic groups of a very large record type (plan 23 §4.2): a group (also the
+ * fields before the first separator, or all fields of a type without separators) with
+ * more than `limit` fields keeps the first `limit`; the others follow in collapsed
+ * inner accordions of `limit` fields ("Fields 51-100", ...), so they stay in the tab
+ * or section of their group. Only the view: the structure of the type is not changed.
+ *
+ * @param {{groups: Array<object>}} structure Edit structure.
+ * @param {number} limit Fields per group ("Limit fields" of the configuration).
+ * @param {(from: number, to: number) => string} [labelOf] Caption of a part (field numbers within its group).
+ * @returns {{groups: Array<object>}} The structure, or a copy with the parts.
+ */
+export function splitLargeGroups(structure, limit, labelOf = (from, to) => `Fields ${from}-${to}`) {
+  const size = Math.floor(Number(limit));
+  const groups = structure?.groups || [];
+  if (!(size > 0) || !groups.some((group) => (group.children || []).length > size)) return structure;
+  const result = [];
+  for (const [index, group] of groups.entries()) {
+    const children = group.children || [];
+    if (children.length <= size) {
+      result.push(group);
+      continue;
+    }
+    result.push({ ...group, children: children.slice(0, size) });
+    for (let from = size; from < children.length; from += size) {
+      const part = children.slice(from, from + size);
+      result.push({
+        id: `${group.id ?? `group${index}`}-fields-${from + 1}`,
+        type: 'accordion',
+        inner: true,
+        open: false,
+        label: labelOf(from + 1, from + part.length),
+        help: '',
+        auto: true,
+        children: part
+      });
+    }
+  }
+  return { ...structure, groups: result };
+}
+
+/**
  * Every field of an edit structure, in form order.
  *
  * @param {{groups: Array<object>}} structure Edit structure.
@@ -310,6 +352,40 @@ export function reverseRelmarkerGroup(rty, dbdefs, label = 'Relationships from o
     label: `${field.fieldName} ← ${field.sourceTypes.map((id) => dbdefs.rectypeName?.(id) || `#${id}`).join(', ')}`
   }));
   return children.length ? { id: 'reverse-relationships', type: 'group', label, help: '', children, reverseRelations: true } : null;
+}
+
+/**
+ * The relationship record (RT_RELATION) fields of a relmarker field (2026-10-22). Opened from
+ * a relmarker field, the relation type gets the field's vocabulary, the other record its
+ * allowed types (target, or source for a reverse field) and the side of the edited record
+ * is read only. Without them (opened elsewhere) relation type, source and target are read
+ * only: the base fields have no constraint.
+ *
+ * @param {{rty: number, groups: Array<object>}} structure Edit structure (cached: not changed).
+ * @param {object|null} dbdefs HDbDefs (`localId` of the relationship concept codes).
+ * @param {{vocabulary?: number|null, targetTypes?: number[], reverse?: boolean}|null} constraints
+ *        From the relmarker field: vocabulary, allowed types of the other record, reverse.
+ * @returns {{rty: number, groups: Array<object>}} The structure, or a copy for a relationship record.
+ */
+export function relationRecordStructure(structure, dbdefs, constraints = null) {
+  const ids = relationshipIds(dbdefs);
+  if (!structure || !ids || Number(structure.rty) !== ids.rty) return structure;
+  const { type: typeDty, source: sourceDty, target: targetDty } = ids;
+  const otherDty = constraints?.reverse ? sourceDty : targetDty;
+  const types = (constraints?.targetTypes || []).map(Number).filter((rty) => rty > 0);
+  const vocabulary = Number(constraints?.vocabulary) || null;
+  const change = (field) => {
+    const dty = Number(field.dty);
+    if (!dty || ![typeDty, sourceDty, targetDty].includes(dty)) return field;
+    if (!constraints) return { ...field, readOnly: true };
+    if (dty === typeDty) return vocabulary ? { ...field, vocabulary } : field;
+    if (dty !== otherDty) return { ...field, readOnly: true };
+    return types.length ? { ...field, targetTypes: types } : field;
+  };
+  return {
+    ...structure,
+    groups: structure.groups.map((group) => ({ ...group, children: (group.children || []).map(change) }))
+  };
 }
 
 /** @returns {number[]} Positive integers of a CSV list or JSON id tree. */

@@ -106,7 +106,7 @@ test("media items are built only from file-type fields, keyed by detail-type id"
 
 test("sections skip file-type fields (already shown in the media strip) and drop empty sections", () => {
   assert.match(rendererSource, /if \(field\.type === "file"\) continue;/);
-  assert.match(rendererSource, /if \(!rows\.length\) continue;/);
+  assert.match(rendererSource, /if \(!builders\.length\) continue;/);
 });
 
 test("resource-field values render as links that call onNavigate with rec_ID, not a request", () => {
@@ -180,8 +180,8 @@ test("the links button appears only for a record with links or relationships", a
   const { hasLinks } = await import("../../src/recordview/RecordViewRenderer.js");
   assert.equal(hasLinks({ details: { 1: [{ value: "x" }] } }, null), false);
   assert.equal(hasLinks({ details: { 134: [{ value: "41", rec_ID: "41" }] } }, null), true);
-  assert.equal(hasLinks({ details: {} }, { related: { 245: [{ id: 5 }] } }), true);
-  assert.equal(hasLinks({ details: {} }, { related: { 245: [] }, relationsFrom: [], linkedFrom: [{ id: 76 }] }), true);
+  assert.equal(hasLinks({ details: {} }, { related: { 245: { items: [{ id: 5 }], total: 1 } } }), true);
+  assert.equal(hasLinks({ details: {} }, { related: { 245: { items: [], total: 0 } }, relationsFrom: [], linkedFrom: [{ items: [{ id: 76 }], total: 1 }] }), true);
   assert.equal(hasLinks({ details: {} }, { related: {}, relationsFrom: [], linkedFrom: [] }), false);
   assert.match(rendererSource, /fa-solid fa-hexagon-nodes/);
 });

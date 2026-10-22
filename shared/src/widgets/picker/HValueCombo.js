@@ -5,7 +5,9 @@
  *
  * The popover is placed in the nearest `<dialog>` (or the document body) with
  * fixed positioning, so it is not clipped by scrolling panels. Values are
- * loaded on first open (V11).
+ * loaded on first open (V11), and the picker itself is made on first open
+ * (or on the first read of `picker`): a form with hundreds of values has only
+ * the buttons (plan 23 §4.4).
  *
  * @project     Heurist academic knowledge management system
  * @package     heurist-client-core
@@ -21,6 +23,7 @@
 import { HBaseWidget } from '../HBaseWidget.js';
 import { $HR } from '../../ui/i18n/HResource.js';
 import { HValuePicker, toValues } from './HValuePicker.js';
+import { sanitizeTextHtml, stripHtml } from '../../recordview/FieldValueFormatter.js';
 import './HValuePicker.css';
 
 let nextComboId = 0;
@@ -71,25 +74,6 @@ export class HValueCombo extends HBaseWidget {
     this.popover.className = 'h-value-combo-popover';
     this.popover.hidden = true;
     this.popover.setAttribute('aria-labelledby', id);
-    this.picker = new HValuePicker().attach(this.popover, {
-      ...this.options,
-      value: this.getValue(),
-      controlled: false,
-      loadOnRender: false,
-      onChange: (value) => {
-        this._values = toValues(value);
-        this._syncButton();
-        this.options.onChange?.(value);
-        this.container?.dispatchEvent(new CustomEvent('h-value-combo-change', {
-          bubbles: true, detail: { combo: this, value }
-        }));
-      },
-      onPick: (item) => {
-        this.options.onPick?.(item);
-        if (!this.options.multiple) this.close({ focus: true });
-      }
-    }).render();
-
     this.listen(this.button, 'click', () => (this.isOpen() ? this.close() : void this.open()));
     this.listen(this.button, 'keydown', (event) => {
       if (event.key === 'ArrowDown' || event.key === 'Enter' || event.key === ' ') {
@@ -97,6 +81,8 @@ export class HValueCombo extends HBaseWidget {
         void this.open();
       }
     });
+    void this._picker?.destroy();
+    this._picker = null;
     this.listen(this.popover, 'h-value-picker-escape', () => this.close({ focus: true }));
     // an action of the picker (Browse / Add of a pointer field) opens its own dialog
     this.listen(this.popover, 'h-value-picker-action', () => this.close());
@@ -110,6 +96,31 @@ export class HValueCombo extends HBaseWidget {
     this.setReadOnly(Boolean(this.options.readOnly));
     this.state = 'rendered';
     return this;
+  }
+
+  /** @returns {HValuePicker|null} The picker of the popover (made on first use; null before render). */
+  get picker() {
+    if (!this._picker && this.popover) {
+      this._picker = new HValuePicker().attach(this.popover, {
+        ...this.options,
+        value: this.getValue(),
+        controlled: false,
+        loadOnRender: false,
+        onChange: (value) => {
+          this._values = toValues(value);
+          this._syncButton();
+          this.options.onChange?.(value);
+          this.container?.dispatchEvent(new CustomEvent('h-value-combo-change', {
+            bubbles: true, detail: { combo: this, value }
+          }));
+        },
+        onPick: (item) => {
+          this.options.onPick?.(item);
+          if (!this.options.multiple) this.close({ focus: true });
+        }
+      }).render();
+    }
+    return this._picker;
   }
 
   /** @returns {boolean} Whether the popover is shown. */
@@ -161,7 +172,7 @@ export class HValueCombo extends HBaseWidget {
   setValue(value) {
     this._values = toValues(value);
     if (!this.options.multiple) this._values = this._values.slice(0, 1);
-    this.picker?.setValue(this.getValue());
+    this._picker?.setValue(this.getValue());
     this._syncButton();
     return this;
   }
@@ -178,7 +189,7 @@ export class HValueCombo extends HBaseWidget {
 
   /** Reload values from the source (dynamic facets). */
   async refresh() {
-    await this.picker?.refresh();
+    await this._picker?.refresh();
     this._syncButton();
   }
 
@@ -189,14 +200,15 @@ export class HValueCombo extends HBaseWidget {
    * @returns {Promise<void>}
    */
   async markStale() {
-    if (this.isOpen()) await this.picker?.load();
-    else this.picker?.markStale();
+    if (this.isOpen()) await this._picker?.load();
+    else this._picker?.markStale();
   }
 
   /** @returns {Promise<void>} Completion after the popover is removed. */
   async destroy() {
     this._removeGlobalListeners();
-    await this.picker?.destroy();
+    await this._picker?.destroy();
+    this._picker = null;
     this.popover?.remove();
     await super.destroy();
   }
@@ -204,11 +216,14 @@ export class HValueCombo extends HBaseWidget {
   /** Show the selected labels on the button. */
   _syncButton() {
     if (!this.buttonText) return;
-    const labels = this._values.map((value) => this.picker?.labelFor(value)
+    const labels = this._values.map((value) => this._picker?.labelFor(value)
       || this.source.labelFor?.(value) || String(value));
     const empty = !labels.length;
-    this.buttonText.textContent = empty ? (this.options.emptyLabel || $HR('Select a value')) : labels.join(', ');
-    this.button.title = empty ? '' : labels.join(', ');
+    const text = empty ? (this.options.emptyLabel || $HR('Select a value')) : labels.join(', ');
+    // record titles: the few formatting tags of h-recordlist-title (htmlLabels), the tooltip as text
+    if (this.options.htmlLabels && !empty) this.buttonText.innerHTML = sanitizeTextHtml(text);
+    else this.buttonText.textContent = text;
+    this.button.title = empty ? '' : (this.options.htmlLabels ? stripHtml(text) : text);
     this.button.classList.toggle('is-empty', empty);
   }
 

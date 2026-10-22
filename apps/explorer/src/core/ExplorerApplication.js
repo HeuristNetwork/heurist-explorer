@@ -43,6 +43,7 @@ import {
 import { ExplorerToolModule } from '../tools/ExplorerToolModule.js';
 import { HDbDefs } from '#shared/data/HDbDefs.js';
 import { RecordTypeProvider } from '#shared/data/RecordTypeProvider.js';
+import { recordLimitsDiffer } from '#shared/recordview/recordLimits.js';
 import { EditorServices } from './EditorServices.js';
 import { QuerySourcePanel } from '../widgets/query-source/QuerySourcePanel.js';
 import { QueryTracePanel } from '../widgets/query-source/QueryTracePanel.js';
@@ -173,7 +174,8 @@ export class ExplorerApplication {
       rectypeIconUrl: (id) => this.recordTypes?.iconUrl?.(id) || '',
       language: this.config.language,
       baseUrl: this.config.baseUrl,
-      database: this.config.database
+      database: this.config.database,
+      recordLimits: this.config.recordLimits
     });
     this.querySources = new QuerySourceManager({
       apiClient,
@@ -354,7 +356,9 @@ export class ExplorerApplication {
         requestHeaders: this.config.requestHeaders,
         language: this.config.language,
         // "Interface for dummies": modules simplify themselves (Data, plan 16 Part 4)
-        simplifiedUI: this.isSimplifiedUI()
+        simplifiedUI: this.isSimplifiedUI(),
+        // limits of the built-in record view and popups (plan 23 §3.1)
+        recordLimits: this.config.recordLimits
       },
       settings: { ...(this.modulePreferences[definition.type] || {}), ...(definition.settings || {}) },
       state: definition.state || null,
@@ -1581,9 +1585,11 @@ export class ExplorerApplication {
     this.uiConfigValue = applied;
     this.applySimplifiedUI();
 
-    // another interface language: Explorer reloads, and passes it to every module at start
+    // another interface language or other record view limits: Explorer reloads, and
+    // passes them to every module at start
     const language = resolveUiLanguage(saved, this.config.hostLanguage || this.config.language);
-    if (language !== this.config.language && typeof globalThis.location?.reload === 'function') {
+    const reload = language !== this.config.language || recordLimitsDiffer(saved.recordLimits, this.config.recordLimits);
+    if (reload && typeof globalThis.location?.reload === 'function') {
       globalThis.location.reload();
       return saved;
     }

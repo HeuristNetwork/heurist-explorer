@@ -147,3 +147,8 @@
 .h-edit-form-tab-panel[hidden] {
   display: none;
 }
+
+/* "Show help" off (Structure pane of the record editor, plan 23): the help texts of the fields; a group's help stays */
+.h-edit-form.is-field-help-hidden .h-edit-field > .h-edit-field-help {
+  display: none;
+}

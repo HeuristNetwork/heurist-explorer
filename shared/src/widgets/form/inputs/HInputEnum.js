@@ -115,6 +115,7 @@ export class HInputEnum extends HInput {
    */
   setReadOnly(readOnly) {
     this._readOnly = Boolean(readOnly);
+    this._markReadOnly(readOnly);
     this.combo?.setReadOnly(readOnly);
     for (const choice of this.choices || []) choice.disabled = this._readOnly;
     return this;

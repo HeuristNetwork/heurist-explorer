@@ -581,6 +581,7 @@ export class GraphApplication extends EventTarget {
       canEditRecords: () => this.config.persistedSettings?.options?.interaction?.readonly !== true
         && this.getHostCapabilities().editing === true,
       editRecord: typeof this.host?.editRecord === "function" ? (recordId) => this.host.editRecord(recordId) : null,
+      limits: this.config.recordLimits,
       onLayout,
     });
     this.popupContent.showRecord({

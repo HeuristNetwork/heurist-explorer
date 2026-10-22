@@ -45,6 +45,12 @@ The exact allowed values remain application-owned:
 Explorer: `runtime.runtimeMode: 'editor'` starts the record editor mode (plan 21; the
 record in `state.recordId` or `state.rectypeId`; see `docs/integration.md`).
 
+`runtime.recordLimits` (Data, Graph, Map, Record View; plan 23): `{fields, values, thumbs, links}`,
+each 10/20/50/100/500. This is how much of a large record the built-in record view and the record
+popups show before a "Show all" link. Defaults are 50/10/10/20
+(`shared/src/recordview/recordLimits.js`). Explorer sets it from its configuration (*Record View and Edit limits*) and
+reloads when it changes; without it the defaults are used.
+
 Persisted settings are normalized by each application's configuration schema.
 Bootstrap/runtime state and persisted settings are not interchangeable.
 

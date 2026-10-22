@@ -62,7 +62,7 @@ export async function initHeuristData(config) {
       database: config.database,
     }),
     // Built-in popup and Extended view: the shared record renderer (as heurist-recordview)
-    recordView: RecordViewLoader.create({ apiClient, language: config.language }),
+    recordView: RecordViewLoader.create({ apiClient, language: config.language, limits: config.recordLimits }),
     heuristBaseUrl,
   };
   const application = new DataApplication({

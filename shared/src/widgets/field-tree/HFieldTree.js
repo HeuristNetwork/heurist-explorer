@@ -42,6 +42,7 @@
  */
 
 import { $HR } from '../../ui/i18n/HResource.js';
+import { FIELD_TYPE_FILTERS } from '../../data/fieldTypeFilters.js';
 import './HFieldTree.css';
 
 const LINKABLE = new Set(['resource', 'relmarker']);
@@ -80,16 +81,13 @@ const RELATIONSHIP_PROPS = [
 const RELATIONSHIP_SKIPPED = ['DT_PRIMARY_RESOURCE', 'DT_TARGET_RESOURCE', 'DT_RELATION_TYPE',
   'DT_SHORT_SUMMARY', 'DT_START_DATE', 'DT_END_DATE'];
 
-/** Type filter of the tree header: option → field types it shows (`all`: no filter). */
-const TYPE_FILTERS = {
-  all: null,
-  text: ['freetext', 'blocktext'],
-  enum: ['enum', 'relationtype'],
-  date: ['date', 'year'],
-  numeric: ['integer', 'float'],
-  geo: ['geo']
-  // file fields stay hidden until there is a proper way to select them
-};
+/**
+ * Type filter of the tree header: option → field types it shows (`all`: no filter); the
+ * shared list (fieldTypeFilters.js) without pointer and file: pointer fields are folders
+ * here, file fields stay hidden until there is a proper way to select them.
+ */
+const TYPE_FILTERS = Object.fromEntries(['all', 'text', 'enum', 'date', 'numeric', 'geo']
+  .map((option) => [option, FIELD_TYPE_FILTERS[option]]));
 
 /** Framework-free hierarchical field picker popover for the Filter Builder. */
 export class HFieldTree {

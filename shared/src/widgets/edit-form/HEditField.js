@@ -21,6 +21,10 @@
  * The field definition is a normalised field of editFormSchema.js (a record
  * structure field has the same properties).
  *
+ * A repeatable field with more values than `valueLimit` makes the inputs of the
+ * first ones only, then "Show all values (N)" (plan 23 §4.4); the other values stay
+ * in the state (getState, validate) until they are shown.
+ *
  * @project     Heurist academic knowledge management system
  * @package     heurist-client-core
  *
@@ -83,6 +87,7 @@ export class HEditField extends HBaseWidget {
    * @param {object} [options.context] Passed to `describe`/`edit`: `{field, getValue(name), setValue(name, value)}`.
    * @param {object} [options.relationships] Relmarker fields (plan 22): the record editor's service
    *        (`ensureRecord`, `create`, `remove`, `load`, `fits`, `changed`); see HInputRelmarker.
+   * @param {number} [options.valueLimit] Inputs made at once for a repeatable field (0: all; plan 23).
    * @returns {HEditField} This field.
    */
   attach(container, options = {}) {
@@ -90,6 +95,8 @@ export class HEditField extends HBaseWidget {
     this.field = options.field;
     this._setEntries(options.state);
     this._rows = [];
+    this._pending = []; // values past valueLimit, without inputs yet
+    this._moreLine = null;
     return this;
   }
 
@@ -156,7 +163,12 @@ export class HEditField extends HBaseWidget {
       this.valuesHost.append(note);
     } else {
       if (!this._entries.length) this._entries.push({ value: null, hidden: false });
-      for (const entry of this._entries) this._addRow(entry);
+      const limit = this._valueLimit();
+      const shown = limit && this._entries.length > limit ? this._entries.slice(0, limit) : this._entries;
+      this._pending = this._entries.slice(shown.length);
+      this._moreLine = null;
+      for (const entry of shown) this._addRow(entry);
+      this._renderMore();
       this._renderActions();
     }
 
@@ -187,17 +199,21 @@ export class HEditField extends HBaseWidget {
    * @returns {{values: Array<{value: *, hidden: boolean, geoType?: string}>, translations: Array<object>}}
    */
   getState() {
-    const values = this._rows
-      // a drawn geometry brings its type (p, l, pl...); a stored one keeps its type
-      .map((row) => ({
-        ...row.entry,
-        value: row.input.getValue(),
-        hidden: row.entry.hidden,
-        ...(row.input.geoType ? { geoType: row.input.geoType } : {}),
-        // a relmarker value: the relationship shown (created or changed in the input)
-        ...(row.input.getRelation ? { relation: row.input.getRelation() } : {})
-      }))
-      .filter((entry) => !isEmpty(entry.value));
+    // a drawn geometry brings its type (p, l, pl...); a stored one keeps its type
+    const entryOf = (row) => ({
+      ...row.entry,
+      value: row.input.getValue(),
+      hidden: row.entry.hidden,
+      ...(row.input.geoType ? { geoType: row.input.geoType } : {}),
+      // a relmarker value: the relationship shown (created or changed in the input)
+      ...(row.input.getRelation ? { relation: row.input.getRelation() } : {})
+    });
+    // the stored order: shown values, values not shown yet, then the added ones
+    const values = [
+      ...this._rows.filter((row) => !row.added).map(entryOf),
+      ...this._pending.map((entry) => ({ ...entry })),
+      ...this._rows.filter((row) => row.added).map(entryOf)
+    ].filter((entry) => !isEmpty(entry.value));
     // a list field: one value per line of its text
     const listed = this.isList
       ? values.flatMap((entry) => listLines(entry.value).map((value) => ({ value, hidden: false })))
@@ -292,7 +308,7 @@ export class HEditField extends HBaseWidget {
     for (const issue of list) {
       const item = document.createElement('div');
       item.className = `h-edit-field-issue is-${issue.severity === 'warning' ? 'warning' : 'error'}`;
-      const position = Number.isInteger(issue.index) && this._rows.length > 1 ? ` (${$HR('value')} ${issue.index + 1})` : '';
+      const position = Number.isInteger(issue.index) && this._valueCount() > 1 ? ` (${$HR('value')} ${issue.index + 1})` : '';
       item.textContent = String(issue.message || '') + position;
       this.issuesHost.append(item);
     }
@@ -333,14 +349,17 @@ export class HEditField extends HBaseWidget {
    * clear icon (removes the value when the field has several, otherwise clears it)
    * and the "hidden from the public" eye; the field only answers their events.
    */
-  _addRow(entry) {
+  _addRow(entry, { before = null } = {}) {
     const row = { entry };
     row.element = document.createElement('div');
     row.element.className = 'h-edit-field-value';
     const host = document.createElement('div');
     host.className = 'h-edit-field-input';
     row.element.append(host);
-    this.valuesHost.append(row.element);
+    // before "Show all values" (or a given row); else at the end
+    const anchor = before || this._moreLine;
+    if (anchor) anchor.before(row.element);
+    else this.valuesHost.append(row.element);
     row.input = createHInput(inputType(this.field, this.options.special), host, this._inputOptions(entry));
     if (this.field.maxLength > 0 && row.input.control && 'maxLength' in row.input.control) {
       row.input.control.maxLength = this.field.maxLength;
@@ -381,9 +400,49 @@ export class HEditField extends HBaseWidget {
       if (row.hiddenButton) row.hiddenButton.disabled = true;
       this._syncSpecial(row);
     }
-    this._rows.push(row);
+    const index = before ? this._rows.findIndex((item) => item.element === before) : -1;
+    if (index >= 0) this._rows.splice(index, 0, row);
+    else this._rows.push(row);
     this._syncRows();
     return row;
+  }
+
+  /** @returns {number} Inputs made at once (0: all): `valueLimit` for a repeatable field. */
+  _valueLimit() {
+    const limit = Math.floor(Number(this.options.valueLimit));
+    return this.isRepeatable && limit > 0 ? limit : 0;
+  }
+
+  /** @returns {number} Values of the field: with inputs and not shown yet. */
+  _valueCount() {
+    return this._rows.length + this._pending.length;
+  }
+
+  /** "Show all values (N)" after the inputs while some values have none. */
+  _renderMore() {
+    if (!this._pending.length) return;
+    this._moreLine = document.createElement('div');
+    this._moreLine.className = 'h-edit-field-more';
+    const link = document.createElement('a');
+    link.href = '#';
+    link.textContent = `${$HR('Show all values')} (${this._valueCount()})`;
+    this.listen(link, 'click', (event) => {
+      event.preventDefault();
+      this._showPending();
+    });
+    this._moreLine.append(link);
+    this.valuesHost.append(this._moreLine);
+  }
+
+  /** Make the inputs of the values not shown yet, after the shown ones (before added values). */
+  _showPending() {
+    const pending = this._pending;
+    this._pending = [];
+    const before = this._rows.find((row) => row.added)?.element || null;
+    for (const entry of pending) this._addRow(entry, { before });
+    this._moreLine?.remove();
+    this._moreLine = null;
+    this._syncRows();
   }
 
   /**
@@ -512,7 +571,7 @@ export class HEditField extends HBaseWidget {
 
   /** Remove a value row (the last row only empties). */
   _removeRow(row) {
-    if (this._rows.length === 1) {
+    if (this._valueCount() === 1) {
       row.input.setValue(null);
       row.entry.hidden = false;
       this._syncHidden(row);
@@ -681,6 +740,7 @@ export class HEditField extends HBaseWidget {
       this.addButton.setAttribute('aria-label', this.addButton.title);
       this.listen(this.addButton, 'click', () => {
         const row = this._addRow({ value: null, hidden: false });
+        row.added = true;
         if (this.field.type === 'relmarker') {
           // a relationship: its popup at once; cancelled, the new row goes again
           void row.input.openAddDialog?.().then((created) => {
@@ -701,13 +761,13 @@ export class HEditField extends HBaseWidget {
    * their place (inputs aligned); no Add at the max values.
    */
   _syncRows() {
-    const many = this._rows.length > 1;
+    const many = this._valueCount() > 1;
     this.container?.classList.toggle('has-actions', (this.actionButtons || []).length > 0);
     for (const [index, row] of this._rows.entries()) {
       row.input.setRemovable?.(many);
       row.input.setActions?.(index === 0 ? this.actionButtons : null);
     }
-    if (this.addButton) this.addButton.hidden = this.field.max > 0 && this._rows.length >= this.field.max;
+    if (this.addButton) this.addButton.hidden = this.field.max > 0 && this._valueCount() >= this.field.max;
   }
 
   /** Show the state of the "hidden from the public" switch. */
@@ -834,18 +894,19 @@ export class HEditField extends HBaseWidget {
    * @returns {Promise<number[]|null>} The record for this value, or null.
    */
   async _browsePointer(entry, request = {}) {
-    const others = new Set(this._rows
-      .filter((row) => row.entry !== entry)
-      .map((row) => Number(row.input.getValue()))
-      .filter((id) => id > 0));
-    const room = this.field.max > 0 ? this.field.max - this._rows.length : Infinity;
+    const others = new Set([
+      ...this._rows.filter((row) => row.entry !== entry).map((row) => Number(row.input.getValue())),
+      // values not shown yet (valueLimit) are values of the field too
+      ...this._pending.map((item) => Number(item.value))
+    ].filter((id) => id > 0));
+    const room = this.field.max > 0 ? this.field.max - this._valueCount() : Infinity;
     const multiple = this.isRepeatable && room > 0 && !this.isReadOnly;
     const ids = await this.options.browseRecords({ ...request, selectMode: multiple ? 'select_multi' : 'select' });
     const fresh = [...new Set((ids || []).map(Number))].filter((id) => id > 0 && !others.has(id));
     if (!fresh.length) return null;
     const [first, ...rest] = fresh;
     const added = multiple ? rest.slice(0, room) : [];
-    for (const id of added) this._addRow({ value: id, hidden: false });
+    for (const id of added) this._addRow({ value: id, hidden: false }).added = true;
     if (added.length) this._changed();
     return [first];
   }

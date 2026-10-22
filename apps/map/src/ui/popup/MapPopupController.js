@@ -54,11 +54,13 @@ export class MapPopupController {
    * @param {?string} [options.database] Database name, for record type icons and media.
    * @param {() => boolean} [options.canEditRecords] Whether the host can edit records now (shows the edit pencil).
    * @param {?(recordId: number) => Promise<?object>} [options.editRecord] Opens the host record editor.
+   * @param {?object} [options.limits] Limits of the built-in view (`recordLimits.js`, plan 23).
    */
   constructor({
     mapEngine, popupProvider = null, recordViewLoader = null, baseUrl = null, database = null,
-    canEditRecords = () => false, editRecord = null
+    canEditRecords = () => false, editRecord = null, limits = null
   }) {
+    this.limits = limits;
     this.mapEngine = mapEngine;
     this.popupProvider = popupProvider;
     this.recordViewLoader = recordViewLoader;
@@ -97,6 +99,7 @@ export class MapPopupController {
       database: this.database,
       canEditRecords: this.canEditRecords,
       editRecord: this.editRecord,
+      limits: this.limits,
       onLayout: () => this.handle?.update?.()
     });
     this.content = content;

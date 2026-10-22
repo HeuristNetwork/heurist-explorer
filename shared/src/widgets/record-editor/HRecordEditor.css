@@ -25,6 +25,14 @@
   border-bottom: 1px solid var(--h-color-border);
 }
 
+.h-record-editor-type-icon {
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  align-self: center;
+  object-fit: contain;
+}
+
 .h-record-editor-type {
   color: var(--h-color-text-muted);
   white-space: nowrap;
@@ -193,6 +201,7 @@
 }
 
 .h-record-editor-summary-head {
+  cursor: pointer;
   display: flex;
   flex: 0 0 auto;
   align-items: center;
@@ -294,4 +303,22 @@
 /* Drop changes: apart from Save / Save and close / Close */
 .h-record-editor-drop {
   margin-left: 16px;
+}
+
+/* ------------------------------------------------ Structure pane (plan 23) --- */
+
+/* the tree scrolls itself; the head stays (same head and collapsed look as the Record summary) */
+.h-record-editor-structure {
+  overflow: hidden;
+}
+
+.h-record-editor-structure-tree {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.h-record-editor-structure-tree > .h-structure-tree {
+  flex: 1 1 auto;
 }

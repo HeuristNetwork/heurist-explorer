@@ -219,3 +219,11 @@
 #Click to zoom in / out#Cliquer pour agrandir / réduire
 #Download#Télécharger
 #Show owners#Afficher les propriétaires
+
+# record view limits (plan 23)
+#Show all#Tout afficher
+#Show all fields#Afficher tous les champs
+#Show all values#Afficher toutes les valeurs
+#Show all files#Afficher tous les fichiers
+#Show more#Afficher plus
+#in search#dans la recherche

@@ -66,6 +66,7 @@ export class RecordEditorHost {
    * @param {Function} [options.onSaved] Called with `{record, created}` after each save.
    * @param {Function} [options.rectypeIconUrl] `(rectypeId) → url` of record type icons (symbol previews).
    * @param {string} [options.language] UI language.
+   * @param {object} [options.recordLimits] Limits of the built-in record view and of Linked records (plan 23).
    */
   constructor(options = {}) {
     this.options = options;
@@ -111,16 +112,18 @@ export class RecordEditorHost {
    * Edit a record in Explorer's editor (logged-in user), else in the host editor.
    *
    * @param {number|string} recordId Record id.
-   * @param {{recordType?: number|string|null}} [options] Record type id or code name, when known.
+   * @param {{recordType?: number|string|null, relation?: object|null}} [options] Record type id or code
+   *        name, when known; `relation`: constraints of a relationship record opened from a relmarker
+   *        field (HRecordEditor `relation`; the host editor ignores them).
    * @returns {Promise<{saved: boolean, recordId: number}|*>} Result of the editor.
    * @throws {Error} When no editor can edit the record.
    */
-  async editRecord(recordId, { recordType = null } = {}) {
+  async editRecord(recordId, { recordType = null, relation = null } = {}) {
     const id = Number(recordId);
     if (!(id > 0)) throw new Error($HR('A valid record ID is required'));
     if (this.options.isLoggedIn()) {
       const rectypeId = await this._rectypeOf(id, recordType);
-      if (this._usesNewEditor(rectypeId)) return this.open({ recordId: id });
+      if (this._usesNewEditor(rectypeId)) return this.open({ recordId: id, relation });
     }
     if (this.canEditInHost()) return this.options.getBridge().editRecord(id);
     throw new Error($HR('Record editor is not available'));
@@ -171,17 +174,17 @@ export class RecordEditorHost {
   /**
    * Open HRecordEditor in a dialog.
    *
-   * @param {{recordId?: number, rectypeId?: number, domain?: 'records'|'files', access?: object}} target Record
-   *        to edit, or record type of a new record (`access`: its owner and visibility); `files`: a
-   *        registered file (plan 20).
+   * @param {{recordId?: number, rectypeId?: number, domain?: 'records'|'files', access?: object, relation?: object}} target
+   *        Record to edit, or record type of a new record (`access`: its owner and visibility); `files`: a
+   *        registered file (plan 20); `relation`: constraints of a relationship record (HRecordEditor).
    * @returns {Promise<{saved: boolean, recordId: number, record: object|null}>} When the dialog closes.
    */
-  async open({ recordId = 0, rectypeId = 0, domain = 'records', access = null } = {}) {
+  async open({ recordId = 0, rectypeId = 0, domain = 'records', access = null, relation = null } = {}) {
     const isFile = domain === 'files';
     const dialogId = `${DIALOG_ID}-${++dialogCount}`;
     const host = document.createElement('div');
     host.className = 'h-record-editor-host';
-    const editor = await this._createEditor(host, { recordId, rectypeId, domain, access });
+    const editor = await this._createEditor(host, { recordId, rectypeId, domain, access, relation });
     return new Promise((resolve) => {
       let settled = false;
       let dialog = null;
@@ -244,7 +247,7 @@ export class RecordEditorHost {
   }
 
   /** HRecordEditor with the services of this host; saves are reported and remembered. */
-  async _createEditor(host, { recordId = 0, rectypeId = 0, domain = 'records', access = null } = {}) {
+  async _createEditor(host, { recordId = 0, rectypeId = 0, domain = 'records', access = null, relation = null } = {}) {
     const isFile = domain === 'files';
     const dbdefs = await this.options.ensureDbDefs();
     const editor = new HRecordEditor().attach(host, {
@@ -253,12 +256,13 @@ export class RecordEditorHost {
       recordId,
       rectypeId,
       access,
+      relation,
       client: isFile ? this.fileClient : this.client,
       structureProvider: this.structures,
       selectExtent: this.options.selectExtent,
       selectGeometry: this.options.selectGeometry,
       // Edit / View buttons of pointer fields (plan 14a); Browse / Add (plan 21)
-      editRecord: (id) => this.editRecord(id),
+      editRecord: (id, options) => this.editRecord(id, { relation: options?.relation || null }),
       viewRecord: (id) => this.viewRecord(id),
       browseRecords: (options) => this.browseRecords(options),
       addRecord: (rectypeId) => this.addRecord(rectypeId),
@@ -267,7 +271,9 @@ export class RecordEditorHost {
       // Edit button of file fields (plan 20)
       editFile: (id) => this.editFile(id),
       // the file below a file field (thumbnail click, plan 21)
-      fileViewer: this.options.baseUrl ? { baseUrl: this.options.baseUrl, database: this.options.database || '' } : null
+      fileViewer: this.options.baseUrl ? { baseUrl: this.options.baseUrl, database: this.options.database || '' } : null,
+      // links per row in the Record summary's Linked records (plan 23)
+      limits: this.options.recordLimits || null
     });
     host.addEventListener('h-record-editor-saved', (event) => {
       savedRecords.set(host, event.detail.record);
@@ -543,7 +549,7 @@ export class RecordEditorHost {
       dbdefs: await this.options.ensureDbDefs(),
       selectExtent: this.options.selectExtent || null,
       selectGeometry: this.options.selectGeometry || null,
-      editRecord: (id) => this.editRecord(id),
+      editRecord: (id, options) => this.editRecord(id, { relation: options?.relation || null }),
       viewRecord: (id) => this.viewRecord(id),
       browseRecords: (options) => this.browseRecords(options),
       addRecord: (rectypeId) => this.addRecord(rectypeId),
@@ -610,12 +616,15 @@ export class RecordEditorHost {
   viewRecord(recordId) {
     const recId = Number(recordId);
     if (!(recId > 0)) return;
-    this._recordViewLoader ??= RecordViewLoader.create({ apiClient: this.options.apiClient, language: this.options.language });
+    this._recordViewLoader ??= RecordViewLoader.create({
+      apiClient: this.options.apiClient, language: this.options.language, limits: this.options.recordLimits || null
+    });
     const content = new RecordPopupContent({
       recordViewLoader: this._recordViewLoader,
       baseUrl: this.options.baseUrl || null,
       database: this.options.database || null,
-      canEditRecords: () => false
+      canEditRecords: () => false,
+      limits: this.options.recordLimits || null
     });
     const dialogId = `h-record-view-dialog-${++dialogCount}`;
     const dialog = HMsg.showMsgDlg(content.element, {

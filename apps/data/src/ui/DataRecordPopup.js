@@ -33,12 +33,13 @@ export class DataRecordPopup {
    * @param {?string} [options.database] Database name.
    * @param {() => boolean} [options.canEditRecords] Whether the host can edit records now (edit pencil).
    * @param {?(recordId: number) => Promise<?object>} [options.editRecord] Opens the host record editor.
+   * @param {?object} [options.limits] Limits of the built-in view (`recordLimits.js`, plan 23).
    */
   constructor({
     recordViewLoader = null, recordContent = null, baseUrl = null, database = null,
-    canEditRecords = () => false, editRecord = null,
+    canEditRecords = () => false, editRecord = null, limits = null,
   } = {}) {
-    Object.assign(this, { recordViewLoader, recordContent, baseUrl, database, canEditRecords, editRecord });
+    Object.assign(this, { recordViewLoader, recordContent, baseUrl, database, canEditRecords, editRecord, limits });
     this.element = null;
     this.anchor = null;
     this.content = null;
@@ -92,6 +93,7 @@ export class DataRecordPopup {
       database: this.database,
       canEditRecords: this.canEditRecords,
       editRecord: this.editRecord,
+      limits: this.limits,
       onLayout: () => this.place(),
     });
     this.element.append(close, this.content.element);

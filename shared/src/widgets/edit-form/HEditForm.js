@@ -16,6 +16,13 @@
  * change the form by code: showField, showGroup, updateField, getSlot), and
  * `h-edit-form-change` {form, name, value, dirty} after a value changed.
  *
+ * `lazyGroups` (plan 23 §4.1, the record editor): the fields of a group get their
+ * widgets only when the group is shown (its tab is active, its accordion open, it is
+ * not hidden). Until then a field keeps its state; getStates, getValue, setValue,
+ * validate and setIssues work without the widget (they make the group's widgets
+ * when a field needs them), and getFieldWidget gives null. Event
+ * `h-edit-form-group-rendered` {form, group} after the widgets of a group are made.
+ *
  * @project     Heurist academic knowledge management system
  * @package     heurist-client-core
  *
@@ -67,6 +74,8 @@ export class HEditForm extends HBaseWidget {
    * @param {Function} [options.browseRecords] Browse of pointer fields (record manager, plan 21): `(options) → Promise<number[]|null>`.
    * @param {Function} [options.addRecord] Add of pointer fields (plan 21): `(rectypeId) → Promise<{saved, recordId}>`.
    * @param {object} [options.relationships] Relmarker fields (plan 22): the record editor's service, see HInputRelmarker.
+   * @param {boolean} [options.lazyGroups=false] Widgets of a group only when it is first shown (plan 23).
+   * @param {number} [options.valueLimit] Inputs made at once for a repeatable field (HEditField, plan 23).
    * @param {(form: HEditForm) => void} [options.onReady] After render (same as `h-edit-form-ready`).
    * @param {(form: HEditForm, change: {name: string, value: *}) => void} [options.onChange] After a value changed.
    * @param {(values: object, form: HEditForm) => Array<{field?: string, message: string}>|string|null} [options.validate]
@@ -98,10 +107,15 @@ export class HEditForm extends HBaseWidget {
     this._groups = new Map(); // id -> {group, element, tab, select}
     this._slots = new Map();
     this._reveal = new Map(); // name -> show its tab
+    // lazy groups (plan 23): the states of fields without widgets, the groups not made yet
+    this._states = new Map(states);
+    this._pendingGroups = this.options.lazyGroups ? new Map() : null; // group id -> {group, host}
+    this._lazyFields = new Map(); // name -> {stored, made}: fields made after render
     this._renderGroups(states);
 
     this.listen(this.container, 'h-input-change', (event) => this._onInputChange(event));
     this._applyVisibility();
+    this._renderShownGroups();
     this._initial = this._snapshot();
     this.state = 'rendered';
     this.options.onReady?.(this);
@@ -123,7 +137,14 @@ export class HEditForm extends HBaseWidget {
   /** @returns {Map<string, {values: Array<object>, translations: Array<object>}>} State of every field by name. */
   getStates() {
     const states = new Map();
-    for (const [name, widget] of this.fields) states.set(name, widget.getState());
+    if (!this._pendingGroups) {
+      for (const [name, widget] of this.fields) states.set(name, widget.getState());
+      return states;
+    }
+    for (const field of formFields(this.form)) {
+      const widget = this.fields.get(field.name);
+      states.set(field.name, widget ? this._widgetState(field.name, widget) : this._storedState(field));
+    }
     return states;
   }
 
@@ -147,7 +168,9 @@ export class HEditForm extends HBaseWidget {
   getValue(name) {
     const field = this.getField(name);
     const widget = this.fields.get(String(name));
-    return field && widget ? stateToValue(field, widget.getState()) : undefined;
+    if (!field) return undefined;
+    if (widget) return stateToValue(field, widget.getState());
+    return this._pendingGroups ? stateToValue(field, this._storedState(field)) : undefined;
   }
 
   /**
@@ -160,8 +183,10 @@ export class HEditForm extends HBaseWidget {
   async setValue(name, value) {
     const field = this.getField(name);
     const widget = this.fields.get(String(name));
-    if (!field || !widget) return;
-    await widget.setState(valueToState(field, value));
+    if (!field || (!widget && !this._pendingGroups)) return;
+    // a field without its widget (lazy group): its kept state
+    if (widget) await widget.setState(valueToState(field, value));
+    else this._states.set(field.name, valueToState(field, value));
     this._afterChange(field.name);
   }
 
@@ -173,7 +198,7 @@ export class HEditForm extends HBaseWidget {
     return formFields(this.form).find((field) => field.name === String(name)) || null;
   }
 
-  /** @returns {HEditField|null} The widget of a field. */
+  /** @returns {HEditField|null} The widget of a field (null for a field of a lazy group not shown yet). */
   getFieldWidget(name) {
     return this.fields.get(String(name)) || null;
   }
@@ -195,6 +220,14 @@ export class HEditForm extends HBaseWidget {
   validate() {
     const problems = [];
     const shown = this._shownChecker();
+    // a required field without a value in a group not shown yet: its widgets are made to
+    // check it and to show the problem (its value was loaded, only "required" can fail)
+    for (const field of formFields(this.form)) {
+      if (this._pendingGroups && !this.fields.has(field.name) && shown(field)
+        && !this._managedFields.has(field.name) && isRequiredEmpty(field, this._storedState(field))) {
+        this._renderGroupOf(field.name);
+      }
+    }
     for (const field of formFields(this.form)) {
       const widget = this.fields.get(field.name);
       if (!widget) continue;
@@ -204,6 +237,7 @@ export class HEditForm extends HBaseWidget {
     const extra = this.options.validate?.(this.getValues(), this);
     const more = typeof extra === 'string' && extra ? [{ field: '', message: extra }] : Array.isArray(extra) ? extra : [];
     problems.push(...more.map((problem) => ({ field: String(problem.field ?? ''), message: String(problem.message ?? '') })));
+    this._clearViewFilterFor(problems.map((problem) => problem.field));
     this.setIssues(problems.map((problem) => ({ ...problem, severity: 'error' })));
     if (problems.length) this.revealField(problems.find((problem) => this.fields.has(problem.field))?.field);
     return problems;
@@ -218,6 +252,12 @@ export class HEditForm extends HBaseWidget {
   setIssues(issues = []) {
     const byField = new Map();
     const other = [];
+    this._clearViewFilterFor((issues || []).map((issue) => String(issue.field ?? '')));
+    // a field of a group not shown yet gets its widgets to show its issue
+    for (const issue of issues || []) {
+      const key = String(issue.field ?? '');
+      if (this._pendingGroups && !this.fields.has(key) && this.getField(key)) this._renderGroupOf(key);
+    }
     for (const issue of issues || []) {
       const key = String(issue.field ?? '');
       if (!this.fields.has(key)) {
@@ -269,6 +309,40 @@ export class HEditForm extends HBaseWidget {
   }
 
   /**
+   * Show only some fields (the Structure pane filters, plan 23): a view filter. Unlike
+   * showField, the other fields stay in getValues and are checked; a group (tab) without
+   * a shown field is hidden. A problem or an issue of a field filtered out clears the
+   * filter (event `h-edit-form-view-filter-cleared`).
+   *
+   * @param {Iterable<string>|null} names Names of the fields to show; null: all.
+   * @returns {void}
+   */
+  setViewFilter(names) {
+    this._viewNames = names ? new Set([...names].map(String)) : null;
+    this._applyVisibility();
+  }
+
+  /**
+   * Show or hide the help texts of the fields (the Structure pane's "Show help"); the help
+   * of a group stays.
+   *
+   * @param {boolean} shown Shown.
+   * @returns {void}
+   */
+  setFieldHelpVisible(shown) {
+    this.container?.classList.toggle('is-field-help-hidden', !shown);
+  }
+
+  /** A problem or issue of a field the view filter hides: all fields again. */
+  _clearViewFilterFor(names) {
+    if (!this._viewNames) return;
+    if (!names.some((name) => this.getField(name) && !this._viewNames.has(String(name)))) return;
+    this._viewNames = null;
+    this._applyVisibility();
+    this._emit('h-edit-form-view-filter-cleared', { form: this });
+  }
+
+  /**
    * Change a field definition (label, required, read only, terms, help...) and
    * make its inputs again with the current values.
    *
@@ -279,7 +353,8 @@ export class HEditForm extends HBaseWidget {
   async updateField(name, patch = {}) {
     const field = this.getField(name);
     const widget = this.fields.get(String(name));
-    if (!field || !widget) return;
+    // a field of a lazy group not shown yet: the definition changes, its widget is made with it
+    if (!field || (!widget && !this._pendingGroups)) return;
     const next = { ...patch };
     if ('required' in next) {
       next.req = next.required ? 'required' : 'optional';
@@ -291,6 +366,7 @@ export class HEditForm extends HBaseWidget {
         : { id: term, label: String(term), depth: 1 }));
     }
     Object.assign(field, next);
+    if (!widget) return;
     widget.field = this._displayField(field);
     await widget.setState(widget.getState());
     this._applyVisibility();
@@ -304,12 +380,15 @@ export class HEditForm extends HBaseWidget {
    */
   revealField(name) {
     if (name === undefined || name === null) return;
+    this._renderGroupOf(String(name));
     this._reveal.get(String(name))?.();
     const widget = this.fields.get(String(name));
     // every accordion around the field (an inner one in an outer one)
     for (let details = widget?.container?.closest?.('details'); details; details = details.parentElement?.closest?.('details')) {
       details.open = true;
     }
+    // the accordions opened above may hold other groups not made yet
+    this._renderShownGroups();
     widget?.container?.scrollIntoView?.({ block: 'nearest' });
   }
 
@@ -385,6 +464,8 @@ export class HEditForm extends HBaseWidget {
         tabs[position].setAttribute('aria-selected', String(active));
       }
       run.selected = selected;
+      // the widgets of a lazy group when its tab is first shown
+      this._renderShownGroups();
     };
     const run = { element, tabs, panels, select, selected: 0 };
     for (const [position, section] of sections.entries()) {
@@ -448,6 +529,8 @@ export class HEditForm extends HBaseWidget {
     const summary = document.createElement('summary');
     summary.textContent = this._text(group.label) || '';
     details.append(summary);
+    // the widgets of a lazy group when the accordion is first opened
+    if (this._pendingGroups) this.listen(details, 'toggle', () => { if (details.open) this._renderShownGroups(); });
     return details;
   }
 
@@ -473,6 +556,14 @@ export class HEditForm extends HBaseWidget {
       host.append(slot);
       this._slots.set(group.slot, slot);
     }
+    // lazy groups: the field widgets when the group is first shown (_renderShownGroups)
+    if (this._pendingGroups) this._pendingGroups.set(group.id, { group, host });
+    else this._fillGroupFields(host, group, states);
+    return host;
+  }
+
+  /** The widgets of the fields of one group, into its host. */
+  _fillGroupFields(host, group, states) {
     for (const field of group.children) {
       const fieldHost = document.createElement('div');
       host.append(fieldHost);
@@ -494,13 +585,82 @@ export class HEditForm extends HBaseWidget {
         fileViewer: this.options.fileViewer,
         allowHidden: this.options.allowHidden === true,
         readOnly: this.options.readOnly,
+        valueLimit: this.options.valueLimit,
         special: this._special(field),
         context: this._specialContext(field)
       }).render();
       this.fields.set(field.name, widget);
       if (widget.options.special?.hidden === true) this._managedFields.add(field.name);
     }
-    return host;
+  }
+
+  // ------------------------------------------------------------ lazy groups ---
+
+  /**
+   * Make the widgets of the lazy groups now on screen: no hidden element (inactive tab,
+   * hidden group) and no closed accordion between the group and the form.
+   */
+  _renderShownGroups() {
+    if (!this._pendingGroups?.size) return;
+    const shown = [...this._pendingGroups.keys()].filter((id) => this._isOnScreen(this._pendingGroups.get(id).host));
+    for (const id of shown) this._renderPendingGroup(id);
+    // the new fields follow showWhen; a field may show further groups
+    if (shown.length) this._applyVisibility();
+  }
+
+  /** @returns {boolean} Whether an element of the form is not inside a hidden element or a closed accordion. */
+  _isOnScreen(element) {
+    for (let node = element; node && node !== this.container; node = node.parentElement) {
+      if (node.hidden) return false;
+      if (String(node.tagName).toUpperCase() === 'DETAILS' && !node.open) return false;
+    }
+    return true;
+  }
+
+  /** Make the widgets of the lazy group that holds a field (shown or not). */
+  _renderGroupOf(name) {
+    if (!this._pendingGroups?.size) return;
+    for (const [id, { group }] of this._pendingGroups) {
+      if (group.children.some((field) => field.name === name)) {
+        this._renderPendingGroup(id);
+        this._applyVisibility();
+        return;
+      }
+    }
+  }
+
+  /** Make the widgets of one lazy group with the kept states. */
+  _renderPendingGroup(id) {
+    const entry = this._pendingGroups.get(id);
+    if (!entry) return;
+    this._pendingGroups.delete(id);
+    const states = new Map(entry.group.children.map((field) => [field.name, this._storedState(field)]));
+    this._fillGroupFields(entry.host, entry.group, states);
+    for (const field of entry.group.children) {
+      const widget = this.fields.get(field.name);
+      // what the widget gives for the unchanged value (getStates keeps the stored state for it)
+      if (widget) this._lazyFields.set(field.name, { stored: states.get(field.name), made: JSON.stringify(widget.getState()) });
+    }
+    this._emit('h-edit-form-group-rendered', { form: this, group: entry.group });
+  }
+
+  /** @returns {object} The kept state of a field without its widget. */
+  _storedState(field) {
+    return this._states.get(field.name) || this._states.get(String(field.dty)) || valueToState(field, null);
+  }
+
+  /**
+   * State of a field widget. A widget made after render gives the kept state while its
+   * value is unchanged: opening a tab is not a change (the inputs may write the same
+   * value a little differently, e.g. a number as text).
+   */
+  _widgetState(name, widget) {
+    const state = widget.getState();
+    const lazy = this._lazyFields.get(name);
+    if (!lazy) return state;
+    if (JSON.stringify(state) === lazy.made) return lazy.stored;
+    this._lazyFields.delete(name); // changed: the widget's state from now on
+    return state;
   }
 
   /** The field as shown: labels, help and term labels localized unless the JSON is. */
@@ -537,11 +697,33 @@ export class HEditForm extends HBaseWidget {
     return {
       field,
       form: this,
-      getValue: (name) => this.fields.get(String(name))?.getValue() ?? null,
-      setValue: (name, value) => this.fields.get(String(name))?.setValue(value),
-      hasField: (name) => this.fields.has(String(name)),
+      // also fields of lazy groups not shown yet (plan 23)
+      getValue: (name) => this._contextValue(name),
+      setValue: (name, value) => this._contextSetValue(name, value),
+      hasField: (name) => this.fields.has(String(name)) || Boolean(this._pendingGroups && this.getField(name)),
       ...(this.options.specialContext?.(field) || {})
     };
+  }
+
+  /** First value of a field, for the special editors (as HEditField#getValue). */
+  _contextValue(name) {
+    const widget = this.fields.get(String(name));
+    if (widget) return widget.getValue() ?? null;
+    const field = this._pendingGroups ? this.getField(name) : null;
+    return field ? this._storedState(field).values?.[0]?.value ?? null : null;
+  }
+
+  /** Replace the first value of a field, for the special editors (as HEditField#setValue). */
+  _contextSetValue(name, value) {
+    const widget = this.fields.get(String(name));
+    if (widget) return widget.setValue(value);
+    const field = this._pendingGroups ? this.getField(name) : null;
+    if (!field) return undefined;
+    const state = this._storedState(field);
+    const values = [{ ...(state.values?.[0] || { hidden: false }), value }, ...(state.values || []).slice(1)];
+    this._states.set(field.name, { ...state, values });
+    this._afterChange(field.name);
+    return undefined;
   }
 
   // ------------------------------------------------------------------- state ---
@@ -582,16 +764,20 @@ export class HEditForm extends HBaseWidget {
   _applyVisibility() {
     if (!this._groups) return;
     const flat = flatValues(this.form, this.getStates());
+    // the view filter (setViewFilter): fields not in it, and groups without a field in it
+    const view = this._viewNames || null;
+    const outOfView = view ? this._groupsOutOfView(view) : null;
     for (const field of formFields(this.form)) {
       const widget = this.fields.get(field.name);
       if (widget?.container) {
         widget.container.hidden = this._managedFields.has(field.name) || this._hiddenFields.has(field.name)
-          || !isVisible(field.showWhen, flat);
+          || !isVisible(field.showWhen, flat) || Boolean(view && !view.has(field.name));
       }
     }
     const runs = new Set();
     for (const entry of this._groups.values()) {
-      const hidden = this._hiddenGroups.has(entry.group.id) || !isVisible(entry.group.showWhen, flat);
+      const hidden = this._hiddenGroups.has(entry.group.id) || !isVisible(entry.group.showWhen, flat)
+        || Boolean(outOfView?.has(entry.group.id));
       if (entry.tab) {
         entry.tab.hidden = hidden;
         entry.hidden = hidden;
@@ -606,6 +792,18 @@ export class HEditForm extends HBaseWidget {
       run.element.hidden = visible.length === 0;
       if (visible.length && entries[run.selected]?.hidden) run.select(visible[0].position);
     }
+    // a group shown by the values (showWhen) gets its widgets
+    this._renderShownGroups();
+  }
+
+  /** @returns {Set<*>} Ids of the groups with no field of the view filter (an outer group: also none in its inner groups). */
+  _groupsOutOfView(view) {
+    const listed = new Set();
+    for (const group of this.form.groups) {
+      if (group.children.some((field) => view.has(field.name))) listed.add(group.id);
+    }
+    for (const [inner, outer] of this._parentOf || []) if (listed.has(inner)) listed.add(outer);
+    return new Set(this.form.groups.map((group) => group.id).filter((id) => !listed.has(id)));
   }
 
   /** @returns {string} The values of all fields, to tell a change. */
@@ -632,3 +830,18 @@ export class HEditForm extends HBaseWidget {
   }
 }
 
+/**
+ * Whether a required field has no value in a state (the "A value is required" check of
+ * HEditField, for a field of a lazy group without its widget).
+ *
+ * @param {object} field Normalised field.
+ * @param {{values?: Array<{value: *}>}} state Field state.
+ * @returns {boolean}
+ */
+function isRequiredEmpty(field, state) {
+  if (field.req !== 'required' || field.type === 'separator' || field.type === 'relmarker') return false;
+  return !(state?.values || []).some((entry) => {
+    const value = entry?.value;
+    return !(value === null || value === undefined || value === '' || (Array.isArray(value) && !value.length));
+  });
+}

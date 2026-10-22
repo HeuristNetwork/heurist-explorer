@@ -92,7 +92,7 @@ export async function initHeuristMap(config) {
     thematicAttributes: new ThematicAttributeProvider({ apiClient }),
     popup: new PopupProvider({ baseUrl: heuristBaseUrl, database: config.database }),
     // "Built-in" popup mode: the shared record renderer of heurist-recordview
-    recordView: RecordViewLoader.create({ apiClient, language: config.language }),
+    recordView: RecordViewLoader.create({ apiClient, language: config.language, limits: config.recordLimits }),
     reportTemplates: new ReportTemplateProvider({ baseUrl: heuristBaseUrl, database: config.database }),
     // the symbology and thematic map editors, and saving a Map Layer's DT_SYMBOLOGY (plan 17);
     // in Explorer the editors open in Explorer's window (hostBridge.editSymbology)

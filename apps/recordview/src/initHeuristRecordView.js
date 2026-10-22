@@ -62,12 +62,14 @@ export async function initHeuristRecordView(config) {
     recordDataProvider: new RecordDataProvider({ apiClient }),
     vocabularyProvider: new VocabularyProvider({ apiClient }),
     structureProvider: new RecordStructureProvider({ apiClient }),
-    relationsProvider: new RecordRelationsProvider({ apiClient, dbDefsProvider }),
+    relationsProvider: new RecordRelationsProvider({ apiClient, dbDefsProvider, limit: config.recordLimits?.links }),
     recordContentProvider: new RecordContentProvider({ baseUrl: heuristBaseUrl, database: config.database }),
     // The renderer owns everything inside <main> except the source header
     // (RecordViewControlPanel prepends that once it mounts) - same split as
     // GraphApplication's canvas/message vs. GraphControlPanel's source header.
-    renderer: new RecordViewRenderer({ container, baseUrl: heuristBaseUrl, database: config.database }),
+    renderer: new RecordViewRenderer({
+      container, baseUrl: heuristBaseUrl, database: config.database, limits: config.recordLimits,
+    }),
     host: createHostAdapter(config.host),
   });
   const api = new HeuristRecordViewPublicApi(application);

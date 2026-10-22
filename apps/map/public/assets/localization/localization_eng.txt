@@ -305,3 +305,11 @@
 # record manager, file media, record editor access (plan 21 review)
 #Click to zoom in / out#Click to zoom in / out
 #Download#Download
+
+# record view limits (plan 23)
+#Show all#Show all
+#Show all fields#Show all fields
+#Show all values#Show all values
+#Show all files#Show all files
+#Show more#Show more
+#in search#in search

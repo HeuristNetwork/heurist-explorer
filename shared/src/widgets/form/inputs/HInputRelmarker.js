@@ -7,8 +7,9 @@
  * - No relationship: a button "Add Relationship to <types>" ("from" for a reverse
  *   field). It saves a new record first (the editor service `ensureRecord`), then opens
  *   the popup of relationshipDialog.js.
- * - A relationship, in an input-like box: relation type (muted), a triangle, the title
- *   of the other record with Edit / View on mouse over, the relationship record icon with
+ * - A relationship, in an input-like box: relation type (muted), a triangle (to the left for
+ *   a reverse field), the record type icon and the title of the other record with Edit / View
+ *   on mouse over, the relationship record icon with
  *   Edit / View of the relationship record on mouse over. The clear action (value tools)
  *   deletes the relationship record after a warning.
  * No "hidden from the public" switch: it has no sense for a relationship.
@@ -28,6 +29,7 @@ import { HInput } from './HInput.js';
 import { recordTypeIconUrl } from '../../record-list/recordAdminInfo.js';
 import { openRelationshipDialog } from '../../relationship/relationshipDialog.js';
 import { HMsg } from '../../../ui/HMsg.js';
+import { sanitizeTextHtml, stripHtml } from '../../../recordview/FieldValueFormatter.js';
 import { $HR } from '../../../ui/i18n/HResource.js';
 import './HInputRelmarker.css';
 
@@ -40,11 +42,13 @@ export class HInputRelmarker extends HInput {
    *        `reverse`, `sourceTypes`, `label`), `relationships` (editor service: `ensureRecord()`,
    *        `create()`, `remove(relId)`, `load(relId)`, `fits(field, relation)`, `changed()`),
    *        `dbdefs`, `iconBase` ({baseUrl, database}), `apiClient` and the host actions
-   *        `editRecord(id)`, `viewRecord(id)`, `browseRecords(options)`, `addRecord(rectypeId)`.
+   *        `editRecord(id, {relation})`, `viewRecord(id)`, `browseRecords(options)`, `addRecord(rectypeId)`.
    * @returns {HInputRelmarker} This input.
    */
   attach(container, options = {}) {
     super.attach(container, options);
+    // as wide as its box: the value tools stay beside it (review 2026-10-22)
+    this.container.classList.add('h-form-input-compact');
     this.relation = options.relation || null;
     return this;
   }
@@ -74,8 +78,12 @@ export class HInputRelmarker extends HInput {
     this.termElement = document.createElement('span');
     this.termElement.className = 'h-input-relmarker-term';
     const arrow = document.createElement('i');
-    arrow.className = 'fa-solid fa-caret-right h-input-relmarker-arrow';
+    arrow.className = `fa-solid ${this.options.field?.reverse ? 'fa-caret-left' : 'fa-caret-right'} h-input-relmarker-arrow`;
     arrow.setAttribute('aria-hidden', 'true');
+    this.otherIcon = document.createElement('img');
+    this.otherIcon.className = 'h-input-relmarker-othericon';
+    this.otherIcon.alt = '';
+    this.listen(this.otherIcon, 'error', () => { this.otherIcon.hidden = true; });
     this.titleElement = document.createElement('span');
     this.titleElement.className = 'h-input-relmarker-title';
     const otherActions = this._actions('h-input-relmarker-other-actions', [
@@ -91,7 +99,7 @@ export class HInputRelmarker extends HInput {
       ['fa-pen', 'Edit relationship record', 'editRecord', () => this._editRelationship()],
       ['fa-circle-info', 'View relationship record', 'viewRecord', () => this.options.viewRecord(this.getValue())]
     ]);
-    this.box.append(this.termElement, arrow, this.titleElement, otherActions, this.relIcon, relActions);
+    this.box.append(this.termElement, arrow, this.otherIcon, this.titleElement, otherActions, this.relIcon, relActions);
     wrap.append(this.addButton, this.box);
     host.append(wrap);
     return this.addButton;
@@ -123,6 +131,7 @@ export class HInputRelmarker extends HInput {
   /** Read only: no Add, no Edit buttons. */
   setReadOnly(readOnly) {
     this._readOnly = Boolean(readOnly);
+    this._markReadOnly(readOnly);
     this._sync();
     return this;
   }
@@ -241,7 +250,15 @@ export class HInputRelmarker extends HInput {
     const id = this.getValue();
     const service = this.options.relationships;
     if (!id || typeof this.options.editRecord !== 'function') return;
-    await this.options.editRecord(id);
+    // the relation types and the other record's types of this field (HRecordEditor `relation`)
+    const field = this.options.field || {};
+    await this.options.editRecord(id, {
+      relation: {
+        vocabulary: Number(field.vocabulary) || null,
+        targetTypes: ((field.reverse ? field.sourceTypes : field.targetTypes) || []).map(Number).filter((rty) => rty > 0),
+        reverse: field.reverse === true
+      }
+    });
     const relation = service ? await service.load(id) : this.relation;
     if (relation && (!service?.fits || service.fits(this.options.field || {}, relation))) {
       this.relation = relation;
@@ -264,8 +281,14 @@ export class HInputRelmarker extends HInput {
     this.box.hidden = !relation;
     this.termElement.textContent = relation?.termLabel || '';
     const other = relation?.other;
-    this.titleElement.textContent = other ? (other.title || `#${other.id}`) : '';
-    this.titleElement.title = this.titleElement.textContent;
+    // a record title may have a few formatting tags (as h-recordlist-title)
+    const title = other ? (other.title || `#${other.id}`) : '';
+    this.titleElement.innerHTML = sanitizeTextHtml(title);
+    this.titleElement.title = stripHtml(title);
+    const otherUrl = other?.rty ? recordTypeIconUrl({ rec_RecTypeID: other.rty }, this.options.iconBase || {}) : '';
+    if (otherUrl && this.otherIcon.getAttribute('src') !== otherUrl) this.otherIcon.setAttribute('src', otherUrl);
+    this.otherIcon.hidden = !otherUrl;
+    this.otherIcon.title = (other?.rty && this.options.dbdefs?.rectypeName?.(other.rty)) || '';
     const relRty = Number(this.options.dbdefs?.dbconst?.('RT_RELATION')) || 1;
     const url = relation ? recordTypeIconUrl({ rec_RecTypeID: relRty }, this.options.iconBase || {}) : '';
     if (url && this.relIcon.getAttribute('src') !== url) this.relIcon.setAttribute('src', url);

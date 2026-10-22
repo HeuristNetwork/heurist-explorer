@@ -785,3 +785,42 @@
 #Save and Edit Attributes#Save and Edit Attributes
 #The relationship could not be saved#The relationship could not be saved
 #The database has no relationship record type#The database has no relationship record type
+
+# record view limits (plan 23)
+#Show all#Show all
+#Show all fields#Show all fields
+#Show all values#Show all values
+#Show all files#Show all files
+#Record view#Record view
+#Limit fields#Limit fields
+#Limit values per field#Limit values per field
+#Limit thumbnails#Limit thumbnails
+#Limit reverse links#Limit reverse links
+#Show more#Show more
+#in search#in search
+#The relationship fields show#The relationship fields show
+#of#of
+#relationships of this record#relationships of this record
+#Record View and Edit limits#Record View and Edit limits
+#Saving…#Saving…
+
+# record editor Structure pane (plan 23)
+#Structure#Structure
+#Show the structure#Show the structure
+#Hide the structure#Hide the structure
+#Required only#Required only
+#Optional#Optional
+#Find field#Find field
+#Field type#Field type
+#Show fields of this type#Show fields of this type
+#all#all
+#text#text
+#enum#enum
+#date#date
+#numeric#numeric
+#geo#geo
+#pointer#pointer
+#file#file
+#Show optional#Show optional
+#Empty only#Empty only
+#Show help#Show help

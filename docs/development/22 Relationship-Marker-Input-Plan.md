@@ -52,9 +52,30 @@ Differences from the agreed plan:
 - The reverse group is shown for a new record too (the plan said: saved records only). *Add Relationship* saves
   the record first anyway.
 
+## 3a. Cosmetics review (Artem, 2026-10-22)
+
+- The record type icon of the other record is shown before its title (`h-input-relmarker-othericon`).
+- The input is compact (`h-form-input-compact`): the clear action comes right after the box, not at the end of the row.
+- A reverse field has a left triangle (`fa-caret-left`).
+- The box is as wide as its content (at least 22em, never wider than the row), not a fixed 30em, so the
+  title is truncated only when the row has no room; a display width from the form still applies.
+
+## 3b. Relationship record in HRecordEditor (Artem, 2026-10-22)
+
+The base fields of RT_RELATION have no constraints, so the editor of a relationship record treats them
+specially (`recordEditStructure.js` `relationRecordStructure`, HRecordEditor option `relation`):
+- Opened from HInputRelmarker (Edit relationship record): `editRecord(id, {relation: {vocabulary, targetTypes, reverse}})`
+  (RecordEditorHost passes it on). Relation type (2-6) gets the field's vocabulary, the other record (target 2-5,
+  or source 2-7 for a reverse field) the field's allowed types; the side of the edited record is read only
+  (as in the popup).
+- Opened anywhere else (no `relation`): relation type, source and target are read only.
+- All HInput: a read-only input has the class `is-readonly` (`HInput#_markReadOnly`, also in the subclasses with
+  their own `setReadOnly`); its inputs, select-like buttons (pickers, resource / file buttons) and the relmarker
+  box get the `--h-color-surface` background.
+- The legacy host editor (no login) ignores `relation`.
+
 ## 4. Open points
 
 - Browser check: add (forward and reverse), Save and Edit Attributes, Edit / View, delete with the warning, a new
   record, a read-only editor.
 - Relationship dates / other attributes are not shown in the row (legacy showed start - end dates after the title).
-- The record type icon of the other record is not shown (not in the request).

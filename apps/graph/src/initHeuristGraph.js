@@ -64,7 +64,7 @@ export async function initHeuristGraph(config) {
     // after each load, for the graph edge labels and the legend.
     vocabularyProvider: new VocabularyProvider({ apiClient }),
     // Built-in popup: the shared record renderer of heurist-recordview (as heurist-map)
-    recordViewLoader: RecordViewLoader.create({ apiClient, language: config.language }),
+    recordViewLoader: RecordViewLoader.create({ apiClient, language: config.language, limits: config.recordLimits }),
     heuristBaseUrl,
   });
   const api = new HeuristGraphPublicApi(application);

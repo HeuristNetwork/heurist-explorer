@@ -17,6 +17,7 @@ import {
   getGlobalBootstrap,
 } from "#shared/host";
 import { resolveModuleBootstrap } from "#shared/config";
+import { normalizeRecordLimits } from "#shared/recordview/recordLimits.js";
 import { normalizeDataConfigurationSettings } from "./ui/config/dataConfigurationSchema.js";
 import { applySimplifiedDataSettings, hasAdminInfoSetting } from "./ui/config/simplifiedDataSettings.js";
 
@@ -90,6 +91,8 @@ export function createHeuristDataConfig(
     simplified,
     readonly,
     language,
+    // limits of the built-in record view and popup, from the Explorer configuration (plan 23 §3.1)
+    recordLimits: normalizeRecordLimits(runtime.recordLimits),
     searchRealm: runtime.searchRealm ?? runtime.search_realm ?? null,
     sourceId: runtime.source ?? runtime.sourceId ?? null,
     localeBaseUrl: runtime.localeBaseUrl || runtime.moduleBaseUrl || null,

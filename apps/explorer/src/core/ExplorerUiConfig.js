@@ -13,6 +13,8 @@
  * @since       8.0
  */
 
+import { DEFAULT_RECORD_LIMITS, normalizeRecordLimits } from '#shared/recordview/recordLimits.js';
+
 // panes: buttons and tabs in the panes they act on (2026-10-13, plan 16; named
 // 'compact' until 2026-10-14, still read)
 const TOOLBAR_POSITIONS = ['vertical', 'horizontal', 'panes'];
@@ -163,7 +165,10 @@ function defaults() {
     language: 'auto',
     // "Interface for dummies (v7 like)": fixed toolbar and layout, fewer buttons; the
     // other settings above are kept for when it is switched off (2026-10-14)
-    isSimplifiedUI: true
+    isSimplifiedUI: true,
+    // fields, values, thumbnails and reverse links of the built-in record view shown
+    // before "Show all"; passed to every module (runtime.recordLimits, plan 23 §3.1)
+    recordLimits: { ...DEFAULT_RECORD_LIMITS }
   };
 }
 
@@ -218,7 +223,8 @@ function normalize(value) {
     panes: {},
     lists: LIST_MODES.includes(source.lists) ? source.lists : fallback.lists,
     language: UI_LANGUAGES.includes(source.language) ? source.language : fallback.language,
-    isSimplifiedUI: typeof source.isSimplifiedUI === 'boolean' ? source.isSimplifiedUI : fallback.isSimplifiedUI
+    isSimplifiedUI: typeof source.isSimplifiedUI === 'boolean' ? source.isSimplifiedUI : fallback.isSimplifiedUI,
+    recordLimits: normalizeRecordLimits(source.recordLimits)
   };
 
   for (const type of MODULE_TYPES) {

@@ -83,6 +83,9 @@ test('the editor shows the record in tab groups and gives it back unchanged', as
 
 test('a repeatable field adds and removes values; the add button stops at max', async () => {
   const { editor, element } = await openEditor();
+  // the second tab is not shown yet: its fields have no widgets until it is (plan 23)
+  assert.equal(editor.editForm.getFieldWidget(1105), null);
+  editor.editForm.revealField('1105');
   const field = editor.editForm.getFieldWidget(1105);
   assert.equal(field.isRepeatable, true);
   field.addButton.click();
@@ -348,5 +351,21 @@ test('a hidden special field (filter form of a query) is not shown but saved', a
   const { editor } = await openEditor({ specialEditors: { 12: { json: false, hidden: true } } });
   assert.equal(editor.editForm.getFieldWidget(12).container.hidden, true);
   assert.deepEqual(editor.getRecord().details[12], ['t:10'], 'the value is in the record body');
+  await editor.destroy();
+});
+
+test('the Structure pane lists the fields; a click shows the field in the form (plan 23)', async () => {
+  const { editor, element } = await openEditor();
+  // a small form: the pane starts collapsed, its tree is made when it is opened (lazy)
+  assert.equal(editor.structureTree, null);
+  assert.equal(element.querySelector('.h-structure-tree'), null);
+  editor.structureToggle.click();
+  assert.ok(element.querySelector('.h-structure-tree')?.closest('.h-record-editor-structure'), 'the tree in the west pane');
+  const tree = editor.structureTree;
+  assert.equal(tree.rows.get('1105').count.textContent, '(2)', 'two values');
+  assert.equal(editor.editForm.getFieldWidget(1105), null, 'second tab not shown yet');
+  tree.rows.get('1105').element.click();
+  assert.ok(editor.editForm.getFieldWidget(1105), 'the click made the tab and its widgets');
+  assert.equal(editor.isDirty(), false);
   await editor.destroy();
 });

@@ -195,6 +195,9 @@ select.h-select:not([multiple]):not([size]) {
   animation:h-spin .75s linear infinite;
 }
 @keyframes h-spin { to { transform:rotate(360deg); } }
+/* "Loading…" / "Saving…" with the rotating icon (loadingIndicator.js) */
+.h-loading { display:flex; align-items:center; gap:.5em; color:var(--h-color-text-muted); }
+.h-loading .h-spinner { flex:none; }
 
 .h-dialog {
   width:min(640px, calc(100vw - 32px));

@@ -62,6 +62,8 @@ export class FakeElement {
     this._listeners = {};
   }
 
+  get childElementCount() { return this.children.length; }
+
   get textContent() {
     return this._text + this.children.map((child) => child.textContent).join('');
   }
@@ -69,6 +71,18 @@ export class FakeElement {
   set textContent(value) {
     this.children = [];
     this._text = String(value ?? '');
+    this._html = undefined;
+  }
+
+  /** The markup set last; its text (without tags) is the textContent, as in a browser. */
+  get innerHTML() {
+    return this._html ?? this._text;
+  }
+
+  set innerHTML(value) {
+    this.children = [];
+    this._html = String(value ?? '');
+    this._text = this._html.replace(/<[^>]*>/g, '');
   }
 
   append(...nodes) {
@@ -102,6 +116,22 @@ export class FakeElement {
   }
 
   remove() { this.parentElement?.removeChild(this); }
+
+  before(...nodes) {
+    const parent = this.parentElement;
+    if (!parent) return;
+    for (const node of nodes) { node.parentElement?.removeChild(node); node.parentElement = parent; }
+    parent.children.splice(parent.children.indexOf(this), 0, ...nodes);
+  }
+
+  replaceWith(...nodes) {
+    const parent = this.parentElement;
+    if (!parent) return;
+    const index = parent.children.indexOf(this);
+    for (const node of nodes) { node.parentElement?.removeChild(node); node.parentElement = parent; }
+    parent.children.splice(index, 1, ...nodes);
+    this.parentElement = null;
+  }
 
   replaceChildren(...nodes) {
     for (const child of this.children) child.parentElement = null;

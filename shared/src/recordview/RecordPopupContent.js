@@ -25,6 +25,7 @@
 import { $HR } from "#shared/ui";
 import { RecordViewRenderer } from "./RecordViewRenderer.js";
 import { sanitizeTextHtml } from "./FieldValueFormatter.js";
+import { loadingIndicator } from "../ui/loadingIndicator.js";
 import "./RecordPopupContent.css";
 
 /**
@@ -73,10 +74,11 @@ export class RecordPopupContent {
    * @param {() => boolean} [options.canEditRecords] Whether the host can edit records now (edit pencil).
    * @param {?(recordId: number) => Promise<?object>} [options.editRecord] Opens the host record editor.
    * @param {() => void} [options.onLayout] Called after the content changed (the popup re-lays itself out).
+   * @param {?object} [options.limits] Limits of the built-in view (`recordLimits.js`, plan 23).
    */
   constructor({
     recordViewLoader = null, loadHtml = null, baseUrl = null, database = null,
-    canEditRecords = () => false, editRecord = null, onLayout = null,
+    canEditRecords = () => false, editRecord = null, onLayout = null, limits = null,
   } = {}) {
     this.recordViewLoader = recordViewLoader;
     this.loadHtml = loadHtml;
@@ -86,6 +88,7 @@ export class RecordPopupContent {
     this.canEditRecords = canEditRecords;
     this.editRecord = editRecord;
     this.onLayout = onLayout;
+    this.limits = limits;
     this.mode = "basic";
     this.element = document.createElement("div");
     this.element.className = "h-record-popup";
@@ -212,7 +215,7 @@ export class RecordPopupContent {
       if (generation === this.generation) this.#layout();
       return;
     }
-    body.append(message($HR("Loading...")));
+    body.append(loadingIndicator($HR("Loading..."), "h-record-popup-message"));
     this.#layout();
     try {
       if (mode === "builtin" && this.recordViewLoader) {
@@ -224,7 +227,9 @@ export class RecordPopupContent {
           const container = document.createElement("div");
           container.className = "h-record-popup-record";
           body.replaceChildren(container);
-          new RecordViewRenderer({ container, baseUrl: this.baseUrl, database: this.database }).showBuiltin(data.record, {
+          new RecordViewRenderer({
+            container, baseUrl: this.baseUrl, database: this.database, limits: this.limits, onGrow: () => this.#layout(),
+          }).showBuiltin(data.record, {
             sections: data.sections,
             recordTypeName: data.recordTypeName,
             tags: data.tags,

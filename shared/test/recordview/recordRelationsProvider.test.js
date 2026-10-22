@@ -47,7 +47,7 @@ test("relationship IDs come from concept codes, or not at all", () => {
   assert.equal(relationshipIds(null), null);
 });
 
-test("loads relmarker relationships, relationships pointing here and linking records", async () => {
+test("loads relmarker relationships, relationships pointing here and linking records, as groups", async () => {
   const api = fakeApi((query) => {
     const q = JSON.stringify(query.q);
     if (q.includes('"f:7"')) {
@@ -63,22 +63,95 @@ test("loads relmarker relationships, relationships pointing here and linking rec
     return [];
   });
   const provider = new RecordRelationsProvider({ apiClient: api, dbDefsProvider: async () => dbdefs });
-  const result = await provider.load({ id: 204979, rty: 4, sections: [{ fields: [{ id: 245, type: "relmarker" }, { id: 1, type: "freetext" }] }] });
+  const result = await provider.load({ id: 204979, rty: 4, sections: [{ fields: [{ id: 245, type: "relmarker", name: "Persons" }, { id: 1, type: "freetext" }] }] });
 
-  assert.deepEqual(result.related, { 245: [{ id: 204980, title: "Waldheim, Kurt", rty: 10, relation: "is Secretary Of" }] });
-  assert.deepEqual(result.relationsFrom, [{ id: 204979, title: "UNO", rty: 4, relation: "has Secretary" }]);
-  assert.deepEqual(result.linkedFrom, [{ id: 76, title: "Abidjan", rty: 12, relation: "" }]);
+  const related = result.related[245];
+  assert.deepEqual(related.items, [{ id: 204980, title: "Waldheim, Kurt", rty: 10, relation: "is Secretary Of" }]);
+  assert.equal(related.label, "Persons");
+  assert.equal(related.total, 1);
+  assert.equal(related.more, null, "everything loaded");
+  // the targets of the field's relationships: rf:<field> with this record (plan 09 §11)
+  assert.deepEqual(related.query, [{ "rf:245": [{ ids: "204979" }] }]);
 
-  const related = api.calls.find((call) => JSON.stringify(call.query.q).includes('"f:7"'));
-  assert.deepEqual(related.query.q, [{ t: "1" }, { "f:7": "204979" }, { "f:6": "5414" }]);
-  assert.equal(related.query.fields, "5,6");
-  assert.equal(related.query.resolveDetails, 1);
-  const from = api.calls.find((call) => JSON.stringify(call.query.q).includes('"f:5"'));
-  assert.deepEqual(from.query.q, [{ t: "1" }, { "f:5": "204979" }]);
-  assert.equal(from.query.fields, "6,7");
+  assert.equal(result.relationsFrom.length, 1);
+  const from = result.relationsFrom[0];
+  assert.deepEqual(from.items, [{ id: 204979, title: "UNO", rty: 4, relation: "has Secretary" }]);
+  assert.equal(from.label, "has Secretary");
+  assert.deepEqual(from.query, [{ rt: [{ ids: "204979" }, { r: "6417" }] }]);
+
+  // one group per record type; relationship records are left out
+  assert.deepEqual(result.linkedFrom.map((group) => [group.rty, group.total, group.items.map((entry) => entry.id)]), [[12, 1, [76]]]);
+  assert.deepEqual(result.linkedFrom[0].query, [{ t: "12" }, { lt: "204979" }, { not: [{ "lt:247": "204979" }] }]);
+
+  const relatedCall = api.calls.find((call) => JSON.stringify(call.query.q).includes('"f:7"'));
+  assert.deepEqual(relatedCall.query.q, [{ t: "1" }, { "f:7": "204979" }, { "f:6": "5414" }]);
+  assert.equal(relatedCall.query.fields, "5,6");
+  assert.equal(relatedCall.query.resolveDetails, 1);
+  assert.equal(relatedCall.query.limit, 500);
+  const fromCall = api.calls.find((call) => JSON.stringify(call.query.q).includes('"f:5"'));
+  assert.deepEqual(fromCall.query.q, [{ t: "1" }, { "f:5": "204979" }]);
+  assert.equal(fromCall.query.fields, "6,7");
   // child records pointing back through "Parent entity" (2-247) are left out
   const linking = api.calls.find((call) => JSON.stringify(call.query.q).includes('"lt"'));
   assert.deepEqual(linking.query.q, [{ lt: "204979" }, { not: [{ "lt:247": "204979" }] }]);
+  // a normal record: one search of each kind, no counts
+  assert.equal(api.calls.length, 3);
+  assert.ok(api.calls.every((call) => call.path === "/records"));
+});
+
+test("a very large record: counts by /aggregate, the first `limit` of each group, more() for the next", async () => {
+  // 1000 records link here: 900 of type 12 (ids 1..900), 100 of type 13 (ids 1001..1100);
+  // 300 relationships of type 6417 point here (sources 2001..2300)
+  const linking = [
+    ...Array.from({ length: 900 }, (_, index) => ({ rec_ID: String(index + 1), rec_RecTypeID: "12", rec_Title: `A${index + 1}` })),
+    ...Array.from({ length: 100 }, (_, index) => ({ rec_ID: String(index + 1001), rec_RecTypeID: "13", rec_Title: `B${index + 1}` })),
+  ];
+  const sources = Array.from({ length: 300 }, (_, index) => relationship(7, { id: 2001 + index, rty: 4, title: `S${index + 1}` }));
+  const calls = [];
+  const page = (rows, query) => {
+    const offset = Number(query.offset) || 0;
+    return { records: rows.slice(offset, offset + Number(query.limit)), pagination: { total: rows.length, offset } };
+  };
+  const api = {
+    get: async (path, { query }) => {
+      calls.push({ path, query });
+      const q = JSON.stringify(query.q);
+      if (path === "/records/aggregate") {
+        if (query.op === "rectypes") return { rectypes: [{ rec_RecTypeID: 12, count: 900 }, { rec_RecTypeID: 13, count: 100 }] };
+        return { values: [{ value: 6417, count: 300 }] };
+      }
+      if (q.includes('"f:6"')) return page(sources, query);
+      if (q.includes('"f:5"')) return { records: sources.slice(0, 1), pagination: { total: sources.length, offset: 0 } };
+      if (q.includes('"lt"')) {
+        const type = (query.q.find((part) => part.t) || {}).t;
+        if (!type) return { records: linking.slice(0, 3), pagination: { total: linking.length, offset: 0 } };
+        return page(linking.filter((row) => row.rec_RecTypeID === type), query);
+      }
+      return { records: [] };
+    },
+  };
+  // the first page holds 3 rows only (the fake answers at most what the store gives), to cut both groups
+  const provider = new RecordRelationsProvider({ apiClient: api, dbDefsProvider: async () => dbdefs, limit: 5 });
+  const result = await provider.load({ id: 7, rty: 4, sections: [] });
+
+  const [a, b] = result.linkedFrom;
+  assert.deepEqual([a.rty, a.total, a.items.length], [12, 900, 5]);
+  assert.deepEqual([b.rty, b.total, b.items.length], [13, 100, 5], "type 13 is not in the first page: its first 5 from its own search");
+  assert.deepEqual(b.items.map((entry) => entry.id), [1001, 1002, 1003, 1004, 1005]);
+  assert.deepEqual(a.items.map((entry) => entry.id), [1, 2, 3, 4, 5], "the first page, then the group's own search from offset 3");
+  const groupCall = calls.find((call) => call.query.q?.[0]?.t === "12");
+  assert.deepEqual([groupCall.query.offset, groupCall.query.limit], [3, 2]);
+
+  const more = await a.more();
+  assert.deepEqual(more.map((entry) => entry.id), [6, 7, 8, 9, 10]);
+  assert.equal(a.items.length, 10);
+
+  const rel = result.relationsFrom[0];
+  assert.deepEqual([rel.total, rel.items.length], [300, 5]);
+  assert.deepEqual(rel.items.map((entry) => entry.id), [2001, 2002, 2003, 2004, 2005]);
+  const typeCall = calls.find((call) => JSON.stringify(call.query.q).includes('"f:6"'));
+  assert.deepEqual(typeCall.query.q, [{ t: "1" }, { "f:5": "7" }, { "f:6": "=6417" }], "exactly this relation type");
+  assert.ok(calls.some((call) => call.path === "/records/aggregate" && call.query.op === "values" && call.query.field === "6"));
 });
 
 test("without definitions only linking records load; failures give empty lists", async () => {
@@ -88,6 +161,7 @@ test("without definitions only linking records load; failures give empty lists",
   assert.deepEqual(result.related, {});
   assert.deepEqual(result.relationsFrom, []);
   assert.equal(result.linkedFrom.length, 1);
+  assert.equal(result.linkedFrom[0].items.length, 1);
   assert.equal(api.calls.length, 1);
 
   const failing = new RecordRelationsProvider({

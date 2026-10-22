@@ -22,6 +22,7 @@ import { VocabularyProvider } from "../data/VocabularyProvider.js";
 import { RecordDataProvider } from "./RecordDataProvider.js";
 import { RecordStructureProvider } from "./RecordStructureProvider.js";
 import { RecordRelationsProvider } from "./RecordRelationsProvider.js";
+import { normalizeRecordLimits } from "./recordLimits.js";
 
 /** Loads one record with the structure, names, tags and relations its rendering needs. */
 export class RecordViewLoader {
@@ -46,9 +47,11 @@ export class RecordViewLoader {
    * @param {object} options Options.
    * @param {object} options.apiClient Heurist API client.
    * @param {string} [options.language] Interface language for the definitions.
+   * @param {object|null} [options.limits] Limits of the built-in view (`recordLimits.js`): `links` records
+   *        are loaded per group of linked records of a very large record (plan 23).
    * @returns {RecordViewLoader}
    */
-  static create({ apiClient, language = "eng" }) {
+  static create({ apiClient, language = "eng", limits = null }) {
     let dbDefsPromise = null;
     const dbDefsProvider = () => {
       dbDefsPromise ||= HDbDefs.load(apiClient.buildUrl("/def/snapshot"), { lang: language }).catch((error) => {
@@ -61,7 +64,7 @@ export class RecordViewLoader {
       recordDataProvider: new RecordDataProvider({ apiClient }),
       structureProvider: new RecordStructureProvider({ apiClient }),
       vocabularyProvider: new VocabularyProvider({ apiClient }),
-      relationsProvider: new RecordRelationsProvider({ apiClient, dbDefsProvider }),
+      relationsProvider: new RecordRelationsProvider({ apiClient, dbDefsProvider, limit: normalizeRecordLimits(limits).links }),
     });
   }
 
