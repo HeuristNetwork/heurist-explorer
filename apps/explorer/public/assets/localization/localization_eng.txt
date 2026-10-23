@@ -894,3 +894,20 @@
 #The user or the members of the group get the reminder#The user or the members of the group get the reminder
 #E-mail addresses, separated by commas#E-mail addresses, separated by commas
 #The first (or only) date of the reminder#The first (or only) date of the reminder
+#New file#New file
+#replaces the current file on Save#replaces the current file on Save
+#Keep the current file#Keep the current file
+#Download URL#Download URL
+#Name / caption#Name / caption
+#Copyright#Copyright
+#Copyright owner#Copyright owner
+#Size#Size
+#File#File
+#Upload a new file: it replaces the current content when the record is saved (the download URL stays)#Upload a new file: it replaces the current content when the record is saved (the download URL stays)
+#URL of the external resource (for IIIF: the manifest or info.json)#URL of the external resource (for IIIF: the manifest or info.json)
+#A name of the file or image; the title of the file#A name of the file or image; the title of the file
+#Copyright statement or a URI leading to a copyright statement#Copyright statement or a URI leading to a copyright statement
+#The owner of the copyright in the file (person or organisation)#The owner of the copyright in the file (person or organisation)
+#The name of the uploaded file#The name of the uploaded file
+
+#JavaScript and CSS are not allowed in this field and will be removed when saving.#JavaScript and CSS are not allowed in this field and will be removed when saving.

@@ -41,6 +41,7 @@ import {
   flatValues, formFields, formStates, formValues, isVisible, normalizeEditForm, stateToValue, valueToState
 } from '../../data/editFormSchema.js';
 import { $HR } from '../../ui/i18n/HResource.js';
+import { hasScriptOrStyle } from '../../data/storedTextPolicy.js';
 import './HEditForm.css';
 
 /** Edit form of a JSON definition. */
@@ -78,6 +79,8 @@ export class HEditForm extends HBaseWidget {
    * @param {number} [options.valueLimit] Inputs made at once for a repeatable field (HEditField, plan 23).
    * @param {(form: HEditForm) => void} [options.onReady] After render (same as `h-edit-form-ready`).
    * @param {(form: HEditForm, change: {name: string, value: *}) => void} [options.onChange] After a value changed.
+   * @param {(field: object) => {allowCode?: boolean, codeField?: boolean}} [options.textPolicy]
+   *        Server-derived CMS exceptions; omitted means scripts and styles are not allowed.
    * @param {(values: object, form: HEditForm) => Array<{field?: string, message: string}>|string|null} [options.validate]
    *        Checks over several fields, after the field checks.
    * @returns {HEditForm} This form.
@@ -238,9 +241,28 @@ export class HEditForm extends HBaseWidget {
     const more = typeof extra === 'string' && extra ? [{ field: '', message: extra }] : Array.isArray(extra) ? extra : [];
     problems.push(...more.map((problem) => ({ field: String(problem.field ?? ''), message: String(problem.message ?? '') })));
     this._clearViewFilterFor(problems.map((problem) => problem.field));
-    this.setIssues(problems.map((problem) => ({ ...problem, severity: 'error' })));
+    const warnings = this._textWarnings(shown);
+    this.validationIssues = [...problems.map((problem) => ({ ...problem, severity: 'error' })), ...warnings];
+    this.setIssues(this.validationIssues);
     if (problems.length) this.revealField(problems.find((problem) => this.fields.has(problem.field))?.field);
     return problems;
+  }
+
+  /** Check every saved value, including translations and fields in unopened lazy groups. */
+  _textWarnings(shown) {
+    const warnings = [];
+    const states = this.getStates();
+    for (const field of formFields(this.form)) {
+      if (!shown(field) || field.readOnly || this.options.readOnly) continue;
+      const policy = this.options.textPolicy?.(field) || {};
+      if (policy.allowCode || (field.type !== 'blocktext' && !policy.codeField)) continue;
+      const state = states.get(field.name);
+      const entries = [...(state?.values || []), ...(state?.translations || [])];
+      if (!entries.some((entry) => policy.codeField ? String(entry.value ?? '').trim() : hasScriptOrStyle(entry.value))) continue;
+      warnings.push({ field: field.name, severity: 'warning', code: 'html_sanitized',
+        message: $HR('JavaScript and CSS are not allowed in this field and will be removed when saving.') });
+    }
+    return warnings;
   }
 
   /**

@@ -96,6 +96,8 @@ export function unpackValue(type, raw) {
 export function recordFieldValues(record, structure) {
   const result = new Map();
   for (const field of structureFields(structure)) {
+    // a named field that is not a record detail (a header, plan 20 §10.11): the editor fills it
+    if (!field.dty) continue;
     const raw = record?.details?.[String(field.dty)] || [];
     const values = [];
     const translations = [];
@@ -126,6 +128,7 @@ export function recordFieldValues(record, structure) {
 export function defaultFieldValues(structure) {
   const result = new Map();
   for (const field of structureFields(structure)) {
+    if (!field.dty) continue;
     const text = String(field.default ?? '').trim();
     const usable = text !== '' && !/^increment_new_values/i.test(text) && field.type !== 'relmarker';
     const entry = usable ? unpackValue(field.type, text === 'today' && field.type === 'date' ? today() : text) : null;
@@ -167,7 +170,7 @@ export function packValue(type, entry) {
 export function fieldsToDetails(fields, structure) {
   const details = {};
   for (const field of structureFields(structure)) {
-    if (field.type === 'relmarker') continue;
+    if (field.type === 'relmarker' || !field.dty) continue;
     const state = fields.get(field.dty) || { values: [], translations: [] };
     const list = [];
     for (const entry of state.values || []) {

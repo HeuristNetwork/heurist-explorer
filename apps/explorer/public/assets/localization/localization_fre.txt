@@ -894,3 +894,20 @@
 #The user or the members of the group get the reminder#L'utilisateur ou les membres du groupe reçoivent le rappel
 #E-mail addresses, separated by commas#Adresses e-mail, séparées par des virgules
 #The first (or only) date of the reminder#La première (ou seule) date du rappel
+#New file#Nouveau fichier
+#replaces the current file on Save#remplace le fichier actuel à l'enregistrement
+#Keep the current file#Garder le fichier actuel
+#Download URL#URL de téléchargement
+#Name / caption#Nom / légende
+#Copyright#Copyright
+#Copyright owner#Titulaire du copyright
+#Size#Taille
+#File#Fichier
+#Upload a new file: it replaces the current content when the record is saved (the download URL stays)#Téléversez un nouveau fichier : il remplace le contenu actuel à l'enregistrement (l'URL de téléchargement reste)
+#URL of the external resource (for IIIF: the manifest or info.json)#URL de la ressource externe (pour IIIF : le manifeste ou info.json)
+#A name of the file or image; the title of the file#Un nom du fichier ou de l'image ; le titre du fichier
+#Copyright statement or a URI leading to a copyright statement#Mention de copyright ou URI vers une mention de copyright
+#The owner of the copyright in the file (person or organisation)#Le titulaire du copyright du fichier (personne ou organisation)
+#The name of the uploaded file#Le nom du fichier téléversé
+
+#JavaScript and CSS are not allowed in this field and will be removed when saving.#JavaScript et CSS ne sont pas autorisés dans ce champ et seront supprimés lors de l’enregistrement.
