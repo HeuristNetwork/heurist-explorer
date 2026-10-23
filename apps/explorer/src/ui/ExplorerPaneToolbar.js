@@ -205,6 +205,7 @@ export class ExplorerPaneToolbar {
       ['Help', () => app.controlPanel?.openHelp()],
       ['Getting started', () => app.showWelcome?.()],
       ['Manage tags', () => void app.manageTags?.()],
+      ['Manage registered files', () => void app.manageFiles?.()],
       ['Query tracer', () => app.showQueryTrace?.()]
     ];
     for (const [label, action] of items) {

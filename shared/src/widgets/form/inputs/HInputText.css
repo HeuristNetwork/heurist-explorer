@@ -2,3 +2,19 @@
   min-height: 5rem;
   resize: vertical;
 }
+
+/* URL input: the icon after it opens the address */
+.h-input-url-open {
+  flex: 0 0 auto;
+  align-self: center;
+  padding: 0 4px;
+  color: var(--h-color-text-muted);
+}
+
+.h-input-url-open:hover {
+  color: var(--h-color-primary);
+}
+
+.h-input-url-open[hidden] {
+  display: none;
+}

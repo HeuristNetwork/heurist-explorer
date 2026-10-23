@@ -88,6 +88,9 @@ export class HRecordManager extends HBaseWidget {
    * @param {boolean} [options.allowAddition=true] Show the Add buttons.
    * @param {Function} [options.addRecord] Host: `(rectypeId) → Promise<{saved, recordId}>` (no Add buttons without it).
    * @param {Function} [options.canAddRecordType] Host: `(rectypeId|null) → boolean`; default: yes.
+   * @param {Array<{id: string, icon: string, label: string, run: Function}>} [options.addActions] Add buttons of
+   *        the host instead of "Add new <type>" (registered files: Upload, Register URL); `run()` →
+   *        `Promise<{saved, recordId}>` as `addRecord`.
    * @param {Function} [options.editRecord] Host: `(id) → Promise<{saved}>` (pen button; double-click in `manager` mode).
    * @param {Function} [options.viewRecord] Host: `(id)` ("i" button).
    * @param {*} [options.query] Extra conditions added to the record type query (`rst_PointerBrowseFilter`, Phase 3);
@@ -284,8 +287,12 @@ export class HRecordManager extends HBaseWidget {
       // Sort and Show owners after the search (plan 21 review)
       listTools: true,
       selectionMode: this.mode === 'select' ? 'single' : 'multi',
-      // one record: no selection menu (Select all, Show selected)
-      controls: { ...(given.controls || {}), ...(this.mode === 'select' ? { selectionActions: false } : {}) },
+      // one record: no selection menu (Select all, Show selected); a filter form replaces the search box
+      controls: {
+        ...(given.controls || {}),
+        ...(this.mode === 'select' ? { selectionActions: false } : {}),
+        ...(this.filterDefinition() ? { search: false } : {})
+      },
       engineSwitch: false,
       sourceActionsEnabled: false,
       baseUrl: this.options.baseUrl || given.baseUrl,
@@ -307,6 +314,7 @@ export class HRecordManager extends HBaseWidget {
    */
   _renderAddBar() {
     if (this.options.allowAddition === false) return null;
+    if (Array.isArray(this.options.addActions) && this.options.addActions.length) return this._renderAddActions();
     if (typeof this.options.addRecord !== 'function') return null;
     const can = this.options.canAddRecordType || (() => true);
     const types = this.unconstrained ? (can(null) === true ? [null] : []) : this.recordTypes.filter((id) => can(id) === true);
@@ -330,6 +338,28 @@ export class HRecordManager extends HBaseWidget {
     return bar;
   }
 
+  /** The host's Add buttons (`addActions`). */
+  _renderAddActions() {
+    const bar = document.createElement('div');
+    bar.className = 'h-record-manager-add';
+    for (const action of this.options.addActions) {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'h-btn h-btn-primary h-btn-small h-record-manager-add-button';
+      button.dataset.action = String(action.id || '');
+      const icon = document.createElement('i');
+      icon.className = `fa-solid ${action.icon || 'fa-plus-circle'}`;
+      icon.setAttribute('aria-hidden', 'true');
+      const label = document.createElement('span');
+      label.textContent = $HR(action.label);
+      button.append(icon, label);
+      if (action.title) button.title = $HR(action.title);
+      this.listen(button, 'click', () => void this._add(null, action.run));
+      bar.append(button);
+    }
+    return bar;
+  }
+
   /** Name of a record type (its id when unknown). */
   _typeName(id) {
     return this.dbdefs?.rectypeName?.(id) || `#${id}`;
@@ -339,10 +369,10 @@ export class HRecordManager extends HBaseWidget {
    * Add a record of a type through the host. Select modes: the new record is the
    * selection and the manager finishes; manager mode: the list reloads and selects it.
    */
-  async _add(rectypeId) {
+  async _add(rectypeId, run = null) {
     let result;
     try {
-      result = await this.options.addRecord(rectypeId);
+      result = run ? await run() : await this.options.addRecord(rectypeId);
     } catch (error) {
       this._dispatch('h-record-manager-error', { error });
       return;

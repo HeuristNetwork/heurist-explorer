@@ -76,9 +76,10 @@ export class ExplorerConfigurationDialog {
    * @param {Function|null} [options.onGettingStarted] Offers a Getting started button: it closes the dialog and calls this.
    * @param {Function|null} [options.onQueryTrace] Offers a Query tracer button: it closes the dialog and calls this.
    * @param {Function|null} [options.onManageTags] Offers a Manage tags button (plan 20, 4a): it closes the dialog and calls this.
+   * @param {Function|null} [options.onManageFiles] Offers a Manage registered files button (plan 20): it closes the dialog and calls this.
    */
   constructor({ value = null, parent = null, onSave = null, onCancel = null, onGettingStarted = null, onQueryTrace = null,
-    onManageTags = null } = {}) {
+    onManageTags = null, onManageFiles = null } = {}) {
     this.value = mergeDefaults(value);
     this.parent = parent;
     this.onSave = typeof onSave === 'function' ? onSave : null;
@@ -86,6 +87,7 @@ export class ExplorerConfigurationDialog {
     this.onGettingStarted = typeof onGettingStarted === 'function' ? onGettingStarted : null;
     this.onQueryTrace = typeof onQueryTrace === 'function' ? onQueryTrace : null;
     this.onManageTags = typeof onManageTags === 'function' ? onManageTags : null;
+    this.onManageFiles = typeof onManageFiles === 'function' ? onManageFiles : null;
     this.chips = new Map();
     this.paneLists = new Map();
     this.paneChecks = new Map();
@@ -151,7 +153,11 @@ export class ExplorerConfigurationDialog {
       extras.append(button('Manage tags', () => { if (this.cancel() !== false) this.onManageTags(); },
         'Add, rename, merge and delete your tags and the tags of your groups'));
     }
-    if (this.onGettingStarted || this.onQueryTrace || this.onManageTags) footer.append(extras);
+    if (this.onManageFiles) {
+      extras.append(button('Manage registered files', () => { if (this.cancel() !== false) this.onManageFiles(); },
+        'Upload and register files, register external resources, edit the details of files'));
+    }
+    if (this.onGettingStarted || this.onQueryTrace || this.onManageTags || this.onManageFiles) footer.append(extras);
     footer.append(button('Cancel', () => this.cancel()), submitButton('Apply'));
     this.form.append(this.content, footer);
     this.dialog.append(header, this.form);

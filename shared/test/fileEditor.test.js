@@ -14,6 +14,7 @@ globalThis.Node ??= globalThis.HTMLElement;
 const { fileEditStructure, registeredFileType, formatFileSize } = await import('../src/data/systemEntities.js');
 const { HRecordEditor } = await import('../src/widgets/record-editor/HRecordEditor.js');
 const { createHInput } = await import('../src/widgets/form/inputs/createHInput.js');
+const { registerNewFile } = await import('../src/widgets/form/inputs/fileRegistration.js');
 
 const host = () => { const element = document.createElement('div'); document.body.append(element); return element; };
 const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
@@ -126,6 +127,12 @@ async function openFileEditor(record, { linked = { records: [], total: 0 } } = {
     structurePane: false,
     summarySections: ['admin', 'linked'],
     linkedRecords: async () => linked,
+    preview: (loaded) => {
+      const element = document.createElement('div');
+      element.className = 'test-preview';
+      element.textContent = loaded.rec_Hash;
+      return element;
+    },
     onOpenRecord: (id) => calls.push(['open', id])
   });
   await editor.open();
@@ -166,4 +173,44 @@ test('file editor: rec_URL is a header of the record; the new content goes as up
   assert.equal(sent.downloadUrl, undefined);
   assert.equal(sent.size, undefined, 'the formatted size is not sent');
   await local.editor.destroy();
+});
+
+test('file editor: the preview of the file is below the form', async () => {
+  const { editor, element } = await openFileEditor(fileRecord(902, { url: 'https://x.org/a.pdf' }));
+  const box = element.querySelector('.h-record-editor-preview');
+  assert.ok(box, 'a preview area');
+  assert.equal(box.querySelector('.test-preview').textContent, 'abc123');
+  await editor.destroy();
+});
+
+test('URL input: the icon after it opens an http(s) address only', () => {
+  const input = createHInput('freetext', host(), { inputType: 'url', value: 'https://x.org/a.pdf', suppressLabel: true });
+  assert.equal(input.link.hidden, false);
+  assert.equal(input.link.href, 'https://x.org/a.pdf');
+  assert.equal(input.link.target, '_blank');
+  input.setValue('not a link');
+  assert.equal(input.link.hidden, true);
+  assert.equal(createHInput('freetext', host(), { suppressLabel: true }).link, undefined, 'plain text: no icon');
+});
+
+test('registerNewFile: URL, upload (the registered file of the same content), tile stack', async () => {
+  const calls = [];
+  const uploader = {
+    async upload(file) { calls.push(['upload', file.name]); return { token: 't1', duplicates: file.name === 'same.png' ? [44] : [] }; },
+    async cancel(token) { calls.push(['cancel', token]); },
+    async register(token, { details }) { calls.push(['register', token, details]); return { rec_ID: '50' }; },
+    async registerUrl(url) { calls.push(['url', url]); return { rec_ID: '51', meta: {} }; }
+  };
+  const progress = () => ({ signal: null, update: () => {}, close: () => {} });
+  const services = { uploader, dbdefs, progress, askUrl: async () => 'https://x.org/manifest.json' };
+  assert.deepEqual(await registerNewFile('url', services), { saved: true, recordId: 51 });
+  assert.deepEqual(await registerNewFile('upload', { ...services, chooseFile: async () => ({ name: 'same.png', size: 5 }),
+    confirmDuplicate: async () => 'existing' }), { saved: true, recordId: 44 });
+  assert.deepEqual(calls.at(-1), ['cancel', 't1'], 'the upload of the same content goes');
+  assert.deepEqual(await registerNewFile('tiled', { ...services, chooseFile: async (accept) => {
+    calls.push(['accept', accept]);
+    return { name: 'tiles.zip', size: 9 };
+  } }), { saved: true, recordId: 50 });
+  assert.deepEqual(calls.slice(-3), [['accept', '.zip,.mbtiles'], ['upload', 'tiles.zip'], ['register', 't1', { 501: ['tiled'] }]]);
+  assert.deepEqual(await registerNewFile('upload', { ...services, chooseFile: async () => null }), { saved: false, recordId: 0 });
 });

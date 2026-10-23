@@ -531,7 +531,8 @@ export class ExplorerControlPanel {
       onSave: (value) => this.application.applyUiConfig(value),
       onGettingStarted: () => this.application.showWelcome(),
       onQueryTrace: () => this.application.showQueryTrace(),
-      onManageTags: () => void this.application.manageTags()
+      onManageTags: () => void this.application.manageTags(),
+      onManageFiles: () => void this.application.manageFiles()
     }).open();
   }
 

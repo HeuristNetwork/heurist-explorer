@@ -28,6 +28,7 @@ import { FileUploader } from '../../../data/FileUploader.js';
 import { HMsg } from '../../../ui/HMsg.js';
 import { buildFileMediaItem, fileMediaUrls, isImageFile } from '../../../recordview/fileMediaItem.js';
 import { formatFileSize } from '../../../data/systemEntities.js';
+import { askUrlDialog, confirmDuplicateDialog } from './fileRegistration.js';
 import { $HR } from '../../../ui/i18n/HResource.js';
 import './HInputFile.css';
 
@@ -458,7 +459,8 @@ export class HInputFile extends HInput {
           + $HR('replaces the current file on Save');
       }
     }
-    const thumb = file && !this._pending ? this._thumbUrl(file) : '';
+    // replace mode: no thumbnail (the file editor shows the file below the form)
+    const thumb = file && !this.replace ? this._thumbUrl(file) : '';
     this.thumb.hidden = !thumb;
     if (thumb) this.thumb.src = thumb;
     else this.thumb.removeAttribute('src');
@@ -552,38 +554,4 @@ function fileName(file) {
 
 function hasFiles(event) {
   return [...(event.dataTransfer?.types || [])].includes('Files');
-}
-
-/** Default question when the uploaded content is registered already. */
-function confirmDuplicateDialog(ids, name) {
-  return new Promise((resolve) => {
-    let answered = false;
-    const answer = (value) => {
-      if (answered) return;
-      answered = true;
-      resolve(value);
-    };
-    const dialog = HMsg.showMsgDlg(`${$HR('This file is registered already')} (${ids.map((id) => `#${id}`).join(', ')}): ${name}`, {
-      title: 'Upload file',
-      buttons: [
-        { label: $HR('Use the registered file'), class: 'h-btn h-btn-primary', onClick: () => answer('existing') },
-        { label: $HR('Upload anyway'), class: 'h-btn', onClick: () => answer('upload') },
-        { label: $HR('Cancel'), class: 'h-btn', onClick: () => answer(null) }
-      ]
-    });
-    dialog?.addEventListener('close', () => answer(null), { once: true });
-  });
-}
-
-/** Default URL question: a small form (loaded when used: the edit form imports the inputs). */
-async function askUrlDialog() {
-  const { openEditFormDialog } = await import('../../edit-form/editFormDialog.js');
-  const values = await openEditFormDialog({
-    title: 'Register a URL',
-    okLabel: 'Register',
-    form: { groups: [{ id: 'url', type: 'group', children: [
-      { name: 'url', type: 'freetext', label: 'URL of the file or resource', req: 'required', width: 50 }
-    ] }] }
-  });
-  return values?.url ? String(values.url).trim() : null;
 }

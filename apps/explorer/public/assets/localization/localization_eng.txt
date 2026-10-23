@@ -911,3 +911,15 @@
 #The name of the uploaded file#The name of the uploaded file
 
 #JavaScript and CSS are not allowed in this field and will be removed when saving.#JavaScript and CSS are not allowed in this field and will be removed when saving.
+#Manage registered files#Manage registered files
+#Registered files#Registered files
+#Upload and register a new file#Upload and register a new file
+#Register an external resource (URL)#Register an external resource (URL)
+#Upload a tile stack#Upload a tile stack
+#A file on the web, a YouTube / Vimeo / SoundCloud page, or a IIIF manifest or image service#A file on the web, a YouTube / Vimeo / SoundCloud page, or a IIIF manifest or image service
+#Map tiles of an image: a zip file of {z}/{x}/{y} tiles, or an MBTiles file#Map tiles of an image: a zip file of {z}/{x}/{y} tiles, or an MBTiles file
+#Upload and register files, register external resources, edit the details of files#Upload and register files, register external resources, edit the details of files
+#Open the link#Open the link
+#Uploading#Uploading
+#This URL is registered already#This URL is registered already
+#This database has no record type for registered files#This database has no record type for registered files

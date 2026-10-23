@@ -40,10 +40,10 @@ import { SymbologyService } from '#shared/symbology/SymbologyService.js';
 import { RecordPopupContent } from '#shared/recordview/RecordPopupContent.js';
 import { RecordViewLoader } from '#shared/recordview/RecordViewLoader.js';
 import { loadRecordAddDefaults, saveRecordAddDefaults } from '#shared/data/recordAccess.js';
-import { fileEditStructure } from '#shared/data/systemEntities.js';
+import { fileEditStructure, registeredFileType, systemFieldIds } from '#shared/data/systemEntities.js';
 import { multilangFieldIds } from '#shared/data/writableRecordTypes.js';
 import { normalizeRecordLimits } from '#shared/recordview/recordLimits.js';
-import { fileMediaUrls } from '#shared/recordview/fileMediaItem.js';
+import { buildFileMediaItem, fileMediaUrls } from '#shared/recordview/fileMediaItem.js';
 
 /** Id prefix of the record editor dialogs (a numbered id each: a pointed record opens over its editor). */
 const DIALOG_ID = 'h-record-editor-dialog';
@@ -305,6 +305,8 @@ export class RecordEditorHost {
       structure: (record) => fileEditStructure(record, dbdefs, { fileUrls, multilangIds: multilangFieldIds(dbdefs, rty) }),
       structurePane: false,
       summarySections: ['admin', 'linked'],
+      // the thumbnail or player of the file and its links, for local and external files (plan 20 §10.12)
+      preview: fileUrls ? (record) => this._filePreview(record, dbdefs, fileUrls) : null,
       onOpenRecord: (id) => void this.viewRecord(id),
       linkedRecords: async (record) => {
         const key = String(record?.rec_Hash || '');
@@ -621,14 +623,14 @@ export class RecordEditorHost {
   async browseRecords(options = {}) {
     const dbdefs = await this.options.ensureDbDefs();
     const { openRecordManager } = await import('#shared/widgets/record-manager/openRecordManager.js');
-    // registered files (/files, plan 20): edited with editFile, added by Upload / URL of the file input
+    // registered files (/files, plan 20): edited with editFile, added by Upload / Tile stack / URL
     const fileType = Number(dbdefs?.dbconst?.('RT_REGISTERED_FILE')) || 0;
     const types = (options.recordTypes || []).map(Number).filter((id) => id > 0);
     const files = fileType > 0 && types.length > 0 && types.every((id) => id === fileType);
     return openRecordManager({
       selectMode: 'select',
       ...options,
-      ...(files ? { allowAddition: false } : {}),
+      ...(files && this.options.isLoggedIn() ? { addActions: this._fileAddActions(dbdefs) } : {}),
       apiClient: this.options.apiClient,
       dbdefs,
       addRecord: (rectypeId) => this.addRecord(rectypeId),
@@ -639,6 +641,57 @@ export class RecordEditorHost {
       baseUrl: this.options.baseUrl || '',
       database: this.options.database || ''
     });
+  }
+
+  /**
+   * The registered files of the database in the record manager (Explorer's "Manage registered
+   * files", plan 20 §10.12): upload, register a URL, edit the details of a file.
+   *
+   * @returns {Promise<void>} Resolved when the manager closes.
+   */
+  async manageFiles() {
+    const dbdefs = await this.options.ensureDbDefs();
+    const fileType = Number(dbdefs?.dbconst?.('RT_REGISTERED_FILE')) || 0;
+    if (!(fileType > 0)) throw new Error($HR('This database has no record type for registered files'));
+    await this.browseRecords({ selectMode: 'manager', recordTypes: [fileType], title: $HR('Registered files') });
+  }
+
+  /** Media item of a registered file (record of /files): as in Record View. */
+  _filePreview(record, dbdefs, fileUrls) {
+    const key = String(record?.rec_Hash || '');
+    if (!key) return null;
+    const { mime, originalName } = systemFieldIds('file', dbdefs);
+    const first = (id) => {
+      const value = id ? record.details?.[String(id)]?.[0] : null;
+      return value && typeof value === 'object' ? value.value ?? '' : value ?? '';
+    };
+    const mimeType = registeredFileType(record, dbdefs).startsWith('iiif') ? 'application/json' : dbdefs?.termLabel?.(first(mime)) || '';
+    return buildFileMediaItem({
+      ulf_ObfuscatedFileID: key,
+      ulf_OrigFileName: String(first(originalName) || ''),
+      ulf_ExternalFileReference: record.rec_URL || null,
+      ulf_Caption: String(record.rec_Title || ''),
+      fxm_MimeType: mimeType.includes('/') ? mimeType : ''
+    }, { urls: fileUrls });
+  }
+
+  /** Add buttons of the registered files' record manager (fileRegistration.js). */
+  _fileAddActions(dbdefs) {
+    const register = async (kind) => {
+      const { registerNewFile } = await import('#shared/widgets/form/inputs/fileRegistration.js');
+      return registerNewFile(kind, { apiClient: this.options.apiClient, dbdefs });
+    };
+    return [
+      { id: 'upload', icon: 'fa-upload', label: 'Upload and register a new file', run: () => register('upload') },
+      {
+        id: 'url', icon: 'fa-link', label: 'Register an external resource (URL)', run: () => register('url'),
+        title: 'A file on the web, a YouTube / Vimeo / SoundCloud page, or a IIIF manifest or image service'
+      },
+      {
+        id: 'tiled', icon: 'fa-table-cells', label: 'Upload a tile stack', run: () => register('tiled'),
+        title: 'Map tiles of an image: a zip file of {z}/{x}/{y} tiles, or an MBTiles file'
+      }
+    ];
   }
 
   /**

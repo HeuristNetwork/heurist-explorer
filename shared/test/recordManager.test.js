@@ -389,3 +389,25 @@ test('pointer input: record type icon of the chosen record before the picker', a
   const one = await resourceInput({ value: 7, targetTypes: [10], iconBase, pointerMode: 'addorbrowse' });
   assert.match(one.container.querySelector('.h-input-resource-icon').getAttribute('src'), /icon=10&/);
 });
+
+test('host Add actions replace the type buttons; a run gives the new record (registered files, plan 20)', async () => {
+  const { widget, events } = manager({
+    recordTypes: [60],
+    addActions: [
+      { id: 'upload', icon: 'fa-upload', label: 'Upload and register a new file', run: async () => ({ saved: true, recordId: 91 }) },
+      { id: 'url', icon: 'fa-link', label: 'Register an external resource (URL)', run: async () => ({ saved: false }) }
+    ]
+  });
+  const buttons = widget._renderAddBar().querySelectorAll('button');
+  assert.deepEqual(buttons.map((button) => button.dataset.action), ['upload', 'url']);
+  assert.equal(buttons[0].querySelector('span').textContent, 'Upload and register a new file');
+  buttons[0].click();
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.deepEqual(events.at(-1), { type: 'h-record-manager-finish', ids: [91] });
+});
+
+test('a filter form hides the search box of the list', () => {
+  const filter = { query: [], filterForm: { settings: {}, items: [] } };
+  assert.equal(manager({ recordTypes: [10], filter }).widget._listOptions().controls.search, false);
+  assert.equal(manager({ recordTypes: [10], filter: false }).widget._listOptions().controls.search, undefined);
+});

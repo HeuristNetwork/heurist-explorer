@@ -911,3 +911,15 @@
 #The name of the uploaded file#Le nom du fichier téléversé
 
 #JavaScript and CSS are not allowed in this field and will be removed when saving.#JavaScript et CSS ne sont pas autorisés dans ce champ et seront supprimés lors de l’enregistrement.
+#Manage registered files#Gérer les fichiers enregistrés
+#Registered files#Fichiers enregistrés
+#Upload and register a new file#Téléverser et enregistrer un nouveau fichier
+#Register an external resource (URL)#Enregistrer une ressource externe (URL)
+#Upload a tile stack#Téléverser une pile de tuiles
+#A file on the web, a YouTube / Vimeo / SoundCloud page, or a IIIF manifest or image service#Un fichier sur le web, une page YouTube / Vimeo / SoundCloud, ou un manifeste ou service d'images IIIF
+#Map tiles of an image: a zip file of {z}/{x}/{y} tiles, or an MBTiles file#Tuiles cartographiques d'une image : un fichier zip de tuiles {z}/{x}/{y}, ou un fichier MBTiles
+#Upload and register files, register external resources, edit the details of files#Téléverser et enregistrer des fichiers, enregistrer des ressources externes, modifier les détails des fichiers
+#Open the link#Ouvrir le lien
+#Uploading#Téléversement de
+#This URL is registered already#Cette URL est déjà enregistrée
+#This database has no record type for registered files#Cette base n'a pas de type d'enregistrement pour les fichiers enregistrés

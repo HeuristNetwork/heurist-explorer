@@ -787,6 +787,19 @@ export class ExplorerApplication {
   }
 
   /**
+   * The registered files of the database in the record manager (plan 20 §10.12).
+   *
+   * @returns {Promise<void>} Resolved when the manager closes.
+   */
+  async manageFiles() {
+    try {
+      await this.recordEditing.manageFiles();
+    } catch (error) {
+      HMsg.showMsgErr?.(error?.message || String(error));
+    }
+  }
+
+  /**
    * Tags changed (the tag manager, or the Tags panel of a record editor): the tag lists
    * (HDbDefs, filters by tag) load again, and a Record View that shows the record (any
    * record for a change in the manager) shows its tags again.

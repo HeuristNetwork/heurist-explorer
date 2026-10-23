@@ -103,6 +103,8 @@ export class HRecordEditor extends HBaseWidget {
    *        `/rst` (registered files, plan 20 §10.11), made again from the saved record after each save.
    *        Its named fields that are not record details: `header` (a record header such as rec_URL),
    *        `transient` (shown, not sent; `value`), `upload` (the token of a new content, sent as `upload`).
+   * @param {Function} [options.preview] `(record) → HTMLElement|null`: shown below the form, made again after
+   *        each save (a registered file: its thumbnail or player and links, plan 20 §10.12).
    * @param {Function} [options.linkedRecords] `(record) → Promise<{records, total}>`: the Linked records
    *        of the summary as a list of records (`rec_ID`, `rec_Title`, `rec_RecTypeID`) instead of the
    *        relationships and links of the record.
@@ -929,6 +931,13 @@ export class HRecordEditor extends HBaseWidget {
       lazyGroups: true,
       valueLimit: this._limits().values
     }).render();
+    const preview = this.record && typeof this.options.preview === 'function' ? this.options.preview(this.record) : null;
+    if (preview) {
+      const box = document.createElement('div');
+      box.className = 'h-record-editor-preview';
+      box.append(preview);
+      this.body.append(box);
+    }
   }
 
   /** @returns {{fields: number, values: number, thumbs: number, links: number}} The record view limits (plan 23). */

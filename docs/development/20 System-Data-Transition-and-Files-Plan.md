@@ -1209,7 +1209,7 @@ Deviations and details:
   is stored as `jpeg`). **Fixed:** new content of a tile stack was placed as a plain file and became `local`
   (and was refused as "external" before that): it is now placed with `placeTiles` and stays tiled; a MIME type
   sent with it wins over the type of its first tile. OpenAPI and `srv/Files/_README.md` updated.
-- Tests: `shared/test/fileEditor.test.js` (5); `tests/FileWriteTest.php --write` 68 checks (8 new); all 1355
+- Tests: `shared/test/fileEditor.test.js` (5); `tests/FileWriteTest.php --write` 69 checks (9 new); all 1355
   client tests pass. Not checked in a browser.
 
 **MIME vocabulary 2-533 (findings and proposal):**
@@ -1232,9 +1232,44 @@ Deviations and details:
 - **SQL instead of CSV** (Artem): `docs/development/20-mime-vocabulary.sql` (for DB 2: groups, 96 MIME types,
   the 9 existing terms moved and given codes, `image/jpeg2000` relabelled `image/jp2`, concept codes 2-<id>;
   outdated types listed at the end with reasons) and `20-file-extensions.sql` (each database's
-  `defFileExtToMimetype`: 87 outdated / script / executable extensions removed, descriptions fixed, xlsx / pptx /
+  `defFileExtToMimetype`: 85 outdated / script / executable extensions removed, only when no registered file uses them (foreign key `fk_ulf_MimeExt`; `bin` kept: the URL inspector's fallback; `js` kept: text/javascript), descriptions fixed, xlsx / pptx /
   js / ogg MIME types fixed, 25 new extensions). Generated from the database export by a one-off script; both
   were run on `hdb_osmak_mapping` in a transaction and rolled back without errors (105 terms in 10 groups).
+- **MIME type vs extension (checked 2026-10-23, Artem's question):** one MIME type has many extensions
+  (application/octet-stream: shp, shx, dat...), so no code may derive the extension from the MIME type when the
+  file has its own. Findings:
+  - legacy store: the extension is stored (`ulf_MimeExt`) and the MIME type is only looked up from it
+    (`defFileExtToMimetype`); upload and URL registration take the extension of the file / URL first
+    (`ChunkedUpload`, `FileUrlInspector`). Code that needs the extension reads `ulf_MimeExt` (map tiles
+    `{z}/{x}/{y}.<ext>`, the 3D viewer of reports).
+  - client: only the MIME type is used, to choose image / audio / video (`fileMediaItem.js`), else the extension
+    of the name; nothing derives an extension.
+  - MIME type chosen in the file editor (new): the extension of the URL or name is kept when it has the chosen
+    type (`scan.tif` + image/tiff → `tif`), only else the one named in the type or the first (test added).
+  - **Open, record store only** (`RecordFileRows`, after the switch): the record keeps only the MIME term, and
+    `FileRecordMapping::columnValue` gets the extension back from the file name (2-62 / 2-1185); an external
+    resource has no name, so it would get the first extension of its MIME type. Before the switch: also use the
+    extension of `rec_URL`, or keep the extension in a field.
 - Open: Artem reviews the lists (outdated ermapper / mrsid / zoomify terms kept because values exist), applies
   the scripts; then client support of `rst_FilteredJsonTermIDTree` and `leafTermsOnly`, structure filters for
   RT 2-11 / 2-1105, and the install SQL of new databases.
+
+### 10.12 Registered files manager and file preview (Artem, 2026-10-23; not committed)
+
+- **Manage registered files** in Explorer's gear menu and the configuration dialog (next to Manage tags):
+  `RecordEditorHost.manageFiles()` = the record manager of RT_REGISTERED_FILE in `manager` mode (Edit = the file
+  editor of §10.11).
+- **Add buttons of the files' record manager** (manager and Browse of a file field): HRecordManager option
+  `addActions` (host buttons instead of "Add new <type>"); shared `widgets/form/inputs/fileRegistration.js`
+  `registerNewFile(kind)`: *Upload and register a new file*, *Register an external resource (URL)*, *Upload a
+  tile stack* (a progress dialog with Cancel; the duplicates question; HInputFile's dialogs moved there).
+  - No separate "Register IIIF resource": the server recognises IIIF manifests and image services from the URL
+    (`FileUrlInspector`), the URL dialog says so. A separate *Upload a tile stack* button: a zip is ambiguous
+    (an archive or tiles), so the user says it (the registration sends DT_REGISTERED_FILE_TYPE `tiled`).
+- **URL inputs** (`HInputText` `inputType: 'url'`) have an icon after the input that opens an http(s) address.
+- **Record manager with a filter form:** the list's own search box is hidden.
+- **Preview of a file below the editor form** (HRecordEditor option `preview`): the media item of Record View
+  (`buildFileMediaItem`: thumbnail or player, OSD / Mirador / Download / new tab), the same for local and
+  external files; the replace-mode HInputFile shows no thumbnail of its own.
+- Tests: `shared/test/recordManager.test.js` (2), `shared/test/fileEditor.test.js` (3); all 1366 client tests pass.
+

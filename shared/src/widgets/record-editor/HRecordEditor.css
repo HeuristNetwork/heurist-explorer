@@ -286,6 +286,13 @@
   text-decoration: none;
 }
 
+/* below the form: the preview of a registered file (plan 20 §10.12) */
+.h-record-editor-preview {
+  margin: 8px var(--h-gap) var(--h-gap);
+  padding-top: 8px;
+  border-top: 1px solid var(--h-color-border);
+}
+
 /* Linked records given by the host (the records referring to a registered file) */
 .h-record-editor-linked-list {
   margin: 0;
