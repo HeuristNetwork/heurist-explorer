@@ -112,7 +112,7 @@
   padding: 2px;
   background: transparent;
   color: var(--h-color-text-muted);
-  font-size: 12px;
+  font-size: var(--h-font-size);
   line-height: 12px;
   cursor: pointer;
 }

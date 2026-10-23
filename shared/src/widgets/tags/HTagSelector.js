@@ -3,11 +3,11 @@
  * @brief Tags of one record (plan 20, Phase 4a): the Tags panel of the record editor's
  *        Record summary, as the compact legacy tag widget of the record editor.
  *
- * The record's tags of the user and of the user's groups, grouped by owner ("Personal",
- * then the groups), each with a × that takes it off the record. Below, a picker of the
- * user's other tags (grouped by owner): a pick puts the tag on the record; its action
- * "Add new tag" makes the typed text a new tag of the owner chosen beside it (Personal,
- * or a group of the user) and puts it on the record. The changes are sent at once
+ * An owner select (Personal, or a group of the user) and a picker of the user's other tags
+ * (grouped by owner): a pick puts the tag on the record and switches the owner to the
+ * tag's one; the picker's action "Add new tag" makes the typed text a new tag of the chosen
+ * owner and puts it on the record. Below, the record's tags of the chosen owner, each with
+ * a × (on hover) that takes it off the record. The changes are sent at once
  * (`/sys/tag/assign`), like relationships: a tag is not a field of the record.
  *
  *   new HTagSelector().attach(host, { tagClient, recordId, currentUserId, groups, onChange, onManage }).render();
@@ -89,18 +89,18 @@ export class HTagSelector extends HBaseWidget {
     }
   }
 
-  /** @returns {Promise<void>} The tags and the add row. */
+  /** @returns {Promise<void>} The add row (owner, picker), the tags of the owner and the manage link. */
   async _render() {
     await this.combo?.destroy();
     this.combo = null;
     if (!this.container) return;
     this.clearListeners();
     const parts = [];
-    const groups = tagOwnerGroups(this.recordTags, { currentUserId: this.options.currentUserId })
-      .filter((group) => group.tags.length);
-    for (const group of groups) parts.push(this._renderGroup(group));
-    if (!groups.length) parts.push(this._note($HR('No tags')));
     if (!this.options.readOnly) parts.push(this._renderAdd());
+    this.tagList = document.createElement('div');
+    this.tagList.className = 'h-tag-selector-group';
+    parts.push(this.tagList);
+    this._renderTags();
     if (typeof this.options.onManage === 'function' && !this.options.readOnly) {
       const manage = document.createElement('a');
       manage.href = '#';
@@ -115,49 +115,77 @@ export class HTagSelector extends HBaseWidget {
     this.container.replaceChildren(...parts);
   }
 
-  /** One owner: label and the tags (link, ×). */
-  _renderGroup(group) {
-    const row = document.createElement('div');
-    row.className = 'h-tag-selector-group';
-    const label = document.createElement('span');
-    label.className = 'h-tag-selector-owner';
-    label.textContent = `${group.name}:`;
-    row.append(label);
-    for (const tag of group.tags) {
-      const chip = document.createElement('span');
-      chip.className = 'h-tag-selector-tag';
-      const name = document.createElement(this.options.onSearchTag ? 'a' : 'span');
-      name.textContent = tag.name;
-      if (this.options.onSearchTag) {
-        name.href = '#';
-        name.title = $HR('Find records with this tag');
-        this.listen(name, 'click', (event) => {
-          event.preventDefault();
-          this.options.onSearchTag({ id: tag.id, name: tag.name });
-        });
-      }
-      chip.append(name);
-      if (!this.options.readOnly) {
-        const remove = document.createElement('button');
-        remove.type = 'button';
-        remove.className = 'heurist-icon-button h-tag-selector-remove';
-        remove.title = $HR('Remove the tag from the record');
-        remove.setAttribute('aria-label', `${remove.title}: ${tag.name}`);
-        remove.textContent = '×';
-        this.listen(remove, 'click', () => void this._change({ remove: [tag.id] }));
-        chip.append(remove);
-      }
-      row.append(chip);
+  /** The record's tags of the chosen owner (all of them when read only), each a chip with ×. */
+  _renderTags() {
+    const tags = this.recordTags
+      .filter((tag) => this.options.readOnly || tag.owner === this.newOwner)
+      .sort((a, b) => String(a.name).localeCompare(String(b.name), undefined, { sensitivity: 'base', numeric: true }));
+    if (!tags.length) {
+      this.tagList.replaceChildren(this._note($HR('No tags')));
+      return;
     }
-    return row;
+    this.tagList.replaceChildren(...tags.map((tag) => this._renderTag(tag)));
   }
 
-  /** The picker of the user's other tags (+ Add new tag) and the owner of new tags. */
+  /** One tag: link (search) and × (take it off the record, shown on hover). */
+  _renderTag(tag) {
+    const chip = document.createElement('span');
+    chip.className = 'h-tag-selector-tag';
+    const name = document.createElement(this.options.onSearchTag ? 'a' : 'span');
+    name.textContent = tag.name;
+    if (this.options.onSearchTag) {
+      name.href = '#';
+      name.title = $HR('Find records with this tag');
+      this.listen(name, 'click', (event) => {
+        event.preventDefault();
+        this.options.onSearchTag({ id: tag.id, name: tag.name });
+      });
+    }
+    chip.append(name);
+    if (!this.options.readOnly) {
+      const remove = document.createElement('button');
+      remove.type = 'button';
+      remove.className = 'heurist-icon-button h-tag-selector-remove';
+      remove.title = $HR('Remove the tag from the record');
+      remove.setAttribute('aria-label', `${remove.title}: ${tag.name}`);
+      remove.textContent = '×';
+      this.listen(remove, 'click', () => void this._change({ remove: [tag.id] }));
+      chip.append(remove);
+    }
+    return chip;
+  }
+
+  /**
+   * The owner (Personal, or a group of the user) and the picker of the user's other tags
+   * (+ Add new tag). The owner chooses the tags shown below and the owner of a new tag;
+   * a picked tag of another owner switches the owner to it.
+   */
   _renderAdd() {
     const row = document.createElement('div');
     row.className = 'h-tag-selector-add';
     const onRecord = new Set(this.recordTags.map((tag) => tag.id));
-    const owners = tagOwnerGroups(this.allTags, { currentUserId: this.options.currentUserId, groups: this.options.groups });
+    const owners = tagOwnerGroups([...this.allTags, ...this.recordTags], {
+      currentUserId: this.options.currentUserId, groups: this.options.groups
+    });
+    if (!owners.some((group) => group.owner === this.newOwner) && owners.length) this.newOwner = owners[0].owner;
+    if (owners.length > 1) {
+      const select = document.createElement('select');
+      select.className = 'h-select h-compact h-tag-selector-owner-select';
+      select.title = $HR('Tags of this owner; owner of a new tag');
+      select.setAttribute('aria-label', select.title);
+      for (const group of owners) {
+        const option = document.createElement('option');
+        option.value = String(group.owner);
+        option.textContent = group.name;
+        select.append(option);
+      }
+      select.value = String(this.newOwner);
+      this.listen(select, 'change', () => {
+        this.newOwner = Number(select.value) || this.newOwner;
+        this._renderTags();
+      });
+      row.append(select);
+    }
     const items = owners.flatMap((group) => group.tags.filter((tag) => !onRecord.has(tag.id)).map((tag) => ({
       value: tag.id, label: tag.name, group: `owner:${group.owner}`, groupLabel: group.label
     })));
@@ -169,25 +197,13 @@ export class HTagSelector extends HBaseWidget {
       emptyLabel: $HR('Add a tag…'),
       placeholder: $HR('Find or type a new tag'),
       actions: [{ id: 'new', icon: 'fa-plus-circle', title: 'Add new tag (the typed text)', run: (text) => this._addNew(text) }],
-      onPick: (item) => void this._change({ add: [Number(item.value)] })
-    }).render();
-    // the owner of a new tag: Personal, or a group of the user
-    const groups = this.options.groups || [];
-    if (groups.length) {
-      const select = document.createElement('select');
-      select.className = 'h-select h-tag-selector-owner-select';
-      select.title = $HR('Owner of a new tag');
-      select.setAttribute('aria-label', select.title);
-      for (const group of owners) {
-        const option = document.createElement('option');
-        option.value = String(group.owner);
-        option.textContent = group.name;
-        select.append(option);
+      onPick: (item) => {
+        const tag = this.allTags.find((one) => one.id === Number(item.value));
+        if (tag) this.newOwner = tag.owner;
+        void this._change({ add: [Number(item.value)] });
       }
-      select.value = String(this.newOwner);
-      this.listen(select, 'change', () => { this.newOwner = Number(select.value) || this.newOwner; });
-      row.append(select);
-    }
+    }).render();
+    this.combo.button.classList.add('h-compact');
     return row;
   }
 

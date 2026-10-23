@@ -23,7 +23,7 @@ body {
   top: 50%;
   color: var(--h-color-primary);
   font: var(--fa-font-solid);
-  font-size: 32px;
+  font-size: var(--h-font-size-icon-large);
   animation: h-explorer-boot-spin .9s linear infinite;
   pointer-events: none;
 }

@@ -47,7 +47,7 @@
     width: 30px;
     height: 30px;
     padding: 0;
-    font-size: 15px;
+    font-size: var(--h-font-size-icon);
 }
 
 .h-explorer-rail-button.active {
@@ -83,7 +83,7 @@
 .h-explorer-rail.h-mode-large-caption .h-explorer-rail-button {
     width: 60px;
     height: 60px;
-    font-size: 28px;
+    font-size: var(--h-font-size-icon-large);
 }
 
 .h-explorer-rail.h-mode-large .h-explorer-rail-separator,
@@ -103,7 +103,7 @@
 
 .h-explorer-rail.h-mode-large-caption .h-explorer-rail-button-label {
     display: block;
-    font-size: 10px;
+    font-size: var(--h-font-size-tiny);
     line-height: 1.15;
     text-align: center;
     white-space: normal;
@@ -137,7 +137,7 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    font-size: 12px;
+    font-size: var(--h-font-size);
     text-align: left;
 }
 
@@ -161,7 +161,7 @@
 .h-explorer-rail-viewmode-toggle {
     width: 30px;
     height: 30px;
-    font-size: 15px;
+    font-size: var(--h-font-size-icon);
 }
 
 /* -------------------------------------------------- horizontal toolbar mode --- */
@@ -311,7 +311,7 @@
     top: -2px;
     right: -2px;
     min-width: 12px;
-    font-size: 9px;
+    font-size: var(--h-font-size-tiny);
     line-height: 12px;
     color: #fff;
     background: var(--h-color-danger);

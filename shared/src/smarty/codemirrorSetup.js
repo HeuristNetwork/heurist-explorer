@@ -74,7 +74,7 @@ export function createSmartyEditorView({ parent, value, readOnly = false, onChan
         if (update.docChanged) onChange?.(update.state.doc.toString());
       }),
       EditorView.theme({
-        '&': { height: '100%', fontSize: '13px' },
+        '&': { height: '100%', fontSize: 'var(--h-font-size-large)' },
         '.cm-scroller': { fontFamily: 'Consolas, "Courier New", monospace' }
       })
     ]

@@ -115,7 +115,7 @@
   border-bottom: 1px solid var(--h-color-border);
   height: 36px;
   padding: 10px calc(9px + var(--heurist-panel-reserve, 0px)) 10px 9px;
-  font: 600 14px/1.35 Arial, sans-serif;
+  font: 600 var(--h-font-size-large)/1.35 Arial, sans-serif;
   overflow: hidden;
 }
 

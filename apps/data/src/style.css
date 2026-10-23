@@ -93,9 +93,9 @@ label.heurist-data-query-source { display:flex; align-items:center; gap:6px; fon
 .heurist-module-control-panel .heurist-module-panel-header { flex-wrap:wrap; }
 .heurist-data-expansion-button { display:inline-flex; align-items:center; gap:5px; margin-left:4px; }
 .heurist-data-expansion-button.active { color:var(--h-color-primary); border-color:var(--h-color-primary); }
-.heurist-data-expansion-section h4 { margin:4px; font-size:12px; font-weight:600; }
+.heurist-data-expansion-section h4 { margin:4px; font-size:var(--h-font-size); font-weight:600; }
 .heurist-data-rules-list { max-height:10em; overflow:auto; }
-.heurist-data-rule-row { display:flex; align-items:center; gap:6px; padding:3px 4px; font-size:11px; cursor:pointer; overflow-wrap:anywhere; }
+.heurist-data-rule-row { display:flex; align-items:center; gap:6px; padding:3px 4px; font-size:var(--h-font-size-small); cursor:pointer; overflow-wrap:anywhere; }
 .heurist-data-rule-row:hover { background:var(--h-color-surface-hover); }
 .heurist-data-expansion-navigator { display:flex; flex-wrap:wrap; align-items:center; gap:2px; margin:.4rem 0 0; }
 .heurist-data-expansion-navigator > .heurist-data-edit-rules { margin-left:auto; }

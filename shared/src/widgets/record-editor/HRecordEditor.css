@@ -156,7 +156,7 @@
 .h-dialog.h-dialog-record-editor[open] {
   display: flex;
   flex-direction: column;
-  width: min(960px, calc(100vw - 24px));
+  width: min(1200px, calc(100vw - 24px));
   height: min(900px, calc(100vh - 24px));
   max-height: calc(100vh - 24px);
 }
@@ -198,6 +198,20 @@
   height: 100%;
   overflow: auto;
   background: var(--h-color-surface);
+  /* the side panes (Record summary, Structure) are smaller than the form */
+  font-size: var(--h-font-size-tiny);
+}
+
+/* the widgets in it (Tags, Private, record view) take the pane's size, not their own */
+.h-record-editor-summary .h-widget,
+.h-record-editor-summary .heurist-recordview-section legend {
+  font-size: inherit;
+}
+
+/* smaller pen / bin of Admin and Private */
+.h-record-editor-summary-body .heurist-icon-button {
+  padding: 2px 3px;
+  font-size: var(--h-font-size-small);
 }
 
 .h-record-editor-summary-head {
@@ -213,7 +227,7 @@
 .h-record-editor-summary-toggle {
   flex: 0 0 auto;
   padding: 2px 4px;
-  font-size: 18px;
+  font-size: var(--h-font-size-icon);
 }
 
 .h-record-editor-summary-caption {

@@ -18,23 +18,28 @@
   gap: 4px 6px;
 }
 
-.h-tag-selector-owner {
-  color: var(--h-color-text-muted);
-}
-
 .h-tag-selector-tag {
+  box-sizing: border-box;
   display: inline-flex;
   align-items: center;
   gap: 2px;
-  padding: 0 2px 0 6px;
+  padding: 1px 2px 1px 6px;
   border: 1px solid var(--h-color-border);
   border-radius: 10px;
   background: var(--h-color-surface);
 }
 
+/* × only on hover (its room is kept, so the chips do not move) */
 .h-tag-selector-remove {
-  padding: 0 4px;
+  padding: 0 3px;
+  font-size: 1em;
   line-height: 1;
+  visibility: hidden;
+}
+
+.h-tag-selector-tag:hover .h-tag-selector-remove,
+.h-tag-selector-tag:focus-within .h-tag-selector-remove {
+  visibility: visible;
 }
 
 .h-tag-selector-add {
@@ -55,5 +60,4 @@
 
 .h-tag-selector-manage {
   align-self: flex-start;
-  font-size: 12px;
 }

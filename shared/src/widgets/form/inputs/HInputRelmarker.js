@@ -69,7 +69,9 @@ export class HInputRelmarker extends HInput {
     plus.className = 'fa-solid fa-circle-plus';
     plus.setAttribute('aria-hidden', 'true');
     const caption = document.createElement('span');
+    caption.className = 'h-input-relmarker-add-caption';
     caption.textContent = this._addCaption();
+    this.addButton.title = caption.textContent;
     this.addButton.append(plus, caption);
     this.listen(this.addButton, 'click', () => void this.openAddDialog());
 

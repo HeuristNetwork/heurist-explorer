@@ -1,5 +1,5 @@
 /* Query trace in the West region; the frame and header are .h-explorer-pinned-tool's. */
-.h-qtrace { font-size:12px; }
+.h-qtrace { font-size:var(--h-font-size); }
 .h-qtrace .h-explorer-tool-panel-actions { gap:6px; }
 .h-qtrace-running { color:var(--h-color-text-muted); white-space:nowrap; }
 .h-qtrace-running.is-active { color:var(--h-color-primary); }
@@ -7,7 +7,7 @@
 .h-qtrace-log {
   padding:0 4px;
   font-family:ui-monospace, SFMono-Regular, Consolas, monospace;
-  font-size:11px;
+  font-size:var(--h-font-size-small);
 }
 .h-qtrace-empty { padding:6px 2px; color:var(--h-color-text-muted); font-family:inherit; }
 .h-qtrace-line {

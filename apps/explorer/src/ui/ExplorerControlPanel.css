@@ -49,7 +49,7 @@
 
 .h-explorer-tool-panel-header strong {
     color: var(--h-color-header);
-    font: 600 14px/1.35 Arial, sans-serif;
+    font: 600 var(--h-font-size-large)/1.35 Arial, sans-serif;
 }
 
 /* Compatibility marker retained for callers that identify the filter header. */
@@ -62,7 +62,7 @@
 
 .h-explorer-tool-panel-header.h-filter-header strong {
     color: var(--h-color-header);
-    font: 600 14px/1.35 Arial, sans-serif;
+    font: 600 var(--h-font-size-large)/1.35 Arial, sans-serif;
 }
 
 .h-explorer-tool-panel-actions {
@@ -106,7 +106,7 @@
 
 .h-explorer-pinned-tool-header strong {
     color: var(--h-color-header);
-    font: 600 14px/1.35 Arial, sans-serif;
+    font: 600 var(--h-font-size-large)/1.35 Arial, sans-serif;
 }
 
 .h-explorer-pinned-tool-header .heurist-icon-button {

@@ -60,7 +60,7 @@
 .h-thematic-symbol:focus-visible { border-color:var(--h-color-primary); }
 .h-thematic-symbol > .h-symbol-preview { pointer-events:none; }
 .h-thematic-symbol.h-symbol-preview { min-width:76px; }
-.h-thematic-link { width:22px; height:22px; padding:0; font-size:16px; line-height:1; color:var(--h-color-text-muted); }
+.h-thematic-link { width:22px; height:22px; padding:0; font-size:var(--h-font-size-icon); line-height:1; color:var(--h-color-text-muted); }
 
 @media (max-width:760px) {
   .h-thematic-editor { grid-template-columns:1fr; grid-template-rows:auto auto minmax(0, 1fr); grid-template-areas:"top" "fields" "ranges"; height:auto; max-height:calc(100vh - 170px); overflow:auto; }

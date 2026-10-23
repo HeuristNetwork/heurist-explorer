@@ -20,5 +20,5 @@
   border: 1px solid var(--h-color-border, #cfd4da);
   border-radius: var(--h-radius, 3px);
   box-shadow: var(--h-shadow-dialog, 0 12px 35px rgb(0 0 0 / 22%));
-  font-size: var(--h-font-size, 12px);
+  font-size: var(--h-font-size);
 }

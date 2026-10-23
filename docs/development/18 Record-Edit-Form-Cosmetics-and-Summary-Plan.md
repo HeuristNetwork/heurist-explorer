@@ -103,3 +103,27 @@ field, so HRecordField keeps their logic but HInput renders them in an actions s
 - Editor: no (empty) west pane; rst_DisplayWidth sizes text-like inputs (characters, at most the
   form width); "Drop changes" after Close (confirmed when something changed; the form again with the
   loaded / last saved values); the summary caption italic, read top-down.
+
+### Review 2026-10-23 (cosmetics of the Summary, Tags, Structure)
+
+- Fourth font primitive `--h-font-size-tiny: 10px` (now large 14 / normal 12 / small 11 / tiny 10).
+  Record summary and Structure panes use `tiny`; widgets inside them (`.h-widget`: Tags, Private,
+  record view) inherit it instead of resetting to `--h-font-size`; record view legends use `small`
+  (were 11px). Smaller pen / bin icon buttons in the summary body (Admin, Private).
+- Shared class `h-compact` for `.h-btn` / `.h-input` / `.h-select` (heurist-ui.css): no min-height,
+  1px vertical padding, `line-height: 1.25`, so the height is 1.25em + 4px and follows the font size.
+  Used by the Structure field-type select, the Tags owner select and picker button; tag chips match it.
+- Tags (HTagSelector): owner select first, then the picker; only the record's tags of the selected owner
+  are shown (no owner label); a picked tag of another owner switches the select; a new tag goes to the
+  selected owner; × of a chip only on hover. The native clear (×) of the picker's `type="search"` input
+  is hidden (HValuePicker has its own).
+- Record editor dialog up to 1200px wide (was 960). HInputRelmarker: the Add button caption is cut
+  with an ellipsis, full text in the tooltip.
+- Font sizes only from primitives (2026-10-23): added `--h-font-size-icon: 16px` and
+  `--h-font-size-icon-large: 32px`. All explicit CSS font sizes in `shared/src` and `apps/*/src`
+  replaced: 9/10 → tiny, 11 → small, 12 → normal, 14 → large; 13 → normal, except the Smarty /
+  CodeMirror editor (13 → large, also `codemirrorSetup.js`); icon glyphs 15–20px and 1.3rem → icon;
+  28/32px (large rail and pane buttons, loading spinners) → icon-large; `font:` shorthands too; the
+  px fallbacks of `var(--h-font-size…, Npx)` removed. Exceptions: the `.h-coverall` message (20px text)
+  and the HCardinalLayout splitter arrows (6px); vendor `apps/map/src/assets/` untouched. Line heights
+  are unitless almost everywhere and were not changed.

@@ -35,6 +35,12 @@
   min-width: 0;
 }
 
+/* the picker has its own clear button: hide the browser's one of type="search" */
+.h-value-picker-input::-webkit-search-cancel-button {
+  appearance: none;
+  display: none;
+}
+
 /* Browse / Add of a pointer field after the filter input (plan 21) */
 .h-value-picker-action {
   flex: 0 0 auto;

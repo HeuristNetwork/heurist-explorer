@@ -47,11 +47,11 @@ html.heurist-map-configuration-mode .heurist-map-config-dialog::backdrop {
   display: grid;
   place-items: center;
   padding: 2rem;
-  font: 16px/1.4 sans-serif;
+  font: var(--h-font-size-large)/1.4 sans-serif;
 }
 
 .heurist-map-panel-section{padding:6px 8px;border-top:1px solid var(--h-color-border)}
-.heurist-map-panel-section h3{margin:2px 0 5px;font-size:13px}
+.heurist-map-panel-section h3{margin:2px 0 5px;font-size:var(--h-font-size)}
 #heurist-map{position:relative}
 .heurist-map-basemap-row{display:flex;align-items:center;gap:6px;min-height:27px}
 .heurist-map-basemap-section{margin-top:5px;border-top:1px solid #d2d2d2;padding-top:3px}
@@ -70,7 +70,7 @@ html.heurist-map-configuration-mode .heurist-map-config-dialog::backdrop {
    and can be opened from preferences, website editing, or publishing. */
 .heurist-map-config-dialog[open]{display:flex;flex-direction:column;width:min(760px,calc(100vw - 32px));max-height:min(88vh,900px);overflow:hidden}.heurist-map-config-dialog [hidden]{display:none!important}.heurist-map-config-form{display:flex;flex-direction:column;min-height:0;overflow:auto}.heurist-map-config-advanced-panel{padding:6px 12px;background:var(--h-color-surface);border-bottom:1px solid var(--h-color-border);font-weight:700}.heurist-map-config-section{border:0;border-bottom:1px solid var(--h-color-border)}.heurist-map-config-section>summary{padding:6px 11px;background:var(--h-color-surface);font-weight:700;cursor:pointer;user-select:none}.heurist-map-config-section-body{display:flex;flex-direction:column;gap:5px;padding:8px 12px 10px}.heurist-map-config-field{display:grid;grid-template-columns:minmax(155px,220px) minmax(180px,1fr);align-items:center;gap:8px}.heurist-map-config-field.compact{grid-template-columns:minmax(105px,1fr)}
 .heurist-map-config-field input,.heurist-map-config-field select,.heurist-map-config-field textarea{width:100%}
-.heurist-map-config-field textarea{resize:vertical;font-family:monospace;font-size:11px}
+.heurist-map-config-field textarea{resize:vertical;font-family:monospace;font-size:var(--h-font-size-small)}
 .heurist-map-config-check{display:flex;align-items:center;gap:5px;min-height:22px;white-space:nowrap}
 .heurist-map-config-inline-checks{display:flex;align-items:center;flex-wrap:wrap;gap:3px 16px}
 .heurist-map-config-grid{display:grid;grid-template-columns:repeat(2,minmax(145px,1fr));gap:5px 10px}
@@ -180,7 +180,7 @@ html.heurist-map-configuration-mode .heurist-map-config-dialog::backdrop {
 .heurist-map-config-transfer-title{font-weight:600}
 .heurist-map-config-transfer-column select{box-sizing:border-box;width:100%;min-height:150px;max-height:260px;padding:2px;border:1px solid var(--h-color-border-strong);border-radius:3px;background:var(--h-color-bg);font:inherit}
 .heurist-map-config-transfer-column option{padding:3px 4px;cursor:pointer}
-.heurist-map-config-list-notice{align-self:flex-start;margin-top:1px;font-size:10px;line-height:1.2}
+.heurist-map-config-list-notice{align-self:flex-start;margin-top:1px;font-size:var(--h-font-size-tiny);line-height:1.2}
 @media(max-width:600px){.heurist-map-config-transfer-field>span{padding-top:0}.heurist-map-config-transfer-lists{grid-template-columns:1fr}}
 
 /* Map Configuration: grouped Heurist/native map controls. */
@@ -229,7 +229,7 @@ html.heurist-map-configuration-mode .heurist-map-config-dialog::backdrop {
 .heurist-map-config-symbology-clear{
   width:17px;
   height:17px;
-  font-size:17px!important;
+  font-size:var(--h-font-size-icon)!important;
   line-height:15px!important;
   color:var(--h-color-text-muted);
   text-decoration:none;

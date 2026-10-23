@@ -28,7 +28,7 @@
   top:90px;
   color:var(--h-color-primary);
   font:var(--fa-font-solid);
-  font-size:28px;
+  font-size:var(--h-font-size-icon-large);
   animation:h-query-source-form-spin .9s linear infinite;
   pointer-events:none;
 }

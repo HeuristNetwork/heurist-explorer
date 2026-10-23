@@ -7,7 +7,7 @@
   border: 1px solid var(--h-color-border, #cfd4da);
   border-radius: var(--h-radius, 3px);
   background: var(--h-color-surface, #f5f6f7);
-  font-size: var(--h-font-size, 12px);
+  font-size: var(--h-font-size);
 }
 
 .h-job-monitor-head {

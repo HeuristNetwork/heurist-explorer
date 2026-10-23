@@ -19,5 +19,5 @@
   border: 0;
   resize: none;
   font-family: Consolas, "Courier New", monospace;
-  font-size: 13px;
+  font-size: var(--h-font-size-large);
 }

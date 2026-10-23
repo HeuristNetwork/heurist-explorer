@@ -100,7 +100,7 @@
 }
 
 .h-export-note {
-    font-size: var(--h-font-size-small, 12px);
+    font-size: var(--h-font-size-small);
 }
 
 .h-export-rectypes {
@@ -274,7 +274,7 @@
 .h-export-results-date,
 .h-export-results-size {
     white-space: nowrap;
-    font-size: var(--h-font-size-small, 11px);
+    font-size: var(--h-font-size-small);
 }
 
 .h-export-results-empty {

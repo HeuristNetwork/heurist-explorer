@@ -169,7 +169,7 @@
 .h-form-input-actions .heurist-icon-button {
   flex: 0 0 auto;
   padding: 2px 3px;
-  font-size: 10px;
+  font-size: var(--h-font-size-tiny);
   line-height: 1;
 }
 

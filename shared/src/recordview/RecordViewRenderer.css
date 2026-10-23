@@ -26,7 +26,7 @@
 
 .heurist-recordview-notice {
   padding: 4px 10px;
-  font-size: 12px;
+  font-size: var(--h-font-size);
   color: var(--h-color-text-muted);
   border-bottom: 1px solid var(--h-color-border);
 }
@@ -47,7 +47,7 @@
 .heurist-recordview-header-text { flex: 1 1 auto; min-width: 0; }
 .heurist-recordview-title {
   margin: 0;
-  font-size: 14px;
+  font-size: var(--h-font-size-large);
   color: var(--h-color-primary);
   overflow-wrap: anywhere;
 }
@@ -56,7 +56,7 @@
   align-items: center;
   gap: 6px;
   margin-top: 2px;
-  font-size: 12px;
+  font-size: var(--h-font-size);
   color: var(--h-color-text-muted);
 }
 .heurist-recordview-edit-button {
@@ -64,13 +64,13 @@
   border: 0;
   background: none;
   cursor: pointer;
-  font-size: 13px;
+  font-size: var(--h-font-size);
   line-height: 1;
   padding: 0;
   color: var(--h-color-text-muted);
 }
 .heurist-recordview-edit-button:hover { color: var(--h-color-primary); }
-.heurist-recordview-links-button { font-size: 12px; }
+.heurist-recordview-links-button { font-size: var(--h-font-size); }
 
 .heurist-recordview-media {
   display: flex;
@@ -96,7 +96,7 @@
 .heurist-recordview-section[hidden] { display: none; }
 .heurist-recordview-section legend {
   padding: 0;
-  font-size: 11px;
+  font-size: var(--h-font-size-small);
   text-transform: uppercase;
   color: var(--h-color-text-muted);
 }
@@ -134,7 +134,7 @@
 .heurist-recordview-relation-type { color: var(--h-color-text-muted); }
 
 /* "Show all (N)" after the values, links, files or fields shown at once (plan 23) */
-.heurist-recordview-show-all { font-size: 12px; }
+.heurist-recordview-show-all { font-size: var(--h-font-size); }
 .heurist-recordview-sections > .heurist-recordview-show-all { padding: 4px 0 8px; }
 .heurist-recordview-media > .heurist-recordview-show-all { align-self: center; }
 
@@ -148,12 +148,12 @@
   gap: 4px 14px;
   padding: 8px 14px;
   border-top: 1px solid var(--h-color-border);
-  font-size: 11px;
+  font-size: var(--h-font-size-small);
   color: var(--h-color-text-muted);
 }
 
 /* Compact card (record popups): the "More..." link below the header/thumbnail */
 .heurist-recordview-more {
   padding: 4px 14px 8px;
-  font-size: 12px;
+  font-size: var(--h-font-size);
 }

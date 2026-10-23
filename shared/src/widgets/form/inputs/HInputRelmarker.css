@@ -11,6 +11,16 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  min-width: 0;
+  max-width: 100%;
+}
+
+/* a long caption (relation types and targets) is cut, the full text is the tooltip */
+.h-input-relmarker-add-caption {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .h-input-relmarker-add[hidden],
@@ -61,7 +71,7 @@
 .h-input-relmarker-arrow {
   flex: 0 0 auto;
   color: var(--h-color-icon);
-  font-size: 12px;
+  font-size: var(--h-font-size);
 }
 
 .h-input-relmarker-title {
@@ -96,7 +106,7 @@
   padding: 2px;
   background: transparent;
   color: var(--h-color-text-muted);
-  font-size: 12px;
+  font-size: var(--h-font-size);
   line-height: 12px;
   cursor: pointer;
 }

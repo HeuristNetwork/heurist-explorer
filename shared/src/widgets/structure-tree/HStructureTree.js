@@ -193,7 +193,7 @@ export class HStructureTree extends HBaseWidget {
     const options = fieldTypeOptions(fields.map((field) => field.type));
     if (!options.includes(this.settings.type)) this.settings.type = 'all';
     const type = document.createElement('select');
-    type.className = 'h-select h-structure-tree-type';
+    type.className = 'h-select h-compact h-structure-tree-type';
     type.title = $HR('Show fields of this type');
     type.setAttribute('aria-label', $HR('Field type'));
     for (const value of options) {

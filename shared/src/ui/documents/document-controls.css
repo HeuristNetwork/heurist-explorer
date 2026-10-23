@@ -11,7 +11,7 @@
   right: 12px;
   width: min(275px, calc(100% - 24px));
   max-height: 70vh;
-  font-size: 12px;
+  font-size: var(--h-font-size);
 }
 
 /* A short viewport leaves little room at 70vh; use nearly the full height
@@ -47,9 +47,9 @@
 
 .heurist-map-opacity-popover input[type=range]{display:block;width:125px;margin:0}
 
-.heurist-map-opacity-value{min-width:34px;text-align:right;font-size:12px;color:var(--h-color-icon)}
+.heurist-map-opacity-value{min-width:34px;text-align:right;font-size:var(--h-font-size);color:var(--h-color-icon)}
 
-.heurist-map-opacity-close{position:absolute;right:3px;top:50%;transform:translateY(-50%);width:20px;height:20px;padding:0;border:0;background:transparent;font-size:18px;line-height:18px;color:var(--h-color-icon);cursor:pointer}
+.heurist-map-opacity-close{position:absolute;right:3px;top:50%;transform:translateY(-50%);width:20px;height:20px;padding:0;border:0;background:transparent;font-size:var(--h-font-size-icon);line-height:18px;color:var(--h-color-icon);cursor:pointer}
 
 .heurist-map-opacity-close:hover{background:#eee;color:#111}
 
@@ -67,7 +67,7 @@
 
 .heurist-map-document-row{padding:2px 4px}
 
-.heurist-map-document-status{display:inline-flex;width:13px;min-width:13px;justify-content:center;color:var(--h-color-text-muted);font-size:11px}
+.heurist-map-document-status{display:inline-flex;width:13px;min-width:13px;justify-content:center;color:var(--h-color-text-muted);font-size:var(--h-font-size-small)}
 
 .heurist-map-document-status:empty{display:none}
 
@@ -123,10 +123,10 @@
 
 .heurist-map-layer-title{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 
-.heurist-map-layer-partial-warning{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10px;line-height:1.2;color:var(--h-color-warning)}
+.heurist-map-layer-partial-warning{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:var(--h-font-size-tiny);line-height:1.2;color:var(--h-color-warning)}
 
 
-.heurist-map-layer-themes{flex:0 0 calc(100% - 20px);min-width:0;max-width:calc(100% - 20px);box-sizing:border-box;margin:0 0 3px 20px;padding:1px 0 1px 0;display:flex;flex-direction:column;gap:1px;font-size:11px;color:var(--h-color-icon)}
+.heurist-map-layer-themes{flex:0 0 calc(100% - 20px);min-width:0;max-width:calc(100% - 20px);box-sizing:border-box;margin:0 0 3px 20px;padding:1px 0 1px 0;display:flex;flex-direction:column;gap:1px;font-size:var(--h-font-size-small);color:var(--h-color-icon)}
 .heurist-map-layer-theme-option{display:flex;align-items:center;gap:5px;min-height:20px;cursor:pointer}
 .heurist-map-layer-theme-option input[type=radio]{margin:0}
 .heurist-map-layer-theme-option span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -135,7 +135,7 @@
 
 .heurist-map-layer-theme-option input[type=radio]:focus-visible{outline:2px solid var(--h-color-primary);outline-offset:1px}
 
-.heurist-map-layer-legend{flex:0 0 calc(100% - 20px);min-width:0;max-width:calc(100% - 20px);box-sizing:border-box;margin:2px 0 5px 20px;padding:3px 0 1px;font-size:11px;color:var(--h-color-icon);overflow:hidden}
+.heurist-map-layer-legend{flex:0 0 calc(100% - 20px);min-width:0;max-width:calc(100% - 20px);box-sizing:border-box;margin:2px 0 5px 20px;padding:3px 0 1px;font-size:var(--h-font-size-small);color:var(--h-color-icon);overflow:hidden}
 .heurist-map-legend-field+.heurist-map-legend-field{margin-top:4px}
 .heurist-map-legend-field-title{margin:1px 0 2px;font-weight:600;color:var(--h-color-icon)}
 .heurist-map-legend-row{display:flex;align-items:center;gap:6px;min-height:24px}
@@ -157,7 +157,7 @@
 
 .heurist-map-row-actions .heurist-icon-button{
   padding:2px;
-  font-size:11px;
+  font-size:var(--h-font-size-small);
   line-height:1;
 }
 
@@ -199,7 +199,7 @@
 
 .heurist-map-legend-actions .heurist-icon-button{
   padding:2px;
-  font-size:11px;
+  font-size:var(--h-font-size-small);
   line-height:1;
 }
 

@@ -110,5 +110,5 @@ test('current-results layer displays feature count and explicit partial warning'
   assert.match(layerItemSource, /Partial load:/);
   assert.match(layerItemSource, /title\.title = presentation\.title/);
   assert.match(cssSource, /heurist-map-layer-partial-warning/);
-  assert.match(cssSource, /font-size:10px/);
+  assert.match(cssSource, /font-size:var\(--h-font-size-tiny\)/);
 });

@@ -7,7 +7,7 @@
 .h-toolbar-panes .h-explorer-rail-button {
     width: 22px;
     height: 26px;
-    font-size: 13px;
+    font-size: var(--h-font-size);
 }
 
 .h-toolbar-panes .h-explorer-rail-viewmode {
@@ -79,7 +79,7 @@
     order: 3;
     width: 26px;
     height: 26px;
-    font-size: 13px;
+    font-size: var(--h-font-size);
 }
 
 /* gear menu (Configuration, Help, Getting started, Query tracer), before «/» */
@@ -95,7 +95,7 @@
     justify-content: center;
     width: 26px;
     height: 26px;
-    font-size: 13px;
+    font-size: var(--h-font-size);
     cursor: pointer;
 }
 

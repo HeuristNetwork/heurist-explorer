@@ -20,7 +20,7 @@
 .h-qse-p0 { display:flex; flex-direction:column; flex:0 0 auto; gap:0; }
 .h-qse-p0 .heurist-icon-button,
 .h-qse-p5 .heurist-icon-button,
-.h-qse .h-qse-sentence-hide { width:16px; height:16px; padding:0; font-size:12px; line-height:16px; }
+.h-qse .h-qse-sentence-hide { width:16px; height:16px; padding:0; font-size:var(--h-font-size); line-height:16px; }
 .h-qse-p0 .heurist-icon-button[hidden] { display:none; }
 .h-qse-p3:empty { display:none; }
 .h-qse-p3 > .h-fih-sentence { margin-top:0; padding-left:24px; }
@@ -134,6 +134,6 @@
 .h-qse.is-simplified .h-qse-advanced { display:none !important; }
 .h-qse.is-simplified .h-qse-p6 { display:flex; flex-wrap:wrap; align-items:center; gap:2px 12px; }
 .h-qse.is-horizontal .h-qse-p6 { margin-top:4px; }
-.h-qse .h-qse-p6-button { display:inline-flex; align-items:center; gap:4px; width:auto; height:20px; padding:0 4px; font-size:12px; }
+.h-qse .h-qse-p6-button { display:inline-flex; align-items:center; gap:4px; width:auto; height:20px; padding:0 4px; font-size:var(--h-font-size); }
 .h-qse .h-qse-p6-button[hidden] { display:none; }
 .h-qse-p6-caption { font-size:var(--h-font-size-small); white-space:nowrap; }

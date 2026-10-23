@@ -51,7 +51,7 @@
 
 /* "Show all values (N)": values past the values limit have no inputs yet (plan 23) */
 .h-edit-field-more {
-  font-size: 12px;
+  font-size: var(--h-font-size);
 }
 
 .h-edit-field-value {

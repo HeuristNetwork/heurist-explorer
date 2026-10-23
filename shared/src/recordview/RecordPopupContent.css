@@ -11,7 +11,7 @@
 .h-record-popup-back {
   display: inline-block;
   margin-bottom: 6px;
-  font-size: 12px;
+  font-size: var(--h-font-size);
 }
 
 /* Built-in (basic): title, then "Record NNN · Type: YYY" */

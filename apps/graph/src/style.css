@@ -30,7 +30,7 @@ html, body, #heurist-graph { width: 100%; height: 100%; margin: 0; overflow: hid
 .heurist-module-panel-body > .heurist-graph-legend-scroll { flex:1 1 auto; min-height:0; overflow:auto; overscroll-behavior:contain; }
 .heurist-module-panel-body > .heurist-graph-rules-footer { flex:none; border-top:1px solid var(--h-color-border); padding-bottom:2px; }
 .heurist-graph-rules-list { max-height:8.5em; overflow:auto; }
-.heurist-module-control-panel h3 { margin: 0 0 5px; font-size: 13px; color: var(--h-color-primary); }
+.heurist-module-control-panel h3 { margin: 0 0 5px; font-size: var(--h-font-size); color: var(--h-color-primary); }
 
 .heurist-graph-query { display:grid; gap:4px; }
 .heurist-graph-query input { box-sizing:border-box; width:100%; padding:5px 7px; border:1px solid var(--h-color-border-strong); border-radius:3px; }
@@ -54,7 +54,7 @@ html, body, #heurist-graph { width: 100%; height: 100%; margin: 0; overflow: hid
 .heurist-graph-nav-pan .heurist-graph-nav-button:nth-child(3) { grid-column:3; grid-row:2; }
 .heurist-graph-nav-pan .heurist-graph-nav-button:nth-child(4) { grid-column:2; grid-row:3; }
 .heurist-graph-nav-zoom { grid-auto-flow:column; grid-auto-columns:28px; }
-.heurist-graph-nav-button { width:28px; height:28px; display:inline-flex; align-items:center; justify-content:center; padding:0; border:1px solid var(--h-color-border); border-radius:3px; background:var(--h-color-bg); color:var(--h-color-icon); font-size:13px; cursor:pointer; box-shadow:0 1px 2px rgba(0,0,0,.12); }
+.heurist-graph-nav-button { width:28px; height:28px; display:inline-flex; align-items:center; justify-content:center; padding:0; border:1px solid var(--h-color-border); border-radius:3px; background:var(--h-color-bg); color:var(--h-color-icon); font-size:var(--h-font-size); cursor:pointer; box-shadow:0 1px 2px rgba(0,0,0,.12); }
 .heurist-graph-nav-button:hover { background:var(--h-color-surface-hover); color:var(--h-color-text); }
 .heurist-graph-nav-button:focus-visible { outline:1px solid var(--h-color-primary); outline-offset:1px; }
 .heurist-graph-message { display:grid; height:100%; place-items:center; color:var(--h-color-text-muted); }
@@ -62,7 +62,7 @@ html, body, #heurist-graph { width: 100%; height: 100%; margin: 0; overflow: hid
 .heurist-graph-popup {
   position:absolute; z-index:20; max-width:280px; padding:8px 10px;
   background:var(--h-color-bg); border:1px solid rgba(0,0,0,.25); border-radius:4px;
-  box-shadow:0 3px 12px rgba(0,0,0,.22); font:12px/1.4 Arial,sans-serif; color:var(--h-color-text);
+  box-shadow:0 3px 12px rgba(0,0,0,.22); font:var(--h-font-size)/1.4 Arial,sans-serif; color:var(--h-color-text);
   transform:translate(-50%,calc(-100% - 12px)); pointer-events:none;
 }
 .heurist-graph-popup[hidden] { display:none !important; }
@@ -78,7 +78,7 @@ html, body, #heurist-graph { width: 100%; height: 100%; margin: 0; overflow: hid
 
 .heurist-graph-selector-row { display:grid; grid-template-columns:minmax(0, 1fr) auto; align-items:center; gap:6px; min-height:28px; padding:4px; border:1px solid transparent; }
 label.heurist-graph-query-source { display:flex; align-items:center; gap:6px; font-weight:400; cursor:pointer; }
-.heurist-graph-section-toggle { display:flex; align-items:center; gap:6px; width:100%; padding:5px 0; border:1px solid var(--h-color-selected-border); background:var(--h-color-selected); text-align:left; cursor:pointer; font:inherit; font-size:12px; font-weight:600; }
+.heurist-graph-section-toggle { display:flex; align-items:center; gap:6px; width:100%; padding:5px 0; border:1px solid var(--h-color-selected-border); background:var(--h-color-selected); text-align:left; cursor:pointer; font:inherit; font-size:var(--h-font-size); font-weight:600; }
 .heurist-graph-section-toggle::before { content:'▸'; }
 .heurist-graph-section-toggle[aria-expanded="true"]::before { content:'▾'; }
 .heurist-graph-pin-toggle.pinned { color:var(--h-color-primary); }
@@ -101,9 +101,9 @@ label.heurist-graph-query-source { display:flex; align-items:center; gap:6px; fo
 
 /* Active Query Source legend */
 .heurist-graph-legend h3, .heurist-graph-legend h4 { display: flex; align-items: center; justify-content: space-between; gap: .4rem; }
-.heurist-graph-legend h4 { margin:4px; font-size:12px; font-weight:600; }
+.heurist-graph-legend h4 { margin:4px; font-size:var(--h-font-size); font-weight:600; }
 .heurist-graph-legend-rule-actions { display:inline-flex; align-items:center; }
-.heurist-graph-legend-row { font-size:11px; display: flex; align-items: baseline; gap: .4rem; padding: .2rem 0; overflow-wrap: anywhere; }
+.heurist-graph-legend-row { font-size:var(--h-font-size-small); display: flex; align-items: baseline; gap: .4rem; padding: .2rem 0; overflow-wrap: anywhere; }
 .heurist-graph-legend-row input { flex: 0 0 auto; }
 .heurist-graph-legend-branch-header { display: flex; align-items: baseline; }
 .heurist-graph-legend-children { margin-left: 1rem; }
@@ -124,7 +124,7 @@ label.heurist-graph-query-source { display:flex; align-items:center; gap:6px; fo
 .heurist-graph-loading { position: relative; cursor: progress; }
 .heurist-graph-loading::after {
   content: "\f110"; position: absolute; z-index: 21; left: 50%; top: 50%;
-  color: var(--h-color-primary); font: var(--fa-font-solid); font-size: 28px;
+  color: var(--h-color-primary); font: var(--fa-font-solid); font-size: var(--h-font-size-icon-large);
   animation: heurist-graph-loading-spin .9s linear infinite; pointer-events: none;
 }
 @keyframes heurist-graph-loading-spin {

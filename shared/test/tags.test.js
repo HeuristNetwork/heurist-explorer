@@ -189,3 +189,26 @@ test('HTagSelector: the record\'s tags with ×; a pick puts a tag on; "Add new t
   assert.deepEqual(changes.at(-1), ['beta', 'gamma']);
   await selector.destroy();
 });
+
+test('HTagSelector: only the tags of the chosen owner; a picked tag of another group switches the owner', async () => {
+  const api = fakeApi([{ id: 1, name: 'alpha', owner: 2 }, { id: 2, name: 'beta', owner: 7 }, { id: 3, name: 'gamma', owner: 7 }]);
+  api.onRecord.add(1);
+  api.onRecord.add(2);
+  const element = host();
+  const selector = new HTagSelector().attach(element, {
+    tagClient: new TagClient({ apiClient: api, dbdefs }), recordId: 81, currentUserId: 2, groups: [{ id: 7, name: 'Team' }]
+  }).render();
+  await flush();
+  await flush();
+  const chips = () => element.querySelectorAll('.h-tag-selector-tag').map((chip) => chip.textContent.replace('×', ''));
+  assert.deepEqual(chips(), ['alpha'], 'Personal first');
+  assert.ok(element.querySelector('.h-tag-selector-add').children[0].classList.contains('h-tag-selector-owner-select'), 'the owner before the picker');
+
+  selector.combo.options.onPick({ value: 3 });
+  await flush();
+  await flush();
+  assert.equal(selector.newOwner, 7);
+  assert.equal(element.querySelector('.h-tag-selector-owner-select').value, '7');
+  assert.deepEqual(chips(), ['beta', 'gamma']);
+  await selector.destroy();
+});

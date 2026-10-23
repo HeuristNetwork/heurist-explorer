@@ -27,6 +27,6 @@
 .heurist-data-popup-close {
   float: right;
   margin: -4px -6px 0 4px;
-  font-size: 16px;
+  font-size: var(--h-font-size-icon);
   line-height: 1;
 }
