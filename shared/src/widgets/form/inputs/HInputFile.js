@@ -6,6 +6,10 @@
  *        Cancel, registration of an external URL, and the host's file editor.
  *        One input for every edit form; the value is the file id.
  *
+ * Replace mode (`replace: true`, the content of a registered file in its own editor, plan 20
+ * §10.11): the current file is shown; an upload is not registered, the value is its token,
+ * which the editor sends with the save (`upload`) to replace the content.
+ *
  * @project     Heurist academic knowledge management system
  * @package     heurist-client-core
  *
@@ -23,6 +27,7 @@ import { FileSource } from '../../../data/valueSources/FileSource.js';
 import { FileUploader } from '../../../data/FileUploader.js';
 import { HMsg } from '../../../ui/HMsg.js';
 import { buildFileMediaItem, fileMediaUrls, isImageFile } from '../../../recordview/fileMediaItem.js';
+import { formatFileSize } from '../../../data/systemEntities.js';
 import { $HR } from '../../../ui/i18n/HResource.js';
 import './HInputFile.css';
 
@@ -47,11 +52,15 @@ export class HInputFile extends HInput {
    * @param {{baseUrl: string, database: string}} [options.fileViewer] Heurist base URL and database: a click
    *        on the thumbnail shows the file below the input (zoom, OSD, Mirador, Download, Close; the same
    *        media item as the built-in record view, fileMediaItem.js).
+   * @param {boolean} [options.replace] Replace mode: `file` is the current content, the value is the
+   *        token of a new upload (none: the content stays).
    * @returns {HInputFile} This input.
    */
   attach(container, options = {}) {
     super.attach(container, options);
+    this.replace = options.replace === true;
     this.file = options.file || null;
+    this._pending = null;
     const api = options.apiClient || null;
     this.source = options.source || (api ? new FileSource(api, { query: options.fileQuery || [] }) : null);
     this.uploader = options.uploader || (api?.upload ? new FileUploader(api) : null);
@@ -87,7 +96,9 @@ export class HInputFile extends HInput {
     this.nameText = document.createElement('span');
     this.nameText.className = 'h-input-file-text';
     let control = this.nameText;
-    if (this._canBrowse()) {
+    if (this.replace) {
+      // the current file and, after an upload, the new one (no picker)
+    } else if (this._canBrowse()) {
       // the record manager of registered files, as a pointer field in addorbrowse mode (plan 21)
       control = this._renderBrowseButton(group);
     } else if (this.source) {
@@ -178,8 +189,9 @@ export class HInputFile extends HInput {
     this.browseButton.classList.toggle('is-empty', !name);
   }
 
-  /** @returns {number|null} File id. */
+  /** @returns {number|string|null} File id (replace mode: the token of the new content). */
   getValue() {
+    if (this.replace) return this.value ? String(this.value) : null;
     const value = this.combo ? this.combo.getValue() : this.value;
     return Number(value) > 0 ? Number(value) : null;
   }
@@ -192,6 +204,12 @@ export class HInputFile extends HInput {
    * @returns {HInputFile} This input.
    */
   setValue(value, file) {
+    if (this.replace) {
+      super.setValue(value ? String(value) : null);
+      if (!this.value) this._pending = null;
+      this._renderSummary();
+      return this;
+    }
     super.setValue(Number(value) > 0 ? Number(value) : null);
     if (file !== undefined) this.file = file;
     if (this.value === null) this.file = null;
@@ -220,6 +238,8 @@ export class HInputFile extends HInput {
   /** @returns {Promise<void>} Completion after the picker is removed and a running upload cancelled. */
   async destroy() {
     this._busy?.abort();
+    // a new content that was not saved: its upload goes (after a save the token is used: ignored)
+    if (this.replace && this.value) this.uploader?.cancel(String(this.value)).catch(() => {});
     await this.combo?.destroy();
     await super.destroy();
   }
@@ -242,6 +262,15 @@ export class HInputFile extends HInput {
         signal: controller.signal,
         onProgress: (sent, total) => this._showProgress(total > 0 ? sent / total : 0)
       });
+      if (this.replace) {
+        // the save sends the token; a previous new content goes
+        if (this.value) this.uploader.cancel(String(this.value)).catch(() => {});
+        this.value = upload.token;
+        this._pending = { name: file.name, size: Number(file.size) || 0 };
+        this._renderSummary();
+        this.notifyChange();
+        return upload.token;
+      }
       if (upload.duplicates?.length) {
         const choice = await (this.options.confirmDuplicate || confirmDuplicateDialog)(upload.duplicates, file.name);
         if (choice !== 'upload') {
@@ -313,8 +342,10 @@ export class HInputFile extends HInput {
       this.uploadButton = make('fa-upload', 'Upload a file', () => this.chooser.click());
       this.urlButton = make('fa-link', 'Register a URL', () => this._askUrl());
     }
-    this.editButton = typeof this.options.editFile === 'function'
+    this.editButton = typeof this.options.editFile === 'function' && !this.replace
       ? make('fa-pen', 'Edit file details', () => this._edit()) : null;
+    // replace mode: keep the current content (the new upload goes)
+    this.keepButton = this.replace ? make('fa-rotate-left', 'Keep the current file', () => this._keepCurrent()) : null;
     this.cancelButton = make('fa-xmark', 'Cancel the upload', () => this._busy?.abort());
     place(actions);
     this._syncActions();
@@ -342,6 +373,16 @@ export class HInputFile extends HInput {
       event.preventDefault();
       void this.uploadFile(file);
     });
+  }
+
+  /** Replace mode: drop the new content (its upload is cancelled on the server). */
+  _keepCurrent() {
+    if (!this.value) return;
+    this.uploader?.cancel(String(this.value)).catch(() => {});
+    this.value = null;
+    this._pending = null;
+    this._renderSummary();
+    this.notifyChange();
   }
 
   async _askUrl() {
@@ -407,9 +448,17 @@ export class HInputFile extends HInput {
   /** Thumbnail, the file name (without a picker) and the open preview of the current file. */
   _renderSummary() {
     if (!this.thumb) return;
-    const file = this.value ? this.file : null;
+    // replace mode: the current file is shown, the value is the new content
+    const file = this.replace || this.value ? this.file : null;
     if (this.nameText) this.nameText.textContent = file ? fileName(file) : '';
-    const thumb = file ? this._thumbUrl(file) : '';
+    if (this.replace && this.nameText) {
+      this.nameText.classList.toggle('is-pending', Boolean(this._pending));
+      if (this._pending) {
+        this.nameText.textContent = `${$HR('New file')}: ${this._pending.name} (${formatFileSize(this._pending.size)}) - `
+          + $HR('replaces the current file on Save');
+      }
+    }
+    const thumb = file && !this._pending ? this._thumbUrl(file) : '';
     this.thumb.hidden = !thumb;
     if (thumb) this.thumb.src = thumb;
     else this.thumb.removeAttribute('src');
@@ -431,7 +480,7 @@ export class HInputFile extends HInput {
    * @returns {boolean} Whether it is shown.
    */
   showPreview() {
-    const file = this.value ? this.file : null;
+    const file = this.replace || this.value ? this.file : null;
     const viewer = this.options.fileViewer;
     if (!this.preview || !file?.ulf_ObfuscatedFileID || !viewer?.baseUrl) return false;
     this.preview.replaceChildren(buildFileMediaItem(file, {
@@ -483,8 +532,10 @@ export class HInputFile extends HInput {
     const busy = Boolean(this._busy);
     const locked = this._readOnly === true;
     const chosen = this.getValue() > 0;
-    if (this.uploadButton) this.uploadButton.hidden = busy || locked || chosen;
-    if (this.urlButton) this.urlButton.hidden = busy || locked || chosen;
+    // replace mode: Upload always (another new file), never URL
+    if (this.uploadButton) this.uploadButton.hidden = busy || locked || (chosen && !this.replace);
+    if (this.urlButton) this.urlButton.hidden = busy || locked || chosen || this.replace;
+    if (this.keepButton) this.keepButton.hidden = busy || locked || !this.value;
     if (this.editButton) this.editButton.hidden = busy || locked || !(this.getValue() > 0);
     if (this.cancelButton) this.cancelButton.hidden = !busy;
     this.combo?.setReadOnly(locked || busy);

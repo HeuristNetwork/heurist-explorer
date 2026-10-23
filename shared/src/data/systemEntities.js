@@ -2,7 +2,7 @@
  * @file systemEntities.js
  * @brief Hard-coded edit structures of the system record types (plan 20, §10.2, §10.9).
  *
- * The system record types (Bookmark, Reminder; later Saved filter, User, Group, File)
+ * The system record types (Bookmark, Reminder, File; later Saved filter, User, Group)
  * have no structure in the database. Their structures are kept here in the `/rst`
  * row format (`rst_*`, `dty_*` columns), with concept codes instead of local ids, so
  * the same `buildEditStructure` makes their edit forms. Later the structures come
@@ -32,7 +32,25 @@ import { EDIT_FORM_FORMAT } from './editFormSchema.js';
 
 /** Concept codes of the system record types (plan 20, §10.3). */
 export const SYSTEM_RECORD_TYPES = Object.freeze({
-  user: '2-1107', group: '2-1108', tag: '2-1109', bookmark: '2-1110', reminder: '2-1111'
+  user: '2-1107', group: '2-1108', tag: '2-1109', bookmark: '2-1110', reminder: '2-1111', file: '2-1106'
+});
+
+/** Registered file types (DT_REGISTERED_FILE_TYPE 2-1186, vocabulary 2-10448) by term concept code. */
+export const FILE_TYPES = Object.freeze({
+  '2-10449': 'local', '2-10450': 'external', '2-10451': 'iiif_image', '2-10452': 'iiif', '2-10453': 'tiled'
+});
+
+/**
+ * Fields of a registered file by its type (plan 20, §10.11): the type is never edited, so the
+ * form is made for the type of the record. `show`: the field is in the form; `edit`: it can
+ * be changed. iiif / iiif_image are JSON manifests: their MIME type is always application/json.
+ */
+const FILE_FIELDS_BY_TYPE = Object.freeze({
+  local: { show: ['upload', 'downloadUrl', 'originalName', 'size', 'mime'], edit: ['upload'] },
+  tiled: { show: ['upload', 'mime'], edit: ['upload', 'mime'] },
+  external: { show: ['url', 'mime'], edit: ['url', 'mime'] },
+  iiif: { show: ['url', 'mimeJson'], edit: ['url'] },
+  iiif_image: { show: ['url', 'mimeJson'], edit: ['url'] }
 });
 
 /** The values of the reminder frequency (rem_Freq) by the term labels of the vocabulary 2-10454. */
@@ -85,6 +103,37 @@ export const SYSTEM_STRUCTURES = Object.freeze({
       {
         key: 'frequency', concept: '2-1191', rst_DisplayName: 'Frequency', dty_Type: 'enum', vocabulary: '2-10454',
         rst_RequirementType: 'required'
+      }
+    ])
+  }),
+  // registered file (plan 20, §10.11): the fields of the record; the content, its URL and
+  // download URL are added by fileEditStructure. Not in the form: stored name and folder
+  // (2-62, 2-63, admins only), MD5 (2-68), configuration (2-1187)
+  file: Object.freeze({
+    rectype: SYSTEM_RECORD_TYPES.file,
+    rows: Object.freeze([
+      { key: 'type', concept: '2-1186', rst_DisplayName: 'File type', dty_Type: 'enum', vocabulary: '2-10448' },
+      {
+        key: 'originalName', concept: '2-1185', rst_DisplayName: 'File name', dty_Type: 'freetext',
+        rst_DisplayHelpText: 'The name of the uploaded file'
+      },
+      { key: 'size', concept: '2-67', rst_DisplayName: 'Size (bytes)', dty_Type: 'integer' },
+      {
+        key: 'mime', concept: '2-29', rst_DisplayName: 'MIME type', dty_Type: 'enum', vocabulary: '2-533',
+        rst_RequirementType: 'required'
+      },
+      {
+        key: 'caption', concept: '2-1', rst_DisplayName: 'Name / caption', dty_Type: 'freetext',
+        rst_DisplayHelpText: 'A name of the file or image; the title of the file'
+      },
+      { key: 'description', concept: '2-4', rst_DisplayName: 'Description', dty_Type: 'blocktext' },
+      {
+        key: 'copyright', concept: '2-35', rst_DisplayName: 'Copyright', dty_Type: 'freetext',
+        rst_DisplayHelpText: 'Copyright statement or a URI leading to a copyright statement'
+      },
+      {
+        key: 'copyowner', concept: '2-1188', rst_DisplayName: 'Copyright owner', dty_Type: 'freetext',
+        rst_DisplayHelpText: 'The owner of the copyright in the file (person or organisation)'
       }
     ])
   })
@@ -209,6 +258,117 @@ export function systemDetails(type, values, dbdefs) {
     details[String(ids[key])] = text === '' ? [] : [text];
   }
   return details;
+}
+
+/**
+ * Type of a registered file: its DT_REGISTERED_FILE_TYPE term, else guessed from the record
+ * (a URL without a file name is external).
+ *
+ * @param {object|null} record Record of `/files`.
+ * @param {object} dbdefs HDbDefs.
+ * @returns {'local'|'external'|'iiif'|'iiif_image'|'tiled'}
+ */
+export function registeredFileType(record, dbdefs) {
+  const { type, originalName } = systemFieldIds('file', dbdefs);
+  const term = Number(plainOf(record?.details?.[String(type)]?.[0])) || 0;
+  const known = term ? FILE_TYPES[dbdefs?.conceptId?.('trm', term)] : null;
+  if (known) return known;
+  const name = originalName ? plainOf(record?.details?.[String(originalName)]?.[0]) : '';
+  return record?.rec_URL && !name ? 'external' : 'local';
+}
+
+/**
+ * Edit structure of a registered file (plan 20, §10.11), made for the type of the record:
+ * the type (read only), the content (HInputFile in replace mode: the new content is sent
+ * with the save), the URL (`rec_URL`), the download URL, name, size and MIME type as the
+ * type allows, then caption, description, copyright and copyright owner.
+ *
+ * Fields that are not record details are named: `upload` (the token of a new content),
+ * `url` (`header: 'rec_URL'`), `downloadUrl` and `mimeJson` (`transient`: shown, not sent).
+ *
+ * @param {object|null} record Record of `/files`.
+ * @param {object} dbdefs HDbDefs.
+ * @param {{fileUrls?: object, multilangIds?: number[]}} [options] `fileMediaUrls()` of the
+ *        database (download URL); multilingual field ids (caption, description).
+ * @returns {{rty: number, groups: Array<object>}}
+ */
+export function fileEditStructure(record, dbdefs, { fileUrls = null, multilangIds = [] } = {}) {
+  const fileType = registeredFileType(record, dbdefs);
+  const { show, edit } = FILE_FIELDS_BY_TYPE[fileType];
+  // the size is shown formatted (a transient field below)
+  const rows = systemEditRows('file', dbdefs)
+    .filter((row) => row.key !== 'size' && (!['originalName', 'mime'].includes(row.key) || show.includes(row.key)));
+  const rty = Number(dbdefs?.localId?.('rty', SYSTEM_RECORD_TYPES.file)) || 0;
+  const structure = buildEditStructure(rows, { rty, dbdefs, multilangIds });
+  const byDty = new Map(rows.map((row) => [Number(row.rst_DetailTypeID), row]));
+  const fields = [];
+  for (const field of structureFields(structure)) {
+    const row = byDty.get(Number(field.dty));
+    field.key = row.key;
+    // the type and what the server sets from the content are read only; so they are not required
+    if (['type', 'originalName'].includes(row.key) || (row.key === 'mime' && !edit.includes('mime'))) {
+      Object.assign(field, { readOnly: true, req: 'optional' });
+    }
+    fields.push(field);
+  }
+  const key = String(record?.rec_Hash || '');
+  const sizeId = systemFieldIds('file', dbdefs).size;
+  const bytes = sizeId ? Number(plainOf(record?.details?.[String(sizeId)]?.[0])) : NaN;
+  const extra = {
+    size: {
+      name: 'size', type: 'freetext', label: 'Size', readOnly: true, transient: true,
+      value: Number.isFinite(bytes) && bytes > 0 ? formatFileSize(bytes) : ''
+    },
+    upload: {
+      name: 'upload', type: 'file', label: 'File', replace: true, req: 'optional',
+      help: 'Upload a new file: it replaces the current content when the record is saved (the download URL stays)',
+      // the current content: thumbnail and preview of the input
+      file: record?.rec_ID ? {
+        ulf_ID: Number(record.rec_ID),
+        ulf_OrigFileName: String(record.rec_Title || ''),
+        ulf_ObfuscatedFileID: key || null,
+        ulf_ExternalFileReference: record.rec_URL || null,
+        fxm_MimeType: ''
+      } : null
+    },
+    url: {
+      name: 'url', type: 'url', label: 'URL', header: 'rec_URL', req: 'required', width: 60,
+      help: 'URL of the external resource (for IIIF: the manifest or info.json)'
+    },
+    downloadUrl: {
+      name: 'downloadUrl', type: 'url', label: 'Download URL', readOnly: true, transient: true, width: 60,
+      value: key && fileUrls?.download ? fileUrls.download(key) : ''
+    },
+    mimeJson: { name: 'mimeJson', type: 'freetext', label: 'MIME type', readOnly: true, transient: true, value: 'application/json' }
+  };
+  const ordered = [];
+  const take = (name) => {
+    const index = fields.findIndex((field) => field.key === name);
+    if (index >= 0) ordered.push(fields.splice(index, 1)[0]);
+  };
+  take('type');
+  for (const name of ['upload', 'url', 'downloadUrl', 'originalName', 'size', 'mime', 'mimeJson']) {
+    if (!show.includes(name)) continue;
+    if (extra[name]) ordered.push(extra[name]);
+    else take(name);
+  }
+  ordered.push(...fields);
+  const group = structure.groups[0] || { id: null, kind: null, type: 'group', label: null, help: '' };
+  return { rty, fileType, groups: [{ ...group, children: ordered }] };
+}
+
+/** @returns {string} "850 B", "12.4 KB" or "3.1 MB". */
+export function formatFileSize(bytes) {
+  const value = Math.max(0, Number(bytes) || 0);
+  if (value < 1024) return `${value} B`;
+  if (value < 1024 * 1024) return `${(value / 1024).toFixed(1)} KB`;
+  return `${(value / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+/** @returns {string} The plain value of a stored value (term id, text). */
+function plainOf(value) {
+  if (value && typeof value === 'object') return String(value.value ?? value.trm_ID ?? value.id ?? '');
+  return value === null || value === undefined ? '' : String(value);
 }
 
 /** @returns {object} The structure of a type, or throws. */

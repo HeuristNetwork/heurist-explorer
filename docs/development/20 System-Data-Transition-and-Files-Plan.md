@@ -3,7 +3,8 @@
 Status: **strategy agreed 2026-10-18; Phases 1–3 implemented and committed (§8.2.1, §8.3.1, §9.5).
 Phases 4–5 redesigned 2026-10-22 (§10): `/sys` itself gets the record format and CRUD (no `/system`); order 4a tags →
 4b bookmarks, reminders → 4c saved filters → 4d users, groups, entity images. Phases 4a (§10.8) and 4b (§10.10) done
-2026-10-22 on the imported definitions of §10.3, not committed, not checked in a browser. Next: 4c saved filters.** Each phase (§7) gets its own planning session before any code; its detailed design is then added to
+2026-10-22 on the imported definitions of §10.3, not committed, not checked in a browser. File editor and MIME
+vocabulary review (§10.11) done 2026-10-23, not committed. Next: 4c saved filters.** Each phase (§7) gets its own planning session before any code; its detailed design is then added to
 this file.
 
 ## 1. Context
@@ -269,6 +270,7 @@ Each phase is planned in its own session before coding.
 | 3 | `/{domain}/aggregate`; move client callers off `detail=` | done 2026-10-19 (§9.5), committed |
 | 4a | `/sys` in record format + CRUD; shared entity base classes (Files on them); tags read/write, tag ↔ record links, merge; HTagManager, Summary → Tags (§10) | done 2026-10-22 (§10.8), not committed; the definitions are imported (Tag 137, Usage 1189) |
 | 4b | Bookmarks (encrypted private note) and reminders (Send now) on `/sys`; Summary → Private (§10.9) | done 2026-10-22 (§10.10), not committed; the HRecordList bookmark icon stays as it is (Artem) |
+| 4f | File editor: hard-coded structure by file type, content replace, MIME type rule; MIME vocabulary 2-533 SQL (§10.11) | done 2026-10-23, not committed; SQL to be reviewed and applied by Artem |
 | 4c | Saved filters writes, HEditForm editor (§10) | draft |
 | 4d | Users and groups (membership, password write-only), managers; entity-image mode of HInputFile (§10) | draft |
 | end | `sysRecords` tables; switching databases over (after the legacy UI is gone); port of the rest of `DbRecUploadedFiles` (batch actions) to srv | after approval |
@@ -1165,3 +1167,74 @@ Deviations and details:
 - No key is set in the local `heuristConfigIni.php`: until `$privateInfo_Secret` is set there, notes are stored as
   text with the warning `not_encrypted` (the test sets its own key).
 - No action in HRecordList (Artem, §10.9).
+
+### 10.11 File editor and MIME vocabulary (Artem, 2026-10-23)
+
+**Decisions:**
+- The editor of a registered file uses a **hard-coded structure** (`systemEntities.js` `file`, as bookmark /
+  reminder), not `/rst`. Required: file type, MIME type, content or URL.
+- **File type** (2-1186) is never edited: the form is made for the type of the record.
+- Per type (`FILE_FIELDS_BY_TYPE`):
+
+  | field | local | tiled | external | iiif / iiif_image |
+  |---|---|---|---|---|
+  | content (HInputFile, replace mode) | shown | shown | – | – |
+  | URL (`rec_URL`) | – | – | required | required |
+  | download URL | read only | – | – | – |
+  | file name, size | read only | – | – | – |
+  | MIME type 2-29 | read only | editable | editable | application/json, read only |
+
+  Then caption, description, copyright, copyright owner. Not in the form: stored name and folder (2-62, 2-63),
+  MD5 (2-68), configuration (2-1187).
+- **New content takes effect on Save** (the upload token goes in the save body); Close / Drop changes cancel the
+  upload. The server sets name, size, MD5 and MIME type from the content; the editor shows them after the save
+  (the form is made again from the saved record).
+- **Summary:** Admin and Linked records only (no Private, Tags, Scratchpad). Linked records = the records that
+  refer to the file (`/records` with `file:@<rec_Hash>`). No Structure pane.
+
+**As implemented (both repos, not committed):**
+- `systemEntities.js`: `SYSTEM_RECORD_TYPES.file` (2-1106), `FILE_TYPES` (terms 2-10449..2-10453),
+  `SYSTEM_STRUCTURES.file`, `registeredFileType()`, `fileEditStructure(record, dbdefs, {fileUrls, multilangIds})`,
+  `formatFileSize()`. Named fields that are not details: `upload` (`replace: true`, `file` = current content),
+  `url` (`header: 'rec_URL'`), `downloadUrl`, `size`, `mimeJson` (`transient`: shown, not sent).
+- `HRecordEditor` options: `structure` (a function; made again after each save), `structurePane: false`,
+  `summarySections`, `linkedRecords` (a list of links, "and N more"). Header fields are read from and written
+  to the record; `upload` is sent as `body.upload`. `recordEditValues.js` skips fields without `dty`.
+- `HInputFile` `replace: true`: the current file is shown; an upload is not registered, its token is the value
+  ("New file: name (size) - replaces the current file on Save"); *Keep the current file* cancels it; no picker,
+  URL or Edit; a pending token is cancelled when the input is destroyed.
+- Explorer `RecordEditorHost._fileEditorOptions()` (`editFile`); a linked record opens in Record View.
+- **heurist** `FileWriteService::update`: MIME type (2-29) only for tiled and external (400 for local and
+  IIIF when it differs from the stored one; a term without a file extension, e.g. a group, is refused; image/jpeg
+  is stored as `jpeg`). **Fixed:** new content of a tile stack was placed as a plain file and became `local`
+  (and was refused as "external" before that): it is now placed with `placeTiles` and stays tiled; a MIME type
+  sent with it wins over the type of its first tile. OpenAPI and `srv/Files/_README.md` updated.
+- Tests: `shared/test/fileEditor.test.js` (5); `tests/FileWriteTest.php --write` 68 checks (8 new); all 1355
+  client tests pass. Not checked in a browser.
+
+**MIME vocabulary 2-533 (findings and proposal):**
+- 2-533 "Mime Type (images)" has 9 image terms; it is used by DT 2-29 (RT 2-11 Map image file (tiled), RT 2-1105
+  Custom Report Schedule), DT 2-41 (RT 2-5 Digital media) and 3-1094.
+- RT 2-11: srv `MapPresentationService` does not use DT_MIME_TYPE (uses the file's `ulf_MimeExt`); only legacy
+  `viewers/map/mapLayer.js` maps 2-540 → .png, 2-537 → .jpg, else .gif. Not critical: these terms keep their
+  concept codes.
+- RT 2-1105: legacy `ReportRecordWriter::mimeTermId` finds the term by label or code (html, js, txt, csv, xml,
+  json, css) — none of them is in 2-533 today. With codes = main extension they will be found.
+- **One nested vocabulary for all**, renamed "MIME type": groups Images, Audio, Video, Documents, Text and data,
+  Geo, Archives, 3D, Web services, Other; a MIME type term has its main extension as code.
+- **Groups are not chosen** as a file's MIME type: neither `trm_Status` (it is the review state: reserved /
+  approved / pending / open; `pending` would mark the groups unapproved, and nothing reads it for selection) nor
+  `dty_TermIDTreeNonSelectableIDs` (dead in the legacy UI: `editingBrowse.js` has `headerTermIDsList` commented
+  out, `manageDefDetailTypes.js` says "not used anymore"; it is a list of local ids per field). Instead: the
+  server refuses a term without a file extension (done); the client will show terms with children as
+  non-selectable headers in the file editor (`leafTermsOnly`, with the import). Limited sets for RT 2-11 (Images)
+  and RT 2-1105 (Text and data) via `rst_FilteredJsonTermIDTree` pointing to a group (client support to add).
+- **SQL instead of CSV** (Artem): `docs/development/20-mime-vocabulary.sql` (for DB 2: groups, 96 MIME types,
+  the 9 existing terms moved and given codes, `image/jpeg2000` relabelled `image/jp2`, concept codes 2-<id>;
+  outdated types listed at the end with reasons) and `20-file-extensions.sql` (each database's
+  `defFileExtToMimetype`: 87 outdated / script / executable extensions removed, descriptions fixed, xlsx / pptx /
+  js / ogg MIME types fixed, 25 new extensions). Generated from the database export by a one-off script; both
+  were run on `hdb_osmak_mapping` in a transaction and rolled back without errors (105 terms in 10 groups).
+- Open: Artem reviews the lists (outdated ermapper / mrsid / zoomify terms kept because values exist), applies
+  the scripts; then client support of `rst_FilteredJsonTermIDTree` and `leafTermsOnly`, structure filters for
+  RT 2-11 / 2-1105, and the install SQL of new databases.

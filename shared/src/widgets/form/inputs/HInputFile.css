@@ -88,6 +88,14 @@
   white-space: nowrap;
 }
 
+/* replace mode: the new content, not saved yet (plan 20 §10.11) */
+.h-input-file-text.is-pending {
+  max-width: none;
+  color: var(--h-color-warning);
+  font-style: italic;
+  white-space: normal;
+}
+
 .h-input-file-progress[hidden] {
   display: none;
 }

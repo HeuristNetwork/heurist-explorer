@@ -35,6 +35,7 @@ import { RecordEditClient, RecordEditError } from '../../data/RecordEditClient.j
 import { RecordStructureProvider } from '../../recordview/RecordStructureProvider.js';
 import { buildRecordBody, defaultFieldValues, recordFieldValues } from '../../data/recordEditValues.js';
 import { multilangFieldIds } from '../../data/writableRecordTypes.js';
+import { allowsStoredCode, isStoredCodeField } from '../../data/storedTextPolicy.js';
 import { nonStandardGroup, relationRecordStructure, reverseRelmarkerGroup, splitLargeGroups, structureFields } from '../../data/recordEditStructure.js';
 import { loadRelationship, loadRelmarkerStates, relationFits, relationshipBody } from '../../data/relmarkerRelations.js';
 import { HCardinalLayout } from '../layout/HCardinalLayout.js';
@@ -53,6 +54,11 @@ import './HRecordEditor.css';
 
 /** Header fields of the server issues, shown in the ownership pane. */
 const HEADER_FIELDS = new Set(['rec_OwnerUGrpID', 'rec_NonOwnerVisibility', 'rec_NonOwnerVisibilityGroups', 'rec_EditGroups']);
+
+/** Ids of the Record summary sections (option `summarySections`) by their titles. */
+const SUMMARY_SECTION_IDS = Object.freeze({
+  Admin: 'admin', Private: 'private', Tags: 'tags', 'Linked records': 'linked', Scratchpad: 'scratchpad'
+});
 
 /** Editor of one record. */
 export class HRecordEditor extends HBaseWidget {
@@ -90,6 +96,16 @@ export class HRecordEditor extends HBaseWidget {
    *        (auto: beside when the form is wide enough), see formLayout.js.
    * @param {'flow'|'stack'} [options.inputPos='stack'] One field per line, or side by side.
    * @param {boolean} [options.summary=true] The Record summary pane on the right.
+   * @param {string[]} [options.summarySections] Sections of the Record summary (default all): 'admin',
+   *        'private', 'tags', 'linked', 'scratchpad' (a registered file: admin and linked, plan 20 §10.11).
+   * @param {boolean} [options.structurePane=true] The Structure pane on the left.
+   * @param {Function} [options.structure] `(record, dbdefs) → structure`: a hard-coded structure instead of
+   *        `/rst` (registered files, plan 20 §10.11), made again from the saved record after each save.
+   *        Its named fields that are not record details: `header` (a record header such as rec_URL),
+   *        `transient` (shown, not sent; `value`), `upload` (the token of a new content, sent as `upload`).
+   * @param {Function} [options.linkedRecords] `(record) → Promise<{records, total}>`: the Linked records
+   *        of the summary as a list of records (`rec_ID`, `rec_Title`, `rec_RecTypeID`) instead of the
+   *        relationships and links of the record.
    * @param {Function} [options.onOpenRecord] Called with a record id: a linked record of the summary.
    * @param {Function} [options.onManageTags] Opens the tag manager ("Manage tags" of the Tags panel).
    * @param {object} [options.limits] Limits of the built-in record view (`recordLimits.js`, plan 23): a
@@ -139,6 +155,12 @@ export class HRecordEditor extends HBaseWidget {
       throw new TypeError('HRecordEditor needs recordId or rectypeId');
     }
     const rty = this.rectypeId;
+    if (typeof this.options.structure === 'function') {
+      // a hard-coded structure (registered files): no reverse or non-standard groups
+      this.structure = await this.options.structure(this.record, this.dbdefs);
+      this.render();
+      return this;
+    }
     // a relationship record: constraints of the relmarker field it was opened from (2026-10-22)
     const structure = relationRecordStructure(await this.structureProvider.editStructure(rty, {
       signal, dbdefs: this.dbdefs, multilangIds: multilangFieldIds(this.dbdefs, rty)
@@ -217,6 +239,15 @@ export class HRecordEditor extends HBaseWidget {
     });
     // Scratchpad panel of the Record summary
     if (this.scratchpad) body.rec_ScratchPad = this.scratchpad.value;
+    // named fields of a hard-coded structure (plan 20 §10.11): headers and the new content
+    const states = this.editForm?.getStates() || new Map();
+    for (const field of structureFields(this.structure)) {
+      if (field.dty || field.transient) continue;
+      const value = states.get(field.name)?.values?.[0]?.value;
+      const text = value === null || value === undefined ? '' : String(value).trim();
+      if (field.header) body[field.header] = text;
+      else if (field.name === 'upload' && text) body.upload = text;
+    }
     return body;
   }
 
@@ -234,7 +265,9 @@ export class HRecordEditor extends HBaseWidget {
   validate() {
     // the form shows the problems beside the fields and opens the first one
     const problems = this.editForm ? this.editForm.validate() : [];
-    this._showMessages(problems.length ? [{ severity: 'error', message: $HR('Please correct the marked fields') }] : []);
+    const warnings = this.editForm?.validationIssues?.filter((issue) => issue.severity === 'warning') || [];
+    this._showMessages(problems.length ? [{ severity: 'error', message: $HR('Please correct the marked fields') }]
+      : warnings.length ? [{ severity: 'warning', message: $HR('JavaScript and CSS are not allowed in this field and will be removed when saving.') }] : []);
     return problems;
   }
 
@@ -258,6 +291,12 @@ export class HRecordEditor extends HBaseWidget {
       const result = created ? await this.client.insert(body) : await this.client.update(body, { force });
       this.record = result.record;
       this._saved = true;
+      if (typeof this.options.structure === 'function' || result.issues?.some((issue) => issue.code === 'html_sanitized')) {
+        // Show the stored values after server sanitization or file metadata changes.
+        if (typeof this.options.structure === 'function') this.structure = await this.options.structure(this.record, this.dbdefs);
+        await this._destroyForm();
+        this.render();
+      }
       this._afterSave(result.issues);
       this._emit('h-record-editor-saved', { record: result.record, issues: result.issues, created });
       this.options.onSaved?.({ record: result.record, issues: result.issues, created });
@@ -411,9 +450,11 @@ export class HRecordEditor extends HBaseWidget {
     });
     this.cardinal.setContent('center', this.body);
     // the Structure of the form on the left (plan 23 §4.3); filled after the form is made
-    this.structurePane = this._renderStructurePane();
-    this.cardinal.setContent('west', this.structurePane);
-    this.cardinal.show('west');
+    if (this.options.structurePane !== false) {
+      this.structurePane = this._renderStructurePane();
+      this.cardinal.setContent('west', this.structurePane);
+      this.cardinal.show('west');
+    }
     this.summary = this._renderSummary(header);
     this.cardinal.setContent('east', this.summary);
     this.cardinal.show('east');
@@ -541,7 +582,10 @@ export class HRecordEditor extends HBaseWidget {
     head.append(this.summaryToggle, caption);
     pane.append(head);
 
+    const sections = this.options.summarySections || null;
     const section = (title, open, build) => {
+      const id = SUMMARY_SECTION_IDS[title];
+      if (sections && !sections.includes(id)) return null;
       const details = document.createElement('details');
       details.className = 'h-record-editor-summary-section';
       details.open = open;
@@ -677,6 +721,10 @@ export class HRecordEditor extends HBaseWidget {
       return;
     }
     body.append(loadingIndicator($HR('Loading…'), 'h-record-editor-summary-note'));
+    if (typeof this.options.linkedRecords === 'function') {
+      this._renderLinkedList(body);
+      return;
+    }
     // a row shows `links` records; more of a very large record by "Show more" (plan 23)
     const linkOptions = { limit: normalizeRecordLimits(this.options.limits).links };
     const provider = new RecordRelationsProvider({
@@ -839,6 +887,13 @@ export class HRecordEditor extends HBaseWidget {
     this.body.append(host);
     const states = new Map();
     for (const [dty, state] of values) states.set(String(dty), state);
+    // named fields of a hard-coded structure: a record header, or a value shown only
+    for (const field of structureFields(this.structure)) {
+      if (field.dty) continue;
+      const value = field.header ? this.record?.[field.header] : field.value;
+      const text = value === null || value === undefined ? '' : String(value);
+      states.set(field.name, { values: text ? [{ value: text, hidden: false }] : [], translations: [] });
+    }
     // relationships of the relmarker fields (loaded in open, kept up to date by the inputs)
     for (const [name, state] of this._relmarkerStates || []) states.set(name, state);
     this.editForm = new HEditForm().attach(host, {
@@ -865,6 +920,10 @@ export class HRecordEditor extends HBaseWidget {
       specialEditors: this.options.specialEditors || {},
       specialContext: () => ({ record: this.record, rectypeId: this.rectypeId }),
       relationships: this._relationshipService(),
+      textPolicy: (field) => ({
+        allowCode: allowsStoredCode(this.dbdefs, this.rectypeId, field.dty),
+        codeField: isStoredCodeField(this.dbdefs, field.dty)
+      }),
       // very large records (plan 23 §4.1, §4.4): widgets of a group when it is shown,
       // inputs of the first "Limit values per field" values
       lazyGroups: true,
@@ -929,6 +988,53 @@ export class HRecordEditor extends HBaseWidget {
       fits: (field, relation) => relationFits(field, relation, this.dbdefs),
       changed: () => this._relationshipsChanged()
     };
+  }
+
+  /**
+   * Linked records given by the host (`linkedRecords`, e.g. the records that refer to a
+   * registered file): a list of links, "N more" when there are more than shown.
+   */
+  _renderLinkedList(body) {
+    const record = this.record;
+    Promise.resolve(this.options.linkedRecords(record)).then((result) => {
+      if (this.record !== record) return;
+      const records = result?.records || [];
+      if (!records.length) {
+        body.replaceChildren(note($HR('No linked records')));
+        return;
+      }
+      const list = document.createElement('ul');
+      list.className = 'h-record-editor-linked-list';
+      for (const item of records) {
+        const row = document.createElement('li');
+        const iconUrl = recordTypeIconUrl({ rec_RecTypeID: item.rec_RecTypeID }, this.options.fileViewer || {});
+        if (iconUrl) {
+          const icon = document.createElement('img');
+          icon.className = 'h-record-editor-type-icon';
+          icon.src = iconUrl;
+          icon.alt = '';
+          row.append(icon);
+        }
+        const link = document.createElement('a');
+        link.href = '#';
+        link.className = 'heurist-recordview-resource-link';
+        link.textContent = stripTags(item.rec_Title) || `#${item.rec_ID}`;
+        link.title = `ID ${item.rec_ID}`;
+        this.listen(link, 'click', (event) => {
+          event.preventDefault();
+          this.options.onOpenRecord?.(Number(item.rec_ID));
+        });
+        row.append(link);
+        list.append(row);
+      }
+      const parts = [list];
+      const more = (Number(result.total) || records.length) - records.length;
+      if (more > 0) parts.push(note(`${$HR('and')} ${more} ${$HR('more')}`));
+      body.replaceChildren(...parts);
+      body.classList.toggle('can-open', typeof this.options.onOpenRecord === 'function');
+    }).catch((error) => {
+      if (this.record === record) body.replaceChildren(note(error?.message || String(error)));
+    });
   }
 
   /** A relationship was added, changed or deleted: keep the states (a new render) and the Linked records. */

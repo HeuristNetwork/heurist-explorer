@@ -651,7 +651,9 @@ export class HEditField extends HBaseWidget {
       case 'file':
         return {
           ...options,
-          file: entry.file || null,
+          // replace mode (a registered file's own content, plan 20 §10.11): the current file of the field
+          file: entry.file || field.file || null,
+          replace: field.replace === true,
           fileUrl: this.options.fileUrl,
           apiClient: this.options.apiClient,
           editFile: this.options.editFile,

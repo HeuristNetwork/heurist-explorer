@@ -286,6 +286,21 @@
   text-decoration: none;
 }
 
+/* Linked records given by the host (the records referring to a registered file) */
+.h-record-editor-linked-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.h-record-editor-linked-list li {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 0;
+  overflow-wrap: anywhere;
+}
+
 .h-record-editor-scratchpad {
   box-sizing: border-box;
   width: 100%;

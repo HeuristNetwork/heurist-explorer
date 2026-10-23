@@ -40,6 +40,10 @@ import { SymbologyService } from '#shared/symbology/SymbologyService.js';
 import { RecordPopupContent } from '#shared/recordview/RecordPopupContent.js';
 import { RecordViewLoader } from '#shared/recordview/RecordViewLoader.js';
 import { loadRecordAddDefaults, saveRecordAddDefaults } from '#shared/data/recordAccess.js';
+import { fileEditStructure } from '#shared/data/systemEntities.js';
+import { multilangFieldIds } from '#shared/data/writableRecordTypes.js';
+import { normalizeRecordLimits } from '#shared/recordview/recordLimits.js';
+import { fileMediaUrls } from '#shared/recordview/fileMediaItem.js';
 
 /** Id prefix of the record editor dialogs (a numbered id each: a pointed record opens over its editor). */
 const DIALOG_ID = 'h-record-editor-dialog';
@@ -276,7 +280,10 @@ export class RecordEditorHost {
       fileViewer: this.options.baseUrl ? { baseUrl: this.options.baseUrl, database: this.options.database || '' } : null,
       // links per row in the Record summary's Linked records (plan 23)
       limits: this.options.recordLimits || null,
-      onManageTags: this.options.manageTags || null
+      onManageTags: this.options.manageTags || null,
+      // a registered file (plan 20 §10.11): hard-coded structure by its type, no Structure pane,
+      // the summary without Private and Tags, Linked records = the records that refer to the file
+      ...(isFile ? this._fileEditorOptions(dbdefs) : {})
     });
     // tags are saved at once (plan 20, 4a): the host shows them again
     host.addEventListener('h-record-tags-change', (event) => this.options.onTagsChanged?.(Number(event.detail?.recordId) || 0));
@@ -287,6 +294,29 @@ export class RecordEditorHost {
       this.options.onSaved?.({ record: event.detail.record, created: event.detail.created });
     });
     return editor;
+  }
+
+  /** HRecordEditor options of a registered file (plan 20 §10.11). */
+  _fileEditorOptions(dbdefs) {
+    const fileUrls = this.options.baseUrl ? fileMediaUrls(this.options.baseUrl, this.options.database || '') : null;
+    const rty = Number(dbdefs?.dbconst?.('RT_REGISTERED_FILE')) || 0;
+    const limit = normalizeRecordLimits(this.options.recordLimits).links;
+    return {
+      structure: (record) => fileEditStructure(record, dbdefs, { fileUrls, multilangIds: multilangFieldIds(dbdefs, rty) }),
+      structurePane: false,
+      summarySections: ['admin', 'linked'],
+      onOpenRecord: (id) => void this.viewRecord(id),
+      linkedRecords: async (record) => {
+        const key = String(record?.rec_Hash || '');
+        if (!key) return { records: [], total: 0 };
+        const response = await this.options.apiClient.get('/records', {
+          query: { q: [{ file: `@${key}` }], fields: 'rec_Title,rec_RecTypeID', limit }
+        });
+        const records = Array.isArray(response?.records) ? response.records : [];
+        const total = Number(response?.pagination?.total);
+        return { records, total: Number.isFinite(total) ? total : records.length };
+      }
+    };
   }
 
   /** Result of a closed editor: whether it saved, the record id and the saved record. */

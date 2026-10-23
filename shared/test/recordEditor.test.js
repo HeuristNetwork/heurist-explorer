@@ -369,3 +369,15 @@ test('the Structure pane lists the fields; a click shows the field in the form (
   assert.equal(editor.isDirty(), false);
   await editor.destroy();
 });
+
+
+test('sanitized values returned by the server replace the editor inputs after save', async () => {
+  const { editor } = await openEditor({ update: (body) => ({
+    record: { ...body, details: { ...body.details, 12: ['<p>safe</p>'] } },
+    issues: [{ field: '12', code: 'html_sanitized', severity: 'warning', message: 'Scripts removed' }]
+  }) });
+  await editor.editForm.setValue('12', '<p onclick="x()">safe</p>');
+  assert.equal(await editor.save(), true);
+  assert.deepEqual(editor.getRecord().details[12], ['<p>safe</p>']);
+  assert.equal(editor.isDirty(), false);
+});
