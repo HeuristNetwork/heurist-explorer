@@ -984,3 +984,25 @@
 #Search in the title#Rechercher dans le titre
 #Search in all fields#Rechercher dans tous les champs
 #Creating relationships#Création des relations
+#Translation#Traduction
+#The value is translated into all the languages#La valeur est traduite dans toutes les langues
+#The first value is translated into the chosen language. To keep a part of the text as it is, enclose it in <span translate="no">...</span>.#La première valeur est traduite dans la langue choisie. Pour garder une partie du texte telle quelle, entourez-la de <span translate="no">...</span>.
+#Enter the first value to translate it automatically.#Saisissez la première valeur pour la traduire automatiquement.
+#To enable automatic translation please ask your system administrator to add a DeepL free or paid account API key.#Pour activer la traduction automatique, demandez à votre administrateur système d'ajouter une clé API DeepL (compte gratuit ou payant).
+#Translating text...#Traduction du texte...
+#Insert blank#Insérer vide
+#Insert translated value#Insérer une valeur traduite
+#wysiwyg#wysiwyg
+#codeeditor#éditeur de code
+#Media: a registered file#Média : un fichier enregistré
+#Caption of the image#Légende de l'image
+#Link to a record#Lien vers un enregistrement
+#Please use the Media button in the toolbar to insert images#Utilisez le bouton Média de la barre d'outils pour insérer des images
+#Select an image first#Sélectionnez d'abord une image
+#Caption#Légende
+#Select media#Sélectionner un média
+#Insert media#Insérer le média
+#Optional: shown below the media#Facultatif : affichée sous le média
+#Record editor#Éditeur d'enregistrement
+#Show optional fields#Afficher les champs facultatifs
+#Show wysiwyg editor inline#Afficher l'éditeur wysiwyg dans le formulaire

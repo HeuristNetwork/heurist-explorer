@@ -48,6 +48,7 @@ import { TagClient } from '../../data/TagClient.js';
 import { RecordRelationsProvider } from '../../recordview/RecordRelationsProvider.js';
 import { buildLinkedFromSection, buildLinksRow } from '../../recordview/RecordViewRenderer.js';
 import { normalizeRecordLimits } from '../../recordview/recordLimits.js';
+import { normalizeRecordEditorSettings } from '../../data/recordEditorSettings.js';
 import { HMsg } from '../../ui/HMsg.js';
 import { $HR } from '../../ui/i18n/HResource.js';
 import { fillLoading, loadingIndicator } from '../../ui/loadingIndicator.js';
@@ -75,6 +76,12 @@ export class HRecordEditor extends HBaseWidget {
    * @param {object} [options.client] RecordEditClient (default: one over apiClient).
    * @param {object} [options.structureProvider] RecordStructureProvider (shared cache).
    * @param {string[]} [options.languages] Language codes offered for translations.
+   * @param {object} [options.translator] Machine translation of values (TranslationClient, plan 25).
+   * @param {object} [options.richText] HTML / code editors of blocktext fields (HInputText, plan 25): `baseUrl`,
+   *        `insertMedia()` (Media button), `insertRecordLink(text)` (Record button).
+   * @param {object} [options.settings] Settings of the configuration (recordEditorSettings.js, plan 25): start
+   *        values of "Show help" / "Show optional" of the Structure pane, the reverse relationships and
+   *        non-standard fields groups, the HTML editor at once. Without them "Show help" is remembered.
    * @param {Function} [options.selectExtent] Map extent picker of geo fields.
    * @param {Function} [options.selectGeometry] Map drawing of geo fields: `(wkt) → Promise<{type, wkt}|null>`.
    * @param {Function} [options.editRecord] Edit button of pointer fields: `(id, options) → Promise<{saved, record}>`
@@ -170,8 +177,11 @@ export class HRecordEditor extends HBaseWidget {
     }), this.dbdefs, this.options.relation || null);
     // relationships of other record types' relmarker fields that target this type (plan 22),
     // then the values of fields the structure does not have: last groups (a copy: the structure is cached)
-    const reverse = reverseRelmarkerGroup(rty, this.dbdefs, $HR('Relationships from other records'));
-    const extra = nonStandardGroup(this.record, structure, this.dbdefs, $HR('Non-standard fields'));
+    // both groups can be switched off in the configuration (plan 25); the values of non-standard
+    // fields are kept and saved as they are (buildRecordBody)
+    const settings = this._settings();
+    const reverse = settings.reverseRelations ? reverseRelmarkerGroup(rty, this.dbdefs, $HR('Relationships from other records')) : null;
+    const extra = settings.nonStandardFields ? nonStandardGroup(this.record, structure, this.dbdefs, $HR('Non-standard fields')) : null;
     const groups = reverse || extra
       ? { ...structure, groups: [...structure.groups, ...(reverse ? [reverse] : []), ...(extra ? [extra] : [])] }
       : structure;
@@ -213,7 +223,7 @@ export class HRecordEditor extends HBaseWidget {
     const values = this.record ? recordFieldValues(this.record, this.structure) : defaultFieldValues(this.structure);
     this._renderForm(values);
     // "Show help" of the Structure pane (remembered; also before the pane is opened)
-    this.editForm.setFieldHelpVisible(readShowFieldHelp());
+    this.editForm.setFieldHelpVisible(this._fieldHelpShown());
     this._renderStructureTree();
 
     this.listen(this.container, 'h-input-change', () => this._onChange());
@@ -531,7 +541,8 @@ export class HRecordEditor extends HBaseWidget {
     else this.cardinal.expand('west');
     this._structureStarting = false;
     this._syncStructureToggle?.();
-    if (!collapsed) this._ensureStructureTree();
+    // "Show optional" off in the configuration filters the form at once: the tree is needed then
+    if (!collapsed || !this._settings().showOptional) this._ensureStructureTree();
   }
 
   /**
@@ -551,15 +562,29 @@ export class HRecordEditor extends HBaseWidget {
         this.editForm.getFieldWidget(name)?.focus();
       },
       onFilterChange: (names) => this.editForm?.setViewFilter(names),
-      showHelp: readShowFieldHelp(),
+      showHelp: this._fieldHelpShown(),
+      showOptional: this._settings().showOptional,
       onShowHelpChange: (shown) => {
-        writeShowFieldHelp(shown);
+        // the configuration sets the start value; the pane changes it for this editor (plan 25)
+        this._showHelpNow = shown;
+        if (!this.options.settings) writeShowFieldHelp(shown);
         this.editForm?.setFieldHelpVisible(shown);
       }
     }).render();
     // a problem in a field the filter hides cleared the form's filter: the tree's too
     this.listen(this.container, 'h-edit-form-view-filter-cleared', () => this.structureTree?.clearFilters());
     return this.structureTree;
+  }
+
+  /** @returns {object} The editor settings of the configuration, with defaults (recordEditorSettings.js). */
+  _settings() {
+    return normalizeRecordEditorSettings(this.options.settings);
+  }
+
+  /** @returns {boolean} "Show help": changed in this editor, else the configuration's, else the remembered one. */
+  _fieldHelpShown() {
+    if (this._showHelpNow !== undefined) return this._showHelpNow;
+    return this.options.settings ? this._settings().showHelp : readShowFieldHelp();
   }
 
   /** The values changed: the counts of the Structure tree. */
@@ -914,6 +939,9 @@ export class HRecordEditor extends HBaseWidget {
       dbdefs: this.dbdefs,
       // the database setting "Languages" (was: the languages of definition translations)
       languages: this.options.languages,
+      translator: this.options.translator || null,
+      // text / wysiwyg / codeeditor of blocktext fields; HTML at once by the configuration (plan 25)
+      richText: this.options.richText ? { ...this.options.richText, autoWysiwyg: this._settings().wysiwygInline } : null,
       selectExtent: this.options.selectExtent,
       selectGeometry: this.options.selectGeometry,
       editRecord: this.options.editRecord,

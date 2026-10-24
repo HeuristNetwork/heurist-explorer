@@ -124,11 +124,18 @@ test("non-resource, non-file, non-blocktext fields render plain text via the sha
   assert.match(rendererSource, /line\.textContent = String\(text \?\? ""\)/);
 });
 
-test("blocktext fields render sanitized HTML (u/i/b/strong/em/p), or a system-format notice when the content is JSON", () => {
+test("blocktext fields render the blocktext HTML (sanitizeRichHtml), or a system-format notice when the content is JSON", () => {
   assert.match(rendererSource, /field\.type === "blocktext"/);
   assert.match(rendererSource, /looksLikeJson\(plain\)/);
   assert.match(rendererSource, /\$HR\("Data in system format"\)/);
-  assert.match(rendererSource, /sanitizeTextHtml\(plain, \{ extraTags: \["p"\] \}\)/);
+  assert.match(rendererSource, /sanitizeRichHtml\(plain, \{ baseUrl: this\.baseUrl, database: this\.database \}\)/);
+  // record links of the editor's "Record" button open the record (plan 25)
+  assert.match(rendererSource, /a\[data-record-id\]/);
+});
+
+test("freetext fields render the inline tags of a title (plan 25)", () => {
+  assert.match(rendererSource, /field\.type === "freetext"/);
+  assert.match(rendererSource, /line\.innerHTML = sanitizeTextHtml\(String\(text \?\? ""\)\)/);
 });
 
 test("the record title is rendered as sanitized HTML (u/i/b/strong/em), not plain text", () => {

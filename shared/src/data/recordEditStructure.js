@@ -351,7 +351,10 @@ export function reverseRelmarkerGroup(rty, dbdefs, label = 'Relationships from o
     ...field,
     label: `${field.fieldName} ← ${field.sourceTypes.map((id) => dbdefs.rectypeName?.(id) || `#${id}`).join(', ')}`
   }));
-  return children.length ? { id: 'reverse-relationships', type: 'group', label, help: '', children, reverseRelations: true } : null;
+  // a closed accordion: opened on request (plan 25)
+  return children.length
+    ? { id: 'reverse-relationships', type: 'accordion', open: false, label, help: '', children, reverseRelations: true }
+    : null;
 }
 
 /**

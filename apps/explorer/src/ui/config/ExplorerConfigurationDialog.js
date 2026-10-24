@@ -15,6 +15,7 @@
 import { $HR, applyI18n, HMsg } from '#shared/ui';
 import { ExplorerUiConfig, UNUSED_REGION } from '../../core/ExplorerUiConfig.js';
 import { normalizeRecordLimits, RECORD_LIMIT_OPTIONS } from '#shared/recordview/recordLimits.js';
+import { normalizeRecordEditorSettings } from '#shared/data/recordEditorSettings.js';
 import { VIEW_MODES } from '../ExplorerRail.js';
 import './ExplorerConfigurationDialog.css';
 
@@ -63,6 +64,15 @@ const RECORD_LIMITS = [
   ['values', 'Limit values per field'],
   ['thumbs', 'Limit thumbnails'],
   ['links', 'Limit reverse links']
+];
+
+/** Settings of the record editor (plan 25): key and label. */
+const RECORD_EDITOR_OPTIONS = [
+  ['showHelp', 'Show help'],
+  ['showOptional', 'Show optional fields'],
+  ['reverseRelations', 'Relationships from other records'],
+  ['nonStandardFields', 'Non-standard fields'],
+  ['wysiwygInline', 'Show wysiwyg editor inline']
 ];
 
 /** Editor for Explorer's toolbar and layout configuration, saved via `onSave`. */
@@ -134,6 +144,7 @@ export class ExplorerConfigurationDialog {
     this.content.append(
       this.section('Interface', (body) => this.buildInterfaceSection(body), true),
       this.section('Record View and Edit limits', (body) => this.buildRecordViewSection(body)),
+      this.section('Record editor', (body) => this.buildRecordEditorSection(body)),
       layoutSection
     );
     this._advancedControls.push(layoutSection);
@@ -263,6 +274,42 @@ export class ExplorerConfigurationDialog {
         this.value.recordLimits[key] = Number(next);
       });
     }
+  }
+
+  /**
+   * Build the "Record editor" section (plan 25): the start settings of the Structure pane,
+   * the optional groups of the form and the HTML editor of blocktext fields.
+   *
+   * @param {HTMLElement} body Section body to append fields into.
+   * @returns {void}
+   */
+  buildRecordEditorSection(body) {
+    for (const [key, label] of RECORD_EDITOR_OPTIONS) {
+      this.checkboxRow(body, label, this.value.recordEditor[key] === true, (checked) => { this.value.recordEditor[key] = checked; });
+    }
+  }
+
+  /**
+   * Build and append a labeled checkbox row.
+   *
+   * @param {HTMLElement} parent Element to append the row into.
+   * @param {string} labelText Field label.
+   * @param {boolean} checked Initial state.
+   * @param {function(boolean): void} onChange Called with the new state.
+   * @returns {HTMLElement} The generated row element.
+   */
+  checkboxRow(parent, labelText, checked, onChange) {
+    const row = el('label', 'heurist-config-row heurist-config-check-row');
+    const input = el('input', 'h-checkbox');
+    input.classList.remove('h-input');
+    input.type = 'checkbox';
+    input.checked = checked;
+    input.addEventListener('change', () => onChange(input.checked));
+    const caption = el('span', 'h-i18n');
+    caption.textContent = labelText;
+    row.append(caption, input);
+    parent.append(row);
+    return row;
   }
 
   /**
@@ -640,7 +687,8 @@ function mergeDefaults(value) {
     lists: value?.lists === 'popup' ? 'popup' : defaults.lists,
     language: LANGUAGES.some(([code]) => code === value?.language) ? value.language : defaults.language,
     isSimplifiedUI: typeof value?.isSimplifiedUI === 'boolean' ? value.isSimplifiedUI : defaults.isSimplifiedUI,
-    recordLimits: normalizeRecordLimits(value?.recordLimits)
+    recordLimits: normalizeRecordLimits(value?.recordLimits),
+    recordEditor: normalizeRecordEditorSettings(value?.recordEditor)
   };
 }
 

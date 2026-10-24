@@ -221,6 +221,16 @@ export class HDbDefs {
   }
 
   /**
+   * Whether values can be translated automatically: the installation has a DeepL key for the
+   * legacy translator (plan 25, TranslationClient).
+   *
+   * @returns {boolean}
+   */
+  translator() {
+    return this.meta.translator === true;
+  }
+
+  /**
    * @param {string} name e.g. `RT_RELATION`, `DT_TARGET_RESOURCE`.
    * @returns {number|null} Reserved definition id, or null when absent.
    */

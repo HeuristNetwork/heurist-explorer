@@ -64,6 +64,9 @@ export class HEditForm extends HBaseWidget {
    * @param {object} [options.apiClient] HeuristApiClient (record pointer fields).
    * @param {object} [options.dbdefs] HDbDefs (vocabularies).
    * @param {string[]} [options.languages] Languages of translations.
+   * @param {{available: boolean, translate: Function}} [options.translator] Machine translation (TranslationClient, plan 25).
+   * @param {object} [options.richText] HTML / code editors of blocktext fields (HInputText `richText`, plan 25):
+   *        `baseUrl`, `insertMedia`, `insertRecordLink`, `autoWysiwyg`.
    * @param {Function} [options.selectExtent] Map extent picker of geo fields (geoKind extent).
    * @param {Function} [options.selectGeometry] Map drawing of geo fields (geoKind feature):
    *        `(wkt) → Promise<{type, wkt}|null>`; without it the extent picker is used.
@@ -595,6 +598,10 @@ export class HEditForm extends HBaseWidget {
         apiClient: this.options.apiClient,
         dbdefs: this.options.dbdefs,
         languages: this.options.languages || this.options.dbdefs?.translationLanguages?.() || this.options.dbdefs?.languages?.() || [],
+        // Translate of "Insert translated value" (plan 25)
+        translator: this.options.translator || null,
+        // the HTML / code editors of blocktext fields (plan 25)
+        richText: this.options.richText || null,
         selectExtent: this.options.selectExtent,
         selectGeometry: this.options.selectGeometry,
         editRecord: this.options.editRecord,

@@ -157,3 +157,16 @@
   padding: 4px 14px 8px;
   font-size: var(--h-font-size);
 }
+
+/* blocktext HTML (plan 25): images, media and tables fit the view */
+.heurist-recordview-richtext img,
+.heurist-recordview-richtext video,
+.heurist-recordview-richtext iframe { max-width: 100%; height: auto; }
+.heurist-recordview-richtext iframe { aspect-ratio: 16 / 9; height: auto; }
+.heurist-recordview-richtext figure { margin: 6px 0; }
+.heurist-recordview-richtext figcaption { color: var(--h-color-text-muted); font-size: var(--h-font-size-small); }
+.heurist-recordview-richtext table { border-collapse: collapse; max-width: 100%; }
+.heurist-recordview-richtext th,
+.heurist-recordview-richtext td { border: 1px solid var(--h-color-border); padding: 2px 6px; }
+.heurist-recordview-richtext blockquote { margin: 4px 0 4px 12px; padding-left: 8px; border-left: 3px solid var(--h-color-border); }
+.heurist-recordview-richtext pre { overflow: auto; white-space: pre-wrap; }

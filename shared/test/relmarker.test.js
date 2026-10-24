@@ -114,6 +114,8 @@ test('more relationships than loaded: onPartial reports loaded and total (plan 2
 test('reverse fields: relmarker fields of other record types that target this one', () => {
   const group = reverseRelmarkerGroup(10, dbdefs, 'From others');
   assert.equal(group.label, 'From others');
+  // a closed accordion (plan 25)
+  assert.deepEqual([group.type, group.open], ['accordion', false]);
   assert.deepEqual(group.children.map((field) => [field.name, field.label, field.reverse, field.dty, field.vocabulary]),
     [['rev:300', 'Members ← Organisation', true, null, 200]]);
   assert.deepEqual(group.children[0].sourceTypes, [4]);

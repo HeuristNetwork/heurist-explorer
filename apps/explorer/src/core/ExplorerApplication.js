@@ -179,7 +179,9 @@ export class ExplorerApplication {
       language: this.config.language,
       baseUrl: this.config.baseUrl,
       database: this.config.database,
-      recordLimits: this.config.recordLimits
+      recordLimits: this.config.recordLimits,
+      // the record editor settings of the configuration (plan 25), read when an editor opens
+      editorSettings: () => this.uiConfigSaved?.recordEditor || null
     });
     this.querySources = new QuerySourceManager({
       apiClient,

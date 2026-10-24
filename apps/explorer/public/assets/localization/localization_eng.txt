@@ -984,3 +984,25 @@
 #Search in the title#Search in the title
 #Search in all fields#Search in all fields
 #Creating relationships#Creating relationships
+#Translation#Translation
+#The value is translated into all the languages#The value is translated into all the languages
+#The first value is translated into the chosen language. To keep a part of the text as it is, enclose it in <span translate="no">...</span>.#The first value is translated into the chosen language. To keep a part of the text as it is, enclose it in <span translate="no">...</span>.
+#Enter the first value to translate it automatically.#Enter the first value to translate it automatically.
+#To enable automatic translation please ask your system administrator to add a DeepL free or paid account API key.#To enable automatic translation please ask your system administrator to add a DeepL free or paid account API key.
+#Translating text...#Translating text...
+#Insert blank#Insert blank
+#Insert translated value#Insert translated value
+#wysiwyg#wysiwyg
+#codeeditor#codeeditor
+#Media: a registered file#Media: a registered file
+#Caption of the image#Caption of the image
+#Link to a record#Link to a record
+#Please use the Media button in the toolbar to insert images#Please use the Media button in the toolbar to insert images
+#Select an image first#Select an image first
+#Caption#Caption
+#Select media#Select media
+#Insert media#Insert media
+#Optional: shown below the media#Optional: shown below the media
+#Record editor#Record editor
+#Show optional fields#Show optional fields
+#Show wysiwyg editor inline#Show wysiwyg editor inline

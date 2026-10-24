@@ -60,13 +60,14 @@ export class HStructureTree extends HBaseWidget {
    * @param {(names: Set<string>|null) => void} [options.onFilterChange] The fields the form shows by the
    *        requirement and "Empty only" filters (null: no such filter).
    * @param {boolean} [options.showHelp=true] State of "Show help".
+   * @param {boolean} [options.showOptional=true] Start state of "Show optional" (plan 25, the editor settings).
    * @param {(shown: boolean) => void} [options.onShowHelpChange] "Show help" changed (no checkbox without it).
    * @returns {HStructureTree} This tree.
    */
   attach(container, options = {}) {
     super.attach(container, options);
     this.selected = null;
-    this.settings = defaultSettings();
+    this.settings = { ...defaultSettings(), showOptional: options.showOptional !== false };
     this.findText = '';
     this._formNames = null;
     return this;

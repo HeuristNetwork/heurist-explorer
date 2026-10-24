@@ -18,3 +18,76 @@
 .h-input-url-open[hidden] {
   display: none;
 }
+
+/* a translated value (plan 25): the language code before the input */
+.h-form-input-control-wrap.has-lang {
+  display: flex;
+  align-items: flex-start;
+  gap: 4px;
+}
+
+.h-form-input-control-wrap.has-lang > .h-input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.h-input-text-lang {
+  flex: 0 0 auto;
+  min-width: 2.6em;
+  padding: 4px 4px 3px;
+  border: 1px solid var(--h-color-border);
+  border-radius: var(--h-radius);
+  background: var(--h-color-surface);
+  color: var(--h-color-text-muted);
+  font-size: var(--h-font-size-small);
+  font-weight: 600;
+  text-align: center;
+  line-height: 1.4;
+}
+
+/* text · wysiwyg · codeeditor under a blocktext (plan 25): the active one underlined */
+.h-input-text-modes {
+  display: flex;
+  gap: 10px;
+  margin-top: 2px;
+}
+
+.h-input-text-modes[hidden],
+.h-input-text-editor[hidden] {
+  display: none;
+}
+
+.h-input-text-mode {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: var(--h-color-text-muted);
+  font-size: var(--h-font-size-small);
+  cursor: pointer;
+}
+
+.h-input-text-mode:hover {
+  color: var(--h-color-primary);
+}
+
+.h-input-text-mode.is-active {
+  color: var(--h-color-text);
+  text-decoration: underline;
+}
+
+/* the HTML or code editor in place of the text area */
+.h-input-text-editor {
+  min-width: 0;
+}
+
+.h-input-text-editor .cm-editor {
+  min-height: 120px;
+  max-height: 480px;
+  border: 1px solid var(--h-color-border);
+  border-radius: var(--h-radius);
+  font-size: var(--h-font-size);
+}
+
+.h-input-text-editor .cm-scroller {
+  overflow: auto;
+}

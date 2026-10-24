@@ -21,7 +21,9 @@ test('save() persists and load() round-trips a valid value', () => {
     lists: 'popup',
     language: 'fre',
     isSimplifiedUI: false,
-    recordLimits: { fields: 100, values: 20, thumbs: 50, links: 500 }
+    recordLimits: { fields: 100, values: 20, thumbs: 50, links: 500 },
+    // plan 25: the record editor settings
+    recordEditor: { showHelp: false, showOptional: true, reverseRelations: false, nonStandardFields: true, wysiwygInline: true }
   };
   const saved = config.save(value);
   assert.deepEqual(saved, { version: 1, ...value });

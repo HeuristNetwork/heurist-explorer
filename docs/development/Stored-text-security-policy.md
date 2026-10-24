@@ -22,11 +22,22 @@ is true, the record type is `RT_CMS_HOME` or `RT_CMS_PAGE`, and the field is
 one of `DT_CMS_SCRIPT`, `DT_CMS_CSS`, `DT_CMS_HEADER`, `DT_CMS_FOOTER`, or
 `DT_EXTENDED_DESCRIPTION`. `DT_CMS_EXTFILES` has no unconditional bypass.
 
-The shared policy is used by normal legacy/new record saves, active legacy
-batch add/replace, calculated text, new record duplication, scratchpads, and
-the new System/Files text-metadata mapping. Uploaded file contents are outside
-this text policy; their existing extension, path and permission checks remain
-separate. This change does not run a cleanup over existing databases.
+The shared policy is used by the `srv/` saves: the record validator (new
+record saves, `html_sanitized` warnings), scratchpads (`RecordSaveService`),
+calculated text (`CalculatedFields`), new record duplication
+(`RecordDuplicateService`), the System entity mapping (`EntityRecordMapping`)
+and the Files text metadata (`FileWriteService`). Uploaded file contents are
+outside this text policy; their existing extension, path and permission checks
+remain separate. This change does not run a cleanup over existing databases.
+
+**Not yet covered (checked 2026-10-24, plan 25):** legacy `hserv` saves
+(`recordModify.php`) and legacy batch add/replace (`RecordsBatchAction.php`)
+do not call `StoredText`; they keep their own `USanitize` / HTMLPurifier rules.
+Hooking them is a follow-up.
+
+Plain text is recognised as in a browser: a tag starts with `<` directly
+followed by a letter, `!`, `/` or `?`, so `a < b` stays text and is not
+entity-encoded (fixed 2026-10-24; before, `<\s*` also matched `< b`).
 
 `HEditForm` checks all saved blocktext values, including translations and lazy
 tabs. It shows a non-blocking JavaScript/CSS warning. `HRecordEditor` supplies
@@ -35,7 +46,8 @@ The new record validator returns `html_sanitized` warnings for changed values.
 
 Validation:
 
-- `php admin/verification/StoredTextTest.php` in the Heurist repository.
+- `php tests/StoredTextTest.php` in the Heurist repository (no database; the
+  rules of this page). `tests/RecordEditApiTest.php` checks the validator's use.
 - `node --experimental-loader ./scripts/cssLoader.mjs --test shared/test/storedTextPolicy.test.js`
   in this repository, plus the shared test suite and Explorer build.
 

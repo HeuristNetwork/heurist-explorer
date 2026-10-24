@@ -41,12 +41,15 @@ import { createHInput } from '../form/inputs/createHInput.js';
 import { FORM_FIELD_CLASS, FORM_LABEL_CLASS } from '../form/formLayout.js';
 import { TermSource } from '../../data/valueSources/localSources.js';
 import { cssWidth } from '../../data/editFormSchema.js';
-import { showPopover, closePopover } from '../popover/popover.js';
+import { closePopover } from '../popover/popover.js';
 import { HMsg } from '../../ui/HMsg.js';
 import { $HR } from '../../ui/i18n/HResource.js';
 import './HEditField.css';
 
 /** Languages offered for translations when the host gives none (3-letter codes). */
+/** Translation dialogs opened (unique ids). */
+let translateDialogCount = 0;
+
 export const DEFAULT_LANGUAGES = Object.freeze(['ENG', 'FRE', 'GER', 'SPA', 'ITA', 'POR', 'DUT', 'RUS', 'CHI', 'JPN', 'ARA']);
 
 /** Field types without values to edit here. */
@@ -184,7 +187,9 @@ export class HEditField extends HBaseWidget {
     }
 
     this.translationsHost = null;
+    this._translationRows = [];
     if (field.multilang) {
+      // the translations: values of their own with the language code (plan 25)
       this.translationsHost = document.createElement('div');
       this.translationsHost.className = 'h-edit-field-translations';
       this.container.append(this.translationsHost);
@@ -229,7 +234,7 @@ export class HEditField extends HBaseWidget {
     const listed = this.isList
       ? values.flatMap((entry) => listLines(entry.value).map((value) => ({ value, hidden: false })))
       : values;
-    return { values: listed, translations: this._translations.map((entry) => ({ ...entry })) };
+    return { values: listed, translations: this._translationState() };
   }
 
   /**
@@ -241,7 +246,9 @@ export class HEditField extends HBaseWidget {
   async setState(state) {
     closePopover();
     for (const row of this._rows) await row.input.destroy();
+    for (const row of this._translationRows || []) await row.input.destroy();
     this._rows = [];
+    this._translationRows = [];
     this._setEntries(state);
     if (this.container) this.render();
   }
@@ -334,7 +341,9 @@ export class HEditField extends HBaseWidget {
   async destroy() {
     closePopover();
     for (const row of this._rows) await row.input.destroy();
+    for (const row of this._translationRows || []) await row.input.destroy();
     this._rows = [];
+    this._translationRows = [];
     await super.destroy();
   }
 
@@ -624,7 +633,13 @@ export class HEditField extends HBaseWidget {
     const options = {};
     switch (field.type) {
       case 'blocktext':
-        return { ...options, multiline: true, rows: Math.min(12, Math.max(3, field.rows || field.height || 3)) };
+        return {
+          ...options,
+          multiline: true,
+          rows: Math.min(12, Math.max(3, field.rows || field.height || 3)),
+          // text / wysiwyg / codeeditor (plan 25); the CMS script and CSS fields: code only
+          ...(this.options.richText ? { richText: this._richTextOptions() } : {})
+        };
       case 'json':
         return { ...options, multiline: true, rows: Math.min(20, Math.max(3, field.rows || 6)) };
       case 'url':
@@ -707,6 +722,15 @@ export class HEditField extends HBaseWidget {
     }
   }
 
+  /** Rich editors of this blocktext: the CMS script / CSS fields get the code editor only. */
+  _richTextOptions() {
+    const constant = (name) => Number(this.options.dbdefs?.dbconst?.(name)) || 0;
+    const dty = Number(this.field.dty) || 0;
+    const script = dty > 0 && dty === constant('DT_CMS_SCRIPT');
+    const style = dty > 0 && dty === constant('DT_CMS_CSS');
+    return { ...this.options.richText, codeOnly: script || style, codeLanguage: script ? 'javascript' : style ? 'css' : 'html' };
+  }
+
   /**
    * Choices of an enum field: the static `terms` of the form, or the vocabulary of
    * the database. A unique choice among a few flat terms is an inline radio group
@@ -747,7 +771,7 @@ export class HEditField extends HBaseWidget {
       translate.append(iconElement('fa-language'));
       translate.title = $HR('Add the value in another language');
       translate.setAttribute('aria-label', translate.title);
-      this.listen(translate, 'click', () => this._editTranslation(translate, null));
+      this.listen(translate, 'click', () => void this._openTranslateDialog());
       this.actionButtons.push(translate);
     } else if (this.isManagedRelmarker) {
       // on its own line above the relationships (plan 24 review)
@@ -844,97 +868,156 @@ export class HEditField extends HBaseWidget {
     }
   }
 
-  /** Language chips of the translations. */
+  /** The translations as value rows, each with its language code (plan 25). */
   _renderTranslations() {
     if (!this.translationsHost) return;
     this.translationsHost.replaceChildren();
-    for (const translation of this._translations) {
-      const chip = document.createElement('span');
-      chip.className = 'h-edit-field-translation';
-      const open = document.createElement('button');
-      open.type = 'button';
-      open.className = 'h-edit-field-translation-text';
-      const code = document.createElement('strong');
-      code.textContent = String(translation.lang).toUpperCase();
-      open.append(code, ` ${shorten(translation.value)}`);
-      open.title = $HR('Edit translation');
-      this.listen(open, 'click', () => this._editTranslation(open, translation));
-      chip.append(open);
-      if (!this.isReadOnly) {
-        const remove = document.createElement('button');
-        remove.type = 'button';
-        remove.className = 'heurist-icon-button h-edit-field-translation-remove';
-        remove.textContent = '×';
-        remove.title = $HR('Remove translation');
-        this.listen(remove, 'click', () => {
-          this._translations = this._translations.filter((item) => item !== translation);
-          this._renderTranslations();
-          this._changed();
-        });
-        chip.append(remove);
-      }
-      this.translationsHost.append(chip);
-    }
+    this._translationRows = [];
+    for (const translation of this._translations) this._addTranslationRow(translation);
+  }
+
+  /** @returns {Array<{lang: string, value: string, hidden: boolean}>} The translations (empty ones left out). */
+  _translationState() {
+    if (!this.translationsHost) return this._translations.map((entry) => ({ ...entry }));
+    return this._translationRows
+      .map((row) => ({ lang: row.entry.lang, value: row.input.getValue(), hidden: row.entry.hidden === true }))
+      .filter((entry) => !isEmpty(entry.value));
   }
 
   /**
-   * Popup with a language and the translated value. A new translation when
-   * `translation` is null.
+   * One translation: the text input of the field type with the language code before it,
+   * the remove action and the "hidden from the public" eye.
    */
-  _editTranslation(anchor, translation) {
-    if (this.isReadOnly) return;
-    const form = document.createElement('form');
-    form.className = 'h-edit-field-translate-form';
+  _addTranslationRow(translation) {
+    const row = { entry: { lang: String(translation.lang ?? '').toUpperCase(), hidden: translation.hidden === true } };
+    row.element = document.createElement('div');
+    row.element.className = 'h-edit-field-value h-edit-field-translation';
+    const host = document.createElement('div');
+    host.className = 'h-edit-field-input';
+    row.element.append(host);
+    this.translationsHost.append(row.element);
+    row.input = createHInput(inputType(this.field, this.options.special), host, {
+      ...this._inputOptions({ value: translation.value ?? '', hidden: row.entry.hidden }),
+      langCode: row.entry.lang,
+      removable: true
+    });
+    if (this.field.maxLength > 0 && row.input.control && 'maxLength' in row.input.control) {
+      row.input.control.maxLength = this.field.maxLength;
+    }
+    const width = this._displayWidth();
+    if (width) {
+      host.classList.add('has-display-width');
+      host.style.setProperty('--h-field-width', width);
+    }
+    this.listen(host, 'h-input-remove', (event) => {
+      event.stopPropagation();
+      void row.input.destroy();
+      row.element.remove();
+      this._translationRows = this._translationRows.filter((item) => item !== row);
+      this._changed();
+    });
+    this.listen(host, 'h-input-visibility-change', (event) => {
+      event.stopPropagation();
+      row.entry.hidden = event.detail?.hidden === true;
+      row.element.classList.toggle('is-hidden', row.entry.hidden);
+      this._changed();
+    });
+    row.element.classList.toggle('is-hidden', row.entry.hidden);
+    if (this.isReadOnly) row.input.setReadOnly(true);
+    this._translationRows.push(row);
+    return row;
+  }
+
+  /** Languages offered for a new translation: the configured ones without the used ones. */
+  _freeLanguages() {
     const languages = [...new Set([...(this.options.languages?.length ? this.options.languages : DEFAULT_LANGUAGES)]
       .map((code) => String(code).toUpperCase()))];
+    const used = new Set((this._translationRows || []).map((row) => row.entry.lang));
+    return languages.filter((code) => !used.has(code));
+  }
+
+  /**
+   * "Insert translated value" (port of the legacy dialog, plan 25): the language and a help
+   * text; Translate (the first value with DeepL, when the server has a key), Insert blank,
+   * Cancel. The new translation is a value row of its own.
+   *
+   * @returns {Promise<void>}
+   */
+  async _openTranslateDialog() {
+    if (this.isReadOnly) return;
+    const languages = this._freeLanguages();
+    if (!languages.length) {
+      HMsg.showMsgFlash?.($HR('The value is translated into all the languages'));
+      return;
+    }
+    const first = String(this._rows[0]?.input.getValue() ?? '').trim();
+    const translator = this.options.translator || null;
+    const canTranslate = Boolean(translator?.available && first);
+    const body = document.createElement('div');
+    body.className = 'h-edit-field-translate-dialog';
+    const label = document.createElement('label');
+    label.className = 'h-edit-field-translate-language';
+    const caption = document.createElement('span');
+    caption.className = 'h-i18n';
+    caption.textContent = $HR('Language');
     const select = document.createElement('select');
     select.className = 'h-select';
-    select.setAttribute('aria-label', $HR('Language'));
-    const used = new Set(this._translations.filter((item) => item !== translation).map((item) => String(item.lang).toUpperCase()));
-    const current = translation ? String(translation.lang).toUpperCase() : '';
-    if (current && !languages.includes(current)) languages.unshift(current);
     for (const code of languages) {
-      if (used.has(code)) continue;
       const option = document.createElement('option');
       option.value = code;
       option.textContent = code;
       select.append(option);
     }
-    if (current) select.value = current;
-    const text = document.createElement(this.field.type === 'blocktext' ? 'textarea' : 'input');
-    text.className = 'h-input';
-    if (this.field.type === 'blocktext') text.rows = 4;
-    text.value = translation?.value ?? '';
-    text.setAttribute('aria-label', $HR('Translated value'));
-    const buttons = document.createElement('div');
-    buttons.className = 'h-edit-field-translate-buttons';
-    const ok = document.createElement('button');
-    ok.type = 'submit';
-    ok.className = 'h-btn h-btn-primary h-i18n';
-    ok.textContent = $HR('OK');
-    const cancel = document.createElement('button');
-    cancel.type = 'button';
-    cancel.className = 'h-btn h-i18n';
-    cancel.textContent = $HR('Cancel');
-    buttons.append(ok, cancel);
-    form.append(select, text, buttons);
-    const popover = showPopover(anchor, form, { className: 'h-edit-field-translate-popover' });
-    cancel.addEventListener('click', () => popover.close());
-    form.addEventListener('submit', (event) => {
-      event.preventDefault();
-      const value = String(text.value ?? '');
-      if (!select.value || !value.trim()) { popover.close(); return; }
-      if (translation) {
-        translation.lang = select.value;
-        translation.value = value;
-      } else {
-        this._translations.push({ lang: select.value, value, hidden: false });
-      }
-      popover.close();
-      this._renderTranslations();
+    select.value = languages[0];
+    label.append(caption, select);
+    const help = document.createElement('p');
+    help.className = 'h-edit-field-translate-help';
+    help.textContent = canTranslate
+      ? $HR('The first value is translated into the chosen language. To keep a part of the text as it is, enclose it in <span translate="no">...</span>.')
+      : translator?.available
+        ? $HR('Enter the first value to translate it automatically.')
+        : $HR('To enable automatic translation please ask your system administrator to add a DeepL free or paid account API key.');
+    body.append(label, help);
+    const dialogId = `h-translate-dialog-${++translateDialogCount}`;
+    const close = () => HMsg.closeMsgDlg(dialogId);
+    const insert = (lang, value) => {
+      const row = this._addTranslationRow({ lang, value, hidden: false });
       this._changed();
-    });
-    setTimeout(() => text.focus?.(), 0);
+      row.input.control?.focus?.();
+      return row;
+    };
+    const buttons = [];
+    if (canTranslate) {
+      buttons.push({
+        label: $HR('Translate'),
+        class: 'h-btn h-btn-primary',
+        onClick: async () => {
+          const target = select.value;
+          help.textContent = $HR('Translating text...');
+          try {
+            const text = await translator.translate({ string: first, target });
+            close();
+            insert(target, text);
+          } catch (error) {
+            close();
+            HMsg.showMsgErr(error?.message || String(error));
+          }
+        }
+      });
+    }
+    buttons.push(
+      {
+        label: $HR('Insert blank'),
+        class: canTranslate ? 'h-btn' : 'h-btn h-btn-primary',
+        onClick: () => {
+          const target = select.value;
+          close();
+          insert(target, '');
+        }
+      },
+      { label: $HR('Cancel'), class: 'h-btn', onClick: close }
+    );
+    HMsg.showMsgDlg(body, { dialogId, title: $HR('Insert translated value'), buttons });
   }
 
   /** Tell the form that a value changed (inputs send h-input-change themselves). */

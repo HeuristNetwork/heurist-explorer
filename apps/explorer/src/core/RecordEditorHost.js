@@ -44,6 +44,8 @@ import { fileEditStructure, registeredFileType, systemFieldIds } from '#shared/d
 import { multilangFieldIds } from '#shared/data/writableRecordTypes.js';
 import { normalizeRecordLimits } from '#shared/recordview/recordLimits.js';
 import { buildFileMediaItem, fileMediaUrls } from '#shared/recordview/fileMediaItem.js';
+import { TranslationClient } from '#shared/data/TranslationClient.js';
+import { mediaTag } from '#shared/widgets/rich-text/mediaTag.js';
 
 /** Id prefix of the record editor dialogs (a numbered id each: a pointed record opens over its editor). */
 const DIALOG_ID = 'h-record-editor-dialog';
@@ -71,6 +73,7 @@ export class RecordEditorHost {
    * @param {Function} [options.rectypeIconUrl] `(rectypeId) → url` of record type icons (symbol previews).
    * @param {string} [options.language] UI language.
    * @param {object} [options.recordLimits] Limits of the built-in record view and of Linked records (plan 23).
+   * @param {() => object|null} [options.editorSettings] Settings of the record editor (recordEditorSettings.js, plan 25).
    * @param {Function} [options.onTagsChanged] Called with the record id after its tags changed in the editor.
    * @param {Function} [options.manageTags] Opens the tag manager ("Manage tags" of the Tags panel).
    */
@@ -280,7 +283,16 @@ export class RecordEditorHost {
       fileViewer: this.options.baseUrl ? { baseUrl: this.options.baseUrl, database: this.options.database || '' } : null,
       // links per row in the Record summary's Linked records (plan 23)
       limits: this.options.recordLimits || null,
+      settings: this.options.editorSettings?.() || null,
       onManageTags: this.options.manageTags || null,
+      // Translate in "Insert translated value": the legacy translator (DeepL) when the server has a key (plan 25)
+      // the HTML editor of blocktext fields: URLs relative to Heurist, Media and Record buttons (plan 25)
+      richText: {
+        baseUrl: this.options.baseUrl || '',
+        insertMedia: () => this._insertMedia(dbdefs),
+        insertRecordLink: (text) => this._insertRecordLink(text)
+      },
+      translator: new TranslationClient({ baseUrl: this.options.baseUrl || '', database: this.options.database || '', available: Boolean(dbdefs?.translator?.()) }),
       // a registered file (plan 20 §10.11): hard-coded structure by its type, no Structure pane,
       // the summary without Private and Tags, Linked records = the records that refer to the file
       ...(isFile ? this._fileEditorOptions(dbdefs) : {})
@@ -676,6 +688,74 @@ export class RecordEditorHost {
       ulf_Caption: String(record.rec_Title || ''),
       fxm_MimeType: mimeType.includes('/') ? mimeType : ''
     }, { urls: fileUrls });
+  }
+
+  /**
+   * "Media" of the HTML editor (plan 25): a registered file from the record manager and an
+   * optional caption; its HTML as the legacy editor inserts it (mediaTag.js).
+   *
+   * @returns {Promise<string|null>} HTML, or null when cancelled.
+   */
+  async _insertMedia(dbdefs) {
+    const fileType = Number(dbdefs?.dbconst?.('RT_REGISTERED_FILE')) || 0;
+    if (!(fileType > 0)) throw new Error($HR('This database has no record type for registered files'));
+    const ids = await this.browseRecords({ recordTypes: [fileType], selectMode: 'select', title: $HR('Select media') });
+    if (!ids?.length) return null;
+    const { record } = await this.fileClient.load(ids[0]);
+    if (!record) return null;
+    const { mime, originalName } = systemFieldIds('file', dbdefs);
+    const first = (id) => {
+      const value = id ? record.details?.[String(id)]?.[0] : null;
+      return value && typeof value === 'object' ? value.trm_Label ?? value.value ?? '' : value ?? '';
+    };
+    const mimeLabel = String(first(mime) || '');
+    const mimeType = mimeLabel.includes('/') ? mimeLabel : dbdefs?.termLabel?.(mimeLabel) || '';
+    const local = registeredFileType(record, dbdefs) === 'local' || registeredFileType(record, dbdefs) === 'tiled';
+    const caption = await this._askCaption();
+    if (caption === null) return null;
+    return mediaTag({
+      key: local ? String(record.rec_Hash || '') : '',
+      url: local ? '' : String(record.rec_URL || ''),
+      mime: mimeType,
+      name: String(first(originalName) || record.rec_Title || ''),
+      caption
+    }, { database: this.options.database || '' });
+  }
+
+  /** The caption of inserted media (empty: none); null when cancelled. */
+  async _askCaption() {
+    const { openEditFormDialog } = await import('#shared/widgets/edit-form/editFormDialog.js');
+    const result = await openEditFormDialog({
+      title: $HR('Insert media'),
+      form: { localized: false, groups: [{ id: 'media', type: 'group', children: [
+        { name: 'caption', type: 'freetext', label: 'Caption', help: 'Optional: shown below the media', width: 40 }
+      ] }] },
+      values: { caption: '' },
+      okLabel: 'Insert media'
+    });
+    if (!result) return null;
+    return String(result.caption ?? '').trim();
+  }
+
+  /**
+   * "Record" of the HTML editor (plan 25): a link to a record chosen in the record manager,
+   * stored as legacy (`href="123"`, opened by the record view); its text is the selected text
+   * or the record title.
+   *
+   * @param {string} text Selected text.
+   * @returns {Promise<string|null>} HTML, or null when cancelled.
+   */
+  async _insertRecordLink(text) {
+    const ids = await this.browseRecords({ selectMode: 'select', title: $HR('Link to a record') });
+    const id = Number(ids?.[0]) || 0;
+    if (!(id > 0)) return null;
+    let label = String(text ?? '').trim();
+    if (!label) {
+      const response = await this.options.apiClient.get('/records', { query: { q: `ids:${id}`, fields: 'rec_Title' } });
+      label = String(response?.records?.[0]?.rec_Title ?? '').replace(/<[^>]*>/g, '') || `#${id}`;
+    }
+    const escaped = label.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    return `<a href="${id}" target="_blank">${escaped}</a>`;
   }
 
   /** Add buttons of the registered files' record manager (fileRegistration.js). */

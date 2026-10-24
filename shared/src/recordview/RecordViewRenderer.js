@@ -15,6 +15,7 @@
  */
 import { $HR } from "#shared/ui";
 import { fieldValues, sanitizeTextHtml, looksLikeJson } from "./FieldValueFormatter.js";
+import { sanitizeRichHtml } from "./richTextHtml.js";
 import { geoToHuman } from "../utils/geoText.js";
 import { temporalToHuman } from "../utils/temporal.js";
 import { buildFileMediaItem, fileMediaUrls } from "./fileMediaItem.js";
@@ -400,8 +401,25 @@ export class RecordViewRenderer {
           line.classList.add("heurist-recordview-value-systemformat");
           line.textContent = $HR("Data in system format");
         } else {
-          line.innerHTML = sanitizeTextHtml(plain, { extraTags: ["p"] });
+          // the HTML the server keeps for blocktext (TinyMCE: lists, links, tables, media; plan 25)
+          line.classList.add("heurist-recordview-richtext");
+          line.innerHTML = sanitizeRichHtml(plain, { baseUrl: this.baseUrl, database: this.database });
+          // a record link of the editor's "Record" button opens the record here
+          for (const link of line.querySelectorAll?.("a[data-record-id]") || []) {
+            link.addEventListener("click", (event) => {
+              event.preventDefault();
+              onNavigate(Number(link.dataset.recordId));
+            });
+          }
         }
+        return line;
+      };
+    } else if (field.type === "freetext") {
+      // the inline tags of a record title (u, i, b, strong, em; plan 25)
+      items = fieldValues(record, { field: String(field.id) });
+      buildLine = (text) => {
+        const line = valueLine();
+        line.innerHTML = sanitizeTextHtml(String(text ?? ""));
         return line;
       };
     } else if (field.type === "date") {

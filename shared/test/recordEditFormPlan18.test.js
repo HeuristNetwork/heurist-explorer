@@ -41,7 +41,7 @@ const dbdefs = {
   fieldGlobal: (id) => (Number(id) === 77 ? { id: 77, name: 'Old field', type: 'freetext' } : null)
 };
 
-async function openEditor() {
+async function openEditor(options = {}) {
   const client = {
     async load() { return { record: structuredClone(RECORD), meta: {} }; },
     async update(body) { return { record: body, issues: [] }; }
@@ -50,7 +50,7 @@ async function openEditor() {
   document.body.append(element);
   const editor = new HRecordEditor().attach(element, {
     apiClient: { get: async () => ({ records: [] }) },
-    dbdefs, client, structureProvider: { async editStructure() { return STRUCTURE; } }, recordId: 7
+    dbdefs, client, structureProvider: { async editStructure() { return STRUCTURE; } }, recordId: 7, ...options
   });
   await editor.open();
   return { editor, element };
@@ -90,6 +90,15 @@ test('values outside the structure: last group "Non-standard fields", kept on sa
   assert.deepEqual(editor.getRecord().details[77], ['kept']);
   assert.equal(STRUCTURE.groups.length, 1, 'the cached structure is not changed');
   assert.equal(nonStandardGroup({ details: { 1: ['x'] } }, STRUCTURE, dbdefs), null);
+  await editor.destroy();
+});
+
+test('editor settings (plan 25): "Non-standard fields" off: no group, the values still saved', async () => {
+  const { editor } = await openEditor({ settings: { nonStandardFields: false, showHelp: false } });
+  assert.equal(editor.structure.groups.some((group) => group.nonStandard), false);
+  assert.equal(editor.editForm.getFieldWidget(77), null);
+  assert.deepEqual(editor.getRecord().details[77], ['kept'], 'kept on save');
+  assert.equal(editor._fieldHelpShown(), false, 'Show help from the settings');
   await editor.destroy();
 });
 

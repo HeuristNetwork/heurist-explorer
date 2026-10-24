@@ -75,52 +75,33 @@
 
 .h-edit-field-translations {
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
   gap: 4px;
+  margin-top: 4px;
 }
 
 .h-edit-field-translations:empty {
   display: none;
 }
 
-.h-edit-field-translation {
-  display: inline-flex;
-  align-items: center;
-  max-width: 100%;
-  border: 1px solid var(--h-color-border);
-  border-radius: var(--h-radius);
-  background: var(--h-color-surface);
-}
-
-.h-edit-field-translation-text {
-  overflow: hidden;
-  max-width: 24em;
-  border: 0;
-  padding: 2px 6px;
-  background: transparent;
-  color: var(--h-color-text);
-  cursor: pointer;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.h-edit-field-translation-remove {
-  padding: 0 4px;
-}
-
-.h-edit-field-translate-form {
+/* the "Insert translated value" dialog (plan 25) */
+.h-edit-field-translate-dialog {
   display: flex;
   flex-direction: column;
   gap: var(--h-gap);
-  width: 22em;
-  max-width: calc(100vw - 32px);
-  padding: var(--h-gap);
+  min-width: min(24em, calc(100vw - 64px));
 }
 
-.h-edit-field-translate-buttons {
+.h-edit-field-translate-language {
   display: flex;
-  justify-content: flex-end;
+  align-items: center;
   gap: var(--h-gap);
+}
+
+.h-edit-field-translate-help {
+  margin: 0;
+  color: var(--h-color-text-muted);
+  font-size: var(--h-font-size-small);
 }
 
 .h-edit-field-issues:empty {
