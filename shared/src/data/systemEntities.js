@@ -110,8 +110,8 @@ export const SYSTEM_STRUCTURES = Object.freeze({
       }
     ])
   }),
-  // a user account (plan 20, Phase 4d, §10.13): the fields by DT_* constants (the new ones are
-  // left out until their concept codes are given); the password is written only
+  // a user account (plan 20, Phase 4d, §10.13): the fields by DT_* constants (codes in srv
+  // UserGroupCodes; a field the database lacks is left out); the password is written only
   user: Object.freeze({
     rectype: SYSTEM_RECORD_TYPES.user,
     rows: Object.freeze([

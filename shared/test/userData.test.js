@@ -119,7 +119,7 @@ test('ReminderClient: the reminders of a record and Send now (not saved)', async
   assert.deepEqual(api.calls[1][2].details, { 23: ['a@example.org'], 4: ['Now'], 13: ['81'] });
 });
 
-test('HRecordPrivate: the bookmark and reminders read-only with pens; Bookmark and Add reminder when there are none', async () => {
+test('HRecordPrivate: the bookmark and reminders read-only with pens; plus buttons to add', async () => {
   const api = fakeApi();
   const element = host();
   const panel = new HRecordPrivate().attach(element, { apiClient: api, dbdefs, recordId: 81 }).render();
@@ -130,8 +130,9 @@ test('HRecordPrivate: the bookmark and reminders read-only with pens; Bookmark a
   assert.match(text, /hint/);
   assert.match(text, /Weekly · 2026-11-01 → Database managers/);
   assert.match(text, /Look/);
-  assert.equal(element.querySelectorAll('.h-record-private-tools').length, 2);
-  assert.match(text, /Add reminder/);
+  // pens of the bookmark and the reminder, the plus in the Reminders heading
+  assert.equal(element.querySelectorAll('.h-record-private-tools').length, 3);
+  assert.equal(element.querySelectorAll('.fa-circle-plus').length, 1);
   await panel.destroy();
 
   const empty = {

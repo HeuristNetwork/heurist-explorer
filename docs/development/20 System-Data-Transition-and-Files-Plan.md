@@ -1273,6 +1273,11 @@ Deviations and details:
   (`buildFileMediaItem`: thumbnail or player, OSD / Mirador / Download / new tab), the same for local and
   external files; the replace-mode HInputFile shows no thumbnail of its own.
 - Tests: `shared/test/recordManager.test.js` (2), `shared/test/fileEditor.test.js` (3); all 1366 client tests pass.
+- **Review (Artem, 2026-10-24):** the file editor hides the empty west pane (`structurePane: false` now hides the
+  HCardinalLayout west region, which is shown by default); in `manager` mode a file added by an Add button (Upload,
+  URL, Tile stack) is opened in the file editor at once (select modes: the new file is the selection and the
+  manager closes, as before); Record summary → Private: the Add buttons are `fa-circle-plus` icon buttons on the
+  right, beside "Not bookmarked" / "No reminders", or in the Reminders heading when there are reminders.
 
 ### 10.13 Phase 4d: users and groups, entity images (Artem, 2026-10-23; not committed)
 
@@ -1332,6 +1337,23 @@ usr_ExternalAuthentication (kept as they are). User title: "Ian Johnson (ijohnso
   exist), `SystemQueryTest` (user section in the record format), `SystemTagTest` (the read-only check moved to
   filters); client `shared/test/userGroups.test.js` (5), `apps/explorer/test/explorerUserGroupManager.test.js` (2);
   all 1373 client tests pass. Not checked in a browser.
-- **Open:** the concept codes of the new fields (and the status vocabulary) from Artem; the groups of a user as a
-  read-only list in the user form (left out for now).
+- **Open:** the concept codes of the group Admins / Members fields (DT_GROUP_ADMINS / DT_GROUP_MEMBERS); the groups
+  of a user as a read-only list in the user form (left out for now).
+- **User field codes (Artem, 2026-10-24)**, in `UserGroupCodes.php`:
+
+  | Column | Constant | Code |
+  |---|---|---|
+  | ugr_Name | DT_LOGIN_NAME | 2-1194 (new) |
+  | ugr_Password | DT_PASSWORD | 2-1195 (new) |
+  | ugr_Interests | DT_RESEARCH_INTERESTS | 2-1196 (new) |
+  | ugr_City / State / Postcode | DT_ADDRESS | 2-1197 (new) |
+  | ugr_Organisation | DT_ORGANISATION_NAME | 2-1198 (new) |
+  | ugr_Enabled | DT_ACCOUNT_STATUS, vocabulary TRM_ACCOUNT_STATUS | 2-1199 (new), 2-10566 |
+  | ugr_LastLoginTime | DT_LAST_LOGIN | 2-9 (core "Date") |
+  | ugr_LoginCount | DT_LOGIN_COUNT | 2-1189 (core "Usage count") |
+  | ugr_ORCID | DT_ORCID | 2-37 (core "Unique public identifier") |
+
+  The new fields and the vocabulary are not yet in `osmak_mapping` (checked 2026-10-24): until they are imported
+  they are left out, and the write part of `SystemUserGroupTest.php` (a new user needs the login name) is skipped.
+  The status terms are matched by term code (`y`, `n`, `y_no_add`, `y_no_delete`, `y_no_add_delete`), else label.
 

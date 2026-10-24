@@ -4,10 +4,11 @@
  *        of the record editor's Record summary.
  *
  * Two blocks, values read-only with a pen (as Owner and access in Admin):
- * - the bookmark of the user: rating, notes, private note; "Bookmark" when there is
- *   none, the pen edits it in a popup HEditForm, the bin removes it;
+ * - the bookmark of the user: rating, notes, private note; a plus beside "Not bookmarked"
+ *   when there is none, the pen edits it in a popup HEditForm, the bin removes it;
  * - the user's reminders on the record: one line each (frequency, start date,
- *   recipient, message) with a pen and a bin; "Add reminder". The popup has Save and
+ *   recipient, message) with a pen and a bin; a plus (fa-circle-plus) on the right of the heading, or
+ *   beside "No reminders". The popup has Save and
  *   Send now (sent at once, not saved; legacy "Send immediately").
  * The forms are the hard-coded structures of systemEntities.js. The changes are sent
  * at once (like tags): bookmarks and reminders are not fields of the record.
@@ -100,15 +101,12 @@ export class HRecordPrivate extends HBaseWidget {
     this.container.replaceChildren(this._renderBookmark(), this._renderReminders());
   }
 
-  /** Bookmark: the values with pen and bin, or "Bookmark". */
+  /** Bookmark: the values with pen and bin, or "Not bookmarked" with a plus. */
   _renderBookmark() {
     const block = this._block('Bookmark');
     const bookmark = this.bookmark;
     if (!bookmark) {
-      block.append(this._note($HR('Not bookmarked')));
-      if (!this.options.readOnly) {
-        block.append(this._button('Bookmark', 'fa-bookmark', () => void this._editBookmark()));
-      }
+      block.append(this._empty($HR('Not bookmarked'), 'Bookmark this record', () => void this._editBookmark()));
       return block;
     }
     const row = document.createElement('div');
@@ -130,10 +128,15 @@ export class HRecordPrivate extends HBaseWidget {
     return block;
   }
 
-  /** Reminders: one line each with pen and bin, and "Add reminder". */
+  /** Reminders: one line each with pen and bin; a plus in the heading, or beside "No reminders". */
   _renderReminders() {
-    const block = this._block('Reminders');
-    if (!this.reminderList.length) block.append(this._note($HR('No reminders')));
+    const add = () => void this._editReminder(null);
+    if (!this.reminderList.length) {
+      const block = this._block('Reminders');
+      block.append(this._empty($HR('No reminders'), 'Add reminder', add));
+      return block;
+    }
+    const block = this._block('Reminders', this.options.readOnly ? null : this._tools([['fa-circle-plus', 'Add reminder', add]]));
     for (const reminder of this.reminderList) {
       const row = document.createElement('div');
       row.className = 'h-record-private-item';
@@ -157,7 +160,6 @@ export class HRecordPrivate extends HBaseWidget {
       }
       block.append(row);
     }
-    if (!this.options.readOnly) block.append(this._button('Add reminder', 'fa-bell', () => void this._editReminder(null)));
     return block;
   }
 
@@ -320,14 +322,28 @@ export class HRecordPrivate extends HBaseWidget {
     HMsg.showMsgErr(message, { title: $HR(title) });
   }
 
-  _block(title) {
+  /** A block with its heading and the icon buttons of the heading on the right. */
+  _block(title, tools = null) {
     const block = document.createElement('div');
     block.className = 'h-record-private-block';
     const heading = document.createElement('div');
-    heading.className = 'h-record-private-heading h-i18n';
-    heading.textContent = $HR(title);
+    heading.className = 'h-record-private-heading';
+    const caption = document.createElement('span');
+    caption.className = 'h-i18n';
+    caption.textContent = $HR(title);
+    heading.append(caption);
+    if (tools) heading.append(tools);
     block.append(heading);
     return block;
+  }
+
+  /** "Not bookmarked" / "No reminders" with the plus button on the right. */
+  _empty(text, title, run) {
+    const row = document.createElement('div');
+    row.className = 'h-record-private-item h-record-private-empty';
+    row.append(this._note(text));
+    if (!this.options.readOnly) row.append(this._tools([['fa-circle-plus', title, run]]));
+    return row;
   }
 
   _line(lines, label, value) {
@@ -357,21 +373,6 @@ export class HRecordPrivate extends HBaseWidget {
       tools.append(button);
     }
     return tools;
-  }
-
-  _button(label, icon, run) {
-    const button = document.createElement('button');
-    button.type = 'button';
-    button.className = 'h-btn h-btn-small h-record-private-add';
-    const glyph = document.createElement('span');
-    glyph.className = `fa-solid ${icon}`;
-    glyph.setAttribute('aria-hidden', 'true');
-    const text = document.createElement('span');
-    text.className = 'h-i18n';
-    text.textContent = $HR(label);
-    button.append(glyph, text);
-    this.listen(button, 'click', run);
-    return button;
   }
 
   _note(text) {

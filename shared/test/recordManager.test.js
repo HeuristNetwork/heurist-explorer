@@ -94,6 +94,21 @@ test('manager mode: after an add the list reloads and selects the new record; no
   assert.deepEqual(widget.getSelection(), [56]);
 });
 
+test('manager mode: a record added by a host action (file upload) is opened in the editor', async () => {
+  const edited = [];
+  const { widget } = manager({
+    recordTypes: [60],
+    selectMode: 'manager',
+    addActions: [{ id: 'upload', label: 'Upload', run: async () => ({ saved: true, recordId: 91 }) }],
+    editRecord: async (id) => { edited.push(id); return { saved: false }; }
+  });
+  await widget._add(null, widget.options.addActions[0].run);
+  assert.deepEqual(edited, [91]);
+  // addRecord opens its own editor: not again
+  await widget._add(60);
+  assert.deepEqual(edited, [91]);
+});
+
 test('Select: last selected in select mode, all in select_multi; nothing without a selection', () => {
   const one = manager({ recordTypes: [10], selectMode: 'select' });
   assert.deepEqual(one.widget.select(), []);

@@ -14,12 +14,24 @@
 }
 
 .h-record-private-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
   font-weight: 600;
 }
 
 .h-record-private-note {
   color: var(--h-color-text-muted);
   font-style: italic;
+}
+
+.h-record-private-empty {
+  align-items: center;
+}
+
+.h-record-private-empty .h-record-private-note {
+  flex: 1 1 auto;
 }
 
 .h-record-private-item {
@@ -61,13 +73,6 @@
   flex: 0 0 auto;
   display: flex;
   gap: 2px;
-}
-
-.h-record-private-add {
-  align-self: flex-start;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
 }
 
 .h-record-private-dialog {

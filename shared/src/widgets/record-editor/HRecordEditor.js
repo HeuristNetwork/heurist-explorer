@@ -456,6 +456,9 @@ export class HRecordEditor extends HBaseWidget {
       this.structurePane = this._renderStructurePane();
       this.cardinal.setContent('west', this.structurePane);
       this.cardinal.show('west');
+    } else {
+      // HCardinalLayout shows west at start
+      this.cardinal.hide('west');
     }
     this.summary = this._renderSummary(header);
     this.cardinal.setContent('east', this.summary);
@@ -472,6 +475,7 @@ export class HRecordEditor extends HBaseWidget {
     this.cardinal.addEventListener('regioncollapsechange', sync);
     sync();
     const syncStructure = () => {
+      if (!this.structureToggle) return;
       const isCollapsed = this.cardinal.state.west.collapsed === true;
       this.structureToggleIcon.className = `fa-solid ${isCollapsed ? 'fa-angles-right' : 'fa-angles-left'}`;
       this.structureToggle.title = isCollapsed ? $HR('Show the structure') : $HR('Hide the structure');

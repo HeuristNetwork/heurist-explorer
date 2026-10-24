@@ -860,6 +860,7 @@
 #Reminders#Rappels
 #Reminder#Rappel
 #Not bookmarked#Pas de signet
+#Bookmark this record#Ajouter un signet à cet enregistrement
 #Rating#Évaluation
 #Not rated#Non évalué
 #Notes#Notes

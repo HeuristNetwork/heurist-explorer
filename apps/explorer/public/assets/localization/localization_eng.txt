@@ -860,6 +860,7 @@
 #Reminders#Reminders
 #Reminder#Reminder
 #Not bookmarked#Not bookmarked
+#Bookmark this record#Bookmark this record
 #Rating#Rating
 #Not rated#Not rated
 #Notes#Notes

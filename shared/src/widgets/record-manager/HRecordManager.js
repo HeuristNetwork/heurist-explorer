@@ -90,7 +90,8 @@ export class HRecordManager extends HBaseWidget {
    * @param {Function} [options.canAddRecordType] Host: `(rectypeId|null) → boolean`; default: yes.
    * @param {Array<{id: string, icon: string, label: string, run: Function}>} [options.addActions] Add buttons of
    *        the host instead of "Add new <type>" (registered files: Upload, Register URL); `run()` →
-   *        `Promise<{saved, recordId}>` as `addRecord`.
+   *        `Promise<{saved, recordId}>` as `addRecord`; in `manager` mode the new record is then opened
+   *        with `editRecord`, in select modes it is the selection.
    * @param {Function} [options.editRecord] Host: `(id) → Promise<{saved}>` (pen button; double-click in `manager` mode).
    * @param {Function} [options.viewRecord] Host: `(id)` ("i" button).
    * @param {*} [options.query] Extra conditions added to the record type query (`rst_PointerBrowseFilter`, Phase 3);
@@ -367,7 +368,8 @@ export class HRecordManager extends HBaseWidget {
 
   /**
    * Add a record of a type through the host. Select modes: the new record is the
-   * selection and the manager finishes; manager mode: the list reloads and selects it.
+   * selection and the manager finishes; manager mode: the list reloads and selects it
+   * (and a record added by a host action is opened in the editor).
    */
   async _add(rectypeId, run = null) {
     let result;
@@ -386,6 +388,8 @@ export class HRecordManager extends HBaseWidget {
     await this.reload();
     await this.list?.setSelection([id]);
     this._selectionChanged([id]);
+    // a host action registers the record without an editor (files: Upload, URL): edit it now
+    if (run) await this._edit(id);
   }
 
   /** Edit through the host; reload the list after a save (titles may change). */
