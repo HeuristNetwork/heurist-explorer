@@ -923,3 +923,46 @@
 #Uploading#Téléversement de
 #This URL is registered already#Cette URL est déjà enregistrée
 #This database has no record type for registered files#Cette base n'a pas de type d'enregistrement pour les fichiers enregistrés
+#Manage users#Gérer les utilisateurs
+#Manage groups#Gérer les groupes
+#Add new user#Ajouter un utilisateur
+#Add new group#Ajouter un groupe
+#User#Utilisateur
+#New user#Nouvel utilisateur
+#New group#Nouveau groupe
+#Login name#Nom de connexion
+#Password#Mot de passe
+#Repeat the password#Répéter le mot de passe
+#Leave empty to keep the password#Laisser vide pour garder le mot de passe
+#Account status#Statut du compte
+#Set by administrators#Défini par les administrateurs
+#Given names#Prénoms
+#Family name#Nom de famille
+#Organisation#Organisation
+#Department#Département
+#Address#Adresse
+#City, state and postcode, one line each#Ville, état et code postal, un par ligne
+#Research interests#Intérêts de recherche
+#URL(s)#URL(s)
+#Separated by commas#Séparées par des virgules
+#ORCID iD#ORCID iD
+#Written as 0000-0000-0000-0000#Écrit 0000-0000-0000-0000
+#Last login#Dernière connexion
+#Login count#Nombre de connexions
+#Long name#Nom long
+#A short name, unique among groups and users#Un nom court, unique parmi les groupes et les utilisateurs
+#Members#Membres
+#Admins#Administrateurs
+#A group has at least one admin#Un groupe a au moins un administrateur
+#Picture#Photo
+#Logo#Logo
+#Upload an image; it is changed at once#Téléverser une image ; elle est changée immédiatement
+#Remove the image#Supprimer l'image
+#No image#Pas d'image
+#The two passwords are not the same#Les deux mots de passe ne sont pas identiques
+#Not saved#Non enregistré
+#Log in to manage users and groups#Connectez-vous pour gérer les utilisateurs et les groupes
+#This database has no record type for users and groups#Cette base n'a pas de type d'enregistrement pour les utilisateurs et les groupes
+#Add users, change their accounts and status (administrators); change your own account#Ajouter des utilisateurs, modifier leurs comptes et statuts (administrateurs) ; modifier votre propre compte
+#Add groups, change their members and admins#Ajouter des groupes, modifier leurs membres et administrateurs
+#An e-mail address#Une adresse e-mail

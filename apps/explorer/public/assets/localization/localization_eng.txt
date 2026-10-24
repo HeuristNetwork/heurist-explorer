@@ -923,3 +923,46 @@
 #Uploading#Uploading
 #This URL is registered already#This URL is registered already
 #This database has no record type for registered files#This database has no record type for registered files
+#Manage users#Manage users
+#Manage groups#Manage groups
+#Add new user#Add new user
+#Add new group#Add new group
+#User#User
+#New user#New user
+#New group#New group
+#Login name#Login name
+#Password#Password
+#Repeat the password#Repeat the password
+#Leave empty to keep the password#Leave empty to keep the password
+#Account status#Account status
+#Set by administrators#Set by administrators
+#Given names#Given names
+#Family name#Family name
+#Organisation#Organisation
+#Department#Department
+#Address#Address
+#City, state and postcode, one line each#City, state and postcode, one line each
+#Research interests#Research interests
+#URL(s)#URL(s)
+#Separated by commas#Separated by commas
+#ORCID iD#ORCID iD
+#Written as 0000-0000-0000-0000#Written as 0000-0000-0000-0000
+#Last login#Last login
+#Login count#Login count
+#Long name#Long name
+#A short name, unique among groups and users#A short name, unique among groups and users
+#Members#Members
+#Admins#Admins
+#A group has at least one admin#A group has at least one admin
+#Picture#Picture
+#Logo#Logo
+#Upload an image; it is changed at once#Upload an image; it is changed at once
+#Remove the image#Remove the image
+#No image#No image
+#The two passwords are not the same#The two passwords are not the same
+#Not saved#Not saved
+#Log in to manage users and groups#Log in to manage users and groups
+#This database has no record type for users and groups#This database has no record type for users and groups
+#Add users, change their accounts and status (administrators); change your own account#Add users, change their accounts and status (administrators); change your own account
+#Add groups, change their members and admins#Add groups, change their members and admins
+#An e-mail address#An e-mail address

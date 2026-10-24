@@ -11,6 +11,10 @@
  * Each row has a `key`: the name of the field in plain objects and in the HEditForm
  * values (`{rating: 3, notes: '...'}`); `form` adds HEditForm properties
  * (`minValue`, `maxLength`, `temporal`...). Fields the database lacks are left out.
+ * A row names its field by concept code (`concept`), or by a DT_* constant (`constant`,
+ * users and groups, plan 20 Phase 4d: the server's UserGroupCodes, read as `dbconst`);
+ * its vocabulary by `vocabulary` (concept code) or `vocabularyConstant`. `max: 0` is a
+ * repeatable field (an array in plain values).
  *
  *   const form = systemEditForm('bookmark', dbdefs, { omit: ['record'] });
  *   const values = systemValues('bookmark', record, dbdefs);   // record -> {key: value}
@@ -106,6 +110,67 @@ export const SYSTEM_STRUCTURES = Object.freeze({
       }
     ])
   }),
+  // a user account (plan 20, Phase 4d, §10.13): the fields by DT_* constants (the new ones are
+  // left out until their concept codes are given); the password is written only
+  user: Object.freeze({
+    rectype: SYSTEM_RECORD_TYPES.user,
+    rows: Object.freeze([
+      {
+        key: 'login', constant: 'DT_LOGIN_NAME', rst_DisplayName: 'Login name', dty_Type: 'freetext',
+        rst_RequirementType: 'required', form: { maxLength: 63 }
+      },
+      {
+        key: 'email', constant: 'DT_EMAIL', rst_DisplayName: 'E-mail', dty_Type: 'freetext', rst_RequirementType: 'required',
+        form: { maxLength: 100, pattern: '^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$', patternMessage: 'An e-mail address' }
+      },
+      {
+        key: 'password', constant: 'DT_PASSWORD', rst_DisplayName: 'Password', dty_Type: 'freetext',
+        rst_DisplayHelpText: 'Leave empty to keep the password', form: { inputType: 'password' }
+      },
+      {
+        key: 'status', constant: 'DT_ACCOUNT_STATUS', rst_DisplayName: 'Account status', dty_Type: 'enum',
+        vocabularyConstant: 'TRM_ACCOUNT_STATUS', rst_DisplayHelpText: 'Set by administrators'
+      },
+      { key: 'givenNames', constant: 'DT_GIVEN_NAMES', rst_DisplayName: 'Given names', dty_Type: 'freetext', form: { maxLength: 40 } },
+      { key: 'familyName', constant: 'DT_NAME', rst_DisplayName: 'Family name', dty_Type: 'freetext', form: { maxLength: 63 } },
+      {
+        key: 'organisation', constant: 'DT_ORGANISATION_NAME', rst_DisplayName: 'Organisation', dty_Type: 'freetext',
+        form: { maxLength: 120 }
+      },
+      { key: 'department', constant: 'DT_DEPARTMENT', rst_DisplayName: 'Department', dty_Type: 'freetext', form: { maxLength: 120 } },
+      {
+        key: 'address', constant: 'DT_ADDRESS', rst_DisplayName: 'Address', dty_Type: 'blocktext',
+        rst_DisplayHelpText: 'City, state and postcode, one line each', form: { rows: 3 }
+      },
+      {
+        key: 'interests', constant: 'DT_RESEARCH_INTERESTS', rst_DisplayName: 'Research interests', dty_Type: 'freetext',
+        form: { maxLength: 255 }
+      },
+      { key: 'urls', constant: 'DT_URL', rst_DisplayName: 'URL(s)', dty_Type: 'freetext', rst_DisplayHelpText: 'Separated by commas' },
+      {
+        key: 'orcid', constant: 'DT_ORCID', rst_DisplayName: 'ORCID iD', dty_Type: 'freetext',
+        form: { pattern: '^\\d{4}-\\d{4}-\\d{4}-\\d{3}[\\dX]$', patternMessage: 'Written as 0000-0000-0000-0000' }
+      },
+      { key: 'lastLogin', constant: 'DT_LAST_LOGIN', rst_DisplayName: 'Last login', dty_Type: 'freetext', form: { readOnly: true } },
+      { key: 'loginCount', constant: 'DT_LOGIN_COUNT', rst_DisplayName: 'Login count', dty_Type: 'integer', form: { readOnly: true } }
+    ])
+  }),
+  // a workgroup (plan 20, Phase 4d): its members are edited apart (UserGroupClient.setMembers)
+  group: Object.freeze({
+    rectype: SYSTEM_RECORD_TYPES.group,
+    rows: Object.freeze([
+      {
+        key: 'name', constant: 'DT_NAME', rst_DisplayName: 'Name', dty_Type: 'freetext', rst_RequirementType: 'required',
+        rst_DisplayHelpText: 'A short name, unique among groups and users', form: { maxLength: 63 }
+      },
+      { key: 'longName', constant: 'DT_SHORT_SUMMARY', rst_DisplayName: 'Long name', dty_Type: 'freetext', form: { maxLength: 128 } },
+      {
+        key: 'description', constant: 'DT_EXTENDED_DESCRIPTION', rst_DisplayName: 'Description', dty_Type: 'blocktext',
+        form: { maxLength: 1000 }
+      },
+      { key: 'urls', constant: 'DT_URL', rst_DisplayName: 'URL(s)', dty_Type: 'freetext', rst_DisplayHelpText: 'Separated by commas' }
+    ])
+  }),
   // registered file (plan 20, §10.11): the fields of the record; the content, its URL and
   // download URL are added by fileEditStructure. Not in the form: stored name and folder
   // (2-62, 2-63, admins only), MD5 (2-68), configuration (2-1187)
@@ -151,9 +216,10 @@ export function systemEditRows(type, dbdefs) {
   const definition = definitionOf(type);
   const rows = [];
   for (const [index, row] of definition.rows.entries()) {
-    const dty = Number(dbdefs?.localId?.('dty', row.concept)) || 0;
+    const dty = rowFieldId(row, dbdefs);
     if (!dty) continue;
-    const vocabulary = row.vocabulary ? Number(dbdefs.localId('trm', row.vocabulary)) || 0 : 0;
+    const vocabulary = row.vocabularyConstant ? Number(dbdefs?.dbconst?.(row.vocabularyConstant)) || 0
+      : row.vocabulary ? Number(dbdefs.localId('trm', row.vocabulary)) || 0 : 0;
     const targets = (row.targetTypes || []).map((code) => Number(dbdefs.localId('rty', code)) || 0).filter(Boolean);
     rows.push({
       key: row.key,
@@ -164,7 +230,7 @@ export function systemEditRows(type, dbdefs) {
       rst_RequirementType: row.rst_RequirementType || 'optional',
       rst_DefaultValue: row.rst_DefaultValue ?? '',
       rst_DisplayHelpText: row.rst_DisplayHelpText || '',
-      rst_MaxValues: 1,
+      rst_MaxValues: row.max ?? 1,
       dty_Type: row.dty_Type,
       dty_Name: row.rst_DisplayName,
       dty_JsonTermIDTree: vocabulary ? String(vocabulary) : '',
@@ -217,13 +283,19 @@ export function systemEditForm(type, dbdefs, { omit = [], fields = {} } = {}) {
  */
 export function systemFieldIds(type, dbdefs) {
   const ids = {};
-  for (const row of definitionOf(type).rows) ids[row.key] = Number(dbdefs?.localId?.('dty', row.concept)) || 0;
+  for (const row of definitionOf(type).rows) ids[row.key] = rowFieldId(row, dbdefs);
   return ids;
+}
+
+/** @returns {number} Local field id of a structure row: its DT_* constant, else its concept code (0: none). */
+function rowFieldId(row, dbdefs) {
+  if (row.constant) return Number(dbdefs?.dbconst?.(row.constant)) || 0;
+  return Number(dbdefs?.localId?.('dty', row.concept)) || 0;
 }
 
 /**
  * Plain values of a record of a system type: `{key: value}` (the first value of a field,
- * '' when empty).
+ * '' when empty; a repeatable field (`max: 0`): all its values).
  *
  * @param {string} type 'bookmark' | 'reminder'.
  * @param {object|null} record Record of `/sys/{type}`.
@@ -232,10 +304,14 @@ export function systemFieldIds(type, dbdefs) {
  */
 export function systemValues(type, record, dbdefs) {
   const values = {};
+  const plain = (value) => {
+    const item = value && typeof value === 'object' ? value.value ?? value.id ?? '' : value;
+    return item === undefined || item === null ? '' : String(item);
+  };
+  const repeatable = new Set(definitionOf(type).rows.filter((row) => row.max === 0).map((row) => row.key));
   for (const [key, id] of Object.entries(systemFieldIds(type, dbdefs))) {
-    let value = id ? record?.details?.[String(id)]?.[0] : undefined;
-    if (value && typeof value === 'object') value = value.value ?? value.id ?? '';
-    values[key] = value === undefined || value === null ? '' : String(value);
+    const list = id ? record?.details?.[String(id)] || [] : [];
+    values[key] = repeatable.has(key) ? list.map(plain).filter(Boolean) : plain(list[0]);
   }
   return values;
 }
@@ -252,10 +328,12 @@ export function systemValues(type, record, dbdefs) {
 export function systemDetails(type, values, dbdefs) {
   const details = {};
   const ids = systemFieldIds(type, dbdefs);
+  const text = (value) => (value === null || value === undefined ? '' : String(value).trim());
   for (const [key, value] of Object.entries(values || {})) {
     if (!ids[key]) continue;
-    const text = value === null || value === undefined ? '' : String(value).trim();
-    details[String(ids[key])] = text === '' ? [] : [text];
+    // a repeatable field: its values
+    const list = Array.isArray(value) ? value.map(text).filter(Boolean) : [text(value)].filter(Boolean);
+    details[String(ids[key])] = list;
   }
   return details;
 }

@@ -10,6 +10,9 @@
  * §10.11): the current file is shown; an upload is not registered, the value is its token,
  * which the editor sends with the save (`upload`) to replace the content.
  *
+ * Entity-image mode (`entityImage: {client, id}`, a user or group, plan 20 Phase 4d): the one
+ * image of the entity (UserGroupClient); an upload or Remove changes it at once; no value.
+ *
  * @project     Heurist academic knowledge management system
  * @package     heurist-client-core
  *
@@ -55,11 +58,14 @@ export class HInputFile extends HInput {
    *        media item as the built-in record view, fileMediaItem.js).
    * @param {boolean} [options.replace] Replace mode: `file` is the current content, the value is the
    *        token of a new upload (none: the content stays).
+   * @param {{client: object, id: number}} [options.entityImage] Entity-image mode: the client of the
+   *        entity (`image`, `putImage`, `removeImage`) and its id.
    * @returns {HInputFile} This input.
    */
   attach(container, options = {}) {
     super.attach(container, options);
     this.replace = options.replace === true;
+    this.entity = options.entityImage?.client && Number(options.entityImage.id) > 0 ? options.entityImage : null;
     this.file = options.file || null;
     this._pending = null;
     const api = options.apiClient || null;
@@ -97,8 +103,8 @@ export class HInputFile extends HInput {
     this.nameText = document.createElement('span');
     this.nameText.className = 'h-input-file-text';
     let control = this.nameText;
-    if (this.replace) {
-      // the current file and, after an upload, the new one (no picker)
+    if (this.replace || this.entity) {
+      // the current file and, after an upload, the new one; or the entity image (no picker)
     } else if (this._canBrowse()) {
       // the record manager of registered files, as a pointer field in addorbrowse mode (plan 21)
       control = this._renderBrowseButton(group);
@@ -192,6 +198,7 @@ export class HInputFile extends HInput {
 
   /** @returns {number|string|null} File id (replace mode: the token of the new content). */
   getValue() {
+    if (this.entity) return null;
     if (this.replace) return this.value ? String(this.value) : null;
     const value = this.combo ? this.combo.getValue() : this.value;
     return Number(value) > 0 ? Number(value) : null;
@@ -263,6 +270,11 @@ export class HInputFile extends HInput {
         signal: controller.signal,
         onProgress: (sent, total) => this._showProgress(total > 0 ? sent / total : 0)
       });
+      if (this.entity) {
+        // the image of the entity changes at once
+        this._setEntityImage(await this.entity.client.putImage(this.entity.id, upload.token));
+        return upload.token;
+      }
       if (this.replace) {
         // the save sends the token; a previous new content goes
         if (this.value) this.uploader.cancel(String(this.value)).catch(() => {});
@@ -347,6 +359,8 @@ export class HInputFile extends HInput {
       ? make('fa-pen', 'Edit file details', () => this._edit()) : null;
     // replace mode: keep the current content (the new upload goes)
     this.keepButton = this.replace ? make('fa-rotate-left', 'Keep the current file', () => this._keepCurrent()) : null;
+    this.removeImageButton = this.entity ? make('fa-trash-can', 'Remove the image', () => this._removeEntityImage()) : null;
+    if (this.entity) void this._loadEntityImage();
     this.cancelButton = make('fa-xmark', 'Cancel the upload', () => this._busy?.abort());
     place(actions);
     this._syncActions();
@@ -447,7 +461,41 @@ export class HInputFile extends HInput {
   }
 
   /** Thumbnail, the file name (without a picker) and the open preview of the current file. */
+  /** Entity-image mode: the image of the entity. */
+  async _loadEntityImage() {
+    try {
+      this._setEntityImage(await this.entity.client.image(this.entity.id));
+    } catch (error) {
+      this._error(error);
+    }
+  }
+
+  /** Entity-image mode: remove the image (at once). */
+  async _removeEntityImage() {
+    try {
+      this._setEntityImage(await this.entity.client.removeImage(this.entity.id));
+    } catch (error) {
+      this._error(error);
+    }
+  }
+
+  /** Entity-image mode: show an image (`{url, thumbnail}`) or none. */
+  _setEntityImage(image) {
+    this.entityImage = image || null;
+    if (!this.thumb) return;
+    this.thumb.hidden = !this.entityImage;
+    // a new image under the same URL: no cached thumbnail
+    if (this.entityImage) this.thumb.src = `${this.entityImage.thumbnail}&t=${Date.now()}`;
+    else this.thumb.removeAttribute('src');
+    if (this.nameText) this.nameText.textContent = this.entityImage ? '' : $HR('No image');
+    this._syncActions();
+  }
+
   _renderSummary() {
+    if (this.entity) {
+      this._syncActions();
+      return;
+    }
     if (!this.thumb) return;
     // replace mode: the current file is shown, the value is the new content
     const file = this.replace || this.value ? this.file : null;
@@ -538,6 +586,11 @@ export class HInputFile extends HInput {
     if (this.uploadButton) this.uploadButton.hidden = busy || locked || (chosen && !this.replace);
     if (this.urlButton) this.urlButton.hidden = busy || locked || chosen || this.replace;
     if (this.keepButton) this.keepButton.hidden = busy || locked || !this.value;
+    if (this.entity) {
+      if (this.uploadButton) this.uploadButton.hidden = busy || locked;
+      if (this.urlButton) this.urlButton.hidden = true;
+      if (this.removeImageButton) this.removeImageButton.hidden = busy || locked || !this.entityImage;
+    }
     if (this.editButton) this.editButton.hidden = busy || locked || !(this.getValue() > 0);
     if (this.cancelButton) this.cancelButton.hidden = !busy;
     this.combo?.setReadOnly(locked || busy);

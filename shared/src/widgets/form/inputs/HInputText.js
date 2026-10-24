@@ -34,7 +34,8 @@ export class HInputText extends HInput {
     if (multiline) {
       control.rows = Math.max(2, Number(this.options.rows) || 3);
     } else {
-      control.type = this.options.inputType === 'url' ? 'url' : 'text';
+      control.type = ['url', 'password'].includes(this.options.inputType) ? this.options.inputType : 'text';
+      if (this.options.inputType === 'password') control.autocomplete = 'new-password';
     }
 
     this.listen(control, 'input', () => {

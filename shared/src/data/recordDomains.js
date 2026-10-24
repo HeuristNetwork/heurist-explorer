@@ -34,7 +34,10 @@ export const RECORDS_DOMAIN = 'records';
 export const RECORD_TYPE_DOMAINS = Object.freeze({
   RT_REGISTERED_FILE: Object.freeze({ domain: 'files' }),
   RT_USER_BOOKMARKS: Object.freeze({ domain: 'system', type: 'bookmark' }),
-  RT_USER_REMINDERS: Object.freeze({ domain: 'system', type: 'reminder' })
+  RT_USER_REMINDERS: Object.freeze({ domain: 'system', type: 'reminder' }),
+  // users and groups on /sys in the record format (plan 20, Phase 4d)
+  RT_SYS_USER: Object.freeze({ domain: 'sys', type: 'user' }),
+  RT_SYS_GROUP: Object.freeze({ domain: 'sys', type: 'group' })
 });
 
 /**
@@ -59,7 +62,7 @@ export function recordTypeDomain(dbdefs, rectypeId) {
 }
 
 /**
- * Domain name of a record type: `records`, `files` or `system`.
+ * Domain name of a record type: `records`, `files`, `system` or `sys`.
  *
  * @param {object|null} dbdefs HDbDefs.
  * @param {number|string} rectypeId Record type id.

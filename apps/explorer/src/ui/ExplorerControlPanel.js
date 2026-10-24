@@ -532,7 +532,9 @@ export class ExplorerControlPanel {
       onGettingStarted: () => this.application.showWelcome(),
       onQueryTrace: () => this.application.showQueryTrace(),
       onManageTags: () => void this.application.manageTags(),
-      onManageFiles: () => void this.application.manageFiles()
+      onManageFiles: () => void this.application.manageFiles(),
+      onManageUsers: () => void this.application.manageUsers(),
+      onManageGroups: () => void this.application.manageGroups()
     }).open();
   }
 

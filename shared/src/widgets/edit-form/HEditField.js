@@ -654,6 +654,8 @@ export class HEditField extends HBaseWidget {
           // replace mode (a registered file's own content, plan 20 §10.11): the current file of the field
           file: entry.file || field.file || null,
           replace: field.replace === true,
+          // the image of a user or group (plan 20 Phase 4d): changed at once
+          entityImage: field.entityImage || null,
           fileUrl: this.options.fileUrl,
           apiClient: this.options.apiClient,
           editFile: this.options.editFile,
@@ -687,7 +689,8 @@ export class HEditField extends HBaseWidget {
           selectGeometry: this.options.selectGeometry
         };
       default:
-        return options;
+        // a password field (a user account, plan 20 Phase 4d): the text is not shown
+        return field.inputType === 'password' ? { ...options, inputType: 'password' } : options;
     }
   }
 

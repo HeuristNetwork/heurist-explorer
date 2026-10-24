@@ -206,6 +206,8 @@ export class ExplorerPaneToolbar {
       ['Getting started', () => app.showWelcome?.()],
       ['Manage tags', () => void app.manageTags?.()],
       ['Manage registered files', () => void app.manageFiles?.()],
+      ['Manage users', () => void app.manageUsers?.()],
+      ['Manage groups', () => void app.manageGroups?.()],
       ['Query tracer', () => app.showQueryTrace?.()]
     ];
     for (const [label, action] of items) {

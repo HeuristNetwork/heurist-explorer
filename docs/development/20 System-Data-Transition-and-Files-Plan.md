@@ -4,7 +4,8 @@ Status: **strategy agreed 2026-10-18; Phases 1–3 implemented and committed (§
 Phases 4–5 redesigned 2026-10-22 (§10): `/sys` itself gets the record format and CRUD (no `/system`); order 4a tags →
 4b bookmarks, reminders → 4c saved filters → 4d users, groups, entity images. Phases 4a (§10.8) and 4b (§10.10) done
 2026-10-22 on the imported definitions of §10.3, not committed, not checked in a browser. File editor and MIME
-vocabulary review (§10.11) done 2026-10-23, not committed. Next: 4c saved filters.** Each phase (§7) gets its own planning session before any code; its detailed design is then added to
+vocabulary review (§10.11) done 2026-10-23, not committed. 4d users and groups with entity images (§10.13) done
+2026-10-23, not committed; the new fields wait for their concept codes (UserGroupCodes). Next: 4c saved filters.** Each phase (§7) gets its own planning session before any code; its detailed design is then added to
 this file.
 
 ## 1. Context
@@ -272,7 +273,7 @@ Each phase is planned in its own session before coding.
 | 4b | Bookmarks (encrypted private note) and reminders (Send now) on `/sys`; Summary → Private (§10.9) | done 2026-10-22 (§10.10), not committed; the HRecordList bookmark icon stays as it is (Artem) |
 | 4f | File editor: hard-coded structure by file type, content replace, MIME type rule; MIME vocabulary 2-533 SQL (§10.11) | done 2026-10-23, not committed; SQL to be reviewed and applied by Artem |
 | 4c | Saved filters writes, HEditForm editor (§10) | draft |
-| 4d | Users and groups (membership, password write-only), managers; entity-image mode of HInputFile (§10) | draft |
+| 4d | Users and groups (membership, password write-only), managers; entity-image mode of HInputFile (§10.13) | done 2026-10-23, not committed; concept codes of the new fields from Artem |
 | end | `sysRecords` tables; switching databases over (after the legacy UI is gone); port of the rest of `DbRecUploadedFiles` (batch actions) to srv | after approval |
 
 ## 8. Phases 1–2 in detail (draft for discussion, 2026-10-18)
@@ -1272,4 +1273,65 @@ Deviations and details:
   (`buildFileMediaItem`: thumbnail or player, OSD / Mirador / Download / new tab), the same for local and
   external files; the replace-mode HInputFile shows no thumbnail of its own.
 - Tests: `shared/test/recordManager.test.js` (2), `shared/test/fileEditor.test.js` (3); all 1366 client tests pass.
+
+### 10.13 Phase 4d: users and groups, entity images (Artem, 2026-10-23; not committed)
+
+**Mapping of `sysUGrps`** (decisions 2026-10-23):
+
+| Column | User (RT 2-1107) | Group (RT 2-1108) |
+|---|---|---|
+| ugr_Name | DT_LOGIN_NAME (new, required, unique) | DT_NAME (required, unique among users and groups); the title |
+| ugr_FirstName / ugr_LastName | DT_GIVEN_NAMES / DT_NAME | – |
+| ugr_LongName | – | DT_SHORT_SUMMARY |
+| ugr_Description | – | DT_EXTENDED_DESCRIPTION |
+| ugr_eMail | DT_EMAIL (required, unique, checked) | placeholder (legacy) |
+| ugr_Password | DT_PASSWORD (new; written only, legacy `hash_it`; empty = unchanged) | placeholder |
+| ugr_Enabled | DT_ACCOUNT_STATUS (new, vocabulary TRM_ACCOUNT_STATUS: term code = y, n, y_no_add...; administrators only) | – |
+| ugr_Organisation | DT_ORGANISATION_NAME (new, text; 2-21 is a pointer) | – |
+| ugr_Department | DT_DEPARTMENT (3-1016) | – |
+| ugr_City / State / Postcode | DT_ADDRESS (new, one line each) | – |
+| ugr_Interests | DT_RESEARCH_INTERESTS (new) | – |
+| ugr_URLs | DT_URL (3-1058) | DT_URL |
+| ugr_ORCID | DT_ORCID (new, checked) | – |
+| ugr_LastLoginTime / LoginCount | DT_LAST_LOGIN / DT_LOGIN_COUNT (new, read only) | – |
+| sysUsrGrpLinks | – | DT_GROUP_ADMINS / DT_GROUP_MEMBERS (new, repeatable pointers to users) |
+
+Not mapped: ugr_IsModelUser, MinHyperlinkWords, FlagJT, Incoming/TargetEmailAddresses, NavigationTree, Preferences,
+usr_ExternalAuthentication (kept as they are). User title: "Ian Johnson (ijohnson)".
+
+- **Constants, not concept codes** (Artem): every field by its DT_* name; the codes of the new ones are filled in
+  one place, `srv/System/Users/UserGroupCodes.php` (empty until Artem gives them: the field is left out). The same
+  table gives the client its `dbconst` (snapshot format 7); `systemEntities.js` rows name their field by `constant`.
+- **Server** (heurist): `srv/System/Users/` and `srv/System/Groups/` (mapping, output, write service, READMEs);
+  `srv/Users/LegacyUserGroupTable`, `GroupMembershipTable`, `UserGroupRepository::rows/members/taken` (the
+  boundary test now lets the folder `Users/` name sysUGrps / sysUsrGrpLinks); `EntityRecordMapping::fieldLocalId`
+  hook. Legacy rules ported: only administrators add users; a user changes only their own account; only user 2
+  changes user 2; any user adds a group and is its admin; the admins of a group and the database owner change it;
+  a group keeps an admin. **Legacy code as closures** (ServiceFactory, as the reminder mailer): the password hash,
+  the approval / new-user e-mails, and **delete** (DbSysUsers / DbSysGroups `delete()`, with their checks and
+  clean-up of temporary records, links, filters, tags).
+- **Members** also as `POST /sys/group/{id}/members` `{add, role} | {remove}` and the output keyword `members`
+  (`details.members` [{id, role}]), so groups can be managed before the Admins / Members fields have codes. The
+  keyword `role` (the current user's role) stays (UserGroupManager).
+- **Entity images** (agreed: legacy folders behind one class): `srv/Files/EntityImageStorage` (entity/sysUsers,
+  entity/sysGroups; `<id>.<ext>` + `thumbnail/<id>.png`), `System/Entity/EntityImageService`,
+  `GET | PUT | DELETE /sys/{user|group}/{id}/image` (PUT: a chunked-upload token; GET: the legacy fileGet URLs).
+  Later, with the switch, an image becomes a registered file.
+- Not in 4d: self-registration, import of users from another database, transfer of ownership (stay legacy).
+- **Client:** `UserGroupClient` (get / save / remove, `setMembers` (admins first, then members, then removals),
+  image); `recordDomains` RT_SYS_USER / RT_SYS_GROUP to `/sys/user`, `/sys/group`; HInputText / HEditField
+  `inputType: 'password'`; **HInputFile entity-image mode** `entityImage: {client, id}` (changed at once).
+  Explorer `ui/ExplorerUserGroupManager.js`: "Manage users" / "Manage groups" in the gear menu and the
+  Configuration dialog (record manager in manager mode, Add new user (administrators) / group; editor dialog with
+  the password repeat, the status read only on the own account, Admins / Members as lists of the users, the
+  image); after a change `UserGroupManager.load()` runs again.
+- **Answers:** (e) every user / group picker reads the one HDbDefs overlay of `UserGroupManager`; the labels are now
+  the record titles ("Name (login)"). (f) the overlay loads at start-up, after tags change, and now after a change
+  in the user / group managers; the server checks rights on every request, so a stale list only affects choices.
+- **Tests:** heurist `tests/SystemUserGroupTest.php` (21 read-only, 44 with `--write`, 5 skipped until the codes
+  exist), `SystemQueryTest` (user section in the record format), `SystemTagTest` (the read-only check moved to
+  filters); client `shared/test/userGroups.test.js` (5), `apps/explorer/test/explorerUserGroupManager.test.js` (2);
+  all 1373 client tests pass. Not checked in a browser.
+- **Open:** the concept codes of the new fields (and the status vocabulary) from Artem; the groups of a user as a
+  read-only list in the user form (left out for now).
 

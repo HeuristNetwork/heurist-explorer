@@ -787,6 +787,39 @@ export class ExplorerApplication {
   }
 
   /**
+   * The users or the groups of the database in the record manager (plan 20, Phase 4d); after
+   * a change the users and groups of the pickers load again.
+   *
+   * @param {'user'|'group'} type Users or groups.
+   * @returns {Promise<void>} Resolved when the manager closes.
+   */
+  async manageUsersOrGroups(type) {
+    try {
+      const dbdefs = await this._ensureDbDefs();
+      const { openUserGroupManager } = await import('../ui/ExplorerUserGroupManager.js');
+      await openUserGroupManager(type, {
+        apiClient: this.apiClient,
+        dbdefs,
+        baseUrl: this.config.baseUrl,
+        database: this.config.database,
+        onChange: () => this.userGroups?.load()
+      });
+    } catch (error) {
+      HMsg.showMsgErr?.(error?.message || String(error));
+    }
+  }
+
+  /** "Manage users" (plan 20, Phase 4d). */
+  manageUsers() {
+    return this.manageUsersOrGroups('user');
+  }
+
+  /** "Manage groups" (plan 20, Phase 4d). */
+  manageGroups() {
+    return this.manageUsersOrGroups('group');
+  }
+
+  /**
    * The registered files of the database in the record manager (plan 20 §10.12).
    *
    * @returns {Promise<void>} Resolved when the manager closes.
