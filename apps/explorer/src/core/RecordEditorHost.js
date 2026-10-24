@@ -617,8 +617,10 @@ export class RecordEditorHost {
    * add new ones with the record editor. The manager is loaded on first use.
    *
    * @param {object} [options] HRecordManager options: `recordTypes`, `selectMode`
-   *        (`select` default, `select_multi`, `manager`), `allowAddition`, `query`, `title`.
-   * @returns {Promise<number[]|null>} Selected record ids, or null when cancelled.
+   *        (`select` default, `select_multi`, `manager`, `relations` with `relations: {store}`, plan 24),
+   *        `allowAddition`, `query`, `title`.
+   * @returns {Promise<number[]|null|{changed: boolean}>} Selected record ids, or null when cancelled;
+   *          `{changed}` in relations mode.
    */
   async browseRecords(options = {}) {
     const dbdefs = await this.options.ensureDbDefs();
@@ -636,7 +638,8 @@ export class RecordEditorHost {
       addRecord: (rectypeId) => this.addRecord(rectypeId),
       // null = any type (the Add record dialog)
       canAddRecordType: (rectypeId) => (rectypeId == null ? this.options.isLoggedIn() : this.canEditRecordType(rectypeId)),
-      editRecord: files ? (id) => this.editFile(id) : (id) => this.editRecord(id),
+      // a relationship record of the relations mode keeps its field's constraints (plan 24)
+      editRecord: files ? (id) => this.editFile(id) : (id, edit) => this.editRecord(id, { relation: edit?.relation || null }),
       viewRecord: files ? null : (id) => this.viewRecord(id),
       baseUrl: this.options.baseUrl || '',
       database: this.options.database || ''

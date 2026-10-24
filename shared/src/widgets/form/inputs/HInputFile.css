@@ -23,6 +23,13 @@
   background: var(--h-color-surface);
 }
 
+/* the image of a user or group (entity-image mode) */
+.h-input-file.is-entity-image .h-input-file-thumb {
+  width: 96px;
+  height: 96px;
+  object-fit: contain;
+}
+
 .h-input-file-thumb[hidden] {
   display: none;
 }

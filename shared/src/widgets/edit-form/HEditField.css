@@ -231,3 +231,16 @@
 .h-edit-field-input.has-display-width.h-form-input-compact > .h-form-input-control > .h-form-input-control-wrap {
   width: auto;
 }
+
+/* "Manage relationships to <types>" of a repeatable relmarker field (plan 24): a line above the values */
+.h-edit-field-manage-line {
+  display: flex;
+  margin-bottom: 4px;
+}
+
+.h-edit-field-manage {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+}

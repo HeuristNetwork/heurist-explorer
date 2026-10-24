@@ -38,6 +38,7 @@ import { multilangFieldIds } from '../../data/writableRecordTypes.js';
 import { allowsStoredCode, isStoredCodeField } from '../../data/storedTextPolicy.js';
 import { nonStandardGroup, relationRecordStructure, reverseRelmarkerGroup, splitLargeGroups, structureFields } from '../../data/recordEditStructure.js';
 import { loadRelationship, loadRelmarkerStates, relationFits, relationshipBody } from '../../data/relmarkerRelations.js';
+import { RecordRelationStore } from '../../data/relationStores.js';
 import { HCardinalLayout } from '../layout/HCardinalLayout.js';
 import { recordTypeIconUrl } from '../record-list/recordAdminInfo.js';
 import { FIND_THRESHOLD, HStructureTree } from '../structure-tree/HStructureTree.js';
@@ -983,10 +984,12 @@ export class HRecordEditor extends HBaseWidget {
   /**
    * The service of the relmarker inputs (HInputRelmarker): a new record is saved before its
    * first relationship (plan 14 §5: no temporary record); relationships are records of their
-   * own, saved and deleted at once, with the owner and visibility of this record.
+   * own, saved and deleted at once, with the owner and visibility of this record. A
+   * repeatable field is managed in the relations mode of the record manager (`manage`,
+   * plan 24, through the host's `browseRecords`).
    */
   _relationshipService() {
-    return {
+    const service = {
       ensureRecord: async () => {
         if (this.options.readOnly) return null;
         if (this.isNew && !(await this.save())) return null;
@@ -1001,6 +1004,24 @@ export class HRecordEditor extends HBaseWidget {
       fits: (field, relation) => relationFits(field, relation, this.dbdefs),
       changed: () => this._relationshipsChanged()
     };
+    if (typeof this.options.browseRecords === 'function') {
+      // the relations of one field in the record manager; then the relations of the field
+      service.manage = async (field) => {
+        const record = await service.ensureRecord();
+        if (!record) return null;
+        const store = new RecordRelationStore({
+          apiClient: this.options.apiClient, dbdefs: this.dbdefs, client: this.client, field, record, header: () => this._header()
+        });
+        const label = field.label || this.dbdefs?.fieldName?.(this.rectypeId, field.dty) || '';
+        await this.options.browseRecords({
+          selectMode: 'relations',
+          relations: { store },
+          title: `${$HR('Relationships')}: ${record.title || `#${record.id}`}${label ? ` (${$HR('Field')}: ${label})` : ''}`
+        });
+        return store.list();
+      };
+    }
+    return service;
   }
 
   /**

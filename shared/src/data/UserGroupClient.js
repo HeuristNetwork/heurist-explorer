@@ -1,13 +1,12 @@
 /**
  * @file UserGroupClient.js
  * @brief Users and groups on /sys (plan 20, Phase 4d): the record of a user or group as
- *        plain values (the hard-coded structures of systemEntities.js), writes, the members
- *        of a group and the image of a user or group.
+ *        plain values (the hard-coded structures of systemEntities.js), writes and the image
+ *        of a user or group. The members of a group: relationStores.js (plan 24).
  *
  *   const groups = new UserGroupClient({ apiClient, dbdefs }, 'group');
  *   const { values, members } = await groups.get(5);
  *   await groups.save(5, { description: 'New text' }, { modified });
- *   await groups.setMembers(5, { 2: 'admin', 7: 'member' }, members);
  *
  * @project     Heurist academic knowledge management system
  * @package     heurist-client-core
@@ -77,30 +76,6 @@ export class UserGroupClient {
   }
 
   /**
-   * Make the members of a group the given ones (the changes as members requests: the users
-   * that go, then the admins, then the members; a group always keeps an admin).
-   *
-   * @param {number} groupId Group.
-   * @param {Object<number, string>} next User id => admin|member.
-   * @param {Object<number, string>} current The members now.
-   * @returns {Promise<Object<number, string>>} The members after the change.
-   */
-  async setMembers(groupId, next, current = {}) {
-    const path = `/sys/group/${Number(groupId)}/members`;
-    const post = (body) => this.apiClient.request(path, { method: 'POST', body });
-    const ids = (role) => Object.keys(next).filter((id) => next[id] === role && current[id] !== role).map(Number);
-    let members = { ...current };
-    // admins first: the group keeps an admin while members leave
-    for (const role of ['admin', 'member']) {
-      const add = ids(role);
-      if (add.length) members = membersOf(await post({ add, role }));
-    }
-    const remove = Object.keys(current).filter((id) => !next[id]).map(Number);
-    if (remove.length) members = membersOf(await post({ remove }));
-    return members;
-  }
-
-  /**
    * The image of a user or group.
    *
    * @returns {Promise<{url: string, thumbnail: string}|null>}
@@ -140,11 +115,4 @@ export class UserGroupClient {
       members
     };
   }
-}
-
-/** Members of a members response (the group record and meta.members). */
-function membersOf(response) {
-  const members = {};
-  for (const member of response?.meta?.members || []) members[Number(member.id)] = member.role === 'admin' ? 'admin' : 'member';
-  return members;
 }

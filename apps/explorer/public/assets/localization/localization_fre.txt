@@ -967,3 +967,20 @@
 #Add users, change their accounts and status (administrators); change your own account#Ajouter des utilisateurs, modifier leurs comptes et statuts (administrateurs) ; modifier votre propre compte
 #Add groups, change their members and admins#Ajouter des groupes, modifier leurs membres et administrateurs
 #An e-mail address#Une adresse e-mail
+#The relation type of new relationships#Le type de relation des nouvelles relations
+#Find or Add#Rechercher ou ajouter
+#Find or Add records#Rechercher ou ajouter des enregistrements
+#Remove the relationship#Supprimer la relation
+#The field has no relation types#Le champ n'a aucun type de relation
+#Membership#Appartenance
+#No relationships#Aucune relation
+#Manage relationships to#Gérer les relations vers
+#Manage relationships from#Gérer les relations depuis
+#Manage relationships#Gérer les relations
+#Relationships#Relations
+#Members of#Membres de
+#Groups of#Groupes de
+#Row#Rangée
+#Search in the title#Rechercher dans le titre
+#Search in all fields#Rechercher dans tous les champs
+#Creating relationships#Création des relations

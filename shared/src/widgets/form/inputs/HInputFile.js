@@ -88,6 +88,8 @@ export class HInputFile extends HInput {
     this.container.classList.add('h-form-input-compact');
     const group = document.createElement('div');
     group.className = 'h-input-file';
+    // the image of a user or group: a larger thumbnail (plan 24 review)
+    if (this.entity) group.classList.add('is-entity-image');
     this.thumb = document.createElement('img');
     this.thumb.className = 'h-input-file-thumb';
     this.thumb.alt = '';

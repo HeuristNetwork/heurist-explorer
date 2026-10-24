@@ -9,7 +9,10 @@
  * Options added for other hosts (plan 21): `topBar` (a row above the toolbar,
  * filled with `setTopBarContent`), `selectionMode: 'multi'|'single'`, `listTools`
  * (Sort and Show owners after the search; `sortExclude`), and the `onRecordActivate`
- * callback that replaces "double-click = edit".
+ * callback that replaces "double-click = edit". The search box filters by the title
+ * (`{title: text}`); `searchAnyField: true` searches every field value (`{f: text}`). The `recordTools` callback (plan 24)
+ * gives an element per record that the list places, always visible: first in the item
+ * (list), after the admin info in the card top (extended), below the card top (card, row).
  *
  * @project     Heurist academic knowledge management system
  * @package     heurist-client-core
@@ -53,6 +56,8 @@ export class HRecordList extends HBaseWidget {
    * @param {Function} context.onDataSourceAction Called with a datasource action id (workspace/save-filter/save-source).
    * @param {Function} [context.onRecordActivate] Called with a record ID on double-click; when given,
    *        double-click no longer edits (the record manager selects with it, plan 21).
+   * @param {(record: object) => HTMLElement|null} [context.recordTools] The tools of a record (the
+   *        relations mode of the record manager, plan 24); the owner wires them.
    * @returns {Promise<void>}
    */
   async initialize({
@@ -71,6 +76,7 @@ export class HRecordList extends HBaseWidget {
     onListSortChange,
     onOwnersToggle,
     onRecordActivate,
+    recordTools,
   }) {
     // set before attach: the simplified toolbar is built while rendering
     Object.assign(this, { getListSort, onListSortChange, onOwnersToggle });
@@ -86,6 +92,7 @@ export class HRecordList extends HBaseWidget {
       onViewModeChange,
       onDataSourceAction,
       onRecordActivate,
+      recordTools,
     });
     this.selected = new Set();
     this.collected = new Set();
@@ -117,6 +124,7 @@ export class HRecordList extends HBaseWidget {
     const search = this.$('[data-role="search"]');
     search.placeholder = $HR("Search");
     search.setAttribute("aria-label", $HR("Search"));
+    search.title = $HR(this.options.searchAnyField ? "Search in all fields" : "Search in the title");
     this.$('[data-role="page-size-label"]').textContent = $HR("Show");
     this.$('[data-role="view-label"]').textContent = $HR("View");
     this.$$('[data-role="view-mode"] option').forEach((el) => {
@@ -329,7 +337,8 @@ export class HRecordList extends HBaseWidget {
       const result = await this.onDataRequest({
         offset: this.offset,
         limit: this.options.pageLength,
-        filter: this.filter ? { f: this.filter } : null,
+        // the title (fast); `searchAnyField`: any field value (f, slow on large lists; review 2026-10-24)
+        filter: this.filter ? { [this.options.searchAnyField ? "f" : "title"]: this.filter } : null,
       });
       this.records = result?.records || [];
       this.meta = result?.meta || this.meta;
@@ -416,7 +425,22 @@ export class HRecordList extends HBaseWidget {
     } else {
       item.innerHTML = this._fallbackExtendedHtml(record);
     }
+    this._placeRecordTools(item, record);
     return item;
+  }
+
+  /**
+   * The owner's tools of a record (`recordTools`): first in a list item, after the admin
+   * info of the card top in the Extended view, a row below the card top in card / row.
+   */
+  _placeRecordTools(item, record) {
+    const tools = typeof this.recordTools === "function" ? this.recordTools(record) : null;
+    if (!(tools instanceof Node)) return;
+    tools.classList?.add("h-recordlist-record-tools");
+    const top = [...item.children].find((child) => child.classList?.contains("h-recordlist-card-top"));
+    if (this.options.viewMode === "list" || !top) item.prepend(tools);
+    else if (this.options.viewMode === "big") top.append(tools);
+    else top.after(tools);
   }
 
   /** Build "list" view-mode markup: collection/type/admin markers, title, and row actions. */
@@ -618,7 +642,7 @@ export class HRecordList extends HBaseWidget {
   _recordClicked(event, item) {
     if (
       this.options.interaction.selectionEnabled === false ||
-      event.target.closest("button,input,a")
+      event.target.closest("button,input,a,select")
     )
       return;
     const id = Number(item.dataset.recordId);
@@ -1059,6 +1083,8 @@ function normalizeOptions(options) {
     // plan 21: one selected record at a time (record manager, select mode)
     selectionMode: options.selectionMode === "single" ? "single" : "multi",
     topBar: options.topBar === true,
+    // the search box: the title, or any field value (`f`)
+    searchAnyField: options.searchAnyField === true,
     // how a record is added to / removed from the collection: "permanent" checkbox, or
     // "mouseover" +/- button with the row actions (internal, not in the settings; 2026-10-15)
     collectionMode: options.collectionMode === "permanent" ? "permanent" : "mouseover",

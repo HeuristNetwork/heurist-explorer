@@ -19,12 +19,11 @@
 
 import { FileUploader } from '../../../data/FileUploader.js';
 import { HMsg } from '../../../ui/HMsg.js';
+import { openProgressDialog } from '../../../ui/progressDialog.js';
 import { $HR } from '../../../ui/i18n/HResource.js';
 
 /** Files of a tile stack: a zip of tiles or an MBTiles database. */
 const TILE_STACK_ACCEPT = '.zip,.mbtiles';
-
-let progressCount = 0;
 
 /**
  * Register a new file: `upload` (a file of the computer), `tiled` (a tile stack, zip or
@@ -139,31 +138,6 @@ export async function askUrlDialog() {
 
 /** A dialog with the upload progress and Cancel. */
 function showProgress(name) {
-  const controller = new AbortController();
-  const dialogId = `h-file-upload-progress-${++progressCount}`;
-  const body = document.createElement('div');
-  body.className = 'h-file-upload-progress';
-  const text = document.createElement('div');
-  text.textContent = `${$HR('Uploading')} ${name}`;
-  const bar = document.createElement('progress');
-  bar.max = 1;
-  bar.value = 0;
-  body.append(text, bar);
-  let open = true;
-  const dialog = HMsg.showMsgDlg(body, {
-    dialogId,
-    title: 'Upload file',
-    buttons: [{ label: $HR('Cancel'), class: 'h-btn', onClick: () => controller.abort() }]
-  });
-  dialog?.addEventListener('close', () => {
-    if (open) controller.abort();
-  }, { once: true });
-  return {
-    signal: controller.signal,
-    update: (sent, total) => { bar.value = total > 0 ? Math.min(1, sent / total) : 0; },
-    close: () => {
-      open = false;
-      HMsg.closeMsgDlg(dialogId);
-    }
-  };
+  const progress = openProgressDialog({ title: 'Upload file', text: `${$HR('Uploading')} ${name}` });
+  return { signal: progress.signal, update: (sent, total) => progress.update(sent, total), close: progress.close };
 }

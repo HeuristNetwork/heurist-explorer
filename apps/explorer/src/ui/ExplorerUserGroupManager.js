@@ -5,9 +5,11 @@
  *        (HEditForm on the hard-coded structures of systemEntities.js) in a dialog.
  *
  * A user: account (login name, e-mail, password with its repeat, status for administrators),
- * person, activity (read only) and the image. A group: name, long name, description, URLs,
- * the admins and members (written with the members requests) and the image. The server
- * decides who may change what (administrators, the user, the admins of a group).
+ * person, activity (read only), the groups with the role and the image. A group: name, long
+ * name, description, URLs, the members with the role and the image. The memberships are the
+ * relmarker DT_GROUP_MEMBERSHIP (plan 24): "Manage" opens the relations mode of the record
+ * manager, the changes are written at once (POST /sys/group/{id}/members), not with Save.
+ * The server decides who may change what (administrators, the user, the admins of a group).
  *
  *   await openUserGroupManager('group', { apiClient, dbdefs, baseUrl, database, onChange });
  *
@@ -25,6 +27,8 @@
 import { $HR, HMsg } from '#shared/ui';
 import { UserGroupClient } from '#shared/data/UserGroupClient.js';
 import { systemEditForm } from '#shared/data/systemEntities.js';
+import { formStates } from '#shared/data/editFormSchema.js';
+import { MembershipRelationStore } from '#shared/data/relationStores.js';
 
 /**
  * Open the manager of users or groups.
@@ -48,7 +52,7 @@ export async function openUserGroupManager(type, { apiClient, dbdefs, baseUrl = 
   const isAdmin = Boolean(dbdefs?.isDbAdmin?.());
   let changed = false;
   const edit = async (id) => {
-    const result = await editUserOrGroup(type, id, { apiClient, dbdefs, isAdmin, currentUserId });
+    const result = await editUserOrGroup(type, id, { apiClient, dbdefs, isAdmin, currentUserId, baseUrl, database });
     if (result.saved) changed = true;
     return result;
   };
@@ -77,9 +81,9 @@ export async function openUserGroupManager(type, { apiClient, dbdefs, baseUrl = 
  *
  * @returns {Promise<{saved: boolean, recordId: number}>}
  */
-export async function editUserOrGroup(type, id, { apiClient, dbdefs, isAdmin = false, currentUserId = 0 }) {
+export async function editUserOrGroup(type, id, { apiClient, dbdefs, isAdmin = false, currentUserId = 0, baseUrl = '', database = '' }) {
   const client = new UserGroupClient({ apiClient, dbdefs }, type);
-  let item = { id: 0, title: '', modified: null, values: {}, members: {} };
+  let item = { id: 0, title: '', modified: null, values: {} };
   if (id > 0) {
     try {
       item = await client.get(id);
@@ -89,13 +93,15 @@ export async function editUserOrGroup(type, id, { apiClient, dbdefs, isAdmin = f
     }
   }
   const form = userGroupForm(type, dbdefs, { item, client, isAdmin, isSelf: id > 0 && id === currentUserId });
-  const values = { ...item.values, ...membersValues(item.members) };
+  const states = formStates(form, item.values);
+  const membership = await membershipService(type, form, item, { apiClient, dbdefs, baseUrl, database, states, isAdmin, currentUserId });
   let saved = 0;
   const { openEditFormDialog } = await import('#shared/widgets/edit-form/editFormDialog.js');
   await openEditFormDialog({
     title: id > 0 ? `${$HR(type === 'user' ? 'User' : 'Group')}: ${item.title}` : $HR(type === 'user' ? 'New user' : 'New group'),
     form,
-    values,
+    states,
+    relationships: membership?.service || null,
     apiClient,
     dbdefs,
     className: 'h-explorer-user-group-dialog',
@@ -109,7 +115,6 @@ export async function editUserOrGroup(type, id, { apiClient, dbdefs, isAdmin = f
       try {
         const result = await client.save(item.id, changedValues(type, item.values, next), { modified: item.modified });
         saved = result.item.id;
-        if (type === 'group') await client.setMembers(saved, nextMembers(next, currentUserId, item.id > 0 ? item.members : null), item.id > 0 ? item.members : membersOf(saved, currentUserId));
         if (result.issues?.length) HMsg.showMsgFlash?.(result.issues.map((issue) => issue.message).join('; '));
         return true;
       } catch (error) {
@@ -118,7 +123,64 @@ export async function editUserOrGroup(type, id, { apiClient, dbdefs, isAdmin = f
       }
     }
   });
-  return { saved: saved > 0, recordId: saved };
+  const changed = saved > 0 || membership?.changed() === true;
+  return { saved: changed, recordId: saved || item.id };
+}
+
+/**
+ * The memberships of a saved user or group (plan 24): the relmarker field of the form with
+ * its relations in `states`, and the field service whose `manage` opens the relations mode
+ * of the record manager. A new user or group: none (the field is read only).
+ *
+ * @returns {Promise<{service: object, changed: () => boolean}|null>}
+ */
+async function membershipService(type, form, item, { apiClient, dbdefs, baseUrl, database, states, isAdmin = false, currentUserId = 0 }) {
+  const name = type === 'group' ? 'members' : 'groups';
+  const field = form.groups.flatMap((group) => group.children).find((child) => child.name === name);
+  if (!field || !(item.id > 0)) return null;
+  const store = new MembershipRelationStore({ apiClient, dbdefs, field, record: { id: item.id, title: item.title } });
+  const entries = (relations) => ({ values: relations.map((relation) => ({ value: relation.relId, hidden: false, relation })), translations: [] });
+  try {
+    states.set(name, entries(await store.list()));
+  } catch (error) {
+    HMsg.showMsgErr(error?.message || String(error));
+  }
+  let changed = false;
+  const service = {
+    ensureRecord: async () => ({ id: item.id, title: item.title }),
+    load: async () => null,
+    fits: () => true,
+    changed: () => {},
+    // the remove action of one membership
+    remove: async (relId) => {
+      const relation = (await store.list()).find((entry) => entry.relId === Number(relId));
+      if (relation) await store.remove(relation);
+      changed = true;
+    },
+    manage: async () => {
+      const { openRecordManager } = await import('#shared/widgets/record-manager/openRecordManager.js');
+      // "Find or Add": the other type with its Add button (users by administrators, groups by anyone)
+      const other = type === 'group' ? 'user' : 'group';
+      const canAdd = other === 'group' || isAdmin;
+      const addActions = canAdd ? [{
+        id: 'add', icon: 'fa-plus-circle', label: other === 'user' ? 'Add new user' : 'Add new group',
+        run: () => editUserOrGroup(other, 0, { apiClient, dbdefs, isAdmin, currentUserId, baseUrl, database })
+      }] : [];
+      const result = await openRecordManager({
+        selectMode: 'relations',
+        relations: { store },
+        browseRecords: (browse) => openRecordManager({ apiClient, dbdefs, baseUrl, database, addActions, ...browse }),
+        title: `${$HR(type === 'group' ? 'Members of' : 'Groups of')} ${item.title}`,
+        apiClient,
+        dbdefs,
+        baseUrl,
+        database
+      });
+      if (result?.changed) changed = true;
+      return store.list();
+    }
+  };
+  return { service, changed: () => changed };
 }
 
 /**
@@ -133,7 +195,8 @@ export function userGroupForm(type, dbdefs, { item, client, isAdmin = false, isS
     const form = systemEditForm('user', dbdefs, {
       fields: {
         status: { readOnly: !isAdmin || isSelf },
-        password: { req: item.id > 0 ? 'optional' : 'required' }
+        password: { req: item.id > 0 ? 'optional' : 'required' },
+        groups: membershipField(item)
       }
     });
     const fields = form.groups.flatMap((group) => group.children);
@@ -146,26 +209,27 @@ export function userGroupForm(type, dbdefs, { item, client, isAdmin = false, isS
     }
     return withImage(form, type, item, client);
   }
-  const users = (dbdefs?.users?.() || []).map((user) => ({ id: Number(user.id), label: String(user.name ?? `#${user.id}`) }));
-  const form = systemEditForm('group', dbdefs);
-  form.groups.push({
-    id: 'members', type: 'group', label: 'Members', children: [
-      { name: 'admins', type: 'enum', label: 'Admins', max: 0, terms: users, help: 'A group has at least one admin' },
-      { name: 'members', type: 'enum', label: 'Members', max: 0, terms: users }
-    ]
-  });
+  const form = systemEditForm('group', dbdefs, { fields: { members: membershipField(item) } });
   return withImage(form, type, item, client);
+}
+
+/** The membership field: read only until the user / group is saved. */
+function membershipField(item) {
+  return item.id > 0 ? {} : { readOnly: true, help: 'Save first: the memberships are changed after the first save' };
 }
 
 /** The image field of a saved user or group (changed at once, not with the save). */
 function withImage(form, type, item, client) {
   if (item.id > 0) {
-    form.groups.push({
-      id: 'image', type: 'group', label: 'Image', children: [{
-        name: 'image', type: 'file', label: type === 'user' ? 'Picture' : 'Logo', entityImage: { client, id: item.id },
-        help: 'Upload an image; it is changed at once'
-      }]
-    });
+    const image = {
+      name: 'image', type: 'file', label: type === 'user' ? 'Picture' : 'Logo', entityImage: { client, id: item.id },
+      help: 'Upload an image; it is changed at once'
+    };
+    // in the User info tab (with the names) / the Info tab of a group (with its name)
+    const near = type === 'user' ? 'givenNames' : 'name';
+    const info = form.groups.find((group) => group.children.some((field) => field.name === near));
+    if (info) info.children.push(image);
+    else form.groups.push({ id: 'image', type: 'group', label: 'Image', children: [image] });
   }
   return form;
 }
@@ -174,7 +238,7 @@ function withImage(form, type, item, client) {
 function changedValues(type, before, next) {
   const changed = {};
   for (const [key, value] of Object.entries(next || {})) {
-    if (['passwordRepeat', 'admins', 'members', 'image'].includes(key)) continue;
+    if (['passwordRepeat', 'members', 'groups', 'image'].includes(key)) continue;
     if (key === 'password') {
       if (String(value ?? '').trim()) changed.password = value;
       continue;
@@ -184,27 +248,4 @@ function changedValues(type, before, next) {
     if (text !== old) changed[key] = value;
   }
   return changed;
-}
-
-/** Form values of the members: `{admins: [ids], members: [ids]}`. */
-function membersValues(members) {
-  const ids = (role) => Object.keys(members || {}).filter((id) => members[id] === role).map(Number);
-  return { admins: ids('admin'), members: ids('member') };
-}
-
-/**
- * The members of the form: user id => role (an admin listed in both is an admin); a new
- * group without admins: its creator.
- */
-function nextMembers(values, currentUserId, current) {
-  const members = {};
-  for (const id of values.members || []) members[Number(id)] = 'member';
-  for (const id of values.admins || []) members[Number(id)] = 'admin';
-  if (current === null && !Object.values(members).includes('admin') && currentUserId > 0) members[currentUserId] = 'admin';
-  return members;
-}
-
-/** The members of a new group as the server made it: its creator as the admin. */
-function membersOf(groupId, currentUserId) {
-  return groupId > 0 && currentUserId > 0 ? { [currentUserId]: 'admin' } : {};
 }

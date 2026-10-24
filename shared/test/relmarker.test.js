@@ -363,3 +363,39 @@ test('record editor: relationships in the form; a new record is saved before its
   assert.deepEqual(await service.ensureRecord(), { id: 151, rty: 10, title: 'Peter' });
   assert.equal(calls.length, 2, 'saved once');
 });
+
+test('repeatable relmarker with a manage service (plan 24): Manage button on its own line, no Add; remove per value; the relations after Close', async () => {
+  const relation = { relId: 900, term: 101, termLabel: 'parent of', reverse: false, other: { id: 152, title: 'Anna', rty: 10 } };
+  const managed = [];
+  let changed = 0;
+  const relationships = {
+    manage: async (field) => { managed.push(field.dty); return [relation, { ...relation, relId: 901, other: { id: 153, title: 'Bob', rty: 10 } }]; },
+    changed: () => { changed++; }
+  };
+  const field = new HEditField().attach(document.createElement('div'), {
+    field: { ...PERSONS, max: 0 }, relationships, dbdefs
+  }).render();
+  assert.equal(field.isManagedRelmarker, true);
+  assert.equal(field.addButton, null, 'no Add a value');
+  const line = field.valuesHost.children[0];
+  assert.ok(line.classList.contains('h-edit-field-manage-line'), 'above the values');
+  const button = line.children[0];
+  assert.ok(button.classList.contains('h-edit-field-manage'));
+  assert.deepEqual(field.actionButtons, [], 'not beside the first value');
+  assert.equal(button.textContent, 'Manage relationships to Person');
+  const empty = field._rows[0].input;
+  assert.equal(empty.addButton.hidden, true);
+  assert.equal(empty.noneElement.hidden, false, 'No relationships');
+  button.click();
+  await flush();
+  await flush();
+  assert.deepEqual(managed, [235]);
+  assert.deepEqual(field.getState().values.map((entry) => entry.value), [900, 901]);
+  assert.equal(changed, 1);
+  const input = field._rows[0].input;
+  assert.equal(input.box.hidden, false);
+  assert.equal(input.clearButton.hidden, false, 'remove one relationship');
+  // single-value field or no service: the plan 22 input
+  const single = new HEditField().attach(document.createElement('div'), { field: { ...PERSONS, max: 1 }, relationships, dbdefs }).render();
+  assert.equal(single.isManagedRelmarker, false);
+});

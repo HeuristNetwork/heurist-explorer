@@ -11,7 +11,7 @@ import { installFakeDom } from './helpers/fakeDom.js';
 
 const document = installFakeDom();
 globalThis.Node ??= globalThis.HTMLElement;
-const { systemEditRows, systemValues, systemDetails } = await import('../src/data/systemEntities.js');
+const { systemEditForm, systemEditRows, systemValues, systemDetails } = await import('../src/data/systemEntities.js');
 const { UserGroupClient } = await import('../src/data/UserGroupClient.js');
 const { createHInput } = await import('../src/widgets/form/inputs/createHInput.js');
 
@@ -31,12 +31,24 @@ const dbdefs = {
 
 test('user and group structures: fields by DT_* constants; a constant without a field is left out', () => {
   const user = systemEditRows('user', dbdefs);
-  assert.deepEqual(user.map((row) => row.key), ['login', 'email', 'password', 'givenNames', 'familyName', 'department', 'address', 'urls']);
+  assert.deepEqual(user.map((row) => row.key), [
+    'tabAccount', 'login', 'email', 'password', 'tabInfo', 'givenNames', 'familyName', 'department', 'address', 'urls', 'tabMembership'
+  ]);
+  assert.equal(user[0].dty_Type, 'separator');
+  assert.equal(user[0].rst_DefaultValue, 'tabs');
   assert.equal(user.find((row) => row.key === 'login').rst_DetailTypeID, 1200);
   assert.equal(user.find((row) => row.key === 'login').rst_RequirementType, 'required');
   assert.equal(user.find((row) => row.key === 'password').form.inputType, 'password');
   const group = systemEditRows('group', dbdefs);
-  assert.deepEqual(group.map((row) => [row.key, row.rst_DetailTypeID]), [['name', 1], ['longName', 3], ['description', 4], ['urls', 986]]);
+  assert.deepEqual(group.map((row) => [row.key, row.rst_DetailTypeID]), [
+    ['tabInfo', -1], ['name', 1], ['longName', 3], ['description', 4], ['urls', 986], ['tabMembership', -6]
+  ]);
+});
+
+test('user form: three tabs (Account, User info; Membership without the field is left out)', () => {
+  const form = systemEditForm('user', dbdefs);
+  assert.deepEqual(form.groups.map((group) => [group.type, group.label]), [['tabs', 'Account'], ['tabs', 'User info']]);
+  assert.deepEqual(form.groups[0].children.map((field) => field.name), ['login', 'email', 'password']);
 });
 
 test('user values and details: the first value; a cleared value is []', () => {
@@ -89,20 +101,6 @@ test('UserGroupClient: a group with its members; a save sends the changed fields
   assert.deepEqual(users.apiClient.calls.at(-1)[2].details, { 23: ['a@b.org'] }, 'no password key');
   await users.save(2, { password: 'secret' });
   assert.deepEqual(users.apiClient.calls.at(-1)[2].details, { 1201: ['secret'] });
-});
-
-test('UserGroupClient.setMembers: admins first, then members, then the users that leave', async () => {
-  const api = fakeApi({ rec_ID: '5', details: {} });
-  const client = new UserGroupClient({ apiClient: api, dbdefs }, 'group');
-  await client.setMembers(5, { 7: 'admin', 2: 'member' }, { 2: 'admin', 8: 'member' });
-  assert.deepEqual(api.calls.map((call) => [call[1], call[2]]), [
-    ['/sys/group/5/members', { add: [7], role: 'admin' }],
-    ['/sys/group/5/members', { add: [2], role: 'member' }],
-    ['/sys/group/5/members', { remove: [8] }]
-  ]);
-  api.calls.length = 0;
-  await client.setMembers(5, { 2: 'admin' }, { 2: 'admin' });
-  assert.equal(api.calls.length, 0, 'no change: no request');
 });
 
 test('HInputFile, entity-image mode: the image of the entity; upload and remove change it at once; no value', async () => {

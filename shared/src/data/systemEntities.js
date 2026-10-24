@@ -14,7 +14,11 @@
  * A row names its field by concept code (`concept`), or by a DT_* constant (`constant`,
  * users and groups, plan 20 Phase 4d: the server's UserGroupCodes, read as `dbconst`);
  * its vocabulary by `vocabulary` (concept code) or `vocabularyConstant`. `max: 0` is a
- * repeatable field (an array in plain values).
+ * repeatable field (an array in plain values). A relmarker row (group membership, plan 24)
+ * is a field of the form, not of the plain values: it is written apart (the members).
+ * `reverse: true` with `sourceTypes` (concept codes): the record is the target. A row of
+ * `dty_Type: 'separator'` starts a group as in a database structure (`rst_DefaultValue`
+ * `tabs`: a tab); a group without fields is left out.
  *
  *   const form = systemEditForm('bookmark', dbdefs, { omit: ['record'] });
  *   const values = systemValues('bookmark', record, dbdefs);   // record -> {key: value}
@@ -114,7 +118,9 @@ export const SYSTEM_STRUCTURES = Object.freeze({
   // UserGroupCodes; a field the database lacks is left out); the password is written only
   user: Object.freeze({
     rectype: SYSTEM_RECORD_TYPES.user,
+    // three tabs (plan 24 review): Account, User info, Membership
     rows: Object.freeze([
+      { key: 'tabAccount', dty_Type: 'separator', rst_DisplayName: 'Account', rst_DefaultValue: 'tabs' },
       {
         key: 'login', constant: 'DT_LOGIN_NAME', rst_DisplayName: 'Login name', dty_Type: 'freetext',
         rst_RequirementType: 'required', form: { maxLength: 63 }
@@ -131,6 +137,9 @@ export const SYSTEM_STRUCTURES = Object.freeze({
         key: 'status', constant: 'DT_ACCOUNT_STATUS', rst_DisplayName: 'Account status', dty_Type: 'enum',
         vocabularyConstant: 'TRM_ACCOUNT_STATUS', rst_DisplayHelpText: 'Set by administrators'
       },
+      { key: 'lastLogin', constant: 'DT_LAST_LOGIN', rst_DisplayName: 'Last login', dty_Type: 'freetext', form: { readOnly: true } },
+      { key: 'loginCount', constant: 'DT_LOGIN_COUNT', rst_DisplayName: 'Login count', dty_Type: 'integer', form: { readOnly: true } },
+      { key: 'tabInfo', dty_Type: 'separator', rst_DisplayName: 'User info', rst_DefaultValue: 'tabs' },
       { key: 'givenNames', constant: 'DT_GIVEN_NAMES', rst_DisplayName: 'Given names', dty_Type: 'freetext', form: { maxLength: 40 } },
       { key: 'familyName', constant: 'DT_NAME', rst_DisplayName: 'Family name', dty_Type: 'freetext', form: { maxLength: 63 } },
       {
@@ -151,14 +160,22 @@ export const SYSTEM_STRUCTURES = Object.freeze({
         key: 'orcid', constant: 'DT_ORCID', rst_DisplayName: 'ORCID iD', dty_Type: 'freetext',
         form: { pattern: '^\\d{4}-\\d{4}-\\d{4}-\\d{3}[\\dX]$', patternMessage: 'Written as 0000-0000-0000-0000' }
       },
-      { key: 'lastLogin', constant: 'DT_LAST_LOGIN', rst_DisplayName: 'Last login', dty_Type: 'freetext', form: { readOnly: true } },
-      { key: 'loginCount', constant: 'DT_LOGIN_COUNT', rst_DisplayName: 'Login count', dty_Type: 'integer', form: { readOnly: true } }
+      { key: 'tabMembership', dty_Type: 'separator', rst_DisplayName: 'Membership', rst_DefaultValue: 'tabs' },
+      // the groups of the user with the role (plan 24): the group membership from the user's side
+      {
+        key: 'groups', constant: 'DT_GROUP_MEMBERSHIP', rst_DisplayName: 'Groups', dty_Type: 'relmarker', max: 0,
+        vocabularyConstant: 'TRM_GROUP_ROLE', targetTypes: [SYSTEM_RECORD_TYPES.user], sourceTypes: [SYSTEM_RECORD_TYPES.group],
+        reverse: true, rst_DisplayHelpText: 'Changed at once'
+      }
     ])
   }),
-  // a workgroup (plan 20, Phase 4d): its members are edited apart (UserGroupClient.setMembers)
+  // a workgroup (plan 20, Phase 4d): its members are the relmarker DT_GROUP_MEMBERSHIP, the role as
+  // the relation type (plan 24), written apart (POST /sys/group/{id}/members)
   group: Object.freeze({
     rectype: SYSTEM_RECORD_TYPES.group,
+    // two tabs (plan 24 review): Info, Membership
     rows: Object.freeze([
+      { key: 'tabInfo', dty_Type: 'separator', rst_DisplayName: 'Info', rst_DefaultValue: 'tabs' },
       {
         key: 'name', constant: 'DT_NAME', rst_DisplayName: 'Name', dty_Type: 'freetext', rst_RequirementType: 'required',
         rst_DisplayHelpText: 'A short name, unique among groups and users', form: { maxLength: 63 }
@@ -168,7 +185,13 @@ export const SYSTEM_STRUCTURES = Object.freeze({
         key: 'description', constant: 'DT_EXTENDED_DESCRIPTION', rst_DisplayName: 'Description', dty_Type: 'blocktext',
         form: { maxLength: 1000 }
       },
-      { key: 'urls', constant: 'DT_URL', rst_DisplayName: 'URL(s)', dty_Type: 'freetext', rst_DisplayHelpText: 'Separated by commas' }
+      { key: 'urls', constant: 'DT_URL', rst_DisplayName: 'URL(s)', dty_Type: 'freetext', rst_DisplayHelpText: 'Separated by commas' },
+      { key: 'tabMembership', dty_Type: 'separator', rst_DisplayName: 'Membership', rst_DefaultValue: 'tabs' },
+      {
+        key: 'members', constant: 'DT_GROUP_MEMBERSHIP', rst_DisplayName: 'Members', dty_Type: 'relmarker', max: 0,
+        vocabularyConstant: 'TRM_GROUP_ROLE', targetTypes: [SYSTEM_RECORD_TYPES.user],
+        rst_DisplayHelpText: 'Changed at once; a group has at least one admin'
+      }
     ])
   }),
   // registered file (plan 20, §10.11): the fields of the record; the content, its URL and
@@ -216,6 +239,16 @@ export function systemEditRows(type, dbdefs) {
   const definition = definitionOf(type);
   const rows = [];
   for (const [index, row] of definition.rows.entries()) {
+    if (row.dty_Type === 'separator') {
+      // a group (tab) of the form: no field of the database (a negative id)
+      rows.push({
+        key: row.key, form: null, rst_DetailTypeID: -(index + 1), rst_DisplayName: row.rst_DisplayName,
+        rst_DisplayOrder: index + 1, rst_RequirementType: 'optional', rst_DefaultValue: row.rst_DefaultValue || 'group',
+        rst_DisplayHelpText: row.rst_DisplayHelpText || '', rst_MaxValues: 1, dty_Type: 'separator',
+        dty_Name: row.rst_DisplayName, dty_JsonTermIDTree: '', dty_PtrTargetRectypeIDs: ''
+      });
+      continue;
+    }
     const dty = rowFieldId(row, dbdefs);
     if (!dty) continue;
     const vocabulary = row.vocabularyConstant ? Number(dbdefs?.dbconst?.(row.vocabularyConstant)) || 0
@@ -251,9 +284,16 @@ export function systemEditStructure(type, dbdefs) {
   const rty = Number(dbdefs?.localId?.('rty', definitionOf(type).rectype)) || 0;
   const structure = buildEditStructure(rows, { rty, dbdefs });
   const byDty = new Map(rows.map((row) => [Number(row.rst_DetailTypeID), row]));
+  const definitions = new Map(definitionOf(type).rows.map((row) => [row.key, row]));
   for (const field of structureFields(structure)) {
     const row = byDty.get(Number(field.dty));
     Object.assign(field, { name: row.key }, row.form || {});
+    // a reverse relmarker (the user's groups): the record is the target
+    const definition = definitions.get(row.key);
+    if (definition?.reverse) {
+      field.reverse = true;
+      field.sourceTypes = (definition.sourceTypes || []).map((code) => Number(dbdefs.localId('rty', code)) || 0).filter(Boolean);
+    }
   }
   return structure;
 }
@@ -283,7 +323,10 @@ export function systemEditForm(type, dbdefs, { omit = [], fields = {} } = {}) {
  */
 export function systemFieldIds(type, dbdefs) {
   const ids = {};
-  for (const row of definitionOf(type).rows) ids[row.key] = rowFieldId(row, dbdefs);
+  for (const row of definitionOf(type).rows) {
+    // a relmarker (group membership) and a separator are not values of the record
+    if (row.dty_Type !== 'relmarker' && row.dty_Type !== 'separator') ids[row.key] = rowFieldId(row, dbdefs);
+  }
   return ids;
 }
 

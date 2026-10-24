@@ -13,6 +13,9 @@
  *   Edit / View of the relationship record on mouse over. The clear action (value tools)
  *   deletes the relationship record after a warning.
  * No "hidden from the public" switch: it has no sense for a relationship.
+ * `managed` (a repeatable field, plan 24): no Add; the relationships are added and changed
+ * in the relations mode of the record manager ("No relationships" when none); the remove
+ * action of each one deletes it (after the warning).
  *
  * @project     Heurist academic knowledge management system
  * @package     heurist-client-core
@@ -27,7 +30,7 @@
 
 import { HInput } from './HInput.js';
 import { recordTypeIconUrl } from '../../record-list/recordAdminInfo.js';
-import { openRelationshipDialog } from '../../relationship/relationshipDialog.js';
+import { confirmRelationshipDelete, openRelationshipDialog } from '../../relationship/relationshipDialog.js';
 import { HMsg } from '../../../ui/HMsg.js';
 import { sanitizeTextHtml, stripHtml } from '../../../recordview/FieldValueFormatter.js';
 import { $HR } from '../../../ui/i18n/HResource.js';
@@ -42,13 +45,14 @@ export class HInputRelmarker extends HInput {
    *        `reverse`, `sourceTypes`, `label`), `relationships` (editor service: `ensureRecord()`,
    *        `create()`, `remove(relId)`, `load(relId)`, `fits(field, relation)`, `changed()`),
    *        `dbdefs`, `iconBase` ({baseUrl, database}), `apiClient` and the host actions
-   *        `editRecord(id, {relation})`, `viewRecord(id)`, `browseRecords(options)`, `addRecord(rectypeId)`.
+   *        `editRecord(id, {relation})`, `viewRecord(id)`, `browseRecords(options)`, `addRecord(rectypeId)`;
+   *        `managed`: shown only (plan 24).
    * @returns {HInputRelmarker} This input.
    */
   attach(container, options = {}) {
     super.attach(container, options);
     // as wide as its box: the value tools stay beside it (review 2026-10-22)
-    this.container.classList.add('h-form-input-compact');
+    this.container.classList.add('h-form-input-compact', 'h-form-input-relmarker');
     this.relation = options.relation || null;
     return this;
   }
@@ -102,7 +106,10 @@ export class HInputRelmarker extends HInput {
       ['fa-circle-info', 'View relationship record', 'viewRecord', () => this.options.viewRecord(this.getValue())]
     ]);
     this.box.append(this.termElement, arrow, this.otherIcon, this.titleElement, otherActions, this.relIcon, relActions);
-    wrap.append(this.addButton, this.box);
+    this.noneElement = document.createElement('span');
+    this.noneElement.className = 'h-input-relmarker-none h-i18n';
+    this.noneElement.textContent = $HR('No relationships');
+    wrap.append(this.addButton, this.noneElement, this.box);
     host.append(wrap);
     return this.addButton;
   }
@@ -146,7 +153,7 @@ export class HInputRelmarker extends HInput {
    */
   async openAddDialog() {
     const service = this.options.relationships;
-    if (this._busy || this._readOnly || !service) return false;
+    if (this._busy || this._readOnly || this.options.managed || !service) return false;
     this._busy = true;
     try {
       const record = await service.ensureRecord();
@@ -188,7 +195,7 @@ export class HInputRelmarker extends HInput {
   async beforeClear() {
     const id = this.getValue();
     if (!id) return true;
-    if (!(await confirmDelete())) return false;
+    if (!(await confirmRelationshipDelete())) return false;
     try {
       await this.options.relationships?.remove(id);
     } catch (error) {
@@ -278,7 +285,8 @@ export class HInputRelmarker extends HInput {
   _sync() {
     if (!this.box) return;
     const relation = this.getValue() ? this.relation : null;
-    this.addButton.hidden = Boolean(relation) || this._readOnly === true;
+    this.addButton.hidden = Boolean(relation) || this._readOnly === true || this.options.managed === true;
+    this.noneElement.hidden = Boolean(relation) || this.options.managed !== true;
     this.addButton.disabled = this._readOnly === true;
     this.box.hidden = !relation;
     this.termElement.textContent = relation?.termLabel || '';
@@ -299,25 +307,4 @@ export class HInputRelmarker extends HInput {
       if (button.classList.contains('is-edit')) button.hidden = this._readOnly === true;
     }
   }
-}
-
-/** The warning before a relationship is deleted (Proceed / Cancel). */
-function confirmDelete() {
-  return new Promise((resolve) => {
-    let answered = false;
-    const answer = (value) => {
-      if (answered) return;
-      answered = true;
-      HMsg.closeMsgDlg();
-      resolve(value);
-    };
-    const dialog = HMsg.showMsgDlg($HR('You are about to delete link between records.<br><br>Are you sure?'), {
-      title: 'Warning',
-      buttons: [
-        { label: $HR('Proceed'), class: 'h-btn h-btn-primary', onClick: () => answer(true) },
-        { label: $HR('Cancel'), class: 'h-btn', onClick: () => answer(false) }
-      ]
-    });
-    dialog?.addEventListener?.('close', () => answer(false), { once: true });
-  });
 }

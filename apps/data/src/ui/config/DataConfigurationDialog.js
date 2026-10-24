@@ -245,7 +245,7 @@ export class DataConfigurationDialog {
     this.select(body, "config.defaults.viewMode", "View mode", [
       ["list", "List"],
       ["card", "Cards"],
-      ["row", "Rows"],
+      ["row", "Row"],
       ["big", "Extended"],
       ["datatable", "Table"],
     ]);

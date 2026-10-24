@@ -9,9 +9,21 @@
 .h-record-manager-layout { flex:1 1 auto; min-height:0; display:flex; flex-direction:column; position:relative; }
 .h-record-manager-filter { height:100%; overflow:auto; padding:6px; box-sizing:border-box; }
 .h-record-manager-layout .h-record-manager-list { height:100%; }
+/* relations mode (plan 24): the top bar and the toolset of each record */
+.h-record-manager-relations-bar { align-items:center; }
+.h-record-manager-relations-label { color:var(--h-color-text-muted); }
+.h-record-manager-relation { display:flex; align-items:center; gap:3px; min-width:0; }
+.h-record-manager-relation.is-busy { opacity:.5; pointer-events:none; }
+.h-record-manager-relation-icon { flex:0 0 auto; width:16px; height:16px; text-align:center; color:var(--h-color-text-muted); }
+.h-record-manager-relation .h-record-manager-term { max-width:180px; min-width:0; }
 .h-record-manager-error { padding:12px; color:var(--h-color-danger, #c62828); }
 
 /* the dialog: a fixed large size (resizing and the size per type come with the configuration, §7) */
 .h-dialog-record-manager { width:min(900px, calc(100vw - 24px)); }
 .h-dialog-record-manager .h-dialog-body { display:flex; flex-direction:column; height:min(70vh, 640px); padding:0; overflow:hidden; }
 .h-record-manager-host { flex:1 1 auto; min-height:0; display:flex; flex-direction:column; }
+/* the Extended view: the built-in record renderer (as the Data module) */
+.h-record-manager-record-view { container-type:inline-size; }
+.h-record-manager-record-view .heurist-recordview-body { overflow:visible; }
+/* the image of a system record (user, group, file) beside its fields, as in its editor */
+.h-record-manager-entity-image { float:right; width:96px; height:96px; margin:0 0 8px 12px; object-fit:contain; border:1px solid var(--h-color-border); border-radius:var(--h-radius); background:var(--h-color-surface); }

@@ -1299,7 +1299,7 @@ Deviations and details:
 | ugr_URLs | DT_URL (3-1058) | DT_URL |
 | ugr_ORCID | DT_ORCID (new, checked) | – |
 | ugr_LastLoginTime / LoginCount | DT_LAST_LOGIN / DT_LOGIN_COUNT (new, read only) | – |
-| sysUsrGrpLinks | – | DT_GROUP_ADMINS / DT_GROUP_MEMBERS (new, repeatable pointers to users) |
+| sysUsrGrpLinks | DT_GROUP_MEMBERSHIP reverse (the user's groups) | DT_GROUP_MEMBERSHIP 2-1200 (relmarker, role = relation type, vocabulary 2-10572; plan 24, 2026-10-24) |
 
 Not mapped: ugr_IsModelUser, MinHyperlinkWords, FlagJT, Incoming/TargetEmailAddresses, NavigationTree, Preferences,
 usr_ExternalAuthentication (kept as they are). User title: "Ian Johnson (ijohnson)".
@@ -1337,8 +1337,9 @@ usr_ExternalAuthentication (kept as they are). User title: "Ian Johnson (ijohnso
   exist), `SystemQueryTest` (user section in the record format), `SystemTagTest` (the read-only check moved to
   filters); client `shared/test/userGroups.test.js` (5), `apps/explorer/test/explorerUserGroupManager.test.js` (2);
   all 1373 client tests pass. Not checked in a browser.
-- **Open:** the concept codes of the group Admins / Members fields (DT_GROUP_ADMINS / DT_GROUP_MEMBERS); the groups
-  of a user as a read-only list in the user form (left out for now).
+- **Membership (2026-10-24, plan 24):** the members are the relmarker 2-1200 "User Group Membership" (hidden in
+  the structure); DT_GROUP_ADMINS / DT_GROUP_MEMBERS are dropped. The group form and the user form (its groups) edit
+  it in the relations mode of the record manager, written at once by the members action.
 - **User field codes (Artem, 2026-10-24)**, in `UserGroupCodes.php`:
 
   | Column | Constant | Code |

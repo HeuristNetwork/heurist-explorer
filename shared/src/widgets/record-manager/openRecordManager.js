@@ -3,6 +3,8 @@
  * @brief HRecordManager in a dialog (plan 21 §3): the Browse popup of pointer
  *        fields. Select takes the last selected record (`select`) or all
  *        selected (`select_multi`); Cancel, Escape and the close button give null.
+ *        The relations mode (plan 24) has Close only and gives `{changed}`; its
+ *        "Find or Add" opens another manager of the other types in `select_multi`.
  *
  * @project     Heurist academic knowledge management system
  * @package     heurist-client-core
@@ -30,15 +32,21 @@ let dialogCount = 0;
  *
  * @param {object} options HRecordManager options (`apiClient`, `dbdefs`, `selectMode`,
  *        `recordTypes`, `addRecord`...) plus `title` (dialog title; default from the types).
- * @returns {Promise<number[]|null>} Selected record ids (select modes), `[]` after `manager`
- *          mode, null when cancelled.
+ * @returns {Promise<number[]|null|{changed: boolean}>} Selected record ids (select modes), `[]` after
+ *          `manager` mode, `{changed}` after `relations` mode, null when cancelled.
  */
 export function openRecordManager(options = {}) {
   const dialogId = `${DIALOG_ID}-${++dialogCount}`;
   const host = document.createElement('div');
   host.className = 'h-record-manager-host';
-  const manager = new HRecordManager().attach(host, options);
+  const relations = options.selectMode === 'relations';
+  // "Find or Add" of the relations mode: the same services, another mode and types
+  const browseRecords = relations && typeof options.browseRecords !== 'function'
+    ? (browse) => openRecordManager({ ...options, relations: null, browseRecords: undefined, title: undefined, ...browse })
+    : options.browseRecords;
+  const manager = new HRecordManager().attach(host, { ...options, browseRecords });
   const selecting = manager.isSelectMode();
+  const closed = () => (relations ? { changed: manager.changed } : selecting ? null : []);
 
   return new Promise((resolve) => {
     let settled = false;
@@ -51,13 +59,13 @@ export function openRecordManager(options = {}) {
       await manager.destroy();
       resolve(ids);
     };
-    const onDialogClose = () => void finish(selecting ? null : []);
+    const onDialogClose = () => void finish(closed());
     const buttons = selecting
       ? [
         { label: $HR('Select'), class: 'h-btn h-btn-primary', onClick: () => manager.select() },
         { label: $HR('Cancel'), class: 'h-btn', onClick: () => void finish(null) }
       ]
-      : [{ label: $HR('Close'), class: 'h-btn', onClick: () => void finish([]) }];
+      : [{ label: $HR('Close'), class: 'h-btn', onClick: () => void finish(closed()) }];
     host.addEventListener('h-record-manager-finish', (event) => void finish(event.detail.ids));
     host.addEventListener('h-record-manager-selection', (event) => syncSelect(dialog, event.detail.ids));
     host.addEventListener('h-record-manager-error', (event) => {
@@ -69,7 +77,7 @@ export function openRecordManager(options = {}) {
     syncSelect(dialog, []);
     manager.render().catch((error) => {
       HMsg.showMsgErr?.(error?.message || String(error));
-      void finish(null);
+      void finish(closed());
     });
   });
 }
@@ -83,7 +91,7 @@ function syncSelect(dialog, ids) {
 /** Dialog title: "Select <type>" for one type, else "Select record" / "Records". */
 function managerTitle({ selectMode = 'select', recordTypes = [], dbdefs = null } = {}) {
   const types = (recordTypes || []).map(Number).filter((id) => id > 0);
-  const manager = selectMode === 'manager';
+  const manager = selectMode === 'manager' || selectMode === 'relations';
   if (types.length === 1) {
     const name = dbdefs?.rectypeName?.(types[0], { plural: manager }) || '';
     if (name) return manager ? name : `${$HR('Select')} ${name}`;

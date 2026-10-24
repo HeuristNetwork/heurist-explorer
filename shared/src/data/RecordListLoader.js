@@ -124,7 +124,7 @@ export class RecordListLoader {
 /** Key of a filter for the known totals ("" = no filter). */
 function filterKey(filter) {
   if (filter == null || filter === '') return '';
-  if (typeof filter === 'object' && !Object.keys(filter).length) return '';
-  if (typeof filter === 'object' && (filter.f == null || filter.f === '') && Object.keys(filter).length === 1) return '';
+  // an object without a value ({}, {title: ''}) is no filter; any predicate counts ({title}, {f})
+  if (typeof filter === 'object' && Object.values(filter).every((value) => value == null || value === '')) return '';
   return JSON.stringify(filter);
 }

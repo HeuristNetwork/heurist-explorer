@@ -136,7 +136,7 @@ export class DataTablesAdapter extends DataEngineAdapter {
     [
       ["list", "List"],
       ["card", "Cards"],
-      ["row", "Rows"],
+      ["row", "Row"],
       ["big", "Extended"],
       ["datatable", "Table"],
     ].forEach(([value, text]) => {

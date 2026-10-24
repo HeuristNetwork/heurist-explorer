@@ -967,3 +967,20 @@
 #Add users, change their accounts and status (administrators); change your own account#Add users, change their accounts and status (administrators); change your own account
 #Add groups, change their members and admins#Add groups, change their members and admins
 #An e-mail address#An e-mail address
+#The relation type of new relationships#The relation type of new relationships
+#Find or Add#Find or Add
+#Find or Add records#Find or Add records
+#Remove the relationship#Remove the relationship
+#The field has no relation types#The field has no relation types
+#Membership#Membership
+#No relationships#No relationships
+#Manage relationships to#Manage relationships to
+#Manage relationships from#Manage relationships from
+#Manage relationships#Manage relationships
+#Relationships#Relationships
+#Members of#Members of
+#Groups of#Groups of
+#Row#Row
+#Search in the title#Search in the title
+#Search in all fields#Search in all fields
+#Creating relationships#Creating relationships

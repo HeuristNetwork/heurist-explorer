@@ -426,3 +426,108 @@ test('a filter form hides the search box of the list', () => {
   assert.equal(manager({ recordTypes: [10], filter }).widget._listOptions().controls.search, false);
   assert.equal(manager({ recordTypes: [10], filter: false }).widget._listOptions().controls.search, undefined);
 });
+
+/** A relation store stand-in (relationStores.js interface) that records its calls. */
+function fakeStore({ kind = 'records', relations = [] } = {}) {
+  const calls = [];
+  return {
+    calls,
+    kind,
+    field: { dty: 235, vocabulary: 100, targetTypes: [10] },
+    reverse: false,
+    canEditRelationship: kind === 'records',
+    otherTypes: [10],
+    terms: () => [{ id: 101, label: 'parent of', depth: 0 }, { id: 102, label: 'child of', depth: 0 }],
+    termLabel: (id) => ({ 101: 'parent of', 102: 'child of' })[id] || '',
+    list: async () => { calls.push('list'); return relations; },
+    targetQuery: () => [{ 'rf:235': [{ ids: '151' }] }],
+    add: async (ids, term) => { calls.push(['add', ids, term]); return ids.length; },
+    setType: async (relation, term) => { calls.push(['setType', relation.relId, term]); },
+    remove: async (relation) => { calls.push(['remove', relation.relId]); }
+  };
+}
+
+const RELATIONS = [
+  { relId: 900, term: 101, termLabel: 'parent of', other: { id: 152, title: 'Anna', rty: 10 } },
+  { relId: 901, term: 102, termLabel: 'child of', other: { id: 152, title: 'Anna', rty: 10 } },
+  { relId: 902, term: 101, termLabel: 'parent of', other: { id: 153, title: 'Bob', rty: 10 } }
+];
+
+test('relations mode (plan 24): the types of the store, only the related records, no filter form, not a select mode', () => {
+  const store = fakeStore({ relations: RELATIONS });
+  const { widget } = manager({ selectMode: 'relations', relations: { store }, recordTypes: [99] });
+  assert.deepEqual(widget.recordTypes, [10]);
+  assert.equal(widget.isSelectMode(), false);
+  assert.equal(widget.filterDefinition(), null);
+  assert.equal(widget._listOptions().selectionMode, 'multi');
+  assert.deepEqual(widget._listQuery([10]), [{ t: '10' }, { 'rf:235': [{ ids: '151' }] }]);
+  assert.throws(() => new HRecordManager().attach(document.createElement('div'), { dbdefs, selectMode: 'relations' }), /relation store/);
+});
+
+test('relations mode: a toolset line per relationship (icon, type, pen, bin); a type change is written at once', async () => {
+  const store = fakeStore({ relations: RELATIONS });
+  const { widget, calls } = manager({
+    selectMode: 'relations', relations: { store }, editRecord: async () => ({}), baseUrl: 'http://host/heurist/', database: 'db'
+  });
+  widget.relations = RELATIONS;
+  const tools = widget._relationTools({ rec_ID: '152' });
+  assert.equal(tools.children.length, 2, 'two relationships to Anna');
+  const line = tools.children[0];
+  assert.deepEqual(line.children.map((child) => child.tagName.toLowerCase()), ['img', 'select', 'button', 'button']);
+  assert.equal(line.children[1].value, '101');
+  assert.equal(widget._relationTools({ rec_ID: '160' }), null, 'no relationship: no tools');
+  line.children[1].value = '102';
+  line.children[1].fire('change');
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.deepEqual(store.calls.slice(0, 2), [['setType', 900, 102], 'list']);
+  assert.ok(calls.includes('setQuery') && calls.includes('reload'), 'the list again');
+  assert.equal(widget.changed, true);
+  // memberships: an icon, no pen
+  const members = manager({ selectMode: 'relations', relations: { store: fakeStore({ kind: 'members' }) }, editRecord: async () => ({}) }).widget;
+  members.relations = RELATIONS;
+  const memberLine = members._relationTools({ rec_ID: '153' }).children[0];
+  assert.deepEqual(memberLine.children.map((child) => child.tagName.toLowerCase()), ['i', 'select', 'button']);
+});
+
+test('relations mode: Find or Add picks records in select_multi; they get the relation type of the top bar', async () => {
+  const store = fakeStore();
+  const browsed = [];
+  const { widget } = manager({
+    selectMode: 'relations', relations: { store },
+    browseRecords: async (options) => { browsed.push(options); return [12, 14]; }
+  });
+  const bar = widget._renderRelationsBar();
+  const select = bar.querySelector('select');
+  assert.equal(select.value, '101', 'the first relation type by default');
+  select.value = '102';
+  await widget._findOrAdd();
+  assert.deepEqual(browsed[0].selectMode, 'select_multi');
+  assert.deepEqual(browsed[0].recordTypes, [10]);
+  assert.equal(browsed[0].title, 'Find or Add Person');
+  assert.deepEqual(store.calls[0], ['add', [12, 14], 102]);
+});
+
+test('record list tools: first in a list item, after the admin info of the card top (extended), below it (card, row)', async () => {
+  const { HRecordList } = await import('../src/widgets/record-list/HRecordList.js');
+  const place = (viewMode) => {
+    const list = Object.create(HRecordList.prototype);
+    list.options = { viewMode };
+    list.recordTools = () => document.createElement('div');
+    const item = document.createElement('article');
+    const top = document.createElement('div');
+    top.className = 'h-recordlist-card-top';
+    top.append(document.createElement('span'));
+    const title = document.createElement('div');
+    item.append(...(viewMode === 'list' ? [title] : [top, title]));
+    list._placeRecordTools(item, { rec_ID: '1' });
+    return { item, top };
+  };
+  const tools = (element) => element.classList.contains('h-recordlist-record-tools');
+  assert.ok(tools(place('list').item.children[0]));
+  const big = place('big');
+  assert.ok(tools(big.top.children[1]));
+  for (const mode of ['card', 'row']) {
+    const { item } = place(mode);
+    assert.ok(tools(item.children[1]), mode);
+  }
+});

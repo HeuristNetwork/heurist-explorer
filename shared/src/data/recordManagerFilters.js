@@ -6,7 +6,9 @@
  * - files (RT_REGISTERED_FILE, `/files`): file name, URL, name (caption), file type,
  *   MIME type, size range; the `/files` query takes local field ids, so the query is
  *   built from the concept codes (a field the database lacks is left out);
- * - generic (every other record type, for now also the system types): title and tag.
+ * - users and groups (RT_SYS_USER, RT_SYS_GROUP, `/sys`): none, the list's own search box
+ *   (no tags; plan 24 review);
+ * - generic (every other record type, for now also the other system types): title and tag.
  *
  * Text parameters are direct inputs; terms and tags are lists. Other filters are
  * defined when the manager is used for a particular type; the admin configuration
@@ -36,18 +38,24 @@ const FILE_FILTER_FIELDS = Object.freeze([
 /** Concept code of the registered file record type. */
 const FILE_RECTYPE_CODE = 'RT_REGISTERED_FILE';
 
+/** Record types without a built-in filter (the list's search box): users and groups. */
+const NO_FILTER_RECTYPE_CODES = Object.freeze(['RT_SYS_USER', 'RT_SYS_GROUP']);
+
 /**
- * The built-in filter of a list of record types: files for RT_REGISTERED_FILE, else generic.
+ * The built-in filter of a list of record types: files for RT_REGISTERED_FILE, none for
+ * users and groups, else generic.
  *
  * @param {object|null} dbdefs HDbDefs (`dbconst`, `localId`).
  * @param {Array<number|string>} [recordTypes] Record types of the manager.
  * @returns {{id: string, query: Array<object>, filterForm: object}|null} The filter, or null
- *          when no field of it exists.
+ *          when no field of it exists (or for users and groups).
  */
 export function builtinRecordFilter(dbdefs, recordTypes = []) {
   const files = Number(dbdefs?.dbconst?.(FILE_RECTYPE_CODE)) || 0;
   const types = (recordTypes || []).map(Number).filter((id) => id > 0);
   if (files > 0 && types.length > 0 && types.every((id) => id === files)) return fileFilter(dbdefs);
+  const plain = NO_FILTER_RECTYPE_CODES.map((code) => Number(dbdefs?.dbconst?.(code)) || 0).filter((id) => id > 0);
+  if (types.length > 0 && types.every((id) => plain.includes(id))) return null;
   return genericFilter();
 }
 

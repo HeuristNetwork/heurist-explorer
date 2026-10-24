@@ -99,12 +99,12 @@ export class RecordViewLoader {
    * record request, one structure request per record type and one name request.
    *
    * @param {Array<number|string>} ids Record IDs.
-   * @param {{signal?: AbortSignal}} [options]
+   * @param {{signal?: AbortSignal, path?: string}} [options] `path`: the records' domain (`/sys/user`; default `/records`).
    * @returns {Promise<Map<number, {record: object, sections: Array<object>, recordTypeName: string|null}>>}
    *          Render input by record ID, for the records found.
    */
-  async loadMany(ids, { signal } = {}) {
-    const records = await this.recordDataProvider.loadMany({ ids, signal });
+  async loadMany(ids, { signal, path = '/records' } = {}) {
+    const records = await this.recordDataProvider.loadMany({ ids, signal, path });
     const types = [...new Set([...records.values()].map((record) => Number(record.rec_RecTypeID) || 0).filter(Boolean))];
     const [structures, names] = await Promise.all([
       Promise.all(types.map(async (rty) => [rty, await this.structureProvider.fieldSections(rty, { signal })])),

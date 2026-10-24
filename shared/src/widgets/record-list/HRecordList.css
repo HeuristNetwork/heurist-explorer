@@ -59,6 +59,12 @@
 .h-recordlist-card > .h-recordlist-template-content { min-height:0; max-width:100%; overflow:hidden; overflow-wrap:anywhere; }
 .h-recordlist-card > .h-recordlist-template-content > * { max-width:100%; box-sizing:border-box; }
 .h-recordlist-row { flex:0 0 280px; min-height:150px; padding:8px; }
+/* the owner's tools of a record (recordTools, plan 24): always visible */
+.h-recordlist-record-tools { display:flex; flex-direction:column; gap:2px; min-width:0; }
+.h-recordlist-big > .h-recordlist-card-top > .h-recordlist-record-tools { margin-left:8px; }
+.h-recordlist-card:has(> .h-recordlist-record-tools) { grid-template-rows:auto auto minmax(0,1fr) auto; }
+.h-recordlist-card > .h-recordlist-record-tools,
+.h-recordlist-row > .h-recordlist-record-tools { margin:2px 0; }
 .h-recordlist-big { flex:0 0 auto; height:auto; min-height:240px; padding:10px; }
 .h-recordlist-template-content { position:relative; z-index:0; display:flow-root; min-width:0; height:auto; }
 .h-recordlist-big .h-recordlist-template-content.h-recordlist-placeholder { min-height:240px; }

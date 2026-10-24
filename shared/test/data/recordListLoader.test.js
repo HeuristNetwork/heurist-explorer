@@ -46,6 +46,11 @@ test('a counted query and filter is not counted again on the next page', async (
   // an empty search is no filter
   await loader.load({ offset: 0, limit: 2, filter: { f: '' } });
   assert.equal(api.calls[3].body.filter, undefined);
+  // the search box of HRecordList sends the title (plan 24 review): it is a filter too
+  await loader.load({ offset: 0, limit: 2, filter: { title: 'abc' } });
+  assert.deepEqual(api.calls[4].body.filter, { title: 'abc' });
+  await loader.load({ offset: 0, limit: 2, filter: { title: '' } });
+  assert.equal(api.calls[5].body.filter, undefined);
   assert.equal(api.calls[3].body.total, false);
 });
 

@@ -63,20 +63,23 @@ export class RecordDataProvider {
    * Load several records in one request, each with every detail value resolved
    * (as `load`), e.g. one page of the Data module's Extended view.
    *
-   * @param {{ids: Array<number|string>, signal?: AbortSignal}} options Load options.
+   * @param {{ids: Array<number|string>, signal?: AbortSignal, path?: string}} options Load options;
+   *        `path`: the search path of the records' domain (`/sys/user`, `/files`; default `/records`).
    * @returns {Promise<Map<number, object>>} Record ID -> resolved record, for the records found.
    * @throws {TypeError} When the response is missing `records`.
    */
-  async loadMany({ ids = [], signal } = {}) {
+  async loadMany({ ids = [], signal, path = "/records" } = {}) {
     const recordIds = [...new Set(ids.map(Number).filter((id) => Number.isInteger(id) && id > 0))];
     if (!recordIds.length) return new Map();
-    const response = await this.apiClient.post("/records", {
+    const records = !path || path === "/records";
+    const response = await this.apiClient.post(path || "/records", {
       signal,
       body: {
-        q: `ids:${recordIds.join(",")}`,
+        // the other domains take the JSON query; their records have their own image (users, groups, files)
+        q: records ? `ids:${recordIds.join(",")}` : [{ ids: recordIds.join(",") }],
         limit: recordIds.length,
         resolveDetails: 1,
-        fields: ["_all", ...FOOTER_FIELDS].join(","),
+        fields: ["_all", ...FOOTER_FIELDS, ...(records ? [] : ["rec_ThumbnailURL"])].join(","),
       },
     });
     if (!response || !Array.isArray(response.records)) {

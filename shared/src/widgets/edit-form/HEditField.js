@@ -42,6 +42,7 @@ import { FORM_FIELD_CLASS, FORM_LABEL_CLASS } from '../form/formLayout.js';
 import { TermSource } from '../../data/valueSources/localSources.js';
 import { cssWidth } from '../../data/editFormSchema.js';
 import { showPopover, closePopover } from '../popover/popover.js';
+import { HMsg } from '../../ui/HMsg.js';
 import { $HR } from '../../ui/i18n/HResource.js';
 import './HEditField.css';
 
@@ -108,6 +109,16 @@ export class HEditField extends HBaseWidget {
   /** @returns {boolean} Whether the field may have several values. */
   get isRepeatable() {
     return !this.field.multilang && !this.isList && (this.field.max === 0 || this.field.max > 1);
+  }
+
+  /**
+   * Whether the relationships of a repeatable relmarker field are edited in the relations
+   * mode of the record manager (one-to-many, plan 24): the service gives `manage`.
+   *
+   * @returns {boolean}
+   */
+  get isManagedRelmarker() {
+    return this.field.type === 'relmarker' && this.isRepeatable && typeof this.options.relationships?.manage === 'function';
   }
 
   /** @returns {boolean} Whether the values are edited as one list (special `list`: one value per line). */
@@ -672,6 +683,8 @@ export class HEditField extends HBaseWidget {
           relation: entry.relation || null,
           field,
           relationships: this.options.relationships || null,
+          // one-to-many (plan 24): the relationships are shown here, changed in the manager
+          managed: this.isManagedRelmarker,
           apiClient: this.options.apiClient,
           dbdefs: this.options.dbdefs,
           iconBase: this.options.fileViewer || null,
@@ -736,6 +749,12 @@ export class HEditField extends HBaseWidget {
       translate.setAttribute('aria-label', translate.title);
       this.listen(translate, 'click', () => this._editTranslation(translate, null));
       this.actionButtons.push(translate);
+    } else if (this.isManagedRelmarker) {
+      // on its own line above the relationships (plan 24 review)
+      const line = document.createElement('div');
+      line.className = 'h-edit-field-manage-line';
+      line.append(this._manageButton());
+      this.valuesHost.prepend(line);
     } else if (this.isRepeatable) {
       this.addButton = document.createElement('button');
       this.addButton.type = 'button';
@@ -758,6 +777,40 @@ export class HEditField extends HBaseWidget {
       this.actionButtons.push(this.addButton);
     }
     this._syncRows();
+  }
+
+  /**
+   * "Manage relationships to <types>" (plan 24): the relations mode of the record manager;
+   * then the field shows the relationships again.
+   */
+  _manageButton() {
+    const field = this.field;
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'h-btn h-btn-small h-edit-field-manage';
+    const types = ((field.reverse ? field.sourceTypes : field.targetTypes) || []).map(Number).filter((id) => id > 0);
+    const names = types.map((id) => this.options.dbdefs?.rectypeName?.(id) || `#${id}`).join(', ');
+    const caption = document.createElement('span');
+    caption.textContent = names
+      ? `${$HR(field.reverse ? 'Manage relationships from' : 'Manage relationships to')} ${names}`
+      : $HR('Manage relationships');
+    button.append(iconElement('fa-circle-plus'), caption);
+    button.title = caption.textContent;
+    this.listen(button, 'click', async () => {
+      if (button.disabled) return;
+      button.disabled = true;
+      try {
+        const relations = await this.options.relationships.manage(field);
+        if (!Array.isArray(relations)) return;
+        await this.setState({ values: relations.map((relation) => ({ value: relation.relId, hidden: false, relation })), translations: [] });
+        this.options.relationships.changed?.();
+      } catch (error) {
+        HMsg.showMsgErr(error?.message || String(error));
+      } finally {
+        button.disabled = false;
+      }
+    });
+    return button;
   }
 
   /**

@@ -5,10 +5,13 @@ import { installFakeDom } from '../../../shared/test/helpers/fakeDom.js';
 installFakeDom();
 const { userGroupForm } = await import('../src/ui/ExplorerUserGroupManager.js');
 
-const CONSTANTS = { DT_NAME: 1, DT_SHORT_SUMMARY: 3, DT_EMAIL: 23, DT_LOGIN_NAME: 1200, DT_PASSWORD: 1201, DT_ACCOUNT_STATUS: 1203 };
+const CONSTANTS = {
+  DT_NAME: 1, DT_SHORT_SUMMARY: 3, DT_EMAIL: 23, DT_LOGIN_NAME: 1200, DT_PASSWORD: 1201, DT_ACCOUNT_STATUS: 1203,
+  DT_GROUP_MEMBERSHIP: 1196, TRM_GROUP_ROLE: 10674
+};
 const dbdefs = {
   dbconst: (name) => CONSTANTS[name] ?? 0,
-  localId: () => 0,
+  localId: (kind, code) => ({ 'rty:2-1107': 133, 'rty:2-1108': 134 })[`${kind}:${code}`] || 0,
   users: () => [{ id: 2, name: 'Artem (osmakov)' }, { id: 7, name: 'Ian (ijohnson)' }]
 };
 const fields = (form) => form.groups.flatMap((group) => group.children);
@@ -27,11 +30,24 @@ test('user form: the password repeat after the password; the status read only on
   assert.equal(fields(added).some((field) => field.name === 'image'), false, 'no image before the first save');
 });
 
-test('group form: admins and members are lists of the users', () => {
+test('group form: the members are the membership relmarker (plan 24); read only before the first save', () => {
   const form = userGroupForm('group', dbdefs, { item: { id: 5 }, client: {} });
-  const admins = fields(form).find((field) => field.name === 'admins');
-  assert.equal(admins.type, 'enum');
-  assert.equal(admins.max, 0);
-  assert.deepEqual(admins.terms, [{ id: 2, label: 'Artem (osmakov)' }, { id: 7, label: 'Ian (ijohnson)' }]);
-  assert.deepEqual(fields(form).map((field) => field.name), ['name', 'longName', 'admins', 'members', 'image']);
+  const members = fields(form).find((field) => field.name === 'members');
+  assert.equal(members.type, 'relmarker');
+  assert.equal(members.max, 0);
+  assert.equal(members.vocabulary, 10674);
+  assert.deepEqual(members.targetTypes, [133]);
+  assert.notEqual(members.readOnly, true);
+  assert.deepEqual(fields(form).map((field) => field.name), ['name', 'longName', 'image', 'members']);
+  assert.deepEqual(form.groups.map((group) => [group.type, group.label]), [['tabs', 'Info'], ['tabs', 'Membership']]);
+  const added = userGroupForm('group', dbdefs, { item: { id: 0 }, client: {} });
+  assert.equal(fields(added).find((field) => field.name === 'members').readOnly, true);
+});
+
+test('user form: the groups of the user are the reverse membership field', () => {
+  const form = userGroupForm('user', dbdefs, { item: { id: 7 }, client: {}, isAdmin: true });
+  const groups = fields(form).find((field) => field.name === 'groups');
+  assert.equal(groups.type, 'relmarker');
+  assert.equal(groups.reverse, true);
+  assert.deepEqual(groups.sourceTypes, [134]);
 });

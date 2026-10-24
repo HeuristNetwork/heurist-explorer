@@ -24,6 +24,7 @@
 }
 
 .h-input-relmarker-add[hidden],
+.h-input-relmarker-none[hidden],
 .h-input-relmarker-box[hidden],
 .h-input-relmarker-relicon[hidden],
 .h-input-relmarker-othericon[hidden],
@@ -34,6 +35,8 @@
 /* as wide as its content (at least a pointer field's picker), shrinks only when the row has
    no room; the clear action comes right after it (review 2026-10-22) */
 .h-input-relmarker-box {
+  /* the minimum width includes padding and border: the clear action after it, not over it */
+  box-sizing: border-box;
   display: flex;
   flex: 0 1 auto;
   align-items: center;
@@ -46,6 +49,12 @@
   border-radius: var(--h-radius);
   padding: 1px 6px;
   background: var(--h-color-bg);
+}
+
+/* without a width set by the form (users, groups) the box keeps its minimum width in its
+   wrap, so the clear action stays after it, not over it (plan 24 review) */
+.h-form-input-relmarker:not(.has-display-width) > .h-form-input-control > .h-form-input-control-wrap {
+  min-width: min(22em, calc(100% - 30px));
 }
 
 /* read only: the surface colour, as the other inputs (HInput.css) */
@@ -130,4 +139,11 @@
 /* the popup of a new relationship (relationshipDialog.js) */
 .h-relationship-dialog {
   width: min(720px, calc(100vw - 32px));
+}
+
+/* a managed field without relationships (plan 24) */
+.h-input-relmarker-none {
+  color: var(--h-color-text-muted);
+  font-style: italic;
+  white-space: nowrap;
 }

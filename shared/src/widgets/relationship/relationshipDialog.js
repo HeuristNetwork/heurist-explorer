@@ -149,3 +149,29 @@ export async function openRelationshipDialog(options) {
   });
   return result && created ? created : null;
 }
+
+/**
+ * The warning before a relationship is deleted (Proceed / Cancel): HInputRelmarker and the
+ * relations mode of HRecordManager (plan 24).
+ *
+ * @returns {Promise<boolean>} True to delete.
+ */
+export function confirmRelationshipDelete() {
+  return new Promise((resolve) => {
+    let answered = false;
+    const answer = (value) => {
+      if (answered) return;
+      answered = true;
+      HMsg.closeMsgDlg();
+      resolve(value);
+    };
+    const dialog = HMsg.showMsgDlg($HR('You are about to delete link between records.<br><br>Are you sure?'), {
+      title: 'Warning',
+      buttons: [
+        { label: $HR('Proceed'), class: 'h-btn h-btn-primary', onClick: () => answer(true) },
+        { label: $HR('Cancel'), class: 'h-btn', onClick: () => answer(false) }
+      ]
+    });
+    dialog?.addEventListener?.('close', () => answer(false), { once: true });
+  });
+}
