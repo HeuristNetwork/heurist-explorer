@@ -15,6 +15,9 @@
  *   linked *to* the given one; `lf` would be the records it points to) - except child
  *   records pointing back through the automatic "Parent entity" field (2-247):
  *   `{"not":[{"lt:<247>":<id>}]}`. The parent's own child field already lists them.
+ * - **Parent record** (plan 26): for a child record type, the records pointing at this one
+ *   through a child field (`parentRecords.js`), shown as the first field of the record and
+ *   left out of "Linked from".
  *
  * Very large records (plan 23 §3.3): each kind is one search of the first `FIRST_PAGE`
  * rows, enough for a normal record. When there are more, the groups (record types of
@@ -40,6 +43,7 @@
  */
 
 import { aggregate } from "../data/aggregate.js";
+import { loadParents } from "../data/parentRecords.js";
 import { DEFAULT_RECORD_LIMITS } from "./recordLimits.js";
 
 /** Rows of the first search of each kind: all the links of a normal record. */
@@ -84,18 +88,21 @@ export class RecordRelationsProvider {
    * @param {Array<object>} [options.sections] Field sections; their `relmarker` fields are loaded.
    * @param {number} [options.limit] Records per group (default: the provider's).
    * @param {AbortSignal} [options.signal] Abort signal.
-   * @returns {Promise<{related: Object<string, LinkGroup>, relationsFrom: LinkGroup[], linkedFrom: LinkGroup[], dbdefs: object|null}>}
-   *   `related` by relmarker field ID; `relationsFrom` one group per relation type; `linkedFrom` one per record type.
+   * @returns {Promise<{related: Object<string, LinkGroup>, relationsFrom: LinkGroup[], linkedFrom: LinkGroup[],
+   *   parents: LinkGroup|null, dbdefs: object|null}>}
+   *   `related` by relmarker field ID; `relationsFrom` one group per relation type; `linkedFrom` one per record type;
+   *   `parents` the parent records of a child record type (null: not a child type, none, or not loaded).
    */
   async load({ id, rty, sections = [], limit = this.limit, signal } = {}) {
     const recordId = Number(id);
-    const empty = { related: {}, relationsFrom: [], linkedFrom: [], dbdefs: null };
+    const empty = { related: {}, relationsFrom: [], linkedFrom: [], parents: null, dbdefs: null };
     if (!Number.isInteger(recordId) || recordId < 1 || typeof this.apiClient?.get !== "function") return empty;
 
     const dbdefs = await this.#dbdefs();
     const rel = relationshipIds(dbdefs);
     const relmarkers = sections.flatMap((section) => section.fields || []).filter((field) => field.type === "relmarker");
-    const context = { recordId, rty, rel, dbdefs, signal, limit: positive(limit, this.limit) };
+    const parents = await this.#parents(recordId, rty, dbdefs, signal);
+    const context = { recordId, rty, rel, dbdefs, signal, limit: positive(limit, this.limit), parents };
 
     const [related, relationsFrom, linkedFrom] = await Promise.all([
       rel ? Promise.all(relmarkers.map((field) => this.#related(field, context)))
@@ -104,7 +111,29 @@ export class RecordRelationsProvider {
       rel ? this.#relationsFrom(context) : [],
       this.#linkedFrom(context),
     ]);
-    return { related, relationsFrom, linkedFrom, dbdefs };
+    return { related, relationsFrom, linkedFrom, parents, dbdefs };
+  }
+
+  /**
+   * Parent records of a child record type (plan 26): one group labelled "Parent record";
+   * null when the type is not a child type, the record has no parent or the search failed.
+   */
+  async #parents(recordId, rty, dbdefs, signal) {
+    if (!dbdefs?.isChildRectype?.(rty)) return null;
+    let links;
+    try {
+      links = await loadParents({ apiClient: this.apiClient, dbdefs, recordId, rectypeId: rty, signal });
+    } catch (error) {
+      if (error?.name === "AbortError") throw error;
+      return null;
+    }
+    const items = [...new Map(links.map(({ record }) => [Number(record.rec_ID), {
+      id: Number(record.rec_ID), title: String(record.rec_Title ?? ""), rty: Number(record.rec_RecTypeID) || 0, relation: "",
+    }])).values()];
+    return items.length
+      ? { label: "Parent record", rty: 0, items, total: items.length, query: null, more: null,
+        storedField: dbdefs.dbconst?.("DT_PARENT_ENTITY") || 0 }
+      : null;
   }
 
   /** Relationships of one relmarker field: this record is the source. */
@@ -184,10 +213,12 @@ export class RecordRelationsProvider {
    * Records pointing at this record (never relationship records), leaving out links
    * through the automatic "Parent entity" field (child to parent); one group per record type.
    */
-  async #linkedFrom({ recordId, rel, dbdefs, signal, limit }) {
+  async #linkedFrom({ recordId, rel, dbdefs, signal, limit, parents }) {
     const q = [{ lt: String(recordId) }];
     const parentField = dbdefs?.dbconst?.("DT_PARENT_ENTITY") || 0;
     if (parentField) q.push({ not: [{ [`lt:${parentField}`]: String(recordId) }] });
+    // the parents are shown as the "Parent record" field (plan 26)
+    if (parents?.items.length) q.push({ not: [{ ids: parents.items.map((item) => item.id).join(",") }] });
     const fields = "rec_Title,rec_RecTypeID";
     const toItems = (rows) => rows
       .map((row) => ({ id: Number(row.rec_ID), title: String(row.rec_Title ?? ""), rty: Number(row.rec_RecTypeID) || 0, relation: "" }))

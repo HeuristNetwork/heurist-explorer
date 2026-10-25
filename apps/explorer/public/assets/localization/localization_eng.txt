@@ -1024,3 +1024,9 @@
 #Select a valid parent field#Select a valid parent field
 #The parent field has no room for another child#The parent field has no room for another child
 #Retry#Retry
+# New of the record editor, Add record of the left rail (2026-10-25)
+#New#New
+#Add a new record#Add a new record
+#Save the changes of this record before you add a new one?#Save the changes of this record before you add a new one?
+#Don't save#Don't save
+#Drop changes#Drop changes

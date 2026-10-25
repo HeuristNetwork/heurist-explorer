@@ -207,11 +207,39 @@
   display: inline-flex;
   flex: 0 0 auto;
   align-items: center;
+  justify-content: flex-end;
   gap: 1px;
 }
 
 .h-form-input-actions:empty {
   display: none;
+}
+
+/* value tools: the actions slot keeps its place in every input (room for Add and Translate),
+   so all controls of a form start at the same position (2026-10-25) */
+.h-form-input.has-value-tools .h-form-input-actions {
+  min-width: var(--h-form-input-actions-width, 26px);
+}
+
+.h-form-input.has-value-tools .h-form-input-actions:empty {
+  display: inline-flex;
+}
+
+.h-form-input.has-value-tools.is-multiline .h-form-input-actions {
+  align-self: flex-start;
+}
+
+/* a mark of the value before the control (a translation's language code, HInputText):
+   in the actions slot, or before the control without value tools */
+.h-form-input-control-wrap.has-lead {
+  display: flex;
+  align-items: flex-start;
+  gap: 4px;
+}
+
+.h-form-input-control-wrap.has-lead > .h-input {
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 /* Show / Hide raw (date and special fields, 2026-10-18): a small muted link after Edit,

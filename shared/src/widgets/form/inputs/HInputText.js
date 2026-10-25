@@ -50,15 +50,14 @@ export class HInputText extends HInput {
       this._syncLink();
     });
     this._commitOnEnterOrBlur(control, { enter: !multiline });
-    // a translation: its language code before the input (plan 25)
+    // a translation: its language code in the actions slot before the input (plan 25; HInput actionsLead)
     const lang = String(this.options.langCode ?? '').trim().toUpperCase();
     if (lang) {
       const badge = document.createElement('span');
       badge.className = 'h-input-text-lang';
       badge.textContent = lang;
       badge.title = `${$HR('Translation')}: ${lang}`;
-      host.classList.add('has-lang');
-      host.append(badge);
+      this.actionsLead = badge;
       this.langCode = lang;
     }
     host.append(control);

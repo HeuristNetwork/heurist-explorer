@@ -1024,3 +1024,9 @@
 #Select a valid parent field#Sélectionnez un champ parent valide
 #The parent field has no room for another child#Le champ du parent ne peut pas recevoir un autre enfant
 #Retry#Réessayer
+# New of the record editor, Add record of the left rail (2026-10-25)
+#New#Nouveau
+#Add a new record#Ajouter un nouvel enregistrement
+#Save the changes of this record before you add a new one?#Enregistrer les modifications de cet enregistrement avant d'en ajouter un nouveau ?
+#Don't save#Ne pas enregistrer
+#Drop changes#Abandonner les modifications

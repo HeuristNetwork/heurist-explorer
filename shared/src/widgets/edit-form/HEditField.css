@@ -33,14 +33,8 @@
 /* Add a value / Translate, Remove / Clear and the value visibility are HInput value tools
    (HInput.css, plan 18) */
 
-/* Add / Translate only in front of the first value: the next values keep the place */
-.h-edit-field.has-actions .h-form-input-actions {
-  min-width: 18px;
-}
-
-.h-edit-field.has-actions .h-form-input-actions:empty {
-  display: inline-flex;
-}
+/* Add / Translate only in front of the first value: the next values keep the place
+   (the actions slot of every input, HInput.css) */
 
 .h-edit-field-values {
   display: flex;
@@ -213,10 +207,12 @@
   width: auto;
 }
 
-/* "Manage relationships to <types>" of a repeatable relmarker field (plan 24): a line above the values */
+/* "Manage relationships to <types>" of a repeatable relmarker field (plan 24): a line above the values,
+   after the same gap as the values (the actions slot and the gap of HInput.css, 2026-10-25) */
 .h-edit-field-manage-line {
   display: flex;
   margin-bottom: 4px;
+  margin-left: calc(var(--h-form-input-actions-width, 26px) + 4px);
 }
 
 .h-edit-field-manage {

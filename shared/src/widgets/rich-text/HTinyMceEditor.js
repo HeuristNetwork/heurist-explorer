@@ -5,8 +5,12 @@
  *        no menu bar, status bar and resize, lists / links / tables / images, relative URLs
  *        against the Heurist base URL (stored as legacy, `./?db=X&file=KEY`), raw entities.
  *        Buttons Media (a registered file), Caption (of an image) and Record (a link to a
- *        record) use the host's services. Not ported: fonts, sizes, colours, alignment - the
- *        server removes inline CSS (stored text policy), they would be lost on save.
+ *        record) use the host's services. Toolbar as legacy (2026-10-25): Formats menu (Headings,
+ *        Inline, Blocks, Align: TinyMCE's default `styles`), font and size selectors, bold, italic,
+ *        underline (`<u>`), font colour; the server keeps these inline styles on span, and
+ *        text-align on paragraphs, divs and headings (stored text policy). Not ported: background colour.
+ *        Inside a modal dialog the editor's menus and dialogs are moved into it (TinyMCE puts
+ *        them in the document body, which a modal dialog makes inert).
  *
  *   const editor = await createTinyMceEditor(host, { value, baseUrl, onChange, insertMedia, insertRecordLink });
  *   editor.getValue(); editor.destroy();
@@ -24,6 +28,7 @@
 
 import { editorValue } from './richTextEditors.js';
 import { $HR } from '../../ui/i18n/HResource.js';
+import './HTinyMceEditor.css';
 
 /** TinyMCE with its model, theme, icons, skins and plugins (loaded once). */
 let loading = null;
@@ -46,7 +51,6 @@ function loadTinyMce() {
       import('tinymce/plugins/link'),
       import('tinymce/plugins/image'),
       import('tinymce/plugins/table'),
-      import('tinymce/plugins/code'),
       import('tinymce/plugins/fullscreen'),
       import('tinymce/plugins/searchreplace'),
       import('tinymce/plugins/visualblocks'),
@@ -79,6 +83,7 @@ export async function createTinyMceEditor(host, { value = '', baseUrl = '', onCh
   target.value = String(value ?? '');
   host.append(target);
   const base = normalizeBase(baseUrl);
+  const sinksBefore = new Set(document.querySelectorAll('.tox-tinymce-aux'));
   const [editor] = await tinymce.init({
     target,
     license_key: 'gpl',
@@ -92,10 +97,13 @@ export async function createTinyMceEditor(host, { value = '', baseUrl = '', onCh
     elementpath: false,
     statusbar: true,
     resize: 'both',
-    plugins: 'advlist autolink lists link image table code fullscreen searchreplace visualblocks autoresize help',
-    toolbar: 'blocks | bold italic underline strikethrough superscript subscript | heuristMedia heuristCaption heuristRecord link'
-      + ' | bullist numlist outdent indent | table hr removeformat | fullscreen code help',
+    plugins: 'advlist autolink lists link image table fullscreen searchreplace visualblocks autoresize help',
+    // styles: the Formats menu of legacy (styleselect) with TinyMCE's default style_formats
+    toolbar: 'styles fontfamily fontsize | bold italic underline forecolor | heuristMedia heuristCaption heuristRecord link'
+      + ' | bullist numlist outdent indent | table hr removeformat | fullscreen help',
     toolbar_mode: 'wrap',
+    // underline as <u> (TinyMCE's default is a span with text-decoration)
+    formats: { underline: { inline: 'u', exact: true } },
     min_height: 220,
     max_height: 640,
     autoresize_bottom_margin: 15,
@@ -110,6 +118,10 @@ export async function createTinyMceEditor(host, { value = '', baseUrl = '', onCh
     paste_data_images: false,
     setup: (instance) => setup(instance, { insertMedia, insertRecordLink })
   });
+  // menus, pickers and dialogs (Insert link, Table) of this editor: in the modal dialog of the form
+  const dialog = host.closest('dialog');
+  const sinks = dialog ? [...document.querySelectorAll('.tox-tinymce-aux')].filter((sink) => !sinksBefore.has(sink)) : [];
+  for (const sink of sinks) dialog.append(sink);
   const changed = () => onChange?.(editorValue(editor.getContent()));
   editor.on('change input undo redo SetContent', changed);
   return {
@@ -117,6 +129,7 @@ export async function createTinyMceEditor(host, { value = '', baseUrl = '', onCh
     focus: () => editor.focus(),
     destroy: () => {
       editor.remove();
+      for (const sink of sinks) sink.remove();
       target.remove();
     }
   };

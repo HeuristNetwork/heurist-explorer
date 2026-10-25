@@ -113,6 +113,15 @@ export class HInput extends HBaseWidget {
     } else if (this.options.clearButton !== false) {
       this._renderClearButton(header, controlHost);
     }
+    // a mark of the value set by renderControl (a translation's language code): in the actions
+    // slot, so the control stays aligned with the others; without value tools before the control
+    if (this.actionsLead) {
+      if (this.actionsHost) this.actionsHost.prepend(this.actionsLead);
+      else {
+        controlWrap.classList.add('has-lead');
+        controlWrap.prepend(this.actionsLead);
+      }
+    }
 
     const help = String(this.options.help ?? '').trim();
     if (help) {
@@ -401,7 +410,8 @@ export class HInput extends HBaseWidget {
    * @returns {HInput} This input.
    */
   setActions(elements) {
-    this.actionsHost?.replaceChildren(...(elements || []));
+    // the value's mark (actionsLead) stays first
+    this.actionsHost?.replaceChildren(...(this.actionsLead ? [this.actionsLead] : []), ...(elements || []));
     return this;
   }
 

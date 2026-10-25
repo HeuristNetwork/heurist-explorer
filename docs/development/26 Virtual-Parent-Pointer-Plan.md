@@ -176,4 +176,12 @@ Acceptance checks:
 - HFieldTree: one `_parentFolders` helper for the branches and the geo/time navigation; shared `parentFieldsOf` in parentRecords.js; ReportRecordAssembler uses `rawValue('resource')`.
 - Tests: 1,407 JavaScript tests, 16 isolated PHP checks, `TitleMaskCompareTest` (280 same, 0 different) and `ReportEngineCompareTest` (10 same), all seven builds.
 
+**Review changes (Artem, 2026-10-25):**
+
+- Parent record field: read only without the browse icon; Edit opens the parent's editor (HInputResource
+  `editReadOnly`, field option `editReadOnly`). The missing-parent warning goes as soon as a parent is chosen.
+- Record View: `RecordRelationsProvider.load` returns `parents` (one group, by `loadParents`) for a child record type;
+  the renderer shows it as the first field *Parent record* and hides the stored Parent entity field; Linked from
+  leaves the parent records out (`{"not":[{"ids":…}]}`).
+
 **Review boundaries:** browser interaction review is still needed. The older live-database PHP test bootstrap currently fails before tests execute (hserv class autoloading); the isolated modern integration test does not use that bootstrap. Administrative changes to structure flags still require the existing title-regeneration workflow: this task does not add a schema-write observer to the read-only modern definitions API. No deployment or commit was performed.

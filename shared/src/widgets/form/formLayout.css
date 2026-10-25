@@ -1,7 +1,7 @@
 /* Layout options of edit forms (formLayout.js, plan 18). */
 
 .h-form-layout {
-  --h-form-label-width: 150px;
+  --h-form-label-width: 140px;
   container-type: inline-size;
 }
 

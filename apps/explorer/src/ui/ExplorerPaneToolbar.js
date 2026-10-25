@@ -208,7 +208,9 @@ export class ExplorerPaneToolbar {
       ['Manage registered files', () => void app.manageFiles?.()],
       ['Manage users', () => void app.manageUsers?.()],
       ['Manage groups', () => void app.manageGroups?.()],
-      ['Query tracer', () => app.showQueryTrace?.()]
+      ['Query tracer', () => app.showQueryTrace?.()],
+      // temporary (plan 14a)
+      ['Test edit form', () => void app.controlPanel?.openEditFormTest()]
     ];
     for (const [label, action] of items) {
       const item = document.createElement('li');

@@ -47,6 +47,12 @@ test('translations are value rows with the language code before the input; their
   assert.equal(widget._translationRows.length, 1);
   const row = widget._translationRows[0];
   assert.equal(row.input.langCode, 'FRE');
+  // in the actions slot, so the input is aligned with the others (2026-10-25); Add / Translate do not remove it
+  const actions = row.input.container.querySelector('.h-form-input-actions');
+  assert.equal(actions.querySelector('.h-input-text-lang').textContent, 'FRE');
+  row.input.setActions([document.createElement('button')]);
+  assert.equal(actions.children[0].className, 'h-input-text-lang');
+  assert.equal(actions.children.length, 2);
   assert.equal(row.input.getValue(), 'Bonjour');
   assert.ok(row.element.classList.contains('h-edit-field-translation'));
   assert.deepEqual(widget.getState().translations, [{ lang: 'FRE', value: 'Bonjour', hidden: false }]);

@@ -1,0 +1,58 @@
+/* HTML editor of a blocktext value (HTinyMceEditor.js, plan 25): smaller toolbar buttons than
+   the TinyMCE skin (2026-10-25). Rows are 26px high: the row lines of the wrapped toolbar too. */
+
+.h-input-text-editor .tox .tox-toolbar,
+.h-input-text-editor .tox .tox-toolbar__primary,
+.h-input-text-editor .tox .tox-toolbar__overflow {
+  background-image: repeating-linear-gradient(#e3e3e3 0 1px, transparent 1px 26px);
+  background-position: center top 26px;
+  background-size: calc(100% - 8px) calc(100% - 27px);
+}
+
+.h-input-text-editor .tox .tox-toolbar-overlord > .tox-toolbar,
+.h-input-text-editor .tox .tox-toolbar-overlord > .tox-toolbar__primary {
+  background-position: center top 0;
+  background-size: calc(100% - 8px) 100%;
+}
+
+.h-input-text-editor .tox .tox-toolbar__group {
+  padding: 0 4px;
+}
+
+.h-input-text-editor .tox .tox-tbtn {
+  width: 24px;
+  height: 22px;
+  margin: 2px 1px 2px 0;
+}
+
+.h-input-text-editor .tox .tox-tbtn svg {
+  transform: scale(0.8);
+}
+
+.h-input-text-editor .tox .tox-tbtn--select,
+.h-input-text-editor .tox .tox-split-button {
+  width: auto;
+  margin: 2px 1px 2px 0;
+}
+
+.h-input-text-editor .tox .tox-split-button .tox-tbtn {
+  margin: 0;
+}
+
+.h-input-text-editor .tox .tox-tbtn--select {
+  padding: 0 2px;
+}
+
+.h-input-text-editor .tox .tox-tbtn__select-label {
+  margin: 0 2px;
+  font-size: var(--h-font-size);
+}
+
+.h-input-text-editor .tox .tox-tbtn--bespoke .tox-tbtn__select-label {
+  width: 5.5em;
+}
+
+.h-input-text-editor .tox .tox-tbtn__select-chevron,
+.h-input-text-editor .tox .tox-split-button__chevron {
+  width: 12px;
+}

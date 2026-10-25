@@ -14,7 +14,8 @@
  *   host.addEventListener('h-record-editor-saved', (event) => ...);
  *
  * Events on the container: `h-record-editor-saved` {record, issues, created},
- * `h-record-editor-close` {saved}, `h-record-editor-change` {dirty}.
+ * `h-record-editor-close` {saved}, `h-record-editor-change` {dirty}. With `onNew` the footer has New:
+ * the host replaces the editor with one of a new record (unsaved changes are saved first if wanted).
  *
  * @project     Heurist academic knowledge management system
  * @package     heurist-client-core
@@ -103,6 +104,8 @@ export class HRecordEditor extends HBaseWidget {
    *        (see HEditField); `describe` and `edit` get `{field, record, getValue(dty), setValue(dty, value)}`.
    * @param {Function} [options.onSaved] Called after a save with `{record, issues, created}`.
    * @param {Function} [options.onClose] Called when the editor asks to close, with `{saved}`.
+   * @param {Function} [options.onNew] New button of the footer: `({rectypeId, saved})`, called after the
+   *        unsaved changes were saved or dropped; the host opens a new record in place of this one.
    * @param {boolean} [options.readOnly] Display only.
    * @param {'inline'|'above'|'auto'} [options.labelPos='auto'] Labels beside or above the inputs
    *        (auto: beside when the form is wide enough), see formLayout.js.
@@ -201,7 +204,10 @@ export class HRecordEditor extends HBaseWidget {
       else if (choice === 'parent') {
         const selection = await this._browseParent();
         if (!selection?.length) this.close();
-        else await this.editForm.setValue('_parent', selection[0]);
+        else {
+          await this.editForm.setValue('_parent', selection[0]);
+          this._renderParentWarning();
+        }
       }
     }
     return this;
@@ -228,7 +234,9 @@ export class HRecordEditor extends HBaseWidget {
       name: '_parent', type: 'resource', label: $HR('Parent record'), transient: true,
       max: this._parents.length ? 0 : 1, required: false, readOnly: Boolean(this._parents.length || this._parentError || context),
       targetTypes: [...new Set(this.dbdefs.parentLinks(this.rectypeId).map((link) => link.parentRectypeId))],
-      pointerMode: 'browseonly', showAdd: false
+      pointerMode: 'browseonly', showAdd: false,
+      // a defined parent is read only, but can be opened in its own editor
+      editReadOnly: true
     };
     const parentId = this.dbdefs.dbconst?.('DT_PARENT_ENTITY');
     const removeStoredParent = (group) => ({ ...group,
@@ -458,6 +466,27 @@ export class HRecordEditor extends HBaseWidget {
   }
 
   /**
+   * New (option `onNew`): ask the host for a new record. Unsaved changes are saved first,
+   * or dropped, as the user chooses.
+   *
+   * @returns {Promise<boolean>} True when the host was asked.
+   */
+  async newRecord() {
+    if (typeof this.options.onNew !== 'function' || this._saving) return false;
+    if (this.isDirty()) {
+      const answer = await askDialog($HR('Save the changes of this record before you add a new one?'), $HR('Unsaved changes'), [
+        { label: 'Save', value: 'save', primary: true },
+        { label: "Don't save", value: 'drop' },
+        { label: 'Cancel', value: null }
+      ]);
+      if (!answer) return false;
+      if (answer === 'save' && !(await this.save())) return false;
+    }
+    this.options.onNew({ rectypeId: this.rectypeId, saved: this._saved });
+    return true;
+  }
+
+  /**
    * Drop the unsaved changes: the form again with the values of the record as it was
    * loaded or last saved (confirmed first when something changed).
    *
@@ -548,12 +577,17 @@ export class HRecordEditor extends HBaseWidget {
     this.saveButton = button('Save', 'h-btn-primary', () => this.save());
     this.saveCloseButton = button('Save and close', '', () => this.save({ close: true }));
     button('Close', '', () => this.close());
+    // New: a new record in the same popup (the host replaces this editor)
+    this.newButton = button('New', 'h-record-editor-new', () => void this.newRecord());
+    this.newButton.title = $HR('Add a new record');
+    this.newButton.hidden = typeof this.options.onNew !== 'function';
     // Drop changes: the form again with the values of the record as loaded or last saved
     this.dropButton = button('Drop changes', 'h-record-editor-drop', () => void this.dropChanges());
     if (this.options.readOnly) {
       this.saveButton.hidden = true;
       this.saveCloseButton.hidden = true;
       this.dropButton.hidden = true;
+      this.newButton.hidden = true;
     }
     return footer;
   }
@@ -1096,6 +1130,7 @@ export class HRecordEditor extends HBaseWidget {
     const host = this.editForm?.getFieldWidget('_parent')?.container;
     host?.querySelector('.h-record-editor-parent-warning')?.remove();
     if (!host || !this._parentField || this._parents.length) return;
+    if (!this._parentError && this._selectedParent() > 0) return;
     const note = document.createElement('div');
     note.className = 'h-record-editor-parent-warning h-i18n';
     const icon = document.createElement('i');
@@ -1292,6 +1327,8 @@ export class HRecordEditor extends HBaseWidget {
 
   /** A value changed: tell the host whether there are unsaved changes. */
   _onChange() {
+    // a parent chosen in the virtual field: the missing-parent warning goes (plan 26)
+    if (this._parentField) this._renderParentWarning();
     this._refreshStructureTree();
     this._emit('h-record-editor-change', { dirty: this.isDirty() });
   }
@@ -1313,6 +1350,7 @@ export class HRecordEditor extends HBaseWidget {
     this._saving = busy;
     if (this.saveButton) this.saveButton.disabled = busy;
     if (this.saveCloseButton) this.saveCloseButton.disabled = busy;
+    if (this.newButton) this.newButton.disabled = busy;
     this.container?.classList.toggle('is-busy', busy);
   }
 
@@ -1380,6 +1418,12 @@ function stripTags(value) {
  * @returns {Promise<boolean>} True for Yes.
  */
 function confirmDialog(message, title) {
+  return askDialog(message, title, [{ label: 'Yes', value: true, primary: true }, { label: 'No', value: false }])
+    .then((value) => value === true);
+}
+
+/** A question with buttons `{label, value, primary}`: resolves with the value of the chosen one (null when closed). */
+function askDialog(message, title, choices) {
   return new Promise((resolve) => {
     let answered = false;
     const answer = (value) => {
@@ -1390,12 +1434,11 @@ function confirmDialog(message, title) {
     };
     const dialog = HMsg.showMsgDlg(message, {
       title,
-      buttons: [
-        { label: 'Yes', class: 'h-btn h-btn-primary', onClick: () => answer(true) },
-        { label: 'No', class: 'h-btn', onClick: () => answer(false) }
-      ]
+      buttons: choices.map(({ label, value, primary }) => ({
+        label, class: primary ? 'h-btn h-btn-primary' : 'h-btn', onClick: () => answer(value)
+      }))
     });
-    dialog?.addEventListener?.('close', () => answer(false), { once: true });
+    dialog?.addEventListener?.('close', () => answer(null), { once: true });
   });
 }
 

@@ -534,7 +534,8 @@ export class ExplorerControlPanel {
       onManageTags: () => void this.application.manageTags(),
       onManageFiles: () => void this.application.manageFiles(),
       onManageUsers: () => void this.application.manageUsers(),
-      onManageGroups: () => void this.application.manageGroups()
+      onManageGroups: () => void this.application.manageGroups(),
+      onTestEditForm: () => void this.openEditFormTest()
     }).open();
   }
 
@@ -693,9 +694,9 @@ export class ExplorerControlPanel {
    * @returns {void}
    */
   _handleLeftTool(id) {
-    // temporary test dialog (plan 14a): no pane to open
-    if (id === 'test-edit-form') {
-      void this._openEditFormTest();
+    // Add record: the Add record dialog, then the record editor (no pane to open)
+    if (id === 'add-record') {
+      void this._addRecord();
       return;
     }
     // docked lists reopen the search pane themselves (_toggleDockedList)
@@ -776,12 +777,27 @@ export class ExplorerControlPanel {
   }
 
   /**
-   * Open the temporary "Test edit form" dialog (plan 14a, lazy chunk).
+   * Add record of the left rail: type, owner and visibility in the Add record dialog
+   * (the last added type first), then the record editor.
    *
    * @private
    * @returns {Promise<void>}
    */
-  async _openEditFormTest() {
+  async _addRecord() {
+    try {
+      if (!this.application.canEditRecords()) throw new Error($HR('Record editor is not available'));
+      await this.application.addRecord(null);
+    } catch (error) {
+      HMsg.showMsgErr?.(error?.message || String(error));
+    }
+  }
+
+  /**
+   * Open the temporary "Test edit form" dialog (plan 14a, lazy chunk; Options menu since 2026-10-25).
+   *
+   * @returns {Promise<void>}
+   */
+  async openEditFormTest() {
     try {
       const { EditFormTestTool } = await import('../dev/EditFormTestTool.js');
       const recordEditing = this.application.recordEditing;
@@ -1766,8 +1782,8 @@ function leftButtons() {
     { id: 'history', icon: 'fa-solid fa-clock-rotate-left', title: 'History', hint: 'Recently viewed data sources', group: 'activity' },
     { id: 'workspace', icon: 'fa-regular fa-object-group', title: 'Workspace', hint: 'Saved working set of data sources', group: 'activity' },
     { id: 'subsets', icon: 'fa-solid fa-arrows-left-right-to-line', title: 'Subsets', hint: 'Restrict further searches to a subset of records', group: 'subsets' },
-    // temporary (plan 14a): HEditForm with every field type, removed when the JSON format is agreed
-    { id: 'test-edit-form', icon: 'fa-solid fa-flask', title: 'Test edit form', hint: 'Edit form of a test JSON with every field type', group: 'dev' }
+    // the Test edit form (plan 14a) moved to the Options menu (2026-10-25)
+    { id: 'add-record', icon: 'fa-solid fa-circle-plus', title: 'Add record', hint: 'Add a new record', group: 'edit' }
     // Manage Filters / Manage Sources remain hidden until their workflows
     // replace the legacy management widgets.
   ];

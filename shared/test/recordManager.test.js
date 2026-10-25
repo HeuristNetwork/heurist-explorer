@@ -244,6 +244,19 @@ test('HInputResource addorbrowse / browseonly: no dropdown; a click on the input
   assert.ok(plain.combo);
 });
 
+test('HInputResource read only: no browse icon; Edit of the chosen record only with editReadOnly (plan 26)', async () => {
+  const options = { pointerMode: 'browseonly', targetTypes: [10], showBrowse: true, browseRecords: async () => [7],
+    editRecord: async () => ({}), value: 7, readOnly: true };
+  const plain = await resourceInput(options);
+  assert.equal(plain.browseIcon.hidden, true);
+  assert.equal(plain.editButton.hidden, true);
+  const parent = await resourceInput({ ...options, editReadOnly: true });
+  assert.equal(parent.browseIcon.hidden, true);
+  assert.equal(parent.editButton.hidden, false);
+  parent.setReadOnly(false);
+  assert.equal(parent.browseIcon.hidden, false);
+});
+
 test('HInputResource addonly: "Add <type>" button; a click on the empty input adds a record', async () => {
   let added = 0;
   const input = await resourceInput({ pointerMode: 'addonly', targetTypes: [10], addRecord: async (id) => { added = id; return { saved: true, recordId: 9 }; } });

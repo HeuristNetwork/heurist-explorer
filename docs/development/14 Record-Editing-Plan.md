@@ -686,3 +686,17 @@ then `RecordMgr.saveRecord`, then legacy `recordSave`). Two problems:
   (`{$r.f26.code} - [{$r.f1160}]`) gives the same output as legacy `executeSmarty` for all 6
   records, and `update()` stores it (checked in a rolled-back transaction).
   `RecordEditApiTest --write`: title checks now expect the filled mask (68 checks pass).
+
+## 10. Add record and New (Artem, 2026-10-25)
+
+- **Add record** in the left rail (`add-record`, `fa-circle-plus`, group `edit`; the place of the Test edit form, which
+  moved to the Options menu): the Add record dialog of unconstrained pointers and the record manager
+  (`openRecordAddDialog`: type, owner, visibility), then the record editor. The last added type is selected first
+  (`recordAccess.js` remembers it, as before).
+- **New** in the footer of HRecordEditor (option `onNew`, method `newRecord()`): with unsaved changes it asks
+  *Save / Don't save / Cancel* first; then the host (`RecordEditorHost.open`) shows the Add record dialog with the
+  current type selected and puts the editor of the new record into the same popup (title *New record*). The listeners
+  of the old editor on the host are removed (`hostListeners`); the popup's result stays the one of the first record
+  (callers such as a pointer field's Add get the record they asked for). Not offered for registered files,
+  relationship records and children made from a parent's field, nor in the editor mode page (`mount`).
+- Test: `recordEditor.test.js` (New without changes, Cancel, Save first). Not checked in a browser.

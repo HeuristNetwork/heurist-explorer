@@ -231,3 +231,4 @@
 #Search in the title#Rechercher dans le titre
 #Search in all fields#Rechercher dans tous les champs
 #Creating relationships#Création des relations
+#Parent record#Enregistrement parent

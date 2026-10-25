@@ -664,6 +664,7 @@ export class HEditField extends HBaseWidget {
           // record type icon of the chosen record
           iconBase: this.options.fileViewer || null,
           editRecord: this.options.editRecord,
+          editReadOnly: field.editReadOnly === true,
           viewRecord: this.options.viewRecord,
           // rst_PointerMode and the record manager (plan 21 §5)
           dbdefs: this.options.dbdefs,

@@ -42,6 +42,26 @@ function fakeApi(responses) {
   };
 }
 
+test("a child record's parents are one group, left out of Linked from (plan 26)", async () => {
+  const childDefs = { ...dbdefs, isChildRectype: (rty) => rty === 20,
+    parentLinks: () => [{ parentRectypeId: 30, fieldId: 40, childRectypeId: 20 }] };
+  const api = fakeApi((query) => {
+    const q = JSON.stringify(query.q);
+    if (q.includes('"lt:40"')) return [{ rec_ID: "100", rec_RecTypeID: "30", rec_Title: "Collection" }];
+    if (q.includes('"lt"')) return [{ rec_ID: "76", rec_RecTypeID: "12", rec_Title: "Abidjan" }];
+    return [];
+  });
+  const provider = new RecordRelationsProvider({ apiClient: api, dbDefsProvider: async () => childDefs });
+  const result = await provider.load({ id: 7, rty: 20 });
+  assert.deepEqual(result.parents.items, [{ id: 100, title: "Collection", rty: 30, relation: "" }]);
+  assert.equal(result.parents.storedField, 247);
+  const linked = api.calls.find(({ query }) => JSON.stringify(query.q).includes('"lt":"7"'));
+  assert.deepEqual(linked.query.q.at(-1), { not: [{ ids: "100" }] });
+  const plain = await new RecordRelationsProvider({ apiClient: fakeApi(() => []), dbDefsProvider: async () => childDefs })
+    .load({ id: 8, rty: 12 });
+  assert.equal(plain.parents, null, "not a child type");
+});
+
 test("relationship IDs come from concept codes, or not at all", () => {
   assert.deepEqual(relationshipIds(dbdefs), { rty: 1, target: 5, type: 6, source: 7 });
   assert.equal(relationshipIds({ localId: () => 0 }), null);

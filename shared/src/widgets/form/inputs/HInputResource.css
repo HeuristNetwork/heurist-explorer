@@ -123,6 +123,11 @@
   color: var(--h-color-icon);
 }
 
+/* read only: no browse icon (Font Awesome sets display) */
+.h-input-resource-button-icon[hidden] {
+  display: none;
+}
+
 /* record type menu of Add with several allowed types */
 .h-popover.h-input-resource-type-popover {
   width: auto;

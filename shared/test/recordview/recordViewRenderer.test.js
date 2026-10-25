@@ -183,6 +183,12 @@ test("tags are a separate \"Tags\" section of links that search the tag", () => 
   assert.doesNotMatch(rendererSource, /heurist-recordview-footer-item heurist-recordview-tags/);
 });
 
+test("the parents of a child record are the first field \"Parent record\"; the stored Parent entity is not shown (plan 26)", () => {
+  assert.match(rendererSource, /this\.#buildLinksRow\(\$HR\("Parent record"\), parents, onNavigate\)/);
+  assert.match(rendererSource, /const builders = index === 0 && parentRow \? \[parentRow\] : \[\];/);
+  assert.match(rendererSource, /if \(parentRow && Number\(field\.id\) === parents\.storedField\) continue;/);
+});
+
 test("the links button appears only for a record with links or relationships", async () => {
   const { hasLinks } = await import("../../src/recordview/RecordViewRenderer.js");
   assert.equal(hasLinks({ details: { 1: [{ value: "x" }] } }, null), false);

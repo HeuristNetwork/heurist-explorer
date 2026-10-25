@@ -53,7 +53,8 @@ export class HInputResource extends HInput {
    *        bootstrap), `pointerMode` (one of POINTER_MODES,
    *        default `dropdown`), `browseFilter` (`rst_PointerBrowseFilter`, extra query of the
    *        record manager), `showBrowse` (default false; edit forms set it, plan 21 §9.3),
-   *        `showAdd` (default true), `dbdefs` (record type names), and the host actions
+   *        `showAdd` (default true), `editReadOnly` (Edit of the chosen record also while read
+   *        only), `dbdefs` (record type names), and the host actions
    *        `editRecord(id)` (may resolve with `{saved, record}`, the new title is then shown),
    *        `viewRecord(id)`, `browseRecords(options) → Promise<number[]|null>`,
    *        `addRecord(rectypeId) → Promise<{saved, recordId, record}>`.
@@ -121,6 +122,7 @@ export class HInputResource extends HInput {
     this._markReadOnly(readOnly);
     this.combo?.setReadOnly(readOnly);
     if (this.modeButton) this.modeButton.disabled = this._readOnly;
+    if (this.browseIcon) this.browseIcon.hidden = this._readOnly;
     this._syncActions();
     return this;
   }
@@ -201,10 +203,11 @@ export class HInputResource extends HInput {
     this.modeButtonText.className = 'h-input-resource-button-text';
     button.append(this.modeButtonText);
     if (this.mode !== 'addonly') {
-      const icon = document.createElement('i');
-      icon.className = 'fa-solid fa-table h-input-resource-button-icon';
-      icon.setAttribute('aria-hidden', 'true');
-      button.append(icon);
+      // the browse icon: hidden while read only (setReadOnly)
+      this.browseIcon = document.createElement('i');
+      this.browseIcon.className = 'fa-solid fa-table h-input-resource-button-icon';
+      this.browseIcon.setAttribute('aria-hidden', 'true');
+      button.append(this.browseIcon);
     }
     host.append(button);
     this.listen(button, 'click', () => {
@@ -369,10 +372,13 @@ export class HInputResource extends HInput {
     }
   }
 
-  /** The buttons only with a chosen record; no Edit in read-only mode. */
+  /**
+   * The buttons only with a chosen record; no Edit in read-only mode, unless `editReadOnly`
+   * (the pointed record is edited, not this value: the virtual parent field, plan 26).
+   */
   _syncActions() {
     const empty = !(this.getValue() > 0);
-    if (this.editButton) this.editButton.hidden = empty || this._readOnly === true;
+    if (this.editButton) this.editButton.hidden = empty || (this._readOnly === true && this.options.editReadOnly !== true);
     if (this.viewButton) this.viewButton.hidden = empty;
   }
 }

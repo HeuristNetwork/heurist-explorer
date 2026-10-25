@@ -85,3 +85,36 @@ Explorer → RecordEditorHost → HRecordEditor; reverse group `accordion`, clos
   saves as not covered yet.
 - Not done (follow-ups): the database's TinyMCE formats (`get_tinymce_formats`); the legacy hserv saves through
   StoredText; the "what else" options of the configuration (§2).
+
+## Review changes (Artem, 2026-10-25)
+
+- **Alignment of the inputs**: the actions slot of HInput value tools (`.h-form-input-actions`) keeps its place in every
+  input (`--h-form-input-actions-width`, 36px: room for Add and Translate), so all controls of a form start at the
+  same position; the HEditField `has-actions` rule is gone. Labels: `--h-form-label-width` 140px (was 150px).
+- **Language code** of a translation: HInputText gives it to HInput as `actionsLead`; it sits in the actions slot
+  (kept by `setActions`), tiny font, no padding. The text area is no longer in a flex row with it, so the
+  `text · wysiwyg · codeeditor` links stay under the text area. Without value tools it stays before the control
+  (`has-lead`).
+- **TinyMCE toolbar as legacy**: `blocks fontfamily fontsize | bold italic underline forecolor | Media Caption Record link |
+  lists, indent | table hr removeformat | fullscreen help`; no strikethrough, superscript, subscript; underline is
+  `<u>`; smaller buttons (`HTinyMceEditor.css`, 26px rows). The `<>` button (the `code` plugin: the HTML source in a
+  TinyMCE dialog) is removed: the field's own *codeeditor* mode does the same.
+- **Menus and dialogs of TinyMCE did not work in the record editor** (Blocks, table, lists, Insert link): TinyMCE puts
+  them in the document body, which the modal record editor `<dialog>` makes inert and covers. The editor's sinks
+  (`.tox-tinymce-aux`) are moved into the dialog after init and removed with the editor.
+- **Deviation from §3 (stored text policy)**: inline CSS is kept for blocktext on `span` only, properties
+  `font-family`, `font-size`, `color`, `text-decoration` (HTMLPurifier `CSS.AllowedProperties` checks the values;
+  no `url()`, positions or other elements' styles). Freetext keeps no styles. The viewer (`richTextHtml.js`) keeps the
+  same properties. `StoredTextTest.php`: 71 checks.
+- Needs a check in the browser: the positions of TinyMCE menus inside the dialog, the button sizes.
+
+### Review round 2 (Artem, 2026-10-25)
+
+- The actions slot is 26px (`--h-form-input-actions-width` default). The *Manage relationships* line of a repeatable
+  relmarker field starts after the same gap as the values (`margin-left`: slot + 4px).
+- **Formats menu as legacy** (`styleselect`): toolbar `styles` instead of `blocks`, TinyMCE's default `style_formats`
+  with the submenus Headings, Inline, Blocks (paragraph, blockquote, div, pre), Align.
+- Artem agreed the span styles above. **Addition for Align:** `style` on `p`, `div`, `h1`-`h6` keeps only
+  `text-align: left|center|right|justify` (`StoredText::textAlign()`, an HTMLPurifier AttrDef; other properties and
+  values are removed); `span` keeps its four properties. Alignment of images and tables (float / margin styles) is
+  still removed. The viewer (`richTextHtml.js`) keeps the same. `StoredTextTest.php`: 74 checks.

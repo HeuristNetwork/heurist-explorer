@@ -107,6 +107,20 @@ test('missing parent is editable with a warning; failed lookup stays read only',
   }
 });
 
+test('the missing-parent warning goes when a parent is chosen; a defined parent can be edited', async () => {
+  const { editor, element } = await openEditor({ options: {
+    dbdefs: parentDefs, browseRecords: async () => [100], editRecord: async () => ({}),
+    apiClient: { request: async () => ({}), get: async (path, { query }) => ({ records: query.q[0].ids
+      ? [{ rec_ID: '100', rec_RecTypeID: '10', rec_Title: 'Parent' }] : [] }) }
+  } });
+  assert.ok(element.querySelector('.h-record-editor-parent-warning'));
+  assert.equal(editor.editForm.getField('_parent').editReadOnly, true);
+  await editor.editForm.setValue('_parent', 100);
+  editor._onChange();
+  assert.equal(element.querySelector('.h-record-editor-parent-warning'), null);
+  await editor.destroy();
+});
+
 test('a failed parent write retains the saved child and selection for an idempotent retry', async () => {
   let fail = true;
   let linked = false;
@@ -230,6 +244,39 @@ test('save sends PUT, keeps the new rec_Modified and reports saved', async () =>
   assert.equal(saved.length, 1);
   assert.equal(editor.getRecord().rec_Modified, '2026-10-12 11:00:00');
   assert.equal(editor.isDirty(), false);
+  await editor.destroy();
+});
+
+test('New asks the host for a new record; unsaved changes are saved first or the user cancels (2026-10-25)', async () => {
+  const { HMsg } = await import('../src/ui/HMsg.js');
+  const plain = await openEditor();
+  assert.equal(plain.element.querySelector('.h-record-editor-new').hidden, true, 'no New without onNew');
+  await plain.editor.destroy();
+
+  const asked = [];
+  const { editor, element, calls } = await openEditor({ options: { onNew: (state) => asked.push(state) } });
+  const button = element.querySelector('.h-record-editor-new');
+  assert.equal(button.hidden, false);
+  assert.equal(await editor.newRecord(), true, 'nothing changed: no question');
+  assert.deepEqual(asked, [{ rectypeId: 29, saved: false }]);
+
+  const show = HMsg.showMsgDlg;
+  const close = HMsg.closeMsgDlg;
+  let answer = 2;
+  HMsg.showMsgDlg = (_text, options) => { queueMicrotask(() => options.buttons[answer].onClick()); return null; };
+  HMsg.closeMsgDlg = () => {};
+  try {
+    editor.editForm.getFieldWidget(12)._rows[0].input.setValue('t:12');
+    assert.equal(await editor.newRecord(), false, 'Cancel');
+    assert.equal(calls.length, 0);
+    answer = 0;
+    assert.equal(await editor.newRecord(), true, 'Save');
+    assert.equal(calls[0][0], 'update');
+    assert.deepEqual(asked.at(-1), { rectypeId: 29, saved: true });
+  } finally {
+    HMsg.showMsgDlg = show;
+    HMsg.closeMsgDlg = close;
+  }
   await editor.destroy();
 });
 

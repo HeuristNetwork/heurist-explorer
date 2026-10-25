@@ -58,10 +58,11 @@ export function recordTypeItems(dbdefs, types) {
  * @param {object} options.dbdefs HDbDefs (record types, users and groups).
  * @param {string} [options.database] Database name (remembered choices).
  * @param {number[]} [options.recordTypes] Allowed types; default: every user-data type.
+ * @param {number} [options.rectypeId] Type selected first; default: the last added type.
  * @returns {Promise<{rectypeId: number, access: {owner: number, visibility: string, viewGroups: number[]}}|null>}
  *          The choice, or null when cancelled.
  */
-export function openRecordAddDialog({ dbdefs, database = '', recordTypes = null } = {}) {
+export function openRecordAddDialog({ dbdefs, database = '', recordTypes = null, rectypeId = 0 } = {}) {
   const who = { database, userId: Number(dbdefs?.currentUserId?.()) || 0 };
   const defaults = loadRecordAddDefaults(who);
   const types = (recordTypes?.length ? recordTypes : userDataRecordTypeIds(dbdefs)).map(Number);
@@ -81,7 +82,7 @@ export function openRecordAddDialog({ dbdefs, database = '', recordTypes = null 
   const accessHost = document.createElement('div');
   host.append(typeSection, accessHost);
 
-  const initialType = types.includes(defaults.rectypeId) ? defaults.rectypeId : null;
+  const initialType = [Number(rectypeId), defaults.rectypeId].find((id) => id > 0 && types.includes(id)) ?? null;
   let addButton = null;
   const typeCombo = new HValueCombo().attach(typeHost, {
     source: new StaticSource(items),

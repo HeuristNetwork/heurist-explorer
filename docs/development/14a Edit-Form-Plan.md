@@ -150,7 +150,9 @@ from the database; `allowHidden: true`). Its group CSS classes are `h-edit-form-
 
 ## 6. Test edit form tool (temporary)
 
-- Left rail button *Test edit form* (flask icon, own group at the end):
+- **Moved to the Options menu (2026-10-25):** a *Test edit form* button in the footer of the Explorer configuration and an
+  item of the "In panes" gear menu; its left rail place is now *Add record* (plan 14 §10).
+- Was: left rail button *Test edit form* (flask icon, own group at the end):
   `apps/explorer/src/dev/EditFormTestTool.js` (lazy chunk), JSON `apps/explorer/src/dev/editFormTestSample.json`.
 - Left: the form. Right: tabs *Result JSON* (updated on every change; *Validate* adds the
   problems) and *Form JSON* (editable; *Apply* makes the form again and shows the warnings).

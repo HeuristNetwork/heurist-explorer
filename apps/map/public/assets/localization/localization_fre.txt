@@ -313,3 +313,4 @@
 #Show all files#Afficher tous les fichiers
 #Show more#Afficher plus
 #in search#dans la recherche
+#Parent record#Enregistrement parent

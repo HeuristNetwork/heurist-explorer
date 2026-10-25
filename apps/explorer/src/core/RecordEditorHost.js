@@ -56,6 +56,9 @@ let dialogCount = 0;
 /** Last saved record of each editor host element (open / mount results). */
 const savedRecords = new WeakMap();
 
+/** The listeners of an editor on its host, by editor (removed when New replaces the editor). */
+const hostListeners = new WeakMap();
+
 /** Opens system records in HRecordEditor; other records in the legacy host editor. */
 export class RecordEditorHost {
   /**
@@ -165,9 +168,7 @@ export class RecordEditorHost {
    */
   async addRecord(recordType, { access = null, parentContext = null } = {}) {
     if (recordType == null || recordType === '' || Number(recordType) === 0) {
-      const dbdefs = await this.options.ensureDbDefs();
-      const { openRecordAddDialog } = await import('#shared/widgets/record-access/openRecordAddDialog.js');
-      const choice = await openRecordAddDialog({ dbdefs, database: this.options.database || '' });
+      const choice = await this._chooseNewRecord();
       if (!choice) return { saved: false, recordId: 0, record: null };
       return this.addRecord(choice.rectypeId, { access: choice.access, parentContext });
     }
@@ -181,7 +182,20 @@ export class RecordEditorHost {
   }
 
   /**
-   * Open HRecordEditor in a dialog.
+   * The Add record dialog: type, owner and visibility of a new record (the last added type first).
+   *
+   * @param {number} [rectypeId] Type to show first instead of the last added one (New of the editor).
+   * @returns {Promise<{rectypeId: number, access: object}|null>}
+   */
+  async _chooseNewRecord(rectypeId = 0) {
+    const dbdefs = await this.options.ensureDbDefs();
+    const { openRecordAddDialog } = await import('#shared/widgets/record-access/openRecordAddDialog.js');
+    return openRecordAddDialog({ dbdefs, database: this.options.database || '', rectypeId });
+  }
+
+  /**
+   * Open HRecordEditor in a dialog. Its New button replaces the editor with one of a new
+   * record in the same dialog; the result stays the one of the first record.
    *
    * @param {{recordId?: number, rectypeId?: number, domain?: 'records'|'files', access?: object, relation?: object}} target
    *        Record to edit, or record type of a new record (`access`: its owner and visibility); `files`: a
@@ -193,17 +207,38 @@ export class RecordEditorHost {
     const dialogId = `${DIALOG_ID}-${++dialogCount}`;
     const host = document.createElement('div');
     host.className = 'h-record-editor-host';
-    const editor = await this._createEditor(host, { recordId, rectypeId, domain, access, relation, parentContext });
+    // New (not for files, relationships and children made from a parent's field)
+    const offersNew = !isFile && !relation && !parentContext;
+    let first = null;
+    let dialog = null;
+    let settled = false;
+    let replace = null;
+    const create = (target) => this._createEditor(host, { ...target, domain, onNew: offersNew ? (state) => void replace(state) : null });
+    let editor = await create({ recordId, rectypeId, access, relation, parentContext });
+    replace = async ({ rectypeId: current }) => {
+      const choice = await this._chooseNewRecord(current);
+      if (!choice || settled) return;
+      first ||= this._result(host, recordId);
+      hostListeners.get(editor)?.abort();
+      await editor.destroy();
+      savedRecords.delete(host);
+      editor = await create({ rectypeId: choice.rectypeId, access: choice.access });
+      if (settled) {
+        await editor.destroy();
+        return;
+      }
+      const title = dialog?.querySelector('.h-dialog-title');
+      if (title) title.textContent = $HR('New record');
+      editor.open().catch((error) => HMsg.showMsgErr?.(error?.message || String(error)));
+    };
     return new Promise((resolve) => {
-      let settled = false;
-      let dialog = null;
       const finish = async () => {
         if (settled) return;
         settled = true;
         dialog?.removeEventListener('close', onDialogClose);
         HMsg.closeMsgDlg(dialogId);
         await editor.destroy();
-        resolve(this._result(host, recordId));
+        resolve(first || this._result(host, recordId));
       };
       // Escape closes the browser dialog even with preventClose: that is Close (unsaved changes are lost)
       const onDialogClose = () => void finish();
@@ -256,7 +291,7 @@ export class RecordEditorHost {
   }
 
   /** HRecordEditor with the services of this host; saves are reported and remembered. */
-  async _createEditor(host, { recordId = 0, rectypeId = 0, domain = 'records', access = null, relation = null, parentContext = null } = {}) {
+  async _createEditor(host, { recordId = 0, rectypeId = 0, domain = 'records', access = null, relation = null, parentContext = null, onNew = null } = {}) {
     const isFile = domain === 'files';
     const dbdefs = await this.options.ensureDbDefs();
     const editor = new HRecordEditor().attach(host, {
@@ -267,6 +302,7 @@ export class RecordEditorHost {
       access,
       relation,
       parentContext,
+      onNew,
       client: isFile ? this.fileClient : this.client,
       structureProvider: this.structures,
       selectExtent: this.options.selectExtent,
@@ -298,14 +334,17 @@ export class RecordEditorHost {
       // the summary without Private and Tags, Linked records = the records that refer to the file
       ...(isFile ? this._fileEditorOptions(dbdefs) : {})
     });
+    const listeners = new AbortController();
+    hostListeners.set(editor, listeners);
+    const { signal } = listeners;
     // tags are saved at once (plan 20, 4a): the host shows them again
-    host.addEventListener('h-record-tags-change', (event) => this.options.onTagsChanged?.(Number(event.detail?.recordId) || 0));
+    host.addEventListener('h-record-tags-change', (event) => this.options.onTagsChanged?.(Number(event.detail?.recordId) || 0), { signal });
     host.addEventListener('h-record-editor-saved', (event) => {
       savedRecords.set(host, event.detail.record);
       // the owner / visibility of a new record are the defaults of the next one (plan 21)
       if (event.detail.created && !isFile) void this._rememberAccess(event.detail.record);
       this.options.onSaved?.({ record: event.detail.record, created: event.detail.created });
-    });
+    }, { signal });
     return editor;
   }
 

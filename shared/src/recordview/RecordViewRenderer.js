@@ -134,7 +134,7 @@ export class RecordViewRenderer {
     const media = this.#buildMedia(record, sections);
     if (media) children.push(media);
     const body = this.#buildSections(record, sections, {
-      onNavigate, canZoomExtent, onZoomExtent, related: relations?.related || {},
+      onNavigate, canZoomExtent, onZoomExtent, related: relations?.related || {}, parents: relations?.parents || null,
     });
     const linkedFrom = this.#buildLinkedFrom(relations, onNavigate);
     if (linkedFrom) body.append(linkedFrom);
@@ -289,16 +289,22 @@ export class RecordViewRenderer {
    * A relmarker field lists its relationships (`related`): relation type and related record.
    * Only the first `limits.fields` fields are built; "Show all fields" builds the others in
    * their sections (plan 23 §3.2). A section without a shown field stays hidden until then.
+   * The parents of a child record (plan 26) are the first field, "Parent record"; the stored
+   * "Parent entity" field is then not shown.
    */
-  #buildSections(record, sections, { onNavigate, canZoomExtent, onZoomExtent, related = {} }) {
+  #buildSections(record, sections, { onNavigate, canZoomExtent, onZoomExtent, related = {}, parents = null }) {
     const wrapper = document.createElement("div");
     wrapper.className = "heurist-recordview-sections";
     const pending = []; // rows past the limit: {dl, fieldset, build}
     let total = 0;
-    for (const section of sections) {
-      const builders = [];
+    const parentRow = groupTotal(parents)
+      ? () => this.#buildLinksRow($HR("Parent record"), parents, onNavigate) : null;
+    const shown = parentRow && !sections.length ? [{ title: "", fields: [] }] : sections;
+    for (const [index, section] of shown.entries()) {
+      const builders = index === 0 && parentRow ? [parentRow] : [];
       for (const field of section.fields) {
         if (field.type === "file") continue;
+        if (parentRow && Number(field.id) === parents.storedField) continue;
         if (field.type === "relmarker") {
           const group = related[String(field.id)];
           if (groupTotal(group)) builders.push(() => this.#buildLinksRow(field.name || `Field ${field.id}`, group, onNavigate, true));

@@ -87,11 +87,12 @@ export class ExplorerConfigurationDialog {
    * @param {Function|null} [options.onQueryTrace] Offers a Query tracer button: it closes the dialog and calls this.
    * @param {Function|null} [options.onManageTags] Offers a Manage tags button (plan 20, 4a): it closes the dialog and calls this.
    * @param {Function|null} [options.onManageFiles] Offers a Manage registered files button (plan 20): it closes the dialog and calls this.
+   * @param {Function|null} [options.onTestEditForm] Offers the temporary Test edit form (plan 14a): it closes the dialog and calls this.
    * @param {Function|null} [options.onManageUsers] Offers a Manage users button (plan 20, 4d): it closes the dialog and calls this.
    * @param {Function|null} [options.onManageGroups] Offers a Manage groups button (plan 20, 4d): it closes the dialog and calls this.
    */
   constructor({ value = null, parent = null, onSave = null, onCancel = null, onGettingStarted = null, onQueryTrace = null,
-    onManageTags = null, onManageFiles = null, onManageUsers = null, onManageGroups = null } = {}) {
+    onManageTags = null, onManageFiles = null, onManageUsers = null, onManageGroups = null, onTestEditForm = null } = {}) {
     this.value = mergeDefaults(value);
     this.parent = parent;
     this.onSave = typeof onSave === 'function' ? onSave : null;
@@ -102,6 +103,7 @@ export class ExplorerConfigurationDialog {
     this.onManageFiles = typeof onManageFiles === 'function' ? onManageFiles : null;
     this.onManageUsers = typeof onManageUsers === 'function' ? onManageUsers : null;
     this.onManageGroups = typeof onManageGroups === 'function' ? onManageGroups : null;
+    this.onTestEditForm = typeof onTestEditForm === 'function' ? onTestEditForm : null;
     this.chips = new Map();
     this.paneLists = new Map();
     this.paneChecks = new Map();
@@ -180,8 +182,12 @@ export class ExplorerConfigurationDialog {
       extras.append(button('Manage groups', () => { if (this.cancel() !== false) this.onManageGroups(); },
         'Add groups, change their members and admins'));
     }
+    if (this.onTestEditForm) {
+      extras.append(button('Test edit form', () => { if (this.cancel() !== false) this.onTestEditForm(); },
+        'Edit form of a test JSON with every field type'));
+    }
     if (this.onGettingStarted || this.onQueryTrace || this.onManageTags || this.onManageFiles || this.onManageUsers
-      || this.onManageGroups) footer.append(extras);
+      || this.onManageGroups || this.onTestEditForm) footer.append(extras);
     footer.append(button('Cancel', () => this.cancel()), submitButton('Apply'));
     this.form.append(this.content, footer);
     this.dialog.append(header, this.form);

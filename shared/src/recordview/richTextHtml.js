@@ -9,7 +9,8 @@
  * text stays). URLs: http, https, mailto, tel and relative ones; `./?db=…` (the form TinyMCE
  * stores, as legacy) is resolved against the Heurist base URL; a bare record id (`href="123"`
  * or `123/template.tpl`, the legacy "Record" link) becomes a record link (`data-record-id`).
- * iframes only from YouTube, Vimeo and SoundCloud.
+ * iframes only from YouTube, Vimeo and SoundCloud. Inline styles: on span the editor's font,
+ * size, colour and underline; on paragraphs, divs and headings text-align (2026-10-25).
  *
  *   const html = sanitizeRichHtml(value, { baseUrl, database });
  *
@@ -28,7 +29,8 @@ import { sanitizeTextHtml } from './FieldValueFormatter.js';
 
 /** Allowed tags and their own attributes (as the server's blocktext allowlist). */
 const TAGS = Object.freeze({
-  p: [], div: [], span: [], br: [], hr: [], h1: [], h2: [], h3: [], h4: [], h5: [], h6: [], blockquote: [], pre: [], code: [],
+  p: ['style'], div: ['style'], span: ['style'], br: [], hr: [], h1: ['style'], h2: ['style'], h3: ['style'], h4: ['style'],
+  h5: ['style'], h6: ['style'], blockquote: [], pre: [], code: [],
   s: [], sup: [], sub: [], small: [], u: [], i: [], b: [], strong: [], em: [],
   ul: [], ol: ['start', 'type'], li: ['value'], dl: [], dt: [], dd: [],
   a: ['href', 'title', 'target', 'rel'],
@@ -47,6 +49,15 @@ const GLOBAL_ATTRIBUTES = Object.freeze(['class', 'title', 'lang', 'dir']);
 /** Removed with their content. */
 const DROPPED = new Set(['script', 'style', 'svg', 'math', 'object', 'embed', 'applet', 'form', 'input', 'button', 'select',
   'textarea', 'template', 'noscript', 'link', 'meta', 'base', 'frame', 'frameset']);
+
+/** Inline CSS kept on span (as the server's CSS.AllowedProperties, 2026-10-25): the editor's font, size and colour. */
+const STYLE_PROPERTIES = Object.freeze(['font-family', 'font-size', 'color', 'text-decoration']);
+
+/** Inline CSS kept on blocks (the server's StoredText::textAlign): the Align items of the Formats menu. */
+const BLOCK_STYLE_PROPERTIES = Object.freeze(['text-align']);
+
+/** Values of text-align. */
+const TEXT_ALIGN = new Set(['left', 'center', 'right', 'justify']);
 
 /** Attributes holding a URL. */
 const URL_ATTRIBUTES = new Set(['href', 'src', 'poster']);
@@ -114,6 +125,12 @@ function cleanAttributes(element, tag, context) {
       element.removeAttribute(name);
       continue;
     }
+    if (lower === 'style') {
+      const css = safeStyle(element, tag);
+      if (css) element.setAttribute('style', css);
+      else element.removeAttribute(name);
+      continue;
+    }
     if (URL_ATTRIBUTES.has(lower)) {
       const url = safeUrl(value, tag, lower, context, element);
       if (url == null) element.removeAttribute(name);
@@ -125,6 +142,20 @@ function cleanAttributes(element, tag, context) {
     if (target && !['_blank', '_self'].includes(target)) element.removeAttribute('target');
     if (element.getAttribute('target') === '_blank') element.setAttribute('rel', 'noopener noreferrer');
   }
+}
+
+/** The allowed properties of an inline style with plain values ('' for none). */
+function safeStyle(element, tag) {
+  const kept = [];
+  const block = tag !== 'span';
+
+  for (const property of block ? BLOCK_STYLE_PROPERTIES : STYLE_PROPERTIES) {
+    const value = String(element.style?.getPropertyValue?.(property) ?? '').trim();
+    if (block ? !TEXT_ALIGN.has(value.toLowerCase()) : !value || /url\(|expression|javascript:|[<>;]/i.test(value)) continue;
+    kept.push(`${property}: ${value}`);
+  }
+
+  return kept.join('; ');
 }
 
 /** A safe URL (resolved), or null to drop the attribute. */
