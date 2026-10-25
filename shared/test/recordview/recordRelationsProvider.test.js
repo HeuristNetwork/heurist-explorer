@@ -17,7 +17,8 @@ import { RecordRelationsProvider, relationshipIds } from "../../src/recordview/R
 
 // relationship type 1, fields 5 (target), 6 (type), 7 (source); relmarker 245 on type 4
 const dbdefs = {
-  localId: (kind, code) => ({ "rty:2-1": 1, "dty:2-5": 5, "dty:2-6": 6, "dty:2-7": 7, "dty:2-247": 247 })[`${kind}:${code}`] || 0,
+  localId: (kind, code) => ({ "rty:2-1": 1, "dty:2-5": 5, "dty:2-6": 6, "dty:2-7": 7 })[`${kind}:${code}`] || 0,
+  dbconst: (name) => (name === "DT_PARENT_ENTITY" ? 247 : null),
   vocabRoot: (dty) => (dty === 245 ? 5414 : 0),
   field: (rty, dty) => (rty === 4 && dty === 245 ? { targetTypes: [10] } : null),
   fieldGlobal: () => null,

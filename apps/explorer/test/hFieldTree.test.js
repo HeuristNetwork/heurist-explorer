@@ -219,6 +219,27 @@ function pathTree(dbdefs, scope = {}) {
   return tree;
 }
 
+test('parent branches are first with linked-from off, ignore empty-type counts, and lead to geo fields', () => {
+  const parent = { parentRectypeId: 20, fieldId: 40, childRectypeId: 10 };
+  const defs = {
+    rectypeName: (id) => id === 20 ? 'Collection' : 'Item',
+    fields: (id) => id === 20 ? [{ id: 50, name: 'Location', type: 'geo' }] : [{ id: 1, name: 'Name', type: 'freetext' }],
+    parentLinks: (id) => id === 10 ? [parent] : [],
+    fieldGlobal: () => ({}),
+    isRectypeUsed: () => false
+  };
+  const tree = pathTree(defs, { selectableTypes: ['geo'] });
+  tree._showReverse = false;
+  tree._hideUnused = true;
+  tree._openFirstSelectable(10);
+  assert.ok(tree._openKeys.has('root:lf:40:20'));
+  const nodes = tree._fieldNodes(10, []);
+  const labels = texts(nodes[0]);
+  assert.match(labels[0], /Parent: Collection/);
+  assert.ok(labels.includes('Location'));
+  assert.equal(nodes.length, 1, 'non-geo name omitted, parent branch retained');
+});
+
 test('field-path editors follow a relationship with r (either direction) and a pointer with lt', () => {
   const dbdefs = {
     rectypeName: () => '',

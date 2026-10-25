@@ -620,7 +620,7 @@ export class HEditField extends HBaseWidget {
       removable: false,
       // also read only: the eye keeps its place (disabled, shown only for a hidden value);
       // not for a relationship (plan 22)
-      visibilityToggle: this.options.allowHidden !== false && field.type !== 'relmarker',
+      visibilityToggle: this.options.allowHidden !== false && field.type !== 'relmarker' && !field.transient,
       valueHidden: entry.hidden === true,
       readOnly: this.isReadOnly
     });
@@ -670,9 +670,11 @@ export class HEditField extends HBaseWidget {
           pointerMode: field.pointerMode || 'dropdown_add',
           browseFilter: field.browseFilter || '',
           showBrowse: true,
+          showAdd: field.showAdd !== false,
           browseRecords: typeof this.options.browseRecords === 'function'
             ? (request) => this._browsePointer(entry, request) : undefined,
-          addRecord: this.options.addRecord
+          addRecord: typeof this.options.addRecord === 'function'
+            ? (rectypeId) => this.options.addRecord(rectypeId, { fieldId: field.dty }) : undefined
         };
       case 'file':
         return {
@@ -1042,7 +1044,7 @@ export class HEditField extends HBaseWidget {
     ].filter((id) => id > 0));
     const room = this.field.max > 0 ? this.field.max - this._valueCount() : Infinity;
     const multiple = this.isRepeatable && room > 0 && !this.isReadOnly;
-    const ids = await this.options.browseRecords({ ...request, selectMode: multiple ? 'select_multi' : 'select' });
+    const ids = await this.options.browseRecords({ ...request, selectMode: multiple ? 'select_multi' : 'select' }, this.field);
     const fresh = [...new Set((ids || []).map(Number))].filter((id) => id > 0 && !others.has(id));
     if (!fresh.length) return null;
     const [first, ...rest] = fresh;

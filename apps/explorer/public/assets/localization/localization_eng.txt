@@ -1006,3 +1006,21 @@
 #Record editor#Record editor
 #Show optional fields#Show optional fields
 #Show wysiwyg editor inline#Show wysiwyg editor inline
+
+#Parent#Parent
+#Parent record#Parent record
+#is defined as a child of#is defined as a child of
+#To avoid creation of orphan records, you should only create#To avoid creation of orphan records, you should only create
+#records from within a parent record#records from within a parent record
+#If you understand the implications and still wish to create an independent, non-child record, check this box then click [Create independent record].#If you understand the implications and still wish to create an independent, non-child record, check this box then click [Create independent record].
+#Create independent record#Create independent record
+#Find or create parent record#Find or create parent record
+#Select parent field#Select parent field
+#Please define a parent record#Please define a parent record
+#The parents could not be loaded#The parents could not be loaded
+#The record was saved, but the parent operation failed. Save again to retry.#The record was saved, but the parent operation failed. Save again to retry.
+#The child will be linked when the parent record is saved#The child will be linked when the parent record is saved
+#The parent record does not exist or you cannot see it#The parent record does not exist or you cannot see it
+#Select a valid parent field#Select a valid parent field
+#The parent field has no room for another child#The parent field has no room for another child
+#Retry#Retry

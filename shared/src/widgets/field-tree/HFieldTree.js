@@ -547,6 +547,7 @@ export class HFieldTree {
         if (this._hideUnused && this.dbdefs.isRectypeUsed?.(fromRty) === false) continue;
         for (const dty of this.dbdefs.pointerFieldsBetween(fromRty, rtyId)) {
           if (this.dbdefs.fieldGlobal(dty)?.type !== wanted) continue;
+          if (!relation && this.dbdefs.parentLinks?.(rtyId)?.some((link) => link.parentRectypeId === Number(fromRty) && link.fieldId === Number(dty))) continue;
           const field = this.dbdefs.fieldName?.(fromRty, dty) || this.dbdefs.fieldGlobal(dty)?.name || `field ${dty}`;
           out.push({
             label: `« ${this.dbdefs.rectypeName(fromRty)} · ${field}${relation ? ` (${$HR('relationship')})` : ''}`,
@@ -685,6 +686,9 @@ export class HFieldTree {
         return;
       }
       if (viaChain.length >= this._maxDepth || this._flatOnly) continue;
+      for (const parent of this._parentFolders(rty, viaChain)) {
+        queue.push({ rty: parent.childRtyId, viaChain: [...viaChain, { via: parent.via }], keys: [...keys, parent.key] });
+      }
       for (const field of fields) {
         if (!LINKABLE.has(field.type)) continue;
         const targets = (this.dbdefs.fieldGlobal(field.id)?.targetTypes || []).map(Number).filter((id) => id > 0);
@@ -722,14 +726,43 @@ export class HFieldTree {
     return wrap;
   }
 
+  /**
+   * Virtual parent branches of a child record type (plan 26): incoming `lf` links of the
+   * flagged forward fields, labelled "Parent: <type>" (with the field when a type has several).
+   *
+   * @private
+   * @param {number} rtyId Child record type.
+   * @param {Array<object>} viaChain Path to this level.
+   * @returns {Array<{label:string, key:string, via:object, childRtyId:number, viaChain:Array<object>}>} `_linkFolder` options.
+   */
+  _parentFolders(rtyId, viaChain) {
+    const parents = this.dbdefs.parentLinks?.(rtyId) || [];
+    return parents.map((parent) => {
+      const duplicateType = parents.filter((link) => link.parentRectypeId === parent.parentRectypeId).length > 1;
+      return {
+        label: `${$HR('Parent')}: ${this.dbdefs.rectypeName(parent.parentRectypeId)}`
+          + (duplicateType ? ` · ${this.dbdefs.fieldName(parent.parentRectypeId, parent.fieldId)}` : ''),
+        key: `${pathKey(viaChain)}:lf:${parent.fieldId}:${parent.parentRectypeId}`,
+        via: { link: 'lf', dty: parent.fieldId, targetRty: parent.parentRectypeId },
+        childRtyId: parent.parentRectypeId,
+        viaChain
+      };
+    });
+  }
+
   /** @returns {HTMLElement[]} field rows + expandable pointer folders */
   _fieldNodes(rtyId, viaChain) {
-    const fields = this.dbdefs.fields(rtyId);
+    const parents = this._parentFolders(rtyId, viaChain);
+    const parentField = parents.length ? this.dbdefs.dbconst?.('DT_PARENT_ENTITY') : 0;
+    const fields = this.dbdefs.fields(rtyId).filter((field) => field.id !== parentField);
     if (this._alpha) {
       fields.sort((a, b) => String(a.name).localeCompare(String(b.name)));
     }
 
     const out = [];
+    if (!this._flatOnly && viaChain.length < this._maxDepth && !(this._builderMode && !viaChain.length && this._disableLinks)) {
+      for (const parent of parents) out.push(this._linkFolder(parent));
+    }
     for (const field of fields) {
       const linkable = LINKABLE.has(field.type);
       const branchBlocked = linkable && this._builderMode && viaChain.length === 0

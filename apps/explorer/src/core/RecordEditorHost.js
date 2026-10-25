@@ -163,17 +163,17 @@ export class RecordEditorHost {
    *        visibility of the new record (default: the remembered ones).
    * @returns {Promise<{saved: boolean, recordId: number}|*>} `{saved: false}` when the dialog is cancelled.
    */
-  async addRecord(recordType, { access = null } = {}) {
+  async addRecord(recordType, { access = null, parentContext = null } = {}) {
     if (recordType == null || recordType === '' || Number(recordType) === 0) {
       const dbdefs = await this.options.ensureDbDefs();
       const { openRecordAddDialog } = await import('#shared/widgets/record-access/openRecordAddDialog.js');
       const choice = await openRecordAddDialog({ dbdefs, database: this.options.database || '' });
       if (!choice) return { saved: false, recordId: 0, record: null };
-      return this.addRecord(choice.rectypeId, { access: choice.access });
+      return this.addRecord(choice.rectypeId, { access: choice.access, parentContext });
     }
     const rectypeId = await this._rectypeId(recordType);
     if (this.options.isLoggedIn() && this._usesNewEditor(rectypeId)) {
-      return this.open({ rectypeId, access: access || loadRecordAddDefaults(await this._who()) });
+      return this.open({ rectypeId, access: access || loadRecordAddDefaults(await this._who()), parentContext });
     }
     const bridge = this.options.getBridge() || {};
     if (this.canEditInHost() && typeof bridge.addRecord === 'function') return bridge.addRecord(rectypeId);
@@ -188,12 +188,12 @@ export class RecordEditorHost {
    *        registered file (plan 20); `relation`: constraints of a relationship record (HRecordEditor).
    * @returns {Promise<{saved: boolean, recordId: number, record: object|null}>} When the dialog closes.
    */
-  async open({ recordId = 0, rectypeId = 0, domain = 'records', access = null, relation = null } = {}) {
+  async open({ recordId = 0, rectypeId = 0, domain = 'records', access = null, relation = null, parentContext = null } = {}) {
     const isFile = domain === 'files';
     const dialogId = `${DIALOG_ID}-${++dialogCount}`;
     const host = document.createElement('div');
     host.className = 'h-record-editor-host';
-    const editor = await this._createEditor(host, { recordId, rectypeId, domain, access, relation });
+    const editor = await this._createEditor(host, { recordId, rectypeId, domain, access, relation, parentContext });
     return new Promise((resolve) => {
       let settled = false;
       let dialog = null;
@@ -256,7 +256,7 @@ export class RecordEditorHost {
   }
 
   /** HRecordEditor with the services of this host; saves are reported and remembered. */
-  async _createEditor(host, { recordId = 0, rectypeId = 0, domain = 'records', access = null, relation = null } = {}) {
+  async _createEditor(host, { recordId = 0, rectypeId = 0, domain = 'records', access = null, relation = null, parentContext = null } = {}) {
     const isFile = domain === 'files';
     const dbdefs = await this.options.ensureDbDefs();
     const editor = new HRecordEditor().attach(host, {
@@ -266,6 +266,7 @@ export class RecordEditorHost {
       rectypeId,
       access,
       relation,
+      parentContext,
       client: isFile ? this.fileClient : this.client,
       structureProvider: this.structures,
       selectExtent: this.options.selectExtent,
@@ -274,7 +275,7 @@ export class RecordEditorHost {
       editRecord: (id, options) => this.editRecord(id, { relation: options?.relation || null }),
       viewRecord: (id) => this.viewRecord(id),
       browseRecords: (options) => this.browseRecords(options),
-      addRecord: (rectypeId) => this.addRecord(rectypeId),
+      addRecord: (rectypeId, context) => this.addRecord(rectypeId, { parentContext: context }),
       specialEditors: this.specialEditors(dbdefs),
       fileUrl: (file) => this._fileUrl(file),
       // Edit button of file fields (plan 20)

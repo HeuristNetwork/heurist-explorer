@@ -358,3 +358,7 @@
 .h-record-editor-structure-tree > .h-structure-tree {
   flex: 1 1 auto;
 }
+.h-record-editor-parent-warning {
+  color: var(--h-color-danger, #b42318);
+  font-size: var(--h-font-size);
+}

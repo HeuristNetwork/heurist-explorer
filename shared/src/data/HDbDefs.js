@@ -143,6 +143,7 @@ export class HDbDefs {
     this._relReverse = new Map();
     this._pointerFields = new Map();      // "from:to" -> Set<dty>
     this._unconstrainedByRty = new Map(); // rty -> Set<dty> (resource, no targetTypes)
+    this._parentLinks = [];
 
     const add = (map, key, value) => {
       let set = map.get(key);
@@ -160,6 +161,9 @@ export class HDbDefs {
       if (!isResource && !isRelmarker) continue;
 
       const targets = Array.isArray(field.targetTypes) ? field.targetTypes : [];
+      if (isResource && row.createChild === true) {
+        this._parentLinks.push({ parentRectypeId: Number(row.rty), fieldId: Number(row.dty), targets: targets.map(Number) });
+      }
       if (!targets.length) {
         if (isResource) add(this._unconstrainedByRty, row.rty, row.dty);
         continue;
@@ -495,6 +499,19 @@ export class HDbDefs {
     return out;
   }
 
+  /** Eligible parent type/field pairs for a child type, including unconstrained pointers. */
+  parentLinks(childRectypeId) {
+    const child = Number(childRectypeId);
+    if (!(child > 0)) return [];
+    return this._parentLinks.filter((link) => !link.targets.length || link.targets.includes(child))
+      .map(({ parentRectypeId, fieldId }) => ({ parentRectypeId, fieldId, childRectypeId: child }));
+  }
+
+  /** Whether the structure allows this type to be a child (not a statement about one record). */
+  isChildRectype(rectypeId) {
+    return this.parentLinks(rectypeId).length > 0;
+  }
+
   /**
    * One field in a rectype context. Adds `vocabulary` / `targetTypes` from the
    * global field when present.
@@ -519,6 +536,7 @@ export class HDbDefs {
       req: row.req || 'optional',
       max: row.max ?? null
     };
+    result.createChild = row.createChild === true;
     if (global.vocabulary) result.vocabulary = Number(global.vocabulary);
     if (Array.isArray(global.targetTypes) && global.targetTypes.length) {
       result.targetTypes = global.targetTypes.slice();

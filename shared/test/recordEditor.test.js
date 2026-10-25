@@ -47,7 +47,7 @@ const dbdefs = {
 };
 
 /** Editor over a fake client and structure provider. */
-async function openEditor({ record = RECORD, update = null, insert = null, recordId = 7, rectypeId = null, specialEditors = undefined } = {}) {
+async function openEditor({ record = RECORD, update = null, insert = null, recordId = 7, rectypeId = null, specialEditors = undefined, options = {} } = {}) {
   const calls = [];
   const client = {
     async load() { return { record: structuredClone(record), meta: {} }; },
@@ -58,11 +58,118 @@ async function openEditor({ record = RECORD, update = null, insert = null, recor
   const element = host();
   const editor = new HRecordEditor().attach(element, {
     apiClient: { get: async () => ({ records: [] }), request: async () => ({}) },
-    dbdefs, client, structureProvider, recordId, rectypeId, specialEditors
+    dbdefs, client, structureProvider, recordId, rectypeId, specialEditors, ...options
   });
   await editor.open();
   return { editor, element, calls };
 }
+
+const parentDefs = {
+  ...dbdefs,
+  isChildRectype: () => true,
+  parentLinks: () => [{ parentRectypeId: 10, fieldId: 20, childRectypeId: 29 }],
+  dbconst: (name) => (name === 'DT_PARENT_ENTITY' ? 247 : dbdefs.dbconst(name))
+};
+
+test('virtual parent is the first field, read only, and absent from the save body', async () => {
+  const { editor } = await openEditor({ options: {
+    dbdefs: parentDefs,
+    apiClient: { request: async () => ({}), get: async () => ({ records: [
+      { rec_ID: '100', rec_RecTypeID: '10', rec_Title: 'Parent A' },
+      { rec_ID: '101', rec_RecTypeID: '10', rec_Title: 'Parent B' }
+    ] }) }
+  } });
+  const field = editor.editForm.getField('_parent');
+  assert.equal(editor.structure.groups[0].children[0].name, '_parent');
+  assert.equal(field.readOnly, true);
+  assert.deepEqual(editor.editForm.getStates().get('_parent').values.map((entry) => entry.value), [100, 101]);
+  assert.equal('_parent' in editor.getRecord().details, false);
+  assert.equal(247 in editor.getRecord().details, false);
+  assert.equal(editor.isDirty(), false);
+  await editor.destroy();
+});
+
+test('missing parent is editable with a warning; failed lookup stays read only', async () => {
+  for (const fail of [false, true]) {
+    const { editor, element } = await openEditor({ options: {
+      dbdefs: parentDefs,
+      apiClient: { request: async () => ({}), get: async () => {
+        if (fail) throw new Error('offline');
+        return { records: [] };
+      } }
+    } });
+    assert.equal(editor.editForm.getField('_parent').readOnly, fail);
+    const note = element.querySelector('.h-record-editor-parent-warning');
+    assert.ok(note);
+    assert.ok(note.querySelector('.fa-triangle-exclamation'));
+    assert.match(note.textContent, fail ? /could not be loaded/ : /define a parent/);
+    await editor.destroy();
+  }
+});
+
+test('a failed parent write retains the saved child and selection for an idempotent retry', async () => {
+  let fail = true;
+  let linked = false;
+  const parent = { rec_ID: '100', rec_RecTypeID: '10', rec_Title: 'Parent', rec_Modified: 'token', details: { 20: ['9'] } };
+  const apiClient = {
+    // the selected parent's header (q: ids), then the derived parents of the child (q: t, lt)
+    get: async (path, { query }) => ({ records: query.q[0].ids || linked ? [parent] : [] }),
+    request: async (path, request) => {
+      if (request.method === 'PATCH') {
+        if (fail) throw new Error('parent changed');
+        linked = true;
+        parent.details = request.body.details;
+      }
+      return { records: [parent] };
+    }
+  };
+  const { editor, calls } = await openEditor({ options: {
+    dbdefs: { ...parentDefs, field: () => ({ max: 0 }) }, apiClient, browseRecords: async () => [100]
+  } });
+  const ids = await editor._browseParent();
+  await editor.editForm.setValue('_parent', ids[0]);
+  let saved;
+  editor.options.onSaved = (value) => { saved = value; };
+  assert.equal(await editor.save(), false);
+  assert.equal(saved.record.rec_ID, '7', 'host knows the child was saved');
+  assert.match(saved.issues[0].message, /saved.*parent operation failed/);
+  assert.equal(editor._pendingParent.parentId, 100);
+  assert.equal(editor.isDirty(), true);
+  fail = false;
+  assert.equal(await editor.save(), true);
+  assert.deepEqual(parent.details[20], ['9', '7']);
+  assert.equal(editor._pendingParent, null);
+  assert.equal(editor.editForm.getField('_parent').readOnly, true);
+  assert.equal(calls.filter(([method]) => method === 'insert').length, 0);
+  await editor.destroy();
+});
+
+test('a host error after a save is not reported as a parent failure; a cleared selection is not pending', async () => {
+  let savedCalls = 0;
+  const { editor, element } = await openEditor({ options: {
+    dbdefs: parentDefs, browseRecords: async () => [100],
+    apiClient: { request: async () => ({}), get: async (path, { query }) => ({ records: query.q[0].ids
+      ? [{ rec_ID: '100', rec_RecTypeID: '10', rec_Title: 'Parent' }] : [] }) },
+    onSaved: () => { savedCalls++; throw new Error('host failed'); }
+  } });
+  assert.equal(await editor.save(), false);
+  assert.equal(savedCalls, 1, 'onSaved is not called again from the error handler');
+  assert.doesNotMatch(element.textContent, /parent operation failed/);
+  await editor._browseParent();
+  assert.equal(editor.isDirty(), false, 'selection not shown in the field yet');
+  await editor.destroy();
+});
+
+test('creation from a parent resource input uses context without prompting or assigning twice', async () => {
+  const { editor } = await openEditor({ recordId: 0, rectypeId: 29, options: {
+    dbdefs: parentDefs, parentContext: { recordId: 100, rectypeId: 10, fieldId: 20, title: 'Parent' }
+  } });
+  assert.equal(editor.editForm.getField('_parent').readOnly, true);
+  assert.equal(editor.editForm.getStates().get('_parent').values[0].value, 100);
+  assert.equal(editor._pendingParent, undefined);
+  assert.equal('_parent' in editor.getRecord().details, false);
+  await editor.destroy();
+});
 
 test('the editor shows the record in tab groups and gives it back unchanged', async () => {
   const { editor, element } = await openEditor();

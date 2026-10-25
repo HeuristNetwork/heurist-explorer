@@ -1006,3 +1006,21 @@
 #Record editor#Éditeur d'enregistrement
 #Show optional fields#Afficher les champs facultatifs
 #Show wysiwyg editor inline#Afficher l'éditeur wysiwyg dans le formulaire
+
+#Parent#Parent
+#Parent record#Enregistrement parent
+#is defined as a child of#est défini comme un enfant de
+#To avoid creation of orphan records, you should only create#Pour éviter la création d’enregistrements orphelins, créez uniquement des
+#records from within a parent record#depuis un enregistrement parent
+#If you understand the implications and still wish to create an independent, non-child record, check this box then click [Create independent record].#Si vous comprenez les implications et souhaitez créer un enregistrement indépendant, cochez cette case puis cliquez sur [Créer un enregistrement indépendant].
+#Create independent record#Créer un enregistrement indépendant
+#Find or create parent record#Rechercher ou créer un enregistrement parent
+#Select parent field#Sélectionner le champ du parent
+#Please define a parent record#Veuillez définir un enregistrement parent
+#The parents could not be loaded#Impossible de charger les parents
+#The record was saved, but the parent operation failed. Save again to retry.#L’enregistrement a été enregistré, mais l’opération sur le parent a échoué. Enregistrez à nouveau pour réessayer.
+#The child will be linked when the parent record is saved#L’enfant sera lié lors de l’enregistrement du parent
+#The parent record does not exist or you cannot see it#L’enregistrement parent n’existe pas ou vous ne pouvez pas le voir
+#Select a valid parent field#Sélectionnez un champ parent valide
+#The parent field has no room for another child#Le champ du parent ne peut pas recevoir un autre enfant
+#Retry#Réessayer

@@ -186,7 +186,7 @@ export class RecordRelationsProvider {
    */
   async #linkedFrom({ recordId, rel, dbdefs, signal, limit }) {
     const q = [{ lt: String(recordId) }];
-    const parentField = dbdefs?.localId?.("dty", "2-247") || 0;
+    const parentField = dbdefs?.dbconst?.("DT_PARENT_ENTITY") || 0;
     if (parentField) q.push({ not: [{ [`lt:${parentField}`]: String(recordId) }] });
     const fields = "rec_Title,rec_RecTypeID";
     const toItems = (rows) => rows

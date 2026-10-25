@@ -32,6 +32,8 @@ import { HEditForm } from '../edit-form/HEditForm.js';
 import { HRecordAccess, describeAccess } from '../record-access/HRecordAccess.js';
 import { UserGroupSource } from '../../data/valueSources/localSources.js';
 import { RecordEditClient, RecordEditError } from '../../data/RecordEditClient.js';
+import { assignParent, loadParents, parentCandidate } from '../../data/parentRecords.js';
+import { childCreationChoice, chooseParentField } from './parentDialogs.js';
 import { RecordStructureProvider } from '../../recordview/RecordStructureProvider.js';
 import { buildRecordBody, defaultFieldValues, recordFieldValues } from '../../data/recordEditValues.js';
 import { multilangFieldIds } from '../../data/writableRecordTypes.js';
@@ -91,7 +93,9 @@ export class HRecordEditor extends HBaseWidget {
    *        record (RT_RELATION) opened from a relmarker field: its vocabulary and the allowed types of the other
    *        record; without it relation type, source and target are read only (`relationRecordStructure`).
    * @param {Function} [options.browseRecords] Browse of pointer fields (record manager, plan 21): `(options) → Promise<number[]|null>`.
-   * @param {Function} [options.addRecord] Add of pointer fields (plan 21): `(rectypeId) → Promise<{saved, recordId}>`.
+   * @param {Function} [options.addRecord] Add of pointer fields: `(rectypeId, parentContext?) → Promise<{saved, recordId}>`.
+   * @param {{recordId:number, rectypeId:number, fieldId:number, title?:string}} [options.parentContext]
+   *        Creation from a parent's resource input; that input owns the forward write, so do not prompt or write twice.
    * @param {Function} [options.fileUrl] Link to view a file of a file field.
    * @param {Function} [options.editFile] Edit button of file fields (host file editor): `(id) → Promise<{saved, record}>`.
    * @param {{baseUrl: string, database: string}} [options.fileViewer] File fields: show the file below the input.
@@ -187,10 +191,98 @@ export class HRecordEditor extends HBaseWidget {
       : structure;
     // a group with more fields than "Limit fields": the others in collapsed parts (plan 23 §4.2)
     this.structure = splitLargeGroups(groups, this._limits().fields, (from, to) => `${$HR('Fields')} ${from}-${to}`);
+    await this._loadParents(signal);
     const relationsMessage = await this._loadRelmarkers(signal);
     this.render();
     if (relationsMessage) this._showMessages([relationsMessage]);
+    if (this.isNew && this._parentField && !this.options.parentContext) {
+      const choice = await childCreationChoice(this.dbdefs, rty);
+      if (!choice) this.close();
+      else if (choice === 'parent') {
+        const selection = await this._browseParent();
+        if (!selection?.length) this.close();
+        else await this.editForm.setValue('_parent', selection[0]);
+      }
+    }
     return this;
+  }
+
+  /** Add a transient first field; lookup errors cannot be treated as missing parents. */
+  async _loadParents(signal) {
+    this._parentField = null;
+    if (!this.dbdefs?.isChildRectype?.(this.rectypeId)) return;
+    this._parents = [];
+    this._parentError = null;
+    try {
+      this._parents = await loadParents({ apiClient: this.options.apiClient, dbdefs: this.dbdefs,
+        recordId: this.record?.rec_ID, rectypeId: this.rectypeId, signal });
+    } catch (error) {
+      if (error?.name === 'AbortError') throw error;
+      this._parentError = error;
+    }
+    const context = this.options.parentContext;
+    if (this.isNew && context?.recordId > 0) {
+      this._parents = [{ fieldId: context.fieldId, record: { rec_ID: context.recordId, rec_RecTypeID: context.rectypeId, rec_Title: context.title || `#${context.recordId}` } }];
+    }
+    this._parentField = {
+      name: '_parent', type: 'resource', label: $HR('Parent record'), transient: true,
+      max: this._parents.length ? 0 : 1, required: false, readOnly: Boolean(this._parents.length || this._parentError || context),
+      targetTypes: [...new Set(this.dbdefs.parentLinks(this.rectypeId).map((link) => link.parentRectypeId))],
+      pointerMode: 'browseonly', showAdd: false
+    };
+    const parentId = this.dbdefs.dbconst?.('DT_PARENT_ENTITY');
+    const removeStoredParent = (group) => ({ ...group,
+      children: (group.children || []).filter((field) => Number(field.dty) !== parentId)
+    });
+    this.structure = { ...this.structure, groups: [
+      { id: '_parent_group', children: [this._parentField] },
+      ...this.structure.groups.filter((group) => group.id !== '_parent_group').map(removeStoredParent)
+    ] };
+  }
+
+  /** Select a parent, retaining the actual forward field for assignment after save. */
+  async _browseParent() {
+    if (typeof this.options.browseRecords !== 'function') return null;
+    const ids = await this.options.browseRecords({ selectMode: 'select', recordTypes: this._parentField.targetTypes,
+      title: $HR('Find or create parent record') });
+    if (!ids?.length) return null;
+    let links;
+    try {
+      ({ links } = await parentCandidate({ apiClient: this.options.apiClient, dbdefs: this.dbdefs,
+        parentId: ids[0], childRectypeId: this.rectypeId }));
+    } catch (error) {
+      this._showMessages([{ severity: 'error', message: $HR(error?.message || String(error)) }]);
+      return null;
+    }
+    const link = await chooseParentField(this.dbdefs, links);
+    if (!link) return null;
+    this._pendingParent = { parentId: Number(ids[0]), fieldId: link.fieldId };
+    return [Number(ids[0])];
+  }
+
+  /** @returns {number} The parent chosen in the virtual field (0 for none). */
+  _selectedParent() {
+    return Number(this.editForm?.getStates().get('_parent')?.values?.[0]?.value) || 0;
+  }
+
+  /**
+   * Write the forward pointer of a parent chosen for a saved child, then show the derived parents again.
+   * A failure leaves the selection for Save again (the write is idempotent).
+   */
+  async _savePendingParent() {
+    if (!this._pendingParent) return;
+    if (this._selectedParent() !== this._pendingParent.parentId) {
+      this._pendingParent = null;
+      return;
+    }
+    await assignParent({ apiClient: this.options.apiClient, dbdefs: this.dbdefs,
+      childId: this.record.rec_ID, childRectypeId: this.rectypeId, ...this._pendingParent });
+    this._pendingParent = null;
+    const refreshed = await this.client.load(this.record.rec_ID);
+    this.record = refreshed.record || this.record;
+    await this._loadParents();
+    await this._destroyForm();
+    this.render();
   }
 
   /** @returns {HRecordEditor} This editor (after open()). */
@@ -266,7 +358,8 @@ export class HRecordEditor extends HBaseWidget {
 
   /** @returns {boolean} Whether something changed since the record was loaded or saved. */
   isDirty() {
-    return this.state === 'rendered' && JSON.stringify(this.getRecord()) !== this._initial;
+    const pendingParent = Boolean(this._pendingParent) && this._selectedParent() === this._pendingParent.parentId;
+    return this.state === 'rendered' && (pendingParent || JSON.stringify(this.getRecord()) !== this._initial);
   }
 
   /**
@@ -296,14 +389,26 @@ export class HRecordEditor extends HBaseWidget {
     if (this.options.readOnly || this._saving) return false;
     if (this.validate().length) return false;
     const body = this.getRecord();
+    const created = this.isNew;
     this._setBusy(true);
     // a very large record takes a while to save (plan 23)
     this._showMessages([{ severity: 'info', message: $HR('Saving…'), busy: true }]);
     try {
-      const created = this.isNew;
       const result = created ? await this.client.insert(body) : await this.client.update(body, { force });
       this.record = result.record;
       this._saved = true;
+      // the child is saved: a failed parent write is a partial success (plan 26)
+      try {
+        await this._savePendingParent();
+        result.record = this.record;
+      } catch (error) {
+        const issue = { severity: 'warning', code: 'parent',
+          message: `${$HR('The record was saved, but the parent operation failed. Save again to retry.')} ${$HR(error?.message || String(error))}` };
+        this._showMessages([{ ...issue, severity: 'error' }]);
+        this._emit('h-record-editor-saved', { record: this.record, issues: [issue], created });
+        this.options.onSaved?.({ record: this.record, issues: [issue], created });
+        return false;
+      }
       if (typeof this.options.structure === 'function' || result.issues?.some((issue) => issue.code === 'html_sanitized')) {
         // Show the stored values after server sanitization or file metadata changes.
         if (typeof this.options.structure === 'function') this.structure = await this.options.structure(this.record, this.dbdefs);
@@ -363,6 +468,7 @@ export class HRecordEditor extends HBaseWidget {
       && !(await confirmDialog($HR('Drop your changes and show the saved values again?'), $HR('Drop changes')))) {
       return false;
     }
+    this._pendingParent = null;
     await this._destroyForm();
     this.render();
     return true;
@@ -922,6 +1028,13 @@ export class HRecordEditor extends HBaseWidget {
     // named fields of a hard-coded structure: a record header, or a value shown only
     for (const field of structureFields(this.structure)) {
       if (field.dty) continue;
+      if (field.name === '_parent') {
+        const unique = new Map((this._parents || []).map(({ record }) => [Number(record.rec_ID), {
+          value: Number(record.rec_ID), label: record.rec_Title, rectype: Number(record.rec_RecTypeID), hidden: false
+        }]));
+        states.set(field.name, { values: [...unique.values()], translations: [] });
+        continue;
+      }
       const value = field.header ? this.record?.[field.header] : field.value;
       const text = value === null || value === undefined ? '' : String(value);
       states.set(field.name, { values: text ? [{ value: text, hidden: false }] : [], translations: [] });
@@ -946,8 +1059,12 @@ export class HRecordEditor extends HBaseWidget {
       selectGeometry: this.options.selectGeometry,
       editRecord: this.options.editRecord,
       viewRecord: this.options.viewRecord,
-      browseRecords: this.options.browseRecords,
-      addRecord: this.options.addRecord,
+      browseRecords: (request, field) => field?.name === '_parent' ? this._browseParent() : this.options.browseRecords?.(request),
+      addRecord: typeof this.options.addRecord === 'function' ? (rectypeId, context) => {
+        const child = this.dbdefs?.field(this.rectypeId, context?.fieldId)?.createChild;
+        return this.options.addRecord(rectypeId, child ? { recordId: Number(this.record?.rec_ID) || 0,
+          rectypeId: this.rectypeId, fieldId: context.fieldId, title: this.record?.rec_Title } : null);
+      } : undefined,
       fileUrl: this.options.fileUrl,
       editFile: this.options.editFile,
       fileViewer: this.options.fileViewer,
@@ -964,6 +1081,7 @@ export class HRecordEditor extends HBaseWidget {
       lazyGroups: true,
       valueLimit: this._limits().values
     }).render();
+    this._renderParentWarning();
     const preview = this.record && typeof this.options.preview === 'function' ? this.options.preview(this.record) : null;
     if (preview) {
       const box = document.createElement('div');
@@ -971,6 +1089,40 @@ export class HRecordEditor extends HBaseWidget {
       box.append(preview);
       this.body.append(box);
     }
+  }
+
+  /** Missing-parent or lookup-error message, independent of the help visibility setting. */
+  _renderParentWarning() {
+    const host = this.editForm?.getFieldWidget('_parent')?.container;
+    host?.querySelector('.h-record-editor-parent-warning')?.remove();
+    if (!host || !this._parentField || this._parents.length) return;
+    const note = document.createElement('div');
+    note.className = 'h-record-editor-parent-warning h-i18n';
+    const icon = document.createElement('i');
+    icon.className = 'fa-solid fa-triangle-exclamation';
+    const message = this._parentError ? $HR('The parents could not be loaded')
+      : this.options.parentContext ? $HR('The child will be linked when the parent record is saved')
+        : $HR('Please define a parent record');
+    note.append(icon, document.createTextNode(` ${message}`));
+    if (this._parentError) {
+      const retry = document.createElement('button');
+      retry.type = 'button'; retry.className = 'h-btn h-i18n'; retry.textContent = $HR('Retry');
+      retry.addEventListener('click', async () => {
+        retry.disabled = true;
+        try {
+          await this._loadParents();
+          await this.editForm.updateField('_parent', this._parentField);
+          const ids = [...new Set(this._parents.map(({ record }) => Number(record.rec_ID)))];
+          if (ids.length) await this.editForm.setValue('_parent', ids);
+          this._renderParentWarning();
+        } catch (error) {
+          retry.disabled = false;
+          this._showMessages([{ severity: 'error', message: error?.message || $HR('The parents could not be loaded') }]);
+        }
+      });
+      note.append(retry);
+    }
+    host.append(note);
   }
 
   /** @returns {{fields: number, values: number, thumbs: number, links: number}} The record view limits (plan 23). */
