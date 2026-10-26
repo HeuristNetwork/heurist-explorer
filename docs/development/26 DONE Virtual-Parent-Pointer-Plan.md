@@ -1,6 +1,8 @@
 # Virtual parent pointers — development plan
 
-**Status 2026-10-24:** implemented in both repositories; automated verification passed. Browser review pending. Not committed.
+**DONE 2026-10-26.** Committed (explorer `17dd90e`, `f11789e`; heurist `cda95280e`, `8f9d9dd0d`). Browser review still pending.
+
+**Status 2026-10-24:** implemented in both repositories; automated verification passed.
 
 ## 1. Decision and scope
 

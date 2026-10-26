@@ -1,5 +1,8 @@
 # Text editing: translations, DeepL, rich editors, viewer HTML — development plan
 
+**DONE 2026-10-26.** Committed (explorer `646a838`, `f11789e`; heurist `8f9d9dd0d`). Round 2 still needs a
+browser check: format menu, Align, TinyMCE menus inside the dialog.
+
 **Current state 2026-10-24:** implemented (both repos), not committed. 1396 client tests pass; heurist
 `StoredTextTest` (62), `DefinitionSnapshotTest`, `RecordEditApiTest`, `DataAccessBoundaryTest` pass. The editors
 and the viewer sanitizer were checked in a headless Edge harness; not yet checked in Explorer by Artem.

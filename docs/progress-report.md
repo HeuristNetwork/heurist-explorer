@@ -1,6 +1,6 @@
 # Heurist Explorer — Progress Report
 
-*Status on 18 October 2026 (first issued 2 October, updated 8 October). Work started 14 September 2026.*
+*Status on 26 October 2026 (first issued 2 October, updated 8 and 18 October). Work started 14 September 2026.*
 
 ## Done
 
@@ -22,21 +22,35 @@
 | 14 | **Smarty reports**: report templates and schedules as records, new Report tool in Explorer with a full-screen template editor and field tree, background jobs with progress and cancel, scheduled reports; Smarty engine moved to the new server code (same output as the old one). | 5–7 Oct |
 | 15 | **Export** as a background job (progress, cancel, download when ready): CSV/TSV, JSON, GeoJSON, KML, XML (HML), Gephi. New Export tool in Explorer. The JSON export uses the same format as the new records API. | 6–9 Oct |
 | 16 | **Parameterised queries in Map and Timeline**, restored when the page is opened again; simpler (flat) field tree. | 8 Oct |
-| 17 | **Record editing for system records** (saved searches / data sources, reports, map documents and layers, websites): new server API to create, change and delete records, with checks of the values; new record edit form in Explorer. Title masks and calculated fields are now computed by the new server code (same result as the old code). | 12–13 Oct |
+| 17 | **Record editing**: new server API to create, change and delete records, with checks of the values; new record edit form in Explorer, now used for **every record type** (first only system records). Title masks and calculated fields are computed by the new server code (same result as the old code). *Add record* and *New* in Explorer. | 12–25 Oct |
 | 18 | **Data access layer** in the new server code: one place reads database definitions, records, files and users; an automatic test checks that no other code reads these tables directly. | 13 Oct |
 | 19 | **Simpler interface** (close to Heurist 7), on by default: fixed layout, toolbar buttons inside the panes, Report and Export tools as tabs in the panes; the old Filter builder and faceted search wizard are used there. The full interface stays available in the settings. | 13–15 Oct |
 | 20 | **Symbology and thematic map editors** ported from the old code; used by the Map module and the record edit form. | 13–17 Oct |
-| 21 | **Edit forms made from a description (JSON)**: one form engine for the record editor and for settings dialogs; forms can show or hide fields by other values; layout options (labels beside or above, fields side by side). Record summary pane (owner, linked records, notes). | 14–18 Oct |
+| 21 | **Edit forms made from a description (JSON)**: one form engine for the record editor and for settings dialogs; forms can show or hide fields by other values; layout options (labels beside or above, fields side by side); separator groups as in the old editor. Record summary pane (owner, linked records, notes). | 14–21 Oct |
 | 22 | **Date editor** ported from the old code: uncertain dates, date ranges, fuzzy dates, carbon / radiometric dates. | 17 Oct |
-| 23 | **New server API** (`srv/`) behind all of the above — a clean replacement for the old server code. | ongoing, with each item |
-| 24 | User manual and developer documentation. | ongoing |
+| 23 | **Records manager**: list, search, add and edit records of any type in one window; pointer fields can browse or add the target record; record access (owner, visibility) form; Explorer can open as a stand-alone record editor. | 19–22 Oct |
+| 24 | **Relationship fields** (relmarkers): choose relation type and target, edit or view the target and the relationship record; fields from other records in a group "Relationships from other records". | 21–22 Oct |
+| 25 | **Relationship manager**: one-to-many relationships edited in a list, "Find or Add", changes saved at once; group membership edited the same way. | 24 Oct |
+| 26 | **Large records**: configurable limits for Record view and edit form, groups loaded on demand, field values shown in parts, Structure pane for long forms. Tested on very large records. | 22 Oct |
+| 27 | **Tags, private notes (bookmarks) and reminders** in the record summary, with a tag manager. Private notes are encrypted; reminders can be sent at once. | 22–23 Oct |
+| 28 | **Files**: chunked upload, file editor with a fixed structure by file type, files manager, file replacement; MIME type vocabulary prepared for review. | 19–24 Oct |
+| 29 | **Users and groups managers** in Explorer, with user and group images and group members. | 23–24 Oct |
+| 30 | **Stored text security policy**: one rule for which HTML is kept in text fields and how it is shown. | 23 Oct |
+| 31 | **Rich text and translations**: text fields with an HTML editor (TinyMCE) or a code editor (CodeMirror); translated values per language, with automatic translation (DeepL); HTML shown safely in Record view. | 24–25 Oct |
+| 32 | **Parent – child records**: the parent of a child record is found from its links (no stored reverse field); Parent field and warning in the edit form; parent fields in the field tree, title masks and reports. | 24–25 Oct |
+| 33 | **New server API** (`srv/`) behind all of the above — a clean replacement for the old server code. Record format and editing now also for system data (`/sys`: tags, bookmarks, reminders, users, groups, files). | ongoing, with each item |
+| 34 | User manual and developer documentation. | ongoing |
+
+All work above is committed (explorer `f11789e`, heurist `8f9d9dd0d`).
 
 ## In progress
 
 | Task | Expected |
 |------|----------|
-| Edit forms: review and cosmetics (rounds 4–5 done today); agree the form description format, then use it for report, crosstab and module settings dialogs | next week |
-| Browser checks of the latest work (simpler interface, record and edit forms, symbology editors, date editor, reports, export) and testing query speed on large databases | with the use cases |
+| **Browser checks** of the latest work: Add record / New, rich text editors (format menu, Align, menus inside dialogs), parent – child records, and earlier items (simpler interface, symbology, date editor, reports, export); testing query speed on large databases | with the use cases |
+| **Edit forms**: agree the form description format, then use it for report, schedule, crosstab and module settings dialogs; remove the test tool | next week |
+| **Saved filters** in the new record format (last part of the system data move) | next week |
+| **CMS and web publishing** (plan 27): draft for discussion; nothing implemented yet | after discussion |
 | **Getting started** content: short recordings and help texts for the tour | after recordings are ready |
 | Expansion rules for Map and Timeline | postponed |
 
@@ -44,11 +58,11 @@
 
 | # | Task | Estimated delivery |
 |---|------|--------------------|
-| 1 | **Publication and website** — publish an Explorer layout as a public web page / site (was planned for 11 Oct; not started, record editing came first) | to be set |
+| 1 | **Publication and website** — publish an Explorer layout as a public web page / site; see plan 27 | to be set |
 | 2 | **Use cases / demos** on the largest databases: digital_harlem, library_readers_18c, mpce_mapping, Chinese engineers | to be set |
-| 3 | **Records manager** — a list of system records (websites, pages, reports...) with the new edit form | to be set |
-| 4 | **Batch operations on records** (long-running operations; the background jobs from Reports and Export are reused) | to be set |
-| 5 | **Private notes and tags** in the record edit form (needs new server API) | to be set |
+| 3 | **Batch operations on records** (long-running operations; the background jobs from Reports and Export are reused) | to be set |
+| 4 | **Players for external video and audio** (thumbnail in Record view and editor, player when expanded) | to be set |
+| 5 | **Save only changed fields** (PATCH) for large records | to be set |
 
 ## Leftovers of finished work
 
@@ -59,17 +73,20 @@ Small items left open in finished plans (details in `docs/development/`, marked 
 - **Export**: IIIF and RDF exports are not part of the new export (the old ones stay); decide about the new JSON Lines format.
 - **Interface**: Crosstabs and Actions tools are still empty placeholders.
 - **Date editor**: other calendars (e.g. Japanese) are not supported yet.
+- **Record editing**: some save steps of the old editor are not ported yet (list in plan 21 §6a).
+- **Users and groups**: concept codes for the Admins / Members fields are still missing.
 
 ## To discuss
 
 1. **Expansion rules** — how far to develop them and where they belong in the new interface.
 2. **One common storage structure** (records + record details) for all three kinds of data:
-   database definitions, system/internal user data, and public user data. Started with system
-   data, as proposed: system records are now edited through the new server API, and all new
-   server code reads records through one data access layer, so the storage can change later
-   in one place.
+   database definitions, system/internal user data, and public user data. System data is now
+   read and written in the record format through the new server API (tags stay in their own
+   table); all new server code reads records through one data access layer, so the storage
+   can change later in one place.
 3. **Rework of the record details table**: move language and link ID to their own columns,
    remove old and duplicated fields, keep dates, links, spatial data and full-text index
    in separate tables (dates and links already done).
+4. **CMS and web publishing** (plan 27): format, designer, templates and publication.
 
 Decisions on items 2 and 3 affect the date for Batch operations.

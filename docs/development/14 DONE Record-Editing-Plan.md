@@ -1,5 +1,8 @@
 # Record editing — development plan
 
+**DONE 2026-10-26.** All committed (explorer `f11789e`, heurist `8f9d9dd0d`). Phase 4 (Records manager) was done by
+plan 21; DeepL in Translate by plan 25. §10 (Add record and New) still needs a browser check.
+
 **Current state 2026-10-19:** Phases 1-3 committed (explorer `3423c49`; heurist `81526abd7`); title mask and calculated fields committed (heurist `396320f3a`). Ordinary user records: every record type is edited in HRecordEditor since plan 21 Phase 5 (2026-10-19, not committed; the legacy save steps not ported are listed in plan 21 §6a). Records manager: plan 21 (HRecordManager). Open: DeepL in Translate.
 
 Status: **agreed 2026-10-12 (review rounds 1–2, §Agreed decisions, §8). Implemented 2026-10-12, nothing
