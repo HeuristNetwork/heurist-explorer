@@ -129,8 +129,9 @@
     color: var(--h-color-text-muted);
 }
 
-/* Reports tool: heurist-reports fills the body */
-.h-explorer-tool-report-body {
+/* Reports and Websites tools: the app fills the body */
+.h-explorer-tool-report-body,
+.h-explorer-tool-publish-body {
     display: flex;
     width: 100%;
     overflow: hidden;

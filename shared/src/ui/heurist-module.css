@@ -187,3 +187,9 @@
 .heurist-published-dialog p { margin: 12px 0 8px; }
 .heurist-published-dialog input { box-sizing: border-box; width: 100%; padding: 6px; font: inherit; }
 .heurist-published-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; }
+.heurist-published-dialog textarea { box-sizing: border-box; width: 100%; padding: 6px; font: inherit; font-family: monospace; resize: vertical; }
+.heurist-publish-page-label { display: grid; gap: 4px; margin-top: 12px; }
+.heurist-publish-page-target { display: grid; gap: 4px; margin: 12px 0 0; padding: 6px 8px; border: 1px solid var(--h-color-border); border-radius: var(--h-radius); }
+.heurist-publish-page-choice { display: flex; align-items: center; gap: 6px; }
+.heurist-publish-page-choice input { width: auto; }
+.heurist-publish-page-note { color: var(--h-color-text-muted); }

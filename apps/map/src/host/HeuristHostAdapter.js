@@ -138,26 +138,6 @@ export class HeuristHostAdapter extends HostAdapter {
     const response = await this.request('UserController', 'get_prefs', { key });
     return normalizeSymbolPreference(response);
   }
-
-  /**
-   * Load a published map definition by publication id.
-   *
-   * @param {number|string} id Publication id.
-   * @returns {Promise<object>} Published map payload.
-   */
-  async loadPublishedMap(id) {
-    return this.request('PublicationController', 'get', { id, type: 'map' });
-  }
-
-  /**
-   * Delete a published map by publication id.
-   *
-   * @param {number|string} id Publication id.
-   * @returns {Promise<*>} Result of the FrontController request.
-   */
-  async deletePublishedMap(id) {
-    return this.request('PublicationController', 'delete', { id, type: 'map' }, {});
-  }
 }
 
 /** Parse and validate a legacy symbol preference value, returning `null` when absent or malformed. */

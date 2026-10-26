@@ -298,6 +298,8 @@ export class HeuristMapPublicApi {
       },
       onSave: async (value, context) => {
         const result = await this.publish(value, context.publishOptions || {});
+        // cancelled in the "Publish as page" dialog
+        if (!result) return null;
         this.application.dispatch('heurist-map-published', { publication: result, settings: context.serialized });
         if (options.onSave) await options.onSave(value, context, result);
         // MapConfigurationDialog closes after this callback resolves. Defer the

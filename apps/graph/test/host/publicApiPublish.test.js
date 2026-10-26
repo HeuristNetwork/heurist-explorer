@@ -1,6 +1,6 @@
 /**
  * @file publicApiPublish.test.js
- * @brief Tests the Publish button flow: PublicationController call + PublishedDialog.
+ * @brief Tests the Publish button flow: host publish (a standalone website page) + PublishedDialog.
  * @project     Heurist academic knowledge management system
  * @package     heurist-graph
  * @link        https://HeuristNetwork.org
@@ -46,7 +46,7 @@ function createApi({ publishResult, state } = {}) {
     host: {
       publish: async (payload) => {
         application.host.lastPayload = payload;
-        return publishResult ?? { url: "https://h.org/?db=x&controller=Web&publication_id=7&type=graph" };
+        return publishResult === undefined ? { id: 7, url: "https://h.org/x/site/7" } : publishResult;
       },
     },
     getState: () => state ?? { querySourceId: 12, query: "t:10", selection: [] },
@@ -68,7 +68,7 @@ test("publish mode materializes the active runtime language and leaves persisted
   assert.equal(application.config.persistedSettings.options.ui.language, "auto");
 });
 
-test("saving the publish dialog calls the host PublicationController and opens the published link dialog", async () => {
+test("saving the publish dialog publishes through the host and opens the published link dialog", async () => {
   const restore = stubDocument();
   try {
     const { api, application, events } = createApi();
@@ -97,15 +97,28 @@ test("saving the publish dialog calls the host PublicationController and opens t
     const published = events.find((e) => e.name === "heurist-graph-published");
     assert.ok(published, "dispatches heurist-graph-published");
     assert.equal(published.detail.settings, serialized);
-    // The host link is canonicalized to a single pub_id parameter for the dialog.
-    assert.match(result.url, /[?&]pub_id=7(&|$)/);
-    assert.doesNotMatch(result.url, /publication_id|type=graph/);
+    assert.equal(result.url, "https://h.org/x/site/7");
 
     await new Promise((resolve) => setTimeout(resolve, 0));
     assert.ok(api.publishedDialog, "opens PublishedDialog after the config overlay closes");
   } finally {
     restore();
   }
+});
+
+test("a cancelled page dialog publishes nothing and opens no link dialog", async () => {
+  const { api, events } = createApi({ publishResult: null });
+  let captured;
+  api.setConfigurationDialogFactory((options) => {
+    captured = options;
+    return {};
+  });
+  api.openPublishDialog();
+  const result = await captured.onSave(captured.value, { mode: "publish", serialized: {}, publishOptions: {} });
+  assert.equal(result, null);
+  assert.equal(events.length, 0);
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.ok(!api.publishedDialog);
 });
 
 test("preserveCurrentState:false publishes without the live graph state", async () => {

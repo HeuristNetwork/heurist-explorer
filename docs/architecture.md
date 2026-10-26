@@ -38,6 +38,8 @@ can share a page. The tests in `test/architecture` allow `apps/explorer` and
 Reports is not a presentation module: Explorer imports its direct entry lazily
 (dynamic import) when the Report tool is opened, so the manager and its
 CodeMirror editor are separate chunks, not part of Explorer's main bundle.
+The Website manager (plan 27b) is the same: `apps/website/src/direct.js` mounts the manager
+(not the site runtime) and Explorer imports it lazily for its Websites tool (`publish`).
 
 ## Host boundaries
 

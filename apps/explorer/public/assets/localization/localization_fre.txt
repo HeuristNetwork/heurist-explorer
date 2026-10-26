@@ -134,7 +134,9 @@
 #Options#Options
 #Toolbar and layout configuration#Configuration de la barre d’outils et de la disposition
 #Publish#Publier
-#Publish the current view (coming soon)#Publier la vue actuelle (bientôt disponible)
+#Websites#Sites web
+#Websites and published pages#Sites web et pages publiées
+#Place "Websites" in a pane in the Explorer configuration to open it#Placez « Sites web » dans un panneau de la configuration de l'Explorer pour l'ouvrir
 #Will be implemented soon...#Sera bientôt disponible...
 #Not implemented yet#Pas encore disponible
 #Small icons#Petites icônes

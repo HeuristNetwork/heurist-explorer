@@ -134,7 +134,9 @@
 #Options#Options
 #Toolbar and layout configuration#Toolbar and layout configuration
 #Publish#Publish
-#Publish the current view (coming soon)#Publish the current view (coming soon)
+#Websites#Websites
+#Websites and published pages#Websites and published pages
+#Place "Websites" in a pane in the Explorer configuration to open it#Place "Websites" in a pane in the Explorer configuration to open it
 #Will be implemented soon...#Will be implemented soon...
 #Not implemented yet#Not implemented yet
 #Small icons#Small icons

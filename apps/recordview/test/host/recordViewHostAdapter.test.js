@@ -72,26 +72,6 @@ test("preferences round-trip through the keyed FrontController contract", async 
   assert.match(calls[1].init.body, /key=heurist-recordview/);
 });
 
-test("publish posts to the PublicationController with the recordview module type", async () => {
-  const calls = [];
-  const fetchImpl = async (url, init = {}) => {
-    calls.push({ url: String(url), init });
-    return { ok: true, json: async () => ({ status: 0, data: { id: "abc123" } }) };
-  };
-  const host = new HeuristRecordViewHostAdapter({
-    baseUrl: "http://example.test/heurist/",
-    database: "demo",
-    fetchImpl,
-  });
-
-  const result = await host.publish({ format: "heurist-publication" });
-
-  assert.deepEqual(result, { id: "abc123" });
-  assert.match(calls[0].url, /controller=PublicationController/);
-  assert.match(calls[0].url, /action=save/);
-  assert.match(calls[0].url, /type=recordview/);
-});
-
 test("publishSelection forwards to the bridge's onSelection callback", () => {
   const calls = [];
   const host = new HeuristRecordViewHostAdapter({

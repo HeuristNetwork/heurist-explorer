@@ -40,7 +40,7 @@ import { HRecordList } from '../record-list/HRecordList.js';
 import { HFilterForm } from '../filter/HFilterForm.js';
 import { HCardinalLayout } from '../layout/HCardinalLayout.js';
 import { builtinRecordFilter } from '../../data/recordManagerFilters.js';
-import { RecordListLoader } from '../../data/RecordListLoader.js';
+import { RECORD_LIST_FIELDS, RecordListLoader } from '../../data/RecordListLoader.js';
 import { recordTypesDomain, userDataRecordTypeIds } from '../../data/recordDomains.js';
 import { recordTypeIconUrl } from '../record-list/recordAdminInfo.js';
 import { confirmRelationshipDelete } from '../relationship/relationshipDialog.js';
@@ -117,6 +117,10 @@ export class HRecordManager extends HBaseWidget {
    * @param {object|false|null} [options.filter] Filter `{query, filterForm}`; default the built-in filter of the
    *        types (recordManagerFilters.js), `false` = no filter form.
    * @param {object} [options.listOptions] HRecordList options (view mode, page size...).
+   * @param {Array<number|string>} [options.listFields] Extra fields loaded with the list records (detail ids),
+   *        e.g. for `recordTools`.
+   * @param {(record: object) => HTMLElement|null} [options.recordTools] Tools of a record in `manager` and the
+   *        select modes (the Website manager, plan 27b); the relations mode has its own.
    * @param {string} [options.baseUrl] Heurist base URL (record type icons).
    * @param {string} [options.database] Database name (record type icons).
    * @returns {HRecordManager} This manager.
@@ -176,7 +180,8 @@ export class HRecordManager extends HBaseWidget {
         return this;
       }
     }
-    this.loader = new RecordListLoader({ apiClient: this.options.apiClient, path, query: this._listQuery(types), sort: saved.sort });
+    this.loader = new RecordListLoader({ apiClient: this.options.apiClient, path, query: this._listQuery(types), sort: saved.sort,
+      fields: [...RECORD_LIST_FIELDS, ...(this.options.listFields || []).map(String)] });
     this._renderFilter(listHost);
     this.list = new HRecordList();
     const listOptions = this._listOptions();
@@ -199,7 +204,8 @@ export class HRecordManager extends HBaseWidget {
       onRecordContentRequest: (request) => this._recordContent(request, path),
       // select modes: double-click selects that record and finishes (plan 21 §3.2)
       onRecordActivate: this.isSelectMode() ? (id) => this._finish([id]) : undefined,
-      recordTools: this.store ? (record) => this._relationTools(record) : undefined
+      recordTools: this.store ? (record) => this._relationTools(record)
+        : (typeof this.options.recordTools === 'function' ? this.options.recordTools : undefined)
     });
     const bar = this.store ? this._renderRelationsBar() : this._renderAddBar();
     if (bar) this.list.setTopBarContent(bar);

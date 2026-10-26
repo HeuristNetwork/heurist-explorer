@@ -43,7 +43,7 @@ const MODULES = [
   { type: 'crosstabs', icon: 'fa-solid fa-chart-column', title: 'Crosstabs' },
   { type: 'actions', icon: 'fa-solid fa-bolt', title: 'Actions' },
   { type: 'export', icon: 'fa-solid fa-file-export', title: 'Export' },
-  { type: 'publish', icon: 'fa-solid fa-share-nodes', title: 'Publish' }
+  { type: 'publish', icon: 'fa-solid fa-globe', title: 'Websites' }
 ];
 
 /** Result always has a pane: a DataSource is shown there (and so not everything is unused). */

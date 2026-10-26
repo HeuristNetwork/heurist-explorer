@@ -74,6 +74,22 @@ export class ExplorerUiConfig {
   static defaults() {
     return defaults();
   }
+
+  /**
+   * A configuration given by a published page (plan 27b, `settings.ui` of an Explorer instance):
+   * kept in memory only, so a visitor's changes are never written to the browser.
+   *
+   * @param {string} database Heurist database name.
+   * @param {object} value Configuration value; see `load()`.
+   * @returns {ExplorerUiConfig}
+   */
+  static fromValue(database, value) {
+    const data = new Map();
+    const storage = { getItem: (key) => data.get(key) ?? null, setItem: (key, text) => { data.set(key, String(text)); } };
+    const config = new ExplorerUiConfig({ database, storage });
+    config.save(value || {});
+    return config;
+  }
 }
 
 /**

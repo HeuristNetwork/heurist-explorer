@@ -46,7 +46,7 @@ const REGIONS = ['north', 'west', 'center', 'east', 'south'];
 // presentations and tools (tools are pane modules since 2026-10-14)
 const MODULE_TITLES = {
   data: 'Result', map: 'Map', graph: 'Graph', timeline: 'Timeline', recordview: 'Record',
-  report: 'Report', crosstabs: 'Crosstabs', actions: 'Actions', export: 'Export', publish: 'Publish'
+  report: 'Report', crosstabs: 'Crosstabs', actions: 'Actions', export: 'Export', publish: 'Websites'
 };
 
 /** Switches an ExplorerApplication between its desktop and compact presentations. */

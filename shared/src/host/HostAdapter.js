@@ -13,6 +13,10 @@
  * @since       8.0
  */
 
+import { HeuristApiClient } from "../api/HeuristApiClient.js";
+import { WebsiteClient } from "../api/WebsiteClient.js";
+import { publishModulePage } from "../site/modulePublisher.js";
+
 /** Optional services supplied to an independent module by its embedding host. */
 export class HostAdapter {
   /**
@@ -185,18 +189,29 @@ export class HostAdapter {
   }
 
   /**
-   * Publish a module document via the FrontController PublicationController.
+   * Publish the module as a standalone website page (plan 27b §6): asks for the page title and
+   * whether to update the last page of this module, then writes the page (`POST /api/{db}/website/publish`).
+   * With a bridge that has `openWebsiteManager` (Explorer) the result offers a button to open it.
    *
-   * @param {object} payload Module-specific document to publish.
-   * @returns {Promise<*>} Result of the FrontController request.
+   * @param {object} payload Publish payload of the module (`{format: 'heurist-publication', options, config, state}`).
+   * @returns {Promise<{id: number, url: string, title: string, embed: string, actions: Array}|null>} Null when
+   *          the user cancelled.
    */
   async publish(payload) {
-    return this.request(
-      "PublicationController",
-      "save",
-      { type: this.moduleType },
-      { data: JSON.stringify(payload) },
-    );
+    if (!this.baseUrl || !this.database)
+      throw new Error("Heurist host is not configured");
+    const apiClient = new HeuristApiClient({ apiBaseUrl: this.baseUrl, database: this.database, fetchImpl: this.fetchImpl });
+    const result = await publishModulePage({
+      client: new WebsiteClient({ apiClient }),
+      database: this.database,
+      type: this.moduleType,
+      payload,
+    });
+    if (!result) return null;
+    const actions = typeof this.bridge?.openWebsiteManager === "function"
+      ? [{ label: "Website manager", run: () => this.bridge.openWebsiteManager({ recordId: result.id }) }]
+      : [];
+    return { ...result, actions };
   }
 
   /**

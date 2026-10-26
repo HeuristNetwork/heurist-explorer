@@ -302,4 +302,4 @@ come later (decision 14).
 ## 10. Open points
 
 None (all answered 2026-10-26, decisions 1–23). Phase plans are named `27a`, `27b`, ...: phase 1 =
-`27a Website-Format-v4-Plan.md` (draft 2026-10-26).
+`27a Website-Format-v4-Plan.md` (implemented 2026-10-26), phase 2 = `27b Website-Manager-Plan.md` (draft 2026-10-26).

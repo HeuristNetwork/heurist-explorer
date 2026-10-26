@@ -17,3 +17,4 @@ export { HeuristApiClient } from './HeuristApiClient.js';
 export { HeuristApiError } from './HeuristApiError.js';
 export { RequestMonitor, createModuleRequestMonitor } from './RequestMonitor.js';
 export { JobClient, isJobFinished, ACTIVE_JOB_STATUSES } from './JobClient.js';
+export { WebsiteClient, WEBSITE_BUILD_JOB, PUBLISHABLE_MODULES } from './WebsiteClient.js';

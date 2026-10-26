@@ -85,26 +85,6 @@ test("graph preferences round-trip through the keyed FrontController contract", 
   assert.match(calls[1].init.body, /key=heurist-graph/);
 });
 
-test("publish posts to the PublicationController with the graph module type", async () => {
-  const calls = [];
-  const fetchImpl = async (url, init = {}) => {
-    calls.push({ url: String(url), init });
-    return { ok: true, json: async () => ({ status: 0, data: { id: "abc123" } }) };
-  };
-  const host = new HeuristGraphHostAdapter({
-    baseUrl: "http://example.test/heurist/",
-    database: "demo",
-    fetchImpl,
-  });
-
-  const result = await host.publish({ format: "heurist-publication" });
-
-  assert.deepEqual(result, { id: "abc123" });
-  assert.match(calls[0].url, /controller=PublicationController/);
-  assert.match(calls[0].url, /action=save/);
-  assert.match(calls[0].url, /type=graph/);
-});
-
 test("host factory creates HeuristGraphHostAdapter for declarative host config", () => {
   const host = createHostAdapter({
     type: "heurist",

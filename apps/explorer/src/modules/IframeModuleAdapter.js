@@ -128,6 +128,8 @@ export class IframeModuleAdapter extends ExplorerModule {
       // is offered only when Explorer has it, so the module can fall back to its own
       ...(outer.editSymbology ? { editSymbology: (value, options) => outer.editSymbology(value, options) } : {}),
       ...(outer.openHelp ? { openHelp: (request) => outer.openHelp(request) } : {}),
+      // after Publish: the Website manager tool of Explorer (plan 27b)
+      ...(outer.openWebsiteManager ? { openWebsiteManager: (options) => outer.openWebsiteManager(options) } : {}),
       registerRequestMonitor: (monitor) => {
         this._unregisterRequestMonitor?.();
         if (monitor && this.id) monitor.source = this.id;

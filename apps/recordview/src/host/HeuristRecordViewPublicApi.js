@@ -80,7 +80,7 @@ export class HeuristRecordViewPublicApi {
   }
 
   /**
-   * Serialize settings and publish a reproducible Record View snapshot via the host PublicationController.
+   * Serialize settings and publish a reproducible Record View snapshot as a standalone website page (host).
    *
    * @param {object} value Settings to publish; serialized into the publication envelope.
    * @returns {Promise<object>} The host's publication result.
@@ -117,7 +117,9 @@ export class HeuristRecordViewPublicApi {
       mode: "publish",
       value,
       onSave: async (value, context) => {
-        const result = normalizePublicationResult(await this.publish(value));
+        const result = await this.publish(value);
+        // cancelled in the "Publish as page" dialog
+        if (!result) return null;
         this.application.dispatch("heurist-recordview-published", {
           publication: result,
           settings: context.serialized,
@@ -270,19 +272,4 @@ function publicationSettings(settings, runtimeLanguage) {
     value.options.ui.language = runtimeLanguage || "eng";
   }
   return value;
-}
-
-/** Canonicalize the publication link the host returns to a single `pub_id` query parameter. */
-function normalizePublicationResult(result) {
-  if (!result?.url) return result;
-  try {
-    const url = new URL(result.url, globalThis.location?.href || "http://localhost/");
-    const publicationId = url.searchParams.get("pub_id") || url.searchParams.get("publication_id");
-    if (publicationId) url.searchParams.set("pub_id", publicationId);
-    url.searchParams.delete("publication_id");
-    url.searchParams.delete("type");
-    return { ...result, url: url.href };
-  } catch {
-    return result;
-  }
 }

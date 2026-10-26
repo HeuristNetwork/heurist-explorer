@@ -54,6 +54,8 @@ export class HeuristTimelinePublicApi {
     this.configurationDialog?.close();
     this.configurationDialog = new TimelineConfigurationDialog({ api: this, mode: 'publish', onSave: async (settings) => {
       const publication = await this.publish(settings);
+      // cancelled in the "Publish as page" dialog
+      if (!publication) return;
       this.publishedDialog?.close();
       this.publishedDialog = new PublishedDialog({ publication }).open();
     } }).open();

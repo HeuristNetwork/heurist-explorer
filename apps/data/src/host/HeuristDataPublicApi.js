@@ -375,9 +375,9 @@ export class HeuristDataPublicApi {
       mode: "publish",
       value,
       onSave: async (value, context) => {
-        const result = normalizePublicationResult(
-          await this.publish(value, context.publishOptions),
-        );
+        const result = await this.publish(value, context.publishOptions);
+        // cancelled in the "Publish as page" dialog
+        if (!result) return null;
         this.application.dispatch("heurist-data-published", {
           publication: result,
           settings: context.serialized,
@@ -473,23 +473,4 @@ function publicationSettings(settings, runtimeLanguage) {
     value.options.ui.language = runtimeLanguage || "eng";
   }
   return value;
-}
-
-/** Normalize a publication result's URL, migrating a legacy `publication_id` param to `pub_id`. */
-function normalizePublicationResult(result) {
-  if (!result?.url) return result;
-  try {
-    const url = new URL(
-      result.url,
-      globalThis.location?.href || "http://localhost/",
-    );
-    const publicationId =
-      url.searchParams.get("pub_id") || url.searchParams.get("publication_id");
-    if (publicationId) url.searchParams.set("pub_id", publicationId);
-    url.searchParams.delete("publication_id");
-    url.searchParams.delete("type");
-    return { ...result, url: url.href };
-  } catch {
-    return result;
-  }
 }

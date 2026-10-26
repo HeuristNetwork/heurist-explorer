@@ -209,3 +209,20 @@ test('simplified interface: on by default; fixed toolbar, lists and layout over 
   const off = config.save({ ...saved, isSimplifiedUI: false });
   assert.equal(effectiveUiConfig(off).toolbar.position, 'vertical');
 });
+
+test('fromValue(): the configuration of a published page, never written to the browser (plan 27b)', () => {
+  const browser = memoryStorage();
+  const previous = Object.getOwnPropertyDescriptor(globalThis, 'localStorage');
+  Object.defineProperty(globalThis, 'localStorage', { value: browser, configurable: true });
+  try {
+    const config = ExplorerUiConfig.fromValue('demo', { lists: 'popup', language: 'fre' });
+    assert.equal(config.load().lists, 'popup');
+    assert.equal(config.load().language, 'fre');
+    config.save({ ...config.load(), lists: 'docked' });
+    assert.equal(config.load().lists, 'docked');
+    assert.equal(browser.getItem('heurist.explorer.demo.uiConfig'), null);
+  } finally {
+    if (previous) Object.defineProperty(globalThis, 'localStorage', previous);
+    else delete globalThis.localStorage;
+  }
+});

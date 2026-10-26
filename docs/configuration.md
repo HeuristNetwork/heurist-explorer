@@ -13,7 +13,7 @@ One `vite.config.js` defines eight targets selected through Vite mode:
 | graph | 5177 | `dist/heurist-graph/` |
 | recordview | 5178 | `dist/heurist-recordview/` |
 | reports | 5179 | `dist/heurist-reports/` |
-| website | 5180 | `dist/heurist-website/` (runtime of v4 website pages, plan 27a) |
+| website | 5180 | `dist/heurist-website/` (runtime of v4 website pages, plan 27a; the Website manager, plan 27b, is a lazy chunk of Explorer through `src/direct.js`) |
 
 Each invocation sets its app directory as Vite's root and its own `public/`
 directory as `publicDir`. Consequently only the selected app's localization and

@@ -1802,7 +1802,7 @@ export function rightButtons() {
     { id: 'actions', icon: 'fa-solid fa-bolt', title: 'Actions', hint: 'Dashboard of actions for the current filtered result or selection', group: 'tools', toggle: true },
     { id: 'export', icon: 'fa-solid fa-file-export', title: 'Export', hint: 'Export records in various formats', group: 'tools', toggle: true },
     // a tool placed in a pane since 2026-10-14 (was in the settings group)
-    { id: 'publish', icon: 'fa-solid fa-share-nodes', title: 'Publish', hint: 'Publish the current view (coming soon)', group: 'tools', toggle: true },
+    { id: 'publish', icon: 'fa-solid fa-globe', title: 'Websites', hint: 'Websites and published pages', group: 'tools', toggle: true },
     { id: 'help', icon: 'fa-solid fa-circle-question', title: 'Help', hint: 'Explorer help and user guide', group: 'settings' },
     { id: 'options', icon: 'fa-solid fa-gear', title: 'Options', hint: 'Toolbar and layout configuration', group: 'settings' }
   ];

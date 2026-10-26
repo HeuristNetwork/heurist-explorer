@@ -9,8 +9,9 @@ const appNames = ["explorer", "data", "graph", "map", "timeline", "recordview", 
 // application's public direct-bootstrap entry point (architecture.md: "Explorer
 // may import only a presentation application's explicit direct-bootstrap entry
 // point"). List every app that exposes one here. The website runtime (plan 27a)
-// mounts the modules of a page through the same entries.
-const directEntryApps = ["data", "recordview", "reports", "map", "timeline", "graph", "explorer"];
+// mounts the modules of a page through the same entries; Explorer mounts the
+// Website manager through apps/website's direct entry (plan 27b).
+const directEntryApps = ["data", "recordview", "reports", "map", "timeline", "graph", "explorer", "website"];
 const directEntryHosts = ["explorer", "website"];
 
 test("applications do not import sibling applications", async () => {

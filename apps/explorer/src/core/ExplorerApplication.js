@@ -80,7 +80,10 @@ export class ExplorerApplication {
       database: config.database,
       resolver: (reference) => this.resolveDataSourceReference(reference)
     });
-    this.uiConfig = new ExplorerUiConfig({ database: config.database });
+    // a published Explorer (plan 27b): the configuration of its page, kept in memory only
+    this.uiConfig = config.published && config.settings?.ui && typeof config.settings.ui === 'object'
+      ? ExplorerUiConfig.fromValue(config.database, config.settings.ui)
+      : new ExplorerUiConfig({ database: config.database });
     this.uiConfigValue = ExplorerUiConfig.defaults();
     this.modules = new Map();
     this.sync = new SyncEngine({
@@ -1734,7 +1737,8 @@ export class ExplorerApplication {
       title: TOOL_TITLES[definition.type],
       create: {
         report: (body) => this._createReportsTool(body),
-        export: (body) => this._createExportTool(body)
+        export: (body) => this._createExportTool(body),
+        publish: (body) => this._createWebsiteTool(body)
       }[definition.type] || null
     });
     this.modules.set(definition.id, module);
@@ -1772,6 +1776,97 @@ export class ExplorerApplication {
       bridge: this._reportsBridge(),
       assetBaseUrl: this.config.moduleAssetUrls?.reports || null
     });
+  }
+
+  /**
+   * Mount the Website manager (plan 27b) into the Websites tool's body: apps/website, loaded
+   * only now by a dynamic import of its direct entry (not the public site runtime).
+   *
+   * @private
+   * @param {HTMLElement} body Tool body.
+   * @returns {Promise<object>} The manager API (`selectRecord`, `destroy`).
+   */
+  _createWebsiteTool(body) {
+    const mount = this._websiteMounter || mountDirectWebsite;
+    return mount({
+      container: body,
+      bootstrap: {
+        runtime: {
+          database: this.config.database,
+          apiBaseUrl: this.config.apiBaseUrl,
+          baseUrl: this.config.baseUrl,
+          accessToken: this.config.accessToken,
+          requestHeaders: this.config.requestHeaders,
+          language: this.config.language,
+          runtimeMode: 'main'
+        }
+      },
+      bridge: this._websiteBridge(),
+      assetBaseUrl: this.config.moduleAssetUrls?.website || null
+    });
+  }
+
+  /**
+   * Host bridge given to the Website manager: record editor, definitions and the
+   * current view for "Publish this view".
+   *
+   * @private
+   * @returns {object} Bridge object.
+   */
+  _websiteBridge() {
+    return {
+      editRecord: (id) => this.editRecord(id),
+      viewRecord: (id) => this.viewRecord(id),
+      canEditRecords: () => this.canEditRecordType('RT_CMS_PAGE'),
+      getDbDefs: () => this._ensureDbDefs(),
+      isLoggedIn: () => Number(this.userGroups?.data?.currentUserId) > 0,
+      captureView: () => this.captureView()
+    };
+  }
+
+  /**
+   * Open the Websites tool (after Publish in a module, plan 27b) and select a record in it.
+   *
+   * @param {{recordId?: number}} [options]
+   * @returns {Promise<boolean>} False when the tool is not placed in a pane (Explorer configuration).
+   */
+  async openWebsiteManager({ recordId = null } = {}) {
+    const module = await this.showPresentation('publish');
+    if (!module) {
+      HMsg.showMsgFlash?.($HR('Place "Websites" in a pane in the Explorer configuration to open it'), { showDelay: 3500 });
+      return false;
+    }
+    const tool = await module.ready?.();
+    if (recordId) await tool?.selectRecord?.(recordId);
+    return true;
+  }
+
+  /**
+   * The current view for "Publish this view" (plan 27b §6): an `explorer` instance of a page.
+   * Settings: layout, the Explorer configuration and module preferences; state: the current
+   * DataSource and selection.
+   *
+   * @returns {{settings: object, state: object}}
+   */
+  captureView() {
+    const clone = (value) => (value == null ? value : JSON.parse(JSON.stringify(value)));
+    const layout = this.layoutDefinitions
+      .filter((definition) => !TOOL_TYPES.includes(definition.type))
+      .map(({ id, type, region, context, settings, state }) => ({ id, type, region, context: context || null,
+        settings: settings || null, state: state || null }));
+    return {
+      settings: {
+        format: 'heurist-explorer-settings',
+        version: 1,
+        layout: clone(layout),
+        ui: clone(this.uiConfigSaved || this.uiConfigValue),
+        modules: clone(this.modulePreferences || {})
+      },
+      state: {
+        dataSource: this.sync?.dataSource ? clone(cloneDataSource(this.sync.dataSource)) : null,
+        selection: [...(this.sync?.selection || [])]
+      }
+    };
   }
 
   /**
@@ -1862,6 +1957,8 @@ export class ExplorerApplication {
       editSymbology: (value, options) => this.recordEditing.symbology.edit(value, options),
       // a module's manual in Explorer's window (InlineHelp of the module, useHostHelp)
       openHelp: (request) => this.openModuleHelp(request),
+      // the Websites tool after a module's Publish (plan 27b)
+      openWebsiteManager: (options) => this.openWebsiteManager(options),
       getHostContext: () => ({
         name: 'heurist-explorer', runtimeMode: 'main', hasMapModule: this.hasActiveMapModule()
       }),
@@ -2156,6 +2253,12 @@ async function mountDirectReports(options) {
   return mountHeuristReports(options);
 }
 
+/** Load and mount the Website manager's direct bootstrap into the Websites tool (plan 27b). */
+async function mountDirectWebsite(options) {
+  const { mountWebsiteManager } = await import('../../../website/src/direct.js');
+  return mountWebsiteManager(options);
+}
+
 /** Load and mount heurist-recordview's direct (same-realm) bootstrap for `direct` module mode. */
 async function mountDirectRecordView(options) {
   const { mountHeuristRecordView } = await import('../../../recordview/src/direct.js');
@@ -2174,7 +2277,7 @@ const TOOL_TITLES = {
   crosstabs: 'Crosstabs / Charts',
   actions: 'Actions Dashboard',
   export: 'Export records',
-  publish: 'Publish'
+  publish: 'Websites and published pages'
 };
 
 /** Explorer's built-in default layout: Data west, Map center. */

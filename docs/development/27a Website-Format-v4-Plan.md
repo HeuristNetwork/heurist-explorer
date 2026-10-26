@@ -344,7 +344,8 @@ None: all answered 2026-10-26 (§3, decisions 1–14).
   (document, `#h-site-config`, instance frame), `CmsHtml` (nodes, translated text blocks), `CmsValidator` (§7),
   `StyleCompiler`, `SiteUrls` (pretty or parameter form, as the request), `CmsRecordCheck` (save check),
   `WebsiteSetup` + `WebsiteDefinitionsInterface`; `_README.md`.
-- `srv/Controller/WebsiteController.php`: pages and frames; `GET /api/{db}/website/{id}/check`, `POST /api/{db}/website/setup`.
+- `srv/Controller/WebsiteController.php`: pages and frames; `GET /api/{db}/website/{id}/check` (renamed `validate` in
+  plan 27b), `POST /api/{db}/website/setup`.
 - `srv/Utilities/StoredCss.php` (new); `StoredText`: HTML5 sections, `details`/`summary`, `data-h-*`; CSS field through `StoredCss`.
 - `RecordValidator`: `addRecordCheck()` (so `Records` does not depend on `Website`); page translations
   (`xx:{json}`, "fr:" saved as "fre:", cleaned as JSON, split into rows per language); `RecordDataService` joins them.

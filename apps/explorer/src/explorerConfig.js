@@ -50,16 +50,20 @@ export function createHeuristExplorerConfig(bootstrap, { bridge = null, containe
   const mode = runtime.runtimeMode === 'editor' ? 'editor' : 'main';
   const baseUrl = ensureSlash(runtime.baseUrl || '');
   const hostLanguage = normalizeLanguage(runtime.language);
+  const published = ['published', 'website'].includes(String(runtime.runtimeMode || '').toLowerCase());
   // the interface language chosen in Explorer configuration wins over the host's;
-  // Explorer passes it on to every module (runtime.language)
-  const uiConfig = new ExplorerUiConfig({ database: runtime.database }).load();
+  // Explorer passes it on to every module (runtime.language). A published Explorer
+  // has the configuration of its page (plan 27b), never the visitor's browser one.
+  const uiConfig = (published && isPlainObject(settings.ui)
+    ? ExplorerUiConfig.fromValue(runtime.database, settings.ui)
+    : new ExplorerUiConfig({ database: runtime.database })).load();
 
   return {
     containerId,
     // 'editor': the record editor alone in the page (plan 21 §2.4), see editor/RecordEditorShell.js
     mode,
     // Explorer on a website page or a publication (plan 27a): no welcome popup, no last query
-    published: ['published', 'website'].includes(String(runtime.runtimeMode || '').toLowerCase()),
+    published,
     editor: mode === 'editor' ? editorTarget(state) : null,
     database: runtime.database || null,
     apiBaseUrl: runtime.apiBaseUrl || (baseUrl ? `${baseUrl}api` : null),
@@ -88,7 +92,8 @@ export function createHeuristExplorerConfig(bootstrap, { bridge = null, containe
     moduleAssetUrls: {
       data: runtime.moduleAssetUrls?.data || (baseUrl ? `${baseUrl}hclient/bundles/heurist-data` : null),
       recordview: runtime.moduleAssetUrls?.recordview || (baseUrl ? `${baseUrl}hclient/bundles/heurist-recordview` : null),
-      reports: runtime.moduleAssetUrls?.reports || (baseUrl ? `${baseUrl}hclient/bundles/heurist-reports` : null)
+      reports: runtime.moduleAssetUrls?.reports || (baseUrl ? `${baseUrl}hclient/bundles/heurist-reports` : null),
+      website: runtime.moduleAssetUrls?.website || (baseUrl ? `${baseUrl}hclient/bundles/heurist-website` : null)
     },
     settings,
     state
@@ -144,6 +149,11 @@ function normalizeMode(value, fallback = 'iframe') {
 function ensureSlash(value) {
   const text = String(value || '').trim();
   return text ? text.replace(/\/?$/, '/') : '';
+}
+
+/** Whether a value is a plain (non-array) object. */
+function isPlainObject(value) {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
 
 /** Normalize a language value to a supported three-letter code, defaulting to English. */

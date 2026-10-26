@@ -57,6 +57,30 @@ The runtime (`apps/website/src/siteRuntime.js`) reads the JSON block `#h-site-co
 Instances on one page are independent until PageController (plan 27 phase 5). `data-h-control="tabs"`
 and `"accordion"` containers become tabs and one-open accordions (`shared/src/widgets/layout/`).
 
+## Publish and the Website manager (plan 27b)
+
+*Publish* in a module writes a standalone v4 page, not a JSON file (the former
+`PublicationController` / `?pub_id=` publications are removed). Each module's `publish()`
+still builds `{format: 'heurist-publication', options, config, state}`; the shared
+`HostAdapter.publish(payload)` asks for the page title and whether to update the page this
+module published last (`shared/src/ui/PublishPageDialog.js`, remembered per database in
+localStorage), then calls `POST /api/{db}/website/publish` (`shared/src/site/modulePublisher.js`,
+`shared/src/api/WebsiteClient.js`). It resolves with `{id, url, title, embed, actions}`, or
+`null` when the user cancelled; `PublishedDialog` shows the URL, the embed code and the
+`actions`. A bridge with `openWebsiteManager({recordId})` (Explorer) adds a *Website manager*
+button.
+
+The Website manager is `apps/website/src/direct.js` → `mountWebsiteManager({container,
+bootstrap, bridge, assetBaseUrl})`. Explorer mounts it in its Websites tool; the bridge gives
+`editRecord`, `viewRecord`, `canEditRecords`, `getDbDefs` and `captureView()` (*Publish this
+view*: Explorer as an `explorer` instance with `settings = {layout, ui, modules}` and
+`state = {dataSource, selection}`). A published Explorer reads its configuration from
+`settings.ui` and never writes it to the visitor's browser. Endpoints: `/api/{db}/website`
+(heurist `srv/Controller/WebsiteController.php`); builds are background jobs of type
+`website-build` (a ZIP downloaded with `GET /jobs/{id}/result`).
+`runtime.moduleAssetUrls.website` overrides the bundle base of the manager's localization
+(default `hclient/bundles/heurist-website`).
+
 ## Record editing
 
 Modules ask their host to edit records through the bridge:
