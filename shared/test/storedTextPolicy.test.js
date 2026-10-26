@@ -34,6 +34,19 @@ test('advisory detection includes event handlers, CSS and encoded executable URL
     'a < 5 & b > 2', '{"q":"t:1"}']) assert.equal(hasScriptOrStyle(value), false, value);
 });
 
+test('the styles of the HTML editor that the server keeps give no warning', () => {
+  for (const value of ['<p><span style="font-family: arial, helvetica, sans-serif; font-size: 14pt;">x</span></p>',
+    '<span style="color: #e03e2d; text-decoration: underline;">x</span>', '<span style="color: rgb(224, 62, 45)">x</span>',
+    "<span style='font-family: \"Courier New\", monospace'>x</span>", '<p style="text-align: center;">x</p>',
+    '<h2 style="text-align:right">h</h2>', '<div style="TEXT-ALIGN: Justify">d</div>'])
+    assert.equal(hasScriptOrStyle(value), false, value);
+  for (const value of ['<p style="text-align: center; color: red">x</p>', '<div style="text-align: evil">d</div>',
+    '<td style="text-align:left">x</td>', '<span style="position: fixed">x</span>',
+    '<span style="color: expression(alert(1))">x</span>', '<span style="font-family: x; background: url(a.png)">x</span>',
+    '<span style="color: red" onclick="x()">x</span>'])
+    assert.equal(hasScriptOrStyle(value), true, value);
+});
+
 function form(options = {}) {
   const host = document.createElement('div'); document.body.append(host);
   return new HEditForm().attach(host, {
