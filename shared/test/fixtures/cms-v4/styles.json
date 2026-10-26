@@ -1,0 +1,22 @@
+{
+  "name": "styles: unknown base settings and properties, unsafe values, node ids, background images",
+  "baseUrl": "https://heurist.example/heurist/",
+  "config": {
+    "schema": "heurist-cms/4",
+    "styles": {
+      "base": {"color-text": "#222", "color-unknown": "red", "color-link": "expression(alert(1))", "site-width": "60rem"},
+      "nodes": {
+        "n1": {"position": "fixed", "display": "inline", "width": "100%; color: red", "color": "u\\72l(javascript:alert(1))", "height": "200px"},
+        "n2": {"background-image": "url(./?db=x&file=abc)", "min-height": "10px"},
+        "n3": {"background-image": "url(https://heurist.example/heurist/?db=x&file=abc)"},
+        "n4": {"background-image": "url(https://evil.example/a.png)", "padding": "1px"},
+        "n5": {"background-color": "url(img/a.png)"},
+        "1bad": {"padding": "1px"},
+        "n6": "padding: 1px",
+        "n7": {"margin": "0 auto", "narrow": {"display": "none"}, "medium": {"display": "flex", "flex-direction": "column"}}
+      }
+    }
+  },
+  "html": [],
+  "expect": {"issues":["warning:style_base","warning:style_node","warning:style_node","warning:style_property","warning:style_value","warning:style_value","warning:style_value","warning:style_value","warning:style_value","warning:style_value"],"css":"html.h-site{--h-color-text:#222;--h-site-width:60rem;}\n[data-h-node=\"n1\"]{height:200px;}\n[data-h-node=\"n2\"]{background-image:url(./?db=x&file=abc);min-height:10px;}\n[data-h-node=\"n3\"]{background-image:url(https://heurist.example/heurist/?db=x&file=abc);}\n[data-h-node=\"n4\"]{padding:1px;}\n[data-h-node=\"n7\"]{margin:0 auto;}\n@media (max-width:1024px){\n[data-h-node=\"n7\"]{display:flex;flex-direction:column;}\n}\n@media (max-width:640px){\n[data-h-node=\"n7\"]{display:none;}\n}\n"}
+}

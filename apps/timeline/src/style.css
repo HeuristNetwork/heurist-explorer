@@ -1,7 +1,9 @@
-html,body,#heurist-timeline{width:100%;height:100%;margin:0;min-height:0}
-body{overflow:hidden;font:var(--h-font-size) var(--h-font-family);color:var(--h-color-text);background:var(--h-color-bg)}
+/* html and body of the timeline's own page: page.css; .heurist-timeline-direct is the
+   same frame inside another page (direct.js, plan 27a) */
+:is(#heurist-timeline,.heurist-timeline-host){width:100%;height:100%;margin:0;min-height:0}
+.heurist-timeline-direct{width:100%;height:100%;overflow:hidden;font:var(--h-font-size) var(--h-font-family);color:var(--h-color-text);background:var(--h-color-bg)}
 .heurist-timeline-toolbar{height:34px;gap:2px;padding:2px 5px;border-bottom:1px solid var(--h-color-border);background:var(--h-color-surface);box-sizing:border-box}
-.heurist-timeline-toolbar+ #heurist-timeline{height:calc(100% - 34px)}
+.heurist-timeline-toolbar+ :is(#heurist-timeline,.heurist-timeline-host){height:calc(100% - 34px)}
 .heurist-timeline-toolbar .heurist-icon-button{width:30px;height:28px}
 
 /* ---------------------------------------------------------------------------
@@ -86,8 +88,8 @@ body{overflow:hidden;font:var(--h-font-size) var(--h-font-family);color:var(--h-
 .heurist-label-truncate .htl-label{display:inline-block;overflow:hidden;text-overflow:ellipsis;max-width:16em;vertical-align:middle}
 .heurist-label-pos-above .htl-label{position:relative;top:-13px}
 
-body{display:flex;flex-direction:column;position:relative}
-#heurist-timeline{flex:1;min-height:0;height:auto;overflow:auto}
+.heurist-timeline-direct{display:flex;flex-direction:column;position:relative}
+:is(#heurist-timeline,.heurist-timeline-host){flex:1;min-height:0;height:auto;overflow:auto}
 .heurist-source-header{flex:none}
 .heurist-module-control-panel{z-index:500}
 

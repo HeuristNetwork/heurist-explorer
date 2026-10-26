@@ -47,6 +47,12 @@ const targets = Object.freeze({
     port: 5179,
     manuals: ["reportsUserManualEng.htm", "reportsUserManualFre.htm"],
   },
+  // runtime of the v4 website pages (plan 27a); the website manager comes in phase 2
+  website: {
+    version: "0.1.0",
+    port: 5180,
+    manuals: [],
+  },
 });
 
 export default defineConfig(({ mode }) => {

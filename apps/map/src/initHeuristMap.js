@@ -51,6 +51,8 @@ export async function initHeuristMap(config) {
   // source header (see MapControlPanel's showSourceHeader). Leaflet takes
   // ownership of whatever container it is given (L.map(container)), so it
   // must render into its own child rather than into #heurist-map directly.
+  // the styles of #heurist-map also apply to a directly mounted container (direct.js)
+  container.classList.add('heurist-map-host');
   const mapViewport = document.createElement('div');
   mapViewport.className = 'heurist-map-viewport';
   container.append(mapViewport);
@@ -161,8 +163,9 @@ export async function initHeuristMap(config) {
   });
   publicApi.setReadyPromise(readyPromise);
 
-  // Narrow, stable API for same-origin iframe and direct host integrations.
-  window.heuristMap = publicApi;
+  // Narrow, stable API for same-origin iframe integrations (not for directly mounted maps,
+  // several of which can share a page; their host gets the API from direct.js).
+  if (config.exposeGlobal !== false) window.heuristMap = publicApi;
 
   return readyPromise;
 }

@@ -42,6 +42,8 @@ import {
 } from '../../data/editFormSchema.js';
 import { $HR } from '../../ui/i18n/HResource.js';
 import { hasScriptOrStyle } from '../../data/storedTextPolicy.js';
+import { createTabSet } from '../layout/tabs.js';
+import { createAccordion } from '../layout/accordion.js';
 import './HEditForm.css';
 
 /** Edit form of a JSON definition. */
@@ -473,48 +475,23 @@ export class HEditForm extends HBaseWidget {
 
   /** A tab set of consecutive "tabs" sections. */
   _renderTabs(sections, states) {
-    const element = document.createElement('div');
-    element.className = 'h-edit-form-tabs';
-    const strip = document.createElement('div');
-    strip.className = 'h-edit-form-tab-strip';
-    strip.setAttribute('role', 'tablist');
-    element.append(strip);
-    const panels = [];
-    const tabs = [];
-    const select = (selected) => {
-      for (const [position, panel] of panels.entries()) {
-        const active = position === selected;
-        panel.hidden = !active;
-        tabs[position].classList.toggle('is-active', active);
-        tabs[position].setAttribute('aria-selected', String(active));
-      }
-      run.selected = selected;
+    const run = createTabSet({
+      prefix: 'h-edit-form',
+      listen: (target, type, handler) => this.listen(target, type, handler),
       // the widgets of a lazy group when its tab is first shown
-      this._renderShownGroups();
-    };
-    const run = { element, tabs, panels, select, selected: 0 };
+      onSelect: () => this._renderShownGroups()
+    });
     for (const [position, section] of sections.entries()) {
       const { group } = section;
-      const tab = document.createElement('button');
-      tab.type = 'button';
-      tab.className = 'h-edit-form-tab';
-      tab.setAttribute('role', 'tab');
-      tab.textContent = this._text(group.label) || `${position + 1}`;
-      this.listen(tab, 'click', () => select(position));
-      strip.append(tab);
-      tabs.push(tab);
       const panel = this._renderSection(section, states);
-      panel.classList.add('h-edit-form-tab-panel');
-      panel.setAttribute('role', 'tabpanel');
-      element.append(panel);
-      panels.push(panel);
+      const tab = run.add(this._text(group.label) || `${position + 1}`, panel);
       this._groups.set(group.id, { group, element: panel, tab, run, position });
       for (const member of [group, ...section.inner]) {
-        for (const field of member.children) this._reveal.set(field.name, () => select(position));
+        for (const field of member.children) this._reveal.set(field.name, () => run.select(position));
       }
     }
-    select(0);
-    return element;
+    run.select(0);
+    return run.element;
   }
 
   /** Fields of an outer group, then its inner groups. */
@@ -548,15 +525,14 @@ export class HEditForm extends HBaseWidget {
 
   /** @returns {HTMLDetailsElement} A collapsible section with the group label. */
   _accordion(group, open) {
-    const details = document.createElement('details');
-    details.className = 'h-edit-form-accordion';
-    details.open = open;
-    const summary = document.createElement('summary');
-    summary.textContent = this._text(group.label) || '';
-    details.append(summary);
-    // the widgets of a lazy group when the accordion is first opened
-    if (this._pendingGroups) this.listen(details, 'toggle', () => { if (details.open) this._renderShownGroups(); });
-    return details;
+    return createAccordion({
+      label: this._text(group.label) || '',
+      open,
+      className: 'h-edit-form-accordion',
+      listen: (target, type, handler) => this.listen(target, type, handler),
+      // the widgets of a lazy group when the accordion is first opened
+      onToggle: this._pendingGroups ? (isOpen) => { if (isOpen) this._renderShownGroups(); } : null
+    });
   }
 
   /** Fields of one group (and its slot). */

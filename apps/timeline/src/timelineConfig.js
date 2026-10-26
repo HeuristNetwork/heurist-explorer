@@ -27,7 +27,20 @@ export function getHeuristTimelineConfig() {
     bridge,
     standalone: getGlobalBootstrap("heuristModuleBootstrap"),
   });
+  return createHeuristTimelineConfig(bootstrap, { bridge });
+}
 
+/**
+ * Timeline configuration from a given bootstrap: the page's own (getHeuristTimelineConfig)
+ * or one passed by a host that mounts the timeline directly (direct.js, website pages).
+ *
+ * @param {object} bootstrap Normalized { runtime, settings, state } envelope.
+ * @param {object} [options]
+ * @param {object|null} [options.bridge] Host bridge, when there is one.
+ * @param {string} [options.containerId] Id of the element the timeline renders into.
+ * @returns {object} The ready-to-use timeline configuration.
+ */
+export function createHeuristTimelineConfig(bootstrap, { bridge = null, containerId = "heurist-timeline" } = {}) {
   const runtime = bootstrap.runtime || {};
   const rawSettings = bootstrap.settings || {};
   const settings = normalizeSettings(rawSettings.options?.timeline || rawSettings);
@@ -45,7 +58,7 @@ export function getHeuristTimelineConfig() {
   }
 
   return {
-    containerId: "heurist-timeline",
+    containerId,
     runtimeMode: runtime.runtimeMode || "standalone",
     language: String(runtime.language || "eng").toLowerCase().slice(0, 3),
     database: runtime.database || null,

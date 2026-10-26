@@ -1,0 +1,10 @@
+/* The map's own page (main.js): the map fills the window. Not loaded when the
+   map is mounted directly into another page (direct.js, plan 27a). */
+html,
+body {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+}

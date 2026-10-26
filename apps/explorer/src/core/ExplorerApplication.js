@@ -748,6 +748,8 @@ export class ExplorerApplication {
    * @returns {Promise<void>}
    */
   async _startUp() {
+    // on a website page (plan 27a) neither the visitor's own last query nor the welcome popup
+    if (this.config.published) return;
     const last = this.history.list()[0];
     if (last?.dataSource) {
       // the workspace is ready: the query's progress is the Query Source loading

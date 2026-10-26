@@ -1,5 +1,6 @@
-:root { font-family: var(--h-font-family); color: var(--h-color-text); font-size: var(--h-font-size); }
-html, body, .heurist-data-frame, .heurist-data-root { width: 100%; height: 100%; margin: 0; overflow: hidden; }
+/* html and body of the data page: page.css (not loaded by direct.js, so a host page keeps its own) */
+.heurist-data-frame, .heurist-data-root { width: 100%; height: 100%; margin: 0; overflow: hidden;
+  font-family: var(--h-font-family); color: var(--h-color-text); font-size: var(--h-font-size); }
 /* Frame: the main list, and with Expansion on the level pane beside it
    (under it when narrow, see ExpansionLevelView). */
 .heurist-data-frame { position: relative; display: flex; flex-direction: row; box-sizing: border-box;

@@ -1,0 +1,121 @@
+/* HMenu (plan 27a): website menu, styled by the base settings of the site
+   (--h-color-surface, --h-color-primary, --h-color-text, --h-radius). */
+.h-site-menu {
+  position: relative;
+}
+
+.h-site-menu-toggle {
+  display: none;
+  padding: 6px 12px;
+  border: 1px solid var(--h-color-border);
+  border-radius: var(--h-radius);
+  background: var(--h-color-surface);
+  color: var(--h-color-text);
+  font: inherit;
+  cursor: pointer;
+}
+
+.h-site-menu-list,
+.h-site-menu-sub {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.h-site-menu-list {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px;
+}
+
+.h-site-menu-item {
+  position: relative;
+}
+
+.h-site-menu-item > a {
+  display: block;
+  padding: 8px 12px;
+  border-radius: var(--h-radius);
+  color: var(--h-color-text);
+  text-decoration: none;
+}
+
+.h-site-menu-item > a:hover,
+.h-site-menu-item > a:focus-visible {
+  background: var(--h-color-surface);
+}
+
+.h-site-menu-item.is-current > a,
+.h-site-menu-item.is-current-parent > a {
+  color: var(--h-color-primary);
+  font-weight: bold;
+}
+
+.h-site-menu-item.has-children > a::after {
+  content: " \25BE";
+}
+
+.h-site-menu-sub {
+  display: none;
+  position: absolute;
+  left: 0;
+  top: 100%;
+  z-index: 100;
+  min-width: 12em;
+  padding: 4px;
+  border: 1px solid var(--h-color-border);
+  border-radius: var(--h-radius);
+  background: var(--h-color-bg);
+  box-shadow: 0 6px 18px rgb(0 0 0 / 12%);
+}
+
+.h-site-menu-item.has-children:hover > .h-site-menu-sub,
+.h-site-menu-item.has-children:focus-within > .h-site-menu-sub {
+  display: block;
+}
+
+.h-site-menu-languages {
+  display: flex;
+  margin-left: auto;
+}
+
+.h-site-menu-languages > a {
+  padding: 8px 6px;
+  color: var(--h-color-text);
+  text-decoration: none;
+}
+
+.h-site-menu-languages > a.is-current {
+  color: var(--h-color-primary);
+  font-weight: bold;
+}
+
+/* narrow screens: the list is behind the menu button and sub pages are listed below their page */
+@media (max-width: 640px) {
+  .h-site-menu-toggle {
+    display: inline-block;
+  }
+
+  .h-site-menu-list {
+    display: none;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .h-site-menu.is-open .h-site-menu-list {
+    display: flex;
+  }
+
+  .h-site-menu-sub {
+    display: block;
+    position: static;
+    border: none;
+    box-shadow: none;
+    padding: 0 0 0 1em;
+  }
+
+  .h-site-menu-languages {
+    margin-left: 0;
+  }
+}

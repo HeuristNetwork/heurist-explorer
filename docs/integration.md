@@ -40,6 +40,23 @@ used for localization and the Data manual; its default is
 (default `hclient/bundles/heurist-reports`), which Explorer mounts directly in
 its Report tool.
 
+## Website pages (format v4, plan 27a)
+
+A v4 website page is written by the server (`/{db}/site/{id}[/{page id}]`, heurist
+`srv/Website/PageRenderer.php`) and loads `hclient/bundles/heurist-website/heurist-website.js`.
+The runtime (`apps/website/src/siteRuntime.js`) reads the JSON block `#h-site-config`
+(`runtime`, `site` with the menu tree and languages, `instances`) and mounts every host
+(`data-h-instance`):
+
+| Instance | Mounted by |
+| --- | --- |
+| `kind: widget`, `type: menu` | `shared/src/widgets/site/HMenu.js` |
+| `kind: module` (`explorer`, `data`, `map`, `timeline`, `graph`, `recordview`) | the module's `src/direct.js`: `mount…({container, bootstrap, assetBaseUrl})` with `bootstrap = {runtime, settings, state}`, `runtime.runtimeMode = 'published'` |
+| `"mount": "iframe"` | an iframe on `/{db}/site/{id}[/{page id}]/frame/{instance}`: the module's own page with `window.heuristModuleBootstrap` |
+
+Instances on one page are independent until PageController (plan 27 phase 5). `data-h-control="tabs"`
+and `"accordion"` containers become tabs and one-open accordions (`shared/src/widgets/layout/`).
+
 ## Record editing
 
 Modules ask their host to edit records through the bridge:

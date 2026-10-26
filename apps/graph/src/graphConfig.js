@@ -32,6 +32,20 @@ export function getHeuristGraphConfig() {
     bridge,
     standalone: getGlobalBootstrap("heuristModuleBootstrap"),
   });
+  return createHeuristGraphConfig(bootstrap, { bridge });
+}
+
+/**
+ * Graph configuration from a given bootstrap: the page's own (getHeuristGraphConfig)
+ * or one passed by a host that mounts the graph directly (direct.js, website pages).
+ *
+ * @param {object} bootstrap Normalized { runtime, settings, state } envelope.
+ * @param {object} [options]
+ * @param {object|null} [options.bridge] Host bridge, when there is one.
+ * @param {string} [options.containerId] Id of the element the graph renders into.
+ * @returns {object} Normalized Graph configuration.
+ */
+export function createHeuristGraphConfig(bootstrap, { bridge = null, containerId = "heurist-graph" } = {}) {
   const runtime = bootstrap.runtime || {};
   const settings = bootstrap.settings || {};
   const hasPersistedSettings = Boolean(
@@ -47,7 +61,7 @@ export function getHeuristGraphConfig() {
   const language = String(runtime.language || "eng").slice(0, 3).toLowerCase();
   const runtimeMode = String(runtime.runtimeMode || "standalone").toLowerCase();
   return {
-    containerId: "heurist-graph",
+    containerId,
     runtimeMode,
     database: runtime.database || null,
     apiBaseUrl: runtime.apiBaseUrl || null,

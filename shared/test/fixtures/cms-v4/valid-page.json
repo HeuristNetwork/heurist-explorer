@@ -1,0 +1,24 @@
+{
+  "name": "a valid page: hosts, base settings and node styles with screen sizes",
+  "config": {
+    "schema": "heurist-cms/4",
+    "instances": {
+      "i1": {"kind": "module", "type": "map", "configVersion": 1, "settings": {"format": "heurist-map-settings", "version": 1}, "state": {}},
+      "m1": {"kind": "widget", "type": "menu", "configVersion": 1, "mount": "direct"}
+    },
+    "styles": {
+      "base": {"font-family": "Arial, sans-serif", "site-font-size": "15px", "color-primary": "#345d77", "radius": "4px"},
+      "nodes": {
+        "n1": {"padding": "1rem", "background-color": "var(--h-color-primary)", "medium": {"padding": "0.5rem"}},
+        "n2": {"display": "grid", "grid-template-columns": "repeat(3, minmax(0, 1fr))", "gap": "1rem", "narrow": {"grid-template-columns": "1fr"}},
+        "n3": {"height": "600px", "border-top": "1px solid #ccc", "margin-left": "auto", "narrow": {"height": "400px"}}
+      }
+    }
+  },
+  "html": [
+    "<section data-h-node=\"n1\"><div data-h-node=\"t1\" data-h-text=\"\"><h1>Title</h1></div></section><div data-h-node=\"n2\"><div data-h-node=\"n3\" data-h-instance=\"i1\">Loading</div></div>",
+    "<nav data-h-node=\"hd\" data-h-instance='m1'>Menu</nav><!-- <div data-h-node=\"x\"> --><script>var a='<div data-h-node=\"y\">';</script>"
+  ],
+  "translations": {"fre": {"t1": "<h1>Titre</h1>"}},
+  "expect": {"issues":[],"css":"html.h-site{--h-font-family:Arial, sans-serif;--h-site-font-size:15px;--h-color-primary:#345d77;--h-color-primary-hover:color-mix(in srgb, #345d77 85%, black);--h-radius:4px;}\n[data-h-node=\"n1\"]{padding:1rem;background-color:var(--h-color-primary);}\n[data-h-node=\"n2\"]{display:grid;grid-template-columns:repeat(3, minmax(0, 1fr));gap:1rem;}\n[data-h-node=\"n3\"]{height:600px;border-top:1px solid #ccc;margin-left:auto;}\n@media (max-width:1024px){\n[data-h-node=\"n1\"]{padding:0.5rem;}\n}\n@media (max-width:640px){\n[data-h-node=\"n2\"]{grid-template-columns:1fr;}\n[data-h-node=\"n3\"]{height:400px;}\n}\n"}
+}

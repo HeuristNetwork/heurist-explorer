@@ -1,0 +1,6 @@
+{
+  "name": "configuration is not JSON: an error, the save is refused",
+  "configText": "{\"schema\": \"heurist-cms/4\", ",
+  "html": [],
+  "expect": {"issues":["error:cms_json"]}
+}

@@ -21,12 +21,20 @@ apps/map ────────────► shared
 apps/timeline ───────► shared
 apps/recordview ─────► shared
 apps/reports ────────► shared
+apps/website ────────► shared, the direct entries of the modules (lazy)
 ```
 
 Explorer may import only a presentation application's explicit direct-bootstrap
 entry point. It must not import MapApplication, DataApplication, GraphApplication,
 TimelineApplication, widgets, engines, or other module internals. Data, Record View
-and Reports provide `src/direct.js`; the other applications remain iframe-hosted.
+and Reports provide `src/direct.js`; Explorer hosts Map, Timeline and Graph in iframes.
+Since plan 27a Map, Timeline, Graph and Explorer have a `src/direct.js` too: the
+website runtime (`apps/website`) mounts the modules of a v4 website page through them,
+each as a lazy chunk. A direct entry imports the module's `style.css` but not its
+`page.css` (the rules of the module's own page: `html`, `body`, `:root`), sets no
+`window.heurist…` global and gives each container its own id, so several instances
+can share a page. The tests in `test/architecture` allow `apps/explorer` and
+`apps/website` to import these entries and nothing else of another app.
 Reports is not a presentation module: Explorer imports its direct entry lazily
 (dynamic import) when the Report tool is opened, so the manager and its
 CodeMirror editor are separate chunks, not part of Explorer's main bundle.

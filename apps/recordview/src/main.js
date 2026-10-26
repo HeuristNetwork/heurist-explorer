@@ -16,6 +16,7 @@
 import "#shared/ui/heurist-ui.css";
 import "#shared/ui/heurist-module.css";
 import "./style.css";
+import "./page.css";
 import { showRecordViewMessage } from "./ui/recordViewMessages.js";
 import "@fortawesome/fontawesome-free/css/fontawesome.min.css";
 import "@fortawesome/fontawesome-free/css/solid.min.css";

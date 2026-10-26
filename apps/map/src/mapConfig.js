@@ -35,7 +35,6 @@ import { normalizeRecordLimits } from '#shared/recordview/recordLimits.js';
  * @returns {object} Normalized application configuration.
  */
 export function getHeuristMapConfig() {
-  const url = new URL(globalThis.location?.href || 'http://localhost/');
   const bridge = getFrameHostBridge('heuristMapHost');
   // Both mapViewer and standalone published pages provide the canonical
   // { runtime, settings, state } bootstrap contract.
@@ -43,6 +42,21 @@ export function getHeuristMapConfig() {
     bridge,
     standalone: getGlobalBootstrap('heuristModuleBootstrap')
   });
+  return createHeuristMapConfig(bootstrap, { bridge });
+}
+
+/**
+ * Normalized configuration from a given bootstrap: the page's own (getHeuristMapConfig)
+ * or one passed by a host that mounts the map directly (direct.js, website pages).
+ *
+ * @param {object} bootstrap Normalized { runtime, settings, state } envelope.
+ * @param {object} [options]
+ * @param {object|null} [options.bridge] Host bridge, when there is one.
+ * @param {string} [options.containerId] Id of the element the map renders into.
+ * @returns {object} Normalized application configuration.
+ */
+export function createHeuristMapConfig(bootstrap, { bridge = null, containerId = 'heurist-map' } = {}) {
+  const url = new URL(globalThis.location?.href || 'http://localhost/');
   const runtime = bootstrap.runtime && typeof bootstrap.runtime === 'object' ? bootstrap.runtime : {};
   const hostContext = typeof bridge?.getHostContext === 'function' ? bridge.getHostContext() : {};
   const explorerHost = hostContext?.name === 'heurist-explorer';
@@ -61,7 +75,7 @@ export function getHeuristMapConfig() {
     configurationMode: runtime.configurationMode || 'website',
 
     // Application mechanics are internal constants rather than bootstrap options.
-    containerId: 'heurist-map',
+    containerId,
     engine: 'leaflet',
     hostContext,
     explorerHost,
@@ -86,7 +100,7 @@ export function getHeuristMapConfig() {
     // initHeuristMap() uses it to fetch the user's own `heurist-map`
     // preference once, before MapApplication is constructed, mirroring
     // heurist-graph/heurist-data's loadPreferencesOnInit self-heal.
-    loadPreferencesOnInit: !hasPersistedSettings && runtimeMode !== 'website' && runtimeMode !== 'standalone',
+    loadPreferencesOnInit: !hasPersistedSettings && !['website', 'standalone', 'published'].includes(runtimeMode),
 
     readonly: runtime.readonly === true,
     // heurist-explorer's "Interface for dummies": fixed settings (simplifiedMapSettings.js)

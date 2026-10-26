@@ -40,6 +40,8 @@ export async function initHeuristGraph(config) {
   const container = document.getElementById(config.containerId);
   if (!container)
     throw new Error(`Graph container #${config.containerId} was not found`);
+  // the styles of #heurist-graph also apply to a directly mounted container (direct.js)
+  container.classList.add("heurist-graph-host");
   const apiClient = new HeuristApiClient({
     apiBaseUrl: config.apiBaseUrl,
     database: config.database,
@@ -104,7 +106,8 @@ export async function initHeuristGraph(config) {
     return api;
   });
   api.setReadyPromise(ready);
-  globalThis.heuristGraph = api;
+  // not for a directly mounted graph (several can share a page; direct.js returns the API)
+  if (config.exposeGlobal !== false) globalThis.heuristGraph = api;
   return ready;
 }
 

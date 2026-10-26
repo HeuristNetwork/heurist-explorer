@@ -1,7 +1,8 @@
 /* Explorer shell: workspace, module iframe slots, and the Tools-mode
    workspace. Owned by ExplorerApplication (LayoutManager and
    IframeModuleAdapter render into this same shell as its collaborators). */
-:root {
+/* (the page's :root has these too: page.css; not in another page, plan 27a) */
+.h-explorer {
     font-family: var(--h-font-family);
     color: var(--h-color-text);
     font-size: var(--h-font-size);

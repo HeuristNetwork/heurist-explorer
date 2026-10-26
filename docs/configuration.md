@@ -2,7 +2,7 @@
 
 ## Build targets
 
-One `vite.config.js` defines six targets selected through Vite mode:
+One `vite.config.js` defines eight targets selected through Vite mode:
 
 | Target | Development port | Output |
 | --- | ---: | --- |
@@ -13,6 +13,7 @@ One `vite.config.js` defines six targets selected through Vite mode:
 | graph | 5177 | `dist/heurist-graph/` |
 | recordview | 5178 | `dist/heurist-recordview/` |
 | reports | 5179 | `dist/heurist-reports/` |
+| website | 5180 | `dist/heurist-website/` (runtime of v4 website pages, plan 27a) |
 
 Each invocation sets its app directory as Vite's root and its own `public/`
 directory as `publicDir`. Consequently only the selected app's localization and
@@ -57,6 +58,10 @@ Bootstrap/runtime state and persisted settings are not interchangeable.
 ## Styles
 
 Each `main.js` imports shared tokens/primitives followed by its local `style.css`.
+Rules for the module's own page (`html`, `body`, `:root`) are in `page.css`, imported by
+`main.js` only, so a module mounted into another page (`direct.js`) does not change that
+page; element ids of the own page (`#heurist-map`) have a class form for direct mounting
+(`:is(#heurist-map, .heurist-map-host)`, same specificity).
 Widget CSS is imported only by the application that owns the widget. Build asset
 names remain stable as `heurist-<target>-main.css`.
 

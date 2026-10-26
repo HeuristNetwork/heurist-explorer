@@ -4,12 +4,14 @@ import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 
 const appsRoot = path.resolve("apps");
-const appNames = ["explorer", "data", "graph", "map", "timeline", "recordview", "reports"];
+const appNames = ["explorer", "data", "graph", "map", "timeline", "recordview", "reports", "website"];
 // Explorer's `direct` module mode dynamically imports each direct-capable
 // application's public direct-bootstrap entry point (architecture.md: "Explorer
 // may import only a presentation application's explicit direct-bootstrap entry
-// point"). List every app that exposes one here.
-const directEntryApps = ["data", "recordview", "reports"];
+// point"). List every app that exposes one here. The website runtime (plan 27a)
+// mounts the modules of a page through the same entries.
+const directEntryApps = ["data", "recordview", "reports", "map", "timeline", "graph", "explorer"];
+const directEntryHosts = ["explorer", "website"];
 
 test("applications do not import sibling applications", async () => {
   for (const appName of appNames) {
@@ -23,7 +25,7 @@ test("applications do not import sibling applications", async () => {
           target.startsWith(path.join(appsRoot, name, path.sep))
         );
         if (!sibling || sibling === appName) continue;
-        const allowedDirectEntry = appName === "explorer" && directEntryApps.includes(sibling)
+        const allowedDirectEntry = directEntryHosts.includes(appName) && directEntryApps.includes(sibling)
           && target === path.join(appsRoot, sibling, "src", "direct.js");
         assert.equal(
           allowedDirectEntry,

@@ -33,6 +33,8 @@ import { HeuristExplorerPublicApi } from './host/HeuristExplorerPublicApi.js';
 export async function initHeuristExplorer(config, { before = null } = {}) {
   const container = document.getElementById(config.containerId);
   if (!container) throw new Error(`#${config.containerId} was not found`);
+  // the styles of #heurist-explorer also apply to a directly mounted container (direct.js)
+  container.classList.add('heurist-explorer-host');
 
   const application = new ExplorerApplication({ container, config });
   const api = new HeuristExplorerPublicApi(application);
@@ -41,6 +43,7 @@ export async function initHeuristExplorer(config, { before = null } = {}) {
   const ready = Promise.resolve(before).then(() => application.initialize()).then(() => api)
     .finally(() => container.classList.remove('h-explorer-booting'));
   api.setReadyPromise(ready);
-  globalThis.heuristExplorer = api;
+  // not for Explorer mounted into another page (direct.js returns the API)
+  if (config.exposeGlobal !== false) globalThis.heuristExplorer = api;
   return ready;
 }

@@ -9,6 +9,7 @@ const targets = {
   timeline: ["timelineUserManualEng.htm", "timelineUserManualFre.htm"],
   recordview: ["recordviewUserManualEng.htm", "recordviewUserManualFre.htm"],
   reports: ["reportsUserManualEng.htm", "reportsUserManualFre.htm"],
+  website: [],
 };
 
 for (const [target, manuals] of Object.entries(targets)) {

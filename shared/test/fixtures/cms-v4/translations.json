@@ -1,0 +1,7 @@
+{
+  "name": "translations: blocks without a text block, text blocks not translated",
+  "config": {"schema": "heurist-cms/4"},
+  "html": ["<div data-h-node=\"t1\" data-h-text=\"\">One</div><div data-h-node=\"t2\" data-h-text>Two</div><div data-h-node=\"n3\">Not a text block</div>"],
+  "translations": {"fre": {"t1": "Un", "t9": "Neuf", "n3": "Pas un bloc"}, "ger": {}},
+  "expect": {"issues":["info:translation_missing","info:translation_missing","info:translation_missing","warning:translation_orphan","warning:translation_orphan"]}
+}

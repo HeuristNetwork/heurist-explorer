@@ -74,7 +74,6 @@ Small items left open in finished plans (details in `docs/development/`, marked 
 - **Interface**: Crosstabs and Actions tools are still empty placeholders.
 - **Date editor**: other calendars (e.g. Japanese) are not supported yet.
 - **Record editing**: some save steps of the old editor are not ported yet (list in plan 21 §6a).
-- **Users and groups**: concept codes for the Admins / Members fields are still missing.
 
 ## To discuss
 

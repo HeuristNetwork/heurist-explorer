@@ -1,6 +1,10 @@
 # Explorer publication and website composition
 
-Status: proposed architecture for discussion, 2026-09-22. This document implements the planning deliverable; application changes have not started.
+**Status 2026-10-26: replaced by plan 27 (`27 CMS-and-Web-Publishing-Plan.md`).** Kept for reference.
+PageController (page synchronization) and HFilter move to plan 27; separate publication of single modules is
+dropped — module settings are stored in a website/webpage record and published by the website engine.
+
+Original status: proposed architecture for discussion, 2026-09-22. Application changes were not started.
 
 ## Required behavior
 

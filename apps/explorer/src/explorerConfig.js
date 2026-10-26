@@ -30,6 +30,20 @@ export function getHeuristExplorerConfig() {
     // a page opened by a link (editor mode): the bootstrap from its URL (plan 21 §2.4)
     standalone: bridge || Object.keys(standalone).length ? standalone : urlBootstrap(globalThis.location)
   });
+  return createHeuristExplorerConfig(bootstrap, { bridge });
+}
+
+/**
+ * Explorer configuration from a given bootstrap: the page's own (getHeuristExplorerConfig)
+ * or one passed by a host that mounts Explorer directly (direct.js, website pages).
+ *
+ * @param {object} bootstrap Normalized { runtime, settings, state } envelope.
+ * @param {object} [options]
+ * @param {object|null} [options.bridge] Host bridge, when there is one.
+ * @param {string} [options.containerId] Id of the element Explorer renders into.
+ * @returns {object} Normalized Explorer configuration.
+ */
+export function createHeuristExplorerConfig(bootstrap, { bridge = null, containerId = 'heurist-explorer' } = {}) {
   const runtime = bootstrap.runtime || {};
   const settings = bootstrap.settings || {};
   const state = bootstrap.state || {};
@@ -41,9 +55,11 @@ export function getHeuristExplorerConfig() {
   const uiConfig = new ExplorerUiConfig({ database: runtime.database }).load();
 
   return {
-    containerId: 'heurist-explorer',
+    containerId,
     // 'editor': the record editor alone in the page (plan 21 §2.4), see editor/RecordEditorShell.js
     mode,
+    // Explorer on a website page or a publication (plan 27a): no welcome popup, no last query
+    published: ['published', 'website'].includes(String(runtime.runtimeMode || '').toLowerCase()),
     editor: mode === 'editor' ? editorTarget(state) : null,
     database: runtime.database || null,
     apiBaseUrl: runtime.apiBaseUrl || (baseUrl ? `${baseUrl}api` : null),

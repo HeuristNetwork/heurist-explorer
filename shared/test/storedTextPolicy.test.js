@@ -21,7 +21,7 @@ test('CMS exceptions require authorization, record type and an explicit field', 
   assert.equal(allowsStoredCode(dbdefs, 51, 999), false);
   assert.equal(allowsStoredCode(undefined, 0, 0), false);
   assert.equal(isStoredCodeField(dbdefs, 927), true);
-  assert.equal(isStoredCodeField(dbdefs, 946), true);
+  assert.equal(isStoredCodeField(dbdefs, 946), false, 'custom CSS is kept, checked as CSS (plan 27a)');
   assert.equal(isStoredCodeField(dbdefs, 4), false);
 });
 

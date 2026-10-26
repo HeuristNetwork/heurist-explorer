@@ -1,0 +1,17 @@
+{
+  "name": "hosts and instances: duplicates, missing configuration or host, unknown types, versions, mount",
+  "config": {
+    "schema": "heurist-cms/4",
+    "instances": {
+      "i1": {"kind": "module", "type": "data"},
+      "i2": {"kind": "module", "type": "chart"},
+      "i3": {"kind": "widget", "type": "menu", "configVersion": 2},
+      "i4": {"kind": "module", "type": "graph", "mount": "popup"},
+      "i5": {"kind": "module", "type": "timeline"}
+    }
+  },
+  "html": [
+    "<div data-h-node=\"a\" data-h-instance=\"i1\"></div><div data-h-node=\"a\" data-h-instance=\"i1\"></div><div data-h-node=\"b\" data-h-instance=\"i9\"></div><div data-h-node=\"c\" data-h-instance=\"i2\"></div><div data-h-node=\"d\" data-h-instance=\"i3\"></div><div data-h-node=\"e\" data-h-instance=\"i4\"></div>"
+  ],
+  "expect": {"issues":["warning:config_version","warning:config_without_host","warning:duplicate_instance","warning:duplicate_node","warning:host_without_config","warning:mount","warning:unknown_type"]}
+}

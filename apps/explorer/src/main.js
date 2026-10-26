@@ -18,6 +18,7 @@ import '@fortawesome/fontawesome-free/css/solid.min.css';
 import '@fortawesome/fontawesome-free/css/regular.min.css';
 import '#shared/ui/heurist-ui.css';
 import './style.css';
+import './page.css';
 import { initLocale } from '#shared/ui';
 import { getHeuristExplorerConfig } from './explorerConfig.js';
 

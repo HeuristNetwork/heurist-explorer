@@ -7,9 +7,12 @@ export function allowsStoredCode(dbdefs, rectypeId, fieldId) {
       .some((code) => id(code) === Number(fieldId));
 }
 
+/**
+ * A field whose value is cleared on save without the CMS exception: the custom JavaScript.
+ * Custom CSS (DT_CMS_CSS) is kept, checked as CSS by the server (plan 27a, decision 12).
+ */
 export function isStoredCodeField(dbdefs, fieldId) {
-  return Number(fieldId) > 0 && ['DT_CMS_SCRIPT', 'DT_CMS_CSS']
-    .some((code) => Number(dbdefs?.dbconst?.(code)) === Number(fieldId));
+  return Number(fieldId) > 0 && Number(dbdefs?.dbconst?.('DT_CMS_SCRIPT')) === Number(fieldId);
 }
 
 const SPAN_STYLES = ['font-family', 'font-size', 'color', 'text-decoration'];

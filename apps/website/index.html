@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en" class="h-site">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Heurist website (development page)</title>
+  <!-- Development page of the website runtime (npm run dev:website). A real page is
+       written by heurist srv/Website/PageRenderer.php (/{db}/site/{id}). -->
+  <style id="h-site-styles">
+    html.h-site{--h-color-primary:#345d77;--h-site-width:70rem;}
+    [data-h-node="n2"]{display:grid;grid-template-columns:1fr 2fr;gap:1rem;}
+    @media (max-width:640px){ [data-h-node="n2"]{grid-template-columns:1fr;} }
+  </style>
+</head>
+<body class="h-site-body">
+  <header class="h-site-header"><nav data-h-node="hd" data-h-instance="menu1">Menu</nav></header>
+  <main class="h-site-main">
+    <section data-h-node="n1" data-h-text=""><h1>Website runtime</h1><p>Tabs, an accordion, the menu and a Data module.</p></section>
+    <div data-h-node="n2">
+      <div data-h-node="n3" data-h-control="tabs">
+        <section data-h-node="n4"><h3>First</h3><p>First panel.</p></section>
+        <section data-h-node="n5"><h3>Second</h3><p>Second panel.</p></section>
+      </div>
+      <div data-h-node="n6" data-h-instance="data1">Loading…</div>
+    </div>
+    <div data-h-node="n7" data-h-control="accordion">
+      <details data-h-node="n8" open=""><summary>One</summary><p>One at a time.</p></details>
+      <details data-h-node="n9"><summary>Two</summary><p>Opening this closes the other.</p></details>
+    </div>
+  </main>
+  <script type="application/json" id="h-site-config">
+    {
+      "schema": "heurist-cms/4",
+      "runtime": {"database": "osmak_mapping", "baseUrl": "/heurist/", "apiBaseUrl": "/heurist/api",
+        "runtimeMode": "published", "language": "eng", "moduleBaseUrl": "/heurist/hclient/bundles/", "frameUrl": ""},
+      "site": {"id": 1, "pageId": 1, "home": true, "title": "Development", "language": "eng",
+        "languages": [{"code": "eng", "url": "?lang=eng"}, {"code": "fre", "url": "?lang=fre"}],
+        "menu": [{"id": 1, "title": "Home", "url": "#", "current": true, "children": []},
+          {"id": 2, "title": "Pages", "url": "#", "current": false, "children": [{"id": 3, "title": "Sub page", "url": "#", "current": false, "children": []}]}]},
+      "instances": {
+        "menu1": {"kind": "widget", "type": "menu", "mount": "direct", "settings": {}, "state": null},
+        "data1": {"kind": "module", "type": "data", "mount": "direct", "settings": {}, "state": {"query": "t:10"}}
+      }
+    }
+  </script>
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>

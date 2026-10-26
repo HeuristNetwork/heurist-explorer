@@ -27,6 +27,8 @@ import { showTimelineMessage } from "./ui/timelineMessages.js";
  */
 export async function initHeuristTimeline(config) {
   const { config: safeConfig, container } = validateTimelineConfig(config);
+  // the styles of #heurist-timeline also apply to a directly mounted container (direct.js)
+  container.classList.add("heurist-timeline-host");
 
   const [
     { TimelineDocumentApplication },
@@ -87,6 +89,7 @@ export async function initHeuristTimeline(config) {
     return originalDestroy();
   };
 
-  globalThis.heuristTimeline = api;
+  // not for a directly mounted timeline (several can share a page; direct.js returns the API)
+  if (config.exposeGlobal !== false) globalThis.heuristTimeline = api;
   return ready;
 }

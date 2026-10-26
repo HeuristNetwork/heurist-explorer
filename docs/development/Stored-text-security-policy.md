@@ -10,7 +10,8 @@ the save-time HTML policy. Browser validation is advisory; request parameters ca
 | --- | --- |
 | freetext | Only `u`, `i`, `b`, `strong`, `em`, without attributes; no `style` |
 | blocktext | Rich HTML for TinyMCE: text, headings, lists, links, tables, images and media, with the limited inline styles below |
-| CMS script/CSS fields | Cleared unless the CMS exception below applies, including bare code |
+| CMS script field (`DT_CMS_SCRIPT`) | Cleared unless the CMS exception below applies, including bare code |
+| CMS CSS field (`DT_CMS_CSS`) | Kept, checked as CSS by `StoredCss` (since 2026-10-26, plan 27a decision 12); unchanged with the CMS exception |
 
 ## Inline styles in blocktext (since 2026-10-25)
 
@@ -30,8 +31,21 @@ Outside the CMS exception, HTMLPurifier removes `script` and `style` elements wi
 inline styles other than the ones above, unsafe URL schemes (only `http`, `https`, `mailto`, `tel`), executable
 embeds, SVG and forms. Media iframes are limited to YouTube, Vimeo and SoundCloud. Kept attributes on any element:
 `id`, `class`, `title`, `lang`, `dir`, `data-heurist-rec`, `data-heurist-app-id`, `data-inited`; plus `a[data-ref]`
-and `img[data-id]`. Other `data-*` attributes are removed (this matters for plan 27: `data-h-node` /
-`data-h-instance` would be lost).
+and `img[data-id]`. Other `data-*` attributes are removed.
+
+**Website format v4 (2026-10-26, plan 27a, all blocktext fields):** the elements `section`, `article`, `aside`,
+`nav`, `header`, `footer`, `main`, `details` (`open`), `summary` and the attributes `data-h-node`, `data-h-instance`,
+`data-h-control`, `data-h-text` are kept. A bare `data-h-text` is saved as `data-h-text=""` (the editor writes it so,
+otherwise the save reports `html_sanitized`).
+
+## Custom CSS (`StoredCss`, 2026-10-26)
+
+`srv/Utilities/StoredCss.php` keeps a stylesheet and removes the declarations, selectors and at-rules that can load
+or run something: comments are removed first; `expression(`, `behavior`, `-moz-binding`, `javascript:` / `vbscript:`,
+`data:` URLs other than raster images, `@import` of other sites (Google Fonts allowed), `@charset`, and every `<`
+(so `</style>` can not end the element). CSS escapes are decoded before the checks. `StoredCss::isSafeValue` checks
+one value: also no `;`, `{`, `}` (the node styles of a v4 page, `srv/Website/StyleCompiler.php`, and the same rules in
+`shared/src/site/cmsDocument.js`).
 
 Plain text is not entity-encoded unnecessarily. JSON settings keep their structure and scalar types; HTML in their
 string values is sanitized.
@@ -41,7 +55,8 @@ string values is sanitized.
 Code and styles are kept unchanged only when the server's `isJavaScriptAllowed()` is true, the record type is
 `RT_CMS_HOME` or `RT_CMS_PAGE`, and the field is one of `DT_CMS_SCRIPT`, `DT_CMS_CSS`, `DT_CMS_HEADER`,
 `DT_CMS_FOOTER`, or `DT_EXTENDED_DESCRIPTION` (`StoredText::allowsCode`). `DT_CMS_EXTFILES` has no unconditional
-bypass. Without the exception, a bare script or stylesheet in `DT_CMS_SCRIPT` / `DT_CMS_CSS` is cleared.
+bypass. Without the exception, a bare script in `DT_CMS_SCRIPT` is cleared and `DT_CMS_CSS` is checked by `StoredCss`.
+The client's `isStoredCodeField()` names only `DT_CMS_SCRIPT` now.
 
 ## Where it is used
 
@@ -72,7 +87,7 @@ style with only a `text-align` keyword, give no warning.
 ## Validation
 
 - `php tests/StoredTextTest.php` in the Heurist repository (no database; the rules of this page, including the
-  span and `text-align` cases; 74 checks pass on 2026-10-26). `tests/RecordEditApiTest.php` checks the
+  span and `text-align` cases, custom CSS and the v4 page markup; 90 checks pass on 2026-10-26). `tests/RecordEditApiTest.php` checks the
   validator's use.
 - `node --experimental-loader ./scripts/cssLoader.mjs --test shared/test/storedTextPolicy.test.js` in this
   repository, plus the shared test suite and Explorer build.

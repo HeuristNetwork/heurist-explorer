@@ -28,6 +28,7 @@
     "dev:timeline": "vite --mode timeline",
     "dev:recordview": "vite --mode recordview",
     "dev:reports": "vite --mode reports",
+    "dev:website": "vite --mode website",
     "build": "npm run build:all",
     "build:explorer": "vite build --mode explorer",
     "build:data": "vite build --mode data",
@@ -36,6 +37,7 @@
     "build:timeline": "vite build --mode timeline",
     "build:recordview": "vite build --mode recordview",
     "build:reports": "vite build --mode reports",
+    "build:website": "vite build --mode website",
     "build:all": "node scripts/build-all.mjs",
     "verify:build": "node scripts/verify-build.mjs",
     "test": "node --experimental-loader ./scripts/cssLoader.mjs --test",
@@ -47,6 +49,7 @@
     "test:timeline": "node --experimental-loader ./scripts/cssLoader.mjs --test \"apps/timeline/test/**/*.test.js\"",
     "test:recordview": "node --experimental-loader ./scripts/cssLoader.mjs --test \"apps/recordview/test/**/*.test.js\"",
     "test:reports": "node --experimental-loader ./scripts/cssLoader.mjs --test \"apps/reports/test/**/*.test.js\"",
+    "test:website": "node --experimental-loader ./scripts/cssLoader.mjs --test \"apps/website/test/**/*.test.js\"",
     "deploy:explorer": "node scripts/deploy-module.mjs explorer",
     "deploy:data": "node scripts/deploy-module.mjs data",
     "deploy:graph": "node scripts/deploy-module.mjs graph",
@@ -54,6 +57,7 @@
     "deploy:timeline": "node scripts/deploy-module.mjs timeline",
     "deploy:recordview": "node scripts/deploy-module.mjs recordview",
     "deploy:reports": "node scripts/deploy-module.mjs reports",
+    "deploy:website": "node scripts/deploy-module.mjs website",
     "deploy:all": "node scripts/deploy-module.mjs all"
   },
   "dependencies": {

@@ -1,0 +1,133 @@
+/* Website page of format v4 (plan 27a). Every value comes from the base settings
+   (srv StyleCompiler writes them on html.h-site); the defaults are the Heurist ones.
+   Node styles of the page come after this file and win. */
+html.h-site {
+  --h-site-font-size: 15px;
+  --h-site-heading-font: var(--h-font-family);
+  --h-site-heading-color: var(--h-color-text);
+  --h-site-width: none;
+}
+
+.h-site-body {
+  margin: 0;
+  font-family: var(--h-font-family);
+  font-size: var(--h-site-font-size);
+  line-height: 1.5;
+  color: var(--h-color-text);
+  background: var(--h-color-bg);
+}
+
+.h-site-header,
+.h-site-main,
+.h-site-footer {
+  box-sizing: border-box;
+  max-width: var(--h-site-width);
+  margin: 0 auto;
+  padding: 0 16px;
+}
+
+.h-site-footer {
+  border-top: 1px solid var(--h-color-border);
+  margin-top: 2em;
+}
+
+.h-site-body :is(h1, h2, h3, h4, h5, h6) {
+  font-family: var(--h-site-heading-font);
+  color: var(--h-site-heading-color);
+  line-height: 1.25;
+}
+
+.h-site-body a {
+  color: var(--h-color-link);
+}
+
+.h-site-body img {
+  max-width: 100%;
+  height: auto;
+}
+
+/* a module host: modules need a height; a node style of the host sets another */
+.h-site-module {
+  position: relative;
+  height: 480px;
+  overflow: hidden;
+  font-size: var(--h-font-size);
+  line-height: normal;
+}
+
+.h-site-module-root {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.h-site-frame {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: none;
+}
+
+.h-site-message {
+  padding: 1em;
+  border: 1px dashed var(--h-color-border-strong);
+  border-radius: var(--h-radius);
+  color: var(--h-color-text-muted);
+  font-size: var(--h-font-size);
+}
+
+/* tabs (data-h-control="tabs"): the first heading of a panel is its tab */
+.h-site-tab-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  border-bottom: 1px solid var(--h-color-border);
+}
+
+.h-site-tab {
+  padding: 8px 14px;
+  border: 1px solid transparent;
+  border-bottom: none;
+  border-radius: var(--h-radius) var(--h-radius) 0 0;
+  background: none;
+  color: var(--h-color-text);
+  font: inherit;
+  cursor: pointer;
+}
+
+.h-site-tab:hover {
+  background: var(--h-color-surface);
+}
+
+.h-site-tab.is-active {
+  border-color: var(--h-color-border);
+  background: var(--h-color-bg);
+  color: var(--h-color-primary);
+  margin-bottom: -1px;
+}
+
+.h-site-tabs > .h-site-tab-panel > .h-site-tab-heading {
+  display: none;
+}
+
+.h-site-tab-panel {
+  padding: 1em 0;
+}
+
+/* accordions: native details / summary */
+.h-site-body details {
+  margin: 0.5em 0;
+  border: 1px solid var(--h-color-border);
+  border-radius: var(--h-radius);
+}
+
+.h-site-body details > summary {
+  padding: 8px 12px;
+  background: var(--h-color-surface);
+  cursor: pointer;
+}
+
+.h-site-body details > :not(summary) {
+  margin-left: 12px;
+  margin-right: 12px;
+}

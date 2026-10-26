@@ -1,0 +1,6 @@
+{
+  "name": "configuration of another schema: an error",
+  "configText": "{\"schema\": \"heurist-cms/3\", \"instances\": {}}",
+  "html": ["<div data-h-node=\"a\" data-h-instance=\"x\"></div>"],
+  "expect": {"issues":["error:cms_schema","warning:host_without_config"]}
+}
