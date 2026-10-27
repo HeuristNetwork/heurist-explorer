@@ -421,3 +421,29 @@ every phase the server tests run:
 Collected 2026-10-18.
 
 - @todo None in this plan. Keep `tests/DataAccessBoundaryTest.php` passing: srv services never query the Records / recDetails / recLinks / files / users / def* tables directly.
+
+## System constants: one table (Artem 2026-10-27)
+
+Reason: DT_GEO_OBJECT was missing on the client because the RT_* / DT_* / TRM_* constants were resolved in
+five places with their own name lists: legacy `$system->defineConstant()` in `ServiceFactory::fromLegacySystem`,
+the `defined()` fallback of `SystemCode`, a hand-kept list in `DefinitionSnapshotService::dbconst()`,
+`UserGroupCodes`, `WebsiteRepository::CONCEPTS`, and Smarty `constant` through `$system->getConstant()`.
+
+Agreed and done (heurist repo, not committed):
+
+- `srv/Definitions/SystemConstants.php`: the one table name → [kind, concept code], 229 names (all of
+  `hserv/consts.php` plus TRM_YES and the user / group codes of plan 20). A new constant is added there only.
+- `DefinitionLookup::constant($name)` / `constants()`: the same concept-code rule as `localId()`; cached in
+  `entity/def-snapshot-constants.json` (~5 KB). Legacy deletes `def-snapshot*.json` on every definition
+  change; a change of the table changes its version. The snapshot (0.5–1.4 MB) is not read for this.
+- `SystemCode` is a wrapper of `constant()` (no global constants); `ServiceFactory` no longer asks legacy;
+  `UserGroupCodes` takes its codes from the table; `WebsiteRepository::CONSTANTS` maps its keys to names;
+  Smarty `constant` resolves RT_ / DT_ / TRM_ names only (legacy returned any PHP constant).
+- Snapshot format 9: `meta.dbconst` has every name, `meta.dbconstVersion` the table version.
+- Client: resolution stays on the server. A client table would be the same 229 rows in another repository,
+  able to drift. `HDbDefs.dbconst(name)` is the only client method; a name the server did not send gives null
+  and one console warning.
+- Concept-code-keyed mappings (files, bookmarks, reminders: `'2-13' => column`) are not named constants and
+  stay as they are: they already resolve through `DefinitionLookup::localId()`.
+- Tests: `tests/SystemConstantsTest.php` (parity with consts.php for 213 names, the same local ids as legacy
+  on osmak_mapping, cache file, no legacy constant access in srv); `shared/test/data/hDbDefs.test.js`.

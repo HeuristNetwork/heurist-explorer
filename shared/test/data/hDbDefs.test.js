@@ -257,3 +257,17 @@ test('rectype counts: unknown usage counts as used; absent ids count as zero', (
   d.setRectypeCounts(null);
   assert.equal(d.isRectypeUsed(first), true);
 });
+
+test('dbconst: an id, 0 for a definition the database lacks, null and one warning for an unknown name (2026-10-27)', (t) => {
+  const warnings = [];
+  t.mock.method(console, 'warn', (message) => warnings.push(message));
+  const snapshot = structuredClone(SNAPSHOT);
+  snapshot.meta = { ...snapshot.meta, dbconst: { DT_GEO_OBJECT: 28, RT_SYS_USER: 0 }, dbconstVersion: 'test' };
+  const dbdefs = new HDbDefs(snapshot);
+  assert.equal(dbdefs.dbconst('DT_GEO_OBJECT'), 28);
+  assert.equal(dbdefs.dbconst('RT_SYS_USER'), 0);
+  assert.equal(dbdefs.dbconst('DT_NOT_SENT'), null);
+  assert.equal(dbdefs.dbconst('DT_NOT_SENT'), null);
+  assert.equal(warnings.length, 1, 'warned once');
+  assert.match(warnings[0], /DT_NOT_SENT.*SystemConstants\.php/);
+});

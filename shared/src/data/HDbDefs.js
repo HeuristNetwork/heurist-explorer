@@ -35,6 +35,9 @@ const RELMARKER_TYPE = 'relmarker';
 /** Parts of the users/groups overlay that may be loaded later. */
 const USER_GROUP_PARTS = Object.freeze(['users', 'tags']);
 
+/** Constant names reported as unknown (dbconst warns once per name). */
+const warnedConstants = new Set();
+
 export class HDbDefs {
   /**
    * Fetch and parse the definition snapshot.
@@ -240,11 +243,19 @@ export class HDbDefs {
   }
 
   /**
+   * Local id of a system constant. The snapshot has every name of the server table
+   * `srv/Definitions/SystemConstants.php` (format 9, 2026-10-27): 0 = the database lacks the
+   * definition; a name not sent is unknown to the server and is reported once.
+   *
    * @param {string} name e.g. `RT_RELATION`, `DT_TARGET_RESOURCE`.
    * @returns {number|null} Reserved definition id, or null when absent.
    */
   dbconst(name) {
     const value = this.meta.dbconst?.[name];
+    if (value == null && this.meta.dbconstVersion && !warnedConstants.has(name)) {
+      warnedConstants.add(name);
+      console.warn(`Unknown constant ${name}: add it to srv/Definitions/SystemConstants.php`);
+    }
     return value == null ? null : Number(value);
   }
 
