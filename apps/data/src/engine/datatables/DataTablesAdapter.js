@@ -39,7 +39,7 @@ export class DataTablesAdapter extends DataEngineAdapter {
    * @param {HTMLElement} context.container Element to render the table into.
    * @param {object} [context.options] Engine options (columns, controls, interaction flags, page length, …).
    * @param {Function} context.onSelectionChange Called with selected record IDs.
-   * @param {Function} context.onEditRecord Called with a record ID to edit.
+   * @param {Function} context.onEditRecord Called with a record ID to edit and `{pageIds}` (the ids of the page).
    * @param {Function} context.onViewRecord Called with a record ID to view.
    * @param {Function} context.onCollectionToggle Called with `(recordId, collected)` to toggle persistent collection membership.
    * @param {Function} context.onCollectionAction Called with `(action, recordIds)` for bulk collection actions.
@@ -647,7 +647,7 @@ export class DataTablesAdapter extends DataEngineAdapter {
     }
     const edit = event.target.closest(".heurist-data-record");
     if (edit) {
-      this.onEditRecord?.(Number(edit.dataset.recordId));
+      this.onEditRecord?.(Number(edit.dataset.recordId), { pageIds: this._pageIds() });
       return;
     }
     const action = event.target.closest(".heurist-data-row-action");
@@ -656,7 +656,7 @@ export class DataTablesAdapter extends DataEngineAdapter {
       action.blur();
       if (action.dataset.action === "collect") {
         Promise.resolve(this.onCollectionToggle?.(id, !this.collected.has(id))).catch(() => {});
-      } else if (action.dataset.action === "edit") this.onEditRecord?.(id);
+      } else if (action.dataset.action === "edit") this.onEditRecord?.(id, { pageIds: this._pageIds() });
       else this.onViewRecord?.(id, action);
       return;
     }

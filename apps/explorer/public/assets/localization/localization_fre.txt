@@ -1032,3 +1032,15 @@
 #Save the changes of this record before you add a new one?#Enregistrer les modifications de cet enregistrement avant d'en ajouter un nouveau ?
 #Don't save#Ne pas enregistrer
 #Drop changes#Abandonner les modifications
+# Record editor footer and rights (2026-10-27)
+#Step through current page#Parcourir la page en cours
+#Previous record#Enregistrement précédent
+#Next record#Enregistrement suivant
+#Dupe#Dupliquer
+#Make a copy of this record#Faire une copie de cet enregistrement
+#Make a copy of this record and open the copy?#Faire une copie de cet enregistrement et ouvrir la copie ?
+#Duplicate record#Dupliquer l'enregistrement
+#The record could not be copied#L'enregistrement n'a pas pu être copié
+#Save the changes of this record before you open another one?#Enregistrer les modifications de cet enregistrement avant d'en ouvrir un autre ?
+#You cannot change record#Vous ne pouvez pas modifier l'enregistrement
+#you must be the database administrator or a member of a group that owns it#vous devez être l'administrateur de la base de données ou membre d'un groupe qui en est propriétaire

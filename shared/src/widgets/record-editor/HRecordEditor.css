@@ -42,6 +42,7 @@
   overflow: hidden;
   flex: 1 1 auto;
   min-width: 0;
+  font-size: var(--h-font-size-large);
   font-weight: 600;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -118,9 +119,15 @@
   margin-top: 8px;
 }
 
+/* messages over the form, on top of the footer; inverted colours (2026-10-27) */
 .h-record-editor-messages {
-  flex: 0 0 auto;
-  padding: 0 var(--h-gap);
+  position: absolute;
+  z-index: 25; /* above .h-cardinal-splitter */
+  right: 0;
+  bottom: 100%;
+  left: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .h-record-editor-messages:empty {
@@ -128,28 +135,68 @@
 }
 
 .h-record-editor-message {
-  padding: 2px 0;
+  padding: 4px var(--h-gap);
+  background: var(--h-color-primary);
+  color: var(--h-color-primary-text);
+  font-weight: 600;
 }
 
 .h-record-editor-message.is-error {
-  color: var(--h-color-danger);
+  background: var(--h-color-danger);
 }
 
+/* no inverted warning token: --h-color-warning is dark enough for white text */
 .h-record-editor-message.is-warning {
-  color: var(--h-color-warning);
-}
-
-.h-record-editor-message.is-info {
-  color: var(--h-color-text-muted);
+  background: var(--h-color-warning);
 }
 
 .h-record-editor-footer {
+  position: relative;
   display: flex;
   flex: 0 0 auto;
+  flex-wrap: wrap;
+  align-items: center;
   justify-content: flex-end;
   gap: var(--h-gap);
   padding: var(--h-gap);
   border-top: 1px solid var(--h-color-border);
+}
+
+/* all on the right: navigation, Dupe, New, a gap, then the save buttons (2026-10-27) */
+.h-record-editor-footer-spacer {
+  flex: 0 1 100px;
+}
+
+.h-record-editor-nav {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-right: 16px;
+}
+
+.h-record-editor-nav-label {
+  color: var(--h-color-text-muted);
+  white-space: nowrap;
+}
+
+.h-record-editor-nav .heurist-icon-button {
+  padding: 2px 3px;
+  font-size: var(--h-font-size-icon);
+}
+
+.h-record-editor-nav-position {
+  min-width: 3em;
+  text-align: center;
+  white-space: nowrap;
+}
+
+/* the user may not change the record: shown at once below the title */
+.h-record-editor-norights {
+  flex: 0 0 auto;
+  padding: 4px var(--h-gap);
+  border-bottom: 1px solid var(--h-color-border);
+  color: var(--h-color-warning);
+  font-weight: 600;
 }
 
 /* the editor in a message dialog (Explorer's RecordEditorHost) */

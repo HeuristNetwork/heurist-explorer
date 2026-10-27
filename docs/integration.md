@@ -85,7 +85,8 @@ view*: Explorer as an `explorer` instance with `settings = {layout, ui, modules}
 
 Modules ask their host to edit records through the bridge:
 
-- `editRecord(id, {recordType})` opens the record.
+- `editRecord(id, {recordType, pageIds})` opens the record; `pageIds` (ordered ids of the list page)
+  lets Explorer's editor step through the page.
 - `addRecord(recordTypeId)` creates a new record.
 - `canEditRecords()` says whether any record can be edited (the legacy host editor).
 - `canEditRecordType(recordType)` says whether records of one type can be edited. `recordType`

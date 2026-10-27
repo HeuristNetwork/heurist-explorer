@@ -127,3 +127,41 @@ field, so HRecordField keeps their logic but HInput renders them in an actions s
   px fallbacks of `var(--h-font-size…, Npx)` removed. Exceptions: the `.h-coverall` message (20px text)
   and the HCardinalLayout splitter arrows (6px); vendor `apps/map/src/assets/` untouched. Line heights
   are unitless almost everywhere and were not changed.
+
+### Review 2026-10-27 (footer, page navigation, no edit rights)
+
+- Record title (`.h-record-editor-record`) in `--h-font-size-large`.
+- Footer from left to right: "Step through current page" ◀ position/size ▶, Dupe, New | Save, Save and
+  close, Close, then Drop changes apart. Save, Save and close and Drop changes are disabled without
+  unsaved changes; Dupe and New are disabled with them; Close is always on. Text inputs commit on Enter
+  or blur, so typing in a field already enables Save (the real check follows on commit).
+- Page navigation: the list passes the **ordered ids of its page** (`pageIds`), not prev/next callbacks.
+  An id list crosses the host bridge (iframe module, legacy host) without problems; callbacks into
+  HRecordList would have to stay valid while the list repages. Chain: HRecordList / DataTablesAdapter
+  `onEditRecord(id, {pageIds})` → `DataApplication.requestEditRecord` → `HostAdapter.editRecord(id,
+  {pageIds})` → Explorer `RecordEditorHost.editRecord` → HRecordEditor option `pageIds`. The editor
+  loads the other record itself (`openRecord`: Save / Don't save / Cancel first; the record is loaded
+  before the current one is removed, so a failed load changes nothing). No navigation for a single
+  record, a relationship record, or a record not in the list (e.g. the copy made by Dupe).
+- Dupe (HRecordEditor option `duplicate`, given in the same cases as New): confirm, `POST
+  /records/{id}/duplicate`, the copy opens in the same editor and is reported as a created record.
+  Allowed without edit rights (the server copies any record the user can see).
+- No edit rights: the server gives `rec_EditGroups` only with records the user may change (plan 14), so
+  `HRecordEditor.canEdit` = new record or `rec_EditGroups` present (no server change). Then a warning
+  below the title at once ("You cannot change record N; you must be the database administrator or a
+  member of a group that owns it"), the form read only, no pen in Summary → Admin, Scratchpad read only.
+  Private and Tags stay available.
+
+### Review 2026-10-27, round 2
+
+- Messages (`.h-record-editor-messages`) lie over the form on top of the footer (inside it, absolute), in
+  inverted colours: info `--h-color-primary` / `--h-color-primary-text`, warnings `--h-color-warning`,
+  errors `--h-color-danger` background, white text. There is no inverted warning token; `--h-color-warning`
+  (#9a5b00) is dark enough for white text. Info and warnings go after 4 s (`MESSAGE_DELAY`); errors and
+  "Saving…" stay until the next messages.
+- Footer: everything right-aligned; navigation, Dupe, New, a gap of up to 100px, then Save, Save and close,
+  Close, Drop changes.
+- The "Unsaved changes" question of the page navigation is shown above the clicked arrow (`askDialog` anchor).
+- Summary: Private (bookmark, reminders), Tags and Linked records are loaded only when the pane is open and
+  the section is open (on expand of the pane or `toggle` of the section). Admin and Scratchpad are built at
+  once: the owner issues and `rec_ScratchPad` of the save body need them.

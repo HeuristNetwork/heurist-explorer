@@ -150,7 +150,7 @@ export class DataApplication extends EventTarget {
       container: this.container,
       options: this._engineOptions(),
       onSelectionChange: (ids) => this._selectionFromEngine(ids),
-      onEditRecord: (id) => this.requestEditRecord(id),
+      onEditRecord: (id, edit) => this.requestEditRecord(id, edit),
       onViewRecord: (id, anchor) => this.requestViewRecord(id, anchor),
       onCollectionToggle: (id, collected) =>
         this.setRecordCollected(id, collected),
@@ -632,9 +632,15 @@ export class DataApplication extends EventTarget {
     this.expansion?.selectionChanged();
   }
 
-  /** Request record editing through the host or dispatch a host event. */
-  async requestEditRecord(recordId) {
-    if (this.host.supportsEditing()) return this.host.editRecord(recordId);
+  /**
+   * Request record editing through the host or dispatch a host event.
+   *
+   * @param {number|string} recordId Record ID.
+   * @param {{pageIds?: number[]}} [options] Ordered ids of the list page (the editor steps through them).
+   * @returns {Promise<*>}
+   */
+  async requestEditRecord(recordId, { pageIds = null } = {}) {
+    if (this.host.supportsEditing()) return this.host.editRecord(recordId, { pageIds });
     this.dispatch("heurist-data-edit-record-requested", {
       recordId: Number(recordId),
     });

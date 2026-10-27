@@ -1032,3 +1032,15 @@
 #Save the changes of this record before you add a new one?#Save the changes of this record before you add a new one?
 #Don't save#Don't save
 #Drop changes#Drop changes
+# Record editor footer and rights (2026-10-27)
+#Step through current page#Step through current page
+#Previous record#Previous record
+#Next record#Next record
+#Dupe#Dupe
+#Make a copy of this record#Make a copy of this record
+#Make a copy of this record and open the copy?#Make a copy of this record and open the copy?
+#Duplicate record#Duplicate record
+#The record could not be copied#The record could not be copied
+#Save the changes of this record before you open another one?#Save the changes of this record before you open another one?
+#You cannot change record#You cannot change record
+#you must be the database administrator or a member of a group that owns it#you must be the database administrator or a member of a group that owns it

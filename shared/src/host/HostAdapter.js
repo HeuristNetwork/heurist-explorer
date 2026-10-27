@@ -78,17 +78,22 @@ export class HostAdapter {
    * Ask the host to open its record editor for an existing record.
    *
    * @param {number|string} recordId Heurist record ID to edit.
-   * @param {{recordType?: number|string|null}} [options] Record type id or code name, when known.
+   * @param {{recordType?: number|string|null, pageIds?: number[]|null}} [options] Record type id or code
+   *        name, when known; `pageIds`: ordered ids of the list page (the editor steps through them).
    * @returns {Promise<*>} Result of the host's edit action (`{saved, recordId}`).
    * @throws {Error} When `recordId` is invalid or the host cannot edit records.
    */
-  async editRecord(recordId, { recordType = null } = {}) {
+  async editRecord(recordId, { recordType = null, pageIds = null } = {}) {
     const id = Number(recordId);
     if (!(id > 0))
       throw new Error("A valid Heurist record ID is required for editing");
     if (!this.supportsEditing(recordType))
       throw new Error("Record editing is not available from the Heurist host");
-    return recordType != null ? this.bridge.editRecord(id, { recordType }) : this.bridge.editRecord(id);
+    const options = {
+      ...(recordType != null ? { recordType } : {}),
+      ...(Array.isArray(pageIds) && pageIds.length > 1 ? { pageIds: pageIds.map(Number) } : {}),
+    };
+    return Object.keys(options).length ? this.bridge.editRecord(id, options) : this.bridge.editRecord(id);
   }
 
   /**

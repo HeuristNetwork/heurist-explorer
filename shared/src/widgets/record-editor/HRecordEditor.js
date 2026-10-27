@@ -16,6 +16,8 @@
  * Events on the container: `h-record-editor-saved` {record, issues, created},
  * `h-record-editor-close` {saved}, `h-record-editor-change` {dirty}. With `onNew` the footer has New:
  * the host replaces the editor with one of a new record (unsaved changes are saved first if wanted).
+ * With `pageIds` the footer steps through the records of the list page; with `duplicate`, Dupe copies
+ * the record and opens the copy. A record the user may not change is shown read only (2026-10-27).
  *
  * @project     Heurist academic knowledge management system
  * @package     heurist-client-core
@@ -59,6 +61,9 @@ import './HRecordEditor.css';
 
 /** Header fields of the server issues, shown in the ownership pane. */
 const HEADER_FIELDS = new Set(['rec_OwnerUGrpID', 'rec_NonOwnerVisibility', 'rec_NonOwnerVisibilityGroups', 'rec_EditGroups']);
+
+/** Milliseconds an info or warning message is shown. */
+const MESSAGE_DELAY = 4000;
 
 /** Ids of the Record summary sections (option `summarySections`) by their titles. */
 const SUMMARY_SECTION_IDS = Object.freeze({
@@ -106,6 +111,9 @@ export class HRecordEditor extends HBaseWidget {
    * @param {Function} [options.onClose] Called when the editor asks to close, with `{saved}`.
    * @param {Function} [options.onNew] New button of the footer: `({rectypeId, saved})`, called after the
    *        unsaved changes were saved or dropped; the host opens a new record in place of this one.
+   * @param {number[]} [options.pageIds] Ordered record ids of the list page the record was opened from:
+   *        the footer steps through them (this editor loads the other record).
+   * @param {boolean} [options.duplicate] Dupe button of the footer: copy a saved record and open the copy.
    * @param {boolean} [options.readOnly] Display only.
    * @param {'inline'|'above'|'auto'} [options.labelPos='auto'] Labels beside or above the inputs
    *        (auto: beside when the form is wide enough), see formLayout.js.
@@ -154,6 +162,19 @@ export class HRecordEditor extends HBaseWidget {
   }
 
   /**
+   * @returns {boolean} Whether the user may change the record: the server gives `rec_EditGroups`
+   *          only with the records the user may change (plan 14); a new record always.
+   */
+  get canEdit() {
+    return this.isNew || Array.isArray(this.record?.rec_EditGroups);
+  }
+
+  /** @returns {boolean} Whether the fields cannot be changed (option `readOnly`, or no rights). */
+  get _readOnly() {
+    return Boolean(this.options.readOnly) || !this.canEdit;
+  }
+
+  /**
    * Load the record (or prepare a new one) and its structure, then render.
    *
    * @param {{signal?: AbortSignal}} [options]
@@ -167,7 +188,10 @@ export class HRecordEditor extends HBaseWidget {
     const users = Promise.resolve(this.dbdefs?.ensureUserGroups?.(['users'])).catch(() => null);
     const recordId = Number(this.options.recordId) || 0;
     if (recordId > 0) {
-      const { record } = await this.client.load(recordId, { signal });
+      // a record of the page is loaded before the current one is removed (openRecord)
+      const preloaded = Number(this._preloaded?.rec_ID) === recordId ? this._preloaded : null;
+      this._preloaded = null;
+      const record = preloaded || (await this.client.load(recordId, { signal })).record;
       if (!record) throw new Error($HR('The record does not exist or you cannot see it'));
       this.record = record;
     } else if (!(Number(this.options.rectypeId) > 0)) {
@@ -312,18 +336,21 @@ export class HRecordEditor extends HBaseWidget {
     this.messages.className = 'h-record-editor-messages';
     this.messages.setAttribute('role', 'status');
     const footer = this._renderFooter();
+    // the messages lie over the form, on top of the footer (2026-10-27)
+    footer.prepend(this.messages);
     const header = this._initialHeader();
     if (this.options.summary === false) {
-      this.container.append(this.titleElement, this.body, this.messages, footer);
+      this.container.append(this.titleElement, this.body, footer);
       this.body.append(this._renderOwnership(header));
     } else {
       // the form and, on the right, the Record summary (owner and access are in its Admin panel)
       this.layoutHost = document.createElement('div');
       this.layoutHost.className = 'h-record-editor-layout';
-      this.container.append(this.titleElement, this.layoutHost, this.messages, footer);
+      this.container.append(this.titleElement, this.layoutHost, footer);
       this._renderLayout(header);
     }
     this._renderTitle();
+    this._renderNoRights();
     const values = this.record ? recordFieldValues(this.record, this.structure) : defaultFieldValues(this.structure);
     this._renderForm(values);
     // "Show help" of the Structure pane (remembered; also before the pane is opened)
@@ -331,8 +358,13 @@ export class HRecordEditor extends HBaseWidget {
     this._renderStructureTree();
 
     this.listen(this.container, 'h-input-change', () => this._onChange());
+    // text inputs commit on Enter or blur: Save is offered while typing already
+    this.listen(this.container, 'input', (event) => {
+      if (!this._readOnly && event.target !== this.scratchpad) this._syncButtons(true);
+    });
     this._initial = JSON.stringify(this.getRecord());
     this.state = 'rendered';
+    this._syncButtons();
     return this;
   }
 
@@ -398,7 +430,7 @@ export class HRecordEditor extends HBaseWidget {
    * @returns {Promise<boolean>} True when saved.
    */
   async save({ close = false, force = false } = {}) {
-    if (this.options.readOnly || this._saving) return false;
+    if (this._readOnly || this._saving) return false;
     if (this.validate().length) return false;
     const body = this.getRecord();
     const created = this.isNew;
@@ -477,17 +509,97 @@ export class HRecordEditor extends HBaseWidget {
    */
   async newRecord() {
     if (typeof this.options.onNew !== 'function' || this._saving) return false;
-    if (this.isDirty()) {
-      const answer = await askDialog($HR('Save the changes of this record before you add a new one?'), $HR('Unsaved changes'), [
-        { label: 'Save', value: 'save', primary: true },
-        { label: "Don't save", value: 'drop' },
-        { label: 'Cancel', value: null }
-      ]);
-      if (!answer) return false;
-      if (answer === 'save' && !(await this.save())) return false;
-    }
+    if (!(await this._saveOrDrop($HR('Save the changes of this record before you add a new one?')))) return false;
     this.options.onNew({ rectypeId: this.rectypeId, saved: this._saved });
     return true;
+  }
+
+  /**
+   * Unsaved changes before the record is left: Save, Don't save or Cancel.
+   *
+   * @param {string} question The question.
+   * @param {HTMLElement} [anchor] The clicked button: the question is shown above it.
+   * @returns {Promise<boolean>} True when the record can be left (saved, dropped or unchanged).
+   */
+  async _saveOrDrop(question, anchor = null) {
+    if (!this.isDirty()) return true;
+    const answer = await askDialog(question, $HR('Unsaved changes'), [
+      { label: 'Save', value: 'save', primary: true },
+      { label: "Don't save", value: 'drop' },
+      { label: 'Cancel', value: null }
+    ], anchor);
+    if (!answer) return false;
+    return answer === 'drop' || this.save();
+  }
+
+  /**
+   * Show another record in this editor (the page navigation, the copy of Dupe). Unsaved changes
+   * are saved first, or dropped, as the user chooses; the record is loaded before the current
+   * one is removed, so a failed load leaves the editor as it was.
+   *
+   * @param {number} recordId Record to show.
+   * @param {{ask?: boolean, anchor?: HTMLElement}} [options] `ask: false`: do not ask about unsaved changes;
+   *        `anchor`: the clicked button (the question is shown above it).
+   * @returns {Promise<boolean>} True when the record is shown.
+   */
+  async openRecord(recordId, { ask = true, anchor = null } = {}) {
+    const id = Number(recordId) || 0;
+    if (!(id > 0) || this._saving) return false;
+    if (ask && !(await this._saveOrDrop($HR('Save the changes of this record before you open another one?'), anchor))) return false;
+    this._setBusy(true);
+    let record = null;
+    try {
+      ({ record } = await this.client.load(id));
+      if (!record) throw new Error($HR('The record does not exist or you cannot see it'));
+    } catch (error) {
+      this._showMessages([{ severity: 'error', message: error?.message || String(error) }]);
+      return false;
+    } finally {
+      this._setBusy(false);
+    }
+    this._pendingParent = null;
+    await this.tagSelector?.destroy();
+    this.tagSelector = null;
+    await this.privatePanel?.destroy();
+    this.privatePanel = null;
+    await this._destroyForm();
+    this.options.recordId = id;
+    this.record = null;
+    this.structure = null;
+    this.state = 'loading';
+    this._preloaded = record;
+    try {
+      await this.open();
+    } catch (error) {
+      this.container.replaceChildren(note(error?.message || String(error)));
+      return false;
+    }
+    return true;
+  }
+
+  /**
+   * Dupe (option `duplicate`): copy the saved record ("Copy of ..." name) and open the copy.
+   * Offered when nothing is unsaved.
+   *
+   * @returns {Promise<boolean>} True when the copy is shown.
+   */
+  async duplicateRecord() {
+    if (!this.options.duplicate || this.isNew || this._saving || this.isDirty()) return false;
+    if (!(await confirmDialog($HR('Make a copy of this record and open the copy?'), $HR('Duplicate record')))) return false;
+    this._setBusy(true);
+    let result;
+    try {
+      result = await this.client.duplicate(this.record.rec_ID);
+    } catch (error) {
+      this._showMessages([{ severity: 'error', message: error?.message || $HR('The record could not be copied') }]);
+      return false;
+    } finally {
+      this._setBusy(false);
+    }
+    this._saved = true;
+    this._emit('h-record-editor-saved', { record: result.record, issues: result.issues, created: true });
+    this.options.onSaved?.({ record: result.record, issues: result.issues, created: true });
+    return this.openRecord(result.record.rec_ID, { ask: false });
   }
 
   /**
@@ -520,6 +632,7 @@ export class HRecordEditor extends HBaseWidget {
 
   /** @returns {Promise<void>} Completion after the inputs are removed. */
   async destroy() {
+    clearTimeout(this._messageTimer);
     await this.tagSelector?.destroy();
     this.tagSelector = null;
     await this.privatePanel?.destroy();
@@ -565,7 +678,10 @@ export class HRecordEditor extends HBaseWidget {
     }
   }
 
-  /** Save, Save and close, Close. */
+  /**
+   * Footer (Artem 2026-10-27): the page navigation, Dupe, New on the left; Save, Save and close,
+   * Close and, apart, Drop changes on the right. Their states: _syncButtons.
+   */
   _renderFooter() {
     const footer = document.createElement('div');
     footer.className = 'h-record-editor-footer';
@@ -578,13 +694,21 @@ export class HRecordEditor extends HBaseWidget {
       footer.append(element);
       return element;
     };
-    this.saveButton = button('Save', 'h-btn-primary', () => this.save());
-    this.saveCloseButton = button('Save and close', '', () => this.save({ close: true }));
-    button('Close', '', () => this.close());
+    this._renderNavigation(footer);
+    // Dupe: a copy of the saved record, opened in this editor
+    this.dupeButton = button('Dupe', 'h-record-editor-dupe', () => void this.duplicateRecord());
+    this.dupeButton.title = $HR('Make a copy of this record');
+    this.dupeButton.hidden = !this.options.duplicate || this.isNew;
     // New: a new record in the same popup (the host replaces this editor)
     this.newButton = button('New', 'h-record-editor-new', () => void this.newRecord());
     this.newButton.title = $HR('Add a new record');
     this.newButton.hidden = typeof this.options.onNew !== 'function';
+    const spacer = document.createElement('span');
+    spacer.className = 'h-record-editor-footer-spacer';
+    footer.append(spacer);
+    this.saveButton = button('Save', 'h-btn-primary', () => this.save());
+    this.saveCloseButton = button('Save and close', '', () => this.save({ close: true }));
+    button('Close', '', () => this.close());
     // Drop changes: the form again with the values of the record as loaded or last saved
     this.dropButton = button('Drop changes', 'h-record-editor-drop', () => void this.dropChanges());
     if (this.options.readOnly) {
@@ -592,8 +716,78 @@ export class HRecordEditor extends HBaseWidget {
       this.saveCloseButton.hidden = true;
       this.dropButton.hidden = true;
       this.newButton.hidden = true;
+      this.dupeButton.hidden = true;
     }
     return footer;
+  }
+
+  /** "Step through current page" ◀ position/size ▶, when the record is one of `pageIds`. */
+  _renderNavigation(footer) {
+    this.navPrevButton = null;
+    this.navNextButton = null;
+    const ids = (this.options.pageIds || []).map(Number).filter((id) => id > 0);
+    const index = ids.indexOf(Number(this.record?.rec_ID));
+    if (ids.length < 2 || index < 0) return;
+    const nav = document.createElement('div');
+    nav.className = 'h-record-editor-nav';
+    const label = document.createElement('span');
+    label.className = 'h-record-editor-nav-label h-i18n';
+    label.textContent = $HR('Step through current page');
+    const arrow = (icon, title, target) => {
+      const element = document.createElement('button');
+      element.type = 'button';
+      element.className = 'heurist-icon-button';
+      element.title = $HR(title);
+      element.setAttribute('aria-label', element.title);
+      element.append(iconElement(icon));
+      // the first / last record of the page
+      element.dataset.end = String(target < 0 || target >= ids.length);
+      element.disabled = element.dataset.end === 'true';
+      this.listen(element, 'click', () => void this.openRecord(ids[target], { anchor: element }));
+      return element;
+    };
+    this.navPrevButton = arrow('fa-circle-left', 'Previous record', index - 1);
+    this.navNextButton = arrow('fa-circle-right', 'Next record', index + 1);
+    const position = document.createElement('span');
+    position.className = 'h-record-editor-nav-position';
+    position.textContent = `${index + 1}/${ids.length}`;
+    nav.append(label, this.navPrevButton, position, this.navNextButton);
+    footer.append(nav);
+  }
+
+  /**
+   * Enable the footer buttons: Save, Save and close and Drop changes with unsaved changes; Dupe
+   * and New without them; nothing while saving.
+   *
+   * @param {boolean} [maybeDirty] Something is being typed (not committed yet): as with changes.
+   */
+  _syncButtons(maybeDirty = false) {
+    if (this.state !== 'rendered') return;
+    const busy = Boolean(this._saving);
+    const dirty = maybeDirty || this.isDirty();
+    for (const button of [this.saveButton, this.saveCloseButton, this.dropButton]) {
+      if (button) button.disabled = busy || !dirty;
+    }
+    for (const button of [this.newButton, this.dupeButton]) {
+      if (button) button.disabled = busy || dirty;
+    }
+    for (const button of [this.navPrevButton, this.navNextButton]) {
+      if (button) button.disabled = busy || button.dataset.end === 'true';
+    }
+  }
+
+  /**
+   * A record the user may not change: a warning below the title at once; the fields, the owner
+   * pen and the Scratchpad are read only (Private and Tags stay).
+   */
+  _renderNoRights() {
+    if (this.options.readOnly || this.canEdit) return;
+    const warning = document.createElement('div');
+    warning.className = 'h-record-editor-norights';
+    warning.setAttribute('role', 'alert');
+    warning.append(iconElement('fa-triangle-exclamation'), document.createTextNode(` ${$HR('You cannot change record')} ${this.record.rec_ID}; `
+      + $HR('you must be the database administrator or a member of a group that owns it')));
+    this.titleElement.after(warning);
   }
 
   /**
@@ -629,6 +823,10 @@ export class HRecordEditor extends HBaseWidget {
     };
     this.cardinal.addEventListener('regioncollapsechange', sync);
     sync();
+    // the lazy sections when the pane is open (now, or when it is opened)
+    const loadSections = () => this._summaryLoaders?.forEach((load) => load());
+    this.cardinal.addEventListener('regioncollapsechange', loadSections);
+    loadSections();
     const syncStructure = () => {
       if (!this.structureToggle) return;
       const isCollapsed = this.cardinal.state.west.collapsed === true;
@@ -759,7 +957,9 @@ export class HRecordEditor extends HBaseWidget {
     pane.append(head);
 
     const sections = this.options.summarySections || null;
-    const section = (title, open, build) => {
+    // Private, Tags and Linked records are loaded when the pane and the section are open (2026-10-27)
+    this._summaryLoaders = [];
+    const section = (title, open, build, lazy = false) => {
       const id = SUMMARY_SECTION_IDS[title];
       if (sections && !sections.includes(id)) return null;
       const details = document.createElement('details');
@@ -770,24 +970,35 @@ export class HRecordEditor extends HBaseWidget {
       summary.textContent = $HR(title);
       const body = document.createElement('div');
       body.className = 'h-record-editor-summary-body';
-      build(body);
       details.append(summary, body);
       pane.append(details);
+      if (!lazy) {
+        build(body);
+        return details;
+      }
+      let built = false;
+      const load = () => {
+        if (built || !details.open || this.cardinal?.state?.east?.collapsed === true) return;
+        built = true;
+        build(body);
+      };
+      this.listen(details, 'toggle', load);
+      this._summaryLoaders.push(load);
       return details;
     };
     this.adminSection = section('Admin', true, (body) => this._renderAdmin(body, header));
-    section('Private', false, (body) => this._renderPrivate(body));
-    section('Tags', true, (body) => this._renderTags(body));
+    section('Private', false, (body) => this._renderPrivate(body), true);
+    section('Tags', true, (body) => this._renderTags(body), true);
     section('Linked records', true, (body) => {
       this.linkedBody = body;
       this._renderLinkedRecords(body);
-    });
+    }, true);
     section('Scratchpad', false, (body) => {
       this.scratchpad = document.createElement('textarea');
       this.scratchpad.className = 'h-input h-record-editor-scratchpad';
       this.scratchpad.rows = 6;
       this.scratchpad.value = this.record?.rec_ScratchPad || '';
-      this.scratchpad.readOnly = Boolean(this.options.readOnly);
+      this.scratchpad.readOnly = this._readOnly;
       this.scratchpad.setAttribute('aria-label', $HR('Scratchpad'));
       this.listen(this.scratchpad, 'input', () => this._onChange());
       body.append(this.scratchpad);
@@ -973,7 +1184,7 @@ export class HRecordEditor extends HBaseWidget {
     this.ownerText = line('Owner');
     this.accessText = line('Access');
     view.append(lines);
-    if (!this.options.readOnly) {
+    if (!this._readOnly) {
       const pen = document.createElement('button');
       pen.type = 'button';
       pen.className = 'heurist-icon-button h-record-editor-access-edit';
@@ -1106,7 +1317,7 @@ export class HRecordEditor extends HBaseWidget {
       fileUrl: this.options.fileUrl,
       editFile: this.options.editFile,
       fileViewer: this.options.fileViewer,
-      readOnly: this.options.readOnly,
+      readOnly: this._readOnly,
       specialEditors: this.options.specialEditors || {},
       specialContext: () => ({ record: this.record, rectypeId: this.rectypeId }),
       relationships: this._relationshipService(),
@@ -1210,7 +1421,7 @@ export class HRecordEditor extends HBaseWidget {
   _relationshipService() {
     const service = {
       ensureRecord: async () => {
-        if (this.options.readOnly) return null;
+        if (this._readOnly) return null;
         if (this.isNew && !(await this.save())) return null;
         return { id: Number(this.record.rec_ID), rty: this.rectypeId, title: stripTags(this.record.rec_Title) };
       },
@@ -1334,6 +1545,7 @@ export class HRecordEditor extends HBaseWidget {
     // a parent chosen in the virtual field: the missing-parent warning goes (plan 26)
     if (this._parentField) this._renderParentWarning();
     this._refreshStructureTree();
+    this._syncButtons();
     this._emit('h-record-editor-change', { dirty: this.isDirty() });
   }
 
@@ -1342,6 +1554,7 @@ export class HRecordEditor extends HBaseWidget {
     this._renderTitle();
     this._showIssues(issues);
     this._initial = JSON.stringify(this.getRecord());
+    this._syncButtons();
     const warnings = (issues || []).length;
     this._showMessages([{
       severity: 'info',
@@ -1356,6 +1569,7 @@ export class HRecordEditor extends HBaseWidget {
     if (this.saveCloseButton) this.saveCloseButton.disabled = busy;
     if (this.newButton) this.newButton.disabled = busy;
     this.container?.classList.toggle('is-busy', busy);
+    this._syncButtons();
   }
 
   /**
@@ -1386,9 +1600,16 @@ export class HRecordEditor extends HBaseWidget {
     if (errors.length && first) this._revealField(first.field);
   }
 
-  /** Show messages under the form. */
+  /**
+   * Show messages on top of the footer. Info and warnings go after MESSAGE_DELAY; errors and
+   * "Saving…" stay until the next messages (2026-10-27).
+   */
   _showMessages(messages) {
-    this.messages.replaceChildren(...(messages || []).map((issue) => issueElement(issue)));
+    clearTimeout(this._messageTimer);
+    const list = messages || [];
+    this.messages.replaceChildren(...list.map((issue) => issueElement(issue)));
+    if (!list.length || list.some((issue) => issue.busy || !['info', 'warning'].includes(issue.severity))) return;
+    this._messageTimer = setTimeout(() => this.messages?.replaceChildren(), MESSAGE_DELAY);
   }
 
   /** Switch to the tab or open the accordion that holds a field. */
@@ -1426,8 +1647,11 @@ function confirmDialog(message, title) {
     .then((value) => value === true);
 }
 
-/** A question with buttons `{label, value, primary}`: resolves with the value of the chosen one (null when closed). */
-function askDialog(message, title, choices) {
+/**
+ * A question with buttons `{label, value, primary}`: resolves with the value of the chosen one (null when closed).
+ * `anchor`: the dialog is shown above this element.
+ */
+function askDialog(message, title, choices, anchor = null) {
   return new Promise((resolve) => {
     let answered = false;
     const answer = (value) => {
@@ -1438,6 +1662,8 @@ function askDialog(message, title, choices) {
     };
     const dialog = HMsg.showMsgDlg(message, {
       title,
+      // above the clicked button, when given
+      ...(anchor ? { position: { of: anchor, my: 'center bottom', at: 'center top' } } : {}),
       buttons: choices.map(({ label, value, primary }) => ({
         label, class: primary ? 'h-btn h-btn-primary' : 'h-btn', onClick: () => answer(value)
       }))

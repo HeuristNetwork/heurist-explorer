@@ -46,7 +46,7 @@ export class HRecordList extends HBaseWidget {
    * @param {HTMLElement} context.container Element to render the record list into.
    * @param {object} [context.options] Engine options (columns, controls, interaction flags, view mode, …).
    * @param {Function} context.onSelectionChange Called with selected record IDs.
-   * @param {Function} context.onEditRecord Called with a record ID to edit.
+   * @param {Function} context.onEditRecord Called with a record ID to edit and `{pageIds}` (the ids of the page).
    * @param {Function} context.onCollectionToggle Called with `(recordId, collected)` to toggle persistent collection membership.
    * @param {Function} context.onCollectionAction Called with `(action, recordIds)` for bulk collection actions.
    * @param {Function} context.onDataRequest Called with `{offset, limit, sort, filter}` to request a page of data.
@@ -669,8 +669,13 @@ export class HRecordList extends HBaseWidget {
     const id = Number(target.dataset.recordId);
     const action = target.dataset.recordAction;
     if (action === "collect") this._collectToggled(id);
-    else if (action === "edit") this.onEditRecord?.(id);
+    else if (action === "edit") this._editRecord(id);
     else this.onViewRecord?.(id, target);
+  }
+
+  /** Edit a record; the editor steps through the records of the page. */
+  _editRecord(id) {
+    this.onEditRecord?.(id, { pageIds: this.records.map(recordId) });
   }
 
   /** The +/- button (collectionMode "mouseover"): add the record to the collection or remove it. */
@@ -692,7 +697,7 @@ export class HRecordList extends HBaseWidget {
       return;
     }
     if (this.options.interaction.editEnabled === false) return;
-    this.onEditRecord?.(id);
+    this._editRecord(id);
   }
 
   /** Toggle persistent collection membership for the record whose checkbox changed. */

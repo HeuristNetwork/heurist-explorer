@@ -124,18 +124,19 @@ export class RecordEditorHost {
    * Edit a record in Explorer's editor (logged-in user), else in the host editor.
    *
    * @param {number|string} recordId Record id.
-   * @param {{recordType?: number|string|null, relation?: object|null}} [options] Record type id or code
-   *        name, when known; `relation`: constraints of a relationship record opened from a relmarker
-   *        field (HRecordEditor `relation`; the host editor ignores them).
+   * @param {{recordType?: number|string|null, relation?: object|null, pageIds?: number[]}} [options] Record
+   *        type id or code name, when known; `relation`: constraints of a relationship record opened from a
+   *        relmarker field (HRecordEditor `relation`; the host editor ignores them); `pageIds`: ordered ids of
+   *        the list page the record was opened from (the editor steps through them, 2026-10-27).
    * @returns {Promise<{saved: boolean, recordId: number}|*>} Result of the editor.
    * @throws {Error} When no editor can edit the record.
    */
-  async editRecord(recordId, { recordType = null, relation = null } = {}) {
+  async editRecord(recordId, { recordType = null, relation = null, pageIds = null } = {}) {
     const id = Number(recordId);
     if (!(id > 0)) throw new Error($HR('A valid record ID is required'));
     if (this.options.isLoggedIn()) {
       const rectypeId = await this._rectypeOf(id, recordType);
-      if (this._usesNewEditor(rectypeId)) return this.open({ recordId: id, relation });
+      if (this._usesNewEditor(rectypeId)) return this.open({ recordId: id, relation, pageIds: relation ? null : pageIds });
     }
     if (this.canEditInHost()) return this.options.getBridge().editRecord(id);
     throw new Error($HR('Record editor is not available'));
@@ -199,10 +200,11 @@ export class RecordEditorHost {
    *
    * @param {{recordId?: number, rectypeId?: number, domain?: 'records'|'files', access?: object, relation?: object}} target
    *        Record to edit, or record type of a new record (`access`: its owner and visibility); `files`: a
-   *        registered file (plan 20); `relation`: constraints of a relationship record (HRecordEditor).
+   *        registered file (plan 20); `relation`: constraints of a relationship record (HRecordEditor);
+   *        `pageIds`: the list page to step through (HRecordEditor).
    * @returns {Promise<{saved: boolean, recordId: number, record: object|null}>} When the dialog closes.
    */
-  async open({ recordId = 0, rectypeId = 0, domain = 'records', access = null, relation = null, parentContext = null } = {}) {
+  async open({ recordId = 0, rectypeId = 0, domain = 'records', access = null, relation = null, parentContext = null, pageIds = null } = {}) {
     const isFile = domain === 'files';
     const dialogId = `${DIALOG_ID}-${++dialogCount}`;
     const host = document.createElement('div');
@@ -213,8 +215,9 @@ export class RecordEditorHost {
     let dialog = null;
     let settled = false;
     let replace = null;
-    const create = (target) => this._createEditor(host, { ...target, domain, onNew: offersNew ? (state) => void replace(state) : null });
-    let editor = await create({ recordId, rectypeId, access, relation, parentContext });
+    // Dupe in the same cases as New
+    const create = (target) => this._createEditor(host, { ...target, domain, duplicate: offersNew, onNew: offersNew ? (state) => void replace(state) : null });
+    let editor = await create({ recordId, rectypeId, access, relation, parentContext, pageIds });
     replace = async ({ rectypeId: current }) => {
       const choice = await this._chooseNewRecord(current);
       if (!choice || settled) return;
@@ -291,7 +294,7 @@ export class RecordEditorHost {
   }
 
   /** HRecordEditor with the services of this host; saves are reported and remembered. */
-  async _createEditor(host, { recordId = 0, rectypeId = 0, domain = 'records', access = null, relation = null, parentContext = null, onNew = null } = {}) {
+  async _createEditor(host, { recordId = 0, rectypeId = 0, domain = 'records', access = null, relation = null, parentContext = null, onNew = null, pageIds = null, duplicate = false } = {}) {
     const isFile = domain === 'files';
     const dbdefs = await this.options.ensureDbDefs();
     const editor = new HRecordEditor().attach(host, {
@@ -303,6 +306,8 @@ export class RecordEditorHost {
       relation,
       parentContext,
       onNew,
+      pageIds,
+      duplicate,
       client: isFile ? this.fileClient : this.client,
       structureProvider: this.structures,
       selectExtent: this.options.selectExtent,

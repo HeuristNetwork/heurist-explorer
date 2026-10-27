@@ -265,7 +265,7 @@ export class ExpansionLevelView {
       // local selection only (U4): never sent to the host, so it cannot replace
       // the main selection that filters this list
       onSelectionChange: (ids) => { pane.selection = ids; },
-      onEditRecord: (id) => app.requestEditRecord(id),
+      onEditRecord: (id, edit) => app.requestEditRecord(id, edit),
       onViewRecord: (id, anchor) => app.requestViewRecord(id, anchor),
       onCollectionToggle: (id, collected) => app.setRecordCollected(id, collected),
       onCollectionAction: (action, ids) => (action === "show" ? false : app.applyCollectionAction(action, ids)),

@@ -33,5 +33,5 @@ test("the Table view's export buttons and counter are the top DataTables row, un
 test("double-click edits the record, as the pen button, only when editing is allowed", () => {
   assert.match(list, /"dblclick",\s*"\.h-recordlist-item",/);
   // without the host's onRecordActivate (the record manager, plan 21) double-click edits
-  assert.match(list, /if \(this\.options\.interaction\.editEnabled === false\) return;\s*this\.onEditRecord\?\.\(id\);/);
+  assert.match(list, /if \(this\.options\.interaction\.editEnabled === false\) return;\s*this\._editRecord\(id\);/);
 });

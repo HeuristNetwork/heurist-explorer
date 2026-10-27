@@ -535,3 +535,120 @@ test('sanitized values returned by the server replace the editor inputs after sa
   assert.deepEqual(editor.getRecord().details[12], ['<p>safe</p>']);
   assert.equal(editor.isDirty(), false);
 });
+
+test('footer: Save, Save and close, Drop changes need changes; Dupe and New are disabled with them (2026-10-27)', async () => {
+  const { editor, element } = await openEditor({ options: { onNew: () => {}, duplicate: true } });
+  const [save, saveClose, drop, dupe, add] = ['.h-btn-primary', null, '.h-record-editor-drop', '.h-record-editor-dupe', '.h-record-editor-new']
+    .map((selector) => (selector ? element.querySelector(selector) : editor.saveCloseButton));
+  assert.deepEqual([save, saveClose, drop].map((button) => button.disabled), [true, true, true]);
+  assert.deepEqual([dupe, add].map((button) => [button.hidden, button.disabled]), [[false, false], [false, false]]);
+  editor.editForm.getFieldWidget(12)._rows[0].input.setValue('t:12');
+  editor._onChange();
+  assert.deepEqual([save, saveClose, drop].map((button) => button.disabled), [false, false, false]);
+  assert.deepEqual([dupe, add].map((button) => button.disabled), [true, true]);
+  assert.equal(await editor.save(), true);
+  assert.equal(editor.saveButton.disabled, true, 'saved: nothing to save');
+  assert.equal(editor.dupeButton.disabled, false);
+  await editor.destroy();
+});
+
+test('the editor steps through the records of the list page (2026-10-27)', async () => {
+  const records = { 6: { ...RECORD, rec_ID: '6', rec_Title: 'Before' }, 7: RECORD, 8: { ...RECORD, rec_ID: '8', rec_Title: 'After' } };
+  const loaded = [];
+  const client = { async load(id) { loaded.push(Number(id)); return { record: structuredClone(records[id]), meta: {} }; } };
+  const { editor, element } = await openEditor({ options: { client, pageIds: [6, 7, 8] } });
+  assert.equal(element.querySelector('.h-record-editor-nav-position').textContent, '2/3');
+  assert.equal(editor.navPrevButton.disabled, false);
+  assert.equal(await editor.openRecord(8), true);
+  assert.equal(editor.record.rec_Title, 'After');
+  assert.equal(element.querySelector('.h-record-editor-nav-position').textContent, '3/3');
+  assert.equal(editor.navNextButton.disabled, true, 'last record of the page');
+  assert.deepEqual(loaded, [7, 8], 'loaded once, before the current record was removed');
+
+  const single = await openEditor({ options: { pageIds: [7] } });
+  assert.equal(single.element.querySelector('.h-record-editor-nav'), null, 'no navigation for one record');
+  await single.editor.destroy();
+  await editor.destroy();
+});
+
+test('Dupe copies the record and opens the copy (2026-10-27)', async () => {
+  const { HMsg } = await import('../src/ui/HMsg.js');
+  const copy = { ...RECORD, rec_ID: '9', rec_Title: 'Copy of Main' };
+  const client = {
+    async load(id) { return { record: structuredClone(Number(id) === 9 ? copy : RECORD), meta: {} }; },
+    async duplicate(id) { assert.equal(Number(id), 7); return { record: copy, issues: [] }; }
+  };
+  const saved = [];
+  const { editor, element } = await openEditor({ options: { client, duplicate: true } });
+  element.addEventListener('h-record-editor-saved', (event) => saved.push(event.detail));
+  const show = HMsg.showMsgDlg;
+  const close = HMsg.closeMsgDlg;
+  HMsg.showMsgDlg = (_text, options) => { queueMicrotask(() => options.buttons[0].onClick()); return null; };
+  HMsg.closeMsgDlg = () => {};
+  try {
+    assert.equal(await editor.duplicateRecord(), true);
+  } finally {
+    HMsg.showMsgDlg = show;
+    HMsg.closeMsgDlg = close;
+  }
+  assert.equal(editor.record.rec_ID, '9');
+  assert.equal(saved[0].created, true);
+  await editor.destroy();
+});
+
+test('a record the user may not change: warning at once, read-only fields, owner pen and Scratchpad (2026-10-27)', async () => {
+  const { rec_EditGroups: _editGroups, rec_NonOwnerVisibilityGroups: _viewGroups, ...foreign } = RECORD;
+  const { editor, element } = await openEditor({ record: foreign });
+  assert.equal(editor.canEdit, false);
+  assert.match(element.querySelector('.h-record-editor-norights').textContent, /You cannot change record 7; you must be the database administrator/);
+  assert.equal(element.querySelector('.h-record-editor-access-edit'), null, 'no pen in Admin');
+  assert.equal(editor.scratchpad.readOnly, true);
+  assert.equal(editor.editForm.options.readOnly, true);
+  assert.equal(await editor.save(), false);
+
+  const own = await openEditor();
+  assert.equal(own.element.querySelector('.h-record-editor-norights'), null);
+  await own.editor.destroy();
+  await editor.destroy();
+});
+
+test('messages lie on the footer; info and warnings go after a few seconds, errors stay (2026-10-27)', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const { editor, element } = await openEditor();
+  assert.equal(editor.messages.parentElement, element.querySelector('.h-record-editor-footer'));
+  editor._showMessages([{ severity: 'info', message: 'Saved' }]);
+  assert.equal(editor.messages.children.length, 1);
+  t.mock.timers.tick(4000);
+  assert.equal(editor.messages.children.length, 0);
+  editor._showMessages([{ severity: 'error', message: 'Not saved' }]);
+  t.mock.timers.tick(10000);
+  assert.equal(editor.messages.children.length, 1);
+  await editor.destroy();
+});
+
+test('Private, Tags and Linked records load when the summary and the section are open (2026-10-27)', async (t) => {
+  const { editor, element } = await openEditor();
+  const [privateSection] = [...element.querySelectorAll('.h-record-editor-summary-section')]
+    .filter((details) => details.querySelector('summary').textContent === 'Private');
+  assert.ok(!editor.privatePanel, 'closed section: not loaded');
+  assert.ok(editor.tagSelector, 'open section of an open pane: loaded');
+  privateSection.open = true;
+  privateSection.dispatchEvent(new Event('toggle'));
+  assert.ok(editor.privatePanel, 'loaded when opened');
+  await editor.destroy();
+
+  // the collapsed summary is remembered in localStorage and read by the next render
+  const storage = new Map();
+  const saved = Object.getOwnPropertyDescriptor(globalThis, 'localStorage');
+  Object.defineProperty(globalThis, 'localStorage', { configurable: true, value: {
+    getItem: (key) => storage.get(key) ?? null, setItem: (key, value) => storage.set(key, String(value))
+  } });
+  t.after(() => (saved ? Object.defineProperty(globalThis, 'localStorage', saved) : delete globalThis.localStorage));
+  const collapsed = await openEditor();
+  collapsed.editor.cardinal.collapse('east');
+  await collapsed.editor.openRecord(7);
+  assert.ok(!collapsed.editor.tagSelector, 'collapsed pane: nothing loaded');
+  collapsed.editor.cardinal.expand('east');
+  assert.ok(collapsed.editor.tagSelector, 'loaded when the pane is opened');
+  await collapsed.editor.destroy();
+});
