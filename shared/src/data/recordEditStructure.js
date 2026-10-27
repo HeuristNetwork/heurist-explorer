@@ -16,7 +16,7 @@
  *   {rty, groups: [{id, type: 'tabs'|'accordion'|'group', label, help, inner, newTabs,
  *                   open, explanation, children: [field]}]}
  *   field: {dty, type, label, help, req, max, default, vocabulary, targetTypes,
- *           pointerMode, browseFilter, width, height, multilang, concept}
+ *           pointerMode, browseFilter, geoKind, width, height, multilang, concept}
  *
  * Pointer types and vocabularies come from the base field only (`dty_PtrTargetRectypeIDs`,
  * `dty_JsonTermIDTree`); `rst_PtrFilteredIDs` / `rst_FilteredJsonTermIDTree` are ignored
@@ -68,6 +68,29 @@ export function resolvePointerMode(value, targetTypes = [], dbdefs = null) {
   const system = types.length > 0 && types.every((id) => isWritableRecordType(dbdefs, id));
   if (system && (!stored || stored === 'addorbrowse')) return 'dropdown_add';
   return stored || 'addorbrowse';
+}
+
+/**
+ * Record types whose DT_GEO_OBJECT is a bounding box (Artem 2026-10-27): hard-coded until the record
+ * structure gets `allowedFeatureTypes` (any, point, polyline, polygon, rectangle).
+ */
+const EXTENT_RECORD_TYPES = Object.freeze(['RT_MAP_DOCUMENT', 'RT_KML_SOURCE', 'RT_FILE_SOURCE', 'RT_SHP_SOURCE',
+  'RT_QUERY_SOURCE', 'RT_IMAGE_SOURCE', 'RT_TILED_IMAGE_SOURCE']);
+
+/**
+ * What the map of a geo field gives: `extent` (a bounding box, the extent picker) or `feature`
+ * (any geometry, the drawing).
+ *
+ * @param {number} rty Record type id.
+ * @param {number} dty Field id.
+ * @param {object|null} dbdefs HDbDefs (`dbconst`).
+ * @returns {'extent'|'feature'}
+ */
+export function geoKindOf(rty, dty, dbdefs) {
+  const id = (code) => Number(dbdefs?.dbconst?.(code)) || 0;
+  const geoObject = id('DT_GEO_OBJECT');
+  if (!(geoObject > 0) || Number(dty) !== geoObject) return 'feature';
+  return EXTENT_RECORD_TYPES.some((code) => id(code) > 0 && id(code) === Number(rty)) ? 'extent' : 'feature';
 }
 
 /** Legacy separator types (`rst_DefaultValue`); anything else is `group`. */
@@ -201,6 +224,7 @@ export function buildEditStructure(rows, { rty, multilangIds = [], dbdefs = null
         pointerMode: resolvePointerMode(row.rst_PointerMode, targets, dbdefs),
         browseFilter: String(row.rst_PointerBrowseFilter ?? '').trim()
       } : {}),
+      ...(type === 'geo' ? { geoKind: geoKindOf(rty, dty, dbdefs) } : {}),
       width: Math.max(0, Number(row.rst_DisplayWidth) || 0),
       height: Math.max(0, Number(row.rst_DisplayHeight) || 0),
       multilang: multilang.has(dty),

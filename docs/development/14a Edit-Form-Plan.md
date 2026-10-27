@@ -340,3 +340,20 @@ Differences from legacy:
 
 Tests: `recordEdit.test.js` (every separator type), `hEditForm.test.js` (inner groups, new tab set,
 visibility with the outer group). Not checked in a browser.
+
+## Geo fields: extent or feature (Artem 2026-10-27)
+
+- A geo field of a record structure gets `geoKind` in `buildEditStructure` (recordEditStructure.js
+  `geoKindOf`): `extent` (bounding box, the Map extent picker) for DT_GEO_OBJECT in RT_MAP_DOCUMENT,
+  RT_KML_SOURCE, RT_FILE_SOURCE, RT_SHP_SOURCE, RT_QUERY_SOURCE, RT_IMAGE_SOURCE, RT_TILED_IMAGE_SOURCE;
+  `feature` (any geometry, the drawing) for all others. Hard-coded for now; later a new record structure
+  property `allowedFeatureTypes` (any, point, polyline, polygon, rectangle) replaces the list:
+  `rectangle` alone = `extent`.
+- Done when the structure is built (not in HRecordManager / HRecordEditor): every editor of `/rst`
+  structures gets it, and the future property will be read from the same `/rst` row.
+- HInputGeo in extent mode opens the picker at the bounds of the stored WKT (`extentFromWkt`).
+- A picked extent is saved as `{geo: {type: 'r', wkt}}` (bounds, the legacy rectangle); without the type
+  the server stored it as a polygon (`pl`).
+- Fix 2026-10-27: `DT_GEO_OBJECT` (2-28) was not in the definitions snapshot `dbconst`, so every geo field
+  stayed `feature`. Added to `DefinitionSnapshotService::dbconst()` and to the keys a cached snapshot must
+  have (an older cached snapshot is rebuilt) - heurist repo.

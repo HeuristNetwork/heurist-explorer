@@ -16,7 +16,7 @@
 
 import { HInput } from './HInput.js';
 import { $HR } from '../../../ui/i18n/index.js';
-import { extentToWkt, isExtent } from '../../../utils/geoExtent.js';
+import { extentFromWkt, extentToWkt, isExtent } from '../../../utils/geoExtent.js';
 import { geoToHuman } from '../../../utils/geoText.js';
 import './HInputGeo.css';
 
@@ -73,7 +73,8 @@ export class HInputGeo extends HInput {
           }
           return;
         }
-        const current = isExtent(this.value) ? this.value : null;
+        // a stored value is WKT: the picker starts at its bounds
+        const current = isExtent(this.value) ? this.value : (this.value ? extentFromWkt(String(this.value)) : null);
         const extent = await this.options.selectExtent(current);
         if (extent) {
           this.setValue(extent);

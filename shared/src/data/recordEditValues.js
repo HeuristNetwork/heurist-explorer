@@ -150,7 +150,8 @@ export function packValue(type, entry) {
   if (value === null || value === undefined || (typeof value === 'string' && value.trim() === '')) return null;
   if (type === 'geo') {
     const wkt = isExtent(value) ? extentToWkt(value) : String(value);
-    const geo = { wkt };
+    // an extent is stored as bounds ('r', the legacy rectangle); else the type of the drawing
+    const geo = isExtent(value) ? { type: 'r', wkt } : { wkt };
     if (entry.geoType && !isExtent(value)) geo.type = entry.geoType;
     return entry.hidden ? { geo, hidden: true } : { geo };
   }

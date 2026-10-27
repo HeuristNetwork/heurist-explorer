@@ -144,7 +144,7 @@ test('editor entries become request values', () => {
   assert.deepEqual(packValue('freetext', { value: 'x', hidden: true }), { value: 'x', hidden: true });
   assert.deepEqual(packValue('geo', { value: 'POINT(1 2)', geoType: 'p' }), { geo: { wkt: 'POINT(1 2)', type: 'p' } });
   assert.deepEqual(packValue('geo', { value: { west: 0, south: 0, east: 1, north: 1 } }),
-    { geo: { wkt: 'POLYGON((0 0,1 0,1 1,0 1,0 0))' } });
+    { geo: { type: 'r', wkt: 'POLYGON((0 0,1 0,1 1,0 1,0 0))' } });
   assert.equal(packValue('freetext', { value: '  ' }), null);
 });
 
@@ -269,4 +269,25 @@ test('RecordStructureProvider.editStructure loads the edit columns once per reco
   assert.match(api.calls[0].query.details, /rst_MaxValues/);
   assert.equal(structureFields(first).find((field) => field.dty === 1).multilang, true);
   assert.equal(structureFields(second).find((field) => field.dty === 1).multilang, false);
+});
+
+test('DT_GEO_OBJECT of map documents and data sources is an extent, saved as bounds (2026-10-27)', async () => {
+  const { buildEditStructure, geoKindOf } = await import('../../src/data/recordEditStructure.js');
+  const { packValue } = await import('../../src/data/recordEditValues.js');
+  const codes = { DT_GEO_OBJECT: 28, RT_MAP_DOCUMENT: 31, RT_QUERY_SOURCE: 29, RT_TILED_IMAGE_SOURCE: 40 };
+  const defs = { dbconst: (name) => codes[name] ?? null };
+  assert.equal(geoKindOf(31, 28, defs), 'extent');
+  assert.equal(geoKindOf(40, 28, defs), 'extent');
+  assert.equal(geoKindOf(12, 28, defs), 'feature', 'other record types draw any geometry');
+  assert.equal(geoKindOf(31, 30, defs), 'feature', 'other geo fields draw any geometry');
+  const structure = buildEditStructure([
+    { rst_DetailTypeID: 28, dty_Type: 'geo', rst_DisplayOrder: 1, rst_DisplayName: 'Extent' },
+    { rst_DetailTypeID: 1, dty_Type: 'freetext', rst_DisplayOrder: 0, rst_DisplayName: 'Name' }
+  ], { rty: 29, dbdefs: defs });
+  const [name, extent] = structure.groups[0].children;
+  assert.equal(extent.geoKind, 'extent');
+  assert.equal('geoKind' in name, false);
+  assert.deepEqual(packValue('geo', { value: { west: 1, south: 2, east: 3, north: 4 } }),
+    { geo: { type: 'r', wkt: 'POLYGON((1 2,3 2,3 4,1 4,1 2))' } });
+  assert.deepEqual(packValue('geo', { value: 'POINT(1 2)', geoType: 'p' }), { geo: { wkt: 'POINT(1 2)', type: 'p' } });
 });
