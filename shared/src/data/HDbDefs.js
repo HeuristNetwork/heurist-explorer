@@ -32,6 +32,9 @@ const EMPTY = Object.freeze([]);
 const RESOURCE_TYPE = 'resource';
 const RELMARKER_TYPE = 'relmarker';
 
+/** Parts of the users/groups overlay that may be loaded later. */
+const USER_GROUP_PARTS = Object.freeze(['users', 'tags']);
+
 export class HDbDefs {
   /**
    * Fetch and parse the definition snapshot.
@@ -79,6 +82,8 @@ export class HDbDefs {
     this._termlinks = Array.isArray(snap.termlinks) ? snap.termlinks : [];
     this._rectypeCounts = null;
     this._userGroups = null;
+    this._userGroupLoader = null;
+    this._userGroupLoads = new Map();
 
     this._buildIndexes();
   }
@@ -375,48 +380,95 @@ export class HDbDefs {
    * overlay like the rectype counts, published by the host (Explorer's
    * UserGroupManager) after it loads them from `/sys`.
    *
+   * Users and tags may come later (2026-10-27: start-up loads groups only): the
+   * parts named in `pending` are loaded by the loader of `setUserGroupLoader` on
+   * the first `ensureUserGroups`, or in the background when a getter needs them.
+   *
    * @param {{currentUserId?: number, isDbAdmin?: boolean,
    *          groups?: Array<{id:number, name:string, role?:string}>,
-   *          users?: Array<{id:number, name:string}>}|null} data `null` clears
+   *          users?: Array<{id:number, name:string}>,
+   *          tags?: Array<{id:number, name:string, owner:number}>,
+   *          pending?: Array<'users'|'tags'>}|null} data `null` clears
    *        them (guest, or not loaded).
    * @returns {HDbDefs} This instance.
    */
   setUserGroups(data) {
+    this._userGroupLoads = new Map();
     if (data == null) {
       this._userGroups = null;
       return this;
     }
-    const clean = (list, withRole) => (Array.isArray(list) ? list : [])
-      .map((row) => ({
-        id: Number(row?.id),
-        name: String(row?.name ?? ''),
-        ...(withRole ? { role: ['admin', 'member'].includes(row?.role) ? row.role : 'none' } : {})
-      }))
-      .filter((row) => Number.isInteger(row.id) && row.id >= 0);
-    const groups = clean(data.groups, true);
-    const users = clean(data.users, false);
-    const tags = (Array.isArray(data.tags) ? data.tags : [])
-      .map((row) => ({ id: Number(row?.id), name: String(row?.name ?? ''), owner: Number(row?.owner) }))
-      .filter((row) => Number.isInteger(row.id) && row.id > 0);
+    const groups = cleanUserGroupRows(data.groups, true);
     this._userGroups = {
       currentUserId: Number(data.currentUserId) || 0,
       isDbAdmin: Boolean(data.isDbAdmin),
       groups,
-      users,
-      tags,
-      names: new Map([...groups, ...users].map((row) => [row.id, row.name])),
-      tagNames: new Map(tags.map((row) => [row.id, row.name]))
+      users: [],
+      tags: [],
+      names: new Map(),
+      tagNames: new Map(),
+      pending: new Set((Array.isArray(data.pending) ? data.pending : []).filter((part) => USER_GROUP_PARTS.includes(part)))
     };
+    this._setUserGroupPart('users', data.users);
+    this._setUserGroupPart('tags', data.tags);
     return this;
+  }
+
+  /**
+   * Set the function that loads a part of the overlay later (users or tags).
+   *
+   * @param {(function('users'|'tags'): Promise<Array<object>>)|null} loader Resolves the rows of the part.
+   * @returns {HDbDefs} This instance.
+   */
+  setUserGroupLoader(loader) {
+    this._userGroupLoader = typeof loader === 'function' ? loader : null;
+    return this;
+  }
+
+  /**
+   * Load the parts of the overlay that are not loaded yet (once; a failed load can
+   * be tried again). Callers that list users or tags await this first.
+   *
+   * @param {Array<'users'|'tags'>} [parts] Parts needed; default both.
+   * @returns {Promise<HDbDefs>} This instance.
+   */
+  async ensureUserGroups(parts = USER_GROUP_PARTS) {
+    const overlay = this._userGroups;
+    const loader = this._userGroupLoader;
+    if (!overlay || !loader) return this;
+    const loads = this._userGroupLoads || (this._userGroupLoads = new Map());
+    await Promise.all(parts.filter((part) => overlay.pending.has(part)).map((part) => {
+      if (!loads.has(part)) {
+        loads.set(part, Promise.resolve(loader(part))
+          .then((rows) => {
+            if (this._userGroups !== overlay) return;
+            this._setUserGroupPart(part, rows);
+            overlay.pending.delete(part);
+          })
+          .finally(() => { if (overlay.pending.has(part)) loads.delete(part); }));
+      }
+      return loads.get(part);
+    }));
+    return this;
+  }
+
+  /**
+   * @param {'users'|'tags'} part Part of the overlay.
+   * @returns {boolean} Whether it is still to be loaded.
+   */
+  isUserGroupPartPending(part) {
+    return Boolean(this._userGroups?.pending.has(part));
   }
 
   /** @returns {boolean} Whether tags (keywords) of the current user are attached. */
   hasTags() {
+    this._userGroupsInBackground('tags');
     return Boolean(this._userGroups?.tags?.length);
   }
 
   /** @returns {Array<{id:number, name:string, owner:number}>} Tags visible to the current user (owner: user or group). */
   tags() {
+    this._userGroupsInBackground('tags');
     return (this._userGroups?.tags || []).map((row) => ({ ...row }));
   }
 
@@ -425,7 +477,9 @@ export class HDbDefs {
    * @returns {string} Tag text, or `''` when not visible.
    */
   tagName(id) {
-    return this._userGroups?.tagNames?.get(Number(id)) || '';
+    const name = this._userGroups?.tagNames?.get(Number(id)) || '';
+    if (!name) this._userGroupsInBackground('tags');
+    return name;
   }
 
   /** @returns {boolean} Whether users/groups have been attached. */
@@ -440,6 +494,7 @@ export class HDbDefs {
 
   /** @returns {Array<{id:number, name:string}>} Visible users. */
   users() {
+    this._userGroupsInBackground('users');
     return (this._userGroups?.users || []).map((row) => ({ ...row }));
   }
 
@@ -448,7 +503,9 @@ export class HDbDefs {
    * @returns {string} Its name, or `''` when not visible.
    */
   userGroupName(id) {
-    return this._userGroups?.names.get(Number(id)) || '';
+    const name = this._userGroups?.names.get(Number(id)) || '';
+    if (!name) this._userGroupsInBackground('users');
+    return name;
   }
 
   /**
@@ -467,6 +524,28 @@ export class HDbDefs {
   /** @returns {number} Current user ID from the overlay (`0` for guests or when not loaded). */
   currentUserId() {
     return this._userGroups?.currentUserId || 0;
+  }
+
+  /** Replace the users or the tags of the overlay and their name maps. */
+  _setUserGroupPart(part, rows) {
+    const overlay = this._userGroups;
+    if (part === 'tags') {
+      overlay.tags = (Array.isArray(rows) ? rows : [])
+        .map((row) => ({ id: Number(row?.id), name: String(row?.name ?? ''), owner: Number(row?.owner) }))
+        .filter((row) => Number.isInteger(row.id) && row.id > 0);
+      overlay.tagNames = new Map(overlay.tags.map((row) => [row.id, row.name]));
+      return;
+    }
+    // before the user list is loaded it may hold the current user only (their name)
+    overlay.users = cleanUserGroupRows(rows, false);
+    overlay.names = new Map([...overlay.groups, ...overlay.users].map((row) => [row.id, row.name]));
+  }
+
+  /** Start loading a missing part of the overlay for a synchronous getter (no wait, errors ignored). */
+  _userGroupsInBackground(part) {
+    if (this._userGroups?.pending.has(part) && this._userGroupLoader) {
+      this.ensureUserGroups([part]).catch(() => {});
+    }
   }
 
   // ---------------------------------------------------------------- fields ---
@@ -848,6 +927,23 @@ export class HDbDefs {
 }
 
 // -------------------------------------------------------------------- helpers ---
+
+/**
+ * Valid user or group rows of the overlay: `{id, name}`, groups also with `role`.
+ *
+ * @param {Array<object>} list Rows.
+ * @param {boolean} withRole Keep the current user's role (groups).
+ * @returns {Array<object>}
+ */
+function cleanUserGroupRows(list, withRole) {
+  return (Array.isArray(list) ? list : [])
+    .map((row) => ({
+      id: Number(row?.id),
+      name: String(row?.name ?? ''),
+      ...(withRole ? { role: ['admin', 'member'].includes(row?.role) ? row.role : 'none' } : {})
+    }))
+    .filter((row) => Number.isInteger(row.id) && row.id >= 0);
+}
 
 /**
  * Snapshot terms with the names of the report field tree: `{term, code, conceptid, desc,

@@ -1,13 +1,14 @@
 /**
  * @file UserGroupManager.js
- * @brief Loads, once, the users and groups visible to the current user and
- *        publishes them on HDbDefs (plan V6/V7).
+ * @brief Loads the groups visible to the current user and publishes them on
+ *        HDbDefs (plan V6/V7); users and tags only when first needed.
  *
- * Two public `/sys` requests run in parallel: groups (with the current user's
- * role) and users. The server applies the visibility rule; its
- * `meta.currentUser` says who is logged in and whether they administer the
- * database. Guests get nothing and the overlay is cleared, so user/group inputs
- * fall back to direct input.
+ * At start one public `/sys` request: groups (with the current user's role). The
+ * server applies the visibility rule; its `meta.currentUser` says who is logged
+ * in (with their name) and whether they administer the database. Users and the
+ * current user's tags are loaded by HDbDefs through this manager's loader the
+ * first time something lists them (2026-10-27, start-up time). Guests get nothing
+ * and the overlay is cleared, so user/group inputs fall back to direct input.
  *
  * @project     Heurist academic knowledge management system
  * @package     heurist-explorer
@@ -37,8 +38,8 @@ export class UserGroupManager {
   }
 
   /**
-   * (Re)load users and groups and publish them on HDbDefs. Call again after
-   * login or logout.
+   * (Re)load the groups and publish them on HDbDefs; users and tags follow on
+   * demand. Call again after login or logout.
    *
    * @returns {Promise<object|null>} The published data, or `null` for a guest.
    */
@@ -46,21 +47,12 @@ export class UserGroupManager {
     this._loadController?.abort();
     const controller = new AbortController();
     this._loadController = controller;
-    const request = (type, fields, scope = {}, limit = 1000) => this.apiClient.get('/sys', {
-      query: { q: { t: type, ...scope }, limit, ...(fields ? { fields } : {}) },
-      signal: controller.signal
-    });
-    const [dbDefs, groups, users, tags] = await Promise.all([
+    const [dbDefs, groups] = await Promise.all([
       this.dbDefsProvider(),
-      request('group', 'role').catch((error) => guestOrThrow(error)),
-      request('user').catch((error) => guestOrThrow(error)),
-      // tags (keywords) of the current user only - personal and of their groups - even for
-      // an administrator, who could otherwise read every user's tags
-      // (the record format since plan 20 Phase 4a: the owner is the header rec_OwnerUGrpID)
-      request('tag', 'rec_OwnerUGrpID', { user: 'current' }, 5000).catch((error) => guestOrThrow(error))
+      this._request('group', 'role').catch((error) => guestOrThrow(error))
     ]);
     if (controller.signal.aborted) return this.data;
-    const currentUser = groups?.meta?.currentUser || users?.meta?.currentUser || null;
+    const currentUser = groups?.meta?.currentUser || null;
     const currentUserId = Number(currentUser?.id) || 0;
     this.data = currentUserId > 0 ? {
       currentUserId,
@@ -70,12 +62,24 @@ export class UserGroupManager {
         name: String(record.rec_Title ?? ''),
         role: record.details?.role?.[0]?.value || 'none'
       })),
-      users: records(users).map((record) => ({ id: Number(record.rec_ID), name: String(record.rec_Title ?? '') })),
-      tags: records(tags).map((record) => ({
-        id: Number(record.rec_ID), name: String(record.rec_Title ?? ''), owner: Number(record.rec_OwnerUGrpID)
-      }))
+      // until the user list is needed: the current user (their own name)
+      users: currentUser?.name ? [{ id: currentUserId, name: String(currentUser.name) }] : [],
+      tags: [],
+      pending: ['users', 'tags']
     } : null;
+    dbDefs?.setUserGroupLoader?.(this.data ? (part) => this._loadPart(part, controller) : null);
     dbDefs?.setUserGroups?.(this.data);
+    return this.data;
+  }
+
+  /**
+   * Load users and/or tags now, when they are not loaded yet.
+   *
+   * @param {Array<'users'|'tags'>} [parts] Parts needed; default both.
+   * @returns {Promise<object|null>} The data, as `load`.
+   */
+  async ensure(parts) {
+    await (await this.dbDefsProvider())?.ensureUserGroups?.(parts);
     return this.data;
   }
 
@@ -83,7 +87,45 @@ export class UserGroupManager {
   async clear() {
     this._loadController?.abort();
     this.data = null;
-    (await this.dbDefsProvider())?.setUserGroups?.(null);
+    const dbDefs = await this.dbDefsProvider();
+    dbDefs?.setUserGroupLoader?.(null);
+    dbDefs?.setUserGroups?.(null);
+  }
+
+  /** One `/sys` list request of this load. */
+  _request(type, fields, scope = {}, limit = 1000, signal = this._loadController?.signal) {
+    return this.apiClient.get('/sys', {
+      query: { q: { t: type, ...scope }, limit, ...(fields ? { fields } : {}) },
+      signal
+    });
+  }
+
+  /**
+   * The rows of one part of the overlay, for HDbDefs; also kept in `data`.
+   *
+   * @param {'users'|'tags'} part Part to load.
+   * @param {AbortController} controller The load this part belongs to.
+   * @returns {Promise<Array<object>>} Rows.
+   */
+  async _loadPart(part, controller) {
+    let rows;
+    if (part === 'tags') {
+      // tags (keywords) of the current user only - personal and of their groups - even for
+      // an administrator, who could otherwise read every user's tags
+      // (the record format since plan 20 Phase 4a: the owner is the header rec_OwnerUGrpID)
+      const tags = await this._request('tag', 'rec_OwnerUGrpID', { user: 'current' }, 5000, controller.signal)
+        .catch((error) => guestOrThrow(error));
+      rows = records(tags).map((record) => ({
+        id: Number(record.rec_ID), name: String(record.rec_Title ?? ''), owner: Number(record.rec_OwnerUGrpID)
+      }));
+    } else {
+      const users = await this._request('user', null, {}, 1000, controller.signal).catch((error) => guestOrThrow(error));
+      rows = records(users).map((record) => ({ id: Number(record.rec_ID), name: String(record.rec_Title ?? '') }));
+    }
+    if (this.data && this._loadController === controller) {
+      this.data = { ...this.data, [part]: rows, pending: this.data.pending.filter((name) => name !== part) };
+    }
+    return rows;
   }
 }
 

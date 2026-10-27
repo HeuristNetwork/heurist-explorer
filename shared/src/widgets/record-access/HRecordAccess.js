@@ -74,6 +74,7 @@ export function ownerChoices(dbdefs, current = null) {
   return {
     items,
     async load() {
+      await dbdefs?.ensureUserGroups?.(['users']);
       const list = items();
       return { items: list, total: list.length, complete: true };
     },

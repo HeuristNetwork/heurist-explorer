@@ -193,6 +193,12 @@ export class UserGroupSource extends LocalSource {
     return sortItems(list, 'label');
   }
 
+  /** @returns {Promise<object>} The items, after the users are loaded (on first use). */
+  async load() {
+    if (this.includeUsers) await this.dbdefs?.ensureUserGroups?.(['users']);
+    return super.load();
+  }
+
   /** @returns {boolean} True when the overlay offers anything to pick. */
   isAvailable() {
     return this.items().length > 0;
@@ -232,9 +238,15 @@ export class TagSource extends LocalSource {
     return list;
   }
 
-  /** @returns {boolean} True when there are tags to pick. */
+  /** @returns {Promise<object>} The items, after the tags are loaded (on first use). */
+  async load() {
+    await this.dbdefs?.ensureUserGroups?.(['tags']);
+    return super.load();
+  }
+
+  /** @returns {boolean} True when there are tags to pick (or they are still to be loaded). */
   isAvailable() {
-    return this.items().length > 0;
+    return Boolean(this.dbdefs?.isUserGroupPartPending?.('tags')) || this.items().length > 0;
   }
 
   /** @returns {string} Tag text from HDbDefs. */

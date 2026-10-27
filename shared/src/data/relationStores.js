@@ -199,7 +199,10 @@ export class MembershipRelationStore extends RelationStore {
     const id = this.record.id;
     if (!(id > 0)) return [];
     if (!this.reverse) {
-      const response = await this.apiClient.get(`/sys/group/${id}`, { signal, query: { fields: 'members' } });
+      const [response] = await Promise.all([
+        this.apiClient.get(`/sys/group/${id}`, { signal, query: { fields: 'members' } }),
+        this.dbdefs?.ensureUserGroups?.(['users'])
+      ]);
       const members = response?.records?.[0]?.details?.members || [];
       const rty = this._rty('RT_SYS_USER');
       return members.map((member) => {

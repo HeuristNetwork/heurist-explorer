@@ -1917,7 +1917,7 @@ export class ExplorerApplication {
       getQuerySources: () => this.getQuerySources().map((item) => ({
         id: item.id, title: item.title, parametrized: item.parametrized === true || item.kind === 'parametrized'
       })),
-      getUserGroups: () => this.userGroups?.data || null
+      getUserGroups: async () => (await this.userGroups?.ensure(['users'])) || null
     };
   }
 

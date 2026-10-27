@@ -216,6 +216,7 @@ export class HRecordPrivate extends HBaseWidget {
   /** A reminder in a popup form (null: a new one) with Save and Send now. */
   async _editReminder(reminder) {
     const dbdefs = this.options.dbdefs;
+    await dbdefs?.ensureUserGroups?.(['users']);
     const recipients = new UserGroupSource(dbdefs).items().map((item) => ({ id: String(item.value), label: item.label }));
     const fieldIds = systemFieldIds('reminder', dbdefs);
     const form = systemEditForm('reminder', dbdefs, {

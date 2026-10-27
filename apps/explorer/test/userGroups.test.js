@@ -34,38 +34,87 @@ test('HDbDefs keeps the users/groups overlay with roles', () => {
   assert.equal(defs.hasUserGroups(), false);
 });
 
-/** API stub answering the two /sys requests. */
-function sysApi({ groups, users, error } = {}) {
+/** API stub answering the /sys requests of groups, users and tags. */
+function sysApi({ groups, users, tags, error } = {}) {
   const requests = [];
   return {
     requests,
     async get(path, { query }) {
       requests.push({ path, query });
       if (error) throw error;
-      return query.q.t === 'group' ? groups : users;
+      return { group: groups, user: users, tag: tags }[query.q.t];
     }
   };
 }
 
-test('UserGroupManager loads groups (with roles) and users and publishes them', async () => {
+const ADMIN_API = () => sysApi({
+  groups: {
+    records: [{ rec_ID: 6, rec_Title: 'Test group', details: { role: [{ value: 'admin' }] } }],
+    meta: { currentUser: { id: 2, name: 'osmakov', isAdmin: true } }
+  },
+  users: { records: [{ rec_ID: 2, rec_Title: 'osmakov' }, { rec_ID: 5, rec_Title: 'timma' }] },
+  tags: { records: [{ rec_ID: 11, rec_Title: 'my tag', rec_OwnerUGrpID: 2 }] }
+});
+
+test('UserGroupManager loads only groups (with roles) at start and publishes them', async () => {
   const defs = new HDbDefs(SNAPSHOT);
-  const api = sysApi({
-    groups: {
-      records: [{ rec_ID: 6, rec_Title: 'Test group', details: { role: [{ value: 'admin' }] } }],
-      meta: { currentUser: { id: 2, isAdmin: true } }
-    },
-    users: { records: [{ rec_ID: 2, rec_Title: 'osmakov' }], meta: { currentUser: { id: 2, isAdmin: true } } }
-  });
+  const api = ADMIN_API();
   const manager = new UserGroupManager({ apiClient: api, dbDefsProvider: async () => defs });
   await manager.load();
   assert.deepEqual(api.requests.map((request) => [request.path, request.query.q.t, request.query.fields]),
-    [['/sys', 'group', 'role'], ['/sys', 'user', undefined], ['/sys', 'tag', 'rec_OwnerUGrpID']]);
-  assert.equal(api.requests[2].query.q.user, 'current', "only the current user's tags");
+    [['/sys', 'group', 'role']]);
   assert.deepEqual(defs.groups(), [{ id: 6, name: 'Test group', role: 'admin' }]);
   assert.equal(defs.isDbAdmin(), true);
   assert.equal(defs.currentUserId(), 2);
+  assert.equal(defs.userGroupName(2), 'osmakov', 'own name from meta.currentUser, no user list');
+  assert.equal(defs.isUserGroupPartPending('users'), true);
+  assert.equal(defs.isUserGroupPartPending('tags'), true);
   await manager.clear();
   assert.equal(defs.hasUserGroups(), false);
+});
+
+test('users and tags are loaded once, on first use', async () => {
+  const defs = new HDbDefs(SNAPSHOT);
+  const api = ADMIN_API();
+  const manager = new UserGroupManager({ apiClient: api, dbDefsProvider: async () => defs });
+  await manager.load();
+  await Promise.all([defs.ensureUserGroups(['users']), defs.ensureUserGroups(['users'])]);
+  assert.deepEqual(api.requests.map((request) => request.query.q.t), ['group', 'user']);
+  assert.deepEqual(defs.users().map((user) => user.name), ['osmakov', 'timma']);
+  assert.equal(defs.userGroupName(5), 'timma');
+  assert.equal(defs.isUserGroupPartPending('users'), false);
+  const data = await manager.ensure(['tags']);
+  assert.deepEqual(api.requests.map((request) => request.query.q.t), ['group', 'user', 'tag']);
+  assert.equal(api.requests[2].query.q.user, 'current', "only the current user's tags");
+  assert.equal(defs.tagName(11), 'my tag');
+  assert.deepEqual(data.tags, [{ id: 11, name: 'my tag', owner: 2 }]);
+  assert.deepEqual(data.pending, []);
+  await defs.ensureUserGroups();
+  assert.equal(api.requests.length, 3, 'nothing is loaded twice');
+});
+
+test('a synchronous getter starts the load in the background', async () => {
+  const defs = new HDbDefs(SNAPSHOT);
+  const api = ADMIN_API();
+  await new UserGroupManager({ apiClient: api, dbDefsProvider: async () => defs }).load();
+  assert.equal(defs.tagName(11), '', 'not loaded yet');
+  await defs.ensureUserGroups(['tags']);
+  assert.equal(defs.tagName(11), 'my tag');
+  assert.deepEqual(api.requests.map((request) => request.query.q.t), ['group', 'tag']);
+});
+
+test('a failed load can be tried again', async () => {
+  const defs = new HDbDefs(SNAPSHOT).setUserGroups({ currentUserId: 2, groups: [], pending: ['users'] });
+  let calls = 0;
+  defs.setUserGroupLoader(async () => {
+    calls += 1;
+    if (calls === 1) throw new Error('offline');
+    return [{ id: 5, name: 'timma' }];
+  });
+  await assert.rejects(defs.ensureUserGroups(['users']), /offline/);
+  await defs.ensureUserGroups(['users']);
+  assert.equal(defs.userGroupName(5), 'timma');
+  assert.equal(calls, 2);
 });
 
 test('UserGroupManager clears the overlay for a guest', async () => {

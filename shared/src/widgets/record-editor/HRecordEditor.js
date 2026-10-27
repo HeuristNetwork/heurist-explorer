@@ -163,6 +163,8 @@ export class HRecordEditor extends HBaseWidget {
   async open({ signal } = {}) {
     if (!this.container) throw new Error('HRecordEditor must be attached before open');
     this._renderLoading();
+    // names of other users (Admin panel, owner list) are loaded on first use (2026-10-27)
+    const users = Promise.resolve(this.dbdefs?.ensureUserGroups?.(['users'])).catch(() => null);
     const recordId = Number(this.options.recordId) || 0;
     if (recordId > 0) {
       const { record } = await this.client.load(recordId, { signal });
@@ -175,6 +177,7 @@ export class HRecordEditor extends HBaseWidget {
     if (typeof this.options.structure === 'function') {
       // a hard-coded structure (registered files): no reverse or non-standard groups
       this.structure = await this.options.structure(this.record, this.dbdefs);
+      await users;
       this.render();
       return this;
     }
@@ -196,6 +199,7 @@ export class HRecordEditor extends HBaseWidget {
     this.structure = splitLargeGroups(groups, this._limits().fields, (from, to) => `${$HR('Fields')} ${from}-${to}`);
     await this._loadParents(signal);
     const relationsMessage = await this._loadRelmarkers(signal);
+    await users;
     this.render();
     if (relationsMessage) this._showMessages([relationsMessage]);
     if (this.isNew && this._parentField && !this.options.parentContext) {
