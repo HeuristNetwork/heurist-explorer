@@ -237,10 +237,11 @@ function normalizeBaseMaps(settings = {}, preventContinuousWorldBasemap = false)
   const defaultById = new Map(defaults.map((item) => [String(item.id), item]));
   let result = defaults;
   if (Array.isArray(settings.allowed)) {
-    result = settings.allowed.map((id) => {
-      const key = String(id);
-      return defaultById.get(key) || { id: key, title: key, type: key === 'None' ? 'none' : 'tile', provider: key };
-    });
+    // an id must be one name (a list joined into one text, 2026-10-28, is skipped); nothing usable: all
+    const ids = settings.allowed.flat(Infinity).map((id) => String(id ?? '').trim())
+      .filter((id) => id && !/[,\s]/.test(id));
+    const allowed = ids.map((key) => defaultById.get(key) || { id: key, title: key, type: key === 'None' ? 'none' : 'tile', provider: key });
+    if (allowed.length) result = allowed;
   }
   if (preventContinuousWorldBasemap) {
     result = result.map((item) => item.type === 'tile' ? { ...item, noWrap: true } : item);

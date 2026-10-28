@@ -133,7 +133,11 @@ export async function mountInstance(host, id, config, loaders) {
     const frame = document.createElement('iframe');
     frame.className = 'h-site-frame';
     frame.title = instance.type;
-    frame.src = `${config.runtime?.frameUrl || ''}${encodeURIComponent(id)}`;
+    const frameUrl = config.runtime?.frameUrl || '';
+    // a language asked in the page URL goes to the module page too
+    const lang = config.runtime?.languageRequested && config.runtime.language
+      ? `${frameUrl.includes('?') ? '&' : '?'}lang=${encodeURIComponent(config.runtime.language)}` : '';
+    frame.src = `${frameUrl}${encodeURIComponent(id)}${lang}`;
     host.replaceChildren(frame);
     return frame;
   }

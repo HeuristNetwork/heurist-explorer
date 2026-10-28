@@ -78,9 +78,13 @@ export class VisNetworkAdapter extends GraphEngineAdapter {
     this.network.on("select", ({ nodes }) =>
       this.onSelectionChange?.(nodes.map(Number)),
     );
-    this.network.on("click", ({ nodes, edges, pointer }) => {
-      if (nodes.length) this.#showPopup(nodes[0], pointer.DOM);
-      else if (edges.length) this.#showPopup(null, pointer.DOM, edges[0]);
+    // the node or edge under the pointer: the event's `nodes`/`edges` are the selection,
+    // which does not change when selection is off (a published graph, 2026-10-28)
+    this.network.on("click", ({ pointer }) => {
+      const node = this.network.getNodeAt(pointer.DOM);
+      const edge = node == null ? this.network.getEdgeAt(pointer.DOM) : null;
+      if (node != null) this.#showPopup(node, pointer.DOM);
+      else if (edge != null) this.#showPopup(null, pointer.DOM, edge);
       else this.#hidePopup();
     });
     this.network.on("dragStart", () => this.#hidePopup());
@@ -281,7 +285,8 @@ export class VisNetworkAdapter extends GraphEngineAdapter {
     // A selection driven by another widget's ON_REC_SELECT event may name
     // records this graph never loaded; vis-network throws for unknown node
     // ids, so only select the subset actually present.
-    const ids = recordIds
+    // selection off: nothing is shown selected (it could not be changed)
+    const ids = this.options?.selectionEnabled === false ? [] : recordIds
       .map(Number)
       .filter((id) => this.nodes.get(id) != null);
     this.network.selectNodes(ids, false);

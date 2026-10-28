@@ -25,7 +25,9 @@ import { QuerySourceProvider } from "#shared/data/QuerySourceProvider.js";
 import { ReportTemplateProvider } from "#shared/data/ReportTemplateProvider.js";
 import { RecordContentProvider } from "#shared/recordview/RecordContentProvider.js";
 import { VocabularyProvider } from "#shared/data/VocabularyProvider.js";
-import { GraphConfigurationDialog } from "./ui/config/GraphConfigurationDialog.js";
+import { createConfigurationDialogFactory } from "#shared/ui/config/moduleConfigurationDialogFactory.js";
+import { smartyTemplateTerms } from "#shared/data/moduleConfigurationForm.js";
+import { graphConfiguration } from "./configuration.js";
 import { RecordViewLoader } from "#shared/recordview/RecordViewLoader.js";
 
 /**
@@ -89,10 +91,12 @@ export async function initHeuristGraph(config) {
     baseUrl: heuristBaseUrl,
     database: config.database,
   });
-  api.setConfigurationDialogFactory((options = {}) => new GraphConfigurationDialog({
-    ...options,
-    reportTemplateProvider,
-  }).open());
+  // the common configuration form (plan 29): in heurist-explorer in Explorer's window
+  api.setConfigurationDialogFactory(createConfigurationDialogFactory({
+    configuration: graphConfiguration,
+    bridge: application.host?.bridge || null,
+    termsProviders: { smartyTemplates: smartyTemplateTerms(reportTemplateProvider) },
+  }));
   const ready = application.initialize(canvas, { messageElement: message }).then(async () => {
     await new GraphControlPanel({
       api,

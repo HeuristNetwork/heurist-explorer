@@ -81,7 +81,10 @@ export class RecordViewControlPanel {
     this.resizeObserver = globalThis.ResizeObserver ? new ResizeObserver(() => this.reserveSpace()) : null;
     this.resizeObserver?.observe(this.element);
 
-    this.bind("heurist-recordview-loaded", (event) => this.updateTitle(event.detail));
+    this.bind("heurist-recordview-loaded", (event) => {
+      this.updateTitle(event.detail);
+      if (this.options.published) this.applyVisibility();
+    });
     this.bind("heurist-recordview-cleared", () => this.updateTitle(null));
     this.bind("heurist-recordview-configuration-changed", (event) => this.applyOptions(event.detail));
 
@@ -216,6 +219,7 @@ export class RecordViewControlPanel {
       ...this.options,
       showOptions: options.ui?.showOptions,
       showPublish: options.ui?.showPublish,
+      showHelp: options.ui?.showHelp,
       showHeader: defaults.showHeader,
       headerTitle: defaults.headerTitle,
     };
@@ -229,7 +233,16 @@ export class RecordViewControlPanel {
     const readonly = this.options.readonly === true;
     if (this.sourceHeader && !this.sourceHeader.isConnected) this.container.prepend(this.sourceHeader);
     if (this.optionsButton) this.optionsButton.hidden = readonly || this.options.showOptions === false;
-    if (this.publishButton) this.publishButton.hidden = readonly || this.options.showPublish === false;
+    // published from heurist-explorer only (plan 29)
+    if (this.publishButton) this.publishButton.hidden = readonly || this.options.showPublish === false
+      || this.api.canPublish?.() !== true;
+    if (this.helpButton) this.helpButton.hidden = this.options.showHelp === false;
+    // a published page: Recently viewed only after a second record was opened
+    if (this.recentButton) this.recentButton.hidden = this.options.published === true
+      && (this.api.getRecentRecords?.() || []).length < 2;
+    // no button: no panel
+    this.element.hidden = [this.recentButton, this.helpButton, this.optionsButton, this.publishButton]
+      .every((button) => !button || button.hidden);
     if (this.sourceHeader) this.sourceHeader.hidden = this.options.showHeader === false;
     this.element.classList.toggle("with-source-header", this.options.showHeader !== false);
     this.reserveSpace();

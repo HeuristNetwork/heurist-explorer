@@ -234,3 +234,24 @@
 #Search in all fields#Search in all fields
 #Creating relationships#Creating relationships
 #Parent record#Parent record
+#Level selector of the expansion rules#Level selector of the expansion rules
+#Language of the published page; Automatic follows the browser of the visitor#Language of the published page; Automatic follows the browser of the visitor
+#Automatic#Automatic
+#Anyone who sees the list can download it#Anyone who sees the list can download it
+#See / hide owners#See / hide owners
+#Button that shows or hides the owner and access of the records#Button that shows or hides the owner and access of the records
+#Edit icon of the records in the list#Edit icon of the records in the list
+#The selection is kept when the result changes#The selection is kept when the result changes
+#Show the owner and access of the records in the list#Show the owner and access of the records in the list
+#The page opens as the module is now (query, selection, view); otherwise with its settings only#The page opens as the module is now (query, selection, view); otherwise with its settings only
+#Advanced settings#Advanced settings
+#Reset#Reset
+#Confirm#Confirm
+#Discard#Discard
+#Discard changes?#Discard changes?
+#Reset all settings to their defaults?#Reset all settings to their defaults?
+#Cancel publish?#Cancel publish?
+#Yes#Yes
+#No#No
+#Configuration#Configuration
+#Data options#Data options

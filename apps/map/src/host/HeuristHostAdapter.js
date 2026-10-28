@@ -93,7 +93,8 @@ export class HeuristHostAdapter extends HostAdapter {
     const showDatasource = typeof this.bridge?.showDatasource === 'function';
     return {
       mapPreferences: true,
-      mapPublishing: true,
+      // published from heurist-explorer only: its configuration form writes the page (plan 29)
+      mapPublishing: typeof this.bridge?.openConfiguration === 'function',
       ...(explorerWorkspace ? { explorerWorkspace: true } : {}),
       ...(showDatasource ? { showDatasource: true } : {})
     };

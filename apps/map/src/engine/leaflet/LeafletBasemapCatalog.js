@@ -64,7 +64,13 @@ export function createLeafletBaseMapLayer(definition, providerOptions = {}) {
   if (!providerId || typeof L.tileLayer?.provider !== 'function') {
     throw new Error(`Leaflet base-map provider "${providerId || definition.id}" is unavailable`);
   }
-  return L.tileLayer.provider(providerId, options);
+  try {
+    return L.tileLayer.provider(providerId, options);
+  } catch (error) {
+    // an unknown provider (a wrong setting) shows no base map instead of stopping the map
+    console.warn(`Base map "${providerId}" is not available: ${error?.message || error}`);
+    return null;
+  }
 }
 
 /** Add one provider id as a normalized base-map descriptor, skipping duplicates. */

@@ -421,9 +421,6 @@
           "default": true,
           "mode": "checkbox",
           "clearable": false,
-          "forced": {
-            "publication": false
-          },
           "simplified": {
             "value": true
           }
@@ -468,6 +465,25 @@
           "forced": {
             "publication": false
           }
+        }
+      ]
+    },
+    {
+      "id": "publication",
+      "label": "Publication",
+      "modes": [
+        "publication"
+      ],
+      "children": [
+        {
+          "name": "publish.preserveState",
+          "type": "boolean",
+          "label": "Preserve current state",
+          "req": "recommended",
+          "default": true,
+          "mode": "checkbox",
+          "clearable": false,
+          "help": "The page opens as the module is now (query, selection, view); otherwise with its settings only"
         }
       ]
     }

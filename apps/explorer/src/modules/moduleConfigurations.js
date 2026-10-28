@@ -17,9 +17,11 @@
  */
 
 import { ReportTemplateProvider } from '#shared/data/ReportTemplateProvider.js';
-import { configurationFormMode, smartyTemplateTerms } from '#shared/data/moduleConfigurationForm.js';
+import { configurationFormMode, patchFormFields, smartyTemplateTerms } from '#shared/data/moduleConfigurationForm.js';
 import { WebsiteClient } from '#shared/api/WebsiteClient.js';
 import { lastPublishedPageId, newPageTitle, publishModuleTo } from '#shared/site/modulePublisher.js';
+import { termsOf } from '#shared/ui/config/moduleConfigurationDialogFactory.js';
+import { describeSymbology } from '../core/RecordEditorHost.js';
 
 /** The configuration entries of the modules by module type (lazy chunks). */
 export const MODULE_CONFIGURATIONS = Object.freeze({
@@ -42,10 +44,16 @@ export const MODULE_CONFIGURATIONS = Object.freeze({
  * @param {string} [request.mode='configuration'] `configuration`, `website` or `publication`.
  * @param {object} [request.value] The module's settings envelope (for a page in publication mode).
  * @param {object|null} [request.state] The module's state for the page (publication mode).
+ * @param {object|null} [request.publication] More module data for its `preparePublication` (publication mode).
+ * @param {Object<string, Array<{id: *, label: string}>>|null} [request.terms] Lists of the module (`termsSource`),
+ *        e.g. the map documents and base maps of the map.
+ * @param {Object<string, object>|null} [request.fields] Field properties of the module by field name
+ *        (`patchFormFields`), e.g. the record type of the map documents.
  * @param {string} [request.title] Dialog title.
  * @param {boolean} [request.simplified=false] Explorer's simplified interface.
- * @param {object} [context] Explorer: `baseUrl`, `database` (the Smarty template list); for publication
- *        `apiClient`, `language` (the page language for "auto") and `openWebsiteManager`.
+ * @param {object} [context] Explorer: `baseUrl`, `database` (the Smarty template list), `formServices()`
+ *        (input services of the form), `editSymbology(value, options)`; for publication `apiClient`,
+ *        `language` (the page language for "auto") and `openWebsiteManager`.
  * @returns {Promise<object|null>} The normalized settings (configuration), the publication `{id, url, ...}`
  *          (publication), or null when cancelled.
  */
@@ -61,8 +69,10 @@ export async function openModuleConfiguration(request = {}, context = {}) {
   const client = mode === 'publication' ? new WebsiteClient({ apiClient: context.apiClient }) : null;
   const target = client ? await publishTarget(client, configuration.type, context) : null;
   let publication = null;
+  const services = (await context.formServices?.().catch?.(() => null)) || {};
   const settings = await new ModuleConfigurationDialog({
-    form: target ? { ...configuration.form, groups: [...configuration.form.groups, ...target.groups] } : configuration.form,
+    form: patchFormFields(target ? { ...configuration.form, groups: [...configuration.form.groups, ...target.groups] }
+      : configuration.form, request.fields),
     formId: configuration.type,
     mode,
     title: request.title,
@@ -70,12 +80,16 @@ export async function openModuleConfiguration(request = {}, context = {}) {
     defaults: configuration.defaults,
     normalize: configuration.normalize,
     simplified: request.simplified === true,
-    termsProviders: { smartyTemplates: smartyTemplateTerms(templates) },
-    formOptions: target ? { onChange: target.onChange } : {},
+    termsProviders: { smartyTemplates: smartyTemplateTerms(templates), ...termsOf(request.terms) },
+    formOptions: {
+      ...services,
+      specialEditors: specialEditors(context),
+      ...(target ? { onChange: target.onChange } : {})
+    },
     // publication: the page is written here, to the page chosen in "Publish to"
     onSave: target
       ? async (value, { form }) => {
-        publication = await publishPage(configuration, value, request.state ?? null, form.getValues().publish || {},
+        publication = await publishPage(configuration, value, request, form.getValues().publish || {},
           { ...context, client });
         return Boolean(publication);
       }
@@ -140,17 +154,50 @@ export async function publishTarget(client, type, context) {
 }
 
 /**
+ * Special editors of the module forms in Explorer: the symbology editors of Explorer's window.
+ *
+ * @param {object} context Explorer context (`editSymbology`).
+ * @returns {Object<string, object>}
+ */
+function specialEditors(context) {
+  if (typeof context.editSymbology !== 'function') return {};
+  const parse = (value) => {
+    try { return value ? JSON.parse(value) : null; } catch { return null; }
+  };
+  return {
+    symbology: {
+      json: true,
+      icon: 'fa-palette',
+      title: 'Open symbology editor',
+      describe: (value) => describeSymbology(parse(value)),
+      // a complete symbol (a default of the module, not a part of a layer)
+      edit: async (value) => {
+        const result = await context.editSymbology(parse(value), { complete: true });
+        return result == null ? undefined : (Object.keys(result).length ? JSON.stringify(result) : '');
+      }
+    }
+  };
+}
+
+/**
  * Write the standalone page chosen in "Publish to".
  *
- * @param {object} configuration The module's configuration entry.
+ * @param {object} configuration The module's configuration entry (with `preparePublication` when the module
+ *        has publication options).
  * @param {object} settings Normalized settings from the form.
- * @param {object|null} state Module state.
- * @param {{target?: string, pageId?: number, title?: string}} target Values of "Publish to".
+ * @param {object} request The module's request (`state`, `publication`).
+ * @param {{target?: string, pageId?: number, title?: string, preserveState?: boolean}} publish Values of `publish.*`.
  * @param {object} context Explorer context (`client`, `database`, `language`).
  * @returns {Promise<object>} The publication.
  */
-async function publishPage(configuration, settings, state, target, context) {
-  const envelope = configuration.serialize(settings);
+async function publishPage(configuration, settings, request, publish, context) {
+  const prepared = typeof configuration.preparePublication === 'function'
+    ? configuration.preparePublication({ settings: configuration.serialize(settings), state: request.state ?? null,
+      publish, publication: request.publication ?? null })
+    : { settings: configuration.serialize(settings), state: request.state ?? null };
+  const envelope = prepared.settings;
+  const state = prepared.state;
+  const target = publish;
   // "auto" in a page: the language of now (as the modules did in their own publish)
   if (!envelope.options.ui?.language || envelope.options.ui.language === 'auto') {
     envelope.options.ui = { ...(envelope.options.ui || {}), language: context.language || 'eng' };

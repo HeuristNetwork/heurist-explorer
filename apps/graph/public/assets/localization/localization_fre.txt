@@ -220,3 +220,36 @@
 #Show more#Afficher plus
 #in search#dans la recherche
 #Parent record#Enregistrement parent
+#Expand graph#Développer le graphe
+#Expand, prune and level controls#Commandes Développer, Élaguer et Niveaux
+#Language of the published page; Automatic follows the browser of the visitor#Langue de la page publiée ; Automatique suit le navigateur du visiteur
+#Automatic#Automatique
+#Zoom#Zoom
+#Pan#Déplacer
+#Nodes limit#Limite des nœuds
+#Edges limit#Limite des liens
+#Gravity (Barnes-Hut)#Gravité (Barnes-Hut)
+#Hierarchical (top down)#Hiérarchique (de haut en bas)
+#Hierarchical (left to right)#Hiérarchique (de gauche à droite)
+#By record types#Par types d’enregistrements
+#Gravity#Gravité
+#Loose#Lâche
+#Normal#Normale
+#Tight#Serrée
+#Scale node size by connections#Taille des nœuds selon les connexions
+#Label length#Longueur des libellés
+#Popup delay (seconds)#Délai de la fenêtre contextuelle (secondes)
+#Edit of the records#Modification des enregistrements
+#The page opens as the module is now (query, selection, view); otherwise with its settings only#La page s’ouvre comme le module est maintenant (requête, sélection, vue) ; sinon avec ses paramètres seulement
+#Advanced settings#Paramètres avancés
+#Reset#Réinitialiser
+#Confirm#Confirmer
+#Discard#Abandonner
+#Discard changes?#Abandonner les modifications ?
+#Reset all settings to their defaults?#Rétablir tous les paramètres à leurs valeurs par défaut ?
+#Cancel publish?#Annuler la publication ?
+#Yes#Oui
+#No#Non
+#Configuration#Configuration
+#Graph options#Options du graphe
+#Publish graph#Publier le graphe

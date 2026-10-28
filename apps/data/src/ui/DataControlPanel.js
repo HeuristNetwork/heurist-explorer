@@ -344,7 +344,8 @@ export class DataControlPanel {
         readonly || standalone || this.options.showOptions === false;
     if (this.publishButton)
       this.publishButton.hidden =
-        readonly || this.options.runtimeMode !== "main" || this.options.showPublish === false;
+        readonly || this.options.runtimeMode !== "main" || this.options.showPublish === false
+        || (this.api.canPublish?.() !== true && this.api.application?.host?.supportsHostedPublishDialog?.() !== true);
     if (this.helpButton) this.helpButton.hidden = this.options.showHelp === false;
     this.expansionBar?.setEnabled(this.options.showExpansion !== false);
     if (this.sourceHeader)

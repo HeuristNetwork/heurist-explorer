@@ -925,13 +925,24 @@ export class ExplorerApplication {
    * @returns {Promise<object|null>} The settings (configuration) or the publication; null when cancelled.
    */
   async openModuleConfiguration(request = {}) {
+    // one form at a time: a second click while it is open gives the same result
+    if (this._moduleConfiguration) return this._moduleConfiguration;
+    this._moduleConfiguration = this._openModuleConfiguration(request).finally(() => { this._moduleConfiguration = null; });
+    return this._moduleConfiguration;
+  }
+
+  /** @private The form of openModuleConfiguration. */
+  async _openModuleConfiguration(request) {
     const { openModuleConfiguration } = await import('../modules/moduleConfigurations.js');
     return openModuleConfiguration(request, {
       baseUrl: this.config.baseUrl,
       database: this.config.database,
       apiClient: this.apiClient,
       language: this.config.language,
-      openWebsiteManager: (options) => this.openWebsiteManager(options)
+      openWebsiteManager: (options) => this.openWebsiteManager(options),
+      // the form inputs (extent picker...) and the symbology editors of Explorer's window
+      formServices: async () => (await this.recordEditing?.formServices?.()) || {},
+      editSymbology: (value, options) => this.recordEditing.symbology.edit(value, options)
     });
   }
 

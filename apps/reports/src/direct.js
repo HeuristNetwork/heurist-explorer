@@ -18,6 +18,7 @@
 
 import '#shared/ui/heurist-module.css';
 import './style.css';
+import { moduleLanguage } from '#shared/config';
 import { extendLocale } from '#shared/ui';
 import { createHeuristReportsConfig } from './reportsConfig.js';
 import { initHeuristReports } from './initHeuristReports.js';
@@ -37,7 +38,7 @@ export async function mountHeuristReports({ container, bootstrap = {}, bridge = 
   if (!container) throw new Error('A container is required to mount the reports manager');
   const containerId = container.id || uniqueContainerId();
   container.id = containerId;
-  await extendLocale(bootstrap.runtime?.language, assetBaseUrl);
+  await extendLocale(moduleLanguage(bootstrap), assetBaseUrl);
   const config = createHeuristReportsConfig(bootstrap, { bridge, containerId });
   config.exposeGlobal = false;
   config.moduleAssetBaseUrl = assetBaseUrl;

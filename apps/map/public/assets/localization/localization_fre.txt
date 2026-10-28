@@ -316,3 +316,56 @@
 #Show more#Afficher plus
 #in search#dans la recherche
 #Parent record#Enregistrement parent
+#Show the Heurist control panel over the map#Afficher le panneau de contrôle Heurist sur la carte
+#Workspace/Filtered Result#Espace de travail/Résultat filtré
+#Title of the current query above the map#Titre de la requête actuelle au-dessus de la carte
+#Button that returns to the initial extent#Bouton qui revient à l’étendue initiale
+#Language#Langue
+#Language of the published page; Automatic follows the browser of the visitor#Langue de la page publiée ; Automatique suit le navigateur du visiteur
+#Automatic#Automatique
+#English#Anglais
+#French#Français
+#German#Allemand
+#Portuguese#Portugais
+#Workspace/Filtered Result Map#Carte Espace de travail/Résultat filtré
+#Load only the records inside the visible map extent#Charger seulement les enregistrements dans l’étendue visible de la carte
+#Zoom In (Level)#Zoom avant (niveau)
+#Zoom Out (Level)#Zoom arrière (niveau)
+#Zoom In (Km)#Zoom avant (km)
+#Zoom Out (Km)#Zoom arrière (km)
+#Initial extent of the map; empty: fit to the data#Étendue initiale de la carte ; vide : ajustée aux données
+#Width of the map shown when one point is selected#Largeur de la carte affichée quand un point est sélectionné
+#Zoom level where clustering stops#Niveau de zoom où le regroupement s’arrête
+#Level 1 (worldwide)#Niveau 1 (monde entier)
+#Level 2#Niveau 2
+#Level 3#Niveau 3
+#Level 4#Niveau 4
+#Level 5#Niveau 5
+#Level 6#Niveau 6
+#Level 7#Niveau 7
+#Level 8#Niveau 8
+#Level 9#Niveau 9
+#Level 10#Niveau 10
+#Level 11#Niveau 11
+#Level 12#Niveau 12
+#Level 13#Niveau 13
+#Level 14#Niveau 14
+#Level 15#Niveau 15
+#Level 16#Niveau 16
+#Level 17#Niveau 17
+#Level 18#Niveau 18
+#Allowed map documents#Documents cartographiques autorisés
+#None checked: all map documents#Aucun coché : tous les documents cartographiques
+#None checked: all base maps#Aucune cochée : tous les fonds de carte
+#Enable edit#Activer la modification
+#Edit of map documents, layers and records#Modification des documents cartographiques, des couches et des enregistrements
+#The page opens as the module is now (query, selection, view); otherwise with its settings only#La page s’ouvre comme le module est maintenant (requête, sélection, vue) ; sinon avec ses paramètres seulement
+#The page shows only the map document that is active now#La page montre seulement le document cartographique actif maintenant
+#Confirm#Confirmer
+#Discard#Abandonner
+#Discard changes?#Abandonner les modifications ?
+#Reset all settings to their defaults?#Rétablir tous les paramètres à leurs valeurs par défaut ?
+#Cancel publish?#Annuler la publication ?
+#Configuration#Configuration
+#None: all map documents#Aucun : tous les documents cartographiques
+#None: all base maps#Aucun : tous les fonds de carte

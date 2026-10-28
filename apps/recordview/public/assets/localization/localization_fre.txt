@@ -84,3 +84,26 @@
 #in search#dans la recherche
 #Loading...#Chargement...
 #Parent record#Enregistrement parent
+#Interface#Interface
+#Language of the published page; Automatic follows the browser of the visitor#Langue de la page publiée ; Automatique suit le navigateur du visiteur
+#Automatic#Automatique
+#Shown when no record is selected#Affiché quand aucun enregistrement n’est sélectionné
+#Default settings#Paramètres par défaut
+#Which record is shown when several are selected#Quel enregistrement est affiché quand plusieurs sont sélectionnés
+#Only a single selection#Seulement une sélection unique
+#Interaction#Interaction
+#Enable edit#Activer la modification
+#Edit icon of the record#Icône de modification de l’enregistrement
+#Advanced settings#Paramètres avancés
+#Reset#Réinitialiser
+#Save#Enregistrer
+#Confirm#Confirmer
+#Discard#Abandonner
+#Discard changes?#Abandonner les modifications ?
+#Reset all settings to their defaults?#Rétablir tous les paramètres à leurs valeurs par défaut ?
+#Cancel publish?#Annuler la publication ?
+#Yes#Oui
+#No#Non
+#Configuration#Configuration
+#Record View options#Options de la vue d’enregistrement
+#Publish Record View#Publier la vue d’enregistrement

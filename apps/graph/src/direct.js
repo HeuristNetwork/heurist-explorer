@@ -18,7 +18,7 @@ import "#shared/ui/heurist-module.css";
 import "./style.css";
 import "@fortawesome/fontawesome-free/css/fontawesome.min.css";
 import "@fortawesome/fontawesome-free/css/solid.min.css";
-import { normalizeModuleBootstrap } from "#shared/config";
+import { moduleLanguage, normalizeModuleBootstrap } from "#shared/config";
 import { extendLocale } from "#shared/ui";
 import { createHeuristGraphConfig } from "./graphConfig.js";
 import { initHeuristGraph } from "./initHeuristGraph.js";
@@ -49,7 +49,7 @@ export async function mountHeuristGraph({
   element.className = "heurist-graph";
   frame.append(element);
   container.replaceChildren(frame);
-  await extendLocale(bootstrap.runtime?.language, assetBaseUrl);
+  await extendLocale(moduleLanguage(bootstrap), assetBaseUrl);
   const config = createHeuristGraphConfig(normalizeModuleBootstrap(bootstrap), { bridge, containerId: element.id });
   config.exposeGlobal = false;
   return initHeuristGraph(config);

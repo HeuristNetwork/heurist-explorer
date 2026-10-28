@@ -220,3 +220,36 @@
 #Show more#Show more
 #in search#in search
 #Parent record#Parent record
+#Expand graph#Expand graph
+#Expand, prune and level controls#Expand, prune and level controls
+#Language of the published page; Automatic follows the browser of the visitor#Language of the published page; Automatic follows the browser of the visitor
+#Automatic#Automatic
+#Zoom#Zoom
+#Pan#Pan
+#Nodes limit#Nodes limit
+#Edges limit#Edges limit
+#Gravity (Barnes-Hut)#Gravity (Barnes-Hut)
+#Hierarchical (top down)#Hierarchical (top down)
+#Hierarchical (left to right)#Hierarchical (left to right)
+#By record types#By record types
+#Gravity#Gravity
+#Loose#Loose
+#Normal#Normal
+#Tight#Tight
+#Scale node size by connections#Scale node size by connections
+#Label length#Label length
+#Popup delay (seconds)#Popup delay (seconds)
+#Edit of the records#Edit of the records
+#The page opens as the module is now (query, selection, view); otherwise with its settings only#The page opens as the module is now (query, selection, view); otherwise with its settings only
+#Advanced settings#Advanced settings
+#Reset#Reset
+#Confirm#Confirm
+#Discard#Discard
+#Discard changes?#Discard changes?
+#Reset all settings to their defaults?#Reset all settings to their defaults?
+#Cancel publish?#Cancel publish?
+#Yes#Yes
+#No#No
+#Configuration#Configuration
+#Graph options#Graph options
+#Publish graph#Publish graph

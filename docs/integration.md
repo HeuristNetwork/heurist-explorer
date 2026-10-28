@@ -103,6 +103,13 @@ Every presentation module has a configuration form (HEditForm JSON) and a light 
   - The module gets back the publication, or `null`.
 - **Without that bridge method** (standalone page, website), the module opens the configuration
   form in its own window. Publication is not possible there: the Publish icon is hidden.
+- Map, Graph, Data and Record view do this through one factory,
+  `shared/src/ui/config/moduleConfigurationDialogFactory.js`.
+- A module with publication options has `preparePublication({settings, state, publish, publication})` in its
+  `configuration.js`. Explorer runs it before writing the page: Map's *Show only active document* and the
+  *Preserve current state* of Map, Graph and Data.
+- Lists that only the module knows (the map documents and base maps of Map) come with the request as
+  `terms: {source: [{id, label}]}`, for the `termsSource` fields of the form.
 
 ## Record editing
 

@@ -26,7 +26,9 @@ import { HeuristRecordViewPublicApi } from "./host/HeuristRecordViewPublicApi.js
 import { RecordViewRenderer } from "#shared/recordview/RecordViewRenderer.js";
 import { RecordViewControlPanel } from "./ui/RecordViewControlPanel.js";
 import { createHostAdapter } from "./host/createHostAdapter.js";
-import { RecordViewConfigurationDialog } from "./ui/config/RecordViewConfigurationDialog.js";
+import { createConfigurationDialogFactory } from "#shared/ui/config/moduleConfigurationDialogFactory.js";
+import { smartyTemplateTerms } from "#shared/data/moduleConfigurationForm.js";
+import { recordViewConfiguration } from "./configuration.js";
 
 /**
  * Create providers, host adapter, and application, mount the control panel,
@@ -78,9 +80,12 @@ export async function initHeuristRecordView(config) {
   );
 
   const reportTemplateProvider = new ReportTemplateProvider({ baseUrl: heuristBaseUrl, database: config.database });
-  api.setConfigurationDialogFactory((options = {}) =>
-    new RecordViewConfigurationDialog({ ...options, reportTemplateProvider }).open(),
-  );
+  // the common configuration form (plan 29): in heurist-explorer in Explorer's window
+  api.setConfigurationDialogFactory(createConfigurationDialogFactory({
+    configuration: recordViewConfiguration,
+    bridge: application.host?.bridge || null,
+    termsProviders: { smartyTemplates: smartyTemplateTerms(reportTemplateProvider) },
+  }));
 
   const controlPanel = new RecordViewControlPanel({
     api,
@@ -88,9 +93,11 @@ export async function initHeuristRecordView(config) {
     options: {
       showOptions: config.options.ui.showOptions,
       showPublish: config.options.ui.showPublish,
+      showHelp: config.options.ui.showHelp,
       showHeader: config.persistedSettings.config.defaults.showHeader,
       headerTitle: config.persistedSettings.config.defaults.headerTitle,
       readonly: config.readonly === true,
+      published: ["website", "publish", "published"].includes(config.runtimeMode),
       helpBaseUrl: config.moduleAssetBaseUrl,
     },
   });

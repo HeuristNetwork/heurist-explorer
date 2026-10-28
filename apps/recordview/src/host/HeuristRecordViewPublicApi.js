@@ -14,7 +14,6 @@
  */
 
 import { serializeRecordViewConfigurationSettings } from "../ui/config/recordViewConfigurationSchema.js";
-import { PublishedDialog } from "#shared/ui";
 
 /** Public API facade that exposes Record View operations to callers and host applications. */
 export class HeuristRecordViewPublicApi {
@@ -23,7 +22,6 @@ export class HeuristRecordViewPublicApi {
     this.application = application;
     this.readyPromise = null;
     this.configurationDialogFactory = null;
-    this.publishedDialog = null;
   }
 
   /**
@@ -66,6 +64,7 @@ export class HeuristRecordViewPublicApi {
     if (!this.configurationDialogFactory) throw new Error("Record View configuration dialog is not available");
     const saved = (await this.application.host.loadPreferences?.()) ?? null;
     return this.configurationDialogFactory({
+      title: "Record View options",
       ...options,
       mode: "preferences",
       value: saved || this.application.settings || {},
@@ -80,29 +79,21 @@ export class HeuristRecordViewPublicApi {
   }
 
   /**
-   * Serialize settings and publish a reproducible Record View snapshot as a standalone website page (host).
+   * Whether this module can be published: only from heurist-explorer, whose configuration
+   * form writes the page (plan 29).
    *
-   * @param {object} value Settings to publish; serialized into the publication envelope.
-   * @returns {Promise<object>} The host's publication result.
+   * @returns {boolean}
    */
-  publish(value) {
-    const settings = serializeRecordViewConfigurationSettings(value);
-    const state = publicationState(this.getState());
-    return this.application.host.publish({
-      format: "heurist-publication",
-      version: 1,
-      options: settings.options,
-      config: settings.config,
-      state,
-    });
+  canPublish() {
+    return typeof this.application.host?.bridge?.openConfiguration === "function";
   }
 
   /**
-   * Open the publish editor seeded with publish-mode settings. On save, publishes and shows the
-   * resulting link dialog.
+   * Open the publication form in heurist-explorer (plan 29): Explorer writes the page from these
+   * settings and the state (the displayed record), and shows the result.
    *
    * @param {object} [options] Dialog options.
-   * @returns {object} The opened dialog.
+   * @returns {{result: Promise<object|null>, close: Function}} The dialog handle.
    * @throws {Error} When no configuration dialog factory has been registered.
    */
   openPublishDialog(options = {}) {
@@ -113,24 +104,11 @@ export class HeuristRecordViewPublicApi {
       this.application.config.language,
     );
     return this.configurationDialogFactory({
+      title: "Publish Record View",
       ...options,
       mode: "publish",
       value,
-      onSave: async (value, context) => {
-        const result = await this.publish(value);
-        // cancelled in the "Publish as page" dialog
-        if (!result) return null;
-        this.application.dispatch("heurist-recordview-published", {
-          publication: result,
-          settings: context.serialized,
-        });
-        await options.onSave?.(value, context, result);
-        setTimeout(() => {
-          this.publishedDialog?.close?.();
-          this.publishedDialog = new PublishedDialog({ publication: result }).open();
-        }, 0);
-        return result;
-      },
+      state: publicationState(this.getState()),
     });
   }
 
@@ -244,8 +222,6 @@ export class HeuristRecordViewPublicApi {
    * @returns {Promise<void>}
    */
   destroy() {
-    this.publishedDialog?.close?.();
-    this.publishedDialog = null;
     return this.application.destroy();
   }
 }

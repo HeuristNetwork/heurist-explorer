@@ -2486,6 +2486,21 @@ export class MapApplication {
       dynamicEntry.showInPanel = this.config.ui.showCurrentDocument !== false;
     }
 
+    // Allowed map documents: reload the list at once (2026-10-28); when the active
+    // document is no longer allowed, the dynamic document (or the first one) takes its place
+    if (!sameJson(previous.options.mapDocuments?.allowed ?? null, normalized.options.mapDocuments.allowed ?? null)
+        && this.providers.mapDocumentList) {
+      try {
+        await this.loadMapDocuments(this.config.documents.query, { activateFirst: false });
+        if (activeDocumentId != null && !this.mapDocuments.has(activeDocumentId)) {
+          const replacement = dynamicEntry ? this.dynamicDocumentId : [...this.mapDocuments.keys()][0];
+          if (replacement != null) await this.activateMapDocument(replacement);
+        }
+      } catch (error) {
+        console.warn('Map documents can not be reloaded', error);
+      }
+    }
+
     // Reapply changed global defaults only to values that each stored layer
     // originally inherited. Explicit layer settings are never overwritten.
     const dynamicLoadingChanged = previous.config.dynamicDocument?.dynamicRequests !== normalized.config.dynamicDocument?.dynamicRequests;

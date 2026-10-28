@@ -1090,3 +1090,142 @@
 #Publish to#Publier dans
 #Page title#Titre de la page
 #Cancel publish?#Annuler la publication ?
+#Heurist Map Controls#Contrôles cartographiques Heurist
+#Show the Heurist control panel over the map#Afficher le panneau de contrôle Heurist sur la carte
+#Workspace/Filtered Result#Espace de travail/Résultat filtré
+#Map documents#Documents cartographiques
+#Base maps#Fonds de carte
+#Initially expanded#Développé initialement
+#Title of the current query above the map#Titre de la requête actuelle au-dessus de la carte
+#Home#Accueil
+#Button that returns to the initial extent#Bouton qui revient à l’étendue initiale
+#Native Map Controls#Contrôles cartographiques natifs
+#Zoom#Zoom
+#Scale#Échelle
+#Print#Imprimer
+#Workspace/Filtered Result Map#Carte Espace de travail/Résultat filtré
+#Load by map extent#Charger selon l’étendue de la carte
+#Load only the records inside the visible map extent#Charger seulement les enregistrements dans l’étendue visible de la carte
+#Zoom In (Level)#Zoom avant (niveau)
+#Zoom Out (Level)#Zoom arrière (niveau)
+#Zoom In (Km)#Zoom avant (km)
+#Zoom Out (Km)#Zoom arrière (km)
+#Extent#Étendue
+#Initial extent of the map; empty: fit to the data#Étendue initiale de la carte ; vide : ajustée aux données
+#Point selection extent (km)#Étendue de sélection d’un point (km)
+#Width of the map shown when one point is selected#Largeur de la carte affichée quand un point est sélectionné
+#Default symbology#Symbologie par défaut
+#Select symbology#Symbologie de sélection
+#Prevent continuous world basemap#Empêcher la répétition continue du fond mondial
+#Marker clustering#Regroupement des marqueurs
+#Grid pixels#Pixels de la grille
+#Stop at#Arrêter à
+#Zoom level where clustering stops#Niveau de zoom où le regroupement s’arrête
+#Level 1 (worldwide)#Niveau 1 (monde entier)
+#Level 2#Niveau 2
+#Level 3#Niveau 3
+#Level 4#Niveau 4
+#Level 5#Niveau 5
+#Level 6#Niveau 6
+#Level 7#Niveau 7
+#Level 8#Niveau 8
+#Level 9#Niveau 9
+#Level 10#Niveau 10
+#Level 11#Niveau 11
+#Level 12#Niveau 12
+#Level 13#Niveau 13
+#Level 14#Niveau 14
+#Level 15#Niveau 15
+#Level 16#Niveau 16
+#Level 17#Niveau 17
+#Level 18#Niveau 18
+#Maximum allowed features#Nombre maximal d’entités autorisées
+#Popup template#Modèle de fenêtre contextuelle
+#Built-in (basic)#Intégré (simple)
+#Built-in#Intégré
+#Standard (Legacy)#Standard (ancien)
+#Allowed map documents#Documents cartographiques autorisés
+#None checked: all map documents#Aucun coché : tous les documents cartographiques
+#Default document#Document par défaut
+#Allowed base maps#Fonds de carte autorisés
+#None checked: all base maps#Aucune cochée : tous les fonds de carte
+#Initial base map#Fond de carte initial
+#Default#Par défaut
+#Edit of map documents, layers and records#Modification des documents cartographiques, des couches et des enregistrements
+#Enable selection#Activer la sélection
+#Enable popups#Activer les fenêtres contextuelles
+#Zoom on selection#Zoomer sur la sélection
+#Preserve current state#Conserver l’état actuel
+#The page opens as the module is now (query, selection, view); otherwise with its settings only#La page s’ouvre comme le module est maintenant (requête, sélection, vue) ; sinon avec ses paramètres seulement
+#Show only active document#Afficher uniquement le document actif
+#The page shows only the map document that is active now#La page montre seulement le document cartographique actif maintenant
+#Map options#Options de la carte
+#Publish map#Publier la carte
+#Expand graph#Développer le graphe
+#Expand, prune and level controls#Commandes Développer, Élaguer et Niveaux
+#Native controls#Contrôles natifs
+#Pan#Déplacer
+#Rearrange#Réorganiser
+#Nodes limit#Limite des nœuds
+#Edges limit#Limite des liens
+#Layout#Disposition
+#Automatic (ForceAtlas2)#Automatique (ForceAtlas2)
+#Gravity (Barnes-Hut)#Gravité (Barnes-Hut)
+#Hierarchical (top down)#Hiérarchique (de haut en bas)
+#Hierarchical (left to right)#Hiérarchique (de gauche à droite)
+#By record types#Par types d’enregistrements
+#Grid#Grille
+#Movement#Mouvement
+#Continuous#Continu
+#Freeze#Figer
+#Gravity#Gravité
+#Loose#Lâche
+#Normal#Normale
+#Tight#Serrée
+#Scale node size by connections#Taille des nœuds selon les connexions
+#Show node labels#Afficher les étiquettes des nœuds
+#Show edge labels#Afficher les étiquettes des liens
+#Label length#Longueur des libellés
+#Popup delay (seconds)#Délai de la fenêtre contextuelle (secondes)
+#Built-in (vis basic)#Intégré (vis simple)
+#Empty result message#Message pour un résultat vide
+#Edit of the records#Modification des enregistrements
+#Graph options#Options du graphe
+#Publish graph#Publier le graphe
+#Level selector of the expansion rules#Sélecteur de niveau des règles d’expansion
+#Page size#Taille de page
+#Search in results#Rechercher dans les résultats
+#Counter#Compteur
+#Export (CSV, Excel, PDF)#Exporter (CSV, Excel, PDF)
+#Anyone who sees the list can download it#Toute personne qui voit la liste peut la télécharger
+#View mode#Mode d’affichage
+#See / hide owners#Voir / masquer les propriétaires
+#Button that shows or hides the owner and access of the records#Bouton qui affiche ou masque le propriétaire et l’accès des enregistrements
+#Selection actions#Actions de sélection
+#Font size#Taille de police
+#Card and row template#Modèle de carte et de ligne
+#Built-in renderer#Rendu intégré
+#Extended view template#Modèle de vue étendue
+#Edit icon of the records in the list#Icône de modification des enregistrements de la liste
+#Collection / Persistent selection#Collection / Sélection persistante
+#The selection is kept when the result changes#La sélection est conservée quand le résultat change
+#Admin info#Informations d’administration
+#Show the owner and access of the records in the list#Afficher le propriétaire et l’accès des enregistrements dans la liste
+#Data options#Options des données
+#Publish data#Publier les données
+#Header title#Titre de l'en-tête
+#Empty message#Message si vide
+#Shown when no record is selected#Affiché quand aucun enregistrement n’est sélectionné
+#Render engine#Moteur de rendu
+#Legacy viewer#Visionneuse historique
+#Smarty template#Modèle Smarty
+#Selection mode#Mode de sélection
+#Which record is shown when several are selected#Quel enregistrement est affiché quand plusieurs sont sélectionnés
+#First selected#Premier sélectionné
+#Last selected#Dernier élément sélectionné
+#Only a single selection#Seulement une sélection unique
+#Edit icon of the record#Icône de modification de l’enregistrement
+#Record View options#Options de la vue d’enregistrement
+#Publish Record View#Publier la vue d’enregistrement
+#None: all map documents#Aucun : tous les documents cartographiques
+#None: all base maps#Aucun : tous les fonds de carte

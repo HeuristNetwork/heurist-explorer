@@ -25,7 +25,7 @@ import '@fortawesome/fontawesome-free/css/fontawesome.min.css';
 import '@fortawesome/fontawesome-free/css/solid.min.css';
 import '@fortawesome/fontawesome-free/css/regular.min.css';
 
-import { normalizeModuleBootstrap } from '#shared/config';
+import { moduleLanguage, normalizeModuleBootstrap } from '#shared/config';
 import { extendLocale } from '#shared/ui';
 import { createHeuristMapConfig } from './mapConfig.js';
 import { initHeuristMap } from './initHeuristMap.js';
@@ -53,7 +53,7 @@ export async function mountHeuristMap({
   // Leaflet.markercluster is a UMD plugin that expects a global `L` while it is evaluated
   window.L = window.L || L;
   await Promise.all([
-    extendLocale(bootstrap.runtime?.language, assetBaseUrl),
+    extendLocale(moduleLanguage(bootstrap), assetBaseUrl),
     import('leaflet.markercluster'),
     import('leaflet-providers')
   ]);

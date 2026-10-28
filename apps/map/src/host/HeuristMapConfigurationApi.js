@@ -12,7 +12,10 @@
  * @license     https://www.gnu.org/licenses/gpl-3.0.txt GNU License 3.0
  * @since       8.0
  */
-import { MapConfigurationDialog } from '../ui/config/MapConfigurationDialog.js';
+import { createConfigurationDialogFactory } from '#shared/ui/config/moduleConfigurationDialogFactory.js';
+import { mapConfiguration } from '../configuration.js';
+import { getDefaultBaseMaps } from '../basemaps/defaultBasemaps.js';
+import { mapConfigurationFormOptions } from '../ui/config/mapConfigurationEditors.js';
 import { createMapConfigurationDefaults } from '../ui/config/mapConfigurationDefaults.js';
 import {
   normalizeMapConfigurationSettings,
@@ -24,7 +27,7 @@ export class HeuristMapConfigurationApi {
   /**
    * @param {object} [options] API configuration.
    * @param {object|null} [options.mapDocumentListProvider] Provider used to list available MapDocuments.
-   * @param {Array<object>} [options.baseMapCatalog] Available base-map definitions.
+   * @param {Array<object>} [options.baseMapCatalog] Available base-map definitions (kept; the form lists the Heurist base maps).
    * @param {object|null} [options.hostBridge] Same-origin host bridge, when embedded in an iframe.
    * @param {object|null} [options.host] Host adapter, used to self-heal a missing preferences value.
    * @param {object|null} [options.symbology] SymbologyService (default and selection symbology).
@@ -55,7 +58,7 @@ export class HeuristMapConfigurationApi {
    * already performs for a running map.
    *
    * @param {object} [options] Dialog options.
-   * @returns {Promise<MapConfigurationDialog>} The opened dialog.
+   * @returns {Promise<{result: Promise<object|null>, close: Function}>} The dialog handle.
    */
   async openConfigurationDialog(options = {}) {
     this.configurationDialog?.close?.();
@@ -63,21 +66,41 @@ export class HeuristMapConfigurationApi {
     if (value == null && options.mode === 'preferences' && typeof this.host?.loadPreferences === 'function') {
       try { value = await this.host.loadPreferences(); } catch { /* Fall back to canonical defaults. */ }
     }
-    this.configurationDialog = new MapConfigurationDialog({
-      ...options,
-      value,
-      mapDocumentListProvider: options.mapDocumentListProvider || this.mapDocumentListProvider,
-      baseMapCatalog: options.baseMapCatalog || this.baseMapCatalog,
-      // configuration values are complete symbols (see SymbologyService.edit)
-      onEditSymbology: options.onEditSymbology || (this.symbology
-        ? ((value, editorOptions) => this.symbology.edit(value, { parentSymbol: editorOptions?.parentSymbol || null, complete: true }))
-        : null),
-      onEditExtent: options.onEditExtent || (typeof this.hostBridge?.editExtent === 'function'
-        ? ((bounds, editorOptions) => this.hostBridge.editExtent(bounds, editorOptions))
-        : null)
+    // the common configuration form (plan 29) in this window
+    const factory = createConfigurationDialogFactory({
+      configuration: mapConfiguration,
+      formOptions: mapConfigurationFormOptions({
+        // configuration values are complete symbols (see SymbologyService.edit)
+        editSymbology: this.symbology
+          ? ((symbol, editorOptions) => this.symbology.edit(symbol, { parentSymbol: editorOptions?.parentSymbol || null, complete: true }))
+          : null,
+        editExtent: typeof this.hostBridge?.editExtent === 'function' ? (bounds) => this.hostBridge.editExtent(bounds) : null
+      })
     });
-    this.configurationDialog.open();
+    const terms = await this.configurationTerms();
+    const fields = this.mapDocumentTypeId > 0 ? { 'options.mapDocuments.allowed': { targetTypes: [this.mapDocumentTypeId] } } : {};
+    this.configurationDialog = factory({ ...options, value, terms, fields });
     return this.configurationDialog;
+  }
+
+  /**
+   * The lists of the Map documents and Base maps sections of the form.
+   *
+   * @returns {Promise<{mapDocuments: Array<object>, baseMaps: Array<object>}>}
+   */
+  async configurationTerms() {
+    let documents = [];
+    try {
+      const result = await this.mapDocumentListProvider?.search?.();
+      documents = result?.items || [];
+      this.mapDocumentTypeId = Number(result?.recordTypeId) || 0;
+    } catch {
+      documents = []; // the list cannot be read: the section shows no documents
+    }
+    return {
+      mapDocuments: documents.map((item) => ({ id: Number(item.id), label: item.title || `Map document ${item.id}` })),
+      baseMaps: getDefaultBaseMaps().map((item) => ({ id: String(item.id), label: item.title || String(item.id) }))
+    };
   }
 
   /**

@@ -17,7 +17,7 @@
  */
 
 import { serializeMapConfigurationSettings } from '../ui/config/mapConfigurationSchema.js';
-import { PublishedDialog } from '#shared/ui';
+import { getDefaultBaseMaps } from '../basemaps/defaultBasemaps.js';
 
 /** Stable public facade for direct and same-origin iframe integrations. */
 export class HeuristMapPublicApi {
@@ -31,7 +31,6 @@ export class HeuristMapPublicApi {
     this.readyPromise = null;
     this.configurationDialogFactory = null;
     this.configurationDialog = null;
-    this.publishedDialog = null;
   }
 
   /**
@@ -217,47 +216,6 @@ export class HeuristMapPublicApi {
   }
 
   /**
-   * Publish settings plus the selected amount of current map state through the host.
-   *
-   * @param {object} settings Raw settings to normalize and publish.
-   * @param {object} [publishOptions] Publish options (`showOnlyActiveDocument`, `preserveCurrentState`).
-   * @returns {Promise<object>} Resolves with the host's publication result.
-   */
-  publish(settings, publishOptions = {}) {
-    const serialized = serializeMapConfigurationSettings(settings);
-    const captured = this.captureState();
-    const dynamicId = String(this.application.dynamicDocumentId || 'dynamic');
-    const activeId = captured.activeDocumentId;
-
-    if (publishOptions.showOnlyActiveDocument === true) {
-      if (String(activeId) === dynamicId) {
-        serialized.options.mapDocuments.allowed = [];
-        serialized.options.mapDocuments.initiallyActive = null;
-        serialized.options.ui.showMapDocuments = false;
-      } else if (activeId != null && Number.isInteger(Number(activeId)) && Number(activeId) > 0) {
-        const documentId = Number(activeId);
-        serialized.options.mapDocuments.allowed = [documentId];
-        // Use the same document as the startup document. This avoids loading a
-        // different configured default and activating the published state again.
-        serialized.options.mapDocuments.initiallyActive = documentId;
-        serialized.options.ui.showCurrentDocument = false;
-      }
-    }
-
-    const state = publishOptions.preserveCurrentState === false
-      ? { activeDocumentId: captured.activeDocumentId ?? null, query: captured.query ?? null }
-      : captured;
-
-    return this.application.host.publish({
-      format: 'heurist-publication',
-      version: 1,
-      options: serialized.options,
-      config: serialized.config,
-      state
-    });
-  }
-
-  /**
    * Open preferences, loading/saving only the `heurist-map` preference key.
    *
    * @param {object} [options] Dialog options, including an optional `onSave` callback.
@@ -266,8 +224,12 @@ export class HeuristMapPublicApi {
   async openPreferencesDialog(options = {}) {
     const saved = await this.loadPreferences();
     return this.openConfigurationDialog({
+      title: 'Map options',
       // heurist-explorer's simplified interface: fewer settings (it sets them itself)
       simplified: this.application.config.simplified === true,
+      // the lists of the Map documents and Base maps sections, the record type of the map documents
+      terms: await this.configurationTerms(),
+      fields: await this.configurationFields(),
       ...options,
       mode: 'preferences',
       value: saved || this.application.config.persistedSettings || null,
@@ -281,34 +243,69 @@ export class HeuristMapPublicApi {
   }
 
   /**
-   * Open publish configuration and save a reproducible map snapshot.
+   * Whether the map can be published: only from heurist-explorer, whose configuration form
+   * writes the page (plan 29).
    *
-   * @param {object} [options] Dialog options, including an optional `onSave` callback.
-   * @returns {object} The opened dialog instance.
+   * @returns {boolean}
+   */
+  canPublish() {
+    return typeof this.application.host?.bridge?.openConfiguration === 'function';
+  }
+
+  /**
+   * The lists of the configuration form: the map documents of the database and the
+   * Heurist base maps (`termsSource` of the form).
+   *
+   * @returns {Promise<{mapDocuments: Array<{id: number, label: string}>, baseMaps: Array<{id: string, label: string}>}>}
+   */
+  async configurationTerms() {
+    let documents = [];
+    try {
+      const result = await this.application.providers?.mapDocumentList?.search?.();
+      documents = result?.items || [];
+      // the record type of the map documents (configurationFields)
+      this.mapDocumentTypeId = Number(result?.recordTypeId) || 0;
+    } catch {
+      documents = []; // the list cannot be read: the section shows no documents
+    }
+    return {
+      mapDocuments: documents.map((item) => ({ id: Number(item.id), label: item.title || `Map document ${item.id}` })),
+      baseMaps: getDefaultBaseMaps().map((item) => ({ id: String(item.id), label: item.title || String(item.id) }))
+    };
+  }
+
+  /**
+   * Properties of form fields that only the map knows: the record type of the map documents
+   * (the record picker of *Allowed map documents*).
+   *
+   * @returns {Promise<Object<string, object>>} Read after configurationTerms (it finds the record type).
+   */
+  async configurationFields() {
+    if (this.mapDocumentTypeId === undefined) await this.configurationTerms();
+    const id = this.mapDocumentTypeId;
+    return id > 0 ? { 'options.mapDocuments.allowed': { targetTypes: [id] } } : {};
+  }
+
+  /**
+   * Open the publication form in heurist-explorer (plan 29). Explorer writes the page from these
+   * settings, the map state and the map data its options need (*Show only active document*,
+   * *Preserve current state*: mapPublication.js).
+   *
+   * @param {object} [options] Dialog options.
+   * @returns {{result: Promise<object|null>, close: Function}} The dialog handle.
    */
   openPublishDialog(options = {}) {
-    const currentState = this.captureState();
+    const state = this.captureState();
     return this.openConfigurationDialog({
+      title: 'Publish map',
       ...options,
       mode: 'publish',
       value: options.value || this.application.config.persistedSettings || null,
-      publishContext: {
-        activeDocumentId: currentState.activeDocumentId,
-        dynamicDocumentId: this.application.dynamicDocumentId || 'dynamic'
-      },
-      onSave: async (value, context) => {
-        const result = await this.publish(value, context.publishOptions || {});
-        // cancelled in the "Publish as page" dialog
-        if (!result) return null;
-        this.application.dispatch('heurist-map-published', { publication: result, settings: context.serialized });
-        if (options.onSave) await options.onSave(value, context, result);
-        // MapConfigurationDialog closes after this callback resolves. Defer the
-        // published-link dialog so it opens after the configuration overlay is gone.
-        setTimeout(() => {
-          this.publishedDialog?.close?.();
-          this.publishedDialog = new PublishedDialog({ publication: result }).open();
-        }, 0);
-        return result;
+      state,
+      publication: {
+        activeDocumentId: state.activeDocumentId ?? null,
+        dynamicDocumentId: this.application.dynamicDocumentId || 'dynamic',
+        minimalState: { activeDocumentId: state.activeDocumentId ?? null, query: state.query ?? null }
       }
     });
   }
@@ -832,8 +829,6 @@ export class HeuristMapPublicApi {
   destroy() {
     this.configurationDialog?.close?.();
     this.configurationDialog = null;
-    this.publishedDialog?.close?.();
-    this.publishedDialog = null;
     this.application.drawPanel?.destroy?.();
     this.application.drawPanel = null;
     return Promise.resolve(this.drawController?.destroy()).then(() => this.application.destroy());

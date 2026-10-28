@@ -130,6 +130,11 @@ export class ModuleConfigurationDialog {
     });
   }
 
+  /** Close without saving (the owner closes the dialog). */
+  close() {
+    void this._finish?.(null);
+  }
+
   /** @returns {object|null} The settings now in the form (normalized), or null when the dialog is closed. */
   getValue() {
     if (!this.form) return null;

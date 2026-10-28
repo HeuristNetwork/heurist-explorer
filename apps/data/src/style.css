@@ -62,12 +62,6 @@ label.heurist-data-query-source { display:flex; align-items:center; gap:6px; fon
 .heurist-data-filter-row:hover { background:var(--h-color-surface-hover); }
 .heurist-data-empty { padding:4px; color:var(--h-color-text-muted); font-style:italic; }
 
-/* Module-specific deltas only - the shared dialog layout (.heurist-config-dialog
-   and friends) lives in #shared/ui/heurist-module.css. */
-.heurist-data-config-filterby { grid-template-columns:145px 160px auto minmax(180px,1fr); }
-.heurist-data-config-export-warning { margin-top:8px; color:var(--h-color-text-muted); }
-
-
 /* Keep HRecordList inside the module viewport. The scroll owner is its content,
    not the iframe document or the record-list root. */
 .heurist-data-root.h-recordlist-host {

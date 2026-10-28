@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { HeuristHostAdapter } from '../../src/host/HeuristHostAdapter.js';
 import { createHostAdapter } from '../../src/host/createHostAdapter.js';
 import { HeuristMapConfigurationApi } from '../../src/host/HeuristMapConfigurationApi.js';
-import { MapConfigurationDialog } from '../../src/ui/config/MapConfigurationDialog.js';
+import { ModuleConfigurationDialog } from '../../../../shared/src/ui/config/ModuleConfigurationDialog.js';
 
 test('Heurist host adapter uses keyed preference FrontController contract', async () => {
   const calls = [];
@@ -33,7 +33,11 @@ test('Heurist host adapter uses keyed preference FrontController contract', asyn
 test('host factory creates HeuristHostAdapter for declarative host config', () => {
   const host = createHostAdapter({ type: 'heurist', baseUrl: '/heurist/', database: 'demo', fetchImpl: async () => {} });
   assert.ok(host instanceof HeuristHostAdapter);
-  assert.deepEqual(host.getCapabilities(), { mapPreferences: true, mapPublishing: true });
+  // published from heurist-explorer only (plan 29): its bridge has openConfiguration
+  assert.deepEqual(host.getCapabilities(), { mapPreferences: true, mapPublishing: false });
+  const explorer = createHostAdapter({ type: 'heurist', baseUrl: '/heurist/', database: 'demo', fetchImpl: async () => {},
+    bridge: { openConfiguration: async () => null } });
+  assert.equal(explorer.getCapabilities().mapPublishing, true);
 });
 
 test('configuration-only API exposes schema operations without MapApplication', () => {
@@ -153,52 +157,53 @@ test('explicit heurist-map symbol defaults take precedence over legacy preferenc
 });
 
 test('configuration-only API self-heals a missing preferences value from the host', async () => {
-  const originalOpen = MapConfigurationDialog.prototype.open;
-  MapConfigurationDialog.prototype.open = function() { return this; };
+  const originalOpen = ModuleConfigurationDialog.prototype.open;
+  ModuleConfigurationDialog.prototype.open = async function() { return null; };
   try {
     const host = { loadPreferences: async () => ({ config: { defaults: { popupTemplate: 'minimal' } } }) };
     const api = new HeuristMapConfigurationApi({ host });
 
-    const dialog = await api.openConfigurationDialog({ mode: 'preferences' });
+    const handle = await api.openConfigurationDialog({ mode: 'preferences' });
+    await handle.result;
 
-    assert.equal(dialog.value.config.defaults.popupTemplate, 'minimal');
+    assert.equal(handle.dialog.options.value.config.defaults.popupTemplate, 'minimal');
   } finally {
-    MapConfigurationDialog.prototype.open = originalOpen;
+    ModuleConfigurationDialog.prototype.open = originalOpen;
   }
 });
 
 test('configuration-only API does not fetch preferences when a value is already supplied', async () => {
-  const originalOpen = MapConfigurationDialog.prototype.open;
-  MapConfigurationDialog.prototype.open = function() { return this; };
+  const originalOpen = ModuleConfigurationDialog.prototype.open;
+  ModuleConfigurationDialog.prototype.open = async function() { return null; };
   try {
     let called = false;
     const host = { loadPreferences: async () => { called = true; return {}; } };
     const api = new HeuristMapConfigurationApi({ host });
 
-    await api.openConfigurationDialog({
+    await (await api.openConfigurationDialog({
       mode: 'preferences',
       value: { config: { defaults: { popupTemplate: 'standard' } } }
-    });
+    })).result;
 
     assert.equal(called, false);
   } finally {
-    MapConfigurationDialog.prototype.open = originalOpen;
+    ModuleConfigurationDialog.prototype.open = originalOpen;
   }
 });
 
 test('configuration-only API never fetches the viewer\'s preference for website/publish modes', async () => {
-  const originalOpen = MapConfigurationDialog.prototype.open;
-  MapConfigurationDialog.prototype.open = function() { return this; };
+  const originalOpen = ModuleConfigurationDialog.prototype.open;
+  ModuleConfigurationDialog.prototype.open = async function() { return null; };
   try {
     let called = false;
     const host = { loadPreferences: async () => { called = true; return {}; } };
     const api = new HeuristMapConfigurationApi({ host });
 
-    await api.openConfigurationDialog({ mode: 'website' });
+    await (await api.openConfigurationDialog({ mode: 'website' })).result;
 
     assert.equal(called, false);
   } finally {
-    MapConfigurationDialog.prototype.open = originalOpen;
+    ModuleConfigurationDialog.prototype.open = originalOpen;
   }
 });
 

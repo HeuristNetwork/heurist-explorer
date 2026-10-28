@@ -316,3 +316,56 @@
 #Show more#Show more
 #in search#in search
 #Parent record#Parent record
+#Show the Heurist control panel over the map#Show the Heurist control panel over the map
+#Workspace/Filtered Result#Workspace/Filtered Result
+#Title of the current query above the map#Title of the current query above the map
+#Button that returns to the initial extent#Button that returns to the initial extent
+#Language#Language
+#Language of the published page; Automatic follows the browser of the visitor#Language of the published page; Automatic follows the browser of the visitor
+#Automatic#Automatic
+#English#English
+#French#French
+#German#German
+#Portuguese#Portuguese
+#Workspace/Filtered Result Map#Workspace/Filtered Result Map
+#Load only the records inside the visible map extent#Load only the records inside the visible map extent
+#Zoom In (Level)#Zoom In (Level)
+#Zoom Out (Level)#Zoom Out (Level)
+#Zoom In (Km)#Zoom In (Km)
+#Zoom Out (Km)#Zoom Out (Km)
+#Initial extent of the map; empty: fit to the data#Initial extent of the map; empty: fit to the data
+#Width of the map shown when one point is selected#Width of the map shown when one point is selected
+#Zoom level where clustering stops#Zoom level where clustering stops
+#Level 1 (worldwide)#Level 1 (worldwide)
+#Level 2#Level 2
+#Level 3#Level 3
+#Level 4#Level 4
+#Level 5#Level 5
+#Level 6#Level 6
+#Level 7#Level 7
+#Level 8#Level 8
+#Level 9#Level 9
+#Level 10#Level 10
+#Level 11#Level 11
+#Level 12#Level 12
+#Level 13#Level 13
+#Level 14#Level 14
+#Level 15#Level 15
+#Level 16#Level 16
+#Level 17#Level 17
+#Level 18#Level 18
+#Allowed map documents#Allowed map documents
+#None checked: all map documents#None checked: all map documents
+#None checked: all base maps#None checked: all base maps
+#Enable edit#Enable edit
+#Edit of map documents, layers and records#Edit of map documents, layers and records
+#The page opens as the module is now (query, selection, view); otherwise with its settings only#The page opens as the module is now (query, selection, view); otherwise with its settings only
+#The page shows only the map document that is active now#The page shows only the map document that is active now
+#Confirm#Confirm
+#Discard#Discard
+#Discard changes?#Discard changes?
+#Reset all settings to their defaults?#Reset all settings to their defaults?
+#Cancel publish?#Cancel publish?
+#Configuration#Configuration
+#None: all map documents#None: all map documents
+#None: all base maps#None: all base maps

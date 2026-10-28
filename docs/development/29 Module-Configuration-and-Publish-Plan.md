@@ -1,6 +1,7 @@
-**Status 2026-10-28: Phase 2 committed. Phase 3 in progress: Timeline done (§17), not committed, not checked in a
-browser.** The tables (§4–§8) were agreed by Artem on 2026-10-28, together with the proposals of §3 (advanced =
-`req: 'optional'`, no UI = `req: 'forbidden'`), §9 and §12. Phase 2 notes: §16. Next: Record view.# Plan 29 — Module configuration and Publish dialogs
+**Status 2026-10-28: Phases 2 and 3 done. Phase 3 (§17): all five modules on the common form; Timeline
+committed, Record view, Graph, Data and Map not committed and not yet checked in a browser.** The tables (§4–§8) and
+the proposals of §3, §9 and §12 were agreed by Artem on 2026-10-28. Phase 2 notes: §16. Next: the rest of Phase 5 (the
+configuration API on every module: `getConfiguration` / `setConfiguration` exist on Timeline only).
 
 **Status 2026-10-28: Phase 1 agreed; Phase 2 implemented, not committed, not yet checked in a browser.**
 The tables (§4–§8) were agreed by Artem on 2026-10-28, together with the proposals of §3 (advanced = `req: 'optional'`,
@@ -253,7 +254,7 @@ Files: `apps/graph/src/ui/config/graphConfigurationDefaults.js`, `graphConfigura
 | config.defaults.emptyResultMessage | Empty result message | blocktext | | | No records | x | | | |
 | — | Interaction | group | | | x | x | x | | |
 | options.interaction.editEnabled | Enable edit | boolean | | | true | x | =false | | was `readonly` (2026-10-28) |
-| options.interaction.selectionEnabled | Enable selection | boolean | | | true | x | =false | | |
+| options.interaction.selectionEnabled | Enable selection | boolean | | | true | x | x | | |
 | options.interaction.popupEnabled | Enable popups | boolean | | | true | x | x (preset true) | | |
 
 ## 7. Data
@@ -291,7 +292,7 @@ The other values are forced by `applySimplifiedDataSettings` (column *notes*).
 | config.defaults.colorScheme | – | freetext | | | no UI: default | | | | |
 | — | Interaction | group | | | x | x | x | | |
 | options.interaction.editEnabled | Enable edit | boolean | | | true | x | =false | | only record editing: edit icon in the list; also off when the user has no edit rights; simplified: true |
-| options.interaction.selectionEnabled | Enable selection | boolean | | | true | x | =false | | simplified: true |
+| options.interaction.selectionEnabled | Enable selection | boolean | | | true | x | x | | simplified: true |
 | options.interaction.persistentSelectionEnabled | Collection / Persistent selection | boolean | | | false | x | =false | Selection is kept when the result changes | simplified: true |
 | options.interaction.popupEnabled | Enable popups | boolean | | | true | x | x (preset true) | | simplified: true |
 | options.interaction.adminInfoEnabled | Admin info | boolean | | | false | x | =false | Show owner and access info in the list | simplified: true unless saved |
@@ -663,3 +664,121 @@ Explorer strings of the test popup and the dialog are added.
     - Phase 4 still has the module-specific publication options (Preserve current state, Show only
       active document).
 - Described in `docs/integration.md` → *Module configuration forms*.
+
+### Record view, Graph, Data, Map (2026-10-28)
+
+All in one run, at Artem's request.
+- **One factory for all four:** `shared/src/ui/config/moduleConfigurationDialogFactory.js`
+  (`createConfigurationDialogFactory({configuration, bridge, termsProviders, formOptions})`).
+  - It replaces each module's dialog factory in `init*.js`.
+  - It keeps the callback contract of the old dialogs: `onSave(settings, {mode, serialized})`. The
+    modules' `openPreferencesDialog` (load, save, apply) is unchanged.
+  - **With the Explorer bridge** (`openConfiguration`) the form opens in Explorer's window. Configuration
+    settings come back to `onSave`. In publication mode Explorer publishes from `value`, `state` and
+    `publication`.
+  - **Without the bridge** the module opens `ModuleConfigurationDialog` itself. Publication there
+    opens nothing.
+- **Removed:**
+  - `MapConfigurationDialog.js` (1786 lines), `DataConfigurationDialog.js`, `GraphConfigurationDialog.js`
+    and `RecordViewConfigurationDialog.js`;
+  - their CSS (about 90 lines, mostly Map);
+  - the modules' own `publish()` and `PublishedDialog` use;
+  - the tests of the old dialogs. Their rules are now checked on the form JSON with
+    `describeConfigurationForm` (forced values per mode, simplified interface).
+- **`openPublishDialog()` gives Explorer the page data:**
+  - **Record view:** the publication state (the displayed record).
+  - **Graph:** its publication state (query, expansions, hidden groups; no record ids).
+  - **Data:** `getState()`.
+  - **Map:** `captureState()` plus `publication: {activeDocumentId, dynamicDocumentId, minimalState}`.
+- **`canPublish()`** (bridge `openConfiguration`) hides the Publish icon outside Explorer.
+  - Record view, Graph and Data check it in their control panels.
+  - Map uses `mapPublishing`.
+  - Data keeps the legacy hosted publish dialog when the host has one.
+- **Publication options** are form fields `publish.*` in a group *Publication*
+  (`modes: ['publication']`). They are not settings.
+  - Map: *Preserve current state*, *Show only active document*. Graph and Data: *Preserve current
+    state*.
+  - They are applied by `preparePublication({settings, state, publish, publication})` of the module's
+    configuration entry (pure; Map: `ui/config/mapPublication.js`).
+  - Explorer calls it before writing the page. Timeline and Record view have none.
+- **Map special inputs:**
+  - Map documents and base maps are enum checkboxes and selects with `termsSource` `mapDocuments` /
+    `baseMaps`. The map sends the lists with its request (`terms`): the documents from
+    `MapDocumentListProvider`, the Heurist base maps from `getDefaultBaseMaps()`.
+  - The symbology fields are `json` fields with the special editor `symbology`.
+    - In Explorer: Explorer's symbology editors (`moduleConfigurations.js` `specialEditors`).
+    - In the map's own window: `ui/config/mapConfigurationEditors.js`.
+  - The extent uses `selectExtent`: Explorer's form services, or the bridge `editExtent`.
+  - **Lost from the old dialog:** the base map *None* is no longer kept automatically in *Allowed base
+    maps*, and *Title* of the dynamic document is not offered in publication mode. To add back if
+    needed.
+- **Configuration-only APIs (legacy website editor):** `HeuristMapConfigurationApi` and
+  `HeuristDataConfigurationApi` open the same form through the factory, without a bridge.
+  `openConfigurationDialog` now returns `{result, close}`.
+- **`showHelp`** also hides the Help icon of Record view and Graph.
+- **Localization:**
+  - Every caption of each form is in the module's files and in Explorer's (eng, fre).
+  - New test per module: *every caption of the configuration form is in the module dictionaries*
+    (`formCaptions` in `shared/test/helpers/configurationForm.js`). Pure numbers are left out.
+- **Timeline** keeps its own bridge code (§17 above). It could use the factory too.
+- **Tests:** 1480 JS tests pass, all builds pass. New: `shared/test/moduleConfigurationDialogFactory.test.js`,
+  `apps/map/test/host/mapPublication.test.js`.
+
+**Review 2026-10-28 (Artem, after the browser check):**
+1. **Two dialogs on a second click.** While a form is open, the factory gives back its handle, and
+   `ExplorerApplication.openModuleConfiguration` gives back the same promise.
+2. **Allowed map documents** is a record (resource) field, `max: 0`, with the record picker. Its
+   `targetTypes` (the record type of the map documents) comes from the map in the request.
+   - New request / factory option `fields` (field properties by name), applied by `patchFormFields`
+     (`shared/src/data/moduleConfigurationForm.js`).
+   - The map's own window gets the `apiClient` for the picker.
+3. **Allowed base maps** is one multiple picker (HValueCombo / HValuePicker).
+   - New HEditField mode: an enum or relationtype field with `max: 0` and `multiple: true` (or
+     `mode: 'checkbox'`) is one input holding all values (`isMultiChoice`), not one input per value.
+4. **Nothing selected loaded nothing.**
+   - New field property `nullWhenEmpty`: an empty list is `null`, which means "all".
+   - Cause: a checkbox list made one input per value whose value was a list, so the setting became a
+     list inside a list. With nothing checked it also became an empty list, which means "none". An empty
+     list stays "none" for *Show only active document*, which uses it on purpose.
+5. **"No such provider (OpenStreetMap,OpenTopoMap,…)"**: the same list inside a list, joined into one
+   name.
+   - `nullableList` (shared configuration utils) now flattens such lists.
+   - The map skips base map names that contain a comma or space. If none is usable, it uses all.
+   - An unknown provider shows no base map instead of stopping the map
+     (`createLeafletBaseMapLayer`).
+6. **"Unable to initialize the map", and Options gone.** This was the effect of 5: the bad preference
+   stopped the map before its control panel was made. With the checks of 5 the saved preference loads
+   again, so the map starts and the Options button returns.
+
+**Review 2026-10-28, round 2 (Artem, after the browser check):**
+
+1. **Map documents list changed only after a reload.** `MapApplication.applyConfiguration` now reloads
+   the list when *Allowed map documents* changes (`loadMapDocuments(..., {activateFirst: false})`); when
+   the active document is no longer allowed, the dynamic document (or the first one) is activated.
+2. **Language not used on a published page (`?lang=fre` and the published setting).** No module read
+   `options.ui.language` except Data, and the page runtime always gave `eng`. The rule (agreed now):
+   - `?lang=` of the page URL first, then `options.ui.language` of the module on a published page
+     (not `auto`), then the host's language;
+   - one place for all modules: `moduleLanguage()` in `shared/src/config/bootstrap.js`;
+     `normalizeModuleBootstrap` puts the result into `runtime.language`, and each `direct.js` loads its
+     dictionary in that language;
+   - server: `WebsiteService::context` gives `requestedLanguage` (a standalone page takes any language;
+     a website only one of its languages), `PageRenderer::runtime` gives `language` and
+     `languageRequested`; the website runtime adds `lang` to the frame URL of an iframe module.
+   - Several modules mounted directly on one page share one dictionary: the last one loaded wins for the
+     common texts.
+
+**Review 2026-10-28, round 3 (Artem, published pages):**
+
+1. **Record view: an empty control panel.** On a published page *Recently viewed records* is shown only
+   after a second record was opened, and the panel is hidden when it has no button
+   (`RecordViewControlPanel.applyVisibility`, option `published`).
+2. **Timeline: the panel in the wrong place on a website page.** `document-controls.css` (panel at the
+   top right) was imported by `main.js` only; `direct.js` imports it too.
+3. **Graph: the selection could not be changed, every click showed the popup of the selected record.**
+   Publication forces `selectionEnabled: false`; the vis-network `click` event gives the selection, not the
+   node under the pointer, so the saved selection was used for every popup. The click now uses
+   `getNodeAt` / `getEdgeAt`, and with selection off no node is shown selected (`setSelection`).
+4. **Selection on published Graph and Data pages (agreed 2026-10-28):** `options.interaction.selectionEnabled`
+   is no longer forced to false in publication; it is shown in the publication form and kept as set
+   (default true).

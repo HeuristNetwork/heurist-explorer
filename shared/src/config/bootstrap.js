@@ -28,15 +28,36 @@ export function normalizeModuleBootstrap(value = {}) {
   const input = value && typeof value === 'object' && !Array.isArray(value)
     ? value : {};
 
+  const runtime = cloneObject(input.runtime);
+  const language = moduleLanguage(input);
+  if (language) runtime.language = language;
   return {
     format: input.format || HEURIST_MODULE_BOOTSTRAP_FORMAT,
     version: Number.isInteger(Number(input.version))
       ? Number(input.version) : HEURIST_MODULE_BOOTSTRAP_VERSION,
-    runtime: cloneObject(input.runtime),
+    runtime,
     settings: cloneObject(input.settings),
     state: cloneValue(input.state),
     source: cloneObject(input.source)
   };
+}
+
+/**
+ * Interface language of a module (plan 29, 2026-10-28): a language asked in the page URL
+ * (`runtime.languageRequested`, `?lang=`) first, then the module's `options.ui.language`
+ * on a published page (not `auto`), then the host's language.
+ *
+ * @param {object} [value] Raw bootstrap payload (`runtime`, `settings`).
+ * @returns {string|null} 3-letter code (lower case), or null when none is given.
+ */
+export function moduleLanguage(value = {}) {
+  const runtime = value?.runtime || {};
+  const configured = String(value?.settings?.options?.ui?.language || '').toLowerCase();
+  const own = /^[a-z]{3}$/.test(configured) ? configured : null;
+  const host = runtime.language ? String(runtime.language).toLowerCase().slice(0, 3) : null;
+  if (runtime.languageRequested === true && host) return host;
+  if (runtime.runtimeMode === 'published' && own) return own;
+  return host;
 }
 
 /**

@@ -59,6 +59,25 @@ export function mergeSettings(base, values) {
 }
 
 /**
+ * A copy of a form JSON with properties of some fields changed: what only the module knows,
+ * e.g. the record type of the map documents (`targetTypes` of a resource field).
+ *
+ * @param {object} json Form JSON (not changed).
+ * @param {Object<string, object>|null} patches Field properties by field name.
+ * @returns {object} The form JSON with the patches.
+ */
+export function patchFormFields(json, patches) {
+  if (!patches || !Object.keys(patches).length) return json;
+  return {
+    ...json,
+    groups: (json.groups || []).map((group) => ({
+      ...group,
+      children: (group.children || []).map((field) => (patches[field.name] ? { ...field, ...patches[field.name] } : field))
+    }))
+  };
+}
+
+/**
  * Whether a form has optional fields or groups shown in a mode (the Advanced switch is offered).
  *
  * @param {object} json Form JSON.

@@ -234,3 +234,24 @@
 #Search in all fields#Rechercher dans tous les champs
 #Creating relationships#Création des relations
 #Parent record#Enregistrement parent
+#Level selector of the expansion rules#Sélecteur de niveau des règles d’expansion
+#Language of the published page; Automatic follows the browser of the visitor#Langue de la page publiée ; Automatique suit le navigateur du visiteur
+#Automatic#Automatique
+#Anyone who sees the list can download it#Toute personne qui voit la liste peut la télécharger
+#See / hide owners#Voir / masquer les propriétaires
+#Button that shows or hides the owner and access of the records#Bouton qui affiche ou masque le propriétaire et l’accès des enregistrements
+#Edit icon of the records in the list#Icône de modification des enregistrements de la liste
+#The selection is kept when the result changes#La sélection est conservée quand le résultat change
+#Show the owner and access of the records in the list#Afficher le propriétaire et l’accès des enregistrements dans la liste
+#The page opens as the module is now (query, selection, view); otherwise with its settings only#La page s’ouvre comme le module est maintenant (requête, sélection, vue) ; sinon avec ses paramètres seulement
+#Advanced settings#Paramètres avancés
+#Reset#Réinitialiser
+#Confirm#Confirmer
+#Discard#Abandonner
+#Discard changes?#Abandonner les modifications ?
+#Reset all settings to their defaults?#Rétablir tous les paramètres à leurs valeurs par défaut ?
+#Cancel publish?#Annuler la publication ?
+#Yes#Oui
+#No#Non
+#Configuration#Configuration
+#Data options#Options des données

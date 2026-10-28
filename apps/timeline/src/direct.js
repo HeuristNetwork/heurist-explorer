@@ -16,9 +16,12 @@
 import "#shared/ui/heurist-ui.css";
 import "#shared/ui/heurist-module.css";
 import "./style.css";
+// panel geometry (top right of the timeline), as main.js
+import "#shared/ui/documents/document-controls.css";
 import "@fortawesome/fontawesome-free/css/fontawesome.min.css";
 import "@fortawesome/fontawesome-free/css/solid.min.css";
-import { normalizeModuleBootstrap } from "#shared/config";
+import "@fortawesome/fontawesome-free/css/regular.min.css";
+import { moduleLanguage, normalizeModuleBootstrap } from "#shared/config";
 import { extendLocale } from "#shared/ui";
 import { createHeuristTimelineConfig } from "./timelineConfig.js";
 import { initHeuristTimeline } from "./initHeuristTimeline.js";
@@ -49,7 +52,7 @@ export async function mountHeuristTimeline({
   element.id = uniqueContainerId();
   frame.append(element);
   container.replaceChildren(frame);
-  await extendLocale(bootstrap.runtime?.language, assetBaseUrl);
+  await extendLocale(moduleLanguage(bootstrap), assetBaseUrl);
   const config = createHeuristTimelineConfig(normalizeModuleBootstrap(bootstrap), { bridge, containerId: element.id });
   config.exposeGlobal = false;
   return initHeuristTimeline(config);

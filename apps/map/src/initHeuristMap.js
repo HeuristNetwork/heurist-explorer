@@ -30,7 +30,10 @@ import { PopupProvider } from './data/PopupProvider.js';
 import { ReportTemplateProvider } from '#shared/data/ReportTemplateProvider.js';
 import { RecordViewLoader } from '#shared/recordview/RecordViewLoader.js';
 import { MapControlPanel } from './ui/MapControlPanel.js';
-import { MapConfigurationDialog } from './ui/config/MapConfigurationDialog.js';
+import { createConfigurationDialogFactory } from '#shared/ui/config/moduleConfigurationDialogFactory.js';
+import { smartyTemplateTerms } from '#shared/data/moduleConfigurationForm.js';
+import { mapConfiguration } from './configuration.js';
+import { mapConfigurationFormOptions } from './ui/config/mapConfigurationEditors.js';
 import { createLayerLoaderRegistry } from './engine/loaders/createLayerLoaderRegistry.js';
 import { DrawController } from './draw/DrawController.js';
 import { DrawPanel } from './ui/DrawPanel.js';
@@ -122,18 +125,18 @@ export async function initHeuristMap(config) {
     dispatch: (name, detail) => application.dispatch(name, detail)
   });
   const publicApi = new HeuristMapPublicApi(application, drawController);
-  publicApi.setConfigurationDialogFactory((options = {}) => {
-    const dialog = new MapConfigurationDialog({
-      ...options,
-      reportTemplateProvider: providers.reportTemplates,
-      onEditSymbology: options.onEditSymbology || ((value, editorOptions) => publicApi.editSymbology(value, editorOptions)),
-      onEditExtent: options.onEditExtent || (typeof config.host?.bridge?.editExtent === 'function'
-        ? ((bounds, editorOptions) => config.host.bridge.editExtent(bounds, editorOptions))
-        : null)
-    });
-    dialog.open();
-    return dialog;
-  });
+  // the common configuration form (plan 29): in heurist-explorer in Explorer's window
+  const bridge = config.host?.bridge || null;
+  publicApi.setConfigurationDialogFactory(createConfigurationDialogFactory({
+    configuration: mapConfiguration,
+    bridge,
+    termsProviders: { smartyTemplates: smartyTemplateTerms(providers.reportTemplates) },
+    formOptions: mapConfigurationFormOptions({
+      apiClient,
+      editSymbology: (value, editorOptions) => publicApi.editSymbology(value, editorOptions),
+      editExtent: typeof bridge?.editExtent === 'function' ? (bounds) => bridge.editExtent(bounds) : null
+    })
+  }));
   let controlPanel = null;
   let drawPanel = null;
   const readyPromise = application.initialize().then(async () => {

@@ -32,7 +32,7 @@ html.heurist-map-configuration-mode :is(#heurist-map, .heurist-map-host) {
   background: transparent;
 }
 
-html.heurist-map-configuration-mode .heurist-map-config-dialog::backdrop {
+html.heurist-map-configuration-mode .h-module-config-dialog::backdrop {
   background: rgba(0,0,0,.15);
 }
 
@@ -59,21 +59,6 @@ html.heurist-map-configuration-mode .heurist-map-config-dialog::backdrop {
   filter: drop-shadow(0 0 2px #fff) drop-shadow(0 0 5px #ff0000);
   z-index: 1000 !important;
 }
-
-/* Generalized map configuration editor. The component is persistence-neutral
-   and can be opened from preferences, website editing, or publishing. */
-.heurist-map-config-dialog[open]{display:flex;flex-direction:column;width:min(760px,calc(100vw - 32px));max-height:min(88vh,900px);overflow:hidden}.heurist-map-config-dialog [hidden]{display:none!important}.heurist-map-config-form{display:flex;flex-direction:column;min-height:0;overflow:auto}.heurist-map-config-advanced-panel{padding:6px 12px;background:var(--h-color-surface);border-bottom:1px solid var(--h-color-border);font-weight:700}.heurist-map-config-section{border:0;border-bottom:1px solid var(--h-color-border)}.heurist-map-config-section>summary{padding:6px 11px;background:var(--h-color-surface);font-weight:700;cursor:pointer;user-select:none}.heurist-map-config-section-body{display:flex;flex-direction:column;gap:5px;padding:8px 12px 10px}.heurist-map-config-field{display:grid;grid-template-columns:minmax(155px,220px) minmax(180px,1fr);align-items:center;gap:8px}.heurist-map-config-field.compact{grid-template-columns:minmax(105px,1fr)}
-.heurist-map-config-field input,.heurist-map-config-field select,.heurist-map-config-field textarea{width:100%}
-.heurist-map-config-field textarea{resize:vertical;font-family:monospace;font-size:var(--h-font-size-small)}
-.heurist-map-config-check{display:flex;align-items:center;gap:5px;min-height:22px;white-space:nowrap}
-.heurist-map-config-inline-checks{display:flex;align-items:center;flex-wrap:wrap;gap:3px 16px}
-.heurist-map-config-grid{display:grid;grid-template-columns:repeat(2,minmax(145px,1fr));gap:5px 10px}
-.heurist-map-config-group{display:flex;flex-direction:column;gap:5px;margin:3px 0;padding:7px 9px 9px;border:1px solid #d3d3d3;border-radius:4px}
-.heurist-map-config-group legend{padding:0 5px;font-weight:700}
-.heurist-map-config-controls-group>.heurist-map-config-check:first-of-type{font-weight:700}
-.heurist-map-config-footer{position:sticky;bottom:0}
-.heurist-map-config-footer button{min-width:72px}
-.heurist-map-config-dialog button:focus-visible,.heurist-map-config-dialog input:focus-visible,.heurist-map-config-dialog select:focus-visible,.heurist-map-config-dialog textarea:focus-visible,.heurist-map-config-dialog summary:focus-visible{outline:2px solid var(--h-color-primary);outline-offset:1px}@media(max-width:600px){.heurist-map-config-dialog{max-height:none}.heurist-map-config-field{grid-template-columns:1fr;gap:3px}.heurist-map-config-grid{grid-template-columns:1fr}.heurist-map-config-inline-checks{display:grid;grid-template-columns:repeat(2,1fr)}}
 
 /* Optional Leaflet controls: keep the three collapsed single-button tools
    (Bookmark, Print and Search) on the same 24 x 24 px footprint.
@@ -149,89 +134,18 @@ html.heurist-map-configuration-mode .heurist-map-config-dialog::backdrop {
   min-height:0 !important;
 }
 
-/* Map configuration dialog compact default-value input. */
-.heurist-map-config-field.heurist-map-config-inline-number{display:flex;align-items:center;gap:8px}
-.heurist-map-config-field.heurist-map-config-inline-number>span{flex:0 0 auto}
-.heurist-map-config-field.heurist-map-config-narrow-number>input{width:72px}
-
 .leaflet-attribution-flag{
     visibility:hidden;
     display:none !important;
 }
 
-/* Configuration list selectors for MapDocuments and base maps. */
-.heurist-map-config-field select[multiple]{min-height:150px;max-height:260px}
-.heurist-map-config-list-default{margin-top:5px;font-size:.95em}
-
-/* MapConfigurationDialog dual-list selectors. */
-.heurist-map-config-transfer-field{align-items:start}
-.heurist-map-config-transfer-field>span{padding-top:2px}
-.heurist-map-config-transfer-content{display:flex;flex-direction:column;gap:4px;min-width:0}
-.heurist-map-config-list-default{align-self:flex-start;gap:2px;margin:0 0 2px;font-size:.95em}
-.heurist-map-config-list-default input{margin:0 2px 0 0}
-.heurist-map-config-transfer-lists{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;align-items:start}
-.heurist-map-config-transfer-column{display:flex;flex-direction:column;gap:3px;min-width:0}
-.heurist-map-config-transfer-title{font-weight:600}
-.heurist-map-config-transfer-column select{box-sizing:border-box;width:100%;min-height:150px;max-height:260px;padding:2px;border:1px solid var(--h-color-border-strong);border-radius:3px;background:var(--h-color-bg);font:inherit}
-.heurist-map-config-transfer-column option{padding:3px 4px;cursor:pointer}
-.heurist-map-config-list-notice{align-self:flex-start;margin-top:1px;font-size:var(--h-font-size-tiny);line-height:1.2}
-@media(max-width:600px){.heurist-map-config-transfer-field>span{padding-top:0}.heurist-map-config-transfer-lists{grid-template-columns:1fr}}
-
-/* Map Configuration: grouped Heurist/native map controls. */
-.heurist-map-config-control-section{display:flex;flex-direction:column;gap:4px;padding:2px 0 5px}.heurist-map-config-control-section+.heurist-map-config-control-section{margin-top:4px;padding-top:7px;border-top:1px solid var(--h-color-border)}.heurist-map-config-control-section-title{font-weight:700}.heurist-map-config-master-control{font-weight:600}.heurist-map-config-check input:disabled{opacity:.58}.heurist-map-config-native-controls .heurist-map-config-inline-checks{gap:3px 14px}
-.heurist-map-config-zoom-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.heurist-map-config-zoom-row>.heurist-map-config-field{display:flex;align-items:center;gap:5px}.heurist-map-config-zoom-row>.heurist-map-config-field>span{white-space:nowrap}.heurist-map-config-zoom-row select,.heurist-map-config-zoom-row input[type=number]{box-sizing:border-box;width:175px}.heurist-map-config-radio-choice{display:flex;align-items:center;gap:8px;white-space:nowrap}.heurist-map-config-radio-choice label{display:flex;align-items:center;gap:3px}.heurist-map-config-clustering{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.heurist-map-config-clustering>.heurist-map-config-field{display:flex;align-items:center;gap:5px}.heurist-map-config-clustering>.heurist-map-config-field>span{white-space:nowrap}.heurist-map-config-clustering select{width:175px}.heurist-map-config-bounds{grid-template-columns:minmax(155px,220px) minmax(220px,1fr) auto}.heurist-map-config-bounds button{padding:4px 10px}
-
-/* Compact symbol preview/edit row in MapConfigurationDialog. */
-.heurist-map-config-symbology-content{
-  display:flex;
-  align-items:center;
-  flex-wrap:wrap;
-  gap:5px 9px;
-  min-width:0;
-}
-.heurist-map-config-symbology-preview{
-  display:inline-flex;
-  align-items:center;
-  min-width:92px;
-  min-height:28px;
-}
-.heurist-map-config-symbology-preview.is-default{opacity:.65}
 .heurist-map-symbol-preview{
   display:inline-flex;
   align-items:center;
   gap:2px;
   min-height:24px;
 }
-.heurist-map-config-symbology-links{
-  display:inline-flex;
-  align-items:center;
-  gap:9px;
-  white-space:nowrap;
-}
-.heurist-map-config-link{
-  min-width:0!important;
-  padding:0!important;
-  border:0!important;
-  background:transparent!important;
-  color:var(--h-color-link);
-  text-decoration:underline;
-  cursor:pointer;
-  font:inherit;
-}
-.heurist-map-config-link:hover{background:transparent!important;color:var(--h-color-link)}
-.heurist-map-config-link:disabled{color:var(--h-color-text-muted);cursor:default;text-decoration:none}
-.heurist-map-config-symbology-clear{
-  width:17px;
-  height:17px;
-  font-size:var(--h-font-size-icon)!important;
-  line-height:15px!important;
-  color:var(--h-color-text-muted);
-  text-decoration:none;
-}
-.heurist-map-config-symbology-raw{
-  flex:0 0 100%;
-  margin-top:2px;
-}
+
 :is(#heurist-map, .heurist-map-host) .heurist-map-draw-panel {
   position: absolute;
   z-index: 900;

@@ -111,7 +111,19 @@ export class HEditField extends HBaseWidget {
 
   /** @returns {boolean} Whether the field may have several values. */
   get isRepeatable() {
-    return !this.field.multilang && !this.isList && (this.field.max === 0 || this.field.max > 1);
+    return !this.field.multilang && !this.isList && !this.isMultiChoice && (this.field.max === 0 || this.field.max > 1);
+  }
+
+  /**
+   * Whether the values of a term field with several values are chosen in one input (plan 29):
+   * a checkbox list (`mode: 'checkbox'`) or a multiple picker (`multiple: true`).
+   *
+   * @returns {boolean}
+   */
+  get isMultiChoice() {
+    const field = this.field;
+    return (field.type === 'enum' || field.type === 'relationtype') && !field.multilang
+      && (field.max === 0 || field.max > 1) && (field.mode === 'checkbox' || field.multiple === true);
   }
 
   /**
@@ -230,10 +242,13 @@ export class HEditField extends HBaseWidget {
       ...this._pending.map((entry) => ({ ...entry })),
       ...this._rows.filter((row) => row.added).map(entryOf)
     ].filter((entry) => !isEmpty(entry.value));
-    // a list field: one value per line of its text
+    // a list field: one value per line of its text; a multiple choice: one value per term
     const listed = this.isList
       ? values.flatMap((entry) => listLines(entry.value).map((value) => ({ value, hidden: false })))
-      : values;
+      : this.isMultiChoice
+        ? values.flatMap((entry) => (Array.isArray(entry.value) ? entry.value : [entry.value])
+          .filter((value) => !isEmpty(value)).map((value) => ({ value, hidden: false })))
+        : values;
     return { values: listed, translations: this._translationState() };
   }
 
@@ -361,6 +376,10 @@ export class HEditField extends HBaseWidget {
     if (this.isList && this._entries.length) {
       const text = this._entries.map((entry) => String(entry.value ?? '').trim()).filter(Boolean).join('\n');
       this._entries = text ? [{ value: text, hidden: false }] : [];
+    }
+    // a multiple choice: all values in one input
+    if (this.isMultiChoice && this._entries.length) {
+      this._entries = [{ value: this._entries.map((entry) => entry.value), hidden: false }];
     }
   }
 
@@ -764,6 +783,8 @@ export class HEditField extends HBaseWidget {
     return {
       ...choices,
       mode,
+      // several values in one picker (plan 29)
+      ...(this.isMultiChoice ? { multiple: true } : {}),
       // label of the empty choice (a configuration value where null has a meaning, plan 29)
       ...(field.emptyLabel ? { emptyLabel: field.emptyLabel } : {}),
       ...(mode === 'radio' || mode === 'checkbox' ? { orientation: 'inline', radioStyle: 'standard', countsMode: 'none' } : {})

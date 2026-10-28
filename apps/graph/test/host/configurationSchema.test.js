@@ -12,6 +12,8 @@
  */
 
 import test from "node:test";
+import form from "../../src/ui/config/graphConfigurationForm.json" with { type: "json" };
+import { describeConfigurationForm } from "../../../../shared/src/data/moduleConfigurationForm.js";
 import assert from "node:assert/strict";
 import { createGraphConfigurationDefaults } from "../../src/ui/config/graphConfigurationDefaults.js";
 import {
@@ -22,7 +24,6 @@ import {
   CONFIGURATION_FORMAT,
   CONFIGURATION_VERSION,
 } from "../../src/ui/config/configurationUtils.js";
-import { GraphConfigurationDialog } from "../../src/ui/config/GraphConfigurationDialog.js";
 
 test("graph configuration defaults expose the requested controls", () => {
   const value = createGraphConfigurationDefaults();
@@ -59,18 +60,13 @@ test("node and edge limits accept only the configured choices", () => {
   );
 });
 
-test("publication mode locks interaction down to a read-only viewer", () => {
-  const dialog = new GraphConfigurationDialog({
-    mode: "publish",
-    value: {
-      options: { interaction: { selectionEnabled: true } },
-    },
-  });
-  const interaction = dialog.getValue().options.interaction;
-  assert.equal(interaction.editEnabled, false);
-  assert.equal(interaction.readonly, undefined, "no readonly setting (plan 29)");
-  assert.equal(interaction.selectionEnabled, false);
-  assert.equal(interaction.popupEnabled, true);
+test("publication mode: no editing and no module menus; selection and popups stay (form, plan 29)", () => {
+  const forced = Object.fromEntries(describeConfigurationForm(form, { mode: "publication" })
+    .filter((row) => row.forced).map((row) => [row.key, row.forced.value]));
+  assert.equal(forced["options.interaction.editEnabled"], false);
+  assert.equal("options.interaction.selectionEnabled" in forced, false, "selection stays editable (2026-10-28)");
+  assert.equal(forced["options.ui.showOptions"], false);
+  assert.equal("options.interaction.popupEnabled" in forced, false, "popups stay editable");
 });
 
 test("normalization drops unknown keys", () => {
@@ -147,36 +143,6 @@ test("serializer creates the heurist-graph settings envelope", () => {
   assert.equal(value.format, CONFIGURATION_FORMAT);
   assert.equal(value.version, CONFIGURATION_VERSION);
   assert.equal(value.options.nativeControls.zoom, false);
-});
-
-test("dialog is usable as a value object without a document", () => {
-  const dialog = new GraphConfigurationDialog({
-    mode: "website",
-    value: {
-      options: { ui: { showOptions: true, showSourceHeader: true } },
-    },
-  });
-  const value = dialog.getValue();
-  assert.equal(value.options.ui.showOptions, true);
-  assert.equal(value.options.ui.showSourceHeader, true);
-  assert.equal(dialog.serialize().format, "heurist-graph-settings");
-});
-
-test("Options visibility is fixed for preferences and publication but configurable for websites", () => {
-  const preferences = new GraphConfigurationDialog({
-    mode: "preferences",
-    value: {
-      options: { ui: { showOptions: false } },
-    },
-  }).getValue();
-  const publication = new GraphConfigurationDialog({
-    mode: "publish",
-    value: {
-      options: { ui: { showOptions: true } },
-    },
-  }).getValue();
-  assert.equal(preferences.options.ui.showOptions, true);
-  assert.equal(publication.options.ui.showOptions, false);
 });
 
 test("label visibility and disabled gravity survive serialization", () => {

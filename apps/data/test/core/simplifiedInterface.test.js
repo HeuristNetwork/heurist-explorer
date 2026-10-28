@@ -47,13 +47,14 @@ test("runtime simplifiedUI reaches the configuration and the engine options", ()
   assert.equal(createHeuristDataConfig({ runtime: {}, settings: {} }).simplified, false);
 });
 
-test("the dialog leaves out Interface, Interaction and the Extended view / Popup templates", async () => {
-  const dialog = await source("../../src/ui/config/DataConfigurationDialog.js");
-  assert.match(dialog, /if \(!this\.simplified \|\| this\.mode === "publish"\) \{\s*this\.content\.append\(\s*this\.section\("Interface"/);
-  assert.match(dialog, /if \(this\.simplified\) return;\s*this\.content\.append\(\s*this\.section\("Interaction"/);
-  assert.match(dialog, /\["config\.defaults\.viewTemplate", "config\.defaults\.popupTemplate"\]/);
+test("the form leaves out Interface, Interaction and the Extended view / Popup templates (plan 29)", async () => {
+  const { default: form } = await import("../../src/ui/config/dataConfigurationForm.json", { with: { type: "json" } });
+  const { describeConfigurationForm } = await import("../../../../shared/src/data/moduleConfigurationForm.js");
+  const shown = describeConfigurationForm(form, { mode: "configuration", simplified: true, showOptional: true })
+    .filter((row) => row.shown).map((row) => row.key);
+  assert.ok(shown.every((key) => key.startsWith("config.defaults.")), shown.join());
+  assert.ok(!shown.includes("config.defaults.viewTemplate") && !shown.includes("config.defaults.popupTemplate"));
 });
-
 test("record list toolbar: Counter, Pagination, View, Selected, Sort, See/hide owners", async () => {
   const list = await source("../../../../shared/src/widgets/record-list/HRecordList.js");
   assert.match(list, /toolbar\.prepend\(\s*\.\.\.\[\s*this\.\$\('\[data-role="counter"\]'\),\s*this\.\$\("\.h-recordlist-pagination"\),\s*this\.\$\('\[data-control="viewMode"\]'\),\s*this\.\$\('\[data-control="selectionActions"\]'\),\s*this\._sortControl,\s*this\._ownersToggle,/);

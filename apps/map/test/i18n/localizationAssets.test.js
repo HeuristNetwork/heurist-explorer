@@ -21,10 +21,19 @@ test('every direct $HR string in map UI source is present in module dictionaries
   const sourceFiles = [
     '../../src/main.js', '../../src/ui/MapControlPanel.js', '../../src/ui/MapDocumentSelector.js',
     '../../src/ui/LayerPanel.js', '../../src/ui/LayerPanelItem.js', '../../src/ui/DrawPanel.js',
-    '../../src/ui/config/MapConfigurationDialog.js', '../../src/ui/legend/LegendRenderer.js',
+    '../../../../shared/src/ui/config/ModuleConfigurationDialog.js', '../../src/ui/legend/LegendRenderer.js',
     '../../src/ui/popup/MapPopupController.js', '../../../../shared/src/recordview/RecordViewRenderer.js'
   ];
   const sources = await Promise.all(sourceFiles.map((file) => readFile(fileURLToPath(new URL(file, import.meta.url)), 'utf8')));
   const keys = sources.flatMap((source) => [...source.matchAll(/\$HR\(["']([^"']+)["']/g)].map((match) => match[1]));
   assert.deepEqual(keys.filter((key) => !(key in english)), []);
+});
+
+test('every caption of the configuration form is in the module dictionaries (plan 29)', async () => {
+  const { default: form } = await import('../../src/ui/config/mapConfigurationForm.json', { with: { type: 'json' } });
+  const { formCaptions } = await import('../../../../shared/test/helpers/configurationForm.js');
+  for (const language of ['eng', 'fre']) {
+    const dictionary = parseLocale(await readFile(`${assets}localization_${language}.txt`, 'utf8'));
+    assert.deepEqual(formCaptions(form).filter((key) => !(key in dictionary)), [], language);
+  }
 });

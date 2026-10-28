@@ -22,11 +22,19 @@ import {
   serializeDataConfigurationSettings,
 } from "./ui/config/dataConfigurationSchema.js";
 
-/** The configuration of heurist-data: form JSON, defaults, normalizer and serializer. */
+/**
+ * The configuration of heurist-data: form JSON, defaults, normalizer, serializer and the
+ * publication option *Preserve current state* (`preparePublication`, run by heurist-explorer's
+ * publication form: without it the page has no state).
+ */
 export const dataConfiguration = Object.freeze({
   type: "data",
   form,
   defaults: createDataConfigurationDefaults,
   normalize: normalizeDataConfigurationSettings,
   serialize: serializeDataConfigurationSettings,
+  preparePublication: ({ settings, state = null, publish = {} }) => ({
+    settings,
+    state: publish?.preserveState === false ? {} : state,
+  }),
 });

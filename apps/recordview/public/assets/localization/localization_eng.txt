@@ -84,3 +84,26 @@
 #in search#in search
 #Loading...#Loading...
 #Parent record#Parent record
+#Interface#Interface
+#Language of the published page; Automatic follows the browser of the visitor#Language of the published page; Automatic follows the browser of the visitor
+#Automatic#Automatic
+#Shown when no record is selected#Shown when no record is selected
+#Default settings#Default settings
+#Which record is shown when several are selected#Which record is shown when several are selected
+#Only a single selection#Only a single selection
+#Interaction#Interaction
+#Enable edit#Enable edit
+#Edit icon of the record#Edit icon of the record
+#Advanced settings#Advanced settings
+#Reset#Reset
+#Save#Save
+#Confirm#Confirm
+#Discard#Discard
+#Discard changes?#Discard changes?
+#Reset all settings to their defaults?#Reset all settings to their defaults?
+#Cancel publish?#Cancel publish?
+#Yes#Yes
+#No#No
+#Configuration#Configuration
+#Record View options#Record View options
+#Publish Record View#Publish Record View

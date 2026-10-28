@@ -156,3 +156,7 @@
 #Discard changes?#Discard changes?
 #Advanced settings#Advanced settings
 #Reset all settings to their defaults?#Reset all settings to their defaults?
+#Cancel publish?#Cancel publish?
+#Yes#Yes
+#No#No
+#Configuration#Configuration

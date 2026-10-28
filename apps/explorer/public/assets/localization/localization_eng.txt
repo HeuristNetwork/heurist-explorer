@@ -1090,3 +1090,142 @@
 #Publish to#Publish to
 #Page title#Page title
 #Cancel publish?#Cancel publish?
+#Heurist Map Controls#Heurist Map Controls
+#Show the Heurist control panel over the map#Show the Heurist control panel over the map
+#Workspace/Filtered Result#Workspace/Filtered Result
+#Map documents#Map documents
+#Base maps#Base maps
+#Initially expanded#Initially expanded
+#Title of the current query above the map#Title of the current query above the map
+#Home#Home
+#Button that returns to the initial extent#Button that returns to the initial extent
+#Native Map Controls#Native Map Controls
+#Zoom#Zoom
+#Scale#Scale
+#Print#Print
+#Workspace/Filtered Result Map#Workspace/Filtered Result Map
+#Load by map extent#Load by map extent
+#Load only the records inside the visible map extent#Load only the records inside the visible map extent
+#Zoom In (Level)#Zoom In (Level)
+#Zoom Out (Level)#Zoom Out (Level)
+#Zoom In (Km)#Zoom In (Km)
+#Zoom Out (Km)#Zoom Out (Km)
+#Extent#Extent
+#Initial extent of the map; empty: fit to the data#Initial extent of the map; empty: fit to the data
+#Point selection extent (km)#Point selection extent (km)
+#Width of the map shown when one point is selected#Width of the map shown when one point is selected
+#Default symbology#Default symbology
+#Select symbology#Select symbology
+#Prevent continuous world basemap#Prevent continuous world basemap
+#Marker clustering#Marker clustering
+#Grid pixels#Grid pixels
+#Stop at#Stop at
+#Zoom level where clustering stops#Zoom level where clustering stops
+#Level 1 (worldwide)#Level 1 (worldwide)
+#Level 2#Level 2
+#Level 3#Level 3
+#Level 4#Level 4
+#Level 5#Level 5
+#Level 6#Level 6
+#Level 7#Level 7
+#Level 8#Level 8
+#Level 9#Level 9
+#Level 10#Level 10
+#Level 11#Level 11
+#Level 12#Level 12
+#Level 13#Level 13
+#Level 14#Level 14
+#Level 15#Level 15
+#Level 16#Level 16
+#Level 17#Level 17
+#Level 18#Level 18
+#Maximum allowed features#Maximum allowed features
+#Popup template#Popup template
+#Built-in (basic)#Built-in (basic)
+#Built-in#Built-in
+#Standard (Legacy)#Standard (Legacy)
+#Allowed map documents#Allowed map documents
+#None checked: all map documents#None checked: all map documents
+#Default document#Default document
+#Allowed base maps#Allowed base maps
+#None checked: all base maps#None checked: all base maps
+#Initial base map#Initial base map
+#Default#Default
+#Edit of map documents, layers and records#Edit of map documents, layers and records
+#Enable selection#Enable selection
+#Enable popups#Enable popups
+#Zoom on selection#Zoom on selection
+#Preserve current state#Preserve current state
+#The page opens as the module is now (query, selection, view); otherwise with its settings only#The page opens as the module is now (query, selection, view); otherwise with its settings only
+#Show only active document#Show only active document
+#The page shows only the map document that is active now#The page shows only the map document that is active now
+#Map options#Map options
+#Publish map#Publish map
+#Expand graph#Expand graph
+#Expand, prune and level controls#Expand, prune and level controls
+#Native controls#Native controls
+#Pan#Pan
+#Rearrange#Rearrange
+#Nodes limit#Nodes limit
+#Edges limit#Edges limit
+#Layout#Layout
+#Automatic (ForceAtlas2)#Automatic (ForceAtlas2)
+#Gravity (Barnes-Hut)#Gravity (Barnes-Hut)
+#Hierarchical (top down)#Hierarchical (top down)
+#Hierarchical (left to right)#Hierarchical (left to right)
+#By record types#By record types
+#Grid#Grid
+#Movement#Movement
+#Continuous#Continuous
+#Freeze#Freeze
+#Gravity#Gravity
+#Loose#Loose
+#Normal#Normal
+#Tight#Tight
+#Scale node size by connections#Scale node size by connections
+#Show node labels#Show node labels
+#Show edge labels#Show edge labels
+#Label length#Label length
+#Popup delay (seconds)#Popup delay (seconds)
+#Built-in (vis basic)#Built-in (vis basic)
+#Empty result message#Empty result message
+#Edit of the records#Edit of the records
+#Graph options#Graph options
+#Publish graph#Publish graph
+#Level selector of the expansion rules#Level selector of the expansion rules
+#Page size#Page size
+#Search in results#Search in results
+#Counter#Counter
+#Export (CSV, Excel, PDF)#Export (CSV, Excel, PDF)
+#Anyone who sees the list can download it#Anyone who sees the list can download it
+#View mode#View mode
+#See / hide owners#See / hide owners
+#Button that shows or hides the owner and access of the records#Button that shows or hides the owner and access of the records
+#Selection actions#Selection actions
+#Font size#Font size
+#Card and row template#Card and row template
+#Built-in renderer#Built-in renderer
+#Extended view template#Extended view template
+#Edit icon of the records in the list#Edit icon of the records in the list
+#Collection / Persistent selection#Collection / Persistent selection
+#The selection is kept when the result changes#The selection is kept when the result changes
+#Admin info#Admin info
+#Show the owner and access of the records in the list#Show the owner and access of the records in the list
+#Data options#Data options
+#Publish data#Publish data
+#Header title#Header title
+#Empty message#Empty message
+#Shown when no record is selected#Shown when no record is selected
+#Render engine#Render engine
+#Legacy viewer#Legacy viewer
+#Smarty template#Smarty template
+#Selection mode#Selection mode
+#Which record is shown when several are selected#Which record is shown when several are selected
+#First selected#First selected
+#Last selected#Last selected
+#Only a single selection#Only a single selection
+#Edit icon of the record#Edit icon of the record
+#Record View options#Record View options
+#Publish Record View#Publish Record View
+#None: all map documents#None: all map documents
+#None: all base maps#None: all base maps

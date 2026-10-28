@@ -14,7 +14,6 @@
  */
 
 import { serializeGraphConfigurationSettings } from "../ui/config/graphConfigurationSchema.js";
-import { PublishedDialog } from "#shared/ui";
 
 /** Public API facade that exposes graph operations to callers and host applications. */
 export class HeuristGraphPublicApi {
@@ -23,7 +22,6 @@ export class HeuristGraphPublicApi {
     this.application = application;
     this.readyPromise = null;
     this.configurationDialogFactory = null;
-    this.publishedDialog = null;
   }
 
   /**
@@ -65,7 +63,7 @@ export class HeuristGraphPublicApi {
   async openPreferencesDialog(options = {}) {
     if (!this.configurationDialogFactory) throw new Error("Graph configuration dialog is not available");
     const saved = (await this.application.host.loadPreferences?.()) ?? null;
-    return this.configurationDialogFactory({ ...options, mode: "preferences", value: saved || this.application.config.persistedSettings || {}, onSave: async (value, context) => {
+    return this.configurationDialogFactory({ title: "Graph options", ...options, mode: "preferences", value: saved || this.application.config.persistedSettings || {}, onSave: async (value, context) => {
       const result = await this.application.host.savePreferences?.(
         serializeGraphConfigurationSettings(value),
       );
@@ -75,30 +73,18 @@ export class HeuristGraphPublicApi {
   }
 
   /**
-   * Serialize settings and publish a reproducible graph snapshot as a standalone website page (host).
+   * Whether this module can be published: only from heurist-explorer, whose configuration
+   * form writes the page (plan 29).
    *
-   * @param {object} value Settings to publish; serialized into the publication envelope.
-   * @param {{preserveCurrentState?: boolean}} [publishOptions] Set `preserveCurrentState: false` to publish with no state.
-   * @returns {Promise<object>} The host's publication result.
+   * @returns {boolean}
    */
-  publish(value, publishOptions = {}) {
-    const settings = serializeGraphConfigurationSettings(value);
-    const state =
-      publishOptions.preserveCurrentState === false
-        ? {}
-        : publicationState(this.getState());
-    return this.application.host.publish({
-      format: "heurist-publication",
-      version: 1,
-      options: settings.options,
-      config: settings.config,
-      state,
-    });
+  canPublish() {
+    return typeof this.application.host?.bridge?.openConfiguration === "function";
   }
 
   /**
-   * Open the publish editor seeded with publish-mode settings. On save, publishes and shows the
-   * resulting link dialog.
+   * Open the publication form in heurist-explorer (plan 29): Explorer writes the page from these
+   * settings and the state, and shows the result.
    *
    * @param {object} [options] Dialog options.
    * @returns {object} The opened dialog.
@@ -111,29 +97,13 @@ export class HeuristGraphPublicApi {
       options.value || this.application.config.persistedSettings || {},
       this.application.config.language,
     );
+    // Explorer writes the page (plan 29); Preserve current state of its form keeps or drops this state
     return this.configurationDialogFactory({
+      title: "Publish graph",
       ...options,
       mode: "publish",
       value,
-      onSave: async (value, context) => {
-        const result = await this.publish(value, context.publishOptions);
-        // cancelled in the "Publish as page" dialog
-        if (!result) return null;
-        this.application.dispatch("heurist-graph-published", {
-          publication: result,
-          settings: context.serialized,
-        });
-        await options.onSave?.(value, context, result);
-        // GraphConfigurationDialog closes after this callback resolves. Defer the
-        // published-link dialog so it opens once the configuration overlay is gone.
-        setTimeout(() => {
-          this.publishedDialog?.close?.();
-          this.publishedDialog = new PublishedDialog({
-            publication: result,
-          }).open();
-        }, 0);
-        return result;
-      },
+      state: publicationState(this.getState()),
     });
   }
 
@@ -437,8 +407,6 @@ export class HeuristGraphPublicApi {
    * @returns {Promise<void>}
    */
   destroy() {
-    this.publishedDialog?.close?.();
-    this.publishedDialog = null;
     return this.application.destroy();
   }
 }

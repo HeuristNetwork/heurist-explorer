@@ -12,6 +12,8 @@
  */
 
 import test from "node:test";
+import form from "../../src/ui/config/dataConfigurationForm.json" with { type: "json" };
+import { describeConfigurationForm } from "../../../../shared/src/data/moduleConfigurationForm.js";
 import assert from "node:assert/strict";
 import { createDataConfigurationDefaults } from "../../src/ui/config/dataConfigurationDefaults.js";
 import {
@@ -22,7 +24,6 @@ import {
   CONFIGURATION_FORMAT,
   CONFIGURATION_VERSION,
 } from "../../src/ui/config/configurationUtils.js";
-import { DataConfigurationDialog } from "../../src/ui/config/DataConfigurationDialog.js";
 
 test("data configuration defaults expose the requested controls", () => {
   const value = createDataConfigurationDefaults();
@@ -66,19 +67,16 @@ test("page size accepts only configured choices and publication restricts intera
     }).config.defaults.pageSize,
     100,
   );
-  const dialog = new DataConfigurationDialog({
-    mode: "publish",
-    value: {
-      options: { interaction: { persistentSelectionEnabled: true } },
-    },
-  });
-  const interaction = dialog.getValue().options.interaction;
-  assert.equal(interaction.readonly, undefined, "no readonly setting (plan 29)");
-  assert.equal(interaction.editEnabled, false);
-  assert.equal(interaction.selectionEnabled, false);
-  assert.equal(interaction.persistentSelectionEnabled, false);
-  assert.equal(interaction.popupEnabled, true);
-  assert.equal(interaction.adminInfoEnabled, false);
+  // publication restrictions: the forced values of the configuration form (plan 29)
+  const forced = Object.fromEntries(describeConfigurationForm(form, { mode: "publication" })
+    .filter((row) => row.forced).map((row) => [row.key, row.forced.value]));
+  assert.equal(forced["options.interaction.editEnabled"], false);
+  assert.equal("options.interaction.selectionEnabled" in forced, false, "selection stays editable (2026-10-28)");
+  assert.equal(forced["options.interaction.persistentSelectionEnabled"], false);
+  assert.equal(forced["options.interaction.adminInfoEnabled"], false);
+  assert.equal(forced["options.nativeControls.selectionActions"], false);
+  assert.equal(forced["options.ui.showOptions"], false);
+  assert.equal("options.interaction.readonly" in forced, false, "no readonly setting (plan 29)");
 });
 
 test("normalization allowlists values and clamps font size", () => {
@@ -175,34 +173,4 @@ test("serializer creates the heurist-data settings envelope", () => {
   assert.equal(value.format, CONFIGURATION_FORMAT);
   assert.equal(value.version, CONFIGURATION_VERSION);
   assert.equal(value.options.nativeControls.export, false);
-});
-
-test("dialog is usable as a value object without a document", () => {
-  const dialog = new DataConfigurationDialog({
-    mode: "website",
-    value: {
-      options: { ui: { showOptions: true, showSourceHeader: true } },
-    },
-  });
-  const value = dialog.getValue();
-  assert.equal(value.options.ui.showOptions, true);
-  assert.equal(value.options.ui.showSourceHeader, true);
-  assert.equal(dialog.serialize().format, "heurist-data-settings");
-});
-
-test("Options visibility is fixed for preferences and publication but configurable for websites", () => {
-  const preferences = new DataConfigurationDialog({
-    mode: "preferences",
-    value: {
-      options: { ui: { showOptions: false } },
-    },
-  }).getValue();
-  const publication = new DataConfigurationDialog({
-    mode: "publish",
-    value: {
-      options: { ui: { showOptions: true } },
-    },
-  }).getValue();
-  assert.equal(preferences.options.ui.showOptions, true);
-  assert.equal(publication.options.ui.showOptions, false);
 });

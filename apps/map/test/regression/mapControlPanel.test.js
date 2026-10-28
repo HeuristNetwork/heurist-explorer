@@ -39,15 +39,6 @@ test('Map Control custom CSS supports declarations and complete CSS rules', () =
   assert.match(panelSource, /controlCssStyle\?\.remove\(\)/);
 });
 
-test('configuration dialog keeps Interface first and uses flat Default settings layout', async () => {
-  const dialogSource = await readFile(new URL('../../src/ui/config/MapConfigurationDialog.js', import.meta.url), 'utf8');
-  const interfaceIndex = dialogSource.indexOf("this.section('Interface'");
-  const currentResultsIndex = dialogSource.indexOf("this.section('Workspace/Filtered Result Map'");
-  assert.ok(interfaceIndex >= 0 && currentResultsIndex > interfaceIndex);
-  assert.doesNotMatch(dialogSource, /legend\('Map defaults'\)|legend\('Layer defaults'\)/);
-  assert.match(dialogSource, /heurist-map-config-inline-number/);
-});
-
 test('MapControlPanel owns edit integration and hides edit actions when editing is disabled', () => {
   assert.match(panelSource, /editingEnabled = this\.api\.getCapabilities\?\.\(\)\.editing === true/);
   assert.match(panelSource, /onEditDocument: \(documentId\) => this\.editMapDocument\(documentId\)/);
@@ -71,15 +62,6 @@ test('Base maps control is omitted when None is the only configured basemap', ()
   assert.match(panelSource, /hasSelectableBaseMaps = this\.options\.showBaseMaps !== false/);
   assert.match(panelSource, /configuredBaseMaps\.some\(\(item\) => String\(item\?\.id\) !== 'None'\)/);
   assert.match(panelSource, /if \(hasSelectableBaseMaps\)/);
-});
-
-test('configuration transfer lists keep None and use first-selected basemap fallback', async () => {
-  const dialogSource = await readFile(new URL('../../src/ui/config/MapConfigurationDialog.js', import.meta.url), 'utf8');
-  assert.match(dialogSource, /fixedSelectedValues: \['None'\]/);
-  assert.match(dialogSource, /fixedSelectedValues: new Set/);
-  assert.match(dialogSource, /option\.disabled = true/);
-  assert.doesNotMatch(dialogSource, /First selected/);
-  assert.match(dialogSource, /choices\[0\]\?\.\[0\] \?\? ''/);
 });
 
 test('hidden layer actions do not reserve title width and legend editors appear on hover', () => {

@@ -139,7 +139,8 @@ export function nullableList(value, { numeric = false } = {}) {
   if (!Array.isArray(value)) return null;
 
   const result = [];
-  for (const item of value) {
+  // a list inside the list (a wrong form value, 2026-10-28) gives its items, not one joined text
+  for (const item of value.flat(Infinity)) {
     const normalized = nullableIdentifier(item, { numeric });
     if (normalized !== null && !result.includes(normalized)) result.push(normalized);
   }

@@ -21,12 +21,17 @@ import {
   normalizeMapConfigurationSettings,
   serializeMapConfigurationSettings,
 } from "./ui/config/mapConfigurationSchema.js";
+import { prepareMapPublication } from "./ui/config/mapPublication.js";
 
-/** The configuration of heurist-map: form JSON, defaults, normalizer and serializer. */
+/**
+ * The configuration of heurist-map: form JSON, defaults, normalizer, serializer and the
+ * publication options (`preparePublication`, run by heurist-explorer's publication form).
+ */
 export const mapConfiguration = Object.freeze({
   type: "map",
   form,
   defaults: createMapConfigurationDefaults,
   normalize: normalizeMapConfigurationSettings,
   serialize: serializeMapConfigurationSettings,
+  preparePublication: prepareMapPublication,
 });

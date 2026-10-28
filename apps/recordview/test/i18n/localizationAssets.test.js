@@ -39,7 +39,7 @@ test("every direct $HR string in runtime source is present in module dictionarie
     "../../src/ui/RecordViewControlPanel.js",
     "../../../../shared/src/recordview/RecordViewRenderer.js",
     "../../src/ui/recordViewMessages.js",
-    "../../src/ui/config/RecordViewConfigurationDialog.js",
+    "../../../../shared/src/ui/config/ModuleConfigurationDialog.js",
     "../../src/core/RecordViewApplication.js",
   ];
   const sources = await Promise.all(
@@ -54,4 +54,13 @@ test("every direct $HR string in runtime source is present in module dictionarie
     keys.filter((key) => !(key in english)),
     [],
   );
+});
+
+test("every caption of the configuration form is in the module dictionaries (plan 29)", async () => {
+  const { default: form } = await import("../../src/ui/config/recordViewConfigurationForm.json", { with: { type: "json" } });
+  const { formCaptions } = await import("../../../../shared/test/helpers/configurationForm.js");
+  for (const language of ["eng", "fre"]) {
+    const dictionary = parseLocale(await readFile(`${assets}localization_${language}.txt`, "utf8"));
+    assert.deepEqual(formCaptions(form).filter((key) => !(key in dictionary)), [], language);
+  }
 });

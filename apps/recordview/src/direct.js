@@ -15,6 +15,7 @@
 
 import "#shared/ui/heurist-module.css";
 import "./style.css";
+import { moduleLanguage } from "#shared/config";
 import { extendLocale } from "#shared/ui";
 import { createHeuristRecordViewConfig } from "./recordViewConfig.js";
 import { initHeuristRecordView } from "./initHeuristRecordView.js";
@@ -40,7 +41,7 @@ export async function mountHeuristRecordView({
   if (!container) throw new Error("A container is required to mount Record View");
   const containerId = container.id || uniqueContainerId();
   container.id = containerId;
-  await extendLocale(bootstrap.runtime?.language, assetBaseUrl);
+  await extendLocale(moduleLanguage(bootstrap), assetBaseUrl);
   const config = createHeuristRecordViewConfig(bootstrap, { bridge, containerId });
   config.exposeGlobal = false;
   config.moduleAssetBaseUrl = assetBaseUrl;

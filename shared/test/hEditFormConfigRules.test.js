@@ -175,3 +175,24 @@ test('the actions slot is in every input of a setting, except a checkbox', () =>
   assert.equal(slotted('text'), true, 'value tools');
   assert.equal(slotted('flag'), false);
 });
+
+test('a multiple choice (enum, max 0, multiple or checkbox) is one input with a list (2026-10-28)', async () => {
+  const form = new HEditForm().attach(host(), { form: { groups: [{ children: [
+    { name: 'maps', type: 'enum', max: 0, mode: 'select', multiple: true, terms: ['OSM', 'Topo', 'Esri'] },
+    { name: 'docs', type: 'enum', max: 0, mode: 'checkbox', terms: [{ id: 1, label: 'A' }, { id: 2, label: 'B' }] }
+  ] }] }, values: { maps: ['OSM', 'Esri'], docs: [] } }).render();
+  const maps = form.getFieldWidget('maps');
+  assert.equal(maps._rows.length, 1, 'one input');
+  assert.equal(maps.isRepeatable, false, 'no Add');
+  assert.deepEqual(form.getValues(), { maps: ['OSM', 'Esri'], docs: [] }, 'a flat list, not a list in a list');
+  await form.setValue('maps', ['Topo']);
+  assert.deepEqual(form.getValues().maps, ['Topo']);
+});
+
+test('nullWhenEmpty: no value of a list field is null ("all"), not an empty list', () => {
+  const form = new HEditForm().attach(host(), { form: { groups: [{ children: [
+    { name: 'all', type: 'enum', max: 0, multiple: true, nullWhenEmpty: true, terms: ['a', 'b'] },
+    { name: 'none', type: 'enum', max: 0, multiple: true, terms: ['a', 'b'] }
+  ] }] } }).render();
+  assert.deepEqual(form.getValues(), { all: null, none: [] });
+});

@@ -14,7 +14,6 @@
  */
 
 import { serializeDataConfigurationSettings } from "../ui/config/dataConfigurationSchema.js";
-import { PublishedDialog } from "#shared/ui";
 
 /** Stable engine-neutral public API for host integrations. */
 export class HeuristDataPublicApi {
@@ -24,7 +23,6 @@ export class HeuristDataPublicApi {
     this.readyPromise = null;
     this.configurationDialogFactory = null;
     this.configurationDialog = null;
-    this.publishedDialog = null;
   }
 
   /**
@@ -320,6 +318,7 @@ export class HeuristDataPublicApi {
       runtimeMode: this.application.config.runtimeMode,
       // heurist-explorer's simplified interface: fewer sections (it sets them itself)
       simplified: this.application.config.simplified === true,
+      title: "Data options",
       ...options,
       mode: "preferences",
       value: options.value || this.application.config.persistedSettings,
@@ -336,28 +335,18 @@ export class HeuristDataPublicApi {
   }
 
   /**
-   * Publish a reproducible snapshot of the current (or given) settings and state via the host.
+   * Whether this module can be published: only from heurist-explorer, whose configuration
+   * form writes the page (plan 29).
    *
-   * @param {object} value Settings to publish; serialized into the publication envelope.
-   * @param {{preserveCurrentState?: boolean}} [publishOptions] Set `preserveCurrentState: false` to publish with no state.
-   * @returns {Promise<object>} The host's publication result.
+   * @returns {boolean}
    */
-  publish(value, publishOptions = {}) {
-    const settings = serializeDataConfigurationSettings(value);
-    const state =
-      publishOptions.preserveCurrentState === false ? {} : this.getState();
-    return this.application.host.publish({
-      format: "heurist-publication",
-      version: 1,
-      options: settings.options,
-      config: settings.config,
-      state,
-    });
+  canPublish() {
+    return typeof this.application.host?.bridge?.openConfiguration === "function";
   }
 
   /**
-   * Open the publish editor: the host's own dialog when available, otherwise the standalone one
-   * seeded with publish-mode settings. On save, publishes and shows the resulting link dialog.
+   * Open the publication form: the host's own dialog when available (legacy Heurist), otherwise
+   * the form in heurist-explorer (plan 29), which writes the page from these settings and the state.
    *
    * @param {object} [options] Dialog options.
    * @returns {Promise<object>} The opened dialog.
@@ -370,27 +359,13 @@ export class HeuristDataPublicApi {
       options.value || this.application.config.persistedSettings,
       this.application.config.language,
     );
+    // Explorer writes the page (plan 29); Preserve current state of its form keeps or drops this state
     return this.openConfigurationDialog({
+      title: "Publish data",
       ...options,
       mode: "publish",
       value,
-      onSave: async (value, context) => {
-        const result = await this.publish(value, context.publishOptions);
-        // cancelled in the "Publish as page" dialog
-        if (!result) return null;
-        this.application.dispatch("heurist-data-published", {
-          publication: result,
-          settings: context.serialized,
-        });
-        await options.onSave?.(value, context, result);
-        setTimeout(() => {
-          this.publishedDialog?.close?.();
-          this.publishedDialog = new PublishedDialog({
-            publication: result,
-          }).open();
-        }, 0);
-        return result;
-      },
+      state: this.getState(),
     });
   }
 
@@ -449,7 +424,6 @@ export class HeuristDataPublicApi {
    */
   destroy() {
     this.configurationDialog?.close?.();
-    this.publishedDialog?.close?.();
     return this.application.destroy();
   }
 }

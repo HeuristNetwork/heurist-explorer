@@ -22,11 +22,19 @@ import {
   serializeGraphConfigurationSettings,
 } from "./ui/config/graphConfigurationSchema.js";
 
-/** The configuration of heurist-graph: form JSON, defaults, normalizer and serializer. */
+/**
+ * The configuration of heurist-graph: form JSON, defaults, normalizer, serializer and the
+ * publication option *Preserve current state* (`preparePublication`, run by heurist-explorer's
+ * publication form: without it the page has no state).
+ */
 export const graphConfiguration = Object.freeze({
   type: "graph",
   form,
   defaults: createGraphConfigurationDefaults,
   normalize: normalizeGraphConfigurationSettings,
   serialize: serializeGraphConfigurationSettings,
+  preparePublication: ({ settings, state = null, publish = {} }) => ({
+    settings,
+    state: publish?.preserveState === false ? {} : state,
+  }),
 });

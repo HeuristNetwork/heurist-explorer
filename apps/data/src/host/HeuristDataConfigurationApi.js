@@ -12,7 +12,9 @@
  * @license     https://www.gnu.org/licenses/gpl-3.0.txt GNU License 3.0
  * @since       8.0
  */
-import { DataConfigurationDialog } from "../ui/config/DataConfigurationDialog.js";
+import { createConfigurationDialogFactory } from "#shared/ui/config/moduleConfigurationDialogFactory.js";
+import { smartyTemplateTerms } from "#shared/data/moduleConfigurationForm.js";
+import { dataConfiguration } from "../configuration.js";
 import { createDataConfigurationDefaults } from "../ui/config/dataConfigurationDefaults.js";
 import {
   normalizeDataConfigurationSettings,
@@ -35,14 +37,16 @@ export class HeuristDataConfigurationApi {
   ready() {
     return Promise.resolve(this);
   }
-  /** Open the configuration editor dialog. */
+  /** Open the configuration form (plan 29) in this window; returns `{result, close}`. */
   openConfigurationDialog(options = {}) {
     this.configurationDialog?.close?.();
-    this.configurationDialog = new DataConfigurationDialog({
-      ...options,
-      reportTemplateProvider:
-        options.reportTemplateProvider || this.providers.reportTemplates,
-    }).open();
+    const factory = createConfigurationDialogFactory({
+      configuration: dataConfiguration,
+      termsProviders: {
+        smartyTemplates: smartyTemplateTerms(options.reportTemplateProvider || this.providers.reportTemplates),
+      },
+    });
+    this.configurationDialog = factory(options);
     return this.configurationDialog;
   }
   /** Normalize a persisted configuration value. */

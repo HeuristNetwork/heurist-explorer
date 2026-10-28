@@ -156,3 +156,7 @@
 #Discard changes?#Abandonner les modifications ?
 #Advanced settings#Paramètres avancés
 #Reset all settings to their defaults?#Rétablir tous les paramètres à leurs valeurs par défaut ?
+#Cancel publish?#Annuler la publication ?
+#Yes#Oui
+#No#Non
+#Configuration#Configuration

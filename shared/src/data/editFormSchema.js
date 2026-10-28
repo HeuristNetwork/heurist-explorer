@@ -8,7 +8,8 @@
  *    children: [field]}]}
  *   field: {name, type, label, help, req, max, default, terms, vocabulary, mode, minValue, maxValue,
  *           step, maxLength, pattern, patternMessage, rows, width, targetTypes, geoKind, multilang,
- *           readOnly, clearable, showWhen, special, modes, forced, simplified, termsSource, emptyLabel, dty?}
+ *           readOnly, clearable, showWhen, special, modes, forced, simplified, termsSource, emptyLabel, multiple,
+ *           nullWhenEmpty, dty?}
  *
  * `max` is the number of values (1 default, 0 any); `minValue` / `maxValue` limit a number.
  * `width` is a number of characters (as rst_DisplayWidth) or a CSS length ("400px",
@@ -31,6 +32,8 @@
  *   gives the field this value (and hides it).
  * - `termsSource`: the name of a list of terms loaded by the owner before the form is
  *   made (resolveTermsSources); the `terms` of the JSON come first.
+ * - `multiple: true` (enum with `max` 0): the values are chosen in one picker (HValuePicker)
+ *   instead of one input per value; `mode: 'checkbox'` does the same with checkboxes.
  *
  * The record edit structure (recordEditStructure.js) is the same JSON with `dty`
  * instead of `name`: a field without a name gets `String(dty)`.
@@ -361,7 +364,9 @@ export function stateToValue(field, state) {
     const value = `${translation.lang}:${text}`;
     list.push(translation.hidden ? { value, hidden: true } : value);
   }
-  return isListField(field) ? list : list[0] ?? null;
+  // `nullWhenEmpty`: no value is null, not an empty list (a setting where null means "all", plan 29)
+  if (isListField(field)) return list.length || field.nullWhenEmpty !== true ? list : null;
+  return list[0] ?? null;
 }
 
 /**

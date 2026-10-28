@@ -21,7 +21,9 @@ import { createDataEngine } from "./engine/createDataEngine.js";
 import { createLoaderRegistry } from "./engine/loaders/createLoaderRegistry.js";
 import { createHostAdapter } from "./host/createHostAdapter.js";
 import { HeuristDataPublicApi } from "./host/HeuristDataPublicApi.js";
-import { DataConfigurationDialog } from "./ui/config/DataConfigurationDialog.js";
+import { createConfigurationDialogFactory } from "#shared/ui/config/moduleConfigurationDialogFactory.js";
+import { smartyTemplateTerms } from "#shared/data/moduleConfigurationForm.js";
+import { dataConfiguration } from "./configuration.js";
 import { ReportTemplateProvider } from "#shared/data/ReportTemplateProvider.js";
 import { DataControlPanel } from "./ui/DataControlPanel.js";
 import { RecordContentProvider } from "#shared/recordview/RecordContentProvider.js";
@@ -80,12 +82,12 @@ export async function initHeuristData(config) {
     baseUrl: heuristBaseUrl,
     database: config.database,
   });
-  api.setConfigurationDialogFactory((options = {}) =>
-    new DataConfigurationDialog({
-      ...options,
-      reportTemplateProvider: options.reportTemplateProvider || reportTemplates,
-    }).open(),
-  );
+  // the common configuration form (plan 29): in heurist-explorer in Explorer's window
+  api.setConfigurationDialogFactory(createConfigurationDialogFactory({
+    configuration: dataConfiguration,
+    bridge: application.host?.bridge || null,
+    termsProviders: { smartyTemplates: smartyTemplateTerms(reportTemplates) },
+  }));
   const ready = application.initialize().then(() => api);
   let panel = null;
   const readyWithPanel = ready.then(async () => {

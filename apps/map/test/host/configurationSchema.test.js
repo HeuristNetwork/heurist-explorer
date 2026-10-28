@@ -1,4 +1,6 @@
 import test from 'node:test';
+import form from '../../src/ui/config/mapConfigurationForm.json' with { type: 'json' };
+import { describeConfigurationForm } from '../../../../shared/src/data/moduleConfigurationForm.js';
 import assert from 'node:assert/strict';
 import {
   normalizeMapConfigurationSettings,
@@ -9,7 +11,6 @@ import {
   CONFIGURATION_VERSION
 } from '../../src/ui/config/configurationUtils.js';
 import { createMapConfigurationDefaults } from '../../src/ui/config/mapConfigurationDefaults.js';
-import { MapConfigurationDialog } from '../../src/ui/config/MapConfigurationDialog.js';
 import { normalizeMapLayer } from '../../src/core/MapLayer.js';
 
 test('map configuration defaults contain agreed global fallback settings', () => {
@@ -121,50 +122,13 @@ test('configuration serializer creates versioned settings envelope', () => {
   assert.equal(value.options.baseMaps.initial, 'None');
 });
 
-test('configuration dialog can be used as a persistence-neutral value object before opening', () => {
-  const dialog = new MapConfigurationDialog({
-    mode: 'website',
-    value: {
-      options: { mapDocuments: { allowed: [12, 14] } },
-      config: { defaults: { maxAllowedFeatures: 500 } }
-    }
-  });
-  const value = dialog.getValue();
-  assert.deepEqual(value.options.mapDocuments.allowed, [12, 14]);
-  assert.equal(value.config.defaults.maxAllowedFeatures, 500);
-  assert.equal(dialog.mode, 'website');
-  assert.equal(dialog.serialize().format, 'heurist-map-settings');
-});
-
-test('website configuration starts with unsuitable controls switched off', () => {
-  const dialog = new MapConfigurationDialog({
-    mode: 'website',
-    value: {
-      options: {
-        ui: { showBaseMaps: true, showOptions: true, showPublish: true },
-        nativeControls: { bookmark: true, print: true }
-      }
-    }
-  });
-  const value = dialog.getValue();
-  assert.equal(value.options.ui.showBaseMaps, false);
-  assert.equal(value.options.ui.showOptions, false);
-  assert.equal(value.options.ui.showPublish, false);
-  assert.equal(value.options.nativeControls.bookmark, false);
-  assert.equal(value.options.nativeControls.print, false);
-
-  dialog.setValue({
-    options: {
-      ui: { showBaseMaps: true, showOptions: true, showPublish: true },
-      nativeControls: { bookmark: true, print: true }
-    }
-  });
-  const reset = dialog.getValue();
-  assert.equal(reset.options.ui.showBaseMaps, false);
-  assert.equal(reset.options.ui.showOptions, false);
-  assert.equal(reset.options.ui.showPublish, false);
-  assert.equal(reset.options.nativeControls.bookmark, false);
-  assert.equal(reset.options.nativeControls.print, false);
+test('website configuration starts with unsuitable controls switched off (form, plan 29)', () => {
+  const forced = Object.fromEntries(describeConfigurationForm(form, { mode: 'website' })
+    .filter((row) => row.forced).map((row) => [row.key, row.forced.value]));
+  for (const key of ['options.ui.showBaseMaps', 'options.ui.showOptions', 'options.ui.showPublish',
+    'options.nativeControls.bookmark', 'options.nativeControls.print']) {
+    assert.equal(forced[key], false, key);
+  }
 });
 
 test('configuration zoom limits are restricted to Leaflet 0-22 range', () => {
