@@ -16,47 +16,23 @@
  * @since       8.0
  */
 
+import { HeuristModulePublicApi } from '#shared/host/HeuristModulePublicApi.js';
+import { mapConfiguration } from '../configuration.js';
 import { serializeMapConfigurationSettings } from '../ui/config/mapConfigurationSchema.js';
 import { getDefaultBaseMaps } from '../basemaps/defaultBasemaps.js';
 
-/** Stable public facade for direct and same-origin iframe integrations. */
-export class HeuristMapPublicApi {
+/**
+ * Stable public facade for direct and same-origin iframe integrations. The configuration API
+ * (plan 29 §12) comes from HeuristModulePublicApi.
+ */
+export class HeuristMapPublicApi extends HeuristModulePublicApi {
   /**
    * @param {object} application Underlying MapApplication instance.
    * @param {object|null} [drawController] Drawing session controller, when drawing is enabled.
    */
   constructor(application, drawController = null) {
-    this.application = application;
+    super(application, { configuration: mapConfiguration });
     this.drawController = drawController;
-    this.readyPromise = null;
-    this.configurationDialogFactory = null;
-    this.configurationDialog = null;
-  }
-
-  /**
-   * Register the reusable host-facing map configuration dialog factory.
-   *
-   * @param {Function} factory Factory invoked with dialog options to build the dialog.
-   * @returns {void}
-   */
-  setConfigurationDialogFactory(factory) {
-    this.configurationDialogFactory = typeof factory === 'function' ? factory : null;
-  }
-
-  /**
-   * Open the generalized map configuration dialog.
-   *
-   * @param {object} [options] Dialog options forwarded to the configured factory.
-   * @returns {object} The opened dialog instance.
-   * @throws {Error} When no configuration dialog factory has been registered.
-   */
-  openConfigurationDialog(options = {}) {
-    if (!this.configurationDialogFactory) {
-      throw new Error('Map configuration dialog is not available');
-    }
-    this.configurationDialog?.close?.();
-    this.configurationDialog = this.configurationDialogFactory(options);
-    return this.configurationDialog;
   }
 
   /**
@@ -111,22 +87,32 @@ export class HeuristMapPublicApi {
   }
 
   /**
-   * Capture the current reproducible map state.
+   * The current reproducible map state (active document, query, view, etc.).
    *
-   * @returns {object} Captured state (active document, query, view, etc.).
+   * @returns {object} State.
    */
-  captureState() {
+  getState() {
     return this.application.captureMapState();
   }
 
   /**
-   * Restore a captured map state.
+   * Restore a state of getState().
    *
-   * @param {object} state Previously captured state.
+   * @param {object} state State.
    * @returns {Promise<*>} Resolves when the state has been restored.
    */
+  setState(state) {
+    return this.application.restoreMapState(state || {});
+  }
+
+  /** @returns {object} getState() (the earlier name). */
+  captureState() {
+    return this.getState();
+  }
+
+  /** @returns {Promise<*>} setState() (the earlier name). */
   restoreState(state) {
-    return this.application.restoreMapState(state);
+    return this.setState(state);
   }
 
   /**
@@ -308,25 +294,6 @@ export class HeuristMapPublicApi {
         minimalState: { activeDocumentId: state.activeDocumentId ?? null, query: state.query ?? null }
       }
     });
-  }
-
-  /**
-   * Set the promise that resolves when application initialization completes.
-   *
-   * @param {Promise<HeuristMapPublicApi>} promise Initialization promise.
-   * @returns {void}
-   */
-  setReadyPromise(promise) {
-    this.readyPromise = promise;
-  }
-
-  /**
-   * Return the application initialization promise.
-   *
-   * @returns {Promise<HeuristMapPublicApi>} Initialization promise.
-   */
-  ready() {
-    return this.readyPromise || Promise.resolve(this);
   }
 
   /**

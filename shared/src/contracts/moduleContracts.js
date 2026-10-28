@@ -26,5 +26,7 @@ export const HEURIST_MODULE_EVENTS = Object.freeze({
   SELECTION_CHANGED: 'heurist-module-selection-changed',
   EDIT_RECORD_REQUESTED: 'heurist-module-edit-record-requested',
   CONFIGURATION_SAVED: 'heurist-module-configuration-saved',
+  // settings changed through the configuration API: {module, settings, changedKeys} (plan 29 §12)
+  CONFIGURATION_CHANGED: 'heurist-module-configuration-changed',
   CONFIGURATION_CANCELLED: 'heurist-module-configuration-cancelled'
 });

@@ -22,6 +22,7 @@ import "@fortawesome/fontawesome-free/css/fontawesome.min.css";
 import "@fortawesome/fontawesome-free/css/solid.min.css";
 import { getHeuristRecordViewConfig } from "./recordViewConfig.js";
 import { initHeuristRecordView } from "./initHeuristRecordView.js";
+import { initHeuristRecordViewConfiguration } from "./initHeuristRecordViewConfiguration.js";
 import { initLocale, useHostHelp } from "#shared/ui";
 
 const config = getHeuristRecordViewConfig();
@@ -30,7 +31,8 @@ useHostHelp(config.host?.bridge);
 const bootstrap = initLocale(
   config.language,
   config.localeBaseUrl || moduleBaseUrl(),
-).then(() => initHeuristRecordView(config));
+).then(() => (config.viewerMode === "configuration"
+  ? initHeuristRecordViewConfiguration(config) : initHeuristRecordView(config)));
 
 /**
  * Resolve assets beside the deployed bundle, not beside the legacy host page.

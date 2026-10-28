@@ -61,6 +61,20 @@ export function moduleLanguage(value = {}) {
 }
 
 /**
+ * The Heurist base URL (report templates, legacy assets) of a module configuration: the host's
+ * base URL, or the API base URL without `/api`.
+ *
+ * @param {{host?: {baseUrl?: string}, apiBaseUrl?: string}} config Module configuration.
+ * @returns {string|null} Base URL ending with `/`, or null.
+ */
+export function resolveHeuristBaseUrl(config = {}) {
+  const hostBase = String(config.host?.baseUrl || '').trim();
+  if (hostBase) return hostBase.endsWith('/') ? hostBase : `${hostBase}/`;
+  const base = String(config.apiBaseUrl || '').trim().replace(/\/+$/, '').replace(/\/api$/i, '');
+  return base ? `${base}/` : null;
+}
+
+/**
  * Read bootstrap from an iframe bridge first, then from a standalone global.
  *
  * @param {{bridge?: {getConfiguration?: Function}, standalone?: object}} [options] Bridge and standalone fallback sources.

@@ -1,12 +1,7 @@
-**Status 2026-10-28: Phases 2 and 3 done. Phase 3 (§17): all five modules on the common form; Timeline
-committed, Record view, Graph, Data and Map not committed and not yet checked in a browser.** The tables (§4–§8) and
-the proposals of §3, §9 and §12 were agreed by Artem on 2026-10-28. Phase 2 notes: §16. Next: the rest of Phase 5 (the
-configuration API on every module: `getConfiguration` / `setConfiguration` exist on Timeline only).
-
-**Status 2026-10-28: Phase 1 agreed; Phase 2 implemented, not committed, not yet checked in a browser.**
-The tables (§4–§8) were agreed by Artem on 2026-10-28, together with the proposals of §3 (advanced = `req: 'optional'`,
-no UI = `req: 'forbidden'`), §9 and §12. How Phase 2 was done, and where it differs from the plan: §16. Next: Phase 3,
-the old dialogs replaced one by one, starting with Timeline.
+**Status 2026-10-28: Phases 1-4 done and committed (§9 HEditForm extensions and §10 Publication section are
+part of Phases 2-3; notes §16, §17). Phase 5 (configuration API, §12 as revised 2026-10-28) done 2026-10-28, not committed (§18).** Plan 29 is complete
+after Artem's check. The tables
+(§4–§8) and the proposals of §3, §9 and §12 were agreed by Artem on 2026-10-28.
 
 ## 1. Goal
 
@@ -404,40 +399,41 @@ The publication form (mode `publication`) ends with the section **Publication**:
 
 ## 12. Module configuration API
 
-**Is `Heurist*PublicApi` an interface?** No, not today:
-- Each module has its own class (`HeuristMapPublicApi`, `HeuristDataPublicApi`, …).
-- There is no common base class and no written interface.
-- Explorer calls them by method name (duck typing, `IframeModuleAdapter` / `DirectModuleAdapter`).
-- `shared/src/contracts/moduleContracts.js` holds only the bootstrap format and the event names.
+**Is `Heurist*PublicApi` an interface?** It was not: each module had its own class, Explorer called them by method
+name (duck typing, `IframeModuleAdapter` / `DirectModuleAdapter`), and `shared/src/contracts/moduleContracts.js`
+held only the bootstrap format and the event names.
 
-Proposal:
-- A shared base class `shared/src/host/HeuristModulePublicApi.js` with the methods below. Its JSDoc is
-  the written interface.
-- It implements the configuration methods once, from what each module provides: form JSON,
-  defaults, `normalize` / `serialize`, `applySettings`.
-- Each module class extends it and keeps its own methods (`setDataSource`, `editSymbology`, …).
+**Revised 2026-10-28 (Artem):**
+- Publication is done by heurist-explorer only (its publication form, `publishModuleTo`). A module has no
+  `publish()` and no `listPublishedPages()`; an agent publishes through Explorer with the module's
+  `getConfiguration()` and `getState()`.
+- The same approach for all modules: two shared base classes, and every module gets both.
+  - `shared/src/host/HeuristModuleConfigurationApi.js`: settings without a running module (configuration-only
+    start, `viewerMode: 'configuration'`). Map and Data had their own class; Graph, Timeline and Record view get
+    one, with the configuration-only start in their `main.js`.
+  - `shared/src/host/HeuristModulePublicApi.js` extends it: the running module. The module classes
+    (`apps/*/src/host/Heurist*PublicApi.js`) extend it and keep their own methods (`setDataSource`, `editSymbology`, …).
+  - Both are made from the module's configuration entry (`apps/<m>/src/configuration.js`: form, defaults,
+    normalize, serialize). A running module gives four hooks: current settings, apply, save as preferences,
+    restore state. The JSDoc of the two base classes is the written interface.
 
-The same methods on every module public API (`apps/*/src/host/Heurist*PublicApi.js`). They are also on
-a `*ConfigurationApi` class, which edits settings without a running module. Map and Data have one
-today; Graph, Timeline and Record view get one.
+| Method | Class | Returns | Notes |
+|---|---|---|---|
+| `getConfigurationDefaults()` | both | settings envelope | |
+| `normalizeConfiguration(settings)` / `serializeConfiguration(settings)` | both | settings / envelope | as before (Map, Data) |
+| `validateConfiguration(settings)` | both | `[{key, message, value?}]` | unknown keys, and values the module does not accept (normalize changes them); empty = valid |
+| `describeConfiguration({mode, advanced, simplified})` | both | `{module, mode, form, options}` | **for an AI agent**: the options without the UI (`describeConfigurationForm` rows: key, caption, type, section, terms, termsSource, default, advanced, noUI, shown, forced, modes, help) |
+| `configurationTerms()` | both | `{source: [{id, label}]}` | lists of `termsSource` the module knows (Map: map documents, base maps); `{}` by default |
+| `openConfigurationDialog(options)` | both | dialog handle `{result, close}` | the form in a mode (`preferences` / `configuration`, `website`, `publish` / `publication`); kept for the legacy wrappers |
+| `getConfiguration()` | public | settings envelope | current settings |
+| `setConfiguration(settings, {save})` | public | envelope | normalize, apply live; `save: true` also stores them as the user's preferences |
+| `patchConfiguration(partial, {save})` | public | envelope | merge by dotted key path, e.g. `{'config.defaults.pageSize': 500}`, or a nested object |
+| `resetConfiguration({save})` | public | envelope | the defaults |
+| `getState()` / `setState(state)` | public | state | Map keeps `captureState` / `restoreState` as aliases |
+| event `heurist-module-configuration-changed` | public | `{module, settings, changedKeys}` | `HEURIST_MODULE_EVENTS.CONFIGURATION_CHANGED`, after set / patch / reset |
 
-| Method | Returns | Notes |
-|---|---|---|
-| `getConfiguration()` | `{format, version, options, config}` | current settings |
-| `setConfiguration(settings, {save})` | normalized settings | normalize, apply live; `save: true` stores them as preferences |
-| `patchConfiguration(partial)` | normalized settings | merge by key path, e.g. `{'config.defaults.pageSize': 500}` |
-| `resetConfiguration({save})` | normalized settings | defaults |
-| `getConfigurationDefaults()` | settings | |
-| `validateConfiguration(settings)` | `[{key, message}]` | empty = valid |
-| `describeConfiguration({mode, advanced})` | `{form, options: [{key, caption, type, terms, default, advanced, modes, forced, help}]}` | **for an AI agent**: the options without the UI |
-| `openConfigurationDialog({mode})` | Promise of settings or null | replaces `openPreferencesDialog` / `openPublishDialog` (kept as aliases) |
-| `getState()` / `setState(state)` | state | align the names (Map: `captureState` / `restoreState`) |
-| `publish({target, pageId, title, preserveState, settings})` | `{id, url, title, embed}` | **no UI**, so an agent can publish |
-| `listPublishedPages()` | `[{id, title, modified}]` | §10 route |
-| event `configuration-changed` | `{settings, changedKeys}` | |
-
-The contract goes in `shared/src/contracts` and `docs/integration.md`. The bridge order follows the
-CLAUDE.md rule: contracts, then the host adapters, then the legacy wrapper in `heurist/hclient`.
+The contract goes in `shared/src/contracts` and `docs/integration.md`. The bridge order follows the CLAUDE.md
+rule: contracts, then the host adapters, then the legacy wrapper in `heurist/hclient`.
 
 ## 13. Test popup
 
@@ -782,3 +778,36 @@ All in one run, at Artem's request.
 4. **Selection on published Graph and Data pages (agreed 2026-10-28):** `options.interaction.selectionEnabled`
    is no longer forced to false in publication; it is shown in the publication form and kept as set
    (default true).
+
+## 18. Phase 5 as implemented (2026-10-28)
+
+- **Shared:**
+  - `shared/src/host/HeuristModuleConfigurationApi.js` and `HeuristModulePublicApi.js` (§12 table), exported from
+    `#shared/host`.
+  - `shared/src/data/moduleConfigurationForm.js`: `expandSettingsPatch`, `flattenSettings`, `changedSettingKeys`,
+    `validateModuleSettings`, `describeModuleConfiguration`.
+  - `HEURIST_MODULE_EVENTS.CONFIGURATION_CHANGED` = `heurist-module-configuration-changed`.
+  - `resolveHeuristBaseUrl` in `shared/src/config/bootstrap.js` (for the new configuration-only starts; the
+    copies in the module starts stay).
+- **Validation** has no rules of its own: a key is unknown when the module's normalizer drops it, and a value
+  is not accepted when the normalizer changes it (`value` in the error = what the module uses). Missing keys
+  are not errors. All five modules accept their own defaults (tests).
+- **Hooks of a running module** (defaults in the base): `currentSettings()` (`application.config.persistedSettings`;
+  Record view `application.settings`; Timeline builds it from its config), `applySettings(envelope)`
+  (`application.applyConfiguration`; Timeline its own code, the former `setConfiguration`), `saveSettings(envelope)`
+  (`host.savePreferences`).
+- **State:** `getState()` everywhere (Map: `captureMapState`, `captureState` / `restoreState` kept as aliases).
+  `setState` restores what each module can: Map and Timeline the whole state (`restoreMapState`,
+  `restoreState`), Data the DataSource or query and the selection, Graph the query and the selection
+  (expansions and hidden legend groups are not restored), Record view the record.
+- **Module classes:** the five `Heurist*PublicApi` extend `HeuristModulePublicApi`; their duplicated start,
+  factory and destroy methods were removed. `openPreferencesDialog` / `openPublishDialog` and Data's
+  `openConfiguration` alias stay. Timeline keeps its own `openConfigurationDialog` (it already used the bridge).
+- **Configuration-only start:** `HeuristMapConfigurationApi` and `HeuristDataConfigurationApi` now extend the
+  shared base (`getConfigurationDefaults` gives the envelope, not the raw defaults; nothing used it). Graph,
+  Timeline and Record view got `Heurist*ConfigurationApi` and `initHeurist*Configuration.js`; their `main.js`
+  starts it for `runtime.viewerMode: 'configuration'` (`viewerMode` added to their configurations).
+- **Not done (agreed):** `publish()` and `listPublishedPages()` on the modules (Explorer publishes). The legacy
+  wrappers in `heurist/hclient` needed no change: the methods they call are kept.
+- **Tests:** `shared/test/moduleConfigurationApi.test.js`, `apps/*/test/host/configurationApi.test.js`.
+- **Docs:** `docs/integration.md` *Module configuration API*, `docs/architecture.md`.

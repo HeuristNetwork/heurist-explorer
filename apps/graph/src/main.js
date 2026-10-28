@@ -22,6 +22,7 @@ import "@fortawesome/fontawesome-free/css/fontawesome.min.css";
 import "@fortawesome/fontawesome-free/css/solid.min.css";
 import { getHeuristGraphConfig } from "./graphConfig.js";
 import { initHeuristGraph } from "./initHeuristGraph.js";
+import { initHeuristGraphConfiguration } from "./initHeuristGraphConfiguration.js";
 import { initLocale, useHostHelp } from "#shared/ui";
 
 const config = getHeuristGraphConfig();
@@ -30,7 +31,8 @@ useHostHelp(config.host?.bridge);
 const bootstrap = initLocale(
   config.language,
   config.localeBaseUrl || moduleBaseUrl(),
-).then(() => initHeuristGraph(config));
+).then(() => (config.viewerMode === "configuration"
+  ? initHeuristGraphConfiguration(config) : initHeuristGraph(config)));
 
 /**
  * Resolve assets beside the deployed bundle, not beside dataViewer.html.

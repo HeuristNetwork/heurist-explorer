@@ -13,44 +13,23 @@
  * @since       8.0
  */
 
+import { HeuristModulePublicApi } from "#shared/host/HeuristModulePublicApi.js";
+import { recordViewConfiguration } from "../configuration.js";
 import { serializeRecordViewConfigurationSettings } from "../ui/config/recordViewConfigurationSchema.js";
 
-/** Public API facade that exposes Record View operations to callers and host applications. */
-export class HeuristRecordViewPublicApi {
+/**
+ * Public API facade that exposes Record View operations to callers and host applications. The
+ * configuration API (plan 29 §12) comes from HeuristModulePublicApi.
+ */
+export class HeuristRecordViewPublicApi extends HeuristModulePublicApi {
   /** @param {import('../core/RecordViewApplication.js').RecordViewApplication} application Record View application controller this API wraps. */
   constructor(application) {
-    this.application = application;
-    this.readyPromise = null;
-    this.configurationDialogFactory = null;
+    super(application, { configuration: recordViewConfiguration });
   }
 
-  /**
-   * Register the promise that resolves once the application is ready.
-   *
-   * @param {Promise<object>} promise Ready promise.
-   * @returns {void}
-   */
-  setReadyPromise(promise) {
-    this.readyPromise = promise;
-  }
-
-  /**
-   * Resolves when the application is ready.
-   *
-   * @returns {Promise<HeuristRecordViewPublicApi>} Pending ready promise or this API instance.
-   */
-  ready() {
-    return this.readyPromise || Promise.resolve(this);
-  }
-
-  /**
-   * Register the factory used to create the configuration/publish dialog.
-   *
-   * @param {Function|null} factory Called with dialog options; returns a dialog with an `open()`/`close()` API.
-   * @returns {void}
-   */
-  setConfigurationDialogFactory(factory) {
-    this.configurationDialogFactory = typeof factory === "function" ? factory : null;
+  /** @protected The settings in use (Record View keeps them on the application). */
+  currentSettings() {
+    return this.application.settings || null;
   }
 
   /**
@@ -172,12 +151,14 @@ export class HeuristRecordViewPublicApi {
   }
 
   /**
-   * Return the current application state.
+   * Restore a state of getState(): the displayed record.
    *
-   * @returns {object} Current application state.
+   * @param {object} [state] State.
+   * @returns {Promise<object>} The state afterwards.
    */
-  getState() {
-    return this.application.getState();
+  async setState(state = {}) {
+    const id = Number(state.recordId);
+    return id > 0 ? this.application.setRecord(id) : this.application.clear();
   }
 
   /**
@@ -216,14 +197,6 @@ export class HeuristRecordViewPublicApi {
     return true;
   }
 
-  /**
-   * Close any open dialogs and tear down the application.
-   *
-   * @returns {Promise<void>}
-   */
-  destroy() {
-    return this.application.destroy();
-  }
 }
 
 /**

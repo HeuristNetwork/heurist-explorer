@@ -13,44 +13,18 @@
  * @since       8.0
  */
 
+import { HeuristModulePublicApi } from "#shared/host/HeuristModulePublicApi.js";
+import { graphConfiguration } from "../configuration.js";
 import { serializeGraphConfigurationSettings } from "../ui/config/graphConfigurationSchema.js";
 
-/** Public API facade that exposes graph operations to callers and host applications. */
-export class HeuristGraphPublicApi {
+/**
+ * Public API facade that exposes graph operations to callers and host applications. The
+ * configuration API (plan 29 §12) comes from HeuristModulePublicApi.
+ */
+export class HeuristGraphPublicApi extends HeuristModulePublicApi {
   /** @param {import('../core/GraphApplication.js').GraphApplication} application Graph application controller this API wraps. */
   constructor(application) {
-    this.application = application;
-    this.readyPromise = null;
-    this.configurationDialogFactory = null;
-  }
-
-  /**
-   * Register the promise that resolves once the application is ready.
-   *
-   * @param {Promise<object>} promise Ready promise.
-   * @returns {void}
-   */
-  setReadyPromise(promise) {
-    this.readyPromise = promise;
-  }
-
-  /**
-   * Resolves when the application is ready.
-   *
-   * @returns {Promise<HeuristGraphPublicApi>} Pending ready promise or this API instance.
-   */
-  ready() {
-    return this.readyPromise || Promise.resolve(this);
-  }
-
-  /**
-   * Register the factory used to create the configuration/publish dialog.
-   *
-   * @param {Function|null} factory Called with dialog options; returns a dialog with an `open()`/`close()` API.
-   * @returns {void}
-   */
-  setConfigurationDialogFactory(factory) {
-    this.configurationDialogFactory = typeof factory === "function" ? factory : null;
+    super(application, { configuration: graphConfiguration });
   }
 
   /**
@@ -366,12 +340,16 @@ export class HeuristGraphPublicApi {
   }
 
   /**
-   * Return the current application state.
+   * Restore a state of getState(): the query (or the Query Source query) and the selection.
+   * Expansions and hidden legend groups are not restored.
    *
-   * @returns {object} Current application state.
+   * @param {object} [state] State.
+   * @returns {Promise<object>} The state afterwards.
    */
-  getState() {
-    return this.application.getState();
+  async setState(state = {}) {
+    await this.application.load({ query: state.query ?? null });
+    await this.application.setSelection(Array.isArray(state.selection) ? state.selection : []);
+    return this.getState();
   }
 
   /**
@@ -401,14 +379,6 @@ export class HeuristGraphPublicApi {
     return this.application.removeEventListener(...args);
   }
 
-  /**
-   * Close any open dialogs and tear down the application.
-   *
-   * @returns {Promise<void>}
-   */
-  destroy() {
-    return this.application.destroy();
-  }
 }
 
 /**

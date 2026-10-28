@@ -59,16 +59,14 @@ and `"accordion"` containers become tabs and one-open accordions (`shared/src/wi
 
 ## Publish and the Website manager (plan 27b)
 
-*Publish* in a module writes a standalone v4 page, not a JSON file (the former
-`PublicationController` / `?pub_id=` publications are removed). Each module's `publish()`
-still builds `{format: 'heurist-publication', options, config, state}`; the shared
-`HostAdapter.publish(payload)` asks for the page title and whether to update the page this
-module published last (`shared/src/ui/PublishPageDialog.js`, remembered per database in
-localStorage), then calls `POST /api/{db}/website/publish` (`shared/src/site/modulePublisher.js`,
-`shared/src/api/WebsiteClient.js`). It resolves with `{id, url, title, embed, actions}`, or
-`null` when the user cancelled; `PublishedDialog` shows the URL, the embed code and the
-`actions`. A bridge with `openWebsiteManager({recordId})` (Explorer) adds a *Website manager*
-button.
+*Publish* writes a standalone v4 page, not a JSON file (the former `PublicationController` /
+`?pub_id=` publications are removed). A module is published from Explorer only, by Explorer's
+publication form (plan 29, see *Module configuration forms*): the module has no `publish()`.
+Explorer calls `POST /api/{db}/website/publish` (`publishModuleTo` in `shared/src/site/modulePublisher.js`,
+`shared/src/api/WebsiteClient.js`), which resolves with `{id, url, title, embed}`;
+`PublishedDialog` shows the URL, the embed code and a *Website manager* button.
+The Website manager's *Publish this view* (Explorer itself) still asks with
+`shared/src/ui/PublishPageDialog.js` (`publishModulePage`).
 
 The Website manager is `apps/website/src/direct.js` → `mountWebsiteManager({container,
 bootstrap, bridge, assetBaseUrl})`. Explorer mounts it in its Websites tool; the bridge gives
@@ -110,6 +108,34 @@ Every presentation module has a configuration form (HEditForm JSON) and a light 
   *Preserve current state* of Map, Graph and Data.
 - Lists that only the module knows (the map documents and base maps of Map) come with the request as
   `terms: {source: [{id, label}]}`, for the `termsSource` fields of the form.
+
+## Module configuration API (plan 29 §12)
+
+The same configuration methods on every presentation module, for hosts, scripts and AI agents.
+Two shared base classes are the written interface (their JSDoc):
+- `shared/src/host/HeuristModuleConfigurationApi.js`: settings without a running module. It is the
+  `Heurist<Module>ConfigurationApi` of each module, started with `runtime.viewerMode: 'configuration'`
+  (`window.heurist<Module>` is that API then).
+- `shared/src/host/HeuristModulePublicApi.js` extends it: the running module (`Heurist<Module>PublicApi`).
+
+| Method | Running module only | Result |
+| --- | --- | --- |
+| `getConfigurationDefaults()` | | settings envelope `{format, version, options, config}` |
+| `normalizeConfiguration(settings)`, `serializeConfiguration(settings)` | | settings / envelope |
+| `validateConfiguration(settings)` | | `[{key, message, value?}]`: unknown keys, values not accepted (`value` = what is used); empty = valid |
+| `describeConfiguration({mode, advanced, simplified})` | | `{module, mode, form, options}`: the form JSON and one row per option (key, caption, type, section, terms, termsSource, default, advanced, noUI, shown, forced, modes, help) |
+| `configurationTerms()` | | lists of `termsSource` the module knows (Map: `mapDocuments`, `baseMaps`) |
+| `openConfigurationDialog({mode, value, onSave, ...})` | | the form; handle `{result, close}` |
+| `getConfiguration()` | yes | the settings in use (envelope) |
+| `setConfiguration(settings, {save})` | yes | applied at once; `save: true` also stores the user's preferences |
+| `patchConfiguration(partial, {save})` | yes | `partial` by dotted key (`{'config.defaults.pageSize': 500}`) or nested |
+| `resetConfiguration({save})` | yes | the defaults |
+| `getState()`, `setState(state)` | yes | Map keeps `captureState` / `restoreState`; Graph restores the query and selection, Data the DataSource (or query) and selection, Record view the record, Timeline and Map the whole state |
+
+After `setConfiguration` / `patchConfiguration` / `resetConfiguration` the module dispatches
+`heurist-module-configuration-changed` (`HEURIST_MODULE_EVENTS.CONFIGURATION_CHANGED`) with
+`{module, settings, changedKeys}`. A module is not published through this API: an agent publishes
+through Explorer with the module's `getConfiguration()` and `getState()`.
 
 ## Record editing
 

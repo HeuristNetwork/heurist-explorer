@@ -63,6 +63,8 @@ export function createHeuristTimelineConfig(bootstrap, { bridge = null, containe
   return {
     containerId,
     runtimeMode: runtime.runtimeMode || "standalone",
+    // configuration-only start (plan 29 §12)
+    viewerMode: runtime.viewerMode === "configuration" ? "configuration" : "timeline",
     language: String(runtime.language || "eng").toLowerCase().slice(0, 3),
     database: runtime.database || null,
     baseUrl: runtime.baseUrl || null,

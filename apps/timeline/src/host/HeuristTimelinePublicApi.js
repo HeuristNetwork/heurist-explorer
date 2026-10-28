@@ -13,15 +13,18 @@
  * @since       8.0
  */
 
+import { HeuristModulePublicApi } from '#shared/host/HeuristModulePublicApi.js';
+import { timelineConfiguration } from '../configuration.js';
 import {
   normalizeTimelineConfigurationSettings,
   serializeTimelineConfigurationSettings,
 } from '../ui/config/timelineConfigurationSchema.js';
 
 /**
- * Public API facade that exposes timeline operations to callers and host applications.
+ * Public API facade that exposes timeline operations to callers and host applications. The
+ * configuration API (plan 29 §12) comes from HeuristModulePublicApi.
  */
-export class HeuristTimelinePublicApi {
+export class HeuristTimelinePublicApi extends HeuristModulePublicApi {
   getMapDocuments() { return this.application.getMapDocuments(); }
   getActiveMapDocument() { return this.application.getActiveMapDocument(); }
   getDynamicDocument() { return this.application.getDynamicDocument(); }
@@ -54,13 +57,13 @@ export class HeuristTimelinePublicApi {
     return this.application.host.bridge?.removeDataSourceFromWorkspace?.(this.getLayers().find((layer) => layer.id === id)?.options?.dataSource);
   }
   /**
-   * The current settings as the persisted envelope (plan 29 §12).
+   * @protected The settings in use: the timeline keeps them in its config, not as an envelope.
    *
-   * @returns {{format: string, version: number, options: object, config: object}}
+   * @returns {{options: object, config: object}}
    */
-  getConfiguration() {
+  currentSettings() {
     const config = this.application.config || {};
-    return serializeTimelineConfigurationSettings({
+    return {
       options: {
         ui: config.ui,
         timeline: config.settings,
@@ -68,16 +71,16 @@ export class HeuristTimelinePublicApi {
         interaction: config.interaction,
       },
       config: {},
-    });
+    };
   }
 
   /**
-   * Apply settings (normalized) to the timeline and its control panel, and hand them to the host.
+   * @protected Apply settings (normalized) to the timeline and its control panel, and hand them to the host.
    *
    * @param {object} settings Settings `{options, config}` or an envelope.
    * @returns {object} The applied settings envelope.
    */
-  setConfiguration(settings) {
+  applySettings(settings) {
     const value = normalizeTimelineConfigurationSettings(settings);
     const config = this.application.config;
     this.application.engine.setOptions(value.options.timeline);
@@ -133,7 +136,7 @@ export class HeuristTimelinePublicApi {
       normalize: timelineConfiguration.normalize,
       simplified: this.application.config?.simplified === true,
       onSave: async (settings) => {
-        this.setConfiguration(settings);
+        await this.setConfiguration(settings);
         return true;
       },
     }).open();
@@ -175,26 +178,7 @@ export class HeuristTimelinePublicApi {
    * @param {object} application - Timeline application controller.
    */
   constructor(application) {
-    this.application = application;
-    this.readyPromise = null;
-  }
-
-  /**
-   * Registers the promise that resolves once the timeline is ready.
-   *
-   * @param {Promise<object>} value - Ready promise.
-   */
-  setReadyPromise(value) {
-    this.readyPromise = value;
-  }
-
-  /**
-   * Resolves when the application is ready.
-   *
-   * @returns {Promise<object>} Pending ready promise or the API object itself.
-   */
-  ready() {
-    return this.readyPromise || Promise.resolve(this);
+    super(application, { configuration: timelineConfiguration });
   }
 
   /**

@@ -13,31 +13,18 @@
  * @since       8.0
  */
 
+import { HeuristModulePublicApi } from "#shared/host/HeuristModulePublicApi.js";
+import { dataConfiguration } from "../configuration.js";
 import { serializeDataConfigurationSettings } from "../ui/config/dataConfigurationSchema.js";
 
-/** Stable engine-neutral public API for host integrations. */
-export class HeuristDataPublicApi {
+/**
+ * Stable engine-neutral public API for host integrations. The configuration API (plan 29 §12)
+ * comes from HeuristModulePublicApi.
+ */
+export class HeuristDataPublicApi extends HeuristModulePublicApi {
   /** @param {object} application Data application controller this API wraps. */
   constructor(application) {
-    this.application = application;
-    this.readyPromise = null;
-    this.configurationDialogFactory = null;
-    this.configurationDialog = null;
-  }
-
-  /**
-   * Register the promise that resolves once the application is ready.
-   *
-   * @param {Promise<object>} value Ready promise.
-   * @returns {void}
-   */
-  setReadyPromise(value) {
-    this.readyPromise = value;
-  }
-
-  /** Resolve when the application is ready. */
-  ready() {
-    return this.readyPromise || Promise.resolve(this);
+    super(application, { configuration: dataConfiguration });
   }
 
   /** Select and load Filtered Result. */
@@ -189,9 +176,17 @@ export class HeuristDataPublicApi {
     return this.application.getCapabilities();
   }
 
-  /** Return the current application state. */
-  getState() {
-    return this.application.getState();
+  /**
+   * Restore a state of getState(): the DataSource (or the query) and the selection.
+   *
+   * @param {object} [state] State.
+   * @returns {Promise<object>} The state afterwards.
+   */
+  async setState(state = {}) {
+    if (state.dataSource) await this.application.setDataSource(state.dataSource);
+    else if (state.query != null && state.query !== "") await this.application.setQuery(state.query);
+    await this.application.setSelection(Array.isArray(state.selection) ? state.selection : []);
+    return this.getState();
   }
 
   /**
@@ -238,33 +233,6 @@ export class HeuristDataPublicApi {
       return this.setQuery(state.query, { reload: true });
     }
     return Promise.resolve(state);
-  }
-
-  /**
-   * Register the factory used to create a standalone configuration dialog
-   * when the host has no dialog of its own.
-   *
-   * @param {Function|null} factory Called with dialog options; returns a dialog with an `open()`/`close()` API.
-   * @returns {void}
-   */
-  setConfigurationDialogFactory(factory) {
-    this.configurationDialogFactory =
-      typeof factory === "function" ? factory : null;
-  }
-
-  /**
-   * Open the standalone configuration dialog via the registered factory.
-   *
-   * @param {object} [options] Dialog options.
-   * @returns {object} The opened dialog.
-   * @throws {Error} When no configuration dialog factory has been registered.
-   */
-  openConfigurationDialog(options = {}) {
-    if (!this.configurationDialogFactory)
-      throw new Error("Data configuration dialog is not available");
-    this.configurationDialog?.close?.();
-    this.configurationDialog = this.configurationDialogFactory(options);
-    return this.configurationDialog;
   }
 
   /**
@@ -417,15 +385,6 @@ export class HeuristDataPublicApi {
     this.application.removeEventListener(...args);
   }
 
-  /**
-   * Close any open dialogs and tear down the application.
-   *
-   * @returns {Promise<void>}
-   */
-  destroy() {
-    this.configurationDialog?.close?.();
-    return this.application.destroy();
-  }
 }
 
 /** Build the current-source descriptor (`{type, querySourceId, query}`) from application state. */

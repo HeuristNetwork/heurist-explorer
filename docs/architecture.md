@@ -45,7 +45,10 @@ Each presentation module also has a **configuration entry** `src/configuration.j
 (plan 29). It exports the module's configuration form JSON, defaults and settings
 normalizer, and imports nothing else of the module. Explorer and the website runtime may
 import it, so they can show the module's configuration form without loading the module
-itself.
+itself. The module's public APIs are made from it: `Heurist<Module>ConfigurationApi` extends
+`shared/src/host/HeuristModuleConfigurationApi.js` and `Heurist<Module>PublicApi` extends
+`shared/src/host/HeuristModulePublicApi.js` (the configuration API, plan 29 §12;
+`docs/integration.md`).
 
 ## Host boundaries
 

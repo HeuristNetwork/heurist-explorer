@@ -13,4 +13,4 @@
  * @since       8.0
  */
 
-export { moduleLanguage, normalizeModuleBootstrap, resolveModuleBootstrap } from './bootstrap.js';
+export { moduleLanguage, normalizeModuleBootstrap, resolveHeuristBaseUrl, resolveModuleBootstrap } from './bootstrap.js';

@@ -1,6 +1,6 @@
 /**
  * @file HeuristDataConfigurationApi.js
- * @brief Public API for configuration-editor-only operation.
+ * @brief Configuration-only public API of heurist-data (plan 29 §12): settings without a running module.
  *
  * @project     Heurist academic knowledge management system
  * @package     heurist-data
@@ -12,58 +12,24 @@
  * @license     https://www.gnu.org/licenses/gpl-3.0.txt GNU License 3.0
  * @since       8.0
  */
-import { createConfigurationDialogFactory } from "#shared/ui/config/moduleConfigurationDialogFactory.js";
+
+import { HeuristModuleConfigurationApi } from "#shared/host/HeuristModuleConfigurationApi.js";
 import { smartyTemplateTerms } from "#shared/data/moduleConfigurationForm.js";
 import { dataConfiguration } from "../configuration.js";
-import { createDataConfigurationDefaults } from "../ui/config/dataConfigurationDefaults.js";
-import {
-  normalizeDataConfigurationSettings,
-  serializeDataConfigurationSettings,
-} from "../ui/config/dataConfigurationSchema.js";
 
 /** Exposes configuration editing without starting the data application. */
-export class HeuristDataConfigurationApi {
+export class HeuristDataConfigurationApi extends HeuristModuleConfigurationApi {
   /**
    * @param {object} [options] API configuration.
    * @param {object} [options.providers] Supporting providers (reportTemplates).
-   * @param {object|null} [options.hostBridge] Optional host bridge for persistence delegation.
+   * @param {object|null} [options.hostBridge] Host bridge (heurist-explorer opens the form in its window).
    */
   constructor({ providers = {}, hostBridge = null } = {}) {
-    this.providers = providers;
-    this.hostBridge = hostBridge;
-    this.configurationDialog = null;
-  }
-  /** Resolve when the configuration API is ready for use. */
-  ready() {
-    return Promise.resolve(this);
-  }
-  /** Open the configuration form (plan 29) in this window; returns `{result, close}`. */
-  openConfigurationDialog(options = {}) {
-    this.configurationDialog?.close?.();
-    const factory = createConfigurationDialogFactory({
+    super({
       configuration: dataConfiguration,
-      termsProviders: {
-        smartyTemplates: smartyTemplateTerms(options.reportTemplateProvider || this.providers.reportTemplates),
-      },
+      hostBridge,
+      termsProviders: { smartyTemplates: smartyTemplateTerms(providers.reportTemplates) },
     });
-    this.configurationDialog = factory(options);
-    return this.configurationDialog;
-  }
-  /** Normalize a persisted configuration value. */
-  normalizeConfiguration(value = {}) {
-    return normalizeDataConfigurationSettings(value);
-  }
-  /** Serialize a configuration value for persistence. */
-  serializeConfiguration(value = {}) {
-    return serializeDataConfigurationSettings(value);
-  }
-  /** Return a fresh configuration-defaults object. */
-  getConfigurationDefaults() {
-    return createDataConfigurationDefaults();
-  }
-  /** Close the configuration dialog, if open. */
-  destroy() {
-    this.configurationDialog?.close?.();
-    this.configurationDialog = null;
+    this.providers = providers;
   }
 }

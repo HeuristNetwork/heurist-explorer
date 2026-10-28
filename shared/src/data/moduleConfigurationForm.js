@@ -137,6 +137,118 @@ export function describeConfigurationForm(json, context = {}) {
 }
 
 /**
+ * A partial settings value as a nested object: dotted key paths (`{'config.defaults.pageSize': 500}`)
+ * are expanded, nested objects are kept (the API `patchConfiguration`, plan 29 §12).
+ *
+ * @param {object} partial Partial settings.
+ * @returns {object} Nested partial settings.
+ */
+export function expandSettingsPatch(partial) {
+  const result = {};
+  for (const [key, value] of Object.entries(isPlainObject(partial) ? partial : {})) {
+    const path = key.split('.').filter(Boolean);
+    let target = result;
+    path.slice(0, -1).forEach((part) => {
+      if (!isPlainObject(target[part])) target[part] = {};
+      target = target[part];
+    });
+    const last = path[path.length - 1];
+    if (last === undefined) continue;
+    target[last] = isPlainObject(value) && isPlainObject(target[last])
+      ? mergeSettings(target[last], value) : clone(value);
+  }
+  return result;
+}
+
+/**
+ * The leaves of the `options` and `config` parts of a settings value by dotted key: lists,
+ * null and empty objects are leaves.
+ *
+ * @param {object} settings Settings `{options, config}` or an envelope.
+ * @returns {Map<string, *>}
+ */
+export function flattenSettings(settings) {
+  const leaves = new Map();
+  const walk = (value, path) => {
+    if (isPlainObject(value) && Object.keys(value).length) {
+      for (const [key, item] of Object.entries(value)) walk(item, `${path}.${key}`);
+    } else leaves.set(path, value);
+  };
+  for (const part of ['options', 'config']) {
+    if (isPlainObject(settings?.[part])) walk(settings[part], part);
+  }
+  return leaves;
+}
+
+/**
+ * The keys whose values differ between two settings values (the `configuration-changed` event).
+ *
+ * @param {object} before Settings before.
+ * @param {object} after Settings after.
+ * @returns {string[]} Dotted keys, sorted.
+ */
+export function changedSettingKeys(before, after) {
+  const a = flattenSettings(before);
+  const b = flattenSettings(after);
+  const keys = new Set([...a.keys(), ...b.keys()]);
+  return [...keys].filter((key) => JSON.stringify(a.get(key)) !== JSON.stringify(b.get(key))).sort();
+}
+
+/**
+ * Check settings against a module configuration: keys the module does not know, and values it
+ * does not accept (its normalizer changes them). Missing keys are not errors: they get defaults.
+ *
+ * @param {{normalize: Function}} configuration Module configuration entry.
+ * @param {object} settings Settings `{options, config}` or an envelope.
+ * @returns {Array<{key: string, message: string, value?: *}>} Errors; empty when valid.
+ */
+export function validateModuleSettings(configuration, settings) {
+  if (!isPlainObject(settings)) return [{ key: '', message: 'Settings must be an object' }];
+  const errors = [];
+  for (const key of Object.keys(settings)) {
+    if (!['format', 'version', 'options', 'config'].includes(key)) errors.push({ key, message: 'Unknown key' });
+  }
+  const normalized = flattenSettings(configuration.normalize(clone(settings)));
+  // groups of keys (`options`, `options.ui` of `options.ui.language`)
+  const prefixes = new Set();
+  for (const key of normalized.keys()) {
+    const parts = key.split('.');
+    for (let length = 1; length < parts.length; length++) prefixes.add(parts.slice(0, length).join('.'));
+  }
+  for (const [key, value] of flattenSettings(settings)) {
+    if (!normalized.has(key)) {
+      // an empty object or null given for a group of keys is accepted (the defaults are used)
+      if (!(prefixes.has(key) && (value == null || isPlainObject(value)))) errors.push({ key, message: 'Unknown key' });
+      continue;
+    }
+    const used = normalized.get(key);
+    if (JSON.stringify(used) !== JSON.stringify(value) && String(used) !== String(value)) {
+      errors.push({ key, message: 'Value not accepted', value: used });
+    }
+  }
+  return errors;
+}
+
+/**
+ * The configuration of a module for a mode, without the UI (the API `describeConfiguration`,
+ * plan 29 §12): its form and the flat list of its options.
+ *
+ * @param {{type: string, form: object}} configuration Module configuration entry.
+ * @param {{mode?: string, advanced?: boolean, simplified?: boolean}} [options] `advanced`: whether the
+ *        optional (Advanced) options count as shown; default true.
+ * @returns {{module: string, mode: string, form: object, options: Array<object>}}
+ */
+export function describeModuleConfiguration(configuration, { mode = 'configuration', advanced = true, simplified = false } = {}) {
+  const formMode = configurationFormMode(mode);
+  return {
+    module: configuration.type,
+    mode: formMode,
+    form: clone(configuration.form),
+    options: describeConfigurationForm(configuration.form, { mode: formMode, showOptional: advanced !== false, simplified: simplified === true })
+  };
+}
+
+/**
  * A `termsSource` provider of the Smarty report templates (the template pickers, plan 29
  * §3): the `{value, label}` options of a ReportTemplateProvider as terms.
  *

@@ -63,6 +63,8 @@ export function createHeuristGraphConfig(bootstrap, { bridge = null, containerId
   return {
     containerId,
     runtimeMode,
+    // configuration-only start (plan 29 §12)
+    viewerMode: runtime.viewerMode === "configuration" ? "configuration" : "graph",
     database: runtime.database || null,
     apiBaseUrl: runtime.apiBaseUrl || null,
     accessToken: runtime.accessToken || null,

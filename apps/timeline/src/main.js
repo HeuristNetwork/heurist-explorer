@@ -23,6 +23,7 @@ import "@fortawesome/fontawesome-free/css/solid.min.css";
 
 import { getHeuristTimelineConfig } from "./timelineConfig.js";
 import { initHeuristTimeline } from "./initHeuristTimeline.js";
+import { initHeuristTimelineConfiguration } from "./initHeuristTimelineConfiguration.js";
 import { initLocale, useHostHelp } from "#shared/ui";
 
 const config = getHeuristTimelineConfig();
@@ -33,7 +34,8 @@ useHostHelp(config.host?.bridge);
 // server root (404) and the interface strings are not translated (2026-10-14)
 initLocale(config.language, config.localeBaseUrl || moduleBaseUrl())
   .catch((error) => console.warn("Unable to load heurist-timeline localization", error))
-  .then(() => initHeuristTimeline(config))
+  .then(() => (config.viewerMode === "configuration"
+    ? initHeuristTimelineConfiguration(config) : initHeuristTimeline(config)))
   .catch((error) => {
     showTimelineMessage(error, { error: true, title: "Unable to initialize the timeline" });
     const container = document.getElementById("heurist-timeline");
