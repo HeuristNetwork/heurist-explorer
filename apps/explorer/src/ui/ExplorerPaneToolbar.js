@@ -204,18 +204,33 @@ export class ExplorerPaneToolbar {
       ['Configuration', () => app.controlPanel?.openConfiguration()],
       ['Help', () => app.controlPanel?.openHelp()],
       ['Getting started', () => app.showWelcome?.()],
+      null,
       ['Manage tags', () => void app.manageTags?.()],
       ['Manage registered files', () => void app.manageFiles?.()],
       ['Manage users', () => void app.manageUsers?.()],
       ['Manage groups', () => void app.manageGroups?.()],
+      null,
+      // plan 27b §11: management tools, not pane modules
+      ['Publish this view', () => void app.publishView?.()],
+      ['Websites and published pages', () => void app.openWebsiteManager?.()],
+      null,
       ['Query tracer', () => app.showQueryTrace?.()],
       // temporary (plan 14a)
       ['Test edit form', () => void app.controlPanel?.openEditFormTest()],
       // temporary (plan 29)
       ['Test module configuration', () => void app.controlPanel?.openModuleConfigurationTest()]
     ];
-    for (const [label, action] of items) {
+    for (const entry of items) {
       const item = document.createElement('li');
+      if (!entry) {
+        item.setAttribute('role', 'separator');
+        const divider = document.createElement('hr');
+        divider.className = 'h-menu-divider';
+        item.append(divider);
+        menu.append(item);
+        continue;
+      }
+      const [label, action] = entry;
       // no query tracer in the simplified interface (CSS on h-explorer-simplified)
       if (label === 'Query tracer') item.className = 'h-explorer-pane-toolbar-trace';
       const button = document.createElement('button');

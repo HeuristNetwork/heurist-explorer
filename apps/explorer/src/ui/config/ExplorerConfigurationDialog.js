@@ -42,8 +42,7 @@ const MODULES = [
   { type: 'report', icon: 'fa-regular fa-file', title: 'Report' },
   { type: 'crosstabs', icon: 'fa-solid fa-chart-column', title: 'Crosstabs' },
   { type: 'actions', icon: 'fa-solid fa-bolt', title: 'Actions' },
-  { type: 'export', icon: 'fa-solid fa-file-export', title: 'Export' },
-  { type: 'publish', icon: 'fa-solid fa-globe', title: 'Websites' }
+  { type: 'export', icon: 'fa-solid fa-file-export', title: 'Export' }
 ];
 
 /** Result always has a pane: a DataSource is shown there (and so not everything is unused). */
@@ -90,9 +89,13 @@ export class ExplorerConfigurationDialog {
    * @param {Function|null} [options.onTestEditForm] Offers the temporary Test edit form (plan 14a): it closes the dialog and calls this.
    * @param {Function|null} [options.onManageUsers] Offers a Manage users button (plan 20, 4d): it closes the dialog and calls this.
    * @param {Function|null} [options.onManageGroups] Offers a Manage groups button (plan 20, 4d): it closes the dialog and calls this.
+   * @param {Function|null} [options.onPublishView] Offers a Publish this view button (plan 27b §11): it closes the dialog and calls this.
+   * @param {Function|null} [options.onManageWebsites] Offers a Websites and published pages button (plan 27b §11): it closes
+   *        the dialog and calls this.
    */
   constructor({ value = null, parent = null, onSave = null, onCancel = null, onGettingStarted = null, onQueryTrace = null,
-    onManageTags = null, onManageFiles = null, onManageUsers = null, onManageGroups = null, onTestEditForm = null } = {}) {
+    onManageTags = null, onManageFiles = null, onManageUsers = null, onManageGroups = null, onPublishView = null,
+    onManageWebsites = null, onTestEditForm = null } = {}) {
     this.value = mergeDefaults(value);
     this.parent = parent;
     this.onSave = typeof onSave === 'function' ? onSave : null;
@@ -103,6 +106,8 @@ export class ExplorerConfigurationDialog {
     this.onManageFiles = typeof onManageFiles === 'function' ? onManageFiles : null;
     this.onManageUsers = typeof onManageUsers === 'function' ? onManageUsers : null;
     this.onManageGroups = typeof onManageGroups === 'function' ? onManageGroups : null;
+    this.onPublishView = typeof onPublishView === 'function' ? onPublishView : null;
+    this.onManageWebsites = typeof onManageWebsites === 'function' ? onManageWebsites : null;
     this.onTestEditForm = typeof onTestEditForm === 'function' ? onTestEditForm : null;
     this.chips = new Map();
     this.paneLists = new Map();
@@ -182,12 +187,20 @@ export class ExplorerConfigurationDialog {
       extras.append(button('Manage groups', () => { if (this.cancel() !== false) this.onManageGroups(); },
         'Add groups, change their members and admins'));
     }
+    if (this.onPublishView) {
+      extras.append(button('Publish this view', () => { if (this.cancel() !== false) this.onPublishView(); },
+        'Publish the current Explorer view as a standalone page'));
+    }
+    if (this.onManageWebsites) {
+      extras.append(button('Websites and published pages', () => { if (this.cancel() !== false) this.onManageWebsites(); },
+        'Website manager: websites and standalone pages'));
+    }
     if (this.onTestEditForm) {
       extras.append(button('Test edit form', () => { if (this.cancel() !== false) this.onTestEditForm(); },
         'Edit form of a test JSON with every field type'));
     }
     if (this.onGettingStarted || this.onQueryTrace || this.onManageTags || this.onManageFiles || this.onManageUsers
-      || this.onManageGroups || this.onTestEditForm) footer.append(extras);
+      || this.onManageGroups || this.onPublishView || this.onManageWebsites || this.onTestEditForm) footer.append(extras);
     footer.append(button('Cancel', () => this.cancel()), submitButton('Apply'));
     this.form.append(this.content, footer);
     this.dialog.append(header, this.form);

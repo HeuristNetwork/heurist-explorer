@@ -48,19 +48,20 @@ export function createWebsiteManagerConfig(bootstrap = {}) {
  * @param {object} options Mount options.
  * @param {HTMLElement} options.container Element to mount into.
  * @param {object} [options.bootstrap] Bootstrap envelope (`runtime`).
- * @param {object|null} [options.bridge] Host bridge: `editRecord`, `viewRecord`, `canEditRecords`, `getDbDefs`,
- *        `captureView` (Explorer: "Publish this view").
+ * @param {object|null} [options.bridge] Host bridge: `editRecord`, `viewRecord`, `canEditRecords`, `getDbDefs`.
+ * @param {Function|null} [options.onClose] The Close button of the manager's header (Explorer: the manager is over
+ *        the whole screen, plan 27b §11).
  * @param {string|null} [options.assetBaseUrl] Base URL of the bundle's own assets (localization).
  * @returns {Promise<{application: WebsiteApplication, selectRecord: Function, destroy: Function}>}
  * @throws {Error} When no container is supplied.
  */
-export async function mountWebsiteManager({ container, bootstrap = {}, bridge = null, assetBaseUrl = null } = {}) {
+export async function mountWebsiteManager({ container, bootstrap = {}, bridge = null, assetBaseUrl = null, onClose = null } = {}) {
   if (!container) throw new Error('A container is required to mount the Website manager');
   const config = createWebsiteManagerConfig(bootstrap);
   await extendLocale(config.language, assetBaseUrl).catch(() => {});
   const application = new WebsiteApplication({ config, bridge });
   await application.initialize();
-  const view = new WebsiteManager().attach(container, { application });
+  const view = new WebsiteManager().attach(container, { application, onClose });
   return {
     application,
     selectRecord: (id) => view.selectRecord(id),

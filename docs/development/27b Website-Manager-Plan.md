@@ -1,7 +1,8 @@
 # Plan 27b — Website manager and publisher (plan 27, phase 2)
 
-**Status 2026-10-26: implemented (both repos), not committed.** Checked with tests and over HTTP; not yet checked
-in a browser by Artem. As implemented and deviations: §10. General directions and decisions 1–23 are
+**Status 2026-10-28: review round 1 (§11) implemented, not committed, not checked in a browser: items 1–9 (§11.1),
+item 10 *Publish this view* (§11.2 proposal, §11.3 decisions and implementation).** Phase 2 itself (2026-10-26) is
+committed. Next: plan for phase 3, the CMS designer (§12). As implemented and deviations: §10. General directions and decisions 1–23 are
 in `27 CMS-and-Web-Publishing-Plan.md`, the v4 format in `27a Website-Format-v4-Plan.md`; this plan uses them and
 does not repeat them. Decisions are in §9.
 
@@ -265,3 +266,107 @@ other endpoints (`/records/{id}/validate`, `/files/{id}/validate`). It stays a G
 | Website delete | Menu pages pointed to by records outside the website are kept and listed (`kept`). |
 | URL in CLI | `SiteUrls` takes the scheme from the base URL; in CLI tests that is `https://127.0.0.1`. |
 | Not done | OpenAPI description of `/website` (also open from 27a); the browser check. |
+
+## 11. Review round 1 (Artem, 2026-10-28)
+
+### 11.1 Website manager and Explorer menu — implemented 2026-10-28, not committed
+
+| # | Request | Done |
+|---|---|---|
+| 1 | Explorer options menu, after *Manage groups*: *Publish this view*, *Websites and published pages*; separators after *Getting started*, *Manage groups*, *Websites and published pages* | Gear menu of `ExplorerPaneToolbar` (separators `h-menu-divider`); the same two buttons in the footer of the Explorer configuration dialog (the other toolbar positions have no gear menu). `ExplorerApplication.publishView()` / `openWebsiteManager()`. |
+| 2 | "Websites" is not a module of the Configuration dialog (a management tool, like Database design) | `publish` removed from `TOOL_TYPES`, defaults, simplified layout, `LayoutManager`, the configuration dialog, compact mode and the rail. A saved configuration that has `publish` loses it on load (only known types are kept). Tour step *Publication* points to Options. |
+| 3, 4 | Open as the template editor: over the whole screen; header with a big Close on the right | Explorer puts `div.h-website-manager-host` (fixed, `inset: 0`, z-index 10000) on `document.body` and mounts the manager there; `mountWebsiteManager({onClose})`; the header has the title and a *Close* button (icon + caption). Record editor and messages are HMsg dialogs (top layer), so they are above it. Opening it again only selects the record. |
+| 5, 8 | `HCardinalLayout`: west = list, center = toolbar above the details | West: `HRecordManager` (40 % of the width, min 260 px); center: toolbar, setup notice, details. |
+| 6, 8 | List without view mode, selection menu, page size; 500 per page; no "i" | `listOptions: {pageLength: 500, controls: {viewMode, selectionActions, pageSize: false}, interaction: {popupEnabled: false}}`. `HRecordManager` no longer applies the remembered view mode when the host hides the view mode control. |
+| 7 | Search by title does not work again | **Not a client bug.** The list sends `filter: {title}`; the server uses the FULLTEXT index of `rec_Title` (word-prefix `MATCH`). In `osmak_mapping` this index is **stale** for some rows: `rec_Title LIKE '%webpage%'` = 35 rows, `MATCH('+webpage*')` = 33; the two missing rows (205072 "FIRST ALONE", 207132 "TEST!!!") were modified 2026-10-08 … 10-19, so no word of their titles is found. Fix in the database: rebuild the index (`OPTIMIZE TABLE Records` or drop / add the FULLTEXT index). The cause (which write left the index behind) is not known; to watch on other databases. |
+| 9 | Remove *Publish this view* from the manager | Removed (manager toolbar, `WebsiteApplication.publishView`, bridge `captureView`); it is in Explorer's menu (item 1). *Edit* stays the record editor until the designer exists (phase 3). |
+
+Phase 3 (item 9): the CMS designer opens **over the whole screen** in Explorer, as the manager (agreed 2026-10-28:
+"let's try"); the site preview is an iframe in it.
+
+### 11.2 Publish this view (item 10) — proposal (agreed with the changes of §11.3)
+
+**What is published.** `captureView()` already leaves out the tools (Report, Export, Actions, Crosstabs). A
+published Explorer (`config.published`) also has:
+
+- no left and right rails (toolbars), no QSE / Query Source editor, no lists of the Search (West) pane (Filters,
+  Entities, Sources, Favorites, History, Workspace), no Filter Builder;
+- instead an **HFilter** in the West pane (or North, see below) with the filters chosen in the dialog.
+
+**The dialog** is Explorer's publication form, built as the module forms of plan 29 (`ModuleConfigurationDialog`,
+HEditForm JSON `apps/explorer/src/ui/config/explorerPublicationForm.json`, the same *Publish to* section
+New page | Update the page from `publishTarget(client, 'explorer', …)`):
+
+| Field | Name | Type |
+|---|---|---|
+| Page title | `publish.title` | freetext (*Publish to* section) |
+| Language | `settings.ui.language` | enum of `UI_LANGUAGES` (auto = the language of now, as the modules) |
+| Filters | `settings.filter.items` | enum, multiple: the saved filters and query sources the user sees, and *Current query* |
+| Active on start | `settings.filter.active` | enum (select) of the same list, empty label "None"; must be one of *Filters* |
+| Presentation | `settings.filter.mode` | `buttons` \| `list` \| `select` |
+| Placement | `settings.filter.placement` | `west` \| `north` (proposal: `north` suits `buttons`) |
+
+**Question "filters and query sources use different endpoints — one HValuePicker?"** Not with the record
+picker: a `resource` field searches `/records` only, and saved filters are still read from `/sys?q={t:'filter'}`
+(their record format is plan 20 phase 4c). But one field **is** possible as an `enum` with
+`multiple: true` (as *Allowed base maps* of the map): Explorer has both lists loaded already
+(`SavedFilterManager`, `QuerySourceManager`), so the form gets one term list with ids `filter:12`,
+`source:34`, `current` and labels with a mark of the kind (and *(parameterized)*). No new endpoint. After plan 20
+4c both kinds could also go into one record picker.
+
+**Stored in the page** (`settings.filter`):
+
+```json
+{ "mode": "buttons", "placement": "west", "active": "source:34",
+  "items": [
+    { "key": "filter:12", "kind": "filter", "id": 12, "title": "Persons", "request": {"q": [...]}, "filterForm": null },
+    { "key": "source:34", "kind": "source", "id": 34, "title": "Map of sites", "request": {"q": [...], "rules": [...]}, "filterForm": {...} },
+    { "key": "current", "kind": "query", "title": "Current query", "request": {"q": [...]} }
+  ] }
+```
+
+Proposal: each item keeps its **resolved definition** (query, rules, Filter Form) at the time of publication, with
+its id. Reason: a visitor is a guest and may not be allowed to read a private saved filter or query source; the
+page then works as published. To change a filter the author publishes again (*Update the page*). **Q1: snapshot
+(proposal) or reference only (read at start, always the latest version, but private filters fail for guests)?**
+
+**HFilter** (`shared/src/widgets/filter/HFilter.js` + css, the simplest version):
+
+- shows the items in the given mode: a row of buttons, a list, or a select;
+- choosing an item runs it (the DataSource of the item → Explorer's `activateDataSource`);
+- a parameterized item shows its Filter Form (`HFilterForm`) below the list; **no Builder button** (no
+  `onOpenBuilder`) and no Close when it is the only item;
+- one item only: no HFilter pane when it is not parameterized (the item runs at start); when it is
+  parameterized, the pane shows only its Filter Form, without Close;
+- `active` runs at start; without `active` the page starts with the saved state (`state.dataSource`) as now.
+
+**Q2:** Placement North for `buttons` and West for `list` / `select` automatically, or a field (proposal: a field)?
+**Q3:** Should the visitor's selection, Favorites and History be kept in the browser on a published page?
+Proposal: no (nothing saved, as the UI configuration, §6).
+
+### 11.3 Decisions (Artem, 2026-10-28) and implementation
+
+| # | Decision |
+|---|---|
+| Q1 | **References, not snapshots.** Only public filters can be put on a page: saved filters of group 4 "Website filters" (hard-coded until saved filters and query sources are merged) and query sources with public visibility. HFilter keeps the ids and reads the latest version when the page opens. |
+| Q2 | The position (West / North) is chosen in the publish form. Note for later: HFilter, HMenu, HBadges are widgets a page can hold on their own. |
+| Q3 | No Favorites or History are read or written on a published page. |
+| 9 | The designer opens over the whole screen (§11.1). |
+
+Implemented 2026-10-28 (not committed, not checked in a browser):
+
+| Part | Where |
+|---|---|
+| Publish form | `apps/explorer/src/ui/config/explorerPublication.js`: form JSON (language; *Available filters* = one multiple enum with `filter:12`, `source:34`, `current`; *Active on start*; *Presentation* buttons / list / select; *Position* West / North), values, page settings. Opened by `ExplorerApplication.publishView()` in the shared `ModuleConfigurationDialog` (mode publication) with the *Publish to* section of plan 29 (`publishTarget(client, 'explorer')`); written by `publishModuleTo`. The lists: `_publicFilterLists()` = saved filters of group 4 (`/sys`, owner 4) and the query sources of `[{t: QS}, {access: 'public'}]`. |
+| Page settings | `settings.filter = {items: [{key, kind: filter\|source\|query, id \| request, title}], active, mode, placement}`; the current query keeps its request (it has no id). `normalizePublishedFilter` (`apps/explorer/src/core/publishedView.js`). |
+| Published Explorer | `config.published`: `publishedUiConfig()` (toolbar vertical and hidden by CSS `.h-explorer-published .h-explorer-rail`, no docked lists, not simplified, tools in Unused); no Query Source editor, no query trace, no lists; pane tabs (`ExplorerPaneTabs`) switch the modules of a pane; History, Workspace, Favorites and the dock settings in memory storage; only the page's saved filters are loaded (`filterIds`). Start: `active` → HFilter runs it; else the saved state (`state.dataSource`). A parameterized source is run only from its Filter Form. |
+| HFilter | `shared/src/widgets/filter/HFilter.js` + css: buttons / list / select; `resolve(item)` → DataSource, `onRun`; a parameterized one shows `HFilterForm` without Builder and Close; one item: no list, `needsPane()` false for one item without parameters (the host hides the pane and runs it). |
+| Server (heurist) | `hserv/controller/api.php`: GET `/sys` is allowed without login. `SystemQueryBuilder::appendAccess` already gives a guest only the saved filters of group 4 and nothing of the other types (checked: users, groups, tags, bookmarks = 0 records for a guest; `/sys/user/{id}/image` still 401). Needed: a guest reads the page's saved filters. |
+| Tests | `apps/explorer/test/explorerPublication.test.js`, `shared/test/hfilter.test.js`; 1,518 JS tests pass; Explorer and Website builds deployed. |
+
+Not done: a browser check; the Filter Form of a parameterized source in the North position is not tuned (it uses the
+form's own orientation); a page published before 2026-10-28 has no `settings.filter` and opens without a Search pane.
+
+## 12. Next
+
+Item 11 of the review: CMS designer = plan 27 phase 3, over the whole screen in Explorer (§11.1); a new plan document.

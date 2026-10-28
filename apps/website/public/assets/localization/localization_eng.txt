@@ -2,3 +2,6 @@
 #Site menu#Site menu
 #This part of the page can not be shown#This part of the page can not be shown
 #This part of the page is not configured#This part of the page is not configured
+#Websites and published pages#Websites and published pages
+#Close#Close
+#Close the Website manager#Close the Website manager

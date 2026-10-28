@@ -1,12 +1,14 @@
 /**
  * @file WebsiteManager.js
- * @brief Website manager view (plan 27b §3): toolbar, list of websites and standalone pages
- *        (HRecordManager) and the details of the selected record.
+ * @brief Website manager view (plan 27b §3, §11): over the whole screen, a header with the
+ *        title and Close; two panes (HCardinalLayout): west - the list of websites and
+ *        standalone pages (HRecordManager), center - the toolbar and the details of the
+ *        selected record.
  *
- * Toolbar: New website, Publish this view (Explorer only) | for the selection: Edit, Open,
- * Check, Generate, Add to menu (standalone pages), Delete. Legacy websites (format 1-3) are
- * listed with their mark and can only be opened. On a narrow screen only the icons are shown
- * and the details go below the list.
+ * Toolbar: New website | for the selection: Edit, Open, Check, Generate, Add to menu
+ * (standalone pages), Delete. Legacy websites (format 1-3) are listed with their mark and
+ * can only be opened. On a narrow screen only the icons are shown. "Publish this view" is in
+ * Explorer's options menu (§11).
  *
  * @project     Heurist academic knowledge management system
  * @package     heurist-website
@@ -21,7 +23,8 @@
 
 import { HBaseWidget } from '#shared/widgets';
 import { HRecordManager } from '#shared/widgets/record-manager/HRecordManager.js';
-import { $HR, HMsg, PublishedDialog } from '#shared/ui';
+import { HCardinalLayout } from '#shared/widgets/layout/HCardinalLayout.js';
+import { $HR, HMsg } from '#shared/ui';
 import { WebsiteDetails, el } from './WebsiteDetails.js';
 import { confirmDialog, openAddToMenuForm, openNewWebsiteForm } from './websiteForms.js';
 import './WebsiteManager.css';
@@ -32,12 +35,14 @@ export class WebsiteManager extends HBaseWidget {
    * @param {HTMLElement} container View host.
    * @param {object} options
    * @param {import('./WebsiteApplication.js').WebsiteApplication} options.application Controller.
+   * @param {Function|null} [options.onClose] Close button of the header (none without it).
    * @returns {WebsiteManager}
    */
   attach(container, options = {}) {
     super.attach(container, options);
     this.app = options.application;
     this.list = null;
+    this.layout = null;
     this.render();
     this.listen(this.app, 'selectionchange', () => this.update());
     this.listen(this.app, 'buildchange', () => this.update());
@@ -45,16 +50,32 @@ export class WebsiteManager extends HBaseWidget {
     return this;
   }
 
-  /** Build the layout and the list. */
+  /** Build the header, the two panes and the list. */
   render() {
     const root = el('div', 'h-website-manager');
-    const toolbar = el('div', 'h-toolbar h-website-toolbar', root);
+    const header = el('div', 'heurist-source-header h-website-manager-header', root);
+    el('span', 'h-website-manager-title', header).textContent = $HR('Websites and published pages');
+    if (typeof this.options.onClose === 'function') {
+      const close = el('button', 'h-btn h-website-close', header);
+      close.type = 'button';
+      close.title = $HR('Close the Website manager');
+      el('i', 'fa-solid fa-xmark', close).setAttribute('aria-hidden', 'true');
+      el('span', '', close).textContent = $HR('Close');
+      this.listen(close, 'click', () => this.options.onClose());
+    }
+    const body = el('div', 'h-website-manager-body', root);
+    this.container.replaceChildren(root);
+    this.layout = new HCardinalLayout(body, { westRatio: 0.4, minWest: 260, minCenterWidth: 320 });
+
+    // west: the list; center: the toolbar, the setup notice and the details
+    this.listHost = el('div', 'h-website-manager-list');
+    this.layout.setContent('west', this.listHost);
+    const center = el('div', 'h-website-manager-main');
+    this.layout.setContent('center', center);
+    const toolbar = el('div', 'h-toolbar h-website-toolbar', center);
     toolbar.setAttribute('role', 'toolbar');
     this.buttons = {};
     this.buttons.create = this.tool(toolbar, 'fa-plus', 'New website', 'Create a new website', () => this.createWebsite());
-    this.buttons.publishView = this.tool(toolbar, 'fa-share-nodes', 'Publish this view',
-      'Publish the current Explorer view (layout, filters and modules) as a page', () => this.publishView());
-    this.buttons.publishView.hidden = !this.app.canPublishView();
     this.recordTools = el('span', 'h-website-tool-group', toolbar);
     el('span', 'h-website-separator', this.recordTools).setAttribute('aria-hidden', 'true');
     this.buttons.edit = this.tool(this.recordTools, 'fa-pen', 'Edit', 'Edit the record (the website designer comes later)', () => this.app.editRecord(this.app.selectedId));
@@ -65,16 +86,13 @@ export class WebsiteManager extends HBaseWidget {
     this.buttons.addToMenu = this.tool(this.recordTools, 'fa-sitemap', 'Add to menu', 'Add this page to a website menu', () => this.addToMenu());
     this.buttons.remove = this.tool(this.recordTools, 'fa-trash', 'Delete', 'Delete the website or page', () => this.remove());
 
-    const main = el('div', 'h-website-manager-main', root);
-    this.setupHost = el('div', 'h-website-setup', main);
-    this.listHost = el('div', 'h-website-manager-list', main);
-    this.detailsHost = el('div', 'h-website-manager-details', main);
+    this.setupHost = el('div', 'h-website-setup', center);
+    this.detailsHost = el('div', 'h-website-manager-details', center);
     this.details = new WebsiteDetails().attach(this.detailsHost, {
       application: this.app,
       onEditRecord: (id) => this.run(() => this.app.editRecord(id)),
       onRemoveFromMenu: (id) => this.run(() => this.removeFromMenu(id))
     });
-    this.container.replaceChildren(root);
     this.renderSetup();
     void this.renderList();
     this.update();
@@ -135,7 +153,12 @@ export class WebsiteManager extends HBaseWidget {
       listFields: versionField ? [versionField] : [],
       recordTools: (record) => versionBadge(record, versionField),
       editRecord: app.canEditRecords() ? (id) => app.editRecord(id) : undefined,
-      viewRecord: typeof app.bridge?.viewRecord === 'function' ? (id) => app.bridge.viewRecord(id) : undefined,
+      // a short list (§11): no view mode, selection menu, page size or "i"; all records on one page
+      listOptions: {
+        pageLength: 500,
+        controls: { viewMode: false, selectionActions: false, pageSize: false },
+        interaction: { popupEnabled: false }
+      },
       baseUrl: app.config.baseUrl,
       database: app.config.database
     });
@@ -154,7 +177,6 @@ export class WebsiteManager extends HBaseWidget {
     const loggedIn = app.status && !app.status.error;
     const installed = app.status?.installed === true;
     this.buttons.create.disabled = !loggedIn || !installed;
-    this.buttons.publishView.disabled = !loggedIn || !installed;
     this.recordTools.hidden = !app.selectedId;
     const v4 = summary?.v4 === true;
     const show = (button, visible) => { button.hidden = !visible; };
@@ -175,12 +197,6 @@ export class WebsiteManager extends HBaseWidget {
     const result = await this.app.createWebsite(values);
     HMsg.showMsgFlash($HR('The website is created'), { showDelay: 2000 });
     return result;
-  }
-
-  /** Explorer's view as a standalone page. */
-  async publishView() {
-    const result = await this.app.publishView();
-    if (result) new PublishedDialog({ publication: result }).open();
   }
 
   /** Open the selected website or page. */
@@ -255,6 +271,8 @@ export class WebsiteManager extends HBaseWidget {
     await this.details?.destroy();
     await this.list?.destroy();
     this.list = null;
+    this.layout?.destroy();
+    this.layout = null;
     await super.destroy();
   }
 }

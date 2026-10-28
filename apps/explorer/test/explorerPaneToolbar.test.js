@@ -144,7 +144,7 @@ test('a pane with several modules has tabs; a tab shows its module', async () =>
   const { toolbar, layout, shown } = setup();
   toolbar.setActive(true);
   // the tools are center modules after Graph by default (2026-10-14)
-  assert.deepEqual(tabTypes(layout, 'center'), ['recordview', 'map', 'graph', 'report', 'crosstabs', 'actions', 'export', 'publish']);
+  assert.deepEqual(tabTypes(layout, 'center'), ['recordview', 'map', 'graph', 'report', 'crosstabs', 'actions', 'export']);
   assert.ok(!strip(layout, 'center').classList.contains('is-single'));
   const active = () => strip(layout, 'center').querySelectorAll('.h-explorer-pane-tab').filter((tab) => tab.classList.contains('active')).map((tab) => tab.dataset.type);
   assert.deepEqual(active(), ['map']);
@@ -214,8 +214,9 @@ test('"In panes": a gear menu before «/», and modules in Unused have no tab', 
   const settings = leftRail.element.querySelector('.h-explorer-pane-toolbar-settings');
   assert.ok(settings);
   assert.deepEqual(settings.querySelectorAll('.h-menu-item').map((item) => item.textContent),
-    ['Configuration', 'Help', 'Getting started', 'Manage tags', 'Manage registered files', 'Manage users', 'Manage groups', 'Query tracer',
-      'Test edit form', 'Test module configuration']);
+    ['Configuration', 'Help', 'Getting started', 'Manage tags', 'Manage registered files', 'Manage users', 'Manage groups',
+      'Publish this view', 'Websites and published pages', 'Query tracer', 'Test edit form', 'Test module configuration']);
+  assert.equal(settings.querySelectorAll('.h-menu-divider').length, 3);
   assert.ok(!tabTypes(layout, 'center').includes('graph'));
   assert.ok(!tabTypes(layout, 'center').includes('report'));
   toolbar.setActive(false);

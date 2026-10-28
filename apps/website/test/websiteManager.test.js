@@ -1,7 +1,7 @@
 /**
  * @file websiteManager.test.js
  * @brief Website manager (plan 27b): controller (definitions, selection, summary, builds,
- *        editable websites, Publish this view) and the toolbar for a selection.
+ *        editable websites) and the toolbar for a selection.
  *
  * @project     Heurist academic knowledge management system
  * @package     heurist-website
@@ -18,6 +18,7 @@ import assert from 'node:assert/strict';
 import { installFakeDom, flush } from '../../../shared/test/helpers/fakeDom.js';
 
 installFakeDom();
+globalThis.Node ??= globalThis.HTMLElement;
 const { WebsiteApplication } = await import('../src/manager/WebsiteApplication.js');
 const { WebsiteManager } = await import('../src/manager/WebsiteManager.js');
 const { createWebsiteManagerConfig } = await import('../src/direct.js');
@@ -98,26 +99,6 @@ test('editableWebsites: v4 websites the user can change, with their menus', asyn
   assert.deepEqual(websites.map((site) => site.id), [10]);
   const query = calls.find(([, path]) => path === '/records')[2];
   assert.deepEqual(JSON.parse(query.q), [{ t: '51' }, { 'f:1149': '4' }]);
-});
-
-test('publishView: Explorer settings and state as an explorer instance, then selected', async () => {
-  const { application, calls } = createApplication({ bridge: { captureView: () => ({ settings: { format: 'heurist-explorer-settings', ui: { a: 1 } }, state: { selection: [5] } }) } });
-  await application.initialize();
-  assert.equal(application.canPublishView(), true);
-  const dialog = await import('../../../shared/src/ui/PublishPageDialog.js');
-  assert.equal(typeof dialog.openPublishPageDialog, 'function');
-  // the page dialog is answered by submitting its form
-  const pending = application.publishView();
-  await flush();
-  const form = document.body.querySelector('.heurist-publish-page-dialog');
-  form.querySelector('input').value = 'Persons';
-  form.dispatchEvent(new Event('submit', { cancelable: true }));
-  const result = await pending;
-  assert.equal(result.id, 40);
-  const body = calls.find(([, path]) => path === '/website/publish')[3];
-  assert.deepEqual(body, { type: 'explorer', settings: { format: 'heurist-explorer-settings', ui: { a: 1 } }, state: { selection: [5] },
-    title: 'Persons', pageId: 0 });
-  assert.equal(application.selectedId, 40);
 });
 
 test('toolbar: actions of a v4 standalone page, a website and a legacy website', async () => {

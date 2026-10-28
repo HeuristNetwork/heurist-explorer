@@ -535,6 +535,8 @@ export class ExplorerControlPanel {
       onManageFiles: () => void this.application.manageFiles(),
       onManageUsers: () => void this.application.manageUsers(),
       onManageGroups: () => void this.application.manageGroups(),
+      onPublishView: () => void this.application.publishView(),
+      onManageWebsites: () => void this.application.openWebsiteManager(),
       onTestEditForm: () => void this.openEditFormTest()
     }).open();
   }
@@ -1821,8 +1823,6 @@ export function rightButtons() {
     { id: 'crosstabs', icon: 'fa-solid fa-chart-column', title: 'Crosstabs', hint: 'Cross-tabulation and chart analysis', group: 'tools', toggle: true },
     { id: 'actions', icon: 'fa-solid fa-bolt', title: 'Actions', hint: 'Dashboard of actions for the current filtered result or selection', group: 'tools', toggle: true },
     { id: 'export', icon: 'fa-solid fa-file-export', title: 'Export', hint: 'Export records in various formats', group: 'tools', toggle: true },
-    // a tool placed in a pane since 2026-10-14 (was in the settings group)
-    { id: 'publish', icon: 'fa-solid fa-globe', title: 'Websites', hint: 'Websites and published pages', group: 'tools', toggle: true },
     { id: 'help', icon: 'fa-solid fa-circle-question', title: 'Help', hint: 'Explorer help and user guide', group: 'settings' },
     { id: 'options', icon: 'fa-solid fa-gear', title: 'Options', hint: 'Toolbar and layout configuration', group: 'settings' }
   ];

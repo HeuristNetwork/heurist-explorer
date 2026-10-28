@@ -65,13 +65,13 @@ publication form (plan 29, see *Module configuration forms*): the module has no 
 Explorer calls `POST /api/{db}/website/publish` (`publishModuleTo` in `shared/src/site/modulePublisher.js`,
 `shared/src/api/WebsiteClient.js`), which resolves with `{id, url, title, embed}`;
 `PublishedDialog` shows the URL, the embed code and a *Website manager* button.
-The Website manager's *Publish this view* (Explorer itself) still asks with
+Explorer's *Publish this view* (options menu, Explorer itself) still asks with
 `shared/src/ui/PublishPageDialog.js` (`publishModulePage`).
 
 The Website manager is `apps/website/src/direct.js` → `mountWebsiteManager({container,
-bootstrap, bridge, assetBaseUrl})`. Explorer mounts it in its Websites tool; the bridge gives
-`editRecord`, `viewRecord`, `canEditRecords`, `getDbDefs` and `captureView()` (*Publish this
-view*: Explorer as an `explorer` instance with `settings = {layout, ui, modules}` and
+bootstrap, bridge, assetBaseUrl, onClose})`. Explorer mounts it over the whole screen (options menu
+*Websites and published pages*); the bridge gives `editRecord`, `viewRecord`, `canEditRecords`,
+`getDbDefs`. *Publish this view* (`ExplorerApplication.publishView()`, `captureView()`) writes Explorer as an `explorer` instance with `settings = {layout, ui, modules}` and
 `state = {dataSource, selection}`). A published Explorer reads its configuration from
 `settings.ui` and never writes it to the visitor's browser. Endpoints: `/api/{db}/website`
 (heurist `srv/Controller/WebsiteController.php`); builds are background jobs of type

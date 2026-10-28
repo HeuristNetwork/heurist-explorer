@@ -14,9 +14,9 @@ test('save() persists and load() round-trips a valid value', () => {
     toolbar: { position: 'horizontal', buttonSize: 'large-caption' },
     regions: {
       data: 'east', map: 'west', graph: 'west', timeline: 'north', recordview: 'south',
-      report: 'east', crosstabs: 'unused', actions: 'unused', export: 'south', publish: 'center'
+      report: 'east', crosstabs: 'unused', actions: 'unused', export: 'south'
     },
-    order: ['map', 'data', 'graph', 'timeline', 'recordview', 'publish', 'export', 'report', 'crosstabs', 'actions'],
+    order: ['map', 'data', 'graph', 'timeline', 'recordview', 'export', 'report', 'crosstabs', 'actions'],
     panes: { north: true, west: false, center: true, east: false, south: true },
     lists: 'popup',
     language: 'fre',
@@ -105,10 +105,10 @@ test('defaults: toolbar on top, West (Result) and Center (Record View, Map, Grap
   assert.deepEqual(defaults.panes, { north: false, west: true, center: true, east: false, south: false });
   assert.deepEqual(defaults.regions, {
     data: 'west', map: 'center', graph: 'center', timeline: 'south', recordview: 'center',
-    report: 'center', crosstabs: 'center', actions: 'center', export: 'center', publish: 'center'
+    report: 'center', crosstabs: 'center', actions: 'center', export: 'center'
   });
   assert.deepEqual(defaults.order,
-    ['data', 'recordview', 'map', 'graph', 'report', 'crosstabs', 'actions', 'export', 'publish', 'timeline']);
+    ['data', 'recordview', 'map', 'graph', 'report', 'crosstabs', 'actions', 'export', 'timeline']);
   const config = new ExplorerUiConfig({ database: 'demo', storage: memoryStorage() });
   assert.deepEqual(config.save({ panes: { center: false, east: 'yes' } }).panes,
     { north: false, west: true, center: false, east: false, south: false }, 'invalid values fall back');
@@ -133,10 +133,10 @@ test('language: auto by default follows the host; a chosen language wins', () =>
 test('order keeps known types once each; a missing one goes after its default predecessor', () => {
   const config = new ExplorerUiConfig({ database: 'demo', storage: memoryStorage() });
   assert.deepEqual(config.save({ order: ['graph', 'bogus', 'map', 'graph'] }).order,
-    ['data', 'recordview', 'graph', 'report', 'crosstabs', 'actions', 'export', 'publish', 'timeline', 'map']);
+    ['data', 'recordview', 'graph', 'report', 'crosstabs', 'actions', 'export', 'timeline', 'map']);
   // a configuration saved before the tools were modules: the tools come after Graph
   assert.deepEqual(config.save({ order: ['data', 'map', 'graph', 'recordview', 'timeline'] }).order,
-    ['data', 'map', 'graph', 'report', 'crosstabs', 'actions', 'export', 'publish', 'recordview', 'timeline']);
+    ['data', 'map', 'graph', 'report', 'crosstabs', 'actions', 'export', 'recordview', 'timeline']);
   assert.deepEqual(config.save({ order: 'map' }).order, ExplorerUiConfig.defaults().order);
 });
 
@@ -161,7 +161,7 @@ test('Explorer starts with only the first module of the panes configured as expa
 
 test('moduleTypesInOrder() orders the toolbar by pane (N, W, C, E, S), then by the configured order', () => {
   assert.deepEqual(moduleTypesInOrder(ExplorerUiConfig.defaults()),
-    ['data', 'recordview', 'map', 'graph', 'report', 'crosstabs', 'actions', 'export', 'publish', 'timeline']);
+    ['data', 'recordview', 'map', 'graph', 'report', 'crosstabs', 'actions', 'export', 'timeline']);
   const value = {
     regions: { data: 'east', map: 'center', graph: 'north', timeline: 'center', recordview: 'west' },
     order: ['data', 'timeline', 'map', 'graph', 'recordview']
@@ -201,7 +201,7 @@ test('simplified interface: on by default; fixed toolbar, lists and layout over 
   assert.equal(applied.lists, 'docked');
   assert.equal(applied.regions.map, 'center');
   assert.equal(applied.regions.data, 'west');
-  for (const type of ['publish', 'crosstabs', 'actions']) assert.equal(isModuleUsed(applied, type), false);
+  for (const type of ['crosstabs', 'actions']) assert.equal(isModuleUsed(applied, type), false);
   for (const type of ['recordview', 'graph', 'report', 'export']) assert.equal(applied.regions[type], 'center');
   // the saved choices stay for when it is switched off
   assert.equal(saved.toolbar.position, 'vertical');

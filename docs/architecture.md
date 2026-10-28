@@ -39,7 +39,7 @@ Reports is not a presentation module: Explorer imports its direct entry lazily
 (dynamic import) when the Report tool is opened, so the manager and its
 CodeMirror editor are separate chunks, not part of Explorer's main bundle.
 The Website manager (plan 27b) is the same: `apps/website/src/direct.js` mounts the manager
-(not the site runtime) and Explorer imports it lazily for its Websites tool (`publish`).
+(not the site runtime) and Explorer imports it lazily for the Website manager, which it opens over the whole screen from its options menu (plan 27b §11).
 
 Each presentation module also has a **configuration entry** `src/configuration.js`
 (plan 29). It exports the module's configuration form JSON, defaults and settings

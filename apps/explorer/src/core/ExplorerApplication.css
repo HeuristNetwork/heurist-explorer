@@ -129,7 +129,7 @@
     color: var(--h-color-text-muted);
 }
 
-/* Reports and Websites tools: the app fills the body */
+/* Reports tool: the app fills the body */
 .h-explorer-tool-report-body,
 .h-explorer-tool-publish-body {
     display: flex;
@@ -155,4 +155,9 @@
 .h-explorer-simplified .h-explorer-rail-left .h-explorer-rail-separator[data-group="activity"],
 .h-explorer-simplified .h-explorer-pane-toolbar-trace {
     display: none !important;
+}
+
+/* a published page (plan 27b §11.3): no toolbars; HFilter in the Search pane, tabs in the panes */
+.h-explorer-published .h-explorer-rail {
+    display: none;
 }

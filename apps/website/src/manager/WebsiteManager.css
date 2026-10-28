@@ -1,4 +1,17 @@
-/* Website manager (plan 27b): one toolbar, list of websites and pages, details */
+/* Website manager (plan 27b §11): over the whole screen, header with Close, list west,
+   toolbar and details center */
+
+/* the host Explorer puts on document.body (HMsg dialogs are in the top layer, above it) */
+.h-website-manager-host {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  background: var(--h-color-bg, #fff);
+}
+
 .h-website-manager {
   container-type: inline-size;
   display: flex;
@@ -10,6 +23,31 @@
   font-size: var(--h-font-size);
   color: var(--h-color-text, #2f2f2f);
   background: var(--h-color-bg, #fff);
+}
+
+.h-website-manager-header {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 6px 4px 12px;
+}
+
+.h-website-manager-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--h-font-size-large);
+}
+
+.h-website-close { display: inline-flex; flex: 0 0 auto; align-items: center; gap: 6px; }
+
+.h-website-manager-body {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
 .h-website-toolbar {
@@ -43,15 +81,14 @@
 }
 
 .h-website-manager-main {
-  flex: 1 1 auto;
-  display: grid;
-  grid-template-columns: minmax(260px, 1fr) minmax(280px, 1fr);
-  grid-template-rows: auto minmax(0, 1fr);
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-width: 0;
   min-height: 0;
 }
 
 .h-website-setup {
-  grid-column: 1 / -1;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -63,12 +100,13 @@
 
 .h-website-manager-list {
   position: relative;
+  height: 100%;
   min-width: 0;
   min-height: 0;
-  border-right: 1px solid var(--h-color-border, #cfd4da);
 }
 
 .h-website-manager-details {
+  flex: 1 1 auto;
   min-width: 0;
   min-height: 0;
   overflow: auto;
@@ -116,9 +154,7 @@
 .h-website-form-languages { display: flex; flex-wrap: wrap; gap: 4px 12px; margin: 0; padding: 6px 8px; border: 1px solid var(--h-color-border, #cfd4da); border-radius: var(--h-radius, 4px); }
 .h-website-form p { margin: 0; }
 
-/* narrow: icons only, details below the list */
+/* narrow: toolbar icons only */
 @container (max-width: 640px) {
   .h-website-tool-label { display: none; }
-  .h-website-manager-main { grid-template-columns: 1fr; grid-template-rows: auto minmax(220px, 1fr) auto; overflow: auto; }
-  .h-website-manager-list { border-right: 0; border-bottom: 1px solid var(--h-color-border, #cfd4da); }
 }

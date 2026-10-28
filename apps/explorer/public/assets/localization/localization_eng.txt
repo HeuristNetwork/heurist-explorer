@@ -1229,3 +1229,19 @@
 #Publish Record View#Publish Record View
 #None: all map documents#None: all map documents
 #None: all base maps#None: all base maps
+#Publish this view#Publish this view
+#Publish the current Explorer view as a standalone page#Publish the current Explorer view as a standalone page
+#Website manager: websites and standalone pages#Website manager: websites and standalone pages
+#Position#Position
+#Presentation#Presentation
+#Buttons#Buttons
+#Available filters#Available filters
+#Active on start#Active on start
+#None (the result of now)#None (the result of now)
+#One of the available filters; it runs when the page opens#One of the available filters; it runs when the page opens
+#Saved filters of the group "Website filters" and public query sources; none: the page has no filters#Saved filters of the group "Website filters" and public query sources; none: the page has no filters
+#Left (West pane)#Left (West pane)
+#Top (North pane)#Top (North pane)
+#Current query#Current query
+#Select a filter...#Select a filter...
+#this filter can not be read#this filter can not be read

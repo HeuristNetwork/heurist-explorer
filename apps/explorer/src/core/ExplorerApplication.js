@@ -56,6 +56,10 @@ import { explorerTourSteps, explorerTourTopics } from '../ui/explorerTourSteps.j
 import './ExplorerApplication.css';
 import { aggregate } from '#shared/data/aggregate.js';
 import { openTagManager } from '../ui/ExplorerTagManager.js';
+import { WebsiteClient } from '#shared/api/WebsiteClient.js';
+import { publishModuleTo } from '#shared/site/modulePublisher.js';
+import { HFilter } from '#shared/widgets/filter/HFilter.js';
+import { memoryStorage, normalizePublishedFilter, publishedUiConfig } from './publishedView.js';
 
 /** Explorer's top-level application controller: modules, layout, datasource, and synchronization. */
 export class ExplorerApplication {
@@ -67,10 +71,14 @@ export class ExplorerApplication {
   constructor({ container, config }) {
     this.container = container;
     this.config = config;
+    // a published page keeps no History, Workspace or Favorites in the visitor's browser (plan 27b §11.3)
+    const storage = config.published ? memoryStorage() : null;
+    this._storage = storage;
     // untitled searches are named by the query in words (once definitions are loaded)
-    this.history = new DataSourceHistory({ database: config.database, describe: (q) => this._describeQuery(q) });
+    this.history = new DataSourceHistory({ database: config.database, storage, describe: (q) => this._describeQuery(q) });
     this.workspace = new ExplorerWorkspace({
       database: config.database,
+      storage,
       resolver: (reference) => this.resolveDataSourceReference(reference)
     });
     // last executed request per DataSource key: a parameterized Workspace source
@@ -78,6 +86,7 @@ export class ExplorerApplication {
     this.resolvedRequests = new Map();
     this.favorites = new DataSourceFavorites({
       database: config.database,
+      storage,
       resolver: (reference) => this.resolveDataSourceReference(reference)
     });
     // a published Explorer (plan 27b): the configuration of its page, kept in memory only
@@ -99,6 +108,8 @@ export class ExplorerApplication {
     this.layoutDefinitions = [];
     // the single Query Source editor / Filter Form, in the authoring dock's west pane
     this.querySourcePanel = null;
+    // a published page: the filters of the page instead of the editor (plan 27b §11.3)
+    this.publishedFilter = null;
     // the query trace, below the editor in the west pane (Query tracer in the configuration dialog)
     this.queryTracePanel = null;
     this.authoringDock = null;
@@ -146,8 +157,11 @@ export class ExplorerApplication {
     // Saved Filters and Query Sources of the current user's scope: Everyone,
     // Website filters, their groups and themselves (ownerScope)
     const ownerIds = () => ownerScope(this.userGroups?.data || null);
+    // a published page reads only its own filters (by id, the latest version)
+    const pageFilter = this.config.published ? normalizePublishedFilter(this.config.settings?.filter) : null;
     this.savedFilters = new SavedFilterManager({
       apiClient,
+      ...(pageFilter ? { filterIds: pageFilterIds(pageFilter) } : {}),
       legacyConverter: new LegacySavedFilterConverter({ getDbDefs: () => this._ensureDbDefs() }),
       ownerIds
     });
@@ -217,9 +231,10 @@ export class ExplorerApplication {
 
     // the saved configuration (edited in the dialog) and the one applied (simplified interface)
     this.uiConfigSaved = this.uiConfig.load();
-    this.uiConfigValue = effectiveUiConfig(this.uiConfigSaved);
+    this.uiConfigValue = this.config.published ? publishedUiConfig(this.uiConfigSaved) : effectiveUiConfig(this.uiConfigSaved);
+    this.container.classList.toggle('h-explorer-published', this.config.published === true);
     // outer layout: authoring pane (west or north) beside the presentation-module layout (center)
-    this.authoringDock = new ExplorerAuthoringDock(workspace, { database: this.config.database });
+    this.authoringDock = new ExplorerAuthoringDock(workspace, { database: this.config.database, storage: this._storage });
     // compact mode and a vertical Filter Form move the pane; the editor follows its region
     this.authoringDock.addEventListener('placementchange', (event) => {
       this.querySourcePanel?.setOrientation(event.detail.region === 'west' ? 'vertical' : 'horizontal');
@@ -233,15 +248,20 @@ export class ExplorerApplication {
     });
     await this.controlPanel.mount(this.container);
     this._bindRunningQueries();
-    await this._createQuerySourcePanel();
+    if (pageFilter) await this._createPublishedFilter(pageFilter);
+    else await this._createQuerySourcePanel();
     // the simplified interface has no query tracer
-    if (readTraceShown() && !this.isSimplifiedUI()) this.showQueryTrace();
+    if (!pageFilter && readTraceShown() && !this.isSimplifiedUI()) this.showQueryTrace();
     this.applySimplifiedUI();
+    if (pageFilter) this.authoringDock.setForcedPlacement(pageFilter.placement);
     // modules of panes not expanded at start are created when first opened
     await this.applyLayout(this.config.settings.layout || defaultLayout(), { deferHidden: true });
     this.paneToolbar.refresh();
+    // no toolbar on a published page: the tabs of a pane switch its modules
+    if (pageFilter) this.paneToolbar.tabs.start();
     this.compactMode = new ExplorerCompactMode({ application: this }).start();
-    if (this.config.state.dataSource) await this.activateDataSource(this.config.state.dataSource);
+    if (pageFilter?.active) await this.publishedFilter?.select(pageFilter.active);
+    else if (this.config.state.dataSource) await this.activateDataSource(this.config.state.dataSource);
     else await this._startUp();
     if (this.config.state.selection) await this.sync.setSelection(this.config.state.selection);
     return this;
@@ -485,6 +505,56 @@ export class ExplorerApplication {
     this.syncSearchButton();
   }
 
+  /**
+   * A published page (plan 27b §11.3): HFilter with the filters of the page in the Search pane
+   * (West or North) instead of the Query Source editor and the lists. No pane for one filter
+   * without parameters: it is run at start.
+   *
+   * @private
+   * @param {ReturnType<typeof normalizePublishedFilter>} pageFilter Filters of the page.
+   * @returns {Promise<void>}
+   */
+  async _createPublishedFilter(pageFilter) {
+    const dock = this.authoringDock;
+    const items = pageFilter.items;
+    const parameterized = (key) => {
+      const item = items.find((entry) => entry.key === key);
+      if (item?.kind === 'query') return hasQueryParameters(item.request?.q);
+      if (item?.kind === 'filter') return this.savedFilters?.list?.().find((filter) => filter.id === item.id)?.kind === 'parametrized';
+      return this.querySources?.get?.(item?.id)?.parametrized === true;
+    };
+    const pane = HFilter.needsPane(items, parameterized);
+    // one filter without parameters: it is run, no list
+    if (!pane && items.length === 1 && !pageFilter.active) pageFilter.active = items[0].key;
+    const dbdefs = await this._ensureDbDefs().catch(() => null);
+    const host = document.createElement('div');
+    dock.paneElement.append(host);
+    this.publishedFilter = new HFilter().attach(host, {
+      items,
+      mode: pageFilter.mode,
+      dbdefs,
+      apiClient: this.apiClient,
+      resolve: (item) => this._resolvePublishedItem(item),
+      onRun: (dataSource) => this.activateDataSource(dataSource, { origin: 'published-filter', allowDirty: true }),
+      onError: (error) => HMsg.showMsgErr?.(error?.message || String(error))
+    }).render();
+    if (pane) dock.show();
+    else dock.hide();
+  }
+
+  /**
+   * The DataSource of a filter of a published page: the latest saved filter or query source,
+   * the query of publication time as it was.
+   *
+   * @private
+   * @param {{kind: string, id?: number, title: string, request?: object}} item
+   * @returns {Promise<object|null>}
+   */
+  async _resolvePublishedItem(item) {
+    if (item.kind === 'query') return normalizeDataSource({ title: item.title, request: structuredClone(item.request) });
+    return this.resolveDataSourceReference({ type: item.kind, id: item.id });
+  }
+
   /** Apply the Query Source draft to synchronized presentations without persisting it. */
   async _applyQuerySourceDraft(source) {
     const dataSource = normalizeDataSource(source);
@@ -689,6 +759,8 @@ export class ExplorerApplication {
     }
 
     const requestedSource = normalizeDataSource(source);
+    // a published page: a parameterized source is run from its Filter Form in HFilter
+    if (hasQueryParameters(requestedSource.request?.q) && this.publishedFilter) return null;
     if (hasQueryParameters(requestedSource.request?.q) && panelBefore) {
       // opens the Filter Form, which reveals the pane
       panelBefore.setDataSource(requestedSource);
@@ -1752,8 +1824,8 @@ export class ExplorerApplication {
   }
 
   /**
-   * Create, mount and register a tool module (Report, Crosstabs, Actions, Export,
-   * Publish). The tool follows DataSource, selection and rules like a presentation.
+   * Create, mount and register a tool module (Report, Crosstabs, Actions, Export).
+   * The tool follows DataSource, selection and rules like a presentation.
    *
    * @private
    * @param {object} definition Layout definition for the tool.
@@ -1767,8 +1839,7 @@ export class ExplorerApplication {
       title: TOOL_TITLES[definition.type],
       create: {
         report: (body) => this._createReportsTool(body),
-        export: (body) => this._createExportTool(body),
-        publish: (body) => this._createWebsiteTool(body)
+        export: (body) => this._createExportTool(body)
       }[definition.type] || null
     });
     this.modules.set(definition.id, module);
@@ -1809,17 +1880,139 @@ export class ExplorerApplication {
   }
 
   /**
-   * Mount the Website manager (plan 27b) into the Websites tool's body: apps/website, loaded
-   * only now by a dynamic import of its direct entry (not the public site runtime).
+   * Open the Website manager (plan 27b) over the whole screen, as the template editor of
+   * the reports (§11, 2026-10-28): a management tool, not a pane module. apps/website is
+   * loaded only now by a dynamic import of its direct entry (not the public site runtime).
+   * When it is open already, only the record is selected.
+   *
+   * @param {{recordId?: number}} [options] Record to select (after Publish).
+   * @returns {Promise<boolean>} False when the manager could not be opened.
+   */
+  async openWebsiteManager({ recordId = null } = {}) {
+    try {
+      if (!this._websiteManager) {
+        const host = document.createElement('div');
+        host.className = 'h-website-manager-host';
+        document.body.append(host);
+        const mount = this._websiteMounter || mountDirectWebsite;
+        this._websiteManager = mount(this._websiteMountOptions(host, () => this.closeWebsiteManager()));
+        this._websiteManager.host = host;
+      }
+      const manager = await this._websiteManager;
+      if (recordId) await manager?.selectRecord?.(recordId);
+      return true;
+    } catch (error) {
+      this.closeWebsiteManager();
+      HMsg.showMsgErr?.(error?.message || String(error));
+      return false;
+    }
+  }
+
+  /** Close the Website manager (its Close button). */
+  closeWebsiteManager() {
+    const pending = this._websiteManager;
+    if (!pending) return;
+    this._websiteManager = null;
+    void Promise.resolve(pending).then((manager) => manager?.destroy?.()).catch(() => {})
+      .finally(() => pending.host?.remove());
+  }
+
+  /**
+   * "Publish this view" (Explorer options, plan 27b §11.3): the publication form (Publish to,
+   * page title, language, the filters of the page), then the URL of the page with a Website
+   * manager button.
+   *
+   * @returns {Promise<object|null>} The page `{id, url, embed}`, null when cancelled.
+   */
+  async publishView() {
+    try {
+      const client = new WebsiteClient({ apiClient: this.apiClient });
+      const [{ ModuleConfigurationDialog }, publication, { publishTarget }] = await Promise.all([
+        import('#shared/ui/config/ModuleConfigurationDialog.js'),
+        import('../ui/config/explorerPublication.js'),
+        import('../modules/moduleConfigurations.js')
+      ]);
+      const choices = publication.publicationFilterChoices({
+        ...(await this._publicFilterLists(publication.WEBSITE_FILTERS_GROUP)),
+        current: this.sync?.dataSource || null
+      });
+      const target = await publishTarget(client, 'explorer', { database: this.config.database });
+      const form = publication.explorerPublicationForm(choices);
+      let result = null;
+      await new ModuleConfigurationDialog({
+        form: { ...form, groups: [...target.groups, ...form.groups] },
+        formId: 'explorer',
+        mode: 'publication',
+        title: 'Publish this view',
+        value: { ui: { language: this.uiConfigSaved?.language || 'auto' } },
+        defaults: () => publication.normalizePublicationValues({}),
+        normalize: publication.normalizePublicationValues,
+        formOptions: { onChange: target.onChange },
+        onSave: async (values, { form: editForm }) => {
+          const view = this.captureView();
+          const publish = editForm.getValues().publish || {};
+          result = await publishModuleTo({
+            client,
+            database: this.config.database,
+            type: 'explorer',
+            settings: publication.publicationSettings(view.settings, values, choices, this.config.language),
+            state: view.state,
+            title: publish.title,
+            pageId: publish.target === 'update' ? Number(publish.pageId) || 0 : 0
+          });
+          return Boolean(result);
+        }
+      }).open();
+      if (!result) return null;
+      const { PublishedDialog } = await import('#shared/ui/PublishedDialog.js');
+      new PublishedDialog({
+        publication: { ...result, actions: [{ label: 'Website manager', run: () => this.openWebsiteManager({ recordId: result.id }) }] }
+      }).open();
+      return result;
+    } catch (error) {
+      HMsg.showMsgErr?.(error?.message || String(error));
+      return null;
+    }
+  }
+
+  /**
+   * The filters a published page may offer (plan 27b §11.3): the saved filters of "Website
+   * filters" and the public query sources.
    *
    * @private
-   * @param {HTMLElement} body Tool body.
-   * @returns {Promise<object>} The manager API (`selectRecord`, `destroy`).
+   * @param {number} group Owner group of the website filters.
+   * @returns {Promise<{filters: Array<object>, sources: Array<object>}>}
    */
-  _createWebsiteTool(body) {
-    const mount = this._websiteMounter || mountDirectWebsite;
-    return mount({
-      container: body,
+  async _publicFilterLists(group) {
+    const filters = await new SavedFilterManager({
+      apiClient: this.apiClient,
+      legacyConverter: this.savedFilters?.legacyConverter || null,
+      ownerIds: [group]
+    }).load().catch(() => []);
+    let sources = [];
+    const typeId = this.querySources?.recordTypeId;
+    if (typeId) {
+      const payload = await this.apiClient.get('/records/', {
+        query: { q: [{ t: String(typeId) }, { access: 'public' }], fields: 'rec_ID', limit: 100000 }
+      }).catch(() => null);
+      const ids = new Set((payload?.records || []).map((record) => Number(record.rec_ID)));
+      sources = this.getQuerySources().filter((source) => ids.has(Number(source.id)));
+    }
+    return { filters, sources };
+  }
+
+  /**
+   * Mount options of the Website manager: runtime, bridge and its Close.
+   *
+   * @private
+   * @param {HTMLElement} container Host of the manager.
+   * @param {Function} onClose Called by the Close button of the manager.
+   * @returns {object}
+   */
+  _websiteMountOptions(container, onClose) {
+    return {
+      container,
+      onClose,
       bootstrap: {
         runtime: {
           database: this.config.database,
@@ -1833,12 +2026,11 @@ export class ExplorerApplication {
       },
       bridge: this._websiteBridge(),
       assetBaseUrl: this.config.moduleAssetUrls?.website || null
-    });
+    };
   }
 
   /**
-   * Host bridge given to the Website manager: record editor, definitions and the
-   * current view for "Publish this view".
+   * Host bridge given to the Website manager: record editor and definitions.
    *
    * @private
    * @returns {object} Bridge object.
@@ -1849,26 +2041,8 @@ export class ExplorerApplication {
       viewRecord: (id) => this.viewRecord(id),
       canEditRecords: () => this.canEditRecordType('RT_CMS_PAGE'),
       getDbDefs: () => this._ensureDbDefs(),
-      isLoggedIn: () => Number(this.userGroups?.data?.currentUserId) > 0,
-      captureView: () => this.captureView()
+      isLoggedIn: () => Number(this.userGroups?.data?.currentUserId) > 0
     };
-  }
-
-  /**
-   * Open the Websites tool (after Publish in a module, plan 27b) and select a record in it.
-   *
-   * @param {{recordId?: number}} [options]
-   * @returns {Promise<boolean>} False when the tool is not placed in a pane (Explorer configuration).
-   */
-  async openWebsiteManager({ recordId = null } = {}) {
-    const module = await this.showPresentation('publish');
-    if (!module) {
-      HMsg.showMsgFlash?.($HR('Place "Websites" in a pane in the Explorer configuration to open it'), { showDelay: 3500 });
-      return false;
-    }
-    const tool = await module.ready?.();
-    if (recordId) await tool?.selectRecord?.(recordId);
-    return true;
   }
 
   /**
@@ -1990,7 +2164,7 @@ export class ExplorerApplication {
       // a module's configuration / publication form in Explorer's window (plan 29); the
       // module applies or publishes the settings it gets back
       openConfiguration: (request) => this.openModuleConfiguration(request),
-      // the Websites tool after a module's Publish (plan 27b)
+      // the Website manager after a module's Publish (plan 27b)
       openWebsiteManager: (options) => this.openWebsiteManager(options),
       getHostContext: () => ({
         name: 'heurist-explorer', runtimeMode: 'main', hasMapModule: this.hasActiveMapModule()
@@ -2286,7 +2460,7 @@ async function mountDirectReports(options) {
   return mountHeuristReports(options);
 }
 
-/** Load and mount the Website manager's direct bootstrap into the Websites tool (plan 27b). */
+/** Load and mount the Website manager's direct bootstrap, over the whole screen (plan 27b §11). */
 async function mountDirectWebsite(options) {
   const { mountWebsiteManager } = await import('../../../website/src/direct.js');
   return mountWebsiteManager(options);
@@ -2296,6 +2470,11 @@ async function mountDirectWebsite(options) {
 async function mountDirectRecordView(options) {
   const { mountHeuristRecordView } = await import('../../../recordview/src/direct.js');
   return mountHeuristRecordView(options);
+}
+
+/** Saved filter ids of a published page's filters. */
+function pageFilterIds(pageFilter) {
+  return pageFilter.items.filter((item) => item.kind === 'filter').map((item) => item.id);
 }
 
 /** Direct-mode bootstraps, keyed by module type. Only types listed here support `mode: 'direct'`. */
@@ -2309,8 +2488,7 @@ const TOOL_TITLES = {
   report: 'Custom reports manager and editor',
   crosstabs: 'Crosstabs / Charts',
   actions: 'Actions Dashboard',
-  export: 'Export records',
-  publish: 'Websites and published pages'
+  export: 'Export records'
 };
 
 /** Explorer's built-in default layout: Data west, Map center. */

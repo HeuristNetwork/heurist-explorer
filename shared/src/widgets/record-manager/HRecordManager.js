@@ -185,7 +185,8 @@ export class HRecordManager extends HBaseWidget {
     this._renderFilter(listHost);
     this.list = new HRecordList();
     const listOptions = this._listOptions();
-    if (saved.viewMode) listOptions.viewMode = saved.viewMode;
+    // no remembered view mode when the host hides the view mode control
+    if (saved.viewMode && listOptions.controls?.viewMode !== false) listOptions.viewMode = saved.viewMode;
     await this.list.initialize({
       container: listHost,
       options: { ...listOptions, sortExclude: path === '/records' ? [] : ['type'] },

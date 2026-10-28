@@ -1229,3 +1229,19 @@
 #Publish Record View#Publier la vue d’enregistrement
 #None: all map documents#Aucun : tous les documents cartographiques
 #None: all base maps#Aucun : tous les fonds de carte
+#Publish this view#Publier cette vue
+#Publish the current Explorer view as a standalone page#Publier la vue actuelle d'Explorer comme page autonome
+#Website manager: websites and standalone pages#Gestionnaire de sites web : sites web et pages autonomes
+#Position#Position
+#Presentation#Présentation
+#Buttons#Boutons
+#Available filters#Filtres disponibles
+#Active on start#Actif au démarrage
+#None (the result of now)#Aucun (le résultat actuel)
+#One of the available filters; it runs when the page opens#Un des filtres disponibles ; il s'exécute à l'ouverture de la page
+#Saved filters of the group "Website filters" and public query sources; none: the page has no filters#Filtres enregistrés du groupe « Website filters » et sources de requête publiques ; aucun : la page n'a pas de filtres
+#Left (West pane)#À gauche (volet Ouest)
+#Top (North pane)#En haut (volet Nord)
+#Current query#Requête actuelle
+#Select a filter...#Choisir un filtre...
+#this filter can not be read#ce filtre ne peut pas être lu

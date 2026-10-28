@@ -74,6 +74,6 @@ export function explorerTourSteps(app) {
     step('modules', 'module-layout', 'Layout configuration', rail('rightRail', 'options'), { manualAnchor: 'layout-configuration' }),
 
     step('tools', 'tools', 'Tools', rail('rightRail', 'report'), { manualAnchor: 'tools' }),
-    step('publication', 'publication', 'Publication', rail('rightRail', 'publish'), { manualAnchor: 'publication' })
+    step('publication', 'publication', 'Publication', rail('rightRail', 'options'), { manualAnchor: 'publication' })
   ];
 }

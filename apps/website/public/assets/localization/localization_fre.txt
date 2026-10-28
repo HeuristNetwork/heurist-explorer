@@ -2,3 +2,6 @@
 #Site menu#Menu du site
 #This part of the page can not be shown#Cette partie de la page ne peut pas être affichée
 #This part of the page is not configured#Cette partie de la page n'est pas configurée
+#Websites and published pages#Sites web et pages publiées
+#Close#Fermer
+#Close the Website manager#Fermer le gestionnaire de sites web

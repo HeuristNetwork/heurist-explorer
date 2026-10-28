@@ -1,0 +1,47 @@
+/* HFilter (plan 27b §11.3): the filters of a published page and the Filter Form of the chosen one */
+.h-filter {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-height: 0;
+  padding: 6px;
+}
+
+.h-filter-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.h-filter-list {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--h-color-border, #cfd4da);
+  border-radius: var(--h-radius, 4px);
+}
+
+.h-filter-list .h-filter-item {
+  padding: 4px 8px;
+  border: 0;
+  border-bottom: 1px solid var(--h-color-border, #cfd4da);
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.h-filter-list .h-filter-item:last-child { border-bottom: 0; }
+.h-filter-list .h-filter-item:hover { background: var(--h-color-surface, #f6f7f9); }
+
+.h-filter-buttons .h-filter-item.is-selected,
+.h-filter-list .h-filter-item.is-selected {
+  background: var(--h-color-primary, #345d77);
+  color: var(--h-color-on-primary, #fff);
+}
+
+.h-filter-select { max-width: 100%; }
+
+.h-filter-form-host { min-height: 0; overflow: auto; }
+.h-filter-form-host[hidden] { display: none; }

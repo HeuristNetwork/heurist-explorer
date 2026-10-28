@@ -1,8 +1,8 @@
 /**
  * @file WebsiteApplication.js
  * @brief Controller of the Website manager (plan 27b): API clients, definitions, the selected
- *        website or page and its summary, setup, create, menu, delete, build jobs and
- *        "Publish this view" (Explorer).
+ *        website or page and its summary, setup, create, menu, delete and build jobs.
+ *        "Publish this view" is Explorer's own (plan 27b §11).
  *
  * Events: `selectionchange` (a record was selected or its summary loaded), `listchange`
  * (records were added, changed or deleted), `buildchange` (a build of the selected record
@@ -21,7 +21,6 @@
 
 import { HeuristApiClient, JobClient, WebsiteClient, WEBSITE_BUILD_JOB } from '#shared/api';
 import { HDbDefs } from '#shared/data/HDbDefs.js';
-import { publishModulePage } from '#shared/site/modulePublisher.js';
 
 /** Concept codes of the website records and fields (srv `WebsiteRepository::CONCEPTS`). */
 export const WEBSITE_CODES = Object.freeze({
@@ -38,7 +37,7 @@ export class WebsiteApplication extends EventTarget {
    * @param {object} options
    * @param {object} options.config Normalized configuration (`createWebsiteManagerConfig`).
    * @param {object|null} [options.bridge] Host bridge: `editRecord`, `viewRecord`, `canEditRecords`, `getDbDefs`,
-   *        `isLoggedIn`, `captureView` (Explorer).
+   *        `isLoggedIn`.
    * @param {object} [options.apiClient] HeuristApiClient (tests).
    */
   constructor({ config, bridge = null, apiClient = null }) {
@@ -94,11 +93,6 @@ export class WebsiteApplication extends EventTarget {
     } catch {
       return false;
     }
-  }
-
-  /** @returns {boolean} The host is Explorer with a view to publish. */
-  canPublishView() {
-    return typeof this.bridge?.captureView === 'function';
   }
 
   /**
@@ -255,26 +249,6 @@ export class WebsiteApplication extends EventTarget {
     } catch {
       this.builds = [];
     }
-  }
-
-  /**
-   * Publish Explorer's current view as a standalone page (asks for the title and the page).
-   *
-   * @returns {Promise<object|null>} The page `{id, url, embed}`, null when cancelled.
-   */
-  async publishView() {
-    const view = this.bridge.captureView();
-    const result = await publishModulePage({
-      client: this.websites,
-      database: this.config.database,
-      type: 'explorer',
-      settings: view.settings,
-      state: view.state
-    });
-    if (!result) return null;
-    this._emit('listchange');
-    await this.select(result.id);
-    return result;
   }
 
   /** Open the host's record editor; the list and summary are reloaded after a save. */
