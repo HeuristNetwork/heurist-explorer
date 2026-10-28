@@ -720,18 +720,19 @@ export class RecordEditorHost {
   _filePreview(record, dbdefs, fileUrls) {
     const key = String(record?.rec_Hash || '');
     if (!key) return null;
-    const { mime, originalName } = systemFieldIds('file', dbdefs);
+    const { originalName } = systemFieldIds('file', dbdefs);
     const first = (id) => {
       const value = id ? record.details?.[String(id)]?.[0] : null;
       return value && typeof value === 'object' ? value.value ?? '' : value ?? '';
     };
-    const mimeType = registeredFileType(record, dbdefs).startsWith('iiif') ? 'application/json' : dbdefs?.termLabel?.(first(mime)) || '';
+    // the server derives the MIME type from the file type (extension), 2026-10-27
+    const mimeType = registeredFileType(record, dbdefs).startsWith('iiif') ? 'application/json' : String(record.fxm_MimeType || '');
     return buildFileMediaItem({
       ulf_ObfuscatedFileID: key,
       ulf_OrigFileName: String(first(originalName) || ''),
       ulf_ExternalFileReference: record.rec_URL || null,
       ulf_Caption: String(record.rec_Title || ''),
-      fxm_MimeType: mimeType.includes('/') ? mimeType : ''
+      fxm_MimeType: mimeType
     }, { urls: fileUrls });
   }
 
@@ -748,13 +749,13 @@ export class RecordEditorHost {
     if (!ids?.length) return null;
     const { record } = await this.fileClient.load(ids[0]);
     if (!record) return null;
-    const { mime, originalName } = systemFieldIds('file', dbdefs);
+    const { originalName } = systemFieldIds('file', dbdefs);
     const first = (id) => {
       const value = id ? record.details?.[String(id)]?.[0] : null;
       return value && typeof value === 'object' ? value.trm_Label ?? value.value ?? '' : value ?? '';
     };
-    const mimeLabel = String(first(mime) || '');
-    const mimeType = mimeLabel.includes('/') ? mimeLabel : dbdefs?.termLabel?.(mimeLabel) || '';
+    // the server derives the MIME type from the file type (extension), 2026-10-27
+    const mimeType = String(record.fxm_MimeType || '');
     const local = registeredFileType(record, dbdefs) === 'local' || registeredFileType(record, dbdefs) === 'tiled';
     const caption = await this._askCaption();
     if (caption === null) return null;

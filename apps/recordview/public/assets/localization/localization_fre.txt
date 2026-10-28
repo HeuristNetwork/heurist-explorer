@@ -71,6 +71,8 @@
 
 # record manager, file media, record editor access (plan 21 review)
 #Click to zoom in / out#Cliquer pour agrandir / réduire
+#Click to play#Cliquer pour lire
+#Hide player#Masquer le lecteur
 #Download#Télécharger
 
 # record view limits (plan 23)

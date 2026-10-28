@@ -51,12 +51,12 @@ export const FILE_TYPES = Object.freeze({
 /**
  * Fields of a registered file by its type (plan 20, §10.11): the type is never edited, so the
  * form is made for the type of the record. `show`: the field is in the form; `edit`: it can
- * be changed. iiif / iiif_image are JSON manifests: their MIME type is always application/json.
+ * be changed. iiif / iiif_image are JSON manifests: their file type is always json.
  */
 const FILE_FIELDS_BY_TYPE = Object.freeze({
-  local: { show: ['upload', 'downloadUrl', 'originalName', 'size', 'mime'], edit: ['upload'] },
-  tiled: { show: ['upload', 'mime'], edit: ['upload', 'mime'] },
-  external: { show: ['url', 'mime'], edit: ['url', 'mime'] },
+  local: { show: ['upload', 'downloadUrl', 'originalName', 'size', 'fileType'], edit: ['upload'] },
+  tiled: { show: ['upload', 'fileType'], edit: ['upload', 'fileType'] },
+  external: { show: ['url', 'fileType'], edit: ['url', 'fileType'] },
   iiif: { show: ['url', 'mimeJson'], edit: ['url'] },
   iiif_image: { show: ['url', 'mimeJson'], edit: ['url'] }
 });
@@ -200,14 +200,14 @@ export const SYSTEM_STRUCTURES = Object.freeze({
   file: Object.freeze({
     rectype: SYSTEM_RECORD_TYPES.file,
     rows: Object.freeze([
-      { key: 'type', concept: '2-1186', rst_DisplayName: 'File type', dty_Type: 'enum', vocabulary: '2-10448' },
+      { key: 'type', concept: '2-1186', rst_DisplayName: 'Source', dty_Type: 'enum', vocabulary: '2-10448' },
       {
         key: 'originalName', concept: '2-1185', rst_DisplayName: 'File name', dty_Type: 'freetext',
         rst_DisplayHelpText: 'The name of the uploaded file'
       },
       { key: 'size', concept: '2-67', rst_DisplayName: 'Size (bytes)', dty_Type: 'integer' },
       {
-        key: 'mime', concept: '2-29', rst_DisplayName: 'MIME type', dty_Type: 'enum', vocabulary: '2-533',
+        key: 'fileType', concept: '2-29', rst_DisplayName: 'File type', dty_Type: 'enum', vocabulary: '2-533',
         rst_RequirementType: 'required'
       },
       {
@@ -401,7 +401,7 @@ export function registeredFileType(record, dbdefs) {
 /**
  * Edit structure of a registered file (plan 20, §10.11), made for the type of the record:
  * the type (read only), the content (HInputFile in replace mode: the new content is sent
- * with the save), the URL (`rec_URL`), the download URL, name, size and MIME type as the
+ * with the save), the URL (`rec_URL`), the download URL, name, size and file type (extension) as the
  * type allows, then caption, description, copyright and copyright owner.
  *
  * Fields that are not record details are named: `upload` (the token of a new content),
@@ -418,7 +418,7 @@ export function fileEditStructure(record, dbdefs, { fileUrls = null, multilangId
   const { show, edit } = FILE_FIELDS_BY_TYPE[fileType];
   // the size is shown formatted (a transient field below)
   const rows = systemEditRows('file', dbdefs)
-    .filter((row) => row.key !== 'size' && (!['originalName', 'mime'].includes(row.key) || show.includes(row.key)));
+    .filter((row) => row.key !== 'size' && (!['originalName', 'fileType'].includes(row.key) || show.includes(row.key)));
   const rty = Number(dbdefs?.localId?.('rty', SYSTEM_RECORD_TYPES.file)) || 0;
   const structure = buildEditStructure(rows, { rty, dbdefs, multilangIds });
   const byDty = new Map(rows.map((row) => [Number(row.rst_DetailTypeID), row]));
@@ -427,7 +427,7 @@ export function fileEditStructure(record, dbdefs, { fileUrls = null, multilangId
     const row = byDty.get(Number(field.dty));
     field.key = row.key;
     // the type and what the server sets from the content are read only; so they are not required
-    if (['type', 'originalName'].includes(row.key) || (row.key === 'mime' && !edit.includes('mime'))) {
+    if (['type', 'originalName'].includes(row.key) || (row.key === 'fileType' && !edit.includes('fileType'))) {
       Object.assign(field, { readOnly: true, req: 'optional' });
     }
     fields.push(field);
@@ -449,7 +449,8 @@ export function fileEditStructure(record, dbdefs, { fileUrls = null, multilangId
         ulf_OrigFileName: String(record.rec_Title || ''),
         ulf_ObfuscatedFileID: key || null,
         ulf_ExternalFileReference: record.rec_URL || null,
-        fxm_MimeType: ''
+        // derived from the file type by the server (fields=_all, 2026-10-27)
+        fxm_MimeType: String(record.fxm_MimeType || '')
       } : null
     },
     url: {
@@ -460,7 +461,7 @@ export function fileEditStructure(record, dbdefs, { fileUrls = null, multilangId
       name: 'downloadUrl', type: 'url', label: 'Download URL', readOnly: true, transient: true, width: 60,
       value: key && fileUrls?.download ? fileUrls.download(key) : ''
     },
-    mimeJson: { name: 'mimeJson', type: 'freetext', label: 'MIME type', readOnly: true, transient: true, value: 'application/json' }
+    mimeJson: { name: 'mimeJson', type: 'freetext', label: 'File type', readOnly: true, transient: true, value: 'json' }
   };
   const ordered = [];
   const take = (name) => {
@@ -468,7 +469,7 @@ export function fileEditStructure(record, dbdefs, { fileUrls = null, multilangId
     if (index >= 0) ordered.push(fields.splice(index, 1)[0]);
   };
   take('type');
-  for (const name of ['upload', 'url', 'downloadUrl', 'originalName', 'size', 'mime', 'mimeJson']) {
+  for (const name of ['upload', 'url', 'downloadUrl', 'originalName', 'size', 'fileType', 'mimeJson']) {
     if (!show.includes(name)) continue;
     if (extra[name]) ordered.push(extra[name]);
     else take(name);

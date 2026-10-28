@@ -291,3 +291,19 @@ test('DT_GEO_OBJECT of map documents and data sources is an extent, saved as bou
     { geo: { type: 'r', wkt: 'POLYGON((1 2,3 2,3 4,1 4,1 2))' } });
   assert.deepEqual(packValue('geo', { value: 'POINT(1 2)', geoType: 'p' }), { geo: { wkt: 'POINT(1 2)', type: 'p' } });
 });
+
+test('the file type field of tiled images and report schedules takes its subset vocabulary (2026-10-27)', async () => {
+  const { buildEditStructure, vocabularyOf } = await import('../../src/data/recordEditStructure.js');
+  const codes = { DT_FILE_EXT: 29, RT_TILED_IMAGE_SOURCE: 11, RT_REPORT_SCHEDULE: 1105, TRM_TILE_FORMATS: 900, TRM_REPORT_FORMATS: 901 };
+  const defs = { dbconst: (name) => codes[name] ?? null };
+  assert.equal(vocabularyOf(11, 29, 533, defs), 900);
+  assert.equal(vocabularyOf(1105, 29, 533, defs), 901);
+  assert.equal(vocabularyOf(5, 29, 533, defs), 533, 'media records keep the whole vocabulary');
+  assert.equal(vocabularyOf(11, 30, 77, defs), 77, 'other fields keep theirs');
+  const noSubsets = { dbconst: (name) => (name.startsWith('TRM_') ? 0 : codes[name] ?? null) };
+  assert.equal(vocabularyOf(11, 29, 533, noSubsets), 533, 'a database without the subsets keeps the whole vocabulary');
+  const structure = buildEditStructure([
+    { rst_DetailTypeID: 29, dty_Type: 'enum', rst_DisplayOrder: 1, rst_DisplayName: 'File type', dty_JsonTermIDTree: '533' }
+  ], { rty: 11, dbdefs: defs });
+  assert.equal(structure.groups[0].children[0].vocabulary, 900);
+});

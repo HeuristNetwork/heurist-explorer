@@ -5,7 +5,8 @@
  *        thumbnail - an image toggles between the thumbnail (zoom-in cursor) and the
  *        large image (zoom-out cursor) on click; below it the links Show in OSD,
  *        Show in Mirador, Download, Show in new tab, and Close when the host gives
- *        `onClose` (the file input of the record editor).
+ *        `onClose` (the file input of the record editor). YouTube / Vimeo / SoundCloud: the
+ *        thumbnail, on click the service's player (2026-10-28).
  *
  * Used by the built-in record view (RecordViewRenderer) and HInputFile.
  *
@@ -21,6 +22,7 @@
  */
 
 import { $HR } from '../ui/i18n/HResource.js';
+import { embedService, embedUrl } from '../utils/mediaEmbed.js';
 import './fileMediaItem.css';
 
 /** File extensions of images (when the MIME type is not known). */
@@ -68,23 +70,29 @@ export function isImageFile(file) {
  * @param {object} options.urls `fileMediaUrls(baseUrl, database)`.
  * @param {boolean} [options.download=true] Add the Download link (record view and file input, review 2026-10-20).
  * @param {Function} [options.onClose] Add a Close link that calls it.
+ * @param {boolean} [options.play=false] YouTube / Vimeo / SoundCloud: show the player at once (record editor preview).
  * @returns {HTMLElement} `div.heurist-recordview-media-item`.
  */
-export function buildFileMediaItem(file, { urls, download = true, onClose = null } = {}) {
+export function buildFileMediaItem(file, { urls, download = true, onClose = null, play = false } = {}) {
   const fileId = file.ulf_ObfuscatedFileID;
   const mimeType = String(file.fxm_MimeType || '');
   const isImage = isImageFile(file);
-  const isAudio = mimeType.startsWith('audio/');
-  const isVideo = mimeType.startsWith('video/');
   // Matches the legacy renderer's `fileUrl()`: an external reference is embedded directly
   // unless it's plain (insecure) `http://`, in which case it's proxied through Heurist.
   const externalUrl = file.ulf_ExternalFileReference || null;
   const mediaSrc = externalUrl && !/^http:\/\//i.test(externalUrl) ? externalUrl : urls.file(fileId);
+  // YouTube / Vimeo / SoundCloud: the service's player, not a native element (2026-10-28)
+  const service = externalUrl ? embedService(externalUrl, mimeType) : '';
+  const isAudio = !service && mimeType.startsWith('audio/');
+  const isVideo = !service && mimeType.startsWith('video/');
 
   const item = document.createElement('div');
   item.className = 'heurist-recordview-media-item';
 
-  if (isAudio || isVideo) {
+  let embedToggle = null;
+  if (service) {
+    embedToggle = buildEmbedPlayer(item, file, service, urls, play);
+  } else if (isAudio || isVideo) {
     item.classList.add('heurist-recordview-media-item-player');
     const player = document.createElement(isVideo ? 'video' : 'audio');
     player.className = 'heurist-recordview-media-player';
@@ -127,8 +135,84 @@ export function buildFileMediaItem(file, { urls, download = true, onClose = null
     });
     links.append(close);
   }
+  if (embedToggle) links.prepend(embedToggle);
   if (links.children.length) item.append(links);
   return item;
+}
+
+/**
+ * A YouTube / Vimeo / SoundCloud file: its thumbnail with a play mark; a click shows the
+ * service's player (iframe, starts playing) in the expanded item, "Hide player" removes it
+ * (and so stops playing). Without a thumbnail the service name is shown instead.
+ *
+ * @returns {HTMLAnchorElement} The "Hide player" link (for the links row).
+ */
+function buildEmbedPlayer(item, file, service, urls, play) {
+  const fileId = file.ulf_ObfuscatedFileID;
+  const label = { youtube: 'YouTube', vimeo: 'Vimeo', soundcloud: 'SoundCloud' }[service];
+  item.classList.add('heurist-recordview-media-item-embed', `heurist-recordview-media-item-${service}`);
+
+  const cover = document.createElement('div');
+  cover.className = 'heurist-recordview-media-embed-cover';
+  cover.title = $HR('Click to play');
+  cover.setAttribute('role', 'button');
+  cover.tabIndex = 0;
+  const name = document.createElement('span');
+  name.className = 'heurist-recordview-media-embed-name';
+  name.textContent = label;
+  if (fileId) {
+    const thumb = document.createElement('img');
+    thumb.className = 'heurist-recordview-media-thumb';
+    thumb.src = urls.thumb(fileId);
+    thumb.alt = file.ulf_Caption || label;
+    thumb.addEventListener('error', () => {
+      thumb.remove();
+      cover.classList.add('heurist-recordview-media-embed-nothumb');
+    });
+    cover.append(thumb);
+  } else {
+    cover.classList.add('heurist-recordview-media-embed-nothumb');
+  }
+  const mark = document.createElement('span');
+  mark.className = 'heurist-recordview-media-embed-play';
+  mark.textContent = '▶';
+  cover.append(name, mark);
+
+  const toggle = document.createElement('a');
+  toggle.className = 'heurist-recordview-media-link';
+  toggle.href = '#';
+  toggle.textContent = $HR('Hide player');
+  toggle.hidden = true;
+
+  const show = () => {
+    const player = document.createElement('iframe');
+    player.className = 'heurist-recordview-media-embed-frame';
+    player.src = embedUrl(file.ulf_ExternalFileReference, file.fxm_MimeType, { autoplay: true });
+    player.title = file.ulf_Caption || label;
+    player.allow = 'autoplay; encrypted-media; fullscreen; picture-in-picture';
+    player.allowFullscreen = true;
+    player.referrerPolicy = 'strict-origin-when-cross-origin';
+    cover.replaceWith(player);
+    item.classList.add('heurist-recordview-media-item-expanded');
+    toggle.hidden = false;
+  };
+  cover.addEventListener('click', show);
+  cover.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      show();
+    }
+  });
+  toggle.addEventListener('click', (event) => {
+    event.preventDefault();
+    item.querySelector('.heurist-recordview-media-embed-frame')?.replaceWith(cover);
+    item.classList.remove('heurist-recordview-media-item-expanded');
+    toggle.hidden = true;
+  });
+
+  item.append(cover);
+  if (play) show();
+  return toggle;
 }
 
 /** One `target="_blank"` viewer link of a media item. */

@@ -30,6 +30,47 @@
 .heurist-recordview-media-thumb-zoomable { cursor: zoom-in; }
 .heurist-recordview-media-item-expanded .heurist-recordview-media-thumb-zoomable { cursor: zoom-out; }
 .heurist-recordview-media-player { max-width: 100%; }
+/* YouTube / Vimeo / SoundCloud: thumbnail with a play mark, the service's player when expanded */
+.heurist-recordview-media-item-embed { max-width: 100%; }
+.heurist-recordview-media-embed-cover {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 80px;
+  min-height: 60px;
+  cursor: pointer;
+}
+.heurist-recordview-media-embed-nothumb {
+  width: 120px;
+  height: 80px;
+  border: 1px solid var(--h-color-border);
+}
+.heurist-recordview-media-embed-name {
+  position: absolute;
+  bottom: 2px;
+  left: 4px;
+  font-size: var(--h-font-size-tiny);
+  color: var(--h-color-text-muted, #666);
+}
+.heurist-recordview-media-embed-cover:has(img) .heurist-recordview-media-embed-name { display: none; }
+.heurist-recordview-media-embed-play {
+  position: absolute;
+  font-size: var(--h-font-size-icon-large);
+  color: #fff;
+  text-shadow: 0 0 4px rgba(0, 0, 0, 0.8);
+  pointer-events: none;
+}
+.heurist-recordview-media-embed-frame {
+  width: 480px;
+  max-width: 100%;
+  aspect-ratio: 16 / 9;
+  border: 0;
+}
+.heurist-recordview-media-item-soundcloud .heurist-recordview-media-embed-frame {
+  aspect-ratio: auto;
+  height: 166px;
+}
 /* the links in a row, wrapped when the item is narrow (review 2026-10-20) */
 .heurist-recordview-media-links {
   display: flex;

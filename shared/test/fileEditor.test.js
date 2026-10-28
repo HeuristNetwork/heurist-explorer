@@ -49,13 +49,13 @@ const fileUrls = { download: (key) => `http://h/?db=t&download=1&file=${key}` };
 const names = (structure) => structure.groups.flatMap((group) => group.children).map((field) => field.name ?? String(field.dty));
 const field = (structure, name) => structure.groups.flatMap((group) => group.children).find((item) => (item.name ?? item.key) === name);
 
-test('file structure: the fields of a local file; the type, name, size and MIME type are read only', () => {
+test('file structure: the fields of a local file; the type, name, size and file type are read only', () => {
   const structure = fileEditStructure(fileRecord(901), dbdefs, { fileUrls });
   assert.equal(structure.fileType, 'local');
   assert.deepEqual(names(structure), ['501', 'upload', 'downloadUrl', '502', 'size', '29', '1', '4', '35', '503']);
   assert.equal(field(structure, 'type').readOnly, true);
-  assert.equal(field(structure, 'mime').readOnly, true);
-  assert.equal(field(structure, 'mime').req, 'optional', 'a read-only field does not stop a save');
+  assert.equal(field(structure, 'fileType').readOnly, true);
+  assert.equal(field(structure, 'fileType').req, 'optional', 'a read-only field does not stop a save');
   assert.equal(field(structure, 'downloadUrl').value, 'http://h/?db=t&download=1&file=abc123');
   assert.equal(field(structure, 'size').value, '2.0 KB');
   assert.equal(field(structure, 'upload').replace, true);
@@ -65,15 +65,15 @@ test('file structure: the fields of a local file; the type, name, size and MIME 
 test('file structure: tiled, external and iiif files', () => {
   const tiled = fileEditStructure(fileRecord(905), dbdefs);
   assert.deepEqual(names(tiled), ['501', 'upload', '29', '1', '4', '35', '503']);
-  assert.equal(field(tiled, 'mime').readOnly, undefined, 'MIME type of a tiled image is edited');
-  assert.equal(field(tiled, 'mime').req, 'required');
+  assert.equal(field(tiled, 'fileType').readOnly, undefined, 'file type of a tiled image is edited');
+  assert.equal(field(tiled, 'fileType').req, 'required');
   const external = fileEditStructure(fileRecord(902, { url: 'https://x.org/a.pdf' }), dbdefs);
   assert.deepEqual(names(external), ['501', 'url', '29', '1', '4', '35', '503']);
   assert.equal(field(external, 'url').header, 'rec_URL');
   assert.equal(field(external, 'url').req, 'required');
   const iiif = fileEditStructure(fileRecord(904, { url: 'https://x.org/manifest.json' }), dbdefs);
   assert.deepEqual(names(iiif), ['501', 'url', 'mimeJson', '1', '4', '35', '503']);
-  assert.equal(field(iiif, 'mimeJson').value, 'application/json');
+  assert.equal(field(iiif, 'mimeJson').value, 'json');
   assert.equal(registeredFileType({ rec_URL: 'https://x.org', details: {} }, dbdefs), 'external', 'no type: a URL without a name');
   assert.equal(formatFileSize(3 * 1024 * 1024), '3.0 MB');
 });

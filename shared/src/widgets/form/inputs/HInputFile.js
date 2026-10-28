@@ -537,7 +537,8 @@ export class HInputFile extends HInput {
     if (!this.preview || !file?.ulf_ObfuscatedFileID || !viewer?.baseUrl) return false;
     this.preview.replaceChildren(buildFileMediaItem(file, {
       urls: fileMediaUrls(viewer.baseUrl, viewer.database),
-      onClose: () => this.hidePreview()
+      onClose: () => this.hidePreview(),
+      play: true
     }));
     this.preview.hidden = false;
     this._previewKey = file.ulf_ObfuscatedFileID;

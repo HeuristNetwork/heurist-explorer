@@ -751,6 +751,8 @@
 # record manager filters (plan 21 §7.1)
 #URL#URL
 #File type#File type
+# file type = extension, Source = local / external / tiled / IIIF (2026-10-27)
+#The file type could not be detected - choose it in File type#The file type could not be detected - choose it in File type
 #MIME type#MIME type
 #Size (bytes)#Size (bytes)
 #Tag#Tag
@@ -763,6 +765,8 @@
 #Access#Access
 #Owner and members of#Owner and members of
 #Click to zoom in / out#Click to zoom in / out
+#Click to play#Click to play
+#Hide player#Hide player
 #Show in OSD#Show in OSD
 #Show in Mirador#Show in Mirador
 #Show in new tab#Show in new tab

@@ -20,6 +20,10 @@
  * @since       8.0
  */
 
+import { embedUrl } from '../../utils/mediaEmbed.js';
+
+export { embedUrl };
+
 /**
  * HTML of a registered file.
  *
@@ -52,25 +56,6 @@ export function mediaTag(file, { database }) {
   }
   const caption = String(file?.caption ?? '').trim();
   return caption ? `<figure>${tag}<figcaption>${escapeText(caption)}</figcaption></figure>` : tag;
-}
-
-/**
- * The player URL of a YouTube, Vimeo or SoundCloud page ('' for other URLs).
- *
- * @param {string} url Page URL.
- * @param {string} [mime] MIME type of the file (video/youtube, video/vimeo, audio/soundcloud).
- * @returns {string}
- */
-export function embedUrl(url, mime = '') {
-  const value = String(url ?? '').trim();
-  const youtube = /(?:youtube\.com\/(?:watch\?(?:.*&)?v=|embed\/|shorts\/)|youtu\.be\/)([\w-]{6,})/i.exec(value);
-  if (youtube) return `https://www.youtube.com/embed/${youtube[1]}`;
-  const vimeo = /vimeo\.com\/(?:video\/)?(\d+)/i.exec(value);
-  if (vimeo) return `https://player.vimeo.com/video/${vimeo[1]}`;
-  if (/soundcloud\.com\//i.test(value) || mime === 'audio/soundcloud') {
-    return `https://w.soundcloud.com/player/?url=${encodeURIComponent(value)}`;
-  }
-  return '';
 }
 
 /** Text in HTML. */

@@ -30,8 +30,9 @@ const FILE_FILTER_FIELDS = Object.freeze([
   { name: 'FILENAME', concept: '2-1185', label: 'File name' },
   { name: 'URL', predicate: 'url', label: 'URL' },
   { name: 'CAPTION', concept: '2-1', label: 'Name' },
-  { name: 'FILETYPE', concept: '2-1186', label: 'File type', mode: 'select' },
-  { name: 'MIMETYPE', concept: '2-29', label: 'MIME type', mode: 'select' },
+  // Source: local, external, tiled, IIIF; File type: the extension, or a group of them (2026-10-27)
+  { name: 'SOURCE', concept: '2-1186', label: 'Source', mode: 'select' },
+  { name: 'FILETYPE', concept: '2-29', label: 'File type', mode: 'select' },
   { name: 'SIZE', concept: '2-67', label: 'Size (bytes)', range: 'SIZE_TO' }
 ]);
 

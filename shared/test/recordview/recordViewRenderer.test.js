@@ -73,6 +73,29 @@ test("file media: a click on an image toggles thumbnail / large image and the ex
   assert.equal(thumb.src, "http://h/heurist/?db=db1&thumb=k6");
 });
 
+test("file media: YouTube / Vimeo / SoundCloud show the thumbnail, a click the service's player, Hide player the thumbnail again", () => {
+  const item = buildFileMediaItem({ ulf_ObfuscatedFileID: "y1", fxm_MimeType: "video/youtube",
+    ulf_ExternalFileReference: "https://www.youtube.com/watch?v=abcdef12" }, { urls });
+  assert.equal(item.querySelector("video"), null, "no native player");
+  assert.equal(item.querySelector("img").src, "http://h/heurist/?db=db1&thumb=y1");
+  assert.ok(!linkTexts(item).includes("Show in Mirador"));
+  item.querySelector(".heurist-recordview-media-embed-cover").click();
+  const frame = item.querySelector("iframe");
+  assert.equal(frame.src, "https://www.youtube.com/embed/abcdef12?autoplay=1");
+  assert.ok(item.classList.contains("heurist-recordview-media-item-expanded"));
+  const hide = item.querySelectorAll("a").find((a) => a.textContent === "Hide player");
+  assert.equal(hide.hidden, false);
+  hide.click();
+  assert.equal(item.querySelector("iframe"), null, "the player is removed (stops playing)");
+  assert.ok(item.querySelector("img"));
+
+  const sound = buildFileMediaItem({ ulf_ObfuscatedFileID: "s1", fxm_MimeType: "audio/soundcloud",
+    ulf_ExternalFileReference: "https://soundcloud.com/a/b" }, { urls, play: true });
+  assert.equal(sound.querySelector("audio"), null);
+  assert.match(sound.querySelector("iframe").src, /^https:\/\/w\.soundcloud\.com\/player\/\?url=https%3A%2F%2Fsoundcloud\.com%2Fa%2Fb&auto_play=true$/);
+  assert.ok(sound.classList.contains("heurist-recordview-media-item-soundcloud"));
+});
+
 test("file media: Download and Close (the record editor's file input)", () => {
   let closed = 0;
   const item = buildFileMediaItem({ ulf_ObfuscatedFileID: "k7", fxm_MimeType: "image/png" },

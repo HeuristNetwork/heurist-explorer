@@ -331,10 +331,10 @@ test('built-in filters: files for RT_REGISTERED_FILE (fields by concept code), g
   assert.equal(files.id, 'files');
   assert.deepEqual(files.query, [
     { 'f:201': '$FILENAME$' }, { url: '$URL$' }, { 'f:1': '$CAPTION$' },
-    { 'f:202': '$FILETYPE$' }, { 'f:203': '$MIMETYPE$' }, { 'f:204': '$SIZE$<>$SIZE_TO$' }
+    { 'f:202': '$SOURCE$' }, { 'f:203': '$FILETYPE$' }, { 'f:204': '$SIZE$<>$SIZE_TO$' }
   ]);
   assert.deepEqual(files.filterForm.groups[0].children.map((child) => child.input),
-    ['FILENAME', 'URL', 'CAPTION', 'FILETYPE', 'MIMETYPE', 'SIZE']);
+    ['FILENAME', 'URL', 'CAPTION', 'SOURCE', 'FILETYPE', 'SIZE']);
   // the size is one range input; the empty parameters are left out of the query
   assert.equal(describeQueryParameters(files.query, defs).SIZE.endInput, 'SIZE_TO');
   assert.deepEqual(resolveQueryParameters(files.query, { CAPTION: 'map', SIZE: '1000' }, files.filterForm).q,

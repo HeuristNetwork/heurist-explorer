@@ -46,6 +46,14 @@ test('Media tag: local image with the legacy relative URL, players, external pag
     /<iframe src="https:\/\/www\.youtube\.com\/embed\/abcdef12"/);
   assert.equal(embedUrl('https://vimeo.com/12345'), 'https://player.vimeo.com/video/12345');
   assert.match(embedUrl('https://soundcloud.com/x/y'), /^https:\/\/w\.soundcloud\.com\/player\/\?url=/);
+  // more page forms (mediaEmbed.js, 2026-10-28)
+  assert.equal(embedUrl('https://youtu.be/abcdef12?t=5'), 'https://www.youtube.com/embed/abcdef12');
+  assert.equal(embedUrl('https://www.youtube.com/live/abcdef12'), 'https://www.youtube.com/embed/abcdef12');
+  assert.equal(embedUrl('https://www.youtube.com/watch?list=x&v=abcdef12', '', { autoplay: true }), 'https://www.youtube.com/embed/abcdef12?autoplay=1');
+  assert.equal(embedUrl('https://vimeo.com/channels/staffpicks/123456'), 'https://player.vimeo.com/video/123456');
+  assert.equal(embedUrl('https://vimeo.com/123456/abcdef1234'), 'https://player.vimeo.com/video/123456?h=abcdef1234');
+  assert.equal(embedUrl('https://player.vimeo.com/video/123456?h=abc123', '', { autoplay: true }), 'https://player.vimeo.com/video/123456?h=abc123&autoplay=1');
+  assert.equal(embedUrl('https://example.org/video.mp4', 'video/mp4'), '');
   assert.equal(mediaTag({ key: 'd1', mime: 'application/pdf', name: 'Doc <1>' }, { database: 'db' }),
     '<a href="./?db=db&amp;file=d1" target="_blank">Doc &lt;1&gt;</a>');
   assert.equal(mediaTag({ key: 'abc', mime: 'image/png', caption: 'A & B' }, { database: 'db' }),

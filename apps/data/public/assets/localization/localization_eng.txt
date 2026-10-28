@@ -217,6 +217,8 @@
 
 # record manager, file media, record editor access (plan 21 review)
 #Click to zoom in / out#Click to zoom in / out
+#Click to play#Click to play
+#Hide player#Hide player
 #Download#Download
 #Show owners#Show owners
 

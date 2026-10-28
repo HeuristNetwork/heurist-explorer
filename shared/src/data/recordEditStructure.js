@@ -20,7 +20,8 @@
  *
  * Pointer types and vocabularies come from the base field only (`dty_PtrTargetRectypeIDs`,
  * `dty_JsonTermIDTree`); `rst_PtrFilteredIDs` / `rst_FilteredJsonTermIDTree` are ignored
- * (plan 21, Artem 2026-10-19).
+ * (plan 21, Artem 2026-10-19). Exception: the file type field of tiled images and report schedules
+ * takes a hard-coded subset vocabulary (`vocabularyOf`, 2026-10-27).
  *
  * @project     Heurist academic knowledge management system
  * @package     heurist-client-core
@@ -91,6 +92,36 @@ export function geoKindOf(rty, dty, dbdefs) {
   const geoObject = id('DT_GEO_OBJECT');
   if (!(geoObject > 0) || Number(dty) !== geoObject) return 'feature';
   return EXTENT_RECORD_TYPES.some((code) => id(code) > 0 && id(code) === Number(rty)) ? 'extent' : 'feature';
+}
+
+/**
+ * Vocabularies of the file type field (DT_FILE_EXT, 2-29) by record type (Artem 2026-10-27): subsets by
+ * reference of the extensions vocabulary 2-533. Hard-coded until the record structure can give them.
+ */
+const FILE_EXT_VOCABULARIES = Object.freeze({
+  RT_TILED_IMAGE_SOURCE: 'TRM_TILE_FORMATS', // png jpg jpeg gif webp
+  RT_REPORT_SCHEDULE: 'TRM_REPORT_FORMATS' // html csv txt xml json js css
+});
+
+/**
+ * Vocabulary of a field in a record type: the subset of the file type vocabulary for tiled images and
+ * report schedules, else the field's own vocabulary.
+ *
+ * @param {number} rty Record type id.
+ * @param {number} dty Field id.
+ * @param {number|null} vocabulary The field's vocabulary.
+ * @param {object|null} dbdefs HDbDefs (`dbconst`).
+ * @returns {number|null}
+ */
+export function vocabularyOf(rty, dty, vocabulary, dbdefs) {
+  const id = (code) => Number(dbdefs?.dbconst?.(code)) || 0;
+  const fileExt = id('DT_FILE_EXT');
+  if (!(fileExt > 0) || Number(dty) !== fileExt) return vocabulary;
+  for (const [rectype, subset] of Object.entries(FILE_EXT_VOCABULARIES)) {
+    // a database without the subset keeps the whole vocabulary
+    if (id(rectype) > 0 && id(rectype) === Number(rty) && id(subset) > 0) return id(subset);
+  }
+  return vocabulary;
 }
 
 /** Legacy separator types (`rst_DefaultValue`); anything else is `group`. */
@@ -218,7 +249,7 @@ export function buildEditStructure(rows, { rty, multilangIds = [], dbdefs = null
       req,
       max: Math.max(0, Number(row.rst_MaxValues) || 0),
       default: String(row.rst_DefaultValue ?? ''),
-      vocabulary: idList(row.dty_JsonTermIDTree)[0] || null,
+      vocabulary: vocabularyOf(rty, dty, idList(row.dty_JsonTermIDTree)[0] || null, dbdefs),
       targetTypes: targets,
       ...(type === 'resource' ? {
         pointerMode: resolvePointerMode(row.rst_PointerMode, targets, dbdefs),

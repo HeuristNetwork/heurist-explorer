@@ -1255,6 +1255,46 @@ Deviations and details:
   the scripts; then client support of `rst_FilteredJsonTermIDTree` and `leafTermsOnly`, structure filters for
   RT 2-11 / 2-1105, and the install SQL of new databases.
 
+#### 10.11a File type = extension (Artem, 2026-10-27; implemented, not committed)
+
+Replaces the MIME type vocabulary above: users understand extensions, the extension is what is stored
+(`ulf_MimeExt`), and a MIME term made every save guess the extension.
+
+- **Vocabulary 2-533 "File type"**: groups (Images, Audio… - no code, not a value, usable as a filter) > extension
+  terms, label = code = extension, description = file type name. `docs/development/20-file-type-vocabulary.sql`
+  (DB 2; after the two scripts above): one term per further extension of a MIME type (jpeg beside jpg; stop-list
+  extensions left out), MIME terms relabelled to their code; ids and concept codes stay, so stored values stay
+  valid and legacy `mapLayer.js` keeps 2-540 png / 2-537 jpg. Dry run on osmak_mapping: 104 relabelled, 43 new.
+- **Field 2-29 = "File type", constant DT_FILE_EXT**; DT_MIME_TYPE and DT_FILE_TYPE (2-41, unused) removed; the old
+  DT_FILE_EXT (2-64, free text of media records) is merged into 2-29 by Artem.
+  `docs/development/20-file-type-migration.sql` (each database) moves 2-64 values to 2-29 term ids; values without
+  a term are listed and stay (osmak_mapping: 22 of 42 move, 20 test values stay). Legacy writers of 2-64 now write
+  the term id: `DbRecUploadedFiles::extensionTermId()` (media records from files, FieldHelper import).
+- **Subsets** for RT_TILED_IMAGE_SOURCE (png jpg jpeg gif webp) and RT_REPORT_SCHEDULE (html csv txt xml json js
+  css): two vocabularies by reference that Artem creates in DB 2; their concept codes go into
+  `SystemConstants` `TRM_TILE_FORMATS` = 2-10639, `TRM_REPORT_FORMATS` = 2-10638 (created by Artem 2026-10-28). The client picks them hard-coded
+  by record type (`recordEditStructure.js` `vocabularyOf`, beside `geoKindOf`); a database without them keeps the
+  whole vocabulary. Tile formats: ZIP stacks extract png jpg jpeg gif webp; MBTiles may hold pbf vector tiles,
+  which the map cannot show (left out).
+- **MIME type stays derived** from the extension through `defFileExtToMimetype`, on the server only: download
+  `Content-Type` (FileContent), URL registration (Content-Type → extension), file values of `/records`
+  (`fxm_MimeType`), `/files` records of `fields=_all` (new header `fxm_MimeType`), thumbnails, Smarty players and
+  3D viewer, exports (HML `mimeType`). No ext → MIME table in the snapshot: the client gets `fxm_MimeType` with
+  file data (the editor's preview and inserted media used to read the term label).
+- **Writes**: `FileWriteService::requestedExt` stores the chosen term's code (no guess); groups refused. Uploads and
+  registrations: `FileRepository::allowedTypes()` = extensions of `defFileExtToMimetype` that are also terms of
+  2-533 (all of them while a database has the older vocabulary), plus the stop list. A URL without a known type is
+  registered as `bin` with the warning `file_type` ("choose it in File type").
+- **Tile stack zips** (security, fixed): only tile images are extracted (`FileStorage::TILE_IMAGE_EXTENSIONS`, not of
+  the stop list); scripts, `.htaccess` and the html / xml pages of gdal2tiles never reach the file store; a zip
+  without tile images is refused. Deviation from the plan (refuse the whole zip): gdal2tiles always adds html /
+  xml files, so they are skipped instead. Test `tests/TileZipTest.php`. **Legacy fixed too (2026-10-28)**:
+  `UArchive::unzip` has an optional extension list (other entries skipped, `..\` and `C:` entries refused);
+  `DbRecUploadedFiles::save()` passes the tile image types, refuses a zip without tile images and removes the
+  folder on error. Other `unzip` callers (database restore in `DbUtils`) are unchanged. Same test, 11 checks.
+- Client labels: 2-29 "File type"; the registered file type 2-1186 (local / external / tiled / IIIF) was also
+  "File type" and is now **"Source"**; record manager filters `SOURCE` (2-1186) and `FILETYPE` (2-29).
+
 ### 10.12 Registered files manager and file preview (Artem, 2026-10-23; not committed)
 
 - **Manage registered files** in Explorer's gear menu and the configuration dialog (next to Manage tags):
@@ -1272,6 +1312,13 @@ Deviations and details:
 - **Preview of a file below the editor form** (HRecordEditor option `preview`): the media item of Record View
   (`buildFileMediaItem`: thumbnail or player, OSD / Mirador / Download / new tab), the same for local and
   external files; the replace-mode HInputFile shows no thumbnail of its own.
+- **YouTube / Vimeo / SoundCloud players (2026-10-28, plan 21 §11 leftover):** native audio / video elements can not
+  play these pages. `buildFileMediaItem` shows the thumbnail with a play mark; a click puts the service's player
+  (iframe, autoplay) in the expanded item, *Hide player* removes it (stops playing). The HInputFile preview opens
+  the player at once (`play: true`). No Mirador link for them. Player URLs: `shared/src/utils/mediaEmbed.js`
+  (`embedService` / `embedUrl`, port of legacy `getPlayerURL`; moved from `mediaTag.js`, which re-exports it):
+  YouTube watch / youtu.be / shorts / live / embed / nocookie, Vimeo with channel paths and the unlisted hash
+  (`?h=`) without the legacy oEmbed call, SoundCloud by URL or MIME type.
 - Tests: `shared/test/recordManager.test.js` (2), `shared/test/fileEditor.test.js` (3); all 1366 client tests pass.
 - **Review (Artem, 2026-10-24):** the file editor hides the empty west pane (`structurePane: false` now hides the
   HCardinalLayout west region, which is shown by default); in `manager` mode a file added by an Add button (Upload,
