@@ -1048,3 +1048,13 @@
 #Save the changes of this record before you open another one?#Save the changes of this record before you open another one?
 #You cannot change record#You cannot change record
 #you must be the database administrator or a member of a group that owns it#you must be the database administrator or a member of a group that owns it
+#Test module configuration#Test module configuration
+#Module#Module
+#Simplified#Simplified
+#Options table#Options table
+#Reset to defaults#Reset to defaults
+#Advanced settings#Advanced settings
+#Reset all settings to their defaults?#Reset all settings to their defaults?
+#Discard changes?#Discard changes?
+#Discard#Discard
+#Checkboxes in a row#Checkboxes in a row

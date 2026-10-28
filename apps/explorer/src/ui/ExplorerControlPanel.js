@@ -808,6 +808,26 @@ export class ExplorerControlPanel {
   }
 
   /**
+   * Open the temporary "Test module configuration" dialog (plan 29 §13, lazy chunk).
+   *
+   * @returns {Promise<void>}
+   */
+  async openModuleConfigurationTest() {
+    try {
+      const { ModuleConfigurationTestTool } = await import('../dev/ModuleConfigurationTestTool.js');
+      const recordEditing = this.application.recordEditing;
+      const config = this.application.config || {};
+      await new ModuleConfigurationTestTool({
+        services: () => recordEditing?.formServices?.(),
+        baseUrl: config.baseUrl,
+        database: config.database
+      }).open();
+    } catch (error) {
+      HMsg.showMsgErr?.(error?.message || String(error));
+    }
+  }
+
+  /**
    * Show a "not implemented yet" placeholder panel for a left-rail button.
    *
    * @private

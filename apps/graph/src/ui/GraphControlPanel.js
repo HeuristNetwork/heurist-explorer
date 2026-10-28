@@ -388,7 +388,7 @@ export class GraphControlPanel {
     if (this.optionsButton)
       this.optionsButton.hidden = this.options.showOptions === false;
     if (this.publishButton)
-      this.publishButton.hidden = this.options.runtimeMode !== "main";
+      this.publishButton.hidden = this.options.runtimeMode !== "main" || this.options.showPublish === false;
     if (this.sourceHeader)
       this.sourceHeader.hidden = this.options.showSourceHeader !== true;
     this.element.classList.toggle(

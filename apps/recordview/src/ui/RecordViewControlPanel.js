@@ -218,7 +218,6 @@ export class RecordViewControlPanel {
       showPublish: options.ui?.showPublish,
       showHeader: defaults.showHeader,
       headerTitle: defaults.headerTitle,
-      readonly: options.interaction?.readonly,
     };
     this.applyVisibility();
     this.updateTitle(this.api.getState());

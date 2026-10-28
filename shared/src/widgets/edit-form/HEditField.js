@@ -612,7 +612,9 @@ export class HEditField extends HBaseWidget {
     if (this.options.special) return { ...options, multiline: true, rows: 6, clearButton: false };
     // a setting that always has a value: no clear button (and no value tools)
     if (field.clearable === false && !this.isRepeatable) {
-      return { ...options, clearButton: false, readOnly: this.isReadOnly, ...this._typeOptions(entry) };
+      // the actions slot all the same, so the controls align (not before a checkbox, plan 29)
+      const checkbox = field.type === 'boolean' && field.mode === 'checkbox';
+      return { ...options, clearButton: false, actionsSlot: !checkbox, readOnly: this.isReadOnly, ...this._typeOptions(entry) };
     }
     // remove / clear and the eye beside the input, the field's Add / Translate after them
     Object.assign(options, {
@@ -651,6 +653,9 @@ export class HEditField extends HBaseWidget {
         return { ...options, ...numberRange(field) };
       case 'date':
         return { ...options, allowLegacyText: true };
+      case 'boolean':
+        // `mode` checkbox: unchecked is false (settings, plan 29); select: empty, Yes, No
+        return { ...options, mode: field.mode === 'checkbox' ? 'checkbox' : 'select' };
       case 'enum':
       case 'relationtype':
         return { ...options, ...this._choiceOptions() };
@@ -759,6 +764,8 @@ export class HEditField extends HBaseWidget {
     return {
       ...choices,
       mode,
+      // label of the empty choice (a configuration value where null has a meaning, plan 29)
+      ...(field.emptyLabel ? { emptyLabel: field.emptyLabel } : {}),
       ...(mode === 'radio' || mode === 'checkbox' ? { orientation: 'inline', radioStyle: 'standard', countsMode: 'none' } : {})
     };
   }

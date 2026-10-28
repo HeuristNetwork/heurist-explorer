@@ -1,0 +1,193 @@
+{
+  "format": "heurist-edit-form/1",
+  "groups": [
+    {
+      "id": "interface",
+      "label": "Interface",
+      "children": [
+        {
+          "name": "options.ui.showOptions",
+          "type": "boolean",
+          "req": "forbidden",
+          "default": true,
+          "forced": {
+            "website": false,
+            "publication": false
+          }
+        },
+        {
+          "name": "options.ui.showPublish",
+          "type": "boolean",
+          "req": "forbidden",
+          "default": true,
+          "forced": {
+            "website": false,
+            "publication": false
+          }
+        },
+        {
+          "name": "options.ui.showHelp",
+          "type": "boolean",
+          "req": "forbidden",
+          "default": true,
+          "forced": {
+            "website": false,
+            "publication": false
+          }
+        },
+        {
+          "name": "options.ui.language",
+          "type": "enum",
+          "label": "Language",
+          "req": "recommended",
+          "terms": [
+            {
+              "id": "auto",
+              "label": "Automatic"
+            },
+            {
+              "id": "eng",
+              "label": "English"
+            },
+            {
+              "id": "fre",
+              "label": "French"
+            },
+            {
+              "id": "ger",
+              "label": "German"
+            },
+            {
+              "id": "por",
+              "label": "Portuguese"
+            }
+          ],
+          "default": "auto",
+          "mode": "select",
+          "clearable": false,
+          "forced": {
+            "configuration": "auto",
+            "website": "auto"
+          },
+          "help": "Language of the published page; Automatic follows the browser of the visitor"
+        },
+        {
+          "name": "config.defaults.showHeader",
+          "type": "boolean",
+          "label": "Show header",
+          "req": "recommended",
+          "default": false,
+          "mode": "checkbox",
+          "clearable": false
+        },
+        {
+          "name": "config.defaults.headerTitle",
+          "type": "freetext",
+          "label": "Header title",
+          "req": "recommended",
+          "showWhen": {
+            "config.defaults.showHeader": true
+          }
+        },
+        {
+          "name": "config.defaults.emptyMessage",
+          "type": "freetext",
+          "label": "Empty message",
+          "req": "recommended",
+          "default": "Select a record",
+          "help": "Shown when no record is selected"
+        }
+      ]
+    },
+    {
+      "id": "defaults",
+      "label": "Default settings",
+      "modes": [
+        "configuration",
+        "website"
+      ],
+      "children": [
+        {
+          "name": "config.defaults.engine",
+          "type": "enum",
+          "label": "Render engine",
+          "req": "recommended",
+          "terms": [
+            {
+              "id": "builtin",
+              "label": "Built-in"
+            },
+            {
+              "id": "legacy",
+              "label": "Legacy viewer"
+            },
+            {
+              "id": "smarty",
+              "label": "Smarty template"
+            }
+          ],
+          "default": "builtin",
+          "mode": "select",
+          "clearable": false
+        },
+        {
+          "name": "config.defaults.template",
+          "type": "enum",
+          "label": "Smarty template",
+          "req": "recommended",
+          "terms": [],
+          "default": null,
+          "mode": "select",
+          "termsSource": "smartyTemplates",
+          "emptyLabel": "None",
+          "showWhen": {
+            "config.defaults.engine": "smarty"
+          }
+        },
+        {
+          "name": "config.defaults.selectionMode",
+          "type": "enum",
+          "label": "Selection mode",
+          "req": "recommended",
+          "terms": [
+            {
+              "id": "first",
+              "label": "First selected"
+            },
+            {
+              "id": "last",
+              "label": "Last selected"
+            },
+            {
+              "id": "single-only",
+              "label": "Only a single selection"
+            }
+          ],
+          "default": "last",
+          "mode": "select",
+          "clearable": false,
+          "help": "Which record is shown when several are selected"
+        }
+      ]
+    },
+    {
+      "id": "interaction",
+      "label": "Interaction",
+      "children": [
+        {
+          "name": "options.interaction.editEnabled",
+          "type": "boolean",
+          "label": "Enable edit",
+          "req": "recommended",
+          "default": true,
+          "mode": "checkbox",
+          "clearable": false,
+          "help": "Edit icon of the record",
+          "forced": {
+            "publication": false
+          }
+        }
+      ]
+    }
+  ]
+}

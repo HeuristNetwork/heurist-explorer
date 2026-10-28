@@ -651,7 +651,6 @@ function prepareForMode(value, mode) {
     const copy = clone(value);
     copy.options.ui.showOptions = false;
     copy.options.nativeControls.selectionActions = false;
-    copy.options.interaction.readonly = true;
     copy.options.interaction.editEnabled = false;
     copy.options.interaction.selectionEnabled = false;
     copy.options.interaction.persistentSelectionEnabled = false;

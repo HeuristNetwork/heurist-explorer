@@ -577,8 +577,8 @@ export class GraphApplication extends EventTarget {
         : null,
       baseUrl: this.heuristBaseUrl,
       database: this.config.database,
-      // same condition as the other edit actions: the host can edit and the view is not read-only
-      canEditRecords: () => this.config.persistedSettings?.options?.interaction?.readonly !== true
+      // the host can edit and editing is enabled (options.interaction.editEnabled, plan 29)
+      canEditRecords: () => this.config.persistedSettings?.options?.interaction?.editEnabled !== false
         && this.getHostCapabilities().editing === true,
       editRecord: typeof this.host?.editRecord === "function" ? (recordId) => this.host.editRecord(recordId) : null,
       limits: this.config.recordLimits,

@@ -33,7 +33,7 @@ test("record view configuration defaults expose the requested controls", () => {
   assert.equal(value.options.ui.language, "auto");
   assert.equal(value.options.ui.showOptions, true);
   assert.equal(value.options.ui.showPublish, true);
-  assert.equal(value.options.interaction.readonly, false);
+  assert.equal(value.options.interaction.editEnabled, true);
 });
 
 test("engine and selectionMode only accept the configured choices", () => {
@@ -76,11 +76,12 @@ test("template and headerTitle are nullable strings", () => {
 
 test("normalization drops unknown keys", () => {
   const value = normalizeRecordViewConfigurationSettings({
-    options: { accessToken: "discard", interaction: { readonly: true } },
+    options: { accessToken: "discard", interaction: { readonly: true, editEnabled: false } },
     config: { defaults: { emptyMessage: "Nothing here" } },
   });
   assert.equal(value.options.accessToken, undefined);
-  assert.equal(value.options.interaction.readonly, true);
+  assert.equal(value.options.interaction.readonly, undefined, "no readonly setting (plan 29)");
+  assert.equal(value.options.interaction.editEnabled, false);
   assert.equal(value.config.defaults.emptyMessage, "Nothing here");
 });
 

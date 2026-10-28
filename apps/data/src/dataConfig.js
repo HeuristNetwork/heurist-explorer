@@ -76,9 +76,8 @@ export function createHeuristDataConfig(
   const initialQuerySourceId = positiveId(source.querySourceId);
   const initialQuery =
     source.query == null || source.query === "" ? null : source.query;
-  const readonly =
-    runtime.readonly === true ||
-    persistedSettings.options.interaction.readonly === true;
+  // read only: the host's runtime flag (no setting since plan 29; editing is `editEnabled`)
+  const readonly = runtime.readonly === true;
   const interaction = {
     ...persistedSettings.options.interaction,
     ...(readonly ? { editEnabled: false } : {}),

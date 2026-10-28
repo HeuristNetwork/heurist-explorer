@@ -393,7 +393,7 @@ function prepareMode(value, mode) {
     const copy = clone(value);
     copy.options.ui.showOptions = false;
     copy.options.ui.showPublish = false;
-    copy.options.interaction.readonly = true;
+    copy.options.interaction.editEnabled = false;
     return copy;
   }
   if (mode === "preferences") {

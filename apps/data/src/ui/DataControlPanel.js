@@ -303,7 +303,6 @@ export class DataControlPanel {
     this.options = {
       ...this.options,
       ...options.ui,
-      readonly: this.options.readonly || options.interaction?.readonly === true,
       editEnabled: options.interaction?.editEnabled,
       currentResultsTitle:
         settings.config?.currentResults?.title ||
@@ -345,7 +344,8 @@ export class DataControlPanel {
         readonly || standalone || this.options.showOptions === false;
     if (this.publishButton)
       this.publishButton.hidden =
-        readonly || this.options.runtimeMode !== "main";
+        readonly || this.options.runtimeMode !== "main" || this.options.showPublish === false;
+    if (this.helpButton) this.helpButton.hidden = this.options.showHelp === false;
     this.expansionBar?.setEnabled(this.options.showExpansion !== false);
     if (this.sourceHeader)
       this.sourceHeader.hidden = this.options.showSourceHeader !== true;

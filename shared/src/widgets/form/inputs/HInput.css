@@ -168,7 +168,7 @@
 .h-form-input-tool,
 .h-form-input-actions .heurist-icon-button {
   flex: 0 0 auto;
-  padding: 2px 3px;
+  padding: 2px 0;
   font-size: var(--h-font-size-tiny);
   line-height: 1;
 }
@@ -215,13 +215,15 @@
   display: none;
 }
 
-/* value tools: the actions slot keeps its place in every input (room for Add and Translate),
-   so all controls of a form start at the same position (2026-10-25) */
-.h-form-input.has-value-tools .h-form-input-actions {
-  min-width: var(--h-form-input-actions-width, 26px);
+/* the actions slot keeps its place in every input of an edit form (room for one small Add or
+   Translate icon), so all controls start at the same position (2026-10-25; narrow and in
+   every input, plan 29 2026-10-28) */
+.h-form-input.has-actions-slot .h-form-input-actions {
+  position: relative;
+  min-width: var(--h-form-input-actions-width, 16px);
 }
 
-.h-form-input.has-value-tools .h-form-input-actions:empty {
+.h-form-input.has-actions-slot .h-form-input-actions:empty {
   display: inline-flex;
 }
 
@@ -266,4 +268,18 @@
 .h-form-input:focus-within .h-input-raw-toggle,
 .h-input-raw-toggle[aria-expanded='true'] {
   opacity: 1;
+}
+
+/* a translation's language code in the actions slot: right-aligned, wider than the slot it
+   overflows to the left (plan 29, 2026-10-28) */
+.h-form-input.has-actions-slot .h-form-input-actions > .h-input-text-lang {
+  position: absolute;
+  top: 50%;
+  right: 0;
+  transform: translateY(-50%);
+}
+
+.h-form-input.has-actions-slot.is-multiline .h-form-input-actions > .h-input-text-lang {
+  top: 2px;
+  transform: none;
 }

@@ -90,7 +90,7 @@ export async function initHeuristRecordView(config) {
       showPublish: config.options.ui.showPublish,
       showHeader: config.persistedSettings.config.defaults.showHeader,
       headerTitle: config.persistedSettings.config.defaults.headerTitle,
-      readonly: config.options.interaction.readonly,
+      readonly: config.readonly === true,
       helpBaseUrl: config.moduleAssetBaseUrl,
     },
   });

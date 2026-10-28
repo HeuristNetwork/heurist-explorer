@@ -210,7 +210,9 @@ export class ExplorerPaneToolbar {
       ['Manage groups', () => void app.manageGroups?.()],
       ['Query tracer', () => app.showQueryTrace?.()],
       // temporary (plan 14a)
-      ['Test edit form', () => void app.controlPanel?.openEditFormTest()]
+      ['Test edit form', () => void app.controlPanel?.openEditFormTest()],
+      // temporary (plan 29)
+      ['Test module configuration', () => void app.controlPanel?.openModuleConfigurationTest()]
     ];
     for (const [label, action] of items) {
       const item = document.createElement('li');

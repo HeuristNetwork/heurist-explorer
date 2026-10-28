@@ -74,10 +74,11 @@ function normalizeOptions(source, defaults) {
     ui: {
       showOptions: boolean(ui.showOptions, defaults.ui.showOptions),
       showPublish: boolean(ui.showPublish, defaults.ui.showPublish),
+      showHelp: boolean(ui.showHelp, defaults.ui.showHelp),
       language: enumValue(ui.language, LANGUAGES, defaults.ui.language),
     },
     interaction: {
-      readonly: boolean(interaction.readonly, defaults.interaction.readonly),
+      editEnabled: boolean(interaction.editEnabled, defaults.interaction.editEnabled),
     },
   };
 }

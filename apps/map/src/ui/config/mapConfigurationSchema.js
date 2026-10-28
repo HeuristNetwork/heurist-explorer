@@ -104,6 +104,8 @@ function normalizeOptions(source, defaults) {
       showHomeControl: boolean(ui.showHomeControl, defaults.ui.showHomeControl),
       showOptions: boolean(ui.showOptions, defaults.ui.showOptions),
       showPublish: boolean(ui.showPublish, defaults.ui.showPublish),
+      showHelp: boolean(ui.showHelp, defaults.ui.showHelp),
+      language: enumValue(ui.language, ['auto', 'eng', 'fre', 'ger', 'por'], defaults.ui.language),
       showSourceHeader: boolean(ui.showSourceHeader, defaults.ui.showSourceHeader),
       controlCss: nullableString(ui.controlCss)
     },
@@ -127,7 +129,7 @@ function normalizeOptions(source, defaults) {
       initial: nullableIdentifier(baseMaps.initial)
     },
     interaction: {
-      readonly: boolean(interaction.readonly, defaults.interaction.readonly),
+      editEnabled: boolean(interaction.editEnabled, defaults.interaction.editEnabled),
       selectionEnabled: boolean(interaction.selectionEnabled, defaults.interaction.selectionEnabled),
       popupEnabled: boolean(interaction.popupEnabled, defaults.interaction.popupEnabled),
       zoomOnSelection: boolean(interaction.zoomOnSelection, defaults.interaction.zoomOnSelection)

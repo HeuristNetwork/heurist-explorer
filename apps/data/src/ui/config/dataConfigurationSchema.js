@@ -85,6 +85,8 @@ function normalizeOptions(source, defaults) {
         defaults.ui.showSourceHeader,
       ),
       showOptions: boolean(ui.showOptions, defaults.ui.showOptions),
+      showPublish: boolean(ui.showPublish, defaults.ui.showPublish),
+      showHelp: boolean(ui.showHelp, defaults.ui.showHelp),
       showExpansion: boolean(ui.showExpansion, defaults.ui.showExpansion),
       language: enumValue(
         ui.language,
@@ -98,13 +100,14 @@ function normalizeOptions(source, defaults) {
       counter: boolean(controls.counter, defaults.nativeControls.counter),
       export: boolean(controls.export, defaults.nativeControls.export),
       viewMode: boolean(controls.viewMode, defaults.nativeControls.viewMode),
+      sort: boolean(controls.sort, defaults.nativeControls.sort),
+      showOwner: boolean(controls.showOwner, defaults.nativeControls.showOwner),
       selectionActions: boolean(
         controls.selectionActions,
         defaults.nativeControls.selectionActions,
       ),
     },
     interaction: {
-      readonly: boolean(interaction.readonly, defaults.interaction.readonly),
       editEnabled: boolean(
         interaction.editEnabled,
         defaults.interaction.editEnabled,

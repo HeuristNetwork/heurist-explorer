@@ -59,6 +59,8 @@ export function createHeuristRecordViewConfig(
   return {
     containerId,
     runtimeMode,
+    // read only: the host's runtime flag (no Options / Publish icons; editing is editEnabled, plan 29)
+    readonly: runtime.readonly === true,
     database: runtime.database || null,
     apiBaseUrl: runtime.apiBaseUrl || null,
     accessToken: runtime.accessToken || null,

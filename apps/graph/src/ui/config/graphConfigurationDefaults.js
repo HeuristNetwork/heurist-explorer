@@ -14,9 +14,11 @@
  */
 export const HEURIST_GRAPH_OPTIONS_DEFAULTS = Object.freeze({
   ui: Object.freeze({
-    initiallyExpanded: true,
+    initiallyExpanded: false,
     showSourceHeader: false,
     showOptions: true,
+    showPublish: true,
+    showHelp: true,
     showExpand: true,
     language: "auto",
   }),
@@ -26,7 +28,7 @@ export const HEURIST_GRAPH_OPTIONS_DEFAULTS = Object.freeze({
     rearrange: true,
   }),
   interaction: Object.freeze({
-    readonly: false,
+    editEnabled: true,
     selectionEnabled: true,
     popupEnabled: true,
   }),

@@ -1,0 +1,696 @@
+{
+  "format": "heurist-edit-form/1",
+  "groups": [
+    {
+      "id": "interface",
+      "label": "Interface",
+      "children": [
+        {
+          "name": "options.ui.enabled",
+          "type": "boolean",
+          "label": "Heurist Map Controls",
+          "req": "recommended",
+          "default": true,
+          "mode": "checkbox",
+          "clearable": false,
+          "help": "Show the Heurist control panel over the map",
+          "simplified": {
+            "hidden": true
+          }
+        },
+        {
+          "name": "options.ui.showCurrentDocument",
+          "type": "boolean",
+          "label": "Workspace/Filtered Result",
+          "req": "recommended",
+          "default": true,
+          "mode": "checkbox",
+          "clearable": false,
+          "showWhen": {
+            "options.ui.enabled": true
+          },
+          "simplified": {
+            "hidden": true
+          }
+        },
+        {
+          "name": "options.ui.showMapDocuments",
+          "type": "boolean",
+          "label": "Map documents",
+          "req": "recommended",
+          "default": true,
+          "mode": "checkbox",
+          "clearable": false,
+          "showWhen": {
+            "options.ui.enabled": true
+          },
+          "simplified": {
+            "hidden": true
+          }
+        },
+        {
+          "name": "options.ui.showBaseMaps",
+          "type": "boolean",
+          "label": "Base maps",
+          "req": "recommended",
+          "default": true,
+          "mode": "checkbox",
+          "clearable": false,
+          "showWhen": {
+            "options.ui.enabled": true
+          },
+          "forced": {
+            "website": false
+          },
+          "simplified": {
+            "hidden": true
+          }
+        },
+        {
+          "name": "options.ui.initiallyExpanded",
+          "type": "boolean",
+          "label": "Initially expanded",
+          "req": "recommended",
+          "default": false,
+          "mode": "checkbox",
+          "clearable": false,
+          "showWhen": {
+            "options.ui.enabled": true
+          },
+          "simplified": {
+            "value": false
+          }
+        },
+        {
+          "name": "options.ui.showSourceHeader",
+          "type": "boolean",
+          "label": "Show header",
+          "req": "recommended",
+          "default": false,
+          "mode": "checkbox",
+          "clearable": false,
+          "help": "Title of the current query above the map",
+          "simplified": {
+            "value": false
+          }
+        },
+        {
+          "name": "options.ui.showHomeControl",
+          "type": "boolean",
+          "label": "Home",
+          "req": "recommended",
+          "default": false,
+          "mode": "checkbox",
+          "clearable": false,
+          "help": "Button that returns to the initial extent",
+          "showWhen": {
+            "options.ui.enabled": true
+          },
+          "simplified": {
+            "hidden": true
+          }
+        },
+        {
+          "name": "options.ui.showOptions",
+          "type": "boolean",
+          "req": "forbidden",
+          "default": true,
+          "forced": {
+            "website": false,
+            "publication": false
+          }
+        },
+        {
+          "name": "options.ui.showPublish",
+          "type": "boolean",
+          "req": "forbidden",
+          "default": true,
+          "forced": {
+            "website": false,
+            "publication": false
+          }
+        },
+        {
+          "name": "options.ui.showHelp",
+          "type": "boolean",
+          "req": "forbidden",
+          "default": true,
+          "forced": {
+            "website": false,
+            "publication": false
+          }
+        },
+        {
+          "name": "options.ui.language",
+          "type": "enum",
+          "label": "Language",
+          "req": "recommended",
+          "terms": [
+            {
+              "id": "auto",
+              "label": "Automatic"
+            },
+            {
+              "id": "eng",
+              "label": "English"
+            },
+            {
+              "id": "fre",
+              "label": "French"
+            },
+            {
+              "id": "ger",
+              "label": "German"
+            },
+            {
+              "id": "por",
+              "label": "Portuguese"
+            }
+          ],
+          "default": "auto",
+          "mode": "select",
+          "clearable": false,
+          "forced": {
+            "configuration": "auto",
+            "website": "auto"
+          },
+          "help": "Language of the published page; Automatic follows the browser of the visitor"
+        },
+        {
+          "name": "options.ui.showLegend",
+          "type": "boolean",
+          "req": "forbidden",
+          "default": true
+        },
+        {
+          "name": "options.ui.showLayers",
+          "type": "boolean",
+          "req": "forbidden",
+          "default": true
+        },
+        {
+          "name": "options.ui.placement",
+          "type": "enum",
+          "req": "forbidden",
+          "default": "overlay",
+          "terms": [
+            "overlay",
+            "side"
+          ]
+        },
+        {
+          "name": "options.ui.position",
+          "type": "enum",
+          "req": "forbidden",
+          "default": "top-right",
+          "terms": [
+            "top-left",
+            "top-right",
+            "bottom-left",
+            "bottom-right"
+          ]
+        },
+        {
+          "name": "options.ui.controlCss",
+          "type": "blocktext",
+          "req": "forbidden",
+          "default": null
+        }
+      ]
+    },
+    {
+      "id": "native",
+      "label": "Native Map Controls",
+      "inner": true,
+      "children": [
+        {
+          "name": "options.nativeControls.zoom",
+          "type": "boolean",
+          "label": "Zoom",
+          "req": "recommended",
+          "default": true,
+          "mode": "checkbox",
+          "clearable": false,
+          "forced": {
+            "publication": true
+          }
+        },
+        {
+          "name": "options.nativeControls.scale",
+          "type": "boolean",
+          "label": "Scale",
+          "req": "recommended",
+          "default": true,
+          "mode": "checkbox",
+          "clearable": false,
+          "forced": {
+            "publication": true
+          }
+        },
+        {
+          "name": "options.nativeControls.bookmark",
+          "type": "boolean",
+          "label": "Bookmark",
+          "req": "recommended",
+          "default": false,
+          "mode": "checkbox",
+          "clearable": false,
+          "forced": {
+            "website": false,
+            "publication": false
+          }
+        },
+        {
+          "name": "options.nativeControls.print",
+          "type": "boolean",
+          "label": "Print",
+          "req": "recommended",
+          "default": false,
+          "mode": "checkbox",
+          "clearable": false,
+          "forced": {
+            "website": false,
+            "publication": false
+          }
+        },
+        {
+          "name": "options.nativeControls.selector",
+          "type": "boolean",
+          "req": "forbidden",
+          "default": false,
+          "forced": {
+            "publication": false
+          }
+        },
+        {
+          "name": "options.nativeControls.search",
+          "type": "boolean",
+          "label": "Search",
+          "req": "recommended",
+          "default": false,
+          "mode": "checkbox",
+          "clearable": false,
+          "forced": {
+            "publication": false
+          }
+        }
+      ]
+    },
+    {
+      "id": "workspace",
+      "label": "Workspace/Filtered Result Map",
+      "modes": [
+        "configuration",
+        "website"
+      ],
+      "simplified": {
+        "hidden": true
+      },
+      "children": [
+        {
+          "name": "config.dynamicDocument.enabled",
+          "type": "boolean",
+          "req": "forbidden",
+          "default": true
+        },
+        {
+          "name": "config.dynamicDocument.title",
+          "type": "freetext",
+          "label": "Title",
+          "req": "recommended",
+          "default": "Workspace",
+          "simplified": {
+            "value": "Current results"
+          }
+        },
+        {
+          "name": "config.dynamicDocument.dynamicRequests",
+          "type": "boolean",
+          "label": "Load by map extent",
+          "req": "recommended",
+          "default": false,
+          "mode": "checkbox",
+          "clearable": false,
+          "help": "Load only the records inside the visible map extent",
+          "simplified": {
+            "value": false
+          }
+        },
+        {
+          "name": "config.dynamicDocument.maxZoom",
+          "type": "integer",
+          "label": "Zoom In (Level)",
+          "req": "optional",
+          "minValue": 1,
+          "maxValue": 18,
+          "width": 6
+        },
+        {
+          "name": "config.dynamicDocument.minZoom",
+          "type": "integer",
+          "label": "Zoom Out (Level)",
+          "req": "optional",
+          "minValue": 1,
+          "maxValue": 18,
+          "width": 6
+        },
+        {
+          "name": "config.dynamicDocument.minimumZoomKm",
+          "type": "float",
+          "label": "Zoom In (Km)",
+          "req": "optional",
+          "minValue": 0,
+          "width": 8
+        },
+        {
+          "name": "config.dynamicDocument.maximumZoomKm",
+          "type": "float",
+          "label": "Zoom Out (Km)",
+          "req": "optional",
+          "minValue": 0,
+          "width": 8
+        },
+        {
+          "name": "config.dynamicDocument.bounds",
+          "type": "geo",
+          "label": "Extent",
+          "req": "optional",
+          "geoKind": "extent",
+          "help": "Initial extent of the map; empty: fit to the data"
+        }
+      ]
+    },
+    {
+      "id": "defaults",
+      "label": "Default settings",
+      "modes": [
+        "configuration",
+        "website"
+      ],
+      "children": [
+        {
+          "name": "config.defaults.zoomToPointInKM",
+          "type": "float",
+          "label": "Point selection extent (km)",
+          "req": "recommended",
+          "minValue": 0,
+          "width": 8,
+          "help": "Width of the map shown when one point is selected"
+        },
+        {
+          "name": "config.defaults.symbology",
+          "type": "special",
+          "label": "Default symbology",
+          "req": "recommended",
+          "special": "symbology"
+        },
+        {
+          "name": "config.defaults.selectSymbology",
+          "type": "special",
+          "label": "Select symbology",
+          "req": "optional",
+          "special": "symbology"
+        },
+        {
+          "name": "config.defaults.preventContinuousWorldBasemap",
+          "type": "boolean",
+          "label": "Prevent continuous world basemap",
+          "req": "optional",
+          "default": false,
+          "mode": "checkbox",
+          "clearable": false
+        },
+        {
+          "name": "config.defaults.markerClustering",
+          "type": "boolean",
+          "label": "Marker clustering",
+          "req": "recommended",
+          "default": false,
+          "mode": "checkbox",
+          "clearable": false
+        },
+        {
+          "name": "config.defaults.markerClusterGridPixels",
+          "type": "integer",
+          "label": "Grid pixels",
+          "req": "recommended",
+          "default": 20,
+          "minValue": 0,
+          "maxValue": 100,
+          "width": 6,
+          "showWhen": {
+            "config.defaults.markerClustering": true
+          }
+        },
+        {
+          "name": "config.defaults.markerClusterMaxLevel",
+          "type": "enum",
+          "label": "Stop at",
+          "req": "recommended",
+          "terms": [
+            {
+              "id": 1,
+              "label": "Level 1 (worldwide)"
+            },
+            {
+              "id": 2,
+              "label": "Level 2"
+            },
+            {
+              "id": 3,
+              "label": "Level 3"
+            },
+            {
+              "id": 4,
+              "label": "Level 4"
+            },
+            {
+              "id": 5,
+              "label": "Level 5"
+            },
+            {
+              "id": 6,
+              "label": "Level 6"
+            },
+            {
+              "id": 7,
+              "label": "Level 7"
+            },
+            {
+              "id": 8,
+              "label": "Level 8"
+            },
+            {
+              "id": 9,
+              "label": "Level 9"
+            },
+            {
+              "id": 10,
+              "label": "Level 10"
+            },
+            {
+              "id": 11,
+              "label": "Level 11"
+            },
+            {
+              "id": 12,
+              "label": "Level 12"
+            },
+            {
+              "id": 13,
+              "label": "Level 13"
+            },
+            {
+              "id": 14,
+              "label": "Level 14"
+            },
+            {
+              "id": 15,
+              "label": "Level 15"
+            },
+            {
+              "id": 16,
+              "label": "Level 16"
+            },
+            {
+              "id": 17,
+              "label": "Level 17"
+            },
+            {
+              "id": 18,
+              "label": "Level 18"
+            }
+          ],
+          "default": 12,
+          "mode": "select",
+          "clearable": false,
+          "help": "Zoom level where clustering stops",
+          "showWhen": {
+            "config.defaults.markerClustering": true
+          }
+        },
+        {
+          "name": "config.defaults.maxAllowedFeatures",
+          "type": "enum",
+          "label": "Maximum allowed features",
+          "req": "recommended",
+          "terms": [
+            {
+              "id": 500,
+              "label": "500"
+            },
+            {
+              "id": 1000,
+              "label": "1000"
+            },
+            {
+              "id": 2000,
+              "label": "2000"
+            },
+            {
+              "id": 5000,
+              "label": "5000"
+            }
+          ],
+          "default": 1000,
+          "mode": "select",
+          "clearable": false
+        },
+        {
+          "name": "config.defaults.popupTemplate",
+          "type": "enum",
+          "label": "Popup template",
+          "req": "optional",
+          "terms": [
+            {
+              "id": "none",
+              "label": "None"
+            },
+            {
+              "id": "basic",
+              "label": "Built-in (basic)"
+            },
+            {
+              "id": "builtin",
+              "label": "Built-in"
+            },
+            {
+              "id": "standard",
+              "label": "Standard (Legacy)"
+            }
+          ],
+          "default": null,
+          "mode": "select",
+          "termsSource": "smartyTemplates",
+          "emptyLabel": "Built-in (basic)"
+        }
+      ]
+    },
+    {
+      "id": "mapDocuments",
+      "label": "Map documents",
+      "req": "optional",
+      "modes": [
+        "configuration",
+        "website"
+      ],
+      "children": [
+        {
+          "name": "options.mapDocuments.allowed",
+          "type": "special",
+          "label": "Allowed map documents",
+          "req": "recommended",
+          "special": "mapDocuments",
+          "max": 0,
+          "help": "Empty: all map documents"
+        },
+        {
+          "name": "options.mapDocuments.initiallyActive",
+          "type": "special",
+          "label": "Default document",
+          "req": "recommended",
+          "special": "initialMapDocument",
+          "help": "Empty: Workspace/Filtered Result"
+        }
+      ]
+    },
+    {
+      "id": "baseMaps",
+      "label": "Base maps",
+      "req": "optional",
+      "modes": [
+        "configuration",
+        "website"
+      ],
+      "children": [
+        {
+          "name": "options.baseMaps.allowed",
+          "type": "special",
+          "label": "Allowed base maps",
+          "req": "recommended",
+          "special": "baseMaps",
+          "max": 0,
+          "help": "Empty: all base maps"
+        },
+        {
+          "name": "options.baseMaps.initial",
+          "type": "special",
+          "label": "Initial base map",
+          "req": "recommended",
+          "special": "initialBaseMap"
+        }
+      ]
+    },
+    {
+      "id": "interaction",
+      "label": "Interaction",
+      "req": "optional",
+      "modes": [
+        "configuration",
+        "website"
+      ],
+      "children": [
+        {
+          "name": "options.interaction.editEnabled",
+          "type": "boolean",
+          "label": "Enable edit",
+          "req": "recommended",
+          "default": true,
+          "mode": "checkbox",
+          "clearable": false,
+          "help": "Edit of map documents, layers and records",
+          "forced": {
+            "publication": false
+          }
+        },
+        {
+          "name": "options.interaction.selectionEnabled",
+          "type": "boolean",
+          "label": "Enable selection",
+          "req": "recommended",
+          "default": true,
+          "mode": "checkbox",
+          "clearable": false
+        },
+        {
+          "name": "options.interaction.popupEnabled",
+          "type": "boolean",
+          "label": "Enable popups",
+          "req": "recommended",
+          "default": true,
+          "mode": "checkbox",
+          "clearable": false
+        },
+        {
+          "name": "options.interaction.zoomOnSelection",
+          "type": "boolean",
+          "label": "Zoom on selection",
+          "req": "recommended",
+          "default": false,
+          "mode": "checkbox",
+          "clearable": false
+        }
+      ]
+    }
+  ]
+}

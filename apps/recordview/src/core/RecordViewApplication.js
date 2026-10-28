@@ -430,7 +430,8 @@ export class RecordViewApplication extends EventTarget {
         this.renderer.showBuiltin(record, {
           sections,
           recordTypeName,
-          canEdit: Boolean(this.getHostCapabilities().editing),
+          canEdit: Boolean(this.getHostCapabilities().editing)
+            && this.config.persistedSettings?.options?.interaction?.editEnabled !== false,
           onEdit: (recordId) => this.host?.editRecord?.(recordId),
           onNavigate: (recordId) => this.navigateToRecord(recordId),
           canZoomExtent: Boolean(canZoomExtent),

@@ -27,7 +27,7 @@ test("the simplified settings: header, Options, Expansion; no page size or searc
   });
   assert.deepEqual(settings.options.ui, { showSourceHeader: true, showOptions: true, showExpansion: true });
   assert.deepEqual(settings.options.nativeControls,
-    { pageSize: false, search: false, counter: true, export: true, viewMode: true, selectionActions: true });
+    { pageSize: false, search: false, counter: true, export: true, viewMode: true, sort: true, showOwner: true, selectionActions: true });
   assert.equal(settings.options.interaction.editEnabled, true);
   assert.equal(settings.options.interaction.persistentSelectionEnabled, true);
   assert.equal(settings.options.interaction.adminInfoEnabled, true, "owners shown by default");
@@ -58,7 +58,7 @@ test("record list toolbar: Counter, Pagination, View, Selected, Sort, See/hide o
   const list = await source("../../../../shared/src/widgets/record-list/HRecordList.js");
   assert.match(list, /toolbar\.prepend\(\s*\.\.\.\[\s*this\.\$\('\[data-role="counter"\]'\),\s*this\.\$\("\.h-recordlist-pagination"\),\s*this\.\$\('\[data-control="viewMode"\]'\),\s*this\.\$\('\[data-control="selectionActions"\]'\),\s*this\._sortControl,\s*this\._ownersToggle,/);
   const table = await source("../../src/engine/datatables/DataTablesAdapter.js");
-  assert.match(table, /if \(this\.options\.simplified === true\) \{\s*bar\.append\(\s*createSortSelect/);
+  assert.match(table, /if \(this\.options\.simplified === true \|\| typeof listControls\.sort === "boolean"[^{]*\{\s*bar\.append\(\s*\(this\.sortControl = createSortSelect/);
 });
 
 test("the list sort is used by this module's loads only, unless the engine sorts itself", async () => {

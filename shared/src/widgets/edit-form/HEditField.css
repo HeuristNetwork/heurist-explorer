@@ -63,6 +63,7 @@
 
 .h-edit-field-note,
 .h-edit-field-help {
+  padding-left: 20px;
   color: var(--h-color-text-muted);
   font-size: var(--h-font-size-small, 0.85em);
 }
@@ -124,6 +125,8 @@
   align-items: flex-start;
   gap: var(--h-gap);
   min-width: 0;
+  /* after the actions slot of the inputs and its gap (HInput.css), so it aligns (plan 29) */
+  margin-left: calc(var(--h-form-input-actions-width, 16px) + 4px);
 }
 
 .h-edit-field-value.is-special {
@@ -212,7 +215,7 @@
 .h-edit-field-manage-line {
   display: flex;
   margin-bottom: 4px;
-  margin-left: calc(var(--h-form-input-actions-width, 26px) + 4px);
+  margin-left: calc(var(--h-form-input-actions-width, 16px) + 4px);
 }
 
 .h-edit-field-manage {

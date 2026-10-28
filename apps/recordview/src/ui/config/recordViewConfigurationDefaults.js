@@ -16,10 +16,11 @@ export const HEURIST_RECORDVIEW_OPTIONS_DEFAULTS = Object.freeze({
   ui: Object.freeze({
     showOptions: true,
     showPublish: true,
+    showHelp: true,
     language: "auto",
   }),
   interaction: Object.freeze({
-    readonly: false,
+    editEnabled: true,
   }),
 });
 

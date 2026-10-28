@@ -247,23 +247,28 @@ export class DataTablesAdapter extends DataEngineAdapter {
     });
 
     bar.append(searchLabel, viewLabel, actions, this.sourceActions);
-    // simplified interface: the list's Sort and See/hide owners, as in the record list
-    if (this.options.simplified === true) {
+    // the list's Sort and See/hide owners, as in the record list: the simplified interface,
+    // or nativeControls.sort / showOwner (plan 29)
+    const listControls = this.options.controls || {};
+    if (this.options.simplified === true || typeof listControls.sort === "boolean"
+      || typeof listControls.showOwner === "boolean") {
       bar.append(
-        createSortSelect({
+        (this.sortControl = createSortSelect({
           value: this.getListSort?.() ?? null,
           onChange: (value) => {
             this.onListSortChange?.(value);
             // a column order would win over the Sort selector: clear it and reload
             this.instance?.order([]).draw();
           },
-        }),
+        })),
         (this.ownersToggle = createOwnersToggle({
           shown: interaction.adminInfoEnabled === true,
           onToggle: () => this.onOwnersToggle?.(),
         })),
       );
     }
+    if (this.sortControl) this.sortControl.hidden = listControls.sort === false;
+    if (this.ownersToggle) this.ownersToggle.hidden = listControls.showOwner === false;
     this.toolbarElement = bar;
     this.searchLabel = searchLabel;
     this.selectionActionsEl = actions;
@@ -282,6 +287,8 @@ export class DataTablesAdapter extends DataEngineAdapter {
     if (this.sourceActions)
       this.sourceActions.hidden = this.options.sourceActionsEnabled !== true;
     this.ownersToggle?.syncShown(interaction.adminInfoEnabled === true);
+    if (this.sortControl) this.sortControl.hidden = controls.sort === false;
+    if (this.ownersToggle) this.ownersToggle.hidden = controls.showOwner === false;
     this._syncSourceSaveButtons();
   }
 

@@ -41,6 +41,12 @@ CodeMirror editor are separate chunks, not part of Explorer's main bundle.
 The Website manager (plan 27b) is the same: `apps/website/src/direct.js` mounts the manager
 (not the site runtime) and Explorer imports it lazily for its Websites tool (`publish`).
 
+Each presentation module also has a **configuration entry** `src/configuration.js`
+(plan 29). It exports the module's configuration form JSON, defaults and settings
+normalizer, and imports nothing else of the module. Explorer and the website runtime may
+import it, so they can show the module's configuration form without loading the module
+itself.
+
 ## Host boundaries
 
 There are two explicit communication boundaries:

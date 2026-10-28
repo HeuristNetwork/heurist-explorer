@@ -15,6 +15,7 @@
 
 import { getFrameHostBridge, getGlobalBootstrap } from "#shared/host";
 import { resolveModuleBootstrap } from "#shared/config";
+import { normalizeTimelineConfigurationSettings } from "./ui/config/timelineConfigurationSchema.js";
 
 /**
  * Creates the normalized configuration object used by the timeline runtime.
@@ -43,7 +44,9 @@ export function getHeuristTimelineConfig() {
 export function createHeuristTimelineConfig(bootstrap, { bridge = null, containerId = "heurist-timeline" } = {}) {
   const runtime = bootstrap.runtime || {};
   const rawSettings = bootstrap.settings || {};
-  const settings = normalizeSettings(rawSettings.options?.timeline || rawSettings);
+  // the persisted settings envelope (plan 29): options.ui, options.timeline, options.mapDocuments
+  const normalized = normalizeTimelineConfigurationSettings(rawSettings);
+  const settings = normalized.options.timeline;
   const source = bootstrap.source ?? bootstrap.state ?? {};
   const contexts = normalizeContexts(source.contexts);
 
@@ -79,39 +82,21 @@ export function createHeuristTimelineConfig(bootstrap, { bridge = null, containe
     settings,
     explorerHost: bridge?.getHostContext?.()?.name === 'heurist-explorer',
     initialState: bootstrap.state?.moduleState || bootstrap.state || null,
+    interaction: normalized.options.interaction,
     documents: {
-      query: rawSettings.options?.mapDocuments?.allowed ?? null,
-      initiallyActive: rawSettings.options?.mapDocuments?.initiallyActive ?? 'dynamic'
+      query: normalized.options.mapDocuments.allowed,
+      initiallyActive: normalized.options.mapDocuments.initiallyActive
     },
     // heurist-explorer's "Interface for dummies": the control panel starts collapsed (2026-10-14)
     simplified: runtime.simplifiedUI === true,
     ui: {
-      showSourceHeader: false, initiallyExpanded: true, ...(rawSettings.options?.ui || rawSettings.ui || {}),
+      ...normalized.options.ui,
       ...(runtime.simplifiedUI === true ? { initiallyExpanded: false } : {})
     },
     source: {
       contexts,
       selection: normalizeIds(source.selection),
     },
-  };
-}
-
-/**
- * Normalizes and validates the UI settings object.
- *
- * @param {object} value - Raw settings from the host bootstrap.
- * @returns {object} Sanitized settings.
- */
-function normalizeSettings(value) {
-  return {
-    stack: value.stack !== false,
-    orientation: value.orientation || "both",
-    labelMode: ["full", "truncate", "hidden"].includes(value.labelMode)
-      ? value.labelMode
-      : "full",
-    labelPosition: value.labelPosition === "above" ? "above" : "bar",
-    showToolbar: value.showToolbar !== false,
-    zoomMax: Number(value.zoomMax) || 31536000000 * 500000,
   };
 }
 

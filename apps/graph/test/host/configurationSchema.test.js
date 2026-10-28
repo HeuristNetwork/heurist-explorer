@@ -67,7 +67,8 @@ test("publication mode locks interaction down to a read-only viewer", () => {
     },
   });
   const interaction = dialog.getValue().options.interaction;
-  assert.equal(interaction.readonly, true);
+  assert.equal(interaction.editEnabled, false);
+  assert.equal(interaction.readonly, undefined, "no readonly setting (plan 29)");
   assert.equal(interaction.selectionEnabled, false);
   assert.equal(interaction.popupEnabled, true);
 });

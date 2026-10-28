@@ -1,0 +1,22 @@
+/* Test module configuration (plan 29): the options table */
+
+.h-module-config-test-table {
+  overflow: auto;
+}
+
+.h-module-config-test-table table {
+  border-collapse: collapse;
+  font-size: var(--h-font-size-small);
+}
+
+.h-module-config-test-table th,
+.h-module-config-test-table td {
+  border: 1px solid var(--h-border-color, #ccc);
+  padding: 2px 4px;
+  text-align: left;
+  vertical-align: top;
+}
+
+.h-module-config-test-table tr.is-hidden td {
+  color: var(--h-text-muted, #888);
+}

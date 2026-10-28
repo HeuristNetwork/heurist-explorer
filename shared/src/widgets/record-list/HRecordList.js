@@ -138,6 +138,11 @@ export class HRecordList extends HBaseWidget {
     this._createDataSourceActions();
     if (this.options.simplified === true) this._buildSimplifiedToolbar();
     else if (this.options.listTools === true) this._buildListTools();
+    else if (typeof this.options.controls.sort === "boolean" || typeof this.options.controls.showOwner === "boolean") {
+      this._buildSortOwners();
+    }
+    // the Sort and See/hide owners controls follow `controls.sort` / `controls.showOwner`
+    this._applyControlVisibility();
     this._updateSelectionButton();
     let searchTimer;
     this.listen(search, "input", () => {
@@ -923,6 +928,8 @@ export class HRecordList extends HBaseWidget {
       shown: this.options.interaction.adminInfoEnabled === true,
       onToggle: () => this.onOwnersToggle?.(),
     });
+    this._sortControl.dataset.control = "sort";
+    this._ownersToggle.dataset.control = "showOwner";
     toolbar.prepend(
       ...[
         this.$('[data-role="counter"]'),
@@ -933,6 +940,34 @@ export class HRecordList extends HBaseWidget {
         this._ownersToggle,
       ].filter(Boolean),
     );
+  }
+
+  /**
+   * Sort and See/hide owners in the normal toolbar, after the view mode (heurist-data
+   * `nativeControls.sort` / `showOwner`, plan 29): made when the host gives either option,
+   * shown by its value.
+   *
+   * @private
+   * @returns {void}
+   */
+  _buildSortOwners() {
+    this._sortControl = createSortSelect({
+      value: this.getListSort?.() ?? null,
+      onChange: (value) => {
+        this.onListSortChange?.(value);
+        this.offset = 0;
+        void this._requestPage();
+      },
+    });
+    this._ownersToggle = createOwnersToggle({
+      shown: this.options.interaction.adminInfoEnabled === true,
+      onToggle: () => this.onOwnersToggle?.(),
+    });
+    this._sortControl.dataset.control = "sort";
+    this._ownersToggle.dataset.control = "showOwner";
+    const viewMode = this.$('[data-control="viewMode"]');
+    if (viewMode) viewMode.after(this._sortControl, this._ownersToggle);
+    else this.$('[data-role="toolbar"]')?.append(this._sortControl, this._ownersToggle);
   }
 
   /**

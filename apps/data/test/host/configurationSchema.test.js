@@ -73,7 +73,7 @@ test("page size accepts only configured choices and publication restricts intera
     },
   });
   const interaction = dialog.getValue().options.interaction;
-  assert.equal(interaction.readonly, true);
+  assert.equal(interaction.readonly, undefined, "no readonly setting (plan 29)");
   assert.equal(interaction.editEnabled, false);
   assert.equal(interaction.selectionEnabled, false);
   assert.equal(interaction.persistentSelectionEnabled, false);

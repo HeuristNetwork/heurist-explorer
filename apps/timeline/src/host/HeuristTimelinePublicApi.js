@@ -30,7 +30,11 @@ export class HeuristTimelinePublicApi {
   reloadLayer(id) { return this.application.reloadLayer(id); }
   requestEditMapDocument(id) { return this.application.requestEditMapDocument(id); }
   requestEditLayer(id) { return this.application.requestEditLayer(id); }
-  getCapabilities() { return { editing: this.application.host.supportsEditing('RT_MAP_DOCUMENT') }; }
+  getCapabilities() {
+    // the host can edit and editing is enabled (options.interaction.editEnabled, plan 29)
+    const enabled = this.application.config?.interaction?.editEnabled !== false;
+    return { editing: enabled && this.application.host.supportsEditing('RT_MAP_DOCUMENT') };
+  }
   getHostCapabilities() {
     const host = this.application.host;
     return { mapPreferences: true, mapPublishing: Boolean(host.baseUrl && host.database),
@@ -65,7 +69,9 @@ export class HeuristTimelinePublicApi {
     for (const key of ['showSourceHeader', 'initiallyExpanded']) if (key in settings) ui[key] = settings[key] === true;
     return this.application.host.publish({ format: 'heurist-publication', version: 1,
       options: { timeline: settings, mapDocuments: { allowed: this.application.config.documents?.query ?? null,
-        initiallyActive: this.application.activeDocumentId }, ui },
+        initiallyActive: this.application.activeDocumentId }, ui,
+        // a published timeline does not edit (plan 29)
+        interaction: { editEnabled: false } },
       config: {}, state: this.application.getState() });
   }
   /**
@@ -255,6 +261,7 @@ export class HeuristTimelinePublicApi {
     this.application.config.ui = ui;
     if ('showSourceHeader' in options || 'initiallyExpanded' in options) this.application.controlPanel?.applyOptions(ui);
     this.application.host?.bridge?.updateSettings?.({ options: { timeline: settings, ui: this.application.config.ui,
+      interaction: this.application.config.interaction,
       mapDocuments: { allowed: this.application.config.documents?.query, initiallyActive: this.application.config.documents?.initiallyActive } } });
     this.application.dispatch('heurist-timeline-options-changed', { ...settings });
     return { ...settings };

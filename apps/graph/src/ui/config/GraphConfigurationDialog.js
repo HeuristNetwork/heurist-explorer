@@ -608,7 +608,7 @@ function prepareMode(value, mode) {
   if (mode === "publish") {
     const copy = clone(value);
     copy.options.ui.showOptions = false;
-    copy.options.interaction.readonly = true;
+    copy.options.interaction.editEnabled = false;
     copy.options.interaction.selectionEnabled = false;
     copy.options.interaction.popupEnabled = true;
     return copy;

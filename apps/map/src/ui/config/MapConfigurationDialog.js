@@ -718,7 +718,7 @@ export class MapConfigurationDialog {
    * @returns {void}
    */
   buildInteraction(body) {
-    this.checkbox(body, 'options.interaction.readonly', 'Readonly');
+    this.checkbox(body, 'options.interaction.editEnabled', 'Enable edit');
     this.checkbox(body, 'options.interaction.selectionEnabled', 'Enable selection');
     this.checkbox(body, 'options.interaction.popupEnabled', 'Enable popups');
     this.checkbox(body, 'options.interaction.zoomOnSelection', 'Zoom on selection');

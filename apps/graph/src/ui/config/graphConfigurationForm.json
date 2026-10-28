@@ -1,0 +1,401 @@
+{
+  "format": "heurist-edit-form/1",
+  "groups": [
+    {
+      "id": "interface",
+      "label": "Interface",
+      "children": [
+        {
+          "name": "options.ui.showSourceHeader",
+          "type": "boolean",
+          "label": "Show header",
+          "req": "recommended",
+          "default": false,
+          "mode": "checkbox",
+          "clearable": false
+        },
+        {
+          "name": "options.ui.initiallyExpanded",
+          "type": "boolean",
+          "label": "Initially expanded",
+          "req": "recommended",
+          "default": false,
+          "mode": "checkbox",
+          "clearable": false
+        },
+        {
+          "name": "options.ui.showExpand",
+          "type": "boolean",
+          "label": "Expand graph",
+          "req": "recommended",
+          "default": true,
+          "mode": "checkbox",
+          "clearable": false,
+          "help": "Expand, prune and level controls"
+        },
+        {
+          "name": "options.ui.showOptions",
+          "type": "boolean",
+          "req": "forbidden",
+          "default": true,
+          "forced": {
+            "website": false,
+            "publication": false
+          }
+        },
+        {
+          "name": "options.ui.showPublish",
+          "type": "boolean",
+          "req": "forbidden",
+          "default": true,
+          "forced": {
+            "website": false,
+            "publication": false
+          }
+        },
+        {
+          "name": "options.ui.showHelp",
+          "type": "boolean",
+          "req": "forbidden",
+          "default": true,
+          "forced": {
+            "website": false,
+            "publication": false
+          }
+        },
+        {
+          "name": "options.ui.language",
+          "type": "enum",
+          "label": "Language",
+          "req": "recommended",
+          "terms": [
+            {
+              "id": "auto",
+              "label": "Automatic"
+            },
+            {
+              "id": "eng",
+              "label": "English"
+            },
+            {
+              "id": "fre",
+              "label": "French"
+            },
+            {
+              "id": "ger",
+              "label": "German"
+            },
+            {
+              "id": "por",
+              "label": "Portuguese"
+            }
+          ],
+          "default": "auto",
+          "mode": "select",
+          "clearable": false,
+          "forced": {
+            "configuration": "auto",
+            "website": "auto"
+          },
+          "help": "Language of the published page; Automatic follows the browser of the visitor"
+        }
+      ]
+    },
+    {
+      "id": "native",
+      "label": "Native controls",
+      "inner": true,
+      "children": [
+        {
+          "name": "options.nativeControls.zoom",
+          "type": "boolean",
+          "label": "Zoom",
+          "req": "recommended",
+          "default": true,
+          "mode": "checkbox",
+          "clearable": false
+        },
+        {
+          "name": "options.nativeControls.pan",
+          "type": "boolean",
+          "label": "Pan",
+          "req": "recommended",
+          "default": true,
+          "mode": "checkbox",
+          "clearable": false
+        },
+        {
+          "name": "options.nativeControls.rearrange",
+          "type": "boolean",
+          "label": "Rearrange",
+          "req": "recommended",
+          "default": true,
+          "mode": "checkbox",
+          "clearable": false
+        }
+      ]
+    },
+    {
+      "id": "defaults",
+      "label": "Default settings",
+      "modes": [
+        "configuration",
+        "website"
+      ],
+      "children": [
+        {
+          "name": "config.defaults.maxNodes",
+          "type": "enum",
+          "label": "Nodes limit",
+          "req": "recommended",
+          "terms": [
+            {
+              "id": 1000,
+              "label": "1000"
+            },
+            {
+              "id": 2000,
+              "label": "2000"
+            },
+            {
+              "id": 5000,
+              "label": "5000"
+            }
+          ],
+          "default": 5000,
+          "mode": "select",
+          "clearable": false
+        },
+        {
+          "name": "config.defaults.maxEdges",
+          "type": "enum",
+          "label": "Edges limit",
+          "req": "recommended",
+          "terms": [
+            {
+              "id": 1000,
+              "label": "1000"
+            },
+            {
+              "id": 5000,
+              "label": "5000"
+            },
+            {
+              "id": 10000,
+              "label": "10000"
+            }
+          ],
+          "default": 10000,
+          "mode": "select",
+          "clearable": false
+        },
+        {
+          "name": "config.defaults.layoutMode",
+          "type": "enum",
+          "label": "Layout",
+          "req": "recommended",
+          "terms": [
+            {
+              "id": "forceAtlas2",
+              "label": "Automatic (ForceAtlas2)"
+            },
+            {
+              "id": "automatic",
+              "label": "Gravity (Barnes-Hut)"
+            },
+            {
+              "id": "hierarchical-ud",
+              "label": "Hierarchical (top down)"
+            },
+            {
+              "id": "hierarchical-lr",
+              "label": "Hierarchical (left to right)"
+            },
+            {
+              "id": "record-types",
+              "label": "By record types"
+            },
+            {
+              "id": "grid",
+              "label": "Grid"
+            }
+          ],
+          "default": "automatic",
+          "mode": "select",
+          "clearable": false
+        },
+        {
+          "name": "config.defaults.movement",
+          "type": "enum",
+          "label": "Movement",
+          "req": "recommended",
+          "terms": [
+            {
+              "id": "continuous",
+              "label": "Continuous"
+            },
+            {
+              "id": "once",
+              "label": "Freeze"
+            }
+          ],
+          "default": "once",
+          "mode": "select",
+          "clearable": false,
+          "showWhen": {
+            "config.defaults.layoutMode": [
+              "forceAtlas2",
+              "automatic",
+              "hierarchical-ud",
+              "hierarchical-lr"
+            ]
+          }
+        },
+        {
+          "name": "config.defaults.gravity",
+          "type": "enum",
+          "label": "Gravity",
+          "req": "recommended",
+          "terms": [
+            {
+              "id": "loose",
+              "label": "Loose"
+            },
+            {
+              "id": "normal",
+              "label": "Normal"
+            },
+            {
+              "id": "tight",
+              "label": "Tight"
+            }
+          ],
+          "default": "normal",
+          "mode": "select",
+          "clearable": false,
+          "showWhen": {
+            "config.defaults.layoutMode": [
+              "forceAtlas2",
+              "automatic"
+            ]
+          }
+        },
+        {
+          "name": "config.defaults.scaling",
+          "type": "boolean",
+          "label": "Scale node size by connections",
+          "req": "recommended",
+          "default": true,
+          "mode": "checkbox",
+          "clearable": false
+        },
+        {
+          "name": "config.defaults.showNodeLabels",
+          "type": "boolean",
+          "label": "Show node labels",
+          "req": "recommended",
+          "default": true,
+          "mode": "checkbox",
+          "clearable": false
+        },
+        {
+          "name": "config.defaults.showEdgeLabels",
+          "type": "boolean",
+          "label": "Show edge labels",
+          "req": "recommended",
+          "default": false,
+          "mode": "checkbox",
+          "clearable": false
+        },
+        {
+          "name": "config.defaults.labelLength",
+          "type": "integer",
+          "label": "Label length",
+          "req": "recommended",
+          "default": 40,
+          "minValue": 20,
+          "maxValue": 100,
+          "width": 6
+        },
+        {
+          "name": "config.defaults.popupDelay",
+          "type": "integer",
+          "label": "Popup delay (seconds)",
+          "req": "recommended",
+          "default": 1,
+          "minValue": 1,
+          "maxValue": 5,
+          "width": 6
+        },
+        {
+          "name": "config.defaults.popupTemplate",
+          "type": "enum",
+          "label": "Popup template",
+          "req": "recommended",
+          "terms": [
+            {
+              "id": "none",
+              "label": "None"
+            },
+            {
+              "id": "builtin",
+              "label": "Built-in"
+            }
+          ],
+          "default": null,
+          "mode": "select",
+          "termsSource": "smartyTemplates",
+          "emptyLabel": "Built-in (vis basic)"
+        },
+        {
+          "name": "config.defaults.emptyResultMessage",
+          "type": "blocktext",
+          "label": "Empty result message",
+          "req": "recommended",
+          "default": "No records",
+          "rows": 2
+        }
+      ]
+    },
+    {
+      "id": "interaction",
+      "label": "Interaction",
+      "children": [
+        {
+          "name": "options.interaction.editEnabled",
+          "type": "boolean",
+          "label": "Enable edit",
+          "req": "recommended",
+          "default": true,
+          "mode": "checkbox",
+          "clearable": false,
+          "help": "Edit of the records",
+          "forced": {
+            "publication": false
+          }
+        },
+        {
+          "name": "options.interaction.selectionEnabled",
+          "type": "boolean",
+          "label": "Enable selection",
+          "req": "recommended",
+          "default": true,
+          "mode": "checkbox",
+          "clearable": false,
+          "forced": {
+            "publication": false
+          }
+        },
+        {
+          "name": "options.interaction.popupEnabled",
+          "type": "boolean",
+          "label": "Enable popups",
+          "req": "recommended",
+          "default": true,
+          "mode": "checkbox",
+          "clearable": false
+        }
+      ]
+    }
+  ]
+}

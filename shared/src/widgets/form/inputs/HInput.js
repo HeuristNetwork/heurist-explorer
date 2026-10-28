@@ -110,8 +110,10 @@ export class HInput extends HBaseWidget {
       this.container.classList.add('has-value-tools');
       this.container.classList.toggle('is-multiline', this.options.multiline === true);
       this._renderValueTools(controlHost);
-    } else if (this.options.clearButton !== false) {
-      this._renderClearButton(header, controlHost);
+    } else {
+      if (this.options.clearButton !== false) this._renderClearButton(header, controlHost);
+      // the actions slot without value tools (a setting of a form, plan 29): the controls align
+      if (this.options.actionsSlot === true) this._renderActionsSlot(controlHost);
     }
     // a mark of the value set by renderControl (a translation's language code): in the actions
     // slot, so the control stays aligned with the others; without value tools before the control
@@ -336,11 +338,22 @@ export class HInput extends HBaseWidget {
       this.setValueHidden(this.options.valueHidden === true);
       this._syncClearButton();
     }
-    // Add a value / Translate in front of the control (2026-10-17)
+    this._renderActionsSlot(controlHost);
+    this.setRemovable(this.options.removable === true);
+  }
+
+  /**
+   * The actions slot in front of the control: Add a value / Translate (2026-10-17) and the
+   * value's mark; it keeps its width, so the controls of a form start at one position.
+   *
+   * @param {HTMLElement} controlHost The control row.
+   * @returns {void}
+   */
+  _renderActionsSlot(controlHost) {
     this.actionsHost = document.createElement('span');
     this.actionsHost.className = 'h-form-input-actions';
+    this.container.classList.add('has-actions-slot');
     controlHost.prepend(this.actionsHost);
-    this.setRemovable(this.options.removable === true);
   }
 
   /**

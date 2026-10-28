@@ -1,0 +1,475 @@
+{
+  "format": "heurist-edit-form/1",
+  "groups": [
+    {
+      "id": "interface",
+      "label": "Interface",
+      "simplified": {
+        "hidden": true
+      },
+      "children": [
+        {
+          "name": "options.ui.showSourceHeader",
+          "type": "boolean",
+          "label": "Show header",
+          "req": "recommended",
+          "default": false,
+          "mode": "checkbox",
+          "clearable": false,
+          "simplified": {
+            "value": true
+          }
+        },
+        {
+          "name": "options.ui.initiallyExpanded",
+          "type": "boolean",
+          "label": "Initially expanded",
+          "req": "recommended",
+          "default": false,
+          "mode": "checkbox",
+          "clearable": false
+        },
+        {
+          "name": "options.ui.showExpansion",
+          "type": "boolean",
+          "label": "Expansion rules",
+          "req": "recommended",
+          "default": true,
+          "mode": "checkbox",
+          "clearable": false,
+          "help": "Level selector of the expansion rules",
+          "simplified": {
+            "value": true
+          }
+        },
+        {
+          "name": "options.ui.showOptions",
+          "type": "boolean",
+          "req": "forbidden",
+          "default": true,
+          "forced": {
+            "website": false,
+            "publication": false
+          }
+        },
+        {
+          "name": "options.ui.showPublish",
+          "type": "boolean",
+          "req": "forbidden",
+          "default": true,
+          "forced": {
+            "website": false,
+            "publication": false
+          }
+        },
+        {
+          "name": "options.ui.showHelp",
+          "type": "boolean",
+          "req": "forbidden",
+          "default": true,
+          "forced": {
+            "website": false,
+            "publication": false
+          }
+        },
+        {
+          "name": "options.ui.language",
+          "type": "enum",
+          "label": "Language",
+          "req": "recommended",
+          "terms": [
+            {
+              "id": "auto",
+              "label": "Automatic"
+            },
+            {
+              "id": "eng",
+              "label": "English"
+            },
+            {
+              "id": "fre",
+              "label": "French"
+            },
+            {
+              "id": "ger",
+              "label": "German"
+            },
+            {
+              "id": "por",
+              "label": "Portuguese"
+            }
+          ],
+          "default": "auto",
+          "mode": "select",
+          "clearable": false,
+          "forced": {
+            "configuration": "auto",
+            "website": "auto"
+          },
+          "help": "Language of the published page; Automatic follows the browser of the visitor"
+        }
+      ]
+    },
+    {
+      "id": "native",
+      "label": "Native controls",
+      "inner": true,
+      "modes": [
+        "configuration",
+        "website"
+      ],
+      "children": [
+        {
+          "name": "options.nativeControls.pageSize",
+          "type": "boolean",
+          "label": "Page size",
+          "req": "recommended",
+          "default": true,
+          "mode": "checkbox",
+          "clearable": false,
+          "simplified": {
+            "value": false
+          }
+        },
+        {
+          "name": "options.nativeControls.search",
+          "type": "boolean",
+          "label": "Search in results",
+          "req": "recommended",
+          "default": false,
+          "mode": "checkbox",
+          "clearable": false,
+          "simplified": {
+            "value": false
+          }
+        },
+        {
+          "name": "options.nativeControls.counter",
+          "type": "boolean",
+          "label": "Counter",
+          "req": "recommended",
+          "default": true,
+          "mode": "checkbox",
+          "clearable": false,
+          "simplified": {
+            "value": true
+          }
+        },
+        {
+          "name": "options.nativeControls.export",
+          "type": "boolean",
+          "label": "Export (CSV, Excel, PDF)",
+          "req": "recommended",
+          "default": false,
+          "mode": "checkbox",
+          "clearable": false,
+          "help": "Anyone who sees the list can download it",
+          "simplified": {
+            "value": true
+          }
+        },
+        {
+          "name": "options.nativeControls.viewMode",
+          "type": "boolean",
+          "label": "View mode",
+          "req": "recommended",
+          "default": true,
+          "mode": "checkbox",
+          "clearable": false,
+          "simplified": {
+            "value": true
+          }
+        },
+        {
+          "name": "options.nativeControls.sort",
+          "type": "boolean",
+          "label": "Sort",
+          "req": "recommended",
+          "default": false,
+          "mode": "checkbox",
+          "clearable": false,
+          "simplified": {
+            "value": true
+          }
+        },
+        {
+          "name": "options.nativeControls.showOwner",
+          "type": "boolean",
+          "label": "See / hide owners",
+          "req": "recommended",
+          "default": true,
+          "mode": "checkbox",
+          "clearable": false,
+          "help": "Button that shows or hides the owner and access of the records",
+          "forced": {
+            "publication": false
+          },
+          "simplified": {
+            "value": true
+          }
+        },
+        {
+          "name": "options.nativeControls.selectionActions",
+          "type": "boolean",
+          "label": "Selection actions",
+          "req": "recommended",
+          "default": true,
+          "mode": "checkbox",
+          "clearable": false,
+          "forced": {
+            "publication": false
+          },
+          "simplified": {
+            "value": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "defaults",
+      "label": "Default settings",
+      "modes": [
+        "configuration",
+        "website"
+      ],
+      "children": [
+        {
+          "name": "config.defaults.viewMode",
+          "type": "enum",
+          "label": "View mode",
+          "req": "recommended",
+          "terms": [
+            {
+              "id": "list",
+              "label": "List"
+            },
+            {
+              "id": "card",
+              "label": "Cards"
+            },
+            {
+              "id": "row",
+              "label": "Row"
+            },
+            {
+              "id": "big",
+              "label": "Extended"
+            },
+            {
+              "id": "datatable",
+              "label": "Table"
+            }
+          ],
+          "default": "card",
+          "mode": "select",
+          "clearable": false
+        },
+        {
+          "name": "config.defaults.pageSize",
+          "type": "enum",
+          "label": "Page size",
+          "req": "recommended",
+          "terms": [
+            {
+              "id": 50,
+              "label": "50"
+            },
+            {
+              "id": 100,
+              "label": "100"
+            },
+            {
+              "id": 500,
+              "label": "500"
+            },
+            {
+              "id": 1000,
+              "label": "1000"
+            },
+            {
+              "id": 5000,
+              "label": "5000"
+            }
+          ],
+          "default": 100,
+          "mode": "select",
+          "clearable": false
+        },
+        {
+          "name": "config.defaults.fontSize",
+          "type": "integer",
+          "label": "Font size",
+          "req": "recommended",
+          "default": 14,
+          "minValue": 8,
+          "maxValue": 30,
+          "width": 6
+        },
+        {
+          "name": "config.defaults.emptyResultMessage",
+          "type": "blocktext",
+          "label": "Empty result message",
+          "req": "recommended",
+          "default": "No records",
+          "rows": 2
+        },
+        {
+          "name": "config.defaults.cardTemplate",
+          "type": "enum",
+          "label": "Card and row template",
+          "req": "recommended",
+          "terms": [],
+          "default": null,
+          "mode": "select",
+          "termsSource": "smartyTemplates",
+          "emptyLabel": "Built-in renderer",
+          "showWhen": {
+            "config.defaults.viewMode": [
+              "card",
+              "row"
+            ]
+          }
+        },
+        {
+          "name": "config.defaults.viewTemplate",
+          "type": "enum",
+          "label": "Extended view template",
+          "req": "recommended",
+          "terms": [
+            {
+              "id": "standard",
+              "label": "Standard (Legacy)"
+            }
+          ],
+          "default": null,
+          "mode": "select",
+          "termsSource": "smartyTemplates",
+          "emptyLabel": "Built-in",
+          "simplified": {
+            "value": null
+          }
+        },
+        {
+          "name": "config.defaults.popupTemplate",
+          "type": "enum",
+          "label": "Popup template",
+          "req": "recommended",
+          "terms": [
+            {
+              "id": "none",
+              "label": "None"
+            },
+            {
+              "id": "standard",
+              "label": "Standard (Legacy)"
+            }
+          ],
+          "default": null,
+          "mode": "select",
+          "termsSource": "smartyTemplates",
+          "emptyLabel": "Built-in",
+          "simplified": {
+            "value": null
+          }
+        },
+        {
+          "name": "config.defaults.engine",
+          "type": "enum",
+          "req": "forbidden",
+          "default": "recordlist",
+          "terms": [
+            "recordlist",
+            "datatables"
+          ]
+        },
+        {
+          "name": "config.defaults.colorScheme",
+          "type": "freetext",
+          "req": "forbidden",
+          "default": "default"
+        }
+      ]
+    },
+    {
+      "id": "interaction",
+      "label": "Interaction",
+      "simplified": {
+        "hidden": true
+      },
+      "children": [
+        {
+          "name": "options.interaction.editEnabled",
+          "type": "boolean",
+          "label": "Enable edit",
+          "req": "recommended",
+          "default": true,
+          "mode": "checkbox",
+          "clearable": false,
+          "help": "Edit icon of the records in the list",
+          "forced": {
+            "publication": false
+          },
+          "simplified": {
+            "value": true
+          }
+        },
+        {
+          "name": "options.interaction.selectionEnabled",
+          "type": "boolean",
+          "label": "Enable selection",
+          "req": "recommended",
+          "default": true,
+          "mode": "checkbox",
+          "clearable": false,
+          "forced": {
+            "publication": false
+          },
+          "simplified": {
+            "value": true
+          }
+        },
+        {
+          "name": "options.interaction.persistentSelectionEnabled",
+          "type": "boolean",
+          "label": "Collection / Persistent selection",
+          "req": "recommended",
+          "default": false,
+          "mode": "checkbox",
+          "clearable": false,
+          "help": "The selection is kept when the result changes",
+          "forced": {
+            "publication": false
+          },
+          "simplified": {
+            "value": true
+          }
+        },
+        {
+          "name": "options.interaction.popupEnabled",
+          "type": "boolean",
+          "label": "Enable popups",
+          "req": "recommended",
+          "default": true,
+          "mode": "checkbox",
+          "clearable": false,
+          "simplified": {
+            "value": true
+          }
+        },
+        {
+          "name": "options.interaction.adminInfoEnabled",
+          "type": "boolean",
+          "label": "Admin info",
+          "req": "recommended",
+          "default": false,
+          "mode": "checkbox",
+          "clearable": false,
+          "help": "Show the owner and access of the records in the list",
+          "forced": {
+            "publication": false
+          }
+        }
+      ]
+    }
+  ]
+}

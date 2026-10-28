@@ -14,9 +14,11 @@
  */
 export const HEURIST_DATA_OPTIONS_DEFAULTS = Object.freeze({
   ui: Object.freeze({
-    initiallyExpanded: true,
+    initiallyExpanded: false,
     showSourceHeader: false,
     showOptions: true,
+    showPublish: true,
+    showHelp: true,
     // Expansion button: level list of the DataSource's expansion rules (plan 09 §7)
     showExpansion: true,
     language: "auto",
@@ -27,10 +29,12 @@ export const HEURIST_DATA_OPTIONS_DEFAULTS = Object.freeze({
     counter: true,
     export: false,
     viewMode: true,
+    // Sort control and See / hide owners button of the toolbar (plan 29)
+    sort: false,
+    showOwner: true,
     selectionActions: true,
   }),
   interaction: Object.freeze({
-    readonly: false,
     editEnabled: true,
     selectionEnabled: true,
     persistentSelectionEnabled: false,

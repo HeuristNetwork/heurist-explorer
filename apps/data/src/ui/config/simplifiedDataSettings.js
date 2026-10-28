@@ -34,12 +34,12 @@ export function applySimplifiedDataSettings(settings, { adminInfoSaved = false }
   value.options.ui = { ...(value.options.ui || {}), showSourceHeader: true, showOptions: true, showExpansion: true };
   value.options.nativeControls = {
     ...(value.options.nativeControls || {}),
-    pageSize: false, search: false, counter: true, export: true, viewMode: true, selectionActions: true
+    pageSize: false, search: false, counter: true, export: true, viewMode: true, sort: true, showOwner: true,
+    selectionActions: true
   };
   const interaction = value.options.interaction || {};
   value.options.interaction = {
     ...interaction,
-    readonly: false,
     editEnabled: true,
     selectionEnabled: true,
     persistentSelectionEnabled: true,

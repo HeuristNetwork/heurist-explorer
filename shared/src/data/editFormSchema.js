@@ -4,10 +4,11 @@
  *        `showWhen` conditions, and values in and out of the form.
  *
  *   {format: 'heurist-edit-form/1', localized, groups: [{id, type: 'tabs'|'accordion'|'group',
- *    label, help, showWhen, slot, columns, inner, newTabs, open, explanation, children: [field]}]}
+ *    label, help, showWhen, slot, columns, inner, newTabs, open, explanation, req, modes, simplified,
+ *    children: [field]}]}
  *   field: {name, type, label, help, req, max, default, terms, vocabulary, mode, minValue, maxValue,
  *           step, maxLength, pattern, patternMessage, rows, width, targetTypes, geoKind, multilang,
- *           readOnly, clearable, showWhen, special, dty?}
+ *           readOnly, clearable, showWhen, special, modes, forced, simplified, termsSource, emptyLabel, dty?}
  *
  * `max` is the number of values (1 default, 0 any); `minValue` / `maxValue` limit a number.
  * `width` is a number of characters (as rst_DisplayWidth) or a CSS length ("400px",
@@ -19,6 +20,17 @@
  * `newTabs` starts another one. `open`: an accordion is open (default: the first
  * outer accordion of the form). `explanation`: the heading and help are a text
  * of their own (the legacy explanation separator).
+ *
+ * Rules of the module configuration forms (plan 29 §9), by the form options `mode`,
+ * `showOptional` and `simplified` (ruleHides, forcedValue):
+ * - `req: 'optional'` (field or group) is shown only with `showOptional` (the Advanced switch);
+ *   `req: 'forbidden'` is never shown, its value is kept in the values.
+ * - `modes: ['configuration', 'website', 'publication']`: the modes the item is shown in.
+ * - `forced: {mode: value}`: in that mode the field is not shown and has this value.
+ * - `simplified: {hidden: true, value}`: the simplified interface hides the item, or
+ *   gives the field this value (and hides it).
+ * - `termsSource`: the name of a list of terms loaded by the owner before the form is
+ *   made (resolveTermsSources); the `terms` of the JSON come first.
  *
  * The record edit structure (recordEditStructure.js) is the same JSON with `dty`
  * instead of `name`: a field without a name gets `String(dty)`.
@@ -57,7 +69,7 @@ export const EDIT_FIELD_TYPES = Object.freeze([
 
 const KNOWN_TYPES = new Set(EDIT_FIELD_TYPES);
 const GROUP_TYPES = new Set(['tabs', 'accordion', 'group']);
-const REQUIREMENTS = new Set(['required', 'recommended', 'optional']);
+const REQUIREMENTS = new Set(['required', 'recommended', 'optional', 'forbidden']);
 const NUMERIC_TYPES = new Set(['integer', 'float', 'year']);
 
 /**
@@ -101,6 +113,9 @@ export function normalizeEditForm(json) {
       newTabs: type === 'tabs' && !inner && group?.newTabs === true,
       open: typeof group?.open === 'boolean' ? group.open : null,
       explanation: group?.explanation === true,
+      req: group?.req === 'optional' ? 'optional' : null,
+      modes: modesOf(group?.modes),
+      simplified: simplifiedOf(group?.simplified),
       children,
       ...(group?.nonStandard ? { nonStandard: true } : {})
     };
@@ -168,8 +183,82 @@ function normalizeField(item, warnings, where) {
     // false: no clear button (a setting that always has a value; single value fields only)
     clearable: item.clearable !== false,
     showWhen: conditionOf(item.showWhen),
-    special: item.special ?? null
+    special: item.special ?? null,
+    modes: modesOf(item.modes),
+    forced: item.forced && typeof item.forced === 'object' && !Array.isArray(item.forced) ? { ...item.forced } : null,
+    simplified: simplifiedOf(item.simplified),
+    termsSource: item.termsSource ? String(item.termsSource) : null
   };
+}
+
+/** @returns {string[]|null} The modes of an item (null: all modes). */
+function modesOf(value) {
+  return Array.isArray(value) && value.length ? value.map(String) : null;
+}
+
+/** @returns {{hidden: boolean, value?: *}|null} The simplified interface rule of an item. */
+function simplifiedOf(value) {
+  if (!value || typeof value !== 'object') return null;
+  return { hidden: value.hidden === true || 'value' in value, ...('value' in value ? { value: value.value } : {}) };
+}
+
+/**
+ * Whether the form rules hide a field or a group (plan 29 §9): `req` forbidden, or optional
+ * without `showOptional`; not in `modes`; a `forced` value in the mode; the simplified
+ * interface. `showWhen` and code are apart (HEditForm).
+ *
+ * @param {object} item Normalised field or group.
+ * @param {{mode?: string|null, showOptional?: boolean, simplified?: boolean}} context Form options.
+ * @returns {boolean}
+ */
+export function ruleHides(item, context = {}) {
+  if (!item) return false;
+  if (item.req === 'forbidden') return true;
+  if (item.req === 'optional' && context.showOptional === false) return true;
+  if (context.mode && item.modes && !item.modes.includes(context.mode)) return true;
+  if (context.mode && item.forced && Object.prototype.hasOwnProperty.call(item.forced, context.mode)) return true;
+  return context.simplified === true && item.simplified?.hidden === true;
+}
+
+/**
+ * The value a field has whatever the form shows: the simplified interface value, or
+ * the `forced` value of the mode.
+ *
+ * @param {object} field Normalised field.
+ * @param {{mode?: string|null, simplified?: boolean}} context Form options.
+ * @returns {{value: *}|null} The value, or null when the field is not forced.
+ */
+export function forcedValue(field, context = {}) {
+  if (context.simplified === true && field?.simplified && 'value' in field.simplified) return { value: field.simplified.value };
+  if (context.mode && field?.forced && Object.prototype.hasOwnProperty.call(field.forced, context.mode)) {
+    return { value: field.forced[context.mode] };
+  }
+  return null;
+}
+
+/**
+ * Fill the `termsSource` lists of a form JSON: the terms of each source are added after
+ * the field's own terms. Sources without a provider, or failing, leave the field as it is.
+ *
+ * @param {object} json Form JSON (not changed).
+ * @param {Object<string, (field: object) => Promise<Array<{id: *, label: string}>>>} providers By source name.
+ * @returns {Promise<object>} A copy of the JSON with the terms.
+ */
+export async function resolveTermsSources(json, providers = {}) {
+  const copy = JSON.parse(JSON.stringify(json || {}));
+  const cache = new Map();
+  for (const group of Array.isArray(copy.groups) ? copy.groups : []) {
+    for (const field of Array.isArray(group?.children) ? group.children : []) {
+      const source = field?.termsSource;
+      if (!source || typeof providers[source] !== 'function') continue;
+      if (!cache.has(source)) cache.set(source, Promise.resolve().then(() => providers[source](field)).catch(() => []));
+      const loaded = await cache.get(source);
+      const own = Array.isArray(field.terms) ? field.terms : [];
+      const ids = new Set(own.map((term) => String(term && typeof term === 'object' ? term.id : term)));
+      field.terms = [...own, ...(Array.isArray(loaded) ? loaded : []).filter((term) => !ids.has(String(term?.id)))];
+    }
+  }
+  return copy;
 }
 
 /** CSS lengths accepted as a field width. */

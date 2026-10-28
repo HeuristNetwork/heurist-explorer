@@ -1,0 +1,24 @@
+/* Common module configuration dialog (plan 29) */
+
+.h-module-config-dialog {
+  width: min(560px, 96vw);
+}
+
+.h-module-config {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 70vh;
+  overflow: auto;
+}
+
+.h-module-config-advanced {
+  align-self: flex-end;
+  gap: 4px;
+  font-size: var(--h-font-size);
+}
+
+/* Reset at the left of the footer, the mode's buttons at the right */
+.h-module-config-dialog .h-module-config-reset {
+  margin-right: auto;
+}

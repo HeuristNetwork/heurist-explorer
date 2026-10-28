@@ -139,7 +139,8 @@ export function applyPersistedSettings(config, rawSettings) {
 
   return {
     ...config,
-    readonly: config.readonly === true || settings.options.interaction.readonly === true,
+    // no editing: the host's runtime flag, or editing switched off (plan 29)
+    readonly: config.readonly === true || settings.options.interaction.editEnabled === false,
 
     persistedSettings: settings,
 

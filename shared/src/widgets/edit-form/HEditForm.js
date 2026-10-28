@@ -23,6 +23,11 @@
  * when a field needs them), and getFieldWidget gives null. Event
  * `h-edit-form-group-rendered` {form, group} after the widgets of a group are made.
  *
+ * Module configuration forms (plan 29 §9): `mode`, `showOptional` (the Advanced switch)
+ * and `simplified` apply the `req`, `modes`, `forced` and `simplified` rules of the JSON;
+ * `keepHidden` keeps the values of the fields not shown in getValues (a settings object
+ * stays complete), and forced values are always written.
+ *
  * @project     Heurist academic knowledge management system
  * @package     heurist-client-core
  *
@@ -38,7 +43,8 @@ import { HBaseWidget } from '../HBaseWidget.js';
 import { HEditField } from './HEditField.js';
 import { applyFormLayout, FORM_GROUP_CLASS } from '../form/formLayout.js';
 import {
-  flatValues, formFields, formStates, formValues, isVisible, normalizeEditForm, stateToValue, valueToState
+  flatValues, forcedValue, formFields, formStates, formValues, getPath, isListField, isVisible, normalizeEditForm, ruleHides, setPath,
+  stateToValue, valueToState
 } from '../../data/editFormSchema.js';
 import { $HR } from '../../ui/i18n/HResource.js';
 import { hasScriptOrStyle } from '../../data/storedTextPolicy.js';
@@ -80,6 +86,12 @@ export class HEditForm extends HBaseWidget {
    * @param {Function} [options.browseRecords] Browse of pointer fields (record manager, plan 21): `(options) → Promise<number[]|null>`.
    * @param {Function} [options.addRecord] Add of pointer fields (plan 21): `(rectypeId) → Promise<{saved, recordId}>`.
    * @param {object} [options.relationships] Relmarker fields (plan 22): the record editor's service, see HInputRelmarker.
+   * @param {string|null} [options.mode] Mode of a module configuration form ('configuration', 'website', 'publication').
+   * @param {boolean} [options.showOptional=true] Optional fields and groups shown (the Advanced switch).
+   * @param {boolean} [options.simplified=false] The simplified interface rules (`simplified` of the JSON).
+   * @param {boolean} [options.keepHidden=false] getValues also gives the fields not shown.
+   * @param {boolean} [options.inlineCheckboxes=false] Consecutive single-value checkbox fields (boolean,
+   *        `mode: 'checkbox'`) in one row, each with its label after it (plan 29).
    * @param {boolean} [options.lazyGroups=false] Widgets of a group only when it is first shown (plan 23).
    * @param {number} [options.valueLimit] Inputs made at once for a repeatable field (HEditField, plan 23).
    * @param {(form: HEditForm) => void} [options.onReady] After render (same as `h-edit-form-ready`).
@@ -139,7 +151,18 @@ export class HEditForm extends HBaseWidget {
    */
   getValues() {
     const shown = this._shownChecker();
-    return formValues(this.form, this.getStates(), (field) => shown(field));
+    const keep = this.options.keepHidden === true;
+    // a forbidden field (no UI) keeps its value
+    const values = formValues(this.form, this.getStates(), (field) => keep || field.req === 'forbidden' || shown(field));
+    const context = this._ruleContext();
+    for (const field of formFields(this.form)) {
+      // no UI: the given value as it is (lists and objects are not made into inputs and back)
+      const raw = field.req === 'forbidden' && this.options.values ? getPath(this.options.values, field.name) : undefined;
+      if (raw !== undefined) setPath(values, field.name, raw === null ? null : JSON.parse(JSON.stringify(raw)));
+      const forced = forcedValue(field, context);
+      if (forced) setPath(values, field.name, forced.value);
+    }
+    return values;
   }
 
   /** @returns {Map<string, {values: Array<object>, translations: Array<object>}>} State of every field by name. */
@@ -347,6 +370,43 @@ export class HEditForm extends HBaseWidget {
   setViewFilter(names) {
     this._viewNames = names ? new Set([...names].map(String)) : null;
     this._applyVisibility();
+  }
+
+  /**
+   * Show or hide the optional fields and groups (the Advanced switch of a configuration form).
+   *
+   * @param {boolean} shown Shown.
+   * @returns {void}
+   */
+  setShowOptional(shown) {
+    this.options.showOptional = shown === true;
+    this._applyVisibility();
+  }
+
+  /** @returns {{mode: string|null, showOptional: boolean, simplified: boolean}} The options of the JSON rules (ruleHides). */
+  _ruleContext() {
+    return {
+      mode: this.options.mode || null,
+      showOptional: this.options.showOptional !== false,
+      simplified: this.options.simplified === true
+    };
+  }
+
+  /**
+   * Whether the JSON rules hide a group: its own rules, or every field in it (and in its
+   * inner groups) is hidden by the rules.
+   *
+   * @param {object} group Normalised group.
+   * @param {object} context Rule context.
+   * @returns {boolean}
+   */
+  _ruleHidesGroup(group, context) {
+    if (ruleHides(group, context)) return true;
+    const members = [group, ...this.form.groups.filter((inner) => this._parentOf?.get(inner.id) === group.id)];
+    const fields = members.flatMap((member) => (ruleHides(member, context) ? [] : member.children));
+    const hasContent = members.some((member) => member.slot && !ruleHides(member, context));
+    if (hasContent) return false;
+    return members.some((member) => member.children.length) && fields.every((field) => ruleHides(field, context));
   }
 
   /**
@@ -565,9 +625,20 @@ export class HEditForm extends HBaseWidget {
 
   /** The widgets of the fields of one group, into its host. */
   _fillGroupFields(host, group, states) {
+    let checkboxRow = null;
     for (const field of group.children) {
       const fieldHost = document.createElement('div');
-      host.append(fieldHost);
+      // consecutive checkboxes in one row (option inlineCheckboxes)
+      const inline = this.options.inlineCheckboxes === true && field.type === 'boolean' && field.mode === 'checkbox'
+        && !isListField(field);
+      if (inline && !checkboxRow) {
+        checkboxRow = document.createElement('div');
+        checkboxRow.className = 'h-edit-form-checkbox-row';
+        host.append(checkboxRow);
+      } else if (!inline) {
+        checkboxRow = null;
+      }
+      (inline ? checkboxRow : host).append(fieldHost);
       const widget = new HEditField().attach(fieldHost, {
         field: this._displayField(field),
         state: states.get(field.name) || states.get(field.dty) || valueToState(field, null),
@@ -596,7 +667,18 @@ export class HEditForm extends HBaseWidget {
       }).render();
       this.fields.set(field.name, widget);
       if (widget.options.special?.hidden === true) this._managedFields.add(field.name);
+      if (inline) this._inlineCheckbox(widget);
     }
+  }
+
+  /** A checkbox in a row: its label toggles it, its help is a tooltip. */
+  _inlineCheckbox(widget) {
+    const container = widget.container;
+    container?.classList.add('is-inline-checkbox');
+    const checkbox = container?.querySelector?.('.h-input-boolean');
+    const label = container?.querySelector?.('.h-edit-field-label');
+    if (checkbox?.id && label) label.htmlFor = checkbox.id;
+    if (widget.field?.help && container) container.title = widget.field.help;
   }
 
   // ------------------------------------------------------------ lazy groups ---
@@ -676,6 +758,7 @@ export class HEditForm extends HBaseWidget {
       label: this._text(field.label),
       help: this._text(field.help),
       patternMessage: this._text(field.patternMessage),
+      ...(field.emptyLabel ? { emptyLabel: this._text(field.emptyLabel) } : {}),
       terms: Array.isArray(field.terms) ? field.terms.map((term) => ({ ...term, label: this._text(term.label) })) : field.terms
     };
   }
@@ -757,11 +840,13 @@ export class HEditForm extends HBaseWidget {
       byId.set(group.id, group);
       for (const field of group.children) groupOf.set(field.name, group);
     }
-    const hidden = (group) => Boolean(group) && (this._hiddenGroups.has(group.id) || !isVisible(group.showWhen, flat));
+    const context = this._ruleContext();
+    const hidden = (group) => Boolean(group)
+      && (this._hiddenGroups.has(group.id) || !isVisible(group.showWhen, flat) || ruleHides(group, context));
     return (field) => {
       const group = groupOf.get(field.name);
       if (hidden(group) || hidden(byId.get(this._parentOf?.get(group?.id)))) return false;
-      return !this._hiddenFields.has(field.name) && isVisible(field.showWhen, flat);
+      return !this._hiddenFields.has(field.name) && isVisible(field.showWhen, flat) && !ruleHides(field, context);
     };
   }
 
@@ -772,17 +857,18 @@ export class HEditForm extends HBaseWidget {
     // the view filter (setViewFilter): fields not in it, and groups without a field in it
     const view = this._viewNames || null;
     const outOfView = view ? this._groupsOutOfView(view) : null;
+    const context = this._ruleContext();
     for (const field of formFields(this.form)) {
       const widget = this.fields.get(field.name);
       if (widget?.container) {
         widget.container.hidden = this._managedFields.has(field.name) || this._hiddenFields.has(field.name)
-          || !isVisible(field.showWhen, flat) || Boolean(view && !view.has(field.name));
+          || !isVisible(field.showWhen, flat) || Boolean(view && !view.has(field.name)) || ruleHides(field, context);
       }
     }
     const runs = new Set();
     for (const entry of this._groups.values()) {
       const hidden = this._hiddenGroups.has(entry.group.id) || !isVisible(entry.group.showWhen, flat)
-        || Boolean(outOfView?.has(entry.group.id));
+        || Boolean(outOfView?.has(entry.group.id)) || this._ruleHidesGroup(entry.group, context);
       if (entry.tab) {
         entry.tab.hidden = hidden;
         entry.hidden = hidden;

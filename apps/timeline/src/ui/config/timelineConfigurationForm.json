@@ -1,0 +1,221 @@
+{
+  "format": "heurist-edit-form/1",
+  "groups": [
+    {
+      "id": "interface",
+      "label": "Interface",
+      "children": [
+        {
+          "name": "options.ui.showSourceHeader",
+          "type": "boolean",
+          "label": "Show header",
+          "req": "recommended",
+          "default": false,
+          "mode": "checkbox",
+          "clearable": false
+        },
+        {
+          "name": "options.ui.initiallyExpanded",
+          "type": "boolean",
+          "label": "Expand control panel initially",
+          "req": "recommended",
+          "default": false,
+          "mode": "checkbox",
+          "clearable": false,
+          "simplified": {
+            "value": false
+          }
+        },
+        {
+          "name": "options.ui.showOptions",
+          "type": "boolean",
+          "req": "forbidden",
+          "default": true,
+          "forced": {
+            "website": false,
+            "publication": false
+          }
+        },
+        {
+          "name": "options.ui.showPublish",
+          "type": "boolean",
+          "req": "forbidden",
+          "default": true,
+          "forced": {
+            "website": false,
+            "publication": false
+          }
+        },
+        {
+          "name": "options.ui.showHelp",
+          "type": "boolean",
+          "req": "forbidden",
+          "default": true,
+          "forced": {
+            "website": false,
+            "publication": false
+          }
+        },
+        {
+          "name": "options.ui.language",
+          "type": "enum",
+          "label": "Language",
+          "req": "recommended",
+          "terms": [
+            {
+              "id": "auto",
+              "label": "Automatic"
+            },
+            {
+              "id": "eng",
+              "label": "English"
+            },
+            {
+              "id": "fre",
+              "label": "French"
+            },
+            {
+              "id": "ger",
+              "label": "German"
+            },
+            {
+              "id": "por",
+              "label": "Portuguese"
+            }
+          ],
+          "default": "auto",
+          "mode": "select",
+          "clearable": false,
+          "forced": {
+            "configuration": "auto",
+            "website": "auto"
+          },
+          "help": "Language of the published page; Automatic follows the browser of the visitor"
+        }
+      ]
+    },
+    {
+      "id": "defaults",
+      "label": "Default settings",
+      "children": [
+        {
+          "name": "options.timeline.labelMode",
+          "type": "enum",
+          "label": "Labels",
+          "req": "recommended",
+          "terms": [
+            {
+              "id": "full",
+              "label": "Full"
+            },
+            {
+              "id": "truncate",
+              "label": "Truncate"
+            },
+            {
+              "id": "hidden",
+              "label": "Hidden"
+            }
+          ],
+          "default": "full",
+          "mode": "select",
+          "clearable": false
+        },
+        {
+          "name": "options.timeline.labelPosition",
+          "type": "enum",
+          "label": "Label position",
+          "req": "recommended",
+          "terms": [
+            {
+              "id": "bar",
+              "label": "Within bar"
+            },
+            {
+              "id": "above",
+              "label": "Above"
+            }
+          ],
+          "default": "bar",
+          "mode": "select",
+          "clearable": false
+        },
+        {
+          "name": "options.timeline.orientation",
+          "type": "enum",
+          "label": "Time axis",
+          "req": "recommended",
+          "terms": [
+            {
+              "id": "both",
+              "label": "Top and bottom"
+            },
+            {
+              "id": "top",
+              "label": "Top"
+            },
+            {
+              "id": "bottom",
+              "label": "Bottom"
+            }
+          ],
+          "default": "both",
+          "mode": "select",
+          "clearable": false
+        },
+        {
+          "name": "options.timeline.stack",
+          "type": "boolean",
+          "label": "Stack overlapping items",
+          "req": "recommended",
+          "default": true,
+          "mode": "checkbox",
+          "clearable": false
+        },
+        {
+          "name": "options.timeline.showToolbar",
+          "type": "boolean",
+          "req": "forbidden",
+          "default": true
+        },
+        {
+          "name": "options.timeline.zoomMax",
+          "type": "float",
+          "req": "forbidden",
+          "default": 15768000000000000
+        },
+        {
+          "name": "options.mapDocuments.allowed",
+          "type": "json",
+          "req": "forbidden",
+          "default": null
+        },
+        {
+          "name": "options.mapDocuments.initiallyActive",
+          "type": "freetext",
+          "req": "forbidden",
+          "default": "dynamic"
+        }
+      ]
+    },
+    {
+      "id": "interaction",
+      "label": "Interaction",
+      "children": [
+        {
+          "name": "options.interaction.editEnabled",
+          "type": "boolean",
+          "label": "Enable edit",
+          "req": "recommended",
+          "default": true,
+          "mode": "checkbox",
+          "clearable": false,
+          "help": "Edit of map documents and layers",
+          "forced": {
+            "publication": false
+          }
+        }
+      ]
+    }
+  ]
+}

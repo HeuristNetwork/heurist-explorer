@@ -19,7 +19,7 @@ export const HEURIST_MAP_OPTIONS_DEFAULTS = Object.freeze({
     enabled: true,
     placement: 'overlay',
     position: 'top-right',
-    initiallyExpanded: true,
+    initiallyExpanded: false,
     showCurrentDocument: true,
     showMapDocuments: true,
     showLayers: true,
@@ -28,6 +28,8 @@ export const HEURIST_MAP_OPTIONS_DEFAULTS = Object.freeze({
     showHomeControl: false,
     showOptions: true,
     showPublish: true,
+    showHelp: true,
+    language: 'auto',
     showSourceHeader: false,
     controlCss: null
   }),
@@ -48,7 +50,7 @@ export const HEURIST_MAP_OPTIONS_DEFAULTS = Object.freeze({
     initial: null
   }),
   interaction: Object.freeze({
-    readonly: false,
+    editEnabled: true,
     selectionEnabled: true,
     popupEnabled: true,
     zoomOnSelection: false

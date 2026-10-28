@@ -152,3 +152,36 @@
 .h-edit-form.is-field-help-hidden .h-edit-field > .h-edit-field-help {
   display: none;
 }
+
+/* consecutive checkboxes in one row (option inlineCheckboxes, plan 29): checkbox, then its label */
+.h-edit-form-checkbox-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  column-gap: 16px;
+  flex: 1 1 100%;
+}
+
+.h-edit-form-checkbox-row > .h-edit-field.is-inline-checkbox {
+  display: flex;
+  flex-direction: row-reverse;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 4px;
+  flex: 0 0 auto;
+  min-width: 0;
+  padding: 2px 0;
+}
+
+.h-edit-form-checkbox-row > .h-edit-field.is-inline-checkbox > .h-form-layout-label {
+  padding-top: 0;
+}
+
+.h-edit-form-checkbox-row > .h-edit-field.is-inline-checkbox .h-edit-field-label {
+  cursor: pointer;
+}
+
+/* the help of a checkbox in a row is its tooltip */
+.h-edit-form-checkbox-row > .h-edit-field.is-inline-checkbox > .h-edit-field-help {
+  display: none;
+}

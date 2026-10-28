@@ -13,6 +13,9 @@ const appNames = ["explorer", "data", "graph", "map", "timeline", "recordview", 
 // Website manager through apps/website's direct entry (plan 27b).
 const directEntryApps = ["data", "recordview", "reports", "map", "timeline", "graph", "explorer", "website"];
 const directEntryHosts = ["explorer", "website"];
+// The configuration entry (plan 29): the form JSON, defaults and normalizer of a
+// presentation module, without the module itself (configuration dialogs and the test popup).
+const configurationEntryApps = ["data", "recordview", "map", "timeline", "graph"];
 
 test("applications do not import sibling applications", async () => {
   for (const appName of appNames) {
@@ -26,14 +29,24 @@ test("applications do not import sibling applications", async () => {
           target.startsWith(path.join(appsRoot, name, path.sep))
         );
         if (!sibling || sibling === appName) continue;
-        const allowedDirectEntry = directEntryHosts.includes(appName) && directEntryApps.includes(sibling)
-          && target === path.join(appsRoot, sibling, "src", "direct.js");
+        const allowedDirectEntry = directEntryHosts.includes(appName) && (
+          (directEntryApps.includes(sibling) && target === path.join(appsRoot, sibling, "src", "direct.js"))
+          || (configurationEntryApps.includes(sibling) && target === path.join(appsRoot, sibling, "src", "configuration.js")));
         assert.equal(
           allowedDirectEntry,
           true,
           `${path.relative(process.cwd(), filename)} imports apps/${sibling} outside its public direct entry`,
         );
       }
+    }
+  }
+});
+
+test("configuration entries import only the module's configuration files", async () => {
+  for (const appName of configurationEntryApps) {
+    const filename = path.join(appsRoot, appName, "src", "configuration.js");
+    for (const specifier of importSpecifiers(await readFile(filename, "utf8"))) {
+      assert.match(specifier, /^\.\/ui\/config\//, `${path.relative(process.cwd(), filename)} imports ${specifier}`);
     }
   }
 });
