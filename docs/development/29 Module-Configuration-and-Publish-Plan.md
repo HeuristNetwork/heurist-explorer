@@ -1,4 +1,6 @@
-# Plan 29 — Module configuration and Publish dialogs
+**Status 2026-10-28: Phase 2 committed. Phase 3 in progress: Timeline done (§17), not committed, not checked in a
+browser.** The tables (§4–§8) were agreed by Artem on 2026-10-28, together with the proposals of §3 (advanced =
+`req: 'optional'`, no UI = `req: 'forbidden'`), §9 and §12. Phase 2 notes: §16. Next: Record view.# Plan 29 — Module configuration and Publish dialogs
 
 **Status 2026-10-28: Phase 1 agreed; Phase 2 implemented, not committed, not yet checked in a browser.**
 The tables (§4–§8) were agreed by Artem on 2026-10-28, together with the proposals of §3 (advanced = `req: 'optional'`,
@@ -594,3 +596,70 @@ All 1471 JS tests pass and all builds succeed. Nothing is checked in a browser y
 
 **For Phase 3:** the form captions must be added to each module's localization files. So far only the
 Explorer strings of the test popup and the dialog are added.
+
+## 17. Phase 3 as implemented
+
+### Timeline (2026-10-28)
+
+- `TimelineConfigurationDialog.js` is removed, together with its discard test.
+- The Options icon, the toolbar gear and the Publish icon all open `ModuleConfigurationDialog` with
+  `timelineConfigurationForm.json`, through `HeuristTimelinePublicApi.openConfigurationDialog({mode})`.
+  `openPreferencesDialog` and `openPublishDialog` stay as short forms.
+- New API methods, the first part of §12:
+  - `getConfiguration()`: the `heurist-timeline-settings` envelope.
+  - `setConfiguration(settings)`: normalizes, applies to the engine, rebuilds the control panel
+    (icons, Enable edit) and sends `{options, config}` to the host bridge (`updateSettings`).
+- `publish(settings)` was rewritten to take the envelope, and then removed the same day: Explorer
+  publishes (see *Form in Explorer's window* below). `publicationSettings()` keeps the page rules
+  (language, active document, no editing).
+- `applyOptions()` (toolbar label button) also sends the full envelope.
+- `DocumentControlPanel` (Map and Timeline) hides its Help icon when `ui.showHelp` is false.
+- Publication goes through `PublishPageDialog` after the form (New page | Update the page in the form is
+  Phase 4). If that dialog is cancelled, the form stays open.
+- Timeline localization: the form captions and dialog texts are added (eng, fre).
+- Bundle: the dialog is a lazy chunk of 221 kB (63 kB gzip), because HEditForm and the inputs come with
+  it. It loads only when the dialog is opened.
+- Tests: `apps/timeline/test/configurationUi.test.js` covers `getConfiguration`, `setConfiguration` and
+  `publish`.
+
+**Form in Explorer's window** (Artem, 2026-10-28):
+- In Explorer the configuration and publication forms open in Explorer's window, not in the module's
+  iframe.
+  - New host action and bridge method `openConfiguration({mode, title, value, simplified})`.
+  - `IframeModuleAdapter` adds `moduleType` (the adapter's own type).
+  - `ExplorerApplication.openModuleConfiguration` loads `apps/explorer/src/modules/moduleConfigurations.js`,
+    which holds the loaders of the modules' `configuration.js` entries (also used by the test popup) and
+    the Smarty template list of Explorer's database.
+  - It returns the normalized settings. The module applies them (`setConfiguration`) or publishes them.
+- Without the bridge method, the module opens the form in its own window.
+- The Timeline form texts are now in Explorer's localization files too. Each module that moves to the
+  new form needs its texts there.
+- **Publication is done by Explorer** (Artem, 2026-10-28).
+  - With `mode: 'publication'` the module sends `value` and `state`. `value` is its settings prepared
+    for a page (`publicationSettings()`: active document, `editEnabled: false`, the language of now).
+  - Explorer's form writes the page itself (`publishModulePage`; the page title / update dialog, now in
+    Explorer's window) and shows `PublishedDialog` with the *Website manager* button.
+  - The module does not publish any more. Timeline's `publish()` is removed.
+  - Without Explorer a module cannot be published: Timeline's Publish icon follows
+    `bridge.openConfiguration` (`mapPublishing`).
+  - **Publish to** (Artem, 2026-10-28; this is the part of Phase 4 that the page dialog did):
+    - Explorer adds a group *Publish to* (`modes: ['publication']`) to the module's form:
+      - `publish.target` (radio *New page* | *Update the page*);
+      - `publish.pageId` (select of the module's pages, showWhen update; default the page published
+        last, from localStorage);
+      - `publish.title` (required; it follows the chosen page, or the default *<Module> – <date>* of a new
+        page).
+    - Without a page of this module only the title is shown.
+    - The `publish.*` values are read from the form on *Publish*. They are not settings.
+    - `publishModuleTo()` (`shared/src/site/modulePublisher.js`) publishes without the page dialog.
+      `PublishPageDialog` stays only for the Website manager's *Publish this view*.
+    - Server, heurist repo: `GET /api/{db}/website/pages?module=<type>` → `{pages: [{id, title, url,
+      modified}]}`.
+      - The editable v4 standalone pages with an instance of the module, newest first.
+      - Code: `WebsiteEditService::pages`, `WebsiteRepository::standalonePages` (through
+        `RecordRepository::idsByValue` and the visible records), `WebsiteController` route `pages`.
+      - `tests/WebsiteEditTest.php` has 5 more checks (48 pass).
+    - In publication mode *Cancel* always asks "Cancel publish?" Yes | No, never "Discard changes?".
+    - Phase 4 still has the module-specific publication options (Preserve current state, Show only
+      active document).
+- Described in `docs/integration.md` → *Module configuration forms*.

@@ -171,8 +171,27 @@ export class ModuleConfigurationDialog {
     });
   }
 
-  /** Close; unsaved changes are confirmed first. */
+  /** Close; unsaved changes are confirmed first (publication: "Cancel publish?" always). */
   cancel() {
+    if (this.mode === 'publication') {
+      const confirmId = `${this.dialogId}-confirm`;
+      HMsg.showMsgDlg($HR('Cancel publish?'), {
+        dialogId: confirmId,
+        title: $HR('Confirm'),
+        buttons: [
+          {
+            label: $HR('Yes'),
+            class: 'h-btn h-btn-primary',
+            onClick: () => {
+              HMsg.closeMsgDlg(confirmId);
+              void this._finish?.(null);
+            }
+          },
+          { label: $HR('No'), class: 'h-btn', onClick: () => HMsg.closeMsgDlg(confirmId) }
+        ]
+      });
+      return;
+    }
     // a Reset makes the form again: it counts as a change
     if (!this._wasReset && !this.form?.isDirty()) {
       void this._finish?.(null);

@@ -13,6 +13,11 @@
  * @since       8.0
  */
 
+import {
+  normalizeTimelineConfigurationSettings,
+  serializeTimelineConfigurationSettings,
+} from '../ui/config/timelineConfigurationSchema.js';
+
 /**
  * Public API facade that exposes timeline operations to callers and host applications.
  */
@@ -37,7 +42,8 @@ export class HeuristTimelinePublicApi {
   }
   getHostCapabilities() {
     const host = this.application.host;
-    return { mapPreferences: true, mapPublishing: Boolean(host.baseUrl && host.database),
+    // a timeline is published from Explorer only: its form writes the page (plan 29)
+    return { mapPreferences: true, mapPublishing: typeof host?.bridge?.openConfiguration === 'function',
       showDatasource: typeof host.bridge?.showDatasource === 'function',
       explorerWorkspace: typeof host.bridge?.addDataSourceToWorkspace === 'function' };
   }
@@ -47,32 +53,121 @@ export class HeuristTimelinePublicApi {
   removeLayerFromWorkspace(id) {
     return this.application.host.bridge?.removeDataSourceFromWorkspace?.(this.getLayers().find((layer) => layer.id === id)?.options?.dataSource);
   }
-  async openPreferencesDialog() {
-    const { TimelineConfigurationDialog } = await import('../ui/TimelineConfigurationDialog.js');
-    this.configurationDialog?.close();
-    this.configurationDialog = new TimelineConfigurationDialog({ api: this }).open();
+  /**
+   * The current settings as the persisted envelope (plan 29 §12).
+   *
+   * @returns {{format: string, version: number, options: object, config: object}}
+   */
+  getConfiguration() {
+    const config = this.application.config || {};
+    return serializeTimelineConfigurationSettings({
+      options: {
+        ui: config.ui,
+        timeline: config.settings,
+        mapDocuments: { allowed: config.documents?.query ?? null, initiallyActive: config.documents?.initiallyActive ?? 'dynamic' },
+        interaction: config.interaction,
+      },
+      config: {},
+    });
   }
-  async openPublishDialog() {
-    const { TimelineConfigurationDialog } = await import('../ui/TimelineConfigurationDialog.js');
-    const { PublishedDialog } = await import('#shared/ui/PublishedDialog.js');
-    this.configurationDialog?.close();
-    this.configurationDialog = new TimelineConfigurationDialog({ api: this, mode: 'publish', onSave: async (settings) => {
-      const publication = await this.publish(settings);
-      // cancelled in the "Publish as page" dialog
-      if (!publication) return;
-      this.publishedDialog?.close();
-      this.publishedDialog = new PublishedDialog({ publication }).open();
-    } }).open();
+
+  /**
+   * Apply settings (normalized) to the timeline and its control panel, and hand them to the host.
+   *
+   * @param {object} settings Settings `{options, config}` or an envelope.
+   * @returns {object} The applied settings envelope.
+   */
+  setConfiguration(settings) {
+    const value = normalizeTimelineConfigurationSettings(settings);
+    const config = this.application.config;
+    this.application.engine.setOptions(value.options.timeline);
+    config.settings = value.options.timeline;
+    config.ui = { ...value.options.ui, ...(config.simplified === true ? { initiallyExpanded: false } : {}) };
+    config.interaction = value.options.interaction;
+    config.documents = { ...(config.documents || {}), query: value.options.mapDocuments.allowed,
+      initiallyActive: value.options.mapDocuments.initiallyActive };
+    // the panel is made again: icons, Enable edit
+    this.application.controlPanel?.applyOptions(config.ui);
+    const applied = this.getConfiguration();
+    this.application.host?.bridge?.updateSettings?.({ options: applied.options, config: applied.config });
+    this.application.dispatch('heurist-timeline-options-changed', { ...config.settings });
+    return applied;
   }
-  publish(settings = this.application.config.settings) {
-    const ui = { ...this.application.config.ui };
-    for (const key of ['showSourceHeader', 'initiallyExpanded']) if (key in settings) ui[key] = settings[key] === true;
-    return this.application.host.publish({ format: 'heurist-publication', version: 1,
-      options: { timeline: settings, mapDocuments: { allowed: this.application.config.documents?.query ?? null,
-        initiallyActive: this.application.activeDocumentId }, ui,
-        // a published timeline does not edit (plan 29)
-        interaction: { editEnabled: false } },
-      config: {}, state: this.application.getState() });
+
+  /**
+   * Open the configuration form (plan 29): `configuration` applies the settings;
+   * `publication` (Explorer only) gives Explorer the page settings and the state, and
+   * Explorer's form writes the page.
+   *
+   * @param {{mode?: string}} [options]
+   * @returns {Promise<object|null>} The applied settings or the publication; null when cancelled.
+   */
+  async openConfigurationDialog({ mode = 'configuration' } = {}) {
+    const publication = mode === 'publication' || mode === 'publish';
+    const title = publication ? 'Publish timeline' : 'Timeline options';
+    // Explorer opens the form in its own window (plan 29): it gives the settings back, or in
+    // publication mode publishes the page itself with the settings and state given here
+    const bridge = this.application.host?.bridge;
+    if (typeof bridge?.openConfiguration === 'function') {
+      const result = await bridge.openConfiguration(publication
+        ? { mode: 'publication', title, value: this.publicationSettings(), state: this.application.getState(),
+          simplified: this.application.config?.simplified === true }
+        : { mode: 'configuration', title, value: this.getConfiguration(),
+          simplified: this.application.config?.simplified === true });
+      if (!result || publication) return result;
+      return this.setConfiguration(result);
+    }
+    // without Explorer: no publication (the page is written by Explorer's form)
+    if (publication) return null;
+    const [{ ModuleConfigurationDialog }, { timelineConfiguration }] = await Promise.all([
+      import('#shared/ui/config/ModuleConfigurationDialog.js'),
+      import('../configuration.js'),
+    ]);
+    return new ModuleConfigurationDialog({
+      form: timelineConfiguration.form,
+      formId: 'timeline',
+      mode,
+      title,
+      value: this.getConfiguration(),
+      defaults: timelineConfiguration.defaults,
+      normalize: timelineConfiguration.normalize,
+      simplified: this.application.config?.simplified === true,
+      onSave: async (settings) => {
+        this.setConfiguration(settings);
+        return true;
+      },
+    }).open();
+  }
+
+  /** @returns {Promise<object|null>} The configuration form (Options icon). */
+  openPreferencesDialog() {
+    return this.openConfigurationDialog({ mode: 'configuration' });
+  }
+
+  /** @returns {Promise<object|null>} The publication form (Publish icon). */
+  openPublishDialog() {
+    return this.openConfigurationDialog({ mode: 'publication' });
+  }
+
+  /**
+   * Settings of a published page: the active document, no editing, and "auto" as the
+   * language of now.
+   *
+   * @param {object} [settings] Settings (default: the current ones).
+   * @returns {object} Settings envelope for the page.
+   */
+  publicationSettings(settings = this.getConfiguration()) {
+    const value = normalizeTimelineConfigurationSettings(settings);
+    const options = {
+      ...value.options,
+      // "auto" is the visitor's language in a published page: the language of now (as the other modules)
+      ui: { ...value.options.ui, language: value.options.ui.language === 'auto'
+        ? (this.application.config?.language || 'eng') : value.options.ui.language },
+      mapDocuments: { allowed: value.options.mapDocuments.allowed, initiallyActive: this.application.activeDocumentId },
+      // a published timeline does not edit (plan 29)
+      interaction: { editEnabled: false },
+    };
+    return serializeTimelineConfigurationSettings({ options, config: {} });
   }
   /**
    * Creates the public API wrapper around the application instance.
@@ -260,9 +355,8 @@ export class HeuristTimelinePublicApi {
     if (this.application.config.simplified === true) ui.initiallyExpanded = false;
     this.application.config.ui = ui;
     if ('showSourceHeader' in options || 'initiallyExpanded' in options) this.application.controlPanel?.applyOptions(ui);
-    this.application.host?.bridge?.updateSettings?.({ options: { timeline: settings, ui: this.application.config.ui,
-      interaction: this.application.config.interaction,
-      mapDocuments: { allowed: this.application.config.documents?.query, initiallyActive: this.application.config.documents?.initiallyActive } } });
+    const applied = this.getConfiguration();
+    this.application.host?.bridge?.updateSettings?.({ options: applied.options, config: applied.config });
     this.application.dispatch('heurist-timeline-options-changed', { ...settings });
     return { ...settings };
   }
@@ -305,8 +399,6 @@ export class HeuristTimelinePublicApi {
    * @returns {Promise<void>} Destroy operation result.
    */
   destroy() {
-    this.configurationDialog?.close();
-    this.publishedDialog?.close();
     return this.application.destroy();
   }
 }

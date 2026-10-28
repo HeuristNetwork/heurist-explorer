@@ -15,7 +15,7 @@
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { embedCode, instanceFromPayload, publishModulePage } from '../src/site/modulePublisher.js';
+import { embedCode, instanceFromPayload, lastPublishedPageId, publishModulePage, publishModuleTo } from '../src/site/modulePublisher.js';
 import { WebsiteClient } from '../src/api/WebsiteClient.js';
 
 /** Storage double. */
@@ -142,4 +142,29 @@ test('WebsiteClient: paths, methods and bodies of /website', async () => {
   ]);
   assert.deepEqual(requests[4][1].body, { pageId: 8, parentId: 2 });
   assert.throws(() => client.summary(0), TypeError);
+});
+
+test('publishModuleTo: the page chosen in the form, remembered as the last one (plan 29)', async () => {
+  const client = fakeClient();
+  const storage = memoryStorage();
+  const settings = { format: 'heurist-timeline-settings', version: 1, options: {}, config: {} };
+  const result = await publishModuleTo({ client, database: 'db1', type: 'timeline', settings, state: { s: 1 },
+    title: 'My page', pageId: 0, storage });
+  assert.deepEqual(client.calls[0], ['publish', { type: 'timeline', settings, state: { s: 1 }, title: 'My page', pageId: 0 }]);
+  assert.ok(result.embed.includes('http://h/db/site/55'));
+  assert.equal(lastPublishedPageId('db1', 'timeline', storage), 55);
+  assert.equal(lastPublishedPageId('db2', 'timeline', storage), 0);
+  await publishModuleTo({ client, database: 'db1', type: 'timeline', settings, title: ' ', pageId: 9, storage });
+  assert.match(client.calls[1][1].title, /^Timeline – \d{4}-\d{2}-\d{2}$/, 'an empty title: the default one');
+  assert.equal(client.calls[1][1].pageId, 9);
+});
+
+test('WebsiteClient.pages: standalone pages of a module', async () => {
+  const requests = [];
+  const client = new WebsiteClient({ apiClient: { request: async (path, options) => {
+    requests.push([path, options.query]);
+    return { data: { pages: [{ id: 3, title: 'A' }] } };
+  } } });
+  assert.deepEqual(await client.pages('map'), [{ id: 3, title: 'A' }]);
+  assert.deepEqual(requests, [['/website/pages', { standalone: 1, module: 'map' }]]);
 });

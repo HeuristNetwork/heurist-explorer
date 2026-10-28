@@ -131,3 +131,28 @@
 #public_hint#public (visible par tous)
 #Generic_Title#Heurist
 #Error_Title#Information
+
+#Expand control panel initially#Déplier le panneau de contrôle au départ
+#Language of the published page; Automatic follows the browser of the visitor#Langue de la page publiée ; Automatique suit le navigateur du visiteur
+#Automatic#Automatique
+#Labels#Libellés
+#Full#Complet
+#Truncate#Tronqué
+#Hidden#Masqué
+#Label position#Position des libellés
+#Within bar#Dans la barre
+#Above#Au-dessus
+#Time axis#Axe du temps
+#Top and bottom#En haut et en bas
+#Top#En haut
+#Bottom#En bas
+#Stack overlapping items#Empiler les éléments qui se chevauchent
+#Edit of map documents and layers#Modification des documents cartographiques et des couches
+#Timeline options#Options de la frise chronologique
+#Publish timeline#Publier la frise chronologique
+#Reset#Réinitialiser
+#Confirm#Confirmer
+#Discard#Abandonner
+#Discard changes?#Abandonner les modifications ?
+#Advanced settings#Paramètres avancés
+#Reset all settings to their defaults?#Rétablir tous les paramètres à leurs valeurs par défaut ?

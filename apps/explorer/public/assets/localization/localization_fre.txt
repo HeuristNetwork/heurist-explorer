@@ -1058,3 +1058,35 @@
 #Discard changes?#Abandonner les modifications ?
 #Discard#Abandonner
 #Checkboxes in a row#Cases à cocher sur une ligne
+#Show header#Afficher l'en-tête
+#Expand control panel initially#Déplier le panneau de contrôle au départ
+#Language of the published page; Automatic follows the browser of the visitor#Langue de la page publiée ; Automatique suit le navigateur du visiteur
+#Default settings#Paramètres par défaut
+#Full#Complet
+#Truncate#Tronqué
+#Hidden#Masqué
+#Label position#Position des libellés
+#Within bar#Dans la barre
+#Above#Au-dessus
+#Time axis#Axe du temps
+#Top and bottom#En haut et en bas
+#Top#En haut
+#Bottom#En bas
+#Stack overlapping items#Empiler les éléments qui se chevauchent
+#Interaction#Interaction
+#Enable edit#Activer la modification
+#Edit of map documents and layers#Modification des documents cartographiques et des couches
+#Timeline options#Options de la frise chronologique
+#Publish timeline#Publier la frise chronologique
+#Confirm#Confirmer
+#Copied#Copié
+#Embed code#Code d’intégration
+#New page#Nouvelle page
+#Publish as page#Publier comme page
+#Published#Publié
+#Published link#Lien de publication
+#Update the page#Mettre à jour la page
+#Website manager#Gestionnaire de sites web
+#Publish to#Publier dans
+#Page title#Titre de la page
+#Cancel publish?#Annuler la publication ?

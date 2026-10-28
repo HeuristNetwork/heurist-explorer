@@ -917,6 +917,25 @@ export class ExplorerApplication {
   }
 
   /**
+   * Open a module's configuration form in Explorer's window (host action `openConfiguration`,
+   * plan 29), a lazy chunk with the module's configuration entry. In publication mode the
+   * page is published here (the module gives its settings and state).
+   *
+   * @param {{moduleType: string, mode?: string, value?: object, state?: object, title?: string, simplified?: boolean}} request
+   * @returns {Promise<object|null>} The settings (configuration) or the publication; null when cancelled.
+   */
+  async openModuleConfiguration(request = {}) {
+    const { openModuleConfiguration } = await import('../modules/moduleConfigurations.js');
+    return openModuleConfiguration(request, {
+      baseUrl: this.config.baseUrl,
+      database: this.config.database,
+      apiClient: this.apiClient,
+      language: this.config.language,
+      openWebsiteManager: (options) => this.openWebsiteManager(options)
+    });
+  }
+
+  /**
    * Show a module's user manual over Explorer (the module asked from its iframe,
    * see `useHostHelp`). The module resolves the manual's URL: it is in its bundle.
    *
@@ -1957,6 +1976,9 @@ export class ExplorerApplication {
       editSymbology: (value, options) => this.recordEditing.symbology.edit(value, options),
       // a module's manual in Explorer's window (InlineHelp of the module, useHostHelp)
       openHelp: (request) => this.openModuleHelp(request),
+      // a module's configuration / publication form in Explorer's window (plan 29); the
+      // module applies or publishes the settings it gets back
+      openConfiguration: (request) => this.openModuleConfiguration(request),
       // the Websites tool after a module's Publish (plan 27b)
       openWebsiteManager: (options) => this.openWebsiteManager(options),
       getHostContext: () => ({

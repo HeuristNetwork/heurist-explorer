@@ -1058,3 +1058,35 @@
 #Discard changes?#Discard changes?
 #Discard#Discard
 #Checkboxes in a row#Checkboxes in a row
+#Show header#Show header
+#Expand control panel initially#Expand control panel initially
+#Language of the published page; Automatic follows the browser of the visitor#Language of the published page; Automatic follows the browser of the visitor
+#Default settings#Default settings
+#Full#Full
+#Truncate#Truncate
+#Hidden#Hidden
+#Label position#Label position
+#Within bar#Within bar
+#Above#Above
+#Time axis#Time axis
+#Top and bottom#Top and bottom
+#Top#Top
+#Bottom#Bottom
+#Stack overlapping items#Stack overlapping items
+#Interaction#Interaction
+#Enable edit#Enable edit
+#Edit of map documents and layers#Edit of map documents and layers
+#Timeline options#Timeline options
+#Publish timeline#Publish timeline
+#Confirm#Confirm
+#Copied#Copied
+#Embed code#Embed code
+#New page#New page
+#Publish as page#Publish as page
+#Published#Published
+#Published link#Published link
+#Update the page#Update the page
+#Website manager#Website manager
+#Publish to#Publish to
+#Page title#Page title
+#Cancel publish?#Cancel publish?

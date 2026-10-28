@@ -86,6 +86,17 @@ export class WebsiteClient {
   }
 
   /**
+   * The standalone v4 pages of a module the user may update (plan 29), newest first.
+   *
+   * @param {string} module Module type.
+   * @returns {Promise<Array<{id: number, title: string, url: string, modified: string}>>}
+   */
+  async pages(module) {
+    const result = await this._call('GET', '/website/pages', undefined, { standalone: 1, module: String(module || '') });
+    return Array.isArray(result?.pages) ? result.pages : [];
+  }
+
+  /**
    * Put a page into the menu of a website.
    *
    * @param {number} siteId Website.

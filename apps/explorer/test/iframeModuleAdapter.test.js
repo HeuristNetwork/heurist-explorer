@@ -144,3 +144,17 @@ test('help and the symbology editors open in Explorer only when Explorer offers 
   assert.equal('editSymbology' in bare, false, 'the module opens its own editors');
   assert.equal('openHelp' in bare, false);
 });
+
+test('the configuration form opens in Explorer with the module type of the adapter (plan 29)', async () => {
+  const requests = [];
+  const adapter = new IframeModuleAdapter({
+    id: 'timeline-1', type: 'timeline', container: null, url: '', hostActions: {
+      openConfiguration: async (request) => { requests.push(request); return { options: {} }; }
+    }
+  });
+  const bridge = adapter._createChildHostBridge();
+  assert.deepEqual(await bridge.openConfiguration({ mode: 'publication', moduleType: 'map' }), { options: {} });
+  assert.deepEqual(requests, [{ mode: 'publication', moduleType: 'timeline' }]);
+  const bare = new IframeModuleAdapter({ id: 'timeline', type: 'timeline', container: null, url: '', hostActions: {} })._createChildHostBridge();
+  assert.equal('openConfiguration' in bare, false, 'the module opens its own form');
+});

@@ -81,6 +81,29 @@ view*: Explorer as an `explorer` instance with `settings = {layout, ui, modules}
 `runtime.moduleAssetUrls.website` overrides the bundle base of the manager's localization
 (default `hclient/bundles/heurist-website`).
 
+## Module configuration forms (plan 29)
+
+Every presentation module has a configuration form (HEditForm JSON) and a light entry
+`src/configuration.js` (`{type, form, defaults, normalize, serialize}`).
+- **In Explorer** the form opens in Explorer's window. The module calls the bridge method
+  `openConfiguration({mode, title, value, simplified})`; `IframeModuleAdapter` adds the module
+  type. Explorer opens `ModuleConfigurationDialog` through `apps/explorer/src/modules/moduleConfigurations.js`
+  and gives back the normalized settings, or `null` when cancelled.
+- **Configuration mode:** the module applies them (`setConfiguration`).
+- **Publication mode:** Explorer does all of it.
+  - The module sends `value` (its settings prepared for a page: active document, no editing) and
+    `state`.
+  - Explorer adds the section *Publish to* to the form:
+    - *New page* | *Update the page*, with a select of the module's standalone pages
+      (`GET /api/{db}/website/pages?standalone=1&module=<type>`); the page published last comes first;
+    - the page title.
+  - On *Publish* Explorer writes the page (`publishModuleTo` → `POST /website/publish`), then shows
+    `PublishedDialog` with the *Website manager* button.
+  - *Cancel* asks "Cancel publish?" Yes | No.
+  - The module gets back the publication, or `null`.
+- **Without that bridge method** (standalone page, website), the module opens the configuration
+  form in its own window. Publication is not possible there: the Publish icon is hidden.
+
 ## Record editing
 
 Modules ask their host to edit records through the bridge:

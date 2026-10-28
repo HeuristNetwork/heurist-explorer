@@ -24,19 +24,14 @@ import { ReportTemplateProvider } from '#shared/data/ReportTemplateProvider.js';
 import {
   CONFIGURATION_FORM_MODES, describeConfigurationForm, hasOptionalItems, mergeSettings, smartyTemplateTerms
 } from '#shared/data/moduleConfigurationForm.js';
+import { MODULE_CONFIGURATIONS } from '../modules/moduleConfigurations.js';
 import './EditFormTestTool.css';
 import './ModuleConfigurationTestTool.css';
 
 const DIALOG_ID = 'h-module-config-test-dialog';
 
 /** The modules and their configuration entries (lazy chunks). */
-const MODULES = Object.freeze({
-  map: async () => (await import('../../../map/src/configuration.js')).mapConfiguration,
-  timeline: async () => (await import('../../../timeline/src/configuration.js')).timelineConfiguration,
-  graph: async () => (await import('../../../graph/src/configuration.js')).graphConfiguration,
-  data: async () => (await import('../../../data/src/configuration.js')).dataConfiguration,
-  recordview: async () => (await import('../../../recordview/src/configuration.js')).recordViewConfiguration
-});
+const MODULES = MODULE_CONFIGURATIONS;
 
 /** Dialog of the test tool. */
 export class ModuleConfigurationTestTool {

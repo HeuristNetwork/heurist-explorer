@@ -131,3 +131,28 @@
 #public_hint#public (viewable by anyone)
 #Generic_Title#Heurist
 #Error_Title#Info
+
+#Expand control panel initially#Expand control panel initially
+#Language of the published page; Automatic follows the browser of the visitor#Language of the published page; Automatic follows the browser of the visitor
+#Automatic#Automatic
+#Labels#Labels
+#Full#Full
+#Truncate#Truncate
+#Hidden#Hidden
+#Label position#Label position
+#Within bar#Within bar
+#Above#Above
+#Time axis#Time axis
+#Top and bottom#Top and bottom
+#Top#Top
+#Bottom#Bottom
+#Stack overlapping items#Stack overlapping items
+#Edit of map documents and layers#Edit of map documents and layers
+#Timeline options#Timeline options
+#Publish timeline#Publish timeline
+#Reset#Reset
+#Confirm#Confirm
+#Discard#Discard
+#Discard changes?#Discard changes?
+#Advanced settings#Advanced settings
+#Reset all settings to their defaults?#Reset all settings to their defaults?

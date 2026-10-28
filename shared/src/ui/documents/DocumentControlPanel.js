@@ -105,7 +105,9 @@ export class DocumentControlPanel {
       this.actions.append(this.iconButton('fa-solid fa-house', 'Zoom to active map document', () => this.api.zoomHome()));
     }
 
-    this.actions.append(this.iconButton('fa-solid fa-circle-question', 'Help', () => this.openHelp()));
+    if (this.options.showHelp !== false) {
+      this.actions.append(this.iconButton('fa-solid fa-circle-question', 'Help', () => this.openHelp()));
+    }
 
     const hostCapabilities = this.api.getHostCapabilities?.() || {};
     if (this.options.showOptions !== false && hostCapabilities.mapPreferences) {

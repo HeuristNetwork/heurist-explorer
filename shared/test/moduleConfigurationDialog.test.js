@@ -140,3 +140,20 @@ test('dialog: Advanced switch, Reset after a confirmation, Cancel of a changed f
   button(discard, 'Discard')();
   assert.equal(await result, null);
 });
+
+test('dialog: publication asks "Cancel publish?" (Yes closes, No stays), not "Discard changes?"', async (t) => {
+  const dialogs = stubDialogs(t);
+  const dialog = new ModuleConfigurationDialog({ form: FORM, mode: 'publish', defaults: DEFAULTS, normalize });
+  const result = dialog.open();
+  await flush();
+  const main = [...dialogs.values()][0];
+  assert.equal(main.options.buttons[1].label, 'Publish');
+  button(main, 'Cancel')();
+  const confirm = dialogs.get(`${dialog.dialogId}-confirm`);
+  assert.equal(confirm.body, 'Cancel publish?');
+  button(confirm, 'No')();
+  assert.ok(dialog.form, 'still open');
+  button(main, 'Cancel')();
+  button(dialogs.get(`${dialog.dialogId}-confirm`), 'Yes')();
+  assert.equal(await result, null);
+});

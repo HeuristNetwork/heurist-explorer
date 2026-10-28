@@ -14,7 +14,6 @@
  */
 
 import { $HR } from '#shared/ui';
-import { TimelineConfigurationDialog } from './TimelineConfigurationDialog.js';
 import { showTimelineMessage } from './timelineMessages.js';
 
 /**
@@ -75,13 +74,12 @@ export class TimelineToolbar {
   }
 
   /**
-   * Opens the timeline configuration dialog, creating it on first use.
+   * Opens the timeline configuration form (plan 29).
    *
    * @private
    */
   _openOptions() {
-    this.configurationDialog ||= new TimelineConfigurationDialog({ api: this.api });
-    this.configurationDialog.open();
+    void this.api.openPreferencesDialog();
   }
 
   /**
@@ -114,7 +112,6 @@ export class TimelineToolbar {
    * Removes the toolbar from the DOM.
    */
   destroy() {
-    this.configurationDialog?.close();
     if (this.optionsHandler) this.api.removeEventListener("heurist-timeline-options-changed", this.optionsHandler);
     this.element?.remove();
     this.element = null;

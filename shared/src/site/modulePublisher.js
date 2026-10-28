@@ -25,7 +25,7 @@ import { openPublishPageDialog } from '../ui/PublishPageDialog.js';
 const LAST_PAGE_KEY = 'heurist.publish.page';
 
 /** Module names for the default page title. */
-const MODULE_NAMES = Object.freeze({
+export const MODULE_NAMES = Object.freeze({
   explorer: 'Explorer', data: 'Data', map: 'Map', timeline: 'Timeline', graph: 'Graph', recordview: 'Record view'
 });
 
@@ -78,7 +78,7 @@ export async function publishModulePage({ client, database, type, payload = null
   const key = `${LAST_PAGE_KEY}.${database || ''}.${type}`;
   const lastPage = await checkedLastPage(client, readJson(storage, key));
   const choice = await openDialog({
-    title: lastPage?.title || `${MODULE_NAMES[type] || type} – ${new Date().toISOString().slice(0, 10)}`,
+    title: lastPage?.title || newPageTitle(type),
     lastPage
   });
   if (!choice) return null;
@@ -86,6 +86,52 @@ export async function publishModulePage({ client, database, type, payload = null
   const result = await client.publish({ type, ...instance, title: choice.title, pageId: choice.pageId || 0 });
   writeJson(storage, key, { id: Number(result.id), title: result.title || choice.title });
   return { ...result, embed: embedCode(result.url, result.title || choice.title) };
+}
+
+/**
+ * Default title of a new page: "<Module> – <date>".
+ *
+ * @param {string} type Module type.
+ * @returns {string}
+ */
+export function newPageTitle(type) {
+  return `${MODULE_NAMES[type] || type} – ${new Date().toISOString().slice(0, 10)}`;
+}
+
+/**
+ * The page this module type published last in a database (remembered in localStorage), or 0.
+ *
+ * @param {string} database Database name.
+ * @param {string} type Module type.
+ * @param {Storage|null} [storage] Storage (tests).
+ * @returns {number}
+ */
+export function lastPublishedPageId(database, type, storage = defaultStorage()) {
+  const id = Number(readJson(storage, `${LAST_PAGE_KEY}.${database || ''}.${type}`)?.id);
+  return id > 0 ? id : 0;
+}
+
+/**
+ * Publish to a page chosen in the publication form (plan 29): no dialog; the page is
+ * remembered as the last one of this module.
+ *
+ * @param {object} options
+ * @param {import('../api/WebsiteClient.js').WebsiteClient} options.client Website API client.
+ * @param {string} options.database Database name.
+ * @param {string} options.type Module type.
+ * @param {object} options.settings Instance settings envelope.
+ * @param {object|null} [options.state] Instance state.
+ * @param {string} [options.title] Page title.
+ * @param {number} [options.pageId=0] Page to update; 0 = a new page.
+ * @param {Storage|null} [options.storage] Storage (tests).
+ * @returns {Promise<{id: number, url: string, title: string, created: boolean, embed: string}>}
+ */
+export async function publishModuleTo({ client, database, type, settings, state = null, title = '', pageId = 0,
+  storage = defaultStorage() }) {
+  const pageTitle = String(title || '').trim() || newPageTitle(type);
+  const result = await client.publish({ type, settings, state, title: pageTitle, pageId: Number(pageId) || 0 });
+  writeJson(storage, `${LAST_PAGE_KEY}.${database || ''}.${type}`, { id: Number(result.id), title: result.title || pageTitle });
+  return { ...result, embed: embedCode(result.url, result.title || pageTitle) };
 }
 
 /** The remembered page when it can still be updated, else null. */
