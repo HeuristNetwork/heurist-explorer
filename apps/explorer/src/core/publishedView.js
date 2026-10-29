@@ -19,8 +19,8 @@ import { TOOL_TYPES, UNUSED_REGION } from './ExplorerUiConfig.js';
 
 /** Presentation of the filter list in HFilter. */
 export const FILTER_MODES = ['buttons', 'list', 'select'];
-/** Pane of HFilter. */
-export const FILTER_PLACEMENTS = ['west', 'north'];
+/** Pane of HFilter: West only (2026-10-29). */
+export const FILTER_PLACEMENTS = ['west'];
 /** Kinds of a published filter item: saved filter, query source, the query of publication time. */
 const ITEM_KINDS = ['filter', 'source', 'query'];
 
@@ -41,6 +41,22 @@ export function publishedUiConfig(value = {}) {
     lists: 'popup',
     isSimplifiedUI: false,
     regions
+  };
+}
+
+/**
+ * Settings of a module on a published page: no Help, Options and Publish buttons (the
+ * persisted settings envelope of every module, plan 29: `options.ui`).
+ *
+ * @param {object} [settings] Module settings.
+ * @returns {object}
+ */
+export function publishedModuleSettings(settings = {}) {
+  const value = settings && typeof settings === 'object' ? settings : {};
+  const options = value.options && typeof value.options === 'object' ? value.options : {};
+  return {
+    ...value,
+    options: { ...options, ui: { ...(options.ui || {}), showHelp: false, showOptions: false, showPublish: false } }
   };
 }
 

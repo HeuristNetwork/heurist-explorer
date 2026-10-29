@@ -2,9 +2,10 @@
  * @file HFilter.js
  * @brief The filters of a published page (plan 27b §11.3): a list of saved filters and
  *        query sources shown as buttons, a list or a select; choosing one runs it, a
- *        parameterized one shows its Filter Form (HFilterForm, without Builder and Close).
+ *        parameterized one shows its Filter Form (HFilterForm, without Builder) above the list.
  *
- * One item only: no list. A parameterized single item shows its Filter Form alone; the
+ * The Filter Form has Close (back to the list only). One item only: no list. A
+ * parameterized single item shows its Filter Form alone, without Close; the
  * host does not show the pane at all for a single item without parameters (`needsPane`).
  * The items are references: the host resolves each one when it is chosen (`resolve`), so
  * the latest version of the filter is used. A widget a page can hold on its own later
@@ -65,20 +66,20 @@ export class HFilter extends HBaseWidget {
     return items.length > 1 || isParameterized(items[0].key) === true;
   }
 
-  /** @returns {HFilter} Render the list (one item: none) and the form host. */
+  /** @returns {HFilter} Render the form host and below it the list (one item: none). */
   render() {
     if (!this.container) throw new Error('HFilter must be attached before render');
     this.container.classList.add('h-widget', 'h-filter', `h-filter-${this.mode}`);
     this.container.replaceChildren();
+    this.formHost = document.createElement('div');
+    this.formHost.className = 'h-filter-form-host';
+    this.formHost.hidden = true;
+    this.container.append(this.formHost);
     this.listElement = null;
     if (this.items.length > 1) {
       this.listElement = this.mode === 'select' ? this._renderSelect() : this._renderList();
       this.container.append(this.listElement);
     }
-    this.formHost = document.createElement('div');
-    this.formHost.className = 'h-filter-form-host';
-    this.formHost.hidden = true;
-    this.container.append(this.formHost);
     this.state = 'rendered';
     return this;
   }
@@ -133,6 +134,7 @@ export class HFilter extends HBaseWidget {
       button.dataset.key = item.key;
       button.setAttribute('role', 'option');
       button.textContent = item.title;
+      button.title = item.title;
       this.listen(button, 'click', () => void this.select(item.key));
       list.append(button);
     }
@@ -170,7 +172,7 @@ export class HFilter extends HBaseWidget {
     }
   }
 
-  /** The Filter Form of a parameterized source: no Builder (no `onOpenBuilder`), no Close. */
+  /** The Filter Form of a parameterized source: no Builder (no `onOpenBuilder`); Close only with a list. */
   _showForm(source) {
     this.formHost.hidden = false;
     const host = document.createElement('div');
@@ -181,6 +183,7 @@ export class HFilter extends HBaseWidget {
       apiClient: this.options.apiClient || null,
       composeQuery: (item, values) => resolveQueryParameters(item.query, values, item.filterForm),
       runtimeMode: 'published',
+      onClose: this.listElement ? () => void this._closeForm() : null,
       onSubmit: ({ query }) => {
         const resolved = structuredClone(source);
         resolved.request.q = query.q;

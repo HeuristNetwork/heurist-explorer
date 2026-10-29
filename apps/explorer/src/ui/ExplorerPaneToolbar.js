@@ -61,6 +61,8 @@ export class ExplorerPaneToolbar {
     if (!application) throw new TypeError('ExplorerPaneToolbar requires application');
     this.application = application;
     this.active = false;
+    // a published page: the module panes as "In panes", without the toolbar (startPublished)
+    this.published = false;
     this.tabs = new ExplorerPaneTabs({ application });
     this._toggle = null;
     this._settings = null;
@@ -158,13 +160,35 @@ export class ExplorerPaneToolbar {
   }
 
   /**
+   * A published page (plan 27b §11.3): no toolbar, but the module panes behave as "In
+   * panes": tabs, shrink/grow buttons on the dividers, the configured panes shown (collapsed
+   * until opened). The Search pane (HFilter) has its own « (ExplorerApplication#_publishedSearchHead).
+   *
+   * @returns {void}
+   */
+  startPublished() {
+    if (this.active || this.published) return;
+    this.published = true;
+    const app = this.application;
+    const layout = app.layout;
+    this._applyButtonSize();
+    layout?.cardinal.setSplitterButtons(true);
+    layout?.addEventListener('regioncollapsechange', this._onModuleRegionChange);
+    layout?.addEventListener('regionmaximizechange', this._onModuleRegionChange);
+    app.authoringDock?.cardinal.addEventListener('regioncollapsechange', () => this._resizeModules());
+    this.tabs.start();
+    this.refresh();
+    this._resizeModules();
+  }
+
+  /**
    * Re-apply after the layout or the configuration changed: panes with configured
    * modules are shown (collapsed when they have no module yet), the tabs follow.
    *
    * @returns {void}
    */
   refresh() {
-    if (!this.active) return;
+    if (!this.active && !this.published) return;
     this._revealConfiguredPanes();
     this.tabs.render();
     this._syncToggle();

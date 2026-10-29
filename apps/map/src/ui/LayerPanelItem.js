@@ -170,7 +170,8 @@ export class LayerPanelItem {
       () => this.api.requestEditLayerSymbology(this.layer.id, { thematic: false })
     ));
 
-    if (!isCurrentResults && !isWorkspaceLayer && hasPersistentLayer && supportsThematicSelection(this.layer)) {
+    const thematicEditing = this.api.getCapabilities?.().thematicEditing !== false;
+    if (thematicEditing && !isCurrentResults && !isWorkspaceLayer && hasPersistentLayer && supportsThematicSelection(this.layer)) {
       actions.append(button(
         'fa-solid fa-chart-simple',
         'Edit thematic renderers',

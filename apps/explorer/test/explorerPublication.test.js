@@ -15,7 +15,7 @@
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { memoryStorage, normalizePublishedFilter, publishedUiConfig } from '../src/core/publishedView.js';
+import { memoryStorage, normalizePublishedFilter, publishedModuleSettings, publishedUiConfig } from '../src/core/publishedView.js';
 import {
   explorerPublicationForm, normalizePublicationValues, publicationFilterChoices, publicationSettings
 } from '../src/ui/config/explorerPublication.js';
@@ -50,7 +50,8 @@ test('filters of a page are references; the current query keeps its request; unk
   assert.deepEqual(filter.items[1].request, { q: [{ t: '10' }] });
   assert.equal(filter.active, null);
   assert.equal(filter.mode, 'buttons');
-  assert.equal(filter.placement, 'north');
+  // the Search pane is in the West only (2026-10-29)
+  assert.equal(filter.placement, 'west');
 });
 
 test('publication form: one list of saved filters, query sources and the current query', () => {
@@ -88,4 +89,11 @@ test('memory storage: nothing reaches the browser storage', () => {
   assert.equal(storage.length, 1);
   storage.removeItem('a');
   assert.equal(storage.getItem('a'), null);
+});
+
+test('modules of a published page have no Help, Options and Publish buttons', () => {
+  const settings = publishedModuleSettings({ options: { ui: { language: 'fre', showHelp: true } }, state: 1 });
+  assert.deepEqual(settings.options.ui, { language: 'fre', showHelp: false, showOptions: false, showPublish: false });
+  assert.equal(settings.state, 1);
+  assert.equal(publishedModuleSettings(null).options.ui.showPublish, false);
 });

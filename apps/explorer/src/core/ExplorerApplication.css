@@ -161,3 +161,58 @@
 .h-explorer-published .h-explorer-rail {
     display: none;
 }
+
+/* the Search pane of a published page: head with the caption and «; collapsed: a strip with
+   the magnifier and the vertical "Search", a click expands it (as the record editor's Structure) */
+.h-explorer-published .h-explorer-authoring {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.h-explorer-search-head {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 6px;
+    border-bottom: 1px solid var(--h-color-border);
+    font-size: var(--h-font-size-large);
+    font-weight: 600;
+}
+
+.h-explorer-search-caption {
+    flex: 1 1 auto;
+}
+
+.h-explorer-search-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: auto;
+}
+
+.h-explorer-published .h-explorer-authoring-dock > .h-cardinal-middle > .h-cardinal-west.is-collapsed {
+    cursor: pointer;
+}
+
+.h-explorer-published .h-explorer-authoring-dock > .h-cardinal-middle > .h-cardinal-west.is-collapsed > .h-explorer-authoring {
+    visibility: visible;
+    pointer-events: auto;
+}
+
+.h-explorer-published .h-cardinal-west.is-collapsed > .h-explorer-authoring > :not(.h-explorer-search-head),
+.h-explorer-published .h-cardinal-west.is-collapsed .h-explorer-search-toggle {
+    display: none;
+}
+
+.h-explorer-published .h-cardinal-west.is-collapsed .h-explorer-search-head {
+    flex-direction: column;
+    height: 100%;
+    padding: 8px 0;
+    border-bottom: 0;
+}
+
+.h-explorer-published .h-cardinal-west.is-collapsed .h-explorer-search-caption {
+    flex: 0 0 auto;
+    writing-mode: vertical-rl;
+}

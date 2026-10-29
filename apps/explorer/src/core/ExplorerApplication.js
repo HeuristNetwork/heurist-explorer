@@ -59,7 +59,7 @@ import { openTagManager } from '../ui/ExplorerTagManager.js';
 import { WebsiteClient } from '#shared/api/WebsiteClient.js';
 import { publishModuleTo } from '#shared/site/modulePublisher.js';
 import { HFilter } from '#shared/widgets/filter/HFilter.js';
-import { memoryStorage, normalizePublishedFilter, publishedUiConfig } from './publishedView.js';
+import { memoryStorage, normalizePublishedFilter, publishedModuleSettings, publishedUiConfig } from './publishedView.js';
 
 /** Explorer's top-level application controller: modules, layout, datasource, and synchronization. */
 export class ExplorerApplication {
@@ -257,8 +257,8 @@ export class ExplorerApplication {
     // modules of panes not expanded at start are created when first opened
     await this.applyLayout(this.config.settings.layout || defaultLayout(), { deferHidden: true });
     this.paneToolbar.refresh();
-    // no toolbar on a published page: the tabs of a pane switch its modules
-    if (pageFilter) this.paneToolbar.tabs.start();
+    // no toolbar on a published page: tabs and divider buttons switch the panes as "In panes"
+    if (pageFilter) this.paneToolbar.startPublished();
     this.compactMode = new ExplorerCompactMode({ application: this }).start();
     if (pageFilter?.active) await this.publishedFilter?.select(pageFilter.active);
     else if (this.config.state.dataSource) await this.activateDataSource(this.config.state.dataSource);
@@ -389,7 +389,7 @@ export class ExplorerApplication {
         // limits of the built-in record view and popups (plan 23 §3.1)
         recordLimits: this.config.recordLimits
       },
-      settings: { ...(this.modulePreferences[definition.type] || {}), ...(definition.settings || {}) },
+      settings: this._moduleSettings(definition),
       state: definition.state || null,
       context: definition.context || null,
       hostActions: this._hostActions(),
@@ -506,6 +506,19 @@ export class ExplorerApplication {
   }
 
   /**
+   * Settings a module is created with: its preferences and the layout's settings; on a
+   * published page without its Help, Options and Publish buttons.
+   *
+   * @private
+   * @param {object} definition Layout definition of the module.
+   * @returns {object}
+   */
+  _moduleSettings(definition) {
+    const settings = { ...(this.modulePreferences[definition.type] || {}), ...(definition.settings || {}) };
+    return this.config.published ? publishedModuleSettings(settings) : settings;
+  }
+
+  /**
    * A published page (plan 27b §11.3): HFilter with the filters of the page in the Search pane
    * (West or North) instead of the Query Source editor and the lists. No pane for one filter
    * without parameters: it is run at start.
@@ -527,7 +540,9 @@ export class ExplorerApplication {
     // one filter without parameters: it is run, no list
     if (!pane && items.length === 1 && !pageFilter.active) pageFilter.active = items[0].key;
     const dbdefs = await this._ensureDbDefs().catch(() => null);
+    if (pane) dock.paneElement.append(this._publishedSearchHead());
     const host = document.createElement('div');
+    host.className = 'h-explorer-search-body';
     dock.paneElement.append(host);
     this.publishedFilter = new HFilter().attach(host, {
       items,
@@ -543,6 +558,43 @@ export class ExplorerApplication {
   }
 
   /**
+   * Head of the Search pane of a published page: the caption and «, which collapses the
+   * pane to a strip with the magnifier and the vertical "Search"; a click on the strip
+   * expands it (as the Structure pane of the record editor).
+   *
+   * @private
+   * @returns {HTMLElement}
+   */
+  _publishedSearchHead() {
+    const cardinal = this.authoringDock.cardinal;
+    cardinal.options.collapsedSize = PUBLISHED_SEARCH_STRIP;
+    const west = cardinal.getRegionElement('west');
+    const head = document.createElement('div');
+    head.className = 'h-explorer-search-head';
+    const icon = document.createElement('span');
+    icon.className = 'fa-solid fa-magnifying-glass';
+    icon.setAttribute('aria-hidden', 'true');
+    const caption = document.createElement('span');
+    caption.className = 'h-explorer-search-caption h-i18n';
+    caption.textContent = $HR('Search');
+    const toggle = document.createElement('button');
+    toggle.type = 'button';
+    toggle.className = 'heurist-icon-button h-explorer-search-toggle';
+    toggle.title = $HR('Hide the search pane');
+    toggle.setAttribute('aria-label', toggle.title);
+    toggle.innerHTML = '<span class="fa-solid fa-angles-left" aria-hidden="true"></span>';
+    toggle.addEventListener('click', (event) => {
+      event.stopPropagation();
+      cardinal.collapse('west');
+    });
+    head.append(icon, caption, toggle);
+    west.addEventListener('click', () => {
+      if (cardinal.state.west.collapsed) cardinal.expand('west');
+    });
+    return head;
+  }
+
+  /**
    * The DataSource of a filter of a published page: the latest saved filter or query source,
    * the query of publication time as it was.
    *
@@ -551,7 +603,9 @@ export class ExplorerApplication {
    * @returns {Promise<object|null>}
    */
   async _resolvePublishedItem(item) {
-    if (item.kind === 'query') return normalizeDataSource({ title: item.title, request: structuredClone(item.request) });
+    if (item.kind === 'query') {
+      return normalizeDataSource({ reference: { type: 'query' }, title: item.title, request: structuredClone(item.request) });
+    }
     return this.resolveDataSourceReference({ type: item.kind, id: item.id });
   }
 
@@ -2166,8 +2220,10 @@ export class ExplorerApplication {
       openConfiguration: (request) => this.openModuleConfiguration(request),
       // the Website manager after a module's Publish (plan 27b)
       openWebsiteManager: (options) => this.openWebsiteManager(options),
+      // published: Explorer on a published page (plan 27b), e.g. Map symbology for this session only
       getHostContext: () => ({
-        name: 'heurist-explorer', runtimeMode: 'main', hasMapModule: this.hasActiveMapModule()
+        name: 'heurist-explorer', runtimeMode: 'main', hasMapModule: this.hasActiveMapModule(),
+        published: this.config.published === true
       }),
       showDatasource: (source, options) => this.showDatasource(source, options),
       // module request monitors report to Explorer's monitor (trace, Stop)
@@ -2471,6 +2527,9 @@ async function mountDirectRecordView(options) {
   const { mountHeuristRecordView } = await import('../../../recordview/src/direct.js');
   return mountHeuristRecordView(options);
 }
+
+/** Width of the collapsed Search pane of a published page (magnifier and the vertical "Search"). */
+const PUBLISHED_SEARCH_STRIP = 34;
 
 /** Saved filter ids of a published page's filters. */
 function pageFilterIds(pageFilter) {

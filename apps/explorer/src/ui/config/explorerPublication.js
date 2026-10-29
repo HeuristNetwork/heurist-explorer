@@ -28,7 +28,6 @@ export const WEBSITE_FILTERS_GROUP = 4;
 
 const LANGUAGE_LABELS = { auto: 'Automatic', eng: 'English', fre: 'French', ger: 'German', por: 'Portuguese' };
 const MODE_LABELS = { buttons: 'Buttons', list: 'List', select: 'Select' };
-const PLACEMENT_LABELS = { west: 'Left (West pane)', north: 'Top (North pane)' };
 
 /**
  * The filters a page may offer: `{key, kind, id?, title, parameterized}`; saved filters first,
@@ -101,10 +100,6 @@ export function explorerPublicationForm(choices) {
           {
             name: 'filter.mode', type: 'enum', label: 'Presentation', req: 'recommended', mode: 'radio', clearable: false,
             terms: FILTER_MODES.map((id) => ({ id, label: MODE_LABELS[id] })), default: 'buttons'
-          },
-          {
-            name: 'filter.placement', type: 'enum', label: 'Position', req: 'recommended', mode: 'radio', clearable: false,
-            terms: FILTER_PLACEMENTS.map((id) => ({ id, label: PLACEMENT_LABELS[id] })), default: 'west'
           }
         ]
       }

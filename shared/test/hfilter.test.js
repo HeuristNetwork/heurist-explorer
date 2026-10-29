@@ -61,3 +61,22 @@ test('select mode, and an unreadable filter is reported', async () => {
   assert.equal(await widget.select('filter:1'), false);
   assert.equal(errors.length, 1);
 });
+
+test('a parameterized filter: its form above the list, Close only with a list', async () => {
+  const resolve = async (item) => ({ title: item.title, request: { q: [{ t: '10' }, { 'f:1': '$X1$' }] } });
+  const host = document.createElement('div');
+  const widget = new HFilter().attach(host, { items, resolve, onRun: () => assert.fail('not run') }).render();
+  assert.equal(await widget.select('filter:1'), true);
+  assert.equal(host.children[0].classList.contains('h-filter-form-host'), true);
+  assert.equal(host.querySelector('.h-filter-form-host').hidden, false);
+  const close = [...host.querySelector('.h-filter-form-host').querySelectorAll('button')].find((button) => button.textContent.includes('Close'));
+  assert.ok(close);
+  close.click();
+  await new Promise((resolveTick) => setTimeout(resolveTick, 0));
+  assert.equal(host.querySelector('.h-filter-form-host').hidden, true);
+
+  const single = document.createElement('div');
+  const alone = new HFilter().attach(single, { items: [items[0]], resolve, onRun: () => {} }).render();
+  assert.equal(await alone.select('filter:1'), true);
+  assert.equal([...single.querySelectorAll('button')].some((button) => button.textContent.includes('Close')), false);
+});

@@ -737,6 +737,9 @@ export class MapApplication {
     const layer = this.layers.get(layerId);
     if (!layer) throw new Error(`Layer "${layerId}" is not registered`);
     if (!this.canEditSymbology()) return null;
+    // a published Explorer page: the symbol changes for this session only, no thematic editor
+    const sessionOnly = this.isSessionSymbology();
+    if (sessionOnly && thematic === true) return null;
 
     const isCurrentResults = String(layerId) === 'current-results';
     const isWorkspaceLayer = layer.options?.workspaceEntry === true;
@@ -768,7 +771,7 @@ export class MapApplication {
     const parentSymbol = usesGlobalDefault
       ? normalizeMapSymbol({}, DEFAULT_MAP_SYMBOL)
       : normalizeMapSymbol(this.config.defaults?.symbology ?? {}, DEFAULT_MAP_SYMBOL);
-    const persist = !isCurrentResults && !isWorkspaceLayer && recordId > 0;
+    const persist = !sessionOnly && !isCurrentResults && !isWorkspaceLayer && recordId > 0;
     const value = await this.editSymbology(currentValue, {
       recordId: recordId > 0 ? recordId : null,
       layerId,
@@ -797,7 +800,7 @@ export class MapApplication {
         clonePlain(this.config.persistedSettings || {})
       );
       settings.config.defaults.symbology = clonePlain(baseSymbol || {});
-      if (this.host.getCapabilities?.().mapPreferences === true) {
+      if (!sessionOnly && this.host.getCapabilities?.().mapPreferences === true) {
         await this.host.savePreferences(settings);
       }
       return this.applyConfiguration(settings);
@@ -813,6 +816,14 @@ export class MapApplication {
       return this.reloadLayer(layerId);
     }
     return this.setLayerStyle(layerId, value);
+  }
+
+  /**
+   * @returns {boolean} Whether symbology edits last for this session only (Explorer on a published
+   *          page, plan 27b): nothing is written to the Map Layer or the preferences.
+   */
+  isSessionSymbology() {
+    return this.host?.getHostContext?.()?.published === true;
   }
 
   /** @returns {boolean} Whether symbology may be edited: the editors are there and the map is not read-only. */
@@ -2737,7 +2748,9 @@ export class MapApplication {
       timeline: false,
       // map documents and layers: Explorer's record editor (plan 14) or the legacy host editor
       editing: !this.config.readonly && this.host.supportsEditing('RT_MAP_DOCUMENT'),
-      symbologyEditing: this.canEditSymbology()
+      symbologyEditing: this.canEditSymbology(),
+      // the thematic map editor writes the Map Layer: not for session-only symbology
+      thematicEditing: this.canEditSymbology() && !this.isSessionSymbology()
     };
   }
 

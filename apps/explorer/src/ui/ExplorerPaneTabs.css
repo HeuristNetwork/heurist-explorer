@@ -114,7 +114,8 @@
 }
 
 /* a click on a collapsed pane, other than on a tab, expands it (ExplorerPaneTabs#_onCollapsedClick) */
-.h-toolbar-panes .h-cardinal-region.has-pane-tabs.is-collapsed {
+.h-toolbar-panes .h-cardinal-region.has-pane-tabs.is-collapsed,
+.h-explorer-published .h-cardinal-region.has-pane-tabs.is-collapsed {
     cursor: pointer;
 }
 

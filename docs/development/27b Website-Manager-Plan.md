@@ -367,6 +367,31 @@ Implemented 2026-10-28 (not committed, not checked in a browser):
 Not done: a browser check; the Filter Form of a parameterized source in the North position is not tuned (it uses the
 form's own orientation); a page published before 2026-10-28 has no `settings.filter` and opens without a Search pane.
 
+### 11.4 Review round 2 (Artem, 2026-10-29) — fixed, not committed, browser check pending
+
+1. *Current query* as a page filter failed with "Unsupported DataSource reference type": the item is now
+   resolved as a DataSource of reference type `query` (`ExplorerApplication#_resolvePublishedItem`).
+2. Published Explorer: HFilter stays in the outer layout (`ExplorerAuthoringDock`), the modules in the inner
+   one; the module panes now behave as "In panes" without a toolbar (`ExplorerPaneToolbar#startPublished`):
+   pane tabs, shrink/grow buttons on the dividers of both layouts, every configured pane shown (collapsed
+   until opened; this made the Timeline in the south reachable).
+3. HFilter: buttons as wide as the pane, at most 290px, caption truncated (title = full caption); the Filter
+   Form opens above the list and has Close (back to the list); a single parameterized filter (no list) has
+   no Close.
+
+### 11.5 Review round 3 (Artem, 2026-10-29) — done, not committed, browser check pending
+
+1. Modules of a published Explorer have no Help, Options and Publish buttons: Explorer creates them with
+   `options.ui.showHelp/showOptions/showPublish = false` (`publishedView.js#publishedModuleSettings`).
+2. The Search pane is in the West only: `FILTER_PLACEMENTS = ['west']`, the Position option is removed from
+   the publication form (an old `north` value is read as `west`).
+3. Search pane head: magnifier, "Search" and « at the top right; collapsed it is a 34px strip with the
+   magnifier and the vertical "Search" (as the Structure pane of the record editor), a click expands it.
+   The outer divider has no shrink/grow buttons any more (the module layout keeps them).
+4. Map: the host context of a published Explorer has `published: true`; symbology edits then last for the
+   session only (`MapApplication#isSessionSymbology`: no Map Layer write, no preferences save), and the
+   thematic map button is hidden (capability `thematicEditing`).
+
 ## 12. Next
 
 Item 11 of the review: CMS designer = plan 27 phase 3, over the whole screen in Explorer (§11.1); a new plan document.

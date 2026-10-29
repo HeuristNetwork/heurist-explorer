@@ -1,6 +1,6 @@
 # Heurist Explorer — Progress Report
 
-*Status on 26 October 2026 (first issued 2 October, updated 8 and 18 October). Work started 14 September 2026.*
+*Status on 29 October 2026 (first issued 2 October, updated 8, 18 and 26 October). Work started 14 September 2026.*
 
 ## Done
 
@@ -38,19 +38,25 @@
 | 30 | **Stored text security policy**: one rule for which HTML is kept in text fields and how it is shown. | 23 Oct |
 | 31 | **Rich text and translations**: text fields with an HTML editor (TinyMCE) or a code editor (CodeMirror); translated values per language, with automatic translation (DeepL); HTML shown safely in Record view. | 24–25 Oct |
 | 32 | **Parent – child records**: the parent of a child record is found from its links (no stored reverse field); Parent field and warning in the edit form; parent fields in the field tree, title masks and reports. | 24–25 Oct |
-| 33 | **New server API** (`srv/`) behind all of the above — a clean replacement for the old server code. Record format and editing now also for system data (`/sys`: tags, bookmarks, reminders, users, groups, files). | ongoing, with each item |
-| 34 | User manual and developer documentation. | ongoing |
+| 33 | **Record editor improvements**: page navigation, *Dupe* (duplicate record), read-only form without edit rights, footer and messages; map field for an extent or any map feature; Explorer starts faster (users and tags are loaded on first use). | 27 Oct |
+| 34 | **File types and media players**: file type taken from the extension, MIME type set by the server; players for YouTube, Vimeo and SoundCloud; tiled image ZIPs keep only the tile images. | 28 Oct |
+| 35 | **Website format v4** (CMS, plan 27a): new format for websites and pages (structure, styles and settings kept apart), live pages at `/{db}/site/{site}/{page}`, stand-alone Map, Timeline, Graph and Explorer pages. Old interface: v4 sites are hidden and new v3 websites can not be created. | 26–29 Oct |
+| 36 | **Website manager** (plan 27b): create, check and publish websites in a full-screen window; download a built site as ZIP; *Publish this view* in Explorer — a public page with Explorer that uses public filters only, without editing tools. | 26–28 Oct |
+| 37 | **Module settings** (plan 29): one settings form for Map, Timeline, Graph, Data table and Record view, with Reset; publish a module to a new page or update an existing page from Explorer; settings API for every module (also gives a description for AI agents). | 28 Oct |
+| 38 | **Security fixes**: login tokens, access checks for all file types and scratch files, report templates protected from guests. | 26 Oct |
+| 39 | **New server API** (`srv/`) behind all of the above — a clean replacement for the old server code. Record format and editing now also for system data (`/sys`: tags, bookmarks, reminders, users, groups, files). | ongoing, with each item |
+| 40 | User manual and developer documentation. | ongoing |
 
-All work above is committed (explorer `f11789e`, heurist `8f9d9dd0d`).
+All work above is committed (explorer `41e0134`, heurist `9a7cf8ea8`).
 
 ## In progress
 
 | Task | Expected |
 |------|----------|
-| **Browser checks** of the latest work: Add record / New, rich text editors (format menu, Align, menus inside dialogs), parent – child records, and earlier items (simpler interface, symbology, date editor, reports, export); testing query speed on large databases | with the use cases |
-| **Edit forms**: agree the form description format, then use it for report, schedule, crosstab and module settings dialogs; remove the test tool | next week |
+| **Browser checks** of the latest work: website manager and published Explorer, module settings forms, media players, Add record / New, rich text editors (format menu, Align, menus inside dialogs), parent – child records, and earlier items (simpler interface, symbology, date editor, reports, export); testing query speed on large databases | with the use cases |
+| **Edit forms**: module settings are done; next the report, schedule and crosstab dialogs; remove the test tool | next week |
 | **Saved filters** in the new record format (last part of the system data move) | next week |
-| **CMS and web publishing** (plan 27): draft for discussion; nothing implemented yet | after discussion |
+| **CMS designer** (plan 27, phase 3): full-screen page designer; plan to be written | plan next |
 | **Getting started** content: short recordings and help texts for the tour | after recordings are ready |
 | Expansion rules for Map and Timeline | postponed |
 
@@ -58,11 +64,10 @@ All work above is committed (explorer `f11789e`, heurist `8f9d9dd0d`).
 
 | # | Task | Estimated delivery |
 |---|------|--------------------|
-| 1 | **Publication and website** — publish an Explorer layout as a public web page / site; see plan 27 | to be set |
+| 1 | **CMS designer and templates** — edit v4 websites and pages; convert old websites; see plan 27 | to be set |
 | 2 | **Use cases / demos** on the largest databases: digital_harlem, library_readers_18c, mpce_mapping, Chinese engineers | to be set |
 | 3 | **Batch operations on records** (long-running operations; the background jobs from Reports and Export are reused) | to be set |
-| 4 | **Players for external video and audio** (thumbnail in Record view and editor, player when expanded) | to be set |
-| 5 | **Save only changed fields** (PATCH) for large records | to be set |
+| 4 | **Save only changed fields** (PATCH) for large records | to be set |
 
 ## Leftovers of finished work
 
@@ -85,7 +90,8 @@ Small items left open in finished plans (details in `docs/development/`, marked 
    can change later in one place.
 3. **Rework of the record details table**: move language and link ID to their own columns,
    remove old and duplicated fields, keep dates, links, spatial data and full-text index
-   in separate tables (dates and links already done).
-4. **CMS and web publishing** (plan 27): format, designer, templates and publication.
+   in separate tables (dates and links already done). Plan 28 (new tables for system
+   record types, longer text values, language column) was written and deferred on 26 October.
+4. **CMS and web publishing** (plan 27): format v4 and publication are done; designer, templates and conversion of old websites are open.
 
 Decisions on items 2 and 3 affect the date for Batch operations.
