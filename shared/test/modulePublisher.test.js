@@ -117,31 +117,57 @@ test('publishModulePage: Explorer passes settings and state directly', async () 
   assert.deepEqual(client.calls[0][1].state, { dataSource: null });
 });
 
-test('WebsiteClient: paths, methods and bodies of /website', async () => {
+test('WebsiteClient: paths, methods and bodies of the website and page entities (plan 27d)', async () => {
   const requests = [];
-  const client = new WebsiteClient({ apiClient: { request: async (path, options) => { requests.push([path, options]); return { data: { ok: path } }; } } });
-  assert.deepEqual(await client.summary(5), { ok: '/website/5' });
-  await client.validate(5, { page: 7 });
-  await client.create({ title: 'S' });
+  const codes = { name: 1, languages: 967, page: 52 };
+  const client = new WebsiteClient({ apiClient: { request: async (path, options) => {
+    requests.push([path, options]);
+    if (path === '/website/setup') return { installed: true, codes };
+    if (path === '/website/0') return { records: [{ rec_ID: '12' }] };
+    if (path === '/website/5') return { records: [{ rec_ID: '5' }], meta: { canEdit: true, website: { id: 5, kind: 'website' } } };
+    return { data: { ok: path } };
+  } } });
+  assert.deepEqual(await client.summary(5), { id: 5, kind: 'website', canEdit: true });
+  await client.validate(5, { page: 7, entity: 'website' });
+  assert.deepEqual(await client.create({ title: 'S', languages: ['eng'] }), { id: 12, record: { rec_ID: '12' } });
+  await client.publish({ type: 'map', pageId: 9 });
   await client.publish({ type: 'map' });
   await client.addToMenu(5, 8, 2);
+  await client.assign(5, 8, { index: 0 });
   await client.removeFromMenu(5, 8);
-  await client.remove(5, { pages: true });
-  await client.status();
+  await client.remove(5, { pages: true, entity: 'website' });
+  await client.build(20, { entity: 'page' });
   await client.setup();
   assert.deepEqual(requests.map(([path, options]) => [options.method, path, options.query]), [
-    ['GET', '/website/5', null],
+    ['GET', '/website/5', { fields: 'rec_ID' }],
     ['GET', '/website/5/validate', { page: 7 }],
-    ['POST', '/website', null],
-    ['POST', '/website/publish', null],
-    ['POST', '/website/5/menu', null],
-    ['DELETE', '/website/5/menu/8', null],
-    ['DELETE', '/website/5', { pages: 1 }],
     ['GET', '/website/setup', null],
+    ['POST', '/website/0', null],
+    ['POST', '/page/9/import', null],
+    ['POST', '/page/0/import', null],
+    ['POST', '/website/5/assign', null],
+    ['POST', '/website/5/assign', null],
+    ['DELETE', '/website/5/assign', { page: 8 }],
+    ['DELETE', '/website/5', { pages: 1 }],
+    ['POST', '/page/20/execute', null],
     ['POST', '/website/setup', null]
   ]);
-  assert.deepEqual(requests[4][1].body, { pageId: 8, parentId: 2 });
-  assert.throws(() => client.summary(0), TypeError);
+  assert.deepEqual(requests[3][1].body, { rec_ID: 0, details: { 1: 'S', 967: ['eng'] } }, 'create: a record body');
+  assert.deepEqual(requests[4][1].body, { type: 'map' }, 'import: the page id is in the path');
+  assert.deepEqual(requests[6][1].body, { page: 8, parent: 2 });
+  assert.deepEqual(requests[7][1].body, { page: 8, parent: 0, index: 0 });
+  await assert.rejects(() => client.summary(0), TypeError);
+});
+
+test('WebsiteClient.summary: a page after a 404 of the website entity', async () => {
+  const paths = [];
+  const client = new WebsiteClient({ apiClient: { request: async (path) => {
+    paths.push(path);
+    if (path === '/website/20') throw Object.assign(new Error('Record 20 is not a website'), { status: 404 });
+    return { records: [{ rec_ID: '20' }], meta: { canEdit: false, website: { id: 20, kind: 'standalone' } } };
+  } } });
+  assert.deepEqual(await client.summary(20), { id: 20, kind: 'standalone', canEdit: false });
+  assert.deepEqual(paths, ['/website/20', '/page/20']);
 });
 
 test('publishModuleTo: the page chosen in the form, remembered as the last one (plan 29)', async () => {
@@ -159,12 +185,24 @@ test('publishModuleTo: the page chosen in the form, remembered as the last one (
   assert.equal(client.calls[1][1].pageId, 9);
 });
 
-test('WebsiteClient.pages: standalone pages of a module', async () => {
+test('WebsiteClient.pages: standalone pages of a module, by a record search', async () => {
   const requests = [];
+  const codes = { page: 52, version: 980, pageType: 928, standalonePage: 6254, name: 1, configuration: 1180 };
+  const config = (type) => JSON.stringify({ schema: 'heurist-cms/4', instances: { i1: { kind: 'module', type } } });
   const client = new WebsiteClient({ apiClient: { request: async (path, options) => {
     requests.push([path, options.query]);
-    return { data: { pages: [{ id: 3, title: 'A' }] } };
+    if (path === '/website/setup') return { codes };
+    return { records: [
+      { rec_ID: '3', rec_Title: '<b>A</b>', rec_Modified: '2026-10-01', details: { 1: ['Map A'], 1180: [config('map')] } },
+      { rec_ID: '4', rec_Title: 'B', rec_Modified: '2026-10-02', details: { 1180: [config('graph')] } },
+      { rec_ID: '5', rec_Title: '<b>C</b>', rec_Modified: '2026-10-03', details: { 1180: [config('map')] } }
+    ] };
   } } });
-  assert.deepEqual(await client.pages('map'), [{ id: 3, title: 'A' }]);
-  assert.deepEqual(requests, [['/website/pages', { standalone: 1, module: 'map' }]]);
+  assert.deepEqual(await client.pages('map'), [
+    { id: 5, title: 'C', modified: '2026-10-03' },
+    { id: 3, title: 'Map A', modified: '2026-10-01' }
+  ]);
+  assert.equal(requests[1][0], '/records');
+  assert.deepEqual(JSON.parse(requests[1][1].q), [{ t: '52' }, { 'f:980': '4' }, { 'f:928': '6254' }]);
+  assert.equal(requests[1][1].fields, 'rec_ID,rec_Title,rec_Modified,1,1180');
 });

@@ -42,12 +42,14 @@ function createApplication({ bridge = null, status = { installed: true, missing:
       if (path === '/website/setup') return status;
       if (path === '/records') return { records: [{ rec_ID: '10' }, { rec_ID: '30' }] };
       if (path === '/jobs') return jobs;
-      if (path === '/website/publish') return { id: 40, url: 'http://h/db/site/40', title: options.body.title, created: true };
-      const match = /^\/website\/(\d+)$/.exec(path);
+      if (path === '/page/0/import') return { id: 40, url: 'http://h/db/site/40', title: options.body.title, created: true };
+      const match = /^\/(website|page)\/(\d+)$/.exec(path);
       if (match) {
-        const summary = SUMMARIES[match[1]];
-        if (!summary) throw Object.assign(new Error('Website or page was not found'), { status: 404 });
-        return summary;
+        const summary = SUMMARIES[match[2]];
+        if (!summary || (summary.kind === 'website') !== (match[1] === 'website')) {
+          throw Object.assign(new Error(`Record ${match[2]} was not found as a ${match[1]}`), { status: 404 });
+        }
+        return { records: [{ rec_ID: String(summary.id) }], meta: { canEdit: summary.canEdit, website: summary } };
       }
       return {};
     },

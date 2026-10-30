@@ -195,7 +195,7 @@ export class HostAdapter {
 
   /**
    * Publish the module as a standalone website page (plan 27b §6): asks for the page title and
-   * whether to update the last page of this module, then writes the page (`POST /api/{db}/website/publish`).
+   * whether to update the last page of this module, then writes the page (`POST /api/{db}/page/{0|id}/import`).
    * With a bridge that has `openWebsiteManager` (Explorer) the result offers a button to open it.
    *
    * @param {object} payload Publish payload of the module (`{format: 'heurist-publication', options, config, state}`).

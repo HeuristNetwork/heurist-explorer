@@ -4,7 +4,7 @@
  *
  * The module's publish payload (`{format: 'heurist-publication', options, config, state}`, as made by
  * each module's `publish()`) becomes the instance settings `{format: 'heurist-<type>-settings', version,
- * options, config}` and state; the server writes the page (`POST /website/publish`). The page this
+ * options, config}` and state; the server writes the page (`POST /page/{0|id}/import`, plan 27d). The page this
  * module type published last is remembered per database in localStorage and offered for update when
  * it still exists, is standalone, v4 and editable (decision Q4); a new page is always possible.
  *
@@ -139,7 +139,7 @@ async function checkedLastPage(client, remembered) {
   const id = Number(remembered?.id);
   if (!(id > 0)) return null;
   try {
-    const summary = await client.summary(id);
+    const summary = await client.summary(id, { entity: 'page' });
     return summary?.v4 && summary.kind === 'standalone' && summary.canEdit ? { id, title: summary.title || remembered.title || '' } : null;
   } catch {
     return null;

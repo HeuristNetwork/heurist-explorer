@@ -162,7 +162,7 @@ export class WebsiteApplication extends EventTarget {
    */
   async validate() {
     if (!this.selectedId) return [];
-    const result = await this.websites.validate(this.selectedId);
+    const result = await this.websites.validate(this.selectedId, { entity: this._entity() });
     return result?.issues || [];
   }
 
@@ -200,7 +200,7 @@ export class WebsiteApplication extends EventTarget {
    * @returns {Promise<{deleted: number[], kept: number[]}>}
    */
   async deleteSelected({ pages = false } = {}) {
-    const result = await this.websites.remove(this.selectedId, { pages });
+    const result = await this.websites.remove(this.selectedId, { pages, entity: this._entity() });
     this.selectedId = null;
     this.summary = null;
     this.builds = [];
@@ -220,7 +220,7 @@ export class WebsiteApplication extends EventTarget {
       query: { q: JSON.stringify([{ t: String(this.codes.home) }, { [`f:${this.codes.version}`]: '4' }]), fields: 'rec_ID', limit: 200 }
     });
     const ids = (response?.records || []).map((record) => Number(record.rec_ID)).filter((id) => id > 0);
-    const summaries = await Promise.all(ids.map((id) => this.websites.summary(id).catch(() => null)));
+    const summaries = await Promise.all(ids.map((id) => this.websites.summary(id, { entity: 'website' }).catch(() => null)));
     return summaries.filter((summary) => summary?.canEdit && summary.v4).map((summary) => ({ id: summary.id, title: summary.title, pages: summary.pages }));
   }
 
@@ -230,7 +230,7 @@ export class WebsiteApplication extends EventTarget {
    * @returns {Promise<object>} The queued job.
    */
   async startBuild() {
-    const job = await this.jobs.start(WEBSITE_BUILD_JOB, { id: this.selectedId });
+    const job = await this.websites.build(this.selectedId, { entity: this._entity() });
     this.builds = [job, ...this.builds.filter((item) => item.id !== job.id)];
     this._emit('buildchange');
     return job;
@@ -259,6 +259,12 @@ export class WebsiteApplication extends EventTarget {
       await this.reloadSummary();
     }
     return result;
+  }
+
+  /** Entity of the selected record: "website", "page", or null before its summary is loaded. */
+  _entity() {
+    if (!this.summary) return null;
+    return this.summary.kind === 'website' ? 'website' : 'page';
   }
 
   _emit(type) {
