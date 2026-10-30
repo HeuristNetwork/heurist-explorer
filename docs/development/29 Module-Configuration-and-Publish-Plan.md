@@ -369,7 +369,7 @@ The publication form (mode `publication`) ends with the section **Publication**:
   code, Website manager) stays.
 
 **Server** (agreed 2026-10-28): a thin route
-`GET /api/{db}/website/pages?standalone=1&module=<type>` → `[{id, title, modified}]`.
+`GET /api/{db}/website/pages?standalone=1&module=<type>` → `[{id, title, modified}]`. *(2026-10-30, plan 27d: replaced by a `/records?q=t:` search in `WebsiteClient.pages`; the route is removed.)*
 
 - It lists the editable standalone v4 pages that contain an instance of this module type.
 - Internally it goes through the same record search and update paths as the rest of
@@ -650,7 +650,7 @@ Explorer strings of the test popup and the dialog are added.
     - The `publish.*` values are read from the form on *Publish*. They are not settings.
     - `publishModuleTo()` (`shared/src/site/modulePublisher.js`) publishes without the page dialog.
       `PublishPageDialog` stays only for the Website manager's *Publish this view*.
-    - Server, heurist repo: `GET /api/{db}/website/pages?module=<type>` → `{pages: [{id, title, url,
+    - Server, heurist repo: *(removed by plan 27d, 2026-10-30)* `GET /api/{db}/website/pages?module=<type>` → `{pages: [{id, title, url,
       modified}]}`.
       - The editable v4 standalone pages with an instance of the module, newest first.
       - Code: `WebsiteEditService::pages`, `WebsiteRepository::standalonePages` (through

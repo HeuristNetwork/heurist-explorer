@@ -62,7 +62,7 @@ and `"accordion"` containers become tabs and one-open accordions (`shared/src/wi
 *Publish* writes a standalone v4 page, not a JSON file (the former `PublicationController` /
 `?pub_id=` publications are removed). A module is published from Explorer only, by Explorer's
 publication form (plan 29, see *Module configuration forms*): the module has no `publish()`.
-Explorer calls `POST /api/{db}/website/publish` (`publishModuleTo` in `shared/src/site/modulePublisher.js`,
+Explorer calls `POST /api/{db}/page/{0|id}/import` (plan 27d; `publishModuleTo` in `shared/src/site/modulePublisher.js`,
 `shared/src/api/WebsiteClient.js`), which resolves with `{id, url, title, embed}`;
 `PublishedDialog` shows the URL, the embed code and a *Website manager* button.
 Explorer's *Publish this view* (options menu, Explorer itself) still asks with
@@ -73,8 +73,8 @@ bootstrap, bridge, assetBaseUrl, onClose})`. Explorer mounts it over the whole s
 *Websites and published pages*); the bridge gives `editRecord`, `viewRecord`, `canEditRecords`,
 `getDbDefs`. *Publish this view* (`ExplorerApplication.publishView()`, `captureView()`) writes Explorer as an `explorer` instance with `settings = {layout, ui, modules}` and
 `state = {dataSource, selection}`). A published Explorer reads its configuration from
-`settings.ui` and never writes it to the visitor's browser. Endpoints: `/api/{db}/website`
-(heurist `srv/Controller/WebsiteController.php`); builds are background jobs of type
+`settings.ui` and never writes it to the visitor's browser. Endpoints: the entities `/api/{db}/website/...` and `/page/...`
+on the generic record controller (plan 27d; heurist `srv/Website/WebsiteEntityHandler.php`); builds (`POST /website/{id}/execute`) are background jobs of type
 `website-build` (a ZIP downloaded with `GET /jobs/{id}/result`).
 `runtime.moduleAssetUrls.website` overrides the bundle base of the manager's localization
 (default `hclient/bundles/heurist-website`).
@@ -93,9 +93,9 @@ Every presentation module has a configuration form (HEditForm JSON) and a light 
     `state`.
   - Explorer adds the section *Publish to* to the form:
     - *New page* | *Update the page*, with a select of the module's standalone pages
-      (`GET /api/{db}/website/pages?standalone=1&module=<type>`); the page published last comes first;
+      (a record search `GET /records?q=t:<page type>` by `WebsiteClient.pages`); the page published last comes first;
     - the page title.
-  - On *Publish* Explorer writes the page (`publishModuleTo` → `POST /website/publish`), then shows
+  - On *Publish* Explorer writes the page (`publishModuleTo` → `POST /page/{0|id}/import`), then shows
     `PublishedDialog` with the *Website manager* button.
   - *Cancel* asks "Cancel publish?" Yes | No.
   - The module gets back the publication, or `null`.

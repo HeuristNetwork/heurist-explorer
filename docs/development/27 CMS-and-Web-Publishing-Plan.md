@@ -63,38 +63,15 @@ This plan replaces `Explorer-Publication-and-Website-Development-Plan.md` (2026-
 | 22 | Standalone page URL | `/{database}/site/{page id}` (§5). |
 | 23 | *Generate* in phase 2 | **Yes**: a first build job in phase 2; phase 6 completes it. |
 
-## 3. Storage of system records — plan 28 (deferred)
+## 3. Storage of system records — plan 28
 
-**Deferred 2026-10-26 (decision 16).** Kept here as input for later. Plan **28 "New Records/details structure"**
-would define separate tables `sysRecords` / `sysRecDetails` for system data.
+**Deferred 2026-10-26 (decision 16).** v4 uses the current tables. The storage questions (separate table pairs such
+as `sysRecords` / `sysRecDetails`, `dtl_Value MEDIUMTEXT`, `dtl_Lang CHAR(3) NULL`, ids and pointers across pairs)
+moved on 2026-10-30 to `28 OpenAPI-Rules-and-Database-Structure-Plan.md` §7, together with the API rules that every
+server endpoint must follow (the Website API: `27d Website-API-Plan.md`).
 
-System record types (as opposed to user data): Map Document, Map Layer, Data source (including Query Source),
-User, Group, Bookmark, Reminder, Report, Report Schedule, Export configuration, Crosstab configuration, Website,
-Webpage, MenuAction (2-107).
-
-Today `recDetails.dtl_Value` is `TEXT` (64 KB; with utf8mb4 that can be only ~16 000 characters), so long page
-content is cut into chunks, and a translation is stored as an `xx:` prefix in the value
-(`RecordValidator::isMultilang` excludes page content).
-
-Answers to the storage questions, as input for plan 28:
-
-| Option | Cost | Note |
-|---|---|---|
-| `dtl_Value` as `MEDIUMTEXT` (16 MB) | +1 byte per row (3-byte length instead of 2) | Simplest. InnoDB (row format DYNAMIC) already stores long values off the row page with a 20-byte pointer, so short values cost the same as now. The prefix index `dtl_Value(63)` and the FULLTEXT index work on `MEDIUMTEXT`. |
-| Extra column `dtl_Text MEDIUMTEXT NULL` used by <10% of rows | Almost nothing when NULL (1 bit in the NULL bitmap) | Every reader must check two columns. It gives nothing over the option above, because InnoDB already moves long values out of the row. |
-| Separate table for large values | A join or a second query for every read | Only worth it if large values must not be read with the normal details; not needed here. |
-| `dtl_Lang` `CHAR(3) NULL` (NULL = default / no language) | 3 bytes per row with a value, ~nothing when NULL | Replaces the `xx:` prefix. A translated value of any length becomes a normal row; can be indexed with record and field. |
-
-**Recommendation for plan 28:** `sysRecDetails.dtl_Value MEDIUMTEXT` plus `dtl_Lang CHAR(3) NULL`; no chunks and
-no separate large-value table. Plan 15 helps: srv code reads tables only through `RecordRepository` /
-`RecordStore` and the compiler's table keys (`{records}` ... resolved by `Compiler/SqlTables`), so system types can
-point to the new tables in one place. Questions for plan 28: record ids unique across both tables (shared sequence
-or separate ranges); pointers between user records and system records (`recLinks`, a page pointing to a user
-record, a layer pointing to a data source); moving the existing system records.
-
-Without plan 28 the phase 1 plan must still answer two things in the current tables: page HTML longer than one
-`TEXT` value (check that srv reads and writes the chunks of `DT_EXTENDED_DESCRIPTION`), and translated page
-content (the `xx:` rows of plan 25 do not apply to it).
+Until then, in the current tables: page HTML longer than one `TEXT` value is stored in chunks of
+`DT_EXTENDED_DESCRIPTION`, and translated page content is in field 2-1202 (the `xx:` rows of plan 25 do not apply).
 
 ## 4. Format v4
 
@@ -289,7 +266,7 @@ changed. One converter per legacy widget type.
 | 6 | Built publication completed (assets, dependencies, keeping the previous build) | 2 |
 | 7 | API for an AI agent (the same services as the designer, with revision checks) | 3 |
 | 8 | Legacy conversion in the designer — **last** (decision 15) | 3, 4 |
-| 28 | New record storage for system records (§3) — deferred (decision 16) | — |
+| 28 | OpenAPI rules and database structure (§3): `28 OpenAPI-Rules-and-Database-Structure-Plan.md`, draft 1 2026-10-30; table conversion deferred (decision 16) | — |
 
 PageController timing (decision 19): correct, with two notes. (a) The `filter` widget and routes also need it — a
 filter drives modules through a sync group, and a route hands a record to the target page's group — so they are in
@@ -302,4 +279,4 @@ come later (decision 14).
 ## 10. Open points
 
 None (all answered 2026-10-26, decisions 1–23). Phase plans are named `27a`, `27b`, ...: phase 1 =
-`27a Website-Format-v4-Plan.md` (implemented 2026-10-26), phase 2 = `27b Website-Manager-Plan.md` (draft 2026-10-26).
+`27a Website-Format-v4-Plan.md` (implemented 2026-10-26), phase 2 = `27b Website-Manager-Plan.md` (draft 2026-10-26), phase 3 = `27c CMS-Designer-Plan.md` (draft 1, 2026-10-29). Website API on the common endpoints of plan 28 = `27d Website-API-Plan.md` (draft 1, 2026-10-30), to agree before 27c.
