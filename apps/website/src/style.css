@@ -26,6 +26,12 @@ html.h-site {
   padding: 0 16px;
 }
 
+/* a page that is one module (a published Explorer, map ...): no side padding, the module
+   uses the whole width; text pages keep 16px from the window edge */
+.h-site-main:has(> .h-site-module:only-child) {
+  padding: 0;
+}
+
 .h-site-footer {
   border-top: 1px solid var(--h-color-border);
   margin-top: 2em;
@@ -41,7 +47,8 @@ html.h-site {
   color: var(--h-color-link);
 }
 
-.h-site-body img {
+/* text images only: modules (record lists, cards ...) size their own images */
+.h-site-body img:not(.h-site-module *) {
   max-width: 100%;
   height: auto;
 }

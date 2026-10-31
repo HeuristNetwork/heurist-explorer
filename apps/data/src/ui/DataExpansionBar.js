@@ -200,9 +200,11 @@ export class DataExpansionBar {
       this.prevButton.disabled = inactive || state.level <= 1;
       this.nextButton.disabled = inactive || state.level >= state.maxDepth;
       const canEdit = this.api.canEditRules?.() === true;
+      // Quick / Smart expansion also on a published page (Edit rules: authors only)
+      const canExpand = canEdit || this.api.canExpandRules?.() === true;
       this.editButton.hidden = !canEdit;
-      this.quickButton.hidden = !canEdit;
-      this.smartButton.hidden = !canEdit;
+      this.quickButton.hidden = !canExpand;
+      this.smartButton.hidden = !canExpand;
       this.quickButton.disabled = this.api.canQuickExpand?.() !== true;
       this.smartButton.disabled = this.quickButton.disabled || this.countingTypes;
       this.renderRules(state.rules);

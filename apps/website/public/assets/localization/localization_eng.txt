@@ -5,3 +5,82 @@
 #Websites and published pages#Websites and published pages
 #Close#Close
 #Close the Website manager#Close the Website manager
+#(none)#(none)
+#Add#Add
+#Add element#Add element
+#Add page#Add page
+#Add preset#Add preset
+#Add property#Add property
+#Add sub page#Add sub page
+#Changes not saved#Changes not saved
+#Configuration#Configuration
+#Copied#Copied
+#Copy all#Copy all
+#Copy structure#Copy structure
+#Delete#Delete
+#Delete page#Delete page
+#Delete the page#Delete the page
+#Discard#Discard
+#Edit record#Edit record
+#Edit text#Edit text
+#Explorer can not be configured here#Explorer can not be configured here
+#Footer#Footer
+#Full#Full
+#Full width#Full width
+#Header#Header
+#Heurist default#Heurist default
+#Home#Home
+#It can not be pasted here (not into the copied element itself)#It can not be pasted here (not into the copied element itself)
+#Kind default#Kind default
+#Modules can not be configured here#Modules can not be configured here
+#Normal#Normal
+#Open the website of this page in the editor.#Open the website of this page in the editor.
+#Original#Original
+#Own style#Own style
+#Page#Page
+#Paste#Paste
+#Preset#Preset
+#Preview language#Preview language
+#Read only: you can not change this website#Read only: you can not change this website
+#Redo#Redo
+#Remove#Remove
+#Remove from menu#Remove from menu
+#Remove the page from the menu? It stays as a standalone page.#Remove the page from the menu? It stays as a standalone page.
+#Save#Save
+#Saved#Saved
+#Select an element in the tree or in the preview.#Select an element in the tree or in the preview.
+#Styles#Styles
+#The menu shows the pages of the website; it has no settings.#The menu shows the pages of the website; it has no settings.
+#The website editor works only inside Explorer.#The website editor works only inside Explorer.
+#This website is of an older format: open it in the legacy website editor.#This website is of an older format: open it in the legacy website editor.
+#Translate#Translate
+#Undo#Undo
+#Website properties#Website properties
+#has#has
+#not configured#not configured
+#preset#preset
+#sub page(s). Delete them too, or move them one level up?#sub page(s). Delete them too, or move them one level up?
+#Open editor#Open editor
+#Open the website editor (CMS designer)#Open the website editor (CMS designer)
+#Unsaved changes#Unsaved changes
+#This part has changes that are not saved.#This part has changes that are not saved.
+#Save conflict#Save conflict
+#The record was changed by someone else after it was loaded.#The record was changed by someone else after it was loaded.
+#Website styles#Website styles
+#Base settings#Base settings
+#Kind defaults#Kind defaults
+#Presets#Presets
+#Title#Title
+#Text#Text
+#Two columns#Two columns
+#Three columns#Three columns
+#Text, then two columns#Text, then two columns
+#Text, then three columns#Text, then three columns
+#Delete sub pages too#Delete sub pages too
+#Move them up#Move them up
+#Edit the record#Edit the record
+#Logo#Logo
+#Keywords#Keywords
+#Website summary#Website summary
+#Page description#Page description
+#Author#Author

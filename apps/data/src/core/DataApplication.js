@@ -470,9 +470,14 @@ export class DataApplication extends EventTarget {
     return (await this.host.editRules()) ?? null;
   }
 
-  /** Whether quick expansion can add a step (authors only; some branch is shorter than the limit). */
+  /** Whether the host lets this view grow the rules (Quick and Smart expansion; also on a published page). */
+  canExpandRules() {
+    return this.host.supportsRulesExpansion?.() === true || this.canEditRules();
+  }
+
+  /** Whether quick expansion can add a step (some branch is shorter than the limit). */
   canQuickExpand() {
-    return this.canEditRules() && appendQuickStep(this.expansion?.rules || []) !== null;
+    return this.canExpandRules() && appendQuickStep(this.expansion?.rules || []) !== null;
   }
 
   /**

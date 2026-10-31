@@ -121,6 +121,7 @@ export class IframeModuleAdapter extends ExplorerModule {
       editRules: (value, options) => outer.editRules?.(value, options),
       updateRules: (rules) => outer.updateRules?.(rules),
       canEditRules: () => outer.canEditRules?.() === true,
+      canExpandRules: () => outer.canExpandRules?.() === true,
       describeRules: (rules) => outer.describeRules?.(rules),
       editFieldset: (value, options) => outer.editFieldset?.(value, options),
       zoomToExtent: (wkt) => outer.zoomToExtent?.(wkt),

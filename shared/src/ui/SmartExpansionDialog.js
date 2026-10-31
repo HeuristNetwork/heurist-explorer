@@ -18,8 +18,6 @@
 
 import { $HR } from "./i18n/index.js";
 import { HMsg } from "./HMsg.js";
-import { HValuePicker } from "../widgets/picker/HValuePicker.js";
-import { StaticSource } from "../data/valueSources/localSources.js";
 import "./SmartExpansionDialog.css";
 
 /**
@@ -35,21 +33,34 @@ export function chooseRecordTypes(types) {
   const hint = document.createElement("p");
   hint.className = "h-smart-expansion-hint";
   hint.textContent = $HR("Records the next step reaches, by record type. Choose the types to add.");
-  const list = document.createElement("div");
+  // a plain list with standard checkboxes (2026-10-31: was HValuePicker with icon checks)
+  const list = document.createElement("ul");
+  list.className = "h-smart-expansion-list";
+  const boxes = types.map((type) => {
+    const item = document.createElement("li");
+    const label = document.createElement("label");
+    label.className = "h-smart-expansion-item";
+    const box = document.createElement("input");
+    box.type = "checkbox";
+    box.value = String(type.id);
+    const name = document.createElement("span");
+    name.className = "h-smart-expansion-label";
+    name.textContent = type.label;
+    const count = document.createElement("span");
+    count.className = "h-smart-expansion-count";
+    count.textContent = String(type.count);
+    label.append(box, name, count);
+    item.append(label);
+    list.append(item);
+    return box;
+  });
   host.append(hint, list);
   let expand = null;
-  const picker = new HValuePicker().attach(list, {
-    source: new StaticSource(types.map((type) => ({ value: type.id, label: type.label, count: type.count }))),
-    multiple: true,
-    value: [],
-    loadOnRender: true,
-    showCounts: true,
-    onChange: (value) => { if (expand) expand.disabled = !value.length; },
-  }).render();
+  const chosen = () => boxes.filter((box) => box.checked).map((box) => Number(box.value));
+  list.addEventListener("change", () => { if (expand) expand.disabled = !chosen().length; });
   return new Promise((resolve) => {
     const finish = (value) => {
       HMsg.closeMsgDlg(dialogId);
-      void picker.destroy();
       resolve(value);
     };
     const dlg = HMsg.showMsgDlg(host, {
@@ -57,7 +68,7 @@ export function chooseRecordTypes(types) {
       title: $HR("Smart expansion"),
       preventClose: true,
       buttons: [
-        { label: $HR("Expand"), class: "h-btn h-btn-primary", onClick: () => finish(picker.getValue().map(Number)) },
+        { label: $HR("Expand"), class: "h-btn h-btn-primary", onClick: () => finish(chosen()) },
         { label: $HR("Cancel"), class: "h-btn", onClick: () => finish(null) },
       ],
     });

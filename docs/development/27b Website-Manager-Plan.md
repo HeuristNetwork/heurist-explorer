@@ -1,6 +1,6 @@
 # Plan 27b — Website manager and publisher (plan 27, phase 2)
 
-**Status 2026-10-28: review round 1 (§11) implemented, not committed, not checked in a browser: items 1–9 (§11.1),
+**Status 2026-10-31: review rounds 4-5 (§11.6, §11.7) done, not committed. Earlier, 2026-10-28: review round 1 (§11) implemented, not committed, not checked in a browser: items 1–9 (§11.1),
 item 10 *Publish this view* (§11.2 proposal, §11.3 decisions and implementation).** Phase 2 itself (2026-10-26) is
 committed. Next: plan for phase 3, the CMS designer (§12). As implemented and deviations: §10. General directions and decisions 1–23 are
 in `27 CMS-and-Web-Publishing-Plan.md`, the v4 format in `27a Website-Format-v4-Plan.md`; this plan uses them and
@@ -391,6 +391,50 @@ form's own orientation); a page published before 2026-10-28 has no `settings.fil
 4. Map: the host context of a published Explorer has `published: true`; symbology edits then last for the
    session only (`MapApplication#isSessionSymbology`: no Map Layer write, no preferences save), and the
    thematic map button is hidden (capability `thematicEditing`).
+
+### 11.6 Review round 4 (Artem, 2026-10-31) — done, not committed, browser check pending
+
+1. Images of modules on a site page were distorted: `.h-site-body img {max-width: 100%; height: auto}` now applies
+   to text images only (`img:not(.h-site-module *)`).
+2. HFilter: the filter list is hidden while a Filter Form is open; Close shows it again.
+3. Explorer publication: the *Current query* item keeps the DataSource `presentation` (data columns, map geo
+   fields, timeline time fields), not only `request`. Pages published before have no presentation in the item:
+   the presentation of the saved state DataSource is used when its query is the same.
+4. Map: the thematic map button also needs the right to edit map layers (`supportsEditing('RT_MAP_LAYER')`,
+   false for guests) and `options.interaction.editEnabled !== false` (read live).
+5. Data, table view: `nativeControls.viewMode` hides the View selector; `[hidden]` now wins over the display of
+   the toolbar items (selection actions, Sort, owners were shown although turned off).
+6. Data, table view: date and geo values without an output option (`ext`) are readable text (shared
+   `temporalToHuman`, `geoToHuman`, as Record View); `ext: 'human'` uses `temporalToHuman` too.
+7. Quick and Smart expansion on a published page (Data, Graph): new bridge method `canExpandRules()` (a
+   DataSource is active; Explorer's `updateDataSourceRules` accepts it, the rules change for this visit only);
+   Data host `supportsRulesExpansion()`, Graph capability `rulesExpansion`. *Edit rules* stays authors only.
+   Question answered: `editEnabled` in Graph = the pen (edit record) of the record popup of a node.
+8. Website manager: the details pane is a third of the width at first (`westRatio: 2/3`).
+9. Toolbar captions are hidden when the details pane is narrower than 520px (container `website-main`).
+10. Toolbar: Edit, Add to menu and Delete hidden (code kept); *Open editor* is `h-btn-primary`; a pen beside the
+    title of the details edits the record.
+11. Details: icon (2-39) before the title, logo (2-38, websites), keywords (99-948), website summary / page
+    description (2-3), author (2-15). `WebsiteClient.summary(id, {fields})` reads them with `resolveDetails=1`
+    (files with their key, thumbnail `/files/{key}/thumbnail`).
+12. Menu entries in the details: the edit, open and take-out icons are hidden for a while (`MENU_ENTRY_TOOLS`).
+13. Record editor refused to save a website: *Page translations* (`fre:{json}`) opened in TinyMCE (automatic
+    WYSIWYG for HTML), which wrapped the JSON in paragraphs. `DT_CMS_PAGE_TRANSLATIONS` and `DT_CONFIGURATION`
+    now open in the code editor only (language `json`).
+
+### 11.7 Review round 5 (Artem, 2026-10-31) — done, not committed, browser check pending
+
+1. Smart expansion dialog: its own list with standard checkboxes, no list bullets, a space before the count
+   (was HValuePicker with icon checks).
+2. HRecordList: the toolbar (header) and the footer get `is-empty` (hidden) when none of their controls is shown.
+3. Explorer publication used the module defaults: Explorer knew a module's settings only after a change in the
+   session (`modulePreferences`), and a published page never read `settings.modules`. Now `captureView()` (async)
+   takes each mounted module's `getConfiguration()` into its layout entry and `settings.modules`; a published page
+   starts `modulePreferences` from `settings.modules`. Modules with bootstrap settings do not load the visitor's
+   preferences (`loadPreferencesOnInit`). Pages published before must be published again.
+4. Search pane of a published page: the collapsed strip is 22px (was 34), "Search" in italic.
+5. `.h-site-main` keeps `padding: 0 16px` for text pages (text off the window edge, as header and footer); a page
+   whose main holds one module only (`:has(> .h-site-module:only-child)`) has no padding.
 
 ## 12. Next
 

@@ -1,0 +1,265 @@
+/* CMS designer (plan 27c): full screen, website tree west, preview center, part structure east */
+
+/* above the Website manager (z-index 10000), which opens it */
+.h-cms-designer-host {
+  position: fixed;
+  inset: 0;
+  z-index: 10010;
+  background: var(--h-color-bg, #fff);
+}
+
+.h-cms-designer {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  font-size: var(--h-font-size);
+  outline: none;
+}
+
+.h-cms-bar {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--h-color-border);
+  background: var(--h-color-surface, #f7f7f7);
+}
+
+.h-cms-bar-title {
+  font-size: var(--h-font-size-large);
+  font-weight: 600;
+}
+
+.h-cms-dirty {
+  color: var(--h-color-warning, #c77700);
+}
+
+.h-cms-bar-spacer {
+  flex: 1 1 auto;
+}
+
+.h-cms-readonly {
+  color: var(--h-color-muted, #777);
+}
+
+.h-cms-body {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.h-cms-site-pane,
+.h-cms-part-pane {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+.h-cms-pane-bar {
+  display: flex;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 6px;
+  border-bottom: 1px solid var(--h-color-border);
+}
+
+.h-cms-pane-title {
+  flex: 1 1 auto;
+  font-weight: 600;
+}
+
+.h-cms-tree-host {
+  flex: 1 1 auto;
+  min-height: 80px;
+  overflow: auto;
+}
+
+.h-cms-picker {
+  display: flex;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  padding: 6px;
+  border-top: 1px solid var(--h-color-border);
+}
+
+.h-cms-properties {
+  flex: 0 0 auto;
+  max-height: 40%;
+  overflow: auto;
+  padding: 6px;
+  border-top: 1px solid var(--h-color-border);
+}
+
+.h-cms-property {
+  display: grid;
+  grid-template-columns: 90px 1fr;
+  gap: 6px;
+  align-items: center;
+  padding: 2px 0;
+}
+
+.h-cms-property-value {
+  overflow-wrap: anywhere;
+  color: var(--h-color-text);
+}
+
+.h-cms-property-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+.h-cms-caption {
+  color: var(--h-color-muted, #777);
+  font-size: var(--h-font-size-small);
+}
+
+.h-cms-hint {
+  margin: 0;
+  color: var(--h-color-muted, #777);
+}
+
+.h-cms-center {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.h-cms-widths {
+  display: flex;
+  flex: 0 0 auto;
+  justify-content: center;
+  gap: 4px;
+  padding: 4px;
+  border-bottom: 1px solid var(--h-color-border);
+}
+
+.h-cms-width-active {
+  outline: 2px solid var(--h-color-primary);
+}
+
+.h-cms-preview-note {
+  padding: 4px 8px;
+  background: var(--h-color-warning-bg, #fff3cd);
+  color: var(--h-color-warning, #856404);
+}
+
+.h-cms-preview-note[hidden] {
+  display: none;
+}
+
+.h-cms-preview-host {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.h-cms-preview {
+  display: flex;
+  justify-content: center;
+  height: 100%;
+  overflow: auto;
+  background: var(--h-color-border, #ddd);
+}
+
+.h-cms-preview-frame {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: #fff;
+}
+
+.h-cms-preview-fixed .h-cms-preview-frame {
+  flex: 0 0 auto;
+  box-shadow: 0 0 6px rgba(0, 0, 0, 0.25);
+}
+
+/* popups */
+
+.h-cms-form,
+.h-cms-style-form,
+.h-cms-styles {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 360px;
+}
+
+.h-cms-form-row {
+  display: grid;
+  grid-template-columns: 140px 1fr;
+  gap: 6px;
+  align-items: center;
+}
+
+.h-cms-style-tabs {
+  display: flex;
+  gap: 4px;
+}
+
+.h-cms-tab-active {
+  outline: 2px solid var(--h-color-primary);
+}
+
+.h-cms-style-row {
+  display: grid;
+  grid-template-columns: 180px 1fr auto;
+  gap: 4px;
+  margin-bottom: 2px;
+}
+
+.h-cms-style-problems {
+  color: var(--h-color-danger, #b00020);
+  font-size: var(--h-font-size-small);
+  white-space: pre-line;
+}
+
+.h-cms-styles-section {
+  border: 1px solid var(--h-color-border);
+  padding: 6px;
+}
+
+.h-cms-styles-row {
+  display: grid;
+  grid-template-columns: 160px 1fr auto auto;
+  gap: 6px;
+  align-items: center;
+  padding: 2px 0;
+}
+
+.h-cms-styles-css {
+  overflow: hidden;
+  color: var(--h-color-muted, #777);
+  font-size: var(--h-font-size-small);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.h-dialog-cms-text,
+.h-dialog-cms-styles {
+  width: min(900px, 95vw);
+}
+
+.h-cms-text-editor {
+  display: flex;
+  gap: 8px;
+}
+
+.h-cms-text-original {
+  flex: 1 1 40%;
+  max-height: 60vh;
+  overflow: auto;
+  padding: 6px;
+  border: 1px solid var(--h-color-border);
+}
+
+.h-cms-text-host {
+  flex: 1 1 60%;
+  min-width: 0;
+}

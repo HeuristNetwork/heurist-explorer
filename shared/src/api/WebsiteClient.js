@@ -89,15 +89,23 @@ export class WebsiteClient {
    * Website or page for the manager (`meta.website` of `GET /{entity}/{id}`).
    *
    * @param {number} id Record id.
-   * @param {{entity?: 'website'|'page'}} [options] Entity; without it a website is tried first, then a page.
+   * @param {{entity?: 'website'|'page', fields?: number[]}} [options] Entity; without it a website is tried
+   *        first, then a page. `fields`: field ids whose values come in `details` (resolved: files with their key).
    * @returns {Promise<{id: number, kind: 'website'|'standalone'|'page', version: string, v4: boolean, title: string,
-   *          languages: string[], url: string, canEdit: boolean, pages: Array<{id: number, title: string, children: Array}>}>}
+   *          languages: string[], url: string, canEdit: boolean, pages: Array<{id: number, title: string, children: Array}>,
+   *          details: object}>}
    */
-  summary(id, { entity = null } = {}) {
+  summary(id, { entity = null, fields = [] } = {}) {
+    const ids = (fields || []).map(Number).filter((field) => field > 0);
+    const query = ids.length ? { fields: ['rec_ID', ...ids].join(','), resolveDetails: 1 } : { fields: 'rec_ID' };
     return this._withEntity(id, entity, async (name, recordId) => {
-      const response = await this._call('GET', `/${name}/${recordId}`, undefined, { fields: 'rec_ID' });
+      const response = await this._call('GET', `/${name}/${recordId}`, undefined, query);
       const meta = response?.meta || {};
-      return { ...(meta.website || { id: recordId }), canEdit: meta.canEdit ?? meta.website?.canEdit ?? false };
+      return {
+        ...(meta.website || { id: recordId }),
+        canEdit: meta.canEdit ?? meta.website?.canEdit ?? false,
+        details: response?.records?.[0]?.details || {}
+      };
     });
   }
 
@@ -191,12 +199,15 @@ export class WebsiteClient {
   /**
    * Delete a standalone page, or a website (with `pages`: its menu pages no other record uses).
    *
-   * @param {{pages?: boolean, entity?: 'website'|'page'}} [options]
+   * @param {{pages?: boolean, entity?: 'website'|'page', force?: boolean}} [options] force: also when other
+   *        records point to it (their pointers are removed).
    * @returns {Promise<{deleted: string[], kept?: string[]}>}
    */
-  remove(id, { pages = false, entity = null } = {}) {
-    return this._withEntity(id, entity, (name, recordId) =>
-      this._call('DELETE', `/${name}/${recordId}`, undefined, pages && name === 'website' ? { pages: 1 } : null));
+  remove(id, { pages = false, entity = null, force = false } = {}) {
+    return this._withEntity(id, entity, (name, recordId) => {
+      const query = { ...(pages && name === 'website' ? { pages: 1 } : {}), ...(force ? { force: 1 } : {}) };
+      return this._call('DELETE', `/${name}/${recordId}`, undefined, Object.keys(query).length ? query : null);
+    });
   }
 
   /**

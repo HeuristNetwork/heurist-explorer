@@ -38,6 +38,15 @@ export const BASE_SETTINGS = Object.freeze([
 /** Screen sizes of node styles: key => max width (px). */
 export const SCREENS = Object.freeze({ medium: 1024, narrow: 640 });
 
+/** Kinds of `styles.kinds` (plan 27c §6a) and their selectors. */
+export const CMS_KINDS = Object.freeze({
+  group: '[data-h-control="group"]',
+  tabs: '[data-h-control="tabs"]',
+  accordion: '[data-h-control="accordion"]',
+  text: '[data-h-text]',
+  instance: '[data-h-instance]'
+});
+
 const PROPERTIES = new Set([
   'display', 'flex-direction', 'flex-wrap', 'justify-content', 'align-items', 'gap', 'grid-template-columns',
   'grid-template-rows', 'grid-column', 'grid-row', 'order',
@@ -126,7 +135,9 @@ export function checkCmsDocument(config, htmlParts, translations = {}, baseUrl =
     if (problem) issues.push(issue('warning', problem[0], `Instance "${instance}": ${problem[1]}`));
   }
   const styles = isMap(config.styles) ? config.styles : {};
-  issues.push(...compileCmsStyles(isMap(styles.base) ? styles.base : {}, [isMap(styles.nodes) ? styles.nodes : {}], baseUrl).issues);
+  const part = (name) => (isMap(styles[name]) ? styles[name] : {});
+  issues.push(...compileCmsStyles(part('base'), [part('nodes')], baseUrl,
+    { kinds: [part('kinds')], presets: [part('presets')] }).issues);
   for (const [language, blocks] of Object.entries(translations || {})) {
     const ids = Object.keys(isMap(blocks) ? blocks : {});
     for (const id of ids) {
@@ -189,19 +200,53 @@ export function cmsNodes(html) {
 }
 
 /**
- * CSS of the base settings and node styles (StyleCompiler::compile).
+ * CSS of the base settings, kind defaults, presets and node styles (StyleCompiler::compile). Kind defaults and
+ * presets (plan 27c §6a) come before the node styles, so a node's own style wins.
  *
  * @param {object} base Base settings (website merged with page).
  * @param {object[]} nodeSets Node styles, website first, then the page.
  * @param {string} [baseUrl] Heurist base URL: background images may only come from it (or be relative).
+ * @param {{kinds?: object[], presets?: object[]}} [common] Kind defaults and presets, website first, then the page.
  * @returns {{css: string, issues: Array<object>}}
  */
-export function compileCmsStyles(base, nodeSets, baseUrl = '') {
+export function compileCmsStyles(base, nodeSets, baseUrl = '', { kinds = [], presets = [] } = {}) {
   const issues = [];
   let css = '';
   const variables = baseVariables(base, issues);
   if (variables) css += `html.h-site{${variables}}\n`;
   const screens = Object.fromEntries(Object.keys(SCREENS).map((screen) => [screen, '']));
+  const rule = (selector, style, id) => {
+    const rules = declarations(style, id, baseUrl, issues);
+    if (rules) css += `${selector}{${rules}}\n`;
+    for (const screen of Object.keys(SCREENS)) {
+      if (isMap(style[screen])) {
+        const screenRules = declarations(style[screen], id, baseUrl, issues);
+        if (screenRules) screens[screen] += `${selector}{${screenRules}}\n`;
+      }
+    }
+  };
+  for (const set of kinds) {
+    if (!isMap(set)) continue;
+    for (const [kind, style] of Object.entries(set)) {
+      if (!Object.hasOwn(CMS_KINDS, kind) || !isMap(style)) {
+        issues.push(issue('warning', 'style_kind', `Kind style "${kind}" is not valid`));
+        continue;
+      }
+      rule(CMS_KINDS[kind], style, null);
+    }
+  }
+  for (const set of presets) {
+    if (!isMap(set)) continue;
+    for (const [name, style] of Object.entries(set)) {
+      if (!NODE_ID.test(name) || !isMap(style)) {
+        issues.push(issue('warning', 'style_preset', `Style preset "${name}" is not valid`));
+        continue;
+      }
+      const properties = { ...style };
+      delete properties.label;
+      rule(`[data-h-style="${name}"]`, properties, null);
+    }
+  }
   for (const nodes of nodeSets) {
     if (!isMap(nodes)) continue;
     for (const [id, style] of Object.entries(nodes)) {
@@ -209,15 +254,7 @@ export function compileCmsStyles(base, nodeSets, baseUrl = '') {
         issues.push(issue('warning', 'style_node', `Node style "${id}" is not valid`, id));
         continue;
       }
-      const selector = `[data-h-node="${id}"]`;
-      const rules = declarations(style, id, baseUrl, issues);
-      if (rules) css += `${selector}{${rules}}\n`;
-      for (const screen of Object.keys(SCREENS)) {
-        if (isMap(style[screen])) {
-          const screenRules = declarations(style[screen], id, baseUrl, issues);
-          if (screenRules) screens[screen] += `${selector}{${screenRules}}\n`;
-        }
-      }
+      rule(`[data-h-node="${id}"]`, style, id);
     }
   }
   for (const [screen, width] of Object.entries(SCREENS)) {
@@ -225,6 +262,13 @@ export function compileCmsStyles(base, nodeSets, baseUrl = '') {
   }
   return { css, issues };
 }
+
+/** All style properties that may be written, for property selects (the designer's style forms). */
+export const CMS_STYLE_PROPERTIES = Object.freeze([
+  ...PROPERTIES,
+  ...['margin', 'padding'].flatMap((name) => [name, ...['top', 'right', 'bottom', 'left'].map((side) => `${name}-${side}`)]),
+  ...['', '-top', '-right', '-bottom', '-left'].flatMap((side) => ['', '-width', '-style', '-color'].map((part) => `border${side}${part}`))
+].sort());
 
 /** Whether a node style property may be written. */
 export function isCmsStyleProperty(property) {

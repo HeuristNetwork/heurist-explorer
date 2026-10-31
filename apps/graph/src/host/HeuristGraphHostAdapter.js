@@ -60,17 +60,21 @@ export class HeuristGraphHostAdapter extends HostAdapter {
    * configured, whether the host can display the active DataSource, and whether it lets
    * this view edit the DataSource's expansion rules (authors only).
    *
-   * @returns {{editing: boolean, graphPreferences: boolean, graphPublishing: boolean, showDatasource?: boolean, rulesEditing?: boolean}}
+   * @returns {{editing: boolean, graphPreferences: boolean, graphPublishing: boolean, showDatasource?: boolean, rulesEditing?: boolean, rulesExpansion?: boolean}}
    */
   getCapabilities() {
     const showDatasource = typeof this.bridge?.showDatasource === "function";
     const rulesEditing = typeof this.bridge?.updateRules === "function" && this.bridge?.canEditRules?.() === true;
+    // Quick and Smart expansion: also on a published page (rules of the visit only)
+    const rulesExpansion = rulesEditing
+      || (typeof this.bridge?.updateRules === "function" && this.bridge?.canExpandRules?.() === true);
     return {
       editing: this.supportsEditing(),
       graphPreferences: Boolean(this.baseUrl && this.database),
       graphPublishing: Boolean(this.baseUrl && this.database),
       ...(showDatasource ? { showDatasource: true } : {}),
       ...(rulesEditing ? { rulesEditing: true } : {}),
+      ...(rulesExpansion ? { rulesExpansion: true } : {}),
     };
   }
 

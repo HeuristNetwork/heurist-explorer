@@ -2749,8 +2749,10 @@ export class MapApplication {
       // map documents and layers: Explorer's record editor (plan 14) or the legacy host editor
       editing: !this.config.readonly && this.host.supportsEditing('RT_MAP_DOCUMENT'),
       symbologyEditing: this.canEditSymbology(),
-      // the thematic map editor writes the Map Layer: not for session-only symbology
+      // the thematic map editor writes the Map Layer: not for session-only symbology, guests
+      // (no right to edit map layers) or with editing off (options.interaction.editEnabled)
       thematicEditing: this.canEditSymbology() && !this.isSessionSymbology()
+        && this.config.interaction?.editEnabled !== false && this.host.supportsEditing('RT_MAP_LAYER')
     };
   }
 

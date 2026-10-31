@@ -42,6 +42,8 @@ export async function initHeuristExplorer(config, { before = null } = {}) {
   container.classList.add('h-explorer-booting');
   const ready = Promise.resolve(before).then(() => application.initialize()).then(() => api)
     .finally(() => container.classList.remove('h-explorer-booting'));
+  // a design page opened outside the designer (plan 27c §6): the Website manager with the designer
+  if (config.cms) void ready.then(() => application.openWebsiteManager({ recordId: config.cms.site, design: config.cms }));
   api.setReadyPromise(ready);
   // not for Explorer mounted into another page (direct.js returns the API)
   if (config.exposeGlobal !== false) globalThis.heuristExplorer = api;

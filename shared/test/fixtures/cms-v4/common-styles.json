@@ -1,0 +1,26 @@
+{
+  "name": "common styles (plan 27c): kind defaults, presets with labels, group control, before node styles",
+  "config": {
+    "schema": "heurist-cms/4",
+    "styles": {
+      "kinds": {
+        "group": {"display": "block", "gap": "12px"},
+        "text": {"line-height": "1.5"},
+        "instance": {"min-height": "300px", "narrow": {"min-height": "200px"}},
+        "cardinal": {"display": "grid"},
+        "tabs": "border: 1px"
+      },
+      "presets": {
+        "card": {"label": "Card", "padding": "16px", "border-radius": "8px", "position": "fixed"},
+        "columns2": {"label": "Two columns", "display": "grid", "grid-template-columns": "1fr 1fr", "narrow": {"grid-template-columns": "1fr"}},
+        "1bad": {"padding": "1px"}
+      },
+      "nodes": {"n2": {"padding": "4px"}}
+    }
+  },
+  "html": ["<div data-h-node=\"n1\" data-h-control=\"group\" data-h-style=\"columns2\"><p data-h-node=\"n2\" data-h-text=\"\" data-h-style=\"card\">A</p><p data-h-node=\"n3\" data-h-text=\"\">B</p></div>"],
+  "expect": {
+    "issues": ["warning:style_kind", "warning:style_kind", "warning:style_preset", "warning:style_property"],
+    "css": "[data-h-control=\"group\"]{display:block;gap:12px;}\n[data-h-text]{line-height:1.5;}\n[data-h-instance]{min-height:300px;}\n[data-h-style=\"card\"]{padding:16px;border-radius:8px;}\n[data-h-style=\"columns2\"]{display:grid;grid-template-columns:1fr 1fr;}\n[data-h-node=\"n2\"]{padding:4px;}\n@media (max-width:640px){\n[data-h-instance]{min-height:200px;}\n[data-h-style=\"columns2\"]{grid-template-columns:1fr;}\n}\n"
+  }
+}

@@ -65,6 +65,8 @@ export function createHeuristExplorerConfig(bootstrap, { bridge = null, containe
     // Explorer on a website page or a publication (plan 27a): no welcome popup, no last query
     published,
     editor: mode === 'editor' ? editorTarget(state) : null,
+    // open the CMS designer on this website / page at start (plan 27c §6)
+    cms: Number(state?.cms?.site) > 0 ? { site: Number(state.cms.site), page: Number(state.cms.page) || 0 } : null,
     database: runtime.database || null,
     apiBaseUrl: runtime.apiBaseUrl || (baseUrl ? `${baseUrl}api` : null),
     baseUrl: baseUrl || null,
@@ -115,8 +117,9 @@ export function editorTarget(state = {}) {
 
 /**
  * Bootstrap of a page opened by a link without a host bootstrap or bridge:
- * `explorerViewer.html?db=NAME&mode=editor&recID=151` (or `&rty=12`). The Heurist
- * root is three levels above `hclient/modules/explorer/`. Other URLs give nothing.
+ * `explorerViewer.html?db=NAME&mode=editor&recID=151` (or `&rty=12`), or the CMS designer of a website
+ * `explorerViewer.html?db=NAME&mode=cms&site=12[&page=34]` (a design page opened outside the designer,
+ * plan 27c §6). The Heurist root is three levels above `hclient/modules/explorer/`. Other URLs give nothing.
  *
  * @param {Location|URL|null} location Page location.
  * @returns {object} Bootstrap envelope, or `{}`.
@@ -124,8 +127,15 @@ export function editorTarget(state = {}) {
 export function urlBootstrap(location) {
   if (!location?.search) return {};
   const params = new URLSearchParams(location.search);
-  if (params.get('mode') !== 'editor' || !params.get('db')) return {};
+  const mode = params.get('mode');
+  if (!['editor', 'cms'].includes(mode) || !params.get('db')) return {};
   const baseUrl = new URL('../../../', location.href).href;
+  if (mode === 'cms') {
+    return {
+      runtime: { runtimeMode: 'main', database: params.get('db'), baseUrl, apiBaseUrl: `${baseUrl}api`, language: params.get('lang') || 'eng' },
+      state: { cms: { site: Number(params.get('site')) || 0, page: Number(params.get('page')) || 0 } }
+    };
+  }
   const recordId = Number(params.get('recID') || params.get('recordId')) || 0;
   const rectypeId = params.get('rty') || params.get('rectypeId') || null;
   return {

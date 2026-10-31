@@ -65,7 +65,9 @@ export async function mountWebsiteManager({ container, bootstrap = {}, bridge = 
   return {
     application,
     selectRecord: (id) => view.selectRecord(id),
-    hasUnsavedChanges: () => false,
+    // the CMS designer on a website or standalone page (plan 27c), e.g. Explorer started with ?mode=cms
+    openDesigner: (id, options) => view.openDesigner(id, options),
+    hasUnsavedChanges: () => Boolean(view.designer?.isDirty?.()),
     destroy: () => view.destroy()
   };
 }

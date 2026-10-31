@@ -122,8 +122,11 @@ export class ExplorerApplication {
     // this the module boots from bare defaults instead of the user's saved
     // preference, even though the module's own preferences dialog loads that
     // same preference correctly (it fetches it live, on demand).
-    // need to recreate this.modulePreferences from the config.settings.modules array, but for now just start with an empty object.
-    this.modulePreferences = {};
+    // A published page: the module settings captured at publication (captureView); else
+    // only the changes of this session.
+    const publishedModules = config.published ? config.settings?.modules : null;
+    this.modulePreferences = publishedModules && typeof publishedModules === 'object' && !Array.isArray(publishedModules)
+      ? JSON.parse(JSON.stringify(publishedModules)) : {};
   }
 
   /**
@@ -596,15 +599,21 @@ export class ExplorerApplication {
 
   /**
    * The DataSource of a filter of a published page: the latest saved filter or query source,
-   * the query of publication time as it was.
+   * the query of publication time as it was (with its presentation).
    *
    * @private
-   * @param {{kind: string, id?: number, title: string, request?: object}} item
+   * @param {{kind: string, id?: number, title: string, request?: object, presentation?: object}} item
    * @returns {Promise<object|null>}
    */
   async _resolvePublishedItem(item) {
     if (item.kind === 'query') {
-      return normalizeDataSource({ reference: { type: 'query' }, title: item.title, request: structuredClone(item.request) });
+      // pages published before 2026-10-31 have no presentation in the item: the one of the
+      // saved DataSource when it has the same query
+      const saved = this.config.state?.dataSource;
+      const presentation = item.presentation
+        || (saved?.presentation && JSON.stringify(saved.request?.q) === JSON.stringify(item.request?.q) ? saved.presentation : null);
+      return normalizeDataSource({ reference: { type: 'query' }, title: item.title, request: structuredClone(item.request),
+        presentation: presentation ? structuredClone(presentation) : null });
     }
     return this.resolveDataSourceReference({ type: item.kind, id: item.id });
   }
@@ -1939,10 +1948,11 @@ export class ExplorerApplication {
    * loaded only now by a dynamic import of its direct entry (not the public site runtime).
    * When it is open already, only the record is selected.
    *
-   * @param {{recordId?: number}} [options] Record to select (after Publish).
+   * @param {{recordId?: number, design?: {site: number, page?: number}}} [options] Record to select (after
+   *        Publish); `design`: open the CMS designer on this website / page (plan 27c §6).
    * @returns {Promise<boolean>} False when the manager could not be opened.
    */
-  async openWebsiteManager({ recordId = null } = {}) {
+  async openWebsiteManager({ recordId = null, design = null } = {}) {
     try {
       if (!this._websiteManager) {
         const host = document.createElement('div');
@@ -1954,6 +1964,7 @@ export class ExplorerApplication {
       }
       const manager = await this._websiteManager;
       if (recordId) await manager?.selectRecord?.(recordId);
+      if (design?.site) await manager?.openDesigner?.(design.site, { page: design.page || 0 });
       return true;
     } catch (error) {
       this.closeWebsiteManager();
@@ -2003,7 +2014,7 @@ export class ExplorerApplication {
         normalize: publication.normalizePublicationValues,
         formOptions: { onChange: target.onChange },
         onSave: async (values, { form: editForm }) => {
-          const view = this.captureView();
+          const view = await this.captureView();
           const publish = editForm.getValues().publish || {};
           result = await publishModuleTo({
             client,
@@ -2084,7 +2095,8 @@ export class ExplorerApplication {
   }
 
   /**
-   * Host bridge given to the Website manager: record editor and definitions.
+   * Host bridge given to the Website manager and the CMS designer: record editor, definitions, module
+   * configuration in website mode and the configuration of an Explorer instance (plan 27c §5.4).
    *
    * @private
    * @returns {object} Bridge object.
@@ -2095,36 +2107,102 @@ export class ExplorerApplication {
       viewRecord: (id) => this.viewRecord(id),
       canEditRecords: () => this.canEditRecordType('RT_CMS_PAGE'),
       getDbDefs: () => this._ensureDbDefs(),
-      isLoggedIn: () => Number(this.userGroups?.data?.currentUserId) > 0
+      isLoggedIn: () => Number(this.userGroups?.data?.currentUserId) > 0,
+      openConfiguration: (request) => this.openModuleConfiguration(request),
+      configureExplorerInstance: (request) => this.configureExplorerInstance(request)
     };
   }
 
   /**
-   * The current view for "Publish this view" (plan 27b §6): an `explorer` instance of a page.
-   * Settings: layout, the Explorer configuration and module preferences; state: the current
-   * DataSource and selection.
+   * The configuration of an Explorer instance of a website page (CMS designer, plan 27c §5.4): the form of
+   * *Publish this view* without "Publish to". The settings are the current view of this Explorer with the
+   * values of the form (language, filters); the state is its current DataSource and selection.
    *
-   * @returns {{settings: object, state: object}}
+   * @param {{value?: object}} [request] The instance's form values from before.
+   * @returns {Promise<{settings: object, state: object}|null>} Null when cancelled.
    */
-  captureView() {
+  async configureExplorerInstance({ value = null } = {}) {
+    try {
+      const [{ ModuleConfigurationDialog }, publication] = await Promise.all([
+        import('#shared/ui/config/ModuleConfigurationDialog.js'),
+        import('../ui/config/explorerPublication.js')
+      ]);
+      const choices = publication.publicationFilterChoices({
+        ...(await this._publicFilterLists(publication.WEBSITE_FILTERS_GROUP)),
+        current: this.sync?.dataSource || null
+      });
+      let result = null;
+      await new ModuleConfigurationDialog({
+        form: publication.explorerPublicationForm(choices),
+        formId: 'explorer',
+        mode: 'website',
+        title: 'Explorer on the page: this view',
+        value: value || { ui: { language: this.uiConfigSaved?.language || 'auto' } },
+        defaults: () => publication.normalizePublicationValues({}),
+        normalize: publication.normalizePublicationValues,
+        onSave: async (values) => {
+          const view = await this.captureView();
+          result = {
+            settings: publication.publicationSettings(view.settings, values, choices, this.config.language),
+            state: view.state
+          };
+          return true;
+        }
+      }).open();
+      return result;
+    } catch (error) {
+      HMsg.showMsgErr?.(error?.message || String(error));
+      return null;
+    }
+  }
+
+  /**
+   * The current view for "Publish this view" (plan 27b §6): an `explorer` instance of a page.
+   * Settings: layout, the Explorer configuration and the settings each module uses now (its
+   * `getConfiguration()`, 2026-10-31: the module's own saved preferences were not known to
+   * Explorer, so a page got the defaults); state: the current DataSource and selection.
+   *
+   * @returns {Promise<{settings: object, state: object}>}
+   */
+  async captureView() {
     const clone = (value) => (value == null ? value : JSON.parse(JSON.stringify(value)));
-    const layout = this.layoutDefinitions
-      .filter((definition) => !TOOL_TYPES.includes(definition.type))
-      .map(({ id, type, region, context, settings, state }) => ({ id, type, region, context: context || null,
-        settings: settings || null, state: state || null }));
+    const modules = { ...(this.modulePreferences || {}) };
+    const layout = [];
+    for (const { id, type, region, context, settings, state } of this.layoutDefinitions) {
+      if (TOOL_TYPES.includes(type)) continue;
+      const current = await this._currentModuleSettings(id);
+      if (current && !modules[type]) modules[type] = current;
+      layout.push({ id, type, region, context: context || null, settings: current || settings || null, state: state || null });
+    }
     return {
       settings: {
         format: 'heurist-explorer-settings',
         version: 1,
         layout: clone(layout),
         ui: clone(this.uiConfigSaved || this.uiConfigValue),
-        modules: clone(this.modulePreferences || {})
+        modules: clone(modules)
       },
       state: {
         dataSource: this.sync?.dataSource ? clone(cloneDataSource(this.sync.dataSource)) : null,
         selection: [...(this.sync?.selection || [])]
       }
     };
+  }
+
+  /**
+   * The settings a mounted module uses now (`getConfiguration()` of its public API), or null.
+   *
+   * @private
+   * @param {string} id Layout id of the module.
+   * @returns {Promise<object|null>}
+   */
+  async _currentModuleSettings(id) {
+    try {
+      const value = await this.modules.get(id)?.api?.getConfiguration?.();
+      return value && typeof value === 'object' ? JSON.parse(JSON.stringify(value)) : null;
+    } catch {
+      return null;
+    }
   }
 
   /**
@@ -2207,6 +2285,7 @@ export class ExplorerApplication {
       editRules: () => this.editDataSourceRules(),
       updateRules: (rules) => this.updateDataSourceRules(rules),
       canEditRules: () => this.canEditRules(),
+      canExpandRules: () => this.canExpandRules(),
       describeRules: (rules) => bridge.describeRules?.(rules),
       editFieldset: (value, options) => bridge.editFieldset?.(value, options),
       zoomToExtent: (wkt) => this.zoomActiveMapToExtent(wkt),
@@ -2279,6 +2358,16 @@ export class ExplorerApplication {
   }
 
   /**
+   * Whether a module may grow the rules of the active DataSource (Quick and Smart
+   * expansion): also on a published page, where the rules change for this visit only.
+   *
+   * @returns {boolean}
+   */
+  canExpandRules() {
+    return Boolean(this.sync?.dataSource);
+  }
+
+  /**
    * Open the Expansion rules dialog for the active DataSource and apply the result.
    *
    * @returns {Promise<Array<object>|null>} Applied rules, or `null` when cancelled or unchanged.
@@ -2297,13 +2386,13 @@ export class ExplorerApplication {
   /**
    * Replace the active DataSource's expansion rules: described, pushed to the
    * presentations that use rules (no reload) and into the Query Source draft,
-   * which becomes dirty so the author can save it.
+   * which becomes dirty so the author can save it (no draft on a published page).
    *
    * @param {Array<object>} rules New expansion rules.
-   * @returns {Promise<Array<object>|null>} Applied rules, or `null` when rules can't be edited.
+   * @returns {Promise<Array<object>|null>} Applied rules, or `null` when rules can't be changed.
    */
   async updateDataSourceRules(rules) {
-    if (!this.canEditRules() || !Array.isArray(rules)) return null;
+    if (!this.canExpandRules() || !Array.isArray(rules)) return null;
     const dbdefs = await this._ensureDbDefs();
     const described = rules.map((rule) => (rule?.name ? rule : { ...rule, ...describeExpansionRule(rule, dbdefs) }));
     this.querySourcePanel?.setRules(described);
@@ -2529,7 +2618,7 @@ async function mountDirectRecordView(options) {
 }
 
 /** Width of the collapsed Search pane of a published page (magnifier and the vertical "Search"). */
-const PUBLISHED_SEARCH_STRIP = 34;
+const PUBLISHED_SEARCH_STRIP = 22;
 
 /** Saved filter ids of a published page's filters. */
 function pageFilterIds(pageFilter) {

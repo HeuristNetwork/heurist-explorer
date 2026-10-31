@@ -1,7 +1,8 @@
 /**
  * @file WebsiteDetails.js
- * @brief Details pane of the Website manager (plan 27b §3): name, version, languages, live URL,
- *        menu tree of a website, problems of the format (Check) and the builds (Generate).
+ * @brief Details pane of the Website manager (plan 27b §3): icon, name and the pen (edit the record),
+ *        version, languages, logo, keywords, description, author, live URL, menu tree of a website,
+ *        problems of the format (Check) and the builds (Generate).
  *
  * @project     Heurist academic knowledge management system
  * @package     heurist-website
@@ -22,13 +23,16 @@ import { $HR, HMsg } from '#shared/ui';
 /** Kind of a record as shown. */
 const KIND_TEXT = { website: 'Website', standalone: 'Standalone page', page: 'Menu page' };
 
+/** Edit / open / take out icons of the menu entries: hidden for a while (2026-10-31). */
+const MENU_ENTRY_TOOLS = false;
+
 /** Details of the selected website or page. */
 export class WebsiteDetails extends HBaseWidget {
   /**
    * @param {HTMLElement} container Pane host.
    * @param {object} options
    * @param {import('./WebsiteApplication.js').WebsiteApplication} options.application Controller.
-   * @param {Function} options.onEditRecord `(id)` - edit a page of the menu.
+   * @param {Function} options.onEditRecord `(id)` - edit the record (the pen beside the title) or a page of the menu.
    * @param {Function} options.onRemoveFromMenu `(pageId)` - take a page out of the menu.
    * @returns {WebsiteDetails}
    */
@@ -66,12 +70,33 @@ export class WebsiteDetails extends HBaseWidget {
   }
 
   _renderSummary(root, summary) {
-    el('h2', 'h-website-details-title', root).textContent = summary.title || `#${summary.id}`;
+    const app = this.app;
+    const head = el('div', 'h-website-details-head', root);
+    // the icon of the website / page (2-39)
+    const icon = this._thumbnail(summary, 'icon');
+    if (icon) el('img', 'h-website-details-icon', head).src = icon;
+    el('h2', 'h-website-details-title', head).textContent = summary.title || `#${summary.id}`;
+    if (summary.v4 && summary.canEdit && app.canEditRecords()) {
+      iconButton(head, 'fa-pen', 'Edit the record', () => this.options.onEditRecord?.(summary.id));
+    }
     const facts = el('div', 'h-website-details-facts', root);
     fact(facts, 'Kind', $HR(KIND_TEXT[summary.kind] || summary.kind));
     fact(facts, 'Version', summary.v4 ? '4' : `${summary.version || '1-3'} (${$HR('legacy')})`);
     if (summary.languages?.length) fact(facts, 'Languages', summary.languages.map((code) => code.toUpperCase()).join(', '));
     fact(facts, 'Record', `#${summary.id}`);
+    // the logo of a website (2-38)
+    const logo = summary.kind === 'website' ? this._thumbnail(summary, 'logo') : '';
+    if (logo) {
+      const row = el('div', 'h-website-fact', facts);
+      el('span', 'h-website-fact-label', row).textContent = $HR('Logo');
+      el('img', 'h-website-details-logo', el('span', 'h-website-fact-value', row)).src = logo;
+    }
+    const keywords = this._texts(summary, 'keywords');
+    if (keywords.length) fact(facts, 'Keywords', keywords.join(', '));
+    const description = this._texts(summary, 'description');
+    if (description.length) fact(facts, summary.kind === 'website' ? 'Website summary' : 'Page description', description.join(' '));
+    const authors = this._texts(summary, 'author');
+    if (authors.length) fact(facts, 'Author', authors.join(', '));
 
     if (!summary.v4) {
       el('p', 'h-website-note', root).textContent = $HR('A website of an earlier format. Edit it in the legacy website editor (Heurist main menu > Publish > Websites). Conversion to format 4 comes later.');
@@ -113,17 +138,37 @@ export class WebsiteDetails extends HBaseWidget {
         const item = el('li', '', parent);
         const line = el('div', 'h-website-page', item);
         el('span', 'h-website-page-title', line).textContent = page.title || `#${page.id}`;
-        if (summary.v4 && this.app.canEditRecords()) {
+        if (MENU_ENTRY_TOOLS && summary.v4 && this.app.canEditRecords()) {
           iconButton(line, 'fa-pen', 'Edit the page', () => this.options.onEditRecord?.(page.id));
         }
-        if (summary.v4) iconButton(line, 'fa-up-right-from-square', 'Open the page', () => globalThis.open?.(`${summary.url}/${page.id}`, '_blank', 'noopener'));
-        if (summary.v4 && summary.canEdit) {
+        if (MENU_ENTRY_TOOLS && summary.v4) iconButton(line, 'fa-up-right-from-square', 'Open the page', () => globalThis.open?.(`${summary.url}/${page.id}`, '_blank', 'noopener'));
+        if (MENU_ENTRY_TOOLS && summary.v4 && summary.canEdit) {
           iconButton(line, 'fa-xmark', 'Take the page out of the menu (the page is kept)', () => this.options.onRemoveFromMenu?.(page.id));
         }
         if (page.children?.length) add(el('ul', '', item), page.children);
       }
     };
     add(list, summary.pages);
+  }
+
+  /** Values of a summary field (WEBSITE_CODES name) as text: plain values, terms and record titles. */
+  _texts(summary, name) {
+    const values = summary.details?.[String(this.app.codes?.[name] || '')];
+    return (Array.isArray(values) ? values : [])
+      .map((value) => (value && typeof value === 'object'
+        ? value.rec_Title ?? value.trm_Label ?? value.label ?? value.value ?? ''
+        : value))
+      .map((value) => stripTags(value).trim())
+      .filter(Boolean);
+  }
+
+  /** Thumbnail URL of the first file of a summary field (`/files/{key}/thumbnail`), or ''. */
+  _thumbnail(summary, name) {
+    const values = summary.details?.[String(this.app.codes?.[name] || '')];
+    const file = (Array.isArray(values) ? values : []).map((value) => value?.file).find(Boolean);
+    const key = String(file?.ulf_ObfuscatedFileID || '').replace(/[^a-z0-9]/gi, '');
+    if (!key || typeof this.app.apiClient?.buildUrl !== 'function') return '';
+    return this.app.apiClient.buildUrl(`/files/${key}/thumbnail`);
   }
 
   _renderIssues(root) {
@@ -186,6 +231,13 @@ function fact(parent, label, value) {
   const row = el('div', 'h-website-fact', parent);
   el('span', 'h-website-fact-label', row).textContent = $HR(label);
   el('span', 'h-website-fact-value', row).textContent = value;
+}
+
+/** Text without HTML tags (record titles may have some). */
+function stripTags(value) {
+  const element = document.createElement('div');
+  element.innerHTML = String(value ?? '');
+  return element.textContent || '';
 }
 
 /** An icon button with a tooltip. */

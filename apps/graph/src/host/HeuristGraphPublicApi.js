@@ -194,6 +194,9 @@ export class HeuristGraphPublicApi extends HeuristModulePublicApi {
   /** @returns {boolean} Whether this view may edit the DataSource's rules (authors only). */
   canEditRules() { return this.application.canEditRules(); }
 
+  /** @returns {boolean} Whether this view may grow the rules (Quick and Smart expansion). */
+  canExpandRules() { return this.application.canExpandRules(); }
+
   /**
    * Open the host's Expansion rules dialog for the active DataSource.
    *

@@ -62,10 +62,11 @@ export function publishedModuleSettings(settings = {}) {
 
 /**
  * The HFilter settings of a page (`settings.filter`), normalized. Items are references (the
- * latest version is read when the page opens); the query of publication time keeps its request.
+ * latest version is read when the page opens); the query of publication time keeps its request
+ * and presentation (columns, geo and time fields).
  *
  * @param {object|null} value `{items, active, mode, placement}`.
- * @returns {{items: Array<{key: string, kind: string, id?: number, title: string, request?: object}>,
+ * @returns {{items: Array<{key: string, kind: string, id?: number, title: string, request?: object, presentation?: object}>,
  *   active: string|null, mode: string, placement: string}}
  */
 export function normalizePublishedFilter(value = null) {
@@ -82,7 +83,7 @@ export function normalizePublishedFilter(value = null) {
     items.push({
       key,
       kind,
-      ...(kind === 'query' ? { request: structuredClone(item.request) } : { id }),
+      ...(kind === 'query' ? { request: structuredClone(item.request), ...queryPresentation(item) } : { id }),
       title: String(item.title || '')
     });
   }
@@ -93,6 +94,13 @@ export function normalizePublishedFilter(value = null) {
     mode: FILTER_MODES.includes(source.mode) ? source.mode : 'buttons',
     placement: FILTER_PLACEMENTS.includes(source.placement) ? source.placement : 'west'
   };
+}
+
+/** `{presentation}` of a query item when it has one. */
+function queryPresentation(item) {
+  const presentation = item.presentation;
+  return presentation && typeof presentation === 'object' && !Array.isArray(presentation)
+    ? { presentation: structuredClone(presentation) } : {};
 }
 
 /**

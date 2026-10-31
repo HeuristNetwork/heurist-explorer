@@ -62,6 +62,8 @@
   box-sizing:border-box; min-height:25px; padding:2px;
   border-bottom:1px solid var(--h-color-border); background:var(--h-color-bg); }
 .heurist-data-toolbar[hidden] { display:none !important; }
+/* controls turned off (nativeControls): `hidden` wins over the display of .h-inline, .h-dropdown ... */
+.heurist-data-toolbar > [hidden] { display:none !important; }
 .heurist-data-toolbar-label { color:var(--h-color-text-muted); }
 .heurist-data-toolbar-search { width:min(260px,100%); }
 .heurist-data-toolbar-search .h-input { width:100%; }

@@ -28,8 +28,17 @@ export const WEBSITE_CODES = Object.freeze({
   page: ['rty', '99-52'],
   version: ['dty', '2-49'],
   pageType: ['dty', '2-928'],
-  standalonePage: ['trm', '2-6254']
+  standalonePage: ['trm', '2-6254'],
+  // shown in the details (2026-10-31): icon, logo (website), keywords, description, author
+  icon: ['dty', '2-39'],
+  logo: ['dty', '2-38'],
+  keywords: ['dty', '99-948'],
+  description: ['dty', '2-3'],
+  author: ['dty', '2-15']
 });
+
+/** Fields of the details pane, in their order (WEBSITE_CODES names). */
+export const SUMMARY_FIELDS = Object.freeze(['icon', 'logo', 'keywords', 'description', 'author']);
 
 /** Website manager state and operations. */
 export class WebsiteApplication extends EventTarget {
@@ -118,7 +127,7 @@ export class WebsiteApplication extends EventTarget {
     const id = this.selectedId;
     if (!id) return;
     try {
-      const summary = await this.websites.summary(id);
+      const summary = await this.websites.summary(id, { fields: SUMMARY_FIELDS.map((name) => this.codes[name]) });
       if (this.selectedId !== id) return;
       this.summary = summary;
       this.summaryError = null;

@@ -127,7 +127,7 @@ test('WebsiteClient: paths, methods and bodies of the website and page entities 
     if (path === '/website/5') return { records: [{ rec_ID: '5' }], meta: { canEdit: true, website: { id: 5, kind: 'website' } } };
     return { data: { ok: path } };
   } } });
-  assert.deepEqual(await client.summary(5), { id: 5, kind: 'website', canEdit: true });
+  assert.deepEqual(await client.summary(5), { id: 5, kind: 'website', canEdit: true, details: {} });
   await client.validate(5, { page: 7, entity: 'website' });
   assert.deepEqual(await client.create({ title: 'S', languages: ['eng'] }), { id: 12, record: { rec_ID: '12' } });
   await client.publish({ type: 'map', pageId: 9 });
@@ -166,7 +166,7 @@ test('WebsiteClient.summary: a page after a 404 of the website entity', async ()
     if (path === '/website/20') throw Object.assign(new Error('Record 20 is not a website'), { status: 404 });
     return { records: [{ rec_ID: '20' }], meta: { canEdit: false, website: { id: 20, kind: 'standalone' } } };
   } } });
-  assert.deepEqual(await client.summary(20), { id: 20, kind: 'standalone', canEdit: false });
+  assert.deepEqual(await client.summary(20), { id: 20, kind: 'standalone', canEdit: false, details: {} });
   assert.deepEqual(paths, ['/website/20', '/page/20']);
 });
 

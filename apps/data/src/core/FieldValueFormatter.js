@@ -12,6 +12,9 @@
  * @license     https://www.gnu.org/licenses/gpl-3.0.txt GNU License 3.0
  * @since       8.0
  */
+
+import { temporalToHuman } from "#shared/utils/temporal.js";
+
 /**
  * Project one detail value to a display string per its fieldset output option (`ext`).
  *
@@ -21,8 +24,9 @@
  */
 export function projectFieldValue(item, ext = null) {
   if (item == null) return "";
-  if (typeof item !== "object") return item;
   const key = String(ext || "").toLowerCase();
+  // a date value is text (temporal JSON or a plain date)
+  if (typeof item !== "object") return key === "human" ? temporalToHuman(String(item)) : item;
 
   if (key === "term")
     return first(item.trm_Label, item.term, item.label, item.value);
@@ -59,7 +63,7 @@ export function projectFieldValue(item, ext = null) {
   if (key === "pair") return coordinatePair(item.geo || item);
   if (key === "iso") return first(item.iso, item.value, item.raw);
   if (key === "human")
-    return humanDate(first(item.human, item.display, item.value, item.raw));
+    return temporalToHuman(String(first(item.human, item.display, item.value, item.raw)));
   if (key === "raw") return serialize(first(item.raw, item.value, item));
   if (key && item[ext] != null) return serialize(item[ext]);
 
@@ -166,18 +170,4 @@ function coordinatePair(value) {
   const wkt = String(value?.wkt || "");
   const match = wkt.match(/^POINT\s*\(\s*(-?[\d.]+)\s+(-?[\d.]+)\s*\)$/i);
   return match ? `${match[2]},${match[1]}` : wkt;
-}
-
-/** Format an ISO-like date string as a locale-medium date, falling back to the raw text. */
-function humanDate(value) {
-  const text = String(value ?? "");
-  const match = text.match(/^(\d{4})-(\d{2})-(\d{2})(.*)$/);
-  if (!match) return text;
-  try {
-    return new Intl.DateTimeFormat(undefined, { dateStyle: "medium" }).format(
-      new Date(`${match[1]}-${match[2]}-${match[3]}T00:00:00Z`),
-    );
-  } catch {
-    return text;
-  }
 }

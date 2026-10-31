@@ -82,6 +82,15 @@ test('page settings: the view, the language and the chosen filters with the acti
   assert.equal(other.filter.active, null);
 });
 
+test('the current query keeps its presentation: columns, geo and time fields (2026-10-31)', () => {
+  const presentation = { data: { fields: [{ field: '10:1' }] }, map: { geoFields: [{ field: '12:28' }] }, timeline: { timeFields: ['10:10'] } };
+  const withPresentation = publicationFilterChoices({ current: { request: { q: [{ t: '10' }] }, presentation } });
+  const settings = publicationSettings({ ui: {} }, normalizePublicationValues({ filter: { items: ['current'], active: 'current' } }),
+    withPresentation);
+  assert.deepEqual(settings.filter.items[0].presentation, presentation);
+  assert.deepEqual(normalizePublishedFilter(settings.filter).items[0].presentation, presentation);
+});
+
 test('memory storage: nothing reaches the browser storage', () => {
   const storage = memoryStorage();
   storage.setItem('a', 1);

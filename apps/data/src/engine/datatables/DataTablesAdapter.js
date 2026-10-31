@@ -24,6 +24,8 @@ import { $HR } from "#shared/ui";
 import { dataPopupMode } from "#shared/widgets/record-list/recordTemplates.js";
 import { adminInfoHtml, recordTypeIconUrl } from "#shared/widgets/record-list/recordAdminInfo.js";
 import { createOwnersToggle, createSortSelect } from "#shared/widgets/record-list/ListToolControls.js";
+import { temporalToHuman } from "#shared/utils/temporal.js";
+import { geoToHuman } from "#shared/utils/geoText.js";
 import {
   fieldValues,
   sanitizeTextHtml,
@@ -152,6 +154,7 @@ export class DataTablesAdapter extends DataEngineAdapter {
       if (value !== "datatable") this.onViewModeChange?.(value);
     });
     viewLabel.append(viewCaption, select);
+    viewLabel.hidden = controls.viewMode === false;
 
     const actions = document.createElement("details");
     actions.className = "h-dropdown";
@@ -271,6 +274,7 @@ export class DataTablesAdapter extends DataEngineAdapter {
     if (this.ownersToggle) this.ownersToggle.hidden = listControls.showOwner === false;
     this.toolbarElement = bar;
     this.searchLabel = searchLabel;
+    this.viewModeLabel = viewLabel;
     this.selectionActionsEl = actions;
     this._updateSelectionButton();
   }
@@ -280,6 +284,7 @@ export class DataTablesAdapter extends DataEngineAdapter {
     const interaction = this.options.interaction || {};
     const controls = this.options.controls || {};
     if (this.searchLabel) this.searchLabel.hidden = controls.search === false;
+    if (this.viewModeLabel) this.viewModeLabel.hidden = controls.viewMode === false;
     if (this.selectionActionsEl)
       this.selectionActionsEl.hidden =
         interaction.selectionEnabled === false ||
@@ -466,7 +471,7 @@ export class DataTablesAdapter extends DataEngineAdapter {
         width: field.width || undefined,
         orderable: Boolean(sortCode(field.field)),
         render: (value, type) =>
-          formatProjectedCell(value, type, fieldType(field.field, meta)),
+          formatProjectedCell(value, type, fieldType(field.field, meta), field.ext),
       })),
       ...(actionEnabled
         ? [
@@ -833,12 +838,16 @@ export function projectRecords(records, fields) {
  */
 export function formatCell(record, field, type = "display") {
   const normalized = fieldValues(record, field).map(String);
-  return formatProjectedCell(normalized, type, field.type || null);
+  return formatProjectedCell(normalized, type, field.type || null, field.ext);
 }
 
-/** Join one field's already-stringified values into display HTML or plain export text. */
-function formatProjectedCell(value, type = "display", dataType = null) {
-  const values = Array.isArray(value) ? value : value == null ? [] : [value];
+/**
+ * Join one field's already-stringified values into display HTML or plain export text.
+ * Date and geo values without an output option (`ext`) are shown as readable text.
+ */
+function formatProjectedCell(value, type = "display", dataType = null, ext = null) {
+  const raw = Array.isArray(value) ? value : value == null ? [] : [value];
+  const values = ext ? raw : raw.map((item) => readableValue(item, dataType));
   const plain = values.map((item) => stripHtml(String(item ?? "")));
   if (type !== "display") return plain.join(" | ");
   return values
@@ -929,6 +938,14 @@ function fieldType(code, meta) {
   );
 }
 
+/** A date (temporal JSON, plain date) or geo (WKT) value as readable text; other values as they are. */
+function readableValue(value, dataType) {
+  const type = String(dataType || "").toLowerCase();
+  if (type === "date") return temporalToHuman(String(value ?? ""));
+  if (type === "geo") return geoToHuman(String(value ?? ""));
+  return value;
+}
+
 /** Format one value's display HTML per its data type (blocktext/JSON/geo get special treatment; others are sanitized HTML). */
 function formatDisplayValue(value, plain, dataType) {
   const type = String(dataType || "").toLowerCase();
@@ -936,6 +953,7 @@ function formatDisplayValue(value, plain, dataType) {
     const shortened = truncate(plain, 240);
     return `<span class="heurist-data-memo" title="${escapeHtml(plain)}">${escapeHtml(shortened)}</span>`;
   }
+  if (type === "date") return escapeHtml(plain);
   if (type === "json" || looksLikeJson(plain)) {
     return `<span class="heurist-data-structured" title="${escapeHtml(plain)}">${escapeHtml(compactJson(plain))}</span>`;
   }

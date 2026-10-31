@@ -252,6 +252,17 @@ export class HeuristDataHostAdapter extends HostAdapter {
   }
 
   /**
+   * Whether the host lets this view grow the DataSource's rules (Quick and Smart
+   * expansion): authors, and visitors of a published page (rules of the visit only).
+   */
+  supportsRulesExpansion() {
+    return (
+      typeof this.bridge?.updateRules === "function" &&
+      (this.bridge?.canExpandRules?.() === true || this.bridge?.canEditRules?.() === true)
+    );
+  }
+
+  /**
    * Open the host's Expansion rules dialog. The host saves the result into the
    * DataSource and applies it back through `setDataSourceRules`.
    *

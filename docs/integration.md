@@ -76,6 +76,11 @@ bootstrap, bridge, assetBaseUrl, onClose})`. Explorer mounts it over the whole s
 `settings.ui` and never writes it to the visitor's browser. Endpoints: the entities `/api/{db}/website/...` and `/page/...`
 on the generic record controller (plan 27d; heurist `srv/Website/WebsiteEntityHandler.php`); builds (`POST /website/{id}/execute`) are background jobs of type
 `website-build` (a ZIP downloaded with `GET /jobs/{id}/result`).
+The CMS designer (plan 27c) opens from the manager (*Open editor*, `openDesigner(id, {page})` of the mount API)
+over the whole screen, only inside Explorer: the bridge also gives `openConfiguration` (module forms in `website`
+mode) and `configureExplorerInstance`. Its preview is the server page with `?design=1` (logged-in users); opened
+outside the designer that page goes to `hclient/modules/explorer/explorerViewer.html?db=&mode=cms&site=&page=`,
+which starts Explorer and opens the manager with the designer (`config.cms`).
 `runtime.moduleAssetUrls.website` overrides the bundle base of the manager's localization
 (default `hclient/bundles/heurist-website`).
 

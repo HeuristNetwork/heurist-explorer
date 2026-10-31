@@ -229,9 +229,11 @@ export class GraphControlPanel {
     this.expandButton.disabled = state.busy || (!canUnlockRules && state.depth >= state.maxDepth);
     this.stopExpansionButton.hidden = !state.busy;
     const canEdit = this.api.canEditRules?.() === true && this.options.showExpand !== false;
+    // Quick / Smart expansion also on a published page (Edit rules: authors only)
+    const canExpand = (canEdit || this.api.canExpandRules?.() === true) && this.options.showExpand !== false;
     this.editRulesButton.hidden = !canEdit;
-    this.quickExpandButton.hidden = !canEdit;
-    this.smartExpandButton.hidden = !canEdit;
+    this.quickExpandButton.hidden = !canExpand;
+    this.smartExpandButton.hidden = !canExpand;
     this.editRulesButton.disabled = state.busy;
     this.quickExpandButton.disabled = state.busy || this.api.canQuickExpand?.() !== true;
     this.smartExpandButton.disabled = this.quickExpandButton.disabled || this.countingTypes === true;

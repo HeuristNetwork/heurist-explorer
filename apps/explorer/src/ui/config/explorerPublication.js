@@ -52,8 +52,9 @@ export function publicationFilterChoices({ filters = [], sources = [], current =
     }))
   ];
   if (current?.request?.q) {
+    // the presentation too: the columns, geo and time fields of the DataSource
     choices.push({ key: itemKey('query'), kind: 'query', title: 'Current query', request: structuredClone(current.request),
-      parameterized: false });
+      presentation: current.presentation ? structuredClone(current.presentation) : null, parameterized: false });
   }
   return choices;
 }
@@ -141,7 +142,8 @@ export function publicationSettings(viewSettings, values, choices, language = 'e
   const chosen = values.filter.items
     .map((key) => choices.find((choice) => choice.key === key))
     .filter(Boolean)
-    .map(({ key, kind, id, title, request }) => ({ key, kind, title, ...(kind === 'query' ? { request } : { id }) }));
+    .map(({ key, kind, id, title, request, presentation }) => ({ key, kind, title,
+      ...(kind === 'query' ? { request, presentation } : { id }) }));
   const filter = normalizePublishedFilter({ ...values.filter, items: chosen });
   const pageLanguage = values.ui.language === 'auto' ? language : values.ui.language;
   return {

@@ -183,6 +183,7 @@
 
 .h-explorer-search-caption {
     flex: 1 1 auto;
+    font-style: italic;
 }
 
 .h-explorer-search-body {
@@ -208,7 +209,8 @@
 .h-explorer-published .h-cardinal-west.is-collapsed .h-explorer-search-head {
     flex-direction: column;
     height: 100%;
-    padding: 8px 0;
+    padding: 6px 0;
+    font-size: var(--h-font-size);
     border-bottom: 0;
 }
 

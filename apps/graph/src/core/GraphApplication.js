@@ -809,6 +809,12 @@ export class GraphApplication extends EventTarget {
     return this.getHostCapabilities().rulesEditing === true;
   }
 
+  /** @returns {boolean} Whether this view may grow the rules (Quick and Smart expansion; also on a published page). */
+  canExpandRules() {
+    const capabilities = this.getHostCapabilities();
+    return capabilities.rulesEditing === true || capabilities.rulesExpansion === true;
+  }
+
   /**
    * Open the host's Expansion rules dialog for the active DataSource. The host
    * applies the result through `setDataSourceRules`.
@@ -829,7 +835,7 @@ export class GraphApplication extends EventTarget {
    * @returns {Promise<boolean>} Whether the rules grew.
    */
   async quickExpand() {
-    if (!this.canEditRules() || !this.expansions) return false;
+    if (!this.canExpandRules() || !this.expansions) return false;
     const rules = appendQuickStep(this.getExpansionRules());
     if (!rules) return false;
     return this.#applyGrownRules(rules);
@@ -856,7 +862,7 @@ export class GraphApplication extends EventTarget {
    *          count, or `null` when no rule branch can grow.
    */
   async smartExpansionTypes({ signal } = {}) {
-    if (!this.canEditRules() || !this.expansions || !this.provider.countRecordTypes) return null;
+    if (!this.canExpandRules() || !this.expansions || !this.provider.countRecordTypes) return null;
     const query = quickStepReachQuery(this.config.query, this.getExpansionRules());
     if (!query) return null;
     const counts = await this.provider.countRecordTypes({ query, signal });
@@ -876,7 +882,7 @@ export class GraphApplication extends EventTarget {
    * @returns {Promise<boolean>} Whether the rules grew.
    */
   async smartExpand(types) {
-    if (!this.canEditRules() || !this.expansions || !types?.length) return false;
+    if (!this.canExpandRules() || !this.expansions || !types?.length) return false;
     const rules = appendQuickStep(this.getExpansionRules(), undefined, { types });
     if (!rules) return false;
     return this.#applyGrownRules(rules);
@@ -884,7 +890,7 @@ export class GraphApplication extends EventTarget {
 
   /** @returns {boolean} Whether quick expansion can add a step (some branch is shorter than MAX_RULE_DEPTH). */
   canQuickExpand() {
-    return this.canEditRules() && appendQuickStep(this.getExpansionRules()) !== null;
+    return this.canExpandRules() && appendQuickStep(this.getExpansionRules()) !== null;
   }
 
   /**

@@ -27,6 +27,17 @@ test('URL fallback: explorerViewer.html?db=&mode=editor&recID= / &rty=', () => {
   assert.deepEqual(urlBootstrap(null), {});
 });
 
+test('URL fallback: the CMS designer of a website (plan 27c §6)', async () => {
+  const page = 'http://127.0.0.1/heurist/hclient/modules/explorer/explorerViewer.html';
+  const cms = urlBootstrap(new URL(`${page}?db=osmak_mapping&mode=cms&site=10&page=12`));
+  assert.equal(cms.runtime.runtimeMode, 'main');
+  assert.equal(cms.runtime.baseUrl, 'http://127.0.0.1/heurist/');
+  assert.deepEqual(cms.state, { cms: { site: 10, page: 12 } });
+  const { createHeuristExplorerConfig } = await import('../src/explorerConfig.js');
+  assert.deepEqual(createHeuristExplorerConfig(cms).cms, { site: 10, page: 12 });
+  assert.equal(createHeuristExplorerConfig({ runtime: { database: 'x' } }).cms, null);
+});
+
 test('editor target from the bootstrap state', () => {
   assert.deepEqual(editorTarget({ recordId: '7' }), { recordId: 7, rectypeId: null, access: null });
   assert.deepEqual(editorTarget({ rectypeId: 'RT_MAP_LAYER', access: { owner: 2 } }), { recordId: 0, rectypeId: 'RT_MAP_LAYER', access: { owner: 2 } });

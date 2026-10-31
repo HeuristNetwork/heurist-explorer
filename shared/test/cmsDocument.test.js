@@ -20,7 +20,8 @@ for (const file of (await readdir(fixtures)).filter((name) => name.endsWith('.js
       ...checkCmsDocument(parsed.config, fixture.html ?? [], fixture.translations ?? {}, baseUrl)];
     assert.deepEqual(issues.map((issue) => `${issue.level}:${issue.code}`).sort(), [...fixture.expect.issues].sort());
     const styles = parsed.config.styles ?? {};
-    const { css } = compileCmsStyles(styles.base ?? {}, [styles.nodes ?? {}], baseUrl);
+    const { css } = compileCmsStyles(styles.base ?? {}, [styles.nodes ?? {}], baseUrl,
+      { kinds: [styles.kinds ?? {}], presets: [styles.presets ?? {}] });
     assert.equal(css, fixture.expect.css ?? '');
   });
 }

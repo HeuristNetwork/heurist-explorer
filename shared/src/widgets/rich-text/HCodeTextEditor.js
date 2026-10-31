@@ -27,13 +27,13 @@ import { javascript } from '@codemirror/lang-javascript';
 import { css } from '@codemirror/lang-css';
 
 /** Language support by name. */
-const LANGUAGES = Object.freeze({ html: () => html(), javascript: () => javascript(), css: () => css() });
+const LANGUAGES = Object.freeze({ html: () => html(), javascript: () => javascript(), css: () => css(), json: () => javascript() });
 
 /**
  * Create the editor in a host element.
  *
  * @param {HTMLElement} host Element the editor is put in.
- * @param {{value?: string, language?: 'html'|'javascript'|'css', onChange?: (value: string) => void}} [options]
+ * @param {{value?: string, language?: 'html'|'javascript'|'css'|'json', onChange?: (value: string) => void}} [options]
  * @returns {Promise<{getValue: () => string, focus: () => void, destroy: () => void}>}
  */
 export async function createCodeTextEditor(host, { value = '', language = 'html', onChange = null } = {}) {

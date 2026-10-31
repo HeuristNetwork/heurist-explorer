@@ -16,13 +16,19 @@
 import '#shared/ui/heurist-ui.css';
 import './style.css';
 import { initLocale } from '#shared/ui';
-import { readSiteConfig, startSite } from './siteRuntime.js';
+import { designerHost, designerUrl, designHooks, isFramed, readSiteConfig, startSite } from './siteRuntime.js';
 
 const config = readSiteConfig();
-if (config) {
+// the preview of the CMS designer (plan 27c §6): opened on its own (not in an iframe) it opens the designer
+// in Explorer; in an iframe it does not leave (a designer of another origin can not reach it: a plain preview)
+const designer = config?.runtime?.design ? designerHost(window) : null;
+if (config?.runtime?.design && !designer && !isFramed(window)) {
+  window.location.replace(designerUrl(config.runtime));
+} else if (config) {
   initLocale(config.runtime?.language || 'eng', moduleBaseUrl())
     .catch((error) => console.warn('Unable to load heurist-website localization', error))
     .then(() => startSite({ root: document.body, config }))
+    .then((mounted) => designer?.previewReady?.(window, designHooks({ config, mounted })))
     .catch((error) => console.error('Unable to start the website page', error));
 }
 

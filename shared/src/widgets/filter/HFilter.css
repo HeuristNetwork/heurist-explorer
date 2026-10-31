@@ -59,4 +59,6 @@
 .h-filter-select { max-width: 100%; }
 
 .h-filter-form-host { min-height: 0; overflow: auto; }
-.h-filter-form-host[hidden] { display: none; }
+
+/* the form host, or the list while a Filter Form is open */
+.h-filter > [hidden] { display: none; }

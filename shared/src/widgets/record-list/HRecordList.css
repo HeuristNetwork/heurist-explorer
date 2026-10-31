@@ -71,6 +71,8 @@
 .h-recordlist-placeholder { min-height:90px; display:grid; place-items:center; color:var(--h-color-text-muted); }
 .h-recordlist-message { height:100%; display:grid; place-items:center; color:var(--h-color-text-muted); }
 .h-recordlist-hidden { display:none !important; }
+/* a toolbar / footer without a shown control */
+.h-recordlist-toolbar.is-empty,.h-recordlist-footer.is-empty { display:none !important; }
 .h-recordlist .h-dropdown .h-menu { min-width:210px; }
 .h-recordlist .h-dropdown:last-child .h-menu { min-width:110px; }
 /* h-recordlist-loading is toggled on the widget's own container element

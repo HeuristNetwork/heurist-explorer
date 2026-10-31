@@ -67,8 +67,7 @@ export function readSiteConfig(doc = document) {
  * @returns {Promise<Map<string, object>>} Mounted instances by id: the module API or the widget.
  */
 export async function startSite({ root, config, loaders = MODULE_LOADERS }) {
-  for (const container of root.querySelectorAll('[data-h-control="tabs"]')) enhanceTabs(container);
-  for (const container of root.querySelectorAll('[data-h-control="accordion"]')) exclusiveAccordion(container);
+  enhanceControls(root);
   const mounted = new Map();
   const jobs = [];
   for (const host of root.querySelectorAll('[data-h-instance]')) {
@@ -79,6 +78,82 @@ export async function startSite({ root, config, loaders = MODULE_LOADERS }) {
   }
   await Promise.all(jobs);
   return mounted;
+}
+
+/**
+ * Tabs and one-open accordions of the controls inside an element (the page, or a part the designer replaced).
+ *
+ * @param {HTMLElement} root
+ */
+export function enhanceControls(root) {
+  for (const container of root.querySelectorAll('[data-h-control="tabs"]')) enhanceTabs(container);
+  for (const container of root.querySelectorAll('[data-h-control="accordion"]')) exclusiveAccordion(container);
+}
+
+/**
+ * The CMS designer this preview page is in (plan 27c §6): `window.hCmsDesigner` of the parent page,
+ * or null when the page is not in the designer's iframe.
+ *
+ * @param {Window} win The page's window.
+ * @returns {object|null}
+ */
+export function designerHost(win = globalThis.window) {
+  try {
+    const parent = win?.parent;
+    return parent && parent !== win && parent.hCmsDesigner ? parent.hCmsDesigner : null;
+  } catch {
+    return null; // another origin
+  }
+}
+
+/**
+ * Whether the page is in an iframe (also of another origin).
+ *
+ * @param {Window} win
+ * @returns {boolean}
+ */
+export function isFramed(win = globalThis.window) {
+  try {
+    return Boolean(win) && win.parent !== win;
+  } catch {
+    return true;
+  }
+}
+
+/**
+ * Explorer page that opens the CMS designer on this website / page (a design page opened outside the
+ * designer, plan 27c §6).
+ *
+ * @param {object} runtime `runtime` of the configuration block (database, baseUrl, site, page).
+ * @returns {string}
+ */
+export function designerUrl(runtime = {}) {
+  const site = Number(runtime.site) || Number(runtime.page) || 0;
+  const params = new URLSearchParams({ db: String(runtime.database || ''), mode: 'cms', site: String(site) });
+  if (Number(runtime.site) > 0 && Number(runtime.page) > 0 && Number(runtime.page) !== site) params.set('page', String(runtime.page));
+  return `${runtime.baseUrl || ''}hclient/modules/explorer/explorerViewer.html?${params}`;
+}
+
+/**
+ * Hooks given to the designer: it replaces parts of the page with its draft and keeps the mounted instances.
+ *
+ * @param {object} options
+ * @param {object} options.config The configuration block.
+ * @param {Map<string, object>} options.mounted Mounted instances (startSite).
+ * @param {object} [options.loaders] Module loaders.
+ * @returns {{config: object, mounted: Map, enhance: Function, mountInstance: Function}}
+ */
+export function designHooks({ config, mounted, loaders = MODULE_LOADERS }) {
+  return {
+    config,
+    mounted,
+    enhance: (root) => enhanceControls(root),
+    mountInstance: async (host, id, instanceConfig = config) => {
+      const instance = await mountInstance(host, id, instanceConfig, loaders);
+      mounted.set(id, instance);
+      return instance;
+    }
+  };
 }
 
 /**

@@ -749,13 +749,19 @@ export class HEditField extends HBaseWidget {
     }
   }
 
-  /** Rich editors of this blocktext: the CMS script / CSS fields get the code editor only. */
+  /**
+   * Rich editors of this blocktext: the CMS script / CSS fields and the JSON fields
+   * (configuration, page translations) get the code editor only; WYSIWYG would wrap
+   * JSON with HTML in paragraphs.
+   */
   _richTextOptions() {
     const constant = (name) => Number(this.options.dbdefs?.dbconst?.(name)) || 0;
     const dty = Number(this.field.dty) || 0;
     const script = dty > 0 && dty === constant('DT_CMS_SCRIPT');
     const style = dty > 0 && dty === constant('DT_CMS_CSS');
-    return { ...this.options.richText, codeOnly: script || style, codeLanguage: script ? 'javascript' : style ? 'css' : 'html' };
+    const json = dty > 0 && (dty === constant('DT_CONFIGURATION') || dty === constant('DT_CMS_PAGE_TRANSLATIONS'));
+    const codeLanguage = script ? 'javascript' : style ? 'css' : json ? 'json' : 'html';
+    return { ...this.options.richText, codeOnly: script || style || json, codeLanguage };
   }
 
   /**

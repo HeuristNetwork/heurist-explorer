@@ -5,3 +5,82 @@
 #Websites and published pages#Sites web et pages publiées
 #Close#Fermer
 #Close the Website manager#Fermer le gestionnaire de sites web
+#(none)#(aucun)
+#Add#Ajouter
+#Add element#Ajouter un élément
+#Add page#Ajouter une page
+#Add preset#Ajouter un préréglage
+#Add property#Ajouter une propriété
+#Add sub page#Ajouter une sous-page
+#Changes not saved#Modifications non enregistrées
+#Configuration#Configuration
+#Copied#Copié
+#Copy all#Tout copier
+#Copy structure#Copier la structure
+#Delete#Supprimer
+#Delete page#Supprimer la page
+#Delete the page#Supprimer la page
+#Discard#Abandonner
+#Edit record#Modifier l'enregistrement
+#Edit text#Modifier le texte
+#Explorer can not be configured here#Explorer ne peut pas être configuré ici
+#Footer#Pied de page
+#Full#Pleine
+#Full width#Pleine largeur
+#Header#En-tête
+#Heurist default#Valeur par défaut de Heurist
+#Home#Accueil
+#It can not be pasted here (not into the copied element itself)#Impossible de coller ici (pas dans l'élément copié lui-même)
+#Kind default#Style par défaut du type
+#Modules can not be configured here#Les modules ne peuvent pas être configurés ici
+#Normal#Normal
+#Open the website of this page in the editor.#Ouvrez le site web de cette page dans l'éditeur.
+#Original#Original
+#Own style#Style propre
+#Page#Page
+#Paste#Coller
+#Preset#Préréglage
+#Preview language#Langue de l'aperçu
+#Read only: you can not change this website#Lecture seule : vous ne pouvez pas modifier ce site web
+#Redo#Rétablir
+#Remove#Retirer
+#Remove from menu#Retirer du menu
+#Remove the page from the menu? It stays as a standalone page.#Retirer la page du menu ? Elle reste une page autonome.
+#Save#Enregistrer
+#Saved#Enregistré
+#Select an element in the tree or in the preview.#Sélectionnez un élément dans l'arbre ou dans l'aperçu.
+#Styles#Styles
+#The menu shows the pages of the website; it has no settings.#Le menu affiche les pages du site web ; il n'a pas de paramètres.
+#The website editor works only inside Explorer.#L'éditeur de site web ne fonctionne que dans Explorer.
+#This website is of an older format: open it in the legacy website editor.#Ce site web est d'un ancien format : ouvrez-le dans l'ancien éditeur de site web.
+#Translate#Traduire
+#Undo#Annuler
+#Website properties#Propriétés du site web
+#has#a
+#not configured#non configuré
+#preset#préréglage
+#sub page(s). Delete them too, or move them one level up?#sous-page(s). Les supprimer aussi, ou les remonter d'un niveau ?
+#Open editor#Ouvrir l'éditeur
+#Open the website editor (CMS designer)#Ouvrir l'éditeur de site web (concepteur CMS)
+#Unsaved changes#Modifications non enregistrées
+#This part has changes that are not saved.#Cette partie a des modifications non enregistrées.
+#Save conflict#Conflit d'enregistrement
+#The record was changed by someone else after it was loaded.#L'enregistrement a été modifié par quelqu'un d'autre après son chargement.
+#Website styles#Styles du site web
+#Base settings#Réglages de base
+#Kind defaults#Styles par défaut des types
+#Presets#Préréglages
+#Title#Titre
+#Text#Texte
+#Two columns#Deux colonnes
+#Three columns#Trois colonnes
+#Text, then two columns#Texte, puis deux colonnes
+#Text, then three columns#Texte, puis trois colonnes
+#Delete sub pages too#Supprimer aussi les sous-pages
+#Move them up#Les remonter
+#Edit the record#Modifier l'enregistrement
+#Logo#Logo
+#Keywords#Mots-clés
+#Website summary#Résumé du site
+#Page description#Description de la page
+#Author#Auteur

@@ -279,6 +279,7 @@ export class HRecordList extends HBaseWidget {
    */
   async setDataSourceActions({ enabled = false, inWorkspace = false } = {}) {
     if (this.sourceActions) this.sourceActions.hidden = !enabled;
+    this._syncBars();
     if (this.workspaceButton) {
       this.workspaceButton.classList.toggle("active", inWorkspace);
       const icon = this.workspaceButton.querySelector("i");
@@ -844,6 +845,7 @@ export class HRecordList extends HBaseWidget {
     // one page: no pagination (2026-10-14)
     const nav = host.closest(".h-recordlist-pagination");
     if (nav) nav.hidden = pages <= 1;
+    this._syncBars();
     const entries = pageEntries(current, pages);
     this._renderPageSelect(nav, entries, current);
     entries.forEach((page) => {
@@ -1021,6 +1023,21 @@ export class HRecordList extends HBaseWidget {
     const pageAction = this.$('[data-selection-action="page"]')?.closest("li");
     if (pageAction) pageAction.hidden = this._isSingleSelection();
     if (this.topBar) this.topBar.hidden = this.options.topBar !== true || !this.topBar.childElementCount;
+    this._syncBars();
+  }
+
+  /**
+   * Hide the toolbar (header) and the footer when none of their controls is shown
+   * (2026-10-31); a control is hidden by its `hidden` attribute or `h-recordlist-hidden`.
+   *
+   * @private
+   * @returns {void}
+   */
+  _syncBars() {
+    const shown = (element) => !element.hidden && !element.classList.contains("h-recordlist-hidden");
+    for (const bar of [this.$('[data-role="toolbar"]'), this.$(".h-recordlist-footer")]) {
+      if (bar) bar.classList.toggle("is-empty", ![...bar.children].some(shown));
+    }
   }
 
   /** @returns {boolean} Whether only one record can be selected (`selectionMode: 'single'`). */
@@ -1075,6 +1092,7 @@ export class HRecordList extends HBaseWidget {
     for (const button of this.sourceActionsHost?.querySelectorAll?.("[data-source-action]") || []) {
       if (button.dataset.sourceAction !== "workspace") button.hidden = hidden;
     }
+    this._syncBars();
   }
 
   /**

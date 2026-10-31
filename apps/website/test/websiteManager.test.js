@@ -71,7 +71,9 @@ test('createWebsiteManagerConfig: API base from the Heurist base URL', () => {
 test('initialize: local ids of the website definitions and the setup status', async () => {
   const { application } = createApplication();
   await application.initialize();
-  assert.deepEqual(application.codes, { home: 51, page: 52, version: 1149, pageType: 928, standalonePage: 6254 });
+  // the fields of the details (icon, logo ...) are not in this test database: 0
+  assert.deepEqual(application.codes, { home: 51, page: 52, version: 1149, pageType: 928, standalonePage: 6254,
+    icon: 0, logo: 0, keywords: 0, description: 0, author: 0 });
   assert.equal(application.hasRecordTypes(), true);
   assert.equal(application.status.installed, true);
 });
@@ -113,12 +115,15 @@ test('toolbar: actions of a v4 standalone page, a website and a legacy website',
   const view = new WebsiteManager().attach(host, { application });
   const visible = () => Object.entries(view.buttons).filter(([, button]) => !button.hidden).map(([name]) => name);
 
+  // Edit, Add to menu and Delete are hidden (2026-10-31): the pen beside the title edits the record
   await application.select(20);
   view.update();
-  assert.deepEqual(visible(), ['create', 'edit', 'open', 'check', 'generate', 'addToMenu', 'remove']);
+  assert.deepEqual(visible(), ['create', 'designer', 'open', 'check', 'generate']);
+  assert.ok(view.buttons.designer.classList.contains('h-btn-primary'));
+  assert.ok(host.querySelector('.h-website-details-head')?.querySelector('.fa-pen'), 'pen beside the title');
   await application.select(10);
   view.update();
-  assert.deepEqual(visible(), ['create', 'edit', 'open', 'check', 'generate', 'remove']);
+  assert.deepEqual(visible(), ['create', 'designer', 'open', 'check', 'generate']);
   await application.select(30);
   view.update();
   assert.deepEqual(visible(), ['create', 'open']);

@@ -5,10 +5,11 @@
  *        standalone pages (HRecordManager), center - the toolbar and the details of the
  *        selected record.
  *
- * Toolbar: New website | for the selection: Edit, Open, Check, Generate, Add to menu
- * (standalone pages), Delete. Legacy websites (format 1-3) are listed with their mark and
- * can only be opened. On a narrow screen only the icons are shown. "Publish this view" is in
- * Explorer's options menu (§11).
+ * Toolbar: New website | for the selection: Open editor, Open, Check, Generate (Edit, Add to
+ * menu and Delete are hidden since 2026-10-31: the record is edited with the pen beside the
+ * title of the details). Legacy websites (format 1-3) are listed with their mark and can only
+ * be opened. In a narrow pane only the icons are shown. "Publish this view" is in Explorer's
+ * options menu (§11).
  *
  * @project     Heurist academic knowledge management system
  * @package     heurist-website
@@ -65,7 +66,8 @@ export class WebsiteManager extends HBaseWidget {
     }
     const body = el('div', 'h-website-manager-body', root);
     this.container.replaceChildren(root);
-    this.layout = new HCardinalLayout(body, { westRatio: 0.4, minWest: 260, minCenterWidth: 320 });
+    // the details (preview) pane: a third of the width at first
+    this.layout = new HCardinalLayout(body, { westRatio: 2 / 3, minWest: 260, minCenterWidth: 320 });
 
     // west: the list; center: the toolbar, the setup notice and the details
     this.listHost = el('div', 'h-website-manager-list');
@@ -78,7 +80,10 @@ export class WebsiteManager extends HBaseWidget {
     this.buttons.create = this.tool(toolbar, 'fa-plus', 'New website', 'Create a new website', () => this.createWebsite());
     this.recordTools = el('span', 'h-website-tool-group', toolbar);
     el('span', 'h-website-separator', this.recordTools).setAttribute('aria-hidden', 'true');
-    this.buttons.edit = this.tool(this.recordTools, 'fa-pen', 'Edit', 'Edit the record (the website designer comes later)', () => this.app.editRecord(this.app.selectedId));
+    this.buttons.designer = this.tool(this.recordTools, 'fa-pen-ruler', 'Open editor', 'Open the website editor (CMS designer)',
+      () => this.openDesigner(this.app.selectedId));
+    this.buttons.designer.classList.add('h-btn-primary');
+    this.buttons.edit = this.tool(this.recordTools, 'fa-pen', 'Edit', 'Edit the record', () => this.app.editRecord(this.app.selectedId));
     this.buttons.open = this.tool(this.recordTools, 'fa-up-right-from-square', 'Open', 'Open in a new tab', () => this.open());
     this.buttons.check = this.tool(this.recordTools, 'fa-list-check', 'Check', 'Check the website format', () => this.check());
     this.buttons.generate = this.tool(this.recordTools, 'fa-file-zipper', 'Generate',
@@ -180,12 +185,15 @@ export class WebsiteManager extends HBaseWidget {
     this.recordTools.hidden = !app.selectedId;
     const v4 = summary?.v4 === true;
     const show = (button, visible) => { button.hidden = !visible; };
-    show(this.buttons.edit, Boolean(summary) && v4 && summary.canEdit && app.canEditRecords());
+    show(this.buttons.designer, v4 && summary.kind !== 'page' && app.canEditRecords());
+    // hidden (2026-10-31): the pen beside the title of the details edits the record
+    show(this.buttons.edit, false);
     show(this.buttons.open, Boolean(summary?.url));
     show(this.buttons.check, v4 && summary.kind !== 'page');
     show(this.buttons.generate, v4 && summary.kind !== 'page' && summary.canEdit);
-    show(this.buttons.addToMenu, v4 && summary.kind === 'standalone' && summary.canEdit);
-    show(this.buttons.remove, v4 && summary.kind !== 'page' && summary.canEdit);
+    // hidden for now (2026-10-31): the menu is edited in the designer
+    show(this.buttons.addToMenu, false);
+    show(this.buttons.remove, false);
     this.buttons.generate.disabled = (app.builds || []).some((job) => ['queued', 'running'].includes(job.status));
     this.details.render();
   }
@@ -256,6 +264,38 @@ export class WebsiteManager extends HBaseWidget {
     await this.list?.reload();
   }
 
+  /**
+   * Open the CMS designer over the whole screen (plan 27c §3), a lazy chunk. The list and summary are reloaded
+   * when it is closed.
+   *
+   * @param {number} id Website or standalone page.
+   * @param {{page?: number}} [options] A page of the website to open first.
+   * @returns {Promise<object|null>} The designer, or null.
+   */
+  async openDesigner(id, { page = 0 } = {}) {
+    if (!id || this.designer) return this.designer || null;
+    const { openCmsDesigner } = await import('../designer/CmsDesigner.js');
+    const host = document.createElement('div');
+    host.className = 'h-cms-designer-host';
+    document.body.append(host);
+    this.designer = await openCmsDesigner({
+      container: host,
+      recordId: Number(id),
+      page: Number(page) || 0,
+      apiClient: this.app.apiClient,
+      websites: this.app.websites,
+      bridge: this.app.bridge,
+      runtime: { baseUrl: this.app.config.baseUrl, database: this.app.config.database },
+      onClose: () => {
+        host.remove();
+        this.designer = null;
+        void this.list?.reload();
+        void this.app.reloadSummary();
+      }
+    });
+    return this.designer;
+  }
+
   /** Run an action and show its error. */
   async run(action) {
     try {
@@ -268,6 +308,10 @@ export class WebsiteManager extends HBaseWidget {
 
   /** @inheritdoc */
   async destroy() {
+    if (this.designer) {
+      this.designer.destroy();
+      this.designer = null;
+    }
     await this.details?.destroy();
     await this.list?.destroy();
     this.list = null;

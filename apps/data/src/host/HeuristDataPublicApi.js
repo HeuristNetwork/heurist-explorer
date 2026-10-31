@@ -112,6 +112,11 @@ export class HeuristDataPublicApi extends HeuristModulePublicApi {
     return this.application.canEditRules();
   }
 
+  /** @returns {boolean} Whether this view may grow the rules (Quick and Smart expansion). */
+  canExpandRules() {
+    return this.application.canExpandRules();
+  }
+
   /** @returns {boolean} Whether quick expansion can add a step. */
   canQuickExpand() {
     return this.application.canQuickExpand();

@@ -172,9 +172,13 @@ export class HFilter extends HBaseWidget {
     }
   }
 
-  /** The Filter Form of a parameterized source: no Builder (no `onOpenBuilder`); Close only with a list. */
+  /**
+   * The Filter Form of a parameterized source: no Builder (no `onOpenBuilder`); Close only
+   * with a list. The list is hidden while the form is open, Close shows it again.
+   */
   _showForm(source) {
     this.formHost.hidden = false;
+    if (this.listElement) this.listElement.hidden = true;
     const host = document.createElement('div');
     this.formHost.replaceChildren(host);
     this.form = new HFilterForm().attach(host, {
@@ -200,5 +204,6 @@ export class HFilter extends HBaseWidget {
       this.formHost.replaceChildren();
       this.formHost.hidden = true;
     }
+    if (this.listElement) this.listElement.hidden = false;
   }
 }
