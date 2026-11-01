@@ -1,7 +1,9 @@
 # Plan 27c — CMS designer, first version (plan 27, phase 3)
 
 **Status 2026-10-30: implemented (phases A0-E, both repos), not committed, not checked in a browser.** Decisions of
-four review rounds in §2, §14, §15; implementation and deviations in §16. General
+four review rounds in §2, §14, §15; implementation and deviations in §16. Screen review 2026-10-31 (§17): editor in
+the west pane, preview alone in the center; done, not committed. Review 2026-11-01 (§18): toolbars, site tree remove,
+part tree tools, group captions; done, not committed. Catalog popups Add page / Add element (§19), section and caption (§20), Styles popup with tabs (§21), its cosmetics (§22), the simple / advanced style editor (§23), Size in group (§24) and the element tools / style editor review (§25): done, not committed. General
 directions are in `27 CMS-and-Web-Publishing-Plan.md`, the v4 format in `27a Website-Format-v4-Plan.md`, the Website
 manager in `27b Website-Manager-Plan.md`; this plan uses them and does not repeat them.
 
@@ -328,3 +330,256 @@ Tests: JS 1,544 pass (new `apps/website/test/cmsDesigner.test.js`, `shared/test/
   The preview needs the same origin as the editor: from the Vite dev server (`:5173`) the design page can not reach
   the designer, so it shows the saved page only (a note says so) and no longer redirects inside the iframe
   (`siteRuntime.isFramed`; the redirect to Explorer only for a top-level page).
+
+## 17. Screen review (Artem, 2026-10-31)
+
+Editor and preview are separated clearly: **the editor is the west pane, the preview alone is the center** (no east
+pane, no top bar `h-cms-bar`). Replaces the screen of §3, §4 (toolbar) and §5.1 (toolbar).
+
+West pane, from top to bottom:
+
+1. Toolbar: *Properties* (record editor: the website on the Site tab, the open record on the Page tab: the website
+   for Header / Home / Footer, else the page), *Styles* (of the whole website, §6a), preview language (several
+   languages only), *Help* (shows / hides the help panel, remembered in `localStorage` `heurist.cms.help`), *Close*.
+2. Second row: page width of the preview (Full, 1280, 1024, 640, 375).
+3. Tabs **Site | Page** (`createTabSet`, prefix `h-cms`). A standalone page has the Page tab only. The dirty mark ●
+   is on the Page tab.
+   - *Site*: no toolbar; the website tree. *Add page* is always shown on Home (HTree tool option `always`); the page
+     tools as before (edit record, add sub page, remove from menu, delete). A click on Header, Home, Footer or a page
+     opens it on the Page tab.
+   - *Page*: toolbar Undo, Redo, **Save** (primary), Discard; the part tree; *Add element* with *Paste*; the
+     properties of the selected element (hidden when nothing is selected).
+4. Help panel below the tabs, as high as its text (at most 40 % of the pane):
+   - Site tab: "Drag pages to change their order in the main menu of the website; drop a page onto another one to
+     make it a sub page. Add a page with the button on Home, a sub page with the tools of a page. Click Header, Home,
+     Footer or a page to edit it on the Page tab. Properties edits the website record; Styles sets the colours, fonts
+     and common styles of the whole website."
+   - Page tab: "Drag elements to change their order on the page; groups, tabs and accordions take other elements
+     inside. Add new elements below the tree: they go into the selected group or after the selected element. Select
+     an element here or in the preview to edit its content, properties and style. Changes are kept until you Save or
+     Discard them."
+   - Selected element: "Apply a preset (a style defined once in Styles) or define an own style for this element."
+     plus by kind: text "Edit the text with the pen; translate it into the other languages of the website." (the
+     translation part only with several languages); module "Set what the module shows and how in its configuration
+     (gear)."; menu "The menu shows the pages of the website: change them on the Site tab."; tabs / accordion "Each
+     panel is a group whose first text is its label. Add elements into a panel: select it and use Add element.";
+     group "Add elements into it: select it and use Add element, or drag elements onto it."; not for modules "Copy
+     structure or Copy all, then Paste it into another place or page."
+
+Files: `apps/website/src/designer/CmsDesigner.js`, `designer.css`, `shared/src/widgets/tree/HTree.js` + css (tool
+`always`), test in `apps/website/test/cmsDesigner.test.js`. JS 1,547 pass; website bundle built and deployed locally.
+
+## 18. Review (Artem, 2026-11-01)
+
+1. The preview language moves to the second row; the page widths become a select (*Full width*, 1280 ... 375 px); the
+   second row is right aligned (`_renderViewBar`, `.h-cms-view-bar`).
+2. Site tree, Home: *+ Add page* (icon `fa-plus` with a caption; HTree tools take `label`).
+3. Site tree, page: *Remove from menu* and *Delete* become one tool `fa-xmark` *Remove from website*. Popup "Remove
+   {page} from website" with Artem's text and the box *delete the actual web pages* (`askRemovePage`). Without the
+   box: out of the menu with its sub menus; with it: the page and its sub pages are deleted too. The page is **not
+   made standalone**: `DELETE /website/{id}/assign` takes `standalone=0` (page type kept; default 1 for the Website
+   manager), `WebsiteClient.removeFromMenu(site, page, {standalone})`. Moving sub pages up on delete is dropped
+   (the text tells to move them out first); `chooseSubPages` removed.
+4. Page tab: Save on the right; Discard asks 'Discard the changes of page "{title}"?' or 'Discard the changes of
+   Header / Home / Footer?'; Unsaved changes says '"{name}" has changes that are not saved.'; both dialogs narrower
+   (`h-dialog-cms-narrow`, 420 px).
+5. Part tree:
+   - a) the root has *+ Add element* (always shown): a popup with the element select, the element goes to the end
+     of the part.
+   - b) four tools: **+** on containers (a group: the element popup, into the group; tabs / accordion: the next
+     panel at once, `CmsRecordDocument.addPanel`), **pen** on texts (text editor) and groups (caption), **gear** on
+     modules and widgets (configuration), **remove** with a small confirmation next to the icon (`confirmNear`;
+     HTree `onTool` gets the button). Own style, Translate stay in the properties below the tree.
+   - c) no new type: the **caption** of a group is its first child when it is a heading (`h1`-`h6`) or `summary`
+     text block. It is not a tree item, has no own style and is edited with the pen of its group
+     (`caption` / `setCaption` with the translations in the same popup, plain text); a click on it in the preview
+     selects the group (`captionGroup`). A plain group gets an `h3` caption from the pen and loses it with an
+     empty text; a panel of tabs / accordions must keep its caption (`isPanel`).
+   - d) a group, tabs or accordion is removed when a group was removed or moved out of it and nothing but its
+     caption is left (`_removeEmpty`, upwards). Removing texts never removes their group (a new empty group stays).
+   - e) *Copy structure* and *Copy all* are buttons of `h-cms-picker` for the selected element (disabled without a
+     selection and for modules / widgets).
+
+Files: `apps/website/src/designer/CmsDesigner.js`, `designerDialogs.js`, `designer.css`, `shared/src/site/cmsEdit.js`,
+`shared/src/widgets/tree/HTree.js` + css, `shared/src/api/WebsiteClient.js`; heurist `srv/Website/WebsiteEditService.php`,
+`WebsiteEntityHandler.php`. Tests: JS 1,551 pass (`cmsEdit.test.js` captions, panels, removal of empty controls;
+`hTree.test.js` tool caption; `cmsDesigner.test.js` tools, messages, second row); heurist `tests/WebsiteEditTest.php`
+62 pass (`standalone=0`). Website and Explorer bundles built and deployed locally. Not checked in a browser.
+
+## 19. Add page and Add element popups (Artem, 2026-11-01)
+
+One catalog popup for both, like the legacy `editCMS_SelectElement` (`catalogDialog` in `designerDialogs.js`, data
+in `designerCatalog.js`): *Title* on top, entries on the left (in groups), name, description and a wireframe preview
+(inline SVG drawn from a small shape list; the legacy code has no preview images) of the selected entry on the right.
+Entries not implemented yet are grey (italic), show "To be implemented soon..." above the description and the Add
+button is disabled. Double click adds.
+
+- **Add page**: templates Blank, Landing, About, Team, Discover, Blog, Contact (descriptions extended). Choosing a
+  template fills an empty title (or the default title of the previous template) with its default name (Welcome,
+  About, Team, Discover, News, Contact); Blank has none. The title is required. **For now every template creates a
+  blank page**: one text element with the title as `h1` and a paragraph (`cmsPageStarter('blank')`); templates
+  follow in a later phase. The page presets of §4 are no longer offered.
+- **Add element** (+ of the root and of groups, and *Add element* below the tree, which replaces the select there):
+  groups *Content and layout* (Text, Group, Text in two / three columns, Accordion, Tabs), *Modules* (Explorer, Data,
+  Map, Timeline, Graph, Record view; grey: Crosstabs, Story map), *Widgets* (Menu; grey: Custom report, Action menu,
+  Media viewer / gallery, Badges, Email form). The title is the heading (`h2`) of a new text or the caption of a new
+  group / columns; disabled for the other elements.
+- Open: unify menu and action menu (presentation modes, responsive) — later, with the widget. More templates and
+  widgets suggested to Artem (to agree).
+
+Tests: JS 1,552 pass (catalog = CMS_ELEMENTS, previews, blank starter). Website and Explorer bundles built and
+deployed locally. Not checked in a browser.
+
+## 20. Answers of 2026-11-01 (catalogs, section)
+
+- **Templates**: added Cover, Features, Record page, Publications (Artem: yes); not Database (= About), Gallery and
+  Story (covered by widgets). Every template can be added (`pending`: a note says a blank page with the title is
+  created for now); only Blank is final. (Fix: in §19 the templates were grey and could not be added.)
+- **Widgets**: Badges = a row of logos with links (participant and sponsor bodies, or social media / project
+  resources); Language switcher added (grey). Not as own widgets: HFilter (in Explorer or the action menu, to discuss
+  in the next phase), HRecordList (part of the Data module), Text on banner (a custom style of a text), Cardinal
+  layout (inside Explorer only; too rigid for pages, replaced on narrow screens).
+- **Section and caption** (agreed): `section` has no caption element of its own, its heading is its caption, and it
+  is meant for a thematic block with a heading; `div` stays for layout groups. So: a group **with a caption** is a
+  `<section aria-labelledby="h-{caption node}">` whose caption `h3` has `id="h-{caption node}"`; without a caption a
+  `<div>` (`setCaption` switches the tag, `labelSection`; paste labels the copies by their new ids). Panels of tabs
+  (`section` + `h3`) and accordions (`details` + `summary`) keep their tags. Text blocks are `div`: the server starter
+  (`WebsiteStarter`, home content and first page) no longer writes `<section data-h-text>`. heurist
+  `StoredText` keeps `section[aria-labelledby]` (`tests/StoredTextTest.php` 96).
+
+Tests: JS 1,552 pass; heurist `WebsiteEditTest` 62, `WebsiteRenderTest` 32, `CmsFormatTest` 10, `StoredTextTest` 96.
+Website and Explorer bundles built and deployed locally. Not checked in a browser.
+
+## 21. Styles popup (Artem, 2026-11-01)
+
+The Styles popup of a website (or standalone page) has four tabs, each with a help line (?) on top, its settings and
+a preview at the bottom (`apps/website/src/designer/designerStyles.js`, `createStylesForm`; `openStylesDialog` in
+`designerDialogs.js` shows it):
+
+1. **Base settings**: rows with a gap, readable labels and hints (`BASE_LABELS`); colours (`color-*`,
+   `site-heading-color`) with `HInputColor`; a **theme** select fills the colours (`CMS_THEMES`: Default light,
+   Default dark, Sepia, Greenish, Blueish, Monitor (green on black, monospace), Red and black; values in the manner
+   of the jQuery UI ThemeRoller / Bootstrap themes). A theme is not stored: it only sets base settings. Preview:
+   a header with menu links and a bordered group with H1-H4, large / regular / small / tiny text, a link, primary,
+   standard and icon buttons.
+2. **Layout styles** (kind defaults): kind select (Groups, Tabs, Accordions, Texts, Modules and widgets), the style
+   editor inline (`styleRows`, moved here, with `onChange`), a preview of a sample of the kind.
+3. **Presets**: list of presets with *Add preset*; the selected one inline (label, name, style, *Delete preset*);
+   preview of an element with the preset.
+4. **Custom CSS**: CodeMirror (`createCodeTextEditor`, CSS, lazy; a text area without it) for DT_CMS_CSS of the
+   record; the warning "JavaScript and CSS are not allowed in this field and will be removed when saving." when the
+   server does not allow JavaScript (it cleans the field with `StoredCss` on save). Saved with the styles (one PATCH,
+   `_saveRecord({extra})`); the preview page is loaded again when it changed.
+
+Previews are sandboxed iframes (`srcdoc`): the Heurist defaults of the variables (read from the page), a small copy
+of the site stylesheet, the styles the website gets (`compileCmsStyles` of the current values) and the custom CSS
+(`</style` escaped), around samples with the real `data-h-*` attributes; nothing reaches the designer page.
+
+"JavaScript allowed" comes from the definitions snapshot (`meta.javaScriptAllowed`, Artem 2026-11-01): the Website
+manager gives its `dbdefs` to the designer (`options.dbdefs`). No server change.
+
+Tests: JS 1,553 pass (`cmsDesigner.test.js` Styles popup); heurist `WebsiteEditTest` 62, `WebsiteRenderTest` 32.
+Website and Explorer bundles built and deployed locally. Not checked in a browser.
+
+## 22. Styles popup cosmetics (Artem, 2026-11-01)
+
+1. Preview of the base settings: muted text (`--h-color-text-muted`), an input and a selector added.
+2. Theme *Red and black* became **Red and white**: background `#ffffff`, text `#000000`, surface `#b0b0b0` (primary and
+   links `#c62828`, headings `#b71c1c`, borders `#8a8a8a`).
+3. Layout styles: the group sample has a caption (`section` + `h3`); the accordion summary keeps the rounded corners
+   (`details { overflow: hidden }`, also in the site stylesheet `apps/website/src/style.css`); `.h-cms-style-tabs`
+   padding `0 10px`; the caption column of the fields is 80 px on this tab only (`.h-cms-styles-kinds`).
+4. Presets: a plain list (selected row highlighted) with *Add preset* always above it, a vertical line between the list
+   and the form, separate scroll bars; the field *Label* is called **Name** and the internal name is not shown; new
+   presets are named "New preset (n)".
+5. The popup is wider (`min(1320px, 96vw)`); the preview is one column beside the tabs, half as wide (grid 2fr / 1fr),
+   showing the selected tab.
+
+Tests: JS 1,553 pass. Website and Explorer bundles built and deployed locally. Not checked in a browser.
+
+## 23. Style editor: simple and advanced (Artem, 2026-11-01)
+
+The style editor (`styleRows` in `designerStyles.js`: own style popup, Layout styles and Presets tabs) has one row of
+buttons, each 130 px wide: **Advanced** (toggle, kept for the session), **Add property**, **Reset all**, **Remove
+all**.
+
+- **Advanced off** (default): *Add property* and *Remove all* hidden; a fixed list with plain labels in sections
+  (`SIMPLE_STYLE_FIELDS`): *Group layout* (groups and presets only, on top): Direction (row / column), Wrap, Alignment
+  (`justify-content`), Cross axis alignment (`align-items`), Align content (`align-content`), Gap; *Size and spacing*:
+  height, width, margin, padding; *Colours and text*: background colour, text colour, text alignment, font size, font
+  weight; *Border*: border (none / solid / dotted / dashed), border width, border colour, border radius. Selectors
+  start with "(default)"; an empty value removes the property. Properties set only in Advanced are named below the
+  list ("Also set (see Advanced): ...").
+- **Advanced on**: the property rows as before, with *Add property* and *Remove all*.
+- Colours (`color`, `*-color`) use `HInputColor` in both lists.
+- A flex value of a group (or preset) sets `display: flex`; when all flex values are cleared, `display: flex` is
+  removed again.
+- Numeric values are checked when the input is left (`checkStyleValue`): number + unit (px, em, rem, %, vh, vw, pt,
+  ch), `0` without one, `auto` for width / height / margin, negative only for margin, at most 4 values (margin,
+  padding, border radius) or 2 (gap). A plain number gets `px`. A wrong value is marked red, named under the list and
+  left out of the style until corrected.
+- **Reset all** clears the values of the current screen (Normal / Medium / Narrow); **Remove all** removes all its
+  properties.
+- Additions to the list asked for: *Gap* (flex groups need it) and *Border width* (without it a solid border is 3 px
+  wide, the CSS default `medium`).
+- `align-content` added to the allowed node style properties (`cmsDocument.js` and `StyleCompiler.php`).
+
+Proportions of the elements in a group: on the children (agreed 2026-11-01, see §24).
+
+Tests: JS 1,554 pass; heurist WebsiteRenderTest 32, CmsFormatTest 10, WebsiteEditTest 62 pass. Website and Explorer
+bundles built and deployed locally. Not checked in a browser.
+
+## 24. Size in group (agreed 2026-11-01)
+
+The proportion of an element in a group is set on the element (in CSS it is a property of the item; the group gives
+direction and gap): section **In the group**, field *Size in group (proportion)* = `flex`, e.g. 1 and 2.
+
+- Shown in the simple list of the own style only when the parent group is a flex box: `display: flex` in its own
+  style, else in its preset, else in the group kind default (`CmsDesigner._inFlexGroup`, `CmsRecordDocument.parentGroup`).
+  Presets always show it (they may be used on any element). Panels of tabs / accordions are not in a group.
+- `flex` added to the allowed node style properties (`cmsDocument.js`, `StyleCompiler.php`).
+- Check when the input is left: `auto`, `none`, or grow [shrink] [basis] — numbers, the basis a length with a unit
+  (`1`, `2 1`, `1 200px`, `1 0 200px`).
+- Two / three columns keep `grid-template-columns` of their presets (a grid, not a flex box), so their children do
+  not get the field.
+
+Tests: JS 1,554 pass (`parentGroup`, flex values, field only in flex groups); heurist WebsiteRenderTest 32,
+CmsFormatTest 10, WebsiteEditTest 62 pass. Bundles built and deployed locally. Not checked in a browser.
+
+## 25. Element tools and style editor (Artem, 2026-11-01)
+
+1. Base settings: `color-selected` and `color-selected-border` (`--h-color-selected`, `--h-color-selected-border`;
+   `BASE_SETTINGS` in `cmsDocument.js` and `StyleCompiler::BASE`), values in every theme, a list with a selected
+   item in the preview.
+2. Below the part tree (`h-cms-picker`, background `--h-color-selected`): the tools of the selected element (*Own
+   style*, *Caption* of a group, *Edit text*, *Configuration* of a module / widget), then on the right Copy (with
+   texts) and Paste as icons. *Add element* (the + of the tree does it) and *Copy structure* are not shown (the
+   structure copy stays in `CmsRecordDocument.copy`). The properties box (kind, kind default, own style, preset) is
+   removed; the preset is chosen in the own style popup.
+   - *Translate* is removed as a button: *Edit text* edits the translation when the language selector of the view
+     bar shows another language (the original beside it); its label then has the language, e.g. "Edit text (FRE)".
+3. Style editor (`styleRows`), Advanced off:
+   - the buttons row centered below the list; *Advanced* when on has the `--h-color-selected` colours, *Add
+     property* is a primary button. The row is below the list in Advanced too (the toggle does not jump).
+   - `HInputColor` as high as the other compact inputs (`.h-cms-styles-value .h-input-color-text`).
+   - *Group layout*, *Background* and *Border* have a checkbox. Checked: the properties are shown (Group layout writes
+     `display: flex`, Border `border-style: solid; border-width: 1px`). Unchecked: the properties are removed and
+     Group layout writes `display: block`, Border `border: none` (so a kind default or preset is overridden);
+     Background only removes its properties. A section without values is shown unchecked.
+   - *Background*: colour (moved from *Colours and text*, now *Text*), image (`HInputFile` of registered files,
+     limited to `image/*`; the value `url(<base>?db=..&file=<obfuscated id>)`; the current image as a thumbnail with
+     Remove), position, repeat, size (selectors). `background-position`, `background-repeat`, `background-size`
+     added to the allowed node style properties (JS and PHP). Without an API client (tests) the image is a text value.
+   - *Reset all* and *Remove all* ask "Confirm? Reset / Remove · No" next to the button (`confirmNear`, moved to
+     `designerStyles.js`; inside a modal dialog it is put into the dialog).
+   - The preset selector of the element is above the screen tabs in the own style popup; `openStyleForm` returns
+     `{style, preset}`.
+
+### 25.1 Inline configuration and style in the element pane (2d, to discuss)
+
+Suggestion (not implemented): the area below the tree shows the style editor of the selected element inline
+(Normal screen, Simple list; preview updated as values change, like the Styles popup), with Advanced and the screens
+behind small tabs; the module configuration stays a popup (`openConfiguration` is the module's own form in
+Explorer's window, large and modal) with a short summary inline. Pros: no popup for the most frequent edits, the
+preview reacts at once. Cons: the west pane is narrow (about 300 px) for label + input rows: labels above the inputs
+there; undo must group a series of small changes (one undo step per field change after it is left, not per key).

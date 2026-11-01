@@ -71,6 +71,78 @@ test('insert: elements of the picker go into a container or after a node', () =>
   assert.equal(doc.check().filter((issue) => issue.level === 'error').length, 0);
 });
 
+test('captions of groups: not in the tree, edited through the group, translated; new panels', () => {
+  const doc = documentOf();
+  const tabs = doc.insertElement('content', 'tabs', { id: null, position: 'inside' });
+  const [first, second] = doc.tree('content').find((item) => item.id === tabs).children;
+  assert.equal(first.children.length, 1, 'the caption of a panel is not a tree item');
+  assert.ok(first.caption);
+  assert.equal(doc.captionGroup(first.caption), first.id, 'a click on the caption selects the panel');
+  assert.equal(doc.captionGroup(first.children[0].id), null);
+  assert.deepEqual(doc.parentGroup(first.children[0].id), { id: first.id, preset: null }, 'the group of an element');
+  assert.equal(doc.parentGroup(first.id), null, 'a panel is in tabs, not in a group');
+  const columns = doc.insertElement('content', 'columns2', { id: null, position: 'inside' });
+  const column = doc.tree('content').find((item) => item.id === columns).children[0].id;
+  assert.deepEqual(doc.parentGroup(column), { id: columns, preset: 'columns2' });
+  assert.equal(doc.isPanel(first.id), true);
+  assert.equal(doc.setCaption(first.id, 'News & views', { fre: 'Nouvelles' }), true);
+  assert.deepEqual(doc.caption(first.id), { id: first.caption, text: 'News & views', translations: { fre: 'Nouvelles' } });
+  assert.match(doc.html('content'), /<h3 data-h-node="[a-z0-9]+" data-h-text="">News &amp; views<\/h3>/);
+  assert.equal(doc.setCaption(first.id, ''), false, 'a panel keeps its label');
+  // a plain group gets a caption (h3) and loses it with an empty text
+  assert.equal(doc.caption('g1'), null);
+  assert.equal(doc.isPanel('g1'), false);
+  assert.equal(doc.setCaption('g1', 'Columns'), true);
+  assert.equal(doc.caption('g1').text, 'Columns');
+  assert.deepEqual(doc.tree('content')[0].children.map((item) => item.id), ['t1', 't2'], 'its caption is not an item');
+  assert.match(doc.html('content'), /^<section data-h-node="g1" data-h-control="group" data-h-style="columns2" aria-labelledby="h-([a-z0-9]+)"><h3 data-h-node="\1" data-h-text="" id="h-\1">Columns<\/h3>/,
+    'a group with a caption is a section labelled by it');
+  // a pasted copy is labelled by its own caption
+  const copy = doc.paste(doc.copy('g1', 'all'), 'content', { id: null, position: 'inside' });
+  const copyCaption = doc.caption(copy).id;
+  assert.match(doc.html('content'), new RegExp(`aria-labelledby="h-${copyCaption}"><h3 data-h-node="${copyCaption}" data-h-text="" id="h-${copyCaption}"`));
+  doc.remove(copy);
+  assert.equal(doc.setCaption('g1', ''), true);
+  assert.equal(doc.caption('g1'), null);
+  assert.match(doc.html('content'), /^<div data-h-node="g1" data-h-control="group" data-h-style="columns2">/, 'without a caption: a div again');
+  assert.doesNotMatch(doc.html('content'), new RegExp(`^<section data-h-node="${first.id}"[^>]*aria-labelledby`), 'panels keep their tags');
+  assert.equal(doc.setCaption('t1', 'x'), false, 'not a group');
+  // + of tabs: the next panel
+  const third = doc.addPanel(tabs);
+  const panels = doc.tree('content').find((item) => item.id === tabs).children;
+  assert.deepEqual(panels.map((item) => item.id), [first.id, second.id, third]);
+  assert.equal(doc.caption(third).text, 'Tab 3');
+  assert.equal(doc.addPanel('g1'), null, 'not on a group');
+});
+
+test('a group, tabs or accordion without groups left is removed', () => {
+  const doc = documentOf();
+  const tabs = doc.insertElement('content', 'tabs', { id: null, position: 'inside' });
+  const [first, second] = doc.tree('content').find((item) => item.id === tabs).children;
+  doc.remove(first.id);
+  assert.ok(doc.find(tabs), 'one panel left');
+  assert.equal(doc.move(second.id, { id: 'g1', position: 'inside' }), true);
+  assert.equal(doc.find(tabs), null, 'the last panel moved out: the tabs are removed');
+  assert.ok(doc.find(second.id), 'the moved panel stays');
+  // a panel with its last group removed goes, its caption with it (and its translation)
+  const accordion = doc.insertElement('content', 'accordion', { id: null, position: 'inside' });
+  const panel = doc.tree('content').find((item) => item.id === accordion).children[0];
+  const caption = panel.caption;
+  doc.setTranslation('fre', caption, 'Section');
+  doc.remove(panel.children[0].id);
+  assert.ok(doc.find(panel.id), 'a text removed: the panel stays');
+  const group = doc.insertElement('content', 'group', { id: panel.id, position: 'inside' });
+  doc.remove(group);
+  assert.equal(doc.find(panel.id), null, 'its last group removed: the empty panel is removed');
+  assert.equal(doc.translation('fre', caption), '');
+  assert.ok(doc.find(accordion), 'the accordion keeps its second panel');
+  // removing texts never removes their group
+  const other = documentOf();
+  other.remove('t1');
+  other.remove('t2');
+  assert.ok(other.find('g1'));
+});
+
 test('move: only into controls or the root, never into itself or a descendant', () => {
   const doc = documentOf();
   assert.equal(doc.canDrop('t1', { id: 'm1', position: 'inside' }), false, 'a host takes no children');

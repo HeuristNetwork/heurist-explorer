@@ -1,6 +1,6 @@
 # Plan 27b — Website manager and publisher (plan 27, phase 2)
 
-**Status 2026-10-31: review rounds 4-5 (§11.6, §11.7) done, not committed. Earlier, 2026-10-28: review round 1 (§11) implemented, not committed, not checked in a browser: items 1–9 (§11.1),
+**Status 2026-10-31: review rounds 4-6 (§11.6-§11.8) done, not committed. Earlier, 2026-10-28: review round 1 (§11) implemented, not committed, not checked in a browser: items 1–9 (§11.1),
 item 10 *Publish this view* (§11.2 proposal, §11.3 decisions and implementation).** Phase 2 itself (2026-10-26) is
 committed. Next: plan for phase 3, the CMS designer (§12). As implemented and deviations: §10. General directions and decisions 1–23 are
 in `27 CMS-and-Web-Publishing-Plan.md`, the v4 format in `27a Website-Format-v4-Plan.md`; this plan uses them and
@@ -435,6 +435,20 @@ form's own orientation); a page published before 2026-10-28 has no `settings.fil
 4. Search pane of a published page: the collapsed strip is 22px (was 34), "Search" in italic.
 5. `.h-site-main` keeps `padding: 0 16px` for text pages (text off the window edge, as header and footer); a page
    whose main holds one module only (`:has(> .h-site-module:only-child)`) has no padding.
+
+### 11.8 Review round 6 (Artem, 2026-10-31) — done, not committed, browser check pending
+
+1. Details pane: icon, logo and author were not shown: `GET /{entity}/{id}` passed only `fields` to the record
+   reader; it now passes `resolveDetails` and `defs` too (same output as `/records/{id}`, plan 28). The pen after
+   the title is small. RecordView renderer for these fields: not used for now (it brings its header, file viewer and
+   footer; the pane needs an icon before the title) — to discuss.
+2. A website could not be saved in the record editor, the error came twice, the record was saved anyway and the
+   next save had a conflict. Cause: after the website is saved, `afterSave` → `shareAccess()` PATCHes its menu pages
+   (owner and visibility); a PATCH validated the stored rows, and a long *Page translations* value (page 207626) is
+   stored in parts — each part alone is not JSON (one error per part); the 422 came after the website was committed.
+   Fixes (heurist): `srv/Records/Store/SplitValues` joins the parts (page translations per language, CMS page
+   content) for reads (RecordDataService) and for PATCH (RecordSaveService); `shareAccess()` turns a page it can not
+   change into a warning. The lost *Page translations* of website 207627 were written back.
 
 ## 12. Next
 

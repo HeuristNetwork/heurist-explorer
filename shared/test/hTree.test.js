@@ -56,6 +56,18 @@ test('rows, tools, selection and hover', () => {
   assert.ok(row('p1').classList.contains('h-tree-highlighted'));
 });
 
+test('a tool with a caption; onTool gets the button', () => {
+  let clicked = null;
+  const { row } = treeOf({
+    tools: () => [{ action: 'add', icon: 'fa-plus', title: 'Add page', label: 'Add page', always: true }],
+    onTool: (action, id, button) => { clicked = [action, id, button]; }
+  });
+  const tool = row('home').querySelector('.h-tree-tool');
+  assert.equal(tool.querySelector('.h-tree-tool-label').textContent, 'Add page');
+  tool.click();
+  assert.deepEqual(clicked, ['add', 'home', tool]);
+});
+
 test('keyboard moves the selection', () => {
   const { tree, calls } = treeOf();
   tree.select('home');

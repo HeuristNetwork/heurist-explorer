@@ -126,6 +126,8 @@ html.h-site {
   margin: 0.5em 0;
   border: 1px solid var(--h-color-border);
   border-radius: var(--h-radius);
+  /* the summary background keeps the rounded corners */
+  overflow: hidden;
 }
 
 .h-site-body details > summary {

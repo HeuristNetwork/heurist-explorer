@@ -285,6 +285,7 @@ export class WebsiteManager extends HBaseWidget {
       apiClient: this.app.apiClient,
       websites: this.app.websites,
       bridge: this.app.bridge,
+      dbdefs: this.app.dbdefs,
       runtime: { baseUrl: this.app.config.baseUrl, database: this.app.config.database },
       onClose: () => {
         host.remove();

@@ -1,8 +1,9 @@
 /**
  * @file designerDialogs.js
- * @brief Popups of the CMS designer (plan 27c): add page (title, preset), sub pages of a deleted page, Save /
- *        Discard / Cancel, a save conflict, the text and translation editors (TinyMCE), a style form (own style
- *        of a node, kind defaults, presets) and the website Styles dialog.
+ * @brief Popups of the CMS designer (plan 27c): add page (title, preset), remove a page from the website, Save /
+ *        Discard / Cancel, a save conflict, add element, group caption, a confirmation next to a button, the text
+ *        and translation editors (TinyMCE), a style form (own style of a node, kind defaults, presets) and the
+ *        website Styles dialog.
  *
  * Every popup returns a promise of its answer (null when cancelled).
  *
@@ -17,61 +18,199 @@
  */
 
 import { $HR, HMsg } from '#shared/ui';
-import { BASE_SETTINGS, CMS_KINDS, CMS_STYLE_PROPERTIES, compileCmsStyles, SCREENS } from '#shared/site/cmsDocument.js';
-import { CMS_PAGE_PRESETS } from '#shared/site/cmsEdit.js';
+import { SCREENS } from '#shared/site/cmsDocument.js';
+import { confirmNear, createStylesForm, presetName, styleRows } from './designerStyles.js';
+import { ELEMENT_GROUPS, PAGE_TEMPLATES, previewSvg } from './designerCatalog.js';
+
+export { confirmNear, presetName };
 
 const DIALOG_ID = 'h-cms-dialog';
 const INNER_DIALOG_ID = 'h-cms-dialog-inner';
 
-/** Labels of the page presets (§4). */
-export const PAGE_PRESET_LABELS = Object.freeze({
-  text: 'Text',
-  columns2: 'Two columns',
-  columns3: 'Three columns',
-  textColumns2: 'Text, then two columns',
-  textColumns3: 'Text, then three columns'
-});
-
 /**
- * Title and preset of a new page.
+ * Title and template of a new page (§19): a template that is chosen fills an empty title with its default name.
  *
  * @param {{title?: string}} [options] Dialog title.
- * @returns {Promise<{title: string, preset: string}|null>}
+ * @returns {Promise<{title: string, template: string}|null>}
  */
 export function openAddPageForm({ title = 'Add page' } = {}) {
-  const form = element('form', 'h-cms-form');
-  const name = row(form, 'Title', input('text'));
-  name.required = true;
-  const preset = row(form, 'Preset', select(CMS_PAGE_PRESETS.map((value) => ({ value, label: $HR(PAGE_PRESET_LABELS[value]) }))));
-  return formDialog(form, title, 'Add', () => {
-    const value = name.value.trim();
-    if (!value) {
-      name.focus();
-      return null;
+  return catalogDialog({
+    title,
+    groups: PAGE_TEMPLATES,
+    titleRequired: true,
+    onPick: (item, name, previous) => {
+      const shown = name.value.trim();
+      if (!shown || (previous && shown === $HR(previous.defaultTitle || ''))) name.value = $HR(item.defaultTitle || '');
     }
-    return { title: value, preset: preset.value };
-  }, name);
+  }).then((answer) => (answer ? { title: answer.title, template: answer.value } : null));
 }
 
 /**
- * What to do with the sub pages of a page that is deleted (§15 #3).
+ * Remove a page from the website (review 2026-11-01): out of the menu with its sub menus; with the box checked
+ * the page records are deleted too.
  *
  * @param {string} title Page title.
- * @param {number} count Number of sub pages.
- * @returns {Promise<'delete'|'up'|null>}
+ * @returns {Promise<{deletePages: boolean}|null>}
  */
-export function chooseSubPages(title, count) {
-  return choice(`${$HR('Page')} "${title}" ${$HR('has')} ${count} ${$HR('sub page(s). Delete them too, or move them one level up?')}`,
-    'Delete page', [['delete', 'Delete sub pages too'], ['up', 'Move them up']]);
+export function askRemovePage(title) {
+  const body = element('span');
+  body.innerHTML = `${$HR('This removes the menu entry from the website, as well as all sub-menus of this menu (if any).')}<br><br>`
+    + `${$HR('To avoid removing sub-menus, move them out of this menu before removing it.')}<br><br>`;
+  const box = input('checkbox');
+  box.id = 'del_menu';
+  const label = element('label', 'h-cms-remove-label');
+  label.htmlFor = 'del_menu';
+  label.textContent = $HR('If you want to delete the actual web pages from the database, not simply remove the menu entries'
+    + ' from this website, check this box. Note that this is not reversible.');
+  const line = element('span', 'h-cms-remove-line');
+  line.append(box, label);
+  body.append(line);
+  return formDialog(body, `${$HR('Remove')} ${title} ${$HR('from website')}`, 'Remove', () => ({ deletePages: box.checked }),
+    null, 'h-dialog-cms-narrow');
 }
 
 /**
  * The part has changes: Save / Discard / Cancel (§8).
  *
+ * @param {string} name Name of the part: a page title, Header, Home or Footer.
  * @returns {Promise<'save'|'discard'|null>}
  */
-export function askSaveDiscard() {
-  return choice('This part has changes that are not saved.', 'Unsaved changes', [['save', 'Save'], ['discard', 'Discard']]);
+export function askSaveDiscard(name) {
+  return choice(`"${name}" ${$HR('has changes that are not saved.')}`, 'Unsaved changes', [['save', 'Save'], ['discard', 'Discard']],
+    'h-dialog-cms-narrow');
+}
+
+/**
+ * A new element (§19; + on the root or a group of the part tree, Add below the tree). The title is the heading of a
+ * text or the caption of a group; other elements have none.
+ *
+ * @returns {Promise<{element: string, title: string}|null>}
+ */
+export function openAddElementForm() {
+  return catalogDialog({
+    title: 'Add element',
+    groups: ELEMENT_GROUPS,
+    onPick: (item, name) => {
+      name.disabled = !item.title;
+      name.placeholder = $HR(item.title === 'heading' ? 'Heading of the text (optional)'
+        : item.title === 'caption' ? 'Caption of the group (optional)' : 'Not used for this element');
+    }
+  }).then((answer) => (answer ? { element: answer.value, title: answer.title } : null));
+}
+
+/**
+ * A catalog popup (Add page, Add element; like the legacy editCMS_SelectElement): a title on top, the entries on the
+ * left (in groups), the description and a preview of the selected one on the right. Entries not available yet are
+ * grey and can not be added.
+ *
+ * @param {{title: string, groups: Array<{label: string, items: Array<object>}>, okLabel?: string,
+ *        titleRequired?: boolean, onPick?: (item: object, titleInput: HTMLInputElement, previous: object|null) => void}} options
+ * @returns {Promise<{value: string, title: string}|null>}
+ */
+function catalogDialog({ title, groups, okLabel = 'Add', titleRequired = false, onPick = null }) {
+  const form = element('form', 'h-cms-catalog');
+  const name = row(form, 'Title', input('text'));
+  const main = element('div', 'h-cms-catalog-main');
+  const list = element('div', 'h-cms-catalog-list');
+  list.setAttribute('role', 'listbox');
+  list.tabIndex = 0;
+  const info = element('div', 'h-cms-catalog-info');
+  main.append(list, info);
+  form.append(main);
+  const entries = [];
+  let current = null;
+  let ok = null;
+  const pick = (item) => {
+    const previous = current;
+    current = item;
+    for (const entry of entries) {
+      entry.button.classList.toggle('h-cms-catalog-selected', entry.item === item);
+      entry.button.setAttribute('aria-selected', String(entry.item === item));
+    }
+    const heading = element('h3', 'h-cms-catalog-name');
+    heading.textContent = $HR(item.label);
+    const description = element('div', 'h-cms-catalog-description');
+    description.innerHTML = $HR(item.description || '');
+    info.replaceChildren(heading);
+    if (!item.available || item.pending) {
+      const soon = element('div', 'h-cms-catalog-soon-note');
+      soon.textContent = $HR(item.pending ? 'To be implemented soon: a blank page with this title is created for now.'
+        : 'To be implemented soon...');
+      info.append(soon);
+    }
+    info.append(description, previewSvg(item.preview));
+    onPick?.(item, name, previous);
+    if (ok) ok.disabled = !item.available;
+  };
+  for (const group of groups) {
+    if (group.label) {
+      const header = element('div', 'h-cms-catalog-group');
+      header.textContent = $HR(group.label);
+      list.append(header);
+    }
+    for (const item of group.items) {
+      const entry = element('button', `h-cms-catalog-item${item.available ? '' : ' h-cms-catalog-soon'}`);
+      entry.type = 'button';
+      entry.setAttribute('role', 'option');
+      entry.textContent = $HR(item.label);
+      entry.addEventListener('click', () => pick(item));
+      entry.addEventListener('dblclick', () => {
+        pick(item);
+        if (item.available) form.requestSubmit?.();
+      });
+      entries.push({ item, button: entry });
+      list.append(entry);
+    }
+  }
+  list.addEventListener('keydown', (event) => {
+    const index = entries.findIndex((entry) => entry.item === current);
+    const next = event.key === 'ArrowDown' ? index + 1 : event.key === 'ArrowUp' ? index - 1 : null;
+    if (next === null || !entries[next]) return;
+    event.preventDefault();
+    pick(entries[next].item);
+    entries[next].button.focus?.();
+  });
+  const result = formDialog(form, title, okLabel, () => {
+    if (!current?.available) return null;
+    const value = name.disabled ? '' : name.value.trim();
+    if (titleRequired && !value) {
+      name.focus();
+      return null;
+    }
+    return { value: current.value, title: value };
+  }, name, 'h-dialog-cms-catalog');
+  ok = HMsg.getMsgDlg?.(DIALOG_ID)?.querySelector?.('.h-dialog-footer .h-btn-primary') || null;
+  pick(entries.find((entry) => entry.item.available)?.item || entries[0].item);
+  return result;
+}
+
+/**
+ * The caption of a group and its translations (plain text).
+ *
+ * @param {{caption?: string, translations?: Object<string, string>, languages?: string[], required?: boolean}} options
+ *        languages: the other languages of the website; required: a panel label can not be empty.
+ * @returns {Promise<{caption: string, translations: Object<string, string>}|null>}
+ */
+export function openCaptionForm({ caption = '', translations = {}, languages = [], required = false } = {}) {
+  const form = element('form', 'h-cms-form');
+  const text = row(form, 'Caption', input('text'));
+  text.value = caption;
+  if (!required) text.placeholder = $HR('(none)');
+  const inputs = {};
+  for (const language of languages) {
+    inputs[language] = row(form, language.toUpperCase(), input('text'));
+    inputs[language].value = translations[language] || '';
+  }
+  return formDialog(form, 'Caption', 'OK', () => {
+    if (required && !text.value.trim()) {
+      text.focus();
+      return null;
+    }
+    return {
+      caption: text.value.trim(),
+      translations: Object.fromEntries(Object.entries(inputs).map(([language, control]) => [language, control.value.trim()]))
+    };
+  }, text, 'h-dialog-cms-narrow');
 }
 
 /**
@@ -96,9 +235,9 @@ export function chooseOption(message, title, answers) {
   return choice(message, title, answers);
 }
 
-/** A yes / no question. */
-export function confirm(message, { title = 'Please confirm', yes = 'Yes' } = {}) {
-  return choice(message, title, [['yes', yes]]).then((answer) => answer === 'yes');
+/** A yes / no question; `narrow`: a narrower dialog. */
+export function confirm(message, { title = 'Please confirm', yes = 'Yes', narrow = false } = {}) {
+  return choice(message, title, [['yes', yes]], narrow ? 'h-dialog-cms-narrow' : '').then((answer) => answer === 'yes');
 }
 
 /**
@@ -129,98 +268,35 @@ export async function openTextEditor({ html = '', baseUrl = '', title = 'Edit te
 }
 
 /**
- * A style form (§6a): property rows for the normal, medium and narrow screens. Problems are shown as they are
- * found by compileCmsStyles.
+ * The own style of an element (§6a, §25): its preset above the style editor (styleRows), property rows for the
+ * normal, medium and narrow screens. Problems are shown as they are found by compileCmsStyles.
  *
- * @param {{style?: object, title?: string, label?: string|null, dialogId?: string}} [options] `label`: a preset
- *        label field (null = none).
- * @returns {Promise<object|null>} The style (with `label` for a preset), or null.
+ * @param {{style?: object, title?: string, kind?: string, inFlexGroup?: boolean, presets?: Array<Array<string>>,
+ *        preset?: string|null, files?: object|null, dialogId?: string}} [options] `kind`, `inFlexGroup`, `presets`
+ *        ([name, label]), `preset`, `files`: styleRows.
+ * @returns {Promise<{style: object, preset: string|null}|null>}
  */
-export function openStyleForm({ style = {}, title = 'Style', label = null, dialogId = INNER_DIALOG_ID } = {}) {
+export function openStyleForm({
+  style = {}, title = 'Style', kind = null, inFlexGroup = false, presets = [], preset = null, files = null, dialogId = INNER_DIALOG_ID
+} = {}) {
   const form = element('div', 'h-cms-style-form');
-  const labelInput = label !== null ? row(form, 'Label', input('text')) : null;
-  if (labelInput) labelInput.value = label;
-  const editor = styleRows(form, style);
-  return formDialog(form, title, 'OK', () => {
-    const value = editor.value();
-    if (labelInput) value.label = labelInput.value.trim() || 'Preset';
-    return value;
-  }, labelInput, 'h-dialog-cms-style', dialogId);
+  const editor = styleRows(form, style, null, { kind, inFlexGroup, presets, preset, files });
+  return formDialog(form, title, 'OK', () => ({ style: editor.value(), preset: editor.preset() }), null, 'h-dialog-cms-style', dialogId);
 }
 
 /**
- * The website Styles dialog (§4, §6a): base settings, kind defaults and presets. Saved at once by the caller.
+ * The Styles popup of a website or standalone page (§6a, §21): tabs Base settings, Layout styles, Presets and
+ * Custom CSS (designerStyles.js). Saved at once by the caller.
  *
- * @param {{base: object, kinds: object, presets: object}} values
- * @returns {Promise<{base: object, kinds: object, presets: object}|null>}
+ * @param {{base: object, kinds: object, presets: object, css: string, javaScriptAllowed: boolean,
+ *        createCodeEditor?: Function}} values createCodeEditor: createCodeTextEditor (lazy).
+ * @returns {Promise<{base: object, kinds: object, presets: object, css: string}|null>}
  */
-export function openStylesDialog({ base = {}, kinds = {}, presets = {} } = {}) {
-  const state = { base: { ...base }, kinds: structuredClone(kinds), presets: structuredClone(presets) };
-  const form = element('div', 'h-cms-styles');
-
-  const baseBox = section(form, 'Base settings');
-  const baseInputs = {};
-  for (const key of BASE_SETTINGS) {
-    const control = row(baseBox, key, input('text'));
-    control.value = state.base[key] ?? '';
-    control.placeholder = $HR('Heurist default');
-    baseInputs[key] = control;
-  }
-
-  const kindBox = section(form, 'Kind defaults');
-  const kindList = element('div', 'h-cms-styles-list');
-  kindBox.append(kindList);
-  const drawKinds = () => {
-    kindList.replaceChildren();
-    for (const kind of Object.keys(CMS_KINDS)) {
-      listRow(kindList, kind, cssText(state.kinds[kind]), [['fa-pen', 'Edit', async () => {
-        const value = await openStyleForm({ style: state.kinds[kind] || {}, title: `${$HR('Kind default')}: ${kind}` });
-        if (value) {
-          if (Object.keys(value).length) state.kinds[kind] = value; else delete state.kinds[kind];
-          drawKinds();
-        }
-      }]]);
-    }
-  };
-  drawKinds();
-
-  const presetBox = section(form, 'Presets');
-  const presetList = element('div', 'h-cms-styles-list');
-  const addPreset = button('Add preset', 'fa-plus');
-  presetBox.append(presetList, addPreset);
-  const drawPresets = () => {
-    presetList.replaceChildren();
-    for (const [name, preset] of Object.entries(state.presets)) {
-      const { label, ...style } = preset || {};
-      listRow(presetList, `${label || name} (${name})`, cssText(style), [
-        ['fa-pen', 'Edit', async () => {
-          const value = await openStyleForm({ style, label: label || name, title: `${$HR('Preset')}: ${name}` });
-          if (value) {
-            state.presets[name] = value;
-            drawPresets();
-          }
-        }],
-        ['fa-trash', 'Delete', () => {
-          delete state.presets[name];
-          drawPresets();
-        }]
-      ]);
-    }
-  };
-  addPreset.addEventListener('click', async () => {
-    const value = await openStyleForm({ style: {}, label: '', title: 'New preset' });
-    if (!value) return;
-    const name = presetName(value.label, Object.keys(state.presets));
-    state.presets[name] = value;
-    drawPresets();
-  });
-  drawPresets();
-
-  return formDialog(form, 'Website styles', 'Save', () => {
-    const baseValues = {};
-    for (const [key, control] of Object.entries(baseInputs)) if (control.value.trim()) baseValues[key] = control.value.trim();
-    return { base: baseValues, kinds: state.kinds, presets: state.presets };
-  }, null, 'h-dialog-cms-styles');
+export async function openStylesDialog(values = {}) {
+  const form = createStylesForm(values);
+  const result = formDialog(form.element, 'Styles', 'Save', () => form.read(), null, 'h-dialog-cms-styles');
+  await form.ready;
+  return result.finally(() => form.destroy());
 }
 
 /** A short CSS text of a style (one line, screen styles marked). */
@@ -234,82 +310,8 @@ export function cssText(style) {
   return parts.join('; ');
 }
 
-/** A preset name (an id) from a label, not one of `used`. */
-export function presetName(label, used = []) {
-  const base = String(label || 'preset').normalize('NFKD').replace(/[^A-Za-z0-9]+(.)?/g, (match, next) => (next ? next.toUpperCase() : ''))
-    .replace(/^[^A-Za-z]+/, '') || 'preset';
-  const name = base.charAt(0).toLowerCase() + base.slice(1);
-  let result = name;
-  for (let number = 2; used.includes(result); number++) result = `${name}${number}`;
-  return result;
-}
-
-/** Property rows of a style with Normal / Medium / Narrow tabs; `value()` gives the style. */
-function styleRows(parent, style) {
-  const screens = ['normal', ...Object.keys(SCREENS)];
-  const values = { normal: {} };
-  for (const screen of Object.keys(SCREENS)) values[screen] = { ...(style?.[screen] || {}) };
-  for (const [property, value] of Object.entries(style || {})) {
-    if (property !== 'label' && !Object.hasOwn(SCREENS, property)) values.normal[property] = value;
-  }
-  let screen = 'normal';
-  const tabs = element('div', 'h-cms-style-tabs');
-  const list = element('div', 'h-cms-style-rows');
-  const problems = element('div', 'h-cms-style-problems');
-  const add = button('Add property', 'fa-plus');
-  parent.append(tabs, list, add, problems);
-  const check = () => {
-    const { issues } = compileCmsStyles({}, [{ n: build() }]);
-    problems.textContent = issues.map((issue) => issue.message).join('\n');
-  };
-  const draw = () => {
-    tabs.replaceChildren(...screens.map((name) => {
-      const tab = button(name === 'normal' ? 'Normal' : name === 'medium' ? 'Medium (≤ 1024 px)' : 'Narrow (≤ 640 px)');
-      tab.classList.toggle('h-cms-tab-active', name === screen);
-      tab.addEventListener('click', () => { screen = name; draw(); });
-      return tab;
-    }));
-    list.replaceChildren();
-    for (const [property, value] of Object.entries(values[screen])) {
-      const line = element('div', 'h-cms-style-row');
-      const name = select(CMS_STYLE_PROPERTIES.map((item) => ({ value: item, label: item })));
-      name.value = property;
-      const text = input('text');
-      text.value = String(value);
-      const remove = button('', 'fa-xmark');
-      remove.title = $HR('Remove');
-      name.addEventListener('change', () => {
-        const entries = Object.entries(values[screen]).map(([key, item]) => (key === property ? [name.value, item] : [key, item]));
-        values[screen] = Object.fromEntries(entries);
-        draw();
-      });
-      text.addEventListener('input', () => { values[screen][property] = text.value; check(); });
-      remove.addEventListener('click', () => { delete values[screen][property]; draw(); });
-      line.append(name, text, remove);
-      list.append(line);
-    }
-    check();
-  };
-  add.addEventListener('click', () => {
-    const free = CMS_STYLE_PROPERTIES.find((property) => !(property in values[screen]));
-    if (free) values[screen][free] = '';
-    draw();
-  });
-  const build = () => {
-    const result = {};
-    for (const [property, value] of Object.entries(values.normal)) if (String(value).trim()) result[property] = String(value).trim();
-    for (const name of Object.keys(SCREENS)) {
-      const entries = Object.entries(values[name]).filter(([, value]) => String(value).trim());
-      if (entries.length) result[name] = Object.fromEntries(entries.map(([key, value]) => [key, String(value).trim()]));
-    }
-    return result;
-  };
-  draw();
-  return { value: build };
-}
-
-/** A question with answer buttons and Cancel. */
-function choice(message, title, answers) {
+/** A question with answer buttons and Cancel; `className` on the dialog while it is open. */
+function choice(message, title, answers, className = '') {
   return new Promise((resolve) => {
     let done = false;
     const finish = (value) => {
@@ -327,7 +329,11 @@ function choice(message, title, answers) {
         { label: 'Cancel', class: 'h-btn', onClick: () => finish(null) }
       ]
     });
-    dialog.addEventListener('close', () => { if (!done) resolve(null); }, { once: true });
+    if (className) dialog?.classList.add(className);
+    dialog?.addEventListener('close', () => {
+      if (className) dialog.classList.remove(className);
+      if (!done) resolve(null);
+    }, { once: true });
   });
 }
 
@@ -367,31 +373,6 @@ function formDialog(content, title, okLabel, read, focus, className = '', dialog
   });
 }
 
-function section(parent, title) {
-  const box = element('fieldset', 'h-cms-styles-section');
-  const legend = element('legend');
-  legend.textContent = $HR(title);
-  box.append(legend);
-  parent.append(box);
-  return box;
-}
-
-function listRow(parent, name, text, actions) {
-  const line = element('div', 'h-cms-styles-row');
-  const caption = element('span', 'h-cms-styles-name');
-  caption.textContent = name;
-  const css = element('span', 'h-cms-styles-css');
-  css.textContent = text || $HR('(none)');
-  line.append(caption, css);
-  for (const [icon, title, run] of actions) {
-    const action = button('', icon);
-    action.title = $HR(title);
-    action.addEventListener('click', run);
-    line.append(action);
-  }
-  parent.append(line);
-}
-
 function row(parent, label, control) {
   const line = element('label', 'h-cms-form-row');
   const caption = element('span');
@@ -410,17 +391,6 @@ function element(tag, className = '') {
 function input(type) {
   const node = element('input', type === 'text' ? 'h-input h-compact' : '');
   node.type = type;
-  return node;
-}
-
-function select(items) {
-  const node = element('select', 'h-select h-compact');
-  for (const item of items) {
-    const option = element('option');
-    option.value = item.value;
-    option.textContent = item.label;
-    node.append(option);
-  }
   return node;
 }
 

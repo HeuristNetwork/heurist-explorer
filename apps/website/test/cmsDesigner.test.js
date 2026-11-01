@@ -112,6 +112,154 @@ test('preset names and CSS text of the style forms', () => {
   assert.equal(cssText({ label: 'X', padding: '4px', narrow: { display: 'none' } }), 'padding: 4px; narrow: {display: none}');
 });
 
+test('catalogs of Add page and Add element: the available elements are the ones of the document', async () => {
+  const { ELEMENT_GROUPS, PAGE_TEMPLATES, previewSvg } = await import('../src/designer/designerCatalog.js');
+  const { CMS_ELEMENTS, cmsPageStarter } = await import('#shared/site/cmsEdit.js');
+  const elements = ELEMENT_GROUPS.flatMap((group) => group.items);
+  assert.deepEqual(ELEMENT_GROUPS.map((group) => group.label), ['Content and layout', 'Modules', 'Widgets']);
+  assert.deepEqual(elements.filter((item) => item.available).map((item) => item.value).sort(), [...CMS_ELEMENTS].sort());
+  assert.equal(new Set(elements.map((item) => item.value)).size, elements.length, 'unique values');
+  const templates = PAGE_TEMPLATES[0].items;
+  assert.deepEqual(templates.map((item) => item.value),
+    ['blank', 'cover', 'landing', 'about', 'features', 'team', 'discover', 'blog', 'contact', 'record', 'publications']);
+  assert.equal(templates[0].defaultTitle, '', 'Blank has no default title');
+  assert.ok(templates.every((item) => item.available), 'every template can be added (a blank page for now)');
+  assert.deepEqual(templates.filter((item) => !item.pending).map((item) => item.value), ['blank']);
+  for (const item of [...elements, ...templates]) {
+    assert.ok(item.description && item.preview.length, `${item.value}: description and preview`);
+    assert.ok(previewSvg(item.preview));
+  }
+  const blank = cmsPageStarter('blank', 'News');
+  assert.equal(blank.content.match(/data-h-text/g).length, 1, 'one text element');
+  assert.match(blank.content, /<h1>News<\/h1><p>Text<\/p>/);
+});
+
+test('Styles popup: four tabs, themes, kind defaults, presets, custom CSS with the warning, previews', async () => {
+  const { createStylesForm, previewDocument, CMS_THEMES } = await import('../src/designer/designerStyles.js');
+  const form = createStylesForm({
+    base: { radius: '6px' }, kinds: { text: { padding: '4px' } }, presets: { card: { label: 'Card', padding: '8px' } }, css: '.x{color:red}'
+  });
+  await form.ready;
+  assert.deepEqual(form.tabs.tabs.map((tab) => tab.textContent), ['Base settings', 'Layout styles', 'Presets', 'Custom CSS']);
+  for (const panel of form.tabs.panels) {
+    assert.ok(panel.querySelector('.h-cms-styles-help') && panel.querySelector('.h-cms-styles-config'), 'help and settings in every tab');
+  }
+  assert.equal(form.element.querySelectorAll('iframe').length, 1, 'one preview beside the tabs');
+  // Add preset: "New preset (n)", above the list
+  const add = form.tabs.panels[2].querySelector('.h-cms-styles-preset-side').querySelector('button');
+  add.click();
+  add.click();
+  assert.deepEqual(Object.values(form.read().presets).map((preset) => preset.label), ['Card', 'New preset (1)', 'New preset (2)']);
+  assert.equal(form.tabs.panels[2].querySelectorAll('.h-cms-styles-preset').length, 3);
+  // a theme fills the colours
+  const theme = form.element.querySelector('select');
+  theme.value = 'dark';
+  theme.fire('change');
+  const values = form.read();
+  assert.equal(values.base['color-bg'], CMS_THEMES.find((item) => item.name === 'dark').values['color-bg']);
+  assert.equal(values.base.radius, '6px', 'other settings kept');
+  assert.deepEqual(values.kinds, { text: { padding: '4px' } });
+  assert.equal(values.presets.card.label, 'Card');
+  assert.equal(values.css, '.x{color:red}');
+  assert.match(form.tabs.panels[3].textContent, /JavaScript and CSS are not allowed/, 'warning without JavaScript allowed');
+  assert.equal(form.tabs.panels[3].querySelector('textarea').value, '.x{color:red}', 'a text area without a code editor');
+  form.destroy();
+  const allowed = createStylesForm({ javaScriptAllowed: true });
+  assert.doesNotMatch(allowed.tabs.panels[3].textContent, /are not allowed/);
+  // the preview has the compiled styles of the website and the custom CSS, safely inside its style element
+  const html = previewDocument({ base: { 'color-bg': '#000000' }, kinds: {}, presets: { card: { padding: '8px' } }, css: 'a{}</style><script>' }, '<p>x</p>');
+  assert.match(html, /html\.h-site\{--h-color-bg:#000000;\}/);
+  assert.match(html, /\[data-h-style="card"\]\{padding:8px;\}/);
+  assert.doesNotMatch(html, /<\/style><script>/);
+});
+
+test('Style editor: simple and advanced lists, group flex box, Reset all, Remove all, numeric check', async () => {
+  const { styleRows, checkStyleValue } = await import('../src/designer/designerStyles.js');
+  assert.deepEqual(checkStyleValue('width', '12'), { value: '12px', error: null }, 'px added to a plain number');
+  assert.deepEqual(checkStyleValue('margin', '0 auto -5em 50%'), { value: '0 auto -5em 50%', error: null });
+  assert.ok(checkStyleValue('padding', '-5px').error, 'no negative padding');
+  assert.ok(checkStyleValue('font-size', '12x').error);
+  assert.ok(checkStyleValue('padding', '1px 2px 3px 4px 5px').error, 'at most 4 values');
+  assert.equal(checkStyleValue('color', 'red').error, null, 'not a length: not checked');
+  let last = null;
+  const host = document.createElement('div');
+  document.body.append(host);
+  const editor = styleRows(host, { padding: '4px', 'box-shadow': '0 0 2px #000' }, (value) => { last = value; },
+    { kind: 'group', presets: [['card', 'Card']], preset: 'card' });
+  assert.equal(host.querySelector('.h-cms-style-preset').querySelector('select').value, 'card', 'the preset above the list');
+  const rows = () => host.querySelector('.h-cms-style-rows');
+  const tools = host.querySelector('.h-cms-style-tools').querySelectorAll('button');
+  assert.deepEqual(tools.map((item) => item.textContent.trim()), ['Advanced', 'Add property', 'Reset all', 'Remove all']);
+  assert.ok(tools[1].hidden && tools[3].hidden, 'Add property and Remove all only in Advanced');
+  const sections = () => host.querySelectorAll('.h-cms-style-section').map((item) => item.textContent.trim());
+  assert.deepEqual(sections(), ['Group layout', 'Size and spacing', 'Text', 'Background', 'Border'], 'group layout on top');
+  assert.match(host.querySelector('.h-cms-style-note').textContent, /box-shadow/, 'other properties named');
+  // the checkbox of Group layout: checked = a flex box with its properties, unchecked = display block
+  const groupBox = () => host.querySelector('.h-cms-style-section').querySelector('input');
+  assert.equal(groupBox().checked, false);
+  groupBox().checked = true;
+  groupBox().fire('change');
+  assert.equal(last.display, 'flex');
+  const direction = rows().querySelector('select');
+  direction.value = 'column';
+  direction.fire('change');
+  assert.deepEqual(last, { padding: '4px', 'box-shadow': '0 0 2px #000', display: 'flex', 'flex-direction': 'column' });
+  groupBox().checked = false;
+  groupBox().fire('change');
+  assert.deepEqual(editor.value(), { padding: '4px', 'box-shadow': '0 0 2px #000', display: 'block' }, 'unchecked: display block');
+  // Border: checked starts a solid 1px border, unchecked writes border: none
+  const borderBox = () => host.querySelectorAll('.h-cms-style-section').at(-1).querySelector('input');
+  borderBox().checked = true;
+  borderBox().fire('change');
+  assert.equal(editor.value()['border-style'], 'solid');
+  borderBox().checked = false;
+  borderBox().fire('change');
+  assert.equal(editor.value().border, 'none');
+  assert.equal(editor.value()['border-style'], undefined);
+  // a numeric value is checked when the input is left
+  const width = rows().querySelectorAll('input').filter((input) => input.type === 'text')[1]; // height, width
+  width.value = 'wide';
+  width.fire('input');
+  width.fire('change');
+  assert.ok(width.classList.contains('h-cms-style-invalid'));
+  assert.equal(editor.value().width, undefined, 'a wrong value is not in the style');
+  width.value = '50';
+  width.fire('change');
+  assert.equal(editor.value().width, '50px');
+  // Reset all and Remove all are confirmed next to the button
+  const confirmed = async (button) => {
+    button.click();
+    const box = document.body.querySelector('.h-cms-popconfirm');
+    assert.ok(box, 'a confirmation');
+    box.querySelector('.h-btn-danger').click();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  };
+  tools[0].click();
+  assert.ok(!tools[1].hidden && !tools[3].hidden, 'Advanced shows Add property and Remove all');
+  const count = host.querySelectorAll('.h-cms-style-row').length;
+  await confirmed(tools[2]);
+  assert.deepEqual(editor.value(), {}, 'Reset all clears the values');
+  assert.equal(host.querySelectorAll('.h-cms-style-row').length, count, 'the rows stay');
+  await confirmed(tools[3]);
+  assert.equal(host.querySelectorAll('.h-cms-style-row').length, 0, 'Remove all removes the rows');
+  tools[0].click();
+  assert.equal(editor.preset(), 'card');
+  host.remove();
+  const text = document.createElement('div');
+  styleRows(text, {}, null, { kind: 'text' });
+  const textSections = text.querySelectorAll('.h-cms-style-section').map((item) => item.textContent.trim());
+  assert.ok(!textSections.includes('Group layout'));
+  // Size in group (flex): only for an element in a flex group, and in presets
+  assert.ok(!textSections.includes('In the group'));
+  assert.equal(text.querySelector('.h-cms-style-preset'), null, 'no preset selector without presets');
+  const child = document.createElement('div');
+  styleRows(child, {}, null, { kind: 'text', inFlexGroup: true });
+  assert.deepEqual(child.querySelectorAll('.h-cms-style-section').map((item) => item.textContent.trim()),
+    ['In the group', 'Size and spacing', 'Text', 'Background', 'Border']);
+  for (const value of ['1', '2', 'auto', 'none', '1 200px', '1 0 200px', '2 1']) assert.equal(checkStyleValue('flex', value).error, null, value);
+  for (const value of ['x', '1 1 1', '-1', '1 2 3 4']) assert.ok(checkStyleValue('flex', value).error, value);
+});
+
 /** A designer on a fake API: requests are recorded. */
 function designerOf({ canEdit = true } = {}) {
   const requests = [];
@@ -170,6 +318,70 @@ test('designer: open the home, edit, save only the changed field with rec_Modifi
   const second = requests.filter(([method]) => method === 'PATCH')[1];
   assert.equal(second[3].rec_Modified, '2026-10-30 11:00:00');
   assert.deepEqual(Object.keys(second[3].details), ['929']);
+  designer.destroy();
+});
+
+test('designer: west pane with the tabs Site | Page and help, the preview alone in the center', async () => {
+  const { designer, container } = designerOf();
+  await designer.open(10);
+  assert.equal(container.querySelector('.h-cms-bar'), null, 'no header bar');
+  const tabs = [...container.querySelectorAll('.h-cms-tab')];
+  assert.deepEqual(tabs.map((tab) => tab.textContent.replace('●', '').trim()), ['Site', 'Page']);
+  assert.equal(designer._siteTabActive(), true, 'the Site tab first');
+  assert.equal(designer._propertiesRecord(), 10, 'Properties = the website on the Site tab');
+  const home = [...container.querySelectorAll('.h-tree-row')].find((row) => row.dataset.id === 'part:content');
+  const tool = home.querySelector('.h-tree-tool');
+  assert.equal(tool.dataset.action, 'add');
+  assert.ok(tool.classList.contains('h-tree-tool-always'), 'Add page always on Home');
+  assert.equal(tool.textContent.trim(), 'Add page', 'with a caption');
+  assert.deepEqual(designer._siteTools({ id: 'page:11' }).map((item) => [item.action, item.icon]),
+    [['edit', 'fa-pen'], ['add', 'fa-plus'], ['remove', 'fa-xmark']], 'one tool to remove a page from the website');
+  assert.match(container.querySelector('.h-cms-help').textContent, /main menu/);
+  // second row: language and page width as selects
+  assert.equal(container.querySelector('.h-cms-view-bar').querySelectorAll('select').length, 2);
+  assert.equal(container.querySelector('.h-cms-toolbar').querySelectorAll('select').length, 0, 'no language selector in the toolbar');
+
+  await designer._selectSiteItem('page:12');
+  assert.equal(designer._siteTabActive(), false, 'a page opens on the Page tab');
+  assert.equal(designer._propertiesRecord(), 12, 'Properties = the open page');
+  assert.match(container.querySelector('.h-cms-help').textContent, /order on the page/);
+  assert.ok(designer.buttons.save.classList.contains('h-btn-primary'), 'Save is the primary button');
+  const buttons = [...container.querySelector('.h-cms-pane-bar').querySelectorAll('button')];
+  assert.equal(buttons.at(-1), designer.buttons.save, 'Save on the right');
+  assert.equal(designer._discardQuestion(), 'Discard the changes of page "News"?');
+  await designer.selectPart(10, 'header');
+  assert.equal(designer._discardQuestion(), 'Discard the changes of Header?');
+  designer.destroy();
+});
+
+test('designer: tools of the part tree, + of tabs, captions, copy below the tree', async () => {
+  const { designer } = designerOf();
+  await designer.open(10);
+  const root = designer._nodeTools({ id: '#root' });
+  assert.deepEqual(root.map((item) => [item.action, item.label, item.always]), [['add', 'Add element', true]]);
+  let tabs = null;
+  designer._edit((doc) => { tabs = doc.insertElement('content', 'tabs', { id: null, position: 'inside' }); return true; });
+  const actions = (id) => designer._nodeTools({ id }).map((item) => item.action);
+  const panel = designer._treeItem(tabs).children[0];
+  assert.deepEqual(actions(tabs), ['add', 'delete']);
+  assert.deepEqual(actions(panel.id), ['add', 'caption', 'delete']);
+  assert.deepEqual(actions(panel.children[0].id), ['edit', 'delete'], 'a text: pen and remove');
+  await designer._addElement(tabs);
+  assert.equal(designer._treeItem(tabs).children.length, 3, '+ of tabs adds a panel at once');
+  // a click on a caption in the preview selects its panel
+  designer._selectNode(panel.caption, { fromPreview: true });
+  assert.equal(designer.selectedNode, panel.id);
+  const picker = () => designer.pickerBox.querySelectorAll('button');
+  assert.deepEqual(picker().map((button) => button.textContent.trim()), ['Own style', 'Caption', '', ''],
+    'tools of the selected panel, Copy and Paste as icons');
+  assert.equal(picker()[2].disabled, false, 'copy of the selected panel');
+  designer._copy('all');
+  assert.equal(designer.clipboard.sourceId, panel.id);
+  designer._selectNode(panel.children[0].id);
+  assert.deepEqual(picker().map((button) => button.textContent.trim()).slice(0, 2), ['Own style', 'Edit text']);
+  designer._selectNode(null);
+  assert.equal(picker().length, 2, 'nothing selected: Copy and Paste only');
+  assert.equal(picker()[0].disabled, true, 'nothing selected: no copy');
   designer.destroy();
 });
 

@@ -13,7 +13,9 @@
  * output); it needs no DOM, so the tests run in node. The inner HTML of text blocks
  * (`data-h-text`) and instance hosts (`data-h-instance`) is kept as it is. Elements with
  * `data-h-node` are the nodes of the structure tree; only the part root and controls
- * (`data-h-control`) take children.
+ * (`data-h-control`) take children. The caption of a group (its first child, a heading or
+ * `summary` text block: the label of a tab or accordion panel) is not a node of the tree:
+ * it is edited through its group (caption / setCaption).
  *
  *   const doc = new CmsRecordDocument({ parts: { content: html }, config: json, translations });
  *   const id = doc.insertElement('content', 'columns2', { id: null, position: 'inside' });
@@ -42,8 +44,8 @@ export const CMS_CONTROLS = Object.freeze(['group', 'tabs', 'accordion']);
 export const CMS_ELEMENTS = Object.freeze(['text', 'group', 'columns2', 'columns3', 'tabs', 'accordion', 'explorer',
   'data', 'map', 'timeline', 'graph', 'recordview', 'menu']);
 
-/** Starting content of a new page (plan 27c §15 #4): text and column combinations only. */
-export const CMS_PAGE_PRESETS = Object.freeze(['text', 'columns2', 'columns3', 'textColumns2', 'textColumns3']);
+/** Starting content of a new page (plan 27c §15 #4): blank (one text, §19), text and column combinations. */
+export const CMS_PAGE_PRESETS = Object.freeze(['blank', 'text', 'columns2', 'columns3', 'textColumns2', 'textColumns3']);
 
 const VOID = new Set(['area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link', 'meta', 'source', 'track', 'wbr']);
 const RAW_TAGS = new Set(['script', 'style', 'textarea']);
@@ -204,7 +206,8 @@ export class CmsRecordDocument {
    *
    * @param {string} part
    * @returns {Array<{id: string, kind: string, tag: string, label: string, control: string|null, instance: string|null,
-   *          type: string|null, preset: string|null, configured: boolean, children: Array}>}
+   *          type: string|null, preset: string|null, configured: boolean, caption: string|null, children: Array}>}
+   *          caption: node id of the caption of a group (not an item itself).
    */
   tree(part) {
     const root = this.roots[part];
@@ -213,8 +216,9 @@ export class CmsRecordDocument {
 
   _items(container) {
     const items = [];
+    const caption = captionOf(container);
     for (const child of container.children) {
-      if (child.type !== 'element') continue;
+      if (child.type !== 'element' || child === caption) continue;
       const id = attr(child, 'data-h-node');
       if (!id) {
         items.push(...this._items(child)); // a wrapper without an id: its nodes go up
@@ -232,6 +236,7 @@ export class CmsRecordDocument {
         type: instance?.type || null,
         preset: attr(child, 'data-h-style'),
         configured: !instanceId || isConfigured(instance),
+        caption: attr(captionOf(child), 'data-h-node'),
         children: child.raw === undefined ? this._items(child) : []
       });
     }
@@ -300,11 +305,13 @@ export class CmsRecordDocument {
     const moving = this.find(id);
     removeChild(moving.parent, moving.node);
     this._place(target.part || moving.part, moving.node, target);
+    if (hasAttr(moving.node, 'data-h-control')) this._removeEmpty(moving.parent);
     return true;
   }
 
   /**
-   * Remove a node with its descendants, their node styles, translations and instances.
+   * Remove a node with its descendants, their node styles, translations and instances. A group, tabs or
+   * accordion left without elements (its caption only) when a group is removed or moved out of it goes too.
    *
    * @returns {boolean}
    */
@@ -312,14 +319,120 @@ export class CmsRecordDocument {
     const found = this.find(id);
     if (!found) return false;
     removeChild(found.parent, found.node);
-    const { nodes, instances } = idsIn(found.node);
+    this._forget(found.node);
+    if (hasAttr(found.node, 'data-h-control')) this._removeEmpty(found.parent);
+    return true;
+  }
+
+  /**
+   * Add a panel (a group with a caption and a text) at the end of tabs or an accordion.
+   *
+   * @param {string} id Tabs or accordion.
+   * @returns {string|null} Node id of the new panel.
+   */
+  addPanel(id) {
+    const node = this.find(id)?.node;
+    const control = node ? attr(node, 'data-h-control') : null;
+    if (control !== 'tabs' && control !== 'accordion') return null;
+    const panel = this._panel(control, node.children.filter((child) => child.type === 'element').length + 1, this._usedIds());
+    node.children.push(panel);
+    return attr(panel, 'data-h-node');
+  }
+
+  /**
+   * Caption of a group: node id, plain text and translations (language => plain text), or null.
+   *
+   * @param {string} id Group.
+   * @returns {{id: string, text: string, translations: Object<string, string>}|null}
+   */
+  caption(id) {
+    const node = captionOf(this.find(id)?.node);
+    if (!node) return null;
+    const captionId = attr(node, 'data-h-node');
+    const translations = {};
+    for (const [language, blocks] of Object.entries(this.translations)) {
+      if (typeof blocks?.[captionId] === 'string') translations[language] = plain(blocks[captionId]);
+    }
+    return { id: captionId, text: plain(node.raw || ''), translations };
+  }
+
+  /** Whether a node is a panel of tabs or an accordion (its caption is the panel label). */
+  isPanel(id) {
+    const found = this.find(id);
+    return Boolean(found) && ['tabs', 'accordion'].includes(attr(found.parent, 'data-h-control'));
+  }
+
+  /**
+   * Set the caption of a group (plain text) and its translations. A new caption is an `h3` (`summary` in
+   * `details`); an empty text removes it, but not on a panel of tabs or an accordion (it is the panel label).
+   * A group with a caption is a `section` labelled by its caption (`aria-labelledby`), without one a `div`
+   * (§20; panels keep their tags).
+   *
+   * @param {string} id Group.
+   * @param {string} text
+   * @param {Object<string, string>} [translations] Language => plain text (empty = no translation).
+   * @returns {boolean} False when nothing was set.
+   */
+  setCaption(id, text, translations = {}) {
+    const found = this.find(id);
+    if (!found || attr(found.node, 'data-h-control') !== 'group' || found.node.raw !== undefined) return false;
+    const panel = this.isPanel(id);
+    let caption = captionOf(found.node);
+    const value = String(text ?? '').trim();
+    if (!value) {
+      if (!caption || panel) return false;
+      removeChild(found.node, caption);
+      this._forget(caption);
+      if (found.node.tag === 'section') found.node.tag = 'div';
+      removeAttr(found.node, 'aria-labelledby');
+      return true;
+    }
+    if (!caption) {
+      const tag = found.node.tag === 'details' ? 'summary' : 'h3';
+      caption = element$(tag, [['data-h-node', newCmsId('n', this._usedIds())], ['data-h-text', '']], '');
+      found.node.children.unshift(caption);
+    }
+    if (!panel && found.node.tag === 'div') found.node.tag = 'section';
+    if (!panel) labelSection(found.node);
+    caption.raw = escapeText(value);
+    const captionId = attr(caption, 'data-h-node');
+    for (const [language, translation] of Object.entries(translations || {})) {
+      const translated = String(translation ?? '').trim();
+      this.setTranslation(language, captionId, translated ? escapeText(translated) : '');
+    }
+    return true;
+  }
+
+  /**
+   * The group of a caption (a click on a caption in the preview selects its group).
+   *
+   * @param {string} id Node id.
+   * @returns {string|null} Node id of the group, or null when the node is not a caption.
+   */
+  captionGroup(id) {
+    const found = this.find(id);
+    if (!found?.parent || captionOf(found.parent) !== found.node) return null;
+    return attr(found.parent, 'data-h-node');
+  }
+
+  /** Forget the node styles, translations and instances of a removed node and its descendants. */
+  _forget(node) {
+    const { nodes, instances } = idsIn(node);
     for (const nodeId of nodes) {
       if (isMap(this.config.styles.nodes)) delete this.config.styles.nodes[nodeId];
       for (const blocks of Object.values(this.translations)) if (isMap(blocks)) delete blocks[nodeId];
     }
     const hosts = this._instanceHosts();
     for (const instanceId of instances) if (!hosts.has(instanceId)) delete this.config.instances[instanceId];
-    return true;
+  }
+
+  /** Remove a control that has no elements left but its caption (then its parent the same way). */
+  _removeEmpty(container) {
+    const id = container?.type === 'element' ? attr(container, 'data-h-node') : null;
+    if (!id || !hasAttr(container, 'data-h-control')) return;
+    const caption = captionOf(container);
+    if (container.children.some((child) => child.type === 'element' && child !== caption)) return;
+    this.remove(id);
   }
 
   /**
@@ -395,6 +508,8 @@ export class CmsRecordDocument {
         this.config.instances[instanceId] = defaultInstance(kind, type);
       }
     });
+    // the label of a pasted section follows the new id of its caption
+    walk(node, (element) => { if (hasAttr(element, 'aria-labelledby')) labelSection(element); });
     this._place(part, node, target);
     return attr(node, 'data-h-node');
   }
@@ -426,6 +541,18 @@ export class CmsRecordDocument {
       return;
     }
     (this.translations[language] ||= {})[id] = text;
+  }
+
+  /**
+   * The group an element is in (not tabs or accordions): its node id and preset (`data-h-style`).
+   *
+   * @param {string} id
+   * @returns {{id: string, preset: string|null}|null}
+   */
+  parentGroup(id) {
+    const parent = this.find(id)?.parent;
+    if (!parent || parent.type !== 'element' || attr(parent, 'data-h-control') !== 'group' || !hasAttr(parent, 'data-h-node')) return null;
+    return { id: attr(parent, 'data-h-node'), preset: attr(parent, 'data-h-style') || null };
   }
 
   /** Own style of a node (a copy), or {}. */
@@ -505,11 +632,11 @@ export class CmsRecordDocument {
       used.add(value);
       return value;
     };
-    const text = (html = '<p>Text</p>', tag = 'div') => element$(tag, [['data-h-node', id('n')], ['data-h-text', '']], html);
-    const group = (children = [], preset = null, tag = 'div') => {
+    const text = () => element$('div', [['data-h-node', id('n')], ['data-h-text', '']], '<p>Text</p>');
+    const group = (children = [], preset = null) => {
       const attrs = [['data-h-node', id('n')], ['data-h-control', 'group']];
       if (preset) attrs.push(['data-h-style', preset]);
-      return element$(tag, attrs, undefined, children);
+      return element$('div', attrs, undefined, children);
     };
     switch (element) {
       case 'text': return text();
@@ -517,11 +644,9 @@ export class CmsRecordDocument {
       case 'columns2': return group([text(), text()], 'columns2');
       case 'columns3': return group([text(), text(), text()], 'columns3');
       case 'tabs':
-        return element$('div', [['data-h-node', id('n')], ['data-h-control', 'tabs']], undefined, [1, 2].map((number) =>
-          group([text(`Tab ${number}`, 'h3'), text()], null, 'section')));
       case 'accordion':
-        return element$('div', [['data-h-node', id('n')], ['data-h-control', 'accordion']], undefined, [1, 2].map((number) =>
-          group([text(`Section ${number}`, 'summary'), text()], null, 'details')));
+        return element$('div', [['data-h-node', id('n')], ['data-h-control', element]], undefined, [1, 2].map((number) =>
+          this._panel(element, number, used)));
       case 'menu': {
         const instanceId = id('i');
         const nodeId = id('n');
@@ -537,6 +662,19 @@ export class CmsRecordDocument {
         return element$('div', [['data-h-node', id('n')], ['data-h-instance', instanceId]], '');
       }
     }
+  }
+
+  /** A panel of tabs (`section` with an `h3` caption) or of an accordion (`details` with `summary`), with a text. */
+  _panel(control, number, used) {
+    const id = () => {
+      const value = newCmsId('n', used);
+      used.add(value);
+      return value;
+    };
+    const tabs = control === 'tabs';
+    const caption = element$(tabs ? 'h3' : 'summary', [['data-h-node', id()], ['data-h-text', '']], `${tabs ? 'Tab' : 'Section'} ${number}`);
+    const text = element$('div', [['data-h-node', id()], ['data-h-text', '']], '<p>Text</p>');
+    return element$(tabs ? 'section' : 'details', [['data-h-node', id()], ['data-h-control', 'group']], undefined, [caption, text]);
   }
 
   _place(part, node, target) {
@@ -587,7 +725,10 @@ export function cmsPageStarter(preset, title) {
   const doc = new CmsRecordDocument({ parts: { content: '' }, config: { schema: CMS_SCHEMA, instances: {}, styles: {} } });
   const heading = doc.insertElement('content', 'text');
   doc.setText(heading, `<h1>${escapeText(title || 'Page')}</h1>`);
-  if (preset === 'columns2' || preset === 'textColumns2') {
+  if (preset === 'blank') {
+    // one text element: the title and a paragraph (plan 27c §19)
+    doc.setText(heading, `<h1>${escapeText(title || 'Page')}</h1><p>Text</p>`);
+  } else if (preset === 'columns2' || preset === 'textColumns2') {
     if (preset === 'textColumns2') doc.insertElement('content', 'text');
     doc.insertElement('content', 'columns2');
   } else if (preset === 'columns3' || preset === 'textColumns3') {
@@ -606,6 +747,25 @@ function kindOf(node) {
   if (hasAttr(node, 'data-h-text')) return 'text';
   if (hasAttr(node, 'data-h-control')) return 'control';
   return 'other';
+}
+
+/** The caption of a group: its first element when it is a heading or `summary` text block; else null. */
+function captionOf(node) {
+  if (!node || node.type !== 'element' || node.raw !== undefined || attr(node, 'data-h-control') !== 'group') return null;
+  const first = node.children.find((child) => child.type === 'element');
+  return first && hasAttr(first, 'data-h-text') && (HEADINGS.includes(first.tag) || first.tag === 'summary') ? first : null;
+}
+
+/** A `section` with a caption is labelled by it: `id` on the caption, `aria-labelledby` on the section (§20). */
+function labelSection(node) {
+  const caption = captionOf(node);
+  if (!caption || node.tag !== 'section') {
+    removeAttr(node, 'aria-labelledby');
+    return;
+  }
+  const id = `h-${attr(caption, 'data-h-node')}`;
+  setAttr(caption, 'id', id);
+  setAttr(node, 'aria-labelledby', id);
 }
 
 /** Short label of a tree item. */

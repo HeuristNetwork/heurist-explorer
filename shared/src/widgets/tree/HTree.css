@@ -67,14 +67,19 @@
 }
 
 .h-tree-tools {
-  display: none;
+  display: inline-flex;
   flex: 0 0 auto;
   gap: 2px;
 }
 
-.h-tree-row:hover .h-tree-tools,
-.h-tree-selected .h-tree-tools {
-  display: inline-flex;
+/* tools on hover and on the selected item; "always" tools all the time */
+.h-tree-tool:not(.h-tree-tool-always) {
+  display: none;
+}
+
+.h-tree-row:hover .h-tree-tool,
+.h-tree-selected .h-tree-tool {
+  display: inline-block;
 }
 
 .h-tree-tool {
@@ -85,6 +90,10 @@
   color: var(--h-color-text);
   font-size: var(--h-font-size-small);
   cursor: pointer;
+}
+
+.h-tree-tool-label {
+  margin-left: 4px;
 }
 
 .h-tree-tool:hover {

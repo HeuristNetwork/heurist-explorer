@@ -1,4 +1,4 @@
-/* CMS designer (plan 27c): full screen, website tree west, preview center, part structure east */
+/* CMS designer (plan 27c): full screen; west = toolbar, tabs Site | Page, help; center = the preview alone */
 
 /* above the Website manager (z-index 10000), which opens it */
 .h-cms-designer-host {
@@ -16,27 +16,12 @@
   outline: none;
 }
 
-.h-cms-bar {
-  display: flex;
-  flex: 0 0 auto;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 8px;
-  border-bottom: 1px solid var(--h-color-border);
-  background: var(--h-color-surface, #f7f7f7);
-}
-
-.h-cms-bar-title {
-  font-size: var(--h-font-size-large);
-  font-weight: 600;
-}
-
 .h-cms-dirty {
   color: var(--h-color-warning, #c77700);
 }
 
-.h-cms-bar-spacer {
-  flex: 1 1 auto;
+.h-cms-dirty[hidden] {
+  display: none;
 }
 
 .h-cms-readonly {
@@ -49,7 +34,9 @@
   min-height: 0;
 }
 
+.h-cms-west,
 .h-cms-site-pane,
+.h-cms-page-panel,
 .h-cms-part-pane {
   display: flex;
   flex-direction: column;
@@ -57,6 +44,15 @@
   min-height: 0;
 }
 
+.h-cms-site-pane,
+.h-cms-part-pane {
+  flex: 1 1 auto;
+  height: auto;
+}
+
+/* toolbar above the tabs, the second row (language, page width) and the toolbar of the Page tab */
+.h-cms-toolbar,
+.h-cms-view-bar,
 .h-cms-pane-bar {
   display: flex;
   flex: 0 0 auto;
@@ -67,9 +63,81 @@
   border-bottom: 1px solid var(--h-color-border);
 }
 
-.h-cms-pane-title {
+.h-cms-toolbar {
+  background: var(--h-color-surface, #f7f7f7);
+}
+
+.h-cms-toolbar-spacer {
   flex: 1 1 auto;
+}
+
+.h-cms-view-bar {
+  justify-content: flex-end;
+}
+
+/* tabs Site | Page (createTabSet, prefix h-cms) */
+.h-cms-tabs {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.h-cms-tab-strip {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 2px;
+  padding: 4px 4px 0;
+  border-bottom: 1px solid var(--h-color-border);
+}
+
+.h-cms-tab {
+  padding: 4px 14px;
+  border: 1px solid transparent;
+  border-bottom: 0;
+  border-radius: var(--h-radius, 4px) var(--h-radius, 4px) 0 0;
+  background: transparent;
+  color: var(--h-color-text);
+  cursor: pointer;
+}
+
+.h-cms-tab.is-active {
+  margin-bottom: -1px;
+  border-color: var(--h-color-border);
+  background: var(--h-color-bg, #fff);
   font-weight: 600;
+}
+
+.h-cms-tab-panel {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.h-cms-tab-panel[hidden] {
+  display: none;
+}
+
+/* help below the trees: as high as its text */
+.h-cms-help {
+  flex: 0 0 auto;
+  max-height: 40%;
+  overflow: auto;
+  padding: 6px 8px;
+  border-top: 1px solid var(--h-color-border);
+  background: var(--h-color-surface, #f7f7f7);
+  color: var(--h-color-muted, #777);
+}
+
+.h-cms-help[hidden] {
+  display: none;
+}
+
+.h-cms-help p {
+  margin: 0 0 4px;
+}
+
+.h-cms-help p:last-child {
+  margin-bottom: 0;
 }
 
 .h-cms-tree-host {
@@ -78,6 +146,7 @@
   overflow: auto;
 }
 
+/* tools of the selected element below the part tree (§25); Copy and Paste on the right */
 .h-cms-picker {
   display: flex;
   flex: 0 0 auto;
@@ -86,34 +155,11 @@
   gap: 4px;
   padding: 6px;
   border-top: 1px solid var(--h-color-border);
+  background: var(--h-color-selected, #dcecff);
 }
 
-.h-cms-properties {
-  flex: 0 0 auto;
-  max-height: 40%;
-  overflow: auto;
-  padding: 6px;
-  border-top: 1px solid var(--h-color-border);
-}
-
-.h-cms-property {
-  display: grid;
-  grid-template-columns: 90px 1fr;
-  gap: 6px;
-  align-items: center;
-  padding: 2px 0;
-}
-
-.h-cms-property-value {
-  overflow-wrap: anywhere;
-  color: var(--h-color-text);
-}
-
-.h-cms-property-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  margin-top: 6px;
+.h-cms-picker-spacer {
+  flex: 1 1 auto;
 }
 
 .h-cms-caption {
@@ -121,28 +167,10 @@
   font-size: var(--h-font-size-small);
 }
 
-.h-cms-hint {
-  margin: 0;
-  color: var(--h-color-muted, #777);
-}
-
 .h-cms-center {
   display: flex;
   flex-direction: column;
   height: 100%;
-}
-
-.h-cms-widths {
-  display: flex;
-  flex: 0 0 auto;
-  justify-content: center;
-  gap: 4px;
-  padding: 4px;
-  border-bottom: 1px solid var(--h-color-border);
-}
-
-.h-cms-width-active {
-  outline: 2px solid var(--h-color-primary);
 }
 
 .h-cms-preview-note {
@@ -201,6 +229,7 @@
 .h-cms-style-tabs {
   display: flex;
   gap: 4px;
+  padding: 0 10px;
 }
 
 .h-cms-tab-active {
@@ -214,36 +243,483 @@
   margin-bottom: 2px;
 }
 
+/* style editor (§23): Advanced, Add property, Reset all, Remove all in one row, the same width */
+.h-cms-style-tools {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+.h-cms-style-tools > .h-cms-style-advanced-on {
+  background: var(--h-color-selected, #dcecff);
+  border-color: var(--h-color-selected-border, #3983b7);
+}
+
+.h-cms-style-section label {
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+  cursor: pointer;
+}
+
+.h-cms-style-preset {
+  margin-bottom: 6px;
+}
+
+.h-cms-style-image {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.h-cms-style-image img {
+  max-width: 120px;
+  max-height: 60px;
+  border: 1px solid var(--h-color-border);
+}
+
+/* the colour input as high as the other compact inputs */
+.h-cms-styles-value .h-input-color {
+  align-items: stretch;
+}
+
+.h-cms-styles-value .h-input-color-text {
+  min-height: 0;
+  padding-top: 1px;
+  padding-bottom: 1px;
+}
+
+.h-cms-styles-value .h-input-color-swatch {
+  height: auto;
+}
+
+.h-cms-style-tools > .h-btn {
+  width: 130px;
+}
+
+.h-cms-style-tools > .h-btn[hidden] {
+  display: none;
+}
+
+.h-cms-style-section {
+  margin: 6px 0 2px;
+  padding-bottom: 2px;
+  border-bottom: 1px solid var(--h-color-border);
+  font-weight: 600;
+}
+
+.h-cms-style-field {
+  display: grid;
+  grid-template-columns: 160px minmax(0, 1fr);
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 2px;
+}
+
+.h-cms-style-invalid {
+  border-color: var(--h-color-danger, #b00020);
+  outline: 1px solid var(--h-color-danger, #b00020);
+}
+
+.h-cms-style-note {
+  margin-top: 6px;
+  color: var(--h-color-text-muted, #666);
+  font-size: var(--h-font-size-small);
+}
+
 .h-cms-style-problems {
   color: var(--h-color-danger, #b00020);
   font-size: var(--h-font-size-small);
   white-space: pre-line;
 }
 
-.h-cms-styles-section {
-  border: 1px solid var(--h-color-border);
-  padding: 6px;
+.h-dialog-cms-text {
+  width: min(900px, 95vw);
 }
 
-.h-cms-styles-row {
+.h-dialog-cms-styles {
+  width: min(1320px, 96vw);
+}
+
+/* Styles popup (§21, §22): the tabs (help line and settings in each) and the preview beside them, half as wide */
+.h-cms-styles-layout {
   display: grid;
-  grid-template-columns: 160px 1fr auto auto;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  gap: 12px;
+  height: min(680px, 78vh);
+}
+
+.h-cms-styles-tabs {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.h-cms-styles-preview-column {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-height: 0;
+}
+
+/* Layout styles tab only: a short caption column */
+.h-cms-styles-kinds .h-cms-styles-field {
+  grid-template-columns: 80px 1fr;
+}
+
+.h-cms-styles-tab-strip {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 2px;
+  border-bottom: 1px solid var(--h-color-border);
+}
+
+.h-cms-styles-tab {
+  padding: 4px 14px;
+  border: 1px solid transparent;
+  border-bottom: 0;
+  border-radius: var(--h-radius, 4px) var(--h-radius, 4px) 0 0;
+  background: transparent;
+  color: var(--h-color-text);
+  cursor: pointer;
+}
+
+.h-cms-styles-tab.is-active {
+  margin-bottom: -1px;
+  border-color: var(--h-color-border);
+  background: var(--h-color-bg, #fff);
+  font-weight: 600;
+}
+
+.h-cms-styles-pane {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0;
+  padding-top: 8px;
+}
+
+.h-cms-styles-pane[hidden] {
+  display: none;
+}
+
+.h-cms-styles-help {
+  display: flex;
+  flex: 0 0 auto;
   gap: 6px;
+  align-items: baseline;
+  color: var(--h-color-muted, #777);
+}
+
+.h-cms-styles-help .fa-circle-question {
+  color: var(--h-color-primary);
+}
+
+.h-cms-styles-config {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0;
+  overflow: auto;
+}
+
+.h-cms-styles-field {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  gap: 8px;
   align-items: center;
-  padding: 2px 0;
+}
+
+.h-cms-styles-value .h-form-input {
+  margin: 0;
+}
+
+.h-cms-styles-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* Presets tab: list and form side by side, each with its own scroll bar */
+.h-cms-styles-presets {
+  flex-direction: row;
+  align-items: stretch;
+  overflow: hidden;
+}
+
+.h-cms-styles-preset-side {
+  display: flex;
+  flex: 0 0 200px;
+  flex-direction: column;
+  gap: 6px;
+  min-height: 0;
+  padding-right: 10px;
+  border-right: 1px solid var(--h-color-border);
+}
+
+.h-cms-styles-preset-side > .h-btn {
+  align-self: flex-start;
+}
+
+.h-cms-styles-preset-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+}
+
+.h-cms-styles-preset {
+  padding: 4px 8px;
+  border-radius: 3px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.h-cms-styles-preset:hover {
+  background: var(--h-color-hover, rgba(0, 0, 0, 0.05));
+}
+
+.h-cms-styles-preset.h-cms-styles-preset-selected {
+  background: var(--h-color-selected, rgba(0, 110, 200, 0.15));
+}
+
+.h-cms-styles-preset-form {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+}
+
+.h-cms-styles-preset-head {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.h-cms-styles-preset-head .h-cms-styles-field {
+  flex: 1 1 auto;
+  grid-template-columns: 60px 1fr;
+}
+
+.h-cms-styles-warning {
+  padding: 4px 8px;
+  border-radius: var(--h-radius, 4px);
+  background: var(--h-color-warning-bg, #fff3cd);
+  color: var(--h-color-warning, #856404);
 }
 
 .h-cms-styles-css {
-  overflow: hidden;
-  color: var(--h-color-muted, #777);
-  font-size: var(--h-font-size-small);
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  flex: 1 1 auto;
+  min-height: 160px;
+  border: 1px solid var(--h-color-border);
+  overflow: auto;
 }
 
-.h-dialog-cms-text,
-.h-dialog-cms-styles {
-  width: min(900px, 95vw);
+.h-cms-styles-css-text {
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  min-height: 160px;
+  border: 0;
+  font-family: monospace;
+  resize: none;
+}
+
+.h-cms-styles-preview {
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+  border: 1px solid var(--h-color-border);
+  border-radius: var(--h-radius, 4px);
+  background: #fff;
+}
+
+/* catalog popup: Add page, Add element (§19) */
+.h-dialog-cms-catalog {
+  width: min(760px, 95vw);
+}
+
+.h-cms-catalog {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.h-cms-catalog .h-cms-form-row {
+  grid-template-columns: 60px 1fr;
+}
+
+.h-cms-catalog-main {
+  display: flex;
+  gap: 12px;
+  height: min(440px, 60vh);
+}
+
+.h-cms-catalog-list {
+  display: flex;
+  flex: 0 0 210px;
+  flex-direction: column;
+  overflow: auto;
+  padding: 4px;
+  border: 1px solid var(--h-color-border);
+  border-radius: var(--h-radius, 4px);
+  outline: none;
+}
+
+.h-cms-catalog-group {
+  margin: 8px 4px 2px;
+  color: var(--h-color-muted, #777);
+  font-size: var(--h-font-size-small);
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.h-cms-catalog-group:first-child {
+  margin-top: 2px;
+}
+
+.h-cms-catalog-item {
+  padding: 4px 8px;
+  border: 0;
+  border-radius: 3px;
+  background: none;
+  color: var(--h-color-text);
+  font-size: var(--h-font-size);
+  text-align: left;
+  cursor: pointer;
+}
+
+.h-cms-catalog-item:hover {
+  background: var(--h-color-hover, rgba(0, 0, 0, 0.05));
+}
+
+.h-cms-catalog-item.h-cms-catalog-selected {
+  background: var(--h-color-selected, rgba(0, 110, 200, 0.15));
+}
+
+/* not implemented yet */
+.h-cms-catalog-soon {
+  color: var(--h-color-muted, #999);
+  font-style: italic;
+}
+
+.h-cms-catalog-info {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: auto;
+  padding: 8px 12px;
+  border-radius: var(--h-radius, 4px);
+  background: var(--h-color-surface, #f4f2f4);
+}
+
+.h-cms-catalog-name {
+  margin: 0 0 6px;
+  font-size: var(--h-font-size-large);
+}
+
+.h-cms-catalog-soon-note {
+  margin-bottom: 6px;
+  color: var(--h-color-warning, #c77700);
+  font-weight: 600;
+}
+
+.h-cms-catalog-description p {
+  margin: 6px 0 0;
+}
+
+.h-cms-catalog-description ul {
+  margin: 4px 0;
+  padding-left: 18px;
+}
+
+/* wireframe previews (designerCatalog.previewSvg) */
+.h-cms-pv {
+  display: block;
+  width: 100%;
+  max-width: 300px;
+  margin-top: 12px;
+}
+
+.h-cms-pv-page {
+  fill: var(--h-color-bg, #fff);
+  stroke: var(--h-color-border, #ccc);
+}
+
+.h-cms-pv-heading {
+  fill: var(--h-color-text, #333);
+  opacity: 0.7;
+}
+
+.h-cms-pv-line {
+  fill: var(--h-color-muted, #999);
+  opacity: 0.5;
+}
+
+.h-cms-pv-image {
+  fill: var(--h-color-border, #ddd);
+}
+
+.h-cms-pv-hill {
+  fill: var(--h-color-muted, #999);
+  opacity: 0.5;
+}
+
+.h-cms-pv-frame {
+  fill: none;
+  stroke: var(--h-color-muted, #999);
+  stroke-dasharray: 2 2;
+}
+
+.h-cms-pv-module {
+  fill: var(--h-color-selected, rgba(0, 110, 200, 0.15));
+  stroke: var(--h-color-primary, #2a6ebb);
+  stroke-width: 0.5;
+}
+
+.h-cms-pv-label {
+  fill: var(--h-color-primary, #2a6ebb);
+  text-anchor: middle;
+}
+
+.h-cms-pv-bar {
+  fill: var(--h-color-primary, #2a6ebb);
+  opacity: 0.35;
+}
+
+/* Unsaved changes, Discard, Remove from website, Caption */
+.h-dialog-cms-narrow {
+  width: min(420px, 95vw);
+}
+
+.h-dialog-cms-narrow .h-cms-form {
+  min-width: 0;
+}
+
+.h-cms-remove-line {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+/* confirmation next to the remove tool of the part tree */
+.h-cms-popconfirm {
+  position: fixed;
+  z-index: 10020;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px;
+  border: 1px solid var(--h-color-border);
+  border-radius: var(--h-radius, 4px);
+  background: var(--h-color-bg, #fff);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  font-size: var(--h-font-size-small);
 }
 
 .h-cms-text-editor {
@@ -262,4 +738,8 @@
 .h-cms-text-host {
   flex: 1 1 60%;
   min-width: 0;
+}
+
+.h-dialog-cms-style {
+  width: min(600px, 95vw);
 }

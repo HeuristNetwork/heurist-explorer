@@ -32,7 +32,8 @@ export const CMS_CONFIG_VERSION = 1;
 /** Base settings (key = CSS variable without "--h-"). */
 export const BASE_SETTINGS = Object.freeze([
   'font-family', 'color-text', 'color-bg', 'color-surface', 'color-primary', 'color-link',
-  'color-border', 'radius', 'site-font-size', 'site-heading-font', 'site-heading-color', 'site-width'
+  'color-border', 'radius', 'site-font-size', 'site-heading-font', 'site-heading-color', 'site-width',
+  'color-selected', 'color-selected-border'
 ]);
 
 /** Screen sizes of node styles: key => max width (px). */
@@ -48,11 +49,11 @@ export const CMS_KINDS = Object.freeze({
 });
 
 const PROPERTIES = new Set([
-  'display', 'flex-direction', 'flex-wrap', 'justify-content', 'align-items', 'gap', 'grid-template-columns',
+  'display', 'flex-direction', 'flex-wrap', 'justify-content', 'align-items', 'align-content', 'gap', 'flex', 'grid-template-columns',
   'grid-template-rows', 'grid-column', 'grid-row', 'order',
   'width', 'min-width', 'max-width', 'height', 'min-height', 'max-height', 'overflow',
   'border-radius', 'box-shadow',
-  'color', 'background-color', 'background-image', 'font-family', 'font-size', 'font-weight', 'line-height', 'text-align'
+  'color', 'background-color', 'background-image', 'background-position', 'background-repeat', 'background-size', 'font-family', 'font-size', 'font-weight', 'line-height', 'text-align'
 ]);
 const DISPLAY = ['block', 'flex', 'grid', 'none'];
 const NODE_ID = /^[A-Za-z][A-Za-z0-9_-]{0,63}$/;

@@ -2,10 +2,10 @@
  * @file CmsDesigner.js
  * @brief The CMS designer of v4 websites and standalone pages (plan 27c), over the whole screen.
  *
- * West: the website tree (Header, Home with the menu pages, Footer; drag and drop = `assign`, saved at once).
- * Center: the preview (CmsPreview). East: the structure of the selected part (header, home, footer or a page):
- * tree with drag and drop, the element picker and the properties of the selected node (kind default, preset,
- * own style, text, translation, instance configuration).
+ * West (reviews 2026-10-31, 2026-11-01): toolbar (Properties, Styles, Help, Close), preview language and page width, tabs
+ * *Site* (the website tree: Header, Home with the menu pages, Footer; drag and drop = `assign`, saved at once) and
+ * *Page* (Undo / Redo / Save / Discard, the structure of the open part with drag and drop, the element picker and
+ * the properties of the selected node), then a help panel. Center: the preview alone (CmsPreview).
  *
  * Draft per part: edits change the record document (cmsEdit.js) and the preview; Save PATCHes only the changed
  * fields with the record's `rec_Modified` (one value per record: header, home and footer are one record);
@@ -25,27 +25,37 @@
 import { $HR, HMsg } from '#shared/ui';
 import { HCardinalLayout } from '#shared/widgets/layout/HCardinalLayout.js';
 import { HTree } from '#shared/widgets/tree/HTree.js';
+import { createTabSet } from '#shared/widgets/layout/tabs.js';
 import { CMS_ELEMENTS, cmsPageStarter } from '#shared/site/cmsEdit.js';
-import { CMS_KINDS } from '#shared/site/cmsDocument.js';
 import { CmsPreview, PREVIEW_WIDTHS } from './CmsPreview.js';
 import {
   changedDetails, dropPlace, menuPlace, previewUrl, recordDocument, subPageIds
 } from './designerData.js';
 import {
-  askConflict, askSaveDiscard, chooseOption, chooseSubPages, confirm, cssText, openAddPageForm, openStyleForm,
-  openStylesDialog, openTextEditor
+  askConflict, askRemovePage, askSaveDiscard, confirm, confirmNear, openAddElementForm,
+  openAddPageForm, openCaptionForm, openStyleForm, openStylesDialog, openTextEditor
 } from './designerDialogs.js';
 import './designer.css';
-
-/** Labels of the element picker (§5.2). */
-const ELEMENT_LABELS = Object.freeze({
-  text: 'Text', group: 'Group', columns2: 'Two columns', columns3: 'Three columns', tabs: 'Tabs', accordion: 'Accordion',
-  explorer: 'Explorer', data: 'Data', map: 'Map', timeline: 'Timeline', graph: 'Graph', recordview: 'Record view', menu: 'Menu'
-});
 
 const PART_LABELS = Object.freeze({ header: 'Header', content: 'Home', footer: 'Footer' });
 const ROOT = '#root';
 const CLIP_KEY = 'heurist.cms.clipboard';
+const HELP_KEY = 'heurist.cms.help';
+
+/** Texts of the help panel below the trees. */
+const HELP = Object.freeze({
+  site: [
+    'Drag pages to change their order in the main menu of the website; drop a page onto another one to make it a sub page.',
+    'Add a page with "Add page" on Home, a sub page with + of a page; × removes a page from the website.',
+    'Click Header, Home, Footer or a page to edit it on the Page tab.',
+    'Properties edits the website record; Styles sets the colours, fonts and common styles of the whole website.'
+  ],
+  page: [
+    'Drag elements to change their order on the page; groups, tabs and accordions take other elements inside.',
+    'Add elements with "Add element" on the page or + of a group, or below the tree: there they go into the selected group or after the selected element.',
+    'Select an element here or in the preview to edit its content, properties and style. Changes are kept until you Save or Discard them.'
+  ]
+});
 
 /** The CMS designer. */
 export class CmsDesigner {
@@ -55,6 +65,7 @@ export class CmsDesigner {
    * @param {object} options.apiClient HeuristApiClient.
    * @param {object} options.websites WebsiteClient.
    * @param {object} options.bridge Explorer's bridge: editRecord, openConfiguration, configureExplorerInstance.
+   * @param {object} [options.dbdefs] HDbDefs of the database (`meta.javaScriptAllowed`: the Custom CSS warning).
    * @param {{baseUrl: string, database: string}} options.runtime
    * @param {() => void} [options.onClose]
    * @param {(name: string) => Promise<Function>} [options.loadEditor] createTinyMceEditor (lazy; tests).
@@ -205,11 +216,12 @@ export class CmsDesigner {
     return entry;
   }
 
-  async _saveRecord(id, { force = false } = {}) {
+  /** Save the changed fields of a record; `extra`: other fields to send (Custom CSS). */
+  async _saveRecord(id, { force = false, extra = {} } = {}) {
     const record = this.records.get(id);
     if (!record) return true;
     const now = record.doc.serialize();
-    const details = changedDetails(now, record.saved, this.codes);
+    const details = { ...changedDetails(now, record.saved, this.codes), ...extra };
     if (!Object.keys(details).length) return true;
     const issues = record.doc.check(this.options.runtime?.baseUrl || '').filter((issue) => issue.level === 'error');
     if (issues.length) {
@@ -226,10 +238,11 @@ export class CmsDesigner {
       record.saved = now;
       record.modified = String(saved?.rec_Modified || record.modified);
       if (saved) record.record = { ...record.record, ...saved };
+      if (Object.keys(extra).length) record.record = { ...record.record, details: { ...record.record.details, ...mapValues(extra) } };
     } catch (error) {
       if (error?.status === 409 && !force) {
         const answer = await askConflict();
-        if (answer === 'overwrite') return this._saveRecord(id, { force: true });
+        if (answer === 'overwrite') return this._saveRecord(id, { force: true, extra });
         if (answer === 'reload') {
           await this._record(id, { reload: true });
           this.undoStack = [];
@@ -263,7 +276,7 @@ export class CmsDesigner {
 
   async _leaveDirty() {
     if (!this.isDirty()) return true;
-    const answer = await askSaveDiscard();
+    const answer = await askSaveDiscard(this._partLabel());
     if (answer === 'save') return this.save();
     if (answer === 'discard') {
       const record = this._currentRecord();
@@ -284,22 +297,13 @@ export class CmsDesigner {
     root.tabIndex = -1;
     this.root = root;
     this.options.container.append(root);
-    root.append(this._renderBar());
     const body = element('div', 'h-cms-body');
     root.append(body);
-    this.layout = new HCardinalLayout(body, { westSize: 260, eastSize: 340, minWest: 200, minEast: 280, splitterButtons: true });
-    if (this.site) {
-      this.layout.setContent('west', this._renderSitePane());
-      this.layout.show('west');
-    } else {
-      this.layout.hide('west');
-    }
-    this.partPane = element('div', 'h-cms-part-pane');
-    this.layout.setContent('east', this.partPane);
-    this.layout.show('east');
+    this.layout = new HCardinalLayout(body, { westSize: 360, minWest: 280, splitterButtons: true });
+    this.layout.setContent('west', this._renderWest());
+    this.layout.show('west');
     const center = element('div', 'h-cms-center');
     this.layout.setContent('center', center);
-    center.append(this._renderWidths());
     this.previewNote = element('div', 'h-cms-preview-note');
     this.previewNote.textContent = $HR('The preview shows the saved page only: it comes from another address than this editor'
       + ' (e.g. a development server). Open the editor from Heurist to see the changes in the preview.');
@@ -326,44 +330,70 @@ export class CmsDesigner {
     root.focus?.();
   }
 
-  _renderBar() {
-    const bar = element('div', 'h-cms-bar');
-    const title = element('span', 'h-cms-bar-title');
-    title.textContent = (this.site || this.standalone)?.title || '';
+  /** West pane: toolbar, page widths, the tabs Site | Page and the help panel; the preview is alone in the center. */
+  _renderWest() {
+    const west = element('div', 'h-cms-west');
+    west.append(this._renderToolbar(), this._renderViewBar());
+    this.partPane = element('div', 'h-cms-part-pane');
+    const pagePanel = element('div', 'h-cms-page-panel');
+    pagePanel.append(this._renderPageBar(), this.partPane);
+    this.tabs = createTabSet({ prefix: 'h-cms', onSelect: () => this._tabChanged() });
+    if (this.site) this.tabs.add($HR('Site'), this._renderSitePane()).title = this.site.title || '';
+    const pageTab = this.tabs.add($HR('Page'), pagePanel);
     this.dirtyMark = element('span', 'h-cms-dirty');
-    this.dirtyMark.textContent = '●';
+    this.dirtyMark.textContent = ' ●';
     this.dirtyMark.title = $HR('Changes not saved');
-    bar.append(title, this.dirtyMark);
-    const languages = this.site?.languages || [];
-    if (languages.length > 1) {
-      const select = element('select', 'h-select h-compact');
-      select.title = $HR('Preview language');
-      for (const code of languages) select.append(option(code, code.toUpperCase()));
-      select.addEventListener('change', () => {
-        this.language = select.value === languages[0] ? null : select.value;
-        this._loadPreview();
-      });
-      bar.append(select);
+    this.dirtyMark.hidden = true;
+    pageTab.append(this.dirtyMark);
+    this.help = element('div', 'h-cms-help');
+    this.help.hidden = !readHelpShown();
+    west.append(this.tabs.element, this.help);
+    this.tabs.select(0);
+    return west;
+  }
+
+  /** Toolbar above the tabs: Properties, Styles, Help, Close. */
+  _renderToolbar() {
+    const bar = element('div', 'h-cms-toolbar');
+    if (!this.readOnly) {
+      this.propertiesButton = barButton('fa-gear', 'Properties', () => this._editRecord(this._propertiesRecord()), 'Properties');
+      bar.append(this.propertiesButton, barButton('fa-palette', 'Styles of the whole website', () => this._styles(), 'Styles'));
     }
-    const spacer = element('span', 'h-cms-bar-spacer');
-    bar.append(spacer);
-    this.buttons = {
-      undo: barButton('fa-rotate-left', 'Undo', () => this.undo()),
-      redo: barButton('fa-rotate-right', 'Redo', () => this.redo()),
-      save: barButton('fa-floppy-disk', 'Save', () => this.save(), 'Save'),
-      discard: barButton('fa-xmark', 'Discard', async () => {
-        if (await confirm('Discard the changes of this part?')) this.discard();
-      }, 'Discard'),
-      close: barButton('fa-door-open', 'Close', () => this.close(), 'Close')
-    };
+    bar.append(
+      element('span', 'h-cms-toolbar-spacer'),
+      barButton('fa-circle-question', 'Show or hide the help', () => this._toggleHelp()),
+      barButton('fa-door-open', 'Close', () => this.close(), 'Close')
+    );
+    return bar;
+  }
+
+  /** Toolbar of the Page tab: Undo, Redo, Discard and, on the right, Save. */
+  _renderPageBar() {
+    const bar = element('div', 'h-cms-pane-bar');
     if (this.readOnly) {
       const note = element('span', 'h-cms-readonly');
       note.textContent = $HR('Read only: you can not change this website');
-      bar.append(note, this.buttons.close);
-    } else {
-      bar.append(this.buttons.undo, this.buttons.redo, this.buttons.save, this.buttons.discard, this.buttons.close);
+      bar.append(note);
+      return bar;
     }
+    this.buttons = {
+      undo: barButton('fa-rotate-left', 'Undo (Ctrl+Z)', () => this.undo()),
+      redo: barButton('fa-rotate-right', 'Redo (Ctrl+Y)', () => this.redo()),
+      save: barButton('fa-floppy-disk', 'Save (Ctrl+S)', () => this.save(), 'Save'),
+      discard: barButton('fa-xmark', 'Discard the changes', async () => {
+        if (await confirm(this._discardQuestion(), { yes: 'Discard', narrow: true })) this.discard();
+      }, 'Discard')
+    };
+    this.buttons.save.classList.add('h-btn-primary');
+    bar.append(this.buttons.undo, this.buttons.redo, this.buttons.discard, element('span', 'h-cms-toolbar-spacer'), this.buttons.save);
     return bar;
+  }
+
+  /** 'Discard the changes of page "About"?', or of Header / Home / Footer. */
+  _discardQuestion() {
+    const name = this._partLabel();
+    if (this.site && this.current?.recordId === this.site.id) return `${$HR('Discard the changes of')} ${name}?`;
+    return `${$HR('Discard the changes of page')} "${name}"?`;
   }
 
   _updateBar() {
@@ -377,37 +407,80 @@ export class CmsDesigner {
     }
   }
 
-  _renderWidths() {
-    const bar = element('div', 'h-cms-widths');
-    for (const width of PREVIEW_WIDTHS) {
-      const button = element('button', 'h-btn h-compact');
-      button.type = 'button';
-      button.textContent = width ? `${width}` : $HR('Full');
-      button.title = width ? `${width} px` : $HR('Full width');
-      button.addEventListener('click', () => {
-        for (const other of bar.children) other.classList.toggle('h-cms-width-active', other === button);
-        this.preview.setWidth(width);
+  /** Second row, right aligned: preview language (several languages only) and page width of the preview. */
+  _renderViewBar() {
+    const bar = element('div', 'h-cms-view-bar');
+    const languages = this.site?.languages || [];
+    if (languages.length > 1) {
+      const select = element('select', 'h-select h-compact');
+      select.title = $HR('Preview language');
+      for (const code of languages) select.append(option(code, code.toUpperCase()));
+      select.addEventListener('change', () => {
+        this.language = select.value === languages[0] ? null : select.value;
+        this._loadPreview();
       });
-      if (!width) button.classList.add('h-cms-width-active');
-      bar.append(button);
+      bar.append(caption('Language'), select);
     }
+    const width = element('select', 'h-select h-compact');
+    width.title = $HR('Page width of the preview');
+    for (const value of PREVIEW_WIDTHS) width.append(option(String(value), value ? `${value} px` : $HR('Full width')));
+    width.addEventListener('change', () => this.preview.setWidth(Number(width.value) || 0));
+    bar.append(caption('Page width'), width);
     return bar;
   }
 
-  // ------------------------------------------------------------------ website tree (west)
+  /** Whether the Site tab is shown (a website, not a standalone page). */
+  _siteTabActive() {
+    return Boolean(this.site) && this.tabs?.selected === 0;
+  }
+
+  /** Record of *Properties*: the website on the Site tab, the open record (website or page) on the Page tab. */
+  _propertiesRecord() {
+    if (this._siteTabActive()) return this.site.id;
+    return this.current?.recordId || (this.site || this.standalone).id;
+  }
+
+  _showPageTab() {
+    const last = this.tabs ? this.tabs.panels.length - 1 : 0;
+    if (this.tabs && this.tabs.selected !== last) this.tabs.select(last);
+  }
+
+  _tabChanged() {
+    if (this.propertiesButton) {
+      this.propertiesButton.title = $HR(this._propertiesRecord() === this.site?.id ? 'Website properties' : 'Page properties');
+    }
+    this._renderHelp();
+  }
+
+  _toggleHelp() {
+    this.help.hidden = !this.help.hidden;
+    writeHelpShown(!this.help.hidden);
+    this._renderHelp();
+  }
+
+  /** Help below the tree: Site tab, Page tab, or the selected element. */
+  _renderHelp() {
+    if (!this.help || this.help.hidden) return;
+    let texts = HELP.page;
+    if (this._siteTabActive()) {
+      texts = HELP.site;
+    } else {
+      const node = this.selectedNode ? this._treeItem(this.selectedNode) : null;
+      if (node) texts = elementHelp(node, this._currentRecord(), (this.site?.languages || []).length > 1);
+    }
+    this.help.replaceChildren(...texts.map((text) => {
+      const line = element('p');
+      line.textContent = $HR(text);
+      return line;
+    }));
+  }
+
+  // ------------------------------------------------------------------ website tree (Site tab)
 
   _renderSitePane() {
     const pane = element('div', 'h-cms-site-pane');
-    const bar = element('div', 'h-cms-pane-bar');
-    if (!this.readOnly) {
-      bar.append(
-        barButton('fa-file-circle-plus', 'Add page', () => this._addPage(0), 'Add page'),
-        barButton('fa-gear', 'Website properties', () => this._editRecord(this.site.id)),
-        barButton('fa-palette', 'Styles', () => this._styles(), 'Styles')
-      );
-    }
     const host = element('div', 'h-cms-tree-host');
-    pane.append(bar, host);
+    pane.append(host);
     this.siteTree = new HTree().attach(host, {
       items: this._siteItems(),
       tools: (item) => this._siteTools(item),
@@ -432,12 +505,14 @@ export class CmsDesigner {
   }
 
   _siteTools(item) {
-    if (this.readOnly || !item.id.startsWith('page:')) return [];
+    if (this.readOnly) return [];
+    // no toolbar on the Site tab: Add page is always on Home
+    if (item.id === 'part:content') return [{ action: 'add', icon: 'fa-plus', title: $HR('Add page'), label: $HR('Add page'), always: true }];
+    if (!item.id.startsWith('page:')) return [];
     return [
       { action: 'edit', icon: 'fa-pen', title: $HR('Edit record') },
       { action: 'add', icon: 'fa-plus', title: $HR('Add sub page') },
-      { action: 'unmenu', icon: 'fa-arrow-right-from-bracket', title: $HR('Remove from menu') },
-      { action: 'delete', icon: 'fa-trash', title: $HR('Delete page') }
+      { action: 'remove', icon: 'fa-xmark', title: $HR('Remove from website') }
     ];
   }
 
@@ -446,9 +521,11 @@ export class CmsDesigner {
     return current.recordId === this.site.id ? `part:${current.part}` : `page:${current.recordId}`;
   }
 
+  /** A click on Header, Home, Footer or a page opens it on the Page tab. */
   async _selectSiteItem(id) {
     if (id.startsWith('part:')) await this.selectPart(this.site.id, id.slice(5));
     else await this.selectPart(Number(id.slice(5)), 'content');
+    if (this._partItemId(this.current) === id) this._showPageTab();
   }
 
   _canDropPage(dragId, targetId, position) {
@@ -469,22 +546,15 @@ export class CmsDesigner {
     const page = pageId(id);
     if (action === 'edit') return this._editRecord(page);
     if (action === 'add') return this._addPage(page);
-    if (action === 'unmenu') {
-      if (await confirm(`${$HR('Remove the page from the menu? It stays as a standalone page.')}`)) {
-        if (this.current?.recordId === page && !(await this._leaveDirty())) return undefined;
-        await this._menuChange(() => this.websites.removeFromMenu(this.site.id, page));
-        if (this.current?.recordId === page) await this.selectPart(this.site.id, 'content', { force: true });
-      }
-      return undefined;
-    }
-    if (action === 'delete') return this._deletePage(page);
+    if (action === 'remove') return this._removePage(page);
     return undefined;
   }
 
   async _addPage(parent) {
     const values = await openAddPageForm({ title: parent ? 'Add sub page' : 'Add page' });
     if (!values) return;
-    const starter = cmsPageStarter(values.preset, values.title);
+    // the templates come in a later phase (§19): every template gives a blank page for now
+    const starter = cmsPageStarter('blank', values.title);
     const codes = this.codes;
     try {
       const response = await this.apiClient.request('/page/0', {
@@ -499,31 +569,24 @@ export class CmsDesigner {
     }
   }
 
-  async _deletePage(page) {
+  /**
+   * Remove a page from the website (review 2026-11-01): its menu entry with the sub menus; the pages are not made
+   * standalone. With the box of the popup checked the page and its sub pages are deleted.
+   */
+  async _removePage(page) {
     const place = menuPlace(this.site.pages, page);
     if (!place) return;
-    const subPages = subPageIds(place.page);
-    let mode = 'delete';
-    if (subPages.length) {
-      mode = await chooseSubPages(place.page.title, place.page.children.length);
-      if (!mode) return;
-    } else if (!(await confirm(`${$HR('Delete the page')} "${place.page.title}"?`, { yes: 'Delete' }))) {
-      return;
-    }
-    const opened = this.current && (this.current.recordId === page || subPages.includes(this.current.recordId));
+    const answer = await askRemovePage(place.page.title || `#${page}`);
+    if (!answer) return;
+    const removed = [page, ...subPageIds(place.page)];
+    const opened = this.current && removed.includes(this.current.recordId);
     if (opened && !(await this._leaveDirty())) return;
     await this._menuChange(async () => {
-      if (mode === 'up') {
-        for (const [index, child] of place.page.children.entries()) {
-          await this.websites.assign(this.site.id, Number(child.id), { parent: place.parent, index: place.index + 1 + index });
-        }
-      }
-      await this.websites.removeFromMenu(this.site.id, page);
-      await this.websites.remove(page, { entity: 'page', force: true });
-      if (mode === 'delete') for (const id of subPages) await this.websites.remove(id, { entity: 'page', force: true });
+      await this.websites.removeFromMenu(this.site.id, page, { standalone: false });
+      if (answer.deletePages) for (const id of removed) await this.websites.remove(id, { entity: 'page', force: true });
       return null;
     });
-    for (const id of [page, ...(mode === 'delete' ? subPages : [])]) this.records.delete(id);
+    for (const id of removed) this.records.delete(id);
     if (opened) await this.selectPart(this.site.id, 'content', { force: true });
   }
 
@@ -566,32 +629,39 @@ export class CmsDesigner {
     if (!(await this._leaveDirty())) return;
     const id = this.site ? this.site.id : this.standalone.id;
     const record = await this._record(id);
-    const values = await openStylesDialog({ base: record.doc.base(), kinds: record.doc.kinds(), presets: record.doc.presets() });
+    const css = this.codes.css ? fieldText(record.record.details?.[this.codes.css]) : '';
+    const values = await openStylesDialog({
+      base: record.doc.base(),
+      kinds: record.doc.kinds(),
+      presets: record.doc.presets(),
+      css,
+      javaScriptAllowed: this.options.dbdefs?.meta?.javaScriptAllowed === true,
+      files: this._files(),
+      createCodeEditor: async (host, options) => {
+        const { createCodeTextEditor } = await import('#shared/widgets/rich-text/HCodeTextEditor.js');
+        return createCodeTextEditor(host, options);
+      }
+    });
     if (!values) return;
     record.doc.setCommonStyles(values);
-    if (await this._saveRecord(id)) {
-      this._applyPreview();
+    // Custom CSS (DT_CMS_CSS) is a field of the record, not of the document: saved with the styles
+    const extra = this.codes.css && values.css !== css ? { [this.codes.css]: values.css } : {};
+    if (await this._saveRecord(id, { extra })) {
+      // the custom CSS is in the head of the page: load it again
+      if (Object.keys(extra).length) this._loadPreview(); else this._applyPreview();
       this._renderProperties();
     }
     this._updateBar();
   }
 
-  // ------------------------------------------------------------------ part pane (east)
+  // ------------------------------------------------------------------ part tree (Page tab)
 
   _renderPart() {
     this.partPane.replaceChildren();
     this.pasteButton = null;
-    const bar = element('div', 'h-cms-pane-bar');
-    const title = element('span', 'h-cms-pane-title');
-    title.textContent = this._partLabel();
-    bar.append(title);
-    if (!this.readOnly) {
-      this.pasteButton = barButton('fa-paste', 'Paste', () => this._paste());
-      this.pasteButton.disabled = !this.clipboard;
-      bar.append(this.pasteButton);
-    }
+    this.pickerBox = null;
     const host = element('div', 'h-cms-tree-host');
-    this.partPane.append(bar, host);
+    this.partPane.append(host);
     this.partTree = new HTree().attach(host, {
       items: this._partItems(),
       tools: (item) => this._nodeTools(item),
@@ -599,11 +669,9 @@ export class CmsDesigner {
       onDrop: this.readOnly ? null : (dragId, targetId, position) => this._dropNode(dragId, targetId, position),
       onSelect: (id) => this._selectNode(id === ROOT ? null : id),
       onHover: (id) => this.preview?.highlight(id === ROOT ? null : id),
-      onTool: (action, id) => void this._nodeTool(action, id)
+      onTool: (action, id, button) => void this._nodeTool(action, id, button)
     }).render();
     if (!this.readOnly) this.partPane.append(this._renderPicker());
-    this.propertiesBox = element('div', 'h-cms-properties');
-    this.partPane.append(this.propertiesBox);
     this._renderProperties();
   }
 
@@ -627,21 +695,22 @@ export class CmsDesigner {
     return [{ id: ROOT, label: this._partLabel(), icon: 'fa-square-full', draggable: false, children: record ? map(record.doc.tree(this.current.part)) : [] }];
   }
 
+  /**
+   * Tools of the part tree (review 2026-11-01): + on the root (always) and on containers (tabs and accordions: a
+   * new panel), pen on texts and groups (a group: its caption), gear on modules and widgets, remove.
+   */
   _nodeTools(item) {
-    if (this.readOnly || item.id === ROOT) return [];
+    if (this.readOnly) return [];
+    if (item.id === ROOT) return [{ action: 'add', icon: 'fa-plus', title: $HR('Add element'), label: $HR('Add element'), always: true }];
     const node = this._treeItem(item.id);
     const tools = [];
-    if (node?.kind === 'text') {
-      tools.push({ action: 'edit', icon: 'fa-pen', title: $HR('Edit text') });
-      if ((this.site?.languages || []).length > 1) tools.push({ action: 'translate', icon: 'fa-language', title: $HR('Translate') });
+    if (node?.kind === 'control') {
+      tools.push({ action: 'add', icon: 'fa-plus', title: $HR(node.control === 'group' ? 'Add element' : 'Add panel') });
     }
+    if (node?.kind === 'text') tools.push({ action: 'edit', icon: 'fa-pen', title: $HR('Edit text') });
+    if (node?.control === 'group') tools.push({ action: 'caption', icon: 'fa-pen', title: $HR('Edit caption') });
     if (node?.kind === 'instance') tools.push({ action: 'configure', icon: 'fa-gear', title: $HR('Configuration') });
-    tools.push({ action: 'style', icon: 'fa-palette', title: $HR('Own style') });
-    if (node?.kind !== 'instance') {
-      tools.push({ action: 'copyStructure', icon: 'fa-clone', title: $HR('Copy structure') });
-      tools.push({ action: 'copyAll', icon: 'fa-copy', title: $HR('Copy all') });
-    }
-    tools.push({ action: 'delete', icon: 'fa-trash', title: $HR('Delete') });
+    tools.push({ action: 'delete', icon: 'fa-trash', title: $HR('Remove') });
     return tools;
   }
 
@@ -656,26 +725,59 @@ export class CmsDesigner {
     this._edit((doc) => doc.move(dragId, { id: targetId === ROOT ? null : targetId, position, part: this.current.part }));
   }
 
-  async _nodeTool(action, id) {
-    const record = this._currentRecord();
-    if (!record) return;
+  async _nodeTool(action, id, button) {
+    if (!this._currentRecord()) return undefined;
+    if (action === 'add') return this._addElement(id);
     this._selectNode(id);
     if (action === 'edit') return this._editText(id);
-    if (action === 'translate') return this._translate(id);
+    if (action === 'caption') return this._editCaption(id);
     if (action === 'configure') return this._configure(id);
-    if (action === 'style') return this._ownStyle(id);
-    if (action === 'copyStructure' || action === 'copyAll') {
-      this.clipboard = record.doc.copy(id, action === 'copyAll' ? 'all' : 'structure');
-      writeClipboard(this.options.runtime?.database, this.clipboard);
-      if (this.pasteButton) this.pasteButton.disabled = !this.clipboard;
-      HMsg.showMsgFlash?.($HR('Copied'), { showDelay: 1000 });
-      return undefined;
-    }
-    if (action === 'delete') {
+    if (action === 'delete' && (await confirmNear(button, 'Remove this element?'))) {
       this._edit((doc) => doc.remove(id));
       this._selectNode(null);
     }
     return undefined;
+  }
+
+  /** + of the tree: a new panel of tabs / accordions; else the chosen element into the group or the part root. */
+  async _addElement(id) {
+    const node = id === ROOT ? null : this._treeItem(id);
+    if (node && node.control !== 'group') {
+      let added = null;
+      this._edit((doc) => {
+        added = doc.addPanel(id);
+        return Boolean(added);
+      });
+      if (added) this._selectNode(added);
+      return;
+    }
+    await this._insertChosen({ id: node ? id : null, position: 'inside' });
+  }
+
+  /** The element popup, then the element at a place; its title is the heading of a text or the caption of a group. */
+  async _insertChosen(target) {
+    const values = await openAddElementForm();
+    if (!values || !CMS_ELEMENTS.includes(values.element)) return;
+    let added = null;
+    this._edit((doc) => {
+      added = doc.insertElement(this.current.part, values.element, target);
+      if (values.title && doc.isContainer(added)) doc.setCaption(added, values.title);
+      else if (values.title && doc.text(added)) doc.setText(added, `<h2>${escapeHtml(values.title)}</h2>${doc.text(added)}`);
+      return true;
+    });
+    if (added) this._selectNode(added);
+  }
+
+  /** Copy the selected element (Copy structure / Copy all below the tree). */
+  _copy(mode) {
+    const record = this._currentRecord();
+    if (!record || !this.selectedNode) return;
+    const clip = record.doc.copy(this.selectedNode, mode);
+    if (!clip) return;
+    this.clipboard = clip;
+    writeClipboard(this.options.runtime?.database, this.clipboard);
+    if (this.pasteButton) this.pasteButton.disabled = false;
+    HMsg.showMsgFlash?.($HR('Copied'), { showDelay: 1000 });
   }
 
   _paste() {
@@ -690,22 +792,36 @@ export class CmsDesigner {
     else this._selectNode(pasted);
   }
 
+  /**
+   * Below the tree (§25): the tools of the selected element (Own style, Caption, Edit text, Configuration) and,
+   * on the right, Copy (with its texts) and Paste as icons.
+   */
   _renderPicker() {
-    const box = element('div', 'h-cms-picker');
-    const select = element('select', 'h-select h-compact');
-    for (const name of CMS_ELEMENTS) select.append(option(name, $HR(ELEMENT_LABELS[name])));
-    const add = barButton('fa-plus', 'Add', () => {
-      let id = null;
-      this._edit((doc) => {
-        id = doc.insertElement(this.current.part, select.value, this._insertTarget());
-        return true;
-      });
-      if (id) this._selectNode(id);
-    }, 'Add');
-    const caption = element('span', 'h-cms-caption');
-    caption.textContent = $HR('Add element');
-    box.append(caption, select, add);
-    return box;
+    this.pickerBox = element('div', 'h-cms-picker');
+    this._updatePicker();
+    return this.pickerBox;
+  }
+
+  _updatePicker() {
+    const box = this.pickerBox;
+    if (!box) return;
+    box.replaceChildren();
+    const node = this.selectedNode ? this._treeItem(this.selectedNode) : null;
+    if (node) {
+      box.append(barButton('fa-palette', 'Own style and preset of the element', () => this._ownStyle(node.id), 'Own style'));
+      if (node.control === 'group') box.append(barButton('fa-heading', 'Caption of the group', () => this._editCaption(node.id), 'Caption'));
+      if (node.kind === 'text') {
+        const language = this.language ? ` (${this.language.toUpperCase()})` : '';
+        box.append(barButton('fa-pen', 'Edit the text (in the language of the preview)', () => this._editText(node.id), `${$HR('Edit text')}${language}`));
+      }
+      if (node.kind === 'instance') box.append(barButton('fa-gear', 'Configuration', () => this._configure(node.id), 'Configuration'));
+    }
+    const spacer = element('span', 'h-cms-picker-spacer');
+    const copy = barButton('fa-copy', 'Copy the selected element with its texts', () => this._copy('all'));
+    copy.disabled = !node || node.kind === 'instance';
+    this.pasteButton = barButton('fa-paste', 'Paste the copied element into the selected group or after the selected element', () => this._paste());
+    this.pasteButton.disabled = !this.clipboard;
+    box.append(spacer, copy, this.pasteButton);
   }
 
   /** Where a new or pasted element goes: into the selected control, after the selected node, else the part root. */
@@ -718,6 +834,7 @@ export class CmsDesigner {
 
   _selectNode(id, { fromPreview = false } = {}) {
     const record = this._currentRecord();
+    if (id && record) id = record.doc.captionGroup(id) || id; // a caption is edited through its group
     if (id && record && record.doc.find(id)?.part !== this.current.part) return;
     this.selectedNode = id || null;
     this.partTree?.select(id || ROOT);
@@ -725,49 +842,10 @@ export class CmsDesigner {
     this._renderProperties();
   }
 
+  /** Help and the tools of the selected element. */
   _renderProperties() {
-    const box = this.propertiesBox;
-    if (!box) return;
-    box.replaceChildren();
-    const record = this._currentRecord();
-    const node = this.selectedNode ? this._treeItem(this.selectedNode) : null;
-    if (!record || !node) {
-      const hint = element('p', 'h-cms-hint');
-      hint.textContent = $HR('Select an element in the tree or in the preview.');
-      box.append(hint);
-      return;
-    }
-    const kind = node.kind === 'control' ? node.control : node.kind;
-    const kinds = this._commonStyles().kinds;
-    const line = (label, value) => {
-      const row = element('div', 'h-cms-property');
-      const caption = element('span', 'h-cms-caption');
-      caption.textContent = $HR(label);
-      const text = element('span', 'h-cms-property-value');
-      text.textContent = value;
-      row.append(caption, text);
-      box.append(row);
-      return row;
-    };
-    line('Kind', kind);
-    if (Object.hasOwn(CMS_KINDS, kind)) line('Kind default', cssText(kinds[kind]) || $HR('(none)'));
-    const presetRow = line('Preset', '');
-    const presets = this._commonStyles().presets;
-    const select = element('select', 'h-select h-compact');
-    select.append(option('', $HR('(none)')));
-    for (const [name, preset] of Object.entries(presets)) select.append(option(name, preset?.label || name));
-    select.value = node.preset || '';
-    select.disabled = this.readOnly;
-    select.addEventListener('change', () => this._edit((doc) => doc.setPreset(node.id, select.value || null)));
-    presetRow.querySelector('.h-cms-property-value').replaceWith(select);
-    line('Own style', cssText(record.doc.nodeStyle(node.id)) || $HR('(none)'));
-    if (!this.readOnly) {
-      const actions = element('div', 'h-cms-property-actions');
-      actions.append(barButton('fa-palette', 'Own style', () => this._ownStyle(node.id), 'Own style…'));
-      if (node.kind === 'text') actions.append(barButton('fa-pen', 'Edit text', () => this._editText(node.id), 'Edit text'));
-      if (node.kind === 'instance') actions.append(barButton('fa-gear', 'Configuration', () => this._configure(node.id), 'Configuration'));
-      box.append(actions);
-    }
+    this._renderHelp();
+    this._updatePicker();
   }
 
   /** Kind defaults and presets that apply to the part: the website's, then the page's. */
@@ -779,6 +857,16 @@ export class CmsDesigner {
       Object.assign(presets, record.doc.presets());
     }
     return { kinds, presets };
+  }
+
+  /** Whether an element is in a group that is a flex box (own style, then preset, then the group kind default). */
+  _inFlexGroup(id) {
+    const record = this._currentRecord();
+    const group = record?.doc.parentGroup(id);
+    if (!group) return false;
+    const { kinds, presets } = this._commonStyles();
+    const display = record.doc.nodeStyle(group.id).display || presets[group.preset]?.display || kinds.group?.display;
+    return display === 'flex';
   }
 
   _styleRecords() {
@@ -798,36 +886,62 @@ export class CmsDesigner {
     return found;
   }
 
+  /** Edit a text; in another language of the preview (view bar) its translation, the original beside it. */
   async _editText(id) {
     const record = this._currentRecord();
     const createEditor = await this._editor();
-    const html = await openTextEditor({ html: record.doc.text(id), baseUrl: this.options.runtime?.baseUrl || '', createEditor });
-    if (html !== null) this._edit((doc) => doc.setText(id, html));
-  }
-
-  async _translate(id) {
-    const record = this._currentRecord();
-    const languages = (this.site?.languages || []).slice(1);
-    let language = languages[0];
-    if (languages.length > 1) {
-      language = await chooseOption('Translate into', 'Translate', languages.map((code) => [code, code.toUpperCase()]));
-      if (!language) return;
-    }
-    const createEditor = await this._editor();
+    const language = this.language;
     const html = await openTextEditor({
-      html: record.doc.translation(language, id) || record.doc.text(id),
-      original: record.doc.text(id),
+      html: language ? record.doc.translation(language, id) || record.doc.text(id) : record.doc.text(id),
+      original: language ? record.doc.text(id) : undefined,
       baseUrl: this.options.runtime?.baseUrl || '',
-      title: `${$HR('Translate')}: ${language.toUpperCase()}`,
+      title: language ? `${$HR('Translate')}: ${language.toUpperCase()}` : undefined,
       createEditor
     });
-    if (html !== null) this._edit((doc) => { doc.setTranslation(language, id, html); return true; });
+    if (html === null) return;
+    if (language) this._edit((doc) => { doc.setTranslation(language, id, html); return true; });
+    else this._edit((doc) => doc.setText(id, html));
+  }
+
+  /** Caption of a group and its translations (a panel of tabs / accordions must keep one). */
+  async _editCaption(id) {
+    const record = this._currentRecord();
+    const current = record.doc.caption(id);
+    const languages = (this.site?.languages || []).slice(1);
+    const values = await openCaptionForm({
+      caption: current?.text || '',
+      translations: current?.translations || {},
+      languages,
+      required: record.doc.isPanel(id)
+    });
+    if (values) this._edit((doc) => doc.setCaption(id, values.caption, values.translations));
   }
 
   async _ownStyle(id) {
     const record = this._currentRecord();
-    const style = await openStyleForm({ style: record.doc.nodeStyle(id), title: $HR('Own style') });
-    if (style) this._edit((doc) => { doc.setNodeStyle(id, style); return true; });
+    const node = this._treeItem(id);
+    const kind = node?.kind === 'control' ? node.control : node?.kind;
+    const presets = Object.entries(this._commonStyles().presets).map(([name, preset]) => [name, preset?.label || name]);
+    const result = await openStyleForm({
+      style: record.doc.nodeStyle(id),
+      title: $HR('Own style'),
+      kind,
+      inFlexGroup: this._inFlexGroup(id),
+      presets,
+      preset: node?.preset || null,
+      files: this._files()
+    });
+    if (!result) return;
+    this._edit((doc) => {
+      doc.setNodeStyle(id, result.style);
+      doc.setPreset(id, result.preset);
+      return true;
+    });
+  }
+
+  /** The image picker of background images (styleRows). */
+  _files() {
+    return { apiClient: this.apiClient, baseUrl: this.options.runtime?.baseUrl || '', database: this.options.runtime?.database || '' };
   }
 
   async _configure(id) {
@@ -973,6 +1087,42 @@ function nodeIcon(item) {
   return item.kind === 'control' ? 'fa-layer-group' : 'fa-code';
 }
 
+/** Help for the selected element of the part tree. */
+function elementHelp(node, record, multilingual) {
+  const texts = ['Apply a preset (a style defined once in Styles) or define an own style for this element.'];
+  if (node.kind === 'text') {
+    texts.push(multilingual ? 'Edit the text with the pen; translate it into the other languages of the website with Translate.' : 'Edit the text with the pen.');
+  } else if (node.kind === 'instance') {
+    const instance = node.instance ? record?.doc.instance(node.instance) : null;
+    texts.push(instance?.kind === 'widget'
+      ? 'The menu shows the pages of the website: change them on the Site tab.'
+      : 'Set what the module shows and how in its configuration (gear).');
+  } else if (node.control === 'tabs' || node.control === 'accordion') {
+    texts.push('Each panel is a group with a caption (its label): + adds a panel, the pen of a panel edits its caption.'
+      + ' Without panels the element is removed.');
+  } else {
+    texts.push('Add elements into it with +, or drag elements onto it. The pen edits its caption (a heading on top).');
+  }
+  if (node.kind !== 'instance') texts.push('Copy structure or Copy all below the tree, then Paste it into another place or page.');
+  return texts;
+}
+
+function readHelpShown() {
+  try {
+    return globalThis.localStorage?.getItem(HELP_KEY) !== '0';
+  } catch {
+    return true;
+  }
+}
+
+function writeHelpShown(shown) {
+  try {
+    globalThis.localStorage?.setItem(HELP_KEY, shown ? '1' : '0');
+  } catch {
+    // shown again next time
+  }
+}
+
 function pageId(itemId) {
   return Number(String(itemId).replace(/^page:/, '')) || 0;
 }
@@ -998,6 +1148,27 @@ function element(tag, className = '') {
   const node = document.createElement(tag);
   if (className) node.className = className;
   return node;
+}
+
+function caption(text) {
+  const node = element('span', 'h-cms-caption');
+  node.textContent = $HR(text);
+  return node;
+}
+
+/** {field: value} as record details ({field: [value]}). */
+function mapValues(fields) {
+  return Object.fromEntries(Object.entries(fields).map(([field, value]) => [field, [value]]));
+}
+
+/** Text of the first value of a field (`details[field]`: values or {value} objects). */
+function fieldText(values) {
+  const value = Array.isArray(values) ? values[0] : values;
+  return String((value && typeof value === 'object' ? value.value : value) ?? '');
+}
+
+function escapeHtml(text) {
+  return String(text).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
 function option(value, label) {

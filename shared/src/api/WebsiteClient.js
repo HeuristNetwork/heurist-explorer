@@ -188,12 +188,17 @@ export class WebsiteClient {
   }
 
   /**
-   * Take a page out of the menu of a website (the page stays, standalone).
+   * Take a page out of the menu of a website (with its sub menus). The page stays, as a standalone page unless
+   * `standalone` is false (the CMS designer: its page type is not changed).
    *
+   * @param {number} siteId
+   * @param {number} pageId
+   * @param {{standalone?: boolean}} [options]
    * @returns {Promise<object>} Summary of the website.
    */
-  removeFromMenu(siteId, pageId) {
-    return this._call('DELETE', `/website/${positiveId(siteId)}/assign`, undefined, { page: positiveId(pageId) });
+  removeFromMenu(siteId, pageId, { standalone = true } = {}) {
+    const query = { page: positiveId(pageId), ...(standalone ? {} : { standalone: 0 }) };
+    return this._call('DELETE', `/website/${positiveId(siteId)}/assign`, undefined, query);
   }
 
   /**

@@ -38,12 +38,15 @@ export class HTree extends HBaseWidget {
    * @param {object} options
    * @param {Array<{id: string, label: string, icon?: string, title?: string, badge?: string, muted?: boolean,
    *        draggable?: boolean, children?: Array}>} [options.items]
-   * @param {(item: object) => Array<{action: string, icon: string, title: string}>} [options.tools] Tools of an item.
+   * @param {(item: object) => Array<{action: string, icon: string, title: string, label?: string, always?: boolean}>} [options.tools]
+   *        Tools of an item; shown on hover and on the selected item, `always` ones all the time. `label`: a
+   *        caption after the icon.
    * @param {(dragId: string, targetId: string, position: string) => boolean} [options.canDrop]
    * @param {(dragId: string, targetId: string, position: string) => void} [options.onDrop]
    * @param {(id: string) => void} [options.onSelect]
    * @param {(id: string|null) => void} [options.onHover]
-   * @param {(action: string, id: string) => void} [options.onTool]
+   * @param {(action: string, id: string, button: HTMLElement) => void} [options.onTool] `button`: the tool clicked
+   *        (to show something next to it).
    * @param {string} [options.emptyText] Shown without items.
    * @returns {HTree}
    */
@@ -68,7 +71,7 @@ export class HTree extends HBaseWidget {
     this._draw();
     this.delegate(this.root, 'click', '.h-tree-tool', (event, button) => {
       event.stopPropagation();
-      this.options.onTool?.(button.dataset.action, button.closest('.h-tree-row').dataset.id);
+      this.options.onTool?.(button.dataset.action, button.closest('.h-tree-row').dataset.id, button);
     });
     this.delegate(this.root, 'click', '.h-tree-row', (event, row) => {
       if (!event.target?.closest?.('.h-tree-tool')) this._choose(row.dataset.id);
@@ -192,7 +195,7 @@ export class HTree extends HBaseWidget {
       for (const tool of tools) {
         const button = document.createElement('button');
         button.type = 'button';
-        button.className = 'h-tree-tool';
+        button.className = tool.always ? 'h-tree-tool h-tree-tool-always' : 'h-tree-tool';
         button.dataset.action = tool.action;
         button.title = tool.title || tool.action;
         button.setAttribute('aria-label', button.title);
@@ -200,6 +203,12 @@ export class HTree extends HBaseWidget {
         icon.className = `fa-solid ${tool.icon}`;
         icon.setAttribute('aria-hidden', 'true');
         button.append(icon);
+        if (tool.label) {
+          const caption = document.createElement('span');
+          caption.className = 'h-tree-tool-label';
+          caption.textContent = tool.label;
+          button.append(caption);
+        }
         box.append(button);
       }
       row.append(box);
