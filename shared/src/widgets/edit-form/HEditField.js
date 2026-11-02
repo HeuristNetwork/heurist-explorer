@@ -42,6 +42,7 @@ import { FORM_FIELD_CLASS, FORM_LABEL_CLASS } from '../form/formLayout.js';
 import { TermSource } from '../../data/valueSources/localSources.js';
 import { cssWidth } from '../../data/editFormSchema.js';
 import { closePopover } from '../popover/popover.js';
+import { openTextTranslationDialog } from '../translation/HTextTranslationDialog.js';
 import { HMsg } from '../../ui/HMsg.js';
 import { $HR } from '../../ui/i18n/HResource.js';
 import './HEditField.css';
@@ -49,6 +50,9 @@ import './HEditField.css';
 /** Languages offered for translations when the host gives none (3-letter codes). */
 /** Translation dialogs opened (unique ids). */
 let translateDialogCount = 0;
+
+/** Fix original / Show HTML of the text popup, kept between openings on the page. */
+const textDialogState = {};
 
 export const DEFAULT_LANGUAGES = Object.freeze(['ENG', 'FRE', 'GER', 'SPA', 'ITA', 'POR', 'DUT', 'RUS', 'CHI', 'JPN', 'ARA']);
 
@@ -761,7 +765,10 @@ export class HEditField extends HBaseWidget {
     const style = dty > 0 && dty === constant('DT_CMS_CSS');
     const json = dty > 0 && (dty === constant('DT_CONFIGURATION') || dty === constant('DT_CMS_PAGE_TRANSLATIONS'));
     const codeLanguage = script ? 'javascript' : style ? 'css' : json ? 'json' : 'html';
-    return { ...this.options.richText, codeOnly: script || style || json, codeLanguage };
+    const rich = { ...this.options.richText, codeOnly: script || style || json, codeLanguage };
+    // a multilingual text: the popup with all its languages (HTextTranslationDialog)
+    if (this.field.multilang && !this.isReadOnly) rich.openDialog = (lang) => void this._openTextDialog(lang);
+    return rich;
   }
 
   /**
@@ -808,7 +815,10 @@ export class HEditField extends HBaseWidget {
       translate.append(iconElement('fa-language'));
       translate.title = $HR('Add the value in another language');
       translate.setAttribute('aria-label', translate.title);
-      this.listen(translate, 'click', () => void this._openTranslateDialog());
+      // a multilingual text: the popup with all its languages; a short text: Insert translated value
+      this.listen(translate, 'click', () => void (this.field.type === 'blocktext'
+        ? this._openTextDialog(this._freeLanguages()[0] || '')
+        : this._openTranslateDialog()));
       this.actionButtons.push(translate);
     } else if (this.isManagedRelmarker) {
       // on its own line above the relationships (plan 24 review)
@@ -948,9 +958,7 @@ export class HEditField extends HBaseWidget {
     }
     this.listen(host, 'h-input-remove', (event) => {
       event.stopPropagation();
-      void row.input.destroy();
-      row.element.remove();
-      this._translationRows = this._translationRows.filter((item) => item !== row);
+      this._removeTranslationRow(row);
       this._changed();
     });
     this.listen(host, 'h-input-visibility-change', (event) => {
@@ -965,17 +973,95 @@ export class HEditField extends HBaseWidget {
     return row;
   }
 
-  /** Languages offered for a new translation: the configured ones without the used ones. */
-  _freeLanguages() {
-    const languages = [...new Set([...(this.options.languages?.length ? this.options.languages : DEFAULT_LANGUAGES)]
+  _removeTranslationRow(row) {
+    void row.input.destroy();
+    row.element.remove();
+    this._translationRows = this._translationRows.filter((item) => item !== row);
+  }
+
+  /** @returns {string[]} The configured languages of translations (upper case). */
+  _languages() {
+    return [...new Set([...(this.options.languages?.length ? this.options.languages : DEFAULT_LANGUAGES)]
       .map((code) => String(code).toUpperCase()))];
+  }
+
+  /**
+   * Language of the value itself (stored without a language code): the first language of the database setting
+   * "Languages" (2026-11-02); '' when the host gives no languages.
+   *
+   * @returns {string}
+   */
+  _defaultLanguage() {
+    return this.options.languages?.length ? String(this.options.languages[0]).toUpperCase() : '';
+  }
+
+  /** Languages offered for a new translation: the configured ones without the default and the used ones. */
+  _freeLanguages() {
     const used = new Set((this._translationRows || []).map((row) => row.entry.lang));
-    return languages.filter((code) => !used.has(code));
+    const defaultLanguage = this._defaultLanguage();
+    return this._languages().filter((code) => code !== defaultLanguage && !used.has(code));
+  }
+
+  /**
+   * A multilingual text in the popup with all its languages (HTextTranslationDialog, plan 25 / 27c §26): the
+   * value of the field is the default language (the first of the database setting, else "Default"), the
+   * translations the others (configured and used ones; a row in the default language is still shown). After OK
+   * the value is set, translation rows are changed, added or removed (an empty text).
+   *
+   * @param {string} [lang] Language shown first ('' = the value).
+   * @returns {Promise<void>}
+   */
+  async _openTextDialog(lang = '') {
+    const main = this._rows[0];
+    if (this.isReadOnly || !main) return;
+    const rich = this._richTextOptions();
+    const used = this._translationRows.map((row) => row.entry.lang);
+    const defaultLanguage = this._defaultLanguage();
+    const codes = [...new Set([...this._languages().filter((code) => code !== defaultLanguage), ...used])];
+    const texts = { '': String(main.input.getValue() ?? '') };
+    for (const row of this._translationRows) texts[row.entry.lang] = String(row.input.getValue() ?? '');
+    const result = await openTextTranslationDialog({
+      title: this.field.label || 'Edit text',
+      texts,
+      languages: [{ code: '', label: defaultLanguage || $HR('Default') }, ...codes.map((code) => ({ code, label: code }))],
+      language: String(lang ?? '').toUpperCase(),
+      translator: this.options.translator || null,
+      baseUrl: rich.baseUrl || '',
+      insertMedia: rich.insertMedia || null,
+      insertRecordLink: rich.insertRecordLink || null,
+      codeOnly: rich.codeOnly,
+      codeLanguage: rich.codeLanguage,
+      remember: textDialogState
+    });
+    if (result && this.container) this._applyTexts(result.texts);
+  }
+
+  /**
+   * Changed languages of the text popup: '' is the value of the field, others are translations (an empty text
+   * removes one).
+   *
+   * @param {Object<string, string>} texts
+   */
+  _applyTexts(texts = {}) {
+    const changed = Object.entries(texts);
+    if (!changed.length) return;
+    const main = this._rows[0];
+    for (const [code, value] of changed) {
+      if (!code) {
+        main?.input.setValue(value);
+        continue;
+      }
+      const row = this._translationRows.find((item) => item.entry.lang === code);
+      if (row && isEmpty(value)) this._removeTranslationRow(row);
+      else if (row) row.input.setValue(value);
+      else if (!isEmpty(value)) this._addTranslationRow({ lang: code, value, hidden: false });
+    }
+    this._changed();
   }
 
   /**
    * "Insert translated value" (port of the legacy dialog, plan 25): the language and a help
-   * text; Translate (the first value with DeepL, when the server has a key), Insert blank,
+   * text; Translate (the first value with the translation service of the server), Insert blank,
    * Cancel. The new translation is a value row of its own.
    *
    * @returns {Promise<void>}
@@ -1013,7 +1099,7 @@ export class HEditField extends HBaseWidget {
       ? $HR('The first value is translated into the chosen language. To keep a part of the text as it is, enclose it in <span translate="no">...</span>.')
       : translator?.available
         ? $HR('Enter the first value to translate it automatically.')
-        : $HR('To enable automatic translation please ask your system administrator to add a DeepL free or paid account API key.');
+        : $HR('To enable automatic translation please ask your system administrator to configure a translation service.');
     body.append(label, help);
     const dialogId = `h-translate-dialog-${++translateDialogCount}`;
     const close = () => HMsg.closeMsgDlg(dialogId);
@@ -1032,7 +1118,7 @@ export class HEditField extends HBaseWidget {
           const target = select.value;
           help.textContent = $HR('Translating text...');
           try {
-            const text = await translator.translate({ string: first, target });
+            const text = await translator.translate({ string: first, target, format: 'text' });
             close();
             insert(target, text);
           } catch (error) {

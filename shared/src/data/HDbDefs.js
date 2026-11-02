@@ -233,8 +233,8 @@ export class HDbDefs {
   }
 
   /**
-   * Whether values can be translated automatically: the installation has a DeepL key for the
-   * legacy translator (plan 25, TranslationClient).
+   * Whether values can be translated automatically: the installation has a translation service
+   * (`/external/translate`; plan 25, TranslationClient).
    *
    * @returns {boolean}
    */

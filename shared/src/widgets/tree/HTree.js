@@ -11,7 +11,8 @@
  *     tools: (item) => [{action: 'edit', icon: 'fa-pen', title: 'Edit'}],
  *     canDrop: (dragId, targetId, position) => true,   // position: 'before' | 'inside' | 'after'
  *     onDrop: (dragId, targetId, position) => {},
- *     onSelect: (id) => {}, onHover: (id) => {}, onTool: (action, id) => {}
+ *     onSelect: (id) => {}, onHover: (id) => {}, onTool: (action, id) => {},
+ *     onActivate: (id) => {}                            // double click on an item
  *   }).render();
  *   tree.setItems(items); tree.select(id); tree.highlight(id);
  *
@@ -47,6 +48,7 @@ export class HTree extends HBaseWidget {
    * @param {(id: string|null) => void} [options.onHover]
    * @param {(action: string, id: string, button: HTMLElement) => void} [options.onTool] `button`: the tool clicked
    *        (to show something next to it).
+   * @param {(id: string) => void} [options.onActivate] Double click on an item (not on its tools).
    * @param {string} [options.emptyText] Shown without items.
    * @returns {HTree}
    */
@@ -75,6 +77,9 @@ export class HTree extends HBaseWidget {
     });
     this.delegate(this.root, 'click', '.h-tree-row', (event, row) => {
       if (!event.target?.closest?.('.h-tree-tool')) this._choose(row.dataset.id);
+    });
+    this.delegate(this.root, 'dblclick', '.h-tree-row', (event, row) => {
+      if (!event.target?.closest?.('.h-tree-tool')) this.options.onActivate?.(row.dataset.id);
     });
     this.delegate(this.root, 'mouseover', '.h-tree-row', (event, row) => this._hover(row.dataset.id));
     this.listen(this.root, 'mouseleave', () => this._hover(null));

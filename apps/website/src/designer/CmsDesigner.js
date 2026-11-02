@@ -27,13 +27,15 @@ import { HCardinalLayout } from '#shared/widgets/layout/HCardinalLayout.js';
 import { HTree } from '#shared/widgets/tree/HTree.js';
 import { createTabSet } from '#shared/widgets/layout/tabs.js';
 import { CMS_ELEMENTS, cmsPageStarter } from '#shared/site/cmsEdit.js';
+import { TranslationClient } from '#shared/data/TranslationClient.js';
+import { openTextTranslationDialog } from '#shared/widgets/translation/HTextTranslationDialog.js';
 import { CmsPreview, PREVIEW_WIDTHS } from './CmsPreview.js';
 import {
   changedDetails, dropPlace, menuPlace, previewUrl, recordDocument, subPageIds
 } from './designerData.js';
 import {
   askConflict, askRemovePage, askSaveDiscard, confirm, confirmNear, openAddElementForm,
-  openAddPageForm, openCaptionForm, openStyleForm, openStylesDialog, openTextEditor
+  openAddPageForm, openCaptionForm, openStyleForm, openStylesDialog
 } from './designerDialogs.js';
 import './designer.css';
 
@@ -81,6 +83,8 @@ export class CmsDesigner {
     this.undoStack = [];
     this.redoStack = [];
     this.language = null;
+    // Fix original / Show HTML of the text popup, kept between openings
+    this.textDialogState = {};
     this.clipboard = readClipboard(options.runtime?.database);
   }
 
@@ -669,7 +673,8 @@ export class CmsDesigner {
       onDrop: this.readOnly ? null : (dragId, targetId, position) => this._dropNode(dragId, targetId, position),
       onSelect: (id) => this._selectNode(id === ROOT ? null : id),
       onHover: (id) => this.preview?.highlight(id === ROOT ? null : id),
-      onTool: (action, id, button) => void this._nodeTool(action, id, button)
+      onTool: (action, id, button) => void this._nodeTool(action, id, button),
+      onActivate: (id) => void this._activateNode(id)
     }).render();
     if (!this.readOnly) this.partPane.append(this._renderPicker());
     this._renderProperties();
@@ -736,6 +741,18 @@ export class CmsDesigner {
       this._edit((doc) => doc.remove(id));
       this._selectNode(null);
     }
+    return undefined;
+  }
+
+  /** Double click in the part tree: the text popup of a text, the caption of a group, the configuration of a module. */
+  _activateNode(id) {
+    if (this.readOnly || id === ROOT || !this._currentRecord()) return undefined;
+    const node = this._treeItem(id);
+    if (!node) return undefined;
+    this._selectNode(id);
+    if (node.kind === 'text') return this._editText(id);
+    if (node.control === 'group') return this._editCaption(id);
+    if (node.kind === 'instance') return this._configure(id);
     return undefined;
   }
 
@@ -810,10 +827,7 @@ export class CmsDesigner {
     if (node) {
       box.append(barButton('fa-palette', 'Own style and preset of the element', () => this._ownStyle(node.id), 'Own style'));
       if (node.control === 'group') box.append(barButton('fa-heading', 'Caption of the group', () => this._editCaption(node.id), 'Caption'));
-      if (node.kind === 'text') {
-        const language = this.language ? ` (${this.language.toUpperCase()})` : '';
-        box.append(barButton('fa-pen', 'Edit the text (in the language of the preview)', () => this._editText(node.id), `${$HR('Edit text')}${language}`));
-      }
+      if (node.kind === 'text') box.append(barButton('fa-pen', 'Edit the text and its translations', () => this._editText(node.id), 'Edit text'));
       if (node.kind === 'instance') box.append(barButton('fa-gear', 'Configuration', () => this._configure(node.id), 'Configuration'));
     }
     const spacer = element('span', 'h-cms-picker-spacer');
@@ -886,21 +900,34 @@ export class CmsDesigner {
     return found;
   }
 
-  /** Edit a text; in another language of the preview (view bar) its translation, the original beside it. */
+  /**
+   * Edit a text and its translations in one popup (§26): the languages of the website, the original first; it
+   * opens in the language of the preview. All changed languages are one undo step.
+   */
   async _editText(id) {
     const record = this._currentRecord();
-    const createEditor = await this._editor();
-    const language = this.language;
-    const html = await openTextEditor({
-      html: language ? record.doc.translation(language, id) || record.doc.text(id) : record.doc.text(id),
-      original: language ? record.doc.text(id) : undefined,
-      baseUrl: this.options.runtime?.baseUrl || '',
-      title: language ? `${$HR('Translate')}: ${language.toUpperCase()}` : undefined,
-      createEditor
+    const codes = this.site?.languages?.length ? this.site.languages : [''];
+    const texts = Object.fromEntries(codes.map((code, index) => [code, index ? record.doc.translation(code, id) : record.doc.text(id)]));
+    const runtime = this.options.runtime || {};
+    const loadEditor = this.options.loadEditor;
+    const result = await openTextTranslationDialog({
+      texts,
+      languages: codes.map((code) => ({ code, label: code.toUpperCase() })),
+      language: this.language || codes[0],
+      translator: new TranslationClient({ apiClient: this.apiClient, available: Boolean(this.options.dbdefs?.translator?.()) }),
+      baseUrl: runtime.baseUrl || '',
+      remember: this.textDialogState,
+      ...(loadEditor ? { createEditor: async (...args) => (await loadEditor())(...args) } : {})
     });
-    if (html === null) return;
-    if (language) this._edit((doc) => { doc.setTranslation(language, id, html); return true; });
-    else this._edit((doc) => doc.setText(id, html));
+    const changed = Object.entries(result?.texts || {});
+    if (!changed.length) return;
+    this._edit((doc) => {
+      for (const [code, html] of changed) {
+        if (code === codes[0]) doc.setText(id, html);
+        else doc.setTranslation(code, id, html);
+      }
+      return true;
+    });
   }
 
   /** Caption of a group and its translations (a panel of tabs / accordions must keep one). */
@@ -969,12 +996,6 @@ export class CmsDesigner {
     } catch (error) {
       HMsg.showMsgErr?.(error?.message || String(error));
     }
-  }
-
-  async _editor() {
-    if (this.options.loadEditor) return this.options.loadEditor();
-    const { createTinyMceEditor } = await import('#shared/widgets/rich-text/HTinyMceEditor.js');
-    return createTinyMceEditor;
   }
 
   // ------------------------------------------------------------------ changes
@@ -1091,7 +1112,7 @@ function nodeIcon(item) {
 function elementHelp(node, record, multilingual) {
   const texts = ['Apply a preset (a style defined once in Styles) or define an own style for this element.'];
   if (node.kind === 'text') {
-    texts.push(multilingual ? 'Edit the text with the pen; translate it into the other languages of the website with Translate.' : 'Edit the text with the pen.');
+    texts.push(multilingual ? 'Edit the text with the pen or a double click; the popup shows the languages of the website: translate the text there.' : 'Edit the text with the pen or a double click.');
   } else if (node.kind === 'instance') {
     const instance = node.instance ? record?.doc.instance(node.instance) : null;
     texts.push(instance?.kind === 'widget'

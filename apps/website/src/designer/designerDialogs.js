@@ -1,9 +1,9 @@
 /**
  * @file designerDialogs.js
  * @brief Popups of the CMS designer (plan 27c): add page (title, preset), remove a page from the website, Save /
- *        Discard / Cancel, a save conflict, add element, group caption, a confirmation next to a button, the text
- *        and translation editors (TinyMCE), a style form (own style of a node, kind defaults, presets) and the
- *        website Styles dialog.
+ *        Discard / Cancel, a save conflict, add element, group caption, a confirmation next to a button, a style
+ *        form (own style of a node, kind defaults, presets) and the website Styles dialog. Texts and their
+ *        translations: the shared HTextTranslationDialog (§26).
  *
  * Every popup returns a promise of its answer (null when cancelled).
  *
@@ -238,33 +238,6 @@ export function chooseOption(message, title, answers) {
 /** A yes / no question; `narrow`: a narrower dialog. */
 export function confirm(message, { title = 'Please confirm', yes = 'Yes', narrow = false } = {}) {
   return choice(message, title, [['yes', yes]], narrow ? 'h-dialog-cms-narrow' : '').then((answer) => answer === 'yes');
-}
-
-/**
- * Edit the inner HTML of a text block (TinyMCE, §9).
- *
- * @param {{html: string, baseUrl?: string, title?: string, original?: string, createEditor: Function}} options
- *        createEditor: createTinyMceEditor (injected: a lazy chunk, and tests).
- * @returns {Promise<string|null>}
- */
-export async function openTextEditor({ html = '', baseUrl = '', title = 'Edit text', original = null, createEditor }) {
-  const body = element('div', 'h-cms-text-editor');
-  if (original !== null) {
-    const source = element('div', 'h-cms-text-original');
-    const caption = element('div', 'h-cms-caption');
-    caption.textContent = $HR('Original');
-    const content = element('div', 'h-cms-text-original-content');
-    content.innerHTML = original;
-    source.append(caption, content);
-    body.append(source);
-  }
-  const host = element('div', 'h-cms-text-host');
-  body.append(host);
-  let editor = null;
-  const result = formDialog(body, title, 'OK', () => ({ html: editor ? editor.getValue() : html }), null, 'h-dialog-cms-text');
-  editor = await createEditor(host, { value: html, baseUrl });
-  editor.focus?.();
-  return result.then((answer) => (answer ? answer.html : null)).finally(() => editor?.destroy?.());
 }
 
 /**

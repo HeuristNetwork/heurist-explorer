@@ -84,3 +84,19 @@
 #Website summary#Website summary
 #Page description#Page description
 #Author#Author
+#Fix original#Fix original
+#Show a language read only beside the editor#Show a language read only beside the editor
+#Language shown read only#Language shown read only
+#Language of the editor#Language of the editor
+#Translate the text on the left into the language of the editor (translation service)#Translate the text on the left into the language of the editor (translation service)
+#Translating...#Translating...
+#The text to translate is empty#The text to translate is empty
+#Show HTML#Show HTML
+#Show rich editor#Show rich editor
+#Default#Default
+#editor#editor
+#Edit in a popup with translations#Edit in a popup with translations
+#Language#Language
+#Edit the text and its translations#Edit the text and its translations
+#Edit the text with the pen or a double click; the popup shows the languages of the website: translate the text there.#Edit the text with the pen or a double click; the popup shows the languages of the website: translate the text there.
+#Edit the text with the pen or a double click.#Edit the text with the pen or a double click.

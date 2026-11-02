@@ -994,7 +994,7 @@
 #The value is translated into all the languages#La valeur est traduite dans toutes les langues
 #The first value is translated into the chosen language. To keep a part of the text as it is, enclose it in <span translate="no">...</span>.#La première valeur est traduite dans la langue choisie. Pour garder une partie du texte telle quelle, entourez-la de <span translate="no">...</span>.
 #Enter the first value to translate it automatically.#Saisissez la première valeur pour la traduire automatiquement.
-#To enable automatic translation please ask your system administrator to add a DeepL free or paid account API key.#Pour activer la traduction automatique, demandez à votre administrateur système d'ajouter une clé API DeepL (compte gratuit ou payant).
+#To enable automatic translation please ask your system administrator to configure a translation service.#Pour activer la traduction automatique, demandez à votre administrateur système de configurer un service de traduction.
 #Translating text...#Traduction du texte...
 #Insert blank#Insérer vide
 #Insert translated value#Insérer une valeur traduite
@@ -1245,3 +1245,15 @@
 #Current query#Requête actuelle
 #Select a filter...#Choisir un filtre...
 #this filter can not be read#ce filtre ne peut pas être lu
+#Fix original#Fixer l'original
+#Show a language read only beside the editor#Afficher une langue en lecture seule à côté de l'éditeur
+#Language shown read only#Langue affichée en lecture seule
+#Language of the editor#Langue de l'éditeur
+#Translate the text on the left into the language of the editor (translation service)#Traduire le texte de gauche dans la langue de l'éditeur (service de traduction)
+#Translating...#Traduction...
+#The text to translate is empty#Le texte à traduire est vide
+#Show HTML#Afficher le HTML
+#Show rich editor#Afficher l'éditeur riche
+#Edit text#Modifier le texte
+#editor#éditeur
+#Edit in a popup with translations#Modifier dans une fenêtre avec les traductions

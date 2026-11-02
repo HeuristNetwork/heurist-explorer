@@ -34,7 +34,7 @@ const LANGUAGES = Object.freeze({ html: () => html(), javascript: () => javascri
  *
  * @param {HTMLElement} host Element the editor is put in.
  * @param {{value?: string, language?: 'html'|'javascript'|'css'|'json', onChange?: (value: string) => void}} [options]
- * @returns {Promise<{getValue: () => string, focus: () => void, destroy: () => void}>}
+ * @returns {Promise<{getValue: () => string, setValue: (text: string) => void, focus: () => void, destroy: () => void}>}
  */
 export async function createCodeTextEditor(host, { value = '', language = 'html', onChange = null } = {}) {
   const view = new EditorView({
@@ -54,6 +54,7 @@ export async function createCodeTextEditor(host, { value = '', language = 'html'
   });
   return {
     getValue: () => view.state.doc.toString(),
+    setValue: (text) => view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: String(text ?? '') } }),
     focus: () => view.focus(),
     destroy: () => view.destroy()
   };

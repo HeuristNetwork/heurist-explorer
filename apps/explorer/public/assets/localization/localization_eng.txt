@@ -994,7 +994,7 @@
 #The value is translated into all the languages#The value is translated into all the languages
 #The first value is translated into the chosen language. To keep a part of the text as it is, enclose it in <span translate="no">...</span>.#The first value is translated into the chosen language. To keep a part of the text as it is, enclose it in <span translate="no">...</span>.
 #Enter the first value to translate it automatically.#Enter the first value to translate it automatically.
-#To enable automatic translation please ask your system administrator to add a DeepL free or paid account API key.#To enable automatic translation please ask your system administrator to add a DeepL free or paid account API key.
+#To enable automatic translation please ask your system administrator to configure a translation service.#To enable automatic translation please ask your system administrator to configure a translation service.
 #Translating text...#Translating text...
 #Insert blank#Insert blank
 #Insert translated value#Insert translated value
@@ -1245,3 +1245,15 @@
 #Current query#Current query
 #Select a filter...#Select a filter...
 #this filter can not be read#this filter can not be read
+#Fix original#Fix original
+#Show a language read only beside the editor#Show a language read only beside the editor
+#Language shown read only#Language shown read only
+#Language of the editor#Language of the editor
+#Translate the text on the left into the language of the editor (translation service)#Translate the text on the left into the language of the editor (translation service)
+#Translating...#Translating...
+#The text to translate is empty#The text to translate is empty
+#Show HTML#Show HTML
+#Show rich editor#Show rich editor
+#Edit text#Edit text
+#editor#editor
+#Edit in a popup with translations#Edit in a popup with translations

@@ -1,6 +1,7 @@
 /**
  * @file hTree.test.js
- * @brief HTree (plan 27c §7): rows and tools, selection and keyboard, hover, drop positions by canDrop.
+ * @brief HTree (plan 27c §7): rows and tools, selection and keyboard, hover, drop positions by canDrop,
+ *        double click (onActivate).
  *
  * @project     Heurist academic knowledge management system
  * @package     heurist-client-core
@@ -102,4 +103,13 @@ test('setItems keeps the selection of an item still there', () => {
   assert.equal(tree.selectedId, 'p1');
   tree.setItems([]);
   assert.equal(tree.selectedId, null);
+});
+
+test('a double click on an item calls onActivate, not on its tools', () => {
+  const activated = [];
+  const { row } = treeOf({ onActivate: (id) => activated.push(id) });
+  row('p1').fire('dblclick');
+  assert.deepEqual(activated, ['p1']);
+  row('p2').querySelector('.h-tree-tool').fire('dblclick');
+  assert.deepEqual(activated, ['p1']);
 });

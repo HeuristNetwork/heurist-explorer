@@ -75,10 +75,15 @@ function loadTinyMce() {
  * @param {() => Promise<string|null>} [options.insertMedia] Host: HTML of a registered file (Media button).
  * @param {(text: string) => Promise<string|null>} [options.insertRecordLink] Host: HTML of a link to a
  *        record, with the selected text (Record button).
- * @returns {Promise<{getValue: () => string, focus: () => void, destroy: () => void}>}
+ * @param {boolean} [options.fill] Fill the height of the host (no autoresize, resize and status bar).
+ * @param {boolean} [options.compact] Smaller toolbar buttons (class h-tinymce-compact on the host).
+ * @returns {Promise<{getValue: () => string, setValue: (html: string) => void, focus: () => void, destroy: () => void}>}
  */
-export async function createTinyMceEditor(host, { value = '', baseUrl = '', onChange = null, insertMedia = null, insertRecordLink = null } = {}) {
+export async function createTinyMceEditor(host, {
+  value = '', baseUrl = '', onChange = null, insertMedia = null, insertRecordLink = null, fill = false, compact = false
+} = {}) {
   const tinymce = await loadTinyMce();
+  if (compact) host.classList.add('h-tinymce-compact');
   const target = document.createElement('textarea');
   target.value = String(value ?? '');
   host.append(target);
@@ -95,18 +100,16 @@ export async function createTinyMceEditor(host, { value = '', baseUrl = '', onCh
     branding: false,
     promotion: false,
     elementpath: false,
-    statusbar: true,
-    resize: 'both',
-    plugins: 'advlist autolink lists link image table fullscreen searchreplace visualblocks autoresize help',
+    statusbar: !fill,
+    resize: fill ? false : 'both',
+    plugins: `advlist autolink lists link image table fullscreen searchreplace visualblocks${fill ? '' : ' autoresize'} help`,
     // styles: the Formats menu of legacy (styleselect) with TinyMCE's default style_formats
     toolbar: 'styles fontfamily fontsize | bold italic underline forecolor | heuristMedia heuristCaption heuristRecord link'
       + ' | bullist numlist outdent indent | table hr removeformat | fullscreen help',
     toolbar_mode: 'wrap',
     // underline as <u> (TinyMCE's default is a span with text-decoration)
     formats: { underline: { inline: 'u', exact: true } },
-    min_height: 220,
-    max_height: 640,
-    autoresize_bottom_margin: 15,
+    ...(fill ? { height: '100%' } : { min_height: 220, max_height: 640, autoresize_bottom_margin: 15 }),
     // URLs as legacy: relative to the Heurist base URL
     relative_urls: true,
     remove_script_host: false,
@@ -126,6 +129,7 @@ export async function createTinyMceEditor(host, { value = '', baseUrl = '', onCh
   editor.on('change input undo redo SetContent', changed);
   return {
     getValue: () => editorValue(editor.getContent()),
+    setValue: (html) => editor.setContent(String(html ?? '')),
     focus: () => editor.focus(),
     destroy: () => {
       editor.remove();

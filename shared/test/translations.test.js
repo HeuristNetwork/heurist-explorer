@@ -2,7 +2,7 @@
  * @file translations.test.js
  * @brief Translated values (plan 25): value rows with the language code, the
  *        "Insert translated value" dialog (Translate / Insert blank / Cancel) and
- *        TranslationClient (the legacy translator).
+ *        TranslationClient (the translation service of the server).
  */
 
 import test from 'node:test';
@@ -63,16 +63,16 @@ test('translations are value rows with the language code before the input; their
   assert.deepEqual(widget.getState().translations, []);
 });
 
-test('Insert translated value: the free languages; Insert blank adds an empty row; without DeepL no Translate', async () => {
+test('Insert translated value: the free languages; Insert blank adds an empty row; without a translation service no Translate', async () => {
   await withDialog(async (dialogs) => {
     const widget = field();
     await widget._openTranslateDialog();
     const dialog = dialogs[0];
     assert.equal(dialog.title, 'Insert translated value');
     const select = dialog.body.querySelector('select');
-    assert.deepEqual(select.children.map((option) => option.value), ['ENG', 'GER'], 'FRE is used');
+    assert.deepEqual(select.children.map((option) => option.value), ['GER'], 'ENG is the language of the value, FRE is used');
     assert.deepEqual(dialog.buttons.map((button) => button.label), ['Insert blank', 'Cancel']);
-    assert.match(dialog.body.textContent, /DeepL/);
+    assert.match(dialog.body.textContent, /translation service/);
     select.value = 'GER';
     dialog.buttons[0].onClick();
     assert.deepEqual(widget._translationRows.map((row) => [row.entry.lang, row.input.getValue()]), [['FRE', 'Bonjour'], ['GER', '']]);
@@ -90,25 +90,28 @@ test('Insert translated value: Translate translates the first value into the cho
     dialog.body.querySelector('select').value = 'GER';
     await dialog.buttons[0].onClick();
     await flush();
-    assert.deepEqual(asked, [{ string: 'Hello', target: 'GER' }]);
+    assert.deepEqual(asked, [{ string: 'Hello', target: 'GER', format: 'text' }]);
     assert.deepEqual(widget.getState().translations.map((entry) => [entry.lang, entry.value]), [['FRE', 'Bonjour'], ['GER', 'Hallo']]);
   });
 });
 
-test('TranslationClient: the legacy translator request and its answer; errors', async () => {
+test('TranslationClient: POST /external/translate of the translation service; errors', async () => {
   const calls = [];
-  const fetchImpl = async (url, init) => {
-    calls.push([url, Object.fromEntries(init.body), init.method]);
-    return { status: 200, json: async () => ({ status: 'ok', data: 'Bonjour' }) };
+  const apiClient = {
+    async request(path, options) {
+      calls.push([path, options.method, options.body]);
+      return { text: 'Bonjour' };
+    }
   };
-  const client = new TranslationClient({ baseUrl: 'http://host/heurist', database: 'db', available: true, fetchImpl });
-  assert.equal(await client.translate({ string: 'Hello', target: 'FRE', source: 'ENG' }), 'Bonjour');
-  assert.deepEqual(calls[0], ['http://host/heurist/hserv/controller/usr_info.php',
-    { a: 'translate_string', db: 'db', string: 'Hello', target: 'FRE', source: 'ENG' }, 'POST']);
-  const failing = new TranslationClient({
-    baseUrl: 'http://host/heurist/', database: 'db', available: true,
-    fetchImpl: async () => ({ status: 200, json: async () => ({ status: 'invalid', message: 'Quota exceeded' }) })
-  });
+  const client = new TranslationClient({ apiClient, available: true });
+  assert.equal(await client.translate({ string: 'Hello', target: 'FRE', source: 'ENG', format: 'text' }), 'Bonjour');
+  assert.deepEqual(calls[0], ['/external/translate', 'POST', { text: 'Hello', target: 'fre', source: 'eng', format: 'text' }]);
+  await client.translate({ string: '<p>Hello</p>', target: 'fr' });
+  assert.deepEqual(calls[1][2], { text: '<p>Hello</p>', target: 'fr', format: 'html' }, 'html by default, no source: detected');
+  await assert.rejects(() => client.translate({ string: 'x'.repeat(5001), target: 'FRE' }), /too long/);
+  assert.equal(calls.length, 2, 'a text too long is not sent');
+  const failing = new TranslationClient({ apiClient: { request: async () => { throw new Error('Quota exceeded'); } }, available: true });
   await assert.rejects(() => failing.translate({ string: 'x', target: 'FRE' }), /Quota exceeded/);
-  assert.equal(new TranslationClient({ baseUrl: 'http://h/', database: 'db' }).available, false, 'no DeepL key');
+  assert.equal(new TranslationClient({ apiClient }).available, false, 'no translation service');
+  assert.equal(new TranslationClient({ available: true }).available, false, 'no API client');
 });

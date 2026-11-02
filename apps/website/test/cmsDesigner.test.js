@@ -261,7 +261,7 @@ test('Style editor: simple and advanced lists, group flex box, Reset all, Remove
 });
 
 /** A designer on a fake API: requests are recorded. */
-function designerOf({ canEdit = true } = {}) {
+function designerOf({ canEdit = true, loadEditor = undefined } = {}) {
   const requests = [];
   const record = structuredClone(SITE_RECORD);
   const apiClient = {
@@ -282,7 +282,8 @@ function designerOf({ canEdit = true } = {}) {
   const container = document.createElement('div');
   document.body.append(container);
   const designer = new CmsDesigner({
-    container, apiClient, websites, bridge: { editRecord: async () => ({ saved: true }) }, runtime: { baseUrl: 'http://h/', database: 'db' }
+    container, apiClient, websites, bridge: { editRecord: async () => ({ saved: true }) }, runtime: { baseUrl: 'http://h/', database: 'db' },
+    loadEditor
   });
   return { designer, requests, container };
 }
@@ -307,7 +308,7 @@ test('designer: open the home, edit, save only the changed field with rec_Modifi
   const patch = requests.find(([method]) => method === 'PATCH');
   assert.equal(patch[1], '/website/10');
   assert.equal(patch[3].rec_Modified, '2026-10-30 10:00:00');
-  assert.deepEqual(Object.keys(patch[3].details), ['4'], 'only the home content');
+  assert.deepEqual(Object.keys(patch[3].details), ['4', '1187'], 'only the home content and configuration (styles of the columns)');
   assert.equal(designer.isDirty(), false);
   assert.equal(designer.records.get(10).modified, '2026-10-30 11:00:00', 'rec_Modified of the record for the next save');
 
@@ -383,6 +384,48 @@ test('designer: tools of the part tree, + of tabs, captions, copy below the tree
   assert.equal(picker().length, 2, 'nothing selected: Copy and Paste only');
   assert.equal(picker()[0].disabled, true, 'nothing selected: no copy');
   designer.destroy();
+});
+
+test('designer: a double click on a text opens the text popup; all languages are one undo step', async () => {
+  const editors = [];
+  const loadEditor = async () => async (host, { value }) => {
+    const editor = { value, getValue: () => editor.value, setValue: (text) => { editor.value = text; }, focus() {}, destroy() {} };
+    editors.push(editor);
+    return editor;
+  };
+  const { designer } = designerOf({ loadEditor });
+  await designer.open(10);
+  const show = HMsg.showMsgDlg;
+  const close = HMsg.closeMsgDlg;
+  const dialogs = [];
+  HMsg.showMsgDlg = (body, options) => { dialogs.push({ body, ...options }); return null; };
+  HMsg.closeMsgDlg = () => {};
+  try {
+    const row = designer.partTree.root.querySelectorAll('.h-tree-row').find((element) => element.dataset.id === 'h1');
+    row.fire('dblclick');
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    assert.equal(designer.selectedNode, 'h1');
+    const languageButtons = dialogs[0].body.querySelectorAll('.h-translation-language');
+    assert.deepEqual(languageButtons.map((button) => button.textContent), ['ENG', 'FRE'], 'the languages of the website');
+    const original = designer._currentRecord().doc.text('h1');
+    const originalFre = designer._currentRecord().doc.translation('fre', 'h1');
+    assert.equal(editors[0].value, original);
+    editors[0].value = '<h1>Home page</h1>';
+    languageButtons[1].click();
+    editors[0].value = '<h1>Accueil</h1>';
+    dialogs[0].buttons[0].onClick();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    const doc = () => designer._currentRecord().doc;
+    assert.equal(doc().text('h1'), '<h1>Home page</h1>');
+    assert.equal(doc().translation('fre', 'h1'), '<h1>Accueil</h1>');
+    designer.undo();
+    assert.equal(doc().text('h1'), original, 'one undo step');
+    assert.equal(doc().translation('fre', 'h1'), originalFre);
+  } finally {
+    HMsg.showMsgDlg = show;
+    HMsg.closeMsgDlg = close;
+    designer.destroy();
+  }
 });
 
 test('designer: a website the user can not change is read only', async () => {

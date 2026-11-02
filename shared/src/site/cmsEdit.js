@@ -638,11 +638,21 @@ export class CmsRecordDocument {
       if (preset) attrs.push(['data-h-style', preset]);
       return element$('div', attrs, undefined, children);
     };
+    // columns: own styles (a flex row, one column on narrow screens; equal texts), so they do not depend on the
+    // presets of the website
+    const columns = (count, preset) => {
+      const children = Array.from({ length: count }, text);
+      const node = group(children, preset);
+      const styles = this._nodeStyles();
+      styles[attr(node, 'data-h-node')] = { display: 'flex', 'flex-direction': 'row', narrow: { 'flex-direction': 'column' } };
+      for (const child of children) styles[attr(child, 'data-h-node')] = { flex: '1' };
+      return node;
+    };
     switch (element) {
       case 'text': return text();
       case 'group': return group();
-      case 'columns2': return group([text(), text()], 'columns2');
-      case 'columns3': return group([text(), text(), text()], 'columns3');
+      case 'columns2': return columns(2, 'columns2');
+      case 'columns3': return columns(3, 'columns3');
       case 'tabs':
       case 'accordion':
         return element$('div', [['data-h-node', id('n')], ['data-h-control', element]], undefined, [1, 2].map((number) =>

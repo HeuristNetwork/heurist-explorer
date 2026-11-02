@@ -84,6 +84,10 @@ test('captions of groups: not in the tree, edited through the group, translated;
   const columns = doc.insertElement('content', 'columns2', { id: null, position: 'inside' });
   const column = doc.tree('content').find((item) => item.id === columns).children[0].id;
   assert.deepEqual(doc.parentGroup(column), { id: columns, preset: 'columns2' });
+  const columnStyles = JSON.parse(doc.serialize().configuration).styles.nodes;
+  assert.deepEqual(columnStyles[columns], { display: 'flex', 'flex-direction': 'row', narrow: { 'flex-direction': 'column' } },
+    'columns are a flex row of their own, one column on narrow screens');
+  assert.deepEqual(columnStyles[column], { flex: '1' }, 'texts of equal size');
   assert.equal(doc.isPanel(first.id), true);
   assert.equal(doc.setCaption(first.id, 'News & views', { fre: 'Nouvelles' }), true);
   assert.deepEqual(doc.caption(first.id), { id: first.caption, text: 'News & views', translations: { fre: 'Nouvelles' } });

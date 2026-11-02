@@ -542,6 +542,10 @@ direction and gap): section **In the group**, field *Size in group (proportion)*
   (`1`, `2 1`, `1 200px`, `1 0 200px`).
 - Two / three columns keep `grid-template-columns` of their presets (a grid, not a flex box), so their children do
   not get the field.
+  **Changed 2026-11-02 (Artem):** a website without the `columns2` / `columns3` presets showed the texts one above
+  the other. *Add element* Text in two / three columns now writes own styles (`CmsRecordDocument._create`): the group
+  `display: flex; flex-direction: row`, `narrow: {flex-direction: column}`, each text `flex: 1`. The preset name
+  stays on the group (tree icon); the children get the *Size in group* field.
 
 Tests: JS 1,554 pass (`parentGroup`, flex values, field only in flex groups); heurist WebsiteRenderTest 32,
 CmsFormatTest 10, WebsiteEditTest 62 pass. Bundles built and deployed locally. Not checked in a browser.
@@ -583,3 +587,30 @@ behind small tabs; the module configuration stays a popup (`openConfiguration` i
 Explorer's window, large and modal) with a short summary inline. Pros: no popup for the most frequent edits, the
 preview reacts at once. Cons: the west pane is narrow (about 300 px) for label + input rows: labels above the inputs
 there; undo must group a series of small changes (one undo step per field change after it is left, not per key).
+
+## 26. Text and translations: one popup (Artem, 2026-11-02)
+
+Review item 4. One popup edits a text and all its translations, shared with the record editor (multilingual
+blocktext fields): `shared/src/widgets/translation/HTextTranslationDialog.js` (+ `.css`), language controls in
+`translation/translationControls.js` (for the next dialog `HTranslationDialog` of single-line fields).
+
+- Bigger popup (`min(1280px, 96vw)`, editor area `75vh`); TinyMCE fills it (`createTinyMceEditor` option `fill`: no
+  autoresize, resize and status bar) with small toolbar buttons (option `compact`, class `h-tinymce-compact`, the
+  rules of the record editor). No popup scroll bar.
+- Toolbar: `[ ] Fix original` + language buttons as a radio group (a selector with more than 10 languages), right
+  *Show HTML* / *Show rich editor* (CodeMirror; both editors got `setValue`). One language or none: only Show HTML.
+- Fix original: the left language read only (40%), the editor on the right; two selectors, the second above the
+  editor; choosing in one the language of the other swaps them. *Translate ⇒* (only with DeepL, `TranslationClient`,
+  `dbdefs.translator()`) puts the translation of the left text into the editor.
+- Decisions (recommended, approved with the plan): the left side is the fixed source, the right side is always
+  editable (manual translation works without DeepL); a language without a translation opens empty; with Show HTML
+  the fixed side shows raw HTML too. Fix original and Show HTML are remembered while the designer is open.
+- The popup returns the changed languages only; the designer applies them in one undo step (`setText` /
+  `setTranslation`). It opens in the preview language; the picker button is *Edit text* without a language.
+- Double click in the part tree (`HTree` option `onActivate`): a text opens the popup, a group its caption, a module
+  its configuration. `openTextEditor` of `designerDialogs.js` removed.
+- (f) Inline TinyMCE in the preview iframe: not now (TinyMCE must be loaded in the iframe's window, the site runtime
+  in design mode would need it, plus syncing into the draft and undo). Later item.
+
+Tests: `shared/test/textTranslationDialog.test.js`, HTree double click, designer double click + one undo step;
+JS 1,565 pass. Not checked in a browser.

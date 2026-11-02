@@ -327,14 +327,14 @@ export class RecordEditorHost {
       limits: this.options.recordLimits || null,
       settings: this.options.editorSettings?.() || null,
       onManageTags: this.options.manageTags || null,
-      // Translate in "Insert translated value": the legacy translator (DeepL) when the server has a key (plan 25)
       // the HTML editor of blocktext fields: URLs relative to Heurist, Media and Record buttons (plan 25)
       richText: {
         baseUrl: this.options.baseUrl || '',
         insertMedia: () => this._insertMedia(dbdefs),
         insertRecordLink: (text) => this._insertRecordLink(text)
       },
-      translator: new TranslationClient({ baseUrl: this.options.baseUrl || '', database: this.options.database || '', available: Boolean(dbdefs?.translator?.()) }),
+      // Translate of translations: the translation service of the server, when it has one (plan 25)
+      translator: new TranslationClient({ apiClient: this.options.apiClient, available: Boolean(dbdefs?.translator?.()) }),
       // a registered file (plan 20 §10.11): hard-coded structure by its type, no Structure pane,
       // the summary without Private and Tags, Linked records = the records that refer to the file
       ...(isFile ? this._fileEditorOptions(dbdefs) : {})

@@ -56,7 +56,7 @@ This discussion relates to plan 27c (server side endpoints) and to this more gen
    `image` (the entity's main image), `assign` (link with POST, remove with DELETE predefined entity relations:
    tag–record, user–group, page–website, mapdoc–layer).
 5. Special endpoints — special presentation services or actions: `graph`, `time`, `map`, `iiif`, `annotation`,
-   `jobs`.
+   `jobs`, `external`.
 6. As a result we do not need monstrous endpoints like `/{database}/reports/{reportRef}/schedules/{scheduleId}` —
    it is `/{database}/schedule/{recordId}`.
 
@@ -190,6 +190,7 @@ discussion and plan.
 | report render | `GET /reports/{ref}/render?rec=N` | Smarty HTML of one record |
 | file content | `GET /files/{key}/content\|thumbnail`, `/files/upload[/{token}]` | Binary content, chunked upload |
 | `login`, `logout` | legacy, in `api.php` | Session |
+| `external` | `POST /external/translate` (`ExternalServiceController`, agreed by Artem 2026-11-02) | Services of external providers called by the server (translation now; lookups later) |
 
 Record presentation `/records/querysource|document|layer/{id}` (`RecordPresentationController`): a presentation
 format of a record → keep as a special presentation under `map` / `records` until a decision (§9).

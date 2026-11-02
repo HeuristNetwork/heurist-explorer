@@ -121,3 +121,25 @@ Explorer → RecordEditorHost → HRecordEditor; reverse group `accordion`, clos
   `text-align: left|center|right|justify` (`StoredText::textAlign()`, an HTMLPurifier AttrDef; other properties and
   values are removed); `span` keeps its four properties. Alignment of images and tables (float / margin styles) is
   still removed. The viewer (`richTextHtml.js`) keeps the same. `StoredTextTest.php`: 74 checks.
+
+## Text popup with translations (Artem, 2026-11-02)
+
+A multilingual blocktext field opens the shared text popup (`shared/src/widgets/translation/HTextTranslationDialog.js`,
+plan 27c §26) with the link *editor* under the text (HInputText `richText.openDialog`) and with its language icon
+(short text fields keep *Insert translated value*; it will be replaced by `HTranslationDialog`). The value of the field
+is the language *Default*, the configured and used translation languages follow. After OK the value is set and
+translation rows are changed, added or removed (an empty text) — `HEditField._openTextDialog` / `_applyTexts`. Not
+checked in a browser.
+
+**Default language (Artem, 2026-11-02):** the value itself (stored without a language code) is in the first language
+of the database setting "Languages"; the popup shows it with that code (code `''` inside) and that language is not
+offered as a translation (also not in *Insert translated value*). A translation row already in that language is
+still shown. Without the setting the first entry is *Default*. Website texts: the first DT_LANGUAGE term of the
+website record is the language of the text itself (`WebsiteEditService::siteLanguages`, `PageRenderer`).
+
+**Translation service (Artem, 2026-11-02):** `TranslationClient` uses the srv translation service
+`POST /api/{db}/external/translate` (`{text, target, source?, format}`, through HeuristApiClient; the server chooses
+the provider: Google now, DeepL / LibreTranslate later) instead of the legacy `usr_info.php?a=translate_string`.
+Codes are sent in lower case (`fre`), `format` is `html` for rich texts and `text` for short fields and code-only
+fields; texts over 5,000 characters are refused before sending. The client expects the answer `{"text": "..."}`.
+The client code and texts no longer name a provider ("translation service").

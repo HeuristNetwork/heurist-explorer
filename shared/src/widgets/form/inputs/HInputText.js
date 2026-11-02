@@ -6,7 +6,8 @@
  *        A blocktext with `richText` (plan 25) has the links `text · wysiwyg · codeeditor` under it:
  *        the HTML editor (TinyMCE) or the code editor (CodeMirror) is made on demand, one at a
  *        time on the page (richTextEditors.js); `richText.autoWysiwyg` opens a value with HTML in
- *        the HTML editor at once (when no other editor is open).
+ *        the HTML editor at once (when no other editor is open); `richText.openDialog(lang)` adds the link
+ *        `editor` (the popup of a multilingual text, HTextTranslationDialog).
  *
  * @project     Heurist academic knowledge management system
  * @package     heurist-client-core
@@ -189,6 +190,20 @@ export class HInputText extends HInput {
       this.listen(link, 'click', () => void this.setTextMode(mode));
       this.modesBar.append(link);
       this.modeLinks.set(mode, link);
+    }
+    if (typeof rich.openDialog === 'function') {
+      // a multilingual text: the popup with all its languages (HTextTranslationDialog), the value of the
+      // inline editor first
+      const link = document.createElement('button');
+      link.type = 'button';
+      link.className = 'h-input-text-mode h-input-text-popup';
+      link.textContent = $HR('editor');
+      link.title = $HR('Edit in a popup with translations');
+      this.listen(link, 'click', () => {
+        this._closeEditor();
+        rich.openDialog(this.langCode || '');
+      });
+      this.modesBar.append(link);
     }
     host.append(this.editorHost, this.modesBar);
     this._syncModes();

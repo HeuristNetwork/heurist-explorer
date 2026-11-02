@@ -1,12 +1,12 @@
 /**
  * @file TranslationClient.js
- * @brief Machine translation of a text with DeepL through the legacy server translator
- *        (plan 25): `hserv/controller/usr_info.php?a=translate_string` (string, target,
- *        source; 3-letter language codes), as the legacy record editor. Whether the
- *        installation has a DeepL key: `meta.translator` of the definitions snapshot
- *        (HDbDefs#translator).
+ * @brief Machine translation of a text through the translation service of the server (plan 25, 2026-11-02):
+ *        `POST /api/{db}/external/translate` with `{text, target, source?, format}` (`format` text or html,
+ *        at most 5,000 characters; without `source` the service detects the language). The server chooses the
+ *        provider. Available when the installation has a translation service: `meta.translator` of the
+ *        definitions snapshot (HDbDefs#translator).
  *
- *   const translator = new TranslationClient({ baseUrl, database, available: dbdefs.translator() });
+ *   const translator = new TranslationClient({ apiClient, available: dbdefs.translator() });
  *   if (translator.available) text = await translator.translate({ string: 'Hello', target: 'FRE' });
  *
  * @project     Heurist academic knowledge management system
@@ -20,21 +20,19 @@
  * @since       8.0
  */
 
-/** Translates texts with the legacy translator of the server. */
+/** Longest text the translation service takes (characters). */
+export const MAX_TRANSLATION_LENGTH = 5000;
+
+/** Translates texts with the translation service of the server. */
 export class TranslationClient {
   /**
    * @param {object} options
-   * @param {string} options.baseUrl Heurist base URL (the legacy controllers are below it).
-   * @param {string} options.database Database name.
-   * @param {boolean} [options.available=false] Whether DeepL is configured (HDbDefs#translator).
-   * @param {Function} [options.fetchImpl] `fetch` (tests).
+   * @param {object} options.apiClient HeuristApiClient of the database.
+   * @param {boolean} [options.available=false] Whether the server has a translation service (HDbDefs#translator).
    */
-  constructor({ baseUrl, database, available = false, fetchImpl = null } = {}) {
-    const base = String(baseUrl ?? '').trim();
-    this.baseUrl = base && !base.endsWith('/') ? `${base}/` : base;
-    this.database = String(database ?? '');
-    this._available = Boolean(available) && Boolean(this.baseUrl) && Boolean(this.database);
-    this.fetchImpl = fetchImpl || ((...args) => globalThis.fetch(...args));
+  constructor({ apiClient = null, available = false } = {}) {
+    this.apiClient = apiClient;
+    this._available = Boolean(available) && Boolean(apiClient);
   }
 
   /** @returns {boolean} Whether texts can be translated. */
@@ -45,28 +43,22 @@ export class TranslationClient {
   /**
    * Translate a text.
    *
-   * @param {{string: string, target: string, source?: string, signal?: AbortSignal}} request Text and
-   *        3-letter language codes (`FRE`); without `source` DeepL detects the language.
+   * @param {{string: string, target: string, source?: string, format?: 'text'|'html', signal?: AbortSignal}} request
+   *        Text, language codes (`FRE`, `fr`, `pt-BR`; sent in lower case) and the format of the text (default html).
    * @returns {Promise<string>} The translated text.
-   * @throws {Error} Without a translator, or the server's message.
+   * @throws {Error} Without a translation service, a text too long, or the server's message.
    */
-  async translate({ string, target, source = '', signal = null } = {}) {
+  async translate({ string, target, source = '', format = 'html', signal = null } = {}) {
     if (!this.available) throw new Error('Automatic translation is not configured on this server');
-    const body = new URLSearchParams({ a: 'translate_string', db: this.database, string: String(string ?? ''), target: String(target ?? '') });
-    if (source) body.set('source', String(source));
-    const response = await this.fetchImpl(`${this.baseUrl}hserv/controller/usr_info.php`, {
-      method: 'POST',
-      body,
-      credentials: 'same-origin',
-      signal
-    });
-    let payload = null;
-    try {
-      payload = await response.json();
-    } catch {
-      throw new Error(`The translation failed (HTTP ${response.status})`);
+    const text = String(string ?? '');
+    if ([...text].length > MAX_TRANSLATION_LENGTH) {
+      throw new Error(`The text is too long to translate (at most ${MAX_TRANSLATION_LENGTH} characters)`);
     }
-    if (payload?.status !== 'ok') throw new Error(payload?.message || payload?.status || 'The translation failed');
-    return String(payload.data ?? '');
+    const body = { text, target: String(target ?? '').toLowerCase(), format: format === 'text' ? 'text' : 'html' };
+    if (source) body.source = String(source).toLowerCase();
+    const payload = await this.apiClient.request('/external/translate', { method: 'POST', body, ...(signal ? { signal } : {}) });
+    const translated = typeof payload === 'string' ? payload : payload?.text;
+    if (typeof translated !== 'string') throw new Error('The translation service gave no text');
+    return translated;
   }
 }
