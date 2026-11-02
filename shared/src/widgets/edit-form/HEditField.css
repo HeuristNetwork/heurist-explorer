@@ -79,24 +79,14 @@
   display: none;
 }
 
-/* the "Insert translated value" dialog (plan 25) */
-.h-edit-field-translate-dialog {
-  display: flex;
-  flex-direction: column;
-  gap: var(--h-gap);
-  min-width: min(24em, calc(100vw - 64px));
+/* the language icon before the caret switch: pulled left, so the inputs stay aligned with the other fields */
+.h-edit-field-translate {
+  margin-left: -10px;
 }
 
-.h-edit-field-translate-language {
-  display: flex;
-  align-items: center;
-  gap: var(--h-gap);
-}
-
-.h-edit-field-translate-help {
-  margin: 0;
-  color: var(--h-color-text-muted);
-  font-size: var(--h-font-size-small);
+/* the translation rows: shown with the switch "Show translations" (whole form) */
+.h-edit-field-translations[hidden] {
+  display: none;
 }
 
 .h-edit-field-issues:empty {

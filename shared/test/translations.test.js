@@ -1,8 +1,8 @@
 /**
  * @file translations.test.js
- * @brief Translated values (plan 25): value rows with the language code, the
- *        "Insert translated value" dialog (Translate / Insert blank / Cancel) and
- *        TranslationClient (the translation service of the server).
+ * @brief Translated values (plan 25): value rows with the language code, the translation popup of
+ *        single-line fields, the switch "Show translations" and TranslationClient (the translation
+ *        service of the server).
  */
 
 import test from 'node:test';
@@ -15,6 +15,8 @@ const { TranslationClient } = await import('../src/data/TranslationClient.js');
 const { HMsg } = await import('../src/ui/HMsg.js');
 
 const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
+// no TinyMCE in node: the text popup reports the failed import (also after a test ended)
+HMsg.showMsgErr = () => {};
 const FIELD = { name: 'title', dty: 1, type: 'freetext', label: 'Title', multilang: true, max: 1 };
 
 /** A multilang field with a value and its translations. */
@@ -51,7 +53,7 @@ test('translations are value rows with the language code before the input; their
   const actions = row.input.container.querySelector('.h-form-input-actions');
   assert.equal(actions.querySelector('.h-input-text-lang').textContent, 'FRE');
   row.input.setActions([document.createElement('button')]);
-  assert.equal(actions.children[0].className, 'h-input-text-lang');
+  assert.ok(actions.children[0].classList.contains('h-input-text-lang'));
   assert.equal(actions.children.length, 2);
   assert.equal(row.input.getValue(), 'Bonjour');
   assert.ok(row.element.classList.contains('h-edit-field-translation'));
@@ -63,36 +65,79 @@ test('translations are value rows with the language code before the input; their
   assert.deepEqual(widget.getState().translations, []);
 });
 
-test('Insert translated value: the free languages; Insert blank adds an empty row; without a translation service no Translate', async () => {
+test('the language icon of a single-line field opens the translation popup; the result changes the rows, hidden kept', async () => {
   await withDialog(async (dialogs) => {
-    const widget = field();
-    await widget._openTranslateDialog();
+    const widget = field({ state: { values: [{ value: 'Hello', hidden: false }], translations: [{ lang: 'FRE', value: 'Bonjour', hidden: true }, { lang: 'GER', value: 'Hallo', hidden: false }] } });
+    const icon = widget.container.querySelector('.h-edit-field-translate');
+    icon.click();
+    await flush();
     const dialog = dialogs[0];
-    assert.equal(dialog.title, 'Insert translated value');
-    const select = dialog.body.querySelector('select');
-    assert.deepEqual(select.children.map((option) => option.value), ['GER'], 'ENG is the language of the value, FRE is used');
-    assert.deepEqual(dialog.buttons.map((button) => button.label), ['Insert blank', 'Cancel']);
-    assert.match(dialog.body.textContent, /translation service/);
-    select.value = 'GER';
+    assert.equal(dialog.title, 'Title');
+    const badges = dialog.body.querySelectorAll('.h-input-text-lang').map((badge) => badge.textContent);
+    assert.deepEqual(badges, ['ENG', 'FRE', 'GER'], 'the original in ENG, then the translations');
+    const inputs = dialog.body.querySelectorAll('input');
+    inputs[1].value = 'Salut';
+    inputs[2].value = '';
     dialog.buttons[0].onClick();
-    assert.deepEqual(widget._translationRows.map((row) => [row.entry.lang, row.input.getValue()]), [['FRE', 'Bonjour'], ['GER', '']]);
+    await flush();
+    assert.deepEqual(widget.getState().translations, [{ lang: 'FRE', value: 'Salut', hidden: true }], 'changed (hidden kept), GER removed');
   });
 });
 
-test('Insert translated value: Translate translates the first value into the chosen language', async () => {
+test('translation rows are hidden by default; the switch of a field shows them in the whole form', async () => {
+  const { HEditForm } = await import('../src/widgets/edit-form/HEditForm.js');
+  const told = [];
+  const form = new HEditForm().attach(document.createElement('div'), {
+    form: { groups: [{ id: 'g', label: 'G', children: [FIELD, { ...FIELD, name: 'subtitle', dty: 2, label: 'Subtitle' }] }] },
+    values: { title: 'Hello', subtitle: 'Sub' },
+    languages: ['ENG', 'FRE'],
+    onShowTranslations: (show) => told.push(show)
+  }).render();
+  const hosts = () => form.container.querySelectorAll('.h-edit-field-translations');
+  assert.deepEqual(hosts().map((host) => host.hidden), [true, true]);
+  const toggle = form.container.querySelectorAll('.h-edit-field-translations-toggle')[1];
+  assert.equal(toggle.title, 'Show translations');
+  toggle.click();
+  assert.deepEqual(hosts().map((host) => host.hidden), [false, false], 'all fields');
+  assert.deepEqual(told, [true]);
+  assert.equal(form.container.querySelectorAll('.h-edit-field-translations-toggle')[0].title, 'Hide translations');
+});
+
+test('a translation badge opens the popup at its language; rich text: side by side for that opening only', async () => {
   await withDialog(async (dialogs) => {
-    const asked = [];
-    const translator = { available: true, translate: async (request) => { asked.push(request); return 'Hallo'; } };
-    const widget = field({ translator });
-    await widget._openTranslateDialog();
-    const dialog = dialogs[0];
-    assert.deepEqual(dialog.buttons.map((button) => button.label), ['Translate', 'Insert blank', 'Cancel']);
-    dialog.body.querySelector('select').value = 'GER';
-    await dialog.buttons[0].onClick();
+    const widget = field();
+    const badge = widget._translationRows[0].input.container.querySelector('.h-input-text-lang');
+    assert.equal(badge.tagName, 'BUTTON');
+    badge.click();
     await flush();
-    assert.deepEqual(asked, [{ string: 'Hello', target: 'GER', format: 'text' }]);
-    assert.deepEqual(widget.getState().translations.map((entry) => [entry.lang, entry.value]), [['FRE', 'Bonjour'], ['GER', 'Hallo']]);
+    const inputs = dialogs[0].body.querySelectorAll('input');
+    assert.equal(document.activeElement, inputs[1], 'the cursor in the FRE row');
+    dialogs[0].buttons[1].onClick();
+
+    const text = new HEditField().attach(document.createElement('div'), {
+      field: { name: 'text', dty: 3, type: 'blocktext', label: 'Text', multilang: true, max: 1 },
+      state: { values: [{ value: '<p>Hello</p>', hidden: false }], translations: [{ lang: 'FRE', value: '<p>Bonjour</p>', hidden: false }] },
+      languages: ['ENG', 'FRE', 'GER'],
+      richText: { baseUrl: '' }
+    }).render();
+    text._translationRows[0].input.container.querySelector('.h-input-text-lang').click();
+    await flush();
+    const [source, target] = dialogs[1].body.querySelectorAll('select');
+    assert.equal(source.value, '', 'the value (ENG) on the left');
+    assert.equal(target.value, 'FRE', 'the clicked language in the editor');
+    assert.equal(dialogs[1].body.querySelector('.h-text-translation-original').innerHTML, '<p>Hello</p>');
+    dialogs[1].buttons[1].onClick();
+    // the language icon: the remembered mode (not side by side)
+    text.container.querySelector('.h-edit-field-translate').click();
+    await flush();
+    assert.equal(dialogs[2].body.querySelectorAll('select').length, 0, 'side by side was not remembered');
+    dialogs[2].buttons[1].onClick();
   });
+});
+
+test('read only: the badge is a plain label', () => {
+  const widget = field({ readOnly: true });
+  assert.equal(widget._translationRows[0].input.container.querySelector('.h-input-text-lang').tagName, 'SPAN');
 });
 
 test('TranslationClient: POST /external/translate of the translation service; errors', async () => {

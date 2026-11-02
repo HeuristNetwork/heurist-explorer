@@ -1,9 +1,9 @@
 /**
  * @file designerDialogs.js
  * @brief Popups of the CMS designer (plan 27c): add page (title, preset), remove a page from the website, Save /
- *        Discard / Cancel, a save conflict, add element, group caption, a confirmation next to a button, a style
- *        form (own style of a node, kind defaults, presets) and the website Styles dialog. Texts and their
- *        translations: the shared HTextTranslationDialog (§26).
+ *        Discard / Cancel, a save conflict, add element, a confirmation next to a button, a style
+ *        form (own style of a node, kind defaults, presets) and the website Styles dialog. Texts, captions and
+ *        their translations: the shared HTextTranslationDialog / HTranslationDialog (§26).
  *
  * Every popup returns a promise of its answer (null when cancelled).
  *
@@ -182,35 +182,6 @@ function catalogDialog({ title, groups, okLabel = 'Add', titleRequired = false, 
   ok = HMsg.getMsgDlg?.(DIALOG_ID)?.querySelector?.('.h-dialog-footer .h-btn-primary') || null;
   pick(entries.find((entry) => entry.item.available)?.item || entries[0].item);
   return result;
-}
-
-/**
- * The caption of a group and its translations (plain text).
- *
- * @param {{caption?: string, translations?: Object<string, string>, languages?: string[], required?: boolean}} options
- *        languages: the other languages of the website; required: a panel label can not be empty.
- * @returns {Promise<{caption: string, translations: Object<string, string>}|null>}
- */
-export function openCaptionForm({ caption = '', translations = {}, languages = [], required = false } = {}) {
-  const form = element('form', 'h-cms-form');
-  const text = row(form, 'Caption', input('text'));
-  text.value = caption;
-  if (!required) text.placeholder = $HR('(none)');
-  const inputs = {};
-  for (const language of languages) {
-    inputs[language] = row(form, language.toUpperCase(), input('text'));
-    inputs[language].value = translations[language] || '';
-  }
-  return formDialog(form, 'Caption', 'OK', () => {
-    if (required && !text.value.trim()) {
-      text.focus();
-      return null;
-    }
-    return {
-      caption: text.value.trim(),
-      translations: Object.fromEntries(Object.entries(inputs).map(([language, control]) => [language, control.value.trim()]))
-    };
-  }, text, 'h-dialog-cms-narrow');
 }
 
 /**

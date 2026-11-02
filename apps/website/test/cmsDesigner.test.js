@@ -428,6 +428,35 @@ test('designer: a double click on a text opens the text popup; all languages are
   }
 });
 
+test('designer: the caption of a group in the translation popup; a translation added', async () => {
+  const { designer } = designerOf();
+  await designer.open(10);
+  let group = null;
+  designer._edit((doc) => { group = doc.insertElement('content', 'group', { id: null, position: 'inside' }); return true; });
+  const show = HMsg.showMsgDlg;
+  const close = HMsg.closeMsgDlg;
+  const dialogs = [];
+  HMsg.showMsgDlg = (body, options) => { dialogs.push({ body, ...options }); return null; };
+  HMsg.closeMsgDlg = () => {};
+  try {
+    const done = designer._editCaption(group);
+    const body = dialogs[0].body;
+    assert.deepEqual(body.querySelectorAll('.h-input-text-lang').map((badge) => badge.textContent), ['ENG'], 'the caption in the first language');
+    body.querySelectorAll('input')[0].value = 'News';
+    const select = body.querySelector('select');
+    select.value = 'fre';
+    select.fire('change');
+    body.querySelectorAll('input')[1].value = 'Nouvelles';
+    dialogs[0].buttons[0].onClick();
+    await done;
+    assert.deepEqual(designer._currentRecord().doc.caption(group), { id: designer._currentRecord().doc.caption(group).id, text: 'News', translations: { fre: 'Nouvelles' } });
+  } finally {
+    HMsg.showMsgDlg = show;
+    HMsg.closeMsgDlg = close;
+    designer.destroy();
+  }
+});
+
 test('designer: a website the user can not change is read only', async () => {
   const { designer, container } = designerOf({ canEdit: false });
   await designer.open(10);

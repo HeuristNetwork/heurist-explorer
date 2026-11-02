@@ -100,6 +100,8 @@ export class HEditForm extends HBaseWidget {
    *        Server-derived CMS exceptions; omitted means scripts and styles are not allowed.
    * @param {(values: object, form: HEditForm) => Array<{field?: string, message: string}>|string|null} [options.validate]
    *        Checks over several fields, after the field checks.
+   * @param {boolean} [options.showTranslations] Translation rows of multilingual fields shown (plan 25, 2026-11-02).
+   * @param {(show: boolean) => void} [options.onShowTranslations] The switch "Show translations" was used.
    * @returns {HEditForm} This form.
    */
   attach(container, options = {}) {
@@ -111,7 +113,18 @@ export class HEditForm extends HBaseWidget {
     this._hiddenFields = new Set(); // hidden by code (showField)
     this._hiddenGroups = new Set(); // hidden by code (showGroup)
     this._managedFields = new Set(); // special `hidden`: set by another field's editor, kept in the values
+    this.showTranslations = options.showTranslations === true;
     return this;
+  }
+
+  /**
+   * Show or hide the translation rows of all multilingual fields (the switch "Show translations").
+   *
+   * @param {boolean} show
+   */
+  setShowTranslations(show) {
+    this.showTranslations = Boolean(show);
+    for (const widget of this.fields?.values() || []) widget.setShowTranslations?.(this.showTranslations);
   }
 
   /** @returns {HEditForm} This form. */
@@ -134,6 +147,12 @@ export class HEditForm extends HBaseWidget {
     this._renderGroups(states);
 
     this.listen(this.container, 'h-input-change', (event) => this._onInputChange(event));
+    // the switch "Show translations" of a field acts on the whole form
+    this.listen(this.container, 'h-translations-toggle', (event) => {
+      event.stopPropagation();
+      this.setShowTranslations(event.detail?.show === true);
+      this.options.onShowTranslations?.(this.showTranslations);
+    });
     this._applyVisibility();
     this._renderShownGroups();
     this._initial = this._snapshot();
@@ -645,8 +664,9 @@ export class HEditForm extends HBaseWidget {
         apiClient: this.options.apiClient,
         dbdefs: this.options.dbdefs,
         languages: this.options.languages || this.options.dbdefs?.translationLanguages?.() || this.options.dbdefs?.languages?.() || [],
-        // Translate of "Insert translated value" (plan 25)
+        // Translate in the translation popups (plan 25); translation rows shown (switch of the whole form)
         translator: this.options.translator || null,
+        showTranslations: this.showTranslations,
         // the HTML / code editors of blocktext fields (plan 25)
         richText: this.options.richText || null,
         selectExtent: this.options.selectExtent,

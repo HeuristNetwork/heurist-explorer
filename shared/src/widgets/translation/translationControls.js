@@ -1,8 +1,8 @@
 /**
  * @file translationControls.js
- * @brief Language controls of the translation dialogs (HTextTranslationDialog, later HTranslationDialog): a
- *        language chooser (buttons as a radio group, a selector with more than ten languages) and a language
- *        selector.
+ * @brief Language controls of the translation dialogs (HTextTranslationDialog, HTranslationDialog): a
+ *        language chooser (buttons as a radio group, a selector with more than ten languages), a language
+ *        selector, and a plain text as HTML for the translation service and back.
  *
  *   const chooser = languageChooser({ languages: [{code: 'eng', label: 'ENG'}], value: 'eng', onChange });
  *   box.append(chooser.element); chooser.value;
@@ -61,6 +61,41 @@ export function languageChooser({ languages, value, onChange }) {
   };
   sync();
   return chooser;
+}
+
+/**
+ * A plain text as HTML for the translation service (format html): `& < >` escaped, so the text stays as it is;
+ * the marks `<span translate="no">` / `class="notranslate"` typed by the user are kept, so the part inside them
+ * is not translated.
+ *
+ * @param {string} text
+ * @returns {string}
+ */
+export function encodeTextForTranslation(text) {
+  const escaped = String(text ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const marked = /&lt;span\b[^&]*?(?:translate=(["'])no\1|class=(["'])[^"']*\bnotranslate\b[^"']*\2)[^&]*?&gt;/gi;
+  if (!marked.test(escaped)) return escaped;
+  return escaped
+    .replace(marked, (tag) => tag.replace(/^&lt;/, '<').replace(/&gt;$/, '>'))
+    .replace(/&lt;\/span&gt;/gi, '</span>');
+}
+
+/**
+ * The answer of the translation service for encodeTextForTranslation as plain text: entities decoded (the marks
+ * stay as the user typed them).
+ *
+ * @param {string} html
+ * @returns {string}
+ */
+export function decodeTranslatedText(html) {
+  const named = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ' };
+  return String(html ?? '').replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (entity, name) => {
+    if (name[0] === '#') {
+      const code = name[1] === 'x' || name[1] === 'X' ? parseInt(name.slice(2), 16) : parseInt(name.slice(1), 10);
+      return Number.isFinite(code) ? String.fromCodePoint(code) : entity;
+    }
+    return named[name.toLowerCase()] ?? entity;
+  });
 }
 
 /**

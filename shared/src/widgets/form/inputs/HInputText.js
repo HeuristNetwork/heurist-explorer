@@ -2,12 +2,12 @@
  * @file HInputText.js
  * @brief Single-line and multiline text input for shared forms. A URL input
  *        (`inputType: 'url'`) has an icon after it that opens the address. A translated
- *        value (`langCode: 'FRE'`, plan 25) shows its language code before the input.
+ *        value (`langCode: 'FRE'`, plan 25) shows its language code before the input; with
+ *        `openTranslation(lang)` the code is a button that opens the translation popup.
  *        A blocktext with `richText` (plan 25) has the links `text · wysiwyg · codeeditor` under it:
  *        the HTML editor (TinyMCE) or the code editor (CodeMirror) is made on demand, one at a
  *        time on the page (richTextEditors.js); `richText.autoWysiwyg` opens a value with HTML in
- *        the HTML editor at once (when no other editor is open); `richText.openDialog(lang)` adds the link
- *        `editor` (the popup of a multilingual text, HTextTranslationDialog).
+ *        the HTML editor at once (when no other editor is open).
  *
  * @project     Heurist academic knowledge management system
  * @package     heurist-client-core
@@ -54,10 +54,19 @@ export class HInputText extends HInput {
     // a translation: its language code in the actions slot before the input (plan 25; HInput actionsLead)
     const lang = String(this.options.langCode ?? '').trim().toUpperCase();
     if (lang) {
-      const badge = document.createElement('span');
-      badge.className = 'h-input-text-lang';
+      // `openTranslation(lang)`: the badge is a button that opens the translation popup (record editor)
+      const open = typeof this.options.openTranslation === 'function' ? this.options.openTranslation : null;
+      const badge = document.createElement(open ? 'button' : 'span');
+      badge.className = open ? 'h-input-text-lang is-button' : 'h-input-text-lang';
       badge.textContent = lang;
-      badge.title = `${$HR('Translation')}: ${lang}`;
+      badge.title = open ? `${$HR('Edit translations')}: ${lang}` : `${$HR('Translation')}: ${lang}`;
+      if (open) {
+        badge.type = 'button';
+        this.listen(badge, 'click', () => {
+          if (this.editor) this._closeEditor();
+          open(lang);
+        });
+      }
       this.actionsLead = badge;
       this.langCode = lang;
     }
@@ -190,20 +199,6 @@ export class HInputText extends HInput {
       this.listen(link, 'click', () => void this.setTextMode(mode));
       this.modesBar.append(link);
       this.modeLinks.set(mode, link);
-    }
-    if (typeof rich.openDialog === 'function') {
-      // a multilingual text: the popup with all its languages (HTextTranslationDialog), the value of the
-      // inline editor first
-      const link = document.createElement('button');
-      link.type = 'button';
-      link.className = 'h-input-text-mode h-input-text-popup';
-      link.textContent = $HR('editor');
-      link.title = $HR('Edit in a popup with translations');
-      this.listen(link, 'click', () => {
-        this._closeEditor();
-        rich.openDialog(this.langCode || '');
-      });
-      this.modesBar.append(link);
     }
     host.append(this.editorHost, this.modesBar);
     this._syncModes();

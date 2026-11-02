@@ -1302,6 +1302,9 @@ export class HRecordEditor extends HBaseWidget {
       // the database setting "Languages" (was: the languages of definition translations)
       languages: this.options.languages,
       translator: this.options.translator || null,
+      // translation rows of multilingual fields: the switch "Show translations", remembered in the browser
+      showTranslations: readShowTranslations(),
+      onShowTranslations: (show) => writeShowTranslations(show),
       // text / wysiwyg / codeeditor of blocktext fields; HTML at once by the configuration (plan 25)
       richText: this.options.richText ? { ...this.options.richText, autoWysiwyg: this._settings().wysiwygInline } : null,
       selectExtent: this.options.selectExtent,
@@ -1694,6 +1697,16 @@ export function localTime(value) {
 const SUMMARY_KEY = 'heurist.recordEditor.summaryCollapsed';
 const STRUCTURE_KEY = 'heurist.recordEditor.structureCollapsed';
 const FIELD_HELP_KEY = 'heurist.recordEditor.showFieldHelp';
+const TRANSLATIONS_KEY = 'heurist.recordEditor.showTranslations';
+
+/** Translation rows shown in edit forms (hidden by default, 2026-11-02). */
+function readShowTranslations() {
+  try { return globalThis.localStorage?.getItem(TRANSLATIONS_KEY) === '1'; } catch { return false; }
+}
+
+function writeShowTranslations(shown) {
+  try { globalThis.localStorage?.setItem(TRANSLATIONS_KEY, shown ? '1' : '0'); } catch { /* storage may be unavailable */ }
+}
 
 /** @returns {boolean} Whether the help texts of the fields are shown ("Show help"; default yes). */
 function readShowFieldHelp() {

@@ -1,0 +1,48 @@
+/* Translations of a single-line value (HTranslationDialog.js): one row per language (badge, input, clear on
+   mouse over, Translate), the language selector below. */
+
+.h-dialog.h-dialog-translation {
+  width: min(560px, 95vw);
+}
+
+/* room for the language badges: the inputs start at the same position */
+.h-dialog-translation .h-form-input.has-actions-slot .h-form-input-actions {
+  min-width: 30px;
+}
+
+.h-translation {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.h-translation-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.h-translation-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.h-translation-input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.h-translation-translate {
+  flex: none;
+  font-size: var(--h-font-size-small);
+}
+
+/* the original row keeps the place of the Translate button: all inputs are as wide */
+.h-translation-translate.is-placeholder {
+  visibility: hidden;
+}
+
+.h-translation-add[hidden] {
+  display: none;
+}

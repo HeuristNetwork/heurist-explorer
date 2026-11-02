@@ -1,5 +1,5 @@
 /* Text and translations popup (HTextTranslationDialog.js): the toolbar on top, the editor fills the popup
-   (no scroll bar of the popup); with Fix original the read-only language on the left (40%), the editor on the
+   (no scroll bar of the popup); side by side: the read-only language on the left (40%), the editor on the
    right; the toolbar uses the same columns, so the second language selector is above the editor. */
 
 .h-dialog.h-dialog-text-translation {

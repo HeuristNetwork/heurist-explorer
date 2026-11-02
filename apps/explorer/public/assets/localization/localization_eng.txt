@@ -1245,8 +1245,8 @@
 #Current query#Current query
 #Select a filter...#Select a filter...
 #this filter can not be read#this filter can not be read
-#Fix original#Fix original
-#Show a language read only beside the editor#Show a language read only beside the editor
+#Side by side#Side by side
+#Show the original read only beside the editor#Show the original read only beside the editor
 #Language shown read only#Language shown read only
 #Language of the editor#Language of the editor
 #Translate the text on the left into the language of the editor (translation service)#Translate the text on the left into the language of the editor (translation service)
@@ -1255,5 +1255,14 @@
 #Show HTML#Show HTML
 #Show rich editor#Show rich editor
 #Edit text#Edit text
-#editor#editor
-#Edit in a popup with translations#Edit in a popup with translations
+#Translations#Translations
+#Original#Original
+#Translate from original language#Translate from original language
+#Enter the original value first#Enter the original value first
+#Add a language#Add a language
+#Add a translation in this language#Add a translation in this language
+#Enter the original value: translations need it#Enter the original value: translations need it
+#Translations of the value#Translations of the value
+#Show translations#Show translations
+#Hide translations#Hide translations
+#Edit translations#Edit translations

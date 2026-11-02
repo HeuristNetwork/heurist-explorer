@@ -84,8 +84,8 @@
 #Website summary#Résumé du site
 #Page description#Description de la page
 #Author#Auteur
-#Fix original#Fixer l'original
-#Show a language read only beside the editor#Afficher une langue en lecture seule à côté de l'éditeur
+#Side by side#Côte à côte
+#Show the original read only beside the editor#Afficher l'original en lecture seule à côté de l'éditeur
 #Language shown read only#Langue affichée en lecture seule
 #Language of the editor#Langue de l'éditeur
 #Translate the text on the left into the language of the editor (translation service)#Traduire le texte de gauche dans la langue de l'éditeur (service de traduction)
@@ -94,9 +94,19 @@
 #Show HTML#Afficher le HTML
 #Show rich editor#Afficher l'éditeur riche
 #Default#Par défaut
-#editor#éditeur
-#Edit in a popup with translations#Modifier dans une fenêtre avec les traductions
 #Language#Langue
 #Edit the text and its translations#Modifier le texte et ses traductions
 #Edit the text with the pen or a double click; the popup shows the languages of the website: translate the text there.#Modifiez le texte avec le crayon ou un double clic ; la fenêtre affiche les langues du site : traduisez-y le texte.
 #Edit the text with the pen or a double click.#Modifiez le texte avec le crayon ou un double clic.
+#Translations#Traductions
+#Translate from original language#Traduire depuis la langue d'origine
+#Enter the original value first#Saisissez d'abord la valeur d'origine
+#Add a language#Ajouter une langue
+#Add a translation in this language#Ajouter une traduction dans cette langue
+#A value is required#Une valeur est requise
+#Enter the original value: translations need it#Saisissez la valeur d'origine : les traductions en ont besoin
+#Translations of the value#Traductions de la valeur
+#Show translations#Afficher les traductions
+#Hide translations#Masquer les traductions
+#Caption#Légende
+#Edit translations#Modifier les traductions

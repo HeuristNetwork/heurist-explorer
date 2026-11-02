@@ -614,3 +614,12 @@ blocktext fields): `shared/src/widgets/translation/HTextTranslationDialog.js` (+
 
 Tests: `shared/test/textTranslationDialog.test.js`, HTree double click, designer double click + one undo step;
 JS 1,565 pass. Not checked in a browser.
+
+Browser check by Artem 2026-11-02: translation and popup work. Fix: turning *Fix original* on always fixes the
+original (first) language on the left; when the editor showed the original it moves to the next language (it
+fixed the second language before, an empty French text for an English-only text).
+
+2026-11-02 (Artem): *Fix original* renamed **Side by side** (tooltip *Show the original read only beside the
+editor*). The source language is sent to the translation service (option `originalCode` for the record editor's
+value). Group captions use the shared `HTranslationDialog` (the caption in the first website language, the others
+added with the selector; one language or none: the caption only); `openCaptionForm` removed.

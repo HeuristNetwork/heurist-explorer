@@ -1,8 +1,8 @@
 /**
  * @file textTranslationDialog.test.js
  * @brief The text and translations popup (HTextTranslationDialog, plan 27c §26 / plan 25): language buttons or
- *        a selector, Fix original with two exclusive selectors, Translate, Show HTML, changed languages only;
- *        the record editor's multilingual blocktext (link "editor", changes applied to the rows).
+ *        a selector, Side by side with two exclusive selectors, Translate, Show HTML, changed languages only;
+ *        the record editor's multilingual blocktext (changes applied to the rows).
  */
 
 import test from 'node:test';
@@ -58,7 +58,7 @@ const selectsOf = (toolbar) => toolbar.querySelectorAll('select');
 test('one language: no language controls, only Show HTML; the editor fills the popup', async () => {
   const { toolbar, editors, form: value } = await form({ languages: [{ code: 'eng', label: 'ENG' }], texts: { eng: 'A' } });
   assert.equal(buttonsOf(toolbar).length, 0);
-  assert.equal(toolbar.querySelector('input'), null, 'no Fix original');
+  assert.equal(toolbar.querySelector('input'), null, 'no Side by side');
   assert.equal(toolbar.querySelector('.h-text-translation-mode').textContent, 'Show HTML');
   assert.equal(editors.last().kind, 'tiny');
   assert.deepEqual(value.read(), { texts: {} });
@@ -86,13 +86,14 @@ test('more than ten languages: a selector', async () => {
   assert.equal(selectsOf(toolbar)[0].children.length, 11);
 });
 
-test('Fix original: the original read only on the left, two exclusive selectors; remembered', async () => {
+test('Side by side: the original read only on the left, two exclusive selectors; remembered', async () => {
   const { form: value, editors, remember } = await form({ language: 'fre' });
   const editor = editors.last();
   const box = value.element.querySelector('.h-text-translation-toolbar').querySelector('input');
   box.checked = true;
   box.fire('change');
-  assert.equal(remember.fixOriginal, true);
+  assert.equal(remember.sideBySide, true);
+  assert.equal(value.element.querySelector('.h-text-translation-fix').textContent, 'Side by side');
   const toolbar = value.element.querySelector('.h-text-translation-toolbar');
   assert.ok(toolbar.classList.contains('is-fixed'));
   const fixed = value.element.querySelector('.h-text-translation-fixed');
@@ -113,20 +114,36 @@ test('Fix original: the original read only on the left, two exclusive selectors;
   assert.deepEqual(value.read(), { texts: { fre: '<p>Salut</p>' } });
 });
 
-test('Fix original remembered from an earlier opening; on the original the second language is fixed', async () => {
-  const { form: value } = await form({ remember: { fixOriginal: true } });
-  const [source, target] = selectsOf(value.element.querySelector('.h-text-translation-toolbar'));
-  assert.equal(target.value, 'eng');
-  assert.equal(source.value, 'fre');
+test('Side by side on the original: the original stays fixed on the left, the editor moves to the next language', async () => {
+  // remembered from an earlier opening: the editor is made in the translation at once
+  const remembered = await form({ remember: { sideBySide: true } });
+  let [source, target] = selectsOf(remembered.form.element.querySelector('.h-text-translation-toolbar'));
+  assert.equal(source.value, 'eng');
+  assert.equal(target.value, 'fre');
+  assert.equal(remembered.editors.last().value, '<p>Bonjour</p>');
+
+  // turned on while the editor shows the original (an English-only text)
+  const { form: value, editors } = await form({ texts: { eng: '<p>Hello</p>' } });
+  const editor = editors.last();
+  editor.value = '<p>Hello world</p>';
+  const box = value.element.querySelector('.h-text-translation-toolbar').querySelector('input');
+  box.checked = true;
+  box.fire('change');
+  [source, target] = selectsOf(value.element.querySelector('.h-text-translation-toolbar'));
+  assert.equal(source.value, 'eng');
+  assert.equal(target.value, 'fre');
+  assert.equal(value.element.querySelector('.h-text-translation-original').innerHTML, '<p>Hello world</p>', 'the edited original on the left');
+  assert.equal(editor.value, '', 'the editor shows the French text (none yet)');
+  assert.deepEqual(value.read(), { texts: { eng: '<p>Hello world</p>' } });
 });
 
 test('Translate: only with a translator; the translation of the left text goes into the editor', async () => {
-  const none = await form({ remember: { fixOriginal: true }, language: 'fre' });
+  const none = await form({ remember: { sideBySide: true }, language: 'fre' });
   assert.equal(none.toolbar.querySelector('.h-text-translation-translate'), null, 'no translation service: no Translate');
 
   const calls = [];
   const translator = { available: true, translate: async (request) => { calls.push(request); return '<p>Bonjour !</p>'; } };
-  const { form: value, editors } = await form({ remember: { fixOriginal: true }, language: 'fre', translator });
+  const { form: value, editors } = await form({ remember: { sideBySide: true }, language: 'fre', translator });
   const button = value.element.querySelector('.h-text-translation-translate');
   button.click();
   await flush();
@@ -135,8 +152,23 @@ test('Translate: only with a translator; the translation of the left text goes i
   assert.deepEqual(value.read(), { texts: { fre: '<p>Bonjour !</p>' } });
 });
 
+test('Translate: the language of code "" (record editor value) is sent as source', async () => {
+  const calls = [];
+  const translator = { available: true, translate: async (request) => { calls.push(request); return 'Bonjour'; } };
+  const { form: value } = await form({
+    texts: { '': 'Hello', FRE: '' },
+    languages: [{ code: '', label: 'ENG' }, { code: 'FRE', label: 'FRE' }],
+    originalCode: 'ENG',
+    remember: { sideBySide: true },
+    translator
+  });
+  value.element.querySelector('.h-text-translation-translate').click();
+  await flush();
+  assert.deepEqual(calls, [{ string: 'Hello', target: 'FRE', format: 'html', source: 'ENG' }]);
+});
+
 test('Show HTML: the code editor with the current value, raw HTML on the fixed side; code only: no toggle', async () => {
-  const { form: value, editors, remember } = await form({ remember: { fixOriginal: true }, language: 'fre' });
+  const { form: value, editors, remember } = await form({ remember: { sideBySide: true }, language: 'fre' });
   editors.last().value = '<p>Salut</p>';
   const toggle = value.element.querySelector('.h-text-translation-mode');
   toggle.click();
@@ -179,26 +211,18 @@ test('the popup: OK gives the changed languages, Cancel null', async () => {
   }
 });
 
-test('record editor: a multilingual blocktext has the link "editor"; the popup result changes the rows', () => {
+test('record editor: a multilingual blocktext has no "editor" link; the popup result changes the rows', () => {
   const widget = new HEditField().attach(document.createElement('div'), {
     field: { name: 'text', dty: 3, type: 'blocktext', label: 'Text', multilang: true, max: 1 },
     state: { values: [{ value: 'Hello', hidden: false }], translations: [{ lang: 'FRE', value: 'Bonjour', hidden: false }, { lang: 'GER', value: 'Hallo', hidden: false }] },
     languages: ['FRE', 'GER', 'SPA'],
     richText: { baseUrl: '' }
   }).render();
-  assert.ok(widget.container.querySelector('.h-input-text-popup'), 'the link "editor"');
-  assert.equal(typeof widget._richTextOptions().openDialog, 'function');
+  assert.equal(widget.container.querySelector('.h-input-text-popup'), null, 'the popup opens from the language icon or a badge');
   widget._applyTexts({ '': 'Hi', FRE: 'Salut', GER: '', SPA: 'Hola' });
   assert.deepEqual(widget.getState().values.map((entry) => entry.value), ['Hi']);
   assert.deepEqual(widget.getState().translations, [{ lang: 'FRE', value: 'Salut', hidden: false }, { lang: 'SPA', value: 'Hola', hidden: false }],
     'changed, removed (empty) and added');
-
-  const readOnly = new HEditField().attach(document.createElement('div'), {
-    field: { name: 'text', dty: 3, type: 'blocktext', label: 'Text', multilang: true, max: 1, readOnly: true },
-    state: { values: [{ value: 'Hello', hidden: false }], translations: [] },
-    richText: { baseUrl: '' }
-  }).render();
-  assert.equal(readOnly._richTextOptions().openDialog, undefined, 'read only: no popup');
 });
 
 test('record editor: the value is in the first language of the setting; a row in that language is still shown', async () => {

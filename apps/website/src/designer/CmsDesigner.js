@@ -29,13 +29,14 @@ import { createTabSet } from '#shared/widgets/layout/tabs.js';
 import { CMS_ELEMENTS, cmsPageStarter } from '#shared/site/cmsEdit.js';
 import { TranslationClient } from '#shared/data/TranslationClient.js';
 import { openTextTranslationDialog } from '#shared/widgets/translation/HTextTranslationDialog.js';
+import { openTranslationDialog } from '#shared/widgets/translation/HTranslationDialog.js';
 import { CmsPreview, PREVIEW_WIDTHS } from './CmsPreview.js';
 import {
   changedDetails, dropPlace, menuPlace, previewUrl, recordDocument, subPageIds
 } from './designerData.js';
 import {
   askConflict, askRemovePage, askSaveDiscard, confirm, confirmNear, openAddElementForm,
-  openAddPageForm, openCaptionForm, openStyleForm, openStylesDialog
+  openAddPageForm, openStyleForm, openStylesDialog
 } from './designerDialogs.js';
 import './designer.css';
 
@@ -83,7 +84,7 @@ export class CmsDesigner {
     this.undoStack = [];
     this.redoStack = [];
     this.language = null;
-    // Fix original / Show HTML of the text popup, kept between openings
+    // Side by side / Show HTML of the text popup, kept between openings
     this.textDialogState = {};
     this.clipboard = readClipboard(options.runtime?.database);
   }
@@ -914,7 +915,7 @@ export class CmsDesigner {
       texts,
       languages: codes.map((code) => ({ code, label: code.toUpperCase() })),
       language: this.language || codes[0],
-      translator: new TranslationClient({ apiClient: this.apiClient, available: Boolean(this.options.dbdefs?.translator?.()) }),
+      translator: this._translator(),
       baseUrl: runtime.baseUrl || '',
       remember: this.textDialogState,
       ...(loadEditor ? { createEditor: async (...args) => (await loadEditor())(...args) } : {})
@@ -930,18 +931,32 @@ export class CmsDesigner {
     });
   }
 
-  /** Caption of a group and its translations (a panel of tabs / accordions must keep one). */
+  /**
+   * Caption of a group and its translations in the translation popup (§26): the caption in the first website
+   * language, the others below; one language or none: the caption only. A panel of tabs / accordions must keep one.
+   */
   async _editCaption(id) {
     const record = this._currentRecord();
     const current = record.doc.caption(id);
-    const languages = (this.site?.languages || []).slice(1);
-    const values = await openCaptionForm({
-      caption: current?.text || '',
+    const languages = this.site?.languages || [];
+    const result = await openTranslationDialog({
+      title: 'Caption',
+      value: current?.text || '',
       translations: current?.translations || {},
       languages,
+      original: languages[0] || '',
+      translator: this._translator(),
       required: record.doc.isPanel(id)
     });
-    if (values) this._edit((doc) => doc.setCaption(id, values.caption, values.translations));
+    if (!result) return;
+    // languages left out are removed
+    const translations = Object.fromEntries(languages.slice(1).map((code) => [code, result.translations[code] || '']));
+    this._edit((doc) => doc.setCaption(id, result.value.trim(), translations));
+  }
+
+  /** The translation service of the server (Translate in the popups). */
+  _translator() {
+    return new TranslationClient({ apiClient: this.apiClient, available: Boolean(this.options.dbdefs?.translator?.()) });
   }
 
   async _ownStyle(id) {

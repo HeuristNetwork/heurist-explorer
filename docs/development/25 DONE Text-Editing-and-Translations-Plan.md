@@ -143,3 +143,26 @@ the provider: Google now, DeepL / LibreTranslate later) instead of the legacy `u
 Codes are sent in lower case (`fre`), `format` is `html` for rich texts and `text` for short fields and code-only
 fields; texts over 5,000 characters are refused before sending. The client expects the answer `{"text": "..."}`.
 The client code and texts no longer name a provider ("translation service").
+
+## Single-line translations and hidden translation rows (Artem, 2026-11-02)
+
+- `shared/src/widgets/translation/HTranslationDialog.js`: translations of a single-line value. Rows of HInputText
+  with the language badge and clear on mouse over; the original first (the default language, `—` without the
+  setting); *Add a language* selector of the free languages (hidden when none is left); with a translation service a
+  Translate button per translation row (disabled for an empty original). Returns the non-empty translations; an
+  empty original with translations is refused. Replaces *Insert translated value* (`_openTranslateDialog` removed).
+- Requests send the source language when it is known (the default language, the left language side by side) and
+  single-line texts as `format: html`: `& < >` escaped, the user's `<span translate="no">` / `notranslate` marks
+  kept (`encodeTextForTranslation` / `decodeTranslatedText` in `translationControls.js`). Deviation: the answer is
+  not stripped of tags, so the marks stay in the value as the user typed them.
+- Edit form: translation rows are hidden by default. Next to the language icon a small switch (caret) *Show /
+  Hide translations* acts on the whole form (`HEditField.setShowTranslations`, event `h-translations-toggle`,
+  `HEditForm.setShowTranslations`, `onShowTranslations`). Deviation: remembered in the browser
+  (`heurist.recordEditor.showTranslations`, like *Show field help*), not in the Explorer configuration. The switch
+  is shown also in read-only forms.
+- (Artem, 2026-11-02) The language badge of a translation row is a button (HInputText `openTranslation`; a label in
+  read-only forms): single-line fields open HTranslationDialog with the cursor in that language; blocktext fields
+  open HTextTranslationDialog side by side (the value left, the clicked language in the editor) for that opening
+  only (option `sideBySide`; the remembered mode is not changed).
+- (Artem, 2026-11-02) The link *editor* under a multilingual blocktext is removed (HInputText `richText.openDialog`):
+  the text popup opens from the language icon or a translation badge.

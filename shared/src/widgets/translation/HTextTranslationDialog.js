@@ -3,10 +3,10 @@
  * @brief One popup to edit a rich text and its translations (CMS text blocks, multilingual blocktext fields of
  *        the record editor; plan 27c §26, plan 25). A toolbar above the editor:
  *
- *          [ ] Fix original  [ENG] [FRE] [GER]                       [Show HTML]
- *          [x] Fix original  [ENG v] [Translate =>] | [FRE v]          [Show HTML]
+ *          [ ] Side by side  [ENG] [FRE] [GER]                       [Show HTML]
+ *          [x] Side by side  [ENG v] [Translate =>] | [FRE v]          [Show HTML]
  *
- *        The language buttons work as a radio group (a selector with more than ten languages). With Fix original
+ *        The language buttons work as a radio group (a selector with more than ten languages). Side by side:
  *        the left language is shown read only beside the editor and the right one is edited; the two selectors
  *        exclude each other (choosing the language of the other one swaps them). Translate (the translation
  *        service of the server, when it has one) puts the translation of the left text into the editor. Show
@@ -87,8 +87,11 @@ export async function openTextTranslationDialog(options = {}) {
  * @param {Function} [options.insertRecordLink] TinyMCE Record button.
  * @param {string} [options.codeLanguage='html'] Language of the code editor.
  * @param {boolean} [options.codeOnly] Only the code editor (no Show HTML toggle).
- * @param {{fixOriginal?: boolean, showHtml?: boolean}} [options.remember] Read and updated: kept by the caller
+ * @param {{sideBySide?: boolean, showHtml?: boolean}} [options.remember] Read and updated: kept by the caller
  *        between openings.
+ * @param {boolean} [options.sideBySide] Side by side for this opening, whatever is remembered (not remembered).
+ * @param {string} [options.originalCode] Language of the code '' (the value of a record editor field), sent
+ *        to the translation service as the source / target language.
  * @param {Function} [options.createEditor] createTinyMceEditor (default: lazy import; tests).
  * @param {Function} [options.createCodeEditor] createCodeTextEditor (default: lazy import; tests).
  * @returns {{element: HTMLElement, start: () => Promise<void>, read: () => {texts: Object<string, string>},
@@ -96,7 +99,7 @@ export async function openTextTranslationDialog(options = {}) {
  */
 export function createTextTranslationForm({
   texts = {}, languages = [], language = null, translator = null, baseUrl = '', insertMedia = null,
-  insertRecordLink = null, codeLanguage = 'html', codeOnly = false, remember = {}, createEditor = null,
+  insertRecordLink = null, codeLanguage = 'html', codeOnly = false, remember = {}, originalCode = '', sideBySide = undefined, createEditor = null,
   createCodeEditor = null
 } = {}) {
   const list = languages.length ? languages : [{ code: '', label: '' }];
@@ -203,11 +206,20 @@ export function createTextTranslationForm({
     renderFixed();
   };
 
+  // Side by side: the original on the left; the editor shows a translation (the next language when it showed
+  // the original). Returns whether the edited language changed.
+  const fixOriginal = () => {
+    state.source = codes[0];
+    if (state.current !== codes[0]) return false;
+    state.current = codes[1];
+    return true;
+  };
+
   const setFixed = (fixed) => {
     store();
     state.fixed = fixed && multilingual;
-    remember.fixOriginal = state.fixed;
-    if (state.fixed) state.source = state.current !== codes[0] ? codes[0] : codes[1];
+    remember.sideBySide = state.fixed;
+    if (state.fixed && fixOriginal()) load();
     body.classList.toggle('is-fixed', state.fixed);
     renderToolbar();
     renderFixed();
@@ -223,9 +235,11 @@ export function createTextTranslationForm({
     button.disabled = true;
     button.textContent = $HR('Translating...');
     const target = state.current;
+    // code '' (the value itself in the record editor) is the original language
+    const sourceCode = state.source || originalCode;
     try {
       const text = await translator.translate({
-        string, target: target.toUpperCase(), format: codeOnly ? 'text' : 'html', ...(state.source ? { source: state.source.toUpperCase() } : {})
+        string, target: (target || originalCode).toUpperCase(), format: codeOnly ? 'text' : 'html', ...(sourceCode ? { source: sourceCode.toUpperCase() } : {})
       });
       if (destroyed || !editor || state.current !== target) return;
       editor.setValue(text);
@@ -249,8 +263,8 @@ export function createTextTranslationForm({
       box.checked = state.fixed;
       box.addEventListener('change', () => setFixed(box.checked));
       const caption = element('span', 'h-i18n');
-      caption.textContent = $HR('Fix original');
-      label.title = $HR('Show a language read only beside the editor');
+      caption.textContent = $HR('Side by side');
+      label.title = $HR('Show the original read only beside the editor');
       label.append(box, caption);
       lead.append(label);
       if (state.fixed) {
@@ -260,7 +274,7 @@ export function createTextTranslationForm({
           button.type = 'button';
           button.textContent = `${$HR('Translate')} ⇒`;
           button.title = $HR('Translate the text on the left into the language of the editor (translation service)');
-          button.disabled = !state.current;
+          button.disabled = !(state.current || originalCode);
           button.addEventListener('click', () => void translate(button));
           lead.append(button);
         }
@@ -287,8 +301,9 @@ export function createTextTranslationForm({
     toolbar.append(lead, main);
   }
 
-  state.fixed = remember.fixOriginal === true && multilingual;
-  if (state.fixed) state.source = state.current !== codes[0] ? codes[0] : codes[1];
+  // `sideBySide` given: for this opening only (a badge of the record editor); else the remembered mode
+  state.fixed = (sideBySide ?? remember.sideBySide === true) && multilingual;
+  if (state.fixed) fixOriginal(); // before the editor is made: it opens in the translation
   body.classList.toggle('is-fixed', state.fixed);
   renderToolbar();
   renderFixed();

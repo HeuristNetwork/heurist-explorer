@@ -35,6 +35,16 @@
   line-height: 1.4;
 }
 
+/* the badge opens the translation popup (record editor) */
+.h-input-text-lang.is-button {
+  cursor: pointer;
+}
+
+.h-input-text-lang.is-button:hover {
+  border-color: var(--h-color-primary);
+  color: var(--h-color-primary);
+}
+
 /* text · wysiwyg · codeeditor under a blocktext (plan 25): the active one underlined */
 .h-input-text-modes {
   display: flex;
