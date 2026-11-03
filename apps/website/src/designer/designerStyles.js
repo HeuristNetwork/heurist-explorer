@@ -58,13 +58,16 @@ export const CMS_THEMES = Object.freeze([
 ]);
 
 const KIND_LABELS = Object.freeze({
-  group: 'Groups', tabs: 'Tabs', accordion: 'Accordions', text: 'Texts', instance: 'Modules and widgets'
+  group: 'Groups', tabs: 'Tabs', accordion: 'Accordions', text: 'Texts', media: 'Media', instance: 'Modules and widgets'
 });
+
+/** The image of the media sample (bundled by Vite; a file URL in the tests). */
+const MEDIA_SAMPLE_IMAGE = new URL('./assets/media-sample.png', import.meta.url).href;
 
 const HELP = Object.freeze({
   base: 'Colours, fonts and sizes of the whole website. Choose a theme to fill the colours, then change single values.'
     + ' Empty values use the Heurist defaults.',
-  kinds: 'The default style of every element of a kind on the website (all groups, tabs, accordions, texts or modules).'
+  kinds: 'The default style of every element of a kind on the website (all groups, tabs, accordions, texts, media or modules).'
     + ' The preset and the own style of an element are added to it.',
   presets: 'Named styles defined once and applied to elements (Preset in the properties of an element), for example a'
     + ' card or a highlighted box. The kind default applies first, then the preset, then the own style of the element.',
@@ -94,6 +97,8 @@ color:var(--h-color-text);background:var(--h-color-bg)}
 p{margin:.3em 0}
 a{color:var(--h-color-link)}
 section[data-h-control="group"][aria-labelledby]>h3:first-child{grid-column:1/-1}
+figure[data-h-media]{margin:0}figure[data-h-media] :is(img,video,audio,iframe){display:block;max-width:100%;border:0}
+figure[data-h-media] figcaption{margin-top:4px;font-size:.9em}
 .pv-header{display:flex;align-items:center;gap:12px;padding:6px 12px;background:var(--h-color-surface);
 border-bottom:1px solid var(--h-color-border);font-weight:600}
 .pv-header span{font-weight:normal;color:var(--h-color-link)}
@@ -139,6 +144,9 @@ const KIND_SAMPLES = Object.freeze({
     + '<details data-h-control="group"><summary>Section 2</summary></details></div>',
   text: '<div data-h-text=""><h2>Heading of a text</h2><p>A paragraph of the text with <a href="#">a link</a>.'
     + ' Lorem ipsum dolor sit amet, consectetur adipiscing elit.</p></div>',
+  // as cmsMedia.js makes it (§33)
+  media: `<figure data-h-media="pv" data-h-text=""><img src="${MEDIA_SAMPLE_IMAGE}" alt="Heurist" loading="lazy" />`
+    + '<figcaption>Caption of the media <a href="#">Open in OSD viewer</a></figcaption></figure>',
   instance: '<div data-h-instance="pv"><div class="pv-module">Module or widget</div></div>'
 });
 
@@ -163,12 +171,16 @@ export function createStylesForm({ base = {}, kinds = {}, presets = {}, css = ''
   // no scripts; the same origin, so registered images that need the login are shown too
   frame.setAttribute('sandbox', 'allow-same-origin');
   frame.title = $HR('Preview');
-  // the preview is a page of at least 660 px (wider than the narrow screen), with a scroll bar in a narrow column (§32)
+  // the preview page: at least 424 px, 641 px with columns (show); a scroll bar in a narrow column
   const frameBox = element('div', 'h-cms-styles-preview-box');
   frameBox.append(frame);
   previewColumn.append(previewCaption, frameBox);
   root.append(tabs.element, previewColumn);
-  const show = (html) => { frame.srcdoc = html; };
+  // columns (a grid / flex preset or group kind) need a page wider than the narrow screen (640 px); else a narrow one
+  const show = (html, columns = false) => {
+    frame.classList.toggle('h-cms-styles-preview-columns', columns);
+    frame.srcdoc = html;
+  };
   // background images are allowed from the Heurist base URL only (compileCmsStyles)
   const preview = (body) => previewDocument(javaScriptAllowed ? state : { ...state, css: '' }, body, files?.baseUrl || '');
   const refresh = () => previews[tabs.selected]?.();
@@ -236,7 +248,7 @@ export function createStylesForm({ base = {}, kinds = {}, presets = {}, css = ''
     drawKind();
     refresh();
   });
-  previews.push(() => show(preview(KIND_SAMPLES[kind.value] || '')));
+  previews.push(() => show(preview(KIND_SAMPLES[kind.value] || ''), kind.value === 'group' && sampleColumns(state.kinds.group) > 1));
   drawKind();
 
   // ------------------------------------------------------------ presets
@@ -318,7 +330,7 @@ export function createStylesForm({ base = {}, kinds = {}, presets = {}, css = ''
     const count = name ? sampleColumns(state.presets[name]) : 0;
     const texts = Array.from({ length: count }, (item, index) => `<div data-h-text=""><h3>${label}${count > 1 ? ` (${index + 1})` : ''}</h3>`
       + '<p>An element with this preset. Lorem ipsum dolor sit amet, consectetur adipiscing elit.</p></div>').join('');
-    show(preview(name ? `<div data-h-control="group" data-h-style="${escapeHtml(name)}">${texts}</div>` : ''));
+    show(preview(name ? `<div data-h-control="group" data-h-style="${escapeHtml(name)}">${texts}</div>` : ''), count > 1);
   });
   drawPresets();
 

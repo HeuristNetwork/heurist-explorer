@@ -143,3 +143,4 @@
 #Empty = auto; a number is px, or %. Both under 200 px (or one under 200 px and the other auto): the thumbnail is shown.#Empty = auto; a number is px, or %. Both under 200 px (or one under 200 px and the other auto): the thumbnail is shown.
 #Player size (width × height)#Player size (width × height)
 #The size of the player that a click on the thumbnail of audio, video or a YouTube, Vimeo or SoundCloud link opens.#The size of the player that a click on the thumbnail of audio, video or a YouTube, Vimeo or SoundCloud link opens.
+#Caption of the media#Caption of the media

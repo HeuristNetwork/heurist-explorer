@@ -796,3 +796,15 @@ Done 2026-11-03, not committed, not checked in a browser:
   (`{service}/{region}/{size}/{rotation}/{quality}.{format}`) is registered as its image service
   (`{service}/info.json`, `iiif_image`) when the service answers; else as before. File #167 was registered before
   this: register it again (or change its source). Test: `tests/FileWriteTest.php`.
+
+## 37. Styles preview width (Artem, 2026-11-03)
+
+The preview iframe is `max(424px, 100%)` wide; with columns (a preset with more than one column by `sampleColumns`, or
+the group kind with columns) `max(641px, 100%)` (class `h-cms-styles-preview-columns`), wider than the narrow screen.
+
+## 38. Media in Layout styles (Artem, 2026-11-03)
+
+Layout styles: kind *Media* with a sample (a figure with the Heurist logo, `apps/website/src/designer/assets/media-sample.png`,
+and a caption with a viewer link); the preview copy of the site stylesheet has the figure rules. New websites get the
+kind default `media: {border: 1px dotted var(--h-color-border), padding: 8px}` (`WebsiteStarter::KINDS`); existing
+websites set it in Layout styles → Media.

@@ -531,7 +531,7 @@
   resize: none;
 }
 
-/* the preview page: at least 660 px wide (wider than the narrow screen), a scroll bar in a narrow column (§32) */
+/* the preview page: at least 424 px, 641 px with columns (wider than the narrow screen); a scroll bar in a narrow column */
 .h-cms-styles-preview-box {
   flex: 1 1 auto;
   min-height: 0;
@@ -543,9 +543,14 @@
 
 .h-cms-styles-preview {
   display: block;
-  width: max(660px, 100%);
+  width: max(424px, 100%);
   height: 100%;
   border: 0;
+}
+
+/* a preview with columns: wider than the narrow screen (640 px), so the columns are side by side */
+.h-cms-styles-preview.h-cms-styles-preview-columns {
+  width: max(641px, 100%);
 }
 
 /* catalog popup: Add page, Add element (§19) */

@@ -143,3 +143,4 @@
 #Empty = auto; a number is px, or %. Both under 200 px (or one under 200 px and the other auto): the thumbnail is shown.#Vide = auto ; un nombre est en px, ou %. Les deux sous 200 px (ou l’une sous 200 px et l’autre auto) : la vignette est affichée.
 #Player size (width × height)#Taille du lecteur (largeur × hauteur)
 #The size of the player that a click on the thumbnail of audio, video or a YouTube, Vimeo or SoundCloud link opens.#La taille du lecteur ouvert par un clic sur la vignette d’un son, d’une vidéo ou d’un lien YouTube, Vimeo ou SoundCloud.
+#Caption of the media#Légende du média
