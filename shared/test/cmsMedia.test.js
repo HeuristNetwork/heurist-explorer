@@ -35,7 +35,7 @@ test('buildCmsMedia: image in its size, the OSD link with player; the caption wi
   const plain = buildCmsMedia(file(), { width: '400px', height: 'auto' }, { urls, caption: 'A map' });
   assert.equal(plain, '<img src="http://h/?db=db&amp;file=k1" alt="A map" width="400" loading="lazy" /><figcaption>A map</figcaption>');
   const linked = buildCmsMedia(file(), { player: true }, { urls, caption: 'A & B' });
-  assert.match(linked, /^<a href="http:\/\/h\/hclient\/widgets\/viewers\/openSeadragonViewer\.php\?db=db&amp;recID=k1" target="_blank" rel="noreferrer noopener"><img src="http:\/\/h\/\?db=db&amp;file=k1"/);
+  assert.match(linked, /^<a href="http:\/\/h\/hclient\/widgets\/viewers\/openSeadragonViewer\.php\?db=db&amp;id=k1" target="_blank" rel="noreferrer noopener"><img src="http:\/\/h\/\?db=db&amp;file=k1"/);
   assert.match(linked, /<figcaption>A &amp; B <a href="[^"]+openSeadragonViewer[^"]+" target="_blank" rel="noreferrer noopener">Open in OSD viewer<\/a><\/figcaption>$/);
   assert.equal(cmsMediaCaption(linked), 'A & B', 'the caption of the HTML, without the link');
   const french = buildCmsMedia(file(), { player: true }, { urls, caption: 'Carte', language: 'fre' });
@@ -54,7 +54,16 @@ test('buildCmsMedia: video and audio players; thumbnail + player without a scrip
   assert.match(buildCmsMedia(youtube, { width: '480px', height: '270px' }, { urls }),
     /^<iframe src="https:\/\/www\.youtube\.com\/embed\/abcdefg" width="480" height="270" title="a\.jpg" loading="lazy" allow="autoplay; fullscreen" allowfullscreen=""><\/iframe>$/);
   assert.match(buildCmsMedia(youtube, { width: '120px', player: true }, { urls }), /<summary>.*<\/summary><iframe src="https:\/\/www\.youtube\.com\/embed\/abcdefg\?autoplay=1"/);
-  assert.match(buildCmsMedia(file({ ext: 'json', source: 'iiif' }), { player: true }, { urls }), /miradorViewer\.php\?db=db&amp;id=k1.*Open in Mirador/);
+  assert.match(buildCmsMedia(file({ ext: 'json', source: 'iiif' }), { player: true }, { urls }), /miradorViewer\.php\?db=db&amp;manifest=k1.*Open in Mirador/,
+    'a registered manifest: manifest=');
+  assert.match(buildCmsMedia(file({ ext: '', source: 'iiif_image', url: 'https://iiif.org/image/1/info.json' }), { player: true }, { urls }),
+    /miradorViewer\.php\?db=db&amp;id=k1/, 'an IIIF image: id=');
+  // the player opened from the thumbnail: the player size; a service 480 × 270 when auto
+  assert.match(buildCmsMedia(file({ ext: 'mp4' }), { width: '150px', player: true, playerWidth: '800px' }, { urls }),
+    /<video controls="" preload="none" src="[^"]+" width="800"><\/video>/);
+  assert.match(buildCmsMedia(youtube, { width: '120px', player: true }, { urls }), /autoplay=1" width="480" height="270"/);
+  assert.match(buildCmsMedia(youtube, { width: '120px', player: true, playerWidth: '640px', playerHeight: '360px' }, { urls }),
+    /autoplay=1" width="640" height="360"/);
   assert.match(buildCmsMedia(file({ ext: 'nxz' }), { player: true }, { urls }), /3dhopViewer\.php\?db=db&amp;file=k1.*Open 3D viewer/);
   assert.match(buildCmsMedia(file({ ext: 'glb' }), { player: true }, { urls }), /hclient\/widgets\/viewers\/3dViewer\.php/);
   assert.match(buildCmsMedia(file({ ext: 'pdf' }), { width: '300px', player: true }, { urls }),
@@ -69,12 +78,13 @@ test('CmsRecordDocument: a media element, its settings in the configuration, cop
   assert.equal(item.kind, 'media');
   assert.equal(item.configured, false, 'no file yet');
   const { mediaId, settings } = doc.media(id);
-  assert.deepEqual(settings, { file: '', width: 'auto', height: 'auto', player: false });
+  assert.deepEqual(settings, { file: '', width: 'auto', height: 'auto', player: false, playerWidth: 'auto', playerHeight: 'auto' });
   const html = buildCmsMedia(file(), { player: true }, { urls, caption: 'Map' });
   assert.equal(doc.setMedia(id, { settings: { file: 'k1', player: true }, html, translations: { fre: '<img src="x" alt="" />' } }), true);
   let saved = doc.serialize();
   assert.equal(saved.parts.content, `<figure data-h-node="${id}" data-h-media="${mediaId}" data-h-text="">${html}</figure>`);
-  assert.deepEqual(JSON.parse(saved.configuration).media, { [mediaId]: { file: 'k1', width: 'auto', height: 'auto', player: true } });
+  assert.deepEqual(JSON.parse(saved.configuration).media,
+    { [mediaId]: { file: 'k1', width: 'auto', height: 'auto', player: true, playerWidth: 'auto', playerHeight: 'auto' } });
   assert.deepEqual(saved.translations, { fre: { [id]: '<img src="x" alt="" />' } });
   assert.equal(doc.tree('content')[0].configured, true);
   assert.match(doc.tree('content')[0].label, /^media: Map/);

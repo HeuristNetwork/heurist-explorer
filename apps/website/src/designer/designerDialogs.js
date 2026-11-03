@@ -247,12 +247,13 @@ export function openStyleForm({
 
 /**
  * Edit media (§33): the registered file (HInputFile, in the record manager when the host has it), the caption and
- * its translations, width and height (empty = auto; under 200 px: the thumbnail) and *Show full view or player on
- * click*. Files that can not be media (not an image, video, audio, service, IIIF, 3D or PDF) are refused; a file that
+ * its translations, width and height (empty = auto; under 200 px: the thumbnail), *Show full view or player on
+ * click* and the size of the player opened from the thumbnail. Files that can not be media (not an image, video, audio, service, IIIF, 3D or PDF) are refused; a file that
  * needs a login gets a warning. OK does nothing without a file.
  *
  * @param {object} options
- * @param {{file: string, width: string, height: string, player: boolean}} options.settings
+ * @param {{file: string, width: string, height: string, player: boolean, playerWidth: string, playerHeight: string}}
+ *        options.settings
  * @param {string} [options.caption] Caption in the first language of the website.
  * @param {Object<string, string>} [options.translations] Captions in the other languages.
  * @param {string[]} [options.languages] Languages of the website (the first is the original).
@@ -371,7 +372,22 @@ export function openMediaForm({
   player.checked = settings?.player === true;
   const playerLabel = element('label', 'h-cms-media-player');
   playerLabel.append(player, document.createTextNode(` ${$HR('Show full view or player on click')}`));
-  form.append(playerLabel, warning, problems);
+  form.append(playerLabel);
+  // the player opened from the thumbnail (audio, video, services): its size; auto: the natural size, a service 480 × 270
+  const playerWidth = sizeInput(settings?.playerWidth);
+  const playerHeight = sizeInput(settings?.playerHeight);
+  const playerTimes = element('span');
+  playerTimes.textContent = '×';
+  row('Player size (width × height)', playerWidth, playerTimes, playerHeight);
+  const syncPlayer = () => {
+    playerWidth.disabled = !player.checked;
+    playerHeight.disabled = !player.checked;
+  };
+  player.addEventListener('change', syncPlayer);
+  syncPlayer();
+  const playerNote = element('div', 'h-cms-style-note');
+  playerNote.textContent = $HR('The size of the player that a click on the thumbnail of audio, video or a YouTube, Vimeo or SoundCloud link opens.');
+  form.append(playerNote, warning, problems);
   const size = (text) => {
     const value = text.value.trim();
     if (!value || value === 'auto') return 'auto';
@@ -379,12 +395,12 @@ export function openMediaForm({
     return /^(?:\d+\.?\d*|\.\d+)(?:px|%)$/.test(value) ? value : null;
   };
   const read = () => {
-    const values = { width: size(width), height: size(height) };
+    const values = { width: size(width), height: size(height), playerWidth: size(playerWidth), playerHeight: size(playerHeight) };
     if (!state.file) {
       problems.textContent ||= $HR('Choose a file.');
       return null;
     }
-    if (values.width === null || values.height === null) {
+    if (Object.values(values).includes(null)) {
       problems.textContent = $HR('Width and height: a number (px), px or %, or empty (auto).');
       return null;
     }
@@ -446,10 +462,14 @@ function choice(message, title, answers, className = '') {
       ]
     });
     if (className) dialog?.classList.add(className);
-    dialog?.addEventListener('close', () => {
+    // a close event of the dialog shown before in the same element (see formDialog) is not this one's
+    const onClose = () => {
+      if (dialog.open) return;
+      dialog.removeEventListener('close', onClose);
       if (className) dialog.classList.remove(className);
       if (!done) resolve(null);
-    }, { once: true });
+    };
+    dialog?.addEventListener('close', onClose);
   });
 }
 
@@ -481,10 +501,15 @@ function formDialog(content, title, okLabel, read, focus, className = '', dialog
       ]
     });
     if (className) dialog?.classList.add(className);
-    dialog?.addEventListener('close', () => {
+    // the dialog element is shared: the close event of the dialog shown before in it (Add element, then Edit media)
+    // comes after this one is shown (dialog open again): it is not this one's close
+    const onClose = () => {
+      if (dialog.open) return;
+      dialog.removeEventListener('close', onClose);
       if (className) dialog.classList.remove(className);
       if (!done) resolve(null);
-    }, { once: true });
+    };
+    dialog?.addEventListener('close', onClose);
     focus?.focus();
   });
 }

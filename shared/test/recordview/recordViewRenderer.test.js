@@ -39,12 +39,24 @@ test("media items come from the shared file media builder (fileMediaItem.js)", (
 test("file media: OSD for images; Mirador for images/audio/video; Download; legacy ?db=&file= / &thumb= URLs", () => {
   const image = buildFileMediaItem({ ulf_ObfuscatedFileID: "k1", fxm_MimeType: "image/png" }, { urls });
   assert.deepEqual(linkTexts(image), ["Show in OSD", "Show in Mirador", "Download"]);
-  assert.equal(image.querySelector("a").href, "http://h/heurist/hclient/widgets/viewers/openSeadragonViewer.php?db=db1&recID=k1");
+  assert.equal(image.querySelector("a").href, "http://h/heurist/hclient/widgets/viewers/openSeadragonViewer.php?db=db1&id=k1");
   assert.equal(image.querySelector("img").src, "http://h/heurist/?db=db1&thumb=k1");
   const doc = buildFileMediaItem({ ulf_ObfuscatedFileID: "k2", fxm_MimeType: "application/pdf" }, { urls });
   assert.deepEqual(linkTexts(doc), ["Download"]);
   const plain = buildFileMediaItem({ ulf_ObfuscatedFileID: "k2", fxm_MimeType: "application/pdf" }, { urls, download: false });
   assert.deepEqual(linkTexts(plain), []);
+});
+
+test("file media: IIIF manifests and image services get Show in Mirador (manifest= / id=)", () => {
+  const manifest = buildFileMediaItem({ ulf_ObfuscatedFileID: "k5", fxm_MimeType: "application/json", ulf_PreferredSource: "iiif",
+    ulf_OrigFileName: "_iiif", ulf_ExternalFileReference: "https://iiif.example.org/manifest.json" }, { urls });
+  const mirador = manifest.querySelectorAll("a").find((a) => a.textContent === "Show in Mirador");
+  assert.equal(mirador?.href, "http://h/heurist/hclient/widgets/viewers/miradorViewer.php?db=db1&manifest=k5");
+  assert.equal(manifest.querySelector("img").src, "http://h/heurist/?db=db1&thumb=k5", "its thumbnail");
+  const image = buildFileMediaItem({ ulf_ObfuscatedFileID: "k6", fxm_MimeType: "application/json",
+    ulf_ExternalFileReference: "https://iiif.example.org/img/info.json" }, { urls });
+  assert.equal(image.querySelectorAll("a").find((a) => a.textContent === "Show in Mirador")?.href,
+    "http://h/heurist/hclient/widgets/viewers/miradorViewer.php?db=db1&id=k6");
 });
 
 test("file media: uploaded audio/video render as native players, not static thumbnails", () => {

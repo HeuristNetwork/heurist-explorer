@@ -196,14 +196,15 @@ export function cmsInstanceProblem(settings) {
 
 /**
  * Why the settings of a media element are not valid (CmsValidator::mediaProblem), or null: `file` the key of a
- * registered file, `width` / `height` 'auto', px or % (attributes of img / video), `player` a boolean.
+ * registered file, `width` / `height` / `playerWidth` / `playerHeight` 'auto', px or % (attributes of img / video),
+ * `player` a boolean.
  *
  * @param {object} settings
  * @returns {string|null}
  */
 export function cmsMediaProblem(settings) {
   if (!/^[A-Za-z0-9]+$/.test(String(settings.file ?? ''))) return 'the file is missing';
-  for (const name of ['width', 'height']) {
+  for (const name of ['width', 'height', 'playerWidth', 'playerHeight']) {
     const value = String(settings[name] ?? 'auto');
     if (value !== 'auto' && !/^(?:\d+\.?\d*|\.\d+)(?:px|%)$/.test(value)) return `${name} must be auto, px or %`;
   }

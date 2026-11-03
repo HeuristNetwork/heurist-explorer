@@ -141,3 +141,5 @@
 #This file can be seen by logged-in users only: visitors of the website will not see it.#This file can be seen by logged-in users only: visitors of the website will not see it.
 #This file can not be shown as media: choose an image, video, audio, a YouTube, Vimeo or SoundCloud link, IIIF, a 3D file or PDF.#This file can not be shown as media: choose an image, video, audio, a YouTube, Vimeo or SoundCloud link, IIIF, a 3D file or PDF.
 #Empty = auto; a number is px, or %. Both under 200 px (or one under 200 px and the other auto): the thumbnail is shown.#Empty = auto; a number is px, or %. Both under 200 px (or one under 200 px and the other auto): the thumbnail is shown.
+#Player size (width × height)#Player size (width × height)
+#The size of the player that a click on the thumbnail of audio, video or a YouTube, Vimeo or SoundCloud link opens.#The size of the player that a click on the thumbnail of audio, video or a YouTube, Vimeo or SoundCloud link opens.

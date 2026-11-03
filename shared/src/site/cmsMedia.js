@@ -7,7 +7,8 @@
  *
  * Thumbnail mode (both sizes under 200 px, or one under 200 px and the other auto): the thumbnail for every type.
  * With *player* the thumbnail of audio, video and services opens the player without a script
- * (`details` / `summary`: the player is not loaded while it is closed).
+ * (`details` / `summary`: the player is not loaded while it is closed), in the player size (`playerWidth`,
+ * `playerHeight`; auto: the natural size, a service 480 × 270).
  *
  *   const html = buildCmsMedia(file, { width: 'auto', height: 'auto', player: true },
  *     { urls: fileMediaUrls(baseUrl, db), caption: 'A map', language: 'eng' });
@@ -45,7 +46,12 @@ const LABELS = Object.freeze({
 });
 
 /** Default settings of a media element. */
-export const CMS_MEDIA_DEFAULTS = Object.freeze({ file: '', width: 'auto', height: 'auto', player: false });
+export const CMS_MEDIA_DEFAULTS = Object.freeze({
+  file: '', width: 'auto', height: 'auto', player: false, playerWidth: 'auto', playerHeight: 'auto'
+});
+
+/** Size of a service player opened from the thumbnail when the player size is auto. */
+const SERVICE_PLAYER = Object.freeze({ width: '480px', height: '270px' });
 
 /**
  * The media type of a registered file, or null when it can not be a media element: image, video, audio, service
@@ -108,7 +114,8 @@ export function buildCmsMedia(file, settings = {}, { urls, caption = '', languag
   // the viewer of the full view: OSD (image), Mirador (iiif), 3D, the file (PDF)
   const viewer = {
     image: [urls.osd(key), labels.osd],
-    iiif: [urls.mirador(key), labels.mirador],
+    // a registered IIIF manifest opens as `manifest`, an IIIF image (or a media file) as `id`
+    iiif: [urls.mirador(key, { manifest: isIiifManifest(file) }), labels.mirador],
     '3d': [urls.viewer3d?.(key, '3d'), labels.viewer3d],
     '3dhop': [urls.viewer3d?.(key, '3dhop'), labels.viewer3d],
     pdf: [urls.file(key), labels.pdf]
@@ -116,11 +123,14 @@ export function buildCmsMedia(file, settings = {}, { urls, caption = '', languag
   let body;
   let link = null;
   if (type === 'video' || type === 'audio' || type === 'service') {
+    // the player opened from the thumbnail: the player size (a service: 480 × 270 when auto)
+    const playerSize = !thumbnail ? size
+      : sizeAttributes({ width: settings.playerWidth, height: settings.playerHeight }, type === 'service' ? SERVICE_PLAYER : {});
     const playerHtml = type === 'service'
-      ? `<iframe src="${escape(embedUrl(file.url, file.mime || '', { autoplay: thumbnail }))}"${thumbnail ? ' width="480" height="270"' : size}`
+      ? `<iframe src="${escape(embedUrl(file.url, file.mime || '', { autoplay: thumbnail }))}"${playerSize}`
         + ` title="${escape(alt)}" loading="lazy" allow="autoplay; fullscreen" allowfullscreen=""></iframe>`
       : `<${type} controls="" preload="${thumbnail ? 'none' : 'metadata'}" src="${escape(urls.file(key))}"`
-        + `${thumbnail || type === 'audio' ? '' : size}></${type}>`;
+        + `${type === 'audio' ? '' : playerSize}></${type}>`;
     // thumbnail mode: the thumbnail, with player a click on it shows the player (no script)
     body = !thumbnail ? playerHtml
       : player ? `<details class="h-site-media-play"><summary>${thumb}</summary>${playerHtml}</details>` : thumb;
@@ -145,11 +155,18 @@ export function cmsMediaCaption(html) {
   return unescape(caption.replace(/\s*<a\b[\s\S]*?<\/a>\s*$/i, '').replace(/<[^>]*>/g, '')).trim();
 }
 
-/** width / height attributes of the settings (px as numbers, % as they are; auto: none). */
-function sizeAttributes(settings) {
+/** Whether an IIIF file is a manifest (not an IIIF image): its source, or the name of a registered manifest. */
+function isIiifManifest(file) {
+  const source = String(file?.source || '').toLowerCase();
+  return source === 'iiif' || source === 'iiif_manifest' || String(file?.name || '') === '_iiif';
+}
+
+/** width / height attributes of the settings (px as numbers, % as they are; auto: the fallback, else none). */
+function sizeAttributes(settings, fallback = {}) {
   let result = '';
   for (const name of ['width', 'height']) {
-    const value = String(settings?.[name] || 'auto');
+    const given = String(settings?.[name] || 'auto');
+    const value = given === 'auto' ? String(fallback[name] || 'auto') : given;
     if (/^(?:\d+\.?\d*|\.\d+)px$/.test(value)) result += ` ${name}="${Math.round(parseFloat(value))}"`;
     else if (/^(?:\d+\.?\d*|\.\d+)%$/.test(value)) result += ` ${name}="${value}"`;
   }

@@ -34,7 +34,8 @@ const IMAGE_EXTENSIONS = /\.(?:png|jpe?g|gif|webp|bmp|svg|tiff?)$/i;
  * @param {string} baseUrl Heurist base URL (ends with `/`).
  * @param {string} database Database name.
  * @returns {{thumb: Function, file: Function, download: Function, osd: Function, mirador: Function,
- *          viewer3d: Function}} viewer3d(key, mode): the 3D viewer (mode `3d`, or `3dhop` for Nexus files).
+ *          viewer3d: Function}} mirador(key, {manifest}): `manifest` for a registered IIIF manifest file;
+ *          viewer3d(key, mode): the 3D viewer (mode `3d`, or `3dhop` for Nexus files).
  */
 export function fileMediaUrls(baseUrl, database) {
   const root = baseUrl ? String(baseUrl).replace(/\/?$/, '/') : '';
@@ -44,10 +45,28 @@ export function fileMediaUrls(baseUrl, database) {
     thumb: (fileKey) => `${root}?db=${db}&thumb=${key(fileKey)}`,
     file: (fileKey) => `${root}?db=${db}&file=${key(fileKey)}`,
     download: (fileKey) => `${root}?db=${db}&download=1&file=${key(fileKey)}`,
-    osd: (fileKey) => `${root}hclient/widgets/viewers/openSeadragonViewer.php?db=${db}&recID=${key(fileKey)}`,
-    mirador: (fileKey) => `${root}hclient/widgets/viewers/miradorViewer.php?db=${db}&id=${key(fileKey)}`,
+    // the viewers take the file key as `id` (recID / a number: a record); a registered IIIF manifest as `manifest`
+    osd: (fileKey) => `${root}hclient/widgets/viewers/openSeadragonViewer.php?db=${db}&id=${key(fileKey)}`,
+    mirador: (fileKey, { manifest = false } = {}) => `${root}hclient/widgets/viewers/miradorViewer.php?db=${db}&${manifest ? 'manifest' : 'id'}=${key(fileKey)}`,
     viewer3d: (fileKey, mode = '3d') => `${root}hclient/widgets/viewers/${mode === '3dhop' ? '3dhop' : '3d'}Viewer.php?db=${db}&file=${key(fileKey)}`
   };
+}
+
+/**
+ * The IIIF kind of a registered file: `manifest` (a IIIF manifest), `image` (a IIIF image service) or ''. By its
+ * preferred source (iiif, iiif_image), the legacy names of remote IIIF files (_iiif, _iiif_image) or an
+ * `info.json` URL (as legacy mediaViewer._prepareFile).
+ *
+ * @param {object} file File (legacy form: `ulf_PreferredSource`, `ulf_OrigFileName`, `ulf_ExternalFileReference`).
+ * @returns {'manifest'|'image'|''}
+ */
+export function fileIiifKind(file) {
+  const source = String(file?.ulf_PreferredSource || '').toLowerCase();
+  const name = String(file?.ulf_OrigFileName || '');
+  const url = String(file?.ulf_ExternalFileReference || '');
+  if (source === 'iiif_image' || name === '_iiif_image' || /\/info\.json(?:[?#].*)?$/.test(url)) return 'image';
+  if (source === 'iiif' || source === 'iiif_manifest' || name === '_iiif') return 'manifest';
+  return '';
 }
 
 /**
@@ -67,7 +86,7 @@ export function isImageFile(file) {
  * One media item of a file.
  *
  * @param {object} file File in the legacy form (`ulf_ObfuscatedFileID`, `fxm_MimeType`, `ulf_OrigFileName`,
- *        `ulf_Caption`, `ulf_ExternalFileReference`).
+ *        `ulf_Caption`, `ulf_ExternalFileReference`, `ulf_PreferredSource`).
  * @param {object} options
  * @param {object} options.urls `fileMediaUrls(baseUrl, database)`.
  * @param {boolean} [options.download=true] Add the Download link (record view and file input, review 2026-10-20).
@@ -87,6 +106,8 @@ export function buildFileMediaItem(file, { urls, download = true, onClose = null
   const service = externalUrl ? embedService(externalUrl, mimeType) : '';
   const isAudio = !service && mimeType.startsWith('audio/');
   const isVideo = !service && mimeType.startsWith('video/');
+  // a IIIF manifest or image service (JSON): its thumbnail and Show in Mirador (2026-11-03)
+  const iiif = fileIiifKind(file);
 
   const item = document.createElement('div');
   item.className = 'heurist-recordview-media-item';
@@ -123,7 +144,7 @@ export function buildFileMediaItem(file, { urls, download = true, onClose = null
   const links = document.createElement('div');
   links.className = 'heurist-recordview-media-links';
   if (isImage) links.append(mediaLink(urls.osd(fileId), 'Show in OSD'));
-  if (isImage || isAudio || isVideo) links.append(mediaLink(urls.mirador(fileId), 'Show in Mirador'));
+  if (iiif || isImage || isAudio || isVideo) links.append(mediaLink(urls.mirador(fileId, { manifest: iiif === 'manifest' }), 'Show in Mirador'));
   if (download && fileId) links.append(mediaLink(urls.download(fileId), 'Download', { download: true }));
   if (externalUrl) links.append(mediaLink(externalUrl, 'Show in new tab'));
   if (typeof onClose === 'function') {

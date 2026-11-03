@@ -769,3 +769,30 @@ tab shows the warning only (no editor), the CSS is not sent on save (stored valu
 previews; the own style popup has no *Custom CSS class* (a class needs custom CSS). The v4 style settings (base,
 kinds, presets, own styles: configuration 2-1187) are not affected. Legacy code not changed (`recordModify.php` still
 stores CSS, the legacy viewer and reports still use it). Tests: `tests/StoredTextTest.php`, designer tests.
+
+## 35. Media review 1 (Artem, 2026-11-03)
+
+Done 2026-11-03, not committed, not checked in a browser:
+- A new media element opened Edit media with a destroyed file input: the close event of the Add element dialog (the
+  same `<dialog>` element) came after Edit media was shown and finished it. `formDialog` and `choice` now ignore a
+  close event while the dialog is open again.
+- Player size (`playerWidth`, `playerHeight`, auto / px / %): the size of the player opened from the thumbnail (audio,
+  video, services; a service 480 × 270 when auto). Checked by JS and PHP (fixture `media.json`).
+- Viewer URLs (`fileMediaUrls`, also the record view): OSD takes the file key as `id` (was `recID`, a record id);
+  Mirador `id=KEY` for images / media files and IIIF images, `manifest=KEY` for a registered IIIF manifest (as legacy
+  `mediaViewer._miradorUrlForFile`). 3D viewers: `file=KEY` (correct). Media elements saved before keep the old OSD
+  link until they are edited again (static HTML).
+
+## 36. IIIF files (Artem, 2026-11-03)
+
+Done 2026-11-03, not committed, not checked in a browser:
+- Record view / file preview (`fileMediaItem.js`, new `fileIiifKind`): a IIIF manifest (preferred source `iiif`,
+  name `_iiif`) or image service (`iiif_image`, `_iiif_image`, an `info.json` URL) gets *Show in Mirador*
+  (`manifest=KEY` / `id=KEY`). Record #207874, files #168, #169.
+- Thumbnail of a IIIF manifest (legacy `UImage::getIiifThumbnail`, a crash fix): a `thumbnail` may be a URL, an
+  object with `@id` / `id` or a list (V&A manifests: a URL on the canvas; PHP 8 TypeError before). Without a
+  thumbnail the IIIF logo is the stub (`recordFile.php`, IIIF branch only). File #168 has a thumbnail now.
+- Registration of an external URL (`srv/Files/FileUrlInspector`, `iiifImageService`): a IIIF Image API request URL
+  (`{service}/{region}/{size}/{rotation}/{quality}.{format}`) is registered as its image service
+  (`{service}/info.json`, `iiif_image`) when the service answers; else as before. File #167 was registered before
+  this: register it again (or change its source). Test: `tests/FileWriteTest.php`.
