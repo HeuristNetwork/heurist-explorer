@@ -1,0 +1,18 @@
+{
+  "name": "media elements (plan 27c §33): settings in config.media, duplicates, missing settings or element, bad settings, kind default",
+  "config": {
+    "schema": "heurist-cms/4",
+    "media": {
+      "m1": {"file": "abc123", "width": "400px", "height": "auto", "player": true},
+      "m2": {"file": "", "width": "auto"},
+      "m3": {"file": "def456", "width": "10em"},
+      "m4": {"file": "ghi789"}
+    },
+    "styles": {"kinds": {"media": {"text-align": "center"}, "text": {"line-height": "1.5"}}}
+  },
+  "html": ["<figure data-h-node=\"n1\" data-h-media=\"m1\" data-h-text=\"\"><img src=\"x.jpg\" alt=\"A\" /><figcaption>A</figcaption></figure><figure data-h-node=\"n2\" data-h-media=\"m1\" data-h-text=\"\"></figure><figure data-h-node=\"n3\" data-h-media=\"m2\" data-h-text=\"\"></figure><figure data-h-node=\"n4\" data-h-media=\"m3\" data-h-text=\"\"></figure><figure data-h-node=\"n5\" data-h-media=\"m9\" data-h-text=\"\"></figure>"],
+  "expect": {
+    "issues": ["warning:duplicate_media", "warning:media_settings", "warning:media_settings", "warning:media_without_config", "warning:media_without_element"],
+    "css": "[data-h-media]{text-align:center;}\n[data-h-text]:not([data-h-media]){line-height:1.5;}\n"
+  }
+}

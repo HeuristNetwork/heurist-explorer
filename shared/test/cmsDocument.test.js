@@ -52,3 +52,13 @@ test('CSS values: escapes, URLs and separators', () => {
   for (const value of ['red; color: blue', 'url(data:image/png;base64,AAA=)', 'expression(alert(1))', '\\65 xpression(1)', 'url(javascript:alert(1))',
     'u\\72l(javascript:x)', 'url(data:text/html,x)', 'a</style>', 'a/* x */']) assert.equal(isSafeCssValue(value), false, value);
 });
+
+test('compileCmsStyles: the screen rules of kinds and presets come before the node styles (plan 27c §30)', () => {
+  const { css } = compileCmsStyles({}, [{ n1: { display: 'flex' } }], '', {
+    kinds: [{ group: { narrow: { display: 'block' } } }], presets: [{ p1: { display: 'grid', narrow: { display: 'block' } } }]
+  });
+  const node = css.indexOf('[data-h-node="n1"]{display:flex;}');
+  const presetNarrow = css.lastIndexOf('[data-h-style="p1"]{display:block;}');
+  const kindNarrow = css.indexOf('[data-h-control="group"]{display:block;}');
+  assert.ok(kindNarrow > 0 && presetNarrow > kindNarrow && node > presetNarrow, 'kinds, presets, nodes; each with its screens');
+});

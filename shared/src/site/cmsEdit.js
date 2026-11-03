@@ -15,7 +15,8 @@
  * `data-h-node` are the nodes of the structure tree; only the part root and controls
  * (`data-h-control`) take children. The caption of a group (its first child, a heading or
  * `summary` text block: the label of a tab or accordion panel) is not a node of the tree:
- * it is edited through its group (caption / setCaption).
+ * it is edited through its group (caption / setCaption). A media element (`figure` with `data-h-media`, §33) is a
+ * text block whose HTML is made by the designer (cmsMedia.js); its settings are in the configuration `media`.
  *
  *   const doc = new CmsRecordDocument({ parts: { content: html }, config: json, translations });
  *   const id = doc.insertElement('content', 'columns2', { id: null, position: 'inside' });
@@ -33,6 +34,7 @@
  */
 
 import { checkCmsDocument, CMS_CONFIG_VERSION, CMS_SCHEMA, parseCmsConfig } from './cmsDocument.js';
+import { CMS_MEDIA_DEFAULTS } from './cmsMedia.js';
 
 /** HTML parts of a record: field key => role. */
 export const CMS_PARTS = Object.freeze(['header', 'content', 'footer']);
@@ -41,7 +43,7 @@ export const CMS_PARTS = Object.freeze(['header', 'content', 'footer']);
 export const CMS_CONTROLS = Object.freeze(['group', 'tabs', 'accordion']);
 
 /** Elements the designer can add (§5.2). */
-export const CMS_ELEMENTS = Object.freeze(['text', 'group', 'columns2', 'columns3', 'tabs', 'accordion', 'explorer',
+export const CMS_ELEMENTS = Object.freeze(['text', 'media', 'group', 'columns2', 'columns3', 'tabs', 'accordion', 'explorer',
   'data', 'map', 'timeline', 'graph', 'recordview', 'menu']);
 
 /** Starting content of a new page (plan 27c §15 #4): blank (one text, §19), text and column combinations. */
@@ -139,6 +141,7 @@ export class CmsRecordDocument {
     this.config = parsed.config;
     this.config.instances = isMap(this.config.instances) ? this.config.instances : {};
     this.config.styles = isMap(this.config.styles) ? this.config.styles : {};
+    this.config.media = isMap(this.config.media) ? this.config.media : {};
     this.configIssues = parsed.issues;
     this.translations = clone(isMap(translations) ? translations : {});
   }
@@ -175,6 +178,7 @@ export class CmsRecordDocument {
     for (const name of this.partNames()) parts[name] = serializeCmsHtml(this.roots[name]);
     const config = { ...this.config, schema: CMS_SCHEMA };
     for (const key of ['instances', 'styles']) if (isMap(config[key]) && !Object.keys(config[key]).length) config[key] = {};
+    if (isMap(config.media) && !Object.keys(config.media).length) delete config.media;
     const translations = {};
     for (const [language, blocks] of Object.entries(this.translations)) {
       if (isMap(blocks) && Object.keys(blocks).length) translations[language] = blocks;
@@ -206,7 +210,8 @@ export class CmsRecordDocument {
    *
    * @param {string} part
    * @returns {Array<{id: string, kind: string, tag: string, label: string, control: string|null, instance: string|null,
-   *          type: string|null, preset: string|null, configured: boolean, caption: string|null, children: Array}>}
+   *          media: string|null, type: string|null, preset: string|null, configured: boolean, caption: string|null,
+   *          children: Array}>}
    *          caption: node id of the caption of a group (not an item itself).
    */
   tree(part) {
@@ -233,9 +238,10 @@ export class CmsRecordDocument {
         label: labelOf(child, instance),
         control: attr(child, 'data-h-control'),
         instance: instanceId,
+        media: attr(child, 'data-h-media'),
         type: instance?.type || null,
         preset: attr(child, 'data-h-style'),
-        configured: !instanceId || isConfigured(instance),
+        configured: instanceId ? isConfigured(instance) : !hasAttr(child, 'data-h-media') || Boolean(this.media(id)?.settings.file),
         caption: attr(captionOf(child), 'data-h-node'),
         children: child.raw === undefined ? this._items(child) : []
       });
@@ -417,13 +423,15 @@ export class CmsRecordDocument {
 
   /** Forget the node styles, translations and instances of a removed node and its descendants. */
   _forget(node) {
-    const { nodes, instances } = idsIn(node);
+    const { nodes, instances, media } = idsIn(node);
     for (const nodeId of nodes) {
       if (isMap(this.config.styles.nodes)) delete this.config.styles.nodes[nodeId];
       for (const blocks of Object.values(this.translations)) if (isMap(blocks)) delete blocks[nodeId];
     }
     const hosts = this._instanceHosts();
     for (const instanceId of instances) if (!hosts.has(instanceId)) delete this.config.instances[instanceId];
+    const elements = this._mediaElements();
+    for (const mediaId of media) if (!elements.has(mediaId)) delete this.config.media[mediaId];
   }
 
   /** Remove a control that has no elements left but its caption (then its parent the same way). */
@@ -450,11 +458,15 @@ export class CmsRecordDocument {
     const styles = {};
     const translations = {};
     const instances = {};
+    const media = {};
     walk(node, (element) => {
       const nodeId = attr(element, 'data-h-node');
       if (nodeId && isMap(this.config.styles.nodes?.[nodeId])) styles[nodeId] = clone(this.config.styles.nodes[nodeId]);
+      // a media element is copied with its file and settings (static content), also in structure mode
+      const mediaId = attr(element, 'data-h-media');
+      if (mediaId && isMap(this.config.media[mediaId])) media[mediaId] = clone(this.config.media[mediaId]);
       if (hasAttr(element, 'data-h-text')) {
-        if (mode === 'structure') {
+        if (mode === 'structure' && !mediaId) {
           element.raw = placeholderText(element);
         } else if (nodeId) {
           for (const [language, blocks] of Object.entries(this.translations)) {
@@ -468,7 +480,7 @@ export class CmsRecordDocument {
         instances[instanceId] = { kind: instance?.kind || 'module', type: instance?.type || 'data' };
       }
     });
-    return { format: 'heurist-cms-clip', mode, sourceId: id, html: serializeCmsHtml(node), styles, translations, instances };
+    return { format: 'heurist-cms-clip', mode, sourceId: id, html: serializeCmsHtml(node), styles, translations, instances, media };
   }
 
   /**
@@ -507,6 +519,13 @@ export class CmsRecordDocument {
         const { kind, type } = clip.instances?.[oldInstance] || { kind: 'module', type: 'data' };
         this.config.instances[instanceId] = defaultInstance(kind, type);
       }
+      const oldMedia = attr(element, 'data-h-media');
+      if (oldMedia) {
+        const mediaId = newCmsId('m', used);
+        used.add(mediaId);
+        setAttr(element, 'data-h-media', mediaId);
+        this.config.media[mediaId] = clone(isMap(clip.media?.[oldMedia]) ? clip.media[oldMedia] : CMS_MEDIA_DEFAULTS);
+      }
     });
     // the label of a pasted section follows the new id of its caption
     walk(node, (element) => { if (hasAttr(element, 'aria-labelledby')) labelSection(element); });
@@ -518,6 +537,42 @@ export class CmsRecordDocument {
   text(id) {
     const node = this.find(id)?.node;
     return node && hasAttr(node, 'data-h-text') ? node.raw || '' : '';
+  }
+
+  /**
+   * A media element (§33): its media id, settings (configuration `media`), HTML and translations (language => HTML).
+   *
+   * @param {string} id Node id.
+   * @returns {{mediaId: string, settings: object, html: string, translations: Object<string, string>}|null}
+   */
+  media(id) {
+    const node = this.find(id)?.node;
+    const mediaId = node ? attr(node, 'data-h-media') : null;
+    if (!mediaId) return null;
+    const translations = {};
+    for (const [language, blocks] of Object.entries(this.translations)) {
+      if (typeof blocks?.[id] === 'string') translations[language] = blocks[id];
+    }
+    return { mediaId, settings: { ...CMS_MEDIA_DEFAULTS, ...(this.config.media[mediaId] || {}) }, html: node.raw || '', translations };
+  }
+
+  /**
+   * Set a media element: its settings, the HTML made from them and the HTML of each language of the website.
+   *
+   * @param {string} id Node id.
+   * @param {{settings: object, html: string, translations?: Object<string, string>}} value Languages left out lose
+   *        their translation.
+   * @returns {boolean}
+   */
+  setMedia(id, { settings, html, translations = {} }) {
+    const node = this.find(id)?.node;
+    const mediaId = node ? attr(node, 'data-h-media') : null;
+    if (!mediaId) return false;
+    this.config.media[mediaId] = { ...CMS_MEDIA_DEFAULTS, ...settings };
+    node.raw = String(html ?? '');
+    for (const language of Object.keys(this.translations)) if (!Object.hasOwn(translations, language)) this.setTranslation(language, id, '');
+    for (const [language, text] of Object.entries(translations)) this.setTranslation(language, id, String(text ?? ''));
+    return true;
   }
 
   /** Set the inner HTML of a text block. */
@@ -574,6 +629,20 @@ export class CmsRecordDocument {
     const node = this.find(id)?.node;
     if (!node) return false;
     if (name) setAttr(node, 'data-h-style', name); else removeAttr(node, 'data-h-style');
+    return true;
+  }
+
+  /** The class attribute of a node (custom CSS classes of the user's own rules), or ''. */
+  cssClass(id) {
+    return attr(this.find(id)?.node, 'class') || '';
+  }
+
+  /** Set the class attribute of a node; an empty value removes it. */
+  setCssClass(id, value) {
+    const node = this.find(id)?.node;
+    if (!node) return false;
+    const text = String(value ?? '').trim().split(/\s+/).filter(Boolean).join(' ');
+    if (text) setAttr(node, 'class', text); else removeAttr(node, 'class');
     return true;
   }
 
@@ -638,18 +707,24 @@ export class CmsRecordDocument {
       if (preset) attrs.push(['data-h-style', preset]);
       return element$('div', attrs, undefined, children);
     };
-    // columns: own styles (a flex row, one column on narrow screens; equal texts), so they do not depend on the
-    // presets of the website
+    // columns: an own style (a grid of equal columns, one column on narrow screens; plan 27c §31), so they do not
+    // depend on the presets of the website; the texts need no style
     const columns = (count, preset) => {
-      const children = Array.from({ length: count }, text);
-      const node = group(children, preset);
-      const styles = this._nodeStyles();
-      styles[attr(node, 'data-h-node')] = { display: 'flex', 'flex-direction': 'row', narrow: { 'flex-direction': 'column' } };
-      for (const child of children) styles[attr(child, 'data-h-node')] = { flex: '1' };
+      const node = group(Array.from({ length: count }, text), preset);
+      this._nodeStyles()[attr(node, 'data-h-node')] = {
+        display: 'grid', 'grid-template-columns': `repeat(${count}, minmax(0, 1fr))`, gap: '12px',
+        narrow: { 'grid-template-columns': '1fr' }
+      };
       return node;
     };
     switch (element) {
       case 'text': return text();
+      case 'media': {
+        // a figure (text block) whose HTML the designer makes from the file and the settings (§33)
+        const mediaId = id('m');
+        this.config.media[mediaId] = { ...CMS_MEDIA_DEFAULTS };
+        return element$('figure', [['data-h-node', id('n')], ['data-h-media', mediaId], ['data-h-text', '']], '');
+      }
       case 'group': return group();
       case 'columns2': return columns(2, 'columns2');
       case 'columns3': return columns(3, 'columns3');
@@ -709,12 +784,18 @@ export class CmsRecordDocument {
   }
 
   _usedIds() {
-    const used = new Set(Object.keys(this.config.instances));
+    const used = new Set([...Object.keys(this.config.instances), ...Object.keys(this.config.media)]);
     for (const part of this.partNames()) {
-      const { nodes, instances } = idsIn(this.roots[part]);
-      for (const value of [...nodes, ...instances]) used.add(value);
+      const { nodes, instances, media } = idsIn(this.roots[part]);
+      for (const value of [...nodes, ...instances, ...media]) used.add(value);
     }
     return used;
+  }
+
+  _mediaElements() {
+    const elements = new Set();
+    for (const part of this.partNames()) for (const value of idsIn(this.roots[part]).media) elements.add(value);
+    return elements;
   }
 
   _instanceHosts() {
@@ -754,6 +835,7 @@ export function cmsPageStarter(preset, title) {
 /** Kind of an element: control, text, instance or other. */
 function kindOf(node) {
   if (hasAttr(node, 'data-h-instance')) return 'instance';
+  if (hasAttr(node, 'data-h-media')) return 'media';
   if (hasAttr(node, 'data-h-text')) return 'text';
   if (hasAttr(node, 'data-h-control')) return 'control';
   return 'other';
@@ -781,6 +863,10 @@ function labelSection(node) {
 /** Short label of a tree item. */
 function labelOf(node, instance) {
   if (hasAttr(node, 'data-h-instance')) return instance?.type || 'instance';
+  if (hasAttr(node, 'data-h-media')) {
+    const text = plain(node.raw || '');
+    return text ? `media: ${text.length > 34 ? `${text.slice(0, 34)}…` : text}` : 'media';
+  }
   if (hasAttr(node, 'data-h-text')) {
     const text = plain(node.raw || '');
     return text.length > 40 ? `${text.slice(0, 40)}…` : text || '(empty text)';
@@ -841,13 +927,16 @@ function walk(node, visit) {
 function idsIn(node) {
   const nodes = [];
   const instances = [];
+  const media = [];
   walk(node, (element) => {
     const id = attr(element, 'data-h-node');
     if (id) nodes.push(id);
     const instance = attr(element, 'data-h-instance');
     if (instance) instances.push(instance);
+    const mediaId = attr(element, 'data-h-media');
+    if (mediaId) media.push(mediaId);
   });
-  return { nodes, instances };
+  return { nodes, instances, media };
 }
 
 function closingIndex(source, tag, from) {

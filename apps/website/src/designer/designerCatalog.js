@@ -115,6 +115,14 @@ export const ELEMENT_GROUPS = Object.freeze([
         preview: [['h', 10, 10, 60, 7], ['t', 10, 24, 100, 46]]
       },
       {
+        value: 'media', label: 'Media', available: true,
+        description: 'An image, a video or audio player, or a YouTube, Vimeo or SoundCloud player with a caption, from a'
+          + ' registered file of the database. IIIF, 3D files and PDF are shown as their thumbnail with a link to their'
+          + ' viewer.<p>A small size (under 200 px) shows the thumbnail: a click on it can open the full view or the'
+          + ' player.</p>',
+        preview: [['i', 20, 8, 80, 50], ['t', 30, 64, 60, 8]]
+      },
+      {
         value: 'group', label: 'Group', available: true, title: 'caption',
         description: 'A group is normally used to keep several other elements together so that they can be displayed and'
           + ' scaled across the page, for example a search on the left, results in the middle and a map on the right.'

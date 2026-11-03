@@ -106,6 +106,8 @@ export class CmsPreview {
           for (const name of ['data-h-node', 'data-h-style']) {
             if (host.hasAttribute(name)) old.setAttribute(name, host.getAttribute(name)); else old.removeAttribute(name);
           }
+          // custom CSS classes of the element; the classes of the site runtime (h-site-...) stay
+          old.className = [...[...old.classList].filter((name) => name.startsWith('h-site-')), ...host.classList].join(' ');
           host.replaceWith(old);
           continue;
         }

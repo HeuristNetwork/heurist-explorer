@@ -110,3 +110,34 @@
 #Hide translations#Hide translations
 #Caption#Caption
 #Edit translations#Edit translations
+#Custom CSS class#Custom CSS class
+#Text on primary colour (buttons)#Text on primary colour (buttons)
+#Muted text colour#Muted text colour
+#Choose a named colour#Choose a named colour
+#General Website Styles#General Website Styles
+#CSS and Javascript are disabled by default. Request authorisation from server admin if required.#CSS and Javascript are disabled by default. Request authorisation from server admin if required.
+#Grid (columns)#Grid (columns)
+#Group layout (flex)#Group layout (flex)
+#Columns#Columns
+#Own widths#Own widths
+#Row alignment#Row alignment
+#1 column#1 column
+#2 columns#2 columns
+#3 columns#3 columns
+#4 columns#4 columns
+#5 columns#5 columns
+#6 columns#6 columns
+#Set on the Normal tab#Set on the Normal tab
+#Set Columns to 1 on the Narrow tab to show the elements one above the other.#Set Columns to 1 on the Narrow tab to show the elements one above the other.
+#Media#Media
+#Edit media#Edit media
+#Source#Source
+#Size (width × height)#Size (width × height)
+#Show full view or player on click#Show full view or player on click
+#Translations of the caption#Translations of the caption
+#Choose a file.#Choose a file.
+#The file was not found.#The file was not found.
+#Width and height: a number (px), px or %, or empty (auto).#Width and height: a number (px), px or %, or empty (auto).
+#This file can be seen by logged-in users only: visitors of the website will not see it.#This file can be seen by logged-in users only: visitors of the website will not see it.
+#This file can not be shown as media: choose an image, video, audio, a YouTube, Vimeo or SoundCloud link, IIIF, a 3D file or PDF.#This file can not be shown as media: choose an image, video, audio, a YouTube, Vimeo or SoundCloud link, IIIF, a 3D file or PDF.
+#Empty = auto; a number is px, or %. Both under 200 px (or one under 200 px and the other auto): the thumbnail is shown.#Empty = auto; a number is px, or %. Both under 200 px (or one under 200 px and the other auto): the thumbnail is shown.

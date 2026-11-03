@@ -33,7 +33,7 @@ export const CMS_CONFIG_VERSION = 1;
 export const BASE_SETTINGS = Object.freeze([
   'font-family', 'color-text', 'color-bg', 'color-surface', 'color-primary', 'color-link',
   'color-border', 'radius', 'site-font-size', 'site-heading-font', 'site-heading-color', 'site-width',
-  'color-selected', 'color-selected-border'
+  'color-selected', 'color-selected-border', 'color-primary-text', 'color-text-muted'
 ]);
 
 /** Screen sizes of node styles: key => max width (px). */
@@ -44,7 +44,8 @@ export const CMS_KINDS = Object.freeze({
   group: '[data-h-control="group"]',
   tabs: '[data-h-control="tabs"]',
   accordion: '[data-h-control="accordion"]',
-  text: '[data-h-text]',
+  text: '[data-h-text]:not([data-h-media])',
+  media: '[data-h-media]',
   instance: '[data-h-instance]'
 });
 
@@ -66,7 +67,7 @@ const URL_PATTERN = /url\(\s*(['"]?)(.*?)\1\s*\)/gi;
  * @returns {{config: object, issues: Array<object>}}
  */
 export function parseCmsConfig(json) {
-  const empty = { schema: CMS_SCHEMA, instances: {}, styles: {} };
+  const empty = { schema: CMS_SCHEMA, instances: {}, styles: {}, media: {} };
   const text = String(json ?? '');
   if (!text.trim()) return { config: empty, issues: [] };
   let config;
@@ -82,7 +83,7 @@ export function parseCmsConfig(json) {
     return { config: empty, issues: [issue('error', 'cms_schema', `The website configuration is not "${CMS_SCHEMA}"`)] };
   }
   const issues = [];
-  for (const part of ['instances', 'styles']) {
+  for (const part of ['instances', 'styles', 'media']) {
     if (config[part] != null && !isMap(config[part])) {
       issues.push(issue('error', 'cms_json', `The "${part}" of the website configuration is not an object`));
       config[part] = {};
@@ -90,6 +91,7 @@ export function parseCmsConfig(json) {
   }
   config.instances = config.instances ?? {};
   config.styles = config.styles ?? {};
+  config.media = config.media ?? {};
   return { config, issues };
 }
 
@@ -110,12 +112,23 @@ export function checkCmsDocument(config, htmlParts, translations = {}, baseUrl =
   const seenHosts = new Set();
   const texts = new Set();
   const instances = isMap(config.instances) ? config.instances : {};
+  const media = isMap(config.media) ? config.media : {};
+  const seenMedia = new Set();
   for (const node of nodes) {
     const id = node.node;
     if (id !== '') {
       if (seenNodes.has(id)) issues.push(issue('warning', 'duplicate_node', `Node id "${id}" is used more than once`, id));
       seenNodes.add(id);
       if (node.text) texts.add(id);
+    }
+    // a media element (plan 27c §33): its settings in config.media, one element each
+    if (node.media !== null) {
+      if (seenMedia.has(node.media)) {
+        issues.push(issue('warning', 'duplicate_media', `Media "${node.media}" has more than one element`, id));
+      } else if (!Object.hasOwn(media, node.media)) {
+        issues.push(issue('warning', 'media_without_config', `Media "${node.media}" has no settings`, id));
+      }
+      seenMedia.add(node.media);
     }
     const instance = node.instance;
     if (instance === null) continue;
@@ -134,6 +147,11 @@ export function checkCmsDocument(config, htmlParts, translations = {}, baseUrl =
     }
     const problem = cmsInstanceProblem(isMap(settings) ? settings : {});
     if (problem) issues.push(issue('warning', problem[0], `Instance "${instance}": ${problem[1]}`));
+  }
+  for (const [mediaId, settings] of Object.entries(media)) {
+    if (!seenMedia.has(mediaId)) issues.push(issue('warning', 'media_without_element', `Media "${mediaId}" has no element in the page`));
+    const problem = cmsMediaProblem(isMap(settings) ? settings : {});
+    if (problem) issues.push(issue('warning', 'media_settings', `Media "${mediaId}": ${problem}`));
   }
   const styles = isMap(config.styles) ? config.styles : {};
   const part = (name) => (isMap(styles[name]) ? styles[name] : {});
@@ -177,10 +195,28 @@ export function cmsInstanceProblem(settings) {
 }
 
 /**
+ * Why the settings of a media element are not valid (CmsValidator::mediaProblem), or null: `file` the key of a
+ * registered file, `width` / `height` 'auto', px or % (attributes of img / video), `player` a boolean.
+ *
+ * @param {object} settings
+ * @returns {string|null}
+ */
+export function cmsMediaProblem(settings) {
+  if (!/^[A-Za-z0-9]+$/.test(String(settings.file ?? ''))) return 'the file is missing';
+  for (const name of ['width', 'height']) {
+    const value = String(settings[name] ?? 'auto');
+    if (value !== 'auto' && !/^(?:\d+\.?\d*|\.\d+)(?:px|%)$/.test(value)) return `${name} must be auto, px or %`;
+  }
+  if (settings.player != null && typeof settings.player !== 'boolean') return 'player must be true or false';
+  return null;
+}
+
+/**
  * Elements with data-h-node or data-h-instance, in document order (CmsHtml::nodes).
  *
  * @param {string} html Page HTML fragment.
- * @returns {Array<{node: string, instance: string|null, text: boolean, control: string|null, tag: string}>}
+ * @returns {Array<{node: string, instance: string|null, media: string|null, text: boolean, control: string|null,
+ *          tag: string}>}
  */
 export function cmsNodes(html) {
   const result = [];
@@ -192,6 +228,7 @@ export function cmsNodes(html) {
     result.push({
       node: attributes.get('data-h-node') ?? '',
       instance: attributes.has('data-h-instance') ? attributes.get('data-h-instance') : null,
+      media: attributes.has('data-h-media') ? attributes.get('data-h-media') : null,
       text: attributes.has('data-h-text'),
       control: attributes.has('data-h-control') ? attributes.get('data-h-control') : null,
       tag: match[2].toLowerCase()
@@ -226,6 +263,14 @@ export function compileCmsStyles(base, nodeSets, baseUrl = '', { kinds = [], pre
       }
     }
   };
+  // the screen rules after the rules of their level (kinds, presets, nodes): a node's own style wins on every
+  // screen (plan 27c §30); medium first, then narrow
+  const flushScreens = () => {
+    for (const [screen, width] of Object.entries(SCREENS)) {
+      if (screens[screen]) css += `@media (max-width:${width}px){\n${screens[screen]}}\n`;
+      screens[screen] = '';
+    }
+  };
   for (const set of kinds) {
     if (!isMap(set)) continue;
     for (const [kind, style] of Object.entries(set)) {
@@ -236,6 +281,7 @@ export function compileCmsStyles(base, nodeSets, baseUrl = '', { kinds = [], pre
       rule(CMS_KINDS[kind], style, null);
     }
   }
+  flushScreens();
   for (const set of presets) {
     if (!isMap(set)) continue;
     for (const [name, style] of Object.entries(set)) {
@@ -248,6 +294,7 @@ export function compileCmsStyles(base, nodeSets, baseUrl = '', { kinds = [], pre
       rule(`[data-h-style="${name}"]`, properties, null);
     }
   }
+  flushScreens();
   for (const nodes of nodeSets) {
     if (!isMap(nodes)) continue;
     for (const [id, style] of Object.entries(nodes)) {
@@ -258,9 +305,7 @@ export function compileCmsStyles(base, nodeSets, baseUrl = '', { kinds = [], pre
       rule(`[data-h-node="${id}"]`, style, id);
     }
   }
-  for (const [screen, width] of Object.entries(SCREENS)) {
-    if (screens[screen]) css += `@media (max-width:${width}px){\n${screens[screen]}}\n`;
-  }
+  flushScreens();
   return { css, issues };
 }
 

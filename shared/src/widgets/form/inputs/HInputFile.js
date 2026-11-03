@@ -418,15 +418,9 @@ export class HInputFile extends HInput {
 
   /** Choose a registered file given as a file record (`/files` output). */
   _chooseRecord(record) {
-    const id = Number(record?.rec_ID);
-    if (!(id > 0)) return;
-    const file = {
-      ulf_ID: id,
-      ulf_OrigFileName: String(record.rec_Title || ''),
-      ulf_ObfuscatedFileID: record.rec_Hash || null,
-      ulf_ExternalFileReference: record.rec_URL || null,
-      thumbnail: record.rec_ThumbnailURL || null
-    };
+    const file = fileOfRecord(record);
+    if (!file) return;
+    const id = file.ulf_ID;
     this.source?.rememberLabel?.(id, file.ulf_OrigFileName || `#${id}`);
     this.value = id;
     this.file = file;
@@ -600,6 +594,24 @@ export class HInputFile extends HInput {
     if (this.browseButton) this.browseButton.disabled = locked || busy;
     this._syncBrowseText();
   }
+}
+
+/**
+ * The file (legacy form, as the `file` option) of a file record (`/files` output), or null.
+ *
+ * @param {object} record File record: rec_ID, rec_Title, rec_Hash, rec_URL, rec_ThumbnailURL.
+ * @returns {object|null}
+ */
+export function fileOfRecord(record) {
+  const id = Number(record?.rec_ID);
+  if (!(id > 0)) return null;
+  return {
+    ulf_ID: id,
+    ulf_OrigFileName: String(record.rec_Title || ''),
+    ulf_ObfuscatedFileID: record.rec_Hash || null,
+    ulf_ExternalFileReference: record.rec_URL || null,
+    thumbnail: record.rec_ThumbnailURL || null
+  };
 }
 
 /** Name of a file (legacy form): the original name, else the URL. */

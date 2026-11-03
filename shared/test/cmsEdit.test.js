@@ -85,9 +85,10 @@ test('captions of groups: not in the tree, edited through the group, translated;
   const column = doc.tree('content').find((item) => item.id === columns).children[0].id;
   assert.deepEqual(doc.parentGroup(column), { id: columns, preset: 'columns2' });
   const columnStyles = JSON.parse(doc.serialize().configuration).styles.nodes;
-  assert.deepEqual(columnStyles[columns], { display: 'flex', 'flex-direction': 'row', narrow: { 'flex-direction': 'column' } },
-    'columns are a flex row of their own, one column on narrow screens');
-  assert.deepEqual(columnStyles[column], { flex: '1' }, 'texts of equal size');
+  assert.deepEqual(columnStyles[columns], {
+    display: 'grid', 'grid-template-columns': 'repeat(2, minmax(0, 1fr))', gap: '12px', narrow: { 'grid-template-columns': '1fr' }
+  }, 'columns are a grid of their own, one column on narrow screens');
+  assert.equal(columnStyles[column], undefined, 'the texts need no style');
   assert.equal(doc.isPanel(first.id), true);
   assert.equal(doc.setCaption(first.id, 'News & views', { fre: 'Nouvelles' }), true);
   assert.deepEqual(doc.caption(first.id), { id: first.caption, text: 'News & views', translations: { fre: 'Nouvelles' } });
@@ -229,6 +230,12 @@ test('texts, translations, presets, node styles, common styles and instances', (
   doc.setPreset('g1', null);
   assert.match(doc.serialize().parts.content, /data-h-node="t2" data-h-text="" data-h-style="card"/);
   assert.doesNotMatch(doc.serialize().parts.content, /columns2/);
+  doc.setCssClass('t2', '  my-box   wide ');
+  assert.equal(doc.cssClass('t2'), 'my-box wide', 'custom CSS classes');
+  assert.match(doc.serialize().parts.content, /data-h-node="t2"[^>]* class="my-box wide"/);
+  doc.setCssClass('t2', '');
+  assert.equal(doc.cssClass('t2'), '');
+  assert.doesNotMatch(doc.serialize().parts.content, /my-box/);
   doc.setNodeStyle('t2', { margin: '1px' });
   doc.setNodeStyle('t1', {});
   assert.deepEqual(JSON.parse(doc.serialize().configuration).styles.nodes, { m1: { height: '300px' }, t2: { margin: '1px' } });

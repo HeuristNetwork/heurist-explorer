@@ -2095,8 +2095,9 @@ export class ExplorerApplication {
   }
 
   /**
-   * Host bridge given to the Website manager and the CMS designer: record editor, definitions, module
-   * configuration in website mode and the configuration of an Explorer instance (plan 27c §5.4).
+   * Host bridge given to the Website manager and the CMS designer: record editor, record manager (the
+   * background images of the style editor), definitions, module configuration in website mode and the
+   * configuration of an Explorer instance (plan 27c §5.4).
    *
    * @private
    * @returns {object} Bridge object.
@@ -2105,6 +2106,7 @@ export class ExplorerApplication {
     return {
       editRecord: (id) => this.editRecord(id),
       viewRecord: (id) => this.viewRecord(id),
+      browseRecords: (options) => this.recordEditing.browseRecords(options),
       canEditRecords: () => this.canEditRecordType('RT_CMS_PAGE'),
       getDbDefs: () => this._ensureDbDefs(),
       isLoggedIn: () => Number(this.userGroups?.data?.currentUserId) > 0,

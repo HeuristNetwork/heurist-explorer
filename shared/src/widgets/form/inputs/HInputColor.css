@@ -3,3 +3,9 @@
 .h-input-color-swatch { flex:0 0 auto; width:28px; height:24px; padding:0; border:1px solid var(--h-color-border); border-radius:var(--h-radius); background:none; cursor:pointer; }
 .h-input-color-swatch.is-empty { opacity:.45; }
 .h-input-color-text { width:9em; }
+.h-input-color-palette { flex:0 0 auto; padding:0 6px; }
+.h-popover.h-input-color-popover { width:auto; min-width:200px; overflow-y:auto; }
+/* .h-menu is a positioned dropdown; inside the popover it is the content */
+.h-input-color-popover > .h-menu { position:static; min-width:0; border:0; border-radius:0; box-shadow:none; }
+.h-input-color-menu .h-menu-item { display:flex; align-items:center; gap:6px; }
+.h-input-color-menu-swatch { flex:0 0 auto; width:14px; height:14px; border:1px solid var(--h-color-border); border-radius:2px; }

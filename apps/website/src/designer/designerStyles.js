@@ -22,7 +22,7 @@
 import { $HR } from '#shared/ui';
 import { BASE_SETTINGS, CMS_KINDS, CMS_STYLE_PROPERTIES, compileCmsStyles, SCREENS } from '#shared/site/cmsDocument.js';
 import { HInputColor } from '#shared/widgets/form/inputs/HInputColor.js';
-import { HInputFile } from '#shared/widgets/form/inputs/HInputFile.js';
+import { fileOfRecord, HInputFile } from '#shared/widgets/form/inputs/HInputFile.js';
 import { fileMediaUrls } from '#shared/recordview/fileMediaItem.js';
 import { createTabSet } from '#shared/widgets/layout/tabs.js';
 
@@ -41,18 +41,20 @@ export const BASE_LABELS = Object.freeze({
   'site-heading-color': ['Heading colour'],
   'site-width': ['Page width (max)', 'e.g. 1200px; empty = full width'],
   'color-selected': ['Selected background colour'],
-  'color-selected-border': ['Selected border colour']
+  'color-selected-border': ['Selected border colour'],
+  'color-primary-text': ['Text on primary colour (buttons)'],
+  'color-text-muted': ['Muted text colour']
 });
 
 /** Colour themes of the base settings (in the manner of the jQuery UI ThemeRoller / Bootstrap themes). */
 export const CMS_THEMES = Object.freeze([
-  { name: 'light', label: 'Default light', values: { 'color-text': '#333333', 'color-bg': '#ffffff', 'color-surface': '#f5f5f5', 'color-primary': '#2a6ebb', 'color-link': '#2a6ebb', 'color-border': '#dddddd', 'site-heading-color': '#222222' , 'color-selected': '#dcecff', 'color-selected-border': '#3983b7' } },
-  { name: 'dark', label: 'Default dark', values: { 'color-text': '#e6e6e6', 'color-bg': '#1e1e1e', 'color-surface': '#2b2b2b', 'color-primary': '#4f9be8', 'color-link': '#7db8f0', 'color-border': '#444444', 'site-heading-color': '#ffffff' , 'color-selected': '#2f4a66', 'color-selected-border': '#4f9be8' } },
-  { name: 'sepia', label: 'Sepia', values: { 'color-text': '#5b4636', 'color-bg': '#f4ecd8', 'color-surface': '#e9dcc0', 'color-primary': '#8b5a2b', 'color-link': '#8b4513', 'color-border': '#d3c4a5', 'site-heading-color': '#4a3426' , 'color-selected': '#ead9b5', 'color-selected-border': '#8b5a2b' } },
-  { name: 'green', label: 'Greenish', values: { 'color-text': '#2f3e33', 'color-bg': '#f4f8f4', 'color-surface': '#e3efe5', 'color-primary': '#2e7d32', 'color-link': '#2e7d32', 'color-border': '#c5dcc8', 'site-heading-color': '#1b5e20' , 'color-selected': '#d4ead6', 'color-selected-border': '#2e7d32' } },
-  { name: 'blue', label: 'Blueish', values: { 'color-text': '#253645', 'color-bg': '#f3f7fb', 'color-surface': '#e1ebf5', 'color-primary': '#1565c0', 'color-link': '#1565c0', 'color-border': '#c3d4e6', 'site-heading-color': '#0d47a1' , 'color-selected': '#d3e3f5', 'color-selected-border': '#1565c0' } },
-  { name: 'monitor', label: 'Monitor (green on black)', values: { 'color-text': '#33ff33', 'color-bg': '#000000', 'color-surface': '#0a1a0a', 'color-primary': '#00aa00', 'color-link': '#66ff66', 'color-border': '#1f5f1f', 'site-heading-color': '#66ff66', 'font-family': '"Courier New", monospace', 'site-heading-font': '"Courier New", monospace' , 'color-selected': '#0f3a0f', 'color-selected-border': '#33ff33' } },
-  { name: 'red', label: 'Red and white', values: { 'color-text': '#000000', 'color-bg': '#ffffff', 'color-surface': '#b0b0b0', 'color-primary': '#c62828', 'color-link': '#c62828', 'color-border': '#8a8a8a', 'site-heading-color': '#b71c1c' , 'color-selected': '#f6d5d5', 'color-selected-border': '#c62828' } }
+  { name: 'light', label: 'Default light', values: { 'color-text': '#333333', 'color-bg': '#ffffff', 'color-surface': '#f5f5f5', 'color-primary': '#2a6ebb', 'color-link': '#2a6ebb', 'color-border': '#dddddd', 'site-heading-color': '#222222' , 'color-selected': '#dcecff', 'color-selected-border': '#3983b7', 'color-primary-text': '#ffffff', 'color-text-muted': '#777777' } },
+  { name: 'dark', label: 'Default dark', values: { 'color-text': '#e6e6e6', 'color-bg': '#1e1e1e', 'color-surface': '#2b2b2b', 'color-primary': '#4f9be8', 'color-link': '#7db8f0', 'color-border': '#444444', 'site-heading-color': '#ffffff' , 'color-selected': '#2f4a66', 'color-selected-border': '#4f9be8', 'color-primary-text': '#ffffff', 'color-text-muted': '#9a9a9a' } },
+  { name: 'sepia', label: 'Sepia', values: { 'color-text': '#5b4636', 'color-bg': '#f4ecd8', 'color-surface': '#e9dcc0', 'color-primary': '#8b5a2b', 'color-link': '#8b4513', 'color-border': '#d3c4a5', 'site-heading-color': '#4a3426' , 'color-selected': '#ead9b5', 'color-selected-border': '#8b5a2b', 'color-primary-text': '#ffffff', 'color-text-muted': '#8a7560' } },
+  { name: 'green', label: 'Greenish', values: { 'color-text': '#2f3e33', 'color-bg': '#f4f8f4', 'color-surface': '#e3efe5', 'color-primary': '#2e7d32', 'color-link': '#2e7d32', 'color-border': '#c5dcc8', 'site-heading-color': '#1b5e20' , 'color-selected': '#d4ead6', 'color-selected-border': '#2e7d32', 'color-primary-text': '#ffffff', 'color-text-muted': '#64766a' } },
+  { name: 'blue', label: 'Blueish', values: { 'color-text': '#253645', 'color-bg': '#f3f7fb', 'color-surface': '#e1ebf5', 'color-primary': '#1565c0', 'color-link': '#1565c0', 'color-border': '#c3d4e6', 'site-heading-color': '#0d47a1' , 'color-selected': '#d3e3f5', 'color-selected-border': '#1565c0', 'color-primary-text': '#ffffff', 'color-text-muted': '#5f7387' } },
+  { name: 'monitor', label: 'Monitor (green on black)', values: { 'color-text': '#33ff33', 'color-bg': '#000000', 'color-surface': '#0a1a0a', 'color-primary': '#00aa00', 'color-link': '#66ff66', 'color-border': '#1f5f1f', 'site-heading-color': '#66ff66', 'font-family': '"Courier New", monospace', 'site-heading-font': '"Courier New", monospace' , 'color-selected': '#0f3a0f', 'color-selected-border': '#33ff33', 'color-primary-text': '#000000', 'color-text-muted': '#1faa1f' } },
+  { name: 'red', label: 'Red and white', values: { 'color-text': '#000000', 'color-bg': '#ffffff', 'color-surface': '#b0b0b0', 'color-primary': '#c62828', 'color-link': '#c62828', 'color-border': '#8a8a8a', 'site-heading-color': '#b71c1c' , 'color-selected': '#f6d5d5', 'color-selected-border': '#c62828', 'color-primary-text': '#ffffff', 'color-text-muted': '#666666' } }
 ]);
 
 const KIND_LABELS = Object.freeze({
@@ -70,6 +72,14 @@ const HELP = Object.freeze({
     + ' [data-h-style="name"] (presets), [data-h-control="group"], [data-h-text] or [data-h-instance].'
 });
 
+/** Named colours of the style editor (colour inputs): the base colours. */
+const PALETTE = Object.freeze([
+  ...BASE_SETTINGS.filter((key) => isColor(key)).map((key) => [key, BASE_LABELS[key]?.[0] || key])
+]);
+
+/** Variables without a Heurist default on this page: the variable (or colour) they fall back to. */
+const PALETTE_FALLBACK = Object.freeze({ 'site-heading-color': 'color-text' });
+
 /** Heurist variables of the site stylesheet (their defaults are read from this page for the previews). */
 const VARIABLES = ['--h-font-family', '--h-color-text', '--h-color-text-muted', '--h-color-bg', '--h-color-surface',
   '--h-color-primary', '--h-color-primary-text', '--h-color-link', '--h-color-border', '--h-color-selected',
@@ -83,6 +93,7 @@ color:var(--h-color-text);background:var(--h-color-bg)}
 :is(h1,h2,h3,h4,h5,h6){margin:.3em 0;font-family:var(--h-site-heading-font);color:var(--h-site-heading-color)}
 p{margin:.3em 0}
 a{color:var(--h-color-link)}
+section[data-h-control="group"][aria-labelledby]>h3:first-child{grid-column:1/-1}
 .pv-header{display:flex;align-items:center;gap:12px;padding:6px 12px;background:var(--h-color-surface);
 border-bottom:1px solid var(--h-color-border);font-weight:600}
 .pv-header span{font-weight:normal;color:var(--h-color-link)}
@@ -149,11 +160,17 @@ export function createStylesForm({ base = {}, kinds = {}, presets = {}, css = ''
   const previewCaption = element('div', 'h-cms-caption');
   previewCaption.textContent = $HR('Preview');
   const frame = element('iframe', 'h-cms-styles-preview');
-  frame.setAttribute('sandbox', '');
+  // no scripts; the same origin, so registered images that need the login are shown too
+  frame.setAttribute('sandbox', 'allow-same-origin');
   frame.title = $HR('Preview');
-  previewColumn.append(previewCaption, frame);
+  // the preview is a page of at least 660 px (wider than the narrow screen), with a scroll bar in a narrow column (§32)
+  const frameBox = element('div', 'h-cms-styles-preview-box');
+  frameBox.append(frame);
+  previewColumn.append(previewCaption, frameBox);
   root.append(tabs.element, previewColumn);
   const show = (html) => { frame.srcdoc = html; };
+  // background images are allowed from the Heurist base URL only (compileCmsStyles)
+  const preview = (body) => previewDocument(javaScriptAllowed ? state : { ...state, css: '' }, body, files?.baseUrl || '');
   const refresh = () => previews[tabs.selected]?.();
 
   // ------------------------------------------------------------ base settings
@@ -197,7 +214,7 @@ export function createStylesForm({ base = {}, kinds = {}, presets = {}, css = ''
     }
     refresh();
   });
-  previews.push(() => show(previewDocument(state, SAMPLE_PAGE)));
+  previews.push(() => show(preview(SAMPLE_PAGE)));
 
   // ------------------------------------------------------------ layout styles (kind defaults)
   const kindPane = pane(tabs, 'Layout styles', HELP.kinds);
@@ -213,13 +230,13 @@ export function createStylesForm({ base = {}, kinds = {}, presets = {}, css = ''
     styleRows(kindEditor, state.kinds[name] || {}, (value) => {
       if (Object.keys(value).length) state.kinds[name] = value; else delete state.kinds[name];
       refresh();
-    }, { kind: name, files });
+    }, { kind: name, files, base: () => state.base, advanced: true });
   };
   kind.addEventListener('change', () => {
     drawKind();
     refresh();
   });
-  previews.push(() => show(previewDocument(state, KIND_SAMPLES[kind.value] || '')));
+  previews.push(() => show(preview(KIND_SAMPLES[kind.value] || '')));
   drawKind();
 
   // ------------------------------------------------------------ presets
@@ -292,27 +309,30 @@ export function createStylesForm({ base = {}, kinds = {}, presets = {}, css = ''
     styleRows(presetEditor, style, (value) => {
       state.presets[name] = { label: state.presets[name]?.label ?? labelInput.value, ...value };
       refresh();
-    }, { kind: 'preset', files });
+    }, { kind: 'preset', files, base: () => state.base, advanced: true });
   };
   previews.push(() => {
     const name = currentPreset && state.presets[currentPreset] ? currentPreset : '';
     const label = escapeHtml(state.presets[name]?.label || name);
-    show(previewDocument(state, name
-      ? `<div data-h-control="group" data-h-style="${escapeHtml(name)}"><div data-h-text=""><h3>${label}</h3>`
-        + '<p>An element with this preset. Lorem ipsum dolor sit amet, consectetur adipiscing elit.</p></div></div>'
-      : ''));
+    // a text block per column of the preset (Two columns: two texts)
+    const count = name ? sampleColumns(state.presets[name]) : 0;
+    const texts = Array.from({ length: count }, (item, index) => `<div data-h-text=""><h3>${label}${count > 1 ? ` (${index + 1})` : ''}</h3>`
+      + '<p>An element with this preset. Lorem ipsum dolor sit amet, consectetur adipiscing elit.</p></div>').join('');
+    show(preview(name ? `<div data-h-control="group" data-h-style="${escapeHtml(name)}">${texts}</div>` : ''));
   });
   drawPresets();
 
   // ------------------------------------------------------------ custom CSS
   const cssPane = pane(tabs, 'Custom CSS', HELP.css);
+  // without JavaScript allowed on the server (isJavaScriptAllowed) no field takes CSS: the warning only, no editor;
+  // the CSS is not changed (not saved) and not in the previews (the page does not show it; 2026-11-03)
   if (!javaScriptAllowed) {
     const warning = element('div', 'h-cms-styles-warning');
-    warning.textContent = $HR('JavaScript and CSS are not allowed in this field and will be removed when saving.');
+    warning.textContent = $HR('CSS and Javascript are disabled by default. Request authorisation from server admin if required.');
     cssPane.config.append(warning);
   }
   const cssHost = element('div', 'h-cms-styles-css');
-  cssPane.config.append(cssHost);
+  if (javaScriptAllowed) cssPane.config.append(cssHost);
   let codeEditor = null;
   const plainEditor = () => {
     const area = element('textarea', 'h-input h-cms-styles-css-text');
@@ -325,6 +345,7 @@ export function createStylesForm({ base = {}, kinds = {}, presets = {}, css = ''
     cssHost.replaceChildren(area);
   };
   const ready = (async () => {
+    if (!javaScriptAllowed) return;
     if (!createCodeEditor) {
       plainEditor();
       return;
@@ -342,7 +363,7 @@ export function createStylesForm({ base = {}, kinds = {}, presets = {}, css = ''
       plainEditor();
     }
   })();
-  previews.push(() => show(previewDocument(state, SAMPLE_PAGE)));
+  previews.push(() => show(preview(SAMPLE_PAGE)));
 
   tabs.select(0);
   return {
@@ -362,13 +383,24 @@ const SELECT = (...items) => items.map((item) => (Array.isArray(item) ? item : [
 /**
  * The properties of the simple style editor (§23-§25), in sections; `group: true` only for groups (and presets),
  * `inGroup: true` only for elements in a flex group (and presets); `toggle`: a section with a checkbox, `on` / `off`
- * the values written when it is checked / unchecked.
+ * the values written when it is checked / unchecked; `key`: the section is on when these values are set (on the
+ * medium and narrow screens also when the normal screen has them), sections with a key on the same property
+ * exclude each other (Grid, Group layout). `columns: true`: the column selector of the grid (§30).
  * Selector options are [value, label]; the first option (empty) is the default.
  */
 export const SIMPLE_STYLE_FIELDS = Object.freeze([
-  { section: 'Group layout', group: true,
+  // §30: every direct child of a grid is one cell; the children fill the columns and go on in new rows
+  { section: 'Grid (columns)', group: true, note: 'Set Columns to 1 on the Narrow tab to show the elements one above the other.',
+    toggle: { key: { display: 'grid' }, on: { display: 'grid', 'grid-template-columns': 'repeat(2, minmax(0, 1fr))', gap: '12px' } },
+    fields: [
+      { property: 'grid-template-columns', label: 'Columns', columns: true },
+      { property: 'gap', label: 'Gap between elements', hint: 'e.g. 12px' },
+      { property: 'align-items', label: 'Row alignment', options: SELECT(['stretch', 'Stretch'], ['start', 'Top'], ['center', 'Center'],
+        ['end', 'Bottom']) }
+    ] },
+  { section: 'Group layout (flex)', group: true,
     // checked: a flex box; unchecked: display block
-    toggle: { on: { display: 'flex' }, off: { display: 'block' } }, fields: [
+    toggle: { key: { display: 'flex' }, on: { display: 'flex' }, off: { display: 'block' } }, fields: [
       { property: 'flex-direction', label: 'Direction', options: SELECT(['row', 'Row (side by side)'], ['column', 'Column (one under another)']) },
       { property: 'flex-wrap', label: 'Wrap', options: SELECT(['nowrap', 'No wrap'], ['wrap', 'Wrap']) },
       { property: 'justify-content', label: 'Alignment', options: SELECT(['flex-start', 'Start'], ['center', 'Center'], ['flex-end', 'End'],
@@ -436,6 +468,7 @@ function lengthRule(property) {
 export function checkStyleValue(property, value) {
   const text = String(value ?? '').trim();
   if (property === 'flex') return checkFlex(text);
+  if (property === 'grid-template-columns') return checkGridColumns(text);
   const rule = lengthRule(property);
   if (!rule || !text) return { value: text, error: null };
   const parts = text.split(/\s+/);
@@ -458,6 +491,49 @@ export function checkStyleValue(property, value) {
   }
   if (parts.length > rule.count) return { value: text, error: $HR(`At most ${rule.count} values are expected.`) };
   return { value: fixed.join(' '), error: null };
+}
+
+/** The parts of a value separated by spaces outside parentheses (`minmax(100px, 1fr) 2fr` = two parts). */
+function topLevelParts(text) {
+  const parts = [];
+  let depth = 0;
+  let current = '';
+  for (const char of text) {
+    if (char === '(') depth++;
+    if (char === ')') depth--;
+    if (/\s/.test(char) && depth === 0) {
+      if (current) parts.push(current);
+      current = '';
+    } else {
+      current += char;
+    }
+  }
+  if (current) parts.push(current);
+  return depth === 0 ? parts : null;
+}
+
+/** `grid-template-columns`: column widths (lengths, `fr`, auto, min-content, max-content), minmax() and repeat(). */
+function checkGridColumns(text) {
+  if (!text) return { value: text, error: null };
+  const length = /^(?:0|(?:\d+\.?\d*|\.\d+)(?:px|em|rem|%|vh|vw|pt|ch))$/;
+  const track = (part) => {
+    const minmax = /^minmax\((.+)\)$/i.exec(part);
+    if (minmax) {
+      const items = minmax[1].split(',').map((item) => item.trim());
+      return items.length === 2 && items.every(track);
+    }
+    return /^(?:auto|min-content|max-content)$/.test(part) || /^(?:\d+\.?\d*|\.\d+)fr$/.test(part) || length.test(part);
+  };
+  const tracks = (value) => {
+    const parts = topLevelParts(value);
+    return Boolean(parts?.length) && parts.every((part) => {
+      const repeat = /^repeat\(\s*(\d+|auto-fill|auto-fit)\s*,(.+)\)$/i.exec(part);
+      return repeat ? (repeat[1].startsWith('auto') || Number(repeat[1]) > 0) && tracks(repeat[2].trim()) : track(part);
+    });
+  };
+  return tracks(text)
+    ? { value: text.replace(/\s+/g, ' '), error: null }
+    : { value: text, error: $HR('Column widths are expected, e.g. 1fr 2fr, 200px 1fr or repeat(3, 1fr).') };
 }
 
 /** `flex` of an element in a group: auto, none, or grow [shrink] [basis] (numbers; the basis a length). */
@@ -490,14 +566,25 @@ function isColorProperty(property) {
  * @param {object} style
  * @param {(style: object) => void} [onChange] After every change (previews).
  * @param {{kind?: string, inFlexGroup?: boolean, presets?: Array<Array<string>>|null, preset?: string|null,
- *        files?: {apiClient: object, baseUrl: string, database: string}|null}} [options] `kind`: the kind of the
+ *        cssClass?: string, base?: object|Function, files?: {apiClient: object, baseUrl: string, database: string,
+ *        browseRecords?: Function, fileRecordType?: number}|null}} [options] `kind`: the kind of the
  *        element (group, tabs, accordion, text, instance; `preset` for presets); groups and presets get the group
  *        layout. `inFlexGroup`: the element is in a flex group; it (and a preset) gets *Size in group* (`flex`).
- *        `presets`: [name, label] of the preset selector (null = none) and `preset` its value. `files`: the image
- *        picker of the background (registered image files); without it the image is a text value.
- * @returns {{value: () => object, preset: () => string|null}}
+ *        `presets`: [name, label] of the preset selector (null = none) and `preset` its value; with the selector
+ *        the *Custom CSS class* input beside it (`classInput` false: none), `cssClass` its value. `base`: the base settings (or a function
+ *        giving them), the named colours of the colour inputs. `files`: the image picker of the background
+ *        (registered image files; with `browseRecords` and `fileRecordType` in the record manager, addorbrowse);
+ *        without it the image is a text value. `advanced`: start in Simple (false) or Advanced (true), the editor's
+ *        own choice; null = the choice of the session.
+ * @returns {{value: () => object, preset: () => string|null, cssClass: () => string|null}} `cssClass`: null
+ *          while it has characters that are not allowed.
  */
-export function styleRows(parent, style, onChange = null, { kind = null, inFlexGroup = false, presets = null, preset = null, files = null } = {}) {
+export function styleRows(parent, style, onChange = null, {
+  kind = null, inFlexGroup = false, presets = null, preset = null, cssClass = '', classInput = true, base = null, files = null,
+  advanced: startAdvanced = null
+} = {}) {
+  // Simple or Advanced: the session's choice (own style), or the editor's own (Styles popup)
+  let isAdvanced = startAdvanced ?? advancedMode;
   const screens = ['normal', ...Object.keys(SCREENS)];
   const values = { normal: {} };
   for (const screen of Object.keys(SCREENS)) values[screen] = { ...(style?.[screen] || {}) };
@@ -516,6 +603,8 @@ export function styleRows(parent, style, onChange = null, { kind = null, inFlexG
   const opened = new Set();
   let screen = 'normal';
   let presetValue = preset || null;
+  let classValue = String(cssClass ?? '').trim();
+  let classError = checkCssClass(classValue);
   if (presets) {
     const select = element('select', 'h-select h-compact');
     select.append(option('', $HR('(none)')), ...presets.map(([name, label]) => option(name, label || name)));
@@ -524,8 +613,29 @@ export function styleRows(parent, style, onChange = null, { kind = null, inFlexG
       presetValue = select.value || null;
       check();
     });
-    parent.append(field('Preset', select, 'h-cms-style-field h-cms-style-preset'));
+    // the class attribute of the element: the user's own rules (Website styles, Custom CSS)
+    const classText = element('input', 'h-input h-compact');
+    classText.type = 'text';
+    classText.value = classValue;
+    classText.placeholder = $HR('e.g. my-box');
+    const markClass = () => {
+      classText.classList.toggle('h-cms-style-invalid', Boolean(classError));
+      classText.title = classError || $HR('Class names of your own rules in Custom CSS, separated by spaces');
+    };
+    markClass();
+    classText.addEventListener('input', () => {
+      classValue = classText.value;
+      classError = checkCssClass(classValue);
+      markClass();
+      check();
+    });
+    const head = element('div', 'h-cms-style-preset');
+    head.append(field('Preset', select, 'h-cms-style-field'));
+    // a class needs rules of the custom CSS: not without JavaScript allowed
+    if (classInput) head.append(field('Custom CSS class', classText, 'h-cms-style-field'));
+    parent.append(head);
   }
+  const palette = () => basePalette(typeof base === 'function' ? base() : base);
   const tabs = element('div', 'h-cms-style-tabs');
   const tools = element('div', 'h-cms-style-tools');
   const advanced = button('Advanced', 'fa-sliders');
@@ -554,18 +664,27 @@ export function styleRows(parent, style, onChange = null, { kind = null, inFlexG
   function check() {
     const value = build();
     const { issues } = compileCmsStyles({}, [{ n: value }], baseUrl);
-    problems.textContent = [...invalid.values(), ...issues.map((issue) => issue.message)].join('\n');
+    problems.textContent = [...(classError ? [classError] : []), ...invalid.values(), ...issues.map((issue) => issue.message)].join('\n');
     onChange?.(value);
   }
   const setValue = (property, value) => {
     // an empty value removes the property in the simple list; Advanced keeps the row
-    if (advancedMode || String(value).trim()) values[screen][property] = value; else delete values[screen][property];
+    if (isAdvanced || String(value).trim()) values[screen][property] = value; else delete values[screen][property];
     check();
   };
   // a section with a checkbox: on when it has values (or was checked), off with its `off` values
+  // a section with a key on the medium / narrow screen, the key set on the normal screen only: on, not switched here
+  const inherited = (section) => {
+    const key = section.toggle?.key;
+    return Boolean(key) && screen !== 'normal' && Object.keys(key).every((property) => values[screen][property] === undefined)
+      && Object.entries(key).every(([property, value]) => values.normal[property] === value);
+  };
   const isOn = (section) => {
     const current = values[screen];
-    const { on = {}, off = {} } = section.toggle;
+    const { on = {}, off = {}, key = null } = section.toggle;
+    if (key) {
+      return inherited(section) || Object.entries(key).every(([property, value]) => current[property] === value);
+    }
     if (Object.keys(off).length && Object.entries(off).every(([property, value]) => current[property] === value)) return false;
     if (opened.has(`${screen}:${section.section}`)) return true;
     if (Object.keys(on).length && Object.entries(on).some(([property, value]) => current[property] === value)) return true;
@@ -580,6 +699,15 @@ export function styleRows(parent, style, onChange = null, { kind = null, inFlexG
       invalid.delete(`${screen}:${item.property}`);
     }
     for (const property of [...Object.keys(on), ...Object.keys(off)]) delete current[property];
+    // Grid and Group layout exclude each other: checking one clears the other
+    const keyProperties = Object.keys(section.toggle.key || {});
+    if (checked && keyProperties.length) {
+      for (const other of sections) {
+        if (other === section || !Object.keys(other.toggle?.key || {}).some((property) => keyProperties.includes(property))) continue;
+        for (const item of other.fields) delete current[item.property];
+        opened.delete(`${screen}:${other.section}`);
+      }
+    }
     if (checked) {
       opened.add(key);
       Object.assign(current, on);
@@ -612,43 +740,73 @@ export function styleRows(parent, style, onChange = null, { kind = null, inFlexG
     return text;
   };
   const colorInput = (host, property, value) => {
-    const color = new HInputColor().attach(host, { suppressLabel: true, clearButton: false, value: String(value ?? ''), placeholder: $HR('(default)') }).render();
+    const color = new HInputColor().attach(host, {
+      suppressLabel: true, clearButton: false, value: String(value ?? ''), placeholder: $HR('(default)'), palette
+    }).render();
     const changed = () => setValue(property, color.getValue() ?? '');
     host.addEventListener('h-input-change', changed);
     host.addEventListener('input', changed);
   };
-  // the background image: the current one (thumbnail, Remove) and the picker of registered image files
+  // the background image: HInputFile (thumbnail with zoom, clear) on the registered image files, in the record
+  // manager when the host has it (Browse, Upload, URL as a file field in addorbrowse mode); the value is
+  // url(...&file=KEY), the file of the key is read by GET /files/{key}
   const imageInput = (host, property, value) => {
     if (!files?.apiClient) {
       host.append(textInput(property, value, 'url(...)'));
       return;
     }
     const url = /url\(\s*(['"]?)(.*?)\1\s*\)/i.exec(String(value || ''))?.[2] || '';
-    if (url) {
-      const current = element('div', 'h-cms-style-image');
-      const thumb = element('img');
-      thumb.src = url;
-      thumb.alt = '';
-      const remove = button('', 'fa-xmark');
-      remove.title = $HR('Remove the image');
-      remove.addEventListener('click', () => {
-        setValue(property, '');
-        draw();
-      });
-      current.append(thumb, remove);
-      host.append(current);
-    }
-    const pickerHost = element('div');
-    host.append(pickerHost);
-    const input = new HInputFile().attach(pickerHost, {
-      suppressLabel: true, apiClient: files.apiClient, fileQuery: [{ 'f:29': 'image/*' }]
+    const key = /[?&]file=([A-Za-z0-9]+)/.exec(url)?.[1] || '';
+    const input = new HInputFile().attach(host, {
+      suppressLabel: true, apiClient: files.apiClient, fileQuery: [{ 'f:29': 'image/*' }],
+      browseRecords: files.browseRecords || null, fileRecordType: Number(files.fileRecordType) || 0,
+      fileViewer: baseUrl ? { baseUrl, database: files.database } : null
     }).render();
-    pickerHost.addEventListener('h-input-change', () => {
-      const key = input.file?.ulf_ObfuscatedFileID;
-      if (!key) return;
-      setValue(property, `url(${fileMediaUrls(baseUrl, files.database).file(key)})`);
-      draw();
+    if (key) {
+      void files.apiClient.get(`/files/${key}`, { query: { fields: 'rec_ID,rec_Title,rec_URL,rec_Hash,rec_ThumbnailURL' } })
+        .then((response) => {
+          const file = fileOfRecord((response?.data ?? response)?.records?.[0]);
+          if (file && !input.getValue()) input.setValue(file.ulf_ID, file);
+        })
+        .catch(() => {});
+    }
+    host.addEventListener('h-input-change', async () => {
+      const id = input.getValue();
+      if (!id) {
+        setValue(property, '');
+        return;
+      }
+      let fileKey = input.file?.ulf_ObfuscatedFileID;
+      // a file chosen in the record manager: its key comes with its title
+      if (!fileKey) {
+        await input.source?.fetchLabels?.([id]);
+        fileKey = input.source?.fileFor?.(id)?.key;
+      }
+      if (fileKey) setValue(property, `url(${fileMediaUrls(baseUrl, files.database).file(fileKey)})`);
     });
+  };
+  // the columns of a grid: 1-6 equal columns, or own widths (a text, checked when it is left)
+  const columnsInput = (host, property, value) => {
+    const equal = [1, 2, 3, 4, 5, 6].map((count) => [`repeat(${count}, minmax(0, 1fr))`, count === 1 ? '1 column' : `${count} columns`]);
+    const select = element('select', 'h-select h-compact');
+    select.append(option('', $HR('(default)')), ...equal.map(([name, label]) => option(name, $HR(label))), option('own', $HR('Own widths')));
+    select.value = !value ? '' : equal.some(([name]) => name === value) ? value : 'own';
+    const text = textInput(property, value, 'e.g. 1fr 2fr or 200px 1fr');
+    text.hidden = select.value !== 'own';
+    select.addEventListener('change', () => {
+      text.hidden = select.value !== 'own';
+      if (select.value === 'own') {
+        text.focus?.();
+        return;
+      }
+      text.value = select.value;
+      invalid.delete(`${screen}:${property}`);
+      text.classList.remove('h-cms-style-invalid');
+      setValue(property, select.value);
+    });
+    const line = element('div', 'h-cms-style-columns');
+    line.append(select, text);
+    host.append(line);
   };
   const drawSimple = () => {
     for (const section of sections) {
@@ -658,6 +816,10 @@ export function styleRows(parent, style, onChange = null, { kind = null, inFlexG
         const box = element('input');
         box.type = 'checkbox';
         box.checked = on;
+        if (inherited(section)) {
+          box.disabled = true;
+          box.title = $HR('Set on the Normal tab');
+        }
         box.addEventListener('change', () => toggleSection(section, box.checked));
         const label = element('label');
         label.append(box, document.createTextNode(` ${$HR(section.section)}`));
@@ -667,10 +829,17 @@ export function styleRows(parent, style, onChange = null, { kind = null, inFlexG
       }
       list.append(head);
       if (!on) continue;
+      if (section.note) {
+        const note = element('div', 'h-cms-style-note');
+        note.textContent = $HR(section.note);
+        list.append(note);
+      }
       for (const item of section.fields) {
         const value = values[screen][item.property] ?? '';
         const host = element('div', 'h-cms-styles-value');
-        if (item.options) {
+        if (item.columns) {
+          columnsInput(host, item.property, value);
+        } else if (item.options) {
           const select = element('select', 'h-select h-compact');
           select.append(option('', $HR('(default)')), ...item.options.map(([name, label]) => option(name, $HR(label))));
           // a value set in Advanced that is not an option
@@ -685,7 +854,9 @@ export function styleRows(parent, style, onChange = null, { kind = null, inFlexG
         } else {
           host.append(textInput(item.property, value, item.hint));
         }
-        list.append(field(item.label, host, 'h-cms-style-field'));
+        // the image input (thumbnail, file button, Upload, URL): not in a label, a click on the thumbnail would open
+        // the file manager too
+        list.append(field(item.label, host, 'h-cms-style-field', item.image ? 'div' : 'label'));
       }
     }
     const others = Object.keys(values[screen]).filter((property) => !simpleProperties.has(property) && String(values[screen][property]).trim());
@@ -728,13 +899,13 @@ export function styleRows(parent, style, onChange = null, { kind = null, inFlexG
       tab.addEventListener('click', () => { screen = name; draw(); });
       return tab;
     }));
-    advanced.classList.toggle('h-cms-style-advanced-on', advancedMode);
-    advanced.setAttribute('aria-pressed', String(advancedMode));
-    add.hidden = !advancedMode;
-    removeAll.hidden = !advancedMode;
-    list.classList.toggle('h-cms-style-simple', !advancedMode);
+    advanced.classList.toggle('h-cms-style-advanced-on', isAdvanced);
+    advanced.setAttribute('aria-pressed', String(isAdvanced));
+    add.hidden = !isAdvanced;
+    removeAll.hidden = !isAdvanced;
+    list.classList.toggle('h-cms-style-simple', !isAdvanced);
     list.replaceChildren();
-    if (advancedMode) drawAdvanced(); else drawSimple();
+    if (isAdvanced) drawAdvanced(); else drawSimple();
     check();
   }
   const clearScreen = () => {
@@ -742,7 +913,8 @@ export function styleRows(parent, style, onChange = null, { kind = null, inFlexG
     for (const key of [...opened]) if (key.startsWith(`${screen}:`)) opened.delete(key);
   };
   advanced.addEventListener('click', () => {
-    advancedMode = !advancedMode;
+    isAdvanced = !isAdvanced;
+    if (startAdvanced === null) advancedMode = isAdvanced;
     draw();
   });
   add.addEventListener('click', () => {
@@ -752,7 +924,7 @@ export function styleRows(parent, style, onChange = null, { kind = null, inFlexG
   });
   reset.addEventListener('click', async () => {
     if (!(await confirmNear(reset, 'Confirm?', { yes: 'Reset' }))) return;
-    if (advancedMode) {
+    if (isAdvanced) {
       for (const property of Object.keys(values[screen])) values[screen][property] = '';
     } else {
       values[screen] = {};
@@ -767,7 +939,47 @@ export function styleRows(parent, style, onChange = null, { kind = null, inFlexG
     draw();
   });
   draw();
-  return { value: build, preset: () => presetValue };
+  return { value: build, preset: () => presetValue, cssClass: () => (classError ? null : classValue.trim().split(/\s+/).filter(Boolean).join(' ')) };
+}
+
+/**
+ * Check the class names of an element: letters, digits, spaces, `_` and `-` only.
+ *
+ * @param {string} text
+ * @returns {string|null} The error, or null.
+ */
+export function checkCssClass(text) {
+  return /^[A-Za-z0-9 _-]*$/.test(String(text ?? '')) ? null
+    : $HR('Custom CSS class: only letters, digits, spaces, "_" and "-" are allowed.');
+}
+
+/**
+ * The named colours of the colour inputs: `var(--h-...)` of the base colours with their colour (the base setting,
+ * else the Heurist default of this page).
+ *
+ * @param {object} [base] Base settings of the website (and page).
+ * @returns {Array<{value: string, label: string, color: string}>}
+ */
+export function basePalette(base = {}) {
+  const style = globalThis.getComputedStyle?.(document.documentElement);
+  const colorOf = (key) => {
+    const value = String(base?.[key] ?? '').trim() || style?.getPropertyValue?.(`--h-${key}`)?.trim();
+    if (value) return value;
+    const fallback = PALETTE_FALLBACK[key] || '';
+    return fallback.startsWith('#') ? fallback : fallback ? colorOf(fallback) : '';
+  };
+  return PALETTE.map(([key, label]) => ({ value: `var(--h-${key})`, label: $HR(label), color: colorOf(key) }));
+}
+
+/** The help line of a tab or popup (question icon and text). */
+export function helpLine(help) {
+  const line = element('div', 'h-cms-styles-help');
+  const icon = element('i', 'fa-solid fa-circle-question');
+  icon.setAttribute('aria-hidden', 'true');
+  const text = element('span');
+  text.textContent = $HR(help);
+  line.append(icon, text);
+  return line;
 }
 
 /**
@@ -815,6 +1027,23 @@ export function confirmNear(anchor, message, { yes = 'Remove' } = {}) {
   });
 }
 
+/**
+ * The number of columns of a preset for its preview: the tracks of `grid-template-columns` (`1fr 1fr`,
+ * `repeat(3, 1fr)`), two for a flex box, else one (at most six).
+ */
+export function sampleColumns(preset) {
+  const template = String(preset?.['grid-template-columns'] ?? '').trim();
+  let count = 1;
+  if (template) {
+    const repeat = /^repeat\(\s*(\d+)\s*,/i.exec(template);
+    // tracks separated by spaces outside parentheses (minmax(100px, 1fr) is one track)
+    count = repeat ? Number(repeat[1]) : template.replace(/\([^()]*\)/g, '()').split(/\s+/).filter(Boolean).length;
+  } else if (preset?.display === 'flex') {
+    count = 2;
+  }
+  return Math.max(1, Math.min(6, count || 1));
+}
+
 /** A preset name (an id) from a label, not one of `used`. */
 export function presetName(label, used = []) {
   const base = String(label || 'preset').normalize('NFKD').replace(/[^A-Za-z0-9]+(.)?/g, (match, next) => (next ? next.toUpperCase() : ''))
@@ -831,10 +1060,11 @@ export function presetName(label, used = []) {
  *
  * @param {{base: object, kinds: object, presets: object, css: string}} state
  * @param {string} body
+ * @param {string} [baseUrl] Heurist base URL: background images from it.
  * @returns {string}
  */
-export function previewDocument(state, body) {
-  const { css: compiled } = compileCmsStyles(cleanBase(state.base), [], '', { kinds: [state.kinds], presets: [state.presets] });
+export function previewDocument(state, body, baseUrl = '') {
+  const { css: compiled } = compileCmsStyles(cleanBase(state.base), [], baseUrl, { kinds: [state.kinds], presets: [state.presets] });
   const custom = String(state.css || '').replace(/<\/style/gi, '<\\/style');
   return `<!doctype html><html class="h-site"><head><meta charset="utf-8"><style>${defaultVariables()}${PREVIEW_CSS}`
     + `${compiled}\n${custom}</style></head><body class="h-site-body">${body}</body></html>`;
@@ -843,14 +1073,8 @@ export function previewDocument(state, body) {
 /** A tab with its help line and settings (the preview is the second column of the popup). */
 function pane(tabs, label, help) {
   const panel = element('div', 'h-cms-styles-pane');
-  const helpLine = element('div', 'h-cms-styles-help');
-  const icon = element('i', 'fa-solid fa-circle-question');
-  icon.setAttribute('aria-hidden', 'true');
-  const text = element('span');
-  text.textContent = $HR(help);
-  helpLine.append(icon, text);
   const config = element('div', 'h-cms-styles-config');
-  panel.append(helpLine, config);
+  panel.append(helpLine(help), config);
   tabs.add($HR(label), panel);
   return { panel, config };
 }
@@ -873,8 +1097,9 @@ function isColor(key) {
   return key.startsWith('color-') || key === 'site-heading-color';
 }
 
-function field(label, control, className = 'h-cms-styles-field') {
-  const line = element('label', className);
+/** A caption and its control; `tag` div for a control of several buttons (a label clicks its first one). */
+function field(label, control, className = 'h-cms-styles-field', tag = 'label') {
+  const line = element(tag, className);
   const caption = element('span');
   caption.textContent = $HR(label);
   line.append(caption, control);

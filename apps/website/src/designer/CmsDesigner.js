@@ -27,6 +27,9 @@ import { HCardinalLayout } from '#shared/widgets/layout/HCardinalLayout.js';
 import { HTree } from '#shared/widgets/tree/HTree.js';
 import { createTabSet } from '#shared/widgets/layout/tabs.js';
 import { CMS_ELEMENTS, cmsPageStarter } from '#shared/site/cmsEdit.js';
+import { buildCmsMedia, cmsMediaCaption } from '#shared/site/cmsMedia.js';
+import { fileMediaUrls } from '#shared/recordview/fileMediaItem.js';
+import { systemFieldIds } from '#shared/data/systemEntities.js';
 import { TranslationClient } from '#shared/data/TranslationClient.js';
 import { openTextTranslationDialog } from '#shared/widgets/translation/HTextTranslationDialog.js';
 import { openTranslationDialog } from '#shared/widgets/translation/HTranslationDialog.js';
@@ -36,12 +39,15 @@ import {
 } from './designerData.js';
 import {
   askConflict, askRemovePage, askSaveDiscard, confirm, confirmNear, openAddElementForm,
-  openAddPageForm, openStyleForm, openStylesDialog
+  openAddPageForm, openMediaForm, openStyleForm, openStylesDialog
 } from './designerDialogs.js';
 import './designer.css';
 
 const PART_LABELS = Object.freeze({ header: 'Header', content: 'Home', footer: 'Footer' });
 const ROOT = '#root';
+
+/** Icons of the website parts and pages (Site tree and the root of the part tree). */
+const PART_ICONS = Object.freeze({ header: 'fa-heading', content: 'fa-house', footer: 'fa-f', page: 'fa-file-lines' });
 const CLIP_KEY = 'heurist.cms.clipboard';
 const HELP_KEY = 'heurist.cms.help';
 
@@ -67,7 +73,7 @@ export class CmsDesigner {
    * @param {HTMLElement} options.container Host over the whole screen.
    * @param {object} options.apiClient HeuristApiClient.
    * @param {object} options.websites WebsiteClient.
-   * @param {object} options.bridge Explorer's bridge: editRecord, openConfiguration, configureExplorerInstance.
+   * @param {object} options.bridge Explorer's bridge: editRecord, browseRecords, openConfiguration, configureExplorerInstance.
    * @param {object} [options.dbdefs] HDbDefs of the database (`meta.javaScriptAllowed`: the Custom CSS warning).
    * @param {{baseUrl: string, database: string}} options.runtime
    * @param {() => void} [options.onClose]
@@ -500,12 +506,12 @@ export class CmsDesigner {
 
   _siteItems() {
     const pages = (list) => (list || []).map((page) => ({
-      id: `page:${page.id}`, label: page.title || `#${page.id}`, icon: 'fa-file-lines', children: pages(page.children)
+      id: `page:${page.id}`, label: page.title || `#${page.id}`, icon: PART_ICONS.page, bold: true, children: pages(page.children)
     }));
     return [
-      { id: 'part:header', label: $HR('Header'), icon: 'fa-heading', draggable: false },
-      { id: 'part:content', label: $HR('Home'), icon: 'fa-house', draggable: false, children: pages(this.site.pages) },
-      { id: 'part:footer', label: $HR('Footer'), icon: 'fa-shoe-prints', draggable: false }
+      { id: 'part:header', label: $HR('Header'), icon: PART_ICONS.header, bold: true, draggable: false },
+      { id: 'part:content', label: $HR('Home'), icon: PART_ICONS.content, bold: true, draggable: false, children: pages(this.site.pages) },
+      { id: 'part:footer', label: $HR('Footer'), icon: PART_ICONS.footer, bold: true, draggable: false }
     ];
   }
 
@@ -688,6 +694,12 @@ export class CmsDesigner {
     return menuPlace(this.site.pages, this.current.recordId)?.page?.title || `#${this.current.recordId}`;
   }
 
+  /** The icon of the part tree root: the one of the Site tree (header, home, footer, page). */
+  _partIcon() {
+    if (!this.current || this.standalone || this.current.recordId !== this.site.id) return PART_ICONS.page;
+    return PART_ICONS[this.current.part] || PART_ICONS.page;
+  }
+
   _partItems() {
     const record = this._currentRecord();
     const map = (items) => items.map((item) => ({
@@ -698,7 +710,10 @@ export class CmsDesigner {
       title: [item.kind, item.preset ? `${$HR('preset')}: ${item.preset}` : ''].filter(Boolean).join(' · '),
       children: map(item.children)
     }));
-    return [{ id: ROOT, label: this._partLabel(), icon: 'fa-square-full', draggable: false, children: record ? map(record.doc.tree(this.current.part)) : [] }];
+    return [{
+      id: ROOT, label: this._partLabel(), icon: this._partIcon(), bold: true, draggable: false,
+      children: record ? map(record.doc.tree(this.current.part)) : []
+    }];
   }
 
   /**
@@ -714,6 +729,7 @@ export class CmsDesigner {
       tools.push({ action: 'add', icon: 'fa-plus', title: $HR(node.control === 'group' ? 'Add element' : 'Add panel') });
     }
     if (node?.kind === 'text') tools.push({ action: 'edit', icon: 'fa-pen', title: $HR('Edit text') });
+    if (node?.kind === 'media') tools.push({ action: 'media', icon: 'fa-pen', title: $HR('Edit media') });
     if (node?.control === 'group') tools.push({ action: 'caption', icon: 'fa-pen', title: $HR('Edit caption') });
     if (node?.kind === 'instance') tools.push({ action: 'configure', icon: 'fa-gear', title: $HR('Configuration') });
     tools.push({ action: 'delete', icon: 'fa-trash', title: $HR('Remove') });
@@ -736,6 +752,7 @@ export class CmsDesigner {
     if (action === 'add') return this._addElement(id);
     this._selectNode(id);
     if (action === 'edit') return this._editText(id);
+    if (action === 'media') return this._editMedia(id);
     if (action === 'caption') return this._editCaption(id);
     if (action === 'configure') return this._configure(id);
     if (action === 'delete' && (await confirmNear(button, 'Remove this element?'))) {
@@ -752,6 +769,7 @@ export class CmsDesigner {
     if (!node) return undefined;
     this._selectNode(id);
     if (node.kind === 'text') return this._editText(id);
+    if (node.kind === 'media') return this._editMedia(id);
     if (node.control === 'group') return this._editCaption(id);
     if (node.kind === 'instance') return this._configure(id);
     return undefined;
@@ -784,6 +802,8 @@ export class CmsDesigner {
       return true;
     });
     if (added) this._selectNode(added);
+    // a new media element: its file at once
+    if (added && values.element === 'media') await this._editMedia(added);
   }
 
   /** Copy the selected element (Copy structure / Copy all below the tree). */
@@ -829,6 +849,7 @@ export class CmsDesigner {
       box.append(barButton('fa-palette', 'Own style and preset of the element', () => this._ownStyle(node.id), 'Own style'));
       if (node.control === 'group') box.append(barButton('fa-heading', 'Caption of the group', () => this._editCaption(node.id), 'Caption'));
       if (node.kind === 'text') box.append(barButton('fa-pen', 'Edit the text and its translations', () => this._editText(node.id), 'Edit text'));
+      if (node.kind === 'media') box.append(barButton('fa-pen', 'The file, caption and size of the media', () => this._editMedia(node.id), 'Edit media'));
       if (node.kind === 'instance') box.append(barButton('fa-gear', 'Configuration', () => this._configure(node.id), 'Configuration'));
     }
     const spacer = element('span', 'h-cms-picker-spacer');
@@ -954,6 +975,59 @@ export class CmsDesigner {
     this._edit((doc) => doc.setCaption(id, result.value.trim(), translations));
   }
 
+  /**
+   * Edit media (§33): the file, caption (with translations) and settings in the popup; the HTML of the figure is
+   * made for the first language of the website and for each other one (its caption, its link labels).
+   */
+  async _editMedia(id) {
+    const record = this._currentRecord();
+    const current = record?.doc.media(id);
+    if (!current) return;
+    const languages = this.site?.languages || [];
+    const result = await openMediaForm({
+      settings: current.settings,
+      caption: cmsMediaCaption(current.html),
+      translations: Object.fromEntries(Object.entries(current.translations).map(([code, html]) => [code, cmsMediaCaption(html)])),
+      languages,
+      readFile: (key) => this._mediaFile(key),
+      files: this._files(),
+      translator: this._translator()
+    });
+    if (!result) return;
+    const runtime = this.options.runtime || {};
+    const urls = fileMediaUrls(runtime.baseUrl || '', runtime.database || '');
+    const html = (caption, language) => buildCmsMedia(result.file, result.settings, { urls, caption, language });
+    const translations = Object.fromEntries(languages.slice(1).map((code) => [code, html(result.translations[code] || result.caption, code)]));
+    this._edit((doc) => doc.setMedia(id, { settings: result.settings, html: html(result.caption, languages[0] || 'eng'), translations }));
+  }
+
+  /**
+   * A registered file by its key for the media popup (GET /files/{key}): id, name, file type (extension), source
+   * (local, external, tiled, iiif, iiif_image), URL and whether guests may see it; null when it is not found.
+   */
+  async _mediaFile(key) {
+    const response = await this.apiClient.get(`/files/${encodeURIComponent(key)}`, { query: { fields: '_all' } });
+    const record = (response?.data ?? response)?.records?.[0];
+    if (!record) return null;
+    const dbdefs = this.options.dbdefs;
+    const ids = systemFieldIds('file', dbdefs);
+    const first = (name) => {
+      const value = record.details?.[String(ids[name])];
+      const item = Array.isArray(value) ? value[0] : value;
+      return item && typeof item === 'object' ? item.id ?? item.value ?? '' : item ?? '';
+    };
+    const term = (name) => String(dbdefs?.termLabel?.(first(name)) || '').trim().toLowerCase().replace(/\s+/g, '_');
+    return {
+      key,
+      id: Number(record.rec_ID) || 0,
+      name: String(first('originalName') || record.rec_Title || ''),
+      ext: term('fileType'),
+      source: term('type'),
+      url: String(record.rec_URL || ''),
+      public: record.rec_NonOwnerVisibility ? record.rec_NonOwnerVisibility === 'public' : true
+    };
+  }
+
   /** The translation service of the server (Translate in the popups). */
   _translator() {
     return new TranslationClient({ apiClient: this.apiClient, available: Boolean(this.options.dbdefs?.translator?.()) });
@@ -971,19 +1045,29 @@ export class CmsDesigner {
       inFlexGroup: this._inFlexGroup(id),
       presets,
       preset: node?.preset || null,
+      cssClass: record.doc.cssClass(id),
+      javaScriptAllowed: this.options.dbdefs?.meta?.javaScriptAllowed === true,
+      base: Object.assign({}, ...this._styleRecords().map((item) => item.doc.base())),
       files: this._files()
     });
     if (!result) return;
     this._edit((doc) => {
       doc.setNodeStyle(id, result.style);
       doc.setPreset(id, result.preset);
+      doc.setCssClass(id, result.cssClass);
       return true;
     });
   }
 
-  /** The image picker of background images (styleRows). */
+  /** The image picker of background images (styleRows): registered files, in Explorer's record manager. */
   _files() {
-    return { apiClient: this.apiClient, baseUrl: this.options.runtime?.baseUrl || '', database: this.options.runtime?.database || '' };
+    return {
+      apiClient: this.apiClient,
+      baseUrl: this.options.runtime?.baseUrl || '',
+      database: this.options.runtime?.database || '',
+      browseRecords: typeof this.bridge?.browseRecords === 'function' ? (options) => this.bridge.browseRecords(options) : null,
+      fileRecordType: Number(this.options.dbdefs?.dbconst?.('RT_REGISTERED_FILE')) || 0
+    };
   }
 
   async _configure(id) {
@@ -1116,6 +1200,7 @@ export async function openCmsDesigner({ recordId, page = 0, ...options }) {
 
 function nodeIcon(item) {
   if (item.kind === 'text') return 'fa-paragraph';
+  if (item.kind === 'media') return 'fa-photo-film';
   if (item.kind === 'instance') return item.type === 'menu' ? 'fa-bars' : 'fa-cube';
   if (item.control === 'tabs') return 'fa-folder-open';
   if (item.control === 'accordion') return 'fa-list';
@@ -1128,6 +1213,8 @@ function elementHelp(node, record, multilingual) {
   const texts = ['Apply a preset (a style defined once in Styles) or define an own style for this element.'];
   if (node.kind === 'text') {
     texts.push(multilingual ? 'Edit the text with the pen or a double click; the popup shows the languages of the website: translate the text there.' : 'Edit the text with the pen or a double click.');
+  } else if (node.kind === 'media') {
+    texts.push('Choose the file, its caption and size with the pen or a double click. The page shows it without a script.');
   } else if (node.kind === 'instance') {
     const instance = node.instance ? record?.doc.instance(node.instance) : null;
     texts.push(instance?.kind === 'widget'

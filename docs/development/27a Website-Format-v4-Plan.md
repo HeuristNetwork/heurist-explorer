@@ -44,7 +44,7 @@ Go to phase 1 of plan 27: the v4 format.
 | 9 | Base settings | The list is to discuss (§4 *Base settings, classes and module styles*). |
 | 10 | CSS classes | As in legacy, the author can give a node class names and define them in the custom CSS (99-946); no full CSS editor. |
 | 11 | Base settings (2026-10-26, third round) | The 11 values of §4, mapped to the existing `--h-*` variables. |
-| 12 | Custom CSS | 99-946 is kept **without** the JavaScript permission, checked by a CSS sanitizer. JavaScript (2-927) keeps the code exception. |
+| 12 | Custom CSS | ~~99-946 is kept **without** the JavaScript permission, checked by a CSS sanitizer.~~ **Changed 2026-11-03 (Artem, stricter):** 99-946 and the script (2-927) only with the JavaScript permission (website / page records); without it both are cleared on save and the page does not show the CSS. `StoredCss` checks only the values of the v4 style settings. Legacy code not changed. |
 | 13 | Module styling | Base settings + host node + module options only; inner classes are not edited in the designer and are not a stable interface. |
 | 14 | Concept code | *Page translations* = **2-1202**. |
 

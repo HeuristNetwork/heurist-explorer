@@ -117,3 +117,7 @@
   padding: 8px;
   color: var(--h-color-muted, #777);
 }
+
+.h-tree-bold .h-tree-label {
+  font-weight: 600;
+}

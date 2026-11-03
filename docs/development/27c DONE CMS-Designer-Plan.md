@@ -1,9 +1,9 @@
 # Plan 27c — CMS designer, first version (plan 27, phase 3)
 
-**Status 2026-10-30: implemented (phases A0-E, both repos), not committed, not checked in a browser.** Decisions of
-four review rounds in §2, §14, §15; implementation and deviations in §16. Screen review 2026-10-31 (§17): editor in
-the west pane, preview alone in the center; done, not committed. Review 2026-11-01 (§18): toolbars, site tree remove,
-part tree tools, group captions; done, not committed. Catalog popups Add page / Add element (§19), section and caption (§20), Styles popup with tabs (§21), its cosmetics (§22), the simple / advanced style editor (§23), Size in group (§24) and the element tools / style editor review (§25): done, not committed. General
+**Status: DONE 2026-11-02 — committed, checked by Artem.** Implemented 2026-10-30 (phases A0-E, both repos);
+decisions of four review rounds in §2, §14, §15; implementation and deviations in §16; review rounds §17-§26 (screen,
+toolbars and trees, catalog popups, Styles popup, style editor, Size in group, element tools, text and translation
+popups). Leftovers that are new features are moved to phase 4 (§27). General
 directions are in `27 CMS-and-Web-Publishing-Plan.md`, the v4 format in `27a Website-Format-v4-Plan.md`, the Website
 manager in `27b Website-Manager-Plan.md`; this plan uses them and does not repeat them.
 
@@ -623,3 +623,149 @@ fixed the second language before, an empty French text for an English-only text)
 editor*). The source language is sent to the translation service (option `originalCode` for the record editor's
 value). Group captions use the shared `HTranslationDialog` (the caption in the first website language, the others
 added with the selector; one language or none: the caption only); `openCaptionForm` removed.
+
+## 27. Closed (Artem, 2026-11-02): moved to phase 4
+
+Phase 3 is done. These items are new features or were marked "later"; they go to the phase 4 plan (§12):
+
+- Page templates: Cover, Landing, About, Features, Team, Discover, Blog, Contact, Record page, Publications still
+  create a blank page (`pending`, §19).
+- Widgets still grey in *Add element*: custom report, action menu, media viewer / gallery, badges, language
+  switcher, email form, story map, crosstabs (§19, §20).
+- Unify menu and action menu (presentation modes, responsive), with the widget (§19).
+- Inline TinyMCE in the preview iframe (§2, §26 f).
+- Inline style editor below the part tree (§25.1, to discuss).
+- Optional module selector in *Add page* (§4).
+- Colour schemes, client page switching and cache, one-page layout, sticky header / footer (§12).
+
+Not phase 4: conversion of v3 websites is phase 8 (plan 27). The translation popups (§26) are shared and also used by
+the record editor (plan 25).
+
+## 28. Cosmetics after DONE, set 1: own style popup (Artem, 2026-11-03)
+
+Done 2026-11-03, not committed, not checked in a browser:
+
+a) Help line on top of the *Own style* popup (same `h-cms-styles-help` line as the Styles tabs; shared `helpLine()`
+   in `designerStyles.js`): own styles only with caution, website styles and presets preferred, own rules in
+   *Custom CSS* with a class name.
+b) *Custom CSS class* beside *Preset* (one line, a border below). Allowed characters `A-Za-z0-9 _-`
+   (`checkCssClass`); a wrong value is marked, listed with the problems, and OK does nothing. Stored as the `class`
+   attribute of the node (`CmsEditDocument.cssClass` / `setCssClass`; HTMLPurifier of `StoredText` allows `class` on
+   all elements already). The preview keeps mounted module hosts and updates their classes (runtime `h-site-*`
+   classes stay).
+c) Screen buttons Normal / Medium / Narrow right aligned.
+d) Colour inputs of the style editor: a dropdown button (shared `HInputColor` option `palette`) with the base
+   colours (`var(--h-color-text)` ... and `--h-color-primary-text`, `--h-color-text-muted`); the swatch shows the
+   colour of a `var(...)` value (the base setting of the website / page, else the Heurist default; the heading colour
+   falls back to the text colour). In the Styles popup the palette follows the Base settings tab as edited.
+e) Background image: `HInputFile` in addorbrowse mode (record manager of registered files with Upload / URL) through
+   a new `browseRecords` on Explorer's website bridge; without it the old dropdown picker.
+
+## 29. Cosmetics set 2: Styles popup (Artem, 2026-11-03)
+
+Done 2026-11-03, not committed, not checked in a browser:
+
+a) Popup title *General Website Styles*.
+b) Base settings `color-primary-text` and `color-text-muted` (JS `BASE_SETTINGS`, PHP `StyleCompiler::BASE`, every
+   theme has values); they are also in the named colours of the colour inputs (§28 d).
+c) The style editors of *Layout styles* and *Presets* start in Advanced (styleRows option `advanced`, the editor's
+   own choice; the own style popup keeps the session choice).
+d) Preview of a preset: one text block per column (`sampleColumns`: tracks of `grid-template-columns`, also
+   `repeat(n, ...)`; two for a flex box; at most six).
+f) Custom CSS: without `isJavaScriptAllowed` the text "CSS and Javascript are disabled by default. Request
+   authorisation from server admin if required." and the CSS is read-only (no code editor). With it the CSS is
+   edited and saved in DT_CMS_CSS as before.
+
+e) **Open, to discuss:** grid or flex in the Simple mode. Proposal: grid for columns is easier — *Columns* (number
+   1-6 → `grid-template-columns: repeat(n, 1fr)`, or own widths such as `1fr 2fr`), *Gap*, and on narrow screens one
+   column; no settings on the child elements. Flex stays in Advanced for rows that wrap or elements of their own
+   width (*Size in group*, §24).
+
+## 30. Columns, grid, image input, preview images (Artem, 2026-11-03)
+
+Answers: `display: grid` / `flex` place the **direct child elements** of a group side by side (each child is one grid
+cell; they go on in new rows by themselves). Long text flowing in columns would be `column-count` (not allowed now;
+optional later). *Text in two columns* stacked because: the narrow rule follows the width of the preview iframe
+(≤ 640 px); the screen rules of kinds and presets were written after the node styles and so beat them; a caption `h3` is
+a child too.
+
+Done 2026-11-03, not committed, not checked in a browser:
+- **Style order** (JS `compileCmsStyles`, PHP `StyleCompiler::compile`): the screen rules after their level — kinds,
+  presets, node styles — so an own style wins at every screen size. Fixture `common-styles.json` changed.
+- **Caption over all columns** of a grid group: `section[data-h-control="group"][aria-labelledby] > h3:first-child
+  { grid-column: 1 / -1 }` (site stylesheet and preview copy).
+- **Grid (columns)** section of the Simple style form for groups and presets, before *Group layout (flex)* (kept for
+  now): checkbox on = `display: grid`, 2 equal columns, gap 12px; *Columns* 1-6 equal (`repeat(n, minmax(0, 1fr))`) or
+  *Own widths* (checked: lengths, `fr`, auto, `minmax()`, `repeat()`), gap, row alignment. Grid and flex exclude each
+  other (section `key`); on the Medium / Narrow tabs a layout of the Normal tab is shown as on (checkbox disabled) so
+  *Columns 1* can be set there.
+- **Background image** = HInputFile only (its thumbnail with zoom, clear); the own thumbnail + Remove went. The file of
+  the value is read by the new `GET /files/{key}` (plan 20 §10.14); `fileOfRecord()` exported from HInputFile.
+- **Styles preview**: background images from the Heurist base URL are kept (`previewDocument(state, body, baseUrl)`);
+  iframe `sandbox="allow-same-origin"` (no scripts) so images that need the login load too.
+- Not done (optional, to agree): `column-count` / `column-gap` for text in columns.
+
+## 31. Image input click, preview width, columns as grid (Artem, 2026-11-03)
+
+Done 2026-11-03, not committed, not checked in a browser:
+- The image row of the style form is a `div`, not a `label`: a click inside a label activated its first button (the
+  file browse button), so a click on the thumbnail opened the file manager too.
+- Styles popup preview: a page of 660 px (wider than the narrow screen), scaled down to the preview column
+  (`PREVIEW_WIDTH`, ResizeObserver), so two and three columns are shown side by side.
+- *Text in two / three columns* (and the page presets with them): own style `display: grid`,
+  `grid-template-columns: repeat(n, minmax(0, 1fr))`, gap 12px, narrow `1fr`; no styles on the texts (was flex).
+  Elements added before keep their flex styles.
+- Record manager of files: created for each Browse and destroyed on close (as for all pointer fields); not changed.
+
+## 32. Preview overflow, trees (Artem, 2026-11-03)
+
+Done 2026-11-03, not committed, not checked in a browser:
+- Styles popup preview not scaled (replaces §31): the iframe is at least 660 px wide, its box scrolls horizontally in a
+  narrower column. `.h-cms-styles-layout` height `min(680px, 75vh)` (no overflow of the dialog body).
+- Site tree: all labels bold (HTree item option `bold`, class `h-tree-bold`); Footer icon `fa-f`.
+- Part tree: the root in bold with the icon of the Site tree (`PART_ICONS`: header, home, footer, page; standalone
+  pages and website pages `fa-file-lines`).
+
+## 33. Media element `data-h-media` (Artem, 2026-11-03)
+
+Agreed 2026-11-03 (settings in a configuration map, like instances). Implemented 2026-11-03 in both repos, not
+committed, not checked in a browser.
+
+**Format.** `<figure data-h-node="n5" data-h-media="m1" data-h-text="">…</figure>`; configuration
+`media.m1 = {file: KEY, width: 'auto'|px|%, height, player: bool}` (the map is left out when empty). The figure is a
+text block: its whole inner HTML is made in the designer, for each language of the website (`translations[lang][n5]`:
+the caption and the link labels of that language), so the translation code of server and client did not change.
+Checks (JS `checkCmsDocument` / `cmsMediaProblem`, PHP `CmsValidator::check` / `mediaProblem`, fixture
+`media.json`): `duplicate_media`, `media_without_config`, `media_without_element`, `media_settings`. Kind default
+`media` = `[data-h-media]`; the text kind is `[data-h-text]:not([data-h-media])` (JS and PHP). HTML purifier
+(`StoredText`): `data-h-media`; `loading` on img / iframe, `allow` on iframe (`autoplay; fullscreen` or
+`fullscreen` only).
+
+**HTML** (`shared/src/site/cmsMedia.js`): types image, video, audio, service (YouTube, Vimeo, SoundCloud), iiif, 3d /
+3dhop (legacy `detect3D_byExt`), pdf; other files are refused. Thumbnail mode: both sizes under 200 px, or one under
+200 px and the other auto — the thumbnail for every type. Else: image in its size, video / audio players, the service
+player; iiif, 3D, PDF their thumbnail. *Show full view or player on click*: image → OSD, iiif → Mirador, 3D → 3D viewer,
+PDF → the file in a new tab (the browser's viewer); a link around the image and the link after the caption. Audio,
+video, services: only in thumbnail mode — `details` / `summary` (no script): a click on the thumbnail shows the player
+(`preload="none"`, service iframe `loading="lazy"` + `autoplay=1`: it is loaded only when shown; a native player needs
+a second click on Play). Link labels in English and French (the language of the website), else English. The HTML is
+written as HTMLPurifier stores it (`rel="noreferrer noopener"`, `controls=""`), so a saved page equals the made one.
+
+**Designer.** *Add element* → Media (opens Edit media at once); tree icon `fa-photo-film`; Edit media (tree pen,
+bar button, double click). Popup `openMediaForm`: Source = HInputFile (record manager of files), the file read by
+`GET /files/{key}` (`_mediaFile`: name, file type, source, URL, guests may see it), a warning for files that need a
+login; Caption + Translations popup (more than one language); width × height (empty = auto, a number = px, or %); the
+checkbox. Copy / paste keep the file and settings (also *Copy structure*: static content).
+
+**Site stylesheet.** `figure[data-h-media]` without margin, media `max-width: 100%`, the play mark over the thumbnail,
+`details.h-site-media-play` not styled as an accordion.
+
+## 34. Custom CSS only with the JavaScript permission (Artem, 2026-11-03)
+
+Stricter rule (27a decision 12 changed): without `isJavaScriptAllowed` DT_CMS_CSS and DT_CMS_SCRIPT are cleared on
+save (`StoredText::clean`, also the CSS field of other record types) and `PageRenderer` writes no custom CSS. With it:
+CSS and script are kept as they are, only in website / page records. Designer without the permission: the Custom CSS
+tab shows the warning only (no editor), the CSS is not sent on save (stored values stay, unused) and not in the
+previews; the own style popup has no *Custom CSS class* (a class needs custom CSS). The v4 style settings (base,
+kinds, presets, own styles: configuration 2-1187) are not affected. Legacy code not changed (`recordModify.php` still
+stores CSS, the legacy viewer and reports still use it). Tests: `tests/StoredTextTest.php`, designer tests.

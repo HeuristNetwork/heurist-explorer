@@ -110,3 +110,34 @@
 #Hide translations#Masquer les traductions
 #Caption#Légende
 #Edit translations#Modifier les traductions
+#Custom CSS class#Classe CSS personnalisée
+#Text on primary colour (buttons)#Texte sur la couleur principale (boutons)
+#Muted text colour#Couleur du texte atténué
+#Choose a named colour#Choisir une couleur nommée
+#General Website Styles#Styles généraux du site web
+#CSS and Javascript are disabled by default. Request authorisation from server admin if required.#CSS et JavaScript sont désactivés par défaut. Demandez une autorisation à l'administrateur du serveur si nécessaire.
+#Grid (columns)#Grille (colonnes)
+#Group layout (flex)#Disposition du groupe (flex)
+#Columns#Colonnes
+#Own widths#Largeurs propres
+#Row alignment#Alignement des lignes
+#1 column#1 colonne
+#2 columns#2 colonnes
+#3 columns#3 colonnes
+#4 columns#4 colonnes
+#5 columns#5 colonnes
+#6 columns#6 colonnes
+#Set on the Normal tab#Défini dans l’onglet Normal
+#Set Columns to 1 on the Narrow tab to show the elements one above the other.#Mettez Colonnes à 1 dans l’onglet Étroit pour afficher les éléments les uns sous les autres.
+#Media#Média
+#Edit media#Modifier le média
+#Source#Source
+#Size (width × height)#Taille (largeur × hauteur)
+#Show full view or player on click#Afficher la vue complète ou le lecteur au clic
+#Translations of the caption#Traductions de la légende
+#Choose a file.#Choisissez un fichier.
+#The file was not found.#Le fichier est introuvable.
+#Width and height: a number (px), px or %, or empty (auto).#Largeur et hauteur : un nombre (px), px ou %, ou vide (auto).
+#This file can be seen by logged-in users only: visitors of the website will not see it.#Ce fichier n’est visible que par les utilisateurs connectés : les visiteurs du site ne le verront pas.
+#This file can not be shown as media: choose an image, video, audio, a YouTube, Vimeo or SoundCloud link, IIIF, a 3D file or PDF.#Ce fichier ne peut pas être affiché comme média : choisissez une image, une vidéo, un son, un lien YouTube, Vimeo ou SoundCloud, IIIF, un fichier 3D ou un PDF.
+#Empty = auto; a number is px, or %. Both under 200 px (or one under 200 px and the other auto): the thumbnail is shown.#Vide = auto ; un nombre est en px, ou %. Les deux sous 200 px (ou l’une sous 200 px et l’autre auto) : la vignette est affichée.

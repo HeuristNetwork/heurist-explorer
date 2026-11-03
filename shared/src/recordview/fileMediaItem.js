@@ -33,7 +33,8 @@ const IMAGE_EXTENSIONS = /\.(?:png|jpe?g|gif|webp|bmp|svg|tiff?)$/i;
  *
  * @param {string} baseUrl Heurist base URL (ends with `/`).
  * @param {string} database Database name.
- * @returns {{thumb: Function, file: Function, download: Function, osd: Function, mirador: Function}}
+ * @returns {{thumb: Function, file: Function, download: Function, osd: Function, mirador: Function,
+ *          viewer3d: Function}} viewer3d(key, mode): the 3D viewer (mode `3d`, or `3dhop` for Nexus files).
  */
 export function fileMediaUrls(baseUrl, database) {
   const root = baseUrl ? String(baseUrl).replace(/\/?$/, '/') : '';
@@ -44,7 +45,8 @@ export function fileMediaUrls(baseUrl, database) {
     file: (fileKey) => `${root}?db=${db}&file=${key(fileKey)}`,
     download: (fileKey) => `${root}?db=${db}&download=1&file=${key(fileKey)}`,
     osd: (fileKey) => `${root}hclient/widgets/viewers/openSeadragonViewer.php?db=${db}&recID=${key(fileKey)}`,
-    mirador: (fileKey) => `${root}hclient/widgets/viewers/miradorViewer.php?db=${db}&id=${key(fileKey)}`
+    mirador: (fileKey) => `${root}hclient/widgets/viewers/miradorViewer.php?db=${db}&id=${key(fileKey)}`,
+    viewer3d: (fileKey, mode = '3d') => `${root}hclient/widgets/viewers/${mode === '3dhop' ? '3dhop' : '3d'}Viewer.php?db=${db}&file=${key(fileKey)}`
   };
 }
 

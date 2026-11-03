@@ -1405,3 +1405,12 @@ usr_ExternalAuthentication (kept as they are). User title: "Ian Johnson (ijohnso
   they are left out, and the write part of `SystemUserGroupTest.php` (a new user needs the login name) is skipped.
   The status terms are matched by term code (`y`, `n`, `y_no_add`, `y_no_delete`, `y_no_add_delete`), else label.
 
+
+### 10.14 GET /files/{key} (Artem, 2026-11-03; not committed)
+
+`GET /api/{db}/files/{key}` gives the same file record as `/files/{id}`, found by the obfuscated key (`rec_Hash`), as
+`/files/{key}/content` and `/files/{key}/thumbnail` already do. Read only: writes stay on the numeric id (other methods
+405). `FileStoreInterface::idByKey` (legacy store: `FileRepository::filesByObfuscatedId`, record store:
+`RecordRepository::idsByHeader('rec_Hash')`). Used by the background image input of the CMS style editor (plan 27c §30),
+whose value holds only the URL of the file. Test: `tests/FileApiTest.php`.
+Also used by the media element of websites (plan 27c §33): Edit media reads the file of an element by its key.

@@ -135,7 +135,7 @@ test('catalogs of Add page and Add element: the available elements are the ones 
 });
 
 test('Styles popup: four tabs, themes, kind defaults, presets, custom CSS with the warning, previews', async () => {
-  const { createStylesForm, previewDocument, CMS_THEMES } = await import('../src/designer/designerStyles.js');
+  const { createStylesForm, previewDocument, sampleColumns, CMS_THEMES } = await import('../src/designer/designerStyles.js');
   const form = createStylesForm({
     base: { radius: '6px' }, kinds: { text: { padding: '4px' } }, presets: { card: { label: 'Card', padding: '8px' } }, css: '.x{color:red}'
   });
@@ -161,11 +161,22 @@ test('Styles popup: four tabs, themes, kind defaults, presets, custom CSS with t
   assert.deepEqual(values.kinds, { text: { padding: '4px' } });
   assert.equal(values.presets.card.label, 'Card');
   assert.equal(values.css, '.x{color:red}');
-  assert.match(form.tabs.panels[3].textContent, /JavaScript and CSS are not allowed/, 'warning without JavaScript allowed');
-  assert.equal(form.tabs.panels[3].querySelector('textarea').value, '.x{color:red}', 'a text area without a code editor');
+  assert.match(form.tabs.panels[3].textContent, /CSS and Javascript are disabled by default/, 'warning without JavaScript allowed');
+  assert.equal(form.tabs.panels[3].querySelector('textarea'), null, 'no CSS editor without JavaScript allowed');
+  assert.equal(form.read().css, '.x{color:red}', 'the CSS is not changed');
+  // Layout styles and Presets start in Advanced
+  assert.ok(form.tabs.panels[1].querySelector('.h-cms-style-advanced-on'), 'Layout styles: Advanced');
+  assert.ok(form.tabs.panels[2].querySelector('.h-cms-style-advanced-on'), 'Presets: Advanced');
   form.destroy();
   const allowed = createStylesForm({ javaScriptAllowed: true });
-  assert.doesNotMatch(allowed.tabs.panels[3].textContent, /are not allowed/);
+  assert.doesNotMatch(allowed.tabs.panels[3].textContent, /disabled by default/);
+  assert.ok(allowed.tabs.panels[3].querySelector('textarea'), 'a text area without a code editor');
+  // the preview of a preset: a text per column
+  assert.equal(sampleColumns({ display: 'grid', 'grid-template-columns': '1fr 1fr' }), 2);
+  assert.equal(sampleColumns({ display: 'grid', 'grid-template-columns': 'repeat(3, 1fr)' }), 3);
+  assert.equal(sampleColumns({ 'grid-template-columns': 'minmax(100px, 1fr) 2fr 1fr' }), 3);
+  assert.equal(sampleColumns({ display: 'flex' }), 2);
+  assert.equal(sampleColumns({ padding: '8px' }), 1);
   // the preview has the compiled styles of the website and the custom CSS, safely inside its style element
   const html = previewDocument({ base: { 'color-bg': '#000000' }, kinds: {}, presets: { card: { padding: '8px' } }, css: 'a{}</style><script>' }, '<p>x</p>');
   assert.match(html, /html\.h-site\{--h-color-bg:#000000;\}/);
@@ -192,10 +203,10 @@ test('Style editor: simple and advanced lists, group flex box, Reset all, Remove
   assert.deepEqual(tools.map((item) => item.textContent.trim()), ['Advanced', 'Add property', 'Reset all', 'Remove all']);
   assert.ok(tools[1].hidden && tools[3].hidden, 'Add property and Remove all only in Advanced');
   const sections = () => host.querySelectorAll('.h-cms-style-section').map((item) => item.textContent.trim());
-  assert.deepEqual(sections(), ['Group layout', 'Size and spacing', 'Text', 'Background', 'Border'], 'group layout on top');
+  assert.deepEqual(sections(), ['Grid (columns)', 'Group layout (flex)', 'Size and spacing', 'Text', 'Background', 'Border'], 'grid and group layout on top');
   assert.match(host.querySelector('.h-cms-style-note').textContent, /box-shadow/, 'other properties named');
   // the checkbox of Group layout: checked = a flex box with its properties, unchecked = display block
-  const groupBox = () => host.querySelector('.h-cms-style-section').querySelector('input');
+  const groupBox = () => host.querySelectorAll('.h-cms-style-section')[1].querySelector('input');
   assert.equal(groupBox().checked, false);
   groupBox().checked = true;
   groupBox().fire('change');
@@ -248,7 +259,7 @@ test('Style editor: simple and advanced lists, group flex box, Reset all, Remove
   const text = document.createElement('div');
   styleRows(text, {}, null, { kind: 'text' });
   const textSections = text.querySelectorAll('.h-cms-style-section').map((item) => item.textContent.trim());
-  assert.ok(!textSections.includes('Group layout'));
+  assert.ok(!textSections.includes('Group layout (flex)') && !textSections.includes('Grid (columns)'));
   // Size in group (flex): only for an element in a flex group, and in presets
   assert.ok(!textSections.includes('In the group'));
   assert.equal(text.querySelector('.h-cms-style-preset'), null, 'no preset selector without presets');
@@ -258,6 +269,95 @@ test('Style editor: simple and advanced lists, group flex box, Reset all, Remove
     ['In the group', 'Size and spacing', 'Text', 'Background', 'Border']);
   for (const value of ['1', '2', 'auto', 'none', '1 200px', '1 0 200px', '2 1']) assert.equal(checkStyleValue('flex', value).error, null, value);
   for (const value of ['x', '1 1 1', '-1', '1 2 3 4']) assert.ok(checkStyleValue('flex', value).error, value);
+});
+
+test('Style editor: Grid (columns) section, excluding the flex layout; inherited on the narrow tab; column widths check', async () => {
+  const { styleRows, checkStyleValue } = await import('../src/designer/designerStyles.js');
+  for (const value of ['1fr 2fr', '200px 1fr', 'repeat(3, 1fr)', 'repeat(2, minmax(0, 1fr))', 'minmax(100px, 1fr) auto', 'repeat(auto-fill, minmax(200px, 1fr))']) {
+    assert.equal(checkStyleValue('grid-template-columns', value).error, null, value);
+  }
+  for (const value of ['1fr x', '12', 'repeat(0, 1fr)', 'minmax(1fr)', 'repeat(2, 1fr']) {
+    assert.ok(checkStyleValue('grid-template-columns', value).error, value);
+  }
+  const host = document.createElement('div');
+  document.body.append(host);
+  const editor = styleRows(host, { display: 'flex', 'flex-direction': 'row' }, null, { kind: 'group', advanced: false });
+  const box = (index) => host.querySelectorAll('.h-cms-style-section')[index].querySelector('input');
+  assert.equal(box(0).checked, false, 'grid off');
+  assert.equal(box(1).checked, true, 'flex on');
+  box(0).checked = true;
+  box(0).fire('change');
+  assert.deepEqual(editor.value(), { display: 'grid', 'grid-template-columns': 'repeat(2, minmax(0, 1fr))', gap: '12px' }, 'grid replaces flex');
+  assert.equal(box(1).checked, false);
+  const columns = host.querySelector('.h-cms-style-columns').querySelector('select');
+  assert.equal(columns.value, 'repeat(2, minmax(0, 1fr))');
+  columns.value = 'repeat(3, minmax(0, 1fr))';
+  columns.fire('change');
+  assert.equal(editor.value()['grid-template-columns'], 'repeat(3, minmax(0, 1fr))');
+  // the narrow tab: grid inherited (checkbox disabled), Columns 1 there
+  host.querySelector('.h-cms-style-tabs').querySelectorAll('button')[2].click();
+  assert.equal(box(0).checked, true);
+  assert.equal(box(0).disabled, true, 'set on the Normal tab');
+  const narrow = host.querySelector('.h-cms-style-columns').querySelector('select');
+  narrow.value = 'repeat(1, minmax(0, 1fr))';
+  narrow.fire('change');
+  assert.deepEqual(editor.value().narrow, { 'grid-template-columns': 'repeat(1, minmax(0, 1fr))' });
+  host.remove();
+});
+
+test('Background image: HInputFile with the file of the key (GET /files/{key}); preview keeps Heurist images', async () => {
+  const { styleRows, previewDocument } = await import('../src/designer/designerStyles.js');
+  const asked = [];
+  const apiClient = {
+    get: async (path) => {
+      asked.push(path);
+      return { records: [{ rec_ID: '21', rec_Title: 'banner.jpg', rec_Hash: 'abc123' }] };
+    },
+    buildUrl: (path) => `http://h/api/db${path}`
+  };
+  const host = document.createElement('div');
+  document.body.append(host);
+  const style = { 'background-image': 'url(http://h/?db=db&file=abc123)' };
+  styleRows(host, style, null, { kind: 'preset', advanced: false, files: { apiClient, baseUrl: 'http://h/', database: 'db' } });
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.deepEqual(asked, ['/files/abc123'], 'the file of the key');
+  assert.equal(host.querySelector('.h-cms-style-image'), null, 'no own thumbnail');
+  const thumb = host.querySelector('.h-input-file-thumb');
+  assert.ok(thumb && !thumb.hidden, 'the HInputFile thumbnail');
+  host.remove();
+  const html = previewDocument({ base: {}, kinds: {}, presets: { banner: style }, css: '' }, '', 'http://h/');
+  assert.match(html, /background-image:url\(http:\/\/h\/\?db=db&file=abc123\)/, 'the image of the Heurist base URL in the preview');
+});
+
+test('Own style: custom CSS class beside the preset (checked), named base colours of the colour inputs', async () => {
+  const { styleRows, checkCssClass, basePalette } = await import('../src/designer/designerStyles.js');
+  assert.equal(checkCssClass('my-box second_one 2'), null);
+  assert.ok(checkCssClass('box.red'), 'a dot is not allowed');
+  assert.ok(checkCssClass('a{b}'));
+  const host = document.createElement('div');
+  document.body.append(host);
+  const editor = styleRows(host, { color: 'var(--h-color-primary)' }, null,
+    { kind: 'text', presets: [['card', 'Card']], cssClass: 'my-box', base: { 'color-primary': '#123456' } });
+  const hidden = document.createElement('div');
+  styleRows(hidden, {}, null, { kind: 'text', presets: [['card', 'Card']], cssClass: 'x', classInput: false });
+  assert.equal(hidden.querySelector('.h-cms-style-preset').querySelectorAll('input').length, 0, 'no class input without JavaScript allowed');
+  const classInput = host.querySelector('.h-cms-style-preset').querySelectorAll('input')[0];
+  assert.equal(classInput.value, 'my-box', 'the class beside the preset');
+  classInput.value = ' one  two ';
+  classInput.fire('input');
+  assert.equal(editor.cssClass(), 'one two');
+  classInput.value = 'one;two';
+  classInput.fire('input');
+  assert.equal(editor.cssClass(), null, 'not allowed characters: no value');
+  assert.ok(classInput.classList.contains('h-cms-style-invalid'));
+  // a colour input with var(--h-color-primary): the swatch shows the base colour
+  const swatch = host.querySelector('.h-input-color-swatch');
+  assert.equal(swatch.value, '#123456');
+  assert.ok(host.querySelector('.h-input-color-palette'), 'the dropdown of named colours');
+  host.remove();
+  const palette = basePalette({ 'color-text': '#111111' });
+  assert.ok(palette.some((entry) => entry.value === 'var(--h-color-primary-text)'));
+  assert.equal(palette.find((entry) => entry.value === 'var(--h-site-heading-color)').color, '#111111', 'heading colour falls back to the text colour');
 });
 
 /** A designer on a fake API: requests are recorded. */
@@ -383,6 +483,34 @@ test('designer: tools of the part tree, + of tabs, captions, copy below the tree
   designer._selectNode(null);
   assert.equal(picker().length, 2, 'nothing selected: Copy and Paste only');
   assert.equal(picker()[0].disabled, true, 'nothing selected: no copy');
+  designer.destroy();
+});
+
+test('designer: a media element has Edit media; its file is read by its key (GET /files/{key})', async () => {
+  const { designer } = designerOf();
+  await designer.open(10);
+  let media = null;
+  designer._edit((doc) => { media = doc.insertElement('content', 'media', { id: null, position: 'inside' }); return true; });
+  assert.deepEqual(designer._nodeTools({ id: media }).map((item) => item.action), ['media', 'delete']);
+  designer._selectNode(media);
+  const picker = designer.pickerBox.querySelectorAll('button').map((button) => button.textContent.trim());
+  assert.deepEqual(picker.slice(0, 2), ['Own style', 'Edit media']);
+  assert.equal(designer._treeItem(media).configured, false, 'no file yet: marked');
+  const asked = [];
+  designer.apiClient = {
+    ...designer.apiClient,
+    get: async (path, options) => {
+      asked.push([path, options?.query?.fields]);
+      return { records: [{ rec_ID: '21', rec_Title: 'Map', rec_URL: '', rec_NonOwnerVisibility: 'viewable', details: { 5: ['map.jpg'], 6: ['61'], 7: ['70'] } }] };
+    }
+  };
+  designer.options.dbdefs = {
+    localId: (table, concept) => ({ '2-1185': 5, '2-29': 6, '2-1186': 7 })[concept] || 0,
+    termLabel: (id) => ({ 61: 'jpg', 70: 'Local' })[id] || ''
+  };
+  assert.deepEqual(await designer._mediaFile('abc123'),
+    { key: 'abc123', id: 21, name: 'map.jpg', ext: 'jpg', source: 'local', url: '', public: false });
+  assert.deepEqual(asked, [['/files/abc123', '_all']]);
   designer.destroy();
 });
 

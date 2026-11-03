@@ -83,6 +83,78 @@ html.h-site {
   font-size: var(--h-font-size);
 }
 
+/* the caption of a group (plan 27c §20) over all its columns when the group is a grid (§30) */
+section[data-h-control="group"][aria-labelledby] > h3:first-child {
+  grid-column: 1 / -1;
+}
+
+/* media element (plan 27c §33): figure, caption; a thumbnail that opens its player (details / summary, no script) */
+figure[data-h-media] {
+  margin: 0;
+}
+
+figure[data-h-media] :is(img, video, audio, iframe) {
+  display: block;
+  max-width: 100%;
+  border: 0;
+}
+
+figure[data-h-media] figcaption {
+  margin-top: 4px;
+  font-size: 0.9em;
+}
+
+figure[data-h-media] figcaption > a {
+  white-space: nowrap;
+}
+
+.h-site-media-play > summary {
+  position: relative;
+  display: inline-block;
+  list-style: none;
+  cursor: pointer;
+}
+
+.h-site-media-play > summary::-webkit-details-marker {
+  display: none;
+}
+
+/* the play mark over the thumbnail */
+.h-site-media-play > summary::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  margin: -14px 0 0 -9px;
+  border-style: solid;
+  border-width: 14px 0 14px 22px;
+  border-color: transparent transparent transparent rgba(255, 255, 255, 0.9);
+  filter: drop-shadow(0 0 3px rgba(0, 0, 0, 0.6));
+}
+
+.h-site-media-play[open] > summary {
+  display: none;
+}
+
+/* not an accordion (the rules of accordions below) */
+.h-site-body .h-site-media-play {
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  overflow: visible;
+}
+
+.h-site-body .h-site-media-play > summary {
+  padding: 0;
+  background: none;
+}
+
+.h-site-body .h-site-media-play > :not(summary) {
+  margin: 0;
+}
+
 /* tabs (data-h-control="tabs"): the first heading of a panel is its tab */
 .h-site-tab-strip {
   display: flex;
