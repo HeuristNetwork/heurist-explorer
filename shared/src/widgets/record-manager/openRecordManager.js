@@ -5,6 +5,8 @@
  *        selected (`select_multi`); Cancel, Escape and the close button give null.
  *        The relations mode (plan 24) has Close only and gives `{changed}`; its
  *        "Find or Add" opens another manager of the other types in `select_multi`.
+ *        A session (createRecordManagerSession, 2026-11-03) keeps one manager for the
+ *        Browse of one field: opened again it keeps its filter and page, until destroyed.
  *
  * @project     Heurist academic knowledge management system
  * @package     heurist-client-core
@@ -36,49 +38,118 @@ let dialogCount = 0;
  *          `manager` mode, `{changed}` after `relations` mode, null when cancelled.
  */
 export function openRecordManager(options = {}) {
-  const dialogId = `${DIALOG_ID}-${++dialogCount}`;
-  const host = document.createElement('div');
-  host.className = 'h-record-manager-host';
+  const host = managerHost();
   const relations = options.selectMode === 'relations';
   // "Find or Add" of the relations mode: the same services, another mode and types
   const browseRecords = relations && typeof options.browseRecords !== 'function'
     ? (browse) => openRecordManager({ ...options, relations: null, browseRecords: undefined, title: undefined, ...browse })
     : options.browseRecords;
   const manager = new HRecordManager().attach(host, { ...options, browseRecords });
+  return showManager(host, manager, options, { dialogId: `${DIALOG_ID}-${++dialogCount}`, render: true, keep: false });
+}
+
+/**
+ * One record manager for the Browse of one field (select modes): made and loaded on the first open; each open shows
+ * it again as it was (filter, search, page; no new search), the selection cleared; after an Add the list is loaded again.
+ * Closing the dialog keeps it; destroy() removes it (the field or input is destroyed: the edit form closes).
+ *
+ * @param {object} options openRecordManager options (not the relations mode).
+ * @returns {{open: () => Promise<number[]|null>, destroy: () => Promise<void>}}
+ */
+export function createRecordManagerSession(options = {}) {
+  const dialogId = `${DIALOG_ID}-${++dialogCount}`;
+  let host = null;
+  let manager = null;
+  let destroyed = false;
+  return {
+    async open() {
+      if (destroyed) return null;
+      const first = !manager;
+      if (first) {
+        host = managerHost();
+        manager = new HRecordManager().attach(host, options);
+      } else {
+        // the list as it was (page, filter, search): no new search, unless a record was added in it (Add finishes
+        // the select modes before the list is loaded again)
+        await manager.clearSelection();
+        if (manager.stale) {
+          manager.stale = false;
+          void manager.reload().catch((error) => HMsg.showMsgErr?.(error?.message || String(error)));
+        }
+      }
+      return showManager(host, manager, options, { dialogId, render: first, keep: true });
+    },
+    async destroy() {
+      destroyed = true;
+      HMsg.closeMsgDlg(dialogId);
+      await manager?.destroy();
+      manager = null;
+      host = null;
+    }
+  };
+}
+
+function managerHost() {
+  const host = document.createElement('div');
+  host.className = 'h-record-manager-host';
+  return host;
+}
+
+/**
+ * The manager in its dialog until Select / Cancel / Close.
+ *
+ * @param {HTMLElement} host
+ * @param {HRecordManager} manager
+ * @param {object} options
+ * @param {{dialogId: string, render: boolean, keep: boolean}} how `render`: load it first; `keep`: not destroyed at the end.
+ */
+function showManager(host, manager, options, { dialogId, render, keep }) {
+  const relations = options.selectMode === 'relations';
   const selecting = manager.isSelectMode();
   const closed = () => (relations ? { changed: manager.changed } : selecting ? null : []);
 
   return new Promise((resolve) => {
     let settled = false;
     let dialog = null;
+    const listeners = [];
+    const on = (type, handler) => {
+      host.addEventListener(type, handler);
+      listeners.push([type, handler]);
+    };
     const finish = async (ids) => {
       if (settled) return;
       settled = true;
       dialog?.removeEventListener('close', onDialogClose);
+      for (const [type, handler] of listeners) host.removeEventListener(type, handler);
       HMsg.closeMsgDlg(dialogId);
-      await manager.destroy();
+      if (!keep) await manager.destroy();
       resolve(ids);
     };
-    const onDialogClose = () => void finish(closed());
+    // a close event of this dialog shown before (a session) is not this one's
+    const onDialogClose = () => {
+      if (!dialog?.open) void finish(closed());
+    };
     const buttons = selecting
       ? [
         { label: $HR('Select'), class: 'h-btn h-btn-primary', onClick: () => manager.select() },
         { label: $HR('Cancel'), class: 'h-btn', onClick: () => void finish(null) }
       ]
       : [{ label: $HR('Close'), class: 'h-btn', onClick: () => void finish(closed()) }];
-    host.addEventListener('h-record-manager-finish', (event) => void finish(event.detail.ids));
-    host.addEventListener('h-record-manager-selection', (event) => syncSelect(dialog, event.detail.ids));
-    host.addEventListener('h-record-manager-error', (event) => {
+    on('h-record-manager-finish', (event) => void finish(event.detail.ids));
+    on('h-record-manager-selection', (event) => syncSelect(dialog, event.detail.ids));
+    on('h-record-manager-error', (event) => {
       HMsg.showMsgErr?.(event.detail.error?.message || String(event.detail.error));
     });
     dialog = HMsg.showMsgDlg(host, { dialogId, title: options.title || managerTitle(options), buttons });
     dialog?.classList.add('h-dialog-record-manager');
     dialog?.addEventListener('close', onDialogClose);
-    syncSelect(dialog, []);
-    manager.render().catch((error) => {
-      HMsg.showMsgErr?.(error?.message || String(error));
-      void finish(closed());
-    });
+    syncSelect(dialog, manager.getSelection());
+    if (render) {
+      manager.render().catch((error) => {
+        HMsg.showMsgErr?.(error?.message || String(error));
+        void finish(closed());
+      });
+    }
   });
 }
 

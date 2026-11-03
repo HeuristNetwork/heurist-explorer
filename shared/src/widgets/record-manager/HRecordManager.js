@@ -230,6 +230,16 @@ export class HRecordManager extends HBaseWidget {
   }
 
   /**
+   * Clear the selection (a manager opened again keeps its filter and page, not the last selection).
+   *
+   * @returns {Promise<void>}
+   */
+  async clearSelection() {
+    this.selection = [];
+    await this.list?.setSelection([]);
+  }
+
+  /**
    * Finish with the current selection (the Select button).
    *
    * @returns {number[]} The selected ids.
@@ -641,6 +651,8 @@ export class HRecordManager extends HBaseWidget {
     const id = Number(result?.recordId ?? result?.record?.rec_ID) || 0;
     if (!result?.saved || !(id > 0)) return;
     if (this.isSelectMode()) {
+      // a kept manager (openRecordManager session) loads its list again on the next open: the new record is in it
+      this.stale = true;
       this._finish([id]);
       return;
     }

@@ -37,6 +37,7 @@ export function confirmDialog(message, { title = 'Please confirm', yesLabel = 'Y
     text.className = 'h-website-dialog-text';
     text.textContent = message;
     const dialog = HMsg.showMsgDlg(text, {
+      message: true,
       dialogId: DIALOG_ID,
       title,
       buttons: [

@@ -316,6 +316,7 @@ export class RecordEditorHost {
       editRecord: (id, options) => this.editRecord(id, { relation: options?.relation || null }),
       viewRecord: (id) => this.viewRecord(id),
       browseRecords: (options) => this.browseRecords(options),
+      createRecordBrowser: (options) => this.createRecordBrowser(options),
       addRecord: (rectypeId, context) => this.addRecord(rectypeId, { parentContext: context }),
       specialEditors: this.specialEditors(dbdefs),
       fileUrl: (file) => this._fileUrl(file),
@@ -646,6 +647,7 @@ export class RecordEditorHost {
       editRecord: (id, options) => this.editRecord(id, { relation: options?.relation || null }),
       viewRecord: (id) => this.viewRecord(id),
       browseRecords: (options) => this.browseRecords(options),
+      createRecordBrowser: (options) => this.createRecordBrowser(options),
       addRecord: (rectypeId) => this.addRecord(rectypeId),
       fileUrl: (file) => this._fileUrl(file),
       editFile: (id) => this.editFile(id),
@@ -680,13 +682,47 @@ export class RecordEditorHost {
    *          `{changed}` in relations mode.
    */
   async browseRecords(options = {}) {
-    const dbdefs = await this.options.ensureDbDefs();
     const { openRecordManager } = await import('#shared/widgets/record-manager/openRecordManager.js');
+    return openRecordManager(await this._managerOptions(options));
+  }
+
+  /**
+   * The record manager of one field, kept between its Browse clicks (2026-11-03): `open()` shows it again with its
+   * filter and page; the field or input calls `destroy()` when it is destroyed (the edit form closes).
+   *
+   * @param {object} [options] As browseRecords (select modes).
+   * @returns {{open: () => Promise<number[]|null>, destroy: () => Promise<void>}}
+   */
+  createRecordBrowser(options = {}) {
+    let session = null;
+    let destroyed = false;
+    return {
+      open: async () => {
+        if (destroyed) return null;
+        if (!session) {
+          const { createRecordManagerSession } = await import('#shared/widgets/record-manager/openRecordManager.js');
+          const managerOptions = await this._managerOptions(options);
+          if (destroyed) return null;
+          session = createRecordManagerSession(managerOptions);
+        }
+        return session.open();
+      },
+      destroy: async () => {
+        destroyed = true;
+        await session?.destroy();
+        session = null;
+      }
+    };
+  }
+
+  /** HRecordManager options of browseRecords / createRecordBrowser: the services of the host. */
+  async _managerOptions(options) {
+    const dbdefs = await this.options.ensureDbDefs();
     // registered files (/files, plan 20): edited with editFile, added by Upload / Tile stack / URL
     const fileType = Number(dbdefs?.dbconst?.('RT_REGISTERED_FILE')) || 0;
     const types = (options.recordTypes || []).map(Number).filter((id) => id > 0);
     const files = fileType > 0 && types.length > 0 && types.every((id) => id === fileType);
-    return openRecordManager({
+    return {
       selectMode: 'select',
       ...options,
       ...(files && this.options.isLoggedIn() ? { addActions: this._fileAddActions(dbdefs) } : {}),
@@ -700,7 +736,7 @@ export class RecordEditorHost {
       viewRecord: files ? null : (id) => this.viewRecord(id),
       baseUrl: this.options.baseUrl || '',
       database: this.options.database || ''
-    });
+    };
   }
 
   /**

@@ -53,6 +53,8 @@ export class HInputFile extends HInput {
    * @param {Function} [options.browseRecords] Host record manager (plan 21): with it and `fileRecordType`
    *        the file is chosen there (as a pointer field in `addorbrowse` mode), not in a value picker.
    * @param {number} [options.fileRecordType] Local id of RT_REGISTERED_FILE (the record manager's type).
+   * @param {Function} [options.createRecordBrowser] `(request) → {open, destroy}`: the record manager kept by this
+   *        input between Browse clicks, destroyed with it (2026-11-03); without it browseRecords each time.
    * @param {{baseUrl: string, database: string}} [options.fileViewer] Heurist base URL and database: a click
    *        on the thumbnail shows the file below the input (zoom, OSD, Mirador, Download, Close; the same
    *        media item as the built-in record view, fileMediaItem.js).
@@ -178,12 +180,17 @@ export class HInputFile extends HInput {
   /** Choose a registered file in the record manager (Select). */
   async _browse() {
     if (this._readOnly || this._busy) return;
-    const ids = await this.options.browseRecords({
+    const request = {
       recordTypes: [Number(this.options.fileRecordType)],
       selectMode: 'select',
       // new files come from Upload / URL of this input
       allowAddition: false
-    });
+    };
+    // the record manager kept by this input when the host can (2026-11-03), released in destroy()
+    if (this._browser === undefined) {
+      this._browser = typeof this.options.createRecordBrowser === 'function' ? this.options.createRecordBrowser(request) || null : null;
+    }
+    const ids = this._browser ? await this._browser.open() : await this.options.browseRecords(request);
     const id = Number(ids?.[0]) || 0;
     if (id > 0 && id !== this.getValue()) this._choose(id);
   }
@@ -251,6 +258,8 @@ export class HInputFile extends HInput {
     // a new content that was not saved: its upload goes (after a save the token is used: ignored)
     if (this.replace && this.value) this.uploader?.cancel(String(this.value)).catch(() => {});
     await this.combo?.destroy();
+    await this._browser?.destroy?.();
+    this._browser = null;
     await super.destroy();
   }
 

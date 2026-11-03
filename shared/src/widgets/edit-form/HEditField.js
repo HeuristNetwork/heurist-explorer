@@ -78,6 +78,8 @@ export class HEditField extends HBaseWidget {
    * @param {Function} [options.editRecord] Edit the record of a pointer field (host): `(id) → {saved, record}`.
    * @param {Function} [options.viewRecord] View the record of a pointer field (host): `(id)`.
    * @param {Function} [options.browseRecords] Record manager of pointer fields (host, plan 21): `(options) → Promise<number[]|null>`.
+   * @param {Function} [options.createRecordBrowser] The record manager kept by this field (2026-11-03): `(request, field)
+   *        → {open, destroy}|null`; one per request (select / select_multi), destroyed with the field.
    * @param {Function} [options.addRecord] New record of a pointer field (host, plan 21): `(rectypeId) → Promise<{saved, recordId}>`.
    * @param {Function} [options.fileUrl] Link to view a file of a file field.
    * @param {Function} [options.editFile] Edit button of file fields (host file editor): `(id) → Promise<{saved, record}>`.
@@ -364,7 +366,28 @@ export class HEditField extends HBaseWidget {
     for (const row of this._translationRows || []) await row.input.destroy();
     this._rows = [];
     this._translationRows = [];
+    // the record managers kept by this field
+    for (const browser of this._browsers?.values() || []) await browser?.destroy?.();
+    this._browsers = null;
     await super.destroy();
+  }
+
+  /**
+   * The record manager for a Browse of this field: kept per request (types, filter, select / select_multi) when the
+   * host can keep it (createRecordBrowser), else opened each time (browseRecords).
+   *
+   * @param {object} request Manager options.
+   * @returns {Promise<number[]|null>}
+   */
+  async _browse(request) {
+    if (typeof this.options.createRecordBrowser === 'function') {
+      const key = JSON.stringify(request);
+      this._browsers ||= new Map();
+      if (!this._browsers.has(key)) this._browsers.set(key, this.options.createRecordBrowser(request, this.field) || null);
+      const browser = this._browsers.get(key);
+      if (browser) return browser.open();
+    }
+    return this.options.browseRecords(request, this.field);
   }
 
   /** @returns {string} CSS width of the inputs ('' when the field has none; not for special fields). */
@@ -719,8 +742,10 @@ export class HEditField extends HBaseWidget {
           editFile: this.options.editFile,
           // a click on the thumbnail shows the file below the input (plan 21)
           fileViewer: this.options.fileViewer || null,
-          // the record manager of registered files (plan 21)
+          // the record manager of registered files (plan 21), kept by the input when the host can (2026-11-03)
           browseRecords: this.options.browseRecords,
+          createRecordBrowser: typeof this.options.createRecordBrowser === 'function'
+            ? (request) => this.options.createRecordBrowser(request, this.field) : undefined,
           fileRecordType: Number(this.options.dbdefs?.dbconst?.('RT_REGISTERED_FILE')) || 0
         };
       case 'relmarker':
@@ -1154,7 +1179,7 @@ export class HEditField extends HBaseWidget {
     ].filter((id) => id > 0));
     const room = this.field.max > 0 ? this.field.max - this._valueCount() : Infinity;
     const multiple = this.isRepeatable && room > 0 && !this.isReadOnly;
-    const ids = await this.options.browseRecords({ ...request, selectMode: multiple ? 'select_multi' : 'select' }, this.field);
+    const ids = await this._browse({ ...request, selectMode: multiple ? 'select_multi' : 'select' });
     const fresh = [...new Set((ids || []).map(Number))].filter((id) => id > 0 && !others.has(id));
     if (!fresh.length) return null;
     const [first, ...rest] = fresh;

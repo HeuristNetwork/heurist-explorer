@@ -234,6 +234,7 @@ export function confirmDialog(message, { title = 'Please confirm', yesLabel = 'Y
     const text = document.createElement('div');
     text.textContent = message;
     const dialog = HMsg.showMsgDlg(text, {
+      message: true,
       dialogId,
       title,
       buttons: [

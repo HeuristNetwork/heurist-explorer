@@ -66,6 +66,8 @@ export class HMsg {
    * @param {string|HTMLElement} message Message text (resource key) or element to display.
    * @param {object} [options] Dialog options.
    * @param {string} [options.dialogId] Target dialog element id.
+   * @param {boolean} [options.message] An element that is a message (a text): the message style
+   *        (`h-dialog-message`), as a text message has; other elements (forms) do not get it.
    * @param {string} [options.title] Title resource key.
    * @param {boolean} [options.hideHeader] Hide the header bar.
    * @param {boolean} [options.hideFooter] Hide the footer/buttons bar.
@@ -95,6 +97,8 @@ export class HMsg {
     body.replaceChildren();
     footer.replaceChildren();
     dlg.classList.remove('h-dialog-danger');
+    // a message (a text, or an element given as one): larger font, fixed width; forms keep their own size
+    body.classList.toggle('h-dialog-message', !(message instanceof HTMLElement) || options.message === true);
 
     if (message instanceof HTMLElement) body.appendChild(message);
     else {

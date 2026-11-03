@@ -29,6 +29,7 @@ export function showMapMessage(message, { error = false, title = 'Map warning' }
   content.textContent = $HR(message?.message || String(message || 'Unable to complete the map operation.'));
   if (error) return HMsg.showMsgErr(content, { title });
   return HMsg.showMsgDlg(content, {
+    message: true,
     title, buttons: { OK: () => HMsg.closeMsgDlg() }
   });
 }

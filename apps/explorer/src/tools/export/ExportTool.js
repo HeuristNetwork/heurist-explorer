@@ -985,6 +985,7 @@ function confirmDialog(message) {
     const text = document.createElement('div');
     text.textContent = message;
     const dialog = HMsg.showMsgDlg(text, {
+      message: true,
       title: 'Please confirm',
       buttons: [
         { label: $HR('Remove'), class: 'h-btn h-btn-primary', onClick: () => finish(true) },

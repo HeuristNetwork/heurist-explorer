@@ -73,6 +73,7 @@ export function confirmTagAction(message, { title = '', yes = '' } = {}) {
       resolve(value);
     };
     const dialog = HMsg.showMsgDlg(message, {
+      message: true,
       dialogId,
       title: title || $HR('Tags'),
       buttons: [

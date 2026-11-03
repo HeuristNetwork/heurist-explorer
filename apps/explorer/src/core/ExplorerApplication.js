@@ -652,6 +652,7 @@ export class ExplorerApplication {
         }
       };
       HMsg.showMsgDlg(message, {
+        message: true,
         title: $HR('Unsaved Query Source changes'),
         preventClose: true,
         buttons: [

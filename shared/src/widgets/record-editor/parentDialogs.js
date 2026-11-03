@@ -32,6 +32,7 @@ export function childCreationChoice(dbdefs, rectypeId) {
   return new Promise((resolve) => {
     let choice = null;
     const dialog = HMsg.showMsgDlg(content, {
+      message: true,
       dialogId: 'h-child-creation', title: 'Parent record', buttons: [
         { label: 'Create independent record', class: 'h-btn h-child-independent',
           onClick: () => { if (check.checked) { choice = 'independent'; dialog.close(); } } },

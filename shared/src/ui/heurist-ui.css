@@ -236,6 +236,11 @@ select.h-select:not([multiple]):not([size]) {
 .h-dialog-title { flex:1 1 auto; margin:0; font-size:1.05em; font-weight:600; }
 .h-dialog-close { min-width:26px; min-height:26px; padding:0; border:0; background:transparent; color:var(--h-color-text-muted); font-size:var(--h-font-size-icon); line-height:1; cursor:pointer; }
 .h-dialog-body { max-height:calc(100vh - 160px); overflow:auto; padding:12px; }
+/* messages only (HMsg.showMsgDlg: a text, or `message: true`): larger font, the dialog as wide as the message */
+.h-dialog-message.h-dialog-body { box-sizing:border-box; width:min(420px, 95vw); font-size:var(--h-font-size-large); }
+.h-dialog:has(> .h-dialog-message.h-dialog-body) { width:fit-content; }
+/* a flash message (HMsg.showMsgFlash, "Saved"): as wide as its text, at most the message width */
+#dialog-flash-messages > .h-dialog-message.h-dialog-body { width:auto; max-width:min(420px, 95vw); }
 /* progress dialog (progressDialog.js): the bar as wide as the dialog */
 .h-progress-dialog { display:flex; flex-direction:column; gap:6px; }
 .h-progress-dialog > progress { width:100%; }

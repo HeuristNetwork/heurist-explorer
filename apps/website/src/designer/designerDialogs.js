@@ -454,6 +454,7 @@ function choice(message, title, answers, className = '') {
     const text = element('p', 'h-cms-dialog-text');
     text.textContent = $HR(message);
     const dialog = HMsg.showMsgDlg(text, {
+      message: true,
       dialogId: DIALOG_ID,
       title,
       buttons: [

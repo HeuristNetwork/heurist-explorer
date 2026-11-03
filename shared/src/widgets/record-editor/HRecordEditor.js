@@ -99,6 +99,8 @@ export class HRecordEditor extends HBaseWidget {
    *        record (RT_RELATION) opened from a relmarker field: its vocabulary and the allowed types of the other
    *        record; without it relation type, source and target are read only (`relationRecordStructure`).
    * @param {Function} [options.browseRecords] Browse of pointer fields (record manager, plan 21): `(options) → Promise<number[]|null>`.
+   * @param {Function} [options.createRecordBrowser] The record manager kept per field: `(options) → {open, destroy}`
+   *        (RecordEditorHost.createRecordBrowser); without it browseRecords.
    * @param {Function} [options.addRecord] Add of pointer fields: `(rectypeId, parentContext?) → Promise<{saved, recordId}>`.
    * @param {{recordId:number, rectypeId:number, fieldId:number, title?:string}} [options.parentContext]
    *        Creation from a parent's resource input; that input owns the forward write, so do not prompt or write twice.
@@ -1312,6 +1314,9 @@ export class HRecordEditor extends HBaseWidget {
       editRecord: this.options.editRecord,
       viewRecord: this.options.viewRecord,
       browseRecords: (request, field) => field?.name === '_parent' ? this._browseParent() : this.options.browseRecords?.(request),
+      // the record manager kept per field (2026-11-03); not for the parent (its own browse)
+      createRecordBrowser: typeof this.options.createRecordBrowser === 'function'
+        ? (request, field) => (field?.name === '_parent' ? null : this.options.createRecordBrowser(request)) : undefined,
       addRecord: typeof this.options.addRecord === 'function' ? (rectypeId, context) => {
         const child = this.dbdefs?.field(this.rectypeId, context?.fieldId)?.createChild;
         return this.options.addRecord(rectypeId, child ? { recordId: Number(this.record?.rec_ID) || 0,
@@ -1664,6 +1669,7 @@ function askDialog(message, title, choices, anchor = null) {
       resolve(value);
     };
     const dialog = HMsg.showMsgDlg(message, {
+      message: true,
       title,
       // above the clicked button, when given
       ...(anchor ? { position: { of: anchor, my: 'center bottom', at: 'center top' } } : {}),

@@ -322,6 +322,44 @@ test('HEditField: a repeatable pointer selects several records; new ones become 
   assert.equal(single._rows.length, 1);
 });
 
+test('record manager kept per field (2026-11-03): one session per request, opened again, destroyed with the field / input', async () => {
+  const { HEditField } = await import('../src/widgets/edit-form/HEditField.js');
+  const { createHInput } = await import('../src/widgets/form/inputs/createHInput.js');
+  const apiClient = { get: async () => ({ records: [] }), post: async () => ({ records: [] }) };
+  const made = [];
+  const createRecordBrowser = (request) => {
+    const session = { request, opened: 0, destroyed: false, open: async () => { session.opened++; return [7]; }, destroy: async () => { session.destroyed = true; } };
+    made.push(session);
+    return session;
+  };
+  const field = new HEditField().attach(document.createElement('div'), {
+    field: { dty: 6, name: '6', type: 'resource', label: 'Layer', max: 1, targetTypes: [10], pointerMode: 'addorbrowse' },
+    state: { values: [], translations: [] },
+    dbdefs,
+    apiClient,
+    browseRecords: async () => { throw new Error('not used with a session'); },
+    createRecordBrowser
+  }).render();
+  await field._browsePointer(field._rows[0].entry, { recordTypes: [10] });
+  await field._browsePointer(field._rows[0].entry, { recordTypes: [10] });
+  assert.equal(made.length, 1, 'one manager for the same request');
+  assert.equal(made[0].opened, 2, 'opened again');
+  assert.equal(made[0].request.selectMode, 'select');
+  await field.destroy();
+  assert.equal(made[0].destroyed, true, 'released with the field');
+  // a file input keeps its own
+  const fileSource = { load: async () => ({ items: [], total: 0, complete: true }), labelFor: () => '', fetchLabels: async () => {}, rememberLabel: () => {}, fileFor: () => null };
+  const input = createHInput('file', document.createElement('div'), { value: null, source: fileSource, suppressLabel: true, fileRecordType: 126,
+    browseRecords: async () => [], createRecordBrowser });
+  await input._browse();
+  await input._browse();
+  assert.equal(made.length, 2);
+  assert.deepEqual(made[1].request, { recordTypes: [126], selectMode: 'select', allowAddition: false });
+  assert.equal(made[1].opened, 2);
+  await input.destroy();
+  assert.equal(made[1].destroyed, true, 'released with the input');
+});
+
 test('built-in filters: files for RT_REGISTERED_FILE (fields by concept code), generic for other types', async () => {
   const { builtinRecordFilter, fileFilter } = await import('../src/data/recordManagerFilters.js');
   const { describeQueryParameters, resolveQueryParameters } = await import('../src/data/queryParameters.js');

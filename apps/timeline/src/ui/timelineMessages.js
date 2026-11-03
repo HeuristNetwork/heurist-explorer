@@ -31,5 +31,5 @@ export function showTimelineMessage(message, { error = false, title = error ? 'T
   content.textContent = $HR(message?.message || String(message || 'Unable to complete the timeline operation.'));
 
   if (error) return HMsg.showMsgErr(content, { title });
-  return HMsg.showMsgDlg(content, { title, buttons: { OK: () => HMsg.closeMsgDlg() } });
+  return HMsg.showMsgDlg(content, { message: true, title, buttons: { OK: () => HMsg.closeMsgDlg() } });
 }

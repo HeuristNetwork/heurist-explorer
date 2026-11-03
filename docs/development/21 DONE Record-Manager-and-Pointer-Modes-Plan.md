@@ -872,3 +872,16 @@ push the picker over Edit / View (review 2026-10-21; a `has-icon` width rule did
 | 3. srv save gaps (parent/child, re-titling, entry masks, workflow e-mails, index / cache) | Unchanged: a later plan. |
 | 4. Tags and bookmarks | Plan 20 §10 (4a, 4b). |
 | 5. Configuration (§7.2) | Future plans. |
+
+## 12. Record manager kept per field (Artem, 2026-11-03)
+
+Done 2026-11-03, not committed, not checked in a browser. The Browse of a pointer or file field no longer makes a
+new manager each time: `createRecordManagerSession` (`openRecordManager.js`) keeps one HRecordManager; opened again
+it keeps its filter, search and page, clears the selection, no new search (review 2026-11-03: the reload showed the loading icon and the first page); the
+list is loaded again only after an Add in it (the select modes finish before reloading). Owner: the field
+(`HEditField._browse`, one session per request: types, filter, select / select_multi) and the file input
+(`HInputFile`); they destroy it in `destroy()`, so it is released when the edit form closes (HRecordEditor →
+HEditForm → HEditField → inputs). Host: `RecordEditorHost.createRecordBrowser` (same options as `browseRecords`,
+`_managerOptions`). Not per record type: the options differ per field and a host cache would live as long as
+Explorer. Without `createRecordBrowser` (modules in iframes, filter forms, the designer) `browseRecords` as before;
+the parent field, the relations mode and Manage files stay one-off.

@@ -84,6 +84,7 @@ export class HEditForm extends HBaseWidget {
    * @param {Function} [options.editRecord] Edit button of pointer fields: `(id) → Promise<{saved, record}>`.
    * @param {Function} [options.viewRecord] View button of pointer fields: `(id)`.
    * @param {Function} [options.browseRecords] Browse of pointer fields (record manager, plan 21): `(options) → Promise<number[]|null>`.
+   * @param {Function} [options.createRecordBrowser] The record manager kept per field: `(request, field) → {open, destroy}|null`.
    * @param {Function} [options.addRecord] Add of pointer fields (plan 21): `(rectypeId) → Promise<{saved, recordId}>`.
    * @param {object} [options.relationships] Relmarker fields (plan 22): the record editor's service, see HInputRelmarker.
    * @param {string|null} [options.mode] Mode of a module configuration form ('configuration', 'website', 'publication').
@@ -674,6 +675,7 @@ export class HEditForm extends HBaseWidget {
         editRecord: this.options.editRecord,
         viewRecord: this.options.viewRecord,
         browseRecords: this.options.browseRecords,
+        createRecordBrowser: this.options.createRecordBrowser,
         addRecord: this.options.addRecord,
         relationships: this.options.relationships,
         fileUrl: this.options.fileUrl,
