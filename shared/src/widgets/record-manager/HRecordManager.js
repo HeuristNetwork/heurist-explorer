@@ -14,7 +14,8 @@
  * Filter form (plan 21 §7.1): the built-in filter of the types (recordManagerFilters.js:
  * files, generic) in a pane beside the list - west for a vertical form, north for a
  * horizontal one; Filter adds its conditions to the type query, Reset removes them. A
- * browse filter of the field (`query`) replaces the built-in filter (no pane).
+ * browse filter of the field (`query`) replaces the built-in filter (no pane). An
+ * unconstrained manager has Record type first (the types of its list).
  *
  * Relations mode (plan 24): the records related to one record through one relmarker
  * field (`relations.store`, relationStores.js); each item has a toolset (relationship
@@ -40,6 +41,7 @@ import { HRecordList } from '../record-list/HRecordList.js';
 import { HFilterForm } from '../filter/HFilterForm.js';
 import { HCardinalLayout } from '../layout/HCardinalLayout.js';
 import { builtinRecordFilter } from '../../data/recordManagerFilters.js';
+import { RectypeSource } from '../../data/valueSources/localSources.js';
 import { RECORD_LIST_FIELDS, RecordListLoader } from '../../data/RecordListLoader.js';
 import { recordTypesDomain, userDataRecordTypeIds } from '../../data/recordDomains.js';
 import { recordTypeIconUrl } from '../record-list/recordAdminInfo.js';
@@ -271,7 +273,7 @@ export class HRecordManager extends HBaseWidget {
    */
   filterDefinition() {
     if (this.store || this.options.filter === false || browseFilterQuery(this.options.query) != null) return null;
-    return this.options.filter || builtinRecordFilter(this.dbdefs, this.types || this.recordTypes);
+    return this.options.filter || builtinRecordFilter(this.dbdefs, this.recordTypes);
   }
 
   /**
@@ -310,6 +312,8 @@ export class HRecordManager extends HBaseWidget {
       dbdefs: this.dbdefs,
       // no value lists or counts from the server: the lists are terms and tags (plan 21 §7.1)
       apiClient: null,
+      // Record type of an unconstrained manager: the types of the list
+      valueSourceFactory: (parameter) => (parameter.predicate === 't' ? new RectypeSource(this.dbdefs, { ids: this.types }) : null),
       onSubmit: ({ query }) => this.applyFilter(query?.q || [])
     }).render();
     this.listen(pane, 'h-filter-form-reset', () => void this.applyFilter([]));

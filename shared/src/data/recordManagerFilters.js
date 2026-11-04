@@ -8,7 +8,8 @@
  *   built from the concept codes (a field the database lacks is left out);
  * - users and groups (RT_SYS_USER, RT_SYS_GROUP, `/sys`): none, the list's own search box
  *   (no tags; plan 24 review);
- * - generic (every other record type, for now also the other system types): title and tag.
+ * - generic (every other record type, for now also the other system types): title and tag;
+ *   an unconstrained manager (no record types) has the record type first (2026-11-04).
  *
  * Text parameters are direct inputs; terms and tags are lists. Other filters are
  * defined when the manager is used for a particular type; the admin configuration
@@ -57,19 +58,21 @@ export function builtinRecordFilter(dbdefs, recordTypes = []) {
   if (files > 0 && types.length > 0 && types.every((id) => id === files)) return fileFilter(dbdefs);
   const plain = NO_FILTER_RECTYPE_CODES.map((code) => Number(dbdefs?.dbconst?.(code)) || 0).filter((id) => id > 0);
   if (types.length > 0 && types.every((id) => plain.includes(id))) return null;
-  return genericFilter();
+  return genericFilter({ recordType: types.length === 0 });
 }
 
 /**
  * Generic filter: title (direct input) and tag (the user's tags).
  *
+ * @param {{recordType?: boolean}} [options] `recordType`: the record type first (unconstrained manager).
  * @returns {{id: string, query: Array<object>, filterForm: object}}
  */
-export function genericFilter() {
+export function genericFilter({ recordType = false } = {}) {
   return {
     id: 'generic',
-    query: [{ title: '$TITLE$' }, { tag: '$TAG$' }],
+    query: [...(recordType ? [{ t: '$RECTYPE$' }] : []), { title: '$TITLE$' }, { tag: '$TAG$' }],
     filterForm: layout([
+      ...(recordType ? [{ input: 'RECTYPE', label: 'Record type', mode: 'select' }] : []),
       { input: 'TITLE', label: 'Title' },
       { input: 'TAG', label: 'Tag', mode: 'select' }
     ])

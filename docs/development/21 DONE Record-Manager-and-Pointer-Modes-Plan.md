@@ -379,7 +379,9 @@ manager is used for a particular type. All text parameters are direct inputs (no
    the query is built at run time from the concept codes (`HDbDefs.localId('dty', code)`);
    a field the database lacks is left out.
 2. **Generic** (any user-data type; for now also the system types): title (`title`) and tag
-   (`tag` - the user's tags, as in filter forms).
+   (`tag` - the user's tags, as in filter forms). An unconstrained manager (no record types)
+   has *Record type* first (Artem 2026-11-04): `{t: $RECTYPE$}`, one type, `RectypeSource` limited
+   to the types of the list through HFilterForm `valueSourceFactory`; empty = all types of the list.
 
 - The built-in definitions live in code (`shared/src/data/recordManagerFilters.js`):
   `{query, filterForm}` as a Query Source has them, so the configuration (§7.2) can later

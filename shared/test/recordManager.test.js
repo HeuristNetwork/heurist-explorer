@@ -380,16 +380,25 @@ test('built-in filters: files for RT_REGISTERED_FILE (fields by concept code), g
   // a field the database lacks is left out
   const fewer = fileFilter({ localId: (kind, code) => (code === '2-1' ? 1 : 0) });
   assert.deepEqual(fewer.query, [{ url: '$URL$' }, { 'f:1': '$CAPTION$' }]);
-  // other types, several types, unconstrained: generic (title, tag)
-  for (const types of [[10], [60, 10], []]) {
+  // other types, several types: generic (title, tag)
+  for (const types of [[10], [60, 10]]) {
     const generic = builtinRecordFilter(defs, types);
     assert.equal(generic.id, 'generic');
     assert.deepEqual(generic.query, [{ title: '$TITLE$' }, { tag: '$TAG$' }]);
   }
+  // unconstrained: the record type first; left out when empty
+  const any = builtinRecordFilter(defs, []);
+  assert.equal(any.id, 'generic');
+  assert.deepEqual(any.query, [{ t: '$RECTYPE$' }, { title: '$TITLE$' }, { tag: '$TAG$' }]);
+  assert.deepEqual(any.filterForm.groups[0].children.map((child) => child.input), ['RECTYPE', 'TITLE', 'TAG']);
+  assert.deepEqual(resolveQueryParameters(any.query, { TITLE: 'abc' }, any.filterForm).q, [{ title: 'abc' }]);
+  assert.deepEqual(resolveQueryParameters(any.query, { RECTYPE: '10' }, any.filterForm).q, [{ t: '10' }]);
 });
 
 test('filter of the manager: the built-in one; none with a browse filter or filter: false', () => {
   assert.equal(manager({ recordTypes: [10] }).widget.filterDefinition().id, 'generic');
+  assert.equal(manager({ recordTypes: [10] }).widget.filterDefinition().query.length, 2, 'constrained: no record type');
+  assert.deepEqual(manager({ selectMode: 'select' }).widget.filterDefinition().query[0], { t: '$RECTYPE$' }, 'unconstrained: record type first');
   assert.equal(manager({ recordTypes: [10], query: 'f:1:x' }).widget.filterDefinition(), null);
   assert.equal(manager({ recordTypes: [10], filter: false }).widget.filterDefinition(), null);
   const own = { query: [{ title: '$X$' }], filterForm: null };
