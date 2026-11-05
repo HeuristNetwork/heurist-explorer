@@ -20,6 +20,7 @@
  */
 
 import { $HR } from '#shared/ui';
+import { vocabularyItems } from '#shared/data/valueSources/localSources.js';
 import { ReportsApplication, REPORT_FORMATS, SCHEDULE_INTERVALS } from '../core/ReportsApplication.js';
 import { openFormDialog, FILE_NAME_CHARS } from './formDialog.js';
 
@@ -103,6 +104,7 @@ export async function openScheduleForm(app, report, schedule = null) {
   const interval = schedule ? (Number(schedule.intervalMinutes) || 0) : 1440;
   const intervals = SCHEDULE_INTERVALS.map((item) => ({ value: item.value, label: $HR(item.label) }));
   if (!intervals.some((item) => item.value === interval)) intervals.push({ value: interval, label: `${interval} min` });
+  const languages = await scheduleLanguages(app);
   const values = await openFormDialog({
     title: schedule ? 'Edit schedule' : 'Add schedule',
     okLabel: schedule ? 'Save' : 'Add',
@@ -112,11 +114,22 @@ export async function openScheduleForm(app, report, schedule = null) {
       { name: 'format', label: 'Format', type: 'select', value: schedule?.format || 'html', options: REPORT_FORMATS.map((f) => ({ value: f, label: f })) },
       { name: 'suffix', label: 'File name', prefix: `${prefix} `, value: suffix, allowed: FILE_NAME_CHARS,
         hint: 'Optional end of the file name; the file is written to generated-reports.' },
+      ...(languages.length ? [{ name: 'language', label: 'Language', type: 'select', value: schedule?.languageTerm || '', options: languages,
+        hint: 'Language of the output: a website uses one file per language.' }] : []),
       { name: 'intervalMinutes', label: 'Regenerate', type: 'select', value: interval, options: intervals }
     ]
   });
   if (!values) return null;
-  return { ...values, querySource: Number(values.querySource), intervalMinutes: Number(values.intervalMinutes) || 0 };
+  return { ...values, querySource: Number(values.querySource), intervalMinutes: Number(values.intervalMinutes) || 0, language: Number(values.language) || 0 };
+}
+
+/** Terms of DT_LANGUAGE for a schedule (plan 27e); none when the definitions can not be read. */
+async function scheduleLanguages(app) {
+  const dbdefs = await app.loadDbDefs().catch(() => null);
+  const field = Number(dbdefs?.dbconst?.('DT_LANGUAGE')) || 0;
+  const vocabulary = field ? dbdefs.vocabRoot?.(field) : 0;
+  if (!vocabulary) return [];
+  return [{ value: '', label: '' }, ...vocabularyItems(dbdefs, vocabulary).map((item) => ({ value: item.value, label: item.label }))];
 }
 
 /** Query Source field: a list from the host, or a record id when there is none. */

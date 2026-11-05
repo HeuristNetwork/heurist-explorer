@@ -113,6 +113,15 @@ function manyValues(count, valueLimit, max = 0) {
   return { field, element };
 }
 
+test('values limit: values picked in the record manager past the limit have no inputs, they stay in the state', () => {
+  const { field, element } = manyValues(9, 10);
+  field._addValues([101, 102, 103]);
+  assert.equal(field._rows.length, 10);
+  assert.equal(field.getState().values.length, 12);
+  assert.deepEqual(field.getState().values.slice(-3).map((entry) => Number(entry.value)), [101, 102, 103], 'in the picked order');
+  assert.equal(element.querySelector('.h-edit-field-more').querySelector('a').textContent, 'Show all values (12)');
+});
+
 test('values limit: inputs of the first values only, the others stay in the state', () => {
   const { field, element } = manyValues(25, 10);
   assert.equal(field._rows.length, 10);

@@ -715,6 +715,26 @@ export class RecordEditorHost {
     };
   }
 
+  /**
+   * Services of one field in a form outside the record editor (Record field of the CMS designer, plan 27e §22): the same
+   * as the editor gets.
+   *
+   * @returns {Promise<{richText: object, fileUrl: Function, editFile: Function, fileViewer: object|null}>}
+   */
+  async fieldServices() {
+    const dbdefs = await this.options.ensureDbDefs();
+    return {
+      richText: {
+        baseUrl: this.options.baseUrl || '',
+        insertMedia: () => this._insertMedia(dbdefs),
+        insertRecordLink: (text) => this._insertRecordLink(text)
+      },
+      fileUrl: (file) => this._fileUrl(file),
+      editFile: (id) => this.editFile(id),
+      fileViewer: this.options.baseUrl ? { baseUrl: this.options.baseUrl, database: this.options.database || '' } : null
+    };
+  }
+
   /** HRecordManager options of browseRecords / createRecordBrowser: the services of the host. */
   async _managerOptions(options) {
     const dbdefs = await this.options.ensureDbDefs();

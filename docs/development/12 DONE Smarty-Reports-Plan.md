@@ -784,3 +784,5 @@ Collected 2026-10-18.
 - @todo Use the job framework for record batch actions.
 - @todo Remove `usrReportSchedule` once all databases are migrated.
 - @todo Report properties / generate / schedule dialogs on HEditForm (plan 14a, Phase 4).
+
+**Note 2026-11-05 (plan 27e §24):** `GET /reports` gives `generatedCount` per report, `GET /reports/generated?report=` the files of a report by `ReportService::assignGenerated`, not by name prefix.

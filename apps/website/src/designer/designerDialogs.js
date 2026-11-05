@@ -19,9 +19,6 @@
 
 import { $HR, HMsg } from '#shared/ui';
 import { SCREENS } from '#shared/site/cmsDocument.js';
-import { cmsMediaType, isCmsMediaThumbnail } from '#shared/site/cmsMedia.js';
-import { HInputFile } from '#shared/widgets/form/inputs/HInputFile.js';
-import { openTranslationDialog } from '#shared/widgets/translation/HTranslationDialog.js';
 import { confirmNear, createStylesForm, helpLine, presetName, styleRows } from './designerStyles.js';
 import { ELEMENT_GROUPS, PAGE_TEMPLATES, previewSvg } from './designerCatalog.js';
 
@@ -246,177 +243,6 @@ export function openStyleForm({
 }
 
 /**
- * Edit media (§33): the registered file (HInputFile, in the record manager when the host has it), the caption and
- * its translations, width and height (empty = auto; under 200 px: the thumbnail), *Show full view or player on
- * click* and the size of the player opened from the thumbnail. Files that can not be media (not an image, video, audio, service, IIIF, 3D or PDF) are refused; a file that
- * needs a login gets a warning. OK does nothing without a file.
- *
- * @param {object} options
- * @param {{file: string, width: string, height: string, player: boolean, playerWidth: string, playerHeight: string}}
- *        options.settings
- * @param {string} [options.caption] Caption in the first language of the website.
- * @param {Object<string, string>} [options.translations] Captions in the other languages.
- * @param {string[]} [options.languages] Languages of the website (the first is the original).
- * @param {(key: string) => Promise<object|null>} options.readFile The file of a key: `{key, id, name, ext, url,
- *        source, public}` (cmsMediaType), or null.
- * @param {object} options.files `{apiClient, baseUrl, database, browseRecords, fileRecordType}` (HInputFile).
- * @param {object} [options.translator] Translation service of the translation popup.
- * @returns {Promise<{settings: object, file: object, caption: string, translations: Object<string, string>}|null>}
- */
-export function openMediaForm({
-  settings, caption = '', translations = {}, languages = [], readFile, files, translator = null
-} = {}) {
-  const form = element('div', 'h-cms-form h-cms-media-form');
-  const state = { file: null, caption: String(caption || ''), translations: { ...translations } };
-  const problems = element('div', 'h-cms-style-problems');
-  const warning = element('div', 'h-cms-styles-warning');
-  warning.hidden = true;
-  const row = (label, ...controls) => {
-    const line = element('div', 'h-cms-form-row');
-    const text = element('span');
-    text.textContent = $HR(label);
-    const box = element('div', 'h-cms-media-controls');
-    box.append(...controls);
-    line.append(text, box);
-    form.append(line);
-    return box;
-  };
-  // the file
-  const fileHost = element('div');
-  row('Source', fileHost);
-  const input = new HInputFile().attach(fileHost, {
-    suppressLabel: true, apiClient: files?.apiClient, fileQuery: [],
-    browseRecords: files?.browseRecords || null, fileRecordType: Number(files?.fileRecordType) || 0,
-    fileViewer: files?.baseUrl ? { baseUrl: files.baseUrl, database: files.database } : null
-  }).render();
-  const useFile = (file) => {
-    state.file = null;
-    warning.hidden = true;
-    problems.textContent = '';
-    if (!file) return;
-    if (!cmsMediaType(file)) {
-      problems.textContent = $HR('This file can not be shown as media: choose an image, video, audio, a YouTube, Vimeo or SoundCloud link, IIIF, a 3D file or PDF.');
-      return;
-    }
-    state.file = file;
-    if (file.public === false) {
-      warning.textContent = $HR('This file can be seen by logged-in users only: visitors of the website will not see it.');
-      warning.hidden = false;
-    }
-  };
-  const load = async (key) => {
-    const file = key ? await readFile(key).catch(() => null) : null;
-    if (key && !file) problems.textContent = $HR('The file was not found.');
-    else useFile(file);
-    return file;
-  };
-  if (settings?.file) {
-    void load(settings.file).then((file) => {
-      if (file?.id) input.setValue(file.id, { ulf_ID: file.id, ulf_OrigFileName: file.name, ulf_ObfuscatedFileID: file.key, ulf_ExternalFileReference: file.url || null });
-    });
-  }
-  fileHost.addEventListener('h-input-change', async () => {
-    const id = input.getValue();
-    if (!id) {
-      useFile(null);
-      return;
-    }
-    let key = input.file?.ulf_ObfuscatedFileID;
-    if (!key) {
-      await input.source?.fetchLabels?.([id]);
-      key = input.source?.fileFor?.(id)?.key;
-    }
-    await load(key || '');
-  });
-  // the caption, and its translations in the translation popup
-  const captionInput = element('input', 'h-input h-compact');
-  captionInput.type = 'text';
-  captionInput.value = state.caption;
-  captionInput.addEventListener('input', () => { state.caption = captionInput.value; });
-  const captionBox = row('Caption', captionInput);
-  if (languages.length > 1) {
-    const translate = element('button', 'h-btn h-compact');
-    translate.type = 'button';
-    translate.title = $HR('Translations of the caption');
-    translate.innerHTML = '<i class="fa-solid fa-language" aria-hidden="true"></i>';
-    translate.addEventListener('click', async () => {
-      const result = await openTranslationDialog({
-        title: 'Caption', value: state.caption, translations: state.translations, languages, original: languages[0], translator
-      });
-      if (!result) return;
-      state.caption = result.value;
-      captionInput.value = result.value;
-      state.translations = { ...result.translations };
-    });
-    captionBox.append(translate);
-  }
-  // the size: empty = auto, a number = px
-  const sizeInput = (value) => {
-    const text = element('input', 'h-input h-compact h-cms-media-size');
-    text.type = 'text';
-    text.placeholder = $HR('auto');
-    text.value = value && value !== 'auto' ? value : '';
-    return text;
-  };
-  const width = sizeInput(settings?.width);
-  const height = sizeInput(settings?.height);
-  const times = element('span');
-  times.textContent = '×';
-  row('Size (width × height)', width, times, height);
-  const note = element('div', 'h-cms-style-note');
-  note.textContent = $HR('Empty = auto; a number is px, or %. Both under 200 px (or one under 200 px and the other auto): the thumbnail is shown.');
-  form.append(note);
-  // full view or player on a click
-  const player = element('input');
-  player.type = 'checkbox';
-  player.checked = settings?.player === true;
-  const playerLabel = element('label', 'h-cms-media-player');
-  playerLabel.append(player, document.createTextNode(` ${$HR('Show full view or player on click')}`));
-  form.append(playerLabel);
-  // the player opened from the thumbnail (audio, video, services): its size; auto: the natural size, a service 480 × 270
-  const playerWidth = sizeInput(settings?.playerWidth);
-  const playerHeight = sizeInput(settings?.playerHeight);
-  const playerTimes = element('span');
-  playerTimes.textContent = '×';
-  row('Player size (width × height)', playerWidth, playerTimes, playerHeight);
-  const syncPlayer = () => {
-    playerWidth.disabled = !player.checked;
-    playerHeight.disabled = !player.checked;
-  };
-  player.addEventListener('change', syncPlayer);
-  syncPlayer();
-  const playerNote = element('div', 'h-cms-style-note');
-  playerNote.textContent = $HR('The size of the player that a click on the thumbnail of audio, video or a YouTube, Vimeo or SoundCloud link opens.');
-  form.append(playerNote, warning, problems);
-  const size = (text) => {
-    const value = text.value.trim();
-    if (!value || value === 'auto') return 'auto';
-    if (/^(?:\d+\.?\d*|\.\d+)$/.test(value)) return `${value}px`;
-    return /^(?:\d+\.?\d*|\.\d+)(?:px|%)$/.test(value) ? value : null;
-  };
-  const read = () => {
-    const values = { width: size(width), height: size(height), playerWidth: size(playerWidth), playerHeight: size(playerHeight) };
-    if (!state.file) {
-      problems.textContent ||= $HR('Choose a file.');
-      return null;
-    }
-    if (Object.values(values).includes(null)) {
-      problems.textContent = $HR('Width and height: a number (px), px or %, or empty (auto).');
-      return null;
-    }
-    const result = { file: state.file.key, ...values, player: player.checked };
-    return {
-      settings: result,
-      thumbnail: isCmsMediaThumbnail(result),
-      file: state.file,
-      caption: state.caption.trim(),
-      translations: Object.fromEntries(languages.slice(1).map((code) => [code, String(state.translations[code] || '').trim()]))
-    };
-  };
-  return formDialog(form, 'Edit media', 'OK', read, null, 'h-dialog-cms-media').finally(() => void input.destroy?.());
-}
-
-/**
  * The Styles popup of a website or standalone page (§6a, §21): tabs Base settings, Layout styles, Presets and
  * Custom CSS (designerStyles.js). Saved at once by the caller.
  *
@@ -475,7 +301,7 @@ function choice(message, title, answers, className = '') {
 }
 
 /** Show content in a message dialog; `read()` gives the value or null (keeps it open). */
-function formDialog(content, title, okLabel, read, focus, className = '', dialogId = DIALOG_ID) {
+export function formDialog(content, title, okLabel, read, focus, className = '', dialogId = DIALOG_ID) {
   return new Promise((resolve) => {
     let done = false;
     const finish = (value) => {

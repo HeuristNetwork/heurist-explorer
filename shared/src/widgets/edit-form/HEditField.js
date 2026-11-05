@@ -1184,9 +1184,28 @@ export class HEditField extends HBaseWidget {
     if (!fresh.length) return null;
     const [first, ...rest] = fresh;
     const added = multiple ? rest.slice(0, room) : [];
-    for (const id of added) this._addRow({ value: id, hidden: false }).added = true;
+    this._addValues(added);
     if (added.length) this._changed();
     return [first];
+  }
+
+  /**
+   * New values from the record manager: inputs up to `valueLimit`, the others wait for "Show all values".
+   *
+   * @param {number[]} ids Values.
+   * @returns {void}
+   */
+  _addValues(ids) {
+    const limit = this._valueLimit();
+    for (const id of ids) {
+      if (limit && (this._pending.length || this._rows.length >= limit)) this._pending.push({ value: id, hidden: false });
+      else this._addRow({ value: id, hidden: false }).added = true;
+    }
+    // the values without inputs are the newest now: the rows keep their place before them
+    if (this._pending.length) for (const row of this._rows) row.added = false;
+    this._moreLine?.remove();
+    this._moreLine = null;
+    this._renderMore();
   }
 }
 

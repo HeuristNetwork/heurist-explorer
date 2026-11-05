@@ -6,11 +6,10 @@
  *        (configuration `media`), once for each language of the website.
  *
  * Thumbnail mode (both sizes under 200 px, or one under 200 px and the other auto): the thumbnail for every type.
- * With *player* the thumbnail of audio, video and services opens the player without a script
- * (`details` / `summary`: the player is not loaded while it is closed), in the player size (`playerWidth`,
- * `playerHeight`; auto: the natural size, a service 480 × 270).
+ * Action Player / Viewer (`view`, plan 27e §20): no player and no link around the media; `cmsMediaView` gives the
+ * `data-h-view` and `data-h-full` of the figure, HMediaViewer opens them. Both single media and galleries.
  *
- *   const html = buildCmsMedia(file, { width: 'auto', height: 'auto', player: true },
+ *   const html = buildCmsMedia(file, { width: 'auto', height: 'auto', view: true },
  *     { urls: fileMediaUrls(baseUrl, db), caption: 'A map', language: 'eng' });
  *
  * @project     Heurist academic knowledge management system
@@ -29,7 +28,7 @@ import { embedService, embedUrl } from '../utils/mediaEmbed.js';
 const EXTENSIONS = Object.freeze({
   image: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'svg', 'tif', 'tiff', 'jfif', 'avif'],
   video: ['mp4', 'm4v', 'webm', 'ogv', 'mov'],
-  audio: ['mp3', 'wav', 'oga', 'ogg', 'm4a', 'aac', 'flac', 'opus'],
+  audio: ['mp3', 'mp2', 'mpga', 'wav', 'oga', 'ogg', 'm4a', 'aac', 'flac', 'opus'],
   pdf: ['pdf'],
   '3dhop': ['nxz', 'nxs'],
   '3d': ['obj', '3ds', 'stl', 'ply', 'gltf', 'glb', 'off', '3dm', 'fbx', 'dae', 'wrl', '3mf', 'ifc', 'brep', 'step', 'iges',
@@ -47,11 +46,18 @@ const LABELS = Object.freeze({
 
 /** Default settings of a media element. */
 export const CMS_MEDIA_DEFAULTS = Object.freeze({
-  file: '', width: 'auto', height: 'auto', player: false, playerWidth: 'auto', playerHeight: 'auto'
+  file: '', width: 'auto', height: 'auto', action: 'none', mode: 'files', record: 0
 });
 
-/** Size of a service player opened from the thumbnail when the player size is auto. */
-const SERVICE_PLAYER = Object.freeze({ width: '480px', height: '270px' });
+/**
+ * The action of a media element; an element saved before plan 27e §20 has `player`.
+ *
+ * @param {{action?: string, player?: boolean}} settings
+ * @returns {'none'|'viewer'}
+ */
+export function cmsMediaAction(settings) {
+  return settings?.action === 'viewer' || settings?.player === true ? 'viewer' : 'none';
+}
 
 /**
  * The media type of a registered file, or null when it can not be a media element: image, video, audio, service
@@ -68,8 +74,11 @@ export function cmsMediaType(file) {
   if (embedService(url, file?.mime || '')) return 'service';
   if (['iiif', 'iiif_manifest', 'iiif_image'].includes(source) || ['_iiif', '_iiif_image'].includes(name)
     || /\/info\.json(?:[?#].*)?$/.test(url)) return 'iiif';
-  const ext = String(file?.ext || name.split('?')[0].split('.').pop() || '').toLowerCase().replace(/^\./, '');
-  for (const [type, list] of Object.entries(EXTENSIONS)) if (list.includes(ext)) return type;
+  // the file type of the database, then the extension of the name (an .mp3 can be registered as mp2)
+  const extensions = [file?.ext, name.split('?')[0].split('.').pop()].map((value) => String(value || '').toLowerCase().replace(/^\./, ''));
+  for (const ext of extensions) {
+    for (const [type, list] of Object.entries(EXTENSIONS)) if (list.includes(ext)) return type;
+  }
   const mime = String(file?.mime || '').toLowerCase();
   if (mime.startsWith('image/')) return 'image';
   if (mime.startsWith('video/')) return 'video';
@@ -94,7 +103,7 @@ export function isCmsMediaThumbnail(settings) {
  * The inner HTML of the `figure` of a media element (the format the server stores: HTMLPurifier output).
  *
  * @param {{key: string, name?: string, ext?: string, url?: string, source?: string, mime?: string}} file
- * @param {{width?: string, height?: string, player?: boolean}} settings
+ * @param {{width?: string, height?: string, view?: boolean}} settings `view`: see the file header.
  * @param {{urls: object, caption?: string, language?: string}} options `urls`: fileMediaUrls(baseUrl, database);
  *        `caption`: plain text; `language`: of the link labels (3 letters).
  * @returns {string}
@@ -108,7 +117,7 @@ export function buildCmsMedia(file, settings = {}, { urls, caption = '', languag
   const alt = text || String(file.name || '').replace(/^_+/, '');
   const size = sizeAttributes(settings);
   const thumbnail = isCmsMediaThumbnail(settings);
-  const player = settings.player === true;
+  const view = settings.view === true;
   const image = (src, sized = true) => `<img src="${escape(src)}" alt="${escape(alt)}"${sized ? size : ''} loading="lazy" />`;
   const thumb = image(urls.thumb(key));
   // the viewer of the full view: OSD (image), Mirador (iiif), 3D, the file (PDF)
@@ -123,30 +132,56 @@ export function buildCmsMedia(file, settings = {}, { urls, caption = '', languag
   let body;
   let link = null;
   if (type === 'video' || type === 'audio' || type === 'service') {
-    // the player opened from the thumbnail: the player size (a service: 480 × 270 when auto)
-    const playerSize = !thumbnail ? size
-      : sizeAttributes({ width: settings.playerWidth, height: settings.playerHeight }, type === 'service' ? SERVICE_PLAYER : {});
     const playerHtml = type === 'service'
-      ? `<iframe src="${escape(embedUrl(file.url, file.mime || '', { autoplay: thumbnail }))}"${playerSize}`
+      ? `<iframe src="${escape(embedUrl(file.url, file.mime || ''))}"${size}`
         + ` title="${escape(alt)}" loading="lazy" allow="autoplay; fullscreen" allowfullscreen=""></iframe>`
-      : `<${type} controls="" preload="${thumbnail ? 'none' : 'metadata'}" src="${escape(urls.file(key))}"`
-        + `${type === 'audio' ? '' : playerSize}></${type}>`;
-    // thumbnail mode: the thumbnail, with player a click on it shows the player (no script)
-    body = !thumbnail ? playerHtml
-      : player ? `<details class="h-site-media-play"><summary>${thumb}</summary>${playerHtml}</details>` : thumb;
+      : `<${type} controls="" preload="metadata" src="${escape(urls.file(key))}"${type === 'audio' ? '' : size}></${type}>`;
+    body = view || thumbnail ? thumb : playerHtml;
   } else {
     // images in their size (the file), other types as the thumbnail
-    const shown = type === 'image' && !thumbnail ? image(urls.file(key)) : thumb;
-    if (player && viewer?.[0]) {
-      link = viewer;
-      body = `<a href="${escape(viewer[0])}" target="_blank" rel="noreferrer noopener">${shown}</a>`;
-    } else {
-      body = shown;
-    }
+    body = type === 'image' && !thumbnail ? image(urls.file(key)) : thumb;
+    if (view && viewer?.[0]) link = viewer;
   }
   const linkHtml = link ? `<a href="${escape(link[0])}" target="_blank" rel="noreferrer noopener">${escape(link[1])}</a>` : '';
   const captionHtml = text || linkHtml ? `<figcaption>${escape(text)}${text && linkHtml ? ' ' : ''}${linkHtml}</figcaption>` : '';
   return `${body}${captionHtml}`;
+}
+
+/**
+ * What the action Player / Viewer of a gallery opens.
+ *
+ * @param {{key: string, name?: string, ext?: string, url?: string, source?: string, mime?: string}} file
+ * @param {object} urls fileMediaUrls(baseUrl, database).
+ * @returns {{type: string, url: string}|null} `type`: cmsMediaType; `url`: the file, the player or the viewer.
+ */
+export function cmsMediaView(file, urls) {
+  const type = cmsMediaType(file);
+  const key = String(file?.key || '');
+  if (!type || !key || !urls) return null;
+  const url = {
+    service: () => embedUrl(file.url, file.mime || '', { autoplay: true }),
+    iiif: () => urls.mirador(key, { manifest: isIiifManifest(file) }),
+    '3d': () => urls.viewer3d?.(key, '3d'),
+    '3dhop': () => urls.viewer3d?.(key, '3dhop')
+  }[type]?.() ?? urls.file(key);
+  return url ? { type, url } : null;
+}
+
+/**
+ * One element of a media gallery (plan 27e §18): a `figure` with the HTML of a media element and, in view mode, the
+ * view for HSlider.
+ *
+ * @param {object} file See buildCmsMedia.
+ * @param {object} settings See buildCmsMedia.
+ * @param {{urls: object, caption?: string, language?: string}} options See buildCmsMedia.
+ * @returns {string} HTML; empty when the file can not be media.
+ */
+export function buildCmsGalleryItem(file, settings = {}, options = {}) {
+  const html = buildCmsMedia(file, settings, options);
+  if (!html) return '';
+  const target = settings.view === true ? cmsMediaView(file, options.urls) : null;
+  const view = target ? ` data-h-view="${escape(target.type)}" data-h-full="${escape(target.url)}"` : '';
+  return `<figure class="h-site-card" data-h-media=""${view}>${html}</figure>`;
 }
 
 /** The plain caption of a media element's HTML (without the viewer link), as buildCmsMedia wrote it. */
@@ -161,12 +196,11 @@ function isIiifManifest(file) {
   return source === 'iiif' || source === 'iiif_manifest' || String(file?.name || '') === '_iiif';
 }
 
-/** width / height attributes of the settings (px as numbers, % as they are; auto: the fallback, else none). */
-function sizeAttributes(settings, fallback = {}) {
+/** width / height attributes of the settings (px as numbers, % as they are; auto: none). */
+function sizeAttributes(settings) {
   let result = '';
   for (const name of ['width', 'height']) {
-    const given = String(settings?.[name] || 'auto');
-    const value = given === 'auto' ? String(fallback[name] || 'auto') : given;
+    const value = String(settings?.[name] || 'auto');
     if (/^(?:\d+\.?\d*|\.\d+)px$/.test(value)) result += ` ${name}="${Math.round(parseFloat(value))}"`;
     else if (/^(?:\d+\.?\d*|\.\d+)%$/.test(value)) result += ` ${name}="${value}"`;
   }

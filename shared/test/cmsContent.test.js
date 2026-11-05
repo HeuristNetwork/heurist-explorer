@@ -1,0 +1,143 @@
+/**
+ * @file cmsContent.test.js
+ * @brief Semi-static content of website pages (plan 27e): fields of text blocks, widgets, templates, HSlider, HMenu.
+ *
+ * @project     Heurist academic knowledge management system
+ * @package     heurist-client-core
+ * @since       8.0
+ */
+
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { installFakeDom } from './helpers/fakeDom.js';
+import { CmsRecordDocument, CMS_TEAM_TEMPLATE, cmsPageStarter } from '../src/site/cmsEdit.js';
+import { checkCmsDocument, cmsNodes } from '../src/site/cmsDocument.js';
+
+const emptyDoc = () => new CmsRecordDocument({ parts: { content: '', header: '' }, config: { schema: 'heurist-cms/4', instances: {}, styles: {} } });
+
+test('a text block takes the value of a field: the snapshot stays in it, its translations go', () => {
+  const doc = emptyDoc();
+  const id = doc.insertElement('content', 'text');
+  doc.setTranslation('fre', id, '<p>Texte</p>');
+  assert.equal(doc.setField(id, '207439.2-1', 'Peter'), true);
+  assert.equal(doc.field(id), '207439.2-1');
+  assert.equal(doc.text(id), 'Peter');
+  assert.equal(doc.translation('fre', id), '');
+  assert.match(doc.serialize().parts.content, /data-h-field="207439\.2-1"[^>]*>Peter</);
+  assert.equal(doc.setField(id, null), true, 'typed text again');
+  assert.equal(doc.field(id), null);
+  assert.equal(doc.text(id), 'Peter');
+});
+
+test('a Record field element: a text block with a reference, in the same format', () => {
+  const doc = emptyDoc();
+  const id = doc.insertElement('content', 'field');
+  assert.equal(doc.setField(id, 'website.2-1', 'Title'), true);
+  assert.equal(doc.serialize().parts.content, `<div data-h-node="${id}" data-h-text="" data-h-field="website.2-1">Title</div>`);
+  const [item] = doc.tree('content');
+  assert.equal(item.kind, 'text');
+  assert.equal(item.field, 'website.2-1');
+});
+
+test('a media element has no field', () => {
+  const doc = emptyDoc();
+  const id = doc.insertElement('content', 'media');
+  assert.equal(doc.setField(id, 'website.2-38', ''), false);
+});
+
+test('format: a field reference is checked, a field block is not a translated text', () => {
+  const html = '<div data-h-node="a" data-h-text="" data-h-field="website.2-1">x</div><div data-h-node="b" data-h-text="" data-h-field="nonsense">y</div>';
+  assert.equal(cmsNodes(html)[0].field, 'website.2-1');
+  const issues = checkCmsDocument({ schema: 'heurist-cms/4', instances: {}, styles: {} },
+    [html], { fre: {} });
+  assert.deepEqual(issues.filter((issue) => issue.code === 'field_reference').map((issue) => issue.node), ['b']);
+  assert.equal(issues.filter((issue) => issue.code === 'translation_missing').length, 0);
+});
+
+test('widgets are new elements; only a configured one counts as configured', () => {
+  const doc = emptyDoc();
+  for (const type of ['report', 'cards', 'gallery']) {
+    const id = doc.insertElement('content', type);
+    const node = doc.tree('content').find((item) => item.id === id);
+    assert.equal(node.type, type);
+    assert.equal(node.configured, false);
+    doc.setInstance(node.instance, { settings: { presentation: 'list' } });
+    assert.equal(doc.tree('content').find((item) => item.id === id).configured, true);
+  }
+});
+
+test('basic website header: logo and title of the website, menu', () => {
+  const doc = emptyDoc();
+  doc.insertElement('header', 'siteHeader');
+  const html = doc.serialize().parts.header;
+  const fields = cmsNodes(html).map((node) => node.field).filter(Boolean);
+  assert.deepEqual(fields, ['website.2-38', 'website.2-1']);
+  assert.equal(cmsNodes(html).filter((node) => node.instance).length, 1);
+  assert.equal(Object.values(doc.config.instances)[0].type, 'menu');
+});
+
+test('template Team: a heading and cards of the Team member report, the records to pick', () => {
+  const { content, configuration } = cmsPageStarter('team', 'Our team');
+  assert.match(content, /<h1>Our team<\/h1>/);
+  const config = JSON.parse(configuration);
+  const [instance] = Object.values(config.instances);
+  assert.equal(instance.type, 'cards');
+  assert.equal(instance.settings.template, CMS_TEAM_TEMPLATE);
+  assert.equal(instance.settings.mode, 'manual');
+});
+
+test('HSlider: one slide visible, wraps around, stops on a choice', async () => {
+  installFakeDom();
+    const { HSlider } = await import('../src/widgets/site/HSlider.js');
+    const host = document.createElement('div');
+    const slides = [1, 2, 3].map(() => document.createElement('div'));
+    host.append(...slides);
+    const slider = new HSlider().attach(host, { presentation: 'slider', slider: { navigation: false } });
+    slider.render();
+    assert.equal(slides[0].classList.contains('is-active'), true);
+    assert.notEqual(slider.timer, null, 'started');
+    slider._go(-1);
+    assert.equal(slider.index, 2);
+    assert.equal(slides[2].classList.contains('is-active'), true);
+    assert.equal(slides[0].classList.contains('is-active'), false);
+    assert.equal(slider.timer, null, 'a choice stops it');
+    slider.show(3);
+    assert.equal(slider.index, 0);
+    await slider.destroy();
+});
+
+test('HSlider: in the designer it shows one slide without rotation, start button and actions', async () => {
+  installFakeDom();
+  const { HSlider } = await import('../src/widgets/site/HSlider.js');
+  const host = document.createElement('div');
+  host.classList.add('h-slider-pending');
+  const slides = [1, 2].map(() => document.createElement('figure'));
+  slides[0].setAttribute('data-h-view', 'image');
+  slides[0].setAttribute('data-h-full', 'a.png');
+  host.append(...slides);
+  const slider = new HSlider().attach(host, { presentation: 'slider', action: 'viewer', design: true,
+    slider: { fit: 'cover' } }).render();
+  assert.equal(host.classList.contains('h-slider-pending'), false);
+  assert.equal(host.classList.contains('h-slider'), true);
+  assert.equal(host.getAttribute('data-h-fit'), 'cover');
+  assert.equal(slider.timer, null);
+  assert.equal(slider.toggle, undefined);
+  assert.equal(host.classList.contains('h-slider-running'), false);
+  await slider.destroy();
+});
+
+test('HSlider: action url makes the cards with a URL links; a list has no slider', async () => {
+  installFakeDom();
+    const { HSlider } = await import('../src/widgets/site/HSlider.js');
+    const host = document.createElement('div');
+    const card = document.createElement('div');
+    card.setAttribute('data-h-url', 'https://example.org/');
+    const plain = document.createElement('div');
+    host.append(card, plain);
+    const slider = new HSlider().attach(host, { presentation: 'list', action: 'url' }).render();
+    assert.equal(card.classList.contains('h-slider-link'), true);
+    assert.equal(plain.classList.contains('h-slider-link'), false);
+    assert.equal(host.classList.contains('h-slider'), false);
+    assert.equal(slider.timer, null);
+    await slider.destroy();
+});

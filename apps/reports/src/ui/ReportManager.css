@@ -177,6 +177,13 @@
   background: var(--h-color-primary, #285b82);
 }
 
+/* the number of generated files, beside the number of schedules */
+.h-reports-badge-files {
+  color: var(--h-color-text-muted);
+  background: transparent;
+  white-space: nowrap;
+}
+
 /* a report with a running generation (report list) */
 .h-reports-running { color: var(--h-color-primary, #285b82); }
 

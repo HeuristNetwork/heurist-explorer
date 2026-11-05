@@ -13,6 +13,9 @@
  * @since       8.0
  */
 
+import '@fortawesome/fontawesome-free/css/fontawesome.min.css';
+import '@fortawesome/fontawesome-free/css/solid.min.css';
+import '@fortawesome/fontawesome-free/css/regular.min.css';
 import '#shared/ui/heurist-ui.css';
 import './style.css';
 import { initLocale } from '#shared/ui';

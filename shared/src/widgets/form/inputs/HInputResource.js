@@ -31,6 +31,7 @@
 import { HInput } from './HInput.js';
 import { HValueCombo } from '../../picker/HValueCombo.js';
 import { RecordTitleSource } from '../../../data/valueSources/FieldValueSource.js';
+import { recordTypesDomain } from '../../../data/recordDomains.js';
 import { POINTER_MODES } from '../../../data/recordEditStructure.js';
 import { recordTypeIconUrl } from '../../record-list/recordAdminInfo.js';
 import { showPopover } from '../../popover/popover.js';
@@ -62,7 +63,10 @@ export class HInputResource extends HInput {
    */
   attach(container, options = {}) {
     super.attach(container, options);
-    this.source = options.source || new RecordTitleSource(options.apiClient, { rtyId: options.targetTypes || null });
+    // the domain of the target types: a file record is on /files, its ids are not the ids of /records
+    const types = (options.targetTypes || []).filter(Boolean);
+    const path = types.length && options.dbdefs ? recordTypesDomain(options.dbdefs, types).path : undefined;
+    this.source = options.source || new RecordTitleSource(options.apiClient, { rtyId: options.targetTypes || null, path });
     if (options.valueLabel) this.source.rememberLabel?.(this.value, options.valueLabel, options.valueRectype);
     this.mode = this._effectiveMode();
     return this;

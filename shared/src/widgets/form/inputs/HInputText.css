@@ -21,30 +21,6 @@
 
 /* a translated value (plan 25): the language code in the actions slot before the input
    (HInput actionsLead); the mode links stay under the text area */
-.h-input-text-lang {
-  flex: 0 0 auto;
-  min-width: 2.6em;
-  padding: 0;
-  border: 1px solid var(--h-color-border);
-  border-radius: var(--h-radius);
-  background: var(--h-color-surface);
-  color: var(--h-color-text-muted);
-  font-size: var(--h-font-size-tiny);
-  font-weight: 600;
-  text-align: center;
-  line-height: 1.4;
-}
-
-/* the badge opens the translation popup (record editor) */
-.h-input-text-lang.is-button {
-  cursor: pointer;
-}
-
-.h-input-text-lang.is-button:hover {
-  border-color: var(--h-color-primary);
-  color: var(--h-color-primary);
-}
-
 /* text · wysiwyg · codeeditor under a blocktext (plan 25): the active one underlined */
 .h-input-text-modes {
   display: flex;

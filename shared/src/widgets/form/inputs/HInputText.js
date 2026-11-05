@@ -51,25 +51,9 @@ export class HInputText extends HInput {
       this._syncLink();
     });
     this._commitOnEnterOrBlur(control, { enter: !multiline });
-    // a translation: its language code in the actions slot before the input (plan 25; HInput actionsLead)
-    const lang = String(this.options.langCode ?? '').trim().toUpperCase();
-    if (lang) {
-      // `openTranslation(lang)`: the badge is a button that opens the translation popup (record editor)
-      const open = typeof this.options.openTranslation === 'function' ? this.options.openTranslation : null;
-      const badge = document.createElement(open ? 'button' : 'span');
-      badge.className = open ? 'h-input-text-lang is-button' : 'h-input-text-lang';
-      badge.textContent = lang;
-      badge.title = open ? `${$HR('Edit translations')}: ${lang}` : `${$HR('Translation')}: ${lang}`;
-      if (open) {
-        badge.type = 'button';
-        this.listen(badge, 'click', () => {
-          if (this.editor) this._closeEditor();
-          open(lang);
-        });
-      }
-      this.actionsLead = badge;
-      this.langCode = lang;
-    }
+    this._renderLanguageBadge(() => {
+      if (this.editor) this._closeEditor();
+    });
     host.append(control);
     if (multiline && this.options.richText) this._renderModes(host);
     if (!multiline && this.options.inputType === 'url') {

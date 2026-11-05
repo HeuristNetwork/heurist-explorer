@@ -30,7 +30,7 @@
 #Header#En-tête
 #Heurist default#Valeur par défaut de Heurist
 #Home#Accueil
-#It can not be pasted here (not into the copied element itself)#Impossible de coller ici (pas dans l'élément copié lui-même)
+#It can not be pasted here#Impossible de coller ici
 #Kind default#Style par défaut du type
 #Modules can not be configured here#Les modules ne peuvent pas être configurés ici
 #Normal#Normal

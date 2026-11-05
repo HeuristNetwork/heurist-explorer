@@ -28,6 +28,33 @@ const CONTAINERS = Object.freeze({ header: '.h-site-header', content: '.h-site-m
 /** Preview widths of the page toolbar (§5.1): 1024 and 640 are the medium / narrow screens. */
 export const PREVIEW_WIDTHS = Object.freeze([0, 1280, 1024, 640, 375]);
 
+/**
+ * The values the server wrote into the Record field elements of a page, in the language of the page (plan 27e §23).
+ *
+ * @param {HTMLElement|Document} root The loaded page.
+ * @returns {Map<string, string>} HTML by reference (`data-h-field`).
+ */
+export function readFieldValues(root) {
+  return new Map([...root.querySelectorAll('[data-h-field]')].map((element) => [element.getAttribute('data-h-field'), element.innerHTML]));
+}
+
+/**
+ * Put these values into the Record field elements of a draft: the draft has only the snapshot of one language.
+ *
+ * @param {HTMLElement} root The draft of a part.
+ * @param {Map<string, string>} values See readFieldValues.
+ * @returns {boolean} Whether an element has a reference the server does not know yet (it shows its snapshot).
+ */
+export function restoreFieldValues(root, values) {
+  let unknown = false;
+  for (const element of root.querySelectorAll('[data-h-field]')) {
+    const reference = element.getAttribute('data-h-field');
+    if (values.has(reference)) element.innerHTML = values.get(reference);
+    else unknown = true;
+  }
+  return unknown;
+}
+
 /** The preview iframe of the designer. */
 export class CmsPreview {
   /**
@@ -59,6 +86,9 @@ export class CmsPreview {
     this.hooks = null;
     this.win = null;
     this.mountedConfig = new Map();
+    this.fieldValues = new Map();
+    // a Record field of the draft has no value of the server yet: a new load after Save gives it
+    this.unknownField = false;
     this._previous = globalThis.window?.hCmsDesigner;
     if (globalThis.window) {
       globalThis.window.hCmsDesigner = { previewReady: (win, hooks) => this._ready(win, hooks) };
@@ -70,6 +100,8 @@ export class CmsPreview {
     this.hooks = null;
     this.win = null;
     this.mountedConfig.clear();
+    this.fieldValues.clear();
+    this.unknownField = false;
     this.frame.src = url;
   }
 
@@ -91,12 +123,14 @@ export class CmsPreview {
     const doc = this.win?.document;
     if (!doc || !this.hooks) return;
     const config = { ...this.hooks.config, instances: { ...(this.hooks.config.instances || {}), ...instances } };
+    this.unknownField = false;
     for (const [part, html] of Object.entries(parts)) {
       const container = doc.querySelector(CONTAINERS[part]);
       if (!container || html === undefined) continue;
       const kept = new Map();
       for (const host of container.querySelectorAll('[data-h-instance]')) kept.set(host.getAttribute('data-h-instance'), host);
       container.innerHTML = html;
+      if (restoreFieldValues(container, this.fieldValues)) this.unknownField = true;
       this.hooks.enhance(container);
       for (const host of [...container.querySelectorAll('[data-h-instance]')]) {
         const id = host.getAttribute('data-h-instance');
@@ -106,8 +140,8 @@ export class CmsPreview {
           for (const name of ['data-h-node', 'data-h-style']) {
             if (host.hasAttribute(name)) old.setAttribute(name, host.getAttribute(name)); else old.removeAttribute(name);
           }
-          // custom CSS classes of the element; the classes of the site runtime (h-site-...) stay
-          old.className = [...[...old.classList].filter((name) => name.startsWith('h-site-')), ...host.classList].join(' ');
+          // custom CSS classes of the element; the classes of the site runtime (h-site-..., h-slider) stay
+          old.className = [...[...old.classList].filter((name) => /^h-(?:site-|slider)/.test(name)), ...host.classList].join(' ');
           host.replaceWith(old);
           continue;
         }
@@ -169,6 +203,8 @@ export class CmsPreview {
     this.hooks = hooks;
     for (const id of hooks.mounted?.keys?.() || []) this.mountedConfig.set(id, instanceKey(hooks.config.instances?.[id]));
     const doc = win.document;
+    // before the draft replaces them
+    this.fieldValues = readFieldValues(doc);
     doc.addEventListener('mouseover', (event) => {
       const node = event.target?.closest?.('[data-h-node]');
       this.options.onHover?.(node ? node.getAttribute('data-h-node') : null);

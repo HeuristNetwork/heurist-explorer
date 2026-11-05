@@ -206,7 +206,13 @@ test('copy structure / copy all and paste with new ids; instances new and not co
   assert.equal(doc.copy('m1'), null, 'an instance alone can not be copied');
   doc.move('m1', { id: 'g1', position: 'inside' });
   const withHost = doc.copy('g1', 'all');
-  assert.equal(doc.paste(withHost, 'content', { id: 't1', position: 'after' }), null, 'not into the copied node itself');
+  const beside = doc.paste(withHost, 'content', { id: 't1', position: 'after' });
+  const tree = doc.tree('content');
+  assert.equal(tree[tree.findIndex((item) => item.id === 'g1') + 1].id, beside, 'a place inside the copied node: after it, as a sibling');
+  const onItself = doc.paste(withHost, 'content', { id: 'g1', position: 'inside' });
+  assert.equal(doc.tree('content')[doc.tree('content').findIndex((item) => item.id === 'g1') + 1].id, onItself, 'on itself: the same');
+  doc.remove(beside);
+  doc.remove(onItself);
   const third = doc.paste(withHost, 'content', { id: null, position: 'inside' });
   const host = doc.tree('content').find((item) => item.id === third).children.at(-1);
   assert.notEqual(host.instance, 'i1');

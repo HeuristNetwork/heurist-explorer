@@ -77,3 +77,19 @@ test('hosts: menu, modules, iframe, missing configuration and problems', async (
     assert.ok(root.children[position].querySelector('.h-site-message'), `message in host ${position}`);
   }
 });
+
+test('media with a view: the page serves them, a preview of the designer does not', async () => {
+  const page = () => element('div', {}, element('figure', { 'data-h-view': 'image', 'data-h-full': 'a.png' }));
+  const opened = () => document.body.children.filter((child) => child.classList.contains('h-media-viewer')).length;
+  const designed = page();
+  await startSite({ root: designed, config: { runtime: { design: true } } });
+  designed.children[0].click();
+  assert.equal(opened(), 0);
+  const root = page();
+  await startSite({ root, config: { runtime: {} } });
+  root.children[0].click();
+  assert.equal(opened(), 1);
+  const { closeMediaView } = await import('#shared/widgets/site/HMediaViewer.js');
+  closeMediaView();
+  assert.equal(opened(), 0);
+});

@@ -30,7 +30,7 @@
 #Header#Header
 #Heurist default#Heurist default
 #Home#Home
-#It can not be pasted here (not into the copied element itself)#It can not be pasted here (not into the copied element itself)
+#It can not be pasted here#It can not be pasted here
 #Kind default#Kind default
 #Modules can not be configured here#Modules can not be configured here
 #Normal#Normal

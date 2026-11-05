@@ -41,7 +41,7 @@ export class HInputEnum extends HInput {
    *        (values are numbers; default true unless a source says otherwise),
    *        `fallbackSource` (used when `source` fails), `emptyLabel`,
    *        `countsMode` (`brackets` default | `badge` | `none`),
-   *        `countsAlign` (`label` default | `right`; column lists only).
+   *        `countsAlign` (`label` default | `right`; column lists only), `langCode` (as HInputText).
    * @returns {HInputEnum} This input.
    */
   attach(container, options = {}) {
@@ -65,6 +65,7 @@ export class HInputEnum extends HInput {
    */
   renderControl(host) {
     this.host = host;
+    this._renderLanguageBadge();
     if (this.options.mode === 'radio' || this.options.mode === 'checkbox') {
       this.listHost = document.createElement('div');
       this.listHost.className = `h-input-enum-list h-input-enum-${this.options.orientation === 'inline' ? 'inline' : 'column'}`

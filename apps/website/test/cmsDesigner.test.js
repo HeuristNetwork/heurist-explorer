@@ -30,6 +30,7 @@ const {
 } = await import('../src/designer/designerData.js');
 const { designerHost, designerUrl, designHooks, isFramed } = await import('../src/siteRuntime.js');
 const { CmsDesigner } = await import('../src/designer/CmsDesigner.js');
+const { readFieldValues, restoreFieldValues } = await import('../src/designer/CmsPreview.js');
 const { presetName, cssText } = await import('../src/designer/designerDialogs.js');
 
 const CODES = { home: 51, page: 52, name: 1, content: 4, header: 929, footer: 940, configuration: 1187, translations: 1202, version: 980 };
@@ -105,11 +106,31 @@ test('design hooks mount an instance into a host and remember it', async () => {
   assert.ok(host.textContent.length > 0, 'a message in the host');
 });
 
+test('preview: the values of the server stay in Record fields over the draft; an unknown reference keeps its snapshot', () => {
+  const field = (reference, innerHTML) => ({ getAttribute: () => reference, innerHTML });
+  const values = readFieldValues({ querySelectorAll: () => [field('204979.2-1', 'Nom')] });
+  assert.deepEqual([...values], [['204979.2-1', 'Nom']]);
+  const known = field('204979.2-1', 'Name');
+  assert.equal(restoreFieldValues({ querySelectorAll: () => [known] }, values), false);
+  assert.equal(known.innerHTML, 'Nom', 'the draft has only the snapshot of one language');
+  const added = field('page.2-1', 'Title');
+  assert.equal(restoreFieldValues({ querySelectorAll: () => [known, added] }, values), true);
+  assert.equal(added.innerHTML, 'Title');
+});
+
 test('preset names and CSS text of the style forms', () => {
   assert.equal(presetName('Two columns', []), 'twoColumns');
   assert.equal(presetName('Card', ['card']), 'card2');
   assert.equal(presetName('', []), 'preset');
   assert.equal(cssText({ label: 'X', padding: '4px', narrow: { display: 'none' } }), 'padding: 4px; narrow: {display: none}');
+});
+
+test('Add element: Generated Report in the first group, after Record field', async () => {
+  const { ELEMENT_GROUPS } = await import('../src/designer/designerCatalog.js');
+  const values = ELEMENT_GROUPS[0].items.map((item) => item.value);
+  assert.equal(values.indexOf('report'), values.indexOf('field') + 1);
+  assert.equal(ELEMENT_GROUPS[0].items.find((item) => item.value === 'report').label, 'Generated Report');
+  assert.equal(ELEMENT_GROUPS.find((group) => group.label === 'Widgets').items.some((item) => item.value === 'report'), false);
 });
 
 test('catalogs of Add page and Add element: the available elements are the ones of the document', async () => {
@@ -124,7 +145,7 @@ test('catalogs of Add page and Add element: the available elements are the ones 
     ['blank', 'cover', 'landing', 'about', 'features', 'team', 'discover', 'blog', 'contact', 'record', 'publications']);
   assert.equal(templates[0].defaultTitle, '', 'Blank has no default title');
   assert.ok(templates.every((item) => item.available), 'every template can be added (a blank page for now)');
-  assert.deepEqual(templates.filter((item) => !item.pending).map((item) => item.value), ['blank']);
+  assert.deepEqual(templates.filter((item) => !item.pending).map((item) => item.value), ['blank', 'team']);
   for (const item of [...elements, ...templates]) {
     assert.ok(item.description && item.preview.length, `${item.value}: description and preview`);
     assert.ok(previewSvg(item.preview));

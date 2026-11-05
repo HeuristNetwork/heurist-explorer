@@ -1,0 +1,57 @@
+/* The view over the page of website media (plan 27e §20). */
+.h-media-viewer {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.7);
+}
+
+.h-media-viewer > :is(img, video) {
+  max-width: 90vw;
+  max-height: 90vh;
+}
+
+.h-media-viewer > audio {
+  width: min(90vw, 480px);
+}
+
+.h-media-viewer > iframe {
+  width: min(90vw, 160vh);
+  aspect-ratio: 16 / 9;
+  border: 0;
+}
+
+.h-media-viewer-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  border: 0;
+  background: none;
+  color: #fff;
+  font-size: var(--h-font-size-icon-large);
+  cursor: pointer;
+}
+
+.h-media-viewer-nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  padding: 12px 10px;
+  border: 0;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.5);
+  color: #fff;
+  font-size: var(--h-font-size-icon-large);
+  cursor: pointer;
+}
+
+.h-media-viewer-previous {
+  left: 12px;
+}
+
+.h-media-viewer-next {
+  right: 12px;
+}

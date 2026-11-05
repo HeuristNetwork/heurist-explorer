@@ -26,20 +26,22 @@ import { $HR, HMsg } from '#shared/ui';
 import { HCardinalLayout } from '#shared/widgets/layout/HCardinalLayout.js';
 import { HTree } from '#shared/widgets/tree/HTree.js';
 import { createTabSet } from '#shared/widgets/layout/tabs.js';
-import { CMS_ELEMENTS, cmsPageStarter } from '#shared/site/cmsEdit.js';
-import { buildCmsMedia, cmsMediaCaption } from '#shared/site/cmsMedia.js';
+import { CMS_ELEMENTS, CMS_PAGE_PRESETS, CMS_TEAM_TEMPLATE, cmsPageStarter } from '#shared/site/cmsEdit.js';
+import { normalizeRecordLimits } from '#shared/recordview/recordLimits.js';
+import { CMS_MEDIA_DEFAULTS, buildCmsGalleryItem, buildCmsMedia, cmsMediaCaption, cmsMediaView } from '#shared/site/cmsMedia.js';
 import { fileMediaUrls } from '#shared/recordview/fileMediaItem.js';
 import { systemFieldIds } from '#shared/data/systemEntities.js';
 import { TranslationClient } from '#shared/data/TranslationClient.js';
 import { openTextTranslationDialog } from '#shared/widgets/translation/HTextTranslationDialog.js';
 import { openTranslationDialog } from '#shared/widgets/translation/HTranslationDialog.js';
 import { CmsPreview, PREVIEW_WIDTHS } from './CmsPreview.js';
+import { openCardsForm, openFieldForm, openMediaForm, openReportForm, teamReportBody } from './widgetForms.js';
 import {
   changedDetails, dropPlace, menuPlace, previewUrl, recordDocument, subPageIds
 } from './designerData.js';
 import {
   askConflict, askRemovePage, askSaveDiscard, confirm, confirmNear, openAddElementForm,
-  openAddPageForm, openMediaForm, openStyleForm, openStylesDialog
+  openAddPageForm, openStyleForm, openStylesDialog
 } from './designerDialogs.js';
 import './designer.css';
 
@@ -85,6 +87,8 @@ export class CmsDesigner {
     this.websites = options.websites;
     this.bridge = options.bridge || null;
     this.records = new Map();
+    // the record managers of the forms, kept for the life of the designer (plan 27e §11)
+    this.browsers = new Map();
     this.current = null;
     this.selectedNode = null;
     this.undoStack = [];
@@ -137,6 +141,8 @@ export class CmsDesigner {
   /** Remove the designer. */
   destroy() {
     globalThis.window?.removeEventListener?.('beforeunload', this._unload);
+    for (const browser of this.browsers.values()) void browser.destroy?.();
+    this.browsers.clear();
     this.preview?.destroy();
     this.layout?.destroy();
     this.root?.remove();
@@ -269,6 +275,8 @@ export class CmsDesigner {
     }
     this._updateBar();
     HMsg.showMsgFlash?.($HR('Saved'), { showDelay: 1200 });
+    // a new Record field: the server knows it now
+    if (this.preview?.unknownField) this._loadPreview();
     return true;
   }
 
@@ -564,10 +572,12 @@ export class CmsDesigner {
   async _addPage(parent) {
     const values = await openAddPageForm({ title: parent ? 'Add sub page' : 'Add page' });
     if (!values) return;
-    // the templates come in a later phase (§19): every template gives a blank page for now
-    const starter = cmsPageStarter('blank', values.title);
+    // the templates come one by one (plan 27e): the others give a blank page for now
+    const template = CMS_PAGE_PRESETS.includes(values.template) ? values.template : 'blank';
+    const starter = cmsPageStarter(template, values.title);
     const codes = this.codes;
     try {
+      if (template === 'team') await this._ensureTeamReport();
       const response = await this.apiClient.request('/page/0', {
         method: 'POST',
         body: { rec_ID: 0, details: { [codes.name]: values.title, [codes.version]: '4', [codes.content]: starter.content, [codes.configuration]: starter.configuration } }
@@ -728,7 +738,8 @@ export class CmsDesigner {
     if (node?.kind === 'control') {
       tools.push({ action: 'add', icon: 'fa-plus', title: $HR(node.control === 'group' ? 'Add element' : 'Add panel') });
     }
-    if (node?.kind === 'text') tools.push({ action: 'edit', icon: 'fa-pen', title: $HR('Edit text') });
+    if (node?.kind === 'text' && !node.field) tools.push({ action: 'edit', icon: 'fa-pen', title: $HR('Edit text') });
+    if (node?.field) tools.push({ action: 'field', icon: 'fa-pen', title: $HR('Edit field') });
     if (node?.kind === 'media') tools.push({ action: 'media', icon: 'fa-pen', title: $HR('Edit media') });
     if (node?.control === 'group') tools.push({ action: 'caption', icon: 'fa-pen', title: $HR('Edit caption') });
     if (node?.kind === 'instance') tools.push({ action: 'configure', icon: 'fa-gear', title: $HR('Configuration') });
@@ -752,6 +763,7 @@ export class CmsDesigner {
     if (action === 'add') return this._addElement(id);
     this._selectNode(id);
     if (action === 'edit') return this._editText(id);
+    if (action === 'field') return this._editField(id);
     if (action === 'media') return this._editMedia(id);
     if (action === 'caption') return this._editCaption(id);
     if (action === 'configure') return this._configure(id);
@@ -768,7 +780,7 @@ export class CmsDesigner {
     const node = this._treeItem(id);
     if (!node) return undefined;
     this._selectNode(id);
-    if (node.kind === 'text') return this._editText(id);
+    if (node.kind === 'text') return node.field ? this._editField(id) : this._editText(id);
     if (node.kind === 'media') return this._editMedia(id);
     if (node.control === 'group') return this._editCaption(id);
     if (node.kind === 'instance') return this._configure(id);
@@ -794,6 +806,10 @@ export class CmsDesigner {
   async _insertChosen(target) {
     const values = await openAddElementForm();
     if (!values || !CMS_ELEMENTS.includes(values.element)) return;
+    if (values.element === 'field') {
+      await this._insertField(target);
+      return;
+    }
     let added = null;
     this._edit((doc) => {
       added = doc.insertElement(this.current.part, values.element, target);
@@ -826,7 +842,7 @@ export class CmsDesigner {
       pasted = doc.paste(this.clipboard, this.current.part, target);
       return Boolean(pasted);
     });
-    if (!pasted) HMsg.showMsgFlash?.($HR('It can not be pasted here (not into the copied element itself)'), { showDelay: 2500 });
+    if (!pasted) HMsg.showMsgFlash?.($HR('It can not be pasted here'), { showDelay: 2500 });
     else this._selectNode(pasted);
   }
 
@@ -848,7 +864,8 @@ export class CmsDesigner {
     if (node) {
       box.append(barButton('fa-palette', 'Own style and preset of the element', () => this._ownStyle(node.id), 'Own style'));
       if (node.control === 'group') box.append(barButton('fa-heading', 'Caption of the group', () => this._editCaption(node.id), 'Caption'));
-      if (node.kind === 'text') box.append(barButton('fa-pen', 'Edit the text and its translations', () => this._editText(node.id), 'Edit text'));
+      if (node.kind === 'text' && !node.field) box.append(barButton('fa-pen', 'Edit the text and its translations', () => this._editText(node.id), 'Edit text'));
+      if (node.field) box.append(barButton('fa-pen', 'The record, the field and its value', () => this._editField(node.id), 'Edit field'));
       if (node.kind === 'media') box.append(barButton('fa-pen', 'The file, caption and size of the media', () => this._editMedia(node.id), 'Edit media'));
       if (node.kind === 'instance') box.append(barButton('fa-gear', 'Configuration', () => this._configure(node.id), 'Configuration'));
     }
@@ -976,29 +993,37 @@ export class CmsDesigner {
   }
 
   /**
-   * Edit media (§33): the file, caption (with translations) and settings in the popup; the HTML of the figure is
-   * made for the first language of the website and for each other one (its caption, its link labels).
+   * Edit media: the media form with one source; the HTML of the figure is made for the first language of the website and
+   * for each other one (its caption, its link labels), by the same code as a gallery (plan 27e §20).
    */
   async _editMedia(id) {
     const record = this._currentRecord();
     const current = record?.doc.media(id);
     if (!current) return;
     const languages = this.site?.languages || [];
+    const settings = { ...current.settings };
+    // an element saved before plan 27e §20 knows only the key of its file
+    if (settings.file && !settings.record) settings.record = (await this._mediaFile(settings.file))?.id || 0;
     const result = await openMediaForm({
-      settings: current.settings,
+      single: true,
+      settings,
       caption: cmsMediaCaption(current.html),
       translations: Object.fromEntries(Object.entries(current.translations).map(([code, html]) => [code, cmsMediaCaption(html)])),
       languages,
-      readFile: (key) => this._mediaFile(key),
-      files: this._files(),
-      translator: this._translator()
+      translator: this._translator(),
+      dbdefs: this.options.dbdefs,
+      apiClient: this.apiClient,
+      services: this._formServices()
     });
     if (!result) return;
+    const { file } = result.items[0];
     const runtime = this.options.runtime || {};
     const urls = fileMediaUrls(runtime.baseUrl || '', runtime.database || '');
-    const html = (caption, language) => buildCmsMedia(result.file, result.settings, { urls, caption, language });
+    const view = result.settings.action === 'viewer' ? cmsMediaView(file, urls) : null;
+    const saved = { ...result.settings, file: file.key };
+    const html = (caption, language) => buildCmsMedia(file, { ...saved, view: Boolean(view) }, { urls, caption, language });
     const translations = Object.fromEntries(languages.slice(1).map((code) => [code, html(result.translations[code] || result.caption, code)]));
-    this._edit((doc) => doc.setMedia(id, { settings: result.settings, html: html(result.caption, languages[0] || 'eng'), translations }));
+    this._edit((doc) => doc.setMedia(id, { settings: saved, html: html(result.caption, languages[0] || 'eng'), translations, view }));
   }
 
   /**
@@ -1026,6 +1051,179 @@ export class CmsDesigner {
       url: String(record.rec_URL || ''),
       public: record.rec_NonOwnerVisibility ? record.rec_NonOwnerVisibility === 'public' : true
     };
+  }
+
+  /** The Smarty report of the template Team: made when the database has no template file of this name. */
+  async _ensureTeamReport() {
+    const list = (await this.apiClient.get('/reports'))?.data ?? {};
+    const reports = list.reports ?? [];
+    if (reports.some((report) => report.file === CMS_TEAM_TEMPLATE)) return;
+    const body = teamReportBody(this.options.dbdefs);
+    await this.apiClient.request('/reports', { method: 'POST', body: {
+      title: 'Team member', isCardView: true, body, description: 'A card of one person (website template Team)', file: CMS_TEAM_TEMPLATE.replace(/\.tpl$/, '')
+    } });
+  }
+
+  /** Services of the forms of semi-static content (plan 27e): one record manager per kind for the life of the designer. */
+  _formServices() {
+    const runtime = this.options.runtime || {};
+    return {
+      browseRecords: typeof this.bridge?.browseRecords === 'function' ? (options) => this.bridge.browseRecords(options) : null,
+      createRecordBrowser: typeof this.bridge?.createRecordBrowser === 'function' ? (request) => this._recordBrowser(request) : undefined,
+      editQuery: typeof this.bridge?.editQuery === 'function' ? (query, filterForm) => this.bridge.editQuery(query, filterForm) : null,
+      // Add and Upload in the record manager of a source
+      addRecord: typeof this.bridge?.addRecord === 'function' ? (rectypeId) => this.bridge.addRecord(rectypeId) : undefined,
+      mediaItems: (settings) => this._mediaItems(settings),
+      fileUrl: fileMediaUrls(runtime.baseUrl || '', runtime.database || '').file,
+      // "Limit values per field" of the Explorer configuration (plan 23)
+      valueLimit: normalizeRecordLimits(runtime.recordLimits).values
+    };
+  }
+
+  /** The kept record manager of a request; the form only opens it, the designer destroys it. */
+  _recordBrowser(request) {
+    const key = JSON.stringify(request);
+    if (!this.browsers.has(key)) this.browsers.set(key, this.bridge.createRecordBrowser(request));
+    const browser = this.browsers.get(key);
+    return { open: () => browser.open(), destroy: async () => {} };
+  }
+
+  /**
+   * The popup of a Record field element.
+   *
+   * @param {string|null} reference Current `data-h-field`; null for a new element.
+   * @returns {Promise<{reference: string, html: string}|null>}
+   */
+  async _askField(reference) {
+    try {
+      return await openFieldForm({
+        reference,
+        records: { site: this.site?.id || 0, page: this.current?.recordId || 0 },
+        languages: this.site?.languages || [],
+        dbdefs: this.options.dbdefs,
+        apiClient: this.apiClient,
+        services: {
+          ...this._formServices(),
+          translator: this._translator(),
+          recordField: await this.bridge?.recordFieldServices?.(),
+          cmsFields: ['content', 'header', 'footer', 'configuration', 'translations', 'css', 'script'].map((key) => this.codes[key]).filter(Boolean),
+          saveField: (id, details, modified) => this._saveField(id, details, modified)
+        }
+      });
+    } catch (error) {
+      HMsg.showMsgErr?.(error?.message || String(error));
+      return null;
+    }
+  }
+
+  /** Edit field of a Record field element. */
+  async _editField(id) {
+    const record = this._currentRecord();
+    if (!record) return;
+    const result = await this._askField(record.doc.field(id));
+    if (!result) return;
+    this._edit((doc) => doc.setField(id, result.reference, result.html));
+    // the value in the language of the preview comes from the server
+    this._loadPreview();
+  }
+
+  /** A new Record field element: the popup first, so Cancel leaves nothing. */
+  async _insertField(target) {
+    const result = await this._askField(null);
+    if (!result) return;
+    let added = null;
+    this._edit((doc) => {
+      added = doc.insertElement(this.current.part, 'field', target);
+      return doc.setField(added, result.reference, result.html);
+    });
+    if (added) this._selectNode(added);
+  }
+
+  /**
+   * PATCH of one field of a record. A website or page open here keeps its `rec_Modified`, or its next save is refused.
+   *
+   * @param {number} id Record id.
+   * @param {Object<string, Array>} details The field.
+   * @param {string} modified `rec_Modified` of the loaded record.
+   * @returns {Promise<void>}
+   */
+  async _saveField(id, details, modified) {
+    const open = this.records.get(id);
+    const response = await this.apiClient.request(`/${open?.entity || 'records'}/${id}`, {
+      method: 'PATCH',
+      body: { rec_ID: id, rec_Modified: open?.modified || modified, details }
+    });
+    if (!open) return;
+    const saved = (response?.data ?? response)?.records?.[0];
+    open.modified = String(saved?.rec_Modified || open.modified);
+    open.record = { ...open.record, ...(saved || {}), details: { ...open.record.details, ...(saved?.details || {}), ...details } };
+  }
+
+  /** Configuration of the widgets Custom report, Record cards and Media gallery. */
+  async _configureWidget(instanceId, instance) {
+    const services = this._formServices();
+    const common = { settings: instance.settings || {}, dbdefs: this.options.dbdefs, apiClient: this.apiClient, services };
+    if (instance.type === 'cards') {
+      const settings = await openCardsForm(common);
+      if (settings) this._edit((doc) => doc.setInstance(instanceId, { settings }));
+    } else if (instance.type === 'report') {
+      const runtime = this.options.runtime || {};
+      const settings = await openReportForm({
+        settings: instance.settings,
+        languages: this.site?.languages || [],
+        services: {
+          reports: async () => {
+            const response = await this.apiClient.get('/reports', { query: { scope: 'set' } });
+            return (response?.data ?? response)?.reports ?? [];
+          },
+          generated: async (report) => {
+            const response = await this.apiClient.get('/reports/generated', { query: { report } });
+            return response?.data ?? response ?? [];
+          },
+          heuristUrl: `${runtime.baseUrl || ''}hclient/modules/explorer/explorerViewer.html?db=${encodeURIComponent(runtime.database || '')}`
+        }
+      });
+      if (settings) this._edit((doc) => doc.setInstance(instanceId, { settings }));
+    } else if (instance.type === 'gallery') {
+      const result = await openMediaForm(common);
+      if (!result) return;
+      const html = this._galleryHtml(result.settings, result.items);
+      this._edit((doc) => doc.setInstance(instanceId, { settings: { ...result.settings, html } }));
+    }
+  }
+
+  /** The HTML of a gallery (stored per language): a figure for each file. */
+  _galleryHtml(settings, items) {
+    const runtime = this.options.runtime || {};
+    const urls = fileMediaUrls(runtime.baseUrl || '', runtime.database || '');
+    const media = { ...CMS_MEDIA_DEFAULTS, width: settings.width, height: settings.height, view: settings.action === 'viewer' };
+    const build = (language) => items.map(({ file, caption }) => buildCmsGalleryItem(file, { ...media, file: file.key }, {
+      urls, caption: settings.caption ? caption : '', language
+    })).join('');
+    const languages = this.site?.languages || [];
+    return languages.length ? Object.fromEntries(languages.map((code) => [code, build(code)])) : { def: build('') };
+  }
+
+  /**
+   * The files of the media form in the chosen order: of file records, or the first file of each media record, with the
+   * title as caption (plan 27e §14). A file that is not found has `file: null`.
+   *
+   * @param {{mode: string, ids: number[]}} settings
+   * @returns {Promise<Array<{file: object|null, caption: string, label: string}>>}
+   */
+  async _mediaItems({ mode, ids }) {
+    const field = Number(this.options.dbdefs?.dbconst?.('DT_FILE_RESOURCE')) || 0;
+    const response = mode === 'files'
+      ? await this.apiClient.get('/files', { query: { ids: ids.join(','), fields: 'rec_ID,rec_Title,rec_Hash', limit: ids.length } })
+      : await this.apiClient.get('/records', { query: { ids: ids.join(','), fields: `rec_ID,rec_Title,${field}`, resolveDetails: 1, limit: ids.length } });
+    const records = (response?.data ?? response)?.records ?? [];
+    return Promise.all(ids.map(async (id) => {
+      const record = records.find((item) => Number(item.rec_ID) === id);
+      const key = mode === 'files' ? record?.rec_Hash : record?.details?.[String(field)]?.[0]?.file?.ulf_ObfuscatedFileID;
+      const file = key ? await this._mediaFile(key) : null;
+      const title = String(record?.rec_Title || file?.name || '');
+      return { file, caption: title, label: title || `#${id}` };
+    }));
   }
 
   /** The translation service of the server (Translate in the popups). */
@@ -1075,11 +1273,15 @@ export class CmsDesigner {
     const node = this._treeItem(id);
     const instance = node?.instance ? record.doc.instance(node.instance) : null;
     if (!instance) return;
-    if (instance.kind === 'widget') {
+    if (instance.kind === 'widget' && instance.type === 'menu') {
       HMsg.showMsgFlash?.($HR('The menu shows the pages of the website; it has no settings.'), { showDelay: 3000 });
       return;
     }
     try {
+      if (instance.kind === 'widget') {
+        await this._configureWidget(node.instance, instance);
+        return;
+      }
       if (instance.type === 'explorer') {
         if (!this.bridge.configureExplorerInstance) throw new Error($HR('Explorer can not be configured here'));
         const result = await this.bridge.configureExplorerInstance({ value: null });
@@ -1199,6 +1401,8 @@ export async function openCmsDesigner({ recordId, page = 0, ...options }) {
 }
 
 function nodeIcon(item) {
+  if (item.field) return 'fa-database';
+  if (item.type === 'report') return 'fa-file';
   if (item.kind === 'text') return 'fa-paragraph';
   if (item.kind === 'media') return 'fa-photo-film';
   if (item.kind === 'instance') return item.type === 'menu' ? 'fa-bars' : 'fa-cube';
@@ -1211,7 +1415,9 @@ function nodeIcon(item) {
 /** Help for the selected element of the part tree. */
 function elementHelp(node, record, multilingual) {
   const texts = ['Apply a preset (a style defined once in Styles) or define an own style for this element.'];
-  if (node.kind === 'text') {
+  if (node.field) {
+    texts.push('Choose the record and its field with the pen or a double click. The value can be edited there: the record itself changes.');
+  } else if (node.kind === 'text') {
     texts.push(multilingual ? 'Edit the text with the pen or a double click; the popup shows the languages of the website: translate the text there.' : 'Edit the text with the pen or a double click.');
   } else if (node.kind === 'media') {
     texts.push('Choose the file, its caption and size with the pen or a double click. The page shows it without a script.');

@@ -212,3 +212,87 @@ figure[data-h-media] figcaption > a {
   margin-left: 12px;
   margin-right: 12px;
 }
+
+/* a slider before HSlider starts (plan 27e §18): only the first element; HSlider.css is loaded later */
+.h-slider-pending > :not(:first-child) {
+  display: none;
+}
+
+/* a gallery item: the media and its caption on one axis (plan 27e §19) */
+figure.h-site-card[data-h-media] > :is(img, video, audio, iframe) {
+  margin-inline: auto;
+}
+
+figure.h-site-card[data-h-media] > figcaption {
+  text-align: center;
+}
+
+/* Action Player / Viewer (plan 27e §20): marks of what opens, on all media of the page */
+figure[data-h-view] {
+  position: relative;
+  cursor: pointer;
+}
+
+:where(figure[data-h-view]:not(.h-slider-item)) {
+  width: fit-content;
+}
+
+figure:is([data-h-view="video"], [data-h-view="audio"], [data-h-view="service"])::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  margin: -14px 0 0 -9px;
+  border-style: solid;
+  border-width: 14px 0 14px 22px;
+  border-color: transparent transparent transparent rgba(255, 255, 255, 0.9);
+  filter: drop-shadow(0 0 3px rgba(0, 0, 0, 0.6));
+}
+
+figure:is([data-h-view="iiif"], [data-h-view="3d"], [data-h-view="3dhop"], [data-h-view="pdf"])::after {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.7);
+  color: #fff;
+  font-size: var(--h-font-size);
+  font-weight: bold;
+}
+
+figure:is([data-h-view="3d"], [data-h-view="3dhop"])::after {
+  content: "3D";
+}
+
+figure[data-h-view="pdf"]::after {
+  content: "PDF";
+}
+
+figure[data-h-view="iiif"]::after {
+  content: "";
+  width: 28px;
+  height: 24px;
+  padding: 0;
+  background: #fff url("../../../shared/src/widgets/site/iiif_logo.png") center / 24px auto no-repeat;
+}
+
+/* while a slider rotates nothing opens */
+.h-slider-running > figure[data-h-view] {
+  cursor: default;
+}
+
+.h-slider-running > figure:is([data-h-view="video"], [data-h-view="audio"], [data-h-view="service"])::after,
+.h-slider-running figcaption a {
+  display: none;
+}
+
+/* Cards and gallery in List mode (plan 27e §10): each card is a direct item of the parent grid or flex group. In the
+   designer the host stays a box, so it can be selected. */
+.h-site-widget-list {
+  display: contents;
+}
+
+.h-site-design .h-site-widget-list {
+  display: block;
+}

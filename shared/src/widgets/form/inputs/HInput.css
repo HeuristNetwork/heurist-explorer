@@ -283,3 +283,28 @@
   top: 2px;
   transform: none;
 }
+
+/* the language code of a value (HInput._renderLanguageBadge) */
+.h-input-text-lang {
+  flex: 0 0 auto;
+  min-width: 2.6em;
+  padding: 0;
+  border: 1px solid var(--h-color-border);
+  border-radius: var(--h-radius);
+  background: var(--h-color-surface);
+  color: var(--h-color-text-muted);
+  font-size: var(--h-font-size-tiny);
+  font-weight: 600;
+  text-align: center;
+  line-height: 1.4;
+}
+
+/* the badge opens the translation popup (record editor) */
+.h-input-text-lang.is-button {
+  cursor: pointer;
+}
+
+.h-input-text-lang.is-button:hover {
+  border-color: var(--h-color-primary);
+  color: var(--h-color-primary);
+}

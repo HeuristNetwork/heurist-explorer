@@ -343,6 +343,32 @@ export class HInput extends HBaseWidget {
   }
 
   /**
+   * The language code of a value (`langCode: 'FRE'`, plan 25) in the actions slot before the control (`actionsLead`). With
+   * `openTranslation(lang)` the code is a button that opens the translation popup (record editor).
+   *
+   * @param {() => void} [beforeOpen] Work of the input before the popup opens.
+   * @returns {void}
+   */
+  _renderLanguageBadge(beforeOpen = null) {
+    const lang = String(this.options.langCode ?? '').trim().toUpperCase();
+    if (!lang) return;
+    const open = typeof this.options.openTranslation === 'function' ? this.options.openTranslation : null;
+    const badge = document.createElement(open ? 'button' : 'span');
+    badge.className = open ? 'h-input-text-lang is-button' : 'h-input-text-lang';
+    badge.textContent = lang;
+    badge.title = open ? `${$HR('Edit translations')}: ${lang}` : `${$HR('Translation')}: ${lang}`;
+    if (open) {
+      badge.type = 'button';
+      this.listen(badge, 'click', () => {
+        beforeOpen?.();
+        open(lang);
+      });
+    }
+    this.actionsLead = badge;
+    this.langCode = lang;
+  }
+
+  /**
    * The actions slot in front of the control: Add a value / Translate (2026-10-17) and the
    * value's mark; it keeps its width, so the controls of a form start at one position.
    *

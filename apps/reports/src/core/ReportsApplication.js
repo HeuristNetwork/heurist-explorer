@@ -290,10 +290,10 @@ export class ReportsApplication extends EventTarget {
     await this.refresh();
   }
 
-  /** Generated files of a report (names starting with its file name), newest first. */
+  /** Generated files of a report (the rule of the server, as `generatedCount`), newest first. */
   generatedFiles(report) {
-    const prefix = ReportsApplication.outputPrefix(report);
-    return prefix ? this.api.generated(prefix) : Promise.resolve([]);
+    const reference = ReportsApplication.reference(report);
+    return reference ? this.api.generated(reference) : Promise.resolve([]);
   }
 
   /** Delete a generated file. */

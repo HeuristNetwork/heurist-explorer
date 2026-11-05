@@ -64,7 +64,7 @@ function createApplication({ bridge = null, status = { installed: true, missing:
 
 test('createWebsiteManagerConfig: API base from the Heurist base URL', () => {
   assert.deepEqual(createWebsiteManagerConfig({ runtime: { database: 'db', baseUrl: 'http://h/heurist', language: 'FRE' } }), {
-    database: 'db', baseUrl: 'http://h/heurist/', apiBaseUrl: 'http://h/heurist/api', accessToken: null, requestHeaders: {}, language: 'fre'
+    database: 'db', baseUrl: 'http://h/heurist/', apiBaseUrl: 'http://h/heurist/api', accessToken: null, requestHeaders: {}, language: 'fre', recordLimits: null
   });
 });
 

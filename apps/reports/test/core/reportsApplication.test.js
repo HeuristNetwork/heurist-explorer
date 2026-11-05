@@ -51,12 +51,12 @@ test('refresh loads the list; reports are found by record id or file name', asyn
   assert.equal(ReportsApplication.reference(LIST.reports[0]), '5');
 });
 
-test('generated files of a report are asked for with its file name as prefix', async () => {
-  const prefixes = [];
-  const application = app(fakeApi({ generated: async (prefix) => { prefixes.push(prefix); return [{ file: `${prefix}.html` }]; } }));
+test('generated files of a report are asked for by its reference: the rule of the server, not a name prefix', async () => {
+  const asked = [];
+  const application = app(fakeApi({ generated: async (report) => { asked.push(report); return [{ file: 'monthly.html' }]; } }));
   await application.refresh();
   assert.deepEqual(await application.generatedFiles(application.findReport('6')), [{ file: 'monthly.html' }]);
-  assert.deepEqual(prefixes, ['monthly']);
+  assert.deepEqual(asked, ['6']);
 });
 
 test('properties: an unregistered file is renamed, then registered; a record is updated', async () => {

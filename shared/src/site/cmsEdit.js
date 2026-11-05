@@ -44,10 +44,13 @@ export const CMS_CONTROLS = Object.freeze(['group', 'tabs', 'accordion']);
 
 /** Elements the designer can add (§5.2). */
 export const CMS_ELEMENTS = Object.freeze(['text', 'media', 'group', 'columns2', 'columns3', 'tabs', 'accordion', 'explorer',
-  'data', 'map', 'timeline', 'graph', 'recordview', 'menu']);
+  'data', 'map', 'timeline', 'graph', 'recordview', 'menu', 'report', 'cards', 'gallery', 'siteHeader', 'field']);
 
-/** Starting content of a new page (plan 27c §15 #4): blank (one text, §19), text and column combinations. */
-export const CMS_PAGE_PRESETS = Object.freeze(['blank', 'text', 'columns2', 'columns3', 'textColumns2', 'textColumns3']);
+/** Starting content of a new page (plan 27c §15 #4): blank (one text, §19), text and column combinations, templates. */
+export const CMS_PAGE_PRESETS = Object.freeze(['blank', 'text', 'columns2', 'columns3', 'textColumns2', 'textColumns3', 'team']);
+
+/** The Smarty report of the template Team (plan 27e): a file name, record ids differ per database. */
+export const CMS_TEAM_TEMPLATE = 'Team_member.tpl';
 
 const VOID = new Set(['area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link', 'meta', 'source', 'track', 'wbr']);
 const RAW_TAGS = new Set(['script', 'style', 'textarea']);
@@ -181,7 +184,8 @@ export class CmsRecordDocument {
     if (isMap(config.media) && !Object.keys(config.media).length) delete config.media;
     const translations = {};
     for (const [language, blocks] of Object.entries(this.translations)) {
-      if (isMap(blocks) && Object.keys(blocks).length) translations[language] = blocks;
+      // a copy: the serialized state is the saved state of the designer, `setTranslation` changes the live blocks
+      if (isMap(blocks) && Object.keys(blocks).length) translations[language] = { ...blocks };
     }
     return { parts, configuration: JSON.stringify(config), translations };
   }
@@ -239,6 +243,7 @@ export class CmsRecordDocument {
         control: attr(child, 'data-h-control'),
         instance: instanceId,
         media: attr(child, 'data-h-media'),
+        field: attr(child, 'data-h-field'),
         type: instance?.type || null,
         preset: attr(child, 'data-h-style'),
         configured: instanceId ? isConfigured(instance) : !hasAttr(child, 'data-h-media') || Boolean(this.media(id)?.settings.file),
@@ -488,13 +493,14 @@ export class CmsRecordDocument {
    *
    * @param {object} clip Value of copy().
    * @param {string} part Part of the place when the target is the root.
-   * @param {{id: string|null, position: 'inside'|'before'|'after'}} target
+   * @param {{id: string|null, position: 'inside'|'before'|'after'}} target The copied element or a place inside it means:
+   *        after the copied element, as its sibling.
    * @returns {string|null} Node id of the pasted element, or null when the place is not allowed.
    */
   paste(clip, part, target) {
     if (clip?.format !== 'heurist-cms-clip') return null;
     const source = clip.sourceId ? this.find(clip.sourceId) : null;
-    if (source && target.id != null && findNode(source.node, target.id)) return null;
+    if (source && target.id != null && findNode(source.node, target.id)) target = { id: clip.sourceId, position: 'after' };
     if (target.position === 'inside' ? !this.isContainer(target.id) : !this.find(target.id)) return null;
     const node = parseCmsHtml(clip.html).children.find((child) => child.type === 'element');
     if (!node) return null;
@@ -560,18 +566,57 @@ export class CmsRecordDocument {
    * Set a media element: its settings, the HTML made from them and the HTML of each language of the website.
    *
    * @param {string} id Node id.
-   * @param {{settings: object, html: string, translations?: Object<string, string>}} value Languages left out lose
+   * @param {{settings: object, html: string, translations?: Object<string, string>, view?: {type: string, url: string}|null}} value
+   *        `view`: what the action Player / Viewer opens (cmsMediaView), the same for all languages. Languages left out lose
    *        their translation.
    * @returns {boolean}
    */
-  setMedia(id, { settings, html, translations = {} }) {
+  setMedia(id, { settings, html, translations = {}, view = null }) {
     const node = this.find(id)?.node;
     const mediaId = node ? attr(node, 'data-h-media') : null;
     if (!mediaId) return false;
     this.config.media[mediaId] = { ...CMS_MEDIA_DEFAULTS, ...settings };
     node.raw = String(html ?? '');
+    if (view) {
+      setAttr(node, 'data-h-view', view.type);
+      setAttr(node, 'data-h-full', view.url);
+    } else {
+      removeAttr(node, 'data-h-view');
+      removeAttr(node, 'data-h-full');
+    }
     for (const language of Object.keys(this.translations)) if (!Object.hasOwn(translations, language)) this.setTranslation(language, id, '');
     for (const [language, text] of Object.entries(translations)) this.setTranslation(language, id, String(text ?? ''));
+    return true;
+  }
+
+  /**
+   * The field of a text block (plan 27e).
+   *
+   * @param {string} id Node id.
+   * @returns {string|null} `data-h-field`.
+   */
+  field(id) {
+    const node = this.find(id)?.node;
+    return node ? attr(node, 'data-h-field') : null;
+  }
+
+  /**
+   * Set or remove the field of a text block. The value comes from the record: the translations of the block are removed.
+   *
+   * @param {string} id Node id.
+   * @param {string|null} reference `207439.2-1`, `website.2-1`; null: typed text again.
+   * @param {string} [html] The last resolved value (snapshot).
+   * @returns {boolean}
+   */
+  setField(id, reference, html = '') {
+    const node = this.find(id)?.node;
+    if (!node || !hasAttr(node, 'data-h-text') || hasAttr(node, 'data-h-media')) return false;
+    node.attrs = node.attrs.filter(([name]) => name !== 'data-h-field');
+    if (reference) {
+      node.attrs.push(['data-h-field', reference]);
+      node.raw = String(html ?? '');
+      for (const language of Object.keys(this.translations)) this.setTranslation(language, id, '');
+    }
     return true;
   }
 
@@ -719,6 +764,8 @@ export class CmsRecordDocument {
     };
     switch (element) {
       case 'text': return text();
+      // a text block with the value of a field of a record (plan 27e §22): `setField` gives its reference and snapshot
+      case 'field': return element$('div', [['data-h-node', id('n')], ['data-h-text', ''], ['data-h-field', '']], '');
       case 'media': {
         // a figure (text block) whose HTML the designer makes from the file and the settings (§33)
         const mediaId = id('m');
@@ -732,6 +779,24 @@ export class CmsRecordDocument {
       case 'accordion':
         return element$('div', [['data-h-node', id('n')], ['data-h-control', element]], undefined, [1, 2].map((number) =>
           this._panel(element, number, used)));
+      case 'report':
+      case 'cards':
+      case 'gallery': {
+        const instanceId = id('i');
+        const nodeId = id('n');
+        this.config.instances[instanceId] = defaultInstance('widget', element);
+        this._nodeStyles()[nodeId] = { 'min-height': '0' };
+        return element$('div', [['data-h-node', nodeId], ['data-h-instance', instanceId]], '');
+      }
+      case 'siteHeader': {
+        // the basic header template (plan 27e): logo and title of the website, menu
+        const logo = element$('div', [['data-h-node', id('n')], ['data-h-text', ''], ['data-h-field', 'website.2-38']], '');
+        const title = element$('h2', [['data-h-node', id('n')], ['data-h-text', ''], ['data-h-field', 'website.2-1']], 'Website title');
+        const node = group([logo, title, this._create('menu')]);
+        this._nodeStyles()[attr(node, 'data-h-node')] = { display: 'flex', 'flex-wrap': 'wrap', 'align-items': 'center',
+          'justify-content': 'space-between', gap: '1rem', padding: '0.5rem 1rem' };
+        return node;
+      }
       case 'menu': {
         const instanceId = id('i');
         const nodeId = id('n');
@@ -816,7 +881,14 @@ export function cmsPageStarter(preset, title) {
   const doc = new CmsRecordDocument({ parts: { content: '' }, config: { schema: CMS_SCHEMA, instances: {}, styles: {} } });
   const heading = doc.insertElement('content', 'text');
   doc.setText(heading, `<h1>${escapeText(title || 'Page')}</h1>`);
-  if (preset === 'blank') {
+  if (preset === 'team') {
+    // the template Team (plan 27e): a grid of cards made by the Smarty report of a team member; the user picks the records
+    const grid = doc.insertElement('content', 'group');
+    doc.setNodeStyle(grid, { display: 'grid', 'grid-template-columns': 'repeat(auto-fill, minmax(240px, 1fr))', gap: '16px' });
+    const cards = doc.insertElement('content', 'cards', { id: grid, position: 'inside' });
+    const instanceId = doc.find(cards).node.attrs.find(([name]) => name === 'data-h-instance')[1];
+    doc.setInstance(instanceId, { settings: { mode: 'manual', query: null, template: CMS_TEAM_TEMPLATE, presentation: 'list', action: 'none' } });
+  } else if (preset === 'blank') {
     // one text element: the title and a paragraph (plan 27c §19)
     doc.setText(heading, `<h1>${escapeText(title || 'Page')}</h1><p>Text</p>`);
   } else if (preset === 'columns2' || preset === 'textColumns2') {
@@ -883,7 +955,7 @@ function labelOf(node, instance) {
 /** A configured instance: has settings (a pasted or new one has none). */
 function isConfigured(instance) {
   if (!instance) return false;
-  if (instance.kind === 'widget') return true;
+  if (instance.kind === 'widget' && instance.type === 'menu') return true;
   return isMap(instance.settings) && Object.keys(instance.settings).length > 0;
 }
 

@@ -1,0 +1,105 @@
+/* Slider of the website widgets Record cards and Media gallery (plan 27e §10). */
+.h-slider {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr) auto;
+}
+
+/* all slides in one cell: the host keeps the height of the highest one */
+.h-slider > .h-slider-item {
+  grid-area: 1 / 1;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity var(--h-slider-fade, 500ms) ease, visibility var(--h-slider-fade, 500ms);
+}
+
+.h-slider > .h-slider-item.is-active {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* Position of an image (`data-h-fit`). Rules: a size of the media (attributes width, height) is used as it is, the
+   position then works inside that box and the host fits it. Without a size the media fills the host, so its size never
+   comes from the files: the height of the host comes from its own CSS (node style), or this default (`:where`: no
+   specificity, any CSS of the page wins). */
+:where(.h-slider[data-h-fit]:not(:has([width], [height]))) {
+  height: 400px;
+}
+
+.h-slider[data-h-fit] > .h-slider-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.h-slider[data-h-fit] > .h-slider-item > :not(figcaption) {
+  flex: none;
+}
+
+.h-slider[data-h-fit] > .h-slider-item > :is(img, video, iframe):not([width], [height]) {
+  flex: 1 1 0;
+  width: 100%;
+  height: auto;
+  min-height: 0;
+}
+
+.h-slider[data-h-fit] > .h-slider-item > figcaption {
+  flex: none;
+  width: 100%;
+}
+
+.h-slider[data-h-fit="contain"] > .h-slider-item > :is(img, video) {
+  object-fit: contain;
+}
+
+.h-slider[data-h-fit="cover"] > .h-slider-item > :is(img, video) {
+  object-fit: cover;
+}
+
+.h-slider[data-h-fit="fill"] > .h-slider-item > :is(img, video) {
+  object-fit: fill;
+}
+
+.h-slider[data-h-fit="none"] > .h-slider-item > :is(img, video) {
+  object-fit: none;
+}
+
+.h-slider[data-h-fit="width"] > .h-slider-item > :is(img, video):not([width], [height]) {
+  flex: none;
+}
+
+.h-slider[data-h-fit="height"] > .h-slider-item > :is(img, video):not([width], [height]) {
+  width: auto;
+  max-width: none;
+}
+
+.h-slider-nav {
+  grid-area: 2 / 1;
+  display: flex;
+  justify-content: center;
+  gap: 4px;
+  padding-top: 8px;
+}
+
+.h-slider-nav button {
+  border: 1px solid var(--h-color-border);
+  border-radius: 4px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  padding: 4px 8px;
+}
+
+.h-slider-link {
+  cursor: pointer;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .h-slider > .h-slider-item {
+    transition: none;
+  }
+}

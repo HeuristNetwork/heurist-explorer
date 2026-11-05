@@ -23,7 +23,7 @@ export const CMS_SCHEMA = 'heurist-cms/4';
 /** Known instance types by kind. */
 export const CMS_TYPES = Object.freeze({
   module: Object.freeze(['explorer', 'data', 'map', 'timeline', 'graph', 'recordview']),
-  widget: Object.freeze(['menu'])
+  widget: Object.freeze(['menu', 'report', 'cards', 'gallery'])
 });
 
 /** Newest instance configuration version. */
@@ -119,7 +119,11 @@ export function checkCmsDocument(config, htmlParts, translations = {}, baseUrl =
     if (id !== '') {
       if (seenNodes.has(id)) issues.push(issue('warning', 'duplicate_node', `Node id "${id}" is used more than once`, id));
       seenNodes.add(id);
-      if (node.text) texts.add(id);
+      // the value of a field comes from its record, it has no translations here (plan 27e)
+      if (node.text && node.field === null) texts.add(id);
+    }
+    if (node.field !== null && !/^(website|page|\d+)\.\d+(-\d+)?$/.test(node.field)) {
+      issues.push(issue('warning', 'field_reference', `Field reference "${node.field}" is not valid`, id));
     }
     // a media element (plan 27c §33): its settings in config.media, one element each
     if (node.media !== null) {
@@ -196,8 +200,8 @@ export function cmsInstanceProblem(settings) {
 
 /**
  * Why the settings of a media element are not valid (CmsValidator::mediaProblem), or null: `file` the key of a
- * registered file, `width` / `height` / `playerWidth` / `playerHeight` 'auto', px or % (attributes of img / video),
- * `player` a boolean.
+ * registered file, `width` / `height` 'auto', px or % (attributes of img / video), `action` none or viewer;
+ * `playerWidth`, `playerHeight`, `player` of older pages.
  *
  * @param {object} settings
  * @returns {string|null}
@@ -209,6 +213,7 @@ export function cmsMediaProblem(settings) {
     if (value !== 'auto' && !/^(?:\d+\.?\d*|\.\d+)(?:px|%)$/.test(value)) return `${name} must be auto, px or %`;
   }
   if (settings.player != null && typeof settings.player !== 'boolean') return 'player must be true or false';
+  if (settings.action != null && !['none', 'viewer'].includes(settings.action)) return 'action must be none or viewer';
   return null;
 }
 
@@ -216,8 +221,8 @@ export function cmsMediaProblem(settings) {
  * Elements with data-h-node or data-h-instance, in document order (CmsHtml::nodes).
  *
  * @param {string} html Page HTML fragment.
- * @returns {Array<{node: string, instance: string|null, media: string|null, text: boolean, control: string|null,
- *          tag: string}>}
+ * @returns {Array<{node: string, instance: string|null, media: string|null, text: boolean, field: string|null,
+ *          control: string|null, tag: string}>}
  */
 export function cmsNodes(html) {
   const result = [];
@@ -231,6 +236,7 @@ export function cmsNodes(html) {
       instance: attributes.has('data-h-instance') ? attributes.get('data-h-instance') : null,
       media: attributes.has('data-h-media') ? attributes.get('data-h-media') : null,
       text: attributes.has('data-h-text'),
+      field: attributes.has('data-h-field') ? attributes.get('data-h-field') : null,
       control: attributes.has('data-h-control') ? attributes.get('data-h-control') : null,
       tag: match[2].toLowerCase()
     });

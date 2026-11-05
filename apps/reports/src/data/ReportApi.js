@@ -104,10 +104,10 @@ export class ReportApi {
   /**
    * Files in generated-reports, newest first.
    *
-   * @param {string} [prefix] Only files whose name starts with it (a report's file name).
+   * @param {string} [report] Only the files of a report (record id or file name).
    */
-  async generated(prefix = '') {
-    return data(await this.apiClient.get('/reports/generated', { query: prefix ? { prefix } : null }));
+  async generated(report = '') {
+    return data(await this.apiClient.get('/reports/generated', { query: report ? { report } : null }));
   }
 
   /** Delete a generated file. */

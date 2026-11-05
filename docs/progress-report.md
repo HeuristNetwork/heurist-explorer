@@ -1,6 +1,6 @@
 # Heurist Explorer — Progress Report
 
-*Status on 29 October 2026 (first issued 2 October, updated 8, 18 and 26 October). Work started 14 September 2026.*
+*Status on 4 November 2026 (first issued 2 October, updated 8, 18, 26 and 29 October). Work started 14 September 2026.*
 
 ## Done
 
@@ -44,19 +44,25 @@
 | 36 | **Website manager** (plan 27b): create, check and publish websites in a full-screen window; download a built site as ZIP; *Publish this view* in Explorer — a public page with Explorer that uses public filters only, without editing tools. | 26–28 Oct |
 | 37 | **Module settings** (plan 29): one settings form for Map, Timeline, Graph, Data table and Record view, with Reset; publish a module to a new page or update an existing page from Explorer; settings API for every module (also gives a description for AI agents). | 28 Oct |
 | 38 | **Security fixes**: login tokens, access checks for all file types and scratch files, report templates protected from guests. | 26 Oct |
-| 39 | **New server API** (`srv/`) behind all of the above — a clean replacement for the old server code. Record format and editing now also for system data (`/sys`: tags, bookmarks, reminders, users, groups, files). | ongoing, with each item |
+| 39 | **New server API** (`srv/`) behind all of the above — a clean replacement for the old server code. Record format and editing now also for system data (`/sys`: tags, bookmarks, reminders, users, groups, files). Rules for one common API written down (plan 28, draft). | ongoing, with each item |
 | 40 | User manual and developer documentation. | ongoing |
+| 41 | **Website API** (plan 27d): websites and pages are the first entities on the common record API (`/website/{id}`, `/page/{id}`), with actions for the menu, module publishing and the build job. | 30 Oct |
+| 42 | **CMS designer** (plan 27c): full-screen designer opened from the Website manager; website tree with drag and drop, page preview without reloads, element picker and properties, undo / redo, saves only changed fields and warns when another person changed the page; style editor (simple and advanced), starter styles and presets. Checked by Artem. | 30 Oct – 2 Nov |
+| 43 | **Text and translations pop-ups**: one pop-up for a text and its translations, used by the designer and the record editor; translation service in the new server API. | 2 Nov |
+| 44 | **CMS designer, second round**: cosmetics, grid columns, media element (image, video, IIIF), media in layout styles; custom CSS only with the JavaScript permission. | 3 Nov |
+| 45 | **IIIF in Record view**: manifest thumbnails, IIIF image URLs, media player size. | 3 Nov |
+| 46 | **Smaller fixes**: common message dialogs; Record manager keeps its state per field; Record manager also works with no record type limit (pointer fields without a target type). | 3–4 Nov |
 
-All work above is committed (explorer `41e0134`, heurist `9a7cf8ea8`).
+All work above is committed (explorer `128e4ce`, heurist `c383461ab`). JavaScript tests: 1,606 pass.
 
 ## In progress
 
 | Task | Expected |
 |------|----------|
+| **Website templates and content sources** (plan 27e, CMS phase 4a): text from one field of a record, three widgets (Custom report, Record cards, Media gallery) written by the server, slider and menu on server-written elements, page templates Team and Website header. Implemented 4 Nov in both repos, **not committed**. Left: browser check, localization texts | 5 Nov |
 | **Browser checks** of the latest work: website manager and published Explorer, module settings forms, media players, Add record / New, rich text editors (format menu, Align, menus inside dialogs), parent – child records, and earlier items (simpler interface, symbology, date editor, reports, export); testing query speed on large databases | with the use cases |
-| **Edit forms**: module settings are done; next the report, schedule and crosstab dialogs; remove the test tool | next week |
-| **Saved filters** in the new record format (last part of the system data move) | next week |
-| **CMS designer** (plan 27, phase 3): full-screen page designer; plan to be written | plan next |
+| **Edit forms**: module settings are done; next the report, schedule and crosstab dialogs; remove the test tool | to be set (after CMS work) |
+| **Saved filters** in the new record format (last part of the system data move) | to be set (after CMS work) |
 | **Getting started** content: short recordings and help texts for the tour | after recordings are ready |
 | Expansion rules for Map and Timeline | postponed |
 
@@ -64,7 +70,7 @@ All work above is committed (explorer `41e0134`, heurist `9a7cf8ea8`).
 
 | # | Task | Estimated delivery |
 |---|------|--------------------|
-| 1 | **CMS designer and templates** — edit v4 websites and pages; convert old websites; see plan 27 | to be set |
+| 1 | **Other CMS widgets and templates** (phase 4b): remaining page templates, action menu, badges, language switcher, email form, story map, crosstabs; later phases of plan 27, conversion of old websites is the last one | to be set |
 | 2 | **Use cases / demos** on the largest databases: digital_harlem, library_readers_18c, mpce_mapping, Chinese engineers | to be set |
 | 3 | **Batch operations on records** (long-running operations; the background jobs from Reports and Export are reused) | to be set |
 | 4 | **Save only changed fields** (PATCH) for large records | to be set |
@@ -90,8 +96,9 @@ Small items left open in finished plans (details in `docs/development/`, marked 
    can change later in one place.
 3. **Rework of the record details table**: move language and link ID to their own columns,
    remove old and duplicated fields, keep dates, links, spatial data and full-text index
-   in separate tables (dates and links already done). Plan 28 (new tables for system
-   record types, longer text values, language column) was written and deferred on 26 October.
-4. **CMS and web publishing** (plan 27): format v4 and publication are done; designer, templates and conversion of old websites are open.
+   in separate tables (dates and links already done). The table part of plan 28 (new tables for
+   system record types, longer text values, language column) is deferred since 26 October.
+4. **CMS and web publishing** (plan 27): format v4, publication and the designer are done; templates are being finished; other widgets and conversion of old websites are open.
+5. **API rules** (plan 28, draft 1): one record format and one set of endpoints for all entities. Open points: names, terms domain, QName.
 
 Decisions on items 2 and 3 affect the date for Batch operations.

@@ -9,6 +9,7 @@
  * the menu widget, or a module mounted directly through its `direct.js` (only the
  * modules on the page are loaded), or in an iframe (`"mount": "iframe"`). The
  * instances are independent; synchronization (PageController) comes in phase 5.
+ * One lazy listener serves the action Player / Viewer of all media of the page (HMediaViewer).
  *
  * @project     Heurist academic knowledge management system
  * @package     heurist-website
@@ -24,6 +25,7 @@ import { $HR } from '#shared/ui';
 import { createTabSet } from '#shared/widgets/layout/tabs.js';
 import { exclusiveAccordion } from '#shared/widgets/layout/accordion.js';
 import { HMenu } from '#shared/widgets/site/HMenu.js';
+import { SITE_WIDGETS, mountSiteWidget } from './siteWidgets.js';
 
 /**
  * The direct entries of the modules, loaded only when a page has the module
@@ -75,6 +77,10 @@ export async function startSite({ root, config, loaders = MODULE_LOADERS }) {
     if (mounted.has(id)) continue; // a second host of one instance: the server reported it
     mounted.set(id, null);
     jobs.push(mountInstance(host, id, config, loaders).then((instance) => mounted.set(id, instance)));
+  }
+  // written by the server, so they are here already; a preview of the designer opens nothing
+  if (!config.runtime?.design && root.querySelector('[data-h-view]')) {
+    jobs.push(import('#shared/widgets/site/HMediaViewer.js').then(({ attachMediaViews }) => attachMediaViews(root)));
   }
   await Promise.all(jobs);
   return mounted;
@@ -200,6 +206,7 @@ export async function mountInstance(host, id, config, loaders) {
       language: config.site?.language || null
     }).render();
   }
+  if (instance.kind === 'widget' && SITE_WIDGETS.includes(instance.type)) return mountSiteWidget(host, instance, config);
   if (instance.kind !== 'module' || !Object.hasOwn(loaders, instance.type)) {
     return showMessage(host, $HR('This part of the page can not be shown'));
   }

@@ -2087,6 +2087,7 @@ export class ExplorerApplication {
           accessToken: this.config.accessToken,
           requestHeaders: this.config.requestHeaders,
           language: this.config.language,
+          recordLimits: this.config.recordLimits,
           runtimeMode: 'main'
         }
       },
@@ -2108,6 +2109,10 @@ export class ExplorerApplication {
       editRecord: (id) => this.editRecord(id),
       viewRecord: (id) => this.viewRecord(id),
       browseRecords: (options) => this.recordEditing.browseRecords(options),
+      createRecordBrowser: (options) => this.recordEditing.createRecordBrowser(options),
+      addRecord: (rectypeId) => this.addRecord(rectypeId),
+      recordFieldServices: () => this.recordEditing.fieldServices(),
+      editQuery: (query, filterForm) => this._editQueryWithBuilder(query, filterForm),
       canEditRecords: () => this.canEditRecordType('RT_CMS_PAGE'),
       getDbDefs: () => this._ensureDbDefs(),
       isLoggedIn: () => Number(this.userGroups?.data?.currentUserId) > 0,

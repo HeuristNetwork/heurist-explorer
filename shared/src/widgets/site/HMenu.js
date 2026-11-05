@@ -5,6 +5,8 @@
  * A horizontal list of the website's top pages with their sub pages as drop-downs
  * (shown on hover and keyboard focus), the current page marked, and the site
  * languages as links. On a narrow screen the list is behind a menu button.
+ * The server writes the list into the host (plan 27e, for crawlers and visitors without
+ * JS) and render() activates it; without it (the designer's draft) the list is built here.
  * Phase 4 adds vertical / collapsible forms, icons and the legacy menu options.
  *
  * @project     Heurist academic knowledge management system
@@ -44,6 +46,8 @@ export class HMenu extends HBaseWidget {
    * @returns {HMenu}
    */
   render() {
+    const written = this.container.querySelector?.('.h-site-menu');
+    if (written) return this._activate(written);
     const nav = document.createElement('nav');
     nav.className = 'h-site-menu';
     nav.setAttribute('aria-label', $HR('Site menu'));
@@ -55,13 +59,23 @@ export class HMenu extends HBaseWidget {
     const list = this._list(this.options.items || [], 'h-site-menu-list');
     const languages = this.options.languages || [];
     if (languages.length > 1) list.append(this._languages(languages));
-    this.listen(toggle, 'click', () => {
-      const open = !nav.classList.contains('is-open');
-      nav.classList.toggle('is-open', open);
-      toggle.setAttribute('aria-expanded', String(open));
-    });
     nav.append(toggle, list);
     this.container.replaceChildren(nav);
+    return this._activate(nav);
+  }
+
+  /** The menu button of a menu in the page. */
+  _activate(nav) {
+    const toggle = nav.querySelector('.h-site-menu-toggle');
+    if (toggle) {
+      toggle.textContent = $HR('Menu');
+      this.listen(toggle, 'click', () => {
+        const open = !nav.classList.contains('is-open');
+        nav.classList.toggle('is-open', open);
+        toggle.setAttribute('aria-expanded', String(open));
+      });
+    }
+    nav.setAttribute('aria-label', $HR('Site menu'));
     this.state = 'rendered';
     return this;
   }

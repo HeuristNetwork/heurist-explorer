@@ -38,7 +38,8 @@ export function createWebsiteManagerConfig(bootstrap = {}) {
     apiBaseUrl: runtime.apiBaseUrl || (runtime.baseUrl ? `${baseUrl}api` : null),
     accessToken: runtime.accessToken || null,
     requestHeaders: runtime.requestHeaders || {},
-    language: String(runtime.language || 'eng').toLowerCase()
+    language: String(runtime.language || 'eng').toLowerCase(),
+    recordLimits: runtime.recordLimits || null
   };
 }
 

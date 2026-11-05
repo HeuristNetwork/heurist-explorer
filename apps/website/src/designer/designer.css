@@ -748,3 +748,14 @@
 .h-cms-style-columns > [hidden] {
   display: none;
 }
+
+/* the input of the field under Source, Record and Field (plan 27e §22) */
+.h-cms-field-value {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--h-color-border);
+}
+
+.h-dialog-cms-field {
+  width: min(900px, 95vw);
+}
