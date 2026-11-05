@@ -863,6 +863,7 @@ push the picker over Edit / View (review 2026-10-21; a `has-icon` width rule did
    (`rst_CreateChildIfRecPtr`), re-titling of relationship and pointing records, entry masks, workflow e-mails,
    ElasticSearch index and HTML cache.
 4. Tags and bookmarks in the editor (§6a: "tags and bookmarks later"; plan 18 Phase 2, plan 20).
+   Also not done (found 2026-11-05): `rst_EntryMask`. The new editor and srv save neither check values nor add the prefix and suffix of a mask, for any record type (legacy: `rst_RunEntryMask`, `recordUpdateMaskFields`). A separate task.
 5. Record manager configuration (§7.2): future plans.
 
 ## 11. Leftovers settled (Artem, 2026-10-22)

@@ -3,7 +3,7 @@
  * @brief Template editor of the reports manager, shown over the whole screen in
  *        three panes (HCardinalLayout): west - patterns and fields to add,
  *        center - Smarty text (HSmartyEditor) with Save / Save As / Close,
- *        east - test area (error level, Test, output). West and east fold to a
+ *        east - test area (language, error level, Test, output). West and east fold to a
  *        narrow strip with a vertical title.
  *
  * Fields are marked in the tree (several at once, "Select all visible options")
@@ -205,8 +205,15 @@ export class ReportEditorPanel extends HBaseWidget {
     this.layout.setContent('center', root);
   }
 
-  /** East: error level, Test, output. */
+  /** East: language, error level, Test, output. */
   renderEast({ tools, body }) {
+    const language = el('select', 'h-select h-reports-editor-level', tools);
+    language.title = $HR('Language of the test run');
+    language.append(option($HR('Language: default'), ''));
+    this.languageSelect = language;
+    this.app.loadDbDefs().then((dbdefs) => {
+      for (const code of dbdefs?.translationLanguages?.() || []) language.append(option(code, code));
+    }).catch(() => {});
     const level = el('select', 'h-select h-reports-editor-level', tools);
     level.title = $HR('Error reporting of the test run');
     for (const [value, label] of [[0, 'Errors: off'], [1, 'Errors: notices'], [2, 'Errors: all'], [3, 'Errors: debug console']]) {
@@ -447,8 +454,7 @@ export class ReportEditorPanel extends HBaseWidget {
     if (!values) return;
     const text = this.editor.getValue();
     this.editor.markSaved(); // the original is left unchanged on purpose
-    const created = await this.app.createReport({ ...values, body: text });
-    const report = this.app.findReport(ReportsApplication.reference(created)) || created;
+    const report = await this.app.saveAsReport({ ...values, body: text });
     await this.app.view?.showEditor?.(report);
   }
 
@@ -476,6 +482,7 @@ export class ReportEditorPanel extends HBaseWidget {
       return;
     }
     const params = { ids: records.ids, replevel: Number(this.levelSelect.value) || 0 };
+    if (this.languageSelect.value) params.language = this.languageSelect.value;
     // the text as shown (saved or not); a read-only template is tested from its file
     const text = this.editor.getValue();
     if (this.readOnly || !text.trim()) params.report = ReportsApplication.reference(this.report);

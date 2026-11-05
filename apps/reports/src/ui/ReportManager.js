@@ -27,7 +27,7 @@ import { ReportViewer } from './ReportViewer.js';
 import { buildReportList, iconClass } from './ReportList.js';
 import { buildGeneratedList } from './GeneratedFiles.js';
 import { openSchedulesDialog } from './SchedulesDialog.js';
-import { openPropertiesForm, openGenerateForm, openScheduleForm } from './reportForms.js';
+import { openGenerateForm } from './reportForms.js';
 import { confirmDialog } from './formDialog.js';
 import { showPopover, closePopover } from './popover.js';
 import './ReportManager.css';
@@ -152,6 +152,10 @@ export class ReportManager extends HBaseWidget {
     this.selectIcon.className = report ? iconClass(report) : 'fa-solid fa-list';
 
     const show = (button, visible) => { button.hidden = !visible; };
+    // a new report needs the record editor of the host
+    const editable = this.app.host.canEditRecords();
+    this.buttons.create.disabled = !editable;
+    this.buttons.create.title = $HR(editable ? 'Create a new report' : 'The record editor is not available here');
     this.reportTools.hidden = !report;
     show(this.buttons.template, Boolean(report) && report.fileExists !== false);
     const label = this.buttons.properties.querySelector('.h-reports-tool-label');
@@ -159,12 +163,12 @@ export class ReportManager extends HBaseWidget {
       label.textContent = $HR('Register');
       this.buttons.properties.title = $HR('Create the report record of this template');
       this.buttons.properties.setAttribute('aria-label', $HR('Register'));
-      show(this.buttons.properties, Boolean(report) && installed);
+      show(this.buttons.properties, Boolean(report) && installed && this.app.host.canEditRecords());
     } else {
       label.textContent = $HR('Edit');
       this.buttons.properties.title = $HR('Title, description, card flag and file name');
       this.buttons.properties.setAttribute('aria-label', $HR('Edit'));
-      show(this.buttons.properties, report.canEdit === true);
+      show(this.buttons.properties, report.canEdit === true && this.app.host.canEditRecords());
     }
     show(this.buttons.export, Boolean(report) && report.fileExists !== false);
     show(this.buttons.delete, report?.canEdit === true);
@@ -298,22 +302,22 @@ export class ReportManager extends HBaseWidget {
     }), { className: 'h-reports-generated-popover', align: 'right' });
   }
 
-  /** New report: properties form, then the template editor. */
+  /** New report: record editor, then the template editor. */
   async createReport() {
     if (!(await this.ensureInstalled())) return;
-    const values = await openPropertiesForm(null);
-    if (!values) return;
-    const created = await this.app.createReport(values);
-    await this.showEditor(this.app.findReport(ReportsApplication.reference(created)) || created);
+    const created = await this.app.newReport();
+    if (created) await this.showEditor(this.app.findReport(ReportsApplication.reference(created)) || created);
   }
 
-  /** Register or edit the selected report with the properties form. */
+  /** Register or edit the selected report in the record editor. */
   async editProperties() {
     const report = this.app.selectedReport();
     if (!report) return;
-    if (report.id == null && !(await this.ensureInstalled())) return;
-    const values = await openPropertiesForm(report);
-    if (values) await this.app.saveProperties(report, values);
+    if (report.id != null) {
+      await this.app.editReport(report);
+      return;
+    }
+    if (await this.ensureInstalled()) await this.app.registerReport(report);
   }
 
   /** Open the template editor of the selected report. */
@@ -403,10 +407,8 @@ export class ReportManager extends HBaseWidget {
   async schedules() {
     const report = this.app.selectedReport();
     if (!report || report.id == null) return;
-    if (!(report.schedules || []).length && report.canEdit) {
-      const values = await openScheduleForm(this.app, report, null);
-      if (!values) return;
-      await this.app.addSchedule(report, values);
+    if (!(report.schedules || []).length && report.canEdit && this.app.host.canEditRecords()) {
+      if (!(await this.app.addSchedule(report))) return;
     }
     await openSchedulesDialog(this.app, this.app.findReport(ReportsApplication.reference(report)) || report);
   }

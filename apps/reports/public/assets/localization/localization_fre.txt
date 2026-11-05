@@ -260,3 +260,8 @@
 #Mark#Marquer
 #Open in a new tab#Ouvrir dans un nouvel onglet
 #Remove#Retirer
+#Language#Langue
+#Language: default#Langue : par défaut
+#Language of the test run#Langue de l'exécution de test
+#Query#Requête
+#The record editor is not available here#L’éditeur de fiches n’est pas disponible ici

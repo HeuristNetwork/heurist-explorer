@@ -293,6 +293,7 @@
 .h-reports-table th { color: var(--h-color-text-muted, #6b7280); font-weight: normal; }
 .h-reports-row-actions { white-space: nowrap; text-align: right; }
 .h-reports-schedule-name { font-weight: bold; }
+.h-reports-schedule-query { max-width: 280px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* form dialog */
 .h-reports-form { display: flex; flex-direction: column; gap: 8px; min-width: min(380px, calc(100vw - 64px)); }

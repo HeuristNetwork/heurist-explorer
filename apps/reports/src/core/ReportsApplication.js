@@ -214,18 +214,45 @@ export class ReportsApplication extends EventTarget {
     await this.refresh();
   }
 
+  /** Local ids of definitions, by code name. */
+  async definitionId(...codes) {
+    const dbdefs = await this.loadDbDefs();
+    return codes.map((code) => Number(dbdefs?.dbconst?.(code)) || 0);
+  }
+
   /**
-   * Create a report and select it.
+   * New report in the record editor; it starts with a starter template. A file name of a template
+   * without a record takes that template.
    *
-   * @param {{title: string, isCardView: boolean, description?: string, file?: string, body?: string}} values
-   *        Without `body` the report starts with a starter template.
+   * @returns {Promise<object|null>} The report, or null when it was not saved.
    */
-  async createReport(values) {
-    const body = typeof values.body === 'string' ? values.body : starterTemplate(values.isCardView);
-    const report = await this.api.create({ ...values, body });
+  async newReport() {
+    const result = await this.host.addRecord('RT_CUSTOM_REPORT');
+    if (!result?.saved) return null;
     await this.refresh();
-    await this.selectReport(ReportsApplication.reference(report));
+    const report = this.findReport(result.recordId);
+    const { body } = await this.api.readTemplate(result.recordId);
+    if (!String(body ?? '').trim()) await this.api.saveTemplate(result.recordId, starterTemplate(report?.isCardView === true));
+    await this.selectReport(String(result.recordId));
     return report;
+  }
+
+  /**
+   * Save a template text as a new report and select it.
+   *
+   * @param {{title: string, isCardView: boolean, file?: string, body: string}} values
+   * @returns {Promise<object>} The report.
+   */
+  async saveAsReport({ title, isCardView, file = '', body }) {
+    const [rectype, name, fileName, card, yes] = await this.definitionId('RT_CUSTOM_REPORT', 'DT_NAME', 'DT_FILE_NAME', 'DT_IS_CARD_VIEW', 'TRM_YES');
+    const details = { [name]: [title] };
+    if (file) details[fileName] = [file];
+    if (isCardView) details[card] = [yes];
+    const id = await this.api.createRecord(rectype, details);
+    await this.api.saveTemplate(id, body);
+    await this.refresh();
+    await this.selectReport(String(id));
+    return this.findReport(id);
   }
 
   /** Import a .gpl/.tpl file and select the new report. */
@@ -236,27 +263,33 @@ export class ReportsApplication extends EventTarget {
     return report;
   }
 
+  /** Edit a report record; the template file follows its file name on the server. */
+  async editReport(report) {
+    const result = await this.host.editRecord(report.id);
+    if (result?.saved) await this.refresh();
+    return result;
+  }
+
   /**
-   * Save the properties form: change a report record, or create the record of an
-   * unregistered file (renaming the file first when its name was changed).
+   * Create the record of a template file without one, in the record editor. Another file name
+   * makes a new empty file: the template moves there.
    *
-   * @param {object} report Report of the list.
-   * @param {{title: string, description: string, isCardView: boolean, file: string}} values
-   * @returns {Promise<object>} The saved report.
+   * @param {object} report Report of the list (no record).
+   * @returns {Promise<object|null>} The report, or null when it was not saved.
    */
-  async saveProperties(report, values) {
-    let saved;
-    if (report.id == null) {
-      let file = report.file;
-      if (values.file) {
-        file = (await this.api.update(report.file, { file: values.file })).file;
-      }
-      saved = await this.api.register(file, { title: values.title, isCardView: values.isCardView, description: values.description });
-    } else {
-      saved = await this.api.update(report.id, values);
-    }
-    this.selectedRef = ReportsApplication.reference(saved);
+  async registerReport(report) {
+    const [name, fileName] = await this.definitionId('DT_NAME', 'DT_FILE_NAME');
+    const result = await this.host.addRecord('RT_CUSTOM_REPORT', { values: { [name]: report.title, [fileName]: report.file } });
+    if (!result?.saved) return null;
     await this.refresh();
+    const saved = this.findReport(result.recordId);
+    if (saved && saved.file.toLowerCase() !== report.file.toLowerCase()) {
+      const { body } = await this.api.readTemplate(report.file);
+      await this.api.saveTemplate(result.recordId, body);
+      await this.api.remove(report.file);
+      await this.refresh();
+    }
+    await this.selectReport(String(result.recordId));
     return saved;
   }
 
@@ -272,21 +305,32 @@ export class ReportsApplication extends EventTarget {
     return this.api.schedules();
   }
 
-  /** Add a schedule to a report. */
-  async addSchedule(report, values) {
-    await this.api.createSchedule(report.id, values);
-    await this.refresh();
+  /**
+   * Add a schedule of a report in the record editor: it has the owner of the report.
+   *
+   * @param {object} report Report with a record.
+   * @returns {Promise<boolean>} Whether a schedule was saved.
+   */
+  async addSchedule(report) {
+    const [name, field] = await this.definitionId('DT_NAME', 'DT_REPORT');
+    const result = await this.host.addRecord('RT_REPORT_SCHEDULE', {
+      values: { [name]: report.title, [field]: report.id },
+      access: { owner: report.ownerGroupId, visibility: 'viewable', viewGroups: [] }
+    });
+    if (result?.saved) await this.refresh();
+    return result?.saved === true;
   }
 
-  /** Change a schedule. */
-  async updateSchedule(reportId, schedule, values) {
-    await this.api.updateSchedule(reportId, schedule.id, values);
-    await this.refresh();
+  /** Edit a schedule record. */
+  async editSchedule(schedule) {
+    const result = await this.host.editRecord(schedule.id);
+    if (result?.saved) await this.refresh();
+    return result?.saved === true;
   }
 
   /** Delete a schedule. */
-  async deleteSchedule(reportId, schedule) {
-    await this.api.deleteSchedule(reportId, schedule.id);
+  async deleteSchedule(schedule) {
+    await this.api.deleteSchedule(schedule.id);
     await this.refresh();
   }
 
@@ -345,7 +389,7 @@ export class ReportsApplication extends EventTarget {
   /**
    * Start a test run of a saved report or an unsaved template text.
    *
-   * @param {{report?: string, body?: string, ids: number[], replevel?: number}} params
+   * @param {{report?: string, body?: string, ids: number[], replevel?: number, language?: string}} params
    * @returns {Promise<object>} The queued job.
    */
   startTest(params) {

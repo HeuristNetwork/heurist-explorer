@@ -41,6 +41,15 @@ test('setQuery() feeds the model so getQuery() round-trips a simple query', () =
   assert.deepEqual(b.getQuery(), [{ t: '10' }, { 'f:12': '=Smith' }]);
 });
 
+test('without parameters a parameter of the query is left out, a fixed value stays', () => {
+  const b = new HFilterBuilder({ dbdefs: dbdefsStub, vocabulary: VOCAB });
+  b.setAllowParameters(false);
+  b.setQuery({ query: [{ t: '10' }, { 'f:12': '=Smith' }, { 'f:13': '$X1$' }], filterForm: { groups: [] } });
+  const definition = b.getDefinition();
+  assert.deepEqual(definition.query, [{ t: '10' }, { 'f:12': '=Smith' }]);
+  assert.equal(definition.filterForm, null);
+});
+
 test('setQuery() keeps unmodellable predicates intact', () => {
   const b = new HFilterBuilder({ dbdefs: dbdefsStub, vocabulary: VOCAB });
   b.setQuery([{ t: '5' }, { 'weird:thing': { deep: 1 } }]);

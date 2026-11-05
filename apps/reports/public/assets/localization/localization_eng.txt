@@ -260,3 +260,8 @@
 #Mark#Mark
 #Open in a new tab#Open in a new tab
 #Remove#Remove
+#Language#Language
+#Language: default#Language: default
+#Language of the test run#Language of the test run
+#Query#Query
+#The record editor is not available here#The record editor is not available here

@@ -188,7 +188,7 @@ export class ExplorerApplication {
       isLoggedIn: () => Number(this.userGroups?.data?.currentUserId) > 0,
       selectExtent: this.config.moduleUrls?.map ? (current) => this.selectFilterExtent(current) : null,
       selectGeometry: this.config.moduleUrls?.map ? (current) => this.selectGeometry(current) : null,
-      editQuery: (query, filterForm) => this._editQueryWithBuilder(query, filterForm),
+      editQuery: (query, filterForm, options) => this._editQueryWithBuilder(query, filterForm, undefined, options),
       describeQuery: (q) => this._describeQuery(q),
       onSaved: ({ record }) => this._recordSaved(record),
       // tags of a record changed in its editor; "Manage tags" of its Tags panel (plan 20, 4a)
@@ -1674,10 +1674,11 @@ export class ExplorerApplication {
    * Create a record of a type (Explorer's record editor for system record types).
    *
    * @param {number|string} recordType Record type id or code name.
+   * @param {{access?: object, values?: Object<number, *>}} [options] See RecordEditorHost.addRecord.
    * @returns {Promise<{saved: boolean, recordId: number}|*>}
    */
-  async addRecord(recordType) {
-    return this.recordEditing.addRecord(recordType);
+  async addRecord(recordType, options = {}) {
+    return this.recordEditing.addRecord(recordType, options);
   }
 
   /** Open a Query Source record in the record editor. */
@@ -2112,7 +2113,7 @@ export class ExplorerApplication {
       createRecordBrowser: (options) => this.recordEditing.createRecordBrowser(options),
       addRecord: (rectypeId) => this.addRecord(rectypeId),
       recordFieldServices: () => this.recordEditing.fieldServices(),
-      editQuery: (query, filterForm) => this._editQueryWithBuilder(query, filterForm),
+      editQuery: (query, filterForm, options) => this._editQueryWithBuilder(query, filterForm, undefined, options),
       canEditRecords: () => this.canEditRecordType('RT_CMS_PAGE'),
       getDbDefs: () => this._ensureDbDefs(),
       isLoggedIn: () => Number(this.userGroups?.data?.currentUserId) > 0,
@@ -2249,8 +2250,9 @@ export class ExplorerApplication {
     return {
       // report records are system records: Explorer's record editor (plan 14)
       editRecord: (id) => this.editRecord(id),
-      addRecord: (rt) => this.addRecord(rt),
+      addRecord: (rt, options) => this.addRecord(rt, options),
       canEditRecords: () => this.canEditRecordType('RT_CUSTOM_REPORT'),
+      describeQuery: (query) => this._describeQuery(query),
       getCurrentQuery: () => {
         const source = this.sync?.dataSource;
         const query = source ? dataSourceRequest(source)?.q ?? null : null;
@@ -2459,8 +2461,8 @@ export class ExplorerApplication {
   }
 
   /** Open HFilterBuilder as a value editor and resolve with its JSON query, or null on cancel. */
-  async _editQueryWithBuilder(query, filterForm = null, selectExtent = (current) => this.selectFilterExtent(current)) {
-    return this.editorServices.editQuery(query, filterForm, selectExtent);
+  async _editQueryWithBuilder(query, filterForm = null, selectExtent = (current) => this.selectFilterExtent(current), options = {}) {
+    return this.editorServices.editQuery(query, filterForm, selectExtent, options);
   }
 
   /**

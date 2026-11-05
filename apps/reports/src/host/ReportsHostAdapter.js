@@ -7,10 +7,11 @@
  * the test run uses the selection only.
  *
  * Bridge functions used:
- *   editRecord(id) / addRecord(rtyId) -> Promise<{saved, recordId}>, canEditRecords()
+ *   editRecord(id) / addRecord(rtyId, {values, access}) -> Promise<{saved, recordId}>, canEditRecords()
+ *   describeQuery(query) -> text                    (a query in words)
  *   getCurrentQuery() -> {query, title} | null      (executable query of the active DataSource)
  *   getSelection() -> number[]                      (selected record ids)
- *   getQuerySources() -> [{id, title, parametrized}] (for schedules and generation)
+ *   getQuerySources() -> [{id, title, parametrized}] (for generation)
  *   getUserGroups() -> {currentUserId, users, groups} (owner group names)
  *
  * @project     Heurist academic knowledge management system
@@ -44,9 +45,18 @@ export class ReportsHostAdapter {
   }
 
   /** Open the record editor for a new record; resolves `{saved, recordId}`. */
-  async addRecord(recordTypeId) {
+  async addRecord(recordTypeId, options = {}) {
     if (typeof this.bridge.addRecord !== 'function') throw new Error('The record editor is not available here');
-    return (await this.bridge.addRecord(recordTypeId)) || { saved: false };
+    return (await this.bridge.addRecord(recordTypeId, options)) || { saved: false };
+  }
+
+  /** A stored query in words; the text of the query without a host. */
+  describeQuery(query) {
+    try {
+      return this.bridge.describeQuery?.(query) || String(query ?? '');
+    } catch {
+      return String(query ?? '');
+    }
   }
 
   /** `{query, title}` of the host's current result, or null. */

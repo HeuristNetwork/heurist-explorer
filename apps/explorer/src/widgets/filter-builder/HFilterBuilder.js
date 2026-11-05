@@ -235,24 +235,43 @@ export class HFilterBuilder extends HBaseWidget {
   setRecordType(rtyId, options = {}) {
     const { locked = false, allowParameters = this._allowParameters } = options;
     const value = coerceRty(rtyId);
-    this._allowParameters = allowParameters !== false;
-    if (!this._allowParameters) this.form = null;
+    this._setParameters(allowParameters);
     this._fixedRecordTypeId = locked && value !== '' ? value : null;
     this.model.rtyId = value;
     if (this.isRendered) {
       this._populateRectypes();
       this._rtySel.value = value === '' || value == null ? '' : String(value);
       this._rtySel.disabled = Boolean(this._fixedRecordTypeId);
-      if (this._askNewToggle) this._askNewToggle.hidden = !this._allowParameters;
-      if (this._guidance) {
-        this._guidance.textContent = this._allowParameters
-          ? GUIDANCE_PARAMETERS
-          : 'Select fields, comparison operators and values.';
-      }
       this._onScopeChanged();
       this._recompose();
     }
     return this;
+  }
+
+  /**
+   * Whether the query may have parameters. Without them "Ask the user" and the Filter Form are not
+   * offered, and setQuery leaves out the parameters of a query.
+   *
+   * @param {boolean} allowed
+   * @returns {HFilterBuilder} This instance.
+   */
+  setAllowParameters(allowed) {
+    this._setParameters(allowed);
+    if (this.isRendered) this._recompose();
+    return this;
+  }
+
+  /** Set the parameters option and show or hide its controls. */
+  _setParameters(allowed) {
+    this._allowParameters = allowed !== false;
+    if (!this._allowParameters) this.form = null;
+    if (!this.isRendered) return;
+    if (this._askNewToggle) this._askNewToggle.hidden = !this._allowParameters;
+    if (this._guidance) {
+      this._guidance.textContent = this._allowParameters
+        ? GUIDANCE_PARAMETERS
+        : 'Select fields, comparison operators and values.';
+    }
   }
 
   /** @returns {Array<object>} the composed Heurist q-array */
@@ -337,7 +356,7 @@ export class HFilterBuilder extends HBaseWidget {
       fieldType: (dty) => this.dbdefs.fieldType?.(null, dty) || this.dbdefs.fieldGlobal?.(dty)?.type
     });
     if (this._fixedRecordTypeId != null) this.model.rtyId = this._fixedRecordTypeId;
-    this.form = definition?.filterForm || null;
+    this.form = this._allowParameters ? definition?.filterForm || null : null;
     const restore = (rows) => {
       for (const row of rows || []) {
         if (row.type === 'link') { restore(row.rows); continue; }
@@ -349,7 +368,15 @@ export class HFilterBuilder extends HBaseWidget {
         if (second) { row.placeholderIds[1] = second[1]; row.values[1] = ''; }
       }
     };
+    // no parameters: their values go, an empty criterion is left out of the query
+    const clear = (rows) => {
+      for (const row of rows || []) {
+        if (row.type === 'link') { clear(row.rows); continue; }
+        row.values = (row.values || []).map((value) => (/^\$[A-Za-z][A-Za-z0-9_]*\$$/.test(value || '') ? '' : value));
+      }
+    };
     if (this._allowParameters) restore(this.model.rows);
+    else clear(this.model.rows);
     // text queries carry enum values as labels (`f:237:"Lived at"`); the term
     // picker selects by id
     const resolveTerms = (rows) => {

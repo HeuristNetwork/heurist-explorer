@@ -104,6 +104,7 @@ export class HRecordEditor extends HBaseWidget {
    * @param {Function} [options.addRecord] Add of pointer fields: `(rectypeId, parentContext?) → Promise<{saved, recordId}>`.
    * @param {{recordId:number, rectypeId:number, fieldId:number, title?:string}} [options.parentContext]
    *        Creation from a parent's resource input; that input owns the forward write, so do not prompt or write twice.
+   * @param {Object<number, *>} [options.values] First values of a new record, by field id.
    * @param {Function} [options.fileUrl] Link to view a file of a file field.
    * @param {Function} [options.editFile] Edit button of file fields (host file editor): `(id) → Promise<{saved, record}>`.
    * @param {{baseUrl: string, database: string}} [options.fileViewer] File fields: show the file below the input.
@@ -228,6 +229,9 @@ export class HRecordEditor extends HBaseWidget {
     await users;
     this.render();
     if (relationsMessage) this._showMessages([relationsMessage]);
+    if (this.isNew) {
+      for (const [field, value] of Object.entries(this.options.values || {})) await this.editForm.setValue(field, value);
+    }
     if (this.isNew && this._parentField && !this.options.parentContext) {
       const choice = await childCreationChoice(this.dbdefs, rty);
       if (!choice) this.close();

@@ -18,7 +18,6 @@
 import { HJobMonitor } from '#shared/widgets';
 import { $HR, HMsg } from '#shared/ui';
 import { intervalLabel } from '../core/ReportsApplication.js';
-import { openScheduleForm } from './reportForms.js';
 import { confirmDialog } from './formDialog.js';
 import { formatDate, formatSize } from './GeneratedFiles.js';
 
@@ -48,10 +47,7 @@ export async function openSchedulesDialog(app, report = null) {
   const table = el('table', 'h-reports-table', root);
   let schedules = [];
   let monitor = null;
-  // titles of the host's Query Sources (all of them, also parameterized ones)
-  const sourceTitles = new Map((await app.host.getQuerySources()).map((source) => [source.id, source.title]));
 
-  const reportFor = (schedule) => app.findReport(String(schedule.reportId));
   const filterReport = () => (filter.value ? app.findReport(filter.value) : null);
 
   const fillFilter = () => {
@@ -70,15 +66,15 @@ export async function openSchedulesDialog(app, report = null) {
     const shown = schedules.filter((schedule) => (!filter.value || String(schedule.reportId) === filter.value)
       && (!text || `${schedule.title} ${schedule.reportTitle || ''}`.toLowerCase().includes(text)));
     const target = filterReport();
-    add.disabled = !(target && target.id != null && target.canEdit);
+    add.disabled = !(target && target.id != null && target.canEdit && app.host.canEditRecords());
     add.title = add.disabled ? $HR('Choose a report you can edit in the list above') : $HR('Add a schedule to this report');
     table.replaceChildren();
     const head = el('tr', '', el('thead', '', table));
-    for (const label of ['', 'Name', 'Report', 'Query Source', 'Interval', 'Last generated', '']) el('th', '', head).textContent = label ? $HR(label) : '';
+    for (const label of ['', 'Name', 'Report', 'Language', 'Query', 'Interval', 'Last generated', '']) el('th', '', head).textContent = label ? $HR(label) : '';
     const body = el('tbody', '', table);
     if (!shown.length) {
       const cell = el('td', 'h-muted', el('tr', '', body));
-      cell.colSpan = 7;
+      cell.colSpan = 8;
       cell.textContent = $HR('No schedules');
       return;
     }
@@ -88,8 +84,10 @@ export async function openSchedulesDialog(app, report = null) {
       iconButton(run, 'fa-solid fa-bolt', 'Generate now', () => execute(schedule));
       el('td', 'h-reports-schedule-name', row).textContent = schedule.title;
       el('td', 'h-muted', row).textContent = schedule.reportTitle || '';
-      el('td', '', row).textContent = schedule.dataSourceId > 0
-        ? (sourceTitles.get(schedule.dataSourceId) || `#${schedule.dataSourceId}`) : '';
+      el('td', '', row).textContent = schedule.language || '';
+      const query = el('td', 'h-reports-schedule-query', row);
+      query.textContent = app.host.describeQuery(schedule.query);
+      query.title = schedule.query || '';
       el('td', '', row).textContent = intervalLabel(schedule.intervalMinutes);
       const last = el('td', '', row);
       if (schedule.generated) {
@@ -108,9 +106,8 @@ export async function openSchedulesDialog(app, report = null) {
         open.title = $HR('Open in a new window');
         el('i', 'fa-solid fa-up-right-from-square', open).setAttribute('aria-hidden', 'true');
       }
-      const owner = reportFor(schedule);
-      if (schedule.canEdit && owner) {
-        iconButton(actions, 'fa-solid fa-pen', 'Edit schedule', () => edit(owner, schedule));
+      if (schedule.canEdit) {
+        if (app.host.canEditRecords()) iconButton(actions, 'fa-solid fa-pen', 'Edit schedule', () => edit(schedule));
         iconButton(actions, 'fa-solid fa-trash', 'Delete schedule', () => remove(schedule));
       }
     }
@@ -134,26 +131,20 @@ export async function openSchedulesDialog(app, report = null) {
     }
   };
 
-  const edit = async (owner, schedule) => {
-    const values = await openScheduleForm(app, owner, schedule);
-    if (!values) return;
-    await app.updateSchedule(owner.id, schedule, values);
-    await reload();
+  const edit = async (schedule) => {
+    if (await app.editSchedule(schedule)) await reload();
   };
 
   const remove = async (schedule) => {
     if (!(await confirmDialog(`${$HR('Delete schedule')} "${schedule.title}"? ${$HR('Generated files are kept.')}`, { yesLabel: 'Delete' }))) return;
-    await app.deleteSchedule(schedule.reportId, schedule);
+    await app.deleteSchedule(schedule);
     await reload();
   };
 
   add.addEventListener('click', () => run(async () => {
     const target = filterReport();
     if (!target) return;
-    const values = await openScheduleForm(app, target, null);
-    if (!values) return;
-    await app.addSchedule(target, values);
-    await reload();
+    if (await app.addSchedule(target)) await reload();
   }));
   search.addEventListener('input', render);
   filter.addEventListener('change', render);

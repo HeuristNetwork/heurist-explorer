@@ -102,14 +102,18 @@ test('special fields: query and filter form are edited together', async () => {
   assert.equal(specials[177].edit, undefined, 'no symbology editor without the legacy host');
 });
 
-test('a filter form without a DT_FILTER_FORM field in the record type is refused, values kept', async () => {
+test('a record type without a DT_FILTER_FORM field: the builder offers no parameters', async () => {
+  const asked = [];
   const host = new RecordEditorHost({
     apiClient: { get: async () => ({}), request: async () => ({}) },
     getDbDefs: () => dbdefs,
     ensureDbDefs: async () => dbdefs,
     getBridge: () => null,
     isLoggedIn: () => true,
-    editQuery: async (query) => ({ query, filterForm: { groups: [{ children: [] }] } })
+    editQuery: async (query, filterForm, options) => {
+      asked.push([filterForm, options]);
+      return { query: [{ t: '11' }], filterForm: null };
+    }
   });
   const specials = host.specialEditors(dbdefs);
   const values = { 12: '[{"t":"10"}]' };
@@ -118,8 +122,11 @@ test('a filter form without a DT_FILTER_FORM field in the record type is refused
     setValue: (dty, value) => { values[dty] = value; },
     hasField: (dty) => Number(dty) !== 1174
   };
-  await assert.rejects(specials[12].edit(values[12], context), /DT_FILTER_FORM/);
-  assert.deepEqual(values, { 12: '[{"t":"10"}]' }, 'nothing changed');
+  await specials[12].edit(values[12], context);
+  assert.deepEqual(asked, [[null, { allowParameters: false }]]);
+  assert.deepEqual(values, { 12: '[{"t":"11"}]' });
+  await specials[12].edit(values[12], { ...context, hasField: () => true });
+  assert.deepEqual(asked[1][1], { allowParameters: true }, 'with the field: parameters');
 });
 
 test('readable values of special fields', () => {

@@ -20,7 +20,7 @@ const LIST = {
   unregistered: [{ id: null, title: 'old', file: 'old.tpl', canEdit: true, schedules: [] }]
 };
 
-async function mount(list = LIST, jobClient = {}) {
+async function mount(list = LIST, jobClient = {}, bridge = { editRecord: async () => ({ saved: false }) }) {
   const application = new ReportsApplication({
     config: { language: 'eng' },
     reportApi: {
@@ -29,7 +29,7 @@ async function mount(list = LIST, jobClient = {}) {
       exportUrl: (ref) => `http://x/api/db/reports/${ref}/export`
     },
     jobClient,
-    host: new ReportsHostAdapter({})
+    host: new ReportsHostAdapter(bridge)
   });
   const host = document.createElement('div');
   document.body.append(host);
@@ -81,6 +81,15 @@ test('a template without a record: Register', async () => {
   await application.selectReport('old.tpl');
   assert.equal(label(view.buttons.properties), 'Register');
   assert.ok(visible(view.buttons.properties));
+});
+
+test('without a record editor: no New, Edit or Register', async () => {
+  const { view, application } = await mount(LIST, {}, {});
+  assert.equal(view.buttons.create.disabled, true);
+  await application.selectReport('5');
+  assert.equal(visible(view.buttons.properties), false);
+  await application.selectReport('old.tpl');
+  assert.equal(visible(view.buttons.properties), false);
 });
 
 test('report list: accordions by group, no file names, type and text filters', async () => {

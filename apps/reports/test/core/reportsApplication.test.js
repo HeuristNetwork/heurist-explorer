@@ -23,7 +23,10 @@ function fakeApi(overrides = {}) {
     calls,
     apiClient: { buildUrl: (p) => `http://x/api/db${p}` },
     list: async () => LIST,
-    create: async (values) => { calls.push(['create', values]); return { id: 7, file: 'new.tpl' }; },
+    createRecord: async (rectype, details) => { calls.push(['createRecord', rectype, details]); return 7; },
+    readTemplate: async () => ({ body: '' }),
+    saveTemplate: async (reference, body) => { calls.push(['saveTemplate', reference, body]); },
+    remove: async (reference) => { calls.push(['remove', reference]); },
     queryIds: async (query, limit) => { calls.push(['queryIds', query, limit]); return [11, 12]; },
     ...overrides
   };
@@ -59,21 +62,51 @@ test('generated files of a report are asked for by its reference: the rule of th
   assert.deepEqual(asked, ['6']);
 });
 
-test('properties: an unregistered file is renamed, then registered; a record is updated', async () => {
-  const calls = [];
-  const api = fakeApi({
-    update: async (ref, values) => { calls.push(['update', ref, values]); return { id: ref === 'old.tpl' ? null : 6, file: `${values.file || 'monthly'}.tpl` }; },
-    register: async (file, values) => { calls.push(['register', file, values]); return { id: 9, file }; }
+const DEFINITIONS = { RT_CUSTOM_REPORT: 24, DT_NAME: 1, DT_FILE_NAME: 62, DT_IS_CARD_VIEW: 75, DT_REPORT: 76, TRM_YES: 9 };
+
+/** An application with the definitions and a host that saves new records. */
+function editing(api, answer = { saved: true, recordId: 6 }) {
+  const added = [];
+  const application = app(api, {
+    canEditRecords: () => true,
+    editRecord: async (id) => { added.push(['edit', id]); return answer; },
+    addRecord: async (type, options) => { added.push([type, options]); return answer; }
   });
-  const application = app(api);
+  application.loadDbDefs = async () => ({ dbconst: (code) => DEFINITIONS[code] });
+  return { application, added };
+}
+
+test('a template without a record: the record editor with its name; another name moves the template', async () => {
+  const api = fakeApi({ readTemplate: async () => ({ body: 'text' }) });
+  const { application, added } = editing(api);
   await application.refresh();
-  await application.saveProperties(application.findReport('old.tpl'), { title: 'Old', description: '', isCardView: false, file: 'renamed' });
-  assert.deepEqual(calls.slice(0, 2), [
-    ['update', 'old.tpl', { file: 'renamed' }],
-    ['register', 'renamed.tpl', { title: 'Old', isCardView: false, description: '' }]
-  ]);
-  await application.saveProperties(application.findReport('6'), { title: 'M', description: 'x', isCardView: false });
-  assert.deepEqual(calls[2], ['update', 6, { title: 'M', description: 'x', isCardView: false }]);
+  await application.registerReport(application.findReport('old.tpl'));
+  assert.deepEqual(added, [['RT_CUSTOM_REPORT', { values: { 1: 'old', 62: 'old.tpl' } }]]);
+  assert.deepEqual(api.calls.slice(0, 2), [['saveTemplate', 6, 'text'], ['remove', 'old.tpl']]);
+  assert.equal(application.selectedRef, '6');
+});
+
+test('a template without a record: the same name moves nothing; a closed editor changes nothing', async () => {
+  const api = fakeApi();
+  const list = { ...LIST, reports: [...LIST.reports, { id: 8, title: 'old', file: 'OLD.tpl', canEdit: true, schedules: [] }] };
+  api.list = async () => list;
+  const { application } = editing(api, { saved: true, recordId: 8 });
+  await application.refresh();
+  await application.registerReport(application.findReport('old.tpl'));
+  assert.deepEqual(api.calls, []);
+  const closed = editing(fakeApi(), { saved: false });
+  await closed.application.refresh();
+  assert.equal(await closed.application.registerReport(closed.application.findReport('old.tpl')), null);
+});
+
+test('a schedule is added in the record editor: name, report and the owner of the report', async () => {
+  const { application, added } = editing(fakeApi());
+  await application.refresh();
+  assert.equal(await application.addSchedule({ id: 6, title: 'Monthly', ownerGroupId: 3 }), true);
+  assert.deepEqual(added, [['RT_REPORT_SCHEDULE', {
+    values: { 1: 'Monthly', 76: 6 },
+    access: { owner: 3, visibility: 'viewable', viewGroups: [] }
+  }]]);
 });
 
 test('current result with its record count; parameterized Query Sources are left out', async () => {
@@ -108,20 +141,36 @@ test('a single record (card) report is tested on one record', async () => {
   assert.deepEqual(api.calls.at(-1), ['queryIds', [{ t: '10' }], 1]);
 });
 
-test('a new report starts with a starter template unless a body is given', async () => {
+test('a new report starts with a starter template; a template that has a text keeps it', async () => {
   const api = fakeApi();
-  const application = app(api);
-  await application.createReport({ title: 'A', isCardView: true });
-  assert.equal(api.calls[0][1].body, starterTemplate(true));
-  await application.createReport({ title: 'B', isCardView: false, body: 'X' });
-  assert.equal(api.calls[1][1].body, 'X');
-  assert.equal(application.selectedRef, '7');
+  const { application, added } = editing(api);
+  await application.refresh();
+  await application.newReport();
+  assert.deepEqual(added, [['RT_CUSTOM_REPORT', {}]]);
+  assert.deepEqual(api.calls, [['saveTemplate', 6, starterTemplate(false)]]);
+  assert.equal(application.selectedRef, '6');
+  const kept = fakeApi({ readTemplate: async () => ({ body: 'text' }) });
+  const other = editing(kept);
+  await other.application.newReport();
+  assert.deepEqual(kept.calls, []);
   assert.match(starterTemplate(false), /\{foreach \$results as \$r1\}/);
+});
+
+test('Save As: a record with its name and flag, then the text', async () => {
+  const api = fakeApi();
+  const { application } = editing(api);
+  await application.saveAsReport({ title: 'Copy', isCardView: true, file: 'copy', body: 'X' });
+  assert.deepEqual(api.calls.slice(0, 2), [
+    ['createRecord', 24, { 1: ['Copy'], 62: ['copy'], 75: [9] }],
+    ['saveTemplate', 7, 'X']
+  ]);
+  assert.equal(application.selectedRef, '7');
 });
 
 test('host adapter fallbacks without a bridge', async () => {
   const host = new ReportsHostAdapter(null);
   assert.equal(host.canEditRecords(), false);
+  assert.equal(host.describeQuery('t:10'), 't:10');
   assert.deepEqual(await host.getSelection(), []);
   assert.equal(await host.getCurrentQuery(), null);
   assert.deepEqual(await host.getQuerySources(), []);

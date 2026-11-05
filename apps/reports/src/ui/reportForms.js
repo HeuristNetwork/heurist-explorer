@@ -1,12 +1,10 @@
 /**
  * @file reportForms.js
- * @brief Forms of the reports manager: report properties (new, register, edit),
- *        generation and schedule. They replace the legacy record editor for the
- *        report records until the dynamic HEditForm exists (2026-10-05).
+ * @brief The generation form of the reports manager. Report and schedule records are edited in
+ *        the record editor (2026-11-05).
  *
- * File names and suffixes accept only letters A-Z, digits, "-", "_", "(", ")" and spaces.
- * The name of a generated file always starts with the report's file name; the
- * user adds a suffix only.
+ * The file name suffix accepts only letters A-Z, digits, "-", "_", "(", ")" and spaces. The name
+ * of a generated file always starts with the report's file name; the user adds a suffix only.
  *
  * @project     Heurist academic knowledge management system
  * @package     heurist-reports
@@ -20,39 +18,8 @@
  */
 
 import { $HR } from '#shared/ui';
-import { vocabularyItems } from '#shared/data/valueSources/localSources.js';
-import { ReportsApplication, REPORT_FORMATS, SCHEDULE_INTERVALS } from '../core/ReportsApplication.js';
+import { ReportsApplication, REPORT_FORMATS } from '../core/ReportsApplication.js';
 import { openFormDialog, FILE_NAME_CHARS } from './formDialog.js';
-
-/**
- * Properties of a report: title, description, card flag, template file name.
- *
- * @param {object|null} report Report to edit or register; null for a new report.
- * @returns {Promise<{title: string, description: string, isCardView: boolean, file?: string}|null>}
- *          `file` only when it was changed (or for a new report).
- */
-export async function openPropertiesForm(report) {
-  const isNew = !report;
-  const unregistered = report && report.id == null;
-  const initialFile = report ? fileNameValue(report) : '';
-  const values = await openFormDialog({
-    title: isNew ? 'New report' : unregistered ? 'Create report record' : 'Report properties',
-    okLabel: isNew || unregistered ? 'Create' : 'Save',
-    fields: [
-      { name: 'title', label: 'Title', value: report?.title || '', required: true },
-      { name: 'description', label: 'Description', type: 'textarea', value: report?.description || '' },
-      { name: 'isCardView', label: 'Single record (card) report', type: 'checkbox', value: report?.isCardView === true,
-        hint: 'Card reports are offered for record popups, cards and Record view.' },
-      { name: 'file', label: 'Template file name', value: report ? fileNameValue(report) : '', allowed: FILE_NAME_CHARS,
-        required: !isNew,
-        hint: isNew ? 'Letters A-Z, digits, "-", "_", "(", ")" and spaces. Empty: made from the title.'
-          : 'Letters A-Z, digits, "-", "_", "(", ")" and spaces. Changing it renames the template file.' }
-    ]
-  });
-  // an unchanged name is not sent: a legacy name with other characters is not renamed
-  if (values && report && values.file === initialFile) delete values.file;
-  return values;
-}
 
 /**
  * Generate a report: current result or a Query Source, format and file name suffix.
@@ -89,49 +56,6 @@ export async function openGenerateForm(app, report) {
   return params;
 }
 
-/**
- * Add or change a schedule.
- *
- * @param {ReportsApplication} app Controller.
- * @param {object} report Report of the schedule.
- * @param {object|null} schedule Schedule to change; null for a new one.
- * @returns {Promise<object|null>} Schedule values, or null when cancelled.
- */
-export async function openScheduleForm(app, report, schedule = null) {
-  const sources = await app.querySourcesForReports();
-  const prefix = ReportsApplication.outputPrefix(report);
-  const suffix = schedule?.file && schedule.file.startsWith(`${prefix} `) ? schedule.file.slice(prefix.length + 1) : '';
-  const interval = schedule ? (Number(schedule.intervalMinutes) || 0) : 1440;
-  const intervals = SCHEDULE_INTERVALS.map((item) => ({ value: item.value, label: $HR(item.label) }));
-  if (!intervals.some((item) => item.value === interval)) intervals.push({ value: interval, label: `${interval} min` });
-  const languages = await scheduleLanguages(app);
-  const values = await openFormDialog({
-    title: schedule ? 'Edit schedule' : 'Add schedule',
-    okLabel: schedule ? 'Save' : 'Add',
-    fields: [
-      { name: 'title', label: 'Title', value: schedule?.title || report.title, required: true },
-      querySourceField(sources, { value: schedule?.dataSourceId, required: true }),
-      { name: 'format', label: 'Format', type: 'select', value: schedule?.format || 'html', options: REPORT_FORMATS.map((f) => ({ value: f, label: f })) },
-      { name: 'suffix', label: 'File name', prefix: `${prefix} `, value: suffix, allowed: FILE_NAME_CHARS,
-        hint: 'Optional end of the file name; the file is written to generated-reports.' },
-      ...(languages.length ? [{ name: 'language', label: 'Language', type: 'select', value: schedule?.languageTerm || '', options: languages,
-        hint: 'Language of the output: a website uses one file per language.' }] : []),
-      { name: 'intervalMinutes', label: 'Regenerate', type: 'select', value: interval, options: intervals }
-    ]
-  });
-  if (!values) return null;
-  return { ...values, querySource: Number(values.querySource), intervalMinutes: Number(values.intervalMinutes) || 0, language: Number(values.language) || 0 };
-}
-
-/** Terms of DT_LANGUAGE for a schedule (plan 27e); none when the definitions can not be read. */
-async function scheduleLanguages(app) {
-  const dbdefs = await app.loadDbDefs().catch(() => null);
-  const field = Number(dbdefs?.dbconst?.('DT_LANGUAGE')) || 0;
-  const vocabulary = field ? dbdefs.vocabRoot?.(field) : 0;
-  if (!vocabulary) return [];
-  return [{ value: '', label: '' }, ...vocabularyItems(dbdefs, vocabulary).map((item) => ({ value: item.value, label: item.label }))];
-}
-
 /** Query Source field: a list from the host, or a record id when there is none. */
 function querySourceField(sources, { value = '', required = false, showWhen = null } = {}) {
   if (sources.length) {
@@ -142,9 +66,4 @@ function querySourceField(sources, { value = '', required = false, showWhen = nu
     };
   }
   return { name: 'querySource', label: 'Query Source record id', type: 'number', value: value || '', required, showWhen };
-}
-
-/** Template file name of a report without ".tpl", limited to the allowed characters. */
-function fileNameValue(report) {
-  return String(report.file || '').replace(/\.tpl$/i, '').replace(FILE_NAME_CHARS, '_');
 }

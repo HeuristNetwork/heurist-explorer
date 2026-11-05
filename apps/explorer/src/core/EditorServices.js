@@ -76,9 +76,11 @@ export class EditorServices {
    * @param {*} query Query.
    * @param {object|null} [filterForm] Filter form of the query.
    * @param {Function} [selectExtent] Extent picker of the builder; default: the map drawing.
+   * @param {{allowParameters?: boolean}} [options] `allowParameters: false`: a query without parameters,
+   *        "Ask the user" is not offered and the parameters of `query` are left out.
    * @returns {Promise<{query: *, filterForm: object|null}|null>}
    */
-  async editQuery(query, filterForm = null, selectExtent = (current) => this.selectFilterExtent(current)) {
+  async editQuery(query, filterForm = null, selectExtent = (current) => this.selectFilterExtent(current), { allowParameters = true } = {}) {
     let dbdefs;
     try { dbdefs = await this.ensureDbDefs(); }
     catch (error) {
@@ -90,6 +92,7 @@ export class EditorServices {
       dbdefs, vocabulary: queryVocabulary, lang: this.config.language, selectExtent, apiClient: this.apiClient
     });
     builder.attach(host).render();
+    builder.setAllowParameters(allowParameters);
     builder.setQuery({ query: query || [], filterForm });
     // its own dialog: flash messages use the shared message dialog, and opening
     // one there would replace the builder

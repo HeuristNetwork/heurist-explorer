@@ -55,40 +55,27 @@ export class ReportApi {
     return data(await this.apiClient.request(`${path(reference)}/template`, { method: 'PUT', body: { body } }));
   }
 
-  /** Create a report (template file and record); `file` without ".tpl", or empty for a name from the title. */
-  async create({ title, isCardView = false, body = '', description = '', file = '' }) {
-    return data(await this.apiClient.post('/reports', { body: { title, isCardView, body, description, file } }));
+  /**
+   * Create a report record; its template file comes with it (ReportEntityHandler, without a file name from the title).
+   *
+   * @param {number} rectypeId Record type Custom Report.
+   * @param {Object<number, Array>} details Values by field id.
+   * @returns {Promise<number>} Record id.
+   */
+  async createRecord(rectypeId, details) {
+    const response = await this.apiClient.post('/report/0', { body: { rec_RecTypeID: rectypeId, details } });
+    return Number(response?.records?.[0]?.rec_ID ?? response?.data?.records?.[0]?.rec_ID) || 0;
   }
 
   /**
-   * Change a report: title, description, card flag, file name (renames the template).
+   * Delete a report record with its unused file, or a template file without a record.
    *
    * @param {string|number} reference Record id or file name.
-   * @param {{title?: string, description?: string, isCardView?: boolean, file?: string}} values
-   * @returns {Promise<object>} The changed report.
+   * @param {{keepFile?: boolean}} [options]
    */
-  async update(reference, values) {
-    return data(await this.apiClient.request(path(reference), { method: 'PUT', body: values }));
-  }
-
-  /** Create the record of an unregistered template file. */
-  async register(file, { title = '', isCardView = false } = {}) {
-    return data(await this.apiClient.post(`${path(file)}/register`, { body: { title, isCardView } }));
-  }
-
-  /** Delete a report record (and its unused file) or an unregistered file. */
   async remove(reference, { keepFile = false } = {}) {
-    return data(await this.apiClient.request(path(reference), { method: 'DELETE', query: keepFile ? { keepFile: 1 } : null }));
-  }
-
-  /** Add a schedule to a report; returns the report. */
-  async createSchedule(reportId, schedule) {
-    return data(await this.apiClient.post(`${path(reportId)}/schedules`, { body: schedule }));
-  }
-
-  /** Change a schedule of a report; returns the report. */
-  async updateSchedule(reportId, scheduleId, schedule) {
-    return data(await this.apiClient.request(`${path(reportId)}/schedules/${encodeURIComponent(scheduleId)}`, { method: 'PUT', body: schedule }));
+    const url = /^\d+$/.test(String(reference)) ? `/report/${reference}` : path(reference);
+    return data(await this.apiClient.request(url, { method: 'DELETE', query: keepFile ? { keepFile: 1 } : null }));
   }
 
   /** All visible schedules, each with `reportTitle` and its last `generated` file. */
@@ -96,9 +83,9 @@ export class ReportApi {
     return data(await this.apiClient.get('/reports/schedules'));
   }
 
-  /** Delete a schedule of a report; returns the report. */
-  async deleteSchedule(reportId, scheduleId) {
-    return data(await this.apiClient.request(`${path(reportId)}/schedules/${encodeURIComponent(scheduleId)}`, { method: 'DELETE' }));
+  /** Delete a schedule record. */
+  async deleteSchedule(scheduleId) {
+    return data(await this.apiClient.request(`/schedule/${encodeURIComponent(scheduleId)}`, { method: 'DELETE' }));
   }
 
   /**

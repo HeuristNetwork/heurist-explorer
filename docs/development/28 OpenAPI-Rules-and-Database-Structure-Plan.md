@@ -216,13 +216,13 @@ conversion.
 | `/files/{key}/content\|thumbnail`, `/files/upload` | special (§4) | ok |
 | `GET /def/snapshot` | same (definitions read for clients) | ok |
 | legacy `/rty`, `/dty`, `/trm`, `/trl`, `/rst` ... | `/def/rectype/{id}` ... through the generic controllers | conv |
-| `GET\|POST /reports` | `GET\|POST /report` (search) | touch |
+| `GET\|POST /reports` | `GET\|POST /report` (search) | touch (2026-11-05: `POST` removed, `GET` left) |
 | `POST /reports/setup` | `GET\|POST /report/setup` | touch |
-| `GET\|PUT\|DELETE /reports/{ref}` | `/report/{id}` CRUD | touch |
+| `GET\|PUT\|DELETE /reports/{ref}` | `/report/{id}` CRUD | done 2026-11-05 for writes (`ReportEntityHandler`); `GET` and `DELETE` of a file without a record left |
 | `GET\|PUT /reports/{ref}/template` | template = a field: `GET /report/{id}/{field}`; write by PATCH (§9.4); the `.tpl` file stays behind the record | touch |
-| `POST /reports/{ref}/register`, `POST /reports/import` | `POST /report/0/import` | touch |
+| `POST /reports/{ref}/register`, `POST /reports/import` | `POST /report/0/import` | touch (2026-11-05: `register` removed, `POST /report/0` takes the file) |
 | `GET /reports/{ref}/export` | `GET /report/{id}/export` | touch |
-| `GET /reports/schedules`, `POST /reports/{id}/schedules`, `PUT\|DELETE /reports/{id}/schedules/{sid}` | `/schedule`, `/schedule/{sid}` CRUD (the report is a pointer field) | touch |
+| `GET /reports/schedules`, `POST /reports/{id}/schedules`, `PUT\|DELETE /reports/{id}/schedules/{sid}` | `/schedule`, `/schedule/{sid}` CRUD (the report is a pointer field) | done 2026-11-05 for writes; `GET /reports/schedules` left |
 | `GET /reports/generated`, `DELETE /reports/generated/{file}` | open: job results or a `files` action (§9) | open |
 | `/reports/{ref}/render` | special (§4) | ok |
 | `/website/...` (all) | `/website/{id}`, `/page/{id}` + `assign`, `import`, `execute`, `setup` (plan 27d) | done |

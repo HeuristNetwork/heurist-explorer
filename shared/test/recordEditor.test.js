@@ -71,6 +71,11 @@ const parentDefs = {
   dbconst: (name) => (name === 'DT_PARENT_ENTITY' ? 247 : dbdefs.dbconst(name))
 };
 
+test('a new record takes the first values given by the host', async () => {
+  const { editor } = await openEditor({ recordId: 0, rectypeId: 29, options: { values: { 1: 'Given' } } });
+  assert.deepEqual(editor.editForm.getValue('1'), ['Given']);
+});
+
 test('virtual parent is the first field, read only, and absent from the save body', async () => {
   const { editor } = await openEditor({ options: {
     dbdefs: parentDefs,

@@ -783,6 +783,21 @@ Collected 2026-10-18.
 - @todo Record title masks in Smarty (`HSmartyEditor` in `record` mode): needs a decision on speed and on converting the existing masks.
 - @todo Use the job framework for record batch actions.
 - @todo Remove `usrReportSchedule` once all databases are migrated.
-- @todo Report properties / generate / schedule dialogs on HEditForm (plan 14a, Phase 4).
+- @todo Generate dialog on HEditForm (plan 14a, Phase 4).
 
 **Note 2026-11-05 (plan 27e §24):** `GET /reports` gives `generatedCount` per report, `GET /reports/generated?report=` the files of a report by `ReportService::assignGenerated`, not by name prefix.
+
+**Note 2026-11-05 (reports in HRecordEditor, Artem):** the own forms of report properties and schedules are removed; both record types are edited in HRecordEditor. Implemented in both repos, not committed, not
+checked in a browser.
+- All add, edit and delete of report and schedule records use the common record workflow (`RecordEditController`, `RecordSaveService`, `RecordDeleteService`); entities `report`, `schedule` in `RecordEntityRegistry`,
+  rules in `srv/Reports/ReportEntityHandler.php`: file name by `ReportService::asciiName`, empty = from the title, a new name renames the template, a new record gets an empty file or takes a file without a record,
+  a deleted report takes its unused file (`keepFile`). Files are written after the save, so no undo was needed (the plan had `saveFailed`). Removed: `POST /reports`, `PUT /reports/{ref}`, `POST /reports/{ref}/register`,
+  `/reports/{id}/schedules...`. `DELETE /reports/{file}` is only for a file without a record. `ReportRecordWriter` keeps only the setup; import saves through `RecordSaveService`.
+- **Schedule query:** field 2-12 (`DT_QUERY_STRING`) instead of the Query Source pointer 3-1083. Filter Builder without parameters: the rule is "the record type has no Filter form field" (`RecordEditorHost.specialEditors`), not
+  an option per type; `HFilterBuilder.setAllowParameters`; parameters of a loaded query are left out. The server refuses a query with `$X$`. Existing schedules are not converted (Artem: none to keep). 3-1083 is still to be removed from 2-1105.
+- **Schedule file name:** no rule on edit. The name is built at generation (`ReportService::scheduleOutput`; it was added on save before).
+- **Entry mask:** `rst_EntryMask` is not supported in the new editor or srv, and the legacy format `prefix$<type><len>(<min>,<max>)$suffix` can not say "only these characters" (no regex), so no mask is set for the file name. Noted in plan 21 §10.
+- Schedules list: Language and Query (in words, bridge `describeQuery`) columns. Report editor: language selector before the error level, `report-preview` takes `language`. Generate and the name prompt of Save As stay on `formDialog`.
+- Explorer uses the srv engine; the current language in a template is `{$heurist->getSysInfo('lang')}`.
+- Bridge `addRecord(type, {values, access})`, HRecordEditor option `values` (first values of a new record).
+- Tests: heurist `tests/ReportsApiTest.php --write` 73, `tests/JobRunnerTest.php --write` 45 pass, JS 1,639 pass.

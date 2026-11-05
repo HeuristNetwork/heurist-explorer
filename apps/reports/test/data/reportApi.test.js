@@ -21,18 +21,18 @@ test('ReportApi paths: record ids and file names are encoded', async () => {
   await api.list('card');
   await api.readTemplate('my report.tpl');
   await api.saveTemplate(5, 'body');
-  await api.register('a&b.tpl', { title: 'T' });
+  await api.remove('a&b.tpl');
   await api.remove(5, { keepFile: true });
-  await api.createSchedule(5, { querySource: 3 });
-  await api.deleteSchedule(5, 60);
+  await api.createRecord(24, { 1: ['T'] });
+  await api.deleteSchedule(60);
   assert.deepEqual(client.calls, [
     ['GET', '/reports', { scope: 'card' }],
     ['GET', '/reports/my%20report.tpl/template', null],
     ['PUT', '/reports/5/template', { body: 'body' }],
-    ['POST', '/reports/a%26b.tpl/register', { title: 'T', isCardView: false }],
-    ['DELETE', '/reports/5', { keepFile: 1 }],
-    ['POST', '/reports/5/schedules', { querySource: 3 }],
-    ['DELETE', '/reports/5/schedules/60', null]
+    ['DELETE', '/reports/a%26b.tpl', null],
+    ['DELETE', '/report/5', { keepFile: 1 }],
+    ['POST', '/report/0', { rec_RecTypeID: 24, details: { 1: ['T'] } }],
+    ['DELETE', '/schedule/60', null]
   ]);
   assert.equal(api.exportUrl('x.tpl'), 'http://x/api/db/reports/x.tpl/export');
   assert.equal(api.renderUrl(5, 7), 'http://x/api/db/reports/5/render?rec=7');

@@ -70,7 +70,7 @@ export class RecordEditorHost {
    * @param {Function} options.isLoggedIn Whether a user is logged in.
    * @param {Function} [options.selectExtent] Map extent picker for geo fields.
    * @param {Function} [options.selectGeometry] Map drawing of a geometry for geo fields: `(wkt) → {type, wkt}|null`.
-   * @param {Function} [options.editQuery] `(query, filterForm) => Promise<{query, filterForm}|null>` (HFilterBuilder).
+   * @param {Function} [options.editQuery] `(query, filterForm, {allowParameters}) => Promise<{query, filterForm}|null>` (HFilterBuilder).
    * @param {Function} [options.describeQuery] Query in words.
    * @param {Function} [options.onSaved] Called with `{record, created}` after each save.
    * @param {Function} [options.rectypeIconUrl] `(rectypeId) → url` of record type icons (symbol previews).
@@ -163,19 +163,19 @@ export class RecordEditorHost {
    * owner and visibility of the user's last new record.
    *
    * @param {number|string|null} recordType Record type id or code name; null = ask.
-   * @param {{access?: {owner: number, visibility: string, viewGroups: number[]}}} [options] Owner and
-   *        visibility of the new record (default: the remembered ones).
+   * @param {{access?: {owner: number, visibility: string, viewGroups: number[]}, values?: Object<number, *>}} [options]
+   *        Owner and visibility of the new record (default: the remembered ones); first values by field id.
    * @returns {Promise<{saved: boolean, recordId: number}|*>} `{saved: false}` when the dialog is cancelled.
    */
-  async addRecord(recordType, { access = null, parentContext = null } = {}) {
+  async addRecord(recordType, { access = null, parentContext = null, values = null } = {}) {
     if (recordType == null || recordType === '' || Number(recordType) === 0) {
       const choice = await this._chooseNewRecord();
       if (!choice) return { saved: false, recordId: 0, record: null };
-      return this.addRecord(choice.rectypeId, { access: choice.access, parentContext });
+      return this.addRecord(choice.rectypeId, { access: choice.access, parentContext, values });
     }
     const rectypeId = await this._rectypeId(recordType);
     if (this.options.isLoggedIn() && this._usesNewEditor(rectypeId)) {
-      return this.open({ rectypeId, access: access || loadRecordAddDefaults(await this._who()), parentContext });
+      return this.open({ rectypeId, access: access || loadRecordAddDefaults(await this._who()), parentContext, values });
     }
     const bridge = this.options.getBridge() || {};
     if (this.canEditInHost() && typeof bridge.addRecord === 'function') return bridge.addRecord(rectypeId);
@@ -204,7 +204,7 @@ export class RecordEditorHost {
    *        `pageIds`: the list page to step through (HRecordEditor).
    * @returns {Promise<{saved: boolean, recordId: number, record: object|null}>} When the dialog closes.
    */
-  async open({ recordId = 0, rectypeId = 0, domain = 'records', access = null, relation = null, parentContext = null, pageIds = null } = {}) {
+  async open({ recordId = 0, rectypeId = 0, domain = 'records', access = null, relation = null, parentContext = null, pageIds = null, values = null } = {}) {
     const isFile = domain === 'files';
     const dialogId = `${DIALOG_ID}-${++dialogCount}`;
     const host = document.createElement('div');
@@ -217,7 +217,7 @@ export class RecordEditorHost {
     let replace = null;
     // Dupe in the same cases as New
     const create = (target) => this._createEditor(host, { ...target, domain, duplicate: offersNew, onNew: offersNew ? (state) => void replace(state) : null });
-    let editor = await create({ recordId, rectypeId, access, relation, parentContext, pageIds });
+    let editor = await create({ recordId, rectypeId, access, relation, parentContext, pageIds, values });
     replace = async ({ rectypeId: current }) => {
       const choice = await this._chooseNewRecord(current);
       if (!choice || settled) return;
@@ -294,7 +294,7 @@ export class RecordEditorHost {
   }
 
   /** HRecordEditor with the services of this host; saves are reported and remembered. */
-  async _createEditor(host, { recordId = 0, rectypeId = 0, domain = 'records', access = null, relation = null, parentContext = null, onNew = null, pageIds = null, duplicate = false } = {}) {
+  async _createEditor(host, { recordId = 0, rectypeId = 0, domain = 'records', access = null, relation = null, parentContext = null, values = null, onNew = null, pageIds = null, duplicate = false } = {}) {
     const isFile = domain === 'files';
     const dbdefs = await this.options.ensureDbDefs();
     const editor = new HRecordEditor().attach(host, {
@@ -305,6 +305,7 @@ export class RecordEditorHost {
       access,
       relation,
       parentContext,
+      values,
       onNew,
       pageIds,
       duplicate,
@@ -410,13 +411,10 @@ export class RecordEditorHost {
     // in the form and set from here (plan 14a, 2026-10-17)
     const editDefinition = async (context) => {
       const hasForm = Boolean(form) && context.hasField?.(form) !== false;
+      // parameters need the form: without the field (a report schedule) the builder offers none
       const definition = await editQuery(parseJson(context.getValue(query)) ?? context.getValue(query) ?? [],
-        hasForm ? parseJson(context.getValue(form)) : null);
+        hasForm ? parseJson(context.getValue(form)) : null, { allowParameters: hasForm });
       if (!definition) return null;
-      if (definition.filterForm && !hasForm) {
-        // the parameters would be saved without their form: keep the values
-        throw new Error($HR('This record type has no Filter form field (DT_FILTER_FORM); the filter form cannot be saved'));
-      }
       if (query) context.setValue(query, JSON.stringify(definition.query ?? []));
       if (hasForm) context.setValue(form, definition.filterForm ? JSON.stringify(definition.filterForm) : '');
       return definition;
