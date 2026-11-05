@@ -12,9 +12,10 @@ import assert from 'node:assert/strict';
 import { installFakeDom } from '../../../shared/test/helpers/fakeDom.js';
 
 installFakeDom();
-const { captionValue, fieldDetails, fieldSnapshot, fieldTerms, generatedFileTerms, manualIds, manualQuery, mediaFormFields, mediaSizeValue, parseCardsQuery, parseFieldReference, readCaption, reportFiles, teamReportBody, visibleToGuests } = await import('../src/designer/widgetForms.js');
+const { captionValue, fieldDetails, fileFieldTerms, fieldSnapshot, fieldTerms, generatedFileTerms, manualIds, manualQuery, mediaFormFields, mediaSizeValue, parseCardsQuery, parseFieldReference, readCaption, reportFiles, teamReportBody, visibleToGuests } = await import('../src/designer/widgetForms.js');
 const { CmsRecordDocument } = await import('#shared/site/cmsEdit.js');
 const { changedDetails } = await import('../src/designer/designerData.js');
+const { CmsDesigner } = await import('../src/designer/CmsDesigner.js');
 const { needsSlider } = await import('../src/siteWidgets.js');
 
 test('field reference: a record, the website, the page', () => {
@@ -88,14 +89,46 @@ test('media form: a single element has one source, a typed caption and no presen
   const names = (fields) => fields.map((field) => field.name);
   const gallery = mediaFormFields({ mediaType: 5, fileType: 6 });
   const single = mediaFormFields({ single: true, mediaType: 5, fileType: 6 });
-  assert.deepEqual(names(gallery), ['mode', 'records', 'files', 'caption', 'width', 'height', 'action', 'presentation', 'duration', 'fade', 'navigation', 'fit']);
-  assert.deepEqual(names(single), ['mode', 'records', 'files', 'captionText', 'width', 'height', 'action']);
+  assert.deepEqual(names(gallery), ['mode', 'records', 'files', 'anyRecords', 'fileField', 'caption', 'width', 'height', 'action', 'presentation', 'duration', 'fade', 'navigation', 'fit']);
+  assert.deepEqual(names(single), ['mode', 'records', 'files', 'anyRecords', 'fileField', 'captionText', 'width', 'height', 'action']);
+  assert.deepEqual(single[0].terms.map((term) => term.id), ['media', 'files', 'record']);
   for (const [fields, max] of [[gallery, 0], [single, 1]]) {
     for (const field of fields.filter((item) => item.type === 'resource')) {
       assert.equal(field.max, max);
       assert.equal(field.pointerMode, 'addorbrowse');
     }
   }
+});
+
+test('media form: Any record offers only file fields, a field of several record types once', () => {
+  const fields = { 1: [{ id: 2, name: 'Name', type: 'freetext' }, { id: 38, name: 'Image', type: 'file' }],
+    2: [{ id: 38, name: 'Image', type: 'file' }, { id: 40, name: 'Scan', type: 'file' }, { id: 41, name: 'Link', type: 'resource' }] };
+  const dbdefs = { fields: (type) => fields[type] };
+  assert.deepEqual(fileFieldTerms(dbdefs, [1]), [{ id: 38, label: 'Image' }]);
+  assert.deepEqual(fileFieldTerms(dbdefs, [1, 2, 1]).map((term) => term.id), [38, 40]);
+  assert.deepEqual(fileFieldTerms(dbdefs, []), []);
+});
+
+test('media items of Any record: the first file for one element, all values in a row for a gallery; a record without a file is reported', async () => {
+  const value = (key) => ({ file: { ulf_ObfuscatedFileID: key } });
+  const records = [{ rec_ID: '7', rec_Title: 'Second', details: { 38: [value('c')] } }, { rec_ID: '5', rec_Title: 'First', details: { 38: [value('a'), value('b')] } },
+    { rec_ID: '9', rec_Title: 'Empty', details: {} }];
+  const asked = [];
+  const designer = {
+    apiClient: { get: async (path, { query }) => { asked.push([path, query.fields]); return { records }; } },
+    options: { dbdefs: { dbconst: () => 1 } },
+    _mediaFile: async (key) => ({ key, name: key })
+  };
+  const items = (settings) => CmsDesigner.prototype._mediaItems.call(designer, { mode: 'record', field: 38, ...settings });
+  const keys = (list) => list.map((item) => item.file?.key ?? null);
+  assert.deepEqual(keys(await items({ ids: [5], single: true })), ['a']);
+  const row = await items({ ids: [5, 7], single: false });
+  assert.deepEqual(keys(row), ['a', 'b', 'c'], 'in the chosen order, all values in a row');
+  assert.deepEqual(row.map((item) => item.caption), ['First', 'First', 'Second']);
+  assert.deepEqual(asked[0], ['/records', 'rec_ID,rec_Title,38']);
+  const empty = await items({ ids: [9], single: false });
+  assert.deepEqual(keys(empty), [null]);
+  assert.equal(empty[0].label, 'Empty');
 });
 
 test('media form: the caption is the multilingual field of the form', () => {

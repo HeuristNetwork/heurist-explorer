@@ -39,6 +39,33 @@ test('a Record field element: a text block with a reference, in the same format'
   assert.equal(item.field, 'website.2-1');
 });
 
+test('tree labels of elements without text: the image or nothing, the reference of a field', () => {
+  const doc = emptyDoc();
+  const label = (id) => doc.tree('content').find((item) => item.id === id).label;
+  const field = doc.insertElement('content', 'field');
+  doc.setField(field, 'website.2-38', '<img src="x" alt="">');
+  assert.equal(label(field), 'image: website.2-38');
+  doc.setField(field, 'website.2-38', '');
+  assert.equal(label(field), 'empty: website.2-38');
+  const text = doc.insertElement('content', 'text');
+  doc.setText(text, '<p><img src="x" alt=""></p>');
+  assert.equal(label(text), '(image)');
+  doc.setText(text, '');
+  assert.equal(label(text), '(empty text)');
+  doc.setField(field, 'website.2-1', 'Title');
+  assert.equal(label(field), 'Title', 'a text stays the label');
+});
+
+test('tree label of a media element: the caption without the link to the viewer', () => {
+  const doc = emptyDoc();
+  const label = (id) => doc.tree('content').find((item) => item.id === id).label;
+  const media = doc.insertElement('content', 'media');
+  doc.setMedia(media, { html: '<img src="x" alt=""><figcaption>My Image <a href="y" target="_blank">Open in OSD viewer</a></figcaption>' });
+  assert.equal(label(media), 'media: My Image');
+  doc.setMedia(media, { html: '<img src="x" alt=""><figcaption><a href="y">Open in OSD viewer</a></figcaption>' });
+  assert.equal(label(media), 'media');
+});
+
 test('a media element has no field', () => {
   const doc = emptyDoc();
   const id = doc.insertElement('content', 'media');

@@ -1205,21 +1205,31 @@ export class CmsDesigner {
   }
 
   /**
-   * The files of the media form in the chosen order: of file records, or the first file of each media record, with the
-   * title as caption (plan 27e §14). A file that is not found has `file: null`.
+   * The files of the media form in the chosen order, with the title as caption (plan 27e §14): of file records, the first file of
+   * each media record, or of any record the file field: its first file for one element, all of them in a row for a gallery (§26).
+   * A file that is not found has `file: null`.
    *
-   * @param {{mode: string, ids: number[]}} settings
+   * @param {{mode: string, ids: number[], field?: number, single?: boolean}} settings
    * @returns {Promise<Array<{file: object|null, caption: string, label: string}>>}
    */
-  async _mediaItems({ mode, ids }) {
-    const field = Number(this.options.dbdefs?.dbconst?.('DT_FILE_RESOURCE')) || 0;
-    const response = mode === 'files'
+  async _mediaItems({ mode, ids, field = 0, single = true }) {
+    const files = mode === 'files';
+    const source = mode === 'record' ? field : Number(this.options.dbdefs?.dbconst?.('DT_FILE_RESOURCE')) || 0;
+    const response = files
       ? await this.apiClient.get('/files', { query: { ids: ids.join(','), fields: 'rec_ID,rec_Title,rec_Hash', limit: ids.length } })
-      : await this.apiClient.get('/records', { query: { ids: ids.join(','), fields: `rec_ID,rec_Title,${field}`, resolveDetails: 1, limit: ids.length } });
+      : await this.apiClient.get('/records', { query: { ids: ids.join(','), fields: `rec_ID,rec_Title,${source}`, resolveDetails: 1, limit: ids.length } });
     const records = (response?.data ?? response)?.records ?? [];
-    return Promise.all(ids.map(async (id) => {
+    const keysOf = (record) => {
+      if (files) return [record?.rec_Hash];
+      const keys = (record?.details?.[String(source)] || []).map((value) => value?.file?.ulf_ObfuscatedFileID);
+      return mode === 'record' && !single ? keys : keys.slice(0, 1);
+    };
+    const entries = ids.flatMap((id) => {
       const record = records.find((item) => Number(item.rec_ID) === id);
-      const key = mode === 'files' ? record?.rec_Hash : record?.details?.[String(field)]?.[0]?.file?.ulf_ObfuscatedFileID;
+      const keys = keysOf(record).filter(Boolean);
+      return (keys.length ? keys : [null]).map((key) => ({ id, record, key }));
+    });
+    return Promise.all(entries.map(async ({ id, record, key }) => {
       const file = key ? await this._mediaFile(key) : null;
       const title = String(record?.rec_Title || file?.name || '');
       return { file, caption: title, label: title || `#${id}` };

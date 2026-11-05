@@ -936,12 +936,18 @@ function labelSection(node) {
 function labelOf(node, instance) {
   if (hasAttr(node, 'data-h-instance')) return instance?.type || 'instance';
   if (hasAttr(node, 'data-h-media')) {
-    const text = plain(node.raw || '');
+    // the caption, without the link to the viewer
+    const text = plain(String(node.raw || '').replace(/<a\b[^>]*>[\s\S]*?<\/a>/gi, ' '));
     return text ? `media: ${text.length > 34 ? `${text.slice(0, 34)}…` : text}` : 'media';
   }
   if (hasAttr(node, 'data-h-text')) {
     const text = plain(node.raw || '');
-    return text.length > 40 ? `${text.slice(0, 40)}…` : text || '(empty text)';
+    if (text) return text.length > 40 ? `${text.slice(0, 40)}…` : text;
+    // no text: an image (a file field) or nothing; the reference tells the fields apart
+    const image = /<img\b/i.test(node.raw || '');
+    const field = attr(node, 'data-h-field');
+    if (field) return `${image ? 'image' : 'empty'}: ${field}`;
+    return image ? '(image)' : '(empty text)';
   }
   const control = attr(node, 'data-h-control');
   if (control) {

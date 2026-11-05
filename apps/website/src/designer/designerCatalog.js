@@ -129,7 +129,7 @@ export const ELEMENT_GROUPS = Object.freeze([
       {
         value: 'media', label: 'Media', available: true,
         description: 'An image, a video or audio player, or a YouTube, Vimeo or SoundCloud player with a caption, from a'
-          + ' registered file or media record of the database. IIIF, 3D files and PDF are shown as their thumbnail.'
+          + ' registered file, a media record or a file field of any record. IIIF, 3D files and PDF are shown as their thumbnail.'
           + '<p>A small size (under 200 px) shows the thumbnail. With the action Player / Viewer a click opens the full view'
           + ' or the player.</p>',
         preview: [['i', 20, 8, 80, 50], ['t', 30, 64, 60, 8]]
@@ -247,7 +247,7 @@ export const ELEMENT_GROUPS = Object.freeze([
       },
       {
         value: 'gallery', label: 'Media gallery / slideshow', available: true,
-        description: 'Images and other media of media records or registered files, as a gallery or a slideshow.',
+        description: 'Images and other media of media records, registered files or the file field of any record, as a gallery or a slideshow.',
         preview: [['i', 8, 8, 32, 30], ['i', 44, 8, 32, 30], ['i', 80, 8, 32, 30], ['i', 8, 42, 32, 30], ['i', 44, 42, 32, 30], ['i', 80, 42, 32, 30]]
       },
       {

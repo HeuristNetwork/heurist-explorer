@@ -467,21 +467,44 @@ export function mediaSizeValue(value, single) {
   return value && value !== 'auto' ? String(value) : '';
 }
 
+/** The field of the sources of each Type of the media form. */
+const SOURCE_FIELDS = Object.freeze({ media: 'records', files: 'files', record: 'anyRecords' });
+
+/**
+ * The file fields of record types, for the Type *Any record* of the media form.
+ *
+ * @param {object} dbdefs HDbDefs.
+ * @param {number[]} rectypeIds Record types of the chosen records; a field of several types once.
+ * @returns {Array<{id: number, label: string}>}
+ */
+export function fileFieldTerms(dbdefs, rectypeIds) {
+  const terms = new Map();
+  for (const type of new Set(rectypeIds)) {
+    for (const field of dbdefs?.fields?.(type) || []) {
+      if (field.type === 'file' && !terms.has(Number(field.id))) terms.set(Number(field.id), { id: Number(field.id), label: field.name });
+    }
+  }
+  return [...terms.values()];
+}
+
 /**
  * Fields of the media form.
  *
- * @param {{single?: boolean, multilang?: boolean, mediaType?: number, fileType?: number}} options `single`: one source, a typed
- *        caption, no presentation; `multilang`: the caption has translations.
+ * @param {{single?: boolean, multilang?: boolean, mediaType?: number, fileType?: number, fileTerms?: Array<object>}} options
+ *        `single`: one source, a typed caption, no presentation; `multilang`: the caption has translations; `fileTerms`: the file
+ *        fields of the chosen records.
  * @returns {Array<object>} HEditForm fields.
  */
-export function mediaFormFields({ single = false, multilang = false, mediaType = 0, fileType = 0 } = {}) {
+export function mediaFormFields({ single = false, multilang = false, mediaType = 0, fileType = 0, fileTerms = [] } = {}) {
   const actions = [{ id: 'none', label: 'None' }, { id: 'viewer', label: 'Player / Viewer' }];
   const source = { type: 'resource', max: single ? 1 : 0, pointerMode: 'addorbrowse' };
   return [
     { name: 'mode', type: 'enum', label: 'Type', mode: 'radio', max: 1,
-      terms: [{ id: 'media', label: 'Media records' }, { id: 'files', label: 'Files' }] },
+      terms: [{ id: 'media', label: 'Media records' }, { id: 'files', label: 'Files' }, { id: 'record', label: 'Any record' }] },
     { ...source, name: 'records', label: 'Source records', targetTypes: mediaType ? [mediaType] : [], showWhen: { mode: 'media' } },
     { ...source, name: 'files', label: 'Sources', targetTypes: fileType ? [fileType] : [], showWhen: { mode: 'files' } },
+    { ...source, name: 'anyRecords', label: 'Source records', targetTypes: [], showWhen: { mode: 'record' } },
+    { name: 'fileField', type: 'enum', label: 'Field', max: 1, terms: fileTerms, showWhen: { mode: 'record' } },
     single ? { name: 'captionText', type: 'freetext', label: 'Caption', max: 1, multilang } : { name: 'caption', type: 'boolean', label: 'Show caption', max: 1 },
     { name: 'width', type: 'freetext', label: 'Width', help: 'Empty = auto; a number is px, or %. Both under 200 px: thumbnails.', max: 1 },
     { name: 'height', type: 'freetext', label: 'Height', max: 1 },
@@ -530,35 +553,46 @@ export function readCaption(value, languages = []) {
  * @param {object} options
  * @param {boolean} [options.single=false] One media element.
  * @param {object} options.settings Current settings. Gallery: `mode`, `ids`...; single: `mode`, `record`, `width`, `height`, `action`.
+ *        Type *Any record* also `field`: the concept code of the file field.
  * @param {string} [options.caption] Single: the caption in the first language of the website.
  * @param {Object<string, string>} [options.translations] Single: the captions in the other languages.
  * @param {string[]} [options.languages] Single: languages of the website (the first is the original).
  * @param {object} [options.translator] Single: translation service of the translation popup.
  * @param {object} options.dbdefs HDbDefs.
  * @param {object} options.apiClient HeuristApiClient.
- * @param {object} options.services `browseRecords`, `createRecordBrowser`, `addRecord`, `valueLimit`, and `mediaItems({mode, ids})`
- *        → `[{file, caption, label}]`: `file` (cmsMediaType) null when it is not found, `label` its name in a message.
+ * @param {object} options.services `browseRecords`, `createRecordBrowser`, `addRecord`, `valueLimit`, and `mediaItems({mode, ids, field,
+ *        single})` → `[{file, caption, label}]`: `file` (cmsMediaType) null when it is not found, `label` its name in a message.
  * @returns {Promise<{settings: object, items: Array<object>, caption?: string, translations?: Object<string, string>}|null>}
  *          Gallery: the settings without `html`. Single: the settings without `file`, the first of `items` has it.
  */
-export function openMediaForm({
+export async function openMediaForm({
   single = false, settings = {}, caption = '', translations = {}, languages = [], translator = null, dbdefs, apiClient, services
 }) {
   const mediaType = Number(dbdefs?.dbconst?.('RT_MEDIA_RECORD')) || 0;
   const fileType = Number(dbdefs?.dbconst?.('RT_REGISTERED_FILE')) || 0;
-  const mode = settings.mode === 'files' ? 'files' : 'media';
+  const mode = Object.hasOwn(SOURCE_FIELDS, settings.mode) ? settings.mode : 'media';
   const ids = single ? (Number(settings.record) > 0 ? [Number(settings.record)] : []) : settings.ids || [];
   const sources = (name) => (mode === name ? (single ? ids[0] ?? null : ids) : (single ? null : []));
   const multilang = single && languages.length > 1;
-  const chosen = (values) => [values[values.mode === 'files' ? 'files' : 'records']].flat().filter(Boolean).map(Number);
+  const chosen = (values) => [values[SOURCE_FIELDS[values.mode]]].flat().filter(Boolean).map(Number);
+  // the file fields of the chosen records (Any record)
+  const fileTermsOf = async (list) => {
+    if (!list.length) return [];
+    const answer = body(await apiClient.get('/records', { query: { ids: list.join(','), fields: 'rec_ID,rec_RecTypeID', limit: list.length } }));
+    return fileFieldTerms(dbdefs, (answer?.records || []).map((record) => Number(record.rec_RecTypeID)));
+  };
+  const fileTerms = mode === 'record' ? await fileTermsOf(ids).catch(() => []) : [];
+  const storedField = settings.field ? Number(dbdefs?.localId?.('dty', settings.field) || settings.field) || null : null;
   let items = [];
   return openEditFormDialog({
     title: single ? 'Edit media' : 'Media gallery',
-    form: { groups: [{ id: 'main', children: mediaFormFields({ single, multilang, mediaType, fileType }) }] },
+    form: { groups: [{ id: 'main', children: mediaFormFields({ single, multilang, mediaType, fileType, fileTerms }) }] },
     values: {
       mode,
       records: sources('media'),
       files: sources('files'),
+      anyRecords: sources('record'),
+      fileField: storedField,
       ...(single ? { captionText: multilang ? captionValue(caption, translations) : caption, action: cmsMediaAction(settings) }
         : { caption: settings.caption === true, fit: settings.slider?.fit || SLIDER_FIT, ...presentationValues(settings) }),
       width: mediaSizeValue(settings.width, single),
@@ -571,9 +605,17 @@ export function openMediaForm({
     browseRecords: services.browseRecords,
     createRecordBrowser: services.createRecordBrowser,
     addRecord: services.addRecord,
+    onChange: async (edit, change) => {
+      if (change.name !== 'anyRecords') return;
+      const terms = await fileTermsOf(chosen(edit.getValues())).catch(() => []);
+      await edit.updateField('fileField', { terms });
+      const field = Number(edit.getValues().fileField) || 0;
+      if (!terms.some((term) => term.id === field)) await edit.setValue('fileField', terms.length === 1 ? terms[0].id : null);
+    },
     validate: (values) => {
       const issues = [];
-      if (!chosen(values).length) issues.push({ field: values.mode === 'files' ? 'files' : 'records', message: $HR('Choose the media') });
+      if (!chosen(values).length) issues.push({ field: SOURCE_FIELDS[values.mode], message: $HR('Choose the media') });
+      if (values.mode === 'record' && !values.fileField) issues.push({ field: 'fileField', message: $HR('Choose a field') });
       for (const key of ['width', 'height']) {
         if (values[key] && !mediaSize(values[key])) issues.push({ field: key, message: $HR('Width and height: a number (px), px or %, or empty (auto).') });
       }
@@ -583,7 +625,7 @@ export function openMediaForm({
     // the files are read here: the form stays open when one of them can not be media
     onAction: async (action, values) => {
       try {
-        items = await services.mediaItems({ mode: values.mode, ids: chosen(values) });
+        items = await services.mediaItems({ mode: values.mode, ids: chosen(values), field: Number(values.fileField) || 0, single });
       } catch (error) {
         HMsg.showMsgErr?.(error?.message || String(error));
         return false;
@@ -603,16 +645,17 @@ export function openMediaForm({
     if (!result) return null;
     const { values } = result;
     const size = { width: mediaSize(values.width) || 'auto', height: mediaSize(values.height) || 'auto' };
+    const source = values.mode === 'record' ? { field: dbdefs?.fieldGlobal?.(Number(values.fileField))?.concept || String(values.fileField) } : {};
     if (single) {
       return {
-        settings: { mode: values.mode, record: chosen(values)[0], ...size, action: values.action === 'viewer' ? 'viewer' : 'none' },
+        settings: { mode: values.mode, record: chosen(values)[0], ...source, ...size, action: values.action === 'viewer' ? 'viewer' : 'none' },
         items,
         ...readCaption(values.captionText, languages)
       };
     }
     const presentation = presentationSettings(values);
     if (presentation.slider) presentation.slider.fit = values.fit || SLIDER_FIT;
-    return { settings: { mode: values.mode, ids: chosen(values), caption: values.caption === true, ...size, ...presentation }, items };
+    return { settings: { mode: values.mode, ids: chosen(values), ...source, caption: values.caption === true, ...size, ...presentation }, items };
   });
 }
 

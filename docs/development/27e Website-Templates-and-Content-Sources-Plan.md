@@ -366,3 +366,21 @@ Implemented, not committed, not checked in a browser.
 - **Files of a report:** `ReportService::assignGenerated`: the schedule with this output, else the report with the longest name followed by a space, `_` or `.`; a plain prefix gave `Single` also the files of
   `Single22` and `Single _copy`. `GET /reports` has `generatedCount`, `GET /reports/generated?report=` the files; no new endpoint. The report list shows a second badge, the Generate dropdown uses the same rule.
   Test `tests/ReportGeneratedFilesTest.php`.
+
+## 25. File fields in Record field (Artem, 2026-11-05)
+
+Discussed: a Media type *Any record* (a record and its file field) and no file fields in Record field, because a file there is a raw image without size, viewer or caption. Decided against it as too complex: the
+logo of the website header depends on it (`website.2-38`). File fields stay in Record field. Only the tree label changed: `image: website.2-38`, `empty: website.2-38`, `(image)` for a text with only an image, not "(empty text)".
+
+## 26. Media from any record (Artem, 2026-11-05)
+
+Implemented, not committed, not checked in a browser. This changes the decision of §25 in part: the Media form gets the Type *Any record*. File fields stay in Record field and the logo of the website header is not changed.
+
+- Type: Media records, Files, Any record. For Any record: the record selector (any record type) and *Field* with the file fields of the record types of the chosen records (`fileFieldTerms`); one such field is chosen at once.
+- No one-field editor. A new file is added with the Type Files, in the record manager.
+- Edit media: the first file of the field. Media gallery: all values of the field in a row, for each chosen record in the chosen order (`CmsDesigner._mediaItems`). The caption is the title of the record.
+- Settings: `mode: 'record'`, `record` or `ids`, `field` (concept code), `file` as before. The HTML is made once, as for media records: a file changed in the record later appears after the element is opened and saved again.
+
+## 27. Tree label of a media element (Artem, 2026-11-05)
+
+The label is the caption without the link to the viewer: `media: My Image`, not "My Image Open in OSD viewer". Without a caption: `media`.
