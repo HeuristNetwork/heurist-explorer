@@ -32,6 +32,7 @@ import { CMS_MEDIA_DEFAULTS, buildCmsGalleryItem, buildCmsMedia, cmsMediaCaption
 import { fileMediaUrls } from '#shared/recordview/fileMediaItem.js';
 import { systemFieldIds } from '#shared/data/systemEntities.js';
 import { TranslationClient } from '#shared/data/TranslationClient.js';
+import { oneAtATime } from '#shared/ui/oneAtATime.js';
 import { openTextTranslationDialog } from '#shared/widgets/translation/HTextTranslationDialog.js';
 import { openTranslationDialog } from '#shared/widgets/translation/HTranslationDialog.js';
 import { CmsPreview, PREVIEW_WIDTHS } from './CmsPreview.js';
@@ -83,6 +84,11 @@ export class CmsDesigner {
    */
   constructor(options) {
     this.options = options;
+    // the forms of an element load before they show: a repeated click must not open a second copy
+    const single = oneAtATime();
+    for (const name of ['_editText', '_editField', '_editMedia', '_editCaption', '_configure', '_ownStyle']) {
+      this[name] = single(this[name]);
+    }
     this.apiClient = options.apiClient;
     this.websites = options.websites;
     this.bridge = options.bridge || null;

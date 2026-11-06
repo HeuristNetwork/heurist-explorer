@@ -48,7 +48,8 @@ export class HMsg {
       if (dlg.dataset.preventClose === 'true') event.preventDefault();
     });
     dlg.addEventListener('click', (event) => {
-      if (dlg.dataset.preventClose === 'true') return;
+      // a click outside closes a message only: the values of a form must not be lost by a stray click
+      if (dlg.dataset.closeOnBackdrop !== 'true') return;
       // only a click on the backdrop targets the dialog itself; a click on an option of a
       // native <select> list may report coordinates outside the dialog box (2026-10-05)
       if (event.target !== dlg) return;
@@ -72,6 +73,8 @@ export class HMsg {
    * @param {boolean} [options.hideHeader] Hide the header bar.
    * @param {boolean} [options.hideFooter] Hide the footer/buttons bar.
    * @param {boolean} [options.preventClose] Disallow closing via backdrop click, Escape, or the close button.
+   * @param {boolean} [options.closeOnBackdrop] A click outside closes the dialog; the default for a message
+   *        (a text, or `message: true`). A form stays open.
    * @param {Function|Array|object} [options.buttons] Yes/No handler, button config list, or label→handler map.
    * @param {*} [options.context] `this` binding and argument passed to button handlers.
    * @param {string} [options.bgBodyClass] Palette class(es) applied to the body.
@@ -89,7 +92,9 @@ export class HMsg {
     const body = dlg.querySelector('.h-dialog-body');
     const footer = dlg.querySelector('.h-dialog-footer');
 
+    const isMessage = !(message instanceof HTMLElement) || options.message === true;
     dlg.dataset.preventClose = options.preventClose ? 'true' : 'false';
+    dlg.dataset.closeOnBackdrop = !options.preventClose && (options.closeOnBackdrop ?? isMessage) ? 'true' : 'false';
     header.hidden = options.hideHeader === true;
     footer.hidden = options.hideFooter === true;
     closeBtn.hidden = options.preventClose === true;
@@ -98,7 +103,7 @@ export class HMsg {
     footer.replaceChildren();
     dlg.classList.remove('h-dialog-danger');
     // a message (a text, or an element given as one): larger font, fixed width; forms keep their own size
-    body.classList.toggle('h-dialog-message', !(message instanceof HTMLElement) || options.message === true);
+    body.classList.toggle('h-dialog-message', isMessage);
 
     if (message instanceof HTMLElement) body.appendChild(message);
     else {

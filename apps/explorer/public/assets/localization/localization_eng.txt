@@ -1265,3 +1265,4 @@
 #Show translations#Show translations
 #Hide translations#Hide translations
 #Edit translations#Edit translations
+#This record is already open#This record is already open

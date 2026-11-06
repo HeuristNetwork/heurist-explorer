@@ -83,6 +83,8 @@ export class RecordEditorHost {
    */
   constructor(options = {}) {
     this.options = options;
+    // what is being opened (repeated clicks) and the records open now; see _single
+    this._running = new Map();
     // a record of an entity (website, report ...) is written at the URL of its entity (plan 28a)
     this.client = new RecordEditClient({
       apiClient: options.apiClient,
@@ -139,12 +141,43 @@ export class RecordEditorHost {
   async editRecord(recordId, { recordType = null, relation = null, pageIds = null } = {}) {
     const id = Number(recordId);
     if (!(id > 0)) throw new Error($HR('A valid record ID is required'));
-    if (this.options.isLoggedIn()) {
-      const rectypeId = await this._rectypeOf(id, recordType);
-      if (this._usesNewEditor(rectypeId)) return this.open({ recordId: id, relation, pageIds: relation ? null : pageIds });
+    return this._single(`edit:${id}`, { whileOpen: true }, async (onShown) => {
+      if (this.options.isLoggedIn()) {
+        const rectypeId = await this._rectypeOf(id, recordType);
+        if (this._usesNewEditor(rectypeId)) return this.open({ recordId: id, relation, pageIds: relation ? null : pageIds, onShown });
+      }
+      if (this.canEditInHost()) return this.options.getBridge().editRecord(id);
+      throw new Error($HR('Record editor is not available'));
+    });
+  }
+
+  /**
+   * One editor of a thing at a time. A repeated click while the editor is loading gives the running one. With
+   * `whileOpen` a record stays taken until its editor closes, and the user is told when it is asked for again
+   * (from a pointer field of another editor). Without it the key is free once the dialog is shown: a new
+   * record of the same type may be added from a pointer field of the editor just opened.
+   *
+   * @param {string} key What is opened.
+   * @param {{whileOpen?: boolean}} options
+   * @param {function(function(): void): Promise<*>} start Opens it; calls the given function when it is shown.
+   * @returns {Promise<*>} The result of the editor.
+   */
+  _single(key, { whileOpen = false }, start) {
+    const running = this._running.get(key);
+    if (running) {
+      if (running.shown) HMsg.showMsgFlash?.($HR('This record is already open'), { showDelay: 2000 });
+      return running.promise;
     }
-    if (this.canEditInHost()) return this.options.getBridge().editRecord(id);
-    throw new Error($HR('Record editor is not available'));
+    const entry = { shown: false, promise: null };
+    const onShown = () => {
+      entry.shown = true;
+      if (!whileOpen) this._running.delete(key);
+    };
+    entry.promise = Promise.resolve().then(() => start(onShown)).finally(() => {
+      if (this._running.get(key) === entry) this._running.delete(key);
+    });
+    this._running.set(key, entry);
+    return entry.promise;
   }
 
   /**
@@ -158,7 +191,7 @@ export class RecordEditorHost {
     const id = Number(fileId);
     if (!(id > 0)) throw new Error($HR('A valid file ID is required'));
     if (!this.options.isLoggedIn()) throw new Error($HR('Record editor is not available'));
-    return this.open({ recordId: id, domain: 'files' });
+    return this._single(`file:${id}`, { whileOpen: true }, (onShown) => this.open({ recordId: id, domain: 'files', onShown }));
   }
 
   /**
@@ -174,17 +207,19 @@ export class RecordEditorHost {
    */
   async addRecord(recordType, { access = null, parentContext = null, values = null } = {}) {
     if (recordType == null || recordType === '' || Number(recordType) === 0) {
-      const choice = await this._chooseNewRecord();
+      const choice = await this._single('choose', {}, (onShown) => this._chooseNewRecord(0, onShown));
       if (!choice) return { saved: false, recordId: 0, record: null };
       return this.addRecord(choice.rectypeId, { access: choice.access, parentContext, values });
     }
-    const rectypeId = await this._rectypeId(recordType);
-    if (this.options.isLoggedIn() && this._usesNewEditor(rectypeId)) {
-      return this.open({ rectypeId, access: access || loadRecordAddDefaults(await this._who()), parentContext, values });
-    }
-    const bridge = this.options.getBridge() || {};
-    if (this.canEditInHost() && typeof bridge.addRecord === 'function') return bridge.addRecord(rectypeId);
-    throw new Error($HR('Record editor is not available'));
+    return this._single(`add:${recordType}`, {}, async (onShown) => {
+      const rectypeId = await this._rectypeId(recordType);
+      if (this.options.isLoggedIn() && this._usesNewEditor(rectypeId)) {
+        return this.open({ rectypeId, access: access || loadRecordAddDefaults(await this._who()), parentContext, values, onShown });
+      }
+      const bridge = this.options.getBridge() || {};
+      if (this.canEditInHost() && typeof bridge.addRecord === 'function') return bridge.addRecord(rectypeId);
+      throw new Error($HR('Record editor is not available'));
+    });
   }
 
   /**
@@ -193,10 +228,12 @@ export class RecordEditorHost {
    * @param {number} [rectypeId] Type to show first instead of the last added one (New of the editor).
    * @returns {Promise<{rectypeId: number, access: object}|null>}
    */
-  async _chooseNewRecord(rectypeId = 0) {
+  async _chooseNewRecord(rectypeId = 0, onShown = null) {
     const dbdefs = await this.options.ensureDbDefs();
     const { openRecordAddDialog } = await import('#shared/widgets/record-access/openRecordAddDialog.js');
-    return openRecordAddDialog({ dbdefs, database: this.options.database || '', rectypeId });
+    const choice = openRecordAddDialog({ dbdefs, database: this.options.database || '', rectypeId });
+    onShown?.();
+    return choice;
   }
 
   /**
@@ -206,10 +243,10 @@ export class RecordEditorHost {
    * @param {{recordId?: number, rectypeId?: number, domain?: 'records'|'files', access?: object, relation?: object}} target
    *        Record to edit, or record type of a new record (`access`: its owner and visibility); `files`: a
    *        registered file (plan 20); `relation`: constraints of a relationship record (HRecordEditor);
-   *        `pageIds`: the list page to step through (HRecordEditor).
+   *        `pageIds`: the list page to step through (HRecordEditor); `onShown`: called when the dialog is shown.
    * @returns {Promise<{saved: boolean, recordId: number, record: object|null}>} When the dialog closes.
    */
-  async open({ recordId = 0, rectypeId = 0, domain = 'records', access = null, relation = null, parentContext = null, pageIds = null, values = null } = {}) {
+  async open({ recordId = 0, rectypeId = 0, domain = 'records', access = null, relation = null, parentContext = null, pageIds = null, values = null, onShown = null } = {}) {
     const isFile = domain === 'files';
     const dialogId = `${DIALOG_ID}-${++dialogCount}`;
     const host = document.createElement('div');
@@ -259,6 +296,7 @@ export class RecordEditorHost {
       });
       dialog?.classList.add('h-dialog-record-editor');
       dialog?.addEventListener('close', onDialogClose);
+      onShown?.();
       editor.open().catch((error) => {
         HMsg.showMsgErr?.(error?.message || String(error));
         void finish();

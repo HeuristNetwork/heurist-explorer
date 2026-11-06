@@ -34,7 +34,11 @@ function makeHost({ loggedIn = true, bridge = null, rectypeOf = 29 } = {}) {
     editQuery: async (query, filterForm) => ({ query: [...query, { f: 1 }], filterForm: filterForm ? { ...filterForm, edited: true } : null }),
     describeQuery: (q) => `query of ${Array.isArray(q) ? q.length : 0} parts`
   });
-  host.open = async (target) => { opened.push(target); return { saved: true, recordId: target.recordId || 9 }; };
+  host.open = async ({ onShown, ...target }) => {
+    opened.push(target);
+    onShown?.();
+    return { saved: true, recordId: target.recordId || 9 };
+  };
   return { host, opened };
 }
 
@@ -164,3 +168,67 @@ test('geo, time and column fields: Edit opens the Query Source helpers; geo sets
   assert.equal(opened[0][2], false, 'geo dialog without extent and zoom options');
 });
 
+/** Host whose editor stays open until `close()`; `flashes`: the messages shown. */
+function openEditors(host) {
+  const opened = [];
+  const closers = [];
+  host.open = ({ onShown, ...target }) => new Promise((resolve) => {
+    opened.push(target);
+    onShown?.();
+    closers.push(() => resolve({ saved: false, recordId: target.recordId || 0 }));
+  });
+  return { opened, closeAll: () => closers.forEach((close) => close()) };
+}
+
+/** The promises of the queue so far are done. */
+const settle = () => new Promise((resolve) => { setTimeout(resolve, 0); });
+
+test('repeated clicks on Edit open one editor, for one record (2026-11-06)', async () => {
+  const { host } = makeHost();
+  const { opened, closeAll } = openEditors(host);
+  const clicks = [host.editRecord(5), host.editRecord(5), host.editRecord(5), host.editRecord(6)];
+  await settle();
+  assert.deepEqual(opened.map((target) => target.recordId), [5, 6], 'one per record');
+  closeAll();
+  await Promise.all(clicks);
+});
+
+test('a record is free again after its editor closes (2026-11-06)', async () => {
+  const { host } = makeHost();
+  const { opened, closeAll } = openEditors(host);
+  const first = host.editRecord(5);
+  await settle();
+  closeAll();
+  await first;
+  const second = host.editRecord(5);
+  await settle();
+  assert.equal(opened.length, 2);
+  closeAll();
+  await second;
+});
+
+test('repeated clicks on Add open one editor; after it is shown the type can be added again from it (2026-11-06)', async () => {
+  const { host } = makeHost();
+  const { opened, closeAll } = openEditors(host);
+  host._who = async () => ({ id: 2 });
+  const clicks = [host.addRecord(10), host.addRecord(10)];
+  await settle();
+  assert.equal(opened.length, 1, 'the repeated click');
+  const nested = host.addRecord(10);
+  await settle();
+  assert.equal(opened.length, 2, 'a pointer field of the open editor adds a record of the same type');
+  closeAll();
+  await Promise.all([...clicks, nested]);
+});
+
+test('a failed open frees the record (2026-11-06)', async () => {
+  const { host } = makeHost();
+  let fail = true;
+  host.open = async ({ recordId }) => {
+    if (fail) throw new Error('no');
+    return { saved: false, recordId };
+  };
+  await assert.rejects(host.editRecord(5), /no/);
+  fail = false;
+  assert.equal((await host.editRecord(5)).recordId, 5);
+});

@@ -78,6 +78,7 @@ export class InlineHelp {
       return;
     }
     const dlg = HMsg.getMsgDlg(this.dialogId);
+    dlg.dataset.closeOnBackdrop = 'true';
     (this.parent || document.body).append(dlg);
     dlg.classList.add('h-dialog-fullscreen');
 

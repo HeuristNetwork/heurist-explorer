@@ -45,3 +45,12 @@ test('h-dialog-message: texts and message elements only', () => {
   assert.equal(body(HMsg.showMsgErr('Failed')).classList.contains('h-dialog-message'), true, 'an error');
   HMsg.closeMsgDlg();
 });
+
+test('a click outside closes a message, not a form (2026-11-06)', () => {
+  const closes = (message, options = {}) => HMsg.showMsgDlg(message, options).dataset.closeOnBackdrop;
+  assert.equal(closes('Saved'), 'true', 'a text');
+  assert.equal(closes(document.createElement('p'), { message: true }), 'true', 'an element given as a message');
+  assert.equal(closes(document.createElement('form')), 'false', 'a form');
+  assert.equal(closes('Saved', { preventClose: true }), 'false', 'preventClose');
+  assert.equal(closes(document.createElement('div'), { closeOnBackdrop: true }), 'true', 'asked for');
+});

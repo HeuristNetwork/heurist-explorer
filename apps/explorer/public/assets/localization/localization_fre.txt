@@ -1265,3 +1265,4 @@
 #Show translations#Afficher les traductions
 #Hide translations#Masquer les traductions
 #Edit translations#Modifier les traductions
+#This record is already open#Cet enregistrement est déjà ouvert
