@@ -95,12 +95,35 @@ export function geoKindOf(rty, dty, dbdefs) {
 }
 
 /**
+ * The template file name of a saved report: read only, it is set when the record is created (plan 30). A copy
+ * with another name is made by Save As.
+ *
+ * @param {{rty: number, groups: Array<object>}} structure Edit structure (cached: not changed).
+ * @param {object|null} dbdefs HDbDefs (`dbconst`).
+ * @param {number} recordId The record; 0 for a new one.
+ * @returns {{rty: number, groups: Array<object>}} The structure, or a copy.
+ */
+export function reportRecordStructure(structure, dbdefs, recordId) {
+  const id = (code) => Number(dbdefs?.dbconst?.(code)) || 0;
+  if (!structure || !(recordId > 0) || !(id('RT_CUSTOM_REPORT') > 0) || Number(structure.rty) !== id('RT_CUSTOM_REPORT')) return structure;
+  const file = id('DT_FILE_NAME');
+  return {
+    ...structure,
+    groups: structure.groups.map((group) => ({
+      ...group,
+      fields: (group.fields || []).map((field) => (Number(field.dty) === file ? { ...field, readOnly: true } : field))
+    }))
+  };
+}
+
+/**
  * Vocabularies of the file type field (DT_FILE_EXT, 2-29) by record type (Artem 2026-10-27): subsets by
  * reference of the extensions vocabulary 2-533. Hard-coded until the record structure can give them.
  */
 const FILE_EXT_VOCABULARIES = Object.freeze({
   RT_TILED_IMAGE_SOURCE: 'TRM_TILE_FORMATS', // png jpg jpeg gif webp
-  RT_REPORT_SCHEDULE: 'TRM_REPORT_FORMATS' // html csv txt xml json js css
+  RT_REPORT_SCHEDULE: 'TRM_REPORT_FORMATS', // html csv txt xml json js css
+  RT_CUSTOM_REPORT: 'TRM_REPORT_FORMATS' // the output type moves to the template (plan 30)
 });
 
 /**

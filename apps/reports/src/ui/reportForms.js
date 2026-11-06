@@ -18,17 +18,16 @@
  */
 
 import { $HR } from '#shared/ui';
-import { ReportsApplication, REPORT_FORMATS } from '../core/ReportsApplication.js';
-import { openFormDialog, FILE_NAME_CHARS } from './formDialog.js';
+import { openFormDialog } from './formDialog.js';
 
 /**
- * Generate a report: current result or a Query Source, format and file name suffix.
+ * Generate a report: the records, the current result or a Query Source. The output type comes from the
+ * template, the language and the name from the output record.
  *
- * @param {ReportsApplication} app Controller.
- * @param {object} report Report to generate.
- * @returns {Promise<object|null>} report-generate parameters, or null when cancelled.
+ * @param {import('../core/ReportsApplication.js').ReportsApplication} app Controller.
+ * @returns {Promise<*>} The query, or null when cancelled.
  */
-export async function openGenerateForm(app, report) {
+export async function openGenerateForm(app) {
   const [current, sources] = await Promise.all([app.currentResult(), app.querySourcesForReports()]);
   const choices = [];
   if (current) {
@@ -36,24 +35,17 @@ export async function openGenerateForm(app, report) {
     choices.push({ value: 'current', label: `${$HR('Current result')}${current.title ? `: ${current.title}` : ''}${count}` });
   }
   choices.push({ value: 'source', label: $HR('Query Source') });
-  const prefix = ReportsApplication.outputPrefix(report);
   const values = await openFormDialog({
     title: 'Generate report',
-    okLabel: 'Generate',
+    okLabel: 'Next',
     fields: [
       { name: 'from', label: 'Records', type: 'radio', value: choices[0].value, options: choices },
-      querySourceField(sources, { showWhen: { from: 'source' } }),
-      { name: 'format', label: 'Format', type: 'select', value: 'html', options: REPORT_FORMATS.map((f) => ({ value: f, label: f })) },
-      { name: 'suffix', label: 'File name', prefix: `${prefix} `, allowed: FILE_NAME_CHARS,
-        hint: 'Optional end of the file name. Your user id is added; for a shared file use a schedule.' }
+      querySourceField(sources, { showWhen: { from: 'source' } })
     ],
     validate: (v) => (v.from === 'source' && !(Number(v.querySource) > 0) ? $HR('Choose a Query Source') : null)
   });
   if (!values) return null;
-  const params = { report: ReportsApplication.reference(report), format: values.format, suffix: values.suffix };
-  if (values.from === 'current') params.query = current.query;
-  else params.querySource = Number(values.querySource);
-  return params;
+  return values.from === 'current' ? current.query : app.querySourceQuery(Number(values.querySource));
 }
 
 /** Query Source field: a list from the host, or a record id when there is none. */

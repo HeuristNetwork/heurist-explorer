@@ -801,3 +801,5 @@ checked in a browser.
 - Explorer uses the srv engine; the current language in a template is `{$heurist->getSysInfo('lang')}`.
 - Bridge `addRecord(type, {values, access})`, HRecordEditor option `values` (first values of a new record).
 - Tests: heurist `tests/ReportsApiTest.php --write` 73, `tests/JobRunnerTest.php --write` 45 pass, JS 1,639 pass.
+
+**Plan 30 (2026-11-06):** the API of this plan (`/reports`, `ReportController`, file names in URLs, `_u<id>` files) is replaced by the entities `report` and `output`. See `30 Custom-Report-System-Plan.md`.

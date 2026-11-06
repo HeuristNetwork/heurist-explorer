@@ -25,7 +25,6 @@ import { isJobFinished } from '#shared/api';
 export const TEST_RECORD_LIMIT = 50;
 
 /** Report output formats of the server. */
-export const REPORT_FORMATS = Object.freeze(['html', 'csv', 'txt', 'xml', 'json', 'js', 'css']);
 
 /** Regeneration intervals of a schedule (minutes; 0 = on request only). */
 export const SCHEDULE_INTERVALS = Object.freeze([
@@ -145,20 +144,9 @@ export class ReportsApplication extends EventTarget {
     return this.data.settings?.javaScriptAllowed === true;
   }
 
-  /** Reference of a report: record id, or the file name of an unregistered file. */
+  /** Reference of a report in the list: record id, or the file name of an unregistered file. */
   static reference(report) {
     return report?.id != null ? String(report.id) : String(report?.file || '');
-  }
-
-  /**
-   * Prefix of the generated files of a report: its template file name without
-   * ".tpl" (characters not allowed in file names replaced as on the server).
-   *
-   * @param {object} report
-   * @returns {string}
-   */
-  static outputPrefix(report) {
-    return String(report?.file || '').replace(/\.tpl$/i, '').replace(/[/\\:*?"<>|\u0000-\u001F]+/g, '_').trim();
   }
 
   /** The selected report, or null. */
@@ -238,17 +226,14 @@ export class ReportsApplication extends EventTarget {
   }
 
   /**
-   * Save a template text as a new report and select it.
+   * Save a template text as a copy of a report and select it: the copy has its own file, named after its title.
    *
-   * @param {{title: string, isCardView: boolean, file?: string, body: string}} values
-   * @returns {Promise<object>} The report.
+   * @param {object} report The report.
+   * @param {{title: string, body: string}} values Title of the copy and the text of the editor.
+   * @returns {Promise<object>} The new report.
    */
-  async saveAsReport({ title, isCardView, file = '', body }) {
-    const [rectype, name, fileName, card, yes] = await this.definitionId('RT_CUSTOM_REPORT', 'DT_NAME', 'DT_FILE_NAME', 'DT_IS_CARD_VIEW', 'TRM_YES');
-    const details = { [name]: [title] };
-    if (file) details[fileName] = [file];
-    if (isCardView) details[card] = [yes];
-    const id = await this.api.createRecord(rectype, details);
+  async saveAsReport(report, { title, body }) {
+    const id = await this.api.duplicate(report.id, title);
     await this.api.saveTemplate(id, body);
     await this.refresh();
     await this.selectReport(String(id));
@@ -263,7 +248,7 @@ export class ReportsApplication extends EventTarget {
     return report;
   }
 
-  /** Edit a report record; the template file follows its file name on the server. */
+  /** Edit a report record. */
   async editReport(report) {
     const result = await this.host.editRecord(report.id);
     if (result?.saved) await this.refresh();
@@ -271,8 +256,7 @@ export class ReportsApplication extends EventTarget {
   }
 
   /**
-   * Create the record of a template file without one, in the record editor. Another file name
-   * makes a new empty file: the template moves there.
+   * Create the record of a template file without one, in the record editor: the record takes the file.
    *
    * @param {object} report Report of the list (no record).
    * @returns {Promise<object|null>} The report, or null when it was not saved.
@@ -282,67 +266,69 @@ export class ReportsApplication extends EventTarget {
     const result = await this.host.addRecord('RT_CUSTOM_REPORT', { values: { [name]: report.title, [fileName]: report.file } });
     if (!result?.saved) return null;
     await this.refresh();
-    const saved = this.findReport(result.recordId);
-    if (saved && saved.file.toLowerCase() !== report.file.toLowerCase()) {
-      const { body } = await this.api.readTemplate(report.file);
-      await this.api.saveTemplate(result.recordId, body);
-      await this.api.remove(report.file);
-      await this.refresh();
-    }
     await this.selectReport(String(result.recordId));
-    return saved;
+    return this.findReport(result.recordId);
   }
 
-  /** Delete a report record (and its unused file) or an unregistered file. */
-  async deleteReport(report, { keepFile = false } = {}) {
-    await this.api.remove(ReportsApplication.reference(report), { keepFile });
+  /** Delete a report record with its file (refused while outputs point to it), or an unregistered file. */
+  async deleteReport(report) {
+    if (report.id != null) await this.api.remove(report.id);
+    else await this.api.removeFile(report.file);
     if (this.selectedRef === ReportsApplication.reference(report)) this.selectedRef = null;
     await this.refresh();
   }
 
-  /** All visible schedules (each with `reportTitle` and its last `generated` file). */
-  loadSchedules() {
-    return this.api.schedules();
+  /** All visible generated reports (output records), by title. */
+  async loadOutputs() {
+    const outputs = await this.api.outputs();
+    return outputs.sort((a, b) => a.title.localeCompare(b.title, undefined, { sensitivity: 'base' }));
   }
 
   /**
-   * Add a schedule of a report in the record editor: it has the owner of the report.
+   * Outputs of a report made from a query.
+   *
+   * @param {object} report The report.
+   * @param {*} query Executable query.
+   * @returns {Promise<Array<object>>}
+   */
+  async outputsWithQuery(report, query) {
+    const outputs = await this.loadOutputs();
+    return outputs.filter((output) => output.reportId === report.id && sameQuery(output.query, query));
+  }
+
+  /**
+   * Add a generated report in the record editor. With a query it comes from Generate: the user's own (the
+   * language and the rest are chosen in the editor); without one it has the owner of the report.
    *
    * @param {object} report Report with a record.
-   * @returns {Promise<boolean>} Whether a schedule was saved.
+   * @param {*} [query] Executable query.
+   * @returns {Promise<object|null>} The new output, or null when it was not saved.
    */
-  async addSchedule(report) {
-    const [name, field] = await this.definitionId('DT_NAME', 'DT_REPORT');
+  async newOutput(report, query = null) {
+    const [name, field, queryField] = await this.definitionId('DT_NAME', 'DT_REPORT', 'DT_QUERY_STRING');
+    const values = { [name]: report.title, [field]: report.id };
+    if (query != null) values[queryField] = typeof query === 'string' ? query : JSON.stringify(query);
     const result = await this.host.addRecord('RT_REPORT_SCHEDULE', {
-      values: { [name]: report.title, [field]: report.id },
-      access: { owner: report.ownerGroupId, visibility: 'viewable', viewGroups: [] }
+      values,
+      access: query != null ? { owner: this.userGroups?.currentUserId, visibility: 'hidden', viewGroups: [] }
+        : { owner: report.ownerGroupId, visibility: 'viewable', viewGroups: [] }
     });
-    if (result?.saved) await this.refresh();
-    return result?.saved === true;
-  }
-
-  /** Edit a schedule record. */
-  async editSchedule(schedule) {
-    const result = await this.host.editRecord(schedule.id);
-    if (result?.saved) await this.refresh();
-    return result?.saved === true;
-  }
-
-  /** Delete a schedule. */
-  async deleteSchedule(schedule) {
-    await this.api.deleteSchedule(schedule.id);
+    if (!result?.saved) return null;
     await this.refresh();
+    return (await this.loadOutputs()).find((output) => output.id === Number(result.recordId)) || { id: Number(result.recordId) };
   }
 
-  /** Generated files of a report (the rule of the server, as `generatedCount`), newest first. */
-  generatedFiles(report) {
-    const reference = ReportsApplication.reference(report);
-    return reference ? this.api.generated(reference) : Promise.resolve([]);
+  /** Edit an output record. */
+  async editOutput(output) {
+    const result = await this.host.editRecord(output.id);
+    if (result?.saved) await this.refresh();
+    return result?.saved === true;
   }
 
-  /** Delete a generated file. */
-  deleteGenerated(file) {
-    return this.api.deleteGenerated(file);
+  /** Delete an output and its file. */
+  async deleteOutput(output) {
+    await this.api.deleteOutput(output.id);
+    await this.refresh();
   }
 
   /**
@@ -357,6 +343,11 @@ export class ReportsApplication extends EventTarget {
     const known = Number(current.total);
     const total = Number.isFinite(known) && known >= 0 ? known : await this.api.queryCount(current.query).catch(() => null);
     return { ...current, total };
+  }
+
+  /** The query of a Query Source. */
+  querySourceQuery(sourceId) {
+    return this.api.querySourceQuery(sourceId);
   }
 
   /** Query Sources of the host that can be generated (no Filter Form parameters). */
@@ -402,13 +393,13 @@ export class ReportsApplication extends EventTarget {
   }
 
   /**
-   * Start a generation.
+   * Start a generation of an output.
    *
-   * @param {object} params `{schedule}` or `{report, querySource | query, format, suffix}`.
+   * @param {{id: number}} output The output record.
    * @returns {Promise<object>} The queued job.
    */
-  startGenerate(params) {
-    return this.jobs.start('report-generate', params);
+  startGenerate(output) {
+    return this.jobs.start('report-generate', { output: output.id });
   }
 
   /**
@@ -452,20 +443,14 @@ export class ReportsApplication extends EventTarget {
   }
 
   /**
-   * Report of a job: by the report record id in its parameters, else by the
-   * template file.
+   * Report of a job, by the report record id in its parameters.
    *
    * @param {object} job
    * @returns {object|null}
    */
   reportOfJob(job) {
-    const params = job?.params || {};
-    if (params.reportId != null) {
-      const byId = this.findReport(String(params.reportId));
-      if (byId) return byId;
-    }
-    const file = String(params.templateFile || '');
-    return file ? this.allReports().find((report) => report.file === file) || null : null;
+    const id = job?.params?.reportId;
+    return id != null ? this.findReport(String(id)) : null;
   }
 
   /** Remove the view. */
@@ -478,6 +463,27 @@ export class ReportsApplication extends EventTarget {
   _emit(type) {
     this.dispatchEvent(new Event(type));
   }
+}
+
+/**
+ * Whether two queries are the same filter: JSON text and JSON values compare equal, whatever the spacing.
+ *
+ * @param {*} first A query (JSON value or text).
+ * @param {*} second A query.
+ * @returns {boolean}
+ */
+export function sameQuery(first, second) {
+  const canonical = (query) => {
+    if (query == null) return '';
+    if (typeof query !== 'string') return JSON.stringify(query);
+    const text = query.trim().replace(/^\?+/, '');
+    try {
+      return JSON.stringify(JSON.parse(text));
+    } catch {
+      return text;
+    }
+  };
+  return canonical(first) === canonical(second);
 }
 
 /** First text of a new template. */

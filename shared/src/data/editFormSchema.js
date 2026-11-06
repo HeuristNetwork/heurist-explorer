@@ -264,6 +264,27 @@ export async function resolveTermsSources(json, providers = {}) {
   return copy;
 }
 
+/**
+ * Values stored under an older name of a term: a term may list `aliases` (the template name of a
+ * report whose id is the term now). The form shows and saves the id.
+ *
+ * @param {object} json Form with resolved terms (resolveTermsSources).
+ * @param {object} values Values, changed in place.
+ * @returns {object} `values`.
+ */
+export function applyTermAliases(json, values) {
+  for (const group of Array.isArray(json?.groups) ? json.groups : []) {
+    for (const field of Array.isArray(group?.children) ? group.children : []) {
+      const path = field?.path || field?.name;
+      if (!path || !Array.isArray(field.terms)) continue;
+      const value = getPath(values, path);
+      const term = field.terms.find((item) => Array.isArray(item?.aliases) && item.aliases.includes(value));
+      if (term) setPath(values, path, term.id);
+    }
+  }
+  return values;
+}
+
 /** CSS lengths accepted as a field width. */
 const CSS_WIDTH = /^\d+(\.\d+)?(px|em|rem|ch|%)$/;
 

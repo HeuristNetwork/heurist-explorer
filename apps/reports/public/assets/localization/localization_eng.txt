@@ -265,3 +265,19 @@
 #Language of the test run#Language of the test run
 #Query#Query
 #The record editor is not available here#The record editor is not available here
+#Add a generated report of this report#Add a generated report of this report
+#Add generated report#Add generated report
+#Choose a report in the list above#Choose a report in the list above
+#Delete generated report#Delete generated report
+#Delete the generated file#Delete the generated file
+#Delete the generated file of#Delete the generated file of
+#Generated#Generated
+#Generated reports#Generated reports
+#New output#New output
+#Next#Next
+#No generated reports#No generated reports
+#Scheduled#Scheduled
+#Search generated reports#Search generated reports
+#Size#Size
+#There are already generated reports for this template with this filter. Select one to regenerate it, or make a new one.#There are already generated reports for this template with this filter. Select one to regenerate it, or make a new one.
+#You can not change this generated report#You can not change this generated report

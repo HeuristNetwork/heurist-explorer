@@ -1055,13 +1055,20 @@ export class CmsDesigner {
 
   /** The Smarty report of the template Team: made when the database has no template file of this name. */
   async _ensureTeamReport() {
-    const list = (await this.apiClient.get('/reports'))?.data ?? {};
-    const reports = list.reports ?? [];
-    if (reports.some((report) => report.file === CMS_TEAM_TEMPLATE)) return;
-    const body = teamReportBody(this.options.dbdefs);
-    await this.apiClient.request('/reports', { method: 'POST', body: {
-      title: 'Team member', isCardView: true, body, description: 'A card of one person (website template Team)', file: CMS_TEAM_TEMPLATE.replace(/\.tpl$/, '')
+    const list = await this.apiClient.get('/report', { query: { fields: 'rec_ID', limit: 5000 } });
+    if (Object.values(list?.meta?.items ?? {}).some((report) => report.file === CMS_TEAM_TEMPLATE)) return;
+    const id = (code) => Number(this.options.dbdefs?.dbconst?.(code)) || 0;
+    const created = await this.apiClient.post('/report/0', { body: {
+      rec_RecTypeID: id('RT_CUSTOM_REPORT'),
+      details: {
+        [id('DT_NAME')]: ['Team member'],
+        [id('DT_EXTENDED_DESCRIPTION')]: ['A card of one person (website template Team)'],
+        [id('DT_FILE_NAME')]: [CMS_TEAM_TEMPLATE.replace(/\.tpl$/, '')],
+        [id('DT_IS_CARD_VIEW')]: [id('TRM_YES')]
+      }
     } });
+    const reportId = Number(created?.records?.[0]?.rec_ID) || 0;
+    await this.apiClient.request(`/report/${reportId}/asset`, { method: 'PUT', body: { body: teamReportBody(this.options.dbdefs) } });
   }
 
   /** Services of the forms of semi-static content (plan 27e): one record manager per kind for the life of the designer. */
@@ -1173,12 +1180,12 @@ export class CmsDesigner {
         languages: this.site?.languages || [],
         services: {
           reports: async () => {
-            const response = await this.apiClient.get('/reports', { query: { scope: 'set' } });
-            return (response?.data ?? response)?.reports ?? [];
+            const response = await this.apiClient.get('/report', { query: { fields: 'rec_ID', limit: 5000 } });
+            return Object.values(response?.meta?.items ?? {}).filter((report) => !report.isCardView);
           },
           generated: async (report) => {
-            const response = await this.apiClient.get('/reports/generated', { query: { report } });
-            return response?.data ?? response ?? [];
+            const response = await this.apiClient.get('/output', { query: { fields: 'rec_ID', limit: 5000 } });
+            return Object.values(response?.meta?.items ?? {}).filter((output) => String(output.reportId) === String(report));
           },
           heuristUrl: `${runtime.baseUrl || ''}hclient/modules/explorer/explorerViewer.html?db=${encodeURIComponent(runtime.database || '')}`
         }

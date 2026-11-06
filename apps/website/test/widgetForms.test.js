@@ -68,7 +68,7 @@ test('a query of cards: JSON without parameters', () => {
 });
 
 test('report files: only the languages with a file', () => {
-  assert.deepEqual(reportFiles({ eng: 'Team.html', fre: '' }), { eng: 'Team.html' });
+  assert.deepEqual(reportFiles({ eng: '12', fre: '' }), { eng: '12' });
 });
 
 test('Team member report: fields by local ids of the database', () => {
@@ -152,12 +152,17 @@ test('a translation changed in the document goes into the PATCH', () => {
   assert.deepEqual(details, { 1199: ['fre:{"a":"new"}'] });
 });
 
-test('Generated Report: HTML files of the report; a file of the Generate button is offered and labelled', () => {
-  const terms = generatedFileTerms([{ file: 'Team.html' }, { file: 'Team_u2.html' }, { file: 'Team.pdf' }]);
-  assert.deepEqual(terms.map((term) => term.id), ['Team.html', 'Team_u2.html']);
-  assert.equal(terms[0].label, 'Team.html');
+test('Generated Report: generated HTML outputs of the report; one without a schedule is offered and labelled', () => {
+  const terms = generatedFileTerms([
+    { id: 1, title: 'Team', language: 'fre', intervalMinutes: 60, generated: { format: 'html' } },
+    { id: 2, title: 'Mine', intervalMinutes: 0, generated: { format: 'html' } },
+    { id: 3, title: 'Text', intervalMinutes: 60, generated: { format: 'txt' } },
+    { id: 4, title: 'Waiting', intervalMinutes: 60, generated: null }
+  ]);
+  assert.deepEqual(terms.map((term) => term.id), ['1', '2']);
+  assert.equal(terms[0].label, 'Team [FRE]');
   assert.match(terms[1].label, /not scheduled/);
-  assert.deepEqual(generatedFileTerms([], ['Old.html', '']).map((term) => term.id), ['Old.html'], 'a stored file stays');
+  assert.deepEqual(generatedFileTerms([], [9, '']).map((term) => term.id), ['9'], 'a stored output stays');
 });
 
 test('HSlider only for a slider or an action', () => {

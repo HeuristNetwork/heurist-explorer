@@ -1,9 +1,7 @@
 /**
  * @file ReportApi.js
- * @brief Client of the reports manager API (`/api/{db}/reports`).
- *
- * A report is addressed by its Custom Report record id or, for a template file
- * without a record ("unregistered"), by its file name.
+ * @brief Client of the entities `report` and `output` (plan 30): reports and generated reports are
+ *        named by their record id; the file names stay on the server.
  *
  * @project     Heurist academic knowledge management system
  * @package     heurist-reports
@@ -18,7 +16,10 @@
 
 import { aggregate } from '#shared/data/aggregate.js';
 
-/** Reports API calls. */
+/** Records of one search. */
+const SEARCH_LIMIT = 5000;
+
+/** Calls of the reports manager. */
 export class ReportApi {
   /**
    * @param {object} options
@@ -30,29 +31,40 @@ export class ReportApi {
   }
 
   /**
-   * Reports list: records, unregistered files, setup state.
+   * State of the definitions, the report records and the template files without a record.
    *
-   * @param {'all'|'card'|'set'} [scope='all']
-   * @returns {Promise<{installed: boolean, reports: Array<object>, unregistered?: Array<object>,
-   *   missingDefinitions?: string[], canSetup?: boolean, allowDynamicReports?: boolean}>}
+   * @returns {Promise<{installed: boolean, reports: Array<object>, unregistered: Array<object>,
+   *   missingDefinitions: string[], canSetup: boolean, allowDynamicReports: boolean, settings: object}>}
    */
-  async list(scope = 'all') {
-    return data(await this.apiClient.get('/reports', { query: { scope } }));
+  async list() {
+    const status = await this.apiClient.get('/report/setup');
+    const reports = status?.installed ? await this.reports() : [];
+    return {
+      ...status,
+      missingDefinitions: status?.missing || [],
+      reports,
+      unregistered: (status?.unregistered || []).map((file) => ({ ...file, id: null, canEdit: true, isCardView: false, fileExists: true, outputCount: 0 }))
+    };
   }
 
-  /** One report (record id or file name). */
-  async get(reference) {
-    return data(await this.apiClient.get(path(reference)));
+  /** @returns {Promise<Array<object>>} The visible reports, with their values (`meta.items`). */
+  async reports() {
+    return described(await this.apiClient.get('/report', { query: { fields: 'rec_ID,rec_Title', limit: SEARCH_LIMIT } }));
+  }
+
+  /** @returns {Promise<Array<object>>} The visible outputs, with their report, query, language and file. */
+  async outputs() {
+    return described(await this.apiClient.get('/output', { query: { fields: 'rec_ID,rec_Title', limit: SEARCH_LIMIT } }));
   }
 
   /** Template body: `{report, body}`. */
-  async readTemplate(reference) {
-    return data(await this.apiClient.get(`${path(reference)}/template`));
+  async readTemplate(reportId) {
+    return this.apiClient.get(`${path(reportId)}/asset`);
   }
 
   /** Save a template body; returns the report. */
-  async saveTemplate(reference, body) {
-    return data(await this.apiClient.request(`${path(reference)}/template`, { method: 'PUT', body: { body } }));
+  async saveTemplate(reportId, body) {
+    return this.apiClient.request(`${path(reportId)}/asset`, { method: 'PUT', body: { body } });
   }
 
   /**
@@ -64,47 +76,44 @@ export class ReportApi {
    */
   async createRecord(rectypeId, details) {
     const response = await this.apiClient.post('/report/0', { body: { rec_RecTypeID: rectypeId, details } });
-    return Number(response?.records?.[0]?.rec_ID ?? response?.data?.records?.[0]?.rec_ID) || 0;
+    return Number(response?.records?.[0]?.rec_ID) || 0;
   }
 
   /**
-   * Delete a report record with its unused file, or a template file without a record.
+   * Copy a report: the copy has its own template file, named after the title.
    *
-   * @param {string|number} reference Record id or file name.
-   * @param {{keepFile?: boolean}} [options]
+   * @param {number} reportId Report.
+   * @param {string} title Title of the copy.
+   * @returns {Promise<number>} Id of the copy.
    */
-  async remove(reference, { keepFile = false } = {}) {
-    const url = /^\d+$/.test(String(reference)) ? `/report/${reference}` : path(reference);
-    return data(await this.apiClient.request(url, { method: 'DELETE', query: keepFile ? { keepFile: 1 } : null }));
+  async duplicate(reportId, title) {
+    const response = await this.apiClient.post(`${path(reportId)}/duplicate`, { body: { title } });
+    return Number(response?.records?.[0]?.rec_ID) || 0;
   }
 
-  /** All visible schedules, each with `reportTitle` and its last `generated` file. */
-  async schedules() {
-    return data(await this.apiClient.get('/reports/schedules'));
+  /** Delete a report and its template file; refused (409) while outputs point to it. */
+  async remove(reportId) {
+    return this.apiClient.request(path(reportId), { method: 'DELETE' });
   }
 
-  /** Delete a schedule record. */
-  async deleteSchedule(scheduleId) {
-    return data(await this.apiClient.request(`/output/${encodeURIComponent(scheduleId)}`, { method: 'DELETE' }));
+  /** Delete a template file without a record. */
+  async removeFile(file) {
+    return this.apiClient.request('/report/setup', { method: 'DELETE', query: { file } });
   }
 
-  /**
-   * Files in generated-reports, newest first.
-   *
-   * @param {string} [report] Only the files of a report (record id or file name).
-   */
-  async generated(report = '') {
-    return data(await this.apiClient.get('/reports/generated', { query: report ? { report } : null }));
+  /** Delete an output and its file. */
+  async deleteOutput(outputId) {
+    return this.apiClient.request(outputPath(outputId), { method: 'DELETE' });
   }
 
-  /** Delete a generated file. */
-  async deleteGenerated(file) {
-    return data(await this.apiClient.request(`/reports/generated/${encodeURIComponent(file)}`, { method: 'DELETE' }));
+  /** Delete the file of an output; the record stays. */
+  async deleteOutputFile(outputId) {
+    return this.apiClient.request(`${outputPath(outputId)}/asset`, { method: 'DELETE' });
   }
 
   /** Install the report record types and convert old schedules (managers). */
   async setup() {
-    return data(await this.apiClient.post('/reports/setup', { body: {} }));
+    return this.apiClient.post('/report/setup', { body: {} });
   }
 
   /**
@@ -116,7 +125,7 @@ export class ReportApi {
   async importFile(file) {
     const form = new FormData();
     form.append('import_template', file, file.name);
-    const response = await this.apiClient.fetchImpl(this.apiClient.buildUrl('/reports/import'), {
+    const response = await this.apiClient.fetchImpl(this.apiClient.buildUrl('/report/import'), {
       method: 'POST',
       body: form,
       credentials: 'same-origin',
@@ -124,17 +133,39 @@ export class ReportApi {
     });
     const payload = await response.json().catch(() => null);
     if (!response.ok) throw new Error(payload?.message || `Import failed (${response.status})`);
-    return data(payload);
+    return payload;
   }
 
   /** URL that downloads the template with concept codes (.gpl). */
-  exportUrl(reference) {
-    return this.apiClient.buildUrl(`${path(reference)}/export`);
+  exportUrl(reportId) {
+    return this.apiClient.buildUrl(`${path(reportId)}/export`);
   }
 
   /** URL that renders one record with a report. */
-  renderUrl(reference, recordId) {
-    return this.apiClient.buildUrl(`${path(reference)}/render`, { rec: recordId });
+  renderUrl(reportId, recordId) {
+    return this.apiClient.buildUrl(`${path(reportId)}/execute`, { recordId });
+  }
+
+  /**
+   * URL of the generated file of an output.
+   *
+   * @param {number} outputId Output.
+   * @param {{download?: boolean}} [options] `download`: as a file named by the title of the output.
+   * @returns {string}
+   */
+  outputUrl(outputId, { download = false } = {}) {
+    return this.apiClient.buildUrl(`${outputPath(outputId)}/asset`, download ? { download: 1 } : null);
+  }
+
+  /**
+   * The query of a Query Source.
+   *
+   * @param {number} sourceId Query Source record.
+   * @returns {Promise<*>}
+   */
+  async querySourceQuery(sourceId) {
+    const response = await this.apiClient.get(`/records/querysource/${Number(sourceId)}`);
+    return response?.source?.query ?? null;
   }
 
   /**
@@ -170,14 +201,26 @@ export class ReportApi {
   }
 }
 
-/** `/reports/<encoded reference>` */
-function path(reference) {
-  const value = String(reference ?? '').trim();
-  if (!value) throw new TypeError('A report reference is required');
-  return `/reports/${encodeURIComponent(value)}`;
+/** The rows of a search: `{id, title, ...meta.items[id]}`. */
+function described(response) {
+  const items = response?.meta?.items || {};
+  return (response?.records || []).map((record) => ({
+    id: Number(record.rec_ID),
+    title: String(record.rec_Title ?? ''),
+    ...items[record.rec_ID]
+  }));
 }
 
-/** The `data` member of a `{status, data}` envelope. */
-function data(response) {
-  return response?.data ?? response;
+/** `/report/<id>` */
+function path(reportId) {
+  const id = Number(reportId);
+  if (!(id > 0)) throw new TypeError('A report record id is required');
+  return `/report/${id}`;
+}
+
+/** `/output/<id>` */
+function outputPath(outputId) {
+  const id = Number(outputId);
+  if (!(id > 0)) throw new TypeError('An output record id is required');
+  return `/output/${id}`;
 }

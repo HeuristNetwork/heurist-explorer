@@ -1,6 +1,6 @@
 # Plan 30 — Custom Report system
 
-**Status 2026-11-06: draft 1, for Artem's review. Nothing implemented.** Follows the rules of
+**Status 2026-11-06: phases 0-5 implemented in both repos (§11), not committed, not checked in a browser, bundles not deployed.** Follows the rules of
 `28 OpenAPI-Rules-and-Database-Structure-Plan.md`; depends on phase 4 of `28a Unify-System-Entities-Plan.md`. Replaces
 the API part of plan 12.
 
@@ -33,7 +33,7 @@ the API part of plan 12.
 | Test run | **Stays a job**, also in the UI: a wrong template can run forever, even on 10 records |
 | `POST /jobs` `report-generate` | Stays |
 
-### Proposed, for Artem to confirm
+### Confirmed by Artem (2026-11-06)
 
 | Question | Proposal |
 |---|---|
@@ -43,7 +43,7 @@ the API part of plan 12.
 
 ## 4. Template names and "Save as"
 
-Proposal, in answer to Artem's questions.
+Confirmed by Artem, 2026-11-06.
 
 - **Title (2-1)** is the name people see: any language, can change at any time. A change of title never renames the
   file (true today as well).
@@ -198,3 +198,57 @@ Found by reading the code, not tested, except where noted.
 ## 10. History
 
 - 2026-11-06 — draft 1 from Artem's request, two question rounds and the review of both repositories.
+- 2026-11-06 — client questions answered, phases 0-5 implemented, §11.
+
+## 11. As implemented (2026-11-06)
+
+**Client decisions (Artem).** One dialog *Generated reports* replaces the list of files and the Schedules dialog
+(`apps/reports/src/ui/OutputsDialog.js`); the Schedule button is gone, the caret beside Generate opens the dialog. Unregistered
+templates stay in the list with Register and Delete only.
+
+**Generate (Artem's flow).**
+
+1. Choose the records: current result or Query Source.
+2. Outputs of this template with the same query are looked for (`sameQuery`: JSON text and values compare equal).
+3. If there are any, a popup lists them (Language badge, Name, Date generated, Size, Scheduled): a row regenerates it, *New
+   output* opens the record editor.
+4. If there are none, the record editor opens at once: the user's own and hidden, with the query filled in.
+
+The language is chosen in the record editor, so it is not in the Generate form (changes §7 phase 4).
+
+**Server.**
+
+- `ReportController` and all `/reports` routes are removed. `ReportEntityHandler` has the actions, `ReportOutputStore` the
+  files, `RawResponse` an answer that is not JSON (HTML, a file), `ReportInUseException` the 409.
+- `GET /report/setup` has the state, settings and unregistered files. `DELETE /report/setup?file=` deletes an unregistered file:
+  the only place a name is sent, because such a file has no record.
+- A search of `report` or `output` adds `meta.items` by record id: what a client shows besides the record format.
+- `RecordEntityHandler` got `describeMany`, `afterDuplicate`, `allowsGuest`, `acceptsUpload`.
+- `report-preview` takes `report` = record id. `report-generate` takes `{output}` and needs the edit right on the output.
+
+**Deviations from §7.**
+
+1. **Stored names (phase 3):** not turned into ids at run time. `buildReportRenderUrl` uses the API for a numeric value; a stored
+   name goes to the legacy `?template=` URL, as `def/` templates do, so module and map code stays synchronous. The module
+   configuration form turns a stored name into the id when it opens (term `aliases`, `applyTermAliases`); a save stores the id.
+2. **Legacy `recordSave` writing 2-62 (phase 0):** not done. It can still point a report at the file of another report.
+3. **Name rules (phase 0):** not one rule. `asciiName` for new names and `normalize` for existing ones remain; the rules of
+   output names are gone.
+4. **Group members in the legacy rights:** `requireTemplateRights` lets members of the owner group through, as srv does.
+   `hasAccess` alone allows only the admins of a group.
+
+**For Artem in reference database 2 (§5).** The code works before and after these changes: the format is read from the
+template, else from the output.
+
+- Add DT_FILE_EXT 2-29 to 2-1104, remove it from 2-1105.
+- Remove DT_FILE_NAME 2-62 from 2-1105. Make DT_REPORT 2-1183 single value. Remove 3-1083. Rename 2-1105 to Generated report.
+
+**Checks.** JS 1,644 pass, 8 builds verified. PHP suites with writes pass (ReportsApi 75, JobRunner 43, WebsiteContent 30 and
+those of 28a). A run on `osmak_mapping` through the job classes: record, template, output, job done, `208023.html` read back,
+report delete refused with 409, output delete removed the file, report delete removed the template. curl as a guest: `/reports`
+401; `/report`, `/output` 200; `/report/{id}/asset` 401.
+
+**Not checked:** the browser (dialog, Generate flow, website report form, Team preset); routes as a logged-in user through
+`api.php`; multipart `POST /report/import` over HTTP; a guest `execute` of a card report (the test database has no report records).
+
+**Bug left (§8):** the `css` format has no Smarty mode.

@@ -45,14 +45,14 @@ const label = (button) => button.querySelector('.h-reports-tool-label')?.textCon
 test('toolbar without a selection: every button after the report selector is hidden', async () => {
   const { view } = await mount();
   assert.equal(view.reportTools.hidden, true);
-  assert.equal(view.runTools.hidden, true, 'Test, Generate and Schedule hidden too');
+  assert.equal(view.runTools.hidden, true, 'Test and Generate hidden too');
   assert.equal(view.buttons.test.disabled, true);
   assert.equal(view.buttons.generate.disabled, true);
-  assert.equal(view.buttons.schedule.disabled, true);
+  assert.equal(view.buttons.generated.disabled, true);
   assert.equal(view.selectLabel.textContent, 'Select report');
 });
 
-test('a record-set report you cannot edit: Template, Export, Test, Generate, Schedule; no Edit or Delete', async () => {
+test('a record-set report you cannot edit: Template, Export, Test, Generate, Generated reports; no Edit or Delete', async () => {
   const { view, application, host } = await mount();
   await application.selectReport('6');
   assert.equal(view.selectLabel.textContent, 'Monthly');
@@ -62,24 +62,29 @@ test('a record-set report you cannot edit: Template, Export, Test, Generate, Sch
   assert.equal(visible(view.buttons.delete), false);
   assert.equal(view.buttons.test.disabled, false);
   assert.equal(view.buttons.generate.disabled, false);
-  assert.equal(view.buttons.schedule.disabled, false);
+  assert.equal(view.buttons.generated.disabled, false);
   assert.equal(host.querySelector('.h-reports-info-title').textContent, 'Monthly');
   assert.equal(host.querySelector('.h-reports-description').textContent, 'Every month');
 });
 
-test('a card report: Edit and Delete; Generate and Schedule disabled', async () => {
+test('a card report: Edit and Delete; Generate disabled', async () => {
   const { view, application } = await mount();
   await application.selectReport('5');
   assert.equal(label(view.buttons.properties), 'Edit');
   assert.ok(visible(view.buttons.properties) && visible(view.buttons.delete));
   assert.equal(view.buttons.generate.disabled, true);
-  assert.equal(view.buttons.schedule.disabled, true);
+  assert.equal(view.buttons.generated.disabled, true);
 });
 
-test('a template without a record: Register', async () => {
+test('a template without a record: Register and Delete only, it can not run', async () => {
   const { view, application } = await mount();
   await application.selectReport('old.tpl');
   assert.equal(label(view.buttons.properties), 'Register');
+  assert.equal(visible(view.buttons.template), false);
+  assert.equal(visible(view.buttons.export), false);
+  assert.equal(visible(view.buttons.delete), true);
+  assert.equal(view.buttons.test.disabled, true);
+  assert.equal(view.buttons.generate.disabled, true);
   assert.ok(visible(view.buttons.properties));
 });
 
@@ -121,7 +126,6 @@ test('report list: accordions by group, no file names, type and text filters', a
 
 test('file name characters: letters A-Z, digits, "-", "_", "(", ")" and spaces', () => {
   assert.equal('Mon rapport (v2) café/2026.tpl'.replace(FILE_NAME_CHARS, ''), 'Mon rapport (v2) caf2026tpl');
-  assert.equal(ReportsApplication.outputPrefix({ file: 'a:b.tpl' }), 'a_b');
 });
 
 /** Jobs API with one running generation of report 6; `wait` ends only when aborted. */
@@ -138,10 +142,9 @@ function runningJobs() {
   return jobs;
 }
 
-test('a job maps to its report by record id, else by template file', async () => {
+test('a job maps to its report by record id', async () => {
   const { application } = await mount();
   assert.equal(application.reportOfJob({ params: { reportId: 6 } }).title, 'Monthly');
-  assert.equal(application.reportOfJob({ params: { reportId: null, templateFile: 'old.tpl' } }).title, 'old');
   assert.equal(application.reportOfJob({ params: {} }), null);
 });
 

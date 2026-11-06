@@ -163,11 +163,11 @@ Common actions:
 |---|---|---|---|
 | Domain | POST `/{domain}/cancel` | Stop the running query of the current user | **`/records` only** (not `/files`). The cancel code is not tied to a domain, so other domains are one route each, when needed |
 | Domain | GET, POST `/{domain}/aggregate` | Count, value lists, aggregates over a query | `/records`; `/files` count and rectypes only |
-| Entity | POST `/{entity}/import` | Import | `/page/import`; `/report/import` 30 |
-| Entity | GET, POST `/{entity}/setup` | Check / install the definitions the entity needs | `/website`, `/page`; `/report` 30; not for the five sys entities yet (404) |
+| Entity | POST `/{entity}/import` | Import | ok |
+| Entity | GET, POST `/{entity}/setup` | Check / install the definitions the entity needs | `/website`, `/page`, `/report`; not for the five sys entities yet (404) |
 | Record | POST `/{entity}/{id}/validate` | Validate | ok |
 | Record | POST `/{entity}/{id}/duplicate` | Duplicate | ok on record-based entities; **405** on tag, bookmark, reminder, user, group (legacy tables) |
-| Record | GET, PUT, DELETE `/{entity}/{id}/asset` | Main file of the record | ok for user, group (28a); 30 for report and output |
+| Record | GET, PUT, DELETE `/{entity}/{id}/asset` | Main file of the record | ok |
 
 Specific actions:
 
@@ -180,12 +180,12 @@ Specific actions:
 | website | POST `/website/{id}/execute` | Build the website (job) | ok |
 | website | POST, DELETE `/website/{id}/assign` | Menu add or move, menu remove | ok |
 | page | POST `/page/{id}/import` | Import a module configuration | ok |
-| report | GET, PUT, DELETE `/report/{id}/asset` | Template | 30 |
-| report | POST `/report/import` | Register an arbitrary template file, creates a record | 30 |
-| report | GET `/report/{id}/export` | Template with concept codes (`.gpl`) | 30 |
-| report | GET, POST `/report/{id}/execute` | Run for **one** record, HTML; test runs stay a job | 30 |
-| output | GET, DELETE `/output/{id}/asset` | Generated file | 30 |
-| output | POST `/output/{id}/execute` | Generate (job) | 30 |
+| report | GET, PUT, DELETE `/report/{id}/asset` | Template | done, 30 |
+| report | POST `/report/import` | Register an arbitrary template file, creates a record | done, 30 |
+| report | GET `/report/{id}/export` | Template with concept codes (`.gpl`) | done, 30 |
+| report | GET, POST `/report/{id}/execute` | Run for **one** record, HTML; test runs stay a job | ok |
+| output | GET, DELETE `/output/{id}/asset` | Generated file | done, 30 |
+| output | POST `/output/{id}/execute` | Generate (job) | done, 30 |
 
 ### 2.5 Who serves what
 
@@ -194,7 +194,7 @@ Specific actions:
 | Served by | Routes |
 |---|---|
 | **hserv** | `/dbs`, `/databases`; `/rectypes`, `/fields`, `/terms`, `/termlinks`, `/recstructure` (short `/rty`, `/dty`, `/trm`, `/trl`, `/rst`); `/rectypegroups`, `/fieldgroups` (short `/rtg`, `/dtg`), `/vcg`, `/swf`; `/login`, `/logout`; `/iiif`; `/annotations`; `/map/data/{id}`; `GET /records/{non-numeric or 0}` (`record_output.php`) |
-| **srv** | Everything else: `/records`, `/sys`, `/def`, `/files`, entities, `/graph`, `/time`, `/map`, `/jobs`, `/external`, `/reports` (until plan 30) |
+| **srv** | Everything else: `/records`, `/sys`, `/def`, `/files`, entities, `/graph`, `/time`, `/map`, `/jobs`, `/external` |
 
 `/web` is not an API route: `/{db}/web/...` belongs to `RequestRouter`.
 
@@ -218,8 +218,8 @@ classes that exist only because of that table; they go away when the table is co
 | sys | mapdoc | Map Document | `assign` (mapdoc–layer) | — (Records) | — | Edited through `/records/{id}` |
 | sys | layer | Map Layer | — | — (Records) | — | `/records/{id}` PATCH (Map symbology) |
 | sys | querysource | Data source / Query Source | — | — (Records) | — | `/records/{id}` |
-| sys | report (UI: Report template) | 2-1104 | `execute` (one record), `asset` (template), `export` (`.gpl`), `import` | — (Records) + `smarty-templates/*.tpl` | `ReportTemplateStore` (template file) | `/report/{id}` CRUD; other routes `/reports/...` until plan 30 (§5) |
-| sys | output (UI: Generated report; was `schedule`) | 2-1105 | `execute` (generate), `asset` (generated file) | — (Records) + `generated-reports/{id}.{ext}` | — | `/output/{id}` CRUD; generate and file: plan 30 |
+| sys | report (UI: Report template) | 2-1104 | `execute` (one record), `asset` (template), `export` (`.gpl`), `import` | — (Records) + `smarty-templates/*.tpl` | `ReportTemplateStore` (template file) | Record format, CRUD, actions (plan 30) |
+| sys | output (UI: Generated report; was `schedule`) | 2-1105 | `execute` (generate), `asset` (generated file) | — (Records) + `generated-reports/{id}.{ext}` | — | Record format, CRUD, actions (plan 30) |
 | sys | exportconfig, crosstab, menuaction | system record types (plan 27 §3) | — | — (Records) | — | `/records/{id}` |
 | def | rectype, field, recstructure, term, termlink, rectypegroup, fieldgroup, vocabularygroup, workflowrule | — (definitions) | `setup` (later: import from core db) | `defRecTypes`, `defDetailTypes`, `defRecStructure`, `defTerms`, `defTermsLinks`, `defRecTypeGroups`, `defDetailTypeGroups`, `defVocabularyGroups`, `sysWorkflowRules` | none in srv; legacy `Def*` / `SysWorkflowRules` classes through `entityScrud.php`; srv has `DefinitionLookup` (read) and `/def/snapshot` | Writes legacy only |
 | files | file | 2-1106 | — (`content`, `thumbnail`, `upload` are special, §4) | `recUploadedFiles` (unless `fileRecords` exists) | `Records/Files/LegacyFileTable`, `Files/LegacyFileStore` (vs `RecordFileStore`), `FileRecordMapping` | Record format, CRUD (plan 20) |
@@ -306,17 +306,17 @@ conversion.
 | `/files/{key}/content\|thumbnail`, `/files/upload` | special (§4) | ok |
 | `GET /def/snapshot` | same (definitions read for clients) | ok |
 | legacy `/rty`, `/dty`, `/trm`, `/trl`, `/rst` ... | `/def/rectype/{id}` ... through the generic controllers | conv |
-| `GET /reports` | `GET\|POST /report?q=` or `/sys?q=[{"t":"report"}]` | 30 |
-| `POST /reports/setup` | `GET\|POST /report/setup` | 30 |
-| `GET /reports/{ref}` | `GET /report/{id}` | 30 |
-| `DELETE /reports/{ref}` | `DELETE /report/{id}/asset` | 30 |
-| `GET\|PUT /reports/{ref}/template` | `GET\|PUT /report/{id}/asset` (replaces the idea of a template field, 2026-11-06) | 30 |
-| `POST /reports/import` | `POST /report/import` | 30 |
-| `GET /reports/{ref}/export` | `GET /report/{id}/export` | 30 |
-| `/reports/{ref}/render?rec=N` | `GET\|POST /report/{id}/execute?recordId=N`, one record | 30 |
-| `GET /reports/schedules` | `GET\|POST /output?q=[{"f:<DT_REPORT>":id}]` | 30 |
-| `GET /reports/generated`, `DELETE /reports/generated/{file}` | `GET\|DELETE /output/{id}/asset`; the list is the output records | 30 |
-| `POST /jobs` `report-preview`, `report-generate` | stay; record ids only | 30 |
+| `GET /reports` | `GET\|POST /report?q=` or `/sys?q=[{"t":"report"}]` | done, 30 |
+| `POST /reports/setup` | `GET\|POST /report/setup` | done, 30 |
+| `GET /reports/{ref}` | `GET /report/{id}` | done, 30 |
+| `DELETE /reports/{ref}` | `DELETE /report/{id}/asset` | done, 30 |
+| `GET\|PUT /reports/{ref}/template` | `GET\|PUT /report/{id}/asset` (replaces the idea of a template field, 2026-11-06) | done, 30 |
+| `POST /reports/import` | `POST /report/import` | done, 30 |
+| `GET /reports/{ref}/export` | `GET /report/{id}/export` | done, 30 |
+| `/reports/{ref}/render?rec=N` | `GET\|POST /report/{id}/execute?recordId=N`, one record | done, 30 |
+| `GET /reports/schedules` | `GET\|POST /output?q=[{"f:<DT_REPORT>":id}]` | done, 30 |
+| `GET /reports/generated`, `DELETE /reports/generated/{file}` | `GET\|DELETE /output/{id}/asset`; the list is the output records | done, 30 |
+| `POST /jobs` `report-preview`, `report-generate` | stay; record ids only | done, 30 |
 | `/website/...` (all) | `/website/{id}`, `/page/{id}` + `assign`, `import`, `execute`, `setup` (plan 27d) | done |
 | `/graph`, `/time`, `/map`, `/iiif`, `/annotations`, `/jobs` | special (§4) | ok |
 
@@ -502,6 +502,7 @@ recommended, but two forms are now allowed:
   special endpoints, current → target mapping, dispatch, database structure (from plan 27 §3), discussion rounds 1-2.
 - 2026-10-30 — §9.7 decided: domain only for whole-domain searches; entity search with `t:`. Plan 27d implemented
   as the first record-based entities (`srv/Records/Entity/`, see 27d §11).
+- 2026-11-06 — plan 30 implemented (not committed): `/reports` removed, statuses updated.
 - 2026-11-06 — plan 28a implemented (not committed): §2.4 and §5 statuses updated, legacy `/users`, `/groups`, `/tag`, `/rem`, `/reminders` removed.
 - 2026-11-06 — draft 2: endpoint table §2.4, who serves what §2.5, action levels §2.3, `image` → `asset`,
   `schedule` → `output`, §5 refreshed, §9.7 revised, §9.8 added. Work goes to plans 28a and 30.

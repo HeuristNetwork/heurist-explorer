@@ -2,8 +2,9 @@
  * @file reportRenderUrl.js
  * @brief URL that renders one record with a Smarty report template.
  *
- * Uses `/api/{db}/reports/{template}/render?rec=N` (plan 12). Templates of the
- * legacy default folder (`def/...`) keep the old `?template=..&q=ids:N` URL.
+ * A report record: `/api/{db}/report/{id}/execute?recordId=N` (plan 30). Templates of the legacy
+ * default folder (`def/...`) and template names stored in older configurations use the legacy
+ * `?template=..&q=ids:N` URL: the API takes record ids only.
  *
  * @project     Heurist academic knowledge management system
  * @package     heurist-client-core
@@ -28,18 +29,18 @@
 export function buildReportRenderUrl(baseUrl, database, template, recordId) {
   const base = new URL(baseUrl, globalThis.location?.href || 'http://localhost/');
   const name = String(template || '').trim();
-  if (name.startsWith('def/')) {
-    const url = new URL(base);
-    url.searchParams.set('snippet', '1');
-    url.searchParams.set('publish', '1');
-    url.searchParams.set('debug', '0');
-    url.searchParams.set('q', `ids:${recordId}`);
-    url.searchParams.set('db', String(database));
-    url.searchParams.set('template', name);
+  if (/^\d+$/.test(name)) {
+    const url = new URL(`api/${encodeURIComponent(String(database))}/report/${name}/execute`, base);
+    url.searchParams.set('recordId', String(recordId));
     return url;
   }
-  const file = /\.tpl$/i.test(name) ? name : `${name}.tpl`;
-  const url = new URL(`api/${encodeURIComponent(String(database))}/reports/${encodeURIComponent(file)}/render`, base);
-  url.searchParams.set('rec', String(recordId));
+  // a built-in template, or the name stored in an older configuration: the legacy renderer knows names
+  const url = new URL(base);
+  url.searchParams.set('snippet', '1');
+  url.searchParams.set('publish', '1');
+  url.searchParams.set('debug', '0');
+  url.searchParams.set('q', `ids:${recordId}`);
+  url.searchParams.set('db', String(database));
+  url.searchParams.set('template', name);
   return url;
 }

@@ -82,7 +82,7 @@ async function previewCards(settings, runtime, language) {
   const found = await (await fetch(`${api}/records?${query}`, { credentials: 'same-origin' })).json();
   const ids = (found?.ids || found?.records || []).slice(0, PREVIEW_CARDS).map((item) => Number(item?.rec_ID ?? item));
   const cards = await Promise.all(ids.map(async (id) => {
-    const url = `${api}/reports/${encodeURIComponent(settings.template)}/render?rec=${id}&lang=${encodeURIComponent(language)}`;
+    const url = `${api}/report/${encodeURIComponent(settings.template)}/execute?recordId=${id}&lang=${encodeURIComponent(language)}`;
     const response = await fetch(url, { credentials: 'same-origin' });
     return response.ok ? `<div class="h-site-card">${await response.text()}</div>` : '';
   }));

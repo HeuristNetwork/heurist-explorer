@@ -98,16 +98,11 @@ export function buildReportList(app, { onSelect }) {
       const running = el('i', 'fa-solid fa-spinner fa-spin h-reports-running', item);
       running.title = $HR('A report is being generated');
     }
-    if ((report.schedules || []).length) {
-      const badge = el('span', 'h-reports-badge', item);
-      badge.textContent = String(report.schedules.length);
-      badge.title = $HR('Schedules');
-    }
-    if (Number(report.generatedCount) > 0) {
+    if (Number(report.outputCount) > 0) {
       const badge = el('span', 'h-reports-badge h-reports-badge-files', item);
       el('i', 'fa-regular fa-file', badge).setAttribute('aria-hidden', 'true');
-      badge.append(` ${report.generatedCount}`);
-      badge.title = $HR('Generated files');
+      badge.append(` ${report.outputCount}`);
+      badge.title = $HR('Generated reports');
     }
     item.addEventListener('click', () => onSelect(report));
     return item;

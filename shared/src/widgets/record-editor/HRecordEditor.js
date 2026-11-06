@@ -42,7 +42,7 @@ import { RecordStructureProvider } from '../../recordview/RecordStructureProvide
 import { buildRecordBody, defaultFieldValues, recordFieldValues } from '../../data/recordEditValues.js';
 import { multilangFieldIds } from '../../data/writableRecordTypes.js';
 import { allowsStoredCode, isStoredCodeField } from '../../data/storedTextPolicy.js';
-import { nonStandardGroup, relationRecordStructure, reverseRelmarkerGroup, splitLargeGroups, structureFields } from '../../data/recordEditStructure.js';
+import { nonStandardGroup, relationRecordStructure, reportRecordStructure, reverseRelmarkerGroup, splitLargeGroups, structureFields } from '../../data/recordEditStructure.js';
 import { loadRelationship, loadRelmarkerStates, relationFits, relationshipBody } from '../../data/relmarkerRelations.js';
 import { RecordRelationStore } from '../../data/relationStores.js';
 import { HCardinalLayout } from '../layout/HCardinalLayout.js';
@@ -213,9 +213,9 @@ export class HRecordEditor extends HBaseWidget {
       return this;
     }
     // a relationship record: constraints of the relmarker field it was opened from (2026-10-22)
-    const structure = relationRecordStructure(await this.structureProvider.editStructure(rty, {
+    const structure = reportRecordStructure(relationRecordStructure(await this.structureProvider.editStructure(rty, {
       signal, dbdefs: this.dbdefs, multilangIds: multilangFieldIds(this.dbdefs, rty)
-    }), this.dbdefs, this.options.relation || null);
+    }), this.dbdefs, this.options.relation || null), this.dbdefs, Number(this.options.recordId) || 0);
     // relationships of other record types' relmarker fields that target this type (plan 22),
     // then the values of fields the structure does not have: last groups (a copy: the structure is cached)
     // both groups can be switched off in the configuration (plan 25); the values of non-standard

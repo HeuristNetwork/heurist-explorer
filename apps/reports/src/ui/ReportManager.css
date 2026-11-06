@@ -287,6 +287,9 @@
 .h-reports-schedules { display: flex; flex-direction: column; gap: 8px; min-width: min(780px, calc(100vw - 64px)); }
 .h-reports-schedules-controls { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 .h-reports-schedules-controls .h-input { flex: 1 1 180px; }
+.h-reports-language { padding: 0 4px; border: 1px solid #c8ced6; border-radius: 3px; font-size: var(--h-font-size-tiny); }
+.h-reports-choice-row:not(.h-muted) { cursor: pointer; }
+.h-reports-choice-row:not(.h-muted):hover { background: var(--h-color-hover, #eef2f7); }
 .h-reports-table { border-collapse: collapse; width: 100%; }
 .h-reports-table th,
 .h-reports-table td { padding: 3px 6px; text-align: left; border-bottom: 1px solid #e7eaee; }

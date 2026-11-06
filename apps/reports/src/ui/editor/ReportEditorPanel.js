@@ -36,7 +36,7 @@ import {
 import { HFieldTree } from '#shared/widgets/field-tree/HFieldTree.js';
 import { HCardinalLayout } from '#shared/widgets/layout/HCardinalLayout.js';
 import { ReportsApplication } from '../../core/ReportsApplication.js';
-import { openFormDialog, FILE_NAME_CHARS } from '../formDialog.js';
+import { openFormDialog } from '../formDialog.js';
 import { openInsertFieldsDialog } from './insertFieldsDialog.js';
 import { ReportViewer } from '../ReportViewer.js';
 import './ReportEditorPanel.css';
@@ -445,16 +445,13 @@ export class ReportEditorPanel extends HBaseWidget {
       title: 'Save as a new report',
       okLabel: 'Save',
       fields: [
-        { name: 'title', label: 'Title', value: `${this.report.title} (copy)`, required: true },
-        { name: 'isCardView', label: 'Single record (card) report', type: 'checkbox', value: this.report.isCardView === true },
-        { name: 'file', label: 'Template file name', allowed: FILE_NAME_CHARS,
-          hint: 'Letters A-Z, digits, "-", "_", "(", ")" and spaces. Empty: made from the title.' }
+        { name: 'title', label: 'Title', value: `${this.report.title} (copy)`, required: true }
       ]
     });
     if (!values) return;
     const text = this.editor.getValue();
     this.editor.markSaved(); // the original is left unchanged on purpose
-    const report = await this.app.saveAsReport({ ...values, body: text });
+    const report = await this.app.saveAsReport(this.report, { title: values.title, body: text });
     await this.app.view?.showEditor?.(report);
   }
 

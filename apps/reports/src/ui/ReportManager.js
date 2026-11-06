@@ -25,8 +25,7 @@ import { $HR, HMsg } from '#shared/ui';
 import { ReportsApplication } from '../core/ReportsApplication.js';
 import { ReportViewer } from './ReportViewer.js';
 import { buildReportList, iconClass } from './ReportList.js';
-import { buildGeneratedList } from './GeneratedFiles.js';
-import { openSchedulesDialog } from './SchedulesDialog.js';
+import { openOutputChoice, openOutputsDialog } from './OutputsDialog.js';
 import { openGenerateForm } from './reportForms.js';
 import { confirmDialog } from './formDialog.js';
 import { showPopover, closePopover } from './popover.js';
@@ -101,15 +100,15 @@ export class ReportManager extends HBaseWidget {
     this.buttons.test.classList.add('h-btn-primary');
     const split = el('span', 'h-reports-split', this.runTools);
     this.buttons.generate = this.tool(split, 'fa-solid fa-gears', 'Generate', 'Write the report to a file in the background', () => this.generate());
+    // all the generated reports of a report, scheduled or not (plan 30)
     const caret = el('button', 'h-btn h-reports-split-caret', split);
     caret.type = 'button';
-    caret.title = $HR('Generated files of this report');
+    caret.title = $HR('Generated reports');
     caret.setAttribute('aria-label', caret.title);
     caret.setAttribute('aria-haspopup', 'true');
     el('span', 'h-caret', caret).setAttribute('aria-hidden', 'true');
-    this.listen(caret, 'click', () => this.toggleGenerated(caret));
+    this.listen(caret, 'click', () => this.run(() => this.outputs()));
     this.buttons.generated = caret;
-    this.buttons.schedule = this.tool(this.runTools, 'fa-solid fa-calendar-days', 'Schedule', 'Schedules that regenerate the report file', () => this.schedules());
 
     // the database may not run JavaScript/CSS blocks in reports (server setting)
     this.jsWarning = el('span', 'h-reports-js-warning', toolbar);
@@ -157,7 +156,7 @@ export class ReportManager extends HBaseWidget {
     this.buttons.create.disabled = !editable;
     this.buttons.create.title = $HR(editable ? 'Create a new report' : 'The record editor is not available here');
     this.reportTools.hidden = !report;
-    show(this.buttons.template, Boolean(report) && report.fileExists !== false);
+    show(this.buttons.template, report?.id != null && report.fileExists !== false);
     const label = this.buttons.properties.querySelector('.h-reports-tool-label');
     if (report?.id == null) {
       label.textContent = $HR('Register');
@@ -170,19 +169,20 @@ export class ReportManager extends HBaseWidget {
       this.buttons.properties.setAttribute('aria-label', $HR('Edit'));
       show(this.buttons.properties, report.canEdit === true && this.app.host.canEditRecords());
     }
-    show(this.buttons.export, Boolean(report) && report.fileExists !== false);
+    show(this.buttons.export, report?.id != null && report.fileExists !== false);
     show(this.buttons.delete, report?.canEdit === true);
 
     this.runTools.hidden = !report;
-    const runnable = Boolean(report) && report.fileExists !== false;
+    // a template file without a record is registered first (plan 30): only Register and Delete
+    const registered = report?.id != null;
+    const runnable = registered && report.fileExists !== false;
     this.buttons.test.disabled = !runnable || this.testing;
     this.buttons.test.title = this.app.testTip(report);
     this.jsWarning.hidden = !this.app.data.settings || this.app.scriptsAllowed();
     this.viewer.setScriptsAllowed(this.app.scriptsAllowed());
     const generatable = runnable && !report.isCardView;
     this.buttons.generate.disabled = !generatable;
-    this.buttons.generated.disabled = !report;
-    this.buttons.schedule.disabled = !(report?.id != null && !report.isCardView);
+    this.buttons.generated.disabled = !(registered && !report.isCardView);
 
     // the information is shown again only for another report: output stays
     const reference = report ? ReportsApplication.reference(report) : null;
@@ -236,8 +236,8 @@ export class ReportManager extends HBaseWidget {
     if (this.followingId !== job.id) return;
     this.followingId = null;
     if (this.app.generateJob?.id === job.id) this.app.setGenerateJob(null);
-    if (final.status === 'done' && final.result?.url && /\.(html|txt|xml|json|csv)$/i.test(final.result.file || '')) {
-      this.viewer.showUrl(final.result.url);
+    if (final.status === 'done' && final.result?.outputId && ['html', 'txt', 'xml', 'json', 'csv'].includes(final.result.format)) {
+      this.viewer.showUrl(this.app.api.outputUrl(final.result.outputId));
     }
   }
 
@@ -288,18 +288,11 @@ export class ReportManager extends HBaseWidget {
     }), { className: 'h-reports-picker-popover' });
   }
 
-  /** Open or close the list of generated files of the selected report. */
-  toggleGenerated(anchor) {
+  /** The generated reports of the selected report. */
+  async outputs() {
     const report = this.app.selectedReport();
     if (!report) return;
-    if (anchor.getAttribute('aria-expanded') === 'true') {
-      closePopover();
-      return;
-    }
-    showPopover(anchor, buildGeneratedList(this.app, report, {
-      onShow: (url) => this.showOutput(() => this.viewer.showUrl(url)),
-      onClose: () => closePopover()
-    }), { className: 'h-reports-generated-popover', align: 'right' });
+    await openOutputsDialog(this.app, report, { onShow: (url) => this.showOutput(() => this.viewer.showUrl(url)) });
   }
 
   /** New report: record editor, then the template editor. */
@@ -377,7 +370,10 @@ export class ReportManager extends HBaseWidget {
     }
   }
 
-  /** Generate form, then follow the job; the output is shown when done. */
+  /**
+   * Generate: the records, then the output of this filter that is generated again, or a new one in the
+   * record editor. The job is followed and the file is shown when done.
+   */
   async generate() {
     const report = this.app.selectedReport();
     if (!report) return;
@@ -387,12 +383,17 @@ export class ReportManager extends HBaseWidget {
       await this.showRunningGeneration(running);
       return;
     }
-    const params = await openGenerateForm(this.app, report);
-    if (!params) return;
+    const query = await openGenerateForm(this.app);
+    if (query == null) return;
+    const existing = await this.app.outputsWithQuery(report, query);
+    const chosen = existing.length ? await openOutputChoice(existing) : 'new';
+    if (!chosen) return;
+    const output = chosen === 'new' ? await this.app.newOutput(report, query) : chosen;
+    if (!output) return;
     if (!(await this.closeEditor())) return;
     let job;
     try {
-      job = await this.app.startGenerate(params);
+      job = await this.app.startGenerate(output);
     } catch (error) {
       // started meanwhile in another tab
       const other = (await this.app.activeJobs().catch(() => [])).find((item) => item.type === 'report-generate');
@@ -401,16 +402,6 @@ export class ReportManager extends HBaseWidget {
       return;
     }
     this.app.setGenerateJob(job);
-  }
-
-  /** Schedules of the selected report, or the new-schedule form when it has none. */
-  async schedules() {
-    const report = this.app.selectedReport();
-    if (!report || report.id == null) return;
-    if (!(report.schedules || []).length && report.canEdit && this.app.host.canEditRecords()) {
-      if (!(await this.app.addSchedule(report))) return;
-    }
-    await openSchedulesDialog(this.app, this.app.findReport(ReportsApplication.reference(report)) || report);
   }
 
   /** Show output in the main area (closes the editor first). */

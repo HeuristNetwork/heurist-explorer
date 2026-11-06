@@ -83,9 +83,8 @@ export class ReportViewer extends HBaseWidget {
     if (report.fileExists === false) {
       el('div', 'h-reports-warning', this.info).textContent = $HR('The template file of this report does not exist.');
     }
-    const schedules = (report.schedules || []).length;
-    if (schedules) {
-      el('div', 'h-muted', this.info).textContent = `${$HR('Schedules')}: ${schedules}`;
+    if (Number(report.outputCount) > 0) {
+      el('div', 'h-muted', this.info).textContent = `${$HR('Generated reports')}: ${report.outputCount}`;
     }
     el('div', 'h-reports-hint h-muted', this.info).textContent = report.isCardView
       ? $HR('Test shows the report for the first selected record, or the first record of the current result.')

@@ -2,23 +2,23 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { ReportTemplateProvider } from '../../src/data/ReportTemplateProvider.js';
 
-test('ReportTemplateProvider lists card reports from /reports?scope=card', async () => {
+test('ReportTemplateProvider lists the card reports of /report by record id', async () => {
   const requested = [];
   const provider = new ReportTemplateProvider({
     baseUrl: 'http://localhost/heurist/', database: 'db1',
     fetchImpl: async (url) => {
       requested.push(new URL(url));
-      return { ok: true, json: async () => ({ status: 0, data: { installed: true, reports: [
-        { id: 5, title: 'Person card', file: 'person card.tpl', isCardView: true },
-        { id: 6, title: 'No file', file: '' }
-      ] } }) };
+      return { ok: true, json: async () => ({ records: [{ rec_ID: '5' }, { rec_ID: '6' }, { rec_ID: '7' }], meta: { items: {
+        5: { id: 5, title: 'Person card', file: 'person card.tpl', isCardView: true },
+        6: { id: 6, title: 'No file', file: '', isCardView: true },
+        7: { id: 7, title: 'A set', file: 'set.tpl', isCardView: false }
+      } } }) };
     }
   });
   const templates = await provider.list();
   assert.equal(requested.length, 1);
-  assert.equal(requested[0].pathname, '/heurist/api/db1/reports');
-  assert.equal(requested[0].searchParams.get('scope'), 'card');
-  assert.deepEqual(templates, [{ value: 'person card', label: 'Person card' }]);
+  assert.equal(requested[0].pathname, '/heurist/api/db1/report');
+  assert.deepEqual(templates, [{ value: '5', label: 'Person card', file: 'person card' }]);
 });
 
 test('ReportTemplateProvider falls back to the legacy list when report records are not installed', async () => {
@@ -29,7 +29,7 @@ test('ReportTemplateProvider falls back to the legacy list when report records a
       const parsed = new URL(url);
       requested.push(parsed);
       if (parsed.pathname.includes('/api/')) {
-        return { ok: true, json: async () => ({ status: 0, data: { installed: false, reports: [] } }) };
+        return { ok: false, status: 400, json: async () => ({}) };
       }
       return { ok: true, json: async () => ({ data: ['A.tpl', { name: 'B.tpl', title: 'Template B' }] }) };
     }
@@ -44,7 +44,7 @@ test('ReportTemplateProvider falls back to the legacy list when report records a
   ]);
 });
 
-test('ReportTemplateProvider falls back to the legacy list when /reports is missing', async () => {
+test('ReportTemplateProvider falls back to the legacy list when /report is missing', async () => {
   const provider = new ReportTemplateProvider({
     baseUrl: 'http://localhost/heurist', database: 'db1',
     fetchImpl: async (url) => (String(url).includes('/api/')

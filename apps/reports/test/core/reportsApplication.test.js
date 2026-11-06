@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { installFakeDom } from '../../../../shared/test/helpers/fakeDom.js';
 
 installFakeDom();
-const { ReportsApplication, starterTemplate, TEST_RECORD_LIMIT } = await import('../../src/core/ReportsApplication.js');
+const { ReportsApplication, sameQuery, starterTemplate, TEST_RECORD_LIMIT } = await import('../../src/core/ReportsApplication.js');
 const { ReportsHostAdapter } = await import('../../src/host/ReportsHostAdapter.js');
 const { createHeuristReportsConfig } = await import('../../src/reportsConfig.js');
 
@@ -54,15 +54,23 @@ test('refresh loads the list; reports are found by record id or file name', asyn
   assert.equal(ReportsApplication.reference(LIST.reports[0]), '5');
 });
 
-test('generated files of a report are asked for by its reference: the rule of the server, not a name prefix', async () => {
-  const asked = [];
-  const application = app(fakeApi({ generated: async (report) => { asked.push(report); return [{ file: 'monthly.html' }]; } }));
+test('outputs of a report with the same query: JSON text and values compare equal', async () => {
+  const outputs = [
+    { id: 1, title: 'B', reportId: 6, query: '[{"t":"10"}]' },
+    { id: 2, title: 'A', reportId: 6, query: ' [ { "t" : "10" } ] ' },
+    { id: 3, title: 'C', reportId: 6, query: '[{"t":"11"}]' },
+    { id: 4, title: 'D', reportId: 5, query: '[{"t":"10"}]' }
+  ];
+  const application = app(fakeApi({ outputs: async () => outputs }));
   await application.refresh();
-  assert.deepEqual(await application.generatedFiles(application.findReport('6')), [{ file: 'monthly.html' }]);
-  assert.deepEqual(asked, ['6']);
+  const found = await application.outputsWithQuery(application.findReport('6'), [{ t: '10' }]);
+  assert.deepEqual(found.map((output) => output.id), [2, 1], 'by title');
+  assert.equal(sameQuery('?t:10', 't:10'), true);
+  assert.equal(sameQuery('t:10', 't:11'), false);
+  assert.equal(sameQuery(null, ''), true);
 });
 
-const DEFINITIONS = { RT_CUSTOM_REPORT: 24, DT_NAME: 1, DT_FILE_NAME: 62, DT_IS_CARD_VIEW: 75, DT_REPORT: 76, TRM_YES: 9 };
+const DEFINITIONS = { RT_CUSTOM_REPORT: 24, DT_NAME: 1, DT_QUERY_STRING: 12, DT_FILE_NAME: 62, DT_IS_CARD_VIEW: 75, DT_REPORT: 76, TRM_YES: 9 };
 
 /** An application with the definitions and a host that saves new records. */
 function editing(api, answer = { saved: true, recordId: 6 }) {
@@ -76,37 +84,36 @@ function editing(api, answer = { saved: true, recordId: 6 }) {
   return { application, added };
 }
 
-test('a template without a record: the record editor with its name; another name moves the template', async () => {
-  const api = fakeApi({ readTemplate: async () => ({ body: 'text' }) });
+test('a template without a record: the record editor with its name; the record takes the file', async () => {
+  const api = fakeApi();
   const { application, added } = editing(api);
   await application.refresh();
   await application.registerReport(application.findReport('old.tpl'));
   assert.deepEqual(added, [['RT_CUSTOM_REPORT', { values: { 1: 'old', 62: 'old.tpl' } }]]);
-  assert.deepEqual(api.calls.slice(0, 2), [['saveTemplate', 6, 'text'], ['remove', 'old.tpl']]);
+  assert.deepEqual(api.calls, []);
   assert.equal(application.selectedRef, '6');
 });
 
-test('a template without a record: the same name moves nothing; a closed editor changes nothing', async () => {
-  const api = fakeApi();
-  const list = { ...LIST, reports: [...LIST.reports, { id: 8, title: 'old', file: 'OLD.tpl', canEdit: true, schedules: [] }] };
-  api.list = async () => list;
-  const { application } = editing(api, { saved: true, recordId: 8 });
-  await application.refresh();
-  await application.registerReport(application.findReport('old.tpl'));
-  assert.deepEqual(api.calls, []);
+test('a template without a record: a closed editor changes nothing', async () => {
   const closed = editing(fakeApi(), { saved: false });
   await closed.application.refresh();
   assert.equal(await closed.application.registerReport(closed.application.findReport('old.tpl')), null);
 });
 
-test('a schedule is added in the record editor: name, report and the owner of the report', async () => {
-  const { application, added } = editing(fakeApi());
+test('an output is added in the record editor: from the dialog with the owner of the report, from Generate the user\'s own', async () => {
+  const { application, added } = editing(fakeApi({ outputs: async () => [{ id: 6, title: 'Monthly' }] }));
   await application.refresh();
-  assert.equal(await application.addSchedule({ id: 6, title: 'Monthly', ownerGroupId: 3 }), true);
-  assert.deepEqual(added, [['RT_REPORT_SCHEDULE', {
+  application.userGroups = { currentUserId: 2 };
+  assert.equal((await application.newOutput({ id: 6, title: 'Monthly', ownerGroupId: 3 })).id, 6);
+  assert.deepEqual(added.at(-1), ['RT_REPORT_SCHEDULE', {
     values: { 1: 'Monthly', 76: 6 },
     access: { owner: 3, visibility: 'viewable', viewGroups: [] }
-  }]]);
+  }]);
+  await application.newOutput({ id: 6, title: 'Monthly', ownerGroupId: 3 }, [{ t: '10' }]);
+  assert.deepEqual(added.at(-1), ['RT_REPORT_SCHEDULE', {
+    values: { 1: 'Monthly', 76: 6, 12: '[{"t":"10"}]' },
+    access: { owner: 2, visibility: 'hidden', viewGroups: [] }
+  }]);
 });
 
 test('current result with its record count; parameterized Query Sources are left out', async () => {
@@ -156,14 +163,11 @@ test('a new report starts with a starter template; a template that has a text ke
   assert.match(starterTemplate(false), /\{foreach \$results as \$r1\}/);
 });
 
-test('Save As: a record with its name and flag, then the text', async () => {
-  const api = fakeApi();
+test('Save As: a copy of the report with its title, then the text of the editor', async () => {
+  const api = fakeApi({ duplicate: async (id, title) => { api.calls.push(['duplicate', id, title]); return 7; } });
   const { application } = editing(api);
-  await application.saveAsReport({ title: 'Copy', isCardView: true, file: 'copy', body: 'X' });
-  assert.deepEqual(api.calls.slice(0, 2), [
-    ['createRecord', 24, { 1: ['Copy'], 62: ['copy'], 75: [9] }],
-    ['saveTemplate', 7, 'X']
-  ]);
+  await application.saveAsReport({ id: 5 }, { title: 'Copy', body: 'X' });
+  assert.deepEqual(api.calls.slice(0, 2), [['duplicate', 5, 'Copy'], ['saveTemplate', 7, 'X']]);
   assert.equal(application.selectedRef, '7');
 });
 

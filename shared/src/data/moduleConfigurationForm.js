@@ -261,7 +261,7 @@ export function smartyTemplateTerms(provider) {
     const items = await provider.list();
     return (Array.isArray(items) ? items : [])
       .filter((item) => item && item.value)
-      .map((item) => ({ id: String(item.value), label: String(item.label ?? item.value) }));
+      .map((item) => ({ id: String(item.value), label: String(item.label ?? item.value), ...(item.file ? { aliases: [item.file, `${item.file}.tpl`] } : {}) }));
   };
 }
 

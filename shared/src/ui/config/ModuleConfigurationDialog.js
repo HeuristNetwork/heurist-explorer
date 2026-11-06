@@ -23,7 +23,7 @@
  */
 
 import { HEditForm } from '../../widgets/edit-form/HEditForm.js';
-import { resolveTermsSources } from '../../data/editFormSchema.js';
+import { applyTermAliases, resolveTermsSources } from '../../data/editFormSchema.js';
 import { configurationFormMode, hasOptionalItems, mergeSettings } from '../../data/moduleConfigurationForm.js';
 import { HMsg } from '../HMsg.js';
 import { $HR } from '../i18n/HResource.js';
@@ -81,7 +81,7 @@ export class ModuleConfigurationDialog {
    */
   async open() {
     const json = await resolveTermsSources(this.options.form, this.options.termsProviders || {});
-    this.settings = this.initialSettings();
+    this.settings = applyTermAliases(json, this.initialSettings());
     const body = document.createElement('div');
     body.className = 'h-module-config';
     const advancedKey = `${this.formId}:${this.mode}`;

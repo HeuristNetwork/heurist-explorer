@@ -2,9 +2,9 @@
  * @file ReportTemplateProvider.js
  * @brief Smarty report templates offered for record popups, cards and Record view.
  *
- * Lists the single-record (card) reports of `/api/{db}/reports?scope=card`: every
- * Custom Report record with "Is card view" = Yes that the user can see. Values
- * are template names (without ".tpl"), as stored in module configurations. When the report
+ * Lists the single-record (card) reports of `/api/{db}/report`: every Custom Report record
+ * with "Is card view" = Yes that the user can see. Values are record ids; `file` is the
+ * template name older module configurations stored (plan 30). When the report
  * record types are not installed in the database, or the API is not available,
  * all template files of the legacy ReportController are listed instead.
  *
@@ -48,13 +48,12 @@ export class ReportTemplateProvider {
     if (!this.isConfigured()) return [];
     let payload = null;
     try {
-      payload = await this._json(this._apiUrl('reports', { scope: 'card' }), signal);
+      payload = await this._json(this._apiUrl('report', { fields: 'rec_ID,rec_Title', limit: '5000' }), signal);
     } catch (error) {
       if (error?.name === 'AbortError') throw error;
-      payload = null; // older server without /reports: legacy list below
+      payload = null; // report records are not installed: legacy list below
     }
-    const data = payload?.data;
-    if (data?.installed) return reportOptions(data.reports);
+    if (Array.isArray(payload?.records)) return reportOptions(payload.meta?.items);
     return this._legacyList(signal);
   }
 
@@ -89,15 +88,17 @@ export class ReportTemplateProvider {
 }
 
 /**
- * Options of report records: value = template name without ".tpl" (the form the
- * legacy list stored in module configurations), label = report title.
+ * Options of the card reports: value = record id (the API runs a report by its id, plan 30), label = title,
+ * `file` = template name without ".tpl", the form stored in older module configurations.
  */
-function reportOptions(reports) {
-  return (Array.isArray(reports) ? reports : [])
-    .filter((report) => report?.file)
+function reportOptions(items) {
+  return Object.values(items || {})
+    .filter((report) => report?.isCardView && report?.file)
+    .sort((a, b) => String(a.title).localeCompare(String(b.title), undefined, { sensitivity: 'base' }))
     .map((report) => ({
-      value: String(report.file).replace(/\.tpl$/i, ''),
-      label: String(report.title || report.file)
+      value: String(report.id),
+      label: String(report.title || report.file),
+      file: String(report.file).replace(/\.tpl$/i, '')
     }));
 }
 

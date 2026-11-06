@@ -11,9 +11,11 @@ test('PopupProvider builds legacy built-in and Smarty popup URLs', () => {
   assert.equal(builtin.searchParams.get('recID'), '123');
   assert.equal(builtin.searchParams.get('db'), 'osmak_mapping');
 
-  const smarty = new URL(provider.buildUrl(123, 'Map popup.tpl'));
-  assert.equal(smarty.pathname, '/heurist/api/osmak_mapping/reports/Map%20popup.tpl/render');
-  assert.equal(smarty.searchParams.get('rec'), '123');
+  const smarty = new URL(provider.buildUrl(123, '45'));
+  assert.equal(smarty.pathname, '/heurist/api/osmak_mapping/report/45/execute');
+  assert.equal(smarty.searchParams.get('recordId'), '123');
+  const stored = new URL(provider.buildUrl(123, 'Map popup.tpl'));
+  assert.equal(stored.searchParams.get('template'), 'Map popup.tpl', 'a stored name: the legacy renderer');
 });
 
 test('PopupProvider fetches HTML lazily with same-origin credentials', async () => {
@@ -25,10 +27,10 @@ test('PopupProvider fetches HTML lazily with same-origin credentials', async () 
       return { ok: true, text: async () => '<div>popup</div>' };
     }
   });
-  const html = await provider.load(7, { template: 'x.tpl' });
+  const html = await provider.load(7, { template: '12' });
   assert.equal(html, '<div>popup</div>');
   assert.equal(request.init.credentials, 'same-origin');
-  assert.equal(new URL(request.url).pathname, '/heurist/api/db1/reports/x.tpl/render');
+  assert.equal(new URL(request.url).pathname, '/heurist/api/db1/report/12/execute');
 });
 
 test('PopupProvider supports none, minimal, standard and named-template modes', async () => {
@@ -53,9 +55,9 @@ test('PopupProvider supports none, minimal, standard and named-template modes', 
   assert.equal(standard.pathname, '/heurist/viewers/record/renderRecordData.php');
   assert.equal(standard.searchParams.get('recID'), '7');
 
-  const named = new URL(provider.buildUrl(7, 'My template.tpl'));
-  assert.equal(named.pathname, '/heurist/api/db1/reports/My%20template.tpl/render');
-  assert.equal(named.searchParams.get('rec'), '7');
+  const named = new URL(provider.buildUrl(7, '12'));
+  assert.equal(named.pathname, '/heurist/api/db1/report/12/execute');
+  assert.equal(named.searchParams.get('recordId'), '7');
 });
 
 test('minimal popup supports non-Heurist file features without a record ID', async () => {

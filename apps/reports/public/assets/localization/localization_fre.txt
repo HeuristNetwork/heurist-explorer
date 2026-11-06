@@ -265,3 +265,19 @@
 #Language of the test run#Langue de l'exécution de test
 #Query#Requête
 #The record editor is not available here#L’éditeur de fiches n’est pas disponible ici
+#Add a generated report of this report#Ajouter un rapport généré de ce rapport
+#Add generated report#Ajouter un rapport généré
+#Choose a report in the list above#Choisissez un rapport dans la liste ci-dessus
+#Delete generated report#Supprimer le rapport généré
+#Delete the generated file#Supprimer le fichier généré
+#Delete the generated file of#Supprimer le fichier généré de
+#Generated#Généré
+#Generated reports#Rapports générés
+#New output#Nouveau rapport généré
+#Next#Suivant
+#No generated reports#Aucun rapport généré
+#Scheduled#Planifié
+#Search generated reports#Rechercher des rapports générés
+#Size#Taille
+#There are already generated reports for this template with this filter. Select one to regenerate it, or make a new one.#Des rapports générés existent déjà pour ce modèle avec ce filtre. Sélectionnez-en un pour le régénérer, ou créez-en un nouveau.
+#You can not change this generated report#Vous ne pouvez pas modifier ce rapport généré
