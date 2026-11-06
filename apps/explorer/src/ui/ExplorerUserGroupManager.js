@@ -8,7 +8,7 @@
  * person, activity (read only), the groups with the role and the image. A group: name, long
  * name, description, URLs, the members with the role and the image. The memberships are the
  * relmarker DT_GROUP_MEMBERSHIP (plan 24): "Manage" opens the relations mode of the record
- * manager, the changes are written at once (POST /sys/group/{id}/members), not with Save.
+ * manager, the changes are written at once (POST /group/{id}/assign), not with Save.
  * The server decides who may change what (administrators, the user, the admins of a group).
  *
  *   await openUserGroupManager('group', { apiClient, dbdefs, baseUrl, database, onChange });

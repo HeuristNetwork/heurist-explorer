@@ -32,7 +32,7 @@ test('ReportApi paths: record ids and file names are encoded', async () => {
     ['DELETE', '/reports/a%26b.tpl', null],
     ['DELETE', '/report/5', { keepFile: 1 }],
     ['POST', '/report/0', { rec_RecTypeID: 24, details: { 1: ['T'] } }],
-    ['DELETE', '/schedule/60', null]
+    ['DELETE', '/output/60', null]
   ]);
   assert.equal(api.exportUrl('x.tpl'), 'http://x/api/db/reports/x.tpl/export');
   assert.equal(api.renderUrl(5, 7), 'http://x/api/db/reports/5/render?rec=7');

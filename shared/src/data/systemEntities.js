@@ -170,7 +170,7 @@ export const SYSTEM_STRUCTURES = Object.freeze({
     ])
   }),
   // a workgroup (plan 20, Phase 4d): its members are the relmarker DT_GROUP_MEMBERSHIP, the role as
-  // the relation type (plan 24), written apart (POST /sys/group/{id}/members)
+  // the relation type (plan 24), written apart (POST /group/{id}/assign)
   group: Object.freeze({
     rectype: SYSTEM_RECORD_TYPES.group,
     // two tabs (plan 24 review): Info, Membership

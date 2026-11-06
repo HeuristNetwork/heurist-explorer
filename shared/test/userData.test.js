@@ -85,15 +85,15 @@ function fakeApi() {
     },
     async request(path, { method, body }) {
       calls.push([method, path, body]);
-      if (path === '/sys/reminder/send') return { sent: true, record: 81 };
+      if (path === '/reminder/execute') return { sent: true, record: 81 };
       if (method === 'DELETE') return { deleted: Number(path.split('/').pop()) };
-      const saved = path.startsWith('/sys/bookmark') ? bookmark : reminder;
+      const saved = path.startsWith('/bookmark') ? bookmark : reminder;
       return { records: [{ ...saved, details: { ...saved.details, ...body.details } }], meta: { issues: [] } };
     }
   };
 }
 
-test('BookmarkClient: the bookmark of a record, create and update send /sys/bookmark requests', async () => {
+test('BookmarkClient: the bookmark of a record, create and update send /bookmark requests', async () => {
   const api = fakeApi();
   const client = new BookmarkClient({ apiClient: api, dbdefs });
   const { bookmark, encrypted } = await client.ofRecord(81);
@@ -101,10 +101,10 @@ test('BookmarkClient: the bookmark of a record, create and update send /sys/book
   assert.equal(encrypted, true);
   assert.deepEqual([bookmark.id, bookmark.recordId, bookmark.rating, bookmark.privateInfo, bookmark.unreadable], [7, 81, 4, 'hint', false]);
   await client.create(81, { rating: '2', notes: 'n' });
-  assert.deepEqual(api.calls[1].slice(0, 2), ['POST', '/sys/bookmark/0']);
+  assert.deepEqual(api.calls[1].slice(0, 2), ['POST', '/bookmark/0']);
   assert.deepEqual(api.calls[1][2].details, { 13: ['81'], 1185: ['2'], 4: ['n'] });
   await client.update(7, { privateInfo: '', record: '99' }, { modified: '2026-10-22 10:00:00' });
-  assert.deepEqual(api.calls[2].slice(0, 2), ['PATCH', '/sys/bookmark/7']);
+  assert.deepEqual(api.calls[2].slice(0, 2), ['PATCH', '/bookmark/7']);
   assert.deepEqual(api.calls[2][2], { details: { 1186: [] }, rec_Modified: '2026-10-22 10:00:00' });
 });
 
@@ -115,7 +115,7 @@ test('ReminderClient: the reminders of a record and Send now (not saved)', async
   assert.deepEqual([reminder.id, reminder.recipient, reminder.frequency, reminder.startDate], [9, '1', '10452', '2026-11-01']);
   const result = await client.send(81, { email: 'a@example.org', message: 'Now' });
   assert.deepEqual(result, { sent: true, record: 81 });
-  assert.deepEqual(api.calls[1].slice(0, 2), ['POST', '/sys/reminder/send']);
+  assert.deepEqual(api.calls[1].slice(0, 2), ['POST', '/reminder/execute']);
   assert.deepEqual(api.calls[1][2].details, { 23: ['a@example.org'], 4: ['Now'], 13: ['81'] });
 });
 

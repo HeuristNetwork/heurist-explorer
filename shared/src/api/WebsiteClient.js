@@ -144,9 +144,9 @@ export class WebsiteClient {
     const type = String(module || '');
     const codes = await this.codes();
     if (!codes.page || !codes.version || !codes.configuration) return [];
-    const filter = [{ t: String(codes.page) }, { [`f:${codes.version}`]: '4' }];
+    const filter = [{ [`f:${codes.version}`]: '4' }];
     if (codes.pageType && codes.standalonePage) filter.push({ [`f:${codes.pageType}`]: String(codes.standalonePage) });
-    const response = await this._call('GET', '/records', undefined, {
+    const response = await this._call('GET', '/page', undefined, {
       q: JSON.stringify(filter),
       fields: ['rec_ID', 'rec_Title', 'rec_Modified', codes.name, codes.configuration].filter(Boolean).join(','),
       limit: 500

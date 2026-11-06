@@ -104,7 +104,7 @@ test('record type domains: records by default, files for RT_REGISTERED_FILE, sys
   const dbdefs = { dbconst: (code) => consts[code] || 0 };
   assert.deepEqual(recordTypeDomain(dbdefs, 10), { domain: 'records', type: null, path: '/records' });
   assert.deepEqual(recordTypeDomain(dbdefs, 60), { domain: 'files', type: null, path: '/files' });
-  assert.deepEqual(recordTypeDomain(dbdefs, 70), { domain: 'system', type: 'bookmark', path: '/system/bookmark' });
+  assert.deepEqual(recordTypeDomain(dbdefs, 70), { domain: 'sys', type: 'bookmark', path: '/bookmark' });
   // a code the database does not have matches nothing
   assert.equal(recordDomain(dbdefs, 0), 'records');
   assert.equal(recordDomain(null, 60), 'records');

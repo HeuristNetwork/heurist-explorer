@@ -8,7 +8,7 @@
  * tag's one; the picker's action "Add new tag" makes the typed text a new tag of the chosen
  * owner and puts it on the record. Below, the record's tags of the chosen owner, each with
  * a × (on hover) that takes it off the record. The changes are sent at once
- * (`/sys/tag/assign`), like relationships: a tag is not a field of the record.
+ * (`/tag/assign`), like relationships: a tag is not a field of the record.
  *
  *   new HTagSelector().attach(host, { tagClient, recordId, currentUserId, groups, onChange, onManage }).render();
  *

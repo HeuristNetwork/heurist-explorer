@@ -85,7 +85,7 @@ export class ReportApi {
 
   /** Delete a schedule record. */
   async deleteSchedule(scheduleId) {
-    return data(await this.apiClient.request(`/schedule/${encodeURIComponent(scheduleId)}`, { method: 'DELETE' }));
+    return data(await this.apiClient.request(`/output/${encodeURIComponent(scheduleId)}`, { method: 'DELETE' }));
   }
 
   /**

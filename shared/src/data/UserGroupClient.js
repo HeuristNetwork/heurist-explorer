@@ -45,7 +45,7 @@ export class UserGroupClient {
    * @returns {Promise<{id: number, title: string, modified: string|null, values: object, members: Object<number, string>}>}
    */
   async get(id, { signal } = {}) {
-    const response = await this.apiClient.get(`/sys/${this.type}/${Number(id)}`, { signal, query: { fields: '_all' } });
+    const response = await this.apiClient.get(`/${this.type}/${Number(id)}`, { signal, query: { fields: '_all' } });
     const record = response?.records?.[0] || null;
     if (!record) throw new Error(`The ${this.type} ${id} does not exist or you cannot see it`);
     return this.toItem(record);
@@ -81,7 +81,7 @@ export class UserGroupClient {
    * @returns {Promise<{url: string, thumbnail: string}|null>}
    */
   async image(id) {
-    const response = await this.apiClient.get(`/sys/${this.type}/${Number(id)}/image`);
+    const response = await this.apiClient.get(`/${this.type}/${Number(id)}/asset`);
     return response?.image || null;
   }
 
@@ -91,13 +91,13 @@ export class UserGroupClient {
    * @returns {Promise<{url: string, thumbnail: string}|null>}
    */
   async putImage(id, token) {
-    const response = await this.apiClient.request(`/sys/${this.type}/${Number(id)}/image`, { method: 'PUT', body: { upload: token } });
+    const response = await this.apiClient.request(`/${this.type}/${Number(id)}/asset`, { method: 'PUT', body: { upload: token } });
     return response?.image || null;
   }
 
   /** Remove the image. */
   async removeImage(id) {
-    await this.apiClient.request(`/sys/${this.type}/${Number(id)}/image`, { method: 'DELETE' });
+    await this.apiClient.request(`/${this.type}/${Number(id)}/asset`, { method: 'DELETE' });
     return null;
   }
 

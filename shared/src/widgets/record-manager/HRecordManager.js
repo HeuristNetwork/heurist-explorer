@@ -173,7 +173,10 @@ export class HRecordManager extends HBaseWidget {
     }
     // the last view mode and sort of this domain (review 2026-10-20)
     this._settingsKey = `${SETTINGS_KEY}.${this.options.database || ''}.${path}`;
-    const saved = readSettings(this._settingsKey);
+    // users and groups were on /sys/user, /sys/group until plan 28a
+    const former = /^\/(user|group|bookmark|reminder)$/.test(path) ? `${SETTINGS_KEY}.${this.options.database || ''}./sys${path}` : '';
+    const stored = readSettings(this._settingsKey);
+    const saved = former && !Object.keys(stored).length ? readSettings(former) : stored;
     if (this.store) {
       try {
         this.relations = await this.store.list();

@@ -35,6 +35,7 @@ import { HEditForm } from '../edit-form/HEditForm.js';
 import { HRecordAccess, describeAccess } from '../record-access/HRecordAccess.js';
 import { UserGroupSource } from '../../data/valueSources/localSources.js';
 import { RecordEditClient, RecordEditError } from '../../data/RecordEditClient.js';
+import { recordEntityPath } from '../../data/recordDomains.js';
 import { assignParent, loadParents, parentCandidate } from '../../data/parentRecords.js';
 import { childCreationChoice, chooseParentField } from './parentDialogs.js';
 import { RecordStructureProvider } from '../../recordview/RecordStructureProvider.js';
@@ -144,7 +145,10 @@ export class HRecordEditor extends HBaseWidget {
   attach(container, options = {}) {
     super.attach(container, options);
     if (!options.apiClient) throw new TypeError('HRecordEditor requires an API client');
-    this.client = options.client || new RecordEditClient({ apiClient: options.apiClient });
+    this.client = options.client || new RecordEditClient({
+      apiClient: options.apiClient,
+      entityPath: (rectypeId) => recordEntityPath(options.dbdefs, rectypeId)
+    });
     this.structureProvider = options.structureProvider || new RecordStructureProvider({ apiClient: options.apiClient });
     this.dbdefs = options.dbdefs || null;
     this.record = null;
@@ -194,7 +198,7 @@ export class HRecordEditor extends HBaseWidget {
       // a record of the page is loaded before the current one is removed (openRecord)
       const preloaded = Number(this._preloaded?.rec_ID) === recordId ? this._preloaded : null;
       this._preloaded = null;
-      const record = preloaded || (await this.client.load(recordId, { signal })).record;
+      const record = preloaded || (await this.client.load(recordId, { signal, recordType: this.options.rectypeId })).record;
       if (!record) throw new Error($HR('The record does not exist or you cannot see it'));
       this.record = record;
     } else if (!(Number(this.options.rectypeId) > 0)) {
@@ -320,7 +324,7 @@ export class HRecordEditor extends HBaseWidget {
     await assignParent({ apiClient: this.options.apiClient, dbdefs: this.dbdefs,
       childId: this.record.rec_ID, childRectypeId: this.rectypeId, ...this._pendingParent });
     this._pendingParent = null;
-    const refreshed = await this.client.load(this.record.rec_ID);
+    const refreshed = await this.client.load(this.record.rec_ID, { recordType: this.record.rec_RecTypeID });
     this.record = refreshed.record || this.record;
     await this._loadParents();
     await this._destroyForm();
@@ -595,7 +599,7 @@ export class HRecordEditor extends HBaseWidget {
     this._setBusy(true);
     let result;
     try {
-      result = await this.client.duplicate(this.record.rec_ID);
+      result = await this.client.duplicate(this.record.rec_ID, { recordType: this.record.rec_RecTypeID });
     } catch (error) {
       this._showMessages([{ severity: 'error', message: error?.message || $HR('The record could not be copied') }]);
       return false;

@@ -1,6 +1,6 @@
 /**
  * @file TagClient.js
- * @brief Tags (keywords) on `/sys/tag` in the record format (plan 20, Phase 4a).
+ * @brief Tags (keywords) on `/tag` in the record format (plan 20, Phase 4a).
  *
  * A tag is a record of the Tag type: its text is the DT_NAME field (2-1), its
  * description DT_SHORT_SUMMARY (2-3), the number of tagged records the read-only
@@ -137,7 +137,7 @@ export class TagClient {
    * @returns {Promise<{processed: number, added: number, removed: number, bookmarks: number}>}
    */
   async assign({ records, add = [], remove = [], replace = false }) {
-    return this.records._call('POST', '/sys/tag/assign', {
+    return this.records._call('POST', '/tag/assign', {
       body: { records: (records || []).map(Number), add: add.map(Number), remove: remove.map(Number), replace: Boolean(replace) }
     });
   }
@@ -148,14 +148,14 @@ export class TagClient {
    * @returns {Promise<Tag>} The tag merged into.
    */
   async merge(id, into) {
-    const payload = await this.records._call('POST', `/sys/tag/${Number(id)}/merge`, { body: { into: Number(into) } });
+    const payload = await this.records._call('POST', `/tag/${Number(id)}/merge`, { body: { into: Number(into) } });
     const record = payload?.records?.[0];
     if (!record) throw new RecordEditError('The merged tag could not be read back');
     return this.toTag(record);
   }
 
   /**
-   * Plain tag of a record of `/sys/tag`.
+   * Plain tag of a record of `/tag`.
    *
    * @param {object} row Record.
    * @returns {Tag}

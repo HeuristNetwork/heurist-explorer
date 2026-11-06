@@ -1,6 +1,7 @@
 # Plan 28 — OpenAPI rules and database structure
 
-**Status 2026-10-30: draft 1; §9.7 decided. Not for immediate implementation; first applied in plan 27d (implemented).** Every new development MUST follow these rules;
+**Status 2026-11-06: draft 2; §9.7 revised, §9.8 added. Not for immediate implementation; first applied in plan 27d
+(implemented). Next steps: `28a Unify-System-Entities-Plan.md`, then `30 Custom-Report-System-Plan.md`.** Every new development MUST follow these rules;
 existing endpoints and srv classes are aligned step by step (§8). Items marked *proposal* in §9 are not agreed yet.
 Replaces the deferred plan 28 "New Records/details structure" of plan 27 §3 (its content is in §7 here). The first
 user of these rules is the Website API, plan `27d Website-API-Plan.md`.
@@ -60,6 +61,10 @@ This discussion relates to plan 27c (server side endpoints) and to this more gen
 6. As a result we do not need monstrous endpoints like `/{database}/reports/{reportRef}/schedules/{scheduleId}` —
    it is `/{database}/schedule/{recordId}`.
 
+*Later changes to this list (2026-11-06, §9.8): `schedule` is now `output`; `image` is now `asset`; `export (output)`
+in point 4a stays an entity for export configurations, and `output` is the generated file record (report now, scheduled
+export later).*
+
 This plan is not for immediate implementation. We must follow it for any new development and gradually align the
 existing endpoints and server code with it.
 
@@ -70,15 +75,24 @@ existing endpoints and server code with it.
 ```
 /api/{db}/{entity}/{id}/{action}             one record of an entity, or its action (decided §9.7)
 /api/{db}/{entity}/{action}                  action of the whole entity (e.g. setup)
+/api/{db}/{entity}?q=...                     search of one entity, equal to /{domain}?q=[{"t":"entity"},...] (§9.7)
 /api/{db}/{domain}?q=...                     search over a whole domain; a record type with t:
+/api/{db}/{domain}/{action}                  action of a whole domain (cancel, aggregate)
 ```
 
 - **Domains:** `records`, `sys`, `def`, `files`, `terms` (§9.5). A domain = one table pair (§7).
 - **Entity:** a reserved full name in the **singular** (`website`, `rectype`, `field`, `user`) or later a QName
   (`hst:Person`). Short names (`rty`, `dty` ...) and plurals are legacy aliases (§3.2). Required today (it selects a
   legacy table); optional later.
-- **id:** record id; `0` on POST = insert with the next id. Later a QName.
+- **`/sys/{entity}/...`** is an accepted alias of `/{entity}/...` for every `sys` entity. It is not the canonical form
+  and new client code does not use it (§9.7).
+- **id:** record id; `0` on POST = insert with the next id. A concept code is accepted only as `{this database id}-{id}`
+  until records hold an origin id. Later a QName.
 - **action:** a word from §2.3, or a field id / concept code (GET only: the value of that field, §9.4).
+- **`t` predicate on `/sys`:** entity name, record type id or record type concept code.
+- **API only takes record ids.** A user-provided name (a template file name) never appears in a URL (plan 30).
+- These query parameters can not be used on API URLs, because the webroot resolvers redirect on them before `api.php`
+  runs: `file`, `thumb`, `icon`, `asset`, `disclaimer` (`FileResolver`), `rty`, `dty`, `trm`, `rst` (`RecordResolver`).
 - No nested resources (`/report/{id}/schedule/{sid}`), no controller per entity, no output format per entity.
 - The path is resolved in a fixed order: domain name → special endpoint → reserved entity name → QName (contains
   `:`). Reserved names are unique across all three lists (§3.3).
@@ -97,10 +111,20 @@ existing endpoints and server code with it.
 
 ### 2.3 Actions
 
+| Level | URL | Actions |
+|---|---|---|
+| Domain | `/{domain}/{action}` | `cancel`, `aggregate` |
+| Entity | `/{entity}/{action}` | `setup`, `import`; specific: `/tag/assign`, `/reminder/execute` |
+| Record | `/{entity}/{id}/{action}` | `validate`, `duplicate`, `asset`, `export`; specific: `execute`, `assign`, `merge`, `import` |
+
 | Kind | Actions | Who handles it |
 |---|---|---|
-| **Common** — every entity, generic code | `validate`, `duplicate`, `aggregate`, `import`, `export`, `image`, `setup` | The generic controllers and services (§6). An entity may refuse one (405). |
+| **Common** — every entity, generic code | `validate`, `duplicate`, `aggregate`, `import`, `export`, `asset`, `setup` | The generic controllers and services (§6). An entity may refuse one (405). |
 | **Specific** — meaning depends on the entity | `execute`, `assign`, `merge`, `cancel` | One action handler (service class) registered for the entity in the entity registry. No new controller. |
+
+- `asset`: the main file of a record, GET returns it, PUT replaces it, DELETE removes it: image of a user or group,
+  template of a report, generated file of an output. It replaces `image` (no alias). Later: thumbnail of a record
+  type, image of a term.
 
 - `setup` is an entity-level action (no id): `GET /{entity}/setup` checks that the record types and fields the entity
   needs exist; `POST` installs them. Later it compares with the core definitions database and imports what is missing.
@@ -109,6 +133,70 @@ existing endpoints and server code with it.
 - `assign`: POST links, DELETE removes a predefined relation (tag–record, user–group, page–website, mapdoc–layer).
   Internally it is a PATCH of the pointer or relationship fields through the generic save.
 - An unknown action is 404.
+
+### 2.4 Allowed endpoints (refreshed 2026-11-06)
+
+**Status:** ok = works now; 28a, 30 = the plan that does it.
+
+Search and read:
+
+| Method | URL | Meaning | Status |
+|---|---|---|---|
+| GET, POST | `/sys?q=` | Search with a Heurist query; entity by `t` (name, record type id, concept code) | ok (28a) |
+| GET, POST | `/records?q=`, `/files?q=` | Domain search | ok |
+| GET, POST | `/{entity}?q=` | Same as `/sys?q=[{"t":"entity"},...]` | done, 28a |
+| GET | `/{entity}/{id}` | One record | ok (28a) |
+| GET | `/{entity}/{id}/{field}` | Value of a field | ok (28a) |
+
+Change data:
+
+| Method | URL | Meaning | Status |
+|---|---|---|---|
+| POST | `/{entity}/0` | Insert | ok |
+| PUT | `/{entity}/{id}` | Replace | ok |
+| PATCH | `/{entity}/{id}` | Change the given fields | ok |
+| DELETE | `/{entity}/{id}` | Delete | same |
+
+Common actions:
+
+| Level | URL | Meaning | Status |
+|---|---|---|---|
+| Domain | POST `/{domain}/cancel` | Stop the running query of the current user | **`/records` only** (not `/files`). The cancel code is not tied to a domain, so other domains are one route each, when needed |
+| Domain | GET, POST `/{domain}/aggregate` | Count, value lists, aggregates over a query | `/records`; `/files` count and rectypes only |
+| Entity | POST `/{entity}/import` | Import | `/page/import`; `/report/import` 30 |
+| Entity | GET, POST `/{entity}/setup` | Check / install the definitions the entity needs | `/website`, `/page`; `/report` 30; not for the five sys entities yet (404) |
+| Record | POST `/{entity}/{id}/validate` | Validate | ok |
+| Record | POST `/{entity}/{id}/duplicate` | Duplicate | ok on record-based entities; **405** on tag, bookmark, reminder, user, group (legacy tables) |
+| Record | GET, PUT, DELETE `/{entity}/{id}/asset` | Main file of the record | ok for user, group (28a); 30 for report and output |
+
+Specific actions:
+
+| Entity | URL | Meaning | Status |
+|---|---|---|---|
+| tag | POST, DELETE `/tag/assign` | Put tags on records, take them off | ok (28a) |
+| tag | POST `/tag/{id}/merge` | Merge into another tag of the same owner | ok (28a) |
+| reminder | POST `/reminder/execute` | Send the unsaved form by email (**no id**) | ok (28a) |
+| group | POST, DELETE `/group/{id}/assign` | Add, remove users | ok (28a) |
+| website | POST `/website/{id}/execute` | Build the website (job) | ok |
+| website | POST, DELETE `/website/{id}/assign` | Menu add or move, menu remove | ok |
+| page | POST `/page/{id}/import` | Import a module configuration | ok |
+| report | GET, PUT, DELETE `/report/{id}/asset` | Template | 30 |
+| report | POST `/report/import` | Register an arbitrary template file, creates a record | 30 |
+| report | GET `/report/{id}/export` | Template with concept codes (`.gpl`) | 30 |
+| report | GET, POST `/report/{id}/execute` | Run for **one** record, HTML; test runs stay a job | 30 |
+| output | GET, DELETE `/output/{id}/asset` | Generated file | 30 |
+| output | POST `/output/{id}/execute` | Generate (job) | 30 |
+
+### 2.5 Who serves what
+
+`/api/{db}/...` is dispatched by one if/elseif chain in `hserv/controller/api.php`; there is no route table.
+
+| Served by | Routes |
+|---|---|
+| **hserv** | `/dbs`, `/databases`; `/rectypes`, `/fields`, `/terms`, `/termlinks`, `/recstructure` (short `/rty`, `/dty`, `/trm`, `/trl`, `/rst`); `/rectypegroups`, `/fieldgroups` (short `/rtg`, `/dtg`), `/vcg`, `/swf`; `/login`, `/logout`; `/iiif`; `/annotations`; `/map/data/{id}`; `GET /records/{non-numeric or 0}` (`record_output.php`) |
+| **srv** | Everything else: `/records`, `/sys`, `/def`, `/files`, entities, `/graph`, `/time`, `/map`, `/jobs`, `/external`, `/reports` (until plan 30) |
+
+`/web` is not an API route: `/{db}/web/...` belongs to `RequestRouter`.
 
 ## 3. Domains and entities
 
@@ -122,16 +210,16 @@ classes that exist only because of that table; they go away when the table is co
 | sys | filter | — (saved filter) | — | `usrSavedSearches` | `SystemQueryBuilder` (read) | `/sys/filter` read only, no record output; writes: plan 20 4c |
 | sys | tag | 2-1109 | `merge`, `assign` (tag–record) | `usrTags`, `usrRecTagLinks` | `Tags/TagWriteService`, `TagRecordMapping`, `TagRecordOutput`, `Records/UserData/LegacyTagTable`, `TagLinkTable`, `TagRepository` | Record format, CRUD; tags stay in `usrTags` (plan 20) |
 | sys | bookmark | 2-1110 | — | `usrBookmarks` | `Bookmarks/BookmarkWriteService`, `BookmarkRecordOutput`, `PrivateInfoCipher` | Record format, CRUD |
-| sys | reminder | 2-1111 | `execute` (send) | `usrReminders` | `Reminders/ReminderWriteService`, `ReminderRecordOutput`; legacy mailer closure | Record format, CRUD; `POST /sys/reminder/send` |
-| sys | user | `RT_SYS_USER` | `image` | `sysUGrps` (`ugr_Type=user`) | `Users/UserWriteService`, `UserRecordMapping`, `UserRecordOutput`, `UserGroupRepository` | Record format, CRUD |
-| sys | group | `RT_SYS_GROUP` | `assign` (user–group), `image` | `sysUGrps`, `sysUsrGrpLinks` | `Groups/GroupWriteService`, `GroupRecordOutput`, `Users/GroupMembershipTable` | Record format, CRUD; `POST /sys/group/{id}/members` |
+| sys | reminder | 2-1111 | `execute` (send, no id) | `usrReminders` | `Reminders/ReminderWriteService`, `ReminderRecordOutput`; legacy mailer closure | Record format, CRUD; `POST /reminder/execute` |
+| sys | user | `RT_SYS_USER` | `asset` | `sysUGrps` (`ugr_Type=user`) | `Users/UserWriteService`, `UserRecordMapping`, `UserRecordOutput`, `UserGroupRepository` | Record format, CRUD |
+| sys | group | `RT_SYS_GROUP` | `assign` (user–group), `asset` | `sysUGrps`, `sysUsrGrpLinks` | `Groups/GroupWriteService`, `GroupRecordOutput`, `Users/GroupMembershipTable` | Record format, CRUD; `POST\|DELETE /group/{id}/assign` |
 | sys | website | 99-51 | `execute` (build), `assign` (page–website) | — (Records) | — | Done (27d): `/website/{id}`, `Records/Entity` |
 | sys | page | 99-52 | `import` (module configuration) | — (Records) | — | Done (27d): `/page/{id}` |
 | sys | mapdoc | Map Document | `assign` (mapdoc–layer) | — (Records) | — | Edited through `/records/{id}` |
 | sys | layer | Map Layer | — | — (Records) | — | `/records/{id}` PATCH (Map symbology) |
 | sys | querysource | Data source / Query Source | — | — (Records) | — | `/records/{id}` |
-| sys | report | 2-1104 | `execute` (generate), `export` (`.gpl`), `import` | — (Records) + `smarty-templates/*.tpl` | `ReportTemplateStore` (template file) | Own routes `/reports/...` (§5) |
-| sys | schedule | 2-1105 | — | — (Records) | — | `/reports/{id}/schedules/{sid}` (§5) |
+| sys | report (UI: Report template) | 2-1104 | `execute` (one record), `asset` (template), `export` (`.gpl`), `import` | — (Records) + `smarty-templates/*.tpl` | `ReportTemplateStore` (template file) | `/report/{id}` CRUD; other routes `/reports/...` until plan 30 (§5) |
+| sys | output (UI: Generated report; was `schedule`) | 2-1105 | `execute` (generate), `asset` (generated file) | — (Records) + `generated-reports/{id}.{ext}` | — | `/output/{id}` CRUD; generate and file: plan 30 |
 | sys | exportconfig, crosstab, menuaction | system record types (plan 27 §3) | — | — (Records) | — | `/records/{id}` |
 | def | rectype, field, recstructure, term, termlink, rectypegroup, fieldgroup, vocabularygroup, workflowrule | — (definitions) | `setup` (later: import from core db) | `defRecTypes`, `defDetailTypes`, `defRecStructure`, `defTerms`, `defTermsLinks`, `defRecTypeGroups`, `defDetailTypeGroups`, `defVocabularyGroups`, `sysWorkflowRules` | none in srv; legacy `Def*` / `SysWorkflowRules` classes through `entityScrud.php`; srv has `DefinitionLookup` (read) and `/def/snapshot` | Writes legacy only |
 | files | file | 2-1106 | — (`content`, `thumbnail`, `upload` are special, §4) | `recUploadedFiles` (unless `fileRecords` exists) | `Records/Files/LegacyFileTable`, `Files/LegacyFileStore` (vs `RecordFileStore`), `FileRecordMapping` | Record format, CRUD (plan 20) |
@@ -159,10 +247,10 @@ code and are listed in OpenAPI only in this alias table.
 | fieldgroup | `dtg`, `fieldgroups` |
 | vocabularygroup | `vcg` |
 | workflowrule | `swf` |
-| reminder | `rem`, `reminders` |
+| reminder | — (`rem`, `reminders` removed by 28a) |
 | tag | `tags`, `keyword`, `keywords` |
-| user | `users` |
-| group | `groups`, `workgroup` |
+| user | — (`users` removed by 28a) |
+| group | `workgroup` (`groups` removed by 28a) |
 | filter | `filters` |
 | bookmark | `bookmarks` |
 | database | `dbs`, `databases` |
@@ -187,7 +275,6 @@ discussion and plan.
 | `annotations` | `/annotations/...` (legacy `DbAnnotations`) | IIIF annotation server |
 | `jobs` | `POST /jobs`, `GET /jobs[/{id}]`, `POST /jobs/{id}/cancel`, `DELETE /jobs/{id}`, `GET /jobs/{id}/result` | Background jobs (JSON files, not a table) |
 | `site` | `/{db}/site/{id}[/{page}][/frame/{instance}]` (not under `/api`) | Public website HTML (plan 27a) |
-| report render | `GET /reports/{ref}/render?rec=N` | Smarty HTML of one record |
 | file content | `GET /files/{key}/content\|thumbnail`, `/files/upload[/{token}]` | Binary content, chunked upload |
 | `login`, `logout` | legacy, in `api.php` | Session |
 | `external` | `POST /external/translate` (`ExternalServiceController`, agreed by Artem 2026-11-02) | Services of external providers called by the server (translation now; lookups later) |
@@ -207,24 +294,29 @@ conversion.
 | `POST /records/cancel` | `cancel` (query action) | ok |
 | `GET\|POST\|PUT\|PATCH\|DELETE /records/{id}` | same; for system types also `/{entity}/{id}` | ok |
 | `/records/querysource\|document\|layer/{id}` | special presentation (§4) | open |
-| `GET\|POST /sys`, `/sys/{type}/{id}` CRUD, `/validate`, `/image` | same; entity names singular | ok |
-| `POST /sys/tag/assign` | `POST\|DELETE /tag/{id}/assign` (or `/tag/assign` for many tags) | touch |
-| `POST /sys/tag/{id}/merge` | same (specific action) | ok |
-| `POST /sys/group/{id}/members` | `POST\|DELETE /group/{id}/assign` | touch |
-| `POST /sys/reminder/send` | `POST /reminder/{id}/execute` | touch |
+| `GET\|POST /sys` | same; `t` accepts name, record type id, concept code; also finds record-based entities | done, 28a |
+| `/sys/{type}/{id}` CRUD, `/validate` | `/{entity}/{id}`; `/sys/{entity}/...` stays as an alias | done, 28a |
+| `/sys/{type}/{id}/image` | `/{entity}/{id}/asset` | done, 28a |
+| legacy `/users`, `/groups`, `/tag`, `/rem`, `/reminders` | removed; `/user`, `/group`, `/tag`, `/reminder` | done, 28a |
+| `POST /sys/tag/assign` | `POST\|DELETE /tag/assign` (many tags, many records) | done, 28a |
+| `POST /sys/tag/{id}/merge` | `POST /tag/{id}/merge` | done, 28a |
+| `POST /sys/group/{id}/members` | `POST\|DELETE /group/{id}/assign` | done, 28a |
+| `POST /sys/reminder/send` | `POST /reminder/execute` (no id: the unsaved form) | done, 28a |
 | `/files`, `/files/{id}` CRUD, `/validate`, `/aggregate` | same | ok |
 | `/files/{key}/content\|thumbnail`, `/files/upload` | special (§4) | ok |
 | `GET /def/snapshot` | same (definitions read for clients) | ok |
 | legacy `/rty`, `/dty`, `/trm`, `/trl`, `/rst` ... | `/def/rectype/{id}` ... through the generic controllers | conv |
-| `GET\|POST /reports` | `GET\|POST /report` (search) | touch (2026-11-05: `POST` removed, `GET` left) |
-| `POST /reports/setup` | `GET\|POST /report/setup` | touch |
-| `GET\|PUT\|DELETE /reports/{ref}` | `/report/{id}` CRUD | done 2026-11-05 for writes (`ReportEntityHandler`); `GET` and `DELETE` of a file without a record left |
-| `GET\|PUT /reports/{ref}/template` | template = a field: `GET /report/{id}/{field}`; write by PATCH (§9.4); the `.tpl` file stays behind the record | touch |
-| `POST /reports/{ref}/register`, `POST /reports/import` | `POST /report/0/import` | touch (2026-11-05: `register` removed, `POST /report/0` takes the file) |
-| `GET /reports/{ref}/export` | `GET /report/{id}/export` | touch |
-| `GET /reports/schedules`, `POST /reports/{id}/schedules`, `PUT\|DELETE /reports/{id}/schedules/{sid}` | `/schedule`, `/schedule/{sid}` CRUD (the report is a pointer field) | done 2026-11-05 for writes; `GET /reports/schedules` left |
-| `GET /reports/generated`, `DELETE /reports/generated/{file}` | open: job results or a `files` action (§9) | open |
-| `/reports/{ref}/render` | special (§4) | ok |
+| `GET /reports` | `GET\|POST /report?q=` or `/sys?q=[{"t":"report"}]` | 30 |
+| `POST /reports/setup` | `GET\|POST /report/setup` | 30 |
+| `GET /reports/{ref}` | `GET /report/{id}` | 30 |
+| `DELETE /reports/{ref}` | `DELETE /report/{id}/asset` | 30 |
+| `GET\|PUT /reports/{ref}/template` | `GET\|PUT /report/{id}/asset` (replaces the idea of a template field, 2026-11-06) | 30 |
+| `POST /reports/import` | `POST /report/import` | 30 |
+| `GET /reports/{ref}/export` | `GET /report/{id}/export` | 30 |
+| `/reports/{ref}/render?rec=N` | `GET\|POST /report/{id}/execute?recordId=N`, one record | 30 |
+| `GET /reports/schedules` | `GET\|POST /output?q=[{"f:<DT_REPORT>":id}]` | 30 |
+| `GET /reports/generated`, `DELETE /reports/generated/{file}` | `GET\|DELETE /output/{id}/asset`; the list is the output records | 30 |
+| `POST /jobs` `report-preview`, `report-generate` | stay; record ids only | 30 |
 | `/website/...` (all) | `/website/{id}`, `/page/{id}` + `assign`, `import`, `execute`, `setup` (plan 27d) | done |
 | `/graph`, `/time`, `/map`, `/iiif`, `/annotations`, `/jobs` | special (§4) | ok |
 
@@ -309,9 +401,11 @@ prefixes). To be written.
 
 1. New work follows the rules at once. First: plan 27d (website and page = pilot record-based `sys` entities on the
    Records pair, entity registry, entity hooks, action handlers).
-2. Reports and schedules (`/reports/...` → `/report`, `/schedule`), when that code is next changed.
-3. `/sys` specific actions (`assign`, `execute`) when touched.
-4. Table conversions (§7.4), each with its own plan.
+2. **Plan 28a:** user, group, bookmark, reminder, tag on `/{entity}`, `/sys` search over all entities, website and
+   page client off `/records`.
+3. **Plan 30:** reports and generated reports (`/reports/...` → `/report`, `/output`). Depends on 28a phase 4.
+4. Table conversions (§7.4), each with its own plan: bookmark, reminder, user, group move to `sysRecords` (tags stay,
+   plan 20); then website, page, report, output.
 5. `heurist/documentation/api/heurist-openapi.yaml` is updated in the same step as each change (today the website
    routes are missing from it).
 
@@ -383,9 +477,31 @@ prefixes). To be written.
 `/{entity}/{id}/{action}`. A record type (entity, class) is searched with the predicate `t:` in a domain search, not
 with `GET /{entity}`. No `/{domain}/{entity}/...` aliases are added. First used by plan 27d (`/website/...`, `/page/...`).
 
+**Revised (Artem, 2026-11-06):** the entity form stays canonical, and specifying the domain for an entity is not
+recommended, but two forms are now allowed:
+
+- `/sys/{entity}/...` is an accepted alias of `/{entity}/...`.
+- `GET|POST /{entity}?q=...` is a search, equal to `/sys?q=[{"t":"entity"},...]`. The server adds the `t` predicate;
+  no new search code. (`/website` without an id, which gave 405, now searches.)
+
+### 9.8 Round 3 (Artem, 2026-11-06)
+
+| # | Topic | Decision |
+|---|---|---|
+| 1 | `image` or `asset` | `asset`, no alias |
+| 2 | `members` or `assign` on group | `assign`, as on website and tag |
+| 3 | Name of 2-1105 | Entity `output`, UI "Generated report". The record type may hold scheduled exports later, so the name stays generic |
+| 4 | Plural forms | `users`, `groups` are removed everywhere (also from `/sys` aliases) |
+| 5 | Report details | Plan 30 |
+| 6 | Users of a group | `GET /group/{id}?fields=members`; search with a `group` predicate: `/sys?q=[{"t":"user"},{"group":4}]`. Non-admins see only themselves in a user search, as today |
+| 7 | `/hserv` and `/srv` routes | §2.5. The list of the request is confirmed, with the additions there |
+
 ## 10. History
 
 - 2026-10-30 — draft 1: Artem's request (§1), rules, domain/entity table from the endpoint inventory of both repos,
   special endpoints, current → target mapping, dispatch, database structure (from plan 27 §3), discussion rounds 1-2.
 - 2026-10-30 — §9.7 decided: domain only for whole-domain searches; entity search with `t:`. Plan 27d implemented
   as the first record-based entities (`srv/Records/Entity/`, see 27d §11).
+- 2026-11-06 — plan 28a implemented (not committed): §2.4 and §5 statuses updated, legacy `/users`, `/groups`, `/tag`, `/rem`, `/reminders` removed.
+- 2026-11-06 — draft 2: endpoint table §2.4, who serves what §2.5, action levels §2.3, `image` → `asset`,
+  `schedule` → `output`, §5 refreshed, §9.7 revised, §9.8 added. Work goes to plans 28a and 30.

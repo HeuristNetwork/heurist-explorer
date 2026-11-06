@@ -28,6 +28,7 @@
 
 import { HMsg, $HR } from '#shared/ui';
 import { HRecordEditor } from '#shared/widgets/record-editor/HRecordEditor.js';
+import { recordEntityPath } from '#shared/data/recordDomains.js';
 import { RecordEditClient } from '#shared/data/RecordEditClient.js';
 import { RecordStructureProvider } from '#shared/recordview/RecordStructureProvider.js';
 import { HRuleBuilder, describeExpansionRule } from '../widgets/query-source/helpers/HRuleBuilder.js';
@@ -82,7 +83,11 @@ export class RecordEditorHost {
    */
   constructor(options = {}) {
     this.options = options;
-    this.client = new RecordEditClient({ apiClient: options.apiClient });
+    // a record of an entity (website, report ...) is written at the URL of its entity (plan 28a)
+    this.client = new RecordEditClient({
+      apiClient: options.apiClient,
+      entityPath: (rectypeId) => recordEntityPath(this._dbdefs, rectypeId)
+    });
     // registered files are records of RT_REGISTERED_FILE written through /files (plan 20)
     this.fileClient = new RecordEditClient({ apiClient: options.apiClient, domain: 'files' });
     this.structures = new RecordStructureProvider({ apiClient: options.apiClient });
@@ -297,6 +302,7 @@ export class RecordEditorHost {
   async _createEditor(host, { recordId = 0, rectypeId = 0, domain = 'records', access = null, relation = null, parentContext = null, values = null, onNew = null, pageIds = null, duplicate = false } = {}) {
     const isFile = domain === 'files';
     const dbdefs = await this.options.ensureDbDefs();
+    this._dbdefs = dbdefs;
     const editor = new HRecordEditor().attach(host, {
       apiClient: this.options.apiClient,
       dbdefs,

@@ -99,7 +99,7 @@ export class RecordViewLoader {
    * record request, one structure request per record type and one name request.
    *
    * @param {Array<number|string>} ids Record IDs.
-   * @param {{signal?: AbortSignal, path?: string}} [options] `path`: the records' domain (`/sys/user`; default `/records`).
+   * @param {{signal?: AbortSignal, path?: string}} [options] `path`: the records' domain (`/user`; default `/records`).
    * @returns {Promise<Map<number, {record: object, sections: Array<object>, recordTypeName: string|null}>>}
    *          Render input by record ID, for the records found.
    */

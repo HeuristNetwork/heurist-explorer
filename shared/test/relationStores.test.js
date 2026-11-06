@@ -101,7 +101,7 @@ function membershipApi() {
     calls,
     async get(path, { query }) {
       calls.push(['GET', path, query]);
-      if (path === '/sys/group/5') return { records: [{ rec_ID: '5', details: { members: [{ id: 2, role: 'admin' }, { id: 7, role: 'member' }] } }] };
+      if (path === '/group/5') return { records: [{ rec_ID: '5', details: { members: [{ id: 2, role: 'admin' }, { id: 7, role: 'member' }] } }] };
       return { records: [{ rec_ID: '5', rec_Title: 'Editors', details: { members: [{ id: 2, role: 'admin' }, { id: 7, role: 'member' }] } }] };
     },
     async request(path, { method, body }) {
@@ -127,9 +127,9 @@ test('memberships of a group: the members with the role as relation type; ids as
   await store.setType(relations[1], 301);
   await store.remove(relations[1]);
   assert.deepEqual(api.calls.filter((call) => call[0] === 'POST'), [
-    ['POST', '/sys/group/5/members', { add: [9], role: 'member' }],
-    ['POST', '/sys/group/5/members', { add: [7], role: 'admin' }],
-    ['POST', '/sys/group/5/members', { remove: [7] }]
+    ['POST', '/group/5/assign', { add: [9], role: 'member' }],
+    ['POST', '/group/5/assign', { add: [7], role: 'admin' }],
+    ['POST', '/group/5/assign', { remove: [7] }]
   ]);
 });
 
@@ -138,15 +138,15 @@ test('memberships of a user (reverse): their groups with the role; the requests 
   const field = { ...MEMBERSHIP, name: 'groups', reverse: true, sourceTypes: [134] };
   const store = new MembershipRelationStore({ apiClient: api, dbdefs, field, record: { id: 7, title: 'Ian' } });
   const relations = await store.list();
-  assert.deepEqual(api.calls[0], ['GET', '/sys/group', { q: [{ user: '7' }], fields: 'rec_Title,members', limit: 1000 }]);
+  assert.deepEqual(api.calls[0], ['GET', '/group', { q: [{ user: '7' }], fields: 'rec_Title,members', limit: 1000 }]);
   assert.deepEqual(relations.map((relation) => [relation.relId, relation.term, relation.other.title, relation.groupId, relation.userId]), [
     [5, 302, 'Editors', 5, 7]
   ]);
   assert.deepEqual(store.targetQuery(relations), [{ user: '7' }]);
   await store.add([6, 8], 301, relations);
   assert.deepEqual(api.calls.filter((call) => call[0] === 'POST'), [
-    ['POST', '/sys/group/6/members', { add: [7], role: 'admin' }],
-    ['POST', '/sys/group/8/members', { add: [7], role: 'admin' }]
+    ['POST', '/group/6/assign', { add: [7], role: 'admin' }],
+    ['POST', '/group/8/assign', { add: [7], role: 'admin' }]
   ]);
 });
 

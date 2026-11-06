@@ -151,7 +151,7 @@ export class RecordRelationStore extends RelationStore {
 
 /**
  * The members of a group as relations (sysUsrGrpLinks): from a group its users, from a user
- * (a reverse field) their groups. Written by `POST /sys/group/{id}/members`.
+ * (a reverse field) their groups. Written by `POST /group/{id}/assign`.
  */
 export class MembershipRelationStore extends RelationStore {
   /**
@@ -200,7 +200,7 @@ export class MembershipRelationStore extends RelationStore {
     if (!(id > 0)) return [];
     if (!this.reverse) {
       const [response] = await Promise.all([
-        this.apiClient.get(`/sys/group/${id}`, { signal, query: { fields: 'members' } }),
+        this.apiClient.get(`/group/${id}`, { signal, query: { fields: 'members' } }),
         this.dbdefs?.ensureUserGroups?.(['users'])
       ]);
       const members = response?.records?.[0]?.details?.members || [];
@@ -211,7 +211,7 @@ export class MembershipRelationStore extends RelationStore {
         return this._relation(id, userId, member.role === 'admin' ? 'admin' : 'member', { id: userId, title, rty });
       });
     }
-    const response = await this.apiClient.get('/sys/group', { signal, query: { q: [{ user: String(id) }], fields: 'rec_Title,members', limit: 1000 } });
+    const response = await this.apiClient.get('/group', { signal, query: { q: [{ user: String(id) }], fields: 'rec_Title,members', limit: 1000 } });
     const rty = this._rty('RT_SYS_GROUP');
     return (response?.records || []).map((group) => {
       const groupId = Number(group.rec_ID);
@@ -233,9 +233,9 @@ export class MembershipRelationStore extends RelationStore {
     return [{ ids: ids.length ? ids.join(',') : '0' }];
   }
 
-  /** `POST /sys/group/{id}/members`. */
+  /** `POST /group/{id}/assign`. */
   _members(groupId, body) {
-    return this.apiClient.request(`/sys/group/${Number(groupId)}/members`, { method: 'POST', body });
+    return this.apiClient.request(`/group/${Number(groupId)}/assign`, { method: 'POST', body });
   }
 
   /**

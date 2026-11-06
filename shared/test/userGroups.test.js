@@ -67,15 +67,15 @@ function fakeApi(record) {
     calls,
     async get(path, options) {
       calls.push(['GET', path, options?.query]);
-      if (path.endsWith('/image')) return { image: { url: 'u', thumbnail: 'http://h/t?x=1' } };
+      if (path.endsWith('/asset')) return { image: { url: 'u', thumbnail: 'http://h/t?x=1' } };
       return { records: [record] };
     },
     async request(path, { method, body } = {}) {
       calls.push([method, path, body]);
-      if (path.endsWith('/members')) {
+      if (path.endsWith('/assign')) {
         return { records: [record], meta: { members: (body.add || []).map((id) => ({ id, role: body.role })) } };
       }
-      if (path.endsWith('/image')) return { image: method === 'PUT' ? { url: 'u', thumbnail: 'http://h/t2?x=1' } : null };
+      if (path.endsWith('/asset')) return { image: method === 'PUT' ? { url: 'u', thumbnail: 'http://h/t2?x=1' } : null };
       return { records: [{ ...record, rec_ID: path.endsWith('/0') ? '9' : record.rec_ID, ...body }], meta: { issues: [] } };
     }
   };
@@ -91,9 +91,9 @@ test('UserGroupClient: a group with its members; a save sends the changed fields
   const item = await client.get(5);
   assert.deepEqual(item.members, { 2: 'admin', 7: 'member' });
   assert.equal(item.values.description, 'About');
-  assert.deepEqual(api.calls[0], ['GET', '/sys/group/5', { fields: '_all' }]);
+  assert.deepEqual(api.calls[0], ['GET', '/group/5', { fields: '_all' }]);
   await client.save(5, { description: 'New' }, { modified: item.modified });
-  assert.deepEqual(api.calls.at(-1).slice(0, 2), ['PATCH', '/sys/group/5']);
+  assert.deepEqual(api.calls.at(-1).slice(0, 2), ['PATCH', '/group/5']);
   assert.deepEqual(api.calls.at(-1)[2], { details: { 4: ['New'] }, rec_Modified: '2026-10-23 10:00:00' });
 
   const users = new UserGroupClient({ apiClient: fakeApi({ rec_ID: '2', details: {} }), dbdefs }, 'user');
@@ -115,11 +115,11 @@ test('HInputFile, entity-image mode: the image of the entity; upload and remove 
   assert.equal(input.removeImageButton.hidden, false);
   assert.equal(input.urlButton.hidden, true, 'no URL registration');
   await input.uploadFile({ name: 'logo.png', size: 9 });
-  assert.deepEqual(api.calls.at(-1), ['PUT', '/sys/group/5/image', { upload: 'tk7' }]);
+  assert.deepEqual(api.calls.at(-1), ['PUT', '/group/5/asset', { upload: 'tk7' }]);
   assert.match(input.thumb.src, /t2/);
   input.removeImageButton.click();
   await flush();
-  assert.deepEqual(api.calls.at(-1).slice(0, 2), ['DELETE', '/sys/group/5/image']);
+  assert.deepEqual(api.calls.at(-1).slice(0, 2), ['DELETE', '/group/5/asset']);
   assert.equal(input.thumb.hidden, true);
   assert.equal(input.removeImageButton.hidden, true);
 });

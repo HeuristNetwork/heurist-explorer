@@ -64,7 +64,7 @@ export class RecordDataProvider {
    * (as `load`), e.g. one page of the Data module's Extended view.
    *
    * @param {{ids: Array<number|string>, signal?: AbortSignal, path?: string}} options Load options;
-   *        `path`: the search path of the records' domain (`/sys/user`, `/files`; default `/records`).
+   *        `path`: the search path of the records' domain (`/user`, `/files`; default `/records`).
    * @returns {Promise<Map<number, object>>} Record ID -> resolved record, for the records found.
    * @throws {TypeError} When the response is missing `records`.
    */

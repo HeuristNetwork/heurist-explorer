@@ -40,7 +40,7 @@ function createApplication({ bridge = null, status = { installed: true, missing:
     async request(path, options = {}) {
       calls.push([options.method || 'GET', path, options.query || null, options.body]);
       if (path === '/website/setup') return status;
-      if (path === '/records') return { records: [{ rec_ID: '10' }, { rec_ID: '30' }] };
+      if (path === '/website') return { records: [{ rec_ID: '10' }, { rec_ID: '30' }] };
       if (path === '/jobs') return jobs;
       if (path === '/page/0/import') return { id: 40, url: 'http://h/db/site/40', title: options.body.title, created: true };
       const match = /^\/(website|page)\/(\d+)$/.exec(path);
@@ -101,8 +101,8 @@ test('editableWebsites: v4 websites the user can change, with their menus', asyn
   await application.initialize();
   const websites = await application.editableWebsites();
   assert.deepEqual(websites.map((site) => site.id), [10]);
-  const query = calls.find(([, path]) => path === '/records')[2];
-  assert.deepEqual(JSON.parse(query.q), [{ t: '51' }, { 'f:1149': '4' }]);
+  const query = calls.find(([, path]) => path === '/website')[2];
+  assert.deepEqual(JSON.parse(query.q), [{ 'f:1149': '4' }]);
 });
 
 test('toolbar: actions of a v4 standalone page, a website and a legacy website', async () => {

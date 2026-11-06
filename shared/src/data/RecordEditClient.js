@@ -64,22 +64,36 @@ export class RecordEditError extends Error {
 
 /**
  * Reads and writes single records through `/records/{id}`, `/files/{id}` (file records, plan 20)
- * or `/sys/{type}/{id}` (system records in the record format: tags, plan 20 §10).
+ * or `/{entity}/{id}` (system records in the record format: tag, user, group ..., plan 28a). A client
+ * on `/records` with `entityPath` uses the URL of the entity for the records of an entity type.
  */
 export class RecordEditClient {
   /**
-   * @param {{apiClient: object, domain?: 'records'|'files'|'sys', type?: string}} options HeuristApiClient
-   *        (needs `request`); API domain of the records (`files`: registered files; `sys`: with `type`,
-   *        e.g. `tag`).
+   * @param {{apiClient: object, domain?: 'records'|'files'|'sys', type?: string,
+   *        entityPath?: (function(number|string): (string|null))|null}} options HeuristApiClient
+   *        (needs `request`); API domain of the records (`files`: registered files; `sys`: with the entity
+   *        in `type`, e.g. `tag`); `entityPath`: `/website` ... of a record type (recordEntityPath), null
+   *        for a type that is not an entity.
    */
-  constructor({ apiClient, domain = 'records', type = null }) {
+  constructor({ apiClient, domain = 'records', type = null, entityPath = null }) {
     if (typeof apiClient?.request !== 'function') throw new TypeError('RecordEditClient requires an API client');
     if (!['records', 'files', 'sys'].includes(domain)) throw new TypeError(`Unknown record domain: ${domain}`);
     if (domain === 'sys' && !/^[a-z]+$/.test(String(type || ''))) throw new TypeError('A /sys record client needs its type');
     this.apiClient = apiClient;
     this.domain = domain;
-    // path of the records: /records, /files, /sys/<type>
-    this.basePath = domain === 'sys' ? `/sys/${type}` : `/${domain}`;
+    // path of the records: /records, /files, /<entity>
+    this.basePath = domain === 'sys' ? `/${type}` : `/${domain}`;
+    this.entityPath = entityPath;
+  }
+
+  /**
+   * Path of a record of a type: the URL of its entity, when it has one.
+   *
+   * @param {number|string|null} [recordType] Record type id, when known.
+   * @returns {string}
+   */
+  pathOf(recordType = null) {
+    return (this.domain === 'records' && recordType && this.entityPath?.(recordType)) || this.basePath;
   }
 
   /**
@@ -87,12 +101,13 @@ export class RecordEditClient {
    * hidden values for editors; pointer, term and file values resolved).
    *
    * @param {number|string} id Record id.
-   * @param {{signal?: AbortSignal}} [options] Request options.
+   * @param {{signal?: AbortSignal, recordType?: number|string|null}} [options] Request options; `recordType`
+   *        when known (a record of an entity is read at the URL of its entity).
    * @returns {Promise<{record: object|null, meta: object}>} The record (null when missing or not visible).
    */
-  async load(id, { signal } = {}) {
+  async load(id, { signal, recordType = null } = {}) {
     const recordId = positiveId(id);
-    const payload = await this._call('GET', `${this.basePath}/${recordId}`, { query: { fields: '_all', resolveDetails: 1, defs: 1 }, signal });
+    const payload = await this._call('GET', `${this.pathOf(recordType)}/${recordId}`, { query: { fields: '_all', resolveDetails: 1, defs: 1 }, signal });
     return { record: payload?.records?.[0] || null, meta: payload?.meta || {} };
   }
 
@@ -105,7 +120,7 @@ export class RecordEditClient {
   async insert(record) {
     const id = Number(record?.rec_ID) || 0;
     if (id > 0) throw new TypeError('insert() needs rec_ID 0 or a negative id');
-    return this._saved(await this._call('POST', `${this.basePath}/${id}`, { body: { ...record, rec_ID: String(id) } }));
+    return this._saved(await this._call('POST', `${this.pathOf(record?.rec_RecTypeID)}/${id}`, { body: { ...record, rec_ID: String(id) } }));
   }
 
   /**
@@ -117,7 +132,7 @@ export class RecordEditClient {
    */
   async update(record, { force = false } = {}) {
     const id = positiveId(record?.rec_ID);
-    return this._saved(await this._call('PUT', `${this.basePath}/${id}`, { body: record, query: force ? { force: 1 } : null }));
+    return this._saved(await this._call('PUT', `${this.pathOf(record?.rec_RecTypeID)}/${id}`, { body: record, query: force ? { force: 1 } : null }));
   }
 
   /**
@@ -148,10 +163,11 @@ export class RecordEditClient {
    * Copy a record ("Copy of ..." name).
    *
    * @param {number|string} id Record id.
+   * @param {{recordType?: number|string|null}} [options] Record type, when known.
    * @returns {Promise<{record: object, issues: Array<object>}>} The new record.
    */
-  async duplicate(id) {
-    return this._saved(await this._call('POST', `${this.basePath}/${positiveId(id)}/duplicate`, { body: {} }));
+  async duplicate(id, { recordType = null } = {}) {
+    return this._saved(await this._call('POST', `${this.pathOf(recordType)}/${positiveId(id)}/duplicate`, { body: {} }));
   }
 
   /**
@@ -164,7 +180,7 @@ export class RecordEditClient {
   async validate(record) {
     const id = Number(record?.rec_ID) || 0;
     try {
-      const payload = await this._call('POST', `${this.basePath}/${id}/validate`, { body: record });
+      const payload = await this._call('POST', `${this.pathOf(record?.rec_RecTypeID)}/${id}/validate`, { body: record });
       return { valid: true, issues: payload?.issues || [] };
     } catch (error) {
       if (error instanceof RecordEditError && error.isValidation) return { valid: false, issues: error.issues };

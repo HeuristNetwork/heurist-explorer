@@ -1,6 +1,6 @@
 /**
  * @file tags.test.js
- * @brief Tags on /sys/tag (plan 20, Phase 4a): TagClient requests and tags, the owner
+ * @brief Tags on /tag (plan 20, Phase 4a): TagClient requests and tags, the owner
  *        groups, HTagManager (groups, add, rename) and HTagSelector (remove, pick, add new).
  */
 
@@ -20,7 +20,7 @@ const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
 
 const dbdefs = { localId: (kind, code) => ({ 'dty:2-1': 11, 'dty:2-3': 13 })[`${kind}:${code}`] || 0 };
 
-/** A tag record of /sys/tag. */
+/** A tag record of /tag. */
 const record = (id, name, owner, { usage = 0, description = '', ownerName = '' } = {}) => ({
   rec_ID: String(id), rec_RecTypeID: '0', rec_Title: name, rec_OwnerUGrpID: String(owner), rec_Modified: '2026-10-22 10:00:00',
   rec_OwnerName: ownerName, rec_Usage: usage, details: { 11: [name], ...(description ? { 13: [description] } : {}) }
@@ -44,12 +44,12 @@ function fakeApi(initial = []) {
     },
     async request(path, { method, body, query }) {
       calls.push([method, path, body, query]);
-      if (path === '/sys/tag/assign') {
+      if (path === '/tag/assign') {
         for (const id of body.add) onRecord.add(id);
         for (const id of body.remove) onRecord.delete(id);
         return { processed: 1, added: body.add.length, removed: body.remove.length, bookmarks: 0 };
       }
-      const merge = path.match(/^\/sys\/tag\/(\d+)\/merge$/);
+      const merge = path.match(/^\/tag\/(\d+)\/merge$/);
       if (merge) {
         tags.delete(Number(merge[1]));
         return { records: [toRecord(tags.get(body.into))], meta: {} };
@@ -85,20 +85,20 @@ test('TagClient: list asks /sys for the tags of the user (or of a record) in the
   assert.equal(api.calls[1][2].q.record, '81');
 });
 
-test('TagClient: create, update, assign, merge and remove send the /sys/tag requests', async () => {
+test('TagClient: create, update, assign, merge and remove send the /tag requests', async () => {
   const api = fakeApi([{ id: 1, name: 'alpha', owner: 2 }]);
   const client = new TagClient({ apiClient: api, dbdefs });
   const created = await client.create({ name: ' beta ', owner: 7, description: 'B' });
-  assert.deepEqual(api.calls[0].slice(0, 3), ['POST', '/sys/tag/0', { rec_ID: '0', rec_OwnerUGrpID: '7', details: { 11: ['beta'], 13: ['B'] } }]);
+  assert.deepEqual(api.calls[0].slice(0, 3), ['POST', '/tag/0', { rec_ID: '0', rec_OwnerUGrpID: '7', details: { 11: ['beta'], 13: ['B'] } }]);
   assert.equal(created.name, 'beta');
   await client.update(1, { name: 'alfa', modified: '2026-10-22 10:00:00' });
-  assert.deepEqual(api.calls[1].slice(0, 3), ['PATCH', '/sys/tag/1', { details: { 11: ['alfa'] }, rec_Modified: '2026-10-22 10:00:00' }]);
+  assert.deepEqual(api.calls[1].slice(0, 3), ['PATCH', '/tag/1', { details: { 11: ['alfa'] }, rec_Modified: '2026-10-22 10:00:00' }]);
   await client.assign({ records: ['81'], add: [1], remove: [created.id] });
-  assert.deepEqual(api.calls[2].slice(0, 3), ['POST', '/sys/tag/assign', { records: [81], add: [1], remove: [created.id], replace: false }]);
+  assert.deepEqual(api.calls[2].slice(0, 3), ['POST', '/tag/assign', { records: [81], add: [1], remove: [created.id], replace: false }]);
   const into = await client.merge(created.id, 1);
   assert.equal(into.id, 1);
   await client.remove(1, { force: true });
-  assert.deepEqual(api.calls.at(-1).slice(0, 2), ['DELETE', '/sys/tag/1']);
+  assert.deepEqual(api.calls.at(-1).slice(0, 2), ['DELETE', '/tag/1']);
   assert.deepEqual(api.calls.at(-1)[3], { force: 1 });
 });
 

@@ -225,8 +225,8 @@ export class WebsiteApplication extends EventTarget {
    */
   async editableWebsites() {
     if (!this.codes.home || !this.codes.version) return [];
-    const response = await this.apiClient.request('/records', {
-      query: { q: JSON.stringify([{ t: String(this.codes.home) }, { [`f:${this.codes.version}`]: '4' }]), fields: 'rec_ID', limit: 200 }
+    const response = await this.apiClient.request('/website', {
+      query: { q: JSON.stringify([{ [`f:${this.codes.version}`]: '4' }]), fields: 'rec_ID', limit: 200 }
     });
     const ids = (response?.records || []).map((record) => Number(record.rec_ID)).filter((id) => id > 0);
     const summaries = await Promise.all(ids.map((id) => this.websites.summary(id, { entity: 'website' }).catch(() => null)));

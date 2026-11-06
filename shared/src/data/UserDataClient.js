@@ -1,6 +1,6 @@
 /**
  * @file UserDataClient.js
- * @brief Bookmarks and reminders on `/sys/bookmark` and `/sys/reminder` in the record
+ * @brief Bookmarks and reminders on `/bookmark` and `/reminder` in the record
  *        format (plan 20, Phase 4b).
  *
  * The fields come from the hard-coded structures (systemEntities.js); the clients give
@@ -180,6 +180,6 @@ export class ReminderClient extends UserDataClient {
    */
   async send(recordId, values) {
     const details = systemDetails(this.type, { ...values, record: String(recordId) }, this.dbdefs);
-    return this.records._call('POST', '/sys/reminder/send', { body: { details } });
+    return this.records._call('POST', '/reminder/execute', { body: { details } });
   }
 }

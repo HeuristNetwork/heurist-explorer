@@ -4,11 +4,15 @@
  *        are searched and written.
  *
  * Every domain speaks the `/records` JSON. By default a record type is on
- * `records`; registered files (RT_REGISTERED_FILE) are on `files`; bookmarks and
- * reminders will be on `system`, with the type in the path (`/system/bookmark`),
- * because their ids overlap with records. Local ids come from the definitions
- * snapshot (`meta.dbconst`); a code the database does not have (yet) matches
- * nothing, so its type stays on `records`.
+ * `records`; registered files (RT_REGISTERED_FILE) are on `files`; users, groups,
+ * bookmarks and reminders have their own URL (`/user`, plan 28a), because their ids
+ * overlap with records. Local ids come from the definitions snapshot (`meta.dbconst`);
+ * a code the database does not have (yet) matches nothing, so its type stays on
+ * `records`.
+ *
+ * The record-based entities (website, page, report, output, RECORD_ENTITIES) are stored
+ * in Records, so a list of several types still goes to `/records`; one record of them is
+ * read and written at the URL of its entity (recordEntityPath).
  *
  * @project     Heurist academic knowledge management system
  * @package     heurist-client-core
@@ -27,18 +31,41 @@ import { writableRecordTypeIds } from './writableRecordTypes.js';
 export const RECORDS_DOMAIN = 'records';
 
 /**
- * Record types on another domain, by code name: `{domain, type?}` (`type`: the
- * path segment of a `system` record type). The `system` path names are provisional:
- * they are agreed when bookmarks and reminders move there (plan 20 Phase 5).
+ * Record types on another domain, by code name: `{domain, type?}` (`type`: the entity
+ * of a `sys` record type).
  */
 export const RECORD_TYPE_DOMAINS = Object.freeze({
   RT_REGISTERED_FILE: Object.freeze({ domain: 'files' }),
-  RT_USER_BOOKMARKS: Object.freeze({ domain: 'system', type: 'bookmark' }),
-  RT_USER_REMINDERS: Object.freeze({ domain: 'system', type: 'reminder' }),
-  // users and groups on /sys in the record format (plan 20, Phase 4d)
+  RT_USER_BOOKMARKS: Object.freeze({ domain: 'sys', type: 'bookmark' }),
+  RT_USER_REMINDERS: Object.freeze({ domain: 'sys', type: 'reminder' }),
+  // users and groups in the record format (plan 20, Phase 4d)
   RT_SYS_USER: Object.freeze({ domain: 'sys', type: 'user' }),
   RT_SYS_GROUP: Object.freeze({ domain: 'sys', type: 'group' })
 });
+
+/** Record-based entities, by code name of the record type (plan 28; srv RecordEntityRegistry). */
+export const RECORD_ENTITIES = Object.freeze({
+  RT_CMS_HOME: 'website',
+  RT_CMS_PAGE: 'page',
+  RT_CUSTOM_REPORT: 'report',
+  RT_REPORT_SCHEDULE: 'output'
+});
+
+/**
+ * URL of the record-based entity of a record type.
+ *
+ * @param {object|null} dbdefs HDbDefs (needs `dbconst`).
+ * @param {number|string} rectypeId Record type id.
+ * @returns {string|null} `/website` ..., null when the type is not such an entity.
+ */
+export function recordEntityPath(dbdefs, rectypeId) {
+  const id = Number(rectypeId);
+  if (!(id > 0)) return null;
+  for (const [code, entity] of Object.entries(RECORD_ENTITIES)) {
+    if ((Number(dbdefs?.dbconst?.(code)) || 0) === id) return `/${entity}`;
+  }
+  return null;
+}
 
 /**
  * Domain entry of a record type.
@@ -46,7 +73,7 @@ export const RECORD_TYPE_DOMAINS = Object.freeze({
  * @param {object|null} dbdefs HDbDefs (needs `dbconst`).
  * @param {number|string} rectypeId Record type id.
  * @returns {{domain: string, type: string|null, path: string}} `path`: the search path
- *          (`/records`, `/files`, `/system/bookmark`); a record is `${path}/${id}`.
+ *          (`/records`, `/files`, `/bookmark`); a record is `${path}/${id}`.
  */
 export function recordTypeDomain(dbdefs, rectypeId) {
   const id = Number(rectypeId);
@@ -54,7 +81,7 @@ export function recordTypeDomain(dbdefs, rectypeId) {
     for (const [code, entry] of Object.entries(RECORD_TYPE_DOMAINS)) {
       if ((Number(dbdefs?.dbconst?.(code)) || 0) === id) {
         const type = entry.type || null;
-        return { domain: entry.domain, type, path: type ? `/${entry.domain}/${type}` : `/${entry.domain}` };
+        return { domain: entry.domain, type, path: type ? `/${type}` : `/${entry.domain}` };
       }
     }
   }
@@ -62,7 +89,7 @@ export function recordTypeDomain(dbdefs, rectypeId) {
 }
 
 /**
- * Domain name of a record type: `records`, `files`, `system` or `sys`.
+ * Domain name of a record type: `records`, `files` or `sys`.
  *
  * @param {object|null} dbdefs HDbDefs.
  * @param {number|string} rectypeId Record type id.

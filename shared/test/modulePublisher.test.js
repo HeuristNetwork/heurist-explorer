@@ -202,7 +202,7 @@ test('WebsiteClient.pages: standalone pages of a module, by a record search', as
     { id: 5, title: 'C', modified: '2026-10-03' },
     { id: 3, title: 'Map A', modified: '2026-10-01' }
   ]);
-  assert.equal(requests[1][0], '/records');
-  assert.deepEqual(JSON.parse(requests[1][1].q), [{ t: '52' }, { 'f:980': '4' }, { 'f:928': '6254' }]);
+  assert.equal(requests[1][0], '/page');
+  assert.deepEqual(JSON.parse(requests[1][1].q), [{ 'f:980': '4' }, { 'f:928': '6254' }]);
   assert.equal(requests[1][1].fields, 'rec_ID,rec_Title,rec_Modified,1,1180');
 });
