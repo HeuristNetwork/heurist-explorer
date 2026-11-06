@@ -8,3 +8,7 @@ dist/
 .DS_Store
 CLAUDE.md
 
+
+
+#Ignore vscode AI rules
+.github\instructions\codacy.instructions.md
