@@ -31,18 +31,7 @@ import { ReportManager } from './ui/ReportManager.js';
 export async function initHeuristReports(config) {
   const container = document.getElementById(config.containerId);
   if (!container) throw new Error(`Reports container #${config.containerId} was not found`);
-  const apiClient = new HeuristApiClient({
-    apiBaseUrl: config.apiBaseUrl || defaultApiBaseUrl(config.baseUrl),
-    database: config.database,
-    accessToken: config.accessToken,
-    headers: config.requestHeaders
-  });
-  const application = new ReportsApplication({
-    config,
-    reportApi: new ReportApi({ apiClient }),
-    jobClient: new JobClient({ apiClient }),
-    host: new ReportsHostAdapter(config.bridge)
-  });
+  const application = createReportsApplication(config);
   container.classList.add('heurist-reports-root');
   const view = new ReportManager().attach(container, { application });
   application.setView(view);
@@ -52,6 +41,27 @@ export async function initHeuristReports(config) {
   if (config.exposeGlobal !== false) globalThis.heuristReports = api;
   await api.ready();
   return api;
+}
+
+/**
+ * The API clients and the application, without a view (also used by the generated reports panel of the CMS designer).
+ *
+ * @param {object} config Normalized configuration; see `reportsConfig.js`.
+ * @returns {ReportsApplication}
+ */
+export function createReportsApplication(config) {
+  const apiClient = new HeuristApiClient({
+    apiBaseUrl: config.apiBaseUrl || defaultApiBaseUrl(config.baseUrl),
+    database: config.database,
+    accessToken: config.accessToken,
+    headers: config.requestHeaders
+  });
+  return new ReportsApplication({
+    config,
+    reportApi: new ReportApi({ apiClient }),
+    jobClient: new JobClient({ apiClient }),
+    host: new ReportsHostAdapter(config.bridge)
+  });
 }
 
 /** `<baseUrl>api` when only the Heurist base URL is known. */

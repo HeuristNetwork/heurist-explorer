@@ -1180,20 +1180,13 @@ export class CmsDesigner {
       const settings = await openCardsForm(common);
       if (settings) this._edit((doc) => doc.setInstance(instanceId, { settings }));
     } else if (instance.type === 'report') {
-      const runtime = this.options.runtime || {};
+      // the generated reports panel of heurist-reports, through Explorer (plan 27e §28)
       const settings = await openReportForm({
         settings: instance.settings,
         languages: this.site?.languages || [],
         services: {
-          reports: async () => {
-            const response = await this.apiClient.get('/report', { query: { fields: 'rec_ID', limit: 5000 } });
-            return Object.values(response?.meta?.items ?? {}).filter((report) => !report.isCardView);
-          },
-          generated: async (report) => {
-            const response = await this.apiClient.get('/output', { query: { fields: 'rec_ID', limit: 5000 } });
-            return Object.values(response?.meta?.items ?? {}).filter((output) => String(output.reportId) === String(report));
-          },
-          heuristUrl: `${runtime.baseUrl || ''}hclient/modules/explorer/explorerViewer.html?db=${encodeURIComponent(runtime.database || '')}`
+          createOutputsPanel: typeof this.bridge?.createReportOutputsPanel === 'function'
+            ? (options) => this.bridge.createReportOutputsPanel(options) : null
         }
       });
       if (settings) this._edit((doc) => doc.setInstance(instanceId, { settings }));

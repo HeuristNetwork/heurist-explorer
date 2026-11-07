@@ -1,8 +1,9 @@
 /**
  * @file OutputsDialog.js
- * @brief The generated reports (output records, plan 30): one dialog with two modes. List: all of them, one
- *        per report or all. New: the source of the records, the outputs of the template with that query
- *        (to generate one again), and a new generated report.
+ * @brief The generated reports (output records, plan 30): one panel with two modes, shown in a dialog. List: all
+ *        of them, one per report or all. New: the source of the records, the outputs of the template with that
+ *        query (to generate one again), and a new generated report. The CMS designer shows the same panel in its
+ *        form of the element Generated Report (plan 27e §28): `pick` adds a checkbox and a language to each row.
  *
  * @project     Heurist academic knowledge management system
  * @package     heurist-reports
@@ -35,7 +36,38 @@ const DIALOG_ID = 'h-reports-outputs';
  * @returns {Promise<void>}
  */
 export async function openOutputsDialog(app, report = null, { mode = 'list', onShow = null, onGenerate = null } = {}) {
+  const close = () => HMsg.closeMsgDlg(DIALOG_ID);
+  const panel = await createOutputsPanel(app, report, { mode, onShow, onGenerate, onClose: close });
+  const dialog = HMsg.showMsgDlg(panel.element, {
+    dialogId: DIALOG_ID,
+    title: 'Generated reports',
+    buttons: [{ label: 'Close', class: 'h-btn', onClick: close }]
+  });
+  dialog.classList.add('h-reports-schedules-dialog');
+  dialog.addEventListener('close', () => panel.destroy(), { once: true });
+  await panel.ready;
+}
+
+/**
+ * The generated reports as a panel: search, report filter, New Report, table.
+ *
+ * @param {import('../core/ReportsApplication.js').ReportsApplication} app Controller.
+ * @param {object|null} report Report whose outputs are shown first (filter); null for all.
+ * @param {object} [options]
+ * @param {'list'|'new'} [options.mode='list'] New mode; a template without generated reports starts in it (not in pick).
+ * @param {function(string): void} [options.onShow] Shows the URL of a file in the output frame.
+ * @param {function(object): Promise<void>} [options.onGenerate] Generates an output of New mode (the panel is closed);
+ *        without it the output is generated in the panel.
+ * @param {function(): void} [options.onClose] Closes the dialog of the panel.
+ * @param {{languages?: string[], files?: Object<string, number>, onChange?: function(Object<string, number>, object[]): void}} [options.pick]
+ *        Choice of outputs (CMS designer): one per language (`def`: all languages), no Delete, no card reports.
+ * @returns {Promise<{element: HTMLElement, ready: Promise<void>, destroy: function(): void}>}
+ */
+export async function createOutputsPanel(app, report = null, { mode = 'list', onShow = null, onGenerate = null, onClose = null, pick = null } = {}) {
   let outputs = await app.loadOutputs();
+  const languages = (pick?.languages || []).map((code) => String(code).toLowerCase());
+  // chosen outputs by language: {eng: 12, def: 14}
+  const picks = Object.fromEntries(Object.entries(pick?.files || {}).map(([code, id]) => [code, Number(id)]).filter(([, id]) => id > 0));
   const root = el('div', 'h-reports-schedules');
   const source = el('div', 'h-reports-source', root);
   source.hidden = true;
@@ -68,7 +100,7 @@ export async function openOutputsDialog(app, report = null, { mode = 'list', onS
     if (report?.id != null) ids.add(String(report.id));
     const current = filter.value || (report?.id != null ? String(report.id) : '');
     filter.replaceChildren(option($HR('All reports'), ''));
-    const reports = [...ids].map((id) => app.findReport(id)).filter(Boolean)
+    const reports = [...ids].map((id) => app.findReport(id)).filter((item) => item && !(pick && item.isCardView))
       .sort((a, b) => a.title.localeCompare(b.title, undefined, { sensitivity: 'base' }));
     for (const item of reports) filter.append(option(item.title, item.id));
     filter.value = reports.some((item) => String(item.id) === current) ? current : '';
@@ -79,6 +111,7 @@ export async function openOutputsDialog(app, report = null, { mode = 'list', onS
     if (newReport) return newQuery == null ? [] : outputsOfQuery(outputs, newReport, newQuery);
     const text = search.value.trim().toLowerCase();
     return outputs.filter((output) => (!filter.value || String(output.reportId) === filter.value)
+      && !(pick && app.findReport(output.reportId)?.isCardView)
       && (!text || `${output.title} ${output.reportTitle || ''}`.toLowerCase().includes(text)));
   };
 
@@ -95,19 +128,23 @@ export async function openOutputsDialog(app, report = null, { mode = 'list', onS
       if (!shown.length) return;
     }
     const head = el('tr', '', el('thead', '', table));
-    for (const label of ['', 'Lang', 'Name', 'Report', 'Query', 'Scheduled', 'Generated', 'Size', '']) el('th', '', head).textContent = label ? $HR(label) : '';
+    const labels = ['', 'Lang', 'Name', 'Report', 'Query', 'Scheduled', 'Generated', 'Size', ''];
+    if (pick) labels.unshift('');
+    for (const label of labels) el('th', '', head).textContent = label ? $HR(label) : '';
     const body = el('tbody', '', table);
     if (!shown.length) {
       const cell = el('td', 'h-muted', el('tr', '', body));
-      cell.colSpan = 9;
+      cell.colSpan = labels.length;
       cell.textContent = $HR('No generated reports');
       return;
     }
     for (const output of shown) {
       const row = el('tr', '', body);
+      if (pick) pickCell(row, output);
       const generate = el('td', '', row);
       if (output.canEdit) iconButton(generate, 'fa-solid fa-bolt', newReport ? 'Regenerate' : 'Generate now', () => execute(output));
-      languageCell(row, output);
+      if (pick && languages.length > 1 && pickedLanguage(output) != null) pickLanguageCell(row, output);
+      else languageCell(row, output);
       const name = el('td', 'h-reports-schedule-name', row);
       name.title = output.title;
       if (output.generated && onShow) {
@@ -130,7 +167,8 @@ export async function openOutputsDialog(app, report = null, { mode = 'list', onS
       const actions = el('td', 'h-reports-row-actions', row);
       if (output.canEdit) {
         if (app.host.canEditRecords()) iconButton(actions, 'fa-solid fa-pen', 'Edit', () => edit(output));
-        iconButton(actions, 'fa-solid fa-trash', 'Delete', () => remove(output));
+        // a website may show this output
+        if (!pick) iconButton(actions, 'fa-solid fa-trash', 'Delete', () => remove(output));
       }
       if (output.generated) {
         el('span', 'h-reports-icon-gap', actions).setAttribute('aria-hidden', 'true');
@@ -146,10 +184,92 @@ export async function openOutputsDialog(app, report = null, { mode = 'list', onS
     render();
   };
 
-  /** Close the dialog and generate: the manager follows the job. */
+  /** The language an output is chosen for, or null. */
+  function pickedLanguage(output) {
+    return Object.keys(picks).find((code) => picks[code] === output.id) ?? null;
+  }
+
+  /** The chosen outputs to the caller. */
+  const pickChanged = () => {
+    const chosen = Object.values(picks).map((id) => outputs.find((output) => output.id === id)).filter(Boolean);
+    pick?.onChange?.({ ...picks }, chosen);
+  };
+
+  /** Not chosen any more. */
+  const unpick = (output) => {
+    for (const key of Object.keys(picks)) if (picks[key] === output.id) delete picks[key];
+  };
+
+  /** Choose an output: for its language if the website has it, else for all (`def`); one output per language. */
+  const choose = (output, code = null) => {
+    unpick(output);
+    const own = String(output.language || '').toLowerCase();
+    const target = code ?? (languages.length > 1 && languages.includes(own) ? own : 'def');
+    if (languages.length < 2) for (const key of Object.keys(picks)) delete picks[key];
+    picks[target] = output.id;
+    pickChanged();
+  };
+
+  /** Checkbox of a row: chosen or not; only a generated HTML file can be chosen. */
+  function pickCell(row, output) {
+    const box = el('input', '', el('td', '', row));
+    box.type = 'checkbox';
+    box.checked = pickedLanguage(output) != null;
+    box.disabled = !box.checked && output.generated?.format !== 'html';
+    box.title = box.disabled ? $HR('Generate this report first') : $HR('Show this report on the page');
+    box.setAttribute('aria-label', box.title);
+    box.addEventListener('change', () => {
+      if (box.checked) {
+        choose(output);
+      } else {
+        unpick(output);
+        pickChanged();
+      }
+      render();
+    });
+  }
+
+  /** The language a chosen output is shown in: all languages or one of the website. */
+  function pickLanguageCell(row, output) {
+    const select = el('select', 'h-select h-compact h-reports-pick-language', el('td', '', row));
+    select.title = $HR('Language of the page');
+    select.append(option($HR('All languages'), 'def'));
+    for (const code of languages) select.append(option(code.toUpperCase(), code));
+    select.value = pickedLanguage(output);
+    select.addEventListener('change', () => {
+      choose(output, select.value);
+      render();
+    });
+  }
+
+  /** Back to the list from New mode. */
+  const leaveNew = () => {
+    newReport = null;
+    newQuery = null;
+    source.hidden = true;
+    controls.hidden = false;
+    table.hidden = false;
+    hint.hidden = true;
+  };
+
+  /**
+   * Generate an output: close the dialog and let the manager follow the job, or (without onGenerate) generate
+   * it here, back in the list; in pick mode the output is chosen.
+   */
   const generateOutput = async (output) => {
-    HMsg.closeMsgDlg(DIALOG_ID);
-    await onGenerate?.(output);
+    if (onGenerate) {
+      onClose?.();
+      await onGenerate(output);
+      return;
+    }
+    leaveNew();
+    outputs = await app.loadOutputs();
+    if (output.reportId != null) filter.value = String(output.reportId);
+    fillFilter();
+    const fresh = outputs.find((item) => item.id === output.id) || output;
+    if (pick && pickedLanguage(fresh) == null) choose(fresh);
+    render();
+    await execute(fresh);
   };
 
   /** New mode for a template: the source of the records instead of the search and the list. */
@@ -233,7 +353,7 @@ export async function openOutputsDialog(app, report = null, { mode = 'list', onS
       && !(await confirmDialog(`${output.title}: ${formatSize(output.generated.size)}. ${$HR('Large files can make the page slow. Show it here anyway?')}`, { yesLabel: 'Show' }))) {
       return;
     }
-    HMsg.closeMsgDlg(DIALOG_ID);
+    onClose?.();
     onShow(app.api.outputUrl(output.id));
   };
 
@@ -250,6 +370,8 @@ export async function openOutputsDialog(app, report = null, { mode = 'list', onS
     if (final.status === 'done') {
       setTimeout(() => { jobHost.hidden = true; }, 1500);
       await reload();
+      // the size and date of the file
+      if (pick && pickedLanguage(output) != null) pickChanged();
     }
   };
 
@@ -270,21 +392,15 @@ export async function openOutputsDialog(app, report = null, { mode = 'list', onS
   search.addEventListener('input', render);
   filter.addEventListener('change', render);
 
-  const dialog = HMsg.showMsgDlg(root, {
-    dialogId: DIALOG_ID,
-    title: 'Generated reports',
-    buttons: [{ label: 'Close', class: 'h-btn', onClick: () => HMsg.closeMsgDlg(DIALOG_ID) }]
-  });
-  dialog.classList.add('h-reports-schedules-dialog');
-  dialog.addEventListener('close', () => monitor?.destroy(), { once: true });
   fillFilter();
   const hasOutputs = outputs.some((output) => String(output.reportId) === String(report?.id));
   const canRun = report?.id != null && report.fileExists !== false;
-  if (canRun && (mode === 'new' || !hasOutputs)) {
+  let ready = Promise.resolve();
+  if (canRun && (mode === 'new' || (!hasOutputs && !pick))) {
     // the list is not shown while the source loads
     controls.hidden = true;
     table.hidden = true;
-    await run(() => startNew(report));
+    ready = run(() => startNew(report));
   } else {
     render();
   }
@@ -299,6 +415,10 @@ export async function openOutputsDialog(app, report = null, { mode = 'list', onS
     button.addEventListener('click', () => run(onClick));
     return button;
   }
+
+  // the stored choice with its outputs (visibility for the caller's warning)
+  if (pick) pickChanged();
+  return { element: root, ready, destroy: () => void monitor?.destroy() };
 }
 
 /** The language of an output as a badge. */

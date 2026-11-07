@@ -21,7 +21,8 @@ import './style.css';
 import { moduleLanguage } from '#shared/config';
 import { extendLocale } from '#shared/ui';
 import { createHeuristReportsConfig } from './reportsConfig.js';
-import { initHeuristReports } from './initHeuristReports.js';
+import { createReportsApplication, initHeuristReports } from './initHeuristReports.js';
+import { createOutputsPanel } from './ui/OutputsDialog.js';
 
 /**
  * Mount heurist-reports into a same-realm container.
@@ -43,6 +44,30 @@ export async function mountHeuristReports({ container, bootstrap = {}, bridge = 
   config.exposeGlobal = false;
   config.moduleAssetBaseUrl = assetBaseUrl;
   return initHeuristReports(config);
+}
+
+/**
+ * The generated reports panel without the manager: the form of the element Generated Report of the CMS
+ * designer (plan 27e §28) shows it through Explorer's bridge. New Report, Bolt and Edit work in it; Delete is not
+ * offered.
+ *
+ * @param {object} options
+ * @param {object} [options.bootstrap] Bootstrap envelope (`runtime`).
+ * @param {object|null} [options.bridge] Host bridge of the reports manager.
+ * @param {string|null} [options.assetBaseUrl] Base URL of the module's assets (localization).
+ * @param {number|string|null} [options.report] Report shown first (filter).
+ * @param {object} options.pick `languages`, `files`, `onChange(files, outputs)`: see createOutputsPanel.
+ * @returns {Promise<{element: HTMLElement, ready: Promise<void>, destroy: function(): void}>}
+ */
+export async function createReportOutputsPanel({ bootstrap = {}, bridge = null, assetBaseUrl = null, report = null, pick } = {}) {
+  await extendLocale(moduleLanguage(bootstrap), assetBaseUrl);
+  const config = createHeuristReportsConfig(bootstrap, { bridge });
+  config.exposeGlobal = false;
+  config.moduleAssetBaseUrl = assetBaseUrl;
+  const app = createReportsApplication(config);
+  app.userGroups = await app.host.getUserGroups();
+  await app.refresh();
+  return createOutputsPanel(app, report != null ? app.findReport(String(report)) : null, { pick });
 }
 
 /** Generate a container id not already present in the document. */

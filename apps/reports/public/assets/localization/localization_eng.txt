@@ -279,3 +279,7 @@
 #Select template#Select template
 #Source#Source
 #This template is not registered. Create a record to use it.#This template is not registered. Create a record to use it.
+#Generate this report first#Generate this report first
+#Show this report on the page#Show this report on the page
+#Language of the page#Language of the page
+#All languages#All languages

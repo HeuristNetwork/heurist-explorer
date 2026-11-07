@@ -296,3 +296,10 @@ figure[data-h-view="iiif"]::after {
 .h-site-design .h-site-widget-list {
   display: block;
 }
+
+/* Generated Report cut or as a link (plan 27e §28) */
+.h-site-report-more,
+.h-site-report-link {
+  display: inline-block;
+  margin-top: 6px;
+}

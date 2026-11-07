@@ -1928,20 +1928,23 @@ export class ExplorerApplication {
     const mount = this._reportsMounter || mountDirectReports;
     return mount({
       container: body,
-      bootstrap: {
-        runtime: {
-          database: this.config.database,
-          apiBaseUrl: this.config.apiBaseUrl,
-          baseUrl: this.config.baseUrl,
-          accessToken: this.config.accessToken,
-          requestHeaders: this.config.requestHeaders,
-          language: this.config.language,
-          runtimeMode: 'main'
-        }
-      },
+      bootstrap: { runtime: this._reportsRuntime() },
       bridge: this._reportsBridge(),
       assetBaseUrl: this.config.moduleAssetUrls?.reports || null
     });
+  }
+
+  /** @private Runtime of heurist-reports (Report tool, generated reports panel). */
+  _reportsRuntime() {
+    return {
+      database: this.config.database,
+      apiBaseUrl: this.config.apiBaseUrl,
+      baseUrl: this.config.baseUrl,
+      accessToken: this.config.accessToken,
+      requestHeaders: this.config.requestHeaders,
+      language: this.config.language,
+      runtimeMode: 'main'
+    };
   }
 
   /**
@@ -2118,8 +2121,28 @@ export class ExplorerApplication {
       getDbDefs: () => this._ensureDbDefs(),
       isLoggedIn: () => Number(this.userGroups?.data?.currentUserId) > 0,
       openConfiguration: (request) => this.openModuleConfiguration(request),
-      configureExplorerInstance: (request) => this.configureExplorerInstance(request)
+      configureExplorerInstance: (request) => this.configureExplorerInstance(request),
+      createReportOutputsPanel: (options) => this._reportOutputsPanel(options)
     };
+  }
+
+  /**
+   * The generated reports panel of heurist-reports for the element Generated Report of the CMS designer
+   * (plan 27e §28): the same lazy chunk as the Report tool, with its bridge.
+   *
+   * @private
+   * @param {{report?: number|string|null, pick: object}} options See createReportOutputsPanel of apps/reports.
+   * @returns {Promise<{element: HTMLElement, ready: Promise<void>, destroy: function(): void}>}
+   */
+  async _reportOutputsPanel({ report = null, pick } = {}) {
+    const { createReportOutputsPanel } = await import('../../../reports/src/direct.js');
+    return createReportOutputsPanel({
+      bootstrap: { runtime: this._reportsRuntime() },
+      bridge: this._reportsBridge(),
+      assetBaseUrl: this.config.moduleAssetUrls?.reports || null,
+      report,
+      pick
+    });
   }
 
   /**

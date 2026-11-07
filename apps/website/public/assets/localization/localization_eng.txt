@@ -144,3 +144,12 @@
 #Player size (width × height)#Player size (width × height)
 #The size of the player that a click on the thumbnail of audio, video or a YouTube, Vimeo or SoundCloud link opens.#The size of the player that a click on the thumbnail of audio, video or a YouTube, Vimeo or SoundCloud link opens.
 #Caption of the media#Caption of the media
+#Select a generated report, one for each language of the website. A page in a language without its own report shows the default one. With a schedule, the content of the element is updated automatically on the next generation run.#Select a generated report, one for each language of the website. A page in a language without its own report shows the default one. With a schedule, the content of the element is updated automatically on the next generation run.
+#Full report#Full report
+#Cut, with "Show more"#Cut, with "Show more"
+#Show link only#Show link only
+#Visitors who are not logged in can not open this report: make it public.#Visitors who are not logged in can not open this report: make it public.
+#Generated reports can be chosen only in Heurist Explorer#Generated reports can be chosen only in Heurist Explorer
+#Open report#Open report
+#Show more#Show more
+#The report is cut in the designer#The report is cut in the designer

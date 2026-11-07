@@ -144,3 +144,12 @@
 #Player size (width × height)#Taille du lecteur (largeur × hauteur)
 #The size of the player that a click on the thumbnail of audio, video or a YouTube, Vimeo or SoundCloud link opens.#La taille du lecteur ouvert par un clic sur la vignette d’un son, d’une vidéo ou d’un lien YouTube, Vimeo ou SoundCloud.
 #Caption of the media#Légende du média
+#Select a generated report, one for each language of the website. A page in a language without its own report shows the default one. With a schedule, the content of the element is updated automatically on the next generation run.#Choisissez un rapport généré, un pour chaque langue du site. Une page dans une langue sans son propre rapport affiche celui par défaut. Avec une planification, le contenu de l’élément est mis à jour automatiquement à la prochaine génération.
+#Full report#Rapport complet
+#Cut, with "Show more"#Coupé, avec « Afficher plus »
+#Show link only#Lien seulement
+#Visitors who are not logged in can not open this report: make it public.#Les visiteurs non connectés ne peuvent pas ouvrir ce rapport : rendez-le public.
+#Generated reports can be chosen only in Heurist Explorer#Les rapports générés ne peuvent être choisis que dans Heurist Explorer
+#Open report#Ouvrir le rapport
+#Show more#Afficher plus
+#The report is cut in the designer#Le rapport est coupé dans l’éditeur

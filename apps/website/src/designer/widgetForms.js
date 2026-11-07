@@ -26,8 +26,6 @@ import { allowsStoredCode, isStoredCodeField } from '#shared/data/storedTextPoli
 import { multilangFieldIds } from '#shared/data/writableRecordTypes.js';
 import { RecordStructureProvider } from '#shared/recordview/RecordStructureProvider.js';
 import { HEditForm } from '#shared/widgets/edit-form/HEditForm.js';
-import { createHInput } from '#shared/widgets/form/inputs/createHInput.js';
-import { languageSelect } from '#shared/widgets/translation/translationControls.js';
 import { openEditFormDialog } from '#shared/widgets/edit-form/editFormDialog.js';
 import { formDialog } from './designerDialogs.js';
 
@@ -671,159 +669,96 @@ function mediaSize(value) {
 /**
  * The generated file of each language of the element Generated Report.
  *
- * @param {Object<string, string>} files Rows `{code: file}`.
- * @returns {Object<string, string>} Rows with a file.
+ * @param {Object<string, string|number>} files Rows `{code: output id}`.
+ * @returns {Object<string, number>} Rows with an output.
  */
 export function reportFiles(files) {
-  return Object.fromEntries(Object.entries(files).filter(([, file]) => file));
+  return Object.fromEntries(Object.entries(files || {}).map(([code, id]) => [code, Number(id)]).filter(([, id]) => id > 0));
 }
 
+/** How the element Generated Report shows the report (plan 27e §28). */
+export const REPORT_DISPLAY = Object.freeze(['full', 'cut', 'link']);
+
 /**
- * Options of a language row: the generated HTML outputs of a report, the outputs of the rows kept. An output
- * without an interval can be chosen too, but nothing updates it.
+ * Whether a link to the file of a chosen output will not open for guests: Cut and Show link load the file through
+ * `/output/{id}/asset`, which follows the visibility of the output record; Full report is read by the server.
  *
- * @param {Array<{id: number, title: string, language?: string, intervalMinutes?: number|null, generated?: object|null}>} outputs
- *        Outputs of the report.
- * @param {Array<string|number>} [kept] Outputs stored in the element.
- * @returns {Array<{id: string, label: string}>}
+ * @param {string} display `full`, `cut` or `link`.
+ * @param {Array<{visibility?: string}>} outputs The chosen outputs.
+ * @returns {boolean}
  */
-export function generatedFileTerms(outputs, kept = []) {
-  const usable = outputs.filter((output) => output.generated?.format === 'html');
-  const terms = usable.map((output) => {
-    const language = output.language ? ` [${output.language.toUpperCase()}]` : '';
-    return { id: String(output.id), label: `${output.title}${language}${output.intervalMinutes > 0 ? '' : ` (${$HR('not scheduled')})`}` };
-  });
-  const known = new Set(terms.map((term) => term.id));
-  return [...terms, ...kept.filter(Boolean).map(String).filter((id) => !known.has(id)).map((id) => ({ id, label: `#${id}` }))];
+export function reportLinkHidden(display, outputs) {
+  return display !== 'full' && outputs.some((output) => output.visibility != null && !visibleToGuests(output.visibility));
 }
 
 /**
- * Configuration of the element Generated Report: the report, then one row per language as in the translation form (badge, clear on
- * mouse over, the language selector below). The report is edited and generated in the Report section, not here.
+ * Configuration of the element Generated Report (plan 27e §28): the generated reports panel of heurist-reports
+ * (Explorer's bridge: search, report filter, New Report, Bolt, Edit; a checkbox and a language on each row), then
+ * how the report is shown.
  *
  * @param {object} options
- * @param {object} options.settings Current settings (`report`, `files`).
+ * @param {object} options.settings Current settings (`report`, `files`, `display`).
  * @param {string[]} options.languages Languages of the website.
- * @param {object} options.services `reports()` → the reports, `generated(id)` → the outputs of a report, `heuristUrl`.
+ * @param {object} options.services `createOutputsPanel({report, pick})` → `{element, ready, destroy}`.
  * @returns {Promise<object|null>} The new settings.
  */
 export async function openReportForm({ settings = {}, languages = [], services }) {
-  const values = { ...(settings.files || {}) };
-  if (!languages.length) values.def ??= '';
-  else if (!Object.keys(values).length) values[languages[0]] = '';
-  let reports = await services.reports();
-  let current = settings.report ?? null;
-  let files = current ? await services.generated(current) : [];
+  if (typeof services?.createOutputsPanel !== 'function') {
+    HMsg.showMsgErr($HR('Generated reports can be chosen only in Heurist Explorer'));
+    return null;
+  }
+  let files = reportFiles(settings.files);
+  let chosen = [];
+  let display = REPORT_DISPLAY.includes(settings.display) ? settings.display : 'full';
   const element = (tag, className, text = '') => {
     const node = document.createElement(tag);
     node.className = className;
     if (text) node.textContent = $HR(text);
     return node;
   };
-  const form = element('div', 'h-cms-form h-cms-report-form');
-  const reportRow = element('div', 'h-cms-form-row');
-  const reportLabel = element('span', '', 'Report');
-  const reportHost = element('div', 'h-translation-input');
-  reportRow.append(reportLabel, reportHost);
-  const empty = element('div', 'h-cms-styles-warning', 'You have to generate report output first');
-  const note = element('div', 'h-cms-style-note');
-  const open = element('a', '', 'Open Heurist in a new browser window');
-  open.href = services.heuristUrl || '#';
-  open.target = '_blank';
-  open.rel = 'noreferrer noopener';
-  const refresh = element('button', 'h-btn h-compact', 'Refresh');
-  refresh.type = 'button';
-  note.append(open, document.createTextNode(`, ${$HR('select the desired report, edit it if needed and generate the report output. Then come back to this window and click Refresh.')} `), refresh);
-  const root = element('div', 'h-translation');
-  const list = element('div', 'h-translation-rows');
-  const adder = element('div', 'h-translation-add');
-  root.append(list, adder);
+  const warning = element('div', 'h-cms-styles-warning', 'Visitors who are not logged in can not open this report: make it public.');
   const problems = element('div', 'h-cms-style-problems');
-  form.append(element('div', 'h-cms-style-note', 'Select a generated report, one for each language of the website. With a schedule, the content of the element is updated automatically on the next generation run. Edit the report, generate it and set the schedule in the Report section.'),
-    reportRow, empty, note, root, problems);
-
-  let inputs = [];
-  let reportInput = null;
-  const keep = () => {
-    for (const { code, input } of inputs) values[code] = String(input.getValue() ?? '');
+  const showWarning = () => {
+    warning.hidden = !reportLinkHidden(display, chosen);
   };
-  const destroyInputs = () => {
-    for (const { input } of inputs) void input.destroy();
-    inputs = [];
-  };
-  const renderReport = () => {
-    void reportInput?.destroy();
-    reportHost.replaceChildren();
-    const host = element('div', '');
-    reportHost.append(host);
-    reportInput = createHInput('enum', host, {
-      suppressLabel: true,
-      value: current,
-      numeric: false,
-      terms: reports.map((report) => ({
-        id: String(report.id), label: `${report.title} (${Number(report.outputCount) || 0})`, depth: 1
-      }))
-    });
-    host.addEventListener('h-input-change', () => void chooseReport(reportInput.getValue()));
-  };
-  const renderRows = () => {
-    destroyInputs();
-    list.replaceChildren();
-    const terms = generatedFileTerms(files, current ? [] : Object.values(values));
-    const multilingual = languages.length > 0;
-    for (const code of Object.keys(values)) {
-      const row = element('div', 'h-translation-row');
-      const host = element('div', 'h-translation-input');
-      row.append(host);
-      list.append(row);
-      inputs.push({ code, input: createHInput('enum', host, {
-        suppressLabel: true, valueTools: true, visibilityToggle: false, numeric: false, terms: terms.map((term) => ({ ...term, depth: 1 })),
-        value: terms.some((term) => term.id === values[code]) ? values[code] : null,
-        langCode: multilingual ? code.toUpperCase() : ''
-      }) });
-    }
-    empty.hidden = !current || generatedFileTerms(files).length > 0;
-    adder.replaceChildren();
-    const free = languages.filter((code) => !Object.hasOwn(values, code));
-    adder.hidden = !free.length;
-    if (!free.length) return;
-    adder.append(languageSelect({
-      languages: [{ code: '', label: $HR('Add a language') }, ...free.map((code) => ({ code, label: code.toUpperCase() }))],
-      value: '',
-      title: 'Add a file in this language',
-      onChange: (code) => {
-        if (!code) return;
-        keep();
-        values[code] = '';
-        renderRows();
+  const panel = await services.createOutputsPanel({
+    report: settings.report ?? null,
+    pick: {
+      languages,
+      files,
+      onChange: (picked, outputs) => {
+        files = picked;
+        chosen = outputs;
+        problems.textContent = '';
+        showWarning();
       }
-    }).element);
-  };
-  const chooseReport = async (reference) => {
-    keep();
-    current = reference || null;
-    files = current ? await services.generated(current) : [];
-    renderRows();
-  };
-  refresh.addEventListener('click', async () => {
-    keep();
-    reports = await services.reports();
-    files = current ? await services.generated(current) : [];
-    renderReport();
-    renderRows();
+    }
   });
-  renderReport();
-  renderRows();
+  const form = element('div', 'h-cms-form h-cms-report-form');
+  const radios = element('div', 'h-cms-report-display');
+  for (const [value, label] of [['full', 'Full report'], ['cut', 'Cut, with "Show more"'], ['link', 'Show link only']]) {
+    const line = element('label', '');
+    const radio = element('input', '');
+    radio.type = 'radio';
+    radio.name = 'h-cms-report-display';
+    radio.value = value;
+    radio.checked = value === display;
+    radio.addEventListener('change', () => {
+      display = value;
+      showWarning();
+    });
+    line.append(radio, ` ${$HR(label)}`);
+    radios.append(line);
+  }
+  form.append(element('div', 'h-cms-style-note', 'Select a generated report, one for each language of the website. A page in a language without its own report shows the default one. With a schedule, the content of the element is updated automatically on the next generation run.'),
+    panel.element, radios, warning, problems);
+  showWarning();
   return formDialog(form, 'Generated Report', 'OK', () => {
-    keep();
-    const chosen = reportFiles(values);
-    if (!Object.keys(chosen).length) {
+    if (!Object.keys(files).length) {
       problems.textContent = $HR('Choose a generated report');
       return null;
     }
-    return { ...(current ? { report: current } : {}), files: chosen };
-  }, null, 'h-dialog-translation').finally(() => {
-    destroyInputs();
-    void reportInput?.destroy();
-  });
+    const report = chosen[0]?.reportId ?? settings.report;
+    return { ...(report != null ? { report } : {}), files, display };
+  }, null, 'h-cms-report-dialog').finally(() => panel.destroy());
 }

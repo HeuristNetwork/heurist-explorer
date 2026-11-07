@@ -759,3 +759,31 @@
 .h-dialog-cms-field {
   width: min(900px, 95vw);
 }
+
+/* Generated Report: the generated reports panel of heurist-reports (plan 27e §28) */
+.h-dialog.h-cms-report-dialog {
+  width: min(1200px, calc(100vw - 32px));
+  max-width: none;
+}
+
+.h-cms-report-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.h-cms-report-form .h-cms-style-note {
+  margin-top: 0;
+}
+
+.h-cms-report-display {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  padding-top: 6px;
+  border-top: 1px solid var(--h-color-border, #e7eaee);
+}
+
+.h-cms-report-form [hidden] {
+  display: none;
+}

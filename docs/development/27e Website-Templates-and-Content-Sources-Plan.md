@@ -384,3 +384,25 @@ Implemented, not committed, not checked in a browser. This changes the decision 
 ## 27. Tree label of a media element (Artem, 2026-11-05)
 
 The label is the caption without the link to the viewer: `media: My Image`, not "My Image Open in OSD viewer". Without a caption: `media`.
+
+## 28. Generated Report, review (Artem, 2026-11-07)
+
+Implemented, not committed, **not checked in a browser**, bundles not deployed. This replaces the decision of §24 "the designer does not open the Report editor or generate
+reports". Decided: the real Generated Reports dialog with Bolt and Edit, no Delete; a warning (not a refusal) for a report that guests can not open.
+
+- **Fallback language.** The output of a page: the page language, else `def`, else the default language of the website, else the first one, as for texts
+  (`PageContent::reportOutput`, JS `reportOutput` in `siteWidgets.js`). A report for English only is shown on a French page.
+- **Preview in the designer.** The file of the output (`/output/{id}/asset`), the content of `<body>`, always cut at 100 KB (`REPORT_CUT`) so a big report does not slow
+  the designer; Show link only shows the link.
+- **Form.** One tip. The panel of the Generated Reports dialog (`createOutputsPanel` in `apps/reports/src/ui/OutputsDialog.js`; `openOutputsDialog` wraps it) comes
+  through Explorer's bridge `createReportOutputsPanel` (lazy import of `apps/reports/src/direct.js`, the bridge of the Report tool). Option `pick`: a checkbox on each row
+  (only a generated HTML file), one output per language; with two or more website languages a chosen row has a language select (*All languages* = `def`, or a language
+  of the website); card reports are left out. New Report and Bolt generate in the panel (job monitor) and a new output is chosen. Below: `( ) Full report ( ) Cut, with
+  "Show more" ( ) Show link only`. The language rows, *Open Heurist in a new window* and Refresh are gone.
+- **Settings** `{report, files, display}`; `display` = `full` (default, also for stored elements), `cut`, `link`.
+- **Cut and link.** `cut`: a report over 100 KB is cut after the last closing tag before the limit, open elements closed (`CmsHtml::cut`), then
+  `<a class="h-site-report-more">Show more</a>`; a click loads the whole file into the element, or opens it when it can not be loaded. `link`: only `<a class="h-site-report-link">`,
+  the file is not read. The server writes English texts (the link works without JS), `siteWidgets.js` translates them. Scripts of the full report do not run after Show more.
+- **Guests.** Both links go to `/output/{id}/asset`, which follows the visibility of the output record; outputs made by Generate are hidden. `queryOutputs` now returns
+  `visibility`, and the form warns: *Visitors who are not logged in can not open this report: make it public.* Full report is not affected.
+- Tests: heurist `tests/WebsiteContentTest.php` (fallback, link, cut, UTF-8), `apps/website/test/widgetForms.test.js`.

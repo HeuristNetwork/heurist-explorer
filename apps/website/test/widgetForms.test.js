@@ -12,11 +12,11 @@ import assert from 'node:assert/strict';
 import { installFakeDom } from '../../../shared/test/helpers/fakeDom.js';
 
 installFakeDom();
-const { captionValue, fieldDetails, fileFieldTerms, fieldSnapshot, fieldTerms, generatedFileTerms, manualIds, manualQuery, mediaFormFields, mediaSizeValue, parseCardsQuery, parseFieldReference, readCaption, reportFiles, teamReportBody, visibleToGuests } = await import('../src/designer/widgetForms.js');
+const { captionValue, fieldDetails, fileFieldTerms, fieldSnapshot, fieldTerms, manualIds, manualQuery, mediaFormFields, mediaSizeValue, parseCardsQuery, parseFieldReference, readCaption, reportFiles, reportLinkHidden, teamReportBody, visibleToGuests } = await import('../src/designer/widgetForms.js');
 const { CmsRecordDocument } = await import('#shared/site/cmsEdit.js');
 const { changedDetails } = await import('../src/designer/designerData.js');
 const { CmsDesigner } = await import('../src/designer/CmsDesigner.js');
-const { needsSlider } = await import('../src/siteWidgets.js');
+const { cutReport, needsSlider, reportBody, reportOutput } = await import('../src/siteWidgets.js');
 
 test('field reference: a record, the website, the page', () => {
   assert.deepEqual(parseFieldReference('207439.2-1'), { source: 'record', record: 207439, code: '2-1' });
@@ -68,7 +68,7 @@ test('a query of cards: JSON without parameters', () => {
 });
 
 test('report files: only the languages with a file', () => {
-  assert.deepEqual(reportFiles({ eng: '12', fre: '' }), { eng: '12' });
+  assert.deepEqual(reportFiles({ eng: '12', fre: '' }), { eng: 12 });
 });
 
 test('Team member report: fields by local ids of the database', () => {
@@ -153,17 +153,25 @@ test('a translation changed in the document goes into the PATCH', () => {
   assert.deepEqual(details, { 1199: ['fre:{"a":"new"}'] });
 });
 
-test('Generated Report: generated HTML outputs of the report; one without a schedule is offered and labelled', () => {
-  const terms = generatedFileTerms([
-    { id: 1, title: 'Team', language: 'fre', intervalMinutes: 60, generated: { format: 'html' } },
-    { id: 2, title: 'Mine', intervalMinutes: 0, generated: { format: 'html' } },
-    { id: 3, title: 'Text', intervalMinutes: 60, generated: { format: 'txt' } },
-    { id: 4, title: 'Waiting', intervalMinutes: 60, generated: null }
-  ]);
-  assert.deepEqual(terms.map((term) => term.id), ['1', '2']);
-  assert.equal(terms[0].label, 'Team [FRE]');
-  assert.match(terms[1].label, /not scheduled/);
-  assert.deepEqual(generatedFileTerms([], [9, '']).map((term) => term.id), ['9'], 'a stored output stays');
+test('Generated Report: the output of a page language falls back as a text does (plan 27e §28)', () => {
+  assert.equal(reportOutput({ eng: 101 }, 'fre'), 101, 'only English: shown on a French page');
+  assert.equal(reportOutput({ eng: 101, def: 103 }, 'fre'), 103, 'def before another language');
+  assert.equal(reportOutput({ ger: 104, eng: 101 }, 'fre', ['eng', 'fre']), 101, 'default language of the website');
+  assert.equal(reportOutput({ fre: 102, eng: 101 }, 'FRE'), 102, 'the language of the page');
+  assert.equal(reportOutput({ fre: '', eng: 0 }, 'fre'), 0, 'nothing chosen');
+});
+
+test('Generated Report: body of a document and the cut of the preview', () => {
+  assert.equal(reportBody('<html><head><style>x</style></head><body class="r"><p>a</p></body></html>'), '<p>a</p>');
+  assert.equal(reportBody('<p>a</p>'), '<p>a</p>');
+  assert.equal(cutReport('<p>abc</p><p>def</p>', 14), '<p>abc</p>', 'before the last tag that starts before the limit');
+  assert.equal(cutReport('<p>a</p>', 100), '<p>a</p>');
+});
+
+test('Generated Report: a warning for Cut and Show link when a guest can not open the file', () => {
+  assert.equal(reportLinkHidden('full', [{ visibility: 'hidden' }]), false, 'the server reads the file of a full report');
+  assert.equal(reportLinkHidden('cut', [{ visibility: 'viewable' }]), true);
+  assert.equal(reportLinkHidden('link', [{ visibility: 'public' }, { visibility: 'pending' }]), false);
 });
 
 test('HSlider only for a slider or an action', () => {

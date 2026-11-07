@@ -279,3 +279,7 @@
 #Select template#Choisir un modèle
 #Source#Source
 #This template is not registered. Create a record to use it.#Ce modèle n’est pas enregistré. Créez un enregistrement pour l’utiliser.
+#Generate this report first#Générez d’abord ce rapport
+#Show this report on the page#Afficher ce rapport sur la page
+#Language of the page#Langue de la page
+#All languages#Toutes les langues
