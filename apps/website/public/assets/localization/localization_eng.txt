@@ -148,8 +148,13 @@
 #Full report#Full report
 #Cut, with "Show more"#Cut, with "Show more"
 #Show link only#Show link only
-#Visitors who are not logged in can not open this report: make it public.#Visitors who are not logged in can not open this report: make it public.
+#Visitors who are not logged in will not see this report: make it public.#Visitors who are not logged in will not see this report: make it public.
 #Generated reports can be chosen only in Heurist Explorer#Generated reports can be chosen only in Heurist Explorer
 #Open report#Open report
 #Show more#Show more
 #The report is cut in the designer#The report is cut in the designer
+#A card for each record, made by a Smarty template: records picked by hand or a query, at most 50. Shown as a list, a carousel or a slideshow.#A card for each record, made by a Smarty template: records picked by hand or a query, at most 50. Shown as a list, a carousel or a slideshow.
+#Carousel (one visible, buttons)#Carousel (one visible, buttons)
+#Slideshow (one visible, automatic)#Slideshow (one visible, automatic)
+#Open the Filter Builder#Open the Filter Builder
+#Mark a report "Single record (card)" to use it here#Mark a report "Single record (card)" to use it here

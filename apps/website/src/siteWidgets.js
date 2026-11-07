@@ -17,6 +17,9 @@
 
 import { $HR } from '#shared/ui';
 
+/** Presentations with one element visible: slideshow and carousel (HSlider ONE_VISIBLE, not imported: HSlider is a lazy chunk). */
+const ONE_VISIBLE = Object.freeze(['slider', 'carousel']);
+
 /** Widgets with HTML written by the server. */
 export const SITE_WIDGETS = Object.freeze(['report', 'cards', 'gallery']);
 
@@ -96,7 +99,7 @@ export function attachReportLinks(host) {
  * @returns {boolean}
  */
 export function needsSlider(settings = {}) {
-  return settings.presentation === 'slider' || settings.action === 'url';
+  return ONE_VISIBLE.includes(settings.presentation) || settings.action === 'url';
 }
 
 /**
@@ -112,7 +115,7 @@ export async function mountSiteWidget(host, instance, config) {
   if (instance.type === 'report' && !config.runtime?.design) attachReportLinks(host);
   if (config.runtime?.design) {
     await fillPreview(host, instance, config.runtime, (config.site?.languages || []).map((item) => item?.code ?? item));
-    return settings.presentation === 'slider' ? startSlider(host, { ...settings, design: true }) : null;
+    return ONE_VISIBLE.includes(settings.presentation) ? startSlider(host, { ...settings, design: true }) : null;
   }
   return needsSlider(settings) ? startSlider(host, settings) : null;
 }
@@ -127,6 +130,11 @@ async function startSlider(host, options) {
 async function fillPreview(host, instance, runtime, languages = []) {
   const settings = instance.settings || {};
   const language = runtime.language || 'eng';
+  if (instance.type === 'gallery' || instance.type === 'cards') {
+    // the classes the server gives the host: a list lays out its cards as the parent group does (style.css)
+    host.classList.add(instance.type === 'cards' ? 'h-site-cards' : 'h-site-gallery');
+    host.classList.toggle('h-site-widget-list', !ONE_VISIBLE.includes(settings.presentation));
+  }
   if (instance.type === 'gallery') {
     host.innerHTML = settings.html?.[language] ?? settings.html?.def ?? '';
   } else if (instance.type === 'cards') {

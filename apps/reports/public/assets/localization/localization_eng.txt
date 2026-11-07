@@ -283,3 +283,7 @@
 #Show this report on the page#Show this report on the page
 #Language of the page#Language of the page
 #All languages#All languages
+#hidden_hint#private - hidden from non-owners
+#visible_hint#visible to any logged-in user
+#pending_hint#pending (viewable by anyone, changes pending)
+#public_hint#public (viewable by anyone)

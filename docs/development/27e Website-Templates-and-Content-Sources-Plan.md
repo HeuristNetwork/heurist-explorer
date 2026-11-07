@@ -406,3 +406,35 @@ reports". Decided: the real Generated Reports dialog with Bolt and Edit, no Dele
 - **Guests.** Both links go to `/output/{id}/asset`, which follows the visibility of the output record; outputs made by Generate are hidden. `queryOutputs` now returns
   `visibility`, and the form warns: *Visitors who are not logged in can not open this report: make it public.* Full report is not affected.
 - Tests: heurist `tests/WebsiteContentTest.php` (fallback, link, cut, UTF-8), `apps/website/test/widgetForms.test.js`.
+
+## 29. Record cards and Media gallery, review (Artem, 2026-11-07)
+
+Implemented, not committed, **not checked in a browser**, bundles not deployed.
+
+- **Cards in a stack.** On the page the HTML is right (page 207929: the host has `h-site-widget-list` = `display: contents`, the group is a grid). In the designer
+  a draft host had no class and `.h-site-design .h-site-widget-list` was `display: block`. Now `fillPreview` gives a list host the classes of the server, and in
+  the designer the host takes the layout of its parent (`display`, `grid-template-columns`, `gap`, flex values: `inherit`) and spans it (`grid-column: 1 / -1`,
+  `flex: 1 1 100%`), so it is still one box to select.
+- **Query** of Record cards: the special field of the record editor (as DT_QUERY_STRING of a Query Source): the query in words, the icon `fa-sliders` opens the
+  Filter Builder without parameters (`editQuery(..., {allowParameters: false})`). The own button and the limit note are gone. The website bridge got `describeQuery`.
+- **Smarty template:** an enum (HValuePicker) of the reports marked "Single record (card)" (`cardTemplates`, `GET /report`). A stored file name selects its report;
+  without one it stays as a term. Saved: report id, or the file name as before.
+- **Help** above the form, the same text in *Add element*: "A card for each record, made by a Smarty template: records picked by hand or a query, at most 50. Shown as
+  a list, a carousel or a slideshow."
+- **Presentation** List, Carousel, Slideshow (cards and gallery). `carousel` (new value): one visible, `< >` always, no rotation, no start / stop, no Duration /
+  Fade out / Navigation fields; *Position of image* also for it. `slider` stays the slideshow. Server: carousel is a box with `h-slider-pending` as a slider.
+- **`<<` and `>>`** only with 6 or more slides (`NAV_ENDS_MIN`), both presentations.
+- Tests: heurist `tests/WebsiteContentTest.php` (carousel class), `shared/test/cmsContent.test.js` (carousel, buttons), `apps/website/test/widgetForms.test.js`.
+
+## 30. Visibility of generated reports (Artem, 2026-11-07)
+
+Implemented, not committed, not checked in a browser.
+
+- **Eye icons** (`shared/src/widgets/record-list/recordAdminInfo.js`, new `visibilityIconHtml`): hidden = red `fa-eye-slash`, viewable (logged-in users) = grey,
+  public and pending = green. Fixes HRecordList too: the map had the key `visible`, the stored value is `viewable`, so such records showed the public icon, and public
+  was grey.
+- **Generated reports table** (also the panel of the designer): first column with this icon, from `visibility` of the output (§28).
+- **Warning** in the form of Generated Report for any display (also Full report): *Visitors who are not logged in will not see this report: make it public.*
+- **Full report on the page:** decided to check it. The file is made with the rights of its owner and may hold data guests may not see, so `PageContent::report`
+  shows only an output record the visitor may see (`WebsiteRepository::record`), the same rule as its link. A generated (static) page is built with guest rights, so
+  it shows only public outputs. Test: `tests/WebsiteContentTest.php` (hidden output not shown).

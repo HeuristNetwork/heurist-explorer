@@ -148,8 +148,13 @@
 #Full report#Rapport complet
 #Cut, with "Show more"#Coupé, avec « Afficher plus »
 #Show link only#Lien seulement
-#Visitors who are not logged in can not open this report: make it public.#Les visiteurs non connectés ne peuvent pas ouvrir ce rapport : rendez-le public.
+#Visitors who are not logged in will not see this report: make it public.#Les visiteurs non connectés ne verront pas ce rapport : rendez-le public.
 #Generated reports can be chosen only in Heurist Explorer#Les rapports générés ne peuvent être choisis que dans Heurist Explorer
 #Open report#Ouvrir le rapport
 #Show more#Afficher plus
 #The report is cut in the designer#Le rapport est coupé dans l’éditeur
+#A card for each record, made by a Smarty template: records picked by hand or a query, at most 50. Shown as a list, a carousel or a slideshow.#Une carte pour chaque enregistrement, faite par un modèle Smarty : enregistrements choisis à la main ou par une requête, 50 au plus. Affichées en liste, en carrousel ou en diaporama.
+#Carousel (one visible, buttons)#Carrousel (un visible, boutons)
+#Slideshow (one visible, automatic)#Diaporama (un visible, automatique)
+#Open the Filter Builder#Ouvrir le constructeur de filtre
+#Mark a report "Single record (card)" to use it here#Marquez un rapport « Enregistrement unique (carte) » pour l’utiliser ici

@@ -1083,7 +1083,13 @@ export class CmsDesigner {
     return {
       browseRecords: typeof this.bridge?.browseRecords === 'function' ? (options) => this.bridge.browseRecords(options) : null,
       createRecordBrowser: typeof this.bridge?.createRecordBrowser === 'function' ? (request) => this._recordBrowser(request) : undefined,
-      editQuery: typeof this.bridge?.editQuery === 'function' ? (query, filterForm) => this.bridge.editQuery(query, filterForm) : null,
+      editQuery: typeof this.bridge?.editQuery === 'function' ? (query, filterForm, options) => this.bridge.editQuery(query, filterForm, options) : null,
+      describeQuery: typeof this.bridge?.describeQuery === 'function' ? (query) => this.bridge.describeQuery(query) : null,
+      // the card templates of Record cards (plan 27e §29): reports marked "Single record (card)"
+      cardTemplates: async () => {
+        const response = await this.apiClient.get('/report', { query: { fields: 'rec_ID', limit: 5000 } });
+        return Object.values(response?.meta?.items ?? {}).filter((report) => report.isCardView && report.id != null);
+      },
       // Add and Upload in the record manager of a source
       addRecord: typeof this.bridge?.addRecord === 'function' ? (rectypeId) => this.bridge.addRecord(rectypeId) : undefined,
       mediaItems: (settings) => this._mediaItems(settings),

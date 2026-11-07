@@ -17,6 +17,7 @@
  */
 
 import { HJobMonitor } from '#shared/widgets';
+import { visibilityIconHtml } from '#shared/widgets/record-list/recordAdminInfo.js';
 import { $HR, HMsg } from '#shared/ui';
 import { intervalLabel, outputsOfQuery } from '../core/ReportsApplication.js';
 import { confirmDialog } from './formDialog.js';
@@ -130,6 +131,8 @@ export async function createOutputsPanel(app, report = null, { mode = 'list', on
     const head = el('tr', '', el('thead', '', table));
     const labels = ['', 'Lang', 'Name', 'Report', 'Query', 'Scheduled', 'Generated', 'Size', ''];
     if (pick) labels.unshift('');
+    // visibility of the output record, as in the admin info of HRecordList
+    labels.unshift('');
     for (const label of labels) el('th', '', head).textContent = label ? $HR(label) : '';
     const body = el('tbody', '', table);
     if (!shown.length) {
@@ -140,6 +143,7 @@ export async function createOutputsPanel(app, report = null, { mode = 'list', on
     }
     for (const output of shown) {
       const row = el('tr', '', body);
+      el('td', 'h-reports-visibility', row).innerHTML = visibilityIconHtml(output.visibility);
       if (pick) pickCell(row, output);
       const generate = el('td', '', row);
       if (output.canEdit) iconButton(generate, 'fa-solid fa-bolt', newReport ? 'Regenerate' : 'Generate now', () => execute(output));

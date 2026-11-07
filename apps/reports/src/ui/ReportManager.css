@@ -289,6 +289,7 @@
 .h-reports-schedules-controls { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 .h-reports-schedules-controls .h-input,
 .h-reports-schedules-controls .h-select { flex: 1 1 0; min-width: 0; }
+.h-reports-visibility { width: 16px; }
 .h-reports-language { padding: 0 4px; border: 1px solid #c8ced6; border-radius: 3px; font-size: var(--h-font-size-tiny); }
 .h-reports-pick-language { width: auto; }
 .h-reports-source { display: grid; grid-template-columns: auto auto minmax(0, 1fr) auto; align-items: center; gap: 6px 12px; }

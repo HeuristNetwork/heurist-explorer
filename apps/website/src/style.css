@@ -293,8 +293,18 @@ figure[data-h-view="iiif"]::after {
   display: contents;
 }
 
+/* plan 27e §29: the host spans its parent and lays out the cards as the parent does (grid or flex group) */
 .h-site-design .h-site-widget-list {
-  display: block;
+  display: inherit;
+  grid-template-columns: inherit;
+  grid-auto-rows: inherit;
+  gap: inherit;
+  flex-direction: inherit;
+  flex-wrap: inherit;
+  align-items: inherit;
+  justify-content: inherit;
+  grid-column: 1 / -1;
+  flex: 1 1 100%;
 }
 
 /* Generated Report cut or as a link (plan 27e §28) */

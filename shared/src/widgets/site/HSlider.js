@@ -1,7 +1,9 @@
 /**
  * @file HSlider.js
  * @brief Helper of the website widgets Record cards and Media gallery (plan 27e §10): works on the HTML elements the
- *        server wrote into the host. Slider: one element visible, fade, start / stop and `<< < > >>`. Action `url`:
+ *        server wrote into the host. Slideshow (`slider`): one element visible, fade, start / stop and `<< < > >>`.
+ *        Carousel (`carousel`, plan 27e §29): one element visible, `< >` only, no rotation. `<<` and `>>` only from
+ *        NAV_ENDS_MIN elements. Action `url`:
  *        a click on a card opens its `data-h-url` in a new window. The action Player / Viewer is HMediaViewer, for the
  *        whole page: the class `h-slider-running` tells it that this host rotates. Option `design` (the CMS designer):
  *        no rotation and no actions. It knows nothing about the Heurist API.
@@ -26,6 +28,12 @@ import './HSlider.css';
 /** Defaults of the slider (ms). */
 export const SLIDER_DEFAULTS = Object.freeze({ duration: 4000, fade: 500, navigation: true });
 
+/** Number of slides from which the navigation has `<<` and `>>`. */
+export const NAV_ENDS_MIN = 6;
+
+/** Presentations with one element visible. */
+export const ONE_VISIBLE = Object.freeze(['slider', 'carousel']);
+
 /** Position of an image in a slider without a choice. */
 export const SLIDER_FIT = 'contain';
 
@@ -34,7 +42,8 @@ export class HSlider extends HBaseWidget {
   /**
    * @param {HTMLElement} container Host; its child elements are the slides or cards.
    * @param {object} [options]
-   * @param {'list'|'slider'} [options.presentation='list'] All visible, or one.
+   * @param {'list'|'carousel'|'slider'} [options.presentation='list'] All visible, or one: with buttons only
+   *        (carousel), or rotating (slider, a slideshow).
    * @param {'none'|'url'|'viewer'} [options.action='none'] `url`: a click opens `data-h-url`; `viewer`: nothing here.
    * @param {boolean} [options.design=false] In the designer: the slider without rotation and actions.
    * @param {{duration?: number, fade?: number, navigation?: boolean, fit?: string}} [options.slider] Settings of the
@@ -58,7 +67,7 @@ export class HSlider extends HBaseWidget {
   render() {
     this.container.classList.remove('h-slider-pending');
     if (!this.options.design && this.options.action === 'url') this._links();
-    if (this.options.presentation === 'slider' && this.items.length) this._slider();
+    if (ONE_VISIBLE.includes(this.options.presentation) && this.items.length) this._slider();
     this.state = 'rendered';
     return this;
   }
@@ -110,6 +119,11 @@ export class HSlider extends HBaseWidget {
     }
   }
 
+  /** Whether the slides rotate: a slideshow, not a carousel. */
+  _rotates() {
+    return this.options.presentation === 'slider';
+  }
+
   /** The slides, the navigation and the start. */
   _slider() {
     const host = this.container;
@@ -118,13 +132,14 @@ export class HSlider extends HBaseWidget {
     if (this.slider.fit) host.setAttribute('data-h-fit', this.slider.fit);
     for (const item of this.items) item.classList.add('h-slider-item');
     this.show(0);
-    if (this.slider.navigation !== false && this.items.length > 1) host.append(this._navigation());
+    // a carousel moves only by its buttons
+    if ((this.slider.navigation !== false || !this._rotates()) && this.items.length > 1) host.append(this._navigation());
     // no automatic movement in the designer and for visitors who asked for reduced motion
-    if (!this.options.design && !globalThis.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches) this.start();
+    if (this._rotates() && !this.options.design && !globalThis.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches) this.start();
     this._syncRunning();
   }
 
-  /** `<<`, `<`, start / stop, `>`, `>>`. */
+  /** `<<`, `<`, start / stop, `>`, `>>`; `<<` `>>` from NAV_ENDS_MIN slides, start / stop of a slideshow only. */
   _navigation() {
     const bar = document.createElement('div');
     bar.className = 'h-slider-nav';
@@ -141,11 +156,12 @@ export class HSlider extends HBaseWidget {
       bar.append(element);
       return element;
     };
-    button('fa-backward-fast', 'First', () => this._go(0));
+    const ends = this.items.length >= NAV_ENDS_MIN;
+    if (ends) button('fa-backward-fast', 'First', () => this._go(0));
     button('fa-backward-step', 'Previous', () => this._go(this.index - 1));
-    if (!this.options.design) this.toggle = button('fa-pause', 'Stop', () => (this.timer !== null ? this.stop() : this.start()));
+    if (!this.options.design && this._rotates()) this.toggle = button('fa-pause', 'Stop', () => (this.timer !== null ? this.stop() : this.start()));
     button('fa-forward-step', 'Next', () => this._go(this.index + 1));
-    button('fa-forward-fast', 'Last', () => this._go(this.items.length - 1));
+    if (ends) button('fa-forward-fast', 'Last', () => this._go(this.items.length - 1));
     return bar;
   }
 

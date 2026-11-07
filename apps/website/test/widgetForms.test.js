@@ -12,7 +12,7 @@ import assert from 'node:assert/strict';
 import { installFakeDom } from '../../../shared/test/helpers/fakeDom.js';
 
 installFakeDom();
-const { captionValue, fieldDetails, fileFieldTerms, fieldSnapshot, fieldTerms, manualIds, manualQuery, mediaFormFields, mediaSizeValue, parseCardsQuery, parseFieldReference, readCaption, reportFiles, reportLinkHidden, teamReportBody, visibleToGuests } = await import('../src/designer/widgetForms.js');
+const { captionValue, cardTemplateTerms, presentationSettings, fieldDetails, fileFieldTerms, fieldSnapshot, fieldTerms, manualIds, manualQuery, mediaFormFields, mediaSizeValue, parseCardsQuery, parseFieldReference, readCaption, reportFiles, reportNotPublic, teamReportBody, visibleToGuests } = await import('../src/designer/widgetForms.js');
 const { CmsRecordDocument } = await import('#shared/site/cmsEdit.js');
 const { changedDetails } = await import('../src/designer/designerData.js');
 const { CmsDesigner } = await import('../src/designer/CmsDesigner.js');
@@ -168,10 +168,10 @@ test('Generated Report: body of a document and the cut of the preview', () => {
   assert.equal(cutReport('<p>a</p>', 100), '<p>a</p>');
 });
 
-test('Generated Report: a warning for Cut and Show link when a guest can not open the file', () => {
-  assert.equal(reportLinkHidden('full', [{ visibility: 'hidden' }]), false, 'the server reads the file of a full report');
-  assert.equal(reportLinkHidden('cut', [{ visibility: 'viewable' }]), true);
-  assert.equal(reportLinkHidden('link', [{ visibility: 'public' }, { visibility: 'pending' }]), false);
+test('Generated Report: a warning for any display when a chosen output is not public', () => {
+  assert.equal(reportNotPublic([{ visibility: 'hidden' }]), true);
+  assert.equal(reportNotPublic([{ visibility: 'public' }, { visibility: 'viewable' }]), true);
+  assert.equal(reportNotPublic([{ visibility: 'public' }, { visibility: 'pending' }]), false);
 });
 
 test('HSlider only for a slider or an action', () => {
@@ -179,4 +179,20 @@ test('HSlider only for a slider or an action', () => {
   assert.equal(needsSlider({ presentation: 'list', action: 'url' }), true);
   assert.equal(needsSlider({ presentation: 'list', action: 'viewer' }), false, 'the viewer is HMediaViewer');
   assert.equal(needsSlider({ presentation: 'list', action: 'none' }), false);
+});
+
+test('presentation: list, carousel (no timing) and slideshow (plan 27e §29)', () => {
+  assert.deepEqual(presentationSettings({ presentation: 'carousel', action: 'none', duration: 9000 }), { presentation: 'carousel', action: 'none' });
+  assert.equal(presentationSettings({ presentation: 'slider', duration: 3000, fade: 0, navigation: false }).slider.duration, 3000);
+  assert.equal(presentationSettings({ presentation: 'other' }).presentation, 'list');
+});
+
+test('Record cards: card templates by report id; a stored file name finds its report or stays a term', () => {
+  const reports = [{ id: 7, title: 'Team member', file: 'Team_member.tpl' }, { id: 8, title: 'Card' }];
+  assert.deepEqual(cardTemplateTerms(reports, 'Team_member.tpl').value, '7');
+  assert.deepEqual(cardTemplateTerms(reports, 8).value, '8');
+  const kept = cardTemplateTerms(reports, 'Old.tpl');
+  assert.equal(kept.value, 'Old.tpl');
+  assert.equal(kept.terms.at(-1).label, 'Old.tpl');
+  assert.equal(cardTemplateTerms(reports).value, null);
 });

@@ -153,6 +153,27 @@ test('HSlider: in the designer it shows one slide without rotation, start button
   await slider.destroy();
 });
 
+test('HSlider: a carousel moves only by its buttons; << and >> from 6 slides (plan 27e §29)', async () => {
+  installFakeDom();
+  const { HSlider, NAV_ENDS_MIN } = await import('../src/widgets/site/HSlider.js');
+  const make = async (count, options) => {
+    const host = document.createElement('div');
+    host.append(...Array.from({ length: count }, () => document.createElement('div')));
+    const slider = new HSlider().attach(host, options).render();
+    const titles = [...host.children].find((child) => child.className === 'h-slider-nav')?.children || [];
+    return { slider, host, titles: [...titles].map((button) => button.title) };
+  };
+  const carousel = await make(3, { presentation: 'carousel', slider: { navigation: false } });
+  assert.equal(carousel.host.classList.contains('h-slider'), true);
+  assert.equal(carousel.slider.timer, null, 'no rotation');
+  assert.equal(carousel.slider.toggle, undefined, 'no start / stop');
+  assert.deepEqual(carousel.titles, ['Previous', 'Next'], 'navigation always, no << >> below 6');
+  await carousel.slider.destroy();
+  const show = await make(NAV_ENDS_MIN, { presentation: 'slider' });
+  assert.deepEqual(show.titles, ['First', 'Previous', 'Stop', 'Next', 'Last']);
+  await show.slider.destroy();
+});
+
 test('HSlider: action url makes the cards with a URL links; a list has no slider', async () => {
   installFakeDom();
     const { HSlider } = await import('../src/widgets/site/HSlider.js');

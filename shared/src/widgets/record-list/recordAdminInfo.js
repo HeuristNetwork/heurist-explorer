@@ -19,13 +19,29 @@ import { $HR } from "../../ui/i18n/HResource.js";
 /** Cache-busting token for record-type icon URLs, one per page load. */
 const RECORD_TYPE_ICON_TOKEN = Date.now();
 
-/** Icon, hint and colour of each non-owner visibility value. */
+/**
+ * Icon, hint and colour of each non-owner visibility value (`rec_NonOwnerVisibility`): hidden red and crossed out,
+ * viewable (logged-in users) grey, public and pending (guests see it) green.
+ */
 const VISIBILITY = {
   hidden: { icon: "fa-eye-slash", hint: "hidden_hint", color: "#c62828" },
-  visible: { icon: "fa-eye", hint: "visible_hint", color: "#e07b00" },
+  viewable: { icon: "fa-eye", hint: "visible_hint", color: "#777" },
   pending: { icon: "fa-eye", hint: "pending_hint", color: "#2e8b57" },
-  public: { icon: "fa-eye", hint: "public_hint", color: "#777" },
+  public: { icon: "fa-eye", hint: "public_hint", color: "#2e8b57" },
 };
+
+/**
+ * The visibility icon of a record, as in the admin info of HRecordList.
+ *
+ * @param {string} visibility `hidden`, `viewable`, `pending` or `public` (default).
+ * @param {string} [className] Class of the wrapping span.
+ * @returns {string} HTML.
+ */
+export function visibilityIconHtml(visibility, className = "") {
+  const info = VISIBILITY[String(visibility || "").toLowerCase()] || VISIBILITY.public;
+  const hint = escapeAttr($HR(info.hint));
+  return `<span class="${escapeAttr(className)}" title="${hint}"><i class="fa-regular ${info.icon}" style="color:${info.color}" aria-label="${hint}"></i></span>`;
+}
 
 /**
  * The record-type icon URL (thumb version) of a record.
@@ -56,15 +72,12 @@ export function recordTypeIconUrl(record, options = {}) {
  * @returns {string} HTML.
  */
 export function adminInfoHtml(record, prefix, extra = "") {
-  const visibility = String(record?.rec_NonOwnerVisibility || "").toLowerCase();
-  const info = VISIBILITY[visibility] || VISIBILITY.public;
-  const hint = escapeAttr($HR(info.hint));
   const owner = escapeAttr(record?.rec_OwnerName || "");
   const bookmarked = Number(record?.rec_Bookmarked) !== 0;
   return (
     `<span class="${prefix}-admin">` +
     `<span class="${prefix}-owner" title="${owner}">${owner}</span>` +
-    `<span class="${prefix}-visibility" title="${hint}"><i class="fa-regular ${info.icon}" style="color:${info.color}" aria-label="${hint}"></i></span>` +
+    visibilityIconHtml(record?.rec_NonOwnerVisibility, `${prefix}-visibility`) +
     `<i class="fa-regular fa-bookmark ${prefix}-bookmark${bookmarked ? "" : " is-placeholder"}" title="Bookmarked" aria-label="Bookmarked"></i>` +
     extra +
     "</span>"

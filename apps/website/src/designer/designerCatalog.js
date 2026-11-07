@@ -230,7 +230,7 @@ export const ELEMENT_GROUPS = Object.freeze([
       {
         value: 'cards', label: 'Record cards / slideshow', available: true,
         description: 'A card for each record, made by a Smarty template: records picked by hand or a query, at most 50.'
-          + ' Shown as a list or as a slideshow.',
+          + ' Shown as a list, a carousel or a slideshow.',
         preview: [['b', 8, 10, 32, 56], ['b', 44, 10, 32, 56], ['b', 80, 10, 32, 56]]
       },
       {

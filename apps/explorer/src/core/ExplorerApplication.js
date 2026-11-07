@@ -2117,6 +2117,7 @@ export class ExplorerApplication {
       addRecord: (rectypeId) => this.addRecord(rectypeId),
       recordFieldServices: () => this.recordEditing.fieldServices(),
       editQuery: (query, filterForm, options) => this._editQueryWithBuilder(query, filterForm, undefined, options),
+      describeQuery: (query) => this._describeQuery(query),
       canEditRecords: () => this.canEditRecordType('RT_CMS_PAGE'),
       getDbDefs: () => this._ensureDbDefs(),
       isLoggedIn: () => Number(this.userGroups?.data?.currentUserId) > 0,

@@ -279,11 +279,13 @@ const FIT_TERMS = Object.freeze([
 
 /** Presentation, action and slider fields of the cards and gallery forms. */
 function presentationFields(actions) {
+  // the timing and the start / stop button belong to the slideshow only, a carousel moves by its buttons (plan 27e §29)
   const slider = { presentation: 'slider' };
   return [
     { name: 'action', type: 'enum', label: 'Action', max: 1, terms: actions },
     { name: 'presentation', type: 'enum', label: 'Presentation', mode: 'radio', max: 1,
-      terms: [{ id: 'list', label: 'List (all visible)' }, { id: 'slider', label: 'Slider (one visible)' }] },
+      terms: [{ id: 'list', label: 'List (all visible)' }, { id: 'carousel', label: 'Carousel (one visible, buttons)' },
+        { id: 'slider', label: 'Slideshow (one visible, automatic)' }] },
     { name: 'duration', type: 'integer', label: 'Duration (ms)', max: 1, minValue: 500, showWhen: slider },
     { name: 'fade', type: 'integer', label: 'Fade out (ms)', max: 1, minValue: 0, showWhen: slider },
     { name: 'navigation', type: 'boolean', label: 'Navigation', help: 'Start / stop buttons and << < > >>', max: 1, showWhen: slider }
@@ -297,10 +299,16 @@ function presentationValues(settings = {}) {
     duration: slider.duration, fade: slider.fade, navigation: slider.navigation };
 }
 
-/** Settings from the values of the presentation fields. */
-function presentationSettings(values) {
-  const settings = { presentation: values.presentation === 'slider' ? 'slider' : 'list', action: values.action || 'none' };
-  if (settings.presentation === 'slider') {
+/**
+ * Settings from the values of the presentation fields: `list`, `carousel` (one visible, buttons only) or `slider` (slideshow).
+ *
+ * @param {object} values Values of the form.
+ * @returns {{presentation: string, action: string, slider?: object}}
+ */
+export function presentationSettings(values) {
+  const presentation = ['carousel', 'slider'].includes(values.presentation) ? values.presentation : 'list';
+  const settings = { presentation, action: values.action || 'none' };
+  if (presentation === 'slider') {
     settings.slider = { duration: Number(values.duration) || SLIDER_DEFAULTS.duration, fade: Number(values.fade) || 0, navigation: values.navigation !== false };
   }
   return settings;
@@ -371,6 +379,49 @@ export function teamReportBody(dbdefs) {
   ].join('\n');
 }
 
+/** Help above the form of the widget Record cards (and its text in Add element). */
+export const CARDS_HELP = 'A card for each record, made by a Smarty template: records picked by hand or a query, at most 50. Shown as a list, a carousel or a slideshow.';
+
+/**
+ * Terms of the Smarty template of the widget Record cards: the card reports, and a stored template file that has no report.
+ *
+ * @param {Array<{id: number, title: string, file?: string}>} reports Card reports.
+ * @param {number|string} [stored] The stored `template`: a report id or a file name.
+ * @returns {{terms: Array<{id: string, label: string}>, value: string|null}}
+ */
+export function cardTemplateTerms(reports, stored = null) {
+  const terms = reports.map((report) => ({ id: String(report.id), label: report.title || report.file || `#${report.id}` }));
+  if (stored == null || stored === '') return { terms, value: null };
+  const byFile = typeof stored === 'string' && !/^\d+$/.test(stored) ? reports.find((report) => report.file === stored) : null;
+  if (byFile) return { terms, value: String(byFile.id) };
+  const value = String(stored);
+  if (!terms.some((term) => term.id === value)) terms.push({ id: value, label: value });
+  return { terms, value };
+}
+
+/**
+ * The query field of the widget Record cards: the text of the query, the Filter Builder from its icon (as the query of a
+ * Query Source in the record editor), no parameters.
+ *
+ * @param {object} services `editQuery(query, filterForm, {allowParameters})`, `describeQuery(query)`.
+ * @returns {object} HEditField `special`.
+ */
+function cardsQuerySpecial(services) {
+  return {
+    json: false,
+    icon: 'fa-sliders',
+    title: 'Open the Filter Builder',
+    describe: (value) => {
+      const query = parseCardsQuery(value);
+      return query && typeof services.describeQuery === 'function' ? services.describeQuery(query) || '' : '';
+    },
+    edit: typeof services.editQuery === 'function' ? async (value) => {
+      const result = await services.editQuery(parseCardsQuery(value) || [], null, { allowParameters: false });
+      return result?.query ? JSON.stringify(result.query) : undefined;
+    } : undefined
+  };
+}
+
 /**
  * Configuration of the widget Record cards.
  *
@@ -378,14 +429,13 @@ export function teamReportBody(dbdefs) {
  * @param {object} options.settings Current settings.
  * @param {object} options.dbdefs HDbDefs.
  * @param {object} options.apiClient HeuristApiClient.
- * @param {object} options.services `browseRecords`, `createRecordBrowser`, `editQuery`, `valueLimit`.
+ * @param {object} options.services `browseRecords`, `createRecordBrowser`, `editQuery`, `describeQuery`, `valueLimit`,
+ *        `cardTemplates()` → the card reports `[{id, title, file}]`.
  * @returns {Promise<object|null>} The new settings.
  */
-export function openCardsForm({ settings = {}, dbdefs, apiClient, services }) {
-  const reportType = Number(dbdefs?.dbconst?.('RT_CUSTOM_REPORT')) || 0;
-  const cardField = Number(dbdefs?.dbconst?.('DT_IS_CARD_VIEW')) || 0;
-  const yes = Number(dbdefs?.dbconst?.('TRM_YES')) || 0;
-  const keptFile = typeof settings.template === 'string' ? settings.template : '';
+export async function openCardsForm({ settings = {}, dbdefs, apiClient, services }) {
+  const reports = await services.cardTemplates?.().catch(() => []) ?? [];
+  const templates = cardTemplateTerms(reports, settings.template);
   const form = {
     groups: [{
       id: 'main',
@@ -393,9 +443,10 @@ export function openCardsForm({ settings = {}, dbdefs, apiClient, services }) {
         { name: 'mode', type: 'enum', label: 'Type', mode: 'radio', max: 1,
           terms: [{ id: 'manual', label: 'Manual pickup' }, { id: 'query', label: 'Query' }] },
         { name: 'records', type: 'resource', label: 'Source records', max: 0, targetTypes: [], pointerMode: 'browseonly', showWhen: { mode: 'manual' } },
-        { name: 'query', type: 'freetext', label: 'Query', showWhen: { mode: 'query' } },
-        { name: 'template', type: 'resource', label: 'Smarty template', help: keptFile ? `${$HR('Now')}: ${keptFile}` : '', max: 1, targetTypes: reportType ? [reportType] : [],
-          pointerMode: 'browseonly', browseFilter: cardField && yes ? JSON.stringify([{ [`f:${cardField}`]: `=${yes}` }]) : '' },
+        { name: 'query', type: 'freetext', label: 'Query', max: 1, special: cardsQuerySpecial(services), showWhen: { mode: 'query' } },
+        // a selector also for a few templates (not the radios of a small vocabulary)
+        { name: 'template', type: 'enum', label: 'Smarty template', mode: 'select', max: 1, terms: templates.terms,
+          help: reports.length ? '' : 'Mark a report "Single record (card)" to use it here' },
         ...presentationFields([{ id: 'none', label: 'None' }, { id: 'url', label: 'Open rec_URL in new window' }])
       ]
     }]
@@ -407,7 +458,7 @@ export function openCardsForm({ settings = {}, dbdefs, apiClient, services }) {
       mode: settings.mode || 'manual',
       records: manualIds(settings.mode === 'query' ? null : settings.query),
       query: settings.mode === 'query' && settings.query ? JSON.stringify(settings.query) : '',
-      template: Number(settings.template) || null,
+      template: templates.value,
       ...presentationValues(settings)
     },
     apiClient,
@@ -415,44 +466,35 @@ export function openCardsForm({ settings = {}, dbdefs, apiClient, services }) {
     valueLimit: services.valueLimit,
     browseRecords: services.browseRecords,
     createRecordBrowser: services.createRecordBrowser,
-    onReady: (edit) => addFilterBuilder(edit, services.editQuery),
+    onReady: (edit) => addFormHelp(edit, CARDS_HELP),
     validate: (values) => {
       const issues = [];
       if (values.mode === 'manual' && !(values.records || []).filter(Boolean).length) issues.push({ field: 'records', message: $HR('Choose the records') });
       if (values.mode === 'query' && !parseCardsQuery(values.query)) issues.push({ field: 'query', message: $HR('A query in JSON without parameters') });
-      if (!values.template && !keptFile) issues.push({ field: 'template', message: $HR('Choose a template') });
+      if (!values.template) issues.push({ field: 'template', message: $HR('Choose a template') });
       return issues;
     }
   }).then((values) => {
     if (!values) return null;
     const records = [values.records].flat().filter(Boolean);
+    const template = String(values.template);
     return {
       mode: values.mode,
       query: values.mode === 'query' ? parseCardsQuery(values.query) : manualQuery(records),
-      template: Number(values.template) || keptFile,
+      // a report id, or the file name of a template without a report
+      template: /^\d+$/.test(template) ? Number(template) : template,
       ...presentationSettings(values)
     };
   });
 }
 
-/** The limit and a button of the FilterBuilder beside the Query input. */
-function addFilterBuilder(edit, editQuery) {
-  const field = edit.container?.querySelector?.('[data-name="query"]');
-  if (!field) return;
+/** A help text above a form. */
+function addFormHelp(edit, text) {
+  if (!edit.container) return;
   const hint = document.createElement('div');
   hint.className = 'h-cms-style-note';
-  hint.textContent = `${$HR('The limit is')} ${CARD_LIMIT} ${$HR('records')}`;
+  hint.textContent = $HR(text);
   edit.container.prepend(hint);
-  if (typeof editQuery !== 'function') return;
-  const button = document.createElement('button');
-  button.type = 'button';
-  button.className = 'h-btn h-compact';
-  button.textContent = $HR('Filter Builder');
-  button.addEventListener('click', async () => {
-    const result = await editQuery(parseCardsQuery(edit.getValues().query) || [], null);
-    if (result?.query) await edit.setValue('query', JSON.stringify(result.query));
-  });
-  field.append(button);
 }
 
 /**
@@ -511,7 +553,7 @@ export function mediaFormFields({ single = false, multilang = false, mediaType =
     ...(single
       ? [{ name: 'action', type: 'enum', label: 'Action', max: 1, terms: actions }]
       : [...presentationFields(actions),
-        { name: 'fit', type: 'enum', label: 'Position of image', max: 1, terms: FIT_TERMS, showWhen: { presentation: 'slider' } }])
+        { name: 'fit', type: 'enum', label: 'Position of image', max: 1, terms: FIT_TERMS, showWhen: { presentation: ['slider', 'carousel'] } }])
   ];
 }
 
@@ -654,7 +696,7 @@ export async function openMediaForm({
       };
     }
     const presentation = presentationSettings(values);
-    if (presentation.slider) presentation.slider.fit = values.fit || SLIDER_FIT;
+    if (presentation.presentation !== 'list') presentation.slider = { ...(presentation.slider || {}), fit: values.fit || SLIDER_FIT };
     return { settings: { mode: values.mode, ids: chosen(values), ...source, caption: values.caption === true, ...size, ...presentation }, items };
   });
 }
@@ -680,15 +722,14 @@ export function reportFiles(files) {
 export const REPORT_DISPLAY = Object.freeze(['full', 'cut', 'link']);
 
 /**
- * Whether a link to the file of a chosen output will not open for guests: Cut and Show link load the file through
- * `/output/{id}/asset`, which follows the visibility of the output record; Full report is read by the server.
+ * Whether a chosen output is not public: guests do not see it on the page (PageContent::report checks the output record) and
+ * can not open its link (`/output/{id}/asset`), whatever the display.
  *
- * @param {string} display `full`, `cut` or `link`.
  * @param {Array<{visibility?: string}>} outputs The chosen outputs.
  * @returns {boolean}
  */
-export function reportLinkHidden(display, outputs) {
-  return display !== 'full' && outputs.some((output) => output.visibility != null && !visibleToGuests(output.visibility));
+export function reportNotPublic(outputs) {
+  return outputs.some((output) => output.visibility != null && !visibleToGuests(output.visibility));
 }
 
 /**
@@ -716,10 +757,10 @@ export async function openReportForm({ settings = {}, languages = [], services }
     if (text) node.textContent = $HR(text);
     return node;
   };
-  const warning = element('div', 'h-cms-styles-warning', 'Visitors who are not logged in can not open this report: make it public.');
+  const warning = element('div', 'h-cms-styles-warning', 'Visitors who are not logged in will not see this report: make it public.');
   const problems = element('div', 'h-cms-style-problems');
   const showWarning = () => {
-    warning.hidden = !reportLinkHidden(display, chosen);
+    warning.hidden = !reportNotPublic(chosen);
   };
   const panel = await services.createOutputsPanel({
     report: settings.report ?? null,
