@@ -1,7 +1,8 @@
 # Plan 30 — Custom Report system
 
-**Status 2026-11-06: phases 0-5 implemented in both repos (§11), not committed, not checked in a browser, bundles not deployed.** Follows the rules of
-`28 OpenAPI-Rules-and-Database-Structure-Plan.md`; depends on phase 4 of `28a Unify-System-Entities-Plan.md`. Replaces
+**Status 2026-11-07: phases 0-5, review round §12 and samples §13 implemented and committed in both repos; not checked
+in a browser. One name rule (§14.1) and the 2-62 guard (§14 item 2) done 2026-11-07, not committed. Not DONE: `css` mode, §14.** Follows the rules of
+`28 OpenAPI-Rules-and-Database-Structure-Plan.md`; depends on phase 4 of `28a DONE Unify-System-Entities-Plan.md`. Replaces
 the API part of plan 12.
 
 ## 1. Goal
@@ -283,3 +284,50 @@ Without JavaScript authorisation reports go through HTMLPurifier, which removes 
 `OutputSanitizer` (for all reports) sets `CSS.Proprietary` for `border-radius`, and `allowLayoutStyles` adds flex and grid: `display` (no `none`), the flex and grid properties,
 `object-fit`, `overflow-wrap`. Keywords by list, other values by `ReportCssValue` (no `url`, `expression`, `var`). They are set on the definition of the run, so the definition cache
 is not touched. Samples use flex (card, team) and grid (extended view). Test: heurist `tests/SampleTemplatesTest.php`.
+
+## 14. Leftovers (review 2026-11-07)
+
+The plan is DONE when these are closed or dropped by Artem.
+
+1. **`css` format has no Smarty mode** (§8): still true, `SmartyTemplateRunner::MODES` is `html, js, txt, csv, xml, json`,
+   so a `css` report runs in html mode.
+2. **Legacy `recordSave` writing 2-62** (§11 deviation 2, security of phase 0). The legacy record editor saves 2-62 of a
+   Custom Report like any other field, without `ReportEntityHandler` (which sets the name once and keeps it unique). So a
+   user who may edit report A can set A's file name to the file of report B, which they may not edit. Then through the
+   new API, with the rights on A only:
+   - `PUT /report/A/asset` overwrites B's template (`ReportService::saveTemplate` checks A, not who else uses the file);
+   - `DELETE /report/A/asset` deletes B's template (`deleteTemplate`, same).
+   A record delete of A is safe: `afterDelete` keeps a file used by another record. A report execute of A just runs B's
+   template, which the user could read anyway.
+   **Done 2026-11-07 (Artem: read-only field + guard; heurist repo, not committed):**
+   - Legacy record editor (`hclient/widgets/entity/manageRecords.js`): 2-62 of `RT_CUSTOM_REPORT` is `rst_Display =
+     'readonly'`, hard-coded as in the new editor (`recordEditStructure.js`), so every database at once. This stops the
+     normal way only: the legacy save (`recordModify.php`), batch update (`recordsBatch.php`) and imports do not check
+     read-only fields.
+   - Guard `ReportService::assertOwnFile` (srv): `saveTemplate` and `deleteTemplate` refuse (403) a file that more than one
+     report record uses (`registeredFiles()`). It does not stop the change of 2-62 (that is hserv); it stops the damage:
+     whatever way two records got one file, the right on one report never changes or deletes the other's template.
+     The user gives the report its own file with Save as. Test: `ReportsApiTest` (2-62 of a copy set to the original's
+     file in the database, PUT and DELETE asset 403, file unchanged), 91 pass with `--write`.
+3. ~~**One name rule**~~: done 2026-11-07, §14.1.
+4. ~~**Reference database 2**~~: done by Artem, 2026-11-07.
+5. The *Test edit form* tool stays in Explorer's Options menu for a while (Artem, 2026-11-07; plan 14a §19).
+
+### 14.1 One name rule (2026-11-07, heurist repo, not committed)
+
+- `ReportTemplateStore` holds the only rule, for new and stored names: `NAME_PATTERN` = letters of any language, digits,
+  spaces and `- _ ( ) . , @`; first character a letter, a digit or `(`; at most 100 characters without `.tpl`
+  (`NAME_MAX`). Refused: path and file system characters and `' & # % ; +`. `normalize()` / static `checkName()` check it,
+  `nameFromTitle()` (was `ReportService::fileNameFromTitle`) makes a name from a title: transliterated where `iconv`
+  can (§4 table unchanged), other characters `_`, `report.tpl` when nothing is left. `ReportService::asciiName` removed;
+  a given name in the record (2-62) follows the same rule (`ReportEntityHandler::fileName`, message `NAME_RULE_TEXT`).
+- **Change:** a name with accents, `.`, `,` or `@` is now allowed when given (was A-Z only), and a stored name with
+  `&` or `'` is no longer reachable through the new API: `exists()` is false for it, `listFiles()` (unregistered
+  templates) leaves it out. Legacy keeps working by name. On this server 2 of 564 templates are such names
+  (`UseItem =&gt; Use.tpl`, `Use-&gt;Mss.tpl`); a report record that points to one needs a new file name.
+- Client: `FILE_NAME_CHARS` (`apps/reports/src/ui/formDialog.js`) is the same set.
+- Legacy `hclient/widgets/cms/websiteScriptAndStyles.php`: the record view template name and target are written into
+  the page with `json_encode`, not inside `'...'` (a legacy name may hold `'`).
+- OpenAPI text of 2-62 updated. Tests: `ReportsApiTest` (88 with `--write`; rule, name from title, legacy names not
+  listed), `JobRunnerTest`, `WebsiteContentTest`, `SampleTemplatesTest`, `DataAccessBoundaryTest` pass; `test:reports`
+  33 pass.

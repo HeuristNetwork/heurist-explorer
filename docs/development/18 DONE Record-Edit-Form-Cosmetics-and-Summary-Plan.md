@@ -1,6 +1,10 @@
 # Record edit form — cosmetics, layout options, Record summary pane
 
-**Current state 2026-10-18:** Phase 1 committed (`a1f7037`). Open: Phase 2 (Private, Tags: srv endpoints for bookmarks and tags, then editing); linked titles in the summary are not clickable yet.
+**Status 2026-11-07: DONE.** Phase 1 committed (`a1f7037`). Phase 2 (Private, Tags) was done by plan 20: phase 4a
+(Summary → Tags, `HTagSelector`) and phase 4b (Summary → Private, `HRecordPrivate`). Linked titles in the summary stay
+plain text on purpose: the editor is a modal dialog, so Explorer does not pass `onOpenRecord` (see Phase 1).
+
+**Earlier state 2026-10-18:** Phase 1 committed (`a1f7037`). Open: Phase 2 (Private, Tags: srv endpoints for bookmarks and tags, then editing); linked titles in the summary are not clickable yet.
 
 Status: **agreed 2026-10-14; Phase 1 implemented 2026-10-14, not committed, not checked in a browser.** Phase 2 (Private, Tags)
 needs server work and is not started.

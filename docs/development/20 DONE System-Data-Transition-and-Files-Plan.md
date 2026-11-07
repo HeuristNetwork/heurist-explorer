@@ -1,6 +1,11 @@
 # System data transition, files and API domains — development plan
 
-Status: **strategy agreed 2026-10-18; Phases 1–3 implemented and committed (§8.2.1, §8.3.1, §9.5).
+**Status 2026-11-07: DONE.** Phases 1-3, 4a, 4b, 4d, 4f and §10.11a-§10.14 are implemented and committed. The tasks not
+done here (4c saved filters, the switch to `sysRecords` / `fileRecords` with the migration, file and vocabulary
+leftovers, open points) moved to plan `28 OpenAPI-Rules-and-Database-Structure-Plan.md` §11. §10.7: rating is decided
+(field 2-1190, §10.3); the tag manager is opened from *Manage tags* (gear menu, configuration); QName stays open in plan 28.
+
+Earlier status: **strategy agreed 2026-10-18; Phases 1–3 implemented and committed (§8.2.1, §8.3.1, §9.5).
 Phases 4–5 redesigned 2026-10-22 (§10): `/sys` itself gets the record format and CRUD (no `/system`); order 4a tags →
 4b bookmarks, reminders → 4c saved filters → 4d users, groups, entity images. Phases 4a (§10.8) and 4b (§10.10) done
 2026-10-22 on the imported definitions of §10.3, not committed, not checked in a browser. File editor and MIME
@@ -272,9 +277,9 @@ Each phase is planned in its own session before coding.
 | 4a | `/sys` in record format + CRUD; shared entity base classes (Files on them); tags read/write, tag ↔ record links, merge; HTagManager, Summary → Tags (§10) | done 2026-10-22 (§10.8), not committed; the definitions are imported (Tag 137, Usage 1189) |
 | 4b | Bookmarks (encrypted private note) and reminders (Send now) on `/sys`; Summary → Private (§10.9) | done 2026-10-22 (§10.10), not committed; the HRecordList bookmark icon stays as it is (Artem) |
 | 4f | File editor: hard-coded structure by file type, content replace, MIME type rule; MIME vocabulary 2-533 SQL (§10.11) | done 2026-10-23, not committed; SQL to be reviewed and applied by Artem |
-| 4c | Saved filters writes, HEditForm editor (§10) | draft |
+| 4c | Saved filters writes, HEditForm editor (§10) | moved to plan 28 §11 (2026-11-07) |
 | 4d | Users and groups (membership, password write-only), managers; entity-image mode of HInputFile (§10.13) | done 2026-10-23, not committed; concept codes of the new fields from Artem |
-| end | `sysRecords` tables; switching databases over (after the legacy UI is gone); port of the rest of `DbRecUploadedFiles` (batch actions) to srv | after approval |
+| end | `sysRecords` tables; switching databases over (after the legacy UI is gone); port of the rest of `DbRecUploadedFiles` (batch actions) to srv | moved to plan 28 §11 (2026-11-07) |
 
 ## 8. Phases 1–2 in detail (draft for discussion, 2026-10-18)
 

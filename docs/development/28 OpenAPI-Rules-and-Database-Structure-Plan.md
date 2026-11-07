@@ -1,7 +1,7 @@
 # Plan 28 — OpenAPI rules and database structure
 
-**Status 2026-11-06: draft 2; §9.7 revised, §9.8 added. Not for immediate implementation; first applied in plan 27d
-(implemented). Next steps: `28a Unify-System-Entities-Plan.md`, then `30 Custom-Report-System-Plan.md`.** Every new development MUST follow these rules;
+**Status 2026-11-07: draft 2; §9.7 revised, §9.8 added; §11 holds the open tasks of plan 20. Not for immediate implementation; first applied in plan 27d
+(implemented). Next steps: `28a DONE Unify-System-Entities-Plan.md`, then `30 Custom-Report-System-Plan.md`.** Every new development MUST follow these rules;
 existing endpoints and srv classes are aligned step by step (§8). Items marked *proposal* in §9 are not agreed yet.
 Replaces the deferred plan 28 "New Records/details structure" of plan 27 §3 (its content is in §7 here). The first
 user of these rules is the Website API, plan `27d Website-API-Plan.md`.
@@ -207,7 +207,7 @@ classes that exist only because of that table; they go away when the table is co
 
 | Domain | Entity | Record type | Specific actions | Legacy table | Legacy classes (srv) | Status 2026-10-30 |
 |---|---|---|---|---|---|---|
-| sys | filter | — (saved filter) | — | `usrSavedSearches` | `SystemQueryBuilder` (read) | `/sys/filter` read only, no record output; writes: plan 20 4c |
+| sys | filter | — (saved filter) | — | `usrSavedSearches` | `SystemQueryBuilder` (read) | `/sys/filter` read only, no record output; writes: §11.1 (was plan 20 4c) |
 | sys | tag | 2-1109 | `merge`, `assign` (tag–record) | `usrTags`, `usrRecTagLinks` | `Tags/TagWriteService`, `TagRecordMapping`, `TagRecordOutput`, `Records/UserData/LegacyTagTable`, `TagLinkTable`, `TagRepository` | Record format, CRUD; tags stay in `usrTags` (plan 20) |
 | sys | bookmark | 2-1110 | — | `usrBookmarks` | `Bookmarks/BookmarkWriteService`, `BookmarkRecordOutput`, `PrivateInfoCipher` | Record format, CRUD |
 | sys | reminder | 2-1111 | `execute` (send, no id) | `usrReminders` | `Reminders/ReminderWriteService`, `ReminderRecordOutput`; legacy mailer closure | Record format, CRUD; `POST /reminder/execute` |
@@ -506,3 +506,55 @@ recommended, but two forms are now allowed:
 - 2026-11-06 — plan 28a implemented (not committed): §2.4 and §5 statuses updated, legacy `/users`, `/groups`, `/tag`, `/rem`, `/reminders` removed.
 - 2026-11-06 — draft 2: endpoint table §2.4, who serves what §2.5, action levels §2.3, `image` → `asset`,
   `schedule` → `output`, §5 refreshed, §9.7 revised, §9.8 added. Work goes to plans 28a and 30.
+- 2026-11-07 — §11: open tasks of plan 20 moved here (plan 20 marked DONE). Plans 28a and 31 marked DONE.
+
+## 11. Tasks moved from plan 20 (2026-11-07)
+
+Plan `20 DONE System-Data-Transition-and-Files-Plan.md` is closed; these tasks were not done there. Each one still gets its
+own planning session. Section numbers in brackets are plan 20.
+
+### 11.1 Saved filters (plan 20 phase 4c)
+
+- `filter` in the record format with writes, on the entity rules of this plan (`/filter/{id}`; today only
+  `/sys/filter/{id}` read, §3.1). Legacy table `usrSavedSearches`, mapping like tags / bookmarks (`srv/System/Entity`).
+- Definitions first: the Saved filter record type and its filter-type vocabulary (§10.3 "Later").
+- HEditForm editor on a hard-coded structure (as `systemEntities.js`); the legacy query formats → request + filter form
+  (memory note *saved filter legacy conversion*).
+
+### 11.2 The switch to the new tables (plan 20 §2.1, §7 "end")
+
+- `sysRecords` / `sysRecDetails` and `fileRecords` / `fileRecDetails` (§7.1 here), switch per database, after the
+  legacy UI is gone.
+- **Migration script** for files (§8.3.1 "Not done"): same ids, `AUTO_INCREMENT` of `fileRecords` after the highest
+  `ulf_ID`, obfuscated key to `rec_Hash`. The same for tags (if they move, §7.6 item 4), bookmarks, reminders, users,
+  groups, filters.
+- **Before the switch:** the file type vocabulary 2-533 must hold every stored extension (§8.3.1 "Vocabulary gaps");
+  the record store must keep the extension of an external resource (`FileRecordMapping::columnValue`, §10.11 "Open,
+  record store only": use the extension of `rec_URL`, or keep it in a field).
+- Port of the rest of `DbRecUploadedFiles` to srv: batch actions (merge duplicates, bulk registration, media records
+  from files) (§8.4).
+- Entity images become registered files (§10.13); `EntityImageStorage` later also for the database logo, record type
+  icons and term images (§10.6).
+- Mixed lists of record-based entities (Website manager, `HRecordManager`, pointer fields) stay on `/records` today
+  (plan 28a §7 deviation 2): decide when those types move to `sysRecords`.
+
+### 11.3 Files
+
+- PDF thumbnails at upload (now lazy through the legacy `?thumb=`) (§8.3.1).
+- Wikimedia and Nakala details of URL registration (§8.3.1).
+- Not ported, stay legacy for now: self-registration, import of users from another database, transfer of ownership
+  (§10.13).
+- `/sys` (entity) aggregation: not made (§9.3); add only when a client needs it.
+
+### 11.4 Definitions
+
+- ~~Review and apply the four `20-*.sql` scripts~~ (§10.11, §10.11a): **done by Artem, 2026-11-07.** Left: the install
+  SQL of new databases.
+- Client support of `rst_FilteredJsonTermIDTree` and `leafTermsOnly`, which would replace the hard-coded subsets of
+  `recordEditStructure.js` `vocabularyOf` (RT 2-11, 2-1105) (§10.11).
+- ~~Import the user fields 2-1194..2-1199 and vocabulary 2-10566 into `osmak_mapping`~~ (§10.13): **done by Artem,
+  2026-11-07.** `tests/SystemUserGroupTest.php --write`: 49 pass, none skipped.
+
+### 11.5 Open point
+
+- QName of records (§10.1.2, §10.7): when QNames come (also open here in §9).

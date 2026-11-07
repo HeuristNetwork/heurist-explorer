@@ -1,6 +1,7 @@
 # 31 Temporal text in a specified language
 
-**Status:** implemented 2026-11-07 in both repos, not committed, not checked in a browser, bundles not deployed.
+**Status 2026-11-07: DONE.** Implemented in both repos and committed (heurist `965067bd6`, explorer `7e889a5`); not
+checked in a browser. The open points at the end are known limits, not tasks (point 1: leave legacy as it is, Artem).
 
 ## Goal
 

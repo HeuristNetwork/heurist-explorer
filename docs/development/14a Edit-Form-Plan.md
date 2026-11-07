@@ -1,6 +1,8 @@
 # Edit form (HEditForm) — development plan
 
-**Current state 2026-10-21:** Phases 1-2 and review rounds 1-3 committed (`a83342a`, `6aa1b6a`, `ad8f57e`, `7bf5506`); rounds 4-5 (§15-16) not committed. Separator groups as in the legacy editor (§18, 2026-10-21) not committed. Open: agree the format (§17), Phase 3 (bridge `openEditForm`), Phase 4 (consumers), remove the test tool.
+**Status 2026-11-07: everything committed. Format agreed and written down in `Edit-Form-Format.md`; generic `openEditForm` dropped. Not DONE: the consumers of §19 item 3.**
+
+**Earlier state 2026-10-21:** Phases 1-2 and review rounds 1-3 committed (`a83342a`, `6aa1b6a`, `ad8f57e`, `7bf5506`); rounds 4-5 (§15-16) not committed. Separator groups as in the legacy editor (§18, 2026-10-21) not committed. Open: agree the format (§17), Phase 3 (bridge `openEditForm`), Phase 4 (consumers), remove the test tool.
 
 Status: **proposal 2026-10-17, Phase 1 and Phase 2 implemented 2026-10-17, not committed, not checked
 in a browser.** The JSON format (§3) is a proposal to agree with the *Test edit form* tool (§6).
@@ -357,3 +359,21 @@ visibility with the outer group). Not checked in a browser.
 - Fix 2026-10-27: `DT_GEO_OBJECT` (2-28) was not in the definitions snapshot `dbconst`, so every geo field
   stayed `feature`. Added to `DefinitionSnapshotService::dbconst()` and to the keys a cached snapshot must
   have (an older cached snapshot is rebuilt) - heurist repo.
+
+## 19. Leftovers (review 2026-11-07)
+
+Done since the plan: the record editor, symbology (§11), module configuration through the bridge `openConfiguration`
+(plan 29, in place of a generic `openEditForm`), and `openEditFormDialog` in the relationship dialog, Summary → Private,
+temporal editor, website widget forms and user / group managers. Report generate / schedule forms are gone (plan 30 §12).
+
+Open:
+
+1. ~~**Format (§17)**~~: **agreed (Artem, 2026-11-07).** Described as it is now (with the additions of plans 18, 23, 25,
+   29) in the topic note `Edit-Form-Format.md`; §3 here is the first proposal, kept for history.
+2. ~~**Phase 3, generic bridge `openEditForm`**~~: **dropped (Artem, 2026-11-07).** `openConfiguration` (plan 29) covers the
+   module case; a module opens `openEditFormDialog` itself.
+3. **Phase 4 consumers left:** `apps/reports/src/ui/formDialog.js` (`openFormDialog`, one use: *Save as* in
+   `ReportEditorPanel`), plain sections of the Explorer configuration dialog, crosstab settings (crosstabs are not
+   ported yet; belongs to that port).
+4. **Phase 5:** the test tool `apps/explorer/src/dev/EditFormTestTool.js` stays in the Options menu for a while (Artem,
+   2026-11-07); not a reason to keep the plan open.
