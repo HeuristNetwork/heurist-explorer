@@ -124,8 +124,9 @@ test('report list: accordions by group, no file names, type and text filters', a
   await flush();
 });
 
-test('file name characters: letters A-Z, digits, "-", "_", "(", ")" and spaces', () => {
-  assert.equal('Mon rapport (v2) café/2026.tpl'.replace(FILE_NAME_CHARS, ''), 'Mon rapport (v2) caf2026tpl');
+test('file name characters: letters, digits, spaces and - _ ( ) . , @', () => {
+  assert.equal('Mon rapport (v2) café/2026.tpl'.replace(FILE_NAME_CHARS, ''), 'Mon rapport (v2) café2026.tpl');
+  assert.equal('Smith & Co #1'.replace(FILE_NAME_CHARS, ''), 'Smith  Co 1');
 });
 
 /** Jobs API with one running generation of report 6; `wait` ends only when aborted. */

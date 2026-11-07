@@ -20,8 +20,8 @@ import { $HR, HMsg } from '#shared/ui';
 
 const DIALOG_ID = 'h-reports-dialog';
 
-/** Characters of file names and file name suffixes: letters A-Z, digits, "-", "_", "(", ")", space. */
-export const FILE_NAME_CHARS = /[^A-Za-z0-9 _()-]/g;
+/** Characters removed from template file names: the rule of srv `ReportTemplateStore::NAME_PATTERN` (letters, digits, spaces, - _ ( ) . , @). */
+export const FILE_NAME_CHARS = /[^\p{L}\p{M}\p{N} _().,@-]/gu;
 
 /**
  * Show a form and resolve with its values, or null when cancelled.
