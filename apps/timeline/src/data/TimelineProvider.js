@@ -13,6 +13,8 @@
  * @since       8.0
  */
 
+import { getActiveLanguage } from "#shared/ui";
+
 /**
  * Thin client for /api/{db}/time. It deliberately preserves the API response.
  */
@@ -56,6 +58,7 @@ export class TimelineProvider {
     if (fields.length) body.fields = fields.join(",");
     if (sort !== undefined) body.sort = sort;
     if (filter != null && filter !== "") body.filter = filter;
+    if (getActiveLanguage() !== "eng") body.lang = getActiveLanguage();
 
     const response = await this.apiClient.post("/time", { body, signal });
 

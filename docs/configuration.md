@@ -77,6 +77,10 @@ assets/localization/localization_fre.txt
 The source dictionaries live beneath the relevant `apps/<target>/public/`
 directory. Missing keys fall back to their English key text.
 
+Date text is the exception: its words are in `shared/src/utils/temporalLocale.js` and the
+server's `srv/Utilities/TemporalLocale.php`, because a report or a website page can ask for a
+language other than the interface language (plan 31).
+
 ## User manuals
 
 Canonical manuals live together in `user-manual/`. The Vite configuration copies

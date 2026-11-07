@@ -13,6 +13,8 @@
  * @since       8.0
  */
 
+import { getActiveLanguage } from "#shared/ui";
+
 /**
  * Loads temporal projections from /api/{db}/time without converting Heurist temporal semantics.
  */
@@ -54,6 +56,7 @@ export class TemporalDataProvider {
     if (fields?.length) body.fields = [...new Set(fields.map(String))].join(",");
     if (sort !== undefined) body.sort = sort;
     if (filter != null && filter !== "") body.filter = filter;
+    if (getActiveLanguage() !== "eng") body.lang = getActiveLanguage();
 
     const response = await this.apiClient.post("/time", { body, signal });
 

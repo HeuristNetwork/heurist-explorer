@@ -5,7 +5,8 @@
  *        circa/before/after and deviation, ranges, native calendars).
  *
  * Port of the server's `Heurist\Utilities\Temporal::toReadable` (calendar "both"),
- * so the client shows the same text as reports and exports.
+ * so the client shows the same text as reports. The text follows a language (`temporalLocale.js`),
+ * by default the active interface language.
  *
  * @project     Heurist academic knowledge management system
  * @package     heurist-client-core
@@ -18,17 +19,17 @@
  * @since       8.0
  */
 
-const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-const MONTHS_LONG = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August',
-  'September', 'October', 'November', 'December'];
+import { getActiveLanguage } from '../ui/i18n/HResource.js';
+import { temporalWords } from './temporalLocale.js';
 
 /**
  * Human-readable text of a date field value.
  *
  * @param {string|object|null} value Plain date text, temporal JSON text or a parsed temporal object.
+ * @param {{language?: string}} [options] Language of the text (3 letters); by default the interface language.
  * @returns {string} The text; a value that cannot be read is returned as it is.
  */
-export function temporalToHuman(value) {
+export function temporalToHuman(value, { language = getActiveLanguage() } = {}) {
   if (value == null || value === '') return '';
   let date = value;
   if (typeof value === 'string') {
@@ -43,50 +44,51 @@ export function temporalToHuman(value) {
       date = fromPlainTemporal(text);
       if (!date) return text;
     } else {
-      const readable = dateToString(text);
+      const readable = dateToString(text, null, language);
       return readable == null ? text : readable;
     }
   }
   if (!date || typeof date !== 'object') return String(value);
-  return toReadable(date) ?? String(value);
+  return toReadable(date, language) ?? String(value);
 }
 
 /** Temporal object → text (Temporal::toReadable). */
-function toReadable(date) {
+function toReadable(date, language) {
+  const words = temporalWords(language);
   const calendar = date.calendar || null;
   const gregorian = !calendar || String(calendar).toLowerCase() === 'gregorian';
   let native = date.native && !gregorian ? date.native : null;
   let result;
 
   if (date.timestamp) {
-    result = dateToString(date.timestamp.in, calendar);
+    result = dateToString(date.timestamp.in, calendar, language);
     if (result == null) return null;
-    result += deviationSuffix(date.timestamp);
-    const prefix = date.timestamp.circa ? 'circa ' : date.timestamp.before ? 'before ' : date.timestamp.after ? 'after ' : '';
-    if (prefix) {
-      result = prefix + result;
-      if (native) native = prefix + native;
+    result += deviationSuffix(date.timestamp, words);
+    const word = date.timestamp.circa ? words.circa : date.timestamp.before ? words.before : date.timestamp.after ? words.after : '';
+    if (word) {
+      result = `${word} ${result}`;
+      if (native) native = `${word} ${native}`;
     }
   } else {
     let from = '';
     let to = '';
     if (date.start?.in) {
-      from = dateToString(date.start.in, calendar) ?? '';
-      if (from) from += deviationSuffix(date.start);
+      from = dateToString(date.start.in, calendar, language) ?? '';
+      if (from) from += deviationSuffix(date.start, words);
     } else if (date.start?.earliest) {
-      from = dateToString(date.start.earliest, calendar) ?? '';
+      from = dateToString(date.start.earliest, calendar, language) ?? '';
     }
     if (date.end?.in) {
-      to = dateToString(date.end.in, calendar) ?? '';
-      if (to) to += deviationSuffix(date.end);
+      to = dateToString(date.end.in, calendar, language) ?? '';
+      if (to) to += deviationSuffix(date.end, words);
     } else if (date.end?.latest) {
-      to = dateToString(date.end.latest, calendar) ?? '';
+      to = dateToString(date.end.latest, calendar, language) ?? '';
     }
     if (!from && !to) return null;
-    result = longDateSpan(date) ?? `${from} to ${to}`;
+    result = longDateSpan(date, words) ?? fillPattern(words.range, { from, to });
   }
 
-  return native ? `${native}  ${calendar} (Gregorian ${result})` : result;
+  return native ? `${native}  ${calendar} (${words.gregorian} ${result})` : result;
 }
 
 /**
@@ -95,20 +97,24 @@ function toReadable(date) {
  *
  * @param {string} value Date text.
  * @param {string|null} [calendar] Calendar name.
+ * @param {string} [language] Language of the text (3 letters); by default the interface language.
  * @returns {string|null} The text, or null when the date cannot be read.
  */
-export function dateToString(value, calendar = null) {
+export function dateToString(value, calendar = null, language = getActiveLanguage()) {
   const date = parseDate(value);
   if (!date) return null;
+  const words = temporalWords(language);
   const bce = date.year < 0;
   let result = String(Math.abs(date.year));
   const hasTime = date.hour > 0 || date.minute > 0 || date.second > 0;
   const gregorianOrJulian = !calendar || ['gregorian', 'julian'].includes(String(calendar).toLowerCase());
 
   if (gregorianOrJulian) {
-    let dayMonth = date.hasDays && date.day ? String(date.day) : '';
-    if (date.month) dayMonth = `${dayMonth} ${MONTHS[date.month - 1]}`;
-    result = `${dayMonth} ${result}`.trim();
+    if (date.month) {
+      const day = date.hasDays && date.day ? date.day : 0;
+      const dayText = day === 1 && words.firstDay ? words.firstDay : String(day);
+      result = fillPattern(day ? words.dayMonthYear : words.monthYear, { d: dayText, m: words.months[date.month - 1], y: result });
+    }
   } else if (date.month || hasTime) {
     result += `-${pad(date.month)}`;
     if ((date.hasDays || hasTime) && date.day) result += `-${pad(date.day)}`;
@@ -121,10 +127,10 @@ export function dateToString(value, calendar = null) {
 
   if (bce) {
     if (!date.hasDays && date.year < -999999) {
-      if (date.year < -999999999) result = `${Math.abs(date.year) / 1e9} bya`;
-      else result = `${Math.abs(date.year) / 1e6} Mya`;
+      if (date.year < -999999999) result = `${Math.abs(date.year) / 1e9} ${words.bya}`;
+      else result = `${Math.abs(date.year) / 1e6} ${words.mya}`;
     } else {
-      result += ' BCE';
+      result += ` ${words.bce}`;
     }
   }
   return result;
@@ -174,21 +180,22 @@ function dateParts(year) {
 }
 
 /** ` ±10 years`, ` -2 months +3 months`: the deviation of a timestamp (Temporal::_deviationSuffix). */
-function deviationSuffix(timestamp) {
-  if (timestamp?.deviation) return deviationText(timestamp.deviation, ' ±');
+function deviationSuffix(timestamp, words) {
+  if (timestamp?.deviation) return deviationText(timestamp.deviation, ' ±', words);
   let result = '';
-  if (timestamp?.deviation_negative) result = deviationText(timestamp.deviation_negative, ' -');
-  if (timestamp?.deviation_positive) result = `${result} ${deviationText(timestamp.deviation_positive, ' +')}`.trimEnd();
+  if (timestamp?.deviation_negative) result = deviationText(timestamp.deviation_negative, ' -', words);
+  if (timestamp?.deviation_positive) result = `${result} ${deviationText(timestamp.deviation_positive, ' +', words)}`.trimEnd();
   return result;
 }
 
 /** An ISO 8601 duration (`P10Y`, `P2M`, `P5D`) as text: its largest unit only, like the server. */
-function deviationText(value, prefix) {
+function deviationText(value, prefix, words) {
   const match = /^P(?:(\d+)Y)?(?:(\d+)M)?(?:(\d+)D)?/i.exec(String(value || ''));
   if (!match) return '';
-  if (Number(match[1])) return `${prefix}${Number(match[1])} years`;
-  if (Number(match[2])) return `${prefix}${Number(match[2])} months`;
-  if (Number(match[3])) return `${prefix}${Number(match[3])} days`;
+  const amount = (number, one, many) => `${prefix}${number} ${number === 1 ? one : many}`;
+  if (Number(match[1])) return amount(Number(match[1]), words.year, words.years);
+  if (Number(match[2])) return amount(Number(match[2]), words.month, words.monthPlural);
+  if (Number(match[3])) return amount(Number(match[3]), words.day, words.days);
   return '';
 }
 
@@ -196,9 +203,9 @@ function deviationText(value, prefix) {
  * A range that covers one whole month (`May 1969`) or one whole year (`1969`)
  * (Temporal::checkForLongDateSpan, from the estimated decimal dates YYYY.MMDD).
  */
-function longDateSpan(date) {
-  const start = date.estMinDate == null ? '' : String(date.estMinDate);
-  const end = date.estMaxDate == null ? '' : String(date.estMaxDate);
+function longDateSpan(date, words) {
+  const start = decimalText(date.estMinDate);
+  const end = decimalText(date.estMaxDate);
   if (!start || !end || start.slice(0, 4) !== end.slice(0, 4)) return null;
   const year = start.slice(0, 4);
   const earliest = String(date.start?.earliest || '');
@@ -206,13 +213,19 @@ function longDateSpan(date) {
   if (start.slice(0, -2) === end.slice(0, -2) && /01$/.test(start)
     && /(?:02(?:28|29)|(?:01|03|05|07|08|10|12)31|(?:04|06|09|11)30)$/.test(end)) {
     const month = Number(start.split('.')[1]?.slice(0, 2));
-    return month >= 1 && month <= 12 ? `${MONTHS_LONG[month - 1]} ${year}` : null;
+    return month >= 1 && month <= 12 ? fillPattern(words.monthYear, { m: words.monthsLong[month - 1], y: year }) : null;
   }
   if ((/0101$/.test(start) || new RegExp(`${year}-01$`).test(earliest))
     && (/1231$/.test(end) || new RegExp(`${year}-12$`).test(latest))) {
     return year;
   }
   return null;
+}
+
+/** A decimal date (YYYY.MMDD) as text with all four decimals: as a number 1850.0430 is 1850.043 (Temporal::_decimalText). */
+function decimalText(value) {
+  const text = value == null ? '' : String(value);
+  return /^-?\d+\.\d{1,3}$/.test(text) ? text.padEnd(text.indexOf('.') + 5, '0') : text;
 }
 
 /** The legacy plain temporal `|VER=1|TYP=s|DAT=...` as a temporal object (simple date and range only). */
@@ -224,6 +237,11 @@ function fromPlainTemporal(text) {
   if (parts.DAT) return { timestamp: { in: parts.DAT, circa: parts.CIR === '1' } };
   if (parts.TPQ || parts.TAQ) return { start: { earliest: parts.TPQ || '' }, end: { latest: parts.TAQ || '' } };
   return null;
+}
+
+/** A pattern with its `{name}` parts filled in. */
+function fillPattern(pattern, values) {
+  return pattern.replace(/\{(\w+)\}/g, (part, name) => values[name] ?? '');
 }
 
 /** Two-digit text of a number. */
