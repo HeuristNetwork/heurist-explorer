@@ -2256,8 +2256,7 @@ export class ExplorerApplication {
       getCurrentQuery: () => {
         const source = this.sync?.dataSource;
         const query = source ? dataSourceRequest(source)?.q ?? null : null;
-        const total = Number(source?.meta?.count);
-        return query ? { query, title: source.title || '', total: Number.isFinite(total) ? total : null } : null;
+        return query ? { query, title: source.title || '' } : null;
       },
       getSelection: () => [...(this.sync?.selection || [])],
       getQuerySources: () => this.getQuerySources().map((item) => ({

@@ -49,7 +49,7 @@ test('toolbar without a selection: every button after the report selector is hid
   assert.equal(view.buttons.test.disabled, true);
   assert.equal(view.buttons.generate.disabled, true);
   assert.equal(view.buttons.generated.disabled, true);
-  assert.equal(view.selectLabel.textContent, 'Select report');
+  assert.equal(view.selectLabel.textContent, 'Select template');
 });
 
 test('a record-set report you cannot edit: Template, Export, Test, Generate, Generated reports; no Edit or Delete', async () => {

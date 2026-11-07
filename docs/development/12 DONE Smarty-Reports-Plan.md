@@ -803,3 +803,5 @@ checked in a browser.
 - Tests: heurist `tests/ReportsApiTest.php --write` 73, `tests/JobRunnerTest.php --write` 45 pass, JS 1,639 pass.
 
 **Plan 30 (2026-11-06):** the API of this plan (`/reports`, `ReportController`, file names in URLs, `_u<id>` files) is replaced by the entities `report` and `output`. See `30 Custom-Report-System-Plan.md`.
+
+**2026-11-07:** `term` of an enum field is translated in srv (full path, each level; plan 30 §12). `label` stays for old templates. Compare `.internalid` or `.code` in templates, not text.

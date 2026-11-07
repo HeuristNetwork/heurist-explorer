@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { installFakeDom } from '../../../../shared/test/helpers/fakeDom.js';
 
 installFakeDom();
-const { ReportsApplication, sameQuery, starterTemplate, TEST_RECORD_LIMIT } = await import('../../src/core/ReportsApplication.js');
+const { ReportsApplication, outputsOfQuery, sameQuery, starterTemplate, TEST_RECORD_LIMIT } = await import('../../src/core/ReportsApplication.js');
 const { ReportsHostAdapter } = await import('../../src/host/ReportsHostAdapter.js');
 const { createHeuristReportsConfig } = await import('../../src/reportsConfig.js');
 
@@ -63,7 +63,7 @@ test('outputs of a report with the same query: JSON text and values compare equa
   ];
   const application = app(fakeApi({ outputs: async () => outputs }));
   await application.refresh();
-  const found = await application.outputsWithQuery(application.findReport('6'), [{ t: '10' }]);
+  const found = outputsOfQuery(await application.loadOutputs(), application.findReport('6'), [{ t: '10' }]);
   assert.deepEqual(found.map((output) => output.id), [2, 1], 'by title');
   assert.equal(sameQuery('?t:10', 't:10'), true);
   assert.equal(sameQuery('t:10', 't:11'), false);
@@ -116,9 +116,9 @@ test('an output is added in the record editor: from the dialog with the owner of
   }]);
 });
 
-test('current result with its record count; parameterized Query Sources are left out', async () => {
+test('current result with the record count of the server; parameterized Query Sources are left out', async () => {
   const application = app(fakeApi({ queryCount: async () => 42 }), {
-    getCurrentQuery: () => ({ query: 't:10', title: 'People' }),
+    getCurrentQuery: () => ({ query: 't:10', title: 'People', total: 15 }),
     getQuerySources: () => [{ id: 1, title: 'A' }, { id: 2, title: 'B', parametrized: true }]
   });
   assert.deepEqual(await application.currentResult(), { query: 't:10', title: 'People', total: 42 });

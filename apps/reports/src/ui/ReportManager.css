@@ -283,20 +283,34 @@
 .h-reports-icon { text-decoration: none; }
 
 /* schedules dialog */
-.h-reports-schedules-dialog { width: min(860px, calc(100vw - 32px)); }
+.h-reports-schedules-dialog { width: min(1200px, calc(100vw - 32px)); max-width: none; }
 .h-reports-schedules { display: flex; flex-direction: column; gap: 8px; min-width: min(780px, calc(100vw - 64px)); }
+.h-reports-schedules [hidden] { display: none; }
 .h-reports-schedules-controls { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
-.h-reports-schedules-controls .h-input { flex: 1 1 180px; }
+.h-reports-schedules-controls .h-input,
+.h-reports-schedules-controls .h-select { flex: 1 1 0; min-width: 0; }
 .h-reports-language { padding: 0 4px; border: 1px solid #c8ced6; border-radius: 3px; font-size: var(--h-font-size-tiny); }
-.h-reports-choice-row:not(.h-muted) { cursor: pointer; }
-.h-reports-choice-row:not(.h-muted):hover { background: var(--h-color-hover, #eef2f7); }
+.h-reports-source { display: grid; grid-template-columns: auto auto minmax(0, 1fr) auto; align-items: center; gap: 6px 12px; }
+.h-reports-source .h-reports-form-radios { flex-direction: row; gap: 12px; }
+.h-reports-source-row { grid-column: 3; min-width: 0; }
+.h-reports-source-row .h-select,
+.h-reports-source-row .h-input { width: 100%; }
+.h-reports-source-create { grid-column: 4; grid-row: 1; }
+.h-reports-source-note { grid-column: 3 / -1; }
 .h-reports-table { border-collapse: collapse; width: 100%; }
 .h-reports-table th,
 .h-reports-table td { padding: 3px 6px; text-align: left; border-bottom: 1px solid #e7eaee; }
 .h-reports-table th { color: var(--h-color-text-muted, #6b7280); font-weight: normal; }
-.h-reports-row-actions { white-space: nowrap; text-align: right; }
-.h-reports-schedule-name { font-weight: bold; }
-.h-reports-schedule-query { max-width: 280px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.h-reports-row-actions { white-space: nowrap; text-align: left; }
+.h-reports-icon-gap { display: inline-block; width: 12px; }
+.h-reports-nowrap { white-space: nowrap; }
+.h-reports-schedule-name,
+.h-reports-schedule-report,
+.h-reports-schedule-query { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.h-reports-schedule-name { max-width: 310px; font-weight: bold; }
+.h-reports-schedule-name .h-reports-generated-name { display: block; max-width: 100%; }
+.h-reports-schedule-report { max-width: 180px; }
+.h-reports-schedule-query { max-width: 240px; }
 
 /* form dialog */
 .h-reports-form { display: flex; flex-direction: column; gap: 8px; min-width: min(380px, calc(100vw - 64px)); }

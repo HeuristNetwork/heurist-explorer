@@ -2,7 +2,7 @@
  * @file ReportManager.js
  * @brief Reports manager view: one toolbar and a main area.
  *
- * Toolbar: New, Import, Select report (list popover) | for the selected report:
+ * Toolbar: New, Import, Select template (list popover) | for the selected report:
  * Template, Register / Edit, Export, Delete | Test, Generate (with the list of
  * generated files), Schedule. On a narrow screen only the icons are shown.
  * Main area: report information and output (ReportViewer), or the template
@@ -25,8 +25,7 @@ import { $HR, HMsg } from '#shared/ui';
 import { ReportsApplication } from '../core/ReportsApplication.js';
 import { ReportViewer } from './ReportViewer.js';
 import { buildReportList, iconClass } from './ReportList.js';
-import { openOutputChoice, openOutputsDialog } from './OutputsDialog.js';
-import { openGenerateForm } from './reportForms.js';
+import { openOutputsDialog } from './OutputsDialog.js';
 import { confirmDialog } from './formDialog.js';
 import { showPopover, closePopover } from './popover.js';
 import './ReportManager.css';
@@ -63,7 +62,7 @@ export class ReportManager extends HBaseWidget {
     toolbar.setAttribute('role', 'toolbar');
     this.buttons = {};
 
-    this.buttons.create = this.tool(toolbar, 'fa-solid fa-plus', 'New', 'Create a new report', () => this.createReport());
+    this.buttons.create = this.tool(toolbar, 'fa-solid fa-plus', 'New', 'Create a new report template', () => this.createReport());
     this.buttons.import = this.tool(toolbar, 'fa-solid fa-file-import', 'Import', 'Import a report template (.gpl or .tpl)', () => this.fileInput.click());
     this.fileInput = el('input', 'h-hidden', toolbar);
     this.fileInput.type = 'file';
@@ -77,7 +76,7 @@ export class ReportManager extends HBaseWidget {
     const select = el('button', 'h-btn h-reports-select', toolbar);
     select.type = 'button';
     select.setAttribute('aria-haspopup', 'listbox');
-    select.title = $HR('Select a report');
+    select.title = $HR('Select a template');
     this.selectIcon = el('i', 'fa-solid fa-list', select);
     this.selectIcon.setAttribute('aria-hidden', 'true');
     this.selectLabel = el('span', 'h-reports-select-label', select);
@@ -91,7 +90,7 @@ export class ReportManager extends HBaseWidget {
     this.buttons.properties = this.tool(this.reportTools, 'fa-solid fa-pen', 'Edit', 'Title, description, card flag and file name', () => this.editProperties());
     this.buttons.export = this.tool(this.reportTools, 'fa-solid fa-file-export', 'Export',
       'Download the template with concept codes (.gpl), to import into another database', () => this.exportTemplate());
-    this.buttons.delete = this.tool(this.reportTools, 'fa-solid fa-trash', 'Delete', 'Delete the report', () => this.deleteReport());
+    this.buttons.delete = this.tool(this.reportTools, 'fa-solid fa-trash', 'Delete', 'Delete report template', () => this.deleteReport());
 
     this.runTools = el('span', 'h-reports-tool-group', toolbar);
     el('span', 'h-reports-separator', this.runTools).setAttribute('aria-hidden', 'true');
@@ -147,14 +146,14 @@ export class ReportManager extends HBaseWidget {
   update() {
     const report = this.app.selectedReport();
     const installed = this.app.data.installed !== false;
-    this.selectLabel.textContent = report ? report.title : $HR('Select report');
+    this.selectLabel.textContent = report ? report.title : $HR('Select template');
     this.selectIcon.className = report ? iconClass(report) : 'fa-solid fa-list';
 
     const show = (button, visible) => { button.hidden = !visible; };
     // a new report needs the record editor of the host
     const editable = this.app.host.canEditRecords();
     this.buttons.create.disabled = !editable;
-    this.buttons.create.title = $HR(editable ? 'Create a new report' : 'The record editor is not available here');
+    this.buttons.create.title = $HR(editable ? 'Create a new report template' : 'The record editor is not available here');
     this.reportTools.hidden = !report;
     show(this.buttons.template, report?.id != null && report.fileExists !== false);
     const label = this.buttons.properties.querySelector('.h-reports-tool-label');
@@ -288,11 +287,20 @@ export class ReportManager extends HBaseWidget {
     }), { className: 'h-reports-picker-popover' });
   }
 
-  /** The generated reports of the selected report. */
-  async outputs() {
+  /**
+   * The generated reports of the selected report.
+   *
+   * @param {'list'|'new'} [mode='list'] Mode of the dialog.
+   * @returns {Promise<void>}
+   */
+  async outputs(mode = 'list') {
     const report = this.app.selectedReport();
     if (!report) return;
-    await openOutputsDialog(this.app, report, { onShow: (url) => this.showOutput(() => this.viewer.showUrl(url)) });
+    await openOutputsDialog(this.app, report, {
+      mode,
+      onShow: (url) => this.showOutput(() => this.viewer.showUrl(url)),
+      onGenerate: (output) => this.runOutput(output)
+    });
   }
 
   /** New report: record editor, then the template editor. */
@@ -337,7 +345,7 @@ export class ReportManager extends HBaseWidget {
     if (!report) return;
     const message = report.id == null
       ? `${$HR('Delete template file')} "${report.file}"?`
-      : `${$HR('Delete report')} "${report.title}" ${$HR('and its template file')}?`;
+      : `${$HR('Delete report template')} "${report.title}" ${$HR('and its file')}?`;
     if (!(await confirmDialog(message, { yesLabel: 'Delete' }))) return;
     await this.closeEditor(true);
     await this.app.deleteReport(report);
@@ -371,25 +379,30 @@ export class ReportManager extends HBaseWidget {
   }
 
   /**
-   * Generate: the records, then the output of this filter that is generated again, or a new one in the
-   * record editor. The job is followed and the file is shown when done.
+   * One generation per user: a running one (also from before a page reload) is shown instead.
+   *
+   * @returns {Promise<boolean>} True when a generation is running.
    */
-  async generate() {
-    const report = this.app.selectedReport();
-    if (!report) return;
-    // one generation per user: a running one (also from before a page reload) is shown instead
+  async showActiveGeneration() {
     const running = (await this.app.activeJobs()).find((job) => job.type === 'report-generate');
-    if (running) {
-      await this.showRunningGeneration(running);
-      return;
-    }
-    const query = await openGenerateForm(this.app);
-    if (query == null) return;
-    const existing = await this.app.outputsWithQuery(report, query);
-    const chosen = existing.length ? await openOutputChoice(existing) : 'new';
-    if (!chosen) return;
-    const output = chosen === 'new' ? await this.app.newOutput(report, query) : chosen;
-    if (!output) return;
+    if (running) await this.showRunningGeneration(running);
+    return Boolean(running);
+  }
+
+  /** Generate: the Generated reports dialog in New mode. */
+  async generate() {
+    if (!this.app.selectedReport() || await this.showActiveGeneration()) return;
+    await this.outputs('new');
+  }
+
+  /**
+   * Generate an output of the dialog. The job is followed and the file is shown when done.
+   *
+   * @param {{id: number}} output The output record.
+   * @returns {Promise<void>}
+   */
+  async runOutput(output) {
+    if (await this.showActiveGeneration()) return;
     if (!(await this.closeEditor())) return;
     let job;
     try {

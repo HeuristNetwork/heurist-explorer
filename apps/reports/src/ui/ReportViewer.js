@@ -77,7 +77,7 @@ export class ReportViewer extends HBaseWidget {
     el('h2', 'h-reports-info-title', head).textContent = report.title;
     const kind = el('span', 'h-reports-kind', head);
     kind.dataset.kind = report.id == null ? 'file' : report.isCardView ? 'card' : 'set';
-    kind.textContent = $HR(report.id == null ? 'Template without a report record'
+    kind.textContent = $HR(report.id == null ? 'This template is not registered. Create a record to use it.'
       : report.isCardView ? 'Single record (card)' : 'Record set');
     if (report.description) el('p', 'h-reports-description', this.info).textContent = report.description;
     if (report.fileExists === false) {

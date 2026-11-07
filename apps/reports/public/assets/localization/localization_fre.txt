@@ -18,7 +18,6 @@
 #All reports#Tous les rapports
 #All types#Tous les types
 #Alphabetic#Alphabétique
-#and its template file#et son fichier modèle
 #Any field#N'importe quel champ
 #Ask the database owner to install them.#Demandez au propriétaire de la base de les installer.
 #Back to presentation#Retour à la présentation
@@ -36,7 +35,6 @@
 #Code#Code
 #Concept ID#ID de concept
 #Create#Créer
-#Create a new report#Créer un nouveau rapport
 #Create report record#Créer l'enregistrement du rapport
 #Create the report record of this template#Créer l'enregistrement de rapport de ce modèle
 #Creator#Créateur
@@ -47,10 +45,8 @@
 #days#jours
 #Delete#Supprimer
 #Delete file#Supprimer le fichier
-#Delete report#Supprimer le rapport
 #Delete schedule#Supprimer la planification
 #Delete template file#Supprimer le fichier modèle
-#Delete the report#Supprimer le rapport
 #Description#Description
 #Done#Terminé
 #Download the template with concept codes (.gpl), to import into another database#Télécharger le modèle avec les codes de concept (.gpl), pour l'importer dans une autre base
@@ -190,12 +186,10 @@
 #Search reports#Rechercher des rapports
 #Search schedules#Rechercher des planifications
 #searching records#recherche des enregistrements
-#Select a report#Choisir un rapport
 #Select a report in the list, or create a new one.#Sélectionnez un rapport dans la liste, ou créez-en un nouveau.
 #Select a report, or create a new one.#Choisissez un rapport, ou créez-en un nouveau.
 #Select all visible options#Sélectionner toutes les options visibles
 #Select records, or search for records first: the test runs on them.#Sélectionnez des enregistrements, ou faites d'abord une recherche : le test s'exécute sur eux.
-#Select report#Choisir un rapport
 #Show#Afficher
 #Show fields of this type#Afficher les champs de ce type
 #show here#afficher ici
@@ -217,7 +211,6 @@
 #Template file#Fichier modèle
 #Template file name#Nom du fichier modèle
 #Template saved#Modèle enregistré
-#Template without a report record#Modèle sans enregistrement de rapport
 #Templates without a report record#Modèles sans enregistrement de rapport
 #Term#Terme
 #Test#Tester
@@ -266,18 +259,23 @@
 #Query#Requête
 #The record editor is not available here#L’éditeur de fiches n’est pas disponible ici
 #Add a generated report of this report#Ajouter un rapport généré de ce rapport
-#Add generated report#Ajouter un rapport généré
+#New Report#Nouveau rapport
 #Choose a report in the list above#Choisissez un rapport dans la liste ci-dessus
 #Delete generated report#Supprimer le rapport généré
-#Delete the generated file#Supprimer le fichier généré
-#Delete the generated file of#Supprimer le fichier généré de
 #Generated#Généré
 #Generated reports#Rapports générés
-#New output#Nouveau rapport généré
 #Next#Suivant
 #No generated reports#Aucun rapport généré
 #Scheduled#Planifié
 #Search generated reports#Rechercher des rapports générés
 #Size#Taille
-#There are already generated reports for this template with this filter. Select one to regenerate it, or make a new one.#Des rapports générés existent déjà pour ce modèle avec ce filtre. Sélectionnez-en un pour le régénérer, ou créez-en un nouveau.
-#You can not change this generated report#Vous ne pouvez pas modifier ce rapport généré
+#There are already generated reports for this template with this filter. Click the "Bolt" icon to regenerate one, or make a new one.#Des rapports générés existent déjà pour ce modèle avec ce filtre. Cliquez sur l’icône « Éclair » pour en régénérer un, ou créez-en un nouveau.
+#and its file#et son fichier
+#Create a new report template#Créer un nouveau modèle de rapport
+#Delete report template#Supprimer le modèle de rapport
+#Lang#Langue
+#Generate New Report#Générer un nouveau rapport
+#Select a template#Choisir un modèle
+#Select template#Choisir un modèle
+#Source#Source
+#This template is not registered. Create a record to use it.#Ce modèle n’est pas enregistré. Créez un enregistrement pour l’utiliser.

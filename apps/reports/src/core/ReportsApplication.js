@@ -285,18 +285,6 @@ export class ReportsApplication extends EventTarget {
   }
 
   /**
-   * Outputs of a report made from a query.
-   *
-   * @param {object} report The report.
-   * @param {*} query Executable query.
-   * @returns {Promise<Array<object>>}
-   */
-  async outputsWithQuery(report, query) {
-    const outputs = await this.loadOutputs();
-    return outputs.filter((output) => output.reportId === report.id && sameQuery(output.query, query));
-  }
-
-  /**
    * Add a generated report in the record editor. With a query it comes from Generate: the user's own (the
    * language and the rest are chosen in the editor); without one it has the owner of the report.
    *
@@ -332,16 +320,15 @@ export class ReportsApplication extends EventTarget {
   }
 
   /**
-   * The host's current result: `{query, title, total}`, or null.
+   * The host's current result: `{query, title, total}`, or null. The server counts the query: this is
+   * the number of records a generated report gets, for this user now.
    *
    * @returns {Promise<object|null>}
    */
   async currentResult() {
     const current = await this.host.getCurrentQuery();
     if (!current?.query) return null;
-    // the host's DataSource usually knows its count; ask the server only without it
-    const known = Number(current.total);
-    const total = Number.isFinite(known) && known >= 0 ? known : await this.api.queryCount(current.query).catch(() => null);
+    const total = await this.api.queryCount(current.query).catch(() => null);
     return { ...current, total };
   }
 
@@ -484,6 +471,18 @@ export function sameQuery(first, second) {
     }
   };
   return canonical(first) === canonical(second);
+}
+
+/**
+ * The outputs of a report made from a query.
+ *
+ * @param {Array<object>} outputs Outputs.
+ * @param {object} report The report.
+ * @param {*} query Executable query.
+ * @returns {Array<object>}
+ */
+export function outputsOfQuery(outputs, report, query) {
+  return outputs.filter((output) => String(output.reportId) === String(report.id) && sameQuery(output.query, query));
 }
 
 /** First text of a new template. */

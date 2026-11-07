@@ -18,7 +18,6 @@
 #All reports#All reports
 #All types#All types
 #Alphabetic#Alphabetic
-#and its template file#and its template file
 #Any field#Any field
 #Ask the database owner to install them.#Ask the database owner to install them.
 #Back to presentation#Back to presentation
@@ -36,7 +35,6 @@
 #Code#Code
 #Concept ID#Concept ID
 #Create#Create
-#Create a new report#Create a new report
 #Create report record#Create report record
 #Create the report record of this template#Create the report record of this template
 #Creator#Creator
@@ -47,10 +45,8 @@
 #days#days
 #Delete#Delete
 #Delete file#Delete file
-#Delete report#Delete report
 #Delete schedule#Delete schedule
 #Delete template file#Delete template file
-#Delete the report#Delete the report
 #Description#Description
 #Done#Done
 #Download the template with concept codes (.gpl), to import into another database#Download the template with concept codes (.gpl), to import into another database
@@ -190,12 +186,10 @@
 #Search reports#Search reports
 #Search schedules#Search schedules
 #searching records#searching records
-#Select a report#Select a report
 #Select a report in the list, or create a new one.#Select a report in the list, or create a new one.
 #Select a report, or create a new one.#Select a report, or create a new one.
 #Select all visible options#Select all visible options
 #Select records, or search for records first: the test runs on them.#Select records, or search for records first: the test runs on them.
-#Select report#Select report
 #Show#Show
 #Show fields of this type#Show fields of this type
 #show here#show here
@@ -217,7 +211,6 @@
 #Template file#Template file
 #Template file name#Template file name
 #Template saved#Template saved
-#Template without a report record#Template without a report record
 #Templates without a report record#Templates without a report record
 #Term#Term
 #Test#Test
@@ -266,18 +259,23 @@
 #Query#Query
 #The record editor is not available here#The record editor is not available here
 #Add a generated report of this report#Add a generated report of this report
-#Add generated report#Add generated report
+#New Report#New Report
 #Choose a report in the list above#Choose a report in the list above
 #Delete generated report#Delete generated report
-#Delete the generated file#Delete the generated file
-#Delete the generated file of#Delete the generated file of
 #Generated#Generated
 #Generated reports#Generated reports
-#New output#New output
 #Next#Next
 #No generated reports#No generated reports
 #Scheduled#Scheduled
 #Search generated reports#Search generated reports
 #Size#Size
-#There are already generated reports for this template with this filter. Select one to regenerate it, or make a new one.#There are already generated reports for this template with this filter. Select one to regenerate it, or make a new one.
-#You can not change this generated report#You can not change this generated report
+#There are already generated reports for this template with this filter. Click the "Bolt" icon to regenerate one, or make a new one.#There are already generated reports for this template with this filter. Click the "Bolt" icon to regenerate one, or make a new one.
+#and its file#and its file
+#Create a new report template#Create a new report template
+#Delete report template#Delete report template
+#Lang#Lang
+#Generate New Report#Generate New Report
+#Select a template#Select a template
+#Select template#Select template
+#Source#Source
+#This template is not registered. Create a record to use it.#This template is not registered. Create a record to use it.

@@ -252,3 +252,23 @@ report delete refused with 409, output delete removed the file, report delete re
 `api.php`; multipart `POST /report/import` over HTTP; a guest `execute` of a card report (the test database has no report records).
 
 **Bug left (§8):** the `css` format has no Smarty mode.
+
+## 12. Review round (Artem, 2026-11-07)
+
+Implemented in both repos, not committed, not checked in a browser, bundles not deployed.
+
+- **One dialog.** The Generate form and the choice of outputs are gone (`reportForms.js`, `openOutputChoice`). Generated reports has a New
+  mode: Source (Current result with the count, or Query Source with its selector), the outputs of the template with this query under
+  the hint *There are already generated reports...*, and *Generate New Report*. The table stays hidden when there are none.
+  Toolbar Generate opens New mode; the caret opens it at once for a template without generated reports; *New Report* switches to
+  it, so an output is always made with a query. The bolt in New mode and a new output close the dialog, and the job is followed in the viewer.
+- **Table.** Wider dialog, `Lang`, max width with ellipsis for Name, Report, Query. Icons: Edit, Delete, gap, Open, Download. *Delete the
+  generated file* is hidden; `ReportApi.deleteOutputFile` and the server action stay.
+- **Captions.** "Template" in the toolbar: *Create a new report template*, *Delete report template*, *Select a template*, *Select template*.
+  Unregistered template: *This template is not registered. Create a record to use it.*
+- **Count of the current result.** Always from the server for the exact query (`queryCount`). The host no longer sends `total`: `meta.count` of a
+  record type search comes from the counts read once when Explorer starts, so it can be out of date. The Export tool and Map still read `meta.count`.
+- **`term` is translated** (`ReportDefinitions::termFullLabel($id, $lang)`, srv only): the full path `Parent.Child`, each level translated, the label when
+  there is no translation. `label` is not changed; it stays for old templates. In the database default language nothing changes. Compare
+  `.internalid` or `.code` in templates, not text: 8 of the templates on this server compare `.term` with text (`{if $r.f978.term == 'Terminé'}`); they
+  stop matching for another report language when the term has a translation. Legacy `hserv/report/ReportRecord.php` keeps `term` untranslated.
