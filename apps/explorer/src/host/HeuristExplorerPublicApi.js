@@ -70,6 +70,15 @@ export class HeuristExplorerPublicApi {
   getState() { return this.application.getState(); }
 
   /**
+   * Add a record of a type (the action Add record of a website action menu, plan 27f §6): the record editor of
+   * Explorer for system types, the host editor for others.
+   *
+   * @param {number|string} recordType Record type id or code name.
+   * @returns {Promise<{saved: boolean, recordId: number}|*>}
+   */
+  addRecord(recordType) { return this.application.addRecord(recordType); }
+
+  /**
    * Resizes Explorer and its mounted modules.
    *
    * @returns {Promise<void>|void} Resize result.

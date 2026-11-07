@@ -1,13 +1,18 @@
 /**
  * @file HMenu.js
- * @brief The simplest website menu (plan 27a, decision 3): top pages, one level of sub pages.
+ * @brief Website menu and action menu (plan 27a decision 3, plan 27f §4 and §6).
  *
- * A horizontal list of the website's top pages with their sub pages as drop-downs
- * (shown on hover and keyboard focus), the current page marked, and the site
- * languages as links. On a narrow screen the list is behind a menu button.
- * The server writes the list into the host (plan 27e, for crawlers and visitors without
- * JS) and render() activates it; without it (the designer's draft) the list is built here.
- * Phase 4 adds vertical / collapsible forms, icons and the legacy menu options.
+ * One class for two widgets: the website menu (type `menu`: the pages of the website) and the action
+ * menu (type `actionmenu`: items of its settings). The server writes the list into the host (for
+ * crawlers and visitors without JS) and render() activates it; without it (the designer's draft) the
+ * list is built here from the same items.
+ *
+ * Settings: `orientation` horizontal (drop-downs on hover and focus) / vertical (a tree with expandable
+ * levels) / auto (vertical in a vertical header); `showHome` a Home entry first (website menu);
+ * `selectableParent` (default true) a page with sub pages opens, else its title opens the sub menu;
+ * `presentation` of an action menu: links, buttons, icons or dropdown. An item: title, url, current,
+ * children, icon (image URL), fa (Font Awesome classes), format name / icon / both, newTab.
+ * On a narrow screen the horizontal website menu is behind a menu button.
  *
  * @project     Heurist academic knowledge management system
  * @package     heurist-client-core
@@ -23,16 +28,33 @@ import { HBaseWidget } from '../HBaseWidget.js';
 import { $HR } from '../../ui/i18n/HResource.js';
 import './HMenu.css';
 
-/** Website menu of a v4 page. */
+/** Presentations of an action menu (plan 27f §6); `menu` is the website menu. */
+export const MENU_PRESENTATIONS = Object.freeze(['menu', 'links', 'buttons', 'icons', 'dropdown']);
+
+/**
+ * Classes of a menu (PageRenderer::menuClass).
+ *
+ * @param {object} settings
+ * @returns {string}
+ */
+export function menuClass(settings = {}) {
+  const orientation = settings.orientation;
+  const presentation = MENU_PRESENTATIONS.includes(settings.presentation) ? settings.presentation : 'menu';
+  return ['h-site-menu', ['vertical', 'auto'].includes(orientation) ? `h-site-menu-${orientation}` : '',
+    presentation !== 'menu' ? `h-site-menu-${presentation}` : ''].filter(Boolean).join(' ');
+}
+
+/** Website menu or action menu of a v4 page. */
 export class HMenu extends HBaseWidget {
   /**
    * Attach the menu.
    *
    * @param {HTMLElement} container Host element (its fallback content is replaced).
    * @param {object} [options]
-   * @param {Array<{id: number, title: string, url: string, current: boolean, children: Array}>} [options.items] Menu tree.
-   * @param {Array<{code: string, url: string}>} [options.languages] Site languages (links shown when there are two or more).
-   * @param {string|null} [options.language] Current language (3 letters).
+   * @param {Array<object>} [options.items] Menu tree (see the file header).
+   * @param {object} [options.settings] orientation, showHome, selectableParent, presentation, label (dropdown).
+   * @param {object|null} [options.homeItem] The home page as an item (showHome).
+   * @param {string} [options.label] aria-label of the navigation.
    * @returns {HMenu}
    */
   attach(container, options = {}) {
@@ -41,86 +63,165 @@ export class HMenu extends HBaseWidget {
   }
 
   /**
-   * Render the menu into the container.
+   * Render the menu into the container (or activate the menu the server wrote).
    *
    * @returns {HMenu}
    */
   render() {
     const written = this.container.querySelector?.('.h-site-menu');
     if (written) return this._activate(written);
+    const settings = this.options.settings || {};
+    const presentation = MENU_PRESENTATIONS.includes(settings.presentation) ? settings.presentation : 'menu';
     const nav = document.createElement('nav');
-    nav.className = 'h-site-menu';
-    nav.setAttribute('aria-label', $HR('Site menu'));
-    const toggle = document.createElement('button');
-    toggle.type = 'button';
-    toggle.className = 'h-site-menu-toggle';
-    toggle.setAttribute('aria-expanded', 'false');
-    toggle.textContent = $HR('Menu');
-    const list = this._list(this.options.items || [], 'h-site-menu-list');
-    const languages = this.options.languages || [];
-    if (languages.length > 1) list.append(this._languages(languages));
-    nav.append(toggle, list);
+    nav.className = menuClass(settings);
+    nav.setAttribute('aria-label', $HR(this.options.label || 'Site menu'));
+    const items = [...(this.options.items || [])];
+    if (settings.showHome && this.options.homeItem) items.unshift(this.options.homeItem);
+    if (presentation === 'menu' || presentation === 'dropdown') {
+      const toggle = document.createElement('button');
+      toggle.type = 'button';
+      toggle.className = 'h-site-menu-toggle';
+      toggle.setAttribute('aria-expanded', 'false');
+      toggle.textContent = presentation === 'dropdown' ? (settings.label || $HR('Menu')) : $HR('Menu');
+      nav.append(toggle);
+    }
+    nav.append(this._list(items, 'h-site-menu-list', settings.selectableParent !== false));
     this.container.replaceChildren(nav);
     return this._activate(nav);
   }
 
-  /** The menu button of a menu in the page. */
+  /** The menu button, and the expanders of a vertical menu. */
   _activate(nav) {
-    const toggle = nav.querySelector('.h-site-menu-toggle');
+    const toggle = [...nav.children].find((child) => child.classList?.contains('h-site-menu-toggle'));
     if (toggle) {
-      toggle.textContent = $HR('Menu');
+      if (!nav.classList.contains('h-site-menu-dropdown')) toggle.textContent = $HR('Menu');
       this.listen(toggle, 'click', () => {
         const open = !nav.classList.contains('is-open');
         nav.classList.toggle('is-open', open);
         toggle.setAttribute('aria-expanded', String(open));
       });
     }
-    nav.setAttribute('aria-label', $HR('Site menu'));
+    if (nav.classList.contains('h-site-menu-vertical') || nav.classList.contains('h-site-menu-auto')) this._expanders(nav);
+    if (!nav.getAttribute('aria-label')) nav.setAttribute('aria-label', $HR(this.options.label || 'Site menu'));
     this.state = 'rendered';
     return this;
   }
 
-  /** A list of menu items, with their sub pages one level down. */
-  _list(items, className, depth = 0) {
+  /** Vertical menu: a button beside each page with sub pages opens / closes them; the branch of the current page is open. */
+  _expanders(nav) {
+    nav.classList.add('h-site-menu-js');
+    for (const item of nav.querySelectorAll('.has-children')) {
+      if (item.classList.contains('is-current-parent') || item.classList.contains('is-current')) item.classList.add('is-expanded');
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'h-site-menu-expand';
+      button.setAttribute('aria-expanded', String(item.classList.contains('is-expanded')));
+      button.setAttribute('aria-label', $HR('Sub pages'));
+      const sub = [...item.children].find((child) => child.classList?.contains('h-site-menu-sub'));
+      if (sub) item.insertBefore ? item.insertBefore(button, sub) : sub.before(button);
+      this.listen(button, 'click', () => {
+        const open = !item.classList.contains('is-expanded');
+        item.classList.toggle('is-expanded', open);
+        button.setAttribute('aria-expanded', String(open));
+      });
+      // a title that is not a link opens its sub pages too
+      const label = [...item.children].find((child) => child.classList?.contains('h-site-menu-label'));
+      if (label) this.listen(label, 'click', () => button.click());
+    }
+  }
+
+  /** A list of menu items with all their sub items (PageRenderer::menuList). */
+  _list(items, className, selectableParent) {
     const list = document.createElement('ul');
     list.className = className;
     for (const item of items) {
       const entry = document.createElement('li');
       entry.className = 'h-site-menu-item';
-      const link = document.createElement('a');
-      link.href = item.url || '#';
-      link.textContent = item.title || '';
+      const children = item.children || [];
+      let target;
+      if (children.length && !selectableParent) {
+        target = document.createElement('span');
+        target.className = 'h-site-menu-label';
+        target.setAttribute('tabindex', '0');
+      } else {
+        target = document.createElement('a');
+        target.href = item.url || '#';
+        if (item.newTab) {
+          target.setAttribute('target', '_blank');
+          target.setAttribute('rel', 'noopener');
+        }
+        if (item.action) {
+          target.setAttribute('data-h-action', item.action);
+          target.setAttribute('data-h-target', String(item.target ?? ''));
+        }
+        if (item.format === 'icon' || (item.fa && !item.title)) target.setAttribute('title', item.title || '');
+      }
+      target.append(...menuLabel(item));
       if (item.current) {
         entry.classList.add('is-current');
-        link.setAttribute('aria-current', 'page');
+        if (target.tagName === 'A') target.setAttribute('aria-current', 'page');
       }
-      entry.append(link);
-      const children = depth === 0 ? (item.children || []) : [];
+      entry.append(target);
       if (children.length) {
         entry.classList.add('has-children');
-        if (children.some((child) => child.current)) entry.classList.add('is-current-parent');
-        entry.append(this._list(children, 'h-site-menu-sub', depth + 1));
+        if (hasCurrent(children)) entry.classList.add('is-current-parent');
+        entry.append(this._list(children, 'h-site-menu-sub', selectableParent));
       }
       list.append(entry);
     }
     return list;
   }
+}
 
-  /** Links to the page in the other languages. */
-  _languages(languages) {
-    const entry = document.createElement('li');
-    entry.className = 'h-site-menu-item h-site-menu-languages';
-    for (const language of languages) {
-      const link = document.createElement('a');
-      link.href = language.url;
-      link.textContent = String(language.code || '').toUpperCase();
-      link.setAttribute('hreflang', language.code || '');
-      if (language.code === this.options.language) {
-        link.classList.add('is-current');
-        link.setAttribute('aria-current', 'true');
-      }
-      entry.append(link);
-    }
-    return entry;
+/**
+ * Items of an action menu from its settings (PageRenderer::actionMenuHtml), for the designer's draft: a page of the
+ * website, an external URL or an action (Add record).
+ *
+ * @param {object} settings `items`: [{label, labels, icon, iconOnly, action, target, newTab}].
+ * @param {{language?: string, pageUrl?: (id: number) => string}} [context]
+ * @returns {Array<object>}
+ */
+export function actionMenuItems(settings = {}, { language = '', pageUrl = () => '#' } = {}) {
+  const items = [];
+  for (const item of Array.isArray(settings.items) ? settings.items : []) {
+    if (!item || typeof item !== 'object') continue;
+    const entry = {
+      title: item.labels?.[language] ?? item.label ?? '', url: '#', fa: /^[a-z0-9 -]{1,80}$/.test(item.icon || '') ? item.icon : '',
+      format: item.iconOnly ? 'icon' : 'name', newTab: Boolean(item.newTab), children: []
+    };
+    if (item.action === 'page') entry.url = pageUrl(Number(item.target)) || '#';
+    else if (item.action === 'url') entry.url = String(item.target || '#');
+    else if (item.action === 'addRecord') Object.assign(entry, { action: 'addRecord', target: String(item.target ?? '') });
+    else continue;
+    items.push(entry);
   }
+  return items;
+}
+
+/** Icon and / or title of an entry (PageRenderer::menuLabel). */
+function menuLabel(item) {
+  const nodes = [];
+  const format = item.format || 'name';
+  if (item.fa) {
+    const glyph = document.createElement('i');
+    glyph.className = `h-site-menu-fa ${item.fa}`;
+    glyph.setAttribute('aria-hidden', 'true');
+    nodes.push(glyph);
+  } else if (format !== 'name' && item.icon) {
+    const image = document.createElement('img');
+    image.className = 'h-site-menu-icon';
+    image.src = item.icon;
+    image.alt = '';
+    nodes.push(image);
+  }
+  const text = document.createElement('span');
+  text.className = 'h-site-menu-text';
+  if ((format === 'icon' && (item.icon || item.fa)) || (item.fa && format === 'icon')) text.classList.add('h-site-visually-hidden');
+  text.textContent = item.title || '';
+  nodes.push(text);
+  return nodes;
+}
+
+function hasCurrent(items) {
+  return items.some((item) => item.current || hasCurrent(item.children || []));
 }

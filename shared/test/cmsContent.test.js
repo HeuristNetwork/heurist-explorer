@@ -93,14 +93,40 @@ test('widgets are new elements; only a configured one counts as configured', () 
   }
 });
 
-test('basic website header: logo and title of the website, menu', () => {
-  const doc = emptyDoc();
-  doc.insertElement('header', 'siteHeader');
-  const html = doc.serialize().parts.header;
-  const fields = cmsNodes(html).map((node) => node.field).filter(Boolean);
-  assert.deepEqual(fields, ['website.2-38', 'website.2-1']);
-  assert.equal(cmsNodes(html).filter((node) => node.instance).length, 1);
-  assert.equal(Object.values(doc.config.instances)[0].type, 'menu');
+test('header templates (plan 27f §3.1): logo, title, a subtitle to fill in, menu and language switch', () => {
+  for (const template of ['siteHeader', 'headerCompact', 'headerCentered', 'headerBanner', 'headerSidebar']) {
+    const doc = emptyDoc();
+    doc.insertElement('header', template);
+    const html = doc.serialize().parts.header;
+    const fields = cmsNodes(html).map((node) => node.field).filter(Boolean);
+    assert.deepEqual(fields.sort(), ['website.2-1', 'website.2-38'], template);
+    assert.deepEqual(Object.values(doc.config.instances).map((instance) => instance.type).sort(), ['language', 'menu'], template);
+    assert.match(html, /class="h-site-logo/, template);
+    assert.match(html, /class="h-site-title"/, template);
+    if (template !== 'headerCompact') assert.match(html, /class="h-site-subtitle"[^>]*><p>define subtitle<\/p>/, template);
+    assert.deepEqual(checkCmsDocument(doc.config, [html]).filter((issue) => issue.level !== 'info'), [], `${template}: valid`);
+  }
+  const sidebar = emptyDoc();
+  sidebar.insertElement('header', 'headerSidebar');
+  assert.equal(Object.values(sidebar.config.instances).find((instance) => instance.type === 'menu').settings.orientation, 'auto');
+});
+
+test('footer composer (plan 27f §3.2): the chosen blocks in columns, widgets configured', () => {
+  const doc = new CmsRecordDocument({ parts: { footer: '' } });
+  doc.insertElement('footer', 'siteFooter', { id: null, position: 'inside' }, { blocks: ['host', 'copyright', 'social', 'badges', 'links', 'heurist'], year: 2026 });
+  const html = doc.serialize().parts.footer;
+  const instances = Object.values(doc.config.instances);
+  assert.deepEqual(instances.map((instance) => instance.type), ['badges', 'actionmenu', 'actionmenu', 'badges'], 'in the order of CMS_FOOTER_BLOCKS');
+  assert.equal(instances[1].settings.preset, 'social');
+  assert.equal(instances[2].settings.presentation, 'links');
+  assert.equal(instances[3].settings.source, 'host');
+  assert.match(html, /© 2026 Website title/);
+  assert.match(html, /Powered by <a href="https:\/\/heuristnetwork.org"/);
+  const style = Object.values(doc.config.styles.nodes).find((value) => value.display === 'grid');
+  assert.equal(style['grid-template-columns'], 'repeat(4, minmax(0, 1fr))', 'at most four columns');
+  const small = new CmsRecordDocument({ parts: { footer: '' } });
+  small.insertElement('footer', 'siteFooter', { id: null, position: 'inside' }, { blocks: ['copyright'] });
+  assert.equal(Object.keys(small.config.instances).length, 0);
 });
 
 test('template Team: a heading and cards of the Team member report, the records to pick', () => {

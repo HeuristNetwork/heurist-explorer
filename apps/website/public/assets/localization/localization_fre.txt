@@ -158,3 +158,63 @@
 #Slideshow (one visible, automatic)#Diaporama (un visible, automatique)
 #Open the Filter Builder#Ouvrir le constructeur de filtre
 #Mark a report "Single record (card)" to use it here#Marquez un rapport « Enregistrement unique (carte) » pour l’utiliser ici
+#Navigation and layout#Navigation et mise en page
+#Page navigation#Navigation des pages
+#Load each page completely#Charger chaque page entièrement
+#Keep header and footer, change the page content#Garder l'en-tête et le pied de page, changer le contenu de la page
+#One long page (pages one after another)#Une longue page (les pages les unes après les autres)
+#Pages kept in memory#Pages gardées en mémoire
+#Header position#Position de l'en-tête
+#Header orientation#Orientation de l'en-tête
+#Footer position#Position du pied de page
+#Default (scrolls away)#Par défaut (défile avec la page)
+#Fixed at the top#Fixé en haut
+#Slide out (hides when scrolling down)#Escamotable (caché en défilant vers le bas)
+#No header#Pas d'en-tête
+#Horizontal (top)#Horizontal (en haut)
+#Vertical (left column)#Vertical (colonne de gauche)
+#Fixed at the bottom#Fixé en bas
+#No footer#Pas de pied de page
+#Logo height#Hauteur du logo
+#Header and footer on this page#En-tête et pied de page sur cette page
+#Hide the header of the website on this page#Masquer l'en-tête du site sur cette page
+#Hide the footer of the website on this page#Masquer le pied de page du site sur cette page
+#Footer composer#Composer le pied de page
+#Partners and sponsors (logos with links)#Partenaires et sponsors (logos avec liens)
+#Follow us on social media#Suivez-nous sur les réseaux sociaux
+#Copyright text#Texte de copyright
+#Powered by Heurist#Propulsé par Heurist
+#Hosted at: the organisation that hosts this Heurist#Hébergé par : l'organisme qui héberge ce Heurist
+#Language switch#Sélecteur de langue
+#Appearance#Apparence
+#Links#Liens
+#Drop-down#Liste déroulante
+#Sub pages#Sous-pages
+#Orientation#Orientation
+#Show Home#Afficher l'accueil
+#Pages with sub pages open#Les pages avec sous-pages s’ouvrent
+#Action menu#Menu d'actions
+#Presentation#Présentation
+#Buttons#Boutons
+#Icons#Icônes
+#Drop-down menu#Menu déroulant
+#Label of the drop-down button#Libellé du bouton du menu déroulant
+#Go to a page#Aller à une page
+#Open a URL#Ouvrir une URL
+#Add a record#Ajouter un enregistrement
+#Add item#Ajouter un élément
+#New tab#Nouvel onglet
+#Icon only#Icône seule
+#Every item needs a page or a URL#Chaque élément a besoin d’une page ou d’une URL
+#Social media#Réseaux sociaux
+#Social media links#Liens vers les réseaux sociaux
+#Badges#Badges
+#Add images#Ajouter des images
+#No images yet: add some.#Pas encore d’images : ajoutez-en.
+#Height of the logos (px)#Hauteur des logos (px)
+#Gap (px)#Espacement (px)
+#Alignment#Alignement
+#Grey until the mouse is over a logo#Gris jusqu’au survol d’un logo
+#Logo of the host organisation#Logo de l’organisme hébergeur
+#This action needs Heurist Explorer on this page#Cette action nécessite Heurist Explorer sur cette page
+#Header and footer#En-tête et pied de page

@@ -36,13 +36,17 @@ import { oneAtATime } from '#shared/ui/oneAtATime.js';
 import { openTextTranslationDialog } from '#shared/widgets/translation/HTextTranslationDialog.js';
 import { openTranslationDialog } from '#shared/widgets/translation/HTranslationDialog.js';
 import { CmsPreview, PREVIEW_WIDTHS } from './CmsPreview.js';
-import { openCardsForm, openFieldForm, openMediaForm, openReportForm, teamReportBody } from './widgetForms.js';
+import {
+  openCardsForm, openFieldForm, openLanguageForm, openMediaForm, openMenuForm, openReportForm, teamReportBody
+} from './widgetForms.js';
+import { openActionMenuForm, openSocialForm, sitePageList } from './actionForms.js';
+import { buildBadgesHtml, openBadgesForm } from './badgesForm.js';
 import {
   changedDetails, dropPlace, menuPlace, previewUrl, recordDocument, subPageIds
 } from './designerData.js';
 import {
   askConflict, askRemovePage, askSaveDiscard, confirm, confirmNear, openAddElementForm,
-  openAddPageForm, openStyleForm, openStylesDialog
+  openAddPageForm, openFooterForm, openPageLayoutForm, openStyleForm, openStylesDialog
 } from './designerDialogs.js';
 import './designer.css';
 
@@ -536,6 +540,7 @@ export class CmsDesigner {
     if (!item.id.startsWith('page:')) return [];
     return [
       { action: 'edit', icon: 'fa-pen', title: $HR('Edit record') },
+      { action: 'layout', icon: 'fa-table-columns', title: $HR('Header and footer on this page') },
       { action: 'add', icon: 'fa-plus', title: $HR('Add sub page') },
       { action: 'remove', icon: 'fa-xmark', title: $HR('Remove from website') }
     ];
@@ -570,6 +575,7 @@ export class CmsDesigner {
   async _siteTool(action, id) {
     const page = pageId(id);
     if (action === 'edit') return this._editRecord(page);
+    if (action === 'layout') return this._pageLayout(page);
     if (action === 'add') return this._addPage(page);
     if (action === 'remove') return this._removePage(page);
     return undefined;
@@ -652,6 +658,22 @@ export class CmsDesigner {
     this._loadPreview();
   }
 
+  /** Hide the header and / or footer of the website on one page (plan 27f §3); saved at once. */
+  async _pageLayout(id) {
+    if (!(await this._leaveDirty())) return;
+    const record = await this._record(id);
+    const layout = record.doc.layout();
+    const values = await openPageLayoutForm(layout);
+    if (!values) return;
+    const next = { ...layout };
+    for (const flag of ['hideHeader', 'hideFooter']) {
+      if (values[flag]) next[flag] = true; else delete next[flag];
+    }
+    record.doc.setLayout(next);
+    if (await this._saveRecord(id)) this._loadPreview();
+    this._updateBar();
+  }
+
   async _styles() {
     if (!(await this._leaveDirty())) return;
     const id = this.site ? this.site.id : this.standalone.id;
@@ -661,6 +683,7 @@ export class CmsDesigner {
       base: record.doc.base(),
       kinds: record.doc.kinds(),
       presets: record.doc.presets(),
+      layout: record.doc.layout(),
       css,
       javaScriptAllowed: this.options.dbdefs?.meta?.javaScriptAllowed === true,
       files: this._files(),
@@ -670,12 +693,15 @@ export class CmsDesigner {
       }
     });
     if (!values) return;
+    const layoutBefore = JSON.stringify(record.doc.layout());
     record.doc.setCommonStyles(values);
+    record.doc.setLayout(values.layout);
+    const layoutChanged = JSON.stringify(record.doc.layout()) !== layoutBefore;
     // Custom CSS (DT_CMS_CSS) is a field of the record, not of the document: saved with the styles
     const extra = this.codes.css && values.css !== css ? { [this.codes.css]: values.css } : {};
     if (await this._saveRecord(id, { extra })) {
-      // the custom CSS is in the head of the page: load it again
-      if (Object.keys(extra).length) this._loadPreview(); else this._applyPreview();
+      // the custom CSS is in the head of the page, the layout in the page written by the server: load it again
+      if (Object.keys(extra).length || layoutChanged) this._loadPreview(); else this._applyPreview();
       this._renderProperties();
     }
     this._updateBar();
@@ -816,16 +842,25 @@ export class CmsDesigner {
       await this._insertField(target);
       return;
     }
+    // the footer composer: its blocks first (plan 27f §3.2)
+    const options = values.element === 'siteFooter' ? await openFooterForm() : {};
+    if (!options) return;
     let added = null;
     this._edit((doc) => {
-      added = doc.insertElement(this.current.part, values.element, target);
+      added = doc.insertElement(this.current.part, values.element, target, options);
+      // the Sidebar header belongs into a vertical header (plan 27f §3.1)
+      if (values.element === 'headerSidebar' && this.current.part === 'header') {
+        const layout = doc.layout();
+        doc.setLayout({ ...layout, header: { ...(layout.header || {}), orientation: 'vertical' } });
+      }
       if (values.title && doc.isContainer(added)) doc.setCaption(added, values.title);
       else if (values.title && doc.text(added)) doc.setText(added, `<h2>${escapeHtml(values.title)}</h2>${doc.text(added)}`);
       return true;
     });
     if (added) this._selectNode(added);
-    // a new media element: its file at once
+    // a new media element: its file at once; a new helper widget: its settings (plan 27f)
     if (added && values.element === 'media') await this._editMedia(added);
+    if (added && ['actionmenu', 'social', 'badges'].includes(values.element)) await this._configure(added);
   }
 
   /** Copy the selected element (Copy structure / Copy all below the tree). */
@@ -1182,7 +1217,36 @@ export class CmsDesigner {
   async _configureWidget(instanceId, instance) {
     const services = this._formServices();
     const common = { settings: instance.settings || {}, dbdefs: this.options.dbdefs, apiClient: this.apiClient, services };
-    if (instance.type === 'cards') {
+    if (instance.type === 'badges' && instance.settings?.source === 'host') {
+      HMsg.showMsgFlash?.($HR('The logo and address of the organisation that hosts this Heurist are set on the server.'), { showDelay: 3000 });
+    } else if (instance.type === 'badges') {
+      const fileType = Number(this.options.dbdefs?.dbconst?.('RT_REGISTERED_FILE')) || 0;
+      const result = await openBadgesForm({
+        settings: instance.settings || {},
+        browse: () => (services.browseRecords ? services.browseRecords({ recordTypes: [fileType], selectMode: 'select_multi' }) : Promise.resolve(null)),
+        resolve: async (ids) => (await this._mediaItems({ mode: 'files', ids, single: false })).map((item, index) => ({ id: ids[index], ...item }))
+      });
+      if (!result) return;
+      const runtime = this.options.runtime || {};
+      const urls = fileMediaUrls(runtime.baseUrl || '', runtime.database || '');
+      const build = (language) => buildBadgesHtml(result.items, result.settings, { urls, language });
+      const languages = this.site?.languages || [];
+      const html = languages.length ? Object.fromEntries(languages.map((code) => [code, build(code)])) : { def: build('') };
+      this._edit((doc) => doc.setInstance(instanceId, { settings: { ...result.settings, html } }));
+    } else if (instance.type === 'actionmenu') {
+      const settings = instance.settings?.preset === 'social'
+        ? await openSocialForm(common)
+        : await openActionMenuForm({
+          settings: instance.settings || {},
+          pages: sitePageList(this.site),
+          recordTypes: this.options.dbdefs?.rectypes?.() || [],
+          canAddRecord: this._hasExplorer()
+        });
+      if (settings) this._edit((doc) => doc.setInstance(instanceId, { settings }));
+    } else if (instance.type === 'menu' || instance.type === 'language') {
+      const settings = await (instance.type === 'menu' ? openMenuForm(common) : openLanguageForm(common));
+      if (settings) this._edit((doc) => doc.setInstance(instanceId, { settings }));
+    } else if (instance.type === 'cards') {
       const settings = await openCardsForm(common);
       if (settings) this._edit((doc) => doc.setInstance(instanceId, { settings }));
     } else if (instance.type === 'report') {
@@ -1202,6 +1266,15 @@ export class CmsDesigner {
       const html = this._galleryHtml(result.settings, result.items);
       this._edit((doc) => doc.setInstance(instanceId, { settings: { ...result.settings, html } }));
     }
+  }
+
+  /** Whether the website (its loaded records) has Heurist Explorer: Add record of an action menu needs it (plan 27f §9.4). */
+  _hasExplorer() {
+    for (const record of this.records.values()) {
+      const instances = record?.doc?.config?.instances || {};
+      if (Object.values(instances).some((instance) => instance?.type === 'explorer')) return true;
+    }
+    return false;
   }
 
   /** The HTML of a gallery (stored per language): a figure for each file. */
@@ -1295,10 +1368,6 @@ export class CmsDesigner {
     const node = this._treeItem(id);
     const instance = node?.instance ? record.doc.instance(node.instance) : null;
     if (!instance) return;
-    if (instance.kind === 'widget' && instance.type === 'menu') {
-      HMsg.showMsgFlash?.($HR('The menu shows the pages of the website; it has no settings.'), { showDelay: 3000 });
-      return;
-    }
     try {
       if (instance.kind === 'widget') {
         await this._configureWidget(node.instance, instance);

@@ -1,4 +1,4 @@
-/* HMenu (plan 27a): website menu, styled by the base settings of the site
+/* HMenu (plan 27a, 27f §4 / §6): website menu and action menu, styled by the base settings of the site
    (--h-color-surface, --h-color-primary, --h-color-text, --h-radius). */
 .h-site-menu {
   position: relative;
@@ -33,27 +33,51 @@
   position: relative;
 }
 
-.h-site-menu-item > a {
-  display: block;
+.h-site-menu-item > a,
+.h-site-menu-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   padding: 8px 12px;
   border-radius: var(--h-radius);
   color: var(--h-color-text);
   text-decoration: none;
+  cursor: pointer;
 }
 
 .h-site-menu-item > a:hover,
-.h-site-menu-item > a:focus-visible {
+.h-site-menu-item > a:focus-visible,
+.h-site-menu-label:hover,
+.h-site-menu-label:focus-visible {
   background: var(--h-color-surface);
 }
 
-.h-site-menu-item.is-current > a,
-.h-site-menu-item.is-current-parent > a {
+.h-site-menu-item.is-current > :is(a, .h-site-menu-label),
+.h-site-menu-item.is-current-parent > :is(a, .h-site-menu-label) {
   color: var(--h-color-primary);
   font-weight: bold;
 }
 
-.h-site-menu-item.has-children > a::after {
-  content: " \25BE";
+.h-site-menu-item.has-children > :is(a, .h-site-menu-label)::after {
+  content: "\25BE";
+}
+
+.h-site-menu-icon {
+  width: auto;
+  height: 1.4em;
+}
+
+.h-site-menu-fa {
+  font-size: var(--h-font-size-icon);
+}
+
+.h-site-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
 }
 
 .h-site-menu-sub {
@@ -70,40 +94,147 @@
   box-shadow: 0 6px 18px rgb(0 0 0 / 12%);
 }
 
+/* deeper levels open beside their item */
+.h-site-menu-sub .h-site-menu-sub {
+  left: 100%;
+  top: 0;
+}
+
+.h-site-menu-sub .h-site-menu-item.has-children > :is(a, .h-site-menu-label)::after {
+  content: "\25B8";
+  margin-left: auto;
+}
+
 .h-site-menu-item.has-children:hover > .h-site-menu-sub,
 .h-site-menu-item.has-children:focus-within > .h-site-menu-sub {
   display: block;
 }
 
-.h-site-menu-languages {
-  display: flex;
-  margin-left: auto;
+.h-site-menu-expand {
+  display: none;
 }
 
-.h-site-menu-languages > a {
-  padding: 8px 6px;
+/* vertical (and auto in a vertical header): a tree, sub pages below their page; with JS the levels open and close */
+:is(.h-site-menu-vertical, .h-site-header-vertical .h-site-menu-auto) .h-site-menu-list {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+:is(.h-site-menu-vertical, .h-site-header-vertical .h-site-menu-auto) .h-site-menu-sub {
+  display: block;
+  position: static;
+  min-width: 0;
+  padding: 0 0 0 1em;
+  border: none;
+  background: none;
+  box-shadow: none;
+}
+
+:is(.h-site-menu-vertical, .h-site-header-vertical .h-site-menu-auto).h-site-menu-js .h-site-menu-item.has-children:not(.is-expanded) > .h-site-menu-sub {
+  display: none;
+}
+
+:is(.h-site-menu-vertical, .h-site-header-vertical .h-site-menu-auto).h-site-menu-js .h-site-menu-item.has-children > :is(a, .h-site-menu-label) {
+  padding-right: 32px;
+}
+
+:is(.h-site-menu-vertical, .h-site-header-vertical .h-site-menu-auto).h-site-menu-js .h-site-menu-item.has-children > :is(a, .h-site-menu-label)::after {
+  content: none;
+}
+
+:is(.h-site-menu-vertical, .h-site-header-vertical .h-site-menu-auto) .h-site-menu-expand {
+  display: block;
+  position: absolute;
+  right: 2px;
+  top: 4px;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: none;
+  border-radius: var(--h-radius);
+  background: none;
   color: var(--h-color-text);
-  text-decoration: none;
+  cursor: pointer;
 }
 
-.h-site-menu-languages > a.is-current {
-  color: var(--h-color-primary);
-  font-weight: bold;
+:is(.h-site-menu-vertical, .h-site-header-vertical .h-site-menu-auto) .h-site-menu-expand::before {
+  content: "\25B8";
 }
 
-/* narrow screens: the list is behind the menu button and sub pages are listed below their page */
+:is(.h-site-menu-vertical, .h-site-header-vertical .h-site-menu-auto) .is-expanded > .h-site-menu-expand::before {
+  content: "\25BE";
+}
+
+/* action menu presentations (plan 27f §6) */
+.h-site-menu-links .h-site-menu-item > a {
+  padding: 4px 8px;
+  color: var(--h-color-link);
+  text-decoration: underline;
+}
+
+.h-site-menu-buttons .h-site-menu-list {
+  gap: 6px;
+}
+
+.h-site-menu-buttons .h-site-menu-item > a {
+  border: 1px solid var(--h-color-primary);
+  background: var(--h-color-primary);
+  color: var(--h-color-primary-text, #fff);
+}
+
+.h-site-menu-buttons .h-site-menu-item > a:hover {
+  background: var(--h-color-primary-hover, var(--h-color-primary));
+}
+
+.h-site-menu-icons .h-site-menu-list {
+  gap: 4px;
+}
+
+.h-site-menu-icons .h-site-menu-item > a {
+  padding: 6px;
+}
+
+.h-site-menu-dropdown {
+  display: inline-block;
+}
+
+.h-site-menu-dropdown > .h-site-menu-toggle {
+  display: inline-block;
+}
+
+.h-site-menu-dropdown > .h-site-menu-list {
+  display: none;
+  position: absolute;
+  right: 0;
+  top: 100%;
+  z-index: 100;
+  flex-direction: column;
+  align-items: stretch;
+  min-width: 12em;
+  padding: 4px;
+  border: 1px solid var(--h-color-border);
+  border-radius: var(--h-radius);
+  background: var(--h-color-bg);
+  box-shadow: 0 6px 18px rgb(0 0 0 / 12%);
+}
+
+.h-site-menu-dropdown.is-open > .h-site-menu-list {
+  display: flex;
+}
+
+/* narrow screens: the website menu is behind the menu button and sub pages are listed below their page */
 @media (max-width: 640px) {
-  .h-site-menu-toggle {
+  .h-site-menu:not(.h-site-menu-links, .h-site-menu-buttons, .h-site-menu-icons, .h-site-menu-dropdown) > .h-site-menu-toggle {
     display: inline-block;
   }
 
-  .h-site-menu-list {
+  .h-site-menu:not(.h-site-menu-links, .h-site-menu-buttons, .h-site-menu-icons, .h-site-menu-dropdown) > .h-site-menu-list {
     display: none;
     flex-direction: column;
     align-items: stretch;
   }
 
-  .h-site-menu.is-open .h-site-menu-list {
+  .h-site-menu.is-open > .h-site-menu-list {
     display: flex;
   }
 
@@ -113,9 +244,5 @@
     border: none;
     box-shadow: none;
     padding: 0 0 0 1em;
-  }
-
-  .h-site-menu-languages {
-    margin-left: 0;
   }
 }

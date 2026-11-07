@@ -10,6 +10,8 @@
  * modules on the page are loaded), or in an iframe (`"mount": "iframe"`). The
  * instances are independent; synchronization (PageController) comes in phase 5.
  * One lazy listener serves the action Player / Viewer of all media of the page (HMediaViewer).
+ * mountHosts / unmountInstance mount and remove the instances of one part (a page section of the
+ * navigation modes swap / scroll, siteNavigator.js; a part replaced by the designer).
  *
  * @project     Heurist academic knowledge management system
  * @package     heurist-website
@@ -24,7 +26,8 @@
 import { $HR } from '#shared/ui';
 import { createTabSet } from '#shared/widgets/layout/tabs.js';
 import { exclusiveAccordion } from '#shared/widgets/layout/accordion.js';
-import { HMenu } from '#shared/widgets/site/HMenu.js';
+import { actionMenuItems, HMenu } from '#shared/widgets/site/HMenu.js';
+import { HLangSwitch } from '#shared/widgets/site/HLangSwitch.js';
 import { SITE_WIDGETS, mountSiteWidget } from './siteWidgets.js';
 
 /**
@@ -70,6 +73,77 @@ export function readSiteConfig(doc = document) {
  */
 export async function startSite({ root, config, loaders = MODULE_LOADERS }) {
   enhanceControls(root);
+  const jobs = [];
+  // written by the server, so they are here already; a preview of the designer opens nothing; with the navigation
+  // modes swap / scroll other pages come later (one listener on the root serves them too)
+  const navigation = config.site?.layout?.navigation;
+  if (!config.runtime?.design && (root.querySelector('[data-h-view]') || navigation === 'swap' || navigation === 'scroll')) {
+    jobs.push(import('#shared/widgets/site/HMediaViewer.js').then(({ attachMediaViews }) => attachMediaViews(root)));
+  }
+  if (!config.runtime?.design && root.classList?.contains('h-site-header-slide')) attachHeaderSlide(root);
+  if (!config.runtime?.design) root.addEventListener('click', (event) => onAction(event));
+  const mounted = await mountHosts(root, config, loaders);
+  await Promise.all(jobs);
+  return mounted;
+}
+
+/**
+ * The slide out header (plan 27f §3): hidden while the visitor scrolls down past it, shown again when scrolling up.
+ *
+ * @param {HTMLElement} body Element with the class h-site-header-slide.
+ * @param {Window} [win]
+ * @returns {() => void} Removes the listener.
+ */
+export function attachHeaderSlide(body, win = globalThis.window) {
+  let last = win?.scrollY || 0;
+  const onScroll = () => {
+    const now = win.scrollY || 0;
+    const height = body.querySelector('.h-site-header')?.offsetHeight || 0;
+    if (Math.abs(now - last) < 4) return;
+    body.classList.toggle('h-site-header-away', now > last && now > height);
+    last = now;
+  };
+  win?.addEventListener?.('scroll', onScroll, { passive: true });
+  return () => win?.removeEventListener?.('scroll', onScroll);
+}
+
+/** Module APIs mounted on the page (all parts and loaded pages), for the actions of action menus. */
+const MODULES = [];
+
+/**
+ * An action of an action menu (`data-h-action`, plan 27f §6): Add record goes to the Explorer of the page.
+ *
+ * @param {Event} event A click in the page.
+ * @returns {boolean} Whether the click was an action.
+ */
+export function onAction(event) {
+  const link = event.target?.closest?.('[data-h-action]');
+  if (!link) return false;
+  event.preventDefault?.();
+  const action = link.getAttribute('data-h-action');
+  const target = link.getAttribute('data-h-target');
+  if (action === 'addRecord') {
+    const explorer = MODULES.find((module) => module.type === 'explorer' && typeof module.api?.addRecord === 'function'
+      && (!module.host || module.host.isConnected !== false));
+    if (!explorer) {
+      globalThis.window?.alert?.($HR('This action needs Heurist Explorer on this page'));
+      return true;
+    }
+    const recordType = Number(target) || target;
+    Promise.resolve(explorer.api.addRecord(recordType)).catch((error) => console.warn('Add record failed', error));
+  }
+  return true;
+}
+
+/**
+ * Mount every host inside an element (the page, or a page section loaded by the navigator, plan 27f).
+ *
+ * @param {HTMLElement} root
+ * @param {object} config The configuration block that has the instances of these hosts.
+ * @param {object} [loaders] Module loaders.
+ * @returns {Promise<Map<string, object>>} Mounted instances by id.
+ */
+export async function mountHosts(root, config, loaders = MODULE_LOADERS) {
   const mounted = new Map();
   const jobs = [];
   for (const host of root.querySelectorAll('[data-h-instance]')) {
@@ -78,12 +152,30 @@ export async function startSite({ root, config, loaders = MODULE_LOADERS }) {
     mounted.set(id, null);
     jobs.push(mountInstance(host, id, config, loaders).then((instance) => mounted.set(id, instance)));
   }
-  // written by the server, so they are here already; a preview of the designer opens nothing
-  if (!config.runtime?.design && root.querySelector('[data-h-view]')) {
-    jobs.push(import('#shared/widgets/site/HMediaViewer.js').then(({ attachMediaViews }) => attachMediaViews(root)));
-  }
   await Promise.all(jobs);
   return mounted;
+}
+
+/**
+ * Remove a mounted instance: `destroy()` of a widget (HBaseWidget) or module API; an iframe goes blank.
+ * Errors of a module are logged; the page goes on.
+ *
+ * @param {object|null} instance What mountInstance returned.
+ */
+export function unmountInstance(instance) {
+  if (!instance) return;
+  const index = MODULES.findIndex((module) => module.api === instance);
+  if (index >= 0) MODULES.splice(index, 1);
+  try {
+    if (instance.tagName === 'IFRAME') {
+      instance.src = 'about:blank';
+      instance.remove?.();
+    } else if (typeof instance.destroy === 'function') {
+      instance.destroy();
+    }
+  } catch (error) {
+    console.warn('Unable to remove a part of the page', error);
+  }
 }
 
 /**
@@ -147,13 +239,17 @@ export function designerUrl(runtime = {}) {
  * @param {object} options.config The configuration block.
  * @param {Map<string, object>} options.mounted Mounted instances (startSite).
  * @param {object} [options.loaders] Module loaders.
- * @returns {{config: object, mounted: Map, enhance: Function, mountInstance: Function}}
+ * @returns {{config: object, mounted: Map, enhance: Function, mountInstance: Function, unmountInstance: Function}}
  */
 export function designHooks({ config, mounted, loaders = MODULE_LOADERS }) {
   return {
     config,
     mounted,
     enhance: (root) => enhanceControls(root),
+    unmountInstance: (id) => {
+      unmountInstance(mounted.get(id));
+      mounted.delete(id);
+    },
     mountInstance: async (host, id, instanceConfig = config) => {
       const instance = await mountInstance(host, id, instanceConfig, loaders);
       mounted.set(id, instance);
@@ -202,8 +298,38 @@ export async function mountInstance(host, id, config, loaders) {
   if (instance.kind === 'widget' && instance.type === 'menu') {
     return new HMenu().attach(host, {
       items: config.site?.menu || [],
+      settings: instance.settings || {},
+      homeItem: config.site?.homeItem || null
+    }).render();
+  }
+  if (instance.kind === 'widget' && instance.type === 'actionmenu') {
+    const settings = instance.settings || {};
+    const language = config.site?.language || '';
+    return new HMenu().attach(host, {
+      items: actionMenuItems(settings, { language }),
+      settings: { presentation: settings.presentation || 'links', label: settings.labels?.[language] ?? settings.label },
+      label: settings.labels?.[language] ?? settings.label ?? 'Actions'
+    }).render();
+  }
+  if (instance.kind === 'widget' && instance.type === 'badges') {
+    // written by the server; the designer's draft has an empty host: the HTML of the settings (plan 27f §7)
+    host.classList.add('h-site-badges');
+    if (!host.querySelector('.h-site-badges-row')) {
+      const html = instance.settings?.html || {};
+      if (instance.settings?.source === 'host') {
+        // written by the server from the files of the installation; the draft shows where it goes
+        host.textContent = config.runtime?.design ? $HR('Logo of the host organisation') : '';
+      } else {
+        host.innerHTML = html[config.site?.language || ''] ?? html.def ?? Object.values(html)[0] ?? '';
+      }
+    }
+    return null;
+  }
+  if (instance.kind === 'widget' && instance.type === 'language') {
+    return new HLangSwitch().attach(host, {
       languages: config.site?.languages || [],
-      language: config.site?.language || null
+      language: config.site?.language || null,
+      appearance: instance.settings?.appearance
     }).render();
   }
   if (instance.kind === 'widget' && SITE_WIDGETS.includes(instance.type)) return mountSiteWidget(host, instance, config);
@@ -230,11 +356,13 @@ export async function mountInstance(host, id, config, loaders) {
     const container = document.createElement('div');
     container.className = 'h-site-module-root';
     host.replaceChildren(container);
-    return await mount({
+    const api = await mount({
       container,
       bootstrap: { runtime: { ...(config.runtime || {}) }, settings: instance.settings || {}, state: instance.state ?? null },
       assetBaseUrl: config.runtime?.moduleBaseUrl ? `${config.runtime.moduleBaseUrl}heurist-${instance.type}/` : null
     });
+    MODULES.push({ type: instance.type, api, host });
+    return api;
   } catch (error) {
     console.error(`Unable to show ${instance.type} (${id})`, error);
     return showMessage(host, $HR('This part of the page can not be shown'));

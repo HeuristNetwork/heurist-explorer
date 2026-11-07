@@ -257,6 +257,60 @@ export async function openStylesDialog(values = {}) {
   return result.finally(() => form.destroy());
 }
 
+/**
+ * Header and footer on one page (plan 27f §3): hide the header and / or the footer of the website.
+ *
+ * @param {{hideHeader?: boolean, hideFooter?: boolean}} layout The page's layout.
+ * @returns {Promise<{hideHeader: boolean, hideFooter: boolean}|null>}
+ */
+export function openPageLayoutForm(layout = {}) {
+  const form = element('form', 'h-cms-form');
+  const box = (label, checked) => {
+    const line = element('label', 'h-cms-check');
+    const input = element('input');
+    input.type = 'checkbox';
+    input.checked = Boolean(checked);
+    line.append(input, document.createTextNode(` ${$HR(label)}`));
+    form.append(line);
+    return input;
+  };
+  form.append(helpLine('For example a cover page without the menu. The header and footer of the website are not changed.'));
+  const header = box('Hide the header of the website on this page', layout.hideHeader);
+  const footer = box('Hide the footer of the website on this page', layout.hideFooter);
+  return formDialog(form, 'Header and footer on this page', 'Save', () => ({ hideHeader: header.checked, hideFooter: footer.checked }));
+}
+
+/** Blocks of the footer composer: name, label (plan 27f §3.2). */
+const FOOTER_BLOCK_LABELS = Object.freeze([
+  ['badges', 'Partners and sponsors (logos with links)'], ['social', 'Follow us on social media'],
+  ['links', 'Links to selected pages (Legal information, Conditions of use, Contact ...)'], ['copyright', 'Copyright text'],
+  ['heurist', 'Powered by Heurist'], ['host', 'Hosted at: the organisation that hosts this Heurist']
+]);
+
+/**
+ * The footer composer (plan 27f §3.2): the blocks of a new footer. The footer is made of ordinary elements that are
+ * changed afterwards in the designer.
+ *
+ * @returns {Promise<{blocks: string[]}|null>}
+ */
+export function openFooterForm() {
+  const form = element('form', 'h-cms-form');
+  form.append(helpLine('Choose the blocks of the footer. Each block is an ordinary element: change or remove it afterwards.'));
+  const boxes = FOOTER_BLOCK_LABELS.map(([name, label]) => {
+    const line = element('label', 'h-cms-check');
+    const input = element('input');
+    input.type = 'checkbox';
+    input.checked = name !== 'badges';
+    line.append(input, document.createTextNode(` ${$HR(label)}`));
+    form.append(line);
+    return [name, input];
+  });
+  return formDialog(form, 'Footer composer', 'Add', () => {
+    const blocks = boxes.filter(([, input]) => input.checked).map(([name]) => name);
+    return blocks.length ? { blocks } : null;
+  });
+}
+
 /** A short CSS text of a style (one line, screen styles marked). */
 export function cssText(style) {
   const parts = [];

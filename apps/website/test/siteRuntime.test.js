@@ -59,7 +59,7 @@ test('hosts: menu, modules, iframe, missing configuration and problems', async (
 
   const menu = root.children[0];
   assert.ok(menu.querySelector('.h-site-menu'));
-  assert.equal(menu.querySelectorAll('.h-site-menu-item').length, 3, 'two pages and the languages');
+  assert.equal(menu.querySelectorAll('.h-site-menu-item').length, 2, 'two pages; the languages are a widget of their own (plan 27f)');
   assert.ok(menu.querySelector('.is-current'));
 
   assert.equal(calls.length, 1);
@@ -92,4 +92,51 @@ test('media with a view: the page serves them, a preview of the designer does no
   const { closeMediaView } = await import('#shared/widgets/site/HMediaViewer.js');
   closeMediaView();
   assert.equal(opened(), 0);
+});
+
+test('menu options (plan 27f §4): Home first, a parent that only opens its sub pages, vertical expanders, icons', async () => {
+  const { HMenu } = await import('#shared/widgets/site/HMenu.js');
+  const host = element('nav');
+  new HMenu().attach(host, {
+    settings: { orientation: 'vertical', showHome: true, selectableParent: false },
+    homeItem: { id: 5, title: 'Home', url: '/5', children: [] },
+    items: [{ id: 7, title: 'About', url: '/7', children: [{ id: 8, title: 'Team', url: '/8', current: true, children: [
+      { id: 9, title: 'Deep', url: '/9', children: [] }] }] },
+    { id: 10, title: 'Maps', url: '/10', icon: '/icon.png', format: 'icon', children: [] }]
+  }).render();
+  const nav = host.querySelector('.h-site-menu');
+  assert.ok(nav.classList.contains('h-site-menu-vertical'));
+  const items = nav.querySelectorAll('.h-site-menu-item');
+  assert.deepEqual(items.map((item) => item.querySelector('.h-site-menu-text').textContent), ['Home', 'About', 'Team', 'Deep', 'Maps'], 'all levels');
+  assert.ok(items[1].querySelector('.h-site-menu-label'), 'About has sub pages and is not a link');
+  assert.equal(items[3].querySelector('a')?.href, '/9', 'a page without sub pages is a link');
+  assert.ok(items[1].classList.contains('is-current-parent') && items[1].classList.contains('is-expanded'), 'the branch of the current page is open');
+  const expand = items[1].querySelector('.h-site-menu-expand');
+  expand.click();
+  assert.equal(items[1].classList.contains('is-expanded'), false);
+  assert.ok(items[4].querySelector('img').getAttribute('src') === '/icon.png' || items[4].querySelector('img').src === '/icon.png');
+  assert.ok(items[4].querySelector('.h-site-menu-text').classList.contains('h-site-visually-hidden'), 'icon only: the title for screen readers');
+});
+
+test('language switch (plan 27f §5): links, a select for appearance select, nothing for one language', async () => {
+  const { HLangSwitch } = await import('#shared/widgets/site/HLangSwitch.js');
+  const languages = [{ code: 'eng', url: '/e' }, { code: 'fre', url: '/f' }];
+  const host = element('div');
+  const opened = [];
+  new HLangSwitch().attach(host, { languages, language: 'fre', appearance: 'select', navigate: (url) => opened.push(url) }).render();
+  const links = host.querySelectorAll('a');
+  assert.deepEqual(links.map((link) => link.getAttribute('hreflang')), ['eng', 'fre']);
+  assert.ok(links[1].classList.contains('is-current'));
+  const select = host.querySelector('select');
+  assert.ok(select, 'the drop-down');
+  select.value = '/e';
+  select.fire('change');
+  assert.deepEqual(opened, ['/e']);
+  const list = element('div');
+  new HLangSwitch().attach(list, { languages, language: 'eng', appearance: 'list' }).render();
+  assert.equal(list.querySelector('select'), null);
+  const single = element('div');
+  new HLangSwitch().attach(single, { languages: [languages[0]], language: 'eng' }).render();
+  assert.equal(single.hidden, true);
+  assert.equal(single.children.length, 0);
 });

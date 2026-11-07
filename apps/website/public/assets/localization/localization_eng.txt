@@ -158,3 +158,63 @@
 #Slideshow (one visible, automatic)#Slideshow (one visible, automatic)
 #Open the Filter Builder#Open the Filter Builder
 #Mark a report "Single record (card)" to use it here#Mark a report "Single record (card)" to use it here
+#Navigation and layout#Navigation and layout
+#Page navigation#Page navigation
+#Load each page completely#Load each page completely
+#Keep header and footer, change the page content#Keep header and footer, change the page content
+#One long page (pages one after another)#One long page (pages one after another)
+#Pages kept in memory#Pages kept in memory
+#Header position#Header position
+#Header orientation#Header orientation
+#Footer position#Footer position
+#Default (scrolls away)#Default (scrolls away)
+#Fixed at the top#Fixed at the top
+#Slide out (hides when scrolling down)#Slide out (hides when scrolling down)
+#No header#No header
+#Horizontal (top)#Horizontal (top)
+#Vertical (left column)#Vertical (left column)
+#Fixed at the bottom#Fixed at the bottom
+#No footer#No footer
+#Logo height#Logo height
+#Header and footer on this page#Header and footer on this page
+#Hide the header of the website on this page#Hide the header of the website on this page
+#Hide the footer of the website on this page#Hide the footer of the website on this page
+#Footer composer#Footer composer
+#Partners and sponsors (logos with links)#Partners and sponsors (logos with links)
+#Follow us on social media#Follow us on social media
+#Copyright text#Copyright text
+#Powered by Heurist#Powered by Heurist
+#Hosted at: the organisation that hosts this Heurist#Hosted at: the organisation that hosts this Heurist
+#Language switch#Language switch
+#Appearance#Appearance
+#Links#Links
+#Drop-down#Drop-down
+#Sub pages#Sub pages
+#Orientation#Orientation
+#Show Home#Show Home
+#Pages with sub pages open#Pages with sub pages open
+#Action menu#Action menu
+#Presentation#Presentation
+#Buttons#Buttons
+#Icons#Icons
+#Drop-down menu#Drop-down menu
+#Label of the drop-down button#Label of the drop-down button
+#Go to a page#Go to a page
+#Open a URL#Open a URL
+#Add a record#Add a record
+#Add item#Add item
+#New tab#New tab
+#Icon only#Icon only
+#Every item needs a page or a URL#Every item needs a page or a URL
+#Social media#Social media
+#Social media links#Social media links
+#Badges#Badges
+#Add images#Add images
+#No images yet: add some.#No images yet: add some.
+#Height of the logos (px)#Height of the logos (px)
+#Gap (px)#Gap (px)
+#Alignment#Alignment
+#Grey until the mouse is over a logo#Grey until the mouse is over a logo
+#Logo of the host organisation#Logo of the host organisation
+#This action needs Heurist Explorer on this page#This action needs Heurist Explorer on this page
+#Header and footer#Header and footer

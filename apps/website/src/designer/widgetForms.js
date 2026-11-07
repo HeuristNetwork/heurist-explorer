@@ -803,3 +803,70 @@ export async function openReportForm({ settings = {}, languages = [], services }
     return { ...(report != null ? { report } : {}), files, display };
   }, null, 'h-cms-report-dialog').finally(() => panel.destroy());
 }
+
+/**
+ * Settings of the website menu (plan 27f §4): orientation, Home entry, whether a page with sub pages opens.
+ *
+ * @param {{settings?: object}} options
+ * @returns {Promise<object|null>} The settings (default values left out).
+ */
+export function openMenuForm({ settings = {} } = {}) {
+  return openEditFormDialog({
+    title: 'Menu',
+    form: {
+      groups: [{
+        id: 'main',
+        children: [
+          { name: 'orientation', type: 'enum', label: 'Orientation', mode: 'radio', max: 1,
+            terms: [{ id: 'horizontal', label: 'Horizontal (drop-down sub pages)' }, { id: 'vertical', label: 'Vertical (a tree)' },
+              { id: 'auto', label: 'Auto: vertical in a vertical header' }] },
+          { name: 'showHome', type: 'boolean', label: 'Show Home', help: 'The home page as the first entry of the menu', max: 1 },
+          { name: 'selectableParent', type: 'boolean', label: 'Pages with sub pages open', max: 1,
+            help: 'Unchecked: the title of such a page only opens its sub pages' }
+        ]
+      }]
+    },
+    values: {
+      orientation: ['vertical', 'auto'].includes(settings.orientation) ? settings.orientation : 'horizontal',
+      showHome: settings.showHome === true,
+      selectableParent: settings.selectableParent !== false
+    },
+    onReady: (edit) => addFormHelp(edit, 'The pages of the website in the order of the website tree. The icon of a page and whether the'
+      + ' menu shows its name, its icon or both are fields of the page record (Edit record in the website tree).')
+  }).then((values) => {
+    if (!values) return null;
+    const result = {};
+    if (['vertical', 'auto'].includes(values.orientation)) result.orientation = values.orientation;
+    if (values.showHome === true) result.showHome = true;
+    if (values.selectableParent === false) result.selectableParent = false;
+    return result;
+  });
+}
+
+/**
+ * Settings of the language switch (plan 27f §5): links, a drop-down, or auto (a drop-down when the links do not fit).
+ *
+ * @param {{settings?: object}} options
+ * @returns {Promise<object|null>}
+ */
+export function openLanguageForm({ settings = {} } = {}) {
+  return openEditFormDialog({
+    title: 'Language switch',
+    form: {
+      groups: [{
+        id: 'main',
+        children: [
+          { name: 'appearance', type: 'enum', label: 'Appearance', mode: 'radio', max: 1,
+            terms: [{ id: 'auto', label: 'Auto (a drop-down when the links do not fit)' }, { id: 'list', label: 'Links' },
+              { id: 'select', label: 'Drop-down' }] }
+        ]
+      }]
+    },
+    values: { appearance: ['list', 'select'].includes(settings.appearance) ? settings.appearance : 'auto' },
+    onReady: (edit) => addFormHelp(edit, 'The current page in the other languages of the website. A website with one language does'
+      + ' not show it.')
+  }).then((values) => {
+    if (!values) return null;
+    return ['list', 'select'].includes(values.appearance) ? { appearance: values.appearance } : {};
+  });
+}

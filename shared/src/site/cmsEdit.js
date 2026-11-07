@@ -44,7 +44,16 @@ export const CMS_CONTROLS = Object.freeze(['group', 'tabs', 'accordion']);
 
 /** Elements the designer can add (§5.2). */
 export const CMS_ELEMENTS = Object.freeze(['text', 'media', 'group', 'columns2', 'columns3', 'tabs', 'accordion', 'explorer',
-  'data', 'map', 'timeline', 'graph', 'recordview', 'menu', 'report', 'cards', 'gallery', 'siteHeader', 'field']);
+  'data', 'map', 'timeline', 'graph', 'recordview', 'menu', 'report', 'cards', 'gallery', 'siteHeader', 'field', 'language',
+  'actionmenu', 'social', 'badges', 'headerCompact', 'headerCentered', 'headerBanner', 'headerSidebar', 'siteFooter']);
+
+/** Header templates (plan 27f §3.1): element => label. `siteHeader` is the Basic header. */
+export const CMS_HEADER_TEMPLATES = Object.freeze({
+  siteHeader: 'Basic', headerCompact: 'Compact', headerCentered: 'Centered', headerBanner: 'Banner', headerSidebar: 'Sidebar'
+});
+
+/** Blocks of the footer composer (plan 27f §3.2), in their order in the footer. */
+export const CMS_FOOTER_BLOCKS = Object.freeze(['badges', 'social', 'links', 'copyright', 'heurist', 'host']);
 
 /** Starting content of a new page (plan 27c §15 #4): blank (one text, §19), text and column combinations, templates. */
 export const CMS_PAGE_PRESETS = Object.freeze(['blank', 'text', 'columns2', 'columns3', 'textColumns2', 'textColumns3', 'team']);
@@ -296,10 +305,11 @@ export class CmsRecordDocument {
    * @param {string} part Part of the place when the target is the root.
    * @param {string} element One of CMS_ELEMENTS.
    * @param {{id: string|null, position: 'inside'|'before'|'after'}} target
+   * @param {object} [options] `blocks` of the footer composer (siteFooter), `year` of its copyright.
    * @returns {string} Node id of the new element.
    */
-  insertElement(part, element, target = { id: null, position: 'inside' }) {
-    const node = this._create(element);
+  insertElement(part, element, target = { id: null, position: 'inside' }, options = {}) {
+    const node = this._create(element, options);
     this._place(part, node, target);
     return attr(node, 'data-h-node');
   }
@@ -706,6 +716,16 @@ export class CmsRecordDocument {
     return clone(this.config.styles.base || {});
   }
 
+  /** Layout settings (`layout`, plan 27f: navigation mode, header / footer; a page: hide flags), a copy. */
+  layout() {
+    return clone(isMap(this.config.layout) ? this.config.layout : {});
+  }
+
+  /** Replace the layout settings; empty removes the key. */
+  setLayout(layout) {
+    if (isMap(layout) && Object.keys(layout).length) this.config.layout = clone(layout); else delete this.config.layout;
+  }
+
   /** Replace kind defaults, presets and / or base settings (the Styles dialog). */
   setCommonStyles({ base, kinds, presets } = {}) {
     if (base !== undefined) this.config.styles.base = clone(base || {});
@@ -739,7 +759,7 @@ export class CmsRecordDocument {
     return [...this.configIssues, ...checkCmsDocument(this.config, parts, this.translations, baseUrl, otherInstances)];
   }
 
-  _create(element) {
+  _create(element, options = {}) {
     const used = this._usedIds();
     const id = (prefix) => {
       const value = newCmsId(prefix, used);
@@ -788,14 +808,27 @@ export class CmsRecordDocument {
         this._nodeStyles()[nodeId] = { 'min-height': '0' };
         return element$('div', [['data-h-node', nodeId], ['data-h-instance', instanceId]], '');
       }
-      case 'siteHeader': {
-        // the basic header template (plan 27e): logo and title of the website, menu
-        const logo = element$('div', [['data-h-node', id('n')], ['data-h-text', ''], ['data-h-field', 'website.2-38']], '');
-        const title = element$('h2', [['data-h-node', id('n')], ['data-h-text', ''], ['data-h-field', 'website.2-1']], 'Website title');
-        const node = group([logo, title, this._create('menu')]);
-        this._nodeStyles()[attr(node, 'data-h-node')] = { display: 'flex', 'flex-wrap': 'wrap', 'align-items': 'center',
-          'justify-content': 'space-between', gap: '1rem', padding: '0.5rem 1rem' };
-        return node;
+      case 'siteHeader':
+      case 'headerCompact':
+      case 'headerCentered':
+      case 'headerBanner':
+      case 'headerSidebar':
+        return this._header(element, id, group);
+      case 'siteFooter':
+        return this._footer(options, id, group);
+      case 'language':
+      case 'actionmenu':
+      case 'social':
+      case 'badges': {
+        // helper widgets (plan 27f): language switch, action menu (social media = its preset), badges; widget hosts
+        // without the min-height of the instance kind
+        const instanceId = id('i');
+        const nodeId = id('n');
+        const instance = defaultInstance('widget', element === 'social' ? 'actionmenu' : element);
+        if (element === 'social') instance.settings = { preset: 'social', presentation: 'icons', items: [] };
+        this.config.instances[instanceId] = instance;
+        this._nodeStyles()[nodeId] = { 'min-height': '0' };
+        return element$(element === 'language' ? 'div' : 'nav', [['data-h-node', nodeId], ['data-h-instance', instanceId]], '');
       }
       case 'menu': {
         const instanceId = id('i');
@@ -812,6 +845,83 @@ export class CmsRecordDocument {
         return element$('div', [['data-h-node', id('n')], ['data-h-instance', instanceId]], '');
       }
     }
+  }
+
+  /**
+   * A header template (plan 27f §3.1): logo (`website.2-38`), title (`website.2-1`), a subtitle text to fill in, the
+   * menu and the language switch, arranged by the template. Classes h-site-logo / -title / -subtitle make them smaller
+   * (or hidden) on medium and narrow screens.
+   */
+  _header(kind, id, group) {
+    const style = (node, value) => {
+      this._nodeStyles()[attr(node, 'data-h-node')] = value;
+      return node;
+    };
+    const logo = (small = false) => element$('div', [['data-h-node', id('n')], ['data-h-text', ''], ['data-h-field', 'website.2-38'],
+      ['class', small ? 'h-site-logo h-site-logo-small' : 'h-site-logo']], '');
+    const title = () => element$('div', [['data-h-node', id('n')], ['data-h-text', ''], ['data-h-field', 'website.2-1'],
+      ['class', 'h-site-title']], 'Website title');
+    const subtitle = () => element$('div', [['data-h-node', id('n')], ['data-h-text', ''], ['class', 'h-site-subtitle']], '<p>define subtitle</p>');
+    const menu = (settings = null) => {
+      const node = this._create('menu');
+      if (settings) this.config.instances[attr(node, 'data-h-instance')].settings = settings;
+      return node;
+    };
+    const language = () => this._create('language');
+    const row = (children, extra = {}) => style(group(children), { display: 'flex', 'flex-wrap': 'wrap', 'align-items': 'center', gap: '1rem', ...extra });
+    const column = (children, extra = {}) => style(group(children), { display: 'flex', 'flex-direction': 'column', ...extra });
+    switch (kind) {
+      case 'headerCompact':
+        return row([logo(true), style(title(), { 'font-size': '1.2em' }), style(menu(), { flex: '1' }), language()], { padding: '0.25rem 1rem' });
+      case 'headerCentered':
+        return column([logo(), title(), subtitle(), menu(), language()], { 'align-items': 'center', gap: '0.5rem', padding: '1rem', 'text-align': 'center' });
+      case 'headerBanner':
+        return column([
+          column([title(), subtitle()], { 'align-items': 'center', gap: '0.25rem', padding: '48px 16px', 'text-align': 'center',
+            'background-color': 'var(--h-color-primary)', color: '#ffffff' }),
+          row([logo(true), style(menu(), { flex: '1' }), language()], { padding: '0.25rem 1rem' })
+        ]);
+      case 'headerSidebar':
+        return column([logo(), title(), subtitle(), menu({ orientation: 'auto' }), language()], { gap: '0.75rem', padding: '1rem' });
+      default:
+        return column([
+          row([logo(), column([title(), subtitle()], { gap: '2px' })]),
+          row([style(menu(), { flex: '1' }), language()], { 'justify-content': 'space-between' })
+        ], { gap: '0.5rem', padding: '0.75rem 1rem', 'background-color': 'var(--h-color-surface)' });
+    }
+  }
+
+  /**
+   * The footer of the footer composer (plan 27f §3.2): the chosen blocks in columns (one column on narrow screens),
+   * ordinary elements to change afterwards.
+   *
+   * @param {{blocks?: string[], year?: number}} options
+   */
+  _footer({ blocks = ['social', 'links', 'copyright', 'heurist', 'host'], year = new Date().getFullYear() } = {}, id, group) {
+    const style = (node, value) => {
+      this._nodeStyles()[attr(node, 'data-h-node')] = value;
+      return node;
+    };
+    const text = (html) => element$('div', [['data-h-node', id('n')], ['data-h-text', '']], html);
+    const widget = (element, settings = null) => {
+      const node = this._create(element);
+      if (settings) Object.assign(this.config.instances[attr(node, 'data-h-instance')].settings, settings);
+      return node;
+    };
+    const block = (children) => style(group(children), { display: 'flex', 'flex-direction': 'column', gap: '0.5rem' });
+    const made = {
+      badges: () => block([text('<p><strong>Partners and sponsors</strong></p>'), widget('badges')]),
+      social: () => block([text('<p><strong>Follow us</strong></p>'), widget('social')]),
+      links: () => block([widget('actionmenu', { presentation: 'links' })]),
+      copyright: () => block([text(`<p>© ${year} Website title</p>`)]),
+      heurist: () => block([text('<p>Powered by <a href="https://heuristnetwork.org" target="_blank" rel="noopener">Heurist</a></p>')]),
+      host: () => block([text('<p>Hosted at</p>'), widget('badges', { source: 'host', height: 40 })])
+    };
+    const children = CMS_FOOTER_BLOCKS.filter((name) => blocks.includes(name)).map((name) => made[name]());
+    return style(group(children), {
+      display: 'grid', 'grid-template-columns': `repeat(${Math.max(1, Math.min(children.length, 4))}, minmax(0, 1fr))`, gap: '16px',
+      padding: '1rem', 'align-items': 'start', narrow: { 'grid-template-columns': '1fr' }
+    });
   }
 
   /** A panel of tabs (`section` with an `h3` caption) or of an accordion (`details` with `summary`), with a text. */

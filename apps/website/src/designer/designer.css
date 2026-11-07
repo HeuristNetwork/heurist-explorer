@@ -787,3 +787,79 @@
 .h-cms-report-form [hidden] {
   display: none;
 }
+
+/* Navigation and layout tab (plan 27f): the explanation of the selected navigation mode */
+.h-cms-styles-note {
+  margin-left: 228px;
+  color: var(--h-color-text-muted);
+  font-size: var(--h-font-size-small);
+}
+
+.h-cms-styles-field[hidden] {
+  display: none;
+}
+
+/* a checkbox with its label (Header and footer on this page, plan 27f) */
+.h-cms-check {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Action menu, social media and badges forms (plan 27f §6-7) */
+.h-cms-action-list,
+.h-cms-badges-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 50vh;
+  overflow: auto;
+}
+
+.h-cms-action-row {
+  display: grid;
+  grid-template-columns: minmax(8em, 1fr) 20px 9em 9em minmax(10em, 1.5fr) auto auto auto;
+  gap: 6px;
+  align-items: center;
+}
+
+.h-cms-action-target > * {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.h-cms-action-tools {
+  display: flex;
+  gap: 2px;
+}
+
+.h-cms-social-list {
+  display: grid;
+  grid-template-columns: 24px 9em minmax(20em, 1fr);
+  gap: 6px 8px;
+  align-items: center;
+  max-height: 60vh;
+  overflow: auto;
+}
+
+.h-cms-social-icon {
+  font-size: var(--h-font-size-icon);
+  text-align: center;
+}
+
+.h-cms-badges-row {
+  display: grid;
+  grid-template-columns: minmax(8em, 1fr) minmax(8em, 1fr) minmax(12em, 1.5fr) auto auto;
+  gap: 6px;
+  align-items: center;
+}
+
+.h-cms-badges-file {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.h-cms-badges-empty {
+  color: var(--h-color-text-muted);
+}

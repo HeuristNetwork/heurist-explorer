@@ -28,8 +28,26 @@ html.h-site {
 
 /* a page that is one module (a published Explorer, map ...): no side padding, the module
    uses the whole width; text pages keep 16px from the window edge */
-.h-site-main:has(> .h-site-module:only-child) {
+.h-site-main:has(> .h-site-page > .h-site-module:only-child) {
   padding: 0;
+}
+
+/* the page in <main> (plan 27f §2.2); the navigation modes swap / scroll add the sections of other pages:
+   swap hides them, scroll shows them one after another (a page not loaded yet keeps a place) */
+.h-site-page[hidden] {
+  display: none;
+}
+
+.h-site-page:focus {
+  outline: none;
+}
+
+.h-site-page-pending {
+  min-height: 60vh;
+}
+
+.h-site-page + .h-site-page {
+  margin-top: 2em;
 }
 
 .h-site-footer {
@@ -312,4 +330,147 @@ figure[data-h-view="iiif"]::after {
 .h-site-report-link {
   display: inline-block;
   margin-top: 6px;
+}
+
+/* ------------------------------------------------------------ header and footer (plan 27f §3)
+   Position and orientation are classes of the body (srv PageRenderer::bodyClasses): fixed / slide out header,
+   fixed footer, vertical header (a left column on wider screens), the hide flags of a page. */
+html.h-site {
+  --h-site-logo-height: 64px;
+}
+
+.h-site-header-fixed .h-site-header,
+.h-site-header-slide .h-site-header {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: var(--h-color-bg);
+}
+
+.h-site-header-slide .h-site-header {
+  transition: transform 0.25s ease;
+}
+
+.h-site-header-slide.h-site-header-away .h-site-header {
+  transform: translateY(-100%);
+}
+
+.h-site-footer-fixed .h-site-footer {
+  position: sticky;
+  bottom: 0;
+  z-index: 99;
+  margin-top: 0;
+  background: var(--h-color-bg);
+}
+
+.h-site-hide-header .h-site-header,
+.h-site-hide-footer .h-site-footer {
+  display: none;
+}
+
+@media (min-width: 641px) {
+  .h-site-header-vertical:not(.h-site-hide-header) {
+    display: grid;
+    grid-template-columns: minmax(180px, 260px) minmax(0, 1fr);
+    grid-template-rows: 1fr auto;
+    min-height: 100vh;
+  }
+
+  .h-site-header-vertical:not(.h-site-hide-header) .h-site-header {
+    grid-row: 1 / span 2;
+    position: sticky;
+    top: 0;
+    max-width: none;
+    height: 100vh;
+    margin: 0;
+    overflow: auto;
+    border-right: 1px solid var(--h-color-border);
+    transform: none;
+  }
+
+  .h-site-header-vertical:not(.h-site-hide-header) :is(.h-site-main, .h-site-footer) {
+    grid-column: 2;
+    width: 100%;
+  }
+}
+
+/* the parts of a header template: logo, title, subtitle; always responsive (no setting) */
+.h-site-logo {
+  flex: none;
+  line-height: 0;
+}
+
+.h-site-logo img {
+  width: auto;
+  max-width: none;
+  height: var(--h-site-logo-height);
+}
+
+.h-site-title {
+  margin: 0;
+  font-size: 1.75em;
+  line-height: 1.2;
+}
+
+.h-site-subtitle {
+  margin: 0;
+  color: var(--h-color-text-muted);
+}
+
+@media (max-width: 1024px) {
+  .h-site-title {
+    font-size: 1.4em;
+  }
+
+  .h-site-logo img {
+    height: calc(var(--h-site-logo-height) * 0.75);
+  }
+}
+
+@media (max-width: 640px) {
+  .h-site-title,
+  .h-site-subtitle {
+    display: none;
+  }
+
+  .h-site-logo img {
+    height: calc(var(--h-site-logo-height) * 0.6);
+  }
+}
+
+/* Badges (plan 27f §7): logos with links in a row; grey until the mouse is over a logo */
+.h-site-badges-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.h-site-badge {
+  display: inline-block;
+  line-height: 0;
+}
+
+.h-site-badge img {
+  width: auto;
+  max-width: none;
+}
+
+.h-site-badges-row.is-grey .h-site-badge img {
+  filter: grayscale(1);
+  opacity: 0.8;
+  transition: filter 0.2s, opacity 0.2s;
+}
+
+.h-site-badges-row.is-grey .h-site-badge:hover img,
+.h-site-badges-row.is-grey .h-site-badge:focus-visible img {
+  filter: none;
+  opacity: 1;
+}
+
+.h-site-logo-small img {
+  height: calc(var(--h-site-logo-height) * 0.6);
+}
+
+.h-site-badges-empty {
+  display: none;
 }

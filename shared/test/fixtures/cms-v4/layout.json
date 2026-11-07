@@ -1,0 +1,26 @@
+{
+  "name": "layout settings (plan 27f): navigation, cache, header / footer, page hide flags; page styles below a scope",
+  "config": {
+    "schema": "heurist-cms/4",
+    "layout": {
+      "navigation": "fly",
+      "cache": 99,
+      "header": {"position": "fixed", "orientation": "diagonal", "colour": "red"},
+      "footer": {"position": "slide"},
+      "hideHeader": "yes",
+      "menu": true
+    },
+    "styles": {
+      "base": {"color-primary": "#204060"},
+      "kinds": {"group": {"gap": "8px"}},
+      "presets": {"card": {"label": "Card", "padding": "16px", "narrow": {"padding": "8px"}}},
+      "nodes": {"n1": {"padding": "4px"}}
+    }
+  },
+  "scope": "[data-h-page=\"5\"]",
+  "html": ["<div data-h-node=\"n1\" data-h-control=\"group\" data-h-style=\"card\"></div>"],
+  "expect": {
+    "issues": ["warning:layout", "warning:layout", "warning:layout", "warning:layout", "warning:layout", "warning:layout", "warning:layout"],
+    "css": "[data-h-page=\"5\"]{--h-color-primary:#204060;--h-color-primary-hover:color-mix(in srgb, #204060 85%, black);}\n[data-h-page=\"5\"] [data-h-control=\"group\"]{gap:8px;}\n[data-h-page=\"5\"] [data-h-style=\"card\"]{padding:16px;}\n@media (max-width:640px){\n[data-h-page=\"5\"] [data-h-style=\"card\"]{padding:8px;}\n}\n[data-h-page=\"5\"] [data-h-node=\"n1\"]{padding:4px;}\n"
+  }
+}

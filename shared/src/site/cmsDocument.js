@@ -23,17 +23,33 @@ export const CMS_SCHEMA = 'heurist-cms/4';
 /** Known instance types by kind. */
 export const CMS_TYPES = Object.freeze({
   module: Object.freeze(['explorer', 'data', 'map', 'timeline', 'graph', 'recordview']),
-  widget: Object.freeze(['menu', 'report', 'cards', 'gallery'])
+  widget: Object.freeze(['menu', 'report', 'cards', 'gallery', 'language', 'actionmenu', 'badges'])
 });
 
 /** Newest instance configuration version. */
 export const CMS_CONFIG_VERSION = 1;
 
+/**
+ * Website layout (`layout` of the configuration, plan 27f §2-3): allowed values of each setting
+ * (CmsValidator::LAYOUT). The first value is the default.
+ */
+export const CMS_LAYOUT = Object.freeze({
+  navigation: Object.freeze(['reload', 'swap', 'scroll']),
+  header: Object.freeze({
+    position: Object.freeze(['default', 'fixed', 'slide', 'none']),
+    orientation: Object.freeze(['horizontal', 'vertical'])
+  }),
+  footer: Object.freeze({ position: Object.freeze(['default', 'fixed', 'none']) })
+});
+
+/** Pages kept by the navigation mode swap (`layout.cache`): default and limits. */
+export const CMS_LAYOUT_CACHE = Object.freeze({ default: 8, min: 1, max: 50 });
+
 /** Base settings (key = CSS variable without "--h-"). */
 export const BASE_SETTINGS = Object.freeze([
   'font-family', 'color-text', 'color-bg', 'color-surface', 'color-primary', 'color-link',
   'color-border', 'radius', 'site-font-size', 'site-heading-font', 'site-heading-color', 'site-width',
-  'color-selected', 'color-selected-border', 'color-primary-text', 'color-text-muted'
+  'color-selected', 'color-selected-border', 'color-primary-text', 'color-text-muted', 'site-logo-height'
 ]);
 
 /** Screen sizes of node styles: key => max width (px). */
@@ -83,6 +99,10 @@ export function parseCmsConfig(json) {
     return { config: empty, issues: [issue('error', 'cms_schema', `The website configuration is not "${CMS_SCHEMA}"`)] };
   }
   const issues = [];
+  if (config.layout != null && !isMap(config.layout)) {
+    issues.push(issue('error', 'cms_json', 'The "layout" of the website configuration is not an object'));
+    delete config.layout;
+  }
   for (const part of ['instances', 'styles', 'media']) {
     if (config[part] != null && !isMap(config[part])) {
       issues.push(issue('error', 'cms_json', `The "${part}" of the website configuration is not an object`));
@@ -157,6 +177,9 @@ export function checkCmsDocument(config, htmlParts, translations = {}, baseUrl =
     const problem = cmsMediaProblem(isMap(settings) ? settings : {});
     if (problem) issues.push(issue('warning', 'media_settings', `Media "${mediaId}": ${problem}`));
   }
+  for (const problem of cmsLayoutProblems(isMap(config.layout) ? config.layout : {})) {
+    issues.push(issue('warning', 'layout', `Layout: ${problem}`));
+  }
   const styles = isMap(config.styles) ? config.styles : {};
   const part = (name) => (isMap(styles[name]) ? styles[name] : {});
   issues.push(...compileCmsStyles(part('base'), [part('nodes')], baseUrl,
@@ -196,6 +219,41 @@ export function cmsInstanceProblem(settings) {
     return ['mount', 'mount must be "direct" or "iframe"'];
   }
   return null;
+}
+
+/**
+ * Problems of the layout settings (CmsValidator::layoutProblems): unknown keys and values not in CMS_LAYOUT;
+ * `cache` a whole number in CMS_LAYOUT_CACHE; `hideHeader` / `hideFooter` (a page) true or false.
+ *
+ * @param {object} layout
+ * @returns {string[]}
+ */
+export function cmsLayoutProblems(layout) {
+  const problems = [];
+  for (const [key, value] of Object.entries(layout)) {
+    if (key === 'navigation') {
+      if (!CMS_LAYOUT.navigation.includes(value)) problems.push(`navigation must be ${CMS_LAYOUT.navigation.join(', ')}`);
+    } else if (key === 'cache') {
+      if (!Number.isInteger(value) || value < CMS_LAYOUT_CACHE.min || value > CMS_LAYOUT_CACHE.max) {
+        problems.push(`cache must be a number from ${CMS_LAYOUT_CACHE.min} to ${CMS_LAYOUT_CACHE.max}`);
+      }
+    } else if (key === 'hideHeader' || key === 'hideFooter') {
+      if (typeof value !== 'boolean') problems.push(`${key} must be true or false`);
+    } else if (key === 'header' || key === 'footer') {
+      if (!isMap(value)) {
+        problems.push(`${key} must be an object`);
+        continue;
+      }
+      for (const [name, item] of Object.entries(value)) {
+        const allowed = CMS_LAYOUT[key][name];
+        if (!allowed) problems.push(`unknown setting ${key}.${name}`);
+        else if (!allowed.includes(item)) problems.push(`${key}.${name} must be ${allowed.join(', ')}`);
+      }
+    } else {
+      problems.push(`unknown setting ${key}`);
+    }
+  }
+  return problems;
 }
 
 /**
@@ -251,16 +309,19 @@ export function cmsNodes(html) {
  * @param {object} base Base settings (website merged with page).
  * @param {object[]} nodeSets Node styles, website first, then the page.
  * @param {string} [baseUrl] Heurist base URL: background images may only come from it (or be relative).
- * @param {{kinds?: object[], presets?: object[]}} [common] Kind defaults and presets, website first, then the page.
+ * @param {{kinds?: object[], presets?: object[], scope?: string}} [common] Kind defaults and presets, website first,
+ *        then the page; `scope`: selector every rule is written below (plan 27f §2.2, e.g. `[data-h-page="5"]`).
  * @returns {{css: string, issues: Array<object>}}
  */
-export function compileCmsStyles(base, nodeSets, baseUrl = '', { kinds = [], presets = [] } = {}) {
+export function compileCmsStyles(base, nodeSets, baseUrl = '', { kinds = [], presets = [], scope = '' } = {}) {
   const issues = [];
   let css = '';
+  const prefix = scope ? `${scope} ` : '';
   const variables = baseVariables(base, issues);
-  if (variables) css += `html.h-site{${variables}}\n`;
+  if (variables) css += `${scope || 'html.h-site'}{${variables}}\n`;
   const screens = Object.fromEntries(Object.keys(SCREENS).map((screen) => [screen, '']));
-  const rule = (selector, style, id) => {
+  const rule = (bare, style, id) => {
+    const selector = `${prefix}${bare}`;
     const rules = declarations(style, id, baseUrl, issues);
     if (rules) css += `${selector}{${rules}}\n`;
     for (const screen of Object.keys(SCREENS)) {

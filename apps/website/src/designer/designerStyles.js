@@ -20,7 +20,9 @@
  */
 
 import { $HR } from '#shared/ui';
-import { BASE_SETTINGS, CMS_KINDS, CMS_STYLE_PROPERTIES, compileCmsStyles, SCREENS } from '#shared/site/cmsDocument.js';
+import {
+  BASE_SETTINGS, CMS_KINDS, CMS_LAYOUT, CMS_LAYOUT_CACHE, CMS_STYLE_PROPERTIES, compileCmsStyles, SCREENS
+} from '#shared/site/cmsDocument.js';
 import { HInputColor } from '#shared/widgets/form/inputs/HInputColor.js';
 import { fileOfRecord, HInputFile } from '#shared/widgets/form/inputs/HInputFile.js';
 import { fileMediaUrls } from '#shared/recordview/fileMediaItem.js';
@@ -43,7 +45,8 @@ export const BASE_LABELS = Object.freeze({
   'color-selected': ['Selected background colour'],
   'color-selected-border': ['Selected border colour'],
   'color-primary-text': ['Text on primary colour (buttons)'],
-  'color-text-muted': ['Muted text colour']
+  'color-text-muted': ['Muted text colour'],
+  'site-logo-height': ['Logo height', 'e.g. 64px; smaller on medium and narrow screens']
 });
 
 /** Colour themes of the base settings (in the manner of the jQuery UI ThemeRoller / Bootstrap themes). */
@@ -72,8 +75,71 @@ const HELP = Object.freeze({
   presets: 'Named styles defined once and applied to elements (Preset in the properties of an element), for example a'
     + ' card or a highlighted box. The kind default applies first, then the preset, then the own style of the element.',
   css: 'Your own CSS rules for the whole website, for what the settings can not do. Select elements with'
-    + ' [data-h-style="name"] (presets), [data-h-control="group"], [data-h-text] or [data-h-instance].'
+    + ' [data-h-style="name"] (presets), [data-h-control="group"], [data-h-text] or [data-h-instance].',
+  layout: 'How the pages of the website are opened, and where the header and the footer are. Every page is written'
+    + ' in the same way, so you can change these settings at any time.'
 });
+
+/** Navigation modes (plan 27f §2): value, label; NAVIGATION_NOTES explain them. */
+const NAVIGATION_LABELS = Object.freeze([
+  ['reload', 'Load each page completely'], ['swap', 'Keep header and footer, change the page content'],
+  ['scroll', 'One long page (pages one after another)']
+]);
+
+const NAVIGATION_NOTES = Object.freeze({
+  reload: 'Every link opens the whole page again. The simplest way; works everywhere.',
+  swap: 'The header and footer stay; only the content of the page changes, without reloading. Pages opened before are kept and show at once.',
+  scroll: 'All pages of the menu are shown one after another on one page and are loaded while scrolling; the menu jumps to a page.'
+    + ' Only the first page is in the HTML that search engines read for the home address; every page address still works.'
+});
+
+const HEADER_POSITIONS = Object.freeze([
+  ['default', 'Default (scrolls away)'], ['fixed', 'Fixed at the top'], ['slide', 'Slide out (hides when scrolling down)'], ['none', 'No header']
+]);
+
+const HEADER_ORIENTATIONS = Object.freeze([['horizontal', 'Horizontal (top)'], ['vertical', 'Vertical (left column)']]);
+
+const FOOTER_POSITIONS = Object.freeze([['default', 'Default'], ['fixed', 'Fixed at the bottom'], ['none', 'No footer']]);
+
+/**
+ * Set a layout value (`navigation`, `cache`, `header.position` ...); the default value (first of CMS_LAYOUT) or null
+ * removes it, an empty header / footer object goes too.
+ *
+ * @param {object} layout Changed in place.
+ * @param {string} path
+ * @param {*} value
+ */
+export function setLayout(layout, path, value) {
+  const [first, second] = path.split('.');
+  if (second) {
+    const part = { ...(layout[first] || {}) };
+    if (value == null || value === CMS_LAYOUT[first]?.[second]?.[0]) delete part[second]; else part[second] = value;
+    if (Object.keys(part).length) layout[first] = part; else delete layout[first];
+    return;
+  }
+  const isDefault = first === 'navigation' ? value === CMS_LAYOUT.navigation[0] : first === 'cache' && value === CMS_LAYOUT_CACHE.default;
+  if (value == null || isDefault) delete layout[first]; else layout[first] = value;
+}
+
+/** A small drawing of the layout: header (top or left), content, footer (preview of the Navigation and layout tab). */
+function layoutDiagram(layout = {}) {
+  const header = layout.header || {};
+  const position = header.position || 'default';
+  const vertical = header.orientation === 'vertical';
+  const footer = layout.footer?.position || 'default';
+  const note = {
+    default: 'The header scrolls away with the page.', fixed: 'The header stays at the top.',
+    slide: 'The header hides when scrolling down and comes back when scrolling up.', none: 'No header.'
+  }[position];
+  const box = (label, extra = '') => `<div style="border:1px dashed #999;border-radius:4px;padding:8px;background:#f0f4f8;${extra}">${$HR(label)}</div>`;
+  const headerBox = position === 'none' ? '' : box('Header: logo, title, menu',
+    vertical ? 'width:30%;min-height:220px' : (position === 'fixed' ? 'position:sticky;top:0' : ''));
+  const footerBox = footer === 'none' ? '' : box(footer === 'fixed' ? 'Footer (fixed at the bottom)' : 'Footer', 'margin-top:8px');
+  const content = `<div style="flex:1">${box('Page content', 'min-height:160px;background:#fff')}${footerBox}</div>`;
+  return `<!doctype html><html><body style="font:12px sans-serif;margin:12px;color:#333">`
+    + `<div style="display:flex;flex-direction:${vertical ? 'row' : 'column'};gap:8px">${headerBox}${content}</div>`
+    + `<p>${$HR(note)}</p></body></html>`;
+}
 
 /** Named colours of the style editor (colour inputs): the base colours. */
 const PALETTE = Object.freeze([
@@ -158,8 +224,10 @@ const KIND_SAMPLES = Object.freeze({
  *        code editor (CodeMirror, lazy); without it a plain text area. `files`: the background image picker (styleRows).
  * @returns {{element: HTMLElement, read: () => object, ready: Promise<void>, destroy: () => void, tabs: object}}
  */
-export function createStylesForm({ base = {}, kinds = {}, presets = {}, css = '', javaScriptAllowed = false, createCodeEditor = null, files = null } = {}) {
-  const state = { base: { ...base }, kinds: structuredClone(kinds), presets: structuredClone(presets), css: String(css ?? '') };
+export function createStylesForm({ base = {}, kinds = {}, presets = {}, layout = {}, css = '', javaScriptAllowed = false, createCodeEditor = null,
+  files = null } = {}) {
+  const state = { base: { ...base }, kinds: structuredClone(kinds), presets: structuredClone(presets), layout: structuredClone(layout || {}),
+    css: String(css ?? '') };
   // two columns: the tabs, and the preview of the selected tab (half as wide)
   const root = element('div', 'h-cms-styles-layout');
   const previews = [];
@@ -377,12 +445,55 @@ export function createStylesForm({ base = {}, kinds = {}, presets = {}, css = ''
   })();
   previews.push(() => show(preview(SAMPLE_PAGE)));
 
+  // ------------------------------------------------------------ navigation and layout (plan 27f §2-3)
+  const layoutPane = pane(tabs, 'Navigation and layout', HELP.layout);
+  const layoutSelect = (label, choices, value, onChange) => {
+    const select = element('select', 'h-select h-compact');
+    select.append(...choices.map(([key, text]) => option(key, $HR(text))));
+    select.value = value;
+    select.addEventListener('change', () => {
+      onChange(select.value);
+      refresh();
+    });
+    layoutPane.config.append(field(label, select));
+    return select;
+  };
+  const navigationNote = element('div', 'h-cms-styles-note');
+  const cacheInput = element('input', 'h-input h-compact');
+  cacheInput.type = 'number';
+  cacheInput.min = String(CMS_LAYOUT_CACHE.min);
+  cacheInput.max = String(CMS_LAYOUT_CACHE.max);
+  cacheInput.value = String(state.layout.cache ?? CMS_LAYOUT_CACHE.default);
+  const cacheField = field('Pages kept in memory', cacheInput);
+  const showNavigation = () => {
+    const mode = state.layout.navigation || 'reload';
+    navigationNote.textContent = $HR(NAVIGATION_NOTES[mode]);
+    cacheField.hidden = mode !== 'swap';
+  };
+  layoutSelect('Page navigation', NAVIGATION_LABELS, state.layout.navigation || 'reload', (value) => {
+    setLayout(state.layout, 'navigation', value);
+    showNavigation();
+  });
+  layoutPane.config.append(navigationNote, cacheField);
+  cacheInput.addEventListener('input', () => {
+    const number = Number(cacheInput.value);
+    setLayout(state.layout, 'cache', Number.isInteger(number) ? Math.max(CMS_LAYOUT_CACHE.min, Math.min(CMS_LAYOUT_CACHE.max, number)) : null);
+  });
+  showNavigation();
+  const header = state.layout.header || {};
+  const footer = state.layout.footer || {};
+  layoutSelect('Header position', HEADER_POSITIONS, header.position || 'default', (value) => setLayout(state.layout, 'header.position', value));
+  layoutSelect('Header orientation', HEADER_ORIENTATIONS, header.orientation || 'horizontal',
+    (value) => setLayout(state.layout, 'header.orientation', value));
+  layoutSelect('Footer position', FOOTER_POSITIONS, footer.position || 'default', (value) => setLayout(state.layout, 'footer.position', value));
+  previews.push(() => show(layoutDiagram(state.layout)));
+
   tabs.select(0);
   return {
     element: root,
     tabs,
     ready,
-    read: () => ({ base: cleanBase(state.base), kinds: state.kinds, presets: state.presets, css: state.css }),
+    read: () => ({ base: cleanBase(state.base), kinds: state.kinds, presets: state.presets, layout: state.layout, css: state.css }),
     destroy: () => codeEditor?.destroy?.()
   };
 }

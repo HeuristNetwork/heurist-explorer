@@ -137,7 +137,7 @@ test('catalogs of Add page and Add element: the available elements are the ones 
   const { ELEMENT_GROUPS, PAGE_TEMPLATES, previewSvg } = await import('../src/designer/designerCatalog.js');
   const { CMS_ELEMENTS, cmsPageStarter } = await import('#shared/site/cmsEdit.js');
   const elements = ELEMENT_GROUPS.flatMap((group) => group.items);
-  assert.deepEqual(ELEMENT_GROUPS.map((group) => group.label), ['Content and layout', 'Modules', 'Widgets']);
+  assert.deepEqual(ELEMENT_GROUPS.map((group) => group.label), ['Content and layout', 'Modules', 'Header and footer', 'Widgets']);
   assert.deepEqual(elements.filter((item) => item.available).map((item) => item.value).sort(), [...CMS_ELEMENTS].sort());
   assert.equal(new Set(elements.map((item) => item.value)).size, elements.length, 'unique values');
   const templates = PAGE_TEMPLATES[0].items;
@@ -161,7 +161,7 @@ test('Styles popup: four tabs, themes, kind defaults, presets, custom CSS with t
     base: { radius: '6px' }, kinds: { text: { padding: '4px' } }, presets: { card: { label: 'Card', padding: '8px' } }, css: '.x{color:red}'
   });
   await form.ready;
-  assert.deepEqual(form.tabs.tabs.map((tab) => tab.textContent), ['Base settings', 'Layout styles', 'Presets', 'Custom CSS']);
+  assert.deepEqual(form.tabs.tabs.map((tab) => tab.textContent), ['Base settings', 'Layout styles', 'Presets', 'Custom CSS', 'Navigation and layout']);
   for (const panel of form.tabs.panels) {
     assert.ok(panel.querySelector('.h-cms-styles-help') && panel.querySelector('.h-cms-styles-config'), 'help and settings in every tab');
   }
@@ -182,6 +182,22 @@ test('Styles popup: four tabs, themes, kind defaults, presets, custom CSS with t
   assert.deepEqual(values.kinds, { text: { padding: '4px' } });
   assert.equal(values.presets.card.label, 'Card');
   assert.equal(values.css, '.x{color:red}');
+  // Navigation and layout (plan 27f): default values are not written; Pages kept only for swap
+  assert.deepEqual(values.layout, {});
+  const [navigation, headerPosition] = form.tabs.panels[4].querySelectorAll('select');
+  const cache = form.tabs.panels[4].querySelector('input');
+  assert.equal(cache.parentElement.hidden, true);
+  navigation.value = 'swap';
+  navigation.fire('change');
+  assert.equal(cache.parentElement.hidden, false);
+  cache.value = '3';
+  cache.fire('input');
+  headerPosition.value = 'fixed';
+  headerPosition.fire('change');
+  assert.deepEqual(form.read().layout, { navigation: 'swap', cache: 3, header: { position: 'fixed' } });
+  headerPosition.value = 'default';
+  headerPosition.fire('change');
+  assert.deepEqual(form.read().layout, { navigation: 'swap', cache: 3 });
   assert.match(form.tabs.panels[3].textContent, /CSS and Javascript are disabled by default/, 'warning without JavaScript allowed');
   assert.equal(form.tabs.panels[3].querySelector('textarea'), null, 'no CSS editor without JavaScript allowed');
   assert.equal(form.read().css, '.x{color:red}', 'the CSS is not changed');
@@ -457,7 +473,7 @@ test('designer: west pane with the tabs Site | Page and help, the preview alone 
   assert.ok(tool.classList.contains('h-tree-tool-always'), 'Add page always on Home');
   assert.equal(tool.textContent.trim(), 'Add page', 'with a caption');
   assert.deepEqual(designer._siteTools({ id: 'page:11' }).map((item) => [item.action, item.icon]),
-    [['edit', 'fa-pen'], ['add', 'fa-plus'], ['remove', 'fa-xmark']], 'one tool to remove a page from the website');
+    [['edit', 'fa-pen'], ['layout', 'fa-table-columns'], ['add', 'fa-plus'], ['remove', 'fa-xmark']], 'one tool to remove a page from the website');
   assert.match(container.querySelector('.h-cms-help').textContent, /main menu/);
   // second row: language and page width as selects
   assert.equal(container.querySelector('.h-cms-view-bar').querySelectorAll('select').length, 2);

@@ -22,8 +22,8 @@
 
 import { compileCmsStyles } from '#shared/site/cmsDocument.js';
 
-/** Containers of the parts in the page (srv PageRenderer). */
-const CONTAINERS = Object.freeze({ header: '.h-site-header', content: '.h-site-main', footer: '.h-site-footer' });
+/** Containers of the parts in the page (srv PageRenderer); the content is in the section of the page (plan 27f §2.2). */
+const CONTAINERS = Object.freeze({ header: '.h-site-header', content: '.h-site-main > .h-site-page', footer: '.h-site-footer' });
 
 /** Preview widths of the page toolbar (§5.1): 1024 and 640 are the medium / narrow screens. */
 export const PREVIEW_WIDTHS = Object.freeze([0, 1280, 1024, 640, 375]);
@@ -125,10 +125,12 @@ export class CmsPreview {
     const config = { ...this.hooks.config, instances: { ...(this.hooks.config.instances || {}), ...instances } };
     this.unknownField = false;
     for (const [part, html] of Object.entries(parts)) {
-      const container = doc.querySelector(CONTAINERS[part]);
+      // a page written before plan 27f has no section
+      const container = doc.querySelector(CONTAINERS[part]) || (part === 'content' ? doc.querySelector('.h-site-main') : null);
       if (!container || html === undefined) continue;
       const kept = new Map();
       for (const host of container.querySelectorAll('[data-h-instance]')) kept.set(host.getAttribute('data-h-instance'), host);
+      const before = new Set(kept.keys());
       container.innerHTML = html;
       if (restoreFieldValues(container, this.fieldValues)) this.unknownField = true;
       this.hooks.enhance(container);
@@ -143,10 +145,18 @@ export class CmsPreview {
           // custom CSS classes of the element; the classes of the site runtime (h-site-..., h-slider) stay
           old.className = [...[...old.classList].filter((name) => /^h-(?:site-|slider)/.test(name)), ...host.classList].join(' ');
           host.replaceWith(old);
+          before.delete(id);
           continue;
         }
+        // mounted again with new settings: the old instance goes
+        if (before.delete(id)) this.hooks.unmountInstance?.(id);
         this.mountedConfig.set(id, settings);
         void this.hooks.mountInstance(host, id, config).catch((error) => console.warn('Preview: instance not mounted', id, error));
+      }
+      // hosts removed by the draft
+      for (const id of before) {
+        this.hooks.unmountInstance?.(id);
+        this.mountedConfig.delete(id);
       }
     }
     if (styles) this.restyle(styles);
@@ -155,8 +165,11 @@ export class CmsPreview {
 
   /** Compile the styles again into the page. */
   restyle({ base = {}, nodes = [], kinds = [], presets = [] }) {
-    const element = this.win?.document?.getElementById('h-site-styles');
+    const doc = this.win?.document;
+    const element = doc?.getElementById('h-site-styles');
     if (element) element.textContent = `\n${compileCmsStyles(base, nodes, this.options.baseUrl || '', { kinds, presets }).css}`;
+    // the page styles of the server (below the section, plan 27f) are in the draft now
+    doc?.getElementById('h-page-styles')?.remove();
   }
 
   /** Mark a node in the preview (veil), or none. */

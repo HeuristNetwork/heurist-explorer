@@ -21,7 +21,7 @@ for (const file of (await readdir(fixtures)).filter((name) => name.endsWith('.js
     assert.deepEqual(issues.map((issue) => `${issue.level}:${issue.code}`).sort(), [...fixture.expect.issues].sort());
     const styles = parsed.config.styles ?? {};
     const { css } = compileCmsStyles(styles.base ?? {}, [styles.nodes ?? {}], baseUrl,
-      { kinds: [styles.kinds ?? {}], presets: [styles.presets ?? {}] });
+      { kinds: [styles.kinds ?? {}], presets: [styles.presets ?? {}], scope: fixture.scope ?? '' });
     assert.equal(css, fixture.expect.css ?? '');
   });
 }

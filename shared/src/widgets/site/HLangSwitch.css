@@ -1,0 +1,55 @@
+/* HLangSwitch (plan 27f §5): links to the page in the other languages, or a drop-down. */
+.h-site-lang {
+  display: flex;
+  align-items: center;
+}
+
+.h-site-lang-list {
+  display: flex;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.h-site-lang-list a {
+  display: block;
+  padding: 6px;
+  border-radius: var(--h-radius);
+  color: var(--h-color-text);
+  text-decoration: none;
+}
+
+.h-site-lang-list a:hover {
+  background: var(--h-color-surface);
+}
+
+.h-site-lang-list a.is-current {
+  color: var(--h-color-primary);
+  font-weight: bold;
+}
+
+.h-site-lang-dropdown {
+  display: none;
+  padding: 4px 6px;
+  border: 1px solid var(--h-color-border);
+  border-radius: var(--h-radius);
+  background: var(--h-color-bg);
+  color: var(--h-color-text);
+  font: inherit;
+}
+
+/* select: always the drop-down; auto: the drop-down when the links do not fit (JS) */
+.h-site-lang-select .h-site-lang-dropdown,
+.h-site-lang-auto.is-narrow .h-site-lang-dropdown {
+  display: block;
+}
+
+.h-site-lang-select:has(> .h-site-lang-dropdown) .h-site-lang-list,
+.h-site-lang-auto.is-narrow .h-site-lang-list {
+  display: none;
+}
+
+.h-site-lang-single {
+  display: none;
+}

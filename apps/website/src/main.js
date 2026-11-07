@@ -16,6 +16,8 @@
 import '@fortawesome/fontawesome-free/css/fontawesome.min.css';
 import '@fortawesome/fontawesome-free/css/solid.min.css';
 import '@fortawesome/fontawesome-free/css/regular.min.css';
+// social media icons of action menus (plan 27f §6); the font loads only when an icon is shown
+import '@fortawesome/fontawesome-free/css/brands.min.css';
 import '#shared/ui/heurist-ui.css';
 import './style.css';
 import { initLocale } from '#shared/ui';
@@ -31,7 +33,15 @@ if (config?.runtime?.design && !designer && !isFramed(window)) {
   initLocale(config.runtime?.language || 'eng', moduleBaseUrl())
     .catch((error) => console.warn('Unable to load heurist-website localization', error))
     .then(() => startSite({ root: document.body, config }))
-    .then((mounted) => designer?.previewReady?.(window, designHooks({ config, mounted })))
+    .then((mounted) => {
+      designer?.previewReady?.(window, designHooks({ config, mounted }));
+      // navigation modes swap / scroll (plan 27f §2): loaded only when the website uses one
+      const navigation = config.site?.layout?.navigation;
+      if (!config.runtime?.design && (navigation === 'swap' || navigation === 'scroll')) {
+        import('./siteNavigator.js').then(({ startNavigator }) => startNavigator({ config, mounted }))
+          .catch((error) => console.warn('Unable to start the navigation of the website', error));
+      }
+    })
     .catch((error) => console.error('Unable to start the website page', error));
 }
 
