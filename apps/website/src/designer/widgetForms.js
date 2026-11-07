@@ -355,15 +355,17 @@ export function parseCardsQuery(text) {
  * @returns {string} Template text.
  */
 export function teamReportBody(dbdefs) {
-  const image = Number(dbdefs?.localId?.('dty', '2-38')) || 0;
+  const role = Number(dbdefs?.localId?.('dty', '1252-619')) || 0;
   const summary = Number(dbdefs?.localId?.('dty', '2-3')) || 0;
   return [
     '{* Team member: a card of one record (website template Team) *}',
     '{foreach $results as $r}',
     '{$r = $heurist->getRecord($r)}',
-    '<div class="team-member">',
-    ...(image ? [`{if $r.f${image}}{wrap var=$r.f${image}_originalvalue dt="file" width="200" height="auto" auto_play="0" show_artwork="0"}{/if}`] : []),
+    '{$thumbnail = $heurist->getRecordThumbnail($r)}',
+    '<div class="team-member" style="display:flex;flex-direction:column;align-items:center;gap:6px;padding:8px;text-align:center;">',
+    '{if $thumbnail}<img src="{$thumbnail}" alt="" style="width:120px;height:120px;object-fit:cover;border-radius:50%;">{/if}',
     '<h3>{$r.recTitle}</h3>',
+    ...(role ? [`{if !empty($r.f${role}s)}<p>{foreach $r.f${role}s as $role}{$role.label}{if !$role@last}, {/if}{/foreach}</p>{/if}`] : []),
     ...(summary ? [`{if $r.f${summary}}<p>{$r.f${summary}}</p>{/if}`] : []),
     '</div>',
     '{/foreach}',

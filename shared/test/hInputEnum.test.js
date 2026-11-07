@@ -25,6 +25,31 @@ test('select presentation is a combobox over the terms', async () => {
   assert.equal(input.getValue(), null);
 });
 
+test('empty label: the first item of a single select, and it takes the value back', async () => {
+  const changes = [];
+  const element = host();
+  element.addEventListener('h-input-change', (event) => changes.push(event.detail.value));
+  const input = createHInput('enum', element, { terms: [{ id: 'a', label: 'Template A' }], value: 'a', emptyLabel: 'Built-in', suppressLabel: true });
+  assert.equal(input.combo.buttonText.textContent, 'Template A');
+  await input.combo.open();
+  const items = input.combo.picker.items ?? input.combo.picker._items;
+  assert.deepEqual(items.map((item) => item.label), ['Built-in', 'Template A']);
+  input.combo.picker.pick(items[0]);
+  assert.equal(input.getValue(), null);
+  assert.deepEqual(changes, [null]);
+  assert.equal(input.combo.buttonText.textContent, 'Built-in');
+  await input.combo.open();
+  input.combo.picker.pick(items[1]);
+  assert.equal(input.getValue(), 'a');
+});
+
+test('empty label of a multiple select is only the text of the button', async () => {
+  const input = createHInput('enum', host(), { terms: terms(2), multiple: true, emptyLabel: 'All' });
+  await input.combo.open();
+  const items = input.combo.picker.items ?? input.combo.picker._items;
+  assert.equal(items.length, 2);
+});
+
 test('multiple select returns an array of numbers', () => {
   const input = createHInput('enum', host(), { terms: terms(3), multiple: true, value: ['1', 3] });
   assert.deepEqual(input.getValue(), [1, 3]);

@@ -39,7 +39,8 @@ export class HInputEnum extends HInput {
    *        `orientation` (`column`|`inline`), `radioStyle` (`standard`: ordinary radio buttons;
    *        default: the facet style without circles), `listThreshold`, `numeric`
    *        (values are numbers; default true unless a source says otherwise),
-   *        `fallbackSource` (used when `source` fails), `emptyLabel`,
+   *        `fallbackSource` (used when `source` fails), `emptyLabel` (single select: the first
+   *        item of the list, which gives no value),
    *        `countsMode` (`brackets` default | `badge` | `none`),
    *        `countsAlign` (`label` default | `right`; column lists only), `langCode` (as HInputText).
    * @returns {HInputEnum} This input.
@@ -174,7 +175,7 @@ export class HInputEnum extends HInput {
     wrap.className = 'h-input-enum-combo';
     host.append(wrap);
     this.combo = new HValueCombo().attach(wrap, {
-      source: this.source,
+      source: this.options.emptyLabel && !this.isMultiple ? withEmptyChoice(this.source, this.options.emptyLabel) : this.source,
       multiple: this.isMultiple,
       value,
       emptyLabel: this.options.emptyLabel,
@@ -344,4 +345,25 @@ function termsSource(terms = []) {
     label: term.label || String(term.id ?? term.value),
     depth: Math.max(0, (Number(term.depth) || 1) - 1)
   })));
+}
+
+/**
+ * A value source with the empty choice as its first item: without it a value can not be taken back.
+ *
+ * @param {object} source Value source.
+ * @param {string} label Label of the empty choice.
+ * @returns {object} The source with this item.
+ */
+function withEmptyChoice(source, label) {
+  const load = async (...args) => {
+    const result = await source.load(...args);
+    return { ...result, items: [{ value: '', label }, ...(result?.items || [])] };
+  };
+  return new Proxy(source, {
+    get(target, name) {
+      if (name === 'load') return load;
+      const value = target[name];
+      return typeof value === 'function' ? value.bind(target) : value;
+    }
+  });
 }

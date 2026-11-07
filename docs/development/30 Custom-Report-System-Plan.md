@@ -272,3 +272,14 @@ Implemented in both repos, not committed, not checked in a browser, bundles not 
   there is no translation. `label` is not changed; it stays for old templates. In the database default language nothing changes. Compare
   `.internalid` or `.code` in templates, not text: 8 of the templates on this server compare `.term` with text (`{if $r.f978.term == 'Terminé'}`); they
   stop matching for another report language when the term has a translation. Legacy `hserv/report/ReportRecord.php` keeps `term` untranslated.
+
+## 13. Sample templates (2026-11-07)
+
+Not committed, not checked in a browser. In `heurist/admin/setup/dbcreate/smarty-templates/` (copied into new databases by `DbUtils`):
+`Record card.tpl`, `Record extended view.tpl`, `Team member.tpl`. Fields by `$heurist->constant()` / `dty_id()`, so one `.tpl` works in any database. Role = field
+*Person role* 1252-619, no role in a database without it. `teamReportBody` (website template Team) has the same design.
+
+Without JavaScript authorisation reports go through HTMLPurifier, which removes `<style>` and every property outside its fixed list. So templates use inline styles.
+`OutputSanitizer` (for all reports) sets `CSS.Proprietary` for `border-radius`, and `allowLayoutStyles` adds flex and grid: `display` (no `none`), the flex and grid properties,
+`object-fit`, `overflow-wrap`. Keywords by list, other values by `ReportCssValue` (no `url`, `expression`, `var`). They are set on the definition of the run, so the definition cache
+is not touched. Samples use flex (card, team) and grid (extended view). Test: heurist `tests/SampleTemplatesTest.php`.

@@ -72,8 +72,9 @@ test('report files: only the languages with a file', () => {
 });
 
 test('Team member report: fields by local ids of the database', () => {
-  const body = teamReportBody({ localId: (kind, code) => ({ '2-38': 38, '2-3': 3 })[code] });
-  assert.match(body, /\$r\.f38/);
+  const body = teamReportBody({ localId: (kind, code) => ({ '1252-619': 1045, '2-3': 3 })[code] });
+  assert.match(body, /border-radius:50%/);
+  assert.match(body, /\$r\.f1045s/);
   assert.match(body, /\$r\.f3\}/);
   assert.doesNotMatch(teamReportBody({ localId: () => 0 }), /\$r\.f0/);
 });
