@@ -1,0 +1,14 @@
+/* Check of a website (WebsiteCheck.js): format problems and records a visitor can not see */
+.h-website-check { display: flex; flex-direction: column; gap: 12px; }
+.h-website-check-section h4 { margin: 0 0 4px; font-size: var(--h-font-size); font-weight: 600; }
+.h-website-check-page,
+.h-website-check-group { margin-top: 6px; font-weight: 600; }
+.h-website-check .h-website-issues { margin: 4px 0 0; padding-left: 18px; }
+.h-website-check .h-website-issue-error { color: var(--h-color-danger, #b91c1c); }
+.h-website-check .h-website-issue-warning { color: var(--h-color-warning, #b45309); }
+.h-website-check .h-website-ok { color: var(--h-color-success, #15803d); }
+.h-website-check-list { max-height: 260px; overflow: auto; border: 1px solid var(--h-color-border, #d1d5db); border-radius: 4px; margin-top: 4px; }
+.h-website-check-used { color: var(--h-color-text-muted, #6b7280); font-size: var(--h-font-size-small); margin-right: 6px; }
+
+/* the popup of the designer */
+.h-website-check-dialog { width: min(720px, 92vw); }

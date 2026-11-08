@@ -1,7 +1,9 @@
 # 27f Website layout and helper widgets (plan 27, Phase 4b)
 
 **Status:** draft 1, 2026-11-07, decisions in §9. **Phases A-E implemented 2026-11-07 in both repos (§10), not committed,
-not checked in a browser.** Bundles website and explorer deployed locally.
+not checked in a browser.** Bundles website and explorer deployed locally. **Review 2026-11-08 (§11): saving
+indicator, website check of all pages and of non-public records, admin rules for websites; implemented, not committed,
+not checked in a browser.**
 
 Scope: how pages of a website are loaded (navigation modes), position and templates of the header and footer, and the
 helper widgets HMenu (options), HLangSwitch, HActionMenu (with social media) and HBadges. 27e (Phase 4a) covered
@@ -291,3 +293,49 @@ browser yet. Tests: JS 1,679 pass (new `apps/website/test/siteNavigator.test.js`
   logout and admin actions; there is no user manual of websites yet (no note written).
 - The preview shows a new header orientation only after Save (the body classes come from the server).
 
+## 11. Review 2026-11-08 (CMS designer)
+
+Artem's points and what was agreed and done (both repos, not committed, not checked in a browser).
+
+**1. Save.** The designer Save button shows a rotating icon and *Saving...* while the PATCH runs (`CmsDesigner._setSaving`,
+`.h-spinner`), and is disabled during it; Save / Ctrl+S during a save do nothing (no second PATCH). All saves of the
+designer go through `_saveRecord` (Save, page layout, styles, leaving a changed part). Time measured locally: PATCH of the
+website content 0.2-0.5 s in the controller, about 0.2 s more per HTTP request; no single step takes most of it, so
+nothing was optimised.
+
+**2-3. Check.** `GET /website/{id}/validate` (the common action, no new route) now checks **all pages**: the home content,
+header and footer and every menu page (`WebsiteService::check`); issues get `page` and `pageTitle`, problems of the header,
+footer and website configuration are listed once. With `?page=` only that page is checked, as before. The answer also
+has `records`: the records a visitor can not see (`hidden`, `viewable` = logged-in only, `missing`; `pending` counts as
+public):
+- `role: website` / `page`: the website record and its menu pages;
+- `role: reference`: records picked on the pages (`srv/Website/CmsRecordReferences.php`): record field
+  `data-h-field="<id>.<field>"`, single media `settings.record`, Generated report `settings.files` (outputs), Record cards
+  in manual mode `settings.query[0].ids`, Media gallery `settings.ids`. Queries are not checked. The card template is not
+  listed: it is read without the visitor's rights.
+- each with `usedIn: [{page, pageTitle, node, kind}]`. Titles only of records the user may see
+  (`WebsiteRepository::visibility`). `RecordEditController` passes extra parts of a `validate()` answer (`{issues, ...}`).
+
+Client: widget `apps/website/src/manager/WebsiteCheck.js` (+ css): format issues by page, then the non-public records in
+standard `HRecordList`s (groups Website / Pages / Records used on the pages; owner and visibility = admin info, edit and
+info icons; visibility and where used through `recordTools`); records not found as one line. Used in the Website manager
+details (Check) and in the designer: new toolbar button **Check** (asks to save first) opens it in a popup; the record
+editor or viewer closes the popup first (modal), after an edit the check runs again.
+
+**4-5. Access (agreed: "admin creates, owner edits").** Rules 4 and 5 as written (only database admins open the designer,
+owner only group 1 / admins) were too strict: a project group could never run its own website. Agreed instead:
+- only database administrators (`isAdmin`, includes the owner) **create a website** (RT_CMS_HOME) and **change the owner**
+  of a website or a page (`WebsiteEditService::assertOwnerRule`, called by `WebsiteEntityHandler::beforeSave`, so also for
+  `/records/{id}` saves); 403 otherwise;
+- editing in the designer still follows the record owner (27c decision 6); pages get the website's owner as before
+  (`shareAccess` / `assign` write through the service, not through the rule);
+- new pages inside a website: anyone who can edit the website; **standalone pages** (*Publish this view*) can still be
+  created by any logged-in user, only their owner change needs an administrator (to be confirmed by Artem);
+- `GET /website/setup` returns `canCreate`; the manager hides *New website* without it; `HRecordAccess` option
+  `ownerLocked` (owner read-only with a note), set by `HRecordEditor` for RT_CMS_HOME / RT_CMS_PAGE when the user is not
+  a database administrator.
+- Not covered: *Duplicate* of a website record by a non-administrator (`/records/{id}/duplicate` has no before hook).
+
+Tests: `heurist/tests/WebsiteEditTest.php` 74 pass (check of all pages: hidden page used by a record field and record cards
+on a sub page, missing card record; non-admin: website insert 403, `canCreate` false, own standalone page, owner change 403,
+visibility change 200; admin owner change 200). JS 1,679 pass; builds website and explorer deployed.

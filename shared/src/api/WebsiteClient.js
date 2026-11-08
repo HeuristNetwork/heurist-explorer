@@ -110,11 +110,15 @@ export class WebsiteClient {
   }
 
   /**
-   * Problems of the format of a website or page.
+   * Check of a website or page: problems of the format of all its pages (or of one `page`) and, without `page`,
+   * the records a visitor can not see (the website, its pages and the records picked on them).
    *
    * @param {number} id Website or standalone page.
    * @param {{page?: number, entity?: 'website'|'page'}} [options] A page of the website.
-   * @returns {Promise<{valid: boolean, issues: Array<{level: string, code: string, message: string, node: ?string}>}>}
+   * @returns {Promise<{valid: boolean, issues: Array<{level: string, code: string, message: string, node: ?string,
+   *          page?: number, pageTitle?: string}>, records?: Array<{id: number, title: string,
+   *          visibility: 'hidden'|'viewable'|'missing', role: 'website'|'page'|'reference',
+   *          usedIn: Array<{page: number, pageTitle: string, node: string, kind: string}>}>}>}
    */
   validate(id, { page = 0, entity = null } = {}) {
     return this._withEntity(id, entity, (name, recordId) =>

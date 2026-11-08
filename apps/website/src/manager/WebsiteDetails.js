@@ -19,6 +19,7 @@ import { HBaseWidget } from '#shared/widgets';
 import { HJobMonitor } from '#shared/widgets/job/HJobMonitor.js';
 import { isJobFinished } from '#shared/api';
 import { $HR, HMsg } from '#shared/ui';
+import { WebsiteCheck } from './WebsiteCheck.js';
 
 /** Kind of a record as shown. */
 const KIND_TEXT = { website: 'Website', standalone: 'Standalone page', page: 'Menu page' };
@@ -34,20 +35,22 @@ export class WebsiteDetails extends HBaseWidget {
    * @param {import('./WebsiteApplication.js').WebsiteApplication} options.application Controller.
    * @param {Function} options.onEditRecord `(id)` - edit the record (the pen beside the title) or a page of the menu.
    * @param {Function} options.onRemoveFromMenu `(pageId)` - take a page out of the menu.
+   * @param {Function} [options.onRecheck] `()` - run Check again (after a record of its result was edited).
    * @returns {WebsiteDetails}
    */
   attach(container, options = {}) {
     super.attach(container, options);
     this.app = options.application;
-    this.issues = null;
+    this.check = null;
+    this.checkWidget = null;
     this.monitor = null;
     this.render();
     return this;
   }
 
-  /** Show the problems found by Check (null: hide). */
-  setIssues(issues) {
-    this.issues = issues;
+  /** Show the result of Check (`{issues, records}`, null: hide). */
+  setCheck(result) {
+    this.check = result;
     this.render();
   }
 
@@ -55,6 +58,8 @@ export class WebsiteDetails extends HBaseWidget {
   render() {
     this.monitor?.destroy();
     this.monitor = null;
+    void this.checkWidget?.destroy();
+    this.checkWidget = null;
     const root = el('div', 'h-website-details');
     const app = this.app;
     if (!app.selectedId) {
@@ -106,7 +111,8 @@ export class WebsiteDetails extends HBaseWidget {
     }
     if (summary.url) this._renderUrl(root, summary.url);
     if (summary.kind === 'website') this._renderPages(root, summary);
-    if (Array.isArray(this.issues)) this._renderIssues(root);
+    // the result of Check of this record (another record selected: hidden)
+    if (this.check && this.check.id === app.selectedId) this._renderCheck(root);
     if (summary.v4 && summary.kind !== 'page') this._renderBuilds(root);
   }
 
@@ -171,18 +177,19 @@ export class WebsiteDetails extends HBaseWidget {
     return this.app.apiClient.buildUrl(`/files/${key}/thumbnail`);
   }
 
-  _renderIssues(root) {
+  _renderCheck(root) {
     const section = el('section', 'h-website-details-section', root);
     el('h3', '', section).textContent = $HR('Check');
-    if (!this.issues.length) {
-      el('p', 'h-website-ok', section).textContent = $HR('No problems found');
-      return;
-    }
-    const list = el('ul', 'h-website-issues', section);
-    for (const issue of this.issues) {
-      const item = el('li', `h-website-issue h-website-issue-${issue.level || 'warning'}`, list);
-      item.textContent = `${issue.message}${issue.node ? ` (${issue.node})` : ''}`;
-    }
+    const app = this.app;
+    this.checkWidget = new WebsiteCheck().attach(el('div', '', section), {
+      apiClient: app.apiClient,
+      baseUrl: app.config.baseUrl,
+      database: app.config.database,
+      onEditRecord: app.canEditRecords() ? (id) => app.editRecord(id) : undefined,
+      onViewRecord: app.canViewRecords() ? (id) => app.viewRecord(id) : undefined,
+      onRecheck: () => this.options.onRecheck?.()
+    });
+    void this.checkWidget.setResult(this.check).catch((error) => HMsg.showMsgErr(error?.message || String(error)));
   }
 
   _renderBuilds(root) {

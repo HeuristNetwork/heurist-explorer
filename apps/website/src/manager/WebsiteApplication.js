@@ -85,7 +85,7 @@ export class WebsiteApplication extends EventTarget {
       this.status = await this.websites.status();
     } catch (error) {
       // a guest: no manager actions
-      this.status = { installed: false, missing: [], canSetup: false, error: error?.message || String(error) };
+      this.status = { installed: false, missing: [], canSetup: false, canCreate: false, error: error?.message || String(error) };
     }
     return this;
   }
@@ -147,7 +147,8 @@ export class WebsiteApplication extends EventTarget {
    */
   async setup() {
     const result = await this.websites.setup();
-    this.status = { installed: result.installed !== false, missing: result.missing || [], canSetup: result.canSetup !== false };
+    this.status = { installed: result.installed !== false, missing: result.missing || [], canSetup: result.canSetup !== false,
+      canCreate: result.canCreate !== false };
     return result.report || [];
   }
 
@@ -165,14 +166,14 @@ export class WebsiteApplication extends EventTarget {
   }
 
   /**
-   * Problems of the format of the selected record.
+   * Check of the selected record: problems of the format of all pages and the records a visitor can not see.
    *
-   * @returns {Promise<Array<object>>}
+   * @returns {Promise<{valid: boolean, issues: Array<object>, records: Array<object>}|null>}
    */
   async validate() {
-    if (!this.selectedId) return [];
+    if (!this.selectedId) return null;
     const result = await this.websites.validate(this.selectedId, { entity: this._entity() });
-    return result?.issues || [];
+    return { valid: result?.valid !== false, issues: result?.issues || [], records: result?.records || [] };
   }
 
   /**
@@ -268,6 +269,16 @@ export class WebsiteApplication extends EventTarget {
       await this.reloadSummary();
     }
     return result;
+  }
+
+  /** View a record with the host's viewer (when it has one). */
+  viewRecord(id) {
+    this.bridge?.viewRecord?.(Number(id));
+  }
+
+  /** @returns {boolean} The host can show a record. */
+  canViewRecords() {
+    return typeof this.bridge?.viewRecord === 'function';
   }
 
   /** Entity of the selected record: "website", "page", or null before its summary is loaded. */

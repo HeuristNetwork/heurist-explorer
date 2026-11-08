@@ -119,6 +119,8 @@ export class HRecordAccess extends HBaseWidget {
    *        Record header (`rec_OwnerUGrpID`, `rec_NonOwnerVisibility`...).
    * @param {boolean} [options.editGroups=false] Show "Also editable by" (rec_EditGroups).
    * @param {boolean} [options.readOnly=false] Nothing can be changed.
+   * @param {boolean} [options.ownerLocked=false] The owner can not be changed (websites and web pages for users
+   *        who are not database administrators, review 2026-11-08); the visibility can.
    * @param {Function} [options.onChange] Called with the header after a change.
    * @returns {HRecordAccess} This form.
    */
@@ -141,6 +143,13 @@ export class HRecordAccess extends HBaseWidget {
     // owner
     const ownerRow = this._section('Record is owned (editable) by:');
     this.ownerCombo = this._combo(ownerRow, ownerChoices(this.options.dbdefs, state.owner), state.owner, false);
+    if (this.options.ownerLocked && !readOnly) {
+      this.ownerCombo.setReadOnly(true);
+      const note = document.createElement('div');
+      note.className = 'h-record-access-help h-i18n';
+      note.textContent = $HR('Only database administrators can change the owner');
+      ownerRow.append(note);
+    }
 
     // visibility
     const viewRow = this._section('Record is viewable by:');

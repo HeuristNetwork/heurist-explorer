@@ -1266,3 +1266,4 @@
 #Hide translations#Masquer les traductions
 #Edit translations#Modifier les traductions
 #This record is already open#Cet enregistrement est déjà ouvert
+#Only database administrators can change the owner#Seuls les administrateurs de la base de données peuvent changer le propriétaire

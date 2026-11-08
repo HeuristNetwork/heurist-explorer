@@ -85,7 +85,7 @@ export class WebsiteManager extends HBaseWidget {
     this.buttons.designer.classList.add('h-btn-primary');
     this.buttons.edit = this.tool(this.recordTools, 'fa-pen', 'Edit', 'Edit the record', () => this.app.editRecord(this.app.selectedId));
     this.buttons.open = this.tool(this.recordTools, 'fa-up-right-from-square', 'Open', 'Open in a new tab', () => this.open());
-    this.buttons.check = this.tool(this.recordTools, 'fa-list-check', 'Check', 'Check the website format', () => this.check());
+    this.buttons.check = this.tool(this.recordTools, 'fa-list-check', 'Check', 'Check the format of all pages and the records a visitor can not see', () => this.check());
     this.buttons.generate = this.tool(this.recordTools, 'fa-file-zipper', 'Generate',
       'Write all pages into files (a zip to download); the modules still use this server', () => this.generate());
     this.buttons.addToMenu = this.tool(this.recordTools, 'fa-sitemap', 'Add to menu', 'Add this page to a website menu', () => this.addToMenu());
@@ -96,7 +96,8 @@ export class WebsiteManager extends HBaseWidget {
     this.details = new WebsiteDetails().attach(this.detailsHost, {
       application: this.app,
       onEditRecord: (id) => this.run(() => this.app.editRecord(id)),
-      onRemoveFromMenu: (id) => this.run(() => this.removeFromMenu(id))
+      onRemoveFromMenu: (id) => this.run(() => this.removeFromMenu(id)),
+      onRecheck: () => this.run(() => this.check())
     });
     this.renderSetup();
     void this.renderList();
@@ -182,6 +183,8 @@ export class WebsiteManager extends HBaseWidget {
     const loggedIn = app.status && !app.status.error;
     const installed = app.status?.installed === true;
     this.buttons.create.disabled = !loggedIn || !installed;
+    // only database administrators create websites (review 2026-11-08)
+    this.buttons.create.hidden = app.status?.canCreate === false;
     this.recordTools.hidden = !app.selectedId;
     const v4 = summary?.v4 === true;
     const show = (button, visible) => { button.hidden = !visible; };
@@ -213,9 +216,11 @@ export class WebsiteManager extends HBaseWidget {
     if (url) globalThis.open?.(url, '_blank', 'noopener');
   }
 
-  /** Problems of the format in the details. */
+  /** Check of the selected website: problems of the format of all pages and records a visitor can not see. */
   async check() {
-    this.details.setIssues(await this.app.validate());
+    const id = this.app.selectedId;
+    const result = await this.app.validate();
+    this.details.setCheck(result ? { ...result, id } : null);
   }
 
   /** Start a build; its progress is shown in the details. */

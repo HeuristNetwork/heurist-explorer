@@ -1224,6 +1224,13 @@ export class HRecordEditor extends HBaseWidget {
     this.accessText.textContent = text.access;
   }
 
+  /** @returns {boolean} The owner of this record can not be changed by the user (websites and web pages). */
+  _ownerLocked() {
+    if (this.dbdefs?.isDbAdmin?.()) return false;
+    const types = ['RT_CMS_HOME', 'RT_CMS_PAGE'].map((name) => Number(this.dbdefs?.dbconst?.(name)) || 0);
+    return types.includes(Number(this.rectypeId));
+  }
+
   /** The access form inline, with Apply and Cancel. */
   _openAccessForm() {
     if (this.access || !this.accessFormHost) return;
@@ -1235,7 +1242,9 @@ export class HRecordEditor extends HBaseWidget {
       // simplification, as in the legacy access form (Artem 2026-10-19, plan 21 §11).
       // The stored edit groups are kept on save (HRecordAccess keeps them without the picker).
       // Show it again with `editGroups: true`.
-      editGroups: false
+      editGroups: false,
+      // websites and web pages: only database administrators change the owner (review 2026-11-08)
+      ownerLocked: this._ownerLocked()
     }).render();
     const buttons = document.createElement('div');
     buttons.className = 'h-record-editor-access-buttons';

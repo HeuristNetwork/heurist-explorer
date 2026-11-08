@@ -218,3 +218,22 @@
 #Logo of the host organisation#Logo of the host organisation
 #This action needs Heurist Explorer on this page#This action needs Heurist Explorer on this page
 #Header and footer#Header and footer
+#Saving...#Saving...
+#Check#Check
+#Check the format of all pages and the records a visitor can not see#Check the format of all pages and the records a visitor can not see
+#Format#Format
+#No problems found#No problems found
+#Records a visitor can not see#Records a visitor can not see
+#All records are public#All records are public
+#These records are not public: visitors do not see them or their parts of the pages.#These records are not public: visitors do not see them or their parts of the pages.
+#Website#Website
+#Pages#Pages
+#Records used on the pages#Records used on the pages
+#Records not found#Records not found
+#You can not see these records#You can not see these records
+#Record field#Record field
+#Generated report#Generated report
+#Record cards#Record cards
+#Media gallery#Media gallery
+#Hidden (owners only)#Hidden (owners only)
+#Logged-in users only#Logged-in users only

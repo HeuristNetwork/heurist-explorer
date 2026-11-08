@@ -218,3 +218,22 @@
 #Logo of the host organisation#Logo de l’organisme hébergeur
 #This action needs Heurist Explorer on this page#Cette action nécessite Heurist Explorer sur cette page
 #Header and footer#En-tête et pied de page
+#Saving...#Enregistrement...
+#Check#Vérifier
+#Check the format of all pages and the records a visitor can not see#Vérifier le format de toutes les pages et les enregistrements qu’un visiteur ne peut pas voir
+#Format#Format
+#No problems found#Aucun problème trouvé
+#Records a visitor can not see#Enregistrements qu’un visiteur ne peut pas voir
+#All records are public#Tous les enregistrements sont publics
+#These records are not public: visitors do not see them or their parts of the pages.#Ces enregistrements ne sont pas publics : les visiteurs ne les voient pas, ni leurs parties des pages.
+#Website#Site web
+#Pages#Pages
+#Records used on the pages#Enregistrements utilisés dans les pages
+#Records not found#Enregistrements introuvables
+#You can not see these records#Vous ne pouvez pas voir ces enregistrements
+#Record field#Champ d’enregistrement
+#Generated report#Rapport généré
+#Record cards#Fiches d’enregistrements
+#Media gallery#Galerie de médias
+#Hidden (owners only)#Masqué (propriétaires seulement)
+#Logged-in users only#Utilisateurs connectés seulement

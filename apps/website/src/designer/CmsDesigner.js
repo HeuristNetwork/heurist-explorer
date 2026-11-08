@@ -36,6 +36,7 @@ import { oneAtATime } from '#shared/ui/oneAtATime.js';
 import { openTextTranslationDialog } from '#shared/widgets/translation/HTextTranslationDialog.js';
 import { openTranslationDialog } from '#shared/widgets/translation/HTranslationDialog.js';
 import { CmsPreview, PREVIEW_WIDTHS } from './CmsPreview.js';
+import { WebsiteCheck } from '../manager/WebsiteCheck.js';
 import {
   openCardsForm, openFieldForm, openLanguageForm, openMediaForm, openMenuForm, openReportForm, teamReportBody
 } from './widgetForms.js';
@@ -57,6 +58,8 @@ const ROOT = '#root';
 const PART_ICONS = Object.freeze({ header: 'fa-heading', content: 'fa-house', footer: 'fa-f', page: 'fa-file-lines' });
 const CLIP_KEY = 'heurist.cms.clipboard';
 const HELP_KEY = 'heurist.cms.help';
+/** Dialog element of the Check popup. */
+const CHECK_DIALOG = 'h-cms-check-dialog';
 
 /** Texts of the help panel below the trees. */
 const HELP = Object.freeze({
@@ -243,8 +246,18 @@ export class CmsDesigner {
     return entry;
   }
 
-  /** Save the changed fields of a record; `extra`: other fields to send (Custom CSS). */
-  async _saveRecord(id, { force = false, extra = {} } = {}) {
+  /** Save the changed fields of a record; `extra`: other fields to send (Custom CSS). Save shows Saving while it runs. */
+  async _saveRecord(id, options = {}) {
+    if (this.saving) return false;
+    this._setSaving(true);
+    try {
+      return await this._patchRecord(id, options);
+    } finally {
+      this._setSaving(false);
+    }
+  }
+
+  async _patchRecord(id, { force = false, extra = {} } = {}) {
     const record = this.records.get(id);
     if (!record) return true;
     const now = record.doc.serialize();
@@ -269,7 +282,7 @@ export class CmsDesigner {
     } catch (error) {
       if (error?.status === 409 && !force) {
         const answer = await askConflict();
-        if (answer === 'overwrite') return this._saveRecord(id, { force: true, extra });
+        if (answer === 'overwrite') return this._patchRecord(id, { force: true, extra });
         if (answer === 'reload') {
           await this._record(id, { reload: true });
           this.undoStack = [];
@@ -381,7 +394,7 @@ export class CmsDesigner {
     return west;
   }
 
-  /** Toolbar above the tabs: Properties, Styles, Help, Close. */
+  /** Toolbar above the tabs: Properties, Styles, Check, Help, Close. */
   _renderToolbar() {
     const bar = element('div', 'h-cms-toolbar');
     if (!this.readOnly) {
@@ -389,6 +402,7 @@ export class CmsDesigner {
       bar.append(this.propertiesButton, barButton('fa-palette', 'Styles of the whole website', () => this._styles(), 'Styles'));
     }
     bar.append(
+      barButton('fa-list-check', 'Check the format of all pages and the records a visitor can not see', () => this._check(), 'Check'),
       element('span', 'h-cms-toolbar-spacer'),
       barButton('fa-circle-question', 'Show or hide the help', () => this._toggleHelp()),
       barButton('fa-door-open', 'Close', () => this.close(), 'Close')
@@ -425,11 +439,27 @@ export class CmsDesigner {
     return `${$HR('Discard the changes of page')} "${name}"?`;
   }
 
+  /** Save button: a rotating icon and Saving while a save runs. */
+  _setSaving(on) {
+    this.saving = on;
+    const button = this.buttons?.save;
+    if (button) {
+      if (on) {
+        button.dataset.label = button.innerHTML;
+        button.innerHTML = `<span class="h-spinner" aria-hidden="true"></span> ${$HR('Saving...')}`;
+      } else if (button.dataset.label) {
+        button.innerHTML = button.dataset.label;
+        delete button.dataset.label;
+      }
+    }
+    this._updateBar();
+  }
+
   _updateBar() {
     const dirty = this.isDirty();
     this.dirtyMark.hidden = !dirty;
     if (this.buttons) {
-      this.buttons.save.disabled = !dirty;
+      this.buttons.save.disabled = !dirty || Boolean(this.saving);
       this.buttons.discard.disabled = !dirty;
       this.buttons.undo.disabled = !this.undoStack.length;
       this.buttons.redo.disabled = !this.redoStack.length;
@@ -635,6 +665,53 @@ export class CmsDesigner {
     this.siteTree.select(this._partItemId(this.current));
     await this._refreshModified();
     this._loadPreview();
+  }
+
+  /**
+   * Check of the website (review 2026-11-08): saved state only (asks about unsaved changes), result in a popup.
+   * The record editor and viewer open over the designer: the popup closes first; after an edit it opens again.
+   */
+  async _check() {
+    if (!(await this._leaveDirty())) return;
+    const top = this.site || this.standalone;
+    if (!top) return;
+    let result;
+    try {
+      result = await this.websites.validate(top.id, { entity: this.site ? 'website' : 'page' });
+    } catch (error) {
+      HMsg.showMsgErr?.(error?.message || String(error));
+      return;
+    }
+    const host = element('div');
+    const close = () => HMsg.closeMsgDlg(CHECK_DIALOG);
+    const widget = new WebsiteCheck().attach(host, {
+      apiClient: this.apiClient,
+      baseUrl: this.options.runtime?.baseUrl,
+      database: this.options.runtime?.database,
+      onEditRecord: this.readOnly ? undefined : async (id) => {
+        close();
+        await this._editRecord(id);
+      },
+      onViewRecord: typeof this.bridge?.viewRecord === 'function' ? (id) => {
+        close();
+        this.bridge.viewRecord(id);
+      } : undefined,
+      onRecheck: () => void this._check()
+    });
+    const dialog = HMsg.showMsgDlg(host, {
+      dialogId: CHECK_DIALOG,
+      title: 'Check',
+      buttons: [{ label: 'Close', class: 'h-btn', onClick: close }]
+    });
+    dialog?.classList.add('h-website-check-dialog');
+    const onClose = () => {
+      if (dialog.open) return;
+      dialog.removeEventListener('close', onClose);
+      dialog.classList.remove('h-website-check-dialog');
+      void widget.destroy();
+    };
+    dialog?.addEventListener('close', onClose);
+    await widget.setResult(result);
   }
 
   async _editRecord(id) {
