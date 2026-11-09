@@ -167,9 +167,10 @@
 #Header position#Position de l'en-tête
 #Header orientation#Orientation de l'en-tête
 #Footer position#Position du pied de page
-#Default (scrolls away)#Par défaut (défile avec la page)
-#Fixed at the top#Fixé en haut
+#Fixed#Fixé
+#Scrolls away#Défile avec la page
 #Slide out (hides when scrolling down)#Escamotable (caché en défilant vers le bas)
+#Empty = auto; a number is px, or %. The image fits inside.#Vide = auto ; un nombre est en px, ou %. L’image tient dans ce cadre.
 #No header#Pas d'en-tête
 #Horizontal (top)#Horizontal (en haut)
 #Vertical (left column)#Vertical (colonne de gauche)
@@ -223,17 +224,46 @@
 #Check the format of all pages and the records a visitor can not see#Vérifier le format de toutes les pages et les enregistrements qu’un visiteur ne peut pas voir
 #Format#Format
 #No problems found#Aucun problème trouvé
-#Records a visitor can not see#Enregistrements qu’un visiteur ne peut pas voir
-#All records are public#Tous les enregistrements sont publics
-#These records are not public: visitors do not see them or their parts of the pages.#Ces enregistrements ne sont pas publics : les visiteurs ne les voient pas, ni leurs parties des pages.
 #Website#Site web
 #Pages#Pages
-#Records used on the pages#Enregistrements utilisés dans les pages
-#Records not found#Enregistrements introuvables
 #You can not see these records#Vous ne pouvez pas voir ces enregistrements
 #Record field#Champ d’enregistrement
 #Generated report#Rapport généré
 #Record cards#Fiches d’enregistrements
 #Media gallery#Galerie de médias
-#Hidden (owners only)#Masqué (propriétaires seulement)
-#Logged-in users only#Utilisateurs connectés seulement
+#Problems of the HTML and of the settings of the pages. An error can stop a part of the page from being shown; warnings should be corrected too. The element is given in brackets: open the page in the website editor and correct or remove it.#Problèmes du HTML et des paramètres des pages. Une erreur peut empêcher l’affichage d’une partie de la page ; les avertissements doivent aussi être corrigés. L’élément est indiqué entre parenthèses : ouvrez la page dans l’éditeur du site et corrigez-le ou supprimez-le.
+#All is correct. No problems of the format.#Tout est correct. Aucun problème de format.
+#Non public pages#Pages non publiques
+#These pages are not public, the visitors do not see them. Open Record Editor and make this page Public in summary section.#Ces pages ne sont pas publiques, les visiteurs ne les voient pas. Ouvrez l’éditeur d’enregistrement et rendez cette page publique dans la section résumé.
+#All is correct. All pages are public.#Tout est correct. Toutes les pages sont publiques.
+#Non public records on pages#Enregistrements non publics dans les pages
+#Elements refer to non public records. Their values will not be visible to visitors. Open Record Editor and make the record Public in summary section. For a Record field the field itself or some of its values may be hidden from the public: change the visibility of the value in Record Editor.#Des éléments font référence à des enregistrements non publics. Leurs valeurs ne seront pas visibles pour les visiteurs. Ouvrez l’éditeur d’enregistrement et rendez l’enregistrement public dans la section résumé. Pour un champ d’enregistrement, le champ lui-même ou certaines de ses valeurs peuvent être masqués au public : changez la visibilité de la valeur dans l’éditeur d’enregistrement.
+#All is correct. All records used on the pages are public.#Tout est correct. Tous les enregistrements utilisés dans les pages sont publics.
+#Records not found (deleted?)#Enregistrements introuvables (supprimés ?)
+#some values are not public#certaines valeurs ne sont pas publiques
+#not public#non public
+#Highlight issues in tree#Surligner les problèmes dans l’arbre
+#Slide out (expand / collapse button)#Escamotable (bouton déplier / replier)
+#Default (background and text)#Par défaut (fond et texte)
+#Surface#Surface
+#Primary#Principale
+#Selected#Sélection
+#Own colours#Couleurs propres
+#Background colour#Couleur de fond
+#Text colour#Couleur du texte
+#Header theme#Thème de l’en-tête
+#Footer theme#Thème du pied de page
+#Use 2 rows on normal screens#Deux lignes sur les écrans normaux
+#Logo, title#Logo, titre
+#menu, languages#menu, langues
+#Page content#Contenu de la page
+#The header scrolls away with the page (a vertical header: on narrow screens).#L’en-tête défile avec la page (un en-tête vertical : sur les écrans étroits).
+#The header stays at the top; a button collapses it to the logo and the title (vertical: a narrow column with the logo) and expands it again. The choice of the visitor is kept.#L’en-tête reste en haut ; un bouton le réduit au logo et au titre (vertical : une colonne étroite avec le logo) et le déplie à nouveau. Le choix du visiteur est conservé.
+#Expand the header#Déplier l’en-tête
+#Collapse the header#Replier l’en-tête
+#Layout#Mise en page
+#Position, orientation, theme and fields of the header and footer#Position, orientation, thème et champs de l’en-tête et du pied de page
+#The header default set can be added to the header only#L’en-tête par défaut ne peut être ajouté qu’à l’en-tête
+#Main language#Langue principale
+#Other languages#Autres langues
+#Create#Créer

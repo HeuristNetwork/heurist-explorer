@@ -1,14 +1,22 @@
-/* Check of a website (WebsiteCheck.js): format problems and records a visitor can not see */
-.h-website-check { display: flex; flex-direction: column; gap: 12px; }
-.h-website-check-section h4 { margin: 0 0 4px; font-size: var(--h-font-size); font-weight: 600; }
-.h-website-check-page,
-.h-website-check-group { margin-top: 6px; font-weight: 600; }
+/* Check of a website (WebsiteCheck.js): format, non public pages, non public records on pages */
+.h-website-check { display: flex; flex-direction: column; gap: 4px; }
+.h-website-check-line { width: 100%; margin: 8px 0; border: 0; border-top: 1px solid var(--h-color-border, #d1d5db); }
+.h-website-check-title { display: flex; align-items: center; gap: 6px; margin: 0 0 4px; font-size: var(--h-font-size-large); font-weight: 600; }
+.h-website-check-count {
+  min-width: 1.6em; padding: 0 6px; border-radius: 10px; text-align: center;
+  font-size: var(--h-font-size-small); color: #fff; background: var(--h-color-danger, #b42318);
+}
+.h-website-check-tip { margin: 0 0 6px; color: var(--h-color-text-muted, #6b7280); }
+.h-website-check-page { margin-top: 6px; font-weight: 600; }
 .h-website-check .h-website-issues { margin: 4px 0 0; padding-left: 18px; }
-.h-website-check .h-website-issue-error { color: var(--h-color-danger, #b91c1c); }
+.h-website-check .h-website-issue-error { color: var(--h-color-danger, #b42318); }
 .h-website-check .h-website-issue-warning { color: var(--h-color-warning, #b45309); }
-.h-website-check .h-website-ok { color: var(--h-color-success, #15803d); }
-.h-website-check-list { max-height: 260px; overflow: auto; border: 1px solid var(--h-color-border, #d1d5db); border-radius: 4px; margin-top: 4px; }
-.h-website-check-used { color: var(--h-color-text-muted, #6b7280); font-size: var(--h-font-size-small); margin-right: 6px; }
-
-/* the popup of the designer */
-.h-website-check-dialog { width: min(720px, 92vw); }
+.h-website-check .h-website-ok { margin: 0; color: var(--h-color-success, #15803d); }
+.h-website-check-list { max-height: 260px; overflow: auto; border: 1px solid var(--h-color-border, #d1d5db); border-radius: 4px; }
+/* page name column of a record used on the pages (elements in the tooltip) */
+.h-recordlist-record-tools.h-website-check-pages {
+  flex: 0 0 150px; width: 150px; flex-direction: row; align-items: center; gap: 4px;
+  margin-right: 6px; color: var(--h-color-text-muted, #6b7280); cursor: help;
+}
+.h-website-check-pages-text { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.h-website-check-field { flex: none; color: var(--h-color-danger, #b42318); }

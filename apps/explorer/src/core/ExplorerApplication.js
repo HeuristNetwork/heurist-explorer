@@ -2111,7 +2111,8 @@ export class ExplorerApplication {
   _websiteBridge() {
     return {
       editRecord: (id) => this.editRecord(id),
-      viewRecord: (id) => this.viewRecord(id),
+      // a popup over the manager / designer (the Record View pane is under them)
+      viewRecord: (id) => this.recordEditing.viewRecord(id),
       browseRecords: (options) => this.recordEditing.browseRecords(options),
       createRecordBrowser: (options) => this.recordEditing.createRecordBrowser(options),
       addRecord: (rectypeId) => this.addRecord(rectypeId),

@@ -129,9 +129,11 @@ export function fieldDetails(field, state) {
  * @param {object} options.services `browseRecords`, `createRecordBrowser`, `fileUrl`, `valueLimit`, `translator`, `cmsFields` (fields
  *        of website records that hold the page itself), `recordField` (`richText`, `fileUrl`, `editFile`, `fileViewer` of the
  *        host), `saveField(id, details, modified)`.
- * @returns {Promise<{reference: string, html: string}|null>} Null: cancelled.
+ * @param {{width?: string, height?: string}} [options.size] Width and height of the element (its own style); asked for a file field.
+ * @returns {Promise<{reference: string, html: string, size?: {width: string, height: string}}|null>} Null: cancelled. `size`
+ *          only for a file field ('' = auto).
  */
-export async function openFieldForm({ reference, records, languages = [], dbdefs, apiClient, services }) {
+export async function openFieldForm({ reference, records, languages = [], dbdefs, apiClient, services, size = {} }) {
   const parsed = parseFieldReference(reference);
   const cmsTypes = ['RT_CMS_HOME', 'RT_CMS_PAGE'].map((name) => Number(dbdefs?.dbconst?.(name)) || 0);
   const client = new RecordEditClient({ apiClient });
@@ -157,7 +159,10 @@ export async function openFieldForm({ reference, records, languages = [], dbdefs
           terms: [{ id: 'record', label: 'A record' }, ...(records.site ? [{ id: 'website', label: 'This website' }] : []), { id: 'page', label: 'This page' }]
         },
         { name: 'record', type: 'resource', label: 'Source record', max: 1, targetTypes: [], pointerMode: 'browseonly', showWhen: { source: 'record' } },
-        { name: 'field', type: 'enum', label: 'Field', max: 1, terms: termsOf(Number(startRecord?.rec_RecTypeID) || 0) }
+        { name: 'field', type: 'enum', label: 'Field', max: 1, terms: termsOf(Number(startRecord?.rec_RecTypeID) || 0) },
+        // the box of an image (a file field, review 2026-11-09)
+        { name: 'width', type: 'freetext', label: 'Width', help: 'Empty = auto; a number is px, or %. The image fits inside.', max: 1 },
+        { name: 'height', type: 'freetext', label: 'Height', max: 1 }
       ]
     }]
   };
@@ -165,6 +170,8 @@ export async function openFieldForm({ reference, records, languages = [], dbdefs
   // the input of the field: its own form, made again for another record or field
   const value = { host: document.createElement('div'), form: null, field: null, record: null, baseline: '', turn: 0 };
   value.host.className = 'h-cms-field-value';
+  // the chosen field is a file: Width and Height are shown
+  let isFile = false;
   const readValue = () => fieldDetails(value.field, value.form.getStates().get(String(value.field.dty)));
   const showValue = async (edit) => {
     const turn = ++value.turn;
@@ -176,6 +183,9 @@ export async function openFieldForm({ reference, records, languages = [], dbdefs
     const terms = termsOf(type);
     await edit.updateField('field', { terms });
     const dty = terms.some((term) => term.id === Number(current.field)) ? Number(current.field) : 0;
+    isFile = dbdefs?.fieldGlobal?.(dty)?.type === 'file';
+    edit.showField('width', isFile);
+    edit.showField('height', isFile);
     const structure = dty ? await structures.editStructure(type, { multilangIds: multilangFieldIds(dbdefs, type), dbdefs }) : null;
     if (turn !== value.turn) return;
     await value.form?.destroy();
@@ -216,12 +226,15 @@ export async function openFieldForm({ reference, records, languages = [], dbdefs
     title: 'Content of element: Record field',
     className: 'h-dialog-cms-field',
     form,
-    values: { source: parsed?.source || (records.site ? 'website' : 'page'), record: parsed?.record || null, field: localField },
+    values: { source: parsed?.source || (records.site ? 'website' : 'page'), record: parsed?.record || null, field: localField,
+      width: mediaSizeValue(size.width, true), height: mediaSizeValue(size.height, true) },
     apiClient,
     dbdefs,
     browseRecords: services.browseRecords,
     createRecordBrowser: services.createRecordBrowser,
     onReady: (edit) => {
+      edit.showField('width', false);
+      edit.showField('height', false);
       edit.container.append(value.host);
       void showValue(edit);
     },
@@ -230,10 +243,12 @@ export async function openFieldForm({ reference, records, languages = [], dbdefs
     },
     validate: (current) => {
       if (current.source === 'record' && !current.record) return [{ field: 'record', message: $HR('Choose a record') }];
-      return current.field ? null : [{ field: 'field', message: $HR('Choose a field') }];
+      if (!current.field) return [{ field: 'field', message: $HR('Choose a field') }];
+      const sizes = isFile ? ['width', 'height'].filter((key) => current[key] && !mediaSize(current[key])) : [];
+      return sizes.length ? sizes.map((key) => ({ field: key, message: $HR('Width and height: a number (px), px or %, or empty (auto).') })) : null;
     },
     buttons: [{ id: 'save', label: 'Save', primary: true }, { id: 'cancel', label: 'Cancel' }],
-    onAction: async () => {
+    onAction: async (action, values) => {
       if (!value.form || !value.field || value.form.validate().length) return false;
       const { dty } = value.field;
       const id = Number(value.record.rec_ID);
@@ -246,7 +261,8 @@ export async function openFieldForm({ reference, records, languages = [], dbdefs
         const source = sourceOf(id, records);
         result = {
           reference: `${source === 'record' ? id : source}.${code}`,
-          html: fieldSnapshot(shown?.details?.[String(dty)], global?.type, { fileUrl: services.fileUrl })
+          html: fieldSnapshot(shown?.details?.[String(dty)], global?.type, { fileUrl: services.fileUrl }),
+          ...(global?.type === 'file' ? { size: { width: mediaSize(values?.width) || '', height: mediaSize(values?.height) || '' } } : {})
         };
       } catch (error) {
         HMsg.showMsgErr?.(error?.message || String(error));

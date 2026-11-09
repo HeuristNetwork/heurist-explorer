@@ -93,22 +93,21 @@ test('widgets are new elements; only a configured one counts as configured', () 
   }
 });
 
-test('header templates (plan 27f §3.1): logo, title, a subtitle to fill in, menu and language switch', () => {
-  for (const template of ['siteHeader', 'headerCompact', 'headerCentered', 'headerBanner', 'headerSidebar']) {
-    const doc = emptyDoc();
-    doc.insertElement('header', template);
-    const html = doc.serialize().parts.header;
-    const fields = cmsNodes(html).map((node) => node.field).filter(Boolean);
-    assert.deepEqual(fields.sort(), ['website.2-1', 'website.2-38'], template);
-    assert.deepEqual(Object.values(doc.config.instances).map((instance) => instance.type).sort(), ['language', 'menu'], template);
-    assert.match(html, /class="h-site-logo/, template);
-    assert.match(html, /class="h-site-title"/, template);
-    if (template !== 'headerCompact') assert.match(html, /class="h-site-subtitle"[^>]*><p>define subtitle<\/p>/, template);
-    assert.deepEqual(checkCmsDocument(doc.config, [html]).filter((issue) => issue.level !== 'info'), [], `${template}: valid`);
+test('header default set (plan 27f §13): logo, title, subtitle of the website, menu and language switch, no own styles', () => {
+  const doc = emptyDoc();
+  doc.insertElement('header', 'headerSet');
+  const html = doc.serialize().parts.header;
+  const fields = cmsNodes(html).map((node) => node.field).filter(Boolean);
+  assert.deepEqual(fields.sort(), ['website.2-1', 'website.2-38', 'website.3-1009']);
+  const instances = Object.values(doc.config.instances);
+  assert.deepEqual(instances.map((instance) => instance.type).sort(), ['language', 'menu']);
+  assert.equal(instances.find((instance) => instance.type === 'menu').settings.orientation, 'auto');
+  for (const name of ['h-site-hset', 'h-site-logo', 'h-site-brand', 'h-site-title', 'h-site-subtitle', 'h-site-hset-menu', 'h-site-hset-lang']) {
+    assert.match(html, new RegExp(`class="${name}"`), name);
   }
-  const sidebar = emptyDoc();
-  sidebar.insertElement('header', 'headerSidebar');
-  assert.equal(Object.values(sidebar.config.instances).find((instance) => instance.type === 'menu').settings.orientation, 'auto');
+  // only the widget hosts have a style (no min-height of the instance kind)
+  assert.deepEqual(Object.values(doc.config.styles.nodes || {}), [{ 'min-height': '0' }, { 'min-height': '0' }]);
+  assert.deepEqual(checkCmsDocument(doc.config, [html]).filter((issue) => issue.level !== 'info'), []);
 });
 
 test('footer composer (plan 27f §3.2): the chosen blocks in columns, widgets configured', () => {

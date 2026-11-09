@@ -50,3 +50,27 @@ export async function aggregate(api, op, params = {}, { domain = 'records', meth
   if (!api?.get) throw new TypeError('aggregate requires an API client');
   return api.get(path, { query: values, signal });
 }
+
+/**
+ * Record counts per record type from the answer of `rectypes` (`[{rec_RecTypeID, count}]`, or an object by id):
+ * one row per type, `[{id, count}]` (moved from Explorer's RecordTypeManager, 2026-11-09).
+ *
+ * @param {Array<object>|Object<string, number|object>|null} value `rectypes` of the answer.
+ * @returns {Array<{id: number, count: number}>}
+ */
+export function rectypeCounts(value) {
+  const rows = Array.isArray(value)
+    ? value
+    : Object.entries(value && typeof value === 'object' ? value : {}).map(([id, count]) => (
+      count && typeof count === 'object' ? { ...count, rec_RecTypeID: count.rec_RecTypeID ?? id } : { rec_RecTypeID: id, count }
+    ));
+  const result = [];
+  const seen = new Set();
+  for (const row of rows) {
+    const id = Number(row?.rec_RecTypeID ?? row?.id ?? row?.rty_ID);
+    if (!Number.isInteger(id) || id <= 0 || seen.has(id)) continue;
+    seen.add(id);
+    result.push({ id, count: Math.max(0, Number(row?.count) || 0) });
+  }
+  return result;
+}

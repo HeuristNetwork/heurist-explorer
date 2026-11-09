@@ -38,7 +38,8 @@ export class HTree extends HBaseWidget {
    * @param {HTMLElement} container Tree host.
    * @param {object} options
    * @param {Array<{id: string, label: string, icon?: string, title?: string, badge?: string, muted?: boolean,
-   *        bold?: boolean, draggable?: boolean, children?: Array}>} [options.items] `bold`: the label in bold.
+   *        bold?: boolean, danger?: boolean, draggable?: boolean, children?: Array}>} [options.items] `bold`: the label in bold;
+   *        `danger`: the label in the danger colour (an item with a problem).
    * @param {(item: object) => Array<{action: string, icon: string, title: string, label?: string, always?: boolean}>} [options.tools]
    *        Tools of an item; shown on hover and on the selected item, `always` ones all the time. `label`: a
    *        caption after the icon.
@@ -171,7 +172,7 @@ export class HTree extends HBaseWidget {
 
   _rowOf(item, depth) {
     const row = document.createElement('div');
-    row.className = `h-tree-row${item.muted ? ' h-tree-muted' : ''}${item.bold ? ' h-tree-bold' : ''}`;
+    row.className = `h-tree-row${item.muted ? ' h-tree-muted' : ''}${item.bold ? ' h-tree-bold' : ''}${item.danger ? ' h-tree-danger' : ''}`;
     row.dataset.id = item.id;
     row.setAttribute('role', 'treeitem');
     row.style.paddingLeft = `${4 + depth * 14}px`;

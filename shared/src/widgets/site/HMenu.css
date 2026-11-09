@@ -222,6 +222,29 @@
   display: flex;
 }
 
+/* a website menu that does not fit its place in one row (HMenu._fitWidth): behind the menu button, as on narrow screens */
+.h-site-menu.is-narrow > .h-site-menu-toggle {
+  display: inline-block;
+}
+
+.h-site-menu.is-narrow:not(.is-open) > .h-site-menu-list {
+  display: none;
+}
+
+.h-site-menu.is-narrow.is-open > .h-site-menu-list {
+  position: absolute;
+  z-index: 110;
+  right: 0;
+  flex-direction: column;
+  align-items: stretch;
+  min-width: 200px;
+  padding: 4px;
+  border: 1px solid var(--h-color-border);
+  border-radius: var(--h-radius);
+  background: var(--h-color-bg);
+  box-shadow: 0 4px 12px rgb(0 0 0 / 15%);
+}
+
 /* narrow screens: the website menu is behind the menu button and sub pages are listed below their page */
 @media (max-width: 640px) {
   .h-site-menu:not(.h-site-menu-links, .h-site-menu-buttons, .h-site-menu-icons, .h-site-menu-dropdown) > .h-site-menu-toggle {

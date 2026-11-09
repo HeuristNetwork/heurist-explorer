@@ -14,7 +14,7 @@
  */
 
 import { normalizeDataSource } from './DataSource.js';
-import { aggregate } from '#shared/data/aggregate.js';
+import { aggregate, rectypeCounts } from '#shared/data/aggregate.js';
 
 const RECORD_TYPE_ICON_TOKEN = Date.now();
 
@@ -54,7 +54,7 @@ export class RecordTypeManager {
       this.dbDefsProvider()
     ]);
     this.dbDefs = dbDefs;
-    const counts = normalizeCounts(payload?.rectypes);
+    const counts = rectypeCounts(payload?.rectypes);
     // publish the counts on the shared definitions so every widget can hide unused types
     dbDefs.setRectypeCounts?.(counts);
     const definitions = new Map(dbDefs.rectypes().map((item) => [item.id, item]));
@@ -165,24 +165,6 @@ export class RecordTypeManager {
   destroy() {
     this._loadController?.abort();
   }
-}
-
-/** Normalize the API's usage-count payload (array or id-keyed map) to `{id, count}` rows. */
-function normalizeCounts(value) {
-  const rows = Array.isArray(value)
-    ? value
-    : Object.entries(value && typeof value === 'object' ? value : {}).map(([id, count]) => (
-      count && typeof count === 'object' ? { ...count, rec_RecTypeID: count.rec_RecTypeID ?? id } : { rec_RecTypeID: id, count }
-    ));
-  const result = [];
-  const seen = new Set();
-  for (const row of rows) {
-    const id = positiveId(row?.rec_RecTypeID ?? row?.id ?? row?.rty_ID);
-    if (!id || seen.has(id)) continue;
-    seen.add(id);
-    result.push({ id, count: Math.max(0, Number(row?.count) || 0) });
-  }
-  return result;
 }
 
 /** Normalize a value to a positive integer id, or `null` when invalid. */

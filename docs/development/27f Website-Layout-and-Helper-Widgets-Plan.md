@@ -3,7 +3,12 @@
 **Status:** draft 1, 2026-11-07, decisions in §9. **Phases A-E implemented 2026-11-07 in both repos (§10), not committed,
 not checked in a browser.** Bundles website and explorer deployed locally. **Review 2026-11-08 (§11): saving
 indicator, website check of all pages and of non-public records, admin rules for websites; implemented, not committed,
-not checked in a browser.**
+not checked in a browser.** **Review 2026-11-09 (§12): record type filter of unconstrained pickers, Width / Height of a
+file Record field, header position Fixed by default and new position Shrink, Delete in the Website manager; implemented,
+not committed, not checked in a browser.**
+**Review 2026-11-09 round 2 (§13): header default set, positions fixed / scroll / slide (manual) / none, header and footer
+themes, website fields in the New website popup and the Header section; implemented in both repos, not committed, not
+checked in a browser.**
 
 Scope: how pages of a website are loaded (navigation modes), position and templates of the header and footer, and the
 helper widgets HMenu (options), HLangSwitch, HActionMenu (with social media) and HBadges. 27e (Phase 4a) covered
@@ -339,3 +344,112 @@ owner only group 1 / admins) were too strict: a project group could never run it
 Tests: `heurist/tests/WebsiteEditTest.php` 74 pass (check of all pages: hidden page used by a record field and record cards
 on a sub page, missing card record; non-admin: website insert 403, `canCreate` false, own standalone page, owner change 403,
 visibility change 200; admin owner change 200). JS 1,679 pass; builds website and explorer deployed.
+
+### 11.1 Check, round 2 (Artem, 2026-11-08)
+
+- Popup wider (`min(1100px, 100vw - 24px)`); three sections divided by a line, each with a count, a tip and an OK message:
+  *Format* (tip: what errors and warnings mean, the element in brackets), *Non public pages* (website and menu pages;
+  OK "All is correct. All pages are public."), *Non public records on pages* (OK "All is correct. All records used on the
+  pages are public.").
+- Field and value visibility (only for *Record field* elements, also `website.` / `page.`): a public record whose field is
+  hidden / logged-in only in the record structure, or whose values are hidden from the public (`dtl_HideFromPublic`), is
+  listed with `fields: [{id, name, state: hidden|partly}]` (`WebsiteRepository::hiddenFieldValues`, the output rule
+  `RecordRepository::valueVisible` with a guest). A page that is also used on a page is listed in both sections.
+- HRecordList: no visibility texts (owner / visibility icons of the admin info are enough); records used on the pages get a
+  page name column (150px, recordTools) with the elements (and hidden fields) as its tooltip, an eye-slash icon for a hidden
+  field.
+- Info icon: the website bridge `viewRecord` opens the record popup of `RecordEditorHost` (Explorer's `viewRecord` shows
+  the Record View pane, which is under the full-screen manager / designer).
+- The popup is no longer closed for the record editor or viewer: both are modal dialogs shown over it (the first round
+  closed it by mistake).
+- Designer button **Highlight issues in tree** (when something was found): closes the popup and marks pages (site tree) and
+  elements (page tree) with a problem in `--h-color-danger` (`checkProblemPlaces`, HTree item flag `danger`); problems of the
+  website record mark Header / Home / Footer by the part that holds the element, else Home. The marks stay until the next
+  Check.
+- Tests: WebsiteEditTest 76 pass (value hidden from the public listed).
+
+## 12. Review 2026-11-09 (Artem)
+
+1. **Record type filter of an unconstrained record picker** (e.g. *Source record* of a Record field): only the types that
+   have records. `HRecordManager` gives `RectypeSource` the filter `dbdefs.isRectypeUsed`; when the host has not put the
+   counts on the definitions yet (Explorer's `RecordTypeManager` does), the manager loads them once with
+   `aggregate(apiClient, 'rectypes')`. The normalisation of the answer moved to `shared/src/data/aggregate.js`
+   (`rectypeCounts`), used by `RecordTypeManager` too. Without counts all types are offered.
+2. **File field in a Record field.** Question: forbid `file` and use a Media element for the header logo, or Width / Height?
+   **Decision: Width / Height** (a Media element stores one chosen file; the header templates follow the logo of the
+   website record, `website.2-38`). The popup *Content of element: Record field* shows Width and Height only for a file
+   field (same values as the media form: a number = px, px or %, empty = auto); they are the own style of the element
+   (`width`, `height`). CSS: the image of a Record field fits the box of its element (`max-width` / `max-height` 100%,
+   `object-fit: contain`), also the header logo, so Width / Height in Properties work too. Empty = as before (the logo keeps
+   the responsive *Logo height*). The server still writes a bare `<img>`.
+3. **Slide out.** Question: is "narrow panel, full size on mouse over" standard? Answer: the current Slide out (hides when
+   scrolling down, back when scrolling up) is the standard *headroom* pattern; a header that opens on mouse over does not
+   work on touch screens. **Decision: keep Slide out and add a position Shrink** (`shrink`):
+   - horizontal: sticky; after scrolling down past half of the header (at least 40px) the body gets `h-site-header-small`
+     (subtitle hidden, logo at 50%, title 1.1em), back near the top (under 8px);
+   - vertical (wider than 640px): a narrow column with the logo only (title, subtitle, texts, widgets hidden); it opens
+     over the content (260px) on mouse over (`@media (hover: hover)`) and with a button (bars icon) that the runtime puts at
+     the top of the header (`h-site-header-open`, closed by a click outside or Esc); narrow screens: as horizontal.
+   - `siteRuntime.attachHeaderShrink`, not in the designer preview.
+   - **Replaced the same day by §13** (Slide out = manual expand / collapse; no Shrink, no automatic slide).
+4. **Header position Fixed is the default**, label *Fixed*. Values `fixed | scroll | slide | shrink | none` (first = default;
+   `default` was renamed `scroll`, label *Scrolls away*; a stored `default` can not exist, defaults are not written).
+   JS `CMS_LAYOUT`, PHP `CmsValidator::LAYOUT`, `PageRenderer::bodyClasses` (no position = fixed). Websites without a
+   stored position are now Fixed. Footer unchanged.
+5. **Delete in the Website manager** is shown again (v4 website or standalone page the user can edit, the rule of
+   2026-10-26).
+
+Tests: JS 1,681 pass (`attachHeaderShrink`, counts of the record manager, layout defaults, Delete button);
+WebsiteRenderTest 53 (body classes), WebsiteEditTest 76, CmsFormatTest 14 pass.
+
+## 13. Review 2026-11-09, round 2 (Artem): header and website fields
+
+Answers to the questions of the review and decisions:
+
+0. **New website popup.** It was hand-written DOM, not HEditForm. Now HEditForm made from the record structure of the website
+   type (labels, file inputs and translations from the database): Title (2-1, required), Main language, Other languages,
+   Subtitle (DT_ALTERNATE_NAME 3-1009), Short summary (DT_SHORT_SUMMARY 2-3), Logo image (DT_FILE_RESOURCE 2-38), Banner image
+   (DT_CMS_BANNER 99-951, new srv constant). The same fields (without Short summary) are in the Header section of
+   *Navigation and layout* (item 5c: useful, not redundant); changed fields are PATCHed to the website record on OK.
+1. **Header positions** `fixed` (default) | `scroll` (Scrolls away: horizontal header and narrow screens) | `slide` | `none`.
+   Slide out = an expand / collapse button; it starts expanded, the choice of the visitor is kept in the browser.
+   Collapsed: horizontal = small logo, title, the button on the right; vertical = the button above a small logo.
+   Expanded: the normal layout plus the button (right / above). The automatic slide and Shrink of §12 are removed.
+2. **Orientation** horizontal | vertical: vertical = a left column on wider screens (always on screen), on top and scrolling
+   away on narrow screens.
+3. **Header: default set** (one element, Widgets section): logo (2-38, placeholder when empty), title (2-1), subtitle (3-1009),
+   main menu, language switch; banner (99-951) = background image of the whole header. Arranged by CSS, no node styles:
+   one row on normal screens, two rows on medium screens (option *Use 2 rows on normal screens*: `layout.header.rows = two`),
+   stacked on narrow screens (menu behind its button, language switch narrows itself), a column for the vertical orientation.
+   Logo height 80px by default (smaller on medium / narrow), title = H1 of the theme. The five header templates (Basic,
+   Compact, Centered, Banner, Sidebar) are removed from Add element; existing headers keep their HTML. New websites get the set.
+4. **Header and footer colours**: (b) a *Header theme* and a *Footer theme*: Default, Surface, Primary, Selected (colour pairs
+   every theme has) or **Own colours** (background and text chosen in the popup, `layout.header.colors = {bg, text}`).
+   More (border, padding, position of the banner): Own style of the element.
+5. a) Add element: section *Header and footer* removed; Widgets: Records (cards and slider), Media (gallery and slider), Action
+   menu, Badges, Social media links, Header: default set, Footer composer, Email form, Main menu, Language switcher.
+   b) Button *Layout* in the tools below the page tree (header or footer shown): opens the Styles popup on *Navigation and layout*.
+   c) *Navigation and layout* in three blocks with gaps: Navigation; Header (Position, Orientation, Use 2 rows, Theme, website
+   fields); Footer (Position, Theme).
+
+### 13.1 Implementation (2026-11-09) and differences from the list above
+
+- srv: `SystemConstants` DT_CMS_BANNER 99-951; `WebsiteRepository::CONSTANTS` `subtitle` (DT_ALTERNATE_NAME), `banner`;
+  `CmsValidator::LAYOUT` header `position` fixed|scroll|slide|none, `rows` auto|two, `theme`, footer `theme`, `colors`
+  checked by `isLayoutColors` (LAYOUT_COLOR = JS CMS_LAYOUT_COLOR: hex, a name, rgb()/hsl()); `PageRenderer::bodyClasses`
+  (`h-site-header-slide`, `-rows2`, `h-site-{header|footer}-theme-{name}`) and `PageRenderer::layoutCss`: the banner as
+  `--h-site-banner` and the own colours as theme variables of `.h-site-header` / `.h-site-footer` (written into the style
+  block of the page; the designer reloads the preview after a layout change, so no JS compiler change was needed);
+  `WebsiteStarter` writes the default set (no node styles except the two widget hosts).
+- Client: `cmsEdit.js` element `headerSet` (`CMS_HEADER_FIELDS`), the five templates and `CMS_HEADER_TEMPLATES` removed;
+  `apps/website/src/style.css` header section rewritten (grid areas of `.h-site-hset`, themes, banner, toggle, logo
+  `--h-site-logo-now` per screen and a placeholder for an empty logo); `siteRuntime.attachHeaderToggle` (key
+  `heurist.site.header.{db}.{site}`) replaces the slide and shrink functions; **HMenu `_fitWidth`**: a horizontal website menu
+  that needs more than one row goes behind its Menu button (class `is-narrow`, ResizeObserver), as asked in item 3.
+- `apps/website/src/manager/websiteFields.js` `createWebsiteFieldsForm` (HEditForm from the record structure);
+  `openNewWebsiteForm` on `openEditFormDialog`; `WebsiteClient.create({languages, details})`.
+- Styles popup: `createStylesForm({websiteFields, tab})`, three blocks (`.h-cms-styles-block`), Use 2 rows, Header / Footer
+  theme with Own colours (two colour inputs); the changed website fields are saved in the same PATCH as the styles
+  (`extra` of `_saveRecord`, not a second request: one `rec_Modified`). Layout button (fa-sliders) below the page tree
+  when Header or Footer is shown.
+- Tests: JS 1,682 pass; WebsiteRenderTest 57, WebsiteEditTest 78, CmsFormatTest 14 pass.

@@ -167,9 +167,10 @@
 #Header position#Header position
 #Header orientation#Header orientation
 #Footer position#Footer position
-#Default (scrolls away)#Default (scrolls away)
-#Fixed at the top#Fixed at the top
+#Fixed#Fixed
+#Scrolls away#Scrolls away
 #Slide out (hides when scrolling down)#Slide out (hides when scrolling down)
+#Empty = auto; a number is px, or %. The image fits inside.#Empty = auto; a number is px, or %. The image fits inside.
 #No header#No header
 #Horizontal (top)#Horizontal (top)
 #Vertical (left column)#Vertical (left column)
@@ -223,17 +224,46 @@
 #Check the format of all pages and the records a visitor can not see#Check the format of all pages and the records a visitor can not see
 #Format#Format
 #No problems found#No problems found
-#Records a visitor can not see#Records a visitor can not see
-#All records are public#All records are public
-#These records are not public: visitors do not see them or their parts of the pages.#These records are not public: visitors do not see them or their parts of the pages.
 #Website#Website
 #Pages#Pages
-#Records used on the pages#Records used on the pages
-#Records not found#Records not found
 #You can not see these records#You can not see these records
 #Record field#Record field
 #Generated report#Generated report
 #Record cards#Record cards
 #Media gallery#Media gallery
-#Hidden (owners only)#Hidden (owners only)
-#Logged-in users only#Logged-in users only
+#Problems of the HTML and of the settings of the pages. An error can stop a part of the page from being shown; warnings should be corrected too. The element is given in brackets: open the page in the website editor and correct or remove it.#Problems of the HTML and of the settings of the pages. An error can stop a part of the page from being shown; warnings should be corrected too. The element is given in brackets: open the page in the website editor and correct or remove it.
+#All is correct. No problems of the format.#All is correct. No problems of the format.
+#Non public pages#Non public pages
+#These pages are not public, the visitors do not see them. Open Record Editor and make this page Public in summary section.#These pages are not public, the visitors do not see them. Open Record Editor and make this page Public in summary section.
+#All is correct. All pages are public.#All is correct. All pages are public.
+#Non public records on pages#Non public records on pages
+#Elements refer to non public records. Their values will not be visible to visitors. Open Record Editor and make the record Public in summary section. For a Record field the field itself or some of its values may be hidden from the public: change the visibility of the value in Record Editor.#Elements refer to non public records. Their values will not be visible to visitors. Open Record Editor and make the record Public in summary section. For a Record field the field itself or some of its values may be hidden from the public: change the visibility of the value in Record Editor.
+#All is correct. All records used on the pages are public.#All is correct. All records used on the pages are public.
+#Records not found (deleted?)#Records not found (deleted?)
+#some values are not public#some values are not public
+#not public#not public
+#Highlight issues in tree#Highlight issues in tree
+#Slide out (expand / collapse button)#Slide out (expand / collapse button)
+#Default (background and text)#Default (background and text)
+#Surface#Surface
+#Primary#Primary
+#Selected#Selected
+#Own colours#Own colours
+#Background colour#Background colour
+#Text colour#Text colour
+#Header theme#Header theme
+#Footer theme#Footer theme
+#Use 2 rows on normal screens#Use 2 rows on normal screens
+#Logo, title#Logo, title
+#menu, languages#menu, languages
+#Page content#Page content
+#The header scrolls away with the page (a vertical header: on narrow screens).#The header scrolls away with the page (a vertical header: on narrow screens).
+#The header stays at the top; a button collapses it to the logo and the title (vertical: a narrow column with the logo) and expands it again. The choice of the visitor is kept.#The header stays at the top; a button collapses it to the logo and the title (vertical: a narrow column with the logo) and expands it again. The choice of the visitor is kept.
+#Expand the header#Expand the header
+#Collapse the header#Collapse the header
+#Layout#Layout
+#Position, orientation, theme and fields of the header and footer#Position, orientation, theme and fields of the header and footer
+#The header default set can be added to the header only#The header default set can be added to the header only
+#Main language#Main language
+#Other languages#Other languages
+#Create#Create

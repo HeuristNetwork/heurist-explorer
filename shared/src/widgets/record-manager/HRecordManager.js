@@ -41,6 +41,7 @@ import { HRecordList } from '../record-list/HRecordList.js';
 import { HFilterForm } from '../filter/HFilterForm.js';
 import { HCardinalLayout } from '../layout/HCardinalLayout.js';
 import { builtinRecordFilter } from '../../data/recordManagerFilters.js';
+import { aggregate, rectypeCounts } from '../../data/aggregate.js';
 import { RectypeSource } from '../../data/valueSources/localSources.js';
 import { RECORD_LIST_FIELDS, RecordListLoader } from '../../data/RecordListLoader.js';
 import { recordTypesDomain, userDataRecordTypeIds } from '../../data/recordDomains.js';
@@ -187,6 +188,8 @@ export class HRecordManager extends HBaseWidget {
     }
     this.loader = new RecordListLoader({ apiClient: this.options.apiClient, path, query: this._listQuery(types), sort: saved.sort,
       fields: [...RECORD_LIST_FIELDS, ...(this.options.listFields || []).map(String)] });
+    // Record type of the filter: only the types with records (review 2026-11-09)
+    if (this.unconstrained && path === '/records') await this._loadRectypeCounts();
     this._renderFilter(listHost);
     this.list = new HRecordList();
     const listOptions = this._listOptions();
@@ -316,10 +319,31 @@ export class HRecordManager extends HBaseWidget {
       // no value lists or counts from the server: the lists are terms and tags (plan 21 §7.1)
       apiClient: null,
       // Record type of an unconstrained manager: the types of the list
-      valueSourceFactory: (parameter) => (parameter.predicate === 't' ? new RectypeSource(this.dbdefs, { ids: this.types }) : null),
+      // (only those with records, review 2026-11-09)
+      valueSourceFactory: (parameter) => (parameter.predicate === 't'
+        ? new RectypeSource(this.dbdefs, { ids: this.types, filter: this.unconstrained ? (id) => this.dbdefs?.isRectypeUsed?.(id) !== false : null })
+        : null),
       onSubmit: ({ query }) => this.applyFilter(query?.q || [])
     }).render();
     this.listen(pane, 'h-filter-form-reset', () => void this.applyFilter([]));
+  }
+
+  /**
+   * Record counts per type on the definitions, when the host (Explorer) has not put them there yet. Without them
+   * every type counts as used.
+   *
+   * @returns {Promise<void>}
+   */
+  async _loadRectypeCounts() {
+    const dbdefs = this.dbdefs;
+    if (!dbdefs?.setRectypeCounts || dbdefs.hasRectypeCounts?.() || !this.options.apiClient) return;
+    try {
+      const answer = await aggregate(this.options.apiClient, 'rectypes');
+      const rows = (answer?.data ?? answer)?.rectypes;
+      if (rows) dbdefs.setRectypeCounts(rectypeCounts(rows));
+    } catch {
+      // no counts: all types are offered
+    }
   }
 
   /** The list query: the types and the browse filter; relations mode: only the related records. */

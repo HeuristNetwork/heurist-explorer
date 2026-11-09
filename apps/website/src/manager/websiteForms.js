@@ -1,7 +1,7 @@
 /**
  * @file websiteForms.js
- * @brief Dialogs of the Website manager (plan 27b): new website, add a page to a website menu,
- *        and Yes/No questions. Built on the shared message dialog (HMsg).
+ * @brief Dialogs of the Website manager (plan 27b): new website (HEditForm, plan 27f §13), add a page to a
+ *        website menu, and Yes/No questions. Built on the shared message dialog (HMsg).
  *
  * @project     Heurist academic knowledge management system
  * @package     heurist-website
@@ -15,6 +15,8 @@
  */
 
 import { $HR, HMsg } from '#shared/ui';
+import { openEditFormDialog } from '#shared/widgets/edit-form/editFormDialog.js';
+import { createWebsiteFieldsForm } from './websiteFields.js';
 
 const DIALOG_ID = 'h-website-dialog';
 
@@ -50,49 +52,53 @@ export function confirmDialog(message, { title = 'Please confirm', yesLabel = 'Y
 }
 
 /**
- * New website: title, main language and other languages.
+ * New website (plan 27f §13): main language, other languages, and the fields of the website record from its
+ * structure: title (required), subtitle, short summary, logo and banner image.
  *
- * @param {{languages: string[]}} options 3-letter codes offered (database translation languages).
- * @returns {Promise<{title: string, languages: string[]}|null>}
+ * @param {object} options
+ * @param {string[]} [options.languages] 3-letter codes offered (database translation languages).
+ * @param {object} options.dbdefs HDbDefs.
+ * @param {object} options.apiClient HeuristApiClient.
+ * @param {Object<string, number>} options.codes Local ids of the website codes.
+ * @param {object} [options.services] `recordField` of the host (file inputs), `browseRecords`, `createRecordBrowser`.
+ * @returns {Promise<{languages: string[], details: Object<string, Array>}|null>}
  */
-export function openNewWebsiteForm({ languages = [] } = {}) {
-  const codes = [...new Set(['eng', ...languages.map((code) => String(code).toLowerCase())])].filter((code) => /^[a-z]{3}$/.test(code));
-  const form = document.createElement('form');
-  form.className = 'h-website-form';
-  const title = field(form, 'Title', input('text'));
-  title.required = true;
-  title.placeholder = $HR('Name of the website');
-  const main = field(form, 'Main language', select(codes));
-  main.value = 'eng';
-  const others = document.createElement('fieldset');
-  others.className = 'h-website-form-languages';
-  const legend = document.createElement('legend');
-  legend.textContent = $HR('Other languages');
-  others.append(legend);
-  const boxes = codes.map((code) => {
-    const label = document.createElement('label');
-    const box = input('checkbox');
-    box.value = code;
-    label.append(box, document.createTextNode(` ${code.toUpperCase()}`));
-    others.append(label);
-    return box;
-  });
-  form.append(others);
+export async function openNewWebsiteForm({ languages = [], dbdefs, apiClient, codes, services = {} } = {}) {
+  const list = [...new Set(['eng', ...languages.map((code) => String(code).toLowerCase())])].filter((code) => /^[a-z]{3}$/.test(code));
+  const terms = list.map((code) => ({ id: code, label: code.toUpperCase() }));
+  const host = document.createElement('div');
+  host.className = 'h-website-fields';
+  const fields = await createWebsiteFieldsForm(host, { dbdefs, apiClient, codes, services });
   const note = document.createElement('p');
   note.className = 'h-muted';
   note.textContent = $HR('The website gets a header with a menu, a home page, a footer and one page "About". It is public.');
-  form.append(note);
-  const sync = () => boxes.forEach((box) => { box.disabled = box.value === main.value; if (box.disabled) box.checked = false; });
-  main.addEventListener('change', sync);
-  sync();
-  return formDialog(form, 'New website', 'Create', () => {
-    const value = title.value.trim();
-    if (!value) {
-      title.focus();
-      return null;
+  let result = null;
+  const answer = await openEditFormDialog({
+    title: 'New website',
+    className: 'h-dialog-new-website',
+    form: {
+      groups: [{
+        id: 'languages',
+        children: [
+          { name: 'main', type: 'enum', label: 'Main language', max: 1, terms },
+          { name: 'others', type: 'enum', label: 'Other languages', max: 0, mode: 'checkbox', terms }
+        ]
+      }]
+    },
+    values: { main: 'eng', others: [] },
+    apiClient,
+    dbdefs,
+    onReady: (edit) => edit.container.append(host, note),
+    validate: () => fields.validate(),
+    buttons: [{ id: 'create', label: 'Create', primary: true }, { id: 'cancel', label: 'Cancel' }],
+    onAction: (action, values) => {
+      const main = String(values.main || 'eng');
+      const others = [values.others].flat().filter(Boolean).map(String).filter((code) => code !== main);
+      result = { languages: [main, ...new Set(others)], details: fields.details() };
+      return true;
     }
-    return { title: value, languages: [main.value, ...boxes.filter((box) => box.checked).map((box) => box.value)] };
-  }, title);
+  }).finally(() => fields.destroy());
+  return answer ? result : null;
 }
 
 /**
@@ -166,13 +172,6 @@ function field(form, label, control) {
   row.append(caption, control);
   form.append(row);
   return control;
-}
-
-function input(type) {
-  const element = document.createElement('input');
-  element.type = type;
-  if (type === 'text') element.className = 'h-input';
-  return element;
 }
 
 /** A select of codes or `{value, label}` items. */

@@ -36,11 +36,21 @@ export const CMS_CONFIG_VERSION = 1;
 export const CMS_LAYOUT = Object.freeze({
   navigation: Object.freeze(['reload', 'swap', 'scroll']),
   header: Object.freeze({
-    position: Object.freeze(['default', 'fixed', 'slide', 'none']),
-    orientation: Object.freeze(['horizontal', 'vertical'])
+    // fixed is the default since 2026-11-09 (was `default` = scroll); slide = an expand / collapse button (§13)
+    position: Object.freeze(['fixed', 'scroll', 'slide', 'none']),
+    orientation: Object.freeze(['horizontal', 'vertical']),
+    // the header default set: one row on normal screens, or two (plan 27f §13)
+    rows: Object.freeze(['auto', 'two']),
+    theme: Object.freeze(['default', 'surface', 'primary', 'selected', 'own'])
   }),
-  footer: Object.freeze({ position: Object.freeze(['default', 'fixed', 'none']) })
+  footer: Object.freeze({
+    position: Object.freeze(['default', 'fixed', 'none']),
+    theme: Object.freeze(['default', 'surface', 'primary', 'selected', 'own'])
+  })
 });
+
+/** A colour of the own theme of the header or footer (`layout.header.colors`: bg, text): hex, a name, rgb() or hsl(). */
+export const CMS_LAYOUT_COLOR = /^(?:#[0-9a-f]{3,8}|[a-z]{3,20}|(?:rgb|hsl)a?\([0-9\s.,%deg/]+\))$/i;
 
 /** Pages kept by the navigation mode swap (`layout.cache`): default and limits. */
 export const CMS_LAYOUT_CACHE = Object.freeze({ default: 8, min: 1, max: 50 });
@@ -223,6 +233,7 @@ export function cmsInstanceProblem(settings) {
 
 /**
  * Problems of the layout settings (CmsValidator::layoutProblems): unknown keys and values not in CMS_LAYOUT;
+ * `header.colors` / `footer.colors` the own colours {bg, text} (CMS_LAYOUT_COLOR);
  * `cache` a whole number in CMS_LAYOUT_CACHE; `hideHeader` / `hideFooter` (a page) true or false.
  *
  * @param {object} layout
@@ -245,6 +256,12 @@ export function cmsLayoutProblems(layout) {
         continue;
       }
       for (const [name, item] of Object.entries(value)) {
+        if (name === 'colors') {
+          const bad = !isMap(item) || Object.entries(item).some(([part, colour]) => !['bg', 'text'].includes(part)
+            || typeof colour !== 'string' || !CMS_LAYOUT_COLOR.test(colour.trim()));
+          if (bad) problems.push(`${key}.colors must be {bg, text} colours`);
+          continue;
+        }
         const allowed = CMS_LAYOUT[key][name];
         if (!allowed) problems.push(`unknown setting ${key}.${name}`);
         else if (!allowed.includes(item)) problems.push(`${key}.${name} must be ${allowed.join(', ')}`);

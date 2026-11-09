@@ -80,31 +80,73 @@ export async function startSite({ root, config, loaders = MODULE_LOADERS }) {
   if (!config.runtime?.design && (root.querySelector('[data-h-view]') || navigation === 'swap' || navigation === 'scroll')) {
     jobs.push(import('#shared/widgets/site/HMediaViewer.js').then(({ attachMediaViews }) => attachMediaViews(root)));
   }
-  if (!config.runtime?.design && root.classList?.contains('h-site-header-slide')) attachHeaderSlide(root);
+  if (!config.runtime?.design && root.classList?.contains('h-site-header-slide')) {
+    const runtime = config.runtime || {};
+    attachHeaderToggle(root, { key: `${HEADER_STATE_KEY}.${runtime.database || ''}.${runtime.site || config.site?.id || 0}` });
+  }
   if (!config.runtime?.design) root.addEventListener('click', (event) => onAction(event));
   const mounted = await mountHosts(root, config, loaders);
   await Promise.all(jobs);
   return mounted;
 }
 
+/** localStorage key prefix of the state of a slide out header, per database and website. */
+const HEADER_STATE_KEY = 'heurist.site.header';
+
 /**
- * The slide out header (plan 27f §3): hidden while the visitor scrolls down past it, shown again when scrolling up.
+ * The slide out header (plan 27f §13): a button expands or collapses it (class h-site-header-collapsed on the body);
+ * on the right of a horizontal header, above the logo of a vertical one (CSS). It starts expanded; the choice of the
+ * visitor is kept in the browser for the next pages.
  *
  * @param {HTMLElement} body Element with the class h-site-header-slide.
- * @param {Window} [win]
- * @returns {() => void} Removes the listener.
+ * @param {object} [options]
+ * @param {string} [options.key] Storage key of this website ('' = not kept).
+ * @param {Storage|null} [options.storage] localStorage (tests pass their own).
+ * @returns {() => void} Removes the button.
  */
-export function attachHeaderSlide(body, win = globalThis.window) {
-  let last = win?.scrollY || 0;
-  const onScroll = () => {
-    const now = win.scrollY || 0;
-    const height = body.querySelector('.h-site-header')?.offsetHeight || 0;
-    if (Math.abs(now - last) < 4) return;
-    body.classList.toggle('h-site-header-away', now > last && now > height);
-    last = now;
+export function attachHeaderToggle(body, { key = '', storage = safeLocalStorage() } = {}) {
+  const header = body.querySelector('.h-site-header');
+  const doc = body.ownerDocument || globalThis.document;
+  const button = doc?.createElement?.('button');
+  if (!header || !button) return () => {};
+  const show = (collapsed) => {
+    body.classList.toggle('h-site-header-collapsed', collapsed);
+    button.setAttribute('aria-expanded', String(!collapsed));
+    button.setAttribute('aria-label', $HR(collapsed ? 'Expand the header' : 'Collapse the header'));
+    button.title = button.getAttribute('aria-label');
+    const vertical = body.classList.contains('h-site-header-vertical');
+    const icon = vertical ? (collapsed ? 'fa-angles-right' : 'fa-angles-left') : (collapsed ? 'fa-angles-down' : 'fa-angles-up');
+    button.innerHTML = `<i class="fa-solid ${icon}" aria-hidden="true"></i>`;
   };
-  win?.addEventListener?.('scroll', onScroll, { passive: true });
-  return () => win?.removeEventListener?.('scroll', onScroll);
+  let stored = null;
+  try {
+    stored = key ? storage?.getItem(key) : null;
+  } catch {
+    stored = null;
+  }
+  button.type = 'button';
+  button.className = 'h-site-header-toggle';
+  show(stored === 'collapsed');
+  button.addEventListener('click', () => {
+    const collapsed = !body.classList.contains('h-site-header-collapsed');
+    show(collapsed);
+    try {
+      if (key) storage?.setItem(key, collapsed ? 'collapsed' : 'expanded');
+    } catch {
+      // private mode or no storage: the choice is not kept
+    }
+  });
+  header.prepend(button);
+  return () => button.remove?.();
+}
+
+/** @returns {Storage|null} localStorage, or null when the browser does not give it. */
+function safeLocalStorage() {
+  try {
+    return globalThis.localStorage || null;
+  } catch {
+    return null;
+  }
 }
 
 /** Module APIs mounted on the page (all parts and loaded pages), for the actions of action menus. */

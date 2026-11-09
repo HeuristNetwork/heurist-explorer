@@ -795,6 +795,27 @@
   font-size: var(--h-font-size-small);
 }
 
+/* Navigation and layout (plan 27f §13): blocks Navigation, Header, Footer with a gap, no captions */
+.h-cms-styles-block {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.h-cms-styles-block + .h-cms-styles-block {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--h-color-border);
+}
+
+.h-cms-styles-colours[hidden] {
+  display: none;
+}
+
+.h-cms-styles-website-fields {
+  margin-top: 8px;
+}
+
 .h-cms-styles-field[hidden] {
   display: none;
 }

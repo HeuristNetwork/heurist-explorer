@@ -94,7 +94,13 @@ const NAVIGATION_NOTES = Object.freeze({
 });
 
 const HEADER_POSITIONS = Object.freeze([
-  ['default', 'Default (scrolls away)'], ['fixed', 'Fixed at the top'], ['slide', 'Slide out (hides when scrolling down)'], ['none', 'No header']
+  ['fixed', 'Fixed'], ['scroll', 'Scrolls away'], ['slide', 'Slide out (expand / collapse button)'], ['none', 'No header']
+]);
+
+/** Header and footer themes (plan 27f §13): colour pairs of the theme of the website, or own colours. */
+const PART_THEMES = Object.freeze([
+  ['default', 'Default (background and text)'], ['surface', 'Surface'], ['primary', 'Primary'], ['selected', 'Selected'],
+  ['own', 'Own colours']
 ]);
 
 const HEADER_ORIENTATIONS = Object.freeze([['horizontal', 'Horizontal (top)'], ['vertical', 'Vertical (left column)']]);
@@ -124,18 +130,22 @@ export function setLayout(layout, path, value) {
 /** A small drawing of the layout: header (top or left), content, footer (preview of the Navigation and layout tab). */
 function layoutDiagram(layout = {}) {
   const header = layout.header || {};
-  const position = header.position || 'default';
+  const position = header.position || CMS_LAYOUT.header.position[0];
   const vertical = header.orientation === 'vertical';
   const footer = layout.footer?.position || 'default';
   const note = {
-    default: 'The header scrolls away with the page.', fixed: 'The header stays at the top.',
-    slide: 'The header hides when scrolling down and comes back when scrolling up.', none: 'No header.'
+    scroll: 'The header scrolls away with the page (a vertical header: on narrow screens).', fixed: 'The header stays at the top.',
+    slide: 'The header stays at the top; a button collapses it to the logo and the title (vertical: a narrow column with the'
+      + ' logo) and expands it again. The choice of the visitor is kept.',
+    none: 'No header.'
   }[position];
-  const box = (label, extra = '') => `<div style="border:1px dashed #999;border-radius:4px;padding:8px;background:#f0f4f8;${extra}">${$HR(label)}</div>`;
-  const headerBox = position === 'none' ? '' : box('Header: logo, title, menu',
-    vertical ? 'width:30%;min-height:220px' : (position === 'fixed' ? 'position:sticky;top:0' : ''));
-  const footerBox = footer === 'none' ? '' : box(footer === 'fixed' ? 'Footer (fixed at the bottom)' : 'Footer', 'margin-top:8px');
-  const content = `<div style="flex:1">${box('Page content', 'min-height:160px;background:#fff')}${footerBox}</div>`;
+  const box = (label, extra = '') => `<div style="border:1px dashed #999;border-radius:4px;padding:8px;background:#f0f4f8;${extra}">${label}</div>`;
+  const button = position === 'slide' ? ' <span style="float:right">&#8963;</span>' : '';
+  const rows = header.rows === 'two' && !vertical ? '<br>' : ', ';
+  const headerBox = position === 'none' ? '' : box(`${escapeHtml($HR('Logo, title'))}${rows}${escapeHtml($HR('menu, languages'))}${button}`,
+    vertical ? 'width:30%;min-height:220px' : (['fixed', 'slide'].includes(position) ? 'position:sticky;top:0' : ''));
+  const footerBox = footer === 'none' ? '' : box(escapeHtml($HR(footer === 'fixed' ? 'Footer (fixed at the bottom)' : 'Footer')), 'margin-top:8px');
+  const content = `<div style="flex:1">${box(escapeHtml($HR('Page content')), 'min-height:160px;background:#fff')}${footerBox}</div>`;
   return `<!doctype html><html><body style="font:12px sans-serif;margin:12px;color:#333">`
     + `<div style="display:flex;flex-direction:${vertical ? 'row' : 'column'};gap:8px">${headerBox}${content}</div>`
     + `<p>${$HR(note)}</p></body></html>`;
@@ -220,12 +230,15 @@ const KIND_SAMPLES = Object.freeze({
  * The content of the Styles popup.
  *
  * @param {{base?: object, kinds?: object, presets?: object, css?: string, javaScriptAllowed?: boolean,
- *        createCodeEditor?: Function, files?: object}} values createCodeEditor(host, {value, language, onChange}): a
- *        code editor (CodeMirror, lazy); without it a plain text area. `files`: the background image picker (styleRows).
- * @returns {{element: HTMLElement, read: () => object, ready: Promise<void>, destroy: () => void, tabs: object}}
+ *        createCodeEditor?: Function, files?: object, websiteFields?: Function, tab?: string}} values createCodeEditor(host,
+ *        {value, language, onChange}): a code editor (CodeMirror, lazy); without it a plain text area. `files`: the
+ *        background image picker (styleRows). `websiteFields(host)`: the fields of the website record in the Header block
+ *        (websiteFields.js; a website only). `tab`: `layout` opens the tab Navigation and layout.
+ * @returns {{element: HTMLElement, read: () => object|null, ready: Promise<void>, destroy: () => void, tabs: object}}
+ *          read: null while a website field is not valid; `fields` the changed fields of the website record.
  */
 export function createStylesForm({ base = {}, kinds = {}, presets = {}, layout = {}, css = '', javaScriptAllowed = false, createCodeEditor = null,
-  files = null } = {}) {
+  files = null, websiteFields = null, tab = '' } = {}) {
   const state = { base: { ...base }, kinds: structuredClone(kinds), presets: structuredClone(presets), layout: structuredClone(layout || {}),
     css: String(css ?? '') };
   // two columns: the tabs, and the preview of the selected tab (half as wide)
@@ -445,9 +458,15 @@ export function createStylesForm({ base = {}, kinds = {}, presets = {}, layout =
   })();
   previews.push(() => show(preview(SAMPLE_PAGE)));
 
-  // ------------------------------------------------------------ navigation and layout (plan 27f §2-3)
+  // ------------------------------------------------------------ navigation and layout (plan 27f §2-3, §13)
+  // three blocks with gaps: navigation, header, footer
   const layoutPane = pane(tabs, 'Navigation and layout', HELP.layout);
-  const layoutSelect = (label, choices, value, onChange) => {
+  const block = () => {
+    const node = element('div', 'h-cms-styles-block');
+    layoutPane.config.append(node);
+    return node;
+  };
+  const layoutSelect = (parent, label, choices, value, onChange) => {
     const select = element('select', 'h-select h-compact');
     select.append(...choices.map(([key, text]) => option(key, $HR(text))));
     select.value = value;
@@ -455,9 +474,10 @@ export function createStylesForm({ base = {}, kinds = {}, presets = {}, layout =
       onChange(select.value);
       refresh();
     });
-    layoutPane.config.append(field(label, select));
+    parent.append(field(label, select));
     return select;
   };
+  const navigationBlock = block();
   const navigationNote = element('div', 'h-cms-styles-note');
   const cacheInput = element('input', 'h-input h-compact');
   cacheInput.type = 'number';
@@ -470,11 +490,11 @@ export function createStylesForm({ base = {}, kinds = {}, presets = {}, layout =
     navigationNote.textContent = $HR(NAVIGATION_NOTES[mode]);
     cacheField.hidden = mode !== 'swap';
   };
-  layoutSelect('Page navigation', NAVIGATION_LABELS, state.layout.navigation || 'reload', (value) => {
+  layoutSelect(navigationBlock, 'Page navigation', NAVIGATION_LABELS, state.layout.navigation || 'reload', (value) => {
     setLayout(state.layout, 'navigation', value);
     showNavigation();
   });
-  layoutPane.config.append(navigationNote, cacheField);
+  navigationBlock.append(navigationNote, cacheField);
   cacheInput.addEventListener('input', () => {
     const number = Number(cacheInput.value);
     setLayout(state.layout, 'cache', Number.isInteger(number) ? Math.max(CMS_LAYOUT_CACHE.min, Math.min(CMS_LAYOUT_CACHE.max, number)) : null);
@@ -482,19 +502,83 @@ export function createStylesForm({ base = {}, kinds = {}, presets = {}, layout =
   showNavigation();
   const header = state.layout.header || {};
   const footer = state.layout.footer || {};
-  layoutSelect('Header position', HEADER_POSITIONS, header.position || 'default', (value) => setLayout(state.layout, 'header.position', value));
-  layoutSelect('Header orientation', HEADER_ORIENTATIONS, header.orientation || 'horizontal',
+  // the theme of the header or footer; own colours: background and text
+  const themeSelect = (parent, part, label) => {
+    const settings = state.layout[part] || {};
+    const colours = element('div', 'h-cms-styles-colours');
+    const colour = (key, text) => {
+      const host = element('div', 'h-cms-styles-value');
+      colours.append(field(text, host));
+      const input = new HInputColor().attach(host, { suppressLabel: true, clearButton: false, value: settings.colors?.[key] ?? '',
+        placeholder: $HR('Heurist default') }).render();
+      const changed = () => {
+        const value = { ...(state.layout[part]?.colors || {}) };
+        const text = String(input.getValue() ?? '').trim();
+        if (text) value[key] = text; else delete value[key];
+        setLayout(state.layout, `${part}.colors`, Object.keys(value).length ? value : null);
+        refresh();
+      };
+      host.addEventListener('h-input-change', changed);
+      host.addEventListener('input', changed);
+    };
+    colour('bg', 'Background colour');
+    colour('text', 'Text colour');
+    const select = layoutSelect(parent, label, PART_THEMES, settings.theme || 'default', (value) => {
+      setLayout(state.layout, `${part}.theme`, value);
+      colours.hidden = value !== 'own';
+      // other themes: no own colours
+      if (value !== 'own') setLayout(state.layout, `${part}.colors`, null);
+    });
+    colours.hidden = select.value !== 'own';
+    parent.append(colours);
+  };
+  const headerBlock = block();
+  layoutSelect(headerBlock, 'Header position', HEADER_POSITIONS, header.position || CMS_LAYOUT.header.position[0],
+    (value) => setLayout(state.layout, 'header.position', value));
+  layoutSelect(headerBlock, 'Header orientation', HEADER_ORIENTATIONS, header.orientation || 'horizontal',
     (value) => setLayout(state.layout, 'header.orientation', value));
-  layoutSelect('Footer position', FOOTER_POSITIONS, footer.position || 'default', (value) => setLayout(state.layout, 'footer.position', value));
+  const rows = element('input');
+  rows.type = 'checkbox';
+  rows.checked = header.rows === 'two';
+  rows.addEventListener('change', () => {
+    setLayout(state.layout, 'header.rows', rows.checked ? 'two' : null);
+    refresh();
+  });
+  headerBlock.append(field('Use 2 rows on normal screens', rows));
+  themeSelect(headerBlock, 'header', 'Header theme');
+  // the fields of the website record: title, subtitle, logo, banner (a website only)
+  let fieldsForm = null;
+  const fieldsReady = typeof websiteFields === 'function' ? (async () => {
+    const host = element('div', 'h-cms-styles-website-fields');
+    headerBlock.append(host);
+    try {
+      fieldsForm = await websiteFields(host);
+    } catch (error) {
+      host.textContent = error?.message || String(error);
+    }
+  })() : Promise.resolve();
+  const footerBlock = block();
+  layoutSelect(footerBlock, 'Footer position', FOOTER_POSITIONS, footer.position || 'default', (value) => setLayout(state.layout, 'footer.position', value));
+  themeSelect(footerBlock, 'footer', 'Footer theme');
   previews.push(() => show(layoutDiagram(state.layout)));
 
-  tabs.select(0);
+  if (tab === 'layout') tabs.select(previews.length - 1); else tabs.select(0);
   return {
     element: root,
     tabs,
-    ready,
-    read: () => ({ base: cleanBase(state.base), kinds: state.kinds, presets: state.presets, layout: state.layout, css: state.css }),
-    destroy: () => codeEditor?.destroy?.()
+    ready: Promise.all([ready, fieldsReady]).then(() => undefined),
+    read: () => {
+      if (fieldsForm?.validate().length) {
+        tabs.select(previews.length - 1);
+        return null;
+      }
+      return { base: cleanBase(state.base), kinds: state.kinds, presets: state.presets, layout: state.layout, css: state.css,
+        fields: fieldsForm?.changed() || {} };
+    },
+    destroy: () => {
+      codeEditor?.destroy?.();
+      void fieldsForm?.destroy();
+    }
   };
 }
 

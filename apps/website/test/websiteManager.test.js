@@ -115,15 +115,15 @@ test('toolbar: actions of a v4 standalone page, a website and a legacy website',
   const view = new WebsiteManager().attach(host, { application });
   const visible = () => Object.entries(view.buttons).filter(([, button]) => !button.hidden).map(([name]) => name);
 
-  // Edit, Add to menu and Delete are hidden (2026-10-31): the pen beside the title edits the record
+  // Edit and Add to menu are hidden (2026-10-31): the pen beside the title edits the record; Delete is back (2026-11-09)
   await application.select(20);
   view.update();
-  assert.deepEqual(visible(), ['create', 'designer', 'open', 'check', 'generate']);
+  assert.deepEqual(visible(), ['create', 'designer', 'open', 'check', 'generate', 'remove']);
   assert.ok(view.buttons.designer.classList.contains('h-btn-primary'));
   assert.ok(host.querySelector('.h-website-details-head')?.querySelector('.fa-pen'), 'pen beside the title');
   await application.select(10);
   view.update();
-  assert.deepEqual(visible(), ['create', 'designer', 'open', 'check', 'generate']);
+  assert.deepEqual(visible(), ['create', 'designer', 'open', 'check', 'generate', 'remove']);
   await application.select(30);
   view.update();
   assert.deepEqual(visible(), ['create', 'open']);

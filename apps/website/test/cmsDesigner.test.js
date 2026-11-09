@@ -137,7 +137,10 @@ test('catalogs of Add page and Add element: the available elements are the ones 
   const { ELEMENT_GROUPS, PAGE_TEMPLATES, previewSvg } = await import('../src/designer/designerCatalog.js');
   const { CMS_ELEMENTS, cmsPageStarter } = await import('#shared/site/cmsEdit.js');
   const elements = ELEMENT_GROUPS.flatMap((group) => group.items);
-  assert.deepEqual(ELEMENT_GROUPS.map((group) => group.label), ['Content and layout', 'Modules', 'Header and footer', 'Widgets']);
+  assert.deepEqual(ELEMENT_GROUPS.map((group) => group.label), ['Content and layout', 'Modules', 'Widgets']);
+  // plan 27f §13: the order of the widgets
+  assert.deepEqual(ELEMENT_GROUPS[2].items.map((item) => item.value),
+    ['cards', 'gallery', 'actionmenu', 'badges', 'social', 'headerSet', 'siteFooter', 'email', 'menu', 'language']);
   assert.deepEqual(elements.filter((item) => item.available).map((item) => item.value).sort(), [...CMS_ELEMENTS].sort());
   assert.equal(new Set(elements.map((item) => item.value)).size, elements.length, 'unique values');
   const templates = PAGE_TEMPLATES[0].items;
@@ -192,10 +195,10 @@ test('Styles popup: four tabs, themes, kind defaults, presets, custom CSS with t
   assert.equal(cache.parentElement.hidden, false);
   cache.value = '3';
   cache.fire('input');
-  headerPosition.value = 'fixed';
+  headerPosition.value = 'scroll';
   headerPosition.fire('change');
-  assert.deepEqual(form.read().layout, { navigation: 'swap', cache: 3, header: { position: 'fixed' } });
-  headerPosition.value = 'default';
+  assert.deepEqual(form.read().layout, { navigation: 'swap', cache: 3, header: { position: 'scroll' } });
+  headerPosition.value = 'fixed';
   headerPosition.fire('change');
   assert.deepEqual(form.read().layout, { navigation: 'swap', cache: 3 });
   assert.match(form.tabs.panels[3].textContent, /CSS and Javascript are disabled by default/, 'warning without JavaScript allowed');

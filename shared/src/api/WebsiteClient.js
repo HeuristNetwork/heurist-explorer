@@ -73,12 +73,16 @@ export class WebsiteClient {
   /**
    * Create a v4 website (the server adds the starter content and an "About" page).
    *
-   * @param {{title: string, languages?: string[]}} values Title and 3-letter language codes (first = default).
+   * @param {{title?: string, languages?: string[], details?: Object<string, Array>}} values Title, 3-letter language codes
+   *        (first = default) and other fields of the website record by field id (plan 27f §13: title, subtitle, short
+   *        summary, logo, banner); empty fields are left out.
    * @returns {Promise<{id: number, record: object}>}
    */
   async create(values = {}) {
     const codes = await this.codes();
-    const details = { [codes.name]: String(values.title || '') };
+    const details = Object.fromEntries(Object.entries(values.details || {})
+      .filter(([, value]) => (Array.isArray(value) ? value.length : value != null && value !== '')));
+    if (values.title) details[codes.name] = String(values.title);
     if (Array.isArray(values.languages) && values.languages.length) details[codes.languages] = values.languages;
     const result = await this._call('POST', '/website/0', { rec_ID: 0, details });
     const record = result?.records?.[0] || null;

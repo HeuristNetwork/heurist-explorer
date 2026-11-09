@@ -5,9 +5,9 @@
  *        standalone pages (HRecordManager), center - the toolbar and the details of the
  *        selected record.
  *
- * Toolbar: New website | for the selection: Open editor, Open, Check, Generate (Edit, Add to
- * menu and Delete are hidden since 2026-10-31: the record is edited with the pen beside the
- * title of the details). Legacy websites (format 1-3) are listed with their mark and can only
+ * Toolbar: New website | for the selection: Open editor, Open, Check, Generate, Delete (Edit and
+ * Add to menu are hidden since 2026-10-31: the record is edited with the pen beside the title of
+ * the details; Delete is back since 2026-11-09). Legacy websites (format 1-3) are listed with their mark and can only
  * be opened. In a narrow pane only the icons are shown. "Publish this view" is in Explorer's
  * options menu (§11).
  *
@@ -196,14 +196,26 @@ export class WebsiteManager extends HBaseWidget {
     show(this.buttons.generate, v4 && summary.kind !== 'page' && summary.canEdit);
     // hidden for now (2026-10-31): the menu is edited in the designer
     show(this.buttons.addToMenu, false);
-    show(this.buttons.remove, false);
+    // shown again (review 2026-11-09)
+    show(this.buttons.remove, v4 && summary.kind !== 'page' && Boolean(summary.canEdit));
     this.buttons.generate.disabled = (app.builds || []).some((job) => ['queued', 'running'].includes(job.status));
     this.details.render();
   }
 
   /** New website form, then the website is selected. */
   async createWebsite() {
-    const values = await openNewWebsiteForm({ languages: this.app.dbdefs?.translationLanguages?.() || [] });
+    const app = this.app;
+    const values = await openNewWebsiteForm({
+      languages: app.dbdefs?.translationLanguages?.() || [],
+      dbdefs: app.dbdefs,
+      apiClient: app.apiClient,
+      codes: await app.websites.codes(),
+      services: {
+        recordField: await app.bridge?.recordFieldServices?.(),
+        browseRecords: app.bridge?.browseRecords,
+        createRecordBrowser: app.bridge?.createRecordBrowser
+      }
+    });
     if (!values) return;
     const result = await this.app.createWebsite(values);
     HMsg.showMsgFlash($HR('The website is created'), { showDelay: 2000 });

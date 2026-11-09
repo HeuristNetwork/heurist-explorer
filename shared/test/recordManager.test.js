@@ -591,3 +591,21 @@ test('record list tools: first in a list item, after the admin info of the card 
     assert.ok(tools(item.children[1]), mode);
   }
 });
+
+test('unconstrained: record counts are loaded once for the Record type of the filter (review 2026-11-09)', async () => {
+  let counts = null;
+  const asked = [];
+  const defs = {
+    ...dbdefs,
+    hasRectypeCounts: () => counts !== null,
+    setRectypeCounts: (rows) => { counts = new Map(rows.map((row) => [row.id, row.count])); },
+    isRectypeUsed: (id) => !counts || (counts.get(Number(id)) || 0) > 0
+  };
+  const apiClient = { get: async (path, { query }) => { asked.push([path, query.op]); return { rectypes: [{ rec_RecTypeID: '10', count: 3 }] }; } };
+  const { widget } = manager({ selectMode: 'select', dbdefs: defs, apiClient });
+  await widget._loadRectypeCounts();
+  await widget._loadRectypeCounts();
+  assert.deepEqual(asked, [['/records/aggregate', 'rectypes']]);
+  assert.equal(defs.isRectypeUsed(10), true);
+  assert.equal(defs.isRectypeUsed(11), false);
+});

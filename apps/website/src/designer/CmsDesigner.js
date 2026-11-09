@@ -36,7 +36,8 @@ import { oneAtATime } from '#shared/ui/oneAtATime.js';
 import { openTextTranslationDialog } from '#shared/widgets/translation/HTextTranslationDialog.js';
 import { openTranslationDialog } from '#shared/widgets/translation/HTranslationDialog.js';
 import { CmsPreview, PREVIEW_WIDTHS } from './CmsPreview.js';
-import { WebsiteCheck } from '../manager/WebsiteCheck.js';
+import { WebsiteCheck, checkProblemPlaces } from '../manager/WebsiteCheck.js';
+import { createWebsiteFieldsForm } from '../manager/websiteFields.js';
 import {
   openCardsForm, openFieldForm, openLanguageForm, openMediaForm, openMenuForm, openReportForm, teamReportBody
 } from './widgetForms.js';
@@ -107,6 +108,8 @@ export class CmsDesigner {
     this.undoStack = [];
     this.redoStack = [];
     this.language = null;
+    // pages and elements with a problem found by Check, marked in the trees
+    this.problems = null;
     // Side by side / Show HTML of the text popup, kept between openings
     this.textDialogState = {};
     this.clipboard = readClipboard(options.runtime?.database);
@@ -553,13 +556,17 @@ export class CmsDesigner {
   }
 
   _siteItems() {
+    // problems found by Check (Highlight issues in tree)
+    const marked = (id) => Boolean(this.problems?.pages.has(Number(id)));
     const pages = (list) => (list || []).map((page) => ({
-      id: `page:${page.id}`, label: page.title || `#${page.id}`, icon: PART_ICONS.page, bold: true, children: pages(page.children)
+      id: `page:${page.id}`, label: page.title || `#${page.id}`, icon: PART_ICONS.page, bold: true, danger: marked(page.id),
+      children: pages(page.children)
     }));
     return [
-      { id: 'part:header', label: $HR('Header'), icon: PART_ICONS.header, bold: true, draggable: false },
-      { id: 'part:content', label: $HR('Home'), icon: PART_ICONS.content, bold: true, draggable: false, children: pages(this.site.pages) },
-      { id: 'part:footer', label: $HR('Footer'), icon: PART_ICONS.footer, bold: true, draggable: false }
+      { id: 'part:header', label: $HR('Header'), icon: PART_ICONS.header, bold: true, draggable: false, danger: this._sitePartProblem('header') },
+      { id: 'part:content', label: $HR('Home'), icon: PART_ICONS.content, bold: true, draggable: false, danger: this._sitePartProblem('content'),
+        children: pages(this.site.pages) },
+      { id: 'part:footer', label: $HR('Footer'), icon: PART_ICONS.footer, bold: true, draggable: false, danger: this._sitePartProblem('footer') }
     ];
   }
 
@@ -669,7 +676,8 @@ export class CmsDesigner {
 
   /**
    * Check of the website (review 2026-11-08): saved state only (asks about unsaved changes), result in a popup.
-   * The record editor and viewer open over the designer: the popup closes first; after an edit it opens again.
+   * The record editor and the record viewer are dialogs over it; after an edit the check runs again. *Highlight
+   * issues in tree* marks the pages and elements with a problem in the site and page trees.
    */
   async _check() {
     if (!(await this._leaveDirty())) return;
@@ -682,36 +690,66 @@ export class CmsDesigner {
       HMsg.showMsgErr?.(error?.message || String(error));
       return;
     }
+    // a new check: the marks of the last one go
+    this._setProblemMarks(null);
+    const places = checkProblemPlaces(result);
     const host = element('div');
     const close = () => HMsg.closeMsgDlg(CHECK_DIALOG);
     const widget = new WebsiteCheck().attach(host, {
       apiClient: this.apiClient,
       baseUrl: this.options.runtime?.baseUrl,
       database: this.options.runtime?.database,
-      onEditRecord: this.readOnly ? undefined : async (id) => {
-        close();
-        await this._editRecord(id);
-      },
-      onViewRecord: typeof this.bridge?.viewRecord === 'function' ? (id) => {
-        close();
-        this.bridge.viewRecord(id);
-      } : undefined,
+      onEditRecord: this.readOnly ? undefined : (id) => this._editRecord(id),
+      onViewRecord: typeof this.bridge?.viewRecord === 'function' ? (id) => this.bridge.viewRecord(id) : undefined,
       onRecheck: () => void this._check()
     });
-    const dialog = HMsg.showMsgDlg(host, {
-      dialogId: CHECK_DIALOG,
-      title: 'Check',
-      buttons: [{ label: 'Close', class: 'h-btn', onClick: close }]
-    });
-    dialog?.classList.add('h-website-check-dialog');
+    const buttons = [{ label: 'Close', class: 'h-btn', onClick: close }];
+    if (places.pages.size) {
+      buttons.unshift({ label: 'Highlight issues in tree', class: 'h-btn h-btn-primary', onClick: () => {
+        close();
+        this._setProblemMarks(places);
+      } });
+    }
+    const dialog = HMsg.showMsgDlg(host, { dialogId: CHECK_DIALOG, title: 'Check', buttons });
+    if (dialog) dialog.style.width = 'min(1100px, calc(100vw - 24px))';
     const onClose = () => {
       if (dialog.open) return;
       dialog.removeEventListener('close', onClose);
-      dialog.classList.remove('h-website-check-dialog');
+      dialog.style.width = '';
       void widget.destroy();
     };
     dialog?.addEventListener('close', onClose);
     await widget.setResult(result);
+  }
+
+  /** Pages and elements with a problem marked in the trees (`checkProblemPlaces`), null: no marks. */
+  _setProblemMarks(places) {
+    this.problems = places;
+    if (this.siteTree) {
+      this.siteTree.setItems(this._siteItems());
+      this.siteTree.select(this._partItemId(this.current));
+    }
+    if (this.partTree) {
+      this.partTree.setItems(this._partItems());
+      this.partTree.select(this.selectedNode || ROOT);
+    }
+  }
+
+  /** Whether a part of the website record (header, content, footer) has a marked problem. */
+  _sitePartProblem(part) {
+    const siteId = this.site?.id;
+    if (!siteId || !this.problems?.pages.has(siteId)) return false;
+    const nodes = this.problems.nodes.get(siteId);
+    const doc = this.records.get(siteId)?.doc;
+    const inPart = (name) => {
+      const ids = new Set();
+      const walk = (items) => items.forEach((item) => { ids.add(item.id); walk(item.children || []); });
+      walk(doc?.tree(name) || []);
+      return [...(nodes || [])].some((node) => ids.has(node));
+    };
+    if (inPart(part)) return true;
+    // a problem of the website record itself, or of an element not found in a part: Home
+    return part === 'content' && !['header', 'content', 'footer'].some((name) => inPart(name));
   }
 
   async _editRecord(id) {
@@ -751,12 +789,29 @@ export class CmsDesigner {
     this._updateBar();
   }
 
-  async _styles() {
+  /**
+   * The Styles popup of the website or standalone page; with a website also its fields title, subtitle, logo and banner
+   * (Header block of Navigation and layout, plan 27f §13), saved with the styles.
+   *
+   * @param {{tab?: string}} [options] `tab: 'layout'` opens Navigation and layout (button Layout below the page tree).
+   */
+  async _styles({ tab = '' } = {}) {
     if (!(await this._leaveDirty())) return;
     const id = this.site ? this.site.id : this.standalone.id;
     const record = await this._record(id);
     const css = this.codes.css ? fieldText(record.record.details?.[this.codes.css]) : '';
+    const recordField = this.site ? await this.bridge?.recordFieldServices?.() : null;
     const values = await openStylesDialog({
+      tab,
+      websiteFields: this.site ? (host) => createWebsiteFieldsForm(host, {
+        dbdefs: this.options.dbdefs,
+        apiClient: this.apiClient,
+        codes: this.codes,
+        keys: ['name', 'subtitle', 'logo', 'banner'],
+        record: record.record,
+        languages: this.site.languages || [],
+        services: { ...this._formServices(), translator: this._translator(), recordField }
+      }) : null,
       base: record.doc.base(),
       kinds: record.doc.kinds(),
       presets: record.doc.presets(),
@@ -774,8 +829,8 @@ export class CmsDesigner {
     record.doc.setCommonStyles(values);
     record.doc.setLayout(values.layout);
     const layoutChanged = JSON.stringify(record.doc.layout()) !== layoutBefore;
-    // Custom CSS (DT_CMS_CSS) is a field of the record, not of the document: saved with the styles
-    const extra = this.codes.css && values.css !== css ? { [this.codes.css]: values.css } : {};
+    // Custom CSS (DT_CMS_CSS) and the website fields are fields of the record, not of the document: saved with the styles
+    const extra = { ...(values.fields || {}), ...(this.codes.css && values.css !== css ? { [this.codes.css]: values.css } : {}) };
     if (await this._saveRecord(id, { extra })) {
       // the custom CSS is in the head of the page, the layout in the page written by the server: load it again
       if (Object.keys(extra).length || layoutChanged) this._loadPreview(); else this._applyPreview();
@@ -821,16 +876,21 @@ export class CmsDesigner {
 
   _partItems() {
     const record = this._currentRecord();
+    // elements with a problem found by Check (Highlight issues in tree)
+    const marked = this.current ? this.problems?.nodes.get(this.current.recordId) : null;
     const map = (items) => items.map((item) => ({
       id: item.id,
       label: item.label,
       icon: nodeIcon(item),
+      danger: Boolean(marked?.has(item.id)),
       badge: item.configured ? '' : $HR('not configured'),
       title: [item.kind, item.preset ? `${$HR('preset')}: ${item.preset}` : ''].filter(Boolean).join(' · '),
       children: map(item.children)
     }));
     return [{
       id: ROOT, label: this._partLabel(), icon: this._partIcon(), bold: true, draggable: false,
+      danger: this.site && this.current?.recordId === this.site.id ? this._sitePartProblem(this.current.part)
+        : Boolean(this.current && this.problems?.pages.has(this.current.recordId)),
       children: record ? map(record.doc.tree(this.current.part)) : []
     }];
   }
@@ -919,17 +979,17 @@ export class CmsDesigner {
       await this._insertField(target);
       return;
     }
+    // the header default set belongs into the header (plan 27f §13)
+    if (values.element === 'headerSet' && this.current.part !== 'header') {
+      HMsg.showMsgFlash?.($HR('The header default set can be added to the header only'), { showDelay: 3000 });
+      return;
+    }
     // the footer composer: its blocks first (plan 27f §3.2)
     const options = values.element === 'siteFooter' ? await openFooterForm() : {};
     if (!options) return;
     let added = null;
     this._edit((doc) => {
       added = doc.insertElement(this.current.part, values.element, target, options);
-      // the Sidebar header belongs into a vertical header (plan 27f §3.1)
-      if (values.element === 'headerSidebar' && this.current.part === 'header') {
-        const layout = doc.layout();
-        doc.setLayout({ ...layout, header: { ...(layout.header || {}), orientation: 'vertical' } });
-      }
       if (values.title && doc.isContainer(added)) doc.setCaption(added, values.title);
       else if (values.title && doc.text(added)) doc.setText(added, `<h2>${escapeHtml(values.title)}</h2>${doc.text(added)}`);
       return true;
@@ -986,6 +1046,10 @@ export class CmsDesigner {
       if (node.field) box.append(barButton('fa-pen', 'The record, the field and its value', () => this._editField(node.id), 'Edit field'));
       if (node.kind === 'media') box.append(barButton('fa-pen', 'The file, caption and size of the media', () => this._editMedia(node.id), 'Edit media'));
       if (node.kind === 'instance') box.append(barButton('fa-gear', 'Configuration', () => this._configure(node.id), 'Configuration'));
+    }
+    // header and footer: their position, orientation and theme, and the fields of the website (plan 27f §13)
+    if (this.site && this.current?.recordId === this.site.id && ['header', 'footer'].includes(this.current.part)) {
+      box.append(barButton('fa-sliders', 'Position, orientation, theme and fields of the header and footer', () => this._styles({ tab: 'layout' }), 'Layout'));
     }
     const spacer = element('span', 'h-cms-picker-spacer');
     const copy = barButton('fa-copy', 'Copy the selected element with its texts', () => this._copy('all'));
@@ -1223,12 +1287,14 @@ export class CmsDesigner {
    * The popup of a Record field element.
    *
    * @param {string|null} reference Current `data-h-field`; null for a new element.
-   * @returns {Promise<{reference: string, html: string}|null>}
+   * @param {object} [style] Own style of the element: its width and height go into the popup (a file field).
+   * @returns {Promise<{reference: string, html: string, size?: object}|null>}
    */
-  async _askField(reference) {
+  async _askField(reference, style = {}) {
     try {
       return await openFieldForm({
         reference,
+        size: { width: style.width, height: style.height },
         records: { site: this.site?.id || 0, page: this.current?.recordId || 0 },
         languages: this.site?.languages || [],
         dbdefs: this.options.dbdefs,
@@ -1251,9 +1317,9 @@ export class CmsDesigner {
   async _editField(id) {
     const record = this._currentRecord();
     if (!record) return;
-    const result = await this._askField(record.doc.field(id));
+    const result = await this._askField(record.doc.field(id), record.doc.nodeStyle(id));
     if (!result) return;
-    this._edit((doc) => doc.setField(id, result.reference, result.html));
+    this._edit((doc) => doc.setField(id, result.reference, result.html) && setFieldSize(doc, id, result.size));
     // the value in the language of the preview comes from the server
     this._loadPreview();
   }
@@ -1265,7 +1331,7 @@ export class CmsDesigner {
     let added = null;
     this._edit((doc) => {
       added = doc.insertElement(this.current.part, 'field', target);
-      return doc.setField(added, result.reference, result.html);
+      return doc.setField(added, result.reference, result.html) && setFieldSize(doc, added, result.size);
     });
     if (added) this._selectNode(added);
   }
@@ -1653,9 +1719,27 @@ function caption(text) {
   return node;
 }
 
-/** {field: value} as record details ({field: [value]}). */
+/** {field: value} as record details ({field: [value]}); a list of values stays a list. */
 function mapValues(fields) {
-  return Object.fromEntries(Object.entries(fields).map(([field, value]) => [field, [value]]));
+  return Object.fromEntries(Object.entries(fields).map(([field, value]) => [field, Array.isArray(value) ? value : [value]]));
+}
+
+/**
+ * Width and height of a Record field element with a file (its own style; '' removes the property).
+ *
+ * @param {object} doc Record document.
+ * @param {string} id Node id.
+ * @param {{width: string, height: string}|undefined} size From the field popup; none: the style is not changed.
+ * @returns {boolean} Always true (a step of an edit).
+ */
+function setFieldSize(doc, id, size) {
+  if (!size) return true;
+  const style = doc.nodeStyle(id);
+  for (const key of ['width', 'height']) {
+    if (size[key]) style[key] = size[key]; else delete style[key];
+  }
+  doc.setNodeStyle(id, style);
+  return true;
 }
 
 /** Text of the first value of a field (`details[field]`: values or {value} objects). */

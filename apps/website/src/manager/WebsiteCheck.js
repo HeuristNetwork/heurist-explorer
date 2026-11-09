@@ -1,9 +1,10 @@
 /**
  * @file WebsiteCheck.js
- * @brief Result of the check of a website (review 2026-11-08): problems of the format of all its pages, then the
- *        records a visitor can not see (the website, its pages, records picked on the pages: record fields, media,
- *        generated reports, record cards, media galleries) in HRecordLists with owner, visibility, edit and info.
- *        Used by the Website manager (details) and by the CMS designer (popup).
+ * @brief Result of the check of a website (review 2026-11-08): three sections - problems of the format of all its
+ *        pages, pages a visitor can not see, records used on the pages that a visitor can not see (also record
+ *        fields whose field or values are hidden from the public). Records are shown in HRecordLists with owner,
+ *        visibility, edit and info; the records used on the pages with the page name and, as a tooltip, the
+ *        elements. Used by the Website manager (details) and by the CMS designer (popup).
  *
  * @project     Heurist academic knowledge management system
  * @package     heurist-website
@@ -22,13 +23,6 @@ import { RecordListLoader } from '#shared/data/RecordListLoader.js';
 import { $HR } from '#shared/ui';
 import './WebsiteCheck.css';
 
-/** Groups of the records a visitor can not see, by `role` of the check. */
-const GROUPS = [
-  ['website', 'Website'],
-  ['page', 'Pages'],
-  ['reference', 'Records used on the pages']
-];
-
 /** Names of the elements that refer to records (`kind` of the check). */
 const KIND_TEXT = {
   field: 'Record field',
@@ -38,8 +32,29 @@ const KIND_TEXT = {
   gallery: 'Media gallery'
 };
 
-/** Visibility of a record as text (missing records are not in the lists). */
-const VISIBILITY_TEXT = { hidden: 'Hidden (owners only)', viewable: 'Logged-in users only' };
+/** Texts of the three sections. */
+const TEXT = {
+  format: {
+    title: 'Format',
+    tip: 'Problems of the HTML and of the settings of the pages. An error can stop a part of the page from being shown; '
+      + 'warnings should be corrected too. The element is given in brackets: open the page in the website editor and '
+      + 'correct or remove it.',
+    ok: 'All is correct. No problems of the format.'
+  },
+  pages: {
+    title: 'Non public pages',
+    tip: 'These pages are not public, the visitors do not see them. Open Record Editor and make this page Public in '
+      + 'summary section.',
+    ok: 'All is correct. All pages are public.'
+  },
+  records: {
+    title: 'Non public records on pages',
+    tip: 'Elements refer to non public records. Their values will not be visible to visitors. Open Record Editor and '
+      + 'make the record Public in summary section. For a Record field the field itself or some of its values may be '
+      + 'hidden from the public: change the visibility of the value in Record Editor.',
+    ok: 'All is correct. All records used on the pages are public.'
+  }
+};
 
 /** Problems and records a visitor can not see. */
 export class WebsiteCheck extends HBaseWidget {
@@ -72,17 +87,28 @@ export class WebsiteCheck extends HBaseWidget {
     await this._destroyLists();
     const root = el('div', 'h-website-check');
     this.container.replaceChildren(root);
+    const records = this.result.records || [];
     this._renderIssues(root, this.result.issues || []);
-    await this._renderRecords(root, this.result.records || []);
+    el('hr', 'h-website-check-line', root);
+    await this._renderPages(root, records.filter((record) => record.role === 'website' || record.role === 'page'));
+    el('hr', 'h-website-check-line', root);
+    await this._renderRecords(root, records.filter((record) => record.role === 'reference'));
+  }
+
+  /** Section with its title and tip; `count` 0 shows the OK message instead of the tip. */
+  _section(root, texts, count) {
+    const section = el('section', 'h-website-check-section', root);
+    const head = el('h4', 'h-website-check-title', section);
+    head.textContent = $HR(texts.title);
+    if (count) el('span', 'h-website-check-count', head).textContent = String(count);
+    if (count) el('p', 'h-website-check-tip', section).textContent = $HR(texts.tip);
+    else el('p', 'h-website-ok', section).textContent = $HR(texts.ok);
+    return section;
   }
 
   _renderIssues(root, issues) {
-    const section = el('section', 'h-website-check-section', root);
-    el('h4', '', section).textContent = $HR('Format');
-    if (!issues.length) {
-      el('p', 'h-website-ok', section).textContent = $HR('No problems found');
-      return;
-    }
+    const section = this._section(root, TEXT.format, issues.length);
+    if (!issues.length) return;
     // grouped by page; header, footer and website problems come with the first page (the home)
     const pages = new Map();
     for (const issue of issues) {
@@ -100,28 +126,24 @@ export class WebsiteCheck extends HBaseWidget {
     }
   }
 
-  async _renderRecords(root, records) {
-    const section = el('section', 'h-website-check-section', root);
-    el('h4', '', section).textContent = $HR('Records a visitor can not see');
-    if (!records.length) {
-      el('p', 'h-website-ok', section).textContent = $HR('All records are public');
-      return;
-    }
-    el('p', 'h-muted', section).textContent = $HR('These records are not public: visitors do not see them or their parts of the pages.');
-    for (const [role, title] of GROUPS) {
-      const rows = records.filter((record) => record.role === role && record.visibility !== 'missing');
-      if (!rows.length) continue;
-      el('div', 'h-website-check-group', section).textContent = $HR(title);
-      await this._renderList(el('div', 'h-website-check-list', section), rows);
-    }
-    const missing = records.filter((record) => record.visibility === 'missing');
+  async _renderPages(root, rows) {
+    const section = this._section(root, TEXT.pages, rows.length);
+    if (rows.length) await this._renderList(el('div', 'h-website-check-list', section), rows, false);
+  }
+
+  async _renderRecords(root, rows) {
+    const section = this._section(root, TEXT.records, rows.length);
+    const found = rows.filter((record) => record.visibility !== 'missing');
+    if (found.length) await this._renderList(el('div', 'h-website-check-list', section), found, true);
+    const missing = rows.filter((record) => record.visibility === 'missing');
     if (missing.length) {
       const note = el('p', 'h-website-issue h-website-issue-warning', section);
-      note.textContent = `${$HR('Records not found')}: ${missing.map((record) => `${record.id} (${usedInText(record)})`).join(', ')}`;
+      note.textContent = `${$HR('Records not found (deleted?)')}: ${missing.map((record) => `${record.id} (${usedInText(record)})`).join('; ')}`;
     }
   }
 
-  async _renderList(host, rows) {
+  /** Records in a standard HRecordList; `withPages`: the page name column (the elements as its tooltip). */
+  async _renderList(host, rows, withPages) {
     const byId = new Map(rows.map((row) => [Number(row.id), row]));
     const loader = new RecordListLoader({
       apiClient: this.options.apiClient,
@@ -150,14 +172,7 @@ export class WebsiteCheck extends HBaseWidget {
       onDataRequest: (request) => loader.load(request),
       onEditRecord: (id) => void this._edit(id),
       onViewRecord: (id) => this.options.onViewRecord?.(Number(id)),
-      // visibility and where the record is used
-      recordTools: (record) => {
-        const row = byId.get(Number(record?.rec_ID));
-        if (!row) return null;
-        const note = el('span', 'h-website-check-used');
-        note.textContent = [$HR(VISIBILITY_TEXT[row.visibility] || row.visibility), usedInText(row)].filter(Boolean).join(' · ');
-        return note;
-      }
+      recordTools: withPages ? (record) => pageColumn(byId.get(Number(record?.rec_ID))) : undefined
     });
     await list.reload();
   }
@@ -180,11 +195,51 @@ export class WebsiteCheck extends HBaseWidget {
   }
 }
 
+/**
+ * Pages and elements with a problem in a check result (the designer highlights them in its trees).
+ *
+ * @param {{issues?: Array<object>, records?: Array<object>}} result Answer of `GET /website/{id}/validate`.
+ * @returns {{pages: Set<number>, nodes: Map<number, Set<string>>}} Page ids, and the element names per page.
+ */
+export function checkProblemPlaces(result) {
+  const pages = new Set();
+  const nodes = new Map();
+  const add = (page, node) => {
+    const id = Number(page) || 0;
+    if (!id) return;
+    pages.add(id);
+    if (!node) return;
+    if (!nodes.has(id)) nodes.set(id, new Set());
+    nodes.get(id).add(String(node));
+  };
+  for (const issue of result?.issues || []) add(issue.page, issue.node);
+  for (const record of result?.records || []) {
+    if (record.role === 'website' || record.role === 'page') add(record.id, null);
+    for (const use of record.usedIn || []) add(use.page, use.node);
+  }
+  return { pages, nodes };
+}
+
+/** Column of a record used on the pages: the page name(s); the elements and hidden fields as the tooltip. */
+function pageColumn(row) {
+  if (!row) return null;
+  const pages = [...new Set((row.usedIn || []).map((use) => use.pageTitle || `#${use.page}`))];
+  const cell = el('div', 'h-website-check-pages');
+  if (row.fields?.length) el('i', 'fa-solid fa-eye-slash h-website-check-field', cell).setAttribute('aria-hidden', 'true');
+  el('span', 'h-website-check-pages-text', cell).textContent = pages.join(', ');
+  const lines = [usedInText(row, '\n')];
+  for (const field of row.fields || []) {
+    lines.push(`${field.name}: ${$HR(field.state === 'partly' ? 'some values are not public' : 'not public')}`);
+  }
+  cell.title = lines.filter(Boolean).join('\n');
+  return cell;
+}
+
 /** "About · Record field (n3); Team · Record cards (c1)". */
-function usedInText(record) {
+function usedInText(record, separator = '; ') {
   return (record.usedIn || [])
     .map((use) => `${use.pageTitle || `#${use.page}`} · ${$HR(KIND_TEXT[use.kind] || use.kind)}${use.node ? ` (${use.node})` : ''}`)
-    .join('; ');
+    .join(separator);
 }
 
 function el(tag, className, parent = null) {

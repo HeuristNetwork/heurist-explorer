@@ -220,56 +220,18 @@ export const ELEMENT_GROUPS = Object.freeze([
     ]
   },
   {
-    label: 'Header and footer',
-    items: [
-      {
-        value: 'siteHeader', label: 'Header: Basic', available: true,
-        description: 'Two rows on the surface colour: the logo, the title of the website and a subtitle below it; the menu and the'
-          + ' language switch. Smaller on medium screens; title and subtitle hidden on narrow screens.',
-        preview: [['i', 8, 8, 16, 16], ['h', 28, 10, 40, 7], ['t', 28, 18, 30, 6], ['f', 8, 32, 80, 8], ['f', 96, 32, 16, 8]]
-      },
-      {
-        value: 'headerCompact', label: 'Header: Compact', available: true,
-        description: 'Everything in one row: a smaller logo and title, the menu and the language switch.',
-        preview: [['i', 8, 10, 10, 10], ['h', 22, 12, 24, 6], ['f', 50, 12, 46, 6], ['f', 100, 12, 12, 6]]
-      },
-      {
-        value: 'headerCentered', label: 'Header: Centered', available: true,
-        description: 'The logo, title and subtitle in the middle, the menu centred below them.',
-        preview: [['i', 52, 4, 16, 14], ['h', 36, 22, 48, 7], ['t', 44, 31, 32, 6], ['f', 24, 42, 72, 8]]
-      },
-      {
-        value: 'headerBanner', label: 'Header: Banner', available: true,
-        description: 'A band across the page with the title and subtitle (give it a background image in its style), the menu below.',
-        preview: [['b', 4, 4, 112, 36], ['h', 32, 14, 56, 8], ['t', 40, 26, 40, 6], ['f', 8, 46, 104, 8]]
-      },
-      {
-        value: 'headerSidebar', label: 'Header: Sidebar', available: true,
-        description: 'For a vertical header (a left column): logo, title, subtitle, a vertical menu and the language switch.'
-          + ' Sets the header orientation to Vertical.',
-        preview: [['b', 4, 4, 36, 72], ['i', 10, 8, 16, 14], ['h', 10, 26, 24, 6], ['f', 10, 38, 24, 5], ['f', 10, 46, 24, 5], ['t', 46, 8, 66, 60]]
-      },
-      {
-        value: 'siteFooter', label: 'Footer composer', available: true,
-        description: 'Choose the blocks of a footer: partners and sponsors (badges), social media, links to pages, copyright,'
-          + ' Powered by Heurist and the organisation that hosts this Heurist.',
-        preview: [['i', 8, 50, 18, 14], ['i', 30, 50, 18, 14], ['f', 56, 50, 24, 5], ['f', 56, 58, 24, 5], ['t', 86, 50, 26, 16]]
-      }
-    ]
-  },
-  {
     label: 'Widgets',
     items: [
       {
-        value: 'menu', label: 'Menu', available: true,
-        description: 'Provides a navigation menu containing links to the pages of the website.',
-        preview: [['f', 8, 10, 104, 9], ['t', 8, 28, 104, 40]]
-      },
-      {
-        value: 'cards', label: 'Record cards / slideshow', available: true,
+        value: 'cards', label: 'Records (cards and slider)', available: true,
         description: 'A card for each record, made by a Smarty template: records picked by hand or a query, at most 50.'
           + ' Shown as a list, a carousel or a slideshow.',
         preview: [['b', 8, 10, 32, 56], ['b', 44, 10, 32, 56], ['b', 80, 10, 32, 56]]
+      },
+      {
+        value: 'gallery', label: 'Media (gallery and slider)', available: true,
+        description: 'Images and other media of media records, registered files or the file field of any record, as a gallery or a slideshow.',
+        preview: [['i', 8, 8, 32, 30], ['i', 44, 8, 32, 30], ['i', 80, 8, 32, 30], ['i', 8, 42, 32, 30], ['i', 44, 42, 32, 30], ['i', 80, 42, 32, 30]]
       },
       {
         value: 'actionmenu', label: 'Action menu', available: true,
@@ -279,9 +241,10 @@ export const ELEMENT_GROUPS = Object.freeze([
         preview: [['f', 8, 10, 30, 9], ['f', 44, 10, 30, 9], ['f', 80, 10, 30, 9], ['t', 8, 28, 104, 40]]
       },
       {
-        value: 'gallery', label: 'Media gallery / slideshow', available: true,
-        description: 'Images and other media of media records, registered files or the file field of any record, as a gallery or a slideshow.',
-        preview: [['i', 8, 8, 32, 30], ['i', 44, 8, 32, 30], ['i', 80, 8, 32, 30], ['i', 8, 42, 32, 30], ['i', 44, 42, 32, 30], ['i', 80, 42, 32, 30]]
+        value: 'badges', label: 'Badges', available: true,
+        description: 'A row of logos with links: the participants, sponsors or hosts of the project. For social media use'
+          + ' Social media links.',
+        preview: [['i', 6, 28, 22, 22], ['i', 34, 28, 22, 22], ['i', 62, 28, 22, 22], ['i', 90, 28, 22, 22]]
       },
       {
         value: 'social', label: 'Social media links', available: true,
@@ -290,21 +253,33 @@ export const ELEMENT_GROUPS = Object.freeze([
         preview: [['i', 10, 30, 16, 16], ['i', 32, 30, 16, 16], ['i', 54, 30, 16, 16], ['i', 76, 30, 16, 16]]
       },
       {
-        value: 'badges', label: 'Badges', available: true,
-        description: 'A row of logos with links: the participants, sponsors or hosts of the project. For social media use'
-          + ' Social media links.',
-        preview: [['i', 6, 28, 22, 22], ['i', 34, 28, 22, 22], ['i', 62, 28, 22, 22], ['i', 90, 28, 22, 22]]
+        value: 'headerSet', label: 'Header: default set', available: true,
+        description: 'The header of the website: logo, title and subtitle of the website record, the main menu and the'
+          + ' language switch; the banner image of the website is its background. One row on normal screens, two rows on'
+          + ' medium screens, stacked on narrow screens, a column in a vertical header (Styles, Navigation and layout).',
+        preview: [['i', 6, 12, 14, 14], ['h', 24, 13, 30, 6], ['t', 24, 20, 24, 5], ['f', 60, 15, 40, 6], ['f', 104, 15, 10, 6]]
+      },
+      {
+        value: 'siteFooter', label: 'Footer composer', available: true,
+        description: 'Choose the blocks of a footer: partners and sponsors (badges), social media, links to pages, copyright,'
+          + ' Powered by Heurist and the organisation that hosts this Heurist.',
+        preview: [['i', 8, 50, 18, 14], ['i', 30, 50, 18, 14], ['f', 56, 50, 24, 5], ['f', 56, 58, 24, 5], ['t', 86, 50, 26, 16]]
+      },
+      {
+        value: 'email', label: 'Email form',
+        description: 'A form which visitors use to send an email to the website owner (the address is not shown).',
+        preview: [['f', 10, 10, 100, 8], ['f', 10, 22, 100, 8], ['f', 10, 34, 100, 26], ['f', 82, 64, 28, 8]]
+      },
+      {
+        value: 'menu', label: 'Main menu', available: true,
+        description: 'Provides a navigation menu containing links to the pages of the website.',
+        preview: [['f', 8, 10, 104, 9], ['t', 8, 28, 104, 40]]
       },
       {
         value: 'language', label: 'Language switcher', available: true,
         description: 'Switches the website to another of its languages (multilingual websites); the visitor stays on'
           + ' the same page.',
         preview: [['f', 70, 10, 12, 8], ['f', 84, 10, 12, 8], ['f', 98, 10, 12, 8], ['t', 8, 28, 104, 40]]
-      },
-      {
-        value: 'email', label: 'Email form',
-        description: 'A form which visitors use to send an email to the website owner (the address is not shown).',
-        preview: [['f', 10, 10, 100, 8], ['f', 10, 22, 100, 8], ['f', 10, 34, 100, 26], ['f', 82, 64, 28, 8]]
       }
     ]
   }

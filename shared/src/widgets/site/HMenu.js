@@ -12,7 +12,8 @@
  * `selectableParent` (default true) a page with sub pages opens, else its title opens the sub menu;
  * `presentation` of an action menu: links, buttons, icons or dropdown. An item: title, url, current,
  * children, icon (image URL), fa (Font Awesome classes), format name / icon / both, newTab.
- * On a narrow screen the horizontal website menu is behind a menu button.
+ * On a narrow screen, or when it does not fit its place in one row (plan 27f §13), the horizontal website menu is
+ * behind a menu button.
  *
  * @project     Heurist academic knowledge management system
  * @package     heurist-client-core
@@ -102,9 +103,38 @@ export class HMenu extends HBaseWidget {
       });
     }
     if (nav.classList.contains('h-site-menu-vertical') || nav.classList.contains('h-site-menu-auto')) this._expanders(nav);
+    if (toggle && !nav.classList.contains('h-site-menu-dropdown')) this._fitWidth(nav);
     if (!nav.getAttribute('aria-label')) nav.setAttribute('aria-label', $HR(this.options.label || 'Site menu'));
     this.state = 'rendered';
     return this;
+  }
+
+  /**
+   * A horizontal website menu that needs more than one row goes behind its menu button (class is-narrow), as on a
+   * narrow screen; checked again when its place changes size.
+   */
+  _fitWidth(nav) {
+    const list = [...nav.children].find((child) => child.classList?.contains('h-site-menu-list'));
+    const Observer = globalThis.ResizeObserver;
+    if (!list || !Observer) return;
+    const fit = () => {
+      nav.classList.remove('is-narrow');
+      // a column (vertical menu, vertical header): nothing to fit
+      if (globalThis.getComputedStyle?.(list).flexDirection === 'column') return;
+      const first = list.firstElementChild;
+      const wraps = Boolean(first) && list.offsetHeight > first.offsetHeight * 1.5;
+      nav.classList.toggle('is-narrow', wraps);
+    };
+    fit();
+    this._observer?.disconnect?.();
+    this._observer = new Observer(fit);
+    this._observer.observe(this.container);
+  }
+
+  /** Stop observing the size. */
+  destroy() {
+    this._observer?.disconnect?.();
+    super.destroy?.();
   }
 
   /** Vertical menu: a button beside each page with sub pages opens / closes them; the branch of the current page is open. */

@@ -69,7 +69,26 @@ test('layout settings of the Styles popup: defaults are not written', () => {
   setLayout(layout, 'footer.position', 'default');
   setLayout(layout, 'cache', 8);
   assert.deepEqual(layout, { navigation: 'scroll', header: { position: 'slide' } });
-  setLayout(layout, 'header.position', 'default');
+  setLayout(layout, 'header.position', 'fixed');
   setLayout(layout, 'navigation', 'reload');
   assert.deepEqual(layout, {});
+});
+
+test('layout of plan 27f §13: rows, header and footer themes, own colours; no shrink', async () => {
+  const { cmsLayoutProblems, CMS_LAYOUT } = await import('#shared/site/cmsDocument.js');
+  assert.deepEqual(CMS_LAYOUT.header.position, ['fixed', 'scroll', 'slide', 'none']);
+  assert.deepEqual(cmsLayoutProblems({ header: { rows: 'two', theme: 'own', colors: { bg: '#fff', text: 'rgb(1, 2, 3)' } },
+    footer: { theme: 'primary' } }), []);
+  assert.equal(cmsLayoutProblems({ header: { position: 'shrink' } }).length, 1);
+  assert.equal(cmsLayoutProblems({ header: { colors: { bg: 'url(x)' } } }).length, 1, 'a colour that is not allowed');
+  assert.equal(cmsLayoutProblems({ footer: { colors: { border: '#fff' } } }).length, 1, 'only bg and text');
+  const layout = {};
+  setLayout(layout, 'header.rows', 'two');
+  setLayout(layout, 'header.theme', 'own');
+  setLayout(layout, 'header.colors', { bg: '#000' });
+  assert.deepEqual(layout, { header: { rows: 'two', theme: 'own', colors: { bg: '#000' } } });
+  setLayout(layout, 'header.rows', 'auto');
+  setLayout(layout, 'header.theme', 'default');
+  setLayout(layout, 'header.colors', null);
+  assert.deepEqual(layout, {}, 'defaults are not written');
 });

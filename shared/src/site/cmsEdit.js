@@ -44,13 +44,14 @@ export const CMS_CONTROLS = Object.freeze(['group', 'tabs', 'accordion']);
 
 /** Elements the designer can add (§5.2). */
 export const CMS_ELEMENTS = Object.freeze(['text', 'media', 'group', 'columns2', 'columns3', 'tabs', 'accordion', 'explorer',
-  'data', 'map', 'timeline', 'graph', 'recordview', 'menu', 'report', 'cards', 'gallery', 'siteHeader', 'field', 'language',
-  'actionmenu', 'social', 'badges', 'headerCompact', 'headerCentered', 'headerBanner', 'headerSidebar', 'siteFooter']);
+  'data', 'map', 'timeline', 'graph', 'recordview', 'menu', 'report', 'cards', 'gallery', 'headerSet', 'field', 'language',
+  'actionmenu', 'social', 'badges', 'siteFooter']);
 
-/** Header templates (plan 27f §3.1): element => label. `siteHeader` is the Basic header. */
-export const CMS_HEADER_TEMPLATES = Object.freeze({
-  siteHeader: 'Basic', headerCompact: 'Compact', headerCentered: 'Centered', headerBanner: 'Banner', headerSidebar: 'Sidebar'
-});
+/**
+ * Fields of the website record in the header default set (plan 27f §13): logo, title, subtitle (concept codes of
+ * DT_FILE_RESOURCE, DT_NAME, DT_ALTERNATE_NAME). The banner (DT_CMS_BANNER 99-951) is the background of the header.
+ */
+export const CMS_HEADER_FIELDS = Object.freeze({ logo: '2-38', title: '2-1', subtitle: '3-1009' });
 
 /** Blocks of the footer composer (plan 27f §3.2), in their order in the footer. */
 export const CMS_FOOTER_BLOCKS = Object.freeze(['badges', 'social', 'links', 'copyright', 'heurist', 'host']);
@@ -808,12 +809,8 @@ export class CmsRecordDocument {
         this._nodeStyles()[nodeId] = { 'min-height': '0' };
         return element$('div', [['data-h-node', nodeId], ['data-h-instance', instanceId]], '');
       }
-      case 'siteHeader':
-      case 'headerCompact':
-      case 'headerCentered':
-      case 'headerBanner':
-      case 'headerSidebar':
-        return this._header(element, id, group);
+      case 'headerSet':
+        return this._header(id, group);
       case 'siteFooter':
         return this._footer(options, id, group);
       case 'language':
@@ -848,47 +845,28 @@ export class CmsRecordDocument {
   }
 
   /**
-   * A header template (plan 27f §3.1): logo (`website.2-38`), title (`website.2-1`), a subtitle text to fill in, the
-   * menu and the language switch, arranged by the template. Classes h-site-logo / -title / -subtitle make them smaller
-   * (or hidden) on medium and narrow screens.
+   * The header default set (plan 27f §13): logo, title and subtitle of the website record, the main menu and the
+   * language switch. No own styles: the CSS of the website arranges them by their classes (one row on normal screens,
+   * two rows on medium screens or with `layout.header.rows = two`, stacked on narrow screens, a column in a vertical
+   * header); the banner image of the website is the background of the header.
    */
-  _header(kind, id, group) {
-    const style = (node, value) => {
-      this._nodeStyles()[attr(node, 'data-h-node')] = value;
+  _header(id, group) {
+    const field = (code, className, html = '') => element$('div', [['data-h-node', id('n')], ['data-h-text', ''],
+      ['data-h-field', `website.${code}`], ['class', className]], html);
+    const classed = (node, className) => {
+      setAttr(node, 'class', className);
       return node;
     };
-    const logo = (small = false) => element$('div', [['data-h-node', id('n')], ['data-h-text', ''], ['data-h-field', 'website.2-38'],
-      ['class', small ? 'h-site-logo h-site-logo-small' : 'h-site-logo']], '');
-    const title = () => element$('div', [['data-h-node', id('n')], ['data-h-text', ''], ['data-h-field', 'website.2-1'],
-      ['class', 'h-site-title']], 'Website title');
-    const subtitle = () => element$('div', [['data-h-node', id('n')], ['data-h-text', ''], ['class', 'h-site-subtitle']], '<p>define subtitle</p>');
-    const menu = (settings = null) => {
-      const node = this._create('menu');
-      if (settings) this.config.instances[attr(node, 'data-h-instance')].settings = settings;
-      return node;
-    };
-    const language = () => this._create('language');
-    const row = (children, extra = {}) => style(group(children), { display: 'flex', 'flex-wrap': 'wrap', 'align-items': 'center', gap: '1rem', ...extra });
-    const column = (children, extra = {}) => style(group(children), { display: 'flex', 'flex-direction': 'column', ...extra });
-    switch (kind) {
-      case 'headerCompact':
-        return row([logo(true), style(title(), { 'font-size': '1.2em' }), style(menu(), { flex: '1' }), language()], { padding: '0.25rem 1rem' });
-      case 'headerCentered':
-        return column([logo(), title(), subtitle(), menu(), language()], { 'align-items': 'center', gap: '0.5rem', padding: '1rem', 'text-align': 'center' });
-      case 'headerBanner':
-        return column([
-          column([title(), subtitle()], { 'align-items': 'center', gap: '0.25rem', padding: '48px 16px', 'text-align': 'center',
-            'background-color': 'var(--h-color-primary)', color: '#ffffff' }),
-          row([logo(true), style(menu(), { flex: '1' }), language()], { padding: '0.25rem 1rem' })
-        ]);
-      case 'headerSidebar':
-        return column([logo(), title(), subtitle(), menu({ orientation: 'auto' }), language()], { gap: '0.75rem', padding: '1rem' });
-      default:
-        return column([
-          row([logo(), column([title(), subtitle()], { gap: '2px' })]),
-          row([style(menu(), { flex: '1' }), language()], { 'justify-content': 'space-between' })
-        ], { gap: '0.5rem', padding: '0.75rem 1rem', 'background-color': 'var(--h-color-surface)' });
-    }
+    const menu = this._create('menu');
+    // vertical in a vertical header
+    this.config.instances[attr(menu, 'data-h-instance')].settings = { orientation: 'auto' };
+    return classed(group([
+      field(CMS_HEADER_FIELDS.logo, 'h-site-logo'),
+      classed(group([field(CMS_HEADER_FIELDS.title, 'h-site-title', 'Website title'), field(CMS_HEADER_FIELDS.subtitle, 'h-site-subtitle')]),
+        'h-site-brand'),
+      classed(menu, 'h-site-hset-menu'),
+      classed(this._create('language'), 'h-site-hset-lang')
+    ]), 'h-site-hset');
   }
 
   /**

@@ -121,3 +121,9 @@
 .h-tree-bold .h-tree-label {
   font-weight: 600;
 }
+
+/* an item with a problem (the check of a website) */
+.h-tree-danger .h-tree-label,
+.h-tree-danger .h-tree-icon {
+  color: var(--h-color-danger, #b91c1c);
+}

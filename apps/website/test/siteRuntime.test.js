@@ -4,7 +4,7 @@ import { installFakeDom, flush } from '../../../shared/test/helpers/fakeDom.js';
 
 const document = installFakeDom();
 globalThis.Event ??= class Event { constructor(type) { this.type = type; } };
-const { enhanceTabs, startSite } = await import('../src/siteRuntime.js');
+const { attachHeaderToggle, enhanceTabs, startSite } = await import('../src/siteRuntime.js');
 
 /** An element with attributes and children. */
 function element(tag, attributes = {}, ...children) {
@@ -139,4 +139,31 @@ test('language switch (plan 27f §5): links, a select for appearance select, not
   new HLangSwitch().attach(single, { languages: [languages[0]], language: 'eng' }).render();
   assert.equal(single.hidden, true);
   assert.equal(single.children.length, 0);
+});
+
+test('slide out header (plan 27f §13): a button collapses and expands it, the choice is kept', () => {
+  const header = element('header', {}, element('div'));
+  header.className = 'h-site-header';
+  const body = element('div', {}, header);
+  body.className = 'h-site-header-slide';
+  document.body.append(body);
+  const values = new Map();
+  const storage = { getItem: (key) => values.get(key) ?? null, setItem: (key, value) => values.set(key, value) };
+  const detach = attachHeaderToggle(body, { key: 'k', storage });
+  const button = header.querySelector('.h-site-header-toggle');
+  assert.ok(button, 'the button is in the header');
+  assert.ok(!body.classList.contains('h-site-header-collapsed'), 'starts expanded');
+  assert.equal(button.getAttribute('aria-expanded'), 'true');
+  button.click();
+  assert.ok(body.classList.contains('h-site-header-collapsed'));
+  assert.equal(values.get('k'), 'collapsed');
+  detach();
+  assert.equal(header.querySelector('.h-site-header-toggle'), null);
+  // the next page: collapsed at once
+  attachHeaderToggle(body, { key: 'k', storage });
+  assert.ok(body.classList.contains('h-site-header-collapsed'));
+  header.querySelector('.h-site-header-toggle').click();
+  assert.ok(!body.classList.contains('h-site-header-collapsed'));
+  assert.equal(values.get('k'), 'expanded');
+  body.remove();
 });
