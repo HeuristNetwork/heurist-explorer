@@ -6,7 +6,8 @@
  *
  *   report: {action, field, fieldName, complete, stage, done, total, lastRecordId,
  *            records: {scope, changed, unchanged, skipped, errors}, skipped: {reason: count},
- *            values: {found, added, removed}, ids: {changed, skipped, errors}, idsTruncated,
+ *            values: {found, added, removed}, deleted: {relationships, bookmarks} (delete),
+ *            ids: {changed, skipped, errors}, idsTruncated,
  *            errors: [{id, message}], seconds}
  *
  * @project     Heurist academic knowledge management system
@@ -43,12 +44,13 @@ const STOPPED = { cancelled: 'Stopped', timeout: 'Time limit reached', failed: '
  *
  * @param {object} params Action parameters (`action`, `field`, `title`).
  * @param {number} recordId The record.
- * @param {{changed?: object, values?: object, done?: boolean|null, error?: *}} outcome `changed` / `values` =
- *        meta.changed / meta.values of a field PATCH; `done`: the record was changed (ownership: meta.headerChanged;
- *        delete: true); or the error (RecordEditError).
+ * @param {{changed?: object, values?: object, done?: boolean|null, deleted?: object|null, error?: *}} outcome
+ *        `changed` / `values` = meta.changed / meta.values of a field PATCH; `done`: the record was changed
+ *        (ownership: meta.headerChanged; delete: true); `deleted`: the DELETE answer (relationshipsDeleted,
+ *        bookmarks); or the error (RecordEditError).
  * @returns {object} Report.
  */
-export function singleRecordReport(params, recordId, { changed = null, values = null, done = null, error = null } = {}) {
+export function singleRecordReport(params, recordId, { changed = null, values = null, done = null, deleted = null, error = null } = {}) {
   const report = {
     action: params.action,
     field: params.field,
@@ -61,6 +63,7 @@ export function singleRecordReport(params, recordId, { changed = null, values = 
     records: { scope: 1, changed: 0, unchanged: 0, skipped: 0, errors: 0 },
     skipped: {},
     values: null,
+    deleted: params.action === 'delete' ? { relationships: 0, bookmarks: 0 } : null,
     ids: { changed: [], skipped: [], errors: [] },
     errors: [],
     seconds: 0
@@ -85,6 +88,11 @@ export function singleRecordReport(params, recordId, { changed = null, values = 
   if (fieldValues) {
     report.values = {
       found: Number(fieldValues.found) || 0, added: Number(fieldValues.added) || 0, removed: Number(fieldValues.removed) || 0
+    };
+  }
+  if (report.deleted && deleted) {
+    report.deleted = {
+      relationships: Number(deleted.relationshipsDeleted) || 0, bookmarks: Number(deleted.bookmarks) || 0
     };
   }
   const isChanged = done !== null ? done === true : Number(changed?.[String(params.field)] ?? 0) > 0;
@@ -159,6 +167,10 @@ export function renderActionReport(job, { showRecords = null } = {}) {
     addRow(table, report.action === 'field-add' ? 'Values before (existing)' : 'Values found', values.found);
     addRow(table, 'Values added', values.added);
     addRow(table, 'Values removed', values.removed);
+  }
+  if (deleted && report.deleted) {
+    addRow(table, 'Relationship records deleted', Number(report.deleted.relationships) || 0);
+    addRow(table, 'Bookmarks deleted', Number(report.deleted.bookmarks) || 0);
   }
   if (report.seconds) addRow(table, 'Time (seconds)', report.seconds);
   root.append(table);

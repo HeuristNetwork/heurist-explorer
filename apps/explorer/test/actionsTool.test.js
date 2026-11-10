@@ -155,7 +155,7 @@ async function mountTool({ selection = [], jobs = [], finishes = true, total = 9
     },
     remove: async (id, options) => {
       removed.push({ id, options });
-      return { deleted: [String(id)] };
+      return { deleted: [String(id), '77'], relationshipsDeleted: 1, bookmarks: 2 };
     }
   };
   const tool = new ActionsTool({
@@ -341,8 +341,39 @@ test('Delete of up to 10 records: no password; one selected record by DELETE, th
   }
   assert.equal(started.length, 0);
   assert.deepEqual(removed, [{ id: 42, options: { force: true } }]);
-  assert.match(container.querySelector('.h-actions-report-box').textContent, /Records deleted/);
+  const report = container.querySelector('.h-actions-report-box');
+  assert.match(report.textContent, /Records deleted/);
+  assert.match(report.textContent, /Relationship records deleted1/);
+  assert.match(report.textContent, /Bookmarks deleted2/);
   assert.equal(refreshed(), 1, 'Explorer runs the current result again');
+});
+
+test('Run hides the action pane; Repeat action shows it again and hides the report; All actions hides the report', async () => {
+  const { tool, container } = await mountTool({ selection: [42] });
+  await openAction(container, 'ownership');
+  await flush();
+  const select = container.querySelector('.h-actions-scope');
+  select.value = 'selection';
+  select.dispatchEvent(new Event('change'));
+  await flush();
+  const restore = confirmRun();
+  try {
+    await tool._run();
+  } finally {
+    restore();
+  }
+  const pane = container.querySelector('.h-actions-pane');
+  const report = container.querySelector('.h-actions-report-box');
+  assert.equal(pane.hidden, true, 'the pane is hidden after Run');
+  assert.equal(report.hidden, false);
+  report.querySelector('.h-actions-repeat-button').click();
+  assert.equal(report.hidden, true, 'Repeat action hides the report');
+  assert.equal(pane.hidden, false, 'and shows the pane');
+  tool._showReport({ status: 'done', result: { action: 'ownership', records: { scope: 1, changed: 1 } } });
+  assert.equal(report.querySelector('.h-actions-repeat-button'), null, 'no Repeat while the pane is shown');
+  container.querySelector('.h-actions-back').click();
+  await flush();
+  assert.equal(report.hidden, true, 'All actions hides the report');
 });
 
 test('Rebuild record titles: no form, the job with the scope only', async () => {

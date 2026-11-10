@@ -43,7 +43,7 @@ PUT and POST stay as they are.
 |---|---|---|
 | replace | `details: {f: [values]}` | without a match: all values of f are replaced (as now). With `detailsMatch[f]`: only the matching values are removed and the new values are inserted once. Nothing matches: no change, unless f is in `addIfNone` → the new values are added. |
 | delete | `details: {f: []}` | without a match: f is removed. With `detailsMatch[f]`: only the matching values are removed. **Refused (422) if f is `required` and no value would be left.** |
-| add | `detailsAdd: {f: [values]}` | appends values. **Refused (422) unless f is multi-value** (`rst_MaxValues` ≠ 1); refused if stored + new count > max (when max > 1). |
+| add | `detailsAdd: {f: [values]}` | appends values. **Refused (422) on a single-value field that has a value** (`rst_MaxValues` = 1; an empty one gets the value, changed 2026-11-10, plan 33 §9); refused if stored + new count > max (when max > 1). |
 
 - **Value matching** = the value conditions of the Heurist query format, the same as `f:N:<value>`:
   `=Johnson` exact, `==Johnson` case-sensitive exact, `son` contains, `son%` starts with, `%son` ends with,

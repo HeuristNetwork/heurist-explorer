@@ -1358,3 +1358,6 @@
 #Records unchanged#Enregistrements inchangés
 #The new title would be blank#Le nouveau titre serait vide
 #The record does not exist any more#L'enregistrement n'existe plus
+#Repeat action#Répéter l'action
+#Relationship records deleted#Enregistrements de relation supprimés
+#Bookmarks deleted#Signets supprimés

@@ -10,7 +10,8 @@
  *    server password above 10 records and a warning icon) and Run.
  * A set of records runs as the background job "record-action" (srv/Records/Actions): while
  * it runs only HJobMonitor (progress, Stop) is shown; then the report (ActionReport), also
- * for a job that stopped early. One record (a selection of one) is changed by PATCH or DELETE
+ * for a job that stopped early. The action pane is hidden on Run; "Repeat action" below the report
+ * (or closing it) shows the pane again; the report is hidden on All actions. One record (a selection of one) is changed by PATCH or DELETE
  * /records/{id} at once (titles and calculated fields: always the job). After a change Explorer
  * runs the current result again (`onRecordsChanged`). A running job is shown again after a page reload; one job at a
  * time. Toolbar: Back to the list, Last result (the report of the newest finished job).
@@ -212,6 +213,8 @@ export class ActionsTool extends HBaseWidget {
     await this.form?.destroy?.();
     this.form = null;
     this.action = null;
+    this._pane = null;
+    this._reportBox.hidden = true;
     this._backButton.hidden = true;
     this._title.textContent = $HR('Actions');
     const list = element('div', 'h-actions-list');
@@ -254,6 +257,8 @@ export class ActionsTool extends HBaseWidget {
     this._title.append(document.createTextNode(
       `${$HR(ACTION_GROUPS.find((group) => group.id === action.group)?.name || '')} · ${$HR(action.name)}`));
     const pane = element('div', 'h-actions-pane');
+    this._pane = pane;
+    this._reportBox.hidden = true;
 
     const help = element('div', `h-actions-help${action.danger ? ' is-danger' : ''}`);
     if (action.danger) help.append(dangerIcon());
@@ -352,6 +357,7 @@ export class ActionsTool extends HBaseWidget {
       : `${$HR(this.action.name)}: ${params.title}\n${$HR('Change the records of the scope')}: ${count}?`;
     if (!(await confirmDialog(question, this.action.danger ? 'Delete' : 'Run'))) return;
     this._runButton.disabled = true;
+    this._setPaneVisible(false);
     try {
       // one selected record: PATCH or DELETE at once (titles and calculated fields: always the job)
       if (this.scope === 'selection' && this.selection.length === 1 && !['titles', 'calculations'].includes(params.action)) {
@@ -361,8 +367,21 @@ export class ActionsTool extends HBaseWidget {
         this._follow(job);
       }
     } catch (error) {
+      this._setPaneVisible(true);
       this._showError(error);
     }
+    this._refresh();
+  }
+
+  /** The action pane is hidden after Run; "Repeat action" below the report shows it again. */
+  _setPaneVisible(visible) {
+    if (this._pane) this._pane.hidden = !visible;
+  }
+
+  /** Repeat action: the report is hidden, the action pane shown again. */
+  _repeatAction() {
+    this._reportBox.hidden = true;
+    this._setPaneVisible(true);
     this._refresh();
   }
 
@@ -373,8 +392,8 @@ export class ActionsTool extends HBaseWidget {
     let report;
     try {
       if (params.action === 'delete') {
-        await client.remove(recordId, { force: true });
-        report = singleRecordReport(reportParams, recordId, { done: true });
+        const deleted = await client.remove(recordId, { force: true });
+        report = singleRecordReport(reportParams, recordId, { done: true, deleted });
       } else if (params.action === 'ownership') {
         const saved = await client.patch(recordId, {
           rec_OwnerUGrpID: params.owner,
@@ -453,10 +472,16 @@ export class ActionsTool extends HBaseWidget {
     close.type = 'button';
     close.title = $HR('Close');
     close.innerHTML = '<span class="fa-solid fa-xmark" aria-hidden="true"></span>';
-    close.addEventListener('click', () => { box.hidden = true; });
+    close.addEventListener('click', () => this._repeatAction());
     box.append(close, renderActionReport(job, {
       showRecords: this.showRecords ? (ids, title) => this.showRecords(ids, title) : null
     }));
+    if (this._pane?.hidden) {
+      const repeat = element('div', 'h-actions-bottom h-actions-repeat');
+      repeat.append(button('h-btn h-actions-repeat-button', 'fa-solid fa-rotate-right', $HR('Repeat action'),
+        () => this._repeatAction()));
+      box.append(repeat);
+    }
     box.hidden = false;
   }
 

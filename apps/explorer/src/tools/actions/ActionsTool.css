@@ -160,6 +160,14 @@
     justify-content: flex-end;
 }
 
+.h-actions-repeat {
+    margin-top: 8px;
+}
+
+.h-actions-pane[hidden] {
+    display: none;
+}
+
 .h-actions-confirm {
     white-space: pre-line;
 }

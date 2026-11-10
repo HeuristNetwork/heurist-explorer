@@ -1,7 +1,7 @@
 # 33 Actions tool and batch field updates (plan 32 Phase 2)
 
 **Status 2026-11-10: agreed with Artem; Field values (Add, Replace, Delete), and in Phase 2 (§8) Ownership, titles,
-calculated fields and Delete records implemented in both repos, not committed,
+calculated fields and Delete records implemented in both repos; review round 2 (§9) done; not committed,
 not checked in a browser (§6).** Other actions: listed, disabled.
 
 ## 1. Context
@@ -204,3 +204,20 @@ Client: catalog `form` / `danger`, `OwnershipAction`, `simpleActions.js` (`NoFor
 Differences: deleted records are not in the scope of a later job at all (the scope search drops them), so `missing`
 appears only for records deleted while a job runs. The pane shows the database share only when Explorer has the record
 type counts.
+
+## 9. Review round 2 (Artem, 2026-11-10; done, not committed, no browser check)
+
+1. **Run hides the action pane.** The report appears in its place (the pane is shown again when the start fails).
+2. **Repeat action** below the report (only when the pane was hidden by Run): shows the pane again and hides the
+   report. The close button of the report does the same.
+3. The report is hidden on *All actions* (and when another action is opened) and on *Repeat action*.
+4. **Delete report:** rows *Relationship records deleted* and *Bookmarks deleted* (report key `deleted:
+   {relationships, bookmarks}`, delete only; from `RecordDeleteService::delete` `relationshipsDeleted` / `bookmarks`,
+   also for one record by DELETE).
+5. **Bug: Add to a single-value field** (e.g. 2-3 on records 204874, 204884, 204919 without a value) skipped every
+   record as *The field has one value only*. The PATCH rule of plan 32 refused `detailsAdd` on any single-value field.
+   Changed: `detailsAdd` on a single-value field is refused only when the field has a value already
+   (stored + added > 1), so Add fills empty single-value fields and skips the records with a value. Plan 32 §2 updated.
+
+Tests: `RecordActionTest.php --write` 68 pass (empty single-value field filled; relationship record and bookmark
+counted), `FieldPatchTest.php --write` 53 pass; `npm test` 1,700 pass. Explorer built and deployed.
