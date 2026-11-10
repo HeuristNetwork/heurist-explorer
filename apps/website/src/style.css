@@ -391,6 +391,22 @@ html.h-site {
   background-color: var(--h-color-bg);
 }
 
+/* a fixed footer is at the bottom of the window when the page is short (review 2026-11-10): the body is a column of
+   the height of the window, main takes the free space (a vertical header on wider screens: the grid of the body) */
+body.h-site-footer-fixed {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+body.h-site-footer-fixed > :is(.h-site-header, .h-site-main, .h-site-footer) {
+  width: 100%;
+}
+
+body.h-site-footer-fixed > .h-site-main {
+  flex: 1 0 auto;
+}
+
 .h-site-hide-header .h-site-header,
 .h-site-hide-footer .h-site-footer {
   display: none;
@@ -535,17 +551,13 @@ html.h-site .h-site-logo img {
     grid-template-areas: "logo brand" "menu lang";
     gap: 0.5rem 1rem;
   }
-
-  /* a vertical header is on top and scrolls away on narrow screens */
-  .h-site-header-vertical .h-site-header {
-    position: static;
-  }
 }
 
 @media (min-width: 641px) {
   .h-site-header-vertical:not(.h-site-hide-header) {
     display: grid;
-    grid-template-columns: minmax(180px, 260px) minmax(0, 1fr);
+    /* Header width of Navigation and layout (PageRenderer::layoutCss) */
+    grid-template-columns: var(--h-site-header-width, minmax(180px, 260px)) minmax(0, 1fr);
     grid-template-rows: 1fr auto;
     min-height: 100vh;
   }
@@ -610,6 +622,11 @@ html.h-site .h-site-logo img {
   display: none;
 }
 
+/* a click anywhere on the collapsed header expands it (siteRuntime attachHeaderToggle) */
+.h-site-header-collapsed .h-site-header {
+  cursor: pointer;
+}
+
 .h-site-header-collapsed .h-site-header .h-site-logo {
   --h-site-logo-now: 24px;
 }
@@ -647,13 +664,16 @@ html.h-site .h-site-logo img {
     grid-template-columns: 64px minmax(0, 1fr);
   }
 
-  .h-site-header-vertical.h-site-header-collapsed .h-site-header :is(.h-site-title, .h-site-brand) {
-    display: none;
-  }
-
+  /* the title turned by 90 degrees below the logo (review 2026-11-10) */
   .h-site-header-vertical.h-site-header-collapsed .h-site-header .h-site-hset {
     grid-template-columns: minmax(0, 1fr);
-    grid-template-areas: "logo";
+    grid-template-areas: "logo" "brand";
+    gap: 0.75rem 0;
+  }
+
+  .h-site-header-vertical.h-site-header-collapsed .h-site-header .h-site-hset .h-site-title {
+    max-height: calc(100vh - 120px);
+    writing-mode: vertical-rl;
   }
 }
 

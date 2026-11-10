@@ -96,7 +96,8 @@ const HEADER_STATE_KEY = 'heurist.site.header';
 
 /**
  * The slide out header (plan 27f §13): a button expands or collapses it (class h-site-header-collapsed on the body);
- * on the right of a horizontal header, above the logo of a vertical one (CSS). It starts expanded; the choice of the
+ * on the right of a horizontal header, above the logo of a vertical one (CSS); a click anywhere on the collapsed header
+ * expands it too. It starts expanded; the choice of the
  * visitor is kept in the browser for the next pages.
  *
  * @param {HTMLElement} body Element with the class h-site-header-slide.
@@ -128,17 +129,29 @@ export function attachHeaderToggle(body, { key = '', storage = safeLocalStorage(
   button.type = 'button';
   button.className = 'h-site-header-toggle';
   show(stored === 'collapsed');
-  button.addEventListener('click', () => {
-    const collapsed = !body.classList.contains('h-site-header-collapsed');
+  const change = (collapsed) => {
     show(collapsed);
     try {
       if (key) storage?.setItem(key, collapsed ? 'collapsed' : 'expanded');
     } catch {
       // private mode or no storage: the choice is not kept
     }
+  };
+  button.addEventListener('click', (event) => {
+    event.stopPropagation();
+    change(!body.classList.contains('h-site-header-collapsed'));
   });
+  // a click anywhere on the collapsed header expands it (review 2026-11-10); links keep working
+  const expand = (event) => {
+    if (!body.classList.contains('h-site-header-collapsed') || event.target?.closest?.('a[href]')) return;
+    change(false);
+  };
+  header.addEventListener('click', expand);
   header.prepend(button);
-  return () => button.remove?.();
+  return () => {
+    header.removeEventListener('click', expand);
+    button.remove?.();
+  };
 }
 
 /** @returns {Storage|null} localStorage, or null when the browser does not give it. */

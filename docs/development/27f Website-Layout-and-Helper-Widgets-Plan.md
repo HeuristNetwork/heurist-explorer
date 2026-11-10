@@ -465,3 +465,24 @@ Answers to the questions of the review and decisions:
 4. Collapse: the button works in the preview too (`startSite` attaches it in design mode, `CmsPreview.apply` keeps it
    when it writes the draft header); collapsed = a bar of 30px with a logo of 24px, the title in one line and the button.
 
+
+### 13.3 Review round 4 (Artem, 2026-11-10), fixes (not committed, no browser check)
+
+1. Vertical + Fixed header on narrow screens (shown on top): stays fixed now (the `position: static` rule for narrow
+   screens removed; Scrolls away is the position to choose for a header that scrolls).
+2. Part tree: a field reference without text in the snapshot (the server writes the value) shows the field name of the
+   record type from HDbDefs (`website: Logo image`) instead of `empty: website.2-38` (`CmsDesigner._fieldLabel`,
+   tree item flag `fieldOnly` in `cmsEdit.js`).
+3. Slide out: a click anywhere on the collapsed header expands it (links still work; `attachHeaderToggle`).
+4. Vertical collapsed: the title below the small logo, turned by 90 degrees (`writing-mode: vertical-rl`).
+5. *Use 2 rows on normal screens*: the checkbox is at the left of its column.
+6. Header and footer size: new layout settings `header.height` (horizontal header), `header.width` (vertical header,
+   default 180-260px) and `footer.height`; a CSS size (`CMS_LAYOUT_SIZE` = `CmsValidator::LAYOUT_SIZE`: number + px, em,
+   rem, vh, vw or %). Heights are a minimum (the logo and menu are never cut), the content in the middle;
+   `PageRenderer::layoutCss` writes them (the width as `--h-site-header-width` of the body grid). Inputs in the Header
+   and Footer blocks of *Navigation and layout* (height or width by orientation). A node style of the group of the
+   default set changes only the group, not the header box or the column of a vertical header — hence the settings.
+7. Fixed footer: the body is a column of the window height (`body.h-site-footer-fixed` flex, main grows), so a short
+   page has the footer at the bottom of the window.
+
+Tests: JS 1,699 pass; WebsiteRenderTest 61 pass.

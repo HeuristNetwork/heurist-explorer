@@ -52,6 +52,15 @@ export const CMS_LAYOUT = Object.freeze({
 /** A colour of the own theme of the header or footer (`layout.header.colors`: bg, text): hex, a name, rgb() or hsl(). */
 export const CMS_LAYOUT_COLOR = /^(?:#[0-9a-f]{3,8}|[a-z]{3,20}|(?:rgb|hsl)a?\([0-9\s.,%deg/]+\))$/i;
 
+/**
+ * Header height / width and footer height (`layout.header.height|width`, `layout.footer.height`; review 2026-11-10):
+ * a number with px, em, rem, vh, vw or % (CmsValidator::LAYOUT_SIZE).
+ */
+export const CMS_LAYOUT_SIZE = /^\d{1,4}(?:\.\d{1,2})?(?:px|em|rem|vh|vw|%)$/;
+
+/** The layout settings that are sizes (CMS_LAYOUT_SIZE). */
+export const CMS_LAYOUT_SIZES = Object.freeze({ header: Object.freeze(['height', 'width']), footer: Object.freeze(['height']) });
+
 /** Pages kept by the navigation mode swap (`layout.cache`): default and limits. */
 export const CMS_LAYOUT_CACHE = Object.freeze({ default: 8, min: 1, max: 50 });
 
@@ -233,7 +242,7 @@ export function cmsInstanceProblem(settings) {
 
 /**
  * Problems of the layout settings (CmsValidator::layoutProblems): unknown keys and values not in CMS_LAYOUT;
- * `header.colors` / `footer.colors` the own colours {bg, text} (CMS_LAYOUT_COLOR);
+ * `header.colors` / `footer.colors` the own colours {bg, text} (CMS_LAYOUT_COLOR); sizes CMS_LAYOUT_SIZES (CMS_LAYOUT_SIZE);
  * `cache` a whole number in CMS_LAYOUT_CACHE; `hideHeader` / `hideFooter` (a page) true or false.
  *
  * @param {object} layout
@@ -260,6 +269,10 @@ export function cmsLayoutProblems(layout) {
           const bad = !isMap(item) || Object.entries(item).some(([part, colour]) => !['bg', 'text'].includes(part)
             || typeof colour !== 'string' || !CMS_LAYOUT_COLOR.test(colour.trim()));
           if (bad) problems.push(`${key}.colors must be {bg, text} colours`);
+          continue;
+        }
+        if (CMS_LAYOUT_SIZES[key].includes(name)) {
+          if (typeof item !== 'string' || !CMS_LAYOUT_SIZE.test(item.trim())) problems.push(`${key}.${name} must be a size such as 120px, 10em or 20%`);
           continue;
         }
         const allowed = CMS_LAYOUT[key][name];

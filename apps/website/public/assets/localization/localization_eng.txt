@@ -267,3 +267,8 @@
 #Main language#Main language
 #Other languages#Other languages
 #Create#Create
+#Header height (minimum)#Header height (minimum)
+#Header width#Header width
+#Footer height (minimum)#Footer height (minimum)
+#height of the content#height of the content
+#A size such as 120px, 10em or 20%#A size such as 120px, 10em or 20%

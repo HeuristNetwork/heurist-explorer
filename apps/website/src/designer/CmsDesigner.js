@@ -880,7 +880,7 @@ export class CmsDesigner {
     const marked = this.current ? this.problems?.nodes.get(this.current.recordId) : null;
     const map = (items) => items.map((item) => ({
       id: item.id,
-      label: item.label,
+      label: item.fieldOnly ? this._fieldLabel(item.field) : item.label,
       icon: nodeIcon(item),
       danger: Boolean(marked?.has(item.id)),
       badge: item.configured ? '' : $HR('not configured'),
@@ -893,6 +893,22 @@ export class CmsDesigner {
         : Boolean(this.current && this.problems?.pages.has(this.current.recordId)),
       children: record ? map(record.doc.tree(this.current.part)) : []
     }];
+  }
+
+  /**
+   * Label of a field reference without text (review 2026-11-10): `website.2-38` -> "website: Logo image"; the name of
+   * the field in the record type (HDbDefs), else the reference itself.
+   *
+   * @param {string} reference `website.{code}`, `page.{code}` or `{record id}.{code}`.
+   * @returns {string}
+   */
+  _fieldLabel(reference) {
+    const [owner, code] = String(reference).split('.');
+    const dbdefs = this.options.dbdefs;
+    const fieldId = /^\d+$/.test(code || '') ? Number(code) : Number(dbdefs?.localId?.('dty', code)) || 0;
+    const rectype = { website: 'RT_CMS_HOME', page: 'RT_CMS_PAGE' }[owner];
+    const name = fieldId ? dbdefs?.fieldName?.(rectype ? Number(dbdefs.dbconst?.(rectype)) || 0 : 0, fieldId) : '';
+    return name ? `${/^\d+$/.test(owner) ? `#${owner}` : owner}: ${name}` : reference;
   }
 
   /**

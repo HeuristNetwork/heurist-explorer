@@ -267,3 +267,8 @@
 #Main language#Langue principale
 #Other languages#Autres langues
 #Create#Créer
+#Header height (minimum)#Hauteur de l’en-tête (minimum)
+#Header width#Largeur de l’en-tête
+#Footer height (minimum)#Hauteur du pied de page (minimum)
+#height of the content#hauteur du contenu
+#A size such as 120px, 10em or 20%#Une taille comme 120px, 10em ou 20%

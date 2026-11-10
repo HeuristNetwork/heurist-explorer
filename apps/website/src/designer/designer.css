@@ -435,6 +435,12 @@
   align-items: center;
 }
 
+/* a checkbox at the left of its column (Use 2 rows on normal screens) */
+.h-cms-styles-field > input[type="checkbox"] {
+  justify-self: start;
+  margin: 0;
+}
+
 .h-cms-styles-value .h-form-input {
   margin: 0;
 }

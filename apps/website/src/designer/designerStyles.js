@@ -21,7 +21,7 @@
 
 import { $HR } from '#shared/ui';
 import {
-  BASE_SETTINGS, CMS_KINDS, CMS_LAYOUT, CMS_LAYOUT_CACHE, CMS_STYLE_PROPERTIES, compileCmsStyles, SCREENS
+  BASE_SETTINGS, CMS_KINDS, CMS_LAYOUT, CMS_LAYOUT_CACHE, CMS_LAYOUT_SIZE, CMS_STYLE_PROPERTIES, compileCmsStyles, SCREENS
 } from '#shared/site/cmsDocument.js';
 import { HInputColor } from '#shared/widgets/form/inputs/HInputColor.js';
 import { fileOfRecord, HInputFile } from '#shared/widgets/form/inputs/HInputFile.js';
@@ -532,11 +532,41 @@ export function createStylesForm({ base = {}, kinds = {}, presets = {}, layout =
     colours.hidden = select.value !== 'own';
     parent.append(colours);
   };
+  // header height / width, footer height (review 2026-11-10): a CSS size; empty = the height of the content, the
+  // width of the vertical header 180-260px (PageRenderer::layoutCss)
+  const sizeInput = (parent, path, label, placeholder) => {
+    const [part, name] = path.split('.');
+    const input = element('input', 'h-input h-compact');
+    input.value = state.layout[part]?.[name] ?? '';
+    input.placeholder = $HR(placeholder);
+    input.addEventListener('change', () => {
+      const value = input.value.trim();
+      const valid = !value || CMS_LAYOUT_SIZE.test(value);
+      input.classList.toggle('h-cms-style-invalid', !valid);
+      input.title = valid ? '' : $HR('A size such as 120px, 10em or 20%');
+      if (!valid) return;
+      setLayout(state.layout, path, value || null);
+      refresh();
+    });
+    const line = field(label, input);
+    parent.append(line);
+    return line;
+  };
   const headerBlock = block();
   layoutSelect(headerBlock, 'Header position', HEADER_POSITIONS, header.position || CMS_LAYOUT.header.position[0],
     (value) => setLayout(state.layout, 'header.position', value));
-  layoutSelect(headerBlock, 'Header orientation', HEADER_ORIENTATIONS, header.orientation || 'horizontal',
-    (value) => setLayout(state.layout, 'header.orientation', value));
+  const showSize = () => {
+    const vertical = state.layout.header?.orientation === 'vertical';
+    heightField.hidden = vertical;
+    widthField.hidden = !vertical;
+  };
+  layoutSelect(headerBlock, 'Header orientation', HEADER_ORIENTATIONS, header.orientation || 'horizontal', (value) => {
+    setLayout(state.layout, 'header.orientation', value);
+    showSize();
+  });
+  const heightField = sizeInput(headerBlock, 'header.height', 'Header height (minimum)', 'height of the content');
+  const widthField = sizeInput(headerBlock, 'header.width', 'Header width', '180-260px');
+  showSize();
   const rows = element('input');
   rows.type = 'checkbox';
   rows.checked = header.rows === 'two';
@@ -559,6 +589,7 @@ export function createStylesForm({ base = {}, kinds = {}, presets = {}, layout =
   })() : Promise.resolve();
   const footerBlock = block();
   layoutSelect(footerBlock, 'Footer position', FOOTER_POSITIONS, footer.position || 'default', (value) => setLayout(state.layout, 'footer.position', value));
+  sizeInput(footerBlock, 'footer.height', 'Footer height (minimum)', 'height of the content');
   themeSelect(footerBlock, 'footer', 'Footer theme');
   previews.push(() => show(layoutDiagram(state.layout)));
 
