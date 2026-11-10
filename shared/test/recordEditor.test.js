@@ -263,7 +263,8 @@ test('New asks the host for a new record; unsaved changes are saved first or the
   const button = element.querySelector('.h-record-editor-new');
   assert.equal(button.hidden, false);
   assert.equal(await editor.newRecord(), true, 'nothing changed: no question');
-  assert.deepEqual(asked, [{ rectypeId: 29, saved: false }]);
+  assert.deepEqual(asked, [{ rectypeId: 29, access: { owner: 2, visibility: 'viewable', viewGroups: [] }, saved: false }],
+    'the type and the owner / visibility of this record: the host opens the new record without a dialog');
 
   const show = HMsg.showMsgDlg;
   const close = HMsg.closeMsgDlg;
@@ -277,7 +278,7 @@ test('New asks the host for a new record; unsaved changes are saved first or the
     answer = 0;
     assert.equal(await editor.newRecord(), true, 'Save');
     assert.equal(calls[0][0], 'update');
-    assert.deepEqual(asked.at(-1), { rectypeId: 29, saved: true });
+    assert.deepEqual(asked.at(-1), { rectypeId: 29, access: { owner: 2, visibility: 'viewable', viewGroups: [] }, saved: true });
   } finally {
     HMsg.showMsgDlg = show;
     HMsg.closeMsgDlg = close;
@@ -306,9 +307,21 @@ test('missing required values are found before sending', async () => {
   await editor.destroy();
 });
 
+test('New: the owner of the record only when the user could choose it, else the current user', async () => {
+  const { editor } = await openEditor({ options: { onNew: () => {} } });
+  editor.accessValue = { owner: 4, visibility: 'hidden', viewGroups: [], editGroups: [] };
+  assert.deepEqual(editor._newRecordAccess(), { owner: 4, visibility: 'hidden', viewGroups: [] }, 'a group of the user');
+  editor.accessValue = { owner: 0, visibility: 'viewable', viewGroups: [], editGroups: [] };
+  assert.equal(editor._newRecordAccess().owner, 0, 'Any logged-in user');
+  editor.accessValue = { owner: 99, visibility: 'public', viewGroups: [], editGroups: [] };
+  assert.deepEqual(editor._newRecordAccess(), { owner: 2, visibility: 'public', viewGroups: [] }, 'another owner: the current user');
+  await editor.destroy();
+});
+
 test('a new record is inserted with the current user as owner', async () => {
   const { editor, calls } = await openEditor({ recordId: 0, rectypeId: 29 });
   assert.equal(editor.isNew, true);
+  assert.match(editor.summary.textContent, /Save the record to tag it/);
   editor.editForm.getFieldWidget(1)._rows[0].input.setValue('New');
   editor.editForm.getFieldWidget(12)._rows[0].input.setValue('t:1');
   assert.equal(await editor.save(), true);
@@ -318,6 +331,7 @@ test('a new record is inserted with the current user as owner', async () => {
   assert.equal(calls[0][1].rec_OwnerUGrpID, '2');
   assert.equal(editor.isNew, false, 'saved record has its id');
   await flush();
+  assert.doesNotMatch(editor.summary.textContent, /Save the record to/, 'the summary sections are built again after the first save');
   await editor.destroy();
 });
 

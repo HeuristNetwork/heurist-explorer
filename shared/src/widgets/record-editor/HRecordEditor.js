@@ -32,7 +32,7 @@
 
 import { HBaseWidget } from '../HBaseWidget.js';
 import { HEditForm } from '../edit-form/HEditForm.js';
-import { HRecordAccess, describeAccess } from '../record-access/HRecordAccess.js';
+import { HRecordAccess, describeAccess, ownerChoices } from '../record-access/HRecordAccess.js';
 import { UserGroupSource } from '../../data/valueSources/localSources.js';
 import { RecordEditClient, RecordEditError } from '../../data/RecordEditClient.js';
 import { recordEntityPath } from '../../data/recordDomains.js';
@@ -113,8 +113,10 @@ export class HRecordEditor extends HBaseWidget {
    *        (see HEditField); `describe` and `edit` get `{field, record, getValue(dty), setValue(dty, value)}`.
    * @param {Function} [options.onSaved] Called after a save with `{record, issues, created}`.
    * @param {Function} [options.onClose] Called when the editor asks to close, with `{saved}`.
-   * @param {Function} [options.onNew] New button of the footer: `({rectypeId, saved})`, called after the
-   *        unsaved changes were saved or dropped; the host opens a new record in place of this one.
+   * @param {Function} [options.onNew] New button of the footer: `({rectypeId, access, saved})`, called after the
+   *        unsaved changes were saved or dropped; the host opens a new record of the same type, with the owner and
+   *        visibility of this one (`access`: {owner, visibility, viewGroups}; an owner the user could not choose:
+   *        the current user), in place of this one (no dialog).
    * @param {number[]} [options.pageIds] Ordered record ids of the list page the record was opened from:
    *        the footer steps through them (this editor loads the other record).
    * @param {boolean} [options.duplicate] Dupe button of the footer: copy a saved record and open the copy.
@@ -470,6 +472,9 @@ export class HRecordEditor extends HBaseWidget {
         this.render();
       }
       this._afterSave(result.issues);
+      this._renderAdminInfo();
+      // a new record: the summary sections that asked to save it first (bookmark, tags, links)
+      if (created) this._summaryRebuilds?.forEach((rebuild) => rebuild());
       this._emit('h-record-editor-saved', { record: result.record, issues: result.issues, created });
       this.options.onSaved?.({ record: result.record, issues: result.issues, created });
       if (close) this.close();
@@ -520,8 +525,25 @@ export class HRecordEditor extends HBaseWidget {
   async newRecord() {
     if (typeof this.options.onNew !== 'function' || this._saving) return false;
     if (!(await this._saveOrDrop($HR('Save the changes of this record before you add a new one?')))) return false;
-    this.options.onNew({ rectypeId: this.rectypeId, saved: this._saved });
+    this.options.onNew({ rectypeId: this.rectypeId, access: this._newRecordAccess(), saved: this._saved });
     return true;
+  }
+
+  /**
+   * Owner and visibility of a record made by New: those of this record; its owner only when the user
+   * could choose it (Any logged-in user, the user, a group of the user; a database administrator: anyone),
+   * else the current user (2026-11-10).
+   *
+   * @returns {{owner: number, visibility: string, viewGroups: number[]}}
+   */
+  _newRecordAccess() {
+    const { owner, visibility, viewGroups } = this._header();
+    const allowed = ownerChoices(this.dbdefs).items().some((item) => Number(item.value) === Number(owner));
+    return {
+      owner: allowed ? owner : Number(this.dbdefs?.currentUserId?.()) || 0,
+      visibility,
+      viewGroups: [...viewGroups]
+    };
   }
 
   /**
@@ -969,6 +991,8 @@ export class HRecordEditor extends HBaseWidget {
     const sections = this.options.summarySections || null;
     // Private, Tags and Linked records are loaded when the pane and the section are open (2026-10-27)
     this._summaryLoaders = [];
+    // sections built for a new record ("Save the record to ..."): built again after its first save
+    this._summaryRebuilds = [];
     const section = (title, open, build, lazy = false) => {
       const id = SUMMARY_SECTION_IDS[title];
       if (sections && !sections.includes(id)) return null;
@@ -987,6 +1011,9 @@ export class HRecordEditor extends HBaseWidget {
         return details;
       }
       let built = false;
+      this._summaryRebuilds.push(() => {
+        if (built) build(body);
+      });
       const load = () => {
         if (built || !details.open || this.cardinal?.state?.east?.collapsed === true) return;
         built = true;
@@ -1085,7 +1112,16 @@ export class HRecordEditor extends HBaseWidget {
   /** Admin: owner and access (editable), added by, added and updated. */
   _renderAdmin(body, header) {
     body.append(this._renderOwnership(header, { legend: false }));
-    if (this.isNew) return;
+    this._adminBody = body;
+    this._renderAdminInfo();
+  }
+
+  /** Admin: added by, added and updated (not for a new record; again after each save). */
+  _renderAdminInfo() {
+    this._adminInfo?.remove();
+    this._adminInfo = null;
+    const body = this._adminBody;
+    if (!body || this.isNew) return;
     const users = new UserGroupSource(this.dbdefs);
     const info = document.createElement('dl');
     info.className = 'h-record-editor-admin-info';
@@ -1102,6 +1138,7 @@ export class HRecordEditor extends HBaseWidget {
     row('Added by', addedBy ? users.labelFor(addedBy) || `#${addedBy}` : '');
     row('Added', localTime(this.record.rec_Added));
     row('Updated', localTime(this.record.rec_Modified));
+    this._adminInfo = info;
     body.append(info);
   }
 

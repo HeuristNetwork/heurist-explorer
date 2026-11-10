@@ -260,8 +260,11 @@ export class RecordEditorHost {
     // Dupe in the same cases as New
     const create = (target) => this._createEditor(host, { ...target, domain, duplicate: offersNew, onNew: offersNew ? (state) => void replace(state) : null });
     let editor = await create({ recordId, rectypeId, access, relation, parentContext, pageIds, values });
-    replace = async ({ rectypeId: current }) => {
-      const choice = await this._chooseNewRecord(current);
+    // New: a record of the same type with the owner and visibility of the current one (no dialog, 2026-11-10)
+    replace = async ({ rectypeId: current, access: currentAccess = null }) => {
+      const choice = current > 0
+        ? { rectypeId: current, access: currentAccess || loadRecordAddDefaults(await this._who()) }
+        : await this._chooseNewRecord(0);
       if (!choice || settled) return;
       first ||= this._result(host, recordId);
       hostListeners.get(editor)?.abort();

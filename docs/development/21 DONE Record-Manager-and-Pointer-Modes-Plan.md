@@ -888,3 +888,14 @@ HEditForm → HEditField → inputs). Host: `RecordEditorHost.createRecordBrowse
 `_managerOptions`). Not per record type: the options differ per field and a host cache would live as long as
 Explorer. Without `createRecordBrowser` (modules in iframes, filter forms, the designer) `browseRecords` as before;
 the parent field, the relations mode and Manage files stay one-off.
+
+## Note 2026-11-10 (Artem; done, not committed, no browser check)
+
+1. **New** in the record editor (also from HRecordManager) opens a new record of the **same type** with the **owner
+   and visibility of the current record** (as edited) without the Add record dialog: `onNew` gets
+   `{rectypeId, access, saved}`, `RecordEditorHost.open` uses them. The dialog stays for Add record without a type.
+   The owner is kept only when the user could choose it (Any logged-in user, the user, a group the user is a member
+   or admin of; a database administrator: anyone), else the current user owns the new record.
+2. After the **first save** of a new record the Record summary sections that said "Save the record to ..." (Private,
+   Tags, Linked records) are built again, so the record can be bookmarked and tagged at once; Admin shows Added by /
+   Added / Updated (refreshed after every save).
