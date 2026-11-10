@@ -42,11 +42,10 @@ import { HFieldSelectionEditor } from '../../widgets/query-source/helpers/HField
 import { HRuleBuilder, describeExpansionRule } from '../../widgets/query-source/helpers/HRuleBuilder.js';
 import {
   ANY_DEPTHS, ANY_LINK_KINDS, COLUMN_MODES, EXPORT_FORMATS, VALUE_CHOICES, buildExportParams, dataSourceFields,
-  defaultExportState, defaultLimit, effectiveLimit, exportFormat, exportProblems, limitChoices, recordTypeList,
-  scopeRecordType
+  defaultExportState, defaultLimit, effectiveLimit, exportFormat, exportProblems, limitChoices, scopeRecordType
 } from './exportParams.js';
+import { fillScopeSelect, loadScopeRecordTypes, scopeResultTotal } from '../toolScope.js';
 import './ExportTool.css';
-import { aggregate } from '#shared/data/aggregate.js';
 
 const STORAGE_PREFIX = 'heurist-export-settings:';
 
@@ -214,12 +213,8 @@ export class ExportTool extends HBaseWidget {
     this.resultTotal = null;
     if (query == null || query === '') return;
     try {
-      const response = await aggregate(this.apiClient, 'rectypes', { q: query }, { method: 'POST' });
-      const data = response?.rectypes ? response : response?.data || {};
-      this.recordTypes = recordTypeList(data.rectypes, this.dbdefs);
       // the count of the query itself (a direct search has no meta.count)
-      const total = Number(data.total);
-      this.resultTotal = Number.isFinite(total) ? total : null;
+      ({ recordTypes: this.recordTypes, total: this.resultTotal } = await loadScopeRecordTypes(this.apiClient, query, this.dbdefs));
     } catch (error) {
       console.warn('Export: record type counts are not available', error);
     }
@@ -285,10 +280,7 @@ export class ExportTool extends HBaseWidget {
 
   /** Records of the current result: the server count of the query, else the DataSource count. */
   _total() {
-    if (this.resultTotal != null) return this.resultTotal;
-    const count = this.source?.meta?.count;
-    if (count != null && Number.isFinite(Number(count)) && Number(count) > 0) return Number(count);
-    return this.recordTypes.reduce((sum, item) => sum + item.count, 0);
+    return scopeResultTotal({ total: this.resultTotal, source: this.source, recordTypes: this.recordTypes });
   }
 
   _scopeSection() {
@@ -306,24 +298,10 @@ export class ExportTool extends HBaseWidget {
 
   /** Options: current result, selection, then one option per record type of the result. */
   _fillScopeSelect() {
-    const select = this._scopeSelect;
-    if (!select) return;
-    select.replaceChildren();
-    const [, selectionOption] = addOptions(select, [
-      ['result', `${$HR('Current result')} (${this._total()})`],
-      ['selection', `${$HR('Selection')} (${this.selection.length})`]
-    ]);
-    selectionOption.disabled = this.selection.length === 0;
-    const values = ['result', ...(this.selection.length ? ['selection'] : [])];
-    if (this.recordTypes.length) {
-      const group = document.createElement('optgroup');
-      group.label = $HR('Record type');
-      addOptions(group, this.recordTypes.map((item) => [`rt:${item.id}`, `${item.name} (${item.count})`]));
-      select.append(group);
-      values.push(...this.recordTypes.map((item) => `rt:${item.id}`));
-    }
-    if (!values.includes(this.settings.scope)) this.settings.scope = 'result';
-    select.value = this.settings.scope;
+    if (!this._scopeSelect) return;
+    this.settings.scope = fillScopeSelect(this._scopeSelect, {
+      total: this._total(), selection: this.selection, recordTypes: this.recordTypes, value: this.settings.scope
+    });
   }
 
   _formatSection() {

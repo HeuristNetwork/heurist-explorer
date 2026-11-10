@@ -1,7 +1,7 @@
 # 32 Field-level PATCH and Batch updates
 
 **Status 2026-11-10: Phase 1 implemented in both repos (not committed, not checked in a browser), see §9.**
-Phase 2 = batch updates (later, design only; the route must be agreed first, §6).
+Phase 2 = batch updates: route agreed 2026-11-10 (§6), implemented by plan 33 (Explorer Actions tool).
 
 ## 1. Context
 
@@ -132,7 +132,13 @@ compare the latest modified time of `defCalcFunctions`.
 - `shared/src/symbology/SymbologyService.js`, `shared/src/data/relationStores.js`, `shared/src/data/parentRecords.js`:
   short `fields` where the callers do not use the returned record (check each).
 
-## 6. Phase 2: Batch updates (later; design only, not implemented now)
+## 6. Phase 2: Batch updates
+
+**Agreed 2026-11-10 (Artem):** a set of records = the background job `record-action` (`POST /jobs`, no new endpoint),
+one record = the normal `PATCH /records/{id}`; records that break the PATCH rules are skipped and reported. UI = the
+Explorer Actions tool. Implemented by `33 Actions-Tool-and-Batch-Updates-Plan.md`. The design notes below are kept;
+the job type is `record-action`, one transaction per record, no small synchronous sets.
+
 
 Same operations (`details`, `detailsAdd`, `detailsMatch`, `addIfNone`) for many records:
 - target: a list of ids or a Heurist query (the existing `/records` search compiler gives the ids);
@@ -217,3 +223,10 @@ on `Records` / `recDetails`. A local development server can use `innodb_flush_lo
 ### 9.4 Found, not fixed
 `POST /records/{id}/duplicate` of a page whose content is saved in parts (> 64 KB, e.g. 207601) fails with
 "Data too long for column dtl_Value" (also before this change).
+
+### 9.5 Bug fixed 2026-11-10: PUT answered 500 after the save
+`RecordEditController::savedRecord` read `$params['fields']` (the `?fields=` of §2). Legacy `hserv/controller/api.php`
+puts the whole JSON body into `fields` when the URL has none, so every PUT of the record editor (no `?fields=`) built its
+answer with `fields = "Array"`: the record was saved, then the answer failed ("Invalid linked output field path",
+HTTP 500, the editor showed "The record could not be saved"). Now only a text `fields` is used; check added to
+`tests/FieldPatchTest.php` (53 pass).

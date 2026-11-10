@@ -111,3 +111,10 @@
 .h-input-enum-combo > .h-value-combo-host {
   flex: 1 1 auto;
 }
+
+/* the combobox keeps its minimum width (10em) also when the display width of the field is
+   smaller: the control box grows with it, so the value tools (clear, visibility) stay after
+   the selector instead of over it (2026-11-10) */
+.h-form-input-control-wrap:has(> .h-input-enum-combo) {
+  min-width: min-content;
+}

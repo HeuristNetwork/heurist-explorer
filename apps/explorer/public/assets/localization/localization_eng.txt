@@ -1267,3 +1267,94 @@
 #Edit translations#Edit translations
 #This record is already open#This record is already open
 #Only database administrators can change the owner#Only database administrators can change the owner
+#All actions#All actions
+#Last result#Last result
+#Field values#Field values
+#Verify values#Verify values
+#Dangerous zone#Dangerous zone
+#Ownership and visibility#Ownership and visibility
+#Rebuild record titles#Rebuild record titles
+#Convert to record type#Convert to record type
+#Add or Remove Tags#Add or Remove Tags
+#Rate#Rate
+#Unbookmark#Unbookmark
+#Replace#Replace
+#Add Link or Relation#Add Link or Relation
+#Rebuild calculation fields#Rebuild calculation fields
+#Delete records#Delete records
+#Records to change#Records to change
+#Run#Run
+#Filter fields#Filter fields
+#No fields match#No fields match
+#The record types of the scope have no fields of these types#The record types of the scope have no fields of these types
+#in#in
+#record types#record types
+#Text#Text
+#Memo#Memo
+#Number#Number
+#All values#All values
+#Conditionally#Conditionally
+#Values that match#Values that match
+#Insert as new value if none exist#Insert as new value if none exist
+#Value to be added#Value to be added
+#Replace with#Replace with
+#Choose a field#Choose a field
+#Enter the value to be added#Enter the value to be added
+#Enter the new value#Enter the new value
+#Enter the value of the condition#Enter the value of the condition
+#Use one condition (one value, or terms joined by OR)#Use one condition (one value, or terms joined by OR)
+#There are no records in the scope#There are no records in the scope
+#Change the records of the scope#Change the records of the scope
+#There is no previous result#There is no previous result
+#Stopped#Stopped
+#Time limit reached#Time limit reached
+#Failed#Failed
+#Lost#Lost
+#stopped at record#stopped at record
+#last record handled#last record handled
+#The records before it are changed; the current one is not.#The records before it are changed; the current one is not.
+#stopped while searching the records; no record was changed.#stopped while searching the records; no record was changed.
+#Records in scope#Records in scope
+#Records changed#Records changed
+#Records unchanged (no matching value)#Records unchanged (no matching value)
+#Records skipped#Records skipped
+#Records with errors#Records with errors
+#Values found#Values found
+#Values before (existing)#Values before (existing)
+#Values added#Values added
+#Values removed#Values removed
+#Time (seconds)#Time (seconds)
+#Show these records as the current result#Show these records as the current result
+#Changed records#Changed records
+#Skipped records#Skipped records
+#The lists of records are cut to the first 10,000 records each.#The lists of records are cut to the first 10,000 records each.
+#The record type has no such field#The record type has no such field
+#No rights to edit the record#No rights to edit the record
+#The last value of a required field#The last value of a required field
+#The field has one value only#The field has one value only
+#More values than the field allows#More values than the field allows
+#The translation exists#The translation exists
+#valueadd_desc#This function adds a new value for a specific field to the records of the scope. Existing values are unaffected. A record is skipped (and listed in the report) when the value would exceed the repeat count of the field, for example a second value of a single-value field.
+#valuereplace_desc#This function replaces all values, or the values that match a condition, of a particular field for the records of the scope. Other fields / values are not affected. With a condition, the new value can be added to the records where no value matches.
+#valuedelete_desc#This function deletes all values, or the values that match a condition, of a particular field for the records of the scope. Other fields / values are not affected. A record is skipped (and listed in the report) when the last value of a required field would be deleted.
+#valuelink_desc#This function adds a pointer (record link) or a relationship from every record of the scope to a chosen record, through a pointer or relationship marker field of their record type. Existing links are kept.
+#valuecalc_desc#This function runs the formulas of the calculated fields of the records of the scope again and saves the values that have changed (generally after a change of a formula or of the values it uses). At the end it lists the records whose calculated values were changed and the records whose formula failed.
+#metaowner_desc#This function changes the owner (user or workgroup) and/or the visibility for non-owners of the records of the scope. Only the records you may edit are changed.
+#metatitles_desc#This function recalculates all the constructed (composite) record titles, compares them with the existing title and updates the title where the title has changed (generally due to changes in the title mask for the record type). At the end of the process it will display a list of records for which the titles were changed and a list of records for which the new title would be blank (an error condition).
+#metaconvert_desc#This function changes the record (entity) type of the records of the scope. All records will be converted to the new type. Warning: It is highly likely that the data recorded for many or all of these records will not satisfy the conditions set for the record type to which they are converted. Please use Verify > Verify integrity to locate and correct any invalid records generated by this process.
+#metatags_desc#This function adds the chosen personal or workgroup tags to the records of the scope, or removes them. Records get a bookmark when a personal tag is added.
+#metarate_desc#This function assigns your personal rating to the records of the scope. Records will be bookmarked.
+#metaunbookmark_desc#This function removes your bookmarks of the records of the scope; your personal tags of these records are detached. It ONLY removes the bookmark from your resources, it does not delete the records.
+#verifyvalues_desc#This function checks the values of the records of the scope against their record structure: missing required values, too many values, invalid terms, dates and pointers. It lists the records with problems; it changes nothing.
+#dangerdelete_desc#This function deletes the records of the scope that you may edit, with their values and bookmarks. Pointers to them from other records are removed and their relationship records are deleted. This cannot be undone.
+#No options: the action runs on the records of the scope.#No options: the action runs on the records of the scope.
+#The records are deleted for good: this cannot be undone. Pointers to them from other records are removed and their relationship records are deleted.#The records are deleted for good: this cannot be undone. Pointers to them from other records are removed and their relationship records are deleted.
+#Server password#Server password
+#More than 10 records: enter the server password (not your login password; ask the system administrator).#More than 10 records: enter the server password (not your login password; ask the system administrator).
+#records: half of the database or more. Only the database owner may do this; otherwise use Database administration > Clear database.#records: half of the database or more. Only the database owner may do this; otherwise use Database administration > Clear database.
+#Enter the server password to delete more than 10 records#Enter the server password to delete more than 10 records
+#This cannot be undone.#This cannot be undone.
+#Records deleted#Records deleted
+#Records unchanged#Records unchanged
+#The new title would be blank#The new title would be blank
+#The record does not exist any more#The record does not exist any more

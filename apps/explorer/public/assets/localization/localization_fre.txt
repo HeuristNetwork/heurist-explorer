@@ -1267,3 +1267,94 @@
 #Edit translations#Modifier les traductions
 #This record is already open#Cet enregistrement est déjà ouvert
 #Only database administrators can change the owner#Seuls les administrateurs de la base de données peuvent changer le propriétaire
+#All actions#Toutes les actions
+#Last result#Dernier résultat
+#Field values#Valeurs de champ
+#Verify values#Vérifier les valeurs
+#Dangerous zone#Zone dangereuse
+#Ownership and visibility#Propriété et visibilité
+#Rebuild record titles#Reconstruire les titres
+#Convert to record type#Convertir en type d'enregistrement
+#Add or Remove Tags#Ajouter ou retirer des mots-clés
+#Rate#Évaluer
+#Unbookmark#Retirer des favoris
+#Replace#Remplacer
+#Add Link or Relation#Ajouter un lien ou une relation
+#Rebuild calculation fields#Recalculer les champs calculés
+#Delete records#Supprimer les enregistrements
+#Records to change#Enregistrements à modifier
+#Run#Exécuter
+#Filter fields#Filtrer les champs
+#No fields match#Aucun champ ne correspond
+#The record types of the scope have no fields of these types#Les types d'enregistrement n'ont pas de champs de ces types
+#in#dans
+#record types#types d'enregistrement
+#Text#Texte
+#Memo#Mémo
+#Number#Nombre
+#All values#Toutes les valeurs
+#Conditionally#Selon une condition
+#Values that match#Valeurs qui correspondent
+#Insert as new value if none exist#Ajouter comme nouvelle valeur si aucune ne correspond
+#Value to be added#Valeur à ajouter
+#Replace with#Remplacer par
+#Choose a field#Choisissez un champ
+#Enter the value to be added#Saisissez la valeur à ajouter
+#Enter the new value#Saisissez la nouvelle valeur
+#Enter the value of the condition#Saisissez la valeur de la condition
+#Use one condition (one value, or terms joined by OR)#Utilisez une seule condition (une valeur, ou des termes reliés par OU)
+#There are no records in the scope#Il n'y a pas d'enregistrements
+#Change the records of the scope#Modifier les enregistrements
+#There is no previous result#Il n'y a pas de résultat précédent
+#Stopped#Arrêté
+#Time limit reached#Limite de temps atteinte
+#Failed#Échec
+#Lost#Perdu
+#stopped at record#arrêté à l'enregistrement
+#last record handled#dernier enregistrement traité
+#The records before it are changed; the current one is not.#Les enregistrements précédents sont modifiés ; l'enregistrement en cours ne l'est pas.
+#stopped while searching the records; no record was changed.#arrêté pendant la recherche ; aucun enregistrement n'a été modifié.
+#Records in scope#Enregistrements
+#Records changed#Enregistrements modifiés
+#Records unchanged (no matching value)#Enregistrements inchangés (aucune valeur correspondante)
+#Records skipped#Enregistrements ignorés
+#Records with errors#Enregistrements en erreur
+#Values found#Valeurs trouvées
+#Values before (existing)#Valeurs existantes
+#Values added#Valeurs ajoutées
+#Values removed#Valeurs supprimées
+#Time (seconds)#Durée (secondes)
+#Show these records as the current result#Afficher ces enregistrements comme résultat courant
+#Changed records#Enregistrements modifiés
+#Skipped records#Enregistrements ignorés
+#The lists of records are cut to the first 10,000 records each.#Les listes sont limitées aux 10 000 premiers enregistrements.
+#The record type has no such field#Le type d'enregistrement n'a pas ce champ
+#No rights to edit the record#Pas de droit de modifier l'enregistrement
+#The last value of a required field#La dernière valeur d'un champ obligatoire
+#The field has one value only#Le champ n'a qu'une seule valeur
+#More values than the field allows#Plus de valeurs que le champ n'en permet
+#The translation exists#La traduction existe
+#valueadd_desc#Cette fonction ajoute une nouvelle valeur d'un champ aux enregistrements choisis. Les valeurs existantes ne sont pas modifiées. Un enregistrement est ignoré (et listé dans le rapport) si la valeur dépasse le nombre de valeurs permis du champ, par exemple une deuxième valeur d'un champ à valeur unique.
+#valuereplace_desc#Cette fonction remplace toutes les valeurs, ou les valeurs qui correspondent à une condition, d'un champ des enregistrements choisis. Les autres champs et valeurs ne sont pas modifiés. Avec une condition, la nouvelle valeur peut être ajoutée aux enregistrements où aucune valeur ne correspond.
+#valuedelete_desc#Cette fonction supprime toutes les valeurs, ou les valeurs qui correspondent à une condition, d'un champ des enregistrements choisis. Les autres champs et valeurs ne sont pas modifiés. Un enregistrement est ignoré (et listé dans le rapport) si la dernière valeur d'un champ obligatoire serait supprimée.
+#valuelink_desc#Cette fonction ajoute un pointeur (lien) ou une relation de chaque enregistrement choisi vers un enregistrement donné, par un champ pointeur ou relation de leur type. Les liens existants sont conservés.
+#valuecalc_desc#Cette fonction exécute de nouveau les formules des champs calculés des enregistrements choisis et enregistre les valeurs qui ont changé (en général après une modification d'une formule ou des valeurs qu'elle utilise). À la fin, elle liste les enregistrements dont les valeurs calculées ont changé et ceux dont la formule a échoué.
+#metaowner_desc#Cette fonction change le propriétaire (utilisateur ou groupe) et/ou la visibilité pour les non-propriétaires des enregistrements choisis. Seuls les enregistrements que vous pouvez modifier sont changés.
+#metatitles_desc#Cette fonction recalcule tous les titres construits des enregistrements, les compare aux titres existants et met à jour ceux qui ont changé (en général après une modification du masque de titre du type d'enregistrement). À la fin, elle affiche la liste des enregistrements dont le titre a changé et celle des enregistrements dont le nouveau titre serait vide (une erreur).
+#metaconvert_desc#Cette fonction change le type des enregistrements choisis. Tous les enregistrements seront convertis vers le nouveau type. Attention : il est très probable que les données de beaucoup de ces enregistrements ne respectent pas les conditions du nouveau type. Utilisez Vérifier > Vérifier l'intégrité pour trouver et corriger les enregistrements invalides.
+#metatags_desc#Cette fonction ajoute aux enregistrements choisis les mots-clés personnels ou de groupe indiqués, ou les retire. Un enregistrement est mis en favori quand un mot-clé personnel est ajouté.
+#metarate_desc#Cette fonction attribue votre évaluation personnelle aux enregistrements choisis. Les enregistrements seront mis en favoris.
+#metaunbookmark_desc#Cette fonction retire vos favoris des enregistrements choisis ; vos mots-clés personnels de ces enregistrements sont détachés. Elle retire SEULEMENT le favori, elle ne supprime pas les enregistrements.
+#verifyvalues_desc#Cette fonction vérifie les valeurs des enregistrements choisis par rapport à la structure de leur type : valeurs obligatoires manquantes, trop de valeurs, termes, dates et pointeurs invalides. Elle liste les enregistrements qui ont des problèmes ; elle ne modifie rien.
+#dangerdelete_desc#Cette fonction supprime les enregistrements choisis que vous pouvez modifier, avec leurs valeurs et favoris. Les pointeurs d'autres enregistrements vers eux sont retirés et leurs enregistrements de relation sont supprimés. Cette action est irréversible.
+#No options: the action runs on the records of the scope.#Aucune option : l'action porte sur les enregistrements choisis.
+#The records are deleted for good: this cannot be undone. Pointers to them from other records are removed and their relationship records are deleted.#Les enregistrements sont supprimés définitivement : c'est irréversible. Les pointeurs d'autres enregistrements vers eux sont retirés et leurs enregistrements de relation supprimés.
+#Server password#Mot de passe du serveur
+#More than 10 records: enter the server password (not your login password; ask the system administrator).#Plus de 10 enregistrements : saisissez le mot de passe du serveur (pas votre mot de passe de connexion ; demandez à l'administrateur système).
+#records: half of the database or more. Only the database owner may do this; otherwise use Database administration > Clear database.#enregistrements : la moitié de la base ou plus. Seul le propriétaire de la base peut le faire ; sinon utilisez Administration de la base > Vider la base.
+#Enter the server password to delete more than 10 records#Saisissez le mot de passe du serveur pour supprimer plus de 10 enregistrements
+#This cannot be undone.#C'est irréversible.
+#Records deleted#Enregistrements supprimés
+#Records unchanged#Enregistrements inchangés
+#The new title would be blank#Le nouveau titre serait vide
+#The record does not exist any more#L'enregistrement n'existe plus

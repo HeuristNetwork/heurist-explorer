@@ -49,6 +49,11 @@ const ENUM_PART_LABELS = {
 export const ENUM_PICK_PARTS = ['code', 'conceptid', 'desc'];
 /** Sub-parts compared as a whole value: only "is" / "is not" (2026-10-17). */
 const ENUM_EXACT_PARTS = ['code', 'conceptid', 'concept'];
+/**
+ * Operators left out with `fixedField` (a condition on the values of one field, plan 33):
+ * counts, is set / is empty, and word searches (they work on the whole record text).
+ */
+const FIXED_FIELD_EXCLUDED = ['op.count', 'op.is_set', 'op.is_empty', 'op.all_words', 'op.any_word', 'op.no_words'];
 /** Field kinds whose value can be asked in the Filter Form (and the relation type). */
 const ASK_KINDS = ['text', 'number', 'date', 'enum', 'geo', 'exists', 'tag'];
 
@@ -58,12 +63,16 @@ export class HFilterBuilderItem extends HBaseWidget {
    * @param {{dbdefs:object, vocabulary:object, lang:string,
    *          onChange?:Function, onRequestFieldPick?:Function, scopeRtyId?:(number|string),
    *          relationVocabRoots?:(() => number[]), allowParameters?:(() => boolean),
-   *          askByDefault?:(() => boolean)}} deps
+   *          askByDefault?:(() => boolean), fixedField?:boolean}} deps
+   *        `fixedField`: the field is set by the owner (`setField`): no field button, no remove, and
+   *        only operators that compare values (FIXED_FIELD_EXCLUDED left out) - the value condition
+   *        of the Actions tool (plan 33).
    */
   constructor({ dbdefs, vocabulary, lang = 'eng', onChange, onRequestFieldPick,
     selectExtent, scopeRtyId = '', relationVocabRoots = null, apiClient = null,
-    allowParameters = null, askByDefault = null } = {}) {
+    allowParameters = null, askByDefault = null, fixedField = false } = {}) {
     super();
+    this._fixedField = fixedField === true;
     // "Ask the user" toggles (values become Filter Form inputs) and their default for a new field
     this._allowParameters = allowParameters || (() => false);
     this._askByDefault = askByDefault || (() => false);
@@ -144,6 +153,10 @@ export class HFilterBuilderItem extends HBaseWidget {
     this._valuesHost.className = 'h-fbitem-values';
 
     this.container.append(this._fieldBtn, remove, this._opSel, this._valuesHost);
+    if (this._fixedField) {
+      this._fieldBtn.hidden = true;
+      remove.hidden = true;
+    }
 
     this._syncField();
     this._renderOperators();
@@ -338,6 +351,7 @@ export class HFilterBuilderItem extends HBaseWidget {
     // hidden operators (ends with: no index can serve it) stay only for a loaded query using one
     return list.filter((op) => (!noNull || !['op.is_set', 'op.is_empty'].includes(op.i18nKey))
       && (/^\d+$/.test(String(this.row.dty)) || op.i18nKey !== 'op.count')
+      && (!this._fixedField || !FIXED_FIELD_EXCLUDED.includes(op.i18nKey))
       && (!op.hidden || op.i18nKey === this.row.op));
   }
 

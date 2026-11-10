@@ -341,6 +341,6 @@ Required only is off again. Clear filters: Show optional on.
    format), translations, hidden values, calculated fields, title mask. *Server part done by plan 32 Phase 1
    (2026-11-10): PATCH writes only the given fields; the HEditForm changed-fields save is still a client task.*
 2. **Batch update of records**: one field changed in many records at once, instead of opening very large records one
-   by one (§4.6). *Planned as plan 32 Phase 2.*
+   by one (§4.6). *Done by plan 33 (Explorer Actions tool, job `record-action`), 2026-11-10.*
 3. Edit profiles per record type: sets of fields for one task (§4.6).
 4. Field-count warnings in the record structure editor past 100 / 200 fields (§2), with `HEditFormDesigner`.

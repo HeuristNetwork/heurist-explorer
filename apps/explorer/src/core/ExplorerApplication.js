@@ -1904,7 +1904,8 @@ export class ExplorerApplication {
       title: TOOL_TITLES[definition.type],
       create: {
         report: (body) => this._createReportsTool(body),
-        export: (body) => this._createExportTool(body)
+        export: (body) => this._createExportTool(body),
+        actions: (body) => this._createActionsTool(body)
       }[definition.type] || null
     });
     this.modules.set(definition.id, module);
@@ -2256,6 +2257,41 @@ export class ExplorerApplication {
       getDataSource: () => (this.sync?.dataSource ? cloneDataSource(this.sync.dataSource) : null),
       getSelection: () => [...(this.sync?.selection || [])],
       database: this.config.database,
+      language: this.config.language
+    });
+    body.replaceChildren();
+    tool.attach(body);
+    await tool.render();
+    return tool;
+  }
+
+  /**
+   * Create the Actions tool (plan 33) in its body: actions over the records of the current
+   * result or selection. Loaded only now (dynamic import, its own chunk). A running action
+   * continues on the server when the tool is destroyed and is shown again on the next open.
+   *
+   * @private
+   * @param {HTMLElement} body Tool body.
+   * @returns {Promise<object>} The ActionsTool.
+   */
+  async _createActionsTool(body) {
+    const { ActionsTool } = await (this._actionsLoader || loadActionsTool)();
+    const tool = new ActionsTool({
+      apiClient: this.apiClient,
+      getDbDefs: () => this._ensureDbDefs(),
+      getDataSource: () => (this.sync?.dataSource ? cloneDataSource(this.sync.dataSource) : null),
+      getSelection: () => [...(this.sync?.selection || [])],
+      showRecords: (ids, title) => void this.showDatasource({
+        reference: { type: 'query' },
+        title,
+        request: { q: [{ ids: ids.join(',') }] }
+      }),
+      // deleted records leave the result, new titles and values are shown
+      onRecordsChanged: () => {
+        if (this.sync?.dataSource) {
+          void this.activateDataSource(cloneDataSource(this.sync.dataSource), { allowDirty: true, keepEditorDraft: true });
+        }
+      },
       language: this.config.language
     });
     body.replaceChildren();
@@ -2631,6 +2667,11 @@ async function mountDirectData(options) {
 /** Load the Export tool (its own lazy chunk). */
 function loadExportTool() {
   return import('../tools/export/ExportTool.js');
+}
+
+/** Lazy chunk of the Actions tool (plan 33). */
+function loadActionsTool() {
+  return import('../tools/actions/ActionsTool.js');
 }
 
 /** Load and mount heurist-reports' direct bootstrap into the Reports tool. */

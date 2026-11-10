@@ -147,15 +147,22 @@ export class RecordEditClient {
    * @param {object} changes Headers, `details`, `detailsAdd`, `detailsMatch`, `addIfNone`.
    * @param {{force?: boolean, fields?: string}} [options] `fields`: fields of the answer, e.g.
    *        `rec_ID,rec_Modified,rec_Title` when the caller does not need the whole record.
-   * @returns {Promise<{record: object, issues: Array<object>, changed: object}>} `changed`: field => number of
-   *          removed + inserted values.
+   * @returns {Promise<{record: object, issues: Array<object>, changed: object, values: object, headerChanged: boolean}>}
+   *          `changed`: field =>
+   *          number of removed + inserted values; `values`: field => {found, added, removed}; `headerChanged`:
+   *          owner, visibility or groups changed (plan 33).
    */
   async patch(id, changes, { force = false, fields = '' } = {}) {
     const query = { ...(force ? { force: 1 } : {}), ...(fields ? { fields } : {}) };
     const payload = await this._call('PATCH', `${this.basePath}/${positiveId(id)}`, {
       body: changes || {}, query: Object.keys(query).length ? query : null
     });
-    return { ...this._saved(payload), changed: payload?.meta?.changed || {} };
+    return {
+      ...this._saved(payload),
+      changed: payload?.meta?.changed || {},
+      values: payload?.meta?.values || {},
+      headerChanged: payload?.meta?.headerChanged === true
+    };
   }
 
   /**

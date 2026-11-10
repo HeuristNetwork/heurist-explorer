@@ -254,6 +254,8 @@ export class CmsRecordDocument {
         instance: instanceId,
         media: attr(child, 'data-h-media'),
         field: attr(child, 'data-h-field'),
+        // a field reference without text in the snapshot (the server writes the value): the designer shows the field name
+        fieldOnly: Boolean(attr(child, 'data-h-field')) && hasAttr(child, 'data-h-text') && !plain(child.raw || ''),
         type: instance?.type || null,
         preset: attr(child, 'data-h-style'),
         configured: instanceId ? isConfigured(instance) : !hasAttr(child, 'data-h-media') || Boolean(this.media(id)?.settings.file),

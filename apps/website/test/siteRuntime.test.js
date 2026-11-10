@@ -165,5 +165,12 @@ test('slide out header (plan 27f §13): a button collapses and expands it, the c
   header.querySelector('.h-site-header-toggle').click();
   assert.ok(!body.classList.contains('h-site-header-collapsed'));
   assert.equal(values.get('k'), 'expanded');
+  // review 2026-11-10: a click anywhere on the collapsed header expands it; on the expanded header it does nothing
+  header.querySelector('.h-site-header-toggle').click();
+  assert.ok(body.classList.contains('h-site-header-collapsed'));
+  header.querySelector('div').click();
+  assert.ok(!body.classList.contains('h-site-header-collapsed'), 'expanded by a click on the header');
+  header.querySelector('div').click();
+  assert.ok(!body.classList.contains('h-site-header-collapsed'), 'stays expanded');
   body.remove();
 });

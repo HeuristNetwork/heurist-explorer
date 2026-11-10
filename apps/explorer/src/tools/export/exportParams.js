@@ -22,6 +22,11 @@
  * @since       8.0
  */
 
+import { scopeParams, scopeProblems, scopeRecordType } from '../toolScope.js';
+
+// moved to toolScope.js (plan 33); exported here as before
+export { recordTypeList, scopeRecordType } from '../toolScope.js';
+
 /**
  * Export formats: value, caption and what applies to them - columns (with value formats),
  * expansion rules, geo fields (geometry), the "names and local ids" option.
@@ -103,17 +108,6 @@ export function defaultExportState() {
  */
 export function exportFormat(format) {
   return EXPORT_FORMATS.find((item) => item.value === format) || EXPORT_FORMATS[0];
-}
-
-/**
- * Record type chosen in the scope select ("rt:<id>"), else null.
- *
- * @param {string} scope Scope value.
- * @returns {number|null}
- */
-export function scopeRecordType(scope) {
-  const match = /^rt:(\d+)$/.exec(String(scope || ''));
-  return match ? Number(match[1]) : null;
 }
 
 /**
@@ -304,10 +298,8 @@ export function exportRules(state, sourceRules = null) {
  */
 export function buildExportParams(state, context = {}) {
   const format = exportFormat(state.format);
-  const scope = { query: context.query ?? null };
+  const scope = scopeParams(state.scope, context);
   const rectype = scopeRecordType(state.scope);
-  if (state.scope === 'selection') scope.ids = (context.selection || []).map(Number).filter((id) => id > 0);
-  if (rectype) scope.rectypes = [rectype];
 
   const params = {
     format: format.value,
@@ -348,9 +340,7 @@ export function buildExportParams(state, context = {}) {
  * @returns {string[]} Messages (English, localized by the caller).
  */
 export function exportProblems(state, context = {}) {
-  const problems = [];
-  if (state.scope === 'selection' && !(context.selection || []).length) problems.push('No records are selected');
-  if (state.scope !== 'selection' && (context.query == null || context.query === '')) problems.push('There is no current result');
+  const problems = scopeProblems(state.scope, context);
   const format = exportFormat(state.format);
   if (format.rules && state.rulesMode === 'source' && !(context.rules || []).length) problems.push('The data source has no expansion rules');
   if (format.rules && state.rulesMode === 'custom' && !(state.customRules || []).length) problems.push('Define the custom expansion rules');
@@ -359,22 +349,4 @@ export function exportProblems(state, context = {}) {
   }
   if (format.value === 'csv' && String(state.csv?.sep || '').length !== 1) problems.push('The CSV separator must be one character');
   return problems;
-}
-
-/**
- * Record types with counts from `/records/aggregate?op=rectypes`, largest first.
- *
- * @param {Array<{rec_RecTypeID:number,count:number}>} rows Server rows.
- * @param {object|null} dbdefs Names.
- * @returns {Array<{id:number,name:string,count:number}>}
- */
-export function recordTypeList(rows, dbdefs = null) {
-  return (Array.isArray(rows) ? rows : [])
-    .map((row) => ({
-      id: Number(row.rec_RecTypeID),
-      name: dbdefs?.rectypeName?.(Number(row.rec_RecTypeID)) || `#${row.rec_RecTypeID}`,
-      count: Number(row.count) || 0
-    }))
-    .filter((row) => row.id > 0)
-    .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
 }

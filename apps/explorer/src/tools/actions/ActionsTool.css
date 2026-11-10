@@ -1,0 +1,335 @@
+/**
+ * @file ActionsTool.css
+ * @brief Actions tool of Explorer, a pane module (plan 33).
+ *
+ * @project     Heurist academic knowledge management system
+ * @package     heurist-explorer
+ * @license     https://www.gnu.org/licenses/gpl-3.0.txt GNU License 3.0
+ * @since       8.0
+ */
+
+/* the body of the tool workspace scrolls; the content keeps a readable width */
+.h-explorer-tool-actions-body {
+    display: block;
+    width: 100%;
+    overflow: auto;
+    color: var(--h-color-text);
+    place-items: initial;
+}
+
+.h-actions-tool {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    min-width: 380px;
+    max-width: 980px;
+    padding: 10px 14px 16px;
+    box-sizing: border-box;
+    font-size: var(--h-font-size);
+}
+
+.h-actions-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.h-actions-toolbar[hidden],
+.h-actions-toolbar > .h-btn[hidden],
+.h-actions-body[hidden],
+.h-actions-monitor[hidden],
+.h-actions-report-box[hidden] {
+    display: none;
+}
+
+.h-actions-title {
+    flex: 1;
+    font-size: var(--h-font-size-large);
+    font-weight: 600;
+}
+
+/* ---------------------------------------------------------------- list */
+
+.h-actions-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.h-actions-group {
+    margin: 8px 0 2px;
+    font-size: var(--h-font-size-large);
+    font-weight: 600;
+}
+
+.h-actions-group-list {
+    display: flex;
+    flex-direction: column;
+    border: 1px solid var(--h-color-border);
+    border-radius: var(--h-radius, 4px);
+}
+
+.h-actions-entry {
+    display: grid;
+    grid-template-columns: minmax(140px, 220px) 1fr;
+    gap: 12px;
+    padding: 6px 10px;
+    border: 0;
+    border-top: 1px solid var(--h-color-border);
+    background: none;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.h-actions-entry:first-child {
+    border-top: 0;
+}
+
+.h-actions-entry:hover:not(:disabled) {
+    background: var(--h-color-surface-hover);
+}
+
+.h-actions-entry:disabled {
+    color: var(--h-color-text-muted);
+    cursor: default;
+}
+
+.h-actions-entry-name {
+    font-weight: 600;
+}
+
+.h-actions-entry-description {
+    display: -webkit-box;
+    overflow: hidden;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+}
+
+/* ---------------------------------------------------------------- action pane */
+
+.h-actions-pane {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.h-actions-help {
+    padding: 6px 10px;
+    border-left: 3px solid var(--h-color-border-strong);
+    background: var(--h-color-surface);
+}
+
+.h-actions-section {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
+    margin: 0;
+    padding: 8px 10px 10px;
+    border: 1px solid var(--h-color-border);
+    border-radius: var(--h-radius, 4px);
+}
+
+.h-actions-section > legend {
+    padding: 0 4px;
+    font-weight: 600;
+}
+
+.h-actions-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.h-actions-row-label {
+    min-width: 120px;
+}
+
+.h-actions-problems:empty {
+    display: none;
+}
+
+.h-actions-problem {
+    color: var(--h-color-danger);
+}
+
+.h-actions-bottom {
+    display: flex;
+    justify-content: flex-end;
+}
+
+.h-actions-confirm {
+    white-space: pre-line;
+}
+
+/* ---------------------------------------------------------------- field values */
+
+.h-actions-fieldvalues {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.h-actions-fields-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 4px;
+}
+
+.h-actions-fields-caption {
+    font-weight: 600;
+}
+
+.h-actions-fields-filter {
+    flex: 1;
+    max-width: 260px;
+}
+
+.h-actions-fields-list {
+    max-height: 220px;
+    overflow: auto;
+    border: 1px solid var(--h-color-border);
+    border-radius: var(--h-radius, 4px);
+}
+
+.h-actions-field {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 4em 16em;
+    gap: 10px;
+    width: 100%;
+    padding: 3px 8px;
+    border: 0;
+    background: none;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.h-actions-field:hover {
+    background: var(--h-color-surface-hover);
+}
+
+.h-actions-field.is-picked {
+    background: var(--h-color-selected);
+    outline: 1px solid var(--h-color-selected-border);
+}
+
+.h-actions-field-name,
+.h-actions-field-rectypes {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.h-actions-field-type,
+.h-actions-field-rectypes {
+    font-size: var(--h-font-size-small);
+}
+
+.h-actions-fields-empty {
+    padding: 6px 8px;
+}
+
+.h-actions-fieldvalues-caption {
+    font-weight: 600;
+}
+
+.h-actions-condition {
+    margin-bottom: 6px;
+}
+
+/* ---------------------------------------------------------------- report */
+
+.h-actions-report-box {
+    position: relative;
+    padding: 8px 10px;
+    border: 1px solid var(--h-color-border-strong);
+    border-radius: var(--h-radius, 4px);
+    background: var(--h-color-surface);
+}
+
+.h-actions-report-close {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+}
+
+.h-actions-report-head {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    margin-bottom: 6px;
+    padding-right: 24px;
+}
+
+.h-actions-report-title {
+    font-weight: 600;
+}
+
+.h-actions-report-stopped {
+    margin-bottom: 6px;
+    color: var(--h-color-warning);
+    font-weight: 600;
+}
+
+.h-actions-report-table {
+    border-collapse: collapse;
+}
+
+.h-actions-report-table th {
+    padding: 2px 12px 2px 0;
+    font-weight: normal;
+    text-align: left;
+}
+
+.h-actions-report-table td {
+    padding: 2px 8px 2px 0;
+    text-align: right;
+}
+
+.h-actions-report-sub th {
+    padding-left: 16px;
+    color: var(--h-color-text-muted);
+}
+
+.h-actions-report-errors {
+    max-height: 160px;
+    margin: 6px 0 0;
+    overflow: auto;
+    color: var(--h-color-danger);
+}
+
+/* ---------------------------------------------------------------- dangerous actions (delete) */
+
+.h-actions-danger-icon {
+    margin-right: 6px;
+    color: var(--h-color-danger);
+}
+
+.h-actions-help.is-danger {
+    border-left-color: var(--h-color-danger);
+    background: var(--h-color-danger-bg);
+}
+
+.h-actions-warning {
+    color: var(--h-color-danger);
+}
+
+.h-actions-warning[hidden],
+.h-actions-delete-password[hidden] {
+    display: none;
+}
+
+.h-actions-delete {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.h-actions-note {
+    font-size: var(--h-font-size-small);
+}
