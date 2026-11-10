@@ -90,6 +90,6 @@ export class SymbologyService {
     if (!dty) throw new Error('DT_SYMBOLOGY is not defined in this database');
     const client = new RecordEditClient({ apiClient: this.api });
     const text = value && typeof value === 'object' && Object.keys(value).length ? JSON.stringify(value) : '';
-    return client.patch(recordId, { details: { [dty]: text ? [text] : [] } });
+    return client.patch(recordId, { details: { [dty]: text ? [text] : [] } }, { fields: 'rec_ID,rec_Title,rec_Modified' });
   }
 }

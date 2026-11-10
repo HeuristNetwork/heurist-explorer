@@ -140,7 +140,7 @@ export class RecordRelationStore extends RelationStore {
   async setType(relation, term) {
     const rel = relationshipIds(this.dbdefs);
     if (!rel) throw new Error('The database has no relationship record type');
-    await this.client.patch(relation.relId, { details: { [String(rel.type)]: [String(Number(term))] } });
+    await this.client.patch(relation.relId, { details: { [String(rel.type)]: [String(Number(term))] } }, { fields: 'rec_ID,rec_Modified' });
   }
 
   /** Delete a relationship record. */

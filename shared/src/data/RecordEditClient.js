@@ -136,15 +136,26 @@ export class RecordEditClient {
   }
 
   /**
-   * Change some fields of a stored record (PATCH); `[]` clears a field.
+   * Change some fields of a stored record (PATCH, plan 32): only the given fields are written.
+   * `details: {f: [values]}` replaces the values of f, `[]` deletes f (refused for a required
+   * field); `detailsAdd: {f: [values]}` appends values to a multi-value field; `detailsMatch:
+   * {f: 'condition'}` limits the replace / delete of f to the values that match a value
+   * condition of the query format (`=x`, `x`, `x%`, `-x`, `>5`, ...); `addIfNone: [f]` adds
+   * the new values of f when nothing matches.
    *
    * @param {number|string} id Record id.
-   * @param {object} changes Headers and/or `details` to change.
-   * @param {{force?: boolean}} [options]
-   * @returns {Promise<{record: object, issues: Array<object>}>}
+   * @param {object} changes Headers, `details`, `detailsAdd`, `detailsMatch`, `addIfNone`.
+   * @param {{force?: boolean, fields?: string}} [options] `fields`: fields of the answer, e.g.
+   *        `rec_ID,rec_Modified,rec_Title` when the caller does not need the whole record.
+   * @returns {Promise<{record: object, issues: Array<object>, changed: object}>} `changed`: field => number of
+   *          removed + inserted values.
    */
-  async patch(id, changes, { force = false } = {}) {
-    return this._saved(await this._call('PATCH', `${this.basePath}/${positiveId(id)}`, { body: changes || {}, query: force ? { force: 1 } : null }));
+  async patch(id, changes, { force = false, fields = '' } = {}) {
+    const query = { ...(force ? { force: 1 } : {}), ...(fields ? { fields } : {}) };
+    const payload = await this._call('PATCH', `${this.basePath}/${positiveId(id)}`, {
+      body: changes || {}, query: Object.keys(query).length ? query : null
+    });
+    return { ...this._saved(payload), changed: payload?.meta?.changed || {} };
   }
 
   /**

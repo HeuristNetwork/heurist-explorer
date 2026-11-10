@@ -74,5 +74,5 @@ export async function assignParent({ apiClient, dbdefs, childId, childRectypeId,
   await client.patch(parentId, {
     rec_Modified: record.rec_Modified,
     details: { [fieldId]: [...values, String(childId)] }
-  });
+  }, { fields: 'rec_ID,rec_Modified' });
 }

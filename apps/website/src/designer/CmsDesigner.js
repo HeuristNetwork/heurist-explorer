@@ -274,14 +274,14 @@ export class CmsDesigner {
     try {
       const response = await this.apiClient.request(`/${record.entity}/${id}`, {
         method: 'PATCH',
-        query: force ? { force: 1 } : null,
+        query: { fields: SAVED_HEADER, ...(force ? { force: 1 } : {}) },
         body: { rec_ID: id, rec_Modified: record.modified, details }
       });
       const saved = (response?.data ?? response)?.records?.[0];
       record.saved = now;
       record.modified = String(saved?.rec_Modified || record.modified);
-      if (saved) record.record = { ...record.record, ...saved };
-      if (Object.keys(extra).length) record.record = { ...record.record, details: { ...record.record.details, ...mapValues(extra) } };
+      // the answer is the header only (plan 32): the sent fields are the saved state
+      record.record = { ...record.record, ...savedHeader(saved), details: { ...record.record.details, ...mapValues(details) } };
     } catch (error) {
       if (error?.status === 409 && !force) {
         const answer = await askConflict();
@@ -1348,12 +1348,13 @@ export class CmsDesigner {
     const open = this.records.get(id);
     const response = await this.apiClient.request(`/${open?.entity || 'records'}/${id}`, {
       method: 'PATCH',
+      query: { fields: SAVED_HEADER },
       body: { rec_ID: id, rec_Modified: open?.modified || modified, details }
     });
     if (!open) return;
     const saved = (response?.data ?? response)?.records?.[0];
     open.modified = String(saved?.rec_Modified || open.modified);
-    open.record = { ...open.record, ...(saved || {}), details: { ...open.record.details, ...(saved?.details || {}), ...details } };
+    open.record = { ...open.record, ...savedHeader(saved), details: { ...open.record.details, ...details } };
   }
 
   /** Configuration of the widgets Custom report, Record cards and Media gallery. */
@@ -1722,6 +1723,16 @@ function caption(text) {
 /** {field: value} as record details ({field: [value]}); a list of values stays a list. */
 function mapValues(fields) {
   return Object.fromEntries(Object.entries(fields).map(([field, value]) => [field, Array.isArray(value) ? value : [value]]));
+}
+
+/** Fields of the answer of a PATCH (plan 32): the header only, the record keeps its own details. */
+const SAVED_HEADER = 'rec_ID,rec_RecTypeID,rec_Title,rec_Modified';
+
+/** Header of a PATCH answer without its (empty) details. */
+function savedHeader(saved) {
+  const header = { ...(saved || {}) };
+  delete header.details;
+  return header;
 }
 
 /**

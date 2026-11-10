@@ -338,8 +338,9 @@ Required only is off again. Clear filters: Show optional on.
 
 1. **PATCH save of changed fields** (§4.5): `PATCH /records/{id}` with only the fields changed since load, from the
    HEditForm states. Needs careful server tests first: whether PATCH replaces the whole value list of a field (GET
-   format), translations, hidden values, calculated fields, title mask.
+   format), translations, hidden values, calculated fields, title mask. *Server part done by plan 32 Phase 1
+   (2026-11-10): PATCH writes only the given fields; the HEditForm changed-fields save is still a client task.*
 2. **Batch update of records**: one field changed in many records at once, instead of opening very large records one
-   by one (§4.6).
+   by one (§4.6). *Planned as plan 32 Phase 2.*
 3. Edit profiles per record type: sets of fields for one task (§4.6).
 4. Field-count warnings in the record structure editor past 100 / 200 fields (§2), with `HEditFormDesigner`.

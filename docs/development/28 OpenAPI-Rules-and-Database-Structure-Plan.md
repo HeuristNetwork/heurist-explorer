@@ -103,7 +103,10 @@ existing endpoints and server code with it.
 - **One record format** in and out: what GET returns can be sent back with PUT / PATCH (plan 14). Header fields
   `rec_*`, values in `details` by field id.
 - PATCH replaces only the fields in the body; `[]` clears a field. `rec_Modified` in the body enables the conflict
-  check (409 `conflict` with the stored value); `?force=1` overwrites.
+  check (409 `conflict` with the stored value); `?force=1` overwrites. Since plan 32 (2026-11-10) only the given
+  fields are written; `detailsAdd` appends values to a multi-value field, `detailsMatch` limits replace / delete of a
+  field to the values that match a value condition of the query format, `addIfNone` adds the new values when nothing
+  matches; a required field cannot be deleted; `?fields=` gives a shorter answer, `meta.changed` = rows per field.
 - 422 `validation` with the list of issues; 403 no right; 404 unknown entity, id or action; 405 action not allowed on
   this entity.
 - The reply of a write is the saved record as GET returns it (`fields=_all`), with `meta.issues`.
@@ -418,7 +421,7 @@ prefixes). To be written.
 | 9.1 | Names | Keep OpenAPI short and consistent; full names preferred everywhere; short names (rty = rectypes ...) as a separate list; not all entities have short names | Full names in **singular** (`website`, `rectype`, `field`, `term`): an entity names a class (`hst:Website`), and `/website/12` reads "website 12". Plurals and short names = alias table §3.2. Domain names stay `def`, `sys`, `records`, `files`, `terms`. | proposal |
 | 9.2 | `setup` | Useful for any entity: make sure the required record types and fields exist (`/reports/setup` checks report and schedule types; the same for websites); later compare with the core definitions database and import what is missing | Common entity-level action without id: `GET /{entity}/setup` = check, `POST` = install (§2.3). | agreed |
 | 9.3 | Common and specific actions | Specify both: common = validate, duplicate, aggregate; specific = a dedicated service class, as now | Common: validate, duplicate, aggregate, import, export, image, setup (generic code). Specific: execute, assign, merge, cancel (one handler class per entity and action, registered in the entity registry, no new controller). Today tag merge / assign, group members and reminder send already sit as specific handlers inside `SystemEditController`. | proposal |
-| 9.4 | Field action | Logically update / replace of one field value, but it may be limited to retrieval | GET only: `GET /{entity}/{id}/{field}`. A change of one field = PATCH with that field in the body. | agreed 2026-11-04 (plan 27e: `/records` first, same envelope as `?fields=N`, not implemented) |
+| 9.4 | Field action | Logically update / replace of one field value, but it may be limited to retrieval | GET only: `GET /{entity}/{id}/{field}`. A change of one field = PATCH with that field in the body. | agreed 2026-11-04 (plan 27e: `/records` first, same envelope as `?fields=N`, not implemented); the field-level PATCH is plan 32 (2026-11-10) |
 | 9.5 | Terms | 10K+ terms already; SKOS import will increase this dramatically: a separate pair (domain) for terms? | Yes: domain `terms` (`trmRecords/trmRecDetails`). The definitions snapshot can no longer hold all terms, so vocabularies load lazily; `dtl_Lang` gives labels per language; term links become pointer fields. | proposal |
 | 9.6 | QName | By OWL every entity has a QName. a) def: explicit (`hst:Person`, `hst:SysUser`, or imported `foaf:Person`): every def record has an Ontology (pointer to the Ontology record type) and a Name (class name) field. b) Mandatory for record types (classes) and fields (properties). c) Optional for sys and records: `hss:DbOwner`, `hsd:1089-10799`. Open for proposals. | Ontology record = prefix + namespace URI; QName = `prefix:Name`. The concept code stays the stable id; URLs accept both. sys / records: optional name field, otherwise the derived `hsd:{dbId}-{recId}`. `:` is allowed in a URL path segment (RFC 3986). | proposal |
 

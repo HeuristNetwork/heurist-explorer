@@ -410,6 +410,11 @@ function designerOf({ canEdit = true, loadEditor = undefined } = {}) {
       if (options.method === 'PATCH') {
         record.rec_Modified = '2026-10-30 11:00:00';
         for (const [field, values] of Object.entries(options.body.details)) record.details[field] = values;
+        // ?fields= of the header: the answer has no details (plan 32)
+        if (options.query?.fields) {
+          const { rec_ID, rec_RecTypeID, rec_Title, rec_Modified } = record;
+          return { records: [{ rec_ID, rec_RecTypeID, rec_Title, rec_Modified, details: [] }], meta: { changed: {} } };
+        }
         return { records: [structuredClone(record)] };
       }
       return { records: [structuredClone(record)], meta: { canEdit } };
@@ -459,6 +464,12 @@ test('designer: open the home, edit, save only the changed field with rec_Modifi
   const second = requests.filter(([method]) => method === 'PATCH')[1];
   assert.equal(second[3].rec_Modified, '2026-10-30 11:00:00');
   assert.deepEqual(Object.keys(second[3].details), ['929']);
+  assert.equal(second[2].fields, 'rec_ID,rec_RecTypeID,rec_Title,rec_Modified', 'the answer of the PATCH is the header only (plan 32)');
+
+  // Discard after a save goes back to the saved state, not to the state of the load
+  const saved = JSON.stringify(designer.records.get(10).doc.serialize());
+  designer.discard();
+  assert.equal(JSON.stringify(designer.records.get(10).doc.serialize()), saved, 'the sent fields are the saved state');
   designer.destroy();
 });
 
