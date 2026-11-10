@@ -80,7 +80,8 @@ export async function startSite({ root, config, loaders = MODULE_LOADERS }) {
   if (!config.runtime?.design && (root.querySelector('[data-h-view]') || navigation === 'swap' || navigation === 'scroll')) {
     jobs.push(import('#shared/widgets/site/HMediaViewer.js').then(({ attachMediaViews }) => attachMediaViews(root)));
   }
-  if (!config.runtime?.design && root.classList?.contains('h-site-header-slide')) {
+  // also in the preview of the designer (CmsPreview keeps the button when it writes the draft header)
+  if (root.classList?.contains('h-site-header-slide')) {
     const runtime = config.runtime || {};
     attachHeaderToggle(root, { key: `${HEADER_STATE_KEY}.${runtime.database || ''}.${runtime.site || config.site?.id || 0}` });
   }

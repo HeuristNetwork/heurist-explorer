@@ -335,7 +335,9 @@ figure[data-h-view="iiif"]::after {
 /* ------------------------------------------------------------ header and footer (plan 27f §3, §13)
    Position, orientation, rows and themes are classes of the body (srv PageRenderer::bodyClasses): fixed / slide out
    header, two rows, header and footer themes, fixed footer, vertical header (a left column on wider screens), the hide
-   flags of a page. The banner image of the website is --h-site-banner (PageRenderer::layoutCss). */
+   flags of a page. The banner image and own colours: <style id="h-site-layout"> (PageRenderer::layoutCss).
+   The rules of the default set start with .h-site-header: the style kind of a group ([data-h-control="group"] in the
+   page styles, after this file) must not change its grid (review 2026-11-09, round 3). */
 html.h-site {
   --h-site-logo-height: 80px;
 }
@@ -381,45 +383,6 @@ html.h-site {
   color: var(--h-color-text);
 }
 
-/* slide out (§13): an expand / collapse button (siteRuntime attachHeaderToggle); on the right of a horizontal
-   header, above the logo of a vertical one */
-.h-site-header-toggle {
-  display: none;
-  padding: 4px 8px;
-  border: 0;
-  background: none;
-  color: inherit;
-  font-size: var(--h-font-size-icon);
-  cursor: pointer;
-}
-
-.h-site-header-slide .h-site-header {
-  padding-right: 48px;
-}
-
-.h-site-header-slide .h-site-header-toggle {
-  display: block;
-  position: absolute;
-  top: 8px;
-  right: 8px;
-}
-
-/* collapsed: the logo (smaller), the title and the button */
-.h-site-header-collapsed .h-site-header :is(.h-site-subtitle, [data-h-instance], [data-h-media]),
-.h-site-header-collapsed .h-site-header [data-h-text]:not(.h-site-logo, .h-site-title) {
-  display: none;
-}
-
-.h-site-header-collapsed .h-site-title {
-  font-size: 1.2em;
-}
-
-.h-site-header-collapsed .h-site-hset {
-  grid-template-columns: auto minmax(0, 1fr);
-  grid-template-areas: "logo brand";
-  padding: 0.25rem 0;
-}
-
 .h-site-footer-fixed .h-site-footer {
   position: sticky;
   bottom: 0;
@@ -433,134 +396,20 @@ html.h-site {
   display: none;
 }
 
-/* the header default set (§13): logo, title and subtitle, menu, language switch; one row on normal screens */
-.h-site-hset {
-  display: grid;
-  grid-template-columns: auto minmax(0, max-content) minmax(0, 1fr) auto;
-  grid-template-areas: "logo brand menu lang";
-  align-items: center;
-  gap: 0.5rem 1.5rem;
-  padding: 0.75rem 0;
-}
-
-.h-site-hset > .h-site-logo {
-  grid-area: logo;
-}
-
-.h-site-hset > .h-site-brand {
-  display: flex;
-  grid-area: brand;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-}
-
-.h-site-hset > .h-site-hset-menu {
-  grid-area: menu;
-  min-width: 0;
-  min-height: 0;
-}
-
-.h-site-hset > .h-site-hset-lang {
-  grid-area: lang;
-  min-height: 0;
-}
-
-/* two rows: logo, title and subtitle; menu and language switch */
-.h-site-header-rows2 .h-site-hset {
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  grid-template-areas: "logo brand brand" "menu menu lang";
-}
-
-/* the title has the size of a heading 1 of the theme */
-.h-site-hset .h-site-title {
-  font-family: var(--h-site-heading-font);
-  font-size: 2em;
-  color: var(--h-site-heading-color);
-}
-
-@media (min-width: 641px) {
-  .h-site-header-vertical:not(.h-site-hide-header) {
-    display: grid;
-    grid-template-columns: minmax(180px, 260px) minmax(0, 1fr);
-    grid-template-rows: 1fr auto;
-    min-height: 100vh;
-  }
-
-  .h-site-header-vertical:not(.h-site-hide-header) .h-site-header {
-    grid-row: 1 / span 2;
-    position: sticky;
-    top: 0;
-    max-width: none;
-    height: 100vh;
-    margin: 0;
-    padding-right: 16px;
-    overflow: auto;
-    border-right: 1px solid var(--h-color-border);
-  }
-
-  .h-site-header-vertical:not(.h-site-hide-header) :is(.h-site-main, .h-site-footer) {
-    grid-column: 2;
-    width: 100%;
-  }
-
-  /* a vertical header: one column */
-  .h-site-header-vertical .h-site-hset {
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-areas: "logo" "brand" "menu" "lang";
-    align-items: start;
-  }
-
-  .h-site-header-vertical .h-site-hset .h-site-title {
-    font-size: 1.5em;
-  }
-
-  /* the button above the logo */
-  .h-site-header-vertical.h-site-header-slide .h-site-header-toggle {
-    position: static;
-    margin: 8px 0 0 -8px;
-  }
-
-  /* collapsed: a narrow column with the button and a small logo */
-  .h-site-header-vertical.h-site-header-collapsed:not(.h-site-hide-header) {
-    grid-template-columns: calc(var(--h-site-logo-height) * 0.5 + 32px) minmax(0, 1fr);
-  }
-
-  .h-site-header-vertical.h-site-header-collapsed .h-site-header :is(.h-site-title, .h-site-brand) {
-    display: none;
-  }
-
-  .h-site-header-vertical.h-site-header-collapsed .h-site-hset {
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-areas: "logo";
-  }
-}
-
-/* an image of a Record field fits the box of its element (Width / Height of the field popup or Properties, review 2026-11-09) */
-[data-h-field] > img {
-  display: block;
-  max-width: 100%;
-  max-height: 100%;
-  object-fit: contain;
-}
-
-/* the parts of a header: logo, title, subtitle; always responsive (no setting). --h-site-logo-now: the height on
-   this screen; a placeholder while the website has no logo */
+/* the parts of a header: logo, title, subtitle. --h-site-logo-now: the height on this screen; a placeholder while
+   the website has no logo */
 .h-site-logo {
   --h-site-logo-now: var(--h-site-logo-height);
   flex: none;
   line-height: 0;
 }
 
-.h-site-header-collapsed .h-site-logo {
-  --h-site-logo-now: calc(var(--h-site-logo-height) * 0.5);
-}
-
-.h-site-logo img {
+/* stronger than the rule of text images (.h-site-body img) */
+html.h-site .h-site-logo img {
   width: auto;
   max-width: 100%;
   height: var(--h-site-logo-now);
-  max-height: 100%;
+  max-height: none;
 }
 
 .h-site-logo:empty::before {
@@ -595,12 +444,62 @@ html.h-site {
   margin: 0;
 }
 
+.h-site-logo-small {
+  --h-site-logo-now: calc(var(--h-site-logo-height) * 0.6);
+}
+
+/* the header default set (§13): logo, title and subtitle, menu, language switch; one row on normal screens */
+.h-site-header .h-site-hset {
+  display: grid;
+  grid-template-columns: auto minmax(0, max-content) minmax(0, 1fr) auto;
+  grid-template-areas: "logo brand menu lang";
+  align-items: center;
+  gap: 0.5rem 1.5rem;
+  padding: 0.75rem 0;
+}
+
+.h-site-header .h-site-hset > .h-site-logo {
+  grid-area: logo;
+}
+
+.h-site-header .h-site-hset > .h-site-brand {
+  display: flex;
+  grid-area: brand;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.h-site-header .h-site-hset > .h-site-hset-menu {
+  grid-area: menu;
+  min-width: 0;
+  min-height: 0;
+}
+
+.h-site-header .h-site-hset > .h-site-hset-lang {
+  grid-area: lang;
+  min-height: 0;
+}
+
+/* two rows: logo, title and subtitle; menu and language switch */
+.h-site-header-rows2 .h-site-header .h-site-hset {
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-areas: "logo brand brand" "menu menu lang";
+}
+
+/* the title has the size of a heading 1 of the theme */
+.h-site-header .h-site-hset .h-site-title {
+  font-family: var(--h-site-heading-font);
+  font-size: 2em;
+  color: var(--h-site-heading-color);
+}
+
 @media (max-width: 1024px) {
   .h-site-title {
     font-size: 1.4em;
   }
 
-  .h-site-hset .h-site-title {
+  .h-site-header .h-site-hset .h-site-title {
     font-size: 1.6em;
   }
 
@@ -609,7 +508,7 @@ html.h-site {
   }
 
   /* the default set: two rows on medium screens */
-  .h-site-hset {
+  .h-site-header .h-site-hset {
     grid-template-columns: auto minmax(0, 1fr) auto;
     grid-template-areas: "logo brand brand" "menu menu lang";
   }
@@ -621,7 +520,7 @@ html.h-site {
     display: none;
   }
 
-  .h-site-hset .h-site-title {
+  .h-site-header .h-site-hset .h-site-title {
     font-size: 1.3em;
   }
 
@@ -630,7 +529,8 @@ html.h-site {
   }
 
   /* the default set stacked: logo and title, then menu (behind its button) and language switch */
-  .h-site-hset {
+  .h-site-header .h-site-hset,
+  .h-site-header-rows2 .h-site-header .h-site-hset {
     grid-template-columns: auto minmax(0, 1fr);
     grid-template-areas: "logo brand" "menu lang";
     gap: 0.5rem 1rem;
@@ -640,6 +540,129 @@ html.h-site {
   .h-site-header-vertical .h-site-header {
     position: static;
   }
+}
+
+@media (min-width: 641px) {
+  .h-site-header-vertical:not(.h-site-hide-header) {
+    display: grid;
+    grid-template-columns: minmax(180px, 260px) minmax(0, 1fr);
+    grid-template-rows: 1fr auto;
+    min-height: 100vh;
+  }
+
+  .h-site-header-vertical:not(.h-site-hide-header) .h-site-header {
+    grid-row: 1 / span 2;
+    position: sticky;
+    top: 0;
+    max-width: none;
+    height: 100vh;
+    margin: 0;
+    padding-right: 16px;
+    overflow: auto;
+    border-right: 1px solid var(--h-color-border);
+  }
+
+  .h-site-header-vertical:not(.h-site-hide-header) :is(.h-site-main, .h-site-footer) {
+    grid-column: 2;
+    width: 100%;
+  }
+
+  /* a vertical header: one column */
+  .h-site-header-vertical .h-site-header .h-site-hset,
+  .h-site-header-vertical.h-site-header-rows2 .h-site-header .h-site-hset {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "logo" "brand" "menu" "lang";
+    align-items: start;
+  }
+
+  .h-site-header-vertical .h-site-header .h-site-hset .h-site-title {
+    font-size: 1.5em;
+  }
+}
+
+/* slide out (§13): an expand / collapse button (siteRuntime attachHeaderToggle, also in the preview of the designer);
+   on the right of a horizontal header, above the logo of a vertical one */
+.h-site-header-toggle {
+  display: none;
+  padding: 0 8px;
+  border: 0;
+  background: none;
+  color: inherit;
+  font-size: var(--h-font-size-icon);
+  line-height: 24px;
+  cursor: pointer;
+}
+
+.h-site-header-slide .h-site-header {
+  padding-right: 48px;
+}
+
+.h-site-header-slide .h-site-header-toggle {
+  display: block;
+  position: absolute;
+  top: 3px;
+  right: 8px;
+}
+
+/* collapsed: a narrow bar (30px) with a small logo, the title in one line and the button */
+.h-site-header-collapsed .h-site-header :is(.h-site-subtitle, [data-h-instance], [data-h-media]),
+.h-site-header-collapsed .h-site-header [data-h-text]:not(.h-site-logo, .h-site-title) {
+  display: none;
+}
+
+.h-site-header-collapsed .h-site-header .h-site-logo {
+  --h-site-logo-now: 24px;
+}
+
+.h-site-header-collapsed .h-site-header .h-site-hset,
+.h-site-header-collapsed.h-site-header-rows2 .h-site-header .h-site-hset {
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-areas: "logo brand";
+  gap: 0 0.75rem;
+  padding: 3px 0;
+}
+
+.h-site-header-collapsed .h-site-header .h-site-title,
+.h-site-header-collapsed .h-site-header .h-site-hset .h-site-title {
+  overflow: hidden;
+  font-size: 1.1em;
+  line-height: 24px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+@media (min-width: 641px) {
+  /* the button above the logo */
+  .h-site-header-vertical.h-site-header-slide .h-site-header {
+    padding-right: 16px;
+  }
+
+  .h-site-header-vertical.h-site-header-slide .h-site-header-toggle {
+    position: static;
+    margin: 8px 0 0 -8px;
+  }
+
+  /* collapsed: a narrow column with the button and a small logo */
+  .h-site-header-vertical.h-site-header-collapsed:not(.h-site-hide-header) {
+    grid-template-columns: 64px minmax(0, 1fr);
+  }
+
+  .h-site-header-vertical.h-site-header-collapsed .h-site-header :is(.h-site-title, .h-site-brand) {
+    display: none;
+  }
+
+  .h-site-header-vertical.h-site-header-collapsed .h-site-header .h-site-hset {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "logo";
+  }
+}
+
+/* an image of a Record field fits the box of its element (Width / Height of the field popup or Properties, review 2026-11-09) */
+[data-h-field] > img {
+  display: block;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
 }
 
 /* Badges (plan 27f §7): logos with links in a row; grey until the mouse is over a logo */
@@ -669,10 +692,6 @@ html.h-site {
 .h-site-badges-row.is-grey .h-site-badge:focus-visible img {
   filter: none;
   opacity: 1;
-}
-
-.h-site-logo-small {
-  --h-site-logo-now: calc(var(--h-site-logo-height) * 0.6);
 }
 
 .h-site-badges-empty {

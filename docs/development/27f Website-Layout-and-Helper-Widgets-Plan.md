@@ -453,3 +453,15 @@ Answers to the questions of the review and decisions:
   (`extra` of `_saveRecord`, not a second request: one `rec_Modified`). Layout button (fa-sliders) below the page tree
   when Header or Footer is shown.
 - Tests: JS 1,682 pass; WebsiteRenderTest 57, WebsiteEditTest 78, CmsFormatTest 14 pass.
+
+### 13.2 Review round 3 (2026-11-09), fixes
+
+1. Logo not smaller on medium / narrow screens in the public page: `.h-site-body img:not(.h-site-module *)` (height auto)
+   was stronger than `.h-site-logo img`; now `html.h-site .h-site-logo img`.
+2. Each element of the default set on its own line: the style kind of a group (`[data-h-control="group"]{display:block}`
+   in the page styles, after the bundle CSS) replaced the grid; all rules of the set start with `.h-site-header` now.
+3. Banner and own colours missing in the preview: `CmsPreview.restyle` replaces `h-site-styles` with the draft styles;
+   `PageRenderer` writes `layoutCss` into its own block `<style id="h-site-layout">`.
+4. Collapse: the button works in the preview too (`startSite` attaches it in design mode, `CmsPreview.apply` keeps it
+   when it writes the draft header); collapsed = a bar of 30px with a logo of 24px, the title in one line and the button.
+

@@ -131,7 +131,10 @@ export class CmsPreview {
       const kept = new Map();
       for (const host of container.querySelectorAll('[data-h-instance]')) kept.set(host.getAttribute('data-h-instance'), host);
       const before = new Set(kept.keys());
+      // the expand / collapse button of a slide out header (site runtime) is not part of the draft
+      const toggle = container.querySelector(':scope > .h-site-header-toggle');
       container.innerHTML = html;
+      if (toggle) container.prepend(toggle);
       if (restoreFieldValues(container, this.fieldValues)) this.unknownField = true;
       this.hooks.enhance(container);
       for (const host of [...container.querySelectorAll('[data-h-instance]')]) {
