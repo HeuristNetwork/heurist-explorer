@@ -21,7 +21,8 @@
 import '@fortawesome/fontawesome-free/css/brands.min.css';
 import { $HR } from '#shared/ui';
 import { formDialog } from './designerDialogs.js';
-import { helpLine } from './designerStyles.js';
+import { dragHandle, helpLine, sortableList } from './designerStyles.js';
+import { recordPagePicker } from './recordPageField.js';
 
 /** Social networks of the social media preset (hard-coded, §9.6): id, name, Font Awesome icon, URL hint. */
 export const SOCIAL_NETWORKS = Object.freeze([
@@ -44,8 +45,12 @@ export const SOCIAL_NETWORKS = Object.freeze([
 /** Presentations of an action menu: value, label. */
 const PRESENTATIONS = Object.freeze([['links', 'Links'], ['buttons', 'Buttons'], ['icons', 'Icons'], ['dropdown', 'Drop-down menu']]);
 
-/** Actions of an item: value, label. */
-const ACTIONS = Object.freeze([['page', 'Go to a page'], ['url', 'Open a URL'], ['addRecord', 'Add a record']]);
+/**
+ * Actions of an item: value, label, disabled (Saved filter: not done yet). Record page: a record on a record page; Back:
+ * the page before (plan 27g §6).
+ */
+const ACTIONS = Object.freeze([['page', 'Go to a page'], ['url', 'Open a URL'], ['addRecord', 'Add a record'],
+  ['recordPage', 'Record page'], ['back', 'Back'], ['savedFilter', 'Saved filter', true]]);
 
 /**
  * Settings of the social media preset from the URLs of the networks (empty URLs left out).
@@ -118,9 +123,11 @@ export function openSocialForm({ settings = {} } = {}) {
  * @param {Array<{id: number, title: string, depth?: number}>} [options.pages] Pages of the website (Home first).
  * @param {Array<{id: number, name: string}>} [options.recordTypes] Record types (Add record).
  * @param {boolean} [options.canAddRecord] Whether the website has Heurist Explorer (Add record).
+ * @param {object} [options.services] Record page (plan 27g §6): `recordPageTerms()`, `createRecordPage`, `cardTemplates`,
+ *        `templateTerms` (recordPagePicker) and `browseRecords` (the record).
  * @returns {Promise<object|null>} Settings.
  */
-export function openActionMenuForm({ settings = {}, pages = [], recordTypes = [], canAddRecord = false } = {}) {
+export function openActionMenuForm({ settings = {}, pages = [], recordTypes = [], canAddRecord = false, services = {} } = {}) {
   const form = element('form', 'h-cms-form h-cms-action-form');
   form.append(helpLine(canAddRecord ? 'Links to pages of the website or to other websites, and actions such as Add record.'
     : 'Links to pages of the website or to other websites. Add record needs Heurist Explorer on the website.'));
@@ -134,7 +141,7 @@ export function openActionMenuForm({ settings = {}, pages = [], recordTypes = []
   const labelLine = line('Label of the drop-down button', label);
   const showLabel = () => { labelLine.hidden = presentation.value !== 'dropdown'; };
   presentation.addEventListener('change', showLabel);
-  form.append(line('Presentation', presentation), labelLine);
+  form.append(classed(line('Presentation', presentation), 'h-cms-action-presentation'), labelLine);
   showLabel();
 
   const list = element('div', 'h-cms-action-list');
@@ -155,7 +162,11 @@ export function openActionMenuForm({ settings = {}, pages = [], recordTypes = []
     glyph.setAttribute('aria-hidden', 'true');
     icon.addEventListener('input', () => { glyph.className = icon.value; });
     const action = element('select', 'h-select h-compact');
-    action.append(...actions.map(([value, caption]) => option(value, $HR(caption))));
+    action.append(...actions.map(([value, caption, disabled]) => {
+      const node = option(value, $HR(caption));
+      node.disabled = Boolean(disabled);
+      return node;
+    }));
     action.value = actions.some(([value]) => value === item.action) ? item.action : 'page';
     const target = element('span', 'h-cms-action-target');
     const page = element('select', 'h-select h-compact');
@@ -165,38 +176,63 @@ export function openActionMenuForm({ settings = {}, pages = [], recordTypes = []
     url.placeholder = 'https://';
     const type = element('select', 'h-select h-compact');
     type.append(...recordTypes.map((entry) => option(String(entry.id), entry.name)));
+    // Record page: the page and the record (plan 27g §6)
+    const recordPage = recordPagePicker(services, item.action === 'recordPage' ? Number(item.target) || null : null);
+    let recordId = item.action === 'recordPage' ? Number(item.record) || 0 : 0;
+    const chooseRecord = button('fa-magnifying-glass', 'Choose the record', true);
+    const recordLabel = () => {
+      chooseRecord.lastChild.textContent = ` ${recordId ? `#${recordId}` : $HR('Choose the record')}`;
+    };
+    recordLabel();
+    chooseRecord.disabled = typeof services.browseRecords !== 'function';
+    chooseRecord.addEventListener('click', async () => {
+      const ids = await services.browseRecords({ selectMode: 'select', title: $HR('Record of the record page') });
+      if (Number(ids?.[0]) > 0) {
+        recordId = Number(ids[0]);
+        recordLabel();
+      }
+    });
+    const recordTarget = element('span', 'h-cms-action-record');
+    recordTarget.append(recordPage.element, chooseRecord);
     if (item.action === 'url') url.value = item.target || '';
     else if (item.action === 'addRecord') type.value = String(item.target || '');
-    else if (item.target) page.value = String(item.target);
-    const showTarget = () => target.replaceChildren({ page, url, addRecord: type }[action.value] || page);
-    action.addEventListener('change', showTarget);
+    else if (item.action !== 'recordPage' && item.target) page.value = String(item.target);
+    const showTarget = () => target.replaceChildren(...({ page: [page], url: [url], addRecord: [type], recordPage: [recordTarget], back: [] }[action.value] || [page]));
+    // Go to a page without a label: the name of the page (review 2026-11-11); Back: "Back"
+    const pageLabel = () => {
+      if (text.value.trim()) return;
+      if (action.value === 'back') text.value = $HR('Back');
+      if (action.value !== 'page') return;
+      const chosen = pages.find((entry) => String(entry.id) === page.value);
+      if (chosen?.title) text.value = chosen.title;
+    };
+    action.addEventListener('change', () => {
+      showTarget();
+      pageLabel();
+    });
+    page.addEventListener('change', pageLabel);
     showTarget();
     const newTab = checkbox('New tab', item.newTab);
     const iconOnly = checkbox('Icon only', item.iconOnly);
-    const tools = element('span', 'h-cms-action-tools');
-    const up = button('fa-arrow-up', 'Move up');
     const remove = button('fa-xmark', 'Remove');
-    up.addEventListener('click', () => {
-      const index = rows.findIndex((entry) => entry.row === row);
-      if (index < 1) return;
-      [rows[index - 1], rows[index]] = [rows[index], rows[index - 1]];
-      list.replaceChildren(...rows.map((entry) => entry.row));
-    });
     remove.addEventListener('click', () => {
       rows.splice(rows.findIndex((entry) => entry.row === row), 1);
       row.remove();
     });
-    tools.append(up, remove);
-    row.append(text, glyph, icon, action, target, newTab.box, iconOnly.box, tools);
+    row.append(dragHandle(), text, glyph, icon, action, target, newTab.box, iconOnly.box, remove);
     list.append(row);
     rows.push({
       row,
       read: () => {
+        pageLabel();
         const value = { label: text.value.trim(), action: action.value };
         if (icon.value.trim()) value.icon = icon.value.trim();
         if (action.value === 'page') value.target = Number(page.value) || 0;
         else if (action.value === 'url') value.target = url.value.trim();
-        else value.target = Number(type.value) || type.value;
+        else if (action.value === 'recordPage') {
+          value.target = Number(recordPage.select.value) || 0;
+          value.record = recordId;
+        } else if (action.value === 'addRecord') value.target = Number(type.value) || type.value;
         if (newTab.input.checked) value.newTab = true;
         if (iconOnly.input.checked && value.icon) value.iconOnly = true;
         if (item.labels) value.labels = item.labels;
@@ -205,7 +241,11 @@ export function openActionMenuForm({ settings = {}, pages = [], recordTypes = []
     });
   };
   for (const item of settings.items || []) addRow(item);
-  const add = button('fa-plus', 'Add item', true);
+  sortableList(list, (from, to) => {
+    rows.splice(to, 0, ...rows.splice(from, 1));
+    list.replaceChildren(...rows.map((entry) => entry.row));
+  });
+  const add = button('fa-plus', 'Add item', true, 'h-btn h-btn-primary h-cms-add-button');
   add.addEventListener('click', () => addRow({}));
   form.append(list, add);
   const problems = element('div', 'h-cms-style-problems');
@@ -215,6 +255,10 @@ export function openActionMenuForm({ settings = {}, pages = [], recordTypes = []
     const missing = items.find((item) => (item.action === 'url' && !item.target) || (item.action === 'page' && !item.target));
     if (missing) {
       problems.textContent = $HR('Every item needs a page or a URL');
+      return null;
+    }
+    if (items.some((item) => item.action === 'recordPage' && (!item.target || !item.record))) {
+      problems.textContent = $HR('A Record page item needs a record page and a record');
       return null;
     }
     const result = { presentation: presentation.value, items };
@@ -229,12 +273,14 @@ export function openActionMenuForm({ settings = {}, pages = [], recordTypes = []
  *
  * @param {{id: number, title?: string, pages?: Array}} site Summary of the website (designer `site`).
  * @param {string} [homeLabel]
+ * @param {{records?: boolean}} [options] `records: false`: without record pages (they need a record, plan 27g).
  * @returns {Array<{id: number, title: string, depth: number}>}
  */
-export function sitePageList(site, homeLabel = 'Home') {
+export function sitePageList(site, homeLabel = 'Home', { records = true } = {}) {
   const list = site ? [{ id: Number(site.id), title: $HR(homeLabel), depth: 0 }] : [];
   const walk = (pages, depth) => {
     for (const page of pages || []) {
+      if (!records && page.record) continue;
       list.push({ id: Number(page.id), title: page.title || `#${page.id}`, depth });
       walk(page.children, depth + 1);
     }
@@ -251,6 +297,11 @@ function line(label, control) {
   return node;
 }
 
+function classed(node, className) {
+  node.classList.add(className);
+  return node;
+}
+
 function checkbox(label, checked) {
   const box = element('label', 'h-cms-check');
   const input = element('input');
@@ -260,8 +311,8 @@ function checkbox(label, checked) {
   return { box, input };
 }
 
-function button(icon, title, withLabel = false) {
-  const node = element('button', 'h-btn h-compact');
+function button(icon, title, withLabel = false, className = 'h-btn h-compact') {
+  const node = element('button', className);
   node.type = 'button';
   node.title = $HR(title);
   const glyph = element('i', `fa-solid ${icon}`);

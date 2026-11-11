@@ -282,8 +282,9 @@ export function openPageLayoutForm(layout = {}) {
 
 /** Blocks of the footer composer: name, label (plan 27f §3.2). */
 const FOOTER_BLOCK_LABELS = Object.freeze([
-  ['badges', 'Partners and sponsors (logos with links)'], ['social', 'Follow us on social media'],
-  ['links', 'Links to selected pages (Legal information, Conditions of use, Contact ...)'], ['copyright', 'Copyright text'],
+  ['badges', 'Partners and sponsors (logos with links)'],
+  ['links', 'Links to selected pages (Legal information, Conditions of use, Contact ...)'], ['social', 'Follow us on social media'],
+  ['copyright', 'Copyright text'],
   ['heurist', 'Powered by Heurist'], ['host', 'Hosted at: the organisation that hosts this Heurist']
 ]);
 

@@ -73,7 +73,9 @@ test('a media element has no field', () => {
 });
 
 test('format: a field reference is checked, a field block is not a translated text', () => {
-  const html = '<div data-h-node="a" data-h-text="" data-h-field="website.2-1">x</div><div data-h-node="b" data-h-text="" data-h-field="nonsense">y</div>';
+  // `record.`: the record of the URL of a record page (plan 27g)
+  const html = '<div data-h-node="a" data-h-text="" data-h-field="website.2-1">x</div><div data-h-node="b" data-h-text="" data-h-field="nonsense">y</div>'
+    + '<div data-h-node="c" data-h-text="" data-h-field="record.2-1">z</div>';
   assert.equal(cmsNodes(html)[0].field, 'website.2-1');
   const issues = checkCmsDocument({ schema: 'heurist-cms/4', instances: {}, styles: {} },
     [html], { fre: {} });
@@ -110,25 +112,30 @@ test('header default set (plan 27f §13): logo, title, subtitle of the website, 
   assert.deepEqual(checkCmsDocument(doc.config, [html]).filter((issue) => issue.level !== 'info'), []);
 });
 
-test('footer composer (plan 27f §3.2): the chosen blocks in columns, widgets configured', () => {
+test('footer composer (plan 27f §3.2): the chosen blocks in three centred rows, widgets configured', () => {
   const doc = new CmsRecordDocument({ parts: { footer: '' } });
   doc.insertElement('footer', 'siteFooter', { id: null, position: 'inside' }, { blocks: ['host', 'copyright', 'social', 'badges', 'links', 'heurist'],
     year: 2026, baseUrl: 'http://h/heurist/', host: { logo: 'http://h/heurist/?logo=host', url: 'https://org.example' } });
   const html = doc.serialize().parts.footer;
   const instances = Object.values(doc.config.instances);
   assert.deepEqual(instances.map((instance) => instance.type), ['badges', 'actionmenu', 'actionmenu'], 'in the order of CMS_FOOTER_BLOCKS');
-  assert.equal(instances[1].settings.preset, 'social');
-  assert.equal(instances[2].settings.presentation, 'links');
+  assert.equal(instances[1].settings.presentation, 'links');
+  assert.equal(instances[2].settings.preset, 'social');
   assert.match(html, /© 2026 Website title/);
   assert.match(html, /<a class="h-site-powered" href="https:\/\/heuristnetwork.org"[^>]*>powered by <img src="http:\/\/h\/heurist\/hclient\/bundles\/heurist-website\/assets\/branding\/h6logo32.png"/);
-  assert.match(html, /<a class="h-site-hosted" href="https:\/\/org.example"[^>]*><span>at: <\/span><img src="http:\/\/h\/heurist\/\?logo=host"/);
-  // review 2026-11-10: copyright, powered by and hosted at are three texts of one group (the last column)
+  assert.match(html, /<a class="h-site-hosted" href="https:\/\/org.example"[^>]*><span>hosted at: <\/span><img src="http:\/\/h\/heurist\/\?logo=host"/);
+  // review 2026-11-10: copyright, powered by and hosted at are three texts of one group (the last row)
   assert.match(html, /data-h-control="group"><div[^>]*data-h-text="">[^]*© 2026[^]*h-site-powered[^]*h-site-hosted[^]*<\/div><\/div><\/div>$/);
   const noHost = new CmsRecordDocument({ parts: { footer: '' } });
   noHost.insertElement('footer', 'siteFooter', { id: null, position: 'inside' }, { blocks: ['host', 'heurist'] });
   assert.doesNotMatch(noHost.serialize().parts.footer, /h-site-hosted/, 'no host organisation: no hosted at line');
-  const style = Object.values(doc.config.styles.nodes).find((value) => value.display === 'grid');
-  assert.equal(style['grid-template-columns'], 'repeat(4, minmax(0, 1fr))', 'at most four columns');
+  // review 2026-11-11: rows; links and follow us in two columns; the credits in a grid of three
+  const grids = Object.values(doc.config.styles.nodes).filter((value) => value.display === 'grid');
+  assert.deepEqual(grids.map((value) => value['grid-template-columns']), ['repeat(2, minmax(0, 1fr))', 'repeat(3, minmax(0, 1fr))']);
+  assert.deepEqual(grids[1], { display: 'grid', 'grid-template-columns': 'repeat(3, minmax(0, 1fr))', gap: '12px', 'align-items': 'center',
+    'text-align': 'center', narrow: { 'grid-template-columns': '1fr' } });
+  assert.ok(Object.values(doc.config.styles.nodes).some((value) => value['flex-direction'] === 'column' && value['text-align'] === 'center'),
+    'the footer is a centred column of rows');
   const small = new CmsRecordDocument({ parts: { footer: '' } });
   small.insertElement('footer', 'siteFooter', { id: null, position: 'inside' }, { blocks: ['copyright'] });
   assert.equal(Object.keys(small.config.instances).length, 0);

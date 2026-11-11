@@ -10,7 +10,8 @@
  *   picker below for the rest (a value picked there joins the list, checked).
  *
  * Values come from a value source (`options.source`) or, as before, from
- * `options.terms` (`{id, label, depth}`, depth 1 = top level).
+ * `options.terms` (`{id, label, depth, disabled}`, depth 1 = top level; `disabled`: shown, not selectable, in a radio or
+ * checkbox list only - plan 27g §6).
  *
  * @project     Heurist academic knowledge management system
  * @package     heurist-client-core
@@ -119,7 +120,7 @@ export class HInputEnum extends HInput {
     this._readOnly = Boolean(readOnly);
     this._markReadOnly(readOnly);
     this.combo?.setReadOnly(readOnly);
-    for (const choice of this.choices || []) choice.disabled = this._readOnly;
+    for (const choice of this.choices || []) choice.disabled = this._readOnly || choice.closest?.('.is-disabled') != null;
     return this;
   }
 
@@ -233,7 +234,8 @@ export class HInputEnum extends HInput {
       control.name = this._radioName;
       control.value = String(item.value);
       control.checked = selectedKeys.has(String(item.value));
-      control.disabled = Boolean(this._readOnly);
+      control.disabled = Boolean(this._readOnly || item.disabled);
+      if (item.disabled) label.classList.add('is-disabled');
       const text = document.createElement('span');
       text.textContent = item.label ?? String(item.value);
       label.append(control, text);
@@ -343,7 +345,8 @@ function termsSource(terms = []) {
     // numeric ids as numbers; text ids ("icon", "circle") stay text - Number() made them all NaN
     value: numericId(term.id ?? term.value),
     label: term.label || String(term.id ?? term.value),
-    depth: Math.max(0, (Number(term.depth) || 1) - 1)
+    depth: Math.max(0, (Number(term.depth) || 1) - 1),
+    ...(term.disabled === true ? { disabled: true } : {})
   })));
 }
 

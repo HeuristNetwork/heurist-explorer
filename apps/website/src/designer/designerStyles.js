@@ -1220,6 +1220,77 @@ export function helpLine(help) {
   return line;
 }
 
+/** The drag handle of a row of a sortable list (sortableList), its first column. */
+export function dragHandle() {
+  const handle = element('span', 'h-cms-drag');
+  handle.title = $HR('Drag to reorder');
+  const icon = element('i', 'fa-solid fa-grip-vertical');
+  icon.setAttribute('aria-hidden', 'true');
+  handle.append(icon);
+  return handle;
+}
+
+/**
+ * Reorder the rows of a list by drag and drop (review 2026-11-11: badges, action menu). A row is dragged only by
+ * its handle (dragHandle), so the inputs of the row keep their text selection. The list does not move the rows:
+ * `onMove` changes the data and draws the list again.
+ *
+ * @param {HTMLElement} list The parent of the rows.
+ * @param {(from: number, to: number) => void} onMove Indexes of the dragged row and of the row it was dropped on.
+ */
+export function sortableList(list, onMove) {
+  let dragged = null;
+  const rowOf = (node) => {
+    let row = node instanceof Element ? node : node?.parentElement;
+    while (row && row.parentElement !== list) row = row.parentElement;
+    return row || null;
+  };
+  const clear = () => {
+    for (const row of list.children) row.classList.remove('is-drop-target');
+  };
+  const reset = () => {
+    clear();
+    for (const row of list.children) {
+      row.draggable = false;
+      row.classList.remove('is-dragging');
+    }
+    dragged = null;
+  };
+  list.addEventListener('pointerdown', (event) => {
+    const handle = event.target instanceof Element ? event.target.closest('.h-cms-drag') : null;
+    const row = handle ? rowOf(handle) : null;
+    if (row) row.draggable = true;
+  });
+  list.addEventListener('pointerup', () => {
+    if (!dragged) reset();
+  });
+  list.addEventListener('dragstart', (event) => {
+    const row = rowOf(event.target);
+    if (!row?.draggable) return;
+    dragged = row;
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData('text/plain', '');
+    row.classList.add('is-dragging');
+  });
+  list.addEventListener('dragover', (event) => {
+    if (!dragged) return;
+    event.preventDefault();
+    const target = rowOf(event.target);
+    clear();
+    if (target && target !== dragged) target.classList.add('is-drop-target');
+  });
+  list.addEventListener('drop', (event) => {
+    if (!dragged) return;
+    event.preventDefault();
+    const rows = [...list.children];
+    const from = rows.indexOf(dragged);
+    const to = rows.indexOf(rowOf(event.target));
+    reset();
+    if (from >= 0 && to >= 0 && from !== to) onMove(from, to);
+  });
+  list.addEventListener('dragend', reset);
+}
+
 /**
  * A small confirmation next to a button (Remove / No), closed by a click outside or Escape. Inside a modal
  * dialog it is put into the dialog (the page below it is inert).

@@ -173,7 +173,8 @@ export function cmsMediaView(file, urls) {
  *
  * @param {object} file See buildCmsMedia.
  * @param {object} settings See buildCmsMedia.
- * @param {{urls: object, caption?: string, language?: string}} options See buildCmsMedia.
+ * @param {{urls: object, caption?: string, language?: string, record?: number}} options See buildCmsMedia; `record`: the
+ *        record of the figure (Type Any record, `data-h-rec`: the server adds the link of the action, plan 27g §6).
  * @returns {string} HTML; empty when the file can not be media.
  */
 export function buildCmsGalleryItem(file, settings = {}, options = {}) {
@@ -181,7 +182,8 @@ export function buildCmsGalleryItem(file, settings = {}, options = {}) {
   if (!html) return '';
   const target = settings.view === true ? cmsMediaView(file, options.urls) : null;
   const view = target ? ` data-h-view="${escape(target.type)}" data-h-full="${escape(target.url)}"` : '';
-  return `<figure class="h-site-card" data-h-media=""${view}>${html}</figure>`;
+  const record = Number(options.record) > 0 ? ` data-h-rec="${Number(options.record)}"` : '';
+  return `<figure class="h-site-card" data-h-media=""${view}${record}>${html}</figure>`;
 }
 
 /** The plain caption of a media element's HTML (without the viewer link), as buildCmsMedia wrote it. */

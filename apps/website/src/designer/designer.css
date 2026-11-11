@@ -845,19 +845,83 @@
 
 .h-cms-action-row {
   display: grid;
-  grid-template-columns: minmax(8em, 1fr) 20px 9em 9em minmax(10em, 1.5fr) auto auto auto;
+  grid-template-columns: 16px minmax(10em, 1fr) 20px 11em 10em minmax(14em, 1.5fr) auto auto auto;
   gap: 6px;
   align-items: center;
+}
+
+/* Record page of an action (plan 27g §6): the select, Define new record page and (action menu) the record */
+.h-cms-record-page,
+.h-cms-action-record {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+}
+
+.h-cms-record-page > select {
+  flex: 1 1 10em;
+  min-width: 0;
+}
+
+.h-cms-new-record-page {
+  flex: none;
+}
+
+/* Define new record page: the help and the report apart (cosmetics 2026-11-11) */
+.h-cms-new-record-page-form {
+  gap: 14px;
+}
+
+/* the button right after the select of the Record page field */
+.h-edit-field-value:has(> .h-cms-new-record-page) {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.h-edit-field-value:has(> .h-cms-new-record-page) > .h-edit-field-input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* the action menu form is wide: a row has nine columns (review 2026-11-11) */
+.h-dialog-cms-actions {
+  width: min(1180px, 96vw);
+}
+
+/* sortable rows (sortableList): the handle in the first column, the row under the dragged one marked */
+.h-cms-drag {
+  color: var(--h-color-text-muted);
+  text-align: center;
+  cursor: grab;
+}
+
+.h-cms-action-row.is-dragging,
+.h-cms-badges-row.is-dragging {
+  opacity: 0.5;
+}
+
+.h-cms-action-row.is-drop-target,
+.h-cms-badges-row.is-drop-target {
+  outline: 2px dashed var(--h-color-primary);
+  outline-offset: 1px;
+}
+
+/* Add item / Add images: a normal primary button in the middle, not across the form */
+.h-cms-add-button {
+  align-self: center;
+}
+
+/* Presentation of the action menu: a short label and a narrow select beside it */
+.h-cms-action-presentation {
+  grid-template-columns: max-content auto;
+  justify-content: start;
 }
 
 .h-cms-action-target > * {
   width: 100%;
   box-sizing: border-box;
-}
-
-.h-cms-action-tools {
-  display: flex;
-  gap: 2px;
 }
 
 .h-cms-social-list {
@@ -876,7 +940,7 @@
 
 .h-cms-badges-row {
   display: grid;
-  grid-template-columns: minmax(8em, 1fr) minmax(8em, 1fr) minmax(12em, 1.5fr) auto auto;
+  grid-template-columns: 16px minmax(8em, 1fr) minmax(8em, 1fr) minmax(12em, 1.5fr) auto;
   gap: 6px;
   align-items: center;
 }

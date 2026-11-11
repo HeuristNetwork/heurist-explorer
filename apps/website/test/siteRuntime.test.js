@@ -102,7 +102,7 @@ test('menu options (plan 27f §4): Home first, a parent that only opens its sub 
     homeItem: { id: 5, title: 'Home', url: '/5', children: [] },
     items: [{ id: 7, title: 'About', url: '/7', children: [{ id: 8, title: 'Team', url: '/8', current: true, children: [
       { id: 9, title: 'Deep', url: '/9', children: [] }] }] },
-    { id: 10, title: 'Maps', url: '/10', icon: '/icon.png', format: 'icon', children: [] }]
+    { id: 10, title: 'Maps', url: '/10', icon: '/icon.png', format: 'icon', hidden: true, children: [] }]
   }).render();
   const nav = host.querySelector('.h-site-menu');
   assert.ok(nav.classList.contains('h-site-menu-vertical'));
@@ -116,6 +116,8 @@ test('menu options (plan 27f §4): Home first, a parent that only opens its sub 
   assert.equal(items[1].classList.contains('is-expanded'), false);
   assert.ok(items[4].querySelector('img').getAttribute('src') === '/icon.png' || items[4].querySelector('img').src === '/icon.png');
   assert.ok(items[4].querySelector('.h-site-menu-text').classList.contains('h-site-visually-hidden'), 'icon only: the title for screen readers');
+  // review 2026-11-11: a page hidden in the main menu is in the list with the class is-menu-hidden
+  assert.ok(items[4].classList.contains('is-menu-hidden') && !items[3].classList.contains('is-menu-hidden'), 'hidden in the main menu');
 });
 
 test('language switch (plan 27f §5): links, a select for appearance select, nothing for one language', async () => {

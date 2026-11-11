@@ -501,3 +501,41 @@ Tests: JS 1,699 pass; WebsiteRenderTest 61 pass.
    The host organisation comes from the server: `host` ({logo, url} of `HostInfo::read`, null without
    `organisation_logo.*`) in the website summary (`meta.website.host`); without it there is no hosted at line.
    Footers made before keep their HTML (the badges widget with `source: host` still works).
+
+### 13.5 Footer, badges and action menu (Artem, 2026-11-11; not committed, no browser check)
+
+1. **Footer composer** in three centred rows (`_footer` of `cmsEdit.js`, footer = flex column, `text-align: center`):
+   partners and sponsors; the links (action menu) and Follow us in two columns (one on narrow screens); copyright,
+   powered by and hosted at in one group with `display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap:
+   12px; align-items: center; text-align: center` (repeat(n) when fewer credits are chosen; one column on narrow
+   screens). `CMS_FOOTER_BLOCKS` order: badges, links, social, copyright, heurist, host (also the composer's list).
+2. **Badges: height, gap, alignment.** The purifier removed the `style` of the stored row (gap and alignment were lost),
+   and `.h-site-body img {height: auto}` overrode `height="33"` of the images. Now these come from the settings on the
+   host: class `h-site-badges-{start|center|end}` and variables `--h-site-badge-height`, `--h-site-badge-gap`, written
+   by the server (`PageContent::badgesLayout`, new key `style` of a host content in `CmsHtml::fill`) and by the runtime
+   for the designer draft (`badgesLayout` of `siteRuntime.js`); `html.h-site .h-site-badge img {height: var(...)}`.
+   `buildBadgesHtml` writes no style any more. Existing badges are right without a new save.
+3. Badges and Action menu forms: Add images / Add item = normal primary buttons; rows reordered by drag and drop of a
+   handle in the first column (`dragHandle` / `sortableList` of `designerStyles.js`; a row is draggable only from
+   its handle, so text in its inputs can still be selected); Move up buttons removed. Action menu form wider (1180px).
+4. **Menu colour and size** (`HMenu.css`, also the website menu): items take the colour and the font size of the menu
+   element (`color: inherit`), icons are `1em` (were 16px). The default colour of the menu (`--h-color-text`, links:
+   `--h-color-link`) is in `:where()`, so the own style of the node (Properties > Own styles: `color`, `font-size`)
+   wins. Buttons keep their primary colours (font size follows). Current page: primary colour, as before.
+   **Way to style a menu:** the own style of its element (one menu), or a style preset given to it (the same look for
+   several menus, e.g. the footer menus); the base colours of the site (Styles > Base) for all menus; the header or
+   footer theme changes the colours of the menus in it.
+
+### 13.6 Action menu form and hidden menu items (Artem, 2026-11-11; not committed, no browser check)
+
+1. Add images (badges) and Add item (action menu): centred.
+2. Action menu, Go to a page with an empty label: the label is the name of the page (when the action or the page is
+   chosen, and on Save).
+3. New actions Record page and Saved filter in the action list, disabled (not done yet).
+4. Presentation: a narrow select close to its label (`.h-cms-action-presentation`).
+5. **Hidden menu item:** `TRM_HIDDEN_ITEM` 2-10640 of `DT_CMS_MENU_FORMAT` 2-1104 (added to `SystemConstants`, code
+   `menuHidden` of `WebsiteRepository`). The generator writes the `<li>` with the class `is-menu-hidden`
+   (`PageRenderer::menuHidden` / `menuList`, HMenu `_list` with `hidden` of the item); `HMenu.css` hides it only in
+   the menu of the header (`.h-site-header .h-site-menu-item.is-menu-hidden`). The page stays in the page lists of the
+   designer (Go to a page of the action menu) and is visible in any other menu. Test: `WebsiteRenderTest.php`
+   (menuList), `siteRuntime.test.js` (HMenu).

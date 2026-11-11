@@ -12,8 +12,10 @@ import assert from 'node:assert/strict';
 import { installFakeDom } from '../../../shared/test/helpers/fakeDom.js';
 
 installFakeDom();
-const { captionValue, cardTemplateTerms, presentationSettings, fieldDetails, fileFieldTerms, fieldSnapshot, fieldTerms, manualIds, manualQuery, mediaFormFields, mediaSizeValue, parseCardsQuery, parseFieldReference, readCaption, reportFiles, reportNotPublic, teamReportBody, visibleToGuests } = await import('../src/designer/widgetForms.js');
-const { CmsRecordDocument } = await import('#shared/site/cmsEdit.js');
+const { captionValue, cardTemplateTerms, presentationSettings, fieldDetails, fileFieldTerms, fieldSnapshot, fieldTerms, manualIds, manualQuery, mediaActionSettings, mediaActionValues, mediaFormFields, mediaSizeValue, parseCardsQuery, parseFieldReference, readCaption, reportFiles, reportNotPublic, teamReportBody, visibleToGuests } = await import('../src/designer/widgetForms.js');
+const { CmsRecordDocument, cmsPageStarter } = await import('#shared/site/cmsEdit.js');
+const { buildCmsGalleryItem } = await import('#shared/site/cmsMedia.js');
+const { recordActionFields, recordActionIssues, recordActionSettings, recordActionValues, recordPageTerms } = await import('../src/designer/recordPageField.js');
 const { changedDetails } = await import('../src/designer/designerData.js');
 const { CmsDesigner } = await import('../src/designer/CmsDesigner.js');
 const { cutReport, needsSlider, reportBody, reportOutput } = await import('../src/siteWidgets.js');
@@ -90,8 +92,15 @@ test('media form: a single element has one source, a typed caption and no presen
   const names = (fields) => fields.map((field) => field.name);
   const gallery = mediaFormFields({ mediaType: 5, fileType: 6 });
   const single = mediaFormFields({ single: true, mediaType: 5, fileType: 6 });
-  assert.deepEqual(names(gallery), ['mode', 'records', 'files', 'anyRecords', 'fileField', 'caption', 'width', 'height', 'action', 'presentation', 'duration', 'fade', 'navigation', 'fit']);
-  assert.deepEqual(names(single), ['mode', 'records', 'files', 'anyRecords', 'fileField', 'captionText', 'width', 'height', 'action']);
+  // plan 27g §6: Any record has its own action with the links of the record and the Record page
+  assert.deepEqual(names(gallery), ['mode', 'records', 'files', 'anyRecords', 'fileField', 'caption', 'width', 'height', 'action', 'recordAction',
+    'recordPage', 'presentation', 'duration', 'fade', 'navigation', 'fit']);
+  assert.deepEqual(names(single), ['mode', 'records', 'files', 'anyRecords', 'fileField', 'captionText', 'width', 'height', 'action', 'recordAction', 'recordPage']);
+  const recordAction = single.find((field) => field.name === 'recordAction');
+  assert.deepEqual(recordAction.terms.map((term) => term.id), ['none', 'viewer', 'url', 'recordPage', 'savedFilter']);
+  assert.equal(recordAction.terms.at(-1).disabled, true, 'Saved filter: disabled for now');
+  assert.deepEqual(recordAction.showWhen, { mode: 'record' });
+  assert.deepEqual(single.find((field) => field.name === 'recordPage').showWhen, { mode: 'record', recordAction: 'recordPage' });
   assert.deepEqual(single[0].terms.map((term) => term.id), ['media', 'files', 'record']);
   for (const [fields, max] of [[gallery, 0], [single, 1]]) {
     for (const field of fields.filter((item) => item.type === 'resource')) {
@@ -195,4 +204,66 @@ test('Record cards: card templates by report id; a stored file name finds its re
   assert.equal(kept.value, 'Old.tpl');
   assert.equal(kept.terms.at(-1).label, 'Old.tpl');
   assert.equal(cardTemplateTerms(reports).value, null);
+});
+
+test('media form actions (plan 27g §6): the links of a record only for Any record; old player settings', () => {
+  assert.deepEqual(mediaActionValues({ action: 'recordPage', recordPage: 9 }, 'record'), { action: 'none', recordAction: 'recordPage', recordPage: 9 });
+  assert.deepEqual(mediaActionValues({ player: true }, 'media'), { action: 'viewer', recordAction: 'none', recordPage: null });
+  assert.deepEqual(mediaActionSettings({ mode: 'record', recordAction: 'recordPage', recordPage: '9' }), { action: 'recordPage', recordPage: 9 });
+  assert.deepEqual(mediaActionSettings({ mode: 'record', recordAction: 'recordPage' }), { action: 'none' }, 'no page: no link');
+  assert.deepEqual(mediaActionSettings({ mode: 'files', action: 'viewer', recordAction: 'url' }), { action: 'viewer' });
+  assert.deepEqual(mediaActionSettings({ mode: 'record', recordAction: 'url' }), { action: 'url' });
+});
+
+test('record pages (plan 27g §6): terms of the record pages with their template, all levels', () => {
+  const pages = [{ id: 7, title: 'About', children: [{ id: 8, title: 'Person', record: true, template: '12', children: [] }] },
+    { id: 9, title: 'Places', record: true, template: 'place.tpl' }];
+  assert.deepEqual(recordPageTerms(pages, [{ id: '12', label: 'Person card' }]), [{ id: 8, label: 'Person · Person card' }, { id: 9, label: 'Places' }]);
+  assert.deepEqual(recordPageTerms([]), []);
+});
+
+test('record actions (plan 27g §6): fields, values, settings and issues', () => {
+  const [action, page] = recordActionFields({ pageTerms: [{ id: 8, label: 'Person' }], showWhen: { source: 'record' } });
+  assert.deepEqual(action.terms.map((term) => term.id), ['none', 'url', 'recordPage', 'savedFilter'], 'no Player / Viewer outside media');
+  assert.equal(action.mode, 'radio');
+  assert.deepEqual(page.showWhen, { source: 'record', action: 'recordPage' });
+  assert.deepEqual(recordActionValues({ action: 'viewer' }), { action: 'none', recordPage: null });
+  assert.deepEqual(recordActionValues({ action: 'recordPage', recordPage: '8' }), { action: 'recordPage', recordPage: 8 });
+  assert.deepEqual(recordActionSettings({ action: 'recordPage', recordPage: 8 }), { action: 'recordPage', recordPage: 8 });
+  assert.deepEqual(recordActionSettings({ action: 'url', recordPage: 8 }), { action: 'url' });
+  assert.deepEqual(recordActionSettings({ action: 'savedFilter' }), { action: 'none' }, 'Saved filter is not stored yet');
+  assert.deepEqual(recordActionSettings({ action: 'url' }, { allowed: false }), { action: 'none' });
+  assert.equal(recordActionIssues({ action: 'recordPage' })[0].field, 'recordPage');
+  assert.deepEqual(recordActionIssues({ action: 'recordPage', recordPage: 8 }), []);
+});
+
+test('record page preset (plan 27g §6): one Record cards widget of the record of the URL', () => {
+  const { content, configuration } = cmsPageStarter('record', 'Person card', { template: 12 });
+  const config = JSON.parse(configuration);
+  const instances = Object.values(config.instances);
+  assert.equal(instances.length, 1);
+  assert.equal(instances[0].type, 'cards');
+  assert.deepEqual(instances[0].settings, { mode: 'url', query: null, template: 12, presentation: 'list', action: 'none' });
+  assert.doesNotMatch(content, /<h1/, 'no heading: the card shows the record');
+  assert.match(content, /data-h-instance=/);
+});
+
+test('Record field action (plan 27g §6): data-h-link set, removed, and gone with the field', () => {
+  const doc = new CmsRecordDocument({ parts: { content: '<div data-h-node="f" data-h-text="" data-h-field="5.2-1">x</div><div data-h-node="t" data-h-text="">y</div>' } });
+  assert.equal(doc.setFieldLink('f', 'page:9'), true);
+  assert.equal(doc.fieldLink('f'), 'page:9');
+  assert.match(doc.serialize().parts.content, /data-h-field="5\.2-1" data-h-link="page:9"/);
+  assert.equal(doc.setFieldLink('f', 'javascript:x'), true);
+  assert.equal(doc.fieldLink('f'), null, 'not a valid link: removed');
+  doc.setFieldLink('f', 'url');
+  doc.setField('f', null);
+  assert.equal(doc.fieldLink('f'), null, 'typed text again: no link');
+  assert.equal(doc.setFieldLink('t', 'url'), false, 'only a Record field element');
+});
+
+test('gallery figure of a record (plan 27g §6): data-h-rec for the link of the server', () => {
+  const urls = { thumb: (key) => `/t/${key}`, file: (key) => `/f/${key}`, osd: () => '', mirador: () => '' };
+  const file = { key: 'k1', name: 'a.png', ext: 'png', mime: 'image/png' };
+  assert.match(buildCmsGalleryItem(file, { width: 'auto', height: 'auto' }, { urls, record: 42 }), /^<figure class="h-site-card" data-h-media="" data-h-rec="42">/);
+  assert.doesNotMatch(buildCmsGalleryItem(file, {}, { urls }), /data-h-rec/);
 });

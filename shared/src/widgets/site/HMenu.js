@@ -11,7 +11,8 @@
  * levels) / auto (vertical in a vertical header); `showHome` a Home entry first (website menu);
  * `selectableParent` (default true) a page with sub pages opens, else its title opens the sub menu;
  * `presentation` of an action menu: links, buttons, icons or dropdown. An item: title, url, current,
- * children, icon (image URL), fa (Font Awesome classes), format name / icon / both, newTab.
+ * children, icon (image URL), fa (Font Awesome classes), format name / icon / both, newTab, hidden (a page hidden in the
+ * main menu: class is-menu-hidden, review 2026-11-11).
  * On a narrow screen, or when it does not fit its place in one row (plan 27f §13), the horizontal website menu is
  * behind a menu button.
  *
@@ -167,6 +168,7 @@ export class HMenu extends HBaseWidget {
     for (const item of items) {
       const entry = document.createElement('li');
       entry.className = 'h-site-menu-item';
+      if (item.hidden) entry.classList.add('is-menu-hidden');
       const children = item.children || [];
       let target;
       if (children.length && !selectableParent) {
@@ -207,7 +209,8 @@ export class HMenu extends HBaseWidget {
  * Items of an action menu from its settings (PageRenderer::actionMenuHtml), for the designer's draft: a page of the
  * website, an external URL or an action (Add record).
  *
- * @param {object} settings `items`: [{label, labels, icon, iconOnly, action, target, newTab}].
+ * @param {object} settings `items`: [{label, labels, icon, iconOnly, action, target, record, newTab}]; actions page, url,
+ *        addRecord, recordPage, back.
  * @param {{language?: string, pageUrl?: (id: number) => string}} [context]
  * @returns {Array<object>}
  */
@@ -222,6 +225,9 @@ export function actionMenuItems(settings = {}, { language = '', pageUrl = () => 
     if (item.action === 'page') entry.url = pageUrl(Number(item.target)) || '#';
     else if (item.action === 'url') entry.url = String(item.target || '#');
     else if (item.action === 'addRecord') Object.assign(entry, { action: 'addRecord', target: String(item.target ?? '') });
+    // a record on a record page, the page before (plan 27g): links of the server; in the designer's draft only shown
+    else if (item.action === 'recordPage') entry.url = '#';
+    else if (item.action === 'back') Object.assign(entry, { url: '#', action: 'back' });
     else continue;
     items.push(entry);
   }

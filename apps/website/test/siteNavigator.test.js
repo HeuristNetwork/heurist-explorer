@@ -18,9 +18,9 @@ function element(tag, attributes = {}, ...children) {
   return node;
 }
 
-/** A section of a page as the server writes it, with a text and optionally a module host. */
-function section(id, module = false) {
-  return element('section', { class: 'h-site-page', 'data-h-page': String(id) },
+/** A section of a page as the server writes it, with a text and optionally a module host; a record page has its record. */
+function section(id, module = false, record = 0) {
+  return element('section', { class: 'h-site-page', 'data-h-page': String(id), ...(record ? { 'data-h-record': String(record) } : {}) },
     element('div', { 'data-h-text': '' }, `Page ${id}`),
     ...(module ? [element('div', { 'data-h-instance': `m${id}` })] : []));
 }
@@ -48,15 +48,19 @@ function setup({ mode = 'swap', cache = 2 } = {}) {
   const calls = { pushed: [], assigned: [], destroyed: [], fetched: [] };
   const win = {
     innerHeight: 800,
+    scrollY: 0,
+    scrolled: [],
     location: { href: BASE, assign: (url) => calls.assigned.push(url), reload() {} },
     history: { pushState: (state, title, url) => calls.pushed.push(url), replaceState() {} },
     addEventListener() {},
     removeEventListener() {},
-    scrollTo() {},
+    scrollTo(x, y) { this.scrolled.push(y); },
     dispatchEvent() {}
   };
+  // plan 27g: a record page and a page hidden in the main menu are not sections of the long page
   const pages = [{ id: 5, url: BASE, title: 'Home' }, { id: 7, url: `${BASE}/7`, title: 'About' }, { id: 8, url: `${BASE}/8`, title: 'Team' },
-    { id: 9, url: `${BASE}/9`, title: 'Broken' }];
+    { id: 9, url: `${BASE}/9`, title: 'Broken' }, { id: 10, url: `${BASE}/10`, title: 'Person', record: true },
+    { id: 11, url: `${BASE}/11`, title: 'Legal', hidden: true }];
   const instances = (id) => ({ [`m${id}`]: { kind: 'module', type: 'data' } });
   const config = {
     runtime: {}, instances: instances(5),
@@ -72,9 +76,9 @@ function setup({ mode = 'swap', cache = 2 } = {}) {
       return url;
     },
     parse: (url) => {
-      const id = Number(url.split('/').pop());
+      const [id, record = 0] = (url === BASE ? '5' : url.slice(BASE.length + 1)).split('/').map(Number);
       return {
-        section: section(id, true),
+        section: section(id, true, record),
         config: { site: { languages: [{ code: 'fre', url: `${url}?lang=fre` }] }, instances: instances(id) },
         styles: element('style', { id: 'h-page-styles', 'data-h-page': String(id) }),
         title: `Page ${id} – Site`,
@@ -82,7 +86,7 @@ function setup({ mode = 'swap', cache = 2 } = {}) {
       };
     }
   });
-  return { navigator, doc, main, menu, calls, head };
+  return { navigator, doc, main, menu, calls, head, win };
 }
 
 /** A click on a link (a plain left click). */
@@ -176,4 +180,48 @@ test('markMenus: language links are not marked', () => {
   const items = list.querySelectorAll('.h-site-menu-item');
   assert.equal(items[0].classList.contains('is-current'), true);
   assert.equal(items[1].classList.contains('is-current'), false);
+});
+
+test('record page (plan 27g): a link to a record is a view of its own, a page and its record', async () => {
+  const { navigator, main, calls } = setup({ cache: 5 });
+  navigator.start();
+  assert.equal(navigator.viewOf(`${BASE}/10`).key, 10, 'the record page without a record is a page');
+  assert.equal(navigator.viewOf(`${BASE}/7/3`), null, 'a page that is not a record page');
+  assert.equal(navigator.viewOf('https://h/?db=db&site=5&pageid=10&rec=3'), null, 'another URL form of another page');
+  const event = click(element('a', { href: `${BASE}/10/42` }));
+  navigator.onClick(event);
+  assert.equal(event.defaultPrevented, true);
+  await flush();
+  await flush();
+  assert.equal(navigator.current, '10/42');
+  assert.deepEqual(calls.pushed, [`${BASE}/10/42`]);
+  await navigator.go(navigator.viewOf(`${BASE}/10/43`));
+  const shown = [...main.children].filter((item) => !item.hidden);
+  assert.deepEqual(shown.map((item) => [item.getAttribute('data-h-page'), item.getAttribute('data-h-record')]), [['10', '43']]);
+  assert.equal(main.children.length, 3, 'two records of the record page: two sections');
+  await navigator.go(navigator.viewOf(`${BASE}/10/42`), { push: false });
+  assert.equal(calls.fetched.length, 2, 'the first record again: no new load');
+});
+
+test('record page in the parameter form: &rec= of the page URL', () => {
+  const { navigator } = setup();
+  navigator.pages.push({ id: 12, url: 'https://h/?db=db&site=5&pageid=12', title: 'Place', record: true });
+  assert.equal(navigator.viewOf('https://h/?db=db&site=5&pageid=12&rec=7').key, '12/7');
+  assert.equal(navigator.viewOf('https://h/?db=db&site=5&pageid=12&rec=7&lang=fre'), null, 'another language: full load');
+});
+
+test('scroll (plan 27g): a hidden or record page is shown alone, back on the long page at the same place', async () => {
+  const { navigator, main, win } = setup({ mode: 'scroll' });
+  navigator.start();
+  assert.deepEqual([...main.children].map((item) => item.getAttribute('data-h-page')), ['5', '7', '8', '9'], 'no placeholders of hidden or record pages');
+  win.scrollY = 1200;
+  await navigator.go(navigator.viewOf(`${BASE}/10/42`));
+  assert.deepEqual([...main.children].filter((item) => !item.hidden).map((item) => item.getAttribute('data-h-page')), ['10']);
+  assert.ok(navigator.alone);
+  await navigator.go(11);
+  assert.deepEqual([...main.children].filter((item) => !item.hidden).map((item) => item.getAttribute('data-h-page')), ['11']);
+  await navigator.go(5, { push: false });
+  assert.equal(navigator.alone, null);
+  assert.deepEqual([...main.children].filter((item) => !item.hidden).map((item) => item.getAttribute('data-h-page')), ['5', '7', '8', '9']);
+  assert.equal(win.scrolled.at(-1), 1200, 'the scroll position of the long page');
 });

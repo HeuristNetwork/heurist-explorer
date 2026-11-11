@@ -695,6 +695,43 @@ html.h-site .h-site-hosted img {
   vertical-align: middle;
 }
 
+/* the link of a record (plan 27g §6): written by the server at the end of a card, a gallery figure, a media element or
+   a Record field element; it covers its element, the links and players of the element stay above it */
+:is(.h-site-card, [data-h-media], [data-h-field]):has(> .h-site-rec-link) {
+  position: relative;
+}
+
+.h-site-rec-link {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+}
+
+/* after the value of a Record field with a link (cosmetics 2026-11-11) */
+.h-site-rec-link-icon {
+  margin-inline-start: 0.35em;
+  font-size: 0.8em;
+  color: var(--h-color-link);
+}
+
+.h-site-rec-link:focus-visible {
+  outline: 2px solid var(--h-color-primary);
+  outline-offset: 2px;
+}
+
+:is(.h-site-card, [data-h-media], [data-h-field]):has(> .h-site-rec-link) :is(a, button, video, audio, iframe):not(.h-site-rec-link) {
+  position: relative;
+  z-index: 2;
+}
+
+/* a note of the server in place of content: a record page without a template or (designer) without a record (plan 27g) */
+.h-site-note {
+  padding: 0.5rem 0.75rem;
+  border: 1px dashed var(--h-color-border);
+  border-radius: var(--h-radius, 4px);
+  color: var(--h-color-text-muted);
+}
+
 /* an image of a Record field fits the box of its element (Width / Height of the field popup or Properties, review 2026-11-09) */
 [data-h-field] > img {
   display: block;
@@ -704,10 +741,21 @@ html.h-site .h-site-hosted img {
 }
 
 /* Badges (plan 27f §7): logos with links in a row; grey until the mouse is over a logo */
+/* height, gap and alignment: variables and a class on the host (siteRuntime / PageContent badgesLayout, review 2026-11-11) */
 .h-site-badges-row {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
+  justify-content: center;
+  gap: var(--h-site-badge-gap, 16px);
+}
+
+.h-site-badges-start > .h-site-badges-row {
+  justify-content: flex-start;
+}
+
+.h-site-badges-end > .h-site-badges-row {
+  justify-content: flex-end;
 }
 
 .h-site-badge {
@@ -715,9 +763,11 @@ html.h-site .h-site-hosted img {
   line-height: 0;
 }
 
-.h-site-badge img {
+/* stronger than the rule of text images (.h-site-body img, height auto) */
+html.h-site .h-site-badge img {
   width: auto;
   max-width: none;
+  height: var(--h-site-badge-height, 48px);
 }
 
 .h-site-badges-row.is-grey .h-site-badge img {

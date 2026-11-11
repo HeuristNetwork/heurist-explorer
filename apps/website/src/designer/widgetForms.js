@@ -28,6 +28,9 @@ import { RecordStructureProvider } from '#shared/recordview/RecordStructureProvi
 import { HEditForm } from '#shared/widgets/edit-form/HEditForm.js';
 import { openEditFormDialog } from '#shared/widgets/edit-form/editFormDialog.js';
 import { formDialog } from './designerDialogs.js';
+import {
+  attachNewRecordPage, recordActionFields, recordActionIssues, recordActionSettings, recordActionValues
+} from './recordPageField.js';
 
 /** Width and height of a new gallery: thumbnails. */
 const NEW_GALLERY_SIZE = '190px';
@@ -130,10 +133,11 @@ export function fieldDetails(field, state) {
  *        of website records that hold the page itself), `recordField` (`richText`, `fileUrl`, `editFile`, `fileViewer` of the
  *        host), `saveField(id, details, modified)`.
  * @param {{width?: string, height?: string}} [options.size] Width and height of the element (its own style); asked for a file field.
- * @returns {Promise<{reference: string, html: string, size?: {width: string, height: string}}|null>} Null: cancelled. `size`
- *          only for a file field ('' = auto).
+ * @param {string|null} [options.link] `data-h-link` of the element: the action of source *A record* (plan 27g §6).
+ * @returns {Promise<{reference: string, html: string, link: string, size?: {width: string, height: string}}|null>} Null: cancelled.
+ *          `size` only for a file field ('' = auto); `link`: `url`, `page:<id>` or ''.
  */
-export async function openFieldForm({ reference, records, languages = [], dbdefs, apiClient, services, size = {} }) {
+export async function openFieldForm({ reference, records, languages = [], dbdefs, apiClient, services, size = {}, link = null }) {
   const parsed = parseFieldReference(reference);
   const cmsTypes = ['RT_CMS_HOME', 'RT_CMS_PAGE'].map((name) => Number(dbdefs?.dbconst?.(name)) || 0);
   const client = new RecordEditClient({ apiClient });
@@ -160,6 +164,8 @@ export async function openFieldForm({ reference, records, languages = [], dbdefs
         },
         { name: 'record', type: 'resource', label: 'Source record', max: 1, targetTypes: [], pointerMode: 'browseonly', showWhen: { source: 'record' } },
         { name: 'field', type: 'enum', label: 'Field', max: 1, terms: termsOf(Number(startRecord?.rec_RecTypeID) || 0) },
+        // the link of the value: only for a record (plan 27g §6)
+        ...recordActionFields({ pageTerms: services.recordPageTerms?.() || [], showWhen: { source: 'record' } }),
         // the box of an image (a file field, review 2026-11-09)
         { name: 'width', type: 'freetext', label: 'Width', help: 'Empty = auto; a number is px, or %. The image fits inside.', max: 1 },
         { name: 'height', type: 'freetext', label: 'Height', max: 1 }
@@ -227,7 +233,7 @@ export async function openFieldForm({ reference, records, languages = [], dbdefs
     className: 'h-dialog-cms-field',
     form,
     values: { source: parsed?.source || (records.site ? 'website' : 'page'), record: parsed?.record || null, field: localField,
-      width: mediaSizeValue(size.width, true), height: mediaSizeValue(size.height, true) },
+      width: mediaSizeValue(size.width, true), height: mediaSizeValue(size.height, true), ...linkValues(link) },
     apiClient,
     dbdefs,
     browseRecords: services.browseRecords,
@@ -235,6 +241,7 @@ export async function openFieldForm({ reference, records, languages = [], dbdefs
     onReady: (edit) => {
       edit.showField('width', false);
       edit.showField('height', false);
+      attachNewRecordPage(edit, services);
       edit.container.append(value.host);
       void showValue(edit);
     },
@@ -244,6 +251,7 @@ export async function openFieldForm({ reference, records, languages = [], dbdefs
     validate: (current) => {
       if (current.source === 'record' && !current.record) return [{ field: 'record', message: $HR('Choose a record') }];
       if (!current.field) return [{ field: 'field', message: $HR('Choose a field') }];
+      if (current.source === 'record' && recordActionIssues(current).length) return recordActionIssues(current);
       const sizes = isFile ? ['width', 'height'].filter((key) => current[key] && !mediaSize(current[key])) : [];
       return sizes.length ? sizes.map((key) => ({ field: key, message: $HR('Width and height: a number (px), px or %, or empty (auto).') })) : null;
     },
@@ -261,6 +269,7 @@ export async function openFieldForm({ reference, records, languages = [], dbdefs
         const source = sourceOf(id, records);
         result = {
           reference: `${source === 'record' ? id : source}.${code}`,
+          link: source === 'record' ? linkOf(recordActionSettings(values)) : '',
           html: fieldSnapshot(shown?.details?.[String(dty)], global?.type, { fileUrl: services.fileUrl }),
           ...(global?.type === 'file' ? { size: { width: mediaSize(values?.width) || '', height: mediaSize(values?.height) || '' } } : {})
         };
@@ -275,6 +284,18 @@ export async function openFieldForm({ reference, records, languages = [], dbdefs
     }
   }).finally(() => value.form?.destroy());
   return answer ? result : null;
+}
+
+/** Values of the action fields from `data-h-link` (`url`, `page:<id>`). */
+function linkValues(link) {
+  const page = /^page:(\d+)$/.exec(String(link ?? ''));
+  return recordActionValues(page ? { action: 'recordPage', recordPage: Number(page[1]) } : { action: link === 'url' ? 'url' : 'none' });
+}
+
+/** `data-h-link` of the action settings; '' for none. */
+function linkOf(settings) {
+  if (settings.action === 'url') return 'url';
+  return settings.action === 'recordPage' ? `page:${settings.recordPage}` : '';
 }
 
 /** The source of a reference: the website, the page, or a record. */
@@ -293,12 +314,12 @@ const FIT_TERMS = Object.freeze([
   { id: 'fill', label: 'Stretch both directions' }
 ]);
 
-/** Presentation, action and slider fields of the cards and gallery forms. */
-function presentationFields(actions) {
+/** Action fields (recordActionFields, plan 27g §6), presentation and slider fields of the cards and gallery forms. */
+function presentationFields(actionFields) {
   // the timing and the start / stop button belong to the slideshow only, a carousel moves by its buttons (plan 27e §29)
   const slider = { presentation: 'slider' };
   return [
-    { name: 'action', type: 'enum', label: 'Action', max: 1, terms: actions },
+    ...actionFields,
     { name: 'presentation', type: 'enum', label: 'Presentation', mode: 'radio', max: 1,
       terms: [{ id: 'list', label: 'List (all visible)' }, { id: 'carousel', label: 'Carousel (one visible, buttons)' },
         { id: 'slider', label: 'Slideshow (one visible, automatic)' }] },
@@ -456,14 +477,15 @@ export async function openCardsForm({ settings = {}, dbdefs, apiClient, services
     groups: [{
       id: 'main',
       children: [
+        // Record of the page URL: the widget of a record page (plan 27g)
         { name: 'mode', type: 'enum', label: 'Type', mode: 'radio', max: 1,
-          terms: [{ id: 'manual', label: 'Manual pickup' }, { id: 'query', label: 'Query' }] },
+          terms: [{ id: 'manual', label: 'Manual pickup' }, { id: 'query', label: 'Query' }, { id: 'url', label: 'Record of the page URL' }] },
         { name: 'records', type: 'resource', label: 'Source records', max: 0, targetTypes: [], pointerMode: 'browseonly', showWhen: { mode: 'manual' } },
         { name: 'query', type: 'freetext', label: 'Query', max: 1, special: cardsQuerySpecial(services), showWhen: { mode: 'query' } },
         // a selector also for a few templates (not the radios of a small vocabulary)
         { name: 'template', type: 'enum', label: 'Smarty template', mode: 'select', max: 1, terms: templates.terms,
           help: reports.length ? '' : 'Mark a report "Single record (card)" to use it here' },
-        ...presentationFields([{ id: 'none', label: 'None' }, { id: 'url', label: 'Open rec_URL in new window' }])
+        ...presentationFields(recordActionFields({ pageTerms: services.recordPageTerms?.() || [] }))
       ]
     }]
   };
@@ -475,16 +497,20 @@ export async function openCardsForm({ settings = {}, dbdefs, apiClient, services
       records: manualIds(settings.mode === 'query' ? null : settings.query),
       query: settings.mode === 'query' && settings.query ? JSON.stringify(settings.query) : '',
       template: templates.value,
-      ...presentationValues(settings)
+      ...presentationValues(settings),
+      ...recordActionValues(settings)
     },
     apiClient,
     dbdefs,
     valueLimit: services.valueLimit,
     browseRecords: services.browseRecords,
     createRecordBrowser: services.createRecordBrowser,
-    onReady: (edit) => addFormHelp(edit, CARDS_HELP),
+    onReady: (edit) => {
+      addFormHelp(edit, CARDS_HELP);
+      attachNewRecordPage(edit, services);
+    },
     validate: (values) => {
-      const issues = [];
+      const issues = [...recordActionIssues(values)];
       if (values.mode === 'manual' && !(values.records || []).filter(Boolean).length) issues.push({ field: 'records', message: $HR('Choose the records') });
       if (values.mode === 'query' && !parseCardsQuery(values.query)) issues.push({ field: 'query', message: $HR('A query in JSON without parameters') });
       if (!values.template) issues.push({ field: 'template', message: $HR('Choose a template') });
@@ -494,12 +520,14 @@ export async function openCardsForm({ settings = {}, dbdefs, apiClient, services
     if (!values) return null;
     const records = [values.records].flat().filter(Boolean);
     const template = String(values.template);
+    const mode = ['query', 'url'].includes(values.mode) ? values.mode : 'manual';
     return {
-      mode: values.mode,
-      query: values.mode === 'query' ? parseCardsQuery(values.query) : manualQuery(records),
+      mode,
+      query: mode === 'query' ? parseCardsQuery(values.query) : (mode === 'url' ? null : manualQuery(records)),
       // a report id, or the file name of a template without a report
       template: /^\d+$/.test(template) ? Number(template) : template,
-      ...presentationSettings(values)
+      ...presentationSettings(values),
+      ...recordActionSettings(values)
     };
   });
 }
@@ -550,11 +578,16 @@ export function fileFieldTerms(dbdefs, rectypeIds) {
  *
  * @param {{single?: boolean, multilang?: boolean, mediaType?: number, fileType?: number, fileTerms?: Array<object>}} options
  *        `single`: one source, a typed caption, no presentation; `multilang`: the caption has translations; `fileTerms`: the file
- *        fields of the chosen records.
+ *        fields of the chosen records; `pageTerms`: the record pages of the website (recordPageTerms).
  * @returns {Array<object>} HEditForm fields.
  */
-export function mediaFormFields({ single = false, multilang = false, mediaType = 0, fileType = 0, fileTerms = [] } = {}) {
-  const actions = [{ id: 'none', label: 'None' }, { id: 'viewer', label: 'Player / Viewer' }];
+export function mediaFormFields({ single = false, multilang = false, mediaType = 0, fileType = 0, fileTerms = [], pageTerms = [] } = {}) {
+  // Media records and Files: None or Player / Viewer; Any record also the links of the record (plan 27g §6)
+  const actionFields = [
+    { name: 'action', type: 'enum', label: 'Action', mode: 'radio', max: 1, showWhen: { mode: ['media', 'files'] },
+      terms: [{ id: 'none', label: 'None' }, { id: 'viewer', label: 'Player / Viewer' }] },
+    ...recordActionFields({ name: 'recordAction', viewer: true, pageTerms, showWhen: { mode: 'record' } })
+  ];
   const source = { type: 'resource', max: single ? 1 : 0, pointerMode: 'addorbrowse' };
   return [
     { name: 'mode', type: 'enum', label: 'Type', mode: 'radio', max: 1,
@@ -567,8 +600,8 @@ export function mediaFormFields({ single = false, multilang = false, mediaType =
     { name: 'width', type: 'freetext', label: 'Width', help: 'Empty = auto; a number is px, or %. Both under 200 px: thumbnails.', max: 1 },
     { name: 'height', type: 'freetext', label: 'Height', max: 1 },
     ...(single
-      ? [{ name: 'action', type: 'enum', label: 'Action', max: 1, terms: actions }]
-      : [...presentationFields(actions),
+      ? actionFields
+      : [...presentationFields(actionFields),
         { name: 'fit', type: 'enum', label: 'Position of image', max: 1, terms: FIT_TERMS, showWhen: { presentation: ['slider', 'carousel'] } }])
   ];
 }
@@ -603,6 +636,34 @@ export function readCaption(value, languages = []) {
     else caption ||= text.trim();
   }
   return { caption, translations };
+}
+
+/**
+ * Values of the two action fields of the media form: `action` (Media records, Files) and `recordAction` (Any record).
+ *
+ * @param {object} settings `action`, `recordPage`.
+ * @param {string} mode Type of the media.
+ * @returns {{action: string, recordAction: string, recordPage: number|null}}
+ */
+export function mediaActionValues(settings = {}, mode = 'media') {
+  // an element saved before plan 27e §20 has `player` (cmsMediaAction)
+  const values = recordActionValues(cmsMediaAction(settings) === 'viewer' ? { ...settings, action: 'viewer' } : settings, { viewer: true });
+  return {
+    action: values.action === 'viewer' ? 'viewer' : 'none',
+    recordAction: mode === 'record' ? values.action : 'none',
+    recordPage: values.recordPage
+  };
+}
+
+/**
+ * The action settings of the media form: Player / Viewer for every Type, the links of the record for Any record only.
+ *
+ * @param {object} values Values of the form.
+ * @returns {{action: string, recordPage?: number}}
+ */
+export function mediaActionSettings(values = {}) {
+  if (values.mode !== 'record') return { action: values.action === 'viewer' ? 'viewer' : 'none' };
+  return recordActionSettings({ action: values.recordAction, recordPage: values.recordPage }, { viewer: true });
 }
 
 /**
@@ -644,7 +705,8 @@ export async function openMediaForm({
   let items = [];
   return openEditFormDialog({
     title: single ? 'Edit media' : 'Media gallery',
-    form: { groups: [{ id: 'main', children: mediaFormFields({ single, multilang, mediaType, fileType, fileTerms }) }] },
+    form: { groups: [{ id: 'main', children: mediaFormFields({ single, multilang, mediaType, fileType, fileTerms,
+      pageTerms: services.recordPageTerms?.() || [] }) }] },
     values: {
       mode,
       records: sources('media'),
@@ -653,6 +715,7 @@ export async function openMediaForm({
       fileField: storedField,
       ...(single ? { captionText: multilang ? captionValue(caption, translations) : caption, action: cmsMediaAction(settings) }
         : { caption: settings.caption === true, fit: settings.slider?.fit || SLIDER_FIT, ...presentationValues(settings) }),
+      ...mediaActionValues(settings, mode),
       width: mediaSizeValue(settings.width, single),
       height: mediaSizeValue(settings.height, single)
     },
@@ -663,6 +726,7 @@ export async function openMediaForm({
     browseRecords: services.browseRecords,
     createRecordBrowser: services.createRecordBrowser,
     addRecord: services.addRecord,
+    onReady: (edit) => attachNewRecordPage(edit, services),
     onChange: async (edit, change) => {
       if (change.name !== 'anyRecords') return;
       const terms = await fileTermsOf(chosen(edit.getValues())).catch(() => []);
@@ -674,6 +738,7 @@ export async function openMediaForm({
       const issues = [];
       if (!chosen(values).length) issues.push({ field: SOURCE_FIELDS[values.mode], message: $HR('Choose the media') });
       if (values.mode === 'record' && !values.fileField) issues.push({ field: 'fileField', message: $HR('Choose a field') });
+      if (values.mode === 'record') issues.push(...recordActionIssues({ action: values.recordAction, recordPage: values.recordPage }));
       for (const key of ['width', 'height']) {
         if (values[key] && !mediaSize(values[key])) issues.push({ field: key, message: $HR('Width and height: a number (px), px or %, or empty (auto).') });
       }
@@ -704,16 +769,17 @@ export async function openMediaForm({
     const { values } = result;
     const size = { width: mediaSize(values.width) || 'auto', height: mediaSize(values.height) || 'auto' };
     const source = values.mode === 'record' ? { field: dbdefs?.fieldGlobal?.(Number(values.fileField))?.concept || String(values.fileField) } : {};
+    const action = mediaActionSettings(values);
     if (single) {
       return {
-        settings: { mode: values.mode, record: chosen(values)[0], ...source, ...size, action: values.action === 'viewer' ? 'viewer' : 'none' },
+        settings: { mode: values.mode, record: chosen(values)[0], ...source, ...size, ...action },
         items,
         ...readCaption(values.captionText, languages)
       };
     }
     const presentation = presentationSettings(values);
     if (presentation.presentation !== 'list') presentation.slider = { ...(presentation.slider || {}), fit: values.fit || SLIDER_FIT };
-    return { settings: { mode: values.mode, ids: chosen(values), ...source, caption: values.caption === true, ...size, ...presentation }, items };
+    return { settings: { mode: values.mode, ids: chosen(values), ...source, caption: values.caption === true, ...size, ...presentation, ...action }, items };
   });
 }
 

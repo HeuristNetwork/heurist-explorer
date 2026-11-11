@@ -44,6 +44,10 @@ test('pages of the website for the action menu: Home, then the menu tree with it
   const list = sitePageList({ id: 5, pages: [{ id: 7, title: 'About', children: [{ id: 8, title: 'Team' }] }, { id: 9 }] });
   assert.deepEqual(list.map((page) => [page.id, page.depth]), [[5, 0], [7, 1], [8, 2], [9, 1]]);
   assert.equal(list[3].title, '#9');
+  // plan 27g: Go to a page without record pages (they need a record)
+  const pages = [{ id: 7, title: 'About' }, { id: 10, title: 'Person', record: true }];
+  assert.deepEqual(sitePageList({ id: 5, pages }, 'Home', { records: false }).map((page) => page.id), [5, 7]);
+  assert.deepEqual(sitePageList({ id: 5, pages }).map((page) => page.id), [5, 7, 10]);
 });
 
 test('badges (plan 27f §7): a link per logo, alignment and gap of the row, grey until hover', async () => {
@@ -55,7 +59,8 @@ test('badges (plan 27f §7): a link per logo, alignment and gap of the row, grey
     { file, title: 'No link', url: 'javascript:alert(1)' },
     { file: null, title: 'Missing' }
   ], { height: 40, align: 'end', gap: 8, grey: true }, { urls });
-  assert.match(html, /^<div class="h-site-badges-row is-grey" style="justify-content:end;gap:8px">/);
+  // alignment and gap are on the host (siteRuntime badgesLayout): the purifier removes a style of the stored HTML
+  assert.match(html, /^<div class="h-site-badges-row is-grey"><a /);
   assert.match(html, /<a class="h-site-badge" href="https:\/\/a.org" target="_blank" rel="noopener" title="Sponsor &quot;A&quot;">/);
   assert.match(html, /<span class="h-site-badge" title="No link">/, 'an unsafe URL is not a link');
   assert.doesNotMatch(html, /javascript:/);
@@ -91,4 +96,27 @@ test('layout of plan 27f §13: rows, header and footer themes, own colours; no s
   setLayout(layout, 'header.theme', 'default');
   setLayout(layout, 'header.colors', null);
   assert.deepEqual(layout, {}, 'defaults are not written');
+});
+
+test('action menu items (plan 27g): Record page and Back shown in the draft', () => {
+  const items = actionMenuItems({ items: [{ label: 'Person', action: 'recordPage', target: 10, record: 42 }, { label: 'Back', action: 'back' }] });
+  assert.deepEqual(items.map((item) => [item.title, item.url, item.action]), [['Person', '#', undefined], ['Back', '#', 'back']]);
+});
+
+test('Back (plan 27g): the page before from this website, else the link (the home page)', async () => {
+  const { onAction } = await import('../src/siteRuntime.js');
+  const link = { getAttribute: (name) => ({ 'data-h-action': 'back', 'data-h-target': null })[name] };
+  const event = () => ({ target: { closest: () => link }, defaultPrevented: false, preventDefault() { this.defaultPrevented = true; } });
+  const calls = [];
+  const history = { length: 3, state: null, back: () => calls.push('back') };
+  const location = { href: 'https://h/db/site/5/10/42' };
+  const inside = event();
+  assert.equal(onAction(inside, { history, location, referrer: 'https://h/db/site/5/7' }), true);
+  assert.deepEqual([inside.defaultPrevented, calls], [true, ['back']]);
+  const outside = event();
+  onAction(outside, { history, location, referrer: 'https://www.google.com/' });
+  assert.equal(outside.defaultPrevented, false, 'from a search engine: the link opens the home page');
+  const navigated = event();
+  onAction(navigated, { history: { ...history, state: { hPage: 10, hRecord: 42 } }, location, referrer: '' });
+  assert.equal(navigated.defaultPrevented, true, 'swap / scroll: the navigator has the page before in the history');
 });

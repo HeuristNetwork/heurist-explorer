@@ -109,6 +109,17 @@ test('list counts style and alignment are list classes (default: brackets beside
   assert.equal(none.combo.options.showCounts, false);
 });
 
+test('a disabled term of a radio list is shown and can not be chosen (plan 27g §6)', async () => {
+  const input = createHInput('enum', host(), { terms: [{ id: 'a', label: 'A' }, { id: 'b', label: 'B', disabled: true }], mode: 'radio' });
+  await flush();
+  const labels = input.listHost.querySelectorAll('label');
+  assert.equal(labels[0].querySelector('input').disabled, false);
+  assert.equal(labels[1].querySelector('input').disabled, true);
+  assert.ok(labels[1].classList.contains('is-disabled'));
+  input.setReadOnly(false);
+  assert.equal(labels[1].querySelector('input').disabled, true, 'still disabled when the input is editable again');
+});
+
 test('hierarchy line sits above the label; a collapsible label toggles the control', () => {
   const element = host();
   const input = createHInput('enum', element, { terms: terms(2), label: 'Type', hierarchy: 'Event > Person', collapsible: true });

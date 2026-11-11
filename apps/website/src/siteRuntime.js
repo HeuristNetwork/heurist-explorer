@@ -167,17 +167,36 @@ function safeLocalStorage() {
 const MODULES = [];
 
 /**
- * An action of an action menu (`data-h-action`, plan 27f §6): Add record goes to the Explorer of the page.
+ * An action of an action menu (`data-h-action`, plan 27f §6): Add record goes to the Explorer of the page; Back (plan
+ * 27g) goes to the page before when the visitor came from this website, else it follows its link (the home page).
  *
  * @param {Event} event A click in the page.
+ * @param {{history?: History, location?: Location, referrer?: string}} [env] Browser objects (tests).
  * @returns {boolean} Whether the click was an action.
  */
-export function onAction(event) {
+export function onAction(event, env = {}) {
   const link = event.target?.closest?.('[data-h-action]');
   if (!link) return false;
-  event.preventDefault?.();
   const action = link.getAttribute('data-h-action');
   const target = link.getAttribute('data-h-target');
+  if (action === 'back') {
+    const history = env.history ?? globalThis.history;
+    const location = env.location ?? globalThis.location;
+    const referrer = env.referrer ?? globalThis.document?.referrer ?? '';
+    let sameSite = false;
+    try {
+      sameSite = Boolean(referrer) && new URL(referrer).origin === new URL(location?.href).origin;
+    } catch {
+      sameSite = false;
+    }
+    // the navigator (swap / scroll) pushes its own entries: the page before is in the history then too
+    if ((sameSite || history?.state?.hPage) && Number(history?.length) > 1) {
+      event.preventDefault?.();
+      history.back();
+    }
+    return true;
+  }
+  event.preventDefault?.();
   if (action === 'addRecord') {
     const explorer = MODULES.find((module) => module.type === 'explorer' && typeof module.api?.addRecord === 'function'
       && (!module.host || module.host.isConnected !== false));
@@ -370,6 +389,7 @@ export async function mountInstance(host, id, config, loaders) {
   if (instance.kind === 'widget' && instance.type === 'badges') {
     // written by the server; the designer's draft has an empty host: the HTML of the settings (plan 27f §7)
     host.classList.add('h-site-badges');
+    if (instance.settings?.source !== 'host') badgesLayout(host, instance.settings || {});
     if (!host.querySelector('.h-site-badges-row')) {
       const html = instance.settings?.html || {};
       if (instance.settings?.source === 'host') {
@@ -432,4 +452,18 @@ function showMessage(host, text) {
   message.textContent = text;
   host.replaceChildren(message);
   return null;
+}
+
+/**
+ * Height, gap and alignment of badges on their host (review 2026-11-11): as PageContent::badgesLayout of the server
+ * (the purifier removes the style of the stored HTML).
+ */
+function badgesLayout(host, settings) {
+  const align = ['start', 'center', 'end'].includes(settings.align) ? settings.align : 'center';
+  const height = Number(settings.height) > 0 ? Math.min(Number(settings.height), 400) : 48;
+  const gap = Number(settings.gap) >= 0 ? Math.min(Number(settings.gap), 200) : 16;
+  host.classList.remove('h-site-badges-start', 'h-site-badges-center', 'h-site-badges-end');
+  host.classList.add(`h-site-badges-${align}`);
+  host.style.setProperty('--h-site-badge-height', `${height}px`);
+  host.style.setProperty('--h-site-badge-gap', `${gap}px`);
 }

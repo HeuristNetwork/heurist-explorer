@@ -39,8 +39,9 @@ import { CmsPreview, PREVIEW_WIDTHS } from './CmsPreview.js';
 import { WebsiteCheck, checkProblemPlaces } from '../manager/WebsiteCheck.js';
 import { createWebsiteFieldsForm } from '../manager/websiteFields.js';
 import {
-  openCardsForm, openFieldForm, openLanguageForm, openMediaForm, openMenuForm, openReportForm, teamReportBody
+  cardTemplateTerms, openCardsForm, openFieldForm, openLanguageForm, openMediaForm, openMenuForm, openReportForm, teamReportBody
 } from './widgetForms.js';
+import { recordPageTerms } from './recordPageField.js';
 import { openActionMenuForm, openSocialForm, sitePageList } from './actionForms.js';
 import { buildBadgesHtml, openBadgesForm } from './badgesForm.js';
 import {
@@ -56,7 +57,7 @@ const PART_LABELS = Object.freeze({ header: 'Header', content: 'Home', footer: '
 const ROOT = '#root';
 
 /** Icons of the website parts and pages (Site tree and the root of the part tree). */
-const PART_ICONS = Object.freeze({ header: 'fa-heading', content: 'fa-house', footer: 'fa-f', page: 'fa-file-lines' });
+const PART_ICONS = Object.freeze({ header: 'fa-heading', content: 'fa-house', footer: 'fa-f', page: 'fa-file-lines', recordPage: 'fa-id-card' });
 const CLIP_KEY = 'heurist.cms.clipboard';
 const HELP_KEY = 'heurist.cms.help';
 /** Dialog element of the Check popup. */
@@ -559,7 +560,10 @@ export class CmsDesigner {
     // problems found by Check (Highlight issues in tree)
     const marked = (id) => Boolean(this.problems?.pages.has(Number(id)));
     const pages = (list) => (list || []).map((page) => ({
-      id: `page:${page.id}`, label: page.title || `#${page.id}`, icon: PART_ICONS.page, bold: true, danger: marked(page.id),
+      // a record page (plan 27g): its own icon, it is not shown in website menus
+      id: `page:${page.id}`, label: page.title || `#${page.id}`, icon: page.record ? PART_ICONS.recordPage : PART_ICONS.page,
+      title: page.record ? $HR('Record page: shows the record of its URL, not in the menus of the website') : undefined,
+      bold: true, danger: marked(page.id),
       children: pages(page.children)
     }));
     return [
@@ -1205,6 +1209,7 @@ export class CmsDesigner {
     const settings = { ...current.settings };
     // an element saved before plan 27e §20 knows only the key of its file
     if (settings.file && !settings.record) settings.record = (await this._mediaFile(settings.file))?.id || 0;
+    await this._loadTemplateTerms();
     const result = await openMediaForm({
       single: true,
       settings,
@@ -1285,6 +1290,10 @@ export class CmsDesigner {
         const response = await this.apiClient.get('/report', { query: { fields: 'rec_ID', limit: 5000 } });
         return Object.values(response?.meta?.items ?? {}).filter((report) => report.isCardView && report.id != null);
       },
+      // record pages of the website: links of records, Define new record page (plan 27g §6)
+      recordPageTerms: () => recordPageTerms(this.site?.pages || [], this._templateTerms || []),
+      templateTerms: (reports) => cardTemplateTerms(reports).terms,
+      createRecordPage: this.site && !this.readOnly ? (template, title) => this._createRecordPage(template, title) : undefined,
       // Add and Upload in the record manager of a source
       addRecord: typeof this.bridge?.addRecord === 'function' ? (rectypeId) => this.bridge.addRecord(rectypeId) : undefined,
       mediaItems: (settings) => this._mediaItems(settings),
@@ -1292,6 +1301,37 @@ export class CmsDesigner {
       // "Limit values per field" of the Explorer configuration (plan 23)
       valueLimit: normalizeRecordLimits(runtime.recordLimits).values
     };
+  }
+
+  /**
+   * A new record page (plan 27g §6): one Record cards widget in mode `url` with the report, at the end of the top level
+   * of the menu (the server leaves record pages out of website menus).
+   *
+   * @param {number|string} template Report id or file name.
+   * @param {string} title Title of the page (the name of the report).
+   * @returns {Promise<{id: number, title: string}>}
+   */
+  async _createRecordPage(template, title) {
+    const starter = cmsPageStarter('record', title, { template });
+    const codes = this.codes;
+    const response = await this.apiClient.request('/page/0', {
+      method: 'POST',
+      body: { rec_ID: 0, details: { [codes.name]: title, [codes.version]: '4', [codes.content]: starter.content, [codes.configuration]: starter.configuration } }
+    });
+    const id = Number((response?.data ?? response)?.records?.[0]?.rec_ID);
+    if (!id) throw new Error($HR('The record page was not created'));
+    await this._menuChange(() => this.websites.assign(this.site.id, id, { parent: null }));
+    return { id, title };
+  }
+
+  /** Names of the card templates for the record page lists (loaded once; plan 27g §6). */
+  async _loadTemplateTerms() {
+    if (this._templateTerms) return;
+    try {
+      this._templateTerms = cardTemplateTerms(await this._formServices().cardTemplates()).terms;
+    } catch {
+      this._templateTerms = [];
+    }
   }
 
   /** The kept record manager of a request; the form only opens it, the designer destroys it. */
@@ -1307,12 +1347,15 @@ export class CmsDesigner {
    *
    * @param {string|null} reference Current `data-h-field`; null for a new element.
    * @param {object} [style] Own style of the element: its width and height go into the popup (a file field).
-   * @returns {Promise<{reference: string, html: string, size?: object}|null>}
+   * @param {string|null} [link] `data-h-link` of the element (plan 27g §6).
+   * @returns {Promise<{reference: string, html: string, link: string, size?: object}|null>}
    */
-  async _askField(reference, style = {}) {
+  async _askField(reference, style = {}, link = null) {
     try {
+      await this._loadTemplateTerms();
       return await openFieldForm({
         reference,
+        link,
         size: { width: style.width, height: style.height },
         records: { site: this.site?.id || 0, page: this.current?.recordId || 0 },
         languages: this.site?.languages || [],
@@ -1336,9 +1379,9 @@ export class CmsDesigner {
   async _editField(id) {
     const record = this._currentRecord();
     if (!record) return;
-    const result = await this._askField(record.doc.field(id), record.doc.nodeStyle(id));
+    const result = await this._askField(record.doc.field(id), record.doc.nodeStyle(id), record.doc.fieldLink(id));
     if (!result) return;
-    this._edit((doc) => doc.setField(id, result.reference, result.html) && setFieldSize(doc, id, result.size));
+    this._edit((doc) => doc.setField(id, result.reference, result.html) && doc.setFieldLink(id, result.link) && setFieldSize(doc, id, result.size));
     // the value in the language of the preview comes from the server
     this._loadPreview();
   }
@@ -1350,7 +1393,7 @@ export class CmsDesigner {
     let added = null;
     this._edit((doc) => {
       added = doc.insertElement(this.current.part, 'field', target);
-      return doc.setField(added, result.reference, result.html) && setFieldSize(doc, added, result.size);
+      return doc.setField(added, result.reference, result.html) && doc.setFieldLink(added, result.link) && setFieldSize(doc, added, result.size);
     });
     if (added) this._selectNode(added);
   }
@@ -1378,6 +1421,7 @@ export class CmsDesigner {
 
   /** Configuration of the widgets Custom report, Record cards and Media gallery. */
   async _configureWidget(instanceId, instance) {
+    await this._loadTemplateTerms();
     const services = this._formServices();
     const common = { settings: instance.settings || {}, dbdefs: this.options.dbdefs, apiClient: this.apiClient, services };
     if (instance.type === 'badges' && instance.settings?.source === 'host') {
@@ -1401,9 +1445,11 @@ export class CmsDesigner {
         ? await openSocialForm(common)
         : await openActionMenuForm({
           settings: instance.settings || {},
-          pages: sitePageList(this.site),
+          pages: sitePageList(this.site, 'Home', { records: false }),
           recordTypes: this.options.dbdefs?.rectypes?.() || [],
-          canAddRecord: this._hasExplorer()
+          canAddRecord: this._hasExplorer(),
+          // the action Record page (plan 27g §6): record pages, Define new record page, the record picker
+          services
         });
       if (settings) this._edit((doc) => doc.setInstance(instanceId, { settings }));
     } else if (instance.type === 'menu' || instance.type === 'language') {
@@ -1445,8 +1491,10 @@ export class CmsDesigner {
     const runtime = this.options.runtime || {};
     const urls = fileMediaUrls(runtime.baseUrl || '', runtime.database || '');
     const media = { ...CMS_MEDIA_DEFAULTS, width: settings.width, height: settings.height, view: settings.action === 'viewer' };
-    const build = (language) => items.map(({ file, caption }) => buildCmsGalleryItem(file, { ...media, file: file.key }, {
-      urls, caption: settings.caption ? caption : '', language
+    // Type Any record: the record of each figure, for the link of the action (plan 27g §6)
+    const record = settings.mode === 'record';
+    const build = (language) => items.map((item) => buildCmsGalleryItem(item.file, { ...media, file: item.file.key }, {
+      urls, caption: settings.caption ? item.caption : '', language, record: record ? item.record : 0
     })).join('');
     const languages = this.site?.languages || [];
     return languages.length ? Object.fromEntries(languages.map((code) => [code, build(code)])) : { def: build('') };
@@ -1480,7 +1528,7 @@ export class CmsDesigner {
     return Promise.all(entries.map(async ({ id, record, key }) => {
       const file = key ? await this._mediaFile(key) : null;
       const title = String(record?.rec_Title || file?.name || '');
-      return { file, caption: title, label: title || `#${id}` };
+      return { file, caption: title, label: title || `#${id}`, record: id };
     }));
   }
 

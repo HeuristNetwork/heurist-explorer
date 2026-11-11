@@ -19,7 +19,7 @@
 import { $HR } from '#shared/ui';
 import { buildCmsMedia, CMS_MEDIA_DEFAULTS } from '#shared/site/cmsMedia.js';
 import { formDialog } from './designerDialogs.js';
-import { helpLine } from './designerStyles.js';
+import { dragHandle, helpLine, sortableList } from './designerStyles.js';
 
 /** Defaults of the badge settings. */
 export const BADGE_DEFAULTS = Object.freeze({ height: 48, align: 'center', gap: 16, grey: false });
@@ -37,8 +37,6 @@ const ALIGNMENTS = Object.freeze([['start', 'Left'], ['center', 'Centre'], ['end
 export function buildBadgesHtml(items, settings = {}, { urls, language = 'eng' } = {}) {
   const height = Number(settings.height) > 0 ? Number(settings.height) : BADGE_DEFAULTS.height;
   const media = { ...CMS_MEDIA_DEFAULTS, width: 'auto', height: `${height}px`, view: false };
-  const align = ALIGNMENTS.some(([value]) => value === settings.align) ? settings.align : BADGE_DEFAULTS.align;
-  const gap = Number(settings.gap) >= 0 ? Number(settings.gap) : BADGE_DEFAULTS.gap;
   const badges = items.filter((item) => item.file).map((item) => {
     const image = buildCmsMedia(item.file, { ...media, file: item.file.key }, { urls, language });
     if (!image) return '';
@@ -49,7 +47,8 @@ export function buildBadgesHtml(items, settings = {}, { urls, language = 'eng' }
       ? `<a class="h-site-badge" href="${escape(url)}" target="_blank" rel="noopener" title="${title}">${image}</a>`
       : `<span class="h-site-badge" title="${title}">${image}</span>`;
   }).join('');
-  return `<div class="h-site-badges-row${settings.grey ? ' is-grey' : ''}" style="justify-content:${align};gap:${gap}px">${badges}</div>`;
+  // alignment and gap: on the host, from the settings (siteRuntime badgesLayout; the purifier removes a style here)
+  return `<div class="h-site-badges-row${settings.grey ? ' is-grey' : ''}">${badges}</div>`;
 }
 
 /**
@@ -90,22 +89,20 @@ export async function openBadgesForm({ settings = {}, browse, resolve }) {
       url.placeholder = 'https://';
       url.value = link.url || '';
       url.addEventListener('input', () => { links[item.id] = { ...(links[item.id] || {}), url: url.value }; });
-      const up = iconButton('fa-arrow-up', 'Move up');
-      up.disabled = index === 0;
-      up.addEventListener('click', () => {
-        [items[index - 1], items[index]] = [items[index], items[index - 1]];
-        draw();
-      });
       const remove = iconButton('fa-xmark', 'Remove');
       remove.addEventListener('click', () => {
         items.splice(index, 1);
         draw();
       });
-      row.append(name, title, url, up, remove);
+      row.append(dragHandle(), name, title, url, remove);
       list.append(row);
     });
   };
-  const add = iconButton('fa-plus', 'Add images', true);
+  sortableList(list, (from, to) => {
+    items.splice(to, 0, ...items.splice(from, 1));
+    draw();
+  });
+  const add = iconButton('fa-plus', 'Add images', true, 'h-btn h-btn-primary h-cms-add-button');
   add.addEventListener('click', async () => {
     const ids = (await browse())?.map(Number).filter((id) => id > 0 && !items.some((item) => item.id === id)) || [];
     if (!ids.length) return;
@@ -153,8 +150,8 @@ function line(label, control) {
   return node;
 }
 
-function iconButton(icon, title, withLabel = false) {
-  const node = element('button', 'h-btn h-compact');
+function iconButton(icon, title, withLabel = false, className = 'h-btn h-compact') {
+  const node = element('button', className);
   node.type = 'button';
   node.title = $HR(title);
   const glyph = element('i', `fa-solid ${icon}`);

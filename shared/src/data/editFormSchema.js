@@ -154,7 +154,7 @@ function normalizeField(item, warnings, where) {
   if (!REQUIREMENTS.has(req)) req = 'optional';
   const terms = Array.isArray(item.terms)
     ? item.terms.map((term) => (term && typeof term === 'object'
-      ? { id: term.id, label: String(term.label ?? term.id), depth: Number(term.depth) || 1 }
+      ? { id: term.id, label: String(term.label ?? term.id), depth: Number(term.depth) || 1, ...(term.disabled === true ? { disabled: true } : {}) }
       : { id: term, label: String(term), depth: 1 }))
     : null;
   const number = (value) => (value === null || value === undefined || value === '' || !Number.isFinite(Number(value)) ? null : Number(value));

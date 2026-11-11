@@ -161,7 +161,8 @@ export function checkCmsDocument(config, htmlParts, translations = {}, baseUrl =
       // the value of a field comes from its record, it has no translations here (plan 27e)
       if (node.text && node.field === null) texts.add(id);
     }
-    if (node.field !== null && !/^(website|page|\d+)\.\d+(-\d+)?$/.test(node.field)) {
+    // `record.`: the record of the URL of a record page (plan 27g)
+    if (node.field !== null && !/^(website|page|record|\d+)\.\d+(-\d+)?$/.test(node.field)) {
       issues.push(issue('warning', 'field_reference', `Field reference "${node.field}" is not valid`, id));
     }
     // a media element (plan 27c §33): its settings in config.media, one element each

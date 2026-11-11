@@ -1,7 +1,18 @@
 /* HMenu (plan 27a, 27f §4 / §6): website menu and action menu, styled by the base settings of the site
-   (--h-color-surface, --h-color-primary, --h-color-text, --h-radius). */
+   (--h-color-surface, --h-color-primary, --h-color-text, --h-radius).
+   Colour and size (review 2026-11-11): the items take the colour and font size of the menu element, so the own
+   style of its node (Properties > Own styles: color, font-size) sets them; icons are as large as the text. The
+   default colour is in :where() (no specificity): the rule of the node is stronger. */
 .h-site-menu {
   position: relative;
+}
+
+:where(.h-site-menu) {
+  color: var(--h-color-text);
+}
+
+:where(.h-site-menu-links) {
+  color: var(--h-color-link);
 }
 
 .h-site-menu-toggle {
@@ -10,7 +21,7 @@
   border: 1px solid var(--h-color-border);
   border-radius: var(--h-radius);
   background: var(--h-color-surface);
-  color: var(--h-color-text);
+  color: inherit;
   font: inherit;
   cursor: pointer;
 }
@@ -33,6 +44,12 @@
   position: relative;
 }
 
+/* a page hidden in the main menu (DT_CMS_MENU_FORMAT = TRM_HIDDEN_ITEM, review 2026-11-11): the menu of the header
+   only; other menus show it */
+.h-site-header .h-site-menu-item.is-menu-hidden {
+  display: none;
+}
+
 .h-site-menu-item > a,
 .h-site-menu-label {
   display: flex;
@@ -40,9 +57,14 @@
   gap: 6px;
   padding: 8px 12px;
   border-radius: var(--h-radius);
-  color: var(--h-color-text);
+  color: inherit;
   text-decoration: none;
   cursor: pointer;
+}
+
+/* stronger than the link colour of the site (.h-site-body a) */
+.h-site-menu .h-site-menu-item > a {
+  color: inherit;
 }
 
 .h-site-menu-item > a:hover,
@@ -68,7 +90,7 @@
 }
 
 .h-site-menu-fa {
-  font-size: var(--h-font-size-icon);
+  font-size: 1em;
 }
 
 .h-site-visually-hidden {
@@ -153,7 +175,7 @@
   border: none;
   border-radius: var(--h-radius);
   background: none;
-  color: var(--h-color-text);
+  color: inherit;
   cursor: pointer;
 }
 
@@ -168,7 +190,6 @@
 /* action menu presentations (plan 27f §6) */
 .h-site-menu-links .h-site-menu-item > a {
   padding: 4px 8px;
-  color: var(--h-color-link);
   text-decoration: underline;
 }
 

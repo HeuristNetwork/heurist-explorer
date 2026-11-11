@@ -101,7 +101,7 @@ A group without fields is not shown, except an explanation or an outer group wit
 
 | Property | Types | Meaning |
 |---|---|---|
-| `terms` | `enum`, `relationtype` | Static choices: `[{id, label, depth?, aliases?}]` or `["a", "b"]`. Text ids stay text, numeric ids stay numbers. `aliases`: older stored values of this term (a report template name → its id); the form shows and saves the id. |
+| `terms` | `enum`, `relationtype` | Static choices: `[{id, label, depth?, aliases?, disabled?}]` or `["a", "b"]`. Text ids stay text, numeric ids stay numbers. `aliases`: older stored values of this term (a report template name → its id); the form shows and saves the id. `disabled: true`: shown but not selectable, in a `radio` / `checkbox` list only (plan 27g, 2026-11-11). |
 | `vocabulary` | `enum` | Database vocabulary id, instead of `terms`. |
 | `termsSource` | `enum` | Name of a term list the owner loads before the form is made (`resolveTermsSources`, e.g. `smartyTemplates`); added after `terms`. |
 | `mode` | `enum`, `boolean` | `select`, `radio` or `checkbox`. Default: radios for at most 5 flat terms of a single value field, else a list. |

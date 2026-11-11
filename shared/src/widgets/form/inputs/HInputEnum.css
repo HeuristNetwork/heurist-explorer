@@ -24,6 +24,12 @@
   cursor: pointer;
 }
 
+/* a term that is shown but can not be chosen yet (term `disabled`) */
+.h-input-enum-choice.is-disabled {
+  color: var(--h-color-text-muted);
+  cursor: default;
+}
+
 .h-input-enum-count {
   color: var(--h-color-text-muted);
   font-size: var(--h-font-size-small);
