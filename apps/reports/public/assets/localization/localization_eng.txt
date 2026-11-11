@@ -88,6 +88,8 @@
 #ID#ID
 #Import#Import
 #Import a report template (.gpl or .tpl)#Import a report template (.gpl or .tpl)
+#Importing...#Importing...
+#In order to work with the new report system you need to install the new record types (Report template, Report output).#In order to work with the new report system you need to install the new record types (Report template, Report output).
 #Include line break#Include line break
 #Insert a pattern at the cursor#Insert a pattern at the cursor
 #Insert all#Insert all
@@ -97,6 +99,7 @@
 #Insert Patterns/Variable#Insert Patterns/Variable
 #Inserting#Inserting
 #Inserting fields in report#Inserting fields in report
+#Install them now?#Install them now?
 #Install#Install
 #Install report record types#Install report record types
 #Internal ID#Internal ID
@@ -114,6 +117,7 @@
 #enum fields#enum fields
 #metadata#metadata
 #Mine#Mine
+#Missing#Missing
 #Modified#Modified
 #Name#Name
 #New#New
@@ -224,9 +228,6 @@
 #text#text
 #The field tree is not available#The field tree is not available
 #The report file is ready#The report file is ready
-#The report record types (Custom Report, Custom Report Schedule) are not installed in this database. Ask the database owner to install them.#The report record types (Custom Report, Custom Report Schedule) are not installed in this database. Ask the database owner to install them.
-#The report record types (Custom Report, Custom Report Schedule) are not installed in this database. Install them now?#The report record types (Custom Report, Custom Report Schedule) are not installed in this database. Install them now?
-#The report record types (Custom Report, Custom Report Schedule) are not installed in this database. Templates are listed without records.#The report record types (Custom Report, Custom Report Schedule) are not installed in this database. Templates are listed without records.
 #The report template has unsaved changes. Close it without saving?#The report template has unsaved changes. Close it without saving?
 #The template file of this report does not exist.#The template file of this report does not exist.
 #The template has unsaved changes. Close the editor without saving?#The template has unsaved changes. Close the editor without saving?

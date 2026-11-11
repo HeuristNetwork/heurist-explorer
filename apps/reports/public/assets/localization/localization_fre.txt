@@ -88,6 +88,8 @@
 #ID#ID
 #Import#Importer
 #Import a report template (.gpl or .tpl)#Importer un modèle de rapport (.gpl ou .tpl)
+#Importing...#Importation...
+#In order to work with the new report system you need to install the new record types (Report template, Report output).#Pour utiliser le nouveau système de rapports, vous devez installer les nouveaux types d’enregistrement (Report template, Report output).
 #Include line break#Inclure un saut de ligne
 #Insert a pattern at the cursor#Insérer un motif au curseur
 #Insert all#Tout insérer
@@ -97,6 +99,7 @@
 #Insert Patterns/Variable#Insérer des modèles/variables
 #Inserting#Insertion
 #Inserting fields in report#Insertion de champs dans le rapport
+#Install them now?#Les installer maintenant ?
 #Install#Installer
 #Install report record types#Installer les types d'enregistrement de rapport
 #Internal ID#ID interne
@@ -114,6 +117,7 @@
 #enum fields#champs énumérés
 #metadata#métadonnées
 #Mine#Les miens
+#Missing#Manquants
 #Modified#Modifié
 #Name#Nom
 #New#Nouveau
@@ -224,9 +228,6 @@
 #text#texte
 #The field tree is not available#L'arbre des champs n'est pas disponible
 #The report file is ready#Le fichier du rapport est prêt
-#The report record types (Custom Report, Custom Report Schedule) are not installed in this database. Ask the database owner to install them.#Les types d'enregistrement de rapport (Custom Report, Custom Report Schedule) ne sont pas installés dans cette base. Demandez au propriétaire de la base de les installer.
-#The report record types (Custom Report, Custom Report Schedule) are not installed in this database. Install them now?#Les types d'enregistrement de rapport (Custom Report, Custom Report Schedule) ne sont pas installés dans cette base. Les installer maintenant ?
-#The report record types (Custom Report, Custom Report Schedule) are not installed in this database. Templates are listed without records.#Les types d'enregistrement de rapport (Custom Report, Custom Report Schedule) ne sont pas installés dans cette base. Les modèles sont listés sans enregistrement.
 #The report template has unsaved changes. Close it without saving?#Le modèle de rapport a des modifications non enregistrées. Le fermer sans enregistrer ?
 #The template file of this report does not exist.#Le fichier modèle de ce rapport n'existe pas.
 #The template has unsaved changes. Close the editor without saving?#Le modèle a des modifications non enregistrées. Fermer l'éditeur sans enregistrer ?

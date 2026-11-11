@@ -17,6 +17,7 @@
 
 import { HBaseWidget, HJobMonitor } from '#shared/widgets';
 import { $HR } from '#shared/ui';
+import { setupNotice } from '#shared/ui/setupNotice.js';
 
 /** Time the progress panel stays after a successful job (ms). */
 export const HIDE_PROGRESS_AFTER = 1500;
@@ -57,6 +58,27 @@ export class ReportViewer extends HBaseWidget {
     this.frame.setAttribute('sandbox', allowed
       ? 'allow-same-origin allow-scripts allow-popups allow-popups-to-escape-sandbox'
       : 'allow-same-origin allow-popups allow-popups-to-escape-sandbox');
+  }
+
+  /**
+   * The report record types are missing in the database: explanation, and the Install button for
+   * a database manager (others are told to ask the database owner).
+   *
+   * @param {object} options
+   * @param {boolean} options.canSetup The user may install the record types.
+   * @param {string[]} [options.missing] Missing definitions (code names).
+   * @param {Function} [options.onInstall] Called by the Install button.
+   */
+  showSetup({ canSetup, missing = [], onInstall = null }) {
+    this.frame.hidden = true;
+    this.frame.removeAttribute('src');
+    this.info.hidden = false;
+    this.info.replaceChildren(setupNotice({
+      text: $HR('In order to work with the new report system you need to install the new record types (Report template, Report output).'),
+      missing,
+      canSetup,
+      onInstall
+    }));
   }
 
   /**

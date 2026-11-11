@@ -156,7 +156,6 @@
 .h-reports-kind[data-kind="file"] { background: #fff3e0; }
 
 .h-reports-warning { color: var(--h-color-danger, #b42318); }
-
 .h-reports-preview-frame {
   flex: 1 1 auto;
   width: 100%;

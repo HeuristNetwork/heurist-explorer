@@ -129,3 +129,33 @@ test('toolbar: actions of a v4 standalone page, a website and a legacy website',
   assert.deepEqual(visible(), ['create', 'open']);
   await view.destroy();
 });
+
+test('setup: a modal popup while importing, then the host and the manager load the definitions and the state again', async () => {
+  const status = { installed: false, missing: ['record type 99-51', 'record type 99-52'], canSetup: true };
+  let changed = 0;
+  const { application, calls } = createApplication({ status, bridge: { definitionsChanged: () => { changed += 1; } } });
+  await application.initialize();
+  assert.equal(application.status.installed, false);
+  const { HMsg } = await import('#shared/ui');
+  const [show, close] = [HMsg.showMsgDlg, HMsg.closeMsgDlg];
+  const shown = [];
+  HMsg.showMsgDlg = (content, options) => shown.push([content.textContent, options.preventClose === true]);
+  HMsg.closeMsgDlg = () => shown.push('closed');
+  const request = application.apiClient.request.bind(application.apiClient);
+  application.apiClient.request = async (path, options = {}) => {
+    if (path === '/website/setup' && options.method === 'POST') {
+      Object.assign(status, { installed: true, missing: [] });
+      return { report: ['Imported record types 99-51, 99-52'] };
+    }
+    return request(path, options);
+  };
+  try {
+    assert.deepEqual(await application.setup(), ['Imported record types 99-51, 99-52']);
+  } finally {
+    [HMsg.showMsgDlg, HMsg.closeMsgDlg] = [show, close];
+  }
+  assert.deepEqual(shown, [['Importing...', true], 'closed']);
+  assert.equal(changed, 1, 'the host loads the definitions again');
+  assert.equal(application.status.installed, true, 'the state is read again after the install');
+  assert.ok(calls.length > 0);
+});

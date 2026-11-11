@@ -47,8 +47,8 @@ export const RECORD_TYPE_DOMAINS = Object.freeze({
 export const RECORD_ENTITIES = Object.freeze({
   RT_CMS_HOME: 'website',
   RT_CMS_PAGE: 'page',
-  RT_CUSTOM_REPORT: 'report',
-  RT_REPORT_SCHEDULE: 'output'
+  RT_REPORT_TEMPLATE: 'report',
+  RT_REPORT_OUTPUT: 'output'
 });
 
 /**

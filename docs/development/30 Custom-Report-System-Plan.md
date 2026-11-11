@@ -1,6 +1,6 @@
 # Plan 30 — Custom Report system
 
-**Status 2026-11-07: phases 0-5, review round §12 and samples §13 implemented and committed in both repos; not checked
+**Status 2026-11-11: install notice + constant rename §15 (not committed). 2026-11-07: phases 0-5, review round §12 and samples §13 implemented and committed in both repos; not checked
 in a browser. One name rule (§14.1) and the 2-62 guard (§14 item 2) done 2026-11-07, not committed. Not DONE: `css` mode, §14.** Follows the rules of
 `28 OpenAPI-Rules-and-Database-Structure-Plan.md`; depends on phase 4 of `28a DONE Unify-System-Entities-Plan.md`. Replaces
 the API part of plan 12.
@@ -300,7 +300,7 @@ The plan is DONE when these are closed or dropped by Artem.
    A record delete of A is safe: `afterDelete` keeps a file used by another record. A report execute of A just runs B's
    template, which the user could read anyway.
    **Done 2026-11-07 (Artem: read-only field + guard; heurist repo, not committed):**
-   - Legacy record editor (`hclient/widgets/entity/manageRecords.js`): 2-62 of `RT_CUSTOM_REPORT` is `rst_Display =
+   - Legacy record editor (`hclient/widgets/entity/manageRecords.js`): 2-62 of `RT_REPORT_TEMPLATE` is `rst_Display =
      'readonly'`, hard-coded as in the new editor (`recordEditStructure.js`), so every database at once. This stops the
      normal way only: the legacy save (`recordModify.php`), batch update (`recordsBatch.php`) and imports do not check
      read-only fields.
@@ -331,3 +331,44 @@ The plan is DONE when these are closed or dropped by Artem.
 - OpenAPI text of 2-62 updated. Tests: `ReportsApiTest` (88 with `--write`; rule, name from title, legacy names not
   listed), `JobRunnerTest`, `WebsiteContentTest`, `SampleTemplatesTest`, `DataAccessBoundaryTest` pass; `test:reports`
   33 pass.
+
+## 15. Install notice and constant names (Artem, 2026-11-11; not committed, no browser check)
+
+- **Install notice.** When `GET /report/setup` says `installed: false`, the Reports module shows, with nothing
+  selected, "In order to work with the new report system you need to install the new record types (Report template,
+  Report output)." and the missing codes. A database manager (`canSetup`) gets an **Install** button
+  (`POST /report/setup`, then the setup report); other users are told to ask the database owner. Template files
+  without a record are still listed. New / Register keep the confirm (`ReportManager.ensureInstalled`, same text).
+  `ReportViewer.showSetup`, `ReportsApplication.data.installed` is `null` until the list is loaded.
+- After the install the module and the host load the definitions again: bridge method `definitionsChanged()`
+  (`ReportsHostAdapter`, Explorer `_reportsBridge` resets its `/def/snapshot` cache); the server cache is cleared by
+  `DbsImport` (`cleanDefCache`).
+- **Constant names:** `RT_CUSTOM_REPORT` → `RT_REPORT_TEMPLATE` (2-1104), `RT_REPORT_SCHEDULE` → `RT_REPORT_OUTPUT`
+  (2-1105), same as the entities `report` / `output` and "Generated report". No aliases; renamed in both repos
+  (`hserv/consts.php`, `srv/Definitions/SystemConstants.php`, srv Reports, entity registry, legacy
+  `ReportTemplateMgr.php` and `manageRecords.js`, client shared data and tests). DONE plans keep the old names as
+  history. The type names in reference database 2 ("Report template", "Report output") are changed there by Artem.
+- **Fix 2026-11-11:** `/{entity}/setup` answered 404 ("Unknown entity ... record type is not in this database") when
+  the record type was missing, so the install could never run. `RecordEditController::executeEntity` now lets
+  `setup` of a known entity through without its record type (also `/website/setup`); other calls stay 404.
+  `tests/ReportsApiTest.php` runs on a database without the types (`--db=old_saratov`: setup state, missing list,
+  then stops unless `--write`).
+- **Review 2026-11-11:** (1) Install shows a modal popup "Importing..." with the rotating icon (`HMsg.showMsgDlg`,
+  `preventClose`, shared `loadingIndicator`) until the setup report replaces it. (2) Delete of a template without a
+  record failed with "invalid JSON ... fileDownload.php?file=...": the root router (`htdocs/index.php`, from
+  `movetoparent/index.php`) runs `RecordResolver` / `FileResolver` on every request, API calls too, and `FileResolver`
+  redirects any `?file=` (also `thumb`, `icon`, `asset`, `disclaimer`) to a legacy script. The parameter of
+  `DELETE /report/setup` is now `name` (client, handler, OpenAPI, `ReportsApiTest`). The root router now skips the
+  resolvers for API calls (script `hserv/controller/api.php`; `movetoparent/index.php`, to be copied to the web root).
+- **Websites the same way (2026-11-11):** shared `shared/src/ui/setupNotice.js` (`setupNotice()` = the notice with
+  Install / "ask the owner", `runWithBusyDialog()` = modal "Importing..." popup), CSS `.h-setup-notice` in `heurist-ui.css`;
+  used by the Reports module and the Website manager (`WebsiteManager.renderSetup` / `install`, shown also when 99-51 /
+  99-52 are missing; the list is built again after the install). `WebsiteApplication.setup` calls the bridge
+  `definitionsChanged()` and reads the state again (`initialize`). Server: `hserv/web/WebsiteDefinitions::install`
+  imports missing record types 99-51 / 99-52 from database 2 (as the legacy `CmsManager.checkRequiredRecordTypes`),
+  then the format 4 fields. Not tested on a database without 99-51.
+- **2-1106 in the website setup (2026-11-11):** without the record type Registered file (`RT_REGISTERED_FILE`) the file
+  fields (logo, banner) fall back to the value picker instead of the record manager of files (`HInputFile._canBrowse`).
+  `WebsiteSetup::IMPORT_TYPES = ['2-1106']`: `WebsiteEditService::status` lists it as missing, `install()` imports it
+  from database 2 (third parameter `$importTypes` of `WebsiteDefinitionsInterface::install`, no website fields added).
+  Checked: `old_saratov` status `missing: ["record type 2-1106"]`; local `heurist_cd` has 1106. Install not run.

@@ -20,6 +20,7 @@
 import { $HR, HMsg } from '#shared/ui';
 import { HDbDefs } from '#shared/data/HDbDefs.js';
 import { isJobFinished } from '#shared/api';
+import { runWithBusyDialog } from '#shared/ui/setupNotice.js';
 
 /** Record limit of a test run (server: ReportPolicy::TEST_RECORD_LIMIT). */
 export const TEST_RECORD_LIMIT = 50;
@@ -51,7 +52,8 @@ export class ReportsApplication extends EventTarget {
     this.api = reportApi;
     this.jobs = jobClient;
     this.host = host;
-    this.data = { installed: false, reports: [], unregistered: [] };
+    // installed: null until the list is loaded (false = the report record types are missing)
+    this.data = { installed: null, reports: [], unregistered: [] };
     this.userGroups = null;
     this.selectedRef = null;
     // running generation of the user (restored after a page reload); see restoreJobs()
@@ -197,7 +199,11 @@ export class ReportsApplication extends EventTarget {
 
   /** Install the report record types and convert old schedules. */
   async setup() {
-    const result = await this.api.setup();
+    // the import of the definitions takes a while: a modal popup with the rotating icon
+    const result = await runWithBusyDialog(() => this.api.setup(), { title: 'Report setup' });
+    // new record types and fields: this module and the host load the definitions again
+    this._dbdefs = null;
+    this.host.definitionsChanged?.();
     HMsg.showMsgDlg(listElement(result?.report || []), { title: 'Report setup', buttons: { Close: () => HMsg.closeMsgDlg() } });
     await this.refresh();
   }
@@ -215,7 +221,7 @@ export class ReportsApplication extends EventTarget {
    * @returns {Promise<object|null>} The report, or null when it was not saved.
    */
   async newReport() {
-    const result = await this.host.addRecord('RT_CUSTOM_REPORT');
+    const result = await this.host.addRecord('RT_REPORT_TEMPLATE');
     if (!result?.saved) return null;
     await this.refresh();
     const report = this.findReport(result.recordId);
@@ -263,7 +269,7 @@ export class ReportsApplication extends EventTarget {
    */
   async registerReport(report) {
     const [name, fileName] = await this.definitionId('DT_NAME', 'DT_FILE_NAME');
-    const result = await this.host.addRecord('RT_CUSTOM_REPORT', { values: { [name]: report.title, [fileName]: report.file } });
+    const result = await this.host.addRecord('RT_REPORT_TEMPLATE', { values: { [name]: report.title, [fileName]: report.file } });
     if (!result?.saved) return null;
     await this.refresh();
     await this.selectReport(String(result.recordId));
@@ -296,7 +302,7 @@ export class ReportsApplication extends EventTarget {
     const [name, field, queryField] = await this.definitionId('DT_NAME', 'DT_REPORT', 'DT_QUERY_STRING');
     const values = { [name]: report.title, [field]: report.id };
     if (query != null) values[queryField] = typeof query === 'string' ? query : JSON.stringify(query);
-    const result = await this.host.addRecord('RT_REPORT_SCHEDULE', {
+    const result = await this.host.addRecord('RT_REPORT_OUTPUT', {
       values,
       access: query != null ? { owner: this.userGroups?.currentUserId, visibility: 'hidden', viewGroups: [] }
         : { owner: report.ownerGroupId, visibility: 'viewable', viewGroups: [] }

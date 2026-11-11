@@ -1,6 +1,6 @@
 # Heurist Explorer — Progress Report
 
-*Status on 4 November 2026 (first issued 2 October, updated 8, 18, 26 and 29 October). Work started 14 September 2026.*
+*Status on 11 November 2026 (first issued 2 October, updated 8, 18, 26, 29 October and 4 November). Work started 14 September 2026.*
 
 ## Done
 
@@ -52,37 +52,47 @@
 | 44 | **CMS designer, second round**: cosmetics, grid columns, media element (image, video, IIIF), media in layout styles; custom CSS only with the JavaScript permission. | 3 Nov |
 | 45 | **IIIF in Record view**: manifest thumbnails, IIIF image URLs, media player size. | 3 Nov |
 | 46 | **Smaller fixes**: common message dialogs; Record manager keeps its state per field; Record manager also works with no record type limit (pointer fields without a target type). | 3–4 Nov |
+| 47 | **Website templates and content** (plan 27e, CMS phase 4a): text from one field of a record, *Generated report* (report output by language, falls back to another language, full / cut / link), *Record cards* (chosen records or a query, card template; list, carousel or slideshow), *Media gallery*, media from any record; slider and menu on server-written elements; page templates Team and Website header. | 4–7 Nov |
+| 48 | **Reports on the common record API** (plan 30): report templates and schedules edited in the record editor; generated reports as records (*Generated reports* dialog, Generate finds an existing output for the same query first); one rule for template file names; language of the report. | 5–7 Nov |
+| 49 | **One API for system data** (plan 28a): users, groups, bookmarks, reminders and tags at `/{entity}` like records; old endpoints removed. | 6 Nov |
+| 50 | **Dates in the user's language** (plan 31): date text in English or French in Record view, timeline labels and the client; titles and exports stay English; 30-day month fix. | 7 Nov |
+| 51 | **Website layout and helper widgets** (plan 27f, CMS phase 4b): page navigation by reload, swap or scroll; header positions (fixed, scroll, slide-in, none), default header set, themes and own colours, banner, header and footer sizes, footer content and links; menu options, language switcher, action menu (social links, Add record), badges; website check of all pages and non-public records; only database admins create websites and change their owners. | 7–11 Nov |
+| 52 | **Save only changed fields** (PATCH, plan 32): the server writes only the given fields; title, calculated fields and child titles are rebuilt only when they depend on a changed field. Faster saves of large records; the CMS designer uses it. | 10 Nov |
+| 53 | **Batch actions on records** (plan 33): new *Actions* tool in Explorer — add, replace or delete field values (with a value condition), ownership and visibility, rebuild titles and calculated fields, delete records; runs as a background job on the current result or selection, with a report of changed and skipped records. | 10 Nov |
+| 54 | **Record editor**: *New* opens a record of the same type with the same owner and visibility; Tags and Private notes are available right after the first save. | 10 Nov |
 
-All work above is committed (explorer `128e4ce`, heurist `c383461ab`). JavaScript tests: 1,606 pass.
+All work above is committed (explorer `37a05da`, heurist `680f4b765`). JavaScript tests: 1,701 pass.
 
 ## In progress
 
-| Task | Expected |
-|------|----------|
-| **Website templates and content sources** (plan 27e, CMS phase 4a): text from one field of a record, three widgets (Custom report, Record cards, Media gallery) written by the server, slider and menu on server-written elements, page templates Team and Website header. Implemented 4 Nov in both repos, **not committed**. Left: browser check, localization texts | 5 Nov |
-| **Browser checks** of the latest work: website manager and published Explorer, module settings forms, media players, Add record / New, rich text editors (format menu, Align, menus inside dialogs), parent – child records, and earlier items (simpler interface, symbology, date editor, reports, export); testing query speed on large databases | with the use cases |
-| **Edit forms**: module settings are done; next the report, schedule and crosstab dialogs; remove the test tool | to be set (after CMS work) |
-| **Saved filters** in the new record format (last part of the system data move) | to be set (after CMS work) |
-| **Getting started** content: short recordings and help texts for the tour | after recordings are ready |
-| Expansion rules for Map and Timeline | postponed |
+| # | Task | Expected |
+|---|------|----------|
+| 1 | **Footer composer** | 11 Nov |
+| 2 | **Menu and action menu**; actions for Media and Record value | 11 Nov |
+| 2a | **Record page** | 11 Nov |
+| 3 | **Page templates for the starter pack** | 12 Nov |
+| 4 | **Module configuration**; Explorer configuration | 13 Nov |
+| 5 | **Inline "Own style" form** | 14 Nov |
+| 6 | **Inline TinyMCE** (if possible) | 14 Nov |
+| 7 | **Website generation** | 15 Nov |
+| 8 | **SEO optimization**; sitemap.xml | 15 Nov |
 
 ## Next (estimates)
 
 | # | Task | Estimated delivery |
 |---|------|--------------------|
-| 1 | **Other CMS widgets and templates** (phase 4b): remaining page templates, action menu, badges, language switcher, email form, story map, crosstabs; later phases of plan 27, conversion of old websites is the last one | to be set |
-| 2 | **Use cases / demos** on the largest databases: digital_harlem, library_readers_18c, mpce_mapping, Chinese engineers | to be set |
-| 3 | **Batch operations on records** (long-running operations; the background jobs from Reports and Export are reused) | to be set |
-| 4 | **Save only changed fields** (PATCH) for large records | to be set |
+| 1 | **Other Actions**: convert to record type, add / remove tags, rate, unbookmark, add link or relation (listed in the tool, disabled now) | to be set |
+| 2 | **Other CMS widgets**: email form, story map, crosstabs, remaining page templates; conversion of old websites is the last step | to be set |
+| 3 | **Use cases / demos** on the largest databases: digital_harlem, library_readers_18c, mpce_mapping, Chinese engineers | to be set |
 
 ## Leftovers of finished work
 
 Small items left open in finished plans (details in `docs/development/`, marked `@todo`):
 
 - **Query trace**: show "hub" records (with very many links) and exclude them from expansion; two more server tests; "does not contain" stays slow on large databases.
-- **Reports**: website element "Generated report"; replace the old report viewer and editor in Heurist 7 with the new Report tool; remove the old schedule table after all databases are migrated.
+- **Reports**: Smarty mode for CSS templates; replace the old report viewer and editor in Heurist 7 with the new Report tool; remove the old schedule table after all databases are migrated.
 - **Export**: IIIF and RDF exports are not part of the new export (the old ones stay); decide about the new JSON Lines format.
-- **Interface**: Crosstabs and Actions tools are still empty placeholders.
+- **Interface**: the Crosstabs tool is still an empty placeholder.
 - **Date editor**: other calendars (e.g. Japanese) are not supported yet.
 - **Record editing**: some save steps of the old editor are not ported yet (list in plan 21 §6a).
 
@@ -98,7 +108,7 @@ Small items left open in finished plans (details in `docs/development/`, marked 
    remove old and duplicated fields, keep dates, links, spatial data and full-text index
    in separate tables (dates and links already done). The table part of plan 28 (new tables for
    system record types, longer text values, language column) is deferred since 26 October.
-4. **CMS and web publishing** (plan 27): format v4, publication and the designer are done; templates are being finished; other widgets and conversion of old websites are open.
-5. **API rules** (plan 28, draft 1): one record format and one set of endpoints for all entities. Open points: names, terms domain, QName.
+4. **CMS and web publishing** (plan 27): format v4, publication, the designer, templates, layout and helper widgets are done; remaining widgets and conversion of old websites are open.
+5. **API rules** (plan 28, draft 2): one record format and one set of endpoints for all entities. Open points: names, terms domain, QName.
 
-Decisions on items 2 and 3 affect the date for Batch operations.
+Decisions on items 2 and 3 affect the storage behind batch actions and PATCH saves (both work now on the current tables).

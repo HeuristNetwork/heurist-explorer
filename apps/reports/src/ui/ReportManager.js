@@ -30,6 +30,9 @@ import { confirmDialog } from './formDialog.js';
 import { showPopover, closePopover } from './popover.js';
 import './ReportManager.css';
 
+/** Reference of the main area while the report record types are not installed. */
+const SETUP_REF = '#setup';
+
 /** Reports manager view. */
 export class ReportManager extends HBaseWidget {
   /**
@@ -184,10 +187,19 @@ export class ReportManager extends HBaseWidget {
     this.buttons.generated.disabled = !(registered && !report.isCardView);
 
     // the information is shown again only for another report: output stays
-    const reference = report ? ReportsApplication.reference(report) : null;
+    const setup = !report && !installed;
+    const reference = report ? ReportsApplication.reference(report) : setup ? SETUP_REF : null;
     if (reference !== this.shownRef) {
       this.shownRef = reference;
-      this.viewer.showReport(report);
+      if (setup) {
+        this.viewer.showSetup({
+          canSetup: this.app.data.canSetup === true,
+          missing: this.app.data.missingDefinitions || [],
+          onInstall: () => this.run(() => this.app.setup())
+        });
+      } else {
+        this.viewer.showReport(report);
+      }
     }
     this.syncGenerateJob(report);
   }
@@ -263,10 +275,10 @@ export class ReportManager extends HBaseWidget {
   async ensureInstalled() {
     if (this.app.data.installed !== false) return true;
     if (!this.app.data.canSetup) {
-      HMsg.showMsgErr($HR('The report record types (Custom Report, Custom Report Schedule) are not installed in this database. Ask the database owner to install them.'));
+      HMsg.showMsgErr(`${$HR('In order to work with the new report system you need to install the new record types (Report template, Report output).')} ${$HR('Ask the database owner to install them.')}`);
       return false;
     }
-    if (!(await confirmDialog($HR('The report record types (Custom Report, Custom Report Schedule) are not installed in this database. Install them now?'), { yesLabel: 'Install' }))) {
+    if (!(await confirmDialog(`${$HR('In order to work with the new report system you need to install the new record types (Report template, Report output).')} ${$HR('Install them now?')}`, { yesLabel: 'Install' }))) {
       return false;
     }
     await this.app.setup();

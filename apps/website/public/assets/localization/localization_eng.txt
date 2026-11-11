@@ -1,7 +1,14 @@
+#Ask the database owner to install them.#Ask the database owner to install them.
+#Done#Done
+#Importing...#Importing...
+#In order to work with websites you need to install the new record types and fields (Web home, Web page, Registered file, website format 4).#In order to work with websites you need to install the new record types and fields (Web home, Web page, Registered file, website format 4).
+#Install#Install
 #Menu#Menu
+#Missing#Missing
 #Site menu#Site menu
 #This part of the page can not be shown#This part of the page can not be shown
 #This part of the page is not configured#This part of the page is not configured
+#Website definitions#Website definitions
 #Websites and published pages#Websites and published pages
 #Close#Close
 #Close the Website manager#Close the Website manager

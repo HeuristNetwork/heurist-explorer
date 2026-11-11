@@ -70,7 +70,7 @@ test('outputs of a report with the same query: JSON text and values compare equa
   assert.equal(sameQuery(null, ''), true);
 });
 
-const DEFINITIONS = { RT_CUSTOM_REPORT: 24, DT_NAME: 1, DT_QUERY_STRING: 12, DT_FILE_NAME: 62, DT_IS_CARD_VIEW: 75, DT_REPORT: 76, TRM_YES: 9 };
+const DEFINITIONS = { RT_REPORT_TEMPLATE: 24, DT_NAME: 1, DT_QUERY_STRING: 12, DT_FILE_NAME: 62, DT_IS_CARD_VIEW: 75, DT_REPORT: 76, TRM_YES: 9 };
 
 /** An application with the definitions and a host that saves new records. */
 function editing(api, answer = { saved: true, recordId: 6 }) {
@@ -89,7 +89,7 @@ test('a template without a record: the record editor with its name; the record t
   const { application, added } = editing(api);
   await application.refresh();
   await application.registerReport(application.findReport('old.tpl'));
-  assert.deepEqual(added, [['RT_CUSTOM_REPORT', { values: { 1: 'old', 62: 'old.tpl' } }]]);
+  assert.deepEqual(added, [['RT_REPORT_TEMPLATE', { values: { 1: 'old', 62: 'old.tpl' } }]]);
   assert.deepEqual(api.calls, []);
   assert.equal(application.selectedRef, '6');
 });
@@ -105,12 +105,12 @@ test('an output is added in the record editor: from the dialog with the owner of
   await application.refresh();
   application.userGroups = { currentUserId: 2 };
   assert.equal((await application.newOutput({ id: 6, title: 'Monthly', ownerGroupId: 3 })).id, 6);
-  assert.deepEqual(added.at(-1), ['RT_REPORT_SCHEDULE', {
+  assert.deepEqual(added.at(-1), ['RT_REPORT_OUTPUT', {
     values: { 1: 'Monthly', 76: 6 },
     access: { owner: 3, visibility: 'viewable', viewGroups: [] }
   }]);
   await application.newOutput({ id: 6, title: 'Monthly', ownerGroupId: 3 }, [{ t: '10' }]);
-  assert.deepEqual(added.at(-1), ['RT_REPORT_SCHEDULE', {
+  assert.deepEqual(added.at(-1), ['RT_REPORT_OUTPUT', {
     values: { 1: 'Monthly', 76: 6, 12: '[{"t":"10"}]' },
     access: { owner: 2, visibility: 'hidden', viewGroups: [] }
   }]);
@@ -153,7 +153,7 @@ test('a new report starts with a starter template; a template that has a text ke
   const { application, added } = editing(api);
   await application.refresh();
   await application.newReport();
-  assert.deepEqual(added, [['RT_CUSTOM_REPORT', {}]]);
+  assert.deepEqual(added, [['RT_REPORT_TEMPLATE', {}]]);
   assert.deepEqual(api.calls, [['saveTemplate', 6, starterTemplate(false)]]);
   assert.equal(application.selectedRef, '6');
   const kept = fakeApi({ readTemplate: async () => ({ body: 'text' }) });

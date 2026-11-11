@@ -50,6 +50,15 @@ export class ReportsHostAdapter {
     return (await this.bridge.addRecord(recordTypeId, options)) || { saved: false };
   }
 
+  /** Definitions of the database changed (report record types installed): the host loads them again. */
+  definitionsChanged() {
+    try {
+      this.bridge.definitionsChanged?.();
+    } catch {
+      // the host keeps its definitions
+    }
+  }
+
   /** A stored query in words; the text of the query without a host. */
   describeQuery(query) {
     try {

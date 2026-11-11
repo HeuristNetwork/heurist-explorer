@@ -219,3 +219,39 @@ test('no settings in the list (anonymous): no warning', async () => {
   assert.equal(view.jsWarning.hidden, true);
   await view.destroy();
 });
+
+test('record types not installed, database manager: explanation and Install; Install loads the definitions again', async () => {
+  const missing = { ...LIST, installed: false, missingDefinitions: ['RT_REPORT_TEMPLATE'], reports: [] };
+  let changed = 0;
+  const { application, host } = await mount(missing, {}, { editRecord: async () => ({ saved: false }), definitionsChanged: () => { changed += 1; } });
+  assert.match(host.querySelector('.h-setup-notice-text').textContent, /install the new record types/);
+  assert.match(host.querySelector('.h-setup-notice').textContent, /Missing: RT_REPORT_TEMPLATE/);
+  let installed = false;
+  application.api.setup = async () => { installed = true; return { report: ['Imported'] }; };
+  application.api.list = async () => (installed ? LIST : missing);
+  const { HMsg } = await import('#shared/ui');
+  const dialog = HMsg.showMsgDlg;
+  const shown = [];
+  const closeDialog = HMsg.closeMsgDlg;
+  HMsg.showMsgDlg = (content, options) => shown.push([content.textContent, options.preventClose === true]);
+  HMsg.closeMsgDlg = () => {};
+  try {
+    host.querySelector('.h-setup-notice-install').click();
+    await flush();
+    await flush();
+  } finally {
+    HMsg.showMsgDlg = dialog;
+    HMsg.closeMsgDlg = closeDialog;
+  }
+  assert.deepEqual(shown, [['Importing...', true], ['Imported', false]], 'a modal popup while importing, then the setup report');
+  assert.equal(installed, true);
+  assert.equal(changed, 1, 'the host reloads its definitions');
+  assert.equal(host.querySelector('.h-setup-notice'), null, 'the notice is gone after the install');
+});
+
+test('record types not installed, other users: explanation, no Install', async () => {
+  const { host } = await mount({ ...LIST, installed: false, canSetup: false, reports: [] });
+  assert.ok(host.querySelector('.h-setup-notice-text'));
+  assert.equal(host.querySelector('.h-setup-notice-install'), null);
+  assert.match(host.querySelector('.h-setup-notice').textContent, /Ask the database owner/);
+});

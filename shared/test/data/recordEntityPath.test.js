@@ -19,7 +19,7 @@ import assert from 'node:assert/strict';
 import { RecordEditClient } from '../../src/data/RecordEditClient.js';
 import { RECORD_ENTITIES, recordEntityPath, recordTypesDomain } from '../../src/data/recordDomains.js';
 
-const CODES = { RT_CMS_HOME: 51, RT_CMS_PAGE: 52, RT_CUSTOM_REPORT: 60, RT_REPORT_SCHEDULE: 61 };
+const CODES = { RT_CMS_HOME: 51, RT_CMS_PAGE: 52, RT_REPORT_TEMPLATE: 60, RT_REPORT_OUTPUT: 61 };
 const dbdefs = { dbconst: (code) => CODES[code] };
 
 /** Client that records the path of each call. */

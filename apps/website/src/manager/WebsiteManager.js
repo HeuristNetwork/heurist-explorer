@@ -26,6 +26,7 @@ import { HBaseWidget } from '#shared/widgets';
 import { HRecordManager } from '#shared/widgets/record-manager/HRecordManager.js';
 import { HCardinalLayout } from '#shared/widgets/layout/HCardinalLayout.js';
 import { $HR, HMsg } from '#shared/ui';
+import { setupNotice } from '#shared/ui/setupNotice.js';
 import { WebsiteDetails, el } from './WebsiteDetails.js';
 import { confirmDialog, openAddToMenuForm, openNewWebsiteForm } from './websiteForms.js';
 import './WebsiteManager.css';
@@ -116,26 +117,37 @@ export class WebsiteManager extends HBaseWidget {
     return button;
   }
 
-  /** Setup notice when the definitions of the format are missing. */
+  /**
+   * Setup notice when the definitions of the format are missing (the record types 99-51 / 99-52 or
+   * their format 4 fields): the same notice and Install as the Reports module (plan 30 §15).
+   */
   renderSetup() {
     const status = this.app.status || {};
     this.setupHost.replaceChildren();
-    this.setupHost.hidden = status.installed !== false || !this.app.hasRecordTypes() || Boolean(status.error);
+    this.setupHost.hidden = status.installed !== false || Boolean(status.error);
     if (this.setupHost.hidden) return;
-    el('span', '', this.setupHost).textContent = status.canSetup
-      ? $HR('The fields of the website format 4 are not installed in this database.')
-      : $HR('The fields of the website format 4 are not installed in this database. Ask the database owner to install them.');
-    if (status.canSetup) {
-      const button = el('button', 'h-btn h-btn-primary h-btn-small', this.setupHost);
-      button.type = 'button';
-      button.textContent = $HR('Install');
-      this.listen(button, 'click', () => this.run(async () => {
-        const report = await this.app.setup();
-        HMsg.showMsgDlg(report.map((line) => `<div>${escapeHtml(line)}</div>`).join('') || $HR('Done'), { title: 'Website definitions' });
-        this.renderSetup();
-        this.update();
-      }));
+    this.setupHost.append(setupNotice({
+      text: $HR('In order to work with websites you need to install the new record types and fields (Web home, Web page, Registered file, website format 4).'),
+      missing: status.missing || [],
+      canSetup: status.canSetup === true,
+      onInstall: () => this.run(() => this.install())
+    }));
+  }
+
+  /** Install the definitions, show the report, then the list and the notice again. */
+  async install() {
+    const hadTypes = this.app.hasRecordTypes();
+    const report = await this.app.setup();
+    HMsg.showMsgDlg(report.map((line) => `<div>${escapeHtml(line)}</div>`).join('') || $HR('Done'), { title: 'Website definitions' });
+    if (!hadTypes) {
+      // the list needs the new record types
+      await this.list?.destroy?.();
+      this.list = null;
+      this.listHost.replaceChildren();
+      await this.renderList();
     }
+    this.renderSetup();
+    this.update();
   }
 
   /** The list of websites and standalone pages. */

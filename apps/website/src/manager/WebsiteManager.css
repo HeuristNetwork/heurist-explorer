@@ -88,15 +88,8 @@
   min-height: 0;
 }
 
-.h-website-setup {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 8px;
-  border-bottom: 1px solid var(--h-color-border, #cfd4da);
-  background: var(--h-color-surface, #f6f7f9);
-}
+/* holds the shared notice .h-setup-notice (heurist-ui.css) */
+.h-website-setup { flex: none; }
 
 .h-website-manager-list {
   position: relative;

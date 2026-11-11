@@ -96,9 +96,9 @@ export class ReportApi {
     return this.apiClient.request(path(reportId), { method: 'DELETE' });
   }
 
-  /** Delete a template file without a record. */
+  /** Delete a template file without a record (parameter `name`: the root router sends any `?file=` to fileDownload.php). */
   async removeFile(file) {
-    return this.apiClient.request('/report/setup', { method: 'DELETE', query: { file } });
+    return this.apiClient.request('/report/setup', { method: 'DELETE', query: { name: file } });
   }
 
   /** Delete an output and its file. */

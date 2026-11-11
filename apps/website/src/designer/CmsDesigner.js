@@ -1260,7 +1260,7 @@ export class CmsDesigner {
     if (Object.values(list?.meta?.items ?? {}).some((report) => report.file === CMS_TEAM_TEMPLATE)) return;
     const id = (code) => Number(this.options.dbdefs?.dbconst?.(code)) || 0;
     const created = await this.apiClient.post('/report/0', { body: {
-      rec_RecTypeID: id('RT_CUSTOM_REPORT'),
+      rec_RecTypeID: id('RT_REPORT_TEMPLATE'),
       details: {
         [id('DT_NAME')]: ['Team member'],
         [id('DT_EXTENDED_DESCRIPTION')]: ['A card of one person (website template Team)'],

@@ -21,6 +21,7 @@
 
 import { HeuristApiClient, JobClient, WebsiteClient, WEBSITE_BUILD_JOB } from '#shared/api';
 import { HDbDefs } from '#shared/data/HDbDefs.js';
+import { runWithBusyDialog } from '#shared/ui/setupNotice.js';
 
 /** Concept codes of the website records and fields (srv `WebsiteRepository::CONCEPTS`). */
 export const WEBSITE_CODES = Object.freeze({
@@ -146,9 +147,15 @@ export class WebsiteApplication extends EventTarget {
    * @returns {Promise<string[]>} Report lines.
    */
   async setup() {
-    const result = await this.websites.setup();
-    this.status = { installed: result.installed !== false, missing: result.missing || [], canSetup: result.canSetup !== false,
-      canCreate: result.canCreate !== false };
+    // the import of the definitions takes a while: a modal popup with the rotating icon
+    const result = await runWithBusyDialog(() => this.websites.setup(), { title: 'Website definitions' });
+    // new record types and fields: the host and this manager load the definitions and the state again
+    try {
+      this.bridge?.definitionsChanged?.();
+    } catch {
+      // the host keeps its definitions
+    }
+    await this.initialize();
     return result.report || [];
   }
 

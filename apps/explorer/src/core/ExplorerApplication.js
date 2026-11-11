@@ -2122,6 +2122,8 @@ export class ExplorerApplication {
       describeQuery: (query) => this._describeQuery(query),
       canEditRecords: () => this.canEditRecordType('RT_CMS_PAGE'),
       getDbDefs: () => this._ensureDbDefs(),
+      // the website definitions were installed: load the definitions again
+      definitionsChanged: () => this._definitionsChanged(),
       isLoggedIn: () => Number(this.userGroups?.data?.currentUserId) > 0,
       openConfiguration: (request) => this.openModuleConfiguration(request),
       configureExplorerInstance: (request) => this.configureExplorerInstance(request),
@@ -2312,7 +2314,9 @@ export class ExplorerApplication {
       // report records are system records: Explorer's record editor (plan 14)
       editRecord: (id) => this.editRecord(id),
       addRecord: (rt, options) => this.addRecord(rt, options),
-      canEditRecords: () => this.canEditRecordType('RT_CUSTOM_REPORT'),
+      canEditRecords: () => this.canEditRecordType('RT_REPORT_TEMPLATE'),
+      // the report record types were installed: load the definitions again
+      definitionsChanged: () => this._definitionsChanged(),
       describeQuery: (query) => this._describeQuery(query),
       getCurrentQuery: () => {
         const source = this.sync?.dataSource;
@@ -2477,6 +2481,17 @@ export class ExplorerApplication {
    * @private
    * @returns {Promise<HDbDefs>} The cached (or newly loaded) database-definition snapshot.
    */
+  /**
+   * Definitions of the database changed (a module installed record types or fields): the next
+   * `_ensureDbDefs()` loads `/def/snapshot` again.
+   *
+   * @private
+   */
+  _definitionsChanged() {
+    this._dbDefsPromise = null;
+    this._dbDefs = null;
+  }
+
   async _ensureDbDefs() {
     if (!this._dbDefsPromise) {
       const url = this.apiClient.buildUrl('/def/snapshot');
