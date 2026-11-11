@@ -1001,8 +1001,11 @@ export class CmsDesigner {
       return;
     }
     // the footer composer: its blocks first (plan 27f §3.2)
-    const options = values.element === 'siteFooter' ? await openFooterForm() : {};
-    if (!options) return;
+    const footerOptions = values.element === 'siteFooter' ? await openFooterForm() : {};
+    if (!footerOptions) return;
+    // the powered by and hosted at lines need the base URL and the host organisation (review 2026-11-10)
+    const options = values.element === 'siteFooter'
+      ? { ...footerOptions, baseUrl: this.options.runtime?.baseUrl || '', host: this.site?.host || null } : footerOptions;
     let added = null;
     this._edit((doc) => {
       added = doc.insertElement(this.current.part, values.element, target, options);

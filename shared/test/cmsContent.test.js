@@ -112,15 +112,21 @@ test('header default set (plan 27f §13): logo, title, subtitle of the website, 
 
 test('footer composer (plan 27f §3.2): the chosen blocks in columns, widgets configured', () => {
   const doc = new CmsRecordDocument({ parts: { footer: '' } });
-  doc.insertElement('footer', 'siteFooter', { id: null, position: 'inside' }, { blocks: ['host', 'copyright', 'social', 'badges', 'links', 'heurist'], year: 2026 });
+  doc.insertElement('footer', 'siteFooter', { id: null, position: 'inside' }, { blocks: ['host', 'copyright', 'social', 'badges', 'links', 'heurist'],
+    year: 2026, baseUrl: 'http://h/heurist/', host: { logo: 'http://h/heurist/?logo=host', url: 'https://org.example' } });
   const html = doc.serialize().parts.footer;
   const instances = Object.values(doc.config.instances);
-  assert.deepEqual(instances.map((instance) => instance.type), ['badges', 'actionmenu', 'actionmenu', 'badges'], 'in the order of CMS_FOOTER_BLOCKS');
+  assert.deepEqual(instances.map((instance) => instance.type), ['badges', 'actionmenu', 'actionmenu'], 'in the order of CMS_FOOTER_BLOCKS');
   assert.equal(instances[1].settings.preset, 'social');
   assert.equal(instances[2].settings.presentation, 'links');
-  assert.equal(instances[3].settings.source, 'host');
   assert.match(html, /© 2026 Website title/);
-  assert.match(html, /Powered by <a href="https:\/\/heuristnetwork.org"/);
+  assert.match(html, /<a class="h-site-powered" href="https:\/\/heuristnetwork.org"[^>]*>powered by <img src="http:\/\/h\/heurist\/hclient\/bundles\/heurist-website\/assets\/branding\/h6logo32.png"/);
+  assert.match(html, /<a class="h-site-hosted" href="https:\/\/org.example"[^>]*><span>at: <\/span><img src="http:\/\/h\/heurist\/\?logo=host"/);
+  // review 2026-11-10: copyright, powered by and hosted at are three texts of one group (the last column)
+  assert.match(html, /data-h-control="group"><div[^>]*data-h-text="">[^]*© 2026[^]*h-site-powered[^]*h-site-hosted[^]*<\/div><\/div><\/div>$/);
+  const noHost = new CmsRecordDocument({ parts: { footer: '' } });
+  noHost.insertElement('footer', 'siteFooter', { id: null, position: 'inside' }, { blocks: ['host', 'heurist'] });
+  assert.doesNotMatch(noHost.serialize().parts.footer, /h-site-hosted/, 'no host organisation: no hosted at line');
   const style = Object.values(doc.config.styles.nodes).find((value) => value.display === 'grid');
   assert.equal(style['grid-template-columns'], 'repeat(4, minmax(0, 1fr))', 'at most four columns');
   const small = new CmsRecordDocument({ parts: { footer: '' } });

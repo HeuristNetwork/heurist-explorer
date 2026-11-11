@@ -677,6 +677,24 @@ html.h-site .h-site-logo img {
   }
 }
 
+/* the powered by Heurist and hosted at lines of a footer (cmsEdit.js cmsPoweredBy / cmsHostedAt, WebsiteStarter) */
+.h-site-body :is(.h-site-powered, .h-site-hosted) {
+  color: inherit;
+  text-decoration: none;
+}
+
+html.h-site .h-site-powered img {
+  width: auto;
+  height: 1.2em;
+  vertical-align: sub;
+}
+
+html.h-site .h-site-hosted img {
+  width: auto;
+  height: 35px;
+  vertical-align: middle;
+}
+
 /* an image of a Record field fits the box of its element (Width / Height of the field popup or Properties, review 2026-11-09) */
 [data-h-field] > img {
   display: block;
