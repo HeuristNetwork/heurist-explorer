@@ -1041,8 +1041,8 @@ export class CmsRecordDocument {
 /**
  * Content and configuration of a new page from a page preset (plan 27c §4).
  *
- * @param {string} preset One of CMS_PAGE_PRESETS, or `record`: a record page (plan 27g §6), one Record cards widget
- *        in mode `url` with `options.template`, no heading.
+ * @param {string} preset One of CMS_PAGE_PRESETS, or `record`: a record page (plan 27g §6), an action menu with Back
+ *        and one Record cards widget in mode `url` with `options.template`, no heading.
  * @param {string} title Page title (the first heading).
  * @param {{template?: number|string|null}} [options] `template`: the Smarty report of a record page.
  * @returns {{content: string, configuration: string}}
@@ -1050,10 +1050,15 @@ export class CmsRecordDocument {
 export function cmsPageStarter(preset, title, { template = null } = {}) {
   const doc = new CmsRecordDocument({ parts: { content: '' }, config: { schema: CMS_SCHEMA, instances: {}, styles: {} } });
   if (preset === 'record') {
-    // a record page (plan 27g §6): one Record cards widget showing the record of the URL with a Smarty report
+    // a record page (plan 27g §6): an action menu with Back, then one Record cards widget showing the record of the
+    // URL with a Smarty report, padding 20px (2026-11-12)
+    const instanceOf = (node) => doc.find(node).node.attrs.find(([name]) => name === 'data-h-instance')[1];
+    const back = doc.insertElement('content', 'actionmenu');
+    doc.setInstance(instanceOf(back), { settings: { presentation: 'links',
+      items: [{ label: 'Back', icon: 'fa-solid fa-arrow-left', action: 'back' }] } });
     const cards = doc.insertElement('content', 'cards');
-    const instanceId = doc.find(cards).node.attrs.find(([name]) => name === 'data-h-instance')[1];
-    doc.setInstance(instanceId, { settings: { mode: 'url', query: null, template, presentation: 'list', action: 'none' } });
+    doc.setInstance(instanceOf(cards), { settings: { mode: 'url', query: null, template, presentation: 'list', action: 'none' } });
+    doc.setNodeStyle(cards, { ...doc.nodeStyle(cards), padding: '20px' });
     const { parts, configuration } = doc.serialize();
     return { content: parts.content, configuration };
   }

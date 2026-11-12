@@ -283,3 +283,14 @@
 #Text shadow#Text shadow
 #Light shadow (dark text)#Light shadow (dark text)
 #Dark shadow (light text)#Dark shadow (light text)
+#Choose a record and one of its fields: the value is shown as a text element of the page. If you may edit the record, you can change the value of the field directly in this form. With the source "A record" the element can have an action: open the record URL or a record page.#Choose a record and one of its fields: the value is shown as a text element of the page. If you may edit the record, you can change the value of the field directly in this form. With the source "A record" the element can have an action: open the record URL or a record page.
+#Shows one image, video, audio, PDF or 3D file. Choose its source: a media record, a registered file (an uploaded file or a URL), or any record and one of its file fields. With the source "Any record" the element can have an action: open the record URL or a record page.#Shows one image, video, audio, PDF or 3D file. Choose its source: a media record, a registered file (an uploaded file or a URL), or any record and one of its file fields. With the source "Any record" the element can have an action: open the record URL or a record page.
+#Record of the page URL: the record id is taken from the address of the page. Such a page is a record page: the action "Open record page" of Record cards, Record fields, media and action menus on other pages opens it with their record.#Record of the page URL: the record id is taken from the address of the page. Such a page is a record page: the action "Open record page" of Record cards, Record fields, media and action menus on other pages opens it with their record.
+#Media record#Media record
+#File#File
+#Open the website in a new tab (the saved version)#Open the website in a new tab (the saved version)
+#Open#Open
+#Source record#Source record
+#Source records#Source records
+#Source file#Source file
+#Source files#Source files

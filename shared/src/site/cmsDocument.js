@@ -81,7 +81,9 @@ export const CMS_KINDS = Object.freeze({
   accordion: '[data-h-control="accordion"]',
   text: '[data-h-text]:not([data-h-media])',
   media: '[data-h-media]',
-  instance: '[data-h-instance]'
+  // modules and widgets, not the hosts of menus (nav) and the language switch: the kind default (e.g. min-height 300px)
+  // is meant for modules (2026-11-12); :where keeps the specificity of [data-h-instance], so an own style still wins
+  instance: '[data-h-instance]:where(:not(nav, .h-site-lang-single):not(:has(> .h-site-lang)))'
 });
 
 const PROPERTIES = new Set([

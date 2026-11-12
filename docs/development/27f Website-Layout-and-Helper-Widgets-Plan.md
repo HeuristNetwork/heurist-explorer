@@ -547,10 +547,20 @@ Tests: JS 1,699 pass; WebsiteRenderTest 61 pass.
 2. New style property `text-shadow` (JS `cmsDocument.js` PROPERTIES, PHP `StyleCompiler::PROPERTIES`), in the Text
    section of the simple editor (Light shadow / Dark shadow / None).
 3. Starter presets of new websites (`WebsiteStarter::PRESETS`): Narrow column max-width 200px; *Dark text with light
-   shadow*, *Light text with dark shadow*; *Menu with dark background* (primary colour, primary text) and *Menu with
-   light background*. Existing websites keep their presets.
+   shadow*, *Light text with dark shadow*. Existing websites keep their presets.
 4. `HMenu.css`: the menu inherits the text colour of its element (no own `color`); hover, current item (was the
    primary colour, now a background of the text colour) and the menu button use `currentColor`; drop-down lists set
    the page background and text colour. So an inverted menu (preset) and a menu in a Primary header both show.
 5. Navigation and layout: a notice for *Swap page* and *One long page* (not visible in design mode); a short
    Pages kept in memory input.
+
+Round 2 (2026-11-12, not committed, no browser check):
+1. Preview of a kind default or preset with a text shadow: on a background of the opposite colour (`shadowBackdrop`).
+2. No menu presets (removed): a menu always takes the colours of its parent, also the links presentation (no own link
+   colour any more).
+3. Dropdown action menu: the list opens aligned to the left edge of the button, to the right edge only when it would
+   leave the window (`HMenu._placeDropdown`, class `is-end`), at most the window width.
+4. Kind *Modules and widgets* (`instance`) does not apply to the hosts of menus (`nav`) and the language switch:
+   selector `[data-h-instance]:where(:not(nav, .h-site-lang-single):not(:has(> .h-site-lang)))` (JS `CMS_KINDS`, PHP
+   `StyleCompiler::KINDS`, fixture `common-styles.json`), so the min-height 300px of new websites no longer makes a
+   header high. `:where` keeps the specificity, so the own style of a module still wins.

@@ -21,6 +21,6 @@
   "html": ["<div data-h-node=\"n1\" data-h-control=\"group\" data-h-style=\"columns2\"><p data-h-node=\"n2\" data-h-text=\"\" data-h-style=\"card\">A</p><p data-h-node=\"n3\" data-h-text=\"\">B</p></div>"],
   "expect": {
     "issues": ["warning:style_kind", "warning:style_kind", "warning:style_preset", "warning:style_property"],
-    "css": "[data-h-control=\"group\"]{display:block;gap:12px;}\n[data-h-text]:not([data-h-media]){line-height:1.5;}\n[data-h-instance]{min-height:300px;}\n@media (max-width:640px){\n[data-h-instance]{min-height:200px;}\n}\n[data-h-style=\"card\"]{padding:16px;border-radius:8px;}\n[data-h-style=\"columns2\"]{display:grid;grid-template-columns:1fr 1fr;}\n@media (max-width:640px){\n[data-h-style=\"columns2\"]{grid-template-columns:1fr;}\n}\n[data-h-node=\"n2\"]{padding:4px;}\n"
+    "css": "[data-h-control=\"group\"]{display:block;gap:12px;}\n[data-h-text]:not([data-h-media]){line-height:1.5;}\n[data-h-instance]:where(:not(nav, .h-site-lang-single):not(:has(> .h-site-lang))){min-height:300px;}\n@media (max-width:640px){\n[data-h-instance]:where(:not(nav, .h-site-lang-single):not(:has(> .h-site-lang))){min-height:200px;}\n}\n[data-h-style=\"card\"]{padding:16px;border-radius:8px;}\n[data-h-style=\"columns2\"]{display:grid;grid-template-columns:1fr 1fr;}\n@media (max-width:640px){\n[data-h-style=\"columns2\"]{grid-template-columns:1fr;}\n}\n[data-h-node=\"n2\"]{padding:4px;}\n"
   }
 }

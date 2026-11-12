@@ -398,7 +398,7 @@ export class CmsDesigner {
     return west;
   }
 
-  /** Toolbar above the tabs: Properties, Styles, Check, Help, Close. */
+  /** Toolbar above the tabs: Properties, Styles, Check, Open, Help, Close. */
   _renderToolbar() {
     const bar = element('div', 'h-cms-toolbar');
     if (!this.readOnly) {
@@ -407,11 +407,33 @@ export class CmsDesigner {
     }
     bar.append(
       barButton('fa-list-check', 'Check the format of all pages and the records a visitor can not see', () => this._check(), 'Check'),
+      // as Open of the Website manager (2026-11-12)
+      barButton('fa-up-right-from-square', 'Open the website in a new tab (the saved version)', () => this._openSite(), 'Open'),
       element('span', 'h-cms-toolbar-spacer'),
       barButton('fa-circle-question', 'Show or hide the help', () => this._toggleHelp()),
       barButton('fa-door-open', 'Close', () => this.close(), 'Close')
     );
     return bar;
+  }
+
+  /**
+   * Open the website (or the standalone page) in a new tab, at the selected page of the menu; a record page needs a
+   * record in its URL, so the website opens at its home page then.
+   */
+  _openSite() {
+    const top = this.site || this.standalone;
+    if (!top?.url) return;
+    const id = Number(this.current?.recordId) || 0;
+    const find = (pages) => {
+      for (const page of pages || []) {
+        if (Number(page.id) === id) return page;
+        const found = find(page.children);
+        if (found) return found;
+      }
+      return null;
+    };
+    const page = this.site && id !== Number(this.site.id) ? find(this.site.pages) : null;
+    globalThis.open?.(page && !page.record ? `${top.url}/${page.id}` : top.url, '_blank', 'noopener');
   }
 
   /** Toolbar of the Page tab: Undo, Redo, Discard and, on the right, Save. */
@@ -470,7 +492,10 @@ export class CmsDesigner {
     }
   }
 
-  /** Second row, right aligned: preview language (several languages only) and page width of the preview. */
+  /**
+   * Second row: preview language (several languages only) on the left, page width of the preview on the right
+   * (2026-11-12).
+   */
   _renderViewBar() {
     const bar = element('div', 'h-cms-view-bar');
     const languages = this.site?.languages || [];
@@ -482,7 +507,7 @@ export class CmsDesigner {
         this.language = select.value === languages[0] ? null : select.value;
         this._loadPreview();
       });
-      bar.append(caption('Language'), select);
+      bar.append(caption('Language'), select, element('span', 'h-cms-toolbar-spacer'));
     }
     const width = element('select', 'h-select h-compact');
     width.title = $HR('Page width of the preview');
@@ -1314,10 +1339,12 @@ export class CmsDesigner {
   async _createRecordPage(template, title) {
     const starter = cmsPageStarter('record', title, { template });
     const codes = this.codes;
-    const response = await this.apiClient.request('/page/0', {
-      method: 'POST',
-      body: { rec_ID: 0, details: { [codes.name]: title, [codes.version]: '4', [codes.content]: starter.content, [codes.configuration]: starter.configuration } }
-    });
+    const details = { [codes.name]: title, [codes.version]: '4', [codes.content]: starter.content, [codes.configuration]: starter.configuration };
+    // hidden in the main menu (DT_CMS_MENU_FORMAT = TRM_HIDDEN_ITEM, 2026-11-12); the server leaves record pages out
+    // of website menus anyway
+    const constant = (name) => Number(this.options.dbdefs?.dbconst?.(name)) || 0;
+    if (constant('DT_CMS_MENU_FORMAT') && constant('TRM_HIDDEN_ITEM')) details[constant('DT_CMS_MENU_FORMAT')] = [constant('TRM_HIDDEN_ITEM')];
+    const response = await this.apiClient.request('/page/0', { method: 'POST', body: { rec_ID: 0, details } });
     const id = Number((response?.data ?? response)?.records?.[0]?.rec_ID);
     if (!id) throw new Error($HR('The record page was not created'));
     await this._menuChange(() => this.websites.assign(this.site.id, id, { parent: null }));

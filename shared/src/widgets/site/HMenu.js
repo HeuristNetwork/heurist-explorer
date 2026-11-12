@@ -101,6 +101,7 @@ export class HMenu extends HBaseWidget {
         const open = !nav.classList.contains('is-open');
         nav.classList.toggle('is-open', open);
         toggle.setAttribute('aria-expanded', String(open));
+        if (open && nav.classList.contains('h-site-menu-dropdown')) this._placeDropdown(nav);
       });
     }
     if (nav.classList.contains('h-site-menu-vertical') || nav.classList.contains('h-site-menu-auto')) this._expanders(nav);
@@ -136,6 +137,19 @@ export class HMenu extends HBaseWidget {
   destroy() {
     this._observer?.disconnect?.();
     super.destroy?.();
+  }
+
+  /**
+   * The open list of a dropdown action menu: below the button, aligned to its left edge; to its right edge (class
+   * is-end) when it would leave the window on the right and there is room on the left (2026-11-12).
+   */
+  _placeDropdown(nav) {
+    const list = [...nav.children].find((child) => child.classList?.contains('h-site-menu-list'));
+    if (!list?.getBoundingClientRect) return;
+    nav.classList.remove('is-end');
+    const width = globalThis.innerWidth || document.documentElement?.clientWidth || 0;
+    const box = list.getBoundingClientRect();
+    if (width && box.right > width && nav.getBoundingClientRect().right - box.width >= 0) nav.classList.add('is-end');
   }
 
   /** Vertical menu: a button beside each page with sub pages opens / closes them; the branch of the current page is open. */

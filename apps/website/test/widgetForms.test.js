@@ -237,13 +237,16 @@ test('record actions (plan 27g §6): fields, values, settings and issues', () =>
   assert.deepEqual(recordActionIssues({ action: 'recordPage', recordPage: 8 }), []);
 });
 
-test('record page preset (plan 27g §6): one Record cards widget of the record of the URL', () => {
+test('record page preset (plan 27g §6): Back, then one Record cards widget of the record of the URL with padding 20px', () => {
   const { content, configuration } = cmsPageStarter('record', 'Person card', { template: 12 });
   const config = JSON.parse(configuration);
   const instances = Object.values(config.instances);
-  assert.equal(instances.length, 1);
-  assert.equal(instances[0].type, 'cards');
-  assert.deepEqual(instances[0].settings, { mode: 'url', query: null, template: 12, presentation: 'list', action: 'none' });
+  assert.deepEqual(instances.map((instance) => instance.type), ['actionmenu', 'cards']);
+  assert.deepEqual(instances[0].settings.items.map((item) => item.action), ['back']);
+  assert.deepEqual(instances[1].settings, { mode: 'url', query: null, template: 12, presentation: 'list', action: 'none' });
+  const cardsId = Object.keys(config.instances)[1];
+  const cardsNode = new RegExp(`data-h-node="([^"]+)"[^>]*data-h-instance="${cardsId}"`).exec(content)[1];
+  assert.equal(config.styles.nodes[cardsNode].padding, '20px');
   assert.doesNotMatch(content, /<h1/, 'no heading: the card shows the record');
   assert.match(content, /data-h-instance=/);
 });

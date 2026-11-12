@@ -119,6 +119,21 @@ export function fieldDetails(field, state) {
   return fieldsToDetails(new Map([[field.dty, state]]), { groups: [{ children: [field] }] });
 }
 
+/** Help above the form of a Record field element (2026-11-12). */
+const FIELD_HELP = 'Choose a record and one of its fields: the value is shown as a text element of the page. If you may edit'
+  + ' the record, you can change the value of the field directly in this form. With the source "A record" the element can'
+  + ' have an action: open the record URL or a record page.';
+
+/** Help above the form of a media element (2026-11-12). */
+const MEDIA_HELP = 'Shows one image, video, audio, PDF or 3D file. Choose its source: a media record, a registered file (an'
+  + ' uploaded file or a URL), or any record and one of its file fields. With the source "Any record" the element can have'
+  + ' an action: open the record URL or a record page.';
+
+/** Help of the Source "Record of the page URL" of Record cards (plan 27g, 2026-11-12). */
+const CARDS_URL_HELP = 'Record of the page URL: the record id is taken from the address of the page. Such a page is a record'
+  + ' page: the action "Open record page" of Record cards, Record fields, media and action menus on other pages opens it'
+  + ' with their record.';
+
 /**
  * The form of a Record field element: Source, Record, Field and below the input of this field with its translations. Save
  * writes the field of the record when it changed.
@@ -239,6 +254,7 @@ export async function openFieldForm({ reference, records, languages = [], dbdefs
     browseRecords: services.browseRecords,
     createRecordBrowser: services.createRecordBrowser,
     onReady: (edit) => {
+      addFormHelp(edit, FIELD_HELP);
       edit.showField('width', false);
       edit.showField('height', false);
       attachNewRecordPage(edit, services);
@@ -314,13 +330,22 @@ const FIT_TERMS = Object.freeze([
   { id: 'fill', label: 'Stretch both directions' }
 ]);
 
-/** Action fields (recordActionFields, plan 27g §6), presentation and slider fields of the cards and gallery forms. */
-function presentationFields(actionFields) {
+/** Names of the presentation fields (presentationFields), hidden together by code. */
+const PRESENTATION_FIELDS = Object.freeze(['presentation', 'duration', 'fade', 'navigation']);
+
+/**
+ * Action fields (recordActionFields, plan 27g §6), presentation and slider fields of the cards and gallery forms.
+ *
+ * @param {Array<object>} actionFields
+ * @param {object|null} [showWhen] When the presentation is offered (Record cards: not for the record of the page URL).
+ * @returns {Array<object>}
+ */
+function presentationFields(actionFields, showWhen = null) {
   // the timing and the start / stop button belong to the slideshow only, a carousel moves by its buttons (plan 27e §29)
-  const slider = { presentation: 'slider' };
+  const slider = { ...(showWhen || {}), presentation: 'slider' };
   return [
     ...actionFields,
-    { name: 'presentation', type: 'enum', label: 'Presentation', mode: 'radio', max: 1,
+    { name: 'presentation', type: 'enum', label: 'Presentation', mode: 'radio', max: 1, ...(showWhen ? { showWhen } : {}),
       terms: [{ id: 'list', label: 'List (all visible)' }, { id: 'carousel', label: 'Carousel (one visible, buttons)' },
         { id: 'slider', label: 'Slideshow (one visible, automatic)' }] },
     { name: 'duration', type: 'integer', label: 'Duration (ms)', max: 1, minValue: 500, showWhen: slider },
@@ -473,19 +498,27 @@ function cardsQuerySpecial(services) {
 export async function openCardsForm({ settings = {}, dbdefs, apiClient, services }) {
   const reports = await services.cardTemplates?.().catch(() => []) ?? [];
   const templates = cardTemplateTerms(reports, settings.template);
+  // the record of the page URL: one record, no action, no presentation (2026-11-12)
+  const listed = { mode: ['manual', 'query'] };
+  // one record picked by hand: no presentation
+  const showPresentation = (edit) => {
+    const values = edit.getValues();
+    const single = values.mode === 'manual' && [values.records].flat().filter(Boolean).length === 1;
+    for (const name of PRESENTATION_FIELDS) edit.showField(name, !single);
+  };
   const form = {
     groups: [{
       id: 'main',
       children: [
         // Record of the page URL: the widget of a record page (plan 27g)
-        { name: 'mode', type: 'enum', label: 'Type', mode: 'radio', max: 1,
+        { name: 'mode', type: 'enum', label: 'Source', mode: 'radio', max: 1,
           terms: [{ id: 'manual', label: 'Manual pickup' }, { id: 'query', label: 'Query' }, { id: 'url', label: 'Record of the page URL' }] },
         { name: 'records', type: 'resource', label: 'Source records', max: 0, targetTypes: [], pointerMode: 'browseonly', showWhen: { mode: 'manual' } },
         { name: 'query', type: 'freetext', label: 'Query', max: 1, special: cardsQuerySpecial(services), showWhen: { mode: 'query' } },
         // a selector also for a few templates (not the radios of a small vocabulary)
         { name: 'template', type: 'enum', label: 'Smarty template', mode: 'select', max: 1, terms: templates.terms,
           help: reports.length ? '' : 'Mark a report "Single record (card)" to use it here' },
-        ...presentationFields(recordActionFields({ pageTerms: services.recordPageTerms?.() || [] }))
+        ...presentationFields(recordActionFields({ pageTerms: services.recordPageTerms?.() || [], showWhen: listed }), listed)
       ]
     }]
   };
@@ -506,11 +539,15 @@ export async function openCardsForm({ settings = {}, dbdefs, apiClient, services
     browseRecords: services.browseRecords,
     createRecordBrowser: services.createRecordBrowser,
     onReady: (edit) => {
-      addFormHelp(edit, CARDS_HELP);
+      addFormHelp(edit, `${$HR(CARDS_HELP)} ${$HR(CARDS_URL_HELP)}`);
       attachNewRecordPage(edit, services);
+      showPresentation(edit);
+    },
+    onChange: (edit, change) => {
+      if (['mode', 'records'].includes(change.name)) showPresentation(edit);
     },
     validate: (values) => {
-      const issues = [...recordActionIssues(values)];
+      const issues = values.mode === 'url' ? [] : [...recordActionIssues(values)];
       if (values.mode === 'manual' && !(values.records || []).filter(Boolean).length) issues.push({ field: 'records', message: $HR('Choose the records') });
       if (values.mode === 'query' && !parseCardsQuery(values.query)) issues.push({ field: 'query', message: $HR('A query in JSON without parameters') });
       if (!values.template) issues.push({ field: 'template', message: $HR('Choose a template') });
@@ -527,7 +564,7 @@ export async function openCardsForm({ settings = {}, dbdefs, apiClient, services
       // a report id, or the file name of a template without a report
       template: /^\d+$/.test(template) ? Number(template) : template,
       ...presentationSettings(values),
-      ...recordActionSettings(values)
+      ...recordActionSettings(values, { allowed: mode !== 'url' })
     };
   });
 }
@@ -590,11 +627,13 @@ export function mediaFormFields({ single = false, multilang = false, mediaType =
   ];
   const source = { type: 'resource', max: single ? 1 : 0, pointerMode: 'addorbrowse' };
   return [
-    { name: 'mode', type: 'enum', label: 'Type', mode: 'radio', max: 1,
-      terms: [{ id: 'media', label: 'Media records' }, { id: 'files', label: 'Files' }, { id: 'record', label: 'Any record' }] },
-    { ...source, name: 'records', label: 'Source records', targetTypes: mediaType ? [mediaType] : [], showWhen: { mode: 'media' } },
-    { ...source, name: 'files', label: 'Sources', targetTypes: fileType ? [fileType] : [], showWhen: { mode: 'files' } },
-    { ...source, name: 'anyRecords', label: 'Source records', targetTypes: [], showWhen: { mode: 'record' } },
+    // one media element: singular names (2026-11-12)
+    { name: 'mode', type: 'enum', label: 'Source', mode: 'radio', max: 1,
+      terms: [{ id: 'media', label: single ? 'Media record' : 'Media records' }, { id: 'files', label: single ? 'File' : 'Files' },
+        { id: 'record', label: 'Any record' }] },
+    { ...source, name: 'records', label: single ? 'Source record' : 'Source records', targetTypes: mediaType ? [mediaType] : [], showWhen: { mode: 'media' } },
+    { ...source, name: 'files', label: single ? 'Source file' : 'Source files', targetTypes: fileType ? [fileType] : [], showWhen: { mode: 'files' } },
+    { ...source, name: 'anyRecords', label: single ? 'Source record' : 'Source records', targetTypes: [], showWhen: { mode: 'record' } },
     { name: 'fileField', type: 'enum', label: 'Field', max: 1, terms: fileTerms, showWhen: { mode: 'record' } },
     single ? { name: 'captionText', type: 'freetext', label: 'Caption', max: 1, multilang } : { name: 'caption', type: 'boolean', label: 'Show caption', max: 1 },
     { name: 'width', type: 'freetext', label: 'Width', help: 'Empty = auto; a number is px, or %. Both under 200 px: thumbnails.', max: 1 },
@@ -726,7 +765,10 @@ export async function openMediaForm({
     browseRecords: services.browseRecords,
     createRecordBrowser: services.createRecordBrowser,
     addRecord: services.addRecord,
-    onReady: (edit) => attachNewRecordPage(edit, services),
+    onReady: (edit) => {
+      if (single) addFormHelp(edit, MEDIA_HELP);
+      attachNewRecordPage(edit, services);
+    },
     onChange: async (edit, change) => {
       if (change.name !== 'anyRecords') return;
       const terms = await fileTermsOf(chosen(edit.getValues())).catch(() => []);

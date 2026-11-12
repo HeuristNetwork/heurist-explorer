@@ -283,3 +283,14 @@
 #Text shadow#Ombre du texte
 #Light shadow (dark text)#Ombre claire (texte foncé)
 #Dark shadow (light text)#Ombre foncée (texte clair)
+#Choose a record and one of its fields: the value is shown as a text element of the page. If you may edit the record, you can change the value of the field directly in this form. With the source "A record" the element can have an action: open the record URL or a record page.#Choisissez un enregistrement et un de ses champs : la valeur est affichée comme un élément de texte de la page. Si vous pouvez modifier l’enregistrement, vous pouvez changer la valeur du champ directement dans ce formulaire. Avec la source « Un enregistrement », l’élément peut avoir une action : ouvrir l’URL de l’enregistrement ou une page d’enregistrement.
+#Shows one image, video, audio, PDF or 3D file. Choose its source: a media record, a registered file (an uploaded file or a URL), or any record and one of its file fields. With the source "Any record" the element can have an action: open the record URL or a record page.#Affiche une image, une vidéo, un son, un PDF ou un fichier 3D. Choisissez sa source : un enregistrement média, un fichier enregistré (un fichier téléversé ou une URL), ou un enregistrement quelconque et un de ses champs fichier. Avec la source « Tout enregistrement », l’élément peut avoir une action : ouvrir l’URL de l’enregistrement ou une page d’enregistrement.
+#Record of the page URL: the record id is taken from the address of the page. Such a page is a record page: the action "Open record page" of Record cards, Record fields, media and action menus on other pages opens it with their record.#Enregistrement de l’URL de la page : l’identifiant de l’enregistrement est pris dans l’adresse de la page. Une telle page est une page d’enregistrement : l’action « Ouvrir la page d’enregistrement » des fiches d’enregistrements, des champs d’enregistrement, des médias et des menus d’actions des autres pages l’ouvre avec leur enregistrement.
+#Media record#Enregistrement média
+#File#Fichier
+#Open the website in a new tab (the saved version)#Ouvrir le site web dans un nouvel onglet (la version enregistrée)
+#Open#Ouvrir
+#Source record#Enregistrement source
+#Source records#Enregistrements sources
+#Source file#Fichier source
+#Source files#Fichiers sources

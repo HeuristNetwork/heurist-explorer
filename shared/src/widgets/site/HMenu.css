@@ -3,15 +3,11 @@
    Colour and size (review 2026-11-11): the items take the colour and font size of the menu element, so the own
    style of its node (Properties > Own styles: color, font-size) sets them; icons are as large as the text. The
    default colour is in :where() (no specificity): the rule of the node is stronger.
-   Inverted menus (2026-11-12, presets Menu with dark / light background): the menu inherits the text colour of its
-   element; hover, current item and the menu button are drawn in that colour (currentColor), so they show on any
-   background. Drop-down lists have the page background and the page text colour. */
+   Colours of the parent (2026-11-12): the menu always inherits the text colour of its element (also the links
+   presentation); hover, current item and the menu button are drawn in that colour (currentColor), so they show on
+   any background. Drop-down lists have the page background and the page text colour. */
 .h-site-menu {
   position: relative;
-}
-
-:where(.h-site-menu-links) {
-  color: var(--h-color-link);
 }
 
 .h-site-menu-toggle {
@@ -224,15 +220,18 @@
   display: inline-block;
 }
 
+/* the list opens below the button, aligned to its left edge; to its right edge when it would leave the window on the
+   right (HMenu._placeDropdown, class is-end), 2026-11-12 */
 .h-site-menu-dropdown > .h-site-menu-list {
   display: none;
   position: absolute;
-  right: 0;
+  left: 0;
   top: 100%;
   z-index: 100;
   flex-direction: column;
   align-items: stretch;
   min-width: 12em;
+  max-width: calc(100vw - 16px);
   padding: 4px;
   border: 1px solid var(--h-color-border);
   border-radius: var(--h-radius);
@@ -243,6 +242,11 @@
 
 .h-site-menu-dropdown.is-open > .h-site-menu-list {
   display: flex;
+}
+
+.h-site-menu-dropdown.is-end > .h-site-menu-list {
+  left: auto;
+  right: 0;
 }
 
 /* a website menu that does not fit its place in one row (HMenu._fitWidth): behind the menu button, as on narrow screens */

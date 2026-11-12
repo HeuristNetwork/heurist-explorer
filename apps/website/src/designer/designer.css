@@ -774,8 +774,6 @@
 /* the input of the field under Source, Record and Field (plan 27e §22) */
 .h-cms-field-value {
   margin-top: 8px;
-  padding-top: 8px;
-  border-top: 1px solid var(--h-color-border);
 }
 
 .h-dialog-cms-field {
@@ -889,13 +887,32 @@
   min-width: 0;
 }
 
+/* Define new record page: a square icon button as high as the select beside it (2026-11-12); compact in the action
+   menu form */
 .h-cms-new-record-page {
+  display: inline-flex;
   flex: none;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: var(--h-control-height);
+  height: var(--h-control-height);
+  padding: 0;
 }
 
-/* Define new record page: the help and the report apart (cosmetics 2026-11-11) */
+.h-cms-record-page > .h-cms-new-record-page {
+  width: calc(1.25em + 4px);
+  height: calc(1.25em + 4px);
+}
+
+/* Define new record page: the help and the report apart (cosmetics 2026-11-11); a short caption, a wide select
+   (2026-11-12) */
 .h-cms-new-record-page-form {
   gap: 14px;
+}
+
+.h-cms-new-record-page-form .h-cms-styles-field {
+  grid-template-columns: auto minmax(0, 1fr);
 }
 
 /* the button right after the select of the Record page field */

@@ -330,7 +330,8 @@ export function createStylesForm({ base = {}, kinds = {}, presets = {}, layout =
     drawKind();
     refresh();
   });
-  previews.push(() => show(preview(KIND_SAMPLES[kind.value] || ''), kind.value === 'group' && sampleColumns(state.kinds.group) > 1));
+  previews.push(() => show(preview(shadowBackdrop(state.kinds[kind.value], KIND_SAMPLES[kind.value] || '')),
+    kind.value === 'group' && sampleColumns(state.kinds.group) > 1));
   drawKind();
 
   // ------------------------------------------------------------ presets
@@ -413,7 +414,8 @@ export function createStylesForm({ base = {}, kinds = {}, presets = {}, layout =
     const count = name ? sampleColumns(state.presets[name]) : 0;
     const texts = Array.from({ length: count }, (item, index) => `<div data-h-text=""><h3>${label}${count > 1 ? ` (${index + 1})` : ''}</h3>`
       + '<p>An element with this preset. Lorem ipsum dolor sit amet, consectetur adipiscing elit.</p></div>').join('');
-    show(preview(name ? `<div data-h-control="group" data-h-style="${escapeHtml(name)}">${texts}</div>` : ''), count > 1);
+    show(preview(name ? shadowBackdrop(state.presets[name], `<div data-h-control="group" data-h-style="${escapeHtml(name)}">${texts}</div>`) : ''),
+      count > 1);
   });
   drawPresets();
 
@@ -1422,6 +1424,41 @@ function field(label, control, className = 'h-cms-styles-field', tag = 'label') 
   caption.textContent = $HR(label);
   line.append(caption, control);
   return line;
+}
+
+/**
+ * A preview sample of a style with a text shadow on a background of the opposite colour, so the shadow is seen
+ * (2026-11-12): a light shadow on a dark background, a dark shadow on a light one. Other styles: the sample as it is.
+ *
+ * @param {object} [style] The style (kind default or preset); the text shadow of the normal screen.
+ * @param {string} html The sample.
+ * @returns {string}
+ */
+export function shadowBackdrop(style, html) {
+  const shadow = String(style?.['text-shadow'] ?? '').trim();
+  if (!html || !shadow || shadow === 'none') return html;
+  const lightness = colorLightness(shadow);
+  if (lightness === null) return html;
+  const background = lightness > 0.5 ? '#3a3a3a' : '#e8e8e8';
+  return `<div style="background-color:${background};padding:16px">${html}</div>`;
+}
+
+/** Lightness 0..1 of the first colour (#rgb, #rrggbb, rgb(), rgba(), white, black) in a CSS value; null: none found. */
+function colorLightness(value) {
+  let rgb = null;
+  const functional = /rgba?\(\s*(\d+)[\s,]+(\d+)[\s,]+(\d+)/i.exec(value);
+  const hex = /#([0-9a-f]{3}|[0-9a-f]{6})\b/i.exec(value);
+  if (functional) {
+    rgb = functional.slice(1, 4).map(Number);
+  } else if (hex) {
+    const digits = hex[1].length === 3 ? [...hex[1]].map((char) => char + char) : hex[1].match(/../g);
+    rgb = digits.map((pair) => parseInt(pair, 16));
+  } else if (/\bwhite\b/i.test(value)) {
+    rgb = [255, 255, 255];
+  } else if (/\bblack\b/i.test(value)) {
+    rgb = [0, 0, 0];
+  }
+  return rgb ? (0.299 * rgb[0] + 0.587 * rgb[1] + 0.114 * rgb[2]) / 255 : null;
 }
 
 function escapeHtml(text) {

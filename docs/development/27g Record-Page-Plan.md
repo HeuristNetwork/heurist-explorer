@@ -160,3 +160,24 @@ Phase 3 (runtime):
 - **Designer draft**: `actionMenuItems` shows Record page and Back items.
 - Tests: `siteNavigator.test.js` (record views, `&rec=`, scroll alone + scroll position), `helperWidgets.test.js`
   (Back, draft items), `WebsiteRenderTest.php` 84 pass (section `data-h-record`, field link icon). JS 1,716 pass.
+
+## Cosmetics 2026-11-12 (Artem; done, not committed, no browser check)
+
+1. Record field form: no line above the value of the field (`.h-cms-field-value`); help on top (`FIELD_HELP`).
+   Define new record page: a square icon button in every form (as high as the select beside it; compact in the
+   action menu form).
+2. Media element: label *Source* (was Type), *Media record*, *File* (the gallery keeps the plural); help on top
+   (`MEDIA_HELP`).
+3. Define new record page popup: short *Smarty report* caption, wide select.
+4. Record cards: label *Source*; for *Record of the page URL* no Action (saved as `none`) and no Presentation
+   (saved as `list`); Manual pickup with one record: no Presentation; help on top extended (`CARDS_URL_HELP`).
+   Help texts do not mention the saved filter action (still disabled).
+
+Round 2 (2026-11-12, not committed, no browser check):
+1. Menu tree depth 10 (was 3: pages of the fourth level were not read; `WebsiteRepository::MENU_DEPTH`).
+2. Designer toolbar: *Open* (the website in a new tab at the selected page; a record page: the home page).
+3. Footer of a new website: copyright, powered by, hosted at in one row of equal columns (grid, gap 12px, centred;
+   one column on narrow screens), as the footer composer.
+4. Media element: *Source record* / *Source file* (the gallery: plural).
+5. New record page: an action menu with Back (links, arrow icon) above the Record cards; the Record cards have padding
+   20px; DT_CMS_MENU_FORMAT = TRM_HIDDEN_ITEM.
