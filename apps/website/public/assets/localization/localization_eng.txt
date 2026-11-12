@@ -294,3 +294,24 @@
 #Source records#Source records
 #Source file#Source file
 #Source files#Source files
+#Your name#Your name
+#Email address#Email address
+#Message#Message
+#Prove you are human:#Prove you are human:
+#Send#Send
+#Email us#Email us
+#The form sends messages on the website only#The form sends messages on the website only
+#Please fill in all fields#Please fill in all fields
+#Email does not appear to be valid#Email does not appear to be valid
+#Sending...#Sending...
+#Your message has been sent. Thank you!#Your message has been sent. Thank you!
+#The message was not sent: please try again later#The message was not sent: please try again later
+#Are you a bot? Please enter the correct answer to the challenge question#Are you a bot? Please enter the correct answer to the challenge question
+#Too many messages: please try again later#Too many messages: please try again later
+#Email form#Email form
+#Display#Display
+#Form on the page#Form on the page
+#Button that opens the form in a popup#Button that opens the form in a popup
+#Button caption#Button caption
+#Empty: "Email us"#Empty: "Email us"
+#Visitors send a message to the email address of the website (field Email of the website record) or, without it, to the database owner. The address is not shown on the page. Visitors answer a simple question to prove they are human.#Visitors send a message to the email address of the website (field Email of the website record) or, without it, to the database owner. The address is not shown on the page. Visitors answer a simple question to prove they are human.

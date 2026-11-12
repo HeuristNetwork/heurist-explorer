@@ -39,7 +39,7 @@ import { CmsPreview, PREVIEW_WIDTHS } from './CmsPreview.js';
 import { WebsiteCheck, checkProblemPlaces } from '../manager/WebsiteCheck.js';
 import { createWebsiteFieldsForm } from '../manager/websiteFields.js';
 import {
-  cardTemplateTerms, openCardsForm, openFieldForm, openLanguageForm, openMediaForm, openMenuForm, openReportForm, teamReportBody
+  cardTemplateTerms, openCardsForm, openEmailForm, openFieldForm, openLanguageForm, openMediaForm, openMenuForm, openReportForm, teamReportBody
 } from './widgetForms.js';
 import { recordPageTerms } from './recordPageField.js';
 import { openActionMenuForm, openSocialForm, sitePageList } from './actionForms.js';
@@ -1446,7 +1446,7 @@ export class CmsDesigner {
     open.record = { ...open.record, ...savedHeader(saved), details: { ...open.record.details, ...details } };
   }
 
-  /** Configuration of the widgets Custom report, Record cards and Media gallery. */
+  /** Configuration of the widgets: Custom report, Record cards, Media gallery, menus, badges, email form. */
   async _configureWidget(instanceId, instance) {
     await this._loadTemplateTerms();
     const services = this._formServices();
@@ -1481,6 +1481,11 @@ export class CmsDesigner {
       if (settings) this._edit((doc) => doc.setInstance(instanceId, { settings }));
     } else if (instance.type === 'menu' || instance.type === 'language') {
       const settings = await (instance.type === 'menu' ? openMenuForm(common) : openLanguageForm(common));
+      if (settings) this._edit((doc) => doc.setInstance(instanceId, { settings }));
+    } else if (instance.type === 'email') {
+      // the email form (plan 27h): inline or a button, the caption of the button in the languages of the website
+      const settings = await openEmailForm({ settings: instance.settings || {}, languages: this.site?.languages || [],
+        translator: this._translator() });
       if (settings) this._edit((doc) => doc.setInstance(instanceId, { settings }));
     } else if (instance.type === 'cards') {
       const settings = await openCardsForm(common);

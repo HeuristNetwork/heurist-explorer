@@ -280,7 +280,7 @@ discussion and plan.
 | `site` | `/{db}/site/{id}[/{page}][/frame/{instance}]` (not under `/api`) | Public website HTML (plan 27a) |
 | file content | `GET /files/{key}/content\|thumbnail`, `/files/upload[/{token}]` | Binary content, chunked upload |
 | `login`, `logout` | legacy, in `api.php` | Session |
-| `external` | `POST /external/translate` (`ExternalServiceController`, agreed by Artem 2026-11-02) | Services of external providers called by the server (translation now; lookups later) |
+| `external` | `POST /external/translate` (`ExternalServiceController`, agreed by Artem 2026-11-02); `GET` / `POST /external/email` (email form of websites, guests, plan 27h, agreed 2026-11-12) | Services of external providers called by the server (translation, mail; lookups later) |
 
 Record presentation `/records/querysource|document|layer/{id}` (`RecordPresentationController`): a presentation
 format of a record → keep as a special presentation under `map` / `records` until a decision (§9).

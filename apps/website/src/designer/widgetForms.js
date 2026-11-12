@@ -994,3 +994,47 @@ export function openLanguageForm({ settings = {} } = {}) {
     return ['list', 'select'].includes(values.appearance) ? { appearance: values.appearance } : {};
   });
 }
+
+/** Help above the form of the email form widget (plan 27h). */
+export const EMAIL_FORM_HELP = 'Visitors send a message to the email address of the website (field Email of the website record)'
+  + ' or, without it, to the database owner. The address is not shown on the page. Visitors answer a simple question'
+  + ' to prove they are human.';
+
+/**
+ * Settings of the email form (plan 27h): the form on the page, or a button that opens it in a popup; the caption of
+ * the button with its translations.
+ *
+ * @param {{settings?: object, languages?: string[], translator?: object}} options `languages`: of the website (the
+ *        first is the original).
+ * @returns {Promise<object|null>} `display`, `label`, `labels` {lang: caption} (default values left out).
+ */
+export function openEmailForm({ settings = {}, languages = [], translator = null } = {}) {
+  const multilang = languages.length > 1;
+  const caption = String(settings.label ?? '');
+  return openEditFormDialog({
+    title: 'Email form',
+    form: {
+      groups: [{
+        id: 'main',
+        children: [
+          { name: 'display', type: 'enum', label: 'Display', mode: 'radio', max: 1,
+            terms: [{ id: 'inline', label: 'Form on the page' }, { id: 'button', label: 'Button that opens the form in a popup' }] },
+          { name: 'label', type: 'freetext', label: 'Button caption', help: 'Empty: "Email us"', max: 1, multilang,
+            showWhen: { display: 'button' } }
+        ]
+      }]
+    },
+    values: {
+      display: settings.display === 'button' ? 'button' : 'inline',
+      label: multilang ? captionValue(caption, settings.labels || {}) : caption
+    },
+    ...(multilang ? { languages: languages.map((code) => code.toUpperCase()), translator } : {}),
+    onReady: (edit) => addFormHelp(edit, EMAIL_FORM_HELP)
+  }).then((values) => {
+    if (!values) return null;
+    if (values.display !== 'button') return {};
+    const { caption: label, translations } = readCaption(values.label, languages);
+    const labels = Object.fromEntries(Object.entries(translations).filter(([, text]) => text));
+    return { display: 'button', ...(label ? { label } : {}), ...(Object.keys(labels).length ? { labels } : {}) };
+  });
+}

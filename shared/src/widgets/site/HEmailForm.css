@@ -1,0 +1,109 @@
+/* HEmailForm (plan 27h): the email form of a website, colours and fonts of the site (base settings). */
+.h-site-email-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-width: 40em;
+}
+
+.h-site-email-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.h-site-email-field :is(input, textarea) {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid var(--h-color-border);
+  border-radius: var(--h-radius);
+  background: var(--h-color-bg);
+  color: var(--h-color-text);
+  font: inherit;
+}
+
+.h-site-email-field textarea {
+  resize: vertical;
+}
+
+.h-site-email-field [aria-invalid="true"] {
+  border-color: var(--h-color-danger, #b42318);
+}
+
+/* the question beside its caption, a short answer input */
+.h-site-email-question {
+  font-weight: bold;
+}
+
+.h-site-email-captcha input {
+  max-width: 8em;
+}
+
+.h-site-email-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.h-site-email-send,
+.h-site-email-open {
+  padding: 6px 16px;
+  border: 1px solid var(--h-color-primary);
+  border-radius: var(--h-radius);
+  background: var(--h-color-primary);
+  color: var(--h-color-primary-text, #fff);
+  font: inherit;
+  cursor: pointer;
+}
+
+.h-site-email-send:hover,
+.h-site-email-open:hover {
+  background: var(--h-color-primary-hover, var(--h-color-primary));
+}
+
+.h-site-email-send:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.h-site-email-status {
+  min-height: 1.2em;
+  margin: 0;
+  color: var(--h-color-text-muted);
+}
+
+.h-site-email-status.is-error {
+  color: var(--h-color-danger, #b42318);
+}
+
+/* display "button": the form in a dialog */
+.h-site-email-dialog {
+  width: min(36em, calc(100vw - 32px));
+  padding: 16px;
+  border: 1px solid var(--h-color-border);
+  border-radius: var(--h-radius);
+  background: var(--h-color-bg);
+  color: var(--h-color-text);
+}
+
+.h-site-email-dialog::backdrop {
+  background: rgb(0 0 0 / 35%);
+}
+
+.h-site-email-dialog-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  font-weight: bold;
+}
+
+.h-site-email-close {
+  padding: 0 6px;
+  border: none;
+  background: none;
+  color: inherit;
+  font-size: 1.4em;
+  line-height: 1;
+  cursor: pointer;
+}

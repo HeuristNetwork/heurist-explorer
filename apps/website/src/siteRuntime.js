@@ -28,6 +28,7 @@ import { createTabSet } from '#shared/widgets/layout/tabs.js';
 import { exclusiveAccordion } from '#shared/widgets/layout/accordion.js';
 import { actionMenuItems, HMenu } from '#shared/widgets/site/HMenu.js';
 import { HLangSwitch } from '#shared/widgets/site/HLangSwitch.js';
+import { HEmailForm } from '#shared/widgets/site/HEmailForm.js';
 import { SITE_WIDGETS, mountSiteWidget } from './siteWidgets.js';
 
 /**
@@ -406,6 +407,17 @@ export async function mountInstance(host, id, config, loaders) {
       languages: config.site?.languages || [],
       language: config.site?.language || null,
       appearance: instance.settings?.appearance
+    }).render();
+  }
+  if (instance.kind === 'widget' && instance.type === 'email') {
+    // written by the server (plan 27h); the draft of the designer: the same markup, nothing is sent
+    const runtime = config.runtime || {};
+    return new HEmailForm().attach(host, {
+      url: `${runtime.apiBaseUrl || `${runtime.baseUrl || '/'}api`}/${encodeURIComponent(runtime.database || '')}/external/email`,
+      settings: instance.settings || {},
+      site: Number(runtime.site) || Number(runtime.page) || Number(config.site?.id) || 0,
+      language: config.site?.language || runtime.language || '',
+      design: Boolean(runtime.design)
     }).render();
   }
   if (instance.kind === 'widget' && SITE_WIDGETS.includes(instance.type)) return mountSiteWidget(host, instance, config);

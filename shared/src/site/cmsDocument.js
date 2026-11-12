@@ -23,7 +23,7 @@ export const CMS_SCHEMA = 'heurist-cms/4';
 /** Known instance types by kind. */
 export const CMS_TYPES = Object.freeze({
   module: Object.freeze(['explorer', 'data', 'map', 'timeline', 'graph', 'recordview']),
-  widget: Object.freeze(['menu', 'report', 'cards', 'gallery', 'language', 'actionmenu', 'badges'])
+  widget: Object.freeze(['menu', 'report', 'cards', 'gallery', 'language', 'actionmenu', 'badges', 'email'])
 });
 
 /** Newest instance configuration version. */

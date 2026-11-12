@@ -266,7 +266,7 @@ export const ELEMENT_GROUPS = Object.freeze([
         preview: [['i', 8, 50, 18, 14], ['i', 30, 50, 18, 14], ['f', 56, 50, 24, 5], ['f', 56, 58, 24, 5], ['t', 86, 50, 26, 16]]
       },
       {
-        value: 'email', label: 'Email form',
+        value: 'email', label: 'Email form', available: true,
         description: 'A form which visitors use to send an email to the website owner (the address is not shown).',
         preview: [['f', 10, 10, 100, 8], ['f', 10, 22, 100, 8], ['f', 10, 34, 100, 26], ['f', 82, 64, 28, 8]]
       },

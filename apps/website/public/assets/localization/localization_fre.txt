@@ -294,3 +294,24 @@
 #Source records#Enregistrements sources
 #Source file#Fichier source
 #Source files#Fichiers sources
+#Your name#Votre nom
+#Email address#Adresse e-mail
+#Message#Message
+#Prove you are human:#Prouvez que vous êtes humain :
+#Send#Envoyer
+#Email us#Nous écrire
+#The form sends messages on the website only#Le formulaire envoie des messages sur le site web seulement
+#Please fill in all fields#Veuillez remplir tous les champs
+#Email does not appear to be valid#L’adresse e-mail ne semble pas valide
+#Sending...#Envoi...
+#Your message has been sent. Thank you!#Votre message a été envoyé. Merci !
+#The message was not sent: please try again later#Le message n’a pas été envoyé : veuillez réessayer plus tard
+#Are you a bot? Please enter the correct answer to the challenge question#Êtes-vous un robot ? Veuillez saisir la bonne réponse à la question
+#Too many messages: please try again later#Trop de messages : veuillez réessayer plus tard
+#Email form#Formulaire de contact
+#Display#Affichage
+#Form on the page#Formulaire sur la page
+#Button that opens the form in a popup#Bouton qui ouvre le formulaire dans une fenêtre
+#Button caption#Libellé du bouton
+#Empty: "Email us"#Vide : « Nous écrire »
+#Visitors send a message to the email address of the website (field Email of the website record) or, without it, to the database owner. The address is not shown on the page. Visitors answer a simple question to prove they are human.#Les visiteurs envoient un message à l’adresse e-mail du site web (champ E-mail de l’enregistrement du site) ou, à défaut, au propriétaire de la base de données. L’adresse n’est pas affichée sur la page. Les visiteurs répondent à une question simple pour prouver qu’ils sont humains.

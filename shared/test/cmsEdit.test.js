@@ -67,6 +67,12 @@ test('insert: elements of the picker go into a container or after a node', () =>
   assert.deepEqual(doc.instance(host.instance), { kind: 'module', type: 'data', configVersion: 1, settings: {}, state: null });
   const menu = doc.insertElement('content', 'menu', { id: null, position: 'inside' });
   assert.deepEqual(doc.nodeStyle(menu), { 'min-height': '0' }, 'a widget host is not given the module min-height');
+  // the email form (plan 27h): a widget written by the server
+  const email = doc.insertElement('content', 'email', { id: null, position: 'inside' });
+  const emailItem = doc.tree('content').find((item) => item.id === email);
+  assert.equal(doc.instance(emailItem.instance).type, 'email');
+  assert.equal(doc.instance(emailItem.instance).kind, 'widget');
+  assert.deepEqual(doc.nodeStyle(email), { 'min-height': '0' });
   assert.throws(() => doc.insertElement('content', 'cardinal'), /Unknown element/);
   assert.equal(doc.check().filter((issue) => issue.level === 'error').length, 0);
 });

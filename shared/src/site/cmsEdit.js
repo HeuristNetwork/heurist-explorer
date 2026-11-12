@@ -45,7 +45,7 @@ export const CMS_CONTROLS = Object.freeze(['group', 'tabs', 'accordion']);
 /** Elements the designer can add (§5.2). */
 export const CMS_ELEMENTS = Object.freeze(['text', 'media', 'group', 'columns2', 'columns3', 'tabs', 'accordion', 'explorer',
   'data', 'map', 'timeline', 'graph', 'recordview', 'menu', 'report', 'cards', 'gallery', 'headerSet', 'field', 'language',
-  'actionmenu', 'social', 'badges', 'siteFooter']);
+  'actionmenu', 'social', 'badges', 'siteFooter', 'email']);
 
 /**
  * Fields of the website record in the header default set (plan 27f §13): logo, title, subtitle (concept codes of
@@ -859,7 +859,9 @@ export class CmsRecordDocument {
           this._panel(element, number, used)));
       case 'report':
       case 'cards':
-      case 'gallery': {
+      case 'gallery':
+      case 'email': {
+        // widgets written by the server (plan 27e; the email form, plan 27h), without the min-height of the kind
         const instanceId = id('i');
         const nodeId = id('n');
         this.config.instances[instanceId] = defaultInstance('widget', element);
