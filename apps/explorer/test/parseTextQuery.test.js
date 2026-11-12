@@ -41,8 +41,8 @@ test('quoted phrase stays one value', () => {
   assert.deepEqual(p('"John Smith"'), [{ title: 'John Smith' }]);
 });
 
-test('negation prefix', () => {
-  assert.deepEqual(p('-country:France'), [{ 'f:26': '-France' }]);
+test('negation: -keyword is not (no value matches), -value stays in the value', () => {
+  assert.deepEqual(p('-country:France'), [{ not: [{ 'f:26': 'France' }] }]);
   assert.deepEqual(p('name:-smith'), [{ 'f:12': '-smith' }]);
 });
 
@@ -54,8 +54,8 @@ test('unknown key is kept verbatim, not dropped', () => {
   assert.deepEqual(p('weirdo:zzz'), [{ weirdo: 'zzz' }]);
 });
 
-test('explicit and/or tokens are ignored (flat parser)', () => {
-  assert.deepEqual(p('name:a or name:b'), [{ 'f:12': 'a' }, { 'f:12': 'b' }]);
+test('lowercase and / or are words (only uppercase AND / OR join)', () => {
+  assert.deepEqual(p('name:a or name:b'), [{ 'f:12': 'a' }, { title: 'or' }, { 'f:12': 'b' }]);
 });
 
 test('works without dbdefs (no name resolution, tokens kept)', () => {
@@ -113,4 +113,61 @@ test('keyword value form and compact field keys, as the server accepts', () => {
   assert.deepEqual(p('lt134:51'), [{ 'lt:134': '51' }]);
   // plain words are still title words
   assert.deepEqual(p('Johnson Smith'), [{ title: 'Johnson' }, { title: 'Smith' }]);
+});
+
+// Old simple format, the same rules as the server RecordQueryParser (2026-11-12,
+// docs/development/Query-Language-Old-vs-New.md)
+
+test('OR / AND / && like the server: a b OR c d = (a AND b) OR (c AND d)', () => {
+  assert.deepEqual(p('Johnson OR Berlin'), [{ any: [{ title: 'Johnson' }, { title: 'Berlin' }] }]);
+  assert.deepEqual(p('t:10 Johnson OR t:12 Berlin'), [{ any: [
+    { all: [{ t: '10' }, { title: 'Johnson' }] }, { all: [{ t: '12' }, { title: 'Berlin' }] }] }]);
+  assert.deepEqual(p('t:12 AND Berlin OR Paris sortby:title'),
+    [{ t: '12' }, { any: [{ title: 'Berlin' }, { title: 'Paris' }] }, { sortby: 'title' }]);
+  assert.deepEqual(p('Johnson && t:10'), [{ title: 'Johnson' }, { t: '10' }]);
+  assert.deepEqual(p('"a OR b"'), [{ title: 'a OR b' }]);
+});
+
+test('-keyword: not group; t:-<type> excludes record types', () => {
+  assert.deepEqual(p('-t:10'), [{ not: [{ t: '10' }] }]);
+  assert.deepEqual(p('-tag:key1'), [{ not: [{ tag: 'key1' }] }]);
+  assert.deepEqual(p('-f:1:'), [{ not: [{ 'f:1': '' }] }]);
+  assert.deepEqual(p('-t 10 Johnson'), [{ not: [{ t: '10' }] }, { title: 'Johnson' }]);
+  assert.deepEqual(p('-lt134(t:12)'), [{ not: [{ 'lt:134': [{ t: '12' }] }] }]);
+  assert.deepEqual(p('-Johnson'), [{ title: '-Johnson' }]);
+  assert.deepEqual(p('t:-Person'), [{ t: '-10' }]);
+});
+
+test('operator instead of the colon: title=x, f:1>B, modified>date, tag=x', () => {
+  assert.deepEqual(p('title=Johnson'), [{ title: '=Johnson' }]);
+  assert.deepEqual(p('title="Johnson, John"'), [{ title: '=Johnson, John' }]);
+  assert.deepEqual(p('f:1>B f:1<C'), [{ 'f:1': '>B' }, { 'f:1': '<C' }]);
+  assert.deepEqual(p('f:1160>=5000000'), [{ 'f:1160': '>=5000000' }]);
+  assert.deepEqual(p('modified>2026-08-01'), [{ modified: '>2026-08-01' }]);
+  assert.deepEqual(p('fc:240=2'), [{ 'fc:240': '=2' }]);
+  assert.deepEqual(p('tag=key1'), [{ tag: 'key1' }]);
+  assert.deepEqual(p('a<b'), [{ title: 'a<b' }]);
+});
+
+test('field names: f:Name:x, f:"Name with spaces"<x; all:x / any:x = any field', () => {
+  assert.deepEqual(p('f:Name:smith'), [{ 'f:12': 'smith' }]);
+  assert.deepEqual(p('f:"Family name"<C'), [{ 'f:12': '<C' }]);
+  assert.deepEqual(p('fc:Country:>2'), [{ 'fc:26': '>2' }]);
+  assert.deepEqual(parseTextQuery('f:Unknown:x'), [{ 'f:Unknown': 'x' }]);
+  assert.deepEqual(p('f:"10:30"'), [{ f: '10:30' }]);
+  assert.deepEqual(p('all:Berlin'), [{ f: 'Berlin' }]);
+  assert.deepEqual(p('any:Berlin'), [{ f: 'Berlin' }]);
+});
+
+test('f:<field>:( … ): pointer field = lt, relationship marker = related', () => {
+  const defs = { ...DBDEFS, fieldType: (_rty, id) => ({ 134: 'resource', 245: 'relmarker' }[id] || 'freetext') };
+  assert.deepEqual(parseTextQuery('f:134:(t:12 title:Berlin)', { dbdefs: defs }),
+    [{ 'lt:134': [{ t: '12' }, { title: 'Berlin' }] }]);
+  assert.deepEqual(parseTextQuery('f:245:(t:4)', { dbdefs: defs }), [{ 'related:245': [{ t: '4' }] }]);
+  assert.deepEqual(p('t:10 linkedto:134(t:12)'), [{ t: '10' }, { 'lt:134': [{ t: '12' }] }]);
+});
+
+test('outdated link aliases linkto / linkfrom are not keywords any more', () => {
+  assert.deepEqual(parseTextQuery('linkto:153'), [{ linkto: '153' }]);
+  assert.deepEqual(parseTextQuery('linkedfrom:153'), [{ lf: '153' }]);
 });

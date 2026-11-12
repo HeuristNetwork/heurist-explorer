@@ -51,8 +51,13 @@ export function parseTextQuery(text, { dbdefs = null } = {}) {
 
 /**
  * Parse tokens from `cursor.pos` up to a closing `)` (consumed) or the end.
- * `lt134(`…`)` / `linked_to:134(`…`)` style tokens open a linked sub-query;
- * any other `(` group is flattened into the current level.
+ * `lt134(`…`)` / `linked_to:134(`…`)` / `f:134:(`…`)` style tokens open a linked
+ * sub-query; any other `(` group is flattened into the current level.
+ *
+ * Conjunctions as on the server (old simple format, 2026-11-12): uppercase `AND` / `&&`
+ * splits at the top, uppercase `OR` splits a part into alternatives, the words of an
+ * alternative are ANDed - `a b OR c d` = (a AND b) OR (c AND d). Sorting applies to the
+ * whole query.
  *
  * @param {string[]} tokens
  * @param {{pos:number}} cursor Shared read position.
@@ -60,147 +65,242 @@ export function parseTextQuery(text, { dbdefs = null } = {}) {
  * @returns {Array<object>}
  */
 function parseSequence(tokens, cursor, dbdefs) {
-  const out = [];
-  let rtyCtx = '';
+  const parts = [[[]]];   // parts (AND) of alternatives (OR) of predicates
+  const sort = [];
+  const ctx = { rty: '', started: false };
 
   while (cursor.pos < tokens.length) {
-    const token = tokens[cursor.pos++];
-    if (token === ')') break;
-    if (/^(and|or)$/i.test(token)) continue; // flat parser: ignore explicit conjunctions
+    const token = tokens[cursor.pos];
+    if (token === ')') { cursor.pos++; break; }
+    if (token === 'AND' || token === '&&') { cursor.pos++; parts.push([[]]); continue; }
+    if (token === 'OR') { cursor.pos++; parts[parts.length - 1].push([]); continue; }
 
-    if (token.endsWith('(')) {
-      const inner = parseSequence(tokens, cursor, dbdefs);
-      const m = /^([a-z_]+?):?(\d*)$/i.exec(token.slice(0, -1));
-      const base = m ? (canonicalPredicate(m[1].toLowerCase()) || '') : '';
-      if (base && isLinkPredicate(base)) {
-        out.push({ [m[2] ? `${base}:${m[2]}` : base]: inner });
-      } else {
-        out.push(...inner);
-      }
-      continue;
+    const alternatives = parts[parts.length - 1];
+    for (const predicate of parseToken(tokens, cursor, dbdefs, ctx)) {
+      if (Object.keys(predicate)[0] === 'sortby') sort.push(predicate);
+      else alternatives[alternatives.length - 1].push(predicate);
     }
+    ctx.started = true;
+  }
 
-    let raw = token;
-    let negate = false;
-    if (raw.length > 1 && raw[0] === '-' && raw.slice(1).toUpperCase() !== 'NULL') {
-      negate = true;
-      raw = raw.slice(1);
+  const out = [];
+  for (const part of parts) {
+    const alternatives = part.filter((predicates) => predicates.length);
+    if (alternatives.length === 1) {
+      out.push(...alternatives[0]);
+    } else if (alternatives.length > 1) {
+      out.push({ any: alternatives.map((predicates) => (predicates.length === 1 ? predicates[0] : { all: predicates })) });
     }
+  }
+  return [...out, ...sort];
+}
 
-    // "keyword value" (no colon), as the server accepts: t 10 f1 Johnson
-    if (!raw.includes(':')) {
-      const kw = /^([a-z_]+?)(\d*)$/i.exec(raw);
-      const kwBase = kw ? canonicalPredicate(kw[1].toLowerCase()) : null;
-      const next = tokens[cursor.pos];
-      if (kwBase && SPACED_KEYWORDS.has(kwBase) && next != null && next !== ')' && !next.endsWith('(')) {
-        cursor.pos++;
-        raw = `${kw[1]}${kw[2] ? `:${kw[2]}` : ''}:${next}`;
-      }
-    }
+/**
+ * Parse the token at `cursor.pos` (and the tokens it takes as its value) into predicates.
+ * `-keyword:value` is `{not:[…]}` (no value matches), a word `-Johnson` a negated title.
+ *
+ * @param {string[]} tokens
+ * @param {{pos:number}} cursor
+ * @param {object|null} dbdefs
+ * @param {{rty:string, started:boolean}} ctx Record type of the current level (for field
+ *   names); `started` once the level has a predicate.
+ * @returns {Array<object>}
+ */
+function parseToken(tokens, cursor, dbdefs, ctx) {
+  let token = tokens[cursor.pos++];
 
-    // compact field keys: fc240:>2, count240:>2, lt134:51 -> base:<id>:value
-    const compactKey = /^([a-z_]+?)(\d+):/i.exec(raw);
-    if (compactKey && COMPACT_BASES.has(canonicalPredicate(compactKey[1].toLowerCase()))) {
-      raw = `${compactKey[1]}:${compactKey[2]}:${raw.slice(compactKey[0].length)}`;
-    }
+  if (token.length > 1 && token[0] === '-' && isKeywordToken(token.slice(1), tokens[cursor.pos])) {
+    const subCursor = { pos: 0 };
+    const inner = parseToken([token.slice(1), ...tokens.slice(cursor.pos)], subCursor, dbdefs, ctx);
+    cursor.pos += subCursor.pos - 1; // the value tokens the inner parse took
+    return inner.map((predicate) => (Object.keys(predicate)[0] === 'sortby' ? predicate : { not: [predicate] }));
+  }
 
-    const colon = raw.indexOf(':');
-    if (colon < 0) {
-      // bare word: a leading record-type name, otherwise a title match
-      // (`f:Athens` is the explicit any-field form)
-      if (!out.length && !rtyCtx && dbdefs) {
-        const id = resolveRectype(raw, dbdefs);
-        if (id) { out.push({ t: String(id) }); rtyCtx = String(id); continue; }
-      }
-      out.push({ title: applyNegate(unquote(raw), negate) });
-      continue;
+  if (token.endsWith('(')) {
+    const inner = parseSequence(tokens, cursor, dbdefs);
+    const head = token.slice(0, -1);
+    // f:<field>:( - the old form: a pointer field = lt, a relationship marker = related
+    const field = /^(?:f|field):(\d+):$/i.exec(head);
+    if (field) {
+      const type = dbdefs?.fieldType?.(ctx.rty || null, field[1]);
+      return [{ [`${type === 'relmarker' ? 'related' : 'lt'}:${field[1]}`]: inner }];
     }
+    const m = /^([a-z_]+?):?(\d*)$/i.exec(head);
+    const base = m ? (canonicalPredicate(m[1].toLowerCase()) || '') : '';
+    if (base && isLinkPredicate(base)) return [{ [m[2] ? `${base}:${m[2]}` : base]: inner }];
+    if (base === 'any' || base === 'all' || base === 'not') return [{ [base]: inner }];
+    return inner;
+  }
 
-    const key = raw.slice(0, colon).toLowerCase();
-    const rest = unquote(raw.slice(colon + 1));
-    const base = canonicalPredicate(key) || key;
+  let raw = token;
+  const negateWord = raw.length > 1 && raw[0] === '-' && raw.slice(1).toUpperCase() !== 'NULL';
+  if (negateWord) raw = raw.slice(1);
 
-    if (base === 't') {
-      // t:48,10 -> several record types
-      const ids = rest.split(',').map((part) => resolveRectype(part, dbdefs)).filter(Boolean);
-      if (ids.length) { out.push({ t: ids.join(',') }); rtyCtx = String(ids[0]); }
-      continue;
-    }
-    if (isLinkPredicate(base) && base !== 'r' && base !== 'relf') {
-      // lt:134:51 -> linked record id(s) without a sub-query
-      const m = /^(\d+):(.+)$/.exec(rest);
-      out.push(m ? { [`${base}:${m[1]}`]: m[2] } : { [base]: rest });
-      continue;
-    }
-    if (base === 'fc') {
-      // fc:<id>:<value>   field value count, e.g. fc:12:>2
-      const parts = rest.split(':');
-      if (/^\d+$/.test(parts[0])) {
-        out.push({ [`fc:${parts[0]}`]: applyNegate(unquote(parts.slice(1).join(':')), negate) });
-      }
-      continue;
-    }
-    if (base === 'geo') {
-      // geo[:<id>][:within|intersects]:<value>
-      const m = /^(?:(\d+):)?(?:(within|intersects):)?([\s\S]*)$/i.exec(rest);
-      const geoKey = ['geo', m[1], m[2]?.toLowerCase()].filter(Boolean).join(':');
-      out.push({ [geoKey]: unquote(m[3]) });
-      continue;
-    }
-    if (base === 'r' || base === 'relf') {
-      // relationship conditions: r:<type ids>, r:<id>:<value> / relf:<id>:<value> (field)
-      const m = /^(\d+):([\s\S]*)$/.exec(rest);
-      if (m) out.push({ [`relf:${m[1]}`]: applyNegate(unquote(m[2]), negate) });
-      else if (base === 'r' && rest) out.push({ r: rest });
-      continue;
-    }
-    if (base === 'sortby') {
-      if (rest) out.push({ sortby: rest });
-      continue;
-    }
-    if (base === 'f') {
-      // f:<id>[:<enumField>]:<value>   (value may carry a leading operator token)
-      const parts = rest.split(':');
-      const id = /^\d+$/.test(parts[0]) ? parts[0] : null;
-      if (!id) {
-        // f:<value> -> any field
-        if (rest) out.push({ f: applyNegate(rest, negate) });
-        continue;
-      }
-      let fieldKey = `f:${id}`;
-      let value = parts.slice(1).join(':');
-      if (['term', 'code', 'conceptid', 'desc'].includes(parts[1])) {
-        fieldKey += `:${parts[1]}`;
-        value = parts.slice(2).join(':');
-      }
-      out.push({ [fieldKey]: applyNegate(unquote(value), negate) });
-      continue;
-    }
-    if (HEADER_BASES.has(base)) {
-      out.push({ [base]: applyNegate(rest, negate) });
-      continue;
-    }
-
-    // f<id>:<value>  (f1:Athens)
-    const compact = /^f(\d+)$/.exec(key);
-    if (compact) {
-      out.push({ [`f:${compact[1]}`]: applyNegate(rest, negate) });
-      continue;
-    }
-
-    // otherwise treat `key` as a field NAME, scoped to the current record type;
-    // `f<Name>:` (fGender:male) is the explicit field-name form
-    const fieldId = fieldIdFor(key, rtyCtx, dbdefs)
-      ?? (key.length > 1 && key[0] === 'f' ? fieldIdFor(key.slice(1), rtyCtx, dbdefs) : null);
-    if (fieldId) {
-      out.push({ [`f:${fieldId}`]: applyNegate(rest, negate) });
-    } else {
-      // keep it rather than drop it - queryDescribe renders unknown keys verbatim
-      out.push({ [key]: applyNegate(rest, negate) });
+  // "keyword value" (no colon), as the server accepts: t 10 f1 Johnson
+  if (!/[:=<>]/.test(raw)) {
+    const kw = /^([a-z_]+?)(\d*)$/i.exec(raw);
+    const kwBase = kw ? canonicalPredicate(kw[1].toLowerCase()) : null;
+    const next = tokens[cursor.pos];
+    if (kwBase && SPACED_KEYWORDS.has(kwBase) && next != null && next !== ')' && !next.endsWith('(')) {
+      cursor.pos++;
+      raw = `${kw[1]}${kw[2] ? `:${kw[2]}` : ''}:${next}`;
     }
   }
 
-  return out;
+  raw = colonForm(raw, ctx, dbdefs);
+
+  // compact field keys: fc240:>2, count240:>2, lt134:51 -> base:<id>:value
+  const compactKey = /^([a-z_]+?)(\d+):/i.exec(raw);
+  if (compactKey && COMPACT_BASES.has(canonicalPredicate(compactKey[1].toLowerCase()))) {
+    raw = `${compactKey[1]}:${compactKey[2]}:${raw.slice(compactKey[0].length)}`;
+  }
+
+  const colon = raw.indexOf(':');
+  if (colon < 0) {
+    // bare word: a leading record-type name, otherwise a title match
+    // (`f:Athens` is the explicit any-field form)
+    if (!negateWord && !ctx.rty && !ctx.started && dbdefs) {
+      const id = resolveRectype(raw, dbdefs);
+      if (id) { ctx.rty = String(id); return [{ t: String(id) }]; }
+    }
+    return [{ title: applyNegate(unquote(raw), negateWord) }];
+  }
+
+  const key = raw.slice(0, colon).toLowerCase();
+  const rawRest = raw.slice(colon + 1);
+  const rest = unquoteValue(rawRest);
+  let base = canonicalPredicate(key) || key;
+  const negate = negateWord;
+
+  // all:x / any:x with a value = any field, as in the old format
+  if ((base === 'all' || base === 'any') && rest) base = 'f';
+
+  if (base === 't') {
+    // t:48,10 -> several record types; t:-10 excludes them
+    const exclude = rest.startsWith('-');
+    const ids = (exclude ? rest.slice(1) : rest).split(',').map((part) => resolveRectype(part, dbdefs)).filter(Boolean);
+    if (!ids.length) return [];
+    if (!exclude) ctx.rty = String(ids[0]);
+    return [{ t: `${exclude ? '-' : ''}${ids.join(',')}` }];
+  }
+  if (isLinkPredicate(base) && base !== 'r' && base !== 'relf') {
+    // lt:134:51 -> linked record id(s) without a sub-query
+    const m = /^(\d+):(.+)$/.exec(rest);
+    return [m ? { [`${base}:${m[1]}`]: m[2] } : { [base]: rest }];
+  }
+  if (base === 'fc') {
+    // fc:<id>:<value>, fc:<id>=<value>, fc:<name>:<value>   field value count, e.g. fc:12:>2
+    const field = fieldPart(rawRest, ctx, dbdefs);
+    return field ? [{ [`fc:${field.id}`]: applyNegate(field.value, negate) }] : [];
+  }
+  if (base === 'geo') {
+    // geo[:<id>][:within|intersects]:<value>
+    const m = /^(?:(\d+):)?(?:(within|intersects):)?([\s\S]*)$/i.exec(rest);
+    const geoKey = ['geo', m[1], m[2]?.toLowerCase()].filter(Boolean).join(':');
+    return [{ [geoKey]: unquote(m[3]) }];
+  }
+  if (base === 'r' || base === 'relf') {
+    // relationship conditions: r:<type ids>, r:<id>:<value> / relf:<id>:<value> (field)
+    const m = /^(\d+):([\s\S]*)$/.exec(rest);
+    if (m) return [{ [`relf:${m[1]}`]: applyNegate(unquote(m[2]), negate) }];
+    return base === 'r' && rest ? [{ r: rest }] : [];
+  }
+  if (base === 'sortby') {
+    return rest ? [{ sortby: rest }] : [];
+  }
+  if (base === 'tag') {
+    // a tag is matched exactly anyway: tag=x is tag:x
+    return [{ tag: applyNegate(rest.startsWith('=') ? rest.slice(1) : rest, negate) }];
+  }
+  if (base === 'f') {
+    // f:<id>[:<enumField>]:<value>, f:<id>=<value>, f:<Name>:<value>, f:"Name with spaces"<value>
+    const field = fieldPart(rawRest, ctx, dbdefs);
+    if (!field) {
+      // f:<value> -> any field
+      return rest ? [{ f: applyNegate(rest, negate) }] : [];
+    }
+    return [{ [`f:${field.id}${field.qualifier ? `:${field.qualifier}` : ''}`]: applyNegate(field.value, negate) }];
+  }
+  if (HEADER_BASES.has(base)) {
+    return [{ [base]: applyNegate(rest, negate) }];
+  }
+
+  // f<id>:<value>  (f1:Athens)
+  const compact = /^f(\d+)$/.exec(key);
+  if (compact) {
+    return [{ [`f:${compact[1]}`]: applyNegate(rest, negate) }];
+  }
+
+  // otherwise treat `key` as a field NAME, scoped to the current record type;
+  // `f<Name>:` (fGender:male) is the explicit field-name form
+  const fieldId = fieldIdFor(key, ctx.rty, dbdefs)
+    ?? (key.length > 1 && key[0] === 'f' ? fieldIdFor(key.slice(1), ctx.rty, dbdefs) : null);
+  if (fieldId) {
+    return [{ [`f:${fieldId}`]: applyNegate(rest, negate) }];
+  }
+  // keep it rather than drop it - queryDescribe renders unknown keys verbatim
+  return [{ [key]: applyNegate(rest, negate) }];
+}
+
+/**
+ * Whether a token (without its leading `-`) is a keyword predicate: it has a key
+ * (`key:`, `key=`, `key<`, `key>`), opens a sub-query, or is a spaced keyword (`t 10`).
+ *
+ * @param {string} token
+ * @param {string|undefined} next
+ * @returns {boolean}
+ */
+function isKeywordToken(token, next) {
+  if (token.endsWith('(')) return true;
+  const sep = firstUnquoted(token, ':=<>');
+  if (sep > 0) return true;
+  const kw = /^([a-z_]+?)(\d*)$/i.exec(token);
+  const kwBase = kw ? canonicalPredicate(kw[1].toLowerCase()) : null;
+  return Boolean(kwBase && SPACED_KEYWORDS.has(kwBase) && next != null && next !== ')');
+}
+
+/**
+ * `key=v`, `key<v`, `key>v` (operator instead of the colon, old format) -> `key:=v` …;
+ * the operator stays in the value. Only when the part before it is a keyword (as on the
+ * server) or a field name of the current record type; `a<b` stays a title word.
+ *
+ * @param {string} raw
+ * @param {{rty:string}} ctx
+ * @param {object|null} dbdefs
+ * @returns {string}
+ */
+function colonForm(raw, ctx, dbdefs) {
+  const pos = firstUnquoted(raw, ':=<>');
+  if (pos <= 0 || raw[pos] === ':') return raw;
+  const key = raw.slice(0, pos);
+  const kw = /^([a-z_]+?)(\d*)$/i.exec(key);
+  const known = (kw && canonicalPredicate(kw[1].toLowerCase())) || (/^f\d+$/i.test(key))
+    || fieldIdFor(key, ctx.rty, dbdefs);
+  return known ? `${key}:${raw.slice(pos)}` : raw;
+}
+
+/**
+ * Field of an `f:` / `fc:` value: `<id>[:<qualifier>]<sep><value>` or
+ * `<Name><sep><value>` / `"<Name with spaces>"<sep><value>`, sep = `:` `=` `<` `>`
+ * (the operator stays in the value). `null` = no field (any-field value).
+ *
+ * @param {string} rawRest Text after `f:`, quotes not yet removed.
+ * @param {{rty:string}} ctx
+ * @param {object|null} dbdefs
+ * @returns {{id:string, qualifier:string, value:string}|null}
+ */
+function fieldPart(rawRest, ctx, dbdefs) {
+  const byId = /^(\d+)(?::(term|label|code|concept|conceptid|desc)(?=[:=<>]))?([:=<>])([\s\S]*)$/i.exec(rawRest);
+  if (byId) {
+    return { id: byId[1], qualifier: byId[2] ? byId[2].toLowerCase() : '', value: unquoteValue((byId[3] === ':' ? '' : byId[3]) + byId[4]) };
+  }
+  const byName = /^(?:"([^"]+)"|([^\s:"=<>@\-][^\s:"=<>]*))([:=<>])([\s\S]*)$/.exec(rawRest);
+  if (byName) {
+    const name = byName[1] ?? byName[2];
+    const id = fieldIdFor(name, ctx.rty, dbdefs);
+    return { id: id ? String(id) : name, qualifier: '', value: unquoteValue((byName[3] === ':' ? '' : byName[3]) + byName[4]) };
+  }
+  return null;
 }
 
 // --------------------------------------------------------------------- helpers ---
@@ -234,6 +334,23 @@ function tokenize(text) {
   }
   if (cur) out.push(cur);
   return out;
+}
+
+/** Position of the first of `chars` outside double quotes, or -1. */
+function firstUnquoted(text, chars) {
+  let quoted = false;
+  for (let i = 0; i < text.length; i++) {
+    if (text[i] === '"') { quoted = !quoted; continue; }
+    if (!quoted && chars.includes(text[i])) return i;
+  }
+  return -1;
+}
+
+/** unquote(), also after an operator: `="Johnson, John"` -> `=Johnson, John`. */
+function unquoteValue(s) {
+  const t = unquote(s);
+  const m = /^(==|>=|<=|<>|=|<|>|-|@\+|@-|@)"([\s\S]*)"$/.exec(t);
+  return m ? m[1] + m[2] : t;
 }
 
 /** Strip one layer of matching single/double quotes from a token's value. */

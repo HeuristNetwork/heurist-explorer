@@ -34,8 +34,8 @@ export const KEYWORD_ALIASES = Object.freeze({
   workgroup: 'owner', wg: 'owner', access: 'access', user: 'user', usr: 'user',
   ws: 'ws', workset: 'ws', tag: 'tag', keyword: 'tag', kwd: 'tag', field: 'f', f: 'f',
   count: 'fc', cnt: 'fc', fc: 'fc', geo: 'geo', file: 'file', linked_to: 'lt',
-  linkedto: 'lt', linkto: 'lt', link_to: 'lt', lt: 'lt', linked_from: 'lf',
-  linkedfrom: 'lf', linkfrom: 'lf', link_from: 'lf', lf: 'lf', related_to: 'rt',
+  linkedto: 'lt', lt: 'lt', linked_from: 'lf',
+  linkedfrom: 'lf', lf: 'lf', related_to: 'rt',
   relatedto: 'rt', rt: 'rt', related_from: 'rf', relatedfrom: 'rf', rf: 'rf',
   related: 'related', links: 'links', relf: 'relf', r: 'r', any: 'any', all: 'all',
   not: 'not', exists: 'exists', sortby: 'sortby', sort: 'sortby', s: 'sortby'
