@@ -279,3 +279,7 @@
 #Footer height (minimum)#Footer height (minimum)
 #height of the content#height of the content
 #A size such as 120px, 10em or 20%#A size such as 120px, 10em or 20%
+#Not visible in design mode: the designer shows one page at a time. Open the website to see it.#Not visible in design mode: the designer shows one page at a time. Open the website to see it.
+#Text shadow#Text shadow
+#Light shadow (dark text)#Light shadow (dark text)
+#Dark shadow (light text)#Dark shadow (light text)

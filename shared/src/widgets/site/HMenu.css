@@ -2,13 +2,12 @@
    (--h-color-surface, --h-color-primary, --h-color-text, --h-radius).
    Colour and size (review 2026-11-11): the items take the colour and font size of the menu element, so the own
    style of its node (Properties > Own styles: color, font-size) sets them; icons are as large as the text. The
-   default colour is in :where() (no specificity): the rule of the node is stronger. */
+   default colour is in :where() (no specificity): the rule of the node is stronger.
+   Inverted menus (2026-11-12, presets Menu with dark / light background): the menu inherits the text colour of its
+   element; hover, current item and the menu button are drawn in that colour (currentColor), so they show on any
+   background. Drop-down lists have the page background and the page text colour. */
 .h-site-menu {
   position: relative;
-}
-
-:where(.h-site-menu) {
-  color: var(--h-color-text);
 }
 
 :where(.h-site-menu-links) {
@@ -18,9 +17,9 @@
 .h-site-menu-toggle {
   display: none;
   padding: 6px 12px;
-  border: 1px solid var(--h-color-border);
+  border: 1px solid color-mix(in srgb, currentColor 35%, transparent);
   border-radius: var(--h-radius);
-  background: var(--h-color-surface);
+  background: transparent;
   color: inherit;
   font: inherit;
   cursor: pointer;
@@ -71,12 +70,12 @@
 .h-site-menu-item > a:focus-visible,
 .h-site-menu-label:hover,
 .h-site-menu-label:focus-visible {
-  background: var(--h-color-surface);
+  background: color-mix(in srgb, currentColor 10%, transparent);
 }
 
-.h-site-menu-item.is-current > :is(a, .h-site-menu-label),
-.h-site-menu-item.is-current-parent > :is(a, .h-site-menu-label) {
-  color: var(--h-color-primary);
+.h-site-menu:not(.h-site-menu-buttons) .h-site-menu-item.is-current > :is(a, .h-site-menu-label),
+.h-site-menu:not(.h-site-menu-buttons) .h-site-menu-item.is-current-parent > :is(a, .h-site-menu-label) {
+  background:color-mix(in srgb, currentColor 15%, transparent);
   font-weight: bold;
 }
 
@@ -113,6 +112,7 @@
   border: 1px solid var(--h-color-border);
   border-radius: var(--h-radius);
   background: var(--h-color-bg);
+  color: var(--h-color-text);
   box-shadow: 0 6px 18px rgb(0 0 0 / 12%);
 }
 
@@ -149,6 +149,7 @@
   padding: 0 0 0 1em;
   border: none;
   background: none;
+  color: inherit;
   box-shadow: none;
 }
 
@@ -236,6 +237,7 @@
   border: 1px solid var(--h-color-border);
   border-radius: var(--h-radius);
   background: var(--h-color-bg);
+  color: var(--h-color-text);
   box-shadow: 0 6px 18px rgb(0 0 0 / 12%);
 }
 
@@ -263,6 +265,7 @@
   border: 1px solid var(--h-color-border);
   border-radius: var(--h-radius);
   background: var(--h-color-bg);
+  color: var(--h-color-text);
   box-shadow: 0 4px 12px rgb(0 0 0 / 15%);
 }
 
@@ -286,6 +289,8 @@
     display: block;
     position: static;
     border: none;
+    background: none;
+    color: inherit;
     box-shadow: none;
     padding: 0 0 0 1em;
   }

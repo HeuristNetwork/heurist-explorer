@@ -539,3 +539,18 @@ Tests: JS 1,699 pass; WebsiteRenderTest 61 pass.
    the menu of the header (`.h-site-header .h-site-menu-item.is-menu-hidden`). The page stays in the page lists of the
    designer (Go to a page of the action menu) and is visible in any other menu. Test: `WebsiteRenderTest.php`
    (menuList), `siteRuntime.test.js` (HMenu).
+
+## 14. General Website Styles cosmetics (Artem, 2026-11-12; done, not committed, no browser check)
+
+1. Base settings / Layout styles: Theme and Kind selectors of normal height, 240px, close to the caption, a line
+   below (`h-cms-styles-head`). Presets: the Name input of normal height.
+2. New style property `text-shadow` (JS `cmsDocument.js` PROPERTIES, PHP `StyleCompiler::PROPERTIES`), in the Text
+   section of the simple editor (Light shadow / Dark shadow / None).
+3. Starter presets of new websites (`WebsiteStarter::PRESETS`): Narrow column max-width 200px; *Dark text with light
+   shadow*, *Light text with dark shadow*; *Menu with dark background* (primary colour, primary text) and *Menu with
+   light background*. Existing websites keep their presets.
+4. `HMenu.css`: the menu inherits the text colour of its element (no own `color`); hover, current item (was the
+   primary colour, now a background of the text colour) and the menu button use `currentColor`; drop-down lists set
+   the page background and text colour. So an inverted menu (preset) and a menu in a Primary header both show.
+5. Navigation and layout: a notice for *Swap page* and *One long page* (not visible in design mode); a short
+   Pages kept in memory input.

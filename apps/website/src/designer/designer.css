@@ -435,6 +435,22 @@
   align-items: center;
 }
 
+/* Theme (Base settings) and Kind (Layout styles): a selector of normal height close to its caption, a line below
+   (2026-11-12) */
+.h-cms-styles-config > .h-cms-styles-field.h-cms-styles-head {
+  grid-template-columns: auto 240px;
+  justify-content: start;
+  flex: 0 0 auto;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--h-color-border);
+}
+
+/* Pages kept in memory: a short number input */
+.h-cms-styles-field > .h-cms-styles-cache {
+  justify-self: start;
+  width: 80px;
+}
+
 /* a checkbox at the left of its column (Use 2 rows on normal screens) */
 .h-cms-styles-field > input[type="checkbox"] {
   justify-self: start;
@@ -799,6 +815,15 @@
   margin-left: 228px;
   color: var(--h-color-text-muted);
   font-size: var(--h-font-size-small);
+}
+
+/* swap / scroll: not visible in design mode (2026-11-12) */
+.h-cms-styles-note.h-cms-styles-note-warning {
+  color: var(--h-color-warning, #b45309);
+}
+
+.h-cms-styles-note[hidden] {
+  display: none;
 }
 
 /* Navigation and layout (plan 27f §13): blocks Navigation, Header, Footer with a gap, no captions */

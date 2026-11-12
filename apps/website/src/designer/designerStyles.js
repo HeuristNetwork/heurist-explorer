@@ -268,9 +268,10 @@ export function createStylesForm({ base = {}, kinds = {}, presets = {}, layout =
 
   // ------------------------------------------------------------ base settings
   const basePane = pane(tabs, 'Base settings', HELP.base);
-  const theme = element('select', 'h-select h-compact');
+  // Theme and Kind (Layout styles): a selector of normal height close to its caption, a line below (2026-11-12)
+  const theme = element('select', 'h-select');
   theme.append(option('', $HR('(choose a theme)')), ...CMS_THEMES.map((item) => option(item.name, $HR(item.label))));
-  basePane.config.append(field('Theme', theme));
+  basePane.config.append(field('Theme', theme, 'h-cms-styles-field h-cms-styles-head'));
   const controls = {};
   for (const key of BASE_SETTINGS) {
     const [label, hint] = BASE_LABELS[key] || [key];
@@ -312,9 +313,9 @@ export function createStylesForm({ base = {}, kinds = {}, presets = {}, layout =
   // ------------------------------------------------------------ layout styles (kind defaults)
   const kindPane = pane(tabs, 'Layout styles', HELP.kinds);
   kindPane.panel.classList.add('h-cms-styles-kinds');
-  const kind = element('select', 'h-select h-compact');
+  const kind = element('select', 'h-select');
   kind.append(...Object.keys(CMS_KINDS).map((name) => option(name, $HR(KIND_LABELS[name] || name))));
-  kindPane.config.append(field('Kind', kind));
+  kindPane.config.append(field('Kind', kind, 'h-cms-styles-field h-cms-styles-head'));
   const kindEditor = element('div', 'h-cms-styles-editor');
   kindPane.config.append(kindEditor);
   const drawKind = () => {
@@ -380,7 +381,8 @@ export function createStylesForm({ base = {}, kinds = {}, presets = {}, layout =
     }
     const name = currentPreset;
     const { label = '', ...style } = preset;
-    const labelInput = element('input', 'h-input h-compact');
+    // normal height (2026-11-12)
+    const labelInput = element('input', 'h-input');
     labelInput.type = 'text';
     labelInput.value = label;
     labelInput.addEventListener('input', () => {
@@ -479,7 +481,10 @@ export function createStylesForm({ base = {}, kinds = {}, presets = {}, layout =
   };
   const navigationBlock = block();
   const navigationNote = element('div', 'h-cms-styles-note');
-  const cacheInput = element('input', 'h-input h-compact');
+  // swap and scroll work on the website only: the designer shows one page at a time (2026-11-12)
+  const designNote = element('div', 'h-cms-styles-note h-cms-styles-note-warning');
+  designNote.textContent = $HR('Not visible in design mode: the designer shows one page at a time. Open the website to see it.');
+  const cacheInput = element('input', 'h-input h-compact h-cms-styles-cache');
   cacheInput.type = 'number';
   cacheInput.min = String(CMS_LAYOUT_CACHE.min);
   cacheInput.max = String(CMS_LAYOUT_CACHE.max);
@@ -488,13 +493,14 @@ export function createStylesForm({ base = {}, kinds = {}, presets = {}, layout =
   const showNavigation = () => {
     const mode = state.layout.navigation || 'reload';
     navigationNote.textContent = $HR(NAVIGATION_NOTES[mode]);
+    designNote.hidden = mode === 'reload';
     cacheField.hidden = mode !== 'swap';
   };
   layoutSelect(navigationBlock, 'Page navigation', NAVIGATION_LABELS, state.layout.navigation || 'reload', (value) => {
     setLayout(state.layout, 'navigation', value);
     showNavigation();
   });
-  navigationBlock.append(navigationNote, cacheField);
+  navigationBlock.append(navigationNote, designNote, cacheField);
   cacheInput.addEventListener('input', () => {
     const number = Number(cacheInput.value);
     setLayout(state.layout, 'cache', Number.isInteger(number) ? Math.max(CMS_LAYOUT_CACHE.min, Math.min(CMS_LAYOUT_CACHE.max, number)) : null);
@@ -662,7 +668,10 @@ export const SIMPLE_STYLE_FIELDS = Object.freeze([
     { property: 'color', label: 'Text colour' },
     { property: 'text-align', label: 'Text alignment', options: SELECT(['left', 'Left'], ['center', 'Center'], ['right', 'Right'], ['justify', 'Justify']) },
     { property: 'font-size', label: 'Font size', hint: 'e.g. 14px, 1.2em' },
-    { property: 'font-weight', label: 'Font weight', options: SELECT(['normal', 'Normal'], ['bold', 'Bold'], ['300', 'Light (300)'], ['600', 'Semi bold (600)']) }
+    { property: 'font-weight', label: 'Font weight', options: SELECT(['normal', 'Normal'], ['bold', 'Bold'], ['300', 'Light (300)'], ['600', 'Semi bold (600)']) },
+    // a text over a light or dark banner / background image (2026-11-12)
+    { property: 'text-shadow', label: 'Text shadow', options: SELECT(['0 0 4px rgba(255, 255, 255, 0.9)', 'Light shadow (dark text)'],
+      ['0 1px 3px rgba(0, 0, 0, 0.8)', 'Dark shadow (light text)'], ['none', 'None']) }
   ] },
   { section: 'Background', toggle: {}, fields: [
     { property: 'background-color', label: 'Background colour' },

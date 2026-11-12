@@ -279,3 +279,7 @@
 #Footer height (minimum)#Hauteur du pied de page (minimum)
 #height of the content#hauteur du contenu
 #A size such as 120px, 10em or 20%#Une taille comme 120px, 10em ou 20%
+#Not visible in design mode: the designer shows one page at a time. Open the website to see it.#Non visible en mode conception : le concepteur affiche une page à la fois. Ouvrez le site web pour le voir.
+#Text shadow#Ombre du texte
+#Light shadow (dark text)#Ombre claire (texte foncé)
+#Dark shadow (light text)#Ombre foncée (texte clair)
