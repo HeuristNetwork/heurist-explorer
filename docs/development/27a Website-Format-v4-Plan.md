@@ -1,7 +1,8 @@
 # Plan 27a — Website format v4 and live pages (plan 27, phase 1)
 
 **Status 2026-10-26: implemented (both repos), not committed.** Checked with tests and a headless Edge; not yet
-checked in a browser by Artem. Field 2-1202 must still be created in the reference database 2 (§10). General directions and decisions 1–23 are in
+checked in a browser by Artem. Field 2-1202 was created in the reference database 2 (heuristref.net) by Artem, in the record types CMS home and
+CMS page (2026-11-12). General directions and decisions 1–23 are in
 `27 CMS-and-Web-Publishing-Plan.md`; this plan uses them and does not repeat them.
 
 ## 1. Goal

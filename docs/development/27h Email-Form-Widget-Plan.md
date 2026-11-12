@@ -1,6 +1,7 @@
 # 27h Email form widget (port of the legacy emailForm)
 
-**Status (2026-11-12):** agreed with Artem and implemented in both repos, not committed, no browser check.
+**Status (2026-11-12):** agreed with Artem, implemented and committed in both repos; browser check and the real
+message checked by Artem (2026-11-12, §6).
 Server test `heurist/tests/EmailFormTest.php` (38 pass), JS `shared/test/hEmailForm.test.js`; the endpoint was checked
 with curl (question, wrong answer 403, right answer, other site 403). No message was really sent (§6).
 
@@ -60,7 +61,7 @@ recipient = DT_EMAIL of the website record, else the database owner (user 2), `s
   elsewhere shows the form, but sending is refused.
 - The *Contact* page preset (Add page, pending) is a later step.
 
-## 6. Still to check
+## 6. Still to check (done: Artem, 2026-11-12, on the server)
 
 - A real message: without `$mailSmtp` (PHP mail()) and with an SMTP relay (e.g. a local Mailpit on port 1025),
   Reply-To = the visitor.

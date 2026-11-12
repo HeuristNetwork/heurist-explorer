@@ -181,3 +181,9 @@ Round 2 (2026-11-12, not committed, no browser check):
 4. Media element: *Source record* / *Source file* (the gallery: plural).
 5. New record page: an action menu with Back (links, arrow icon) above the Record cards; the Record cards have padding
    20px; DT_CMS_MENU_FORMAT = TRM_HIDDEN_ITEM.
+
+Round 3 (2026-11-12, not committed):
+1. *Add page* → *Record page* opens the popup *Define new record page* (the same Smarty report selector as the
+   forms) and creates the page with the report, the title of Add page and its parent (`CmsDesigner._addPage` →
+   `openNewRecordPageForm`; `_createRecordPage(template, title, parent)`). Before, it gave a blank page: `record` is
+   not a `CMS_PAGE_PRESETS` starter without a report. The catalog entry is no longer `pending`.

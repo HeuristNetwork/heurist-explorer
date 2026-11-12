@@ -220,9 +220,13 @@ empty `UPDATE` with autocommit takes 56 ms, a small transaction about 95 ms, bec
 `innodb_flush_log_at_trx_commit=1`, `log_bin=ON`, `sync_binlog=1` (two disk syncs per commit) and archive triggers
 on `Records` / `recDetails`. A local development server can use `innodb_flush_log_at_trx_commit=2` and `sync_binlog=0`.
 
-### 9.4 Found, not fixed
-`POST /records/{id}/duplicate` of a page whose content is saved in parts (> 64 KB, e.g. 207601) fails with
-"Data too long for column dtl_Value" (also before this change).
+### 9.4 Found, fixed 2026-11-12
+`POST /records/{id}/duplicate` of a page whose content is saved in parts (> 64 KB, e.g. 207601) failed with
+"Data too long for column dtl_Value" (also before this change). Cause: `RecordDuplicateService` cleaned every stored
+part alone; a part is cut HTML, the cleaner closed its tags and the part grew over the column. Fix: the parts of the
+page content and of the page translations are joined, cleaned as a whole and split again as a save does
+(`RecordValidator::isSplitField` / `splitValue`, `RecordDuplicateService::cleanSplitField`; rows are written again
+only when they change). Check in `tests/RecordEditApiTest.php --write` (73 pass); page 207601 duplicates.
 
 ### 9.5 Bug fixed 2026-11-10: PUT answered 500 after the save
 `RecordEditController::savedRecord` read `$params['fields']` (the `?fields=` of §2). Legacy `hserv/controller/api.php`
