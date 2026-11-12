@@ -86,9 +86,9 @@ export const PAGE_TEMPLATES = Object.freeze([{
       preview: [['h', 10, 6, 40, 7], ['t', 10, 20, 40, 30], ['f', 60, 20, 50, 7], ['f', 60, 31, 50, 7], ['f', 60, 42, 50, 20], ['f', 88, 66, 22, 7]]
     },
     {
-      value: 'record', label: 'Record page', available: true, pending: true, defaultTitle: 'Record',
-      description: 'The full view of one record of the database (record view), for example a person, place or'
-        + ' document. Other pages, menus and reports link to it with the record id.',
+      value: 'record', label: 'Record page', available: true, defaultTitle: 'Record',
+      description: 'One record of the database, for example a person, place or document, shown with a Smarty report'
+        + ' (chosen in the next step). Record cards, record fields, media and action menus link to it with the record id.',
       preview: [['h', 10, 6, 60, 7], ['m', 8, 18, 104, 56, 'Record view']]
     },
     {

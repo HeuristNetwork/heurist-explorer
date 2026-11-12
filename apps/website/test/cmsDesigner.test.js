@@ -148,7 +148,7 @@ test('catalogs of Add page and Add element: the available elements are the ones 
     ['blank', 'cover', 'landing', 'about', 'features', 'team', 'discover', 'blog', 'contact', 'record', 'publications']);
   assert.equal(templates[0].defaultTitle, '', 'Blank has no default title');
   assert.ok(templates.every((item) => item.available), 'every template can be added (a blank page for now)');
-  assert.deepEqual(templates.filter((item) => !item.pending).map((item) => item.value), ['blank', 'team']);
+  assert.deepEqual(templates.filter((item) => !item.pending).map((item) => item.value), ['blank', 'team', 'record']);
   for (const item of [...elements, ...templates]) {
     assert.ok(item.description && item.preview.length, `${item.value}: description and preview`);
     assert.ok(previewSvg(item.preview));

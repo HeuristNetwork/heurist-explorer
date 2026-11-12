@@ -41,7 +41,7 @@ import { createWebsiteFieldsForm } from '../manager/websiteFields.js';
 import {
   cardTemplateTerms, openCardsForm, openEmailForm, openFieldForm, openLanguageForm, openMediaForm, openMenuForm, openReportForm, teamReportBody
 } from './widgetForms.js';
-import { recordPageTerms } from './recordPageField.js';
+import { openNewRecordPageForm, recordPageTerms } from './recordPageField.js';
 import { openActionMenuForm, openSocialForm, sitePageList } from './actionForms.js';
 import { buildBadgesHtml, openBadgesForm } from './badgesForm.js';
 import {
@@ -650,6 +650,13 @@ export class CmsDesigner {
   async _addPage(parent) {
     const values = await openAddPageForm({ title: parent ? 'Add sub page' : 'Add page' });
     if (!values) return;
+    if (values.template === 'record') {
+      // record page (2026-11-12): the Smarty report is chosen in the popup Define new record page, as in the forms
+      const services = { ...this._formServices(), createRecordPage: (template, title) => this._createRecordPage(template, values.title || title, parent) };
+      const page = await openNewRecordPageForm(services);
+      if (page) await this.selectPart(page.id, 'content');
+      return;
+    }
     // the templates come one by one (plan 27e): the others give a blank page for now
     const template = CMS_PAGE_PRESETS.includes(values.template) ? values.template : 'blank';
     const starter = cmsPageStarter(template, values.title);
@@ -1333,10 +1340,11 @@ export class CmsDesigner {
    * of the menu (the server leaves record pages out of website menus).
    *
    * @param {number|string} template Report id or file name.
-   * @param {string} title Title of the page (the name of the report).
+   * @param {string} title Title of the page (the name of the report, or the title given in Add page).
+   * @param {number|null} [parent] Parent page in the menu (Add sub page); null = top level.
    * @returns {Promise<{id: number, title: string}>}
    */
-  async _createRecordPage(template, title) {
+  async _createRecordPage(template, title, parent = null) {
     const starter = cmsPageStarter('record', title, { template });
     const codes = this.codes;
     const details = { [codes.name]: title, [codes.version]: '4', [codes.content]: starter.content, [codes.configuration]: starter.configuration };
@@ -1347,7 +1355,7 @@ export class CmsDesigner {
     const response = await this.apiClient.request('/page/0', { method: 'POST', body: { rec_ID: 0, details } });
     const id = Number((response?.data ?? response)?.records?.[0]?.rec_ID);
     if (!id) throw new Error($HR('The record page was not created'));
-    await this._menuChange(() => this.websites.assign(this.site.id, id, { parent: null }));
+    await this._menuChange(() => this.websites.assign(this.site.id, id, { parent }));
     return { id, title };
   }
 
