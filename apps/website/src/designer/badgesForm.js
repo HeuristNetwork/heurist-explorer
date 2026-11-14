@@ -120,7 +120,7 @@ export async function openBadgesForm({ settings = {}, browse, resolve }) {
   form.append(list, add, line('Height of the logos (px)', height), line('Gap (px)', gap), line('Alignment', align),
     line('Grey until the mouse is over a logo', grey));
   draw();
-  return formDialog(form, 'Badges', 'Save', () => {
+  return formDialog(form, 'Badges', 'OK', () => {
     const ids = items.map((item) => item.id);
     const kept = Object.fromEntries(ids.filter((id) => links[id]).map((id) => [id, links[id]]));
     return {

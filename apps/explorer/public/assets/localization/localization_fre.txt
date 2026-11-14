@@ -1361,3 +1361,6 @@
 #Repeat action#Répéter l'action
 #Relationship records deleted#Enregistrements de relation supprimés
 #Bookmarks deleted#Signets supprimés
+#The text has been changed. Discard the changes?#Le texte a été modifié. Abandonner les modifications ?
+#Discard the changes#Abandonner les modifications
+#Keep editing#Continuer la modification

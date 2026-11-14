@@ -101,8 +101,16 @@ export class WebsiteManager extends HBaseWidget {
       onRecheck: () => this.run(() => this.check())
     });
     this.renderSetup();
-    void this.renderList();
+    void this.renderList().then(() => this.run(() => this.offerNewWebsite()));
     this.update();
+  }
+
+  /** On opening (2026-11-14): no website and no standalone page yet: the New website form at once. */
+  async offerNewWebsite() {
+    const status = this.app.status;
+    if (!this.list || !status || status.error || status.installed !== true || status.canCreate === false) return;
+    if (await this.app.hasSites()) return;
+    await this.createWebsite();
   }
 
   /** Toolbar button with icon and caption (the caption is hidden on narrow screens). */
@@ -165,11 +173,9 @@ export class WebsiteManager extends HBaseWidget {
       recordTypes: [app.codes.home, app.codes.page],
       allowAddition: false,
       // websites and standalone pages; menu pages are shown in the menu of their website
-      query: app.codes.pageType && app.codes.standalonePage
-        ? [{ any: [{ t: String(app.codes.home) }, { [`f:${app.codes.pageType}`]: String(app.codes.standalonePage) }] }]
-        : null,
+      query: app.siteListQuery(),
       listFields: versionField ? [versionField] : [],
-      recordTools: (record) => versionBadge(record, versionField),
+      recordTools: (record) => this.listTools(record, versionField),
       editRecord: app.canEditRecords() ? (id) => app.editRecord(id) : undefined,
       // a short list (§11): no view mode, selection menu, page size or "i"; all records on one page
       listOptions: {
@@ -186,6 +192,60 @@ export class WebsiteManager extends HBaseWidget {
     });
     this.listen(this.listHost, 'h-record-manager-error', (event) => HMsg.showMsgErr(event.detail?.error?.message || String(event.detail?.error)));
     await this.list.render();
+  }
+
+  /**
+   * The tools of a record in the list (2026-11-14): the format badge, Open editor (a website of format 4 the user may
+   * edit) and Open website (in a new tab).
+   *
+   * @param {object} record List record.
+   * @param {number} versionField DT of the format version.
+   * @returns {HTMLElement}
+   */
+  listTools(record, versionField) {
+    const box = el('span', 'h-website-list-tools');
+    const badge = versionBadge(record, versionField);
+    if (badge) box.append(badge);
+    const id = Number(record?.rec_ID) || 0;
+    const website = Number(record?.rec_RecTypeID) === Number(this.app.codes.home);
+    const v4 = badge?.classList.contains('h-website-badge-v4') === true;
+    const icon = (glyph, title, run) => {
+      const button = el('button', 'heurist-icon-button h-website-list-tool', box);
+      button.type = 'button';
+      button.title = $HR(title);
+      button.setAttribute('aria-label', button.title);
+      el('i', `fa-solid ${glyph}`, button).setAttribute('aria-hidden', 'true');
+      // not the selection of the list item
+      button.addEventListener('click', (event) => {
+        event.stopPropagation();
+        void this.run(run);
+      });
+      button.addEventListener('dblclick', (event) => event.stopPropagation());
+    };
+    if (website && v4 && this.app.canEditRecords()) icon('fa-pen-ruler', 'Open editor', () => this.openDesigner(id));
+    icon('fa-up-right-from-square', 'Open in a new tab', () => this.openRecord(id, website));
+    return box;
+  }
+
+  /**
+   * Open a website or a standalone page in a new tab: the tab is opened at once (a popup blocker allows it only in the
+   * click), its URL follows from the summary.
+   */
+  async openRecord(id, website) {
+    const tab = globalThis.open?.('about:blank', '_blank');
+    try {
+      const summary = await this.app.websites.summary(id, { entity: website ? 'website' : 'page' });
+      if (!summary?.url) throw new Error($HR('This record has no address to open'));
+      if (tab) {
+        tab.opener = null;
+        tab.location.href = summary.url;
+      } else {
+        globalThis.open?.(summary.url, '_blank', 'noopener');
+      }
+    } catch (error) {
+      tab?.close();
+      throw error;
+    }
   }
 
   /** Toolbar state and details for the selection. */
@@ -214,7 +274,7 @@ export class WebsiteManager extends HBaseWidget {
     this.details.render();
   }
 
-  /** New website form, then the website is selected. */
+  /** New website form, then the website is selected and opened in the CMS editor. */
   async createWebsite() {
     const app = this.app;
     const values = await openNewWebsiteForm({
@@ -231,6 +291,8 @@ export class WebsiteManager extends HBaseWidget {
     if (!values) return;
     const result = await this.app.createWebsite(values);
     HMsg.showMsgFlash($HR('The website is created'), { showDelay: 2000 });
+    // the editor makes the starter pages (2026-11-14)
+    if (result?.id) await this.openDesigner(result.id, { starterPages: values.pages || [] });
     return result;
   }
 
@@ -266,7 +328,7 @@ export class WebsiteManager extends HBaseWidget {
     await this.app.removeFromMenu(pageId);
   }
 
-  /** Delete the selected standalone page, or the website (asked twice: the website, then its pages). */
+  /** Delete the selected standalone page, or the website (one question with the checkbox "Delete its menu pages too"). */
   async remove() {
     const summary = this.app.summary;
     if (!summary) return;
@@ -275,13 +337,11 @@ export class WebsiteManager extends HBaseWidget {
       await this.app.deleteSelected();
       return;
     }
-    if (!(await confirmDialog(`${$HR('Delete the website')} "${summary.title}"?`, { yesLabel: 'Delete' }))) return;
-    let pages = false;
-    if (summary.pages?.length) {
-      pages = await confirmDialog($HR('Delete its menu pages too? Pages that other records point to (e.g. another website) are kept.'),
-        { yesLabel: 'Delete the pages', noLabel: 'Keep the pages' });
-    }
-    const result = await this.app.deleteSelected({ pages });
+    const checkbox = summary.pages?.length
+      ? { label: $HR('Delete its menu pages too. Pages that other records point to (e.g. another website) are kept.'), checked: false }
+      : null;
+    if (!(await confirmDialog(`${$HR('Delete the website')} "${summary.title}"?`, { yesLabel: 'Delete', checkbox }))) return;
+    const result = await this.app.deleteSelected({ pages: checkbox?.checked === true });
     if (result.kept?.length) {
       HMsg.showMsgDlg(`${$HR('Pages kept, they are used elsewhere')}: ${result.kept.join(', ')}`, { title: 'Delete website' });
     }
@@ -298,10 +358,11 @@ export class WebsiteManager extends HBaseWidget {
    * when it is closed.
    *
    * @param {number} id Website or standalone page.
-   * @param {{page?: number}} [options] A page of the website to open first.
+   * @param {{page?: number, starterPages?: string[]}} [options] A page of the website to open first; `starterPages`: the
+   *        pages a new website gets (addStarterPages).
    * @returns {Promise<object|null>} The designer, or null.
    */
-  async openDesigner(id, { page = 0 } = {}) {
+  async openDesigner(id, { page = 0, starterPages = null } = {}) {
     if (!id || this.designer) return this.designer || null;
     const { openCmsDesigner } = await import('../designer/CmsDesigner.js');
     const host = document.createElement('div');
@@ -323,6 +384,7 @@ export class WebsiteManager extends HBaseWidget {
         void this.app.reloadSummary();
       }
     });
+    if (this.designer && Array.isArray(starterPages)) await this.designer.addStarterPages(starterPages);
     return this.designer;
   }
 

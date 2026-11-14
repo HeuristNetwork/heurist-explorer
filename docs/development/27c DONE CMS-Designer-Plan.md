@@ -1,6 +1,8 @@
 # Plan 27c — CMS designer, first version (plan 27, phase 3)
 
 **Status: DONE 2026-11-02 — committed, checked by Artem.** Implemented 2026-10-30 (phases A0-E, both repos);
+
+**2026-11-13:** the inline page editor (form beside the part tree, live preview) is plan 27i §10.
 decisions of four review rounds in §2, §14, §15; implementation and deviations in §16; review rounds §17-§26 (screen,
 toolbars and trees, catalog popups, Styles popup, style editor, Size in group, element tools, text and translation
 popups). Leftovers that are new features are moved to phase 4 (§27). General

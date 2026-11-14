@@ -1361,3 +1361,6 @@
 #Repeat action#Repeat action
 #Relationship records deleted#Relationship records deleted
 #Bookmarks deleted#Bookmarks deleted
+#The text has been changed. Discard the changes?#The text has been changed. Discard the changes?
+#Discard the changes#Discard the changes
+#Keep editing#Keep editing

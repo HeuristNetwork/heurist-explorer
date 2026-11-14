@@ -76,7 +76,8 @@ export const SCREENS = Object.freeze({ medium: 1024, narrow: 640 });
 
 /** Kinds of `styles.kinds` (plan 27c §6a) and their selectors. */
 export const CMS_KINDS = Object.freeze({
-  group: '[data-h-control="group"]',
+  // not the header default set (2026-11-14): its layout is the website CSS; :where keeps the specificity
+  group: '[data-h-control="group"]:where(:not(.h-site-hset))',
   tabs: '[data-h-control="tabs"]',
   accordion: '[data-h-control="accordion"]',
   text: '[data-h-text]:not([data-h-media])',
@@ -87,7 +88,7 @@ export const CMS_KINDS = Object.freeze({
 });
 
 const PROPERTIES = new Set([
-  'display', 'flex-direction', 'flex-wrap', 'justify-content', 'align-items', 'align-content', 'gap', 'flex', 'grid-template-columns',
+  'display', 'flex-direction', 'flex-wrap', 'justify-content', 'justify-items', 'align-items', 'align-content', 'gap', 'flex', 'grid-template-columns',
   'grid-template-rows', 'grid-column', 'grid-row', 'order',
   'width', 'min-width', 'max-width', 'height', 'min-height', 'max-height', 'overflow',
   'border-radius', 'box-shadow', 'text-shadow',
@@ -95,6 +96,8 @@ const PROPERTIES = new Set([
 ]);
 const DISPLAY = ['block', 'flex', 'grid', 'none'];
 const NODE_ID = /^[A-Za-z][A-Za-z0-9_-]{0,63}$/;
+/** An image of assets/cms of the website bundle (placeholders of media elements, plan 27i §9). */
+export const CMS_ASSET_NAME = /^cms\/(?:[A-Za-z0-9_-]+\/)?[A-Za-z0-9_-]+\.(?:png|jpe?g)$/;
 const URL_PATTERN = /url\(\s*(['"]?)(.*?)\1\s*\)/gi;
 
 /**
@@ -205,7 +208,7 @@ export function checkCmsDocument(config, htmlParts, translations = {}, baseUrl =
   const styles = isMap(config.styles) ? config.styles : {};
   const part = (name) => (isMap(styles[name]) ? styles[name] : {});
   issues.push(...compileCmsStyles(part('base'), [part('nodes')], baseUrl,
-    { kinds: [part('kinds')], presets: [part('presets')] }).issues);
+    { kinds: [part('kinds')], presets: [part('presets')], page: { id: 0, style: part('page') } }).issues);
   for (const [language, blocks] of Object.entries(translations || {})) {
     const ids = Object.keys(isMap(blocks) ? blocks : {});
     for (const id of ids) {
@@ -246,7 +249,8 @@ export function cmsInstanceProblem(settings) {
 /**
  * Problems of the layout settings (CmsValidator::layoutProblems): unknown keys and values not in CMS_LAYOUT;
  * `header.colors` / `footer.colors` the own colours {bg, text} (CMS_LAYOUT_COLOR); sizes CMS_LAYOUT_SIZES (CMS_LAYOUT_SIZE);
- * `cache` a whole number in CMS_LAYOUT_CACHE; `hideHeader` / `hideFooter` (a page) true or false.
+ * `cache` a whole number in CMS_LAYOUT_CACHE; `hideHeader` / `hideFooter` (a page) true or false; `startPage` the id of
+ * the page shown by the website URL without a page (2026-11-14; not given: the home page).
  *
  * @param {object} layout
  * @returns {string[]}
@@ -260,6 +264,8 @@ export function cmsLayoutProblems(layout) {
       if (!Number.isInteger(value) || value < CMS_LAYOUT_CACHE.min || value > CMS_LAYOUT_CACHE.max) {
         problems.push(`cache must be a number from ${CMS_LAYOUT_CACHE.min} to ${CMS_LAYOUT_CACHE.max}`);
       }
+    } else if (key === 'startPage') {
+      if (!Number.isInteger(value) || value < 1) problems.push('startPage must be a page id');
     } else if (key === 'hideHeader' || key === 'hideFooter') {
       if (typeof value !== 'boolean') problems.push(`${key} must be true or false`);
     } else if (key === 'header' || key === 'footer') {
@@ -289,22 +295,31 @@ export function cmsLayoutProblems(layout) {
   return problems;
 }
 
+/** Actions of a media element (CmsValidator::MEDIA_ACTIONS). */
+export const CMS_MEDIA_ACTIONS = Object.freeze(['none', 'viewer', 'url', 'recordPage', 'page']);
+
 /**
  * Why the settings of a media element are not valid (CmsValidator::mediaProblem), or null: `file` the key of a
- * registered file, `width` / `height` 'auto', px or % (attributes of img / video), `action` none or viewer;
+ * registered file (or `placeholder`, an image of assets/cms of the website bundle), `width` / `height` 'auto', px or %
+ * (attributes of img / video), `action` none or viewer;
  * `playerWidth`, `playerHeight`, `player` of older pages.
  *
  * @param {object} settings
  * @returns {string|null}
  */
 export function cmsMediaProblem(settings) {
-  if (!/^[A-Za-z0-9]+$/.test(String(settings.file ?? ''))) return 'the file is missing';
+  // a placeholder image of the website bundle stands in for the file until one is chosen (plan 27i §9)
+  if (settings.placeholder != null && !CMS_ASSET_NAME.test(String(settings.placeholder))) return 'placeholder is not an image of assets/cms';
+  if (!/^[A-Za-z0-9]+$/.test(String(settings.file ?? '')) && !settings.placeholder) return 'the file is missing';
   for (const name of ['width', 'height', 'playerWidth', 'playerHeight']) {
     const value = String(settings[name] ?? 'auto');
     if (value !== 'auto' && !/^(?:\d+\.?\d*|\.\d+)(?:px|%)$/.test(value)) return `${name} must be auto, px or %`;
   }
   if (settings.player != null && typeof settings.player !== 'boolean') return 'player must be true or false';
-  if (settings.action != null && !['none', 'viewer'].includes(settings.action)) return 'action must be none or viewer';
+  // the links of a record (plan 27g §6) and Go to a page (2026-11-14)
+  if (settings.action != null && !CMS_MEDIA_ACTIONS.includes(settings.action)) return `action must be ${CMS_MEDIA_ACTIONS.join(', ')}`;
+  if (settings.action === 'page' && !(Number(settings.page) > 0)) return 'page must be a page id';
+  if (settings.align != null && !['left', 'center', 'right'].includes(settings.align)) return 'align must be left, center or right';
   return null;
 }
 
@@ -342,11 +357,12 @@ export function cmsNodes(html) {
  * @param {object} base Base settings (website merged with page).
  * @param {object[]} nodeSets Node styles, website first, then the page.
  * @param {string} [baseUrl] Heurist base URL: background images may only come from it (or be relative).
- * @param {{kinds?: object[], presets?: object[], scope?: string}} [common] Kind defaults and presets, website first,
- *        then the page; `scope`: selector every rule is written below (plan 27f §2.2, e.g. `[data-h-page="5"]`).
+ * @param {{kinds?: object[], presets?: object[], scope?: string, page?: {id: number, style: object}}} [common] Kind
+ *        defaults and presets, website first, then the page; `scope`: selector every rule is written below (plan 27f
+ *        §2.2, e.g. `[data-h-page="5"]`); `page`: the own style of the page (`styles.page`, plan 27i §9) and its id.
  * @returns {{css: string, issues: Array<object>}}
  */
-export function compileCmsStyles(base, nodeSets, baseUrl = '', { kinds = [], presets = [], scope = '' } = {}) {
+export function compileCmsStyles(base, nodeSets, baseUrl = '', { kinds = [], presets = [], scope = '', page = null } = {}) {
   const issues = [];
   let css = '';
   const prefix = scope ? `${scope} ` : '';
@@ -396,6 +412,20 @@ export function compileCmsStyles(base, nodeSets, baseUrl = '', { kinds = [], pre
     }
   }
   flushScreens();
+  // the own style of the page (plan 27i §9 B): its section, written without the scope (the scope is the section)
+  if (page && isMap(page.style) && Object.keys(page.style).length) {
+    const selector = cmsPageSelector(page.id);
+    const pageStyle = pageHeightAsMinimum(page.style);
+    const rules = declarations(pageStyle, null, baseUrl, issues);
+    if (rules) css += `${selector}{${rules}}\n`;
+    for (const screen of Object.keys(SCREENS)) {
+      if (isMap(pageStyle[screen])) {
+        const screenRules = declarations(pageStyle[screen], null, baseUrl, issues);
+        if (screenRules) screens[screen] += `${selector}{${screenRules}}\n`;
+      }
+    }
+    flushScreens();
+  }
   for (const nodes of nodeSets) {
     if (!isMap(nodes)) continue;
     for (const [id, style] of Object.entries(nodes)) {
@@ -408,6 +438,35 @@ export function compileCmsStyles(base, nodeSets, baseUrl = '', { kinds = [], pre
   }
   flushScreens();
   return { css, issues };
+}
+
+/**
+ * The height of a page is its minimum height (2026-11-14): the page grows with its content (Record cards, reports ...),
+ * which would otherwise run over the footer. Also on the medium and narrow screens.
+ *
+ * @param {object} style Own style of the page.
+ * @returns {object}
+ */
+function pageHeightAsMinimum(style) {
+  const result = { ...style };
+  if (result.height != null) {
+    if (result['min-height'] == null) result['min-height'] = result.height;
+    delete result.height;
+  }
+  for (const screen of Object.keys(SCREENS)) {
+    if (isMap(result[screen])) result[screen] = pageHeightAsMinimum(result[screen]);
+  }
+  return result;
+}
+
+/**
+ * Selector of the section of a page (PageRenderer: `section.h-site-page[data-h-page]`): the own style of the page.
+ *
+ * @param {number} [pageId] 0: any page (checks).
+ * @returns {string}
+ */
+export function cmsPageSelector(pageId = 0) {
+  return Number(pageId) > 0 ? `.h-site-page[data-h-page="${Number(pageId)}"]` : '.h-site-page';
 }
 
 /** All style properties that may be written, for property selects (the designer's style forms). */

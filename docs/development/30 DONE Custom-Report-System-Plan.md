@@ -1,6 +1,6 @@
 # Plan 30 — Custom Report system
 
-**Status 2026-11-11: install notice + constant rename §15 (not committed). 2026-11-07: phases 0-5, review round §12 and samples §13 implemented and committed in both repos; not checked
+**Status: DONE 2026-11-12** (`css` mode added, §14 item 1; browser checks done by Artem). Earlier, **2026-11-11: install notice + constant rename §15 (not committed). 2026-11-07: phases 0-5, review round §12 and samples §13 implemented and committed in both repos; not checked
 in a browser. One name rule (§14.1) and the 2-62 guard (§14 item 2) done 2026-11-07, not committed. Not DONE: `css` mode, §14.** Follows the rules of
 `28 OpenAPI-Rules-and-Database-Structure-Plan.md`; depends on phase 4 of `28a DONE Unify-System-Entities-Plan.md`. Replaces
 the API part of plan 12.
@@ -289,8 +289,10 @@ is not touched. Samples use flex (card, team) and grid (extended view). Test: he
 
 The plan is DONE when these are closed or dropped by Artem.
 
-1. **`css` format has no Smarty mode** (§8): still true, `SmartyTemplateRunner::MODES` is `html, js, txt, csv, xml, json`,
-   so a `css` report runs in html mode.
+1. ~~**`css` format has no Smarty mode**~~ (§8): done 2026-11-12 (Artem: as plain text, like `txt`). `css` is in
+   `SmartyTemplateRunner::MODES`; `OutputSanitizer::process` gives it the body content only (no HTML cleaning, no
+   TinyMCE / font styles). `ReportEngineCompareTest` unchanged (same 10, different 5, as before), `JobRunnerTest` 35,
+   `ReportsApiTest` 38 pass.
 2. **Legacy `recordSave` writing 2-62** (§11 deviation 2, security of phase 0). The legacy record editor saves 2-62 of a
    Custom Report like any other field, without `ReportEntityHandler` (which sets the name once and keeps it unique). So a
    user who may edit report A can set A's file name to the file of report B, which they may not edit. Then through the

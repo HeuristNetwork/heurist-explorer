@@ -227,6 +227,35 @@ export class WebsiteApplication extends EventTarget {
   }
 
   /**
+   * Query of the list of the manager: websites and standalone pages (menu pages are in the menu of their website);
+   * null when the database has no page type field (all records of the two types).
+   *
+   * @returns {Array<object>|null}
+   */
+  siteListQuery() {
+    const codes = this.codes;
+    return codes.pageType && codes.standalonePage
+      ? [{ any: [{ t: String(codes.home) }, { [`f:${codes.pageType}`]: String(codes.standalonePage) }] }]
+      : null;
+  }
+
+  /**
+   * Is there a website or a standalone page the user can see (the New website form opens at once when not, 2026-11-14)?
+   *
+   * @returns {Promise<boolean>} True also when the count fails.
+   */
+  async hasSites() {
+    if (!this.hasRecordTypes()) return true;
+    const query = this.siteListQuery() || [{ t: `${this.codes.home},${this.codes.page}` }];
+    try {
+      const response = await this.apiClient.request('/records', { query: { q: JSON.stringify(query), fields: 'rec_ID', limit: 1 } });
+      return Number(response?.pagination?.total ?? response?.records?.length ?? 1) > 0;
+    } catch {
+      return true;
+    }
+  }
+
+  /**
    * v4 websites the user may edit, for "Add to menu".
    *
    * @returns {Promise<Array<{id: number, title: string}>>}

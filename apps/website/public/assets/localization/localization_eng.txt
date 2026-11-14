@@ -167,6 +167,9 @@
 #Mark a report "Single record (card)" to use it here#Mark a report "Single record (card)" to use it here
 #Navigation and layout#Navigation and layout
 #Page navigation#Page navigation
+#Startup page#Startup page
+#The Cover page is the Startup page of the website (Navigation and layout)#The Cover page is the Startup page of the website (Navigation and layout)
+#Delete its menu pages too. Pages that other records point to (e.g. another website) are kept.#Delete its menu pages too. Pages that other records point to (e.g. another website) are kept.
 #Load each page completely#Load each page completely
 #Keep header and footer, change the page content#Keep header and footer, change the page content
 #One long page (pages one after another)#One long page (pages one after another)
@@ -315,3 +318,94 @@
 #Button caption#Button caption
 #Empty: "Email us"#Empty: "Email us"
 #Visitors send a message to the email address of the website (field Email of the website record) or, without it, to the database owner. The address is not shown on the page. Visitors answer a simple question to prove they are human.#Visitors send a message to the email address of the website (field Email of the website record) or, without it, to the database owner. The address is not shown on the page. Visitors answer a simple question to prove they are human.
+#New page#New page
+#Create page#Create page
+#Hide header#Hide header
+#Hide footer#Hide footer
+#Elements#Elements
+#Sections#Sections
+#Subtitle#Subtitle
+#Introduction#Introduction
+#Enter button#Enter button
+#Background#Background
+#Banner#Banner
+#Image (logo)#Image (logo)
+#Slideshow#Slideshow
+#Features#Features
+#News#News
+#Address#Address
+#Contact#Contact
+#Follow us#Follow us
+#Origins of the project / history#Origins of the project / history
+#Description of the project#Description of the project
+#Aims and methodology#Aims and methodology
+#Sources of data#Sources of data
+#Acknowledgements#Acknowledgements
+#Number of features#Number of features
+#Number of members#Number of members
+#List#List
+#Take data from database#Take data from database
+#Records#Records
+#The persons of the team; they can be chosen later#The persons of the team; they can be chosen later
+#Template#Template
+#Own style of the page#Own style of the page
+#Column alignment#Column alignment
+#Rows in the group#Rows in the group
+#Left#Left
+#Right#Right
+#Space evenly#Space evenly
+#Video#Video
+#A welcome page over the whole window with a random banner as the background of the page. For an acknowledgement of country or a similar page untick the background and choose a flag as the logo afterwards.#A welcome page over the whole window with a random banner as the background of the page. For an acknowledgement of country or a similar page untick the background and choose a flag as the logo afterwards.
+#The home page: a banner, the logo and the summary of the website beside a slideshow, buttons, features and news. Replace the images and choose the records in the page editor.#The home page: a banner, the logo and the summary of the website beside a slideshow, buttons, features and news. Replace the images and choose the records in the page editor.
+#A section for each ticked topic, with a starting text and a placeholder image to replace.#A section for each ticked topic, with a starting text and a placeholder image to replace.
+#Cards of the main features: a title, a placeholder image and a text to replace in the page editor.#Cards of the main features: a title, a placeholder image and a text to replace in the page editor.
+#The project team: cards of person records made by a Smarty report, or cards to fill in by hand.#The project team: cards of person records made by a Smarty report, or cards to fill in by hand.
+#A page with the Explorer of the database: search, results, map, timeline. Configure it in the page editor.#A page with the Explorer of the database: search, results, map, timeline. Configure it in the page editor.
+#Address and contact details, a form that sends a message to the email of the website (or the database owner), and links to social media.#Address and contact details, a form that sends a message to the email of the website (or the database owner), and links to social media.
+#A page with a generated report (for example a list of publications): choose the report in the next step.#A page with a generated report (for example a list of publications): choose the report in the next step.
+#Edit#Edit
+#Close the form (the changes stay)#Close the form (the changes stay)
+#Group#Group
+#Element#Element
+#Translation#Translation
+#Translate...#Translate...
+#Edit field#Edit field
+#Save Page#Save Page
+#Save the page (Ctrl+S)#Save the page (Ctrl+S)
+#Own style of the selected element, beside the tree#Own style of the selected element, beside the tree
+#Page: name, menu, header and footer#Page: name, menu, header and footer
+#Caption of the group#Caption of the group
+#Home page#Home page
+#The record, the field and its value#The record, the field and its value
+#The file, caption and size of the media#The file, caption and size of the media
+#Apply#Apply
+#Own style and caption of the group#Own style and caption of the group
+#Select File Resource#Select File Resource
+#Not a media file: choose an image, a video or an audio file, or a video / audio service#Not a media file: choose an image, a video or an audio file, or a video / audio service
+#Files can not be chosen here#Files can not be chosen here
+#A link to a page of the website, a record on a record page, or another website.#A link to a page of the website, a record on a record page, or another website.
+#Link#Link
+#Record link#Record link
+#Filter#Filter
+#Choose a page#Choose a page
+#Center#Center
+#Label#Label
+#Icon#Icon
+#Action#Action
+#Link to#Link to
+#Select Record page#Select Record page
+#Open in a new tab#Open in a new tab
+#This record has no address to open#This record has no address to open
+#The text has been changed. Discard the changes?#The text has been changed. Discard the changes?
+#Discard the changes#Discard the changes
+#Keep editing#Keep editing
+#Languages#Languages
+#Pages of the website#Pages of the website
+#Each page is made from its template with all its sections; change them in the website editor.#Each page is made from its template with all its sections; change them in the website editor.
+#Cover#Cover
+#Home (Landing)#Home (Landing)
+#About#About
+#Discover#Discover
+#Welcome#Welcome
+#Creating the pages of the website...#Creating the pages of the website...
+#The website gets a header with a menu, a footer and the chosen pages. It is public.#The website gets a header with a menu, a footer and the chosen pages. It is public.

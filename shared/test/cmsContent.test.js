@@ -142,8 +142,8 @@ test('footer composer (plan 27f §3.2): the chosen blocks in three centred rows,
 });
 
 test('template Team: a heading and cards of the Team member report, the records to pick', () => {
-  const { content, configuration } = cmsPageStarter('team', 'Our team');
-  assert.match(content, /<h1>Our team<\/h1>/);
+  const { content, configuration } = cmsPageStarter('team', 'Our team', { values: { fromDatabase: true } });
+  assert.match(content, /<h1>Project Team<\/h1>/);
   const config = JSON.parse(configuration);
   const [instance] = Object.values(config.instances);
   assert.equal(instance.type, 'cards');

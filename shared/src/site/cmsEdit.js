@@ -35,6 +35,7 @@
 
 import { checkCmsDocument, CMS_CONFIG_VERSION, CMS_SCHEMA, parseCmsConfig } from './cmsDocument.js';
 import { CMS_MEDIA_DEFAULTS } from './cmsMedia.js';
+import { buildTemplatePage, CMS_TEAM_TEMPLATE, CMS_TEMPLATE_PAGES } from './cmsPageTemplates.js';
 
 /** HTML parts of a record: field key => role. */
 export const CMS_PARTS = Object.freeze(['header', 'content', 'footer']);
@@ -86,10 +87,10 @@ export function cmsHostedAt(host) {
 }
 
 /** Starting content of a new page (plan 27c §15 #4): blank (one text, §19), text and column combinations, templates. */
-export const CMS_PAGE_PRESETS = Object.freeze(['blank', 'text', 'columns2', 'columns3', 'textColumns2', 'textColumns3', 'team']);
+export const CMS_PAGE_PRESETS = Object.freeze(['blank', 'text', 'columns2', 'columns3', 'textColumns2', 'textColumns3']);
 
-/** The Smarty report of the template Team (plan 27e): a file name, record ids differ per database. */
-export const CMS_TEAM_TEMPLATE = 'Team_member.tpl';
+/** The Smarty report of the template Team (plan 27e): a file name, record ids differ per database (cmsPageTemplates.js). */
+export { CMS_TEAM_TEMPLATE };
 
 const VOID = new Set(['area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link', 'meta', 'source', 'track', 'wbr']);
 const RAW_TAGS = new Set(['script', 'style', 'textarea']);
@@ -626,6 +627,9 @@ export class CmsRecordDocument {
       removeAttr(node, 'data-h-view');
       removeAttr(node, 'data-h-full');
     }
+    // the media and its caption centred or right in the element (2026-11-14); left: no attribute
+    if (['center', 'right'].includes(settings?.align)) setAttr(node, 'data-h-align', settings.align);
+    else removeAttr(node, 'data-h-align');
     for (const language of Object.keys(this.translations)) if (!Object.hasOwn(translations, language)) this.setTranslation(language, id, '');
     for (const [language, text] of Object.entries(translations)) this.setTranslation(language, id, String(text ?? ''));
     return true;
@@ -666,7 +670,7 @@ export class CmsRecordDocument {
    * The action of a Record field element (plan 27g §6).
    *
    * @param {string} id Node id.
-   * @returns {string|null} `data-h-link`: `url` or `page:<id>`.
+   * @returns {string|null} `data-h-link`: `url`, `page:<id>` (a record page) or `goto:<id>` (Go to a page, 2026-11-14).
    */
   fieldLink(id) {
     const node = this.find(id)?.node;
@@ -683,7 +687,7 @@ export class CmsRecordDocument {
   setFieldLink(id, link) {
     const node = this.find(id)?.node;
     if (!node || !hasAttr(node, 'data-h-field')) return false;
-    if (link && /^(url|page:\d+)$/.test(link)) setAttr(node, 'data-h-link', link);
+    if (link && /^(url|page:\d+|goto:\d+)$/.test(link)) setAttr(node, 'data-h-link', link);
     else removeAttr(node, 'data-h-link');
     return true;
   }
@@ -735,6 +739,31 @@ export class CmsRecordDocument {
     } else if (isMap(this.config.styles.nodes)) {
       delete this.config.styles.nodes[id];
     }
+  }
+
+  /** Own style of the page (`styles.page`, plan 27i §9: the page is the root group; a copy), or {}. */
+  pageStyle() {
+    return clone(isMap(this.config.styles.page) ? this.config.styles.page : {});
+  }
+
+  /** Set the own style of the page; an empty style removes it. */
+  setPageStyle(style) {
+    if (isMap(style) && Object.keys(style).length) this.config.styles.page = clone(style); else delete this.config.styles.page;
+  }
+
+  /** The background video of a group (`data-h-bg-video`, the key of a registered file, plan 27i §9 D), or ''. */
+  backgroundVideo(id) {
+    return attr(this.find(id)?.node, 'data-h-bg-video') || '';
+  }
+
+  /** Set the background video of a group; '' removes it. The site runtime adds the video element. */
+  setBackgroundVideo(id, key) {
+    const node = this.find(id)?.node;
+    if (!node || attr(node, 'data-h-control') !== 'group') return false;
+    const value = String(key ?? '').trim();
+    if (value && !/^[A-Za-z0-9]+$/.test(value)) return false;
+    if (value) setAttr(node, 'data-h-bg-video', value); else removeAttr(node, 'data-h-bg-video');
+    return true;
   }
 
   /** Set the preset of a node (`data-h-style`); null removes it. */
@@ -1046,11 +1075,22 @@ export class CmsRecordDocument {
  * @param {string} preset One of CMS_PAGE_PRESETS, or `record`: a record page (plan 27g §6), an action menu with Back
  *        and one Record cards widget in mode `url` with `options.template`, no heading.
  * @param {string} title Page title (the first heading).
- * @param {{template?: number|string|null}} [options] `template`: the Smarty report of a record page.
- * @returns {{content: string, configuration: string}}
+ * @param {object} [options] `template`: the Smarty report of a record page; `layout`: the hide flags of the page
+ *        (`hideHeader`, `hideFooter`); for the templates of CMS_TEMPLATE_PAGES
+ *        (plan 27i §9) the options of buildTemplatePage (`values`, `site`, `mediaHtml`, `placeholderHtml`, `galleryHtml`,
+ *        `assetUrl`, `language`).
+ * @returns {{content: string, configuration: string, configure: string[]}} `configure`: nodes whose configuration
+ *          opens after the page is added.
  */
-export function cmsPageStarter(preset, title, { template = null } = {}) {
+export function cmsPageStarter(preset, title, { template = null, layout = null, ...templateOptions } = {}) {
   const doc = new CmsRecordDocument({ parts: { content: '' }, config: { schema: CMS_SCHEMA, instances: {}, styles: {} } });
+  // the hide flags of the page (Add page form, plan 27i §9)
+  if (layout && Object.keys(layout).length) doc.setLayout(layout);
+  if (CMS_TEMPLATE_PAGES.includes(preset)) {
+    const { configure } = buildTemplatePage(doc, preset, title, templateOptions);
+    const { parts, configuration } = doc.serialize();
+    return { content: parts.content, configuration, configure };
+  }
   if (preset === 'record') {
     // a record page (plan 27g §6): an action menu with Back, then one Record cards widget showing the record of the
     // URL with a Smarty report, padding 20px (2026-11-12)
@@ -1062,18 +1102,11 @@ export function cmsPageStarter(preset, title, { template = null } = {}) {
     doc.setInstance(instanceOf(cards), { settings: { mode: 'url', query: null, template, presentation: 'list', action: 'none' } });
     doc.setNodeStyle(cards, { ...doc.nodeStyle(cards), padding: '20px' });
     const { parts, configuration } = doc.serialize();
-    return { content: parts.content, configuration };
+    return { content: parts.content, configuration, configure: [] };
   }
   const heading = doc.insertElement('content', 'text');
   doc.setText(heading, `<h1>${escapeText(title || 'Page')}</h1>`);
-  if (preset === 'team') {
-    // the template Team (plan 27e): a grid of cards made by the Smarty report of a team member; the user picks the records
-    const grid = doc.insertElement('content', 'group');
-    doc.setNodeStyle(grid, { display: 'grid', 'grid-template-columns': 'repeat(auto-fill, minmax(240px, 1fr))', gap: '16px' });
-    const cards = doc.insertElement('content', 'cards', { id: grid, position: 'inside' });
-    const instanceId = doc.find(cards).node.attrs.find(([name]) => name === 'data-h-instance')[1];
-    doc.setInstance(instanceId, { settings: { mode: 'manual', query: null, template: CMS_TEAM_TEMPLATE, presentation: 'list', action: 'none' } });
-  } else if (preset === 'blank') {
+  if (preset === 'blank') {
     // one text element: the title and a paragraph (plan 27c §19)
     doc.setText(heading, `<h1>${escapeText(title || 'Page')}</h1><p>Text</p>`);
   } else if (preset === 'columns2' || preset === 'textColumns2') {
@@ -1086,7 +1119,7 @@ export function cmsPageStarter(preset, title, { template = null } = {}) {
     doc.insertElement('content', 'text');
   }
   const { parts, configuration } = doc.serialize();
-  return { content: parts.content, configuration };
+  return { content: parts.content, configuration, configure: [] };
 }
 
 /** Kind of an element: control, text, instance or other. */

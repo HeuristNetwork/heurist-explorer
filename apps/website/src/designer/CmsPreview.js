@@ -117,7 +117,8 @@ export class CmsPreview {
    * @param {object} draft
    * @param {Object<string, string>} draft.parts HTML by part (header, content, footer) to show.
    * @param {Object<string, object>} draft.instances Configured instances of the shown records.
-   * @param {{base: object, nodes: object[], kinds: object[], presets: object[]}} draft.styles Styles, website first.
+   * @param {{base: object, nodes: object[], kinds: object[], presets: object[], page?: {id: number, style: object}}} draft.styles
+   *        Styles, website first; `page`: the own style of the page (its section).
    */
   apply({ parts = {}, instances = {}, styles = null } = {}) {
     const doc = this.win?.document;
@@ -166,11 +167,24 @@ export class CmsPreview {
     this.highlight(this._highlighted || null);
   }
 
+  /**
+   * The hide flags of the page as classes of the body (PageRenderer::bodyClasses, plan 27f §3): the inline page form
+   * shows them at once (plan 27i §10).
+   *
+   * @param {{hideHeader?: boolean, hideFooter?: boolean}} flags
+   */
+  setPageFlags({ hideHeader = false, hideFooter = false } = {}) {
+    const body = this.win?.document?.body;
+    if (!body) return;
+    body.classList.toggle('h-site-hide-header', hideHeader);
+    body.classList.toggle('h-site-hide-footer', hideFooter);
+  }
+
   /** Compile the styles again into the page. */
-  restyle({ base = {}, nodes = [], kinds = [], presets = [] }) {
+  restyle({ base = {}, nodes = [], kinds = [], presets = [], page = null }) {
     const doc = this.win?.document;
     const element = doc?.getElementById('h-site-styles');
-    if (element) element.textContent = `\n${compileCmsStyles(base, nodes, this.options.baseUrl || '', { kinds, presets }).css}`;
+    if (element) element.textContent = `\n${compileCmsStyles(base, nodes, this.options.baseUrl || '', { kinds, presets, page }).css}`;
     // the page styles of the server (below the section, plan 27f) are in the draft now
     doc?.getElementById('h-page-styles')?.remove();
   }

@@ -995,6 +995,8 @@ export class HRecordList extends HBaseWidget {
         this.onOwnersToggle?.(checked);
       },
     });
+    // hidden by `controls.showOwner: false` (users and groups have no owners)
+    this._ownersCheck.dataset.control = "showOwner";
     const search = this.$('[data-control="search"]');
     if (search) search.after(this._sortControl, this._ownersCheck);
     else this.$('[data-role="toolbar"]')?.prepend(this._sortControl, this._ownersCheck);

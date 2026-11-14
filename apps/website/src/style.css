@@ -26,9 +26,20 @@ html.h-site {
   padding: 0 16px;
 }
 
+/* the side padding of the content is on the page section, not on <main> (2026-11-14): the own style of the page
+   (styles.page, e.g. the background of a Cover page) reaches the edges, and its own padding replaces this one */
+.h-site-main {
+  padding: 0;
+}
+
+.h-site-page {
+  box-sizing: border-box;
+  padding: 0 16px;
+}
+
 /* a page that is one module (a published Explorer, map ...): no side padding, the module
    uses the whole width; text pages keep 16px from the window edge */
-.h-site-main:has(> .h-site-page > .h-site-module:only-child) {
+.h-site-page:has(> .h-site-module:only-child) {
   padding: 0;
 }
 
@@ -124,6 +135,70 @@ figure[data-h-media] figcaption {
 
 figure[data-h-media] figcaption > a {
   white-space: nowrap;
+}
+
+/* Alignment of a media element (2026-11-14): the media and its caption centred or right in the element; a figure with
+   Player / Viewer is as wide as its media and moves itself */
+figure[data-h-media][data-h-align] > :is(img, video, audio, iframe) {
+  display: inline-block;
+  vertical-align: top;
+}
+
+figure[data-h-media][data-h-align="center"] {
+  text-align: center;
+}
+
+figure[data-h-media][data-h-align="right"] {
+  text-align: right;
+}
+
+figure[data-h-view][data-h-align="center"] {
+  margin-inline: auto;
+}
+
+figure[data-h-view][data-h-align="right"] {
+  margin-inline: auto 0;
+}
+
+/* an image with a caption aligned in the text editor (TinyMCE: class of the figure, 2026-11-14); an image without one
+   has its own float / margins */
+.h-site-body figure.align-left {
+  float: left;
+  margin: 0 1em 1em 0;
+}
+
+.h-site-body figure.align-right {
+  float: right;
+  margin: 0 0 1em 1em;
+}
+
+.h-site-body figure.align-center {
+  display: table;
+  margin-inline: auto;
+}
+
+/* a video as the background of a group (plan 27i §9 D, data-h-bg-video): the site runtime adds it as the first child,
+   behind the content; the background image of the group is its poster */
+[data-h-bg-video] {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+video.h-site-bg-video {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  pointer-events: none;
+}
+
+/* the placeholder image of a media element until a file is chosen (plan 27i §9) */
+img.h-site-media-placeholder {
+  max-width: 100%;
+  height: auto;
 }
 
 .h-site-media-play > summary {
@@ -344,6 +419,10 @@ html.h-site {
 
 /* the banner image of the website: the background of the whole header */
 .h-site-header {
+  /* above the controls of the modules (Explorer, map ...) also when it scrolls away: its menus drop over them
+     (2026-11-14); fixed / slide headers are sticky */
+  position: relative;
+  z-index: 1200;
   background-image: var(--h-site-banner, none);
   background-position: center;
   background-size: cover;
@@ -353,7 +432,8 @@ html.h-site {
 .h-site-header-slide .h-site-header {
   position: sticky;
   top: 0;
-  z-index: 100;
+  /* above the controls of the modules on the page (Explorer, map ...), 2026-11-14 */
+  z-index: 1200;
   background-color: var(--h-color-bg);
 }
 
@@ -386,7 +466,7 @@ html.h-site {
 .h-site-footer-fixed .h-site-footer {
   position: sticky;
   bottom: 0;
-  z-index: 99;
+  z-index: 1199;
   margin-top: 0;
   background-color: var(--h-color-bg);
 }
@@ -414,10 +494,19 @@ body.h-site-footer-fixed > .h-site-main {
 
 /* the parts of a header: logo, title, subtitle. --h-site-logo-now: the height on this screen; a placeholder while
    the website has no logo */
-.h-site-logo {
+:where(.h-site-logo) {
   --h-site-logo-now: var(--h-site-logo-height);
   flex: none;
   line-height: 0;
+}
+
+/* the icon of a menu entry: not higher than the entry (stronger than the rule of text images, review 2026-11-14) */
+html.h-site .h-site-menu-icon {
+  width: auto;
+  max-width: none;
+  height: 1.4em;
+  max-height: 1.4em;
+  vertical-align: middle;
 }
 
 /* stronger than the rule of text images (.h-site-body img) */
@@ -445,88 +534,93 @@ html.h-site .h-site-logo img {
   line-height: 1;
 }
 
-.h-site-title {
+:where(.h-site-title) {
   margin: 0;
   font-size: 1.75em;
   line-height: 1.2;
 }
 
-.h-site-subtitle {
+:where(.h-site-subtitle) {
   margin: 0;
   color: var(--h-color-text-muted);
 }
 
-.h-site-subtitle :is(p, h1, h2, h3, h4, h5, h6) {
+:where(.h-site-subtitle) :is(p, h1, h2, h3, h4, h5, h6) {
   margin: 0;
 }
 
-.h-site-logo-small {
+:where(.h-site-logo-small) {
   --h-site-logo-now: calc(var(--h-site-logo-height) * 0.6);
 }
 
-/* the header default set (§13): logo, title and subtitle, menu, language switch; one row on normal screens */
-.h-site-header .h-site-hset {
-  display: grid;
-  grid-template-columns: auto minmax(0, max-content) minmax(0, 1fr) auto;
-  grid-template-areas: "logo brand menu lang";
+/* the header default set (§13; review 2026-11-14): logo, title and subtitle, menu, language switch in the order of
+   the part tree, one row on normal screens. Every rule in :where(): a preset or an own style of the set or of its
+   elements wins (the group kind default leaves the set out, CMS_KINDS) */
+:where(.h-site-header .h-site-hset) {
+  display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 0.5rem 1.5rem;
   padding: 0.75rem 0;
 }
 
-.h-site-header .h-site-hset > .h-site-logo {
-  grid-area: logo;
+:where(.h-site-hset > .h-site-logo, .h-site-hset > .h-site-hset-lang) {
+  flex: none;
+  min-height: 0;
 }
 
-.h-site-header .h-site-hset > .h-site-brand {
+:where(.h-site-hset > .h-site-brand) {
   display: flex;
-  grid-area: brand;
+  flex: 0 1 auto;
   flex-direction: column;
   gap: 2px;
   min-width: 0;
 }
 
-.h-site-header .h-site-hset > .h-site-hset-menu {
-  grid-area: menu;
+:where(.h-site-hset > .h-site-hset-menu) {
+  flex: 1 1 auto;
   min-width: 0;
   min-height: 0;
 }
 
-.h-site-header .h-site-hset > .h-site-hset-lang {
-  grid-area: lang;
-  min-height: 0;
+/* two rows: logo, title and subtitle and the language switch; the menu below them */
+:where(.h-site-header-rows2 .h-site-header .h-site-hset > .h-site-brand) {
+  flex: 1 1 auto;
 }
 
-/* two rows: logo, title and subtitle; menu and language switch */
-.h-site-header-rows2 .h-site-header .h-site-hset {
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  grid-template-areas: "logo brand brand" "menu menu lang";
+:where(.h-site-header-rows2 .h-site-header .h-site-hset > .h-site-hset-menu) {
+  order: 1;
+  flex: 1 1 100%;
 }
 
 /* the title has the size of a heading 1 of the theme */
-.h-site-header .h-site-hset .h-site-title {
+:where(.h-site-header .h-site-hset .h-site-title) {
   font-family: var(--h-site-heading-font);
   font-size: 2em;
   color: var(--h-site-heading-color);
 }
 
 @media (max-width: 1024px) {
-  .h-site-title {
+  :where(.h-site-title) {
     font-size: 1.4em;
   }
 
-  .h-site-header .h-site-hset .h-site-title {
+  :where(.h-site-header .h-site-hset .h-site-title) {
     font-size: 1.6em;
   }
 
-  .h-site-logo {
+  :where(.h-site-logo) {
     --h-site-logo-now: calc(var(--h-site-logo-height) * 0.75);
   }
 
-  /* the default set: two rows on medium screens */
-  .h-site-header .h-site-hset {
-    grid-template-columns: auto minmax(0, 1fr) auto;
-    grid-template-areas: "logo brand brand" "menu menu lang";
+  /* the default set: two rows on medium screens (the language switch beside the title) */
+  :where(.h-site-header .h-site-hset > .h-site-brand) {
+    flex: 1 1 auto;
+  }
+
+  :where(.h-site-header .h-site-hset > .h-site-hset-menu) {
+    order: 1;
+    flex: 1 1 100%;
   }
 }
 
@@ -536,20 +630,38 @@ html.h-site .h-site-logo img {
     display: none;
   }
 
-  .h-site-header .h-site-hset .h-site-title {
-    font-size: 1.3em;
+  /* the default set: no subtitle, a smaller title (review 2026-11-14) */
+  :where(.h-site-header .h-site-hset .h-site-subtitle) {
+    display: none;
   }
 
-  .h-site-logo {
+  :where(.h-site-header .h-site-hset .h-site-title) {
+    font-size: 1.2em;
+  }
+
+  :where(.h-site-logo) {
     --h-site-logo-now: calc(var(--h-site-logo-height) * 0.6);
   }
 
-  /* the default set stacked: logo and title, then menu (behind its button) and language switch */
-  .h-site-header .h-site-hset,
-  .h-site-header-rows2 .h-site-header .h-site-hset {
-    grid-template-columns: auto minmax(0, 1fr);
-    grid-template-areas: "logo brand" "menu lang";
+  :where(.h-site-header .h-site-hset) {
     gap: 0.5rem 1rem;
+  }
+}
+
+@media (max-width: 375px) {
+  /* the default set in one row: logo, the menu button, the language switch; no title (review 2026-11-14) */
+  :where(.h-site-header .h-site-hset > .h-site-brand) {
+    display: none;
+  }
+
+  :where(.h-site-header .h-site-hset > .h-site-hset-menu) {
+    order: 1;
+    flex: 0 0 auto;
+    margin-left: auto;
+  }
+
+  :where(.h-site-header .h-site-hset > .h-site-hset-lang) {
+    order: 2;
   }
 }
 
@@ -566,6 +678,7 @@ html.h-site .h-site-logo img {
     grid-row: 1 / span 2;
     position: sticky;
     top: 0;
+    z-index: 1200;
     max-width: none;
     height: 100vh;
     margin: 0;
@@ -579,15 +692,20 @@ html.h-site .h-site-logo img {
     width: 100%;
   }
 
-  /* a vertical header: one column */
-  .h-site-header-vertical .h-site-header .h-site-hset,
-  .h-site-header-vertical.h-site-header-rows2 .h-site-header .h-site-hset {
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-areas: "logo" "brand" "menu" "lang";
-    align-items: start;
+  /* a vertical header: one column in the order of the tree */
+  :where(.h-site-header-vertical .h-site-header .h-site-hset) {
+    flex-direction: column;
+    flex-wrap: nowrap;
+    align-items: stretch;
   }
 
-  .h-site-header-vertical .h-site-header .h-site-hset .h-site-title {
+  :where(.h-site-header-vertical .h-site-header .h-site-hset > *) {
+    order: 0;
+    flex: none;
+    margin-left: 0;
+  }
+
+  :where(.h-site-header-vertical .h-site-header .h-site-hset .h-site-title) {
     font-size: 1.5em;
   }
 }
@@ -631,10 +749,8 @@ html.h-site .h-site-logo img {
   --h-site-logo-now: 24px;
 }
 
-.h-site-header-collapsed .h-site-header .h-site-hset,
-.h-site-header-collapsed.h-site-header-rows2 .h-site-header .h-site-hset {
-  grid-template-columns: auto minmax(0, 1fr);
-  grid-template-areas: "logo brand";
+.h-site-header-collapsed .h-site-header .h-site-hset {
+  flex-wrap: nowrap;
   gap: 0 0.75rem;
   padding: 3px 0;
 }
@@ -666,8 +782,7 @@ html.h-site .h-site-logo img {
 
   /* the title turned by 90 degrees below the logo (review 2026-11-10) */
   .h-site-header-vertical.h-site-header-collapsed .h-site-header .h-site-hset {
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-areas: "logo" "brand";
+    flex-direction: column;
     gap: 0.75rem 0;
   }
 

@@ -67,6 +67,8 @@ export async function openUserGroupManager(type, { apiClient, dbdefs, baseUrl = 
     dbdefs,
     editRecord: (id) => edit(Number(id)),
     viewRecord: null,
+    // no Show owners checkbox in the list
+    listOptions: { controls: { showOwner: false } },
     addActions: canAdd ? [{
       id: 'add', icon: 'fa-plus-circle', label: type === 'user' ? 'Add new user' : 'Add new group', run: () => edit(0)
     }] : [],
@@ -169,7 +171,10 @@ async function membershipService(type, form, item, { apiClient, dbdefs, baseUrl,
       const result = await openRecordManager({
         selectMode: 'relations',
         relations: { store },
-        browseRecords: (browse) => openRecordManager({ apiClient, dbdefs, baseUrl, database, addActions, ...browse }),
+        listOptions: { controls: { showOwner: false } },
+        browseRecords: (browse) => openRecordManager({
+          apiClient, dbdefs, baseUrl, database, addActions, listOptions: { controls: { showOwner: false } }, ...browse
+        }),
         title: `${$HR(type === 'group' ? 'Members of' : 'Groups of')} ${item.title}`,
         apiClient,
         dbdefs,

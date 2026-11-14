@@ -146,6 +146,11 @@
 }
 .h-website-badge-v4 { border-color: var(--h-color-primary, #345d77); color: var(--h-color-primary, #345d77); }
 
+/* the tools of a record in the list (2026-11-14): badge, Open editor, Open in a new tab */
+.h-website-list-tools { display: inline-flex; align-items: center; gap: 2px; }
+.h-website-list-tools > .h-website-badge { align-self: center; margin-right: 4px; }
+.h-website-list-tool { font-size: var(--h-font-size); }
+
 /* dialogs */
 .h-website-form { display: grid; gap: 8px; min-width: min(420px, 80vw); }
 .h-website-form-row { display: grid; gap: 3px; }
@@ -155,4 +160,13 @@
 /* a narrow details pane: toolbar icons only */
 @container website-main (max-width: 520px) {
   .h-website-tool-label { display: none; }
+}
+
+/* second row of a question: a checkbox (Delete website: its menu pages too) */
+.h-website-dialog-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin-top: 8px;
+  font-size: var(--h-font-size);
 }

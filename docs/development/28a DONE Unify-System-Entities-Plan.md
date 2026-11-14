@@ -2,7 +2,7 @@
 
 **Status 2026-11-07: DONE.** Phases 1-6 implemented in both repos (§7) and committed (heurist `1278b6c23`, explorer
 `9a04caf`). Still to check: routes as a logged-in user through `api.php` and the browser steps of §5. The open decision of
-deviation 2 (mixed lists when record-based entities move to `sysRecords`) is in plan 28 §11. Subplan of `28 OpenAPI-Rules-and-Database-Structure-Plan.md`. Plan `30 Custom-Report-System-Plan.md` can start.
+deviation 2 (mixed lists when record-based entities move to `sysRecords`) is in plan 28 §11. Subplan of `28 OpenAPI-Rules-and-Database-Structure-Plan.md`. Plan `30 DONE Custom-Report-System-Plan.md` can start.
 
 ## 1. Goal
 

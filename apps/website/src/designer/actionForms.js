@@ -20,6 +20,7 @@
 
 import '@fortawesome/fontawesome-free/css/brands.min.css';
 import { $HR } from '#shared/ui';
+import { createHInput } from '#shared/widgets/form/inputs/createHInput.js';
 import { formDialog } from './designerDialogs.js';
 import { dragHandle, helpLine, sortableList } from './designerStyles.js';
 import { recordPagePicker } from './recordPageField.js';
@@ -51,6 +52,13 @@ const PRESENTATIONS = Object.freeze([['links', 'Links'], ['buttons', 'Buttons'],
  */
 const ACTIONS = Object.freeze([['page', 'Go to a page'], ['url', 'Open a URL'], ['addRecord', 'Add a record'],
   ['recordPage', 'Record page'], ['back', 'Back'], ['savedFilter', 'Saved filter', true]]);
+
+/**
+ * Label of an item without one (2026-11-14: an item is not lost when its label is forgotten); Go to a page: the name of
+ * the page.
+ */
+const DEFAULT_LABELS = Object.freeze({ page: 'Page', url: 'Link', addRecord: 'Add', recordPage: 'Record link', back: 'Back',
+  savedFilter: 'Filter' });
 
 /**
  * Settings of the social media preset from the URLs of the networks (empty URLs left out).
@@ -111,7 +119,7 @@ export function openSocialForm({ settings = {} } = {}) {
     table.append(icon, name, input);
   }
   form.append(table);
-  return formDialog(form, 'Social media', 'Save', () => socialSettings(Object.fromEntries(Object.entries(inputs).map(([id, input]) => [id, input.value]))),
+  return formDialog(form, 'Social media', 'OK', () => socialSettings(Object.fromEntries(Object.entries(inputs).map(([id, input]) => [id, input.value]))),
     null, 'h-dialog-cms-social');
 }
 
@@ -124,13 +132,18 @@ export function openSocialForm({ settings = {} } = {}) {
  * @param {Array<{id: number, name: string}>} [options.recordTypes] Record types (Add record).
  * @param {boolean} [options.canAddRecord] Whether the website has Heurist Explorer (Add record).
  * @param {object} [options.services] Record page (plan 27g §6): `recordPageTerms()`, `createRecordPage`, `cardTemplates`,
- *        `templateTerms` (recordPagePicker) and `browseRecords` (the record).
- * @returns {Promise<object|null>} Settings.
+ *        `templateTerms` (recordPagePicker) and `browseRecords` (the record); with `apiClient` and `dbdefs` the record
+ *        is chosen in HInputResource (its title and record type icon; `iconBase` {baseUrl, database} of the icons).
+ * @param {{title?: string, actions?: string[]}|null} [options.single] One item without the presentation, Add and Remove
+ *        (Link of the text editor, 2026-11-14): the title of the popup and the offered actions; the answer is the item.
+ * @returns {Promise<object|null>} Settings (single: the item).
  */
-export function openActionMenuForm({ settings = {}, pages = [], recordTypes = [], canAddRecord = false, services = {} } = {}) {
+export function openActionMenuForm({ settings = {}, pages = [], recordTypes = [], canAddRecord = false, services = {}, single = null } = {}) {
   const form = element('form', 'h-cms-form h-cms-action-form');
-  form.append(helpLine(canAddRecord ? 'Links to pages of the website or to other websites, and actions such as Add record.'
-    : 'Links to pages of the website or to other websites. Add record needs Heurist Explorer on the website.'));
+  if (single) form.classList.add('h-cms-action-single');
+  form.append(helpLine(single ? 'A link to a page of the website, a record on a record page, or another website.'
+    : canAddRecord ? 'Links to pages of the website or to other websites, and actions such as Add record.'
+      : 'Links to pages of the website or to other websites. Add record needs Heurist Explorer on the website.'));
   const presentation = element('select', 'h-select h-compact');
   presentation.append(...PRESENTATIONS.map(([value, label]) => option(value, $HR(label))));
   presentation.value = PRESENTATIONS.some(([value]) => value === settings.presentation) ? settings.presentation : 'links';
@@ -141,11 +154,11 @@ export function openActionMenuForm({ settings = {}, pages = [], recordTypes = []
   const labelLine = line('Label of the drop-down button', label);
   const showLabel = () => { labelLine.hidden = presentation.value !== 'dropdown'; };
   presentation.addEventListener('change', showLabel);
-  form.append(classed(line('Presentation', presentation), 'h-cms-action-presentation'), labelLine);
+  if (!single) form.append(classed(line('Presentation', presentation), 'h-cms-action-presentation'), labelLine);
   showLabel();
 
   const list = element('div', 'h-cms-action-list');
-  const actions = ACTIONS.filter(([value]) => value !== 'addRecord' || canAddRecord);
+  const actions = ACTIONS.filter(([value]) => (single?.actions ? single.actions.includes(value) : value !== 'addRecord' || canAddRecord));
   const rows = [];
   const addRow = (item = {}) => {
     const row = element('div', 'h-cms-action-row');
@@ -167,7 +180,7 @@ export function openActionMenuForm({ settings = {}, pages = [], recordTypes = []
       node.disabled = Boolean(disabled);
       return node;
     }));
-    action.value = actions.some(([value]) => value === item.action) ? item.action : 'page';
+    action.value = actions.some(([value]) => value === item.action) ? item.action : actions[0][0];
     const target = element('span', 'h-cms-action-target');
     const page = element('select', 'h-select h-compact');
     page.append(...pages.map((entry) => option(String(entry.id), `${'  '.repeat(entry.depth || 0)}${entry.title || `#${entry.id}`}`)));
@@ -178,22 +191,9 @@ export function openActionMenuForm({ settings = {}, pages = [], recordTypes = []
     type.append(...recordTypes.map((entry) => option(String(entry.id), entry.name)));
     // Record page: the page and the record (plan 27g §6)
     const recordPage = recordPagePicker(services, item.action === 'recordPage' ? Number(item.target) || null : null);
-    let recordId = item.action === 'recordPage' ? Number(item.record) || 0 : 0;
-    const chooseRecord = button('fa-magnifying-glass', 'Choose the record', true);
-    const recordLabel = () => {
-      chooseRecord.lastChild.textContent = ` ${recordId ? `#${recordId}` : $HR('Choose the record')}`;
-    };
-    recordLabel();
-    chooseRecord.disabled = typeof services.browseRecords !== 'function';
-    chooseRecord.addEventListener('click', async () => {
-      const ids = await services.browseRecords({ selectMode: 'select', title: $HR('Record of the record page') });
-      if (Number(ids?.[0]) > 0) {
-        recordId = Number(ids[0]);
-        recordLabel();
-      }
-    });
+    const record = recordInput(services, item.action === 'recordPage' ? Number(item.record) || 0 : 0);
     const recordTarget = element('span', 'h-cms-action-record');
-    recordTarget.append(recordPage.element, chooseRecord);
+    recordTarget.append(recordPage.element, record.element);
     if (item.action === 'url') url.value = item.target || '';
     else if (item.action === 'addRecord') type.value = String(item.target || '');
     else if (item.action !== 'recordPage' && item.target) page.value = String(item.target);
@@ -219,19 +219,28 @@ export function openActionMenuForm({ settings = {}, pages = [], recordTypes = []
       rows.splice(rows.findIndex((entry) => entry.row === row), 1);
       row.remove();
     });
-    row.append(dragHandle(), text, glyph, icon, action, target, newTab.box, iconOnly.box, remove);
+    if (single) {
+      // one link (the text editor, 2026-11-14): a control per line
+      row.classList.add('h-cms-action-single-row');
+      const iconBox = element('span', 'h-cms-action-icon-box');
+      iconBox.append(glyph, icon);
+      row.append(line('Label', text), line('Icon', iconBox), line('Action', action), block('Link to', target), newTab.box);
+    }
+    else row.append(dragHandle(), text, glyph, icon, action, target, newTab.box, iconOnly.box, remove);
     list.append(row);
     rows.push({
       row,
+      destroy: () => record.destroy(),
       read: () => {
         pageLabel();
-        const value = { label: text.value.trim(), action: action.value };
+        // a forgotten label: a default one (2026-11-14), the item is kept
+        const value = { label: text.value.trim() || $HR(DEFAULT_LABELS[action.value] || 'Link'), action: action.value };
         if (icon.value.trim()) value.icon = icon.value.trim();
         if (action.value === 'page') value.target = Number(page.value) || 0;
         else if (action.value === 'url') value.target = url.value.trim();
         else if (action.value === 'recordPage') {
           value.target = Number(recordPage.select.value) || 0;
-          value.record = recordId;
+          value.record = record.value();
         } else if (action.value === 'addRecord') value.target = Number(type.value) || type.value;
         if (newTab.input.checked) value.newTab = true;
         if (iconOnly.input.checked && value.icon) value.iconOnly = true;
@@ -240,18 +249,23 @@ export function openActionMenuForm({ settings = {}, pages = [], recordTypes = []
       }
     });
   };
-  for (const item of settings.items || []) addRow(item);
-  sortableList(list, (from, to) => {
-    rows.splice(to, 0, ...rows.splice(from, 1));
-    list.replaceChildren(...rows.map((entry) => entry.row));
-  });
+  const given = single ? (settings.items || []).slice(0, 1) : settings.items || [];
+  for (const item of given) addRow(item);
+  if (single && !rows.length) addRow({});
+  if (!single) {
+    sortableList(list, (from, to) => {
+      rows.splice(to, 0, ...rows.splice(from, 1));
+      list.replaceChildren(...rows.map((entry) => entry.row));
+    });
+  }
   const add = button('fa-plus', 'Add item', true, 'h-btn h-btn-primary h-cms-add-button');
   add.addEventListener('click', () => addRow({}));
-  form.append(list, add);
+  form.append(list);
+  if (!single) form.append(add);
   const problems = element('div', 'h-cms-style-problems');
   form.append(problems);
-  return formDialog(form, 'Action menu', 'Save', () => {
-    const items = rows.map((entry) => entry.read()).filter((item) => item.label || item.icon);
+  const dialog = formDialog(form, single?.title || 'Action menu', 'OK', () => {
+    const items = rows.map((entry) => entry.read());
     const missing = items.find((item) => (item.action === 'url' && !item.target) || (item.action === 'page' && !item.target));
     if (missing) {
       problems.textContent = $HR('Every item needs a page or a URL');
@@ -261,11 +275,57 @@ export function openActionMenuForm({ settings = {}, pages = [], recordTypes = []
       problems.textContent = $HR('A Record page item needs a record page and a record');
       return null;
     }
+    if (single) return items[0] || null;
     const result = { presentation: presentation.value, items };
     if (presentation.value === 'dropdown' && label.value.trim()) result.label = label.value.trim();
     if (settings.labels) result.labels = settings.labels;
     return result;
-  }, null, 'h-dialog-cms-actions');
+  }, null, single ? 'h-dialog-cms-link' : 'h-dialog-cms-actions');
+  return Promise.resolve(dialog).finally(() => rows.forEach((entry) => entry.destroy()));
+}
+
+/**
+ * The record of a Record page item (2026-11-14): HInputResource `addorbrowse` (title, record type icon, the record manager
+ * popup with its Add buttons) with the
+ * host's `apiClient`, `dbdefs` and `browseRecords`; else a button with the record id.
+ *
+ * @param {object} services
+ * @param {number} value Record id.
+ * @returns {{element: HTMLElement, value: () => number, destroy: () => void}}
+ */
+function recordInput(services, value) {
+  const host = element('span', 'h-cms-action-record-input');
+  if (services.apiClient && services.dbdefs && typeof services.browseRecords === 'function') {
+    const input = createHInput('resource', host, {
+      suppressLabel: true,
+      value: value || null,
+      apiClient: services.apiClient,
+      dbdefs: services.dbdefs,
+      iconBase: services.iconBase || {},
+      // the record manager popup with its Add buttons (2026-11-14)
+      pointerMode: 'addorbrowse',
+      // without it HInputResource falls back to the value picker (2026-11-14)
+      showBrowse: true,
+      targetTypes: [],
+      browseRecords: (options) => services.browseRecords({ ...options, title: $HR('Record of the record page') }),
+      ...(typeof services.addRecord === 'function' ? { addRecord: services.addRecord } : {})
+    });
+    return { element: host, value: () => Number(input.getValue()) || 0, destroy: () => void input.destroy?.() };
+  }
+  let recordId = value;
+  const choose = button('fa-magnifying-glass', 'Choose the record', true);
+  const label = () => { choose.lastChild.textContent = ` ${recordId ? `#${recordId}` : $HR('Choose the record')}`; };
+  label();
+  choose.disabled = typeof services.browseRecords !== 'function';
+  choose.addEventListener('click', async () => {
+    const ids = await services.browseRecords({ selectMode: 'select', title: $HR('Record of the record page') });
+    if (Number(ids?.[0]) > 0) {
+      recordId = Number(ids[0]);
+      label();
+    }
+  });
+  host.append(choose);
+  return { element: host, value: () => recordId, destroy: () => {} };
 }
 
 /**
@@ -291,6 +351,15 @@ export function sitePageList(site, homeLabel = 'Home', { records = true } = {}) 
 
 function line(label, control) {
   const node = element('label', 'h-cms-styles-field');
+  const caption = element('span');
+  caption.textContent = $HR(label);
+  node.append(caption, control);
+  return node;
+}
+
+/** A caption and several controls (not a label: a click must not go to the first control). */
+function block(label, control) {
+  const node = element('div', 'h-cms-styles-field');
   const caption = element('span');
   caption.textContent = $HR(label);
   node.append(caption, control);

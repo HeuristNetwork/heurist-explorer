@@ -167,6 +167,9 @@
 #Mark a report "Single record (card)" to use it here#Marquez un rapport « Enregistrement unique (carte) » pour l’utiliser ici
 #Navigation and layout#Navigation et mise en page
 #Page navigation#Navigation des pages
+#Startup page#Page de démarrage
+#The Cover page is the Startup page of the website (Navigation and layout)#La page de couverture est la page de démarrage du site (Navigation et mise en page)
+#Delete its menu pages too. Pages that other records point to (e.g. another website) are kept.#Supprimer aussi ses pages de menu. Les pages référencées par d'autres enregistrements (par ex. un autre site) sont conservées.
 #Load each page completely#Charger chaque page entièrement
 #Keep header and footer, change the page content#Garder l'en-tête et le pied de page, changer le contenu de la page
 #One long page (pages one after another)#Une longue page (les pages les unes après les autres)
@@ -315,3 +318,94 @@
 #Button caption#Libellé du bouton
 #Empty: "Email us"#Vide : « Nous écrire »
 #Visitors send a message to the email address of the website (field Email of the website record) or, without it, to the database owner. The address is not shown on the page. Visitors answer a simple question to prove they are human.#Les visiteurs envoient un message à l’adresse e-mail du site web (champ E-mail de l’enregistrement du site) ou, à défaut, au propriétaire de la base de données. L’adresse n’est pas affichée sur la page. Les visiteurs répondent à une question simple pour prouver qu’ils sont humains.
+#New page#Nouvelle page
+#Create page#Créer la page
+#Hide header#Masquer l’en-tête
+#Hide footer#Masquer le pied de page
+#Elements#Éléments
+#Sections#Sections
+#Subtitle#Sous-titre
+#Introduction#Introduction
+#Enter button#Bouton Entrer
+#Background#Arrière-plan
+#Banner#Bannière
+#Image (logo)#Image (logo)
+#Slideshow#Diaporama
+#Features#Points forts
+#News#Actualités
+#Address#Adresse
+#Contact#Contact
+#Follow us#Suivez-nous
+#Origins of the project / history#Origines du projet / historique
+#Description of the project#Description du projet
+#Aims and methodology#Objectifs et méthodologie
+#Sources of data#Sources des données
+#Acknowledgements#Remerciements
+#Number of features#Nombre de points forts
+#Number of members#Nombre de membres
+#List#Liste
+#Take data from database#Prendre les données dans la base
+#Records#Enregistrements
+#The persons of the team; they can be chosen later#Les personnes de l’équipe ; elles peuvent être choisies plus tard
+#Template#Modèle
+#Own style of the page#Style propre de la page
+#Column alignment#Alignement des colonnes
+#Rows in the group#Lignes dans le groupe
+#Left#Gauche
+#Right#Droite
+#Space evenly#Espacement égal
+#Video#Vidéo
+#A welcome page over the whole window with a random banner as the background of the page. For an acknowledgement of country or a similar page untick the background and choose a flag as the logo afterwards.#Une page d’accueil sur toute la fenêtre avec une bannière au hasard comme arrière-plan de la page. Pour une reconnaissance du territoire ou une page semblable, décochez l’arrière-plan et choisissez ensuite un drapeau comme logo.
+#The home page: a banner, the logo and the summary of the website beside a slideshow, buttons, features and news. Replace the images and choose the records in the page editor.#La page d’accueil : une bannière, le logo et le résumé du site à côté d’un diaporama, des boutons, des points forts et des actualités. Remplacez les images et choisissez les enregistrements dans l’éditeur de page.
+#A section for each ticked topic, with a starting text and a placeholder image to replace.#Une section pour chaque sujet coché, avec un texte de départ et une image provisoire à remplacer.
+#Cards of the main features: a title, a placeholder image and a text to replace in the page editor.#Des fiches des principaux points forts : un titre, une image provisoire et un texte à remplacer dans l’éditeur de page.
+#The project team: cards of person records made by a Smarty report, or cards to fill in by hand.#L’équipe du projet : des fiches d’enregistrements de personnes faites par un rapport Smarty, ou des fiches à remplir à la main.
+#A page with the Explorer of the database: search, results, map, timeline. Configure it in the page editor.#Une page avec l’Explorateur de la base de données : recherche, résultats, carte, chronologie. Configurez-le dans l’éditeur de page.
+#Address and contact details, a form that sends a message to the email of the website (or the database owner), and links to social media.#Adresse et coordonnées, un formulaire qui envoie un message à l’adresse e-mail du site (ou au propriétaire de la base de données) et des liens vers les réseaux sociaux.
+#A page with a generated report (for example a list of publications): choose the report in the next step.#Une page avec un rapport généré (par exemple une liste de publications) : choisissez le rapport à l’étape suivante.
+#Edit#Modifier
+#Close the form (the changes stay)#Fermer le formulaire (les modifications restent)
+#Group#Groupe
+#Element#Élément
+#Translation#Traduction
+#Translate...#Traduire...
+#Edit field#Modifier le champ
+#Save Page#Enregistrer la page
+#Save the page (Ctrl+S)#Enregistrer la page (Ctrl+S)
+#Own style of the selected element, beside the tree#Style propre de l’élément sélectionné, à côté de l’arbre
+#Page: name, menu, header and footer#Page : nom, menu, en-tête et pied de page
+#Caption of the group#Légende du groupe
+#Home page#Page d’accueil
+#The record, the field and its value#L’enregistrement, le champ et sa valeur
+#The file, caption and size of the media#Le fichier, la légende et la taille du média
+#Apply#Appliquer
+#Own style and caption of the group#Style propre et légende du groupe
+#Select File Resource#Choisir une ressource fichier
+#Not a media file: choose an image, a video or an audio file, or a video / audio service#Pas un fichier média : choisissez une image, une vidéo, un fichier audio ou un service vidéo / audio
+#Files can not be chosen here#Les fichiers ne peuvent pas être choisis ici
+#A link to a page of the website, a record on a record page, or another website.#Un lien vers une page du site, un enregistrement sur une page d'enregistrement ou un autre site.
+#Link#Lien
+#Record link#Lien d'enregistrement
+#Filter#Filtre
+#Choose a page#Choisissez une page
+#Center#Centre
+#Label#Libellé
+#Icon#Icône
+#Action#Action
+#Link to#Lien vers
+#Select Record page#Choisir une page d'enregistrement
+#Open in a new tab#Ouvrir dans un nouvel onglet
+#This record has no address to open#Cet enregistrement n'a pas d'adresse à ouvrir
+#The text has been changed. Discard the changes?#Le texte a été modifié. Abandonner les modifications ?
+#Discard the changes#Abandonner les modifications
+#Keep editing#Continuer la modification
+#Languages#Langues
+#Pages of the website#Pages du site
+#Each page is made from its template with all its sections; change them in the website editor.#Chaque page est créée à partir de son modèle avec toutes ses sections ; modifiez-les dans l'éditeur du site.
+#Cover#Couverture
+#Home (Landing)#Accueil (page d'accueil)
+#About#À propos
+#Discover#Découvrir
+#Welcome#Bienvenue
+#Creating the pages of the website...#Création des pages du site...
+#The website gets a header with a menu, a footer and the chosen pages. It is public.#Le site reçoit un en-tête avec un menu, un pied de page et les pages choisies. Il est public.

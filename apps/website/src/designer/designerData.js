@@ -108,6 +108,20 @@ export function menuPlace(pages, pageId, parent = 0) {
   return null;
 }
 
+/**
+ * Pages of the Startup page selector (Navigation and layout, 2026-11-14): all menu pages depth first, sub pages indented;
+ * not record pages (they need a record in the URL).
+ *
+ * @param {Array<{id: number, title: string, record?: boolean, children?: Array}>} pages Menu tree of the website.
+ * @returns {Array<{id: number, title: string}>}
+ */
+export function startPageChoices(pages, depth = 0) {
+  return (pages || []).flatMap((page) => [
+    ...(page.record ? [] : [{ id: Number(page.id), title: `${'  '.repeat(depth)}${page.title || `#${page.id}`}` }]),
+    ...startPageChoices(page.children, depth + 1)
+  ]);
+}
+
 /** Ids of all sub pages (all levels) of a menu item. */
 export function subPageIds(page) {
   return (page?.children || []).flatMap((child) => [Number(child.id), ...subPageIds(child)]);

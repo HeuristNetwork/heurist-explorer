@@ -8,7 +8,8 @@
  * record page**: a small popup with the Smarty report of the new page and **Create page**. The server writes the links
  * (PageContent::recordLinks). The action menu form uses the same select, button and popup (`recordPagePicker`).
  *
- * Stored settings: `action: 'none' | 'url' | 'recordPage' | 'viewer'` and `recordPage: <page id>`.
+ * Stored settings: `action: 'none' | 'url' | 'recordPage' | 'viewer' | 'page'`, `recordPage: <page id>` and `page: <page id>`
+ * (Go to a page: a page of the website, 2026-11-14).
  *
  * @project     Heurist academic knowledge management system
  * @package     heurist-website
@@ -24,8 +25,8 @@ import { $HR, HMsg } from '#shared/ui';
 import { formDialog } from './designerDialogs.js';
 import { helpLine } from './designerStyles.js';
 
-/** Actions of the links of records; `viewer` only for media. */
-const ACTIONS = Object.freeze(['none', 'viewer', 'url', 'recordPage']);
+/** Actions of the links of records; `viewer` only for media; `page` (Go to a page) with the pages of the website. */
+const ACTIONS = Object.freeze(['none', 'viewer', 'url', 'recordPage', 'page']);
 
 /** Dialog id of the popup Define new record page (above the form that opens it). */
 const NEW_PAGE_DIALOG = 'h-cms-new-record-page';
@@ -33,17 +34,41 @@ const NEW_PAGE_DIALOG = 'h-cms-new-record-page';
 /**
  * Terms of the action field.
  *
- * @param {{viewer?: boolean}} [options] `viewer`: Player / Viewer (media).
+ * @param {{viewer?: boolean, page?: boolean, record?: boolean}} [options] `viewer`: Player / Viewer (media); `page`: Go to
+ *        a page (2026-11-14); `record: false`: without the actions of a record (a Record field of This website).
  * @returns {Array<{id: string, label: string, disabled?: boolean}>}
  */
-export function recordActionTerms({ viewer = false } = {}) {
+export function recordActionTerms({ viewer = false, page = false, record = true } = {}) {
   return [
     { id: 'none', label: 'None' },
     ...(viewer ? [{ id: 'viewer', label: 'Player / Viewer' }] : []),
-    { id: 'url', label: 'Open record URL' },
-    { id: 'recordPage', label: 'Open record page' },
-    { id: 'savedFilter', label: 'Saved filter', disabled: true }
+    ...(page ? [{ id: 'page', label: 'Go to a page' }] : []),
+    ...(record ? [
+      { id: 'url', label: 'Open record URL' },
+      { id: 'recordPage', label: 'Open record page' },
+      { id: 'savedFilter', label: 'Saved filter', disabled: true }
+    ] : [])
   ];
+}
+
+/**
+ * The pages of the website as terms of Go to a page: Home, then the menu pages (sub pages indented), not record pages.
+ *
+ * @param {{id: number, pages?: Array}|null} site Summary of the website (designer `site`).
+ * @returns {Array<{id: number, label: string}>}
+ */
+export function sitePageTerms(site) {
+  if (!site) return [];
+  const terms = [{ id: Number(site.id), label: $HR('Home') }];
+  const walk = (pages, depth) => {
+    for (const page of pages || []) {
+      if (page.record) continue;
+      terms.push({ id: Number(page.id), label: `${'\u00a0\u00a0'.repeat(depth)}${page.title || `#${page.id}`}` });
+      walk(page.children, depth + 1);
+    }
+  };
+  walk(site.pages, 1);
+  return terms;
 }
 
 /**
@@ -77,46 +102,53 @@ export function recordPageTerms(pages = [], templates = []) {
  *        other Types).
  * @param {boolean} [options.viewer] Player / Viewer (media).
  * @param {Array<object>} [options.pageTerms] recordPageTerms.
+ * @param {Array<object>|null} [options.sitePages] sitePageTerms: Go to a page with the field `page` (2026-11-14).
  * @param {object} [options.showWhen] When the action is offered (Record field: source *A record*; media: Type *Any
  *        record*); the Record page field also needs the action *Open record page*.
- * @returns {Array<object>} HEditForm fields: the action and `recordPage`.
+ * @returns {Array<object>} HEditForm fields: the action, `recordPage` and (sitePages) `page`.
  */
-export function recordActionFields({ name = 'action', viewer = false, pageTerms = [], showWhen = null } = {}) {
+export function recordActionFields({ name = 'action', viewer = false, pageTerms = [], sitePages = null, showWhen = null } = {}) {
+  const page = Array.isArray(sitePages) && sitePages.length > 0;
   return [
-    { name, type: 'enum', label: 'Action', mode: 'radio', max: 1, terms: recordActionTerms({ viewer }), ...(showWhen ? { showWhen } : {}) },
+    { name, type: 'enum', label: 'Action', mode: 'radio', max: 1, terms: recordActionTerms({ viewer, page }), ...(showWhen ? { showWhen } : {}) },
     { name: 'recordPage', type: 'enum', label: 'Record page', mode: 'select', max: 1, terms: pageTerms,
-      showWhen: { ...(showWhen || {}), [name]: 'recordPage' } }
+      showWhen: { ...(showWhen || {}), [name]: 'recordPage' } },
+    ...(page ? [{ name: 'page', type: 'enum', label: 'Page', mode: 'select', max: 1, terms: sitePages,
+      showWhen: { ...(showWhen || {}), [name]: 'page' } }] : [])
   ];
 }
 
 /**
  * Values of the action fields from settings.
  *
- * @param {{action?: string, recordPage?: number}} settings
+ * @param {{action?: string, recordPage?: number, page?: number}} settings
  * @param {{viewer?: boolean}} [options]
- * @returns {{action: string, recordPage: number|null}}
+ * @returns {{action: string, recordPage: number|null, page: number|null}}
  */
 export function recordActionValues(settings = {}, { viewer = false } = {}) {
   const action = ACTIONS.includes(settings.action) && (viewer || settings.action !== 'viewer') ? settings.action : 'none';
-  return { action, recordPage: Number(settings.recordPage) > 0 ? Number(settings.recordPage) : null };
+  return { action, recordPage: Number(settings.recordPage) > 0 ? Number(settings.recordPage) : null,
+    page: Number(settings.page) > 0 ? Number(settings.page) : null };
 }
 
 /**
  * Settings of the action from the values of the form.
  *
- * @param {{action?: string, recordPage?: number|string}} values
+ * @param {{action?: string, recordPage?: number|string, page?: number|string}} values
  * @param {{viewer?: boolean, allowed?: boolean}} [options] `allowed`: false when the action is not offered (another
  *        source or Type): `none`.
- * @returns {{action: string, recordPage?: number}}
+ * @returns {{action: string, recordPage?: number, page?: number}}
  */
 export function recordActionSettings(values = {}, { viewer = false, allowed = true } = {}) {
-  const { action, recordPage } = recordActionValues(values, { viewer });
+  const { action, recordPage, page } = recordActionValues(values, { viewer });
   if (!allowed) return { action: 'none' };
+  if (action === 'page') return page ? { action, page } : { action: 'none' };
   return action === 'recordPage' && recordPage ? { action, recordPage } : { action: action === 'recordPage' ? 'none' : action };
 }
 
-/** Issues of the action fields: Open record page needs a page. */
+/** Issues of the action fields: Open record page needs a record page, Go to a page a page. */
 export function recordActionIssues(values = {}) {
+  if (values.action === 'page' && !(Number(values.page) > 0)) return [{ field: 'page', message: $HR('Choose a page') }];
   return values.action === 'recordPage' && !(Number(values.recordPage) > 0)
     ? [{ field: 'recordPage', message: $HR('Choose a record page or define a new one') }]
     : [];
@@ -186,7 +218,8 @@ export function attachNewRecordPage(edit, services) {
 }
 
 /**
- * The Record page select and Define new record page as plain controls (the action menu form).
+ * The Record page select and Define new record page as plain controls (the action menu form). No record page yet
+ * (2026-11-14): only the button, with its caption "Define new record page"; the select is shown after the first page.
  *
  * @param {object} services See attachNewRecordPage.
  * @param {number|null} [value] The chosen page.
@@ -201,7 +234,7 @@ export function recordPagePicker(services, value = null) {
     select.replaceChildren();
     const empty = document.createElement('option');
     empty.value = '';
-    empty.textContent = $HR('Record page');
+    empty.textContent = $HR('Select Record page');
     select.append(empty);
     for (const term of services.recordPageTerms?.() || []) {
       const option = document.createElement('option');
@@ -213,14 +246,23 @@ export function recordPagePicker(services, value = null) {
   };
   fill(value);
   element.append(select);
+  let button = null;
+  const show = () => {
+    const none = select.querySelectorAll('option').length < 2;
+    select.hidden = none && Boolean(button);
+    if (button) newPageCaption(button, none);
+  };
   if (typeof services.createRecordPage === 'function') {
-    const button = newPageButton();
+    button = newPageButton();
     button.addEventListener('click', async () => {
       const page = await openNewRecordPageForm(services);
-      if (page) fill(page.id);
+      if (!page) return;
+      fill(page.id);
+      show();
     });
     element.append(button);
   }
+  show();
   return { element, select };
 }
 
@@ -236,4 +278,18 @@ function newPageButton() {
   icon.setAttribute('aria-hidden', 'true');
   button.append(icon);
   return button;
+}
+
+/** The caption of the button beside its icon: shown while the website has no record page (2026-11-14). */
+function newPageCaption(button, shown) {
+  let caption = button.querySelector('.h-cms-new-record-page-caption');
+  if (!shown) {
+    caption?.remove();
+    return;
+  }
+  if (caption) return;
+  caption = document.createElement('span');
+  caption.className = 'h-cms-new-record-page-caption';
+  caption.textContent = ` ${$HR('Define new record page')}`;
+  button.append(caption);
 }

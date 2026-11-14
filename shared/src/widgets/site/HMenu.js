@@ -11,8 +11,8 @@
  * levels) / auto (vertical in a vertical header); `showHome` a Home entry first (website menu);
  * `selectableParent` (default true) a page with sub pages opens, else its title opens the sub menu;
  * `presentation` of an action menu: links, buttons, icons or dropdown. An item: title, url, current,
- * children, icon (image URL), fa (Font Awesome classes), format name / icon / both, newTab, hidden (a page hidden in the
- * main menu: class is-menu-hidden, review 2026-11-11).
+ * children, icon (image URL), fa (Font Awesome classes), format name / icon / both, description (the rollover of every
+ * format, review 2026-11-14), newTab, hidden (a page hidden in the main menu: class is-menu-hidden, review 2026-11-11).
  * On a narrow screen, or when it does not fit its place in one row (plan 27f §13), the horizontal website menu is
  * behind a menu button.
  *
@@ -84,7 +84,8 @@ export class HMenu extends HBaseWidget {
       toggle.type = 'button';
       toggle.className = 'h-site-menu-toggle';
       toggle.setAttribute('aria-expanded', 'false');
-      toggle.textContent = presentation === 'dropdown' ? (settings.label || $HR('Menu')) : $HR('Menu');
+      if (presentation === 'dropdown') toggle.textContent = settings.label || $HR('Menu');
+      else menuIcon(toggle);
       nav.append(toggle);
     }
     nav.append(this._list(items, 'h-site-menu-list', settings.selectableParent !== false));
@@ -96,7 +97,7 @@ export class HMenu extends HBaseWidget {
   _activate(nav) {
     const toggle = [...nav.children].find((child) => child.classList?.contains('h-site-menu-toggle'));
     if (toggle) {
-      if (!nav.classList.contains('h-site-menu-dropdown')) toggle.textContent = $HR('Menu');
+      if (!nav.classList.contains('h-site-menu-dropdown')) menuIcon(toggle);
       this.listen(toggle, 'click', () => {
         const open = !nav.classList.contains('is-open');
         nav.classList.toggle('is-open', open);
@@ -200,7 +201,9 @@ export class HMenu extends HBaseWidget {
           target.setAttribute('data-h-action', item.action);
           target.setAttribute('data-h-target', String(item.target ?? ''));
         }
-        if (item.format === 'icon' || (item.fa && !item.title)) target.setAttribute('title', item.title || '');
+        // the rollover: the description of the page in every mode, else the title of an icon only entry (review 2026-11-14)
+        const rollover = String(item.description || '').trim() || (item.format === 'icon' || (item.fa && !item.title) ? item.title || '' : '');
+        if (rollover) target.setAttribute('title', rollover);
       }
       target.append(...menuLabel(item));
       if (item.current) {
@@ -274,4 +277,11 @@ function menuLabel(item) {
 
 function hasCurrent(items) {
   return items.some((item) => item.current || hasCurrent(item.children || []));
+}
+
+/** The button of a collapsed website menu: the "3 bars" icon, its name for screen readers (2026-11-14). */
+function menuIcon(toggle) {
+  toggle.innerHTML = '<i class="fa-solid fa-bars" aria-hidden="true"></i>';
+  toggle.title = $HR('Menu');
+  toggle.setAttribute('aria-label', toggle.title);
 }

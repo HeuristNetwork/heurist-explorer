@@ -29,6 +29,7 @@ import { exclusiveAccordion } from '#shared/widgets/layout/accordion.js';
 import { actionMenuItems, HMenu } from '#shared/widgets/site/HMenu.js';
 import { HLangSwitch } from '#shared/widgets/site/HLangSwitch.js';
 import { HEmailForm } from '#shared/widgets/site/HEmailForm.js';
+import { fileMediaUrls } from '#shared/recordview/fileMediaItem.js';
 import { SITE_WIDGETS, mountSiteWidget } from './siteWidgets.js';
 
 /**
@@ -73,7 +74,7 @@ export function readSiteConfig(doc = document) {
  * @returns {Promise<Map<string, object>>} Mounted instances by id: the module API or the widget.
  */
 export async function startSite({ root, config, loaders = MODULE_LOADERS }) {
-  enhanceControls(root);
+  enhanceControls(root, config.runtime);
   const jobs = [];
   // written by the server, so they are here already; a preview of the designer opens nothing; with the navigation
   // modes swap / scroll other pages come later (one listener on the root serves them too)
@@ -255,13 +256,45 @@ export function unmountInstance(instance) {
 }
 
 /**
- * Tabs and one-open accordions of the controls inside an element (the page, or a part the designer replaced).
+ * Tabs and one-open accordions of the controls inside an element (the page, or a part the designer replaced), and the
+ * background videos of groups.
  *
  * @param {HTMLElement} root
+ * @param {object} [runtime] `runtime` of the configuration block (baseUrl, database): the background videos.
  */
-export function enhanceControls(root) {
+export function enhanceControls(root, runtime = null) {
   for (const container of root.querySelectorAll('[data-h-control="tabs"]')) enhanceTabs(container);
   for (const container of root.querySelectorAll('[data-h-control="accordion"]')) exclusiveAccordion(container);
+  if (runtime) enhanceBackgroundVideos(root, runtime);
+}
+
+/**
+ * The background videos of groups (plan 27i §9 D): a group with `data-h-bg-video` (the key of a registered file) gets a
+ * muted video in a loop as its first child (CSS: behind the content, over the whole group). The background image of
+ * the group stays as the poster.
+ *
+ * @param {HTMLElement} root
+ * @param {{baseUrl?: string, database?: string}} runtime
+ */
+export function enhanceBackgroundVideos(root, runtime) {
+  const urls = fileMediaUrls(runtime.baseUrl || '', runtime.database || '');
+  const groups = [...(root.matches?.('[data-h-bg-video]') ? [root] : []), ...root.querySelectorAll('[data-h-bg-video]')];
+  for (const group of groups) {
+    const key = group.getAttribute('data-h-bg-video') || '';
+    const current = [...group.children].find((child) => child.tagName === 'VIDEO' && child.classList.contains('h-site-bg-video'));
+    if (current?.getAttribute('data-key') === key) continue;
+    current?.remove();
+    if (!/^[A-Za-z0-9]+$/.test(key)) continue;
+    const video = (group.ownerDocument || document).createElement('video');
+    video.className = 'h-site-bg-video';
+    video.setAttribute('data-key', key);
+    video.setAttribute('aria-hidden', 'true');
+    for (const name of ['autoplay', 'muted', 'loop', 'playsinline']) video.setAttribute(name, '');
+    video.muted = true;
+    video.preload = 'auto';
+    video.src = urls.file(key);
+    group.prepend(video);
+  }
 }
 
 /**
@@ -321,7 +354,7 @@ export function designHooks({ config, mounted, loaders = MODULE_LOADERS }) {
   return {
     config,
     mounted,
-    enhance: (root) => enhanceControls(root),
+    enhance: (root) => enhanceControls(root, config.runtime),
     unmountInstance: (id) => {
       unmountInstance(mounted.get(id));
       mounted.delete(id);

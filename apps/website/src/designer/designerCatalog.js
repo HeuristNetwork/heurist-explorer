@@ -19,7 +19,7 @@
  * @since       8.0
  */
 
-/** Page templates of *Add page*; for now every template creates a blank page (templates come in a later phase). */
+/** Page templates of *Add page*: the form of a new page follows (plan 27i §9); Blog is still `pending` (a blank page). */
 export const PAGE_TEMPLATES = Object.freeze([{
   label: '',
   items: [
@@ -30,47 +30,47 @@ export const PAGE_TEMPLATES = Object.freeze([{
       preview: [['h', 10, 8, 60, 7], ['t', 10, 22, 100, 40]]
     },
     {
-      value: 'cover', label: 'Cover', available: true, pending: true, defaultTitle: 'Welcome',
-      description: 'A full-screen background image with the project logo, title, a short description and a'
-        + ' <i>Get started</i> button. The header and footer of the website are hidden on this page.',
+      value: 'cover', label: 'Cover', available: true, defaultTitle: 'Cover',
+      description: 'A welcome page over the whole window: a banner as the background, the logo, title, subtitle and'
+        + ' summary of the website and an <i>Enter site</i> button. The header and footer of the website are hidden at first.'
+        + '<p>Without a background and with a flag as the logo: an acknowledgement page.</p>',
       preview: [['i', 1, 1, 118, 78], ['i', 50, 14, 20, 16], ['h', 30, 36, 60, 7], ['t', 30, 46, 60, 12], ['f', 48, 62, 24, 8]]
     },
     {
-      value: 'landing', label: 'Landing', available: true, pending: true, defaultTitle: 'Welcome',
-      description: 'A welcome page: project logo and title, a short description of the project with one or two buttons'
-        + ' (for example <i>Explore the data</i> and <i>About</i>) and an image beside them.<p>Usually the home page of the website.</p>',
+      value: 'landing', label: 'Landing', available: true, defaultTitle: 'Welcome',
+      description: 'A welcome page: a banner, the logo and the summary of the website beside a slideshow, buttons'
+        + ' (<i>About</i>, <i>Explore</i>), features and news as record cards.<p>Usually the home page of the website.</p>',
       preview: [['i', 10, 8, 18, 18], ['h', 32, 13, 50, 7], ['t', 10, 32, 55, 26], ['f', 10, 64, 22, 7], ['f', 36, 64, 22, 7], ['i', 72, 30, 38, 40]]
     },
     {
-      value: 'about', label: 'About', available: true, pending: true, defaultTitle: 'About',
-      description: 'Describes your project in several sections, each with a heading, text and an image: aims, history,'
-        + ' sources, methods, funding and partners.',
+      value: 'about', label: 'About', available: true, defaultTitle: 'About',
+      description: 'Describes your project in sections of your choice, each with a heading, a starting text and an image:'
+        + ' origins, description, aims and methodology, sources of data, acknowledgements, Heurist.',
       preview: [['h', 10, 6, 50, 7], ['i', 10, 18, 30, 24], ['h', 46, 18, 40, 5], ['t', 46, 26, 64, 16],
         ['h', 10, 48, 40, 5], ['t', 10, 56, 64, 16], ['i', 80, 48, 30, 24]]
     },
     {
-      value: 'features', label: 'Features', available: true, pending: true, defaultTitle: 'Features',
-      description: 'The main features or parts of the project as cards, each with an image, a short description and a'
-        + ' link to a page of the website.',
+      value: 'features', label: 'Features', available: true, defaultTitle: 'Features',
+      description: 'The main features or parts of the project as cards, each with a title, an image and a short'
+        + ' description, in three columns or one under another.',
       preview: [['h', 10, 6, 40, 7], ['b', 8, 20, 32, 54], ['i', 11, 23, 26, 18], ['t', 11, 44, 26, 26],
         ['b', 44, 20, 32, 54], ['i', 47, 23, 26, 18], ['t', 47, 44, 26, 26],
         ['b', 80, 20, 32, 54], ['i', 83, 23, 26, 18], ['t', 83, 44, 26, 26]]
     },
     {
       value: 'team', label: 'Team', available: true, defaultTitle: 'Team',
-      description: 'Presents the project team: a card for each person, made by the Smarty report <i>Team member</i>.'
-        + '<p>Pick the records in the configuration of the cards.</p>',
+      description: 'Presents the project team: a card for each person record, made by the Smarty report <i>Team member</i>,'
+        + ' or cards with a name, role and text to fill in.',
       preview: [['h', 10, 6, 40, 7], ['b', 10, 20, 46, 26], ['i', 13, 23, 14, 20], ['t', 30, 24, 23, 18],
         ['b', 64, 20, 46, 26], ['i', 67, 23, 14, 20], ['t', 84, 24, 23, 18],
         ['b', 10, 50, 46, 26], ['i', 13, 53, 14, 20], ['t', 30, 54, 23, 18],
         ['b', 64, 50, 46, 26], ['i', 67, 53, 14, 20], ['t', 84, 54, 23, 18]]
     },
     {
-      value: 'discover', label: 'Discover', available: true, pending: true, defaultTitle: 'Discover',
-      description: 'A discovery page that combines search filters with presentation modules: data (list or table), map,'
-        + ' timeline, graph, custom report and crosstabs.<p>The modules show the same records: a selection in one of them'
-        + ' is shown in the others.</p>',
-      preview: [['m', 8, 6, 26, 68, 'Filter'], ['m', 38, 6, 74, 40, 'Map'], ['m', 38, 50, 36, 24, 'Data'], ['m', 76, 50, 36, 24, 'Timeline']]
+      value: 'discover', label: 'Discover', available: true, defaultTitle: 'Discover',
+      description: 'A discovery page with the Explorer of the database: search filters, results and the presentation'
+        + ' modules (data, map, timeline, graph).<p>Configure the Explorer in the page tree.</p>',
+      preview: [['h', 10, 6, 40, 7], ['m', 8, 18, 104, 56, 'Explorer']]
     },
     {
       value: 'blog', label: 'Blog', available: true, pending: true, defaultTitle: 'News',
@@ -80,9 +80,9 @@ export const PAGE_TEMPLATES = Object.freeze([{
         ['i', 10, 40, 22, 16], ['h', 36, 40, 50, 4], ['t', 36, 47, 74, 9], ['i', 10, 62, 22, 14], ['h', 36, 62, 50, 4], ['t', 36, 69, 74, 7]]
     },
     {
-      value: 'contact', label: 'Contact', available: true, pending: true, defaultTitle: 'Contact',
-      description: 'A contact page: contact details of the project and an email form which visitors use to send a'
-        + ' message (the email address is not shown on the page).',
+      value: 'contact', label: 'Contact', available: true, defaultTitle: 'Contact',
+      description: 'A contact page: address and contact details of the project, an email form which visitors use to send a'
+        + ' message (the email address is not shown on the page) and links to social media.',
       preview: [['h', 10, 6, 40, 7], ['t', 10, 20, 40, 30], ['f', 60, 20, 50, 7], ['f', 60, 31, 50, 7], ['f', 60, 42, 50, 20], ['f', 88, 66, 22, 7]]
     },
     {
@@ -92,9 +92,9 @@ export const PAGE_TEMPLATES = Object.freeze([{
       preview: [['h', 10, 6, 60, 7], ['m', 8, 18, 104, 56, 'Record view']]
     },
     {
-      value: 'publications', label: 'Publications', available: true, pending: true, defaultTitle: 'Publications',
-      description: 'A bibliography: the publications of the project or the references of the database as a list made by'
-        + ' a custom report, grouped by year or type.',
+      value: 'publications', label: 'Publications', available: true, defaultTitle: 'Publications',
+      description: 'A bibliography: the publications of the project or the references of the database as a generated'
+        + ' report (chosen in the next step), for example grouped by year or type.',
       preview: [['h', 10, 6, 50, 7], ['h', 10, 18, 20, 4], ['t', 10, 24, 100, 16], ['h', 10, 46, 20, 4], ['t', 10, 52, 100, 22]]
     }
   ]

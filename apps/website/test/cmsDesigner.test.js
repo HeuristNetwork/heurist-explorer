@@ -31,7 +31,7 @@ const {
 const { designerHost, designerUrl, designHooks, isFramed } = await import('../src/siteRuntime.js');
 const { CmsDesigner } = await import('../src/designer/CmsDesigner.js');
 const { readFieldValues, restoreFieldValues } = await import('../src/designer/CmsPreview.js');
-const { presetName, cssText } = await import('../src/designer/designerDialogs.js');
+const { openAddPageForm, presetName, cssText } = await import('../src/designer/designerDialogs.js');
 
 const CODES = { home: 51, page: 52, name: 1, content: 4, header: 929, footer: 940, configuration: 1187, translations: 1202, version: 980 };
 const CONFIG = JSON.stringify({ schema: 'heurist-cms/4', instances: {}, styles: { presets: { card: { label: 'Card', padding: '4px' } } } });
@@ -148,7 +148,7 @@ test('catalogs of Add page and Add element: the available elements are the ones 
     ['blank', 'cover', 'landing', 'about', 'features', 'team', 'discover', 'blog', 'contact', 'record', 'publications']);
   assert.equal(templates[0].defaultTitle, '', 'Blank has no default title');
   assert.ok(templates.every((item) => item.available), 'every template can be added (a blank page for now)');
-  assert.deepEqual(templates.filter((item) => !item.pending).map((item) => item.value), ['blank', 'team', 'record']);
+  assert.deepEqual(templates.filter((item) => !item.pending).map((item) => item.value), ['blank', 'cover', 'landing', 'about', 'features', 'team', 'discover', 'contact', 'record', 'publications']);
   for (const item of [...elements, ...templates]) {
     assert.ok(item.description && item.preview.length, `${item.value}: description and preview`);
     assert.ok(previewSvg(item.preview));
@@ -487,7 +487,7 @@ test('designer: west pane with the tabs Site | Page and help, the preview alone 
   assert.ok(tool.classList.contains('h-tree-tool-always'), 'Add page always on Home');
   assert.equal(tool.textContent.trim(), 'Add page', 'with a caption');
   assert.deepEqual(designer._siteTools({ id: 'page:11' }).map((item) => [item.action, item.icon]),
-    [['edit', 'fa-pen'], ['layout', 'fa-table-columns'], ['add', 'fa-plus'], ['remove', 'fa-xmark']], 'one tool to remove a page from the website');
+    [['edit', 'fa-pen'], ['add', 'fa-plus'], ['remove', 'fa-xmark']], 'one tool to remove a page from the website');
   assert.match(container.querySelector('.h-cms-help').textContent, /main menu/);
   // second row: language and page width as selects
   assert.equal(container.querySelector('.h-cms-view-bar').querySelectorAll('select').length, 2);
@@ -498,11 +498,22 @@ test('designer: west pane with the tabs Site | Page and help, the preview alone 
   assert.equal(designer._propertiesRecord(), 12, 'Properties = the open page');
   assert.match(container.querySelector('.h-cms-help').textContent, /order on the page/);
   assert.ok(designer.buttons.save.classList.contains('h-btn-primary'), 'Save is the primary button');
-  const buttons = [...container.querySelector('.h-cms-pane-bar').querySelectorAll('button')];
-  assert.equal(buttons.at(-1), designer.buttons.save, 'Save on the right');
+  const topBar = container.querySelector('.h-cms-pane-bar-top');
+  const bottomBar = designer.pageBar;
+  // above the tree: Copy, Paste, Layout ... Save Page; below it: Own style, Undo, Redo, Discard ... Save Page (2026-11-14)
+  const { style, undo, redo, discard, copy, paste, layout, save, saveTop } = designer.buttons;
+  assert.ok(topBar.classList.contains('h-cms-pane-bar-top'));
+  assert.deepEqual([...topBar.querySelectorAll('button')], [copy, paste, layout, saveTop]);
+  assert.deepEqual([...bottomBar.querySelectorAll('button')], [style, undo, redo, discard, save]);
+  assert.equal(save.textContent.trim(), 'Save Page');
+  assert.equal(saveTop.textContent.trim(), 'Save Page');
+  assert.equal(saveTop.disabled, true, 'nothing to save yet');
+  assert.equal(layout.hidden, true, 'Layout for the header and footer only');
   assert.equal(designer._discardQuestion(), 'Discard the changes of page "News"?');
   await designer.selectPart(10, 'header');
   assert.equal(designer._discardQuestion(), 'Discard the changes of Header?');
+  assert.equal(designer.buttons.layout.hidden, false);
+  assert.equal(designer.buttons.style.disabled, true, 'the header itself has no own style');
   designer.destroy();
 });
 
@@ -510,30 +521,33 @@ test('designer: tools of the part tree, + of tabs, captions, copy below the tree
   const { designer } = designerOf();
   await designer.open(10);
   const root = designer._nodeTools({ id: '#root' });
-  assert.deepEqual(root.map((item) => [item.action, item.label, item.always]), [['add', 'Add element', true]]);
+  // the page is the root group (plan 27i §9 B): its popup, then Add element (the palette is in the bar)
+  assert.deepEqual(root.map((item) => [item.action, item.label, item.always]),
+    [['page', undefined, undefined], ['add', 'Add element', true]]);
   let tabs = null;
   designer._edit((doc) => { tabs = doc.insertElement('content', 'tabs', { id: null, position: 'inside' }); return true; });
   const actions = (id) => designer._nodeTools({ id }).map((item) => item.action);
   const panel = designer._treeItem(tabs).children[0];
+  // the pen opens the popup of the element, the palette its own style (review 2026-11-14)
   assert.deepEqual(actions(tabs), ['add', 'delete']);
   assert.deepEqual(actions(panel.id), ['add', 'caption', 'delete']);
   assert.deepEqual(actions(panel.children[0].id), ['edit', 'delete'], 'a text: pen and remove');
+  // a group: the palette opens its Own style (2026-11-14)
+  let group = null;
+  designer._edit((doc) => { group = doc.insertElement('content', 'group', { id: null, position: 'inside' }); return true; });
+  if (group) assert.deepEqual(actions(group), ['add', 'style', 'delete']);
   await designer._addElement(tabs);
   assert.equal(designer._treeItem(tabs).children.length, 3, '+ of tabs adds a panel at once');
   // a click on a caption in the preview selects its panel
   designer._selectNode(panel.caption, { fromPreview: true });
   assert.equal(designer.selectedNode, panel.id);
-  const picker = () => designer.pickerBox.querySelectorAll('button');
-  assert.deepEqual(picker().map((button) => button.textContent.trim()), ['Own style', 'Caption', '', ''],
-    'tools of the selected panel, Copy and Paste as icons');
-  assert.equal(picker()[2].disabled, false, 'copy of the selected panel');
+  // Copy and Paste in the bar below the tree
+  assert.equal(designer.buttons.copy.disabled, false, 'copy of the selected panel');
   designer._copy('all');
   assert.equal(designer.clipboard.sourceId, panel.id);
-  designer._selectNode(panel.children[0].id);
-  assert.deepEqual(picker().map((button) => button.textContent.trim()).slice(0, 2), ['Own style', 'Edit text']);
+  assert.equal(designer.buttons.paste.disabled, false);
   designer._selectNode(null);
-  assert.equal(picker().length, 2, 'nothing selected: Copy and Paste only');
-  assert.equal(picker()[0].disabled, true, 'nothing selected: no copy');
+  assert.equal(designer.buttons.copy.disabled, true, 'nothing selected: no copy');
   designer.destroy();
 });
 
@@ -543,9 +557,6 @@ test('designer: a media element has Edit media; its file is read by its key (GET
   let media = null;
   designer._edit((doc) => { media = doc.insertElement('content', 'media', { id: null, position: 'inside' }); return true; });
   assert.deepEqual(designer._nodeTools({ id: media }).map((item) => item.action), ['media', 'delete']);
-  designer._selectNode(media);
-  const picker = designer.pickerBox.querySelectorAll('button').map((button) => button.textContent.trim());
-  assert.deepEqual(picker.slice(0, 2), ['Own style', 'Edit media']);
   assert.equal(designer._treeItem(media).configured, false, 'no file yet: marked');
   const asked = [];
   designer.apiClient = {
@@ -643,4 +654,95 @@ test('designer: a website the user can not change is read only', async () => {
   assert.equal(designer._edit((doc) => doc.setText('h1', 'x')), false);
   assert.equal(container.querySelector('.h-cms-picker'), null, 'no element picker');
   designer.destroy();
+});
+
+test('designer: Own style form (plan 27i §10, review 2026-11-14): caption above the own style of a group, applied at once', async () => {
+  const { designer } = designerOf();
+  await designer.open(10);
+  let group = null;
+  designer._edit((doc) => { group = doc.insertElement('content', 'group', { id: null, position: 'inside' }); return true; });
+  assert.equal(designer.formPanel.isOpen(), false);
+  // the page: its own style; a group: caption and own style; the header itself: none
+  assert.deepEqual(designer._formSections('#root').map((section) => section.label), ['Own style of the page']);
+  assert.equal(designer._formSections(group).map((section) => section.label).join(), 'Caption,Own style');
+  assert.equal(designer._formSections('h1').map((section) => section.label).join(), 'Own style');
+  designer._selectNode(group);
+  const west = [];
+  designer.layout.getSize = () => 300;
+  designer.layout.setSize = (region, size) => west.push(size);
+  await designer._toggleStyleForm();
+  assert.equal(designer.formPanel.isOpen(), true, 'the palette of the bar opens the form');
+  assert.deepEqual([designer.layout.options.minWest, west], [380, [380]], 'the west pane as wide as the form');
+  assert.equal(designer.formPanel.element.querySelector('.h-cms-form-tabs'), null, 'no tabs');
+  assert.equal(designer.formPanel.element.querySelectorAll('.h-cms-form-section').length, 2);
+  await designer._toggleStyleForm();
+  assert.equal(designer.formPanel.isOpen(), false, 'the palette of the bar closes it');
+  assert.equal(designer.layout.options.minWest, 280, 'closed: the usual minimum');
+  await designer.selectPart(10, 'header', { force: true });
+  assert.equal(designer._formSections('#root'), null, 'no page form for the header');
+  await designer.selectPart(10, 'content', { force: true });
+  designer._edit((doc) => { group = doc.insertElement('content', 'group', { id: null, position: 'inside' }); return true; });
+  const steps = designer.undoStack.length;
+  designer._formEdit(`caption:${group}`, (doc) => doc.setCaption(group, 'A'));
+  designer._formEdit(`caption:${group}`, (doc) => doc.setCaption(group, 'Ab'));
+  assert.equal(designer.undoStack.length, steps + 1, 'typing in one field: one undo step');
+  assert.equal(designer._currentRecord().doc.caption(group).text, 'Ab');
+  let restyled = 0;
+  let applied = 0;
+  designer.preview.restyle = () => { restyled += 1; };
+  const apply = designer.preview.apply.bind(designer.preview);
+  designer.preview.apply = (draft) => { applied += 1; apply(draft); };
+  designer._formEdit(`style:${group}`, (doc) => (doc.setNodeStyle(group, { padding: '8px' }), true));
+  assert.deepEqual([restyled, applied], [1, 0], 'a style: the styles of the preview only');
+  assert.equal(designer.undoStack.length, steps + 2, 'another field: another step');
+  designer._formEdit('style:page', (doc) => (doc.setPageStyle({ display: 'grid' }), true));
+  assert.deepEqual(designer._currentRecord().doc.pageStyle(), { display: 'grid' });
+  designer.undo();
+  assert.deepEqual(designer._currentRecord().doc.pageStyle(), {});
+  // page fields of the page popup wait for Save Page
+  designer._currentRecord().fieldChanges = { 3: ['Menu text'] };
+  assert.equal(designer.isDirty(), true, 'changed page fields: unsaved');
+  designer.discard();
+  assert.equal(designer._currentRecord().fieldChanges, undefined);
+  designer.destroy();
+});
+
+test('Add page (review 2026-11-14): list and preview, then Add shows the form of the template in the same popup', async () => {
+  const show = HMsg.showMsgDlg;
+  const close = HMsg.closeMsgDlg;
+  const get = HMsg.getMsgDlg;
+  HMsg.getMsgDlg = () => null;
+  const dialogs = [];
+  HMsg.showMsgDlg = (body, options) => { dialogs.push({ body, ...options }); return null; };
+  HMsg.closeMsgDlg = () => {};
+  const made = [];
+  try {
+    const answer = openAddPageForm({
+      createForm: (host, template, title) => {
+        const form = { template, title, destroyed: false, read: async () => ({ details: { 1: [title] }, values: {}, layout: {} }),
+          destroy: async () => { form.destroyed = true; } };
+        made.push(form);
+        return form;
+      }
+    });
+    const body = dialogs[0].body;
+    assert.equal(dialogs[0].title, 'Add page', 'the title of the popup stays');
+    assert.equal(body.querySelector('input'), null, 'no Title input');
+    assert.ok(body.querySelector('.h-cms-catalog-info').children.length >= 3, 'name, description and preview of the template');
+    assert.equal(made.length, 0, 'no form before Add');
+    const cover = body.querySelectorAll('.h-cms-catalog-item').find((item) => item.textContent === 'Cover');
+    cover.click();
+    await dialogs[0].buttons[0].onClick();
+    assert.deepEqual([made[0].template, made[0].title], ['cover', 'Cover'], 'Add: the form of the chosen template');
+    assert.equal(body.querySelector('.h-cms-catalog-main').hidden, true, 'list and preview hidden');
+    assert.ok(body.querySelector('.h-cms-catalog-form'));
+    await dialogs[0].buttons[0].onClick();
+    const result = await answer;
+    assert.deepEqual(result, { template: 'cover', title: 'Cover', form: { details: { 1: ['Cover'] }, values: {}, layout: {} } });
+    assert.ok(made.every((form) => form.destroyed), 'the form is destroyed');
+  } finally {
+    HMsg.showMsgDlg = show;
+    HMsg.closeMsgDlg = close;
+    HMsg.getMsgDlg = get;
+  }
 });

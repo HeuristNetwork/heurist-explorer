@@ -50,6 +50,32 @@ export const CMS_MEDIA_DEFAULTS = Object.freeze({
 });
 
 /**
+ * URL of an image of the website bundle (`assets/{name}`), e.g. the placeholders and banners of the page templates
+ * (plan 27i §9): `cms/150x150.png`.
+ *
+ * @param {string} baseUrl Heurist base URL.
+ * @param {string} name Path below `assets/`.
+ * @returns {string}
+ */
+export function cmsAssetUrl(baseUrl, name) {
+  const root = baseUrl ? String(baseUrl).replace(/\/?$/, '/') : '';
+  return `${root}hclient/bundles/heurist-website/assets/${String(name || '').replace(/^\/+/, '')}`;
+}
+
+/**
+ * The inner HTML of a media element that shows a placeholder image (`settings.placeholder`, plan 27i §9) until a file
+ * is chosen.
+ *
+ * @param {string} name Image of assets/cms (CMS_ASSET_NAME), e.g. `cms/150x150.png`.
+ * @param {{width?: string, height?: string}} settings
+ * @param {string} baseUrl Heurist base URL.
+ * @returns {string}
+ */
+export function buildCmsPlaceholder(name, settings = {}, baseUrl = '') {
+  return `<img class="h-site-media-placeholder" src="${escape(cmsAssetUrl(baseUrl, name))}" alt=""${sizeAttributes(settings)} />`;
+}
+
+/**
  * The action of a media element; an element saved before plan 27e §20 has `player`.
  *
  * @param {{action?: string, player?: boolean}} settings

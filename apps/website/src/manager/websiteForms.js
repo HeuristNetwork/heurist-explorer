@@ -21,13 +21,26 @@ import { createWebsiteFieldsForm } from './websiteFields.js';
 const DIALOG_ID = 'h-website-dialog';
 
 /**
- * Yes/No question.
+ * The starter pages of a new website (2026-11-14): templates of the website editor; Home (Landing) is always made.
+ * `checked`: chosen at first.
+ */
+const STARTER_PAGES = Object.freeze([
+  { id: 'cover', label: 'Cover', checked: false },
+  { id: 'landing', label: 'Home (Landing)', checked: true, disabled: true },
+  { id: 'about', label: 'About', checked: true },
+  { id: 'discover', label: 'Discover', checked: true },
+  { id: 'contact', label: 'Contact', checked: true }
+]);
+
+/**
+ * Yes/No question, with an optional checkbox on the second row (Delete website: "Delete its menu pages too").
  *
  * @param {string} message Message text.
- * @param {{title?: string, yesLabel?: string, noLabel?: string}} [options]
+ * @param {{title?: string, yesLabel?: string, noLabel?: string, checkbox?: {label: string, checked?: boolean}}} [options]
+ *        `checkbox`: its `checked` is set when the question is answered.
  * @returns {Promise<boolean>}
  */
-export function confirmDialog(message, { title = 'Please confirm', yesLabel = 'Yes', noLabel = 'No' } = {}) {
+export function confirmDialog(message, { title = 'Please confirm', yesLabel = 'Yes', noLabel = 'No', checkbox = null } = {}) {
   return new Promise((resolve) => {
     let answered = false;
     const answer = (value) => {
@@ -38,7 +51,22 @@ export function confirmDialog(message, { title = 'Please confirm', yesLabel = 'Y
     const text = document.createElement('p');
     text.className = 'h-website-dialog-text';
     text.textContent = message;
-    const dialog = HMsg.showMsgDlg(text, {
+    let content = text;
+    let input = null;
+    if (checkbox) {
+      content = document.createElement('div');
+      const row = document.createElement('label');
+      row.className = 'h-website-dialog-check';
+      input = document.createElement('input');
+      input.type = 'checkbox';
+      input.checked = checkbox.checked === true;
+      input.addEventListener('change', () => { checkbox.checked = input.checked; });
+      const caption = document.createElement('span');
+      caption.textContent = checkbox.label;
+      row.append(input, caption);
+      content.append(text, row);
+    }
+    const dialog = HMsg.showMsgDlg(content, {
       message: true,
       dialogId: DIALOG_ID,
       title,
@@ -47,7 +75,17 @@ export function confirmDialog(message, { title = 'Please confirm', yesLabel = 'Y
         { label: noLabel, class: 'h-btn', onClick: () => answer(false) }
       ]
     });
-    dialog.addEventListener('close', () => { if (!answered) resolve(false); }, { once: true });
+    // the close event of a previous question on the same dialog element comes later (a task): it is not
+    // the answer to this question while the dialog is open again (Delete website, then Delete its pages)
+    const onClose = () => {
+      if (answered) return;
+      if (dialog.open) {
+        dialog.addEventListener('close', onClose, { once: true });
+        return;
+      }
+      resolve(false);
+    };
+    dialog.addEventListener('close', onClose, { once: true });
   });
 }
 
@@ -71,30 +109,44 @@ export async function openNewWebsiteForm({ languages = [], dbdefs, apiClient, co
   const fields = await createWebsiteFieldsForm(host, { dbdefs, apiClient, codes, services });
   const note = document.createElement('p');
   note.className = 'h-muted';
-  note.textContent = $HR('The website gets a header with a menu, a home page, a footer and one page "About". It is public.');
+  note.textContent = $HR('The website gets a header with a menu, a footer and the chosen pages. It is public.');
   let result = null;
   const answer = await openEditFormDialog({
     title: 'New website',
     className: 'h-dialog-new-website',
+    // the fields of the website first (put in by onReady), then the languages and the starter pages (2026-11-14)
     form: {
       groups: [{
         id: 'languages',
+        label: 'Languages',
         children: [
           { name: 'main', type: 'enum', label: 'Main language', max: 1, terms },
           { name: 'others', type: 'enum', label: 'Other languages', max: 0, mode: 'checkbox', terms }
         ]
+      }, {
+        id: 'pages',
+        label: 'Pages',
+        children: [
+          { name: 'pages', type: 'enum', label: 'Pages of the website', max: 0, mode: 'checkbox', terms: STARTER_PAGES,
+            help: 'Each page is made from its template with all its sections; change them in the website editor.' }
+        ]
       }]
     },
-    values: { main: 'eng', others: [] },
+    values: { main: 'eng', others: [], pages: STARTER_PAGES.filter((term) => term.checked).map((term) => term.id) },
     apiClient,
     dbdefs,
-    onReady: (edit) => edit.container.append(host, note),
+    onReady: (edit) => {
+      edit.container.prepend(host);
+      edit.container.append(note);
+    },
     validate: () => fields.validate(),
     buttons: [{ id: 'create', label: 'Create', primary: true }, { id: 'cancel', label: 'Cancel' }],
     onAction: (action, values) => {
       const main = String(values.main || 'eng');
       const others = [values.others].flat().filter(Boolean).map(String).filter((code) => code !== main);
-      result = { languages: [main, ...new Set(others)], details: fields.details() };
+      // Home (Landing) always
+      const pages = [...new Set(['landing', ...[values.pages].flat().filter(Boolean).map(String)])];
+      result = { languages: [main, ...new Set(others)], details: fields.details(), pages };
       return true;
     }
   }).finally(() => fields.destroy());

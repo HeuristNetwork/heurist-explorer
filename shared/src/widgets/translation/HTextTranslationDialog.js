@@ -34,6 +34,9 @@ import './HTextTranslationDialog.css';
 
 const DIALOG_ID = 'h-text-translation-dialog';
 
+/** The question Discard the changes (above the popup). */
+const DISCARD_DIALOG_ID = 'h-text-translation-discard';
+
 /**
  * Open the popup.
  *
@@ -50,16 +53,32 @@ export async function openTextTranslationDialog(options = {}) {
       HMsg.closeMsgDlg(dialogId);
       resolve(value);
     };
+    // Cancel, Escape and the close button: a changed text is not lost without a question (2026-11-14)
+    const cancel = async () => {
+      if (Object.keys(form.read().texts).length && !(await confirmDiscard())) return;
+      finish(null);
+    };
     const dialog = HMsg.showMsgDlg(form.element, {
       dialogId,
       title: $HR(options.title || 'Edit text'),
       buttons: [
         { label: 'OK', class: 'h-btn h-btn-primary', onClick: () => finish(form.read()) },
-        { label: 'Cancel', class: 'h-btn', onClick: () => finish(null) }
+        { label: 'Cancel', class: 'h-btn', onClick: () => void cancel() }
       ]
     });
+    const listening = new AbortController();
+    dialog?.addEventListener('cancel', (event) => {
+      event.preventDefault();
+      void cancel();
+    }, { signal: listening.signal });
+    // before the close handler of HMsg on the same button
+    dialog?.querySelector('[data-role="close"]')?.addEventListener('click', (event) => {
+      event.stopImmediatePropagation();
+      void cancel();
+    }, { capture: true, signal: listening.signal });
     dialog?.classList.add('h-dialog-text-translation');
     dialog?.addEventListener('close', () => {
+      listening.abort();
       dialog.classList.remove('h-dialog-text-translation');
       if (!done) resolve(null);
     }, { once: true });
@@ -71,6 +90,34 @@ export async function openTextTranslationDialog(options = {}) {
     HMsg.showMsgErr?.(error?.message || String(error));
   }
   return result.finally(() => form.destroy());
+}
+
+/**
+ * Discard the changed text? A question above the popup.
+ *
+ * @returns {Promise<boolean>} True: discard.
+ */
+function confirmDiscard() {
+  return new Promise((resolve) => {
+    let answered = false;
+    const answer = (value) => {
+      answered = true;
+      HMsg.closeMsgDlg(DISCARD_DIALOG_ID);
+      resolve(value);
+    };
+    const text = document.createElement('p');
+    text.textContent = $HR('The text has been changed. Discard the changes?');
+    const dialog = HMsg.showMsgDlg(text, {
+      dialogId: DISCARD_DIALOG_ID,
+      message: true,
+      title: $HR('Discard the changes'),
+      buttons: [
+        { label: 'Discard', class: 'h-btn h-btn-primary', onClick: () => answer(true) },
+        { label: 'Keep editing', class: 'h-btn', onClick: () => answer(false) }
+      ]
+    });
+    dialog?.addEventListener('close', () => { if (!answered) resolve(false); }, { once: true });
+  });
 }
 
 /**

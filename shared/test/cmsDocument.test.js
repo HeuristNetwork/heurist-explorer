@@ -21,7 +21,7 @@ for (const file of (await readdir(fixtures)).filter((name) => name.endsWith('.js
     assert.deepEqual(issues.map((issue) => `${issue.level}:${issue.code}`).sort(), [...fixture.expect.issues].sort());
     const styles = parsed.config.styles ?? {};
     const { css } = compileCmsStyles(styles.base ?? {}, [styles.nodes ?? {}], baseUrl,
-      { kinds: [styles.kinds ?? {}], presets: [styles.presets ?? {}], scope: fixture.scope ?? '' });
+      { kinds: [styles.kinds ?? {}], presets: [styles.presets ?? {}], scope: fixture.scope ?? '', page: { id: fixture.pageId ?? 0, style: styles.page ?? {} } });
     assert.equal(css, fixture.expect.css ?? '');
   });
 }
@@ -59,6 +59,6 @@ test('compileCmsStyles: the screen rules of kinds and presets come before the no
   });
   const node = css.indexOf('[data-h-node="n1"]{display:flex;}');
   const presetNarrow = css.lastIndexOf('[data-h-style="p1"]{display:block;}');
-  const kindNarrow = css.indexOf('[data-h-control="group"]{display:block;}');
+  const kindNarrow = css.indexOf('[data-h-control="group"]:where(:not(.h-site-hset)){display:block;}');
   assert.ok(kindNarrow > 0 && presetNarrow > kindNarrow && node > presetNarrow, 'kinds, presets, nodes; each with its screens');
 });

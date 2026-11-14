@@ -233,12 +233,13 @@ const KIND_SAMPLES = Object.freeze({
  *        createCodeEditor?: Function, files?: object, websiteFields?: Function, tab?: string}} values createCodeEditor(host,
  *        {value, language, onChange}): a code editor (CodeMirror, lazy); without it a plain text area. `files`: the
  *        background image picker (styleRows). `websiteFields(host)`: the fields of the website record in the Header block
- *        (websiteFields.js; a website only). `tab`: `layout` opens the tab Navigation and layout.
+ *        (websiteFields.js; a website only). `tab`: `layout` opens the tab Navigation and layout. `startPages`: the pages
+ *        of the Startup page selector, [{id, title}] (a website only; the first choice is the home page).
  * @returns {{element: HTMLElement, read: () => object|null, ready: Promise<void>, destroy: () => void, tabs: object}}
  *          read: null while a website field is not valid; `fields` the changed fields of the website record.
  */
 export function createStylesForm({ base = {}, kinds = {}, presets = {}, layout = {}, css = '', javaScriptAllowed = false, createCodeEditor = null,
-  files = null, websiteFields = null, tab = '' } = {}) {
+  files = null, websiteFields = null, tab = '', startPages = null } = {}) {
   const state = { base: { ...base }, kinds: structuredClone(kinds), presets: structuredClone(presets), layout: structuredClone(layout || {}),
     css: String(css ?? '') };
   // two columns: the tabs, and the preview of the selected tab (half as wide)
@@ -482,6 +483,13 @@ export function createStylesForm({ base = {}, kinds = {}, presets = {}, layout =
     return select;
   };
   const navigationBlock = block();
+  // Startup page (2026-11-14): the page of the website URL without a page; empty = the home page (the website record)
+  if (Array.isArray(startPages)) {
+    const start = Number(state.layout.startPage) || 0;
+    const choices = [['', 'Home page'], ...startPages.map((page) => [String(page.id), page.title])];
+    layoutSelect(navigationBlock, 'Startup page', choices, startPages.some((page) => Number(page.id) === start) ? String(start) : '',
+      (value) => setLayout(state.layout, 'startPage', Number(value) || null));
+  }
   const navigationNote = element('div', 'h-cms-styles-note');
   // swap and scroll work on the website only: the designer shows one page at a time (2026-11-12)
   const designNote = element('div', 'h-cms-styles-note h-cms-styles-note-warning');
@@ -642,7 +650,12 @@ export const SIMPLE_STYLE_FIELDS = Object.freeze([
       { property: 'grid-template-columns', label: 'Columns', columns: true },
       { property: 'gap', label: 'Gap between elements', hint: 'e.g. 12px' },
       { property: 'align-items', label: 'Row alignment', options: SELECT(['stretch', 'Stretch'], ['start', 'Top'], ['center', 'Center'],
-        ['end', 'Bottom']) }
+        ['end', 'Bottom']) },
+      // plan 27i §9 A: the content of all columns left / centre / right; the rows together in a tall group
+      { property: 'justify-items', label: 'Column alignment', options: SELECT(['stretch', 'Stretch'], ['start', 'Left'], ['center', 'Center'],
+        ['end', 'Right']) },
+      { property: 'align-content', label: 'Rows in the group', options: SELECT(['start', 'Top'], ['center', 'Center'], ['end', 'Bottom'],
+        ['space-between', 'Space between'], ['space-evenly', 'Space evenly']) }
     ] },
   { section: 'Group layout (flex)', group: true,
     // checked: a flex box; unchecked: display block
@@ -675,7 +688,7 @@ export const SIMPLE_STYLE_FIELDS = Object.freeze([
     { property: 'text-shadow', label: 'Text shadow', options: SELECT(['0 0 4px rgba(255, 255, 255, 0.9)', 'Light shadow (dark text)'],
       ['0 1px 3px rgba(0, 0, 0, 0.8)', 'Dark shadow (light text)'], ['none', 'None']) }
   ] },
-  { section: 'Background', toggle: {}, fields: [
+  { section: 'Background', toggle: {}, video: true, fields: [
     { property: 'background-color', label: 'Background colour' },
     { property: 'background-image', label: 'Image', image: true },
     { property: 'background-position', label: 'Position', options: SELECT(['center', 'Center'], ['top', 'Top'], ['bottom', 'Bottom'],
@@ -824,14 +837,17 @@ function isColorProperty(property) {
  *        giving them), the named colours of the colour inputs. `files`: the image picker of the background
  *        (registered image files; with `browseRecords` and `fileRecordType` in the record manager, addorbrowse);
  *        without it the image is a text value. `advanced`: start in Simple (false) or Advanced (true), the editor's
- *        own choice; null = the choice of the session.
- * @returns {{value: () => object, preset: () => string|null, cssClass: () => string|null}} `cssClass`: null
- *          while it has characters that are not allowed.
+ *        own choice; null = the choice of the session. `video`: the background video of a group (the key of a
+ *        registered file, '' none; null: not offered), a Video input in the Background section (plan 27i §9 D).
+ * @returns {{value: () => object, preset: () => string|null, cssClass: () => string|null, video: () => string}} `cssClass`:
+ *          null while it has characters that are not allowed.
  */
 export function styleRows(parent, style, onChange = null, {
   kind = null, inFlexGroup = false, presets = null, preset = null, cssClass = '', classInput = true, base = null, files = null,
-  advanced: startAdvanced = null
+  advanced: startAdvanced = null, video = null
 } = {}) {
+  // the background video of a group (plan 27i §9 D): the key of a registered file, not a style property
+  let videoKey = typeof video === 'string' ? video : '';
   // Simple or Advanced: the session's choice (own style), or the editor's own (Styles popup)
   let isAdvanced = startAdvanced ?? advancedMode;
   const screens = ['normal', ...Object.keys(SCREENS)];
@@ -936,6 +952,7 @@ export function styleRows(parent, style, onChange = null, {
     }
     if (Object.keys(off).length && Object.entries(off).every(([property, value]) => current[property] === value)) return false;
     if (opened.has(`${screen}:${section.section}`)) return true;
+    if (section.video && video !== null && screen === 'normal' && videoKey) return true;
     if (Object.keys(on).length && Object.entries(on).some(([property, value]) => current[property] === value)) return true;
     return section.fields.some((item) => String(current[item.property] ?? '').trim());
   };
@@ -948,6 +965,7 @@ export function styleRows(parent, style, onChange = null, {
       invalid.delete(`${screen}:${item.property}`);
     }
     for (const property of [...Object.keys(on), ...Object.keys(off)]) delete current[property];
+    if (section.video && !checked && screen === 'normal') videoKey = '';
     // Grid and Group layout exclude each other: checking one clears the other
     const keyProperties = Object.keys(section.toggle.key || {});
     if (checked && keyProperties.length) {
@@ -1006,8 +1024,14 @@ export function styleRows(parent, style, onChange = null, {
     }
     const url = /url\(\s*(['"]?)(.*?)\1\s*\)/i.exec(String(value || ''))?.[2] || '';
     const key = /[?&]file=([A-Za-z0-9]+)/.exec(url)?.[1] || '';
+    fileInput(host, 'image/*', key, (fileKey) => setValue(property, fileKey ? `url(${fileMediaUrls(baseUrl, files.database).file(fileKey)})` : ''));
+    // an image that is not a registered file (a banner of the page templates, plan 27i §9): its URL, to change or clear
+    if (url && !key) host.append(textInput(property, value, 'url(...)'));
+  };
+  // HInputFile on registered files of a MIME type; `onKey` gets the key of the chosen file ('' = cleared)
+  const fileInput = (host, mime, key, onKey) => {
     const input = new HInputFile().attach(host, {
-      suppressLabel: true, apiClient: files.apiClient, fileQuery: [{ 'f:29': 'image/*' }],
+      suppressLabel: true, apiClient: files.apiClient, fileQuery: [{ 'f:29': mime }],
       browseRecords: files.browseRecords || null, fileRecordType: Number(files.fileRecordType) || 0,
       fileViewer: baseUrl ? { baseUrl, database: files.database } : null
     }).render();
@@ -1022,7 +1046,7 @@ export function styleRows(parent, style, onChange = null, {
     host.addEventListener('h-input-change', async () => {
       const id = input.getValue();
       if (!id) {
-        setValue(property, '');
+        onKey('');
         return;
       }
       let fileKey = input.file?.ulf_ObfuscatedFileID;
@@ -1031,7 +1055,7 @@ export function styleRows(parent, style, onChange = null, {
         await input.source?.fetchLabels?.([id]);
         fileKey = input.source?.fileFor?.(id)?.key;
       }
-      if (fileKey) setValue(property, `url(${fileMediaUrls(baseUrl, files.database).file(fileKey)})`);
+      if (fileKey) onKey(fileKey);
     });
   };
   // the columns of a grid: 1-6 equal columns, or own widths (a text, checked when it is left)
@@ -1106,6 +1130,15 @@ export function styleRows(parent, style, onChange = null, {
         // the image input (thumbnail, file button, Upload, URL): not in a label, a click on the thumbnail would open
         // the file manager too
         list.append(field(item.label, host, 'h-cms-style-field', item.image ? 'div' : 'label'));
+      }
+      // the background video of a group (normal screen only): a muted video in a loop, the image is its poster
+      if (section.video && video !== null && files?.apiClient && screen === 'normal') {
+        const host = element('div', 'h-cms-styles-value');
+        fileInput(host, 'video/*', videoKey, (fileKey) => {
+          videoKey = fileKey;
+          check();
+        });
+        list.append(field('Video', host, 'h-cms-style-field', 'div'));
       }
     }
     const others = Object.keys(values[screen]).filter((property) => !simpleProperties.has(property) && String(values[screen][property]).trim());
@@ -1188,7 +1221,8 @@ export function styleRows(parent, style, onChange = null, {
     draw();
   });
   draw();
-  return { value: build, preset: () => presetValue, cssClass: () => (classError ? null : classValue.trim().split(/\s+/).filter(Boolean).join(' ')) };
+  return { value: build, preset: () => presetValue, cssClass: () => (classError ? null : classValue.trim().split(/\s+/).filter(Boolean).join(' ')),
+    video: () => videoKey };
 }
 
 /**

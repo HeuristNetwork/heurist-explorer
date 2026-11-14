@@ -67,6 +67,11 @@
   background: var(--h-color-surface, #f7f7f7);
 }
 
+/* a hidden button (Layout outside the header and footer): .h-btn sets its display */
+.h-cms-pane-bar > .h-btn[hidden] {
+  display: none;
+}
+
 .h-cms-toolbar-spacer {
   flex: 1 1 auto;
 }
@@ -144,22 +149,6 @@
   flex: 1 1 auto;
   min-height: 80px;
   overflow: auto;
-}
-
-/* tools of the selected element below the part tree (§25); Copy and Paste on the right */
-.h-cms-picker {
-  display: flex;
-  flex: 0 0 auto;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 4px;
-  padding: 6px;
-  border-top: 1px solid var(--h-color-border);
-  background: var(--h-color-selected, #dcecff);
-}
-
-.h-cms-picker-spacer {
-  flex: 1 1 auto;
 }
 
 .h-cms-caption {
@@ -905,6 +894,29 @@
   height: calc(1.25em + 4px);
 }
 
+/* no record page yet: the button has its caption, as wide as it needs (2026-11-14) */
+.h-cms-new-record-page:has(> .h-cms-new-record-page-caption),
+.h-cms-record-page > .h-cms-new-record-page:has(> .h-cms-new-record-page-caption) {
+  width: auto;
+  padding: 0 8px;
+  white-space: nowrap;
+}
+
+/* Record page of the action menu: the record page and the record on two lines (2026-11-14) */
+.h-cms-action-record {
+  flex-direction: column;
+  flex-wrap: nowrap;
+  align-items: stretch;
+}
+
+.h-cms-action-record > .h-cms-record-page {
+  flex-wrap: nowrap;
+}
+
+.h-cms-action-record-input {
+  min-width: 0;
+}
+
 /* Define new record page: the help and the report apart (cosmetics 2026-11-11); a short caption, a wide select
    (2026-11-12) */
 .h-cms-new-record-page-form {
@@ -930,6 +942,32 @@
 /* the action menu form is wide: a row has nine columns (review 2026-11-11) */
 .h-dialog-cms-actions {
   width: min(1180px, 96vw);
+}
+
+/* one link of the text editor (2026-11-14): a control per line in a narrow popup */
+.h-dialog-cms-link {
+  width: min(560px, 96vw);
+}
+
+.h-cms-action-row.h-cms-action-single-row {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+}
+
+.h-cms-action-icon-box {
+  display: flex;
+  align-items: center;
+}
+
+.h-cms-action-icon-box > input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.h-cms-action-single-row .h-cms-action-target {
+  min-width: 0;
 }
 
 /* sortable rows (sortableList): the handle in the first column, the row under the dragged one marked */
@@ -995,4 +1033,129 @@
 
 .h-cms-badges-empty {
   color: var(--h-color-text-muted);
+}
+
+/* the inline Own style form of the page editor (plan 27i §10, review 2026-11-14): right of the tree (the tree 250px,
+   the form at least 370px: FORM_SIDE_WIDTH) or below it (at most 2/3 of the height) */
+.h-cms-page-main {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+.h-cms-page-panel.h-cms-form-side {
+  flex-direction: row;
+}
+
+.h-cms-page-panel.h-cms-form-side > .h-cms-page-main:has(+ .h-cms-form-panel:not([hidden])) {
+  flex: 0 0 250px;
+  max-width: 250px;
+  border-right: 1px solid var(--h-color-border);
+}
+
+.h-cms-page-panel:not(.h-cms-form-side) > .h-cms-page-main:has(+ .h-cms-form-panel:not([hidden])) {
+  flex: 1 1 33%;
+  min-height: 120px;
+}
+
+.h-cms-part-pane > .h-cms-pane-bar {
+  border-top: 1px solid var(--h-color-border);
+}
+
+/* the bar above the tree: Copy, Paste, Layout ... Save Page (2026-11-14) */
+.h-cms-part-pane > .h-cms-pane-bar-top {
+  border-top: 0;
+}
+
+.h-cms-form-panel {
+  position: relative;
+  display: flex;
+  flex: 0 1 66.6%;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  border-top: 1px solid var(--h-color-border);
+}
+
+.h-cms-form-side > .h-cms-form-panel {
+  flex: 1 1 auto;
+  min-width: 370px;
+  border-top: 0;
+}
+
+.h-cms-form-panel[hidden] {
+  display: none;
+}
+
+/* Close in the top right corner, over the form */
+.h-cms-form-close {
+  position: absolute;
+  top: 4px;
+  right: 22px; /* left of the scroll bar of the form */
+  z-index: 1;
+}
+
+.h-cms-form-body {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+  overflow: auto;
+}
+
+.h-cms-form-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+}
+
+.h-cms-form-section + .h-cms-form-section {
+  border-top: 1px solid var(--h-color-border);
+}
+
+.h-cms-form-section-title {
+  padding-right: 44px;
+  font-weight: 600;
+}
+
+.h-cms-form-section > .h-btn {
+  align-self: flex-start;
+}
+
+/* Add page (review 2026-11-14): after Add the form of the template in place of the list and preview */
+.h-cms-catalog-main[hidden] {
+  display: none;
+}
+
+.h-cms-catalog-form {
+  max-height: 72vh;
+  overflow: auto;
+}
+
+.h-cms-template-elements:not(:empty) {
+  margin-top: 6px;
+}
+
+/* the page popup of the page editor: page fields, hide header / footer */
+.h-dialog-cms-new-page {
+  width: min(640px, 95vw);
+}
+
+.h-cms-page-form {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* the link popup of the text editor: short captions (2026-11-14) */
+.h-cms-action-single-row .h-cms-styles-field {
+  grid-template-columns: 80px minmax(0, 1fr);
+}
+
+/* the caption of a group in the Own style form: the rows of the Caption popup (2026-11-14) */
+.h-cms-form-section .h-translation {
+  padding-left: 14px;
 }

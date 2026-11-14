@@ -5,7 +5,7 @@ import { installFakeDom } from '../../../shared/test/helpers/fakeDom.js';
 installFakeDom();
 const { SOCIAL_NETWORKS, socialSettings, socialUrls, sitePageList } = await import('../src/designer/actionForms.js');
 const { buildBadgesHtml } = await import('../src/designer/badgesForm.js');
-const { actionMenuItems, menuClass } = await import('#shared/widgets/site/HMenu.js');
+const { HMenu, actionMenuItems, menuClass } = await import('#shared/widgets/site/HMenu.js');
 const { setLayout } = await import('../src/designer/designerStyles.js');
 
 test('social media preset (plan 27f §6): icon items for the networks with an address, and back', () => {
@@ -119,4 +119,26 @@ test('Back (plan 27g): the page before from this website, else the link (the hom
   const navigated = event();
   onAction(navigated, { history: { ...history, state: { hPage: 10, hRecord: 42 } }, location, referrer: '' });
   assert.equal(navigated.defaultPrevented, true, 'swap / scroll: the navigator has the page before in the history');
+});
+
+test('website menu: the description of a page is the rollover in every format; an icon only entry without it: its title', () => {
+  const host = document.createElement('div');
+  new HMenu().attach(host, { items: [
+    { title: 'About', url: '/a', description: 'Who we are' },
+    { title: 'Map', url: '/m', format: 'icon', icon: 'map.png' },
+    { title: 'Team', url: '/t' }
+  ] }).render();
+  const links = host.querySelectorAll('a');
+  assert.deepEqual(links.map((link) => link.getAttribute('title')), ['Who we are', 'Map', null]);
+});
+
+test('record page picker: no record page = the button Define new record page with its caption (2026-11-14)', async () => {
+  const { recordPagePicker } = await import('../src/designer/recordPageField.js');
+  const empty = recordPagePicker({ recordPageTerms: () => [], createRecordPage: async () => ({ id: 3 }) });
+  assert.equal(empty.select.hidden, true, 'no select without record pages');
+  assert.match(empty.element.querySelector('.h-cms-new-record-page').textContent, /Define new record page/);
+  const some = recordPagePicker({ recordPageTerms: () => [{ id: 3, label: 'Person' }], createRecordPage: async () => ({ id: 4 }) }, 3);
+  assert.equal(some.select.hidden, false);
+  assert.equal(some.select.value, '3');
+  assert.equal(some.element.querySelector('.h-cms-new-record-page-caption'), null, 'an icon only beside the select');
 });

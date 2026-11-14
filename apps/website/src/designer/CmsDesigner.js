@@ -27,34 +27,46 @@ import { HCardinalLayout } from '#shared/widgets/layout/HCardinalLayout.js';
 import { HTree } from '#shared/widgets/tree/HTree.js';
 import { createTabSet } from '#shared/widgets/layout/tabs.js';
 import { CMS_ELEMENTS, CMS_PAGE_PRESETS, CMS_TEAM_TEMPLATE, cmsPageStarter } from '#shared/site/cmsEdit.js';
+import { buildTemplatePage } from '#shared/site/cmsPageTemplates.js';
 import { normalizeRecordLimits } from '#shared/recordview/recordLimits.js';
-import { CMS_MEDIA_DEFAULTS, buildCmsGalleryItem, buildCmsMedia, cmsMediaCaption, cmsMediaView } from '#shared/site/cmsMedia.js';
+import {
+  CMS_MEDIA_DEFAULTS, buildCmsGalleryItem, buildCmsMedia, buildCmsPlaceholder, cmsAssetUrl, cmsMediaCaption, cmsMediaType, cmsMediaView
+} from '#shared/site/cmsMedia.js';
 import { fileMediaUrls } from '#shared/recordview/fileMediaItem.js';
 import { systemFieldIds } from '#shared/data/systemEntities.js';
 import { TranslationClient } from '#shared/data/TranslationClient.js';
 import { oneAtATime } from '#shared/ui/oneAtATime.js';
 import { openTextTranslationDialog } from '#shared/widgets/translation/HTextTranslationDialog.js';
-import { openTranslationDialog } from '#shared/widgets/translation/HTranslationDialog.js';
+import { createTranslationForm, openTranslationDialog } from '#shared/widgets/translation/HTranslationDialog.js';
 import { CmsPreview, PREVIEW_WIDTHS } from './CmsPreview.js';
 import { WebsiteCheck, checkProblemPlaces } from '../manager/WebsiteCheck.js';
-import { createWebsiteFieldsForm } from '../manager/websiteFields.js';
+import { createWebsiteFieldsForm, PAGE_FIELD_KEYS, WEBSITE_FIELD_KEYS } from '../manager/websiteFields.js';
+import { FORM_MIN_WIDTH, FORM_SIDE_WIDTH, createFormPanel } from './designerInline.js';
+import { styleRows } from './designerStyles.js';
 import {
   cardTemplateTerms, openCardsForm, openEmailForm, openFieldForm, openLanguageForm, openMediaForm, openMenuForm, openReportForm, teamReportBody
 } from './widgetForms.js';
-import { openNewRecordPageForm, recordPageTerms } from './recordPageField.js';
+import { openNewRecordPageForm, recordPageTerms, sitePageTerms } from './recordPageField.js';
 import { openActionMenuForm, openSocialForm, sitePageList } from './actionForms.js';
 import { buildBadgesHtml, openBadgesForm } from './badgesForm.js';
+import { createTemplateForm, hasTemplateForm } from './templateForms.js';
 import {
-  changedDetails, dropPlace, menuPlace, previewUrl, recordDocument, subPageIds
+  changedDetails, dropPlace, menuPlace, previewUrl, recordDocument, startPageChoices, subPageIds
 } from './designerData.js';
 import {
   askConflict, askRemovePage, askSaveDiscard, confirm, confirmNear, openAddElementForm,
-  openAddPageForm, openFooterForm, openPageLayoutForm, openStyleForm, openStylesDialog
+  openAddPageForm, openFooterForm, openPageForm, openStylesDialog
 } from './designerDialogs.js';
 import './designer.css';
 
+/** Media types the text editor inserts (Media of TinyMCE, 2026-11-14). */
+const TEXT_MEDIA_TYPES = Object.freeze(['image', 'video', 'audio', 'service']);
+
 const PART_LABELS = Object.freeze({ header: 'Header', content: 'Home', footer: 'Footer' });
 const ROOT = '#root';
+
+/** The usual minimum width of the west pane. */
+const WEST_MIN_WIDTH = 280;
 
 /** Icons of the website parts and pages (Site tree and the root of the part tree). */
 const PART_ICONS = Object.freeze({ header: 'fa-heading', content: 'fa-house', footer: 'fa-f', page: 'fa-file-lines', recordPage: 'fa-id-card' });
@@ -95,7 +107,7 @@ export class CmsDesigner {
     this.options = options;
     // the forms of an element load before they show: a repeated click must not open a second copy
     const single = oneAtATime();
-    for (const name of ['_editText', '_editField', '_editMedia', '_editCaption', '_configure', '_ownStyle']) {
+    for (const name of ['_editText', '_editField', '_editMedia', '_editCaption', '_configure', '_editPage']) {
       this[name] = single(this[name]);
     }
     this.apiClient = options.apiClient;
@@ -158,6 +170,8 @@ export class CmsDesigner {
   /** Remove the designer. */
   destroy() {
     globalThis.window?.removeEventListener?.('beforeunload', this._unload);
+    this._formObserver?.disconnect?.();
+    void this.formPanel?.hide();
     for (const browser of this.browsers.values()) void browser.destroy?.();
     this.browsers.clear();
     this.preview?.destroy();
@@ -169,7 +183,9 @@ export class CmsDesigner {
   /** Whether the open part has changes that are not saved. */
   isDirty() {
     const record = this.current && this.records.get(this.current.recordId);
-    return Boolean(record) && JSON.stringify(record.doc.serialize()) !== JSON.stringify(record.saved);
+    if (!record) return false;
+    // the page fields of the page popup (plan 27i §10) are saved with the page
+    return Object.keys(record.fieldChanges || {}).length > 0 || JSON.stringify(record.doc.serialize()) !== JSON.stringify(record.saved);
   }
 
   /**
@@ -186,6 +202,7 @@ export class CmsDesigner {
       return;
     }
     const before = this.current;
+    await this._closeForm();
     await this._record(recordId);
     if (this.site && recordId !== this.site.id) await this._record(this.site.id);
     this.current = { recordId, part };
@@ -210,11 +227,13 @@ export class CmsDesigner {
     const record = this.current && this.records.get(this.current.recordId);
     if (!record) return;
     record.doc = recordDocument(record.record, this.codes);
+    delete record.fieldChanges;
     this.undoStack = [];
     this.redoStack = [];
     this._renderPart();
     this._loadPreview();
     this._updateBar();
+    if (this.formPanel?.isOpen()) void this._openForm(this.formNode);
   }
 
   /** Undo the last change of the part. */
@@ -265,7 +284,8 @@ export class CmsDesigner {
     const record = this.records.get(id);
     if (!record) return true;
     const now = record.doc.serialize();
-    const details = { ...changedDetails(now, record.saved, this.codes), ...extra };
+    const fieldChanges = record.fieldChanges || {};
+    const details = { ...changedDetails(now, record.saved, this.codes), ...fieldChanges, ...extra };
     if (!Object.keys(details).length) return true;
     const issues = record.doc.check(this.options.runtime?.baseUrl || '').filter((issue) => issue.level === 'error');
     if (issues.length) {
@@ -283,6 +303,7 @@ export class CmsDesigner {
       record.modified = String(saved?.rec_Modified || record.modified);
       // the answer is the header only (plan 32): the sent fields are the saved state
       record.record = { ...record.record, ...savedHeader(saved), details: { ...record.record.details, ...mapValues(details) } };
+      delete record.fieldChanges;
     } catch (error) {
       if (error?.status === 409 && !force) {
         const answer = await askConflict();
@@ -302,6 +323,15 @@ export class CmsDesigner {
     }
     this._updateBar();
     HMsg.showMsgFlash?.($HR('Saved'), { showDelay: 1200 });
+    // a new name or menu entry of a page: the Site tree and the menus of the preview
+    if (this.site && Object.keys(fieldChanges).length) {
+      this.site = await this.websites.summary(this.site.id, { entity: 'website' });
+      this.siteTree?.setItems(this._siteItems());
+      this.siteTree?.select(this._partItemId(this.current));
+      this._loadPreview();
+      if (this.formPanel?.isOpen()) void this._openForm(this.formNode);
+      return true;
+    }
     // a new Record field: the server knows it now
     if (this.preview?.unknownField) this._loadPreview();
     return true;
@@ -327,6 +357,7 @@ export class CmsDesigner {
     if (answer === 'discard') {
       const record = this._currentRecord();
       record.doc = recordDocument(record.record, this.codes);
+      delete record.fieldChanges;
       return true;
     }
     return false;
@@ -345,7 +376,7 @@ export class CmsDesigner {
     this.options.container.append(root);
     const body = element('div', 'h-cms-body');
     root.append(body);
-    this.layout = new HCardinalLayout(body, { westSize: 360, minWest: 280, splitterButtons: true });
+    this.layout = new HCardinalLayout(body, { westSize: 360, minWest: WEST_MIN_WIDTH, splitterButtons: true });
     this.layout.setContent('west', this._renderWest());
     this.layout.show('west');
     const center = element('div', 'h-cms-center');
@@ -382,7 +413,18 @@ export class CmsDesigner {
     west.append(this._renderToolbar(), this._renderViewBar());
     this.partPane = element('div', 'h-cms-part-pane');
     const pagePanel = element('div', 'h-cms-page-panel');
-    pagePanel.append(this._renderPageBar(), this.partPane);
+    // the inline Own style form of the page editor (plan 27i §10): right of the tree in a wide pane, below it in a narrow one
+    this.pageBar = this._renderPageBar();
+    this.formPanel = createFormPanel({ onClose: () => void this._closeForm() });
+    const pageMain = element('div', 'h-cms-page-main');
+    pageMain.append(this.partPane);
+    pagePanel.append(pageMain, this.formPanel.element);
+    if (typeof globalThis.ResizeObserver === 'function') {
+      this._formObserver = new globalThis.ResizeObserver(([entry]) => {
+        pagePanel.classList.toggle('h-cms-form-side', (entry?.contentRect?.width || 0) >= FORM_SIDE_WIDTH);
+      });
+      this._formObserver.observe(pagePanel);
+    }
     this.tabs = createTabSet({ prefix: 'h-cms', onSelect: () => this._tabChanged() });
     if (this.site) this.tabs.add($HR('Site'), this._renderSitePane()).title = this.site.title || '';
     const pageTab = this.tabs.add($HR('Page'), pagePanel);
@@ -436,7 +478,11 @@ export class CmsDesigner {
     globalThis.open?.(page && !page.record ? `${top.url}/${page.id}` : top.url, '_blank', 'noopener');
   }
 
-  /** Toolbar of the Page tab: Undo, Redo, Discard and, on the right, Save. */
+  /**
+   * Bars of the part tree (plan 27i §10, review 2026-11-14). Above the tree: Copy, Paste, Layout (header and footer)
+   * and, on the right, a second Save Page (2026-11-14); below it: Own style (the inline form), Undo, Redo, Discard and
+   * Save Page. Read only: one note below the tree.
+   */
   _renderPageBar() {
     const bar = element('div', 'h-cms-pane-bar');
     if (this.readOnly) {
@@ -446,15 +492,25 @@ export class CmsDesigner {
       return bar;
     }
     this.buttons = {
+      style: barButton('fa-palette', 'Own style of the selected element, beside the tree', () => void this._toggleStyleForm()),
       undo: barButton('fa-rotate-left', 'Undo (Ctrl+Z)', () => this.undo()),
       redo: barButton('fa-rotate-right', 'Redo (Ctrl+Y)', () => this.redo()),
-      save: barButton('fa-floppy-disk', 'Save (Ctrl+S)', () => this.save(), 'Save'),
       discard: barButton('fa-xmark', 'Discard the changes', async () => {
         if (await confirm(this._discardQuestion(), { yes: 'Discard', narrow: true })) this.discard();
-      }, 'Discard')
+      }, 'Discard'),
+      copy: barButton('fa-copy', 'Copy the selected element with its texts', () => this._copy('all')),
+      paste: barButton('fa-paste', 'Paste the copied element into the selected group or after the selected element', () => this._paste()),
+      // header and footer: their position, orientation and theme, and the fields of the website (plan 27f §13)
+      layout: barButton('fa-sliders', 'Position, orientation, theme and fields of the header and footer', () => this._styles({ tab: 'layout' }), 'Layout'),
+      save: barButton('fa-floppy-disk', 'Save the page (Ctrl+S)', () => this.save(), 'Save Page')
     };
+    this.buttons.saveTop = barButton('fa-floppy-disk', 'Save the page (Ctrl+S)', () => this.save(), 'Save Page');
     this.buttons.save.classList.add('h-btn-primary');
-    bar.append(this.buttons.undo, this.buttons.redo, this.buttons.discard, element('span', 'h-cms-toolbar-spacer'), this.buttons.save);
+    this.buttons.saveTop.classList.add('h-btn-primary');
+    const { style, undo, redo, discard, copy, paste, layout, save, saveTop } = this.buttons;
+    this.pageTopBar = element('div', 'h-cms-pane-bar h-cms-pane-bar-top');
+    this.pageTopBar.append(copy, paste, layout, element('span', 'h-cms-toolbar-spacer'), saveTop);
+    bar.append(style, undo, redo, discard, element('span', 'h-cms-toolbar-spacer'), save);
     return bar;
   }
 
@@ -465,11 +521,11 @@ export class CmsDesigner {
     return `${$HR('Discard the changes of page')} "${name}"?`;
   }
 
-  /** Save button: a rotating icon and Saving while a save runs. */
+  /** Save buttons: a rotating icon and Saving while a save runs. */
   _setSaving(on) {
     this.saving = on;
-    const button = this.buttons?.save;
-    if (button) {
+    for (const button of [this.buttons?.save, this.buttons?.saveTop]) {
+      if (!button) continue;
       if (on) {
         button.dataset.label = button.innerHTML;
         button.innerHTML = `<span class="h-spinner" aria-hidden="true"></span> ${$HR('Saving...')}`;
@@ -483,12 +539,21 @@ export class CmsDesigner {
 
   _updateBar() {
     const dirty = this.isDirty();
-    this.dirtyMark.hidden = !dirty;
+    if (this.dirtyMark) this.dirtyMark.hidden = !dirty;
     if (this.buttons) {
       this.buttons.save.disabled = !dirty || Boolean(this.saving);
+      this.buttons.saveTop.disabled = this.buttons.save.disabled;
       this.buttons.discard.disabled = !dirty;
       this.buttons.undo.disabled = !this.undoStack.length;
       this.buttons.redo.disabled = !this.redoStack.length;
+      const record = this._currentRecord();
+      const node = record && this.selectedNode ? this._treeItem(this.selectedNode) : null;
+      this.buttons.copy.disabled = !node || node.kind === 'instance';
+      this.buttons.paste.disabled = !this.clipboard || !record;
+      this.buttons.layout.hidden = !(this.site && this.current?.recordId === this.site.id && ['header', 'footer'].includes(this.current.part));
+      // the page itself has an own style in the content part only
+      this.buttons.style.disabled = !record || (!node && this.current?.part !== 'content');
+      this.buttons.style.classList.toggle('is-active', Boolean(this.formPanel?.isOpen()));
     }
   }
 
@@ -606,7 +671,6 @@ export class CmsDesigner {
     if (!item.id.startsWith('page:')) return [];
     return [
       { action: 'edit', icon: 'fa-pen', title: $HR('Edit record') },
-      { action: 'layout', icon: 'fa-table-columns', title: $HR('Header and footer on this page') },
       { action: 'add', icon: 'fa-plus', title: $HR('Add sub page') },
       { action: 'remove', icon: 'fa-xmark', title: $HR('Remove from website') }
     ];
@@ -641,38 +705,178 @@ export class CmsDesigner {
   async _siteTool(action, id) {
     const page = pageId(id);
     if (action === 'edit') return this._editRecord(page);
-    if (action === 'layout') return this._pageLayout(page);
     if (action === 'add') return this._addPage(page);
     if (action === 'remove') return this._removePage(page);
     return undefined;
   }
 
+  /**
+   * Add page (review 2026-11-14): one popup, the templates and the form of the chosen one (page fields, elements of
+   * the template); Record page asks for its Smarty report afterwards.
+   */
   async _addPage(parent) {
-    const values = await openAddPageForm({ title: parent ? 'Add sub page' : 'Add page' });
+    const languages = this.site?.languages || [];
+    const services = { ...this._formServices(), translator: this._translator(), recordField: await this.bridge?.recordFieldServices?.() };
+    const values = await openAddPageForm({
+      title: parent ? 'Add sub page' : 'Add page',
+      createForm: (host, template, title) => (template === 'record' ? null : createTemplateForm(host, template, {
+        title, codes: this.codes, languages, dbdefs: this.options.dbdefs, apiClient: this.apiClient, services
+      }))
+    });
     if (!values) return;
     if (values.template === 'record') {
       // record page (2026-11-12): the Smarty report is chosen in the popup Define new record page, as in the forms
-      const services = { ...this._formServices(), createRecordPage: (template, title) => this._createRecordPage(template, values.title || title, parent) };
-      const page = await openNewRecordPageForm(services);
+      const recordServices = { ...this._formServices(), createRecordPage: (template, title) => this._createRecordPage(template, values.title || title, parent) };
+      const page = await openNewRecordPageForm(recordServices);
       if (page) await this.selectPart(page.id, 'content');
       return;
     }
-    // the templates come one by one (plan 27e): the others give a blank page for now
-    const template = CMS_PAGE_PRESETS.includes(values.template) ? values.template : 'blank';
-    const starter = cmsPageStarter(template, values.title);
+    const answer = values.form;
+    if (!answer) return;
     const codes = this.codes;
+    const title = fieldText(answer.details[codes.name]).trim() || values.title;
+    if (!fieldText(answer.details[codes.name]).trim()) delete answer.details[codes.name];
+    // Blog is still a blank page
+    const template = CMS_PAGE_PRESETS.includes(values.template) || hasTemplateForm(values.template) ? values.template : 'blank';
     try {
-      if (template === 'team') await this._ensureTeamReport();
-      const response = await this.apiClient.request('/page/0', {
-        method: 'POST',
-        body: { rec_ID: 0, details: { [codes.name]: values.title, [codes.version]: '4', [codes.content]: starter.content, [codes.configuration]: starter.configuration } }
-      });
-      const id = Number((response?.data ?? response)?.records?.[0]?.rec_ID);
-      await this._menuChange(() => this.websites.assign(this.site.id, id, { parent }));
+      const { id, configure } = await this._createTemplatePage(template, title, { values: answer.values, details: answer.details,
+        layout: answer.layout, parent });
       await this.selectPart(id, 'content');
+      if (template === 'cover') await this._coverAsStartPage(id);
+      // a widget that needs its choice at once (Publications: the generated report)
+      for (const node of configure) await this._configure(node);
     } catch (error) {
       HMsg.showMsgErr?.(error?.message || String(error));
     }
+  }
+
+  /**
+   * A new page of a template or preset in the menu of the website (Add page; the starter pages of a new website).
+   *
+   * @param {string} template Template or preset.
+   * @param {string} title Name of the page.
+   * @param {{values?: object, details?: object, layout?: object|null, parent?: number|null}} [options] `values`: of the
+   *        template form (none: all elements of the template); `details`: other fields of the page record.
+   * @returns {Promise<{id: number, configure: string[]}>} `configure`: nodes whose widget needs its choice.
+   */
+  async _createTemplatePage(template, title, { values = {}, details = {}, layout = null, parent = null } = {}) {
+    const codes = this.codes;
+    const languages = this.site?.languages || [];
+    const options = { layout };
+    if (hasTemplateForm(template)) {
+      Object.assign(options, { values, site: await this._templateSite(), language: languages[0] || 'eng', ...this._templateBuilders() });
+    }
+    const starter = cmsPageStarter(template, title, options);
+    if (template === 'team' && options.values?.fromDatabase && options.values.cardTemplate === CMS_TEAM_TEMPLATE) {
+      await this._ensureTeamReport();
+    }
+    // the name keeps its translations; an empty name: the default title of the template
+    const body = { [codes.name]: [title], ...details, [codes.version]: '4', [codes.content]: starter.content,
+      [codes.configuration]: starter.configuration };
+    const response = await this.apiClient.request('/page/0', { method: 'POST', body: { rec_ID: 0, details: body } });
+    const id = Number((response?.data ?? response)?.records?.[0]?.rec_ID);
+    await this._menuChange(() => this.websites.assign(this.site.id, id, { parent }));
+    return { id, configure: starter.configure || [] };
+  }
+
+  /**
+   * The starter pages of a new website (New website, 2026-11-14): the home content becomes the template Landing, the
+   * "About" page of the server is replaced by the chosen template pages (Cover, About, Discover, Contact; all their
+   * elements); a Cover page becomes the Startup page.
+   *
+   * @param {string[]} pages Chosen templates.
+   * @returns {Promise<void>}
+   */
+  async addStarterPages(pages = []) {
+    if (!this.site || this.readOnly) return;
+    const chosen = new Set(pages);
+    const languages = this.site.languages || [];
+    HMsg.showMsgFlash?.($HR('Creating the pages of the website...'), { showDelay: 2000 });
+    try {
+      // the home content: the template Landing
+      const home = await this._record(this.site.id);
+      for (const item of home.doc.tree('content')) home.doc.remove(item.id);
+      buildTemplatePage(home.doc, 'landing', $HR('Welcome'), { values: {}, site: await this._templateSite(), language: languages[0] || 'eng',
+        ...this._templateBuilders() });
+      await this._saveRecord(this.site.id);
+      // the page About of the server: replaced by the template pages
+      const starter = (this.site.pages || []).map((page) => Number(page.id));
+      for (const id of starter) {
+        await this.websites.removeFromMenu(this.site.id, id, { standalone: false });
+        await this.websites.remove(id, { entity: 'page', force: true });
+      }
+      const titles = { cover: 'Cover', about: 'About', discover: 'Discover', contact: 'Contact' };
+      let cover = 0;
+      for (const template of ['cover', 'about', 'discover', 'contact']) {
+        if (!chosen.has(template)) continue;
+        const { id } = await this._createTemplatePage(template, $HR(titles[template]));
+        if (template === 'cover') cover = id;
+      }
+      if (cover) await this._coverAsStartPage(cover);
+    } catch (error) {
+      HMsg.showMsgErr?.(error?.message || String(error));
+    }
+    await this._menuChange(async () => {});
+    await this.selectPart(this.site.id, 'content', { force: true });
+  }
+
+  /**
+   * A new Cover page becomes the Startup page of the website (layout.startPage, 2026-11-14) when none is chosen (or the
+   * home page is); saved at once. Not when the website record has unsaved changes (they are not saved by this).
+   */
+  async _coverAsStartPage(pageId) {
+    if (!this.site || this.readOnly) return;
+    const record = await this._record(this.site.id);
+    const layout = record.doc.layout();
+    const start = Number(layout.startPage) || 0;
+    if (start && start !== this.site.id && menuPlace(this.site.pages, start)) return;
+    if (Object.keys(record.fieldChanges || {}).length || JSON.stringify(record.doc.serialize()) !== JSON.stringify(record.saved)) return;
+    record.doc.setLayout({ ...layout, startPage: pageId });
+    if (await this._saveRecord(this.site.id)) {
+      HMsg.showMsgFlash?.($HR('The Cover page is the Startup page of the website (Navigation and layout)'), { showDelay: 3000 });
+    }
+  }
+
+  /**
+   * The values of the website for a page template (plan 27i §9): title, subtitle, summary, the logo file and the home
+   * page (the website record).
+   *
+   * @returns {Promise<{title: string, subtitle: string, summary: string, logo: object|null, homeId: number}>}
+   */
+  async _templateSite() {
+    if (!this.site) return {};
+    const details = (await this._record(this.site.id)).record.details || {};
+    const value = (key) => (this.codes[key] ? fieldText(details[this.codes[key]]) : '');
+    const logoId = Number(value('logo')) || 0;
+    let logo = null;
+    if (logoId) {
+      try {
+        const [item] = await this._mediaItems({ mode: 'files', ids: [logoId] });
+        logo = item?.file && cmsMediaType(item.file) === 'image' ? item.file : null;
+      } catch {
+        logo = null;
+      }
+    }
+    return { title: value('name') || this.site.title || '', subtitle: value('subtitle'), summary: value('shortSummary'), logo,
+      homeId: this.site.id };
+  }
+
+  /** HTML makers of a page template (plan 27i §9): media, placeholder images, a gallery of placeholders, asset URLs. */
+  _templateBuilders() {
+    const runtime = this.options.runtime || {};
+    const baseUrl = runtime.baseUrl || '';
+    const urls = fileMediaUrls(baseUrl, runtime.database || '');
+    const languages = this.site?.languages || [];
+    return {
+      mediaHtml: (file, settings) => buildCmsMedia(file, settings, { urls, language: languages[0] || 'eng' }),
+      placeholderHtml: (name, settings) => buildCmsPlaceholder(name, settings, baseUrl),
+      assetUrl: (name) => cmsAssetUrl(baseUrl, name),
+      // the same figures in every language: no captions
+      galleryHtml: (names) => {
+        const html = names.map((name) => `<figure class="h-site-card" data-h-media="">${buildCmsPlaceholder(name, {}, baseUrl)}</figure>`).join('');
+        return languages.length ? Object.fromEntries(languages.map((code) => [code, html])) : { def: html };
+      }
+    };
   }
 
   /**
@@ -809,22 +1013,6 @@ export class CmsDesigner {
     this._loadPreview();
   }
 
-  /** Hide the header and / or footer of the website on one page (plan 27f §3); saved at once. */
-  async _pageLayout(id) {
-    if (!(await this._leaveDirty())) return;
-    const record = await this._record(id);
-    const layout = record.doc.layout();
-    const values = await openPageLayoutForm(layout);
-    if (!values) return;
-    const next = { ...layout };
-    for (const flag of ['hideHeader', 'hideFooter']) {
-      if (values[flag]) next[flag] = true; else delete next[flag];
-    }
-    record.doc.setLayout(next);
-    if (await this._saveRecord(id)) this._loadPreview();
-    this._updateBar();
-  }
-
   /**
    * The Styles popup of the website or standalone page; with a website also its fields title, subtitle, logo and banner
    * (Header block of Navigation and layout, plan 27f §13), saved with the styles.
@@ -852,6 +1040,7 @@ export class CmsDesigner {
       kinds: record.doc.kinds(),
       presets: record.doc.presets(),
       layout: record.doc.layout(),
+      startPages: this.site ? startPageChoices(this.site.pages) : null,
       css,
       javaScriptAllowed: this.options.dbdefs?.meta?.javaScriptAllowed === true,
       files: this._files(),
@@ -879,8 +1068,7 @@ export class CmsDesigner {
 
   _renderPart() {
     this.partPane.replaceChildren();
-    this.pasteButton = null;
-    this.pickerBox = null;
+    if (this.pageTopBar) this.partPane.append(this.pageTopBar);
     const host = element('div', 'h-cms-tree-host');
     this.partPane.append(host);
     this.partTree = new HTree().attach(host, {
@@ -893,7 +1081,7 @@ export class CmsDesigner {
       onTool: (action, id, button) => void this._nodeTool(action, id, button),
       onActivate: (id) => void this._activateNode(id)
     }).render();
-    if (!this.readOnly) this.partPane.append(this._renderPicker());
+    if (this.pageBar) this.partPane.append(this.pageBar);
     this._renderProperties();
   }
 
@@ -948,24 +1136,48 @@ export class CmsDesigner {
   }
 
   /**
-   * Tools of the part tree (review 2026-11-01): + on the root (always) and on containers (tabs and accordions: a
-   * new panel), pen on texts and groups (a group: its caption), gear on modules and widgets, remove.
+   * Tools of the part tree (review 2026-11-01, 2026-11-14): + on the root (always) and on containers (tabs and
+   * accordions: a new panel); the pen (gear on modules and widgets) opens the popup of the element: the page, a text,
+   * a record field, media, the caption of a group, the configuration; remove. The Own style form opens from the palette
+   * of the bar below the tree (no palette on the rows, 2026-11-14).
    */
   _nodeTools(item) {
     if (this.readOnly) return [];
-    if (item.id === ROOT) return [{ action: 'add', icon: 'fa-plus', title: $HR('Add element'), label: $HR('Add element'), always: true }];
+    if (item.id === ROOT) {
+      const page = this.current?.part === 'content';
+      return [
+        // the page is the root group (plan 27i §9 B): its fields
+        ...(page ? [{ action: 'page', icon: 'fa-pen', title: $HR('Page: name, menu, header and footer') }] : []),
+        { action: 'add', icon: 'fa-plus', title: $HR('Add element'), label: $HR('Add element'), always: true }
+      ];
+    }
     const node = this._treeItem(item.id);
     const tools = [];
     if (node?.kind === 'control') {
       tools.push({ action: 'add', icon: 'fa-plus', title: $HR(node.control === 'group' ? 'Add element' : 'Add panel') });
     }
-    if (node?.kind === 'text' && !node.field) tools.push({ action: 'edit', icon: 'fa-pen', title: $HR('Edit text') });
-    if (node?.field) tools.push({ action: 'field', icon: 'fa-pen', title: $HR('Edit field') });
-    if (node?.kind === 'media') tools.push({ action: 'media', icon: 'fa-pen', title: $HR('Edit media') });
-    if (node?.control === 'group') tools.push({ action: 'caption', icon: 'fa-pen', title: $HR('Edit caption') });
-    if (node?.kind === 'instance') tools.push({ action: 'configure', icon: 'fa-gear', title: $HR('Configuration') });
+    const popup = this._popupTool(item.id, node);
+    if (popup) tools.push(popup);
     tools.push({ action: 'delete', icon: 'fa-trash', title: $HR('Remove') });
     return tools;
+  }
+
+  /** The popup of an element (pen, gear; also a double click): null when it has none. */
+  _popupTool(id, node) {
+    if (!node) return null;
+    if (node.field) return { action: 'field', icon: 'fa-pen', title: $HR('The record, the field and its value') };
+    if (node.kind === 'text') return { action: 'edit', icon: 'fa-pen', title: $HR('Edit text') };
+    if (node.kind === 'media') return { action: 'media', icon: 'fa-pen', title: $HR('The file, caption and size of the media') };
+    if (node.kind === 'instance') return { action: 'configure', icon: 'fa-gear', title: $HR('Configuration') };
+    // a panel of tabs / an accordion: its caption; a group: the palette opens its Own style with the caption above
+    // (2026-11-14)
+    if (node.kind === 'control' && this._currentRecord()?.doc.isPanel(id)) {
+      return { action: 'caption', icon: 'fa-pen', title: $HR('Caption of the group') };
+    }
+    if (node.kind === 'control' && node.control === 'group') {
+      return { action: 'style', icon: 'fa-palette', title: $HR('Own style and caption of the group') };
+    }
+    return null;
   }
 
   _canDropNode(dragId, targetId, position) {
@@ -982,11 +1194,13 @@ export class CmsDesigner {
   async _nodeTool(action, id, button) {
     if (!this._currentRecord()) return undefined;
     if (action === 'add') return this._addElement(id);
+    if (action === 'page') return this._editPage();
     this._selectNode(id);
     if (action === 'edit') return this._editText(id);
     if (action === 'field') return this._editField(id);
     if (action === 'media') return this._editMedia(id);
     if (action === 'caption') return this._editCaption(id);
+    if (action === 'style') return this._openForm(id);
     if (action === 'configure') return this._configure(id);
     if (action === 'delete' && (await confirmNear(button, 'Remove this element?'))) {
       this._edit((doc) => doc.remove(id));
@@ -995,17 +1209,12 @@ export class CmsDesigner {
     return undefined;
   }
 
-  /** Double click in the part tree: the text popup of a text, the caption of a group, the configuration of a module. */
+  /** Double click in the part tree: the popup of the element (the pen or gear), of the page on the root. */
   _activateNode(id) {
-    if (this.readOnly || id === ROOT || !this._currentRecord()) return undefined;
-    const node = this._treeItem(id);
-    if (!node) return undefined;
-    this._selectNode(id);
-    if (node.kind === 'text') return node.field ? this._editField(id) : this._editText(id);
-    if (node.kind === 'media') return this._editMedia(id);
-    if (node.control === 'group') return this._editCaption(id);
-    if (node.kind === 'instance') return this._configure(id);
-    return undefined;
+    if (this.readOnly || !this._currentRecord()) return undefined;
+    if (id === ROOT) return this.current?.part === 'content' ? this._editPage() : undefined;
+    const tool = this._popupTool(id, this._treeItem(id));
+    return tool ? this._nodeTool(tool.action, id) : undefined;
   }
 
   /** + of the tree: a new panel of tabs / accordions; else the chosen element into the group or the part root. */
@@ -1052,6 +1261,8 @@ export class CmsDesigner {
     if (added) this._selectNode(added);
     // a new media element: its file at once; a new helper widget: its settings (plan 27f)
     if (added && values.element === 'media') await this._editMedia(added);
+    // a new text: its popup at once (plan 27i §10)
+    if (added && values.element === 'text') await this._editText(added);
     if (added && ['actionmenu', 'social', 'badges'].includes(values.element)) await this._configure(added);
   }
 
@@ -1063,7 +1274,7 @@ export class CmsDesigner {
     if (!clip) return;
     this.clipboard = clip;
     writeClipboard(this.options.runtime?.database, this.clipboard);
-    if (this.pasteButton) this.pasteButton.disabled = false;
+    this._updateBar();
     HMsg.showMsgFlash?.($HR('Copied'), { showDelay: 1000 });
   }
 
@@ -1079,41 +1290,6 @@ export class CmsDesigner {
     else this._selectNode(pasted);
   }
 
-  /**
-   * Below the tree (§25): the tools of the selected element (Own style, Caption, Edit text, Configuration) and,
-   * on the right, Copy (with its texts) and Paste as icons.
-   */
-  _renderPicker() {
-    this.pickerBox = element('div', 'h-cms-picker');
-    this._updatePicker();
-    return this.pickerBox;
-  }
-
-  _updatePicker() {
-    const box = this.pickerBox;
-    if (!box) return;
-    box.replaceChildren();
-    const node = this.selectedNode ? this._treeItem(this.selectedNode) : null;
-    if (node) {
-      box.append(barButton('fa-palette', 'Own style and preset of the element', () => this._ownStyle(node.id), 'Own style'));
-      if (node.control === 'group') box.append(barButton('fa-heading', 'Caption of the group', () => this._editCaption(node.id), 'Caption'));
-      if (node.kind === 'text' && !node.field) box.append(barButton('fa-pen', 'Edit the text and its translations', () => this._editText(node.id), 'Edit text'));
-      if (node.field) box.append(barButton('fa-pen', 'The record, the field and its value', () => this._editField(node.id), 'Edit field'));
-      if (node.kind === 'media') box.append(barButton('fa-pen', 'The file, caption and size of the media', () => this._editMedia(node.id), 'Edit media'));
-      if (node.kind === 'instance') box.append(barButton('fa-gear', 'Configuration', () => this._configure(node.id), 'Configuration'));
-    }
-    // header and footer: their position, orientation and theme, and the fields of the website (plan 27f §13)
-    if (this.site && this.current?.recordId === this.site.id && ['header', 'footer'].includes(this.current.part)) {
-      box.append(barButton('fa-sliders', 'Position, orientation, theme and fields of the header and footer', () => this._styles({ tab: 'layout' }), 'Layout'));
-    }
-    const spacer = element('span', 'h-cms-picker-spacer');
-    const copy = barButton('fa-copy', 'Copy the selected element with its texts', () => this._copy('all'));
-    copy.disabled = !node || node.kind === 'instance';
-    this.pasteButton = barButton('fa-paste', 'Paste the copied element into the selected group or after the selected element', () => this._paste());
-    this.pasteButton.disabled = !this.clipboard;
-    box.append(spacer, copy, this.pasteButton);
-  }
-
   /** Where a new or pasted element goes: into the selected control, after the selected node, else the part root. */
   _insertTarget() {
     const record = this._currentRecord();
@@ -1126,16 +1302,19 @@ export class CmsDesigner {
     const record = this._currentRecord();
     if (id && record) id = record.doc.captionGroup(id) || id; // a caption is edited through its group
     if (id && record && record.doc.find(id)?.part !== this.current.part) return;
+    const changed = (id || null) !== this.selectedNode;
     this.selectedNode = id || null;
     this.partTree?.select(id || ROOT);
     if (!fromPreview) this.preview?.reveal(id);
     this._renderProperties();
+    // the open form follows the selection (the last input is applied first)
+    if (changed && this.formPanel?.isOpen()) void this._openForm(id || ROOT);
   }
 
   /** Help and the tools of the selected element. */
   _renderProperties() {
     this._renderHelp();
-    this._updatePicker();
+    this._updateBar();
   }
 
   /** Kind defaults and presets that apply to the part: the website's, then the page's. */
@@ -1192,6 +1371,9 @@ export class CmsDesigner {
       language: this.language || codes[0],
       translator: this._translator(),
       baseUrl: runtime.baseUrl || '',
+      // the Heurist buttons of TinyMCE (2026-11-14): a registered media file, a link (the action menu item popup)
+      insertMedia: () => this._insertTextMedia(),
+      insertRecordLink: (text) => this._insertTextLink(text),
       remember: this.textDialogState,
       ...(loadEditor ? { createEditor: async (...args) => (await loadEditor())(...args) } : {})
     });
@@ -1204,6 +1386,76 @@ export class CmsDesigner {
       }
       return true;
     });
+  }
+
+  /**
+   * Media of the text editor (2026-11-14): a registered file chosen in the record manager of files (Select File
+   * Resource) as an image, a video or audio player, or the player of a video / audio service (as a media element);
+   * other files are not inserted.
+   *
+   * @returns {Promise<string|null>} HTML, or null.
+   */
+  async _insertTextMedia() {
+    const files = this._files();
+    if (!files.browseRecords || !files.fileRecordType) {
+      HMsg.showMsgErr?.($HR('Files can not be chosen here'));
+      return null;
+    }
+    const ids = await files.browseRecords({ recordTypes: [files.fileRecordType], selectMode: 'select', title: $HR('Select File Resource') });
+    const id = Number(ids?.[0]) || 0;
+    if (!id) return null;
+    const [item] = await this._mediaItems({ mode: 'files', ids: [id] });
+    const file = item?.file;
+    if (!file || !TEXT_MEDIA_TYPES.includes(cmsMediaType(file))) {
+      HMsg.showMsgFlash?.($HR('Not a media file: choose an image, a video or an audio file, or a video / audio service'), { showDelay: 3000 });
+      return null;
+    }
+    const runtime = this.options.runtime || {};
+    const html = buildCmsMedia(file, {}, { urls: fileMediaUrls(runtime.baseUrl || '', runtime.database || ''), language: this.language || 'eng' });
+    // the caption of buildCmsMedia is empty: the media alone (Caption of the toolbar adds one)
+    return html || null;
+  }
+
+  /**
+   * Link of the text editor (2026-11-14): the item popup of the action menu with one item (a page, a record on a record
+   * page, a URL); the selected text is its label.
+   *
+   * @param {string} text Selected text.
+   * @returns {Promise<string|null>} HTML of the link, or null.
+   */
+  async _insertTextLink(text) {
+    await this._loadTemplateTerms();
+    const label = String(text ?? '').trim();
+    const item = await openActionMenuForm({
+      settings: { items: [{ label, action: this.site ? 'recordPage' : 'url' }] },
+      pages: sitePageList(this.site, 'Home', { records: false }),
+      services: this._actionServices(this._formServices()),
+      single: { title: 'Link', actions: this.site ? ['page', 'recordPage', 'url'] : ['url'] }
+    });
+    if (!item) return null;
+    const href = this._linkUrl(item);
+    if (!href) return null;
+    const icon = item.icon ? `<i class="${escapeHtml(item.icon).replace(/"/g, '&quot;')}" aria-hidden="true"></i> ` : '';
+    const target = item.newTab ? ' target="_blank" rel="noopener"' : '';
+    return `<a href="${escapeHtml(href).replace(/"/g, '&quot;')}"${target}>${icon}${escapeHtml(label || item.label)}</a>`;
+  }
+
+  /** URL of a link item: a page of this website (the home page by its id), a record on a record page, a URL. */
+  _linkUrl(item) {
+    if (item.action === 'url') return String(item.target || '');
+    const top = this.site || this.standalone;
+    const base = String(top?.url || '');
+    if (!base || !(Number(item.target) > 0)) return '';
+    const record = item.action === 'recordPage' ? Number(item.record) || 0 : 0;
+    if (base.includes('?')) return `${base}&pageid=${Number(item.target)}${record ? `&rec=${record}` : ''}`;
+    return `${base.replace(/\/+$/, '')}/${Number(item.target)}${record ? `/${record}` : ''}`;
+  }
+
+  /** Services of the action menu forms: the record of a Record page item in HInputResource (2026-11-14). */
+  _actionServices(services) {
+    const runtime = this.options.runtime || {};
+    return { ...services, apiClient: this.apiClient, dbdefs: this.options.dbdefs,
+      iconBase: { baseUrl: runtime.baseUrl || '', database: runtime.database || '' } };
   }
 
   /**
@@ -1242,7 +1494,7 @@ export class CmsDesigner {
     // an element saved before plan 27e §20 knows only the key of its file
     if (settings.file && !settings.record) settings.record = (await this._mediaFile(settings.file))?.id || 0;
     await this._loadTemplateTerms();
-    const result = await openMediaForm({
+    const options = {
       single: true,
       settings,
       caption: cmsMediaCaption(current.html),
@@ -1251,9 +1503,17 @@ export class CmsDesigner {
       translator: this._translator(),
       dbdefs: this.options.dbdefs,
       apiClient: this.apiClient,
-      services: this._formServices()
-    });
-    if (!result) return;
+      services: this._formServices(),
+      // Go to a page (2026-11-14)
+      sitePages: sitePageTerms(this.site)
+    };
+    const result = await openMediaForm(options);
+    if (result) this._applyMedia(id, result);
+  }
+
+  /** The result of the media form into the element: its settings and the HTML of each language. */
+  _applyMedia(id, result) {
+    const languages = this.site?.languages || [];
     const { file } = result.items[0];
     const runtime = this.options.runtime || {};
     const urls = fileMediaUrls(runtime.baseUrl || '', runtime.database || '');
@@ -1391,6 +1651,7 @@ export class CmsDesigner {
       return await openFieldForm({
         reference,
         link,
+        sitePages: sitePageTerms(this.site),
         size: { width: style.width, height: style.height },
         records: { site: this.site?.id || 0, page: this.current?.recordId || 0 },
         languages: this.site?.languages || [],
@@ -1459,6 +1720,12 @@ export class CmsDesigner {
     await this._loadTemplateTerms();
     const services = this._formServices();
     const common = { settings: instance.settings || {}, dbdefs: this.options.dbdefs, apiClient: this.apiClient, services };
+    // the popup of a widget, then `apply(result)`
+    const run = async (open, apply) => {
+      const result = await open({});
+      if (result) apply(result);
+    };
+    const setSettings = (settings) => this._edit((doc) => doc.setInstance(instanceId, { settings }));
     if (instance.type === 'badges' && instance.settings?.source === 'host') {
       HMsg.showMsgFlash?.($HR('The logo and address of the organisation that hosts this Heurist are set on the server.'), { showDelay: 3000 });
     } else if (instance.type === 'badges') {
@@ -1484,20 +1751,17 @@ export class CmsDesigner {
           recordTypes: this.options.dbdefs?.rectypes?.() || [],
           canAddRecord: this._hasExplorer(),
           // the action Record page (plan 27g §6): record pages, Define new record page, the record picker
-          services
+          services: this._actionServices(services)
         });
       if (settings) this._edit((doc) => doc.setInstance(instanceId, { settings }));
     } else if (instance.type === 'menu' || instance.type === 'language') {
-      const settings = await (instance.type === 'menu' ? openMenuForm(common) : openLanguageForm(common));
-      if (settings) this._edit((doc) => doc.setInstance(instanceId, { settings }));
+      await run((extra) => (instance.type === 'menu' ? openMenuForm({ ...common, ...extra }) : openLanguageForm({ ...common, ...extra })), setSettings);
     } else if (instance.type === 'email') {
       // the email form (plan 27h): inline or a button, the caption of the button in the languages of the website
-      const settings = await openEmailForm({ settings: instance.settings || {}, languages: this.site?.languages || [],
-        translator: this._translator() });
-      if (settings) this._edit((doc) => doc.setInstance(instanceId, { settings }));
+      await run((extra) => openEmailForm({ settings: instance.settings || {}, languages: this.site?.languages || [],
+        translator: this._translator(), ...extra }), setSettings);
     } else if (instance.type === 'cards') {
-      const settings = await openCardsForm(common);
-      if (settings) this._edit((doc) => doc.setInstance(instanceId, { settings }));
+      await run((extra) => openCardsForm({ ...common, ...extra }), setSettings);
     } else if (instance.type === 'report') {
       // the generated reports panel of heurist-reports, through Explorer (plan 27e §28)
       const settings = await openReportForm({
@@ -1510,10 +1774,10 @@ export class CmsDesigner {
       });
       if (settings) this._edit((doc) => doc.setInstance(instanceId, { settings }));
     } else if (instance.type === 'gallery') {
-      const result = await openMediaForm(common);
-      if (!result) return;
-      const html = this._galleryHtml(result.settings, result.items);
-      this._edit((doc) => doc.setInstance(instanceId, { settings: { ...result.settings, html } }));
+      await run((extra) => openMediaForm({ ...common, ...extra }), (result) => {
+        const html = this._galleryHtml(result.settings, result.items);
+        this._edit((doc) => doc.setInstance(instanceId, { settings: { ...result.settings, html } }));
+      });
     }
   }
 
@@ -1577,32 +1841,6 @@ export class CmsDesigner {
     return new TranslationClient({ apiClient: this.apiClient, available: Boolean(this.options.dbdefs?.translator?.()) });
   }
 
-  async _ownStyle(id) {
-    const record = this._currentRecord();
-    const node = this._treeItem(id);
-    const kind = node?.kind === 'control' ? node.control : node?.kind;
-    const presets = Object.entries(this._commonStyles().presets).map(([name, preset]) => [name, preset?.label || name]);
-    const result = await openStyleForm({
-      style: record.doc.nodeStyle(id),
-      title: $HR('Own style'),
-      kind,
-      inFlexGroup: this._inFlexGroup(id),
-      presets,
-      preset: node?.preset || null,
-      cssClass: record.doc.cssClass(id),
-      javaScriptAllowed: this.options.dbdefs?.meta?.javaScriptAllowed === true,
-      base: Object.assign({}, ...this._styleRecords().map((item) => item.doc.base())),
-      files: this._files()
-    });
-    if (!result) return;
-    this._edit((doc) => {
-      doc.setNodeStyle(id, result.style);
-      doc.setPreset(id, result.preset);
-      doc.setCssClass(id, result.cssClass);
-      return true;
-    });
-  }
-
   /** The image picker of background images (styleRows): registered files, in Explorer's record manager. */
   _files() {
     return {
@@ -1641,6 +1879,173 @@ export class CmsDesigner {
     }
   }
 
+  // ------------------------------------------------------------------ Own style form (plan 27i §10, review 2026-11-14)
+
+  /** The palette of the bar: the Own style form of the selected element (of the page), or closes it. */
+  async _toggleStyleForm() {
+    if (this.formPanel?.isOpen()) await this._closeForm();
+    else await this._openForm(this.selectedNode || ROOT);
+  }
+
+  /**
+   * Open the Own style form of an element (or of the page, ROOT) beside the tree; a group has its caption above. The
+   * root of the header / footer has none.
+   *
+   * @param {string|null} id Node id, or ROOT.
+   */
+  async _openForm(id) {
+    if (this.readOnly || !this._currentRecord()) return;
+    const ticket = (this._formTicket || 0) + 1;
+    this._formTicket = ticket;
+    const target = id || ROOT;
+    const sections = this._formSections(target);
+    if (!sections) {
+      await this._closeForm();
+      return;
+    }
+    this.formNode = target;
+    this._formWestMinimum(true);
+    await this.formPanel.show(sections);
+    if (ticket === this._formTicket) this._updateBar();
+  }
+
+  /** Hide the form (the changes stay in the draft). */
+  async _closeForm() {
+    if (!this.formPanel?.isOpen()) return;
+    this._formTicket = (this._formTicket || 0) + 1;
+    await this.formPanel.hide();
+    this.formNode = null;
+    this._formWestMinimum(false);
+    this._updateBar();
+  }
+
+  /**
+   * While the Own style form is open the west pane is at least as wide as the form (FORM_MIN_WIDTH, 2026-11-14): the
+   * form below the tree does not overflow. Closed: the usual minimum again (the width stays).
+   */
+  _formWestMinimum(open) {
+    const layout = this.layout;
+    if (!layout?.options) return;
+    layout.options.minWest = open ? FORM_MIN_WIDTH + 10 : WEST_MIN_WIDTH;
+    const size = Number(layout.getSize?.('west')) || 0;
+    if (open && size < layout.options.minWest) layout.setSize('west', layout.options.minWest);
+  }
+
+  /**
+   * Sections of the form of an element: the caption of a group or panel, then the own style; the page: its own style.
+   *
+   * @param {string} id Node id or ROOT.
+   * @returns {Array<{label: string, build: Function}>|null}
+   */
+  _formSections(id) {
+    const record = this._currentRecord();
+    if (id === ROOT) {
+      if (this.current?.part !== 'content') return null;
+      return [{ label: $HR('Own style of the page'), build: (host) => this._styleSection(host, ROOT) }];
+    }
+    const node = this._treeItem(id);
+    if (!node) return null;
+    const sections = [];
+    if (node.kind === 'control' && (node.control === 'group' || record.doc.isPanel(id))) {
+      sections.push({ label: $HR('Caption'), build: (host) => this._captionSection(host, id) });
+    }
+    sections.push({ label: $HR('Own style'), build: (host) => this._styleSection(host, id) });
+    return sections;
+  }
+
+  /** The own style in the form (plan 27i §10): every change at once; a group may have a background video. */
+  _styleSection(host, id) {
+    const record = this._currentRecord();
+    const base = Object.assign({}, ...this._styleRecords().map((item) => item.doc.base()));
+    if (id === ROOT) {
+      let ready = false;
+      styleRows(host, record.doc.pageStyle(), (style) => {
+        if (ready) this._formEdit('style:page', (doc) => (doc.setPageStyle(style), true));
+      }, { kind: 'group', presets: null, base, files: this._files() });
+      ready = true;
+      return undefined;
+    }
+    const node = this._treeItem(id);
+    const kind = node?.kind === 'control' ? node.control : node?.kind;
+    const presets = Object.entries(this._commonStyles().presets).map(([name, preset]) => [name, preset?.label || name]);
+    let editor = null;
+    editor = styleRows(host, record.doc.nodeStyle(id), (style) => {
+      if (!editor) return;
+      const cssClass = editor.cssClass();
+      this._formEdit(`style:${id}`, (doc) => {
+        doc.setNodeStyle(id, style);
+        doc.setPreset(id, editor.preset());
+        if (cssClass !== null) doc.setCssClass(id, cssClass);
+        if (kind === 'group') doc.setBackgroundVideo(id, editor.video());
+        return true;
+      });
+    }, {
+      kind, inFlexGroup: this._inFlexGroup(id), presets, preset: node?.preset || null, cssClass: record.doc.cssClass(id),
+      classInput: this.options.dbdefs?.meta?.javaScriptAllowed === true, base, files: this._files(),
+      video: kind === 'group' ? record.doc.backgroundVideo(id) : null
+    });
+    return undefined;
+  }
+
+  /**
+   * The caption of a group or panel in the form: the same rows as the Caption popup (language badge, clear, Translate
+   * of each translation, Add a language; 2026-11-14), applied while typing.
+   */
+  _captionSection(host, id) {
+    const record = this._currentRecord();
+    const current = record.doc.caption(id);
+    const languages = this.site?.languages || [];
+    const form = createTranslationForm({
+      value: current?.text || '',
+      translations: current?.translations || {},
+      languages,
+      original: languages[0] || '',
+      translator: this._translator(),
+      onChange: ({ value, translations }) => {
+        const text = value.trim();
+        // a panel of tabs / an accordion needs its caption
+        if (!text && record.doc.isPanel(id)) return;
+        // languages left out are removed
+        const all = Object.fromEntries(languages.slice(1).map((code) => [code, (translations[code] || '').trim()]));
+        this._formEdit(`caption:${id}`, (doc) => doc.setCaption(id, text, all));
+      }
+    });
+    host.append(form.element);
+    return () => form.destroy();
+  }
+
+  /**
+   * The page popup (pen of the page, review 2026-11-14): its prominent fields (name, description, icon, menu item; the
+   * website: its fields) and the hide flags. The fields are saved with the page (Save Page); the flags are a change of
+   * the draft.
+   */
+  async _editPage() {
+    const record = this._currentRecord();
+    if (!record || this.readOnly || this.current?.part !== 'content') return;
+    const home = Boolean(this.site) && record.id === this.site.id;
+    // the changes not saved yet are shown again
+    const pending = record.fieldChanges || {};
+    const recordField = await this.bridge?.recordFieldServices?.();
+    const result = await openPageForm({
+      title: home ? $HR('Home page') : `${$HR('Page')}: ${this._partLabel()}`,
+      layout: record.doc.layout(),
+      createFields: (host) => createWebsiteFieldsForm(host, {
+        dbdefs: this.options.dbdefs,
+        apiClient: this.apiClient,
+        codes: this.codes,
+        type: home ? 'home' : 'page',
+        keys: home ? WEBSITE_FIELD_KEYS : PAGE_FIELD_KEYS,
+        record: { ...record.record, details: { ...record.record.details, ...mapValues(pending) } },
+        languages: this.site?.languages || [],
+        services: { ...this._formServices(), translator: this._translator(), recordField }
+      })
+    });
+    if (!result || this._currentRecord() !== record) return;
+    const changed = { ...pending, ...result.fields };
+    if (Object.keys(changed).length) record.fieldChanges = changed; else delete record.fieldChanges;
+    if (!this._edit((doc) => (doc.setLayout(result.layout), true))) this._updateBar();
+  }
+
   // ------------------------------------------------------------------ changes
 
   /** Run a change of the record document; a change that did nothing (false) leaves no undo step. */
@@ -1656,20 +2061,55 @@ export class CmsDesigner {
     return true;
   }
 
-  _changed() {
+  /**
+   * After a change of the draft: the tree, the tools, the preview and the bar. `fromForm`: made by the inline form (it
+   * is not drawn again); `stylesOnly`: only the styles changed (the preview gets the styles, not the parts).
+   */
+  _changed({ fromForm = false, stylesOnly = false } = {}) {
     this.partTree?.setItems(this._partItems());
     if (this.selectedNode && !this._treeItem(this.selectedNode)) this.selectedNode = null;
     this.partTree?.select(this.selectedNode || ROOT);
     this._renderProperties();
-    this._applyPreview();
+    this._applyPreview({ stylesOnly });
     this._updateBar();
+    // undo, redo, a popup: the open form shows the new values
+    if (!fromForm && this.formPanel?.isOpen()) void this._openForm(this.formNode);
+  }
+
+  /**
+   * A change made by the inline form (plan 27i §10): applied at once; the changes of one field following each other
+   * (same `key`, less than 2 s apart) are one undo step.
+   *
+   * @param {string} key Field of the change (e.g. `style:n1`).
+   * @param {(doc: object) => (boolean|void)} change
+   * @returns {boolean}
+   */
+  _formEdit(key, change) {
+    const record = this._currentRecord();
+    if (!record || this.readOnly) return false;
+    const before = record.doc.snapshot();
+    const html = record.doc.html(this.current.part);
+    const instances = JSON.stringify(record.doc.config.instances);
+    const result = change(record.doc);
+    if (result === false || record.doc.snapshot() === before) return false;
+    const now = Date.now();
+    const last = this._lastFormEdit;
+    const same = last && last.key === key && now - last.time < 2000 && last.depth === this.undoStack.length && !this.redoStack.length;
+    if (!same) this.undoStack.push(before);
+    this._lastFormEdit = { key, time: now, depth: this.undoStack.length };
+    this.redoStack = [];
+    // the same HTML and instances: a style, the page style or the layout flags
+    const stylesOnly = record.doc.html(this.current.part) === html && JSON.stringify(record.doc.config.instances) === instances;
+    this._changed({ fromForm: true, stylesOnly });
+    return true;
   }
 
   // ------------------------------------------------------------------ preview
 
   /** Page of the preview: a website page id, or 0 (home / standalone). */
   _previewPage(current) {
-    return this.site && current && current.recordId !== this.site.id ? current.recordId : 0;
+    // the home page by its id too: the URL without a page shows the Startup page (layout.startPage, 2026-11-14)
+    return this.site && current ? current.recordId : 0;
   }
 
   _loadPreview() {
@@ -1677,7 +2117,7 @@ export class CmsDesigner {
     this.preview.load(previewUrl(url, this._previewPage(this.current), this.language));
   }
 
-  _applyPreview() {
+  _applyPreview({ stylesOnly = false } = {}) {
     if (!this.current) return;
     const site = this.site ? this.records.get(this.site.id) : null;
     const current = this._currentRecord();
@@ -1696,16 +2136,23 @@ export class CmsDesigner {
     const records = this._styleRecords();
     const home = !site || current === site;
     const styleRecords = home ? [current] : records;
-    this.preview.apply({
-      parts,
-      instances,
-      styles: {
-        base: Object.assign({}, ...styleRecords.map((record) => record.doc.base())),
-        nodes: styleRecords.map((record) => record.doc.config.styles.nodes || {}),
-        kinds: styleRecords.map((record) => record.doc.kinds()),
-        presets: styleRecords.map((record) => record.doc.presets())
-      }
-    });
+    const styles = {
+      base: Object.assign({}, ...styleRecords.map((record) => record.doc.base())),
+      nodes: styleRecords.map((record) => record.doc.config.styles.nodes || {}),
+      kinds: styleRecords.map((record) => record.doc.kinds()),
+      presets: styleRecords.map((record) => record.doc.presets()),
+      // the own style of the page (plan 27i §9 B): its section
+      page: current ? { id: current.id, style: current.doc.pageStyle() } : null
+    };
+    // the hide flags of the page: classes of the body (PageRenderer::bodyClasses)
+    const layout = current?.doc.layout() || {};
+    this.preview.setPageFlags?.({ hideHeader: layout.hideHeader === true, hideFooter: layout.hideFooter === true });
+    // a style of the inline form (plan 27i §10): the styles only, the parts stay
+    if (stylesOnly) {
+      this.preview.restyle(styles);
+      return;
+    }
+    this.preview.apply({ parts, instances, styles });
   }
 
   _key(event) {

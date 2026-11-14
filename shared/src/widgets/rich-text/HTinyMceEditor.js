@@ -104,8 +104,9 @@ export async function createTinyMceEditor(host, {
     resize: fill ? false : 'both',
     plugins: `advlist autolink lists link image table fullscreen searchreplace visualblocks${fill ? '' : ' autoresize'} help`,
     // styles: the Formats menu of legacy (styleselect) with TinyMCE's default style_formats
-    toolbar: 'styles fontfamily fontsize | bold italic underline forecolor | heuristMedia heuristCaption heuristRecord link'
-      + ' | bullist numlist outdent indent | table hr removeformat | fullscreen help',
+    // alignment of the text and of a selected image (an image floats left / right, or is centred), 2026-11-14
+    toolbar: 'styles fontfamily fontsize | bold italic underline forecolor | alignleft aligncenter alignright alignjustify'
+      + ' | heuristMedia heuristCaption heuristRecord link | bullist numlist outdent indent | table hr removeformat | fullscreen help',
     toolbar_mode: 'wrap',
     // underline as <u> (TinyMCE's default is a span with text-decoration)
     formats: { underline: { inline: 'u', exact: true } },

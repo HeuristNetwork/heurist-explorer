@@ -244,7 +244,7 @@ export class SiteNavigator {
           styles.setAttribute('data-h-page', String(view.page.id));
           this.doc.head.append(styles);
         }
-        enhanceControls(section);
+        enhanceControls(section, parts.config?.runtime || this.config?.runtime || null);
         for (const element of section.querySelectorAll('[data-h-view]')) element.setAttribute('tabindex', '0');
         const entry = {
           section, config: parts.config, styles, title: parts.title || view.page.title || '', alternates: parts.alternates || [],

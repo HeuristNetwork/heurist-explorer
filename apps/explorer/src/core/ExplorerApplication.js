@@ -2288,8 +2288,9 @@ export class ExplorerApplication {
         title,
         request: { q: [{ ids: ids.join(',') }] }
       }),
-      // deleted records leave the result, new titles and values are shown
-      onRecordsChanged: () => {
+      // deleted records leave the result (and the selection), new titles and values are shown
+      onRecordsChanged: async ({ deleted = false } = {}) => {
+        if (deleted && this.sync?.selection?.length) await this.sync.setSelection([]);
         if (this.sync?.dataSource) {
           void this.activateDataSource(cloneDataSource(this.sync.dataSource), { allowDirty: true, keepEditorDraft: true });
         }

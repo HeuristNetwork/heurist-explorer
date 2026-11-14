@@ -28,21 +28,37 @@ const DIALOG_ID = 'h-cms-dialog';
 const INNER_DIALOG_ID = 'h-cms-dialog-inner';
 
 /**
- * Title and template of a new page (§19): a template that is chosen fills an empty title with its default name.
+ * Template and form of a new page (review 2026-11-14, 2026-11-14 round 2): the templates on the left, the description
+ * and preview of the chosen one on the right; Add hides both and shows the form of the template in the same popup
+ * (templateForms.createTemplateForm), Create page makes the page. A template without a form (Record page) is answered
+ * at once; its next step follows the popup.
  *
- * @param {{title?: string}} [options] Dialog title.
- * @returns {Promise<{title: string, template: string}|null>}
+ * @param {{title?: string, createForm?: (host: HTMLElement, template: string, title: string) => ({ready?: Promise<void>,
+ *        read: () => Promise<object|null>, destroy: () => Promise<void>}|null)}} [options] Dialog title; `createForm`: the
+ *        form of a template (null: none), `title` its default title.
+ * @returns {Promise<{template: string, title: string, form: object|null}|null>} `form`: the answer of the form.
  */
-export function openAddPageForm({ title = 'Add page' } = {}) {
+export function openAddPageForm({ title = 'Add page', createForm = null } = {}) {
+  let session = null;
   return catalogDialog({
     title,
     groups: PAGE_TEMPLATES,
-    titleRequired: true,
-    onPick: (item, name, previous) => {
-      const shown = name.value.trim();
-      if (!shown || (previous && shown === $HR(previous.defaultTitle || ''))) name.value = $HR(item.defaultTitle || '');
+    titleInput: false,
+    nextLabel: 'Create page',
+    next: (item, host) => {
+      if (typeof createForm !== 'function') return false;
+      session = createForm(host, item.value, $HR(item.defaultTitle || ''));
+      return Boolean(session);
+    },
+    read: async (item) => {
+      const answer = session ? await session.read() : null;
+      if (session && !answer) return null;
+      return { template: item.value, title: $HR(item.defaultTitle || ''), form: answer };
     }
-  }).then((answer) => (answer ? { title: answer.title, template: answer.value } : null));
+  }).then(async (answer) => {
+    await session?.destroy().catch(() => {});
+    return answer;
+  });
 }
 
 /**
@@ -104,12 +120,17 @@ export function openAddElementForm() {
  * grey and can not be added.
  *
  * @param {{title: string, groups: Array<{label: string, items: Array<object>}>, okLabel?: string,
- *        titleRequired?: boolean, onPick?: (item: object, titleInput: HTMLInputElement, previous: object|null) => void}} options
+ *        titleRequired?: boolean, titleInput?: boolean, onPick?: (item: object, titleInput: HTMLInputElement, previous: object|null) => void,
+ *        next?: (item: object, host: HTMLElement) => boolean, nextLabel?: string, read?: (item: object) => *}} options
+ *        `next`: a second step, the form of the item in `host` instead of the list (true: shown; the button gets
+ *        `nextLabel`); `read`: the answer instead of {value, title}.
  * @returns {Promise<{value: string, title: string}|null>}
  */
-function catalogDialog({ title, groups, okLabel = 'Add', titleRequired = false, onPick = null }) {
+function catalogDialog({
+  title, groups, okLabel = 'Add', titleRequired = false, titleInput = true, onPick = null, next = null, nextLabel = '', read = null
+}) {
   const form = element('form', 'h-cms-catalog');
-  const name = row(form, 'Title', input('text'));
+  const name = titleInput ? row(form, 'Title', input('text')) : null;
   const main = element('div', 'h-cms-catalog-main');
   const list = element('div', 'h-cms-catalog-list');
   list.setAttribute('role', 'listbox');
@@ -170,9 +191,23 @@ function catalogDialog({ title, groups, okLabel = 'Add', titleRequired = false, 
     pick(entries[next].item);
     entries[next].button.focus?.();
   });
+  // the second step (Add page): the list and the preview make room for the form of the chosen item
+  let step = null;
   const result = formDialog(form, title, okLabel, () => {
     if (!current?.available) return null;
-    const value = name.disabled ? '' : name.value.trim();
+    if (next && !step) {
+      const host = element('div', 'h-cms-catalog-form');
+      if (next(current, host)) {
+        step = host;
+        main.hidden = true;
+        if (name) name.closest('.h-cms-form-row').hidden = true;
+        form.append(host);
+        if (ok && nextLabel) ok.textContent = $HR(nextLabel);
+        return null;
+      }
+    }
+    if (read) return read(current);
+    const value = !name || name.disabled ? '' : name.value.trim();
     if (titleRequired && !value) {
       name.focus();
       return null;
@@ -222,22 +257,25 @@ const OWN_STYLE_HELP = 'It is not recommended to use individual style per elemen
  * (styleRows), property rows for the normal, medium and narrow screens. Problems are shown as they are found by
  * compileCmsStyles; OK does nothing while the class has characters that are not allowed.
  *
- * @param {{style?: object, title?: string, kind?: string, inFlexGroup?: boolean, presets?: Array<Array<string>>,
+ * @param {{style?: object, title?: string, kind?: string, inFlexGroup?: boolean, presets?: Array<Array<string>>|null,
  *        preset?: string|null, cssClass?: string, base?: object, files?: object|null, javaScriptAllowed?: boolean,
- *        dialogId?: string}} [options] `kind`, `inFlexGroup`, `presets` ([name, label]), `preset`, `cssClass`, `base`,
- *        `files`: styleRows; without `javaScriptAllowed` no Custom CSS class (no custom CSS for it).
- * @returns {Promise<{style: object, preset: string|null, cssClass: string}|null>}
+ *        video?: string|null, dialogId?: string}} [options] `kind`, `inFlexGroup`, `presets` ([name, label]; null: no
+ *        preset selector), `preset`, `cssClass`, `base`, `files`, `video`: styleRows; without `javaScriptAllowed` no
+ *        Custom CSS class (no custom CSS for it).
+ * @returns {Promise<{style: object, preset: string|null, cssClass: string, video: string}|null>}
  */
 export function openStyleForm({
   style = {}, title = 'Style', kind = null, inFlexGroup = false, presets = [], preset = null, cssClass = '', base = null,
-  files = null, javaScriptAllowed = false, dialogId = INNER_DIALOG_ID
+  files = null, javaScriptAllowed = false, video = null, dialogId = INNER_DIALOG_ID
 } = {}) {
   const form = element('div', 'h-cms-style-form');
   form.append(helpLine(OWN_STYLE_HELP));
-  const editor = styleRows(form, style, null, { kind, inFlexGroup, presets, preset, cssClass, classInput: javaScriptAllowed, base, files });
+  const editor = styleRows(form, style, null, {
+    kind, inFlexGroup, presets, preset, cssClass, classInput: javaScriptAllowed, base, files, video
+  });
   const read = () => {
     const className = editor.cssClass();
-    return className === null ? null : { style: editor.value(), preset: editor.preset(), cssClass: className };
+    return className === null ? null : { style: editor.value(), preset: editor.preset(), cssClass: className, video: editor.video() };
   };
   return formDialog(form, title, 'OK', read, null, 'h-dialog-cms-style', dialogId);
 }
@@ -258,26 +296,37 @@ export async function openStylesDialog(values = {}) {
 }
 
 /**
- * Header and footer on one page (plan 27f §3): hide the header and / or the footer of the website.
+ * The page popup of the page editor (review 2026-11-14; pen of the page in the part tree): the prominent fields of the
+ * page record (websiteFields.js) and, at the end, the hide header / footer checkboxes.
  *
- * @param {{hideHeader?: boolean, hideFooter?: boolean}} layout The page's layout.
- * @returns {Promise<{hideHeader: boolean, hideFooter: boolean}|null>}
+ * @param {{title?: string, createFields: (host: HTMLElement) => Promise<{validate: Function, changed: Function,
+ *        destroy: Function}>, layout?: object}} options `createFields`: the form of the fields (createWebsiteFieldsForm).
+ * @returns {Promise<{fields: Object<string, Array>, layout: object}|null>} `fields`: the changed fields by field id.
  */
-export function openPageLayoutForm(layout = {}) {
-  const form = element('form', 'h-cms-form');
-  const box = (label, checked) => {
+export function openPageForm({ title = 'Page', createFields, layout = {} }) {
+  const form = element('div', 'h-cms-page-form');
+  const fieldsHost = element('div', 'h-cms-page-fields');
+  form.append(fieldsHost);
+  let fields = null;
+  const ready = Promise.resolve()
+    .then(() => createFields(fieldsHost))
+    .then((made) => { fields = made; })
+    .catch((error) => HMsg.showMsgErr?.(error?.message || String(error)));
+  const boxes = [['hideHeader', 'Hide header'], ['hideFooter', 'Hide footer']].map(([key, label]) => {
     const line = element('label', 'h-cms-check');
-    const input = element('input');
-    input.type = 'checkbox';
-    input.checked = Boolean(checked);
-    line.append(input, document.createTextNode(` ${$HR(label)}`));
+    const box = input('checkbox');
+    box.checked = layout[key] === true;
+    line.append(box, document.createTextNode(` ${$HR(label)}`));
     form.append(line);
-    return input;
-  };
-  form.append(helpLine('For example a cover page without the menu. The header and footer of the website are not changed.'));
-  const header = box('Hide the header of the website on this page', layout.hideHeader);
-  const footer = box('Hide the footer of the website on this page', layout.hideFooter);
-  return formDialog(form, 'Header and footer on this page', 'Save', () => ({ hideHeader: header.checked, hideFooter: footer.checked }));
+    return [key, box];
+  });
+  return formDialog(form, title, 'OK', async () => {
+    await ready;
+    if (!fields || fields.validate().length) return null;
+    const next = { ...layout };
+    for (const [key, box] of boxes) if (box.checked) next[key] = true; else delete next[key];
+    return { fields: fields.changed(), layout: next };
+  }, null, 'h-dialog-cms-new-page').finally(() => ready.then(() => fields?.destroy()));
 }
 
 /** Blocks of the footer composer: name, label (plan 27f §3.2). */
@@ -364,21 +413,31 @@ export function formDialog(content, title, okLabel, read, focus, className = '',
       HMsg.closeMsgDlg(dialogId);
       resolve(value);
     };
-    const submit = () => {
-      const value = read();
-      if (value) finish(value);
+    let busy = false;
+    // read() may be async (a form that checks its fields): one at a time
+    const submit = async () => {
+      if (busy || done) return;
+      busy = true;
+      try {
+        const value = await read();
+        if (value && !done) finish(value);
+      } catch (error) {
+        HMsg.showMsgErr?.(error?.message || String(error));
+      } finally {
+        busy = false;
+      }
     };
     if (content.tagName === 'FORM') {
       content.addEventListener('submit', (event) => {
         event.preventDefault();
-        submit();
+        void submit();
       });
     }
     const dialog = HMsg.showMsgDlg(content, {
       dialogId,
       title,
       buttons: [
-        { label: okLabel, class: 'h-btn h-btn-primary', onClick: submit },
+        { label: okLabel, class: 'h-btn h-btn-primary', onClick: () => void submit() },
         { label: 'Cancel', class: 'h-btn', onClick: () => finish(null) }
       ]
     });

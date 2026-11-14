@@ -1,0 +1,20 @@
+{
+  "name": "own style of the page (its height = min-height), justify-items, placeholder images of media, background video of a group (plan 27i §9)",
+  "pageId": 5,
+  "config": {
+    "schema": "heurist-cms/4",
+    "styles": {
+      "page": {"display": "grid", "justify-items": "center", "background-image": "url(/heurist/hclient/bundles/heurist-website/assets/cms/banners/172-536x354.jpg)", "height": "500px", "narrow": {"padding": "8px", "height": "300px"}},
+      "nodes": {"n0": {"justify-items": "start"}}
+    },
+    "media": {
+      "m1": {"file": "", "width": "150px", "height": "150px", "placeholder": "cms/150x150.png"},
+      "m2": {"file": "", "placeholder": "../secret.png"}
+    }
+  },
+  "html": ["<div data-h-node=\"n0\" data-h-control=\"group\" data-h-bg-video=\"abc123\"><figure data-h-node=\"n1\" data-h-media=\"m1\" data-h-text=\"\"><img class=\"h-site-media-placeholder\" src=\"/heurist/hclient/bundles/heurist-website/assets/cms/150x150.png\" alt=\"\" width=\"150\" height=\"150\" /></figure><figure data-h-node=\"n2\" data-h-media=\"m2\" data-h-text=\"\"></figure></div>"],
+  "expect": {
+    "issues": ["warning:media_settings"],
+    "css": ".h-site-page[data-h-page=\"5\"]{display:grid;justify-items:center;background-image:url(/heurist/hclient/bundles/heurist-website/assets/cms/banners/172-536x354.jpg);min-height:500px;}\n@media (max-width:640px){\n.h-site-page[data-h-page=\"5\"]{padding:8px;min-height:300px;}\n}\n[data-h-node=\"n0\"]{justify-items:start;}\n"
+  }
+}

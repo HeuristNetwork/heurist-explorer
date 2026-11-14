@@ -55,8 +55,8 @@ export class ActionsTool extends HBaseWidget {
    * @param {function(): object|null} options.getDataSource Current DataSource.
    * @param {function(): number[]} options.getSelection Selected record ids.
    * @param {function(number[], string): void} [options.showRecords] Show records as the current result.
-   * @param {function(): void} [options.onRecordsChanged] Records were changed or deleted: Explorer runs the
-   *        current result again.
+   * @param {function({deleted: boolean}): void} [options.onRecordsChanged] Records were changed or deleted:
+   *        Explorer runs the current result again (`deleted`: and clears the selection).
    * @param {string} [options.language] UI language.
    * @param {JobClient} [options.jobClient] Jobs API (tests).
    * @param {RecordEditClient} [options.recordClient] Record writes (tests).
@@ -410,12 +410,21 @@ export class ActionsTool extends HBaseWidget {
     }
     const job = { status: 'done', title: params.title, finishedAt: Math.floor(Date.now() / 1000), result: report };
     this._showReport(job);
-    this._notifyChanged(job);
+    await this._notifyChanged(job);
   }
 
-  /** Records were changed or deleted: Explorer runs the current result again. */
-  _notifyChanged(job) {
-    if ((Number(job?.result?.records?.changed) || 0) > 0) this.onRecordsChanged?.();
+  /**
+   * Records were changed or deleted: Explorer runs the current result again. After a delete
+   * the selection is cleared and the record type counts of the scope are loaded again.
+   */
+  async _notifyChanged(job) {
+    if (!((Number(job?.result?.records?.changed) || 0) > 0)) return;
+    const deleted = job?.result?.action === 'delete';
+    this.onRecordsChanged?.({ deleted });
+    if (!deleted) return;
+    this.selection = [];
+    await this._loadRecordTypes();
+    await this._scopeChanged();
   }
 
   /** Show a job with progress and Stop; the list / form is hidden while it runs. */
@@ -453,7 +462,7 @@ export class ActionsTool extends HBaseWidget {
     }
     this._monitorBox.hidden = true;
     this._showReport(full);
-    this._notifyChanged(full);
+    await this._notifyChanged(full);
   }
 
   /** While a job runs only the job monitor is shown. */

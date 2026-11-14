@@ -4,7 +4,7 @@ import { installFakeDom, flush } from '../../../shared/test/helpers/fakeDom.js';
 
 const document = installFakeDom();
 globalThis.Event ??= class Event { constructor(type) { this.type = type; } };
-const { attachHeaderToggle, enhanceTabs, startSite } = await import('../src/siteRuntime.js');
+const { attachHeaderToggle, enhanceBackgroundVideos, enhanceTabs, startSite } = await import('../src/siteRuntime.js');
 
 /** An element with attributes and children. */
 function element(tag, attributes = {}, ...children) {
@@ -175,4 +175,23 @@ test('slide out header (plan 27f §13): a button collapses and expands it, the c
   header.querySelector('div').click();
   assert.ok(!body.classList.contains('h-site-header-collapsed'), 'stays expanded');
   body.remove();
+});
+
+test('background video of a group (plan 27i §9 D): a muted video in a loop as the first child, once; a wrong key gives none', () => {
+  const group = element('div', { 'data-h-control': 'group', 'data-h-bg-video': 'abc123' }, element('p', {}, 'Text'));
+  const bad = element('div', { 'data-h-control': 'group', 'data-h-bg-video': 'a b' });
+  const root = element('div', {}, group, bad);
+  const runtime = { baseUrl: 'https://h.org/heurist/', database: 'db1' };
+  enhanceBackgroundVideos(root, runtime);
+  enhanceBackgroundVideos(root, runtime);
+  const videos = group.children.filter((child) => child.tagName === 'VIDEO');
+  assert.equal(videos.length, 1, 'added once');
+  assert.equal(group.children[0], videos[0], 'first child');
+  assert.equal(videos[0].src, 'https://h.org/heurist/?db=db1&file=abc123');
+  assert.ok(['autoplay', 'muted', 'loop', 'playsinline'].every((name) => videos[0].hasAttribute(name)));
+  assert.equal(bad.children.length, 0);
+  group.setAttribute('data-h-bg-video', 'def456');
+  enhanceBackgroundVideos(root, runtime);
+  assert.equal(group.children.filter((child) => child.tagName === 'VIDEO').length, 1, 'a new key replaces the video');
+  assert.equal(group.children[0].getAttribute('data-key'), 'def456');
 });

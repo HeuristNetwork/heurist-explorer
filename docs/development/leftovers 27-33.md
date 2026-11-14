@@ -15,6 +15,7 @@ or *no browser check* in their *Status* lines; those lines are out of date. **Br
 | 27a field 2-1202 *Page translations* | Created in reference database 2 (heuristref.net), in CMS home and CMS page. |
 | 27f header orientation shown after Save | Accepted: the General Website Styles popup saves anyway. |
 | 32 §9.4 duplicate of a page with content in parts | Fixed: parts joined, cleaned as a whole, split again (`RecordDuplicateService::cleanSplitField`). |
+| 30 `css` Smarty mode | Done: plain text, like `txt`. **Plan 30 is DONE** (file renamed). |
 | Add page → Record page gave a blank page | Fixed: opens *Define new record page* (Smarty report selector); catalog entry no longer `pending` (27g round 3). |
 
 ## 1. Common to all plans
@@ -32,7 +33,7 @@ or *no browser check* in their *Status* lines; those lines are out of date. **Br
 | 27a | Dialogs that a module appends to `body` take the font size of the site. | small bug |
 | 27a | Test pages in `osmak_mapping` (207627 is already deleted). To clean up. | housekeeping |
 | 27b §11.8 | Details pane: use the RecordView renderer for icon / logo / author? | to discuss |
-| 27c §27 → 27e | **Page templates.** Cover, Landing, About, Features, Discover, Blog, Contact and Publications are `pending` (blank page). Blank, Team and Record page work. | **next step 1** |
+| 27c §27 → 27e | **Page templates:** plan 27i, phases A-B done 2026-11-12. Only Blog is `pending`. | plan 27i |
 | 27c §27 | Inline TinyMCE in the preview. Inline style editor below the part tree (§25.1). Module selector in *Add page*. | later |
 | 27c §27 | Widgets still missing: story map, crosstabs. | later |
 | 27d | `RecordEditAllTypesTest`: 2 failures for CMS pages. The random test value for *Page translations* has no language code. | test bug |
@@ -47,10 +48,8 @@ or *no browser check* in their *Status* lines; those lines are out of date. **Br
 
 ## 3. Reports (30)
 
-Plan 30 is not DONE because of these items:
+Plan 30 is DONE (2026-11-12). Notes kept from it:
 
-- **`css` mode.** Not done: `SmartyTemplateRunner::MODES` has no `css`, so a css report runs in html mode
-  (HTML cleaning, TinyMCE styles added). Fix: one line, `css` handled as plain text like `txt`.
 - **2-62 file name, closed.** The read-only field and the guard are done. The legacy save, batch update and import
   still do not check read-only fields; the srv guard stops the damage.
 - **Legacy templates.** Two legacy templates on this server have names with `&` / `'` and can not be reached

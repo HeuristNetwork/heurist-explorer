@@ -86,12 +86,15 @@ export function openTranslationDialog(options = {}) {
  * @param {boolean} [options.required] The original can not be empty.
  * @param {string} [options.language] The input of this translation gets the cursor (else the original).
  * @param {() => void} [options.onSubmit] Enter in an input.
+ * @param {(values: {value: string, translations: Object<string, string>}) => void} [options.onChange] A value changed
+ *        (typed, cleared, translated, a language added): the form in a panel applies it at once (CMS Own style, 2026-11-14).
  * @returns {{element: HTMLElement, read: () => ({value: string, translations: Object<string, string>}|null),
- *        focus: () => void, destroy: () => void}}
+ *        values: () => {value: string, translations: Object<string, string>}, focus: () => void, destroy: () => void}}
+ *        `values`: as read, without the checks.
  */
 export function createTranslationForm({
   value = '', translations = {}, languages = [], original = '', translator = null, maxLength = 0,
-  required = false, language = '', onSubmit = null
+  required = false, language = '', onSubmit = null, onChange = null
 } = {}) {
   const originalKey = String(original ?? '').toUpperCase();
   const offered = [...new Set(languages.map(String))].filter((code) => code.toUpperCase() !== originalKey);
@@ -103,11 +106,25 @@ export function createTranslationForm({
   const adder = element('div', 'h-translation-add');
   root.append(list, adder);
 
+  const values = () => {
+    const result = { value: originalInput.getValue(), translations: {} };
+    for (const row of rows) {
+      const text = row.input.getValue();
+      if (text.trim()) result.translations[row.code] = text;
+    }
+    return result;
+  };
+  const changed = () => { if (originalInput) onChange?.(values()); };
+  // the original input: set below (`changed` waits for it)
+  let originalInput = null;
+
   const makeInput = (host, text, code) => {
     const input = new HInputText().attach(host, {
       value: text, langCode: code, suppressLabel: true, valueTools: true, visibilityToggle: false
     }).render();
     if (maxLength > 0 && input.control) input.control.maxLength = maxLength;
+    input.control?.addEventListener('input', () => changed());
+    input.container.addEventListener('h-input-change', () => changed());
     input.control?.addEventListener('keydown', (event) => {
       if (event.key === 'Enter') {
         event.preventDefault();
@@ -124,7 +141,7 @@ export function createTranslationForm({
   list.append(originalRow);
   // no language at all (a website without languages): no badge
   const multilingual = Boolean(originalKey) || offered.length > 0 || Object.keys(translations || {}).length > 0;
-  const originalInput = makeInput(originalHost, String(value ?? ''), multilingual ? originalKey || '—' : '');
+  originalInput = makeInput(originalHost, String(value ?? ''), multilingual ? originalKey || '—' : '');
   if (originalInput.actionsLead) originalInput.actionsLead.title = originalKey ? `${$HR('Original')}: ${originalKey}` : $HR('Default');
 
   const syncTranslate = () => {
@@ -161,6 +178,7 @@ export function createTranslationForm({
         format: 'html'
       });
       row.input.setValue(decodeTranslatedText(text));
+      changed();
     } catch (error) {
       HMsg.showMsgErr?.(error?.message || String(error));
     } finally {
@@ -218,12 +236,9 @@ export function createTranslationForm({
 
   return {
     element: root,
+    values,
     read: () => {
-      const result = { value: originalInput.getValue(), translations: {} };
-      for (const row of rows) {
-        const text = row.input.getValue();
-        if (text.trim()) result.translations[row.code] = text;
-      }
+      const result = values();
       if (!result.value.trim() && (required || Object.keys(result.translations).length)) {
         HMsg.showMsgFlash?.($HR(required ? 'A value is required' : 'Enter the original value: translations need it'), { showDelay: 2500 });
         originalInput.control?.focus?.();
