@@ -106,3 +106,27 @@ test('modules of a published page have no Help, Options and Publish buttons', ()
   assert.equal(settings.state, 1);
   assert.equal(publishedModuleSettings(null).options.ui.showPublish, false);
 });
+
+test('Explorer on a website page (2026-11-14): no language, values and layout of an instance', async () => {
+  const { websiteFormValues, websiteLayoutList, websiteLayoutValue } = await import('../src/ui/config/explorerWebsitePanel.js');
+  const form = explorerPublicationForm(choices);
+  const language = form.groups.flatMap((group) => group.children).find((field) => field.name === 'ui.language');
+  assert.deepEqual(language.modes, ['configuration', 'publication'], 'the page decides the language');
+  const settings = {
+    ui: { regions: { data: 'west', map: 'center', graph: 'unused', timeline: 'south', recordview: 'unused', report: 'center' },
+      order: ['data', 'map', 'timeline'], panes: { south: true } },
+    layout: [{ id: 'data', type: 'data', region: 'west', context: { role: 'current' }, settings: { a: 1 } },
+      { id: 'map', type: 'map', region: 'center', settings: { b: 2 } }],
+    modules: { timeline: { c: 3 } },
+    filter: { items: [{ key: 'source:34', kind: 'source', id: 34, title: 'Map of sites' }], active: 'source:34', mode: 'list' }
+  };
+  assert.deepEqual(websiteFormValues(settings).filter, { items: ['source:34'], active: 'source:34', mode: 'list', placement: 'west' });
+  const layout = websiteLayoutValue(settings);
+  assert.equal(layout.regions.report, 'unused', 'no tools on a page');
+  assert.equal(layout.panes.south, true);
+  const list = websiteLayoutList(settings, { ...layout, regions: { ...layout.regions, map: 'east' } });
+  assert.deepEqual(list.map((item) => [item.type, item.region]), [['data', 'west'], ['map', 'east'], ['timeline', 'south']]);
+  assert.deepEqual(list[1].settings, { b: 2 }, 'an existing module keeps its settings');
+  assert.deepEqual(list[2].settings, { c: 3 }, 'a new one gets the module settings of the instance');
+  assert.deepEqual(list[0].context, { role: 'current' });
+});

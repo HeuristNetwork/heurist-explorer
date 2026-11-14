@@ -1159,3 +1159,48 @@
 .h-cms-form-section .h-translation {
   padding-left: 14px;
 }
+
+/* the configuration form of a module (review 2026-11-14): always below the tree, wide; Reset and Apply at the end */
+.h-cms-page-panel.h-cms-form-side.h-cms-form-below {
+  flex-direction: column;
+}
+
+.h-cms-page-panel.h-cms-form-below > .h-cms-page-main:has(+ .h-cms-form-panel:not([hidden])) {
+  flex: 1 1 33%;
+  max-width: none;
+  min-height: 120px;
+  border-right: 0;
+}
+
+.h-cms-page-panel.h-cms-form-below > .h-cms-form-panel {
+  flex: 0 1 66.6%;
+  min-width: 0;
+  border-top: 1px solid var(--h-color-border);
+}
+
+.h-cms-form-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 0 4px;
+  border-top: 1px solid var(--h-color-border);
+}
+
+.h-cms-form-loading {
+  padding: 8px 0;
+  color: var(--h-color-text-muted);
+}
+
+/* the layout of an Explorer instance below its filters */
+.h-explorer-website-layout {
+  margin-top: 10px;
+}
+
+.h-explorer-website-capture {
+  align-self: flex-start;
+  margin-top: 8px;
+}
+
+.h-explorer-website-capture.is-active {
+  border-color: var(--h-color-primary);
+}

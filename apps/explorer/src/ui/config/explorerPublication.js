@@ -77,10 +77,13 @@ export function explorerPublicationForm(choices) {
       {
         id: 'page',
         label: 'Page',
+        modes: ['configuration', 'publication'],
         children: [
           {
+            // a website page: the language of the page (2026-11-14)
             name: 'ui.language', type: 'enum', label: 'Language', req: 'recommended', mode: 'select', clearable: false,
-            terms: UI_LANGUAGES.map((id) => ({ id, label: LANGUAGE_LABELS[id] || id })), default: 'auto'
+            terms: UI_LANGUAGES.map((id) => ({ id, label: LANGUAGE_LABELS[id] || id })), default: 'auto',
+            modes: ['configuration', 'publication']
           }
         ]
       },

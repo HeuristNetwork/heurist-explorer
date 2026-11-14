@@ -11,9 +11,9 @@ import { installFakeDom, flush } from './helpers/fakeDom.js';
 installFakeDom();
 globalThis.Node ??= globalThis.HTMLElement;
 const { HMsg } = await import('../src/ui/HMsg.js');
-const { ModuleConfigurationDialog } = await import('../src/ui/config/ModuleConfigurationDialog.js');
+const { ModuleConfigurationDialog, createModuleConfigurationForm } = await import('../src/ui/config/ModuleConfigurationDialog.js');
 const {
-  configurationFormMode, describeConfigurationForm, hasOptionalItems, mergeSettings, smartyTemplateTerms
+  applyModeDefaults, configurationFormMode, describeConfigurationForm, hasOptionalItems, mergeSettings, smartyTemplateTerms
 } = await import('../src/data/moduleConfigurationForm.js');
 
 const FORM = {
@@ -156,4 +156,24 @@ test('dialog: publication asks "Cancel publish?" (Yes closes, No stays), not "Di
   button(main, 'Cancel')();
   button(dialogs.get(`${dialog.dialogId}-confirm`), 'Yes')();
   assert.equal(await result, null);
+});
+
+test('mode defaults (2026-11-14): a new instance and Reset get the defaults of the mode, stored settings do not', async () => {
+  const form = structuredClone(FORM);
+  form.groups[0].children[0].modeDefaults = { website: true };
+  const fresh = applyModeDefaults(form, DEFAULTS(), 'website');
+  assert.equal(fresh.options.ui.showHeader, true);
+  assert.equal(applyModeDefaults(form, DEFAULTS(), 'configuration').options.ui.showHeader, false, 'only in its mode');
+  assert.equal(fresh.config.other.kept, 1, 'other keys stay');
+  const created = await createModuleConfigurationForm({ form, mode: 'website', defaults: DEFAULTS, normalize });
+  assert.equal(created.getValue().options.ui.showHeader, true, 'a new instance');
+  await created.destroy();
+  const stored = await createModuleConfigurationForm({ form, mode: 'website', defaults: DEFAULTS, normalize,
+    value: { options: { ui: { showHeader: false } } } });
+  assert.equal(stored.getValue().options.ui.showHeader, false, 'stored settings are kept');
+  stored.reset(false);
+  await flush();
+  assert.equal(stored.getValue().options.ui.showHeader, true, 'Reset: the defaults of the mode');
+  assert.equal(stored.isDirty(), true);
+  await stored.destroy();
 });

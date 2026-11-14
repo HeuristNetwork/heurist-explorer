@@ -1364,3 +1364,14 @@
 #The text has been changed. Discard the changes?#The text has been changed. Discard the changes?
 #Discard the changes#Discard the changes
 #Keep editing#Keep editing
+#Configuration of this module on the page#Configuration of this module on the page
+#A module of this Explorer: its configuration on this page#A module of this Explorer: its configuration on this page
+#The default settings (applied with Apply)#The default settings (applied with Apply)
+#Apply the configuration to the page (saved with Save Page)#Apply the configuration to the page (saved with Save Page)
+#Applied: Save Page saves it#Applied: Save Page saves it
+#No changes#No changes
+#Explorer#Explorer
+#Record View#Record View
+#Use the current Explorer view#Use the current Explorer view
+#The current result, selection and module settings of Explorer go to the page on Apply#The current result, selection and module settings of Explorer go to the page on Apply
+#The current Explorer view is taken on Apply#The current Explorer view is taken on Apply

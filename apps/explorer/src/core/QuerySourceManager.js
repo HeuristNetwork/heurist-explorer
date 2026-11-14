@@ -76,7 +76,8 @@ export class QuerySourceManager {
     const owners = ownerList(typeof this.ownerIds === 'function' ? this.ownerIds() : this.ownerIds);
     if (owners) query.push({ owner: owners.join(',') });
     const fieldIds = await this._fieldIds();
-    const fields = ['rec_OwnerUGrpID', fieldIds.query, fieldIds.rules].filter(Boolean).join(',');
+    // the name with its translations: the caption of a source on a website page in its language (2026-11-14)
+    const fields = ['rec_OwnerUGrpID', fieldIds.query, fieldIds.rules, fieldIds.name].filter(Boolean).join(',');
     const payload = await this.apiClient.get('/records/', {
       query: { q: query, fields, limit: 100000 },
       signal
@@ -172,11 +173,12 @@ export class QuerySourceManager {
       const dbdefs = await this.dbDefsProvider?.();
       return {
         query: Number(dbdefs?.localId?.('dty', QUERY_FIELD_CONCEPT_CODE)) || 0,
-        rules: Number(dbdefs?.localId?.('dty', RULES_FIELD_CONCEPT_CODE)) || 0
+        rules: Number(dbdefs?.localId?.('dty', RULES_FIELD_CONCEPT_CODE)) || 0,
+        name: Number(dbdefs?.dbconst?.('DT_NAME')) || 0
       };
     } catch (error) {
       if (error?.name === 'AbortError') throw error;
-      return { query: 0, rules: 0 };
+      return { query: 0, rules: 0, name: 0 };
     }
   }
 
@@ -189,7 +191,8 @@ export class QuerySourceManager {
 }
 
 /**
- * Normalize one API row to `{id, title, ownerGroupId, parametrized, hasRules}`,
+ * Normalize one API row to `{id, title, ownerGroupId, parametrized, hasRules, names}` (`names`: the values of
+ * DT_NAME with their translations, `fre:...`),
  * or `null` when it has no valid id.
  */
 function normalizeListItem(value, fieldIds = {}) {
@@ -203,8 +206,18 @@ function normalizeListItem(value, fieldIds = {}) {
     // 0 is a real owner: Everyone
     ownerGroupId: ownerId(value?.rec_OwnerUGrpID ?? value?.ownerGroupId),
     parametrized: query ? hasQueryParameters(parseJson(query)) : false,
-    hasRules: nonEmptyRules(rules)
+    hasRules: nonEmptyRules(rules),
+    names: detailValues(value, fieldIds.name)
   };
+}
+
+/** @returns {string[]} All values of a detail field of a `/records` row (translations included). */
+function detailValues(row, fieldId) {
+  if (!fieldId) return [];
+  const values = row?.details?.[fieldId] ?? row?.details?.[String(fieldId)];
+  return (Array.isArray(values) ? values : values == null ? [] : [values])
+    .map((value) => String(value && typeof value === 'object' ? value.value ?? '' : value))
+    .filter(Boolean);
 }
 
 /** @returns {string} First value of a detail field of a `/records` row (`details[id][0]`), or ''. */

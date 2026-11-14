@@ -671,3 +671,13 @@ test('Private, Tags and Linked records load when the summary and the section are
   assert.ok(collapsed.editor.tagSelector, 'loaded when the pane is opened');
   await collapsed.editor.destroy();
 });
+
+test('valueInLanguage (2026-11-14): the translation of the language, else the original', async () => {
+  const { valueInLanguage } = await import('../src/data/recordEditValues.js');
+  const names = ['Places', 'fre:Lieux', { value: 'GER:Orte' }];
+  assert.equal(valueInLanguage(names, 'fre'), 'Lieux');
+  assert.equal(valueInLanguage(names, 'ger'), 'Orte', 'objects and upper case');
+  assert.equal(valueInLanguage(names, 'por'), 'Places', 'no translation: the original');
+  assert.equal(valueInLanguage(['fre:Lieux'], 'eng'), 'Lieux', 'no original: the first value');
+  assert.equal(valueInLanguage([], 'fre'), '');
+});

@@ -409,3 +409,19 @@
 #Welcome#Bienvenue
 #Creating the pages of the website...#Création des pages du site...
 #The website gets a header with a menu, a footer and the chosen pages. It is public.#Le site reçoit un en-tête avec un menu, un pied de page et les pages choisies. Il est public.
+#Configuration of this module on the page#Configuration de ce module sur la page
+#A module of this Explorer: its configuration on this page#Un module de cet Explorer : sa configuration sur cette page
+#The default settings (applied with Apply)#Les réglages par défaut (appliqués avec Appliquer)
+#Apply the configuration to the page (saved with Save Page)#Appliquer la configuration à la page (enregistrée avec Enregistrer la page)
+#Applied: Save Page saves it#Appliqué : Enregistrer la page l'enregistre
+#No changes#Aucun changement
+#Explorer#Explorer
+#Result#Résultat
+#Map#Carte
+#Graph#Graphe
+#Timeline#Frise chronologique
+#Record View#Vue d'enregistrement
+#Loading...#Chargement...
+#Use the current Explorer view#Utiliser la vue actuelle d'Explorer
+#The current result, selection and module settings of Explorer go to the page on Apply#Le résultat, la sélection et les réglages des modules d'Explorer vont à la page avec Appliquer
+#The current Explorer view is taken on Apply#La vue actuelle d'Explorer est prise avec Appliquer

@@ -60,6 +60,7 @@ import { WebsiteClient } from '#shared/api/WebsiteClient.js';
 import { publishModuleTo } from '#shared/site/modulePublisher.js';
 import { HFilter } from '#shared/widgets/filter/HFilter.js';
 import { memoryStorage, normalizePublishedFilter, publishedModuleSettings, publishedUiConfig } from './publishedView.js';
+import { valueInLanguage } from '#shared/data/recordEditValues.js';
 
 /** Explorer's top-level application controller: modules, layout, datasource, and synchronization. */
 export class ExplorerApplication {
@@ -532,7 +533,14 @@ export class ExplorerApplication {
    */
   async _createPublishedFilter(pageFilter) {
     const dock = this.authoringDock;
-    const items = pageFilter.items;
+    // the caption of a query source: its name in the language of the page (DT_NAME with translations, 2026-11-14);
+    // saved filters keep the name of publication time (they have no translations yet)
+    const language = resolveUiLanguage(this.uiConfigValue, this.config.language);
+    const items = pageFilter.items.map((item) => {
+      if (item.kind !== 'source') return item;
+      const name = valueInLanguage(this.querySources?.get?.(item.id)?.names || [], language);
+      return name ? { ...item, title: name } : item;
+    });
     const parameterized = (key) => {
       const item = items.find((entry) => entry.key === key);
       if (item?.kind === 'query') return hasQueryParameters(item.request?.q);
@@ -2127,8 +2135,53 @@ export class ExplorerApplication {
       isLoggedIn: () => Number(this.userGroups?.data?.currentUserId) > 0,
       openConfiguration: (request) => this.openModuleConfiguration(request),
       configureExplorerInstance: (request) => this.configureExplorerInstance(request),
+      // the configuration forms inline in the designer (review 2026-11-14)
+      createConfigurationPanel: (request) => this._moduleConfigurationPanel(request),
+      createExplorerInstancePanel: (request) => this._explorerInstancePanel(request),
       createReportOutputsPanel: (options) => this._reportOutputsPanel(options)
     };
+  }
+
+  /**
+   * The configuration form of a module instance of a website page without a dialog (bridge
+   * `createConfigurationPanel`, review 2026-11-14): website mode, the same lists and editors as the dialog.
+   *
+   * @private
+   * @param {{moduleType: string, mode?: string, value?: object, terms?: object, fields?: object}} request
+   * @returns {Promise<{element: HTMLElement, read: function(): object|null, reset: function(): void, isDirty: function(): boolean,
+   *          destroy: function(): Promise<void>}>}
+   */
+  async _moduleConfigurationPanel(request = {}) {
+    const { createModuleConfigurationPanel } = await import('../modules/moduleConfigurations.js');
+    return createModuleConfigurationPanel({ ...request, mode: request.mode || 'website' }, {
+      baseUrl: this.config.baseUrl,
+      database: this.config.database,
+      formServices: async () => (await this.recordEditing?.formServices?.()) || {},
+      editSymbology: (value, options) => this.recordEditing.symbology.edit(value, options)
+    });
+  }
+
+  /**
+   * The configuration of an Explorer instance of a website page without a dialog (bridge
+   * `createExplorerInstancePanel`, review 2026-11-14): filters, layout of the presentation modules, the current view
+   * for a new instance (explorerWebsitePanel.js).
+   *
+   * @private
+   * @param {{value?: {settings?: object, state?: object}|null}} [request] The instance.
+   * @returns {Promise<object>} See createExplorerWebsitePanel.
+   */
+  async _explorerInstancePanel({ value = null } = {}) {
+    const [{ createExplorerWebsitePanel }, publication, { websiteModuleSettings }] = await Promise.all([
+      import('../ui/config/explorerWebsitePanel.js'),
+      import('../ui/config/explorerPublication.js'),
+      import('../modules/moduleConfigurations.js')
+    ]);
+    return createExplorerWebsitePanel({
+      value,
+      lists: await this._publicFilterLists(publication.WEBSITE_FILTERS_GROUP),
+      captureView: () => this.captureView(),
+      websiteModules: (modules) => websiteModuleSettings(modules)
+    });
   }
 
   /**

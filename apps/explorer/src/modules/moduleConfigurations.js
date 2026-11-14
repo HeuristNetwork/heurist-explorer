@@ -17,7 +17,7 @@
  */
 
 import { ReportTemplateProvider } from '#shared/data/ReportTemplateProvider.js';
-import { configurationFormMode, patchFormFields, smartyTemplateTerms } from '#shared/data/moduleConfigurationForm.js';
+import { applyModeDefaults, configurationFormMode, patchFormFields, smartyTemplateTerms } from '#shared/data/moduleConfigurationForm.js';
 import { WebsiteClient } from '#shared/api/WebsiteClient.js';
 import { lastPublishedPageId, newPageTitle, publishModuleTo } from '#shared/site/modulePublisher.js';
 import { termsOf } from '#shared/ui/config/moduleConfigurationDialogFactory.js';
@@ -98,6 +98,67 @@ export async function openModuleConfiguration(request = {}, context = {}) {
   if (mode !== 'publication' || !settings) return settings;
   if (publication) await showPublication(publication, context);
   return publication;
+}
+
+/**
+ * The configuration form of a module without a dialog (the CMS designer, website mode, 2026-11-14): the same form,
+ * lists and editors as openModuleConfiguration; the host shows it inline with its own Apply.
+ *
+ * @param {object} request `moduleType`, `mode` (default `website`), `value`, `terms`, `fields`.
+ * @param {object} [context] Explorer: `baseUrl`, `database`, `formServices()`, `editSymbology`.
+ * @returns {Promise<{element: HTMLElement, read: () => object|null, reset: () => void, isDirty: () => boolean,
+ *          destroy: () => Promise<void>}>} `read`: the normalized settings, null while the form has errors.
+ */
+export async function createModuleConfigurationPanel(request = {}, context = {}) {
+  const mode = configurationFormMode(request.mode || 'website');
+  const load = MODULE_CONFIGURATIONS[request.moduleType];
+  if (!load) throw new Error(`No configuration form for module "${request.moduleType}"`);
+  const [configuration, { createModuleConfigurationForm }] = await Promise.all([
+    load(),
+    import('#shared/ui/config/ModuleConfigurationDialog.js')
+  ]);
+  const templates = new ReportTemplateProvider({ baseUrl: context.baseUrl, database: context.database });
+  const services = (await context.formServices?.().catch?.(() => null)) || {};
+  const panel = await createModuleConfigurationForm({
+    form: patchFormFields(configuration.form, request.fields),
+    formId: configuration.type,
+    mode,
+    value: request.value || null,
+    defaults: configuration.defaults,
+    normalize: configuration.normalize,
+    termsProviders: { smartyTemplates: smartyTemplateTerms(templates), ...termsOf(request.terms) },
+    formOptions: { ...services, specialEditors: specialEditors(context) }
+  });
+  return {
+    element: panel.element,
+    read: () => (panel.validate().length ? null : panel.getValue()),
+    reset: () => panel.reset(true),
+    isDirty: () => panel.isDirty(),
+    destroy: () => panel.destroy()
+  };
+}
+
+/**
+ * The module settings of an Explorer view for a website page (2026-11-14): each with the website defaults of its
+ * form (`modeDefaults`, e.g. Enable edit off), normalized.
+ *
+ * @param {Object<string, object>} modules Settings by module type.
+ * @returns {Promise<Object<string, object>>}
+ */
+export async function websiteModuleSettings(modules = {}) {
+  const result = {};
+  for (const [type, settings] of Object.entries(modules || {})) {
+    const load = MODULE_CONFIGURATIONS[type];
+    if (!load || !settings || typeof settings !== 'object') {
+      result[type] = settings;
+      continue;
+    }
+    const configuration = await load();
+    result[type] = configuration.serialize
+      ? configuration.serialize(configuration.normalize(applyModeDefaults(configuration.form, configuration.normalize(settings), 'website')))
+      : applyModeDefaults(configuration.form, settings, 'website');
+  }
+  return result;
 }
 
 /**

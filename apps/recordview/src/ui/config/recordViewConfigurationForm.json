@@ -176,6 +176,9 @@
       "children": [
         {
           "name": "options.interaction.editEnabled",
+          "modeDefaults": {
+            "website": false
+          },
           "type": "boolean",
           "label": "Enable edit",
           "req": "recommended",

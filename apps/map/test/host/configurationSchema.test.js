@@ -125,10 +125,12 @@ test('configuration serializer creates versioned settings envelope', () => {
 test('website configuration starts with unsuitable controls switched off (form, plan 29)', () => {
   const forced = Object.fromEntries(describeConfigurationForm(form, { mode: 'website' })
     .filter((row) => row.forced).map((row) => [row.key, row.forced.value]));
-  for (const key of ['options.ui.showBaseMaps', 'options.ui.showOptions', 'options.ui.showPublish',
+  for (const key of ['options.ui.showOptions', 'options.ui.showPublish',
     'options.nativeControls.bookmark', 'options.nativeControls.print']) {
     assert.equal(forced[key], false, key);
   }
+  // Base maps is shown on a website page (review 2026-11-14)
+  assert.equal(forced['options.ui.showBaseMaps'], undefined);
 });
 
 test('configuration zoom limits are restricted to Leaflet 0-22 range', () => {

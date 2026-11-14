@@ -19,7 +19,7 @@ test('loads RT_QUERY_SOURCE records and resolves all presentation profiles', asy
     apiClient,
     recordTypeProvider: { getIdByConceptCode: async (code) => (code === '3-1021' ? 77 : null) }
   });
-  assert.deepEqual(await manager.load(), [{ id: 8, title: 'Places source', ownerGroupId: null, parametrized: false, hasRules: false }]);
+  assert.deepEqual(await manager.load(), [{ id: 8, title: 'Places source', ownerGroupId: null, parametrized: false, hasRules: false, names: [] }]);
   assert.deepEqual(calls[0][1].query.q, [{ t: '77' }]);
   const source = await manager.resolveDataSource(8);
   assert.equal(source.reference.key, 'source:8');

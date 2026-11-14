@@ -163,6 +163,7 @@ Used by the module configuration forms (plan 29 §9), together with the form opt
 | `req: "forbidden"` | field | Never shown; its value is kept. |
 | `modes` | field, group | Modes it is shown in: `configuration`, `website`, `publication`. Not given: all. |
 | `forced` | field | `{mode: value}`: in that mode not shown, and has this value. |
+| `modeDefaults` | field | `{mode: value}`: the default in that mode (module configuration forms, 2026-11-14): applied to the module defaults for a new instance and on Reset (`applyModeDefaults`), never over stored settings. E.g. Enable edit off on a website page. |
 | `simplified` | field, group | `{hidden: true}` hidden in the simplified interface, or `{value: x}` hidden with this value. |
 
 ## 8. Values

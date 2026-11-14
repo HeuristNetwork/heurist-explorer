@@ -811,3 +811,14 @@ All in one run, at Artem's request.
   wrappers in `heurist/hclient` needed no change: the methods they call are kept.
 - **Tests:** `shared/test/moduleConfigurationApi.test.js`, `apps/*/test/host/configurationApi.test.js`.
 - **Docs:** `docs/integration.md` *Module configuration API*, `docs/architecture.md`.
+
+## 19. Website mode, review 2026-11-14 (implemented, not committed, no browser check)
+
+- Field property `modeDefaults` (`{website: value}`, `applyModeDefaults` in `shared/src/data/moduleConfigurationForm.js`):
+  the defaults of a mode for a new instance and Reset. Website: Enable edit off for every module; Data also See / hide
+  owners, Selection actions and Enable popups off; Map Title of the Workspace / Filtered Result Map = "Filtered Result".
+  Map: Base maps shown in website mode (no `forced`).
+- The form body without a dialog: `createModuleConfigurationForm` (ModuleConfigurationDialog uses it); Explorer gives it
+  to the CMS designer inline (bridge `createConfigurationPanel`, `createModuleConfigurationPanel` in
+  `apps/explorer/src/modules/moduleConfigurations.js`). The module settings of a new Explorer instance get the website
+  defaults (`websiteModuleSettings`).

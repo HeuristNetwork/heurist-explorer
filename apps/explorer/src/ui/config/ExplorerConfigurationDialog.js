@@ -13,40 +13,12 @@
  * @since       8.0
  */
 import { $HR, applyI18n, HMsg } from '#shared/ui';
-import { ExplorerUiConfig, UNUSED_REGION } from '../../core/ExplorerUiConfig.js';
+import { ExplorerUiConfig } from '../../core/ExplorerUiConfig.js';
+import { createLayoutEditor } from './explorerLayoutEditor.js';
 import { normalizeRecordLimits, RECORD_LIMIT_OPTIONS } from '#shared/recordview/recordLimits.js';
 import { normalizeRecordEditorSettings } from '#shared/data/recordEditorSettings.js';
 import { VIEW_MODES } from '../ExplorerRail.js';
 import './ExplorerConfigurationDialog.css';
-
-/** Cardinal regions, in reading order for the pane grid. */
-const REGIONS = [
-  { id: 'north', label: 'North' },
-  { id: 'west', label: 'West' },
-  { id: 'center', label: 'Center' },
-  { id: 'east', label: 'East' },
-  { id: 'south', label: 'South' }
-];
-
-/** The bucket for modules not shown at all (no checkbox). */
-const UNUSED = { id: UNUSED_REGION, label: 'Unused' };
-
-/** Module types (presentations and tools), with the same icon/title used on the right rail. */
-const MODULES = [
-  { type: 'data', icon: 'fa-solid fa-table', title: 'Result' },
-  { type: 'map', icon: 'fa-solid fa-map-location-dot', title: 'Map' },
-  { type: 'graph', icon: 'fa-solid fa-hexagon-nodes', title: 'Graph' },
-  { type: 'timeline', icon: 'fa-regular fa-clock', title: 'Timeline' },
-  { type: 'recordview', icon: 'fa-regular fa-address-card', title: 'Record View' },
-  // tools are placed in panes like the presentations (2026-10-14)
-  { type: 'report', icon: 'fa-regular fa-file', title: 'Report' },
-  { type: 'crosstabs', icon: 'fa-solid fa-chart-column', title: 'Crosstabs' },
-  { type: 'actions', icon: 'fa-solid fa-bolt', title: 'Actions' },
-  { type: 'export', icon: 'fa-solid fa-file-export', title: 'Export' }
-];
-
-/** Result always has a pane: a DataSource is shown there (and so not everything is unused). */
-const ALWAYS_USED = new Set(['data']);
 
 /** Interface languages, as in the modules' configuration dialogs. */
 const LANGUAGES = [
@@ -109,9 +81,7 @@ export class ExplorerConfigurationDialog {
     this.onPublishView = typeof onPublishView === 'function' ? onPublishView : null;
     this.onManageWebsites = typeof onManageWebsites === 'function' ? onManageWebsites : null;
     this.onTestEditForm = typeof onTestEditForm === 'function' ? onTestEditForm : null;
-    this.chips = new Map();
-    this.paneLists = new Map();
-    this.paneChecks = new Map();
+    this.layoutEditor = null;
     this.element = null;
   }
 
@@ -410,172 +380,14 @@ export class ExplorerConfigurationDialog {
   }
 
   /**
-   * Build the "Layout" section: the 5-pane cardinal grid with drag-and-drop module chips.
+   * Build the "Layout" section: the 5-pane cardinal grid with drag-and-drop module chips (explorerLayoutEditor.js,
+   * every module with the tools).
    *
    * @param {HTMLElement} body Section body to append fields into.
    * @returns {void}
    */
   buildLayoutSection(body) {
-    const hint = el('p', 'h-explorer-config-hint h-i18n');
-    hint.textContent = 'Drag a module into a pane, or within a pane to change its order. Checked panes are expanded when Explorer starts and show their first module. Modules in Unused are not shown.';
-    body.append(hint);
-
-    const cardinal = el('div', 'h-explorer-config-cardinal');
-    for (const region of REGIONS) {
-      cardinal.append(this._buildPane(region));
-    }
-    body.append(cardinal, this._buildPane(UNUSED));
-
-    for (const module of MODULES) {
-      this.chips.set(module.type, this._buildChip(module));
-    }
-    this._placeChips();
-
-    const reset = button('Reset', () => this.resetLayout(), 'Restore the default layout');
-    reset.classList.add('h-explorer-config-reset');
-    body.append(reset);
-  }
-
-  /**
-   * Build one cardinal-region pane (label + drop target) and wire its drop handlers.
-   *
-   * @private
-   * @param {{id: string, label: string}} region Region definition.
-   * @returns {HTMLElement} The generated pane element.
-   */
-  _buildPane(region) {
-    const unused = region.id === UNUSED_REGION;
-    const pane = el('div', `h-explorer-config-pane h-explorer-config-pane-${region.id}`);
-    const head = el('div', 'h-explorer-config-pane-head');
-    const label = el('div', 'h-explorer-config-pane-label h-i18n');
-    label.textContent = region.label;
-    head.append(label);
-    // checked: the pane is expanded when Explorer starts, otherwise it starts hidden
-    if (!unused) {
-      const expanded = el('input', 'h-checkbox h-explorer-config-pane-expanded');
-      expanded.classList.remove('h-input');
-      expanded.type = 'checkbox';
-      expanded.checked = this.value.panes[region.id] === true;
-      expanded.title = $HR('Expanded when Explorer starts');
-      expanded.setAttribute('aria-label', `${$HR(region.label)}: ${expanded.title}`);
-      expanded.addEventListener('change', () => { this.value.panes[region.id] = expanded.checked; });
-      this.paneChecks.set(region.id, expanded);
-      head.append(expanded);
-    }
-    const list = el('div', 'h-explorer-config-pane-list');
-    list.dataset.region = region.id;
-    if (unused) list.title = $HR('Modules not shown. Result always has a pane.');
-    // Result can not be unused (the drag type is unreadable during dragover, so it is kept)
-    const refused = () => unused && ALWAYS_USED.has(this._dragType);
-
-    list.addEventListener('dragover', (event) => {
-      if (refused()) {
-        list.classList.add('h-drop-refused');
-        return;
-      }
-      event.preventDefault();
-      event.dataTransfer.dropEffect = 'move';
-      list.classList.add('h-drag-over');
-      this._markDropTarget(dropPosition(event));
-    });
-    list.addEventListener('dragleave', (event) => {
-      if (list.contains(event.relatedTarget)) return;
-      list.classList.remove('h-drag-over', 'h-drop-refused');
-      this._markDropTarget(null);
-    });
-    list.addEventListener('drop', (event) => {
-      event.preventDefault();
-      list.classList.remove('h-drag-over', 'h-drop-refused');
-      this._markDropTarget(null);
-      const moduleType = event.dataTransfer.getData('text/plain');
-      const chip = this.chips.get(moduleType);
-      if (!chip || (unused && ALWAYS_USED.has(moduleType))) return;
-      // dropped on another chip: placed before or after it; otherwise last in the pane
-      const target = dropPosition(event);
-      if (target && target.chip !== chip) target.chip[target.after ? 'after' : 'before'](chip);
-      else if (!target) list.append(chip);
-      this.value.regions[moduleType] = region.id;
-      this._readOrder();
-    });
-
-    pane.append(head, list);
-    this.paneLists.set(region.id, list);
-    return pane;
-  }
-
-  /**
-   * Build one draggable module chip.
-   *
-   * @private
-   * @param {{type: string, icon: string, title: string}} module Module definition.
-   * @returns {HTMLElement} The generated chip element.
-   */
-  _buildChip(module) {
-    const chip = el('div', 'h-explorer-config-chip');
-    chip.draggable = true;
-    chip.dataset.module = module.type;
-    chip.title = $HR(module.title);
-    const icon = el('span', module.icon);
-    icon.setAttribute('aria-hidden', 'true');
-    const label = el('span', 'h-i18n');
-    label.textContent = module.title;
-    chip.append(icon, label);
-
-    chip.addEventListener('dragstart', (event) => {
-      event.dataTransfer.setData('text/plain', module.type);
-      event.dataTransfer.effectAllowed = 'move';
-      chip.classList.add('h-dragging');
-      this._dragType = module.type;
-    });
-    chip.addEventListener('dragend', () => {
-      chip.classList.remove('h-dragging');
-      this._markDropTarget(null);
-      this._dragType = null;
-      for (const list of this.paneLists.values()) list.classList.remove('h-drop-refused');
-    });
-
-    return chip;
-  }
-
-  /**
-   * Put every module chip into its pane, in the configured order.
-   *
-   * @private
-   * @returns {void}
-   */
-  _placeChips() {
-    for (const type of this.value.order) {
-      const chip = this.chips.get(type);
-      if (chip) this.paneLists.get(this.value.regions[type])?.append(chip);
-    }
-  }
-
-  /**
-   * Rebuild the module order from the chips, pane by pane.
-   *
-   * @private
-   * @returns {void}
-   */
-  _readOrder() {
-    const order = [];
-    for (const list of this.paneLists.values()) {
-      for (const chip of list.querySelectorAll('.h-explorer-config-chip')) order.push(chip.dataset.module);
-    }
-    this.value.order = order;
-  }
-
-  /**
-   * Show where a dragged chip will be dropped: a marker before or after the target chip.
-   *
-   * @private
-   * @param {{chip: HTMLElement, after: boolean}|null} target Drop target, or null to clear.
-   * @returns {void}
-   */
-  _markDropTarget(target) {
-    for (const chip of this.chips.values()) {
-      chip.classList.toggle('h-drop-before', target?.chip === chip && !target.after);
-      chip.classList.toggle('h-drop-after', target?.chip === chip && target.after);
-    }
+    this.layoutEditor = createLayoutEditor(body, { value: this.value });
   }
 
   /**
@@ -584,15 +396,7 @@ export class ExplorerConfigurationDialog {
    * @returns {void}
    */
   resetLayout() {
-    const defaults = ExplorerUiConfig.defaults();
-    this.value.regions = { ...defaults.regions };
-    this.value.order = [...defaults.order];
-    this._placeChips();
-    for (const [region, expanded] of Object.entries(defaults.panes)) {
-      this.value.panes[region] = expanded;
-      const check = this.paneChecks.get(region);
-      if (check) check.checked = expanded;
-    }
+    this.layoutEditor?.reset();
   }
 
   /**
@@ -687,9 +491,8 @@ export class ExplorerConfigurationDialog {
     this.initialState = null;
     this.element?.remove();
     this.element = this.dialog = this.form = null;
-    this.chips.clear();
-    this.paneLists.clear();
-    this.paneChecks.clear();
+    this.layoutEditor?.destroy();
+    this.layoutEditor = null;
     this.previousFocus?.focus?.();
     this.previousFocus = null;
   }
@@ -709,17 +512,6 @@ function mergeDefaults(value) {
     recordLimits: normalizeRecordLimits(value?.recordLimits),
     recordEditor: normalizeRecordEditorSettings(value?.recordEditor)
   };
-}
-
-/**
- * The chip a drag is over, and whether the drop goes after it (pointer past its
- * horizontal middle).
- */
-function dropPosition(event) {
-  const chip = event.target?.closest?.('.h-explorer-config-chip');
-  if (!chip) return null;
-  const box = chip.getBoundingClientRect();
-  return { chip, after: event.clientX > box.left + box.width / 2 };
 }
 
 /** Create an element, applying the shared `h-input`/`h-select`/`h-btn` classes by tag. */

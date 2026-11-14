@@ -78,7 +78,11 @@ on the generic record controller (plan 27d; heurist `srv/Website/WebsiteEntityHa
 `website-build` (a ZIP downloaded with `GET /jobs/{id}/result`).
 The CMS designer (plan 27c) opens from the manager (*Open editor*, `openDesigner(id, {page})` of the mount API)
 over the whole screen, only inside Explorer: the bridge also gives `openConfiguration` (module forms in `website`
-mode) and `configureExplorerInstance`. Its preview is the server page with `?design=1` (logged-in users); opened
+mode) and `configureExplorerInstance`, and since 2026-11-14 the same forms without a dialog for the inline form below the
+page tree: `createConfigurationPanel({moduleType, mode: 'website', value})` → `{element, read(), reset(), isDirty(),
+destroy()}` (`read`: the normalized settings, null while the form has errors) and `createExplorerInstancePanel({value})` →
+`{element, read(): Promise<{settings, state}|null>, reset(), destroy()}` (filters, layout of the presentation modules,
+"Use the current Explorer view"; `apps/explorer/src/ui/config/explorerWebsitePanel.js`). Its preview is the server page with `?design=1` (logged-in users); opened
 outside the designer that page goes to `hclient/modules/explorer/explorerViewer.html?db=&mode=cms&site=&page=`,
 which starts Explorer and opens the manager with the designer (`config.cms`).
 `runtime.moduleAssetUrls.website` overrides the bundle base of the manager's localization

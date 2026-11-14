@@ -1364,3 +1364,14 @@
 #The text has been changed. Discard the changes?#Le texte a été modifié. Abandonner les modifications ?
 #Discard the changes#Abandonner les modifications
 #Keep editing#Continuer la modification
+#Configuration of this module on the page#Configuration de ce module sur la page
+#A module of this Explorer: its configuration on this page#Un module de cet Explorer : sa configuration sur cette page
+#The default settings (applied with Apply)#Les réglages par défaut (appliqués avec Appliquer)
+#Apply the configuration to the page (saved with Save Page)#Appliquer la configuration à la page (enregistrée avec Enregistrer la page)
+#Applied: Save Page saves it#Appliqué : Enregistrer la page l'enregistre
+#No changes#Aucun changement
+#Explorer#Explorer
+#Record View#Vue d'enregistrement
+#Use the current Explorer view#Utiliser la vue actuelle d'Explorer
+#The current result, selection and module settings of Explorer go to the page on Apply#Le résultat, la sélection et les réglages des modules d'Explorer vont à la page avec Appliquer
+#The current Explorer view is taken on Apply#La vue actuelle d'Explorer est prise avec Appliquer

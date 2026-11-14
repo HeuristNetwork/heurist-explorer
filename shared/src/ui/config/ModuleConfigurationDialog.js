@@ -3,7 +3,8 @@
  * @brief The common configuration dialog of the presentation modules (plan 29 §11): the
  *        module's form JSON in HEditForm, by mode (configuration, website, publication),
  *        with the Advanced switch, Reset to the defaults and the confirmation of unsaved
- *        changes. Gives the normalized settings.
+ *        changes. Gives the normalized settings. The form itself (`createModuleConfigurationForm`) is also shown
+ *        inline, without the dialog (the CMS designer, 2026-11-14).
  *
  *   const settings = await new ModuleConfigurationDialog({
  *     form: mapConfigurationForm, mode: 'configuration', value,
@@ -24,7 +25,7 @@
 
 import { HEditForm } from '../../widgets/edit-form/HEditForm.js';
 import { applyTermAliases, resolveTermsSources } from '../../data/editFormSchema.js';
-import { configurationFormMode, hasOptionalItems, mergeSettings } from '../../data/moduleConfigurationForm.js';
+import { applyModeDefaults, configurationFormMode, hasOptionalItems, mergeSettings } from '../../data/moduleConfigurationForm.js';
 import { HMsg } from '../HMsg.js';
 import { $HR } from '../i18n/HResource.js';
 import './ModuleConfigurationDialog.css';
@@ -34,6 +35,104 @@ const advancedState = new Map();
 
 /** Button label per mode. */
 const SUBMIT_LABELS = Object.freeze({ configuration: 'Apply', website: 'Save', publication: 'Publish' });
+
+/**
+ * The form of a module configuration without a dialog (2026-11-14): the Advanced switch, the module's form JSON in
+ * HEditForm and Reset. A new instance (no `value`) and Reset get the module defaults with the defaults of the mode
+ * (`modeDefaults` of the fields, e.g. Enable edit off on a website).
+ *
+ * @param {object} options See ModuleConfigurationDialog (`form`, `formId`, `mode`, `value`, `defaults`, `normalize`,
+ *        `simplified`, `termsProviders`, `formOptions`, `slot`); `confirmId`: the dialog id of the Reset question.
+ * @returns {Promise<{element: HTMLElement, form: HEditForm, mode: string, getValue: () => object|null,
+ *          validate: () => Array<object>, isDirty: () => boolean, reset: (confirm?: boolean) => void,
+ *          destroy: () => Promise<void>}>}
+ */
+export async function createModuleConfigurationForm(options = {}) {
+  const mode = configurationFormMode(options.mode);
+  const formId = String(options.formId || 'module');
+  const json = await resolveTermsSources(options.form, options.termsProviders || {});
+  // the module defaults with the defaults of the mode (a new instance, Reset)
+  const fresh = () => options.normalize(applyModeDefaults(options.form, options.defaults(), mode));
+  const { value } = options;
+  const settings = applyTermAliases(json, value && typeof value === 'object' ? options.normalize(value) : fresh());
+  const element = document.createElement('div');
+  element.className = 'h-module-config';
+  const advancedKey = `${formId}:${mode}`;
+  const offered = mode !== 'publication' && options.simplified !== true
+    && hasOptionalItems(options.form, { mode, simplified: options.simplified === true });
+  let advanced = offered && advancedState.get(advancedKey) === true;
+  let form = null;
+  let wasReset = false;
+  if (offered) {
+    const label = document.createElement('label');
+    label.className = 'h-inline h-module-config-advanced';
+    const input = document.createElement('input');
+    input.type = 'checkbox';
+    input.checked = advanced;
+    input.addEventListener('change', () => {
+      advanced = input.checked;
+      advancedState.set(advancedKey, advanced);
+      form?.setShowOptional(advanced);
+    });
+    const text = document.createElement('span');
+    text.className = 'h-i18n';
+    text.textContent = $HR('Advanced settings');
+    label.append(input, text);
+    element.append(label);
+  }
+  if (options.slot) element.append(options.slot);
+  const host = document.createElement('div');
+  host.className = 'h-module-config-form';
+  element.append(host);
+  form = new HEditForm().attach(host, {
+    labelPos: 'inline',
+    inlineCheckboxes: true,
+    ...(options.formOptions || {}),
+    form: json,
+    values: settings,
+    mode,
+    showOptional: advanced,
+    simplified: options.simplified === true,
+    keepHidden: true,
+    allowHidden: false
+  }).render();
+  const panel = {
+    element,
+    form,
+    mode,
+    getValue: () => (form ? options.normalize(mergeSettings(settings, form.getValues())) : null),
+    validate: () => (form ? form.validate() : []),
+    // a Reset makes the form again: it counts as a change
+    isDirty: () => wasReset || Boolean(form?.isDirty()),
+    /** Reset to the defaults (after a confirmation unless `confirm` is false); nothing is saved yet. */
+    reset: (confirm = true) => {
+      if (!form) return;
+      const apply = () => {
+        wasReset = true;
+        void form?.setValues(fresh());
+      };
+      if (!confirm) {
+        apply();
+        return;
+      }
+      const confirmId = options.confirmId || `h-module-config-reset-${Date.now()}`;
+      HMsg.showMsgDlg($HR('Reset all settings to their defaults?'), {
+        dialogId: confirmId,
+        title: $HR('Confirm'),
+        buttons: [
+          { label: $HR('Reset'), class: 'h-btn h-btn-danger', onClick: () => { HMsg.closeMsgDlg(confirmId); apply(); } },
+          { label: $HR('Cancel'), class: 'h-btn', onClick: () => HMsg.closeMsgDlg(confirmId) }
+        ]
+      });
+    },
+    destroy: async () => {
+      const current = form;
+      form = null;
+      await current?.destroy();
+    }
+  };
+  return panel;
+}
 
 /** The configuration dialog of a module, made from its form JSON. */
 export class ModuleConfigurationDialog {
@@ -62,10 +161,10 @@ export class ModuleConfigurationDialog {
     this.form = null;
   }
 
-  /** @returns {object} The normalized settings the dialog opens with. */
+  /** @returns {object} The normalized settings the dialog opens with (a new instance: with the mode defaults). */
   initialSettings() {
     const { value, defaults, normalize } = this.options;
-    return normalize(value && typeof value === 'object' ? value : defaults());
+    return normalize(value && typeof value === 'object' ? value : applyModeDefaults(this.options.form, defaults(), this.mode));
   }
 
   /** @returns {boolean} Whether the Advanced switch is shown (not in publication, not simplified, optional items). */
@@ -80,29 +179,10 @@ export class ModuleConfigurationDialog {
    * @returns {Promise<object|null>} The normalized settings after Apply / Save / Publish; null when cancelled.
    */
   async open() {
-    const json = await resolveTermsSources(this.options.form, this.options.termsProviders || {});
-    this.settings = applyTermAliases(json, this.initialSettings());
-    const body = document.createElement('div');
-    body.className = 'h-module-config';
-    const advancedKey = `${this.formId}:${this.mode}`;
-    this.advanced = this.hasAdvancedSwitch() && advancedState.get(advancedKey) === true;
-    if (this.hasAdvancedSwitch()) body.append(this._advancedSwitch(advancedKey));
-    if (this.options.slot) body.append(this.options.slot);
-    const host = document.createElement('div');
-    host.className = 'h-module-config-form';
-    body.append(host);
-    this.form = new HEditForm().attach(host, {
-      labelPos: 'inline',
-      inlineCheckboxes: true,
-      ...(this.options.formOptions || {}),
-      form: json,
-      values: this.settings,
-      mode: this.mode,
-      showOptional: this.advanced,
-      simplified: this.options.simplified === true,
-      keepHidden: true,
-      allowHidden: false
-    }).render();
+    this.panel = await createModuleConfigurationForm({ ...this.options, mode: this.mode, formId: this.formId,
+      confirmId: `${this.dialogId}-confirm` });
+    this.form = this.panel.form;
+    const body = this.panel.element;
 
     return new Promise((resolve) => {
       let finished = false;
@@ -110,7 +190,7 @@ export class ModuleConfigurationDialog {
         if (finished) return;
         finished = true;
         HMsg.closeMsgDlg(this.dialogId);
-        await this.form?.destroy();
+        await this.panel?.destroy();
         this.form = null;
         resolve(result);
       };
@@ -137,8 +217,7 @@ export class ModuleConfigurationDialog {
 
   /** @returns {object|null} The settings now in the form (normalized), or null when the dialog is closed. */
   getValue() {
-    if (!this.form) return null;
-    return this.options.normalize(mergeSettings(this.settings, this.form.getValues()));
+    return this.form ? this.panel.getValue() : null;
   }
 
   /** Check the form, then the owner's work, then close with the settings. */
@@ -154,26 +233,9 @@ export class ModuleConfigurationDialog {
     void this._finish?.(settings);
   }
 
-  /** Reset to the module defaults (after a confirmation); nothing is saved yet. */
+  /** Reset to the module defaults with the mode defaults (after a confirmation); nothing is saved yet. */
   reset() {
-    if (!this.form) return;
-    const confirmId = `${this.dialogId}-confirm`;
-    HMsg.showMsgDlg($HR('Reset all settings to their defaults?'), {
-      dialogId: confirmId,
-      title: $HR('Confirm'),
-      buttons: [
-        {
-          label: $HR('Reset'),
-          class: 'h-btn h-btn-danger',
-          onClick: () => {
-            HMsg.closeMsgDlg(confirmId);
-            this._wasReset = true;
-            void this.form?.setValues(this.options.normalize(this.options.defaults()));
-          }
-        },
-        { label: $HR('Cancel'), class: 'h-btn', onClick: () => HMsg.closeMsgDlg(confirmId) }
-      ]
-    });
+    if (this.form) this.panel.reset(true);
   }
 
   /** Close; unsaved changes are confirmed first (publication: "Cancel publish?" always). */
@@ -198,7 +260,7 @@ export class ModuleConfigurationDialog {
       return;
     }
     // a Reset makes the form again: it counts as a change
-    if (!this._wasReset && !this.form?.isDirty()) {
+    if (!this.panel?.isDirty()) {
       void this._finish?.(null);
       return;
     }
@@ -218,24 +280,5 @@ export class ModuleConfigurationDialog {
         { label: $HR('Cancel'), class: 'h-btn', onClick: () => HMsg.closeMsgDlg(confirmId) }
       ]
     });
-  }
-
-  /** The Advanced switch above the form. */
-  _advancedSwitch(key) {
-    const label = document.createElement('label');
-    label.className = 'h-inline h-module-config-advanced';
-    const input = document.createElement('input');
-    input.type = 'checkbox';
-    input.checked = this.advanced;
-    input.addEventListener('change', () => {
-      this.advanced = input.checked;
-      advancedState.set(key, this.advanced);
-      this.form?.setShowOptional(this.advanced);
-    });
-    const text = document.createElement('span');
-    text.className = 'h-i18n';
-    text.textContent = $HR('Advanced settings');
-    label.append(input, text);
-    return label;
   }
 }

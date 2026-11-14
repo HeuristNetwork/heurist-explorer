@@ -49,6 +49,26 @@ export function splitLanguage(value) {
 }
 
 /**
+ * The value of a translatable field for a language (2026-11-14, e.g. the name of a query source on a website page):
+ * the value whose language prefix is the language (`fre:Nom`, case does not matter), else the value without a prefix
+ * (the original), else the first value. Values may be `{value}` objects.
+ *
+ * @param {Array<*>|*} values Stored values of the field.
+ * @param {string} language Language code (3 letters, e.g. `fre`).
+ * @returns {string} The text, '' without values.
+ */
+export function valueInLanguage(values, language) {
+  const rows = (Array.isArray(values) ? values : [values])
+    .map((value) => (value && typeof value === 'object' ? value.value : value))
+    .filter((value) => value != null && String(value).trim() !== '')
+    .map((value) => splitLanguage(value));
+  if (!rows.length) return '';
+  const code = String(language || '').toLowerCase();
+  const own = code ? rows.find((row) => row.lang && row.lang.toLowerCase() === code) : null;
+  return (own || rows.find((row) => !row.lang) || rows[0]).text.trim();
+}
+
+/**
  * Editable entry of one stored value.
  *
  * @param {string} type Field type.

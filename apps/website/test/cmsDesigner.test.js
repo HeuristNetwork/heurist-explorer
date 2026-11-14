@@ -746,3 +746,30 @@ test('Add page (review 2026-11-14): list and preview, then Add shows the form of
     HMsg.getMsgDlg = get;
   }
 });
+
+test('designer: the modules of an Explorer instance are its child items (2026-11-14)', async () => {
+  const { explorerModuleSettings, explorerModuleTypes, moduleItemId, parseModuleItemId, withExplorerModuleSettings } =
+    await import('../src/designer/explorerModules.js');
+  const settings = {
+    ui: { regions: { data: 'west', map: 'center', graph: 'unused', timeline: 'south', recordview: 'center' }, order: ['data', 'recordview', 'map'] },
+    layout: [{ id: 'map', type: 'map', region: 'center', settings: { x: 1 } }],
+    modules: {}
+  };
+  assert.deepEqual(explorerModuleTypes(settings), ['data', 'recordview', 'map', 'timeline']);
+  assert.deepEqual(explorerModuleTypes({ layout: [{ type: 'data' }, { type: 'map' }] }), ['data', 'map'], 'no layout configuration');
+  const id = moduleItemId('n1', 'map');
+  assert.deepEqual(parseModuleItemId(id), { node: 'n1', type: 'map' });
+  assert.equal(parseModuleItemId('n1'), null);
+  assert.deepEqual(explorerModuleSettings(settings, 'map'), { x: 1 }, 'the settings of its layout item');
+  const next = withExplorerModuleSettings(settings, 'map', { y: 2 });
+  assert.deepEqual(next.modules.map, { y: 2 });
+  assert.deepEqual(next.layout[0].settings, { y: 2 }, 'the layout item too (it wins on the page)');
+  assert.deepEqual(settings.layout[0].settings, { x: 1 }, 'not changed in place');
+
+  const { designer } = designerOf();
+  await designer.open(10);
+  const tools = designer._nodeTools({ id: moduleItemId('n1', 'map') });
+  assert.deepEqual(tools.map((tool) => tool.action), ['config'], 'the gear only, no delete');
+  assert.equal(designer._canDropNode(moduleItemId('n1', 'map'), '#root', 'inside'), false, 'not dragged');
+  designer.destroy();
+});

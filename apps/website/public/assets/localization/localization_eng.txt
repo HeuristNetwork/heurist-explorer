@@ -409,3 +409,19 @@
 #Welcome#Welcome
 #Creating the pages of the website...#Creating the pages of the website...
 #The website gets a header with a menu, a footer and the chosen pages. It is public.#The website gets a header with a menu, a footer and the chosen pages. It is public.
+#Configuration of this module on the page#Configuration of this module on the page
+#A module of this Explorer: its configuration on this page#A module of this Explorer: its configuration on this page
+#The default settings (applied with Apply)#The default settings (applied with Apply)
+#Apply the configuration to the page (saved with Save Page)#Apply the configuration to the page (saved with Save Page)
+#Applied: Save Page saves it#Applied: Save Page saves it
+#No changes#No changes
+#Explorer#Explorer
+#Result#Result
+#Map#Map
+#Graph#Graph
+#Timeline#Timeline
+#Record View#Record View
+#Loading...#Loading...
+#Use the current Explorer view#Use the current Explorer view
+#The current result, selection and module settings of Explorer go to the page on Apply#The current result, selection and module settings of Explorer go to the page on Apply
+#The current Explorer view is taken on Apply#The current Explorer view is taken on Apply

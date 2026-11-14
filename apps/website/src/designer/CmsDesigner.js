@@ -49,6 +49,9 @@ import {
 import { openNewRecordPageForm, recordPageTerms, sitePageTerms } from './recordPageField.js';
 import { openActionMenuForm, openSocialForm, sitePageList } from './actionForms.js';
 import { buildBadgesHtml, openBadgesForm } from './badgesForm.js';
+import {
+  EXPLORER_MODULES, explorerModuleSettings, explorerModuleTypes, moduleItemId, parseModuleItemId, withExplorerModuleSettings
+} from './explorerModules.js';
 import { createTemplateForm, hasTemplateForm } from './templateForms.js';
 import {
   changedDetails, dropPlace, menuPlace, previewUrl, recordDocument, startPageChoices, subPageIds
@@ -413,6 +416,7 @@ export class CmsDesigner {
     west.append(this._renderToolbar(), this._renderViewBar());
     this.partPane = element('div', 'h-cms-part-pane');
     const pagePanel = element('div', 'h-cms-page-panel');
+    this.pagePanel = pagePanel;
     // the inline Own style form of the page editor (plan 27i §10): right of the tree in a wide pane, below it in a narrow one
     this.pageBar = this._renderPageBar();
     this.formPanel = createFormPanel({ onClose: () => void this._closeForm() });
@@ -1076,8 +1080,8 @@ export class CmsDesigner {
       tools: (item) => this._nodeTools(item),
       canDrop: (dragId, targetId, position) => this._canDropNode(dragId, targetId, position),
       onDrop: this.readOnly ? null : (dragId, targetId, position) => this._dropNode(dragId, targetId, position),
-      onSelect: (id) => this._selectNode(id === ROOT ? null : id),
-      onHover: (id) => this.preview?.highlight(id === ROOT ? null : id),
+      onSelect: (id) => (parseModuleItemId(id) ? this._selectModuleItem(id) : this._selectNode(id === ROOT ? null : id)),
+      onHover: (id) => this.preview?.highlight(id === ROOT ? null : parseModuleItemId(id)?.node || id),
       onTool: (action, id, button) => void this._nodeTool(action, id, button),
       onActivate: (id) => void this._activateNode(id)
     }).render();
@@ -1109,7 +1113,7 @@ export class CmsDesigner {
       danger: Boolean(marked?.has(item.id)),
       badge: item.configured ? '' : $HR('not configured'),
       title: [item.kind, item.preset ? `${$HR('preset')}: ${item.preset}` : ''].filter(Boolean).join(' · '),
-      children: map(item.children)
+      children: [...map(item.children), ...this._explorerModuleItems(item, record)]
     }));
     return [{
       id: ROOT, label: this._partLabel(), icon: this._partIcon(), bold: true, draggable: false,
@@ -1117,6 +1121,23 @@ export class CmsDesigner {
         : Boolean(this.current && this.problems?.pages.has(this.current.recordId)),
       children: record ? map(record.doc.tree(this.current.part)) : []
     }];
+  }
+
+  /**
+   * The modules of an Explorer instance (review 2026-11-14): child items of its node, configured inline with the gear;
+   * not dragged, not removed.
+   */
+  _explorerModuleItems(item, record) {
+    if (item.kind !== 'instance' || item.type !== 'explorer' || !item.instance || !record) return [];
+    const settings = record.doc.instance(item.instance)?.settings || null;
+    return explorerModuleTypes(settings).map((type) => ({
+      id: moduleItemId(item.id, type),
+      label: $HR(EXPLORER_MODULES[type].label),
+      icon: EXPLORER_MODULES[type].icon,
+      draggable: false,
+      title: $HR('A module of this Explorer: its configuration on this page'),
+      children: []
+    }));
   }
 
   /**
@@ -1143,6 +1164,8 @@ export class CmsDesigner {
    */
   _nodeTools(item) {
     if (this.readOnly) return [];
+    // a module of an Explorer: its configuration only (review 2026-11-14)
+    if (parseModuleItemId(item.id)) return [{ action: 'config', icon: 'fa-gear', title: $HR('Configuration of this module on the page') }];
     if (item.id === ROOT) {
       const page = this.current?.part === 'content';
       return [
@@ -1182,7 +1205,7 @@ export class CmsDesigner {
 
   _canDropNode(dragId, targetId, position) {
     const record = this._currentRecord();
-    if (!record || dragId === ROOT) return false;
+    if (!record || dragId === ROOT || parseModuleItemId(dragId) || parseModuleItemId(targetId)) return false;
     if (targetId === ROOT) return position === 'inside' && record.doc.canDrop(dragId, { id: null, position: 'inside', part: this.current.part });
     return record.doc.canDrop(dragId, { id: targetId, position, part: this.current.part });
   }
@@ -1193,6 +1216,7 @@ export class CmsDesigner {
 
   async _nodeTool(action, id, button) {
     if (!this._currentRecord()) return undefined;
+    if (action === 'config' || parseModuleItemId(id)) return this._openConfig(id);
     if (action === 'add') return this._addElement(id);
     if (action === 'page') return this._editPage();
     this._selectNode(id);
@@ -1212,6 +1236,7 @@ export class CmsDesigner {
   /** Double click in the part tree: the popup of the element (the pen or gear), of the page on the root. */
   _activateNode(id) {
     if (this.readOnly || !this._currentRecord()) return undefined;
+    if (parseModuleItemId(id)) return this._openConfig(id);
     if (id === ROOT) return this.current?.part === 'content' ? this._editPage() : undefined;
     const tool = this._popupTool(id, this._treeItem(id));
     return tool ? this._nodeTool(tool.action, id) : undefined;
@@ -1307,8 +1332,27 @@ export class CmsDesigner {
     this.partTree?.select(id || ROOT);
     if (!fromPreview) this.preview?.reveal(id);
     this._renderProperties();
-    // the open form follows the selection (the last input is applied first)
-    if (changed && this.formPanel?.isOpen()) void this._openForm(id || ROOT);
+    // the open form follows the selection (the last input is applied first); a module form: the form of the module
+    if (changed && this.formPanel?.isOpen()) void (this.formMode === 'config' ? this._followConfig(id) : this._openForm(id || ROOT));
+  }
+
+  /** A module of an Explorer selected in the tree: its Explorer in the preview; an open form shows its configuration. */
+  _selectModuleItem(id) {
+    const child = parseModuleItemId(id);
+    if (!child) return;
+    this.selectedNode = child.node;
+    this.partTree?.select(id);
+    this.preview?.reveal(child.node);
+    this._renderProperties();
+    if (this.formPanel?.isOpen()) void this._openConfig(id);
+  }
+
+  /** The module form follows the selection: a module instance shows its configuration, another element closes it. */
+  async _followConfig(id) {
+    const node = id ? this._treeItem(id) : null;
+    const instance = node?.instance ? this._currentRecord()?.doc.instance(node.instance) : null;
+    if (instance?.kind === 'module') await this._openConfig(id);
+    else await this._closeForm();
   }
 
   /** Help and the tools of the selected element. */
@@ -1862,6 +1906,11 @@ export class CmsDesigner {
         await this._configureWidget(node.instance, instance);
         return;
       }
+      // the inline form below the tree (review 2026-11-14); the popup for an older host
+      if (this._hasConfigPanels()) {
+        await this._openConfig(id);
+        return;
+      }
       if (instance.type === 'explorer') {
         if (!this.bridge.configureExplorerInstance) throw new Error($HR('Explorer can not be configured here'));
         const result = await this.bridge.configureExplorerInstance({ value: null });
@@ -1895,8 +1944,14 @@ export class CmsDesigner {
    */
   async _openForm(id) {
     if (this.readOnly || !this._currentRecord()) return;
+    if (parseModuleItemId(id) || (this.formMode === 'config' && id && id === this.formNode)) {
+      await this._openConfig(id);
+      return;
+    }
     const ticket = (this._formTicket || 0) + 1;
     this._formTicket = ticket;
+    this.formMode = 'style';
+    this.pagePanel?.classList.remove('h-cms-form-below');
     const target = id || ROOT;
     const sections = this._formSections(target);
     if (!sections) {
@@ -1915,8 +1970,107 @@ export class CmsDesigner {
     this._formTicket = (this._formTicket || 0) + 1;
     await this.formPanel.hide();
     this.formNode = null;
+    this.formMode = null;
+    this.pagePanel?.classList.remove('h-cms-form-below');
     this._formWestMinimum(false);
     this._updateBar();
+  }
+
+  /** Whether the host gives the configuration forms without a dialog (bridge, review 2026-11-14). */
+  _hasConfigPanels() {
+    return typeof this.bridge?.createConfigurationPanel === 'function' && typeof this.bridge?.createExplorerInstancePanel === 'function';
+  }
+
+  /**
+   * The configuration form of a module instance, of an Explorer instance or of a module of an Explorer, inline below the
+   * tree (review 2026-11-14), with Reset and Apply.
+   *
+   * @param {string} id Node id of the instance, or the id of a module item of an Explorer.
+   */
+  async _openConfig(id) {
+    if (this.readOnly || !this._currentRecord() || !id) return;
+    if (!this._hasConfigPanels()) {
+      const child = parseModuleItemId(id);
+      if (!child) await this._configure(id);
+      return;
+    }
+    const child = parseModuleItemId(id);
+    const node = this._treeItem(child ? child.node : id);
+    const instance = node?.instance ? this._currentRecord().doc.instance(node.instance) : null;
+    if (!instance || instance.kind !== 'module') return;
+    const ticket = (this._formTicket || 0) + 1;
+    this._formTicket = ticket;
+    this.formNode = id;
+    this.formMode = 'config';
+    this.pagePanel?.classList.add('h-cms-form-below');
+    this._formWestMinimum(true);
+    const name = child ? EXPLORER_MODULES[child.type].label : (instance.type === 'explorer' ? 'Explorer' : EXPLORER_MODULES[instance.type]?.label || instance.type);
+    await this.formPanel.show([{ label: `${$HR('Configuration')}: ${$HR(name)}`, build: (host) => this._configSection(host, id) }]);
+    if (ticket === this._formTicket) this._updateBar();
+  }
+
+  /** The form of _openConfig: the panel of Explorer (bridge), Reset and Apply; returns its cleanup. */
+  async _configSection(host, id) {
+    const child = parseModuleItemId(id);
+    const nodeId = child ? child.node : id;
+    const instanceOf = () => {
+      const node = this._treeItem(nodeId);
+      return node?.instance ? { instanceId: node.instance, instance: this._currentRecord()?.doc.instance(node.instance) } : null;
+    };
+    const found = instanceOf();
+    if (!found?.instance) return undefined;
+    const { instance } = found;
+    const loading = element('div', 'h-cms-form-loading');
+    loading.textContent = $HR('Loading...');
+    host.append(loading);
+    let panel = null;
+    try {
+      if (child) {
+        panel = await this.bridge.createConfigurationPanel({ moduleType: child.type, mode: 'website',
+          value: explorerModuleSettings(instance.settings, child.type) });
+      } else if (instance.type === 'explorer') {
+        panel = await this.bridge.createExplorerInstancePanel({ value: instance });
+      } else {
+        const hasSettings = instance.settings && typeof instance.settings === 'object' && Object.keys(instance.settings).length;
+        panel = await this.bridge.createConfigurationPanel({ moduleType: instance.type, mode: 'website', value: hasSettings ? instance.settings : null });
+      }
+    } catch (error) {
+      loading.textContent = error?.message || String(error);
+      return undefined;
+    }
+    loading.remove();
+    host.append(panel.element);
+    const bar = element('div', 'h-cms-form-actions');
+    const reset = element('button', 'h-btn h-compact');
+    reset.type = 'button';
+    reset.textContent = $HR('Reset');
+    reset.title = $HR('The default settings (applied with Apply)');
+    reset.addEventListener('click', () => panel.reset());
+    const apply = element('button', 'h-btn h-btn-primary h-compact');
+    apply.type = 'button';
+    apply.textContent = $HR('Apply');
+    apply.title = $HR('Apply the configuration to the page (saved with Save Page)');
+    apply.addEventListener('click', async () => {
+      apply.disabled = true;
+      try {
+        const value = await panel.read();
+        const current = instanceOf();
+        if (!value || !current?.instance) return;
+        const changed = this._applyEdit((doc) => {
+          if (child) return doc.setInstance(current.instanceId, { settings: withExplorerModuleSettings(current.instance.settings, child.type, value) });
+          if (current.instance.type === 'explorer') return doc.setInstance(current.instanceId, value);
+          return doc.setInstance(current.instanceId, { settings: value });
+        });
+        HMsg.showMsgFlash?.($HR(changed ? 'Applied: Save Page saves it' : 'No changes'), { showDelay: 1500 });
+      } catch (error) {
+        HMsg.showMsgErr?.(error?.message || String(error));
+      } finally {
+        apply.disabled = false;
+      }
+    });
+    bar.append(reset, element('span', 'h-cms-toolbar-spacer'), apply);
+    host.append(bar);
+    return () => panel.destroy();
   }
 
   /**
@@ -2058,6 +2212,20 @@ export class CmsDesigner {
     this.undoStack.push(before);
     this.redoStack = [];
     this._changed();
+    return true;
+  }
+
+  /** A change applied by a configuration form (Apply, review 2026-11-14): one undo step; the open form stays. */
+  _applyEdit(change) {
+    const record = this._currentRecord();
+    if (!record || this.readOnly) return false;
+    const before = record.doc.snapshot();
+    const result = change(record.doc);
+    if (result === false || record.doc.snapshot() === before) return false;
+    this.undoStack.push(before);
+    this.redoStack = [];
+    this._changed({ fromForm: true });
+    if (parseModuleItemId(this.formNode)) this.partTree?.select(this.formNode);
     return true;
   }
 

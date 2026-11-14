@@ -59,6 +59,29 @@ export function mergeSettings(base, values) {
 }
 
 /**
+ * The defaults of a mode over settings made from the module defaults (2026-11-14): a field with `modeDefaults`
+ * (`{website: false}`) gets that value in the mode, e.g. Enable edit off for a module on a website page. Used for a
+ * new instance without settings and for Reset, never over stored settings.
+ *
+ * @param {object} json Form JSON (field names are the dotted keys of the settings).
+ * @param {object} settings Settings `{options, config}` made from the defaults (not changed).
+ * @param {string} mode Form mode.
+ * @returns {object} The settings with the mode defaults.
+ */
+export function applyModeDefaults(json, settings, mode) {
+  const formMode = configurationFormMode(mode);
+  const patch = {};
+  for (const group of Array.isArray(json?.groups) ? json.groups : []) {
+    for (const field of Array.isArray(group?.children) ? group.children : []) {
+      const defaults = field?.modeDefaults;
+      if (!isPlainObject(defaults) || !Object.hasOwn(defaults, formMode) || !field.name) continue;
+      patch[field.name] = defaults[formMode];
+    }
+  }
+  return Object.keys(patch).length ? mergeSettings(settings, expandSettingsPatch(patch)) : settings;
+}
+
+/**
  * A copy of a form JSON with properties of some fields changed: what only the module knows,
  * e.g. the record type of the map documents (`targetTypes` of a resource field).
  *

@@ -59,9 +59,6 @@
           "showWhen": {
             "options.ui.enabled": true
           },
-          "forced": {
-            "website": false
-          },
           "simplified": {
             "hidden": true
           }
@@ -315,6 +312,9 @@
         },
         {
           "name": "config.dynamicDocument.title",
+          "modeDefaults": {
+            "website": "Filtered Result"
+          },
           "type": "freetext",
           "label": "Title",
           "req": "recommended",
@@ -658,6 +658,9 @@
       "children": [
         {
           "name": "options.interaction.editEnabled",
+          "modeDefaults": {
+            "website": false
+          },
           "type": "boolean",
           "label": "Enable edit",
           "req": "recommended",

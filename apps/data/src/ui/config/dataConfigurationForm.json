@@ -194,6 +194,9 @@
         },
         {
           "name": "options.nativeControls.showOwner",
+          "modeDefaults": {
+            "website": false
+          },
           "type": "boolean",
           "label": "See / hide owners",
           "req": "recommended",
@@ -210,6 +213,9 @@
         },
         {
           "name": "options.nativeControls.selectionActions",
+          "modeDefaults": {
+            "website": false
+          },
           "type": "boolean",
           "label": "Selection actions",
           "req": "recommended",
@@ -399,6 +405,9 @@
       "children": [
         {
           "name": "options.interaction.editEnabled",
+          "modeDefaults": {
+            "website": false
+          },
           "type": "boolean",
           "label": "Enable edit",
           "req": "recommended",
@@ -443,6 +452,9 @@
         },
         {
           "name": "options.interaction.popupEnabled",
+          "modeDefaults": {
+            "website": false
+          },
           "type": "boolean",
           "label": "Enable popups",
           "req": "recommended",

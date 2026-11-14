@@ -384,3 +384,17 @@ every distribution. Options (to decide):
   About, Discover, Contact on). The editor opens and `CmsDesigner.addStarterPages` makes them: the home content =
   template Landing, the "About" page of the server is replaced by the chosen template pages (all their sections),
   Cover = Startup page. Page creation of Add page moved to `_createTemplatePage`.
+
+### 11.12 Review 2026-11-14, round 10: module configurations in the designer (implemented, not committed, no browser check)
+
+- Module forms (Explorer, Map, Timeline, Graph, Data, Record View) are inline below the page tree (gear of the instance),
+  with Reset and Apply (one undo step; Save Page saves). Widget forms stay popups. Bridge `createConfigurationPanel` /
+  `createExplorerInstancePanel` (docs/integration.md); without them the popups as before.
+- Explorer instance (website mode): no Language (the page's, `auto`), no "Current query" (a page that has it keeps it),
+  Layout of the presentation modules (`explorerLayoutEditor.js`, shared with the Explorer configuration dialog, no tools).
+  A new instance takes the current Explorer view; a configured one keeps its settings and state unless "Use the current
+  Explorer view" is clicked. `settings.layout` is rebuilt from the layout (`websiteLayoutList`).
+- The modules of an Explorer instance are child items of its node (`explorerModules.js`, id `<node>/module:<type>`):
+  gear only, not dragged; Apply writes `settings.modules[type]` and its layout items.
+- Website defaults of the module forms: plan 29 §19. HFilter on a published page: a query source has its DT_NAME in
+  the page language (`valueInLanguage`, `QuerySourceManager` names); saved filters keep their name (no translations yet).
