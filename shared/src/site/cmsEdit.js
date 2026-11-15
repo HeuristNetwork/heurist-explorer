@@ -36,6 +36,7 @@
 import { checkCmsDocument, CMS_CONFIG_VERSION, CMS_SCHEMA, parseCmsConfig } from './cmsDocument.js';
 import { CMS_MEDIA_DEFAULTS } from './cmsMedia.js';
 import { buildTemplatePage, CMS_TEAM_TEMPLATE, CMS_TEMPLATE_PAGES } from './cmsPageTemplates.js';
+import { normalizeCmsFilterValues } from './cmsSavedFilter.js';
 
 /** HTML parts of a record: field key => role. */
 export const CMS_PARTS = Object.freeze(['header', 'content', 'footer']);
@@ -724,17 +725,40 @@ export class CmsRecordDocument {
   }
 
   /**
+   * The values of a Saved filter link of a Record field element (`data-h-link-values`, plan 27j), or null.
+   *
+   * @param {string} id Node id.
+   * @returns {object|null}
+   */
+  fieldLinkValues(id) {
+    const node = this.find(id)?.node;
+    const text = node ? attr(node, 'data-h-link-values') : null;
+    if (!text) return null;
+    try {
+      const values = JSON.parse(text);
+      return values && typeof values === 'object' && !Array.isArray(values) ? values : null;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
    * Set or remove the action of a Record field element.
    *
    * @param {string} id Node id.
-   * @param {string|null} link `url`, `page:<id>`; null or '': none.
+   * @param {string|null} link `url`, `page:<id>`, `goto:<id>|goto:home`, `filter:<page>:<source>` (Saved filter, plan 27j);
+   *        null or '': none.
+   * @param {object|null} [values] The values of a Saved filter (`data-h-link-values`, within CMS_FILTER_LIMITS).
    * @returns {boolean}
    */
-  setFieldLink(id, link) {
+  setFieldLink(id, link, values = null) {
     const node = this.find(id)?.node;
     if (!node || !hasAttr(node, 'data-h-field')) return false;
-    if (link && /^(url|page:\d+|goto:(\d+|home))$/.test(link)) setAttr(node, 'data-h-link', link);
+    if (link && /^(url|page:\d+|goto:(\d+|home)|filter:\d+:\d+)$/.test(link)) setAttr(node, 'data-h-link', link);
     else removeAttr(node, 'data-h-link');
+    const filterValues = link && link.startsWith('filter:') ? normalizeCmsFilterValues(values).values : {};
+    if (Object.keys(filterValues).length) setAttr(node, 'data-h-link-values', JSON.stringify(filterValues));
+    else removeAttr(node, 'data-h-link-values');
     return true;
   }
 

@@ -31,6 +31,8 @@ import { HLangSwitch } from '#shared/widgets/site/HLangSwitch.js';
 import { HEmailForm } from '#shared/widgets/site/HEmailForm.js';
 import { fileMediaUrls } from '#shared/recordview/fileMediaItem.js';
 import { SITE_WIDGETS, mountSiteWidget } from './siteWidgets.js';
+import { QuerySource } from '#shared/data/QuerySource.js';
+import { CMS_FILTER_MODULES, cmsFilterRequest, parseCmsFilterQuery } from '#shared/site/cmsSavedFilter.js';
 
 /**
  * The direct entries of the modules, loaded only when a page has the module
@@ -523,9 +525,11 @@ export async function mountInstance(host, id, config, loaders) {
     const container = document.createElement('div');
     container.className = 'h-site-module-root';
     host.replaceChildren(container);
+    // a Saved filter of the page URL (plan 27j): the records of its query source instead of the stored start
+    const state = await pageFilterState(instance, config);
     const api = await mount({
       container,
-      bootstrap: { runtime: { ...(config.runtime || {}) }, settings: instance.settings || {}, state: instance.state ?? null },
+      bootstrap: { runtime: { ...(config.runtime || {}) }, settings: instance.settings || {}, state },
       assetBaseUrl: config.runtime?.moduleBaseUrl ? `${config.runtime.moduleBaseUrl}heurist-${instance.type}/` : null
     });
     MODULES.push({ type: instance.type, api, host });
@@ -533,6 +537,86 @@ export async function mountInstance(host, id, config, loaders) {
   } catch (error) {
     console.error(`Unable to show ${instance.type} (${id})`, error);
     return showMessage(host, $HR('This part of the page can not be shown'));
+  }
+}
+
+/** Requests of the Saved filters of page URLs (plan 27j), by the query string: one load for all modules of a page. */
+const FILTER_REQUESTS = new Map();
+
+/**
+ * The Saved filter asked by the page URL (plan 27j): `?source=<id>&v.<NAME>=` (cmsSavedFilter.js). The query source is
+ * read with the rights of the visitor (`GET /records/querysource/{id}`); the given values are filled in.
+ *
+ * @param {object} runtime `apiBaseUrl`, `database`.
+ * @param {string} [search] `location.search`.
+ * @param {Function} [load] fetch.
+ * @returns {Promise<{dataSource: object, raw: object, values: object, missing: string[]}|null>} Null without a Saved
+ *          filter, or when the source can not be read.
+ */
+export function pageFilterRequest(runtime = {}, search = globalThis.location?.search || '', load = globalThis.fetch) {
+  const asked = parseCmsFilterQuery(search);
+  if (!asked || typeof load !== 'function') return Promise.resolve(null);
+  const key = String(search);
+  if (!FILTER_REQUESTS.has(key)) {
+    const url = `${runtime.apiBaseUrl || `${runtime.baseUrl || '/'}api`}/${encodeURIComponent(runtime.database || '')}/records/querysource/${asked.source}`;
+    FILTER_REQUESTS.set(key, (async () => {
+      try {
+        const response = await load(url, { credentials: 'same-origin' });
+        if (!response.ok) throw new Error(`${response.status}`);
+        const payload = await response.json();
+        return cmsFilterRequest(new QuerySource(payload?.querySource || payload), asked.values);
+      } catch (error) {
+        console.warn(`Saved filter: query source ${asked.source} can not be read`, error);
+        return null;
+      }
+    })());
+  }
+  return FILTER_REQUESTS.get(key);
+}
+
+/**
+ * The start state of a module instance with the Saved filter of the page URL (plan 27j); the stored state without one,
+ * in the designer, or for a module that does not show records.
+ */
+async function pageFilterState(instance, config) {
+  const state = instance.state ?? null;
+  if (config.runtime?.design || !CMS_FILTER_MODULES.includes(instance.type)) return state;
+  const request = await pageFilterRequest(config.runtime || {});
+  return request ? filterInstanceState(instance.type, state, request) : state;
+}
+
+/**
+ * The start state of a module with a Saved filter (plan 27j), in the keys each module reads at start: Explorer
+ * `pageRequest` (it asks for missing values in its filter form), Data `dataSource` + `query`, Map `query` in its
+ * Filtered Result document, Graph `query`, Timeline `query` + `currentDataSource`.
+ *
+ * @param {string} type Module type.
+ * @param {object|null} state The stored state.
+ * @param {{dataSource: object, raw: object, values: object, missing: string[]}} request pageFilterRequest.
+ * @returns {object}
+ */
+export function filterInstanceState(type, state, request) {
+  const base = state && typeof state === 'object' ? { ...state } : {};
+  const { dataSource } = request;
+  const query = dataSource.request.q;
+  switch (type) {
+    case 'explorer':
+      return { ...base, pageRequest: request };
+    case 'data':
+      return { ...base, querySourceId: null, query, dataSource, title: dataSource.title, fields: dataSource.presentation?.data?.fields || [] };
+    case 'map':
+      return { ...base, query, activeDocumentId: 'dynamic' };
+    case 'graph':
+      return { ...base, query, querySourceId: null, querySourceTitle: dataSource.title,
+        ...(dataSource.request.rules?.length ? { expansions: { rules: dataSource.request.rules } } : { expansions: null }) };
+    case 'timeline': {
+      // the stored snapshot and bands would win over the query
+      delete base.moduleState;
+      delete base.contexts;
+      return { ...base, query, currentDataSource: dataSource, activeDocumentId: 'dynamic' };
+    }
+    default:
+      return base;
   }
 }
 

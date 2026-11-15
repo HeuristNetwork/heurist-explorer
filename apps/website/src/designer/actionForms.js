@@ -24,6 +24,7 @@ import { createHInput } from '#shared/widgets/form/inputs/createHInput.js';
 import { formDialog } from './designerDialogs.js';
 import { dragHandle, helpLine, sortableList } from './designerStyles.js';
 import { recordPagePicker } from './recordPageField.js';
+import { savedFilterPicker, storedSavedFilter } from './savedFilterField.js';
 
 /** Social networks of the social media preset (hard-coded, §9.6): id, name, Font Awesome icon, URL hint. */
 export const SOCIAL_NETWORKS = Object.freeze([
@@ -47,11 +48,11 @@ export const SOCIAL_NETWORKS = Object.freeze([
 const PRESENTATIONS = Object.freeze([['links', 'Links'], ['buttons', 'Buttons'], ['icons', 'Icons'], ['dropdown', 'Drop-down menu']]);
 
 /**
- * Actions of an item: value, label, disabled (Saved filter: not done yet). Record page: a record on a record page; Back:
- * the page before (plan 27g §6).
+ * Actions of an item: value, label. Record page: a record on a record page; Back: the page before (plan 27g §6); Saved
+ * filter: a query source shown on a page of the website (plan 27j, savedFilterField.js).
  */
 const ACTIONS = Object.freeze([['page', 'Go to a page'], ['url', 'Open a URL'], ['addRecord', 'Add a record'],
-  ['recordPage', 'Record page'], ['back', 'Back'], ['savedFilter', 'Saved filter', true]]);
+  ['recordPage', 'Record page'], ['back', 'Back'], ['savedFilter', 'Saved filter']]);
 
 /**
  * Label of an item without one (2026-11-14: an item is not lost when its label is forgotten); Go to a page: the name of
@@ -194,10 +195,13 @@ export function openActionMenuForm({ settings = {}, pages = [], recordTypes = []
     const record = recordInput(services, item.action === 'recordPage' ? Number(item.record) || 0 : 0);
     const recordTarget = element('span', 'h-cms-action-record');
     recordTarget.append(recordPage.element, record.element);
+    // Saved filter (plan 27j): the query source, the target page and the values in a popup
+    const filter = savedFilterPicker(services, storedSavedFilter(item));
     if (item.action === 'url') url.value = item.target || '';
     else if (item.action === 'addRecord') type.value = String(item.target || '');
-    else if (item.action !== 'recordPage' && item.target) page.value = String(item.target);
-    const showTarget = () => target.replaceChildren(...({ page: [page], url: [url], addRecord: [type], recordPage: [recordTarget], back: [] }[action.value] || [page]));
+    else if (!['recordPage', 'savedFilter'].includes(item.action) && item.target) page.value = String(item.target);
+    const showTarget = () => target.replaceChildren(...({ page: [page], url: [url], addRecord: [type], recordPage: [recordTarget], back: [],
+      savedFilter: [filter.element] }[action.value] || [page]));
     // Go to a page without a label: the name of the page (review 2026-11-11); Back: "Back"
     const pageLabel = () => {
       if (text.value.trim()) return;
@@ -242,6 +246,10 @@ export function openActionMenuForm({ settings = {}, pages = [], recordTypes = []
           value.target = Number(recordPage.select.value) || 0;
           value.record = record.value();
         } else if (action.value === 'addRecord') value.target = Number(type.value) || type.value;
+        else if (action.value === 'savedFilter' && filter.value()) {
+          const chosen = filter.value();
+          Object.assign(value, { target: chosen.page, source: chosen.source, values: chosen.values });
+        }
         if (newTab.input.checked) value.newTab = true;
         if (iconOnly.input.checked && value.icon) value.iconOnly = true;
         if (item.labels) value.labels = item.labels;
@@ -273,6 +281,10 @@ export function openActionMenuForm({ settings = {}, pages = [], recordTypes = []
     }
     if (items.some((item) => item.action === 'recordPage' && (!item.target || !item.record))) {
       problems.textContent = $HR('A Record page item needs a record page and a record');
+      return null;
+    }
+    if (items.some((item) => item.action === 'savedFilter' && (!item.target || !item.source))) {
+      problems.textContent = $HR('A Saved filter item needs a query source and a target page');
       return null;
     }
     if (single) return items[0] || null;

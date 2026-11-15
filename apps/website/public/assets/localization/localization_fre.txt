@@ -440,3 +440,21 @@
 #Tab#Onglet
 #Section#Section
 #Maximum width of page#Largeur maximale de la page
+#Saved filter#Filtre enregistré
+#Query source#Source de requête
+#Target page#Page cible
+#Choose a query source#Choisissez une source de requête
+#Choose the target page#Choisissez la page cible
+#Define the saved filter#Définir le filtre enregistré
+#Not defined#Non défini
+#Values#Valeurs
+#value#valeur
+#values#valeurs
+#This query source has no parameters.#Cette source de requête n’a pas de paramètres.
+#There is no public query source in this database.#Il n’y a pas de source de requête publique dans cette base.
+#Too many or too long values#Valeurs trop nombreuses ou trop longues
+#The values are too long for a link#Les valeurs sont trop longues pour un lien
+#Give at least one value: the modules of this page show the records without a form#Donnez au moins une valeur : les modules de cette page affichent les enregistrements sans formulaire
+#A value of this form can not be kept in a link (for example an extent).#Une valeur de ce formulaire ne peut pas être gardée dans un lien (par exemple une étendue).
+#The link opens the target page with the records of the query source. Values left empty: Explorer asks for them, other modules leave them out.#Le lien ouvre la page cible avec les enregistrements de la source de requête. Valeurs vides : Explorer les demande, les autres modules les ignorent.
+#A Saved filter item needs a query source and a target page#Un élément Filtre enregistré demande une source de requête et une page cible

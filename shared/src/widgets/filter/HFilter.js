@@ -117,6 +117,28 @@ export class HFilter extends HBaseWidget {
     return true;
   }
 
+  /**
+   * The Filter Form of a source that is not one of the items, filled in with values (a Saved filter of a website page
+   * with values still missing, plan 27j). A source without parameters runs at once.
+   *
+   * @param {object} source DataSource with `request.q` (with `$NAME$` parameters) and `presentation.filterForm`.
+   * @param {object} [values] Values by parameter name.
+   * @returns {Promise<boolean>}
+   */
+  async showSource(source, values = {}) {
+    if (!source?.request?.q) return false;
+    ++this._run;
+    this.selectedKey = null;
+    this._markSelected();
+    await this._closeForm();
+    if (hasQueryParameters(source.request.q)) {
+      this._showForm(source, values);
+      return true;
+    }
+    await this.options.onRun(source);
+    return true;
+  }
+
   /** @inheritdoc */
   async destroy() {
     await this._closeForm();
@@ -176,16 +198,18 @@ export class HFilter extends HBaseWidget {
    * The Filter Form of a parameterized source: no Builder (no `onOpenBuilder`); Close only
    * with a list. The list is hidden while the form is open, Close shows it again.
    */
-  _showForm(source) {
+  _showForm(source, values = {}) {
     this.formHost.hidden = false;
     if (this.listElement) this.listElement.hidden = true;
     const host = document.createElement('div');
     this.formHost.replaceChildren(host);
     this.form = new HFilterForm().attach(host, {
       definition: { query: source.request.q, filterForm: source.presentation?.filterForm || null },
+      values,
       dbdefs: this.options.dbdefs,
       apiClient: this.options.apiClient || null,
       composeQuery: (item, values) => resolveQueryParameters(item.query, values, item.filterForm),
+      selectExtent: this.options.selectExtent || null,
       runtimeMode: 'published',
       onClose: this.listElement ? () => void this._closeForm() : null,
       onSubmit: ({ query }) => {

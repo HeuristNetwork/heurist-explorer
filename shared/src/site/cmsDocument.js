@@ -18,6 +18,8 @@
  * @since       8.0
  */
 
+import { cmsFilterProblem } from './cmsSavedFilter.js';
+
 export const CMS_SCHEMA = 'heurist-cms/4';
 
 /** Known instance types by kind. */
@@ -298,7 +300,7 @@ export function cmsLayoutProblems(layout) {
 }
 
 /** Actions of a media element (CmsValidator::MEDIA_ACTIONS). */
-export const CMS_MEDIA_ACTIONS = Object.freeze(['none', 'viewer', 'url', 'recordPage', 'page']);
+export const CMS_MEDIA_ACTIONS = Object.freeze(['none', 'viewer', 'url', 'recordPage', 'page', 'savedFilter']);
 
 /**
  * Why the settings of a media element are not valid (CmsValidator::mediaProblem), or null: `file` the key of a
@@ -321,6 +323,11 @@ export function cmsMediaProblem(settings) {
   // the links of a record (plan 27g §6) and Go to a page (2026-11-14)
   if (settings.action != null && !CMS_MEDIA_ACTIONS.includes(settings.action)) return `action must be ${CMS_MEDIA_ACTIONS.join(', ')}`;
   if (settings.action === 'page' && !(Number(settings.page) > 0)) return 'page must be a page id';
+  // Saved filter (plan 27j): a query source, the target page, the values within the limits
+  if (settings.action === 'savedFilter') {
+    const problem = cmsFilterProblem(settings);
+    if (problem) return problem;
+  }
   if (settings.align != null && !['left', 'center', 'right'].includes(settings.align)) return 'align must be left, center or right';
   return null;
 }

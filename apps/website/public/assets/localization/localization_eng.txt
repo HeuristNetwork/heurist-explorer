@@ -440,3 +440,21 @@
 #Tab#Tab
 #Section#Section
 #Maximum width of page#Maximum width of page
+#Saved filter#Saved filter
+#Query source#Query source
+#Target page#Target page
+#Choose a query source#Choose a query source
+#Choose the target page#Choose the target page
+#Define the saved filter#Define the saved filter
+#Not defined#Not defined
+#Values#Values
+#value#value
+#values#values
+#This query source has no parameters.#This query source has no parameters.
+#There is no public query source in this database.#There is no public query source in this database.
+#Too many or too long values#Too many or too long values
+#The values are too long for a link#The values are too long for a link
+#Give at least one value: the modules of this page show the records without a form#Give at least one value: the modules of this page show the records without a form
+#A value of this form can not be kept in a link (for example an extent).#A value of this form can not be kept in a link (for example an extent).
+#The link opens the target page with the records of the query source. Values left empty: Explorer asks for them, other modules leave them out.#The link opens the target page with the records of the query source. Values left empty: Explorer asks for them, other modules leave them out.
+#A Saved filter item needs a query source and a target page#A Saved filter item needs a query source and a target page

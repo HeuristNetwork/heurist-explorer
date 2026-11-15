@@ -1,0 +1,29 @@
+{
+  "name": "Saved filter links (plan 27j): the same results in cmsSavedFilter.js and SavedFilterLink.php",
+  "query": [
+    { "source": 12, "values": {}, "expect": "source=12" },
+    { "source": 12, "values": { "X1": "Paris" }, "expect": "source=12&v.X1=Paris" },
+    { "source": 12, "values": { "X1": " Saint Étienne & Co " }, "expect": "source=12&v.X1=Saint%20%C3%89tienne%20%26%20Co" },
+    { "source": 12, "values": { "D1": 1900, "T": ["a", "b"] }, "expect": "source=12&v.D1=1900&v.T=a&v.T=b" },
+    { "source": 12, "values": { "X1": "", "X2": [], "X3": "  " }, "expect": "source=12" },
+    { "source": 0, "values": { "X1": "a" }, "expect": "" },
+    { "source": 12, "values": { "bad name": "a", "X1": "b" }, "expect": "source=12&v.X1=b" }
+  ],
+  "href": [
+    { "url": "http://h/db/site/10/12", "source": 3, "values": { "X": "a" }, "expect": "http://h/db/site/10/12?source=3&v.X=a" },
+    { "url": "http://h/db/site/10/12?lang=fre", "source": 3, "values": {}, "expect": "http://h/db/site/10/12?lang=fre&source=3" },
+    { "url": "", "source": 3, "values": {}, "expect": "" }
+  ],
+  "problem": [
+    { "settings": { "source": 3, "page": 7, "values": { "X1": "a" } }, "expect": null },
+    { "settings": { "source": 3, "target": 7 }, "expect": null },
+    { "settings": { "page": 7 }, "expect": "a Saved filter needs a query source" },
+    { "settings": { "source": 3 }, "expect": "a Saved filter needs a target page" },
+    { "settings": { "source": 3, "page": 7, "values": ["a"] }, "expect": "the values of a Saved filter: at most 8, 200 characters each, arrays of 10" },
+    { "settings": { "source": 3, "page": 7, "values": { "A": "1", "B": "2", "C": "3", "D": "4", "E": "5", "F": "6", "G": "7", "H": "8", "I": "9" } },
+      "expect": "the values of a Saved filter: at most 8, 200 characters each, arrays of 10" },
+    { "settings": { "source": 3, "page": 7, "values": { "T": ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11"] } },
+      "expect": "the values of a Saved filter: at most 8, 200 characters each, arrays of 10" },
+    { "settings": { "source": 3, "page": 7, "values": { "X": { "a": 1 } } }, "expect": "the values of a Saved filter: at most 8, 200 characters each, arrays of 10" }
+  ]
+}

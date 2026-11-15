@@ -83,3 +83,17 @@ test('a parameterized filter: its form instead of the list, Close shows the list
   assert.equal(await alone.select('filter:1'), true);
   assert.equal([...single.querySelectorAll('button')].some((button) => button.textContent.includes('Close')), false);
 });
+
+test('showSource (Saved filter, plan 27j): the form of a source that is not an item, filled in; no parameters: run', async () => {
+  const runs = [];
+  const host = document.createElement('div');
+  const widget = new HFilter().attach(host, { items, resolve: async () => null, onRun: (source) => runs.push(source.request.q) }).render();
+  const source = { title: 'People', request: { q: [{ t: '10' }, { 'f:1': '$X1$' }] }, presentation: {} };
+  assert.equal(await widget.showSource(source, { X1: 'Paris' }), true);
+  assert.equal(host.querySelector('.h-filter-form-host').hidden, false);
+  assert.deepEqual(widget.form.getValues().X1, 'Paris');
+  assert.deepEqual(runs, []);
+  assert.equal(await widget.showSource({ request: { q: [{ t: '10' }] } }), true);
+  assert.deepEqual(runs, [[{ t: '10' }]]);
+  assert.equal(await widget.showSource(null), false);
+});

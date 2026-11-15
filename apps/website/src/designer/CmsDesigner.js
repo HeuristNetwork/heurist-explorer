@@ -47,6 +47,11 @@ import {
   cardTemplateTerms, openCardsForm, openEmailForm, openFieldForm, openLanguageForm, openMediaForm, openMenuForm, openReportForm, teamReportBody
 } from './widgetForms.js';
 import { openNewRecordPageForm, recordPageTerms, sitePageTerms } from './recordPageField.js';
+import { filterPageTerms } from './savedFilterField.js';
+import { cmsFilterHref } from '#shared/site/cmsSavedFilter.js';
+import { QuerySource } from '#shared/data/QuerySource.js';
+import { QuerySourceProvider } from '#shared/data/QuerySourceProvider.js';
+import { RecordTypeProvider } from '#shared/data/RecordTypeProvider.js';
 import { openActionMenuForm, openSocialForm, sitePageList } from './actionForms.js';
 import { buildBadgesHtml, openBadgesForm } from './badgesForm.js';
 import {
@@ -61,6 +66,9 @@ import {
   openAddPageForm, openFooterForm, openPageForm, openStylesDialog
 } from './designerDialogs.js';
 import './designer.css';
+
+/** The record type of query sources (RT_QUERY_SOURCE): its global concept code (Saved filter, plan 27j). */
+const QUERY_SOURCE_CONCEPT_CODE = '3-1021';
 
 /** Elements that are module instances: they get the website defaults of the module when added (review 2026-11-15). */
 const MODULE_ELEMENTS = Object.freeze(['explorer', 'data', 'map', 'timeline', 'graph', 'recordview']);
@@ -1576,7 +1584,7 @@ export class CmsDesigner {
       settings: { items: [{ label, action: this.site ? 'recordPage' : 'url' }] },
       pages: sitePageList(this.site, 'Home', { records: false }),
       services: this._actionServices(this._formServices()),
-      single: { title: 'Link', actions: this.site ? ['page', 'recordPage', 'url'] : ['url'] }
+      single: { title: 'Link', actions: this.site ? ['page', 'recordPage', 'savedFilter', 'url'] : ['url'] }
     });
     if (!item) return null;
     const href = this._linkUrl(item);
@@ -1589,6 +1597,8 @@ export class CmsDesigner {
   /** URL of a link item: a page of this website (the home page by its id), a record on a record page, a URL. */
   _linkUrl(item) {
     if (item.action === 'url') return String(item.target || '');
+    // Saved filter (plan 27j): the target page with the query source and its values
+    if (item.action === 'savedFilter') return cmsFilterHref(this._linkUrl({ action: 'page', target: item.target }), item.source, item.values);
     const top = this.site || this.standalone;
     const base = String(top?.url || '');
     if (!base || !(Number(item.target) > 0)) return '';
@@ -1818,10 +1828,44 @@ export class CmsDesigner {
       // Add and Upload in the record manager of a source
       addRecord: typeof this.bridge?.addRecord === 'function' ? (rectypeId) => this.bridge.addRecord(rectypeId) : undefined,
       mediaItems: (settings) => this._mediaItems(settings),
+      // Saved filter (plan 27j): the public query sources, the definition of one, the target pages; the Filter Form
+      querySources: () => this._publicQuerySources(),
+      querySourceDefinition: (id) => this._querySourceDefinition(id),
+      filterPages: () => filterPageTerms(this.site),
+      selectExtent: typeof this.bridge?.selectExtent === 'function' ? (current) => this.bridge.selectExtent(current) : null,
+      apiClient: this.apiClient,
+      dbdefs: this.options.dbdefs,
       fileUrl: fileMediaUrls(runtime.baseUrl || '', runtime.database || '').file,
       // "Limit values per field" of the Explorer configuration (plan 23)
       valueLimit: normalizeRecordLimits(runtime.recordLimits).values
     };
+  }
+
+  /**
+   * The public query sources of the database (Saved filter, plan 27j): visitors can read them. Read once per designer.
+   *
+   * @returns {Promise<Array<{id: number, title: string}>>}
+   */
+  _publicQuerySources() {
+    this._querySources ||= (async () => {
+      const typeId = await new RecordTypeProvider({ apiClient: this.apiClient }).getIdByConceptCode(QUERY_SOURCE_CONCEPT_CODE);
+      if (!typeId) return [];
+      const answer = await this.apiClient.get('/records/', {
+        query: { q: [{ t: String(typeId) }, { access: 'public' }], fields: 'rec_ID,rec_Title', limit: 1000 }
+      });
+      const title = (record) => String(record.rec_Title ?? '').replace(/<[^>]*>/g, '').trim() || `#${record.rec_ID}`;
+      return (answer?.records || []).map((record) => ({ id: Number(record.rec_ID), title: title(record) }))
+        .sort((a, b) => a.title.localeCompare(b.title));
+    })().catch((error) => {
+      this._querySources = null;
+      throw error;
+    });
+    return this._querySources;
+  }
+
+  /** The definition of a query source (its query and Filter Form, plan 27j). */
+  async _querySourceDefinition(id) {
+    return new QuerySource(await new QuerySourceProvider({ apiClient: this.apiClient }).load(id));
   }
 
   /** The field value "Hide in menu" of a page (DT_CMS_MENU_FORMAT = TRM_HIDDEN_ITEM), {} without the definitions. */
@@ -1880,12 +1924,13 @@ export class CmsDesigner {
    * @param {string|null} [link] `data-h-link` of the element (plan 27g §6).
    * @returns {Promise<{reference: string, html: string, link: string, size?: object}|null>}
    */
-  async _askField(reference, style = {}, link = null) {
+  async _askField(reference, style = {}, link = null, linkValues = null) {
     try {
       await this._loadTemplateTerms();
       return await openFieldForm({
         reference,
         link,
+        linkValues,
         sitePages: sitePageTerms(this.site),
         size: { width: style.width, height: style.height },
         records: { site: this.site?.id || 0, page: this.current?.recordId || 0 },
@@ -1910,9 +1955,10 @@ export class CmsDesigner {
   async _editField(id) {
     const record = this._currentRecord();
     if (!record) return;
-    const result = await this._askField(record.doc.field(id), record.doc.nodeStyle(id), record.doc.fieldLink(id));
+    const result = await this._askField(record.doc.field(id), record.doc.nodeStyle(id), record.doc.fieldLink(id), record.doc.fieldLinkValues(id));
     if (!result) return;
-    this._edit((doc) => doc.setField(id, result.reference, result.html) && doc.setFieldLink(id, result.link) && setFieldSize(doc, id, result.size));
+    this._edit((doc) => doc.setField(id, result.reference, result.html) && doc.setFieldLink(id, result.link, result.linkValues)
+      && setFieldSize(doc, id, result.size));
     // the value in the language of the preview comes from the server
     this._loadPreview();
   }
@@ -1924,7 +1970,8 @@ export class CmsDesigner {
     let added = null;
     this._edit((doc) => {
       added = doc.insertElement(this.current.part, 'field', target);
-      return doc.setField(added, result.reference, result.html) && doc.setFieldLink(added, result.link) && setFieldSize(doc, added, result.size);
+      return doc.setField(added, result.reference, result.html) && doc.setFieldLink(added, result.link, result.linkValues)
+        && setFieldSize(doc, added, result.size);
     });
     if (added) this._selectNode(added);
   }

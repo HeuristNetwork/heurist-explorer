@@ -94,11 +94,13 @@ test('media form: a single element has one source, a typed caption and no presen
   const single = mediaFormFields({ single: true, mediaType: 5, fileType: 6 });
   // plan 27g §6: Any record has its own action with the links of the record and the Record page
   assert.deepEqual(names(gallery), ['mode', 'records', 'files', 'anyRecords', 'fileField', 'caption', 'width', 'height', 'action', 'recordAction',
-    'recordPage', 'presentation', 'duration', 'fade', 'navigation', 'fit']);
-  assert.deepEqual(names(single), ['mode', 'records', 'files', 'anyRecords', 'fileField', 'captionText', 'width', 'height', 'align', 'action', 'recordAction', 'recordPage']);
+    'recordPage', 'savedFilter', 'presentation', 'duration', 'fade', 'navigation', 'fit']);
+  assert.deepEqual(names(single), ['mode', 'records', 'files', 'anyRecords', 'fileField', 'captionText', 'width', 'height', 'align', 'action', 'recordAction',
+    'recordPage', 'savedFilter']);
   const recordAction = single.find((field) => field.name === 'recordAction');
   assert.deepEqual(recordAction.terms.map((term) => term.id), ['none', 'viewer', 'url', 'recordPage', 'savedFilter']);
-  assert.equal(recordAction.terms.at(-1).disabled, true, 'Saved filter: disabled for now');
+  assert.equal(recordAction.terms.at(-1).disabled, undefined, 'Saved filter: offered (plan 27j)');
+  assert.deepEqual(single.find((field) => field.name === 'savedFilter').showWhen, { mode: 'record', recordAction: 'savedFilter' });
   assert.deepEqual(recordAction.showWhen, { mode: 'record' });
   assert.deepEqual(single.find((field) => field.name === 'recordPage').showWhen, { mode: 'record', recordAction: 'recordPage' });
   assert.deepEqual(single[0].terms.map((term) => term.id), ['media', 'files', 'record']);
@@ -241,7 +243,12 @@ test('record actions (plan 27g §6): fields, values, settings and issues', () =>
   assert.deepEqual(recordActionValues({ action: 'recordPage', recordPage: '8' }), { action: 'recordPage', recordPage: 8, page: null });
   assert.deepEqual(recordActionSettings({ action: 'recordPage', recordPage: 8 }), { action: 'recordPage', recordPage: 8 });
   assert.deepEqual(recordActionSettings({ action: 'url', recordPage: 8 }), { action: 'url' });
-  assert.deepEqual(recordActionSettings({ action: 'savedFilter' }), { action: 'none' }, 'Saved filter is not stored yet');
+  // Saved filter (plan 27j): the filter of the popup, none without it
+  assert.deepEqual(recordActionSettings({ action: 'savedFilter' }), { action: 'none' });
+  assert.deepEqual(recordActionSettings({ action: 'savedFilter' }, { filter: { source: 3, page: 7, values: { X1: 'a' } } }),
+    { action: 'savedFilter', page: 7, source: 3, values: { X1: 'a' } });
+  assert.equal(recordActionIssues({ action: 'savedFilter' })[0].field, 'savedFilter');
+  assert.deepEqual(recordActionIssues({ action: 'savedFilter' }, { source: 3, page: 7, values: {} }), []);
   assert.deepEqual(recordActionSettings({ action: 'url' }, { allowed: false }), { action: 'none' });
   assert.equal(recordActionIssues({ action: 'recordPage' })[0].field, 'recordPage');
   assert.deepEqual(recordActionIssues({ action: 'recordPage', recordPage: 8 }), []);

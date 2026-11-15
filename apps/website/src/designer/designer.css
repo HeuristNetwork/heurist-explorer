@@ -1239,3 +1239,69 @@
   margin-bottom: 2px;
   font-weight: bold;
 }
+
+/* Saved filter (plan 27j): the summary and its button (action menu rows, the forms of cards, media, Record field) */
+.h-cms-saved-filter {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.h-cms-saved-filter-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--h-color-text-muted);
+}
+
+/* the button of the forms (cards, media, Record field): square, as Define new record page (review 2026-11-15); the
+   action menu rows keep their own button */
+.h-cms-saved-filter-edit {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: var(--h-control-height);
+  height: var(--h-control-height);
+  margin-left: 6px;
+  padding: 0;
+}
+
+/* the popup: the Filter Form of the source keeps the values, it does not run (its buttons are hidden) */
+.h-cms-saved-filter-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: min(520px, 90vw);
+}
+
+.h-cms-saved-filter-values .h-filter-form-actions {
+  display: none;
+}
+
+/* narrow captions; the selectors stay inside the form (review 2026-11-15) */
+.h-cms-saved-filter-form > .h-cms-styles-field {
+  grid-template-columns: 110px minmax(0, 1fr);
+}
+
+.h-cms-saved-filter-form > .h-cms-styles-field > .h-select {
+  min-width: 0;
+  max-width: 100%;
+  width: 100%;
+  box-sizing: border-box;
+  text-overflow: ellipsis;
+}
+
+.h-cms-saved-filter-values {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.h-cms-saved-filter-caption {
+  margin-top: 4px;
+  font-weight: bold;
+}

@@ -29,7 +29,9 @@ const KIND_TEXT = {
   media: 'Media',
   report: 'Generated report',
   cards: 'Record cards',
-  gallery: 'Media gallery'
+  gallery: 'Media gallery',
+  // the query source of a Saved filter (plan 27j)
+  filter: 'Saved filter'
 };
 
 /** Texts of the three sections. */

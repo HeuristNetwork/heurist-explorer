@@ -94,6 +94,16 @@ which starts Explorer and opens the manager with the designer (`config.cms`).
 `runtime.moduleAssetUrls.website` overrides the bundle base of the manager's localization
 (default `hclient/bundles/heurist-website`).
 
+**Saved filter links (plan 27j, 2026-11-15).** A website page URL may carry `?source=<query source id>&v.<NAME>=<value>`
+(an array repeats the key; limits in `shared/src/site/cmsSavedFilter.js` = `srv/Website/SavedFilterLink.php`). The site
+runtime (`pageFilterRequest`) reads it, loads the query source as the visitor, fills the values in and gives every record
+module of the page its start state (`filterInstanceState`). Modules do not read the URL. Explorer's bootstrap
+`state.pageRequest = {dataSource, raw, values, missing}` wins over the filter of the page; with missing values a published
+Explorer opens the Filter Form filled in (`HFilter.showSource(source, values)`). The website summary
+(`GET /website/{id}` → `meta.website`) has `modules` (module types) for the home and each page. The website bridge of Explorer
+has `selectExtent(current)` → `{west, south, east, north}|null` (the map extent of a Filter Form; only with a Map
+module URL), and `HFilter` takes the option `selectExtent`.
+
 ## Module configuration forms (plan 29)
 
 Every presentation module has a configuration form (HEditForm JSON) and a light entry

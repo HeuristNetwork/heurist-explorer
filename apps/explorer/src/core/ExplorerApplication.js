@@ -61,6 +61,7 @@ import { publishModuleTo } from '#shared/site/modulePublisher.js';
 import { HFilter } from '#shared/widgets/filter/HFilter.js';
 import { memoryStorage, normalizePublishedFilter, publishedModuleSettings, publishedUiConfig } from './publishedView.js';
 import { valueInLanguage } from '#shared/data/recordEditValues.js';
+import { cmsFilterFormValues } from '#shared/site/cmsSavedFilter.js';
 
 /** Explorer's top-level application controller: modules, layout, datasource, and synchronization. */
 export class ExplorerApplication {
@@ -264,11 +265,33 @@ export class ExplorerApplication {
     // no toolbar on a published page: tabs and divider buttons switch the panes as "In panes"
     if (pageFilter) this.paneToolbar.startPublished();
     this.compactMode = new ExplorerCompactMode({ application: this }).start();
-    if (pageFilter?.active) await this.publishedFilter?.select(pageFilter.active);
+    // a Saved filter of the website page URL (plan 27j) wins over the filter of the page
+    if (this.config.state.pageRequest) await this._startPageRequest(this.config.state.pageRequest);
+    else if (pageFilter?.active) await this.publishedFilter?.select(pageFilter.active);
     else if (this.config.state.dataSource) await this.activateDataSource(this.config.state.dataSource);
     else await this._startUp();
     if (this.config.state.selection) await this.sync.setSelection(this.config.state.selection);
     return this;
+  }
+
+  /**
+   * Start with the Saved filter of a website page URL (plan 27j, site runtime `pageRequest`): values still missing are
+   * asked in the filter form of the Search pane, filled in with the given ones; otherwise its records are shown (a
+   * missing value left out where there is no form).
+   *
+   * @private
+   * @param {{dataSource: object, raw: object, values: object, missing: string[]}} request
+   * @returns {Promise<void>}
+   */
+  async _startPageRequest(request) {
+    const given = Object.keys(request.values || {}).length > 0;
+    if (request.missing?.length && this.publishedFilter) {
+      this.authoringDock?.show();
+      await this.publishedFilter.showSource(request.raw, cmsFilterFormValues(request.values || {}));
+      // the records of the given values at once (review 2026-11-15); the form refines them. No value: the form only
+      if (!given) return;
+    }
+    await this.activateDataSource(request.dataSource, { origin: 'page-request', allowDirty: true });
   }
 
   /**
@@ -561,6 +584,8 @@ export class ExplorerApplication {
       dbdefs,
       apiClient: this.apiClient,
       resolve: (item) => this._resolvePublishedItem(item),
+      // the map extent of a parameter (review 2026-11-15: it was disabled on a published page)
+      selectExtent: this.config.moduleUrls?.map ? (current) => this.selectFilterExtent(current) : null,
       onRun: (dataSource) => this.activateDataSource(dataSource, { origin: 'published-filter', allowDirty: true }),
       onError: (error) => HMsg.showMsgErr?.(error?.message || String(error))
     }).render();
@@ -2128,6 +2153,8 @@ export class ExplorerApplication {
       recordFieldServices: () => this.recordEditing.fieldServices(),
       editQuery: (query, filterForm, options) => this._editQueryWithBuilder(query, filterForm, undefined, options),
       describeQuery: (query) => this._describeQuery(query),
+      // the map extent of a Filter Form (Saved filter of the CMS designer, review 2026-11-15)
+      ...(this.config.moduleUrls?.map ? { selectExtent: (current) => this.selectFilterExtent(current) } : {}),
       canEditRecords: () => this.canEditRecordType('RT_CMS_PAGE'),
       getDbDefs: () => this._ensureDbDefs(),
       // the website definitions were installed: load the definitions again

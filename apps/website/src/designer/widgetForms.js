@@ -31,6 +31,8 @@ import { formDialog } from './designerDialogs.js';
 import {
   attachNewRecordPage, recordActionFields, recordActionIssues, recordActionSettings, recordActionTerms, recordActionValues
 } from './recordPageField.js';
+import { cmsFilterSettings } from '#shared/site/cmsSavedFilter.js';
+import { attachSavedFilter, storedSavedFilter } from './savedFilterField.js';
 
 /** Width and height of a new gallery: thumbnails. */
 const NEW_GALLERY_SIZE = '190px';
@@ -154,8 +156,11 @@ const CARDS_URL_HELP = 'Record of the page URL: the record id is taken from the 
  * @returns {Promise<{reference: string, html: string, link: string, size?: {width: string, height: string}}|null>} Null: cancelled.
  *          `size` only for a file field ('' = auto); `link`: `url`, `page:<id>` (record page), `goto:<id>` or ''.
  */
-export async function openFieldForm({ reference, records, languages = [], dbdefs, apiClient, services, size = {}, link = null, sitePages = [] }) {
+export async function openFieldForm({ reference, records, languages = [], dbdefs, apiClient, services, size = {}, link = null, sitePages = [],
+  linkValues: storedLinkValues = null }) {
   const parsed = parseFieldReference(reference);
+  // the Saved filter of the link (plan 27j): `filter:<page>:<source>` with its values
+  const filter = { value: filterOfLink(link, storedLinkValues) };
   const cmsTypes = ['RT_CMS_HOME', 'RT_CMS_PAGE'].map((name) => Number(dbdefs?.dbconst?.(name)) || 0);
   const client = new RecordEditClient({ apiClient });
   const structures = new RecordStructureProvider({ apiClient });
@@ -250,7 +255,8 @@ export async function openFieldForm({ reference, records, languages = [], dbdefs
     className: 'h-dialog-cms-field',
     form,
     values: { source: parsed?.source || (records.site ? 'website' : 'page'), record: parsed?.record || null, field: localField,
-      width: mediaSizeValue(size.width, true), height: mediaSizeValue(size.height, true), ...linkValues(link, records.site) },
+      width: mediaSizeValue(size.width, true), height: mediaSizeValue(size.height, true), ...linkValues(link, records.site),
+      savedFilter: '' },
     apiClient,
     dbdefs,
     browseRecords: services.browseRecords,
@@ -260,6 +266,7 @@ export async function openFieldForm({ reference, records, languages = [], dbdefs
       edit.showField('width', false);
       edit.showField('height', false);
       attachNewRecordPage(edit, services);
+      attachSavedFilter(edit, services, filter);
       edit.container.append(value.host);
       void actionsOfSource(edit);
       void showValue(edit);
@@ -271,7 +278,7 @@ export async function openFieldForm({ reference, records, languages = [], dbdefs
     validate: (current) => {
       if (current.source === 'record' && !current.record) return [{ field: 'record', message: $HR('Choose a record') }];
       if (!current.field) return [{ field: 'field', message: $HR('Choose a field') }];
-      if (current.source !== 'page' && recordActionIssues(current).length) return recordActionIssues(current);
+      if (current.source !== 'page' && recordActionIssues(current, filter.value).length) return recordActionIssues(current, filter.value);
       const sizes = isFile ? ['width', 'height'].filter((key) => current[key] && !mediaSize(current[key])) : [];
       return sizes.length ? sizes.map((key) => ({ field: key, message: $HR('Width and height: a number (px), px or %, or empty (auto).') })) : null;
     },
@@ -289,7 +296,8 @@ export async function openFieldForm({ reference, records, languages = [], dbdefs
         const source = sourceOf(id, records);
         result = {
           reference: `${source === 'record' ? id : source}.${code}`,
-          link: fieldLinkOf(source, values),
+          link: fieldLinkOf(source, values, filter.value),
+          linkValues: values.action === 'savedFilter' && source === 'record' ? filter.value?.values || null : null,
           html: fieldSnapshot(shown?.details?.[String(dty)], global?.type, { fileUrl: services.fileUrl }),
           ...(global?.type === 'file' ? { size: { width: mediaSize(values?.width) || '', height: mediaSize(values?.height) || '' } } : {})
         };
@@ -312,23 +320,31 @@ export async function openFieldForm({ reference, records, languages = [], dbdefs
  */
 function linkValues(link, siteId = 0) {
   const text = String(link ?? '');
+  if (/^filter:\d+:\d+$/.test(text)) return recordActionValues({ action: 'savedFilter' });
   const page = /^page:(\d+)$/.exec(text);
   const goto = /^goto:(\d+|home)$/.exec(text);
   if (goto) return recordActionValues({ action: 'page', page: goto[1] === 'home' ? Number(siteId) || null : Number(goto[1]) });
   return recordActionValues(page ? { action: 'recordPage', recordPage: Number(page[1]) } : { action: text === 'url' ? 'url' : 'none' });
 }
 
+/** The Saved filter of a `data-h-link` `filter:<page>:<source>` and its values (plan 27j), or null. */
+function filterOfLink(link, values) {
+  const found = /^filter:(\d+):(\d+)$/.exec(String(link ?? ''));
+  return found ? cmsFilterSettings({ page: Number(found[1]), source: Number(found[2]), values: values || {} }) : null;
+}
+
 /** `data-h-link` of the action settings; '' for none. */
 function linkOf(settings) {
   if (settings.action === 'url') return 'url';
+  if (settings.action === 'savedFilter') return settings.page && settings.source ? `filter:${settings.page}:${settings.source}` : '';
   if (settings.action === 'page') return `goto:${settings.page}`;
   return settings.action === 'recordPage' ? `page:${settings.recordPage}` : '';
 }
 
 /** `data-h-link` of a Record field: every action for a record, Go to a page for This website, none for This page. */
-function fieldLinkOf(source, values) {
+function fieldLinkOf(source, values, filter = null) {
   if (source === 'page') return '';
-  const link = linkOf(recordActionSettings(values));
+  const link = linkOf(recordActionSettings(values, { filter }));
   return source === 'website' && !link.startsWith('goto:') ? '' : link;
 }
 
@@ -528,6 +544,8 @@ function cardsQuerySpecial(services) {
  */
 export async function openCardsForm({ settings = {}, dbdefs, apiClient, services }) {
   const reports = await services.cardTemplates?.().catch(() => []) ?? [];
+  // the Saved filter of the action (plan 27j)
+  const filter = { value: storedSavedFilter(settings) };
   const templates = cardTemplateTerms(reports, settings.template);
   // the record of the page URL: one record, no action, no presentation (2026-11-12)
   const listed = { mode: ['manual', 'query'] };
@@ -562,7 +580,8 @@ export async function openCardsForm({ settings = {}, dbdefs, apiClient, services
       query: settings.mode === 'query' && settings.query ? JSON.stringify(settings.query) : '',
       template: templates.value,
       ...presentationValues(settings),
-      ...recordActionValues(settings)
+      ...recordActionValues(settings),
+      savedFilter: ''
     },
     apiClient,
     dbdefs,
@@ -572,13 +591,14 @@ export async function openCardsForm({ settings = {}, dbdefs, apiClient, services
     onReady: (edit) => {
       addFormHelp(edit, `${$HR(CARDS_HELP)} ${$HR(CARDS_URL_HELP)}`);
       attachNewRecordPage(edit, services);
+      attachSavedFilter(edit, services, filter);
       showPresentation(edit);
     },
     onChange: (edit, change) => {
       if (['mode', 'records'].includes(change.name)) showPresentation(edit);
     },
     validate: (values) => {
-      const issues = values.mode === 'url' ? [] : [...recordActionIssues(values)];
+      const issues = values.mode === 'url' ? [] : [...recordActionIssues(values, filter.value)];
       if (values.mode === 'manual' && !(values.records || []).filter(Boolean).length) issues.push({ field: 'records', message: $HR('Choose the records') });
       if (values.mode === 'query' && !parseCardsQuery(values.query)) issues.push({ field: 'query', message: $HR('A query in JSON without parameters') });
       if (!values.template) issues.push({ field: 'template', message: $HR('Choose a template') });
@@ -595,7 +615,7 @@ export async function openCardsForm({ settings = {}, dbdefs, apiClient, services
       // a report id, or the file name of a template without a report
       template: /^\d+$/.test(template) ? Number(template) : template,
       ...presentationSettings(values),
-      ...recordActionSettings(values, { allowed: mode !== 'url' })
+      ...recordActionSettings(values, { allowed: mode !== 'url', filter: filter.value })
     };
   });
 }
@@ -742,12 +762,12 @@ export function mediaActionValues(settings = {}, mode = 'media') {
  * @param {object} values Values of the form.
  * @returns {{action: string, recordPage?: number}}
  */
-export function mediaActionSettings(values = {}) {
+export function mediaActionSettings(values = {}, filter = null) {
   if (values.mode !== 'record') {
     if (values.action === 'page') return Number(values.page) > 0 ? { action: 'page', page: Number(values.page) } : { action: 'none' };
     return { action: values.action === 'viewer' ? 'viewer' : 'none' };
   }
-  return recordActionSettings({ action: values.recordAction, recordPage: values.recordPage, page: values.page }, { viewer: true });
+  return recordActionSettings({ action: values.recordAction, recordPage: values.recordPage, page: values.page }, { viewer: true, filter });
 }
 
 /** The action of the media form that is shown: `action` (Media records, Files) or `recordAction` (Any record). */
@@ -799,6 +819,8 @@ export async function openMediaForm({
   const fileTerms = mode === 'record' ? await fileTermsOf(ids).catch(() => []) : [];
   const storedField = settings.field ? Number(dbdefs?.localId?.('dty', settings.field) || settings.field) || null : null;
   let items = [];
+  // the Saved filter of the action of Any record (plan 27j)
+  const filter = { value: storedSavedFilter(settings) };
   return openEditFormDialog({
     title: single ? 'Edit media' : 'Media gallery',
     form: { groups: [{ id: 'main', children: mediaFormFields({ single, multilang, mediaType, fileType, fileTerms,
@@ -812,6 +834,7 @@ export async function openMediaForm({
       ...(single ? { captionText: multilang ? captionValue(caption, translations) : caption, action: cmsMediaAction(settings) }
         : { caption: settings.caption === true, fit: settings.slider?.fit || SLIDER_FIT, ...presentationValues(settings) }),
       ...mediaActionValues(settings, mode),
+      savedFilter: '',
       width: mediaSizeValue(settings.width, single),
       height: mediaSizeValue(settings.height, single),
       ...(single ? { align: ['center', 'right'].includes(settings.align) ? settings.align : 'left' } : {})
@@ -826,6 +849,7 @@ export async function openMediaForm({
     onReady: (edit) => {
       if (single) addFormHelp(edit, MEDIA_HELP);
       attachNewRecordPage(edit, services);
+      attachSavedFilter(edit, services, filter);
       mediaPageField(edit);
     },
     onChange: async (edit, change) => {
@@ -840,7 +864,7 @@ export async function openMediaForm({
       const issues = [];
       if (!chosen(values).length) issues.push({ field: SOURCE_FIELDS[values.mode], message: $HR('Choose the media') });
       if (values.mode === 'record' && !values.fileField) issues.push({ field: 'fileField', message: $HR('Choose a field') });
-      issues.push(...recordActionIssues({ action: mediaAction(values), recordPage: values.recordPage, page: values.page }));
+      issues.push(...recordActionIssues({ action: mediaAction(values), recordPage: values.recordPage, page: values.page }, filter.value));
       for (const key of ['width', 'height']) {
         if (values[key] && !mediaSize(values[key])) issues.push({ field: key, message: $HR('Width and height: a number (px), px or %, or empty (auto).') });
       }
@@ -871,7 +895,7 @@ export async function openMediaForm({
     const { values } = result;
     const size = { width: mediaSize(values.width) || 'auto', height: mediaSize(values.height) || 'auto' };
     const source = values.mode === 'record' ? { field: dbdefs?.fieldGlobal?.(Number(values.fileField))?.concept || String(values.fileField) } : {};
-    const action = mediaActionSettings(values);
+    const action = mediaActionSettings(values, filter.value);
     if (single) {
       return {
         settings: { mode: values.mode, record: chosen(values)[0], ...source, ...size, ...action,

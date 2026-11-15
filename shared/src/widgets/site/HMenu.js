@@ -334,6 +334,8 @@ export function actionMenuItems(settings = {}, { language = '', pageUrl = () => 
     // a record on a record page, the page before (plan 27g): links of the server; in the designer's draft only shown
     else if (item.action === 'recordPage') entry.url = '#';
     else if (item.action === 'back') Object.assign(entry, { url: '#', action: 'back' });
+    // Saved filter (plan 27j): a link of the server; in the designer's draft only shown
+    else if (item.action === 'savedFilter') entry.url = '#';
     else continue;
     items.push(entry);
   }
