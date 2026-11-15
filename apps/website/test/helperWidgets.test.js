@@ -40,6 +40,50 @@ test('action menu items (plan 27f §6): pages, URLs, Add record; other actions l
   assert.equal(menuClass({ orientation: 'vertical' }), 'h-site-menu h-site-menu-vertical');
 });
 
+test('item styles and presentations (plan 27k §1-2): stored links / buttons = a row with that style', async () => {
+  const { menuLook } = await import('#shared/widgets/site/HMenu.js');
+  assert.deepEqual(menuLook({ presentation: 'buttons' }), { presentation: 'row', style: 'buttons', orientation: 'horizontal' });
+  assert.deepEqual(menuLook({ presentation: 'links', style: 'pills' }), { presentation: 'row', style: 'pills', orientation: 'horizontal' });
+  assert.deepEqual(menuLook({}), { presentation: 'menu', style: 'plain', orientation: 'horizontal' }, 'the website menu');
+  assert.equal(menuClass({ presentation: 'buttons' }), 'h-site-menu h-site-menu-style-buttons');
+  assert.equal(menuClass({ style: 'underline', orientation: 'auto' }), 'h-site-menu h-site-menu-auto h-site-menu-style-underline');
+  assert.equal(menuClass({ presentation: 'expand', orientation: 'vertical', style: 'pills' }),
+    'h-site-menu h-site-menu-vertical h-site-menu-expanding h-site-menu-style-pills');
+  assert.equal(menuClass({ presentation: 'dropdown', style: 'buttons' }), 'h-site-menu h-site-menu-dropdown', 'no style for a drop-down');
+  assert.equal(menuClass({ presentation: 'row', style: 'bad' }), 'h-site-menu', 'an unknown style is plain');
+});
+
+test('expanding action menu (plan 27k §2): a button with its icon and name, the list opens and closes', () => {
+  const host = document.createElement('div');
+  const menu = new HMenu().attach(host, {
+    items: actionMenuItems({ items: [{ label: 'Mastodon', icon: 'fa-brands fa-mastodon', iconOnly: true, action: 'url', target: 'https://m' }] }),
+    settings: { presentation: 'expand', icon: 'fa-solid fa-plus', label: 'Follow us' }
+  }).render();
+  const nav = host.querySelector('.h-site-menu');
+  assert.ok(nav.classList.contains('h-site-menu-expanding'));
+  const toggle = nav.querySelector('.h-site-menu-toggle');
+  assert.equal(toggle.getAttribute('aria-label'), 'Follow us');
+  assert.equal(toggle.querySelector('i').className, 'fa-solid fa-plus');
+  toggle.click();
+  assert.ok(nav.classList.contains('is-open'));
+  assert.equal(toggle.getAttribute('aria-expanded'), 'true');
+  toggle.click();
+  assert.ok(!nav.classList.contains('is-open'));
+  menu.destroy();
+  const bad = document.createElement('div');
+  new HMenu().attach(bad, { items: [], settings: { presentation: 'expand', icon: 'x"><script>' } }).render();
+  assert.equal(bad.querySelector('.h-site-menu-toggle').querySelector('i').className, 'fa-solid fa-share-nodes', 'not an icon class: the default');
+});
+
+test('social media preset (plan 27k §2): expand, style and orientation; defaults not written', () => {
+  const settings = socialSettings({ github: 'https://github.com/x' },
+    { presentation: 'expand', style: 'outline', orientation: 'vertical', icon: ' fa-solid fa-plus ', label: 'Follow' });
+  assert.deepEqual({ ...settings, items: undefined },
+    { preset: 'social', presentation: 'expand', style: 'outline', orientation: 'vertical', icon: 'fa-solid fa-plus', label: 'Follow', items: undefined });
+  const icons = socialSettings({ github: 'https://github.com/x' }, { presentation: 'icons', style: 'plain', orientation: 'horizontal', icon: 'fa-x' });
+  assert.deepEqual(Object.keys(icons), ['preset', 'presentation', 'items']);
+});
+
 test('pages of the website for the action menu: Home, then the menu tree with its depth', () => {
   const list = sitePageList({ id: 5, pages: [{ id: 7, title: 'About', children: [{ id: 8, title: 'Team' }] }, { id: 9 }] });
   assert.deepEqual(list.map((page) => [page.id, page.depth]), [[5, 0], [7, 1], [8, 2], [9, 1]]);

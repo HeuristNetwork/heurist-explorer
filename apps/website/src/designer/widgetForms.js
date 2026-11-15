@@ -28,6 +28,7 @@ import { RecordStructureProvider } from '#shared/recordview/RecordStructureProvi
 import { HEditForm } from '#shared/widgets/edit-form/HEditForm.js';
 import { openEditFormDialog } from '#shared/widgets/edit-form/editFormDialog.js';
 import { formDialog } from './designerDialogs.js';
+import { ITEM_STYLES } from './actionForms.js';
 import {
   attachNewRecordPage, recordActionFields, recordActionIssues, recordActionSettings, recordActionTerms, recordActionValues
 } from './recordPageField.js';
@@ -1043,6 +1044,9 @@ export function openMenuForm({ settings = {} } = {}) {
           { name: 'orientation', type: 'enum', label: 'Orientation', mode: 'radio', max: 1,
             terms: [{ id: 'horizontal', label: 'Horizontal (drop-down sub pages)' }, { id: 'vertical', label: 'Vertical (a tree)' },
               { id: 'auto', label: 'Auto: vertical in a vertical header' }] },
+          // the look of the items of the first level (plan 27k §1)
+          { name: 'style', type: 'enum', label: 'Style of the items', max: 1,
+            terms: ITEM_STYLES.map(([id, label]) => ({ id, label })) },
           { name: 'showHome', type: 'boolean', label: 'Show Home', help: 'The home page as the first entry of the menu', max: 1 },
           { name: 'selectableParent', type: 'boolean', label: 'Pages with sub pages open', max: 1,
             help: 'Unchecked: the title of such a page only opens its sub pages' }
@@ -1051,6 +1055,7 @@ export function openMenuForm({ settings = {} } = {}) {
     },
     values: {
       orientation: ['vertical', 'auto'].includes(settings.orientation) ? settings.orientation : 'horizontal',
+      style: ITEM_STYLES.some(([id]) => id === settings.style) ? settings.style : 'plain',
       showHome: settings.showHome === true,
       selectableParent: settings.selectableParent !== false
     },
@@ -1060,6 +1065,7 @@ export function openMenuForm({ settings = {} } = {}) {
     if (!values) return null;
     const result = {};
     if (['vertical', 'auto'].includes(values.orientation)) result.orientation = values.orientation;
+    if (ITEM_STYLES.some(([id]) => id === values.style) && values.style !== 'plain') result.style = values.style;
     if (values.showHome === true) result.showHome = true;
     if (values.selectableParent === false) result.selectableParent = false;
     return result;

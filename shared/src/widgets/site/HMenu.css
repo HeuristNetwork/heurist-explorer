@@ -69,8 +69,9 @@
   background: color-mix(in srgb, currentColor 10%, transparent);
 }
 
-.h-site-menu:not(.h-site-menu-buttons) .h-site-menu-item.is-current > :is(a, .h-site-menu-label),
-.h-site-menu:not(.h-site-menu-buttons) .h-site-menu-item.is-current-parent > :is(a, .h-site-menu-label) {
+/* the current page (style plain); the item styles of plan 27k §1 (below) mark the items of the first level their way */
+.h-site-menu .h-site-menu-item.is-current > :is(a, .h-site-menu-label),
+.h-site-menu .h-site-menu-item.is-current-parent > :is(a, .h-site-menu-label) {
   background:color-mix(in srgb, currentColor 15%, transparent);
   font-weight: bold;
 }
@@ -235,32 +236,160 @@
 }
 
 
-/* action menu presentations (plan 27f §6) */
-.h-site-menu-links .h-site-menu-item > a {
-  padding: 4px 8px;
-  text-decoration: underline;
-}
-
-.h-site-menu-buttons .h-site-menu-list {
+/* item styles (plan 27k §1): the items of the first level of the website menu and of an action menu (the sub pages of
+   drop-downs keep the plain look). Style plain writes no class. h-site-menu-links / h-site-menu-buttons: the classes
+   of pages written before plan 27k. */
+:is(.h-site-menu-style-links, .h-site-menu-style-underline, .h-site-menu-style-pills, .h-site-menu-style-buttons,
+  .h-site-menu-style-outline, .h-site-menu-buttons) > .h-site-menu-list {
   gap: 6px;
 }
 
-.h-site-menu-buttons .h-site-menu-item > a {
+/* links: underlined text; the current page in bold */
+.h-site-menu:is(.h-site-menu-style-links, .h-site-menu-links) > .h-site-menu-list > .h-site-menu-item > :is(a, .h-site-menu-label) {
+  padding: 4px 8px;
+  background: none;
+  text-decoration: underline;
+}
+
+.h-site-menu:is(.h-site-menu-style-links, .h-site-menu-links) > .h-site-menu-list > .h-site-menu-item > :is(a, .h-site-menu-label):is(:hover, :focus-visible) {
+  text-decoration-thickness: 2px;
+}
+
+/* underline: a line below the current page and below the item under the mouse */
+.h-site-menu.h-site-menu-style-underline > .h-site-menu-list > .h-site-menu-item > :is(a, .h-site-menu-label) {
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  background: none;
+  font-weight: normal;
+}
+
+.h-site-menu.h-site-menu-style-underline > .h-site-menu-list > .h-site-menu-item > :is(a, .h-site-menu-label):is(:hover, :focus-visible),
+.h-site-menu.h-site-menu-style-underline > .h-site-menu-list > .h-site-menu-item:is(.is-current, .is-current-parent) > :is(a, .h-site-menu-label) {
+  border-bottom-color: currentColor;
+}
+
+/* pills: rounded items, the current page filled with the primary colour */
+.h-site-menu.h-site-menu-style-pills > .h-site-menu-list > .h-site-menu-item > :is(a, .h-site-menu-label) {
+  border-radius: 999px;
+}
+
+.h-site-menu.h-site-menu-style-pills > .h-site-menu-list > .h-site-menu-item:is(.is-current, .is-current-parent) > :is(a, .h-site-menu-label) {
+  background: var(--h-color-primary);
+  color: var(--h-color-primary-text, #fff);
+  font-weight: normal;
+}
+
+/* buttons: every item filled with the primary colour (calls to action) */
+.h-site-menu:is(.h-site-menu-style-buttons, .h-site-menu-buttons) > .h-site-menu-list > .h-site-menu-item > :is(a, .h-site-menu-label) {
   border: 1px solid var(--h-color-primary);
   background: var(--h-color-primary);
   color: var(--h-color-primary-text, #fff);
+  font-weight: normal;
 }
 
-.h-site-menu-buttons .h-site-menu-item > a:hover {
+.h-site-menu:is(.h-site-menu-style-buttons, .h-site-menu-buttons) > .h-site-menu-list > .h-site-menu-item > :is(a, .h-site-menu-label):is(:hover, :focus-visible) {
   background: var(--h-color-primary-hover, var(--h-color-primary));
+}
+
+/* outline: a border in the colour of the text, filled lightly on hover */
+.h-site-menu.h-site-menu-style-outline > .h-site-menu-list > .h-site-menu-item > :is(a, .h-site-menu-label) {
+  border: 1px solid currentColor;
+  background: none;
+  font-weight: normal;
+}
+
+.h-site-menu.h-site-menu-style-outline > .h-site-menu-list > .h-site-menu-item > :is(a, .h-site-menu-label):is(:hover, :focus-visible) {
+  background: color-mix(in srgb, currentColor 10%, transparent);
+}
+
+/* an action menu in a column (plan 27k §2; the website menu: the tree rules above) */
+:is(.h-site-menu-icons, .h-site-menu-expanding).h-site-menu-vertical > .h-site-menu-list {
+  flex-direction: column;
 }
 
 .h-site-menu-icons .h-site-menu-list {
   gap: 4px;
 }
 
-.h-site-menu-icons .h-site-menu-item > a {
+.h-site-menu:is(.h-site-menu-icons, .h-site-menu-expanding) > .h-site-menu-list > .h-site-menu-item > a {
   padding: 6px;
+}
+
+/* expand (plan 27k §2): the icons behind a button, shown on hover (devices with a mouse), on focus and by a click (class
+   is-open); beside the button, below it when vertical; on the other side when there is no room (is-end, HMenu) */
+.h-site-menu-expanding {
+  display: inline-block;
+}
+
+.h-site-menu-expanding > .h-site-menu-toggle {
+  display: inline-block;
+  padding: 6px;
+  border: none;
+}
+
+.h-site-menu-expanding > .h-site-menu-list {
+  position: absolute;
+  left: 100%;
+  top: 50%;
+  z-index: 100;
+  flex-wrap: nowrap;
+  gap: 2px;
+  padding: 2px;
+  border-radius: var(--h-radius);
+  background: var(--h-color-bg);
+  color: var(--h-color-text);
+  box-shadow: 0 6px 18px rgb(0 0 0 / 12%);
+  visibility: hidden;
+  opacity: 0;
+  transform: translate(-8px, -50%);
+  transition: opacity 0.2s, transform 0.2s, visibility 0.2s;
+}
+
+.h-site-menu-expanding.is-end > .h-site-menu-list {
+  left: auto;
+  right: 100%;
+  transform: translate(8px, -50%);
+}
+
+.h-site-menu-expanding.h-site-menu-vertical > .h-site-menu-list {
+  left: 0;
+  right: auto;
+  top: 100%;
+  transform: translate(0, -8px);
+}
+
+.h-site-menu-expanding.h-site-menu-vertical.is-end > .h-site-menu-list {
+  left: auto;
+  right: 0;
+}
+
+.h-site-menu-expanding.is-open > .h-site-menu-list,
+.h-site-menu-expanding:focus-within > .h-site-menu-list {
+  visibility: visible;
+  opacity: 1;
+  transform: translate(0, -50%);
+}
+
+@media (hover: hover) {
+  .h-site-menu-expanding:hover > .h-site-menu-list {
+    visibility: visible;
+    opacity: 1;
+    transform: translate(0, -50%);
+  }
+
+  .h-site-menu-expanding.h-site-menu-vertical:hover > .h-site-menu-list {
+    transform: none;
+  }
+}
+
+.h-site-menu-expanding.h-site-menu-vertical:is(.is-open, :focus-within) > .h-site-menu-list {
+  transform: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .h-site-menu-expanding > .h-site-menu-list {
+    transition: none;
+  }
 }
 
 .h-site-menu-dropdown {

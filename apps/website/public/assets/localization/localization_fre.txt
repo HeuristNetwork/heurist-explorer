@@ -210,6 +210,19 @@
 #Icons#Icônes
 #Drop-down menu#Menu déroulant
 #Label of the drop-down button#Libellé du bouton du menu déroulant
+#Items in a row#Éléments en ligne
+#Icons behind a button (expand on hover)#Icônes derrière un bouton (s’ouvrent au survol)
+#Name of the button (rollover)#Nom du bouton (infobulle)
+#Icon of the button#Icône du bouton
+#Style of the items#Style des éléments
+#Plain#Simple
+#Links (underlined)#Liens (soulignés)
+#Bottom border on hover#Bordure inférieure au survol
+#Pills (current item filled)#Pastilles (élément actuel rempli)
+#Outlined buttons#Boutons à contour
+#Horizontal#Horizontal
+#Vertical#Vertical
+#Actions#Actions
 #Go to a page#Aller à une page
 #Open a URL#Ouvrir une URL
 #Add a record#Ajouter un enregistrement

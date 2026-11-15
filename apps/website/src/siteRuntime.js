@@ -464,7 +464,9 @@ export async function mountInstance(host, id, config, loaders) {
     const language = config.site?.language || '';
     return new HMenu().attach(host, {
       items: actionMenuItems(settings, { language }),
-      settings: { presentation: settings.presentation || 'links', label: settings.labels?.[language] ?? settings.label },
+      // style, orientation and the icon of the expand button: plan 27k §1-2
+      settings: { presentation: settings.presentation || 'links', style: settings.style, orientation: settings.orientation,
+        icon: settings.icon, label: settings.labels?.[language] ?? settings.label },
       label: settings.labels?.[language] ?? settings.label ?? 'Actions'
     }).render();
   }

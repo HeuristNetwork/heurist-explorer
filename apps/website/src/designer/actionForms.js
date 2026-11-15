@@ -21,6 +21,7 @@
 import '@fortawesome/fontawesome-free/css/brands.min.css';
 import { $HR } from '#shared/ui';
 import { createHInput } from '#shared/widgets/form/inputs/createHInput.js';
+import { MENU_EXPAND_ICON, menuLook } from '#shared/widgets/site/HMenu.js';
 import { formDialog } from './designerDialogs.js';
 import { dragHandle, helpLine, sortableList } from './designerStyles.js';
 import { recordPagePicker } from './recordPageField.js';
@@ -44,8 +45,19 @@ export const SOCIAL_NETWORKS = Object.freeze([
   { id: 'rss', name: 'RSS feed', icon: 'fa-solid fa-rss', hint: 'https://.../feed' }
 ]);
 
-/** Presentations of an action menu: value, label. */
-const PRESENTATIONS = Object.freeze([['links', 'Links'], ['buttons', 'Buttons'], ['icons', 'Icons'], ['dropdown', 'Drop-down menu']]);
+/** Presentations of an action menu (plan 27k §1-2): value, label. */
+const PRESENTATIONS = Object.freeze([['row', 'Items in a row'], ['icons', 'Icons'], ['expand', 'Icons behind a button (expand on hover)'],
+  ['dropdown', 'Drop-down menu']]);
+
+/** Styles of the items of a menu (plan 27k §1): value, label; also the website menu form. */
+export const ITEM_STYLES = Object.freeze([['plain', 'Plain'], ['links', 'Links (underlined)'], ['underline', 'Bottom border on hover'],
+  ['pills', 'Pills (current item filled)'], ['buttons', 'Buttons'], ['outline', 'Outlined buttons']]);
+
+/** Presentations of the social media preset (plan 27k §2). */
+const SOCIAL_PRESENTATIONS = Object.freeze([['icons', 'Icons'], ['expand', 'Icons behind a button (expand on hover)']]);
+
+/** Orientations of an action menu (plan 27k §2). */
+const ORIENTATIONS = Object.freeze([['horizontal', 'Horizontal'], ['vertical', 'Vertical']]);
 
 /**
  * Actions of an item: value, label. Record page: a record on a record page; Back: the page before (plan 27g §6); Saved
@@ -65,9 +77,11 @@ const DEFAULT_LABELS = Object.freeze({ page: 'Page', url: 'Link', addRecord: 'Ad
  * Settings of the social media preset from the URLs of the networks (empty URLs left out).
  *
  * @param {Object<string, string>} urls Network id => URL (Email: an address or mailto:).
+ * @param {object} [look] Presentation `icons` | `expand` (plan 27k §2), `style`, `orientation`, `icon` and `label` of the
+ *        expand button; defaults are not written.
  * @returns {{preset: string, presentation: string, items: Array<object>}}
  */
-export function socialSettings(urls) {
+export function socialSettings(urls, look = {}) {
   const items = [];
   for (const network of SOCIAL_NETWORKS) {
     let url = String(urls[network.id] || '').trim();
@@ -75,7 +89,14 @@ export function socialSettings(urls) {
     if (network.id === 'email' && !/^mailto:/i.test(url)) url = `mailto:${url}`;
     items.push({ label: network.name, icon: network.icon, iconOnly: true, action: 'url', target: url, newTab: network.id !== 'email' });
   }
-  return { preset: 'social', presentation: 'icons', items };
+  const settings = { preset: 'social', presentation: look.presentation === 'expand' ? 'expand' : 'icons', items };
+  if (ITEM_STYLES.some(([value]) => value === look.style) && look.style !== 'plain') settings.style = look.style;
+  if (look.orientation === 'vertical') settings.orientation = 'vertical';
+  if (settings.presentation === 'expand') {
+    if (String(look.icon || '').trim()) settings.icon = String(look.icon).trim();
+    if (String(look.label || '').trim()) settings.label = String(look.label).trim();
+  }
+  return settings;
 }
 
 /**
@@ -120,8 +141,23 @@ export function openSocialForm({ settings = {} } = {}) {
     table.append(icon, name, input);
   }
   form.append(table);
-  return formDialog(form, 'Social media', 'OK', () => socialSettings(Object.fromEntries(Object.entries(inputs).map(([id, input]) => [id, input.value]))),
-    null, 'h-dialog-cms-social');
+  // the icons in a row or behind a button that expands on hover (plan 27k §2), their style and orientation
+  const presentation = select(SOCIAL_PRESENTATIONS, settings.presentation === 'expand' ? 'expand' : 'icons');
+  const style = select(ITEM_STYLES, menuLook(settings).style);
+  const orientation = select(ORIENTATIONS, settings.orientation === 'vertical' ? 'vertical' : 'horizontal');
+  const icon = element('input', 'h-input h-compact h-cms-action-icon');
+  icon.type = 'text';
+  icon.value = settings.icon || '';
+  icon.placeholder = MENU_EXPAND_ICON;
+  icon.title = $HR('Font Awesome icon classes (optional)');
+  const iconLine = line('Icon of the button', icon);
+  const showIcon = () => { iconLine.hidden = presentation.value !== 'expand'; };
+  presentation.addEventListener('change', showIcon);
+  form.append(line('Presentation', presentation), iconLine, line('Style of the items', style), line('Orientation', orientation));
+  showIcon();
+  return formDialog(form, 'Social media', 'OK', () => socialSettings(Object.fromEntries(Object.entries(inputs).map(([id, input]) => [id, input.value])),
+    { presentation: presentation.value, style: style.value, orientation: orientation.value, icon: icon.value, label: settings.label }),
+  null, 'h-dialog-cms-social');
 }
 
 /**
@@ -148,18 +184,46 @@ export function openActionMenuForm({ settings = {}, pages = [], recordTypes = []
   form.append(helpLine(single ? 'A link to a page of the website, a record on a record page, or another website.'
     : canAddRecord ? 'Links to pages of the website or to other websites, and actions such as Add record.'
       : 'Links to pages of the website or to other websites. Add record needs Heurist Explorer on the website.'));
-  const presentation = element('select', 'h-select h-compact');
-  presentation.append(...PRESENTATIONS.map(([value, label]) => option(value, $HR(label))));
-  presentation.value = PRESENTATIONS.some(([value]) => value === settings.presentation) ? settings.presentation : 'links';
+  // stored links / buttons: a row with that style (menuLook); a new menu: a row of links
+  const look = menuLook(settings.presentation ? settings : { presentation: 'links', ...settings });
+  const presentation = select(PRESENTATIONS, look.presentation === 'menu' ? 'row' : look.presentation);
+  const style = select(ITEM_STYLES, look.style);
+  const orientation = select(ORIENTATIONS, look.orientation === 'vertical' ? 'vertical' : 'horizontal');
   const label = element('input', 'h-input h-compact');
   label.type = 'text';
   label.value = settings.label || '';
-  label.placeholder = $HR('Menu');
-  const labelLine = line('Label of the drop-down button', label);
-  const showLabel = () => { labelLine.hidden = presentation.value !== 'dropdown'; };
-  presentation.addEventListener('change', showLabel);
-  if (!single) form.append(classed(line('Presentation', presentation), 'h-cms-action-presentation'), labelLine);
-  showLabel();
+  const labelCaption = element('span');
+  const labelLine = element('label', 'h-cms-styles-field');
+  labelLine.append(labelCaption, label);
+  const icon = element('input', 'h-input h-compact h-cms-action-icon');
+  icon.type = 'text';
+  icon.value = settings.icon || '';
+  icon.placeholder = MENU_EXPAND_ICON;
+  icon.title = $HR('Font Awesome icon classes (optional)');
+  const iconGlyph = element('i', settings.icon || MENU_EXPAND_ICON);
+  iconGlyph.setAttribute('aria-hidden', 'true');
+  icon.addEventListener('input', () => { iconGlyph.className = icon.value.trim() || MENU_EXPAND_ICON; });
+  const iconBox = element('span', 'h-cms-action-icon-box');
+  iconBox.append(iconGlyph, icon);
+  const iconLine = line('Icon of the button', iconBox);
+  const styleLine = line('Style of the items', style);
+  const orientationLine = line('Orientation', orientation);
+  // the label: on the drop-down button, the rollover of the expand button; a drop-down has no item style and orientation
+  const showPresentation = () => {
+    const value = presentation.value;
+    labelLine.hidden = value !== 'dropdown' && value !== 'expand';
+    labelCaption.textContent = $HR(value === 'expand' ? 'Name of the button (rollover)' : 'Label of the drop-down button');
+    label.placeholder = $HR(value === 'expand' ? 'Actions' : 'Menu');
+    iconLine.hidden = value !== 'expand';
+    styleLine.hidden = value === 'dropdown';
+    orientationLine.hidden = value === 'dropdown';
+  };
+  presentation.addEventListener('change', showPresentation);
+  if (!single) {
+    form.append(classed(line('Presentation', presentation), 'h-cms-action-presentation'), labelLine, iconLine, styleLine,
+      orientationLine);
+  }
+  showPresentation();
 
   const list = element('div', 'h-cms-action-list');
   const actions = ACTIONS.filter(([value]) => (single?.actions ? single.actions.includes(value) : value !== 'addRecord' || canAddRecord));
@@ -292,7 +356,11 @@ export function openActionMenuForm({ settings = {}, pages = [], recordTypes = []
     }
     if (single) return items[0] || null;
     const result = { presentation: presentation.value, items };
-    if (presentation.value === 'dropdown' && label.value.trim()) result.label = label.value.trim();
+    if (['dropdown', 'expand'].includes(presentation.value) && label.value.trim()) result.label = label.value.trim();
+    if (presentation.value === 'expand' && icon.value.trim()) result.icon = icon.value.trim();
+    // defaults are not written; a drop-down has no item style and orientation
+    if (presentation.value !== 'dropdown' && style.value !== 'plain') result.style = style.value;
+    if (presentation.value !== 'dropdown' && orientation.value === 'vertical') result.orientation = 'vertical';
     if (settings.labels) result.labels = settings.labels;
     return result;
   }, null, single ? 'h-dialog-cms-link' : 'h-dialog-cms-actions');
@@ -403,6 +471,14 @@ function button(icon, title, withLabel = false, className = 'h-btn h-compact') {
   glyph.setAttribute('aria-hidden', 'true');
   node.append(glyph);
   if (withLabel) node.append(document.createTextNode(` ${$HR(title)}`));
+  return node;
+}
+
+/** A select of [value, label] pairs with the given value. */
+function select(options, value) {
+  const node = element('select', 'h-select h-compact');
+  node.append(...options.map(([key, label]) => option(key, $HR(label))));
+  node.value = options.some(([key]) => key === value) ? value : options[0][0];
   return node;
 }
 

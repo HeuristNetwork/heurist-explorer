@@ -10,7 +10,9 @@
  * Settings: `orientation` horizontal (drop-downs on hover and focus) / vertical (a tree with expandable
  * levels) / auto (vertical in a vertical header); `showHome` a Home entry first (website menu);
  * `selectableParent` (default true) a page with sub pages opens, else its title opens the sub menu;
- * `presentation` of an action menu: links, buttons, icons or dropdown. An item: title, url, current,
+ * `presentation` of an action menu: row, icons, dropdown or expand (icons behind a button, shown on hover / focus /
+ * click; `icon` of the button), stored `links` / `buttons` = row with that style; `style` of the items (plan 27k §1):
+ * plain, links, underline, pills, buttons or outline; `orientation` of an action menu horizontal / vertical. An item: title, url, current,
  * children, icon (image URL), fa (Font Awesome classes), format name / icon / both, description (the rollover of every
  * format, review 2026-11-14), newTab, hidden (a page hidden in the main menu: class is-menu-hidden, review 2026-11-11).
  *
@@ -35,20 +37,49 @@ import { HBaseWidget } from '../HBaseWidget.js';
 import { $HR } from '../../ui/i18n/HResource.js';
 import './HMenu.css';
 
-/** Presentations of an action menu (plan 27f §6); `menu` is the website menu. */
-export const MENU_PRESENTATIONS = Object.freeze(['menu', 'links', 'buttons', 'icons', 'dropdown']);
+/**
+ * Presentations of a menu (plan 27f §6, 27k §1): `menu` is the website menu; `row` a row of items, `links` / `buttons`
+ * (stored before plan 27k) a row with that style.
+ */
+export const MENU_PRESENTATIONS = Object.freeze(['menu', 'row', 'links', 'buttons', 'icons', 'dropdown', 'expand']);
+
+/** Styles of the items of a menu (plan 27k §1); `plain` (the default) writes no class. */
+export const MENU_STYLES = Object.freeze(['plain', 'links', 'underline', 'pills', 'buttons', 'outline']);
+
+/** The button of an expanding action menu without its own icon (plan 27k §2). */
+export const MENU_EXPAND_ICON = 'fa-solid fa-share-nodes';
+
+/** Classes of the presentations (the others write none); `expand` is not `h-site-menu-expand`, the tree buttons. */
+const PRESENTATION_CLASSES = Object.freeze({ icons: 'h-site-menu-icons', dropdown: 'h-site-menu-dropdown', expand: 'h-site-menu-expanding' });
 
 /**
- * Classes of a menu (PageRenderer::menuClass).
+ * Presentation, style and orientation of a menu from its settings (PageRenderer::menuLook): a stored `links` / `buttons`
+ * presentation is a row with that style.
+ *
+ * @param {object} settings
+ * @returns {{presentation: string, style: string, orientation: string}}
+ */
+export function menuLook(settings = {}) {
+  let presentation = MENU_PRESENTATIONS.includes(settings.presentation) ? settings.presentation : 'menu';
+  let style = MENU_STYLES.includes(settings.style) ? settings.style : 'plain';
+  if (presentation === 'links' || presentation === 'buttons') {
+    if (!MENU_STYLES.includes(settings.style)) style = presentation;
+    presentation = 'row';
+  }
+  const orientation = ['vertical', 'auto'].includes(settings.orientation) ? settings.orientation : 'horizontal';
+  return { presentation, style, orientation };
+}
+
+/**
+ * Classes of a menu (PageRenderer::menuClass): orientation, presentation, style (none for a drop-down).
  *
  * @param {object} settings
  * @returns {string}
  */
 export function menuClass(settings = {}) {
-  const orientation = settings.orientation;
-  const presentation = MENU_PRESENTATIONS.includes(settings.presentation) ? settings.presentation : 'menu';
-  return ['h-site-menu', ['vertical', 'auto'].includes(orientation) ? `h-site-menu-${orientation}` : '',
-    presentation !== 'menu' ? `h-site-menu-${presentation}` : ''].filter(Boolean).join(' ');
+  const { presentation, style, orientation } = menuLook(settings);
+  return ['h-site-menu', orientation !== 'horizontal' ? `h-site-menu-${orientation}` : '', PRESENTATION_CLASSES[presentation] || '',
+    style !== 'plain' && presentation !== 'dropdown' ? `h-site-menu-style-${style}` : ''].filter(Boolean).join(' ');
 }
 
 /** Website menu or action menu of a v4 page. */
@@ -78,19 +109,20 @@ export class HMenu extends HBaseWidget {
     const written = this.container.querySelector?.('.h-site-menu');
     if (written) return this._activate(written);
     const settings = this.options.settings || {};
-    const presentation = MENU_PRESENTATIONS.includes(settings.presentation) ? settings.presentation : 'menu';
+    const { presentation } = menuLook(settings);
     // a div: the host is the <nav> (one navigation landmark, review 2026-11-15)
     const nav = document.createElement('div');
     nav.className = menuClass(settings);
     nav.setAttribute('data-h-label', this.options.label || 'Site menu');
     const items = [...(this.options.items || [])];
     if (settings.showHome && this.options.homeItem) items.unshift(this.options.homeItem);
-    if (presentation === 'menu' || presentation === 'dropdown') {
+    if (['menu', 'dropdown', 'expand'].includes(presentation)) {
       const toggle = document.createElement('button');
       toggle.type = 'button';
       toggle.className = 'h-site-menu-toggle';
       toggle.setAttribute('aria-expanded', 'false');
       if (presentation === 'dropdown') toggle.textContent = settings.label || $HR('Menu');
+      else if (presentation === 'expand') expandIcon(toggle, settings.icon, settings.label || $HR('Actions'));
       else menuIcon(toggle);
       nav.append(toggle);
     }
@@ -102,24 +134,42 @@ export class HMenu extends HBaseWidget {
   /** The menu button, the expanders of the tree (vertical, collapsed), the name of the navigation. */
   _activate(nav) {
     const toggle = [...nav.children].find((child) => child.classList?.contains('h-site-menu-toggle'));
-    const dropdown = nav.classList.contains('h-site-menu-dropdown');
+    // a drop-down or expanding action menu (plan 27k §2): its list opens over the page
+    const popup = nav.classList.contains('h-site-menu-dropdown') || nav.classList.contains('h-site-menu-expanding');
     if (toggle) {
-      if (!dropdown) menuIcon(toggle);
-      this.listen(toggle, 'click', () => {
-        const open = !nav.classList.contains('is-open');
+      if (!popup) menuIcon(toggle);
+      const setOpen = (open) => {
         nav.classList.toggle('is-open', open);
         toggle.setAttribute('aria-expanded', String(open));
-        if (dropdown) {
+      };
+      this.listen(toggle, 'click', () => {
+        const open = !nav.classList.contains('is-open');
+        setOpen(open);
+        if (popup) {
           if (open) this._placeDropdown(nav);
         } else {
           this._showPanel(nav, open && nav.classList.contains('is-narrow'));
         }
       });
+      if (popup) {
+        // closed by a click outside and by Esc; the expanding list is placed before it opens on hover
+        if (globalThis.document) {
+          this.listen(document, 'click', (event) => {
+            if (nav.classList.contains('is-open') && !nav.contains?.(event.target)) setOpen(false);
+          });
+        }
+        this.listen(nav, 'keydown', (event) => {
+          if (event.key !== 'Escape' || !nav.classList.contains('is-open')) return;
+          setOpen(false);
+          toggle.focus?.();
+        });
+        if (nav.classList.contains('h-site-menu-expanding')) this.listen(nav, 'mouseenter', () => this._placeDropdown(nav));
+      }
     }
     // the website menu: a tree when vertical or collapsed (its expanders are shown then)
-    if (toggle && !dropdown) this._expanders(nav);
+    if (toggle && !popup) this._expanders(nav);
     else if (nav.classList.contains('h-site-menu-vertical') || nav.classList.contains('h-site-menu-auto')) this._expanders(nav);
-    if (toggle && !dropdown) this._fitWidth(nav, toggle);
+    if (toggle && !popup) this._fitWidth(nav, toggle);
     this._label(nav);
     this.state = 'rendered';
     return this;
@@ -227,7 +277,8 @@ export class HMenu extends HBaseWidget {
 
   /**
    * The open list of a dropdown action menu: below the button, aligned to its left edge; to its right edge (class
-   * is-end) when it would leave the window on the right and there is room on the left (2026-11-12).
+   * is-end) when it would leave the window on the right and there is room on the left (2026-11-12). The list of an
+   * expanding menu (plan 27k §2): beside its button (below when vertical), on the other side (is-end) the same way.
    */
   _placeDropdown(nav) {
     const list = [...nav.children].find((child) => child.classList?.contains('h-site-menu-list'));
@@ -368,6 +419,23 @@ function menuLabel(item) {
 
 function hasCurrent(items) {
   return items.some((item) => item.current || hasCurrent(item.children || []));
+}
+
+/**
+ * The button of an expanding action menu (plan 27k §2, PageRenderer::actionMenuHtml): its icon, its name as the rollover
+ * and for screen readers.
+ *
+ * @param {HTMLButtonElement} toggle
+ * @param {string} icon Font Awesome classes (else MENU_EXPAND_ICON).
+ * @param {string} label
+ */
+function expandIcon(toggle, icon, label) {
+  const glyph = document.createElement('i');
+  glyph.className = /^[a-z0-9 -]{1,80}$/.test(icon || '') && String(icon).includes('fa-') ? icon : MENU_EXPAND_ICON;
+  glyph.setAttribute('aria-hidden', 'true');
+  toggle.replaceChildren(glyph);
+  toggle.title = label;
+  toggle.setAttribute('aria-label', label);
 }
 
 /** The button of a collapsed website menu: the "3 bars" icon, its name for screen readers (2026-11-14). */
