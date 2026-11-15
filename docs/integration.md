@@ -102,7 +102,9 @@ module of the page its start state (`filterInstanceState`). Modules do not read 
 Explorer opens the Filter Form filled in (`HFilter.showSource(source, values)`). The website summary
 (`GET /website/{id}` → `meta.website`) has `modules` (module types) for the home and each page. Stored values may be
 `{record: 'id'}` / `{field: '<concept code>'}` (phase B): the server fills them in for each record when it writes the
-link. The website bridge of Explorer
+link. Phase C: Explorer's public API has `applyPageRequest(request)` (the same request as `state.pageRequest`) for a
+Saved filter link to a page already shown (same page in reload mode, a page kept by swap / scroll); the other modules
+get it through `setDataSource` / `setDynamicDataSources`. The website bridge of Explorer
 has `selectExtent(current)` → `{west, south, east, north}|null` (the map extent of a Filter Form; only with a Map
 module URL), and `HFilter` takes the option `selectExtent`.
 

@@ -225,3 +225,41 @@ test('scroll (plan 27g): a hidden or record page is shown alone, back on the lon
   assert.deepEqual([...main.children].filter((item) => !item.hidden).map((item) => item.getAttribute('data-h-page')), ['5', '7', '8', '9']);
   assert.equal(win.scrolled.at(-1), 1200, 'the scroll position of the long page');
 });
+
+test('Saved filter (plan 27j phase C): links with a filter open their page here and give the records to its modules', async () => {
+  const { navigator, calls, menu } = setup();
+  navigator.start();
+  const fetchBefore = globalThis.fetch;
+  const loaded = [];
+  globalThis.fetch = async (url) => {
+    loaded.push(url);
+    return { ok: true, json: async () => ({ querySource: { id: 3, title: 'People', source: { query: { t: '10', title: '$X1$' } } } }) };
+  };
+  try {
+    // the page of a filter link is found without its filter; the filter stays in the view and the address
+    const view = navigator.viewOf(`${BASE}/7?source=3&v.X1=Ada`);
+    assert.equal(view.key, 7);
+    assert.equal(view.filter, '?source=3&v.X1=Ada');
+    assert.equal(view.url, `${BASE}/7?source=3&v.X1=Ada`);
+    // the current page (kept): its modules get the records, a new history entry
+    const given = [];
+    navigator.entries.get(5).mounted.set('m5', { setDataSource: (dataSource) => given.push(dataSource.request.q) });
+    await navigator.go(navigator.viewOf(`${BASE}?source=3&v.X1=Ada`));
+    await flush();
+    assert.deepEqual(given, [{ t: '10', title: 'Ada' }]);
+    assert.deepEqual(calls.pushed, [`${BASE}?source=3&v.X1=Ada`], 'the same page with a filter: a history entry');
+    assert.equal(calls.fetched.length, 0, 'the page is not loaded again');
+    // the menu still marks the page of the filter
+    assert.equal(menu.querySelectorAll('.h-site-menu-item')[0].classList.contains('is-current'), true);
+    // a page loaded with a filter starts its modules with it
+    await navigator.go(navigator.viewOf(`${BASE}/7?source=3&v.X1=Bob`));
+    assert.equal(navigator.entries.get(7).config.runtime.filterSearch, '?source=3&v.X1=Bob');
+    assert.equal(navigator.entries.get(7).filter, '?source=3&v.X1=Bob');
+    // opened again without a filter: loaded again
+    await navigator.go(7);
+    assert.equal(calls.fetched.filter((url) => url.startsWith(`${BASE}/7`)).length, 2);
+    assert.equal(navigator.entries.get(7).filter, '');
+  } finally {
+    globalThis.fetch = fetchBefore;
+  }
+});

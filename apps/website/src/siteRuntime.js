@@ -581,7 +581,9 @@ export function pageFilterRequest(runtime = {}, search = globalThis.location?.se
 async function pageFilterState(instance, config) {
   const state = instance.state ?? null;
   if (config.runtime?.design || !CMS_FILTER_MODULES.includes(instance.type)) return state;
-  const request = await pageFilterRequest(config.runtime || {});
+  // a page loaded by the navigation modes swap / scroll: the query of its link (phase C), the URL is pushed later
+  const search = config.runtime?.filterSearch ?? globalThis.location?.search ?? '';
+  const request = await pageFilterRequest(config.runtime || {}, search);
   return request ? filterInstanceState(instance.type, state, request) : state;
 }
 
@@ -618,6 +620,121 @@ export function filterInstanceState(type, state, request) {
     default:
       return base;
   }
+}
+
+/**
+ * A Saved filter for modules already on the page (plan 27j phase C: a link to the current page, a page kept by the
+ * navigation mode swap / scroll): every record module gets the records through its API. Explorer: `applyPageRequest`
+ * (missing values in its filter form); Data / Graph: `setDataSource`; Map / Timeline: the Filtered Result document
+ * with `setDynamicDataSources`.
+ *
+ * @param {Map<string, object>} mounted Instance id => what mountInstance returned.
+ * @param {object} config The configuration block of the page (its instances and runtime).
+ * @param {string} search The query string of the link.
+ * @returns {Promise<boolean>} Whether a Saved filter was applied.
+ */
+export async function applyPageFilter(mounted, config, search) {
+  const request = await pageFilterRequest(config?.runtime || {}, search);
+  if (!request) return false;
+  const jobs = [];
+  for (const [id, api] of mounted || []) {
+    const type = config?.instances?.[id]?.type;
+    if (!api || !CMS_FILTER_MODULES.includes(type)) continue;
+    jobs.push(Promise.resolve(applyFilterToModule(type, api, request))
+      .catch((error) => console.warn(`Saved filter: ${type} (${id}) did not take the records`, error)));
+  }
+  await Promise.all(jobs);
+  return true;
+}
+
+/** The records of a Saved filter for one mounted module (applyPageFilter). */
+export async function applyFilterToModule(type, api, request) {
+  const { dataSource } = request;
+  switch (type) {
+    case 'explorer':
+      return api.applyPageRequest?.(request);
+    case 'data':
+      return api.setDataSource?.(dataSource, { reload: true });
+    case 'graph':
+      return typeof api.setDataSource === 'function' ? api.setDataSource(dataSource) : api.load?.({ query: dataSource.request.q });
+    case 'map':
+    case 'timeline': {
+      const dynamic = api.getDynamicDocument?.()?.id || 'dynamic';
+      await api.activateMapDocument?.(dynamic);
+      if (typeof api.setDynamicDataSources === 'function') return api.setDynamicDataSources({ currentDataSource: dataSource });
+      return api.setQuery?.(dataSource.request.q, { reload: true, title: dataSource.title });
+    }
+    default:
+      return undefined;
+  }
+}
+
+/** Whether a URL has a Saved filter (`source=`). */
+export function hasPageFilter(url) {
+  try {
+    return new URL(url, globalThis.location?.href || 'http://localhost/').searchParams.has('source');
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * The URL without the parameters of a Saved filter (`source`, `v.*`) and its anchor: the page it opens.
+ *
+ * @param {string} url Absolute URL.
+ * @returns {{page: string, search: string}} `search`: the query string of the Saved filter ('' without one).
+ */
+export function splitFilterUrl(url) {
+  let parsed;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return { page: String(url).split('#')[0], search: '' };
+  }
+  parsed.hash = '';
+  if (!parsed.searchParams.has('source')) return { page: parsed.href, search: '' };
+  const filter = new URLSearchParams();
+  for (const [key, value] of [...parsed.searchParams]) {
+    if (key === 'source' || key.startsWith('v.')) filter.append(key, value);
+  }
+  for (const key of [...new Set([...filter.keys()])]) parsed.searchParams.delete(key);
+  return { page: parsed.href, search: `?${filter.toString()}` };
+}
+
+/**
+ * The navigation mode reload (plan 27j phase C): a Saved filter link to the current page applies its records to the
+ * modules of the page without loading it again (history entry added); back / forward between such entries apply
+ * them again, back to the page without a filter loads it.
+ *
+ * @param {{root: HTMLElement, config: object, mounted: Map, win?: Window}} options
+ * @returns {() => void} Stops listening.
+ */
+export function attachSamePageFilters({ root, config, mounted, win = globalThis.window }) {
+  if (!root || !win || config?.runtime?.design) return () => {};
+  const pageOf = (url) => splitFilterUrl(new URL(url, win.location.href).href).page;
+  // a filter was applied on this page (back to the page without one: load it again)
+  let filtered = hasPageFilter(win.location.href);
+  const onClick = (event) => {
+    if (event.defaultPrevented || event.button > 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    const link = event.target?.closest?.('a[href]');
+    if (!link || (link.getAttribute('target') && link.getAttribute('target') !== '_self')) return;
+    const href = new URL(link.getAttribute('href'), win.location.href).href;
+    if (!hasPageFilter(href) || pageOf(href) !== pageOf(win.location.href)) return;
+    event.preventDefault();
+    win.history?.pushState?.({ hFilter: true }, '', href);
+    filtered = true;
+    void applyPageFilter(mounted, config, splitFilterUrl(href).search);
+  };
+  const onPop = (event) => {
+    if (hasPageFilter(win.location.href)) void applyPageFilter(mounted, config, splitFilterUrl(win.location.href).search);
+    else if (filtered) win.location.reload?.();
+  };
+  root.addEventListener('click', onClick);
+  win.addEventListener?.('popstate', onPop);
+  return () => {
+    root.removeEventListener('click', onClick);
+    win.removeEventListener?.('popstate', onPop);
+  };
 }
 
 /** A message in a host instead of its instance. */

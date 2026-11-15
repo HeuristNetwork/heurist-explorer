@@ -1,7 +1,7 @@
 # 27j Saved filter action (CMS links that show records of a query source)
 
-**Status (2026-11-15):** discussed and agreed with Artem (§3). **Phase A implemented** in both repos (§7). **Phase B
-implemented** (§8): not committed, no browser check. Phase C not started (§5).
+**Status (2026-11-15):** discussed and agreed with Artem (§3). Phases A (§7) and B (§8) committed. **Phase C
+implemented** (§9, client only): not committed, no browser check.
 
 Review 2026-11-15, item 19. The CMS actions (action menu, Record field link, media, Record cards) offer *Saved filter*.
 Since plan 27g it has only been a disabled option. It is not stored, not allowed by `StoredText`, and not written by
@@ -266,4 +266,42 @@ gallery) and the Record field link form:
 - `heurist/tests/SavedFilterLinkTest.php`: resolve, StoredText.
 - `heurist/tests/WebsiteRenderTest.php`: the link of each record, a Record field with its record id, no link without a
   value. The record page there is rendered without PageContent, so the full page is not checked.
+
+## 9. Phase C: the same page, swap / scroll (2026-11-15)
+
+### 9.1 What was done (client only)
+
+- **Modules already on the page** (`siteRuntime.applyPageFilter`) get the records through their APIs
+  (`applyFilterToModule`):
+  - Explorer: a new public method `applyPageRequest(request)`, the same as its start (records of the given values, the
+    filter form for missing ones);
+  - Data: `setDataSource(…, {reload: true})`;
+  - Graph: `setDataSource`;
+  - Map / Timeline: the Filtered Result document (`activateMapDocument`), then `setDynamicDataSources({currentDataSource})`.
+- **Navigation mode reload** (`attachSamePageFilters`, started by `main.js`):
+  - a Saved filter link to the current page applies its records without a reload and adds a history entry;
+  - back / forward to an entry with a filter applies it again;
+  - back to the page without a filter loads it again.
+- **Swap / scroll** (`SiteNavigator`):
+  - `viewOf` finds the page of a link without its filter parameters (`splitFilterUrl`: `source`, `v.*`) and keeps the
+    filter in the view (`filter`, `url` with it, `plainUrl` without).
+  - A page loaded now starts its modules with the filter of the link (`config.runtime.filterSearch`, read by
+    `pageFilterState` instead of `location.search`: the address changes after the load).
+  - A page kept in memory (or the current one) gets the records through `applyPageFilter`.
+  - A new history entry for the same page with another filter.
+  - A page shown with a filter and opened again without one is loaded again (`drop`).
+  - Back / forward read the filter from the address.
+  - The menu marks the page without its filter.
+
+### 9.2 Tests
+
+- `apps/website/test/siteNavigator.test.js`: a filter link to the current page, to a page loaded now, opened again
+  without a filter.
+- `apps/website/test/savedFilter.test.js`: `splitFilterUrl`, `applyFilterToModule` for each module, `applyPageFilter`,
+  reload mode on the same page.
+
+### 9.3 Left as it is
+
+- Iframe-mounted instances still get no filter (§7.2).
+- In scroll mode, scrolling to another page writes its address without the filter (as before).
 

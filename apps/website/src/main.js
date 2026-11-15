@@ -21,7 +21,7 @@ import '@fortawesome/fontawesome-free/css/brands.min.css';
 import '#shared/ui/heurist-ui.css';
 import './style.css';
 import { initLocale } from '#shared/ui';
-import { designerHost, designerUrl, designHooks, isFramed, readSiteConfig, startSite } from './siteRuntime.js';
+import { attachSamePageFilters, designerHost, designerUrl, designHooks, isFramed, readSiteConfig, startSite } from './siteRuntime.js';
 
 const config = readSiteConfig();
 // the preview of the CMS designer (plan 27c §6): opened on its own (not in an iframe) it opens the designer
@@ -40,6 +40,9 @@ if (config?.runtime?.design && !designer && !isFramed(window)) {
       if (!config.runtime?.design && (navigation === 'swap' || navigation === 'scroll')) {
         import('./siteNavigator.js').then(({ startNavigator }) => startNavigator({ config, mounted }))
           .catch((error) => console.warn('Unable to start the navigation of the website', error));
+      } else if (!config.runtime?.design) {
+        // Saved filter links to this page without a reload (plan 27j phase C)
+        attachSamePageFilters({ root: document.body, config, mounted });
       }
     })
     .catch((error) => console.error('Unable to start the website page', error));

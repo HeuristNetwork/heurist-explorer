@@ -28,7 +28,7 @@
  */
 
 import { CMS_LAYOUT_CACHE } from '#shared/site/cmsDocument.js';
-import { MODULE_LOADERS, enhanceControls, mountHosts, unmountInstance } from './siteRuntime.js';
+import { MODULE_LOADERS, applyPageFilter, enhanceControls, mountHosts, splitFilterUrl, unmountInstance } from './siteRuntime.js';
 
 /** Part of the window height above which a section is the current one (scroll mode). */
 const CURRENT_LINE = 0.3;
@@ -117,7 +117,9 @@ export class SiteNavigator {
       if (isAlone(view)) section.classList.add('h-site-page-alone');
       this.entries.set(view.key, {
         section, mounted: own, config, styles: doc.getElementById('h-page-styles'), title: doc.title,
-        alternates: alternateLinks(doc), used: ++this.clock, view
+        alternates: alternateLinks(doc), used: ++this.clock, view,
+        // opened with a Saved filter (plan 27j phase C)
+        filter: splitFilterUrl(this.key(this.absolute(win?.location?.href || ''))).search
       });
     }
     this._onClick = (event) => this.onClick(event);
@@ -160,9 +162,8 @@ export class SiteNavigator {
   async onPop(event) {
     const state = event?.state;
     const page = Number(state?.hPage);
-    const view = page
-      ? (Number(state.hRecord) > 0 ? this.viewOf(this.win?.location?.href || '') : this.pageView(page))
-      : this.viewOf(this.win?.location?.href || '');
+    // the address may carry a Saved filter (plan 27j phase C): read it again
+    const view = page ? (this.viewOf(this.win?.location?.href || '') || this.pageView(page)) : this.viewOf(this.win?.location?.href || '');
     if (view) await this.go(view, { push: false });
     else this.win?.location?.reload?.();
   }
@@ -178,13 +179,23 @@ export class SiteNavigator {
   async go(target, { push = true, hash = '' } = {}) {
     const view = typeof target === 'object' && target ? target : this.pageView(Number(target));
     if (!view) return false;
+    // a page shown with a Saved filter, opened without one: loaded again (plan 27j phase C)
+    const kept = this.entries.get(view.key);
+    if (kept && kept.filter && !view.filter) this.drop(view.key);
+    const fresh = !this.entries.has(view.key);
     const entry = await this.load(view);
     if (!entry) {
       this.win?.location?.assign?.(view.url + hash);
       return false;
     }
     entry.used = ++this.clock;
-    if (push && view.key !== this.current) this.win?.history?.pushState?.(this.stateOf(view), '', view.url + hash);
+    // a Saved filter for a page kept here: its modules get the records (a page loaded now mounted them with it)
+    if (view.filter && (!fresh || entry.filter !== view.filter)) {
+      entry.filter = view.filter;
+      void applyPageFilter(entry.mounted, entry.config, view.filter);
+    }
+    const address = this.key(this.absolute(this.win?.location?.href || ''));
+    if (push && (view.key !== this.current || view.url !== address)) this.win?.history?.pushState?.(this.stateOf(view), '', view.url + hash);
     if (this.mode === 'swap' || isAlone(view)) {
       // scroll mode: the long page is left at its position, the view is shown alone
       if (this.mode === 'scroll' && !this.alone) this.alone = { from: this.current, scrollY: Number(this.win?.scrollY) || 0 };
@@ -244,11 +255,13 @@ export class SiteNavigator {
           styles.setAttribute('data-h-page', String(view.page.id));
           this.doc.head.append(styles);
         }
+        // a Saved filter of the link (plan 27j phase C): the modules start with it (the address changes later)
+        if (view.filter) parts.config.runtime = { ...(parts.config.runtime || this.config?.runtime || {}), filterSearch: view.filter };
         enhanceControls(section, parts.config?.runtime || this.config?.runtime || null);
         for (const element of section.querySelectorAll('[data-h-view]')) element.setAttribute('tabindex', '0');
         const entry = {
           section, config: parts.config, styles, title: parts.title || view.page.title || '', alternates: parts.alternates || [],
-          mounted: new Map(), used: ++this.clock, view
+          mounted: new Map(), used: ++this.clock, view, filter: view.filter || ''
         };
         this.entries.set(key, entry);
         entry.mounted = await mountHosts(section, parts.config, this.loaders);
@@ -262,6 +275,23 @@ export class SiteNavigator {
     })();
     this.loading.set(key, job);
     return job;
+  }
+
+  /** Remove a loaded view (its modules, section and styles); scroll mode: a placeholder takes the place of its section. */
+  drop(key) {
+    const entry = this.entries.get(key);
+    if (!entry) return;
+    for (const instance of entry.mounted.values()) unmountInstance(instance);
+    if (this.mode === 'scroll' && !isAlone(entry.view)) {
+      const placeholder = this.doc.createElement('section');
+      placeholder.className = 'h-site-page h-site-page-pending';
+      placeholder.setAttribute('data-h-page', String(entry.view.page.id));
+      entry.section.replaceWith(placeholder);
+    } else {
+      entry.section.remove();
+    }
+    entry.styles?.remove();
+    this.entries.delete(key);
   }
 
   /**
@@ -310,7 +340,7 @@ export class SiteNavigator {
         if (url) option.value = url;
       }
     }
-    markMenus(this.doc, this.key(view.url), (href) => this.key(this.absolute(href)));
+    markMenus(this.doc, this.key(view.plainUrl || view.url), (href) => splitFilterUrl(this.key(this.absolute(href))).page);
   }
 
   // ------------------------------------------------------------------ scroll mode
@@ -386,9 +416,12 @@ export class SiteNavigator {
    * @returns {{key: number|string, page: object, record: number, url: string}|null}
    */
   viewOf(href) {
-    const url = this.key(this.absolute(href));
+    // a Saved filter (plan 27j phase C): the page without `source` / `v.*`, the filter kept in the view
+    const full = this.key(this.absolute(href));
+    const { page: url, search } = splitFilterUrl(full);
+    const withFilter = (view) => (view && search ? { ...view, url: full, plainUrl: view.url, filter: search } : view);
     const page = this.byUrl.get(url);
-    if (page) return this.pageView(page.id);
+    if (page) return withFilter(this.pageView(page.id));
     let target;
     try {
       target = new URL(url);
@@ -408,7 +441,7 @@ export class SiteNavigator {
         params.delete('rec');
         if (sameQuery(params, base.searchParams)) record = Number(target.searchParams.get('rec'));
       }
-      if (record > 0) return { key: `${candidate.id}/${record}`, page: candidate, record, url };
+      if (record > 0) return withFilter({ key: `${candidate.id}/${record}`, page: candidate, record, url });
     }
     return null;
   }

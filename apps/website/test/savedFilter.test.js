@@ -133,3 +133,54 @@ test('Saved filter phase B: fields of record types as values from the record, re
   assert.deepEqual(await recordTypesOf(apiClient, [5, 200, 6]), [10, 12]);
   assert.deepEqual(await recordTypesOf(apiClient, []), []);
 });
+
+test('Saved filter phase C: the URL without the filter, the records for each mounted module', async () => {
+  const { applyFilterToModule, applyPageFilter, attachSamePageFilters, hasPageFilter, splitFilterUrl } = await import('../src/siteRuntime.js');
+  assert.deepEqual(splitFilterUrl('https://h/db/site/5/7?lang=fre&source=3&v.X1=a&v.T=1&v.T=2#top'),
+    { page: 'https://h/db/site/5/7?lang=fre', search: '?source=3&v.X1=a&v.T=1&v.T=2' });
+  assert.deepEqual(splitFilterUrl('https://h/db/site/5/7'), { page: 'https://h/db/site/5/7', search: '' });
+  assert.equal(hasPageFilter('https://h/x?source=3'), true);
+  assert.equal(hasPageFilter('https://h/x?lang=fre'), false);
+  const request = { dataSource: { title: 'People', request: { q: { t: '10' } } }, raw: {}, values: {}, missing: [] };
+  const calls = [];
+  await applyFilterToModule('explorer', { applyPageRequest: (value) => calls.push(['explorer', value === request]) }, request);
+  await applyFilterToModule('data', { setDataSource: (ds, options) => calls.push(['data', options.reload]) }, request);
+  await applyFilterToModule('graph', { setDataSource: () => calls.push(['graph']) }, request);
+  await applyFilterToModule('map', { getDynamicDocument: () => ({ id: 'dyn' }), activateMapDocument: (id) => calls.push(['map doc', id]),
+    setDynamicDataSources: (value) => calls.push(['map', value.currentDataSource === request.dataSource]) }, request);
+  await applyFilterToModule('timeline', { setQuery: (q, options) => calls.push(['timeline', q.t, options.reload]) }, request);
+  assert.deepEqual(calls, [['explorer', true], ['data', true], ['graph'], ['map doc', 'dyn'], ['map', true], ['timeline', '10', true]]);
+
+  // reload mode: a filter link to this page applies the records without a reload
+  const fetchBefore = globalThis.fetch;
+  globalThis.fetch = async () => ({ ok: true, json: async () => ({ id: 4, title: 'P', source: { query: { t: '12', title: '$X$' } } }) });
+  try {
+    const given = [];
+    const mounted = new Map([['m1', { setDataSource: (ds) => given.push(ds.request.q) }], ['w1', { destroy() {} }]]);
+    const config = { runtime: { apiBaseUrl: 'https://h/api', database: 'db' }, instances: { m1: { kind: 'module', type: 'data' }, w1: { kind: 'widget', type: 'menu' } } };
+    assert.equal(await applyPageFilter(mounted, config, '?source=4&v.X=Zed'), true);
+    assert.deepEqual(given, [{ t: '12', title: 'Zed' }]);
+    assert.equal(await applyPageFilter(mounted, config, '?lang=fre'), false);
+
+    const listeners = {};
+    const root = { addEventListener: (type, handler) => { listeners[type] = handler; }, removeEventListener() {} };
+    const pushed = [];
+    const win = { location: { href: 'https://h/db/site/5/7', reload() {} }, history: { pushState: (state, title, url) => pushed.push(url) },
+      addEventListener() {}, removeEventListener() {} };
+    attachSamePageFilters({ root, config, mounted, win });
+    const link = (href) => ({ getAttribute: (name) => (name === 'href' ? href : null) });
+    const event = (href) => ({ button: 0, target: { closest: () => link(href) }, defaultPrevented: false, preventDefault() { this.defaultPrevented = true; } });
+    const same = event('https://h/db/site/5/7?source=4&v.X=Amy');
+    listeners.click(same);
+    assert.equal(same.defaultPrevented, true);
+    assert.deepEqual(pushed, ['https://h/db/site/5/7?source=4&v.X=Amy']);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    assert.deepEqual(given.at(-1), { t: '12', title: 'Amy' });
+    const other = event('https://h/db/site/5/8?source=4&v.X=Amy');
+    listeners.click(other);
+    assert.equal(other.defaultPrevented, false, 'another page: loaded as usual');
+  } finally {
+    globalThis.fetch = fetchBefore;
+  }
+});

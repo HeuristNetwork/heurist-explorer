@@ -81,6 +81,14 @@ export class HeuristExplorerPublicApi {
   applySettings(settings) { return this.application.applySettings(settings); }
 
   /**
+   * The Saved filter of a website page link (plan 27j phase C): its records, the filter form for missing values.
+   *
+   * @param {{dataSource: object, raw: object, values: object, missing: string[]}} request
+   * @returns {Promise<void>}
+   */
+  applyPageRequest(request) { return this.application.applyPageRequest(request); }
+
+  /**
    * Returns the current serialized Explorer application state.
    *
    * @returns {object} Current application state.

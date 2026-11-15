@@ -283,6 +283,11 @@ export class ExplorerApplication {
    * @param {{dataSource: object, raw: object, values: object, missing: string[]}} request
    * @returns {Promise<void>}
    */
+  async applyPageRequest(request) {
+    if (request?.dataSource) await this._startPageRequest(request);
+  }
+
+  /** @private The start of applyPageRequest and of a page opened with a Saved filter. */
   async _startPageRequest(request) {
     const given = Object.keys(request.values || {}).length > 0;
     if (request.missing?.length && this.publishedFilter) {
