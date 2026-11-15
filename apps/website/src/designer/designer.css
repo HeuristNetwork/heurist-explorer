@@ -215,12 +215,17 @@
   align-items: center;
 }
 
-/* the screen buttons (Normal, Medium, Narrow) on the right */
+/* the screen of the settings (Normal, Medium, Narrow, Small): a selector on the right (review 2026-11-15) */
 .h-cms-style-tabs {
   display: flex;
-  justify-content: flex-end;
-  gap: 4px;
+  justify-content: flex-start;
+  align-items: center;
+  gap: 6px;
   padding: 0 10px;
+}
+
+.h-cms-style-screen {
+  width: auto;
 }
 
 .h-cms-tab-active {
@@ -1089,12 +1094,24 @@
   display: none;
 }
 
-/* Close in the top right corner, over the form */
-.h-cms-form-close {
-  position: absolute;
-  top: 4px;
-  right: 22px; /* left of the scroll bar of the form */
-  z-index: 1;
+/* the header of the form: its title and Close, on the selected colour (apart from the toolbar above, 2026-11-15) */
+.h-cms-form-head {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 6px 3px 10px;
+  border-bottom: 1px solid var(--h-color-border);
+  background: var(--h-color-selected);
+  font-weight: bold;
+}
+
+.h-cms-form-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .h-cms-form-body {
@@ -1160,22 +1177,17 @@
   padding-left: 14px;
 }
 
-/* the configuration form of a module (review 2026-11-14): always below the tree, wide; Reset and Apply at the end */
-.h-cms-page-panel.h-cms-form-side.h-cms-form-below {
-  flex-direction: column;
+/* the configuration form of a module: Reset and Apply at the end (beside the tree or below it as Own style, review
+   2026-11-15); Apply also in the header */
+.h-cms-form-head-actions {
+  display: inline-flex;
+  flex: 0 0 auto;
+  gap: 4px;
+  font-weight: normal;
 }
 
-.h-cms-page-panel.h-cms-form-below > .h-cms-page-main:has(+ .h-cms-form-panel:not([hidden])) {
-  flex: 1 1 33%;
-  max-width: none;
-  min-height: 120px;
-  border-right: 0;
-}
-
-.h-cms-page-panel.h-cms-form-below > .h-cms-form-panel {
-  flex: 0 1 66.6%;
-  min-width: 0;
-  border-top: 1px solid var(--h-color-border);
+.h-cms-form-head-actions:empty {
+  display: none;
 }
 
 .h-cms-form-actions {
@@ -1196,11 +1208,34 @@
   margin-top: 10px;
 }
 
-.h-explorer-website-capture {
-  align-self: flex-start;
-  margin-top: 8px;
+
+/* a module form inline: the form panel scrolls, not the form itself (the dialog has 70vh, 2026-11-15) */
+.h-cms-form-panel .h-module-config {
+  max-height: none;
+  overflow: visible;
 }
 
-.h-explorer-website-capture.is-active {
-  border-color: var(--h-color-primary);
+/* the selectors of an inline form (Available filters, Active on start ...) stay in the form: long labels are cut
+   (review 2026-11-15) */
+.h-cms-form-panel :is(.h-edit-field, .h-edit-field-value, .h-form-input, .h-value-combo) {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.h-cms-form-panel .h-value-combo {
+  max-width: 360px;
+}
+
+/* the captions of all panels of tabs / an accordion in one popup (review 2026-11-15) */
+.h-cms-captions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 70vh;
+  overflow: auto;
+}
+
+.h-cms-captions-label {
+  margin-bottom: 2px;
+  font-weight: bold;
 }

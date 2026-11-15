@@ -139,6 +139,21 @@ export async function createModuleConfigurationPanel(request = {}, context = {})
 }
 
 /**
+ * The settings of a module new on a website page (review 2026-11-15): the module defaults with the website defaults of
+ * its form (`modeDefaults`), normalized and serialized.
+ *
+ * @param {string} type Module type.
+ * @returns {Promise<object|null>} Null for a type without a configuration.
+ */
+export async function websiteModuleDefaults(type) {
+  const load = MODULE_CONFIGURATIONS[type];
+  if (!load) return null;
+  const configuration = await load();
+  const settings = configuration.normalize(applyModeDefaults(configuration.form, configuration.defaults(), 'website'));
+  return configuration.serialize ? configuration.serialize(settings) : settings;
+}
+
+/**
  * The module settings of an Explorer view for a website page (2026-11-14): each with the website defaults of its
  * form (`modeDefaults`, e.g. Enable edit off), normalized.
  *

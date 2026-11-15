@@ -213,7 +213,8 @@ export function createLayoutEditor(host, { value, types = MODULE_TYPES, onChange
   };
   const reset = el('button', 'h-btn h-i18n h-explorer-config-reset');
   reset.type = 'button';
-  reset.textContent = 'Reset';
+  // not "Reset": the form has its own Reset (review 2026-11-15)
+  reset.textContent = 'Default layout';
   reset.title = $HR('Restore the default layout');
   reset.addEventListener('click', () => editor.reset());
   host.append(reset);

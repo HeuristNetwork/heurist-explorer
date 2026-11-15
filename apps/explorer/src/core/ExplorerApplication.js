@@ -37,7 +37,7 @@ import { IframeModuleAdapter } from '../modules/IframeModuleAdapter.js';
 import { DirectModuleAdapter } from '../modules/DirectModuleAdapter.js';
 import { ExplorerControlPanel } from '../ui/ExplorerControlPanel.js';
 import {
-  applyUiRegions, ExplorerUiConfig, isModuleUsed, leadingPaneTypes, MODULE_TYPES, resolveUiLanguage, TOOL_TYPES,
+  applyUiRegions, ExplorerUiConfig, isModuleUsed, leadingPaneTypes, MODULE_TYPES, PRESENTATION_TYPES, resolveUiLanguage, TOOL_TYPES,
   UNUSED_REGION, effectiveUiConfig
 } from './ExplorerUiConfig.js';
 import { ExplorerToolModule } from '../tools/ExplorerToolModule.js';
@@ -2138,6 +2138,8 @@ export class ExplorerApplication {
       // the configuration forms inline in the designer (review 2026-11-14)
       createConfigurationPanel: (request) => this._moduleConfigurationPanel(request),
       createExplorerInstancePanel: (request) => this._explorerInstancePanel(request),
+      // the settings of a module new on a website page: its website defaults (review 2026-11-15)
+      websiteDefaults: (request) => this._websiteDefaults(request),
       createReportOutputsPanel: (options) => this._reportOutputsPanel(options)
     };
   }
@@ -2171,17 +2173,119 @@ export class ExplorerApplication {
    * @returns {Promise<object>} See createExplorerWebsitePanel.
    */
   async _explorerInstancePanel({ value = null } = {}) {
-    const [{ createExplorerWebsitePanel }, publication, { websiteModuleSettings }] = await Promise.all([
+    const [{ createExplorerWebsitePanel }, publication] = await Promise.all([
       import('../ui/config/explorerWebsitePanel.js'),
-      import('../ui/config/explorerPublication.js'),
-      import('../modules/moduleConfigurations.js')
+      import('../ui/config/explorerPublication.js')
     ]);
     return createExplorerWebsitePanel({
       value,
       lists: await this._publicFilterLists(publication.WEBSITE_FILTERS_GROUP),
-      captureView: () => this.captureView(),
-      websiteModules: (modules) => websiteModuleSettings(modules)
+      defaults: async () => (await this._websiteDefaults({ moduleType: 'explorer' })).settings
     });
+  }
+
+  /**
+   * The settings of a module instance new on a website page (bridge `websiteDefaults`, review 2026-11-15): the module
+   * defaults with the website defaults of its form; an Explorer: every presentation module so, the default layout
+   * without the tools, no filters.
+   *
+   * @private
+   * @param {{moduleType: string}} request
+   * @returns {Promise<{settings: object, state: null}|null>} Null for an unknown type.
+   */
+  async _websiteDefaults({ moduleType } = {}) {
+    const { websiteModuleDefaults } = await import('../modules/moduleConfigurations.js');
+    if (moduleType !== 'explorer') {
+      const settings = await websiteModuleDefaults(moduleType);
+      return settings ? { settings, state: null } : null;
+    }
+    const { websiteExplorerSettings } = await import('../ui/config/explorerWebsitePanel.js');
+    const modules = {};
+    for (const type of PRESENTATION_TYPES) {
+      const settings = await websiteModuleDefaults(type);
+      if (settings) modules[type] = settings;
+    }
+    return { settings: websiteExplorerSettings(modules), state: null };
+  }
+
+  /**
+   * New settings of a published Explorer (a website page in the CMS designer, review 2026-11-15: as the settings of
+   * its modules, without mounting it again): the filters of the Search pane, the layout (panes, regions, module list)
+   * and the settings of the modules. Another interface language: false (it is mounted again).
+   *
+   * @param {object} settings heurist-explorer-settings.
+   * @returns {Promise<boolean>} Whether they were applied.
+   */
+  async applySettings(settings) {
+    if (!this.config.published || !settings || typeof settings !== 'object') return false;
+    const before = this.config.settings || {};
+    const same = (a, b) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
+    if (!same(before.ui?.language, settings.ui?.language)) return false;
+    const next = JSON.parse(JSON.stringify(settings));
+    this.config.settings = { ...before, ...next };
+    if (!same(before.filter, next.filter)) await this._replacePublishedFilter();
+    const moduleList = (value) => (Array.isArray(value) ? value : []).map((item) => ({ ...item, settings: null }));
+    if (!same(before.ui, next.ui) || !same(moduleList(before.layout), moduleList(next.layout))) {
+      this.uiConfig = ExplorerUiConfig.fromValue(this.config.database, next.ui && typeof next.ui === 'object' ? next.ui : {});
+      this.uiConfigSaved = this.uiConfig.load();
+      this.uiConfigValue = publishedUiConfig(this.uiConfigSaved);
+      // the modules of the new list in their panes; the others go (made again when first opened)
+      await this.applyLayout(next.layout || defaultLayout(), { deferHidden: true });
+      for (const module of this.modules.values()) await module.resize?.();
+      this.controlPanel?.applyModuleOrder?.(this.uiConfigValue);
+      this.paneToolbar?.refresh();
+      this.controlPanel?.refreshPresentationState?.();
+    }
+    const types = new Set([...Object.keys(before.modules || {}), ...Object.keys(next.modules || {})]);
+    for (const type of types) {
+      if (!same(before.modules?.[type], next.modules?.[type]) && next.modules?.[type]) await this.setModuleSettings(type, next.modules[type]);
+    }
+    return true;
+  }
+
+  /**
+   * The Search pane of a published Explorer made again for other filters (applySettings): its filters are loaded, the
+   * active one is run.
+   *
+   * @private
+   * @returns {Promise<void>}
+   */
+  async _replacePublishedFilter() {
+    const pageFilter = normalizePublishedFilter(this.config.settings?.filter);
+    await this.publishedFilter?.destroy?.();
+    this.publishedFilter = null;
+    this.authoringDock.paneElement.replaceChildren();
+    this.savedFilters.setFilterIds(pageFilterIds(pageFilter));
+    try {
+      await this.savedFilters.load();
+    } catch (error) {
+      if (error?.name !== 'AbortError') HMsg.showMsgErr(error?.message || String(error));
+    }
+    await this._createPublishedFilter(pageFilter);
+    this.authoringDock.setForcedPlacement(pageFilter.placement);
+    if (pageFilter.active) await this.publishedFilter?.select(pageFilter.active);
+  }
+
+  /**
+   * New settings of the modules of one type (a website page, the CMS designer applies a configuration without
+   * mounting Explorer again, review 2026-11-15).
+   *
+   * @param {string} type Module type.
+   * @param {object} settings Settings envelope of the module.
+   * @returns {Promise<boolean>} Whether a mounted module took them.
+   */
+  async setModuleSettings(type, settings) {
+    this.modulePreferences[type] = settings;
+    let applied = false;
+    for (const definition of this.layoutDefinitions || []) {
+      if (definition.type !== type) continue;
+      definition.settings = settings;
+      const api = this.modules.get(definition.id)?.api;
+      if (typeof api?.setConfiguration !== 'function') continue;
+      await api.setConfiguration(this._moduleSettings({ ...definition, settings }));
+      applied = true;
+    }
+    return applied;
   }
 
   /**

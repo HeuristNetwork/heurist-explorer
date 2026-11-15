@@ -89,6 +89,27 @@ export function cmsHostedAt(host) {
 /** Starting content of a new page (plan 27c §15 #4): blank (one text, §19), text and column combinations, templates. */
 export const CMS_PAGE_PRESETS = Object.freeze(['blank', 'text', 'columns2', 'columns3', 'textColumns2', 'textColumns3']);
 
+/**
+ * The own styles of the header default set (review 2026-11-14), by element; the same in WebsiteStarter::HEADER_STYLES
+ * (PHP). One row on normal screens; on medium screens the menu below the logo, title and language switch; no subtitle
+ * on narrow screens; on small screens the logo, the menu button and the language switch, no title.
+ */
+export const CMS_HEADER_SET_STYLES = Object.freeze({
+  set: { display: 'flex', 'flex-wrap': 'wrap', 'align-items': 'center', gap: '0.5rem 1.5rem', padding: '0.75rem 0',
+    narrow: { gap: '0.5rem 1rem' } },
+  logo: { flex: '0 0 auto', 'line-height': '0' },
+  brand: { display: 'flex', 'flex-direction': 'column', gap: '2px', flex: '0 1 auto', 'min-width': '0',
+    medium: { flex: '1 1 auto' }, small: { display: 'none' } },
+  title: { margin: '0', 'font-family': 'var(--h-site-heading-font)', 'font-size': '2em', 'line-height': '1.2',
+    color: 'var(--h-site-heading-color)', medium: { 'font-size': '1.6em' }, narrow: { 'font-size': '1.2em' }, small: { display: 'none' } },
+  subtitle: { margin: '0', color: 'var(--h-color-text-muted)', narrow: { display: 'none' } },
+  menu: { 'min-height': '0', flex: '1 1 0', 'min-width': '0', medium: { order: '1', flex: '1 1 100%' },
+    // small screens: the free space between the logo and the language switch, collapsed when it does not fit, the button
+    // on the right (HMenu is-narrow, 2026-11-15)
+    small: { order: '1', flex: '1 1 0', 'text-align': 'right' } },
+  language: { 'min-height': '0', flex: '0 0 auto', small: { order: '2' } }
+});
+
 /** The Smarty report of the template Team (plan 27e): a file name, record ids differ per database (cmsPageTemplates.js). */
 export { CMS_TEAM_TEMPLATE };
 
@@ -410,6 +431,30 @@ export class CmsRecordDocument {
     return { id: captionId, text: plain(node.raw || ''), translations };
   }
 
+  /**
+   * The panels of tabs or an accordion (groups; their captions are the labels), in their order.
+   *
+   * @param {string} id Tabs or accordion.
+   * @returns {string[]} Node ids; empty for another node.
+   */
+  panels(id) {
+    const node = this.find(id)?.node;
+    if (!node || !['tabs', 'accordion'].includes(attr(node, 'data-h-control'))) return [];
+    return node.children.filter((child) => child.type === 'element' && attr(child, 'data-h-control') === 'group')
+      .map((child) => attr(child, 'data-h-node')).filter(Boolean);
+  }
+
+  /**
+   * The tabs or accordion of a panel.
+   *
+   * @param {string} id Panel.
+   * @returns {string|null} Node id, or null when the node is not a panel.
+   */
+  panelControl(id) {
+    const found = this.find(id);
+    return found && ['tabs', 'accordion'].includes(attr(found.parent, 'data-h-control')) ? attr(found.parent, 'data-h-node') : null;
+  }
+
   /** Whether a node is a panel of tabs or an accordion (its caption is the panel label). */
   isPanel(id) {
     const found = this.find(id);
@@ -670,7 +715,8 @@ export class CmsRecordDocument {
    * The action of a Record field element (plan 27g §6).
    *
    * @param {string} id Node id.
-   * @returns {string|null} `data-h-link`: `url`, `page:<id>` (a record page) or `goto:<id>` (Go to a page, 2026-11-14).
+   * @returns {string|null} `data-h-link`: `url`, `page:<id>` (a record page) or `goto:<id>` (Go to a page, 2026-11-14;
+   *          `goto:home` the home page: the logo of the header set, written before the website has an id).
    */
   fieldLink(id) {
     const node = this.find(id)?.node;
@@ -687,7 +733,7 @@ export class CmsRecordDocument {
   setFieldLink(id, link) {
     const node = this.find(id)?.node;
     if (!node || !hasAttr(node, 'data-h-field')) return false;
-    if (link && /^(url|page:\d+|goto:\d+)$/.test(link)) setAttr(node, 'data-h-link', link);
+    if (link && /^(url|page:\d+|goto:(\d+|home))$/.test(link)) setAttr(node, 'data-h-link', link);
     else removeAttr(node, 'data-h-link');
     return true;
   }
@@ -934,27 +980,33 @@ export class CmsRecordDocument {
 
   /**
    * The header default set (plan 27f §13): logo, title and subtitle of the website record, the main menu and the
-   * language switch. No own styles: the CSS of the website arranges them by their classes (one row on normal screens,
-   * two rows on medium screens or with `layout.header.rows = two`, stacked on narrow screens, a column in a vertical
-   * header); the banner image of the website is the background of the header.
+   * language switch; the banner image of the website is the background of the header. Its look is in the own styles
+   * of its elements (review 2026-11-14, CMS_HEADER_SET_STYLES): edited in the designer as any page. The classes stay
+   * for the layout options (vertical header, collapsed) and the fallback CSS of older headers. The logo goes to the
+   * home page (`goto:home`).
    */
   _header(id, group) {
-    const field = (code, className, html = '') => element$('div', [['data-h-node', id('n')], ['data-h-text', ''],
-      ['data-h-field', `website.${code}`], ['class', className]], html);
-    const classed = (node, className) => {
+    const styles = this._nodeStyles();
+    const styled = (node, role, className) => {
       setAttr(node, 'class', className);
+      const nodeId = attr(node, 'data-h-node');
+      styles[nodeId] = { ...(styles[nodeId] || {}), ...clone(CMS_HEADER_SET_STYLES[role]) };
       return node;
     };
+    const field = (code, role, className, html = '') => styled(element$('div', [['data-h-node', id('n')], ['data-h-text', ''],
+      ['data-h-field', `website.${code}`]], html), role, className);
     const menu = this._create('menu');
     // vertical in a vertical header
     this.config.instances[attr(menu, 'data-h-instance')].settings = { orientation: 'auto' };
-    return classed(group([
-      field(CMS_HEADER_FIELDS.logo, 'h-site-logo'),
-      classed(group([field(CMS_HEADER_FIELDS.title, 'h-site-title', 'Website title'), field(CMS_HEADER_FIELDS.subtitle, 'h-site-subtitle')]),
-        'h-site-brand'),
-      classed(menu, 'h-site-hset-menu'),
-      classed(this._create('language'), 'h-site-hset-lang')
-    ]), 'h-site-hset');
+    const logo = field(CMS_HEADER_FIELDS.logo, 'logo', 'h-site-logo');
+    setAttr(logo, 'data-h-link', 'goto:home');
+    return styled(group([
+      logo,
+      styled(group([field(CMS_HEADER_FIELDS.title, 'title', 'h-site-title', 'Website title'),
+        field(CMS_HEADER_FIELDS.subtitle, 'subtitle', 'h-site-subtitle')]), 'brand', 'h-site-brand'),
+      styled(menu, 'menu', 'h-site-hset-menu'),
+      styled(this._create('language'), 'language', 'h-site-hset-lang')
+    ]), 'set', 'h-site-hset');
   }
 
   /**
@@ -1176,10 +1228,13 @@ function labelOf(node, instance) {
   return node.tag;
 }
 
-/** A configured instance: has settings (a pasted or new one has none). */
+/** Widgets that work with their defaults (empty settings): the menu, the language switch (Auto, review 2026-11-15). */
+const READY_WIDGETS = new Set(['menu', 'language']);
+
+/** A configured instance: has settings (a pasted or new one has none), or a widget that works with its defaults. */
 function isConfigured(instance) {
   if (!instance) return false;
-  if (instance.kind === 'widget' && instance.type === 'menu') return true;
+  if (instance.kind === 'widget' && READY_WIDGETS.has(instance.type)) return true;
   return isMap(instance.settings) && Object.keys(instance.settings).length > 0;
 }
 

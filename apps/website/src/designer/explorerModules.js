@@ -14,7 +14,7 @@
  * @since       8.0
  */
 
-/** Presentation modules of Explorer: label and icon (as the chips of its Layout). */
+/** Presentation modules of Explorer: label and icon (as the chips of its Layout), in the order of its default layout. */
 export const EXPLORER_MODULES = Object.freeze({
   data: { label: 'Result', icon: 'fa-table' },
   map: { label: 'Map', icon: 'fa-map-location-dot' },
@@ -65,6 +65,8 @@ export function explorerModuleTypes(settings) {
     return order.filter((type) => types.includes(type) && PANES.includes(regions[type]));
   }
   const listed = (Array.isArray(settings?.layout) ? settings.layout : []).map((item) => item?.type);
+  // an Explorer added before its settings: the modules of the default layout (review 2026-11-15)
+  if (!listed.length) return [...types];
   return [...new Set(listed)].filter((type) => types.includes(type));
 }
 

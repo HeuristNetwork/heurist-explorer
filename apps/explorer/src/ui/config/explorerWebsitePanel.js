@@ -1,13 +1,12 @@
 /**
  * @file explorerWebsitePanel.js
  * @brief The configuration of an Explorer instance of a website page, inline in the CMS designer (review 2026-11-14):
- *        the filters of the page (saved filters of "Website filters" and public query sources, no current query), the
- *        Layout of the presentation modules (no tools) and "Use the current Explorer view". The language is the
- *        language of the page (`auto`).
+ *        the filters of the page (saved filters of "Website filters" and public query sources, no current query) and the
+ *        Layout of the presentation modules (no tools). The language is the language of the page (`auto`).
  *
- * A new instance takes the current view of this Explorer (its DataSource, selection and module settings, with the
- * website defaults of the module forms, e.g. Enable edit off). A configured instance keeps its settings and state:
- * Apply changes only the filters and the layout, so the module settings edited in the designer stay.
+ * A new instance has the website defaults (websiteExplorerSettings: every presentation module with the website
+ * defaults of its form, e.g. Enable edit off), review 2026-11-15; Apply changes only the filters and the layout, so the
+ * module settings edited in the designer stay. (The current view of Explorer is not taken any more.)
  *
  * @project     Heurist academic knowledge management system
  * @package     heurist-explorer
@@ -19,7 +18,7 @@
  * @license     https://www.gnu.org/licenses/gpl-3.0.txt GNU License 3.0
  * @since       8.0
  */
-import { $HR, HMsg } from '#shared/ui';
+import { $HR } from '#shared/ui';
 import { createModuleConfigurationForm } from '#shared/ui/config/ModuleConfigurationDialog.js';
 import { ExplorerUiConfig, PRESENTATION_TYPES, UNUSED_REGION } from '../../core/ExplorerUiConfig.js';
 import { createLayoutEditor } from './explorerLayoutEditor.js';
@@ -89,18 +88,34 @@ export function websiteLayoutList(settings, layout) {
 }
 
 /**
+ * The settings of a new Explorer instance of a website page (review 2026-11-15): the layout of the Explorer defaults
+ * without the tools, every placed presentation module with its website settings, no filters; the language of the page.
+ *
+ * @param {Object<string, object>} modules Website settings of the presentation modules by type.
+ * @returns {object} heurist-explorer-settings.
+ */
+export function websiteExplorerSettings(modules = {}) {
+  const layout = websiteLayoutValue(null);
+  const base = { format: 'heurist-explorer-settings', version: 1, layout: [], modules: JSON.parse(JSON.stringify(modules || {})) };
+  return {
+    ...base,
+    ui: { ...ExplorerUiConfig.defaults(), ...layout, language: 'auto' },
+    layout: websiteLayoutList(base, layout),
+    filter: { items: [], active: null, mode: 'buttons', placement: 'west' }
+  };
+}
+
+/**
  * The inline panel.
  *
  * @param {object} options
  * @param {{settings?: object, state?: object}|null} [options.value] The instance (null: a new one).
  * @param {{filters: Array<object>, sources: Array<object>}} options.lists Public filters (`_publicFilterLists`).
- * @param {() => Promise<{settings: object, state: object}>} options.captureView The current view of this Explorer.
- * @param {(modules: object) => Promise<object>} [options.websiteModules] The module settings of the view with the
- *        website defaults of their forms.
+ * @param {() => Promise<object>} options.defaults The settings of a new instance (websiteExplorerSettings).
  * @returns {Promise<{element: HTMLElement, read: () => Promise<{settings: object, state: object}|null>, reset: () => void,
  *          destroy: () => Promise<void>}>}
  */
-export async function createExplorerWebsitePanel({ value = null, lists = {}, captureView, websiteModules = null } = {}) {
+export async function createExplorerWebsitePanel({ value = null, lists = {}, defaults } = {}) {
   const settings = value?.settings && typeof value.settings === 'object' && Object.keys(value.settings).length ? value.settings : null;
   // the query of an older page stays offered while it is one of its filters
   const published = (settings?.filter?.items || []).find((item) => item.kind === 'query');
@@ -126,35 +141,14 @@ export async function createExplorerWebsitePanel({ value = null, lists = {}, cap
   element.append(layoutSection);
   const layout = websiteLayoutValue(settings);
   const editor = createLayoutEditor(layoutSection, { value: layout, types: PRESENTATION_TYPES });
-  // the DataSource, selection and module settings of this Explorer: always for a new instance, else on demand
-  let capture = !settings;
-  const take = document.createElement('button');
-  take.type = 'button';
-  take.className = 'h-btn h-compact h-explorer-website-capture';
-  take.textContent = $HR('Use the current Explorer view');
-  take.title = $HR('The current result, selection and module settings of Explorer go to the page on Apply');
-  take.hidden = !settings;
-  take.addEventListener('click', () => {
-    capture = true;
-    take.classList.add('is-active');
-    HMsg.showMsgFlash?.($HR('The current Explorer view is taken on Apply'), { showDelay: 2500 });
-  });
-  element.append(take);
   return {
     element,
     async read() {
       if (form.validate().length) return null;
       const values = form.getValue();
-      let base = settings ? JSON.parse(JSON.stringify(settings)) : null;
-      let state = value?.state ?? null;
-      if (capture) {
-        const view = await captureView();
-        const modules = websiteModules ? await websiteModules(view.settings.modules || {}) : view.settings.modules;
-        // the module settings of the layout items follow the website defaults too
-        const layoutItems = (view.settings.layout || []).map((item) => ({ ...item, settings: modules?.[item.type] || item.settings || null }));
-        base = { ...view.settings, modules, layout: layoutItems, ...(base?.filter ? { filter: base.filter } : {}) };
-        state = view.state;
-      }
+      // a new instance (no settings yet): the website defaults
+      const base = settings ? JSON.parse(JSON.stringify(settings)) : await defaults();
+      const state = value?.state ?? null;
       const placed = editor.getValue();
       const ui = { ...(base.ui || {}), regions: { ...(base.ui?.regions || {}), ...placed.regions }, order: placed.order,
         panes: placed.panes, language: 'auto' };

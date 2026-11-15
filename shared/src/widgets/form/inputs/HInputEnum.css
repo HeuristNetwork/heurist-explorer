@@ -116,6 +116,14 @@
 
 .h-input-enum-combo > .h-value-combo-host {
   flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* the caption of many chosen values (Filter Form, review 2026-11-15): no width of its own, cut with an ellipsis; it
+   does not widen the control (min-content below) beyond the screen */
+.h-input-enum-combo .h-value-combo-text {
+  flex: 1 1 0;
+  width: 0;
 }
 
 /* the combobox keeps its minimum width (10em) also when the display width of the field is

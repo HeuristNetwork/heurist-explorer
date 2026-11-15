@@ -195,3 +195,21 @@ test('background video of a group (plan 27i §9 D): a muted video in a loop as t
   assert.equal(group.children.filter((child) => child.tagName === 'VIDEO').length, 1, 'a new key replaces the video');
   assert.equal(group.children[0].getAttribute('data-key'), 'def456');
 });
+
+test('designer: new settings of a mounted module without mounting it again (review 2026-11-15)', async () => {
+  const { applyInstanceSettings, explorerModuleChanges } = await import('../src/siteRuntime.js');
+  const calls = [];
+  const api = { setConfiguration: (value) => calls.push(['set', value]), setModuleSettings: (type, value) => calls.push([type, value]) };
+  const map = (settings) => ({ kind: 'module', type: 'map', settings });
+  assert.equal(applyInstanceSettings(api, map({ a: 1 }), map({ a: 2 })), true);
+  assert.deepEqual(calls.pop(), ['set', { a: 2 }]);
+  assert.equal(applyInstanceSettings(api, map({ a: 1 }), { ...map({ a: 2 }), state: { x: 1 } }), false, 'a new state: mounted again');
+  assert.equal(applyInstanceSettings(null, map({}), map({ a: 1 })), false);
+  const explorer = (modules, layout = [{ id: 'map', type: 'map', region: 'center', settings: modules.map }]) =>
+    ({ kind: 'module', type: 'explorer', settings: { ui: { regions: { map: 'center' } }, layout, modules } });
+  assert.deepEqual(explorerModuleChanges(explorer({ map: { a: 1 } }).settings, explorer({ map: { a: 2 } }).settings), ['map']);
+  assert.equal(explorerModuleChanges(explorer({ map: { a: 1 } }).settings,
+    { ...explorer({ map: { a: 1 } }).settings, ui: { regions: { map: 'east' } } }), null, 'another layout: mounted again');
+  assert.equal(applyInstanceSettings(api, explorer({ map: { a: 1 } }), explorer({ map: { a: 2 } })), true);
+  assert.deepEqual(calls.pop(), ['map', { a: 2 }]);
+});

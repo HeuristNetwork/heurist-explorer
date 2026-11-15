@@ -80,7 +80,7 @@ test('cover: the page is the group, a banner behind it, logo, title, subtitle, s
   assert.equal(style.color, '#ffffff', 'light text over the banner');
   assert.match(page.content, /<h1>My project<\/h1><p>A study<\/p>/);
   assert.match(page.content, /<p>First line<\/p><p>Second<\/p>/);
-  assert.match(page.content, /\?db=x&amp;file=abc1/, 'the logo of the website');
+  assert.match(page.content, /\?db=x&amp;thumb=abc1/, 'the logo of the website (80 px: its thumbnail)');
   const menu = Object.values(config.instances).find((instance) => instance.type === 'actionmenu');
   assert.deepEqual(menu.settings.items, [{ label: 'Enter site', action: 'page', target: 7 }]);
   assert.deepEqual(config.layout, { hideHeader: true, hideFooter: true });
@@ -101,7 +101,9 @@ test('landing: banner group, logo and summary beside a slideshow of three banner
   assert.equal(gallery.settings.presentation, 'slider');
   assert.equal((gallery.settings.html.def.match(/<figure>/g) || []).length, 3);
   const types = Object.values(config.instances).map((instance) => instance.type).sort();
-  assert.deepEqual(types, ['actionmenu', 'cards', 'cards', 'gallery']);
+  // the buttons, More of each of the three feature cards (review 2026-11-14), the news cards
+  assert.deepEqual(types, ['actionmenu', 'actionmenu', 'actionmenu', 'actionmenu', 'cards', 'gallery']);
+  assert.equal((page.content.match(/<h3>Feature<\/h3>/g) || []).length, 3, 'three feature cards');
   const buttons = Object.values(config.instances).find((instance) => instance.type === 'actionmenu');
   assert.deepEqual(buttons.settings.items.map((item) => item.label), ['About', 'Explore']);
   assert.match(page.content, /<h2>Features<\/h2>/);

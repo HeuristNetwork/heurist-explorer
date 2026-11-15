@@ -101,14 +101,16 @@ export class WebsiteManager extends HBaseWidget {
       onRecheck: () => this.run(() => this.check())
     });
     this.renderSetup();
-    void this.renderList().then(() => this.run(() => this.offerNewWebsite()));
+    void this.renderList();
+    // not after the list: its first page may still be loading (review 2026-11-14)
+    void this.run(() => this.offerNewWebsite());
     this.update();
   }
 
   /** On opening (2026-11-14): no website and no standalone page yet: the New website form at once. */
   async offerNewWebsite() {
     const status = this.app.status;
-    if (!this.list || !status || status.error || status.installed !== true || status.canCreate === false) return;
+    if (!this.app.hasRecordTypes() || !status || status.error || status.installed !== true || status.canCreate === false) return;
     if (await this.app.hasSites()) return;
     await this.createWebsite();
   }
@@ -289,10 +291,18 @@ export class WebsiteManager extends HBaseWidget {
       }
     });
     if (!values) return;
-    const result = await this.app.createWebsite(values);
-    HMsg.showMsgFlash($HR('The website is created'), { showDelay: 2000 });
-    // the editor makes the starter pages (2026-11-14)
-    if (result?.id) await this.openDesigner(result.id, { starterPages: values.pages || [] });
+    // one popup while the website and its starter pages are made, then the editor (review 2026-11-15)
+    const { openProgressDialog } = await import('#shared/ui/progressDialog.js');
+    const progress = openProgressDialog({ title: $HR('New website'), text: $HR('Creating the website...'), cancel: false });
+    let result = null;
+    try {
+      result = await this.app.createWebsite(values);
+      progress.update(1, 3);
+      // the editor makes the starter pages (2026-11-14)
+      if (result?.id) await this.openDesigner(result.id, { starterPages: values.pages || [], progress });
+    } finally {
+      progress.close();
+    }
     return result;
   }
 
@@ -362,7 +372,7 @@ export class WebsiteManager extends HBaseWidget {
    *        pages a new website gets (addStarterPages).
    * @returns {Promise<object|null>} The designer, or null.
    */
-  async openDesigner(id, { page = 0, starterPages = null } = {}) {
+  async openDesigner(id, { page = 0, starterPages = null, progress = null } = {}) {
     if (!id || this.designer) return this.designer || null;
     const { openCmsDesigner } = await import('../designer/CmsDesigner.js');
     const host = document.createElement('div');
@@ -384,6 +394,7 @@ export class WebsiteManager extends HBaseWidget {
         void this.app.reloadSummary();
       }
     });
+    progress?.update(2, 3);
     if (this.designer && Array.isArray(starterPages)) await this.designer.addStarterPages(starterPages);
     return this.designer;
   }

@@ -249,8 +249,11 @@ export class WebsiteApplication extends EventTarget {
     const query = this.siteListQuery() || [{ t: `${this.codes.home},${this.codes.page}` }];
     try {
       const response = await this.apiClient.request('/records', { query: { q: JSON.stringify(query), fields: 'rec_ID', limit: 1 } });
-      return Number(response?.pagination?.total ?? response?.records?.length ?? 1) > 0;
-    } catch {
+      const total = Number(response?.pagination?.total ?? response?.records?.length);
+      if (!Number.isFinite(total)) console.warn('Website manager: no count of websites in the answer', response);
+      return Number.isFinite(total) ? total > 0 : true;
+    } catch (error) {
+      console.warn('Website manager: websites could not be counted', error);
       return true;
     }
   }

@@ -219,7 +219,8 @@ export function buildTemplatePage(doc, template, title, {
       const style = { ...stack(true), 'min-height': '100vh', padding: '2rem', 'text-align': 'center' };
       if (has('background')) Object.assign(style, backgroundImage(assetUrl(pickBanners(1, random)[0])), LIGHT_TEXT);
       doc.setPageStyle(style);
-      if (has('logo')) logo(null, { height: '200px' });
+      // the logo of the website in its usual size (review 2026-11-15, was 200px)
+      if (has('logo')) logo(null, { height: '80px' });
       const subtitle = text(site.subtitle);
       const heads = `${has('title') ? `<h1>${escapeHtml(siteTitle)}</h1>` : ''}${has('subtitle') && subtitle ? `<p>${escapeHtml(subtitle)}</p>` : ''}`;
       if (heads) build.text(null, heads);
@@ -257,8 +258,10 @@ export function buildTemplatePage(doc, template, title, {
       if (has('features')) {
         const section = build.group(null, { ...stack(), padding: '2rem' });
         build.text(section, `<h2>${escapeHtml(texts.features)}</h2>`);
-        // three cards a row: a list of cards takes the grid of its group
-        build.cards(build.group(section, columns(3, '16px')));
+        // three feature cards as the Features page (review 2026-11-14), each with More to a page
+        addCards(build, { count: 3 }, () => [`<h3>${escapeHtml(texts.feature)}</h3>`, `<p>${escapeHtml(texts.featureText)}</p>`], (card) => {
+          build.widget(card, 'actionmenu', { presentation: 'links', items: [{ label: texts.more, action: 'page', target: null }] });
+        }, section);
       }
       if (has('news')) {
         const section = build.group(null, { ...stack(), padding: '2rem' });
@@ -312,6 +315,8 @@ export function buildTemplatePage(doc, template, title, {
       break;
     }
     case 'contact': {
+      // the content centred, not wider than 1024 px (review 2026-11-15)
+      doc.setPageStyle({ ...doc.pageStyle(), 'max-width': '1024px', margin: '0 auto' });
       build.text(null, `<h1>${heading}</h1>`);
       const details = has('address') || has('contact');
       // two columns only when both sides have something
@@ -354,10 +359,11 @@ export function buildTemplatePage(doc, template, title, {
  * @param {{count?: number|string, orientation?: string}} values
  * @param {() => [string, string]} content Caption (a heading) and text of a card.
  * @param {(card: string) => void} [extra] Adds elements at the end of a card (Features: More).
+ * @param {string|null} [parent] The group of the cards (Landing: its Features section); null: the page.
  */
-function addCards(build, values, content, extra = null) {
+function addCards(build, values, content, extra = null, parent = null) {
   const count = Math.min(CMS_FEATURES_MAX, Math.max(CMS_FEATURES_MIN, Number(values.count) || 3));
-  const grid = build.group(null, values.orientation === 'list' ? stack() : columns(3, '16px'));
+  const grid = build.group(parent, values.orientation === 'list' ? stack() : columns(3, '16px'));
   for (let index = 0; index < count; index += 1) {
     const [caption, body] = content(index);
     const card = build.group(grid, { ...stack(), padding: '1rem', 'background-color': 'var(--h-color-surface)' });

@@ -105,6 +105,10 @@ const PART_THEMES = Object.freeze([
 
 const HEADER_ORIENTATIONS = Object.freeze([['horizontal', 'Horizontal (top)'], ['vertical', 'Vertical (left column)']]);
 
+/** Maximum width of page (base setting site-width, review 2026-11-15): '' = the full width of the window. */
+const PAGE_WIDTHS = Object.freeze([['', 'Full width'], ['1920px', '1920px'], ['1366px', '1366px'], ['1280px', '1280px'],
+  ['1024px', '1024px']]);
+
 const FOOTER_POSITIONS = Object.freeze([['default', 'Default'], ['fixed', 'Fixed at the bottom'], ['none', 'No footer']]);
 
 /**
@@ -141,7 +145,8 @@ function layoutDiagram(layout = {}) {
   }[position];
   const box = (label, extra = '') => `<div style="border:1px dashed #999;border-radius:4px;padding:8px;background:#f0f4f8;${extra}">${label}</div>`;
   const button = position === 'slide' ? ' <span style="float:right">&#8963;</span>' : '';
-  const rows = header.rows === 'two' && !vertical ? '<br>' : ', ';
+  // two rows: the own styles of the header elements now (review 2026-11-14)
+  const rows = ', ';
   const headerBox = position === 'none' ? '' : box(`${escapeHtml($HR('Logo, title'))}${rows}${escapeHtml($HR('menu, languages'))}${button}`,
     vertical ? 'width:30%;min-height:220px' : (['fixed', 'slide'].includes(position) ? 'position:sticky;top:0' : ''));
   const footerBox = footer === 'none' ? '' : box(escapeHtml($HR(footer === 'fixed' ? 'Footer (fixed at the bottom)' : 'Footer')), 'margin-top:8px');
@@ -275,6 +280,8 @@ export function createStylesForm({ base = {}, kinds = {}, presets = {}, layout =
   basePane.config.append(field('Theme', theme, 'h-cms-styles-field h-cms-styles-head'));
   const controls = {};
   for (const key of BASE_SETTINGS) {
+    // the page width is chosen in Navigation and layout (Maximum width of page, review 2026-11-15)
+    if (key === 'site-width') continue;
     const [label, hint] = BASE_LABELS[key] || [key];
     const host = element('div', 'h-cms-styles-value');
     basePane.config.append(field(label, host));
@@ -511,6 +518,11 @@ export function createStylesForm({ base = {}, kinds = {}, presets = {}, layout =
     showNavigation();
   });
   navigationBlock.append(navigationNote, designNote, cacheField);
+  // Maximum width of page (review 2026-11-15): the base setting site-width (--h-site-width of header, main, footer);
+  // a value of before that is not in the list stays as a choice
+  const width = state.base['site-width'] || '';
+  const widthChoices = PAGE_WIDTHS.some(([key]) => key === width) ? PAGE_WIDTHS : [...PAGE_WIDTHS, [width, width]];
+  layoutSelect(navigationBlock, 'Maximum width of page', widthChoices, width, (value) => setBase(state, 'site-width', value));
   cacheInput.addEventListener('input', () => {
     const number = Number(cacheInput.value);
     setLayout(state.layout, 'cache', Number.isInteger(number) ? Math.max(CMS_LAYOUT_CACHE.min, Math.min(CMS_LAYOUT_CACHE.max, number)) : null);
@@ -583,14 +595,8 @@ export function createStylesForm({ base = {}, kinds = {}, presets = {}, layout =
   const heightField = sizeInput(headerBlock, 'header.height', 'Header height (minimum)', 'height of the content');
   const widthField = sizeInput(headerBlock, 'header.width', 'Header width', '180-260px');
   showSize();
-  const rows = element('input');
-  rows.type = 'checkbox';
-  rows.checked = header.rows === 'two';
-  rows.addEventListener('change', () => {
-    setLayout(state.layout, 'header.rows', rows.checked ? 'two' : null);
-    refresh();
-  });
-  headerBlock.append(field('Use 2 rows on normal screens', rows));
+  // "Use 2 rows" was dropped (review 2026-11-14): the header elements have own styles; an old value is removed
+  setLayout(state.layout, 'header.rows', null);
   themeSelect(headerBlock, 'header', 'Header theme');
   // the fields of the website record: title, subtitle, logo, banner (a website only)
   let fieldsForm = null;
@@ -708,6 +714,11 @@ export const SIMPLE_STYLE_FIELDS = Object.freeze([
 ]);
 
 const UNITS = ['px', 'em', 'rem', '%', 'vh', 'vw', 'pt', 'ch'];
+
+/** The screens of a style (SCREENS of cmsDocument.js) as the selector of the style editor shows them. */
+const SCREEN_LABELS = Object.freeze({
+  normal: 'Normal', medium: 'Medium (≤ 1024 px)', narrow: 'Narrow (≤ 640 px)', small: 'Small (≤ 375 px)'
+});
 
 /** Length properties and the number of values each takes. */
 function lengthRule(property) {
@@ -901,7 +912,19 @@ export function styleRows(parent, style, onChange = null, {
     parent.append(head);
   }
   const palette = () => basePalette(typeof base === 'function' ? base() : base);
+  // the screen of the settings: a selector (review 2026-11-15, was a button per screen)
   const tabs = element('div', 'h-cms-style-tabs');
+  const screenSelect = element('select', 'h-select h-compact h-cms-style-screen');
+  screenSelect.title = $HR('The screen size these settings are for');
+  screenSelect.setAttribute('aria-label', screenSelect.title);
+  for (const name of screens) screenSelect.append(option(name, $HR(SCREEN_LABELS[name] || name)));
+  screenSelect.addEventListener('change', () => {
+    screen = screenSelect.value;
+    draw();
+  });
+  const screenCaption = element('span', 'h-cms-style-screen-caption');
+  screenCaption.textContent = $HR('Screen');
+  tabs.append(screenCaption, screenSelect);
   const tools = element('div', 'h-cms-style-tools');
   const advanced = button('Advanced', 'fa-sliders');
   advanced.classList.add('h-cms-style-advanced');
@@ -1175,12 +1198,7 @@ export function styleRows(parent, style, onChange = null, {
     }
   };
   function draw() {
-    tabs.replaceChildren(...screens.map((name) => {
-      const tab = button(name === 'normal' ? 'Normal' : name === 'medium' ? 'Medium (≤ 1024 px)' : 'Narrow (≤ 640 px)');
-      tab.classList.toggle('h-cms-tab-active', name === screen);
-      tab.addEventListener('click', () => { screen = name; draw(); });
-      return tab;
-    }));
+    screenSelect.value = screen;
     advanced.classList.toggle('h-cms-style-advanced-on', isAdvanced);
     advanced.setAttribute('aria-pressed', String(isAdvanced));
     add.hidden = !isAdvanced;

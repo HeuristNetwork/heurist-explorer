@@ -166,6 +166,7 @@ export class DataControlPanel {
     this.body.hidden = !available;
     // the body toggle is offered only while Expansion is on
     if (this.angleToggle) this.angleToggle.hidden = !available || this.expansionBar?.open !== true;
+    this.updateHidden();
     this.updateExpandedState();
   }
 
@@ -359,13 +360,22 @@ export class DataControlPanel {
       this.options.showSourceHeader === true,
     );
     if (this.main) {
-      // Fixed layout: panel always shown as a header-only bar, no collapse toggle.
-      this.element.hidden = false;
+      // Fixed layout: panel shown as a header-only bar, no collapse toggle.
       this.element.classList.remove("fully-collapsed");
       if (this.collapseToggle) this.collapseToggle.hidden = true;
-      this.updateExpandedState();
-      return;
     }
+    this.updateHidden();
+    this.updateExpandedState();
+  }
+
+  /**
+   * The panel is hidden while its header has no button to show (also in main mode, review 2026-11-15: an empty
+   * bar); the Expansion button comes and goes with the DataSource.
+   *
+   * @returns {void}
+   */
+  updateHidden() {
+    if (!this.element) return;
     const hasVisibleToolButton = [
       this.helpButton,
       this.optionsButton,
@@ -373,7 +383,6 @@ export class DataControlPanel {
       this.expansionButton,
     ].some((button) => button && !button.hidden);
     this.element.hidden = !hasVisibleToolButton;
-    this.updateExpandedState();
   }
 
   /**

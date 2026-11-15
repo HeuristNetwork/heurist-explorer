@@ -13,8 +13,13 @@
  * `presentation` of an action menu: links, buttons, icons or dropdown. An item: title, url, current,
  * children, icon (image URL), fa (Font Awesome classes), format name / icon / both, description (the rollover of every
  * format, review 2026-11-14), newTab, hidden (a page hidden in the main menu: class is-menu-hidden, review 2026-11-11).
- * On a narrow screen, or when it does not fit its place in one row (plan 27f §13), the horizontal website menu is
- * behind a menu button.
+ *
+ * The rules of the website menu (review 2026-11-15):
+ * - its items are in one row, never wrapped; it collapses behind its menu button when they do not fit its place, at
+ *   any screen width (a vertical menu is a tree only from 641 px; on narrower screens it is a row as the horizontal one);
+ * - the open collapsed menu opens inside the header (no drop-down): a full-width block below the row of the menu that
+ *   moves the content down, a tree with sub pages below their page, opened and closed by their button;
+ * - one <nav>: the host of the widget is the <nav> (its aria-label), the menu in it a div (`data-h-label` its name).
  *
  * @project     Heurist academic knowledge management system
  * @package     heurist-client-core
@@ -74,9 +79,10 @@ export class HMenu extends HBaseWidget {
     if (written) return this._activate(written);
     const settings = this.options.settings || {};
     const presentation = MENU_PRESENTATIONS.includes(settings.presentation) ? settings.presentation : 'menu';
-    const nav = document.createElement('nav');
+    // a div: the host is the <nav> (one navigation landmark, review 2026-11-15)
+    const nav = document.createElement('div');
     nav.className = menuClass(settings);
-    nav.setAttribute('aria-label', $HR(this.options.label || 'Site menu'));
+    nav.setAttribute('data-h-label', this.options.label || 'Site menu');
     const items = [...(this.options.items || [])];
     if (settings.showHome && this.options.homeItem) items.unshift(this.options.homeItem);
     if (presentation === 'menu' || presentation === 'dropdown') {
@@ -93,40 +99,80 @@ export class HMenu extends HBaseWidget {
     return this._activate(nav);
   }
 
-  /** The menu button, and the expanders of a vertical menu. */
+  /** The menu button, the expanders of the tree (vertical, collapsed), the name of the navigation. */
   _activate(nav) {
     const toggle = [...nav.children].find((child) => child.classList?.contains('h-site-menu-toggle'));
+    const dropdown = nav.classList.contains('h-site-menu-dropdown');
     if (toggle) {
-      if (!nav.classList.contains('h-site-menu-dropdown')) menuIcon(toggle);
+      if (!dropdown) menuIcon(toggle);
       this.listen(toggle, 'click', () => {
         const open = !nav.classList.contains('is-open');
         nav.classList.toggle('is-open', open);
         toggle.setAttribute('aria-expanded', String(open));
-        if (open && nav.classList.contains('h-site-menu-dropdown')) this._placeDropdown(nav);
+        if (dropdown) {
+          if (open) this._placeDropdown(nav);
+        } else {
+          this._showPanel(nav, open && nav.classList.contains('is-narrow'));
+        }
       });
     }
-    if (nav.classList.contains('h-site-menu-vertical') || nav.classList.contains('h-site-menu-auto')) this._expanders(nav);
-    if (toggle && !nav.classList.contains('h-site-menu-dropdown')) this._fitWidth(nav);
-    if (!nav.getAttribute('aria-label')) nav.setAttribute('aria-label', $HR(this.options.label || 'Site menu'));
+    // the website menu: a tree when vertical or collapsed (its expanders are shown then)
+    if (toggle && !dropdown) this._expanders(nav);
+    else if (nav.classList.contains('h-site-menu-vertical') || nav.classList.contains('h-site-menu-auto')) this._expanders(nav);
+    if (toggle && !dropdown) this._fitWidth(nav, toggle);
+    this._label(nav);
     this.state = 'rendered';
     return this;
   }
 
   /**
-   * A horizontal website menu that needs more than one row goes behind its menu button (class is-narrow), as on a
-   * narrow screen; checked again when its place changes size.
+   * The name of the navigation: on the <nav> host; a host that is not a nav (an older page): the menu is the
+   * navigation itself.
    */
-  _fitWidth(nav) {
+  _label(nav) {
+    const label = $HR(nav.getAttribute('data-h-label') || nav.getAttribute('aria-label') || this.options.label || 'Site menu');
+    if (nav.tagName === 'NAV') {
+      if (!nav.getAttribute('aria-label')) nav.setAttribute('aria-label', label);
+      return;
+    }
+    const host = this.container;
+    if (host?.tagName === 'NAV') {
+      if (!host.getAttribute('aria-label')) host.setAttribute('aria-label', label);
+      return;
+    }
+    nav.setAttribute('role', 'navigation');
+    nav.setAttribute('aria-label', label);
+  }
+
+  /**
+   * The website menu: its items in one row (class h-site-menu-fit: no wrapping); behind its button when they do not
+   * fit the width of the menu (class is-narrow), at any screen width; checked again when its place changes size. A
+   * tree (a vertical menu from 641 px) has the room it needs.
+   */
+  _fitWidth(nav, toggle) {
     const list = [...nav.children].find((child) => child.classList?.contains('h-site-menu-list'));
     const Observer = globalThis.ResizeObserver;
     if (!list || !Observer) return;
+    this._list$ = list;
+    nav.classList.add('h-site-menu-fit');
     const fit = () => {
+      if (this._fitting) return;
+      this._fitting = true;
+      const open = nav.classList.contains('is-open');
+      // measured in its place, shown in one row
+      this._showPanel(nav, false);
       nav.classList.remove('is-narrow');
-      // a column (vertical menu, vertical header): nothing to fit
-      if (globalThis.getComputedStyle?.(list).flexDirection === 'column') return;
-      const first = list.firstElementChild;
-      const wraps = Boolean(first) && list.offsetHeight > first.offsetHeight * 1.5;
-      nav.classList.toggle('is-narrow', wraps);
+      const column = globalThis.getComputedStyle?.(list).flexDirection === 'column';
+      const narrow = !column && list.scrollWidth > list.clientWidth + 1;
+      nav.classList.toggle('is-narrow', narrow);
+      if (narrow && open) {
+        this._showPanel(nav, true);
+      } else if (open) {
+        // the menu fits again: the open list is closed
+        nav.classList.remove('is-open');
+        toggle?.setAttribute('aria-expanded', 'false');
+      }
+      this._fitting = false;
     };
     fit();
     this._observer?.disconnect?.();
@@ -134,9 +180,48 @@ export class HMenu extends HBaseWidget {
     this._observer.observe(this.container);
   }
 
-  /** Stop observing the size. */
+  /**
+   * The open collapsed menu inside the header (review 2026-11-15, as before plan 27f: no drop-down): the list moves
+   * into a panel, a full-width block after the row of the menu (out of every flex row around the menu, not out of
+   * the header), so it moves the content below it down; back into the menu when closed.
+   *
+   * @param {HTMLElement} nav The menu.
+   * @param {boolean} show
+   */
+  _showPanel(nav, show) {
+    const list = this._list$;
+    if (!list) return;
+    if (!show) {
+      if (this._panel) {
+        nav.append(list);
+        this._panel.remove();
+        this._panel = null;
+      }
+      return;
+    }
+    if (this._panel) return;
+    const panel = document.createElement('div');
+    // the classes of the menu: its look and its tree
+    panel.className = `${nav.className} h-site-menu-panel`;
+    panel.setAttribute('role', 'navigation');
+    panel.setAttribute('aria-label', $HR(nav.getAttribute('data-h-label') || this.options.label || 'Site menu'));
+    const stop = nav.closest?.('.h-site-header') || null;
+    let anchor = this.container || nav;
+    while (anchor.parentElement && anchor.parentElement !== stop
+      && /flex|grid/.test(globalThis.getComputedStyle?.(anchor.parentElement).display || '')) {
+      anchor = anchor.parentElement;
+    }
+    anchor.after(panel);
+    panel.append(list);
+    this._panel = panel;
+  }
+
+  /** Stop observing the size; the list back from an open panel. */
   destroy() {
     this._observer?.disconnect?.();
+    const nav = this._panel && this.container?.querySelector?.('.h-site-menu');
+    if (nav) this._showPanel(nav, false);
+    this._panel?.remove();
     super.destroy?.();
   }
 
@@ -153,8 +238,12 @@ export class HMenu extends HBaseWidget {
     if (width && box.right > width && nav.getBoundingClientRect().right - box.width >= 0) nav.classList.add('is-end');
   }
 
-  /** Vertical menu: a button beside each page with sub pages opens / closes them; the branch of the current page is open. */
+  /**
+   * The tree of a vertical or collapsed menu: a button beside each page with sub pages opens / closes them (shown by
+   * the CSS only in a tree); the branch of the current page is open.
+   */
   _expanders(nav) {
+    if (nav.classList.contains('h-site-menu-js')) return;
     nav.classList.add('h-site-menu-js');
     for (const item of nav.querySelectorAll('.has-children')) {
       if (item.classList.contains('is-current-parent') || item.classList.contains('is-current')) item.classList.add('is-expanded');

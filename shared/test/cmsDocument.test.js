@@ -59,6 +59,6 @@ test('compileCmsStyles: the screen rules of kinds and presets come before the no
   });
   const node = css.indexOf('[data-h-node="n1"]{display:flex;}');
   const presetNarrow = css.lastIndexOf('[data-h-style="p1"]{display:block;}');
-  const kindNarrow = css.indexOf('[data-h-control="group"]:where(:not(.h-site-hset)){display:block;}');
+  const kindNarrow = css.indexOf('[data-h-control="group"]:where(:not(.h-site-hset, .h-site-brand)){display:block;}');
   assert.ok(kindNarrow > 0 && presetNarrow > kindNarrow && node > presetNarrow, 'kinds, presets, nodes; each with its screens');
 });

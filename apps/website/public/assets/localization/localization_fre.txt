@@ -425,3 +425,18 @@
 #Use the current Explorer view#Utiliser la vue actuelle d'Explorer
 #The current result, selection and module settings of Explorer go to the page on Apply#Le résultat, la sélection et les réglages des modules d'Explorer vont à la page avec Appliquer
 #The current Explorer view is taken on Apply#La vue actuelle d'Explorer est prise avec Appliquer
+#Small (≤ 375 px)#Petit (≤ 375 px)
+#The page About is kept: the menu of a website needs one page#La page À propos est conservée : le menu d'un site a besoin d'une page
+#New website#Nouveau site
+#Creating the website...#Création du site...
+#Screen#Écran
+#The screen size these settings are for#La taille d'écran de ces réglages
+#Medium (≤ 1024 px)#Moyen (≤ 1024 px)
+#Narrow (≤ 640 px)#Étroit (≤ 640 px)
+#Default layout#Disposition par défaut
+#Captions of the panels#Légendes des panneaux
+#Captions of the tabs#Légendes des onglets
+#Captions of the sections#Légendes des sections
+#Tab#Onglet
+#Section#Section
+#Maximum width of page#Largeur maximale de la page

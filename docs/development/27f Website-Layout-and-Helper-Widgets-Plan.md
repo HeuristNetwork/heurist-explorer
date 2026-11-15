@@ -564,3 +564,9 @@ Round 2 (2026-11-12, not committed, no browser check):
    selector `[data-h-instance]:where(:not(nav, .h-site-lang-single):not(:has(> .h-site-lang)))` (JS `CMS_KINDS`, PHP
    `StyleCompiler::KINDS`, fixture `common-styles.json`), so the min-height 300px of new websites no longer makes a
    header high. `:where` keeps the specificity, so the own style of a module still wins.
+
+### Note 2026-11-14 (plan 27i §11.13)
+
+`layout.header.rows` ("Use 2 rows") was dropped: the header default set has own styles (two rows on medium screens by
+the own styles of its menu); the validators still accept an old value. The header set CSS is a fallback for older
+headers.

@@ -10,7 +10,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { installFakeDom } from './helpers/fakeDom.js';
-import { CmsRecordDocument, CMS_TEAM_TEMPLATE, cmsPageStarter } from '../src/site/cmsEdit.js';
+import { CmsRecordDocument, CMS_HEADER_SET_STYLES, CMS_TEAM_TEMPLATE, cmsPageStarter } from '../src/site/cmsEdit.js';
 import { checkCmsDocument, cmsNodes } from '../src/site/cmsDocument.js';
 
 const emptyDoc = () => new CmsRecordDocument({ parts: { content: '', header: '' }, config: { schema: 'heurist-cms/4', instances: {}, styles: {} } });
@@ -93,9 +93,14 @@ test('widgets are new elements; only a configured one counts as configured', () 
     doc.setInstance(node.instance, { settings: { presentation: 'list' } });
     assert.equal(doc.tree('content').find((item) => item.id === id).configured, true);
   }
+  // the language switch works with its defaults (Auto): configured without settings (review 2026-11-15)
+  const language = doc.insertElement('content', 'language');
+  const node = doc.tree('content').find((item) => item.id === language);
+  doc.setInstance(node.instance, { settings: {} });
+  assert.equal(doc.tree('content').find((item) => item.id === language).configured, true);
 });
 
-test('header default set (plan 27f §13): logo, title, subtitle of the website, menu and language switch, no own styles', () => {
+test('header default set (plan 27f §13): logo, title, subtitle of the website, menu and language switch, own styles', () => {
   const doc = emptyDoc();
   doc.insertElement('header', 'headerSet');
   const html = doc.serialize().parts.header;
@@ -107,8 +112,17 @@ test('header default set (plan 27f §13): logo, title, subtitle of the website, 
   for (const name of ['h-site-hset', 'h-site-logo', 'h-site-brand', 'h-site-title', 'h-site-subtitle', 'h-site-hset-menu', 'h-site-hset-lang']) {
     assert.match(html, new RegExp(`class="${name}"`), name);
   }
-  // only the widget hosts have a style (no min-height of the instance kind)
-  assert.deepEqual(Object.values(doc.config.styles.nodes || {}), [{ 'min-height': '0' }, { 'min-height': '0' }]);
+  // the look is in the own styles of the elements (review 2026-11-14), the widget hosts keep min-height 0
+  const nodes = doc.config.styles.nodes || {};
+  const styleOf = (name) => nodes[new RegExp(`data-h-node="([^"]+)"[^>]*class="${name}"`).exec(html)?.[1]
+    || new RegExp(`class="${name}"[^>]*data-h-node="([^"]+)"`).exec(html)?.[1]];
+  assert.deepEqual(styleOf('h-site-hset'), CMS_HEADER_SET_STYLES.set);
+  assert.equal(styleOf('h-site-brand').small.display, 'none', 'no title on small screens');
+  assert.equal(styleOf('h-site-subtitle').narrow.display, 'none');
+  assert.equal(styleOf('h-site-hset-menu')['min-height'], '0');
+  assert.equal(styleOf('h-site-hset-menu').medium.order, '1', 'the menu below on medium screens');
+  // the logo goes to the home page
+  assert.match(html, /data-h-field="website\.2-38"[^>]*data-h-link="goto:home"|data-h-link="goto:home"[^>]*data-h-field="website\.2-38"/);
   assert.deepEqual(checkCmsDocument(doc.config, [html]).filter((issue) => issue.level !== 'info'), []);
 });
 

@@ -21,6 +21,6 @@
   "html": ["<div data-h-node=\"n1\" data-h-control=\"group\" data-h-style=\"card\"></div>"],
   "expect": {
     "issues": ["warning:layout", "warning:layout", "warning:layout", "warning:layout", "warning:layout", "warning:layout", "warning:layout"],
-    "css": "[data-h-page=\"5\"]{--h-color-primary:#204060;--h-color-primary-hover:color-mix(in srgb, #204060 85%, black);}\n[data-h-page=\"5\"] [data-h-control=\"group\"]:where(:not(.h-site-hset)){gap:8px;}\n[data-h-page=\"5\"] [data-h-style=\"card\"]{padding:16px;}\n@media (max-width:640px){\n[data-h-page=\"5\"] [data-h-style=\"card\"]{padding:8px;}\n}\n[data-h-page=\"5\"] [data-h-node=\"n1\"]{padding:4px;}\n"
+    "css": "[data-h-page=\"5\"]{--h-color-primary:#204060;--h-color-primary-hover:color-mix(in srgb, #204060 85%, black);}\n[data-h-page=\"5\"] [data-h-control=\"group\"]:where(:not(.h-site-hset, .h-site-brand)){gap:8px;}\n[data-h-page=\"5\"] [data-h-style=\"card\"]{padding:16px;}\n@media (max-width:640.98px){\n[data-h-page=\"5\"] [data-h-style=\"card\"]{padding:8px;}\n}\n[data-h-page=\"5\"] [data-h-node=\"n1\"]{padding:4px;}\n"
   }
 }

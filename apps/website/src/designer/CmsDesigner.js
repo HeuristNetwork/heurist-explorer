@@ -62,6 +62,15 @@ import {
 } from './designerDialogs.js';
 import './designer.css';
 
+/** Elements that are module instances: they get the website defaults of the module when added (review 2026-11-15). */
+const MODULE_ELEMENTS = Object.freeze(['explorer', 'data', 'map', 'timeline', 'graph', 'recordview']);
+
+/** The instance of a node of a record document (`data-h-instance`), or null. */
+function instanceOfNode(doc, nodeId) {
+  const node = doc.find(nodeId)?.node;
+  return node?.attrs?.find(([name]) => name === 'data-h-instance')?.[1] || null;
+}
+
 /** Media types the text editor inserts (Media of TinyMCE, 2026-11-14). */
 const TEXT_MEDIA_TYPES = Object.freeze(['image', 'video', 'audio', 'service']);
 
@@ -283,7 +292,7 @@ export class CmsDesigner {
     }
   }
 
-  async _patchRecord(id, { force = false, extra = {} } = {}) {
+  async _patchRecord(id, { force = false, extra = {}, quiet = false } = {}) {
     const record = this.records.get(id);
     if (!record) return true;
     const now = record.doc.serialize();
@@ -310,7 +319,7 @@ export class CmsDesigner {
     } catch (error) {
       if (error?.status === 409 && !force) {
         const answer = await askConflict();
-        if (answer === 'overwrite') return this._patchRecord(id, { force: true, extra });
+        if (answer === 'overwrite') return this._patchRecord(id, { force: true, extra, quiet });
         if (answer === 'reload') {
           await this._record(id, { reload: true });
           this.undoStack = [];
@@ -325,7 +334,8 @@ export class CmsDesigner {
       return false;
     }
     this._updateBar();
-    HMsg.showMsgFlash?.($HR('Saved'), { showDelay: 1200 });
+    // quiet: a save of a series (the starter pages of a new website)
+    if (!quiet) HMsg.showMsgFlash?.($HR('Saved'), { showDelay: 1200 });
     // a new name or menu entry of a page: the Site tree and the menus of the preview
     if (this.site && Object.keys(fieldChanges).length) {
       this.site = await this.websites.summary(this.site.id, { entity: 'website' });
@@ -759,11 +769,12 @@ export class CmsDesigner {
    *
    * @param {string} template Template or preset.
    * @param {string} title Name of the page.
-   * @param {{values?: object, details?: object, layout?: object|null, parent?: number|null}} [options] `values`: of the
-   *        template form (none: all elements of the template); `details`: other fields of the page record.
+   * @param {{values?: object, details?: object, layout?: object|null, parent?: number|null, index?: number|null}} [options]
+   *        `values`: of the template form (none: all elements of the template); `details`: other fields of the page
+   *        record; `index`: the place in the menu (default: the end).
    * @returns {Promise<{id: number, configure: string[]}>} `configure`: nodes whose widget needs its choice.
    */
-  async _createTemplatePage(template, title, { values = {}, details = {}, layout = null, parent = null } = {}) {
+  async _createTemplatePage(template, title, { values = {}, details = {}, layout = null, parent = null, index = null } = {}) {
     const codes = this.codes;
     const languages = this.site?.languages || [];
     const options = { layout };
@@ -771,6 +782,7 @@ export class CmsDesigner {
       Object.assign(options, { values, site: await this._templateSite(), language: languages[0] || 'eng', ...this._templateBuilders() });
     }
     const starter = cmsPageStarter(template, title, options);
+    starter.configuration = await this._withWebsiteDefaults(starter.configuration);
     if (template === 'team' && options.values?.fromDatabase && options.values.cardTemplate === CMS_TEAM_TEMPLATE) {
       await this._ensureTeamReport();
     }
@@ -779,7 +791,7 @@ export class CmsDesigner {
       [codes.configuration]: starter.configuration };
     const response = await this.apiClient.request('/page/0', { method: 'POST', body: { rec_ID: 0, details: body } });
     const id = Number((response?.data ?? response)?.records?.[0]?.rec_ID);
-    await this._menuChange(() => this.websites.assign(this.site.id, id, { parent }));
+    await this._menuChange(() => this.websites.assign(this.site.id, id, { parent, ...(Number.isInteger(index) ? { index } : {}) }));
     return { id, configure: starter.configure || [] };
   }
 
@@ -795,40 +807,121 @@ export class CmsDesigner {
     if (!this.site || this.readOnly) return;
     const chosen = new Set(pages);
     const languages = this.site.languages || [];
-    HMsg.showMsgFlash?.($HR('Creating the pages of the website...'), { showDelay: 2000 });
-    try {
-      // the home content: the template Landing
+    const titles = { cover: 'Cover', about: 'About', discover: 'Discover', contact: 'Contact' };
+    const problems = [];
+    // each step on its own: one failing step does not stop the others (review 2026-11-14)
+    const step = async (name, run) => {
+      try {
+        return await run();
+      } catch (error) {
+        problems.push(`${$HR(name)}: ${error?.message || String(error)}`);
+        return null;
+      }
+    };
+    // no flash messages: the New website popup is shown while the pages are made (review 2026-11-15)
+    // the home content: the template Landing
+    await step('Home', async () => {
       const home = await this._record(this.site.id);
       for (const item of home.doc.tree('content')) home.doc.remove(item.id);
       buildTemplatePage(home.doc, 'landing', $HR('Welcome'), { values: {}, site: await this._templateSite(), language: languages[0] || 'eng',
         ...this._templateBuilders() });
-      await this._saveRecord(this.site.id);
-      // the page About of the server: replaced by the template pages
-      const starter = (this.site.pages || []).map((page) => Number(page.id));
-      for (const id of starter) {
-        await this.websites.removeFromMenu(this.site.id, id, { standalone: false });
-        await this.websites.remove(id, { entity: 'page', force: true });
-      }
-      const titles = { cover: 'Cover', about: 'About', discover: 'Discover', contact: 'Contact' };
-      let cover = 0;
-      for (const template of ['cover', 'about', 'discover', 'contact']) {
-        if (!chosen.has(template)) continue;
-        const { id } = await this._createTemplatePage(template, $HR(titles[template]));
-        if (template === 'cover') cover = id;
-      }
-      if (cover) await this._coverAsStartPage(cover);
-    } catch (error) {
-      HMsg.showMsgErr?.(error?.message || String(error));
+      await this._saveRecord(this.site.id, { quiet: true });
+    });
+    // the About page of the server: filled with the template About, or removed after the other pages exist (the top
+    // menu can not be empty: "Top level menus" is required)
+    const starter = (this.site.pages || []).map((page) => Number(page.id)).filter((id) => id > 0);
+    const about = starter[0] || 0;
+    if (about && chosen.has('about')) await step('About', () => this._fillTemplatePage(about, 'about', $HR(titles.about)));
+    let created = 0;
+    let cover = 0;
+    for (const template of ['cover', 'about', 'discover', 'contact']) {
+      if (!chosen.has(template) || (template === 'about' && about)) continue;
+      // the Cover page first in the menu
+      // the Cover page: first in the menu, without the header and the footer (as the Add page form gives it)
+      const page = await step(titles[template], () => this._createTemplatePage(template, $HR(titles[template]),
+        template === 'cover' ? { index: 0, layout: { hideHeader: true, hideFooter: true }, details: this._hiddenInMenu() } : {}));
+      if (!page?.id) continue;
+      created += 1;
+      if (template === 'cover') cover = page.id;
     }
+    if (about && !chosen.has('about')) {
+      if (created) {
+        await step('About', async () => {
+          await this.websites.removeFromMenu(this.site.id, about, { standalone: false });
+          await this.websites.remove(about, { entity: 'page', force: true });
+        });
+      }
+      // else the page About is kept: the menu of a website needs one page
+    }
+    if (cover) await step('Cover', () => this._coverAsStartPage(cover, { quiet: true }));
     await this._menuChange(async () => {});
     await this.selectPart(this.site.id, 'content', { force: true });
+    if (problems.length) HMsg.showMsgErr?.(problems.join('\n'));
+  }
+
+  /**
+   * The website defaults of a module element (bridge `websiteDefaults`, review 2026-11-15): `{settings, state}`, null
+   * without them (an older host: the module defaults as before).
+   */
+  async _websiteDefaults(type) {
+    if (typeof this.bridge?.websiteDefaults !== 'function') return null;
+    try {
+      return await this.bridge.websiteDefaults({ moduleType: type });
+    } catch (error) {
+      console.warn('Website defaults of a module', type, error);
+      return null;
+    }
+  }
+
+  /** The configuration of a template page with the website defaults of its modules without settings (JSON text). */
+  async _withWebsiteDefaults(configuration) {
+    let config = null;
+    try {
+      config = JSON.parse(configuration);
+    } catch {
+      return configuration;
+    }
+    let changed = false;
+    for (const instance of Object.values(config?.instances || {})) {
+      const empty = !instance.settings || !Object.keys(instance.settings).length;
+      if (instance.kind !== 'module' || !empty) continue;
+      const defaults = await this._websiteDefaults(instance.type);
+      if (!defaults) continue;
+      Object.assign(instance, defaults);
+      changed = true;
+    }
+    return changed ? JSON.stringify(config) : configuration;
+  }
+
+  /**
+   * Fill an existing page with a template (the About page of a new website, 2026-11-14): its content and configuration
+   * written at once (PATCH), the name kept.
+   *
+   * @param {number} id Page record.
+   * @param {string} template Template.
+   * @param {string} title Title of the template (its heading).
+   * @returns {Promise<void>}
+   */
+  async _fillTemplatePage(id, template, title) {
+    const languages = this.site?.languages || [];
+    const starter = cmsPageStarter(template, title, { values: {}, site: await this._templateSite(), language: languages[0] || 'eng',
+      ...this._templateBuilders() });
+    starter.configuration = await this._withWebsiteDefaults(starter.configuration);
+    const codes = this.codes;
+    await this.apiClient.request(`/page/${id}`, {
+      method: 'PATCH',
+      query: { force: 1, fields: 'rec_ID,rec_Modified' },
+      body: { rec_ID: id, details: { [codes.content]: starter.content, [codes.configuration]: starter.configuration } }
+    });
+    // a loaded copy of the page is out of date
+    this.records.delete(id);
   }
 
   /**
    * A new Cover page becomes the Startup page of the website (layout.startPage, 2026-11-14) when none is chosen (or the
    * home page is); saved at once. Not when the website record has unsaved changes (they are not saved by this).
    */
-  async _coverAsStartPage(pageId) {
+  async _coverAsStartPage(pageId, { quiet = false } = {}) {
     if (!this.site || this.readOnly) return;
     const record = await this._record(this.site.id);
     const layout = record.doc.layout();
@@ -836,7 +929,7 @@ export class CmsDesigner {
     if (start && start !== this.site.id && menuPlace(this.site.pages, start)) return;
     if (Object.keys(record.fieldChanges || {}).length || JSON.stringify(record.doc.serialize()) !== JSON.stringify(record.saved)) return;
     record.doc.setLayout({ ...layout, startPage: pageId });
-    if (await this._saveRecord(this.site.id)) {
+    if (await this._saveRecord(this.site.id, { quiet }) && !quiet) {
       HMsg.showMsgFlash?.($HR('The Cover page is the Startup page of the website (Navigation and layout)'), { showDelay: 3000 });
     }
   }
@@ -1195,7 +1288,11 @@ export class CmsDesigner {
     // a panel of tabs / an accordion: its caption; a group: the palette opens its Own style with the caption above
     // (2026-11-14)
     if (node.kind === 'control' && this._currentRecord()?.doc.isPanel(id)) {
-      return { action: 'caption', icon: 'fa-pen', title: $HR('Caption of the group') };
+      return { action: 'caption', icon: 'fa-pen', title: $HR('Captions of the panels') };
+    }
+    // tabs / an accordion: the captions of all its panels in one popup (review 2026-11-15)
+    if (node.kind === 'control' && ['tabs', 'accordion'].includes(node.control)) {
+      return { action: 'captions', icon: 'fa-pen', title: $HR('Captions of the panels') };
     }
     if (node.kind === 'control' && node.control === 'group') {
       return { action: 'style', icon: 'fa-palette', title: $HR('Own style and caption of the group') };
@@ -1224,6 +1321,7 @@ export class CmsDesigner {
     if (action === 'field') return this._editField(id);
     if (action === 'media') return this._editMedia(id);
     if (action === 'caption') return this._editCaption(id);
+    if (action === 'captions') return this._editCaptions(id);
     if (action === 'style') return this._openForm(id);
     if (action === 'configure') return this._configure(id);
     if (action === 'delete' && (await confirmNear(button, 'Remove this element?'))) {
@@ -1276,9 +1374,13 @@ export class CmsDesigner {
     // the powered by and hosted at lines need the base URL and the host organisation (review 2026-11-10)
     const options = values.element === 'siteFooter'
       ? { ...footerOptions, baseUrl: this.options.runtime?.baseUrl || '', host: this.site?.host || null } : footerOptions;
+    // a module: its website defaults at once (review 2026-11-15), not the defaults of the module
+    const defaults = MODULE_ELEMENTS.includes(values.element) ? await this._websiteDefaults(values.element) : null;
     let added = null;
     this._edit((doc) => {
       added = doc.insertElement(this.current.part, values.element, target, options);
+      const instanceId = defaults && added ? instanceOfNode(doc, added) : null;
+      if (instanceId) doc.setInstance(instanceId, defaults);
       if (values.title && doc.isContainer(added)) doc.setCaption(added, values.title);
       else if (values.title && doc.text(added)) doc.setText(added, `<h2>${escapeHtml(values.title)}</h2>${doc.text(added)}`);
       return true;
@@ -1508,6 +1610,9 @@ export class CmsDesigner {
    */
   async _editCaption(id) {
     const record = this._currentRecord();
+    // a panel: the captions of all panels of its tabs / accordion, this one with the cursor (review 2026-11-15)
+    const control = record.doc.panelControl(id);
+    if (control) return this._editCaptions(control, id);
     const current = record.doc.caption(id);
     const languages = this.site?.languages || [];
     const result = await openTranslationDialog({
@@ -1523,6 +1628,86 @@ export class CmsDesigner {
     // languages left out are removed
     const translations = Object.fromEntries(languages.slice(1).map((code) => [code, result.translations[code] || '']));
     this._edit((doc) => doc.setCaption(id, result.value.trim(), translations));
+  }
+
+  /**
+   * The captions of all panels of tabs or an accordion in one popup (review 2026-11-15): a block per panel (Tab 1,
+   * Section 2 ...) with the rows of the Caption popup; the cursor in the first one, or in the caption of `focusId` (the
+   * pen of a panel). Every caption is required (the panel label). One undo step.
+   *
+   * @param {string} id Tabs or accordion.
+   * @param {string|null} [focusId] A panel.
+   */
+  async _editCaptions(id, focusId = null) {
+    const record = this._currentRecord();
+    const panels = record?.doc.panels(id) || [];
+    if (!panels.length) return;
+    const tabs = this._treeItem(id)?.control === 'tabs';
+    const languages = this.site?.languages || [];
+    const dialogId = 'h-cms-captions-dialog';
+    const content = element('div', 'h-cms-captions');
+    let forms = [];
+    const read = () => {
+      const values = forms.map((form) => form.read());
+      return values.every(Boolean) ? values : null;
+    };
+    const result = await new Promise((resolve) => {
+      let done = false;
+      const finish = (value) => {
+        done = true;
+        HMsg.closeMsgDlg(dialogId);
+        resolve(value);
+      };
+      const submit = () => {
+        const values = read();
+        if (values) finish(values);
+      };
+      forms = panels.map((panel, index) => {
+        const current = record.doc.caption(panel);
+        const block = element('div', 'h-cms-captions-item');
+        const label = element('div', 'h-cms-captions-label');
+        label.textContent = `${$HR(tabs ? 'Tab' : 'Section')} ${index + 1}`;
+        const form = createTranslationForm({
+          value: current?.text || '',
+          translations: current?.translations || {},
+          languages,
+          original: languages[0] || '',
+          translator: this._translator(),
+          required: true,
+          onSubmit: submit
+        });
+        block.append(label, form.element);
+        content.append(block);
+        return form;
+      });
+      const dialog = HMsg.showMsgDlg(content, {
+        dialogId,
+        title: $HR(tabs ? 'Captions of the tabs' : 'Captions of the sections'),
+        buttons: [
+          { label: 'OK', class: 'h-btn h-btn-primary', onClick: submit },
+          { label: 'Cancel', class: 'h-btn', onClick: () => finish(null) }
+        ]
+      });
+      dialog?.classList.add('h-dialog-translation');
+      dialog?.addEventListener('close', () => {
+        dialog.classList.remove('h-dialog-translation');
+        for (const form of forms) form.destroy();
+        if (!done) resolve(null);
+      }, { once: true });
+      const index = Math.max(0, panels.indexOf(focusId));
+      forms[index]?.focus();
+      forms[index]?.element.scrollIntoView?.({ block: 'nearest' });
+    });
+    if (!result) return;
+    // languages left out are removed
+    this._edit((doc) => {
+      let changed = false;
+      panels.forEach((panel, index) => {
+        const translations = Object.fromEntries(languages.slice(1).map((code) => [code, result[index].translations[code] || '']));
+        if (doc.setCaption(panel, result[index].value.trim(), translations)) changed = true;
+      });
+      return changed;
+    });
   }
 
   /**
@@ -1637,6 +1822,12 @@ export class CmsDesigner {
       // "Limit values per field" of the Explorer configuration (plan 23)
       valueLimit: normalizeRecordLimits(runtime.recordLimits).values
     };
+  }
+
+  /** The field value "Hide in menu" of a page (DT_CMS_MENU_FORMAT = TRM_HIDDEN_ITEM), {} without the definitions. */
+  _hiddenInMenu() {
+    const constant = (name) => Number(this.options.dbdefs?.dbconst?.(name)) || 0;
+    return constant('DT_CMS_MENU_FORMAT') && constant('TRM_HIDDEN_ITEM') ? { [constant('DT_CMS_MENU_FORMAT')]: [constant('TRM_HIDDEN_ITEM')] } : {};
   }
 
   /**
@@ -1960,7 +2151,7 @@ export class CmsDesigner {
     }
     this.formNode = target;
     this._formWestMinimum(true);
-    await this.formPanel.show(sections);
+    await this.formPanel.show(sections, { title: target === ROOT ? $HR('Own style of the page') : $HR('Own style') });
     if (ticket === this._formTicket) this._updateBar();
   }
 
@@ -1982,8 +2173,9 @@ export class CmsDesigner {
   }
 
   /**
-   * The configuration form of a module instance, of an Explorer instance or of a module of an Explorer, inline below the
-   * tree (review 2026-11-14), with Reset and Apply.
+   * The configuration form of a module instance, of an Explorer instance or of a module of an Explorer, inline as the
+   * Own style form (beside the tree when the pane is wide, review 2026-11-15), with Reset and Apply (Apply also in the
+   * header of the form).
    *
    * @param {string} id Node id of the instance, or the id of a module item of an Explorer.
    */
@@ -2002,10 +2194,12 @@ export class CmsDesigner {
     this._formTicket = ticket;
     this.formNode = id;
     this.formMode = 'config';
-    this.pagePanel?.classList.add('h-cms-form-below');
+    // beside the tree in a wide pane, below it in a narrow one, as Own style (review 2026-11-15)
+    this.pagePanel?.classList.remove('h-cms-form-below');
     this._formWestMinimum(true);
     const name = child ? EXPLORER_MODULES[child.type].label : (instance.type === 'explorer' ? 'Explorer' : EXPLORER_MODULES[instance.type]?.label || instance.type);
-    await this.formPanel.show([{ label: `${$HR('Configuration')}: ${$HR(name)}`, build: (host) => this._configSection(host, id) }]);
+    await this.formPanel.show([{ label: '', build: (host) => this._configSection(host, id) }],
+      { title: `${$HR('Configuration')}: ${$HR(name)}` });
     if (ticket === this._formTicket) this._updateBar();
   }
 
@@ -2046,12 +2240,20 @@ export class CmsDesigner {
     reset.textContent = $HR('Reset');
     reset.title = $HR('The default settings (applied with Apply)');
     reset.addEventListener('click', () => panel.reset());
-    const apply = element('button', 'h-btn h-btn-primary h-compact');
-    apply.type = 'button';
-    apply.textContent = $HR('Apply');
-    apply.title = $HR('Apply the configuration to the page (saved with Save Page)');
-    apply.addEventListener('click', async () => {
+    const applyButton = () => {
+      const button = element('button', 'h-btn h-btn-primary h-compact');
+      button.type = 'button';
+      button.textContent = $HR('Apply');
+      button.title = $HR('Apply the configuration to the page (saved with Save Page)');
+      button.addEventListener('click', () => void doApply());
+      return button;
+    };
+    const apply = applyButton();
+    const headApply = applyButton();
+    const doApply = async () => {
+      if (apply.disabled) return;
       apply.disabled = true;
+      headApply.disabled = true;
       try {
         const value = await panel.read();
         const current = instanceOf();
@@ -2066,10 +2268,12 @@ export class CmsDesigner {
         HMsg.showMsgErr?.(error?.message || String(error));
       } finally {
         apply.disabled = false;
+        headApply.disabled = false;
       }
-    });
+    };
     bar.append(reset, element('span', 'h-cms-toolbar-spacer'), apply);
     host.append(bar);
+    this.formPanel.addHeadActions?.(headApply);
     return () => panel.destroy();
   }
 
@@ -2095,7 +2299,8 @@ export class CmsDesigner {
     const record = this._currentRecord();
     if (id === ROOT) {
       if (this.current?.part !== 'content') return null;
-      return [{ label: $HR('Own style of the page'), build: (host) => this._styleSection(host, ROOT) }];
+      // no section caption: the header of the form has the title (review 2026-11-15)
+      return [{ label: '', build: (host) => this._styleSection(host, ROOT) }];
     }
     const node = this._treeItem(id);
     if (!node) return null;
@@ -2103,7 +2308,7 @@ export class CmsDesigner {
     if (node.kind === 'control' && (node.control === 'group' || record.doc.isPanel(id))) {
       sections.push({ label: $HR('Caption'), build: (host) => this._captionSection(host, id) });
     }
-    sections.push({ label: $HR('Own style'), build: (host) => this._styleSection(host, id) });
+    sections.push({ label: sections.length ? $HR('Own style') : '', build: (host) => this._styleSection(host, id) });
     return sections;
   }
 

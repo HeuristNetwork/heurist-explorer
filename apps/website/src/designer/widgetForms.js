@@ -250,7 +250,7 @@ export async function openFieldForm({ reference, records, languages = [], dbdefs
     className: 'h-dialog-cms-field',
     form,
     values: { source: parsed?.source || (records.site ? 'website' : 'page'), record: parsed?.record || null, field: localField,
-      width: mediaSizeValue(size.width, true), height: mediaSizeValue(size.height, true), ...linkValues(link) },
+      width: mediaSizeValue(size.width, true), height: mediaSizeValue(size.height, true), ...linkValues(link, records.site) },
     apiClient,
     dbdefs,
     browseRecords: services.browseRecords,
@@ -306,12 +306,15 @@ export async function openFieldForm({ reference, records, languages = [], dbdefs
   return answer ? result : null;
 }
 
-/** Values of the action fields from `data-h-link` (`url`, `page:<id>` a record page, `goto:<id>` Go to a page). */
-function linkValues(link) {
+/**
+ * Values of the action fields from `data-h-link` (`url`, `page:<id>` a record page, `goto:<id>` Go to a page; `goto:home`
+ * the home page = the website).
+ */
+function linkValues(link, siteId = 0) {
   const text = String(link ?? '');
   const page = /^page:(\d+)$/.exec(text);
-  const goto = /^goto:(\d+)$/.exec(text);
-  if (goto) return recordActionValues({ action: 'page', page: Number(goto[1]) });
+  const goto = /^goto:(\d+|home)$/.exec(text);
+  if (goto) return recordActionValues({ action: 'page', page: goto[1] === 'home' ? Number(siteId) || null : Number(goto[1]) });
   return recordActionValues(page ? { action: 'recordPage', recordPage: Number(page[1]) } : { action: text === 'url' ? 'url' : 'none' });
 }
 

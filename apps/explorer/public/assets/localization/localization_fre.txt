@@ -1375,3 +1375,6 @@
 #Use the current Explorer view#Utiliser la vue actuelle d'Explorer
 #The current result, selection and module settings of Explorer go to the page on Apply#Le résultat, la sélection et les réglages des modules d'Explorer vont à la page avec Appliquer
 #The current Explorer view is taken on Apply#La vue actuelle d'Explorer est prise avec Appliquer
+#Default layout#Disposition par défaut
+#Sub pages#Sous-pages
+#Site menu#Menu du site

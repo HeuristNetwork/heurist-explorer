@@ -132,13 +132,63 @@
   display: none;
 }
 
-/* vertical (and auto in a vertical header): a tree, sub pages below their page; with JS the levels open and close */
-:is(.h-site-menu-vertical, .h-site-header-vertical .h-site-menu-auto) .h-site-menu-list {
-  flex-direction: column;
-  align-items: stretch;
+/* the tree of a menu (review 2026-11-15): sub pages below their page, opened and closed by their button (JS). A
+   vertical menu is a tree from 641 px (auto: in a vertical header); on narrower screens it is a row as the horizontal
+   menu and collapses when it does not fit. An open collapsed website menu (is-narrow) is a tree too, at any width. */
+@media (min-width: 641px) {
+  :is(.h-site-menu-vertical, .h-site-header-vertical .h-site-menu-auto) .h-site-menu-list {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  :is(.h-site-menu-vertical, .h-site-header-vertical .h-site-menu-auto) .h-site-menu-sub {
+    display: block;
+    position: static;
+    min-width: 0;
+    padding: 0 0 0 1em;
+    border: none;
+    background: none;
+    color: inherit;
+    box-shadow: none;
+  }
+
+  :is(.h-site-menu-vertical, .h-site-header-vertical .h-site-menu-auto).h-site-menu-js .h-site-menu-item.has-children:not(.is-expanded) > .h-site-menu-sub {
+    display: none;
+  }
+
+  :is(.h-site-menu-vertical, .h-site-header-vertical .h-site-menu-auto).h-site-menu-js .h-site-menu-item.has-children > :is(a, .h-site-menu-label) {
+    padding-right: 32px;
+  }
+
+  :is(.h-site-menu-vertical, .h-site-header-vertical .h-site-menu-auto).h-site-menu-js .h-site-menu-item.has-children > :is(a, .h-site-menu-label)::after {
+    content: none;
+  }
+
+  :is(.h-site-menu-vertical, .h-site-header-vertical .h-site-menu-auto) .h-site-menu-expand {
+    display: block;
+    position: absolute;
+    right: 2px;
+    top: 4px;
+    width: 26px;
+    height: 26px;
+    padding: 0;
+    border: none;
+    border-radius: var(--h-radius);
+    background: none;
+    color: inherit;
+    cursor: pointer;
+  }
+
+  :is(.h-site-menu-vertical, .h-site-header-vertical .h-site-menu-auto) .h-site-menu-expand::before {
+    content: "\25B8";
+  }
+
+  :is(.h-site-menu-vertical, .h-site-header-vertical .h-site-menu-auto) .is-expanded > .h-site-menu-expand::before {
+    content: "\25BE";
+  }
 }
 
-:is(.h-site-menu-vertical, .h-site-header-vertical .h-site-menu-auto) .h-site-menu-sub {
+.h-site-menu.is-narrow .h-site-menu-sub {
   display: block;
   position: static;
   min-width: 0;
@@ -149,19 +199,19 @@
   box-shadow: none;
 }
 
-:is(.h-site-menu-vertical, .h-site-header-vertical .h-site-menu-auto).h-site-menu-js .h-site-menu-item.has-children:not(.is-expanded) > .h-site-menu-sub {
+.h-site-menu.is-narrow.h-site-menu-js .h-site-menu-item.has-children:not(.is-expanded) > .h-site-menu-sub {
   display: none;
 }
 
-:is(.h-site-menu-vertical, .h-site-header-vertical .h-site-menu-auto).h-site-menu-js .h-site-menu-item.has-children > :is(a, .h-site-menu-label) {
+.h-site-menu.is-narrow.h-site-menu-js .h-site-menu-item.has-children > :is(a, .h-site-menu-label) {
   padding-right: 32px;
 }
 
-:is(.h-site-menu-vertical, .h-site-header-vertical .h-site-menu-auto).h-site-menu-js .h-site-menu-item.has-children > :is(a, .h-site-menu-label)::after {
+.h-site-menu.is-narrow.h-site-menu-js .h-site-menu-item.has-children > :is(a, .h-site-menu-label)::after {
   content: none;
 }
 
-:is(.h-site-menu-vertical, .h-site-header-vertical .h-site-menu-auto) .h-site-menu-expand {
+.h-site-menu.is-narrow .h-site-menu-expand {
   display: block;
   position: absolute;
   right: 2px;
@@ -176,13 +226,14 @@
   cursor: pointer;
 }
 
-:is(.h-site-menu-vertical, .h-site-header-vertical .h-site-menu-auto) .h-site-menu-expand::before {
+.h-site-menu.is-narrow .h-site-menu-expand::before {
   content: "\25B8";
 }
 
-:is(.h-site-menu-vertical, .h-site-header-vertical .h-site-menu-auto) .is-expanded > .h-site-menu-expand::before {
+.h-site-menu.is-narrow .is-expanded > .h-site-menu-expand::before {
   content: "\25BE";
 }
+
 
 /* action menu presentations (plan 27f §6) */
 .h-site-menu-links .h-site-menu-item > a {
@@ -258,44 +309,27 @@
   display: none;
 }
 
-.h-site-menu.is-narrow.is-open > .h-site-menu-list {
-  position: absolute;
-  z-index: 110;
-  right: 0;
-  flex-direction: column;
-  align-items: stretch;
-  min-width: 200px;
-  padding: 4px;
-  border: 1px solid var(--h-color-border);
-  border-radius: var(--h-radius);
-  background: var(--h-color-bg);
-  color: var(--h-color-text);
-  box-shadow: 0 4px 12px rgb(0 0 0 / 15%);
+/* the website menu: its items in one row, never wrapped (HMenu._fitWidth; it collapses when they do not fit) */
+.h-site-menu-fit > .h-site-menu-list {
+  flex-wrap: nowrap;
 }
 
-/* narrow screens: the website menu is behind the menu button and sub pages are listed below their page */
-@media (max-width: 640px) {
-  .h-site-menu:not(.h-site-menu-links, .h-site-menu-buttons, .h-site-menu-icons, .h-site-menu-dropdown) > .h-site-menu-toggle {
-    display: inline-block;
-  }
+/* the open collapsed menu (HMenu._showPanel): inside the header, a full-width block below the row of the menu that
+   moves the content down (no drop-down, review 2026-11-15); a tree */
+.h-site-menu.h-site-menu-panel {
+  flex: 1 1 100%;
+  width: 100%;
+  min-width: 0;
+}
 
-  .h-site-menu:not(.h-site-menu-links, .h-site-menu-buttons, .h-site-menu-icons, .h-site-menu-dropdown) > .h-site-menu-list {
-    display: none;
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .h-site-menu.is-open > .h-site-menu-list {
-    display: flex;
-  }
-
-  .h-site-menu-sub {
-    display: block;
-    position: static;
-    border: none;
-    background: none;
-    color: inherit;
-    box-shadow: none;
-    padding: 0 0 0 1em;
-  }
+.h-site-menu.h-site-menu-panel > .h-site-menu-list {
+  display: flex;
+  position: static;
+  flex-direction: column;
+  flex-wrap: nowrap;
+  align-items: stretch;
+  max-height: 70vh;
+  overflow: auto;
+  padding: 4px 0 8px;
+  text-align: left;
 }

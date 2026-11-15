@@ -187,7 +187,14 @@ test('Styles popup: four tabs, themes, kind defaults, presets, custom CSS with t
   assert.equal(values.css, '.x{color:red}');
   // Navigation and layout (plan 27f): default values are not written; Pages kept only for swap
   assert.deepEqual(values.layout, {});
-  const [navigation, headerPosition] = form.tabs.panels[4].querySelectorAll('select');
+  const [navigation, pageWidth, headerPosition] = form.tabs.panels[4].querySelectorAll('select');
+  // Maximum width of page (review 2026-11-15): the base setting site-width
+  pageWidth.value = '1280px';
+  pageWidth.fire('change');
+  assert.equal(form.read().base['site-width'], '1280px');
+  pageWidth.value = '';
+  pageWidth.fire('change');
+  assert.equal(form.read().base['site-width'], undefined);
   const cache = form.tabs.panels[4].querySelector('input');
   assert.equal(cache.parentElement.hidden, true);
   navigation.value = 'swap';
@@ -335,7 +342,9 @@ test('Style editor: Grid (columns) section, excluding the flex layout; inherited
   columns.fire('change');
   assert.equal(editor.value()['grid-template-columns'], 'repeat(3, minmax(0, 1fr))');
   // the narrow tab: grid inherited (checkbox disabled), Columns 1 there
-  host.querySelector('.h-cms-style-tabs').querySelectorAll('button')[2].click();
+  const screen = host.querySelector('.h-cms-style-screen');
+  screen.value = 'narrow';
+  screen.fire('change');
   assert.equal(box(0).checked, true);
   assert.equal(box(0).disabled, true, 'set on the Normal tab');
   const narrow = host.querySelector('.h-cms-style-columns').querySelector('select');
@@ -529,8 +538,13 @@ test('designer: tools of the part tree, + of tabs, captions, copy below the tree
   const actions = (id) => designer._nodeTools({ id }).map((item) => item.action);
   const panel = designer._treeItem(tabs).children[0];
   // the pen opens the popup of the element, the palette its own style (review 2026-11-14)
-  assert.deepEqual(actions(tabs), ['add', 'delete']);
+  // tabs: the captions of all panels in one popup (review 2026-11-15)
+  assert.deepEqual(actions(tabs), ['add', 'captions', 'delete']);
   assert.deepEqual(actions(panel.id), ['add', 'caption', 'delete']);
+  const doc = designer._currentRecord().doc;
+  assert.deepEqual(doc.panels(tabs), designer._treeItem(tabs).children.map((item) => item.id));
+  assert.equal(doc.panelControl(panel.id), tabs);
+  assert.equal(doc.panelControl(tabs), null);
   assert.deepEqual(actions(panel.children[0].id), ['edit', 'delete'], 'a text: pen and remove');
   // a group: the palette opens its Own style (2026-11-14)
   let group = null;
@@ -663,9 +677,10 @@ test('designer: Own style form (plan 27i §10, review 2026-11-14): caption above
   designer._edit((doc) => { group = doc.insertElement('content', 'group', { id: null, position: 'inside' }); return true; });
   assert.equal(designer.formPanel.isOpen(), false);
   // the page: its own style; a group: caption and own style; the header itself: none
-  assert.deepEqual(designer._formSections('#root').map((section) => section.label), ['Own style of the page']);
+  // the title is in the header of the form: one section has no caption (review 2026-11-15)
+  assert.deepEqual(designer._formSections('#root').map((section) => section.label), ['']);
   assert.equal(designer._formSections(group).map((section) => section.label).join(), 'Caption,Own style');
-  assert.equal(designer._formSections('h1').map((section) => section.label).join(), 'Own style');
+  assert.equal(designer._formSections('h1').map((section) => section.label).join(), '');
   designer._selectNode(group);
   const west = [];
   designer.layout.getSize = () => 300;

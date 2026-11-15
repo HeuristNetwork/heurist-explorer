@@ -39,6 +39,16 @@ export class SavedFilterManager {
   }
 
   /**
+   * Other filter record ids to load (a published page got other filters, review 2026-11-15); load() reads them.
+   *
+   * @param {Array<number|string>|null} ids
+   * @returns {void}
+   */
+  setFilterIds(ids) {
+    this.filterIds = normalizeIds(ids);
+  }
+
+  /**
    * Load saved-filter definitions, replacing the cached list.
    *
    * @returns {Promise<Array<object>>} Loaded filters; see {@link SavedFilterManager#list}.
@@ -293,6 +303,10 @@ function detailValue(details, field) {
 function positiveId(value) { const id = Number(value); return Number.isInteger(id) && id > 0 ? id : null; }
 
 /** Normalize a value into a de-duplicated array of positive integer ids. */
+/**
+ * @param {*} value
+ * @returns {number[]}
+ */
 function normalizeIds(value) {
   const items = Array.isArray(value) ? value : value == null ? [] : [value];
   return [...new Set(items.map(positiveId).filter(Boolean))];

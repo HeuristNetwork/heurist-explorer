@@ -578,19 +578,9 @@ html.h-site .h-site-logo img {
 }
 
 :where(.h-site-hset > .h-site-hset-menu) {
-  flex: 1 1 auto;
+  flex: 1 1 0;
   min-width: 0;
   min-height: 0;
-}
-
-/* two rows: logo, title and subtitle and the language switch; the menu below them */
-:where(.h-site-header-rows2 .h-site-header .h-site-hset > .h-site-brand) {
-  flex: 1 1 auto;
-}
-
-:where(.h-site-header-rows2 .h-site-header .h-site-hset > .h-site-hset-menu) {
-  order: 1;
-  flex: 1 1 100%;
 }
 
 /* the title has the size of a heading 1 of the theme */
@@ -600,7 +590,7 @@ html.h-site .h-site-logo img {
   color: var(--h-site-heading-color);
 }
 
-@media (max-width: 1024px) {
+@media (max-width: 1024.98px) {
   :where(.h-site-title) {
     font-size: 1.4em;
   }
@@ -624,7 +614,7 @@ html.h-site .h-site-logo img {
   }
 }
 
-@media (max-width: 640px) {
+@media (max-width: 640.98px) {
   /* header templates of before §13: no title and subtitle on narrow screens */
   :is(.h-site-title, .h-site-subtitle):not(.h-site-hset *) {
     display: none;
@@ -648,16 +638,18 @@ html.h-site .h-site-logo img {
   }
 }
 
-@media (max-width: 375px) {
-  /* the default set in one row: logo, the menu button, the language switch; no title (review 2026-11-14) */
-  :where(.h-site-header .h-site-hset > .h-site-brand) {
+@media (max-width: 375.98px) {
+  /* the default set in one row: logo, the menu button, the language switch; no title (review 2026-11-14); the title
+     by itself too, wherever it is in the header (review 2026-11-15) */
+  :where(.h-site-header .h-site-hset > .h-site-brand),
+  :where(.h-site-header .h-site-title) {
     display: none;
   }
 
   :where(.h-site-header .h-site-hset > .h-site-hset-menu) {
     order: 1;
-    flex: 0 0 auto;
-    margin-left: auto;
+    flex: 1 1 0;
+    text-align: right;
   }
 
   :where(.h-site-header .h-site-hset > .h-site-hset-lang) {
@@ -692,20 +684,21 @@ html.h-site .h-site-logo img {
     width: 100%;
   }
 
-  /* a vertical header: one column in the order of the tree */
-  :where(.h-site-header-vertical .h-site-header .h-site-hset) {
+  /* a vertical header: one column in the order of the tree. A layout option: stronger than the own styles of the
+     header elements while it is chosen (review 2026-11-14) */
+  .h-site-header-vertical .h-site-header .h-site-hset {
     flex-direction: column;
     flex-wrap: nowrap;
     align-items: stretch;
   }
 
-  :where(.h-site-header-vertical .h-site-header .h-site-hset > *) {
+  .h-site-header-vertical .h-site-header .h-site-hset > * {
     order: 0;
     flex: none;
     margin-left: 0;
   }
 
-  :where(.h-site-header-vertical .h-site-header .h-site-hset .h-site-title) {
+  .h-site-header-vertical .h-site-header .h-site-hset .h-site-title {
     font-size: 1.5em;
   }
 }

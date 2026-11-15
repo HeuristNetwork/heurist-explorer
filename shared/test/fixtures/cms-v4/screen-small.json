@@ -1,0 +1,17 @@
+{
+  "name": "the small screen (<= 375 px, 2026-11-14): its media rules after the medium and narrow ones (the header default set as own styles); a colour is the colour of the headings too",
+  "config": {
+    "schema": "heurist-cms/4",
+    "styles": {
+      "nodes": {
+        "nb": {"display": "flex", "flex": "0 1 auto", "color": "#ffffff", "medium": {"flex": "1 1 auto"}, "small": {"display": "none"}},
+        "nm": {"flex": "1 1 auto", "medium": {"order": "1", "flex": "1 1 100%"}, "narrow": {"gap": "4px"}, "small": {"order": "1", "flex": "0 0 auto", "margin-left": "auto"}}
+      }
+    }
+  },
+  "html": ["<div data-h-node=\"nb\" data-h-control=\"group\" class=\"h-site-brand\"></div><nav data-h-node=\"nm\" class=\"h-site-hset-menu\"></nav>"],
+  "expect": {
+    "issues": [],
+    "css": "[data-h-node=\"nb\"]{display:flex;flex:0 1 auto;color:#ffffff;--h-site-heading-color:#ffffff;}\n[data-h-node=\"nm\"]{flex:1 1 auto;}\n@media (max-width:1024.98px){\n[data-h-node=\"nb\"]{flex:1 1 auto;}\n[data-h-node=\"nm\"]{order:1;flex:1 1 100%;}\n}\n@media (max-width:640.98px){\n[data-h-node=\"nm\"]{gap:4px;}\n}\n@media (max-width:375.98px){\n[data-h-node=\"nb\"]{display:none;}\n[data-h-node=\"nm\"]{order:1;flex:0 0 auto;margin-left:auto;}\n}\n"
+  }
+}

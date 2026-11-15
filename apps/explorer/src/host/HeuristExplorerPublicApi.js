@@ -63,6 +63,24 @@ export class HeuristExplorerPublicApi {
   applyLayout(layout) { return this.application.applyLayout(layout); }
 
   /**
+   * New settings of the modules of one type, without mounting Explorer again (the CMS designer, review 2026-11-15).
+   *
+   * @param {string} type Module type.
+   * @param {object} settings Settings envelope of the module.
+   * @returns {Promise<boolean>} Whether a mounted module took them.
+   */
+  setModuleSettings(type, settings) { return this.application.setModuleSettings(type, settings); }
+
+  /**
+   * New settings of a published Explorer (a website page) without mounting it again: modules, layout and filters
+   * (the CMS designer, review 2026-11-15).
+   *
+   * @param {object} settings heurist-explorer-settings.
+   * @returns {Promise<boolean>} False: it must be mounted again (another language, not a published Explorer).
+   */
+  applySettings(settings) { return this.application.applySettings(settings); }
+
+  /**
    * Returns the current serialized Explorer application state.
    *
    * @returns {object} Current application state.

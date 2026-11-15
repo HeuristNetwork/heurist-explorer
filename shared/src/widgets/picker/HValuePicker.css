@@ -144,6 +144,7 @@
 
 .h-value-combo-text {
   flex: 1 1 auto;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -159,7 +160,8 @@
 }
 
 .h-value-combo-popover {
-  z-index: 10000;
+  /* above a full-screen editor (the CMS designer, z-index 10010), as the other popovers (2026-11-15) */
+  z-index: 2147483000;
   max-width: calc(100vw - 16px);
   display: flex;
   flex-direction: column;

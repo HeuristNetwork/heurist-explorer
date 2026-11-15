@@ -1375,3 +1375,6 @@
 #Use the current Explorer view#Use the current Explorer view
 #The current result, selection and module settings of Explorer go to the page on Apply#The current result, selection and module settings of Explorer go to the page on Apply
 #The current Explorer view is taken on Apply#The current Explorer view is taken on Apply
+#Default layout#Default layout
+#Sub pages#Sub pages
+#Site menu#Site menu

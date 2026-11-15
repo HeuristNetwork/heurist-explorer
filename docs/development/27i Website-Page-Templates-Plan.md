@@ -398,3 +398,105 @@ every distribution. Options (to decide):
   gear only, not dragged; Apply writes `settings.modules[type]` and its layout items.
 - Website defaults of the module forms: plan 29 §19. HFilter on a published page: a query source has its DT_NAME in
   the page language (`valueInLanguage`, `QuerySourceManager` names); saved filters keep their name (no translations yet).
+
+### 11.13 Review 2026-11-14, round 11 (implemented, not committed, no browser check)
+
+- New website, starter pages: the server's About page is filled with the About template (PATCH, `_fillTemplatePage`)
+  instead of deleted first; it was the only page of the top menu ("Top level menus is required" stopped everything).
+  Cover goes first in the menu (`assign` index 0); an About that was not chosen is removed after the other pages exist;
+  each step reports its own error.
+- Empty Website manager: New website is offered after `initialize`, not after the list; a failed count is logged
+  (`console.warn`). The cause was not reproduced without a browser.
+- Landing: three static feature cards (as Features, with More) instead of an empty Record cards widget
+  (`addCards(..., parent)`).
+- Header logo: `data-h-link="goto:home"` (the home page; JS `setFieldLink`, StoredText, PageContent, the field form).
+- **Header default set as own styles** (`CMS_HEADER_SET_STYLES` in cmsEdit.js = `WebsiteStarter::HEADER_STYLES`):
+  the designer edits the header as any page. New own-style screen **Small (≤ 375 px)** (`SCREENS.small`, JS and PHP,
+  fixture `screen-small.json`): no title, the menu button before the language switch. Medium: the menu below the logo,
+  title and language switch; Narrow: no subtitle. The class CSS stays as zero-specificity fallback for older headers;
+  the group kind default leaves out the brand too (`:not(.h-site-hset, .h-site-brand)`). "Use 2 rows" dropped (an old
+  value is removed when the Styles popup is saved, the server ignores it). The vertical header and the collapsed bar
+  are layout options stronger than the own styles while chosen.
+
+### 11.14 Review 2026-11-15, round 12 (implemented, not committed, no browser check)
+
+- New website: one popup "Creating the website..." (progress dialog without Cancel, `cancel: false`) while the website
+  and its starter pages are made, then the editor; no flash messages on the way (quiet saves, `_patchRecord`
+  `quiet`). The starter Cover page hides the header and the footer (as the Add page form gives it).
+- A colour in an own style (or preset, kind, page style) is also the colour of the headings inside the element: the
+  compilers write `--h-site-heading-color` with `color` (JS + PHP, fixture `screen-small.json`); e.g. light text on a
+  Cover page with an h1 title.
+- The title of the header set is hidden on small screens by its own style too (and by the fallback CSS wherever it is
+  in the header).
+- Own style editor: the screen (Normal, Medium, Narrow, Small) is a selector, not a button per screen.
+- Screens: the media rules are `max-width: <width>.98px` (1024.98 / 640.98 / 375.98; compilers JS + PHP, style.css,
+  HMenu.css, fixtures): with display scaling a viewport of "375 px" can be 375.2 px wide and missed `max-width: 375px`
+  (the title of the header showed at 375).
+- Header menu: no forced collapse on narrow screens any more (HMenu.css); a website menu collapses behind its button
+  when it does not fit in one row (is-narrow) at any width. On small screens its own style gives it the free space
+  between the logo and the language switch (`flex: 1 1 0`, button on the right), so it collapses there when needed.
+
+### 11.15 Review 2026-11-15, round 13 (implemented, not committed, no browser check)
+
+- Cosmetics: the starter Cover is hidden in the menu (DT_CMS_MENU_FORMAT = TRM_HIDDEN_ITEM); Cover logo 80px (its
+  thumbnail); Contact centred with max-width 1024px (page style); the inline form has a header (title, Close) on
+  `--h-color-selected`.
+- Explorer instance: "Use the current Explorer view" removed. A module added to a page (Add element, template pages
+  such as Discover) gets its website defaults at once (bridge `websiteDefaults`; an Explorer: every presentation module
+  with its website defaults, the default layout without tools, no filters, `websiteExplorerSettings`), so its child
+  modules show in the tree at once (an Explorer without settings: the five modules of the default layout).
+- Data website defaults also: Show header, Expansion rules, Initially expanded, Sort, Admin info, Collection off.
+- Selectors in the inline forms: the value picker popover was under the designer (z-index 10000 < 10010), now
+  2147483000 as the other popovers. Module forms inline: no own scroll (70vh of the dialog).
+- The preview gives new settings to a mounted module (`setConfiguration`) or to the modules of a mounted Explorer
+  (`setModuleSettings`, when only module settings changed) instead of mounting it again; a layout / filter / state
+  change still mounts it again.
+
+### 11.16 Review 2026-11-15, round 14: the main menu (implemented, not committed, no browser check)
+
+- Rules of the website menu (HMenu.js / HMenu.css / PageRenderer): (a) it collapses behind its button when its items do
+  not fit its place in one row, at any width: measured with the items in one row (`is-measuring`, `scrollWidth` >
+  `clientWidth`), not by the height of a wrapped list; (b) one `<nav>`: the host is the nav (its aria-label), the menu in
+  it a `div` (`data-h-label`). A vertical menu (and auto in a vertical header) is a tree only from 641 px; on narrower
+  screens it is a row and collapses as the horizontal one. The open collapsed menu is a tree below the button (sub
+  pages below their page with their open / close button), not the hover drop-down; it closes when the menu fits again.
+- Inline forms: one section has no caption (the title is in the header). Explorer layout: its Reset is "Default
+  layout". The selectors of the inline forms are at most 360 px wide and cut long labels.
+
+**Main menu, round 2 (2026-11-15).** 1) The items of the website menu are always in one row (`h-site-menu-fit`: no
+wrapping); it collapses when they do not fit the width of the menu. The menu element of the header set grows from 0
+(`flex: 1 1 0`, own style default in `CMS_HEADER_SET_STYLES` / `WebsiteStarter::HEADER_STYLES` and the fallback CSS):
+with `1 1 auto` it went to a new row of the header instead of collapsing. Headers created before keep their stored own
+style (`1 1 auto`): change it in Own style. 2) The open collapsed menu opens inside the header as before plan 27f, no
+drop-down: `HMenu._showPanel` moves the list into a full-width block after the row of the menu (out of the flex rows
+around the menu, not out of the header), so it moves the content down; back into the menu when closed or when the
+menu fits again.
+
+### 11.17 Review 2026-11-15, round 15: cosmetics (implemented, not committed, no browser check)
+
+1. Data module: the control panel is hidden while its header has no button, also in main mode
+   (`DataControlPanel.updateHidden`, called again when the Expansion button comes or goes).
+2. Configuration form of a module: Apply also in the header of the form, beside Close (`createFormPanel().addHeadActions`).
+3. The configuration form is placed as Own style: beside the tree when the pane is wide, below it when narrow (the
+   forced `h-cms-form-below` is gone).
+4. Apply of an Explorer instance no longer mounts it again: Explorer public API `applySettings(settings)` (filters:
+   the Search pane is made again with the new filter ids, `SavedFilterManager.setFilterIds`; layout: `applyLayout` with
+   the new `ui`; module settings: `setModuleSettings`). Another interface language: mounted again.
+5. Filter Form: the caption of many chosen values is cut with an ellipsis (`.h-input-enum-combo .h-value-combo-text`
+   has no width of its own; the control box used `min-width: min-content`, the full caption).
+6. Map, Graph and Timeline of an Explorer got no results after any change of the page in the designer: the preview put
+   the draft with `innerHTML` and moved the kept instance hosts back, and a moved iframe is loaded again (its module
+   lost Explorer). `CmsPreview.apply` puts the new content beside the old one and moves the kept hosts with
+   `moveBefore` (iframes keep running); without `moveBefore` an instance with iframes is mounted again. Fix (same day): a kept host that is a child of the part itself was
+   removed with the old content after the move (Explorer disappeared on load and on every second Apply); moved hosts
+   are not removed.
+7. Tabs / accordion: the pen of the element and the pen of a panel open one popup with the captions of all panels
+   (`_editCaptions`, a block per panel with the rows of the Caption popup); the cursor in the first caption, or in the
+   caption of the panel whose pen was used. One undo step. `CmsRecordDocument.panels(id)`, `panelControl(id)`.
+8. The language switch with its defaults (Auto, empty settings) was marked "not configured" in the part tree: it is
+   configured without settings, as the menu (`READY_WIDGETS` in `cmsEdit.js`).
+9. (17) Maximum width of page in Navigation and layout after Page navigation: Full width, 1920, 1366, 1280, 1024 px.
+   It is the base setting `site-width` (`--h-site-width` of header, main and footer; no new format key, server
+   unchanged); the free text field "Page width (max)" left the base settings. An older value not in the list stays as
+   a choice.
+10. (18) Flash messages are at least 250px wide (`#dialog-flash-messages`, heurist-ui.css).

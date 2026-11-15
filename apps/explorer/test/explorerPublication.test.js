@@ -130,3 +130,14 @@ test('Explorer on a website page (2026-11-14): no language, values and layout of
   assert.deepEqual(list[2].settings, { c: 3 }, 'a new one gets the module settings of the instance');
   assert.deepEqual(list[0].context, { role: 'current' });
 });
+
+test('Explorer on a website page (2026-11-15): the settings of a new instance', async () => {
+  const { websiteExplorerSettings } = await import('../src/ui/config/explorerWebsitePanel.js');
+  const settings = websiteExplorerSettings({ data: { d: 1 }, map: { m: 1 } });
+  assert.equal(settings.ui.language, 'auto', 'the language of the page');
+  assert.equal(settings.ui.regions.report, 'unused', 'no tools');
+  assert.deepEqual(settings.filter.items, []);
+  const data = settings.layout.find((item) => item.type === 'data');
+  assert.deepEqual(data.settings, { d: 1 }, 'each module with its website settings');
+  assert.deepEqual(data.context, { role: 'current' });
+});

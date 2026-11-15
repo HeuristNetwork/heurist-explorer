@@ -348,13 +348,16 @@ export function designerUrl(runtime = {}) {
  * @param {object} options.config The configuration block.
  * @param {Map<string, object>} options.mounted Mounted instances (startSite).
  * @param {object} [options.loaders] Module loaders.
- * @returns {{config: object, mounted: Map, enhance: Function, mountInstance: Function, unmountInstance: Function}}
+ * @returns {{config: object, mounted: Map, enhance: Function, mountInstance: Function, unmountInstance: Function,
+ *          applySettings: Function}}
  */
 export function designHooks({ config, mounted, loaders = MODULE_LOADERS }) {
   return {
     config,
     mounted,
     enhance: (root) => enhanceControls(root, config.runtime),
+    // new settings of a mounted module without mounting it again (review 2026-11-15); false: it must be mounted again
+    applySettings: (id, before, after) => applyInstanceSettings(mounted.get(id), before, after),
     unmountInstance: (id) => {
       unmountInstance(mounted.get(id));
       mounted.delete(id);
@@ -365,6 +368,49 @@ export function designHooks({ config, mounted, loaders = MODULE_LOADERS }) {
       return instance;
     }
   };
+}
+
+/**
+ * New settings of a mounted module through its API (the CMS designer, review 2026-11-15): a module its
+ * `setConfiguration`; Explorer `applySettings` (filters, layout, modules; not another language), an older Explorer
+ * the settings of its modules (`setModuleSettings`) when nothing else changed. The work goes on in the background.
+ *
+ * @param {object|null} api What mountInstance returned.
+ * @param {object|null} before The instance configuration the module was mounted with.
+ * @param {object|null} after The new one.
+ * @returns {boolean} Whether the module takes them (else it must be mounted again).
+ */
+export function applyInstanceSettings(api, before, after) {
+  if (!api || !before || !after || before.kind !== 'module' || before.type !== after.type || before.mount === 'iframe') return false;
+  if (JSON.stringify(before.state ?? null) !== JSON.stringify(after.state ?? null)) return false;
+  if (after.type === 'explorer') {
+    // filters and layout too, as the settings of its modules (review 2026-11-15); another language: mounted again
+    if (typeof api.applySettings === 'function'
+      && JSON.stringify(before.settings?.ui?.language ?? null) === JSON.stringify(after.settings?.ui?.language ?? null)) {
+      void Promise.resolve(api.applySettings(after.settings || {})).catch((error) => console.warn('Explorer settings not applied', error));
+      return true;
+    }
+    const types = explorerModuleChanges(before.settings, after.settings);
+    if (!types || typeof api.setModuleSettings !== 'function') return false;
+    for (const type of types) void api.setModuleSettings(type, after.settings.modules[type]);
+    return true;
+  }
+  if (typeof api.setConfiguration !== 'function') return false;
+  void api.setConfiguration(after.settings || {});
+  return true;
+}
+
+/**
+ * The module types whose settings changed between two Explorer settings, when only module settings changed (in
+ * `modules` and the settings of the layout items); null when anything else changed (the layout, the filters ...).
+ */
+export function explorerModuleChanges(before = {}, after = {}) {
+  const rest = (settings) => JSON.stringify({ ...(settings || {}), modules: null,
+    layout: (settings?.layout || []).map((item) => ({ ...item, settings: null })) });
+  if (rest(before) !== rest(after)) return null;
+  const types = new Set([...Object.keys(before?.modules || {}), ...Object.keys(after?.modules || {})]);
+  return [...types].filter((type) => JSON.stringify(before?.modules?.[type] ?? null) !== JSON.stringify(after?.modules?.[type] ?? null)
+    && after?.modules?.[type]);
 }
 
 /**

@@ -255,8 +255,10 @@ select.h-select:not([multiple]):not([size]) {
 /* messages only (HMsg.showMsgDlg: a text, or `message: true`): larger font, the dialog as wide as the message */
 .h-dialog-message.h-dialog-body { box-sizing:border-box; width:min(420px, 95vw); font-size:var(--h-font-size-large); }
 .h-dialog:has(> .h-dialog-message.h-dialog-body) { width:fit-content; }
-/* a flash message (HMsg.showMsgFlash, "Saved"): as wide as its text, at most the message width */
-#dialog-flash-messages > .h-dialog-message.h-dialog-body { width:auto; max-width:min(420px, 95vw); }
+/* a flash message (HMsg.showMsgFlash, "Saved"): as wide as its text, at least 250px (review 2026-11-15), at most the
+   message width */
+#dialog-flash-messages > .h-dialog-message.h-dialog-body { width:auto; min-width:min(250px, 95vw); max-width:min(420px, 95vw);
+  box-sizing:border-box; }
 /* progress dialog (progressDialog.js): the bar as wide as the dialog */
 .h-progress-dialog { display:flex; flex-direction:column; gap:6px; }
 .h-progress-dialog > progress { width:100%; }

@@ -82,7 +82,13 @@ mode) and `configureExplorerInstance`, and since 2026-11-14 the same forms witho
 page tree: `createConfigurationPanel({moduleType, mode: 'website', value})` → `{element, read(), reset(), isDirty(),
 destroy()}` (`read`: the normalized settings, null while the form has errors) and `createExplorerInstancePanel({value})` →
 `{element, read(): Promise<{settings, state}|null>, reset(), destroy()}` (filters, layout of the presentation modules,
-"Use the current Explorer view"; `apps/explorer/src/ui/config/explorerWebsitePanel.js`). Its preview is the server page with `?design=1` (logged-in users); opened
+`apps/explorer/src/ui/config/explorerWebsitePanel.js`), and since 2026-11-15 `websiteDefaults({moduleType})` →
+`{settings, state}` (the website defaults of a module, or of an Explorer with all its presentation modules) for a module
+added to a page. Explorer's public API has `setModuleSettings(type, settings)`: the designer preview gives new module
+settings to a mounted Explorer or module (`setConfiguration`) instead of mounting it again (`applyInstanceSettings` of
+`apps/website/src/siteRuntime.js`); since 2026-11-15 also `applySettings(settings)` → `Promise<boolean>`: the whole
+settings of a published Explorer (filters, layout, modules) without mounting it again; another interface language
+gives false (mounted again). Kept instances are moved in the preview with `moveBefore` (their iframes keep running). Its preview is the server page with `?design=1` (logged-in users); opened
 outside the designer that page goes to `hclient/modules/explorer/explorerViewer.html?db=&mode=cms&site=&page=`,
 which starts Explorer and opens the manager with the designer (`config.cms`).
 `runtime.moduleAssetUrls.website` overrides the bundle base of the manager's localization

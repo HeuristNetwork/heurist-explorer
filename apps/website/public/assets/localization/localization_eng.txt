@@ -425,3 +425,18 @@
 #Use the current Explorer view#Use the current Explorer view
 #The current result, selection and module settings of Explorer go to the page on Apply#The current result, selection and module settings of Explorer go to the page on Apply
 #The current Explorer view is taken on Apply#The current Explorer view is taken on Apply
+#Small (≤ 375 px)#Small (≤ 375 px)
+#The page About is kept: the menu of a website needs one page#The page About is kept: the menu of a website needs one page
+#New website#New website
+#Creating the website...#Creating the website...
+#Screen#Screen
+#The screen size these settings are for#The screen size these settings are for
+#Medium (≤ 1024 px)#Medium (≤ 1024 px)
+#Narrow (≤ 640 px)#Narrow (≤ 640 px)
+#Default layout#Default layout
+#Captions of the panels#Captions of the panels
+#Captions of the tabs#Captions of the tabs
+#Captions of the sections#Captions of the sections
+#Tab#Tab
+#Section#Section
+#Maximum width of page#Maximum width of page

@@ -72,12 +72,14 @@ export const BASE_SETTINGS = Object.freeze([
 ]);
 
 /** Screen sizes of node styles: key => max width (px). */
-export const SCREENS = Object.freeze({ medium: 1024, narrow: 640 });
+// small (<= 375 px, 2026-11-14): a phone; the media rules are written in this order, the smallest wins
+export const SCREENS = Object.freeze({ medium: 1024, narrow: 640, small: 375 });
 
 /** Kinds of `styles.kinds` (plan 27c §6a) and their selectors. */
 export const CMS_KINDS = Object.freeze({
-  // not the header default set (2026-11-14): its layout is the website CSS; :where keeps the specificity
-  group: '[data-h-control="group"]:where(:not(.h-site-hset))',
+  // not the header default set and its brand (2026-11-14): their fallback layout is the website CSS; :where keeps the
+  // specificity
+  group: '[data-h-control="group"]:where(:not(.h-site-hset, .h-site-brand))',
   tabs: '[data-h-control="tabs"]',
   accordion: '[data-h-control="accordion"]',
   text: '[data-h-text]:not([data-h-media])',
@@ -384,7 +386,8 @@ export function compileCmsStyles(base, nodeSets, baseUrl = '', { kinds = [], pre
   // screen (plan 27c §30); medium first, then narrow
   const flushScreens = () => {
     for (const [screen, width] of Object.entries(SCREENS)) {
-      if (screens[screen]) css += `@media (max-width:${width}px){\n${screens[screen]}}\n`;
+      // .98: a viewport of a fractional width (display scaling, e.g. 375.2 px) is still this screen (2026-11-15)
+      if (screens[screen]) css += `@media (max-width:${width}.98px){\n${screens[screen]}}\n`;
       screens[screen] = '';
     }
   };
@@ -532,6 +535,8 @@ function declarations(style, id, baseUrl, issues) {
       continue;
     }
     css += `${property}:${value};`;
+    // a colour of an element is the colour of its headings too (they take --h-site-heading-color, 2026-11-14)
+    if (property === 'color') css += `--h-site-heading-color:${value};`;
   }
   return css;
 }

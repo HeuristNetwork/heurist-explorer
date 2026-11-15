@@ -86,6 +86,8 @@ export class CmsPreview {
     this.hooks = null;
     this.win = null;
     this.mountedConfig = new Map();
+    // the instance configuration each mounted instance has (applySettings: what changed, review 2026-11-15)
+    this.mountedInstances = new Map();
     this.fieldValues = new Map();
     // a Record field of the draft has no value of the server yet: a new load after Save gives it
     this.unknownField = false;
@@ -100,6 +102,7 @@ export class CmsPreview {
     this.hooks = null;
     this.win = null;
     this.mountedConfig.clear();
+    this.mountedInstances.clear();
     this.fieldValues.clear();
     this.unknownField = false;
     this.frame.src = url;
@@ -134,33 +137,66 @@ export class CmsPreview {
       const before = new Set(kept.keys());
       // the expand / collapse button of a slide out header (site runtime) is not part of the draft
       const toggle = container.querySelector(':scope > .h-site-header-toggle');
-      container.innerHTML = html;
-      if (toggle) container.prepend(toggle);
-      if (restoreFieldValues(container, this.fieldValues)) this.unknownField = true;
-      this.hooks.enhance(container);
-      for (const host of [...container.querySelectorAll('[data-h-instance]')]) {
+      // the new content goes in beside the old one: a kept instance is moved into it without leaving the document
+      // (moveBefore keeps its iframes running; review 2026-11-15: a moved iframe was loaded again and its module lost
+      // Explorer, so Map, Graph and Timeline of an Explorer got no new results), then the old content goes
+      const oldNodes = [...container.childNodes].filter((node) => node !== toggle);
+      const template = doc.createElement('template');
+      template.innerHTML = html;
+      const fresh = [...template.content.querySelectorAll('[data-h-instance]')];
+      container.append(template.content);
+      const canMove = typeof container.moveBefore === 'function';
+      const mounts = [];
+      // kept hosts moved into the new content: not removed with the old content (a host may be a child of the part)
+      const moved = new Set();
+      for (const host of fresh) {
         const id = host.getAttribute('data-h-instance');
         const settings = instanceKey(config.instances[id]);
-        const old = kept.get(id);
-        if (old && this.mountedConfig.get(id) === settings) {
+        // without moveBefore an instance with iframes is mounted again (a moved iframe loses its module)
+        const old = kept.get(id) && (canMove || !kept.get(id).querySelector('iframe')) ? kept.get(id) : null;
+        // new settings of a mounted module: given to it, not mounted again (review 2026-11-15)
+        const applied = old && this.mountedConfig.get(id) !== settings
+          && this.hooks.applySettings?.(id, this.mountedInstances.get(id) || null, config.instances[id]) === true;
+        if (old && (applied || this.mountedConfig.get(id) === settings)) {
+          if (applied) {
+            this.mountedConfig.set(id, settings);
+            this.mountedInstances.set(id, clone(config.instances[id]));
+          }
           for (const name of ['data-h-node', 'data-h-style']) {
             if (host.hasAttribute(name)) old.setAttribute(name, host.getAttribute(name)); else old.removeAttribute(name);
           }
           // custom CSS classes of the element; the classes of the site runtime (h-site-..., h-slider) stay
           old.className = [...[...old.classList].filter((name) => /^h-(?:site-|slider)/.test(name)), ...host.classList].join(' ');
-          host.replaceWith(old);
+          if (canMove) {
+            host.parentNode.moveBefore(old, host);
+            host.remove();
+          } else {
+            host.replaceWith(old);
+          }
+          moved.add(old);
           before.delete(id);
           continue;
         }
         // mounted again with new settings: the old instance goes
         if (before.delete(id)) this.hooks.unmountInstance?.(id);
         this.mountedConfig.set(id, settings);
+        this.mountedInstances.set(id, clone(config.instances[id]));
+        mounts.push([host, id]);
+      }
+      for (const node of oldNodes) {
+        if (!moved.has(node)) node.remove();
+      }
+      if (toggle) container.prepend(toggle);
+      if (restoreFieldValues(container, this.fieldValues)) this.unknownField = true;
+      this.hooks.enhance(container);
+      for (const [host, id] of mounts) {
         void this.hooks.mountInstance(host, id, config).catch((error) => console.warn('Preview: instance not mounted', id, error));
       }
       // hosts removed by the draft
       for (const id of before) {
         this.hooks.unmountInstance?.(id);
         this.mountedConfig.delete(id);
+        this.mountedInstances.delete(id);
       }
     }
     if (styles) this.restyle(styles);
@@ -231,7 +267,10 @@ export class CmsPreview {
     if (win !== this.frame.contentWindow) return;
     this.win = win;
     this.hooks = hooks;
-    for (const id of hooks.mounted?.keys?.() || []) this.mountedConfig.set(id, instanceKey(hooks.config.instances?.[id]));
+    for (const id of hooks.mounted?.keys?.() || []) {
+      this.mountedConfig.set(id, instanceKey(hooks.config.instances?.[id]));
+      this.mountedInstances.set(id, clone(hooks.config.instances?.[id] || null));
+    }
     const doc = win.document;
     // before the draft replaces them
     this.fieldValues = readFieldValues(doc);
@@ -251,6 +290,11 @@ export class CmsPreview {
 }
 
 /** What decides whether an instance is mounted again: its type, settings and state. */
+/** A copy of an instance configuration (JSON). */
+function clone(value) {
+  return value == null ? null : JSON.parse(JSON.stringify(value));
+}
+
 function instanceKey(instance) {
   // {} and [] (an empty object in PHP JSON) are the same
   const value = (item) => (item == null || (typeof item === 'object' && !Object.keys(item).length) ? null : item);

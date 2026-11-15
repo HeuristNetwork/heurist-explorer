@@ -10,6 +10,9 @@
       "children": [
         {
           "name": "options.ui.showSourceHeader",
+          "modeDefaults": {
+            "website": false
+          },
           "type": "boolean",
           "label": "Show header",
           "req": "recommended",
@@ -22,6 +25,9 @@
         },
         {
           "name": "options.ui.initiallyExpanded",
+          "modeDefaults": {
+            "website": false
+          },
           "type": "boolean",
           "label": "Initially expanded",
           "req": "recommended",
@@ -31,6 +37,9 @@
         },
         {
           "name": "options.ui.showExpansion",
+          "modeDefaults": {
+            "website": false
+          },
           "type": "boolean",
           "label": "Expansion rules",
           "req": "recommended",
@@ -182,6 +191,9 @@
         },
         {
           "name": "options.nativeControls.sort",
+          "modeDefaults": {
+            "website": false
+          },
           "type": "boolean",
           "label": "Sort",
           "req": "recommended",
@@ -436,6 +448,9 @@
         },
         {
           "name": "options.interaction.persistentSelectionEnabled",
+          "modeDefaults": {
+            "website": false
+          },
           "type": "boolean",
           "label": "Collection / Persistent selection",
           "req": "recommended",
@@ -467,6 +482,9 @@
         },
         {
           "name": "options.interaction.adminInfoEnabled",
+          "modeDefaults": {
+            "website": false
+          },
           "type": "boolean",
           "label": "Admin info",
           "req": "recommended",

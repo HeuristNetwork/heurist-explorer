@@ -28,10 +28,11 @@ let progressCount = 0;
 /**
  * Open the progress dialog.
  *
- * @param {{title?: string, text?: string, counter?: boolean}} [options] `counter`: "3 of 50" below the bar.
+ * @param {{title?: string, text?: string, counter?: boolean, cancel?: boolean}} [options] `counter`: "3 of 50" below the
+ *        bar; `cancel: false`: no Cancel and no close button (a work that can not be stopped, e.g. New website).
  * @returns {{signal: AbortSignal, update: (done: number, total: number) => void, close: () => void}}
  */
-export function openProgressDialog({ title = '', text = '', counter = false } = {}) {
+export function openProgressDialog({ title = '', text = '', counter = false, cancel = true } = {}) {
   const controller = new AbortController();
   const dialogId = `h-progress-dialog-${++progressCount}`;
   const body = document.createElement('div');
@@ -50,7 +51,8 @@ export function openProgressDialog({ title = '', text = '', counter = false } = 
   const dialog = HMsg.showMsgDlg(body, {
     dialogId,
     title,
-    buttons: [{ label: $HR('Cancel'), class: 'h-btn', onClick: () => controller.abort() }]
+    ...(cancel ? { buttons: [{ label: $HR('Cancel'), class: 'h-btn', onClick: () => controller.abort() }] }
+      : { hideFooter: true, preventClose: true })
   });
   dialog?.addEventListener?.('close', () => {
     if (open) controller.abort();
