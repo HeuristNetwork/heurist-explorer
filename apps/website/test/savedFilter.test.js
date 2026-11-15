@@ -112,3 +112,24 @@ test('Saved filter designer: the button stays beside the summary field after the
   assert.equal(edit.getValues().savedFilter, 'People → Map · 1 value');
   assert.ok(edit.getFieldWidget('savedFilter').container.querySelector('.h-cms-saved-filter-edit'), 'the button is there');
 });
+
+test('Saved filter phase B: fields of record types as values from the record, record types of a query', async () => {
+  const { queryRecordTypes, recordFilterFieldTerms, recordTypesOf } = await import('../src/designer/savedFilterField.js');
+  const fields = {
+    10: [{ id: 1, name: 'Name', type: 'freetext' }, { id: 38, name: 'Image', type: 'file' }, { id: 9, name: 'Date', type: 'date' }],
+    12: [{ id: 1, name: 'Name', type: 'freetext' }, { id: 4, name: 'Text', type: 'blocktext' }, { id: 75, name: 'Author', type: 'resource' }]
+  };
+  const dbdefs = {
+    rectypes: () => [{ id: 10 }, { id: 12 }],
+    fields: (type) => fields[type] || [],
+    fieldGlobal: (id) => ({ concept: `2-${id}` })
+  };
+  assert.deepEqual(recordFilterFieldTerms(dbdefs, [10]), [{ id: '2-9', label: 'Date' }, { id: '2-1', label: 'Name' }]);
+  assert.deepEqual(recordFilterFieldTerms(dbdefs).map((term) => term.id), ['2-75', '2-9', '2-1'], 'every record type, no file / blocktext');
+  assert.deepEqual(queryRecordTypes([{ t: '10,12' }, { 'f:1': 'x' }]), [10, 12]);
+  assert.deepEqual(queryRecordTypes({ t: 5 }), [5]);
+  assert.deepEqual(queryRecordTypes(null), []);
+  const apiClient = { get: async (path, { query }) => ({ records: query.ids.split(',').map((id) => ({ rec_ID: id, rec_RecTypeID: Number(id) > 100 ? 12 : 10 })) }) };
+  assert.deepEqual(await recordTypesOf(apiClient, [5, 200, 6]), [10, 12]);
+  assert.deepEqual(await recordTypesOf(apiClient, []), []);
+});

@@ -80,3 +80,14 @@ test('Saved filter: a map extent is kept as a WKT rectangle and shown again as a
   const request = cmsFilterRequest({ id: 1, source: { query: { t: '10', geo: '$G$' } } }, { G: wkt });
   assert.equal(request.dataSource.request.q.geo, wkt);
 });
+
+test('Saved filter phase B: values from the record are kept and left out of the query until filled in', async () => {
+  const { cmsFilterReference } = await import('../src/site/cmsSavedFilter.js');
+  assert.equal(cmsFilterReference({ record: 'id' }), 'id');
+  assert.equal(cmsFilterReference({ field: '2-1' }), '2-1');
+  assert.equal(cmsFilterReference({ field: 'x' }), null);
+  assert.equal(cmsFilterReference('2-1'), null);
+  assert.deepEqual(normalizeCmsFilterValues({ A: { record: 'id' }, B: { field: '15' }, C: 'c' }),
+    { values: { A: { record: 'id' }, B: { field: '15' }, C: 'c' }, dropped: false });
+  assert.equal(cmsFilterQuery(3, { A: { record: 'id' } }), 'source=3');
+});

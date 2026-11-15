@@ -11,6 +11,11 @@
  * Limits (short URLs, CMS_FILTER_LIMITS = SavedFilterLink::LIMITS): 8 values, 200 characters a value, 10 items an
  * array, 2000 characters the query string. The checks refuse more; reading a URL ignores what is over the limits.
  *
+ * Values from the record (phase B): a stored value may be `{record: 'id'}` (the id of the record) or `{field: '<concept
+ * code or id>'}` (the values of a field of the record). The server fills them in for each record when it writes the
+ * link (cards, gallery, media of a record, Record field, the action menu of a record page); the query string leaves
+ * them out until then.
+ *
  *   cmsFilterQuery(12, {X1: 'Paris'})          // 'source=12&v.X1=Paris'
  *   parseCmsFilterQuery('?source=12&v.X1=Paris') // {source: 12, values: {X1: 'Paris'}}
  *
@@ -36,13 +41,28 @@ export const CMS_FILTER_MODULES = Object.freeze(['explorer', 'data', 'map', 'tim
 /** Name of a parameter (`$NAME$` of the query). */
 const NAME = /^[A-Za-z][A-Za-z0-9_]*$/;
 
+/** A field of a value from the record: concept code or local id (SavedFilterLink::FIELD_CODE). */
+const FIELD_CODE = /^\d+(?:-\d+)?$/;
+
 /**
- * The values within the limits: names of parameters, trimmed strings (a number becomes a string), arrays of strings;
- * empty values left out.
+ * The reference of a value from the record: 'id' (`{record: 'id'}`), the field code (`{field: '2-1'}`), or null.
+ *
+ * @param {*} value
+ * @returns {string|null}
+ */
+export function cmsFilterReference(value) {
+  if (!isMap(value) || Object.keys(value).length !== 1) return null;
+  if (value.record === 'id') return 'id';
+  return typeof value.field === 'string' && FIELD_CODE.test(value.field) ? value.field : null;
+}
+
+/**
+ * The values within the limits: names of parameters, trimmed strings (a number becomes a string), arrays of strings,
+ * values from the record (`{record: 'id'}`, `{field}`); empty values left out.
  *
  * @param {*} values
- * @returns {{values: Object<string, string|string[]>, dropped: boolean}} `dropped`: something was over a limit or not
- *          valid.
+ * @returns {{values: Object<string, string|string[]|object>, dropped: boolean}} `dropped`: something was over a limit or
+ *          not valid.
  */
 export function normalizeCmsFilterValues(values) {
   const result = {};
@@ -60,7 +80,13 @@ export function normalizeCmsFilterValues(values) {
       continue;
     }
     let item;
-    if (Array.isArray(value)) {
+    const reference = cmsFilterReference(value);
+    if (reference) {
+      item = reference === 'id' ? { record: 'id' } : { field: reference };
+    } else if (isMap(value)) {
+      dropped = true;
+      continue;
+    } else if (Array.isArray(value)) {
       const list = value.map(text);
       if (list.some((entry) => entry === null || entry.length > CMS_FILTER_LIMITS.length) || list.length > CMS_FILTER_LIMITS.items) dropped = true;
       item = list.filter((entry) => entry && entry.length <= CMS_FILTER_LIMITS.length).slice(0, CMS_FILTER_LIMITS.items);
@@ -95,6 +121,8 @@ export function cmsFilterQuery(source, values = {}) {
   if (!id) return '';
   const parts = [`source=${id}`];
   for (const [name, value] of Object.entries(normalizeCmsFilterValues(values).values)) {
+    // a value from the record is filled in by the server (phase B)
+    if (cmsFilterReference(value)) continue;
     for (const item of [value].flat()) parts.push(`v.${name}=${encodeURIComponent(item)}`);
   }
   const query = parts.join('&');

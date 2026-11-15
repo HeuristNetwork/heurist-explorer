@@ -47,7 +47,7 @@ import {
   cardTemplateTerms, openCardsForm, openEmailForm, openFieldForm, openLanguageForm, openMediaForm, openMenuForm, openReportForm, teamReportBody
 } from './widgetForms.js';
 import { openNewRecordPageForm, recordPageTerms, sitePageTerms } from './recordPageField.js';
-import { filterPageTerms } from './savedFilterField.js';
+import { filterPageTerms, recordFilterFieldTerms } from './savedFilterField.js';
 import { cmsFilterHref } from '#shared/site/cmsSavedFilter.js';
 import { QuerySource } from '#shared/data/QuerySource.js';
 import { QuerySourceProvider } from '#shared/data/QuerySourceProvider.js';
@@ -2033,7 +2033,9 @@ export class CmsDesigner {
           recordTypes: this.options.dbdefs?.rectypes?.() || [],
           canAddRecord: this._hasExplorer(),
           // the action Record page (plan 27g §6): record pages, Define new record page, the record picker
-          services: this._actionServices(services)
+          services: this._actionServices(services),
+          // Saved filter on a record page (plan 27j phase B): values from the record of the page, any record type
+          recordFields: this._onRecordPage() ? async () => recordFilterFieldTerms(this.options.dbdefs) : null
         });
       if (settings) this._edit((doc) => doc.setInstance(instanceId, { settings }));
     } else if (instance.type === 'menu' || instance.type === 'language') {
@@ -2212,6 +2214,21 @@ export class CmsDesigner {
     this.pagePanel?.classList.remove('h-cms-form-below');
     this._formWestMinimum(false);
     this._updateBar();
+  }
+
+  /** Whether the content of a record page is edited (plan 27g): its record gives values to Saved filters (plan 27j). */
+  _onRecordPage() {
+    if (this.current?.part !== 'content' || !this.site) return false;
+    const id = Number(this.current.recordId);
+    const find = (pages) => {
+      for (const page of pages || []) {
+        if (Number(page.id) === id) return page;
+        const found = find(page.children);
+        if (found) return found;
+      }
+      return null;
+    };
+    return Boolean(find(this.site.pages)?.record);
   }
 
   /** Whether the host gives the configuration forms without a dialog (bridge, review 2026-11-14). */

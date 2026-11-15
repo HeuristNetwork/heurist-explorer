@@ -100,7 +100,9 @@ runtime (`pageFilterRequest`) reads it, loads the query source as the visitor, f
 module of the page its start state (`filterInstanceState`). Modules do not read the URL. Explorer's bootstrap
 `state.pageRequest = {dataSource, raw, values, missing}` wins over the filter of the page; with missing values a published
 Explorer opens the Filter Form filled in (`HFilter.showSource(source, values)`). The website summary
-(`GET /website/{id}` → `meta.website`) has `modules` (module types) for the home and each page. The website bridge of Explorer
+(`GET /website/{id}` → `meta.website`) has `modules` (module types) for the home and each page. Stored values may be
+`{record: 'id'}` / `{field: '<concept code>'}` (phase B): the server fills them in for each record when it writes the
+link. The website bridge of Explorer
 has `selectExtent(current)` → `{west, south, east, north}|null` (the map extent of a Filter Form; only with a Map
 module URL), and `HFilter` takes the option `selectExtent`.
 

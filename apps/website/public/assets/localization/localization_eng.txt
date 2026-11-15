@@ -458,3 +458,6 @@
 #A value of this form can not be kept in a link (for example an extent).#A value of this form can not be kept in a link (for example an extent).
 #The link opens the target page with the records of the query source. Values left empty: Explorer asks for them, other modules leave them out.#The link opens the target page with the records of the query source. Values left empty: Explorer asks for them, other modules leave them out.
 #A Saved filter item needs a query source and a target page#A Saved filter item needs a query source and a target page
+#Values from the record#Values from the record
+#Record ID#Record ID
+#A value from the record wins over the value above. Each record gets its own link.#A value from the record wins over the value above. Each record gets its own link.

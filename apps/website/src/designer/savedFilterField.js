@@ -14,6 +14,10 @@
  * `savedFilterPicker` (the action menu rows) and `attachSavedFilter` (HEditForm forms: a read-only field with a summary
  * and the button that opens the popup) keep the value.
  *
+ * Values from the record (phase B): in a record context (Record cards, a media / gallery of records, a Record field of a
+ * record, the action menu of a record page) the popup has *Values from the record*: for each parameter the record id or
+ * a field of the record (`{record: 'id'}`, `{field: '<concept code>'}`), filled in by the server for each record.
+ *
  * @project     Heurist academic knowledge management system
  * @package     heurist-website
  * @link        https://HeuristNetwork.org
@@ -26,15 +30,69 @@
 
 import { $HR } from '#shared/ui';
 import { HFilterForm } from '#shared/widgets/filter/HFilterForm.js';
-import { resolveQueryParameters } from '#shared/data/queryParameters.js';
+import { describeQueryParameters, resolveQueryParameters } from '#shared/data/queryParameters.js';
 import {
   CMS_FILTER_LIMITS, CMS_FILTER_MODULES, cmsFilterFormValues, cmsFilterLinkValue, cmsFilterParameters, cmsFilterQuery,
-  cmsFilterSettings, normalizeCmsFilterValues
+  cmsFilterReference, cmsFilterSettings, normalizeCmsFilterValues
 } from '#shared/site/cmsSavedFilter.js';
 import { formDialog } from './designerDialogs.js';
 
 /** Dialog id of the popup (above the form that opens it). */
 const DIALOG_ID = 'h-cms-saved-filter';
+
+/** Field types that can not be a value of a link (phase B). */
+const NO_VALUE_TYPES = new Set(['file', 'blocktext', 'separator', 'relmarker']);
+
+/**
+ * Fields of record types as values from the record (phase B): their concept codes (stored), names, sorted; every
+ * record type without a list.
+ *
+ * @param {object} dbdefs HDbDefs.
+ * @param {number[]} [rectypeIds]
+ * @returns {Array<{id: string, label: string}>}
+ */
+export function recordFilterFieldTerms(dbdefs, rectypeIds = []) {
+  const types = rectypeIds.length ? rectypeIds : (dbdefs?.rectypes?.() || []).map((type) => Number(type.id));
+  const terms = new Map();
+  for (const type of types) {
+    for (const field of dbdefs?.fields?.(type) || []) {
+      if (NO_VALUE_TYPES.has(field.type)) continue;
+      const code = dbdefs.fieldGlobal?.(field.id)?.concept || String(field.id);
+      if (!terms.has(code)) terms.set(code, { id: code, label: field.name });
+    }
+  }
+  return [...terms.values()].sort((a, b) => a.label.localeCompare(b.label));
+}
+
+/**
+ * The record types of a query of Record cards: its `t` predicates (top level), e.g. `{"t": "10,12"}`.
+ *
+ * @param {*} query
+ * @returns {number[]}
+ */
+export function queryRecordTypes(query) {
+  const types = new Set();
+  for (const item of [query].flat()) {
+    if (!item || typeof item !== 'object') continue;
+    for (const id of String(item.t ?? '').split(',')) if (Number(id) > 0) types.add(Number(id));
+  }
+  return [...types];
+}
+
+/**
+ * The record types of records (`GET /records?ids=`), for the fields of values from the record.
+ *
+ * @param {object} apiClient
+ * @param {number[]} ids
+ * @returns {Promise<number[]>}
+ */
+export async function recordTypesOf(apiClient, ids = []) {
+  const list = [...new Set(ids.map(Number).filter((id) => id > 0))];
+  if (!list.length || !apiClient) return [];
+  const answer = await apiClient.get('/records', { query: { ids: list.join(','), fields: 'rec_ID,rec_RecTypeID', limit: list.length } });
+  const records = answer?.records || answer?.data?.records || [];
+  return [...new Set(records.map((record) => Number(record.rec_RecTypeID)).filter((id) => id > 0))];
+}
 
 /**
  * Pages of the website that can show records (a target of a Saved filter): Home and the menu pages, not record pages;
@@ -133,9 +191,11 @@ export function savedFilterSummary(value, { sources = [], pages = [] } = {}) {
  * @param {object} services `querySources()` → [{id, title}] (public ones), `querySourceDefinition(id)` → the normalized
  *        query source, `filterPages()` → filterPageTerms, `apiClient`, `dbdefs`, `selectExtent` (the Filter Form).
  * @param {{source?: number, page?: number, values?: object}|null} [value]
+ * @param {{recordFields?: (() => Promise<Array<{id: string, label: string}>>)|null}} [options] A record context (phase
+ *        B): the fields offered as values from the record.
  * @returns {Promise<{source: number, page: number, values: object}|null>}
  */
-export async function openSavedFilterForm(services, value = null) {
+export async function openSavedFilterForm(services, value = null, { recordFields = null } = {}) {
   const sources = await services.querySources?.().catch(() => []) ?? [];
   const pages = services.filterPages?.() || [];
   const form = element('form', 'h-cms-form h-cms-saved-filter-form');
@@ -147,18 +207,44 @@ export async function openSavedFilterForm(services, value = null) {
   const page = select([['', $HR('Choose the target page')], ...pages.map((item) => [String(item.id), item.label])],
     value?.page ? String(value.page) : '');
   const valuesHost = element('div', 'h-cms-saved-filter-values');
+  // values from the record (phase B): a select per parameter
+  const recordHost = element('div', 'h-cms-saved-filter-record');
+  const fieldTerms = recordFields ? await recordFields().catch(() => []) : null;
   const problems = element('div', 'h-cms-style-problems');
-  form.append(help, line('Query source', source), line('Target page', page), valuesHost, problems);
+  form.append(help, line('Query source', source), line('Target page', page), valuesHost, recordHost, problems);
+  const stored = value?.values || {};
+  const constants = Object.fromEntries(Object.entries(stored).filter(([, item]) => !cmsFilterReference(item)));
   if (!sources.length) problems.textContent = $HR('There is no public query source in this database.');
   // the Filter Form of the chosen source, made again for another source
-  const state = { definition: null, form: null, parameters: [], turn: 0 };
-  const showValues = async (values) => {
+  const state = { definition: null, form: null, parameters: [], turn: 0, references: new Map() };
+  const showReferences = (references) => {
+    recordHost.replaceChildren();
+    state.references = new Map();
+    if (!fieldTerms || !state.parameters.length) return;
+    const caption = element('div', 'h-cms-saved-filter-caption');
+    caption.textContent = $HR('Values from the record');
+    const note = element('div', 'h-cms-style-note');
+    note.textContent = $HR('A value from the record wins over the value above. Each record gets its own link.');
+    recordHost.append(caption, note);
+    const described = describeQueryParameters(state.definition.source.query, services.dbdefs) || {};
+    for (const name of state.parameters) {
+      const choice = select([['', '—'], ['id', $HR('Record ID')], ...fieldTerms.map((term) => [`field:${term.id}`, term.label])], '');
+      const current = cmsFilterReference(references[name]);
+      if (current) choice.value = current === 'id' ? 'id' : `field:${current}`;
+      const label = described[name]?.label ? `${described[name].label} (${name})` : name;
+      recordHost.append(line(label, choice, false));
+      state.references.set(name, choice);
+    }
+  };
+  const showValues = async (values, references = {}) => {
     const turn = ++state.turn;
     await state.form?.destroy?.();
     state.form = null;
     state.definition = null;
     state.parameters = [];
     valuesHost.replaceChildren();
+    recordHost.replaceChildren();
+    state.references = new Map();
     const id = Number(source.value) || 0;
     if (!id) return;
     let definition;
@@ -171,6 +257,7 @@ export async function openSavedFilterForm(services, value = null) {
     if (turn !== state.turn) return;
     state.definition = definition;
     state.parameters = cmsFilterParameters(definition);
+    showReferences(references);
     if (!state.parameters.length) {
       const note = element('div', 'h-cms-style-note');
       note.textContent = $HR('This query source has no parameters.');
@@ -195,13 +282,17 @@ export async function openSavedFilterForm(services, value = null) {
     }).render();
   };
   source.addEventListener('change', () => void showValues({}));
-  await showValues(value?.values || {});
+  await showValues(constants, stored);
   const read = () => {
     problems.textContent = '';
     const values = state.form ? formFilterValues(state.form.getValues()) : {};
     if (values === null) {
       problems.textContent = $HR('A value of this form can not be kept in a link (for example an extent).');
       return null;
+    }
+    for (const [name, choice] of state.references) {
+      if (choice.value === 'id') values[name] = { record: 'id' };
+      else if (choice.value.startsWith('field:')) values[name] = { field: choice.value.slice(6) };
     }
     const result = { source: Number(source.value) || 0, page: Number(page.value) || 0, values };
     const target = pages.find((item) => item.id === result.page);
@@ -223,7 +314,7 @@ export async function openSavedFilterForm(services, value = null) {
  * @param {object|null} [value] `{source, page, values}`.
  * @returns {{element: HTMLElement, value: () => object|null}}
  */
-export function savedFilterPicker(services, value = null) {
+export function savedFilterPicker(services, value = null, { recordFields = null } = {}) {
   let current = value && Number(value.source) > 0 ? value : null;
   const host = element('span', 'h-cms-saved-filter');
   const text = element('span', 'h-cms-saved-filter-text');
@@ -236,7 +327,7 @@ export function savedFilterPicker(services, value = null) {
     text.textContent = current ? savedFilterSummary(current, await names(services)) : $HR('Not defined');
   };
   edit.addEventListener('click', async () => {
-    const answer = await openSavedFilterForm(services, current);
+    const answer = await openSavedFilterForm(services, current, { recordFields });
     if (!answer) return;
     current = answer;
     await show();
@@ -255,7 +346,7 @@ export function savedFilterPicker(services, value = null) {
  * @param {{value: object|null}} holder
  * @param {string} [name='savedFilter'] The read-only field.
  */
-export function attachSavedFilter(edit, services, holder, name = 'savedFilter') {
+export function attachSavedFilter(edit, services, holder, name = 'savedFilter', { recordFields = null } = {}) {
   const hostOf = () => {
     const widget = edit.getFieldWidget?.(name);
     return widget?.container?.querySelector?.('.h-edit-field-value') || widget?.container || null;
@@ -274,7 +365,9 @@ export function attachSavedFilter(edit, services, holder, name = 'savedFilter') 
     if (host && button.parentElement !== host) host.append(button);
   };
   button.addEventListener('click', async () => {
-    const answer = await openSavedFilterForm(services, holder.value);
+    // a record context (phase B): the fields of the records chosen in the form now
+    const fields = recordFields ? () => recordFields(edit.getValues()) : null;
+    const answer = await openSavedFilterForm(services, holder.value, { recordFields: fields });
     if (!answer) return;
     holder.value = answer;
     await show();
@@ -311,10 +404,10 @@ function select(options, value) {
   return node;
 }
 
-function line(label, control) {
+function line(label, control, translate = true) {
   const node = element('label', 'h-cms-styles-field');
   const caption = element('span');
-  caption.textContent = $HR(label);
+  caption.textContent = translate ? $HR(label) : label;
   node.append(caption, control);
   return node;
 }

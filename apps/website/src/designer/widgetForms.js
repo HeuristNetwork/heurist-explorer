@@ -32,7 +32,7 @@ import {
   attachNewRecordPage, recordActionFields, recordActionIssues, recordActionSettings, recordActionTerms, recordActionValues
 } from './recordPageField.js';
 import { cmsFilterSettings } from '#shared/site/cmsSavedFilter.js';
-import { attachSavedFilter, storedSavedFilter } from './savedFilterField.js';
+import { attachSavedFilter, queryRecordTypes, recordFilterFieldTerms, recordTypesOf, storedSavedFilter } from './savedFilterField.js';
 
 /** Width and height of a new gallery: thumbnails. */
 const NEW_GALLERY_SIZE = '190px';
@@ -266,7 +266,12 @@ export async function openFieldForm({ reference, records, languages = [], dbdefs
       edit.showField('width', false);
       edit.showField('height', false);
       attachNewRecordPage(edit, services);
-      attachSavedFilter(edit, services, filter);
+      // values from the record (plan 27j phase B): the fields of the source record
+      attachSavedFilter(edit, services, filter, 'savedFilter', { recordFields: async (current) => {
+        const id = recordIdOf(current);
+        const record = id ? await recordOf(id).catch(() => null) : null;
+        return recordFilterFieldTerms(dbdefs, record ? [Number(record.rec_RecTypeID)] : []);
+      } });
       edit.container.append(value.host);
       void actionsOfSource(edit);
       void showValue(edit);
@@ -591,7 +596,12 @@ export async function openCardsForm({ settings = {}, dbdefs, apiClient, services
     onReady: (edit) => {
       addFormHelp(edit, `${$HR(CARDS_HELP)} ${$HR(CARDS_URL_HELP)}`);
       attachNewRecordPage(edit, services);
-      attachSavedFilter(edit, services, filter);
+      // values from the record (plan 27j phase B): the fields of the chosen records or of the types of the query
+      attachSavedFilter(edit, services, filter, 'savedFilter', { recordFields: async (values) => {
+        const types = values.mode === 'query' ? queryRecordTypes(parseCardsQuery(values.query))
+          : await recordTypesOf(apiClient, [values.records].flat().filter(Boolean)).catch(() => []);
+        return recordFilterFieldTerms(dbdefs, types);
+      } });
       showPresentation(edit);
     },
     onChange: (edit, change) => {
@@ -849,7 +859,11 @@ export async function openMediaForm({
     onReady: (edit) => {
       if (single) addFormHelp(edit, MEDIA_HELP);
       attachNewRecordPage(edit, services);
-      attachSavedFilter(edit, services, filter);
+      // values from the record (plan 27j phase B): the fields of the chosen records (Any record)
+      attachSavedFilter(edit, services, filter, 'savedFilter', { recordFields: async (values) => {
+        const types = await recordTypesOf(apiClient, chosen(values)).catch(() => []);
+        return recordFilterFieldTerms(dbdefs, types);
+      } });
       mediaPageField(edit);
     },
     onChange: async (edit, change) => {

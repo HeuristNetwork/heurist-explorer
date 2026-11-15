@@ -1,7 +1,7 @@
 # 27j Saved filter action (CMS links that show records of a query source)
 
-**Status (2026-11-15):** discussed and agreed with Artem (§3). **Phase A implemented** in both repos (§7), not committed, no
-browser check. Phases B and C not started (§5).
+**Status (2026-11-15):** discussed and agreed with Artem (§3). **Phase A implemented** in both repos (§7). **Phase B
+implemented** (§8): not committed, no browser check. Phase C not started (§5).
 
 Review 2026-11-15, item 19. The CMS actions (action menu, Record field link, media, Record cards) offer *Saved filter*.
 Since plan 27g it has only been a disabled option. It is not stored, not allowed by `StoredText`, and not written by
@@ -227,3 +227,43 @@ gallery) and the Record field link form:
 4. **No button in Record cards, Media gallery, media and Record field:** writing the summary into the read-only field
    draws the field again (`HEditField.setState` → `render`), and that removed the button at once.
    `attachSavedFilter` now writes the summary first and puts the button after it each time. A test builds the form.
+
+## 8. Phase B: values from the record (2026-11-15)
+
+### 8.1 What was done
+
+- **Stored values:** a value may be `{record: 'id'}` (the record id) or `{field: '<concept code>'}` (the values of a field
+  of the record).
+  - `cmsFilterReference` / `SavedFilterLink::reference` read them.
+  - They count toward the 8 values.
+  - The query string leaves them out until the server fills them in.
+  - Shared fixture cases.
+- **Server** (`SavedFilterLink::resolve`, `PageContent::filterValues`) fills them in for each record:
+  - record id;
+  - one value of a field = a string, several values = a list (at most 10);
+  - an empty field leaves its value out.
+  - When the link has values from the record and none of them has a value, **no link is written** (it would show every
+    record).
+  - Records are read with the rights of the visitor (`WebsiteRepository::records`).
+- **Which record each element uses:**
+  - Record cards and Media gallery (Any record): each card or figure gets its own link (`recordLinks`).
+  - Media element of a record (`recordFilterLink`): its record.
+  - Record field (`fieldLink`): the record of its reference (a record id, `website.`, `page.`, `record.`).
+  - Action menu (`actionMenuHtml`): the record of a record page; on other pages its values from the record are missing.
+- **Designer** (`savedFilterField.js`): in a record context the popup has *Values from the record*, a select per
+  parameter with Record ID and the fields of the record types (`recordFilterFieldTerms`: no file, blocktext,
+  separator, relmarker; stored as concept codes). A value from the record wins over the value of the Filter Form.
+  The record types of each context:
+  - Record cards: the chosen records (`recordTypesOf`) or the `t` of the query (`queryRecordTypes`);
+  - media / gallery of Any record: the chosen records;
+  - Record field: its source record;
+  - the action menu in the content of a record page: every record type.
+
+### 8.2 Tests
+
+- `shared/test/cmsSavedFilter.test.js` and the shared fixture.
+- `apps/website/test/savedFilter.test.js`: field terms, record types.
+- `heurist/tests/SavedFilterLinkTest.php`: resolve, StoredText.
+- `heurist/tests/WebsiteRenderTest.php`: the link of each record, a Record field with its record id, no link without a
+  value. The record page there is rendered without PageContent, so the full page is not checked.
+

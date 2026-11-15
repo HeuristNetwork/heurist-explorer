@@ -458,3 +458,6 @@
 #A value of this form can not be kept in a link (for example an extent).#Une valeur de ce formulaire ne peut pas être gardée dans un lien (par exemple une étendue).
 #The link opens the target page with the records of the query source. Values left empty: Explorer asks for them, other modules leave them out.#Le lien ouvre la page cible avec les enregistrements de la source de requête. Valeurs vides : Explorer les demande, les autres modules les ignorent.
 #A Saved filter item needs a query source and a target page#Un élément Filtre enregistré demande une source de requête et une page cible
+#Values from the record#Valeurs de l’enregistrement
+#Record ID#ID de l’enregistrement
+#A value from the record wins over the value above. Each record gets its own link.#Une valeur de l’enregistrement l’emporte sur la valeur ci-dessus. Chaque enregistrement a son propre lien.

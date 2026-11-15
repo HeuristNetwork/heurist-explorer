@@ -135,11 +135,14 @@ export function openSocialForm({ settings = {} } = {}) {
  * @param {object} [options.services] Record page (plan 27g §6): `recordPageTerms()`, `createRecordPage`, `cardTemplates`,
  *        `templateTerms` (recordPagePicker) and `browseRecords` (the record); with `apiClient` and `dbdefs` the record
  *        is chosen in HInputResource (its title and record type icon; `iconBase` {baseUrl, database} of the icons).
+ * @param {(() => Promise<Array<object>>)|null} [options.recordFields] The action menu of a record page (plan 27j phase B):
+ *        the fields offered as values from the record of a Saved filter.
  * @param {{title?: string, actions?: string[]}|null} [options.single] One item without the presentation, Add and Remove
  *        (Link of the text editor, 2026-11-14): the title of the popup and the offered actions; the answer is the item.
  * @returns {Promise<object|null>} Settings (single: the item).
  */
-export function openActionMenuForm({ settings = {}, pages = [], recordTypes = [], canAddRecord = false, services = {}, single = null } = {}) {
+export function openActionMenuForm({ settings = {}, pages = [], recordTypes = [], canAddRecord = false, services = {}, single = null,
+  recordFields = null } = {}) {
   const form = element('form', 'h-cms-form h-cms-action-form');
   if (single) form.classList.add('h-cms-action-single');
   form.append(helpLine(single ? 'A link to a page of the website, a record on a record page, or another website.'
@@ -196,7 +199,7 @@ export function openActionMenuForm({ settings = {}, pages = [], recordTypes = []
     const recordTarget = element('span', 'h-cms-action-record');
     recordTarget.append(recordPage.element, record.element);
     // Saved filter (plan 27j): the query source, the target page and the values in a popup
-    const filter = savedFilterPicker(services, storedSavedFilter(item));
+    const filter = savedFilterPicker(services, storedSavedFilter(item), { recordFields });
     if (item.action === 'url') url.value = item.target || '';
     else if (item.action === 'addRecord') type.value = String(item.target || '');
     else if (!['recordPage', 'savedFilter'].includes(item.action) && item.target) page.value = String(item.target);
