@@ -295,7 +295,8 @@ export class RecordEditorHost {
         dialogId,
         title: isFile ? $HR('File details') : (recordId > 0 ? $HR('Edit record') : $HR('New record')),
         hideFooter: true,
-        preventClose: true
+        preventClose: true,
+        maximize: true
       });
       dialog?.classList.add('h-dialog-record-editor');
       dialog?.addEventListener('close', onDialogClose);

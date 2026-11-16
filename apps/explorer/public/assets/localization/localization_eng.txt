@@ -1378,3 +1378,5 @@
 #Default layout#Default layout
 #Sub pages#Sub pages
 #Site menu#Site menu
+#Maximize#Maximize
+#Restore#Restore

@@ -140,7 +140,7 @@ function showManager(host, manager, options, { dialogId, render, keep }) {
     on('h-record-manager-error', (event) => {
       HMsg.showMsgErr?.(event.detail.error?.message || String(event.detail.error));
     });
-    dialog = HMsg.showMsgDlg(host, { dialogId, title: options.title || managerTitle(options), buttons });
+    dialog = HMsg.showMsgDlg(host, { dialogId, title: options.title || managerTitle(options), buttons, maximize: true });
     dialog?.classList.add('h-dialog-record-manager');
     dialog?.addEventListener('close', onDialogClose);
     syncSelect(dialog, manager.getSelection());

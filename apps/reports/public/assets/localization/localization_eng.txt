@@ -288,3 +288,5 @@
 #visible_hint#visible to any logged-in user
 #pending_hint#pending (viewable by anyone, changes pending)
 #public_hint#public (viewable by anyone)
+#Maximize#Maximize
+#Restore#Restore

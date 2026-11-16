@@ -1378,3 +1378,5 @@
 #Default layout#Disposition par défaut
 #Sub pages#Sous-pages
 #Site menu#Menu du site
+#Maximize#Agrandir
+#Restore#Restaurer

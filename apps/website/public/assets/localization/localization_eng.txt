@@ -542,3 +542,5 @@
 #Font Awesome icon classes (optional; fa-solid when no style is given)#Font Awesome icon classes (optional; fa-solid when no style is given)
 #A click on a link of a menu, of the breadcrumbs or on the logo in the preview opens its page.#A click on a link of a menu, of the breadcrumbs or on the logo in the preview opens its page.
 #This page is not in the website#This page is not in the website
+#Maximize#Maximize
+#Restore#Restore

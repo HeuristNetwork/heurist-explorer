@@ -39,11 +39,15 @@ export class HMsg {
     dlg.innerHTML = `
       <header class="h-dialog-header">
         <h2 class="h-dialog-title">Message</h2>
+        <button type="button" class="h-dialog-close h-dialog-maximize" data-role="maximize" hidden></button>
         <button type="button" class="h-dialog-close" data-role="close" aria-label="Close">×</button>
       </header>
       <div class="h-dialog-body"></div>
       <footer class="h-dialog-footer"></footer>`;
     dlg.querySelector('[data-role="close"]')?.addEventListener('click', () => dlg.close());
+    dlg.querySelector('[data-role="maximize"]')?.addEventListener('click', () => {
+      HMsg._setMaximized(dlg, !dlg.classList.contains('h-dialog-maximized'));
+    });
     dlg.addEventListener('cancel', (event) => {
       if (dlg.dataset.preventClose === 'true') event.preventDefault();
     });
@@ -72,6 +76,8 @@ export class HMsg {
    * @param {string} [options.title] Title resource key.
    * @param {boolean} [options.hideHeader] Hide the header bar.
    * @param {boolean} [options.hideFooter] Hide the footer/buttons bar.
+   * @param {boolean} [options.maximize] A Maximize / Restore button in the header (2026-11-16): the dialog over the
+   *        whole window and back. The state stays with the dialog id while the dialog is shown again with this option.
    * @param {boolean} [options.preventClose] Disallow closing via backdrop click, Escape, or the close button.
    * @param {boolean} [options.closeOnBackdrop] A click outside closes the dialog; the default for a message
    *        (a text, or `message: true`). A form stays open.
@@ -98,6 +104,9 @@ export class HMsg {
     header.hidden = options.hideHeader === true;
     footer.hidden = options.hideFooter === true;
     closeBtn.hidden = options.preventClose === true;
+    const maximizeBtn = dlg.querySelector('[data-role="maximize"]');
+    if (maximizeBtn) maximizeBtn.hidden = options.maximize !== true;
+    HMsg._setMaximized(dlg, options.maximize === true && dlg.classList.contains('h-dialog-maximized'));
     title.textContent = $HR(options.title ?? 'Generic_Title');
     body.replaceChildren();
     footer.replaceChildren();
@@ -140,6 +149,24 @@ export class HMsg {
   static closeMsgDlg(dialogId) {
     const dlg = HMsg.getMsgDlg(dialogId);
     if (dlg.open) dlg.close();
+  }
+
+  /**
+   * Maximize the dialog over the whole window or restore its size; the header button shows the other state.
+   *
+   * @private
+   * @param {HTMLDialogElement} dlg
+   * @param {boolean} maximized
+   * @returns {void}
+   */
+  static _setMaximized(dlg, maximized) {
+    dlg.classList.toggle('h-dialog-maximized', maximized);
+    const button = dlg.querySelector('[data-role="maximize"]');
+    if (!button) return;
+    const label = $HR(maximized ? 'Restore' : 'Maximize');
+    button.textContent = maximized ? '❐' : '☐';
+    button.title = label;
+    button.setAttribute('aria-label', label);
   }
 
   /**

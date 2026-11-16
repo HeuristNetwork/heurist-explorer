@@ -295,6 +295,19 @@ select.h-select:not([multiple]):not([size]) {
   height:calc(100vh - 24px);
   max-height:calc(100vh - 24px);
 }
+/* Maximize / Restore button of the header (HMsg.showMsgDlg `maximize`, 2026-11-16): the dialog over the whole window;
+   `dialog.` wins over the size rules of single dialogs (record editor, record manager) */
+.h-dialog-maximize { font-size:var(--h-font-size-large); }
+dialog.h-dialog.h-dialog-maximized[open] {
+  display:flex;
+  flex-direction:column;
+  width:calc(100vw - 8px);
+  height:calc(100vh - 8px);
+  max-width:none;
+  max-height:none;
+  margin:4px;
+}
+.h-dialog.h-dialog-maximized > .h-dialog-body { flex:1 1 auto; height:auto; min-height:0; max-height:none; }
 .h-dialog-body-flush {
   flex:1 1 auto;
   min-height:0;
