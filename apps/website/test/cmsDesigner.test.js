@@ -66,6 +66,20 @@ test('a website record as a document; translations; changed fields only', () => 
   assert.deepEqual(page.partNames(), ['content']);
 });
 
+test('a loaded record: legacy file URLs of parts, configuration and translations become ./api/... (plan 34)', () => {
+  const config = JSON.stringify({ schema: 'heurist-cms/4', instances: {}, styles: { nodes: { n1: { 'background-image': 'url(http://h/?db=db&file=k2&fullres=1)' } } } });
+  const record = { rec_RecTypeID: '52', details: {
+    4: ['<p data-h-node="p" data-h-text=""><img src="./?db=db&amp;file=k1&amp;fancybox=1"></p>'],
+    1187: [config],
+    1202: ['fre:{"p":"<p><video src=\\"http://h/?db=db&amp;file=k3\\"></video></p>"}']
+  } };
+  const doc = recordDocument(record, CODES, { baseUrl: 'http://h/' });
+  const saved = doc.serialize();
+  assert.match(saved.parts.content, /<img src="\.\/api\/db\/files\/k1\/web">/);
+  assert.match(saved.configuration, /url\(\.\/api\/db\/files\/k2\/asset\)/);
+  assert.equal(doc.translation('fre', 'p'), '<p><video src="./api/db/files/k3/asset"></video></p>');
+});
+
 test('menu places, sub pages and drop places of the website tree', () => {
   assert.deepEqual(menuPlace(MENU, 13).parent, 11);
   assert.equal(menuPlace(MENU, 12).index, 1);
@@ -382,7 +396,8 @@ test('Background image: HInputFile with the file of the key (GET /files/{key}); 
   assert.ok(thumb && !thumb.hidden, 'the HInputFile thumbnail');
   host.remove();
   const html = previewDocument({ base: {}, kinds: {}, presets: { banner: style }, css: '' }, '', 'http://h/');
-  assert.match(html, /background-image:url\(http:\/\/h\/\?db=db&file=abc123\)/, 'the image of the Heurist base URL in the preview');
+  // a legacy URL of the Heurist base URL: the file endpoint in the preview (plan 34)
+  assert.match(html, /background-image:url\(http:\/\/h\/api\/db\/files\/abc123\/web\)/, 'the image of the Heurist base URL in the preview');
 });
 
 test('Own style: custom CSS class beside the preset (checked), named base colours of the colour inputs', async () => {

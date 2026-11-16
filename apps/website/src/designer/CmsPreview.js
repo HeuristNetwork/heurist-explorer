@@ -23,6 +23,7 @@
  */
 
 import { compileCmsStyles } from '#shared/site/cmsDocument.js';
+import { resolveFileUrls } from '#shared/data/fileUrls.js';
 
 /** Containers of the parts in the page (srv PageRenderer); the content is in the section of the page (plan 27f §2.2). */
 const CONTAINERS = Object.freeze({ header: '.h-site-header', content: '.h-site-main > .h-site-page', footer: '.h-site-footer' });
@@ -188,7 +189,8 @@ export class CmsPreview {
       // Explorer, so Map, Graph and Timeline of an Explorer got no new results), then the old content goes
       const oldNodes = [...container.childNodes].filter((node) => node !== toggle);
       const template = doc.createElement('template');
-      template.innerHTML = html;
+      // stored file URLs (./api/… or legacy ?file=) made absolute: the preview page is not the Heurist base (plan 34)
+      template.innerHTML = resolveFileUrls(html, { baseUrl: this.options.baseUrl || '' });
       const fresh = [...template.content.querySelectorAll('[data-h-instance]')];
       container.append(template.content);
       const canMove = typeof container.moveBefore === 'function';

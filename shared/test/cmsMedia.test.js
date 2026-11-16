@@ -33,27 +33,27 @@ test('isCmsMediaThumbnail: both under 200 px, or one under 200 px and the other 
 
 test('buildCmsMedia: image in its size, the OSD link in view mode; the caption without the link', () => {
   const plain = buildCmsMedia(file(), { width: '400px', height: 'auto' }, { urls, caption: 'A map' });
-  assert.equal(plain, '<img src="http://h/?db=db&amp;file=k1" alt="A map" width="400" loading="lazy" /><figcaption>A map</figcaption>');
+  assert.equal(plain, '<img src="http://h/api/db/files/k1/web" alt="A map" width="400" loading="lazy" /><figcaption>A map</figcaption>');
   const linked = buildCmsMedia(file(), { view: true }, { urls, caption: 'A & B' });
-  assert.match(linked, /^<img src="http:\/\/h\/\?db=db&amp;file=k1"/, 'no link around the media');
+  assert.match(linked, /^<img src="http:\/\/h\/api\/db\/files\/k1\/web"/, 'no link around the media');
   assert.match(linked, /<figcaption>A &amp; B <a href="[^"]+openSeadragonViewer[^"]+" target="_blank" rel="noreferrer noopener">Open in OSD viewer<\/a><\/figcaption>$/);
   assert.equal(cmsMediaCaption(linked), 'A & B', 'the caption of the HTML, without the link');
   const french = buildCmsMedia(file(), { view: true }, { urls, caption: 'Carte', language: 'fre' });
   assert.match(french, />Ouvrir dans OSD<\/a>/, 'link labels in the language');
-  assert.match(buildCmsMedia(file(), { width: '100px' }, { urls }), /^<img src="http:\/\/h\/\?db=db&amp;thumb=k1" alt="a\.jpg" width="100"/, 'small: the thumbnail; alt = the file name');
+  assert.match(buildCmsMedia(file(), { width: '100px' }, { urls }), /^<img src="http:\/\/h\/api\/db\/files\/k1\/thumbnail" alt="a\.jpg" width="100"/, 'small: the thumbnail; alt = the file name');
 });
 
 test('buildCmsMedia: the action alone decides: inline players without it, no player and no details in view mode', () => {
   assert.equal(buildCmsMedia(file({ ext: 'mp4' }), { width: '640px', height: '360px' }, { urls }),
-    '<video controls="" preload="metadata" src="http://h/?db=db&amp;file=k1" width="640" height="360"></video>');
-  assert.equal(buildCmsMedia(file({ ext: 'mp3' }), {}, { urls }), '<audio controls="" preload="metadata" src="http://h/?db=db&amp;file=k1"></audio>');
-  assert.match(buildCmsMedia(file({ ext: 'mp4' }), { width: '150px' }, { urls }), /^<img [^>]*thumb=k1/, 'without the action: the thumbnail only');
+    '<video controls="" preload="metadata" src="http://h/api/db/files/k1/asset" width="640" height="360"></video>');
+  assert.equal(buildCmsMedia(file({ ext: 'mp3' }), {}, { urls }), '<audio controls="" preload="metadata" src="http://h/api/db/files/k1/asset"></audio>');
+  assert.match(buildCmsMedia(file({ ext: 'mp4' }), { width: '150px' }, { urls }), /^<img [^>]*k1\/thumbnail/, 'without the action: the thumbnail only');
   const youtube = file({ ext: '', url: 'https://youtu.be/abcdefg' });
   assert.match(buildCmsMedia(youtube, { width: '480px', height: '270px' }, { urls }),
     /^<iframe src="https:\/\/www\.youtube\.com\/embed\/abcdefg" width="480" height="270" title="a\.jpg" loading="lazy" allow="autoplay; fullscreen" allowfullscreen=""><\/iframe>$/);
   for (const media of [file({ ext: 'mp4' }), file({ ext: 'mp3' }), youtube]) {
     const html = buildCmsMedia(media, { view: true }, { urls });
-    assert.match(html, /^<img [^>]*thumb=k1/);
+    assert.match(html, /^<img [^>]*k1\/thumbnail/);
     assert.doesNotMatch(html, /<details|<iframe|<video|<audio/);
   }
   assert.match(buildCmsMedia(file({ ext: 'json', source: 'iiif' }), { view: true }, { urls }), /miradorViewer\.php\?db=db&amp;manifest=k1.*Open in Mirador/,
@@ -62,7 +62,7 @@ test('buildCmsMedia: the action alone decides: inline players without it, no pla
     /miradorViewer\.php\?db=db&amp;id=k1/, 'an IIIF image: id=');
   assert.match(buildCmsMedia(file({ ext: 'nxz' }), { view: true }, { urls }), /3dhopViewer\.php\?db=db&amp;file=k1.*Open 3D viewer/);
   assert.match(buildCmsMedia(file({ ext: 'glb' }), { view: true }, { urls }), /hclient\/widgets\/viewers\/3dViewer\.php/);
-  assert.match(buildCmsMedia(file({ ext: 'pdf' }), { width: '300px', view: true }, { urls }), /^<img src="[^"]*thumb=k1".*>Open PDF<\/a>/);
+  assert.match(buildCmsMedia(file({ ext: 'pdf' }), { width: '300px', view: true }, { urls }), /^<img src="[^"]*k1\/thumbnail".*>Open PDF<\/a>/);
   assert.equal(buildCmsMedia(file({ ext: 'docx', name: 'a.docx' }), {}, { urls }), '', 'not media: nothing');
 });
 
@@ -89,7 +89,7 @@ test('a single media element carries the view on its node; without the action th
   const view = cmsMediaView(file(), urls);
   doc.setMedia(id, { settings: { file: 'k1', action: 'viewer' }, html: buildCmsMedia(file(), { view: true }, { urls }), view });
   const saved = doc.serialize().parts.content;
-  assert.match(saved, /^<figure data-h-node="[^"]+" data-h-media="[^"]+" data-h-text="" data-h-view="image" data-h-full="http:\/\/h\/\?db=db&amp;file=k1">/);
+  assert.match(saved, /^<figure data-h-node="[^"]+" data-h-media="[^"]+" data-h-text="" data-h-view="image" data-h-full="http:\/\/h\/api\/db\/files\/k1\/asset">/);
   doc.setMedia(id, { settings: { file: 'k1' }, html: buildCmsMedia(file(), {}, { urls }) });
   assert.doesNotMatch(doc.serialize().parts.content, /data-h-view|data-h-full/);
 });
@@ -155,8 +155,9 @@ test('cmsMediaView: the file, the player with autoplay, or the viewer', () => {
   assert.equal(cmsMediaView(file({ ext: 'docx', name: 'a.docx' }), urls), null);
 });
 
-test('fileMediaUrls (2026-11-16): legacy URLs by default (stored in records), the file endpoints with apiBaseUrl', () => {
-  assert.equal(urls.web('k1'), 'http://h/?db=db&file=k1', 'legacy ?file= gives the web copy itself');
+test('fileMediaUrls (plan 34): the file endpoints, the API root of the runtime, the relative stored form', () => {
+  assert.equal(urls.web('k1'), 'http://h/api/db/files/k1/web', '{baseUrl}api by default');
+  assert.equal(fileMediaUrls('http://h/', 'db', { relative: true }).file('k1'), './api/db/files/k1/asset', 'stored form');
   const api = fileMediaUrls('http://h/', 'db', { apiBaseUrl: 'http://h/api/' });
   assert.equal(api.thumb('k1'), 'http://h/api/db/files/k1/thumbnail');
   assert.equal(api.web('k1'), 'http://h/api/db/files/k1/web');

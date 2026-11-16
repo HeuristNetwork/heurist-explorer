@@ -19,6 +19,7 @@
  */
 
 import { cmsFilterProblem } from './cmsSavedFilter.js';
+import { resolveFileUrls } from '../data/fileUrls.js';
 
 export const CMS_SCHEMA = 'heurist-cms/4';
 
@@ -559,7 +560,8 @@ function declarations(style, id, baseUrl, issues) {
       issues.push(issue('warning', 'style_value', `Value of style property "${property}" is not allowed`, id));
       continue;
     }
-    css += `${property}:${value};`;
+    // file URLs of background images (stored ./api/… or legacy ?file=): the absolute file endpoints (plan 34)
+    css += `${property}:${property === 'background-image' ? resolveFileUrls(value, { baseUrl }) : value};`;
     // a colour of an element is the colour of its headings too (they take --h-site-heading-color, 2026-11-14)
     if (property === 'color') css += `--h-site-heading-color:${value};`;
   }

@@ -558,6 +558,8 @@ own planning session. Section numbers in brackets are plan 20.
   `siteRuntime`); URLs stored in records (media / gallery / badges HTML, TinyMCE text, background images of styles)
   stay legacy `?file=` for now. Test
   `heurist/tests/WebImageCacheTest.php`.
+- File URLs everywhere on the file endpoints (plan 34, 2026-11-16, not committed): one URL rule `srv/Files/FileUrls` =
+  `shared/src/data/fileUrls.js`, stored form `./api/{db}/files/{key}/{kind}`, server player `srv/Files/FilePlayerHtml`.
 
 ### 11.4 Definitions
 

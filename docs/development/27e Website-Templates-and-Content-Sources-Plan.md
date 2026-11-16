@@ -445,8 +445,7 @@ Implemented, not committed, not checked in a browser.
   `/api/{db}/files/{key}/web` (reduced copy of a large image), the banner 99-951 = `/asset` (the original),
   background videos of groups (`siteRuntime.enhanceBackgroundVideos`) = `/asset`. `fileMediaUrls(baseUrl, db, {apiBaseUrl})`
   gives them; without `apiBaseUrl` the legacy URLs.
-- URLs **stored in records** stay legacy `?file=KEY` for now: the HTML of media, galleries and badges written by the
-  designer (`buildCmsMedia`), TinyMCE text, background images of styles (`&fullres=1`). Legacy URLs keep working; no
-  conversion. A later decision may store new URLs.
-- Record cards (Smarty, `ReportEnvironment::fileUrl`) still write legacy URLs (shared with reports).
+- ~~URLs stored in records stay legacy~~ **Changed the same day by plan 34** (`34 File-Endpoints-Transition-Plan.md`):
+  stored URLs = relative `./api/{db}/files/{key}/{kind}`; old stored legacy URLs are rewritten on output and stored
+  new at the next save; Record cards (Smarty) use the file endpoints too.
 

@@ -251,7 +251,7 @@ export class CmsDesigner {
   discard() {
     const record = this.current && this.records.get(this.current.recordId);
     if (!record) return;
-    record.doc = recordDocument(record.record, this.codes);
+    record.doc = recordDocument(record.record, this.codes, { baseUrl: this.options.runtime?.baseUrl || '' });
     delete record.fieldChanges;
     this.undoStack = [];
     this.redoStack = [];
@@ -288,7 +288,7 @@ export class CmsDesigner {
     const data = response?.data ?? response;
     const record = data?.records?.[0];
     if (!record) throw new Error(`Record ${id} was not found`);
-    const doc = recordDocument(record, this.codes);
+    const doc = recordDocument(record, this.codes, { baseUrl: this.options.runtime?.baseUrl || '' });
     const entry = { id, entity, record, doc, saved: doc.serialize(), modified: String(record.rec_Modified || ''), canEdit: data.meta?.canEdit !== false };
     this.records.set(id, entry);
     return entry;
@@ -382,7 +382,7 @@ export class CmsDesigner {
     if (answer === 'save') return this.save();
     if (answer === 'discard') {
       const record = this._currentRecord();
-      record.doc = recordDocument(record.record, this.codes);
+      record.doc = recordDocument(record.record, this.codes, { baseUrl: this.options.runtime?.baseUrl || '' });
       delete record.fieldChanges;
       return true;
     }
@@ -1039,7 +1039,8 @@ export class CmsDesigner {
   _templateBuilders() {
     const runtime = this.options.runtime || {};
     const baseUrl = runtime.baseUrl || '';
-    const urls = fileMediaUrls(baseUrl, runtime.database || '');
+    // stored HTML: the relative file endpoints (./api/…, plan 34), made absolute by the server and the preview
+    const urls = fileMediaUrls(baseUrl, runtime.database || '', { relative: true });
     const languages = this.site?.languages || [];
     return {
       mediaHtml: (file, settings) => buildCmsMedia(file, settings, { urls, language: languages[0] || 'eng' }),
@@ -1636,7 +1637,7 @@ export class CmsDesigner {
       return null;
     }
     const runtime = this.options.runtime || {};
-    const html = buildCmsMedia(file, {}, { urls: fileMediaUrls(runtime.baseUrl || '', runtime.database || ''), language: this.language || 'eng' });
+    const html = buildCmsMedia(file, {}, { urls: fileMediaUrls(runtime.baseUrl || '', runtime.database || '', { relative: true }), language: this.language || 'eng' });
     // the caption of buildCmsMedia is empty: the media alone (Caption of the toolbar adds one)
     return html || null;
   }
@@ -1860,7 +1861,7 @@ export class CmsDesigner {
     const languages = this.site?.languages || [];
     const { file } = result.items[0];
     const runtime = this.options.runtime || {};
-    const urls = fileMediaUrls(runtime.baseUrl || '', runtime.database || '');
+    const urls = fileMediaUrls(runtime.baseUrl || '', runtime.database || '', { relative: true });
     const view = result.settings.action === 'viewer' ? cmsMediaView(file, urls) : null;
     const saved = { ...result.settings, file: file.key };
     const html = (caption, language) => buildCmsMedia(file, { ...saved, view: Boolean(view) }, { urls, caption, language });
@@ -1940,7 +1941,8 @@ export class CmsDesigner {
       selectExtent: typeof this.bridge?.selectExtent === 'function' ? (current) => this.bridge.selectExtent(current) : null,
       apiClient: this.apiClient,
       dbdefs: this.options.dbdefs,
-      fileUrl: fileMediaUrls(runtime.baseUrl || '', runtime.database || '').file,
+      // the snapshot of a file field (an image): the relative web copy (plan 34)
+      fileUrl: fileMediaUrls(runtime.baseUrl || '', runtime.database || '', { relative: true }).web,
       // "Limit values per field" of the Explorer configuration (plan 23)
       valueLimit: normalizeRecordLimits(runtime.recordLimits).values
     };
@@ -2124,7 +2126,7 @@ export class CmsDesigner {
       });
       if (!result) return;
       const runtime = this.options.runtime || {};
-      const urls = fileMediaUrls(runtime.baseUrl || '', runtime.database || '');
+      const urls = fileMediaUrls(runtime.baseUrl || '', runtime.database || '', { relative: true });
       const build = (language) => buildBadgesHtml(result.items, result.settings, { urls, language });
       const languages = this.site?.languages || [];
       const html = languages.length ? Object.fromEntries(languages.map((code) => [code, build(code)])) : { def: build('') };
@@ -2185,7 +2187,7 @@ export class CmsDesigner {
   /** The HTML of a gallery (stored per language): a figure for each file. */
   _galleryHtml(settings, items) {
     const runtime = this.options.runtime || {};
-    const urls = fileMediaUrls(runtime.baseUrl || '', runtime.database || '');
+    const urls = fileMediaUrls(runtime.baseUrl || '', runtime.database || '', { relative: true });
     const media = { ...CMS_MEDIA_DEFAULTS, width: settings.width, height: settings.height, view: settings.action === 'viewer' };
     // Type Any record: the record of each figure, for the link of the action (plan 27g §6)
     const record = settings.mode === 'record';

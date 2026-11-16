@@ -570,9 +570,9 @@ export class RecordViewRenderer {
     return `${this.baseUrl}?db=${encodeURIComponent(this.database)}&icon=${recordTypeId}`;
   }
 
-  /** File thumbnail URL (`?db={db}&thumb={obfuscatedId}`). */
+  /** File thumbnail URL (`/api/{db}/files/{key}/thumbnail`, plan 34). */
   #thumbUrl(fileId) {
-    return `${this.baseUrl}?db=${encodeURIComponent(this.database)}&thumb=${encodeURIComponent(fileId)}`;
+    return fileMediaUrls(this.baseUrl, this.database).thumb(fileId);
   }
 }
 

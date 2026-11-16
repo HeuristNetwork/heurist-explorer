@@ -1,0 +1,17 @@
+{
+  "description": "Players of registered files (plan 34): the element and the URL kind chosen by the client (cmsMedia buildCmsMedia, rich-text mediaTag) and the server (srv/Files/FilePlayerHtml, Smarty mode=player). The markup may differ. Run by shared/test/filePlayers.test.js and heurist tests/FilePlayerHtmlTest.php.",
+  "database": "db1",
+  "baseUrl": "http://h/heurist/",
+  "cases": [
+    { "name": "local image: the web copy", "file": { "key": "k1", "mime": "image/jpeg", "ext": "jpg", "name": "a.jpg", "url": "" },
+      "expect": { "element": "img", "url": "web" } },
+    { "name": "local video: the file", "file": { "key": "k2", "mime": "video/mp4", "ext": "mp4", "name": "a.mp4", "url": "" },
+      "expect": { "element": "video", "url": "asset" } },
+    { "name": "local audio: the file", "file": { "key": "k3", "mime": "audio/mpeg", "ext": "mp3", "name": "a.mp3", "url": "" },
+      "expect": { "element": "audio", "url": "asset" } },
+    { "name": "YouTube: the service player", "file": { "key": "k4", "mime": "video/youtube", "ext": "", "name": "_remote", "url": "https://www.youtube.com/watch?v=abcdef12" },
+      "expect": { "element": "iframe", "url": "external" } },
+    { "name": "SoundCloud: the service player", "file": { "key": "k5", "mime": "audio/soundcloud", "ext": "", "name": "_remote", "url": "https://soundcloud.com/x/y" },
+      "expect": { "element": "iframe", "url": "external" } }
+  ]
+}

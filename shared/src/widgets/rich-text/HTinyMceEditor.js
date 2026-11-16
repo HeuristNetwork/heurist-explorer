@@ -26,6 +26,7 @@
  * @since       8.0
  */
 
+import { upgradeFileUrls } from '../../data/fileUrls.js';
 import { editorValue } from './richTextEditors.js';
 import { $HR } from '../../ui/i18n/HResource.js';
 import './HTinyMceEditor.css';
@@ -69,8 +70,9 @@ function loadTinyMce() {
  * @param {HTMLElement} host Element the editor is put in.
  * @param {object} options
  * @param {string} [options.value] HTML to edit.
- * @param {string} [options.baseUrl] Heurist base URL: relative URLs (`./?db=…`) are resolved against it
- *        and URLs below it are stored relative (as legacy tinymceURLConverter).
+ * @param {string} [options.baseUrl] Heurist base URL: relative URLs (`./api/…`) are resolved against it
+ *        and URLs below it are stored relative (as legacy tinymceURLConverter); legacy file URLs are
+ *        upgraded to the file endpoints (plan 34).
  * @param {(value: string) => void} [options.onChange] Called with the new value.
  * @param {() => Promise<string|null>} [options.insertMedia] Host: HTML of a registered file (Media button).
  * @param {(text: string) => Promise<string|null>} [options.insertRecordLink] Host: HTML of a link to a
@@ -85,9 +87,11 @@ export async function createTinyMceEditor(host, {
   const tinymce = await loadTinyMce();
   if (compact) host.classList.add('h-tinymce-compact');
   const target = document.createElement('textarea');
-  target.value = String(value ?? '');
-  host.append(target);
   const base = normalizeBase(baseUrl);
+  // legacy file URLs (./?db=…&file=…) become the file endpoints (./api/…, plan 34): stored so at the next save
+  const upgrade = (html) => upgradeFileUrls(String(html ?? ''), { baseUrl: base });
+  target.value = upgrade(value);
+  host.append(target);
   const sinksBefore = new Set(document.querySelectorAll('.tox-tinymce-aux'));
   const [editor] = await tinymce.init({
     target,
@@ -130,7 +134,7 @@ export async function createTinyMceEditor(host, {
   editor.on('change input undo redo SetContent', changed);
   return {
     getValue: () => editorValue(editor.getContent()),
-    setValue: (html) => editor.setContent(String(html ?? '')),
+    setValue: (html) => editor.setContent(upgrade(html)),
     focus: () => editor.focus(),
     destroy: () => {
       editor.remove();

@@ -30,6 +30,7 @@ import { actionMenuItems, HMenu } from '#shared/widgets/site/HMenu.js';
 import { HLangSwitch } from '#shared/widgets/site/HLangSwitch.js';
 import { HEmailForm } from '#shared/widgets/site/HEmailForm.js';
 import { fileMediaUrls } from '#shared/recordview/fileMediaItem.js';
+import { resolveFileUrls } from '#shared/data/fileUrls.js';
 import { SITE_WIDGETS, mountSiteWidget } from './siteWidgets.js';
 import { mountBreadcrumbs, recordTrail, showTrail } from './siteBreadcrumbs.js';
 import { sectionTree } from '#shared/site/cmsMenu.js';
@@ -650,7 +651,9 @@ export async function mountInstance(host, id, config, loaders) {
         // written by the server from the files of the installation; the draft shows where it goes
         host.textContent = config.runtime?.design ? $HR('Logo of the host organisation') : '';
       } else {
-        host.innerHTML = html[config.site?.language || ''] ?? html.def ?? Object.values(html)[0] ?? '';
+        // stored file URLs (./api/…) made absolute (plan 34)
+        host.innerHTML = resolveFileUrls(html[config.site?.language || ''] ?? html.def ?? Object.values(html)[0] ?? '',
+          { baseUrl: config.runtime?.baseUrl || '' });
       }
     }
     return null;

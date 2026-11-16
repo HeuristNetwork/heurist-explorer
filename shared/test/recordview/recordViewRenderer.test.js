@@ -28,19 +28,19 @@ test("record type icon uses the legacy ?db=&icon= convention", () => {
   assert.match(rendererSource, /\?db=\$\{encodeURIComponent\(this\.database\)\}&icon=\$\{recordTypeId\}/);
 });
 
-test("file thumbnails use the legacy ?db=&thumb= convention", () => {
-  assert.match(rendererSource, /\?db=\$\{encodeURIComponent\(this\.database\)\}&thumb=\$\{encodeURIComponent\(fileId\)\}/);
+test("file thumbnails use the file endpoint (plan 34)", () => {
+  assert.match(rendererSource, /fileMediaUrls\(this\.baseUrl, this\.database\)\.thumb\(fileId\)/);
 });
 
 test("media items come from the shared file media builder (fileMediaItem.js)", () => {
   assert.match(rendererSource, /return buildFileMediaItem\(file, \{ urls: fileMediaUrls\(this\.baseUrl, this\.database\) \}\);/);
 });
 
-test("file media: OSD for images; Mirador for images/audio/video; Download; legacy ?db=&file= / &thumb= URLs", () => {
+test("file media: OSD for images; Mirador for images/audio/video; Download; file endpoint URLs (plan 34)", () => {
   const image = buildFileMediaItem({ ulf_ObfuscatedFileID: "k1", fxm_MimeType: "image/png" }, { urls });
   assert.deepEqual(linkTexts(image), ["Show in OSD", "Show in Mirador", "Download"]);
   assert.equal(image.querySelector("a").href, "http://h/heurist/hclient/widgets/viewers/openSeadragonViewer.php?db=db1&id=k1");
-  assert.equal(image.querySelector("img").src, "http://h/heurist/?db=db1&thumb=k1");
+  assert.equal(image.querySelector("img").src, "http://h/heurist/api/db1/files/k1/thumbnail");
   const doc = buildFileMediaItem({ ulf_ObfuscatedFileID: "k2", fxm_MimeType: "application/pdf" }, { urls });
   assert.deepEqual(linkTexts(doc), ["Download"]);
   const plain = buildFileMediaItem({ ulf_ObfuscatedFileID: "k2", fxm_MimeType: "application/pdf" }, { urls, download: false });
@@ -52,7 +52,7 @@ test("file media: IIIF manifests and image services get Show in Mirador (manifes
     ulf_OrigFileName: "_iiif", ulf_ExternalFileReference: "https://iiif.example.org/manifest.json" }, { urls });
   const mirador = manifest.querySelectorAll("a").find((a) => a.textContent === "Show in Mirador");
   assert.equal(mirador?.href, "http://h/heurist/hclient/widgets/viewers/miradorViewer.php?db=db1&manifest=k5");
-  assert.equal(manifest.querySelector("img").src, "http://h/heurist/?db=db1&thumb=k5", "its thumbnail");
+  assert.equal(manifest.querySelector("img").src, "http://h/heurist/api/db1/files/k5/thumbnail", "its thumbnail");
   const image = buildFileMediaItem({ ulf_ObfuscatedFileID: "k6", fxm_MimeType: "application/json",
     ulf_ExternalFileReference: "https://iiif.example.org/img/info.json" }, { urls });
   assert.equal(image.querySelectorAll("a").find((a) => a.textContent === "Show in Mirador")?.href,
@@ -64,7 +64,7 @@ test("file media: uploaded audio/video render as native players, not static thum
   const player = video.querySelector("video");
   assert.ok(player);
   assert.equal(player.controls, true);
-  assert.equal(player.querySelector("source").src, "http://h/heurist/?db=db1&file=k3");
+  assert.equal(player.querySelector("source").src, "http://h/heurist/api/db1/files/k3/asset");
   assert.ok(buildFileMediaItem({ ulf_ObfuscatedFileID: "k4", fxm_MimeType: "audio/mpeg" }, { urls }).querySelector("audio"));
 });
 
@@ -80,16 +80,16 @@ test("file media: a click on an image toggles thumbnail / large image and the ex
   assert.ok(thumb.classList.contains("heurist-recordview-media-thumb-zoomable"), "an image by its extension");
   thumb.click();
   assert.ok(item.classList.contains("heurist-recordview-media-item-expanded"));
-  assert.equal(thumb.src, "http://h/heurist/?db=db1&file=k6");
+  assert.equal(thumb.src, "http://h/heurist/api/db1/files/k6/web");
   thumb.click();
-  assert.equal(thumb.src, "http://h/heurist/?db=db1&thumb=k6");
+  assert.equal(thumb.src, "http://h/heurist/api/db1/files/k6/thumbnail");
 });
 
 test("file media: YouTube / Vimeo / SoundCloud show the thumbnail, a click the service's player, Hide player the thumbnail again", () => {
   const item = buildFileMediaItem({ ulf_ObfuscatedFileID: "y1", fxm_MimeType: "video/youtube",
     ulf_ExternalFileReference: "https://www.youtube.com/watch?v=abcdef12" }, { urls });
   assert.equal(item.querySelector("video"), null, "no native player");
-  assert.equal(item.querySelector("img").src, "http://h/heurist/?db=db1&thumb=y1");
+  assert.equal(item.querySelector("img").src, "http://h/heurist/api/db1/files/y1/thumbnail");
   assert.ok(!linkTexts(item).includes("Show in Mirador"));
   item.querySelector(".heurist-recordview-media-embed-cover").click();
   const frame = item.querySelector("iframe");
@@ -113,7 +113,7 @@ test("file media: Download and Close (the record editor's file input)", () => {
   const item = buildFileMediaItem({ ulf_ObfuscatedFileID: "k7", fxm_MimeType: "image/png" },
     { urls, download: true, onClose: () => { closed++; } });
   assert.deepEqual(linkTexts(item), ["Show in OSD", "Show in Mirador", "Download", "Close"]);
-  assert.equal(item.querySelectorAll("a")[2].href, "http://h/heurist/?db=db1&download=1&file=k7");
+  assert.equal(item.querySelectorAll("a")[2].href, "http://h/heurist/api/db1/files/k7/asset?download=1");
   item.querySelectorAll("a")[3].click();
   assert.equal(closed, 1);
 });

@@ -16,6 +16,7 @@
  */
 
 import { $HR } from '#shared/ui';
+import { resolveFileUrls } from '#shared/data/fileUrls.js';
 
 /** Presentations with one element visible: slideshow and carousel (HSlider ONE_VISIBLE, not imported: HSlider is a lazy chunk). */
 const ONE_VISIBLE = Object.freeze(['slider', 'carousel']);
@@ -136,7 +137,8 @@ async function fillPreview(host, instance, runtime, languages = []) {
     host.classList.toggle('h-site-widget-list', !ONE_VISIBLE.includes(settings.presentation));
   }
   if (instance.type === 'gallery') {
-    host.innerHTML = settings.html?.[language] ?? settings.html?.def ?? '';
+    // stored file URLs (./api/…) made absolute (plan 34)
+    host.innerHTML = resolveFileUrls(settings.html?.[language] ?? settings.html?.def ?? '', { baseUrl: runtime.baseUrl || '' });
   } else if (instance.type === 'cards') {
     host.innerHTML = await previewCards(settings, runtime, language).catch((error) => {
       console.warn('Preview of cards', error);

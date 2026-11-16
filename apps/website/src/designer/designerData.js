@@ -18,6 +18,7 @@
  */
 
 import { CmsRecordDocument } from '#shared/site/cmsEdit.js';
+import { upgradeFileUrls } from '#shared/data/fileUrls.js';
 
 /** Part of a record => key of its field in the codes. */
 export const PART_FIELDS = Object.freeze({ header: 'header', content: 'content', footer: 'footer' });
@@ -25,23 +26,51 @@ export const PART_FIELDS = Object.freeze({ header: 'header', content: 'content',
 /**
  * The editable document of a record.
  *
+ * Legacy file URLs (`?db=…&file=…`) of the parts, the configuration (styles, HTML of galleries and badges) and the
+ * translations become the relative file endpoints (`./api/…`, plan 34): a part that is saved stores the new form.
+ *
  * @param {object} record Record of `GET /{entity}/{id}` (details by field id).
  * @param {Object<string, number>} codes Local ids (WebsiteRepository::CONCEPTS names).
+ * @param {{baseUrl?: string}} [options] Heurist base URL: absolute legacy URLs with it are upgraded too.
  * @returns {CmsRecordDocument}
  */
-export function recordDocument(record, codes) {
+export function recordDocument(record, codes, { baseUrl = '' } = {}) {
   const details = record?.details || {};
   const website = Number(record?.rec_RecTypeID) === Number(codes.home);
-  const parts = { content: firstValue(details[codes.content]) };
+  const upgrade = (value) => upgradeFileValues(value, baseUrl);
+  const parts = { content: upgrade(firstValue(details[codes.content])) };
   if (website) {
-    parts.header = firstValue(details[codes.header]);
-    parts.footer = firstValue(details[codes.footer]);
+    parts.header = upgrade(firstValue(details[codes.header]));
+    parts.footer = upgrade(firstValue(details[codes.footer]));
   }
+  // the configuration stays JSON text: the document checks it (parseCmsConfig)
+  const config = firstValue(details[codes.configuration]);
+  const parsed = typeof config === 'string' ? parseJsonObject(config) : null;
   return new CmsRecordDocument({
     parts,
-    config: firstValue(details[codes.configuration]),
-    translations: parseTranslations(details[codes.translations])
+    config: parsed ? JSON.stringify(upgrade(parsed)) : upgrade(config),
+    translations: upgrade(parseTranslations(details[codes.translations]))
   });
+}
+
+/** Legacy file URLs in every string of a value (string, array, object) upgraded (plan 34). */
+function upgradeFileValues(value, baseUrl) {
+  if (typeof value === 'string') return upgradeFileUrls(value, { baseUrl });
+  if (Array.isArray(value)) return value.map((item) => upgradeFileValues(item, baseUrl));
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, upgradeFileValues(item, baseUrl)]));
+  }
+  return value;
+}
+
+/** An object of JSON text, or null (not JSON: the document reports it). */
+function parseJsonObject(text) {
+  try {
+    const value = JSON.parse(text);
+    return value && typeof value === 'object' && !Array.isArray(value) ? value : null;
+  } catch {
+    return null;
+  }
 }
 
 /**

@@ -29,32 +29,30 @@ import './fileMediaItem.css';
 const IMAGE_EXTENSIONS = /\.(?:png|jpe?g|gif|webp|bmp|svg|tiff?)$/i;
 
 /**
- * Viewer and file URLs of a file key in a Heurist installation.
- *
- * Legacy URLs (`?file=`, `?thumb=`) by default: they are also stored in records (media HTML, text, styles). With
- * `apiBaseUrl` (2026-11-16) the file endpoints of the API, for URLs made at render time: `thumb` = `/thumbnail`,
- * `web` = `/web` (reduced copy of a large image), `file` = `/asset` (the file), `download` = `/asset?download=1`.
- * The viewers stay legacy pages.
+ * Viewer and file URLs of a file key in a Heurist installation: the file endpoints of the API (plan 34):
+ * `thumb` = `/thumbnail`, `web` = `/web` (reduced copy of a large image), `file` = `/asset` (the file), `download` =
+ * `/asset?download=1`. `relative`: the stored form `./api/...` (HTML the CMS designer and the text editor store,
+ * resolved against the Heurist base URL by fileUrls.resolveFileUrls). The viewers stay legacy pages (absolute).
  *
  * @param {string} baseUrl Heurist base URL (ends with `/`).
  * @param {string} database Database name.
- * @param {{apiBaseUrl?: string}} [options] `apiBaseUrl`: the API root (`.../api`, as the site runtime has it).
+ * @param {{apiBaseUrl?: string, relative?: boolean}} [options] `apiBaseUrl`: the API root (`.../api`, as the site
+ *        runtime has it; default `{baseUrl}api`).
  * @returns {{thumb: Function, web: Function, file: Function, download: Function, osd: Function, mirador: Function,
  *          viewer3d: Function}} mirador(key, {manifest}): `manifest` for a registered IIIF manifest file;
- *          viewer3d(key, mode): the 3D viewer (mode `3d`, or `3dhop` for Nexus files); `web`: the file itself
- *          without `apiBaseUrl` (legacy `?file=` gives the reduced copy already).
+ *          viewer3d(key, mode): the 3D viewer (mode `3d`, or `3dhop` for Nexus files).
  */
-export function fileMediaUrls(baseUrl, database, { apiBaseUrl = '' } = {}) {
+export function fileMediaUrls(baseUrl, database, { apiBaseUrl = '', relative = false } = {}) {
   const root = baseUrl ? String(baseUrl).replace(/\/?$/, '/') : '';
   const db = encodeURIComponent(database || '');
   const key = (value) => encodeURIComponent(value);
-  const api = apiBaseUrl ? `${String(apiBaseUrl).replace(/\/+$/, '')}/${db}/files/` : '';
-  const legacyFile = (fileKey) => `${root}?db=${db}&file=${key(fileKey)}`;
+  const apiRoot = relative ? './api' : (apiBaseUrl ? String(apiBaseUrl).replace(/\/+$/, '') : `${root}api`);
+  const api = `${apiRoot}/${db}/files/`;
   return {
-    thumb: (fileKey) => (api ? `${api}${key(fileKey)}/thumbnail` : `${root}?db=${db}&thumb=${key(fileKey)}`),
-    web: (fileKey) => (api ? `${api}${key(fileKey)}/web` : legacyFile(fileKey)),
-    file: (fileKey) => (api ? `${api}${key(fileKey)}/asset` : legacyFile(fileKey)),
-    download: (fileKey) => (api ? `${api}${key(fileKey)}/asset?download=1` : `${root}?db=${db}&download=1&file=${key(fileKey)}`),
+    thumb: (fileKey) => `${api}${key(fileKey)}/thumbnail`,
+    web: (fileKey) => `${api}${key(fileKey)}/web`,
+    file: (fileKey) => `${api}${key(fileKey)}/asset`,
+    download: (fileKey) => `${api}${key(fileKey)}/asset?download=1`,
     // the viewers take the file key as `id` (recID / a number: a record); a registered IIIF manifest as `manifest`
     osd: (fileKey) => `${root}hclient/widgets/viewers/openSeadragonViewer.php?db=${db}&id=${key(fileKey)}`,
     mirador: (fileKey, { manifest = false } = {}) => `${root}hclient/widgets/viewers/miradorViewer.php?db=${db}&${manifest ? 'manifest' : 'id'}=${key(fileKey)}`,
@@ -112,6 +110,8 @@ export function buildFileMediaItem(file, { urls, download = true, onClose = null
   // unless it's plain (insecure) `http://`, in which case it's proxied through Heurist.
   const externalUrl = file.ulf_ExternalFileReference || null;
   const mediaSrc = externalUrl && !/^http:\/\//i.test(externalUrl) ? externalUrl : urls.file(fileId);
+  // the zoomed image: the reduced web copy of a large image (as legacy ?file= gave), plan 34
+  const imageSrc = externalUrl && !/^http:\/\//i.test(externalUrl) ? externalUrl : (urls.web || urls.file)(fileId);
   // YouTube / Vimeo / SoundCloud: the service's player, not a native element (2026-10-28)
   const service = externalUrl ? embedService(externalUrl, mimeType) : '';
   const isAudio = !service && mimeType.startsWith('audio/');
@@ -145,7 +145,7 @@ export function buildFileMediaItem(file, { urls, download = true, onClose = null
       thumb.title = $HR('Click to zoom in / out');
       thumb.addEventListener('click', () => {
         const expanded = item.classList.toggle('heurist-recordview-media-item-expanded');
-        thumb.src = expanded ? mediaSrc : urls.thumb(fileId);
+        thumb.src = expanded ? imageSrc : urls.thumb(fileId);
       });
     }
     item.append(thumb);

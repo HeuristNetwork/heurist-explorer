@@ -6,8 +6,9 @@
  *
  * DOM-based (a `<template>`), no regular expressions on HTML. Removed with their content:
  * script, style, SVG, MathML, forms and embeds; other unknown tags are unwrapped (their
- * text stays). URLs: http, https, mailto, tel and relative ones; `./?db=…` (the form TinyMCE
- * stores, as legacy) is resolved against the Heurist base URL; a bare record id (`href="123"`
+ * text stays). URLs: http, https, mailto, tel and relative ones; `./…` (the form TinyMCE
+ * stores) is resolved against the Heurist base URL; file URLs (legacy `?db=…&file=…` and `./api/…`) become
+ * the file endpoints (plan 34, shared/src/data/fileUrls.js); a bare record id (`href="123"`
  * or `123/template.tpl`, the legacy "Record" link) becomes a record link (`data-record-id`).
  * iframes only from YouTube, Vimeo and SoundCloud. Inline styles: on span the editor's font,
  * size, colour and underline; on paragraphs, divs and headings text-align (2026-10-25).
@@ -26,6 +27,7 @@
  */
 
 import { sanitizeTextHtml } from './FieldValueFormatter.js';
+import { fileUrl, parseFileUrl, resolveFileUrl } from '../data/fileUrls.js';
 
 /** Allowed tags and their own attributes (as the server's blocktext allowlist). */
 const TAGS = Object.freeze({
@@ -170,9 +172,16 @@ function safeUrl(raw, tag, attribute, { baseUrl, database }, element) {
     const template = record[2] ? `&template=${encodeURIComponent(record[2].slice(1))}` : '&fmt=html';
     return `${baseUrl}?db=${encodeURIComponent(database)}&recID=${record[1]}${template}`;
   }
+  // a registered file (legacy ?db=…&file=… or the stored ./api/{db}/files/…): the file endpoint (plan 34); a legacy
+  // ?file= is the web copy in an img, the file itself elsewhere
+  const file = baseUrl ? parseFileUrl(value, { database, baseUrl }) : null;
+  if (file) {
+    const kind = file.kind === 'web' && tag !== 'img' ? 'asset' : file.kind;
+    return resolveFileUrl(fileUrl(file.key, kind, { database }), { baseUrl });
+  }
   const scheme = /^([a-z][a-z0-9+.-]*):/i.exec(value);
   if (scheme) return ['http', 'https', 'mailto', 'tel'].includes(scheme[1].toLowerCase()) ? value : null;
-  // relative to the Heurist base URL (TinyMCE stores ./?db=…&file=…)
+  // relative to the Heurist base URL (TinyMCE stores ./?db=… and ./api/…)
   if (value.startsWith('./') && baseUrl) return `${baseUrl}${value.slice(2)}`;
   if (value.startsWith('?') && baseUrl) return `${baseUrl}${value}`;
   return value;

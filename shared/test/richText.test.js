@@ -37,10 +37,10 @@ test('HTML detection and the value of the HTML editor (one plain paragraph is it
   assert.equal(editorValue('<h2>T</h2>'), '<h2>T</h2>');
 });
 
-test('Media tag: local image with the legacy relative URL, players, external pages, a caption', () => {
+test('Media tag: local image with the relative file endpoint (plan 34), players, external pages, a caption', () => {
   assert.equal(mediaTag({ key: 'abc', mime: 'image/jpeg', name: 'a.jpg' }, { database: 'db' }),
-    '<img width="300" src="./?db=db&amp;file=abc&amp;fancybox=1" alt="a.jpg">');
-  assert.match(mediaTag({ key: 'v1', mime: 'video/mp4' }, { database: 'db' }), /^<video controls width="640"><source src="\.\/\?db=db&amp;file=v1" type="video\/mp4"><\/video>$/);
+    '<img width="300" src="./api/db/files/abc/web" alt="a.jpg">');
+  assert.match(mediaTag({ key: 'v1', mime: 'video/mp4' }, { database: 'db' }), /^<video controls width="640"><source src="\.\/api\/db\/files\/v1\/asset" type="video\/mp4"><\/video>$/);
   assert.match(mediaTag({ key: 's1', mime: 'audio/mpeg' }, { database: 'db' }), /^<audio controls>/);
   assert.match(mediaTag({ url: 'https://www.youtube.com/watch?v=abcdef12', mime: 'video/youtube' }, { database: 'db' }),
     /<iframe src="https:\/\/www\.youtube\.com\/embed\/abcdef12"/);
@@ -55,9 +55,9 @@ test('Media tag: local image with the legacy relative URL, players, external pag
   assert.equal(embedUrl('https://player.vimeo.com/video/123456?h=abc123', '', { autoplay: true }), 'https://player.vimeo.com/video/123456?h=abc123&autoplay=1');
   assert.equal(embedUrl('https://example.org/video.mp4', 'video/mp4'), '');
   assert.equal(mediaTag({ key: 'd1', mime: 'application/pdf', name: 'Doc <1>' }, { database: 'db' }),
-    '<a href="./?db=db&amp;file=d1" target="_blank">Doc &lt;1&gt;</a>');
+    '<a href="./api/db/files/d1/asset" target="_blank">Doc &lt;1&gt;</a>');
   assert.equal(mediaTag({ key: 'abc', mime: 'image/png', caption: 'A & B' }, { database: 'db' }),
-    '<figure><img width="300" src="./?db=db&amp;file=abc&amp;fancybox=1" alt=""><figcaption>A &amp; B</figcaption></figure>');
+    '<figure><img width="300" src="./api/db/files/abc/web" alt=""><figcaption>A &amp; B</figcaption></figure>');
   assert.equal(mediaTag({}, { database: 'db' }), '');
 });
 

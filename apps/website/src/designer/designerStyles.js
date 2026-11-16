@@ -25,7 +25,7 @@ import {
 } from '#shared/site/cmsDocument.js';
 import { HInputColor } from '#shared/widgets/form/inputs/HInputColor.js';
 import { fileOfRecord, HInputFile } from '#shared/widgets/form/inputs/HInputFile.js';
-import { fileMediaUrls } from '#shared/recordview/fileMediaItem.js';
+import { fileUrl, parseFileUrl } from '#shared/data/fileUrls.js';
 import { createTabSet } from '#shared/widgets/layout/tabs.js';
 
 /** Labels and hints of the base settings. */
@@ -1037,16 +1037,17 @@ export function styleRows(parent, style, onChange = null, {
   };
   // the background image: HInputFile (thumbnail with zoom, clear) on the registered image files, in the record
   // manager when the host has it (Browse, Upload, URL as a file field in addorbrowse mode); the value is
-  // url(...&file=KEY&fullres=1), the file of the key is read by GET /files/{key}
+  // url(./api/{db}/files/KEY/asset) (plan 34; legacy url(...&file=KEY&fullres=1) is read too), the file of the key is
+  // read by GET /files/{key}
   const imageInput = (host, property, value) => {
     if (!files?.apiClient) {
       host.append(textInput(property, value, 'url(...)'));
       return;
     }
     const url = /url\(\s*(['"]?)(.*?)\1\s*\)/i.exec(String(value || ''))?.[2] || '';
-    const key = /[?&]file=([A-Za-z0-9]+)/.exec(url)?.[1] || '';
-    // fullres=1 (review 2026-11-16): the image in its full resolution, not the reduced web copy of a large image
-    fileInput(host, 'image/*', key, (fileKey) => setValue(property, fileKey ? `url(${fileMediaUrls(baseUrl, files.database).file(fileKey)}&fullres=1)` : ''));
+    const key = parseFileUrl(url, { baseUrl })?.key || '';
+    // asset (review 2026-11-16): the image in its full resolution, not the reduced web copy of a large image
+    fileInput(host, 'image/*', key, (fileKey) => setValue(property, fileKey ? `url(${fileUrl(fileKey, 'asset', { database: files.database })})` : ''));
     // an image that is not a registered file (a banner of the page templates, plan 27i §9): its URL, to change or clear
     if (url && !key) host.append(textInput(property, value, 'url(...)'));
   };

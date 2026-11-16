@@ -969,13 +969,13 @@ export class RecordEditorHost {
     return showHelperDialog(title, editor, getResult);
   }
 
-  /** Link to view an uploaded file. */
+  /** Link to view an uploaded file (`/api/{db}/files/{key}/asset`, plan 34). */
   _fileUrl(file) {
     const obfuscated = String(file?.ulf_ObfuscatedFileID || '').replace(/[^a-z0-9]/gi, '');
     if (!obfuscated) return file?.ulf_ExternalFileReference || '';
     const base = String(this.options.baseUrl || '').replace(/\?$/, '');
     if (!base) return '';
-    return `${base}${base.includes('?') ? '&' : '?'}db=${encodeURIComponent(this.options.database || '')}&file=${obfuscated}`;
+    return fileMediaUrls(base, this.options.database || '').file(obfuscated);
   }
 }
 

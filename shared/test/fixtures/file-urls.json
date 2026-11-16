@@ -1,0 +1,79 @@
+{
+  "description": "File URLs (plan 34): legacy -> relative new form (upgraded) -> absolute for a page (resolved). Run by shared/test/fileUrls.test.js and heurist tests/FileUrlsTest.php.",
+  "database": "db1",
+  "baseUrl": "http://h/heurist/",
+  "cases": [
+    {
+      "name": "TinyMCE image (relative, fancybox): the web copy",
+      "input": "<img width=\"300\" src=\"./?db=db1&amp;file=ab12&amp;fancybox=1\" alt=\"x\">",
+      "upgraded": "<img width=\"300\" src=\"./api/db1/files/ab12/web\" alt=\"x\">",
+      "resolved": "<img width=\"300\" src=\"http://h/heurist/api/db1/files/ab12/web\" alt=\"x\">"
+    },
+    {
+      "name": "TinyMCE video source: the file",
+      "input": "<video controls width=\"640\"><source src=\"./?db=db1&amp;file=ab12\" type=\"video/mp4\"></video>",
+      "upgraded": "<video controls width=\"640\"><source src=\"./api/db1/files/ab12/asset\" type=\"video/mp4\"></video>",
+      "resolved": "<video controls width=\"640\"><source src=\"http://h/heurist/api/db1/files/ab12/asset\" type=\"video/mp4\"></video>"
+    },
+    {
+      "name": "designer media (absolute): image and the full view of the figure",
+      "input": "<figure data-h-view=\"image\" data-h-full=\"http://h/heurist/?db=db1&amp;file=ab12\"><img src=\"http://h/heurist/?db=db1&amp;file=ab12\" alt=\"\" loading=\"lazy\" /></figure>",
+      "upgraded": "<figure data-h-view=\"image\" data-h-full=\"./api/db1/files/ab12/asset\"><img src=\"./api/db1/files/ab12/web\" alt=\"\" loading=\"lazy\" /></figure>",
+      "resolved": "<figure data-h-view=\"image\" data-h-full=\"http://h/heurist/api/db1/files/ab12/asset\"><img src=\"http://h/heurist/api/db1/files/ab12/web\" alt=\"\" loading=\"lazy\" /></figure>"
+    },
+    {
+      "name": "designer audio: the file",
+      "input": "<audio controls=\"\" preload=\"metadata\" src=\"http://h/heurist/?db=db1&amp;file=ab12\"></audio>",
+      "upgraded": "<audio controls=\"\" preload=\"metadata\" src=\"./api/db1/files/ab12/asset\"></audio>",
+      "resolved": "<audio controls=\"\" preload=\"metadata\" src=\"http://h/heurist/api/db1/files/ab12/asset\"></audio>"
+    },
+    {
+      "name": "background image of a style (fullres): the file",
+      "input": "background-image:url(http://h/heurist/?db=db1&file=ab12&fullres=1);background-size:cover",
+      "upgraded": "background-image:url(./api/db1/files/ab12/asset);background-size:cover",
+      "resolved": "background-image:url(http://h/heurist/api/db1/files/ab12/asset);background-size:cover"
+    },
+    {
+      "name": "background image without fullres: the web copy",
+      "input": "<div style=\"background-image:url('./?db=db1&amp;file=ab12')\"></div>",
+      "upgraded": "<div style=\"background-image:url('./api/db1/files/ab12/web')\"></div>",
+      "resolved": "<div style=\"background-image:url('http://h/heurist/api/db1/files/ab12/web')\"></div>"
+    },
+    {
+      "name": "thumbnail",
+      "input": "<img src=\"http://h/heurist/?db=db1&amp;thumb=ab12\">",
+      "upgraded": "<img src=\"./api/db1/files/ab12/thumbnail\">",
+      "resolved": "<img src=\"http://h/heurist/api/db1/files/ab12/thumbnail\">"
+    },
+    {
+      "name": "download link",
+      "input": "<a href=\"http://h/heurist/?db=db1&amp;download=1&amp;file=ab12\">Download</a>",
+      "upgraded": "<a href=\"./api/db1/files/ab12/asset?download=1\">Download</a>",
+      "resolved": "<a href=\"http://h/heurist/api/db1/files/ab12/asset?download=1\">Download</a>"
+    },
+    {
+      "name": "link to a file: the file",
+      "input": "<a href=\"./?db=db1&amp;file=ab12\" target=\"_blank\">a.pdf</a>",
+      "upgraded": "<a href=\"./api/db1/files/ab12/asset\" target=\"_blank\">a.pdf</a>",
+      "resolved": "<a href=\"http://h/heurist/api/db1/files/ab12/asset\" target=\"_blank\">a.pdf</a>"
+    },
+    {
+      "name": "bare query (no ./)",
+      "input": "<img src=\"?db=db1&amp;file=ab12\">",
+      "upgraded": "<img src=\"./api/db1/files/ab12/web\">",
+      "resolved": "<img src=\"http://h/heurist/api/db1/files/ab12/web\">"
+    },
+    {
+      "name": "new form stays, made absolute",
+      "input": "<img src=\"./api/db1/files/ab12/web\"><video src=\"./api/db1/files/ab12/asset\"></video>",
+      "upgraded": "<img src=\"./api/db1/files/ab12/web\"><video src=\"./api/db1/files/ab12/asset\"></video>",
+      "resolved": "<img src=\"http://h/heurist/api/db1/files/ab12/web\"><video src=\"http://h/heurist/api/db1/files/ab12/asset\"></video>"
+    },
+    {
+      "name": "another database, another host, viewers and record links stay",
+      "input": "<img src=\"./?db=other&amp;file=ab12\"><img src=\"https://other.org/heurist/?db=db1&amp;file=ab12\"><a href=\"http://h/heurist/hclient/widgets/viewers/3dViewer.php?db=db1&amp;file=ab12\">3D</a><a href=\"./?db=db1&amp;recID=5&amp;fmt=html\">r</a><img src=\"./api/other/files/ab12/web\">",
+      "upgraded": "<img src=\"./?db=other&amp;file=ab12\"><img src=\"https://other.org/heurist/?db=db1&amp;file=ab12\"><a href=\"http://h/heurist/hclient/widgets/viewers/3dViewer.php?db=db1&amp;file=ab12\">3D</a><a href=\"./?db=db1&amp;recID=5&amp;fmt=html\">r</a><img src=\"./api/other/files/ab12/web\">",
+      "resolved": "<img src=\"./?db=other&amp;file=ab12\"><img src=\"https://other.org/heurist/?db=db1&amp;file=ab12\"><a href=\"http://h/heurist/hclient/widgets/viewers/3dViewer.php?db=db1&amp;file=ab12\">3D</a><a href=\"./?db=db1&amp;recID=5&amp;fmt=html\">r</a><img src=\"./api/other/files/ab12/web\">"
+    }
+  ]
+}
