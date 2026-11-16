@@ -16,7 +16,7 @@
  */
 
 import { $HR, applyI18n } from '#shared/ui';
-import { dataSourceTitle as resolvedDataSourceTitle } from '../core/DataSource.js';
+import { dataSourceTitle as resolvedDataSourceTitle } from '#shared/data/DataSource.js';
 
 /** Compact list of open heurist-data module instances in the Explorer workspace. */
 export class ExplorerDataViews {

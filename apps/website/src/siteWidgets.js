@@ -153,11 +153,18 @@ async function fillPreview(host, instance, runtime, languages = []) {
   if (!host.innerHTML) host.textContent = $HR('Nothing to show yet: open the configuration of this element');
 }
 
-/** The first cards: the query, then the report of each record (no new endpoint). */
+/** The first cards: the query (or the query of the query source, plan 27l §11.4), then the report of each record. */
 async function previewCards(settings, runtime, language) {
-  if (!Array.isArray(settings.query) || !settings.query.length || !settings.template) return '';
   const api = `${runtime.apiBaseUrl}/${encodeURIComponent(runtime.database)}`;
-  const query = new URLSearchParams({ q: JSON.stringify(settings.query), detail: 'ids', limit: String(PREVIEW_CARDS) });
+  let stored = settings.query;
+  if (settings.mode === 'source' && Number(settings.querySource) > 0) {
+    const response = await fetch(`${api}/records/querysource/${Number(settings.querySource)}`, { credentials: 'same-origin' });
+    const payload = response.ok ? await response.json() : null;
+    stored = (payload?.querySource || payload)?.source?.query ?? null;
+  }
+  if (stored && !Array.isArray(stored) && typeof stored === 'object') stored = [stored];
+  if (!Array.isArray(stored) || !stored.length || !settings.template) return '';
+  const query = new URLSearchParams({ q: JSON.stringify(stored), detail: 'ids', limit: String(PREVIEW_CARDS) });
   const found = await (await fetch(`${api}/records?${query}`, { credentials: 'same-origin' })).json();
   const ids = (found?.ids || found?.records || []).slice(0, PREVIEW_CARDS).map((item) => Number(item?.rec_ID ?? item));
   const cards = await Promise.all(ids.map(async (id) => {

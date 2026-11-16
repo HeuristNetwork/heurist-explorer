@@ -1,5 +1,5 @@
 {
-  "name": "hosts and instances: duplicates, missing configuration or host, unknown types, versions, mount",
+  "name": "hosts and instances: duplicates, missing configuration or host, unknown types, versions, mount, sync, dataSource, records",
   "config": {
     "schema": "heurist-cms/4",
     "instances": {
@@ -7,11 +7,17 @@
       "i2": {"kind": "module", "type": "chart"},
       "i3": {"kind": "widget", "type": "menu", "configVersion": 2},
       "i4": {"kind": "module", "type": "graph", "mount": "popup"},
-      "i5": {"kind": "module", "type": "timeline"}
+      "i5": {"kind": "module", "type": "timeline"},
+      "i6": {"kind": "module", "type": "map", "sync": "partly"},
+      "i7": {"kind": "module", "type": "data", "sync": "selection", "dataSource": {"source": 12}},
+      "i8": {"kind": "module", "type": "graph", "sync": "none", "dataSource": {"record": 5}},
+      "i10": {"kind": "module", "type": "recordview", "sync": "none", "dataSource": {"record": 5}},
+      "i11": {"kind": "module", "type": "data", "records": {"from": ["own", "links", "filter:i3", "module:i7"]}, "selection": false, "dataSource": {"query": [{"t": "10"}]}},
+      "i12": {"kind": "module", "type": "map", "records": {"from": ["everything"]}}
     }
   },
   "html": [
-    "<div data-h-node=\"a\" data-h-instance=\"i1\"></div><div data-h-node=\"a\" data-h-instance=\"i1\"></div><div data-h-node=\"b\" data-h-instance=\"i9\"></div><div data-h-node=\"c\" data-h-instance=\"i2\"></div><div data-h-node=\"d\" data-h-instance=\"i3\"></div><div data-h-node=\"e\" data-h-instance=\"i4\"></div>"
+    "<div data-h-node=\"a\" data-h-instance=\"i1\"></div><div data-h-node=\"a\" data-h-instance=\"i1\"></div><div data-h-node=\"b\" data-h-instance=\"i9\"></div><div data-h-node=\"c\" data-h-instance=\"i2\"></div><div data-h-node=\"d\" data-h-instance=\"i3\"></div><div data-h-node=\"e\" data-h-instance=\"i4\"></div><div data-h-node=\"f\" data-h-instance=\"i6\"></div><div data-h-node=\"g\" data-h-instance=\"i7\"></div><div data-h-node=\"h\" data-h-instance=\"i8\"></div><div data-h-node=\"i\" data-h-instance=\"i10\"></div><div data-h-node=\"j\" data-h-instance=\"i11\"></div><div data-h-node=\"k\" data-h-instance=\"i12\"></div>"
   ],
-  "expect": {"issues":["warning:config_version","warning:config_without_host","warning:duplicate_instance","warning:duplicate_node","warning:host_without_config","warning:mount","warning:unknown_type"]}
+  "expect": {"issues":["warning:config_version","warning:config_without_host","warning:data_source","warning:duplicate_instance","warning:duplicate_node","warning:host_without_config","warning:mount","warning:records","warning:sync","warning:unknown_type"]}
 }

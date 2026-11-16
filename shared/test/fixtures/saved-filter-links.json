@@ -1,5 +1,5 @@
 {
-  "name": "Saved filter links (plan 27j): the same results in cmsSavedFilter.js and SavedFilterLink.php",
+  "name": "Saved filter links (plan 27j): the same results in cmsSavedFilter.js and SavedFilterLink.php; saved filters (plan 27l §7.2): `filter` in place of `source`",
   "query": [
     {
       "source": 12,
@@ -67,6 +67,13 @@
         "X3": "a"
       },
       "expect": "source=12&v.X3=a"
+    },
+    {
+      "filter": 34,
+      "values": {
+        "X1": "Paris"
+      },
+      "expect": "filter=34&v.X1=Paris"
     }
   ],
   "href": [
@@ -89,6 +96,12 @@
       "source": 3,
       "values": {},
       "expect": ""
+    },
+    {
+      "url": "https://h/db/site/5/7#top",
+      "filter": 34,
+      "values": {},
+      "expect": "https://h/db/site/5/7?filter=34#top"
     }
   ],
   "problem": [
@@ -113,7 +126,7 @@
       "settings": {
         "page": 7
       },
-      "expect": "a Saved filter needs a query source"
+      "expect": "a Saved filter needs a query source or a saved filter"
     },
     {
       "settings": {
@@ -225,6 +238,23 @@
         }
       },
       "expect": "the values of a Saved filter: at most 8, 200 characters each, arrays of 10"
+    },
+    {
+      "settings": {
+        "filter": 34,
+        "page": 7,
+        "values": {
+          "X": "a"
+        }
+      },
+      "expect": null
+    },
+    {
+      "settings": {
+        "filter": "x",
+        "page": 7
+      },
+      "expect": "a Saved filter needs a query source or a saved filter"
     }
   ]
 }

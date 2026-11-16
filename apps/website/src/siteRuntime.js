@@ -8,7 +8,8 @@
  * groups into one-open accordions, and mounts every host (`data-h-instance`):
  * the menu widget, or a module mounted directly through its `direct.js` (only the
  * modules on the page are loaded), or in an iframe (`"mount": "iframe"`). The
- * instances are independent; synchronization (PageController) comes in phase 5.
+ * record modules mounted directly work together through the PageSync of their page (plan 27l: one page = one domain,
+ * results, selection and map document, instance setting `sync`); a module in an iframe stays independent.
  * One lazy listener serves the action Player / Viewer of all media of the page (HMediaViewer).
  * mountHosts / unmountInstance mount and remove the instances of one part (a page section of the
  * navigation modes swap / scroll, siteNavigator.js; a part replaced by the designer).
@@ -35,7 +36,11 @@ import { SITE_WIDGETS, mountSiteWidget } from './siteWidgets.js';
 import { mountBreadcrumbs, recordTrail, showTrail } from './siteBreadcrumbs.js';
 import { sectionTree } from '#shared/site/cmsMenu.js';
 import { QuerySource } from '#shared/data/QuerySource.js';
-import { CMS_FILTER_MODULES, cmsFilterRequest, parseCmsFilterQuery } from '#shared/site/cmsSavedFilter.js';
+import { CMS_FILTER_KINDS, CMS_FILTER_MODULES, cmsFilterRequest, parseCmsFilterQuery } from '#shared/site/cmsSavedFilter.js';
+import { PageSync, instanceLinks } from './PageSync.js';
+import { normalizeDataSource } from '#shared/data/DataSource.js';
+import { cmsInstanceDataSource } from '#shared/site/cmsDocument.js';
+import { CMS_RECORDS_MODULES } from '#shared/site/cmsRecords.js';
 
 /**
  * The direct entries of the modules, loaded only when a page has the module
@@ -224,6 +229,41 @@ function safeLocalStorage() {
 const MODULES = [];
 
 /**
+ * The PageSync of each page by the runtime of its configuration block (a page loaded by the navigator has its own, plan
+ * 27l; the designer gives a copy of the block with each draft, the runtime stays the same object).
+ */
+const PAGE_SYNCS = new WeakMap();
+
+/** Module API => {sync, id}: its registration, removed by unmountInstance. */
+const SYNC_MEMBERS = new WeakMap();
+
+/**
+ * The PageSync of a page (plan 27l §2.2), made at the first use; also in the preview of the designer (queries run there
+ * too, review 2026-11-16 §11.5: nothing of it goes into the draft).
+ *
+ * @param {object} config The configuration block of the page.
+ * @returns {PageSync|null}
+ */
+export function pageSyncOf(config) {
+  if (!config || typeof config !== 'object') return null;
+  const key = config.runtime && typeof config.runtime === 'object' ? config.runtime : config;
+  let sync = PAGE_SYNCS.get(key);
+  if (!sync) {
+    sync = new PageSync();
+    PAGE_SYNCS.set(key, sync);
+  }
+  return sync;
+}
+
+/** Register a mounted module with the PageSync of its page (by its `sync` setting). */
+function joinPageSync(config, id, instance, api, start = null) {
+  const sync = pageSyncOf(config);
+  if (!sync || !api || SYNC_MEMBERS.has(api)) return;
+  // its records and selection (plan 27l §12); the search it started with goes on to the modules that take from it
+  if (sync.register(id, instance?.type, api, instanceLinks(instance, config.instances), start)) SYNC_MEMBERS.set(api, { sync, id });
+}
+
+/**
  * An action of an action menu (`data-h-action`, plan 27f §6): Add record goes to the Explorer of the page; Back (plan
  * 27g) goes to the page before when the visitor came from this website, else it follows its link (the home page).
  *
@@ -305,6 +345,11 @@ export function unmountInstance(instance) {
   if (!instance) return;
   const index = MODULES.findIndex((module) => module.api === instance);
   if (index >= 0) MODULES.splice(index, 1);
+  const member = SYNC_MEMBERS.get(instance);
+  if (member) {
+    member.sync.unregister(member.id);
+    SYNC_MEMBERS.delete(instance);
+  }
   try {
     if (instance.tagName === 'IFRAME') {
       instance.src = 'about:blank';
@@ -529,6 +574,9 @@ export function designHooks({ config, mounted, loaders = MODULE_LOADERS }) {
 export function applyInstanceSettings(api, before, after) {
   if (!api || !before || !after || before.kind !== 'module' || before.type !== after.type || before.mount === 'iframe') return false;
   if (JSON.stringify(before.state ?? null) !== JSON.stringify(after.state ?? null)) return false;
+  // other records and selection, or own records (plan 27l §11.3, §12): mounted again
+  const links = (item) => JSON.stringify([item.sync ?? null, item.records ?? null, item.selection ?? null, item.dataSource ?? null]);
+  if (links(before) !== links(after)) return false;
   if (after.type === 'explorer') {
     // filters and layout too, as the settings of its modules (review 2026-11-15); another language: mounted again
     if (typeof api.applySettings === 'function'
@@ -676,6 +724,16 @@ export async function mountInstance(host, id, config, loaders) {
       design: Boolean(runtime.design)
     }).render();
   }
+  if (instance.kind === 'widget' && instance.type === 'filter') {
+    // the Filter widget (plan 27l §3): a lazy chunk; it runs its filters for the modules of the page
+    try {
+      const { mountPageFilter } = await import('./siteFilter.js');
+      return await mountPageFilter(host, instance, config, { id, sync: pageSyncOf(config), pageRequest: pageFilterRequest });
+    } catch (error) {
+      console.error(`Unable to show the filter (${id})`, error);
+      return showMessage(host, $HR('This part of the page can not be shown'));
+    }
+  }
   if (instance.kind === 'widget' && SITE_WIDGETS.includes(instance.type)) return mountSiteWidget(host, instance, config);
   if (instance.kind !== 'module' || !Object.hasOwn(loaders, instance.type)) {
     return showMessage(host, $HR('This part of the page can not be shown'));
@@ -700,14 +758,18 @@ export async function mountInstance(host, id, config, loaders) {
     const container = document.createElement('div');
     container.className = 'h-site-module-root';
     host.replaceChildren(container);
-    // a Saved filter of the page URL (plan 27j): the records of its query source instead of the stored start
-    const state = await pageFilterState(instance, config);
+    // its first records (plan 27l §12): the Saved filter of the page URL, its own query, the latest search of the page
+    const { state, request: start } = await moduleStart(instance, config);
+    // the requests of the module report to the page (Stop, plan 27l §4); Explorer has its own monitor and Stop
+    const sync = instance.type === 'explorer' ? null : pageSyncOf(config);
     const api = await mount({
       container,
       bootstrap: { runtime: { ...(config.runtime || {}) }, settings: instance.settings || {}, state },
+      bridge: sync ? sync.bridge() : null,
       assetBaseUrl: config.runtime?.moduleBaseUrl ? `${config.runtime.moduleBaseUrl}heurist-${instance.type}/` : null
     });
     MODULES.push({ type: instance.type, api, host });
+    joinPageSync(config, id, instance, api, start);
     return api;
   } catch (error) {
     console.error(`Unable to show ${instance.type} (${id})`, error);
@@ -719,8 +781,10 @@ export async function mountInstance(host, id, config, loaders) {
 const FILTER_REQUESTS = new Map();
 
 /**
- * The Saved filter asked by the page URL (plan 27j): `?source=<id>&v.<NAME>=` (cmsSavedFilter.js). The query source is
- * read with the rights of the visitor (`GET /records/querysource/{id}`); the given values are filled in.
+ * The Saved filter asked by the page URL (plan 27j): `?source=<id>&v.<NAME>=` (cmsSavedFilter.js), or `?filter=<id>` a
+ * saved filter (plan 27l §7.2). The query source (`GET /records/querysource/{id}`) or saved filter (`GET
+ * /sys/filter/{id}`, legacy kinds converted by the lazy chunk siteFilter.js) is read with the rights of the visitor; the
+ * given values are filled in.
  *
  * @param {object} runtime `apiBaseUrl`, `database`.
  * @param {string} [search] `location.search`.
@@ -732,34 +796,85 @@ export function pageFilterRequest(runtime = {}, search = globalThis.location?.se
   const asked = parseCmsFilterQuery(search);
   if (!asked || typeof load !== 'function') return Promise.resolve(null);
   const key = String(search);
-  if (!FILTER_REQUESTS.has(key)) {
-    const url = `${runtime.apiBaseUrl || `${runtime.baseUrl || '/'}api`}/${encodeURIComponent(runtime.database || '')}/records/querysource/${asked.source}`;
-    FILTER_REQUESTS.set(key, (async () => {
-      try {
-        const response = await load(url, { credentials: 'same-origin' });
-        if (!response.ok) throw new Error(`${response.status}`);
-        const payload = await response.json();
-        return cmsFilterRequest(new QuerySource(payload?.querySource || payload), asked.values);
-      } catch (error) {
-        console.warn(`Saved filter: query source ${asked.source} can not be read`, error);
-        return null;
-      }
-    })());
-  }
+  if (!FILTER_REQUESTS.has(key)) FILTER_REQUESTS.set(key, readFilterTarget(runtime, asked, asked.values, load));
   return FILTER_REQUESTS.get(key);
 }
 
 /**
- * The start state of a module instance with the Saved filter of the page URL (plan 27j); the stored state without one,
- * in the designer, or for a module that does not show records.
+ * The request of a query source or saved filter read with the rights of the visitor, the values filled in.
+ *
+ * @param {object} runtime `apiBaseUrl` / `baseUrl`, `database`.
+ * @param {{kind: 'source'|'filter', id: number}} target
+ * @param {object} values Values by parameter name.
+ * @param {Function} load fetch.
+ * @returns {Promise<{dataSource: object, raw: object, values: object, missing: string[]}|null>} Null when it can not be read.
  */
-async function pageFilterState(instance, config) {
+async function readFilterTarget(runtime, target, values, load) {
+  const api = `${runtime.apiBaseUrl || `${runtime.baseUrl || '/'}api`}/${encodeURIComponent(runtime.database || '')}`;
+  const url = target.kind === 'filter' ? `${api}/sys/filter/${target.id}` : `${api}/records/querysource/${target.id}`;
+  try {
+    const response = await load(url, { credentials: 'same-origin' });
+    if (!response.ok) throw new Error(`${response.status}`);
+    const payload = await response.json();
+    if (target.kind === 'filter') {
+      const { savedFilterRequest } = await import('./siteFilter.js');
+      return await savedFilterRequest(payload, values, runtime);
+    }
+    return cmsFilterRequest(new QuerySource(payload?.querySource || payload), values);
+  } catch (error) {
+    console.warn(`Saved filter: ${target.kind === 'filter' ? 'saved filter' : 'query source'} ${target.id} can not be read`, error);
+    return null;
+  }
+}
+
+/**
+ * The own records of a module (plan 27l §11.3, §12): the request of its query source, saved filter or query; null for a
+ * record (Record View: `state.recordId`), without one or when it can not be read.
+ *
+ * @param {object} instance Instance configuration (`dataSource`).
+ * @param {object} [runtime] `runtime` of the configuration block.
+ * @param {Function} [load] fetch.
+ * @returns {Promise<{dataSource: object, raw?: object, values: object, missing: string[]}|null>}
+ */
+export async function instanceSourceRequest(instance, runtime = {}, load = globalThis.fetch) {
+  const source = cmsInstanceDataSource(instance?.dataSource, instance?.type);
+  if (!source || source.record) return null;
+  if (source.query) {
+    return { dataSource: normalizeDataSource({ reference: { type: 'query' }, title: '', request: { q: source.query } }), values: {}, missing: [] };
+  }
+  if (typeof load !== 'function') return null;
+  const target = source.filter ? { kind: 'filter', id: source.filter } : { kind: 'source', id: source.source };
+  const request = await readFilterTarget(runtime, target, {}, load);
+  // a parameterized one has no records without values (the designer offers only the ones without parameters)
+  return request && !request.missing?.length ? request : null;
+}
+
+/**
+ * The start of a module instance (plan 27l §12): the Saved filter of the page URL when it takes Saved filter links (plan
+ * 27j), else its own query, else the newest search of the page it takes (a module mounted later); the stored state
+ * without one. Record View: its own record (`state.recordId`).
+ *
+ * @param {object} instance Instance configuration.
+ * @param {object} config The configuration block of the page.
+ * @returns {Promise<{state: object|null, request: object|null}>} `request`: the search it starts with.
+ */
+async function moduleStart(instance, config) {
   const state = instance.state ?? null;
-  if (config.runtime?.design || !CMS_FILTER_MODULES.includes(instance.type)) return state;
-  // a page loaded by the navigation modes swap / scroll: the query of its link (phase C), the URL is pushed later
-  const search = config.runtime?.filterSearch ?? globalThis.location?.search ?? '';
-  const request = await pageFilterRequest(config.runtime || {}, search);
-  return request ? filterInstanceState(instance.type, state, request) : state;
+  if (!CMS_RECORDS_MODULES.includes(instance.type)) return { state, request: null };
+  const links = instanceLinks(instance, config.instances);
+  if (links.own?.record) return { state: { ...(state && typeof state === 'object' ? state : {}), recordId: links.own.record }, request: null };
+  const sync = pageSyncOf(config);
+  let request = null;
+  if (links.from.includes('links') && CMS_FILTER_MODULES.includes(instance.type)) {
+    // a page loaded by the navigation modes swap / scroll: the query of its link (phase C), the URL is pushed later
+    const search = config.runtime?.filterSearch ?? globalThis.location?.search ?? '';
+    request = await pageFilterRequest(config.runtime || {}, search);
+    // the modules mounted later start with it too
+    if (request && sync?.latest(['links']) !== request) sync?.remember(request, 'links');
+  }
+  if (!request && links.own) request = await instanceSourceRequest(instance, config.runtime || {});
+  if (!request) request = sync?.latest(links.from) ?? null;
+  return { state: request ? filterInstanceState(instance.type, state, request) : state, request };
 }
 
 /**
@@ -799,9 +914,8 @@ export function filterInstanceState(type, state, request) {
 
 /**
  * A Saved filter for modules already on the page (plan 27j phase C: a link to the current page, a page kept by the
- * navigation mode swap / scroll): every record module gets the records through its API. Explorer: `applyPageRequest`
- * (missing values in its filter form); Data / Graph: `setDataSource`; Map / Timeline: the Filtered Result document
- * with `setDynamicDataSources`.
+ * navigation mode swap / scroll): the PageSync of the page gives the records to every module with `sync: all`
+ * (Explorer: `applyPageRequest`, missing values in its filter form; the others through ModuleHandle).
  *
  * @param {Map<string, object>} mounted Instance id => what mountInstance returned.
  * @param {object} config The configuration block of the page (its instances and runtime).
@@ -810,51 +924,29 @@ export function filterInstanceState(type, state, request) {
  */
 export async function applyPageFilter(mounted, config, search) {
   const request = await pageFilterRequest(config?.runtime || {}, search);
-  if (!request) return false;
-  const jobs = [];
+  const sync = pageSyncOf(config);
+  if (!request || !sync) return false;
+  // modules mounted before they could join (an older part of the page) join now
   for (const [id, api] of mounted || []) {
-    const type = config?.instances?.[id]?.type;
-    if (!api || !CMS_FILTER_MODULES.includes(type)) continue;
-    jobs.push(Promise.resolve(applyFilterToModule(type, api, request))
-      .catch((error) => console.warn(`Saved filter: ${type} (${id}) did not take the records`, error)));
+    const instance = config?.instances?.[id];
+    if (api && CMS_RECORDS_MODULES.includes(instance?.type)) joinPageSync(config, id, instance, api);
   }
-  await Promise.all(jobs);
+  await sync.setRequest(request);
   return true;
 }
 
-/** The records of a Saved filter for one mounted module (applyPageFilter). */
-export async function applyFilterToModule(type, api, request) {
-  const { dataSource } = request;
-  switch (type) {
-    case 'explorer':
-      return api.applyPageRequest?.(request);
-    case 'data':
-      return api.setDataSource?.(dataSource, { reload: true });
-    case 'graph':
-      return typeof api.setDataSource === 'function' ? api.setDataSource(dataSource) : api.load?.({ query: dataSource.request.q });
-    case 'map':
-    case 'timeline': {
-      const dynamic = api.getDynamicDocument?.()?.id || 'dynamic';
-      await api.activateMapDocument?.(dynamic);
-      if (typeof api.setDynamicDataSources === 'function') return api.setDynamicDataSources({ currentDataSource: dataSource });
-      return api.setQuery?.(dataSource.request.q, { reload: true, title: dataSource.title });
-    }
-    default:
-      return undefined;
-  }
-}
-
-/** Whether a URL has a Saved filter (`source=`). */
+/** Whether a URL has a Saved filter (`source=` a query source, `filter=` a saved filter). */
 export function hasPageFilter(url) {
   try {
-    return new URL(url, globalThis.location?.href || 'http://localhost/').searchParams.has('source');
+    const params = new URL(url, globalThis.location?.href || 'http://localhost/').searchParams;
+    return CMS_FILTER_KINDS.some((key) => params.has(key));
   } catch {
     return false;
   }
 }
 
 /**
- * The URL without the parameters of a Saved filter (`source`, `v.*`) and its anchor: the page it opens.
+ * The URL without the parameters of a Saved filter (`source` / `filter`, `v.*`) and its anchor: the page it opens.
  *
  * @param {string} url Absolute URL.
  * @returns {{page: string, search: string}} `search`: the query string of the Saved filter ('' without one).
@@ -867,10 +959,10 @@ export function splitFilterUrl(url) {
     return { page: String(url).split('#')[0], search: '' };
   }
   parsed.hash = '';
-  if (!parsed.searchParams.has('source')) return { page: parsed.href, search: '' };
+  if (!CMS_FILTER_KINDS.some((key) => parsed.searchParams.has(key))) return { page: parsed.href, search: '' };
   const filter = new URLSearchParams();
   for (const [key, value] of [...parsed.searchParams]) {
-    if (key === 'source' || key.startsWith('v.')) filter.append(key, value);
+    if (CMS_FILTER_KINDS.includes(key) || key.startsWith('v.')) filter.append(key, value);
   }
   for (const key of [...new Set([...filter.keys()])]) parsed.searchParams.delete(key);
   return { page: parsed.href, search: `?${filter.toString()}` };

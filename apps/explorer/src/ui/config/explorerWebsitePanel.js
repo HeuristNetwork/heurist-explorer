@@ -8,6 +8,11 @@
  * defaults of its form, e.g. Enable edit off), review 2026-11-15; Apply changes only the filters and the layout, so the
  * module settings edited in the designer stay. (The current view of Explorer is not taken any more.)
  *
+ * Records and selection (plan 27l §12, phase E2): the designer gives its fields (*Records from*: Own filters | Saved filter
+ * links) as `recordsSection`; they go at the top of the filters fieldset, whose legend is then *Records and selection*.
+ * The filter fields are shown only with Own filters (`showFilters`); without them no filter items are stored (the page
+ * shows no filter pane).
+ *
  * @project     Heurist academic knowledge management system
  * @package     heurist-explorer
  *
@@ -23,6 +28,9 @@ import { createModuleConfigurationForm } from '#shared/ui/config/ModuleConfigura
 import { ExplorerUiConfig, PRESENTATION_TYPES, UNUSED_REGION } from '../../core/ExplorerUiConfig.js';
 import { createLayoutEditor } from './explorerLayoutEditor.js';
 import { explorerPublicationForm, normalizePublicationValues, publicationFilterChoices, publicationSettings } from './explorerPublication.js';
+
+/** The filter fields of the form (shown only with Own filters, plan 27l §12). */
+const FILTER_FIELDS = Object.freeze(['filter.items', 'filter.active', 'filter.mode']);
 
 /** Panes of the layout. */
 const PANES = ['north', 'west', 'center', 'east', 'south'];
@@ -112,10 +120,12 @@ export function websiteExplorerSettings(modules = {}) {
  * @param {{settings?: object, state?: object}|null} [options.value] The instance (null: a new one).
  * @param {{filters: Array<object>, sources: Array<object>}} options.lists Public filters (`_publicFilterLists`).
  * @param {() => Promise<object>} options.defaults The settings of a new instance (websiteExplorerSettings).
+ * @param {HTMLElement|null} [options.recordsSection] The fields *Records and selection* of the designer (plan 27l §12):
+ *        put at the top of the filters fieldset.
  * @returns {Promise<{element: HTMLElement, read: () => Promise<{settings: object, state: object}|null>, reset: () => void,
- *          destroy: () => Promise<void>}>}
+ *          showFilters: (shown: boolean) => void, destroy: () => Promise<void>}>}
  */
-export async function createExplorerWebsitePanel({ value = null, lists = {}, defaults } = {}) {
+export async function createExplorerWebsitePanel({ value = null, lists = {}, defaults, recordsSection = null } = {}) {
   const settings = value?.settings && typeof value.settings === 'object' && Object.keys(value.settings).length ? value.settings : null;
   // the query of an older page stays offered while it is one of its filters
   const published = (settings?.filter?.items || []).find((item) => item.kind === 'query');
@@ -132,6 +142,20 @@ export async function createExplorerWebsitePanel({ value = null, lists = {}, def
     normalize: normalizePublicationValues
   });
   element.append(form.element);
+  // Records and selection of the designer: the top of the filters fieldset, which takes its name
+  if (recordsSection) {
+    const fieldset = form.form.getFieldWidget('filter.items')?.container?.closest?.('fieldset') || form.element.querySelector('fieldset');
+    const legend = [...(fieldset?.children || [])].find((child) => child.tagName === 'LEGEND');
+    if (legend) {
+      legend.textContent = $HR('Records and selection');
+      legend.after(recordsSection);
+    } else if (fieldset) {
+      fieldset.prepend(recordsSection);
+    } else {
+      form.element.prepend(recordsSection);
+    }
+  }
+  let filtersShown = true;
   const layoutSection = document.createElement('section');
   layoutSection.className = 'h-explorer-website-layout';
   const heading = document.createElement('div');
@@ -146,6 +170,8 @@ export async function createExplorerWebsitePanel({ value = null, lists = {}, def
     async read() {
       if (form.validate().length) return null;
       const values = form.getValue();
+      // without Own filters: no filter items (no filter pane on the page)
+      if (!filtersShown) values.filter = { ...values.filter, items: [], active: null };
       // a new instance (no settings yet): the website defaults
       const base = settings ? JSON.parse(JSON.stringify(settings)) : await defaults();
       const state = value?.state ?? null;
@@ -160,6 +186,11 @@ export async function createExplorerWebsitePanel({ value = null, lists = {}, def
     },
     reset() {
       form.reset(true);
+    },
+    /** Show the filter fields (Own filters of Records and selection) or hide them. */
+    showFilters(shown) {
+      filtersShown = shown !== false;
+      for (const name of FILTER_FIELDS) form.form.showField(name, filtersShown);
     },
     async destroy() {
       editor.destroy();

@@ -13,7 +13,7 @@
  * @since       8.0
  */
 
-import { HEADER_KEYWORDS } from './queryPredicates.js';
+import { HEADER_KEYWORDS } from '#shared/data/query/queryPredicates.js';
 
 /**
  * Resolve an i18nKey to display text, falling back to English then the key.

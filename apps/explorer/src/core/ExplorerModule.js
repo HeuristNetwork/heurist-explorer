@@ -13,6 +13,8 @@
  * @since       8.0
  */
 
+import { normalizeIds } from '#shared/sync/selection.js';
+
 /** Engine-neutral Explorer module contract. */
 export class ExplorerModule extends EventTarget {
   /**
@@ -86,16 +88,8 @@ export class ExplorerModule extends EventTarget {
   async destroy() {}
 }
 
-/**
- * Normalize a value into a de-duplicated array of positive integer record IDs.
- *
- * @param {*} values Value to normalize; non-arrays produce an empty result.
- * @returns {Array<number>} Normalized record IDs.
- */
-export function normalizeIds(values) {
-  return [...new Set((Array.isArray(values) ? values : []).map(Number)
-    .filter((id) => Number.isInteger(id) && id > 0))];
-}
+/** Record ids of a selection: the rule of the shared sync code (plan 27l). */
+export { normalizeIds };
 
 /**
  * Deep-clone a JSON-safe value, tolerating `null`/`undefined`.

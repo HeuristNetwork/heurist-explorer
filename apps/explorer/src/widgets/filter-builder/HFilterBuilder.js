@@ -33,7 +33,7 @@ import { HFieldTree } from '#shared/widgets/field-tree/HFieldTree.js';
 import { HFilterFormDesigner } from './HFilterFormDesigner.js';
 import { HFilterForm } from '#shared/widgets/filter/HFilterForm.js';
 import { describeQueryParameters, hasQueryParameters, resolveQueryParameters } from '#shared/data/queryParameters.js';
-import { parseTextQuery } from '../../utils/parseTextQuery.js';
+import { parseTextQuery } from '#shared/data/query/parseTextQuery.js';
 import { str, kindFor, operatorByKey } from '../../utils/vocabHelpers.js';
 import './HFilterBuilder.css';
 

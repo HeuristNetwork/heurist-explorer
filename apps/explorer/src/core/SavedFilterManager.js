@@ -13,7 +13,9 @@
  * @since       8.0
  */
 
-import { normalizeDataSource } from './DataSource.js';
+import {
+  hasExpansionRules, parseSavedFilterDefinition, savedFilterDataSource
+} from '#shared/data/savedFilters.js';
 
 /** Loads saved-filter definitions and resolves them into runtime DataSources. */
 export class SavedFilterManager {
@@ -106,30 +108,7 @@ export class SavedFilterManager {
    */
   async resolveDataSource(id, { origin = 'filter' } = {}) {
     const filter = await this._loadOne(id);
-    if (!filter) return null;
-
-    let definition = filter.definition;
-    const meta = { origin };
-    if (this.legacyConverter) {
-      const converted = await this.legacyConverter.convert(filter.query);
-      if (converted.status === 'unsupported') {
-        const error = new Error(`${filter.title}: ${converted.warnings.join(' ') || 'legacy, cannot open.'}`);
-        error.legacyQuery = converted.legacyQuery;
-        throw error;
-      }
-      definition = converted.definition;
-      if (converted.warnings.length) meta.warnings = converted.warnings;
-    }
-
-    const request = executableRequest(definition);
-    if (isEmptySearchRequest(request)) return null;
-    return normalizeDataSource({
-      reference: { type: 'filter', id: filter.id },
-      title: definition.title || filter.title,
-      request,
-      presentation: definition.filterForm ? { filterForm: definition.filterForm } : {},
-      meta
-    });
+    return filter ? savedFilterDataSource(filter, { legacyConverter: this.legacyConverter, origin }) : null;
   }
 
   /**
@@ -194,89 +173,12 @@ export class SavedFilterManager {
   }
 }
 
-/**
- * Normalize persisted saved-filter JSON.
- *
- * @param {*} value Raw persisted value: an object, a JSON string, or a bare query string.
- * @returns {object} Normalized definition object; `{q: value}` when `value` isn't valid JSON.
- */
-export function parseSavedFilterDefinition(value) {
-  if (value && typeof value === 'object' && !Array.isArray(value)) return clone(value);
-
-  const text = String(value ?? '').trim();
-  if (!text) return {};
-  try {
-    const parsed = JSON.parse(text);
-    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : { q: text };
-  } catch {
-    return { q: text };
-  }
-}
-
-/**
- * Build an executable records request from a saved-filter definition.
- *
- * @param {object} definition Normalized filter definition.
- * @returns {object} Executable request understood by the records API.
- */
-export function executableRequest(definition) {
-  const value = definition || {};
-  const request = {};
-  if (value.q !== undefined) request.q = value.q;
-  if (value.query !== undefined && request.q === undefined) request.q = value.query;
-  if (value.rules !== undefined && value.rules !== null) request.rules = value.rules;
-  if (value.rulesonly !== undefined && value.rulesonly !== null) request.rulesonly = value.rulesonly;
-  if (value.w !== undefined && value.w !== null && value.w !== '') request.w = value.w;
-  if (value.filter !== undefined && value.filter !== null && value.filter !== '') request.filter = value.filter;
-  if (value.sort !== undefined && value.sort !== null && value.sort !== '') request.sort = value.sort;
-  return request;
-}
-
-/**
- * Whether an executable request has neither a query nor rules to run.
- *
- * @param {object} request Executable request; see {@link executableRequest}.
- * @returns {boolean} True when both `q` and `rules` are empty.
- */
-export function isEmptySearchRequest(request) {
-  const q = request?.q;
-  const qEmpty = q == null || q === '' || (typeof q === 'object' && !Array.isArray(q) && Object.keys(q).length === 0);
-  const rulesEmpty = request?.rules == null || request.rules === '' || (Array.isArray(request.rules) && request.rules.length === 0);
-  return qEmpty && rulesEmpty;
-}
-
 /** Classify a filter as `'parametrized'` or `'simple'` from explicit flags, else `'simple'`. */
 function inferFilterKind(value, definition) {
   const explicit = value?.kind ?? value?.parameterized ?? value?.parametrized
     ?? definition?.filterKind ?? definition?.parameterized ?? definition?.parametrized;
   return explicit === true || ['parametrized', 'parameterized'].includes(String(explicit).toLowerCase())
     ? 'parametrized' : 'simple';
-}
-
-/**
- * Whether a stored filter has expansion rules: a `rules` member of its JSON
- * definition, or a `rules=` parameter of a legacy URL-style query.
- *
- * @param {*} query Stored query (JSON text or legacy URL parameters).
- * @param {object} definition Parsed definition.
- * @returns {boolean} True when rules are present.
- */
-export function hasExpansionRules(query, definition) {
-  if (nonEmptyRules(definition?.rules)) return true;
-  const text = typeof query === 'string' ? query : '';
-  const match = /(?:^|[?&])rules=([^&]*)/.exec(text);
-  if (!match) return false;
-  let value = match[1];
-  try { value = decodeURIComponent(value); } catch { /* keep the raw text */ }
-  return nonEmptyRules(value);
-}
-
-/** @returns {boolean} True for rules that are not empty (`[]`, `""`, `null`). */
-function nonEmptyRules(rules) {
-  if (rules == null) return false;
-  if (Array.isArray(rules)) return rules.length > 0;
-  const text = String(rules).trim();
-  return text !== '' && text !== '[]' && text !== 'null' && text !== '{}';
 }
 
 /** Owner (user/group) id: a non-negative integer (0 is Everyone), or `null`. */

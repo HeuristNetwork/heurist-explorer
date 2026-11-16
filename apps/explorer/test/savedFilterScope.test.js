@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { SavedFilterManager, hasExpansionRules } from '../src/core/SavedFilterManager.js';
+import { SavedFilterManager } from '../src/core/SavedFilterManager.js';
+import { hasExpansionRules } from '#shared/data/savedFilters.js';
 import { ownerScope } from '../src/core/UserGroupManager.js';
 
 test('owner scope: Everyone, Website filters, member/admin groups and the user; guests the public two', () => {

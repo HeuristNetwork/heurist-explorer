@@ -27,10 +27,10 @@
 import { HBaseWidget } from '#shared/widgets/HBaseWidget.js';
 import { UserGroupSource } from '#shared/data/valueSources/index.js';
 import { $HR } from '#shared/ui';
-import { parseTextQuery } from '../../utils/parseTextQuery.js';
+import { parseTextQuery } from '#shared/data/query/parseTextQuery.js';
 import { queryDescribe } from '../../utils/queryDescribe.js';
 import { queryToArray } from '../../utils/queryModel.js';
-import { canonicalPredicate } from '../../utils/queryPredicates.js';
+import { canonicalPredicate } from '#shared/data/query/queryPredicates.js';
 import { kindFor, operatorsFor, str } from '../../utils/vocabHelpers.js';
 import './HFilterInlineHelper.css';
 

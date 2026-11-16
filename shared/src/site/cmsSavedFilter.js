@@ -1,10 +1,12 @@
 /**
  * @file cmsSavedFilter.js
- * @brief The CMS action Saved filter (plan 27j): a public query source, a target page and the values of its parameters.
+ * @brief The CMS action Saved filter (plan 27j): a public query source or saved filter (plan 27l §7.2), a target page and
+ *        the values of its parameters.
  *
  * Stored as a reference (not as the resolved query): `{source: <query source id>, page: <page id>, values: {X1: 'Paris',
- * X2: ['a', 'b']}}` (an action menu item has the page in `target`). The link opens the target page with
- * `?source=<id>&v.<NAME>=<value>` (an array repeats the key); the site runtime of that page reads it, fills the values
+ * X2: ['a', 'b']}}`, or `{filter: <saved filter id>, ...}` in place of `source` (an action menu item has the page in
+ * `target`). The link opens the target page with `?source=<id>&v.<NAME>=<value>` (`?filter=<id>` for a saved filter; an
+ * array repeats the key); the site runtime of that page reads it, fills the values
  * into the query (`resolveQueryParameters`) and gives the result to every record module of the page. A missing value
  * leaves its predicate out; Explorer asks for the missing values in its filter form.
  *
@@ -16,8 +18,9 @@
  * link (cards, gallery, media of a record, Record field, the action menu of a record page); the query string leaves
  * them out until then.
  *
- *   cmsFilterQuery(12, {X1: 'Paris'})          // 'source=12&v.X1=Paris'
- *   parseCmsFilterQuery('?source=12&v.X1=Paris') // {source: 12, values: {X1: 'Paris'}}
+ *   cmsFilterQuery(12, {X1: 'Paris'})                          // 'source=12&v.X1=Paris'
+ *   cmsFilterQuery({kind: 'filter', id: 34}, {X1: 'Paris'})    // 'filter=34&v.X1=Paris'
+ *   parseCmsFilterQuery('?source=12&v.X1=Paris') // {kind: 'source', id: 12, source: 12, values: {X1: 'Paris'}}
  *
  * @project     Heurist academic knowledge management system
  * @package     heurist-client-core
@@ -43,6 +46,38 @@ const NAME = /^[A-Za-z][A-Za-z0-9_]*$/;
 
 /** A field of a value from the record: concept code or local id (SavedFilterLink::FIELD_CODE). */
 const FIELD_CODE = /^\d+(?:-\d+)?$/;
+
+/** Kinds of the target of a Saved filter: a query source, a saved filter (plan 27l §7.2). */
+export const CMS_FILTER_KINDS = Object.freeze(['source', 'filter']);
+
+/**
+ * What a Saved filter runs: `{kind: 'source', id}` (a query source id given as a number, or settings with `source`) or
+ * `{kind: 'filter', id}` (settings with `filter`, or the object itself); null without one.
+ *
+ * @param {number|string|{source?: *, filter?: *, kind?: string, id?: *}} value
+ * @returns {{kind: 'source'|'filter', id: number}|null}
+ */
+export function cmsFilterTarget(value) {
+  if (!isMap(value)) {
+    const id = positiveId(value);
+    return id ? { kind: 'source', id } : null;
+  }
+  if (CMS_FILTER_KINDS.includes(value.kind) && positiveId(value.id)) return { kind: value.kind, id: positiveId(value.id) };
+  if (positiveId(value.filter)) return { kind: 'filter', id: positiveId(value.filter) };
+  if (positiveId(value.source)) return { kind: 'source', id: positiveId(value.source) };
+  return null;
+}
+
+/**
+ * The stored key of the target: `{source: id}` or `{filter: id}`; `{}` without one.
+ *
+ * @param {*} value See cmsFilterTarget.
+ * @returns {{source?: number, filter?: number}}
+ */
+export function cmsFilterKeys(value) {
+  const target = cmsFilterTarget(value);
+  return target ? { [target.kind]: target.id } : {};
+}
 
 /**
  * The reference of a value from the record: 'id' (`{record: 'id'}`), the field code (`{field: '2-1'}`), or null.
@@ -109,17 +144,17 @@ export function normalizeCmsFilterValues(values) {
 }
 
 /**
- * The query string of the target page: `source=<id>&v.<NAME>=<value>` (an array repeats the key); '' when it is longer
- * than the limit or the source is not an id.
+ * The query string of the target page: `source=<id>&v.<NAME>=<value>` (`filter=<id>` for a saved filter; an array
+ * repeats the key); '' when it is longer than the limit or there is no source.
  *
- * @param {number|string} source Query source id.
+ * @param {number|string|object} source Query source id, or a target / settings (cmsFilterTarget).
  * @param {object} [values]
  * @returns {string}
  */
 export function cmsFilterQuery(source, values = {}) {
-  const id = positiveId(source);
-  if (!id) return '';
-  const parts = [`source=${id}`];
+  const target = cmsFilterTarget(source);
+  if (!target) return '';
+  const parts = [`${target.kind}=${target.id}`];
   for (const [name, value] of Object.entries(normalizeCmsFilterValues(values).values)) {
     // a value from the record is filled in by the server (phase B)
     if (cmsFilterReference(value)) continue;
@@ -133,7 +168,7 @@ export function cmsFilterQuery(source, values = {}) {
  * The URL of the target page with the query of a Saved filter; '' without a page URL or a query.
  *
  * @param {string} pageUrl
- * @param {number|string} source
+ * @param {number|string|object} source Query source id, or a target / settings (cmsFilterTarget).
  * @param {object} [values]
  * @returns {string}
  */
@@ -146,16 +181,17 @@ export function cmsFilterHref(pageUrl, source, values = {}) {
 }
 
 /**
- * The Saved filter asked by a page URL (the site runtime): the source and the values, within the limits (what is over
- * them is ignored); null without `source`.
+ * The Saved filter asked by a page URL (the site runtime): the source (or saved filter) and the values, within the
+ * limits (what is over them is ignored); null without `source` / `filter`.
  *
  * @param {string|URLSearchParams} search `location.search`.
- * @returns {{source: number, values: Object<string, string|string[]>}|null}
+ * @returns {{kind: 'source'|'filter', id: number, source?: number, filter?: number,
+ *          values: Object<string, string|string[]>}|null}
  */
 export function parseCmsFilterQuery(search) {
   const params = search instanceof URLSearchParams ? search : new URLSearchParams(String(search || ''));
-  const source = positiveId(params.get('source'));
-  if (!source) return null;
+  const target = cmsFilterTarget({ source: params.get('source'), filter: params.get('filter') });
+  if (!target) return null;
   const raw = {};
   for (const [key, value] of params) {
     if (!key.startsWith('v.')) continue;
@@ -166,36 +202,40 @@ export function parseCmsFilterQuery(search) {
   // over the limits: ignored (the URL may come from anywhere)
   const limited = Object.fromEntries(Object.entries(raw).slice(0, CMS_FILTER_LIMITS.values)
     .map(([name, value]) => [name, Array.isArray(value) ? value.slice(0, CMS_FILTER_LIMITS.items) : value]));
-  return { source, values: normalizeCmsFilterValues(limited).values };
+  return { ...target, [target.kind]: target.id, values: normalizeCmsFilterValues(limited).values };
 }
 
 /**
- * Why a stored Saved filter is not valid, or null: a query source and a page (ids), the values within the limits.
+ * Why a stored Saved filter is not valid, or null: a query source or saved filter and a page (ids), the values within
+ * the limits.
  *
- * @param {{source?: *, page?: *, target?: *, values?: *}} settings `target` (an action menu item) or `page`.
+ * @param {{source?: *, filter?: *, page?: *, target?: *, values?: *}} settings `target` (an action menu item) or `page`.
  * @returns {string|null}
  */
 export function cmsFilterProblem(settings = {}) {
-  if (!positiveId(settings.source)) return 'a Saved filter needs a query source';
+  const target = cmsFilterTarget({ source: settings.source, filter: settings.filter });
+  if (!target) return 'a Saved filter needs a query source or a saved filter';
   if (!positiveId(settings.page ?? settings.target)) return 'a Saved filter needs a target page';
   const { values, dropped } = normalizeCmsFilterValues(settings.values);
   if (dropped) {
     return `the values of a Saved filter: at most ${CMS_FILTER_LIMITS.values}, ${CMS_FILTER_LIMITS.length} characters each, `
       + `arrays of ${CMS_FILTER_LIMITS.items}`;
   }
-  if (!cmsFilterQuery(settings.source, values)) return `the values of a Saved filter are longer than ${CMS_FILTER_LIMITS.query} characters`;
+  if (!cmsFilterQuery(target, values)) return `the values of a Saved filter are longer than ${CMS_FILTER_LIMITS.query} characters`;
   return null;
 }
 
 /**
- * The stored form of a Saved filter: `{source, page, values}` (values within the limits, empty ones left out), or null.
+ * The stored form of a Saved filter: `{source, page, values}` or `{filter, page, values}` (values within the limits,
+ * empty ones left out), or null.
  *
  * @param {object} settings
- * @returns {{source: number, page: number, values: object}|null}
+ * @returns {{source?: number, filter?: number, page: number, values: object}|null}
  */
 export function cmsFilterSettings(settings = {}) {
   if (!settings || cmsFilterProblem(settings)) return null;
-  return { source: positiveId(settings.source), page: positiveId(settings.page ?? settings.target),
+  const target = cmsFilterTarget({ source: settings.source, filter: settings.filter });
+  return { [target.kind]: target.id, page: positiveId(settings.page ?? settings.target),
     values: normalizeCmsFilterValues(settings.values).values };
 }
 
@@ -220,10 +260,6 @@ export function cmsFilterParameters(querySource) {
  * @returns {{dataSource: object, raw: object, values: object, missing: string[]}}
  */
 export function cmsFilterRequest(querySource, values = {}) {
-  const query = querySource.source.query;
-  const names = queryParameterNames(query);
-  const given = Object.fromEntries(Object.entries(normalizeCmsFilterValues(values).values).filter(([name]) => names.includes(name)));
-  const missing = names.filter((name) => !Object.hasOwn(given, name));
   const id = positiveId(querySource.id);
   const base = {
     reference: { type: 'source', id },
@@ -241,13 +277,30 @@ export function cmsFilterRequest(querySource, values = {}) {
       graph: null,
       filterForm: clone(querySource.filterForm || null)
     },
-    meta: { origin: 'saved-filter' }
+    meta: { origin: 'saved-filter' },
+    request: { q: clone(querySource.source.query), ...(querySource.rules?.length ? { rules: clone(querySource.rules) } : {}) }
   };
-  const request = (q) => ({ q, ...(querySource.rules?.length ? { rules: clone(querySource.rules) } : {}) });
-  const resolved = names.length ? resolveQueryParameters(query, given, querySource.filterForm || null) : { q: clone(query) };
-  const dataSource = { ...clone(base), request: request(resolved.q) };
+  return cmsFilterDataSourceRequest(base, values);
+}
+
+/**
+ * The request of a Saved filter from the DataSource of its source (a query source, or a saved filter, plan 27l §7.2)
+ * with its parameters (`$NAME$`, the Filter Form in `presentation.filterForm`): see cmsFilterRequest.
+ *
+ * @param {object} source DataSource with `request.q`.
+ * @param {object} [values]
+ * @returns {{dataSource: object, raw: object, values: object, missing: string[]}}
+ */
+export function cmsFilterDataSourceRequest(source, values = {}) {
+  const query = source.request.q;
+  const names = queryParameterNames(query);
+  const given = Object.fromEntries(Object.entries(normalizeCmsFilterValues(values).values).filter(([name]) => names.includes(name)));
+  const missing = names.filter((name) => !Object.hasOwn(given, name));
+  const filterForm = source.presentation?.filterForm || null;
+  const resolved = names.length ? resolveQueryParameters(query, given, filterForm) : { q: clone(query) };
+  const dataSource = { ...clone(source), request: { ...clone(source.request), q: resolved.q } };
   if (resolved.extent) dataSource.request.extent = resolved.extent;
-  return { dataSource, raw: { ...clone(base), request: request(clone(query)) }, values: given, missing };
+  return { dataSource, raw: clone(source), values: given, missing };
 }
 
 /**

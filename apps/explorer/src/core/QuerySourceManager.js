@@ -13,7 +13,7 @@
  * @since       8.0
  */
 
-import { normalizeDataSource } from './DataSource.js';
+import { normalizeDataSource } from '#shared/data/DataSource.js';
 import { QuerySourceProvider } from '#shared/data/QuerySourceProvider.js';
 import { QuerySource } from '#shared/data/QuerySource.js';
 import { hasQueryParameters } from '#shared/data/queryParameters.js';

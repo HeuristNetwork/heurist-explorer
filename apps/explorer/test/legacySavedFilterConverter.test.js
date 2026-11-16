@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { LegacySavedFilterConverter } from '../src/legacy/LegacySavedFilterConverter.js';
-import { convertLegacyRules } from '../src/legacy/legacyRules.js';
-import { strictTextToJson } from '../src/legacy/legacyQuery.js';
+import { LegacySavedFilterConverter } from '#shared/data/legacy/LegacySavedFilterConverter.js';
+import { convertLegacyRules } from '#shared/data/legacy/legacyRules.js';
+import { strictTextToJson } from '#shared/data/legacy/legacyQuery.js';
 import { SavedFilterManager } from '../src/core/SavedFilterManager.js';
 import { resolveQueryParameters } from '../../../shared/src/data/queryParameters.js';
 

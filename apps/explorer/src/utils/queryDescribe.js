@@ -34,7 +34,7 @@ import {
   isLinkPredicate,
   isGroupPredicate,
   HEADER_KEYWORDS
-} from './queryPredicates.js';
+} from '#shared/data/query/queryPredicates.js';
 import { str, kindFor, operatorsFor } from './vocabHelpers.js';
 import { isExtent } from '#shared/utils';
 

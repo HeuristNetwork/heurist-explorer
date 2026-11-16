@@ -544,3 +544,43 @@
 #This page is not in the website#Cette page n’est pas dans le site web
 #Maximize#Agrandir
 #Restore#Restaurer
+#Stop#Arrêter
+#Stop the running search#Arrêter la recherche en cours
+#Available filters#Filtres disponibles
+#Active on start#Actif au démarrage
+#Select#Liste déroulante
+#Choose at least one filter#Choisissez au moins un filtre
+#Filter: choose its filters (gear of the element)#Filtre : choisissez ses filtres (roue dentée de l’élément)
+#Saved filters of the group "Website filters" and public query sources#Filtres enregistrés du groupe « Website filters » et sources de requête publiques
+#One of the available filters; it runs when the page opens without a Saved filter in its address#Un des filtres disponibles ; il s’exécute à l’ouverture de la page sans filtre enregistré dans son adresse
+#Choose a query source or a saved filter#Choisissez une source de requête ou un filtre enregistré
+#source#source
+#filter#filtre
+#There is no public query source or website filter in this database.#Il n’y a ni source de requête publique ni filtre de site web dans cette base.
+#A search box needs a query source or saved filter with a parameter#Une zone de recherche nécessite une source de requête ou un filtre enregistré avec un paramètre
+#This saved filter has no query#Ce filtre enregistré n’a pas de requête
+#A Saved filter item needs a query source or saved filter and a target page#Un élément Filtre enregistré nécessite une source de requête ou un filtre enregistré et une page cible
+#A search box needs a query source or saved filter with a parameter and a target page#Une zone de recherche nécessite une source de requête ou un filtre enregistré avec un paramètre et une page cible
+#The link opens the target page with the records of the query source or saved filter. Values left empty: Explorer asks for them, other modules leave them out.#Le lien ouvre la page cible avec les fiches de la source de requête ou du filtre enregistré. Valeurs laissées vides : Explorer les demande, les autres modules les ignorent.
+#Record#Fiche
+#Query#Requête
+#Saved filters of "Website filters" and public query sources without parameters#Filtres enregistrés de « Website filters » et sources de requête publiques sans paramètres
+#Own records of a module#Fiches propres d’un module
+#Public query sources without parameters; the cards follow later changes of its query#Sources de requête publiques sans paramètres ; les cartes suivent les modifications ultérieures de sa requête
+#Records and selection#Fiches et sélection
+#Records from#Fiches de
+#Own query#Requête propre
+#Own filters#Filtres propres
+#Saved filter links#Liens de filtre enregistré
+#Filter widget#Widget Filtre
+#Module#Module
+#Share selection with other modules#Partager la sélection avec les autres modules
+#Shows#Affiche
+#Own record#Fiche propre
+#Selected record#Fiche sélectionnée
+#Any of them: the module shows the latest search#N’importe lesquelles : le module affiche la dernière recherche
+#Or a query without parameters#Ou une requête sans paramètres
+#Choose the record#Choisissez la fiche
+#Choose a query source or write a query#Choisissez une source de requête ou écrivez une requête
+#The first records come from the own query; a later search from the other sources replaces them.#Les premières fiches viennent de la requête propre ; une recherche ultérieure des autres sources les remplace.
+#The chosen filter shows its records in the modules of the page that take their records from this widget (Records and selection of the module); a filter with parameters shows its form first.#Le filtre choisi affiche ses fiches dans les modules de la page qui prennent leurs fiches de ce widget (Fiches et sélection du module) ; un filtre avec paramètres affiche d’abord son formulaire.

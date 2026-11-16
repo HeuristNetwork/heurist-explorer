@@ -9,7 +9,7 @@
  * docs/query-language-filter-builder-plan.md section 6 / D1.
  *
  * @project     Heurist academic knowledge management system
- * @package     heurist-explorer
+ * @package     heurist-client-core
  *
  * @link        https://HeuristNetwork.org
  * @copyright   (C) 2024 onwards Heurist Network

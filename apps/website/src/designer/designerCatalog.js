@@ -206,6 +206,12 @@ export const ELEMENT_GROUPS = Object.freeze([
         preview: [['h', 10, 8, 60, 7], ['i', 10, 20, 30, 24], ['t', 46, 20, 64, 50], ['t', 10, 50, 30, 20]]
       },
       {
+        value: 'filter', label: 'Filter', available: true,
+        description: 'Saved filters and query sources as buttons, a list or a select; the chosen one shows its records'
+          + ' in the modules of the page (a filter with parameters shows its form first). Stop while a search runs.',
+        preview: [['f', 8, 10, 40, 8], ['f', 8, 22, 40, 8], ['f', 8, 34, 40, 8], ['t', 56, 10, 56, 50]]
+      },
+      {
         value: 'crosstabs', label: 'Crosstabs',
         description: 'A cross tabulation of the records by the values of two or more fields, with counts, sums or averages'
           + ' and charts.',

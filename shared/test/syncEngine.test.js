@@ -1,7 +1,22 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { SyncEngine } from '../src/core/SyncEngine.js';
-import { ExplorerModule } from '../src/core/ExplorerModule.js';
+import { SyncEngine, syncModeOf } from '../src/sync/SyncEngine.js';
+import { normalizeIds } from '../src/sync/selection.js';
+
+/** A module that keeps what it gets (as ExplorerModule of Explorer). */
+class ExplorerModule extends EventTarget {
+  constructor({ id, type }) {
+    super();
+    this.id = id;
+    this.type = type;
+    this.dataSource = null;
+    this.selection = [];
+  }
+
+  async setDataSource(source) { this.dataSource = structuredClone(source); return source; }
+
+  async setSelection(ids) { this.selection = normalizeIds(ids); return this.selection; }
+}
 
 test('document synchronization excludes origin and suppresses echoes without changing datasource', async () => {
   const sync = new SyncEngine();
@@ -169,4 +184,36 @@ test('rules-only changes reach rule-aware modules without re-sending the datasou
 
 test('rules-only changes need an active datasource', async () => {
   assert.equal(await new SyncEngine().setRules([]), null);
+});
+
+test('sync modes: selection only keeps its records, none takes nothing and sends nothing (plan 27l)', async () => {
+  const sync = new SyncEngine();
+  const follow = new ExplorerModule({ id: 'a', type: 'data' });
+  const fixed = Object.assign(new ExplorerModule({ id: 'b', type: 'data' }), { syncMode: 'selection' });
+  const alone = Object.assign(new ExplorerModule({ id: 'c', type: 'map' }), { syncMode: 'none' });
+  const documents = [];
+  alone.setActiveMapDocument = async (id) => documents.push(id);
+  for (const module of [follow, fixed, alone]) sync.register(module);
+  assert.equal(syncModeOf(follow), 'all');
+  assert.equal(syncModeOf({ syncMode: 'other' }), 'all');
+
+  await sync.setDataSource({ type: 'query', query: { q: 't:12' } });
+  assert.equal(follow.dataSource.request.q, 't:12');
+  assert.equal(fixed.dataSource, null);
+  assert.equal(alone.dataSource, null);
+  await sync.setActiveMapDocument('7');
+  assert.deepEqual(documents, []);
+
+  await sync.setSelection([5]);
+  assert.deepEqual(follow.selection, [5]);
+  assert.deepEqual(fixed.selection, [5]);
+  assert.deepEqual(alone.selection, []);
+
+  // a selection made in the fixed list goes to the others; one of an independent module does not
+  fixed.dispatchEvent(new CustomEvent('selectionchange', { detail: { selection: [6] } }));
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.deepEqual(follow.selection, [6]);
+  alone.dispatchEvent(new CustomEvent('selectionchange', { detail: { selection: [9] } }));
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.deepEqual(sync.selection, [6]);
 });

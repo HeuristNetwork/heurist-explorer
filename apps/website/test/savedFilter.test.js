@@ -39,6 +39,11 @@ test('Saved filter designer: checks, values of the Filter Form, summary', () => 
   assert.equal(savedFilterSummary(ok, { sources: [{ id: 3, title: 'People' }], pages: [{ id: 7, label: '  Map' }] }), 'People → Map · 1 value');
   assert.deepEqual(storedSavedFilter({ action: 'savedFilter', source: 3, target: 7, values: { X1: 'a' } }), ok);
   assert.equal(storedSavedFilter({ action: 'page', page: 7 }), null);
+  // a saved filter in place of the query source (plan 27l §7.2)
+  assert.equal(savedFilterIssue({ filter: 5, page: 7, values: { X1: 'a' } }, { parameters: ['X1'] }), null);
+  assert.equal(savedFilterSummary({ filter: 5, page: 7, values: {} }, { filters: [{ id: 5, title: 'Places' }], pages: [{ id: 7, label: 'Map' }] }),
+    'Places → Map');
+  assert.deepEqual(storedSavedFilter({ action: 'savedFilter', filter: 5, target: 7, values: {} }), { filter: 5, page: 7, values: {} });
 });
 
 test('Saved filter: a Record field link keeps its values (data-h-link-values)', () => {
@@ -48,8 +53,28 @@ test('Saved filter: a Record field link keeps its values (data-h-link-values)', 
   assert.deepEqual(doc.fieldLinkValues('f'), { X1: 'Paris' });
   doc.setFieldLink('f', 'url', { X1: 'Paris' });
   assert.equal(doc.fieldLinkValues('f'), null, 'values only with a Saved filter');
+  // a saved filter (plan 27l §7.2): `f` before its id
+  doc.setFieldLink('f', 'filter:7:f5', { X1: 'Paris' });
+  assert.equal(doc.fieldLink('f'), 'filter:7:f5');
   doc.setFieldLink('f', 'filter:x:3');
   assert.equal(doc.fieldLink('f'), null, 'not a valid link');
+});
+
+test('Saved filter site runtime: a saved filter of the page URL (?filter=, plan 27l §7.2)', async () => {
+  const calls = [];
+  const load = async (url) => {
+    calls.push(url);
+    return { ok: true, json: async () => ({ record: { rec_ID: 34, rec_Title: 'Places',
+      details: { query: [{ value: '{"q":{"t":"12","title":"$X$"},"w":"all"}' }] } } }) };
+  };
+  const request = await pageFilterRequest({ apiBaseUrl: 'http://h/api', database: 'db' }, '?filter=34&v.X=Zed', load);
+  assert.deepEqual(calls, ['http://h/api/db/sys/filter/34']);
+  assert.equal(request.dataSource.reference.type, 'filter');
+  assert.equal(request.dataSource.reference.id, 34);
+  // the stored query converted as in Explorer (legacy converter: the array form)
+  assert.match(JSON.stringify(request.dataSource.request.q), /"title":"Zed"/);
+  assert.match(JSON.stringify(request.raw.request.q), /"title":"\$X\$"/, 'the filter as it is for a Filter Form');
+  assert.deepEqual(request.missing, []);
 });
 
 test('Saved filter site runtime: the page URL loads the query source once and fills the values', async () => {
@@ -134,23 +159,16 @@ test('Saved filter phase B: fields of record types as values from the record, re
   assert.deepEqual(await recordTypesOf(apiClient, []), []);
 });
 
-test('Saved filter phase C: the URL without the filter, the records for each mounted module', async () => {
-  const { applyFilterToModule, applyPageFilter, attachSamePageFilters, hasPageFilter, splitFilterUrl } = await import('../src/siteRuntime.js');
+test('Saved filter phase C: the URL without the filter, the records for the mounted modules (PageSync)', async () => {
+  const { applyPageFilter, attachSamePageFilters, hasPageFilter, splitFilterUrl } = await import('../src/siteRuntime.js');
   assert.deepEqual(splitFilterUrl('https://h/db/site/5/7?lang=fre&source=3&v.X1=a&v.T=1&v.T=2#top'),
     { page: 'https://h/db/site/5/7?lang=fre', search: '?source=3&v.X1=a&v.T=1&v.T=2' });
   assert.deepEqual(splitFilterUrl('https://h/db/site/5/7'), { page: 'https://h/db/site/5/7', search: '' });
   assert.equal(hasPageFilter('https://h/x?source=3'), true);
   assert.equal(hasPageFilter('https://h/x?lang=fre'), false);
-  const request = { dataSource: { title: 'People', request: { q: { t: '10' } } }, raw: {}, values: {}, missing: [] };
-  const calls = [];
-  await applyFilterToModule('explorer', { applyPageRequest: (value) => calls.push(['explorer', value === request]) }, request);
-  await applyFilterToModule('data', { setDataSource: (ds, options) => calls.push(['data', options.reload]) }, request);
-  await applyFilterToModule('graph', { setDataSource: () => calls.push(['graph']) }, request);
-  await applyFilterToModule('map', { getDynamicDocument: () => ({ id: 'dyn' }), activateMapDocument: (id) => calls.push(['map doc', id]),
-    setDynamicDataSources: (value) => calls.push(['map', value.currentDataSource === request.dataSource]) }, request);
-  await applyFilterToModule('timeline', { setQuery: (q, options) => calls.push(['timeline', q.t, options.reload]) }, request);
-  assert.deepEqual(calls, [['explorer', true], ['data', true], ['graph'], ['map doc', 'dyn'], ['map', true], ['timeline', '10', true]]);
-
+  // a saved filter (plan 27l §7.2)
+  assert.equal(hasPageFilter('https://h/x?filter=12&v.A=1'), true);
+  assert.deepEqual(splitFilterUrl('https://h/db/site/5/7?filter=12&v.A=1'), { page: 'https://h/db/site/5/7', search: '?filter=12&v.A=1' });
   // reload mode: a filter link to this page applies the records without a reload
   const fetchBefore = globalThis.fetch;
   globalThis.fetch = async () => ({ ok: true, json: async () => ({ id: 4, title: 'P', source: { query: { t: '12', title: '$X$' } } }) });

@@ -27,6 +27,7 @@ import { $HR, HMsg } from '#shared/ui';
 import { formDialog } from './designerDialogs.js';
 import { helpLine } from './designerStyles.js';
 import { savedFilterField } from './savedFilterField.js';
+import { cmsFilterKeys } from '#shared/site/cmsSavedFilter.js';
 
 /** Actions of the links of records; `viewer` only for media; `page` (Go to a page) with the pages of the website. */
 const ACTIONS = Object.freeze(['none', 'viewer', 'url', 'recordPage', 'page', 'savedFilter']);
@@ -141,13 +142,13 @@ export function recordActionValues(settings = {}, { viewer = false } = {}) {
  *
  * @param {{action?: string, recordPage?: number|string, page?: number|string}} values
  * @param {{viewer?: boolean, allowed?: boolean, filter?: object|null}} [options] `allowed`: false when the action is not
- *        offered (another source or Type): `none`; `filter`: the Saved filter of the popup `{source, page, values}`.
- * @returns {{action: string, recordPage?: number, page?: number, source?: number, values?: object}}
+ *        offered (another source or Type): `none`; `filter`: the Saved filter of the popup `{source|filter, page, values}`.
+ * @returns {{action: string, recordPage?: number, page?: number, source?: number, filter?: number, values?: object}}
  */
 export function recordActionSettings(values = {}, { viewer = false, allowed = true, filter = null } = {}) {
   const { action, recordPage, page } = recordActionValues(values, { viewer });
   if (!allowed) return { action: 'none' };
-  if (action === 'savedFilter') return filter ? { action, page: filter.page, source: filter.source, values: filter.values } : { action: 'none' };
+  if (action === 'savedFilter') return filter ? { action, page: filter.page, ...cmsFilterKeys(filter), values: filter.values } : { action: 'none' };
   if (action === 'page') return page ? { action, page } : { action: 'none' };
   return action === 'recordPage' && recordPage ? { action, recordPage } : { action: action === 'recordPage' ? 'none' : action };
 }

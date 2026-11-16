@@ -13,8 +13,9 @@
  * @since       8.0
  */
 
-import { ExplorerModule, clone, normalizeIds } from '../core/ExplorerModule.js';
-import { dataSourcePresentation, dataSourceRequest } from '../core/DataSource.js';
+import { ExplorerModule, clone } from '../core/ExplorerModule.js';
+import { dataSourcePresentation, dataSourceRequest } from '#shared/data/DataSource.js';
+import { ModuleHandle } from '#shared/sync/ModuleHandle.js';
 
 const TYPE_META = {
   data: { bridge: 'heuristDataHost', api: 'heuristData' },
@@ -48,8 +49,19 @@ export class IframeModuleAdapter extends ExplorerModule {
     this.hostActions = hostActions;
     this.onSettingsChange = typeof onSettingsChange === 'function' ? onSettingsChange : null;
     this.frame = null;
-    this.api = null;
+    // the per-type part (DataSource, selection, map documents, events) is shared with the website page (plan 27l)
+    this.handle = new ModuleHandle({ type });
     this.readyPromise = null;
+  }
+
+  /** @returns {object|null} The public API of the child module. */
+  get api() {
+    return this.handle.api;
+  }
+
+  /** @param {object|null} api The public API of the child module. */
+  set api(api) {
+    this.handle.api = api;
   }
 
   /**
@@ -174,8 +186,8 @@ export class IframeModuleAdapter extends ExplorerModule {
    */
   _sourceBootstrap() {
     const source = this.dataSource || {};
-    const query = executableQuery(source);
     const request = dataSourceRequest(source);
+    const query = request?.q ?? null;
     const presentation = dataSourcePresentation(source, this.type);
     if (this.type === 'timeline') {
       return { contexts: query ? [{ id: 'current', title: source.title || 'Current result', query, request, presentation }] : [], selection: [...this.selection] };
@@ -212,91 +224,30 @@ export class IframeModuleAdapter extends ExplorerModule {
   }
 
   /**
-   * Subscribe to the child module's public selection-changed event and forward genuine changes to Explorer.
+   * Subscribe to the child module's public selection and map document events (ModuleHandle) and forward the changes
+   * of the visitor to Explorer.
    *
    * @private
    * @returns {void}
    */
   _bindChildEvents() {
-    if (!this.api?.addEventListener) return;
-    const forwardSelection = (event) => {
-      const detail = event?.detail || {};
-      const hasSelection = Object.prototype.hasOwnProperty.call(detail, 'selection')
-        || Object.prototype.hasOwnProperty.call(detail, 'recordIds')
-        || Object.prototype.hasOwnProperty.call(detail, 'ids');
-      if (!hasSelection) return;
-      let selection = detail.selection ?? detail.recordIds ?? detail.ids ?? [];
-
-      if (this.type === 'map' && selection && !Array.isArray(selection)) {
-        selection = Array.isArray(selection.features)
-          ? selection.features.map((feature) => feature?.recordId)
-          : [];
-      }
-
-      const nextSelection = normalizeIds(selection);
-
-      // A child may be unable to display some synchronized ids (for example,
-      // Map has no visible feature for a Graph selection) and report an empty
-      // local selection. That is presentation feedback, not a new user choice.
-      if (this._applyingSelection) return;
-
-      // Child modules may emit their normal selection-changed event in
-      // response to Explorer applying a synchronized selection. If the
-      // effective selection has not changed, this is an echo rather than a
-      // new user action and must not be forwarded back into SyncEngine.
-      if (sameSelection(nextSelection, this.selection)) {
-        return;
-      }
-
-      this.selection = nextSelection;
-      this.dispatchEvent(new CustomEvent('selectionchange', { detail: { selection: this.selection } }));
-    };
-    const names = {
-      map: ['heurist-map-selection-changed'],
-      timeline: ['heurist-timeline-selection-changed'],
-      graph: ['heurist-graph-selection-changed'],
-      data: ['heurist-data-selection-changed'],
-      // RecordView only ever emits this from an explicit "navigate to a
-      // linked record" action (see RecordViewApplication#navigateToRecord),
-      // never from passively displaying a pushed selection - one-way sync
-      // by default.
-      recordview: ['heurist-recordview-selection-changed']
-    }[this.type] || [];
-    this._eventBindings = names.map((name) => {
-      this.api.addEventListener(name, forwardSelection);
-      return [name, forwardSelection];
-    });
-    if (['map', 'timeline'].includes(this.type)) {
-      const forwardDocument = (event) => {
-        const detail = event.detail || {};
-        const document = detail.document;
-        if (!document || detail.loading || document.activating || document.loadState === 'error'
-          || document.active === false) return;
-        const id = document.persistent === false ? 'dynamic' : String(document.id);
-        if (this._applyingDocument === id || this._activeDocument === id) return;
-        this._activeDocument = id;
-        this.dispatchEvent(new CustomEvent('mapdocumentchange', { detail: { documentId: id } }));
-      };
-      for (const suffix of ['document-activated', 'document-state-changed']) {
-        const name = `heurist-${this.type}-${suffix}`;
-        this.api.addEventListener(name, forwardDocument);
-        this._eventBindings.push([name, forwardDocument]);
-      }
+    if (!this._forwarding) {
+      this._forwarding = true;
+      this.handle.addEventListener('selectionchange', (event) => {
+        this.selection = [...event.detail.selection];
+        this.dispatchEvent(new CustomEvent('selectionchange', { detail: { selection: this.selection } }));
+      });
+      this.handle.addEventListener('mapdocumentchange', (event) => {
+        this.dispatchEvent(new CustomEvent('mapdocumentchange', { detail: { documentId: event.detail.documentId } }));
+      });
     }
+    this.handle.bind();
   }
 
   async setActiveMapDocument(documentId) {
     if (!['map', 'timeline'].includes(this.type)) return false;
-    const api = await this._readyApi();
-    const id = String(documentId);
-    this._applyingDocument = id;
-    try {
-      const localId = id === 'dynamic' ? (api.getDynamicDocument?.()?.id || 'dynamic') : documentId;
-      await api.activateMapDocument(localId);
-      this._activeDocument = id;
-    } finally {
-      if (this._applyingDocument === id) this._applyingDocument = null;
-    }
+    await this._readyApi();
+    return this.handle.setActiveMapDocument(documentId);
   }
 
   /**
@@ -307,46 +258,8 @@ export class IframeModuleAdapter extends ExplorerModule {
    */
   async setDataSource(source) {
     await super.setDataSource(source);
-    const api = await this._readyApi();
-    const query = executableQuery(source);
-
-    await this.setLoading(true);
-    try {
-      // Every DataSource is resolved before synchronization. Its persistent
-      // identity and profiles remain metadata; this adapter applies its request.
-      if (this.type === 'timeline' && typeof api.setDynamicDataSources !== 'function') {
-        return await api.setQuery?.(query, { title: source?.title || 'Current result' });
-      }
-      if (this.type === 'graph') {
-        return await (typeof api.setDataSource === 'function'
-          ? api.setDataSource(source)
-          : api.load?.({ query }));
-      }
-      if (this.type === 'data') {
-        return await (typeof api.setDataSource === 'function'
-          ? api.setDataSource(source, { reload: true })
-          : api.setQuery?.(query, { reload: true, dataSource: source, title: source?.title || null }));
-      }
-      if (['map', 'timeline'].includes(this.type)) {
-        // Workspace is independent Explorer state and is synchronized only when
-        // membership/state changes. A normal current-datasource change must not
-        // replace or rebuild Workspace layers/bands.
-        return await (typeof api.setDynamicDataSources === 'function'
-          ? api.setDynamicDataSources({ currentDataSource: source })
-          : api.setQuery?.(query, { reload: true, title: source?.title || 'Current result' }));
-      }
-      return false;
-    } catch (error) {
-      // A newer setDataSource() call already superseded this one; the child
-      // module's own generation guard aborted it. Expected, not a failure.
-      if (error?.name === 'AbortError') {
-        console.debug(`${this.type} datasource request superseded: ${error.message}`);
-        return null;
-      }
-      throw error;
-    } finally {
-      await this.setLoading(false);
-    }
+    await this._readyApi();
+    return this.handle.setDataSource(source);
   }
 
   /**
@@ -357,8 +270,8 @@ export class IframeModuleAdapter extends ExplorerModule {
    * @returns {Promise<*>} Result of the child module's call, or `undefined` when unsupported.
    */
   async setLoading(loading) {
-    const api = await this._readyApi();
-    return api.setLoading?.(Boolean(loading));
+    await this._readyApi();
+    return this.handle.setLoading(loading);
   }
 
   /**
@@ -385,8 +298,8 @@ export class IframeModuleAdapter extends ExplorerModule {
    */
   async setRules(rules) {
     if (!['graph', 'data'].includes(this.type)) return null;
-    const api = await this._readyApi();
-    return api.setDataSourceRules?.(rules) ?? null;
+    await this._readyApi();
+    return this.handle.setRules(rules);
   }
 
   /**
@@ -397,27 +310,8 @@ export class IframeModuleAdapter extends ExplorerModule {
    */
   async setSelection(ids) {
     await super.setSelection(ids);
-    const api = await this._readyApi();
-    this._applyingSelection = true;
-    try {
-      if (this.type === 'map' && typeof api.setSelection !== 'function') {
-        if (!this.selection.length) {
-          return await (api.clearSelection?.() ?? this.selection);
-        }
-
-        return await (api.selectRecords?.('current-results', this.selection, {
-          replace: true,
-          zoom: false
-        }) ?? this.selection);
-      }
-
-      return await (api.setSelection?.(this.selection, {
-        replace: true,
-        zoom: false
-      }) ?? this.selection);
-    } finally {
-      this._applyingSelection = false;
-    }
+    await this._readyApi();
+    return this.handle.setSelection(this.selection);
   }
 
   /**
@@ -445,9 +339,7 @@ export class IframeModuleAdapter extends ExplorerModule {
   async destroy() {
     this._unregisterRequestMonitor?.();
     this._unregisterRequestMonitor = null;
-    if (this.api && this._eventBindings) {
-      this._eventBindings.forEach(([name, handler]) => this.api.removeEventListener?.(name, handler));
-    }
+    this.handle.unbind();
     await this.api?.destroy?.();
     this.frame?.remove();
     this.frame = null;
@@ -468,20 +360,5 @@ export class IframeModuleAdapter extends ExplorerModule {
   }
 }
 
-/** Extract the executable query (`request.q`) from a datasource, or `null`. */
-function executableQuery(source) {
-  return dataSourceRequest(source)?.q ?? null;
-}
-
 /** Resolve after `ms` milliseconds. */
 function delay(ms) { return new Promise((resolve) => setTimeout(resolve, ms)); }
-
-/** Whether two selection arrays contain the same set of ids, ignoring order. */
-function sameSelection(a, b) {
-  if (a.length !== b.length) {
-    return false;
-  }
-
-  const values = new Set(a);
-  return b.every((id) => values.has(id));
-}

@@ -33,7 +33,10 @@ import { MENU_ANIMATIONS, MENU_COLOR } from '#shared/site/cmsMenu.js';
 import {
   attachNewRecordPage, recordActionFields, recordActionIssues, recordActionSettings, recordActionTerms, recordActionValues
 } from './recordPageField.js';
-import { cmsFilterSettings } from '#shared/site/cmsSavedFilter.js';
+import { cmsFilterSettings, cmsFilterTarget } from '#shared/site/cmsSavedFilter.js';
+import { CMS_FILTER_WIDGET_MODES, cmsFilterItemKey, cmsFilterWidgetSettings, storedCmsFilterWidget } from '#shared/site/cmsFilterWidget.js';
+import { cmsInstanceDataSource } from '#shared/site/cmsDocument.js';
+import { cmsDefaultRecordsFrom, cmsInstanceRecords } from '#shared/site/cmsRecords.js';
 import { attachSavedFilter, queryRecordTypes, recordFilterFieldTerms, recordTypesOf, storedSavedFilter } from './savedFilterField.js';
 
 /** Width and height of a new gallery: thumbnails. */
@@ -161,7 +164,7 @@ const CARDS_URL_HELP = 'Record of the page URL: the record id is taken from the 
 export async function openFieldForm({ reference, records, languages = [], dbdefs, apiClient, services, size = {}, link = null, sitePages = [],
   linkValues: storedLinkValues = null }) {
   const parsed = parseFieldReference(reference);
-  // the Saved filter of the link (plan 27j): `filter:<page>:<source>` with its values
+  // the Saved filter of the link (plan 27j): `filter:<page>:<source>` (`f<id>` a saved filter) with its values
   const filter = { value: filterOfLink(link, storedLinkValues) };
   const cmsTypes = ['RT_CMS_HOME', 'RT_CMS_PAGE'].map((name) => Number(dbdefs?.dbconst?.(name)) || 0);
   const client = new RecordEditClient({ apiClient });
@@ -327,23 +330,29 @@ export async function openFieldForm({ reference, records, languages = [], dbdefs
  */
 function linkValues(link, siteId = 0) {
   const text = String(link ?? '');
-  if (/^filter:\d+:\d+$/.test(text)) return recordActionValues({ action: 'savedFilter' });
+  if (/^filter:\d+:f?\d+$/.test(text)) return recordActionValues({ action: 'savedFilter' });
   const page = /^page:(\d+)$/.exec(text);
   const goto = /^goto:(\d+|home)$/.exec(text);
   if (goto) return recordActionValues({ action: 'page', page: goto[1] === 'home' ? Number(siteId) || null : Number(goto[1]) });
   return recordActionValues(page ? { action: 'recordPage', recordPage: Number(page[1]) } : { action: text === 'url' ? 'url' : 'none' });
 }
 
-/** The Saved filter of a `data-h-link` `filter:<page>:<source>` and its values (plan 27j), or null. */
+/**
+ * The Saved filter of a `data-h-link` `filter:<page>:<source>` (`filter:<page>:f<saved filter>`, plan 27l §7.2) and its
+ * values (plan 27j), or null.
+ */
 function filterOfLink(link, values) {
-  const found = /^filter:(\d+):(\d+)$/.exec(String(link ?? ''));
-  return found ? cmsFilterSettings({ page: Number(found[1]), source: Number(found[2]), values: values || {} }) : null;
+  const found = /^filter:(\d+):(f?)(\d+)$/.exec(String(link ?? ''));
+  return found ? cmsFilterSettings({ page: Number(found[1]), [found[2] ? 'filter' : 'source']: Number(found[3]), values: values || {} }) : null;
 }
 
 /** `data-h-link` of the action settings; '' for none. */
 function linkOf(settings) {
   if (settings.action === 'url') return 'url';
-  if (settings.action === 'savedFilter') return settings.page && settings.source ? `filter:${settings.page}:${settings.source}` : '';
+  if (settings.action === 'savedFilter') {
+    const target = cmsFilterTarget(settings);
+    return settings.page && target ? `filter:${settings.page}:${target.kind === 'filter' ? 'f' : ''}${target.id}` : '';
+  }
   if (settings.action === 'page') return `goto:${settings.page}`;
   return settings.action === 'recordPage' ? `page:${settings.recordPage}` : '';
 }
@@ -538,6 +547,206 @@ function cardsQuerySpecial(services) {
   };
 }
 
+/** Note of a module with its own query and other sources (plan 27l §12.1). */
+export const RECORDS_MIXED_NOTE = 'The first records come from the own query; a later search from the other sources replaces them.';
+
+/**
+ * The form of the section *Records and selection* of a module on a website page (plan 27l §12.3): where its records come
+ * from (own query, Saved filter links, Filter widgets, other modules with an own query; any of them: the latest search
+ * wins), its own query (a query source or saved filter without parameters, or a query, one or the other) and whether it
+ * shares the selection. Record View: its own record or the selected record. Explorer: own filters and Saved filter links
+ * (its filters are in its own form, phase E2).
+ *
+ * @param {object} options
+ * @param {string} options.type Module type.
+ * @param {Array<{id: string, label: string}>} [options.sources] The other sources of the page: `links`,
+ *        `filter:<id>`, `module:<id>` (Own query is added here).
+ * @param {Array<{key: string, title: string, kind: string}>} [options.choices] Query sources and saved filters without
+ *        parameters (`key`: `source:<id>` / `filter:<id>`).
+ * @param {object} [options.services] `editQuery`, `describeQuery` (the query field).
+ * @param {boolean} [options.legend=true] The legend of the fieldset (Explorer: its filters fieldset has it, phase E2).
+ * @returns {object} Form JSON: one group, a fieldset with its legend as the other sections.
+ */
+export function recordsForm({ type, sources = [], choices = [], services = {}, legend = true }) {
+  const own = { from: 'own' };
+  let children;
+  if (type === 'recordview') {
+    children = [
+      { name: 'shows', type: 'enum', label: 'Shows', mode: 'radio', max: 1,
+        terms: [{ id: 'own', label: 'Own record' }, { id: 'selection', label: 'Selected record' }] },
+      { name: 'record', type: 'resource', label: 'Record', max: 1, targetTypes: [], pointerMode: 'browseonly',
+        showWhen: { shows: 'own' } }
+    ];
+  } else if (type === 'explorer') {
+    children = [
+      { name: 'from', type: 'enum', label: 'Records from', mode: 'checkbox', max: 0,
+        terms: [{ id: 'own', label: 'Own filters' }, ...sources.filter((term) => term.id === 'links')] }
+    ];
+  } else {
+    children = [
+      { name: 'from', type: 'enum', label: 'Records from', mode: 'checkbox', max: 0,
+        terms: [{ id: 'own', label: 'Own query' }, ...sources],
+        help: 'Any of them: the module shows the latest search' },
+      { name: 'source', type: 'enum', label: 'Query source', mode: 'select', max: 1, emptyLabel: 'None', showWhen: own,
+        terms: choices.map((choice) => ({ id: choice.key, label: `${choice.title} [${choice.kind === 'filter' ? 'filter' : 'source'}]` })),
+        help: 'Saved filters of "Website filters" and public query sources without parameters' },
+      { name: 'query', type: 'freetext', label: 'Query', max: 1, special: cardsQuerySpecial(services), showWhen: own,
+        help: 'Or a query without parameters' },
+      { name: 'selection', type: 'boolean', label: 'Share selection with other modules', mode: 'checkbox', max: 1 }
+    ];
+  }
+  return { groups: [{ id: 'records', ...(legend ? { label: 'Records and selection' } : {}), children }] };
+}
+
+/**
+ * The values of recordsForm from an instance (cmsInstanceRecords: the defaults and an older `sync`).
+ *
+ * @param {object} instance Instance configuration.
+ * @param {object} [instances] The instances of the page.
+ * @returns {{from: string[], source: string, query: string, selection: boolean, shows: string, record: number|null}}
+ */
+export function recordsValues(instance = {}, instances = {}) {
+  const links = cmsInstanceRecords(instance, instances);
+  const source = cmsInstanceDataSource(instance.dataSource, instance.type) || {};
+  return {
+    from: links.from,
+    source: source.source ? `source:${source.source}` : (source.filter ? `filter:${source.filter}` : ''),
+    query: source.query ? JSON.stringify(source.query) : '',
+    selection: links.selection,
+    shows: source.record ? 'own' : 'selection',
+    record: Number(source.record) > 0 ? Number(source.record) : null
+  };
+}
+
+/**
+ * The stored `records`, `selection` and `dataSource` of recordsForm values (`records` null: the default sources).
+ *
+ * @param {object} values
+ * @param {string} type Module type.
+ * @param {object} [instances] The instances of the page (the default sources).
+ * @returns {{records: {from: string[]}|null, selection: boolean, dataSource: object|null}}
+ */
+export function recordsResult(values = {}, type = '', instances = {}) {
+  if (type === 'recordview') {
+    const record = Number([values.record].flat()[0]) || 0;
+    const own = values.shows === 'own' && record > 0;
+    return { records: null, selection: !own, dataSource: own ? { record } : null };
+  }
+  const from = [...new Set([values.from].flat().filter((token) => typeof token === 'string' && token))];
+  const fallback = cmsDefaultRecordsFrom(type, instances);
+  const same = from.length === fallback.length && fallback.every((token) => from.includes(token));
+  const records = same ? null : { from };
+  if (type === 'explorer') return { records, selection: true, dataSource: null };
+  let dataSource = null;
+  if (from.includes('own')) {
+    const [kind, id] = String(values.source || '').split(':');
+    if (['source', 'filter'].includes(kind) && Number(id) > 0) dataSource = { [kind]: Number(id) };
+    else if (String(values.query ?? '').trim()) dataSource = parseCardsQuery(values.query) ? { query: parseCardsQuery(values.query) } : null;
+  }
+  return { records, selection: values.selection !== false, dataSource };
+}
+
+/**
+ * Problems of recordsForm values: a query that can not be used, Own query without a query source or query, a Record
+ * View without its record.
+ *
+ * @param {object} values
+ * @param {string} type Module type.
+ * @returns {Array<{field: string, message: string}>}
+ */
+export function recordsIssues(values = {}, type = '') {
+  if (type === 'recordview') {
+    return values.shows === 'own' && !(Number([values.record].flat()[0]) > 0) ? [{ field: 'record', message: $HR('Choose the record') }] : [];
+  }
+  if (type === 'explorer' || ![values.from].flat().includes('own')) return [];
+  const text = String(values.query ?? '').trim();
+  if (!values.source && !text) return [{ field: 'source', message: $HR('Choose a query source or write a query') }];
+  return !values.source && !parseCardsQuery(text) ? [{ field: 'query', message: $HR('A query in JSON without parameters') }] : [];
+}
+
+/**
+ * The section *Records and selection* of the configuration form of a module on a website page (plan 27l §12.3): an
+ * inline HEditForm (a fieldset with its legend, as the other sections) above the module form, applied with its Apply.
+ * Choosing a query source clears the query and the other way; a note with an own query and other sources.
+ *
+ * @param {object} options
+ * @param {object} options.instance Instance configuration.
+ * @param {object} [options.instances] The instances of the page.
+ * @param {Array<{id: string, label: string}>} [options.sources] recordsForm `sources`.
+ * @param {Array<{key: string, title: string, kind: string}>} [options.choices] recordsForm `choices`.
+ * @param {object} [options.services] The services of the designer forms (`editQuery`, `describeQuery`, `browseRecords`,
+ *        `createRecordBrowser`, `valueLimit`).
+ * @param {object} [options.apiClient]
+ * @param {object} [options.dbdefs]
+ * @param {boolean} [options.inline=false] Without its own fieldset legend: put into the filters fieldset of Explorer
+ *        (phase E2).
+ * @param {(from: string[]) => void} [options.onFromChange] *Records from* changed (also once at start): Explorer shows its
+ *        filters with Own filters only.
+ * @returns {{element: HTMLElement, read: () => ({records: object|null, selection: boolean, dataSource: object|null}|null),
+ *          from: () => string[], destroy: () => Promise<void>}} `read()`: null while a value can not be used (shown
+ *          beside the field).
+ */
+export function createRecordsSection({ instance, instances = {}, sources = [], choices = [], services = {}, apiClient = null,
+  dbdefs = null, inline = false, onFromChange = null }) {
+  const values = recordsValues(instance, instances);
+  const list = [...choices];
+  // a stored one that is not offered any more (parameters added, not public): kept as it is
+  if (values.source && !list.some((choice) => choice.key === values.source)) {
+    const [kind, id] = values.source.split(':');
+    list.push({ key: values.source, kind, title: `#${id}` });
+  }
+  // a source of the page that is not there any more (a widget removed): kept until it is unchecked
+  const known = new Set(['own', ...sources.map((term) => term.id)]);
+  const terms = [...sources, ...values.from.filter((token) => !known.has(token)).map((token) => ({ id: token, label: token }))];
+  const element = document.createElement('div');
+  element.className = `h-cms-config-records${inline ? ' is-inline' : ''}`;
+  const note = document.createElement('div');
+  note.className = 'h-cms-style-note';
+  note.textContent = $HR(RECORDS_MIXED_NOTE);
+  const showNote = (current) => {
+    const from = [current.from].flat();
+    note.hidden = !(from.includes('own') && from.length > 1);
+  };
+  let clearing = false;
+  const form = new HEditForm().attach(element, {
+    form: recordsForm({ type: instance.type, sources: terms, choices: list, services, legend: !inline }),
+    values,
+    apiClient,
+    dbdefs,
+    labelPos: 'above',
+    valueLimit: services.valueLimit,
+    browseRecords: services.browseRecords,
+    createRecordBrowser: services.createRecordBrowser,
+    validate: (current) => recordsIssues(current, instance.type),
+    onReady: (edit) => {
+      // the note in the fieldset, after the sources
+      const fieldset = element.querySelector('fieldset') || element;
+      fieldset.append(note);
+      showNote(edit.getValues());
+    },
+    onChange: (edit, change) => {
+      if (change.name === 'from') {
+        showNote(edit.getValues());
+        onFromChange?.([edit.getValues().from].flat().filter(Boolean));
+      }
+      if (clearing) return;
+      // one or the other (review 2026-11-16)
+      const other = change.name === 'source' ? 'query' : (change.name === 'query' ? 'source' : null);
+      const filled = [change.value].flat().some((item) => String(item ?? '').trim());
+      if (!other || !filled || !String(edit.getValue(other) ?? '').trim()) return;
+      clearing = true;
+      void Promise.resolve(edit.setValue(other, '')).finally(() => { clearing = false; });
+    }
+  }).render();
+  if (instance.type === 'recordview' || instance.type === 'explorer') note.hidden = true;
+  return {
+    element,
+    read: () => (form.validate().length ? null : recordsResult(form.getValues(), instance.type, instances)),
+    from: () => [form.getValues().from].flat().filter(Boolean),
+    destroy: () => form.destroy()
+  };
+}
+
 /**
  * Configuration of the widget Record cards.
  *
@@ -551,11 +760,15 @@ function cardsQuerySpecial(services) {
  */
 export async function openCardsForm({ settings = {}, dbdefs, apiClient, services }) {
   const reports = await services.cardTemplates?.().catch(() => []) ?? [];
+  // public query sources without parameters (plan 27l §11.4); a stored one not offered any more: kept as #id
+  const sources = (await services.querySources?.().catch(() => []) ?? []).filter((item) => !item.parameterized);
+  const storedSource = settings.mode === 'source' ? Number(settings.querySource) || 0 : 0;
+  if (storedSource && !sources.some((item) => Number(item.id) === storedSource)) sources.push({ id: storedSource, title: `#${storedSource}` });
   // the Saved filter of the action (plan 27j)
   const filter = { value: storedSavedFilter(settings) };
   const templates = cardTemplateTerms(reports, settings.template);
   // the record of the page URL: one record, no action, no presentation (2026-11-12)
-  const listed = { mode: ['manual', 'query'] };
+  const listed = { mode: ['manual', 'source', 'query'] };
   // one record picked by hand: no presentation
   const showPresentation = (edit) => {
     const values = edit.getValues();
@@ -568,8 +781,12 @@ export async function openCardsForm({ settings = {}, dbdefs, apiClient, services
       children: [
         // Record of the page URL: the widget of a record page (plan 27g)
         { name: 'mode', type: 'enum', label: 'Source', mode: 'radio', max: 1,
-          terms: [{ id: 'manual', label: 'Manual pickup' }, { id: 'query', label: 'Query' }, { id: 'url', label: 'Record of the page URL' }] },
+          terms: [{ id: 'manual', label: 'Manual pickup' }, { id: 'source', label: 'Query source' }, { id: 'query', label: 'Query' },
+            { id: 'url', label: 'Record of the page URL' }] },
         { name: 'records', type: 'resource', label: 'Source records', max: 0, targetTypes: [], pointerMode: 'browseonly', showWhen: { mode: 'manual' } },
+        { name: 'querySource', type: 'enum', label: 'Query source', mode: 'select', max: 1, showWhen: { mode: 'source' },
+          terms: sources.map((item) => ({ id: String(item.id), label: item.title || `#${item.id}` })),
+          help: 'Public query sources without parameters; the cards follow later changes of its query' },
         { name: 'query', type: 'freetext', label: 'Query', max: 1, special: cardsQuerySpecial(services), showWhen: { mode: 'query' } },
         // a selector also for a few templates (not the radios of a small vocabulary)
         { name: 'template', type: 'enum', label: 'Smarty template', mode: 'select', max: 1, terms: templates.terms,
@@ -583,7 +800,8 @@ export async function openCardsForm({ settings = {}, dbdefs, apiClient, services
     form,
     values: {
       mode: settings.mode || 'manual',
-      records: manualIds(settings.mode === 'query' ? null : settings.query),
+      records: manualIds(['query', 'source', 'url'].includes(settings.mode) ? null : settings.query),
+      querySource: storedSource ? String(storedSource) : null,
       query: settings.mode === 'query' && settings.query ? JSON.stringify(settings.query) : '',
       template: templates.value,
       ...presentationValues(settings),
@@ -601,6 +819,7 @@ export async function openCardsForm({ settings = {}, dbdefs, apiClient, services
       // values from the record (plan 27j phase B): the fields of the chosen records or of the types of the query
       attachSavedFilter(edit, services, filter, 'savedFilter', { recordFields: async (values) => {
         const types = values.mode === 'query' ? queryRecordTypes(parseCardsQuery(values.query))
+          : values.mode === 'source' ? []
           : await recordTypesOf(apiClient, [values.records].flat().filter(Boolean)).catch(() => []);
         return recordFilterFieldTerms(dbdefs, types);
       } });
@@ -613,6 +832,7 @@ export async function openCardsForm({ settings = {}, dbdefs, apiClient, services
       const issues = values.mode === 'url' ? [] : [...recordActionIssues(values, filter.value)];
       if (values.mode === 'manual' && !(values.records || []).filter(Boolean).length) issues.push({ field: 'records', message: $HR('Choose the records') });
       if (values.mode === 'query' && !parseCardsQuery(values.query)) issues.push({ field: 'query', message: $HR('A query in JSON without parameters') });
+      if (values.mode === 'source' && !(Number(values.querySource) > 0)) issues.push({ field: 'querySource', message: $HR('Choose a query source') });
       if (!values.template) issues.push({ field: 'template', message: $HR('Choose a template') });
       return issues;
     }
@@ -620,10 +840,11 @@ export async function openCardsForm({ settings = {}, dbdefs, apiClient, services
     if (!values) return null;
     const records = [values.records].flat().filter(Boolean);
     const template = String(values.template);
-    const mode = ['query', 'url'].includes(values.mode) ? values.mode : 'manual';
+    const mode = ['query', 'source', 'url'].includes(values.mode) ? values.mode : 'manual';
     return {
       mode,
-      query: mode === 'query' ? parseCardsQuery(values.query) : (mode === 'url' ? null : manualQuery(records)),
+      query: mode === 'query' ? parseCardsQuery(values.query) : (['url', 'source'].includes(mode) ? null : manualQuery(records)),
+      ...(mode === 'source' ? { querySource: Number(values.querySource) } : {}),
       // a report id, or the file name of a template without a report
       template: /^\d+$/.test(template) ? Number(template) : template,
       ...presentationSettings(values),
@@ -1027,6 +1248,52 @@ export async function openReportForm({ settings = {}, languages = [], services }
     const report = chosen[0]?.reportId ?? settings.report;
     return { ...(report != null ? { report } : {}), files, display };
   }, null, 'h-cms-report-dialog').finally(() => panel.destroy());
+}
+
+/**
+ * Settings of the Filter widget (plan 27l §3): the filters offered (saved filters of the group "Website filters" and
+ * public query sources: visitors must be able to read them), the one run when the page opens, the presentation.
+ *
+ * @param {object} options
+ * @param {object} [options.settings]
+ * @param {Array<{kind: string, id: number, title: string}>} options.choices The filters that can be offered.
+ * @returns {Promise<object|null>} The stored settings (storedCmsFilterWidget).
+ */
+export function openFilterWidgetForm({ settings = {}, choices = [] } = {}) {
+  const current = cmsFilterWidgetSettings(settings);
+  // a filter of the widget that is not public any more stays offered (it can be removed)
+  const all = [...choices.map((choice) => ({ ...choice, key: cmsFilterItemKey(choice.kind, choice.id) }))];
+  for (const item of current.items) if (!all.some((choice) => choice.key === item.key)) all.push(item);
+  const terms = all.map((choice) => ({ id: choice.key, label: `${choice.title} [${choice.kind === 'filter' ? 'filter' : 'source'}]` }));
+  const modeLabels = { buttons: 'Buttons', list: 'List', select: 'Select' };
+  return openEditFormDialog({
+    title: 'Filter',
+    form: {
+      groups: [{
+        id: 'main',
+        children: [
+          { name: 'items', type: 'enum', label: 'Available filters', req: 'required', mode: 'select', multiple: true, max: 0, terms,
+            help: 'Saved filters of the group "Website filters" and public query sources' },
+          { name: 'active', type: 'enum', label: 'Active on start', mode: 'select', terms, emptyLabel: 'None',
+            help: 'One of the available filters; it runs when the page opens without a Saved filter in its address' },
+          { name: 'mode', type: 'enum', label: 'Presentation', mode: 'radio', max: 1,
+            terms: CMS_FILTER_WIDGET_MODES.map((id) => ({ id, label: modeLabels[id] })) }
+        ]
+      }]
+    },
+    values: { items: current.items.map((item) => item.key), active: current.active, mode: current.mode },
+    onReady: (edit) => addFormHelp(edit, 'The chosen filter shows its records in the modules of the page that take their records'
+      + ' from this widget (Records and selection of the module); a filter with parameters shows its form first.')
+  }).then((values) => {
+    if (!values) return null;
+    const keys = [values.items].flat().filter(Boolean).map(String);
+    const items = keys.map((key) => all.find((choice) => choice.key === key)).filter(Boolean);
+    if (!items.length) {
+      HMsg.showMsgErr?.($HR('Choose at least one filter'));
+      return null;
+    }
+    return storedCmsFilterWidget({ items, active: values.active ? String(values.active) : null, mode: values.mode });
+  });
 }
 
 /**

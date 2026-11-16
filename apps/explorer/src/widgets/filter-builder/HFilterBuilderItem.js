@@ -27,7 +27,7 @@ import { UserGroupSource, RecordTitleSource, TagSource } from '#shared/data/valu
 import { extentToWkt, isExtent, roundExtent } from '#shared/utils';
 import { $HR } from '#shared/ui';
 import { emptyFieldRow } from '../../utils/queryModel.js';
-import { HEADER_KEYWORDS } from '../../utils/queryPredicates.js';
+import { HEADER_KEYWORDS } from '#shared/data/query/queryPredicates.js';
 import { str, kindFor, operatorsFor, operatorByKey, operatorForToken } from '../../utils/vocabHelpers.js';
 
 const HEADER_LABELS = {

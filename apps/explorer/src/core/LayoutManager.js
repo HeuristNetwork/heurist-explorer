@@ -13,7 +13,7 @@
  * @since       8.0
  */
 
-import { isSameDataSource } from './DataSource.js';
+import { isSameDataSource } from '#shared/data/DataSource.js';
 import { HCardinalLayout } from '../../../../shared/src/widgets/layout/HCardinalLayout.js';
 
 const REGIONS = ['north', 'west', 'center', 'east', 'south'];

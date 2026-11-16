@@ -20,7 +20,7 @@
  * @since       8.0
  */
 
-import { canonicalPredicate, isLinkPredicate, isGroupPredicate, HEADER_KEYWORDS } from './queryPredicates.js';
+import { canonicalPredicate, isLinkPredicate, isGroupPredicate, HEADER_KEYWORDS } from '#shared/data/query/queryPredicates.js';
 import { kindFor, operatorsFor, operatorForToken, LINKED_RECORD_OPERATORS } from './vocabHelpers.js';
 import { extentToWkt, isExtent } from '#shared/utils';
 

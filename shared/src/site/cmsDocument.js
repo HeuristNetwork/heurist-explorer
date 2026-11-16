@@ -18,15 +18,61 @@
  * @since       8.0
  */
 
+import { SYNC_MODES } from '../sync/SyncEngine.js';
 import { cmsFilterProblem } from './cmsSavedFilter.js';
 import { resolveFileUrls } from '../data/fileUrls.js';
+import { hasQueryParameters } from '../data/queryParameters.js';
+
+/** Record modules with their own records on a page (plan 27l §11.3): instance key `dataSource`. */
+export const CMS_SOURCE_MODULES = Object.freeze(['data', 'map', 'timeline', 'graph', 'recordview']);
+
+/** A source of the records of a module (plan 27l §12, cmsRecords.js): own, links, filter:<id>, module:<id>. */
+export const CMS_RECORDS_TOKEN = /^(own|links|filter:[A-Za-z0-9_-]+|module:[A-Za-z0-9_-]+)$/;
+
+/**
+ * Whether `records` / `selection` of an instance have the stored form (plan 27l §12): `records: {from: [tokens]}`,
+ * `selection` true or false.
+ *
+ * @param {object} settings Instance configuration.
+ * @returns {boolean}
+ */
+export function cmsRecordsValid(settings) {
+  const records = settings?.records;
+  if (records != null && (typeof records !== 'object' || Array.isArray(records) || !Array.isArray(records.from)
+    || !records.from.every((token) => typeof token === 'string' && CMS_RECORDS_TOKEN.test(token)))) return false;
+  return settings?.selection == null || typeof settings.selection === 'boolean';
+}
+
+/**
+ * The own records of a module that does not take the results of the page (`sync` selection / none, plan 27l §11.3):
+ * `{source: id}` a public query source, `{filter: id}` a saved filter, `{query: [...]}` a query without parameters,
+ * `{record: id}` one record (Record View). Null for anything else.
+ *
+ * @param {*} value The stored `dataSource`.
+ * @param {string} [type] Module type (`record` only for Record View).
+ * @returns {{source: number}|{filter: number}|{query: Array}|{record: number}|null}
+ */
+export function cmsInstanceDataSource(value, type = '') {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  const keys = Object.keys(value);
+  if (keys.length !== 1) return null;
+  const [key] = keys;
+  const raw = value[key];
+  if (['source', 'filter'].includes(key) || (key === 'record' && type === 'recordview')) {
+    const id = typeof raw === 'number' || (typeof raw === 'string' && /^\d+$/.test(raw)) ? Number(raw) : 0;
+    return Number.isInteger(id) && id > 0 ? { [key]: id } : null;
+  }
+  if (key !== 'query') return null;
+  const query = Array.isArray(value.query) ? value.query : (value.query && typeof value.query === 'object' ? [value.query] : null);
+  return query?.length && !hasQueryParameters(query) ? { query } : null;
+}
 
 export const CMS_SCHEMA = 'heurist-cms/4';
 
 /** Known instance types by kind. */
 export const CMS_TYPES = Object.freeze({
   module: Object.freeze(['explorer', 'data', 'map', 'timeline', 'graph', 'recordview']),
-  widget: Object.freeze(['menu', 'report', 'cards', 'gallery', 'language', 'actionmenu', 'badges', 'email', 'breadcrumbs'])
+  widget: Object.freeze(['menu', 'report', 'cards', 'gallery', 'language', 'actionmenu', 'badges', 'email', 'breadcrumbs', 'filter'])
 });
 
 /** Newest instance configuration version. */
@@ -256,6 +302,18 @@ export function cmsInstanceProblem(settings) {
   }
   if (settings.mount != null && !['direct', 'iframe'].includes(settings.mount)) {
     return ['mount', 'mount must be "direct" or "iframe"'];
+  }
+  // page sync of a module (plan 27l §2.4)
+  if (settings.sync != null && !SYNC_MODES.includes(settings.sync)) {
+    return ['sync', 'sync must be "all", "selection" or "none"'];
+  }
+  // the own records of a module (plan 27l §11.3)
+  if (settings.dataSource != null && (!CMS_SOURCE_MODULES.includes(type) || !cmsInstanceDataSource(settings.dataSource, type))) {
+    return ['data_source', 'dataSource must be {source}, {filter}, {query} without parameters or {record} (Record View)'];
+  }
+  // records and selection (plan 27l §12)
+  if ((settings.records != null || settings.selection != null) && (kind !== 'module' || !cmsRecordsValid(settings))) {
+    return ['records', 'records must be {from: [own | links | filter:<id> | module:<id>]} and selection true or false'];
   }
   return null;
 }

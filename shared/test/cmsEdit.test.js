@@ -271,6 +271,14 @@ test('texts, translations, presets, node styles, common styles and instances', (
   assert.equal(doc.presets().columns2.label, 'Two columns');
   doc.setInstance('i1', { settings: { b: 2 }, state: { q: 1 } });
   assert.deepEqual(doc.instance('i1').settings, { b: 2 });
+  // records and selection (plan 27l §12): the default is not stored
+  doc.setInstance('i1', { records: { from: ['own'] }, selection: false });
+  assert.deepEqual(doc.instance('i1').records, { from: ['own'] });
+  assert.equal(doc.instance('i1').selection, false);
+  assert.deepEqual(doc.instance('i1').settings, { b: 2 });
+  doc.setInstance('i1', { records: null, selection: true });
+  assert.equal('records' in doc.instance('i1'), false);
+  assert.equal('selection' in doc.instance('i1'), false);
   const before = doc.snapshot();
   doc.remove('t2');
   doc.restore(before);

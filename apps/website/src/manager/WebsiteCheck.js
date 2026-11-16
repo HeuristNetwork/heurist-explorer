@@ -31,7 +31,9 @@ const KIND_TEXT = {
   cards: 'Record cards',
   gallery: 'Media gallery',
   // the query source of a Saved filter (plan 27j)
-  filter: 'Saved filter'
+  filter: 'Saved filter',
+  // the query source or record of a module that does not take the page results (plan 27l §11.3)
+  module: 'Own records of a module'
 };
 
 /** Texts of the three sections. */

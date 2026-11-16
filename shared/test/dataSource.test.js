@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {
   cloneDataSource, dataSourceKey, dataSourcePresentation, dataSourceRequest,
   dataSourceRole, isSameDataSource, normalizeDataSource
-} from '../src/core/DataSource.js';
+} from '../src/data/DataSource.js';
 
 test('normalizes the legacy flat query shape', () => {
   const source = normalizeDataSource({

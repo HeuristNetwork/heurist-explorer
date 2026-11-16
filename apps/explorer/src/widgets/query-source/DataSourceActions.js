@@ -15,7 +15,7 @@
 
 import { HBaseWidget } from '#shared/widgets/HBaseWidget.js';
 import { $HR, HMsg } from '#shared/ui';
-import { cloneDataSource } from '../../core/DataSource.js';
+import { cloneDataSource } from '#shared/data/DataSource.js';
 import './DataSourceActions.css';
 
 /** Explorer-only persistence/workspace actions for the current DataSource. */

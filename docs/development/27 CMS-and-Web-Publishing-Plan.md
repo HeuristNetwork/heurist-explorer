@@ -184,6 +184,8 @@ sees from the record type whether the id is a website or a page.
   the reusable parts of Explorer's `SyncEngine`. Modules are independent unless they are in the same sync group;
   a group has one initial source; late modules get the current state; Explorer is joined through one bridge, not
   module by module. Legacy `search_realm` becomes a sync group on conversion.
+  **2026-11-16: plan `27l Page-Modules-Sync-and-Filter-Plan.md`** — one page = one domain (no sync groups), instance
+  setting `sync: all | selection | none`, widget `filter`, Stop.
 - **Navigation** (routes, decision 5) is not PageController's job. Proposed name `HSiteNavigator`: opens a page,
   passes a record or a query as the search value, keeps the browser history and language.
 - Widgets (§4 `kind: widget`): `filter` (curated query sources / saved filters with their forms — the HFilter of

@@ -1202,6 +1202,18 @@
   display: none;
 }
 
+/* Records and selection of a module (plan 27l §12): a fieldset of its own form above the module configuration */
+.h-cms-config-records {
+  margin: 0 0 8px;
+}
+
+/* Explorer (phase E2): the fields in its filters fieldset, without a fieldset of their own */
+.h-cms-config-records.is-inline > fieldset.h-edit-form-group {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
 .h-cms-form-actions {
   display: flex;
   align-items: center;

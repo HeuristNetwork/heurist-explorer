@@ -72,6 +72,11 @@ search/filter UI and synchronization. `SyncEngine` distributes state while
 preventing event echoes. `IframeModuleAdapter` and `DirectModuleAdapter` expose
 the same adapter surface to Explorer.
 
+The synchronization code itself is shared (plan 27l), so a website page can use it too:
+`shared/src/sync/SyncEngine.js` (modules by id, `syncMode` `all | selection | none`),
+`shared/src/sync/ModuleHandle.js` (per module type: DataSource, selection, map document and the
+public events of the module API; the adapters delegate to it) and `shared/src/data/DataSource.js`.
+
 ### Data
 
 Owns tabular/card/record-list presentation, DataTables integration, query source and

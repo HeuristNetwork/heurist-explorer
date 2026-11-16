@@ -11,9 +11,12 @@ import { cmsMediaProblem } from '../src/site/cmsDocument.js';
 // The cases are shared with the server (heurist tests/SavedFilterLinkTest.php, plan 27j)
 const cases = JSON.parse(await readFile(path.resolve('shared/test/fixtures/saved-filter-links.json'), 'utf8'));
 
+// a case with `filter`: a saved filter in place of a query source (plan 27l §7.2)
+const sourceOf = (item) => (item.filter ? { filter: item.filter } : item.source);
+
 test('Saved filter: the query string of the shared cases', () => {
-  for (const item of cases.query) assert.equal(cmsFilterQuery(item.source, item.values), item.expect, JSON.stringify(item.values));
-  for (const item of cases.href) assert.equal(cmsFilterHref(item.url, item.source, item.values), item.expect, item.url);
+  for (const item of cases.query) assert.equal(cmsFilterQuery(sourceOf(item), item.values), item.expect, JSON.stringify(item.values));
+  for (const item of cases.href) assert.equal(cmsFilterHref(item.url, sourceOf(item), item.values), item.expect, item.url);
   for (const item of cases.problem) assert.equal(cmsFilterProblem(item.settings), item.expect, JSON.stringify(item.settings));
 });
 
@@ -33,7 +36,10 @@ test('Saved filter: the limits of the values and of the query string', () => {
 test('Saved filter: the page URL is read within the limits', () => {
   assert.equal(parseCmsFilterQuery('?lang=fre'), null);
   assert.deepEqual(parseCmsFilterQuery('?source=12&v.X1=Paris&v.T=a&v.T=b&lang=fre&v.bad%20name=x'),
-    { source: 12, values: { X1: 'Paris', T: ['a', 'b'] } });
+    { kind: 'source', id: 12, source: 12, values: { X1: 'Paris', T: ['a', 'b'] } });
+  // a saved filter (plan 27l §7.2)
+  assert.deepEqual(parseCmsFilterQuery('?filter=34&v.X1=Paris'), { kind: 'filter', id: 34, filter: 34, values: { X1: 'Paris' } });
+  assert.deepEqual(cmsFilterSettings({ filter: '34', target: 7, values: {} }), { filter: 34, page: 7, values: {} });
   // over the limits: ignored
   const many = Array.from({ length: 12 }, (_, index) => `v.P${index}=${index}`).join('&');
   assert.equal(Object.keys(parseCmsFilterQuery(`?source=1&${many}`).values).length, CMS_FILTER_LIMITS.values);
@@ -63,7 +69,7 @@ test('Saved filter: the request fills the given values and lists the missing one
 
 test('Saved filter: a media element with the action is checked (cmsMediaProblem)', () => {
   assert.equal(cmsMediaProblem({ file: 'abc', action: 'savedFilter', source: 3, page: 7, values: { X: 'a' } }), null);
-  assert.equal(cmsMediaProblem({ file: 'abc', action: 'savedFilter', page: 7 }), 'a Saved filter needs a query source');
+  assert.equal(cmsMediaProblem({ file: 'abc', action: 'savedFilter', page: 7 }), 'a Saved filter needs a query source or a saved filter');
 });
 
 test('Saved filter: a map extent is kept as a WKT rectangle and shown again as an extent (review 2026-11-15)', async () => {

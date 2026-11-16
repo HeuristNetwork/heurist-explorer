@@ -43,6 +43,8 @@ test('instance problems: kinds, types, versions and mount', () => {
   assert.equal(cmsInstanceProblem({ kind: 'widget', type: 'map' })[0], 'unknown_type');
   assert.equal(cmsInstanceProblem({ kind: 'module', type: 'data', configVersion: 5 })[0], 'config_version');
   assert.equal(cmsInstanceProblem({ kind: 'module', type: 'data', mount: 'popup' })[0], 'mount');
+  assert.equal(cmsInstanceProblem({ kind: 'module', type: 'data', sync: 'selection' }), null);
+  assert.equal(cmsInstanceProblem({ kind: 'module', type: 'data', sync: 'partly' })[0], 'sync');
 });
 
 test('CSS values: escapes, URLs and separators', () => {

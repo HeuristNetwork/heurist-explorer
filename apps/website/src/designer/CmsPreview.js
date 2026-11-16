@@ -213,8 +213,9 @@ export class CmsPreview {
           for (const name of ['data-h-node', 'data-h-style']) {
             if (host.hasAttribute(name)) old.setAttribute(name, host.getAttribute(name)); else old.removeAttribute(name);
           }
-          // custom CSS classes of the element; the classes of the site runtime (h-site-..., h-slider) stay
-          old.className = [...[...old.classList].filter((name) => /^h-(?:site-|slider)/.test(name)), ...host.classList].join(' ');
+          // custom CSS classes of the element; the classes of the site runtime and its widgets (h-site-..., h-slider,
+          // h-widget h-filter ...) stay (review 2026-11-16: HFilter lost h-filter, its hidden list was shown again)
+          old.className = [...new Set([...[...old.classList].filter((name) => name.startsWith('h-')), ...host.classList])].join(' ');
           if (canMove) {
             host.parentNode.moveBefore(old, host);
             host.remove();
@@ -383,7 +384,9 @@ function clone(value) {
 function instanceKey(instance) {
   // {} and [] (an empty object in PHP JSON) are the same
   const value = (item) => (item == null || (typeof item === 'object' && !Object.keys(item).length) ? null : item);
-  return JSON.stringify([instance?.type ?? null, value(instance?.settings), value(instance?.state)]);
+  // records and selection, own records too (plan 27l §11.3, §12)
+  return JSON.stringify([instance?.type ?? null, value(instance?.settings), value(instance?.state), instance?.sync ?? null,
+    instance?.records ?? null, instance?.selection ?? null, instance?.dataSource ?? null]);
 }
 
 function cssEscape(value) {

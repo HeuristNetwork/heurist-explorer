@@ -32,8 +32,8 @@ import { $HR } from '#shared/ui';
 import { HFilterForm } from '#shared/widgets/filter/HFilterForm.js';
 import { describeQueryParameters, resolveQueryParameters } from '#shared/data/queryParameters.js';
 import {
-  CMS_FILTER_LIMITS, CMS_FILTER_MODULES, cmsFilterFormValues, cmsFilterLinkValue, cmsFilterParameters, cmsFilterQuery,
-  cmsFilterReference, cmsFilterSettings, normalizeCmsFilterValues
+  CMS_FILTER_LIMITS, CMS_FILTER_MODULES, cmsFilterFormValues, cmsFilterKeys, cmsFilterLinkValue, cmsFilterParameters, cmsFilterQuery,
+  cmsFilterReference, cmsFilterSettings, cmsFilterTarget, normalizeCmsFilterValues
 } from '#shared/site/cmsSavedFilter.js';
 import { formDialog } from './designerDialogs.js';
 
@@ -156,13 +156,13 @@ export function formFilterValues(values = {}) {
  * @returns {string|null} A message for the designer.
  */
 export function savedFilterIssue(value = {}, { parameters = [], explorer = null } = {}) {
-  if (!(Number(value.source) > 0)) return $HR('Choose a query source');
+  if (!cmsFilterTarget({ source: value.source, filter: value.filter })) return $HR('Choose a query source or a saved filter');
   if (!(Number(value.page) > 0)) return $HR('Choose the target page');
   const { values, dropped } = normalizeCmsFilterValues(value.values);
   if (dropped) {
     return `${$HR('Too many or too long values')}: ${CMS_FILTER_LIMITS.values} / ${CMS_FILTER_LIMITS.length} / ${CMS_FILTER_LIMITS.items}`;
   }
-  if (!cmsFilterQuery(value.source, values)) return $HR('The values are too long for a link');
+  if (!cmsFilterQuery({ source: value.source, filter: value.filter }, values)) return $HR('The values are too long for a link');
   const given = parameters.filter((name) => Object.hasOwn(values, name));
   if (parameters.length && !given.length && explorer !== true) {
     return $HR('Give at least one value: the modules of this page show the records without a form');
@@ -171,15 +171,18 @@ export function savedFilterIssue(value = {}, { parameters = [], explorer = null 
 }
 
 /**
- * A short text of a Saved filter: the query source, the page and the number of values.
+ * A short text of a Saved filter: the query source (or saved filter), the page and the number of values.
  *
- * @param {{source?: number, page?: number, values?: object}|null} value
- * @param {{sources?: Array<{id: number, title: string}>, pages?: Array<{id: number, label: string}>}} [names]
+ * @param {{source?: number, filter?: number, page?: number, values?: object}|null} value
+ * @param {{sources?: Array<{id: number, title: string}>, filters?: Array<{id: number, title: string}>,
+ *          pages?: Array<{id: number, label: string}>}} [names]
  * @returns {string}
  */
-export function savedFilterSummary(value, { sources = [], pages = [] } = {}) {
-  if (!value || !(Number(value.source) > 0)) return '';
-  const source = sources.find((item) => Number(item.id) === Number(value.source))?.title || `#${value.source}`;
+export function savedFilterSummary(value, { sources = [], filters = [], pages = [] } = {}) {
+  const target = value ? cmsFilterTarget({ source: value.source, filter: value.filter }) : null;
+  if (!target) return '';
+  const list = target.kind === 'filter' ? filters : sources;
+  const source = list.find((item) => Number(item.id) === target.id)?.title || `#${target.id}`;
   const page = pages.find((item) => Number(item.id) === Number(value.page))?.label?.trim() || `#${value.page}`;
   const count = Object.keys(value.values || {}).length;
   return `${source} → ${page}${count ? ` · ${count} ${$HR(count === 1 ? 'value' : 'values')}` : ''}`;
@@ -189,22 +192,31 @@ export function savedFilterSummary(value, { sources = [], pages = [] } = {}) {
  * The popup Saved filter.
  *
  * @param {object} services `querySources()` → [{id, title}] (public ones), `querySourceDefinition(id)` → the normalized
- *        query source, `filterPages()` → filterPageTerms, `apiClient`, `dbdefs`, `selectExtent` (the Filter Form).
- * @param {{source?: number, page?: number, values?: object}|null} [value]
+ *        query source, `savedFilters()` / `savedFilterDefinition(id)` the same for the saved filters of "Website filters"
+ *        (plan 27l §7.2), `filterPages()` → filterPageTerms, `apiClient`, `dbdefs`, `selectExtent` (the Filter Form).
+ * @param {{source?: number, filter?: number, page?: number, values?: object}|null} [value]
  * @param {{recordFields?: (() => Promise<Array<{id: string, label: string}>>)|null, search?: boolean}} [options] A record
  *        context (phase B): the fields offered as values from the record; `search` a search box (plan 27k §6): the
  *        parameter that takes the typed text (`param` of the answer), no value needed.
- * @returns {Promise<{source: number, page: number, values: object, param?: string}|null>}
+ * @returns {Promise<{source?: number, filter?: number, page: number, values: object, param?: string}|null>}
  */
 export async function openSavedFilterForm(services, value = null, { recordFields = null, search = false } = {}) {
-  const sources = await services.querySources?.().catch(() => []) ?? [];
+  const { sources, filters } = await names(services);
   const pages = services.filterPages?.() || [];
   const form = element('form', 'h-cms-form h-cms-saved-filter-form');
   const help = element('div', 'h-cms-style-note');
-  help.textContent = $HR('The link opens the target page with the records of the query source. Values left empty: '
+  help.textContent = $HR('The link opens the target page with the records of the query source or saved filter. Values left empty: '
     + 'Explorer asks for them, other modules leave them out.');
-  const source = select([['', $HR('Choose a query source')], ...sources.map((item) => [String(item.id), item.title || `#${item.id}`])],
-    value?.source ? String(value.source) : '');
+  // one list: query sources, then saved filters of "Website filters" (plan 27l §7.2); the value is `source:<id>` / `filter:<id>`
+  const current = cmsFilterTarget({ source: value?.source, filter: value?.filter });
+  const source = select([['', $HR('Choose a query source or a saved filter')],
+    ...sources.map((item) => [`source:${item.id}`, `${item.title || `#${item.id}`} [${$HR('source')}]`]),
+    ...filters.map((item) => [`filter:${item.id}`, `${item.title || `#${item.id}`} [${$HR('filter')}]`])],
+  current ? `${current.kind}:${current.id}` : '');
+  const chosenTarget = () => {
+    const [kind, id] = String(source.value || '').split(':');
+    return cmsFilterTarget({ kind, id });
+  };
   const page = select([['', $HR('Choose the target page')], ...pages.map((item) => [String(item.id), item.label])],
     value?.page ? String(value.page) : '');
   const valuesHost = element('div', 'h-cms-saved-filter-values');
@@ -215,7 +227,7 @@ export async function openSavedFilterForm(services, value = null, { recordFields
   form.append(help, line('Query source', source), line('Target page', page), valuesHost, recordHost, problems);
   const stored = value?.values || {};
   const constants = Object.fromEntries(Object.entries(stored).filter(([, item]) => !cmsFilterReference(item)));
-  if (!sources.length) problems.textContent = $HR('There is no public query source in this database.');
+  if (!sources.length && !filters.length) problems.textContent = $HR('There is no public query source or website filter in this database.');
   // the Filter Form of the chosen source, made again for another source
   const state = { definition: null, form: null, parameters: [], turn: 0, references: new Map() };
   const showReferences = (references) => {
@@ -247,11 +259,11 @@ export async function openSavedFilterForm(services, value = null, { recordFields
     valuesHost.replaceChildren();
     recordHost.replaceChildren();
     state.references = new Map();
-    const id = Number(source.value) || 0;
-    if (!id) return;
+    const target = chosenTarget();
+    if (!target) return;
     let definition;
     try {
-      definition = await services.querySourceDefinition(id);
+      definition = target.kind === 'filter' ? await services.savedFilterDefinition(target.id) : await services.querySourceDefinition(target.id);
     } catch (error) {
       if (turn === state.turn) valuesHost.textContent = error?.message || String(error);
       return;
@@ -311,10 +323,10 @@ export async function openSavedFilterForm(services, value = null, { recordFields
       if (choice.value === 'id') values[name] = { record: 'id' };
       else if (choice.value.startsWith('field:')) values[name] = { field: choice.value.slice(6) };
     }
-    const result = { source: Number(source.value) || 0, page: Number(page.value) || 0, values };
+    const result = { ...cmsFilterKeys(chosenTarget()), page: Number(page.value) || 0, values };
     const target = pages.find((item) => item.id === result.page);
     // a search box: the typed text is a value, none is needed here
-    const issue = search && result.source && !state.param?.value ? $HR('A search box needs a query source with a parameter')
+    const issue = search && chosenTarget() && !state.param?.value ? $HR('A search box needs a query source or saved filter with a parameter')
       : savedFilterIssue(result, { parameters: state.parameters, explorer: search ? true : target ? target.explorer : null });
     if (issue) {
       problems.textContent = issue;
@@ -340,7 +352,7 @@ export async function openSavedFilterForm(services, value = null, { recordFields
  * @returns {{element: HTMLElement, value: () => object|null}}
  */
 export function savedFilterPicker(services, value = null, { recordFields = null, search = false } = {}) {
-  let current = value && Number(value.source) > 0 ? value : null;
+  let current = value && cmsFilterTarget({ source: value.source, filter: value.filter }) ? value : null;
   const host = element('span', 'h-cms-saved-filter');
   const text = element('span', 'h-cms-saved-filter-text');
   const edit = element('button', 'h-btn h-compact');
@@ -444,10 +456,11 @@ export function storedSavedFilter(settings = {}) {
   return settings?.action === 'savedFilter' ? cmsFilterSettings(settings) : null;
 }
 
-/** Names of the summary: the sources (cached by the services) and the pages. */
+/** Names of the summary: the query sources and saved filters (cached by the services) and the pages. */
 async function names(services) {
-  const sources = await services.querySources?.().catch(() => []) ?? [];
-  return { sources, pages: services.filterPages?.() || [] };
+  const [sources, filters] = await Promise.all([services.querySources?.().catch(() => []) ?? [],
+    services.savedFilters?.().catch(() => []) ?? []]);
+  return { sources: sources || [], filters: filters || [], pages: services.filterPages?.() || [] };
 }
 
 function select(options, value) {

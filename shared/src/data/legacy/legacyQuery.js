@@ -6,7 +6,7 @@
  * docs/development/Saved-Filter-Legacy-Conversion-Plan.md §14). Pure and DOM-free.
  *
  * @project     Heurist academic knowledge management system
- * @package     heurist-explorer
+ * @package     heurist-client-core
  *
  * @link        https://HeuristNetwork.org
  * @copyright   (C) 2024 onwards Heurist Network
@@ -16,7 +16,7 @@
  * @since       8.0
  */
 
-import { parseTextQuery } from '../utils/parseTextQuery.js';
+import { parseTextQuery } from '../query/parseTextQuery.js';
 
 const URL_PARAMS = ['q', 'w', 'rules', 'rulesonly', 'notes', 'viewmode', 'db'];
 

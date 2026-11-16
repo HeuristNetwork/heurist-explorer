@@ -1,9 +1,15 @@
 /**
  * @file SyncEngine.js
- * @brief Synchronizes the active datasource and selection only inside Explorer.
+ * @brief Synchronizes the active datasource, selection and map document between modules: inside Explorer, and
+ *        between the modules of a website page (plan 27l, PageSync).
+ *
+ * A module is an EventTarget with `id`, `type` and the setters it supports (`setDataSource`, `setSelection`,
+ * `setRules`, `setActiveMapDocument`); it sends `selectionchange`, `datasourcechange`, `mapdocumentchange`. Its
+ * `syncMode` (plan 27l §2.4) says what it takes: `all` (default) results, selection and map document; `selection`
+ * the selection only (it keeps its own records); `none` nothing, and its own events are not sent on.
  *
  * @project     Heurist academic knowledge management system
- * @package     heurist-explorer
+ * @package     heurist-client-core
  *
  * @link        https://HeuristNetwork.org
  * @copyright   (C) 2024 onwards Heurist Network
@@ -13,10 +19,27 @@
  * @since       8.0
  */
 
-import { normalizeIds } from './ExplorerModule.js';
-import { cloneDataSource, normalizeDataSource } from './DataSource.js';
+import { normalizeIds, sameSelection } from './selection.js';
+import { cloneDataSource, normalizeDataSource } from '../data/DataSource.js';
 
-/** Synchronizes the active datasource and selection only inside Explorer. */
+/** Values of the `syncMode` of a module. */
+export const SYNC_MODES = Object.freeze(['all', 'selection', 'none']);
+
+/**
+ * @param {object} module A registered module.
+ * @returns {'all'|'selection'|'none'} What it takes (`all` when not given).
+ */
+export function syncModeOf(module) {
+  return SYNC_MODES.includes(module?.syncMode) ? module.syncMode : 'all';
+}
+
+/** Whether a module takes the results (DataSource, rules, map document). */
+const takesResults = (module) => syncModeOf(module) === 'all';
+
+/** Whether a module takes the selection. */
+const takesSelection = (module) => syncModeOf(module) !== 'none';
+
+/** Synchronizes the active datasource, selection and map document between modules. */
 export class SyncEngine {
   /**
    * @param {object} [options] Engine configuration.
@@ -44,11 +67,12 @@ export class SyncEngine {
     this.modules.set(module.id, module);
 
     const selectionHandler = (event) => {
+      if (!takesSelection(module)) return;
       this.setSelection(event.detail?.selection || [], { origin: module.id });
     };
     const sourceHandler = (event) => {
       const dataSource = event.detail?.dataSource ?? event.detail;
-      if (dataSource) {
+      if (dataSource && takesResults(module)) {
         const options = {
           origin: module.id,
           preserveDataViews: module.type === 'data',
@@ -64,6 +88,7 @@ export class SyncEngine {
     module.addEventListener?.('selectionchange', selectionHandler);
     module.addEventListener?.('datasourcechange', sourceHandler);
     const documentHandler = (event) => {
+      if (!takesResults(module)) return;
       void this.setActiveMapDocument(event.detail?.documentId, { origin: module.id })
         .catch((error) => module.dispatchEvent?.(new CustomEvent('error', { detail: { error } })));
     };
@@ -110,7 +135,7 @@ export class SyncEngine {
   } = {}) {
     this.dataSource = source == null ? null : normalizeDataSource(source);
     const targets = [...this.modules.values()].filter((module) => {
-      if (module.id === origin) return false;
+      if (module.id === origin || !takesResults(module)) return false;
       if (!preserveDataViews) return true;
       if (module.type !== 'data') return true;
       return dataModuleId != null && module.id === dataModuleId;
@@ -136,7 +161,7 @@ export class SyncEngine {
     this.dataSource.request ||= {};
     this.dataSource.request.rules = structuredClone(Array.isArray(rules) ? rules : []);
     await Promise.all([...this.modules.values()]
-      .filter((module) => typeof module.setRules === 'function')
+      .filter((module) => takesResults(module) && typeof module.setRules === 'function')
       .map((module) => module.setRules(structuredClone(this.dataSource.request.rules))));
     return cloneDataSource(this.dataSource);
   }
@@ -148,7 +173,7 @@ export class SyncEngine {
     if (id === this.activeMapDocument) return;
     this.activeMapDocument = id;
     const results = await Promise.allSettled([...this.modules.values()]
-      .filter((module) => module.id !== origin && ['map', 'timeline'].includes(module.type))
+      .filter((module) => module.id !== origin && takesResults(module) && ['map', 'timeline'].includes(module.type))
       .map((module) => module.setActiveMapDocument?.(id)));
     const failure = results.find((result) => result.status === 'rejected');
     if (failure) throw failure.reason;
@@ -174,7 +199,7 @@ export class SyncEngine {
 
     this.selection = nextSelection;
     await Promise.all([...this.modules.values()]
-      .filter((module) => module.id !== origin && typeof module.setSelection === 'function')
+      .filter((module) => module.id !== origin && takesSelection(module) && typeof module.setSelection === 'function')
       .map((module) => module.setSelection(this.selection, { origin: 'sync' })));
     return this.selection;
   }
@@ -187,14 +212,4 @@ export class SyncEngine {
   async destroy() {
     [...this.modules.keys()].forEach((id) => this.unregister(id));
   }
-}
-
-/** Whether two selection arrays contain the same set of ids, ignoring order. */
-function sameSelection(a, b) {
-  if (a.length !== b.length) {
-    return false;
-  }
-
-  const values = new Set(a);
-  return b.every((id) => values.has(id));
 }

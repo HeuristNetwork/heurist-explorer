@@ -2,9 +2,9 @@
  * @file LegacySavedFilterConverter.js
  * @brief Converts legacy `usrSavedSearches.svs_Query` values into Explorer saved-filter definitions.
  *
- * Removable legacy module: Explorer reaches it only through the optional `legacyConverter`
- * option of `SavedFilterManager`. Delete `src/legacy/` and that wiring once Saved Filters
- * are retired. See docs/development/Saved-Filter-Legacy-Conversion-Plan.md.
+ * Removable legacy module: reached only through the optional `legacyConverter` option of
+ * Explorer's `SavedFilterManager` and of `shared/src/data/savedFilters.js` (website pages, plan 27l).
+ * Delete `shared/src/data/legacy/` and that wiring once Saved Filters are retired. See docs/development/Saved-Filter-Legacy-Conversion-Plan.md.
  *
  * Handled kinds (plan §0):
  * - `url`        `?q=…&w=…&rules=…&rulesonly=…`
@@ -14,7 +14,7 @@
  * - `text`       plain query text
  *
  * @project     Heurist academic knowledge management system
- * @package     heurist-explorer
+ * @package     heurist-client-core
  *
  * @link        https://HeuristNetwork.org
  * @copyright   (C) 2024 onwards Heurist Network

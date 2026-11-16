@@ -1380,3 +1380,5 @@
 #Site menu#Menu du site
 #Maximize#Agrandir
 #Restore#Restaurer
+#Stop the running search#Arrêter la recherche en cours
+#Records and selection#Fiches et sélection

@@ -544,3 +544,43 @@
 #This page is not in the website#This page is not in the website
 #Maximize#Maximize
 #Restore#Restore
+#Stop#Stop
+#Stop the running search#Stop the running search
+#Available filters#Available filters
+#Active on start#Active on start
+#Select#Select
+#Choose at least one filter#Choose at least one filter
+#Filter: choose its filters (gear of the element)#Filter: choose its filters (gear of the element)
+#Saved filters of the group "Website filters" and public query sources#Saved filters of the group "Website filters" and public query sources
+#One of the available filters; it runs when the page opens without a Saved filter in its address#One of the available filters; it runs when the page opens without a Saved filter in its address
+#Choose a query source or a saved filter#Choose a query source or a saved filter
+#source#source
+#filter#filter
+#There is no public query source or website filter in this database.#There is no public query source or website filter in this database.
+#A search box needs a query source or saved filter with a parameter#A search box needs a query source or saved filter with a parameter
+#This saved filter has no query#This saved filter has no query
+#A Saved filter item needs a query source or saved filter and a target page#A Saved filter item needs a query source or saved filter and a target page
+#A search box needs a query source or saved filter with a parameter and a target page#A search box needs a query source or saved filter with a parameter and a target page
+#The link opens the target page with the records of the query source or saved filter. Values left empty: Explorer asks for them, other modules leave them out.#The link opens the target page with the records of the query source or saved filter. Values left empty: Explorer asks for them, other modules leave them out.
+#Record#Record
+#Query#Query
+#Saved filters of "Website filters" and public query sources without parameters#Saved filters of "Website filters" and public query sources without parameters
+#Own records of a module#Own records of a module
+#Public query sources without parameters; the cards follow later changes of its query#Public query sources without parameters; the cards follow later changes of its query
+#Records and selection#Records and selection
+#Records from#Records from
+#Own query#Own query
+#Own filters#Own filters
+#Saved filter links#Saved filter links
+#Filter widget#Filter widget
+#Module#Module
+#Share selection with other modules#Share selection with other modules
+#Shows#Shows
+#Own record#Own record
+#Selected record#Selected record
+#Any of them: the module shows the latest search#Any of them: the module shows the latest search
+#Or a query without parameters#Or a query without parameters
+#Choose the record#Choose the record
+#Choose a query source or write a query#Choose a query source or write a query
+#The first records come from the own query; a later search from the other sources replaces them.#The first records come from the own query; a later search from the other sources replaces them.
+#The chosen filter shows its records in the modules of the page that take their records from this widget (Records and selection of the module); a filter with parameters shows its form first.#The chosen filter shows its records in the modules of the page that take their records from this widget (Records and selection of the module); a filter with parameters shows its form first.

@@ -97,3 +97,49 @@ test('showSource (Saved filter, plan 27j): the form of a source that is not an i
   assert.deepEqual(runs, [[{ t: '10' }]]);
   assert.equal(await widget.showSource(null), false);
 });
+
+test('Stop (plan 27l §4): shown after a short delay while requests run, stops them all', async () => {
+  const { RequestMonitor } = await import('../src/api/RequestMonitor.js');
+  const { STOP_DELAY } = await import('../src/widgets/filter/HFilter.js');
+  const monitor = new RequestMonitor({ source: 'page' });
+  let aborted = 0;
+  monitor.abortAll = () => { aborted += 1; return []; };
+  let running = 0;
+  Object.defineProperty(monitor, 'inFlightCount', { get: () => running });
+  const host = document.createElement('div');
+  const widget = new HFilter().attach(host, { items, resolve: async () => null, onRun: () => {}, requestMonitor: monitor }).render();
+  const stop = host.querySelector('.h-filter-stop');
+  assert.ok(stop);
+  assert.equal(stop.hidden, true);
+  assert.equal(host.classList.contains('is-loading'), false);
+  running = 1;
+  monitor.dispatchEvent(new Event('change'));
+  assert.equal(stop.hidden, true, 'not at once');
+  await new Promise((resolve) => setTimeout(resolve, STOP_DELAY + 20));
+  assert.equal(stop.hidden, false);
+  assert.ok(host.classList.contains('is-loading'), 'the loading veil (review 2026-11-16)');
+  stop.dispatchEvent(new Event('click'));
+  assert.equal(aborted, 1);
+  assert.equal(stop.hidden, true);
+  running = 0;
+  monitor.dispatchEvent(new Event('change'));
+  await widget.destroy();
+
+  const bare = document.createElement('div');
+  new HFilter().attach(bare, { items, resolve: async () => null, onRun: () => {} }).render();
+  assert.equal(bare.querySelector('.h-filter-stop'), null, 'no monitor: no Stop');
+});
+
+test('mark and showSource with a key: the item of a Saved filter of the page URL is marked (plan 27l §3)', async () => {
+  const host = document.createElement('div');
+  const widget = new HFilter().attach(host, { items, resolve: async () => null, onRun: () => {} }).render();
+  widget.mark('source:2');
+  assert.equal(widget.selectedKey, 'source:2');
+  widget.mark('other');
+  assert.equal(widget.selectedKey, null);
+  const runs = [];
+  widget.options.onRun = (source) => runs.push(source);
+  await widget.showSource({ request: { q: { t: '10' } } }, {}, { key: 'filter:1' });
+  assert.equal(widget.selectedKey, 'filter:1');
+  assert.equal(runs.length, 1, 'no parameters: run at once');
+});

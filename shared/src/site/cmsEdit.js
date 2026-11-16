@@ -33,7 +33,7 @@
  * @since       8.0
  */
 
-import { checkCmsDocument, CMS_CONFIG_VERSION, CMS_SCHEMA, parseCmsConfig } from './cmsDocument.js';
+import { checkCmsDocument, CMS_CONFIG_VERSION, CMS_SCHEMA, cmsInstanceDataSource, parseCmsConfig } from './cmsDocument.js';
 import { CMS_MEDIA_DEFAULTS } from './cmsMedia.js';
 import { buildTemplatePage, CMS_TEAM_TEMPLATE, CMS_TEMPLATE_PAGES } from './cmsPageTemplates.js';
 import { normalizeCmsFilterValues } from './cmsSavedFilter.js';
@@ -56,7 +56,7 @@ export const CMS_REVEALS = Object.freeze(['fade', 'up']);
 /** Elements the designer can add (§5.2). */
 export const CMS_ELEMENTS = Object.freeze(['text', 'media', 'group', 'columns2', 'columns3', 'tabs', 'accordion', 'explorer',
   'data', 'map', 'timeline', 'graph', 'recordview', 'menu', 'report', 'cards', 'gallery', 'headerSet', 'field', 'language',
-  'actionmenu', 'social', 'badges', 'siteFooter', 'email', 'breadcrumbs']);
+  'actionmenu', 'social', 'badges', 'siteFooter', 'email', 'breadcrumbs', 'filter']);
 
 /**
  * Fields of the website record in the header default set (plan 27f §13): logo, title, subtitle (concept codes of
@@ -755,7 +755,8 @@ export class CmsRecordDocument {
    * Set or remove the action of a Record field element.
    *
    * @param {string} id Node id.
-   * @param {string|null} link `url`, `page:<id>`, `goto:<id>|goto:home`, `filter:<page>:<source>` (Saved filter, plan 27j);
+   * @param {string|null} link `url`, `page:<id>`, `goto:<id>|goto:home`, `filter:<page>:<source>` (Saved filter, plan 27j;
+   *        `filter:<page>:f<saved filter>`, plan 27l §7.2);
    *        null or '': none.
    * @param {object|null} [values] The values of a Saved filter (`data-h-link-values`, within CMS_FILTER_LIMITS).
    * @returns {boolean}
@@ -763,7 +764,7 @@ export class CmsRecordDocument {
   setFieldLink(id, link, values = null) {
     const node = this.find(id)?.node;
     if (!node || !hasAttr(node, 'data-h-field')) return false;
-    if (link && /^(url|page:\d+|goto:(\d+|home)|filter:\d+:\d+)$/.test(link)) setAttr(node, 'data-h-link', link);
+    if (link && /^(url|page:\d+|goto:(\d+|home)|filter:\d+:f?\d+)$/.test(link)) setAttr(node, 'data-h-link', link);
     else removeAttr(node, 'data-h-link');
     const filterValues = link && link.startsWith('filter:') ? normalizeCmsFilterValues(values).values : {};
     if (Object.keys(filterValues).length) setAttr(node, 'data-h-link-values', JSON.stringify(filterValues));
@@ -1008,12 +1009,32 @@ export class CmsRecordDocument {
     return instance ? clone(instance) : null;
   }
 
-  /** Set the settings and state of an instance. */
-  setInstance(instanceId, { settings, state } = {}) {
+  /**
+   * Set the settings, state and page sync of an instance. `sync` (plan 27l §2.4): `all` (the default) is not stored.
+   */
+  setInstance(instanceId, { settings, state, records, selection, dataSource } = {}) {
     const instance = this.config.instances[instanceId];
     if (!instance) return false;
     if (settings !== undefined) instance.settings = clone(settings || {});
     if (state !== undefined) instance.state = state == null ? null : clone(state);
+    // records and selection of a module (plan 27l §12): `records` null = the default (not written); `selection` true =
+    // the default; they replace the `sync` of round 1
+    if (records !== undefined) {
+      if (records && Array.isArray(records.from)) instance.records = { from: [...records.from] };
+      else delete instance.records;
+      delete instance.sync;
+    }
+    if (selection !== undefined) {
+      if (selection === false) instance.selection = false;
+      else delete instance.selection;
+      delete instance.sync;
+    }
+    // its own records (plan 27l §11.3)
+    if (dataSource !== undefined) {
+      const value = cmsInstanceDataSource(dataSource, instance.type);
+      if (value) instance.dataSource = clone(value);
+      else delete instance.dataSource;
+    }
     return true;
   }
 
@@ -1096,6 +1117,14 @@ export class CmsRecordDocument {
         this.config.instances[instanceId] = instance;
         this._nodeStyles()[nodeId] = { 'min-height': '0' };
         return element$(element === 'language' ? 'div' : 'nav', [['data-h-node', nodeId], ['data-h-instance', instanceId]], '');
+      }
+      case 'filter': {
+        // the Filter widget (plan 27l §3): the filters of the page; it runs them for the modules of the page
+        const instanceId = id('i');
+        const nodeId = id('n');
+        this.config.instances[instanceId] = defaultInstance('widget', 'filter');
+        this._nodeStyles()[nodeId] = { 'min-height': '0' };
+        return element$('div', [['data-h-node', nodeId], ['data-h-instance', instanceId]], '');
       }
       case 'menu':
       case 'breadcrumbs': {

@@ -44,12 +44,18 @@ import { createWebsiteFieldsForm, PAGE_FIELD_KEYS, WEBSITE_FIELD_KEYS } from '..
 import { FORM_MIN_WIDTH, FORM_SIDE_WIDTH, createFormPanel } from './designerInline.js';
 import { styleRows } from './designerStyles.js';
 import {
-  cardTemplateTerms, openBreadcrumbsForm, openCardsForm, openEmailForm, openFieldForm, openLanguageForm, openMediaForm, openMenuForm, openReportForm, teamReportBody
+  cardTemplateTerms, createRecordsSection, openBreadcrumbsForm, openFilterWidgetForm, openCardsForm, openEmailForm, openFieldForm, openLanguageForm, openMediaForm, openMenuForm, openReportForm, teamReportBody
 } from './widgetForms.js';
 import { openNewRecordPageForm, recordPageTerms, sitePageTerms } from './recordPageField.js';
 import { filterPageTerms, recordFilterFieldTerms } from './savedFilterField.js';
 import { cmsFilterHref } from '#shared/site/cmsSavedFilter.js';
 import { QuerySource } from '#shared/data/QuerySource.js';
+import { savedFilterRecord } from '#shared/data/savedFilters.js';
+import { hasQueryParameters } from '#shared/data/queryParameters.js';
+import { valueInLanguage } from '#shared/data/recordEditValues.js';
+import { cmsInstanceRecords } from '#shared/site/cmsRecords.js';
+import { CMS_WEBSITE_FILTERS_GROUP, resolveCmsFilterItem } from '#shared/site/cmsFilterWidget.js';
+import { LegacySavedFilterConverter } from '#shared/data/legacy/LegacySavedFilterConverter.js';
 import { QuerySourceProvider } from '#shared/data/QuerySourceProvider.js';
 import { RecordTypeProvider } from '#shared/data/RecordTypeProvider.js';
 import { openActionMenuForm, openSocialForm, sitePageList } from './actionForms.js';
@@ -69,6 +75,17 @@ import './designer.css';
 
 /** The record type of query sources (RT_QUERY_SOURCE): its global concept code (Saved filter, plan 27j). */
 const QUERY_SOURCE_CONCEPT_CODE = '3-1021';
+/** DT_QUERY_STRING of a query source (QuerySourceManager of Explorer). */
+const QUERY_FIELD_CONCEPT_CODE = '2-12';
+
+/** Parsed JSON, or the text itself. */
+function parseJsonText(text) {
+  try {
+    return JSON.parse(text);
+  } catch {
+    return text;
+  }
+}
 
 /** Elements that are module instances: they get the website defaults of the module when added (review 2026-11-15). */
 const MODULE_ELEMENTS = Object.freeze(['explorer', 'data', 'map', 'timeline', 'graph', 'recordview']);
@@ -1669,8 +1686,8 @@ export class CmsDesigner {
   /** URL of a link item: a page of this website (the home page by its id), a record on a record page, a URL. */
   _linkUrl(item) {
     if (item.action === 'url') return String(item.target || '');
-    // Saved filter (plan 27j): the target page with the query source and its values
-    if (item.action === 'savedFilter') return cmsFilterHref(this._linkUrl({ action: 'page', target: item.target }), item.source, item.values);
+    // Saved filter (plan 27j): the target page with the query source (or saved filter) and its values
+    if (item.action === 'savedFilter') return cmsFilterHref(this._linkUrl({ action: 'page', target: item.target }), item, item.values);
     const top = this.site || this.standalone;
     const base = String(top?.url || '');
     if (!base || !(Number(item.target) > 0)) return '';
@@ -1937,6 +1954,9 @@ export class CmsDesigner {
       // Saved filter (plan 27j): the public query sources, the definition of one, the target pages; the Filter Form
       querySources: () => this._publicQuerySources(),
       querySourceDefinition: (id) => this._querySourceDefinition(id),
+      // saved filters of "Website filters" too (plan 27l §7.2)
+      savedFilters: () => this._websiteSavedFilters(),
+      savedFilterDefinition: (id) => this._savedFilterDefinition(id),
       filterPages: () => filterPageTerms(this.site),
       selectExtent: typeof this.bridge?.selectExtent === 'function' ? (current) => this.bridge.selectExtent(current) : null,
       apiClient: this.apiClient,
@@ -1957,17 +1977,65 @@ export class CmsDesigner {
     this._querySources ||= (async () => {
       const typeId = await new RecordTypeProvider({ apiClient: this.apiClient }).getIdByConceptCode(QUERY_SOURCE_CONCEPT_CODE);
       if (!typeId) return [];
+      // the query too: whether it has parameters (plan 27l §11.3)
+      const queryField = Number(this.options.dbdefs?.localId?.('dty', QUERY_FIELD_CONCEPT_CODE)) || 0;
+      // the caption: its name (DT_NAME, the value without a language), not the record title (2026-11-16)
+      const nameField = Number(this.options.dbdefs?.dbconst?.('DT_NAME')) || 0;
       const answer = await this.apiClient.get('/records/', {
-        query: { q: [{ t: String(typeId) }, { access: 'public' }], fields: 'rec_ID,rec_Title', limit: 1000 }
+        query: { q: [{ t: String(typeId) }, { access: 'public' }], fields: ['rec_ID', 'rec_Title', queryField, nameField].filter(Boolean).join(','),
+          limit: 1000 }
       });
-      const title = (record) => String(record.rec_Title ?? '').replace(/<[^>]*>/g, '').trim() || `#${record.rec_ID}`;
-      return (answer?.records || []).map((record) => ({ id: Number(record.rec_ID), title: title(record) }))
+      const title = (record) => valueInLanguage([record.details?.[nameField]].flat().filter((value) => value != null), '')
+        || String(record.rec_Title ?? '').replace(/<[^>]*>/g, '').trim() || `#${record.rec_ID}`;
+      const query = (record) => {
+        const value = [record.details?.[queryField]].flat()[0];
+        return value == null ? '' : String(typeof value === 'object' ? value.value ?? '' : value);
+      };
+      return (answer?.records || []).map((record) => ({ id: Number(record.rec_ID), title: title(record),
+        parameterized: hasQueryParameters(parseJsonText(query(record))) }))
         .sort((a, b) => a.title.localeCompare(b.title));
     })().catch((error) => {
       this._querySources = null;
       throw error;
     });
     return this._querySources;
+  }
+
+  /**
+   * The saved filters of the group "Website filters" (the Filter widget, plan 27l §3): visitors can read them. Read once
+   * per designer.
+   *
+   * @returns {Promise<Array<{id: number, title: string}>>}
+   */
+  _websiteSavedFilters() {
+    this._savedFilters ||= (async () => {
+      const payload = await this.apiClient.get('/sys', {
+        query: { q: { t: 'filter', filterType: ['filter', 'faceted'], owner: String(CMS_WEBSITE_FILTERS_GROUP) }, fields: 'query,filterType,owner' }
+      });
+      const list = Array.isArray(payload) ? payload : payload?.items || payload?.filters || payload?.records || [];
+      // parameters: a faceted search, or $NAME$ in the query (plan 27l §11.3)
+      return list.map(savedFilterRecord).filter(Boolean).map(({ id, title, query, definition }) => ({
+        id, title: title.replace(/<[^>]*>/g, '').trim() || `#${id}`,
+        parameterized: Boolean(definition?.facets) || hasQueryParameters(definition?.q ?? definition?.query ?? query)
+      })).sort((a, b) => a.title.localeCompare(b.title));
+    })().catch((error) => {
+      this._savedFilters = null;
+      throw error;
+    });
+    return this._savedFilters;
+  }
+
+  /**
+   * The definition of a saved filter in the shape of a query source (its query and Filter Form, plan 27l §7.2): legacy
+   * kinds converted.
+   */
+  async _savedFilterDefinition(id) {
+    const dbdefs = this.options.dbdefs;
+    const dataSource = await resolveCmsFilterItem({ kind: 'filter', id }, {
+      apiClient: this.apiClient, legacyConverter: new LegacySavedFilterConverter({ getDbDefs: async () => dbdefs })
+    });
+    if (!dataSource) throw new Error($HR('This saved filter has no query'));
+    return { id: Number(id), title: dataSource.title, source: { query: dataSource.request.q }, filterForm: dataSource.presentation?.filterForm || null };
   }
 
   /** The definition of a query source (its query and Filter Form, plan 27j). */
@@ -2150,6 +2218,11 @@ export class CmsDesigner {
     } else if (instance.type === 'breadcrumbs') {
       // breadcrumbs (plan 27k §6): the path of the page or the record pages visited before
       await run((extra) => openBreadcrumbsForm({ ...common, ...extra }), setSettings);
+    } else if (instance.type === 'filter') {
+      // the Filter widget (plan 27l §3): public saved filters and query sources
+      const [filters, sources] = await Promise.all([this._websiteSavedFilters().catch(() => []), this._publicQuerySources().catch(() => [])]);
+      const choices = [...filters.map((item) => ({ kind: 'filter', ...item })), ...sources.map((item) => ({ kind: 'source', ...item }))];
+      await run((extra) => openFilterWidgetForm({ settings: instance.settings || {}, choices, ...extra }), setSettings);
     } else if (instance.type === 'email') {
       // the email form (plan 27h): inline or a button, the caption of the button in the languages of the website
       await run((extra) => openEmailForm({ settings: instance.settings || {}, languages: this.site?.languages || [],
@@ -2393,21 +2466,40 @@ export class CmsDesigner {
     loading.textContent = $HR('Loading...');
     host.append(loading);
     let panel = null;
+    // records and selection of the module (plan 27l §12), applied with Apply; a module of an Explorer: Explorer's. Explorer
+    // (phase E2): the fields go into its filters fieldset, its filter fields only with Own filters
+    const page = child ? null : this._pageRecordSources(found.instanceId);
+    const explorer = !child && instance.type === 'explorer';
+    const syncSection = child ? null : createRecordsSection({
+      instance,
+      instances: page.instances,
+      sources: page.sources,
+      choices: ['explorer', 'recordview'].includes(instance.type) ? [] : await this._ownSourceChoices(),
+      services: this._formServices(),
+      apiClient: this.apiClient,
+      dbdefs: this.options.dbdefs,
+      inline: explorer,
+      onFromChange: explorer ? (from) => panel?.showFilters?.(from.includes('own')) : null
+    });
     try {
       if (child) {
         panel = await this.bridge.createConfigurationPanel({ moduleType: child.type, mode: 'website',
           value: explorerModuleSettings(instance.settings, child.type) });
-      } else if (instance.type === 'explorer') {
-        panel = await this.bridge.createExplorerInstancePanel({ value: instance });
+      } else if (explorer) {
+        panel = await this.bridge.createExplorerInstancePanel({ value: instance, recordsSection: syncSection.element });
+        panel?.showFilters?.(syncSection.from().includes('own'));
       } else {
         const hasSettings = instance.settings && typeof instance.settings === 'object' && Object.keys(instance.settings).length;
         panel = await this.bridge.createConfigurationPanel({ moduleType: instance.type, mode: 'website', value: hasSettings ? instance.settings : null });
       }
     } catch (error) {
       loading.textContent = error?.message || String(error);
+      void syncSection?.destroy();
       return undefined;
     }
     loading.remove();
+    // an Explorer that did not take the fields (an older one): above its form
+    if (syncSection && !syncSection.element.parentElement) host.append(syncSection.element);
     host.append(panel.element);
     const bar = element('div', 'h-cms-form-actions');
     const reset = element('button', 'h-btn h-compact');
@@ -2430,13 +2522,16 @@ export class CmsDesigner {
       apply.disabled = true;
       headApply.disabled = true;
       try {
+        const own = syncSection ? syncSection.read() : {};
+        if (!own) return;
         const value = await panel.read();
         const current = instanceOf();
         if (!value || !current?.instance) return;
+        const { records, selection, dataSource } = own;
         const changed = this._applyEdit((doc) => {
           if (child) return doc.setInstance(current.instanceId, { settings: withExplorerModuleSettings(current.instance.settings, child.type, value) });
-          if (current.instance.type === 'explorer') return doc.setInstance(current.instanceId, value);
-          return doc.setInstance(current.instanceId, { settings: value });
+          if (current.instance.type === 'explorer') return doc.setInstance(current.instanceId, { ...value, records, selection, dataSource: null });
+          return doc.setInstance(current.instanceId, { settings: value, records, selection, dataSource });
         });
         HMsg.showMsgFlash?.($HR(changed ? 'Applied: Save Page saves it' : 'No changes'), { showDelay: 1500 });
       } catch (error) {
@@ -2449,7 +2544,63 @@ export class CmsDesigner {
     bar.append(reset, element('span', 'h-cms-toolbar-spacer'), apply);
     host.append(bar);
     this.formPanel.addHeadActions?.(headApply);
-    return () => panel.destroy();
+    return () => {
+      void syncSection?.destroy();
+      return panel.destroy();
+    };
+  }
+
+  /**
+   * The instances of the page shown now (its own and those of the website parts) and the sources of records a module of
+   * it may take (plan 27l §12): Saved filter links, each Filter widget, each other module with its own query (not
+   * Explorer, not Record View).
+   *
+   * @param {string} instanceId The module of the form (not a source of itself).
+   * @returns {{instances: object, sources: Array<{id: string, label: string}>}}
+   */
+  _pageRecordSources(instanceId) {
+    const current = this._currentRecord();
+    const site = this.site ? this.records.get(this.site.id) : null;
+    const records = [current, site !== current ? site : null].filter(Boolean);
+    const instances = Object.assign({}, ...records.slice().reverse().map((record) => record.doc.config.instances || {}));
+    const sources = [{ id: 'links', label: $HR('Saved filter links') }];
+    const seen = new Set();
+    for (const record of records) {
+      for (const part of record === current ? record.doc.partNames() : ['header', 'footer']) {
+        const visit = (items) => {
+          for (const item of items || []) {
+            const instance = item.instance ? instances[item.instance] : null;
+            if (instance && !seen.has(item.instance)) {
+              seen.add(item.instance);
+              const name = `${item.label || instance.type} (${item.id})`;
+              if (instance.kind === 'widget' && instance.type === 'filter') {
+                sources.push({ id: `filter:${item.instance}`, label: `${$HR('Filter widget')}: ${name}` });
+              } else if (instance.kind === 'module' && item.instance !== instanceId && !['explorer', 'recordview'].includes(instance.type)
+                && cmsInstanceRecords(instance, instances).own) {
+                sources.push({ id: `module:${item.instance}`, label: `${$HR('Module')}: ${name}` });
+              }
+            }
+            visit(item.children);
+          }
+        };
+        visit(record.doc.tree(part));
+      }
+    }
+    return { instances, sources };
+  }
+
+  /**
+   * The own records a module may have (plan 27l §11.3): saved filters of "Website filters" and public query sources,
+   * without parameters (a module has no Filter Form for them).
+   *
+   * @returns {Promise<Array<{key: string, title: string, kind: 'source'|'filter'}>>}
+   */
+  async _ownSourceChoices() {
+    const [filters, sources] = await Promise.all([this._websiteSavedFilters().catch(() => []), this._publicQuerySources().catch(() => [])]);
+    return [
+      ...filters.filter((item) => !item.parameterized).map((item) => ({ key: `filter:${item.id}`, title: item.title, kind: 'filter' })),
+      ...sources.filter((item) => !item.parameterized).map((item) => ({ key: `source:${item.id}`, title: item.title, kind: 'source' }))
+    ];
   }
 
   /**
@@ -2801,7 +2952,7 @@ function nodeIcon(item) {
   if (item.type === 'report') return 'fa-file';
   if (item.kind === 'text') return 'fa-paragraph';
   if (item.kind === 'media') return 'fa-photo-film';
-  if (item.kind === 'instance') return { menu: 'fa-bars', breadcrumbs: 'fa-angles-right' }[item.type] || 'fa-cube';
+  if (item.kind === 'instance') return { menu: 'fa-bars', breadcrumbs: 'fa-angles-right', filter: 'fa-filter' }[item.type] || 'fa-cube';
   if (item.control === 'tabs') return 'fa-folder-open';
   if (item.control === 'accordion') return 'fa-list';
   if (item.preset === 'columns2' || item.preset === 'columns3') return 'fa-table-columns';

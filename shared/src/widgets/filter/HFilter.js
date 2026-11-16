@@ -8,8 +8,11 @@
  * parameterized single item shows its Filter Form alone, without Close; the
  * host does not show the pane at all for a single item without parameters (`needsPane`).
  * The items are references: the host resolves each one when it is chosen (`resolve`), so
- * the latest version of the filter is used. A widget a page can hold on its own later
- * (as HMenu).
+ * the latest version of the filter is used. Also the Filter widget of a website page (plan 27l §3).
+ *
+ * With a `requestMonitor` (plan 27l §4) a loading veil covers the whole widget while requests run, with a Stop button
+ * above it, as the query panel of Explorer (after a short delay, so quick requests do not make it flicker; review
+ * 2026-11-16); Stop ends them all (`abortAll`: fetches aborted, the server asked to stop the SQL).
  *
  * @project     Heurist academic knowledge management system
  * @package     heurist-client-core
@@ -31,6 +34,9 @@ import './HFilter.css';
 /** Presentations of the list. */
 const MODES = ['buttons', 'list', 'select'];
 
+/** Milliseconds before Stop is shown (as the rail of Explorer). */
+export const STOP_DELAY = 300;
+
 /** List of filters of a page and the Filter Form of the chosen one. */
 export class HFilter extends HBaseWidget {
   /**
@@ -44,6 +50,8 @@ export class HFilter extends HBaseWidget {
    * @param {object} [options.dbdefs] HDbDefs for the Filter Form.
    * @param {object} [options.apiClient] HeuristApiClient for the value lists and counts of the Filter Form.
    * @param {(error: Error) => void} [options.onError] An item could not be read or run.
+   * @param {import('../../api/RequestMonitor.js').RequestMonitor|null} [options.requestMonitor] The requests of the
+   *        page / Explorer: Stop while they run.
    * @returns {HFilter}
    */
   attach(container, options = {}) {
@@ -71,6 +79,7 @@ export class HFilter extends HBaseWidget {
     if (!this.container) throw new Error('HFilter must be attached before render');
     this.container.classList.add('h-widget', 'h-filter', `h-filter-${this.mode}`);
     this.container.replaceChildren();
+    this._renderStop();
     this.formHost = document.createElement('div');
     this.formHost.className = 'h-filter-form-host';
     this.formHost.hidden = true;
@@ -123,12 +132,14 @@ export class HFilter extends HBaseWidget {
    *
    * @param {object} source DataSource with `request.q` (with `$NAME$` parameters) and `presentation.filterForm`.
    * @param {object} [values] Values by parameter name.
+   * @param {{key?: string|null}} [options] `key`: the item of this source, marked in the list.
    * @returns {Promise<boolean>}
    */
-  async showSource(source, values = {}) {
+  async showSource(source, values = {}, { key = null } = {}) {
     if (!source?.request?.q) return false;
     ++this._run;
-    this.selectedKey = null;
+    // the item of the source, when it is one of the list (a Saved filter of the page URL, plan 27l §3)
+    this.selectedKey = this.items.some((item) => item.key === key) ? key : null;
     this._markSelected();
     await this._closeForm();
     if (hasQueryParameters(source.request.q)) {
@@ -139,10 +150,75 @@ export class HFilter extends HBaseWidget {
     return true;
   }
 
+  /**
+   * Mark an item of the list without running it (its records are shown already).
+   *
+   * @param {string|null} key
+   */
+  mark(key) {
+    this.selectedKey = this.items.some((item) => item.key === key) ? key : null;
+    this._markSelected();
+  }
+
   /** @inheritdoc */
   async destroy() {
+    clearTimeout(this._stopTimer);
+    this._unwatch?.();
     await this._closeForm();
     await super.destroy();
+  }
+
+  /**
+   * The Stop button (hidden) and its watch of the request monitor: shown after STOP_DELAY while requests run.
+   *
+   * @private
+   */
+  _renderStop() {
+    const monitor = this.options.requestMonitor;
+    this._unwatch?.();
+    this._unwatch = null;
+    this.stopButton = null;
+    if (!monitor?.addEventListener) return;
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'h-btn h-btn-small h-btn-danger h-filter-stop';
+    button.hidden = true;
+    button.title = $HR('Stop the running search');
+    const icon = document.createElement('span');
+    icon.className = 'fa-solid fa-circle-stop';
+    icon.setAttribute('aria-hidden', 'true');
+    const caption = document.createElement('span');
+    caption.className = 'h-i18n';
+    caption.textContent = $HR('Stop');
+    button.append(icon, ' ', caption);
+    this.listen(button, 'click', () => {
+      monitor.abortAll();
+      this._showStop(false);
+    });
+    this.stopButton = button;
+    this.container.append(button);
+    const update = () => {
+      if (!monitor.inFlightCount) {
+        clearTimeout(this._stopTimer);
+        this._stopTimer = null;
+        this._showStop(false);
+        return;
+      }
+      if (!this.stopButton.hidden || this._stopTimer) return;
+      this._stopTimer = setTimeout(() => {
+        this._stopTimer = null;
+        this._showStop(monitor.inFlightCount > 0);
+      }, STOP_DELAY);
+    };
+    monitor.addEventListener('change', update);
+    this._unwatch = () => monitor.removeEventListener('change', update);
+    update();
+  }
+
+  /** The loading veil over the widget and its Stop button. @private */
+  _showStop(on) {
+    if (this.stopButton) this.stopButton.hidden = !on;
+    this.container?.classList.toggle('is-loading', Boolean(on && this.stopButton));
   }
 
   _renderList() {

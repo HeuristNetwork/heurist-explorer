@@ -19,12 +19,12 @@ import { extentFromWkt, isExtent } from '#shared/utils';
 import { HostAdapter } from '#shared/host';
 import { HMsg, $HR, InlineHelp, getActiveLanguage, getAssetBaseUrl } from '#shared/ui';
 import { LayoutManager } from './LayoutManager.js';
-import { cloneDataSource, dataSourceKey, dataSourceRequest, dataSourceRole, normalizeDataSource } from './DataSource.js';
+import { cloneDataSource, dataSourceKey, dataSourceRequest, dataSourceRole, normalizeDataSource } from '#shared/data/DataSource.js';
 import { DataSourceFavorites } from './DataSourceFavorites.js';
 import { DataSourceHistory } from './DataSourceHistory.js';
 import { ExplorerWorkspace } from './ExplorerWorkspace.js';
 import { SavedFilterManager } from './SavedFilterManager.js';
-import { LegacySavedFilterConverter } from '../legacy/LegacySavedFilterConverter.js';
+import { LegacySavedFilterConverter } from '#shared/data/legacy/LegacySavedFilterConverter.js';
 import { RecordTypeManager } from './RecordTypeManager.js';
 import { UserGroupManager, ownerScope } from './UserGroupManager.js';
 import { QuerySourceManager } from './QuerySourceManager.js';
@@ -32,7 +32,7 @@ import { RecordEditorHost } from './RecordEditorHost.js';
 import { querySourceDetails } from './querySourceRecord.js';
 import { RecordEditError } from '#shared/data/RecordEditClient.js';
 import { HRuleBuilder, describeExpansionRule } from '../widgets/query-source/helpers/HRuleBuilder.js';
-import { SyncEngine } from './SyncEngine.js';
+import { SyncEngine } from '#shared/sync/SyncEngine.js';
 import { IframeModuleAdapter } from '../modules/IframeModuleAdapter.js';
 import { DirectModuleAdapter } from '../modules/DirectModuleAdapter.js';
 import { ExplorerControlPanel } from '../ui/ExplorerControlPanel.js';
@@ -60,7 +60,7 @@ import { WebsiteClient } from '#shared/api/WebsiteClient.js';
 import { publishModuleTo } from '#shared/site/modulePublisher.js';
 import { HFilter } from '#shared/widgets/filter/HFilter.js';
 import { memoryStorage, normalizePublishedFilter, publishedModuleSettings, publishedUiConfig } from './publishedView.js';
-import { valueInLanguage } from '#shared/data/recordEditValues.js';
+import { filterItemCaptions } from '#shared/site/cmsFilterWidget.js';
 import { cmsFilterFormValues } from '#shared/site/cmsSavedFilter.js';
 
 /** Explorer's top-level application controller: modules, layout, datasource, and synchronization. */
@@ -562,13 +562,10 @@ export class ExplorerApplication {
   async _createPublishedFilter(pageFilter) {
     const dock = this.authoringDock;
     // the caption of a query source: its name in the language of the page (DT_NAME with translations, 2026-11-14);
-    // saved filters keep the name of publication time (they have no translations yet)
+    // saved filters keep the name of publication time (they have no translations yet). The same rule as the Filter
+    // widget of a website page (shared filterItemCaptions)
     const language = resolveUiLanguage(this.uiConfigValue, this.config.language);
-    const items = pageFilter.items.map((item) => {
-      if (item.kind !== 'source') return item;
-      const name = valueInLanguage(this.querySources?.get?.(item.id)?.names || [], language);
-      return name ? { ...item, title: name } : item;
-    });
+    const items = filterItemCaptions(pageFilter.items, (id) => this.querySources?.get?.(id)?.names, language);
     const parameterized = (key) => {
       const item = items.find((entry) => entry.key === key);
       if (item?.kind === 'query') return hasQueryParameters(item.request?.q);
@@ -592,7 +589,9 @@ export class ExplorerApplication {
       // the map extent of a parameter (review 2026-11-15: it was disabled on a published page)
       selectExtent: this.config.moduleUrls?.map ? (current) => this.selectFilterExtent(current) : null,
       onRun: (dataSource) => this.activateDataSource(dataSource, { origin: 'published-filter', allowDirty: true }),
-      onError: (error) => HMsg.showMsgErr?.(error?.message || String(error))
+      onError: (error) => HMsg.showMsgErr?.(error?.message || String(error)),
+      // Stop while the requests of Explorer and its modules run (plan 27l §4), as the rail of the main Explorer
+      requestMonitor: this.requestMonitor
     }).render();
     if (pane) dock.show();
     else dock.hide();
@@ -2201,10 +2200,12 @@ export class ExplorerApplication {
    * for a new instance (explorerWebsitePanel.js).
    *
    * @private
-   * @param {{value?: {settings?: object, state?: object}|null}} [request] The instance.
-   * @returns {Promise<object>} See createExplorerWebsitePanel.
+   * @param {{value?: {settings?: object, state?: object}|null, recordsSection?: HTMLElement|null}} [request] The
+   *        instance; `recordsSection`: the fields *Records and selection* of the designer (plan 27l §12), at the top of
+   *        the filters.
+   * @returns {Promise<object>} See createExplorerWebsitePanel (with `showFilters`).
    */
-  async _explorerInstancePanel({ value = null } = {}) {
+  async _explorerInstancePanel({ value = null, recordsSection = null } = {}) {
     const [{ createExplorerWebsitePanel }, publication] = await Promise.all([
       import('../ui/config/explorerWebsitePanel.js'),
       import('../ui/config/explorerPublication.js')
@@ -2212,7 +2213,8 @@ export class ExplorerApplication {
     return createExplorerWebsitePanel({
       value,
       lists: await this._publicFilterLists(publication.WEBSITE_FILTERS_GROUP),
-      defaults: async () => (await this._websiteDefaults({ moduleType: 'explorer' })).settings
+      defaults: async () => (await this._websiteDefaults({ moduleType: 'explorer' })).settings,
+      recordsSection
     });
   }
 

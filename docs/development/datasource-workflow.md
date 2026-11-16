@@ -326,7 +326,7 @@ Map never calls heurist-data directly.
 
 # Classes and methods participating in the workflow
 
-## Existing — `src/core/DataSource.js`
+## Existing — `shared/src/data/DataSource.js (moved from apps/explorer/src/core, plan 27l)`
 
 Current:
 
@@ -349,7 +349,7 @@ Responsibility: datasource normalization and identity only.
 
 ---
 
-## Existing — `src/core/SyncEngine.js`
+## Existing — `shared/src/sync/SyncEngine.js (moved from apps/explorer/src/core, plan 27l)`
 
 Methods:
 

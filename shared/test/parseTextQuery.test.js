@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { parseTextQuery } from '../src/utils/parseTextQuery.js';
+import { parseTextQuery } from '../src/data/query/parseTextQuery.js';
 
 const DBDEFS = {
   rectypeIdByName: (t) => ({ person: 10, place: 12 }[String(t).toLowerCase()] || null),

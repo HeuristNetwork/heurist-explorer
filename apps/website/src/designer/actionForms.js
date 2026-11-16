@@ -28,6 +28,7 @@ import { formDialog } from './designerDialogs.js';
 import { dragHandle, helpLine, sortableList } from './designerStyles.js';
 import { recordPagePicker } from './recordPageField.js';
 import { savedFilterPicker, storedSavedFilter } from './savedFilterField.js';
+import { cmsFilterKeys, cmsFilterTarget } from '#shared/site/cmsSavedFilter.js';
 
 /** Social networks of the social media preset (hard-coded, §9.6): id, name, Font Awesome icon, URL hint. */
 export const SOCIAL_NETWORKS = Object.freeze([
@@ -383,10 +384,10 @@ export function openActionMenuForm({ settings = {}, pages = [], recordTypes = []
         } else if (action.value === 'addRecord') value.target = Number(type.value) || type.value;
         else if (action.value === 'savedFilter' && filter.value()) {
           const chosen = filter.value();
-          Object.assign(value, { target: chosen.page, source: chosen.source, values: chosen.values });
+          Object.assign(value, { target: chosen.page, ...cmsFilterKeys(chosen), values: chosen.values });
         } else if (action.value === 'search' && searchFilter.value()) {
           const chosen = searchFilter.value();
-          Object.assign(value, { target: chosen.page, source: chosen.source, values: chosen.values, param: chosen.param });
+          Object.assign(value, { target: chosen.page, ...cmsFilterKeys(chosen), values: chosen.values, param: chosen.param });
         }
         if (newTab.input.checked) value.newTab = true;
         if (iconOnly.input.checked && value.icon) value.iconOnly = true;
@@ -421,12 +422,12 @@ export function openActionMenuForm({ settings = {}, pages = [], recordTypes = []
       problems.textContent = $HR('A Record page item needs a record page and a record');
       return null;
     }
-    if (items.some((item) => item.action === 'savedFilter' && (!item.target || !item.source))) {
-      problems.textContent = $HR('A Saved filter item needs a query source and a target page');
+    if (items.some((item) => item.action === 'savedFilter' && (!item.target || !cmsFilterTarget(item)))) {
+      problems.textContent = $HR('A Saved filter item needs a query source or saved filter and a target page');
       return null;
     }
-    if (items.some((item) => item.action === 'search' && (!item.target || !item.source || !item.param))) {
-      problems.textContent = $HR('A search box needs a query source with a parameter and a target page');
+    if (items.some((item) => item.action === 'search' && (!item.target || !cmsFilterTarget(item) || !item.param))) {
+      problems.textContent = $HR('A search box needs a query source or saved filter with a parameter and a target page');
       return null;
     }
     if (single) return items[0] || null;

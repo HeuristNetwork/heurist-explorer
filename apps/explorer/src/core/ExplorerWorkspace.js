@@ -13,7 +13,7 @@
  * @since       8.0
  */
 
-import { cloneDataSource, dataSourceKey, dataSourceTitle, normalizeDataSource } from './DataSource.js';
+import { cloneDataSource, dataSourceKey, dataSourceTitle, normalizeDataSource } from '#shared/data/DataSource.js';
 
 const PERSISTENT_TYPES = new Set(['filter', 'recordtype', 'source']);
 

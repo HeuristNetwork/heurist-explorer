@@ -1,5 +1,6 @@
 /* HFilter (plan 27b §11.3): the filters of a published page and the Filter Form of the chosen one */
 .h-filter {
+  position: relative;
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
@@ -62,3 +63,46 @@
 
 /* the form host, or the list while a Filter Form is open */
 .h-filter > [hidden] { display: none; }
+
+/* Loading veil over the whole widget while a search runs (plan 27l §4, review 2026-11-16: as the query panel of
+ * Explorer); the Stop button stays above it */
+.h-filter.is-loading::before {
+  content: "";
+  position: absolute;
+  z-index: 20;
+  inset: 0;
+  min-height: 70px;
+  background: color-mix(in srgb, var(--h-color-bg, #fff) 55%, transparent);
+  cursor: progress;
+}
+
+.h-filter.is-loading::after {
+  content: "\f110";
+  position: absolute;
+  z-index: 21;
+  left: 50%;
+  top: 22px;
+  color: var(--h-color-primary, #345d77);
+  font: var(--fa-font-solid);
+  font-size: var(--h-font-size-icon-large);
+  animation: h-filter-spin .9s linear infinite;
+  pointer-events: none;
+}
+
+@keyframes h-filter-spin {
+  from { transform: translate(-50%, -50%) rotate(0deg); }
+  to { transform: translate(-50%, -50%) rotate(360deg); }
+}
+
+.h-filter > .h-filter-stop {
+  position: absolute;
+  z-index: 23;
+  left: 50%;
+  top: 44px;
+  transform: translateX(-50%);
+  background: var(--h-color-bg, #fff);
+}
+
+.h-filter > .h-filter-stop[hidden] {
+  display: none;
+}

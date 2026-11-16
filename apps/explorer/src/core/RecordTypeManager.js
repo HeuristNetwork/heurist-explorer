@@ -13,7 +13,7 @@
  * @since       8.0
  */
 
-import { normalizeDataSource } from './DataSource.js';
+import { normalizeDataSource } from '#shared/data/DataSource.js';
 import { aggregate, rectypeCounts } from '#shared/data/aggregate.js';
 
 const RECORD_TYPE_ICON_TOKEN = Date.now();

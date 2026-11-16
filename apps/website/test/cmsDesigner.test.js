@@ -152,9 +152,10 @@ test('catalogs of Add page and Add element: the available elements are the ones 
   const { CMS_ELEMENTS, cmsPageStarter } = await import('#shared/site/cmsEdit.js');
   const elements = ELEMENT_GROUPS.flatMap((group) => group.items);
   assert.deepEqual(ELEMENT_GROUPS.map((group) => group.label), ['Content and layout', 'Modules', 'Widgets']);
-  // plan 27f §13: the order of the widgets
+  // plan 27f §13: the order of the widgets; the Filter widget among the modules (plan 27l §3, review 2026-11-16)
   assert.deepEqual(ELEMENT_GROUPS[2].items.map((item) => item.value),
     ['cards', 'gallery', 'actionmenu', 'badges', 'social', 'headerSet', 'siteFooter', 'email', 'menu', 'breadcrumbs', 'language']);
+  assert.ok(ELEMENT_GROUPS[1].items.some((item) => item.value === 'filter'));
   assert.deepEqual(elements.filter((item) => item.available).map((item) => item.value).sort(), [...CMS_ELEMENTS].sort());
   assert.equal(new Set(elements.map((item) => item.value)).size, elements.length, 'unique values');
   const templates = PAGE_TEMPLATES[0].items;
