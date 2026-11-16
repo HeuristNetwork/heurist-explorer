@@ -540,3 +540,5 @@
 #The section of the page: its sub pages, else its parent and the pages beside it; on the home page and on a page of the first level without sub pages: the pages of the first level#La section de la page : ses sous-pages, sinon sa page parente et les pages voisines ; sur la page d’accueil et sur une page du premier niveau sans sous-pages : les pages du premier niveau
 #A search box needs a parameter of a text, number or date field: this query source has none.#Un champ de recherche demande un paramètre d’un champ texte, nombre ou date : cette source de requête n’en a pas.
 #Font Awesome icon classes (optional; fa-solid when no style is given)#Classes d’icône Font Awesome (facultatif ; fa-solid si aucun style n’est donné)
+#A click on a link of a menu, of the breadcrumbs or on the logo in the preview opens its page.#Un clic sur un lien d’un menu, du fil d’Ariane ou sur le logo dans l’aperçu ouvre sa page.
+#This page is not in the website#Cette page n’est pas dans le site web

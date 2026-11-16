@@ -110,7 +110,8 @@ const HELP = Object.freeze({
   page: [
     'Drag elements to change their order on the page; groups, tabs and accordions take other elements inside.',
     'Add elements with "Add element" on the page or + of a group, or below the tree: there they go into the selected group or after the selected element.',
-    'Select an element here or in the preview to edit its content, properties and style. Changes are kept until you Save or Discard them.'
+    'Select an element here or in the preview to edit its content, properties and style. Changes are kept until you Save or Discard them.',
+    'A click on a link of a menu, of the breadcrumbs or on the logo in the preview opens its page.'
   ]
 });
 
@@ -416,6 +417,10 @@ export class CmsDesigner {
       baseUrl: this.options.runtime?.baseUrl || '',
       onHover: (id) => this.partTree?.highlight(id),
       onSelect: (id) => this._selectNode(id, { fromPreview: true }),
+      // a link of a menu, breadcrumbs or the logo (plan 27k §13): its page opens here
+      onNavigate: (target) => void this._navigate(target),
+      // the language switch of the page (plan 27k §13.1): the Language of the preview toolbar
+      onLanguage: (code) => this._previewLanguage(code),
       onReady: () => {
         this.previewNote.hidden = true;
         this._applyPreview();
@@ -594,10 +599,12 @@ export class CmsDesigner {
       const select = element('select', 'h-select h-compact');
       select.title = $HR('Preview language');
       for (const code of languages) select.append(option(code, code.toUpperCase()));
+      select.value = this.language || languages[0];
       select.addEventListener('change', () => {
         this.language = select.value === languages[0] ? null : select.value;
         this._loadPreview();
       });
+      this.languageSelect = select;
       bar.append(caption('Language'), select, element('span', 'h-cms-toolbar-spacer'));
     }
     const width = element('select', 'h-select h-compact');
@@ -705,6 +712,64 @@ export class CmsDesigner {
   _partItemId(current) {
     if (!current || !this.site) return null;
     return current.recordId === this.site.id ? `part:${current.part}` : `page:${current.recordId}`;
+  }
+
+  /**
+   * The preview in another language, chosen in the language switch of the page (plan 27k §13.1): as the Language of the
+   * preview toolbar (the first language of the website = null); a language the website does not have, or the shown one:
+   * nothing.
+   *
+   * @param {string} code Language code (hreflang of the switch).
+   * @returns {boolean} Whether the preview loads in another language.
+   */
+  _previewLanguage(code) {
+    const languages = this.site?.languages || [];
+    const chosen = languages.find((item) => String(item).toLowerCase() === String(code || '').toLowerCase());
+    if (!chosen) return false;
+    const language = chosen === languages[0] ? null : chosen;
+    if (language === this.language) return false;
+    this.language = language;
+    if (this.languageSelect) this.languageSelect.value = chosen;
+    this._loadPreview();
+    return true;
+  }
+
+  /**
+   * Open the page of a link clicked in the preview (plan 27k §13): as a click on the page in the website tree (with the
+   * Save / Discard question of changes). A link without a page: the Startup page (layout.startPage) when it is a page of
+   * the website, else Home; the id of the website: Home. From the header or footer the content of the page opens. A page not in the website
+   * tree: a message, nothing changes.
+   *
+   * @param {{pageId?: number}} target
+   * @returns {Promise<boolean>} Whether a page was opened (or is open already).
+   */
+  async _navigate({ pageId = 0 } = {}) {
+    if (!this.site) return false;
+    const find = (pages, id) => {
+      for (const page of pages || []) {
+        if (Number(page.id) === id) return page;
+        const found = find(page.children, id);
+        if (found) return found;
+      }
+      return null;
+    };
+    let id = Number(pageId) || 0;
+    if (!id) {
+      // a link without a page: the Startup page; the id of the website in a link is the home page itself (the server
+      // writes it when there is a Startup page: "Enter site" of a Cover page, 2026-11-16)
+      const start = Number(this.records.get(this.site.id)?.doc.layout()?.startPage) || 0;
+      id = start && find(this.site.pages, start) ? start : 0;
+    } else if (id === Number(this.site.id)) {
+      id = 0;
+    }
+    const item = id ? `page:${id}` : 'part:content';
+    if (id && !find(this.site.pages, id)) {
+      HMsg.showMsgFlash?.($HR('This page is not in the website'), { showDelay: 2000 });
+      return false;
+    }
+    if (this._partItemId(this.current) === item) return true;
+    await this._selectSiteItem(item);
+    return this._partItemId(this.current) === item;
   }
 
   /** A click on Header, Home, Footer or a page opens it on the Page tab. */

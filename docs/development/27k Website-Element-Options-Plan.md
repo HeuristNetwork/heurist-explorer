@@ -305,6 +305,43 @@ pass. 17 texts added (eng, fre).
 
 Tests: JS 1,786 pass, heurist `WebsiteRenderTest` 102, `WebsiteEditTest` 82 pass.
 
+## 13. Navigation in the designer preview (2026-11-16)
+
+Agreed 2026-11-16 (Artem: the menu of the preview did nothing): a link of a **navigation widget** opens its page in the
+designer as a click on the page in the website tree (with the Save / Discard question of changes); links in texts,
+Record cards and media keep selecting their element. Implemented 2026-11-16, not committed, no browser check.
+
+- `CmsPreview`: the capturing click listener of the preview (links never leave it) asks `_navigationTarget(link)`: a link
+  inside `.h-site-menu, .h-site-menu-overlay, .h-site-breadcrumbs, .h-site-logo, .h-site-title` (`NAVIGATION_LINKS`),
+  not `data-h-action` (Add record, Back) and not a new tab; its page by `previewPageOf(href, {database, siteId})` (pretty
+  URL `/{db}/site/{site}[/{page}[/{record}]]` or `?db=&site=&pageid=&rec=`, same database and website; Saved filter
+  query and language ignored). Then option `onNavigate({pageId, record})` instead of the node selection; the event is
+  not stopped (HMenu closes its full-screen menu).
+- `CmsDesigner._navigate`: no page = the Startup page (`layout.startPage`) when it is a page of the website, else Home;
+  the id of the website = Home itself (the server writes it in links when there is a Startup page: *Enter site* of a
+  Cover page, fixed 2026-11-16); a page of the website tree = `_selectSiteItem('page:ID')` (from the header / footer too: the
+  content of the page opens); the open page: nothing; a page not in the tree: a flash message. The record of a record
+  page link is not used (the designer edits the record page itself).
+- `siteRuntime.draftPageUrl`: a draft action menu (re-mounted in the designer) gets the URL of Go to a page from the
+  menu tree of the configuration (it had `#`); Saved filter / Search box items of a draft stay `#` (the server-written
+  menu of a loaded preview has their links).
+- Help line of the Page tab; 2 texts (eng, fre). No server change.
+
+Tests: JS 1,788 pass (`cmsDesigner.test.js`: previewPageOf, navigation links, draftPageUrl, `_navigate`).
+
+### 13.1 Language switch of the page in the preview (2026-11-16)
+
+Bug: the drop-down of the website's language switch (`HLangSwitch`) did `location.assign(url)` — the page in that
+language without `design=1`, so the preview lost the designer. Now `CmsPreview` stops the `change` of a
+`.h-site-lang select` in the capture phase (before the switch's own listener) and gives the code
+(`data-h-lang-code`) to the designer, the links of the switch (`a[hreflang]`) the same; option `onLanguage` →
+`CmsDesigner._previewLanguage(code)` = the Language of the preview toolbar (`this.languageSelect` follows,
+`_loadPreview()` with `design=1&lang=`). Unknown or shown language: nothing.
+
+Swap / scroll navigation in the designer (question 2026-11-16): not needed. The preview never starts the navigator; a
+menu link opens its page in the designer (§13), so the trees, the draft and Save always belong to the page shown. A swap
+inside the preview would show another page than the one edited. Swap / scroll are seen on the site or with View page.
+
 ## Verification
 - JS: `npm run test:shared`, `npm run test:website` (new tests for `menuClass`, tab orientation, shrink thresholds,
   validator values); architecture test.

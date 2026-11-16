@@ -8,7 +8,9 @@
  * designer calls apply(): the HTML of the header, main and footer of the page is replaced with the draft, the
  * controls (tabs, accordions) are enhanced again and the instance hosts get their mounted instances back (they
  * are not mounted again unless their configuration changed); the node styles are compiled again into the page's
- * `<style id="h-site-styles">`. A veil marks the node under the mouse in the tree, and the other way round.
+ * `<style id="h-site-styles">`. A veil marks the node under the mouse in the tree, and the other way round. Links do not
+ * leave the preview; a link of a navigation widget (website menu, action menu, breadcrumbs, logo / title of the header)
+ * to a page of this website is given to the designer, which opens that page (plan 27k §13, NAVIGATION_LINKS).
  *
  * @project     Heurist academic knowledge management system
  * @package     heurist-website
@@ -24,6 +26,46 @@ import { compileCmsStyles } from '#shared/site/cmsDocument.js';
 
 /** Containers of the parts in the page (srv PageRenderer); the content is in the section of the page (plan 27f §2.2). */
 const CONTAINERS = Object.freeze({ header: '.h-site-header', content: '.h-site-main > .h-site-page', footer: '.h-site-footer' });
+
+/**
+ * Navigation widgets of a page whose links open their page in the designer (plan 27k §13, agreed 2026-11-16): the website
+ * menu and action menus (also the open collapsed panel and the full-screen overlay), breadcrumbs, the logo and title of
+ * the header. Links in texts, Record cards and media keep selecting their element.
+ */
+const NAVIGATION_LINKS = '.h-site-menu, .h-site-menu-overlay, .h-site-breadcrumbs, .h-site-logo, .h-site-title';
+
+/**
+ * The page of this website a link opens (plan 27k §13): the pretty URL `/{db}/site/{site}[/{page}[/{record}]]` or
+ * `?db=&site=&pageid=&rec=` (SiteUrls::page); the query of a Saved filter and the language are ignored.
+ *
+ * @param {string} href The link (absolute or relative).
+ * @param {{database?: string, siteId?: number}} [site] The database and the website of the preview.
+ * @returns {{pageId: number, record: number}|null} `pageId` 0: the website itself (home or the Startup page); null: not
+ *          a page of this website.
+ */
+export function previewPageOf(href, { database = '', siteId = 0 } = {}) {
+  let url;
+  try {
+    url = new URL(String(href ?? ''), 'http://preview.invalid/');
+  } catch {
+    return null;
+  }
+  let site = 0;
+  let page = 0;
+  let record = 0;
+  const pretty = /\/([^/]+)\/site\/(\d+)(?:\/(\d+)(?:\/(\d+))?)?\/?$/.exec(url.pathname);
+  if (pretty) {
+    if (decodeURIComponent(pretty[1]) !== String(database)) return null;
+    [site, page, record] = [pretty[2], pretty[3], pretty[4]].map((value) => Number(value) || 0);
+  } else if (url.searchParams.has('site')) {
+    if (url.searchParams.get('db') !== String(database)) return null;
+    [site, page, record] = ['site', 'pageid', 'rec'].map((name) => Number(url.searchParams.get(name)) || 0);
+  } else {
+    return null;
+  }
+  if (!site || site !== Number(siteId)) return null;
+  return { pageId: page, record };
+}
 
 /** Preview widths of the page toolbar (§5.1): 1024 and 640 are the medium / narrow screens. */
 export const PREVIEW_WIDTHS = Object.freeze([0, 1280, 1024, 640, 375]);
@@ -63,6 +105,10 @@ export class CmsPreview {
    * @param {string} [options.baseUrl] Heurist base URL (background images of styles).
    * @param {(id: string|null) => void} [options.onHover] A node under the mouse in the preview.
    * @param {(id: string) => void} [options.onSelect] A node clicked in the preview.
+   * @param {(target: {pageId: number, record: number}) => void} [options.onNavigate] A link of a navigation widget to a
+   *        page of this website was clicked (plan 27k §13, previewPageOf).
+   * @param {(code: string) => void} [options.onLanguage] A language was chosen in the language switch of the page
+   *        (plan 27k §13.1): the designer loads the preview in it (else the page would leave design mode).
    * @param {() => void} [options.onReady] The page is loaded and has its design hooks.
    * @param {() => void} [options.onUnavailable] The page loaded but did not connect (another origin).
    */
@@ -279,13 +325,50 @@ export class CmsPreview {
       this.options.onHover?.(node ? node.getAttribute('data-h-node') : null);
     });
     doc.addEventListener('mouseleave', () => this.options.onHover?.(null));
+    // the drop-down of the language switch (HLangSwitch) would load the page without design=1 (plan 27k §13.1): stopped
+    // before its own listener, the designer loads the preview in that language
+    doc.addEventListener('change', (event) => {
+      const select = event.target;
+      if (select?.tagName !== 'SELECT' || !select.closest?.('.h-site-lang')) return;
+      event.stopPropagation();
+      const option = [...(select.options || select.children || [])].find((item) => item.selected || item.value === select.value);
+      const code = option?.getAttribute?.('data-h-lang-code');
+      if (code) this.options.onLanguage?.(code);
+    }, true);
     doc.addEventListener('click', (event) => {
       const node = event.target?.closest?.('[data-h-node]');
       // links do not leave the preview
-      if (event.target?.closest?.('a[href]')) event.preventDefault();
+      const link = event.target?.closest?.('a[href]');
+      if (link) event.preventDefault();
+      // a link of the language switch: the designer loads the preview in that language (plan 27k §13.1)
+      if (link?.hasAttribute?.('hreflang') && link.closest?.('.h-site-lang')) {
+        this.options.onLanguage?.(link.getAttribute('hreflang'));
+        return;
+      }
+      // a link of a navigation widget to a page of this website: the designer opens the page (plan 27k §13)
+      const target = this._navigationTarget(link, hooks.config);
+      if (target) {
+        // not stopped: HMenu closes its open full-screen menu; no node is selected
+        this.options.onNavigate?.(target);
+        return;
+      }
       if (node) this.options.onSelect?.(node.getAttribute('data-h-node'));
     }, true);
     this.options.onReady?.();
+  }
+
+  /**
+   * The page a clicked link opens in the designer (plan 27k §13), or null: a link of a navigation widget (not an action
+   * of the page such as Add record or Back, not a new tab) to a page of this website.
+   *
+   * @param {HTMLAnchorElement|null} link
+   * @param {object} [config] The configuration block of the page (runtime.database, site.id).
+   * @returns {{pageId: number, record: number}|null}
+   */
+  _navigationTarget(link, config) {
+    if (!link || !link.closest?.(NAVIGATION_LINKS) || link.hasAttribute?.('data-h-action')
+      || link.getAttribute?.('target') === '_blank') return null;
+    return previewPageOf(link.getAttribute('href'), { database: config?.runtime?.database || '', siteId: Number(config?.site?.id) || 0 });
   }
 }
 

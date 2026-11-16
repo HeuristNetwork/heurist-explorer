@@ -540,3 +540,5 @@
 #The section of the page: its sub pages, else its parent and the pages beside it; on the home page and on a page of the first level without sub pages: the pages of the first level#The section of the page: its sub pages, else its parent and the pages beside it; on the home page and on a page of the first level without sub pages: the pages of the first level
 #A search box needs a parameter of a text, number or date field: this query source has none.#A search box needs a parameter of a text, number or date field: this query source has none.
 #Font Awesome icon classes (optional; fa-solid when no style is given)#Font Awesome icon classes (optional; fa-solid when no style is given)
+#A click on a link of a menu, of the breadcrumbs or on the logo in the preview opens its page.#A click on a link of a menu, of the breadcrumbs or on the logo in the preview opens its page.
+#This page is not in the website#This page is not in the website

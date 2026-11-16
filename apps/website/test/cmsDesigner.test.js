@@ -800,3 +800,117 @@ test('designer: the modules of an Explorer instance are its child items (2026-11
   assert.equal(designer._canDropNode(moduleItemId('n1', 'map'), '#root', 'inside'), false, 'not dragged');
   designer.destroy();
 });
+
+test('designer navigation (plan 27k §13): the page of a link of the preview, opened as in the website tree', async () => {
+  const { previewPageOf, CmsPreview } = await import('../src/designer/CmsPreview.js');
+  const { draftPageUrl } = await import('../src/siteRuntime.js');
+  const site = { database: 'db', siteId: 10 };
+  assert.deepEqual(previewPageOf('http://h/heurist/db/site/10/12?lang=fre&source=3&v.X1=a', site), { pageId: 12, record: 0 });
+  assert.deepEqual(previewPageOf('/heurist/db/site/10/13/555', site), { pageId: 13, record: 555 }, 'a record page');
+  assert.deepEqual(previewPageOf('/heurist/db/site/10', site), { pageId: 0, record: 0 }, 'the website: home or Startup page');
+  assert.deepEqual(previewPageOf('http://h/heurist/?db=db&site=10&pageid=11', site), { pageId: 11, record: 0 });
+  assert.equal(previewPageOf('/heurist/db/site/99/12', site), null, 'another website');
+  assert.equal(previewPageOf('/heurist/other/site/10/12', site), null, 'another database');
+  assert.equal(previewPageOf('https://example.org/', site), null);
+  assert.equal(previewPageOf('#', site), null);
+  // only the links of navigation widgets, not actions or new tabs
+  const preview = Object.create(CmsPreview.prototype);
+  const config = { runtime: { database: 'db' }, site: { id: 10 } };
+  const link = (container, attributes = {}) => {
+    const host = document.createElement('div');
+    host.className = container;
+    const anchor = document.createElement('a');
+    anchor.setAttribute('href', '/heurist/db/site/10/12');
+    for (const [name, value] of Object.entries(attributes)) anchor.setAttribute(name, value);
+    host.append(anchor);
+    return anchor;
+  };
+  assert.deepEqual(preview._navigationTarget(link('h-site-menu'), config), { pageId: 12, record: 0 });
+  assert.deepEqual(preview._navigationTarget(link('h-site-breadcrumbs'), config), { pageId: 12, record: 0 });
+  assert.equal(preview._navigationTarget(link('h-site-text'), config), null, 'a link in a text selects it');
+  assert.equal(preview._navigationTarget(link('h-site-menu', { 'data-h-action': 'back' }), config), null);
+  assert.equal(preview._navigationTarget(link('h-site-menu', { target: '_blank' }), config), null);
+  // the draft action menu: Go to a page has the URL of the page
+  const draft = { runtime: { design: true }, site: { id: 10, homeItem: { url: '/h' }, menu: [{ id: 11, url: '/a', children: [{ id: 13, url: '/t', children: [] }] }] } };
+  assert.equal(draftPageUrl(draft, 13), '/t');
+  assert.equal(draftPageUrl(draft, 10), '/h');
+  assert.equal(draftPageUrl(draft, 99), '#');
+  assert.equal(draftPageUrl({ ...draft, runtime: {} }, 13), '#', 'a published page has the links of the server');
+  // the designer opens the page as a click on the website tree
+  const { designer } = designerOf();
+  await designer.open(10);
+  const opened = [];
+  designer._selectSiteItem = async (id) => { opened.push(id); };
+  await designer._navigate({ pageId: 13 });
+  await designer._navigate({ pageId: 0 });
+  await designer._navigate({ pageId: 10 });
+  const flashes = [];
+  const flash = HMsg.showMsgFlash;
+  HMsg.showMsgFlash = (text) => flashes.push(text);
+  await designer._navigate({ pageId: 99 });
+  HMsg.showMsgFlash = flash;
+  assert.deepEqual(opened, ['page:13'], 'Home is open already; a page not in the website: nothing');
+  assert.equal(flashes.length, 1);
+  // a Startup page
+  const siteRecord = designer.records.get(10);
+  siteRecord.doc.setLayout({ ...siteRecord.doc.layout(), startPage: 12 });
+  await designer._navigate({ pageId: 0 });
+  assert.deepEqual(opened, ['page:13', 'page:12']);
+  // the id of the website in a link (written with a Startup page, "Enter site" of a Cover): Home itself
+  designer.current = { recordId: 12, part: 'content' };
+  await designer._navigate({ pageId: 10 });
+  assert.deepEqual(opened, ['page:13', 'page:12', 'part:content']);
+  designer.destroy();
+});
+
+test('designer (plan 27k §13.1): the language switch of the page changes the language of the preview, in design mode', async () => {
+  const { CmsPreview } = await import('../src/designer/CmsPreview.js');
+  const { designer } = await (async () => {
+    const made = designerOf();
+    await made.designer.open(10);
+    return made;
+  })();
+  const loads = [];
+  designer.preview.load = (url) => loads.push(url);
+  assert.equal(designer._previewLanguage('FRE'), true);
+  assert.equal(designer.language, 'fre');
+  assert.match(loads[0], /design=1/);
+  assert.match(loads[0], /lang=fre/);
+  assert.equal(designer.languageSelect?.value, 'fre', 'the toolbar follows');
+  assert.equal(designer._previewLanguage('fre'), false, 'shown already');
+  assert.equal(designer._previewLanguage('ger'), false, 'not a language of the website');
+  assert.equal(designer._previewLanguage('eng'), true);
+  assert.equal(designer.language, null, 'the first language');
+  designer.destroy();
+  // the preview document: the drop-down of the switch is stopped before its own listener, a link gives its hreflang
+  const chosen = [];
+  const preview = Object.create(CmsPreview.prototype);
+  preview.options = { onLanguage: (code) => chosen.push(code), onSelect: () => chosen.push('selected') };
+  preview.frame = {};
+  const doc = document.createElement('div');
+  doc.closest = () => null;
+  const listeners = {};
+  doc.addEventListener = (type, handler) => { listeners[type] = handler; };
+  const win = { document: doc };
+  preview.frame.contentWindow = win;
+  preview._ready(win, { config: { runtime: { database: 'db' }, site: { id: 10 } } });
+  const box = document.createElement('div');
+  box.className = 'h-site-lang';
+  const select = document.createElement('select');
+  const option = document.createElement('option');
+  option.setAttribute('data-h-lang-code', 'fre');
+  option.selected = true;
+  select.append(option);
+  box.append(select);
+  let stopped = false;
+  listeners.change({ target: select, stopPropagation: () => { stopped = true; } });
+  assert.ok(stopped);
+  const link = document.createElement('a');
+  link.setAttribute('href', '/x?lang=eng');
+  link.setAttribute('hreflang', 'eng');
+  box.append(link);
+  // the fake DOM has no attribute selectors in closest()
+  link.closest = (selector) => ({ 'a[href]': link, '.h-site-lang': box }[selector] ?? null);
+  listeners.click({ target: link, preventDefault: () => {} });
+  assert.deepEqual(chosen, ['fre', 'eng'], 'no node selected');
+});

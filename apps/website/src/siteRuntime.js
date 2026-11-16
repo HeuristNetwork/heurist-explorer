@@ -580,6 +580,29 @@ export function enhanceTabs(container) {
 }
 
 /**
+ * The URL of a page of the website in the designer's draft (plan 27k §13): from the menu tree of the configuration (the
+ * home page: its item); '#' elsewhere and for a page not in the menu (a published page has the links of the server).
+ *
+ * @param {object} config The configuration block.
+ * @param {number} id Page id.
+ * @returns {string}
+ */
+export function draftPageUrl(config, id) {
+  const site = config?.site || {};
+  if (!config?.runtime?.design) return '#';
+  if (Number(id) === Number(site.id)) return site.homeItem?.url || '#';
+  const find = (items) => {
+    for (const item of items || []) {
+      if (Number(item.id) === Number(id)) return item.url || '#';
+      const found = find(item.children);
+      if (found) return found;
+    }
+    return '';
+  };
+  return find(site.menu) || '#';
+}
+
+/**
  * Mount one host. Problems are shown in the host; other hosts are not affected.
  *
  * @param {HTMLElement} host Element with data-h-instance.
@@ -605,7 +628,8 @@ export async function mountInstance(host, id, config, loaders) {
     const settings = instance.settings || {};
     const language = config.site?.language || '';
     return new HMenu().attach(host, {
-      items: actionMenuItems(settings, { language }),
+      // the draft of the designer: Go to a page has the URL of the page (its link opens the page there, plan 27k §13)
+      items: actionMenuItems(settings, { language, pageUrl: (id) => draftPageUrl(config, id) }),
       // style, orientation, the button of expand (plan 27k §1-2), open, buttonText, lineWidth / lineColor (review 2026-11-16)
       settings: { presentation: settings.presentation || 'links', style: settings.style, orientation: settings.orientation,
         icon: settings.icon, label: settings.labels?.[language] ?? settings.label, open: settings.open, buttonText: settings.buttonText,
