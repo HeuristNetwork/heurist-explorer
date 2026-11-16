@@ -48,6 +48,9 @@ export function openAddPageForm({ title = 'Add page', createForm = null } = {}) 
     next: (item, host) => {
       if (typeof createForm !== 'function') return false;
       session = createForm(host, item.value, $HR(item.defaultTitle || ''));
+      // the first field (the title of the page) gets the focus when the form is ready, its default text selected to type
+      // over it (2026-11-16)
+      void Promise.resolve(session?.ready).then(() => focusFirstField(host)).catch(() => {});
       return Boolean(session);
     },
     read: async (item) => {
@@ -59,6 +62,22 @@ export function openAddPageForm({ title = 'Add page', createForm = null } = {}) 
     await session?.destroy().catch(() => {});
     return answer;
   });
+}
+
+/**
+ * Focus the first text field of a form (a text input or a text area that can be edited and is shown) and select its text.
+ *
+ * @param {HTMLElement} host
+ * @returns {HTMLElement|null} The focused field.
+ */
+export function focusFirstField(host) {
+  const fields = [...(host?.querySelectorAll?.('input, textarea') || [])];
+  const field = fields.find((item) => !item.disabled && !item.readOnly && item.offsetParent !== null
+    && (item.tagName === 'TEXTAREA' || ['', 'text', 'search', 'email', 'url'].includes(String(item.type || '').toLowerCase())));
+  if (!field) return null;
+  field.focus?.();
+  field.select?.();
+  return field;
 }
 
 /**

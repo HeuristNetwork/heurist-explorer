@@ -97,13 +97,15 @@ const HEADER_POSITIONS = Object.freeze([
   ['fixed', 'Fixed'], ['scroll', 'Scrolls away'], ['slide', 'Slide out (expand / collapse button)'], ['none', 'No header']
 ]);
 
-/** Header and footer themes (plan 27f §13): colour pairs of the theme of the website, or own colours. */
+/** Header and footer themes (plan 27f §13): colour pairs of the theme of the website (own colours: Own style, 2026-11-16). */
 const PART_THEMES = Object.freeze([
-  ['default', 'Default (background and text)'], ['surface', 'Surface'], ['primary', 'Primary'], ['selected', 'Selected'],
-  ['own', 'Own colours']
+  ['default', 'Default (background and text)'], ['surface', 'Surface'], ['primary', 'Primary'], ['selected', 'Selected']
 ]);
 
 const HEADER_ORIENTATIONS = Object.freeze([['horizontal', 'Horizontal (top)'], ['vertical', 'Vertical (left column)']]);
+
+/** A fixed horizontal header when the page scrolls (plan 27k §4, CMS_LAYOUT.header.onScroll). */
+const HEADER_ON_SCROLL = Object.freeze([['keep', 'Keep the header as it is'], ['shrink', 'Shrink (small logo, menu and languages)']]);
 
 /** Maximum width of page (base setting site-width, review 2026-11-15): '' = the full width of the window. */
 const PAGE_WIDTHS = Object.freeze([['', 'Full width'], ['1920px', '1920px'], ['1366px', '1366px'], ['1280px', '1280px'],
@@ -138,7 +140,10 @@ function layoutDiagram(layout = {}) {
   const vertical = header.orientation === 'vertical';
   const footer = layout.footer?.position || 'default';
   const note = {
-    scroll: 'The header scrolls away with the page (a vertical header: on narrow screens).', fixed: 'The header stays at the top.',
+    scroll: 'The header scrolls away with the page (a vertical header: on narrow screens).',
+    fixed: header.onScroll === 'shrink' && !vertical
+      ? 'The header stays at the top; when the page scrolls down it becomes small: the logo, the menu and the languages.'
+      : 'The header stays at the top.',
     slide: 'The header stays at the top; a button collapses it to the logo and the title (vertical: a narrow column with the'
       + ' logo) and expands it again. The choice of the visitor is kept.',
     none: 'No header.'
@@ -523,6 +528,9 @@ export function createStylesForm({ base = {}, kinds = {}, presets = {}, layout =
   const width = state.base['site-width'] || '';
   const widthChoices = PAGE_WIDTHS.some(([key]) => key === width) ? PAGE_WIDTHS : [...PAGE_WIDTHS, [width, width]];
   layoutSelect(navigationBlock, 'Maximum width of page', widthChoices, width, (value) => setBase(state, 'site-width', value));
+  // the Back to top button (plan 27k §6): not written when off
+  layoutSelect(navigationBlock, 'Back to top button', [['', 'No'], ['show', 'Shown after one screen of scrolling']],
+    state.layout.backToTop === true ? 'show' : '', (value) => setLayout(state.layout, 'backToTop', value ? true : null));
   cacheInput.addEventListener('input', () => {
     const number = Number(cacheInput.value);
     setLayout(state.layout, 'cache', Number.isInteger(number) ? Math.max(CMS_LAYOUT_CACHE.min, Math.min(CMS_LAYOUT_CACHE.max, number)) : null);
@@ -530,38 +538,16 @@ export function createStylesForm({ base = {}, kinds = {}, presets = {}, layout =
   showNavigation();
   const header = state.layout.header || {};
   const footer = state.layout.footer || {};
-  // the theme of the header or footer; own colours: background and text
+  // the theme of the header or footer (colours of the theme of the website); own colours and heights are in the Own
+  // style of the header / footer since 2026-11-16 (the palette below the part tree): an old value `own` is shown until
+  // the Own style form moves it
   const themeSelect = (parent, part, label) => {
-    const settings = state.layout[part] || {};
-    const colours = element('div', 'h-cms-styles-colours');
-    const colour = (key, text) => {
-      const host = element('div', 'h-cms-styles-value');
-      colours.append(field(text, host));
-      const input = new HInputColor().attach(host, { suppressLabel: true, clearButton: false, value: settings.colors?.[key] ?? '',
-        placeholder: $HR('Heurist default') }).render();
-      const changed = () => {
-        const value = { ...(state.layout[part]?.colors || {}) };
-        const text = String(input.getValue() ?? '').trim();
-        if (text) value[key] = text; else delete value[key];
-        setLayout(state.layout, `${part}.colors`, Object.keys(value).length ? value : null);
-        refresh();
-      };
-      host.addEventListener('h-input-change', changed);
-      host.addEventListener('input', changed);
-    };
-    colour('bg', 'Background colour');
-    colour('text', 'Text colour');
-    const select = layoutSelect(parent, label, PART_THEMES, settings.theme || 'default', (value) => {
-      setLayout(state.layout, `${part}.theme`, value);
-      colours.hidden = value !== 'own';
-      // other themes: no own colours
-      if (value !== 'own') setLayout(state.layout, `${part}.colors`, null);
-    });
-    colours.hidden = select.value !== 'own';
-    parent.append(colours);
+    const value = state.layout[part]?.theme || 'default';
+    const choices = value === 'own' ? [...PART_THEMES, ['own', 'Own colours (see Own style)']] : PART_THEMES;
+    layoutSelect(parent, label, choices, value, (chosen) => setLayout(state.layout, `${part}.theme`, chosen));
   };
-  // header height / width, footer height (review 2026-11-10): a CSS size; empty = the height of the content, the
-  // width of the vertical header 180-260px (PageRenderer::layoutCss)
+  // the width of the vertical header (review 2026-11-10): a CSS size, 180-260px (PageRenderer::layoutCss); the heights
+  // of the header and footer are in their Own style since 2026-11-16
   const sizeInput = (parent, path, label, placeholder) => {
     const [part, name] = path.split('.');
     const input = element('input', 'h-input h-compact');
@@ -581,18 +567,28 @@ export function createStylesForm({ base = {}, kinds = {}, presets = {}, layout =
     return line;
   };
   const headerBlock = block();
-  layoutSelect(headerBlock, 'Header position', HEADER_POSITIONS, header.position || CMS_LAYOUT.header.position[0],
-    (value) => setLayout(state.layout, 'header.position', value));
+  layoutSelect(headerBlock, 'Header position', HEADER_POSITIONS, header.position || CMS_LAYOUT.header.position[0], (value) => {
+    setLayout(state.layout, 'header.position', value);
+    showSize();
+  });
+  // shrink on scroll (plan 27k §4): a fixed horizontal header only; for other positions the value is removed
   const showSize = () => {
     const vertical = state.layout.header?.orientation === 'vertical';
-    heightField.hidden = vertical;
     widthField.hidden = !vertical;
+    const fixed = (state.layout.header?.position || CMS_LAYOUT.header.position[0]) === 'fixed';
+    scrollField.hidden = vertical || !fixed;
+    if (scrollField.hidden && state.layout.header?.onScroll) {
+      setLayout(state.layout, 'header.onScroll', null);
+      scrollSelect.value = CMS_LAYOUT.header.onScroll[0];
+    }
   };
   layoutSelect(headerBlock, 'Header orientation', HEADER_ORIENTATIONS, header.orientation || 'horizontal', (value) => {
     setLayout(state.layout, 'header.orientation', value);
     showSize();
   });
-  const heightField = sizeInput(headerBlock, 'header.height', 'Header height (minimum)', 'height of the content');
+  const scrollSelect = layoutSelect(headerBlock, 'When the page scrolls', HEADER_ON_SCROLL,
+    header.onScroll || CMS_LAYOUT.header.onScroll[0], (value) => setLayout(state.layout, 'header.onScroll', value));
+  const scrollField = scrollSelect.parentElement;
   const widthField = sizeInput(headerBlock, 'header.width', 'Header width', '180-260px');
   showSize();
   // "Use 2 rows" was dropped (review 2026-11-14): the header elements have own styles; an old value is removed
@@ -611,7 +607,6 @@ export function createStylesForm({ base = {}, kinds = {}, presets = {}, layout =
   })() : Promise.resolve();
   const footerBlock = block();
   layoutSelect(footerBlock, 'Footer position', FOOTER_POSITIONS, footer.position || 'default', (value) => setLayout(state.layout, 'footer.position', value));
-  sizeInput(footerBlock, 'footer.height', 'Footer height (minimum)', 'height of the content');
   themeSelect(footerBlock, 'footer', 'Footer theme');
   previews.push(() => show(layoutDiagram(state.layout)));
 
@@ -850,12 +845,13 @@ function isColorProperty(property) {
  *        without it the image is a text value. `advanced`: start in Simple (false) or Advanced (true), the editor's
  *        own choice; null = the choice of the session. `video`: the background video of a group (the key of a
  *        registered file, '' none; null: not offered), a Video input in the Background section (plan 27i §9 D).
+ *        `headExtra`: an element of the caller beside the preset selector (with `presets` only).
  * @returns {{value: () => object, preset: () => string|null, cssClass: () => string|null, video: () => string}} `cssClass`:
  *          null while it has characters that are not allowed.
  */
 export function styleRows(parent, style, onChange = null, {
   kind = null, inFlexGroup = false, presets = null, preset = null, cssClass = '', classInput = true, base = null, files = null,
-  advanced: startAdvanced = null, video = null
+  advanced: startAdvanced = null, video = null, headExtra = null
 } = {}) {
   // the background video of a group (plan 27i §9 D): the key of a registered file, not a style property
   let videoKey = typeof video === 'string' ? video : '';
@@ -907,6 +903,8 @@ export function styleRows(parent, style, onChange = null, {
     });
     const head = element('div', 'h-cms-style-preset');
     head.append(field('Preset', select, 'h-cms-style-field'));
+    // a field of the caller beside the preset (Reveal on scroll, review 2026-11-16)
+    if (headExtra) head.append(headExtra);
     // a class needs rules of the custom CSS: not without JavaScript allowed
     if (classInput) head.append(field('Custom CSS class', classText, 'h-cms-style-field'));
     parent.append(head);
@@ -1039,7 +1037,7 @@ export function styleRows(parent, style, onChange = null, {
   };
   // the background image: HInputFile (thumbnail with zoom, clear) on the registered image files, in the record
   // manager when the host has it (Browse, Upload, URL as a file field in addorbrowse mode); the value is
-  // url(...&file=KEY), the file of the key is read by GET /files/{key}
+  // url(...&file=KEY&fullres=1), the file of the key is read by GET /files/{key}
   const imageInput = (host, property, value) => {
     if (!files?.apiClient) {
       host.append(textInput(property, value, 'url(...)'));
@@ -1047,7 +1045,8 @@ export function styleRows(parent, style, onChange = null, {
     }
     const url = /url\(\s*(['"]?)(.*?)\1\s*\)/i.exec(String(value || ''))?.[2] || '';
     const key = /[?&]file=([A-Za-z0-9]+)/.exec(url)?.[1] || '';
-    fileInput(host, 'image/*', key, (fileKey) => setValue(property, fileKey ? `url(${fileMediaUrls(baseUrl, files.database).file(fileKey)})` : ''));
+    // fullres=1 (review 2026-11-16): the image in its full resolution, not the reduced web copy of a large image
+    fileInput(host, 'image/*', key, (fileKey) => setValue(property, fileKey ? `url(${fileMediaUrls(baseUrl, files.database).file(fileKey)}&fullres=1)` : ''));
     // an image that is not a registered file (a banner of the page templates, plan 27i §9): its URL, to change or clear
     if (url && !key) host.append(textInput(property, value, 'url(...)'));
   };

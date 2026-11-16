@@ -286,6 +286,144 @@ img.h-site-media-placeholder {
   padding: 1em 0;
 }
 
+/* styles of tabs (plan 27k §3, data-h-item-style; the item styles of the menus): without the attribute the tabs above */
+.h-site-tabs[data-h-item-style] > .h-site-tab-strip {
+  gap: 6px;
+  border-bottom: none;
+}
+
+.h-site-tabs[data-h-item-style] > .h-site-tab-strip > .h-site-tab {
+  margin: 0;
+  border: 1px solid transparent;
+  border-radius: var(--h-radius);
+}
+
+.h-site-tabs[data-h-item-style="underline"] > .h-site-tab-strip {
+  gap: 2px;
+  border-bottom: 1px solid var(--h-color-border);
+}
+
+.h-site-tabs[data-h-item-style="underline"] > .h-site-tab-strip > .h-site-tab {
+  margin-bottom: -1px;
+  border-width: 0 0 2px;
+  border-radius: 0;
+  background: none;
+}
+
+.h-site-tabs[data-h-item-style="underline"] > .h-site-tab-strip > .h-site-tab:hover {
+  border-bottom-color: var(--h-color-border);
+}
+
+.h-site-tabs[data-h-item-style="underline"] > .h-site-tab-strip > .h-site-tab.is-active {
+  border-bottom-color: var(--h-color-primary);
+  color: var(--h-color-primary);
+}
+
+.h-site-tabs[data-h-item-style="pills"] > .h-site-tab-strip > .h-site-tab {
+  border-radius: 999px;
+}
+
+.h-site-tabs[data-h-item-style="pills"] > .h-site-tab-strip > .h-site-tab.is-active,
+.h-site-tabs[data-h-item-style="outline"] > .h-site-tab-strip > .h-site-tab.is-active {
+  border-color: var(--h-color-primary);
+  background: var(--h-color-primary);
+  color: var(--h-color-primary-text, #fff);
+}
+
+.h-site-tabs[data-h-item-style="links"] > .h-site-tab-strip > .h-site-tab {
+  background: none;
+  text-decoration: underline;
+}
+
+.h-site-tabs[data-h-item-style="links"] > .h-site-tab-strip > .h-site-tab.is-active {
+  font-weight: bold;
+  text-decoration: none;
+}
+
+.h-site-tabs[data-h-item-style="buttons"] > .h-site-tab-strip > .h-site-tab {
+  border-color: var(--h-color-primary);
+  background: var(--h-color-primary);
+  color: var(--h-color-primary-text, #fff);
+  opacity: 0.75;
+}
+
+.h-site-tabs[data-h-item-style="buttons"] > .h-site-tab-strip > .h-site-tab:is(:hover, .is-active) {
+  opacity: 1;
+}
+
+.h-site-tabs[data-h-item-style="buttons"] > .h-site-tab-strip > .h-site-tab.is-active {
+  font-weight: bold;
+}
+
+.h-site-tabs[data-h-item-style="outline"] > .h-site-tab-strip > .h-site-tab {
+  border-color: currentColor;
+}
+
+/* vertical tabs (plan 27k §3, data-h-orientation): the tabs a column on the left, the panel on the right, from 641 px;
+   on narrower screens the tabs above */
+@media (min-width: 641px) {
+  .h-site-tabs[data-h-orientation="vertical"] {
+    display: grid;
+    grid-template-columns: minmax(8em, max-content) minmax(0, 1fr);
+    align-items: start;
+    column-gap: 1.5em;
+  }
+
+  .h-site-tabs[data-h-orientation="vertical"] > .h-site-tab-strip {
+    grid-column: 1;
+    grid-row: 1;
+    flex-direction: column;
+    flex-wrap: nowrap;
+    align-items: stretch;
+  }
+
+  .h-site-tabs[data-h-orientation="vertical"] > .h-site-tab-panel {
+    grid-column: 2;
+    grid-row: 1;
+    padding-top: 0;
+  }
+
+  .h-site-tabs[data-h-orientation="vertical"] > .h-site-tab-strip > .h-site-tab {
+    text-align: left;
+  }
+
+  /* the default style: a line on the right of the tabs, the active tab open towards its panel */
+  .h-site-tabs[data-h-orientation="vertical"]:not([data-h-item-style]) > .h-site-tab-strip {
+    border-right: 1px solid var(--h-color-border);
+    border-bottom: none;
+  }
+
+  .h-site-tabs[data-h-orientation="vertical"]:not([data-h-item-style]) > .h-site-tab-strip > .h-site-tab {
+    border: 1px solid transparent;
+    border-right: none;
+    border-radius: var(--h-radius) 0 0 var(--h-radius);
+  }
+
+  .h-site-tabs[data-h-orientation="vertical"]:not([data-h-item-style]) > .h-site-tab-strip > .h-site-tab.is-active {
+    margin: 0 -1px 0 0;
+    border-color: var(--h-color-border);
+  }
+
+  /* underline: the line on the right */
+  .h-site-tabs[data-h-orientation="vertical"][data-h-item-style="underline"] > .h-site-tab-strip {
+    border-right: 1px solid var(--h-color-border);
+    border-bottom: none;
+  }
+
+  .h-site-tabs[data-h-orientation="vertical"][data-h-item-style="underline"] > .h-site-tab-strip > .h-site-tab {
+    margin: 0 -1px 0 0;
+    border-width: 0 2px 0 0;
+  }
+
+  .h-site-tabs[data-h-orientation="vertical"][data-h-item-style="underline"] > .h-site-tab-strip > .h-site-tab:hover {
+    border-right-color: var(--h-color-border);
+  }
+
+  .h-site-tabs[data-h-orientation="vertical"][data-h-item-style="underline"] > .h-site-tab-strip > .h-site-tab.is-active {
+    border-right-color: var(--h-color-primary);
+  }
+}
+
 /* accordions: native details / summary */
 .h-site-body details {
   margin: 0.5em 0;
@@ -733,6 +871,43 @@ html.h-site .h-site-logo img {
   display: none;
 }
 
+/* shrink on scroll (plan 27k §4, siteRuntime attachHeaderShrink): a fixed horizontal header scrolled down shows a small
+   logo, the website menu and the language switch; every other text, media and widget of the header is hidden */
+.h-site-header-shrink .h-site-header .h-site-logo img {
+  transition: height 0.2s;
+}
+
+.h-site-header-shrunk .h-site-header :is([data-h-text], [data-h-media], [data-h-instance]):not(.h-site-logo, :has(.h-site-menu-main, .h-site-lang)),
+.h-site-header-shrunk .h-site-header .h-site-hset > .h-site-brand {
+  display: none;
+}
+
+.h-site-header-shrunk .h-site-header .h-site-logo {
+  --h-site-logo-now: 32px;
+}
+
+/* the height of the own style of the header (review 2026-11-16) is a minimum of the open header only */
+html.h-site body:is(.h-site-header-shrunk, .h-site-header-collapsed) > .h-site-header {
+  min-height: 0;
+}
+
+.h-site-header-shrunk .h-site-header .h-site-hset {
+  flex-wrap: nowrap;
+  padding: 4px 0;
+}
+
+/* the menu takes the free room of the row (the title is hidden) */
+.h-site-header-shrunk .h-site-header .h-site-hset > .h-site-hset-menu {
+  order: 0;
+  flex: 1 1 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .h-site-header-shrink .h-site-header .h-site-logo img {
+    transition: none;
+  }
+}
+
 /* a click anywhere on the collapsed header expands it (siteRuntime attachHeaderToggle) */
 .h-site-header-collapsed .h-site-header {
   cursor: pointer;
@@ -892,4 +1067,104 @@ html.h-site .h-site-badge img {
 
 .h-site-badges-empty {
   display: none;
+}
+
+/* ------------------------------------------------------------ extras of plan 27k §6 */
+
+/* Back to top (siteRuntime attachBackToTop): a round button at the bottom right, shown after one screen of scrolling */
+.h-site-back-to-top-button {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 1300;
+  width: 40px;
+  height: 40px;
+  border: none;
+  border-radius: 50%;
+  background: var(--h-color-primary);
+  color: var(--h-color-primary-text, #fff);
+  box-shadow: 0 2px 8px rgb(0 0 0 / 20%);
+  font-size: var(--h-font-size-icon);
+  cursor: pointer;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.2s, visibility 0.2s;
+}
+
+.h-site-back-to-top-button.is-visible {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* a fixed footer: above its usual height */
+.h-site-footer-fixed .h-site-back-to-top-button {
+  bottom: 72px;
+}
+
+/* reveal on scroll (siteRuntime enhanceReveal): hidden until the element comes into the window; only JS adds the class */
+[data-h-reveal] {
+  transition: opacity 0.6s ease, transform 0.6s ease;
+}
+
+[data-h-reveal].h-site-reveal-pending {
+  opacity: 0;
+}
+
+[data-h-reveal="up"].h-site-reveal-pending {
+  transform: translateY(24px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .h-site-back-to-top-button,
+  [data-h-reveal] {
+    transition: none;
+  }
+}
+
+/* breadcrumbs (PageRenderer::breadcrumbsHtml, siteBreadcrumbs.js): Home › Section › Page */
+.h-site-breadcrumbs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0 0.4em;
+  margin: 0;
+  padding: 0.5em 0;
+  list-style: none;
+}
+
+.h-site-breadcrumbs > li + li::before {
+  content: "\203A";
+  margin-right: 0.4em;
+  color: var(--h-color-text-muted);
+}
+
+.h-site-breadcrumbs > li[aria-current] > span {
+  color: var(--h-color-text-muted);
+}
+
+/* a search box of an action menu (PageRenderer::searchForm): the text and its button in one line */
+.h-site-search {
+  display: flex;
+  align-items: stretch;
+  margin: 0;
+}
+
+.h-site-search-input {
+  min-width: 8em;
+  padding: 6px 8px;
+  border: 1px solid var(--h-color-border);
+  border-right: none;
+  border-radius: var(--h-radius) 0 0 var(--h-radius);
+  background: var(--h-color-bg);
+  color: var(--h-color-text);
+  font: inherit;
+}
+
+.h-site-search-button {
+  padding: 6px 10px;
+  border: 1px solid var(--h-color-primary);
+  border-radius: 0 var(--h-radius) var(--h-radius) 0;
+  background: var(--h-color-primary);
+  color: var(--h-color-primary-text, #fff);
+  cursor: pointer;
 }

@@ -176,6 +176,10 @@
 #Pages kept in memory#Pages gardées en mémoire
 #Header position#Position de l'en-tête
 #Header orientation#Orientation de l'en-tête
+#When the page scrolls#Quand la page défile
+#Keep the header as it is#Garder l’en-tête tel quel
+#Shrink (small logo, menu and languages)#Réduire (petit logo, menu et langues)
+#The header stays at the top; when the page scrolls down it becomes small: the logo, the menu and the languages.#L’en-tête reste en haut ; quand la page défile vers le bas, il devient petit : le logo, le menu et les langues.
 #Footer position#Position du pied de page
 #Fixed#Fixé
 #Scrolls away#Défile avec la page
@@ -204,6 +208,16 @@
 #Orientation#Orientation
 #Show Home#Afficher l'accueil
 #Pages with sub pages open#Les pages avec sous-pages s’ouvrent
+#Open collapsed menu#Ouverture du menu réduit
+#The menu collapses behind its button when it does not fit (narrow screens)#Le menu se réduit derrière son bouton quand il ne tient pas (écrans étroits)
+#Below the header#Sous l’en-tête
+#Full screen#Plein écran
+#Animation#Animation
+#Slide down#Glisser vers le bas
+#Slide in from the right#Glisser depuis la droite
+#Fade in#Fondu
+#Always collapsed#Toujours réduit
+#The menu button on every screen, also when the menu fits#Le bouton du menu sur tous les écrans, même quand le menu tient
 #Action menu#Menu d'actions
 #Presentation#Présentation
 #Buttons#Boutons
@@ -449,6 +463,13 @@
 #Default layout#Disposition par défaut
 #Captions of the panels#Légendes des panneaux
 #Captions of the tabs#Légendes des onglets
+#Tabs: orientation, style and captions#Onglets : orientation, style et libellés
+#Orientation, style and captions of the tabs#Orientation, style et libellés des onglets
+#Vertical (tabs on the left on wide screens)#Vertical (onglets à gauche sur les grands écrans)
+#Style of the tabs#Style des onglets
+#Tabs#Onglets
+#Bottom border#Bordure inférieure
+#Pills#Pastilles
 #Captions of the sections#Légendes des sections
 #Tab#Onglet
 #Section#Section
@@ -474,3 +495,48 @@
 #Values from the record#Valeurs de l’enregistrement
 #Record ID#ID de l’enregistrement
 #A value from the record wins over the value above. Each record gets its own link.#Une valeur de l’enregistrement l’emporte sur la valeur ci-dessus. Chaque enregistrement a son propre lien.
+#Back to top button#Bouton Retour en haut
+#Back to top#Retour en haut
+#No#Non
+#Shown after one screen of scrolling#Affiché après un écran de défilement
+#Several sections open at a time#Plusieurs sections ouvertes à la fois
+#The first section open at start#La première section ouverte au départ
+#Accordion: options and captions#Accordéon : options et libellés
+#Options and captions of the accordion#Options et libellés de l’accordéon
+#Reveal on scroll#Apparition au défilement
+#None#Aucune
+#Slide up#Glisser vers le haut
+#When it comes into the window#Quand il entre dans la fenêtre
+#Breadcrumbs#Fil d’Ariane
+#Where the visitor is: Home › Section › Page (the record on a record page), or the record pages visited before (History).#Où se trouve le visiteur : Accueil › Section › Page (l’enregistrement sur une page d’enregistrement), ou les pages d’enregistrement visitées avant (Historique).
+#Show#Afficher
+#The path of the page: Home › Section › Page#Le chemin de la page : Accueil › Section › Page
+#History: the record pages visited before#Historique : les pages d’enregistrement visitées avant
+#On a record page the record is the last entry. History keeps the record pages the visitor opened on this website (in this browser tab); before the first one, and without JavaScript, the path is shown.#Sur une page d’enregistrement, l’enregistrement est la dernière entrée. L’historique garde les pages d’enregistrement ouvertes par le visiteur sur ce site (dans cet onglet) ; avant la première, et sans JavaScript, le chemin est affiché.
+#All pages of the website#Toutes les pages du site
+#The section of the page: its sub pages, else its parent and the pages beside it#La section de la page : ses sous-pages, sinon son parent et les pages voisines
+#Search box (Saved filter)#Zone de recherche (filtre enregistré)
+#Search#Rechercher
+#A search box needs a query source with a parameter and a target page#Une zone de recherche demande une source de requête avec un paramètre et une page cible
+#A search box needs a query source with a parameter#Une zone de recherche demande une source de requête avec un paramètre
+#This query source has no parameters: a search box needs one.#Cette source de requête n’a pas de paramètre : une zone de recherche en demande un.
+#The typed text is the value of#Le texte saisi est la valeur de
+#Own style of the header#Style propre de l’en-tête
+#Own style of the footer#Style propre du pied de page
+#Behind a button#Derrière un bouton
+#Icons that show their name on hover#Icônes qui montrent leur nom au survol
+#On hover (and a click)#Au survol (et au clic)
+#On a click#Au clic
+#Open the list#Ouvrir la liste
+#Show the name on the button#Afficher le nom sur le bouton
+#Width of the line#Épaisseur de la ligne
+#Colour of the line#Couleur de la ligne
+#2px (default)#2px (par défaut)
+#Colour of the text#Couleur du texte
+#Empty: the colour of the text#Vide : la couleur du texte
+#Background of the full-screen menu#Fond du menu plein écran
+#Text colour of the full-screen menu#Couleur du texte du menu plein écran
+#Own colours (see Own style)#Couleurs propres (voir Style propre)
+#The section of the page: its sub pages, else its parent and the pages beside it; on the home page and on a page of the first level without sub pages: the pages of the first level#La section de la page : ses sous-pages, sinon sa page parente et les pages voisines ; sur la page d’accueil et sur une page du premier niveau sans sous-pages : les pages du premier niveau
+#A search box needs a parameter of a text, number or date field: this query source has none.#Un champ de recherche demande un paramètre d’un champ texte, nombre ou date : cette source de requête n’en a pas.
+#Font Awesome icon classes (optional; fa-solid when no style is given)#Classes d’icône Font Awesome (facultatif ; fa-solid si aucun style n’est donné)

@@ -42,14 +42,22 @@ test('action menu items (plan 27f §6): pages, URLs, Add record; other actions l
 
 test('item styles and presentations (plan 27k §1-2): stored links / buttons = a row with that style', async () => {
   const { menuLook } = await import('#shared/widgets/site/HMenu.js');
-  assert.deepEqual(menuLook({ presentation: 'buttons' }), { presentation: 'row', style: 'buttons', orientation: 'horizontal' });
-  assert.deepEqual(menuLook({ presentation: 'links', style: 'pills' }), { presentation: 'row', style: 'pills', orientation: 'horizontal' });
-  assert.deepEqual(menuLook({}), { presentation: 'menu', style: 'plain', orientation: 'horizontal' }, 'the website menu');
+  const row = { orientation: 'horizontal', open: 'hover', buttonText: false };
+  assert.deepEqual(menuLook({ presentation: 'buttons' }), { presentation: 'row', style: 'buttons', ...row });
+  assert.deepEqual(menuLook({ presentation: 'links', style: 'pills' }), { presentation: 'row', style: 'pills', ...row });
+  assert.deepEqual(menuLook({}), { presentation: 'menu', style: 'plain', ...row }, 'the website menu');
+  // a stored drop-down (review 2026-11-16): behind a button opened by a click, a column, the name on the button
+  assert.deepEqual(menuLook({ presentation: 'dropdown' }),
+    { presentation: 'expand', style: 'plain', orientation: 'vertical', open: 'click', buttonText: true });
+  assert.deepEqual(menuLook({ presentation: 'dropdown', open: 'hover', orientation: 'horizontal', buttonText: false }),
+    { presentation: 'expand', style: 'plain', orientation: 'horizontal', open: 'hover', buttonText: false });
   assert.equal(menuClass({ presentation: 'buttons' }), 'h-site-menu h-site-menu-style-buttons');
   assert.equal(menuClass({ style: 'underline', orientation: 'auto' }), 'h-site-menu h-site-menu-auto h-site-menu-style-underline');
   assert.equal(menuClass({ presentation: 'expand', orientation: 'vertical', style: 'pills' }),
     'h-site-menu h-site-menu-vertical h-site-menu-expanding h-site-menu-style-pills');
-  assert.equal(menuClass({ presentation: 'dropdown', style: 'buttons' }), 'h-site-menu h-site-menu-dropdown', 'no style for a drop-down');
+  assert.equal(menuClass({ presentation: 'dropdown', style: 'buttons' }),
+    'h-site-menu h-site-menu-vertical h-site-menu-expanding h-site-menu-style-buttons h-site-menu-open-click', 'a drop-down: expand by a click');
+  assert.equal(menuClass({ presentation: 'grow', orientation: 'vertical' }), 'h-site-menu h-site-menu-vertical h-site-menu-grow');
   assert.equal(menuClass({ presentation: 'row', style: 'bad' }), 'h-site-menu', 'an unknown style is plain');
 });
 
@@ -73,6 +81,43 @@ test('expanding action menu (plan 27k §2): a button with its icon and name, the
   const bad = document.createElement('div');
   new HMenu().attach(bad, { items: [], settings: { presentation: 'expand', icon: 'x"><script>' } }).render();
   assert.equal(bad.querySelector('.h-site-menu-toggle').querySelector('i').className, 'fa-solid fa-share-nodes', 'not an icon class: the default');
+});
+
+test('full-screen website menu (plan 27k §5): classes, the overlay opens with the list and closes', async () => {
+  assert.equal(menuClass({ collapse: 'fullscreen', animation: 'right', alwaysCollapsed: true }),
+    'h-site-menu h-site-menu-fullscreen h-site-menu-anim-right h-site-menu-always-collapsed');
+  assert.equal(menuClass({ collapse: 'fullscreen', animation: 'down' }), 'h-site-menu h-site-menu-fullscreen', 'down: no class');
+  assert.equal(menuClass({ presentation: 'row', collapse: 'fullscreen' }), 'h-site-menu', 'not for an action menu');
+  const Observer = globalThis.ResizeObserver;
+  globalThis.ResizeObserver = class { observe() {} disconnect() {} };
+  try {
+    const host = document.createElement('nav');
+    document.body.append(host);
+    const menu = new HMenu().attach(host, {
+      items: [{ title: 'About', url: '/a', children: [] }, { title: 'Team', url: '/t', children: [] }],
+      settings: { collapse: 'fullscreen', animation: 'fade', alwaysCollapsed: true }
+    }).render();
+    const nav = host.querySelector('.h-site-menu');
+    assert.ok(nav.classList.contains('is-narrow'), 'always collapsed: behind its button');
+    nav.querySelector('.h-site-menu-toggle').click();
+    const overlay = document.body.querySelector('.h-site-menu-overlay');
+    assert.ok(overlay, 'the overlay is in the page');
+    assert.ok(overlay.classList.contains('h-site-menu-anim-fade'));
+    assert.equal(overlay.getAttribute('role'), 'dialog');
+    assert.ok(overlay.querySelector('.h-site-menu-list'), 'the list is in the overlay');
+    assert.equal(nav.querySelector('.h-site-menu-list'), null);
+    assert.ok(document.documentElement.classList.contains('h-site-menu-locked'), 'the page does not scroll');
+    overlay.querySelector('.h-site-menu-close').click();
+    assert.ok(!nav.classList.contains('is-open'));
+    assert.ok(!document.documentElement.classList.contains('h-site-menu-locked'));
+    await new Promise((resolve) => setTimeout(resolve, 350));
+    assert.ok(nav.querySelector('.h-site-menu-list'), 'the list is back in the menu after the animation');
+    assert.equal(document.body.querySelector('.h-site-menu-overlay'), null);
+    menu.destroy();
+    host.remove();
+  } finally {
+    globalThis.ResizeObserver = Observer;
+  }
 });
 
 test('social media preset (plan 27k §2): expand, style and orientation; defaults not written', () => {
@@ -140,6 +185,18 @@ test('layout of plan 27f §13: rows, header and footer themes, own colours; no s
   setLayout(layout, 'header.theme', 'default');
   setLayout(layout, 'header.colors', null);
   assert.deepEqual(layout, {}, 'defaults are not written');
+});
+
+test('layout of plan 27k §4: header.onScroll keep | shrink, the default not written', async () => {
+  const { cmsLayoutProblems, CMS_LAYOUT } = await import('#shared/site/cmsDocument.js');
+  assert.deepEqual(CMS_LAYOUT.header.onScroll, ['keep', 'shrink']);
+  assert.deepEqual(cmsLayoutProblems({ header: { onScroll: 'shrink' } }), []);
+  assert.equal(cmsLayoutProblems({ header: { onScroll: 'hide' } }).length, 1);
+  const layout = {};
+  setLayout(layout, 'header.onScroll', 'shrink');
+  assert.deepEqual(layout, { header: { onScroll: 'shrink' } });
+  setLayout(layout, 'header.onScroll', 'keep');
+  assert.deepEqual(layout, {});
 });
 
 test('action menu items (plan 27g): Record page and Back shown in the draft', () => {

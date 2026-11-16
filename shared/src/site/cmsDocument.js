@@ -25,7 +25,7 @@ export const CMS_SCHEMA = 'heurist-cms/4';
 /** Known instance types by kind. */
 export const CMS_TYPES = Object.freeze({
   module: Object.freeze(['explorer', 'data', 'map', 'timeline', 'graph', 'recordview']),
-  widget: Object.freeze(['menu', 'report', 'cards', 'gallery', 'language', 'actionmenu', 'badges', 'email'])
+  widget: Object.freeze(['menu', 'report', 'cards', 'gallery', 'language', 'actionmenu', 'badges', 'email', 'breadcrumbs'])
 });
 
 /** Newest instance configuration version. */
@@ -41,6 +41,8 @@ export const CMS_LAYOUT = Object.freeze({
     // fixed is the default since 2026-11-09 (was `default` = scroll); slide = an expand / collapse button (§13)
     position: Object.freeze(['fixed', 'scroll', 'slide', 'none']),
     orientation: Object.freeze(['horizontal', 'vertical']),
+    // a fixed horizontal header when the page scrolls (plan 27k §4): as it is, or small (logo, menu, languages)
+    onScroll: Object.freeze(['keep', 'shrink']),
     // the header default set: one row on normal screens, or two (plan 27f §13)
     rows: Object.freeze(['auto', 'two']),
     theme: Object.freeze(['default', 'surface', 'primary', 'selected', 'own'])
@@ -50,6 +52,12 @@ export const CMS_LAYOUT = Object.freeze({
     theme: Object.freeze(['default', 'surface', 'primary', 'selected', 'own'])
   })
 });
+
+/**
+ * Selectors of the own styles of the header and footer (review 2026-11-16, StyleCompiler::PARTS): stronger than the
+ * header / footer themes of the layout (`.h-site-header-theme-* .h-site-header`).
+ */
+export const CMS_PART_SELECTORS = Object.freeze({ header: 'html.h-site .h-site-header', footer: 'html.h-site .h-site-footer' });
 
 /** A colour of the own theme of the header or footer (`layout.header.colors`: bg, text): hex, a name, rgb() or hsl(). */
 export const CMS_LAYOUT_COLOR = /^(?:#[0-9a-f]{3,8}|[a-z]{3,20}|(?:rgb|hsl)a?\([0-9\s.,%deg/]+\))$/i;
@@ -212,7 +220,8 @@ export function checkCmsDocument(config, htmlParts, translations = {}, baseUrl =
   const styles = isMap(config.styles) ? config.styles : {};
   const part = (name) => (isMap(styles[name]) ? styles[name] : {});
   issues.push(...compileCmsStyles(part('base'), [part('nodes')], baseUrl,
-    { kinds: [part('kinds')], presets: [part('presets')], page: { id: 0, style: part('page') } }).issues);
+    { kinds: [part('kinds')], presets: [part('presets')], page: { id: 0, style: part('page') },
+      parts: { header: part('header'), footer: part('footer') } }).issues);
   for (const [language, blocks] of Object.entries(translations || {})) {
     const ids = Object.keys(isMap(blocks) ? blocks : {});
     for (const id of ids) {
@@ -253,7 +262,8 @@ export function cmsInstanceProblem(settings) {
 /**
  * Problems of the layout settings (CmsValidator::layoutProblems): unknown keys and values not in CMS_LAYOUT;
  * `header.colors` / `footer.colors` the own colours {bg, text} (CMS_LAYOUT_COLOR); sizes CMS_LAYOUT_SIZES (CMS_LAYOUT_SIZE);
- * `cache` a whole number in CMS_LAYOUT_CACHE; `hideHeader` / `hideFooter` (a page) true or false; `startPage` the id of
+ * `cache` a whole number in CMS_LAYOUT_CACHE; `hideHeader` / `hideFooter` (a page) and `backToTop` (plan 27k §6) true or
+ * false; `startPage` the id of
  * the page shown by the website URL without a page (2026-11-14; not given: the home page).
  *
  * @param {object} layout
@@ -270,7 +280,7 @@ export function cmsLayoutProblems(layout) {
       }
     } else if (key === 'startPage') {
       if (!Number.isInteger(value) || value < 1) problems.push('startPage must be a page id');
-    } else if (key === 'hideHeader' || key === 'hideFooter') {
+    } else if (key === 'hideHeader' || key === 'hideFooter' || key === 'backToTop') {
       if (typeof value !== 'boolean') problems.push(`${key} must be true or false`);
     } else if (key === 'header' || key === 'footer') {
       if (!isMap(value)) {
@@ -368,10 +378,11 @@ export function cmsNodes(html) {
  * @param {string} [baseUrl] Heurist base URL: background images may only come from it (or be relative).
  * @param {{kinds?: object[], presets?: object[], scope?: string, page?: {id: number, style: object}}} [common] Kind
  *        defaults and presets, website first, then the page; `scope`: selector every rule is written below (plan 27f
- *        §2.2, e.g. `[data-h-page="5"]`); `page`: the own style of the page (`styles.page`, plan 27i §9) and its id.
+ *        §2.2, e.g. `[data-h-page="5"]`); `page`: the own style of the page (`styles.page`, plan 27i §9) and its id;
+ *        `parts`: the own styles of the header and footer {header, footer} (review 2026-11-16).
  * @returns {{css: string, issues: Array<object>}}
  */
-export function compileCmsStyles(base, nodeSets, baseUrl = '', { kinds = [], presets = [], scope = '', page = null } = {}) {
+export function compileCmsStyles(base, nodeSets, baseUrl = '', { kinds = [], presets = [], scope = '', page = null, parts = null } = {}) {
   const issues = [];
   let css = '';
   const prefix = scope ? `${scope} ` : '';
@@ -436,6 +447,13 @@ export function compileCmsStyles(base, nodeSets, baseUrl = '', { kinds = [], pre
     }
     flushScreens();
   }
+  // the own style of the header and footer (review 2026-11-16, `styles.header` / `styles.footer` of the website record)
+  for (const [name, style] of Object.entries(isMap(parts) ? parts : {})) {
+    if (!CMS_PART_SELECTORS[name] || !isMap(style) || !Object.keys(style).length) continue;
+    // the height is a minimum (the content may need more), and not when the header is shrunk or collapsed (style.css)
+    rule(CMS_PART_SELECTORS[name], pageHeightAsMinimum(style), null);
+  }
+  flushScreens();
   for (const nodes of nodeSets) {
     if (!isMap(nodes)) continue;
     for (const [id, style] of Object.entries(nodes)) {

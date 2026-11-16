@@ -44,7 +44,7 @@ import { createWebsiteFieldsForm, PAGE_FIELD_KEYS, WEBSITE_FIELD_KEYS } from '..
 import { FORM_MIN_WIDTH, FORM_SIDE_WIDTH, createFormPanel } from './designerInline.js';
 import { styleRows } from './designerStyles.js';
 import {
-  cardTemplateTerms, openCardsForm, openEmailForm, openFieldForm, openLanguageForm, openMediaForm, openMenuForm, openReportForm, teamReportBody
+  cardTemplateTerms, openBreadcrumbsForm, openCardsForm, openEmailForm, openFieldForm, openLanguageForm, openMediaForm, openMenuForm, openReportForm, teamReportBody
 } from './widgetForms.js';
 import { openNewRecordPageForm, recordPageTerms, sitePageTerms } from './recordPageField.js';
 import { filterPageTerms, recordFilterFieldTerms } from './savedFilterField.js';
@@ -81,6 +81,10 @@ function instanceOfNode(doc, nodeId) {
 
 /** Media types the text editor inserts (Media of TinyMCE, 2026-11-14). */
 const TEXT_MEDIA_TYPES = Object.freeze(['image', 'video', 'audio', 'service']);
+
+/** Styles of tabs (plan 27k §3, CMS_TAB_STYLES): value, label. */
+const TAB_STYLE_LABELS = Object.freeze([['tabs', 'Tabs'], ['underline', 'Bottom border'], ['pills', 'Pills'], ['links', 'Links'],
+  ['buttons', 'Buttons'], ['outline', 'Outlined buttons']]);
 
 const PART_LABELS = Object.freeze({ header: 'Header', content: 'Home', footer: 'Footer' });
 const ROOT = '#root';
@@ -573,8 +577,8 @@ export class CmsDesigner {
       this.buttons.copy.disabled = !node || node.kind === 'instance';
       this.buttons.paste.disabled = !this.clipboard || !record;
       this.buttons.layout.hidden = !(this.site && this.current?.recordId === this.site.id && ['header', 'footer'].includes(this.current.part));
-      // the page itself has an own style in the content part only
-      this.buttons.style.disabled = !record || (!node && this.current?.part !== 'content');
+      // the page, the header and the footer have an own style too (review 2026-11-16)
+      this.buttons.style.disabled = !record;
       this.buttons.style.classList.toggle('is-active', Boolean(this.formPanel?.isOpen()));
     }
   }
@@ -1298,9 +1302,11 @@ export class CmsDesigner {
     if (node.kind === 'control' && this._currentRecord()?.doc.isPanel(id)) {
       return { action: 'caption', icon: 'fa-pen', title: $HR('Captions of the panels') };
     }
-    // tabs / an accordion: the captions of all its panels in one popup (review 2026-11-15)
+    // tabs / an accordion: the captions of all its panels in one popup (review 2026-11-15); tabs also their orientation
+    // and style (plan 27k §3)
     if (node.kind === 'control' && ['tabs', 'accordion'].includes(node.control)) {
-      return { action: 'captions', icon: 'fa-pen', title: $HR('Captions of the panels') };
+      return { action: 'captions', icon: 'fa-gear',
+        title: $HR(node.control === 'tabs' ? 'Orientation, style and captions of the tabs' : 'Options and captions of the accordion') };
     }
     if (node.kind === 'control' && node.control === 'group') {
       return { action: 'style', icon: 'fa-palette', title: $HR('Own style and caption of the group') };
@@ -1656,6 +1662,38 @@ export class CmsDesigner {
     const languages = this.site?.languages || [];
     const dialogId = 'h-cms-captions-dialog';
     const content = element('div', 'h-cms-captions');
+    // tabs (plan 27k §3): orientation and style above the captions
+    const look = tabs ? record.doc.tabsLook(id) : null;
+    const orientation = look ? lookSelect([['horizontal', 'Horizontal'], ['vertical', 'Vertical (tabs on the left on wide screens)']], look.orientation) : null;
+    const tabStyle = look ? lookSelect(TAB_STYLE_LABELS, look.style) : null;
+    if (look) {
+      const row = element('div', 'h-cms-captions-look');
+      for (const [caption, control] of [['Orientation', orientation], ['Style of the tabs', tabStyle]]) {
+        const field = element('label', 'h-cms-styles-field');
+        const text = element('span');
+        text.textContent = $HR(caption);
+        field.append(text, control);
+        row.append(field);
+      }
+      content.append(row);
+    }
+    // an accordion (plan 27k §6): several sections open at a time, the first one open at start
+    const accordion = tabs ? null : record.doc.accordionLook(id);
+    const lookCheck = (label, checked) => {
+      const box = element('label', 'h-cms-check');
+      const input = element('input');
+      input.type = 'checkbox';
+      input.checked = checked;
+      box.append(input, document.createTextNode(` ${$HR(label)}`));
+      return { box, input };
+    };
+    const multiple = accordion ? lookCheck('Several sections open at a time', accordion.multiple) : null;
+    const firstOpen = accordion ? lookCheck('The first section open at start', accordion.firstOpen) : null;
+    if (accordion) {
+      const row = element('div', 'h-cms-captions-look');
+      row.append(multiple.box, firstOpen.box);
+      content.append(row);
+    }
     let forms = [];
     const read = () => {
       const values = forms.map((form) => form.read());
@@ -1692,7 +1730,7 @@ export class CmsDesigner {
       });
       const dialog = HMsg.showMsgDlg(content, {
         dialogId,
-        title: $HR(tabs ? 'Captions of the tabs' : 'Captions of the sections'),
+        title: $HR(tabs ? 'Tabs: orientation, style and captions' : 'Accordion: options and captions'),
         buttons: [
           { label: 'OK', class: 'h-btn h-btn-primary', onClick: submit },
           { label: 'Cancel', class: 'h-btn', onClick: () => finish(null) }
@@ -1716,6 +1754,8 @@ export class CmsDesigner {
         const translations = Object.fromEntries(languages.slice(1).map((code) => [code, result[index].translations[code] || '']));
         if (doc.setCaption(panel, result[index].value.trim(), translations)) changed = true;
       });
+      if (look && doc.setTabsLook(id, { orientation: orientation.value, style: tabStyle.value })) changed = true;
+      if (accordion && doc.setAccordionLook(id, { multiple: multiple.input.checked, firstOpen: firstOpen.input.checked })) changed = true;
       return changed;
     });
   }
@@ -2040,6 +2080,9 @@ export class CmsDesigner {
       if (settings) this._edit((doc) => doc.setInstance(instanceId, { settings }));
     } else if (instance.type === 'menu' || instance.type === 'language') {
       await run((extra) => (instance.type === 'menu' ? openMenuForm({ ...common, ...extra }) : openLanguageForm({ ...common, ...extra })), setSettings);
+    } else if (instance.type === 'breadcrumbs') {
+      // breadcrumbs (plan 27k §6): the path of the page or the record pages visited before
+      await run((extra) => openBreadcrumbsForm({ ...common, ...extra }), setSettings);
     } else if (instance.type === 'email') {
       // the email form (plan 27h): inline or a button, the caption of the button in the languages of the website
       await run((extra) => openEmailForm({ settings: instance.settings || {}, languages: this.site?.languages || [],
@@ -2200,7 +2243,8 @@ export class CmsDesigner {
     }
     this.formNode = target;
     this._formWestMinimum(true);
-    await this.formPanel.show(sections, { title: target === ROOT ? $HR('Own style of the page') : $HR('Own style') });
+    const rootTitle = { header: 'Own style of the header', footer: 'Own style of the footer' }[this.current?.part] || 'Own style of the page';
+    await this.formPanel.show(sections, { title: $HR(target === ROOT ? rootTitle : 'Own style') });
     if (ticket === this._formTicket) this._updateBar();
   }
 
@@ -2362,8 +2406,8 @@ export class CmsDesigner {
   _formSections(id) {
     const record = this._currentRecord();
     if (id === ROOT) {
-      if (this.current?.part !== 'content') return null;
-      // no section caption: the header of the form has the title (review 2026-11-15)
+      // the page, the header or the footer (review 2026-11-16); no section caption: the header of the form has the title
+      if (!['content', 'header', 'footer'].includes(this.current?.part)) return null;
       return [{ label: '', build: (host) => this._styleSection(host, ROOT) }];
     }
     const node = this._treeItem(id);
@@ -2376,10 +2420,67 @@ export class CmsDesigner {
     return sections;
   }
 
+  /**
+   * The height and the own colours of the header / footer in the layout (the Styles popup before 2026-11-16) move into
+   * the own style of the part: min-height, background-color, color; the layout keeps its theme (own = default).
+   *
+   * @param {'header'|'footer'} part
+   */
+  _movePartLayout(part) {
+    const settings = this._currentRecord()?.doc.layout()?.[part];
+    if (!settings || (!settings.height && !settings.colors && settings.theme !== 'own')) return;
+    this._formEdit(`style:${part}`, (doc) => {
+      const layout = doc.layout();
+      const old = { ...layout[part] };
+      const style = doc.partStyle(part);
+      // the height of a vertical header is not used (its width is)
+      if (old.height && !(part === 'header' && old.orientation === 'vertical') && !style['min-height']) style['min-height'] = old.height;
+      if (old.theme === 'own' && old.colors?.bg && !style['background-color']) style['background-color'] = old.colors.bg;
+      if (old.theme === 'own' && old.colors?.text && !style.color) style.color = old.colors.text;
+      delete old.height;
+      delete old.colors;
+      if (old.theme === 'own') delete old.theme;
+      if (Object.keys(old).length) layout[part] = old; else delete layout[part];
+      doc.setLayout(layout);
+      doc.setPartStyle(part, style);
+      return true;
+    });
+  }
+
+  /**
+   * Reveal on scroll of an element (plan 27k §6): none, fade in or slide up, applied at once; beside the preset of the
+   * Own style (review 2026-11-16). Every element of the content; null in the header and footer.
+   *
+   * @param {string} id Node id.
+   * @returns {HTMLElement|null}
+   */
+  _revealField(id) {
+    if (this.current?.part !== 'content') return null;
+    const select = lookSelect([['', 'None'], ['fade', 'Fade in'], ['up', 'Slide up']], this._currentRecord()?.doc.reveal(id) || '');
+    const field = element('label', 'h-cms-style-field');
+    const text = element('span');
+    text.textContent = $HR('Reveal on scroll');
+    field.append(text, select);
+    select.addEventListener('change', () => this._formEdit(`reveal:${id}`, (doc) => doc.setReveal(id, select.value)));
+    return field;
+  }
+
   /** The own style in the form (plan 27i §10): every change at once; a group may have a background video. */
   _styleSection(host, id) {
     const record = this._currentRecord();
     const base = Object.assign({}, ...this._styleRecords().map((item) => item.doc.base()));
+    const part = this.current?.part;
+    if (id === ROOT && (part === 'header' || part === 'footer')) {
+      // the header / footer (review 2026-11-16): its own style on the website record; the height and own colours of
+      // the layout (Styles, before 2026-11-16) move into it
+      this._movePartLayout(part);
+      let ready = false;
+      styleRows(host, record.doc.partStyle(part), (style) => {
+        if (ready) this._formEdit(`style:${part}`, (doc) => (doc.setPartStyle(part, style), true));
+      }, { kind: 'group', presets: null, base, files: this._files() });
+      ready = true;
+      return undefined;
+    }
     if (id === ROOT) {
       let ready = false;
       styleRows(host, record.doc.pageStyle(), (style) => {
@@ -2405,7 +2506,7 @@ export class CmsDesigner {
     }, {
       kind, inFlexGroup: this._inFlexGroup(id), presets, preset: node?.preset || null, cssClass: record.doc.cssClass(id),
       classInput: this.options.dbdefs?.meta?.javaScriptAllowed === true, base, files: this._files(),
-      video: kind === 'group' ? record.doc.backgroundVideo(id) : null
+      video: kind === 'group' ? record.doc.backgroundVideo(id) : null, headExtra: this._revealField(id)
     });
     return undefined;
   }
@@ -2579,7 +2680,9 @@ export class CmsDesigner {
       kinds: styleRecords.map((record) => record.doc.kinds()),
       presets: styleRecords.map((record) => record.doc.presets()),
       // the own style of the page (plan 27i §9 B): its section
-      page: current ? { id: current.id, style: current.doc.pageStyle() } : null
+      page: current ? { id: current.id, style: current.doc.pageStyle() } : null,
+      // the own styles of the header and footer (review 2026-11-16): the website record
+      parts: site ? { header: site.doc.partStyle('header'), footer: site.doc.partStyle('footer') } : null
     };
     // the hide flags of the page: classes of the body (PageRenderer::bodyClasses)
     const layout = current?.doc.layout() || {};
@@ -2631,7 +2734,7 @@ function nodeIcon(item) {
   if (item.type === 'report') return 'fa-file';
   if (item.kind === 'text') return 'fa-paragraph';
   if (item.kind === 'media') return 'fa-photo-film';
-  if (item.kind === 'instance') return item.type === 'menu' ? 'fa-bars' : 'fa-cube';
+  if (item.kind === 'instance') return { menu: 'fa-bars', breadcrumbs: 'fa-angles-right' }[item.type] || 'fa-cube';
   if (item.control === 'tabs') return 'fa-folder-open';
   if (item.control === 'accordion') return 'fa-list';
   if (item.preset === 'columns2' || item.preset === 'columns3') return 'fa-table-columns';
@@ -2697,6 +2800,19 @@ function writeClipboard(database, clip) {
   } catch {
     // the clipboard of this designer only
   }
+}
+
+/** A compact select of [value, label] pairs with the given value (orientation and style of tabs). */
+function lookSelect(options, value) {
+  const select = element('select', 'h-select h-compact');
+  for (const [key, label] of options) {
+    const option = element('option');
+    option.value = key;
+    option.textContent = $HR(label);
+    select.append(option);
+  }
+  select.value = options.some(([key]) => key === value) ? value : options[0][0];
+  return select;
 }
 
 function element(tag, className = '') {

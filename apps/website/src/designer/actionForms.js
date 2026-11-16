@@ -2,7 +2,8 @@
  * @file actionForms.js
  * @brief Forms of the action menu and its social media preset in the CMS designer (plan 27f §6).
  *
- * Action menu: the presentation (links, buttons, icons, drop-down with its label) and a list of items, each with
+ * Action menu: the presentation (a row, icons, behind a button, icons that grow on hover; review 2026-11-16) and a list
+ * of items, each with
  * a label, a Font Awesome icon, the action (a page of the website, an external URL, Add record of a type) and its
  * target. Add record is offered only when the website has Heurist Explorer (the action is done by it, §9.4).
  * Social media: a fixed list of networks with an URL input each; the networks with an URL become icon items of an
@@ -21,7 +22,8 @@
 import '@fortawesome/fontawesome-free/css/brands.min.css';
 import { $HR } from '#shared/ui';
 import { createHInput } from '#shared/widgets/form/inputs/createHInput.js';
-import { MENU_EXPAND_ICON, menuLook } from '#shared/widgets/site/HMenu.js';
+import { HInputColor } from '#shared/widgets/form/inputs/HInputColor.js';
+import { MENU_COLOR, MENU_EXPAND_ICON, MENU_LINE_WIDTHS, faIcon, menuLook } from '#shared/site/cmsMenu.js';
 import { formDialog } from './designerDialogs.js';
 import { dragHandle, helpLine, sortableList } from './designerStyles.js';
 import { recordPagePicker } from './recordPageField.js';
@@ -45,16 +47,60 @@ export const SOCIAL_NETWORKS = Object.freeze([
   { id: 'rss', name: 'RSS feed', icon: 'fa-solid fa-rss', hint: 'https://.../feed' }
 ]);
 
-/** Presentations of an action menu (plan 27k §1-2): value, label. */
-const PRESENTATIONS = Object.freeze([['row', 'Items in a row'], ['icons', 'Icons'], ['expand', 'Icons behind a button (expand on hover)'],
-  ['dropdown', 'Drop-down menu']]);
+/**
+ * Presentations of an action menu (plan 27k §1-2): value, label. Behind a button = the former drop-down and "icons behind
+ * a button" (review 2026-11-16: one presentation, opened on hover or on a click); grow: icons that show their name.
+ */
+const PRESENTATIONS = Object.freeze([['row', 'Items in a row'], ['icons', 'Icons'], ['expand', 'Behind a button'],
+  ['grow', 'Icons that show their name on hover']]);
+
+/** How the list behind the button opens (review 2026-11-16). */
+const OPEN_MODES = Object.freeze([['hover', 'On hover (and a click)'], ['click', 'On a click']]);
+
+/**
+ * Fields of the line of the underline style (review 2026-11-16) for HEditForm (website menu form): width and colour,
+ * shown with the style underline.
+ */
+export const MENU_LINE_FIELDS = Object.freeze([
+  { name: 'lineWidth', type: 'enum', label: 'Width of the line', max: 1, showWhen: { style: 'underline' },
+    terms: [{ id: '', label: '2px (default)' }, ...MENU_LINE_WIDTHS.filter((width) => width !== '2px').map((id) => ({ id, label: id }))] },
+  { name: 'lineColor', type: 'color', label: 'Colour of the line', max: 1, showWhen: { style: 'underline' },
+    help: 'Empty: the colour of the text' }
+]);
+
+/**
+ * Values of MENU_LINE_FIELDS from the settings of a menu.
+ *
+ * @param {object} settings
+ * @returns {{lineWidth: string, lineColor: string}}
+ */
+export function menuLineValues(settings = {}) {
+  return { lineWidth: MENU_LINE_WIDTHS.includes(settings.lineWidth) ? settings.lineWidth : '', lineColor: settings.lineColor || '' };
+}
+
+/**
+ * Settings of the line from the values (only with the style underline; defaults and colours that are not allowed are
+ * left out).
+ *
+ * @param {{style?: string, lineWidth?: string, lineColor?: string}} values
+ * @returns {{lineWidth?: string, lineColor?: string}}
+ */
+export function menuLineSettings(values = {}) {
+  const result = {};
+  if (values.style !== 'underline') return result;
+  if (MENU_LINE_WIDTHS.includes(values.lineWidth) && values.lineWidth !== '2px') result.lineWidth = values.lineWidth;
+  const colour = String(values.lineColor || '').trim();
+  if (colour && MENU_COLOR.test(colour)) result.lineColor = colour;
+  return result;
+}
 
 /** Styles of the items of a menu (plan 27k §1): value, label; also the website menu form. */
 export const ITEM_STYLES = Object.freeze([['plain', 'Plain'], ['links', 'Links (underlined)'], ['underline', 'Bottom border on hover'],
   ['pills', 'Pills (current item filled)'], ['buttons', 'Buttons'], ['outline', 'Outlined buttons']]);
 
-/** Presentations of the social media preset (plan 27k §2). */
-const SOCIAL_PRESENTATIONS = Object.freeze([['icons', 'Icons'], ['expand', 'Icons behind a button (expand on hover)']]);
+/** Presentations of the social media preset (plan 27k §2, grow: review 2026-11-16). */
+const SOCIAL_PRESENTATIONS = Object.freeze([['icons', 'Icons'], ['expand', 'Icons behind a button (expand on hover)'],
+  ['grow', 'Icons that show their name on hover']]);
 
 /** Orientations of an action menu (plan 27k §2). */
 const ORIENTATIONS = Object.freeze([['horizontal', 'Horizontal'], ['vertical', 'Vertical']]);
@@ -64,14 +110,14 @@ const ORIENTATIONS = Object.freeze([['horizontal', 'Horizontal'], ['vertical', '
  * filter: a query source shown on a page of the website (plan 27j, savedFilterField.js).
  */
 const ACTIONS = Object.freeze([['page', 'Go to a page'], ['url', 'Open a URL'], ['addRecord', 'Add a record'],
-  ['recordPage', 'Record page'], ['back', 'Back'], ['savedFilter', 'Saved filter']]);
+  ['recordPage', 'Record page'], ['back', 'Back'], ['savedFilter', 'Saved filter'], ['search', 'Search box (Saved filter)']]);
 
 /**
  * Label of an item without one (2026-11-14: an item is not lost when its label is forgotten); Go to a page: the name of
  * the page.
  */
 const DEFAULT_LABELS = Object.freeze({ page: 'Page', url: 'Link', addRecord: 'Add', recordPage: 'Record link', back: 'Back',
-  savedFilter: 'Filter' });
+  savedFilter: 'Filter', search: 'Search' });
 
 /**
  * Settings of the social media preset from the URLs of the networks (empty URLs left out).
@@ -89,7 +135,7 @@ export function socialSettings(urls, look = {}) {
     if (network.id === 'email' && !/^mailto:/i.test(url)) url = `mailto:${url}`;
     items.push({ label: network.name, icon: network.icon, iconOnly: true, action: 'url', target: url, newTab: network.id !== 'email' });
   }
-  const settings = { preset: 'social', presentation: look.presentation === 'expand' ? 'expand' : 'icons', items };
+  const settings = { preset: 'social', presentation: ['expand', 'grow'].includes(look.presentation) ? look.presentation : 'icons', items };
   if (ITEM_STYLES.some(([value]) => value === look.style) && look.style !== 'plain') settings.style = look.style;
   if (look.orientation === 'vertical') settings.orientation = 'vertical';
   if (settings.presentation === 'expand') {
@@ -142,7 +188,7 @@ export function openSocialForm({ settings = {} } = {}) {
   }
   form.append(table);
   // the icons in a row or behind a button that expands on hover (plan 27k §2), their style and orientation
-  const presentation = select(SOCIAL_PRESENTATIONS, settings.presentation === 'expand' ? 'expand' : 'icons');
+  const presentation = select(SOCIAL_PRESENTATIONS, ['expand', 'grow'].includes(settings.presentation) ? settings.presentation : 'icons');
   const style = select(ITEM_STYLES, menuLook(settings).style);
   const orientation = select(ORIENTATIONS, settings.orientation === 'vertical' ? 'vertical' : 'horizontal');
   const icon = element('input', 'h-input h-compact h-cms-action-icon');
@@ -153,7 +199,9 @@ export function openSocialForm({ settings = {} } = {}) {
   const iconLine = line('Icon of the button', icon);
   const showIcon = () => { iconLine.hidden = presentation.value !== 'expand'; };
   presentation.addEventListener('change', showIcon);
-  form.append(line('Presentation', presentation), iconLine, line('Style of the items', style), line('Orientation', orientation));
+  const settingsBox = element('div', 'h-cms-action-settings');
+  settingsBox.append(line('Presentation', presentation), iconLine, line('Style of the items', style), line('Orientation', orientation));
+  form.append(settingsBox);
   showIcon();
   return formDialog(form, 'Social media', 'OK', () => socialSettings(Object.fromEntries(Object.entries(inputs).map(([id, input]) => [id, input.value])),
     { presentation: presentation.value, style: style.value, orientation: orientation.value, icon: icon.value, label: settings.label }),
@@ -184,7 +232,8 @@ export function openActionMenuForm({ settings = {}, pages = [], recordTypes = []
   form.append(helpLine(single ? 'A link to a page of the website, a record on a record page, or another website.'
     : canAddRecord ? 'Links to pages of the website or to other websites, and actions such as Add record.'
       : 'Links to pages of the website or to other websites. Add record needs Heurist Explorer on the website.'));
-  // stored links / buttons: a row with that style (menuLook); a new menu: a row of links
+  // stored links / buttons: a row with that style, a stored drop-down: behind a button opened by a click (menuLook); a new
+  // menu: a row of links
   const look = menuLook(settings.presentation ? settings : { presentation: 'links', ...settings });
   const presentation = select(PRESENTATIONS, look.presentation === 'menu' ? 'row' : look.presentation);
   const style = select(ITEM_STYLES, look.style);
@@ -192,36 +241,52 @@ export function openActionMenuForm({ settings = {}, pages = [], recordTypes = []
   const label = element('input', 'h-input h-compact');
   label.type = 'text';
   label.value = settings.label || '';
-  const labelCaption = element('span');
-  const labelLine = element('label', 'h-cms-styles-field');
-  labelLine.append(labelCaption, label);
+  label.placeholder = $HR('Actions');
+  const labelLine = line('Name of the button (rollover)', label);
   const icon = element('input', 'h-input h-compact h-cms-action-icon');
   icon.type = 'text';
   icon.value = settings.icon || '';
   icon.placeholder = MENU_EXPAND_ICON;
   icon.title = $HR('Font Awesome icon classes (optional)');
-  const iconGlyph = element('i', settings.icon || MENU_EXPAND_ICON);
+  // the preview of the icon: fa-solid when no style is given (review 2026-11-16)
+  const iconGlyph = element('i', faIcon(settings.icon) || MENU_EXPAND_ICON);
   iconGlyph.setAttribute('aria-hidden', 'true');
-  icon.addEventListener('input', () => { iconGlyph.className = icon.value.trim() || MENU_EXPAND_ICON; });
+  icon.addEventListener('input', () => { iconGlyph.className = faIcon(icon.value) || MENU_EXPAND_ICON; });
   const iconBox = element('span', 'h-cms-action-icon-box');
   iconBox.append(iconGlyph, icon);
   const iconLine = line('Icon of the button', iconBox);
+  // the name on the button (the former drop-down), how the list opens (review 2026-11-16)
+  const buttonText = checkbox('Show the name on the button', look.buttonText);
+  const buttonTextLine = block('', buttonText.box);
+  const open = select(OPEN_MODES, look.open);
+  const openLine = line('Open the list', open);
   const styleLine = line('Style of the items', style);
+  // the line of the underline style (review 2026-11-16)
+  const lineWidth = select([['', '2px (default)'], ...MENU_LINE_WIDTHS.filter((width) => width !== '2px').map((width) => [width, width])],
+    MENU_LINE_WIDTHS.includes(settings.lineWidth) ? settings.lineWidth : '');
+  const lineWidthLine = line('Width of the line', lineWidth);
+  const lineColorHost = element('div', 'h-cms-action-colour');
+  const lineColor = new HInputColor().attach(lineColorHost, { suppressLabel: true, clearButton: false, value: settings.lineColor || '',
+    placeholder: $HR('Colour of the text') }).render();
+  const lineColorLine = block('Colour of the line', lineColorHost);
   const orientationLine = line('Orientation', orientation);
-  // the label: on the drop-down button, the rollover of the expand button; a drop-down has no item style and orientation
   const showPresentation = () => {
-    const value = presentation.value;
-    labelLine.hidden = value !== 'dropdown' && value !== 'expand';
-    labelCaption.textContent = $HR(value === 'expand' ? 'Name of the button (rollover)' : 'Label of the drop-down button');
-    label.placeholder = $HR(value === 'expand' ? 'Actions' : 'Menu');
-    iconLine.hidden = value !== 'expand';
-    styleLine.hidden = value === 'dropdown';
-    orientationLine.hidden = value === 'dropdown';
+    const behind = presentation.value === 'expand';
+    labelLine.hidden = !behind;
+    iconLine.hidden = !behind;
+    buttonTextLine.hidden = !behind;
+    openLine.hidden = !behind;
+    lineWidthLine.hidden = style.value !== 'underline';
+    lineColorLine.hidden = style.value !== 'underline';
   };
   presentation.addEventListener('change', showPresentation);
+  style.addEventListener('change', showPresentation);
   if (!single) {
-    form.append(classed(line('Presentation', presentation), 'h-cms-action-presentation'), labelLine, iconLine, styleLine,
-      orientationLine);
+    // the settings of the menu above the list of items, aligned (review 2026-11-16)
+    const settingsBox = element('div', 'h-cms-action-settings');
+    settingsBox.append(classed(line('Presentation', presentation), 'h-cms-action-presentation'), labelLine, iconLine, buttonTextLine,
+      openLine, styleLine, lineWidthLine, lineColorLine, orientationLine);
+    form.append(settingsBox);
   }
   showPresentation();
 
@@ -237,11 +302,11 @@ export function openActionMenuForm({ settings = {}, pages = [], recordTypes = []
     const icon = element('input', 'h-input h-compact h-cms-action-icon');
     icon.type = 'text';
     icon.value = item.icon || '';
-    icon.placeholder = 'fa-solid fa-star';
-    icon.title = $HR('Font Awesome icon classes (optional)');
-    const glyph = element('i', item.icon || '');
+    icon.placeholder = 'fa-star';
+    icon.title = $HR('Font Awesome icon classes (optional; fa-solid when no style is given)');
+    const glyph = element('i', faIcon(item.icon));
     glyph.setAttribute('aria-hidden', 'true');
-    icon.addEventListener('input', () => { glyph.className = icon.value; });
+    icon.addEventListener('input', () => { glyph.className = faIcon(icon.value); });
     const action = element('select', 'h-select h-compact');
     action.append(...actions.map(([value, caption, disabled]) => {
       const node = option(value, $HR(caption));
@@ -263,12 +328,15 @@ export function openActionMenuForm({ settings = {}, pages = [], recordTypes = []
     const recordTarget = element('span', 'h-cms-action-record');
     recordTarget.append(recordPage.element, record.element);
     // Saved filter (plan 27j): the query source, the target page and the values in a popup
-    const filter = savedFilterPicker(services, storedSavedFilter(item), { recordFields });
+    const filter = savedFilterPicker(services, item.action === 'savedFilter' ? storedSavedFilter(item) : null, { recordFields });
+    // a search box (plan 27k §6): a Saved filter whose parameter takes the typed text; the label is its placeholder
+    const searchFilter = savedFilterPicker(services, item.action === 'search' ? storedSavedFilter(item) : null,
+      { recordFields, search: true });
     if (item.action === 'url') url.value = item.target || '';
     else if (item.action === 'addRecord') type.value = String(item.target || '');
-    else if (!['recordPage', 'savedFilter'].includes(item.action) && item.target) page.value = String(item.target);
+    else if (!['recordPage', 'savedFilter', 'search'].includes(item.action) && item.target) page.value = String(item.target);
     const showTarget = () => target.replaceChildren(...({ page: [page], url: [url], addRecord: [type], recordPage: [recordTarget], back: [],
-      savedFilter: [filter.element] }[action.value] || [page]));
+      savedFilter: [filter.element], search: [searchFilter.element] }[action.value] || [page]));
     // Go to a page without a label: the name of the page (review 2026-11-11); Back: "Back"
     const pageLabel = () => {
       if (text.value.trim()) return;
@@ -316,6 +384,9 @@ export function openActionMenuForm({ settings = {}, pages = [], recordTypes = []
         else if (action.value === 'savedFilter' && filter.value()) {
           const chosen = filter.value();
           Object.assign(value, { target: chosen.page, source: chosen.source, values: chosen.values });
+        } else if (action.value === 'search' && searchFilter.value()) {
+          const chosen = searchFilter.value();
+          Object.assign(value, { target: chosen.page, source: chosen.source, values: chosen.values, param: chosen.param });
         }
         if (newTab.input.checked) value.newTab = true;
         if (iconOnly.input.checked && value.icon) value.iconOnly = true;
@@ -354,17 +425,29 @@ export function openActionMenuForm({ settings = {}, pages = [], recordTypes = []
       problems.textContent = $HR('A Saved filter item needs a query source and a target page');
       return null;
     }
+    if (items.some((item) => item.action === 'search' && (!item.target || !item.source || !item.param))) {
+      problems.textContent = $HR('A search box needs a query source with a parameter and a target page');
+      return null;
+    }
     if (single) return items[0] || null;
     const result = { presentation: presentation.value, items };
-    if (['dropdown', 'expand'].includes(presentation.value) && label.value.trim()) result.label = label.value.trim();
-    if (presentation.value === 'expand' && icon.value.trim()) result.icon = icon.value.trim();
-    // defaults are not written; a drop-down has no item style and orientation
-    if (presentation.value !== 'dropdown' && style.value !== 'plain') result.style = style.value;
-    if (presentation.value !== 'dropdown' && orientation.value === 'vertical') result.orientation = 'vertical';
+    if (presentation.value === 'expand') {
+      if (label.value.trim()) result.label = label.value.trim();
+      if (icon.value.trim()) result.icon = icon.value.trim();
+      if (buttonText.input.checked) result.buttonText = true;
+      if (open.value === 'click') result.open = 'click';
+    }
+    // defaults are not written
+    if (style.value !== 'plain') result.style = style.value;
+    Object.assign(result, menuLineSettings({ style: style.value, lineWidth: lineWidth.value, lineColor: lineColor.getValue() ?? '' }));
+    if (orientation.value === 'vertical') result.orientation = 'vertical';
     if (settings.labels) result.labels = settings.labels;
     return result;
   }, null, single ? 'h-dialog-cms-link' : 'h-dialog-cms-actions');
-  return Promise.resolve(dialog).finally(() => rows.forEach((entry) => entry.destroy()));
+  return Promise.resolve(dialog).finally(() => {
+    rows.forEach((entry) => entry.destroy());
+    lineColor.destroy?.();
+  });
 }
 
 /**

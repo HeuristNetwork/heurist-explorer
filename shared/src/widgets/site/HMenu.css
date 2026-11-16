@@ -57,6 +57,12 @@
   cursor: pointer;
 }
 
+/* an item of a row is never wrapped (review 2026-11-16); a tree (vertical, collapsed) wraps long titles */
+.h-site-menu:not(.is-narrow, .h-site-menu-panel) > .h-site-menu-list > .h-site-menu-item > :is(a, .h-site-menu-label),
+.h-site-menu-sub .h-site-menu-item > :is(a, .h-site-menu-label) {
+  white-space: nowrap;
+}
+
 /* stronger than the link colour of the site (.h-site-body a) */
 .h-site-menu .h-site-menu-item > a {
   color: inherit;
@@ -119,6 +125,16 @@
   top: 0;
 }
 
+/* near the right edge of the window (HMenu._placeSub, class is-end, review 2026-11-16): to the left */
+.h-site-menu-item.is-end > .h-site-menu-sub {
+  left: auto;
+  right: 0;
+}
+
+.h-site-menu-sub .h-site-menu-item.is-end > .h-site-menu-sub {
+  right: 100%;
+}
+
 .h-site-menu-sub .h-site-menu-item.has-children > :is(a, .h-site-menu-label)::after {
   content: "\25B8";
   margin-left: auto;
@@ -157,8 +173,18 @@
     display: none;
   }
 
+  :is(.h-site-menu-vertical, .h-site-header-vertical .h-site-menu-auto).h-site-menu-js .h-site-menu-item.has-children {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
   :is(.h-site-menu-vertical, .h-site-header-vertical .h-site-menu-auto).h-site-menu-js .h-site-menu-item.has-children > :is(a, .h-site-menu-label) {
-    padding-right: 32px;
+    grid-area: 1 / 1;
+    padding-right: 40px;
+  }
+
+  :is(.h-site-menu-vertical, .h-site-header-vertical .h-site-menu-auto).h-site-menu-js .h-site-menu-item.has-children > .h-site-menu-sub {
+    grid-area: 2 / 1;
   }
 
   :is(.h-site-menu-vertical, .h-site-header-vertical .h-site-menu-auto).h-site-menu-js .h-site-menu-item.has-children > :is(a, .h-site-menu-label)::after {
@@ -166,18 +192,28 @@
   }
 
   :is(.h-site-menu-vertical, .h-site-header-vertical .h-site-menu-auto) .h-site-menu-expand {
-    display: block;
-    position: absolute;
-    right: 2px;
-    top: 4px;
-    width: 26px;
-    height: 26px;
+    display: flex;
+    grid-area: 1 / 1;
+    align-self: center;
+    justify-self: end;
+    align-items: center;
+    justify-content: center;
+    z-index: 1;
+    width: 32px;
+    height: 32px;
+    margin-right: 2px;
     padding: 0;
     border: none;
     border-radius: var(--h-radius);
     background: none;
     color: inherit;
+    font-size: 1.4em;
+    line-height: 1;
     cursor: pointer;
+  }
+
+  :is(.h-site-menu-vertical, .h-site-header-vertical .h-site-menu-auto) .h-site-menu-expand:hover {
+    background: color-mix(in srgb, currentColor 10%, transparent);
   }
 
   :is(.h-site-menu-vertical, .h-site-header-vertical .h-site-menu-auto) .h-site-menu-expand::before {
@@ -204,8 +240,18 @@
   display: none;
 }
 
+.h-site-menu.is-narrow.h-site-menu-js .h-site-menu-item.has-children {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .h-site-menu.is-narrow.h-site-menu-js .h-site-menu-item.has-children > :is(a, .h-site-menu-label) {
-  padding-right: 32px;
+  grid-area: 1 / 1;
+  padding-right: 40px;
+}
+
+.h-site-menu.is-narrow.h-site-menu-js .h-site-menu-item.has-children > .h-site-menu-sub {
+  grid-area: 2 / 1;
 }
 
 .h-site-menu.is-narrow.h-site-menu-js .h-site-menu-item.has-children > :is(a, .h-site-menu-label)::after {
@@ -213,18 +259,28 @@
 }
 
 .h-site-menu.is-narrow .h-site-menu-expand {
-  display: block;
-  position: absolute;
-  right: 2px;
-  top: 4px;
-  width: 26px;
-  height: 26px;
+  display: flex;
+  grid-area: 1 / 1;
+  align-self: center;
+  justify-self: end;
+  align-items: center;
+  justify-content: center;
+  z-index: 1;
+  width: 32px;
+  height: 32px;
+  margin-right: 2px;
   padding: 0;
   border: none;
   border-radius: var(--h-radius);
   background: none;
   color: inherit;
+  font-size: 1.4em;
+  line-height: 1;
   cursor: pointer;
+}
+
+.h-site-menu.is-narrow .h-site-menu-expand:hover {
+  background: color-mix(in srgb, currentColor 10%, transparent);
 }
 
 .h-site-menu.is-narrow .h-site-menu-expand::before {
@@ -244,7 +300,18 @@
   gap: 6px;
 }
 
-/* links: underlined text; the current page in bold */
+/* the current page in the styles links, buttons and outline (review 2026-11-16, as the tabs of the same style): the other
+   items lighter (opacity .75, full on hover), the current one in bold */
+.h-site-menu:is(.h-site-menu-style-links, .h-site-menu-links, .h-site-menu-style-buttons, .h-site-menu-buttons, .h-site-menu-style-outline) > .h-site-menu-list > .h-site-menu-item > :is(a, .h-site-menu-label) {
+  opacity: 0.75;
+}
+
+.h-site-menu:is(.h-site-menu-style-links, .h-site-menu-links, .h-site-menu-style-buttons, .h-site-menu-buttons, .h-site-menu-style-outline) > .h-site-menu-list > .h-site-menu-item > :is(a, .h-site-menu-label):is(:hover, :focus-visible),
+.h-site-menu:is(.h-site-menu-style-links, .h-site-menu-links, .h-site-menu-style-buttons, .h-site-menu-buttons, .h-site-menu-style-outline) > .h-site-menu-list > .h-site-menu-item:is(.is-current, .is-current-parent) > :is(a, .h-site-menu-label) {
+  opacity: 1;
+}
+
+/* links: underlined text; the current page in bold, not underlined */
 .h-site-menu:is(.h-site-menu-style-links, .h-site-menu-links) > .h-site-menu-list > .h-site-menu-item > :is(a, .h-site-menu-label) {
   padding: 4px 8px;
   background: none;
@@ -255,9 +322,16 @@
   text-decoration-thickness: 2px;
 }
 
-/* underline: a line below the current page and below the item under the mouse */
+.h-site-menu:is(.h-site-menu-style-links, .h-site-menu-links) > .h-site-menu-list > .h-site-menu-item:is(.is-current, .is-current-parent) > :is(a, .h-site-menu-label) {
+  background: none;
+  font-weight: bold;
+  text-decoration: none;
+}
+
+/* underline: a line below the current page (in bold) and below the item under the mouse; its width and colour are
+   settings of the menu (variables --h-site-menu-line-width / -color, menuStyle, review 2026-11-16) */
 .h-site-menu.h-site-menu-style-underline > .h-site-menu-list > .h-site-menu-item > :is(a, .h-site-menu-label) {
-  border-bottom: 2px solid transparent;
+  border-bottom: var(--h-site-menu-line-width, 2px) solid transparent;
   border-radius: 0;
   background: none;
   font-weight: normal;
@@ -265,7 +339,11 @@
 
 .h-site-menu.h-site-menu-style-underline > .h-site-menu-list > .h-site-menu-item > :is(a, .h-site-menu-label):is(:hover, :focus-visible),
 .h-site-menu.h-site-menu-style-underline > .h-site-menu-list > .h-site-menu-item:is(.is-current, .is-current-parent) > :is(a, .h-site-menu-label) {
-  border-bottom-color: currentColor;
+  border-bottom-color: var(--h-site-menu-line-color, currentColor);
+}
+
+.h-site-menu.h-site-menu-style-underline > .h-site-menu-list > .h-site-menu-item:is(.is-current, .is-current-parent) > :is(a, .h-site-menu-label) {
+  font-weight: bold;
 }
 
 /* pills: rounded items, the current page filled with the primary colour */
@@ -291,7 +369,13 @@
   background: var(--h-color-primary-hover, var(--h-color-primary));
 }
 
-/* outline: a border in the colour of the text, filled lightly on hover */
+.h-site-menu:is(.h-site-menu-style-buttons, .h-site-menu-buttons) > .h-site-menu-list > .h-site-menu-item:is(.is-current, .is-current-parent) > :is(a, .h-site-menu-label) {
+  background: var(--h-color-primary);
+  font-weight: bold;
+}
+
+/* outline: a border in the colour of the text, filled lightly on hover; the current page filled with the primary colour
+   (as the outlined tabs) */
 .h-site-menu.h-site-menu-style-outline > .h-site-menu-list > .h-site-menu-item > :is(a, .h-site-menu-label) {
   border: 1px solid currentColor;
   background: none;
@@ -300,6 +384,13 @@
 
 .h-site-menu.h-site-menu-style-outline > .h-site-menu-list > .h-site-menu-item > :is(a, .h-site-menu-label):is(:hover, :focus-visible) {
   background: color-mix(in srgb, currentColor 10%, transparent);
+}
+
+.h-site-menu.h-site-menu-style-outline > .h-site-menu-list > .h-site-menu-item:is(.is-current, .is-current-parent) > :is(a, .h-site-menu-label) {
+  border-color: var(--h-color-primary);
+  background: var(--h-color-primary);
+  color: var(--h-color-primary-text, #fff);
+  font-weight: bold;
 }
 
 /* an action menu in a column (plan 27k §2; the website menu: the tree rules above) */
@@ -364,26 +455,52 @@
 }
 
 .h-site-menu-expanding.is-open > .h-site-menu-list,
-.h-site-menu-expanding:focus-within > .h-site-menu-list {
+.h-site-menu-expanding:not(.h-site-menu-open-click):focus-within > .h-site-menu-list {
   visibility: visible;
   opacity: 1;
   transform: translate(0, -50%);
 }
 
 @media (hover: hover) {
-  .h-site-menu-expanding:hover > .h-site-menu-list {
+  .h-site-menu-expanding:not(.h-site-menu-open-click):hover > .h-site-menu-list {
     visibility: visible;
     opacity: 1;
     transform: translate(0, -50%);
   }
 
-  .h-site-menu-expanding.h-site-menu-vertical:hover > .h-site-menu-list {
+  .h-site-menu-expanding.h-site-menu-vertical:not(.h-site-menu-open-click):hover > .h-site-menu-list {
     transform: none;
   }
 }
 
-.h-site-menu-expanding.h-site-menu-vertical:is(.is-open, :focus-within) > .h-site-menu-list {
+.h-site-menu-expanding.h-site-menu-vertical.is-open > .h-site-menu-list,
+.h-site-menu-expanding.h-site-menu-vertical:not(.h-site-menu-open-click):focus-within > .h-site-menu-list {
   transform: none;
+}
+
+/* the name on the button (buttonText, the former drop-down, review 2026-11-16): a bordered button with an arrow */
+.h-site-menu-expanding > .h-site-menu-toggle:has(.h-site-menu-toggle-text) {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: 1px solid color-mix(in srgb, currentColor 35%, transparent);
+}
+
+.h-site-menu-expanding > .h-site-menu-toggle:has(.h-site-menu-toggle-text)::after {
+  content: "\25BE";
+}
+
+/* a column of items below the button: the items as wide as the widest, names not wrapped */
+.h-site-menu-expanding.h-site-menu-vertical > .h-site-menu-list {
+  align-items: stretch;
+  min-width: 12em;
+  padding: 4px;
+  border: 1px solid var(--h-color-border);
+}
+
+.h-site-menu-expanding > .h-site-menu-list > .h-site-menu-item > :is(a, .h-site-menu-label) {
+  white-space: nowrap;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -461,4 +578,122 @@
   overflow: auto;
   padding: 4px 0 8px;
   text-align: left;
+}
+
+/* the full-screen website menu (plan 27k §5, HMenu._showOverlay): the open collapsed menu over the whole window, in the
+   colours of the page; it slides down (default), slides in from the right (h-site-menu-anim-right) or fades in
+   (h-site-menu-anim-fade); no animation with prefers-reduced-motion. The page behind it does not scroll. */
+html.h-site-menu-locked {
+  overflow: hidden;
+}
+
+.h-site-menu-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  box-sizing: border-box;
+  padding: 56px 16px 24px;
+  overflow: auto;
+  background: var(--h-site-menu-overlay-bg, var(--h-color-bg));
+  color: var(--h-site-menu-overlay-text, var(--h-color-text));
+  font-size: 1.4em;
+  opacity: 0;
+  transform: translateY(-100%);
+  transition: transform 0.3s ease, opacity 0.3s ease;
+}
+
+.h-site-menu-overlay.h-site-menu-anim-right {
+  transform: translateX(100%);
+}
+
+.h-site-menu-overlay.h-site-menu-anim-fade {
+  transform: none;
+}
+
+.h-site-menu-overlay.is-open {
+  opacity: 1;
+  transform: none;
+}
+
+.h-site-menu-close {
+  position: absolute;
+  top: 12px;
+  right: 16px;
+  padding: 6px 10px;
+  border: none;
+  border-radius: var(--h-radius);
+  background: none;
+  color: inherit;
+  font-size: 1.2em;
+  cursor: pointer;
+}
+
+.h-site-menu-close:hover,
+.h-site-menu-close:focus-visible {
+  background: color-mix(in srgb, currentColor 10%, transparent);
+}
+
+.h-site-menu-overlay > .h-site-menu.h-site-menu-panel {
+  flex: none;
+  width: 100%;
+  max-width: 32em;
+}
+
+.h-site-menu-overlay > .h-site-menu.h-site-menu-panel > .h-site-menu-list {
+  max-height: none;
+  overflow: visible;
+}
+
+/* a page hidden in the main menu: the overlay is not inside the header any more */
+.h-site-menu-overlay-header .h-site-menu-item.is-menu-hidden {
+  display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .h-site-menu-overlay {
+    transition: none;
+  }
+}
+
+/* a section menu without pages (plan 27k §6, scope section on a page of the first level without sub pages): hidden */
+.h-site-menu:has(> .h-site-menu-list:empty) {
+  display: none;
+}
+
+/* grow (review 2026-11-16): icons in a row (a column when vertical) that show their name on hover and focus; an item
+   without an icon shows its name; the names of screen readers stay */
+.h-site-menu-grow > .h-site-menu-list > .h-site-menu-item > a {
+  gap: 0;
+}
+
+.h-site-menu-grow > .h-site-menu-list > .h-site-menu-item > a:has(.h-site-menu-fa, .h-site-menu-icon) > .h-site-menu-text {
+  position: static;
+  width: auto;
+  max-width: 0;
+  height: auto;
+  overflow: hidden;
+  clip: auto;
+  white-space: nowrap;
+  opacity: 0;
+  transition: max-width 0.3s ease, opacity 0.3s ease, margin 0.3s ease;
+}
+
+.h-site-menu-grow > .h-site-menu-list > .h-site-menu-item > a:has(.h-site-menu-fa, .h-site-menu-icon):is(:hover, :focus-visible) > .h-site-menu-text {
+  max-width: 16em;
+  margin-left: 6px;
+  opacity: 1;
+}
+
+.h-site-menu-grow.h-site-menu-vertical > .h-site-menu-list {
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .h-site-menu-grow > .h-site-menu-list > .h-site-menu-item > a > .h-site-menu-text {
+    transition: none;
+  }
 }

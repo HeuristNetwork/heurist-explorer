@@ -10,9 +10,12 @@
  * Settings: `orientation` horizontal (drop-downs on hover and focus) / vertical (a tree with expandable
  * levels) / auto (vertical in a vertical header); `showHome` a Home entry first (website menu);
  * `selectableParent` (default true) a page with sub pages opens, else its title opens the sub menu;
- * `presentation` of an action menu: row, icons, dropdown or expand (icons behind a button, shown on hover / focus /
- * click; `icon` of the button), stored `links` / `buttons` = row with that style; `style` of the items (plan 27k §1):
- * plain, links, underline, pills, buttons or outline; `orientation` of an action menu horizontal / vertical. An item: title, url, current,
+ * `presentation` of an action menu: row, icons, expand (the items behind a button, `open` on hover / focus / click or on
+ * a click only, `icon` of the button, `buttonText` its name shown; a stored dropdown = expand opened by a click, review
+ * 2026-11-16) or grow (icons that show their name on hover), stored `links` / `buttons` = row with that style; `style` of
+ * the items (plan 27k §1): plain, links, underline, pills, buttons or outline (`lineWidth` / `lineColor` of the underline,
+ * menuStyle); `orientation` of an action menu horizontal / vertical. An item: title, url, current, home (the home page:
+ * its caption is "Home", review 2026-11-16),
  * children, icon (image URL), fa (Font Awesome classes), format name / icon / both, description (the rollover of every
  * format, review 2026-11-14), newTab, hidden (a page hidden in the main menu: class is-menu-hidden, review 2026-11-11).
  *
@@ -35,52 +38,14 @@
 
 import { HBaseWidget } from '../HBaseWidget.js';
 import { $HR } from '../../ui/i18n/HResource.js';
+import { MENU_EXPAND_ICON, faIcon, menuClass, menuLook, menuStyle } from '../../site/cmsMenu.js';
 import './HMenu.css';
 
-/**
- * Presentations of a menu (plan 27f §6, 27k §1): `menu` is the website menu; `row` a row of items, `links` / `buttons`
- * (stored before plan 27k) a row with that style.
- */
-export const MENU_PRESENTATIONS = Object.freeze(['menu', 'row', 'links', 'buttons', 'icons', 'dropdown', 'expand']);
+// the rules of the settings are in shared/src/site/cmsMenu.js (no CSS: the designer forms import them, plan 27k §7)
+export { MENU_ANIMATIONS, MENU_EXPAND_ICON, MENU_PRESENTATIONS, MENU_STYLES, menuClass, menuLook, menuStyle } from '../../site/cmsMenu.js';
 
-/** Styles of the items of a menu (plan 27k §1); `plain` (the default) writes no class. */
-export const MENU_STYLES = Object.freeze(['plain', 'links', 'underline', 'pills', 'buttons', 'outline']);
-
-/** The button of an expanding action menu without its own icon (plan 27k §2). */
-export const MENU_EXPAND_ICON = 'fa-solid fa-share-nodes';
-
-/** Classes of the presentations (the others write none); `expand` is not `h-site-menu-expand`, the tree buttons. */
-const PRESENTATION_CLASSES = Object.freeze({ icons: 'h-site-menu-icons', dropdown: 'h-site-menu-dropdown', expand: 'h-site-menu-expanding' });
-
-/**
- * Presentation, style and orientation of a menu from its settings (PageRenderer::menuLook): a stored `links` / `buttons`
- * presentation is a row with that style.
- *
- * @param {object} settings
- * @returns {{presentation: string, style: string, orientation: string}}
- */
-export function menuLook(settings = {}) {
-  let presentation = MENU_PRESENTATIONS.includes(settings.presentation) ? settings.presentation : 'menu';
-  let style = MENU_STYLES.includes(settings.style) ? settings.style : 'plain';
-  if (presentation === 'links' || presentation === 'buttons') {
-    if (!MENU_STYLES.includes(settings.style)) style = presentation;
-    presentation = 'row';
-  }
-  const orientation = ['vertical', 'auto'].includes(settings.orientation) ? settings.orientation : 'horizontal';
-  return { presentation, style, orientation };
-}
-
-/**
- * Classes of a menu (PageRenderer::menuClass): orientation, presentation, style (none for a drop-down).
- *
- * @param {object} settings
- * @returns {string}
- */
-export function menuClass(settings = {}) {
-  const { presentation, style, orientation } = menuLook(settings);
-  return ['h-site-menu', orientation !== 'horizontal' ? `h-site-menu-${orientation}` : '', PRESENTATION_CLASSES[presentation] || '',
-    style !== 'plain' && presentation !== 'dropdown' ? `h-site-menu-style-${style}` : ''].filter(Boolean).join(' ');
-}
+/** Time of the animation of the full-screen menu (plan 27k §5, HMenu.css), ms. */
+const OVERLAY_MS = 300;
 
 /** Website menu or action menu of a v4 page. */
 export class HMenu extends HBaseWidget {
@@ -109,20 +74,24 @@ export class HMenu extends HBaseWidget {
     const written = this.container.querySelector?.('.h-site-menu');
     if (written) return this._activate(written);
     const settings = this.options.settings || {};
-    const { presentation } = menuLook(settings);
+    const { presentation, buttonText } = menuLook(settings);
     // a div: the host is the <nav> (one navigation landmark, review 2026-11-15)
     const nav = document.createElement('div');
     nav.className = menuClass(settings);
+    // the underline and the full-screen colours of the settings (review 2026-11-16)
+    const inline = menuStyle(settings);
+    if (inline) nav.setAttribute('style', inline);
+    // the website menu, not an action menu (PageRenderer::menuHtml; the shrunk header keeps it, plan 27k §4)
+    if (presentation === 'menu') nav.classList.add('h-site-menu-main');
     nav.setAttribute('data-h-label', this.options.label || 'Site menu');
     const items = [...(this.options.items || [])];
     if (settings.showHome && this.options.homeItem) items.unshift(this.options.homeItem);
-    if (['menu', 'dropdown', 'expand'].includes(presentation)) {
+    if (['menu', 'expand'].includes(presentation)) {
       const toggle = document.createElement('button');
       toggle.type = 'button';
       toggle.className = 'h-site-menu-toggle';
       toggle.setAttribute('aria-expanded', 'false');
-      if (presentation === 'dropdown') toggle.textContent = settings.label || $HR('Menu');
-      else if (presentation === 'expand') expandIcon(toggle, settings.icon, settings.label || $HR('Actions'));
+      if (presentation === 'expand') expandIcon(toggle, settings.icon, settings.label || $HR(buttonText ? 'Menu' : 'Actions'), buttonText);
       else menuIcon(toggle);
       nav.append(toggle);
     }
@@ -134,7 +103,8 @@ export class HMenu extends HBaseWidget {
   /** The menu button, the expanders of the tree (vertical, collapsed), the name of the navigation. */
   _activate(nav) {
     const toggle = [...nav.children].find((child) => child.classList?.contains('h-site-menu-toggle'));
-    // a drop-down or expanding action menu (plan 27k §2): its list opens over the page
+    // an action menu behind a button (plan 27k §2; h-site-menu-dropdown: a page written before 2026-11-16): its list
+    // opens over the page
     const popup = nav.classList.contains('h-site-menu-dropdown') || nav.classList.contains('h-site-menu-expanding');
     if (toggle) {
       if (!popup) menuIcon(toggle);
@@ -142,11 +112,22 @@ export class HMenu extends HBaseWidget {
         nav.classList.toggle('is-open', open);
         toggle.setAttribute('aria-expanded', String(open));
       };
+      // the full-screen website menu (plan 27k §5): the open collapsed menu over the whole window
+      const fullscreen = !popup && nav.classList.contains('h-site-menu-fullscreen');
+      if (fullscreen) {
+        this._toggle$ = toggle;
+        this._closeOverlay = () => {
+          setOpen(false);
+          this._showOverlay(nav, false);
+        };
+      }
       this.listen(toggle, 'click', () => {
         const open = !nav.classList.contains('is-open');
         setOpen(open);
         if (popup) {
           if (open) this._placeDropdown(nav);
+        } else if (fullscreen) {
+          this._showOverlay(nav, open && nav.classList.contains('is-narrow'));
         } else {
           this._showPanel(nav, open && nav.classList.contains('is-narrow'));
         }
@@ -163,9 +144,19 @@ export class HMenu extends HBaseWidget {
           setOpen(false);
           toggle.focus?.();
         });
-        if (nav.classList.contains('h-site-menu-expanding')) this.listen(nav, 'mouseenter', () => this._placeDropdown(nav));
+        if (nav.classList.contains('h-site-menu-expanding') && !nav.classList.contains('h-site-menu-open-click')) {
+          this.listen(nav, 'mouseenter', () => this._placeDropdown(nav));
+        }
       }
     }
+    // the drop-downs of a horizontal menu: to the left of their page near the right edge of the window (review 2026-11-16)
+    if (!popup) {
+      const place = (event) => this._placeSub(event.target?.closest?.('.h-site-menu-item.has-children'));
+      this.listen(nav, 'mouseover', place);
+      this.listen(nav, 'focusin', place);
+    }
+    // the home page: "Home" in the language of the page (review 2026-11-16; the server writes Home)
+    for (const text of nav.querySelectorAll?.('.h-site-menu-item.is-home .h-site-menu-text') || []) text.textContent = $HR('Home');
     // the website menu: a tree when vertical or collapsed (its expanders are shown then)
     if (toggle && !popup) this._expanders(nav);
     else if (nav.classList.contains('h-site-menu-vertical') || nav.classList.contains('h-site-menu-auto')) this._expanders(nav);
@@ -205,18 +196,21 @@ export class HMenu extends HBaseWidget {
     if (!list || !Observer) return;
     this._list$ = list;
     nav.classList.add('h-site-menu-fit');
+    // always collapsed (plan 27k §5): the menu button on every screen
+    const always = nav.classList.contains('h-site-menu-always-collapsed');
     const fit = () => {
-      if (this._fitting) return;
+      // the open full-screen menu has the list: measured again when it is closed
+      if (this._fitting || this._overlay) return;
       this._fitting = true;
       const open = nav.classList.contains('is-open');
       // measured in its place, shown in one row
       this._showPanel(nav, false);
       nav.classList.remove('is-narrow');
       const column = globalThis.getComputedStyle?.(list).flexDirection === 'column';
-      const narrow = !column && list.scrollWidth > list.clientWidth + 1;
+      const narrow = always || (!column && list.scrollWidth > list.clientWidth + 1);
       nav.classList.toggle('is-narrow', narrow);
       if (narrow && open) {
-        this._showPanel(nav, true);
+        if (!nav.classList.contains('h-site-menu-fullscreen')) this._showPanel(nav, true);
       } else if (open) {
         // the menu fits again: the open list is closed
         nav.classList.remove('is-open');
@@ -225,6 +219,7 @@ export class HMenu extends HBaseWidget {
       this._fitting = false;
     };
     fit();
+    this._fit = fit;
     this._observer?.disconnect?.();
     this._observer = new Observer(fit);
     this._observer.observe(this.container);
@@ -251,8 +246,10 @@ export class HMenu extends HBaseWidget {
     }
     if (this._panel) return;
     const panel = document.createElement('div');
-    // the classes of the menu: its look and its tree
+    // the classes of the menu: its look and its tree; its variables (line colour ...: the panel is outside the menu, review
+    // 2026-11-16: else the line took the text colour)
     panel.className = `${nav.className} h-site-menu-panel`;
+    if (nav.getAttribute('style')) panel.setAttribute('style', nav.getAttribute('style'));
     panel.setAttribute('role', 'navigation');
     panel.setAttribute('aria-label', $HR(nav.getAttribute('data-h-label') || this.options.label || 'Site menu'));
     const stop = nav.closest?.('.h-site-header') || null;
@@ -266,11 +263,92 @@ export class HMenu extends HBaseWidget {
     this._panel = panel;
   }
 
-  /** Stop observing the size; the list back from an open panel. */
+  /**
+   * The full-screen website menu (plan 27k §5): the list moves into an overlay over the whole window (a dialog with a
+   * close button; Esc, a link and the button close it; Tab stays inside; the page does not scroll behind it), shown
+   * with the animation of the menu (class h-site-menu-anim-*, CSS); back into the menu after it is closed.
+   *
+   * @param {HTMLElement} nav The menu.
+   * @param {boolean} show
+   */
+  _showOverlay(nav, show) {
+    const list = this._list$;
+    if (!list) return;
+    const doc = nav.ownerDocument || document;
+    if (!show) {
+      const overlay = this._overlay;
+      if (!overlay) return;
+      this._overlay = null;
+      doc.documentElement?.classList.remove('h-site-menu-locked');
+      overlay.classList.remove('is-open');
+      const panel = this._overlayPanel;
+      this._overlayPanel = null;
+      const finish = () => {
+        // not when it was opened again meanwhile (the list is in the new overlay)
+        if (list.parentElement === panel) nav.append(list);
+        overlay.remove();
+        this._fit?.();
+      };
+      const reduced = globalThis.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
+      if (reduced || typeof globalThis.setTimeout !== 'function') finish(); else globalThis.setTimeout(finish, OVERLAY_MS);
+      this._toggle$?.focus?.();
+      return;
+    }
+    if (this._overlay) return;
+    const label = $HR(nav.getAttribute('data-h-label') || this.options.label || 'Site menu');
+    const overlay = doc.createElement('div');
+    overlay.className = ['h-site-menu-overlay', ...['right', 'fade'].filter((name) => nav.classList.contains(`h-site-menu-anim-${name}`))
+      .map((name) => `h-site-menu-anim-${name}`), nav.closest?.('.h-site-header') ? 'h-site-menu-overlay-header' : ''].filter(Boolean).join(' ');
+    overlay.setAttribute('role', 'dialog');
+    overlay.setAttribute('aria-modal', 'true');
+    // the colours of the full-screen menu (review 2026-11-16): variables of the menu, the overlay is outside it
+    if (nav.getAttribute('style')) overlay.setAttribute('style', nav.getAttribute('style'));
+    overlay.setAttribute('aria-label', label);
+    const close = doc.createElement('button');
+    close.type = 'button';
+    close.className = 'h-site-menu-close';
+    close.title = $HR('Close');
+    close.setAttribute('aria-label', close.title);
+    close.innerHTML = '<i class="fa-solid fa-xmark" aria-hidden="true"></i>';
+    const panel = doc.createElement('div');
+    // the classes of the menu: its look and its tree
+    panel.className = `${nav.className} h-site-menu-panel`;
+    panel.append(list);
+    overlay.append(close, panel);
+    (doc.body || nav.parentElement).append(overlay);
+    this._overlay = overlay;
+    this._overlayPanel = panel;
+    doc.documentElement?.classList.add('h-site-menu-locked');
+    this.listen(close, 'click', () => this._closeOverlay?.());
+    // a link closes it (the page opens, or the navigator of swap / scroll shows it)
+    this.listen(overlay, 'click', (event) => {
+      if (event.target?.closest?.('a[href]')) this._closeOverlay?.();
+    });
+    this.listen(overlay, 'keydown', (event) => {
+      if (event.key === 'Escape') {
+        event.preventDefault?.();
+        this._closeOverlay?.();
+      } else if (event.key === 'Tab') {
+        trapFocus(overlay, event);
+      }
+    });
+    // the start of its animation: the class after it is in the page
+    const start = () => overlay.classList.add('is-open');
+    if (typeof globalThis.requestAnimationFrame === 'function') globalThis.requestAnimationFrame(start); else start();
+    close.focus?.();
+  }
+
+  /** Stop observing the size; the list back from an open panel or full-screen menu. */
   destroy() {
     this._observer?.disconnect?.();
-    const nav = this._panel && this.container?.querySelector?.('.h-site-menu');
+    const nav = (this._panel || this._overlay) && this.container?.querySelector?.('.h-site-menu');
     if (nav) this._showPanel(nav, false);
+    if (this._overlay) {
+      if (nav && this._list$) nav.append(this._list$);
+      this._overlay.ownerDocument?.documentElement?.classList.remove('h-site-menu-locked');
+      this._overlay.remove();
+      this._overlay = null;
+    }
     this._panel?.remove();
     super.destroy?.();
   }
@@ -287,6 +365,23 @@ export class HMenu extends HBaseWidget {
     const width = globalThis.innerWidth || document.documentElement?.clientWidth || 0;
     const box = list.getBoundingClientRect();
     if (width && box.right > width && nav.getBoundingClientRect().right - box.width >= 0) nav.classList.add('is-end');
+  }
+
+  /**
+   * A drop-down of a horizontal menu (a sub menu shown on hover / focus): opened to the left of its page (class is-end)
+   * when it would leave the window on the right and there is room on the left; deeper levels the same way. Not in a tree.
+   *
+   * @param {HTMLElement|null} item An item with sub pages.
+   */
+  _placeSub(item) {
+    const sub = item && [...item.children].find((child) => child.classList?.contains('h-site-menu-sub'));
+    if (!sub?.getBoundingClientRect) return;
+    item.classList.remove('is-end');
+    const width = globalThis.innerWidth || document.documentElement?.clientWidth || 0;
+    const box = sub.getBoundingClientRect();
+    if (!width || !box.width || globalThis.getComputedStyle?.(sub).position !== 'absolute') return;
+    const left = item.getBoundingClientRect().right - box.width;
+    if (box.right > width && left >= 0) item.classList.add('is-end');
   }
 
   /**
@@ -316,6 +411,32 @@ export class HMenu extends HBaseWidget {
     }
   }
 
+  /** The form of a search box in the designer's draft (PageRenderer::searchForm without its target). */
+  _searchForm(item) {
+    const form = document.createElement('form');
+    form.className = 'h-site-search';
+    form.setAttribute('role', 'search');
+    const placeholder = String(item.search.placeholder || '').trim() || $HR('Search');
+    const input = document.createElement('input');
+    input.type = 'search';
+    input.className = 'h-site-search-input';
+    input.name = `v.${item.search.param}`;
+    input.placeholder = placeholder;
+    input.setAttribute('aria-label', placeholder);
+    const button = document.createElement('button');
+    button.type = 'submit';
+    button.className = 'h-site-search-button';
+    button.title = placeholder;
+    button.setAttribute('aria-label', placeholder);
+    const glyph = document.createElement('i');
+    glyph.className = item.fa || 'fa-solid fa-magnifying-glass';
+    glyph.setAttribute('aria-hidden', 'true');
+    button.append(glyph);
+    form.append(input, button);
+    this.listen(form, 'submit', (event) => event.preventDefault());
+    return form;
+  }
+
   /** A list of menu items with all their sub items (PageRenderer::menuList). */
   _list(items, className, selectableParent) {
     const list = document.createElement('ul');
@@ -323,7 +444,15 @@ export class HMenu extends HBaseWidget {
     for (const item of items) {
       const entry = document.createElement('li');
       entry.className = 'h-site-menu-item';
+      if (item.search) {
+        // a search box of an action menu (plan 27k §6, PageRenderer::searchForm): the draft of the designer sends nothing
+        entry.classList.add('h-site-menu-search');
+        entry.append(this._searchForm(item));
+        list.append(entry);
+        continue;
+      }
       if (item.hidden) entry.classList.add('is-menu-hidden');
+      if (item.home) entry.classList.add('is-home');
       const children = item.children || [];
       let target;
       if (children.length && !selectableParent) {
@@ -376,7 +505,8 @@ export function actionMenuItems(settings = {}, { language = '', pageUrl = () => 
   for (const item of Array.isArray(settings.items) ? settings.items : []) {
     if (!item || typeof item !== 'object') continue;
     const entry = {
-      title: item.labels?.[language] ?? item.label ?? '', url: '#', fa: /^[a-z0-9 -]{1,80}$/.test(item.icon || '') ? item.icon : '',
+      // fa-solid when the icon has no style (review 2026-11-16)
+      title: item.labels?.[language] ?? item.label ?? '', url: '#', fa: faIcon(item.icon),
       format: item.iconOnly ? 'icon' : 'name', newTab: Boolean(item.newTab), children: []
     };
     if (item.action === 'page') entry.url = pageUrl(Number(item.target)) || '#';
@@ -387,6 +517,8 @@ export function actionMenuItems(settings = {}, { language = '', pageUrl = () => 
     else if (item.action === 'back') Object.assign(entry, { url: '#', action: 'back' });
     // Saved filter (plan 27j): a link of the server; in the designer's draft only shown
     else if (item.action === 'savedFilter') entry.url = '#';
+    // a search box (plan 27k §6): a form of the server; in the designer's draft only shown
+    else if (item.action === 'search') entry.search = { param: String(item.param || ''), placeholder: entry.title };
     else continue;
     items.push(entry);
   }
@@ -417,23 +549,51 @@ function menuLabel(item) {
   return nodes;
 }
 
+/** Keep Tab inside a dialog: from the last focusable element to the first and back (Shift+Tab). */
+function trapFocus(dialog, event) {
+  const items = [...dialog.querySelectorAll('a[href], button')].filter((item) => !item.disabled && item.offsetParent !== null);
+  if (!items.length) return;
+  const active = dialog.ownerDocument?.activeElement;
+  const [first, last] = [items[0], items.at(-1)];
+  if (event.shiftKey && active === first) {
+    event.preventDefault();
+    last.focus();
+  } else if (!event.shiftKey && active === last) {
+    event.preventDefault();
+    first.focus();
+  }
+}
+
 function hasCurrent(items) {
   return items.some((item) => item.current || hasCurrent(item.children || []));
 }
 
 /**
- * The button of an expanding action menu (plan 27k §2, PageRenderer::actionMenuHtml): its icon, its name as the rollover
- * and for screen readers.
+ * The button of an action menu behind a button (plan 27k §2, PageRenderer::actionMenuHtml): its icon, its name shown
+ * (`text`, review 2026-11-16: the former drop-down) or as the rollover, and for screen readers. Without an icon and
+ * name: MENU_EXPAND_ICON.
  *
  * @param {HTMLButtonElement} toggle
- * @param {string} icon Font Awesome classes (else MENU_EXPAND_ICON).
+ * @param {string} icon Font Awesome classes.
  * @param {string} label
+ * @param {boolean} [text] The name on the button.
  */
-function expandIcon(toggle, icon, label) {
-  const glyph = document.createElement('i');
-  glyph.className = /^[a-z0-9 -]{1,80}$/.test(icon || '') && String(icon).includes('fa-') ? icon : MENU_EXPAND_ICON;
-  glyph.setAttribute('aria-hidden', 'true');
-  toggle.replaceChildren(glyph);
+function expandIcon(toggle, icon, label, text = false) {
+  const nodes = [];
+  const valid = faIcon(icon);
+  if (valid || !text) {
+    const glyph = document.createElement('i');
+    glyph.className = valid || MENU_EXPAND_ICON;
+    glyph.setAttribute('aria-hidden', 'true');
+    nodes.push(glyph);
+  }
+  if (text) {
+    const name = document.createElement('span');
+    name.className = 'h-site-menu-toggle-text';
+    name.textContent = label;
+    nodes.push(name);
+  }
+  toggle.replaceChildren(...nodes);
   toggle.title = label;
   toggle.setAttribute('aria-label', label);
 }

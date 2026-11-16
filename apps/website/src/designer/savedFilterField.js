@@ -191,11 +191,12 @@ export function savedFilterSummary(value, { sources = [], pages = [] } = {}) {
  * @param {object} services `querySources()` → [{id, title}] (public ones), `querySourceDefinition(id)` → the normalized
  *        query source, `filterPages()` → filterPageTerms, `apiClient`, `dbdefs`, `selectExtent` (the Filter Form).
  * @param {{source?: number, page?: number, values?: object}|null} [value]
- * @param {{recordFields?: (() => Promise<Array<{id: string, label: string}>>)|null}} [options] A record context (phase
- *        B): the fields offered as values from the record.
- * @returns {Promise<{source: number, page: number, values: object}|null>}
+ * @param {{recordFields?: (() => Promise<Array<{id: string, label: string}>>)|null, search?: boolean}} [options] A record
+ *        context (phase B): the fields offered as values from the record; `search` a search box (plan 27k §6): the
+ *        parameter that takes the typed text (`param` of the answer), no value needed.
+ * @returns {Promise<{source: number, page: number, values: object, param?: string}|null>}
  */
-export async function openSavedFilterForm(services, value = null, { recordFields = null } = {}) {
+export async function openSavedFilterForm(services, value = null, { recordFields = null, search = false } = {}) {
   const sources = await services.querySources?.().catch(() => []) ?? [];
   const pages = services.filterPages?.() || [];
   const form = element('form', 'h-cms-form h-cms-saved-filter-form');
@@ -242,6 +243,7 @@ export async function openSavedFilterForm(services, value = null, { recordFields
     state.form = null;
     state.definition = null;
     state.parameters = [];
+    state.param = null;
     valuesHost.replaceChildren();
     recordHost.replaceChildren();
     state.references = new Map();
@@ -260,9 +262,24 @@ export async function openSavedFilterForm(services, value = null, { recordFields
     showReferences(references);
     if (!state.parameters.length) {
       const note = element('div', 'h-cms-style-note');
-      note.textContent = $HR('This query source has no parameters.');
+      note.textContent = $HR(search ? 'This query source has no parameters: a search box needs one.' : 'This query source has no parameters.');
       valuesHost.append(note);
       return;
+    }
+    if (search) {
+      // a search box (plan 27k §6): the parameter that takes the typed text; only text, number and date parameters
+      // (review 2026-11-16: not terms, places, records or ranges)
+      const described = describeQueryParameters(definition.source.query, services.dbdefs) || {};
+      const typed = searchParameters(described, services.dbdefs).filter((name) => state.parameters.includes(name));
+      if (!typed.length) {
+        const note = element('div', 'h-cms-style-note');
+        note.textContent = $HR('A search box needs a parameter of a text, number or date field: this query source has none.');
+        valuesHost.append(note);
+      } else {
+        state.param = select(typed.map((name) => [name, described[name]?.label ? `${described[name].label} (${name})` : name]),
+          typed.includes(value?.param) ? value.param : typed[0]);
+        valuesHost.append(line('The typed text is the value of', state.param));
+      }
     }
     const caption = element('div', 'h-cms-saved-filter-caption');
     caption.textContent = $HR('Values');
@@ -296,10 +313,18 @@ export async function openSavedFilterForm(services, value = null, { recordFields
     }
     const result = { source: Number(source.value) || 0, page: Number(page.value) || 0, values };
     const target = pages.find((item) => item.id === result.page);
-    const issue = savedFilterIssue(result, { parameters: state.parameters, explorer: target ? target.explorer : null });
+    // a search box: the typed text is a value, none is needed here
+    const issue = search && result.source && !state.param?.value ? $HR('A search box needs a query source with a parameter')
+      : savedFilterIssue(result, { parameters: state.parameters, explorer: search ? true : target ? target.explorer : null });
     if (issue) {
       problems.textContent = issue;
       return null;
+    }
+    if (search) {
+      // a stored value of the typed parameter is left out (the typed text replaces it)
+      const settings = cmsFilterSettings(result);
+      delete settings.values?.[state.param.value];
+      return { ...settings, param: state.param.value };
     }
     return cmsFilterSettings(result);
   };
@@ -314,7 +339,7 @@ export async function openSavedFilterForm(services, value = null, { recordFields
  * @param {object|null} [value] `{source, page, values}`.
  * @returns {{element: HTMLElement, value: () => object|null}}
  */
-export function savedFilterPicker(services, value = null, { recordFields = null } = {}) {
+export function savedFilterPicker(services, value = null, { recordFields = null, search = false } = {}) {
   let current = value && Number(value.source) > 0 ? value : null;
   const host = element('span', 'h-cms-saved-filter');
   const text = element('span', 'h-cms-saved-filter-text');
@@ -327,7 +352,7 @@ export function savedFilterPicker(services, value = null, { recordFields = null 
     text.textContent = current ? savedFilterSummary(current, await names(services)) : $HR('Not defined');
   };
   edit.addEventListener('click', async () => {
-    const answer = await openSavedFilterForm(services, current, { recordFields });
+    const answer = await openSavedFilterForm(services, current, { recordFields, search });
     if (!answer) return;
     current = answer;
     await show();
@@ -381,8 +406,41 @@ export function savedFilterField(showWhen) {
   return { name: 'savedFilter', type: 'freetext', label: 'Saved filter', max: 1, readOnly: true, showWhen };
 }
 
-/** A Saved filter of stored settings (`{source, page|target, values}`), or null. */
+/** Field types whose value can be typed into a search box (review 2026-11-16). */
+const SEARCH_FIELD_TYPES = Object.freeze(['freetext', 'blocktext', 'integer', 'float', 'year', 'numeric', 'date']);
+
+/** Predicates without a field whose value can be typed into a search box: title, ids, URL, notes, dates of the record. */
+const SEARCH_PREDICATES = Object.freeze(['title', 'id', 'ids', 'url', 'notes', 'added', 'modified']);
+
+/**
+ * The parameters of a query source that a search box can take (review 2026-11-16): a text, number or date, of a field of
+ * such a type (not a term, a place, a record pointer or a file) or of the title, ids, URL, notes, added and modified
+ * dates; not a part of a range (two inputs).
+ *
+ * @param {Object<string, object>} described describeQueryParameters().
+ * @param {object} [dbdefs] HDbDefs (the type of a field).
+ * @returns {string[]} Parameter names.
+ */
+export function searchParameters(described = {}, dbdefs = null) {
+  const ends = new Set(Object.values(described).map((item) => item?.endInput).filter(Boolean));
+  return Object.entries(described).filter(([name, item]) => {
+    if (!item || ends.has(name) || item.range || !['text', 'number', 'date'].includes(item.type)) return false;
+    // a text of a term (f:N:label ...) or the count of values: a typed value is fine
+    if (item.enumPart || item.count) return true;
+    if (item.fieldId) {
+      const type = dbdefs?.fieldGlobal?.(Number(item.fieldId))?.type;
+      return !type || SEARCH_FIELD_TYPES.includes(type);
+    }
+    return SEARCH_PREDICATES.includes(item.predicate);
+  }).map(([name]) => name);
+}
+
+/**
+ * A Saved filter of stored settings (`{source, page|target, values}`), or null; a search box (action `search`, plan 27k
+ * §6) with its `param`, the value of the typed text.
+ */
 export function storedSavedFilter(settings = {}) {
+  if (settings?.action === 'search') return { ...cmsFilterSettings(settings), param: String(settings.param || '') };
   return settings?.action === 'savedFilter' ? cmsFilterSettings(settings) : null;
 }
 

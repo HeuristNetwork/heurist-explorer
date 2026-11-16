@@ -36,6 +36,21 @@ function documentOf() {
   return new CmsRecordDocument({ parts: { content: CONTENT }, config: CONFIG, translations: { fre: { t1: '<p>Un</p>', t2: '<p>Trois</p>' } } });
 }
 
+test('tabs (plan 27k §3): orientation and style as attributes, defaults not written', () => {
+  const doc = documentOf();
+  const tabs = doc.insertElement('content', 'tabs', { id: null, position: 'inside' });
+  assert.deepEqual(doc.tabsLook(tabs), { orientation: 'horizontal', style: 'tabs' });
+  assert.equal(doc.tabsLook('g1'), null, 'a group is not tabs');
+  assert.equal(doc.setTabsLook(tabs, { orientation: 'vertical', style: 'pills' }), true);
+  assert.deepEqual(doc.tabsLook(tabs), { orientation: 'vertical', style: 'pills' });
+  assert.match(doc.html('content'), /data-h-orientation="vertical"/);
+  assert.match(doc.html('content'), /data-h-item-style="pills"/);
+  assert.equal(doc.setTabsLook(tabs, { orientation: 'vertical', style: 'pills' }), false, 'no change');
+  assert.equal(doc.setTabsLook(tabs, { orientation: 'horizontal', style: 'evil' }), true);
+  assert.doesNotMatch(doc.html('content'), /data-h-orientation|data-h-item-style/, 'defaults and unknown values remove the attributes');
+  assert.equal(doc.setTabsLook('g1', { orientation: 'vertical' }), false);
+});
+
 test('parse and serialize keep the HTML (text blocks and hosts as they are)', () => {
   assert.equal(serializeCmsHtml(parseCmsHtml(CONTENT)), CONTENT);
   const tolerant = serializeCmsHtml(parseCmsHtml('<div data-h-node="a"><img src="x.png"><span>open'));

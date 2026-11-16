@@ -4,7 +4,7 @@ import { installFakeDom, flush } from '../../../shared/test/helpers/fakeDom.js';
 
 const document = installFakeDom();
 globalThis.Event ??= class Event { constructor(type) { this.type = type; } };
-const { attachHeaderToggle, enhanceBackgroundVideos, enhanceTabs, startSite } = await import('../src/siteRuntime.js');
+const { attachHeaderShrink, attachHeaderToggle, HEADER_SHRINK_BACK, enhanceBackgroundVideos, enhanceTabs, startSite } = await import('../src/siteRuntime.js');
 
 /** An element with attributes and children. */
 function element(tag, attributes = {}, ...children) {
@@ -141,6 +141,43 @@ test('language switch (plan 27f §5): links, a select for appearance select, not
   new HLangSwitch().attach(single, { languages: [languages[0]], language: 'eng' }).render();
   assert.equal(single.hidden, true);
   assert.equal(single.children.length, 0);
+});
+
+test('shrink on scroll (plan 27k §4): small below the header height, back near the top, not on a short page', () => {
+  const header = element('header');
+  header.className = 'h-site-header';
+  header.offsetHeight = 100;
+  const body = element('div', {}, header);
+  body.className = 'h-site-header-shrink';
+  const listeners = {};
+  const win = {
+    scrollY: 0, innerHeight: 800,
+    addEventListener: (type, handler) => { listeners[type] = handler; },
+    removeEventListener: (type) => { delete listeners[type]; }
+  };
+  // a long page
+  const doc = { documentElement: { scrollHeight: 3000 } };
+  const stop = attachHeaderShrink(body, { win, doc });
+  const scroll = (y) => {
+    win.scrollY = y;
+    listeners.scroll();
+  };
+  scroll(60);
+  assert.ok(!body.classList.contains('h-site-header-shrunk'), 'not yet past the header');
+  scroll(150);
+  assert.ok(body.classList.contains('h-site-header-shrunk'));
+  scroll(40);
+  assert.ok(body.classList.contains('h-site-header-shrunk'), 'stays small until near the top');
+  scroll(HEADER_SHRINK_BACK - 1);
+  assert.ok(!body.classList.contains('h-site-header-shrunk'));
+  scroll(150);
+  stop();
+  assert.ok(!body.classList.contains('h-site-header-shrunk'), 'stopped: the header grows again');
+  assert.equal(listeners.scroll, undefined);
+  // a page not much longer than the window keeps its header
+  attachHeaderShrink(body, { win, doc: { documentElement: { scrollHeight: 1000 } } });
+  scroll(150);
+  assert.ok(!body.classList.contains('h-site-header-shrunk'), 'a short page');
 });
 
 test('slide out header (plan 27f §13): a button collapses and expands it, the choice is kept', () => {

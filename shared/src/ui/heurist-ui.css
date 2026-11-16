@@ -72,6 +72,13 @@ h4 { font-weight: bolder; }
   padding: 4px 8px;
 }
 
+/* placeholders (hints such as "e.g. 300px", "(default)") lighter than a value (2026-11-16): the muted text colour,
+   faded; opacity 1 because Firefox fades placeholders by itself */
+:is(input, textarea)::placeholder {
+  color: color-mix(in srgb, var(--h-color-text-muted) 60%, transparent);
+  opacity: 1;
+}
+
 /* compact controls of small toolbars and side panes: the height follows the font size
    (1.25em + 2px padding + 2px border), so a select, a combobox button and a chip of the
    same font are equally high */

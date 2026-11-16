@@ -217,10 +217,10 @@ export class CmsPreview {
   }
 
   /** Compile the styles again into the page. */
-  restyle({ base = {}, nodes = [], kinds = [], presets = [], page = null }) {
+  restyle({ base = {}, nodes = [], kinds = [], presets = [], page = null, parts = null }) {
     const doc = this.win?.document;
     const element = doc?.getElementById('h-site-styles');
-    if (element) element.textContent = `\n${compileCmsStyles(base, nodes, this.options.baseUrl || '', { kinds, presets, page }).css}`;
+    if (element) element.textContent = `\n${compileCmsStyles(base, nodes, this.options.baseUrl || '', { kinds, presets, page, parts }).css}`;
     // the page styles of the server (below the section, plan 27f) are in the draft now
     doc?.getElementById('h-page-styles')?.remove();
   }

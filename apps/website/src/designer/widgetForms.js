@@ -28,7 +28,8 @@ import { RecordStructureProvider } from '#shared/recordview/RecordStructureProvi
 import { HEditForm } from '#shared/widgets/edit-form/HEditForm.js';
 import { openEditFormDialog } from '#shared/widgets/edit-form/editFormDialog.js';
 import { formDialog } from './designerDialogs.js';
-import { ITEM_STYLES } from './actionForms.js';
+import { ITEM_STYLES, MENU_LINE_FIELDS, menuLineSettings, menuLineValues } from './actionForms.js';
+import { MENU_ANIMATIONS, MENU_COLOR } from '#shared/site/cmsMenu.js';
 import {
   attachNewRecordPage, recordActionFields, recordActionIssues, recordActionSettings, recordActionTerms, recordActionValues
 } from './recordPageField.js';
@@ -1029,7 +1030,33 @@ export async function openReportForm({ settings = {}, languages = [], services }
 }
 
 /**
- * Settings of the website menu (plan 27f §4): orientation, Home entry, whether a page with sub pages opens.
+ * Settings of the breadcrumbs (plan 27k §6): `mode` path (default, not written) or history.
+ *
+ * @param {{settings?: object}} options
+ * @returns {Promise<object|null>}
+ */
+export function openBreadcrumbsForm({ settings = {} } = {}) {
+  return openEditFormDialog({
+    title: 'Breadcrumbs',
+    form: {
+      groups: [{
+        id: 'main',
+        children: [
+          { name: 'mode', type: 'enum', label: 'Show', mode: 'radio', max: 1,
+            terms: [{ id: 'path', label: 'The path of the page: Home › Section › Page' },
+              { id: 'history', label: 'History: the record pages visited before' }] }
+        ]
+      }]
+    },
+    values: { mode: settings.mode === 'history' ? 'history' : 'path' },
+    onReady: (edit) => addFormHelp(edit, 'On a record page the record is the last entry. History keeps the record pages the visitor opened on'
+      + ' this website (in this browser tab); before the first one, and without JavaScript, the path is shown.')
+  }).then((values) => (values ? (values.mode === 'history' ? { mode: 'history' } : {}) : null));
+}
+
+/**
+ * Settings of the website menu (plan 27f §4): orientation, Home entry, whether a page with sub pages opens; style of the
+ * items (plan 27k §1); the collapsed menu below the header or full screen with its animation, always collapsed (§5).
  *
  * @param {{settings?: object}} options
  * @returns {Promise<object|null>} The settings (default values left out).
@@ -1047,27 +1074,64 @@ export function openMenuForm({ settings = {} } = {}) {
           // the look of the items of the first level (plan 27k §1)
           { name: 'style', type: 'enum', label: 'Style of the items', max: 1,
             terms: ITEM_STYLES.map(([id, label]) => ({ id, label })) },
+          // the line of the underline style (review 2026-11-16)
+          ...MENU_LINE_FIELDS,
           { name: 'showHome', type: 'boolean', label: 'Show Home', help: 'The home page as the first entry of the menu', max: 1 },
           { name: 'selectableParent', type: 'boolean', label: 'Pages with sub pages open', max: 1,
-            help: 'Unchecked: the title of such a page only opens its sub pages' }
+            help: 'Unchecked: the title of such a page only opens its sub pages' },
+          // the collapsed menu (plan 27k §5): below the header row, or over the whole window with an animation
+          { name: 'collapse', type: 'enum', label: 'Open collapsed menu', mode: 'radio', max: 1,
+            help: 'The menu collapses behind its button when it does not fit (narrow screens)',
+            terms: [{ id: 'panel', label: 'Below the header' }, { id: 'fullscreen', label: 'Full screen' }] },
+          { name: 'animation', type: 'enum', label: 'Animation', max: 1, showWhen: { collapse: 'fullscreen' },
+            terms: [{ id: 'down', label: 'Slide down' }, { id: 'right', label: 'Slide in from the right' }, { id: 'fade', label: 'Fade in' }] },
+          // the colours of the full-screen menu (review 2026-11-16); empty: the colours of the page
+          { name: 'overlayBg', type: 'color', label: 'Background of the full-screen menu', max: 1, showWhen: { collapse: 'fullscreen' } },
+          { name: 'overlayText', type: 'color', label: 'Text colour of the full-screen menu', max: 1, showWhen: { collapse: 'fullscreen' } },
+          { name: 'alwaysCollapsed', type: 'boolean', label: 'Always collapsed', max: 1,
+            help: 'The menu button on every screen, also when the menu fits' },
+          // the pages of the menu (plan 27k §6, the last option since 2026-11-16): the whole website or the section of the page
+          { name: 'scope', type: 'enum', label: 'Pages', mode: 'radio', max: 1,
+            terms: [{ id: 'site', label: 'All pages of the website' },
+              { id: 'section', label: 'The section of the page: its sub pages, else its parent and the pages beside it; on the home page'
+                + ' and on a page of the first level without sub pages: the pages of the first level' }] }
         ]
       }]
     },
     values: {
+      scope: settings.scope === 'section' ? 'section' : 'site',
       orientation: ['vertical', 'auto'].includes(settings.orientation) ? settings.orientation : 'horizontal',
       style: ITEM_STYLES.some(([id]) => id === settings.style) ? settings.style : 'plain',
       showHome: settings.showHome === true,
-      selectableParent: settings.selectableParent !== false
+      selectableParent: settings.selectableParent !== false,
+      collapse: settings.collapse === 'fullscreen' ? 'fullscreen' : 'panel',
+      animation: MENU_ANIMATIONS.includes(settings.animation) ? settings.animation : MENU_ANIMATIONS[0],
+      ...menuLineValues(settings),
+      overlayBg: settings.overlayBg || '',
+      overlayText: settings.overlayText || '',
+      alwaysCollapsed: settings.alwaysCollapsed === true
     },
     onReady: (edit) => addFormHelp(edit, 'The pages of the website in the order of the website tree. The icon of a page and whether the'
       + ' menu shows its name, its icon or both are fields of the page record (Edit record in the website tree).')
   }).then((values) => {
     if (!values) return null;
     const result = {};
+    if (values.scope === 'section') result.scope = 'section';
     if (['vertical', 'auto'].includes(values.orientation)) result.orientation = values.orientation;
     if (ITEM_STYLES.some(([id]) => id === values.style) && values.style !== 'plain') result.style = values.style;
     if (values.showHome === true) result.showHome = true;
     if (values.selectableParent === false) result.selectableParent = false;
+    // defaults are not written; the animation only for the full-screen menu
+    Object.assign(result, menuLineSettings(values));
+    if (values.collapse === 'fullscreen') {
+      result.collapse = 'fullscreen';
+      if (MENU_ANIMATIONS.includes(values.animation) && values.animation !== MENU_ANIMATIONS[0]) result.animation = values.animation;
+      for (const key of ['overlayBg', 'overlayText']) {
+        const colour = String(values[key] || '').trim();
+        if (colour && MENU_COLOR.test(colour)) result[key] = colour;
+      }
+    }
+    if (values.alwaysCollapsed === true) result.alwaysCollapsed = true;
     return result;
   });
 }

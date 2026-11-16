@@ -44,10 +44,19 @@ export const CMS_PARTS = Object.freeze(['header', 'content', 'footer']);
 /** Controls that take children (plan 27c §5.1). */
 export const CMS_CONTROLS = Object.freeze(['group', 'tabs', 'accordion']);
 
+/**
+ * Styles of tabs (plan 27k §3, `data-h-item-style`; StoredText allows the same): `tabs` (the default, no attribute) and
+ * the item styles of the menus.
+ */
+export const CMS_TAB_STYLES = Object.freeze(['tabs', 'links', 'underline', 'pills', 'buttons', 'outline']);
+
+/** Reveal on scroll of an element (plan 27k §6, `data-h-reveal`; StoredText allows the same). */
+export const CMS_REVEALS = Object.freeze(['fade', 'up']);
+
 /** Elements the designer can add (§5.2). */
 export const CMS_ELEMENTS = Object.freeze(['text', 'media', 'group', 'columns2', 'columns3', 'tabs', 'accordion', 'explorer',
   'data', 'map', 'timeline', 'graph', 'recordview', 'menu', 'report', 'cards', 'gallery', 'headerSet', 'field', 'language',
-  'actionmenu', 'social', 'badges', 'siteFooter', 'email']);
+  'actionmenu', 'social', 'badges', 'siteFooter', 'email', 'breadcrumbs']);
 
 /**
  * Fields of the website record in the header default set (plan 27f §13): logo, title, subtitle (concept codes of
@@ -821,6 +830,28 @@ export class CmsRecordDocument {
     if (isMap(style) && Object.keys(style).length) this.config.styles.page = clone(style); else delete this.config.styles.page;
   }
 
+  /**
+   * Own style of the header or footer (`styles.header` / `styles.footer` of the website record, review 2026-11-16: the
+   * root of the part as the page is the root of the content; a copy), or {}.
+   *
+   * @param {'header'|'footer'} part
+   * @returns {object}
+   */
+  partStyle(part) {
+    return clone(['header', 'footer'].includes(part) && isMap(this.config.styles[part]) ? this.config.styles[part] : {});
+  }
+
+  /**
+   * Set the own style of the header or footer; an empty style removes it.
+   *
+   * @param {'header'|'footer'} part
+   * @param {object} style
+   */
+  setPartStyle(part, style) {
+    if (!['header', 'footer'].includes(part)) return;
+    if (isMap(style) && Object.keys(style).length) this.config.styles[part] = clone(style); else delete this.config.styles[part];
+  }
+
   /** The background video of a group (`data-h-bg-video`, the key of a registered file, plan 27i §9 D), or ''. */
   backgroundVideo(id) {
     return attr(this.find(id)?.node, 'data-h-bg-video') || '';
@@ -834,6 +865,87 @@ export class CmsRecordDocument {
     if (value && !/^[A-Za-z0-9]+$/.test(value)) return false;
     if (value) setAttr(node, 'data-h-bg-video', value); else removeAttr(node, 'data-h-bg-video');
     return true;
+  }
+
+  /**
+   * Orientation and style of tabs (plan 27k §3): `data-h-orientation` (`vertical`, else horizontal) and
+   * `data-h-item-style` (an item style of the menus, else `tabs`).
+   *
+   * @param {string} id Tabs.
+   * @returns {{orientation: string, style: string}|null} Null when the node is not tabs.
+   */
+  tabsLook(id) {
+    const node = this.find(id)?.node;
+    if (!node || attr(node, 'data-h-control') !== 'tabs') return null;
+    const style = attr(node, 'data-h-item-style');
+    return { orientation: attr(node, 'data-h-orientation') === 'vertical' ? 'vertical' : 'horizontal',
+      style: CMS_TAB_STYLES.includes(style) ? style : 'tabs' };
+  }
+
+  /**
+   * Set the orientation and style of tabs; the defaults (horizontal, tabs) remove the attributes.
+   *
+   * @param {string} id Tabs.
+   * @param {{orientation?: string, style?: string}} look
+   * @returns {boolean} Whether something changed.
+   */
+  setTabsLook(id, { orientation = 'horizontal', style = 'tabs' } = {}) {
+    const node = this.find(id)?.node;
+    if (!node || attr(node, 'data-h-control') !== 'tabs') return false;
+    const before = JSON.stringify(this.tabsLook(id));
+    if (orientation === 'vertical') setAttr(node, 'data-h-orientation', 'vertical'); else removeAttr(node, 'data-h-orientation');
+    if (style !== 'tabs' && CMS_TAB_STYLES.includes(style)) setAttr(node, 'data-h-item-style', style); else removeAttr(node, 'data-h-item-style');
+    return JSON.stringify(this.tabsLook(id)) !== before;
+  }
+
+  /**
+   * Options of an accordion (plan 27k §6): `multiple` several sections open at a time (`data-h-multiple`; default one),
+   * `firstOpen` the first section open at start (`data-h-first-open`).
+   *
+   * @param {string} id Accordion.
+   * @returns {{multiple: boolean, firstOpen: boolean}|null} Null when the node is not an accordion.
+   */
+  accordionLook(id) {
+    const node = this.find(id)?.node;
+    if (!node || attr(node, 'data-h-control') !== 'accordion') return null;
+    return { multiple: attr(node, 'data-h-multiple') === 'true', firstOpen: attr(node, 'data-h-first-open') === 'true' };
+  }
+
+  /**
+   * Set the options of an accordion; false removes the attribute.
+   *
+   * @param {string} id Accordion.
+   * @param {{multiple?: boolean, firstOpen?: boolean}} look
+   * @returns {boolean} Whether something changed.
+   */
+  setAccordionLook(id, { multiple = false, firstOpen = false } = {}) {
+    const node = this.find(id)?.node;
+    if (!node || attr(node, 'data-h-control') !== 'accordion') return false;
+    const before = JSON.stringify(this.accordionLook(id));
+    if (multiple) setAttr(node, 'data-h-multiple', 'true'); else removeAttr(node, 'data-h-multiple');
+    if (firstOpen) setAttr(node, 'data-h-first-open', 'true'); else removeAttr(node, 'data-h-first-open');
+    return JSON.stringify(this.accordionLook(id)) !== before;
+  }
+
+  /** Reveal on scroll of a node (plan 27k §6, `data-h-reveal`): `fade`, `up` or ''. */
+  reveal(id) {
+    const value = attr(this.find(id)?.node, 'data-h-reveal');
+    return CMS_REVEALS.includes(value) ? value : '';
+  }
+
+  /**
+   * Set reveal on scroll of a node; '' (or an unknown value) removes it.
+   *
+   * @param {string} id
+   * @param {string} value `fade` | `up` | ''.
+   * @returns {boolean} Whether something changed.
+   */
+  setReveal(id, value) {
+    const node = this.find(id)?.node;
+    if (!node) return false;
+    const before = this.reveal(id);
+    if (CMS_REVEALS.includes(value)) setAttr(node, 'data-h-reveal', value); else removeAttr(node, 'data-h-reveal');
+    return this.reveal(id) !== before;
   }
 
   /** Set the preset of a node (`data-h-style`); null removes it. */
@@ -985,10 +1097,12 @@ export class CmsRecordDocument {
         this._nodeStyles()[nodeId] = { 'min-height': '0' };
         return element$(element === 'language' ? 'div' : 'nav', [['data-h-node', nodeId], ['data-h-instance', instanceId]], '');
       }
-      case 'menu': {
+      case 'menu':
+      case 'breadcrumbs': {
+        // the website menu; breadcrumbs (plan 27k §6): a navigation written by the server too
         const instanceId = id('i');
         const nodeId = id('n');
-        this.config.instances[instanceId] = defaultInstance('widget', 'menu');
+        this.config.instances[instanceId] = defaultInstance('widget', element);
         // a widget host: not the min-height of the instance kind (WebsiteStarter does the same)
         this._nodeStyles()[nodeId] = { 'min-height': '0' };
         return element$('nav', [['data-h-node', nodeId], ['data-h-instance', instanceId]], '');
@@ -1251,9 +1365,9 @@ function labelOf(node, instance) {
   }
   return node.tag;
 }
-
-/** Widgets that work with their defaults (empty settings): the menu, the language switch (Auto, review 2026-11-15). */
-const READY_WIDGETS = new Set(['menu', 'language']);
+// widgets that work with their defaults (empty settings): the menu, the language switch (Auto, review 2026-11-15), the
+// breadcrumbs (mode path = {}, review 2026-11-16)
+const READY_WIDGETS = new Set(['menu', 'language', 'breadcrumbs']);
 
 /** A configured instance: has settings (a pasted or new one has none), or a widget that works with its defaults. */
 function isConfigured(instance) {

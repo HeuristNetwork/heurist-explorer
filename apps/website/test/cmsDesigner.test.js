@@ -140,7 +140,7 @@ test('catalogs of Add page and Add element: the available elements are the ones 
   assert.deepEqual(ELEMENT_GROUPS.map((group) => group.label), ['Content and layout', 'Modules', 'Widgets']);
   // plan 27f §13: the order of the widgets
   assert.deepEqual(ELEMENT_GROUPS[2].items.map((item) => item.value),
-    ['cards', 'gallery', 'actionmenu', 'badges', 'social', 'headerSet', 'siteFooter', 'email', 'menu', 'language']);
+    ['cards', 'gallery', 'actionmenu', 'badges', 'social', 'headerSet', 'siteFooter', 'email', 'menu', 'breadcrumbs', 'language']);
   assert.deepEqual(elements.filter((item) => item.available).map((item) => item.value).sort(), [...CMS_ELEMENTS].sort());
   assert.equal(new Set(elements.map((item) => item.value)).size, elements.length, 'unique values');
   const templates = PAGE_TEMPLATES[0].items;
@@ -187,7 +187,14 @@ test('Styles popup: four tabs, themes, kind defaults, presets, custom CSS with t
   assert.equal(values.css, '.x{color:red}');
   // Navigation and layout (plan 27f): default values are not written; Pages kept only for swap
   assert.deepEqual(values.layout, {});
-  const [navigation, pageWidth, headerPosition] = form.tabs.panels[4].querySelectorAll('select');
+  const [navigation, pageWidth, backToTop, headerPosition] = form.tabs.panels[4].querySelectorAll('select');
+  // the Back to top button (plan 27k §6): true when shown, not written when off
+  backToTop.value = 'show';
+  backToTop.fire('change');
+  assert.equal(form.read().layout.backToTop, true);
+  backToTop.value = '';
+  backToTop.fire('change');
+  assert.equal(form.read().layout.backToTop, undefined);
   // Maximum width of page (review 2026-11-15): the base setting site-width
   pageWidth.value = '1280px';
   pageWidth.fire('change');
@@ -522,7 +529,7 @@ test('designer: west pane with the tabs Site | Page and help, the preview alone 
   await designer.selectPart(10, 'header');
   assert.equal(designer._discardQuestion(), 'Discard the changes of Header?');
   assert.equal(designer.buttons.layout.hidden, false);
-  assert.equal(designer.buttons.style.disabled, true, 'the header itself has no own style');
+  assert.equal(designer.buttons.style.disabled, false, 'the header has an own style (review 2026-11-16)');
   designer.destroy();
 });
 
@@ -680,7 +687,9 @@ test('designer: Own style form (plan 27i §10, review 2026-11-14): caption above
   // the title is in the header of the form: one section has no caption (review 2026-11-15)
   assert.deepEqual(designer._formSections('#root').map((section) => section.label), ['']);
   assert.equal(designer._formSections(group).map((section) => section.label).join(), 'Caption,Own style');
+  // reveal on scroll (plan 27k §6) for every element of the content: beside the preset (review 2026-11-16)
   assert.equal(designer._formSections('h1').map((section) => section.label).join(), '');
+  assert.ok(designer._revealField('h1'), 'Reveal on scroll beside the preset');
   designer._selectNode(group);
   const west = [];
   designer.layout.getSize = () => 300;
@@ -689,12 +698,15 @@ test('designer: Own style form (plan 27i §10, review 2026-11-14): caption above
   assert.equal(designer.formPanel.isOpen(), true, 'the palette of the bar opens the form');
   assert.deepEqual([designer.layout.options.minWest, west], [380, [380]], 'the west pane as wide as the form');
   assert.equal(designer.formPanel.element.querySelector('.h-cms-form-tabs'), null, 'no tabs');
+  // caption, own style (reveal on scroll beside the preset, review 2026-11-16)
   assert.equal(designer.formPanel.element.querySelectorAll('.h-cms-form-section').length, 2);
   await designer._toggleStyleForm();
   assert.equal(designer.formPanel.isOpen(), false, 'the palette of the bar closes it');
   assert.equal(designer.layout.options.minWest, 280, 'closed: the usual minimum');
   await designer.selectPart(10, 'header', { force: true });
-  assert.equal(designer._formSections('#root'), null, 'no page form for the header');
+  // the own style of the header (review 2026-11-16)
+  assert.deepEqual(designer._formSections('#root').map((section) => section.label), [''], 'the own style of the header');
+  assert.equal(designer._revealField('h1'), null, 'no reveal in the header');
   await designer.selectPart(10, 'content', { force: true });
   designer._edit((doc) => { group = doc.insertElement('content', 'group', { id: null, position: 'inside' }); return true; });
   const steps = designer.undoStack.length;

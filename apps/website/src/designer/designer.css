@@ -998,10 +998,22 @@
   align-self: center;
 }
 
-/* Presentation of the action menu: a short label and a narrow select beside it */
-.h-cms-action-presentation {
-  grid-template-columns: max-content auto;
+/* the settings of the action menu / social media above the items (review 2026-11-16): one column of labels, short
+   selects, a gap before the list */
+.h-cms-action-settings {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+
+.h-cms-action-settings > .h-cms-styles-field {
+  grid-template-columns: 180px minmax(0, 20em);
   justify-content: start;
+}
+
+.h-cms-action-settings .h-cms-action-colour {
+  max-width: 14em;
 }
 
 .h-cms-action-target > * {
@@ -1238,6 +1250,15 @@
 .h-cms-captions-label {
   margin-bottom: 2px;
   font-weight: bold;
+}
+
+/* orientation and style of tabs above the captions (plan 27k §3) */
+.h-cms-captions-look {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--h-color-border);
 }
 
 /* Saved filter (plan 27j): the summary and its button (action menu rows, the forms of cards, media, Record field) */

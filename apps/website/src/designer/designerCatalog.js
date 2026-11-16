@@ -276,6 +276,12 @@ export const ELEMENT_GROUPS = Object.freeze([
         preview: [['f', 8, 10, 104, 9], ['t', 8, 28, 104, 40]]
       },
       {
+        value: 'breadcrumbs', label: 'Breadcrumbs', available: true,
+        description: 'Where the visitor is: Home › Section › Page (the record on a record page), or the record pages'
+          + ' visited before (History).',
+        preview: [['f', 8, 12, 22, 7], ['f', 36, 12, 22, 7], ['f', 64, 12, 30, 7], ['t', 8, 28, 104, 40]]
+      },
+      {
         value: 'language', label: 'Language switcher', available: true,
         description: 'Switches the website to another of its languages (multilingual websites); the visitor stays on'
           + ' the same page.',

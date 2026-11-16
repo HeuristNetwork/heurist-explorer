@@ -1,7 +1,9 @@
 # 27k Website element options (menu styles, vertical tabs, header shrink, full-screen menu, extras)
 
 **Status (2026-11-15):** discussed and agreed with Artem (questions answered 2026-11-15). **Phase A (§1-2)
-implemented** in both repos (§7): not committed, no browser check. Next: B (§3) → C (§4) → D (§5) → E (§6).
+committed** (§7; CSS chunk fix after the review not committed). **Phases B-E (§3-6) implemented** in both repos
+(§8-11, 2026-11-15/16): not committed, no browser check. All phases done. **Review 2026-11-16 (§12)** implemented in
+both repos, not committed, no browser check.
 
 ## Context
 
@@ -121,6 +123,187 @@ Left out for now: announcement bar, tab deep link.
 - **No validator change:** the server does not check the keys of widget settings (`CmsValidator` checks the layout).
 - Tests: JS 1,772 pass (`helperWidgets.test.js`: menuLook / menuClass, expand button, social settings);
   heurist `WebsiteRenderTest` 92 and `CmsFormatTest` 18 pass. Website and Explorer bundles built and deployed.
+
+### 7.1 Review 2026-11-15 (Artem): menus shown as plain lists
+
+Cause: the designer forms imported `HMenu.js` for `menuLook`. The bundler then put HMenu and **its CSS** into a
+shared chunk (`heurist-website-HMenu.css`), and a page links only `heurist-website-main.css`, so menus had no CSS.
+Fix: the settings rules moved to `shared/src/site/cmsMenu.js` (no CSS); HMenu re-exports them, the forms import
+cmsMenu. The menu CSS is in `main.css` again. **Rule:** designer code must not import a site widget that imports CSS.
+
+## 8. Phase B: vertical tabs and tab styles (2026-11-15)
+
+- **Format:** two attributes on the tabs container: `data-h-orientation="vertical"` and `data-h-item-style` =
+  `links | underline | pills | buttons | outline` (no attribute = the tabs of before). `StoredText` allows them with
+  these values only (heurist; `StoredTextTest` 115 pass). JS `CmsRecordDocument.tabsLook / setTabsLook`,
+  `CMS_TAB_STYLES` (`shared/src/site/cmsEdit.js`); defaults remove the attributes.
+- **Deviation:** an attribute name of its own (`data-h-item-style`) instead of the menu classes: the stored HTML keeps
+  no classes of ours, and the tab set classes are written by the runtime.
+- **Designer:** the tool of a tabs node in the part tree is now a gear: *Tabs: orientation, style and captions* (the
+  captions popup of 2026-11-15 with Orientation and Style of the tabs on top). One undo step.
+- **CSS** (`apps/website/src/style.css`): vertical = grid, the tab strip a column on the left from 641 px (above on
+  narrower screens); the default style draws a line on the right with the active tab open towards its panel;
+  underline: 2px line under (vertical: right of) the active tab in the primary colour; pills / outline: the active tab
+  filled with the primary colour; buttons: all filled, the others lighter; links: underlined, the active one bold.
+- Tests: JS 1,773 pass (`cmsEdit.test.js` tabs). Website and Explorer bundles built and deployed.
+
+## 9. Phase C: shrink on scroll (2026-11-15)
+
+- **Setting:** `layout.header.onScroll` = `keep | shrink` (default keep, not written) in `CMS_LAYOUT` (JS) and
+  `CmsValidator::LAYOUT` (PHP). **Deviation:** a value list instead of a checkbox `shrink`, as every other layout
+  setting (the generic check knows only value lists); another value (e.g. `hide`) can come later.
+- **Designer:** *Navigation and layout* → Header: *When the page scrolls* = Keep the header as it is | Shrink (small
+  logo, menu and languages). Shown only for position Fixed and orientation Horizontal; for others the value is removed.
+  The layout drawing says what happens.
+- **Server:** `PageRenderer::bodyClasses` adds `h-site-header-shrink` only for a fixed horizontal header. The header
+  height of the layout (`header.height`) is not used while shrunk (`body:not(.h-site-header-collapsed,
+  .h-site-header-shrunk)`).
+- **Runtime:** `siteRuntime.attachHeaderShrink` (not in the designer preview): class `h-site-header-shrunk` when the
+  page is scrolled down further than the height of the header (at least 40px), removed above 8px
+  (`HEADER_SHRINK_BACK`); the two limits stop the jumping. A page with less than twice the header height to scroll keeps
+  its header (else the page gets shorter and scrolls back, a loop). Scroll events through requestAnimationFrame.
+- **CSS:** shrunk = every text, media and widget of the header hidden except the logo (32px), the website menu and the
+  language switch; the header set in one row, the menu takes the free room. The website menu now has the class
+  `h-site-menu-main` (server `menuHtml`, HMenu for presentation `menu`) so that CSS tells it from an action menu
+  (both hosts are `<nav>`).
+- Tests: JS 1,775 pass (`siteRuntime.test.js` shrink limits, `helperWidgets.test.js` layout value); heurist
+  `WebsiteRenderTest` 93 (body classes, validator, menu class, height rule), `CmsFormatTest` 18, `WebsiteEditTest` 82 pass.
+
+## 10. Phase D: full-screen menu (2026-11-15)
+
+- **Settings of the website menu:** `collapse` = `panel` (default) | `fullscreen`, `animation` = `down` (default) |
+  `right` | `fade` (only with fullscreen), `alwaysCollapsed` true. Defaults are not written. Classes (`menuClass` of
+  `shared/src/site/cmsMenu.js` = `PageRenderer::menuClass`): `h-site-menu-fullscreen`, `h-site-menu-anim-right | -fade`,
+  `h-site-menu-always-collapsed`; only for the website menu (presentation `menu`), not for action menus.
+  **Deviation:** animation values `down | right | fade` (not `slideDown | slideRight`).
+- **Designer:** Menu form: *Open collapsed menu* Below the header | Full screen, *Animation* (shown for Full screen),
+  *Always collapsed*.
+- **HMenu:** `_showOverlay` moves the list into an overlay appended to `<body>` (a dialog: close button, Esc, a link
+  closes it, Tab stays inside, focus back on the menu button); `html.h-site-menu-locked` stops the page from scrolling
+  behind it; the list goes back into the menu after the animation (300 ms, at once with reduced motion) and the size is
+  measured again. While the overlay is open the size is not measured (`_fit`). Always collapsed = `is-narrow` at every
+  width (the measure is not needed). Without JS the classes do nothing: the list shows as before.
+- **CSS** (`HMenu.css`): fixed over the window, colours of the page, items 1.4em in a centred column (max 32em), the
+  sub pages a tree as in the panel; slide down / in from the right / fade; pages hidden in the main menu stay hidden
+  (`h-site-menu-overlay-header`: the overlay is not inside the header).
+- Tests: JS 1,776 pass (`helperWidgets.test.js`: classes, overlay open / close; the fake DOM got `documentElement`);
+  heurist `WebsiteRenderTest` 94, `CmsFormatTest` 18, `WebsiteEditTest` 82 pass.
+
+## 11. Phase E: extras (2026-11-15/16)
+
+1. **Back to top:** layout key `backToTop: true` (site layout; JS `cmsLayoutProblems` and `CmsValidator::layoutProblems`
+   as `hideHeader`, kept by `PageRenderer::layout`), body class `h-site-back-to-top`, `siteRuntime.attachBackToTop`
+   (round button at the bottom right, shown after one screen of scrolling; smooth scroll unless reduced motion; not in
+   the designer). Designer: *Navigation and layout* → *Back to top button* No | Shown after one screen of scrolling.
+2. **Accordion:** **Deviation:** the site accordion was always one-open (`exclusiveAccordion`), so the option is the
+   other way round: `data-h-multiple="true"` (several open at a time) and `data-h-first-open="true"`
+   (`siteRuntime.enhanceAccordion`). Not the native `<details name>` (not allowed by StoredText, not needed). Designer:
+   the gear of an accordion = *Accordion: options and captions* (two checkboxes above the captions).
+   `CmsRecordDocument.accordionLook / setAccordionLook`.
+3. **Reveal on scroll:** attribute `data-h-reveal` = `fade | up` on any element of the content (not a style property:
+   the own style holds CSS only). Designer: the inline form of an element gets a section *Reveal on scroll* (None |
+   Fade in | Slide up), applied at once. `siteRuntime.enhanceReveal` (IntersectionObserver, class
+   `h-site-reveal-pending` until seen, then `h-site-reveal-done`); nothing in the designer preview, without the
+   observer or with reduced motion; also for pages added by the navigator (`enhanceControls`).
+4. **Section menu:** website menu setting `scope: 'section'` (form: *Pages* All pages | The section of the page).
+   `PageRenderer::menuPath / sectionTree` = `menuPath / sectionTree` of `shared/src/site/cmsMenu.js`: the current page
+   and its sub pages, else its parent (first, without sub entries) and the sub pages of the parent; record pages left
+   out; empty for a page of the first level without sub pages (the empty menu is hidden by CSS).
+5. **Breadcrumbs:** widget `breadcrumbs` (CmsValidator / cmsDocument widget lists, element in the catalog, host `<nav>`
+   as the menu). Server `breadcrumbsHtml`: `<ol class="h-site-breadcrumbs">` Home › parents › page; on a record page
+   the record title instead of the record page. `mode: 'history'` (`data-h-mode`): client only,
+   `apps/website/src/siteBreadcrumbs.js` (no CSS, rule §7.1): `mountHosts` adds a record page shown now to the trail
+   (sessionStorage per db + site, at most 8, the same record again cuts the trail; also pages of swap / scroll and
+   breadcrumbs of a kept header); on a record page the widget shows Home + the trail; elsewhere and without JS the path.
+   The config gets `site.recordTitle`. Designer: form *Show* path | history; the draft shows the path of the menu tree.
+6. **Search box:** action menu item `action: 'search'` (*Search box (Saved filter)*) = a Saved filter + `param` (the
+   parameter of the query source that takes the typed text, chosen in the Saved filter popup with `search: true`;
+   the "at least one value" rule is not checked, a stored value of `param` is dropped). The label is the placeholder,
+   the icon the button. Server: the Saved filter link of 27j turned into a GET form (`PageRenderer::searchForm`: the
+   path as `action`, the query as hidden inputs, `<input type="search" name="v.<param>">`, max 200 characters) — the same
+   URL as a link, so the target page reads it the same way; works without JS; a submit loads the page (also in swap
+   mode). `CmsRecordReferences` counts its query source in the website check. Draft: `HMenu._searchForm` (no submit).
+- CSS in `apps/website/src/style.css` (back to top, reveal, breadcrumbs, search box) and `HMenu.css` (empty menu).
+- Tests: JS 1,784 pass (new `apps/website/test/siteExtras.test.js`: section menu, accordion, document attributes,
+  reveal, back to top, trail, history, search; designer tests updated); heurist `WebsiteRenderTest` 97 (path, section,
+  search form, Back to top), `StoredTextTest` 117, `CmsFormatTest` 18, `WebsiteEditTest` 82 pass.
+
+## 12. Review 2026-11-16 (Artem)
+
+Implemented 2026-11-16 in both repos, not committed, no browser check.
+
+1. **HMenu**
+   - a) The expander of a tree (vertical, collapsed, full screen) is larger (32px button, glyph 1.4em) and in the middle
+     of the row of its page: the item is a grid, the page and the button share the first cell (was absolute at 4px from
+     the top, so it was too high for taller items such as pills).
+   - b) A drop-down of a horizontal menu that would leave the window on the right opens to the left of its page
+     (`HMenu._placeSub` on mouseover / focusin, class `is-end` on the item; deeper levels the same way).
+   - c) Underline: settings `lineWidth` (1, 2 (default), 3, 4, 6px) and `lineColor` (empty = text colour) in the website
+     menu form and the action menu form, shown with the style underline. Written as CSS variables on the menu
+     (`--h-site-menu-line-width` / `-color`): `menuStyle()` in `cmsMenu.js` = `PageRenderer::menuStyleAttr`.
+   - d) Current page as in the tabs: in links, buttons and outline the other items have opacity .75 (1 on hover), the
+     current one bold; links: current not underlined; underline: current bold; outline: current filled with the
+     primary colour (as outlined tabs).
+   - e) The Home entry has the caption *Home* (server writes `Home`, `homeItem` gets `home: true` → class `is-home`, HMenu
+     writes `$HR('Home')` in the language of the page); the name of the website is its rollover. Breadcrumbs start with
+     Home too.
+   - f) Full-screen menu colours: `overlayBg`, `overlayText` (website menu form, with Full screen), variables
+     `--h-site-menu-overlay-bg` / `-text` copied from the menu to the overlay (it is outside the menu).
+2. **Own style of the header and footer.** The palette on the root of the header / footer opens *Own style of the
+   header / footer* (kind group). Stored in `styles.header` / `styles.footer` of the website record
+   (`CmsRecordDocument.partStyle` / `setPartStyle`), written for `html.h-site .h-site-header|footer` (stronger than the
+   header themes) by `compileCmsStyles(..., {parts})` = `StyleCompiler::compile(..., $partStyles)` / `StyleCompiler::PARTS`;
+   the height is a minimum (as the page) and is not used when the header is shrunk or collapsed (style.css). Removed from
+   *Navigation and layout*: header height, footer height, theme *Own colours* with its colour inputs. **Kept**: the
+   header / footer theme (Default, Surface, Primary, Selected: colours of the website theme, also for links and
+   headings) and the width of a vertical header (a column of the page grid). Old values: the server still writes
+   `layout.header.height` / `colors`; opening the Own style of the part moves them into it (`_movePartLayout`:
+   min-height, background-color, color; theme `own` removed).
+3. **Shrink in the designer.** The preview is a page in its own frame and scrolls as one: `attachHeaderShrink` and
+   Back to top run in the preview too (reveal stays off there: elements would be hidden while editing).
+4. **Background images** chosen in the designer get `&fullres=1` (`url(...&file=KEY&fullres=1)`); older values stay.
+5. **Reveal on scroll** is a select beside the Preset of the Own style (`styleRows` option `headExtra`), without the
+   text "When it comes into the window"; content only.
+6. **Action menu form**
+   - a) The settings above the items are in one block (`.h-cms-action-settings`): labels 180px, controls up to 20em, a
+     gap before the list; the social media form the same.
+   - b) Items of a row and of drop-downs are not wrapped (`white-space: nowrap`); a tree (vertical, collapsed) still wraps.
+   - c) *Drop-down menu* and *Icons behind a button* are one presentation **Behind a button** (`expand`): Name of the
+     button (rollover), Icon of the button, *Show the name on the button* (`buttonText`), *Open the list* on hover (and
+     a click, default) or on a click (`open: click`, class `h-site-menu-open-click`); style and orientation for all
+     (vertical = a column below the button). A stored `dropdown` is read as expand + `open: click` + `buttonText` +
+     vertical (`menuLook`, JS and PHP); the class `h-site-menu-dropdown` is not written any more (its CSS kept for built
+     pages). Without an icon and without the name on the button: the default icon.
+   - d) New presentation **Icons that show their name on hover** (`grow`, class `h-site-menu-grow`): an item with an
+     icon shows the icon, its name slides out on hover / focus; an item without an icon shows its name; also in the
+     social media form.
+7. **Section menu.** On the home page (not in the menu tree), on a page of the first level without sub pages and on a
+   page not in the menu it showed nothing (only Home with Show Home): now the pages of the first level without their
+   sub pages (`sectionTree`, JS and PHP). *Pages* is the last option of the Menu form.
+
+Tests: JS 1,785 pass (`siteExtras.test.js` review test: menu variables, Home, name on the button, grow, own style of the
+header; section menu; designer and helper tests updated); heurist `WebsiteRenderTest` 101 (Home caption, former
+drop-down, menu variables, section on the home page, own style of the header), `StoredTextTest` 117, `CmsFormatTest` 18
+pass. 17 texts added (eng, fre).
+
+### 12.1 Round 2 (2026-11-16)
+
+1. **Line colour of the underline style lost.** The open collapsed menu (`HMenu._showPanel`) moves the list into a panel
+   outside the menu, so the panel did not inherit the variables of the menu and the line took the text colour. The
+   panel now copies the style attribute of the menu (as the full-screen overlay). The colours of the website
+   (`var(--h-color-...)`) are allowed as menu colours too (`MENU_COLOR`, PHP the same).
+2. **Breadcrumbs "not configured".** Mode path is stored as empty settings; the widget is in `READY_WIDGETS` of
+   `cmsEdit.js` now. Path and History differ only on a record page after the visitor opened other record pages
+   (History: Home › the record pages opened before › this record; Path: Home › section › this record); elsewhere,
+   in the designer and without JavaScript both show the path.
+3. **Search box parameters.** Only parameters a typed value fits (`searchParameters` in `savedFilterField.js`): a field
+   of type freetext, blocktext, integer, float, year, numeric or date (the text of a term `f:N:label` and a count too),
+   or the title, id(s), URL, notes, added and modified; not terms, places, record pointers, files, users or ranges.
+   A source without such a parameter: a note in the popup.
+4. **Icons without a style** get `fa-solid` (`faIcon()` in `cmsMenu.js` = `PageRenderer::faClass`): items, the button of
+   Behind a button, the previews in the form (placeholder `fa-star`).
+
+Tests: JS 1,786 pass, heurist `WebsiteRenderTest` 102, `WebsiteEditTest` 82 pass.
 
 ## Verification
 - JS: `npm run test:shared`, `npm run test:website` (new tests for `menuClass`, tab orientation, shrink thresholds,

@@ -31,6 +31,8 @@ import { HLangSwitch } from '#shared/widgets/site/HLangSwitch.js';
 import { HEmailForm } from '#shared/widgets/site/HEmailForm.js';
 import { fileMediaUrls } from '#shared/recordview/fileMediaItem.js';
 import { SITE_WIDGETS, mountSiteWidget } from './siteWidgets.js';
+import { mountBreadcrumbs, recordTrail, showTrail } from './siteBreadcrumbs.js';
+import { sectionTree } from '#shared/site/cmsMenu.js';
 import { QuerySource } from '#shared/data/QuerySource.js';
 import { CMS_FILTER_MODULES, cmsFilterRequest, parseCmsFilterQuery } from '#shared/site/cmsSavedFilter.js';
 
@@ -89,6 +91,10 @@ export async function startSite({ root, config, loaders = MODULE_LOADERS }) {
     const runtime = config.runtime || {};
     attachHeaderToggle(root, { key: `${HEADER_STATE_KEY}.${runtime.database || ''}.${runtime.site || config.site?.id || 0}` });
   }
+  // shrink on scroll (plan 27k §4) and the Back to top button (§6): also in the preview of the designer (review
+  // 2026-11-16: the preview is a page in its own frame and scrolls as one)
+  if (root.classList?.contains('h-site-header-shrink')) attachHeaderShrink(root);
+  if (root.classList?.contains('h-site-back-to-top')) attachBackToTop(root);
   if (!config.runtime?.design) root.addEventListener('click', (event) => onAction(event));
   const mounted = await mountHosts(root, config, loaders);
   await Promise.all(jobs);
@@ -155,6 +161,52 @@ export function attachHeaderToggle(body, { key = '', storage = safeLocalStorage(
   return () => {
     header.removeEventListener('click', expand);
     button.remove?.();
+  };
+}
+
+/** A shrunk header grows again when the page is scrolled back above this many pixels (plan 27k §4). */
+export const HEADER_SHRINK_BACK = 8;
+
+/**
+ * Shrink on scroll (plan 27k §4): a fixed horizontal header (body class h-site-header-shrink) becomes small (class
+ * h-site-header-shrunk: a small logo, the menu and the languages, CSS) when the page is scrolled down further than the
+ * height of the header (at least 40px), and grows again near the top (HEADER_SHRINK_BACK). The two limits keep the
+ * header from jumping when its height changes. A page that is not much longer than the window keeps its header.
+ *
+ * @param {HTMLElement} body Element with the class h-site-header-shrink.
+ * @param {object} [options]
+ * @param {Window} [options.win] The window (tests pass their own).
+ * @param {Document} [options.doc] The document (the height of the page; tests pass their own).
+ * @returns {() => void} Stops it (the header grows again).
+ */
+export function attachHeaderShrink(body, { win = globalThis.window, doc = body.ownerDocument || globalThis.document } = {}) {
+  const header = body.querySelector('.h-site-header');
+  if (!header || !win?.addEventListener) return () => {};
+  let frame = 0;
+  const update = () => {
+    frame = 0;
+    const y = Number(win.scrollY) || 0;
+    const shrunk = body.classList.contains('h-site-header-shrunk');
+    if (shrunk) {
+      if (y < HEADER_SHRINK_BACK) body.classList.remove('h-site-header-shrunk');
+      return;
+    }
+    const limit = Math.max(40, Number(header.offsetHeight) || 0);
+    // room to scroll after the header is small: else the page would get shorter and scroll back (a loop)
+    const room = (Number(doc?.documentElement?.scrollHeight) || 0) - (Number(win.innerHeight) || 0);
+    if (y > limit && room > limit * 2) body.classList.add('h-site-header-shrunk');
+  };
+  const onScroll = () => {
+    if (frame) return;
+    if (typeof win.requestAnimationFrame === 'function') frame = win.requestAnimationFrame(update);
+    else update();
+  };
+  win.addEventListener('scroll', onScroll, { passive: true });
+  update();
+  return () => {
+    win.removeEventListener('scroll', onScroll);
+    if (frame) win.cancelAnimationFrame?.(frame);
+    body.classList.remove('h-site-header-shrunk');
   };
 }
 
@@ -225,6 +277,13 @@ export function onAction(event, env = {}) {
 export async function mountHosts(root, config, loaders = MODULE_LOADERS) {
   const mounted = new Map();
   const jobs = [];
+  // the trail of the breadcrumbs (plan 27k §6): a record page shown now, also by the navigator (swap / scroll); the
+  // breadcrumbs outside this part (a header kept by swap) show it too
+  if (!config?.runtime?.design && Number(config?.site?.record)) {
+    recordTrail(config);
+    const doc = root.ownerDocument || globalThis.document;
+    for (const list of doc?.querySelectorAll?.('.h-site-breadcrumbs[data-h-mode="history"]') || []) showTrail(list, config);
+  }
   for (const host of root.querySelectorAll('[data-h-instance]')) {
     const id = host.getAttribute('data-h-instance');
     if (mounted.has(id)) continue; // a second host of one instance: the server reported it
@@ -266,8 +325,89 @@ export function unmountInstance(instance) {
  */
 export function enhanceControls(root, runtime = null) {
   for (const container of root.querySelectorAll('[data-h-control="tabs"]')) enhanceTabs(container);
-  for (const container of root.querySelectorAll('[data-h-control="accordion"]')) exclusiveAccordion(container);
+  for (const container of root.querySelectorAll('[data-h-control="accordion"]')) enhanceAccordion(container);
   if (runtime) enhanceBackgroundVideos(root, runtime);
+  // reveal on scroll (plan 27k §6): not in the preview of the designer (every element stays visible there)
+  if (runtime && !runtime.design) enhanceReveal(root);
+}
+
+/**
+ * An accordion (plan 27k §6): one open section at a time unless `data-h-multiple`; with `data-h-first-open` the first
+ * section is open at start when none is.
+ *
+ * @param {HTMLElement} container Element with data-h-control="accordion".
+ */
+export function enhanceAccordion(container) {
+  if (container.getAttribute('data-h-multiple') !== 'true') exclusiveAccordion(container);
+  const sections = [...container.children].filter((child) => child.tagName === 'DETAILS');
+  if (container.getAttribute('data-h-first-open') === 'true' && sections.length && !sections.some((details) => details.open)) {
+    sections[0].open = true;
+  }
+}
+
+/**
+ * Reveal on scroll (plan 27k §6): an element with `data-h-reveal` (fade, up) is hidden (class h-site-reveal-pending)
+ * until it comes into the window, then shown with its animation (CSS). Nothing without IntersectionObserver or with
+ * prefers-reduced-motion: the elements are shown as they are.
+ *
+ * @param {HTMLElement} root
+ * @param {object} [options]
+ * @param {Function} [options.Observer] IntersectionObserver (tests pass their own).
+ * @param {boolean} [options.reduced] Whether the visitor asks for less motion.
+ * @returns {object|null} The observer.
+ */
+export function enhanceReveal(root, {
+  Observer = globalThis.IntersectionObserver,
+  reduced = Boolean(globalThis.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches)
+} = {}) {
+  const items = [...(root.matches?.('[data-h-reveal]') ? [root] : []), ...root.querySelectorAll('[data-h-reveal]')]
+    .filter((item) => !item.classList.contains('h-site-reveal-done'));
+  if (!items.length || typeof Observer !== 'function' || reduced) return null;
+  const observer = new Observer((entries) => {
+    for (const entry of entries) {
+      if (!entry.isIntersecting) continue;
+      entry.target.classList.remove('h-site-reveal-pending');
+      entry.target.classList.add('h-site-reveal-done');
+      observer.unobserve(entry.target);
+    }
+  }, { rootMargin: '0px 0px -10% 0px' });
+  for (const item of items) {
+    item.classList.add('h-site-reveal-pending');
+    observer.observe(item);
+  }
+  return observer;
+}
+
+/**
+ * The Back to top button (plan 27k §6, body class h-site-back-to-top): shown after one screen of scrolling; a click
+ * scrolls to the top (smoothly unless the visitor asks for less motion).
+ *
+ * @param {HTMLElement} body
+ * @param {object} [options]
+ * @param {Window} [options.win] The window (tests pass their own).
+ * @returns {() => void} Removes the button.
+ */
+export function attachBackToTop(body, { win = globalThis.window } = {}) {
+  const doc = body.ownerDocument || globalThis.document;
+  const button = doc?.createElement?.('button');
+  if (!button || !win?.addEventListener) return () => {};
+  button.type = 'button';
+  button.className = 'h-site-back-to-top-button';
+  button.title = $HR('Back to top');
+  button.setAttribute('aria-label', button.title);
+  button.innerHTML = '<i class="fa-solid fa-arrow-up" aria-hidden="true"></i>';
+  const update = () => button.classList.toggle('is-visible', (Number(win.scrollY) || 0) > (Number(win.innerHeight) || 0));
+  button.addEventListener('click', () => {
+    const reduced = Boolean(win.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches);
+    win.scrollTo?.({ top: 0, behavior: reduced ? 'auto' : 'smooth' });
+  });
+  win.addEventListener('scroll', update, { passive: true });
+  body.append(button);
+  update();
+  return () => {
+    win.removeEventListener('scroll', update);
+    button.remove?.();
+  };
 }
 
 /**
@@ -452,9 +592,11 @@ export async function mountInstance(host, id, config, loaders) {
   const instance = config?.instances?.[id];
   if (!instance) return showMessage(host, $HR('This part of the page is not configured'));
   if (instance.problem) return showMessage(host, `${$HR('This part of the page can not be shown')}: ${instance.problem}`);
+  if (instance.kind === 'widget' && instance.type === 'breadcrumbs') return mountBreadcrumbs(host, instance, config);
   if (instance.kind === 'widget' && instance.type === 'menu') {
     return new HMenu().attach(host, {
-      items: config.site?.menu || [],
+      // the section of the page only (plan 27k §6; the designer's draft: the server writes the menu of a page)
+      items: instance.settings?.scope === 'section' ? sectionTree(config.site?.menu || []) : config.site?.menu || [],
       settings: instance.settings || {},
       homeItem: config.site?.homeItem || null
     }).render();
@@ -464,9 +606,10 @@ export async function mountInstance(host, id, config, loaders) {
     const language = config.site?.language || '';
     return new HMenu().attach(host, {
       items: actionMenuItems(settings, { language }),
-      // style, orientation and the icon of the expand button: plan 27k §1-2
+      // style, orientation, the button of expand (plan 27k §1-2), open, buttonText, lineWidth / lineColor (review 2026-11-16)
       settings: { presentation: settings.presentation || 'links', style: settings.style, orientation: settings.orientation,
-        icon: settings.icon, label: settings.labels?.[language] ?? settings.label },
+        icon: settings.icon, label: settings.labels?.[language] ?? settings.label, open: settings.open, buttonText: settings.buttonText,
+        lineWidth: settings.lineWidth, lineColor: settings.lineColor },
       label: settings.labels?.[language] ?? settings.label ?? 'Actions'
     }).render();
   }

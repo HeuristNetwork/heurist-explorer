@@ -232,6 +232,8 @@ export function installFakeDom() {
   globalThis.document = {
     __fake: true,
     body,
+    // the html element: classes of the page (e.g. h-site-menu-locked, plan 27k §5)
+    documentElement: new FakeElement('html'),
     activeElement: null,
     createElement: (tag) => new FakeElement(tag),
     createTextNode: (text) => {
