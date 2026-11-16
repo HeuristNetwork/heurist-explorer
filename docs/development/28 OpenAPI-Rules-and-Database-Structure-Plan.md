@@ -225,7 +225,7 @@ classes that exist only because of that table; they go away when the table is co
 | sys | output (UI: Generated report; was `schedule`) | 2-1105 | `execute` (generate), `asset` (generated file) | — (Records) + `generated-reports/{id}.{ext}` | — | Record format, CRUD, actions (plan 30) |
 | sys | exportconfig, crosstab, menuaction | system record types (plan 27 §3) | — | — (Records) | — | `/records/{id}` |
 | def | rectype, field, recstructure, term, termlink, rectypegroup, fieldgroup, vocabularygroup, workflowrule | — (definitions) | `setup` (later: import from core db) | `defRecTypes`, `defDetailTypes`, `defRecStructure`, `defTerms`, `defTermsLinks`, `defRecTypeGroups`, `defDetailTypeGroups`, `defVocabularyGroups`, `sysWorkflowRules` | none in srv; legacy `Def*` / `SysWorkflowRules` classes through `entityScrud.php`; srv has `DefinitionLookup` (read) and `/def/snapshot` | Writes legacy only |
-| files | file | 2-1106 | — (`content`, `thumbnail`, `upload` are special, §4) | `recUploadedFiles` (unless `fileRecords` exists) | `Records/Files/LegacyFileTable`, `Files/LegacyFileStore` (vs `RecordFileStore`), `FileRecordMapping` | Record format, CRUD (plan 20) |
+| files | file | 2-1106 | — (`asset`, `thumbnail`, `web`, `upload` are special, §4) | `recUploadedFiles` (unless `fileRecords` exists) | `Records/Files/LegacyFileTable`, `Files/LegacyFileStore` (vs `RecordFileStore`), `FileRecordMapping` | Record format, CRUD (plan 20) |
 | terms | term, vocabulary | — | — | `defTerms`, `defTermsLinks` | — | Future domain (§9.5) |
 | records | any record type; later QName | user types | `duplicate`, `validate` today | — | — | `/records`, `/records/{id}` CRUD |
 | — | database | — | — | `sysIdentification` (legacy `/dbs`) | legacy `SysDatabases` | Legacy only |
@@ -278,7 +278,7 @@ discussion and plan.
 | `annotations` | `/annotations/...` (legacy `DbAnnotations`) | IIIF annotation server |
 | `jobs` | `POST /jobs`, `GET /jobs[/{id}]`, `POST /jobs/{id}/cancel`, `DELETE /jobs/{id}`, `GET /jobs/{id}/result` | Background jobs (JSON files, not a table) |
 | `site` | `/{db}/site/{id}[/{page}][/frame/{instance}]` (not under `/api`) | Public website HTML (plan 27a) |
-| file content | `GET /files/{key}/content\|thumbnail`, `/files/upload[/{token}]` | Binary content, chunked upload |
+| file content | `GET /files/{key}/asset\|thumbnail\|web`, `/files/upload[/{token}]` | Binary content (`asset` = the original, as `asset` of other entities; `web` = reduced copy of a large image; `content` renamed to `asset`, agreed by Artem 2026-11-16), chunked upload |
 | `login`, `logout` | legacy, in `api.php` | Session |
 | `external` | `POST /external/translate` (`ExternalServiceController`, agreed by Artem 2026-11-02); `GET` / `POST /external/email` (email form of websites, guests, plan 27h, agreed 2026-11-12) | Services of external providers called by the server (translation, mail; lookups later) |
 
@@ -306,7 +306,9 @@ conversion.
 | `POST /sys/group/{id}/members` | `POST\|DELETE /group/{id}/assign` | done, 28a |
 | `POST /sys/reminder/send` | `POST /reminder/execute` (no id: the unsaved form) | done, 28a |
 | `/files`, `/files/{id}` CRUD, `/validate`, `/aggregate` | same | ok |
-| `/files/{key}/content\|thumbnail`, `/files/upload` | special (§4) | ok |
+| `/files/{key}/content` | `/files/{key}/asset` (no alias) | done, 2026-11-16 |
+| `/files/{key}/thumbnail`, `/files/upload` | special (§4) | ok |
+| legacy `?file=` without `fullres` (web copy) | `GET /files/{key}/web` (special, §4) | done, 2026-11-16 |
 | `GET /def/snapshot` | same (definitions read for clients) | ok |
 | legacy `/rty`, `/dty`, `/trm`, `/trl`, `/rst` ... | `/def/rectype/{id}` ... through the generic controllers | conv |
 | `GET /reports` | `GET\|POST /report?q=` or `/sys?q=[{"t":"report"}]` | done, 30 |
@@ -548,6 +550,14 @@ own planning session. Section numbers in brackets are plan 20.
 - Not ported, stay legacy for now: self-registration, import of users from another database, transfer of ownership
   (§10.13).
 - `/sys` (entity) aggregation: not made (§9.3); add only when a client needs it.
+- Web image cache by key (2026-11-16, done, not committed): cached copies `webimagecache/<key>.jpg` and
+  `blurredimagescache/<key>.png` (were named by the stored file name: files of the same name shared one copy); an old
+  copy is taken only when the name is unique. Legacy `recordFile.php` (`fileCacheName`, `rebuildWebImageCache`,
+  `removeFileCaches`; *Create scaled images* rebuilds), srv `Files/WebImageCache` + `GET /files/{key}/web`; `content` → `asset` (guests: `hserv/controller/api.php`). The new
+  CMS uses the file endpoints for URLs made at render time (srv `PageContent::fileUrl` web | asset, background videos of
+  `siteRuntime`); URLs stored in records (media / gallery / badges HTML, TinyMCE text, background images of styles)
+  stay legacy `?file=` for now. Test
+  `heurist/tests/WebImageCacheTest.php`.
 
 ### 11.4 Definitions
 

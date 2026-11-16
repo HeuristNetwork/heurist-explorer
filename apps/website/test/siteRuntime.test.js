@@ -224,7 +224,11 @@ test('background video of a group (plan 27i §9 D): a muted video in a loop as t
   const videos = group.children.filter((child) => child.tagName === 'VIDEO');
   assert.equal(videos.length, 1, 'added once');
   assert.equal(group.children[0], videos[0], 'first child');
-  assert.equal(videos[0].src, 'https://h.org/heurist/?db=db1&file=abc123');
+  // the file endpoint of the API (2026-11-16): apiBaseUrl of the runtime, else baseUrl + api
+  assert.equal(videos[0].src, 'https://h.org/heurist/api/db1/files/abc123/asset');
+  const other = element('div', { 'data-h-control': 'group', 'data-h-bg-video': 'k9' });
+  enhanceBackgroundVideos(other, { ...runtime, apiBaseUrl: 'https://h.org/api' });
+  assert.equal(other.children[0].src, 'https://h.org/api/db1/files/k9/asset');
   assert.ok(['autoplay', 'muted', 'loop', 'playsinline'].every((name) => videos[0].hasAttribute(name)));
   assert.equal(bad.children.length, 0);
   group.setAttribute('data-h-bg-video', 'def456');

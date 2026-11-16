@@ -31,20 +31,30 @@ const IMAGE_EXTENSIONS = /\.(?:png|jpe?g|gif|webp|bmp|svg|tiff?)$/i;
 /**
  * Viewer and file URLs of a file key in a Heurist installation.
  *
+ * Legacy URLs (`?file=`, `?thumb=`) by default: they are also stored in records (media HTML, text, styles). With
+ * `apiBaseUrl` (2026-11-16) the file endpoints of the API, for URLs made at render time: `thumb` = `/thumbnail`,
+ * `web` = `/web` (reduced copy of a large image), `file` = `/asset` (the file), `download` = `/asset?download=1`.
+ * The viewers stay legacy pages.
+ *
  * @param {string} baseUrl Heurist base URL (ends with `/`).
  * @param {string} database Database name.
- * @returns {{thumb: Function, file: Function, download: Function, osd: Function, mirador: Function,
+ * @param {{apiBaseUrl?: string}} [options] `apiBaseUrl`: the API root (`.../api`, as the site runtime has it).
+ * @returns {{thumb: Function, web: Function, file: Function, download: Function, osd: Function, mirador: Function,
  *          viewer3d: Function}} mirador(key, {manifest}): `manifest` for a registered IIIF manifest file;
- *          viewer3d(key, mode): the 3D viewer (mode `3d`, or `3dhop` for Nexus files).
+ *          viewer3d(key, mode): the 3D viewer (mode `3d`, or `3dhop` for Nexus files); `web`: the file itself
+ *          without `apiBaseUrl` (legacy `?file=` gives the reduced copy already).
  */
-export function fileMediaUrls(baseUrl, database) {
+export function fileMediaUrls(baseUrl, database, { apiBaseUrl = '' } = {}) {
   const root = baseUrl ? String(baseUrl).replace(/\/?$/, '/') : '';
   const db = encodeURIComponent(database || '');
   const key = (value) => encodeURIComponent(value);
+  const api = apiBaseUrl ? `${String(apiBaseUrl).replace(/\/+$/, '')}/${db}/files/` : '';
+  const legacyFile = (fileKey) => `${root}?db=${db}&file=${key(fileKey)}`;
   return {
-    thumb: (fileKey) => `${root}?db=${db}&thumb=${key(fileKey)}`,
-    file: (fileKey) => `${root}?db=${db}&file=${key(fileKey)}`,
-    download: (fileKey) => `${root}?db=${db}&download=1&file=${key(fileKey)}`,
+    thumb: (fileKey) => (api ? `${api}${key(fileKey)}/thumbnail` : `${root}?db=${db}&thumb=${key(fileKey)}`),
+    web: (fileKey) => (api ? `${api}${key(fileKey)}/web` : legacyFile(fileKey)),
+    file: (fileKey) => (api ? `${api}${key(fileKey)}/asset` : legacyFile(fileKey)),
+    download: (fileKey) => (api ? `${api}${key(fileKey)}/asset?download=1` : `${root}?db=${db}&download=1&file=${key(fileKey)}`),
     // the viewers take the file key as `id` (recID / a number: a record); a registered IIIF manifest as `manifest`
     osd: (fileKey) => `${root}hclient/widgets/viewers/openSeadragonViewer.php?db=${db}&id=${key(fileKey)}`,
     mirador: (fileKey, { manifest = false } = {}) => `${root}hclient/widgets/viewers/miradorViewer.php?db=${db}&${manifest ? 'manifest' : 'id'}=${key(fileKey)}`,

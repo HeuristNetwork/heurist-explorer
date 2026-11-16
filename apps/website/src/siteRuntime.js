@@ -415,11 +415,14 @@ export function attachBackToTop(body, { win = globalThis.window } = {}) {
  * muted video in a loop as its first child (CSS: behind the content, over the whole group). The background image of
  * the group stays as the poster.
  *
+ * The video comes from the file endpoint of the API (`/files/{key}/asset`, ranges; 2026-11-16).
+ *
  * @param {HTMLElement} root
- * @param {{baseUrl?: string, database?: string}} runtime
+ * @param {{baseUrl?: string, apiBaseUrl?: string, database?: string}} runtime
  */
 export function enhanceBackgroundVideos(root, runtime) {
-  const urls = fileMediaUrls(runtime.baseUrl || '', runtime.database || '');
+  const apiBaseUrl = runtime.apiBaseUrl || `${String(runtime.baseUrl || '/').replace(/\/?$/, '/')}api`;
+  const urls = fileMediaUrls(runtime.baseUrl || '', runtime.database || '', { apiBaseUrl });
   const groups = [...(root.matches?.('[data-h-bg-video]') ? [root] : []), ...root.querySelectorAll('[data-h-bg-video]')];
   for (const group of groups) {
     const key = group.getAttribute('data-h-bg-video') || '';

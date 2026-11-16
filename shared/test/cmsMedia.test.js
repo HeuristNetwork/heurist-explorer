@@ -154,3 +154,15 @@ test('cmsMediaView: the file, the player with autoplay, or the viewer', () => {
   assert.equal(cmsMediaView(file({ ext: 'pdf' }), urls).url, urls.file('k1'));
   assert.equal(cmsMediaView(file({ ext: 'docx', name: 'a.docx' }), urls), null);
 });
+
+test('fileMediaUrls (2026-11-16): legacy URLs by default (stored in records), the file endpoints with apiBaseUrl', () => {
+  assert.equal(urls.web('k1'), 'http://h/?db=db&file=k1', 'legacy ?file= gives the web copy itself');
+  const api = fileMediaUrls('http://h/', 'db', { apiBaseUrl: 'http://h/api/' });
+  assert.equal(api.thumb('k1'), 'http://h/api/db/files/k1/thumbnail');
+  assert.equal(api.web('k1'), 'http://h/api/db/files/k1/web');
+  assert.equal(api.file('k1'), 'http://h/api/db/files/k1/asset');
+  assert.equal(api.download('k1'), 'http://h/api/db/files/k1/asset?download=1');
+  assert.equal(api.osd('k1'), urls.osd('k1'), 'viewers stay legacy pages');
+  assert.match(buildCmsMedia(file(), {}, { urls: api }), /^<img src="http:\/\/h\/api\/db\/files\/k1\/web"/, 'an image: the web copy');
+  assert.match(buildCmsMedia(file({ ext: 'mp4' }), {}, { urls: api }), /src="http:\/\/h\/api\/db\/files\/k1\/asset"/, 'a video: the file');
+});

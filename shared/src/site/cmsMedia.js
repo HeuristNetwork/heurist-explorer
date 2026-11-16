@@ -165,7 +165,7 @@ export function buildCmsMedia(file, settings = {}, { urls, caption = '', languag
     body = view || thumbnail ? thumb : playerHtml;
   } else {
     // images in their size (the file), other types as the thumbnail
-    body = type === 'image' && !thumbnail ? image(urls.file(key)) : thumb;
+    body = type === 'image' && !thumbnail ? image((urls.web || urls.file)(key)) : thumb;
     if (view && viewer?.[0]) link = viewer;
   }
   const linkHtml = link ? `<a href="${escape(link[0])}" target="_blank" rel="noreferrer noopener">${escape(link[1])}</a>` : '';

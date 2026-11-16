@@ -438,3 +438,15 @@ Implemented, not committed, not checked in a browser.
 - **Full report on the page:** decided to check it. The file is made with the rights of its owner and may hold data guests may not see, so `PageContent::report`
   shows only an output record the visitor may see (`WebsiteRepository::record`), the same rule as its link. A generated (static) page is built with guest rights, so
   it shows only public outputs. Test: `tests/WebsiteContentTest.php` (hidden output not shown).
+
+## File URLs of the pages (2026-11-16, agreed by Artem, not committed)
+
+- URLs **made at render time** use the file endpoints of the API (plan 28 §4): images of file fields, menu icons, logo =
+  `/api/{db}/files/{key}/web` (reduced copy of a large image), the banner 99-951 = `/asset` (the original),
+  background videos of groups (`siteRuntime.enhanceBackgroundVideos`) = `/asset`. `fileMediaUrls(baseUrl, db, {apiBaseUrl})`
+  gives them; without `apiBaseUrl` the legacy URLs.
+- URLs **stored in records** stay legacy `?file=KEY` for now: the HTML of media, galleries and badges written by the
+  designer (`buildCmsMedia`), TinyMCE text, background images of styles (`&fullres=1`). Legacy URLs keep working; no
+  conversion. A later decision may store new URLs.
+- Record cards (Smarty, `ReportEnvironment::fileUrl`) still write legacy URLs (shared with reports).
+
