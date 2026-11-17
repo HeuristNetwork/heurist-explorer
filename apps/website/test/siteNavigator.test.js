@@ -82,7 +82,7 @@ function setup({ mode = 'swap', cache = 2 } = {}) {
         config: { site: { languages: [{ code: 'fre', url: `${url}?lang=fre` }] }, instances: instances(id) },
         styles: element('style', { id: 'h-page-styles', 'data-h-page': String(id) }),
         title: `Page ${id} – Site`,
-        alternates: []
+        seo: []
       };
     }
   });

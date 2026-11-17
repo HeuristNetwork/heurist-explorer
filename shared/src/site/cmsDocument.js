@@ -235,6 +235,9 @@ export function checkCmsDocument(config, htmlParts, translations = {}, baseUrl =
         issues.push(issue('warning', 'duplicate_media', `Media "${node.media}" has more than one element`, id));
       } else if (!Object.hasOwn(media, node.media)) {
         issues.push(issue('warning', 'media_without_config', `Media "${node.media}" has no settings`, id));
+      } else if (cmsIsPlaceholder(media[node.media])) {
+        // a placeholder image of a page template stands in for the file (2026-11-17)
+        issues.push(issue('warning', 'media_placeholder', 'Replace placeholder image', id));
       }
       seenMedia.add(node.media);
     }
@@ -321,8 +324,8 @@ export function cmsInstanceProblem(settings) {
 /**
  * Problems of the layout settings (CmsValidator::layoutProblems): unknown keys and values not in CMS_LAYOUT;
  * `header.colors` / `footer.colors` the own colours {bg, text} (CMS_LAYOUT_COLOR); sizes CMS_LAYOUT_SIZES (CMS_LAYOUT_SIZE);
- * `cache` a whole number in CMS_LAYOUT_CACHE; `hideHeader` / `hideFooter` (a page) and `backToTop` (plan 27k §6) true or
- * false; `startPage` the id of
+ * `cache` a whole number in CMS_LAYOUT_CACHE; `hideHeader` / `hideFooter` (a page), `backToTop` (plan 27k §6) and
+ * `searchEngines` (plan 27m §5: false = noindex, not given = index) true or false; `startPage` the id of
  * the page shown by the website URL without a page (2026-11-14; not given: the home page).
  *
  * @param {object} layout
@@ -339,7 +342,7 @@ export function cmsLayoutProblems(layout) {
       }
     } else if (key === 'startPage') {
       if (!Number.isInteger(value) || value < 1) problems.push('startPage must be a page id');
-    } else if (key === 'hideHeader' || key === 'hideFooter' || key === 'backToTop') {
+    } else if (key === 'hideHeader' || key === 'hideFooter' || key === 'backToTop' || key === 'searchEngines') {
       if (typeof value !== 'boolean') problems.push(`${key} must be true or false`);
     } else if (key === 'header' || key === 'footer') {
       if (!isMap(value)) {
@@ -370,6 +373,17 @@ export function cmsLayoutProblems(layout) {
 
 /** Actions of a media element (CmsValidator::MEDIA_ACTIONS). */
 export const CMS_MEDIA_ACTIONS = Object.freeze(['none', 'viewer', 'url', 'recordPage', 'page', 'savedFilter']);
+
+/**
+ * A media element that shows a placeholder image of assets/cms instead of a file (CmsValidator::isPlaceholder).
+ *
+ * @param {object} settings Settings of the media element.
+ * @returns {boolean}
+ */
+export function cmsIsPlaceholder(settings) {
+  return isMap(settings) && typeof settings.placeholder === 'string' && CMS_ASSET_NAME.test(settings.placeholder)
+    && !/^[A-Za-z0-9]+$/.test(String(settings.file ?? ''));
+}
 
 /**
  * Why the settings of a media element are not valid (CmsValidator::mediaProblem), or null: `file` the key of a

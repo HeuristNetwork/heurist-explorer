@@ -102,7 +102,8 @@ export class WebsiteCheck extends HBaseWidget {
   /** Section with its title and tip; `count` 0 shows the OK message instead of the tip. */
   _section(root, texts, count) {
     const section = el('section', 'h-website-check-section', root);
-    const head = el('h4', 'h-website-check-title', section);
+    // h3 under the h2 Check of the Website manager (2026-11-17)
+    const head = el('h3', 'h-website-check-title', section);
     head.textContent = $HR(texts.title);
     if (count) el('span', 'h-website-check-count', head).textContent = String(count);
     if (count) el('p', 'h-website-check-tip', section).textContent = $HR(texts.tip);
@@ -159,6 +160,8 @@ export class WebsiteCheck extends HBaseWidget {
       container: host,
       options: {
         viewMode: 'list',
+        // --h-font-size (2026-11-17; the default is the large size)
+        fontSize: 12,
         pageLength: 100,
         topBar: false,
         controls: { pageSize: false, search: false, counter: false, pagination: false, viewMode: false, selectionActions: false },

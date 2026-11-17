@@ -97,7 +97,8 @@ export class WebsiteClient {
    *        first, then a page. `fields`: field ids whose values come in `details` (resolved: files with their key).
    * @returns {Promise<{id: number, kind: 'website'|'standalone'|'page', version: string, v4: boolean, title: string,
    *          languages: string[], url: string, canEdit: boolean, pages: Array<{id: number, title: string, children: Array}>,
-   *          details: object}>}
+   *          details: object, generated: ?object}>} `generated`: the generated site (plan 27m §3, `meta.generated`):
+   *          generatedAt (Unix seconds), languages, pages, records, recordPages, files, size, options, changed.
    */
   summary(id, { entity = null, fields = [] } = {}) {
     const ids = (fields || []).map(Number).filter((field) => field > 0);
@@ -108,7 +109,8 @@ export class WebsiteClient {
       return {
         ...(meta.website || { id: recordId }),
         canEdit: meta.canEdit ?? meta.website?.canEdit ?? false,
-        details: response?.records?.[0]?.details || {}
+        details: response?.records?.[0]?.details || {},
+        generated: meta.generated || null
       };
     });
   }
@@ -226,11 +228,23 @@ export class WebsiteClient {
   /**
    * Start a build of a v4 website or standalone page (job `website-build`).
    *
-   * @param {{entity?: 'website'|'page'}} [options]
+   * @param {{entity?: 'website'|'page', options?: object}} [options] `options`: the Generate options (plan 27m §2.1)
+   *        `{languages, target: 'folder'|'zip'|'both', baseUrl, recordPages: {pageId: query}}`.
    * @returns {Promise<object>} The queued job.
    */
-  build(id, { entity = null } = {}) {
-    return this._withEntity(id, entity, (name, recordId) => this._call('POST', `/${name}/${recordId}/execute`, {}));
+  build(id, { entity = null, options = {} } = {}) {
+    return this._withEntity(id, entity, (name, recordId) => this._call('POST', `/${name}/${recordId}/execute`, options || {}));
+  }
+
+  /**
+   * Remove the generated site of a website or standalone page (plan 27m §3, `DELETE /{entity}/{id}/asset`): its
+   * address shows the live pages again.
+   *
+   * @param {{entity?: 'website'|'page'}} [options]
+   * @returns {Promise<{removed: boolean}>}
+   */
+  deleteGenerated(id, { entity = null } = {}) {
+    return this._withEntity(id, entity, (name, recordId) => this._call('DELETE', `/${name}/${recordId}/asset`));
   }
 
   /** Run a call for an entity; without one, a website first and a page after a 404. */

@@ -584,3 +584,35 @@
 #Choose a query source or write a query#Choisissez une source de requête ou écrivez une requête
 #The first records come from the own query; a later search from the other sources replaces them.#Les premières fiches viennent de la requête propre ; une recherche ultérieure des autres sources les remplace.
 #The chosen filter shows its records in the modules of the page that take their records from this widget (Records and selection of the module); a filter with parameters shows its form first.#Le filtre choisi affiche ses fiches dans les modules de la page qui prennent leurs fiches de ce widget (Fiches et sélection du module) ; un filtre avec paramètres affiche d’abord son formulaire.
+#Search engines#Moteurs de recherche
+#Allowed#Autorisés
+#Not allowed (noindex)#Non autorisés (noindex)
+#On this server (the website address shows the generated pages)#Sur ce serveur (l’adresse du site affiche les pages générées)
+#ZIP file to download (for another web server)#Fichier ZIP à télécharger (pour un autre serveur web)
+#Both#Les deux
+#Pages in the other languages stay live#Les pages dans les autres langues restent dynamiques
+#Generate#Générer
+#Public address of the ZIP#Adresse publique du ZIP
+#Optional, e.g. https://www.example.org/ - gives the copy its canonical addresses, sitemap.xml and robots.txt#Facultatif, p. ex. https://www.example.org/ - donne à la copie ses adresses canoniques, sitemap.xml et robots.txt
+#Record pages#Pages de fiche
+#The records whose pages are written (a query without parameters); empty: the record page stays live#Les fiches dont les pages sont écrites (une requête sans paramètres) ; vide : la page de fiche reste dynamique
+#Generate website#Générer le site web
+#Choose at least one language#Choisissez au moins une langue
+#An http or https address without parameters#Une adresse http ou https sans paramètres
+#Not a query without parameters#Pas une requête sans paramètres
+#Write the pages into files: on this server (the website address shows them) or a ZIP to download; the modules still use this server#Écrire les pages dans des fichiers : sur ce serveur (l’adresse du site les affiche) ou un ZIP à télécharger ; les modules utilisent toujours ce serveur
+#Delete the generated pages? The website address shows the live pages again.#Supprimer les pages générées ? L’adresse du site affiche de nouveau les pages dynamiques.
+#Generated site#Site généré
+#Not generated: the website address shows the live pages.#Non généré : l’adresse du site affiche les pages dynamiques.
+#Generated#Généré
+#Files#Fichiers
+#The website or a page was changed after the generation: generate again to publish the changes.#Le site ou une page a été modifié après la génération : générez de nouveau pour publier les modifications.
+#Delete the generated pages (the address shows the live pages again)#Supprimer les pages générées (l’adresse affiche de nouveau les pages dynamiques)
+#Generate site#Générer le site
+#Clear generated site#Effacer le site généré
+#Generated files and log#Fichiers générés et journal
+#Clear log and delete zip files#Effacer le journal et supprimer les fichiers ZIP
+#Remove the finished generations from the log with their ZIP files#Retirer du journal les générations terminées avec leurs fichiers ZIP
+#Generated on this server#Généré sur ce serveur
+#Clear the log and delete the ZIP files of the earlier generations?#Effacer le journal et supprimer les fichiers ZIP des générations précédentes ?
+#Clear#Effacer

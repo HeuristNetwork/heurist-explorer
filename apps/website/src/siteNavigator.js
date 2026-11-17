@@ -46,10 +46,10 @@ export function startNavigator(options) {
 }
 
 /**
- * The parts of a fetched page: its section, configuration block, page styles, title and alternate links.
+ * The parts of a fetched page: its section, configuration block, page styles, title and search engine tags (seoTags).
  *
  * @param {string} text HTML of the page.
- * @returns {{section: Element|null, config: object|null, styles: Element|null, title: string, alternates: Element[]}}
+ * @returns {{section: Element|null, config: object|null, styles: Element|null, title: string, seo: Element[]}}
  */
 export function parsePage(text) {
   const doc = new DOMParser().parseFromString(String(text ?? ''), 'text/html');
@@ -64,7 +64,7 @@ export function parsePage(text) {
     config,
     styles: doc.getElementById('h-page-styles'),
     title: doc.title || '',
-    alternates: alternateLinks(doc)
+    seo: seoTags(doc)
   };
 }
 
@@ -99,7 +99,7 @@ export class SiteNavigator {
     this.pages = config.site.pages.map((page) => ({ ...page, id: Number(page.id), url: this.absolute(page.url) }));
     this.byUrl = new Map(this.pages.map((page) => [this.key(page.url), page]));
     this.main = doc.querySelector('.h-site-main');
-    /** @type {Map<number|string, {section: Element, mounted: Map, config: object, styles: Element|null, title: string, alternates: Element[], used: number, view: object}>} */
+    /** @type {Map<number|string, {section: Element, mounted: Map, config: object, styles: Element|null, title: string, seo: Element[], used: number, view: object}>} */
     this.entries = new Map();
     this.loading = new Map();
     this.clock = 0;
@@ -117,7 +117,7 @@ export class SiteNavigator {
       if (isAlone(view)) section.classList.add('h-site-page-alone');
       this.entries.set(view.key, {
         section, mounted: own, config, styles: doc.getElementById('h-page-styles'), title: doc.title,
-        alternates: alternateLinks(doc), used: ++this.clock, view,
+        seo: seoTags(doc), used: ++this.clock, view,
         // opened with a Saved filter (plan 27j phase C)
         filter: splitFilterUrl(this.key(this.absolute(win?.location?.href || ''))).search
       });
@@ -260,7 +260,7 @@ export class SiteNavigator {
         enhanceControls(section, parts.config?.runtime || this.config?.runtime || null);
         for (const element of section.querySelectorAll('[data-h-view]')) element.setAttribute('tabindex', '0');
         const entry = {
-          section, config: parts.config, styles, title: parts.title || view.page.title || '', alternates: parts.alternates || [],
+          section, config: parts.config, styles, title: parts.title || view.page.title || '', seo: parts.seo || [],
           mounted: new Map(), used: ++this.clock, view, filter: view.filter || ''
         };
         this.entries.set(key, entry);
@@ -314,7 +314,7 @@ export class SiteNavigator {
     }
   }
 
-  /** The current view: title, alternate links, menu marks and language links. */
+  /** The current view: title, search engine tags (canonical, description, alternates), menu marks and language links. */
   setCurrent(view) {
     this.current = view.key;
     const entry = this.entries.get(view.key);
@@ -324,8 +324,8 @@ export class SiteNavigator {
       const layout = entry.config.site?.layout || {};
       this.doc.body?.classList?.toggle('h-site-hide-header', layout.hideHeader === true);
       this.doc.body?.classList?.toggle('h-site-hide-footer', layout.hideFooter === true);
-      for (const link of alternateLinks(this.doc)) link.remove();
-      for (const link of entry.alternates) this.doc.head.append(this.doc.importNode ? this.doc.importNode(link, true) : link);
+      for (const tag of seoTags(this.doc)) tag.remove();
+      for (const tag of entry.seo) this.doc.head.append(this.doc.importNode ? this.doc.importNode(tag, true) : tag);
       // the language links of the menu and the language switch: this page in another language
       const languages = new Map((entry.config.site?.languages || []).map((item) => [String(item.code).toLowerCase(), item.url]));
       for (const link of this.doc.querySelectorAll('[hreflang]')) {
@@ -514,9 +514,15 @@ export function markMenus(doc, pageKey, keyOf) {
   }
 }
 
-/** `<link rel="alternate" hreflang>` of a document. */
-function alternateLinks(doc) {
-  return [...doc.querySelectorAll('link')].filter((link) => link.getAttribute('rel') === 'alternate' && link.hasAttribute('hreflang'));
+/**
+ * The search engine tags of a page (plan 27m §5): `<link rel="alternate" hreflang>`, `<link rel="canonical">`, `<meta
+ * name="description">` and `<meta name="robots">`; a swapped page brings its own.
+ */
+export function seoTags(doc) {
+  const links = [...doc.querySelectorAll('link')].filter((link) => (link.getAttribute('rel') === 'alternate' && link.hasAttribute('hreflang'))
+    || link.getAttribute('rel') === 'canonical');
+  const metas = [...doc.querySelectorAll('meta')].filter((meta) => ['description', 'robots'].includes(meta.getAttribute('name')));
+  return [...links, ...metas];
 }
 
 async function defaultFetch(url) {

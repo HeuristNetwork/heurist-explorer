@@ -19,7 +19,7 @@
  * @since       8.0
  */
 
-import { HeuristApiClient, JobClient, WebsiteClient, WEBSITE_BUILD_JOB } from '#shared/api';
+import { HeuristApiClient, isJobFinished, JobClient, WebsiteClient, WEBSITE_BUILD_JOB } from '#shared/api';
 import { HDbDefs } from '#shared/data/HDbDefs.js';
 import { runWithBusyDialog } from '#shared/ui/setupNotice.js';
 
@@ -276,13 +276,37 @@ export class WebsiteApplication extends EventTarget {
   /**
    * Start a build of the selected record.
    *
+   * @param {object} [options] Generate options (plan 27m §2.1).
    * @returns {Promise<object>} The queued job.
    */
-  async startBuild() {
-    const job = await this.websites.build(this.selectedId, { entity: this._entity() });
+  async startBuild(options = {}) {
+    const job = await this.websites.build(this.selectedId, { entity: this._entity(), options });
     this.builds = [job, ...this.builds.filter((item) => item.id !== job.id)];
     this._emit('buildchange');
     return job;
+  }
+
+  /** Remove the generated site of the selected record (plan 27m §3); its summary is read again. */
+  async deleteGenerated() {
+    await this.websites.deleteGenerated(this.selectedId, { entity: this._entity() });
+    await this.reloadSummary();
+  }
+
+  /**
+   * Remove the finished builds of the selected record (2026-11-17, Clear log and delete zip files): the jobs and their
+   * result files; a running build is kept.
+   *
+   * @returns {Promise<number>} Number of removed jobs.
+   */
+  async clearBuilds() {
+    const id = this.selectedId;
+    if (!id) return 0;
+    const jobs = await this.jobs.list({ type: WEBSITE_BUILD_JOB });
+    const finished = (jobs || []).filter((job) => Number(job.params?.id) === id && isJobFinished(job));
+    await Promise.all(finished.map((job) => this.jobs.remove(job.id)));
+    await this.loadBuilds();
+    this._emit('buildchange');
+    return finished.length;
   }
 
   /** The user's builds of the selected record, newest first. */

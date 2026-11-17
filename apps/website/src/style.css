@@ -655,21 +655,13 @@ html.h-site .h-site-logo img {
   max-height: none;
 }
 
+/* the website has no logo: the placeholder logo of the page templates (2026-11-17; 544 x 308) */
 .h-site-logo:empty::before {
-  content: "\f03e";
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-sizing: border-box;
-  width: var(--h-site-logo-now);
+  content: "";
+  display: block;
+  width: calc(var(--h-site-logo-now) * 544 / 308);
   height: var(--h-site-logo-now);
-  border: 1px dashed var(--h-color-border);
-  border-radius: 4px;
-  color: var(--h-color-text-muted);
-  font-family: "Font Awesome 6 Free";
-  font-size: calc(var(--h-site-logo-now) * 0.4);
-  font-weight: 400;
-  line-height: 1;
+  background: url("/assets/cms/placeholder_logo.png") center / contain no-repeat;
 }
 
 :where(.h-site-title) {

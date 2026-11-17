@@ -5,7 +5,7 @@
  *        standalone pages (HRecordManager), center - the toolbar and the details of the
  *        selected record.
  *
- * Toolbar: New website | for the selection: Open editor, Open, Check, Generate, Delete (Edit and
+ * Toolbar: New website | for the selection: Open editor, Open, Check, Delete (Generate is in the details since 2026-11-17; Edit and
  * Add to menu are hidden since 2026-10-31: the record is edited with the pen beside the title of
  * the details; Delete is back since 2026-11-09). Legacy websites (format 1-3) are listed with their mark and can only
  * be opened. In a narrow pane only the icons are shown. "Publish this view" is in Explorer's
@@ -28,7 +28,7 @@ import { HCardinalLayout } from '#shared/widgets/layout/HCardinalLayout.js';
 import { $HR, HMsg } from '#shared/ui';
 import { setupNotice } from '#shared/ui/setupNotice.js';
 import { WebsiteDetails, el } from './WebsiteDetails.js';
-import { confirmDialog, openAddToMenuForm, openNewWebsiteForm } from './websiteForms.js';
+import { confirmDialog, openAddToMenuForm, openGenerateForm, openNewWebsiteForm } from './websiteForms.js';
 import './WebsiteManager.css';
 
 /** Website manager view. */
@@ -87,8 +87,6 @@ export class WebsiteManager extends HBaseWidget {
     this.buttons.edit = this.tool(this.recordTools, 'fa-pen', 'Edit', 'Edit the record', () => this.app.editRecord(this.app.selectedId));
     this.buttons.open = this.tool(this.recordTools, 'fa-up-right-from-square', 'Open', 'Open in a new tab', () => this.open());
     this.buttons.check = this.tool(this.recordTools, 'fa-list-check', 'Check', 'Check the format of all pages and the records a visitor can not see', () => this.check());
-    this.buttons.generate = this.tool(this.recordTools, 'fa-file-zipper', 'Generate',
-      'Write all pages into files (a zip to download); the modules still use this server', () => this.generate());
     this.buttons.addToMenu = this.tool(this.recordTools, 'fa-sitemap', 'Add to menu', 'Add this page to a website menu', () => this.addToMenu());
     this.buttons.remove = this.tool(this.recordTools, 'fa-trash', 'Delete', 'Delete the website or page', () => this.remove());
 
@@ -98,7 +96,11 @@ export class WebsiteManager extends HBaseWidget {
       application: this.app,
       onEditRecord: (id) => this.run(() => this.app.editRecord(id)),
       onRemoveFromMenu: (id) => this.run(() => this.removeFromMenu(id)),
-      onRecheck: () => this.run(() => this.check())
+      onRecheck: () => this.run(() => this.check()),
+      // the Generated site section of the details (2026-11-17, was a toolbar button)
+      onGenerate: () => this.run(() => this.generate()),
+      onDeleteGenerated: () => this.run(() => this.deleteGenerated()),
+      onClearBuilds: () => this.run(() => this.clearBuilds())
     });
     this.renderSetup();
     void this.renderList();
@@ -267,12 +269,10 @@ export class WebsiteManager extends HBaseWidget {
     show(this.buttons.edit, false);
     show(this.buttons.open, Boolean(summary?.url));
     show(this.buttons.check, v4 && summary.kind !== 'page');
-    show(this.buttons.generate, v4 && summary.kind !== 'page' && summary.canEdit);
     // hidden for now (2026-10-31): the menu is edited in the designer
     show(this.buttons.addToMenu, false);
     // shown again (review 2026-11-09)
     show(this.buttons.remove, v4 && summary.kind !== 'page' && Boolean(summary.canEdit));
-    this.buttons.generate.disabled = (app.builds || []).some((job) => ['queued', 'running'].includes(job.status));
     this.details.render();
   }
 
@@ -319,9 +319,33 @@ export class WebsiteManager extends HBaseWidget {
     this.details.setCheck(result ? { ...result, id } : null);
   }
 
-  /** Start a build; its progress is shown in the details. */
+  /** The Generate options (plan 27m §2.1), then a build; its progress is shown in the details. */
   async generate() {
-    await this.app.startBuild();
+    const summary = this.app.summary;
+    if (!summary) return;
+    const options = await openGenerateForm({
+      languages: summary.languages || [],
+      recordPages: summary.kind === 'website' ? recordPagesOf(summary.pages || []) : [],
+      previous: summary.generated?.options || null,
+      services: {
+        editQuery: typeof this.app.bridge?.editQuery === 'function' ? (query, form, opts) => this.app.bridge.editQuery(query, form, opts) : null,
+        describeQuery: typeof this.app.bridge?.describeQuery === 'function' ? (query) => this.app.bridge.describeQuery(query) : null
+      }
+    });
+    if (!options) return;
+    await this.app.startBuild(options);
+  }
+
+  /** Remove the generated site of the selected record after a question (plan 27m §3). */
+  async deleteGenerated() {
+    if (!(await confirmDialog($HR('Delete the generated pages? The website address shows the live pages again.'), { yesLabel: 'Delete' }))) return;
+    await this.app.deleteGenerated();
+  }
+
+  /** Remove the finished builds of the selected record (their log and ZIP files) after a question (2026-11-17). */
+  async clearBuilds() {
+    if (!(await confirmDialog($HR('Clear the log and delete the ZIP files of the earlier generations?'), { yesLabel: 'Clear' }))) return;
+    await this.app.clearBuilds();
   }
 
   /** Add the selected standalone page to a website menu. */
@@ -439,4 +463,22 @@ function versionBadge(record, versionField) {
 
 function escapeHtml(text) {
   return String(text).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+/**
+ * The record pages of a menu tree (plan 27g: `record: true`), depth first, for the Generate dialog (plan 27m §2.1).
+ *
+ * @param {Array<{id: number, title: string, record?: boolean, children?: Array}>} pages
+ * @returns {Array<{id: number, title: string}>}
+ */
+export function recordPagesOf(pages) {
+  const result = [];
+  const walk = (items) => {
+    for (const page of items || []) {
+      if (page.record) result.push({ id: Number(page.id), title: page.title || '' });
+      walk(page.children);
+    }
+  };
+  walk(pages);
+  return result;
 }

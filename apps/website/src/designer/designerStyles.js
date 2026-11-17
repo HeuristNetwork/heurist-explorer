@@ -531,6 +531,9 @@ export function createStylesForm({ base = {}, kinds = {}, presets = {}, layout =
   // the Back to top button (plan 27k §6): not written when off
   layoutSelect(navigationBlock, 'Back to top button', [['', 'No'], ['show', 'Shown after one screen of scrolling']],
     state.layout.backToTop === true ? 'show' : '', (value) => setLayout(state.layout, 'backToTop', value ? true : null));
+  // Search engines (plan 27m §5): not written when allowed (the default); not allowed = noindex and an empty sitemap
+  layoutSelect(navigationBlock, 'Search engines', [['', 'Allowed'], ['no', 'Not allowed (noindex)']],
+    state.layout.searchEngines === false ? 'no' : '', (value) => setLayout(state.layout, 'searchEngines', value ? false : null));
   cacheInput.addEventListener('input', () => {
     const number = Number(cacheInput.value);
     setLayout(state.layout, 'cache', Number.isInteger(number) ? Math.max(CMS_LAYOUT_CACHE.min, Math.min(CMS_LAYOUT_CACHE.max, number)) : null);

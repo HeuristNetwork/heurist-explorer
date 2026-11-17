@@ -175,6 +175,9 @@ test('layout of plan 27f §13: rows, header and footer themes, own colours; no s
     footer: { theme: 'primary' } }), []);
   assert.equal(cmsLayoutProblems({ header: { position: 'shrink' } }).length, 1);
   assert.equal(cmsLayoutProblems({ header: { colors: { bg: 'url(x)' } } }).length, 1, 'a colour that is not allowed');
+  // Search engines (plan 27m §5): true or false (CmsValidator::layoutProblems)
+  assert.deepEqual(cmsLayoutProblems({ searchEngines: false }), []);
+  assert.equal(cmsLayoutProblems({ searchEngines: 'no' }).length, 1);
   assert.equal(cmsLayoutProblems({ footer: { colors: { border: '#fff' } } }).length, 1, 'only bg and text');
   const layout = {};
   setLayout(layout, 'header.rows', 'two');

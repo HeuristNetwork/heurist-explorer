@@ -20,7 +20,9 @@ import { installFakeDom, flush } from '../../../shared/test/helpers/fakeDom.js';
 installFakeDom();
 globalThis.Node ??= globalThis.HTMLElement;
 const { WebsiteApplication } = await import('../src/manager/WebsiteApplication.js');
-const { WebsiteManager } = await import('../src/manager/WebsiteManager.js');
+const { WebsiteManager, recordPagesOf } = await import('../src/manager/WebsiteManager.js');
+const { generateOptions, generateQuery } = await import('../src/manager/websiteForms.js');
+const { formatSize } = await import('../src/manager/WebsiteDetails.js');
 const { createWebsiteManagerConfig } = await import('../src/direct.js');
 
 const CODES = { 'rty:99-51': 51, 'rty:99-52': 52, 'dty:2-49': 1149, 'dty:2-928': 928, 'trm:2-6254': 6254 };
@@ -118,12 +120,12 @@ test('toolbar: actions of a v4 standalone page, a website and a legacy website',
   // Edit and Add to menu are hidden (2026-10-31): the pen beside the title edits the record; Delete is back (2026-11-09)
   await application.select(20);
   view.update();
-  assert.deepEqual(visible(), ['create', 'designer', 'open', 'check', 'generate', 'remove']);
+  assert.deepEqual(visible(), ['create', 'designer', 'open', 'check', 'remove']);
   assert.ok(view.buttons.designer.classList.contains('h-btn-primary'));
   assert.ok(host.querySelector('.h-website-details-head')?.querySelector('.fa-pen'), 'pen beside the title');
   await application.select(10);
   view.update();
-  assert.deepEqual(visible(), ['create', 'designer', 'open', 'check', 'generate', 'remove']);
+  assert.deepEqual(visible(), ['create', 'designer', 'open', 'check', 'remove']);
   await application.select(30);
   view.update();
   assert.deepEqual(visible(), ['create', 'open']);
@@ -158,4 +160,20 @@ test('setup: a modal popup while importing, then the host and the manager load t
   assert.equal(changed, 1, 'the host loads the definitions again');
   assert.equal(application.status.installed, true, 'the state is read again after the install');
   assert.ok(calls.length > 0);
+});
+
+test('Generate options (plan 27m §2.1): languages, target, address of a ZIP, record page queries', () => {
+  assert.deepEqual(generateQuery('{"t":"10"}'), [{ t: '10' }], 'one object: a query of one part');
+  assert.equal(generateQuery('not json'), null);
+  assert.equal(generateQuery('[{"t":"10","f:1":"$X$"}]'), null, 'a query with parameters is refused');
+  assert.deepEqual(generateOptions({ languages: ['eng', 'fre'], target: 'folder', baseUrl: 'https://x.org', record_7: '[{"t":"10"}]',
+    record_8: '' }, ['ENG', 'FRE']), { languages: [], target: 'folder', baseUrl: '', recordPages: { 7: [{ t: '10' }] } },
+  'all languages = none sent; no address for the folder');
+  assert.deepEqual(generateOptions({ languages: ['fre'], target: 'zip', baseUrl: ' https://x.org/ ' }, ['eng', 'fre']),
+    { languages: ['fre'], target: 'zip', baseUrl: 'https://x.org/', recordPages: {} });
+  assert.equal(generateOptions({ target: 'ftp' }).target, 'folder', 'an unknown target: folder');
+  assert.deepEqual(recordPagesOf([{ id: 1, title: 'A', children: [{ id: 2, title: 'Person', record: true, children: [] }] },
+    { id: 3, title: 'Place', record: true }]), [{ id: 2, title: 'Person' }, { id: 3, title: 'Place' }]);
+  assert.equal(formatSize(1536), '2 KB');
+  assert.equal(formatSize(3 * 1024 * 1024), '3.0 MB');
 });

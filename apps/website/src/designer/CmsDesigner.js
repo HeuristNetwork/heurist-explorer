@@ -27,7 +27,7 @@ import { HCardinalLayout } from '#shared/widgets/layout/HCardinalLayout.js';
 import { HTree } from '#shared/widgets/tree/HTree.js';
 import { createTabSet } from '#shared/widgets/layout/tabs.js';
 import { CMS_ELEMENTS, CMS_PAGE_PRESETS, CMS_TEAM_TEMPLATE, cmsPageStarter } from '#shared/site/cmsEdit.js';
-import { buildTemplatePage } from '#shared/site/cmsPageTemplates.js';
+import { buildTemplatePage, CMS_TEMPLATE_ELEMENTS } from '#shared/site/cmsPageTemplates.js';
 import { normalizeRecordLimits } from '#shared/recordview/recordLimits.js';
 import {
   CMS_MEDIA_DEFAULTS, buildCmsGalleryItem, buildCmsMedia, buildCmsPlaceholder, cmsAssetUrl, cmsMediaCaption, cmsMediaType, cmsMediaView
@@ -917,8 +917,10 @@ export class CmsDesigner {
     await step('Home', async () => {
       const home = await this._record(this.site.id);
       for (const item of home.doc.tree('content')) home.doc.remove(item.id);
-      buildTemplatePage(home.doc, 'landing', $HR('Welcome'), { values: {}, site: await this._templateSite(), language: languages[0] || 'eng',
-        ...this._templateBuilders() });
+      // without the banner on top (2026-11-17): the header shows the title of the website already
+      const elements = CMS_TEMPLATE_ELEMENTS.landing.filter((element) => element !== 'banner');
+      buildTemplatePage(home.doc, 'landing', $HR('Welcome'), { values: { elements }, site: await this._templateSite(),
+        language: languages[0] || 'eng', ...this._templateBuilders() });
       await this._saveRecord(this.site.id, { quiet: true });
     });
     // the About page of the server: filled with the template About, or removed after the other pages exist (the top

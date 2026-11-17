@@ -584,3 +584,35 @@
 #Choose a query source or write a query#Choose a query source or write a query
 #The first records come from the own query; a later search from the other sources replaces them.#The first records come from the own query; a later search from the other sources replaces them.
 #The chosen filter shows its records in the modules of the page that take their records from this widget (Records and selection of the module); a filter with parameters shows its form first.#The chosen filter shows its records in the modules of the page that take their records from this widget (Records and selection of the module); a filter with parameters shows its form first.
+#Search engines#Search engines
+#Allowed#Allowed
+#Not allowed (noindex)#Not allowed (noindex)
+#On this server (the website address shows the generated pages)#On this server (the website address shows the generated pages)
+#ZIP file to download (for another web server)#ZIP file to download (for another web server)
+#Both#Both
+#Pages in the other languages stay live#Pages in the other languages stay live
+#Generate#Generate
+#Public address of the ZIP#Public address of the ZIP
+#Optional, e.g. https://www.example.org/ - gives the copy its canonical addresses, sitemap.xml and robots.txt#Optional, e.g. https://www.example.org/ - gives the copy its canonical addresses, sitemap.xml and robots.txt
+#Record pages#Record pages
+#The records whose pages are written (a query without parameters); empty: the record page stays live#The records whose pages are written (a query without parameters); empty: the record page stays live
+#Generate website#Generate website
+#Choose at least one language#Choose at least one language
+#An http or https address without parameters#An http or https address without parameters
+#Not a query without parameters#Not a query without parameters
+#Write the pages into files: on this server (the website address shows them) or a ZIP to download; the modules still use this server#Write the pages into files: on this server (the website address shows them) or a ZIP to download; the modules still use this server
+#Delete the generated pages? The website address shows the live pages again.#Delete the generated pages? The website address shows the live pages again.
+#Generated site#Generated site
+#Not generated: the website address shows the live pages.#Not generated: the website address shows the live pages.
+#Generated#Generated
+#Files#Files
+#The website or a page was changed after the generation: generate again to publish the changes.#The website or a page was changed after the generation: generate again to publish the changes.
+#Delete the generated pages (the address shows the live pages again)#Delete the generated pages (the address shows the live pages again)
+#Generate site#Generate site
+#Clear generated site#Clear generated site
+#Generated files and log#Generated files and log
+#Clear log and delete zip files#Clear log and delete zip files
+#Remove the finished generations from the log with their ZIP files#Remove the finished generations from the log with their ZIP files
+#Generated on this server#Generated on this server
+#Clear the log and delete the ZIP files of the earlier generations?#Clear the log and delete the ZIP files of the earlier generations?
+#Clear#Clear

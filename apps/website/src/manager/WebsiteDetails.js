@@ -2,7 +2,8 @@
  * @file WebsiteDetails.js
  * @brief Details pane of the Website manager (plan 27b §3): icon, name and the pen (edit the record),
  *        version, languages, logo, keywords, description, author, live URL, menu tree of a website,
- *        problems of the format (Check) and the builds (Generate).
+ *        problems of the format (Check), the generated site (plan 27m §3: date, size, files, changed since, Delete)
+ *        and the builds (Generate).
  *
  * @project     Heurist academic knowledge management system
  * @package     heurist-website
@@ -36,6 +37,9 @@ export class WebsiteDetails extends HBaseWidget {
    * @param {Function} options.onEditRecord `(id)` - edit the record (the pen beside the title) or a page of the menu.
    * @param {Function} options.onRemoveFromMenu `(pageId)` - take a page out of the menu.
    * @param {Function} [options.onRecheck] `()` - run Check again (after a record of its result was edited).
+   * @param {Function} [options.onGenerate] `()` - the Generate options, then a build (Generate site).
+   * @param {Function} [options.onDeleteGenerated] `()` - remove the generated site (plan 27m §3).
+   * @param {Function} [options.onClearBuilds] `()` - remove the finished builds and their ZIP files.
    * @returns {WebsiteDetails}
    */
   attach(container, options = {}) {
@@ -113,7 +117,46 @@ export class WebsiteDetails extends HBaseWidget {
     if (summary.kind === 'website') this._renderPages(root, summary);
     // the result of Check of this record (another record selected: hidden)
     if (this.check && this.check.id === app.selectedId) this._renderCheck(root);
-    if (summary.v4 && summary.kind !== 'page') this._renderBuilds(root);
+    if (summary.v4 && summary.kind !== 'page') this._renderGenerated(root, summary);
+  }
+
+  /**
+   * The generated site (plan 27m §3): its address shows these files; date, languages, pages, record pages, files and
+   * size, a note when the site was changed after it. Two columns (2026-11-17): the text on the left, the buttons
+   * Generate site / Clear generated site on the right; below it the subsection Generated files and log.
+   */
+  _renderGenerated(root, summary) {
+    const section = el('section', 'h-website-details-section', root);
+    el('h2', '', section).textContent = $HR('Generated site');
+    const info = summary.generated;
+    const [text, actions] = columns(section);
+    if (info) {
+      const facts = el('div', 'h-website-details-facts', text);
+      const seconds = Number(info.generatedAt) || 0;
+      if (seconds) fact(facts, 'Generated', new Date(seconds * 1000).toLocaleString());
+      if (info.languages?.length) fact(facts, 'Languages', info.languages.map((code) => String(code).toUpperCase()).join(', '));
+      fact(facts, 'Pages', String(Number(info.pages) || 0));
+      if (Number(info.records) > 0) fact(facts, 'Record pages', String(Number(info.records)));
+      fact(facts, 'Files', `${Number(info.files) || 0} (${formatSize(Number(info.size) || 0)})`);
+      if (info.changed) {
+        el('p', 'h-website-issue-warning', text).textContent =
+          $HR('The website or a page was changed after the generation: generate again to publish the changes.');
+      }
+    } else {
+      el('p', 'h-muted', text).textContent = $HR('Not generated: the website address shows the live pages.');
+    }
+    if (summary.canEdit) {
+      const generate = textButton(actions, 'fa-file-zipper', 'Generate site',
+        'Write the pages into files: on this server (the website address shows them) or a ZIP to download; the modules still use this server',
+        () => this.options.onGenerate?.());
+      generate.classList.add('h-btn-primary');
+      generate.disabled = (this.app.builds || []).some((job) => !isJobFinished(job));
+      if (info) {
+        textButton(actions, 'fa-trash-can', 'Clear generated site', 'Delete the generated pages (the address shows the live pages again)',
+          () => this.options.onDeleteGenerated?.());
+      }
+    }
+    this._renderBuilds(section);
   }
 
   _renderUrl(root, url) {
@@ -179,7 +222,7 @@ export class WebsiteDetails extends HBaseWidget {
 
   _renderCheck(root) {
     const section = el('section', 'h-website-details-section', root);
-    el('h3', '', section).textContent = $HR('Check');
+    el('h2', '', section).textContent = $HR('Check');
     const app = this.app;
     this.checkWidget = new WebsiteCheck().attach(el('div', '', section), {
       apiClient: app.apiClient,
@@ -192,37 +235,41 @@ export class WebsiteDetails extends HBaseWidget {
     void this.checkWidget.setResult(this.check).catch((error) => HMsg.showMsgErr(error?.message || String(error)));
   }
 
-  _renderBuilds(root) {
+  /** Generated files and log (subsection of Generated site): a running build with Stop, the finished builds. */
+  _renderBuilds(section) {
     const builds = this.app.builds || [];
     if (!builds.length) return;
-    const section = el('section', 'h-website-details-section', root);
-    el('h3', '', section).textContent = $HR('Generated files');
+    el('h3', '', section).textContent = $HR('Generated files and log');
+    const [text, actions] = columns(section);
     const running = builds.find((job) => !isJobFinished(job));
     if (running) {
       // progress with Stop; the list is read again when it ends
-      const host = el('div', 'h-website-build', section);
+      const host = el('div', 'h-website-build', text);
       this.monitor = new HJobMonitor().attach(host, { jobClient: this.app.jobs, compact: true });
       this.monitor.follow(running).then(() => this.app.reloadSummary()).catch(() => {});
     }
     const finished = builds.filter((job) => isJobFinished(job));
-    if (finished.length) {
-      const list = el('ul', 'h-website-builds', section);
-      for (const job of finished) {
-        const item = el('li', '', list);
-        // Unix seconds of the job state
-        const seconds = Number(job.finishedAt || job.createdAt) || 0;
-        const when = seconds ? new Date(seconds * 1000).toLocaleString() : '';
-        if (job.status === 'done' && job.result?.download) {
-          const link = el('a', '', item);
-          link.href = this.app.jobs.resultUrl(job.id);
-          link.download = job.result.file || '';
-          link.textContent = `${job.result.file || $HR('Download')} ${when}`;
-        } else {
-          item.className = 'h-website-issue-warning';
-          item.textContent = `${$HR(job.status)} ${when}${job.error ? `: ${job.error}` : ''}`;
-        }
+    if (!finished.length) return;
+    const list = el('ul', 'h-website-builds', text);
+    for (const job of finished) {
+      const item = el('li', '', list);
+      // Unix seconds of the job state
+      const seconds = Number(job.finishedAt || job.createdAt) || 0;
+      const when = seconds ? new Date(seconds * 1000).toLocaleString() : '';
+      if (job.status === 'done' && job.result?.download) {
+        const link = el('a', '', item);
+        link.href = this.app.jobs.resultUrl(job.id);
+        link.download = job.result.file || '';
+        link.textContent = `${job.result.file || $HR('Download')} ${when}`;
+      } else if (job.status === 'done') {
+        item.textContent = `${$HR('Generated on this server')} ${when}`;
+      } else {
+        item.className = 'h-website-issue-warning';
+        item.textContent = `${$HR(job.status)} ${when}${job.error ? `: ${job.error}` : ''}`;
       }
     }
+    textButton(actions, 'fa-broom', 'Clear log and delete zip files', 'Remove the finished generations from the log with their ZIP files',
+      () => this.options.onClearBuilds?.());
   }
 
   /** @inheritdoc */
@@ -231,6 +278,13 @@ export class WebsiteDetails extends HBaseWidget {
     this.monitor = null;
     await super.destroy();
   }
+}
+
+/** A size in bytes as text (KB / MB). */
+export function formatSize(bytes) {
+  if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  if (bytes >= 1024) return `${Math.round(bytes / 1024)} KB`;
+  return `${bytes} B`;
 }
 
 /** One "label: value" fact. */
@@ -256,6 +310,20 @@ function iconButton(parent, icon, title, onClick) {
   el('i', `fa-solid ${icon}`, button).setAttribute('aria-hidden', 'true');
   button.addEventListener('click', () => Promise.resolve(onClick()).catch((error) => HMsg.showMsgErr(error?.message || String(error))));
   return button;
+}
+
+/** A button with icon and caption (the right column of a section). */
+function textButton(parent, icon, label, title, onClick) {
+  const button = iconButton(parent, icon, title, onClick);
+  button.className = 'h-btn';
+  el('span', '', button).textContent = $HR(label);
+  return button;
+}
+
+/** Two columns of a section (2026-11-17): the text on the left, the buttons on the right. */
+function columns(section) {
+  const row = el('div', 'h-website-details-columns', section);
+  return [el('div', 'h-website-details-text', row), el('div', 'h-website-details-actions', row)];
 }
 
 /** Create an element with a class, optionally appended to a parent. */

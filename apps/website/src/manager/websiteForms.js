@@ -1,7 +1,7 @@
 /**
  * @file websiteForms.js
- * @brief Dialogs of the Website manager (plan 27b): new website (HEditForm, plan 27f §13), add a page to a
- *        website menu, and Yes/No questions. Built on the shared message dialog (HMsg).
+ * @brief Dialogs of the Website manager (plan 27b): new website (HEditForm, plan 27f §13), Generate options (plan 27m
+ *        §2.1), add a page to a website menu, and Yes/No questions. Built on the shared message dialog (HMsg).
  *
  * @project     Heurist academic knowledge management system
  * @package     heurist-website
@@ -15,6 +15,7 @@
  */
 
 import { $HR, HMsg } from '#shared/ui';
+import { hasQueryParameters } from '#shared/data/queryParameters.js';
 import { openEditFormDialog } from '#shared/widgets/edit-form/editFormDialog.js';
 import { createWebsiteFieldsForm } from './websiteFields.js';
 
@@ -241,4 +242,142 @@ function option(value, label) {
   element.value = value;
   element.textContent = label;
   return element;
+}
+
+/** Targets of Generate (plan 27m §2.1). */
+export const GENERATE_TARGETS = Object.freeze([
+  { id: 'folder', label: 'On this server (the website address shows the generated pages)' },
+  { id: 'zip', label: 'ZIP file to download (for another web server)' },
+  { id: 'both', label: 'Both' }
+]);
+
+/**
+ * The query of a record page in the Generate dialog: a JSON query without parameters, or null.
+ *
+ * @param {string} text
+ * @returns {Array|null}
+ */
+export function generateQuery(text) {
+  let query;
+  try {
+    query = JSON.parse(String(text ?? ''));
+  } catch {
+    return null;
+  }
+  if (query && !Array.isArray(query) && typeof query === 'object') query = [query];
+  if (!Array.isArray(query) || !query.length || hasQueryParameters(query)) return null;
+  return query;
+}
+
+/**
+ * The Generate options as sent to `POST /{website|page}/{id}/execute` (plan 27m §2.1), from the values of the dialog.
+ *
+ * @param {object} values HEditForm values: `languages`, `target`, `baseUrl`, `record_<page id>`.
+ * @param {string[]} allLanguages The languages of the site (all chosen = none sent).
+ * @returns {{languages: string[], target: string, baseUrl: string, recordPages: object}}
+ */
+export function generateOptions(values, allLanguages = []) {
+  const chosen = [values.languages].flat().filter(Boolean).map((code) => String(code).toLowerCase());
+  const all = allLanguages.map((code) => String(code).toLowerCase());
+  const recordPages = {};
+  for (const [name, text] of Object.entries(values)) {
+    const match = /^record_(\d+)$/.exec(name);
+    const query = match && String(text ?? '').trim() ? generateQuery(text) : null;
+    if (query) recordPages[match[1]] = query;
+  }
+  const target = GENERATE_TARGETS.some((item) => item.id === values.target) ? values.target : 'folder';
+  return {
+    languages: all.length && all.every((code) => chosen.includes(code)) ? [] : chosen,
+    target,
+    baseUrl: target === 'folder' ? '' : String(values.baseUrl ?? '').trim(),
+    recordPages
+  };
+}
+
+/**
+ * Generate dialog (plan 27m §2.1): the languages, where the pages go (this server, a ZIP or both), the public address of
+ * a ZIP, and per record page of the website a query of the records whose pages are written (none: the record page stays
+ * live). The choices of the last generation come from `previous` (manifest options).
+ *
+ * @param {object} options
+ * @param {string[]} [options.languages] Languages of the site (3 letters).
+ * @param {Array<{id: number, title: string}>} [options.recordPages] Record pages of the website.
+ * @param {object|null} [options.previous] Options of the last generation.
+ * @param {object} [options.services] `editQuery(query, filterForm, {allowParameters})`, `describeQuery(query)`.
+ * @returns {Promise<object|null>} generateOptions(), null when cancelled.
+ */
+export async function openGenerateForm({ languages = [], recordPages = [], previous = null, services = {} } = {}) {
+  const codes = languages.map((code) => String(code).toLowerCase());
+  const last = previous || {};
+  const children = [];
+  if (codes.length > 1) {
+    children.push({ name: 'languages', type: 'enum', label: 'Languages', max: 0, mode: 'checkbox',
+      terms: codes.map((code) => ({ id: code, label: code.toUpperCase() })),
+      help: 'Pages in the other languages stay live' });
+  }
+  children.push(
+    { name: 'target', type: 'enum', label: 'Generate', max: 1, mode: 'radio', terms: GENERATE_TARGETS },
+    { name: 'baseUrl', type: 'freetext', label: 'Public address of the ZIP', max: 1, showWhen: { target: ['zip', 'both'] },
+      help: 'Optional, e.g. https://www.example.org/ - gives the copy its canonical addresses, sitemap.xml and robots.txt' }
+  );
+  const groups = [{ id: 'generate', children }];
+  if (recordPages.length) {
+    groups.push({
+      id: 'records',
+      label: 'Record pages',
+      children: recordPages.map((page) => ({
+        name: `record_${page.id}`, type: 'freetext', label: page.title || `#${page.id}`, max: 1, special: querySpecial(services),
+        help: 'The records whose pages are written (a query without parameters); empty: the record page stays live'
+      }))
+    });
+  }
+  const values = {
+    languages: Array.isArray(last.languages) && last.languages.length ? last.languages.filter((code) => codes.includes(code)) : codes,
+    target: last.target || 'folder',
+    baseUrl: last.baseUrl || ''
+  };
+  for (const page of recordPages) {
+    const query = last.recordPages?.[String(page.id)];
+    values[`record_${page.id}`] = query ? JSON.stringify(query) : '';
+  }
+  const answer = await openEditFormDialog({
+    title: 'Generate website',
+    className: 'h-dialog-generate',
+    form: { groups },
+    values,
+    validate: (current) => {
+      const problems = [];
+      if (codes.length > 1 && ![current.languages].flat().filter(Boolean).length) {
+        problems.push({ field: 'languages', message: $HR('Choose at least one language') });
+      }
+      const address = String(current.baseUrl ?? '').trim();
+      if (address && current.target !== 'folder' && !/^https?:\/\/[^\s/?#]+(\/[^\s?#]*)?$/i.test(address)) {
+        problems.push({ field: 'baseUrl', message: $HR('An http or https address without parameters') });
+      }
+      for (const page of recordPages) {
+        const text = String(current[`record_${page.id}`] ?? '').trim();
+        if (text && !generateQuery(text)) problems.push({ field: `record_${page.id}`, message: $HR('Not a query without parameters') });
+      }
+      return problems;
+    },
+    buttons: [{ id: 'generate', label: 'Generate', primary: true }, { id: 'cancel', label: 'Cancel' }]
+  });
+  return answer ? generateOptions(answer.values, codes) : null;
+}
+
+/** The query field of a record page: the Filter Builder from its icon (as the query of Record cards). */
+function querySpecial(services) {
+  return {
+    json: false,
+    icon: 'fa-sliders',
+    title: 'Open the Filter Builder',
+    describe: (value) => {
+      const query = generateQuery(value);
+      return query && typeof services.describeQuery === 'function' ? services.describeQuery(query) || '' : '';
+    },
+    edit: typeof services.editQuery === 'function' ? async (value) => {
+      const result = await services.editQuery(generateQuery(value) || [], null, { allowParameters: false });
+      return result?.query ? JSON.stringify(result.query) : undefined;
+    } : undefined
+  };
 }

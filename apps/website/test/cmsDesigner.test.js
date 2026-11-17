@@ -202,7 +202,14 @@ test('Styles popup: four tabs, themes, kind defaults, presets, custom CSS with t
   assert.equal(values.css, '.x{color:red}');
   // Navigation and layout (plan 27f): default values are not written; Pages kept only for swap
   assert.deepEqual(values.layout, {});
-  const [navigation, pageWidth, backToTop, headerPosition] = form.tabs.panels[4].querySelectorAll('select');
+  const [navigation, pageWidth, backToTop, searchEngines, headerPosition] = form.tabs.panels[4].querySelectorAll('select');
+  // Search engines (plan 27m §5): false when not allowed, not written when allowed
+  searchEngines.value = 'no';
+  searchEngines.fire('change');
+  assert.equal(form.read().layout.searchEngines, false);
+  searchEngines.value = '';
+  searchEngines.fire('change');
+  assert.equal(form.read().layout.searchEngines, undefined);
   // the Back to top button (plan 27k §6): true when shown, not written when off
   backToTop.value = 'show';
   backToTop.fire('change');
