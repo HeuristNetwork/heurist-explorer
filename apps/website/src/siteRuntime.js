@@ -294,6 +294,10 @@ export function onAction(event, env = {}) {
     return true;
   }
   event.preventDefault?.();
+  if (action === 'toggle') {
+    toggleElement(target, env.document ?? globalThis.document);
+    return true;
+  }
   if (action === 'addRecord') {
     const explorer = MODULES.find((module) => module.type === 'explorer' && typeof module.api?.addRecord === 'function'
       && (!module.host || module.host.isConnected !== false));
@@ -305,6 +309,43 @@ export function onAction(event, env = {}) {
     Promise.resolve(explorer.api.addRecord(recordType)).catch((error) => console.warn('Add record failed', error));
   }
   return true;
+}
+
+/**
+ * Show / hide an element of the page (plan 27n §10, action `toggle`): an initially hidden element (`data-h-reveal="hidden"`)
+ * is shown by class h-site-shown, any other element is hidden by class h-site-hidden. The links of the action get
+ * `is-active` and `aria-expanded` while the element is shown; a shown element fades in, and the window gets a `resize`
+ * (maps, timelines measure their box again).
+ *
+ * @param {string} nodeId `data-h-node` of the element.
+ * @param {Document|HTMLElement} [doc] Where the element and the links are.
+ * @returns {boolean|null} Whether the element is shown now; null without the element.
+ */
+export function toggleElement(nodeId, doc = globalThis.document) {
+  if (!nodeId || !/^[A-Za-z][A-Za-z0-9_-]{0,63}$/.test(nodeId)) return null;
+  const node = doc?.querySelector?.(`[data-h-node="${nodeId}"]`);
+  if (!node) return null;
+  const initiallyHidden = node.getAttribute('data-h-reveal') === 'hidden';
+  const shown = initiallyHidden ? !node.classList.contains('h-site-shown') : node.classList.contains('h-site-hidden');
+  if (initiallyHidden) node.classList.toggle('h-site-shown', shown); else node.classList.toggle('h-site-hidden', !shown);
+  node.classList.remove('h-site-toggle-in');
+  if (shown) {
+    // the animation runs again on each show
+    void node.offsetWidth;
+    node.classList.add('h-site-toggle-in');
+  }
+  const links = [...doc.querySelectorAll('[data-h-action="toggle"]')].filter((link) => link.getAttribute('data-h-target') === nodeId);
+  for (const link of links) {
+    link.classList.toggle('is-active', shown);
+    link.setAttribute('aria-expanded', String(shown));
+    // in a menu: shown like the current item
+    link.closest?.('.h-site-menu-item')?.classList.toggle('is-current', shown);
+  }
+  if (shown) {
+    const view = doc.defaultView ?? doc.ownerDocument?.defaultView ?? globalThis.window;
+    if (typeof view?.dispatchEvent === 'function' && typeof Event === 'function') view.dispatchEvent(new Event('resize'));
+  }
+  return shown;
 }
 
 /**
@@ -392,9 +433,10 @@ export function enhanceAccordion(container) {
 }
 
 /**
- * Reveal on scroll (plan 27k §6): an element with `data-h-reveal` (fade, up) is hidden (class h-site-reveal-pending)
- * until it comes into the window, then shown with its animation (CSS). Nothing without IntersectionObserver or with
- * prefers-reduced-motion: the elements are shown as they are.
+ * Reveal on scroll (plan 27k §6, 27n §8): an element with `data-h-reveal` (fade, up, down, left, right, zoom) is hidden
+ * (class h-site-reveal-pending) until it comes into the window, then shown with its animation (CSS). Nothing without
+ * IntersectionObserver or with prefers-reduced-motion: the elements are shown as they are. `hidden` is left to the
+ * Show / hide action (CSS keeps it hidden).
  *
  * @param {HTMLElement} root
  * @param {object} [options]
@@ -407,16 +449,33 @@ export function enhanceReveal(root, {
   reduced = Boolean(globalThis.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches)
 } = {}) {
   const items = [...(root.matches?.('[data-h-reveal]') ? [root] : []), ...root.querySelectorAll('[data-h-reveal]')]
-    .filter((item) => !item.classList.contains('h-site-reveal-done'));
+    .filter((item) => !item.classList.contains('h-site-reveal-done') && item.getAttribute('data-h-reveal') !== 'hidden')
+    // a list of cards or a gallery has no box of its own (display: contents): its items are revealed (review 27n §14.2)
+    .flatMap((item) => {
+      if (!item.classList.contains('h-site-widget-list') || !item.children.length) return [item];
+      const effect = item.getAttribute('data-h-reveal');
+      item.classList.add('h-site-reveal-done');
+      return [...item.children].map((child, index) => {
+        child.setAttribute('data-h-reveal', effect);
+        // one after another (review §16.2)
+        child.style?.setProperty?.('--h-site-reveal-delay', `${Math.min(index, 8) * 120}ms`);
+        return child;
+      });
+    });
   if (!items.length || typeof Observer !== 'function' || reduced) return null;
+  // revealed when a quarter of it is in the window, or a third of the window shows it (a tall element; review §16.2):
+  // the effect is seen while the element comes into view, not before
   const observer = new Observer((entries) => {
     for (const entry of entries) {
       if (!entry.isIntersecting) continue;
+      const seen = entry.intersectionRect?.height ?? Infinity;
+      const view = entry.rootBounds?.height ?? 0;
+      if (entry.intersectionRatio !== undefined && entry.intersectionRatio < 0.25 && seen < view / 3) continue;
       entry.target.classList.remove('h-site-reveal-pending');
       entry.target.classList.add('h-site-reveal-done');
       observer.unobserve(entry.target);
     }
-  }, { rootMargin: '0px 0px -10% 0px' });
+  }, { rootMargin: '0px 0px -10% 0px', threshold: [0, 0.1, 0.25, 0.5] });
   for (const item of items) {
     item.classList.add('h-site-reveal-pending');
     observer.observe(item);

@@ -33,8 +33,9 @@
  * @since       8.0
  */
 
-import { checkCmsDocument, CMS_CONFIG_VERSION, CMS_SCHEMA, cmsInstanceDataSource, parseCmsConfig } from './cmsDocument.js';
+import { checkCmsDocument, CMS_CONFIG_VERSION, CMS_NAME, CMS_SCHEMA, cmsInstanceDataSource, parseCmsConfig } from './cmsDocument.js';
 import { CMS_MEDIA_DEFAULTS } from './cmsMedia.js';
+import { ITEM_COLORS } from './cmsMenu.js';
 import { buildTemplatePage, CMS_TEAM_TEMPLATE, CMS_TEMPLATE_PAGES } from './cmsPageTemplates.js';
 import { normalizeCmsFilterValues } from './cmsSavedFilter.js';
 
@@ -50,8 +51,11 @@ export const CMS_CONTROLS = Object.freeze(['group', 'tabs', 'accordion']);
  */
 export const CMS_TAB_STYLES = Object.freeze(['tabs', 'links', 'underline', 'pills', 'buttons', 'outline']);
 
-/** Reveal on scroll of an element (plan 27k §6, `data-h-reveal`; StoredText allows the same). */
-export const CMS_REVEALS = Object.freeze(['fade', 'up']);
+/**
+ * Reveal on scroll of an element (plan 27k §6, `data-h-reveal`; StoredText allows the same). Plan 27n §8: slide down,
+ * left, right (side slide), zoom, and `hidden` = initially hidden until a Show / hide action shows it.
+ */
+export const CMS_REVEALS = Object.freeze(['fade', 'up', 'down', 'left', 'right', 'zoom', 'hidden']);
 
 /** Elements the designer can add (§5.2). */
 export const CMS_ELEMENTS = Object.freeze(['text', 'media', 'group', 'columns2', 'columns3', 'tabs', 'accordion', 'explorer',
@@ -312,6 +316,8 @@ export class CmsRecordDocument {
         tag: child.tag,
         label: labelOf(child, instance),
         control: attr(child, 'data-h-control'),
+        // the name of the element (plan 27n §9)
+        name: attr(child, 'data-h-name') || '',
         instance: instanceId,
         media: attr(child, 'data-h-media'),
         field: attr(child, 'data-h-field'),
@@ -869,33 +875,35 @@ export class CmsRecordDocument {
   }
 
   /**
-   * Orientation and style of tabs (plan 27k §3): `data-h-orientation` (`vertical`, else horizontal) and
-   * `data-h-item-style` (an item style of the menus, else `tabs`).
+   * Orientation, style and colours of tabs (plan 27k §3, 27n §7): `data-h-orientation` (`vertical`, else horizontal),
+   * `data-h-item-style` (an item style of the menus, else `tabs`) and `data-h-colors` (ITEM_COLORS, else '').
    *
    * @param {string} id Tabs.
-   * @returns {{orientation: string, style: string}|null} Null when the node is not tabs.
+   * @returns {{orientation: string, style: string, colors: string}|null} Null when the node is not tabs.
    */
   tabsLook(id) {
     const node = this.find(id)?.node;
     if (!node || attr(node, 'data-h-control') !== 'tabs') return null;
     const style = attr(node, 'data-h-item-style');
+    const colors = attr(node, 'data-h-colors');
     return { orientation: attr(node, 'data-h-orientation') === 'vertical' ? 'vertical' : 'horizontal',
-      style: CMS_TAB_STYLES.includes(style) ? style : 'tabs' };
+      style: CMS_TAB_STYLES.includes(style) ? style : 'tabs', colors: ITEM_COLORS.includes(colors) ? colors : '' };
   }
 
   /**
    * Set the orientation and style of tabs; the defaults (horizontal, tabs) remove the attributes.
    *
    * @param {string} id Tabs.
-   * @param {{orientation?: string, style?: string}} look
+   * @param {{orientation?: string, style?: string, colors?: string}} look
    * @returns {boolean} Whether something changed.
    */
-  setTabsLook(id, { orientation = 'horizontal', style = 'tabs' } = {}) {
+  setTabsLook(id, { orientation = 'horizontal', style = 'tabs', colors = '' } = {}) {
     const node = this.find(id)?.node;
     if (!node || attr(node, 'data-h-control') !== 'tabs') return false;
     const before = JSON.stringify(this.tabsLook(id));
     if (orientation === 'vertical') setAttr(node, 'data-h-orientation', 'vertical'); else removeAttr(node, 'data-h-orientation');
     if (style !== 'tabs' && CMS_TAB_STYLES.includes(style)) setAttr(node, 'data-h-item-style', style); else removeAttr(node, 'data-h-item-style');
+    if (ITEM_COLORS.includes(colors)) setAttr(node, 'data-h-colors', colors); else removeAttr(node, 'data-h-colors');
     return JSON.stringify(this.tabsLook(id)) !== before;
   }
 
@@ -928,7 +936,46 @@ export class CmsRecordDocument {
     return JSON.stringify(this.accordionLook(id)) !== before;
   }
 
-  /** Reveal on scroll of a node (plan 27k §6, `data-h-reveal`): `fade`, `up` or ''. */
+  /** Name of a node (plan 27n §9, `data-h-name`), '' without. */
+  name(id) {
+    return attr(this.find(id)?.node, 'data-h-name') || '';
+  }
+
+  /**
+   * Set the name of a node; '' removes it. A name that does not fit CMS_NAME is refused (the designer checks that it is
+   * unique on the page, also against the header and footer of the website).
+   *
+   * @param {string} id
+   * @param {string} name
+   * @returns {boolean} Whether something changed.
+   */
+  setName(id, name) {
+    const node = this.find(id)?.node;
+    const value = String(name ?? '').trim();
+    if (!node || (value && !CMS_NAME.test(value))) return false;
+    const before = this.name(id);
+    if (value) setAttr(node, 'data-h-name', value); else removeAttr(node, 'data-h-name');
+    return this.name(id) !== before;
+  }
+
+  /**
+   * The named elements of this record (plan 27n §9): targets of the Show / hide action, unique names.
+   *
+   * @returns {Array<{id: string, name: string, part: string, type: string}>} In document order.
+   */
+  names() {
+    const result = [];
+    const walk = (items, part) => {
+      for (const item of items) {
+        if (item.name) result.push({ id: item.id, name: item.name, part, type: typeNameOf(item) });
+        walk(item.children, part);
+      }
+    };
+    for (const part of this.partNames()) walk(this.tree(part), part);
+    return result;
+  }
+
+  /** Reveal on scroll of a node (plan 27k §6, `data-h-reveal`): one of CMS_REVEALS or ''. */
   reveal(id) {
     const value = attr(this.find(id)?.node, 'data-h-reveal');
     return CMS_REVEALS.includes(value) ? value : '';
@@ -938,7 +985,7 @@ export class CmsRecordDocument {
    * Set reveal on scroll of a node; '' (or an unknown value) removes it.
    *
    * @param {string} id
-   * @param {string} value `fade` | `up` | ''.
+   * @param {string} value One of CMS_REVEALS or ''.
    * @returns {boolean} Whether something changed.
    */
   setReveal(id, value) {
@@ -1369,8 +1416,32 @@ function labelSection(node) {
   setAttr(node, 'aria-labelledby', id);
 }
 
-/** Short label of a tree item. */
+/**
+ * Type name of a tree item (plan 27n §9: `name · type` in the tree and the lists of named elements).
+ *
+ * @param {{type?: string|null, media?: string|null, field?: string|null, control?: string|null, tag?: string}} item
+ * @returns {string}
+ */
+export function typeNameOf(item) {
+  if (item.type) return item.type;
+  if (item.media) return 'media';
+  if (item.field) return 'field';
+  if (item.control) return item.control;
+  return item.tag === 'div' || /^(?:p|h[1-6])$/.test(item.tag || '') ? 'text' : (item.tag || 'element');
+}
+
+/** Short label of a tree item; a named element: `name · type` (plan 27n §9). */
 function labelOf(node, instance) {
+  const name = attr(node, 'data-h-name');
+  if (name) {
+    return `${name} · ${typeNameOf({ type: instance?.type, media: attr(node, 'data-h-media'), field: attr(node, 'data-h-field'),
+      control: attr(node, 'data-h-control'), tag: hasAttr(node, 'data-h-text') ? 'p' : node.tag })}`;
+  }
+  return plainLabelOf(node, instance);
+}
+
+/** Short label of a tree item without its name. */
+function plainLabelOf(node, instance) {
   if (hasAttr(node, 'data-h-instance')) return instance?.type || 'instance';
   if (hasAttr(node, 'data-h-media')) {
     // the caption, without the link to the viewer

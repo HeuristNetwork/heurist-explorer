@@ -70,6 +70,9 @@ export async function createOutputsPanel(app, report = null, { mode = 'list', on
   // chosen outputs by language: {eng: 12, def: 14}
   const picks = Object.fromEntries(Object.entries(pick?.files || {}).map(([code, id]) => [code, Number(id)]).filter(([, id]) => id > 0));
   const root = el('div', 'h-reports-schedules');
+  // the docked panel of the website editor (plan 27n §14.16): visibility, choice, language, name and size only; the
+  // search, no report filter
+  root.classList.toggle('is-compact', Boolean(pick?.compact));
   const source = el('div', 'h-reports-source', root);
   source.hidden = true;
   const controls = el('div', 'h-reports-schedules-controls', root);
@@ -82,6 +85,9 @@ export async function createOutputsPanel(app, report = null, { mode = 'list', on
   add.type = 'button';
   el('i', 'fa-solid fa-plus', add).setAttribute('aria-hidden', 'true');
   add.append(` ${$HR('New Report')}`);
+  // choosing outputs for a website in the docked panel: no new ones (plan 27n §14.16a); the full list (popup) has it with
+  // its report filter (§17.16a)
+  add.hidden = Boolean(pick?.compact);
   const jobHost = el('div', 'h-reports-job', root);
   jobHost.hidden = true;
   const hint = el('p', '', root);
@@ -130,10 +136,16 @@ export async function createOutputsPanel(app, report = null, { mode = 'list', on
     }
     const head = el('tr', '', el('thead', '', table));
     const labels = ['', 'Lang', 'Name', 'Report', 'Query', 'Scheduled', 'Generated', 'Size', ''];
+    // the columns left out of the compact list (plan 27n §14.16): generate, report, query, scheduled, generated, actions
+    const extra = new Set([0, 3, 4, 5, 6, 8]);
     if (pick) labels.unshift('');
     // visibility of the output record, as in the admin info of HRecordList
     labels.unshift('');
-    for (const label of labels) el('th', '', head).textContent = label ? $HR(label) : '';
+    const shift = labels.length - 9;
+    labels.forEach((label, index) => {
+      const cell = el('th', extra.has(index - shift) ? 'h-reports-col-extra' : '', head);
+      cell.textContent = label ? $HR(label) : '';
+    });
     const body = el('tbody', '', table);
     if (!shown.length) {
       const cell = el('td', 'h-muted', el('tr', '', body));
@@ -145,7 +157,7 @@ export async function createOutputsPanel(app, report = null, { mode = 'list', on
       const row = el('tr', '', body);
       el('td', 'h-reports-visibility', row).innerHTML = visibilityIconHtml(output.visibility);
       if (pick) pickCell(row, output);
-      const generate = el('td', '', row);
+      const generate = el('td', 'h-reports-col-extra', row);
       if (output.canEdit) iconButton(generate, 'fa-solid fa-bolt', newReport ? 'Regenerate' : 'Generate now', () => execute(output));
       if (pick && languages.length > 1 && pickedLanguage(output) != null) pickLanguageCell(row, output);
       else languageCell(row, output);
@@ -160,15 +172,15 @@ export async function createOutputsPanel(app, report = null, { mode = 'list', on
       } else {
         name.textContent = output.title;
       }
-      const template = el('td', 'h-muted h-reports-schedule-report', row);
+      const template = el('td', 'h-muted h-reports-schedule-report h-reports-col-extra', row);
       template.textContent = output.reportTitle || '';
       template.title = template.textContent;
-      const query = el('td', 'h-reports-schedule-query', row);
+      const query = el('td', 'h-reports-schedule-query h-reports-col-extra', row);
       query.textContent = app.host.describeQuery(output.query);
       query.title = output.query || '';
-      el('td', '', row).textContent = intervalLabel(output.intervalMinutes);
+      el('td', 'h-reports-col-extra', row).textContent = intervalLabel(output.intervalMinutes);
       generatedCells(row, output);
-      const actions = el('td', 'h-reports-row-actions', row);
+      const actions = el('td', 'h-reports-row-actions h-reports-col-extra', row);
       if (output.canEdit) {
         if (app.host.canEditRecords()) iconButton(actions, 'fa-solid fa-pen', 'Edit', () => edit(output));
         // a website may show this output
@@ -433,7 +445,7 @@ function languageCell(row, output) {
 
 /** Date and size of the generated file. */
 function generatedCells(row, output) {
-  const date = el('td', 'h-reports-nowrap', row);
+  const date = el('td', 'h-reports-nowrap h-reports-col-extra', row);
   const size = el('td', 'h-reports-nowrap', row);
   if (output.generated) {
     date.textContent = formatDate(output.generated.modified);

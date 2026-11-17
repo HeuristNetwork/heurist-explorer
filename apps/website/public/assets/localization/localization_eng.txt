@@ -121,6 +121,14 @@
 #Text on primary colour (buttons)#Text on primary colour (buttons)
 #Muted text colour#Muted text colour
 #Choose a named colour#Choose a named colour
+#Choose a font size#Choose a font size
+#Website text#Website text
+#Tiny (10 px)#Tiny (10 px)
+#Small (11 px)#Small (11 px)
+#Normal (12 px)#Normal (12 px)
+#Large (14 px)#Large (14 px)
+#Icon (16 px)#Icon (16 px)
+#Large icon (32 px)#Large icon (32 px)
 #General Website Styles#General Website Styles
 #CSS and Javascript are disabled by default. Request authorisation from server admin if required.#CSS and Javascript are disabled by default. Request authorisation from server admin if required.
 #Grid (columns)#Grid (columns)
@@ -506,6 +514,10 @@
 #Reveal on scroll#Reveal on scroll
 #None#None
 #Slide up#Slide up
+#Slide from the left#Slide from the left
+#Slide from the right#Slide from the right
+#Zoom in#Zoom in
+#Initially hidden#Initially hidden
 #When it comes into the window#When it comes into the window
 #Breadcrumbs#Breadcrumbs
 #Where the visitor is: Home › Section › Page (the record on a record page), or the record pages visited before (History).#Where the visitor is: Home › Section › Page (the record on a record page), or the record pages visited before (History).
@@ -616,3 +628,66 @@
 #Generated on this server#Generated on this server
 #Clear the log and delete the ZIP files of the earlier generations?#Clear the log and delete the ZIP files of the earlier generations?
 #Clear#Clear
+#Name#Name
+#Name of the element, used by actions (Show / hide) and lists: letters, digits, _ and -#Name of the element, used by actions (Show / hide) and lists: letters, digits, _ and -
+#Only letters, digits, _ and - (at most 64)#Only letters, digits, _ and - (at most 64)
+#Another element has this name#Another element has this name
+#Show / hide element#Show / hide element
+#(choose an element)#(choose an element)
+#(no named elements: give an element a name)#(no named elements: give an element a name)
+#missing element#missing element
+#A Show / hide item needs a named element#A Show / hide item needs a named element
+#More#More
+#Colours#Colours
+#Colours of the website#Colours of the website
+#Inverted (over a banner)#Inverted (over a banner)
+#Own (Own style > Item colours)#Own (Own style > Item colours)
+#Item colours#Item colours
+#Used when the colours of the items are Own (Configuration).#Used when the colours of the items are Own (Configuration).
+#Text of the items#Text of the items
+#Current item and buttons#Current item and buttons
+#Text of the current item#Text of the current item
+#Website editor manual#Website editor manual
+#Configuration and Own style of the selected element (show / hide)#Configuration and Own style of the selected element (show / hide)
+#Configuration and Own style of the page#Configuration and Own style of the page
+#Configuration and Own style#Configuration and Own style
+#Show or hide the help of this form#Show or hide the help of this form
+#Undock: show the form in a popup#Undock: show the form in a popup
+#Dock: show the form beside the tree#Dock: show the form beside the tree
+#Dock#Dock
+#Show the form beside the tree again#Show the form beside the tree again
+#The element as it was when the popup opened#The element as it was when the popup opened
+#Keep the changes and close the popup (saved with Save Page)#Keep the changes and close the popup (saved with Save Page)
+#Identification#Identification
+#System id#System id
+#System id of the element (made by Heurist)#System id of the element (made by Heurist)
+#Page: name, menu, header and footer...#Page: name, menu, header and footer...
+#Position, orientation, theme and fields...#Position, orientation, theme and fields...
+#Configuration...#Configuration...
+#Orientation, style, colours and captions...#Orientation, style, colours and captions...
+#Options and captions of the sections...#Options and captions of the sections...
+#Record, field and its value...#Record, field and its value...
+#File, caption, size and action...#File, caption, size and action...
+#Edit text...#Edit text...
+#What this module of the Explorer shows on this page; Apply applies it.#What this module of the Explorer shows on this page; Apply applies it.
+#The position, orientation and theme of the header and footer are set for the whole website (Layout).#The position, orientation and theme of the header and footer are set for the whole website (Layout).
+#The own style of the page: its background, size and spacing.#The own style of the page: its background, size and spacing.
+#The own style of the header or footer on every page: its height, background and colours.#The own style of the header or footer on every page: its height, background and colours.
+#Apply a preset (a style defined once in Styles) or define an own style for this element: size, spacing, text, background and border, for each screen size.#Apply a preset (a style defined once in Styles) or define an own style for this element: size, spacing, text, background and border, for each screen size.
+#Choose the record and its field. The value can be edited there: the record itself changes.#Choose the record and its field. The value can be edited there: the record itself changes.
+#Edit the text with the pen of the tree or a double click; the popup shows the languages of the website: translate the text there.#Edit the text with the pen of the tree or a double click; the popup shows the languages of the website: translate the text there.
+#Edit the text with the pen of the tree or a double click.#Edit the text with the pen of the tree or a double click.
+#Choose the file, its caption and size. The page shows it without a script.#Choose the file, its caption and size. The page shows it without a script.
+#Set what the widget shows and how; a menu shows the pages of the website: change them on the Site tab.#Set what the widget shows and how; a menu shows the pages of the website: change them on the Site tab.
+#Set what the module shows and how; Apply applies it to the page.#Set what the module shows and how; Apply applies it to the page.
+#Each panel is a group with a caption (its label): + of the tree adds a panel, the gear of a panel edits its caption. Without panels the element is removed.#Each panel is a group with a caption (its label): + of the tree adds a panel, the gear of a panel edits its caption. Without panels the element is removed.
+#Add elements into it with + of the tree, or drag elements onto it. The caption is a heading on top.#Add elements into it with + of the tree, or drag elements onto it. The caption is a heading on top.
+#Reveal: how the element appears when it comes into the window; Initially hidden: shown by a Show / hide action. Name: used by actions and lists (letters, digits, _ and -).#Reveal: how the element appears when it comes into the window; Initially hidden: shown by a Show / hide action. Name: used by actions and lists (letters, digits, _ and -).
+#Behaviour#Behaviour
+#Captions#Captions
+#Update value#Update value
+#Save the value to the record now#Save the value to the record now
+#The value is saved in the record#The value is saved in the record
+#Show as#Show as
+#How the element appears when it comes into the window. Initially hidden: shown by a Show / hide action of an action menu.#How the element appears when it comes into the window. Initially hidden: shown by a Show / hide action of an action menu.
+#The fields of the page: its name, its text and icon in the menu, its description. Kept with the page: Save Page saves them.#The fields of the page: its name, its text and icon in the menu, its description. Kept with the page: Save Page saves them.

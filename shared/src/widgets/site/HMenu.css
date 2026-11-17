@@ -697,3 +697,25 @@ html.h-site-menu-locked {
     transition: none;
   }
 }
+
+/* colours of the items (plan 27n §7, menuClass h-site-colors-*): the item styles are built on the text colour and the
+   primary colour, so a scheme gives the menu its text colour and its own primary colour (the accent: the current item,
+   buttons). Inverted: the text and background colours of the site swapped, for a menu over a banner; own: the item
+   colours of the Own style. Drop-down lists keep the page colours. */
+.h-site-menu.h-site-colors-inverted {
+  --h-item-text: var(--h-color-bg);
+  --h-item-accent: var(--h-color-bg);
+  --h-item-accent-text: var(--h-color-text);
+}
+
+.h-site-menu:is(.h-site-colors-inverted, .h-site-colors-own) {
+  --h-items-accent: var(--h-item-accent, var(--h-color-primary));
+  --h-items-accent-text: var(--h-item-accent-text, var(--h-color-primary-text, #fff));
+  color: var(--h-item-text, currentColor);
+}
+
+.h-site-menu:is(.h-site-colors-inverted, .h-site-colors-own) > .h-site-menu-list {
+  --h-color-primary: var(--h-items-accent);
+  --h-color-primary-text: var(--h-items-accent-text);
+  --h-color-primary-hover: color-mix(in srgb, var(--h-items-accent) 85%, transparent);
+}

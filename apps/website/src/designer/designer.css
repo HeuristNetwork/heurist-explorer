@@ -122,29 +122,6 @@
   display: none;
 }
 
-/* help below the trees: as high as its text */
-.h-cms-help {
-  flex: 0 0 auto;
-  max-height: 40%;
-  overflow: auto;
-  padding: 6px 8px;
-  border-top: 1px solid var(--h-color-border);
-  background: var(--h-color-surface, #f7f7f7);
-  color: var(--h-color-muted, #777);
-}
-
-.h-cms-help[hidden] {
-  display: none;
-}
-
-.h-cms-help p {
-  margin: 0 0 4px;
-}
-
-.h-cms-help p:last-child {
-  margin-bottom: 0;
-}
-
 .h-cms-tree-host {
   flex: 1 1 auto;
   min-height: 80px;
@@ -292,6 +269,45 @@
 
 .h-cms-styles-value .h-input-color-swatch {
   height: auto;
+}
+
+/* font size: text input + drop-down of the Heurist font sizes (plan 27n §1); the input as wide as the other text inputs
+   (review §16.1: its own width, not the width of the form) */
+.h-cms-style-with-pick {
+  display: inline-flex;
+  align-items: stretch;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.h-cms-style-with-pick > .h-input {
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
+/* the menu in the popover (.h-menu is a positioned dropdown elsewhere) */
+.h-popover.h-cms-style-pick-popover {
+  width: auto;
+  min-width: 200px;
+  overflow-y: auto;
+}
+
+.h-cms-style-pick-popover > .h-menu {
+  position: static;
+  min-width: 0;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.h-cms-style-pick {
+  padding: 0 4px;
+}
+
+.h-cms-style-pick-menu .h-menu-item {
+  display: block;
+  width: 100%;
+  text-align: left;
 }
 
 .h-cms-style-tools > .h-btn {
@@ -1052,8 +1068,9 @@
   color: var(--h-color-text-muted);
 }
 
-/* the inline Own style form of the page editor (plan 27i §10, review 2026-11-14): right of the tree (the tree 250px,
-   the form at least 370px: FORM_SIDE_WIDTH) or below it (at most 2/3 of the height) */
+/* the element panel of the page editor (plan 27n §2): tabs Configuration | Own style; below the tree in a narrow west
+   pane (at most 2/3 of the height), beside the tabs Site / Page in a wide one (the tabs 250px, PANEL_SIDE_WIDTH), or a
+   popup stuck to the left side of the window, as large as its content */
 .h-cms-page-main {
   display: flex;
   flex: 1 1 auto;
@@ -1062,17 +1079,28 @@
   min-height: 0;
 }
 
-.h-cms-page-panel.h-cms-form-side {
-  flex-direction: row;
+.h-cms-west-row {
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
 }
 
-.h-cms-page-panel.h-cms-form-side > .h-cms-page-main:has(+ .h-cms-form-panel:not([hidden])) {
+.h-cms-west-row > .h-cms-tabs {
+  min-width: 0;
+}
+
+.h-cms-west-row:not(.h-cms-site-active) > .h-cms-tabs:has(+ .h-cms-panel-side:not([hidden])) {
   flex: 0 0 250px;
   max-width: 250px;
   border-right: 1px solid var(--h-color-border);
 }
 
-.h-cms-page-panel:not(.h-cms-form-side) > .h-cms-page-main:has(+ .h-cms-form-panel:not([hidden])) {
+.h-cms-west-row.h-cms-site-active > .h-cms-panel-side {
+  display: none;
+}
+
+.h-cms-page-panel > .h-cms-page-main:has(+ .h-cms-panel:not([hidden])) {
   flex: 1 1 33%;
   min-height: 120px;
 }
@@ -1086,7 +1114,7 @@
   border-top: 0;
 }
 
-.h-cms-form-panel {
+.h-cms-panel {
   position: relative;
   display: flex;
   flex: 0 1 66.6%;
@@ -1094,20 +1122,96 @@
   min-width: 0;
   min-height: 0;
   border-top: 1px solid var(--h-color-border);
+  background: var(--h-color-bg, #fff);
 }
 
-.h-cms-form-side > .h-cms-form-panel {
+.h-cms-panel[hidden] {
+  display: none;
+}
+
+.h-cms-panel.h-cms-panel-side {
   flex: 1 1 auto;
   min-width: 370px;
   border-top: 0;
 }
 
-.h-cms-form-panel[hidden] {
+/* the popup: no veil, the left side of the window below the toolbar of the designer (--h-cms-panel-top) */
+.h-cms-panel.is-popup {
+  position: fixed;
+  z-index: 900;
+  top: var(--h-cms-panel-top, 0px);
+  left: 20px;
+  width: max-content;
+  min-width: 370px;
+  max-width: min(760px, calc(100vw - 40px));
+  max-height: calc(100vh - var(--h-cms-panel-top, 0px) - 8px);
+  border: 1px solid var(--h-color-border);
+  border-radius: var(--h-radius, 4px);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 18%);
+}
+
+/* a Generated report in the popup: every column of the list without a horizontal scroll bar (review §14.16b) */
+.h-cms-panel.is-popup:has(.h-cms-report-form) {
+  max-width: calc(100vw - 40px);
+}
+
+.h-cms-panel.is-popup > .h-cms-panel-body {
+  flex: 1 1 auto;
+}
+
+/* the row of the tabs: the tabs (as Site / Page), Apply of a module, Help, Undock / Dock, Close */
+.h-cms-panel-head {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: flex-end;
+  gap: 4px;
+  padding: 4px 4px 0;
+  border-bottom: 1px solid var(--h-color-border);
+  background: var(--h-color-surface, #f7f7f7);
+}
+
+.h-cms-panel-tabs {
+  display: flex;
+  gap: 2px;
+}
+
+.h-cms-panel-tabs[hidden] {
   display: none;
 }
 
-/* the header of the form: its title and Close, on the selected colour (apart from the toolbar above, 2026-11-15) */
-.h-cms-form-head {
+.h-cms-panel-tab {
+  padding: 4px 14px;
+  border: 1px solid transparent;
+  border-bottom: 0;
+  border-radius: var(--h-radius, 4px) var(--h-radius, 4px) 0 0;
+  background: transparent;
+  color: var(--h-color-text);
+  cursor: pointer;
+}
+
+.h-cms-panel-tab.is-active {
+  margin-bottom: -1px;
+  border-color: var(--h-color-border);
+  background: var(--h-color-bg, #fff);
+  font-weight: 600;
+}
+
+.h-cms-panel-head > .h-cms-panel-icon {
+  margin-bottom: 3px;
+}
+
+.h-cms-panel-head-actions {
+  display: inline-flex;
+  flex: 0 0 auto;
+  gap: 4px;
+}
+
+.h-cms-panel-head-actions:empty {
+  display: none;
+}
+
+/* the title of the element with the buttons of its form (Apply of a module, review §15.20) */
+.h-cms-panel-title {
   display: flex;
   flex: 0 0 auto;
   align-items: center;
@@ -1118,7 +1222,7 @@
   font-weight: bold;
 }
 
-.h-cms-form-title {
+.h-cms-panel-title-text {
   flex: 1 1 auto;
   min-width: 0;
   overflow: hidden;
@@ -1126,7 +1230,11 @@
   white-space: nowrap;
 }
 
-.h-cms-form-body {
+.h-cms-panel-title .h-cms-panel-head-actions {
+  font-weight: normal;
+}
+
+.h-cms-panel-body {
   display: flex;
   flex: 1 1 auto;
   flex-direction: column;
@@ -1134,11 +1242,62 @@
   overflow: auto;
 }
 
+.h-cms-panel-pane[hidden] {
+  display: none;
+}
+
+/* the help of a tab (Help of the panel, plan 27n §2.4) */
+.h-cms-panel-help {
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--h-color-border);
+  background: var(--h-color-surface, #f7f7f7);
+  color: var(--h-color-text-muted);
+}
+
+.h-cms-panel-help p {
+  margin: 0 0 4px;
+}
+
+.h-cms-panel-help p:last-child {
+  margin-bottom: 0;
+}
+
+/* Help of the panel off: no help texts in the panel (header help and the help of the inputs) */
+.h-cms-panel:not(.h-cms-panel-tips) :is(.h-cms-panel-help, .h-edit-field-help, .h-form-input-help, .h-cms-styles-help, .h-cms-style-note) {
+  display: none !important;
+}
+
+/* the footer of the popup: Dock on the left, Cancel and Apply on the right */
+.h-cms-panel-foot {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  border-top: 1px solid var(--h-color-border);
+}
+
+.h-cms-panel-foot[hidden] {
+  display: none;
+}
+
+/* Identification: the system id (read only) and the name of the element */
+.h-cms-identity {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+}
+
+.h-cms-system-id {
+  width: 9em;
+  color: var(--h-color-text-muted);
+}
+
 .h-cms-form-section {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  padding: 8px;
+  padding: 8px 8px 8px 14px;
 }
 
 .h-cms-form-section + .h-cms-form-section {
@@ -1189,19 +1348,6 @@
   padding-left: 14px;
 }
 
-/* the configuration form of a module: Reset and Apply at the end (beside the tree or below it as Own style, review
-   2026-11-15); Apply also in the header */
-.h-cms-form-head-actions {
-  display: inline-flex;
-  flex: 0 0 auto;
-  gap: 4px;
-  font-weight: normal;
-}
-
-.h-cms-form-head-actions:empty {
-  display: none;
-}
-
 /* Records and selection of a module (plan 27l §12): a fieldset of its own form above the module configuration */
 .h-cms-config-records {
   margin: 0 0 8px;
@@ -1234,19 +1380,19 @@
 
 
 /* a module form inline: the form panel scrolls, not the form itself (the dialog has 70vh, 2026-11-15) */
-.h-cms-form-panel .h-module-config {
+.h-cms-panel .h-module-config {
   max-height: none;
   overflow: visible;
 }
 
 /* the selectors of an inline form (Available filters, Active on start ...) stay in the form: long labels are cut
    (review 2026-11-15) */
-.h-cms-form-panel :is(.h-edit-field, .h-edit-field-value, .h-form-input, .h-value-combo) {
+.h-cms-panel :is(.h-edit-field, .h-edit-field-value, .h-form-input, .h-value-combo) {
   min-width: 0;
   max-width: 100%;
 }
 
-.h-cms-form-panel .h-value-combo {
+.h-cms-panel .h-value-combo {
   max-width: 360px;
 }
 
@@ -1337,4 +1483,127 @@
 .h-cms-saved-filter-caption {
   margin-top: 4px;
   font-weight: bold;
+}
+
+/* the sections of a configuration in the element panel (plan 27n §6): the groups of HEditForm (Source, Presentation,
+   Caption, Behaviour, Identification) in a frame (review §16.5: all borders) */
+.h-cms-panel .h-edit-form-group {
+  margin: 0 0 8px;
+  padding: 0 8px 8px;
+  border: 1px solid var(--h-color-border);
+  border-radius: var(--h-radius, 4px);
+}
+
+.h-cms-panel .h-edit-form-group > legend,
+.h-cms-dom-section-title {
+  font-weight: 600;
+}
+
+.h-cms-dom-section-title {
+  padding: 6px 0 4px;
+}
+
+.h-cms-dom-section-title {
+  margin-top: 6px;
+  border-top: 1px solid var(--h-color-border);
+}
+
+.h-cms-dom-section-title:first-child {
+  margin-top: 0;
+  border-top: 0;
+}
+
+/* the lists of a form in the panel: the panel scrolls, not the list */
+.h-cms-panel :is(.h-cms-action-list, .h-cms-badges-list) {
+  max-height: none;
+  overflow: visible;
+}
+
+/* an item of an action menu (plan 27n §6.2): a mini form of lines - caption (translations), action and New tab, the
+   settings of the action, icon and Icon only with Remove */
+.h-cms-action-row.h-cms-action-item {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+  padding: 6px 8px;
+  border: 1px solid var(--h-color-border);
+  border-radius: var(--h-radius, 4px);
+}
+
+.h-cms-action-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.h-cms-action-caption {
+  flex-wrap: nowrap;
+  align-items: flex-start;
+}
+
+.h-cms-action-caption > :is(input, .h-translation) {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.h-cms-action-config:empty {
+  display: none;
+}
+
+.h-cms-action-config > .h-cms-action-target {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.h-cms-action-icon-line {
+  flex: 0 1 16em;
+  gap: 6px;
+}
+
+/* the screen selector beside the preset (review 27n §14.13): no row of its own */
+.h-cms-style-tabs:empty {
+  display: none;
+}
+
+/* a narrow Reveal selector (review §16.2a) */
+.h-cms-reveal-field select {
+  width: auto;
+  max-width: 16em;
+}
+
+.h-cms-reveal-field .h-cms-style-field {
+  grid-template-columns: 160px auto;
+  justify-content: start;
+}
+
+/* Reveal with its help below it (review 27n §14.6) */
+.h-cms-reveal-field > .h-cms-style-note {
+  margin: 2px 0 0;
+}
+
+/* Update value of a Record field in the panel (review 27n §14.12) */
+.h-cms-field-update {
+  align-self: flex-start;
+  margin-top: 4px;
+}
+
+/* Reset and Apply of a module after Identification (review §15.21); the popup has its own Apply (§15.22) */
+.h-cms-form-actions-section > .h-cms-form-actions {
+  padding-top: 0;
+  border-top: 0;
+}
+
+.h-cms-panel.is-popup :is(.h-cms-form-actions-section, .h-cms-panel-head-actions) {
+  display: none;
+}
+
+.h-cms-form-section[hidden] {
+  display: none;
+}
+
+.h-cms-panel .h-edit-form-group > legend {
+  padding: 0 4px;
 }

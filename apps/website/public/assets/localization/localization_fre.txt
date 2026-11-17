@@ -121,6 +121,14 @@
 #Text on primary colour (buttons)#Texte sur la couleur principale (boutons)
 #Muted text colour#Couleur du texte atténué
 #Choose a named colour#Choisir une couleur nommée
+#Choose a font size#Choisir une taille de police
+#Website text#Texte du site
+#Tiny (10 px)#Très petite (10 px)
+#Small (11 px)#Petite (11 px)
+#Normal (12 px)#Normale (12 px)
+#Large (14 px)#Grande (14 px)
+#Icon (16 px)#Icône (16 px)
+#Large icon (32 px)#Grande icône (32 px)
 #General Website Styles#Styles généraux du site web
 #CSS and Javascript are disabled by default. Request authorisation from server admin if required.#CSS et JavaScript sont désactivés par défaut. Demandez une autorisation à l'administrateur du serveur si nécessaire.
 #Grid (columns)#Grille (colonnes)
@@ -506,6 +514,10 @@
 #Reveal on scroll#Apparition au défilement
 #None#Aucune
 #Slide up#Glisser vers le haut
+#Slide from the left#Glisser depuis la gauche
+#Slide from the right#Glisser depuis la droite
+#Zoom in#Zoom avant
+#Initially hidden#Masqué au départ
 #When it comes into the window#Quand il entre dans la fenêtre
 #Breadcrumbs#Fil d’Ariane
 #Where the visitor is: Home › Section › Page (the record on a record page), or the record pages visited before (History).#Où se trouve le visiteur : Accueil › Section › Page (l’enregistrement sur une page d’enregistrement), ou les pages d’enregistrement visitées avant (Historique).
@@ -616,3 +628,66 @@
 #Generated on this server#Généré sur ce serveur
 #Clear the log and delete the ZIP files of the earlier generations?#Effacer le journal et supprimer les fichiers ZIP des générations précédentes ?
 #Clear#Effacer
+#Name#Nom
+#Name of the element, used by actions (Show / hide) and lists: letters, digits, _ and -#Nom de l'élément, utilisé par les actions (Afficher / masquer) et les listes : lettres, chiffres, _ et -
+#Only letters, digits, _ and - (at most 64)#Uniquement des lettres, des chiffres, _ et - (64 au plus)
+#Another element has this name#Un autre élément porte ce nom
+#Show / hide element#Afficher / masquer l'élément
+#(choose an element)#(choisir un élément)
+#(no named elements: give an element a name)#(aucun élément nommé : donnez un nom à un élément)
+#missing element#élément manquant
+#A Show / hide item needs a named element#Un élément Afficher / masquer a besoin d’un élément nommé
+#More#Plus
+#Colours#Couleurs
+#Colours of the website#Couleurs du site
+#Inverted (over a banner)#Inversées (sur une bannière)
+#Own (Own style > Item colours)#Propres (Style propre > Couleurs des éléments)
+#Item colours#Couleurs des éléments
+#Used when the colours of the items are Own (Configuration).#Utilisées lorsque les couleurs des éléments sont Propres (Configuration).
+#Text of the items#Texte des éléments
+#Current item and buttons#Élément actuel et boutons
+#Text of the current item#Texte de l'élément actuel
+#Website editor manual#Manuel de l'éditeur de sites web
+#Configuration and Own style of the selected element (show / hide)#Configuration et style propre de l'élément choisi (afficher / masquer)
+#Configuration and Own style of the page#Configuration et style propre de la page
+#Configuration and Own style#Configuration et style propre
+#Show or hide the help of this form#Afficher ou masquer l'aide de ce formulaire
+#Undock: show the form in a popup#Détacher : afficher le formulaire dans une fenêtre
+#Dock: show the form beside the tree#Rattacher : afficher le formulaire à côté de l'arbre
+#Dock#Rattacher
+#Show the form beside the tree again#Afficher à nouveau le formulaire à côté de l'arbre
+#The element as it was when the popup opened#L'élément tel qu'il était à l'ouverture de la fenêtre
+#Keep the changes and close the popup (saved with Save Page)#Garder les modifications et fermer la fenêtre (enregistrées avec Enregistrer la page)
+#Identification#Identification
+#System id#Identifiant système
+#System id of the element (made by Heurist)#Identifiant système de l'élément (créé par Heurist)
+#Page: name, menu, header and footer...#Page : nom, menu, en-tête et pied de page...
+#Position, orientation, theme and fields...#Position, orientation, thème et champs...
+#Configuration...#Configuration...
+#Orientation, style, colours and captions...#Orientation, style, couleurs et libellés...
+#Options and captions of the sections...#Options et libellés des sections...
+#Record, field and its value...#Fiche, champ et sa valeur...
+#File, caption, size and action...#Fichier, légende, taille et action...
+#Edit text...#Modifier le texte...
+#What this module of the Explorer shows on this page; Apply applies it.#Ce que ce module de l'Explorer montre sur cette page ; Appliquer l'applique.
+#The position, orientation and theme of the header and footer are set for the whole website (Layout).#La position, l'orientation et le thème de l'en-tête et du pied de page sont définis pour tout le site (Mise en page).
+#The own style of the page: its background, size and spacing.#Le style propre de la page : son fond, sa taille et ses espacements.
+#The own style of the header or footer on every page: its height, background and colours.#Le style propre de l'en-tête ou du pied de page sur toutes les pages : hauteur, fond et couleurs.
+#Apply a preset (a style defined once in Styles) or define an own style for this element: size, spacing, text, background and border, for each screen size.#Appliquez un style prédéfini (défini une fois dans Styles) ou définissez un style propre à cet élément : taille, espacements, texte, fond et bordure, pour chaque taille d'écran.
+#Choose the record and its field. The value can be edited there: the record itself changes.#Choisissez la fiche et son champ. La valeur peut y être modifiée : la fiche elle-même change.
+#Edit the text with the pen of the tree or a double click; the popup shows the languages of the website: translate the text there.#Modifiez le texte avec le crayon de l'arbre ou un double-clic ; la fenêtre montre les langues du site : traduisez-y le texte.
+#Edit the text with the pen of the tree or a double click.#Modifiez le texte avec le crayon de l'arbre ou un double-clic.
+#Choose the file, its caption and size. The page shows it without a script.#Choisissez le fichier, sa légende et sa taille. La page le montre sans script.
+#Set what the widget shows and how; a menu shows the pages of the website: change them on the Site tab.#Définissez ce que le widget montre et comment ; un menu montre les pages du site : modifiez-les dans l'onglet Site.
+#Set what the module shows and how; Apply applies it to the page.#Définissez ce que le module montre et comment ; Appliquer l'applique à la page.
+#Each panel is a group with a caption (its label): + of the tree adds a panel, the gear of a panel edits its caption. Without panels the element is removed.#Chaque panneau est un groupe avec un libellé : + de l'arbre ajoute un panneau, la roue dentée d'un panneau modifie son libellé. Sans panneaux l'élément est supprimé.
+#Add elements into it with + of the tree, or drag elements onto it. The caption is a heading on top.#Ajoutez-y des éléments avec + de l'arbre, ou faites-y glisser des éléments. Le libellé est un titre en haut.
+#Reveal: how the element appears when it comes into the window; Initially hidden: shown by a Show / hide action. Name: used by actions and lists (letters, digits, _ and -).#Apparition : comment l'élément apparaît quand il entre dans la fenêtre ; Masqué au départ : affiché par une action Afficher / masquer. Nom : utilisé par les actions et les listes (lettres, chiffres, _ et -).
+#Behaviour#Comportement
+#Captions#Libellés
+#Update value#Mettre à jour la valeur
+#Save the value to the record now#Enregistrer maintenant la valeur dans la fiche
+#The value is saved in the record#La valeur est enregistrée dans la fiche
+#Show as#Afficher comme
+#How the element appears when it comes into the window. Initially hidden: shown by a Show / hide action of an action menu.#Comment l'élément apparaît quand il entre dans la fenêtre. Masqué au départ : affiché par une action Afficher / masquer d'un menu d'actions.
+#The fields of the page: its name, its text and icon in the menu, its description. Kept with the page: Save Page saves them.#Les champs de la page : son nom, son texte et son icône dans le menu, sa description. Gardés avec la page : Enregistrer la page les enregistre.

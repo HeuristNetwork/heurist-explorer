@@ -27,9 +27,10 @@ import { multilangFieldIds } from '#shared/data/writableRecordTypes.js';
 import { RecordStructureProvider } from '#shared/recordview/RecordStructureProvider.js';
 import { HEditForm } from '#shared/widgets/edit-form/HEditForm.js';
 import { openEditFormDialog } from '#shared/widgets/edit-form/editFormDialog.js';
-import { formDialog } from './designerDialogs.js';
-import { ITEM_STYLES, MENU_LINE_FIELDS, menuLineSettings, menuLineValues } from './actionForms.js';
-import { MENU_ANIMATIONS, MENU_COLOR } from '#shared/site/cmsMenu.js';
+import { createTranslationForm } from '#shared/widgets/translation/HTranslationDialog.js';
+import { sectionTitle, showDomForm, showEditForm } from './panelForms.js';
+import { ITEM_COLOR_LABELS, ITEM_STYLES, MENU_LINE_FIELDS, menuLineSettings, menuLineValues } from './actionForms.js';
+import { ITEM_COLORS, MENU_ANIMATIONS, MENU_COLOR } from '#shared/site/cmsMenu.js';
 import {
   attachNewRecordPage, recordActionFields, recordActionIssues, recordActionSettings, recordActionTerms, recordActionValues
 } from './recordPageField.js';
@@ -162,7 +163,7 @@ const CARDS_URL_HELP = 'Record of the page URL: the record id is taken from the 
  *          `size` only for a file field ('' = auto); `link`: `url`, `page:<id>` (record page), `goto:<id>` or ''.
  */
 export async function openFieldForm({ reference, records, languages = [], dbdefs, apiClient, services, size = {}, link = null, sitePages = [],
-  linkValues: storedLinkValues = null }) {
+  linkValues: storedLinkValues = null, inline = null }) {
   const parsed = parseFieldReference(reference);
   // the Saved filter of the link (plan 27j): `filter:<page>:<source>` (`f<id>` a saved filter) with its values
   const filter = { value: filterOfLink(link, storedLinkValues) };
@@ -254,8 +255,32 @@ export async function openFieldForm({ reference, records, languages = [], dbdefs
     }).render();
     value.baseline = JSON.stringify(readValue());
   };
+  // the result of the values: the reference, its link and the value shown now (read from the server)
+  const compute = async (values) => {
+    const { dty } = value.field;
+    const id = Number(value.record.rec_ID);
+    const global = dbdefs?.fieldGlobal?.(dty);
+    const code = global?.concept || String(dty);
+    const shown = body(await apiClient.get(`/records/${id}/${code}`, { query: { resolveDetails: 1 } }))?.records?.[0];
+    const source = sourceOf(id, records);
+    return {
+      reference: `${source === 'record' ? id : source}.${code}`,
+      link: fieldLinkOf(source, values, filter.value),
+      linkValues: values.action === 'savedFilter' && source === 'record' ? filter.value?.values || null : null,
+      html: fieldSnapshot(shown?.details?.[String(dty)], global?.type, { fileUrl: services.fileUrl }),
+      ...(global?.type === 'file' ? { size: { width: mediaSize(values?.width) || '', height: mediaSize(values?.height) || '' } } : {})
+    };
+  };
+  // the value of the field: saved to its record (Apply of the popup; Update value in the element panel)
+  const saveValue = async () => {
+    const details = readValue();
+    if (JSON.stringify(details) === value.baseline) return false;
+    await services.saveField(Number(value.record.rec_ID), details, value.record.rec_Modified);
+    value.baseline = JSON.stringify(details);
+    return true;
+  };
   let result = null;
-  const answer = await openEditFormDialog({
+  const options = {
     title: 'Content of element: Record field',
     className: 'h-dialog-cms-field',
     form,
@@ -277,7 +302,8 @@ export async function openFieldForm({ reference, records, languages = [], dbdefs
         const record = id ? await recordOf(id).catch(() => null) : null;
         return recordFilterFieldTerms(dbdefs, record ? [Number(record.rec_RecTypeID)] : []);
       } });
-      edit.container.append(value.host);
+      // the value below the field (the Source section in the element panel)
+      (edit._groups?.get?.('source')?.element || edit.container).append(value.host);
       void actionsOfSource(edit);
       void showValue(edit);
     },
@@ -291,26 +317,64 @@ export async function openFieldForm({ reference, records, languages = [], dbdefs
       if (current.source !== 'page' && recordActionIssues(current, filter.value).length) return recordActionIssues(current, filter.value);
       const sizes = isFile ? ['width', 'height'].filter((key) => current[key] && !mediaSize(current[key])) : [];
       return sizes.length ? sizes.map((key) => ({ field: key, message: $HR('Width and height: a number (px), px or %, or empty (auto).') })) : null;
-    },
+    }
+  };
+  // in the element panel (review 27n §14.12): the element follows each valid change; the value of the field is saved to its
+  // record by its own button Update value
+  if (inline) {
+    let edit = null;
+    const update = document.createElement('button');
+    update.type = 'button';
+    update.className = 'h-btn h-compact h-cms-field-update';
+    update.textContent = $HR('Update value');
+    update.title = $HR('Save the value to the record now');
+    // primary when the value was changed (review §16.12)
+    const markUpdate = () => {
+      const changed = Boolean(value.form && value.field) && JSON.stringify(readValue()) !== value.baseline;
+      update.classList.toggle('h-btn-primary', changed);
+    };
+    for (const type of ['input', 'change', 'h-input-change']) value.host.addEventListener(type, () => globalThis.setTimeout(markUpdate, 0));
+    update.addEventListener('click', async () => {
+      if (!value.form || !value.field || value.form.validate().length) return;
+      update.disabled = true;
+      try {
+        if (!(await saveValue())) {
+          HMsg.showMsgFlash?.($HR('No changes'), { showDelay: 1500 });
+          return;
+        }
+        HMsg.showMsgFlash?.($HR('The value is saved in the record'), { showDelay: 1500 });
+        markUpdate();
+        // the snapshot of the element shows the new value
+        if (edit && !edit.validate().length) inline.onResult(await compute(edit.getValues()));
+      } catch (error) {
+        HMsg.showMsgErr?.(error?.message || String(error));
+      } finally {
+        update.disabled = false;
+      }
+    });
+    edit = showEditForm({
+      ...options,
+      onReady: (form) => {
+        options.onReady(form);
+        value.host.after(update);
+      }
+    }, async (values) => (value.field && value.record ? compute(values) : null), {
+      inline: { ...inline, register: (cleanup) => inline.register?.(async () => {
+        await cleanup();
+        await value.form?.destroy();
+      }) },
+      sections: { source: ['source', 'record', 'field'], behaviour: ['action', 'recordPage', 'page', 'savedFilter'] }
+    });
+    return edit;
+  }
+  const answer = await openEditFormDialog({
+    ...options,
     buttons: [{ id: 'save', label: 'Apply', primary: true }, { id: 'cancel', label: 'Cancel' }],
     onAction: async (action, values) => {
       if (!value.form || !value.field || value.form.validate().length) return false;
-      const { dty } = value.field;
-      const id = Number(value.record.rec_ID);
       try {
-        const details = readValue();
-        if (JSON.stringify(details) !== value.baseline) await services.saveField(id, details, value.record.rec_Modified);
-        const global = dbdefs?.fieldGlobal?.(dty);
-        const code = global?.concept || String(dty);
-        const shown = body(await apiClient.get(`/records/${id}/${code}`, { query: { resolveDetails: 1 } }))?.records?.[0];
-        const source = sourceOf(id, records);
-        result = {
-          reference: `${source === 'record' ? id : source}.${code}`,
-          link: fieldLinkOf(source, values, filter.value),
-          linkValues: values.action === 'savedFilter' && source === 'record' ? filter.value?.values || null : null,
-          html: fieldSnapshot(shown?.details?.[String(dty)], global?.type, { fileUrl: services.fileUrl }),
-          ...(global?.type === 'file' ? { size: { width: mediaSize(values?.width) || '', height: mediaSize(values?.height) || '' } } : {})
-        };
+        await saveValue();
+        result = await compute(values);
       } catch (error) {
         HMsg.showMsgErr?.(error?.message || String(error));
         return false;
@@ -408,7 +472,7 @@ function presentationFields(actionFields, showWhen = null) {
   const slider = { ...(showWhen || {}), presentation: 'slider' };
   return [
     ...actionFields,
-    { name: 'presentation', type: 'enum', label: 'Presentation', mode: 'radio', max: 1, ...(showWhen ? { showWhen } : {}),
+    { name: 'presentation', type: 'enum', label: 'Show as', mode: 'radio', max: 1, ...(showWhen ? { showWhen } : {}),
       terms: [{ id: 'list', label: 'List (all visible)' }, { id: 'carousel', label: 'Carousel (one visible, buttons)' },
         { id: 'slider', label: 'Slideshow (one visible, automatic)' }] },
     { name: 'duration', type: 'integer', label: 'Duration (ms)', max: 1, minValue: 500, showWhen: slider },
@@ -758,7 +822,7 @@ export function createRecordsSection({ instance, instances = {}, sources = [], c
  *        `cardTemplates()` → the card reports `[{id, title, file}]`.
  * @returns {Promise<object|null>} The new settings.
  */
-export async function openCardsForm({ settings = {}, dbdefs, apiClient, services }) {
+export async function openCardsForm({ settings = {}, dbdefs, apiClient, services, inline = null }) {
   const reports = await services.cardTemplates?.().catch(() => []) ?? [];
   // public query sources without parameters (plan 27l §11.4); a stored one not offered any more: kept as #id
   const sources = (await services.querySources?.().catch(() => []) ?? []).filter((item) => !item.parameterized);
@@ -795,7 +859,7 @@ export async function openCardsForm({ settings = {}, dbdefs, apiClient, services
       ]
     }]
   };
-  return openEditFormDialog({
+  return showEditForm({
     title: 'Record cards',
     form,
     values: {
@@ -836,7 +900,7 @@ export async function openCardsForm({ settings = {}, dbdefs, apiClient, services
       if (!values.template) issues.push({ field: 'template', message: $HR('Choose a template') });
       return issues;
     }
-  }).then((values) => {
+  }, (values) => {
     if (!values) return null;
     const records = [values.records].flat().filter(Boolean);
     const template = String(values.template);
@@ -850,7 +914,7 @@ export async function openCardsForm({ settings = {}, dbdefs, apiClient, services
       ...presentationSettings(values),
       ...recordActionSettings(values, { allowed: mode !== 'url', filter: filter.value })
     };
-  });
+  }, { inline, sections: { source: ['mode', 'records', 'querySource', 'query'], behaviour: ['action', 'recordAction', 'recordPage', 'page', 'savedFilter'] } });
 }
 
 /** A help text above a form. */
@@ -1034,7 +1098,7 @@ function mediaPageField(edit) {
  */
 export async function openMediaForm({
   single = false, settings = {}, caption = '', translations = {}, languages = [], translator = null, dbdefs, apiClient, services,
-  sitePages = []
+  sitePages = [], inline = null
 }) {
   const mediaType = Number(dbdefs?.dbconst?.('RT_MEDIA_RECORD')) || 0;
   const fileType = Number(dbdefs?.dbconst?.('RT_REGISTERED_FILE')) || 0;
@@ -1054,10 +1118,22 @@ export async function openMediaForm({
   let items = [];
   // the Saved filter of the action of Any record (plan 27j)
   const filter = { value: storedSavedFilter(settings) };
-  return openEditFormDialog({
+  // one media element in the element panel (review 27n §15.17): its caption as the caption of a group, the input and Add a
+  // language below it (the translation rows), not a field of the form
+  let edit = null;
+  const captionForm = inline && single ? createTranslationForm({
+    value: caption,
+    translations,
+    languages,
+    original: languages[0] || '',
+    translator,
+    onChange: () => edit?.panelChanged?.()
+  }) : null;
+  const fields = mediaFormFields({ single, multilang, mediaType, fileType, fileTerms, pageTerms: services.recordPageTerms?.() || [], sitePages })
+    .filter((field) => !(captionForm && field.name === 'captionText'));
+  edit = showEditForm({
     title: single ? 'Edit media' : 'Media gallery',
-    form: { groups: [{ id: 'main', children: mediaFormFields({ single, multilang, mediaType, fileType, fileTerms,
-      pageTerms: services.recordPageTerms?.() || [], sitePages }) }] },
+    form: { groups: [{ id: 'main', children: fields }] },
     values: {
       mode,
       records: sources('media'),
@@ -1081,6 +1157,15 @@ export async function openMediaForm({
     addRecord: services.addRecord,
     onReady: (edit) => {
       if (single) addFormHelp(edit, MEDIA_HELP);
+      if (captionForm) {
+        const block = document.createElement('fieldset');
+        block.className = 'h-edit-form-group h-cms-media-caption';
+        const legend = document.createElement('legend');
+        legend.textContent = $HR('Caption');
+        block.append(legend, captionForm.element);
+        const before = edit._groups?.get?.('behaviour')?.element || edit._groups?.get?.('identification')?.element || null;
+        if (before) before.before(block); else edit.container.append(block);
+      }
       attachNewRecordPage(edit, services);
       // values from the record (plan 27j phase B): the fields of the chosen records (Any record)
       attachSavedFilter(edit, services, filter, 'savedFilter', { recordFields: async (values) => {
@@ -1127,24 +1212,34 @@ export async function openMediaForm({
       }
       return true;
     }
-  }).then((result) => {
+  }, (result) => {
     if (!result) return null;
     const { values } = result;
     const size = { width: mediaSize(values.width) || 'auto', height: mediaSize(values.height) || 'auto' };
     const source = values.mode === 'record' ? { field: dbdefs?.fieldGlobal?.(Number(values.fileField))?.concept || String(values.fileField) } : {};
     const action = mediaActionSettings(values, filter.value);
     if (single) {
+      const captions = captionForm?.read?.();
       return {
         settings: { mode: values.mode, record: chosen(values)[0], ...source, ...size, ...action,
           ...(['center', 'right'].includes(values.align) ? { align: values.align } : {}) },
         items,
-        ...readCaption(values.captionText, languages)
+        ...(captionForm ? { caption: (captions?.value || '').trim(), translations: Object.fromEntries(languages.slice(1)
+          .map((code) => [code, String(captions?.translations?.[code] || '').trim()])) } : readCaption(values.captionText, languages))
       };
     }
     const presentation = presentationSettings(values);
     if (presentation.presentation !== 'list') presentation.slider = { ...(presentation.slider || {}), fit: values.fit || SLIDER_FIT };
     return { settings: { mode: values.mode, ids: chosen(values), ...source, caption: values.caption === true, ...size, ...presentation, ...action }, items };
+  }, {
+    inline: inline && captionForm ? { ...inline, register: (cleanup) => inline.register?.(async () => {
+      await cleanup();
+      captionForm.destroy?.();
+    }) } : inline,
+    sections: { source: ['mode', 'records', 'files', 'anyRecords', 'fileField'], caption: ['captionText', 'caption'],
+      behaviour: ['action', 'recordAction', 'recordPage', 'page', 'savedFilter'] }
   });
+  return edit;
 }
 
 /** @returns {string|null} A size of a media element: px or %; null when empty or not valid. */
@@ -1187,9 +1282,11 @@ export function reportNotPublic(outputs) {
  * @param {object} options.settings Current settings (`report`, `files`, `display`).
  * @param {string[]} options.languages Languages of the website.
  * @param {object} options.services `createOutputsPanel({report, pick})` → `{element, ready, destroy}`.
+ * @param {object|null} [options.inline] In the element panel (panelForms.showDomForm).
+ * @param {HTMLElement|null} [options.presentationExtra] A field of the designer at the end of Presentation (Reveal).
  * @returns {Promise<object|null>} The new settings.
  */
-export async function openReportForm({ settings = {}, languages = [], services }) {
+export async function openReportForm({ settings = {}, languages = [], services, inline = null, presentationExtra = null, compact = false }) {
   if (typeof services?.createOutputsPanel !== 'function') {
     HMsg.showMsgErr($HR('Generated reports can be chosen only in Heurist Explorer'));
     return null;
@@ -1197,6 +1294,7 @@ export async function openReportForm({ settings = {}, languages = [], services }
   let files = reportFiles(settings.files);
   let chosen = [];
   let display = REPORT_DISPLAY.includes(settings.display) ? settings.display : 'full';
+  let form = null;
   const element = (tag, className, text = '') => {
     const node = document.createElement(tag);
     node.className = className;
@@ -1213,15 +1311,19 @@ export async function openReportForm({ settings = {}, languages = [], services }
     pick: {
       languages,
       files,
+      // the docked element panel: visibility, choice, language, name and size only (review 27n §14.16)
+      compact,
       onChange: (picked, outputs) => {
         files = picked;
         chosen = outputs;
         problems.textContent = '';
         showWarning();
+        // applied in the element panel (plan 27n §6)
+        form?.dispatchEvent(new Event('change', { bubbles: true }));
       }
     }
   });
-  const form = element('div', 'h-cms-form h-cms-report-form');
+  form = element('div', 'h-cms-form h-cms-report-form');
   const radios = element('div', 'h-cms-report-display');
   for (const [value, label] of [['full', 'Full report'], ['cut', 'Cut, with "Show more"'], ['link', 'Show link only']]) {
     const line = element('label', '');
@@ -1237,17 +1339,19 @@ export async function openReportForm({ settings = {}, languages = [], services }
     line.append(radio, ` ${$HR(label)}`);
     radios.append(line);
   }
-  form.append(element('div', 'h-cms-style-note', 'Select a generated report, one for each language of the website. A page in a language without its own report shows the default one. With a schedule, the content of the element is updated automatically on the next generation run.'),
-    panel.element, radios, warning, problems);
+  // the sections of plan 27n §6: Source (the generated report of each language), Presentation (how it is shown)
+  form.append(sectionTitle($HR('Source')), element('div', 'h-cms-style-note', 'Select a generated report, one for each language of the website. A page in a language without its own report shows the default one. With a schedule, the content of the element is updated automatically on the next generation run.'),
+    panel.element, sectionTitle($HR('Presentation')), radios, warning, problems);
+  if (presentationExtra) form.append(presentationExtra);
   showWarning();
-  return formDialog(form, 'Generated Report', 'OK', () => {
+  return showDomForm(form, $HR('Generated report'), () => {
     if (!Object.keys(files).length) {
       problems.textContent = $HR('Choose a generated report');
       return null;
     }
     const report = chosen[0]?.reportId ?? settings.report;
     return { ...(report != null ? { report } : {}), files, display };
-  }, null, 'h-cms-report-dialog').finally(() => panel.destroy());
+  }, { inline, className: 'h-cms-report-dialog', cleanup: () => panel.destroy() });
 }
 
 /**
@@ -1259,14 +1363,14 @@ export async function openReportForm({ settings = {}, languages = [], services }
  * @param {Array<{kind: string, id: number, title: string}>} options.choices The filters that can be offered.
  * @returns {Promise<object|null>} The stored settings (storedCmsFilterWidget).
  */
-export function openFilterWidgetForm({ settings = {}, choices = [] } = {}) {
+export function openFilterWidgetForm({ settings = {}, choices = [], inline = null } = {}) {
   const current = cmsFilterWidgetSettings(settings);
   // a filter of the widget that is not public any more stays offered (it can be removed)
   const all = [...choices.map((choice) => ({ ...choice, key: cmsFilterItemKey(choice.kind, choice.id) }))];
   for (const item of current.items) if (!all.some((choice) => choice.key === item.key)) all.push(item);
   const terms = all.map((choice) => ({ id: choice.key, label: `${choice.title} [${choice.kind === 'filter' ? 'filter' : 'source'}]` }));
   const modeLabels = { buttons: 'Buttons', list: 'List', select: 'Select' };
-  return openEditFormDialog({
+  return showEditForm({
     title: 'Filter',
     form: {
       groups: [{
@@ -1276,7 +1380,7 @@ export function openFilterWidgetForm({ settings = {}, choices = [] } = {}) {
             help: 'Saved filters of the group "Website filters" and public query sources' },
           { name: 'active', type: 'enum', label: 'Active on start', mode: 'select', terms, emptyLabel: 'None',
             help: 'One of the available filters; it runs when the page opens without a Saved filter in its address' },
-          { name: 'mode', type: 'enum', label: 'Presentation', mode: 'radio', max: 1,
+          { name: 'mode', type: 'enum', label: 'Show as', mode: 'radio', max: 1,
             terms: CMS_FILTER_WIDGET_MODES.map((id) => ({ id, label: modeLabels[id] })) }
         ]
       }]
@@ -1284,7 +1388,7 @@ export function openFilterWidgetForm({ settings = {}, choices = [] } = {}) {
     values: { items: current.items.map((item) => item.key), active: current.active, mode: current.mode },
     onReady: (edit) => addFormHelp(edit, 'The chosen filter shows its records in the modules of the page that take their records'
       + ' from this widget (Records and selection of the module); a filter with parameters shows its form first.')
-  }).then((values) => {
+  }, (values) => {
     if (!values) return null;
     const keys = [values.items].flat().filter(Boolean).map(String);
     const items = keys.map((key) => all.find((choice) => choice.key === key)).filter(Boolean);
@@ -1293,7 +1397,7 @@ export function openFilterWidgetForm({ settings = {}, choices = [] } = {}) {
       return null;
     }
     return storedCmsFilterWidget({ items, active: values.active ? String(values.active) : null, mode: values.mode });
-  });
+  }, { inline, sections: { source: ['items', 'active'] } });
 }
 
 /**
@@ -1302,8 +1406,8 @@ export function openFilterWidgetForm({ settings = {}, choices = [] } = {}) {
  * @param {{settings?: object}} options
  * @returns {Promise<object|null>}
  */
-export function openBreadcrumbsForm({ settings = {} } = {}) {
-  return openEditFormDialog({
+export function openBreadcrumbsForm({ settings = {}, inline = null } = {}) {
+  return showEditForm({
     title: 'Breadcrumbs',
     form: {
       groups: [{
@@ -1318,7 +1422,7 @@ export function openBreadcrumbsForm({ settings = {} } = {}) {
     values: { mode: settings.mode === 'history' ? 'history' : 'path' },
     onReady: (edit) => addFormHelp(edit, 'On a record page the record is the last entry. History keeps the record pages the visitor opened on'
       + ' this website (in this browser tab); before the first one, and without JavaScript, the path is shown.')
-  }).then((values) => (values ? (values.mode === 'history' ? { mode: 'history' } : {}) : null));
+  }, (values) => (values.mode === 'history' ? { mode: 'history' } : {}), { inline, sections: { source: ['mode'] } });
 }
 
 /**
@@ -1328,8 +1432,8 @@ export function openBreadcrumbsForm({ settings = {} } = {}) {
  * @param {{settings?: object}} options
  * @returns {Promise<object|null>} The settings (default values left out).
  */
-export function openMenuForm({ settings = {} } = {}) {
-  return openEditFormDialog({
+export function openMenuForm({ settings = {}, inline = null } = {}) {
+  return showEditForm({
     title: 'Menu',
     form: {
       groups: [{
@@ -1343,6 +1447,9 @@ export function openMenuForm({ settings = {} } = {}) {
             terms: ITEM_STYLES.map(([id, label]) => ({ id, label })) },
           // the line of the underline style (review 2026-11-16)
           ...MENU_LINE_FIELDS,
+          // colours of the items (plan 27n §7)
+          { name: 'colors', type: 'enum', label: 'Colours', max: 1,
+            terms: ITEM_COLOR_LABELS.map(([id, label]) => ({ id: id || 'site', label })) },
           { name: 'showHome', type: 'boolean', label: 'Show Home', help: 'The home page as the first entry of the menu', max: 1 },
           { name: 'selectableParent', type: 'boolean', label: 'Pages with sub pages open', max: 1,
             help: 'Unchecked: the title of such a page only opens its sub pages' },
@@ -1358,7 +1465,7 @@ export function openMenuForm({ settings = {} } = {}) {
           { name: 'alwaysCollapsed', type: 'boolean', label: 'Always collapsed', max: 1,
             help: 'The menu button on every screen, also when the menu fits' },
           // the pages of the menu (plan 27k §6, the last option since 2026-11-16): the whole website or the section of the page
-          { name: 'scope', type: 'enum', label: 'Pages', mode: 'radio', max: 1,
+          { name: 'scope', type: 'enum', label: 'Pages', mode: 'radio', max: 1, hidden: true,
             terms: [{ id: 'site', label: 'All pages of the website' },
               { id: 'section', label: 'The section of the page: its sub pages, else its parent and the pages beside it; on the home page'
                 + ' and on a page of the first level without sub pages: the pages of the first level' }] }
@@ -1369,6 +1476,7 @@ export function openMenuForm({ settings = {} } = {}) {
       scope: settings.scope === 'section' ? 'section' : 'site',
       orientation: ['vertical', 'auto'].includes(settings.orientation) ? settings.orientation : 'horizontal',
       style: ITEM_STYLES.some(([id]) => id === settings.style) ? settings.style : 'plain',
+      colors: ITEM_COLORS.includes(settings.colors) ? settings.colors : 'site',
       showHome: settings.showHome === true,
       selectableParent: settings.selectableParent !== false,
       collapse: settings.collapse === 'fullscreen' ? 'fullscreen' : 'panel',
@@ -1380,12 +1488,13 @@ export function openMenuForm({ settings = {} } = {}) {
     },
     onReady: (edit) => addFormHelp(edit, 'The pages of the website in the order of the website tree. The icon of a page and whether the'
       + ' menu shows its name, its icon or both are fields of the page record (Edit record in the website tree).')
-  }).then((values) => {
+  }, (values) => {
     if (!values) return null;
     const result = {};
     if (values.scope === 'section') result.scope = 'section';
     if (['vertical', 'auto'].includes(values.orientation)) result.orientation = values.orientation;
     if (ITEM_STYLES.some(([id]) => id === values.style) && values.style !== 'plain') result.style = values.style;
+    if (ITEM_COLORS.includes(values.colors)) result.colors = values.colors;
     if (values.showHome === true) result.showHome = true;
     if (values.selectableParent === false) result.selectableParent = false;
     // defaults are not written; the animation only for the full-screen menu
@@ -1400,7 +1509,7 @@ export function openMenuForm({ settings = {} } = {}) {
     }
     if (values.alwaysCollapsed === true) result.alwaysCollapsed = true;
     return result;
-  });
+  }, { inline, sections: { source: ['showHome', 'selectableParent', 'scope'] } });
 }
 
 /**
@@ -1409,8 +1518,8 @@ export function openMenuForm({ settings = {} } = {}) {
  * @param {{settings?: object}} options
  * @returns {Promise<object|null>}
  */
-export function openLanguageForm({ settings = {} } = {}) {
-  return openEditFormDialog({
+export function openLanguageForm({ settings = {}, inline = null } = {}) {
+  return showEditForm({
     title: 'Language switch',
     form: {
       groups: [{
@@ -1425,10 +1534,10 @@ export function openLanguageForm({ settings = {} } = {}) {
     values: { appearance: ['list', 'select'].includes(settings.appearance) ? settings.appearance : 'auto' },
     onReady: (edit) => addFormHelp(edit, 'The current page in the other languages of the website. A website with one language does'
       + ' not show it.')
-  }).then((values) => {
+  }, (values) => {
     if (!values) return null;
     return ['list', 'select'].includes(values.appearance) ? { appearance: values.appearance } : {};
-  });
+  }, { inline, sections: {} });
 }
 
 /** Help above the form of the email form widget (plan 27h). */
@@ -1444,10 +1553,10 @@ export const EMAIL_FORM_HELP = 'Visitors send a message to the email address of 
  *        first is the original).
  * @returns {Promise<object|null>} `display`, `label`, `labels` {lang: caption} (default values left out).
  */
-export function openEmailForm({ settings = {}, languages = [], translator = null } = {}) {
+export function openEmailForm({ settings = {}, languages = [], translator = null, inline = null } = {}) {
   const multilang = languages.length > 1;
   const caption = String(settings.label ?? '');
-  return openEditFormDialog({
+  return showEditForm({
     title: 'Email form',
     form: {
       groups: [{
@@ -1466,11 +1575,11 @@ export function openEmailForm({ settings = {}, languages = [], translator = null
     },
     ...(multilang ? { languages: languages.map((code) => code.toUpperCase()), translator } : {}),
     onReady: (edit) => addFormHelp(edit, EMAIL_FORM_HELP)
-  }).then((values) => {
+  }, (values) => {
     if (!values) return null;
     if (values.display !== 'button') return {};
     const { caption: label, translations } = readCaption(values.label, languages);
     const labels = Object.fromEntries(Object.entries(translations).filter(([, text]) => text));
     return { display: 'button', ...(label ? { label } : {}), ...(Object.keys(labels).length ? { labels } : {}) };
-  });
+  }, { inline, sections: { caption: ['label'] } });
 }

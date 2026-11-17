@@ -359,6 +359,39 @@ img.h-site-media-placeholder {
   border-color: currentColor;
 }
 
+/* colours of the tabs (plan 27n §7, data-h-colors; as the menus): inverted = the text and background colours of the site
+   swapped (tabs over a banner), own = the item colours of the Own style; only the tab strip, not the panels */
+.h-site-tabs[data-h-colors="inverted"] {
+  --h-item-text: var(--h-color-bg);
+  --h-item-accent: var(--h-color-bg);
+  --h-item-accent-text: var(--h-color-text);
+}
+
+.h-site-tabs[data-h-colors] {
+  --h-items-text: var(--h-item-text, var(--h-color-text));
+  --h-items-accent: var(--h-item-accent, var(--h-color-primary));
+  --h-items-accent-text: var(--h-item-accent-text, var(--h-color-primary-text, #fff));
+}
+
+.h-site-tabs[data-h-colors] > .h-site-tab-strip {
+  --h-color-text: var(--h-items-text);
+  --h-color-primary: var(--h-items-accent);
+  --h-color-primary-text: var(--h-items-accent-text);
+  --h-color-surface: color-mix(in srgb, var(--h-items-text) 12%, transparent);
+  --h-color-border: color-mix(in srgb, var(--h-items-text) 35%, transparent);
+  color: var(--h-items-text);
+}
+
+.h-site-tabs[data-h-colors] > .h-site-tab-strip > .h-site-tab:not(.is-active) {
+  background: transparent;
+}
+
+/* the default style: the active tab filled with the accent */
+.h-site-tabs[data-h-colors]:not([data-h-item-style]) > .h-site-tab-strip > .h-site-tab.is-active {
+  background: var(--h-color-primary);
+  color: var(--h-color-primary-text);
+}
+
 /* vertical tabs (plan 27k §3, data-h-orientation): the tabs a column on the left, the panel on the right, from 641 px;
    on narrower screens the tabs above */
 @media (min-width: 641px) {
@@ -1095,15 +1128,63 @@ html.h-site .h-site-badge img {
 
 /* reveal on scroll (siteRuntime enhanceReveal): hidden until the element comes into the window; only JS adds the class */
 [data-h-reveal] {
-  transition: opacity 0.6s ease, transform 0.6s ease;
+  transition: opacity 1.2s ease, transform 1.2s ease;
+  transition-delay: var(--h-site-reveal-delay, 0s);
 }
 
 [data-h-reveal].h-site-reveal-pending {
   opacity: 0;
 }
 
+/* plan 27n §8: slower, 40px; down, left / right (side slide), zoom */
 [data-h-reveal="up"].h-site-reveal-pending {
-  transform: translateY(24px);
+  transform: translateY(40px);
+}
+
+[data-h-reveal="down"].h-site-reveal-pending {
+  transform: translateY(-40px);
+}
+
+[data-h-reveal="left"].h-site-reveal-pending {
+  transform: translateX(-40px);
+}
+
+[data-h-reveal="right"].h-site-reveal-pending {
+  transform: translateX(40px);
+}
+
+[data-h-reveal="zoom"].h-site-reveal-pending {
+  transform: scale(0.9);
+}
+
+/* initially hidden (plan 27n §8): shown by a Show / hide action (class h-site-shown); visible and hatched in the designer */
+.h-site:not(.h-site-design) [data-h-reveal="hidden"]:not(.h-site-shown) {
+  display: none;
+}
+
+.h-site:not(.h-site-design) .h-site-hidden {
+  display: none;
+}
+
+/* shown by a Show / hide action (siteRuntime toggleElement) */
+.h-site-toggle-in {
+  animation: h-site-toggle-in 0.5s ease;
+}
+
+@keyframes h-site-toggle-in {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .h-site-toggle-in {
+    animation: none;
+  }
+}
+
+.h-site-design [data-h-reveal="hidden"] {
+  outline: 1px dashed var(--h-color-border);
+  background-image: repeating-linear-gradient(45deg, transparent 0 8px, rgba(127, 127, 127, 0.12) 8px 10px);
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -139,23 +139,26 @@ test('preset names and CSS text of the style forms', () => {
   assert.equal(cssText({ label: 'X', padding: '4px', narrow: { display: 'none' } }), 'padding: 4px; narrow: {display: none}');
 });
 
-test('Add element: Generated Report in the first group, after Record field', async () => {
+test('Add element: Generated report in the Content group, after Record cards (plan 27n §5)', async () => {
   const { ELEMENT_GROUPS } = await import('../src/designer/designerCatalog.js');
   const values = ELEMENT_GROUPS[0].items.map((item) => item.value);
-  assert.equal(values.indexOf('report'), values.indexOf('field') + 1);
-  assert.equal(ELEMENT_GROUPS[0].items.find((item) => item.value === 'report').label, 'Generated Report');
-  assert.equal(ELEMENT_GROUPS.find((group) => group.label === 'Widgets').items.some((item) => item.value === 'report'), false);
+  assert.equal(values.indexOf('report'), values.indexOf('cards') + 1);
+  assert.equal(ELEMENT_GROUPS[0].items.find((item) => item.value === 'report').label, 'Generated report');
 });
 
 test('catalogs of Add page and Add element: the available elements are the ones of the document', async () => {
   const { ELEMENT_GROUPS, PAGE_TEMPLATES, previewSvg } = await import('../src/designer/designerCatalog.js');
   const { CMS_ELEMENTS, cmsPageStarter } = await import('#shared/site/cmsEdit.js');
   const elements = ELEMENT_GROUPS.flatMap((group) => group.items);
-  assert.deepEqual(ELEMENT_GROUPS.map((group) => group.label), ['Content and layout', 'Modules', 'Widgets']);
-  // plan 27f §13: the order of the widgets; the Filter widget among the modules (plan 27l §3, review 2026-11-16)
-  assert.deepEqual(ELEMENT_GROUPS[2].items.map((item) => item.value),
-    ['cards', 'gallery', 'actionmenu', 'badges', 'social', 'headerSet', 'siteFooter', 'email', 'menu', 'breadcrumbs', 'language']);
-  assert.ok(ELEMENT_GROUPS[1].items.some((item) => item.value === 'filter'));
+  // plan 27n §5: five groups; the Filter widget among the modules (plan 27l §3)
+  assert.deepEqual(ELEMENT_GROUPS.map((group) => group.label),
+    ['Content', 'Layout', 'Action and navigation', 'Modules', 'Helpers and sets']);
+  assert.deepEqual(ELEMENT_GROUPS.map((group) => group.items.map((item) => item.value)), [
+    ['text', 'media', 'gallery', 'field', 'cards', 'report'],
+    ['group', 'columns2', 'columns3', 'accordion', 'tabs'],
+    ['actionmenu', 'menu'],
+    ['explorer', 'data', 'map', 'timeline', 'graph', 'recordview', 'filter', 'crosstabs', 'storymap'],
+    ['breadcrumbs', 'language', 'badges', 'social', 'email', 'headerSet', 'siteFooter']]);
   assert.deepEqual(elements.filter((item) => item.available).map((item) => item.value).sort(), [...CMS_ELEMENTS].sort());
   assert.equal(new Set(elements.map((item) => item.value)).size, elements.length, 'unique values');
   const templates = PAGE_TEMPLATES[0].items;
@@ -263,6 +266,9 @@ test('Styles popup: four tabs, themes, kind defaults, presets, custom CSS with t
 test('Style editor: simple and advanced lists, group flex box, Reset all, Remove all, numeric check', async () => {
   const { styleRows, checkStyleValue } = await import('../src/designer/designerStyles.js');
   assert.deepEqual(checkStyleValue('width', '12'), { value: '12px', error: null }, 'px added to a plain number');
+  // plan 27n §1: a font size from the Heurist variables
+  assert.deepEqual(checkStyleValue('font-size', 'var(--h-font-size-large)'), { value: 'var(--h-font-size-large)', error: null });
+  assert.ok(checkStyleValue('font-size', 'var(--other)').error, 'only Heurist variables');
   assert.deepEqual(checkStyleValue('margin', '0 auto -5em 50%'), { value: '0 auto -5em 50%', error: null });
   assert.ok(checkStyleValue('padding', '-5px').error, 'no negative padding');
   assert.ok(checkStyleValue('font-size', '12x').error);
@@ -512,7 +518,7 @@ test('designer: open the home, edit, save only the changed field with rec_Modifi
   designer.destroy();
 });
 
-test('designer: west pane with the tabs Site | Page and help, the preview alone in the center', async () => {
+test('designer: west pane with the tabs Site | Page, the preview alone in the center', async () => {
   const { designer, container } = designerOf();
   await designer.open(10);
   assert.equal(container.querySelector('.h-cms-bar'), null, 'no header bar');
@@ -527,7 +533,8 @@ test('designer: west pane with the tabs Site | Page and help, the preview alone 
   assert.equal(tool.textContent.trim(), 'Add page', 'with a caption');
   assert.deepEqual(designer._siteTools({ id: 'page:11' }).map((item) => [item.action, item.icon]),
     [['edit', 'fa-pen'], ['add', 'fa-plus'], ['remove', 'fa-xmark']], 'one tool to remove a page from the website');
-  assert.match(container.querySelector('.h-cms-help').textContent, /main menu/);
+  // plan 27n §2.4: no help panel below the trees; Help of the toolbar opens the manual
+  assert.equal(container.querySelector('.h-cms-help'), null);
   // second row: language and page width as selects
   assert.equal(container.querySelector('.h-cms-view-bar').querySelectorAll('select').length, 2);
   assert.equal(container.querySelector('.h-cms-toolbar').querySelectorAll('select').length, 0, 'no language selector in the toolbar');
@@ -535,11 +542,10 @@ test('designer: west pane with the tabs Site | Page and help, the preview alone 
   await designer._selectSiteItem('page:12');
   assert.equal(designer._siteTabActive(), false, 'a page opens on the Page tab');
   assert.equal(designer._propertiesRecord(), 12, 'Properties = the open page');
-  assert.match(container.querySelector('.h-cms-help').textContent, /order on the page/);
   assert.ok(designer.buttons.save.classList.contains('h-btn-primary'), 'Save is the primary button');
   const topBar = container.querySelector('.h-cms-pane-bar-top');
   const bottomBar = designer.pageBar;
-  // above the tree: Copy, Paste, Layout ... Save Page; below it: Own style, Undo, Redo, Discard ... Save Page (2026-11-14)
+  // above the tree: Copy, Paste, Layout ... Save Page; below it: the panel (gear), Undo, Redo, Discard ... Save Page (2026-11-14)
   const { style, undo, redo, discard, copy, paste, layout, save, saveTop } = designer.buttons;
   assert.ok(topBar.classList.contains('h-cms-pane-bar-top'));
   assert.deepEqual([...topBar.querySelectorAll('button')], [copy, paste, layout, saveTop]);
@@ -560,26 +566,24 @@ test('designer: tools of the part tree, + of tabs, captions, copy below the tree
   const { designer } = designerOf();
   await designer.open(10);
   const root = designer._nodeTools({ id: '#root' });
-  // the page is the root group (plan 27i §9 B): its popup, then Add element (the palette is in the bar)
+  // the page is the root group (plan 27i §9 B): Add element, its panel (plan 27n §4)
   assert.deepEqual(root.map((item) => [item.action, item.label, item.always]),
-    [['page', undefined, undefined], ['add', 'Add element', true]]);
+    [['add', 'Add element', true], ['panel', undefined, undefined]]);
   let tabs = null;
   designer._edit((doc) => { tabs = doc.insertElement('content', 'tabs', { id: null, position: 'inside' }); return true; });
   const actions = (id) => designer._nodeTools({ id }).map((item) => item.action);
   const panel = designer._treeItem(tabs).children[0];
-  // the pen opens the popup of the element, the palette its own style (review 2026-11-14)
-  // tabs: the captions of all panels in one popup (review 2026-11-15)
-  assert.deepEqual(actions(tabs), ['add', 'captions', 'delete']);
-  assert.deepEqual(actions(panel.id), ['add', 'caption', 'delete']);
+  // plan 27n §4: + of groups, tabs and accordions, the gear (panel) and remove on every element
+  assert.deepEqual(actions(tabs), ['add', 'panel', 'delete']);
+  assert.deepEqual(actions(panel.id), ['add', 'panel', 'delete']);
   const doc = designer._currentRecord().doc;
   assert.deepEqual(doc.panels(tabs), designer._treeItem(tabs).children.map((item) => item.id));
   assert.equal(doc.panelControl(panel.id), tabs);
   assert.equal(doc.panelControl(tabs), null);
-  assert.deepEqual(actions(panel.children[0].id), ['edit', 'delete'], 'a text: pen and remove');
-  // a group: the palette opens its Own style (2026-11-14)
+  assert.deepEqual(actions(panel.children[0].id), ['edit', 'panel', 'delete'], 'a text: pen, gear and remove');
   let group = null;
   designer._edit((doc) => { group = doc.insertElement('content', 'group', { id: null, position: 'inside' }); return true; });
-  if (group) assert.deepEqual(actions(group), ['add', 'style', 'delete']);
+  if (group) assert.deepEqual(actions(group), ['add', 'panel', 'delete']);
   await designer._addElement(tabs);
   assert.equal(designer._treeItem(tabs).children.length, 3, '+ of tabs adds a panel at once');
   // a click on a caption in the preview selects its panel
@@ -595,12 +599,12 @@ test('designer: tools of the part tree, + of tabs, captions, copy below the tree
   designer.destroy();
 });
 
-test('designer: a media element has Edit media; its file is read by its key (GET /files/{key})', async () => {
+test('designer: a media element has the gear of its panel; its file is read by its key (GET /files/{key})', async () => {
   const { designer } = designerOf();
   await designer.open(10);
   let media = null;
   designer._edit((doc) => { media = doc.insertElement('content', 'media', { id: null, position: 'inside' }); return true; });
-  assert.deepEqual(designer._nodeTools({ id: media }).map((item) => item.action), ['media', 'delete']);
+  assert.deepEqual(designer._nodeTools({ id: media }).map((item) => item.action), ['panel', 'delete']);
   assert.equal(designer._treeItem(media).configured, false, 'no file yet: marked');
   const asked = [];
   designer.apiClient = {
@@ -700,35 +704,79 @@ test('designer: a website the user can not change is read only', async () => {
   designer.destroy();
 });
 
-test('designer: Own style form (plan 27i §10, review 2026-11-14): caption above the own style of a group, applied at once', async () => {
+test('designer: element panel (plan 27n §2): Configuration | Own style, docked or a popup, Cancel, applied at once', async () => {
   const { designer } = designerOf();
   await designer.open(10);
+  designer.formPanel.setMode('docked');
   let group = null;
   designer._edit((doc) => { group = doc.insertElement('content', 'group', { id: null, position: 'inside' }); return true; });
   assert.equal(designer.formPanel.isOpen(), false);
-  // the page: its own style; a group: caption and own style; the header itself: none
-  // the title is in the header of the form: one section has no caption (review 2026-11-15)
-  assert.deepEqual(designer._formSections('#root').map((section) => section.label), ['']);
-  assert.equal(designer._formSections(group).map((section) => section.label).join(), 'Caption,Own style');
-  // reveal on scroll (plan 27k §6) for every element of the content: beside the preset (review 2026-11-16)
-  assert.equal(designer._formSections('h1').map((section) => section.label).join(), '');
-  assert.ok(designer._revealField('h1'), 'Reveal on scroll beside the preset');
+  const tabsOf = (id) => designer._panelTabs(id).map((tab) => `${tab.id}:${tab.sections.map((section) => section.label).join('+')}`);
+  // the page: its fields in the panel (review §14.9) and its own style; a group: caption, presentation, identification
+  assert.deepEqual(tabsOf('#root'), ['config:', 'style:']);
+  // one help (review §14.6): a widget form has its own, Reveal has its help with the input
+  assert.equal(designer._panelTabs('h1')[0].help.some((text) => /Reveal/.test(text)), false);
+  assert.deepEqual(tabsOf(group), ['config:Caption+Presentation+Identification', 'style:']);
+  assert.deepEqual(tabsOf('h1'), ['config:+Presentation+Identification', 'style:'], 'a text: Edit text, reveal, name');
+  assert.ok(designer._revealField('h1'), 'Reveal on scroll in Presentation');
+  // plan 27n §6: tabs: their options with Reveal, the captions of the panels; a widget: its form with the sections
+  let tabsNode = null;
+  let menuNode = null;
+  designer._edit((doc) => { tabsNode = doc.insertElement('content', 'tabs', { id: null, position: 'inside' }); return true; });
+  designer._edit((doc) => { menuNode = doc.insertElement('content', 'menu', { id: null, position: 'inside' }); return true; });
+  assert.deepEqual(tabsOf(tabsNode), ['config:Presentation+Captions+Identification', 'style:']);
+  // a panel of tabs shows the form of its tabs (review §15.18)
+  await designer._openForm(designer._treeItem(tabsNode).children[0].id);
+  assert.equal(designer.formNode, tabsNode);
+  await designer._closeForm();
+  assert.deepEqual(tabsOf(menuNode), ['config:', 'style:'], 'one form: Source, Presentation (Reveal), Identification in it');
+  const fields = designer._commonFields(menuNode, designer._treeItem(menuNode));
+  assert.deepEqual(fields.fields.identification.map((field) => field.name), ['__systemId', '__name']);
+  assert.equal(fields.values.__systemId, designer._treeItem(menuNode).instance, 'the system id of a widget: its instance id');
+  fields.onChange('__name', 'mainMenu');
+  assert.equal(designer._currentRecord().doc.name(menuNode), 'mainMenu');
+  assert.deepEqual(fields.validate({ __name: 'mainMenu' }), [], 'its own name');
+  designer._edit((doc) => { doc.remove(tabsNode); doc.remove(menuNode); return true; });
   designer._selectNode(group);
   const west = [];
   designer.layout.getSize = () => 300;
   designer.layout.setSize = (region, size) => west.push(size);
   await designer._toggleStyleForm();
-  assert.equal(designer.formPanel.isOpen(), true, 'the palette of the bar opens the form');
-  assert.deepEqual([designer.layout.options.minWest, west], [380, [380]], 'the west pane as wide as the form');
-  assert.equal(designer.formPanel.element.querySelector('.h-cms-form-tabs'), null, 'no tabs');
-  // caption, own style (reveal on scroll beside the preset, review 2026-11-16)
-  assert.equal(designer.formPanel.element.querySelectorAll('.h-cms-form-section').length, 2);
+  const panel = designer.formPanel.element;
+  assert.equal(designer.formPanel.isOpen(), true, 'the gear of the bar opens the panel');
+  assert.deepEqual([designer.layout.options.minWest, west], [380, [380]], 'the west pane as wide as the panel');
+  assert.deepEqual(panel.querySelectorAll('.h-cms-panel-tab').map((tab) => tab.textContent), ['Configuration', 'Own style']);
+  assert.equal(panel.parentElement, designer.pagePanel, 'docked in a narrow pane: below the tree');
+  designer._panelSide = true;
+  designer._placePanel();
+  assert.equal(panel.parentElement, designer.westRow, 'a wide pane: beside the tabs Site / Page');
+  assert.equal(panel.querySelector('.h-cms-panel-foot').hidden, true, 'no footer when docked');
+  // the help of the form (header help and the help of the inputs) on and off
+  const tips = designer.formPanel.tipsShown();
+  panel.querySelector('.h-cms-panel-head').querySelectorAll('.h-cms-panel-icon')[0].click();
+  assert.equal(designer.formPanel.tipsShown(), !tips);
+  // undock: a popup with Dock, Cancel and Apply; Cancel returns to the draft of its opening
+  designer._panelMode('popup');
+  assert.equal(panel.classList.contains('is-popup'), true);
+  assert.equal(panel.parentElement, designer.root);
+  assert.equal(panel.querySelector('.h-cms-panel-foot').hidden, false);
+  assert.equal(designer.layout.options.minWest, 280, 'a popup needs no room in the pane');
+  designer._formEdit(`caption:${group}`, (doc) => doc.setCaption(group, 'Changed'));
+  await designer._cancelPanel();
+  assert.equal(designer.formPanel.isOpen(), false);
+  assert.equal(designer._currentRecord().doc.caption(group), null, 'Cancel: the caption as before');
+  await designer._openForm(group);
+  designer._formEdit(`caption:${group}`, (doc) => doc.setCaption(group, 'Kept'));
+  await designer._applyPanel();
+  assert.equal(designer._currentRecord().doc.caption(group).text, 'Kept', 'Apply keeps the changes');
+  designer._panelMode('docked');
   await designer._toggleStyleForm();
-  assert.equal(designer.formPanel.isOpen(), false, 'the palette of the bar closes it');
+  await designer._toggleStyleForm();
+  assert.equal(designer.formPanel.isOpen(), false, 'the gear of the bar closes it');
   assert.equal(designer.layout.options.minWest, 280, 'closed: the usual minimum');
   await designer.selectPart(10, 'header', { force: true });
-  // the own style of the header (review 2026-11-16)
-  assert.deepEqual(designer._formSections('#root').map((section) => section.label), [''], 'the own style of the header');
+  // the header: its layout (a button) and its own style (review 2026-11-16); no reveal
+  assert.deepEqual(tabsOf('#root'), ['config:', 'style:'], 'the own style of the header');
   assert.equal(designer._revealField('h1'), null, 'no reveal in the header');
   await designer.selectPart(10, 'content', { force: true });
   designer._edit((doc) => { group = doc.insertElement('content', 'group', { id: null, position: 'inside' }); return true; });
@@ -819,7 +867,7 @@ test('designer: the modules of an Explorer instance are its child items (2026-11
   const { designer } = designerOf();
   await designer.open(10);
   const tools = designer._nodeTools({ id: moduleItemId('n1', 'map') });
-  assert.deepEqual(tools.map((tool) => tool.action), ['config'], 'the gear only, no delete');
+  assert.deepEqual(tools.map((tool) => tool.action), ['panel'], 'the gear only, no delete');
   assert.equal(designer._canDropNode(moduleItemId('n1', 'map'), '#root', 'inside'), false, 'not dragged');
   designer.destroy();
 });

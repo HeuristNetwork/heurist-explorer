@@ -24,6 +24,7 @@ import {
   BASE_SETTINGS, CMS_KINDS, CMS_LAYOUT, CMS_LAYOUT_CACHE, CMS_LAYOUT_SIZE, CMS_STYLE_PROPERTIES, compileCmsStyles, SCREENS
 } from '#shared/site/cmsDocument.js';
 import { HInputColor } from '#shared/widgets/form/inputs/HInputColor.js';
+import { showPopover } from '#shared/widgets/popover/popover.js';
 import { fileOfRecord, HInputFile } from '#shared/widgets/form/inputs/HInputFile.js';
 import { fileUrl, parseFileUrl } from '#shared/data/fileUrls.js';
 import { createTabSet } from '#shared/widgets/layout/tabs.js';
@@ -703,6 +704,12 @@ export const SIMPLE_STYLE_FIELDS = Object.freeze([
     { property: 'background-size', label: 'Size', options: SELECT(['cover', 'Cover (fill, cut)'], ['contain', 'Contain (whole image)'],
       ['auto', 'Original size'], ['100% 100%', 'Stretch']) }
   ] },
+  // the colours Own of a menu, action menu or tabs (plan 27n §7): used when Colours = Own in its configuration
+  { section: 'Item colours', itemColors: true, note: 'Used when the colours of the items are Own (Configuration).', fields: [
+    { property: '--h-item-text', label: 'Text of the items' },
+    { property: '--h-item-accent', label: 'Current item and buttons' },
+    { property: '--h-item-accent-text', label: 'Text of the current item' }
+  ] },
   { section: 'Border', toggle: { on: { 'border-style': 'solid', 'border-width': '1px' }, off: { border: 'none' } }, fields: [
     { property: 'border-style', label: 'Border', options: SELECT(['solid', 'Solid'], ['dotted', 'Dotted'], ['dashed', 'Dashed']) },
     { property: 'border-width', label: 'Border width', hint: 'e.g. 1px' },
@@ -712,6 +719,23 @@ export const SIMPLE_STYLE_FIELDS = Object.freeze([
 ]);
 
 const UNITS = ['px', 'em', 'rem', '%', 'vh', 'vw', 'pt', 'ch'];
+
+/** A variable of the Heurist styles as a length value, e.g. `var(--h-font-size-large)` (plan 27n §1). */
+const VARIABLE = /^var\(--h-[a-z0-9-]+\)$/;
+
+/**
+ * Font sizes of the drop-down of a font-size input (plan 27n §1): the Heurist sizes (fixed px of the Heurist interface)
+ * and the base font size of the website.
+ */
+export const FONT_SIZES = Object.freeze([
+  ['--h-site-font-size', 'Website text'],
+  ['--h-font-size-tiny', 'Tiny (10 px)'],
+  ['--h-font-size-small', 'Small (11 px)'],
+  ['--h-font-size', 'Normal (12 px)'],
+  ['--h-font-size-large', 'Large (14 px)'],
+  ['--h-font-size-icon', 'Icon (16 px)'],
+  ['--h-font-size-icon-large', 'Large icon (32 px)']
+]);
 
 /** The screens of a style (SCREENS of cmsDocument.js) as the selector of the style editor shows them. */
 const SCREEN_LABELS = Object.freeze({
@@ -752,6 +776,10 @@ export function checkStyleValue(property, value) {
     }
     if (number.test(part)) {
       fixed.push(Number(part) === 0 ? '0' : `${part}px`);
+      continue;
+    }
+    if (VARIABLE.test(part)) {
+      fixed.push(part);
       continue;
     }
     const unit = UNITS.find((name) => part.endsWith(name) && number.test(part.slice(0, -name.length)));
@@ -823,7 +851,7 @@ function checkFlex(text) {
 }
 
 function isColorProperty(property) {
-  return property === 'color' || /-color$/.test(property);
+  return property === 'color' || /-color$/.test(property) || property.startsWith('--h-item-');
 }
 
 /**
@@ -836,7 +864,7 @@ function isColorProperty(property) {
  * @param {HTMLElement} parent
  * @param {object} style
  * @param {(style: object) => void} [onChange] After every change (previews).
- * @param {{kind?: string, inFlexGroup?: boolean, presets?: Array<Array<string>>|null, preset?: string|null,
+ * @param {{kind?: string, inFlexGroup?: boolean, itemColors?: boolean, presets?: Array<Array<string>>|null, preset?: string|null,
  *        cssClass?: string, base?: object|Function, files?: {apiClient: object, baseUrl: string, database: string,
  *        browseRecords?: Function, fileRecordType?: number}|null}} [options] `kind`: the kind of the
  *        element (group, tabs, accordion, text, instance; `preset` for presets); groups and presets get the group
@@ -848,12 +876,12 @@ function isColorProperty(property) {
  *        without it the image is a text value. `advanced`: start in Simple (false) or Advanced (true), the editor's
  *        own choice; null = the choice of the session. `video`: the background video of a group (the key of a
  *        registered file, '' none; null: not offered), a Video input in the Background section (plan 27i §9 D).
- *        `headExtra`: an element of the caller beside the preset selector (with `presets` only).
+ *        `headExtra`: an element (or a list) of the caller beside the preset selector (with `presets` only).
  * @returns {{value: () => object, preset: () => string|null, cssClass: () => string|null, video: () => string}} `cssClass`:
  *          null while it has characters that are not allowed.
  */
 export function styleRows(parent, style, onChange = null, {
-  kind = null, inFlexGroup = false, presets = null, preset = null, cssClass = '', classInput = true, base = null, files = null,
+  kind = null, inFlexGroup = false, itemColors = false, presets = null, preset = null, cssClass = '', classInput = true, base = null, files = null,
   advanced: startAdvanced = null, video = null, headExtra = null
 } = {}) {
   // the background video of a group (plan 27i §9 D): the key of a registered file, not a style property
@@ -867,7 +895,7 @@ export function styleRows(parent, style, onChange = null, {
     if (property !== 'label' && !Object.hasOwn(SCREENS, property)) values.normal[property] = value;
   }
   const sections = SIMPLE_STYLE_FIELDS.filter((section) => (!section.group || kind === 'group' || kind === 'preset')
-    && (!section.inGroup || inFlexGroup || kind === 'preset'));
+    && (!section.inGroup || inFlexGroup || kind === 'preset') && (!section.itemColors || itemColors));
   const simpleProperties = new Set(sections.flatMap((section) => [
     ...section.fields.map((item) => item.property), ...Object.keys(section.toggle?.on || {}), ...Object.keys(section.toggle?.off || {})
   ]));
@@ -880,6 +908,8 @@ export function styleRows(parent, style, onChange = null, {
   let presetValue = preset || null;
   let classValue = String(cssClass ?? '').trim();
   let classError = checkCssClass(classValue);
+  // the row of the preset: the screen selector goes beside it (review 27n §14.13)
+  let presetHead = null;
   if (presets) {
     const select = element('select', 'h-select h-compact');
     select.append(option('', $HR('(none)')), ...presets.map(([name, label]) => option(name, label || name)));
@@ -905,9 +935,12 @@ export function styleRows(parent, style, onChange = null, {
       check();
     });
     const head = element('div', 'h-cms-style-preset');
+    presetHead = head;
     head.append(field('Preset', select, 'h-cms-style-field'));
-    // a field of the caller beside the preset (Reveal on scroll, review 2026-11-16)
-    if (headExtra) head.append(headExtra);
+    // fields of the caller beside the preset (Reveal on scroll, review 2026-11-16; Name, plan 27n §9)
+    for (const extra of [headExtra].flat()) {
+      if (extra) head.append(extra);
+    }
     // a class needs rules of the custom CSS: not without JavaScript allowed
     if (classInput) head.append(field('Custom CSS class', classText, 'h-cms-style-field'));
     parent.append(head);
@@ -925,7 +958,14 @@ export function styleRows(parent, style, onChange = null, {
   });
   const screenCaption = element('span', 'h-cms-style-screen-caption');
   screenCaption.textContent = $HR('Screen');
-  tabs.append(screenCaption, screenSelect);
+  if (presetHead) {
+    const screenField = element('label', 'h-cms-style-field h-cms-style-screen-field');
+    screenField.append(screenCaption, screenSelect);
+    // after Preset (Custom CSS class follows)
+    presetHead.insertBefore?.(screenField, presetHead.children[1] || null) ?? presetHead.append(screenField);
+  } else {
+    tabs.append(screenCaption, screenSelect);
+  }
   const tools = element('div', 'h-cms-style-tools');
   const advanced = button('Advanced', 'fa-sliders');
   advanced.classList.add('h-cms-style-advanced');
@@ -1029,6 +1069,36 @@ export function styleRows(parent, style, onChange = null, {
       setValue(property, text.value);
     });
     return text;
+  };
+  // font size: the text input and a drop-down of the Heurist font sizes (plan 27n §1)
+  const fontSizeInput = (host, property, value) => {
+    const text = textInput(property, value, 'e.g. 14px, 1.2em');
+    const pick = button('', 'fa-caret-down');
+    pick.classList.add('h-cms-style-pick');
+    pick.title = $HR('Choose a font size');
+    pick.setAttribute('aria-label', pick.title);
+    pick.setAttribute('aria-haspopup', 'true');
+    pick.addEventListener('click', () => {
+      const menu = element('div', 'h-menu h-cms-style-pick-menu');
+      let popover = null;
+      for (const [name, label] of FONT_SIZES) {
+        const item = element('button', 'h-menu-item');
+        item.type = 'button';
+        item.title = `var(${name})`;
+        item.style.fontSize = `var(${name})`;
+        item.textContent = $HR(label);
+        item.addEventListener('click', () => {
+          popover?.close();
+          text.value = `var(${name})`;
+          text.dispatchEvent(new Event('change'));
+        });
+        menu.append(item);
+      }
+      popover = showPopover(pick, menu, { className: 'h-cms-style-pick-popover', align: 'right' });
+    });
+    const group = element('div', 'h-cms-style-with-pick');
+    group.append(text, pick);
+    host.append(group);
   };
   const colorInput = (host, property, value) => {
     const color = new HInputColor().attach(host, {
@@ -1150,6 +1220,8 @@ export function styleRows(parent, style, onChange = null, {
           imageInput(host, item.property, value);
         } else if (isColorProperty(item.property)) {
           colorInput(host, item.property, value);
+        } else if (item.property === 'font-size') {
+          fontSizeInput(host, item.property, value);
         } else {
           host.append(textInput(item.property, value, item.hint));
         }
@@ -1182,6 +1254,7 @@ export function styleRows(parent, style, onChange = null, {
       name.value = property;
       const host = element('div', 'h-cms-styles-value');
       if (isColorProperty(property)) colorInput(host, property, value);
+      else if (property === 'font-size') fontSizeInput(host, property, value);
       else host.append(textInput(property, value));
       const remove = button('', 'fa-xmark');
       remove.title = $HR('Remove');

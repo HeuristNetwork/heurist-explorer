@@ -23,8 +23,10 @@ import '@fortawesome/fontawesome-free/css/brands.min.css';
 import { $HR } from '#shared/ui';
 import { createHInput } from '#shared/widgets/form/inputs/createHInput.js';
 import { HInputColor } from '#shared/widgets/form/inputs/HInputColor.js';
-import { MENU_COLOR, MENU_EXPAND_ICON, MENU_LINE_WIDTHS, faIcon, menuLook } from '#shared/site/cmsMenu.js';
+import { ITEM_COLORS, MENU_COLOR, MENU_EXPAND_ICON, MENU_LINE_WIDTHS, faIcon, menuLook } from '#shared/site/cmsMenu.js';
 import { formDialog } from './designerDialogs.js';
+import { formChanged, sectionTitle, showDomForm } from './panelForms.js';
+import { createTranslationForm } from '#shared/widgets/translation/HTranslationDialog.js';
 import { dragHandle, helpLine, sortableList } from './designerStyles.js';
 import { recordPagePicker } from './recordPageField.js';
 import { savedFilterPicker, storedSavedFilter } from './savedFilterField.js';
@@ -103,22 +105,28 @@ export const ITEM_STYLES = Object.freeze([['plain', 'Plain'], ['links', 'Links (
 const SOCIAL_PRESENTATIONS = Object.freeze([['icons', 'Icons'], ['expand', 'Icons behind a button (expand on hover)'],
   ['grow', 'Icons that show their name on hover']]);
 
+/** Colours of the items of tabs, menus and action menus (plan 27n §7, ITEM_COLORS of cmsMenu.js): value, label. */
+export const ITEM_COLOR_LABELS = Object.freeze([['', 'Colours of the website'], ['inverted', 'Inverted (over a banner)'],
+  ['own', 'Own (Own style > Item colours)']]);
+
 /** Orientations of an action menu (plan 27k §2). */
 const ORIENTATIONS = Object.freeze([['horizontal', 'Horizontal'], ['vertical', 'Vertical']]);
 
 /**
  * Actions of an item: value, label. Record page: a record on a record page; Back: the page before (plan 27g §6); Saved
- * filter: a query source shown on a page of the website (plan 27j, savedFilterField.js).
+ * filter: a query source shown on a page of the website (plan 27j, savedFilterField.js); Show / hide: a named element of
+ * the page, header or footer (plan 27n §10), not in text links.
  */
 const ACTIONS = Object.freeze([['page', 'Go to a page'], ['url', 'Open a URL'], ['addRecord', 'Add a record'],
-  ['recordPage', 'Record page'], ['back', 'Back'], ['savedFilter', 'Saved filter'], ['search', 'Search box (Saved filter)']]);
+  ['recordPage', 'Record page'], ['back', 'Back'], ['savedFilter', 'Saved filter'], ['search', 'Search box (Saved filter)'],
+  ['toggle', 'Show / hide element']]);
 
 /**
  * Label of an item without one (2026-11-14: an item is not lost when its label is forgotten); Go to a page: the name of
  * the page.
  */
 const DEFAULT_LABELS = Object.freeze({ page: 'Page', url: 'Link', addRecord: 'Add', recordPage: 'Record link', back: 'Back',
-  savedFilter: 'Filter', search: 'Search' });
+  savedFilter: 'Filter', search: 'Search', toggle: 'More' });
 
 /**
  * Settings of the social media preset from the URLs of the networks (empty URLs left out).
@@ -164,13 +172,16 @@ export function socialUrls(settings = {}) {
 /**
  * The social media form: a row for each network (icon, name, URL).
  *
- * @param {{settings?: object}} options
+ * @param {{settings?: object, inline?: object|null, presentationExtra?: HTMLElement|null}} options `inline`: in the element
+ *        panel (panelForms.showDomForm); `presentationExtra`: a field of the designer at the end of Presentation (Reveal).
  * @returns {Promise<object|null>} Settings of the action menu.
  */
-export function openSocialForm({ settings = {} } = {}) {
+export function openSocialForm({ settings = {}, inline = null, presentationExtra = null } = {}) {
   const urls = socialUrls(settings);
   const form = element('form', 'h-cms-form h-cms-social-form');
-  form.append(helpLine('Enter the addresses of the website on social media. Networks without an address are not shown.'));
+  // the sections of plan 27n §6: Source (the networks), Presentation
+  form.append(sectionTitle($HR('Source')),
+    helpLine('Enter the addresses of the website on social media. Networks without an address are not shown.'));
   const table = element('div', 'h-cms-social-list');
   const inputs = {};
   for (const network of SOCIAL_NETWORKS) {
@@ -201,12 +212,13 @@ export function openSocialForm({ settings = {} } = {}) {
   const showIcon = () => { iconLine.hidden = presentation.value !== 'expand'; };
   presentation.addEventListener('change', showIcon);
   const settingsBox = element('div', 'h-cms-action-settings');
-  settingsBox.append(line('Presentation', presentation), iconLine, line('Style of the items', style), line('Orientation', orientation));
-  form.append(settingsBox);
+  settingsBox.append(line('Show as', presentation), iconLine, line('Style of the items', style), line('Orientation', orientation));
+  form.append(sectionTitle($HR('Presentation')), settingsBox);
+  if (presentationExtra) form.append(presentationExtra);
   showIcon();
-  return formDialog(form, 'Social media', 'OK', () => socialSettings(Object.fromEntries(Object.entries(inputs).map(([id, input]) => [id, input.value])),
+  return showDomForm(form, $HR('Social media'), () => socialSettings(Object.fromEntries(Object.entries(inputs).map(([id, input]) => [id, input.value])),
     { presentation: presentation.value, style: style.value, orientation: orientation.value, icon: icon.value, label: settings.label }),
-  null, 'h-dialog-cms-social');
+  { inline, className: 'h-dialog-cms-social' });
 }
 
 /**
@@ -227,7 +239,7 @@ export function openSocialForm({ settings = {} } = {}) {
  * @returns {Promise<object|null>} Settings (single: the item).
  */
 export function openActionMenuForm({ settings = {}, pages = [], recordTypes = [], canAddRecord = false, services = {}, single = null,
-  recordFields = null } = {}) {
+  recordFields = null, elements = [], languages = [], translator = null, inline = null, presentationExtra = null } = {}) {
   const form = element('form', 'h-cms-form h-cms-action-form');
   if (single) form.classList.add('h-cms-action-single');
   form.append(helpLine(single ? 'A link to a page of the website, a record on a record page, or another website.'
@@ -271,6 +283,9 @@ export function openActionMenuForm({ settings = {}, pages = [], recordTypes = []
     placeholder: $HR('Colour of the text') }).render();
   const lineColorLine = block('Colour of the line', lineColorHost);
   const orientationLine = line('Orientation', orientation);
+  // colours of the items (plan 27n §7)
+  const colors = select(ITEM_COLOR_LABELS, ITEM_COLORS.includes(settings.colors) ? settings.colors : '');
+  const colorsLine = line('Colours', colors);
   const showPresentation = () => {
     const behind = presentation.value === 'expand';
     labelLine.hidden = !behind;
@@ -285,21 +300,38 @@ export function openActionMenuForm({ settings = {}, pages = [], recordTypes = []
   if (!single) {
     // the settings of the menu above the list of items, aligned (review 2026-11-16)
     const settingsBox = element('div', 'h-cms-action-settings');
-    settingsBox.append(classed(line('Presentation', presentation), 'h-cms-action-presentation'), labelLine, iconLine, buttonTextLine,
-      openLine, styleLine, lineWidthLine, lineColorLine, orientationLine);
-    form.append(settingsBox);
+    settingsBox.append(classed(line('Show as', presentation), 'h-cms-action-presentation'), labelLine, iconLine, buttonTextLine,
+      openLine, styleLine, lineWidthLine, lineColorLine, orientationLine, colorsLine);
+    // the sections of plan 27n §6: Presentation, then the actions
+    form.append(sectionTitle($HR('Presentation')), settingsBox);
+    if (presentationExtra) form.append(presentationExtra);
+    form.append(sectionTitle($HR('Actions')));
   }
   showPresentation();
 
   const list = element('div', 'h-cms-action-list');
-  const actions = ACTIONS.filter(([value]) => (single?.actions ? single.actions.includes(value) : value !== 'addRecord' || canAddRecord));
+  // Show / hide not in a single link (text links, plan 27n §12.4)
+  const actions = ACTIONS.filter(([value]) => (single?.actions ? single.actions.includes(value)
+    : (value !== 'addRecord' || canAddRecord) && !(single && value === 'toggle')));
   const rows = [];
+  // the caption of an item with its translations (plan 27n §6.2, as the other captions): a website with several languages
+  const multilang = !single && languages.length > 1;
   const addRow = (item = {}) => {
     const row = element('div', 'h-cms-action-row');
     const text = element('input', 'h-input h-compact');
     text.type = 'text';
     text.value = item.label || '';
     text.placeholder = $HR('Label');
+    const caption = multilang ? createTranslationForm({
+      value: item.label || '',
+      translations: item.labels || {},
+      languages,
+      original: languages[0] || '',
+      translator,
+      onChange: () => formChanged(form)
+    }) : null;
+    // with the translations the input only takes the default label (pageLabel)
+    if (caption) text.value = '';
     const icon = element('input', 'h-input h-compact h-cms-action-icon');
     icon.type = 'text';
     icon.value = item.icon || '';
@@ -333,11 +365,19 @@ export function openActionMenuForm({ settings = {}, pages = [], recordTypes = []
     // a search box (plan 27k §6): a Saved filter whose parameter takes the typed text; the label is its placeholder
     const searchFilter = savedFilterPicker(services, item.action === 'search' ? storedSavedFilter(item) : null,
       { recordFields, search: true });
+    // Show / hide (plan 27n §10): the named elements of the page, header and footer; the node id is stored
+    const toggleTarget = element('select', 'h-select h-compact');
+    toggleTarget.append(option('', elements.length ? $HR('(choose an element)') : $HR('(no named elements: give an element a name)')),
+      ...elements.map((entry) => option(entry.id, `${entry.name} · ${entry.type}`)));
+    if (item.action === 'toggle' && item.target && !elements.some((entry) => entry.id === item.target)) {
+      toggleTarget.append(option(String(item.target), `${$HR('missing element')} (${item.target})`));
+    }
+    if (item.action === 'toggle') toggleTarget.value = String(item.target || '');
     if (item.action === 'url') url.value = item.target || '';
     else if (item.action === 'addRecord') type.value = String(item.target || '');
-    else if (!['recordPage', 'savedFilter', 'search'].includes(item.action) && item.target) page.value = String(item.target);
+    else if (!['recordPage', 'savedFilter', 'search', 'toggle'].includes(item.action) && item.target) page.value = String(item.target);
     const showTarget = () => target.replaceChildren(...({ page: [page], url: [url], addRecord: [type], recordPage: [recordTarget], back: [],
-      savedFilter: [filter.element], search: [searchFilter.element] }[action.value] || [page]));
+      savedFilter: [filter.element], search: [searchFilter.element], toggle: [toggleTarget] }[action.value] || [page]));
     // Go to a page without a label: the name of the page (review 2026-11-11); Back: "Back"
     const pageLabel = () => {
       if (text.value.trim()) return;
@@ -358,6 +398,8 @@ export function openActionMenuForm({ settings = {}, pages = [], recordTypes = []
     remove.addEventListener('click', () => {
       rows.splice(rows.findIndex((entry) => entry.row === row), 1);
       row.remove();
+      caption?.destroy?.();
+      formChanged(form);
     });
     if (single) {
       // one link (the text editor, 2026-11-14): a control per line
@@ -366,15 +408,36 @@ export function openActionMenuForm({ settings = {}, pages = [], recordTypes = []
       iconBox.append(glyph, icon);
       row.append(line('Label', text), line('Icon', iconBox), line('Action', action), block('Link to', target), newTab.box);
     }
-    else row.append(dragHandle(), text, glyph, icon, action, target, newTab.box, iconOnly.box, remove);
+    else {
+      // a mini form (plan 27n §6.2): the caption (with its translations); the action, New tab and the settings of the
+      // action; the icon, Icon only and Remove
+      row.classList.add('h-cms-action-item');
+      const head = element('div', 'h-cms-action-line h-cms-action-caption');
+      head.append(dragHandle(), caption ? caption.element : text);
+      const what = element('div', 'h-cms-action-line');
+      what.append(action, newTab.box);
+      const settingsLine = element('div', 'h-cms-action-line h-cms-action-config');
+      settingsLine.append(target);
+      const look = element('div', 'h-cms-action-line');
+      const iconBox = element('span', 'h-cms-action-icon-box');
+      iconBox.append(glyph, icon);
+      look.append(classed(iconBox, 'h-cms-action-icon-line'), iconOnly.box, element('span', 'h-cms-toolbar-spacer'), remove);
+      row.append(head, what, settingsLine, look);
+    }
     list.append(row);
     rows.push({
       row,
-      destroy: () => record.destroy(),
+      destroy: () => {
+        record.destroy();
+        caption?.destroy?.();
+      },
       read: () => {
         pageLabel();
-        // a forgotten label: a default one (2026-11-14), the item is kept
-        const value = { label: text.value.trim() || $HR(DEFAULT_LABELS[action.value] || 'Link'), action: action.value };
+        // the caption with its translations (a website with several languages)
+        const captions = caption?.read?.() || null;
+        // a forgotten label: a default one (2026-11-14; Go to a page: the name of the page), the item is kept
+        const label = (captions ? captions.value.trim() : '') || text.value.trim();
+        const value = { label: label || $HR(DEFAULT_LABELS[action.value] || 'Link'), action: action.value };
         if (icon.value.trim()) value.icon = icon.value.trim();
         if (action.value === 'page') value.target = Number(page.value) || 0;
         else if (action.value === 'url') value.target = url.value.trim();
@@ -382,6 +445,7 @@ export function openActionMenuForm({ settings = {}, pages = [], recordTypes = []
           value.target = Number(recordPage.select.value) || 0;
           value.record = record.value();
         } else if (action.value === 'addRecord') value.target = Number(type.value) || type.value;
+        else if (action.value === 'toggle') value.target = toggleTarget.value;
         else if (action.value === 'savedFilter' && filter.value()) {
           const chosen = filter.value();
           Object.assign(value, { target: chosen.page, ...cmsFilterKeys(chosen), values: chosen.values });
@@ -391,7 +455,11 @@ export function openActionMenuForm({ settings = {}, pages = [], recordTypes = []
         }
         if (newTab.input.checked) value.newTab = true;
         if (iconOnly.input.checked && value.icon) value.iconOnly = true;
-        if (item.labels) value.labels = item.labels;
+        if (captions) {
+          const labels = Object.fromEntries(Object.entries(captions.translations || {}).map(([code, label]) => [code, String(label || '').trim()])
+            .filter(([, label]) => label));
+          if (Object.keys(labels).length) value.labels = labels;
+        } else if (item.labels) value.labels = item.labels;
         return value;
       }
     });
@@ -403,19 +471,27 @@ export function openActionMenuForm({ settings = {}, pages = [], recordTypes = []
     sortableList(list, (from, to) => {
       rows.splice(to, 0, ...rows.splice(from, 1));
       list.replaceChildren(...rows.map((entry) => entry.row));
+      formChanged(form);
     });
   }
   const add = button('fa-plus', 'Add item', true, 'h-btn h-btn-primary h-cms-add-button');
-  add.addEventListener('click', () => addRow({}));
+  add.addEventListener('click', () => {
+    addRow({});
+    formChanged(form);
+  });
   form.append(list);
   if (!single) form.append(add);
   const problems = element('div', 'h-cms-style-problems');
   form.append(problems);
-  const dialog = formDialog(form, single?.title || 'Action menu', 'OK', () => {
+  const read = () => {
     const items = rows.map((entry) => entry.read());
     const missing = items.find((item) => (item.action === 'url' && !item.target) || (item.action === 'page' && !item.target));
     if (missing) {
       problems.textContent = $HR('Every item needs a page or a URL');
+      return null;
+    }
+    if (items.some((item) => item.action === 'toggle' && !item.target)) {
+      problems.textContent = $HR('A Show / hide item needs a named element');
       return null;
     }
     if (items.some((item) => item.action === 'recordPage' && (!item.target || !item.record))) {
@@ -442,13 +518,18 @@ export function openActionMenuForm({ settings = {}, pages = [], recordTypes = []
     if (style.value !== 'plain') result.style = style.value;
     Object.assign(result, menuLineSettings({ style: style.value, lineWidth: lineWidth.value, lineColor: lineColor.getValue() ?? '' }));
     if (orientation.value === 'vertical') result.orientation = 'vertical';
+    if (ITEM_COLORS.includes(colors.value)) result.colors = colors.value;
     if (settings.labels) result.labels = settings.labels;
     return result;
-  }, null, single ? 'h-dialog-cms-link' : 'h-dialog-cms-actions');
-  return Promise.resolve(dialog).finally(() => {
+  };
+  const cleanup = () => {
     rows.forEach((entry) => entry.destroy());
     lineColor.destroy?.();
-  });
+  };
+  // in the element panel (plan 27n §6): applied after each change
+  if (inline && !single) return showDomForm(form, $HR('Action menu'), read, { inline, cleanup });
+  const dialog = formDialog(form, single?.title || 'Action menu', 'OK', read, null, single ? 'h-dialog-cms-link' : 'h-dialog-cms-actions');
+  return Promise.resolve(dialog).finally(cleanup);
 }
 
 /**

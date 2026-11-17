@@ -109,9 +109,17 @@ export function menuStyle(settings = {}) {
 export const MENU_ANIMATIONS = Object.freeze(['down', 'right', 'fade']);
 
 /**
+ * Colours of the items of menus, action menus and tabs (plan 27n §7; CmsValidator::ITEM_COLORS): `inverted` = the text
+ * and background colours of the site swapped (over a banner), `own` = the item colours of the Own style
+ * (`--h-item-text`, `--h-item-accent`, `--h-item-accent-text`); none = the colours of the site.
+ */
+export const ITEM_COLORS = Object.freeze(['inverted', 'own']);
+
+/**
  * Classes of a menu (PageRenderer::menuClass): orientation, presentation, style, h-site-menu-open-click (expand opened
  * by a click only); the website menu (plan 27k §5): `collapse: 'fullscreen'` (h-site-menu-fullscreen, its `animation`
- * h-site-menu-anim-right | -fade) and `alwaysCollapsed` (h-site-menu-always-collapsed: the menu button on every screen).
+ * h-site-menu-anim-right | -fade) and `alwaysCollapsed` (h-site-menu-always-collapsed: the menu button on every screen);
+ * `colors` (plan 27n §7): h-site-colors-inverted | -own.
  *
  * @param {object} settings
  * @returns {string}
@@ -124,7 +132,8 @@ export function menuClass(settings = {}) {
   return ['h-site-menu', orientation !== 'horizontal' ? `h-site-menu-${orientation}` : '', PRESENTATION_CLASSES[presentation] || '',
     style !== 'plain' ? `h-site-menu-style-${style}` : '', presentation === 'expand' && open === 'click' ? 'h-site-menu-open-click' : '',
     fullscreen ? 'h-site-menu-fullscreen' : '', fullscreen && animation !== MENU_ANIMATIONS[0] ? `h-site-menu-anim-${animation}` : '',
-    site && settings.alwaysCollapsed === true ? 'h-site-menu-always-collapsed' : ''].filter(Boolean).join(' ');
+    site && settings.alwaysCollapsed === true ? 'h-site-menu-always-collapsed' : '',
+    ITEM_COLORS.includes(settings.colors) ? `h-site-colors-${settings.colors}` : ''].filter(Boolean).join(' ');
 }
 
 /**

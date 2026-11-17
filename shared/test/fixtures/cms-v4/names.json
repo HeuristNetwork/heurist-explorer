@@ -1,0 +1,8 @@
+{
+  "name": "element names (plan 27n §9): letters, digits, _ and -, unique",
+  "config": {"schema": "heurist-cms/4"},
+  "html": [
+    "<div data-h-node=\"a\" data-h-name=\"intro_1\" data-h-text=\"\">A</div><div data-h-node=\"b\" data-h-name=\"intro_1\" data-h-text=\"\">B</div><div data-h-node=\"c\" data-h-name=\"bad name\" data-h-text=\"\">C</div><div data-h-node=\"d\" data-h-name=\"more-info\" data-h-text=\"\">D</div>"
+  ],
+  "expect": {"issues":["warning:duplicate_name","warning:element_name"]}
+}

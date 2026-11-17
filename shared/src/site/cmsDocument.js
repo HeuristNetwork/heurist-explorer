@@ -151,10 +151,15 @@ const PROPERTIES = new Set([
   'grid-template-rows', 'grid-column', 'grid-row', 'order',
   'width', 'min-width', 'max-width', 'height', 'min-height', 'max-height', 'overflow',
   'border-radius', 'box-shadow', 'text-shadow',
-  'color', 'background-color', 'background-image', 'background-position', 'background-repeat', 'background-size', 'font-family', 'font-size', 'font-weight', 'line-height', 'text-align'
+  'color', 'background-color', 'background-image', 'background-position', 'background-repeat', 'background-size', 'font-family', 'font-size', 'font-weight', 'line-height', 'text-align',
+  // the item colours of menus, action menus and tabs (plan 27n §7, colours Own)
+  '--h-item-text', '--h-item-accent', '--h-item-accent-text'
 ]);
 const DISPLAY = ['block', 'flex', 'grid', 'none'];
 const NODE_ID = /^[A-Za-z][A-Za-z0-9_-]{0,63}$/;
+
+/** Name of an element (plan 27n §9, `data-h-name`; CmsValidator::NAME): unique per page, used by actions and lists. */
+export const CMS_NAME = /^[A-Za-z0-9_-]{1,64}$/;
 /** An image of assets/cms of the website bundle (placeholders of media elements, plan 27i §9). */
 export const CMS_ASSET_NAME = /^cms\/(?:[A-Za-z0-9_-]+\/)?[A-Za-z0-9_-]+\.(?:png|jpe?g)$/;
 const URL_PATTERN = /url\(\s*(['"]?)(.*?)\1\s*\)/gi;
@@ -217,8 +222,18 @@ export function checkCmsDocument(config, htmlParts, translations = {}, baseUrl =
   const instances = isMap(config.instances) ? config.instances : {};
   const media = isMap(config.media) ? config.media : {};
   const seenMedia = new Set();
+  const seenNames = new Set();
   for (const node of nodes) {
     const id = node.node;
+    // the name of an element (plan 27n §9): letters, digits, _ and -, unique
+    if (node.name !== null) {
+      if (!CMS_NAME.test(node.name)) {
+        issues.push(issue('warning', 'element_name', `Name "${node.name}" may contain only letters, digits, _ and -`, id || null));
+      } else if (seenNames.has(node.name)) {
+        issues.push(issue('warning', 'duplicate_name', `Name "${node.name}" is used more than once`, id || null));
+      }
+      seenNames.add(node.name);
+    }
     if (id !== '') {
       if (seenNodes.has(id)) issues.push(issue('warning', 'duplicate_node', `Node id "${id}" is used more than once`, id));
       seenNodes.add(id);
@@ -283,6 +298,11 @@ export function checkCmsDocument(config, htmlParts, translations = {}, baseUrl =
     for (const id of texts) {
       if (!ids.includes(id)) issues.push(issue('info', 'translation_missing', `Text block "${id}" is not translated into "${language}"`, id));
     }
+  }
+  // the name of the element of an issue (plan 27n §9): the Check report shows `name (node id)`
+  const names = new Map(nodes.filter((node) => node.name !== null && node.node !== '').map((node) => [node.node, node.name]));
+  for (const item of issues) {
+    if (item.node !== null && names.has(item.node)) item.name = names.get(item.node);
   }
   return issues;
 }
@@ -420,7 +440,7 @@ export function cmsMediaProblem(settings) {
  *
  * @param {string} html Page HTML fragment.
  * @returns {Array<{node: string, instance: string|null, media: string|null, text: boolean, field: string|null,
- *          control: string|null, tag: string}>}
+ *          control: string|null, name: string|null, tag: string}>}
  */
 export function cmsNodes(html) {
   const result = [];
@@ -436,6 +456,7 @@ export function cmsNodes(html) {
       text: attributes.has('data-h-text'),
       field: attributes.has('data-h-field') ? attributes.get('data-h-field') : null,
       control: attributes.has('data-h-control') ? attributes.get('data-h-control') : null,
+      name: attributes.has('data-h-name') ? attributes.get('data-h-name') : null,
       tag: match[2].toLowerCase()
     });
   }

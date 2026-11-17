@@ -18,7 +18,7 @@ import assert from 'node:assert/strict';
 import { installFakeDom } from '../../../shared/test/helpers/fakeDom.js';
 
 const document = installFakeDom();
-const { attachBackToTop, enhanceAccordion, enhanceReveal } = await import('../src/siteRuntime.js');
+const { attachBackToTop, enhanceAccordion, enhanceReveal, onAction, toggleElement } = await import('../src/siteRuntime.js');
 const { TRAIL_MAX, mountBreadcrumbs, readTrail, recordTrail, renderBreadcrumbs } = await import('../src/siteBreadcrumbs.js');
 const { menuPath, sectionTree } = await import('#shared/site/cmsMenu.js');
 const { actionMenuItems, HMenu } = await import('#shared/widgets/site/HMenu.js');
@@ -99,6 +99,11 @@ test('accordion options and reveal in the document (plan 27k §6): attributes, d
   assert.equal(doc.setReveal(text, 'spin'), true, 'an unknown value removes it');
   assert.equal(doc.reveal(text), '');
   assert.equal(doc.accordionLook(text), null);
+  // plan 27n §8: more effects and initially hidden
+  for (const value of ['down', 'left', 'right', 'zoom', 'hidden']) {
+    doc.setReveal(text, value);
+    assert.equal(doc.reveal(text), value);
+  }
 });
 
 test('reveal on scroll (plan 27k §6): hidden until seen; nothing with reduced motion or without the observer', () => {
@@ -122,6 +127,76 @@ test('reveal on scroll (plan 27k §6): hidden until seen; nothing with reduced m
   assert.equal(enhanceReveal(other, { Observer, reduced: true }), null);
   assert.equal(enhanceReveal(other, { Observer: undefined, reduced: false }), null);
   assert.ok(!other.children[0].classList.contains('h-site-reveal-pending'));
+});
+
+test('Show / hide action (plan 27n §10): toggles the element and marks its links', () => {
+  const hidden = element('div', { 'data-h-node': 'more', 'data-h-reveal': 'hidden' });
+  const shown = element('div', { 'data-h-node': 'box' });
+  const link = element('a', { 'data-h-action': 'toggle', 'data-h-target': 'more' });
+  const item = element('li', {}, link);
+  item.classList.add('h-site-menu-item');
+  const root = element('div', {}, hidden, shown, item);
+  {
+    assert.equal(toggleElement('more', root), true);
+    assert.ok(hidden.classList.contains('h-site-shown'));
+    assert.equal(link.getAttribute('aria-expanded'), 'true');
+    assert.ok(item.classList.contains('is-current'));
+    assert.equal(toggleElement('more', root), false);
+    assert.ok(!hidden.classList.contains('h-site-shown'));
+    assert.ok(!item.classList.contains('is-current'));
+    assert.equal(toggleElement('box', root), false, 'a shown element is hidden first');
+    assert.ok(shown.classList.contains('h-site-hidden'));
+    assert.equal(toggleElement('none', root), null);
+    assert.equal(toggleElement('bad"id', root), null);
+    // a click on the link runs the action
+    let prevented = false;
+    assert.equal(onAction({ target: link, preventDefault: () => { prevented = true; } }, { document: root }), true);
+    assert.ok(prevented);
+    assert.ok(hidden.classList.contains('h-site-shown'));
+  }
+});
+
+test('reveal (review 27n §16.2): when a quarter of the element, or a third of the window, shows it', () => {
+  let callback = null;
+  class Observer {
+    constructor(handler) { callback = handler; }
+    observe() {}
+    unobserve() {}
+  }
+  const item = element('div', { 'data-h-reveal': 'up' });
+  enhanceReveal(element('div', {}, item), { Observer, reduced: false });
+  callback([{ target: item, isIntersecting: true, intersectionRatio: 0.05, intersectionRect: { height: 40 }, rootBounds: { height: 800 } }]);
+  assert.ok(item.classList.contains('h-site-reveal-pending'), 'its top edge only: not yet');
+  callback([{ target: item, isIntersecting: true, intersectionRatio: 0.1, intersectionRect: { height: 300 }, rootBounds: { height: 800 } }]);
+  assert.ok(item.classList.contains('h-site-reveal-done'), 'a tall element: a third of the window');
+});
+
+test('reveal (review 27n §14.2): a list of cards or a gallery (no box of its own) reveals its items', () => {
+  const observed = [];
+  class Observer {
+    observe(target) { observed.push(target); }
+  }
+  const first = element('figure');
+  const second = element('figure');
+  const list = element('div', { 'data-h-reveal': 'zoom' }, first, second);
+  list.classList.add('h-site-widget-list');
+  enhanceReveal(element('div', {}, list), { Observer, reduced: false });
+  assert.deepEqual(observed, [first, second]);
+  assert.equal(second.getAttribute('data-h-reveal'), 'zoom');
+  assert.ok(first.classList.contains('h-site-reveal-pending'));
+  assert.ok(!list.classList.contains('h-site-reveal-pending'));
+});
+
+test('reveal (plan 27n §8): an initially hidden element is left to the Show / hide action', () => {
+  const observed = [];
+  class Observer {
+    observe(target) { observed.push(target); }
+  }
+  const hidden = element('div', { 'data-h-reveal': 'hidden' });
+  const left = element('div', { 'data-h-reveal': 'left' });
+  enhanceReveal(element('div', {}, hidden, left), { Observer, reduced: false });
+  assert.deepEqual(observed, [left]);
+  assert.ok(!hidden.classList.contains('h-site-reveal-pending'));
 });
 
 test('back to top (plan 27k §6): shown after one screen of scrolling, a click scrolls up', () => {

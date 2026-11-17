@@ -39,16 +39,38 @@ function documentOf() {
 test('tabs (plan 27k §3): orientation and style as attributes, defaults not written', () => {
   const doc = documentOf();
   const tabs = doc.insertElement('content', 'tabs', { id: null, position: 'inside' });
-  assert.deepEqual(doc.tabsLook(tabs), { orientation: 'horizontal', style: 'tabs' });
+  assert.deepEqual(doc.tabsLook(tabs), { orientation: 'horizontal', style: 'tabs', colors: '' });
   assert.equal(doc.tabsLook('g1'), null, 'a group is not tabs');
   assert.equal(doc.setTabsLook(tabs, { orientation: 'vertical', style: 'pills' }), true);
-  assert.deepEqual(doc.tabsLook(tabs), { orientation: 'vertical', style: 'pills' });
+  assert.deepEqual(doc.tabsLook(tabs), { orientation: 'vertical', style: 'pills', colors: '' });
+  // plan 27n §7: colours of the tabs
+  assert.equal(doc.setTabsLook(tabs, { orientation: 'vertical', style: 'pills', colors: 'inverted' }), true);
+  assert.match(doc.html('content'), /data-h-colors="inverted"/);
+  assert.equal(doc.setTabsLook(tabs, { orientation: 'vertical', style: 'pills', colors: 'red' }), true, 'an unknown value removes it');
+  assert.doesNotMatch(doc.html('content'), /data-h-colors/);
   assert.match(doc.html('content'), /data-h-orientation="vertical"/);
   assert.match(doc.html('content'), /data-h-item-style="pills"/);
   assert.equal(doc.setTabsLook(tabs, { orientation: 'vertical', style: 'pills' }), false, 'no change');
   assert.equal(doc.setTabsLook(tabs, { orientation: 'horizontal', style: 'evil' }), true);
   assert.doesNotMatch(doc.html('content'), /data-h-orientation|data-h-item-style/, 'defaults and unknown values remove the attributes');
   assert.equal(doc.setTabsLook('g1', { orientation: 'vertical' }), false);
+});
+
+test('element names (plan 27n §9): mask, label name · type, list of named elements', () => {
+  const doc = documentOf();
+  const tabs = doc.insertElement('content', 'tabs', { id: null, position: 'inside' });
+  assert.equal(doc.name(tabs), '');
+  assert.equal(doc.setName(tabs, 'more info'), false, 'a space is refused');
+  assert.equal(doc.setName(tabs, 'more-info'), true);
+  assert.equal(doc.setName(tabs, 'more-info'), false, 'no change');
+  assert.match(doc.html('content'), /data-h-name="more-info"/);
+  const item = doc.tree('content').find((entry) => entry.id === tabs);
+  assert.equal(item.name, 'more-info');
+  assert.equal(item.label, 'more-info · tabs');
+  assert.deepEqual(doc.names().find((entry) => entry.id === tabs), { id: tabs, name: 'more-info', part: 'content', type: 'tabs' });
+  assert.equal(doc.setName(tabs, ''), true);
+  assert.doesNotMatch(doc.html('content'), /data-h-name/);
+  assert.equal(doc.names().length, 0);
 });
 
 test('parse and serialize keep the HTML (text blocks and hosts as they are)', () => {

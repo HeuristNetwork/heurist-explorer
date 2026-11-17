@@ -340,3 +340,37 @@
   border-radius: var(--h-radius, 3px) 0 0 var(--h-radius, 3px);
 }
 .h-reports-form-prefixed .h-input { flex: 1 1 auto; min-width: 80px; border-top-left-radius: 0; border-bottom-left-radius: 0; }
+
+/* the outputs list in the docked panel of the website editor (plan 27n §14.16): five columns, the search only */
+.h-reports-schedules.is-compact .h-reports-col-extra,
+.h-reports-schedules.is-compact .h-reports-schedules-controls > select {
+  display: none;
+}
+
+.h-reports-schedules-controls > .h-btn[hidden] {
+  display: none;
+}
+
+/* the compact list as wide as the panel (plan 27n §16.16): a long name is cut */
+.h-reports-schedules.is-compact .h-reports-table {
+  table-layout: fixed;
+}
+
+.h-reports-schedules.is-compact .h-reports-schedule-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.h-reports-schedules.is-compact .h-reports-table :is(th, td):is(:nth-child(1), :nth-child(2)) {
+  width: 22px;
+}
+
+/* the cells: visibility, choice, (generate, hidden), language, name, ..., size, (actions, hidden) */
+.h-reports-schedules.is-compact .h-reports-table :is(th, td):nth-child(4) {
+  width: 5em;
+}
+
+.h-reports-schedules.is-compact .h-reports-table :is(th, td):nth-last-child(2) {
+  width: 6em;
+}

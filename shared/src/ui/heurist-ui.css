@@ -289,11 +289,14 @@ select.h-select:not([multiple]):not([size]) {
 
 /* Full-viewport <dialog> modifiers (used by InlineHelp for the manual iframe) - */
 .h-dialog-fullscreen {
-  display:flex;
-  flex-direction:column;
   width:calc(100vw - 24px);
   height:calc(100vh - 24px);
   max-height:calc(100vh - 24px);
+}
+/* flex only while open: a class with `display` would show a closed <dialog> (review 27n §14.7) */
+.h-dialog-fullscreen[open] {
+  display:flex;
+  flex-direction:column;
 }
 /* Maximize / Restore button of the header (HMsg.showMsgDlg `maximize`, 2026-11-16): the dialog over the whole window;
    `dialog.` wins over the size rules of single dialogs (record editor, record manager) */

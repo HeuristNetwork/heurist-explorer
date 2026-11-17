@@ -22,11 +22,12 @@
  * @since       8.0
  */
 
-import { $HR, HMsg } from '#shared/ui';
+import { $HR, HMsg, InlineHelp } from '#shared/ui';
 import { HCardinalLayout } from '#shared/widgets/layout/HCardinalLayout.js';
 import { HTree } from '#shared/widgets/tree/HTree.js';
 import { createTabSet } from '#shared/widgets/layout/tabs.js';
 import { CMS_ELEMENTS, CMS_PAGE_PRESETS, CMS_TEAM_TEMPLATE, cmsPageStarter } from '#shared/site/cmsEdit.js';
+import { CMS_NAME } from '#shared/site/cmsDocument.js';
 import { buildTemplatePage, CMS_TEMPLATE_ELEMENTS } from '#shared/site/cmsPageTemplates.js';
 import { normalizeRecordLimits } from '#shared/recordview/recordLimits.js';
 import {
@@ -41,7 +42,7 @@ import { createTranslationForm, openTranslationDialog } from '#shared/widgets/tr
 import { CmsPreview, PREVIEW_WIDTHS } from './CmsPreview.js';
 import { WebsiteCheck, checkProblemPlaces } from '../manager/WebsiteCheck.js';
 import { createWebsiteFieldsForm, PAGE_FIELD_KEYS, WEBSITE_FIELD_KEYS } from '../manager/websiteFields.js';
-import { FORM_MIN_WIDTH, FORM_SIDE_WIDTH, createFormPanel } from './designerInline.js';
+import { PANEL_MIN_WIDTH, PANEL_SIDE_WIDTH, createElementPanel } from './designerPanel.js';
 import { styleRows } from './designerStyles.js';
 import {
   cardTemplateTerms, createRecordsSection, openBreadcrumbsForm, openFilterWidgetForm, openCardsForm, openEmailForm, openFieldForm, openLanguageForm, openMediaForm, openMenuForm, openReportForm, teamReportBody
@@ -58,7 +59,7 @@ import { CMS_WEBSITE_FILTERS_GROUP, resolveCmsFilterItem } from '#shared/site/cm
 import { LegacySavedFilterConverter } from '#shared/data/legacy/LegacySavedFilterConverter.js';
 import { QuerySourceProvider } from '#shared/data/QuerySourceProvider.js';
 import { RecordTypeProvider } from '#shared/data/RecordTypeProvider.js';
-import { openActionMenuForm, openSocialForm, sitePageList } from './actionForms.js';
+import { ITEM_COLOR_LABELS, openActionMenuForm, openSocialForm, sitePageList } from './actionForms.js';
 import { buildBadgesHtml, openBadgesForm } from './badgesForm.js';
 import {
   EXPLORER_MODULES, explorerModuleSettings, explorerModuleTypes, moduleItemId, parseModuleItemId, withExplorerModuleSettings
@@ -103,6 +104,22 @@ const TEXT_MEDIA_TYPES = Object.freeze(['image', 'video', 'audio', 'service']);
 const TAB_STYLE_LABELS = Object.freeze([['tabs', 'Tabs'], ['underline', 'Bottom border'], ['pills', 'Pills'], ['links', 'Links'],
   ['buttons', 'Buttons'], ['outline', 'Outlined buttons']]);
 
+/**
+ * Widgets whose configuration is in the element panel (plan 27n §6): `edit` an HEditForm with the sections (Reveal and
+ * Identification in it), `dom` a form of elements (Reveal at the end of its Presentation, Identification after it).
+ */
+const PANEL_WIDGET_FORMS = Object.freeze({
+  menu: 'edit', language: 'edit', breadcrumbs: 'edit', filter: 'edit', email: 'edit', cards: 'edit', gallery: 'edit',
+  badges: 'dom', actionmenu: 'dom', report: 'dom'
+});
+
+/** Help of Reveal (review 27n §14.6): with its input. */
+const REVEAL_HELP = 'How the element appears when it comes into the window. Initially hidden: shown by a Show / hide action of an action menu.';
+
+/** Reveal effects (plan 27n §8, CMS_REVEALS): value, label. */
+const REVEAL_LABELS = Object.freeze([['', 'None'], ['fade', 'Fade in'], ['up', 'Slide up'], ['down', 'Slide down'],
+  ['left', 'Slide from the left'], ['right', 'Slide from the right'], ['zoom', 'Zoom in'], ['hidden', 'Initially hidden']]);
+
 const PART_LABELS = Object.freeze({ header: 'Header', content: 'Home', footer: 'Footer' });
 const ROOT = '#root';
 
@@ -112,11 +129,10 @@ const WEST_MIN_WIDTH = 280;
 /** Icons of the website parts and pages (Site tree and the root of the part tree). */
 const PART_ICONS = Object.freeze({ header: 'fa-heading', content: 'fa-house', footer: 'fa-f', page: 'fa-file-lines', recordPage: 'fa-id-card' });
 const CLIP_KEY = 'heurist.cms.clipboard';
-const HELP_KEY = 'heurist.cms.help';
 /** Dialog element of the Check popup. */
 const CHECK_DIALOG = 'h-cms-check-dialog';
 
-/** Texts of the help panel below the trees. */
+/** Help texts of the Site tab and of the page (plan 27n §2.4: the page in its panel; the manual has them too). */
 const HELP = Object.freeze({
   site: [
     'Drag pages to change their order in the main menu of the website; drop a page onto another one to make it a sub page.',
@@ -214,6 +230,8 @@ export class CmsDesigner {
     globalThis.window?.removeEventListener?.('beforeunload', this._unload);
     this._formObserver?.disconnect?.();
     void this.formPanel?.hide();
+    this.formPanel?.destroy?.();
+    this.formPanel?.element.remove();
     for (const browser of this.browsers.values()) void browser.destroy?.();
     this.browsers.clear();
     this.preview?.destroy();
@@ -261,6 +279,8 @@ export class CmsDesigner {
   /** Save the open part (Ctrl+S). */
   async save({ force = false } = {}) {
     if (!this.current || this.readOnly) return true;
+    // the page fields of the panel typed just now (review 27n §16.9)
+    this._flushPageFields?.();
     return this._saveRecord(this.current.recordId, { force });
   }
 
@@ -269,6 +289,9 @@ export class CmsDesigner {
     const record = this.current && this.records.get(this.current.recordId);
     if (!record) return;
     record.doc = recordDocument(record.record, this.codes, { baseUrl: this.options.runtime?.baseUrl || '' });
+    // the page fields of the open panel are discarded too (review §16.9)
+    this._flushPageFields = null;
+    record.discarded = (record.discarded || 0) + 1;
     delete record.fieldChanges;
     this.undoStack = [];
     this.redoStack = [];
@@ -454,24 +477,37 @@ export class CmsDesigner {
     root.focus?.();
   }
 
-  /** West pane: toolbar, page widths, the tabs Site | Page and the help panel; the preview is alone in the center. */
+  /**
+   * West pane: toolbar, page widths, the tabs Site | Page and the element panel (plan 27n §2): below the tree in a
+   * narrow pane, beside the tabs in a wide one, or a popup; the preview is alone in the center.
+   */
   _renderWest() {
     const west = element('div', 'h-cms-west');
     west.append(this._renderToolbar(), this._renderViewBar());
     this.partPane = element('div', 'h-cms-part-pane');
     const pagePanel = element('div', 'h-cms-page-panel');
     this.pagePanel = pagePanel;
-    // the inline Own style form of the page editor (plan 27i §10): right of the tree in a wide pane, below it in a narrow one
     this.pageBar = this._renderPageBar();
-    this.formPanel = createFormPanel({ onClose: () => void this._closeForm() });
+    this.formPanel = createElementPanel({
+      onClose: () => void this._closeForm(),
+      onModeChange: (mode) => this._panelMode(mode),
+      onCancel: () => void this._cancelPanel(),
+      onApply: () => this._applyPanel(),
+      // a click in the part tree selects another element: the popup follows it
+      keepOpen: (target) => Boolean(target.closest?.('.h-cms-part-pane'))
+    });
     const pageMain = element('div', 'h-cms-page-main');
     pageMain.append(this.partPane);
-    pagePanel.append(pageMain, this.formPanel.element);
+    pagePanel.append(pageMain);
+    this.westRow = element('div', 'h-cms-west-row');
     if (typeof globalThis.ResizeObserver === 'function') {
       this._formObserver = new globalThis.ResizeObserver(([entry]) => {
-        pagePanel.classList.toggle('h-cms-form-side', (entry?.contentRect?.width || 0) >= FORM_SIDE_WIDTH);
+        const side = (entry?.contentRect?.width || 0) >= PANEL_SIDE_WIDTH;
+        if (side === this._panelSide) return;
+        this._panelSide = side;
+        this._placePanel();
       });
-      this._formObserver.observe(pagePanel);
+      this._formObserver.observe(this.westRow);
     }
     this.tabs = createTabSet({ prefix: 'h-cms', onSelect: () => this._tabChanged() });
     if (this.site) this.tabs.add($HR('Site'), this._renderSitePane()).title = this.site.title || '';
@@ -481,11 +517,78 @@ export class CmsDesigner {
     this.dirtyMark.title = $HR('Changes not saved');
     this.dirtyMark.hidden = true;
     pageTab.append(this.dirtyMark);
-    this.help = element('div', 'h-cms-help');
-    this.help.hidden = !readHelpShown();
-    west.append(this.tabs.element, this.help);
+    this.westRow.append(this.tabs.element);
+    west.append(this.westRow);
+    this._placePanel();
     this.tabs.select(0);
     return west;
+  }
+
+  /**
+   * Put the element panel in its place (plan 27n §2.2): a popup over the designer, beside the tabs Site / Page in a
+   * wide west pane, else below the tree of the Page tab.
+   */
+  _placePanel() {
+    const panel = this.formPanel?.element;
+    if (!panel) return;
+    const popup = this.formPanel.mode() === 'popup';
+    const side = !popup && Boolean(this._panelSide);
+    panel.classList.toggle('h-cms-panel-side', side);
+    const host = popup ? (this.root || this.westRow) : side ? this.westRow : this.pagePanel;
+    if (host && panel.parentElement !== host) host.append(panel);
+    if (popup) this._placePopup();
+    this._formWestMinimum(this.formPanel.isOpen());
+  }
+
+  /** The popup: stuck to the left side of the window, below the toolbar of the designer (plan 27n §2.3). */
+  _placePopup() {
+    const panel = this.formPanel?.element;
+    if (!panel || this.formPanel.mode() !== 'popup') return;
+    const top = Math.max(0, Math.round(this.westRow?.getBoundingClientRect?.().top || 0));
+    panel.style.setProperty?.('--h-cms-panel-top', `${top}px`);
+  }
+
+  /** Undock / Dock of the element panel. */
+  _panelMode(mode) {
+    if (!this.formPanel) return;
+    this.formPanel.setMode(mode);
+    // Cancel of the popup: the draft as it is now
+    if (mode === 'popup' && this.formPanel.isOpen()) this._panelStart();
+    this._placePanel();
+    this._updateBar();
+    // the forms that differ docked and in the popup (the list of a Generated report, review §14.16)
+    const node = this.formNode && this.formNode !== ROOT ? this._treeItem(this.formNode) : null;
+    if (node?.type === 'report') void this._openForm(this.formNode);
+  }
+
+  /** The draft when the popup opens: Cancel returns to it (plan 27n §3). */
+  _panelStart() {
+    const record = this._currentRecord();
+    this._panelSnapshot = record ? { record, doc: record.doc.snapshot(), fields: record.fieldChanges ? { ...record.fieldChanges } : null } : null;
+  }
+
+  /** Cancel of the popup: the draft as it was when the popup opened (one undo step), and the popup closes. */
+  async _cancelPanel() {
+    const snapshot = this._panelSnapshot;
+    this._panelSnapshot = null;
+    await this._closeForm();
+    if (!snapshot || this._currentRecord() !== snapshot.record) return;
+    if (snapshot.record.doc.snapshot() !== snapshot.doc) this._edit((doc) => (doc.restore(snapshot.doc), true));
+    if (snapshot.fields) snapshot.record.fieldChanges = snapshot.fields; else delete snapshot.record.fieldChanges;
+    this._updateBar();
+  }
+
+  /** Apply of the popup: a module configuration is applied (it waits for Apply), then the popup closes. */
+  async _applyPanel() {
+    if (this._pendingApply) await this._pendingApply();
+    this._panelSnapshot = null;
+    await this._closeForm();
+  }
+
+  /** Help of the toolbar (plan 27n §2.4): the Website editor manual in a large popup, at the Site or Page section. */
+  _openManual() {
+    this._manual ||= new InlineHelp({ parent: this.root || null, moduleName: 'website', fileBase: 'websiteEditorManual' });
+    this._manual.open(this._siteTabActive() ? 'site' : 'page');
   }
 
   /** Toolbar above the tabs: Properties, Styles, Check, Open, Help, Close. */
@@ -500,7 +603,7 @@ export class CmsDesigner {
       // as Open of the Website manager (2026-11-12)
       barButton('fa-up-right-from-square', 'Open the website in a new tab (the saved version)', () => this._openSite(), 'Open'),
       element('span', 'h-cms-toolbar-spacer'),
-      barButton('fa-circle-question', 'Show or hide the help', () => this._toggleHelp()),
+      barButton('fa-circle-question', 'Website editor manual', () => this._openManual()),
       barButton('fa-door-open', 'Close', () => this.close(), 'Close')
     );
     return bar;
@@ -540,7 +643,7 @@ export class CmsDesigner {
       return bar;
     }
     this.buttons = {
-      style: barButton('fa-palette', 'Own style of the selected element, beside the tree', () => void this._toggleStyleForm()),
+      style: barButton('fa-gear', 'Configuration and Own style of the selected element (show / hide)', () => void this._toggleStyleForm()),
       undo: barButton('fa-rotate-left', 'Undo (Ctrl+Z)', () => this.undo()),
       redo: barButton('fa-rotate-right', 'Redo (Ctrl+Y)', () => this.redo()),
       discard: barButton('fa-xmark', 'Discard the changes', async () => {
@@ -652,30 +755,8 @@ export class CmsDesigner {
     if (this.propertiesButton) {
       this.propertiesButton.title = $HR(this._propertiesRecord() === this.site?.id ? 'Website properties' : 'Page properties');
     }
-    this._renderHelp();
-  }
-
-  _toggleHelp() {
-    this.help.hidden = !this.help.hidden;
-    writeHelpShown(!this.help.hidden);
-    this._renderHelp();
-  }
-
-  /** Help below the tree: Site tab, Page tab, or the selected element. */
-  _renderHelp() {
-    if (!this.help || this.help.hidden) return;
-    let texts = HELP.page;
-    if (this._siteTabActive()) {
-      texts = HELP.site;
-    } else {
-      const node = this.selectedNode ? this._treeItem(this.selectedNode) : null;
-      if (node) texts = elementHelp(node, this._currentRecord(), (this.site?.languages || []).length > 1);
-    }
-    this.help.replaceChildren(...texts.map((text) => {
-      const line = element('p');
-      line.textContent = $HR(text);
-      return line;
-    }));
+    // the panel beside the tabs belongs to the Page tab
+    this.westRow?.classList.toggle('h-cms-site-active', this._siteTabActive());
   }
 
   // ------------------------------------------------------------------ website tree (Site tab)
@@ -1347,56 +1428,29 @@ export class CmsDesigner {
   }
 
   /**
-   * Tools of the part tree (review 2026-11-01, 2026-11-14): + on the root (always) and on containers (tabs and
-   * accordions: a new panel); the pen (gear on modules and widgets) opens the popup of the element: the page, a text,
-   * a record field, media, the caption of a group, the configuration; remove. The Own style form opens from the palette
-   * of the bar below the tree (no palette on the rows, 2026-11-14).
+   * Tools of the part tree (plan 27n §4): the pen of a text (Edit text), + of groups, tabs, accordions and the root
+   * (tabs and accordions: a new panel), the gear of every element (its panel: Configuration and Own style) and remove.
    */
   _nodeTools(item) {
     if (this.readOnly) return [];
     // a module of an Explorer: its configuration only (review 2026-11-14)
-    if (parseModuleItemId(item.id)) return [{ action: 'config', icon: 'fa-gear', title: $HR('Configuration of this module on the page') }];
+    if (parseModuleItemId(item.id)) return [{ action: 'panel', icon: 'fa-gear', title: $HR('Configuration of this module on the page') }];
     if (item.id === ROOT) {
-      const page = this.current?.part === 'content';
       return [
-        // the page is the root group (plan 27i §9 B): its fields
-        ...(page ? [{ action: 'page', icon: 'fa-pen', title: $HR('Page: name, menu, header and footer') }] : []),
-        { action: 'add', icon: 'fa-plus', title: $HR('Add element'), label: $HR('Add element'), always: true }
+        { action: 'add', icon: 'fa-plus', title: $HR('Add element'), label: $HR('Add element'), always: true },
+        { action: 'panel', icon: 'fa-gear', title: $HR(this.current?.part === 'content'
+          ? 'Configuration and Own style of the page' : 'Own style') }
       ];
     }
     const node = this._treeItem(item.id);
     const tools = [];
+    if (node?.kind === 'text' && !node.field) tools.push({ action: 'edit', icon: 'fa-pen', title: $HR('Edit text') });
     if (node?.kind === 'control') {
       tools.push({ action: 'add', icon: 'fa-plus', title: $HR(node.control === 'group' ? 'Add element' : 'Add panel') });
     }
-    const popup = this._popupTool(item.id, node);
-    if (popup) tools.push(popup);
+    tools.push({ action: 'panel', icon: 'fa-gear', title: $HR('Configuration and Own style') });
     tools.push({ action: 'delete', icon: 'fa-trash', title: $HR('Remove') });
     return tools;
-  }
-
-  /** The popup of an element (pen, gear; also a double click): null when it has none. */
-  _popupTool(id, node) {
-    if (!node) return null;
-    if (node.field) return { action: 'field', icon: 'fa-pen', title: $HR('The record, the field and its value') };
-    if (node.kind === 'text') return { action: 'edit', icon: 'fa-pen', title: $HR('Edit text') };
-    if (node.kind === 'media') return { action: 'media', icon: 'fa-pen', title: $HR('The file, caption and size of the media') };
-    if (node.kind === 'instance') return { action: 'configure', icon: 'fa-gear', title: $HR('Configuration') };
-    // a panel of tabs / an accordion: its caption; a group: the palette opens its Own style with the caption above
-    // (2026-11-14)
-    if (node.kind === 'control' && this._currentRecord()?.doc.isPanel(id)) {
-      return { action: 'caption', icon: 'fa-pen', title: $HR('Captions of the panels') };
-    }
-    // tabs / an accordion: the captions of all its panels in one popup (review 2026-11-15); tabs also their orientation
-    // and style (plan 27k §3)
-    if (node.kind === 'control' && ['tabs', 'accordion'].includes(node.control)) {
-      return { action: 'captions', icon: 'fa-gear',
-        title: $HR(node.control === 'tabs' ? 'Orientation, style and captions of the tabs' : 'Options and captions of the accordion') };
-    }
-    if (node.kind === 'control' && node.control === 'group') {
-      return { action: 'style', icon: 'fa-palette', title: $HR('Own style and caption of the group') };
-    }
-    return null;
   }
 
   _canDropNode(dragId, targetId, position) {
@@ -1412,17 +1466,11 @@ export class CmsDesigner {
 
   async _nodeTool(action, id, button) {
     if (!this._currentRecord()) return undefined;
-    if (action === 'config' || parseModuleItemId(id)) return this._openConfig(id);
+    if (parseModuleItemId(id)) return this._openConfig(id);
     if (action === 'add') return this._addElement(id);
-    if (action === 'page') return this._editPage();
-    this._selectNode(id);
+    if (id !== ROOT) this._selectNode(id);
+    if (action === 'panel') return this._openForm(id);
     if (action === 'edit') return this._editText(id);
-    if (action === 'field') return this._editField(id);
-    if (action === 'media') return this._editMedia(id);
-    if (action === 'caption') return this._editCaption(id);
-    if (action === 'captions') return this._editCaptions(id);
-    if (action === 'style') return this._openForm(id);
-    if (action === 'configure') return this._configure(id);
     if (action === 'delete' && (await confirmNear(button, 'Remove this element?'))) {
       this._edit((doc) => doc.remove(id));
       this._selectNode(null);
@@ -1430,13 +1478,13 @@ export class CmsDesigner {
     return undefined;
   }
 
-  /** Double click in the part tree: the popup of the element (the pen or gear), of the page on the root. */
+  /** Double click in the part tree (plan 27n §4): a text opens Edit text, every other element its panel. */
   _activateNode(id) {
     if (this.readOnly || !this._currentRecord()) return undefined;
     if (parseModuleItemId(id)) return this._openConfig(id);
-    if (id === ROOT) return this.current?.part === 'content' ? this._editPage() : undefined;
-    const tool = this._popupTool(id, this._treeItem(id));
-    return tool ? this._nodeTool(tool.action, id) : undefined;
+    const node = id === ROOT ? null : this._treeItem(id);
+    if (node?.kind === 'text' && !node.field) return this._nodeTool('edit', id);
+    return this._nodeTool('panel', id);
   }
 
   /** + of the tree: a new panel of tabs / accordions; else the chosen element into the group or the part root. */
@@ -1456,6 +1504,8 @@ export class CmsDesigner {
 
   /** The element popup, then the element at a place; its title is the heading of a text or the caption of a group. */
   async _insertChosen(target) {
+    // the popups of a new element replace the panel (review §14.4)
+    await this._closeForm();
     const values = await openAddElementForm();
     if (!values || !CMS_ELEMENTS.includes(values.element)) return;
     if (values.element === 'field') {
@@ -1533,8 +1583,8 @@ export class CmsDesigner {
     this.partTree?.select(id || ROOT);
     if (!fromPreview) this.preview?.reveal(id);
     this._renderProperties();
-    // the open form follows the selection (the last input is applied first); a module form: the form of the module
-    if (changed && this.formPanel?.isOpen()) void (this.formMode === 'config' ? this._followConfig(id) : this._openForm(id || ROOT));
+    // the open panel follows the selection (the last input is applied first)
+    if (changed && this.formPanel?.isOpen()) void this._openForm(id || ROOT);
   }
 
   /** A module of an Explorer selected in the tree: its Explorer in the preview; an open form shows its configuration. */
@@ -1548,17 +1598,8 @@ export class CmsDesigner {
     if (this.formPanel?.isOpen()) void this._openConfig(id);
   }
 
-  /** The module form follows the selection: a module instance shows its configuration, another element closes it. */
-  async _followConfig(id) {
-    const node = id ? this._treeItem(id) : null;
-    const instance = node?.instance ? this._currentRecord()?.doc.instance(node.instance) : null;
-    if (instance?.kind === 'module') await this._openConfig(id);
-    else await this._closeForm();
-  }
-
-  /** Help and the tools of the selected element. */
+  /** The tools of the selected element. */
   _renderProperties() {
-    this._renderHelp();
     this._updateBar();
   }
 
@@ -1751,9 +1792,10 @@ export class CmsDesigner {
     const look = tabs ? record.doc.tabsLook(id) : null;
     const orientation = look ? lookSelect([['horizontal', 'Horizontal'], ['vertical', 'Vertical (tabs on the left on wide screens)']], look.orientation) : null;
     const tabStyle = look ? lookSelect(TAB_STYLE_LABELS, look.style) : null;
+    const tabColors = look ? lookSelect(ITEM_COLOR_LABELS, look.colors) : null;
     if (look) {
       const row = element('div', 'h-cms-captions-look');
-      for (const [caption, control] of [['Orientation', orientation], ['Style of the tabs', tabStyle]]) {
+      for (const [caption, control] of [['Orientation', orientation], ['Style of the tabs', tabStyle], ['Colours', tabColors]]) {
         const field = element('label', 'h-cms-styles-field');
         const text = element('span');
         text.textContent = $HR(caption);
@@ -1839,7 +1881,7 @@ export class CmsDesigner {
         const translations = Object.fromEntries(languages.slice(1).map((code) => [code, result[index].translations[code] || '']));
         if (doc.setCaption(panel, result[index].value.trim(), translations)) changed = true;
       });
-      if (look && doc.setTabsLook(id, { orientation: orientation.value, style: tabStyle.value })) changed = true;
+      if (look && doc.setTabsLook(id, { orientation: orientation.value, style: tabStyle.value, colors: tabColors.value })) changed = true;
       if (accordion && doc.setAccordionLook(id, { multiple: multiple.input.checked, firstOpen: firstOpen.input.checked })) changed = true;
       return changed;
     });
@@ -1849,7 +1891,7 @@ export class CmsDesigner {
    * Edit media: the media form with one source; the HTML of the figure is made for the first language of the website and
    * for each other one (its caption, its link labels), by the same code as a gallery (plan 27e §20).
    */
-  async _editMedia(id) {
+  async _editMedia(id, inline = null) {
     const record = this._currentRecord();
     const current = record?.doc.media(id);
     if (!current) return;
@@ -1862,7 +1904,10 @@ export class CmsDesigner {
       single: true,
       settings,
       caption: cmsMediaCaption(current.html),
-      translations: Object.fromEntries(Object.entries(current.translations).map(([code, html]) => [code, cmsMediaCaption(html)])),
+      // a language without its own caption has the original one in its HTML (with its own link labels): no translation
+      // in the form (review 27n §17.17)
+      translations: Object.fromEntries(Object.entries(current.translations).map(([code, html]) => [code, cmsMediaCaption(html)])
+        .map(([code, text]) => [code, text === cmsMediaCaption(current.html) ? '' : text])),
       languages,
       translator: this._translator(),
       dbdefs: this.options.dbdefs,
@@ -1871,12 +1916,17 @@ export class CmsDesigner {
       // Go to a page (2026-11-14)
       sitePages: sitePageTerms(this.site)
     };
+    // in the element panel (plan 27n §6): each valid change at once
+    if (inline) {
+      await openMediaForm({ ...options, inline: { ...inline, onResult: (result) => this._applyMedia(id, result, (change) => this._formEdit(`media:${id}`, change)) } });
+      return;
+    }
     const result = await openMediaForm(options);
     if (result) this._applyMedia(id, result);
   }
 
   /** The result of the media form into the element: its settings and the HTML of each language. */
-  _applyMedia(id, result) {
+  _applyMedia(id, result, commit = (change) => this._edit(change)) {
     const languages = this.site?.languages || [];
     const { file } = result.items[0];
     const runtime = this.options.runtime || {};
@@ -1885,7 +1935,7 @@ export class CmsDesigner {
     const saved = { ...result.settings, file: file.key };
     const html = (caption, language) => buildCmsMedia(file, { ...saved, view: Boolean(view) }, { urls, caption, language });
     const translations = Object.fromEntries(languages.slice(1).map((code) => [code, html(result.translations[code] || result.caption, code)]));
-    this._edit((doc) => doc.setMedia(id, { settings: saved, html: html(result.caption, languages[0] || 'eng'), translations, view }));
+    commit((doc) => doc.setMedia(id, { settings: saved, html: html(result.caption, languages[0] || 'eng'), translations, view }));
   }
 
   /**
@@ -2101,10 +2151,11 @@ export class CmsDesigner {
    * @param {string|null} [link] `data-h-link` of the element (plan 27g §6).
    * @returns {Promise<{reference: string, html: string, link: string, size?: object}|null>}
    */
-  async _askField(reference, style = {}, link = null, linkValues = null) {
+  async _askField(reference, style = {}, link = null, linkValues = null, inline = null) {
     try {
       await this._loadTemplateTerms();
       return await openFieldForm({
+        inline,
         reference,
         link,
         linkValues,
@@ -2126,6 +2177,36 @@ export class CmsDesigner {
       HMsg.showMsgErr?.(error?.message || String(error));
       return null;
     }
+  }
+
+  /**
+   * A Record field in the panel (review §14.12): the element follows each valid change (the preview is loaded again when
+   * the reference changes: its value comes from the server); Reveal and Identification in the form.
+   */
+  async _fieldSection(host, id, node) {
+    const record = this._currentRecord();
+    const cleanups = [];
+    let reference = record.doc.field(id);
+    try {
+      await this._askField(reference, record.doc.nodeStyle(id), record.doc.fieldLink(id), record.doc.fieldLinkValues(id), {
+        host,
+        register: (cleanup) => cleanups.push(cleanup),
+        common: this._commonFields(id, node),
+        onResult: (result) => {
+          this._formEdit(`field:${id}`, (doc) => doc.setField(id, result.reference, result.html)
+            && doc.setFieldLink(id, result.link, result.linkValues) && setFieldSize(doc, id, result.size));
+          if (result.reference !== reference) {
+            reference = result.reference;
+            this._loadPreview();
+          }
+        }
+      });
+    } catch (error) {
+      HMsg.showMsgErr?.(error?.message || String(error));
+    }
+    return async () => {
+      for (const cleanup of cleanups) await cleanup?.();
+    };
   }
 
   /** Edit field of a Record field element. */
@@ -2175,35 +2256,54 @@ export class CmsDesigner {
   }
 
   /** Configuration of the widgets: Custom report, Record cards, Media gallery, menus, badges, email form. */
-  async _configureWidget(instanceId, instance) {
+  /**
+   * The configuration of a widget: a popup, or with `inline` in the element panel (plan 27n §6), where each valid change
+   * is applied at once (one undo step for the changes of a few seconds).
+   *
+   * @param {string} instanceId
+   * @param {object} instance
+   * @param {object|null} [inline] `{host, register, common, presentationExtra}` (panelForms).
+   */
+  async _configureWidget(instanceId, instance, inline = null) {
     await this._loadTemplateTerms();
     const services = this._formServices();
     const common = { settings: instance.settings || {}, dbdefs: this.options.dbdefs, apiClient: this.apiClient, services };
-    // the popup of a widget, then `apply(result)`
+    const commit = (change) => (inline ? this._formEdit(`config:${instanceId}`, change) : this._edit(change));
+    // the form of a widget in its place, then `apply(result)`; inline: after each valid change
     const run = async (open, apply) => {
+      if (inline) {
+        await open({ inline: { ...inline, onResult: apply } });
+        return;
+      }
       const result = await open({});
       if (result) apply(result);
     };
-    const setSettings = (settings) => this._edit((doc) => doc.setInstance(instanceId, { settings }));
+    // a form of elements: the field of the designer at the end of its Presentation (Reveal)
+    const place = (apply) => (inline ? { inline: { ...inline, onResult: apply }, presentationExtra: inline.presentationExtra || null } : {});
+    const setSettings = (settings) => commit((doc) => doc.setInstance(instanceId, { settings }));
     if (instance.type === 'badges' && instance.settings?.source === 'host') {
       HMsg.showMsgFlash?.($HR('The logo and address of the organisation that hosts this Heurist are set on the server.'), { showDelay: 3000 });
     } else if (instance.type === 'badges') {
       const fileType = Number(this.options.dbdefs?.dbconst?.('RT_REGISTERED_FILE')) || 0;
+      const apply = (result) => {
+        const runtime = this.options.runtime || {};
+        const urls = fileMediaUrls(runtime.baseUrl || '', runtime.database || '', { relative: true });
+        const build = (language) => buildBadgesHtml(result.items, result.settings, { urls, language });
+        const languages = this.site?.languages || [];
+        const html = languages.length ? Object.fromEntries(languages.map((code) => [code, build(code)])) : { def: build('') };
+        commit((doc) => doc.setInstance(instanceId, { settings: { ...result.settings, html } }));
+      };
       const result = await openBadgesForm({
         settings: instance.settings || {},
         browse: () => (services.browseRecords ? services.browseRecords({ recordTypes: [fileType], selectMode: 'select_multi' }) : Promise.resolve(null)),
-        resolve: async (ids) => (await this._mediaItems({ mode: 'files', ids, single: false })).map((item, index) => ({ id: ids[index], ...item }))
+        resolve: async (ids) => (await this._mediaItems({ mode: 'files', ids, single: false })).map((item, index) => ({ id: ids[index], ...item })),
+        ...place(apply)
       });
-      if (!result) return;
-      const runtime = this.options.runtime || {};
-      const urls = fileMediaUrls(runtime.baseUrl || '', runtime.database || '', { relative: true });
-      const build = (language) => buildBadgesHtml(result.items, result.settings, { urls, language });
-      const languages = this.site?.languages || [];
-      const html = languages.length ? Object.fromEntries(languages.map((code) => [code, build(code)])) : { def: build('') };
-      this._edit((doc) => doc.setInstance(instanceId, { settings: { ...result.settings, html } }));
+      if (!inline && result) apply(result);
     } else if (instance.type === 'actionmenu') {
+      const apply = (settings) => commit((doc) => doc.setInstance(instanceId, { settings }));
       const settings = instance.settings?.preset === 'social'
-        ? await openSocialForm(common)
+        ? await openSocialForm({ ...common, ...place(apply) })
         : await openActionMenuForm({
           settings: instance.settings || {},
           pages: sitePageList(this.site, 'Home', { records: false }),
@@ -2212,9 +2312,15 @@ export class CmsDesigner {
           // the action Record page (plan 27g §6): record pages, Define new record page, the record picker
           services: this._actionServices(services),
           // Saved filter on a record page (plan 27j phase B): values from the record of the page, any record type
-          recordFields: this._onRecordPage() ? async () => recordFilterFieldTerms(this.options.dbdefs) : null
+          recordFields: this._onRecordPage() ? async () => recordFilterFieldTerms(this.options.dbdefs) : null,
+          // Show / hide (plan 27n §10): the named elements of the page with the header and footer
+          elements: this._namedElements(),
+          // the captions of the items with their translations (plan 27n §6.2)
+          languages: this.site?.languages || [],
+          translator: this._translator(),
+          ...place(apply)
         });
-      if (settings) this._edit((doc) => doc.setInstance(instanceId, { settings }));
+      if (!inline && settings) apply(settings);
     } else if (instance.type === 'menu' || instance.type === 'language') {
       await run((extra) => (instance.type === 'menu' ? openMenuForm({ ...common, ...extra }) : openLanguageForm({ ...common, ...extra })), setSettings);
     } else if (instance.type === 'breadcrumbs') {
@@ -2239,13 +2345,16 @@ export class CmsDesigner {
         services: {
           createOutputsPanel: typeof this.bridge?.createReportOutputsPanel === 'function'
             ? (options) => this.bridge.createReportOutputsPanel(options) : null
-        }
+        },
+        // docked: the short list (review §14.16)
+        compact: Boolean(inline) && this.formPanel?.mode() !== 'popup',
+        ...place(setSettings)
       });
-      if (settings) this._edit((doc) => doc.setInstance(instanceId, { settings }));
+      if (!inline && settings) setSettings(settings);
     } else if (instance.type === 'gallery') {
       await run((extra) => openMediaForm({ ...common, ...extra }), (result) => {
         const html = this._galleryHtml(result.settings, result.items);
-        this._edit((doc) => doc.setInstance(instanceId, { settings: { ...result.settings, html } }));
+        commit((doc) => doc.setInstance(instanceId, { settings: { ...result.settings, html } }));
       });
     }
   }
@@ -2353,53 +2462,423 @@ export class CmsDesigner {
     }
   }
 
-  // ------------------------------------------------------------------ Own style form (plan 27i §10, review 2026-11-14)
+  // ------------------------------------------------------------------ element panel (plan 27n §2)
 
-  /** The palette of the bar: the Own style form of the selected element (of the page), or closes it. */
+  /** The gear of the bar: the panel of the selected element (of the page), or closes it. */
   async _toggleStyleForm() {
     if (this.formPanel?.isOpen()) await this._closeForm();
     else await this._openForm(this.selectedNode || ROOT);
   }
 
   /**
-   * Open the Own style form of an element (or of the page, ROOT) beside the tree; a group has its caption above. The
-   * root of the header / footer has none.
+   * Open the panel of an element (or of the page, header, footer: ROOT): the tabs Configuration and Own style; a module
+   * of an Explorer: its configuration only.
    *
-   * @param {string|null} id Node id, or ROOT.
+   * @param {string|null} id Node id, module item id, or ROOT.
+   * @param {{tab?: string|null}} [options] The tab to show (else the last one).
    */
-  async _openForm(id) {
+  async _openForm(id, { tab = null } = {}) {
     if (this.readOnly || !this._currentRecord()) return;
-    if (parseModuleItemId(id) || (this.formMode === 'config' && id && id === this.formNode)) {
-      await this._openConfig(id);
+    // a panel of tabs / an accordion has no form of its own: the form of its tabs / accordion (review §15.18)
+    const control = id && id !== ROOT && !parseModuleItemId(id) ? this._currentRecord().doc.panelControl(id) : null;
+    const target = control || id || ROOT;
+    const tabs = this._panelTabs(target);
+    if (!tabs) {
+      await this._closeForm();
       return;
     }
     const ticket = (this._formTicket || 0) + 1;
     this._formTicket = ticket;
-    this.formMode = 'style';
-    this.pagePanel?.classList.remove('h-cms-form-below');
-    const target = id || ROOT;
-    const sections = this._formSections(target);
-    if (!sections) {
-      await this._closeForm();
-      return;
-    }
+    // Cancel of a popup returns to the draft of its opening
+    if (!this.formPanel.isOpen() && this.formPanel.mode() === 'popup') this._panelStart();
     this.formNode = target;
+    this._pendingApply = null;
+    this._placePanel();
     this._formWestMinimum(true);
-    const rootTitle = { header: 'Own style of the header', footer: 'Own style of the footer' }[this.current?.part] || 'Own style of the page';
-    await this.formPanel.show(sections, { title: $HR(target === ROOT ? rootTitle : 'Own style') });
+    await this.formPanel.show({ title: this._panelTitle(target), tab, tabs });
     if (ticket === this._formTicket) this._updateBar();
   }
 
-  /** Hide the form (the changes stay in the draft). */
+  /** Hide the panel (the changes stay in the draft). */
   async _closeForm() {
     if (!this.formPanel?.isOpen()) return;
     this._formTicket = (this._formTicket || 0) + 1;
     await this.formPanel.hide();
     this.formNode = null;
-    this.formMode = null;
-    this.pagePanel?.classList.remove('h-cms-form-below');
+    this._pendingApply = null;
     this._formWestMinimum(false);
     this._updateBar();
+  }
+
+  /** Title of the panel: the page / header / footer, the module of an Explorer, else the label of the element. */
+  _panelTitle(id) {
+    if (id === ROOT) return this._partLabel();
+    const child = parseModuleItemId(id);
+    if (child) return `${$HR('Configuration')}: ${$HR(EXPLORER_MODULES[child.type].label)}`;
+    const node = this._treeItem(id);
+    return node?.fieldOnly ? this._fieldLabel(node.field) : node?.label || '';
+  }
+
+  /**
+   * Tabs of the panel of an element (plan 27n §2.1): Configuration (what the element shows, its presentation and
+   * identification) and Own style; a module of an Explorer: Configuration only; the page: its fields, the header and
+   * footer: their layout. Null when the element has no panel.
+   *
+   * @param {string} id Node id, module item id, or ROOT.
+   * @returns {Array<object>|null}
+   */
+  _panelTabs(id) {
+    const part = this.current?.part;
+    const styleTab = (help) => ({ id: 'style', label: $HR('Own style'), help: help.map((text) => $HR(text)),
+      sections: [{ label: '', build: (host) => this._styleSection(host, id) }] });
+    if (parseModuleItemId(id)) {
+      if (!this._hasConfigPanels()) return null;
+      const actions = {};
+      return [{ id: 'config', label: $HR('Configuration'), help: [$HR('What this module of the Explorer shows on this page; Apply applies it.')],
+        sections: [{ label: '', build: (host, context) => this._configSection(host, id, context, actions) }, this._actionsSection(actions)] }];
+    }
+    if (id === ROOT) {
+      if (!['content', 'header', 'footer'].includes(part)) return null;
+      const config = part === 'content'
+        ? { label: '', build: (host) => this._pageSection(host) }
+        : this._buttonSection('', 'Position, orientation, theme and fields...', 'fa-sliders', () => this._styles({ tab: 'layout' }));
+      return [
+        { id: 'config', label: $HR('Configuration'), help: [part === 'content'
+          ? 'The fields of the page: its name, its text and icon in the menu, its description. Kept with the page: Save Page saves them.'
+          : 'The position, orientation and theme of the header and footer are set for the whole website (Layout).'
+        ].map((text) => $HR(text)), sections: [config] },
+        styleTab([part === 'content' ? 'The own style of the page: its background, size and spacing.'
+          : 'The own style of the header or footer on every page: its height, background and colours.'])
+      ];
+    }
+    const node = this._treeItem(id);
+    if (!node) return null;
+    // one help (review §14.6): the forms of widgets, media and Record field have their own
+    const record = this._currentRecord();
+    const instance = node.instance ? record.doc.instance(node.instance) : null;
+    const ownHelp = node.kind === 'media' || Boolean(node.field) || instance?.kind === 'widget';
+    return [
+      { id: 'config', label: $HR('Configuration'),
+        help: ownHelp ? [] : elementHelp(node, record, (this.site?.languages || []).length > 1).map((text) => $HR(text)),
+        sections: this._configSections(id, node) },
+      styleTab(['Apply a preset (a style defined once in Styles) or define an own style for this element: size, spacing,'
+        + ' text, background and border, for each screen size.'])
+    ];
+  }
+
+  /**
+   * Sections of the Configuration tab of an element (plan 27n §2.1; the sections of §6 follow in phase D): what the
+   * element shows (inline for groups, panels and modules; a button opens the popup of the others), Presentation (reveal,
+   * content only) and Identification (system id, name).
+   */
+  _configSections(id, node) {
+    const record = this._currentRecord();
+    const sections = [];
+    const instance = node.instance ? record.doc.instance(node.instance) : null;
+    const content = this.current?.part === 'content';
+    const presentation = { label: $HR('Presentation'), build: (host) => void host.append(this._revealField(id)) };
+    const identification = { label: $HR('Identification'), build: (host) => this._identitySection(host, id, node) };
+    // a widget form in the panel (plan 27n §6): Source, Presentation (with Reveal), Caption, Behaviour, Identification
+    const formKind = instance?.kind === 'widget' && !(instance.type === 'badges' && instance.settings?.source === 'host')
+      ? PANEL_WIDGET_FORMS[instance.settings?.preset === 'social' ? 'actionmenu' : instance.type] : null;
+    if (formKind) {
+      sections.push({ label: '', build: (host) => this._widgetSection(host, id, node, formKind) });
+      if (formKind === 'dom') sections.push(identification);
+      return sections;
+    }
+    if (node.kind === 'media') {
+      sections.push({ label: '', build: (host) => this._mediaSection(host, id, node) });
+      return sections;
+    }
+    if (instance?.kind === 'module' && this._hasConfigPanels()) {
+      // Reset and Apply after Presentation and Identification (review §15.21)
+      const actions = {};
+      sections.push({ label: '', build: (host, context) => this._configSection(host, id, context, actions) });
+      if (content) sections.push(presentation);
+      sections.push(identification, this._actionsSection(actions));
+      return sections;
+    } else if (instance) {
+      sections.push(this._buttonSection('', 'Configuration...', 'fa-gear', () => this._configure(id)));
+    } else if (node.kind === 'control' && (node.control === 'group' || record.doc.isPanel(id))) {
+      sections.push({ label: $HR('Caption'), build: (host) => this._captionSection(host, id) });
+    } else if (node.kind === 'control' && ['tabs', 'accordion'].includes(node.control)) {
+      // tabs / accordion (plan 27n §6.1): Presentation (their options and Reveal), Captions of the panels
+      sections.push({ label: $HR('Presentation'), build: (host) => this._panelsLookSection(host, id) });
+      sections.push({ label: $HR('Captions'), build: (host) => this._panelsCaptionsSection(host, id) });
+      sections.push(identification);
+      return sections;
+    } else if (node.field) {
+      // a Record field in the panel (review §14.12): the value of the field is saved by its button Update value
+      sections.push({ label: '', build: (host) => this._fieldSection(host, id, node) });
+      return sections;
+    } else if (node.kind === 'text') {
+      sections.push(this._buttonSection('', 'Edit text...', 'fa-pen', () => this._editText(id)));
+    }
+    if (content) sections.push(presentation);
+    sections.push(identification);
+    return sections;
+  }
+
+  /**
+   * The designer's fields in an HEditForm configuration (plan 27n §6.1, panelForms `common`): Reveal at the end of
+   * Presentation (content only), Identification (system id, name); applied at once, not with the settings.
+   *
+   * @param {string} id Node id.
+   * @param {object} node Tree item.
+   * @returns {object}
+   */
+  _commonFields(id, node) {
+    const doc = this._currentRecord().doc;
+    const content = this.current?.part === 'content';
+    return {
+      fields: {
+        presentation: content ? [{ name: '__reveal', type: 'enum', label: 'Reveal on scroll', max: 1,
+          terms: REVEAL_LABELS.map(([value, label]) => ({ id: value || 'none', label })), help: REVEAL_HELP, width: 22 }] : [],
+        identification: [
+          { name: '__systemId', type: 'freetext', label: 'System id', max: 1, readOnly: true },
+          { name: '__name', type: 'freetext', label: 'Name', max: 1, maxLength: 64, pattern: '^[A-Za-z0-9_-]*$',
+            patternMessage: 'Only letters, digits, _ and - (at most 64)',
+            help: 'Name of the element, used by actions (Show / hide) and lists: letters, digits, _ and -' }
+        ]
+      },
+      values: { __reveal: doc.reveal(id) || 'none', __systemId: node.instance || id, __name: doc.name(id) },
+      validate: (values) => {
+        const error = this._nameError(id, String(values.__name ?? '').trim());
+        return error ? [{ field: '__name', message: error }] : [];
+      },
+      onChange: (name, value, form) => {
+        const text = String([value].flat()[0] ?? '').trim();
+        if (name === '__reveal') {
+          this._formEdit(`reveal:${id}`, (current) => current.setReveal(id, text === 'none' ? '' : text));
+          this._playReveal(id);
+        }
+        if (name !== '__name') return;
+        // spaces become underscores (review §14.15)
+        const named = nameOf(text);
+        if (named !== text && form?.setValue) {
+          void form.setValue('__name', named);
+          return;
+        }
+        if (!this._nameError(id, named)) this._formEdit(`name:${id}`, (current) => current.setName(id, named));
+      }
+    };
+  }
+
+  /** The configuration of a widget in the panel (plan 27n §6): its form, applied after each valid change. */
+  async _widgetSection(host, id, node, formKind) {
+    const instance = this._currentRecord()?.doc.instance(node.instance);
+    if (!instance) return undefined;
+    const cleanups = [];
+    const inline = {
+      host,
+      register: (cleanup) => cleanups.push(cleanup),
+      ...(formKind === 'edit' ? { common: this._commonFields(id, node) } : { presentationExtra: this._revealField(id) })
+    };
+    try {
+      await this._configureWidget(node.instance, instance, inline);
+    } catch (error) {
+      HMsg.showMsgErr?.(error?.message || String(error));
+    }
+    return async () => {
+      for (const cleanup of cleanups) await cleanup?.();
+    };
+  }
+
+  /** A media element in the panel (plan 27n §6): its form with Reveal and Identification, applied after each valid change. */
+  async _mediaSection(host, id, node) {
+    const cleanups = [];
+    try {
+      await this._editMedia(id, { host, register: (cleanup) => cleanups.push(cleanup), common: this._commonFields(id, node) });
+    } catch (error) {
+      HMsg.showMsgErr?.(error?.message || String(error));
+    }
+    return async () => {
+      for (const cleanup of cleanups) await cleanup?.();
+    };
+  }
+
+  /**
+   * Presentation of tabs / an accordion in the panel (plan 27n §6.1): tabs orientation, style and colours, accordion
+   * several sections open and the first one open; Reveal; applied at once.
+   */
+  _panelsLookSection(host, id) {
+    const doc = this._currentRecord().doc;
+    const look = doc.tabsLook(id);
+    const field = (caption, control) => {
+      const line = element('label', 'h-cms-style-field');
+      const text = element('span');
+      text.textContent = $HR(caption);
+      line.append(text, control);
+      return line;
+    };
+    const row = element('div', 'h-cms-captions-look');
+    if (look) {
+      const orientation = lookSelect([['horizontal', 'Horizontal'], ['vertical', 'Vertical (tabs on the left on wide screens)']], look.orientation);
+      const tabStyle = lookSelect(TAB_STYLE_LABELS, look.style);
+      const tabColors = lookSelect(ITEM_COLOR_LABELS, look.colors);
+      const apply = () => this._formEdit(`look:${id}`, (current) => current.setTabsLook(id,
+        { orientation: orientation.value, style: tabStyle.value, colors: tabColors.value }));
+      for (const control of [orientation, tabStyle, tabColors]) control.addEventListener('change', apply);
+      row.append(field('Orientation', orientation), field('Style of the tabs', tabStyle), field('Colours', tabColors));
+    }
+    const accordion = doc.accordionLook(id);
+    if (accordion) {
+      const check = (label, checked) => {
+        const box = element('label', 'h-cms-check');
+        const input = element('input');
+        input.type = 'checkbox';
+        input.checked = checked;
+        box.append(input, document.createTextNode(` ${$HR(label)}`));
+        return { box, input };
+      };
+      const multiple = check('Several sections open at a time', accordion.multiple);
+      const firstOpen = check('The first section open at start', accordion.firstOpen);
+      const apply = () => this._formEdit(`look:${id}`, (current) => current.setAccordionLook(id,
+        { multiple: multiple.input.checked, firstOpen: firstOpen.input.checked }));
+      for (const item of [multiple, firstOpen]) item.input.addEventListener('change', apply);
+      row.append(multiple.box, firstOpen.box);
+    }
+    host.append(row);
+    const reveal = this._revealField(id);
+    if (reveal) host.append(reveal);
+  }
+
+  /** Captions of the panels of tabs / an accordion in the panel (plan 27n §6.1): one block per panel, applied while typing. */
+  _panelsCaptionsSection(host, id) {
+    const doc = this._currentRecord().doc;
+    const tabs = this._treeItem(id)?.control === 'tabs';
+    const languages = this.site?.languages || [];
+    const forms = doc.panels(id).map((panel, index) => {
+      const current = doc.caption(panel);
+      const block = element('div', 'h-cms-captions-item');
+      const label = element('div', 'h-cms-captions-label');
+      label.textContent = `${$HR(tabs ? 'Tab' : 'Section')} ${index + 1}`;
+      const form = createTranslationForm({
+        value: current?.text || '',
+        translations: current?.translations || {},
+        languages,
+        original: languages[0] || '',
+        translator: this._translator(),
+        required: true,
+        onChange: ({ value, translations }) => {
+          const text = value.trim();
+          // the label of a panel is required
+          if (!text) return;
+          const all = Object.fromEntries(languages.slice(1).map((code) => [code, (translations[code] || '').trim()]));
+          this._formEdit(`caption:${panel}`, (current) => current.setCaption(panel, text, all));
+        }
+      });
+      block.append(label, form.element);
+      host.append(block);
+      return form;
+    });
+    return () => forms.forEach((form) => form.destroy());
+  }
+
+  /**
+   * The fields of the page and its header / footer flags in the panel (review §14.9): the flags at once, the fields kept in
+   * the draft after each valid change and when the panel closes (`fieldChanges`, saved with Save Page).
+   */
+  async _pageSection(host) {
+    const record = this._currentRecord();
+    if (!record || this.readOnly || this.current?.part !== 'content') return undefined;
+    const home = Boolean(this.site) && record.id === this.site.id;
+    const pending = { ...(record.fieldChanges || {}) };
+    const fieldsHost = element('div', 'h-cms-page-fields');
+    host.append(fieldsHost);
+    const recordField = await this.bridge?.recordFieldServices?.();
+    const fields = await createWebsiteFieldsForm(fieldsHost, {
+      dbdefs: this.options.dbdefs,
+      apiClient: this.apiClient,
+      codes: this.codes,
+      type: home ? 'home' : 'page',
+      keys: home ? WEBSITE_FIELD_KEYS : PAGE_FIELD_KEYS,
+      record: { ...record.record, details: { ...record.record.details, ...mapValues(pending) } },
+      languages: this.site?.languages || [],
+      services: { ...this._formServices(), translator: this._translator(), recordField }
+    });
+    const layout = record.doc.layout() || {};
+    for (const [key, label] of [['hideHeader', 'Hide header'], ['hideFooter', 'Hide footer']]) {
+      const line = element('label', 'h-cms-check');
+      const box = element('input');
+      box.type = 'checkbox';
+      box.checked = layout[key] === true;
+      line.append(box, document.createTextNode(` ${$HR(label)}`));
+      box.addEventListener('change', () => this._formEdit(`layout:${key}`, (doc) => {
+        const next = { ...(doc.layout() || {}) };
+        if (box.checked) next[key] = true; else delete next[key];
+        doc.setLayout(next);
+        return true;
+      }));
+      host.append(line);
+    }
+    // a save, a discard or a reload after the form was drawn: its values are not the draft any more (review §16.9)
+    const modified = record.modified;
+    const discarded = record.discarded || 0;
+    const keep = () => {
+      if (this._currentRecord() !== record || record.modified !== modified || (record.discarded || 0) !== discarded
+        || fields.validate().length) return;
+      const changed = { ...pending, ...fields.changed() };
+      if (Object.keys(changed).length) record.fieldChanges = changed; else delete record.fieldChanges;
+      this._updateBar();
+    };
+    this._flushPageFields = () => {
+      globalThis.clearTimeout(timer);
+      keep();
+    };
+    let timer = null;
+    const schedule = () => {
+      globalThis.clearTimeout(timer);
+      timer = globalThis.setTimeout(keep, 400);
+    };
+    for (const type of ['input', 'change', 'h-input-change']) fieldsHost.addEventListener(type, schedule);
+    return async () => {
+      globalThis.clearTimeout(timer);
+      keep();
+      this._flushPageFields = null;
+      await fields.destroy();
+    };
+  }
+
+  /** The last section of a module configuration: its Reset and Apply (review §15.21; hidden in the popup, §15.22). */
+  _actionsSection(actions) {
+    return { label: '', build: (host) => {
+      host.classList.add('h-cms-form-actions-section');
+      if (actions.bar) host.append(actions.bar);
+      else host.hidden = true;
+    } };
+  }
+
+  /** A section with one button that opens the popup of the element (until its form is in the panel, phase D). */
+  _buttonSection(label, text, icon, run) {
+    return {
+      label: label ? $HR(label) : '',
+      build: (host) => {
+        const button = barButton(icon, text, () => void run(), text);
+        host.append(button);
+      }
+    };
+  }
+
+  /**
+   * Identification of an element (plan 27n §6.1, §9): its system id (the instance id of a widget or module, else the
+   * node id; read only) and its name.
+   */
+  _identitySection(host, id, node) {
+    const system = element('input', 'h-input h-compact h-cms-system-id');
+    system.type = 'text';
+    system.readOnly = true;
+    system.value = node.instance || id;
+    system.title = $HR('System id of the element (made by Heurist)');
+    const field = element('label', 'h-cms-style-field');
+    const text = element('span');
+    text.textContent = $HR('System id');
+    field.append(text, system);
+    const row = element('div', 'h-cms-identity');
+    row.append(field);
+    const name = this._nameField(id);
+    if (name) row.append(name);
+    host.append(row);
   }
 
   /** Whether the content of a record page is edited (plan 27g): its record gives values to Saved filters (plan 27j). */
@@ -2436,25 +2915,15 @@ export class CmsDesigner {
       if (!child) await this._configure(id);
       return;
     }
-    const child = parseModuleItemId(id);
-    const node = this._treeItem(child ? child.node : id);
-    const instance = node?.instance ? this._currentRecord().doc.instance(node.instance) : null;
-    if (!instance || instance.kind !== 'module') return;
-    const ticket = (this._formTicket || 0) + 1;
-    this._formTicket = ticket;
-    this.formNode = id;
-    this.formMode = 'config';
-    // beside the tree in a wide pane, below it in a narrow one, as Own style (review 2026-11-15)
-    this.pagePanel?.classList.remove('h-cms-form-below');
-    this._formWestMinimum(true);
-    const name = child ? EXPLORER_MODULES[child.type].label : (instance.type === 'explorer' ? 'Explorer' : EXPLORER_MODULES[instance.type]?.label || instance.type);
-    await this.formPanel.show([{ label: '', build: (host) => this._configSection(host, id) }],
-      { title: `${$HR('Configuration')}: ${$HR(name)}` });
-    if (ticket === this._formTicket) this._updateBar();
+    // the panel of the element at its Configuration tab (plan 27n §2)
+    await this._openForm(id, { tab: 'config' });
   }
 
-  /** The form of _openConfig: the panel of Explorer (bridge), Reset and Apply; returns its cleanup. */
-  async _configSection(host, id) {
+  /**
+   * The form of _openConfig: the panel of Explorer (bridge); returns its cleanup. Reset and Apply: in `actions` (a section
+   * after Identification, review §15.21) or at its end; Apply also in the title row (`context.addHeadActions`).
+   */
+  async _configSection(host, id, context = null, actions = null) {
     const child = parseModuleItemId(id);
     const nodeId = child ? child.node : id;
     const instanceOf = () => {
@@ -2544,8 +3013,10 @@ export class CmsDesigner {
       }
     };
     bar.append(reset, element('span', 'h-cms-toolbar-spacer'), apply);
-    host.append(bar);
-    this.formPanel.addHeadActions?.(headApply);
+    if (actions) actions.bar = bar; else host.append(bar);
+    (context?.addHeadActions || this.formPanel.addHeadActions)?.(headApply);
+    // Apply of the popup applies the configuration too (plan 27n §3)
+    this._pendingApply = doApply;
     return () => {
       void syncSection?.destroy();
       return panel.destroy();
@@ -2606,38 +3077,16 @@ export class CmsDesigner {
   }
 
   /**
-   * While the Own style form is open the west pane is at least as wide as the form (FORM_MIN_WIDTH, 2026-11-14): the
-   * form below the tree does not overflow. Closed: the usual minimum again (the width stays).
+   * While the docked element panel is open the west pane is at least as wide as the panel (PANEL_MIN_WIDTH, 2026-11-14):
+   * the panel below the tree does not overflow. Closed or a popup: the usual minimum again (the width stays).
    */
   _formWestMinimum(open) {
     const layout = this.layout;
     if (!layout?.options) return;
-    layout.options.minWest = open ? FORM_MIN_WIDTH + 10 : WEST_MIN_WIDTH;
+    // a popup needs no room in the pane
+    layout.options.minWest = open && this.formPanel?.mode() !== 'popup' ? PANEL_MIN_WIDTH + 10 : WEST_MIN_WIDTH;
     const size = Number(layout.getSize?.('west')) || 0;
     if (open && size < layout.options.minWest) layout.setSize('west', layout.options.minWest);
-  }
-
-  /**
-   * Sections of the form of an element: the caption of a group or panel, then the own style; the page: its own style.
-   *
-   * @param {string} id Node id or ROOT.
-   * @returns {Array<{label: string, build: Function}>|null}
-   */
-  _formSections(id) {
-    const record = this._currentRecord();
-    if (id === ROOT) {
-      // the page, the header or the footer (review 2026-11-16); no section caption: the header of the form has the title
-      if (!['content', 'header', 'footer'].includes(this.current?.part)) return null;
-      return [{ label: '', build: (host) => this._styleSection(host, ROOT) }];
-    }
-    const node = this._treeItem(id);
-    if (!node) return null;
-    const sections = [];
-    if (node.kind === 'control' && (node.control === 'group' || record.doc.isPanel(id))) {
-      sections.push({ label: $HR('Caption'), build: (host) => this._captionSection(host, id) });
-    }
-    sections.push({ label: sections.length ? $HR('Own style') : '', build: (host) => this._styleSection(host, id) });
-    return sections;
   }
 
   /**
@@ -2668,21 +3117,101 @@ export class CmsDesigner {
   }
 
   /**
-   * Reveal on scroll of an element (plan 27k §6): none, fade in or slide up, applied at once; beside the preset of the
-   * Own style (review 2026-11-16). Every element of the content; null in the header and footer.
+   * Reveal on scroll of an element (plan 27k §6; effects of plan 27n §8, REVEAL_LABELS), applied at once; Presentation
+   * of the Configuration tab (plan 27n §2.1). Every element of the content; null in the header and footer.
    *
    * @param {string} id Node id.
    * @returns {HTMLElement|null}
    */
   _revealField(id) {
     if (this.current?.part !== 'content') return null;
-    const select = lookSelect([['', 'None'], ['fade', 'Fade in'], ['up', 'Slide up']], this._currentRecord()?.doc.reveal(id) || '');
+    const select = lookSelect(REVEAL_LABELS, this._currentRecord()?.doc.reveal(id) || '');
     const field = element('label', 'h-cms-style-field');
     const text = element('span');
     text.textContent = $HR('Reveal on scroll');
     field.append(text, select);
-    select.addEventListener('change', () => this._formEdit(`reveal:${id}`, (doc) => doc.setReveal(id, select.value)));
+    select.addEventListener('change', () => {
+      this._formEdit(`reveal:${id}`, (doc) => doc.setReveal(id, select.value));
+      this._playReveal(id);
+    });
+    // its help with the input (review §14.6), shown with the help of the panel
+    const box = element('div', 'h-cms-reveal-field');
+    const help = element('div', 'h-cms-style-note');
+    help.textContent = $HR(REVEAL_HELP);
+    box.append(field, help);
+    return box;
+  }
+
+  /**
+   * Name of an element (plan 27n §9): letters, digits, _ and -, unique on the page with the header and footer of the
+   * website; applied while typing when it is valid. In Identification of the Configuration tab (plan 27n §6.1).
+   *
+   * @param {string} id Node id.
+   * @returns {HTMLElement|null}
+   */
+  _nameField(id) {
+    const record = this._currentRecord();
+    if (!record || id === ROOT) return null;
+    const input = element('input', 'h-input h-compact');
+    input.type = 'text';
+    input.maxLength = 64;
+    input.value = record.doc.name(id);
+    input.placeholder = $HR('(none)');
+    const hint = $HR('Name of the element, used by actions (Show / hide) and lists: letters, digits, _ and -');
+    input.title = hint;
+    input.addEventListener('input', () => {
+      // spaces become underscores (review §14.15)
+      if (/\s/.test(input.value)) input.value = input.value.replace(/\s+/g, '_');
+      const name = input.value.trim();
+      const error = this._nameError(id, name);
+      input.classList.toggle('h-cms-style-invalid', Boolean(error));
+      input.title = error || hint;
+      if (!error) this._formEdit(`name:${id}`, (doc) => doc.setName(id, name));
+    });
+    const field = element('label', 'h-cms-style-field');
+    const text = element('span');
+    text.textContent = $HR('Name');
+    field.append(text, input);
     return field;
+  }
+
+  /**
+   * Why a name can not be given to an element (plan 27n §9), else null.
+   *
+   * @param {string} id Node id.
+   * @param {string} name '' = no name.
+   * @returns {string|null}
+   */
+  _nameError(id, name) {
+    if (!name) return null;
+    if (!CMS_NAME.test(name)) return $HR('Only letters, digits, _ and - (at most 64)');
+    if (this._namedElements().some((item) => item.name === name && item.id !== id)) return $HR('Another element has this name');
+    return null;
+  }
+
+  /**
+   * The named elements of the open page with the header and footer of the website (plan 27n §9-10).
+   *
+   * @returns {Array<{id: string, name: string, part: string, type: string}>}
+   */
+  _namedElements() {
+    const docs = [this._currentRecord()?.doc, this.site ? this.records.get(this.site.id)?.doc : null];
+    const seen = new Set();
+    const result = [];
+    for (const doc of docs) {
+      if (!doc || seen.has(doc)) continue;
+      seen.add(doc);
+      result.push(...doc.names());
+    }
+    return result;
+  }
+
+  /**
+   * The effect of Reveal once in the preview (review §14.2): the preview does not reveal elements while it is edited;
+   * after a change of Reveal it shows it.
+   */
+  _playReveal(id) {
+    globalThis.setTimeout?.(() => this.preview?.playReveal?.(id), 400);
   }
 
   /** The own style in the form (plan 27i §10): every change at once; a group may have a background video. */
@@ -2725,8 +3254,10 @@ export class CmsDesigner {
       });
     }, {
       kind, inFlexGroup: this._inFlexGroup(id), presets, preset: node?.preset || null, cssClass: record.doc.cssClass(id),
+      // the colours Own of menus, action menus and tabs (plan 27n §7)
+      itemColors: node?.control === 'tabs' || ['menu', 'actionmenu'].includes(node?.type),
       classInput: this.options.dbdefs?.meta?.javaScriptAllowed === true, base, files: this._files(),
-      video: kind === 'group' ? record.doc.backgroundVideo(id) : null, headExtra: this._revealField(id)
+      video: kind === 'group' ? record.doc.backgroundVideo(id) : null
     });
     return undefined;
   }
@@ -2961,45 +3492,35 @@ function nodeIcon(item) {
   return item.kind === 'control' ? 'fa-layer-group' : 'fa-code';
 }
 
+/** A name typed with spaces (review 27n §14.15): underscores in their place. */
+function nameOf(text) {
+  return String(text ?? '').trim().replace(/\s+/g, '_');
+}
+
 /** Help for the selected element of the part tree. */
 function elementHelp(node, record, multilingual) {
-  const texts = ['Apply a preset (a style defined once in Styles) or define an own style for this element.'];
+  const texts = [];
   if (node.field) {
-    texts.push('Choose the record and its field with the pen or a double click. The value can be edited there: the record itself changes.');
+    texts.push('Choose the record and its field. The value can be edited there: the record itself changes.');
   } else if (node.kind === 'text') {
-    texts.push(multilingual ? 'Edit the text with the pen or a double click; the popup shows the languages of the website: translate the text there.' : 'Edit the text with the pen or a double click.');
+    texts.push(multilingual ? 'Edit the text with the pen of the tree or a double click; the popup shows the languages of the website: translate the text there.'
+      : 'Edit the text with the pen of the tree or a double click.');
   } else if (node.kind === 'media') {
-    texts.push('Choose the file, its caption and size with the pen or a double click. The page shows it without a script.');
+    texts.push('Choose the file, its caption and size. The page shows it without a script.');
   } else if (node.kind === 'instance') {
     const instance = node.instance ? record?.doc.instance(node.instance) : null;
     texts.push(instance?.kind === 'widget'
-      ? 'The menu shows the pages of the website: change them on the Site tab.'
-      : 'Set what the module shows and how in its configuration (gear).');
+      ? 'Set what the widget shows and how; a menu shows the pages of the website: change them on the Site tab.'
+      : 'Set what the module shows and how; Apply applies it to the page.');
   } else if (node.control === 'tabs' || node.control === 'accordion') {
-    texts.push('Each panel is a group with a caption (its label): + adds a panel, the pen of a panel edits its caption.'
+    texts.push('Each panel is a group with a caption (its label): + of the tree adds a panel, the gear of a panel edits its caption.'
       + ' Without panels the element is removed.');
   } else {
-    texts.push('Add elements into it with +, or drag elements onto it. The pen edits its caption (a heading on top).');
+    texts.push('Add elements into it with + of the tree, or drag elements onto it. The caption is a heading on top.');
   }
-  if (node.kind !== 'instance') texts.push('Copy structure or Copy all below the tree, then Paste it into another place or page.');
   return texts;
 }
 
-function readHelpShown() {
-  try {
-    return globalThis.localStorage?.getItem(HELP_KEY) !== '0';
-  } catch {
-    return true;
-  }
-}
-
-function writeHelpShown(shown) {
-  try {
-    globalThis.localStorage?.setItem(HELP_KEY, shown ? '1' : '0');
-  } catch {
-    // shown again next time
-  }
-}
 
 function pageId(itemId) {
   return Number(String(itemId).replace(/^page:/, '')) || 0;

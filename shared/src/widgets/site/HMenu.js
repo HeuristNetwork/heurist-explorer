@@ -42,7 +42,7 @@ import { MENU_EXPAND_ICON, faIcon, menuClass, menuLook, menuStyle } from '../../
 import './HMenu.css';
 
 // the rules of the settings are in shared/src/site/cmsMenu.js (no CSS: the designer forms import them, plan 27k §7)
-export { MENU_ANIMATIONS, MENU_EXPAND_ICON, MENU_PRESENTATIONS, MENU_STYLES, menuClass, menuLook, menuStyle } from '../../site/cmsMenu.js';
+export { ITEM_COLORS, MENU_ANIMATIONS, MENU_EXPAND_ICON, MENU_PRESENTATIONS, MENU_STYLES, menuClass, menuLook, menuStyle } from '../../site/cmsMenu.js';
 
 /** Time of the animation of the full-screen menu (plan 27k §5, HMenu.css), ms. */
 const OVERLAY_MS = 300;
@@ -496,7 +496,7 @@ export class HMenu extends HBaseWidget {
  * website, an external URL or an action (Add record).
  *
  * @param {object} settings `items`: [{label, labels, icon, iconOnly, action, target, record, newTab}]; actions page, url,
- *        addRecord, recordPage, back.
+ *        addRecord, recordPage, back, savedFilter, search, toggle.
  * @param {{language?: string, pageUrl?: (id: number) => string}} [context]
  * @returns {Array<object>}
  */
@@ -519,6 +519,8 @@ export function actionMenuItems(settings = {}, { language = '', pageUrl = () => 
     else if (item.action === 'savedFilter') entry.url = '#';
     // a search box (plan 27k §6): a form of the server; in the designer's draft only shown
     else if (item.action === 'search') entry.search = { param: String(item.param || ''), placeholder: entry.title };
+    // Show / hide an element (plan 27n §10): the node id of the element
+    else if (item.action === 'toggle') Object.assign(entry, { action: 'toggle', target: String(item.target ?? '') });
     else continue;
     items.push(entry);
   }

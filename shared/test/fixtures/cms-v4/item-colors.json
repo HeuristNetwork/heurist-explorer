@@ -1,0 +1,22 @@
+{
+  "name": "item colours of menus, action menus and tabs (plan 27n §7): custom properties of the Own style",
+  "config": {
+    "schema": "heurist-cms/4",
+    "styles": {
+      "nodes": {
+        "t1": {
+          "--h-item-text": "#ffffff",
+          "--h-item-accent": "var(--h-color-bg)",
+          "--h-item-accent-text": "var(--h-color-text)"
+        }
+      }
+    }
+  },
+  "html": [
+    "<div data-h-node=\"t1\" data-h-control=\"tabs\" data-h-colors=\"own\"></div>"
+  ],
+  "expect": {
+    "issues": [],
+    "css": "[data-h-node=\"t1\"]{--h-item-text:#ffffff;--h-item-accent:var(--h-color-bg);--h-item-accent-text:var(--h-color-text);}\n"
+  }
+}

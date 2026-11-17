@@ -18,7 +18,7 @@
 
 import { $HR } from '#shared/ui';
 import { buildCmsMedia, CMS_MEDIA_DEFAULTS } from '#shared/site/cmsMedia.js';
-import { formDialog } from './designerDialogs.js';
+import { formChanged, sectionTitle, showDomForm } from './panelForms.js';
 import { dragHandle, helpLine, sortableList } from './designerStyles.js';
 
 /** Defaults of the badge settings. */
@@ -58,15 +58,18 @@ export function buildBadgesHtml(items, settings = {}, { urls, language = 'eng' }
  * @param {object} [options.settings] Settings: ids, links {id: {title, url}}, height, align, gap, grey.
  * @param {() => Promise<number[]|null>} options.browse Choose registered files (record manager).
  * @param {(ids: number[]) => Promise<Array<{id: number, file: object|null, caption: string}>>} options.resolve Files of records.
+ * @param {object|null} [options.inline] In the element panel (panelForms.showDomForm): its result after each change.
+ * @param {HTMLElement|null} [options.presentationExtra] A field of the designer at the end of Presentation (Reveal).
  * @returns {Promise<{settings: object, items: Array<object>}|null>} Settings and the resolved items in order.
  */
-export async function openBadgesForm({ settings = {}, browse, resolve }) {
+export async function openBadgesForm({ settings = {}, browse, resolve, inline = null, presentationExtra = null }) {
   const links = { ...(settings.links || {}) };
   let items = await resolve((settings.ids || []).map(Number).filter(Boolean)).catch(() => []);
   const form = element('form', 'h-cms-form h-cms-badges-form');
   form.append(helpLine('Logos of participants, sponsors or hosts, each with a link. Choose the images (registered files), then give each'
     + ' a title and the address it opens.'));
   const list = element('div', 'h-cms-badges-list');
+  let drawn = false;
   const draw = () => {
     list.replaceChildren();
     if (!items.length) {
@@ -97,6 +100,9 @@ export async function openBadgesForm({ settings = {}, browse, resolve }) {
       row.append(dragHandle(), name, title, url, remove);
       list.append(row);
     });
+    // a row added, removed or moved: applied in the element panel (plan 27n §6)
+    if (drawn) formChanged(form);
+    drawn = true;
   };
   sortableList(list, (from, to) => {
     items.splice(to, 0, ...items.splice(from, 1));
@@ -117,10 +123,12 @@ export async function openBadgesForm({ settings = {}, browse, resolve }) {
   const grey = element('input');
   grey.type = 'checkbox';
   grey.checked = settings.grey === true;
-  form.append(list, add, line('Height of the logos (px)', height), line('Gap (px)', gap), line('Alignment', align),
-    line('Grey until the mouse is over a logo', grey));
+  // the sections of plan 27n §6: Source (the logos), Presentation
+  form.append(sectionTitle($HR('Source')), list, add, sectionTitle($HR('Presentation')), line('Height of the logos (px)', height),
+    line('Gap (px)', gap), line('Alignment', align), line('Grey until the mouse is over a logo', grey));
+  if (presentationExtra) form.append(presentationExtra);
   draw();
-  return formDialog(form, 'Badges', 'OK', () => {
+  return showDomForm(form, $HR('Badges'), () => {
     const ids = items.map((item) => item.id);
     const kept = Object.fromEntries(ids.filter((id) => links[id]).map((id) => [id, links[id]]));
     return {
@@ -130,7 +138,7 @@ export async function openBadgesForm({ settings = {}, browse, resolve }) {
       },
       items: items.map((item) => ({ ...item, title: kept[item.id]?.title ?? item.caption ?? '', url: kept[item.id]?.url || '' }))
     };
-  }, null, 'h-dialog-cms-badges');
+  }, { inline, className: 'h-dialog-cms-badges' });
 }
 
 function numberInput(value, min, max) {

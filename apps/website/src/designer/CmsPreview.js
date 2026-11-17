@@ -275,6 +275,27 @@ export class CmsPreview {
   }
 
   /** Mark a node in the preview (veil), or none. */
+  /**
+   * Show the Reveal effect of an element once (review 27n §14.2): the preview of the designer does not reveal elements; a
+   * list of cards or a gallery (its box is `display: contents`) reveals its items.
+   *
+   * @param {string} id Node id.
+   */
+  playReveal(id) {
+    const win = this.win;
+    const target = id ? win?.document?.querySelector(`[data-h-node="${cssEscape(id)}"]`) : null;
+    const effect = target?.getAttribute('data-h-reveal');
+    if (!target || !effect || effect === 'hidden') return;
+    const items = target.classList.contains('h-site-widget-list') ? [...target.children] : [target];
+    // the effect as on the website (style.css): 1.2 s, 40px; the items of a list one after another
+    const from = { up: 'translateY(40px)', down: 'translateY(-40px)', left: 'translateX(-40px)', right: 'translateX(40px)',
+      zoom: 'scale(0.9)' }[effect] || 'none';
+    items.forEach((item, index) => {
+      item.animate?.([{ opacity: 0, transform: from }, { opacity: 1, transform: 'none' }],
+        { duration: 1200, easing: 'ease', delay: Math.min(index, 8) * 120, fill: 'backwards' });
+    });
+  }
+
   highlight(id) {
     this._highlighted = id;
     const doc = this.win?.document;

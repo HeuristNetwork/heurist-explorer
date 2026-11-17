@@ -126,7 +126,7 @@ export class WebsiteCheck extends HBaseWidget {
       const list = el('ul', 'h-website-issues', section);
       for (const issue of page.issues) {
         const item = el('li', `h-website-issue h-website-issue-${issue.level || 'warning'}`, list);
-        item.textContent = `${issue.message}${issue.node ? ` (${issue.node})` : ''}`;
+        item.textContent = `${issue.message}${issue.node ? ` (${elementText(issue)})` : ''}`;
       }
     }
   }
@@ -245,8 +245,13 @@ function pageColumn(row) {
 /** "About · Record field (n3); Team · Record cards (c1)". */
 function usedInText(record, separator = '; ') {
   return (record.usedIn || [])
-    .map((use) => `${use.pageTitle || `#${use.page}`} · ${$HR(KIND_TEXT[use.kind] || use.kind)}${use.node ? ` (${use.node})` : ''}`)
+    .map((use) => `${use.pageTitle || `#${use.page}`} · ${$HR(KIND_TEXT[use.kind] || use.kind)}${use.node ? ` (${elementText(use)})` : ''}`)
     .join(separator);
+}
+
+/** An element in the report (plan 27n §9): its name and system id, else the system id. */
+function elementText({ node, name }) {
+  return name ? `${name}: ${node}` : node;
 }
 
 function el(tag, className, parent = null) {

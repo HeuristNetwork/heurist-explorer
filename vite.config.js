@@ -15,6 +15,9 @@ const targets = Object.freeze({
       "explorerGettingStartedEng.htm",
       "searchQueryLanguageEng.htm",
       "searchQueryLanguageFre.htm",
+      // the website editor runs in Explorer's window (plan 27n §2.4)
+      "websiteEditorManualEng.htm",
+      "websiteEditorManualFre.htm",
     ],
   },
   map: {
@@ -51,7 +54,7 @@ const targets = Object.freeze({
   website: {
     version: "0.1.0",
     port: 5180,
-    manuals: [],
+    manuals: ["websiteEditorManualEng.htm", "websiteEditorManualFre.htm"],
   },
 });
 
