@@ -85,8 +85,8 @@ export async function createOutputsPanel(app, report = null, { mode = 'list', on
   add.type = 'button';
   el('i', 'fa-solid fa-plus', add).setAttribute('aria-hidden', 'true');
   add.append(` ${$HR('New Report')}`);
-  // choosing outputs for a website in the docked panel: no new ones (plan 27n §14.16a); the full list (popup) has it with
-  // its report filter (§17.16a)
+  // choosing outputs for a website: the full list (popup) has New Report with its report filter (plan 27n §17.16a); the
+  // docked compact list without the filter shows it for the report of the chosen output (§18.16b)
   add.hidden = Boolean(pick?.compact);
   const jobHost = el('div', 'h-reports-job', root);
   jobHost.hidden = true;
@@ -101,6 +101,18 @@ export async function createOutputsPanel(app, report = null, { mode = 'list', on
   let create = null;
 
   const filterReport = () => (filter.value ? app.findReport(filter.value) : null);
+  // the report of New Report: the one of the filter; the compact list (no filter): the report of the first chosen output
+  const newTarget = () => {
+    if (filter.value || !pick?.compact) return filterReport();
+    const output = outputs.find((item) => item.id === Object.values(picks)[0]);
+    return output?.reportId != null ? app.findReport(output.reportId) : null;
+  };
+  const updateAdd = () => {
+    const target = newTarget();
+    add.disabled = !(target && target.id != null && target.fileExists !== false && !target.isCardView && app.host.canEditRecords());
+    add.title = add.disabled ? $HR('Choose a report in the list above') : $HR('Add a generated report of this report');
+    if (pick?.compact) add.hidden = add.disabled;
+  };
 
   const fillFilter = () => {
     const ids = new Set(outputs.map((output) => String(output.reportId)));
@@ -124,9 +136,7 @@ export async function createOutputsPanel(app, report = null, { mode = 'list', on
 
   const render = () => {
     const shown = shownOutputs();
-    const target = filterReport();
-    add.disabled = !(target && target.id != null && target.fileExists !== false && !target.isCardView && app.host.canEditRecords());
-    add.title = add.disabled ? $HR('Choose a report in the list above') : $HR('Add a generated report of this report');
+    updateAdd();
     table.replaceChildren();
     if (newReport) {
       if (create) create.disabled = newQuery == null || !app.host.canEditRecords();
@@ -209,6 +219,7 @@ export async function createOutputsPanel(app, report = null, { mode = 'list', on
   const pickChanged = () => {
     const chosen = Object.values(picks).map((id) => outputs.find((output) => output.id === id)).filter(Boolean);
     pick?.onChange?.({ ...picks }, chosen);
+    updateAdd();
   };
 
   /** Not chosen any more. */
@@ -402,7 +413,7 @@ export async function createOutputsPanel(app, report = null, { mode = 'list', on
   };
 
   add.addEventListener('click', () => run(async () => {
-    const target = filterReport();
+    const target = newTarget();
     if (target) await startNew(target);
   }));
   search.addEventListener('input', render);

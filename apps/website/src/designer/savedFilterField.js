@@ -360,14 +360,20 @@ export function savedFilterPicker(services, value = null, { recordFields = null,
   edit.title = $HR('Define the saved filter');
   edit.innerHTML = '<i class="fa-solid fa-filter" aria-hidden="true"></i>';
   edit.setAttribute('aria-label', edit.title);
+  // not defined yet: the button says so (review 27n §19.23d); defined: its summary and the filter icon to change it
   const show = async () => {
-    text.textContent = current ? savedFilterSummary(current, await names(services)) : $HR('Not defined');
+    text.textContent = current ? savedFilterSummary(current, await names(services)) : '';
+    text.hidden = !current;
+    edit.innerHTML = current ? '<i class="fa-solid fa-filter" aria-hidden="true"></i>'
+      : `<i class="fa-solid fa-filter" aria-hidden="true"></i> ${$HR('Define saved filter')}`;
   };
   edit.addEventListener('click', async () => {
     const answer = await openSavedFilterForm(services, current, { recordFields, search });
     if (!answer) return;
     current = answer;
     await show();
+    // a form in the element panel applies it (panelForms.showDomForm)
+    host.dispatchEvent(new Event('change', { bubbles: true }));
   });
   host.append(text, edit);
   void show();

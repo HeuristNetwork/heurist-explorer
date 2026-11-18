@@ -42,10 +42,12 @@ const SUBMIT_LABELS = Object.freeze({ configuration: 'Apply', website: 'Save', p
  * (`modeDefaults` of the fields, e.g. Enable edit off on a website).
  *
  * @param {object} options See ModuleConfigurationDialog (`form`, `formId`, `mode`, `value`, `defaults`, `normalize`,
- *        `simplified`, `termsProviders`, `formOptions`, `slot`); `confirmId`: the dialog id of the Reset question.
+ *        `simplified`, `termsProviders`, `formOptions`, `slot`); `confirmId`: the dialog id of the Reset question;
+ *        `advancedSwitch: false`: no Advanced checkbox, the host switches it (`advanced` the start value, `setAdvanced`;
+ *        the element panel of the CMS designer, review 27n §21).
  * @returns {Promise<{element: HTMLElement, form: HEditForm, mode: string, getValue: () => object|null,
  *          validate: () => Array<object>, isDirty: () => boolean, reset: (confirm?: boolean) => void,
- *          destroy: () => Promise<void>}>}
+ *          setAdvanced: (shown: boolean) => void, destroy: () => Promise<void>}>}
  */
 export async function createModuleConfigurationForm(options = {}) {
   const mode = configurationFormMode(options.mode);
@@ -60,10 +62,11 @@ export async function createModuleConfigurationForm(options = {}) {
   const advancedKey = `${formId}:${mode}`;
   const offered = mode !== 'publication' && options.simplified !== true
     && hasOptionalItems(options.form, { mode, simplified: options.simplified === true });
-  let advanced = offered && advancedState.get(advancedKey) === true;
+  const ownSwitch = options.advancedSwitch !== false;
+  let advanced = offered && (ownSwitch ? advancedState.get(advancedKey) === true : options.advanced === true);
   let form = null;
   let wasReset = false;
-  if (offered) {
+  if (offered && ownSwitch) {
     const label = document.createElement('label');
     label.className = 'h-inline h-module-config-advanced';
     const input = document.createElement('input');
@@ -104,6 +107,11 @@ export async function createModuleConfigurationForm(options = {}) {
     validate: () => (form ? form.validate() : []),
     // a Reset makes the form again: it counts as a change
     isDirty: () => wasReset || Boolean(form?.isDirty()),
+    /** Show or hide the Advanced fields (a host without the own checkbox). */
+    setAdvanced: (shown) => {
+      advanced = offered && shown === true;
+      form?.setShowOptional(advanced);
+    },
     /** Reset to the defaults (after a confirmation unless `confirm` is false); nothing is saved yet. */
     reset: (confirm = true) => {
       if (!form) return;

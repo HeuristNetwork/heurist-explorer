@@ -85,7 +85,16 @@ test('tree: nodes with kinds, labels, presets and configured instances', () => {
   assert.deepEqual(tree.map((item) => [item.id, item.kind]), [['g1', 'control'], ['m1', 'instance']]);
   assert.equal(tree[0].preset, 'columns2');
   assert.deepEqual(tree[0].children.map((item) => item.label), ['One & two', 'Three']);
-  assert.equal(tree[1].label, 'map');
+  // the name of the type (review 27n §21.3)
+  assert.equal(tree[1].label, 'Map');
+  const doc = documentOf();
+  const social = doc.insertElement('content', 'social', { id: null, position: 'inside' });
+  assert.equal(doc.tree('content').find((item) => item.id === social).label, 'Social media', 'not actionmenu (§21.4)');
+  const data = doc.insertElement('content', 'data', { id: null, position: 'inside' });
+  assert.equal(doc.tree('content').find((item) => item.id === data).label, 'Result');
+  // a new menu: Auto orientation
+  const menu = doc.insertElement('content', 'menu', { id: null, position: 'inside' });
+  assert.deepEqual(doc.instance(doc.tree('content').find((item) => item.id === menu).instance).settings, { orientation: 'auto' });
   assert.equal(tree[1].configured, true);
 });
 
@@ -109,6 +118,7 @@ test('insert: elements of the picker go into a container or after a node', () =>
   const emailItem = doc.tree('content').find((item) => item.id === email);
   assert.equal(doc.instance(emailItem.instance).type, 'email');
   assert.equal(doc.instance(emailItem.instance).kind, 'widget');
+  assert.equal(emailItem.configured, true, 'works with its defaults: not "not configured" (review 27n §23.5)');
   assert.deepEqual(doc.nodeStyle(email), { 'min-height': '0' });
   assert.throws(() => doc.insertElement('content', 'cardinal'), /Unknown element/);
   assert.equal(doc.check().filter((issue) => issue.level === 'error').length, 0);

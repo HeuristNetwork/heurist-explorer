@@ -168,7 +168,8 @@
           "clearable": false,
           "help": "Which record is shown when several are selected"
         }
-      ]
+      ],
+      "req": "optional"
     },
     {
       "id": "interaction",
@@ -190,7 +191,8 @@
             "publication": false
           }
         }
-      ]
+      ],
+      "req": "optional"
     }
   ]
 }

@@ -224,7 +224,7 @@
           "name": "options.nativeControls.zoom",
           "type": "boolean",
           "label": "Zoom",
-          "req": "recommended",
+          "req": "optional",
           "default": true,
           "mode": "checkbox",
           "clearable": false,
@@ -236,7 +236,7 @@
           "name": "options.nativeControls.scale",
           "type": "boolean",
           "label": "Scale",
-          "req": "recommended",
+          "req": "optional",
           "default": true,
           "mode": "checkbox",
           "clearable": false,
@@ -291,7 +291,8 @@
             "publication": false
           }
         }
-      ]
+      ],
+      "req": "optional"
     },
     {
       "id": "workspace",
@@ -327,7 +328,7 @@
           "name": "config.dynamicDocument.dynamicRequests",
           "type": "boolean",
           "label": "Load by map extent",
-          "req": "recommended",
+          "req": "optional",
           "default": false,
           "mode": "checkbox",
           "clearable": false,

@@ -155,9 +155,10 @@ test('footer composer (plan 27f §3.2): the chosen blocks in three centred rows,
   assert.equal(Object.keys(small.config.instances).length, 0);
 });
 
-test('template Team: a heading and cards of the Team member report, the records to pick', () => {
+test('template Team: the page name and cards of the Team member report, the records to pick', () => {
   const { content, configuration } = cmsPageStarter('team', 'Our team', { values: { fromDatabase: true } });
-  assert.match(content, /<h1>Project Team<\/h1>/);
+  assert.match(content, /data-h-field="page\.2-1">Our team</);
+  assert.doesNotMatch(content, /<h1>/, 'no heading of its own (review 27n §22)');
   const config = JSON.parse(configuration);
   const [instance] = Object.values(config.instances);
   assert.equal(instance.type, 'cards');

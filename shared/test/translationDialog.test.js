@@ -22,13 +22,20 @@ const badges = (form) => form.element.querySelectorAll('.h-input-text-lang').map
 const inputs = (form) => form.element.querySelectorAll('input');
 
 test('rows with badges; the selector adds a row and is hidden when no language is left', () => {
-  const form = createTranslationForm({ value: 'Hello', translations: { FRE: 'Bonjour' }, languages: ['ENG', 'FRE', 'GER'], original: 'ENG' });
-  assert.deepEqual(badges(form), ['ENG', 'FRE']);
+  const form = createTranslationForm({ value: 'Hello', translations: {}, languages: ['ENG', 'FRE', 'GER'], original: 'ENG' });
+  assert.deepEqual(badges(form), ['ENG']);
   const select = form.element.querySelector('select');
-  assert.deepEqual(select.children.map((option) => option.value), ['', 'GER'], 'the original and used languages left out');
-  select.value = 'GER';
+  assert.deepEqual(select.children.map((option) => option.value), ['', 'FRE', 'GER'], 'the original left out');
+  select.value = 'FRE';
   select.fire('change');
+  assert.deepEqual(badges(form), ['ENG', 'FRE']);
+  // one language left (plan 27n §18.17b): a button "Add GER", no selector
+  assert.equal(form.element.querySelector('select'), null);
+  const add = form.element.querySelector('.h-translation-add-one');
+  assert.equal(add.textContent, 'Add GER');
+  add.click();
   assert.deepEqual(badges(form), ['ENG', 'FRE', 'GER']);
+  inputs(form)[1].value = 'Bonjour';
   assert.equal(form.element.querySelector('.h-translation-add').hidden, true, 'no language left');
   assert.equal(form.element.querySelector('.h-translation-translate'), null, 'no translation service: no Translate');
   inputs(form)[2].value = 'Hallo';

@@ -177,3 +177,13 @@ test('mode defaults (2026-11-14): a new instance and Reset get the defaults of t
   assert.equal(stored.isDirty(), true);
   await stored.destroy();
 });
+
+test('module form switched by its host (review 27n §21): no own Advanced checkbox, setAdvanced', async () => {
+  const panel = await createModuleConfigurationForm({ form: FORM, formId: 'host', mode: 'website', defaults: DEFAULTS, normalize,
+    advanced: false, advancedSwitch: false });
+  assert.equal(panel.element.querySelector('.h-module-config-advanced'), null, 'no checkbox');
+  assert.equal(panel.form.options.showOptional, false);
+  panel.setAdvanced(true);
+  assert.equal(panel.form.options.showOptional, true);
+  await panel.destroy();
+});

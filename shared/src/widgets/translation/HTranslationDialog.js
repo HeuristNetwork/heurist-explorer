@@ -216,16 +216,28 @@ export function createTranslationForm({
     const free = offered.filter((code) => !used.has(code.toUpperCase()));
     adder.hidden = !free.length;
     if (!free.length) return;
+    const add = (code) => {
+      const row = addRow(code, '');
+      renderAdder();
+      syncTranslate();
+      row.input.control?.focus?.();
+    };
+    // one language left: a button "Add FRE", no selector with one choice (plan 27n §18.17b)
+    if (free.length === 1) {
+      const button = element('button', 'h-btn h-compact h-translation-add-one');
+      button.type = 'button';
+      button.textContent = `${$HR('Add')} ${free[0].toUpperCase()}`;
+      button.title = $HR('Add a translation in this language');
+      button.addEventListener('click', () => add(free[0]));
+      adder.append(button);
+      return;
+    }
     const chooser = languageSelect({
       languages: [{ code: '', label: $HR('Add a language') }, ...free.map((code) => ({ code, label: code.toUpperCase() }))],
       value: '',
       title: 'Add a translation in this language',
       onChange: (code) => {
-        if (!code) return;
-        const row = addRow(code, '');
-        renderAdder();
-        syncTranslate();
-        row.input.control?.focus?.();
+        if (code) add(code);
       }
     });
     adder.append(chooser.element);

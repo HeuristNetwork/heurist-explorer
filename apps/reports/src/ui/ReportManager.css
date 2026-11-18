@@ -366,11 +366,33 @@
   width: 22px;
 }
 
-/* the cells: visibility, choice, (generate, hidden), language, name, ..., size, (actions, hidden) */
+/* the cells: visibility, choice, (generate, hidden), language, name, ..., size, (actions, hidden); narrow columns, the
+   name takes the rest and is cut (plan 27n §18.16a) */
+.h-reports-schedules.is-compact .h-reports-table :is(th, td) {
+  padding: 3px 4px;
+}
+
 .h-reports-schedules.is-compact .h-reports-table :is(th, td):nth-child(4) {
-  width: 5em;
+  width: 3.5em;
+}
+
+.h-reports-schedules.is-compact .h-reports-table :is(th, td):nth-child(5) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .h-reports-schedules.is-compact .h-reports-table :is(th, td):nth-last-child(2) {
-  width: 6em;
+  width: 4.5em;
+}
+
+/* the list never wider than the panel */
+.h-reports-schedules.is-compact,
+.h-reports-schedules.is-compact .h-reports-table {
+  max-width: 100%;
+  min-width: 0;
+}
+
+.h-reports-schedules.is-compact .h-reports-pick-language {
+  max-width: 100%;
 }

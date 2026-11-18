@@ -23,6 +23,7 @@ import { HMsg } from '#shared/ui';
 import { HEditForm } from '#shared/widgets/edit-form/HEditForm.js';
 import { openEditFormDialog } from '#shared/widgets/edit-form/editFormDialog.js';
 import { formDialog } from './designerDialogs.js';
+import { advancedShown, advancedSwitch } from './designerPanel.js';
 
 /** Sections of a configuration (plan 27n §6), in this order; labels of the HEditForm groups. */
 export const FORM_SECTIONS = Object.freeze([
@@ -38,26 +39,43 @@ export const APPLY_DELAY = 400;
  * others to Presentation; empty sections are left out.
  *
  * @param {Array<object>} children HEditForm fields.
- * @param {{source?: string[], caption?: string[], behaviour?: string[], identification?: string[]}} sections Field names.
+ * @param {{source?: string[], caption?: string[], behaviour?: string[], identification?: string[], when?: object}} sections
+ *        Field names; `when`: `showWhen` of a section by its id (Caption of the email form only for a button).
  * @param {{presentation?: Array<object>, identification?: Array<object>}} [extra] Fields of the designer added at the end of
  *        their section.
+ * @param {{presentationSlot?: boolean}} [options] A slot at the end of Presentation (Reveal of the designer, review §21).
  * @returns {Array<object>} HEditForm groups (`type: 'group'`: a fieldset with its legend).
  */
-export function sectionGroups(children, sections = {}, extra = {}) {
+export function sectionGroups(children, sections = {}, extra = {}, { presentationSlot = false } = {}) {
   const sectionOf = (name) => FORM_SECTIONS.find(([id]) => id !== 'presentation' && (sections[id] || []).includes(name))?.[0] || 'presentation';
   return FORM_SECTIONS.map(([id, label]) => ({
     id,
     type: 'group',
     label,
+    ...(sections.when?.[id] ? { showWhen: sections.when[id] } : {}),
+    ...(id === 'presentation' && presentationSlot ? { slot: PRESENTATION_SLOT } : {}),
     children: [...children.filter((field) => sectionOf(field.name) === id), ...(extra[id] || [])]
-  })).filter((group) => group.children.length);
+  })).filter((group) => group.children.length || group.slot);
 }
+
+/**
+ * A field of a designer form without `req` is a basic one (review 27n §21): HEditForm counts a field without `req` as
+ * optional, which the simple form would hide; only the fields marked `req: 'optional'` are advanced settings.
+ */
+function basicField(field) {
+  return field && !field.req && field.required !== true ? { ...field, req: 'recommended' } : field;
+}
+
+/** The slot of the designer's Presentation block in an HEditForm configuration. */
+const PRESENTATION_SLOT = 'h-cms-presentation';
 
 /**
  * Show an HEditForm of the designer: a popup (OK / Cancel or own buttons) or, with `inline`, in a host of the element
  * panel: after each change and a pause, a valid form gives `map(values)` to `inline.onResult` (own buttons: `onAction`
  * of the first one runs first). `common` fields of the designer (names starting with `__`) are applied at once by
- * `common.onChange`, not by `map`.
+ * `common.onChange`, not by `map`; `common.presentationNode` goes to the end of Presentation. Fields with
+ * `req: 'optional'` are advanced settings (review 27n §21): shown with `inline.advanced` (and `inline.onAdvanced`) or,
+ * in a popup, with the choice of the panel (advancedShown).
  *
  * @param {object} options openEditFormDialog options (`form` with one group, or groups).
  * @param {(values: object) => (object|null|Promise<object|null>)} map The result of the values; null: nothing to apply.
@@ -66,13 +84,23 @@ export function sectionGroups(children, sections = {}, extra = {}) {
  */
 export function showEditForm(options, map, { inline = null, sections = null } = {}) {
   const common = inline?.common || null;
-  const groups = options.form?.groups || [];
-  const children = groups.flatMap((group) => group.children || []);
+  const groups = (options.form?.groups || []).map((group) => ({ ...group, children: (group.children || []).map(basicField) }));
+  const children = groups.flatMap((group) => group.children);
+  const node = common?.presentationNode || null;
+  const extra = Object.fromEntries(Object.entries(common?.fields || {}).map(([id, list]) => [id, (list || []).map(basicField)]));
   const form = sections || common
-    ? { ...options.form, groups: sectionGroups(children, sections || {}, common?.fields || {}) }
-    : options.form;
+    ? { ...options.form, groups: sectionGroups(children, sections || {}, extra, { presentationSlot: Boolean(node) }) }
+    : { ...options.form, groups };
   if (!inline) {
-    return openEditFormDialog({ ...options, form }).then((result) => (result ? map(result) : null));
+    // a popup (a new element): compact inputs and its own switch of the advanced settings (review 27n §23.4)
+    const offered = form.groups.some((group) => group.req === 'optional' || (group.children || []).some((field) => field.req === 'optional'));
+    const onReady = (edit) => {
+      edit.container?.classList?.add('h-cms-compact');
+      if (offered) edit.container?.insertBefore?.(advancedSwitch((shown) => edit.setShowOptional(shown)), edit.container.firstChild || null);
+      return options.onReady?.(edit);
+    };
+    return openEditFormDialog({ ...options, form, showOptional: advancedShown(), keepOptional: true, onReady })
+      .then((result) => (result ? map(result) : null));
   }
   const { title, okLabel, cancelLabel, className, buttons, onAction, validate, onChange, values, ...formOptions } = options;
   let timer = null;
@@ -97,6 +125,9 @@ export function showEditForm(options, map, { inline = null, sections = null } = 
   const edit = new HEditForm().attach(inline.host, {
     ...formOptions,
     form,
+    // advanced settings hidden keep their values (review 27n §21)
+    showOptional: inline.advanced === true,
+    keepOptional: true,
     values: { ...(values || {}), ...(common?.values || {}) },
     validate: (current, instance) => {
       const issues = [...(validate?.(own(current), instance) || []), ...(common?.validate?.(current) || [])];
@@ -114,6 +145,13 @@ export function showEditForm(options, map, { inline = null, sections = null } = 
   // a control of the form outside HEditForm (the caption rows of media) tells its changes here
   edit.panelChanged = () => schedule();
   edit.render();
+  // the Reveal block of the designer after the fields of Presentation
+  const slot = node ? edit.getSlot(PRESENTATION_SLOT) : null;
+  if (slot) {
+    slot.append(node);
+    slot.parentElement?.append(slot);
+  }
+  inline.onAdvanced?.((shown) => edit.setShowOptional(shown));
   inline.register?.(async () => {
     globalThis.clearTimeout(timer);
     await edit.destroy();
@@ -134,6 +172,13 @@ export function showEditForm(options, map, { inline = null, sections = null } = 
  */
 export function showDomForm(content, title, read, { inline = null, className = '', cleanup = null } = {}) {
   if (!inline) {
+    // the advanced settings (class h-cms-advanced-only) as chosen in the element panel (review 27n §21), with a switch
+    // of its own; compact inputs (§23.4)
+    content.classList.toggle('is-simple', !advancedShown());
+    content.classList.add('h-cms-compact');
+    if (content.querySelector('.h-cms-advanced-only')) {
+      content.insertBefore(advancedSwitch((shown) => content.classList.toggle('is-simple', !shown)), content.firstChild || null);
+    }
     const answer = formDialog(content, title, 'OK', read, null, className);
     return cleanup ? Promise.resolve(answer).finally(cleanup) : answer;
   }

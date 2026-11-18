@@ -114,11 +114,14 @@ const PANEL_WIDGET_FORMS = Object.freeze({
 });
 
 /** Help of Reveal (review 27n §14.6): with its input. */
-const REVEAL_HELP = 'How the element appears when it comes into the window. Initially hidden: shown by a Show / hide action of an action menu.';
+const REVEAL_HELP = 'How the element appears when it comes into the window, or when a Show / hide action shows it.';
+
+/** Help of Initially hidden (review 27n §18.2b): an option apart from the Reveal effect. */
+const HIDDEN_HELP = 'Not shown until a Show / hide action of an action menu shows it (with its Reveal effect).';
 
 /** Reveal effects (plan 27n §8, CMS_REVEALS): value, label. */
 const REVEAL_LABELS = Object.freeze([['', 'None'], ['fade', 'Fade in'], ['up', 'Slide up'], ['down', 'Slide down'],
-  ['left', 'Slide from the left'], ['right', 'Slide from the right'], ['zoom', 'Zoom in'], ['hidden', 'Initially hidden']]);
+  ['left', 'Slide from the left'], ['right', 'Slide from the right'], ['zoom', 'Zoom in']]);
 
 const PART_LABELS = Object.freeze({ header: 'Header', content: 'Home', footer: 'Footer' });
 const ROOT = '#root';
@@ -1905,9 +1908,11 @@ export class CmsDesigner {
       settings,
       caption: cmsMediaCaption(current.html),
       // a language without its own caption has the original one in its HTML (with its own link labels): no translation
-      // in the form (review 27n §17.17)
+      // in the form. `captions`: the languages with their own caption (review §18.17a); without it (older elements) a
+      // caption equal to the original is none (§17.17)
       translations: Object.fromEntries(Object.entries(current.translations).map(([code, html]) => [code, cmsMediaCaption(html)])
-        .map(([code, text]) => [code, text === cmsMediaCaption(current.html) ? '' : text])),
+        .filter(([code, text]) => (Array.isArray(settings.captions) ? settings.captions.includes(code)
+          : text !== cmsMediaCaption(current.html)) && text)),
       languages,
       translator: this._translator(),
       dbdefs: this.options.dbdefs,
@@ -1932,7 +1937,9 @@ export class CmsDesigner {
     const runtime = this.options.runtime || {};
     const urls = fileMediaUrls(runtime.baseUrl || '', runtime.database || '', { relative: true });
     const view = result.settings.action === 'viewer' ? cmsMediaView(file, urls) : null;
-    const saved = { ...result.settings, file: file.key };
+    // the languages with their own caption (review §18.17a): the others show the original one
+    const saved = { ...result.settings, file: file.key,
+      captions: languages.slice(1).filter((code) => String(result.translations?.[code] || '').trim()) };
     const html = (caption, language) => buildCmsMedia(file, { ...saved, view: Boolean(view) }, { urls, caption, language });
     const translations = Object.fromEntries(languages.slice(1).map((code) => [code, html(result.translations[code] || result.caption, code)]));
     commit((doc) => doc.setMedia(id, { settings: saved, html: html(result.caption, languages[0] || 'eng'), translations, view }));
@@ -2183,7 +2190,7 @@ export class CmsDesigner {
    * A Record field in the panel (review §14.12): the element follows each valid change (the preview is loaded again when
    * the reference changes: its value comes from the server); Reveal and Identification in the form.
    */
-  async _fieldSection(host, id, node) {
+  async _fieldSection(host, id, node, context = null) {
     const record = this._currentRecord();
     const cleanups = [];
     let reference = record.doc.field(id);
@@ -2191,6 +2198,7 @@ export class CmsDesigner {
       await this._askField(reference, record.doc.nodeStyle(id), record.doc.fieldLink(id), record.doc.fieldLinkValues(id), {
         host,
         register: (cleanup) => cleanups.push(cleanup),
+        ...advancedOf(context),
         common: this._commonFields(id, node),
         onResult: (result) => {
           this._formEdit(`field:${id}`, (doc) => doc.setField(id, result.reference, result.html)
@@ -2530,7 +2538,7 @@ export class CmsDesigner {
   _panelTabs(id) {
     const part = this.current?.part;
     const styleTab = (help) => ({ id: 'style', label: $HR('Own style'), help: help.map((text) => $HR(text)),
-      sections: [{ label: '', build: (host) => this._styleSection(host, id) }] });
+      sections: [{ label: '', build: (host, context) => this._styleSection(host, id, context) }] });
     if (parseModuleItemId(id)) {
       if (!this._hasConfigPanels()) return null;
       const actions = {};
@@ -2582,12 +2590,12 @@ export class CmsDesigner {
     const formKind = instance?.kind === 'widget' && !(instance.type === 'badges' && instance.settings?.source === 'host')
       ? PANEL_WIDGET_FORMS[instance.settings?.preset === 'social' ? 'actionmenu' : instance.type] : null;
     if (formKind) {
-      sections.push({ label: '', build: (host) => this._widgetSection(host, id, node, formKind) });
+      sections.push({ label: '', build: (host, context) => this._widgetSection(host, id, node, formKind, context) });
       if (formKind === 'dom') sections.push(identification);
       return sections;
     }
     if (node.kind === 'media') {
-      sections.push({ label: '', build: (host) => this._mediaSection(host, id, node) });
+      sections.push({ label: '', build: (host, context) => this._mediaSection(host, id, node, context) });
       return sections;
     }
     if (instance?.kind === 'module' && this._hasConfigPanels()) {
@@ -2609,7 +2617,7 @@ export class CmsDesigner {
       return sections;
     } else if (node.field) {
       // a Record field in the panel (review §14.12): the value of the field is saved by its button Update value
-      sections.push({ label: '', build: (host) => this._fieldSection(host, id, node) });
+      sections.push({ label: '', build: (host, context) => this._fieldSection(host, id, node, context) });
       return sections;
     } else if (node.kind === 'text') {
       sections.push(this._buttonSection('', 'Edit text...', 'fa-pen', () => this._editText(id)));
@@ -2620,8 +2628,9 @@ export class CmsDesigner {
   }
 
   /**
-   * The designer's fields in an HEditForm configuration (plan 27n §6.1, panelForms `common`): Reveal at the end of
-   * Presentation (content only), Identification (system id, name); applied at once, not with the settings.
+   * The designer's fields in an HEditForm configuration (plan 27n §6.1, panelForms `common`): Reveal and Initially
+   * hidden at the end of Presentation (content only, `presentationNode`), Identification (system id, name); applied at
+   * once, not with the settings.
    *
    * @param {string} id Node id.
    * @param {object} node Tree item.
@@ -2631,9 +2640,9 @@ export class CmsDesigner {
     const doc = this._currentRecord().doc;
     const content = this.current?.part === 'content';
     return {
+      // Reveal and Initially hidden (a checkbox on the same line): the block of the other forms (review 27n §21.2)
+      presentationNode: content ? this._revealField(id) : null,
       fields: {
-        presentation: content ? [{ name: '__reveal', type: 'enum', label: 'Reveal on scroll', max: 1,
-          terms: REVEAL_LABELS.map(([value, label]) => ({ id: value || 'none', label })), help: REVEAL_HELP, width: 22 }] : [],
         identification: [
           { name: '__systemId', type: 'freetext', label: 'System id', max: 1, readOnly: true },
           { name: '__name', type: 'freetext', label: 'Name', max: 1, maxLength: 64, pattern: '^[A-Za-z0-9_-]*$',
@@ -2641,17 +2650,13 @@ export class CmsDesigner {
             help: 'Name of the element, used by actions (Show / hide) and lists: letters, digits, _ and -' }
         ]
       },
-      values: { __reveal: doc.reveal(id) || 'none', __systemId: node.instance || id, __name: doc.name(id) },
+      values: { __systemId: node.instance || id, __name: doc.name(id) },
       validate: (values) => {
         const error = this._nameError(id, String(values.__name ?? '').trim());
         return error ? [{ field: '__name', message: error }] : [];
       },
       onChange: (name, value, form) => {
         const text = String([value].flat()[0] ?? '').trim();
-        if (name === '__reveal') {
-          this._formEdit(`reveal:${id}`, (current) => current.setReveal(id, text === 'none' ? '' : text));
-          this._playReveal(id);
-        }
         if (name !== '__name') return;
         // spaces become underscores (review §14.15)
         const named = nameOf(text);
@@ -2665,13 +2670,14 @@ export class CmsDesigner {
   }
 
   /** The configuration of a widget in the panel (plan 27n §6): its form, applied after each valid change. */
-  async _widgetSection(host, id, node, formKind) {
+  async _widgetSection(host, id, node, formKind, context = null) {
     const instance = this._currentRecord()?.doc.instance(node.instance);
     if (!instance) return undefined;
     const cleanups = [];
     const inline = {
       host,
       register: (cleanup) => cleanups.push(cleanup),
+      ...advancedOf(context),
       ...(formKind === 'edit' ? { common: this._commonFields(id, node) } : { presentationExtra: this._revealField(id) })
     };
     try {
@@ -2685,10 +2691,11 @@ export class CmsDesigner {
   }
 
   /** A media element in the panel (plan 27n §6): its form with Reveal and Identification, applied after each valid change. */
-  async _mediaSection(host, id, node) {
+  async _mediaSection(host, id, node, context = null) {
     const cleanups = [];
     try {
-      await this._editMedia(id, { host, register: (cleanup) => cleanups.push(cleanup), common: this._commonFields(id, node) });
+      await this._editMedia(id, { host, register: (cleanup) => cleanups.push(cleanup), common: this._commonFields(id, node),
+        ...advancedOf(context) });
     } catch (error) {
       HMsg.showMsgErr?.(error?.message || String(error));
     }
@@ -2941,6 +2948,8 @@ export class CmsDesigner {
     // (phase E2): the fields go into its filters fieldset, its filter fields only with Own filters
     const page = child ? null : this._pageRecordSources(found.instanceId);
     const explorer = !child && instance.type === 'explorer';
+    // the module form without its own Advanced checkbox: the button of the panel switches it (review 27n §21)
+    const advanced = { advanced: context?.advanced === true, advancedSwitch: false };
     const syncSection = child ? null : createRecordsSection({
       instance,
       instances: page.instances,
@@ -2955,14 +2964,17 @@ export class CmsDesigner {
     try {
       if (child) {
         panel = await this.bridge.createConfigurationPanel({ moduleType: child.type, mode: 'website',
-          value: explorerModuleSettings(instance.settings, child.type) });
+          value: explorerModuleSettings(instance.settings, child.type), ...advanced });
       } else if (explorer) {
         panel = await this.bridge.createExplorerInstancePanel({ value: instance, recordsSection: syncSection.element });
         panel?.showFilters?.(syncSection.from().includes('own'));
       } else {
         const hasSettings = instance.settings && typeof instance.settings === 'object' && Object.keys(instance.settings).length;
-        panel = await this.bridge.createConfigurationPanel({ moduleType: instance.type, mode: 'website', value: hasSettings ? instance.settings : null });
+        panel = await this.bridge.createConfigurationPanel({ moduleType: instance.type, mode: 'website',
+          value: hasSettings ? instance.settings : null, ...advanced });
       }
+      // Show advanced settings of the panel (review 27n §21): the Advanced fields of the module form
+      context?.onAdvanced?.((shown) => panel?.setAdvanced?.(shown));
     } catch (error) {
       loading.textContent = error?.message || String(error);
       void syncSection?.destroy();
@@ -3138,7 +3150,18 @@ export class CmsDesigner {
     const box = element('div', 'h-cms-reveal-field');
     const help = element('div', 'h-cms-style-note');
     help.textContent = $HR(REVEAL_HELP);
-    box.append(field, help);
+    // Initially hidden: an option of its own (review §18.2b), a checkbox on the line of Reveal (review §20.1)
+    const hiddenLine = element('label', 'h-cms-check');
+    const hiddenBox = element('input');
+    hiddenBox.type = 'checkbox';
+    hiddenBox.checked = Boolean(this._currentRecord()?.doc.hidden(id));
+    hiddenLine.append(hiddenBox, document.createTextNode(` ${$HR('Initially hidden')}`));
+    hiddenBox.addEventListener('change', () => this._formEdit(`hidden:${id}`, (doc) => doc.setHidden(id, hiddenBox.checked)));
+    const hiddenHelp = element('div', 'h-cms-style-note');
+    hiddenHelp.textContent = $HR(HIDDEN_HELP);
+    const line = element('div', 'h-cms-reveal-line');
+    line.append(field, hiddenLine);
+    box.append(line, help, hiddenHelp);
     return box;
   }
 
@@ -3214,9 +3237,14 @@ export class CmsDesigner {
     globalThis.setTimeout?.(() => this.preview?.playReveal?.(id), 400);
   }
 
-  /** The own style in the form (plan 27i §10): every change at once; a group may have a background video. */
-  _styleSection(host, id) {
+  /**
+   * The own style in the form (plan 27i §10): every change at once; a group may have a background video. Simple without
+   * Show advanced settings of the panel (review 27n §21).
+   */
+  _styleSection(host, id, context = null) {
     const record = this._currentRecord();
+    const simple = context?.advanced !== true;
+    const follow = (editor) => context?.onAdvanced?.((shown) => editor.setSimple(!shown));
     const base = Object.assign({}, ...this._styleRecords().map((item) => item.doc.base()));
     const part = this.current?.part;
     if (id === ROOT && (part === 'header' || part === 'footer')) {
@@ -3224,17 +3252,17 @@ export class CmsDesigner {
       // the layout (Styles, before 2026-11-16) move into it
       this._movePartLayout(part);
       let ready = false;
-      styleRows(host, record.doc.partStyle(part), (style) => {
+      follow(styleRows(host, record.doc.partStyle(part), (style) => {
         if (ready) this._formEdit(`style:${part}`, (doc) => (doc.setPartStyle(part, style), true));
-      }, { kind: 'group', presets: null, base, files: this._files() });
+      }, { kind: 'group', presets: null, base, files: this._files(), simple }));
       ready = true;
       return undefined;
     }
     if (id === ROOT) {
       let ready = false;
-      styleRows(host, record.doc.pageStyle(), (style) => {
+      follow(styleRows(host, record.doc.pageStyle(), (style) => {
         if (ready) this._formEdit('style:page', (doc) => (doc.setPageStyle(style), true));
-      }, { kind: 'group', presets: null, base, files: this._files() });
+      }, { kind: 'group', presets: null, base, files: this._files(), simple }));
       ready = true;
       return undefined;
     }
@@ -3257,8 +3285,9 @@ export class CmsDesigner {
       // the colours Own of menus, action menus and tabs (plan 27n §7)
       itemColors: node?.control === 'tabs' || ['menu', 'actionmenu'].includes(node?.type),
       classInput: this.options.dbdefs?.meta?.javaScriptAllowed === true, base, files: this._files(),
-      video: kind === 'group' ? record.doc.backgroundVideo(id) : null
+      video: kind === 'group' ? record.doc.backgroundVideo(id) : null, simple
     });
+    follow(editor);
     return undefined;
   }
 
@@ -3485,11 +3514,22 @@ function nodeIcon(item) {
   if (item.type === 'report') return 'fa-file';
   if (item.kind === 'text') return 'fa-paragraph';
   if (item.kind === 'media') return 'fa-photo-film';
-  if (item.kind === 'instance') return { menu: 'fa-bars', breadcrumbs: 'fa-angles-right', filter: 'fa-filter' }[item.type] || 'fa-cube';
+  // the modules: the icons of Explorer (review 27n §21.3)
+  if (item.kind === 'instance') {
+    return EXPLORER_MODULES[item.type]?.icon || { menu: 'fa-bars', breadcrumbs: 'fa-angles-right', filter: 'fa-filter' }[item.type] || 'fa-cube';
+  }
   if (item.control === 'tabs') return 'fa-folder-open';
   if (item.control === 'accordion') return 'fa-list';
   if (item.preset === 'columns2' || item.preset === 'columns3') return 'fa-table-columns';
   return item.kind === 'control' ? 'fa-layer-group' : 'fa-code';
+}
+
+/**
+ * The advanced settings of the element panel for an inline form (review 27n §21): `advanced` shown at start and
+ * `onAdvanced(fn)` when the button of the panel switches them.
+ */
+function advancedOf(context) {
+  return { advanced: context?.advanced === true, onAdvanced: context?.onAdvanced || null };
 }
 
 /** A name typed with spaces (review 27n §14.15): underscores in their place. */

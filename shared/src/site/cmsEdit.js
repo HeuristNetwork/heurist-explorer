@@ -36,7 +36,7 @@
 import { checkCmsDocument, CMS_CONFIG_VERSION, CMS_NAME, CMS_SCHEMA, cmsInstanceDataSource, parseCmsConfig } from './cmsDocument.js';
 import { CMS_MEDIA_DEFAULTS } from './cmsMedia.js';
 import { ITEM_COLORS } from './cmsMenu.js';
-import { buildTemplatePage, CMS_TEAM_TEMPLATE, CMS_TEMPLATE_PAGES } from './cmsPageTemplates.js';
+import { addPageName, buildTemplatePage, CMS_TEAM_TEMPLATE, CMS_TEMPLATE_PAGES } from './cmsPageTemplates.js';
 import { normalizeCmsFilterValues } from './cmsSavedFilter.js';
 
 /** HTML parts of a record: field key => role. */
@@ -53,9 +53,9 @@ export const CMS_TAB_STYLES = Object.freeze(['tabs', 'links', 'underline', 'pill
 
 /**
  * Reveal on scroll of an element (plan 27k §6, `data-h-reveal`; StoredText allows the same). Plan 27n §8: slide down,
- * left, right (side slide), zoom, and `hidden` = initially hidden until a Show / hide action shows it.
+ * left, right (side slide), zoom. Initially hidden is an option of its own (`data-h-hidden`, review §18.2b).
  */
-export const CMS_REVEALS = Object.freeze(['fade', 'up', 'down', 'left', 'right', 'zoom', 'hidden']);
+export const CMS_REVEALS = Object.freeze(['fade', 'up', 'down', 'left', 'right', 'zoom']);
 
 /** Elements the designer can add (§5.2). */
 export const CMS_ELEMENTS = Object.freeze(['text', 'media', 'group', 'columns2', 'columns3', 'tabs', 'accordion', 'explorer',
@@ -324,6 +324,8 @@ export class CmsRecordDocument {
         // a field reference without text in the snapshot (the server writes the value): the designer shows the field name
         fieldOnly: Boolean(attr(child, 'data-h-field')) && hasAttr(child, 'data-h-text') && !plain(child.raw || ''),
         type: instance?.type || null,
+        // an action menu with the social media preset (its name in the tree, review 27n §21.4)
+        social: instance?.settings?.preset === 'social',
         preset: attr(child, 'data-h-style'),
         configured: instanceId ? isConfigured(instance) : !hasAttr(child, 'data-h-media') || Boolean(this.media(id)?.settings.file),
         caption: attr(captionOf(child), 'data-h-node'),
@@ -975,6 +977,26 @@ export class CmsRecordDocument {
     return result;
   }
 
+  /** Whether a node is initially hidden (plan 27n §8, `data-h-hidden`): shown by a Show / hide action. */
+  hidden(id) {
+    return attr(this.find(id)?.node, 'data-h-hidden') === 'true';
+  }
+
+  /**
+   * Initially hidden on or off.
+   *
+   * @param {string} id
+   * @param {boolean} hidden
+   * @returns {boolean} Whether something changed.
+   */
+  setHidden(id, hidden) {
+    const node = this.find(id)?.node;
+    if (!node) return false;
+    const before = this.hidden(id);
+    if (hidden) setAttr(node, 'data-h-hidden', 'true'); else removeAttr(node, 'data-h-hidden');
+    return this.hidden(id) !== before;
+  }
+
   /** Reveal on scroll of a node (plan 27k §6, `data-h-reveal`): one of CMS_REVEALS or ''. */
   reveal(id) {
     const value = attr(this.find(id)?.node, 'data-h-reveal');
@@ -1179,6 +1201,8 @@ export class CmsRecordDocument {
         const instanceId = id('i');
         const nodeId = id('n');
         this.config.instances[instanceId] = defaultInstance('widget', element);
+        // a new menu: Auto, vertical in a vertical header (review 27n §21; as the menu of the header set)
+        if (element === 'menu') this.config.instances[instanceId].settings = { orientation: 'auto' };
         // a widget host: not the min-height of the instance kind (WebsiteStarter does the same)
         this._nodeStyles()[nodeId] = { 'min-height': '0' };
         return element$('nav', [['data-h-node', nodeId], ['data-h-instance', instanceId]], '');
@@ -1370,11 +1394,11 @@ export function cmsPageStarter(preset, title, { template = null, layout = null, 
     const { parts, configuration } = doc.serialize();
     return { content: parts.content, configuration, configure: [] };
   }
-  const heading = doc.insertElement('content', 'text');
-  doc.setText(heading, `<h1>${escapeText(title || 'Page')}</h1>`);
+  // the name of the page first (a Record field, review 27n §22), not a heading of the text
+  addPageName(doc, title || 'Page');
   if (preset === 'blank') {
-    // one text element: the title and a paragraph (plan 27c §19)
-    doc.setText(heading, `<h1>${escapeText(title || 'Page')}</h1><p>Text</p>`);
+    // one text element (plan 27c §19)
+    doc.setText(doc.insertElement('content', 'text'), '<p>Text</p>');
   } else if (preset === 'columns2' || preset === 'textColumns2') {
     if (preset === 'textColumns2') doc.insertElement('content', 'text');
     doc.insertElement('content', 'columns2');
@@ -1417,13 +1441,28 @@ function labelSection(node) {
 }
 
 /**
+ * Names of the instance types in the tree and the lists of named elements (review 27n §21.3-4): the names of the Add
+ * element list; `data` is Result as in Explorer, an action menu with the social preset is Social media.
+ */
+const INSTANCE_NAMES = Object.freeze({
+  data: 'Result', map: 'Map', timeline: 'Timeline', graph: 'Graph', recordview: 'Record view', explorer: 'Explorer',
+  crosstabs: 'Crosstabs', storymap: 'Story map', filter: 'Filter', menu: 'Menu', actionmenu: 'Action menu',
+  social: 'Social media', language: 'Language switcher', breadcrumbs: 'Breadcrumbs', badges: 'Badges', email: 'Email form',
+  cards: 'Record cards', gallery: 'Media gallery', report: 'Generated report'
+});
+
+/**
  * Type name of a tree item (plan 27n §9: `name · type` in the tree and the lists of named elements).
  *
- * @param {{type?: string|null, media?: string|null, field?: string|null, control?: string|null, tag?: string}} item
+ * @param {{type?: string|null, social?: boolean, media?: string|null, field?: string|null, control?: string|null,
+ *        tag?: string}} item
  * @returns {string}
  */
 export function typeNameOf(item) {
-  if (item.type) return item.type;
+  if (item.type) {
+    const type = item.type === 'actionmenu' && item.social ? 'social' : item.type;
+    return INSTANCE_NAMES[type] || type;
+  }
   if (item.media) return 'media';
   if (item.field) return 'field';
   if (item.control) return item.control;
@@ -1434,7 +1473,8 @@ export function typeNameOf(item) {
 function labelOf(node, instance) {
   const name = attr(node, 'data-h-name');
   if (name) {
-    return `${name} · ${typeNameOf({ type: instance?.type, media: attr(node, 'data-h-media'), field: attr(node, 'data-h-field'),
+    return `${name} · ${typeNameOf({ type: instance?.type, social: instance?.settings?.preset === 'social', media: attr(node, 'data-h-media'),
+      field: attr(node, 'data-h-field'),
       control: attr(node, 'data-h-control'), tag: hasAttr(node, 'data-h-text') ? 'p' : node.tag })}`;
   }
   return plainLabelOf(node, instance);
@@ -1442,7 +1482,7 @@ function labelOf(node, instance) {
 
 /** Short label of a tree item without its name. */
 function plainLabelOf(node, instance) {
-  if (hasAttr(node, 'data-h-instance')) return instance?.type || 'instance';
+  if (hasAttr(node, 'data-h-instance')) return instance?.type ? typeNameOf({ type: instance.type, social: instance.settings?.preset === 'social' }) : 'instance';
   if (hasAttr(node, 'data-h-media')) {
     // the caption, without the link to the viewer
     const text = plain(String(node.raw || '').replace(/<a\b[^>]*>[\s\S]*?<\/a>/gi, ' '));
@@ -1466,8 +1506,8 @@ function plainLabelOf(node, instance) {
   return node.tag;
 }
 // widgets that work with their defaults (empty settings): the menu, the language switch (Auto, review 2026-11-15), the
-// breadcrumbs (mode path = {}, review 2026-11-16)
-const READY_WIDGETS = new Set(['menu', 'language', 'breadcrumbs']);
+// breadcrumbs (mode path = {}, review 2026-11-16), the email form (a form on the page, review 27n §23.5)
+const READY_WIDGETS = new Set(['menu', 'language', 'breadcrumbs', 'email']);
 
 /** A configured instance: has settings (a pasted or new one has none), or a widget that works with its defaults. */
 function isConfigured(instance) {

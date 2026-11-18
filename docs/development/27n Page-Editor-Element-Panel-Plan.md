@@ -1,7 +1,7 @@
 # 27n Page editor: element panel, sections, names, Show / hide action
 
 **Status.** Agreed 2026-11-17, from Artem's review of the page editor (11 items). Two corrections by Artem in the
-same session are included (§6.2 action menu rows, §2.4 Help of the panel); open points decided (§12). Phases A-D done 2026-11-17 (§13); review rounds 1-4 done 2026-11-17 (§14-17); not committed, no browser check; phase E open (§13.5).
+same session are included (§6.2 action menu rows, §2.4 Help of the panel); open points decided (§12). Phases A-D done 2026-11-17 (§13); review rounds 1-9 done 2026-11-17/18 (§14-23); not committed, no browser check; phase E open (§13.5).
 
 Today the forms of the elements are inconsistent. A group shows Caption and Own style mixed in one inline form, and
 other elements open popups (pen, gear or palette). Font sizes can not use the Heurist variables. Add element is not
@@ -440,3 +440,120 @@ heurist `php tests/CmsFormatTest.php` and `php tests/WebsiteEditTest.php`.
     language shows the original caption: that is the expected display, the preview shows no change. Reading it back, the
     form took that original text as the translation. Now a translation equal to the original caption is shown empty
     (`_editMedia`).
+
+## 18. Review round 5 (Artem, 2026-11-18; done, not committed, no browser check)
+
+2a. **Reveal of elements already in the window.** A gallery seen in part showed the effect for the last image only, and an
+    image seen in part was shown, then hidden. Now nothing is hidden before the first report of the observer: an element
+    in the window at that report (even in part) plays its effect at once (`playReveal`: the hidden state, then the
+    transition); only an element below the window is hidden until a quarter of it / a third of the window shows it.
+2b. **Initially hidden is an option of its own** (format change, both repos): attribute `data-h-hidden="true"`
+    (`CmsRecordDocument.hidden / setHidden`, StoredText `Enum#true`), `hidden` removed from `CMS_REVEALS` and from the
+    Enum of `data-h-reveal`; CSS `[data-h-hidden]`. A Show / hide action shows the element with its Reveal effect
+    (`toggleElement` → `playReveal`; without an effect the short fade). Designer: checkbox *Initially hidden* below
+    Reveal (HEditForm `__hidden`; the reveal block of the other forms), each with its help.
+16a. Docked list of a Generated report: narrower columns (language 3.5em, size 4.5em, padding 4px), the name cut, the list
+     and the form never wider than the panel.
+16b. Docked list: *New Report* appears for the report of the chosen output (no report filter there; `newTarget`,
+     `updateAdd` after each choice); the full list (popup) as before, with its report filter.
+17a. Media caption: a language without its own caption has no row. The media keeps the languages with their own caption
+     (`settings.captions`, written by `_applyMedia`); older elements: a caption equal to the original is none.
+17b. Translation rows (shared `createTranslationForm`): when one language is left, a button *Add FRE* instead of the
+     selector (every caption form: groups, panels, media, items of action menus, record editor).
+
+## 19. Review round 6 (Artem, 2026-11-18; done, not committed, no browser check): action menu
+
+23a. The caption inputs of an item (translation rows) as high as the other compact inputs.
+23b. Icon: its own line after the caption, label *Icon*, the glyph and the class input without a gap, as wide as the action
+     selector (14em), then *Icon only*.
+23c. Action: label *Action*, the selector, *New tab*: aligned with the Icon line (labels 4.5em, inputs 14em).
+23d. Saved filter / search box not defined: the button *Define saved filter* (with the filter icon; defined: the summary and
+     the icon). The picker sends `change` after a choice, so the form in the panel applies it (it was not applied before).
+23e. The settings of the action on the Action line when the form is 600px or wider (CSS container query on the list), else
+     on the next line below the inputs; the record of a Record page always on the next line (`is-block`).
+23f. Popup: the panel popup of an action menu 620px; the dialog of a new action menu `min(640px, 96vw)` (was 1180px).
+23g. `.h-cms-dom-section-title`: margin-top 6px, padding 4px, background `--h-color-border` (all forms made of elements).
+23h. *Actions*: a button on the right of its title expands / collapses all items; collapsed: drag handle, the caption as
+     text (else the default label) and Remove; Remove is on the caption line in both states.
+
+## 20. Review round 7 (Artem, 2026-11-18; done, not committed, no browser check)
+
+1. *Initially hidden*: a checkbox on the line of *Reveal on scroll* (`.h-cms-reveal-line`, wraps when narrow); both helps
+   below.
+2. One input height in the element panel: every input (not checkbox / radio / colour / range / file) and every selector
+   of `.h-cms-panel` is `--h-cms-control-height` (17px) high, padding top / bottom 0 (designer.css, end). Reason of the
+   mixed heights: `.h-compact` (heurist-ui.css) sets no height, only `min-height: 0` and padding 1px (the height follows
+   the font); HEditForm inputs have no `.h-compact` (min-height `--h-control-height` 30px, padding 4px). Buttons keep
+   their size.
+3. Action menu popup 640px.
+4. Record page in an action item: the record page selector on the Action line (with the other action settings, when the
+   width allows); the record on a line of its own (`.h-cms-action-record-line`, label *Record*, shown only for Record
+   page). `is-block` dropped. One link of the text editor keeps the page and the record together.
+5. `.h-cms-check`: gap 0, padding-right 10px.
+6. `.h-cms-form, .h-cms-action-form` min-width 356px; `.h-cms-form-section` padding 8px.
+
+## 21. Review round 8 (Artem, 2026-11-18; done, not committed, no browser check): simple / advanced settings
+
+Decisions (asked 2026-11-18): Duration of slideshows 4000 ms (the default; "400" was a typo); Own style simple: no
+*Group layout (flex)*, Grid only Columns and Gap; a field hidden in the simple form keeps its stored value, the
+listed defaults are for new elements only.
+
+1. Menu popup: a choice in a drop-down of HEditForm (HValueCombo, its popover outside the panel) closed the popup; the
+   outside click ignores `.h-value-combo-popover` and `.h-input-color-menu`. Compact height also for the controls that
+   are buttons (`button.h-select`, `.h-value-combo`, `.h-input-resource-button`): Style of the items, Reveal, Go to
+   page, record page, Smarty template, Position of image, Source file / record / field.
+2. *Initially hidden* in the HEditForm forms (Media, Gallery, Record field, Cards, Menu, Email ...) was a boolean
+   selector: these forms get the Reveal block of the other forms (`_revealField`: Reveal + checkbox on one line) in a
+   slot at the end of Presentation (`common.presentationNode`, panelForms); `__reveal` / `__hidden` dropped.
+3. *Data* is *Result* (Add element, tree); the tree icons of modules are those of Explorer (`EXPLORER_MODULES`).
+   Tree labels of instances: readable names (`INSTANCE_NAMES` in cmsEdit: Result, Record view, Menu, Action menu,
+   Record cards ...).
+4. Social media: *Social media* in the tree (an action menu with `preset: 'social'`; tree items have `social`).
+5. Undock `fa-up-right-and-down-left-from-center`, Dock `fa-down-left-and-up-right-to-center`; Own style Advanced
+   `fa-chess-board`.
+6. Panel button *Show advanced settings* (`fa-chess-board`) before Help; kept in localStorage
+   `heurist.cms.panel.advanced` (off by default); class `is-advanced` on the panel; `context.onAdvanced(fn)` /
+   `context.advanced` for the sections; `advancedShown()` for the popups of new elements.
+7. Simple forms. HEditForm forms: `req: 'optional'` fields (shown with `showOptional`), new HEditForm option
+   `keepOptional` (getValues keeps the fields hidden only by the Advanced rule, so stored values stay). Forms of
+   elements: class `h-cms-advanced-only` (hidden in the panel without `is-advanced`, in a popup with `is-simple`).
+   - Menu: Show Home, Sub pages open, Pages (Source section), Orientation, Open collapsed menu (+ animation, colours),
+     Always collapsed, Colours. A new Menu element: `orientation: 'auto'` (as the header set).
+   - Action menu: Show as, Colours, the Icon line of each item, New tab.
+   - Media: Source, Alignment; new: Source File, Alignment Center. Gallery: Source (new: File), Duration, Fade out,
+     Navigation, Show caption. Record cards: Source (Manual pickup), Duration, Fade out, Navigation.
+   - Email: Display; the Caption section shows only for a button (`sections.when` of sectionGroups).
+   - Own style: `styleRows({simple})`, `setSimple`: Normal screen only, no Advanced button, no Group layout (flex),
+     Grid only Columns and Gap (`advanced: true` in SIMPLE_STYLE_FIELDS).
+   - Modules (as Map, `req: 'optional'` in the form JSON; the module form in the panel has no own Advanced checkbox:
+     `advancedSwitch: false`, `setAdvanced`): Result – Initially expanded, Expansion rules, Export, Selection actions,
+     See / hide owners, Empty result message, the three templates, group Interaction; Map – native Zoom, Scale, Load
+     by map extent; Timeline – group Interaction; Graph – native controls, Nodes limit (website default 1000), Edges
+     limit (5000), Layout, Movement, Gravity, Popup delay, Popup template, Empty result message, group Interaction;
+     Record view – groups Default settings and Interaction. These are Advanced also in Explorer's configuration
+     dialog (no Advanced switch in Explorer's simplified interface: Map Zoom / Scale stay on there).
+
+## 22. Page name on new pages (Artem, 2026-11-18; done, not committed, no browser check)
+
+Add page puts the name of the page first: a Record field `page.2-1` (`CMS_PAGE_NAME_FIELD`, `addPageName` in
+cmsPageTemplates.js) with its own style `font-size: 1.5em; font-weight: bold`. On every template except Cover and
+Landing (About, Features, Team, Discover, Contact, Publications) and on Blank (also Blog, still blank) and the column
+presets. The text elements no longer start with `<h1>name</h1>` (Blank: `<p>Text</p>`; Discover, Publications: their
+paragraph only when ticked). Not on a Record page (its cards show the record). Team: its starter text without the
+heading "Project Team" (removed 2026-11-18 at Artem's request).
+
+Fix 2026-11-18 (Artem: the simple form hid the whole form): HEditForm counts a field without `req` as optional
+(editFormSchema normalisation), so every field of the designer forms was an advanced one. `showEditForm` gives the
+fields without `req` the value `recommended` (`basicField`); only the fields marked `req: 'optional'` are advanced.
+The hidden Pages field of the menu is optional too (no empty Source fieldset).
+
+## 23. Review round 9 (Artem, 2026-11-18; done, not committed, no browser check)
+
+1. Map: the whole group *Native Map Controls* is advanced (`req: 'optional'` on the group).
+2. `.h-cms-panel-head` gap 2px.
+3. *Define new record page* and the Saved filter button: as high as the compact inputs (were 30px).
+4. The popups of a new element (Media, Record field ...): a switch *Show advanced settings* of their own on the right
+   above the form (`advancedSwitch`, only when the form has advanced fields); the choice is kept
+   (`setAdvancedShown`) and the panel takes it on its next show. Compact inputs in these popups (class
+   `h-cms-compact`, the same rules as the panel).
+5. The email form works with its defaults: not "not configured" (`READY_WIDGETS` of cmsEdit).

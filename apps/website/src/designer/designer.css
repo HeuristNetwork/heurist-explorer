@@ -185,6 +185,12 @@
   min-width: 360px;
 }
 
+/* the forms of the element panel at its smallest width without a horizontal scroll (review 27n §20.6) */
+.h-cms-form,
+.h-cms-action-form {
+  min-width: 356px;
+}
+
 .h-cms-form-row {
   display: grid;
   grid-template-columns: 140px 1fr;
@@ -859,11 +865,12 @@
   display: none;
 }
 
-/* a checkbox with its label (Header and footer on this page, plan 27f) */
+/* a checkbox with its label (Header and footer on this page, plan 27f); space after it, not inside (review 27n §20.5) */
 .h-cms-check {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 0;
+  padding-right: 10px;
 }
 
 /* Action menu, social media and badges forms (plan 27f §6-7) */
@@ -962,7 +969,7 @@
 
 /* the action menu form is wide: a row has nine columns (review 2026-11-11) */
 .h-dialog-cms-actions {
-  width: min(1180px, 96vw);
+  width: min(640px, 96vw);
 }
 
 /* one link of the text editor (2026-11-14): a control per line in a narrow popup */
@@ -1164,7 +1171,7 @@
   display: flex;
   flex: 0 0 auto;
   align-items: flex-end;
-  gap: 4px;
+  gap: 2px;
   padding: 4px 4px 0;
   border-bottom: 1px solid var(--h-color-border);
   background: var(--h-color-surface, #f7f7f7);
@@ -1297,7 +1304,7 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
-  padding: 8px 8px 8px 14px;
+  padding: 8px;
 }
 
 .h-cms-form-section + .h-cms-form-section {
@@ -1504,13 +1511,16 @@
 }
 
 .h-cms-dom-section-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   margin-top: 6px;
-  border-top: 1px solid var(--h-color-border);
+  padding: 4px;
+  background-color: var(--h-color-border);
 }
 
-.h-cms-dom-section-title:first-child {
-  margin-top: 0;
-  border-top: 0;
+.h-cms-dom-section-title > .h-cms-action-toggle {
+  margin-left: auto;
 }
 
 /* the lists of a form in the panel: the panel scrolls, not the list */
@@ -1579,6 +1589,14 @@
   justify-content: start;
 }
 
+/* Reveal and Initially hidden on one line (review 27n §20.1), their help below */
+.h-cms-reveal-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+}
+
 /* Reveal with its help below it (review 27n §14.6) */
 .h-cms-reveal-field > .h-cms-style-note {
   margin: 2px 0 0;
@@ -1606,4 +1624,161 @@
 
 .h-cms-panel .h-edit-form-group > legend {
   padding: 0 4px;
+}
+
+/* a Generated report in the docked panel: its list not wider than the panel (review §18.16a) */
+.h-cms-panel .h-cms-report-form {
+  min-width: 0;
+  max-width: 100%;
+}
+
+/* an action menu (review 27n §19.23, §20.3) in the popup: 640px, not the width of its content */
+.h-cms-panel.is-popup:has(.h-cms-action-form) {
+  width: 640px;
+}
+
+/* the lines of an action item: Icon and Action with labels of one width and inputs of one width */
+.h-cms-action-list {
+  container-type: inline-size;
+}
+
+.h-cms-action-label {
+  flex: 0 0 4.5em;
+  color: var(--h-color-text-muted);
+}
+
+.h-cms-action-what > select,
+.h-cms-action-look > .h-cms-action-icon-line {
+  flex: 0 0 14em;
+  width: 14em;
+  min-width: 0;
+}
+
+.h-cms-action-icon-line {
+  gap: 0;
+}
+
+.h-cms-action-icon-line > i {
+  flex: 0 0 1.6em;
+  text-align: center;
+}
+
+/* the settings of the action: on the next line, below the inputs; on the same line in a form of 600px or more; the
+   record of a Record page on a line of its own (review §20.4) */
+.h-cms-action-what {
+  flex-wrap: wrap;
+}
+
+.h-cms-action-what > .h-cms-action-target {
+  flex: 1 0 100%;
+  min-width: 0;
+  padding-left: calc(4.5em + 6px);
+  box-sizing: border-box;
+}
+
+.h-cms-action-what > .h-cms-action-target:empty {
+  display: none;
+}
+
+@container (min-width: 600px) {
+  .h-cms-action-what > .h-cms-action-target {
+    flex: 1 1 12em;
+    padding-left: 0;
+  }
+}
+
+.h-cms-action-line[hidden] {
+  display: none;
+}
+
+.h-cms-action-record-line > .h-cms-action-record-input {
+  flex: 1 1 14em;
+}
+
+.h-cms-action-caption > .h-btn:last-child {
+  margin-left: auto;
+}
+
+/* collapsed: drag handle, the caption as text and Remove */
+.h-cms-action-summary {
+  display: none;
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.h-cms-action-list.is-collapsed .h-cms-action-summary {
+  display: block;
+}
+
+.h-cms-action-list.is-collapsed .h-cms-action-item > :not(.h-cms-action-caption),
+.h-cms-action-list.is-collapsed .h-cms-action-caption > :is(input, .h-translation) {
+  display: none;
+}
+
+.h-cms-saved-filter-text[hidden] {
+  display: none;
+}
+
+/* one compact height for every input and selector of the element panel (review 27n §20.2). .h-compact of
+   heurist-ui.css sets no height: min-height 0 and padding 1px, the height follows the font (line + 2px padding +
+   2px border, about 17-18px); the inputs of HEditForm have no .h-compact (min-height --h-control-height 30px,
+   padding 4px). Here the height is set: --h-cms-control-height. */
+.h-cms-panel,
+.h-cms-compact {
+  --h-cms-control-height: 17px;
+}
+
+/* review §21.1b-2: also the controls that are buttons (HValueCombo drop-downs of HEditForm: Reveal, Style of the items,
+   Go to page, Smarty template, Position of image; the record and file pickers) */
+:is(.h-cms-panel, .h-cms-compact) :is(input:not([type="checkbox"], [type="radio"], [type="color"], [type="range"], [type="file"], [type="hidden"]),
+  select:not([multiple], [size]), button.h-select, .h-value-combo, .h-input-resource-button) {
+  box-sizing: border-box;
+  height: var(--h-cms-control-height);
+  min-height: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+  line-height: normal;
+}
+
+:is(.h-cms-panel, .h-cms-compact) :is(button.h-select, .h-value-combo, .h-input-resource-button) {
+  display: inline-flex;
+  align-items: center;
+}
+
+/* Define new record page and the Saved filter button (review 27n §23.3): as high as the compact inputs */
+:is(.h-cms-panel, .h-cms-compact) :is(.h-cms-new-record-page, .h-cms-saved-filter-edit) {
+  width: var(--h-cms-control-height);
+  height: var(--h-cms-control-height);
+  min-height: 0;
+}
+
+:is(.h-cms-panel, .h-cms-compact) :is(.h-cms-new-record-page, .h-cms-saved-filter-edit):has(> .h-cms-new-record-page-caption, > span) {
+  width: auto;
+  padding: 0 6px;
+}
+
+/* the switch of the advanced settings of a popup (a new element): on the right above the form */
+.h-cms-advanced-switch {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.h-cms-advanced-switch > .is-active {
+  background: var(--h-color-selected, #dcecff);
+  border-color: var(--h-color-selected-border, #3983b7);
+}
+
+/* Show advanced settings (review 27n §21): pressed; the controls of the forms made of elements shown only then (in a
+   popup of a new element: the form has is-simple) */
+.h-cms-panel-head > .h-cms-panel-advanced.is-active {
+  background: var(--h-color-selected, #dcecff);
+  border-color: var(--h-color-selected-border, #3983b7);
+}
+
+.h-cms-panel:not(.is-advanced) .h-cms-advanced-only,
+.is-simple .h-cms-advanced-only {
+  display: none;
 }

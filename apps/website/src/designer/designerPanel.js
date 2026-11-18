@@ -5,6 +5,8 @@
  *        part tree (a narrow west pane) or beside the tabs Site / Page (a wide one); undocked: a popup without a veil,
  *        stuck to the left side of the window, as large as its content, closed by a click outside (the changes stay),
  *        with Dock, Cancel and Apply in its footer. Every visual change goes to the draft and the preview at once.
+ *        *Show advanced settings* (review 27n §21) shows the fields hidden in the simple forms (`req: 'optional'`,
+ *        class `h-cms-advanced-only`, the module forms, Own style).
  *
  *   const panel = createElementPanel({ onClose, onUndock, onDock, onCancel, onApply });
  *   panel.show({ title, tabs: [{id: 'config', label: 'Configuration', help, sections: [...]}, {id: 'style', ...}] });
@@ -32,6 +34,54 @@ export const PANEL_MODES = Object.freeze(['docked', 'popup']);
 
 const MODE_KEY = 'heurist.cms.panel';
 const TIPS_KEY = 'heurist.cms.panel.tips';
+const ADVANCED_KEY = 'heurist.cms.panel.advanced';
+
+/**
+ * Whether the advanced settings are shown (review 27n §21): the panel button, kept in the browser; off by default. The
+ * popups of new elements use the same choice.
+ *
+ * @returns {boolean}
+ */
+export function advancedShown() {
+  return readFlag(ADVANCED_KEY, false);
+}
+
+/**
+ * Keep the choice of the advanced settings (the switch of a popup of a new element, review 27n §23.4); the panel takes
+ * it on its next show.
+ *
+ * @param {boolean} shown
+ */
+export function setAdvancedShown(shown) {
+  writeFlag(ADVANCED_KEY, shown === true);
+}
+
+/**
+ * The switch *Show advanced settings* (fa-chess-board) of a popup form: it keeps the choice (setAdvancedShown) and
+ * calls `onSwitch(shown)`.
+ *
+ * @param {(shown: boolean) => void} onSwitch
+ * @returns {HTMLElement} A row with the button on the right.
+ */
+export function advancedSwitch(onSwitch) {
+  const row = element('div', 'h-cms-advanced-switch');
+  const button = iconButton('fa-chess-board', 'Show advanced settings');
+  const mark = (shown) => {
+    button.classList.toggle('is-active', shown);
+    button.setAttribute('aria-pressed', String(shown));
+    button.title = $HR(shown ? 'Hide advanced settings' : 'Show advanced settings');
+    button.setAttribute('aria-label', button.title);
+  };
+  mark(advancedShown());
+  button.addEventListener('click', () => {
+    const shown = !advancedShown();
+    setAdvancedShown(shown);
+    mark(shown);
+    onSwitch(shown);
+  });
+  row.append(button);
+  return row;
+}
 
 /**
  * Create the element panel.
@@ -49,16 +99,29 @@ export function createElementPanel({ onClose = null, onModeChange = null, onCanc
   const panel = element('div', 'h-cms-panel');
   panel.hidden = true;
   panel.classList.toggle('h-cms-panel-tips', readFlag(TIPS_KEY, true));
+  panel.classList.toggle('is-advanced', advancedShown());
   // the row of the tabs: the tabs on the left, Help, Undock / Dock and Close on the right
   const head = element('div', 'h-cms-panel-head');
   const strip = element('div', 'h-cms-panel-tabs');
   strip.setAttribute('role', 'tablist');
   let headActions = element('span', 'h-cms-panel-head-actions');
   let showTicket = 0;
+  // the forms of this show that follow Show advanced settings (context.onAdvanced)
+  let advancedHandlers = [];
+  const advanced = iconButton('fa-chess-board', 'Show advanced settings');
+  advanced.classList.add('h-cms-panel-advanced');
   const help = iconButton('fa-circle-question', 'Show or hide the help of this form');
-  const dock = iconButton('fa-window-restore', 'Undock: show the form in a popup');
+  const dock = iconButton(UNDOCK_ICON, 'Undock: show the form in a popup');
   const close = iconButton('fa-xmark', 'Close the form (the changes stay)');
-  head.append(strip, element('span', 'h-cms-toolbar-spacer'), help, dock, close);
+  head.append(strip, element('span', 'h-cms-toolbar-spacer'), advanced, help, dock, close);
+  const markAdvanced = () => {
+    const shown = panel.classList.contains('is-advanced');
+    advanced.classList.toggle('is-active', shown);
+    advanced.setAttribute('aria-pressed', String(shown));
+    advanced.title = $HR(shown ? 'Hide advanced settings' : 'Show advanced settings');
+    advanced.setAttribute('aria-label', advanced.title);
+  };
+  markAdvanced();
   // the title of the element with the buttons of its form (Apply of a module, review §15.20)
   const title = element('div', 'h-cms-panel-title');
   const titleText = element('span', 'h-cms-panel-title-text');
@@ -86,6 +149,7 @@ export function createElementPanel({ onClose = null, onModeChange = null, onCanc
     body.replaceChildren();
     headActions.replaceChildren();
     tabs = [];
+    advancedHandlers = [];
   };
   const select = (id) => {
     const chosen = tabs.find((tab) => tab.id === id) || tabs[0];
@@ -105,7 +169,7 @@ export function createElementPanel({ onClose = null, onModeChange = null, onCanc
     // undocked: the size of the shown element (setMode runs before fitPopup is defined at start)
     if (mode === 'popup') globalThis.setTimeout?.(() => fitPopup?.(), 0);
     dock.setAttribute('aria-label', dock.title);
-    dock.querySelector('i').className = `fa-solid ${mode === 'popup' ? 'fa-down-left-and-up-right-to-center' : 'fa-window-restore'}`;
+    dock.querySelector('i').className = `fa-solid ${mode === 'popup' ? DOCK_ICON : UNDOCK_ICON}`;
     foot.hidden = mode !== 'popup';
     if (mode !== 'popup') {
       panel.style.minWidth = '';
@@ -136,6 +200,13 @@ export function createElementPanel({ onClose = null, onModeChange = null, onCanc
   };
   setMode(mode);
 
+  advanced.addEventListener('click', () => {
+    const shown = !panel.classList.contains('is-advanced');
+    panel.classList.toggle('is-advanced', shown);
+    writeFlag(ADVANCED_KEY, shown);
+    markAdvanced();
+    for (const handler of advancedHandlers) handler(shown);
+  });
   help.addEventListener('click', () => {
     const shown = !panel.classList.contains('h-cms-panel-tips');
     panel.classList.toggle('h-cms-panel-tips', shown);
@@ -152,7 +223,8 @@ export function createElementPanel({ onClose = null, onModeChange = null, onCanc
     if (panel.hidden || mode !== 'popup') return;
     const target = event.target;
     if (!target || panel.contains(target)) return;
-    if (target.closest?.('dialog, .h-popover, .h-menu, .tox, .tox-tinymce-aux')) return;
+    // drop-downs of the form outside the panel (review §21.1a: HValueCombo, colours)
+    if (target.closest?.('dialog, .h-popover, .h-menu, .h-value-combo-popover, .h-input-color-menu, .tox, .tox-tinymce-aux')) return;
     if (keepOpen?.(target)) return;
     onClose?.();
   };
@@ -177,6 +249,8 @@ export function createElementPanel({ onClose = null, onModeChange = null, onCanc
     activeTab: () => active,
     /** @returns {boolean} Whether the help texts of the form are shown. */
     tipsShown: () => panel.classList.contains('h-cms-panel-tips'),
+    /** @returns {boolean} Whether the advanced settings are shown (review §21). */
+    advancedShown: () => panel.classList.contains('is-advanced'),
     /**
      * Buttons on the row of the tabs, until the panel shows another element (Apply of a module configuration).
      *
@@ -185,7 +259,9 @@ export function createElementPanel({ onClose = null, onModeChange = null, onCanc
     addHeadActions: (...buttons) => headActions.append(...buttons),
     /**
      * Show the tabs of an element. `build(host, context)` fills a section and may return its cleanup (`context.addHeadActions`:
-     * buttons in the title row for this show); `help` is the help of the tab shown below the title (with the help of the form).
+     * buttons in the title row for this show; `context.advanced`: whether the advanced settings are shown,
+     * `context.onAdvanced(fn)`: called with true / false when they are switched); `help` is the help of the tab shown below
+     * the title (with the help of the form).
      *
      * @param {{title?: string, tab?: string, tabs: Array<{id: string, label: string, help?: string[],
      *        sections: Array<{label?: string, build: Function}>}>}} options
@@ -197,11 +273,19 @@ export function createElementPanel({ onClose = null, onModeChange = null, onCanc
       if (ticket !== showTicket) return;
       panel.hidden = false;
       titleText.textContent = text;
+      // the choice may have changed in a popup of a new element (review §23.4)
+      panel.classList.toggle('is-advanced', advancedShown());
+      markAdvanced();
       // the buttons of this show only: a section built for an earlier show can not add its own here
       const actions = element('span', 'h-cms-panel-head-actions');
       headActions.replaceWith(actions);
       headActions = actions;
-      const context = { addHeadActions: (...buttons) => { if (ticket === showTicket) actions.append(...buttons); } };
+      advancedHandlers = [];
+      const context = {
+        addHeadActions: (...buttons) => { if (ticket === showTicket) actions.append(...buttons); },
+        advanced: panel.classList.contains('is-advanced'),
+        onAdvanced: (handler) => { if (ticket === showTicket) advancedHandlers.push(handler); }
+      };
       for (const entry of given) {
         const button = element('button', 'h-cms-panel-tab');
         button.type = 'button';
@@ -251,6 +335,7 @@ export function createElementPanel({ onClose = null, onModeChange = null, onCanc
     async hide() {
       // a show still building its sections stops
       showTicket += 1;
+      advancedHandlers = [];
       await clear();
       panel.hidden = true;
     },
@@ -261,6 +346,10 @@ export function createElementPanel({ onClose = null, onModeChange = null, onCanc
     }
   };
 }
+
+/** Undock and Dock icons (review 27n §21.5). */
+const UNDOCK_ICON = 'fa-up-right-and-down-left-from-center';
+const DOCK_ICON = 'fa-down-left-and-up-right-to-center';
 
 function iconButton(icon, title) {
   const button = element('button', 'h-btn h-compact h-cms-panel-icon');

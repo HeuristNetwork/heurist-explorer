@@ -62,6 +62,23 @@ test('every template builds a valid page with all elements, with none and withou
   }
 });
 
+test('the name of the page first (review 27n §22): a Record field, 1.5em bold; not on Cover and Landing', () => {
+  for (const template of CMS_TEMPLATE_PAGES) {
+    const { page, config } = built(template, 'My page', { values: { fromDatabase: template === 'team' } });
+    const first = /data-h-node="([^"]+)"[^>]*>/.exec(page.content);
+    const named = /<div data-h-node="([^"]+)" data-h-text="" data-h-field="page\.2-1">My page<\/div>/.exec(page.content);
+    if (template === 'cover' || template === 'landing') {
+      assert.equal(named, null, template);
+      continue;
+    }
+    assert.ok(named, `${template}: the page name`);
+    assert.equal(first[1], named[1], `${template}: the first element`);
+    assert.equal(config.styles.nodes[named[1]]['font-size'], '1.5em');
+    assert.equal(config.styles.nodes[named[1]]['font-weight'], 'bold');
+    assert.doesNotMatch(page.content, /<h1>My page<\/h1>/, `${template}: not a heading of the text`);
+  }
+});
+
 test('groups are grids, never flex boxes (plan 27i §9 A)', () => {
   for (const template of CMS_TEMPLATE_PAGES) {
     const { config } = built(template, 'Page', { values: { fromDatabase: template === 'team' } });
@@ -135,7 +152,8 @@ test('features and a static team: N cards on the surface colour, three columns o
   const team = built('team', 'Team', { values: { fromDatabase: false, count: 4 } });
   assert.equal((team.page.content.match(/Role in the project/g) || []).length, 4);
   assert.ok(!Object.values(team.config.instances || {}).some((instance) => instance.type === 'actionmenu'), 'no More on the team');
-  assert.match(team.page.content, /<h1>Project Team<\/h1>/);
+  assert.match(team.page.content, /<p>Dedicated to quality of research data<\/p>/);
+  assert.doesNotMatch(team.page.content, /Project Team/, 'no heading of its own: the page name is first');
 });
 
 test('team from the database: cards of the records with the Team member report', () => {

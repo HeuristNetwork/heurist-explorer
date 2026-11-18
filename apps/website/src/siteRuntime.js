@@ -312,7 +312,7 @@ export function onAction(event, env = {}) {
 }
 
 /**
- * Show / hide an element of the page (plan 27n §10, action `toggle`): an initially hidden element (`data-h-reveal="hidden"`)
+ * Show / hide an element of the page (plan 27n §10, action `toggle`): an initially hidden element (`data-h-hidden`)
  * is shown by class h-site-shown, any other element is hidden by class h-site-hidden. The links of the action get
  * `is-active` and `aria-expanded` while the element is shown; a shown element fades in, and the window gets a `resize`
  * (maps, timelines measure their box again).
@@ -325,14 +325,19 @@ export function toggleElement(nodeId, doc = globalThis.document) {
   if (!nodeId || !/^[A-Za-z][A-Za-z0-9_-]{0,63}$/.test(nodeId)) return null;
   const node = doc?.querySelector?.(`[data-h-node="${nodeId}"]`);
   if (!node) return null;
-  const initiallyHidden = node.getAttribute('data-h-reveal') === 'hidden';
+  // initially hidden (`data-h-hidden`) and the Reveal effect are two options (review 27n §18.2b)
+  const initiallyHidden = node.hasAttribute('data-h-hidden');
   const shown = initiallyHidden ? !node.classList.contains('h-site-shown') : node.classList.contains('h-site-hidden');
   if (initiallyHidden) node.classList.toggle('h-site-shown', shown); else node.classList.toggle('h-site-hidden', !shown);
   node.classList.remove('h-site-toggle-in');
   if (shown) {
-    // the animation runs again on each show
-    void node.offsetWidth;
-    node.classList.add('h-site-toggle-in');
+    // shown with its Reveal effect, else a short fade in; again on each show
+    if (node.hasAttribute('data-h-reveal')) {
+      playReveal(node);
+    } else {
+      void node.offsetWidth;
+      node.classList.add('h-site-toggle-in');
+    }
   }
   const links = [...doc.querySelectorAll('[data-h-action="toggle"]')].filter((link) => link.getAttribute('data-h-target') === nodeId);
   for (const link of links) {
@@ -449,7 +454,8 @@ export function enhanceReveal(root, {
   reduced = Boolean(globalThis.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches)
 } = {}) {
   const items = [...(root.matches?.('[data-h-reveal]') ? [root] : []), ...root.querySelectorAll('[data-h-reveal]')]
-    .filter((item) => !item.classList.contains('h-site-reveal-done') && item.getAttribute('data-h-reveal') !== 'hidden')
+    // an initially hidden element is revealed when a Show / hide action shows it (review 27n §18.2b)
+    .filter((item) => !item.classList.contains('h-site-reveal-done') && !item.hasAttribute('data-h-hidden'))
     // a list of cards or a gallery has no box of its own (display: contents): its items are revealed (review 27n §14.2)
     .flatMap((item) => {
       if (!item.classList.contains('h-site-widget-list') || !item.children.length) return [item];
@@ -463,24 +469,61 @@ export function enhanceReveal(root, {
       });
     });
   if (!items.length || typeof Observer !== 'function' || reduced) return null;
-  // revealed when a quarter of it is in the window, or a third of the window shows it (a tall element; review §16.2):
-  // the effect is seen while the element comes into view, not before
+  // the first report of an element: in the window already (the top of the page, a row of a gallery seen in part) it is
+  // revealed at once; else it is hidden until a quarter of it, or a third of the window, shows it (a tall element;
+  // review §16.2, §18.2a): the effect is seen while the element comes into view, and nothing seen is hidden again
+  const started = new Set();
   const observer = new Observer((entries) => {
     for (const entry of entries) {
+      const item = entry.target;
+      if (!started.has(item)) {
+        started.add(item);
+        if (entry.isIntersecting) {
+          playReveal(item);
+          observer.unobserve(item);
+        } else {
+          item.classList.add('h-site-reveal-pending');
+        }
+        continue;
+      }
       if (!entry.isIntersecting) continue;
       const seen = entry.intersectionRect?.height ?? Infinity;
       const view = entry.rootBounds?.height ?? 0;
       if (entry.intersectionRatio !== undefined && entry.intersectionRatio < 0.25 && seen < view / 3) continue;
-      entry.target.classList.remove('h-site-reveal-pending');
-      entry.target.classList.add('h-site-reveal-done');
-      observer.unobserve(entry.target);
+      item.classList.remove('h-site-reveal-pending');
+      item.classList.add('h-site-reveal-done');
+      observer.unobserve(item);
     }
   }, { rootMargin: '0px 0px -10% 0px', threshold: [0, 0.1, 0.25, 0.5] });
-  for (const item of items) {
-    item.classList.add('h-site-reveal-pending');
-    observer.observe(item);
-  }
+  for (const item of items) observer.observe(item);
   return observer;
+}
+
+/**
+ * Play the Reveal effect of an element now (review 27n §18): its hidden state, then the transition of style.css to
+ * visible. A list of cards or a gallery (no box of its own) plays it on its items.
+ *
+ * @param {HTMLElement} item An element with `data-h-reveal`.
+ */
+export function playReveal(item) {
+  const effect = item?.getAttribute?.('data-h-reveal');
+  if (!effect) return;
+  const targets = item.classList.contains('h-site-widget-list') && item.children.length ? [...item.children] : [item];
+  for (const [index, target] of targets.entries()) {
+    if (target !== item) {
+      target.setAttribute('data-h-reveal', effect);
+      target.style?.setProperty?.('--h-site-reveal-delay', `${Math.min(index, 8) * 120}ms`);
+    }
+    target.classList.remove('h-site-reveal-done');
+    target.classList.add('h-site-reveal-pending');
+  }
+  // the hidden state is applied before it is removed: the transition runs
+  void item.offsetWidth;
+  for (const target of targets) {
+    void target.offsetWidth;
+    target.classList.remove('h-site-reveal-pending');
+    target.classList.add('h-site-reveal-done');
+  }
 }
 
 /**

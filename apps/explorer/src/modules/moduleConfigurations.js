@@ -104,10 +104,12 @@ export async function openModuleConfiguration(request = {}, context = {}) {
  * The configuration form of a module without a dialog (the CMS designer, website mode, 2026-11-14): the same form,
  * lists and editors as openModuleConfiguration; the host shows it inline with its own Apply.
  *
- * @param {object} request `moduleType`, `mode` (default `website`), `value`, `terms`, `fields`.
+ * @param {object} request `moduleType`, `mode` (default `website`), `value`, `terms`, `fields`; `advanced` and
+ *        `advancedSwitch: false`: the host switches the Advanced fields (`setAdvanced`, CMS element panel).
  * @param {object} [context] Explorer: `baseUrl`, `database`, `formServices()`, `editSymbology`.
  * @returns {Promise<{element: HTMLElement, read: () => object|null, reset: () => void, isDirty: () => boolean,
- *          destroy: () => Promise<void>}>} `read`: the normalized settings, null while the form has errors.
+ *          setAdvanced: (shown: boolean) => void, destroy: () => Promise<void>}>} `read`: the normalized settings, null
+ *          while the form has errors.
  */
 export async function createModuleConfigurationPanel(request = {}, context = {}) {
   const mode = configurationFormMode(request.mode || 'website');
@@ -127,13 +129,16 @@ export async function createModuleConfigurationPanel(request = {}, context = {})
     defaults: configuration.defaults,
     normalize: configuration.normalize,
     termsProviders: { smartyTemplates: smartyTemplateTerms(templates), ...termsOf(request.terms) },
-    formOptions: { ...services, specialEditors: specialEditors(context) }
+    formOptions: { ...services, specialEditors: specialEditors(context) },
+    advanced: request.advanced === true,
+    advancedSwitch: request.advancedSwitch !== false
   });
   return {
     element: panel.element,
     read: () => (panel.validate().length ? null : panel.getValue()),
     reset: () => panel.reset(true),
     isDirty: () => panel.isDirty(),
+    setAdvanced: (shown) => panel.setAdvanced(shown),
     destroy: () => panel.destroy()
   };
 }

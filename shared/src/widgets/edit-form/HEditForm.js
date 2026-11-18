@@ -26,7 +26,8 @@
  * Module configuration forms (plan 29 §9): `mode`, `showOptional` (the Advanced switch)
  * and `simplified` apply the `req`, `modes`, `forced` and `simplified` rules of the JSON;
  * `keepHidden` keeps the values of the fields not shown in getValues (a settings object
- * stays complete), and forced values are always written.
+ * stays complete), `keepOptional` only of those hidden by the Advanced switch, and forced
+ * values are always written.
  *
  * @project     Heurist academic knowledge management system
  * @package     heurist-client-core
@@ -91,6 +92,8 @@ export class HEditForm extends HBaseWidget {
    * @param {boolean} [options.showOptional=true] Optional fields and groups shown (the Advanced switch).
    * @param {boolean} [options.simplified=false] The simplified interface rules (`simplified` of the JSON).
    * @param {boolean} [options.keepHidden=false] getValues also gives the fields not shown.
+   * @param {boolean} [options.keepOptional=false] getValues also gives the fields hidden only because the optional ones
+   *        are not shown (the simple forms of the CMS designer keep their stored values, review 27n §21).
    * @param {boolean} [options.inlineCheckboxes=false] Consecutive single-value checkbox fields (boolean,
    *        `mode: 'checkbox'`) in one row, each with its label after it (plan 29).
    * @param {boolean} [options.lazyGroups=false] Widgets of a group only when it is first shown (plan 23).
@@ -172,8 +175,11 @@ export class HEditForm extends HBaseWidget {
   getValues() {
     const shown = this._shownChecker();
     const keep = this.options.keepHidden === true;
+    const withOptional = this.options.keepOptional === true && this.options.showOptional === false
+      ? this._shownChecker({ showOptional: true }) : null;
     // a forbidden field (no UI) keeps its value
-    const values = formValues(this.form, this.getStates(), (field) => keep || field.req === 'forbidden' || shown(field));
+    const values = formValues(this.form, this.getStates(), (field) => keep || field.req === 'forbidden' || shown(field)
+      || Boolean(withOptional?.(field)));
     const context = this._ruleContext();
     for (const field of formFields(this.form)) {
       // no UI: the given value as it is (lists and objects are not made into inputs and back)
@@ -853,8 +859,11 @@ export class HEditForm extends HBaseWidget {
     this._emit('h-edit-form-change', { form: this, name, value, dirty: this.isDirty() });
   }
 
-  /** @returns {(field: object) => boolean} Whether a field is shown with the current values. */
-  _shownChecker() {
+  /**
+   * @param {object} [rules] Rule options over those of the form (`showOptional`).
+   * @returns {(field: object) => boolean} Whether a field is shown with the current values.
+   */
+  _shownChecker(rules = {}) {
     const flat = flatValues(this.form, this.getStates());
     const groupOf = new Map();
     const byId = new Map();
@@ -862,7 +871,7 @@ export class HEditForm extends HBaseWidget {
       byId.set(group.id, group);
       for (const field of group.children) groupOf.set(field.name, group);
     }
-    const context = this._ruleContext();
+    const context = { ...this._ruleContext(), ...rules };
     const hidden = (group) => Boolean(group)
       && (this._hiddenGroups.has(group.id) || !isVisible(group.showWhen, flat) || ruleHides(group, context));
     return (field) => {

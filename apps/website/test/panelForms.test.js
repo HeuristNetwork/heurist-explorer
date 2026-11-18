@@ -65,6 +65,63 @@ test('an HEditForm in the panel: a valid change is applied after the pause; the 
   await cleanups[0]();
 });
 
+test('simple forms (review 27n §21): advanced fields hidden but kept, shown by the panel button; the Reveal block', async () => {
+  const host = document.createElement('div');
+  const results = [];
+  const switches = [];
+  const node = document.createElement('div');
+  const form = showEditForm({
+    form: { groups: [{ id: 'main', children: [
+      { name: 'style', type: 'freetext', max: 1 },
+      { name: 'orientation', type: 'freetext', max: 1, req: 'optional' }
+    ] }] },
+    values: { style: 'plain', orientation: 'vertical' }
+  }, (values) => ({ ...values }), {
+    inline: {
+      host,
+      onResult: (result) => results.push(result),
+      advanced: false,
+      onAdvanced: (handler) => switches.push(handler),
+      common: { presentationNode: node, fields: {}, values: {} }
+    }
+  }, { sections: {} });
+  assert.equal(form.options.showOptional, false);
+  // a field without req is a basic one: shown in the simple form (HEditForm counts it optional otherwise)
+  assert.equal(form.fields.get('style').container.hidden, false, 'basic field shown');
+  assert.equal(form.fields.get('orientation').container.hidden, true, 'advanced field hidden');
+  assert.ok(node.parentElement, 'the Reveal block of the designer in Presentation');
+  await form.setValue('style', 'pills');
+  form.options.onChange(form, { name: 'style', value: 'pills' });
+  await flush(APPLY_DELAY + 50);
+  assert.deepEqual(results, [{ style: 'pills', orientation: 'vertical' }], 'a hidden advanced field keeps its stored value');
+  assert.equal(switches.length, 1);
+  switches[0](true);
+  assert.equal(form.options.showOptional, true, 'Show advanced settings');
+  assert.equal(form.fields.get('orientation').container.hidden, false);
+  // the caption section of the email form only for a button
+  const groups = sectionGroups([{ name: 'display' }, { name: 'label' }], { caption: ['label'], when: { caption: { display: 'button' } } });
+  assert.deepEqual(groups.find((group) => group.id === 'caption').showWhen, { display: 'button' });
+});
+
+test('the advanced switch of a popup (review 27n §23.4): keeps the choice for the panel', async () => {
+  const { advancedShown, advancedSwitch, setAdvancedShown } = await import('../src/designer/designerPanel.js');
+  const store = new Map();
+  const saved = globalThis.localStorage;
+  globalThis.localStorage = { getItem: (key) => store.get(key) ?? null, setItem: (key, value) => store.set(key, String(value)) };
+  try {
+    setAdvancedShown(false);
+    const calls = [];
+    const row = advancedSwitch((shown) => calls.push(shown));
+    row.querySelector('button').click();
+    assert.deepEqual(calls, [true]);
+    assert.equal(advancedShown(), true, 'the panel takes it on its next show');
+    row.querySelector('button').click();
+    assert.equal(advancedShown(), false);
+  } finally {
+    globalThis.localStorage = saved;
+  }
+});
+
 test('a form of elements in the panel: its result after an input or a change of its content', async () => {
   const host = document.createElement('div');
   const content = document.createElement('div');
@@ -108,4 +165,32 @@ test('element panel (review 27n §15.19): a later show stops an earlier one; App
   assert.deepEqual(actions[0].children.map((node) => node.textContent), ['second']);
   assert.equal(cleaned, 1, 'the section of the earlier show is cleaned up');
   panel.destroy();
+});
+
+test('action menu in the panel (review 27n §19.23): item lines, collapse all, Define saved filter', async () => {
+  const { openActionMenuForm } = await import('../src/designer/actionForms.js');
+  const host = document.createElement('div');
+  const results = [];
+  openActionMenuForm({
+    settings: { items: [{ label: 'About', action: 'page', target: 3 }, { label: '', action: 'savedFilter' }] },
+    pages: [{ id: 3, title: 'About' }],
+    inline: { host, onResult: (result) => results.push(result) }
+  });
+  const items = host.querySelectorAll('.h-cms-action-item');
+  assert.equal(items.length, 2);
+  // caption with Remove; Icon; Action with New tab and the settings of the action; the record of a Record page (§20.4)
+  assert.deepEqual(items[0].children.map((line) => line.className), ['h-cms-action-line h-cms-action-caption',
+    'h-cms-action-line h-cms-action-look h-cms-advanced-only', 'h-cms-action-line h-cms-action-what',
+    'h-cms-action-line h-cms-action-record-line']);
+  assert.deepEqual(items[0].querySelectorAll('.h-cms-action-label').map((label) => label.textContent), ['Icon', 'Action', 'Record']);
+  assert.equal(items[0].children[3].hidden, true, 'the record line only for a Record page');
+  // a Saved filter not defined: the button says so
+  assert.match(items[1].querySelector('.h-cms-saved-filter').textContent, /Define saved filter/);
+  // collapse all: the caption as text
+  host.querySelector('.h-cms-action-toggle').click();
+  assert.ok(host.querySelector('.h-cms-action-list').classList.contains('is-collapsed'));
+  assert.equal(items[0].querySelector('.h-cms-action-summary').textContent, 'About');
+  assert.equal(items[1].querySelector('.h-cms-action-summary').textContent, 'Filter', 'no caption: the default one');
+  host.querySelector('.h-cms-action-toggle').click();
+  assert.ok(!host.querySelector('.h-cms-action-list').classList.contains('is-collapsed'));
 });

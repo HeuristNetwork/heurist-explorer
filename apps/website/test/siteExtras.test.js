@@ -99,11 +99,18 @@ test('accordion options and reveal in the document (plan 27k §6): attributes, d
   assert.equal(doc.setReveal(text, 'spin'), true, 'an unknown value removes it');
   assert.equal(doc.reveal(text), '');
   assert.equal(doc.accordionLook(text), null);
-  // plan 27n §8: more effects and initially hidden
-  for (const value of ['down', 'left', 'right', 'zoom', 'hidden']) {
+  // plan 27n §8: more effects; initially hidden is an option of its own (review §18.2b)
+  for (const value of ['down', 'left', 'right', 'zoom']) {
     doc.setReveal(text, value);
     assert.equal(doc.reveal(text), value);
   }
+  assert.equal(doc.setReveal(text, 'hidden'), true, 'not an effect any more');
+  assert.equal(doc.reveal(text), '');
+  assert.equal(doc.setHidden(text, true), true);
+  assert.match(doc.html('content'), /data-h-hidden="true"/);
+  assert.equal(doc.hidden(text), true);
+  doc.setHidden(text, false);
+  assert.doesNotMatch(doc.html('content'), /data-h-hidden/);
 });
 
 test('reveal on scroll (plan 27k §6): hidden until seen; nothing with reduced motion or without the observer', () => {
@@ -117,11 +124,19 @@ test('reveal on scroll (plan 27k §6): hidden until seen; nothing with reduced m
   const item = element('div', { 'data-h-reveal': 'fade' });
   const root = element('div', {}, item);
   enhanceReveal(root, { Observer, reduced: false });
+  // below the window at first: hidden until seen (review §18.2a: not before the first report)
+  assert.ok(!item.classList.contains('h-site-reveal-pending'));
+  callback([{ target: item, isIntersecting: false }]);
   assert.ok(item.classList.contains('h-site-reveal-pending'));
   callback([{ target: item, isIntersecting: true }]);
   assert.ok(!item.classList.contains('h-site-reveal-pending'));
   assert.ok(item.classList.contains('h-site-reveal-done'));
   assert.equal(observed.length, 0);
+  // in the window at first (the top of the page): revealed at once, never hidden
+  const top = element('div', { 'data-h-reveal': 'up' });
+  enhanceReveal(element('div', {}, top), { Observer, reduced: false });
+  callback([{ target: top, isIntersecting: true, intersectionRatio: 0.05, intersectionRect: { height: 20 }, rootBounds: { height: 800 } }]);
+  assert.ok(top.classList.contains('h-site-reveal-done'), 'seen in part at first: revealed');
   assert.equal(enhanceReveal(root, { Observer, reduced: false }), null, 'a revealed element is not hidden again');
   const other = element('div', {}, element('div', { 'data-h-reveal': 'up' }));
   assert.equal(enhanceReveal(other, { Observer, reduced: true }), null);
@@ -130,7 +145,7 @@ test('reveal on scroll (plan 27k §6): hidden until seen; nothing with reduced m
 });
 
 test('Show / hide action (plan 27n §10): toggles the element and marks its links', () => {
-  const hidden = element('div', { 'data-h-node': 'more', 'data-h-reveal': 'hidden' });
+  const hidden = element('div', { 'data-h-node': 'more', 'data-h-hidden': 'true', 'data-h-reveal': 'zoom' });
   const shown = element('div', { 'data-h-node': 'box' });
   const link = element('a', { 'data-h-action': 'toggle', 'data-h-target': 'more' });
   const item = element('li', {}, link);
@@ -139,6 +154,8 @@ test('Show / hide action (plan 27n §10): toggles the element and marks its link
   {
     assert.equal(toggleElement('more', root), true);
     assert.ok(hidden.classList.contains('h-site-shown'));
+    // shown with its Reveal effect (review §18.2b)
+    assert.ok(hidden.classList.contains('h-site-reveal-done'));
     assert.equal(link.getAttribute('aria-expanded'), 'true');
     assert.ok(item.classList.contains('is-current'));
     assert.equal(toggleElement('more', root), false);
@@ -165,6 +182,7 @@ test('reveal (review 27n §16.2): when a quarter of the element, or a third of t
   }
   const item = element('div', { 'data-h-reveal': 'up' });
   enhanceReveal(element('div', {}, item), { Observer, reduced: false });
+  callback([{ target: item, isIntersecting: false }]);
   callback([{ target: item, isIntersecting: true, intersectionRatio: 0.05, intersectionRect: { height: 40 }, rootBounds: { height: 800 } }]);
   assert.ok(item.classList.contains('h-site-reveal-pending'), 'its top edge only: not yet');
   callback([{ target: item, isIntersecting: true, intersectionRatio: 0.1, intersectionRect: { height: 300 }, rootBounds: { height: 800 } }]);
@@ -173,8 +191,11 @@ test('reveal (review 27n §16.2): when a quarter of the element, or a third of t
 
 test('reveal (review 27n §14.2): a list of cards or a gallery (no box of its own) reveals its items', () => {
   const observed = [];
+  let callback = null;
   class Observer {
+    constructor(handler) { callback = handler; }
     observe(target) { observed.push(target); }
+    unobserve() {}
   }
   const first = element('figure');
   const second = element('figure');
@@ -183,7 +204,10 @@ test('reveal (review 27n §14.2): a list of cards or a gallery (no box of its ow
   enhanceReveal(element('div', {}, list), { Observer, reduced: false });
   assert.deepEqual(observed, [first, second]);
   assert.equal(second.getAttribute('data-h-reveal'), 'zoom');
-  assert.ok(first.classList.contains('h-site-reveal-pending'));
+  // the first in the window: revealed; the second below it: hidden until seen (review §18.2a)
+  callback([{ target: first, isIntersecting: true }, { target: second, isIntersecting: false }]);
+  assert.ok(first.classList.contains('h-site-reveal-done'));
+  assert.ok(second.classList.contains('h-site-reveal-pending'));
   assert.ok(!list.classList.contains('h-site-reveal-pending'));
 });
 
@@ -192,7 +216,7 @@ test('reveal (plan 27n §8): an initially hidden element is left to the Show / h
   class Observer {
     observe(target) { observed.push(target); }
   }
-  const hidden = element('div', { 'data-h-reveal': 'hidden' });
+  const hidden = element('div', { 'data-h-reveal': 'up', 'data-h-hidden': 'true' });
   const left = element('div', { 'data-h-reveal': 'left' });
   enhanceReveal(element('div', {}, hidden, left), { Observer, reduced: false });
   assert.deepEqual(observed, [left]);

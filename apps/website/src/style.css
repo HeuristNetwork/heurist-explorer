@@ -1157,8 +1157,9 @@ html.h-site .h-site-badge img {
   transform: scale(0.9);
 }
 
-/* initially hidden (plan 27n §8): shown by a Show / hide action (class h-site-shown); visible and hatched in the designer */
-.h-site:not(.h-site-design) [data-h-reveal="hidden"]:not(.h-site-shown) {
+/* initially hidden (plan 27n §8, `data-h-hidden` since review §18.2b): shown by a Show / hide action (class h-site-shown,
+   with its Reveal effect); visible and hatched in the designer */
+.h-site:not(.h-site-design) [data-h-hidden]:not(.h-site-shown) {
   display: none;
 }
 
@@ -1182,7 +1183,7 @@ html.h-site .h-site-badge img {
   }
 }
 
-.h-site-design [data-h-reveal="hidden"] {
+.h-site-design [data-h-hidden] {
   outline: 1px dashed var(--h-color-border);
   background-image: repeating-linear-gradient(45deg, transparent 0 8px, rgba(127, 127, 127, 0.12) 8px 10px);
 }

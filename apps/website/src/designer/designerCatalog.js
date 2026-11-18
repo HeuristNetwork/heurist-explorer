@@ -212,7 +212,8 @@ export const ELEMENT_GROUPS = Object.freeze([
         preview: [['m', 8, 6, 26, 68, 'Filter'], ['m', 38, 6, 42, 68, 'Data'], ['m', 84, 6, 28, 33, 'Map'], ['m', 84, 41, 28, 33, 'Record']]
       },
       {
-        value: 'data', label: 'Data', available: true,
+        // Result, as in Explorer (review 27n §21.3)
+        value: 'data', label: 'Result', available: true,
         description: 'The records as a list or a table, with sorting, paging and selection; a click opens the record.',
         preview: [['f', 8, 8, 104, 7], ['t', 8, 20, 104, 52]]
       },

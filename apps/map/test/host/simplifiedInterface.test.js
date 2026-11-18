@@ -24,5 +24,6 @@ test('simplified configuration form: no Workspace section, no Heurist controls, 
   const shown = rows.filter((row) => row.shown).map((row) => row.key);
   assert.ok(!shown.some((key) => key.startsWith('config.dynamicDocument.')), 'no Workspace section');
   assert.ok(!shown.includes('options.ui.enabled') && !shown.includes('options.ui.showMapDocuments'), 'no Heurist controls');
-  assert.ok(shown.includes('options.nativeControls.zoom'), 'native controls stay');
+  // Native Map Controls are advanced settings since review 27n §21 / §23.1 (Zoom and Scale on by default)
+  assert.ok(!shown.some((key) => key.startsWith('options.nativeControls.')), 'native controls: advanced');
 });

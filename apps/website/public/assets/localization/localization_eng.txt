@@ -691,3 +691,10 @@
 #Show as#Show as
 #How the element appears when it comes into the window. Initially hidden: shown by a Show / hide action of an action menu.#How the element appears when it comes into the window. Initially hidden: shown by a Show / hide action of an action menu.
 #The fields of the page: its name, its text and icon in the menu, its description. Kept with the page: Save Page saves them.#The fields of the page: its name, its text and icon in the menu, its description. Kept with the page: Save Page saves them.
+#How the element appears when it comes into the window, or when a Show / hide action shows it.#How the element appears when it comes into the window, or when a Show / hide action shows it.
+#Not shown until a Show / hide action of an action menu shows it (with its Reveal effect).#Not shown until a Show / hide action of an action menu shows it (with its Reveal effect).
+#Define saved filter#Define saved filter
+#Expand all actions#Expand all actions
+#Collapse all actions#Collapse all actions
+#Show advanced settings#Show advanced settings
+#Hide advanced settings#Hide advanced settings

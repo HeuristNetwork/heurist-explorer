@@ -29,6 +29,27 @@
 /** Templates built from the Add page form (plan 27i §9). */
 export const CMS_TEMPLATE_PAGES = Object.freeze(['cover', 'landing', 'about', 'features', 'team', 'discover', 'contact', 'publications']);
 
+/** The name of the page (Record field `page.2-1`), the first element of a new page (review 27n §22). */
+export const CMS_PAGE_NAME_FIELD = 'page.2-1';
+
+/** Look of the page name: larger and bold (its own style). */
+const PAGE_NAME_STYLE = Object.freeze({ 'font-size': '1.5em', 'font-weight': 'bold' });
+
+/**
+ * Add the name of the page as a Record field at the end of the content (review 27n §22): Add page puts it first on
+ * every page except Cover and Landing; the name is not repeated as a heading of the text.
+ *
+ * @param {object} doc CmsRecordDocument.
+ * @param {string} title The name of the page (its value until the server writes it).
+ * @returns {string} Node id.
+ */
+export function addPageName(doc, title) {
+  const node = doc.insertElement('content', 'field');
+  doc.setField(node, CMS_PAGE_NAME_FIELD, escapeHtml(title || ''));
+  doc.setNodeStyle(node, { ...doc.nodeStyle(node), ...PAGE_NAME_STYLE });
+  return node;
+}
+
 /** Smarty report of a team member card (template Team, plan 27e). */
 export const CMS_TEAM_TEMPLATE = 'Team_member.tpl';
 
@@ -98,7 +119,8 @@ const TEXTS = Object.freeze({
     member: 'Name',
     role: 'Role in the project',
     memberText: 'A short description of this person.',
-    team: '<h1>Project Team</h1><p>Dedicated to quality of research data</p>',
+    // no heading: the name of the page is the first element (review 27n §22)
+    team: '<p>Dedicated to quality of research data</p>',
     news: 'News',
     publications: 'The publications of the project.',
     welcome: 'Welcome to the website of the project.',
@@ -129,7 +151,7 @@ const TEXTS = Object.freeze({
     member: 'Nom',
     role: 'Rôle dans le projet',
     memberText: 'Une courte description de cette personne.',
-    team: '<h1>L\'équipe du projet</h1><p>Au service de la qualité des données de recherche</p>',
+    team: '<p>Au service de la qualité des données de recherche</p>',
     news: 'Actualités',
     publications: 'Les publications du projet.',
     welcome: 'Bienvenue sur le site du projet.',
@@ -271,7 +293,7 @@ export function buildTemplatePage(doc, template, title, {
       break;
     }
     case 'about': {
-      build.text(null, `<h1>${heading}</h1>`);
+      addPageName(doc, title);
       CMS_ABOUT_TOPICS.filter(has).forEach((topic, index) => {
         const [caption, starter] = texts.topics[topic];
         const section = build.group(null, {
@@ -286,7 +308,7 @@ export function buildTemplatePage(doc, template, title, {
       break;
     }
     case 'features': {
-      build.text(null, `<h1>${heading}</h1>`);
+      addPageName(doc, title);
       // each card links to a page with the action menu More (its page is chosen in the page tree)
       addCards(build, values, () => [`<h3>${escapeHtml(texts.feature)}</h3>`, `<p>${escapeHtml(texts.featureText)}</p>`], (card) => {
         build.widget(card, 'actionmenu', { presentation: 'links', items: [{ label: texts.more, action: 'page', target: null }] });
@@ -294,6 +316,7 @@ export function buildTemplatePage(doc, template, title, {
       break;
     }
     case 'team': {
+      addPageName(doc, title);
       if (has('text')) build.text(null, texts.team);
       if (values.fromDatabase === true) {
         // the Smarty report of a team member makes a card of each record (plan 27e); a list or columns
@@ -309,7 +332,8 @@ export function buildTemplatePage(doc, template, title, {
       break;
     }
     case 'discover': {
-      build.text(null, `<h1>${heading}</h1>${has('text') ? `<p>${escapeHtml(texts.discover)}</p>` : ''}`);
+      addPageName(doc, title);
+      if (has('text')) build.text(null, `<p>${escapeHtml(texts.discover)}</p>`);
       const explorer = build.element(null, 'explorer');
       doc.setNodeStyle(explorer, { ...doc.nodeStyle(explorer), height: '80vh' });
       break;
@@ -317,7 +341,7 @@ export function buildTemplatePage(doc, template, title, {
     case 'contact': {
       // the content centred, not wider than 1024 px (review 2026-11-15)
       doc.setPageStyle({ ...doc.pageStyle(), 'max-width': '1024px', margin: '0 auto' });
-      build.text(null, `<h1>${heading}</h1>`);
+      addPageName(doc, title);
       const details = has('address') || has('contact');
       // two columns only when both sides have something
       const parent = details && has('email') ? build.group(null, columns(2)) : null;
@@ -341,7 +365,8 @@ export function buildTemplatePage(doc, template, title, {
       break;
     }
     case 'publications': {
-      build.text(null, `<h1>${heading}</h1>${has('text') ? `<p>${escapeHtml(texts.publications)}</p>` : ''}`);
+      addPageName(doc, title);
+      if (has('text')) build.text(null, `<p>${escapeHtml(texts.publications)}</p>`);
       configure.push(build.element(null, 'report'));
       break;
     }

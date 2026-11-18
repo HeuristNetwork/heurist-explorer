@@ -251,6 +251,8 @@ export function openActionMenuForm({ settings = {}, pages = [], recordTypes = []
   const presentation = select(PRESENTATIONS, look.presentation === 'menu' ? 'row' : look.presentation);
   const style = select(ITEM_STYLES, look.style);
   const orientation = select(ORIENTATIONS, look.orientation === 'vertical' ? 'vertical' : 'horizontal');
+  // the items (created here: the expand / collapse button of their section refers to them)
+  const list = element('div', 'h-cms-action-list');
   const label = element('input', 'h-input h-compact');
   label.type = 'text';
   label.value = settings.label || '';
@@ -300,16 +302,34 @@ export function openActionMenuForm({ settings = {}, pages = [], recordTypes = []
   if (!single) {
     // the settings of the menu above the list of items, aligned (review 2026-11-16)
     const settingsBox = element('div', 'h-cms-action-settings');
-    settingsBox.append(classed(line('Show as', presentation), 'h-cms-action-presentation'), labelLine, iconLine, buttonTextLine,
-      openLine, styleLine, lineWidthLine, lineColorLine, orientationLine, colorsLine);
+    // advanced settings (review 27n §21): Show as (new: Items in a row) and Colours (of the website)
+    settingsBox.append(classed(classed(line('Show as', presentation), 'h-cms-action-presentation'), ADVANCED), labelLine, iconLine,
+      buttonTextLine, openLine, styleLine, lineWidthLine, lineColorLine, orientationLine, classed(colorsLine, ADVANCED));
     // the sections of plan 27n §6: Presentation, then the actions
     form.append(sectionTitle($HR('Presentation')), settingsBox);
     if (presentationExtra) form.append(presentationExtra);
-    form.append(sectionTitle($HR('Actions')));
+    // Actions: expand / collapse all items (review §19.23h); collapsed: drag handle, caption and Remove only
+    const actionsTitle = sectionTitle($HR('Actions'));
+    const toggleAll = button('fa-angles-up', '');
+    toggleAll.classList.add('h-cms-action-toggle');
+    const markToggle = () => {
+      const collapsed = list.classList.contains('is-collapsed');
+      toggleAll.title = $HR(collapsed ? 'Expand all actions' : 'Collapse all actions');
+      toggleAll.setAttribute('aria-label', toggleAll.title);
+      toggleAll.querySelector('i').className = `fa-solid ${collapsed ? 'fa-angles-down' : 'fa-angles-up'}`;
+    };
+    toggleAll.addEventListener('click', () => {
+      const collapsed = !list.classList.contains('is-collapsed');
+      if (collapsed) for (const entry of rows) entry.summary?.();
+      list.classList.toggle('is-collapsed', collapsed);
+      markToggle();
+    });
+    actionsTitle.append(toggleAll);
+    form.append(actionsTitle);
+    markToggle();
   }
   showPresentation();
 
-  const list = element('div', 'h-cms-action-list');
   // Show / hide not in a single link (text links, plan 27n §12.4)
   const actions = ACTIONS.filter(([value]) => (single?.actions ? single.actions.includes(value)
     : (value !== 'addRecord' || canAddRecord) && !(single && value === 'toggle')));
@@ -358,8 +378,12 @@ export function openActionMenuForm({ settings = {}, pages = [], recordTypes = []
     // Record page: the page and the record (plan 27g §6)
     const recordPage = recordPagePicker(services, item.action === 'recordPage' ? Number(item.target) || null : null);
     const record = recordInput(services, item.action === 'recordPage' ? Number(item.record) || 0 : 0);
+    // one link: the page and the record together; a mini form: the page on the line of Action, the record on a line of
+    // its own (review 27n §20.4)
     const recordTarget = element('span', 'h-cms-action-record');
-    recordTarget.append(recordPage.element, record.element);
+    const recordLine = element('div', 'h-cms-action-line h-cms-action-record-line');
+    if (single) recordTarget.append(recordPage.element, record.element);
+    else recordLine.append(fieldLabel('Record'), record.element);
     // Saved filter (plan 27j): the query source, the target page and the values in a popup
     const filter = savedFilterPicker(services, item.action === 'savedFilter' ? storedSavedFilter(item) : null, { recordFields });
     // a search box (plan 27k §6): a Saved filter whose parameter takes the typed text; the label is its placeholder
@@ -376,8 +400,12 @@ export function openActionMenuForm({ settings = {}, pages = [], recordTypes = []
     if (item.action === 'url') url.value = item.target || '';
     else if (item.action === 'addRecord') type.value = String(item.target || '');
     else if (!['recordPage', 'savedFilter', 'search', 'toggle'].includes(item.action) && item.target) page.value = String(item.target);
-    const showTarget = () => target.replaceChildren(...({ page: [page], url: [url], addRecord: [type], recordPage: [recordTarget], back: [],
-      savedFilter: [filter.element], search: [searchFilter.element], toggle: [toggleTarget] }[action.value] || [page]));
+    const showTarget = () => {
+      target.replaceChildren(...({ page: [page], url: [url], addRecord: [type],
+        recordPage: [single ? recordTarget : recordPage.element], back: [],
+        savedFilter: [filter.element], search: [searchFilter.element], toggle: [toggleTarget] }[action.value] || [page]));
+      recordLine.hidden = action.value !== 'recordPage';
+    };
     // Go to a page without a label: the name of the page (review 2026-11-11); Back: "Back"
     const pageLabel = () => {
       if (text.value.trim()) return;
@@ -409,24 +437,31 @@ export function openActionMenuForm({ settings = {}, pages = [], recordTypes = []
       row.append(line('Label', text), line('Icon', iconBox), line('Action', action), block('Link to', target), newTab.box);
     }
     else {
-      // a mini form (plan 27n §6.2): the caption (with its translations); the action, New tab and the settings of the
-      // action; the icon, Icon only and Remove
+      // a mini form (plan 27n §6.2, review §19.23): drag handle, the caption (with its translations) and Remove; Icon with
+      // Icon only; Action with New tab and the settings of the action (on the same line when the form is wide enough);
+      // the record of a Record page on the next line (review §20.4). Collapsed: the caption as text.
       row.classList.add('h-cms-action-item');
+      const summary = element('span', 'h-cms-action-summary');
       const head = element('div', 'h-cms-action-line h-cms-action-caption');
-      head.append(dragHandle(), caption ? caption.element : text);
-      const what = element('div', 'h-cms-action-line');
-      what.append(action, newTab.box);
-      const settingsLine = element('div', 'h-cms-action-line h-cms-action-config');
-      settingsLine.append(target);
-      const look = element('div', 'h-cms-action-line');
+      head.append(dragHandle(), caption ? caption.element : text, summary, remove);
+      const look = element('div', 'h-cms-action-line h-cms-action-look');
       const iconBox = element('span', 'h-cms-action-icon-box');
       iconBox.append(glyph, icon);
-      look.append(classed(iconBox, 'h-cms-action-icon-line'), iconOnly.box, element('span', 'h-cms-toolbar-spacer'), remove);
-      row.append(head, what, settingsLine, look);
+      look.append(fieldLabel('Icon'), classed(iconBox, 'h-cms-action-icon-line'), iconOnly.box);
+      const what = element('div', 'h-cms-action-line h-cms-action-what');
+      what.append(fieldLabel('Action'), action, classed(newTab.box, ADVANCED), target);
+      // the icon and New tab (off) are advanced settings (review 27n §21)
+      look.classList.add(ADVANCED);
+      row.append(head, look, what, recordLine);
+      row.summary = () => {
+        const shown = (caption ? caption.values?.().value : text.value) || '';
+        summary.textContent = shown.trim() || $HR(DEFAULT_LABELS[action.value] || 'Link');
+      };
     }
     list.append(row);
     rows.push({
       row,
+      summary: () => row.summary?.(),
       destroy: () => {
         record.destroy();
         caption?.destroy?.();
@@ -561,8 +596,10 @@ function recordInput(services, value) {
     return { element: host, value: () => Number(input.getValue()) || 0, destroy: () => void input.destroy?.() };
   }
   let recordId = value;
-  const choose = button('fa-magnifying-glass', 'Choose the record', true);
-  const label = () => { choose.lastChild.textContent = ` ${recordId ? `#${recordId}` : $HR('Choose the record')}`; };
+  const choose = button('fa-magnifying-glass', 'Choose the record');
+  const caption = element('span');
+  choose.append(caption);
+  const label = () => { caption.textContent = ` ${recordId ? `#${recordId}` : $HR('Choose the record')}`; };
   label();
   choose.disabled = typeof services.browseRecords !== 'function';
   choose.addEventListener('click', async () => {
@@ -613,6 +650,16 @@ function block(label, control) {
   node.append(caption, control);
   return node;
 }
+
+/** The label of a line of an action item (Icon, Action), as wide on each line (review 27n §19.23b-c). */
+function fieldLabel(text) {
+  const label = element('span', 'h-cms-action-label');
+  label.textContent = $HR(text);
+  return label;
+}
+
+/** Class of the controls shown only with Show advanced settings (review 27n §21; designer.css). */
+const ADVANCED = 'h-cms-advanced-only';
 
 function classed(node, className) {
   node.classList.add(className);

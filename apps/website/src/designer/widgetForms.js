@@ -475,9 +475,11 @@ function presentationFields(actionFields, showWhen = null) {
     { name: 'presentation', type: 'enum', label: 'Show as', mode: 'radio', max: 1, ...(showWhen ? { showWhen } : {}),
       terms: [{ id: 'list', label: 'List (all visible)' }, { id: 'carousel', label: 'Carousel (one visible, buttons)' },
         { id: 'slider', label: 'Slideshow (one visible, automatic)' }] },
-    { name: 'duration', type: 'integer', label: 'Duration (ms)', max: 1, minValue: 500, showWhen: slider },
-    { name: 'fade', type: 'integer', label: 'Fade out (ms)', max: 1, minValue: 0, showWhen: slider },
-    { name: 'navigation', type: 'boolean', label: 'Navigation', help: 'Start / stop buttons and << < > >>', max: 1, showWhen: slider }
+    // advanced settings (review 27n §21: `req: 'optional'`, the defaults 4000 / 500 / on)
+    { name: 'duration', type: 'integer', label: 'Duration (ms)', max: 1, minValue: 500, showWhen: slider, req: 'optional' },
+    { name: 'fade', type: 'integer', label: 'Fade out (ms)', max: 1, minValue: 0, showWhen: slider, req: 'optional' },
+    { name: 'navigation', type: 'boolean', label: 'Navigation', help: 'Start / stop buttons and << < > >>', max: 1, showWhen: slider,
+      req: 'optional' }
   ];
 }
 
@@ -844,7 +846,8 @@ export async function openCardsForm({ settings = {}, dbdefs, apiClient, services
       id: 'main',
       children: [
         // Record of the page URL: the widget of a record page (plan 27g)
-        { name: 'mode', type: 'enum', label: 'Source', mode: 'radio', max: 1,
+        // an advanced setting (review 27n §21): Manual pickup by default
+        { name: 'mode', type: 'enum', label: 'Source', mode: 'radio', max: 1, req: 'optional',
           terms: [{ id: 'manual', label: 'Manual pickup' }, { id: 'source', label: 'Query source' }, { id: 'query', label: 'Query' },
             { id: 'url', label: 'Record of the page URL' }] },
         { name: 'records', type: 'resource', label: 'Source records', max: 0, targetTypes: [], pointerMode: 'browseonly', showWhen: { mode: 'manual' } },
@@ -982,19 +985,20 @@ export function mediaFormFields({ single = false, multilang = false, mediaType =
   }
   const source = { type: 'resource', max: single ? 1 : 0, pointerMode: 'addorbrowse' };
   return [
-    // one media element: singular names (2026-11-12)
-    { name: 'mode', type: 'enum', label: 'Source', mode: 'radio', max: 1,
+    // one media element: singular names (2026-11-12); Source an advanced setting, File for a new element (review 27n §21)
+    { name: 'mode', type: 'enum', label: 'Source', mode: 'radio', max: 1, req: 'optional',
       terms: [{ id: 'media', label: single ? 'Media record' : 'Media records' }, { id: 'files', label: single ? 'File' : 'Files' },
         { id: 'record', label: 'Any record' }] },
     { ...source, name: 'records', label: single ? 'Source record' : 'Source records', targetTypes: mediaType ? [mediaType] : [], showWhen: { mode: 'media' } },
     { ...source, name: 'files', label: single ? 'Source file' : 'Source files', targetTypes: fileType ? [fileType] : [], showWhen: { mode: 'files' } },
     { ...source, name: 'anyRecords', label: single ? 'Source record' : 'Source records', targetTypes: [], showWhen: { mode: 'record' } },
     { name: 'fileField', type: 'enum', label: 'Field', max: 1, terms: fileTerms, showWhen: { mode: 'record' } },
-    single ? { name: 'captionText', type: 'freetext', label: 'Caption', max: 1, multilang } : { name: 'caption', type: 'boolean', label: 'Show caption', max: 1 },
+    single ? { name: 'captionText', type: 'freetext', label: 'Caption', max: 1, multilang }
+      : { name: 'caption', type: 'boolean', label: 'Show caption', max: 1, req: 'optional' },
     { name: 'width', type: 'freetext', label: 'Width', help: 'Empty = auto; a number is px, or %. Both under 200 px: thumbnails.', max: 1 },
     { name: 'height', type: 'freetext', label: 'Height', max: 1 },
     // one media element: the image (player) and its caption left, centred or right in the element (2026-11-14)
-    ...(single ? [{ name: 'align', type: 'enum', label: 'Alignment', mode: 'radio', max: 1,
+    ...(single ? [{ name: 'align', type: 'enum', label: 'Alignment', mode: 'radio', max: 1, req: 'optional',
       terms: [{ id: 'left', label: 'Left' }, { id: 'center', label: 'Center' }, { id: 'right', label: 'Right' }] }] : []),
     ...(single
       ? actionFields
@@ -1102,8 +1106,10 @@ export async function openMediaForm({
 }) {
   const mediaType = Number(dbdefs?.dbconst?.('RT_MEDIA_RECORD')) || 0;
   const fileType = Number(dbdefs?.dbconst?.('RT_REGISTERED_FILE')) || 0;
-  const mode = Object.hasOwn(SOURCE_FIELDS, settings.mode) ? settings.mode : 'media';
   const ids = single ? (Number(settings.record) > 0 ? [Number(settings.record)] : []) : settings.ids || [];
+  // a new element (nothing chosen yet): files (review 27n §21); a stored one without a mode: media records
+  const fresh = !settings.mode && !ids.length;
+  const mode = Object.hasOwn(SOURCE_FIELDS, settings.mode) ? settings.mode : (fresh ? 'files' : 'media');
   const sources = (name) => (mode === name ? (single ? ids[0] ?? null : ids) : (single ? null : []));
   const multilang = single && languages.length > 1;
   const chosen = (values) => [values[SOURCE_FIELDS[values.mode]]].flat().filter(Boolean).map(Number);
@@ -1146,7 +1152,8 @@ export async function openMediaForm({
       savedFilter: '',
       width: mediaSizeValue(settings.width, single),
       height: mediaSizeValue(settings.height, single),
-      ...(single ? { align: ['center', 'right'].includes(settings.align) ? settings.align : 'left' } : {})
+      // a new media element: centred (review 27n §21)
+      ...(single ? { align: ['center', 'right'].includes(settings.align) ? settings.align : (fresh ? 'center' : 'left') } : {})
     },
     apiClient,
     dbdefs,
@@ -1439,7 +1446,9 @@ export function openMenuForm({ settings = {}, inline = null } = {}) {
       groups: [{
         id: 'main',
         children: [
-          { name: 'orientation', type: 'enum', label: 'Orientation', mode: 'radio', max: 1,
+          // advanced settings (review 27n §21, `req: 'optional'`): the source, orientation (auto for a new menu), the collapsed
+          // menu and colours
+          { name: 'orientation', type: 'enum', label: 'Orientation', mode: 'radio', max: 1, req: 'optional',
             terms: [{ id: 'horizontal', label: 'Horizontal (drop-down sub pages)' }, { id: 'vertical', label: 'Vertical (a tree)' },
               { id: 'auto', label: 'Auto: vertical in a vertical header' }] },
           // the look of the items of the first level (plan 27k §1)
@@ -1448,24 +1457,26 @@ export function openMenuForm({ settings = {}, inline = null } = {}) {
           // the line of the underline style (review 2026-11-16)
           ...MENU_LINE_FIELDS,
           // colours of the items (plan 27n §7)
-          { name: 'colors', type: 'enum', label: 'Colours', max: 1,
+          { name: 'colors', type: 'enum', label: 'Colours', max: 1, req: 'optional',
             terms: ITEM_COLOR_LABELS.map(([id, label]) => ({ id: id || 'site', label })) },
-          { name: 'showHome', type: 'boolean', label: 'Show Home', help: 'The home page as the first entry of the menu', max: 1 },
-          { name: 'selectableParent', type: 'boolean', label: 'Pages with sub pages open', max: 1,
+          { name: 'showHome', type: 'boolean', label: 'Show Home', help: 'The home page as the first entry of the menu', max: 1, req: 'optional' },
+          { name: 'selectableParent', type: 'boolean', label: 'Pages with sub pages open', max: 1, req: 'optional',
             help: 'Unchecked: the title of such a page only opens its sub pages' },
           // the collapsed menu (plan 27k §5): below the header row, or over the whole window with an animation
-          { name: 'collapse', type: 'enum', label: 'Open collapsed menu', mode: 'radio', max: 1,
+          { name: 'collapse', type: 'enum', label: 'Open collapsed menu', mode: 'radio', max: 1, req: 'optional',
             help: 'The menu collapses behind its button when it does not fit (narrow screens)',
             terms: [{ id: 'panel', label: 'Below the header' }, { id: 'fullscreen', label: 'Full screen' }] },
-          { name: 'animation', type: 'enum', label: 'Animation', max: 1, showWhen: { collapse: 'fullscreen' },
+          { name: 'animation', type: 'enum', label: 'Animation', max: 1, showWhen: { collapse: 'fullscreen' }, req: 'optional',
             terms: [{ id: 'down', label: 'Slide down' }, { id: 'right', label: 'Slide in from the right' }, { id: 'fade', label: 'Fade in' }] },
           // the colours of the full-screen menu (review 2026-11-16); empty: the colours of the page
-          { name: 'overlayBg', type: 'color', label: 'Background of the full-screen menu', max: 1, showWhen: { collapse: 'fullscreen' } },
-          { name: 'overlayText', type: 'color', label: 'Text colour of the full-screen menu', max: 1, showWhen: { collapse: 'fullscreen' } },
-          { name: 'alwaysCollapsed', type: 'boolean', label: 'Always collapsed', max: 1,
+          { name: 'overlayBg', type: 'color', label: 'Background of the full-screen menu', max: 1, showWhen: { collapse: 'fullscreen' },
+            req: 'optional' },
+          { name: 'overlayText', type: 'color', label: 'Text colour of the full-screen menu', max: 1, showWhen: { collapse: 'fullscreen' },
+            req: 'optional' },
+          { name: 'alwaysCollapsed', type: 'boolean', label: 'Always collapsed', max: 1, req: 'optional',
             help: 'The menu button on every screen, also when the menu fits' },
           // the pages of the menu (plan 27k §6, the last option since 2026-11-16): the whole website or the section of the page
-          { name: 'scope', type: 'enum', label: 'Pages', mode: 'radio', max: 1, hidden: true,
+          { name: 'scope', type: 'enum', label: 'Pages', mode: 'radio', max: 1, hidden: true, req: 'optional',
             terms: [{ id: 'site', label: 'All pages of the website' },
               { id: 'section', label: 'The section of the page: its sub pages, else its parent and the pages beside it; on the home page'
                 + ' and on a page of the first level without sub pages: the pages of the first level' }] }
@@ -1562,7 +1573,8 @@ export function openEmailForm({ settings = {}, languages = [], translator = null
       groups: [{
         id: 'main',
         children: [
-          { name: 'display', type: 'enum', label: 'Display', mode: 'radio', max: 1,
+          // an advanced setting (review 27n §21): Form on the page by default
+          { name: 'display', type: 'enum', label: 'Display', mode: 'radio', max: 1, req: 'optional',
             terms: [{ id: 'inline', label: 'Form on the page' }, { id: 'button', label: 'Button that opens the form in a popup' }] },
           { name: 'label', type: 'freetext', label: 'Button caption', help: 'Empty: "Email us"', max: 1, multilang,
             showWhen: { display: 'button' } }
@@ -1581,5 +1593,5 @@ export function openEmailForm({ settings = {}, languages = [], translator = null
     const { caption: label, translations } = readCaption(values.label, languages);
     const labels = Object.fromEntries(Object.entries(translations).filter(([, text]) => text));
     return { display: 'button', ...(label ? { label } : {}), ...(Object.keys(labels).length ? { labels } : {}) };
-  }, { inline, sections: { caption: ['label'] } });
+  }, { inline, sections: { caption: ['label'], when: { caption: { display: 'button' } } } });
 }

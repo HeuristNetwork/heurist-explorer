@@ -172,8 +172,11 @@ test('catalogs of Add page and Add element: the available elements are the ones 
     assert.ok(previewSvg(item.preview));
   }
   const blank = cmsPageStarter('blank', 'News');
-  assert.equal(blank.content.match(/data-h-text/g).length, 1, 'one text element');
-  assert.match(blank.content, /<h1>News<\/h1><p>Text<\/p>/);
+  // the name of the page (a Record field) and one text element without the name (review 27n §22)
+  assert.equal(blank.content.match(/data-h-text/g).length, 2);
+  assert.match(blank.content, /data-h-field="page\.2-1"[^>]*>News</);
+  assert.match(blank.content, />(<p>Text<\/p>)</);
+  assert.doesNotMatch(blank.content, /<h1>/);
 });
 
 test('Styles popup: four tabs, themes, kind defaults, presets, custom CSS with the warning, previews', async () => {
@@ -349,6 +352,17 @@ test('Style editor: simple and advanced lists, group flex box, Reset all, Remove
   styleRows(child, {}, null, { kind: 'text', inFlexGroup: true });
   assert.deepEqual(child.querySelectorAll('.h-cms-style-section').map((item) => item.textContent.trim()),
     ['In the group', 'Size and spacing', 'Text', 'Background', 'Border']);
+  // the simple form of the element panel (review 27n §21): no Group layout, Grid with Columns and Gap, Normal screen only,
+  // no Advanced button; setSimple(false) as before
+  const group = document.createElement('div');
+  const simple = styleRows(group, {}, null, { kind: 'group', simple: true });
+  const sectionsOf = () => group.querySelectorAll('.h-cms-style-section').map((item) => item.textContent.trim());
+  assert.ok(!sectionsOf().includes('Group layout (flex)') && sectionsOf().includes('Grid (columns)'));
+  assert.equal(group.querySelector('.h-cms-style-advanced').hidden, true);
+  assert.equal(group.querySelector('.h-cms-style-tabs').hidden, true, 'no screen selector');
+  simple.setSimple(false);
+  assert.ok(sectionsOf().includes('Group layout (flex)'));
+  assert.equal(group.querySelector('.h-cms-style-advanced').hidden, false);
   for (const value of ['1', '2', 'auto', 'none', '1 200px', '1 0 200px', '2 1']) assert.equal(checkStyleValue('flex', value).error, null, value);
   for (const value of ['x', '1 1 1', '-1', '1 2 3 4']) assert.ok(checkStyleValue('flex', value).error, value);
 });
@@ -681,9 +695,8 @@ test('designer: the caption of a group in the translation popup; a translation a
     const body = dialogs[0].body;
     assert.deepEqual(body.querySelectorAll('.h-input-text-lang').map((badge) => badge.textContent), ['ENG'], 'the caption in the first language');
     body.querySelectorAll('input')[0].value = 'News';
-    const select = body.querySelector('select');
-    select.value = 'fre';
-    select.fire('change');
+    // two languages: a button "Add FRE" (review 27n §18.17b)
+    body.querySelector('.h-translation-add-one').click();
     body.querySelectorAll('input')[1].value = 'Nouvelles';
     dialogs[0].buttons[0].onClick();
     await done;
@@ -753,8 +766,16 @@ test('designer: element panel (plan 27n §2): Configuration | Own style, docked 
   assert.equal(panel.querySelector('.h-cms-panel-foot').hidden, true, 'no footer when docked');
   // the help of the form (header help and the help of the inputs) on and off
   const tips = designer.formPanel.tipsShown();
-  panel.querySelector('.h-cms-panel-head').querySelectorAll('.h-cms-panel-icon')[0].click();
+  const icons = panel.querySelector('.h-cms-panel-head').querySelectorAll('.h-cms-panel-icon');
+  icons[1].click();
   assert.equal(designer.formPanel.tipsShown(), !tips);
+  // Show advanced settings before Help (review 27n §21)
+  assert.ok(icons[0].classList.contains('h-cms-panel-advanced'));
+  const advanced = designer.formPanel.advancedShown();
+  icons[0].click();
+  assert.equal(designer.formPanel.advancedShown(), !advanced);
+  assert.equal(panel.classList.contains('is-advanced'), !advanced);
+  icons[0].click();
   // undock: a popup with Dock, Cancel and Apply; Cancel returns to the draft of its opening
   designer._panelMode('popup');
   assert.equal(panel.classList.contains('is-popup'), true);

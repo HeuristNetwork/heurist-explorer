@@ -644,7 +644,8 @@ const SELECT = (...items) => items.map((item) => (Array.isArray(item) ? item : [
  * `inGroup: true` only for elements in a flex group (and presets); `toggle`: a section with a checkbox, `on` / `off`
  * the values written when it is checked / unchecked; `key`: the section is on when these values are set (on the
  * medium and narrow screens also when the normal screen has them), sections with a key on the same property
- * exclude each other (Grid, Group layout). `columns: true`: the column selector of the grid (§30).
+ * exclude each other (Grid, Group layout). `columns: true`: the column selector of the grid (§30). `advanced: true`
+ * (a section or a field): not in the simple form of the element panel (review 27n §21).
  * Selector options are [value, label]; the first option (empty) is the default.
  */
 export const SIMPLE_STYLE_FIELDS = Object.freeze([
@@ -654,15 +655,15 @@ export const SIMPLE_STYLE_FIELDS = Object.freeze([
     fields: [
       { property: 'grid-template-columns', label: 'Columns', columns: true },
       { property: 'gap', label: 'Gap between elements', hint: 'e.g. 12px' },
-      { property: 'align-items', label: 'Row alignment', options: SELECT(['stretch', 'Stretch'], ['start', 'Top'], ['center', 'Center'],
-        ['end', 'Bottom']) },
+      { property: 'align-items', label: 'Row alignment', advanced: true, options: SELECT(['stretch', 'Stretch'], ['start', 'Top'],
+        ['center', 'Center'], ['end', 'Bottom']) },
       // plan 27i §9 A: the content of all columns left / centre / right; the rows together in a tall group
-      { property: 'justify-items', label: 'Column alignment', options: SELECT(['stretch', 'Stretch'], ['start', 'Left'], ['center', 'Center'],
-        ['end', 'Right']) },
-      { property: 'align-content', label: 'Rows in the group', options: SELECT(['start', 'Top'], ['center', 'Center'], ['end', 'Bottom'],
-        ['space-between', 'Space between'], ['space-evenly', 'Space evenly']) }
+      { property: 'justify-items', label: 'Column alignment', advanced: true, options: SELECT(['stretch', 'Stretch'], ['start', 'Left'],
+        ['center', 'Center'], ['end', 'Right']) },
+      { property: 'align-content', label: 'Rows in the group', advanced: true, options: SELECT(['start', 'Top'], ['center', 'Center'],
+        ['end', 'Bottom'], ['space-between', 'Space between'], ['space-evenly', 'Space evenly']) }
     ] },
-  { section: 'Group layout (flex)', group: true,
+  { section: 'Group layout (flex)', group: true, advanced: true,
     // checked: a flex box; unchecked: display block
     toggle: { key: { display: 'flex' }, on: { display: 'flex' }, off: { display: 'block' } }, fields: [
       { property: 'flex-direction', label: 'Direction', options: SELECT(['row', 'Row (side by side)'], ['column', 'Column (one under another)']) },
@@ -877,17 +878,22 @@ function isColorProperty(property) {
  *        own choice; null = the choice of the session. `video`: the background video of a group (the key of a
  *        registered file, '' none; null: not offered), a Video input in the Background section (plan 27i §9 D).
  *        `headExtra`: an element (or a list) of the caller beside the preset selector (with `presets` only).
- * @returns {{value: () => object, preset: () => string|null, cssClass: () => string|null, video: () => string}} `cssClass`:
- *          null while it has characters that are not allowed.
+ *        `simple`: the simple form of the element panel (review 27n §21): the Normal screen only, no Advanced button,
+ *        no section or field marked `advanced`; `setSimple` switches it.
+ * @returns {{value: () => object, preset: () => string|null, cssClass: () => string|null, video: () => string,
+ *          setSimple: (simple: boolean) => void}} `cssClass`: null while it has characters that are not allowed.
  */
 export function styleRows(parent, style, onChange = null, {
   kind = null, inFlexGroup = false, itemColors = false, presets = null, preset = null, cssClass = '', classInput = true, base = null, files = null,
-  advanced: startAdvanced = null, video = null, headExtra = null
+  advanced: startAdvanced = null, video = null, headExtra = null, simple = false
 } = {}) {
   // the background video of a group (plan 27i §9 D): the key of a registered file, not a style property
   let videoKey = typeof video === 'string' ? video : '';
   // Simple or Advanced: the session's choice (own style), or the editor's own (Styles popup)
   let isAdvanced = startAdvanced ?? advancedMode;
+  // the simple form (review 27n §21): the property rows of Advanced not offered
+  let simpleMode = simple === true;
+  const rowsShown = () => isAdvanced && !simpleMode;
   const screens = ['normal', ...Object.keys(SCREENS)];
   const values = { normal: {} };
   for (const screen of Object.keys(SCREENS)) values[screen] = { ...(style?.[screen] || {}) };
@@ -958,16 +964,18 @@ export function styleRows(parent, style, onChange = null, {
   });
   const screenCaption = element('span', 'h-cms-style-screen-caption');
   screenCaption.textContent = $HR('Screen');
+  let screenHost = tabs;
   if (presetHead) {
     const screenField = element('label', 'h-cms-style-field h-cms-style-screen-field');
     screenField.append(screenCaption, screenSelect);
+    screenHost = screenField;
     // after Preset (Custom CSS class follows)
     presetHead.insertBefore?.(screenField, presetHead.children[1] || null) ?? presetHead.append(screenField);
   } else {
     tabs.append(screenCaption, screenSelect);
   }
   const tools = element('div', 'h-cms-style-tools');
-  const advanced = button('Advanced', 'fa-sliders');
+  const advanced = button('Advanced', 'fa-chess-board');
   advanced.classList.add('h-cms-style-advanced');
   const add = button('Add property', 'fa-plus');
   add.classList.add('h-btn-primary');
@@ -998,7 +1006,7 @@ export function styleRows(parent, style, onChange = null, {
   }
   const setValue = (property, value) => {
     // an empty value removes the property in the simple list; Advanced keeps the row
-    if (isAdvanced || String(value).trim()) values[screen][property] = value; else delete values[screen][property];
+    if (rowsShown() || String(value).trim()) values[screen][property] = value; else delete values[screen][property];
     check();
   };
   // a section with a checkbox: on when it has values (or was checked), off with its `off` values
@@ -1179,6 +1187,7 @@ export function styleRows(parent, style, onChange = null, {
   };
   const drawSimple = () => {
     for (const section of sections) {
+      if (simpleMode && section.advanced) continue;
       const head = element('div', 'h-cms-style-section');
       const on = section.toggle ? isOn(section) : true;
       if (section.toggle) {
@@ -1204,6 +1213,7 @@ export function styleRows(parent, style, onChange = null, {
         list.append(note);
       }
       for (const item of section.fields) {
+        if (simpleMode && item.advanced) continue;
         const value = values[screen][item.property] ?? '';
         const host = element('div', 'h-cms-styles-value');
         if (item.columns) {
@@ -1277,11 +1287,14 @@ export function styleRows(parent, style, onChange = null, {
     screenSelect.value = screen;
     advanced.classList.toggle('h-cms-style-advanced-on', isAdvanced);
     advanced.setAttribute('aria-pressed', String(isAdvanced));
-    add.hidden = !isAdvanced;
-    removeAll.hidden = !isAdvanced;
-    list.classList.toggle('h-cms-style-simple', !isAdvanced);
+    // the simple form: the Normal screen, no Advanced button (review 27n §21)
+    advanced.hidden = simpleMode;
+    screenHost.hidden = simpleMode;
+    add.hidden = !rowsShown();
+    removeAll.hidden = !rowsShown();
+    list.classList.toggle('h-cms-style-simple', !rowsShown());
     list.replaceChildren();
-    if (isAdvanced) drawAdvanced(); else drawSimple();
+    if (rowsShown()) drawAdvanced(); else drawSimple();
     check();
   }
   const clearScreen = () => {
@@ -1300,7 +1313,7 @@ export function styleRows(parent, style, onChange = null, {
   });
   reset.addEventListener('click', async () => {
     if (!(await confirmNear(reset, 'Confirm?', { yes: 'Reset' }))) return;
-    if (isAdvanced) {
+    if (rowsShown()) {
       for (const property of Object.keys(values[screen])) values[screen][property] = '';
     } else {
       values[screen] = {};
@@ -1314,9 +1327,15 @@ export function styleRows(parent, style, onChange = null, {
     clearScreen();
     draw();
   });
+  if (simpleMode) screen = 'normal';
   draw();
   return { value: build, preset: () => presetValue, cssClass: () => (classError ? null : classValue.trim().split(/\s+/).filter(Boolean).join(' ')),
-    video: () => videoKey };
+    video: () => videoKey,
+    setSimple: (next) => {
+      simpleMode = next === true;
+      if (simpleMode) screen = 'normal';
+      draw();
+    } };
 }
 
 /**
