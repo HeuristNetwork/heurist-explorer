@@ -1,5 +1,7 @@
 # 27n Page editor: element panel, sections, names, Show / hide action
 
+**DONE 2026-11-18** (Artem): all phases committed (explorer `e1d54de`, heurist `97008004b`); the open items are in `leftovers 24, 27-34.md`. Status lines below that say *not committed* are older.
+
 **Status.** Agreed 2026-11-17, from Artem's review of the page editor (11 items). Two corrections by Artem in the
 same session are included (§6.2 action menu rows, §2.4 Help of the panel); open points decided (§12). Phases A-D done 2026-11-17 (§13); review rounds 1-9 done 2026-11-17/18 (§14-23); not committed, no browser check; phase E open (§13.5).
 
@@ -348,7 +350,7 @@ heurist `php tests/CmsFormatTest.php` and `php tests/WebsiteEditTest.php`.
   `cmsDesigner.test.js` (sections of tabs and a widget, common fields); JS 1,850 pass; `build:website` and
   `build:explorer` ok, not deployed.
 
-### 13.5 Open (phase E)
+### 13.5 Open (phase E) — closed by Artem 2026-11-18, not to be done
 
 - §12.3 presentation settings of the media elements not there yet: gap, orientation, grey until the mouse is over for
   Media, Media gallery and Social media, and width for badges. Each needs the renderer (JS draft + `PageRenderer` /

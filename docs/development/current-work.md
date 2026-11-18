@@ -4,14 +4,18 @@ Status of the open development plans: what is done, committed, checked in a brow
 `CLAUDE.md` on 2026-11-18. The Status line at the top of each plan in this folder is the source; update both when a plan
 changes. Newest first.
 
-**`docs/development/27n Page-Editor-Element-Panel-Plan.md`** (agreed 2026-11-17, from Artem's review; Phases A-D + reviews 1-9 (§14-23) done, not committed,
+**2026-11-18: plans 14a, 24, 27a-27n, 28a, 29, 30, 32, 33 and 34 are DONE** (all committed, explorer `e1d54de`, heurist
+`97008004b`; files renamed). Their open items: `docs/development/leftovers 24, 27-34.md`. The entries below keep their
+history; *not committed* in them is older than this line.
+
+**`docs/development/27n DONE Page-Editor-Element-Panel-Plan.md`** (agreed 2026-11-17, from Artem's review; Phases A-D + reviews 1-9 (§14-23) done, not committed,
 no browser check): one element panel with tabs Configuration | Own style (below the tree / beside Site-Page / popup with
 Dock, Cancel, Apply), gear + trash on every tree row, sections Source / Presentation / Caption(s) / Behaviour /
 Identification, element name `data-h-name`, action `toggle` (Show / hide element), reveal effects incl. `hidden`, item
 colour schemes (Inverted), font-size variables, Add element regrouped. Phases A (font size, catalog, reveal) → B (format)
 → C (panel) → D (sections).
 
-**`docs/development/27m Website-SEO-Proposal.md`** (2026-11-16, agreed; Phases A-D done, not committed, no browser check,
+**`docs/development/27m DONE Website-SEO-Proposal.md`** (2026-11-16, agreed; Phases A-D done, not committed, no browser check,
 not deployed, §8-9: canonical / x-default / description / noindex, sitemap as a guest, `layout.searchEngines`; job
 `website-build` with options (body of execute, kept in `manifest.json`), `srv/Website/Build/GeneratedSites|GeneratedPages`,
 record pages by query, `GET|DELETE /{entity}/{id}/asset`, `meta.generated`; own domain `"site"` mapping
@@ -24,7 +28,7 @@ Delete). Generate options (§2.1, kept in the website configuration `generate`):
 record file is sent). `?lang=` stays, slugs postponed. Phases A (metadata, noindex, sitemap) → B (folder build +
 serving + manager section) → C (own-domain v4 routing) → D (ZIP with base URL).
 
-**`docs/development/27l Page-Modules-Sync-and-Filter-Plan.md`** (2026-11-16, agreed; phase 5 of plan 27; Phases A-C done,
+**`docs/development/27l DONE Page-Modules-Sync-and-Filter-Plan.md`** (2026-11-16, agreed; phase 5 of plan 27; Phases A-C done,
 not committed, no browser check, §8-10: `DataSource.js` + `SyncEngine.js` moved to shared, `ModuleHandle`, `syncMode`;
 `apps/website/src/PageSync.js` one per configuration block (`pageSyncOf`), instance key `sync`, designer *Page sync*;
 widget `filter` (`siteFilter.js`, `cmsFilterWidget.js`), Stop in HFilter, Saved filter action with saved filters (`filter`
@@ -39,7 +43,7 @@ one page = one domain; `SyncEngine` + per-type `ModuleHandle` moved to `shared/s
 instance setting `sync: all | selection | none`; widget `filter` (HFilter, no URL change); Stop in HFilter through a page
 `RequestMonitor` (also the published Explorer). Later: bindings between modules (selection → search).
 
-**`docs/development/34 File-Endpoints-Transition-Plan.md`** (2026-11-16, agreed; phases 1-4 implemented in both repos, not
+**`docs/development/34 DONE File-Endpoints-Transition-Plan.md`** (2026-11-16, agreed; phases 1-4 implemented in both repos, not
 committed, no browser check, bundles not deployed): every file URL of heurist-explorer on the file endpoints
 `/api/{db}/files/{key}/asset|web|thumbnail` (`content` renamed `asset`; `/web` = reduced copy, `srv/Files/WebImageCache`,
 cache named by the file key). One URL rule `shared/src/data/fileUrls.js` = `srv/Files/FileUrls.php` (fixture
@@ -48,7 +52,7 @@ cache named by the file key). One URL rule `shared/src/data/fileUrls.js` = `srv/
 `srv/Files/FilePlayerHtml.php` (Smarty `mode="player"`), same choice as `buildCmsMedia` / `mediaTag` (fixture
 `file-players.json`); exports and viewer pages stay legacy.
 
-**`docs/development/27k Website-Element-Options-Plan.md`** (2026-11-15, agreed; Phase A committed, §7: `menuLook()` in
+**`docs/development/27k DONE Website-Element-Options-Plan.md`** (2026-11-15, agreed; Phase A committed, §7: `menuLook()` in
 `shared/src/site/cmsMenu.js` = `PageRenderer::menuLook`, classes `h-site-menu-style-*` / `-expanding`; designer code must not
 import a site widget with CSS (§7.1); Phases B-E done, not committed, no browser check, §8: tabs `data-h-orientation` / `data-h-item-style`;
 §9: `layout.header.onScroll` keep | shrink, `attachHeaderShrink`, website menu class `h-site-menu-main`; §10: menu `collapse:
@@ -68,7 +72,7 @@ down / right), extras: back to top, accordion one open, reveal on scroll, sectio
 (`path` server / `history` client trail of record pages), search box = action menu item with the 27j Saved filter
 action (typed text = `v.<NAME>`). Phases A (§1-2) → B (§3) → C (§4) → D (§5) → E (§6).
 
-**`docs/development/27j Saved-Filter-Action-Plan.md`** (2026-11-15, agreed; Phases A-C implemented, A-B committed, C (client only) not committed,
+**`docs/development/27j DONE Saved-Filter-Action-Plan.md`** (2026-11-15, agreed; Phases A-C implemented, A-B committed, C (client only) not committed,
 no browser check, §7-9; values from the record `{record: 'id'}` / `{field}` filled in by the server; shared `shared/src/site/cmsSavedFilter.js` = `srv/Website/SavedFilterLink.php`, designer
 `savedFilterField.js`, site runtime `pageFilterRequest` / `filterInstanceState`, Explorer `state.pageRequest`): CMS action *Saved filter* =
 a public query source + target page + values (stored as a reference, not a query); URL `?source=<id>&v.<NAME>=` (limits:
@@ -77,7 +81,7 @@ a public query source + target page + values (stored as a reference, not a query
 modules leave their predicates out (at least one value for a parametrized source). Phases
 A (constants) / B (values from the record) / C (same page, swap / scroll).
 
-**`docs/development/27i Website-Page-Templates-Plan.md`** (2026-11-12; rework 2026-11-13, review 2026-11-14, implemented in
+**`docs/development/27i DONE Website-Page-Templates-Plan.md`** (2026-11-12; rework 2026-11-13, review 2026-11-14, implemented in
 both repos, not committed, no browser check):
 - §9 (phase D): page templates built from the Add page form (`shared/src/site/cmsPageTemplates.js`, every element with a
   first value, placeholders and banners of `apps/website/public/assets/cms`, media setting `placeholder`); groups are grids,
@@ -88,14 +92,14 @@ both repos, not committed, no browser check):
   phase F dropped; menu rollover = page description. Open: where to keep the sample images (§11.3). Blog / starter pack =
   phase C, to discuss.
 
-**`docs/development/27h Email-Form-Widget-Plan.md`** (2026-11-12, agreed and implemented in both repos, not committed, no
+**`docs/development/27h DONE Email-Form-Widget-Plan.md`** (2026-11-12, agreed and implemented in both repos, not committed, no
 browser check, no real message sent): widget `email` written by the server (`srv/Website/EmailFormHtml.php`, display
 inline | button + dialog), `shared/src/widgets/site/HEmailForm.js` asks the captcha and sends; `GET` / `POST
 /api/{db}/external/email` (guests, same site, captcha in the session as legacy, 5 per hour,
 `srv/ExternalService/EmailForm/`), recipient DT_EMAIL of the website else the db owner (`srv/Website/WebsiteContact.php`),
 mail through `$mailSmtp` SMTP relay or the legacy mailer (`srv/ExternalService/Mail/`). Test `heurist/tests/EmailFormTest.php`.
 
-**`docs/development/27g Record-Page-Plan.md`** (2026-11-11, agreed; Phase 1 server implemented, not committed, no browser check, §5):
+**`docs/development/27g DONE Record-Page-Plan.md`** (2026-11-11, agreed; Phase 1 server implemented, not committed, no browser check, §5):
 record page = ordinary CMS page with a Record cards widget in `mode: 'url'` (`CmsValidator::recordCards`), URL
 `/{db}/site/{site}/{page}/{record}` (`&rec=`), `record.` field source, title / meta / canonical from the record, 404 without a
 visible record, left out of website menus, action menu actions `recordPage` (page + record) and `back`. Phase 2 (§6-7, done, not
@@ -104,7 +108,7 @@ media and gallery (Any record), shared `apps/website/src/designer/recordPageFiel
 the server (`PageContent::recordLinks`, `.h-site-rec-link`). Phase 3 (§8, done, not committed): navigator views (`{page}/{record}`),
 hidden / record pages shown alone in scroll mode, Back = history back from this website. Later: caching, sitemap, RecordView element.
 
-**`docs/development/33 Actions-Tool-and-Batch-Updates-Plan.md`** (2026-11-10, plan 32 Phase 2; Field values implemented in both
+**`docs/development/33 DONE Actions-Tool-and-Batch-Updates-Plan.md`** (2026-11-10, plan 32 Phase 2; Field values implemented in both
 repos, not committed, no browser check, §6): Explorer Actions tool `apps/explorer/src/tools/actions/` (lazy chunk; list of actions
 by group, only Field values Add / Replace / Delete enabled; inline united field list + HEditForm with the Filter Builder row
 (`HFilterBuilderItem` `fixedField`) as condition), scope shared with Export (`tools/toolScope.js`). Server job `record-action`
@@ -112,7 +116,7 @@ by group, only Field values Add / Replace / Delete enabled; inline united field 
 a stopped / failed job keeps its report (`JobContext::setPartialResult`); one selected record = PATCH (`meta.values`).
 Test `heurist/tests/RecordActionTest.php`.
 
-**`docs/development/32 Field-PATCH-and-Batch-Updates-Plan.md`** (2026-11-10; Phase 1 implemented in both repos, not committed,
+**`docs/development/32 DONE Field-PATCH-and-Batch-Updates-Plan.md`** (2026-11-10; Phase 1 implemented in both repos, not committed,
 no browser check, §9): PATCH writes only the given fields (`RecordSaveService::patchFields`): `details` replace / `[]` delete
 (refused for required fields), `detailsAdd` (multi-value fields), `detailsMatch` (value condition of the query format,
 `FieldPredicateCompiler::valueCondition`), `addIfNone`, `?fields=` short answer, `meta.changed`. Title, calculated fields
@@ -121,7 +125,7 @@ and child titles only when they depend on a changed field: `srv/Records/Edit/Fie
 `DbEntityBase`). Designer saves ask for the header only. Test `heurist/tests/FieldPatchTest.php`. Phase 2 (batch updates)
 = plan 33 (job `record-action`).
 
-**`docs/development/27f Website-Layout-and-Helper-Widgets-Plan.md`** (plan 27 Phase 4b; phases A-E implemented 2026-11-07 in both repos,
+**`docs/development/27f DONE Website-Layout-and-Helper-Widgets-Plan.md`** (plan 27 Phase 4b; phases A-E implemented 2026-11-07 in both repos,
 not committed, no browser check, §10): navigation modes `reload|swap|scroll` (`layout` in 2-1187, tab *Navigation and layout*;
 swap/scroll fetch the full page, `<section data-h-page>` + page styles scoped, `apps/website/src/siteNavigator.js`), header/footer
 position classes + page hide flags, header templates + footer composer, HMenu options (one class for `menu` and `actionmenu`),
@@ -159,7 +163,7 @@ template files keep their names (set once), generated files `{outputId}.{ext}`, 
 §15 (2026-11-11, not committed): install notice with Install button when 2-1104/2-1105 are missing (bridge `definitionsChanged`);
 constants renamed `RT_REPORT_TEMPLATE` (2-1104) / `RT_REPORT_OUTPUT` (2-1105), no aliases.
 
-**`docs/development/27d Website-API-Plan.md`** (2026-10-30, agreed and implemented in both repos, not committed, not
+**`docs/development/27d DONE Website-API-Plan.md`** (2026-10-30, agreed and implemented in both repos, not committed, not
 checked in a browser): website / page = first record-based entities on the generic record controller
 (`/website/{id}`, `/page/{id}`, `meta.canEdit` + `meta.website`), `srv/Records/Entity` registry + handler,
 `srv/Website/WebsiteEntityHandler`, `assign` (menu add / move with index / remove), `page/{id}/import` (module
@@ -224,7 +228,7 @@ committed (heurist `81526abd7`, explorer `3423c49`). Title mask fill (`srv/Recor
 (`CalculatedFields`, srv Smarty) done 2026-10-13, not committed; `tests/TitleMaskCompareTest.php` = legacy.
 Phase 4 (Records manager) deferred.
 
-**`docs/development/14a Edit-Form-Plan.md`** (2026-10-17; committed, format agreed, documented in `docs/development/Edit-Form-Format.md`; openEditForm dropped; not DONE: consumers §19 item 3): generic `HEditForm` made from JSON
+**`docs/development/14a DONE Edit-Form-Plan.md`** (2026-10-17; committed, format agreed, documented in `docs/development/Edit-Form-Format.md`; openEditForm dropped; not DONE: consumers §19 item 3): generic `HEditForm` made from JSON
 (`heurist-edit-form/1`, `shared/src/data/editFormSchema.js`, `shared/src/widgets/edit-form/`), `HRecordField`
 moved to `edit-form/HEditField`, HRecordEditor uses HEditForm; `showWhen` in JSON, `onReady`/`onChange` hooks;
 temporary left rail tool *Test edit form* (`apps/explorer/src/dev/`). Phases 1-2 done, three review rounds;
@@ -335,7 +339,7 @@ phase gets its own plan. Website format v4 (HTML = structure, styles and instanc
 not reachable from legacy UI), live and built publication, URL `/{db}/site/{site}/{page}`, PageController (sync) and
 HFilter taken from the earlier publication plan (now replaced), legacy conversion in the designer. Depends on
 **plan 28 "OpenAPI rules and Database structure"** §7 (`sysRecords`/`sysRecDetails` for system record types, `MEDIUMTEXT`
-value + `dtl_Lang`), table conversion deferred 2026-10-26; its server side follows plan 27d. **Phase 1 plan: `27a Website-Format-v4-Plan.md`** (implemented 2026-10-26, both repos, not committed, not yet checked by Artem): heurist `srv/Website/` + `WebsiteController` (`/{db}/site/{id}[/{page}]`, `/api/{db}/website/{id}/check|setup`), `StoredCss`, page translations 2-1202 (missing in reference db 2 - Artem creates it), legacy viewer refuses 2-49 >= 4; client `apps/website` (target port 5180: site runtime, tabs/accordions, `HMenu`), `direct.js` for map/timeline/graph/explorer with `page.css` split, `shared/src/site/cmsDocument.js` + shared fixtures `shared/test/fixtures/cms-v4` (also run by `tests/CmsFormatTest.php`). Test pages kept in osmak_mapping: site 207627, standalone 207628/207629. Phase 2 plan: **`27b Website-Manager-Plan.md`** (implemented 2026-10-26, both repos, not committed, browser check
+value + `dtl_Lang`), table conversion deferred 2026-10-26; its server side follows plan 27d. **Phase 1 plan: `27a DONE Website-Format-v4-Plan.md`** (implemented 2026-10-26, both repos, not committed, not yet checked by Artem): heurist `srv/Website/` + `WebsiteController` (`/{db}/site/{id}[/{page}]`, `/api/{db}/website/{id}/check|setup`), `StoredCss`, page translations 2-1202 (missing in reference db 2 - Artem creates it), legacy viewer refuses 2-49 >= 4; client `apps/website` (target port 5180: site runtime, tabs/accordions, `HMenu`), `direct.js` for map/timeline/graph/explorer with `page.css` split, `shared/src/site/cmsDocument.js` + shared fixtures `shared/test/fixtures/cms-v4` (also run by `tests/CmsFormatTest.php`). Test pages kept in osmak_mapping: site 207627, standalone 207628/207629. Phase 2 plan: **`27b DONE Website-Manager-Plan.md`** (implemented 2026-10-26, both repos, not committed, browser check
 pending): Website manager `apps/website/src/direct.js` + `src/manager/` as Explorer tool `publish` (Websites),
 `HostAdapter.publish` → `POST /api/{db}/website/publish` (server builds the standalone v4 page), PublicationService
 removed, `srv/Website/WebsiteEditService`, job `website-build` (ZIP), endpoint `/website/{id}/validate` (was `check`),
@@ -357,7 +361,7 @@ changed fields + `rec_Modified` per record, undo/redo, 409 Reload/Overwrite; tra
 captions with translations in the shared popups `shared/src/widgets/translation/` (`HTextTranslationDialog`,
 `HTranslationDialog`, also used by the record editor; translation service `POST /api/{db}/external/translate`).
 
-**Phase 4a plan: `27e Website-Templates-and-Content-Sources-Plan.md`** (draft 2, agreed 2026-11-04; phases 1-5 implemented
+**Phase 4a plan: `27e DONE Website-Templates-and-Content-Sources-Plan.md`** (draft 2, agreed 2026-11-04; phases 1-5 implemented
 2026-11-04 in both repos, not committed, not checked in a browser, see §17):
 static text; one field of a record in `data-h-text` (`data-h-field="207439.2-1"`, also `website.` / `page.`, snapshot in
 the element); three widgets: Custom report (schedule output per language, schedule gets DT_LANGUAGE 2-967), Record cards
@@ -369,7 +373,7 @@ falls back to another language, preview of the file, the Generated Reports panel
 picker, presentation List / Carousel / Slideshow, `<<` `>>` from 6 slides. **Next: browser check, localization texts.** Phase 4b (other helper widgets) later. 27c §28-§38 (designer cosmetics, grid,
 media element `data-h-media`, strict custom CSS, IIIF, record manager kept per field) done 2026-11-03, partly committed.
 
-**`docs/development/29 Module-Configuration-and-Publish-Plan.md`** (draft 1, 2026-10-28): one agreed option table
+**`docs/development/29 DONE Module-Configuration-and-Publish-Plan.md`** (draft 1, 2026-10-28): one agreed option table
 per module (map, timeline, graph, data, recordview; columns incl. adv / configuration / website / publication / help),
 HEditForm JSON forms that replace the hand-written configuration dialogs one by one (HEditForm gets `advanced`,
 `modes`, `forced`, `termsSource: 'smartyTemplates'`), shared `ModuleConfigurationDialog` with Reset, common

@@ -1,5 +1,7 @@
 # 27k Website element options (menu styles, vertical tabs, header shrink, full-screen menu, extras)
 
+**DONE 2026-11-18** (Artem): all phases committed (explorer `e1d54de`, heurist `97008004b`); the open items are in `leftovers 24, 27-34.md`. Status lines below that say *not committed* are older.
+
 **Status (2026-11-15):** discussed and agreed with Artem (questions answered 2026-11-15). **Phase A (§1-2)
 committed** (§7; CSS chunk fix after the review not committed). **Phases B-E (§3-6) implemented** in both repos
 (§8-11, 2026-11-15/16): not committed, no browser check. All phases done. **Review 2026-11-16 (§12)** implemented in

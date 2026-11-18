@@ -68,7 +68,7 @@ This plan replaces `Explorer-Publication-and-Website-Development-Plan.md` (2026-
 **Deferred 2026-10-26 (decision 16).** v4 uses the current tables. The storage questions (separate table pairs such
 as `sysRecords` / `sysRecDetails`, `dtl_Value MEDIUMTEXT`, `dtl_Lang CHAR(3) NULL`, ids and pointers across pairs)
 moved on 2026-10-30 to `28 OpenAPI-Rules-and-Database-Structure-Plan.md` §7, together with the API rules that every
-server endpoint must follow (the Website API: `27d Website-API-Plan.md`).
+server endpoint must follow (the Website API: `27d DONE Website-API-Plan.md`).
 
 Until then, in the current tables: page HTML longer than one `TEXT` value is stored in chunks of
 `DT_EXTENDED_DESCRIPTION`, and translated page content is in field 2-1202 (the `xx:` rows of plan 25 do not apply).
@@ -184,7 +184,7 @@ sees from the record type whether the id is a website or a page.
   the reusable parts of Explorer's `SyncEngine`. Modules are independent unless they are in the same sync group;
   a group has one initial source; late modules get the current state; Explorer is joined through one bridge, not
   module by module. Legacy `search_realm` becomes a sync group on conversion.
-  **2026-11-16: plan `27l Page-Modules-Sync-and-Filter-Plan.md`** — one page = one domain (no sync groups), instance
+  **2026-11-16: plan `27l DONE Page-Modules-Sync-and-Filter-Plan.md`** — one page = one domain (no sync groups), instance
   setting `sync: all | selection | none`, widget `filter`, Stop.
 - **Navigation** (routes, decision 5) is not PageController's job. Proposed name `HSiteNavigator`: opens a page,
   passes a record or a query as the search value, keeps the browser history and language.
@@ -281,4 +281,4 @@ come later (decision 14).
 ## 10. Open points
 
 None (all answered 2026-10-26, decisions 1–23). Phase plans are named `27a`, `27b`, ...: phase 1 =
-`27a Website-Format-v4-Plan.md` (implemented 2026-10-26), phase 2 = `27b Website-Manager-Plan.md` (draft 2026-10-26), phase 3 = `27c DONE CMS-Designer-Plan.md` (DONE 2026-11-02). Website API on the common endpoints of plan 28 = `27d Website-API-Plan.md` (draft 1, 2026-10-30), to agree before 27c.
+`27a DONE Website-Format-v4-Plan.md` (implemented 2026-10-26), phase 2 = `27b DONE Website-Manager-Plan.md` (draft 2026-10-26), phase 3 = `27c DONE CMS-Designer-Plan.md` (DONE 2026-11-02). Website API on the common endpoints of plan 28 = `27d DONE Website-API-Plan.md` (draft 1, 2026-10-30), to agree before 27c.

@@ -1,9 +1,11 @@
 # Plan 27b — Website manager and publisher (plan 27, phase 2)
 
+**DONE 2026-11-18** (Artem): all phases committed (explorer `e1d54de`, heurist `97008004b`); the open items are in `leftovers 24, 27-34.md`. Status lines below that say *not committed* are older.
+
 **Status 2026-10-31: review rounds 4-6 (§11.6-§11.8) done, not committed. Earlier, 2026-10-28: review round 1 (§11) implemented, not committed, not checked in a browser: items 1–9 (§11.1),
 item 10 *Publish this view* (§11.2 proposal, §11.3 decisions and implementation).** Phase 2 itself (2026-10-26) is
 committed. Next: plan for phase 3, the CMS designer (§12). As implemented and deviations: §10. General directions and decisions 1–23 are
-in `27 CMS-and-Web-Publishing-Plan.md`, the v4 format in `27a Website-Format-v4-Plan.md`; this plan uses them and
+in `27 CMS-and-Web-Publishing-Plan.md`, the v4 format in `27a DONE Website-Format-v4-Plan.md`; this plan uses them and
 does not repeat them. Decisions are in §9.
 
 ## 1. Goal

@@ -1,5 +1,7 @@
 # Plan 27d — Website API on the common endpoints (plan 27, before phase 3)
 
+**DONE 2026-11-18** (Artem): all phases committed (explorer `e1d54de`, heurist `97008004b`); the open items are in `leftovers 24, 27-34.md`. Status lines below that say *not committed* are older.
+
 **Status 2026-10-30: agreed and implemented (both repos), not committed, not checked in a browser.** Open points
 answered by Artem (§8); implementation and deviations in §11. It follows `28 OpenAPI-Rules-and-Database-Structure-Plan.md`
 and is the first new work on those rules (pilot of record-based entities). It replaces the server endpoints of 27b and

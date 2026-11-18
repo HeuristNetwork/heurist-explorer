@@ -1,5 +1,7 @@
 # 27m Website publication and SEO
 
+**DONE 2026-11-18** (Artem): all phases committed (explorer `e1d54de`, heurist `97008004b`); the open items are in `leftovers 24, 27-34.md`. Status lines below that say *not committed* are older.
+
 **Status.** Decisions agreed 2026-11-16 (§1-§4, §2.1 Generate options). Phases A-D implemented 2026-11-16 (both repos,
 not committed, no browser check, bundles not deployed; §8-9). Replaces the first draft of the same day.
 

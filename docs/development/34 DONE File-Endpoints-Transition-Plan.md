@@ -1,5 +1,7 @@
 # 34 File URLs on the file endpoints
 
+**DONE 2026-11-18** (Artem): all phases committed (explorer `e1d54de`, heurist `97008004b`); the open items are in `leftovers 24, 27-34.md`. Status lines below that say *not committed* are older.
+
 **Status 2026-11-16: agreed with Artem and implemented in both repos (phases 1-4); not committed, not checked in a
 browser, bundles not deployed.**
 

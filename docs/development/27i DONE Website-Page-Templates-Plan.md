@@ -1,5 +1,7 @@
 # 27i Website page templates (plan 27, phase 4 leftover of 27c §27 / 27e §12)
 
+**DONE 2026-11-18** (Artem): all phases committed (explorer `e1d54de`, heurist `97008004b`); the open items are in `leftovers 24, 27-34.md`. Status lines below that say *not committed* are older.
+
 **Status:** agreed 2026-11-12 (Artem). Phases A and B implemented 2026-11-12 (§8). **Rework 2026-11-13 (Artem): phase D
 (Add page form, templates, page as root group, grid, placeholders, background video, §9) and phase E (inline page
 editor, §10) implemented in both repos, not committed, no browser check.** The per-template form of §2-§8 is replaced

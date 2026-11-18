@@ -1,6 +1,6 @@
 # Heurist Explorer — Progress Report
 
-*Status on 11 November 2026 (first issued 2 October, updated 8, 18, 26, 29 October and 4 November). Work started 14 September 2026.*
+*Status on 18 November 2026 (first issued 2 October, updated 8, 18, 26, 29 October, 4 and 11 November). Work started 14 September 2026.*
 
 ## Done
 
@@ -60,30 +60,33 @@
 | 52 | **Save only changed fields** (PATCH, plan 32): the server writes only the given fields; title, calculated fields and child titles are rebuilt only when they depend on a changed field. Faster saves of large records; the CMS designer uses it. | 10 Nov |
 | 53 | **Batch actions on records** (plan 33): new *Actions* tool in Explorer — add, replace or delete field values (with a value condition), ownership and visibility, rebuild titles and calculated fields, delete records; runs as a background job on the current result or selection, with a report of changed and skipped records. | 10 Nov |
 | 54 | **Record editor**: *New* opens a record of the same type with the same owner and visibility; Tags and Private notes are available right after the first save. | 10 Nov |
+| 55 | **Record pages** (plan 27g): one page shows any record by its address; *Open record page* from record cards, record fields, media and action menus; *Back*; footer composer and badges. | 11–12 Nov |
+| 56 | **Email form** (plan 27h): a contact form on a website page; visitors answer a simple question; the message goes to the website's email or to the database owner. Checked by Artem with a real message. | 12 Nov |
+| 57 | **Page templates and starter pages** (plan 27i): *Add page* with templates Cover, Landing, About, Features, Team, Discover, Contact, Publications and Record page, each with its own options; a new website gets starter pages and a default header; sample images and banners; media and links in the text editor. | 12–14 Nov |
+| 58 | **Module settings in the website editor**: Map, Timeline, Graph, Data, Record view and Explorer are configured on the page itself. | 14 Nov |
+| 59 | **Saved filter action** (plan 27j): a button or link runs a public saved filter on a target page; its values can come from the record of the page; also on the same page. | 15 Nov |
+| 60 | **Website element options** (plan 27k): menu and tab styles, header that shrinks on scroll, full-screen menu on phones, back to top, reveal on scroll, breadcrumbs, search box; links in the editor preview open their page in the editor. | 15–16 Nov |
+| 61 | **Modules on one page work together** (plan 27l): each module takes its records from its own filter, from links or from another module, and shares its selection; new *Filter* widget; *Stop* for a running search. | 16 Nov |
+| 62 | **File addresses** (plan 34): every file link uses the new file endpoints (original, web size, thumbnail); smaller images for web pages; one rule in client and server. | 16 Nov |
+| 63 | **Website publication and SEO** (plan 27m): one public address per page; a generated (static) site is served when it exists, else the live page; sitemap and search engine tags; own domain; ZIP download with a base address; *Generated site* section in the Website manager. | 16–17 Nov |
+| 64 | **Page editor panel** (plan 27n): one panel with *Configuration* and *Own style*, beside the page tree or as a pop-up; sections per element; element names; *Show / hide element* action; more reveal effects and initially hidden elements; colour schemes for menus and tabs; simple and advanced settings; the page name as the first element of a new page; compact forms. Nine review rounds by Artem. | 17–18 Nov |
+| 65 | **Smaller items**: maximize button for the record editor and the records manager; query language documentation and the old plain-text query format; report install notice. | 11–16 Nov |
 
-All work above is committed (explorer `37a05da`, heurist `680f4b765`). JavaScript tests: 1,701 pass.
+All work above is committed (explorer `e1d54de`, heurist `97008004b`). JavaScript tests: 1,858 pass.
 
 ## In progress
 
-| # | Task | Expected |
-|---|------|----------|
-| 1 | **Footer composer** | 11 Nov |
-| 2 | **Menu and action menu**; actions for Media and Record value | 11 Nov |
-| 2a | **Record page** | 11 Nov |
-| 3 | **Page templates for the starter pack** | 12 Nov |
-| 4 | **Module configuration**; Explorer configuration | 13 Nov |
-| 5 | **Inline "Own style" form** | 14 Nov |
-| 6 | **Inline TinyMCE** (if possible) | 14 Nov |
-| 7 | **Website generation** | 15 Nov |
-| 8 | **SEO optimization**; sitemap.xml | 15 Nov |
+All items of the previous report are done (items 55–64); *Inline TinyMCE in the preview* is dropped.
 
 ## Next (estimates)
 
 | # | Task | Estimated delivery |
 |---|------|--------------------|
-| 1 | **Other Actions**: convert to record type, add / remove tags, rate, unbookmark, add link or relation (listed in the tool, disabled now) | to be set |
-| 2 | **Other CMS widgets**: email form, story map, crosstabs, remaining page templates; conversion of old websites is the last step | to be set |
-| 3 | **Use cases / demos** on the largest databases: digital_harlem, library_readers_18c, mpce_mapping, Chinese engineers | to be set |
+| 1 | **Multilevel layout for websites**: Map or another module as the background of a page, with content over it | 19 Nov |
+| 2 | **Conversion of websites** MapOfTheAbsentees, PFC and DigitalHarlem to the new format | 20–22 Nov |
+| 3 | **Other Actions**: convert to record type, add / remove tags, rate, unbookmark, add link or relation (listed in the tool, disabled now) | to be set |
+| 4 | **Other CMS widgets**: story map, crosstabs, Blog template; conversion of the other old websites | to be set |
+| 5 | **Use cases / demos** on the largest databases: library_readers_18c, mpce_mapping, Chinese engineers | to be set |
 
 ## Leftovers of finished work
 
@@ -95,6 +98,11 @@ Small items left open in finished plans (details in `docs/development/`, marked 
 - **Interface**: the Crosstabs tool is still an empty placeholder.
 - **Date editor**: other calendars (e.g. Japanese) are not supported yet.
 - **Record editing**: some save steps of the old editor are not ported yet (list in plan 21 §6a).
+- **Websites** (list in `docs/development/leftovers 24, 27-34.md`): where to keep the sample images; bindings between
+  modules on a page; slugs, Open Graph and automatic rebuild of a generated site; the website editor manual has its
+  first sections only; the website bundle is not deployed yet.
+- **Relationships**: more than 500 relationships of one record can be listed but not edited there; no *Add user* in
+  the membership list.
 
 ## To discuss
 
@@ -108,7 +116,9 @@ Small items left open in finished plans (details in `docs/development/`, marked 
    remove old and duplicated fields, keep dates, links, spatial data and full-text index
    in separate tables (dates and links already done). The table part of plan 28 (new tables for
    system record types, longer text values, language column) is deferred since 26 October.
-4. **CMS and web publishing** (plan 27): format v4, publication, the designer, templates, layout and helper widgets are done; remaining widgets and conversion of old websites are open.
+4. **CMS and web publishing** (plan 27): format v4, the designer, page templates, layout and helper widgets, modules
+   working together on a page, publication with a generated site and SEO are done (plans 27a–27n DONE); remaining
+   widgets, the API for an AI agent and the conversion of old websites are open.
 5. **API rules** (plan 28, draft 2): one record format and one set of endpoints for all entities. Open points: names, terms domain, QName.
 
 Decisions on items 2 and 3 affect the storage behind batch actions and PATCH saves (both work now on the current tables).

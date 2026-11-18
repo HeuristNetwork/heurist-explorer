@@ -1,6 +1,6 @@
 # Edit form format (`heurist-edit-form/1`)
 
-**Status 2026-11-07: agreed (Artem).** The JSON of `HEditForm`. Developed in plan `14a Edit-Form-Plan.md`; extended by
+**Status 2026-11-07: agreed (Artem).** The JSON of `HEditForm`. Developed in plan `14a DONE Edit-Form-Plan.md`; extended by
 plans 18, 23, 25 and 29. Code: `shared/src/data/editFormSchema.js` (normalising, values, `showWhen`),
 `shared/src/widgets/edit-form/HEditForm.js` (the form), `HEditField.js` (one field), `editFormDialog.js`
 (`openEditFormDialog`). If this text and `normalizeEditForm` differ, the code is right and this file must be fixed.

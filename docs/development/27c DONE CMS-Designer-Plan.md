@@ -6,10 +6,10 @@
 decisions of four review rounds in §2, §14, §15; implementation and deviations in §16; review rounds §17-§26 (screen,
 toolbars and trees, catalog popups, Styles popup, style editor, Size in group, element tools, text and translation
 popups). Leftovers that are new features are moved to phase 4 (§27). General
-directions are in `27 CMS-and-Web-Publishing-Plan.md`, the v4 format in `27a Website-Format-v4-Plan.md`, the Website
-manager in `27b Website-Manager-Plan.md`; this plan uses them and does not repeat them.
+directions are in `27 CMS-and-Web-Publishing-Plan.md`, the v4 format in `27a DONE Website-Format-v4-Plan.md`, the Website
+manager in `27b DONE Website-Manager-Plan.md`; this plan uses them and does not repeat them.
 
-**2026-10-30:** the server side of this plan (menu move §4, save §8, ownership §10) is `27d Website-API-Plan.md`
+**2026-10-30:** the server side of this plan (menu move §4, save §8, ownership §10) is `27d DONE Website-API-Plan.md`
 (agreed and implemented 2026-10-30), which follows the API rules of plan 28.
 
 ## 1. Request (Artem, 2026-10-29)

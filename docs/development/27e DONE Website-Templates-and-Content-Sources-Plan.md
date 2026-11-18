@@ -1,5 +1,7 @@
 # 27e Website templates and content sources (plan 27, Phase 4a)
 
+**DONE 2026-11-18** (Artem): all phases committed (explorer `e1d54de`, heurist `97008004b`); the open items are in `leftovers 24, 27-34.md`. Status lines below that say *not committed* are older.
+
 **Status:** draft 2, agreed 2026-11-04 (Artem), not implemented. Draft 1 was too complex; §3-14 replace it, §1-2 stay as
 history (the four ways of Edit text in §2 are replaced by §3). Next: an implementation plan with phases, then code. Phase 4b
 (other helper widgets) is a separate document.
@@ -445,7 +447,7 @@ Implemented, not committed, not checked in a browser.
   `/api/{db}/files/{key}/web` (reduced copy of a large image), the banner 99-951 = `/asset` (the original),
   background videos of groups (`siteRuntime.enhanceBackgroundVideos`) = `/asset`. `fileMediaUrls(baseUrl, db, {apiBaseUrl})`
   gives them; without `apiBaseUrl` the legacy URLs.
-- ~~URLs stored in records stay legacy~~ **Changed the same day by plan 34** (`34 File-Endpoints-Transition-Plan.md`):
+- ~~URLs stored in records stay legacy~~ **Changed the same day by plan 34** (`34 DONE File-Endpoints-Transition-Plan.md`):
   stored URLs = relative `./api/{db}/files/{key}/{kind}`; old stored legacy URLs are rewritten on output and stored
   new at the next save; Record cards (Smarty) use the file endpoints too.
 

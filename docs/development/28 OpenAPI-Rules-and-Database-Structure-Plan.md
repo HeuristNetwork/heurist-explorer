@@ -4,7 +4,7 @@
 (implemented). Next steps: `28a DONE Unify-System-Entities-Plan.md`, then `30 DONE Custom-Report-System-Plan.md`.** Every new development MUST follow these rules;
 existing endpoints and srv classes are aligned step by step (§8). Items marked *proposal* in §9 are not agreed yet.
 Replaces the deferred plan 28 "New Records/details structure" of plan 27 §3 (its content is in §7 here). The first
-user of these rules is the Website API, plan `27d Website-API-Plan.md`.
+user of these rules is the Website API, plan `27d DONE Website-API-Plan.md`.
 
 ## 1. Request (Artem, 2026-10-30)
 

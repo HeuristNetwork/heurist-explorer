@@ -16,7 +16,7 @@ Next: Phase 4 (Records manager), deferred (Artem 2026-10-13).** §9 lists where 
 differs from the plan.
 
 **2026-10-17:** the fields of `HRecordEditor` are now the generic `HEditForm` (`HRecordField` became
-`edit-form/HEditField`), see `14a Edit-Form-Plan.md`.
+`edit-form/HEditField`), see `14a DONE Edit-Form-Plan.md`.
 
 ## Context
 

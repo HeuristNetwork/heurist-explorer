@@ -1,5 +1,7 @@
 # Plan 27a — Website format v4 and live pages (plan 27, phase 1)
 
+**DONE 2026-11-18** (Artem): all phases committed (explorer `e1d54de`, heurist `97008004b`); the open items are in `leftovers 24, 27-34.md`. Status lines below that say *not committed* are older.
+
 **Status 2026-10-26: implemented (both repos), not committed.** Checked with tests and a headless Edge; not yet
 checked in a browser by Artem. Field 2-1202 was created in the reference database 2 (heuristref.net) by Artem, in the record types CMS home and
 CMS page (2026-11-12). General directions and decisions 1–23 are in

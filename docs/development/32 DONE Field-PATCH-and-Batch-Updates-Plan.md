@@ -1,5 +1,7 @@
 # 32 Field-level PATCH and Batch updates
 
+**DONE 2026-11-18** (Artem): all phases committed (explorer `e1d54de`, heurist `97008004b`); the open items are in `leftovers 24, 27-34.md`. Status lines below that say *not committed* are older.
+
 **Status 2026-11-10: Phase 1 implemented in both repos (not committed, not checked in a browser), see §9.**
 Phase 2 = batch updates: route agreed 2026-11-10 (§6), implemented by plan 33 (Explorer Actions tool).
 
@@ -136,7 +138,7 @@ compare the latest modified time of `defCalcFunctions`.
 
 **Agreed 2026-11-10 (Artem):** a set of records = the background job `record-action` (`POST /jobs`, no new endpoint),
 one record = the normal `PATCH /records/{id}`; records that break the PATCH rules are skipped and reported. UI = the
-Explorer Actions tool. Implemented by `33 Actions-Tool-and-Batch-Updates-Plan.md`. The design notes below are kept;
+Explorer Actions tool. Implemented by `33 DONE Actions-Tool-and-Batch-Updates-Plan.md`. The design notes below are kept;
 the job type is `record-action`, one transaction per record, no small synchronous sets.
 
 
@@ -153,7 +155,7 @@ Same operations (`details`, `detailsAdd`, `detailsMatch`, `addIfNone`) for many 
 
 ## 7. Documents
 
-- New `docs/development/32 Field-PATCH-and-Batch-Updates-Plan.md` (this plan, dated decisions; status line kept up to date).
+- New `docs/development/32 DONE Field-PATCH-and-Batch-Updates-Plan.md` (this plan, dated decisions; status line kept up to date).
 - Plan 28: PATCH rules (line ~105, §2.4): `detailsAdd`, `detailsMatch`, `addIfNone`, `?fields=`; §9.4 "implemented by plan 32".
 - Plan 23 §15: item 1 server part → plan 32 Phase 1; item 2 → plan 32 Phase 2.
 - `heurist/srv/Records/Edit/_README.md`, `srv/Definitions/_README.md`, header comment of `RecordSaveService.php`.

@@ -1,5 +1,7 @@
 # 27f Website layout and helper widgets (plan 27, Phase 4b)
 
+**DONE 2026-11-18** (Artem): all phases committed (explorer `e1d54de`, heurist `97008004b`); the open items are in `leftovers 24, 27-34.md`. Status lines below that say *not committed* are older.
+
 **Status:** draft 1, 2026-11-07, decisions in §9. **Phases A-E implemented 2026-11-07 in both repos (§10), not committed,
 not checked in a browser.** Bundles website and explorer deployed locally. **Review 2026-11-08 (§11): saving
 indicator, website check of all pages and of non-public records, admin rules for websites; implemented, not committed,

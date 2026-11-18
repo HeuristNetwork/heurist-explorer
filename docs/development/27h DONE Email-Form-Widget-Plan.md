@@ -1,5 +1,7 @@
 # 27h Email form widget (port of the legacy emailForm)
 
+**DONE 2026-11-18** (Artem): all phases committed (explorer `e1d54de`, heurist `97008004b`); the open items are in `leftovers 24, 27-34.md`. Status lines below that say *not committed* are older.
+
 **Status (2026-11-12):** agreed with Artem, implemented and committed in both repos; browser check and the real
 message checked by Artem (2026-11-12, §6).
 Server test `heurist/tests/EmailFormTest.php` (38 pass), JS `shared/test/hEmailForm.test.js`; the endpoint was checked

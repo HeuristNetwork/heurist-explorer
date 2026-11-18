@@ -1,5 +1,7 @@
 # 33 Actions tool and batch field updates (plan 32 Phase 2)
 
+**DONE 2026-11-18** (Artem): all phases committed (explorer `e1d54de`, heurist `97008004b`); the open items are in `leftovers 24, 27-34.md`. Status lines below that say *not committed* are older.
+
 **Status 2026-11-10: agreed with Artem; Field values (Add, Replace, Delete), and in Phase 2 (§8) Ownership, titles,
 calculated fields and Delete records implemented in both repos; review round 2 (§9) done; not committed,
 not checked in a browser (§6).** Other actions: listed, disabled.

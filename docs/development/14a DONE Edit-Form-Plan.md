@@ -1,5 +1,7 @@
 # Edit form (HEditForm) — development plan
 
+**DONE 2026-11-18** (Artem): committed; the open item §19.3 (consumers left) is in `leftovers 24, 27-34.md`.
+
 **Status 2026-11-07: everything committed. Format agreed and written down in `Edit-Form-Format.md`; generic `openEditForm` dropped. Not DONE: the consumers of §19 item 3.**
 
 **Earlier state 2026-10-21:** Phases 1-2 and review rounds 1-3 committed (`a83342a`, `6aa1b6a`, `ad8f57e`, `7bf5506`); rounds 4-5 (§15-16) not committed. Separator groups as in the legacy editor (§18, 2026-10-21) not committed. Open: agree the format (§17), Phase 3 (bridge `openEditForm`), Phase 4 (consumers), remove the test tool.

@@ -1,5 +1,7 @@
 # 27l Modules on one page: page sync, Filter widget, Stop
 
+**DONE 2026-11-18** (Artem): all phases committed (explorer `e1d54de`, heurist `97008004b`); the open items are in `leftovers 24, 27-34.md`. Status lines below that say *not committed* are older.
+
 **Status (2026-11-16):** agreed (§1, open points §7 answered). **Phases A (§8), B (§9) and C (§10) implemented**, not
 committed. Review round 1 (§11): fixes (§11.1) and items 4-7 (§11.2-11.6) done 2026-11-16, not committed; checked in a
 headless browser on test page 209739 (not the designer forms). Review round 2 (§12, agreed 2026-11-16): *Records and

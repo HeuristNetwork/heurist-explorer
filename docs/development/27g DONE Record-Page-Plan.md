@@ -1,5 +1,7 @@
 # 27g Record page (plan 27, follow-up of 27f)
 
+**DONE 2026-11-18** (Artem): all phases committed (explorer `e1d54de`, heurist `97008004b`); the open items are in `leftovers 24, 27-34.md`. Status lines below that say *not committed* are older.
+
 **Status:** agreed 2026-11-11 (Artem). **Phases 1-3 implemented 2026-11-11** (server §5, record links §6-7, cosmetics and
 runtime §8), not committed, no browser check. Phase 4 (later): HTTP caching, sitemap.xml, RecordView element, field popup
 source *Record of the page URL*.

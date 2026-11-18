@@ -5,6 +5,8 @@ after Artem's check. The tables
 
 ## 1. Goal
 
+**DONE 2026-11-18** (Artem): all phases committed (explorer `e1d54de`, heurist `97008004b`); the open items are in `leftovers 24, 27-34.md`. Status lines below that say *not committed* are older.
+
 The presentation modules (Map, Timeline, Graph, Data, Record view) each have a hand-written configuration
 dialog. Line counts:
 
