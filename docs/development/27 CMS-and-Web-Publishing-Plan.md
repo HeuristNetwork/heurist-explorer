@@ -266,8 +266,11 @@ changed. One converter per legacy widget type.
 | 4 | Templates, menus, languages, helper widgets without sync (`menu`, `sysmenu`, `badges`, `gallery`, `report`) | 3 |
 | 5 | Several modules on a page: PageController, sync groups, `filter` widget, routes (navigator) | 4 |
 | 6 | Built publication completed (assets, dependencies, keeping the previous build) | 2 |
-| 7 | API for an AI agent (the same services as the designer, with revision checks) | 3 |
-| 8 | Legacy conversion in the designer — **last** (decision 15) | 3, 4 |
+| 7 | API for an AI agent (the same services as the designer, with revision checks) = plan **27r** (roadmap 2026-11-18: tools for outside agents first, after plan 28b) | 3 |
+| 8 | Legacy conversion in the designer — **last** (decision 15) = plan **27s**; rules collected in 27p | 3, 4 |
+| 27o | Multilevel layout: a module as the background of a page (roadmap 2026-11-18) | 5 |
+| 27p | Conversion of MapOfTheAbsentees, PFC and DigitalHarlem by hand, each manual step noted as a converter rule | 27o |
+| 27q | Other widgets: Crosstabs, Story map, Blog / news template | 5 |
 | 28 | OpenAPI rules and database structure (§3): `28 OpenAPI-Rules-and-Database-Structure-Plan.md`, draft 1 2026-10-30; table conversion deferred (decision 16) | — |
 
 PageController timing (decision 19): correct, with two notes. (a) The `filter` widget and routes also need it — a

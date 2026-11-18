@@ -222,3 +222,6 @@ and the legacy wrapper of the module bridge in `hclient`.
 4. **C5 translation**, **S3 legacy closures** — small ports.
 5. **C2 custom record view templates** on the srv Smarty engine.
 6. **S1/S2/C8 own front controller and authentication** — large; needs its own plan.
+
+**Plans (roadmap 2026-11-18):** S1, S2, S3 → plan 35 (srv bootstrap and authorisation); C1, C8 → plan 36 (login /
+logout in Explorer, preferences on srv). C3 is done by plan 34. See `roadmap.md`.

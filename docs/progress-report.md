@@ -80,13 +80,47 @@ All items of the previous report are done (items 55–64); *Inline TinyMCE in th
 
 ## Next (estimates)
 
+Order agreed on 18 November (details in `docs/development/roadmap.md`). Conversion and polishing of existing websites
+can take much time; it runs beside the other work, so the later dates have a buffer.
+
+**A. Finish the CMS**
+
 | # | Task | Estimated delivery |
 |---|------|--------------------|
 | 1 | **Multilevel layout for websites**: Map or another module as the background of a page, with content over it | 19 Nov |
-| 2 | **Conversion of websites** MapOfTheAbsentees, PFC and DigitalHarlem to the new format | 20–22 Nov |
-| 3 | **Other Actions**: convert to record type, add / remove tags, rate, unbookmark, add link or relation (listed in the tool, disabled now) | to be set |
-| 4 | **Other CMS widgets**: story map, crosstabs, Blog template; conversion of the other old websites | to be set |
-| 5 | **Use cases / demos** on the largest databases: library_readers_18c, mpce_mapping, Chinese engineers | to be set |
+| 2 | **Conversion of websites** MapOfTheAbsentees, PFC and DigitalHarlem, by hand in the designer; every manual step is noted for the later converter | 20–24 Nov |
+| 3 | **Other Actions**: convert to record type, add / remove tags, rate, unbookmark, add link or relation | 25–26 Nov |
+| 4 | **Other CMS widgets**: Crosstabs (also as an Explorer tool), Story map, Blog / news template | 27 Nov – 3 Dec |
+
+**B. New server code on its own**
+
+| # | Task | Estimated delivery |
+|---|------|--------------------|
+| 5 | **Separate the old and the new server code** (`hserv` and `srv`): own start-up, settings, session and login check in `srv` | 4–10 Dec |
+| 6 | **Login and logout in Heurist Explorer**; user settings of the modules kept by the new server code | 11–12 Dec |
+
+**C. Storage**
+
+| # | Task | Estimated delivery |
+|---|------|--------------------|
+| 7 | **Completion of plan 28**: separate tables for system data and files, new design of the record details table (long values, language column), saved filters as records; a database switches only when it no longer uses the old interface | 15–23 Dec |
+
+**D. AI agent and website conversion**
+
+| # | Task | Estimated delivery |
+|---|------|--------------------|
+| 8 | **API for an AI agent**: tools for outside agents over the record API, the website designer and the module settings | 5–9 Jan |
+| 9 | **Conversion of old websites in the designer** (automatic, with a report per page), from the rules of item 2 | 12–16 Jan |
+
+**Later**
+
+| # | Task | Estimated delivery |
+|---|------|--------------------|
+| 10 | **Database administration**: create, clone, delete, upgrade databases | Jan–Feb |
+| 11 | **Database definitions** (replaces the old editors); the AI agent can define a new record type | Feb |
+| 12 | **Import**; the AI agent matches columns and values | Feb–Mar |
+| 13 | **Assistant inside Explorer** on the agent tools of item 8 | later |
+| 14 | **Use cases / demos** on the largest databases: library_readers_18c, mpce_mapping, Chinese engineers | to be set |
 
 ## Leftovers of finished work
 
@@ -122,3 +156,4 @@ Small items left open in finished plans (details in `docs/development/`, marked 
 5. **API rules** (plan 28, draft 2): one record format and one set of endpoints for all entities. Open points: names, terms domain, QName.
 
 Decisions on items 2 and 3 affect the storage behind batch actions and PATCH saves (both work now on the current tables).
+Items 2, 3 and 5 are now scheduled as *Next* item 7 (plan 28b, after the separation of the server code).

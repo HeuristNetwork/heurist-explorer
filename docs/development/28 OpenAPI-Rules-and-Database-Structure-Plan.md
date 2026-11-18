@@ -410,7 +410,9 @@ prefixes). To be written.
    page client off `/records`.
 3. **Plan 30:** reports and generated reports (`/reports/...` → `/report`, `/output`). Depends on 28a phase 4.
 4. Table conversions (§7.4), each with its own plan: bookmark, reminder, user, group move to `sysRecords` (tags stay,
-   plan 20); then website, page, report, output.
+   plan 20); then website, page, report, output. **Roadmap 2026-11-18:** one plan **28b**, after plan 35 (own srv
+   bootstrap and authorisation); the switch is per database, only when that database no longer uses the legacy
+   interface, and hserv never reads the new tables (`roadmap.md`).
 5. `heurist/documentation/api/heurist-openapi.yaml` is updated in the same step as each change (today the website
    routes are missing from it).
 
@@ -512,6 +514,7 @@ recommended, but two forms are now allowed:
 - 2026-11-06 — draft 2: endpoint table §2.4, who serves what §2.5, action levels §2.3, `image` → `asset`,
   `schedule` → `output`, §5 refreshed, §9.7 revised, §9.8 added. Work goes to plans 28a and 30.
 - 2026-11-07 — §11: open tasks of plan 20 moved here (plan 20 marked DONE). Plans 28a and 31 marked DONE.
+- 2026-11-18 — roadmap: the table part (§7, §11.1-11.2) becomes plan 28b, after plan 35; switch per database (§8 item 4).
 
 ## 11. Tasks moved from plan 20 (2026-11-07)
 

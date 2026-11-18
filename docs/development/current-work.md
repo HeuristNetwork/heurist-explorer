@@ -4,6 +4,10 @@ Status of the open development plans: what is done, committed, checked in a brow
 `CLAUDE.md` on 2026-11-18. The Status line at the top of each plan in this folder is the source; update both when a plan
 changes. Newest first.
 
+**Next plans, order and dates: `roadmap.md`** (agreed 2026-11-18): 27o multilevel layout, 27p conversion of three
+websites, 33a other Actions, 27q other CMS widgets; then 35 srv bootstrap and authorisation, 36 login / logout, 28b
+database structure, 27r AI agent API, 27s legacy website conversion.
+
 **2026-11-18: plans 14a, 24, 27a-27n, 28a, 29, 30, 32, 33 and 34 are DONE** (all committed, explorer `e1d54de`, heurist
 `97008004b`; files renamed). Their open items: `docs/development/leftovers 24, 27-34.md`. The entries below keep their
 history; *not committed* in them is older than this line.
