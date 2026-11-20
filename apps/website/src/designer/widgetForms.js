@@ -26,6 +26,7 @@ import { allowsStoredCode, isStoredCodeField } from '#shared/data/storedTextPoli
 import { multilangFieldIds } from '#shared/data/writableRecordTypes.js';
 import { RecordStructureProvider } from '#shared/recordview/RecordStructureProvider.js';
 import { HEditForm } from '#shared/widgets/edit-form/HEditForm.js';
+import { querySourceAction } from '#shared/widgets/edit-form/querySourceChooser.js';
 import { openEditFormDialog } from '#shared/widgets/edit-form/editFormDialog.js';
 import { createTranslationForm } from '#shared/widgets/translation/HTranslationDialog.js';
 import { sectionTitle, showDomForm, showEditForm } from './panelForms.js';
@@ -474,7 +475,7 @@ function presentationFields(actionFields, showWhen = null) {
     ...actionFields,
     { name: 'presentation', type: 'enum', label: 'Show as', mode: 'radio', max: 1, ...(showWhen ? { showWhen } : {}),
       terms: [{ id: 'list', label: 'List (all visible)' }, { id: 'carousel', label: 'Carousel (one visible, buttons)' },
-        { id: 'slider', label: 'Slideshow (one visible, automatic)' }] },
+        { id: 'slider', label: 'Slideshow (one visible, automatic)' }, { id: 'tabs', label: 'Tabs (one visible, a tab per record)' }] },
     // advanced settings (review 27n §21: `req: 'optional'`, the defaults 4000 / 500 / on)
     { name: 'duration', type: 'integer', label: 'Duration (ms)', max: 1, minValue: 500, showWhen: slider, req: 'optional' },
     { name: 'fade', type: 'integer', label: 'Fade out (ms)', max: 1, minValue: 0, showWhen: slider, req: 'optional' },
@@ -491,13 +492,14 @@ function presentationValues(settings = {}) {
 }
 
 /**
- * Settings from the values of the presentation fields: `list`, `carousel` (one visible, buttons only) or `slider` (slideshow).
+ * Settings from the values of the presentation fields: `list`, `carousel` (one visible, buttons only), `slider` (slideshow)
+ * or `tabs` (plan 27q1 §5).
  *
  * @param {object} values Values of the form.
  * @returns {{presentation: string, action: string, slider?: object}}
  */
 export function presentationSettings(values) {
-  const presentation = ['carousel', 'slider'].includes(values.presentation) ? values.presentation : 'list';
+  const presentation = ['carousel', 'slider', 'tabs'].includes(values.presentation) ? values.presentation : 'list';
   const settings = { presentation, action: values.action || 'none' };
   if (presentation === 'slider') {
     settings.slider = { duration: Number(values.duration) || SLIDER_DEFAULTS.duration, fade: Number(values.fade) || 0, navigation: values.navigation !== false };
@@ -591,26 +593,47 @@ export function cardTemplateTerms(reports, stored = null) {
 }
 
 /**
- * The query field of the widget Record cards: the text of the query, the Filter Builder from its icon (as the query of a
- * Query Source in the record editor), no parameters.
+ * The query field of Record cards and of *Records and selection*: the text of the query, the Filter Builder from Edit (as
+ * the query of a Query Source in the record editor), no parameters; ▾ copies the query of a query source (plan 27n1 §4:
+ * by value, no id is kept).
  *
- * @param {object} services `editQuery(query, filterForm, {allowParameters})`, `describeQuery(query)`.
+ * @param {object} services `editQuery(query, filterForm, {allowParameters})`, `describeQuery(query)`, `querySources()`,
+ *        `querySourceDefinition(id)`, `savedFilters()`, `savedFilterDefinition(id)`.
+ * @param {{filters?: boolean}} [options] `filters`: the saved filters of "Website filters" in the list too.
  * @returns {object} HEditField `special`.
  */
-function cardsQuerySpecial(services) {
+export function cardsQuerySpecial(services, { filters = false } = {}) {
+  const edit = typeof services.editQuery === 'function' ? async (value) => {
+    const result = await services.editQuery(parseCardsQuery(value) || [], null, { allowParameters: false });
+    return result?.query ? JSON.stringify(result.query) : undefined;
+  } : undefined;
+  const actions = [];
+  if (edit) actions.push({ label: 'Edit', icon: 'fa-sliders', title: 'Open the Filter Builder', primary: true, run: edit });
+  if (typeof services.querySources === 'function' && typeof services.querySourceDefinition === 'function') {
+    actions.push(querySourceAction({
+      list: async () => {
+        const [sources, saved] = await Promise.all([services.querySources().catch(() => []),
+          filters && typeof services.savedFilters === 'function' ? services.savedFilters().catch(() => []) : []]);
+        return [...sources.map((item) => ({ ...item, kind: 'source' })), ...saved.map((item) => ({ ...item, kind: 'filter' }))];
+      },
+      definition: (item) => (item.kind === 'filter' ? services.savedFilterDefinition(item.id) : services.querySourceDefinition(item.id)),
+      apply: (definition) => queryText(definition?.source?.query)
+    }));
+  }
   return {
     json: false,
-    icon: 'fa-sliders',
-    title: 'Open the Filter Builder',
     describe: (value) => {
       const query = parseCardsQuery(value);
       return query && typeof services.describeQuery === 'function' ? services.describeQuery(query) || '' : '';
     },
-    edit: typeof services.editQuery === 'function' ? async (value) => {
-      const result = await services.editQuery(parseCardsQuery(value) || [], null, { allowParameters: false });
-      return result?.query ? JSON.stringify(result.query) : undefined;
-    } : undefined
+    actions
   };
+}
+
+/** The text of a copied query (undefined: none). */
+function queryText(query) {
+  if (query == null || query === '') return undefined;
+  return typeof query === 'string' ? query : JSON.stringify(query);
 }
 
 /** Note of a module with its own query and other sources (plan 27l §12.1). */
@@ -969,7 +992,8 @@ export function fileFieldTerms(dbdefs, rectypeIds) {
  *        fields of the chosen records; `pageTerms`: the record pages of the website (recordPageTerms).
  * @returns {Array<object>} HEditForm fields.
  */
-export function mediaFormFields({ single = false, multilang = false, mediaType = 0, fileType = 0, fileTerms = [], pageTerms = [], sitePages = [] } = {}) {
+export function mediaFormFields({ single = false, multilang = false, mediaType = 0, fileType = 0, fileTerms = [], pageTerms = [], sitePages = [],
+  mediaRecords = false } = {}) {
   // Media records and Files: None or Player / Viewer; Any record also the links of the record (plan 27g §6); one media
   // element: Go to a page for every Type (2026-11-14)
   const goPage = single && sitePages.length > 0;
@@ -985,10 +1009,11 @@ export function mediaFormFields({ single = false, multilang = false, mediaType =
   }
   const source = { type: 'resource', max: single ? 1 : 0, pointerMode: 'addorbrowse' };
   return [
-    // one media element: singular names (2026-11-12); Source an advanced setting, File for a new element (review 27n §21)
-    { name: 'mode', type: 'enum', label: 'Source', mode: 'radio', max: 1, req: 'optional',
-      terms: [{ id: 'media', label: single ? 'Media record' : 'Media records' }, { id: 'files', label: single ? 'File' : 'Files' },
-        { id: 'record', label: 'Any record' }] },
+    // one media element: singular names (2026-11-12); File for a new element (review 27n §21); Source shown again, Media
+    // record(s) only for an element that has it already (plan 27n1 §1)
+    { name: 'mode', type: 'enum', label: 'Source', mode: 'radio', max: 1,
+      terms: [...(mediaRecords ? [{ id: 'media', label: single ? 'Media record' : 'Media records' }] : []),
+        { id: 'files', label: single ? 'File' : 'Files' }, { id: 'record', label: 'Any record' }] },
     { ...source, name: 'records', label: single ? 'Source record' : 'Source records', targetTypes: mediaType ? [mediaType] : [], showWhen: { mode: 'media' } },
     { ...source, name: 'files', label: single ? 'Source file' : 'Source files', targetTypes: fileType ? [fileType] : [], showWhen: { mode: 'files' } },
     { ...source, name: 'anyRecords', label: single ? 'Source record' : 'Source records', targetTypes: [], showWhen: { mode: 'record' } },
@@ -998,7 +1023,8 @@ export function mediaFormFields({ single = false, multilang = false, mediaType =
     { name: 'width', type: 'freetext', label: 'Width', help: 'Empty = auto; a number is px, or %. Both under 200 px: thumbnails.', max: 1 },
     { name: 'height', type: 'freetext', label: 'Height', max: 1 },
     // one media element: the image (player) and its caption left, centred or right in the element (2026-11-14)
-    ...(single ? [{ name: 'align', type: 'enum', label: 'Alignment', mode: 'radio', max: 1, req: 'optional',
+    // not an advanced setting (plan 27n1 §6)
+    ...(single ? [{ name: 'align', type: 'enum', label: 'Alignment', mode: 'radio', max: 1,
       terms: [{ id: 'left', label: 'Left' }, { id: 'center', label: 'Center' }, { id: 'right', label: 'Right' }] }] : []),
     ...(single
       ? actionFields
@@ -1135,7 +1161,8 @@ export async function openMediaForm({
     translator,
     onChange: () => edit?.panelChanged?.()
   }) : null;
-  const fields = mediaFormFields({ single, multilang, mediaType, fileType, fileTerms, pageTerms: services.recordPageTerms?.() || [], sitePages })
+  const fields = mediaFormFields({ single, multilang, mediaType, fileType, fileTerms, pageTerms: services.recordPageTerms?.() || [], sitePages,
+    mediaRecords: mode === 'media' })
     .filter((field) => !(captionForm && field.name === 'captionText'));
   edit = showEditForm({
     title: single ? 'Edit media' : 'Media gallery',
@@ -1573,8 +1600,8 @@ export function openEmailForm({ settings = {}, languages = [], translator = null
       groups: [{
         id: 'main',
         children: [
-          // an advanced setting (review 27n §21): Form on the page by default
-          { name: 'display', type: 'enum', label: 'Display', mode: 'radio', max: 1, req: 'optional',
+          // Form on the page by default; not an advanced setting any more (plan 27n1 §6)
+          { name: 'display', type: 'enum', label: 'Display', mode: 'radio', max: 1,
             terms: [{ id: 'inline', label: 'Form on the page' }, { id: 'button', label: 'Button that opens the form in a popup' }] },
           { name: 'label', type: 'freetext', label: 'Button caption', help: 'Empty: "Email us"', max: 1, multilang,
             showWhen: { display: 'button' } }
@@ -1594,4 +1621,76 @@ export function openEmailForm({ settings = {}, languages = [], translator = null
     const labels = Object.fromEntries(Object.entries(translations).filter(([, text]) => text));
     return { display: 'button', ...(label ? { label } : {}), ...(Object.keys(labels).length ? { labels } : {}) };
   }, { inline, sections: { caption: ['label'], when: { caption: { display: 'button' } } } });
+}
+
+/** Help of the story map form (plan 27q1 §8). */
+export const STORYMAP_HELP = 'A story map is made in Explorer (tool Story map): its source records, the story elements, the'
+  + ' cards and the map. Here you choose one and the map of the page that shows the current element. A Result module can'
+  + ' list its source records: in its Records and selection choose this story map.';
+
+/**
+ * Terms of the story maps (Presentation sets of kind StoryMap); a stored one that is not offered stays as #id.
+ *
+ * @param {Array<{id: number, title: string, public?: boolean}>} presets
+ * @param {number|string|null} [stored]
+ * @returns {Array<{id: string, label: string}>}
+ */
+export function storyMapTerms(presets, stored = null) {
+  const terms = presets.map((item) => ({ id: String(item.id), label: `${item.title}${item.public === false ? ` (${$HR('not public')})` : ''}` }));
+  if (Number(stored) > 0 && !terms.some((term) => term.id === String(stored))) terms.push({ id: String(stored), label: `#${stored}` });
+  return terms;
+}
+
+/**
+ * Settings of the story map element (plan 27q1 §8): the story map (a Presentation set) and the map module of the page;
+ * Edit in new window (Explorer with the story map) and Refresh (the preview again).
+ *
+ * @param {object} options
+ * @param {object} [options.settings] `{preset, map}`.
+ * @param {Array<{id: number, title: string, public?: boolean}>} options.presets
+ * @param {Array<{id: string, label: string}>} options.maps Map instances of the page.
+ * @param {(presetId: number) => void} [options.onEdit] Open the story map in Explorer.
+ * @param {() => void} [options.onRefresh] Load the preview again.
+ * @returns {Promise<object|null>} `{preset, map?}`.
+ */
+export function openStoryMapForm({ settings = {}, presets = [], maps = [], onEdit = null, onRefresh = null, inline = null } = {}) {
+  return showEditForm({
+    title: 'Story map',
+    form: {
+      groups: [{
+        id: 'main',
+        children: [
+          { name: 'preset', type: 'enum', label: 'Story map', mode: 'select', max: 1, req: 'required', terms: storyMapTerms(presets, settings.preset),
+            help: presets.length ? 'Public story maps can be seen by visitors' : 'Make a story map in Explorer first (tool Story map)' },
+          { name: 'map', type: 'enum', label: 'Map', mode: 'select', max: 1, emptyLabel: 'None (cards only)',
+            terms: maps.map((item) => ({ id: item.id, label: item.label })), help: 'The map of the page that shows the current element' }
+        ]
+      }]
+    },
+    values: { preset: Number(settings.preset) > 0 ? String(settings.preset) : null, map: settings.map || null },
+    onReady: (edit) => {
+      addFormHelp(edit, STORYMAP_HELP);
+      if (!edit.container) return;
+      const bar = document.createElement('div');
+      bar.className = 'h-cms-storymap-actions';
+      const action = (icon, text, run) => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'h-btn h-compact';
+        const glyph = document.createElement('i');
+        glyph.className = `fa-solid ${icon}`;
+        glyph.setAttribute('aria-hidden', 'true');
+        button.append(glyph, document.createTextNode(` ${$HR(text)}`));
+        button.addEventListener('click', run);
+        bar.append(button);
+      };
+      if (onEdit) action('fa-up-right-from-square', 'Edit in new window', () => onEdit(Number(edit.getValues().preset) || 0));
+      if (onRefresh) action('fa-rotate', 'Refresh', () => onRefresh());
+      edit.container.append(bar);
+    },
+    validate: (values) => (Number(values.preset) > 0 ? [] : [{ field: 'preset', message: $HR('Choose a story map') }])
+  }, (values) => {
+    if (!values) return null;
+    return { preset: Number(values.preset), ...(values.map ? { map: String(values.map) } : {}) };
+  }, { inline, sections: { source: ['preset'], behaviour: ['map'] } });
 }

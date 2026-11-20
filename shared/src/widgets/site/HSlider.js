@@ -2,7 +2,9 @@
  * @file HSlider.js
  * @brief Helper of the website widgets Record cards and Media gallery (plan 27e §10): works on the HTML elements the
  *        server wrote into the host. Slideshow (`slider`): one element visible, fade, start / stop and `<< < > >>`.
- *        Carousel (`carousel`, plan 27e §29): one element visible, `< >` only, no rotation. `<<` and `>>` only from
+ *        Carousel (`carousel`, plan 27e §29): one element visible, `< >` only, no rotation. Tabs (`tabs`, plan 27q1 §5):
+ *        one element visible, a tab bar with the label of each element (`data-h-label`, else its first heading or
+ *        caption). Option `onChange(index, element)`: the shown element changed (story map). `<<` and `>>` only from
  *        NAV_ENDS_MIN elements. Action `url`:
  *        a click on a card opens its `data-h-url` in a new window. The action Player / Viewer is HMediaViewer, for the
  *        whole page: the class `h-slider-running` tells it that this host rotates. Option `design` (the CMS designer):
@@ -32,7 +34,7 @@ export const SLIDER_DEFAULTS = Object.freeze({ duration: 4000, fade: 500, naviga
 export const NAV_ENDS_MIN = 6;
 
 /** Presentations with one element visible. */
-export const ONE_VISIBLE = Object.freeze(['slider', 'carousel']);
+export const ONE_VISIBLE = Object.freeze(['slider', 'carousel', 'tabs']);
 
 /** Position of an image in a slider without a choice. */
 export const SLIDER_FIT = 'contain';
@@ -42,8 +44,10 @@ export class HSlider extends HBaseWidget {
   /**
    * @param {HTMLElement} container Host; its child elements are the slides or cards.
    * @param {object} [options]
-   * @param {'list'|'carousel'|'slider'} [options.presentation='list'] All visible, or one: with buttons only
-   *        (carousel), or rotating (slider, a slideshow).
+   * @param {'list'|'carousel'|'slider'|'tabs'} [options.presentation='list'] All visible, or one: with buttons only
+   *        (carousel), rotating (slider, a slideshow) or chosen by tabs.
+   * @param {(index: number, element: Element) => void} [options.onChange] The shown element changed.
+   * @param {number} [options.start=0] The element shown first.
    * @param {'none'|'url'|'viewer'} [options.action='none'] `url`: a click opens `data-h-url`; `viewer`: nothing here.
    * @param {boolean} [options.design=false] In the designer: the slider without rotation and actions.
    * @param {{duration?: number, fade?: number, navigation?: boolean, fit?: string}} [options.slider] Settings of the
@@ -52,9 +56,11 @@ export class HSlider extends HBaseWidget {
    */
   attach(container, options = {}) {
     super.attach(container, options);
-    this.items = [...container.children];
+    this.items = [...container.children].filter((item) => !item.classList.contains('h-slider-nav') && !item.classList.contains('h-slider-tabbar'));
     this.index = 0;
     this.timer = null;
+    this.tabs = null;
+    this._changed = false;
     this.slider = { ...SLIDER_DEFAULTS, ...(options.slider || {}) };
     return this;
   }
@@ -81,12 +87,37 @@ export class HSlider extends HBaseWidget {
   show(index) {
     const count = this.items.length;
     if (!count) return;
+    const previous = this.index;
     this.index = ((index % count) + count) % count;
     this.items.forEach((item, position) => {
       const active = position === this.index;
       item.classList.toggle('is-active', active);
       item.setAttribute('aria-hidden', String(!active));
+      const tab = this.tabs?.[position];
+      if (tab) {
+        tab.classList.toggle('is-active', active);
+        tab.setAttribute('aria-selected', String(active));
+        tab.tabIndex = active ? 0 : -1;
+      }
     });
+    if (previous !== this.index || !this._changed) {
+      this._changed = true;
+      this.options.onChange?.(this.index, this.items[this.index]);
+    }
+  }
+
+  /**
+   * Label of an element for its tab: `data-h-label`, its first heading or caption, else its number.
+   *
+   * @param {Element} item
+   * @param {number} position
+   * @returns {string}
+   */
+  static label(item, position) {
+    const given = item.getAttribute('data-h-label');
+    if (given) return given;
+    const text = item.querySelector('h1, h2, h3, h4, h5, h6, figcaption')?.textContent?.trim();
+    return text || String(position + 1);
   }
 
   /** Start the automatic change (not with a single element). */
@@ -131,9 +162,15 @@ export class HSlider extends HBaseWidget {
     host.style.setProperty('--h-slider-fade', `${Math.max(0, Number(this.slider.fade) || 0)}ms`);
     if (this.slider.fit) host.setAttribute('data-h-fit', this.slider.fit);
     for (const item of this.items) item.classList.add('h-slider-item');
-    this.show(0);
-    // a carousel moves only by its buttons
-    if ((this.slider.navigation !== false || !this._rotates()) && this.items.length > 1) host.append(this._navigation());
+    if (this.options.presentation === 'tabs') {
+      host.classList.add('h-slider-tabs');
+      host.prepend(this._tabBar());
+    }
+    this.show(Number(this.options.start) || 0);
+    // a carousel moves only by its buttons, tabs by the tabs
+    if (this.options.presentation !== 'tabs' && (this.slider.navigation !== false || !this._rotates()) && this.items.length > 1) {
+      host.append(this._navigation());
+    }
     // no automatic movement in the designer and for visitors who asked for reduced motion
     if (this._rotates() && !this.options.design && !globalThis.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches) this.start();
     this._syncRunning();
@@ -162,6 +199,32 @@ export class HSlider extends HBaseWidget {
     if (!this.options.design && this._rotates()) this.toggle = button('fa-pause', 'Stop', () => (this.timer !== null ? this.stop() : this.start()));
     button('fa-forward-step', 'Next', () => this._go(this.index + 1));
     if (ends) button('fa-forward-fast', 'Last', () => this._go(this.items.length - 1));
+    return bar;
+  }
+
+  /** A tab per element (role tablist; arrow keys move between the tabs). */
+  _tabBar() {
+    const bar = document.createElement('div');
+    bar.className = 'h-slider-tabbar';
+    bar.setAttribute('role', 'tablist');
+    this.tabs = this.items.map((item, position) => {
+      const tab = document.createElement('button');
+      tab.type = 'button';
+      tab.className = 'h-slider-tab';
+      tab.setAttribute('role', 'tab');
+      tab.textContent = HSlider.label(item, position);
+      item.setAttribute('role', 'tabpanel');
+      this.listen(tab, 'click', () => this._go(position));
+      this.listen(tab, 'keydown', (event) => {
+        const step = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[event.key];
+        if (!step) return;
+        event.preventDefault();
+        this._go(this.index + step);
+        this.tabs[this.index]?.focus();
+      });
+      bar.append(tab);
+      return tab;
+    });
     return bar;
   }
 

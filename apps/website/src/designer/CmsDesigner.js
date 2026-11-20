@@ -45,7 +45,7 @@ import { createWebsiteFieldsForm, PAGE_FIELD_KEYS, WEBSITE_FIELD_KEYS } from '..
 import { PANEL_MIN_WIDTH, PANEL_SIDE_WIDTH, createElementPanel } from './designerPanel.js';
 import { styleRows } from './designerStyles.js';
 import {
-  cardTemplateTerms, createRecordsSection, openBreadcrumbsForm, openFilterWidgetForm, openCardsForm, openEmailForm, openFieldForm, openLanguageForm, openMediaForm, openMenuForm, openReportForm, teamReportBody
+  cardTemplateTerms, createRecordsSection, openBreadcrumbsForm, openFilterWidgetForm, openCardsForm, openEmailForm, openFieldForm, openLanguageForm, openMediaForm, openMenuForm, openReportForm, openStoryMapForm, teamReportBody
 } from './widgetForms.js';
 import { openNewRecordPageForm, recordPageTerms, sitePageTerms } from './recordPageField.js';
 import { filterPageTerms, recordFilterFieldTerms } from './savedFilterField.js';
@@ -2345,6 +2345,21 @@ export class CmsDesigner {
         translator: this._translator(), ...extra }), setSettings);
     } else if (instance.type === 'cards') {
       await run((extra) => openCardsForm({ ...common, ...extra }), setSettings);
+    } else if (instance.type === 'storymap') {
+      // the story map (plan 27q1 §8): a Presentation set made in Explorer, the map of the page
+      const presets = await this._storyMapPresets().catch(() => []);
+      await run((extra) => openStoryMapForm({
+        settings: instance.settings || {},
+        presets,
+        maps: this._pageInstanceTerms('map'),
+        onEdit: (id) => this._openStoryMapEditor(id),
+        // a story map changed in Explorer: the list and the preview again
+        onRefresh: () => {
+          this._storyMaps = null;
+          this._loadPreview();
+        },
+        ...extra
+      }), setSettings);
     } else if (instance.type === 'report') {
       // the generated reports panel of heurist-reports, through Explorer (plan 27e §28)
       const settings = await openReportForm({
@@ -2365,6 +2380,77 @@ export class CmsDesigner {
         commit((doc) => doc.setInstance(instanceId, { settings: { ...result.settings, html } }));
       });
     }
+  }
+
+  /**
+   * The story maps of the database (Presentation sets of kind StoryMap, plan 27q1): id, title, public. Read once per
+   * designer (Refresh reads them again).
+   *
+   * @returns {Promise<Array<{id: number, title: string, public: boolean}>>}
+   */
+  _storyMapPresets() {
+    this._storyMaps ||= (async () => {
+      const id = (code) => Number(this.options.dbdefs?.dbconst?.(code)) || 0;
+      const rectype = id('RT_PRESENTATION_SET');
+      const typeField = id('DT_PRESENTATION_TYPE');
+      const storymap = id('TRM_PRESENTATION_STORYMAP');
+      if (!rectype) return [];
+      const answer = await this.apiClient.get('/records', {
+        query: { q: JSON.stringify([{ t: String(rectype) }]), fields: ['rec_ID', 'rec_Title', 'rec_NonOwnerVisibility', typeField].filter(Boolean).join(','), limit: 1000 }
+      });
+      return ((answer?.data ?? answer)?.records || [])
+        .filter((record) => {
+          const type = Number([record.details?.[typeField]].flat()[0]) || 0;
+          return !type || type === storymap;
+        })
+        .map((record) => ({ id: Number(record.rec_ID), title: String(record.rec_Title || `#${record.rec_ID}`),
+          public: !record.rec_NonOwnerVisibility || record.rec_NonOwnerVisibility === 'public' }))
+        .sort((a, b) => a.title.localeCompare(b.title));
+    })().catch((error) => {
+      this._storyMaps = null;
+      throw error;
+    });
+    return this._storyMaps;
+  }
+
+  /**
+   * The instances of one type on the page shown now (its own and those of the website parts), named as in the tree.
+   *
+   * @param {string} type Instance type (`map`).
+   * @returns {Array<{id: string, label: string}>}
+   */
+  _pageInstanceTerms(type) {
+    const current = this._currentRecord();
+    const site = this.site ? this.records.get(this.site.id) : null;
+    const records = [current, site !== current ? site : null].filter(Boolean);
+    const instances = Object.assign({}, ...records.slice().reverse().map((record) => record.doc.config.instances || {}));
+    const terms = [];
+    const seen = new Set();
+    for (const record of records) {
+      const visit = (items) => {
+        for (const item of items || []) {
+          if (item.instance && !seen.has(item.instance) && instances[item.instance]?.type === type) {
+            seen.add(item.instance);
+            terms.push({ id: item.instance, label: `${item.label || type} (${item.id})` });
+          }
+          visit(item.children);
+        }
+      };
+      for (const part of record === current ? record.doc.partNames() : ['header', 'footer']) visit(record.doc.tree(part));
+    }
+    return terms;
+  }
+
+  /**
+   * Explorer with a story map in a new window (plan 27q1 §2.4): its tool, its source records, the first one selected.
+   *
+   * @param {number} presetId 0: the tool without a story map (a new one).
+   */
+  _openStoryMapEditor(presetId) {
+    const runtime = this.options.runtime || {};
+    const base = String(runtime.baseUrl || '/').replace(/\/?$/, '/');
+    const url = `${base}?db=${encodeURIComponent(runtime.database || '')}&tool=storymap${presetId > 0 ? `&preset=${presetId}` : ''}`;
+    globalThis.open?.(url, '_blank', 'noopener');
   }
 
   /** Whether the website (its loaded records) has Heurist Explorer: Add record of an action menu needs it (plan 27f §9.4). */
@@ -3037,8 +3123,8 @@ export class CmsDesigner {
 
   /**
    * The instances of the page shown now (its own and those of the website parts) and the sources of records a module of
-   * it may take (plan 27l §12): Saved filter links, each Filter widget, each other module with its own query (not
-   * Explorer, not Record View).
+   * it may take (plan 27l §12): Saved filter links, each Filter widget, each story map (its source records, plan 27q1),
+   * each other module with its own query (not Explorer, not Record View).
    *
    * @param {string} instanceId The module of the form (not a source of itself).
    * @returns {{instances: object, sources: Array<{id: string, label: string}>}}
@@ -3060,6 +3146,9 @@ export class CmsDesigner {
               const name = `${item.label || instance.type} (${item.id})`;
               if (instance.kind === 'widget' && instance.type === 'filter') {
                 sources.push({ id: `filter:${item.instance}`, label: `${$HR('Filter widget')}: ${name}` });
+              } else if (instance.kind === 'widget' && instance.type === 'storymap') {
+                // its source records (plan 27q1 §8)
+                sources.push({ id: `module:${item.instance}`, label: `${$HR('Story map')}: ${name}` });
               } else if (instance.kind === 'module' && item.instance !== instanceId && !['explorer', 'recordview'].includes(instance.type)
                 && cmsInstanceRecords(instance, instances).own) {
                 sources.push({ id: `module:${item.instance}`, label: `${$HR('Module')}: ${name}` });

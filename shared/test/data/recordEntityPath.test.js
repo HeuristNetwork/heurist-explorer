@@ -19,7 +19,7 @@ import assert from 'node:assert/strict';
 import { RecordEditClient } from '../../src/data/RecordEditClient.js';
 import { RECORD_ENTITIES, recordEntityPath, recordTypesDomain } from '../../src/data/recordDomains.js';
 
-const CODES = { RT_CMS_HOME: 51, RT_CMS_PAGE: 52, RT_REPORT_TEMPLATE: 60, RT_REPORT_OUTPUT: 61 };
+const CODES = { RT_CMS_HOME: 51, RT_CMS_PAGE: 52, RT_REPORT_TEMPLATE: 60, RT_REPORT_OUTPUT: 61, RT_PRESENTATION_SET: 138 };
 const dbdefs = { dbconst: (code) => CODES[code] };
 
 /** Client that records the path of each call. */
@@ -37,10 +37,11 @@ function recordingClient(options = {}) {
 test('recordEntityPath: the entity of a record type, nothing for other types', () => {
   assert.equal(recordEntityPath(dbdefs, 51), '/website');
   assert.equal(recordEntityPath(dbdefs, '61'), '/output');
+  assert.equal(recordEntityPath(dbdefs, 138), '/presentation');
   assert.equal(recordEntityPath(dbdefs, 10), null);
   assert.equal(recordEntityPath(dbdefs, 0), null);
   assert.equal(recordEntityPath(null, 51), null);
-  assert.equal(Object.keys(RECORD_ENTITIES).length, 4);
+  assert.equal(Object.keys(RECORD_ENTITIES).length, 5);
 });
 
 test('RecordEditClient: entity records use their URL, relationship records and unknown types stay on /records', async () => {

@@ -1823,6 +1823,7 @@ export function rightButtons() {
     { id: 'crosstabs', icon: 'fa-solid fa-chart-column', title: 'Crosstabs', hint: 'Cross-tabulation and chart analysis', group: 'tools', toggle: true },
     { id: 'actions', icon: 'fa-solid fa-bolt', title: 'Actions', hint: 'Dashboard of actions for the current filtered result or selection', group: 'tools', toggle: true },
     { id: 'export', icon: 'fa-solid fa-file-export', title: 'Export', hint: 'Export records in various formats', group: 'tools', toggle: true },
+    { id: 'storymap', icon: 'fa-solid fa-route', title: 'Story map', hint: 'The story of the selected record: its elements as cards and their places on the map', group: 'tools', toggle: true },
     { id: 'help', icon: 'fa-solid fa-circle-question', title: 'Help', hint: 'Explorer help and user guide', group: 'settings' },
     { id: 'options', icon: 'fa-solid fa-gear', title: 'Options', hint: 'Toolbar and layout configuration', group: 'settings' }
   ];

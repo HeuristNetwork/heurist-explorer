@@ -44,7 +44,8 @@ export const LAYOUT_MODULES = Object.freeze([
   { type: 'report', icon: 'fa-regular fa-file', title: 'Report' },
   { type: 'crosstabs', icon: 'fa-solid fa-chart-column', title: 'Crosstabs' },
   { type: 'actions', icon: 'fa-solid fa-bolt', title: 'Actions' },
-  { type: 'export', icon: 'fa-solid fa-file-export', title: 'Export' }
+  { type: 'export', icon: 'fa-solid fa-file-export', title: 'Export' },
+  { type: 'storymap', icon: 'fa-solid fa-route', title: 'Story map' }
 ]);
 
 /** Result always has a pane: a DataSource is shown there (and so not everything is unused). */

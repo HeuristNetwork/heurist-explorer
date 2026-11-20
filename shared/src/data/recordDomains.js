@@ -10,7 +10,7 @@
  * a code the database does not have (yet) matches nothing, so its type stays on
  * `records`.
  *
- * The record-based entities (website, page, report, output, RECORD_ENTITIES) are stored
+ * The record-based entities (website, page, report, output, presentation, RECORD_ENTITIES) are stored
  * in Records, so a list of several types still goes to `/records`; one record of them is
  * read and written at the URL of its entity (recordEntityPath).
  *
@@ -48,7 +48,9 @@ export const RECORD_ENTITIES = Object.freeze({
   RT_CMS_HOME: 'website',
   RT_CMS_PAGE: 'page',
   RT_REPORT_TEMPLATE: 'report',
-  RT_REPORT_OUTPUT: 'output'
+  RT_REPORT_OUTPUT: 'output',
+  // stored settings of a story map, crosstabs or export (plan 27q1)
+  RT_PRESENTATION_SET: 'presentation'
 });
 
 /**

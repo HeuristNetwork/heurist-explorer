@@ -887,19 +887,22 @@ export class LeafletMapAdapter extends MapEngineAdapter {
    * Fit the map viewport to geographic bounds.
    *
    * @param {*} bounds Target bounds, in any shape accepted by {@link normalizeBounds}.
-   * @param {Object} [options={}] Leaflet `fitBounds()` options.
+   * @param {Object} [options={}] Leaflet `fitBounds()` options; `fly: true` flies (`flyToBounds`, `duration` in s).
    * @returns {Promise<*>} Resolves when the operation completes.
    * @throws {TypeError} When `bounds` is not valid.
    */
   async fitBounds(bounds, options = {}) {
     const normalized = normalizeBounds(bounds);
-    this.map.fitBounds(
-      [
-        [normalized.south, normalized.west],
-        [normalized.north, normalized.east]
-      ],
-      options
-    );
+    const target = [
+      [normalized.south, normalized.west],
+      [normalized.north, normalized.east]
+    ];
+    const { fly = false, ...rest } = options;
+    if (fly && typeof this.map.flyToBounds === 'function') {
+      this.map.flyToBounds(target, { padding: [20, 20], ...rest });
+      return;
+    }
+    this.map.fitBounds(target, rest);
   }
 
   /**

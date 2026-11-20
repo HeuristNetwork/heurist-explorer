@@ -1,0 +1,80 @@
+/* Story map tool of Explorer (plan 27q1 §7): toolbar, settings form, the story (HStoryMap.css). */
+.h-storymap-tool {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+.h-storymap-tool-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  padding: 4px;
+  border-bottom: 1px solid var(--h-color-border);
+}
+
+.h-storymap-tool-preset {
+  min-width: 160px;
+  max-width: 320px;
+}
+
+.h-storymap-tool-form {
+  flex: 0 1 auto;
+  max-height: 60%;
+  overflow: auto;
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--h-color-border);
+  font-size: var(--h-font-size);
+}
+
+.h-storymap-tool-section {
+  margin: 4px 0 8px;
+  border: 1px solid var(--h-color-border);
+  border-radius: 4px;
+}
+
+.h-storymap-tool-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  margin: 3px 0;
+}
+
+.h-storymap-tool-label {
+  flex: 0 0 160px;
+  color: var(--h-color-text-muted);
+}
+
+.h-storymap-tool-row > .h-input,
+.h-storymap-tool-row > .h-storymap-tool-area {
+  flex: 1 1 200px;
+  min-width: 0;
+}
+
+.h-storymap-tool-area {
+  min-height: 3em;
+  resize: vertical;
+}
+
+.h-storymap-tool-rule {
+  flex: 1 1 200px;
+}
+
+.h-storymap-tool-form-footer {
+  display: flex;
+  justify-content: flex-end;
+  padding: 4px 0;
+}
+
+.h-storymap-tool-view {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.h-storymap-tool-name {
+  width: 100%;
+  box-sizing: border-box;
+}

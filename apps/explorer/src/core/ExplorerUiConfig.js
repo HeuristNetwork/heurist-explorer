@@ -25,7 +25,7 @@ const REGIONS = ['north', 'west', 'center', 'east', 'south'];
 export const PRESENTATION_TYPES = ['data', 'map', 'graph', 'timeline', 'recordview'];
 /** Tools placed in panes like the presentations (2026-10-14, plan 16 Part 2). The Website
  *  manager is not one: a management tool over the whole screen (plan 27b §11, 2026-10-28). */
-export const TOOL_TYPES = ['report', 'crosstabs', 'actions', 'export'];
+export const TOOL_TYPES = ['report', 'crosstabs', 'actions', 'export', 'storymap'];
 /** Everything that can be placed in a pane. */
 export const MODULE_TYPES = [...PRESENTATION_TYPES, ...TOOL_TYPES];
 /** The configuration's bucket for modules not shown at all; Result can not go there. */
@@ -170,10 +170,11 @@ function defaults() {
     // Graph (2026-10-14)
     regions: {
       data: 'west', map: 'center', graph: 'center', timeline: 'south', recordview: 'center',
-      report: 'center', crosstabs: 'center', actions: 'center', export: 'center'
+      report: 'center', crosstabs: 'center', actions: 'center', export: 'center', storymap: 'east'
     },
-    // module order within a pane: the first module of an expanded pane is shown at start
-    order: ['data', 'recordview', 'map', 'graph', 'report', 'crosstabs', 'actions', 'export', 'timeline'],
+    // module order within a pane: the first module of an expanded pane is shown at start; Story map (plan 27q1) east,
+    // beside the Map
+    order: ['data', 'recordview', 'map', 'graph', 'report', 'crosstabs', 'actions', 'export', 'storymap', 'timeline'],
     // panes expanded when Explorer starts; the others start hidden (opened from the toolbar)
     panes: { north: false, west: true, center: true, east: false, south: false },
     // toolbar lists (Filters, Entities, Sources; Favorites, History, Workspace since
@@ -199,9 +200,9 @@ const SIMPLIFIED = {
   lists: 'docked',
   regions: {
     data: 'west', recordview: 'center', map: 'center', graph: 'center', report: 'center', export: 'center',
-    timeline: 'south', crosstabs: UNUSED_REGION, actions: UNUSED_REGION
+    storymap: 'east', timeline: 'south', crosstabs: UNUSED_REGION, actions: UNUSED_REGION
   },
-  order: ['data', 'recordview', 'map', 'graph', 'report', 'export', 'timeline', 'crosstabs', 'actions']
+  order: ['data', 'recordview', 'map', 'graph', 'report', 'export', 'storymap', 'timeline', 'crosstabs', 'actions']
 };
 
 /**

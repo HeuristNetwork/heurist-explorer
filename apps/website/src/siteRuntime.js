@@ -225,8 +225,27 @@ function safeLocalStorage() {
   }
 }
 
-/** Module APIs mounted on the page (all parts and loaded pages), for the actions of action menus. */
+/** Module APIs mounted on the page (all parts and loaded pages): {id, type, api, host}; for the actions of action menus
+ *  and the map of a story map. */
 const MODULES = [];
+
+/**
+ * The public API of a module of the page by its instance id; a module still mounting is waited for (a story map finds
+ * its map, plan 27q1 §8).
+ *
+ * @param {string} instanceId
+ * @param {number} [timeout=15000] ms.
+ * @returns {Promise<object|null>}
+ */
+export async function findPageModule(instanceId, timeout = 15000) {
+  const end = Date.now() + timeout;
+  for (;;) {
+    const module = MODULES.find((item) => item.id === instanceId && (!item.host || item.host.isConnected !== false));
+    if (module) return module.api || null;
+    if (Date.now() > end) return null;
+    await new Promise((resolve) => setTimeout(resolve, 200));
+  }
+}
 
 /**
  * The PageSync of each page by the runtime of its configuration block (a page loaded by the navigator has its own, plan
@@ -836,6 +855,19 @@ export async function mountInstance(host, id, config, loaders) {
       return showMessage(host, $HR('This part of the page can not be shown'));
     }
   }
+  if (instance.kind === 'widget' && instance.type === 'storymap') {
+    // the story map (plan 27q1 §8): a lazy chunk; a member of the page (selection, its source records)
+    try {
+      const { mountStoryMap } = await import('./siteStoryMap.js');
+      const mounted = await mountStoryMap(host, instance, config, { findModule: (instanceId) => findPageModule(instanceId) });
+      if (!mounted) return null;
+      joinPageSync(config, id, instance, mounted.widget, mounted.start);
+      return mounted.widget;
+    } catch (error) {
+      console.error(`Unable to show the story map (${id})`, error);
+      return showMessage(host, $HR('This part of the page can not be shown'));
+    }
+  }
   if (instance.kind === 'widget' && SITE_WIDGETS.includes(instance.type)) return mountSiteWidget(host, instance, config);
   if (instance.kind !== 'module' || !Object.hasOwn(loaders, instance.type)) {
     return showMessage(host, $HR('This part of the page can not be shown'));
@@ -870,7 +902,7 @@ export async function mountInstance(host, id, config, loaders) {
       bridge: sync ? sync.bridge() : null,
       assetBaseUrl: config.runtime?.moduleBaseUrl ? `${config.runtime.moduleBaseUrl}heurist-${instance.type}/` : null
     });
-    MODULES.push({ type: instance.type, api, host });
+    MODULES.push({ id, type: instance.type, api, host });
     joinPageSync(config, id, instance, api, start);
     return api;
   } catch (error) {

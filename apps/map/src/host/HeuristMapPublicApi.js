@@ -526,6 +526,15 @@ export class HeuristMapPublicApi extends HeuristModulePublicApi {
   zoomToSelection() { return this.application.zoomToSelection(); }
 
   /**
+   * Fly to bounds with an animation (story map, plan 27q1 §6).
+   *
+   * @param {{west: number, south: number, east: number, north: number}} bounds Target bounds.
+   * @param {{duration?: number, maxZoom?: number}} [options] `duration` in ms (0: jump), `maxZoom` for a single point.
+   * @returns {Promise<*>} Resolves when the flight has started.
+   */
+  flyTo(bounds, options = {}) { return this.application.flyTo(bounds, options); }
+
+  /**
    * Request host editing of a persisted MapDocument record.
    *
    * @param {*} documentId MapDocument id.

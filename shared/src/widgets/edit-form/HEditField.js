@@ -90,7 +90,7 @@ export class HEditField extends HBaseWidget {
    *        `describe(value, context)` readable text, `edit(value, context)` resolves with the new
    *        value (undefined: cancelled), `icon` (Font Awesome class) and `title` (tooltip) of its
    *        Edit button, `json` the raw value must be JSON; `actions`
-   *        (`[{label, icon?, title?, primary?, run(value, context)}]`) several editors instead of `edit`,
+   *        (`[{label, icon?, title?, primary?, iconOnly?, run(value, context, button)}]`) several editors instead of `edit`,
    *        or `actionsFor(context)` returning them for the record (type) being edited.
    * @param {object} [options.context] Passed to `describe`/`edit`: `{field, getValue(name), setValue(name, value)}`.
    * @param {object} [options.relationships] Relmarker fields (plan 22): the record editor's service
@@ -549,14 +549,21 @@ export class HEditField extends HBaseWidget {
         edit.type = 'button';
         edit.className = `h-btn h-btn-small h-edit-field-special-edit${action.primary ? ' h-btn-primary' : ''}`;
         if (action.icon) edit.append(iconElement(action.icon));
-        const caption = document.createElement('span');
-        caption.className = 'h-i18n';
-        caption.textContent = $HR(action.label || 'Edit');
-        edit.append(caption);
-        if (action.title) edit.title = $HR(action.title);
+        // an icon only (the ▾ of a query field, plan 27n1 §4)
+        if (!action.iconOnly) {
+          const caption = document.createElement('span');
+          caption.className = 'h-i18n';
+          caption.textContent = $HR(action.label || 'Edit');
+          edit.append(caption);
+        }
+        if (action.title) {
+          edit.title = $HR(action.title);
+          if (action.iconOnly) edit.setAttribute('aria-label', edit.title);
+        }
         this.listen(edit, 'click', async () => {
           try {
-            const next = await action.run(row.input.getValue(), this.options.context || {});
+            // the button: an action that opens a list under it
+            const next = await action.run(row.input.getValue(), this.options.context || {}, edit);
             if (next === undefined) return;
             row.input.setValue(this.isList && Array.isArray(next) ? next.join('\n') : next);
             this._syncSpecial(row);

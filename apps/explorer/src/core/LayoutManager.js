@@ -27,7 +27,8 @@ const DEFAULT_REGION_BY_TYPE = {
   report: 'center',
   crosstabs: 'center',
   actions: 'center',
-  export: 'center'
+  export: 'center',
+  storymap: 'east'
 };
 
 /**

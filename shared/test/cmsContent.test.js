@@ -186,6 +186,30 @@ test('HSlider: one slide visible, wraps around, stops on a choice', async () => 
     await slider.destroy();
 });
 
+test('HSlider: tabs show one element, labelled by data-h-label or its heading; onChange reports the element (plan 27q1)', async () => {
+  installFakeDom();
+  const { HSlider } = await import('../src/widgets/site/HSlider.js');
+  const host = document.createElement('div');
+  const items = [1, 2, 3].map(() => document.createElement('div'));
+  items[0].setAttribute('data-h-label', 'Birth');
+  const heading = document.createElement('h3');
+  heading.textContent = 'Visited';
+  items[1].append(heading);
+  host.append(...items);
+  const changes = [];
+  const slider = new HSlider().attach(host, { presentation: 'tabs', start: 1, onChange: (index) => changes.push(index) }).render();
+  assert.equal(host.classList.contains('h-slider-tabs'), true);
+  assert.deepEqual(slider.tabs.map((tab) => tab.textContent), ['Birth', 'Visited', '3']);
+  assert.equal(items[1].classList.contains('is-active'), true);
+  assert.equal(slider.tabs[1].getAttribute('aria-selected'), 'true');
+  assert.equal(slider.timer, null, 'tabs do not rotate');
+  assert.equal(host.querySelector('.h-slider-nav'), null, 'no << < > >>');
+  slider._go(2);
+  slider.show(2);
+  assert.deepEqual(changes, [1, 2], 'each change once');
+  await slider.destroy();
+});
+
 test('HSlider: in the designer it shows one slide without rotation, start button and actions', async () => {
   installFakeDom();
   const { HSlider } = await import('../src/widgets/site/HSlider.js');

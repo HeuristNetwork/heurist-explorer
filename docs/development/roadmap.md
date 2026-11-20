@@ -16,7 +16,9 @@ of about 20 %.
 | **A. Finish CMS** | 27o Multilevel layout | Map or another module as the background of a page, content over it | 27l | 19 Nov |
 | | 27p Conversion of three websites | MapOfTheAbsentees, PFC, DigitalHarlem rebuilt by hand in the designer; every manual step written down as a rule for the converter (input for 27s) | 27o | 20–24 Nov |
 | | 33a Other Actions | convert to record type, add / remove tags, rate, unbookmark, add link or relation (listed in the Actions tool, disabled now) | 33 | 25–26 Nov |
-| | 27q Other CMS widgets | Crosstabs (Explorer tool + website widget), Story map, Blog / news template | 27l, 17 (ranges) | 27 Nov – 3 Dec |
+| | 27q1 Story map | Presentation set record type (story map, crosstabs, export); Explorer tool pane + website element; patterns points / path (plan file agreed 2026-11-18) | 27l, 09 | 27 Nov – 3 Dec |
+| | 27q2 Crosstabs | Explorer tool + website widget, settings in a Presentation set | 27q1, 17 (ranges) | |
+| | 27q3 Blog / news template | | 27i | |
 | | (ongoing) | polishing of converted websites, review rounds | | buffer |
 | **B. Independent srv** | 35 srv bootstrap and authorisation | own front controller (no `hserv\System::init`), own configuration and settings, session and login check in srv; hserv and srv share only the database and the session cookie (`legacy_dependencies.md` S1–S3) | — | 4–10 Dec |
 | | 36 Login / logout in Explorer | login, logout, current user, session expiry, links to register / reset password; module preferences on srv (C1, C8) | 35 | 11–12 Dec |

@@ -2403,6 +2403,21 @@ export class MapApplication {
   }
 
   /**
+   * Fly to bounds with an animation (story map, plan 27q1 §6); a duration of 0 jumps.
+   *
+   * @param {{west: number, south: number, east: number, north: number}} bounds Target bounds.
+   * @param {{duration?: number, maxZoom?: number}} [options] `duration` in ms; `maxZoom` (default 14) keeps a single
+   *        point from the deepest zoom.
+   * @returns {Promise<*>} Resolves when the flight has started.
+   * @throws {Error} When the application has been destroyed.
+   */
+  async flyTo(bounds, { duration = 1500, maxZoom = 14 } = {}) {
+    this.assertActive();
+    const ms = Math.max(0, Number(duration) || 0);
+    return this.mapEngine.fitBounds(bounds, ms > 0 ? { fly: true, duration: ms / 1000, maxZoom } : { animate: false, maxZoom });
+  }
+
+  /**
    * Notify the map engine that its container dimensions changed.
    *
    * @returns {Promise<*>} Resolves when the operation completes.

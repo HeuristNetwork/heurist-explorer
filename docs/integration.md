@@ -25,6 +25,11 @@ contract. They must not access application or engine internals.
 Explorer's iframe and direct adapters talk only to these public surfaces.
 DataSource, selection and collection synchronization must not bypass them.
 
+The story map (plan 27q1, `shared/src/widgets/storymap/storyMapBinding.js`) drives a Map module through its public
+API: `addLayer` (inline GeoJSON and query layers in the active map document), `removeLayer`, `getActiveMapDocument`
+and `flyTo(bounds, {duration, maxZoom})` (added for it: an animated `fitBounds`, `duration` 0 jumps). Explorer gives
+it its Map module (`IframeModuleAdapter.getPublicApi()`); a website page the map instance chosen in the element.
+
 ## Run modes
 
 The same application source supports standalone, legacy-hosted, Explorer-hosted,

@@ -18,8 +18,8 @@
 import { $HR } from '#shared/ui';
 import { resolveFileUrls } from '#shared/data/fileUrls.js';
 
-/** Presentations with one element visible: slideshow and carousel (HSlider ONE_VISIBLE, not imported: HSlider is a lazy chunk). */
-const ONE_VISIBLE = Object.freeze(['slider', 'carousel']);
+/** Presentations with one element visible: slideshow, carousel and tabs (HSlider ONE_VISIBLE, not imported: HSlider is a lazy chunk). */
+const ONE_VISIBLE = Object.freeze(['slider', 'carousel', 'tabs']);
 
 /** Widgets with HTML written by the server. */
 export const SITE_WIDGETS = Object.freeze(['report', 'cards', 'gallery']);

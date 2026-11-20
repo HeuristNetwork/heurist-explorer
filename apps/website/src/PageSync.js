@@ -10,7 +10,7 @@
  * loaded by the navigator) starts with the newest one it takes.
  *
  * Selection: one shared SyncEngine for the modules that share the selection (`selection` true): selection and map
- * document. Explorer on a page is one member: it takes `links` through `applyPageRequest`, its own modules stay in its
+ * document. A story map (plan 27q1 §8) takes the selection only and sends its source records on as `module:<id>`. Explorer on a page is one member: it takes `links` through `applyPageRequest`, its own modules stay in its
  * own SyncEngine (no page selection yet, phase D).
  *
  * The page RequestMonitor collects the requests of all modules (their monitors register through the small host bridge
@@ -87,6 +87,8 @@ export class PageSync extends EventTarget {
     let member = null;
     if (type === 'explorer') {
       member = new ExplorerMember(instanceId, api, from);
+    } else if (type === 'storymap') {
+      member = new StoryMapMember(instanceId, api);
     } else if (SYNC_MODULE_TYPES.includes(type)) {
       member = new ModuleMember(instanceId, type, api, from, selection);
     }
@@ -243,6 +245,33 @@ class ModuleMember extends EventTarget {
     this.handle.removeEventListener('selectionchange', this._forward);
     this.handle.removeEventListener('mapdocumentchange', this._forward);
   }
+}
+
+/** A story map on the page (plan 27q1 §8): the selection only; it takes no records (its own come with its start). */
+class StoryMapMember extends EventTarget {
+  constructor(id, widget) {
+    super();
+    this.id = id;
+    this.type = 'storymap';
+    this.from = [];
+    this.selection = true;
+    this.syncMode = 'selection';
+    this.widget = widget;
+  }
+
+  setDataSource() {
+    return false;
+  }
+
+  setSelection(ids) {
+    return this.widget?.setSelection?.(ids);
+  }
+
+  setActiveMapDocument() {}
+
+  setRules() {}
+
+  destroy() {}
 }
 
 /** Explorer on the page: takes the Saved filter links (its filter form asks for missing values); no page selection. */

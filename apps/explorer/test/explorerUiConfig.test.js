@@ -14,9 +14,9 @@ test('save() persists and load() round-trips a valid value', () => {
     toolbar: { position: 'horizontal', buttonSize: 'large-caption' },
     regions: {
       data: 'east', map: 'west', graph: 'west', timeline: 'north', recordview: 'south',
-      report: 'east', crosstabs: 'unused', actions: 'unused', export: 'south'
+      report: 'east', crosstabs: 'unused', actions: 'unused', export: 'south', storymap: 'unused'
     },
-    order: ['map', 'data', 'graph', 'timeline', 'recordview', 'export', 'report', 'crosstabs', 'actions'],
+    order: ['map', 'data', 'graph', 'timeline', 'recordview', 'export', 'report', 'crosstabs', 'actions', 'storymap'],
     panes: { north: true, west: false, center: true, east: false, south: true },
     lists: 'popup',
     language: 'fre',
@@ -105,10 +105,10 @@ test('defaults: toolbar on top, West (Result) and Center (Record View, Map, Grap
   assert.deepEqual(defaults.panes, { north: false, west: true, center: true, east: false, south: false });
   assert.deepEqual(defaults.regions, {
     data: 'west', map: 'center', graph: 'center', timeline: 'south', recordview: 'center',
-    report: 'center', crosstabs: 'center', actions: 'center', export: 'center'
+    report: 'center', crosstabs: 'center', actions: 'center', export: 'center', storymap: 'east'
   });
   assert.deepEqual(defaults.order,
-    ['data', 'recordview', 'map', 'graph', 'report', 'crosstabs', 'actions', 'export', 'timeline']);
+    ['data', 'recordview', 'map', 'graph', 'report', 'crosstabs', 'actions', 'export', 'storymap', 'timeline']);
   const config = new ExplorerUiConfig({ database: 'demo', storage: memoryStorage() });
   assert.deepEqual(config.save({ panes: { center: false, east: 'yes' } }).panes,
     { north: false, west: true, center: false, east: false, south: false }, 'invalid values fall back');
@@ -133,16 +133,16 @@ test('language: auto by default follows the host; a chosen language wins', () =>
 test('order keeps known types once each; a missing one goes after its default predecessor', () => {
   const config = new ExplorerUiConfig({ database: 'demo', storage: memoryStorage() });
   assert.deepEqual(config.save({ order: ['graph', 'bogus', 'map', 'graph'] }).order,
-    ['data', 'recordview', 'graph', 'report', 'crosstabs', 'actions', 'export', 'timeline', 'map']);
+    ['data', 'recordview', 'graph', 'report', 'crosstabs', 'actions', 'export', 'storymap', 'timeline', 'map']);
   // a configuration saved before the tools were modules: the tools come after Graph
   assert.deepEqual(config.save({ order: ['data', 'map', 'graph', 'recordview', 'timeline'] }).order,
-    ['data', 'map', 'graph', 'report', 'crosstabs', 'actions', 'export', 'recordview', 'timeline']);
+    ['data', 'map', 'graph', 'report', 'crosstabs', 'actions', 'export', 'storymap', 'recordview', 'timeline']);
   assert.deepEqual(config.save({ order: 'map' }).order, ExplorerUiConfig.defaults().order);
 });
 
 test('leadingPaneTypes() gives the first module of each pane in the configured order', () => {
   const leading = leadingPaneTypes(ExplorerUiConfig.defaults());
-  assert.deepEqual(Object.fromEntries(leading), { west: 'data', center: 'recordview', south: 'timeline' });
+  assert.deepEqual(Object.fromEntries(leading), { west: 'data', center: 'recordview', east: 'storymap', south: 'timeline' });
   const moved = { ...ExplorerUiConfig.defaults(), order: ['map', 'data', 'recordview', 'graph', 'timeline'] };
   assert.equal(leadingPaneTypes(moved).get('center'), 'map');
 });
@@ -161,7 +161,7 @@ test('Explorer starts with only the first module of the panes configured as expa
 
 test('moduleTypesInOrder() orders the toolbar by pane (N, W, C, E, S), then by the configured order', () => {
   assert.deepEqual(moduleTypesInOrder(ExplorerUiConfig.defaults()),
-    ['data', 'recordview', 'map', 'graph', 'report', 'crosstabs', 'actions', 'export', 'timeline']);
+    ['data', 'recordview', 'map', 'graph', 'report', 'crosstabs', 'actions', 'export', 'storymap', 'timeline']);
   const value = {
     regions: { data: 'east', map: 'center', graph: 'north', timeline: 'center', recordview: 'west' },
     order: ['data', 'timeline', 'map', 'graph', 'recordview']

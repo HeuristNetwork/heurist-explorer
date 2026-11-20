@@ -315,6 +315,13 @@ export class IframeModuleAdapter extends ExplorerModule {
   }
 
   /**
+   * The public API of the child module (the story map drives the Map module through it, plan 27q1 §6).
+   *
+   * @returns {Promise<object>} The child module's public API once it is ready.
+   */
+  getPublicApi() { return this._readyApi(); }
+
+  /**
    * Resize the child module.
    *
    * @returns {Promise<*>} Result of the child module's resize call.

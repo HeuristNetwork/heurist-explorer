@@ -1,0 +1,92 @@
+/* Story map (plan 27q1 §5): the cards of a story; tabs, carousel and slideshow are HSlider (HSlider.css). */
+.h-storymap {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+  box-sizing: border-box;
+}
+
+.h-storymap-message {
+  padding: 12px;
+  color: var(--h-color-text-muted, #666);
+  font-size: var(--h-font-size);
+}
+
+.h-storymap-message-error {
+  color: var(--h-color-danger, #b00020);
+}
+
+.h-storymap-loading .h-storymap-body {
+  opacity: 0.5;
+}
+
+.h-storymap-header:empty,
+.h-storymap-footer:empty {
+  display: none;
+}
+
+.h-storymap-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+}
+
+.h-storymap-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 4px;
+}
+
+.h-storymap-horizontal {
+  display: flex;
+  flex-direction: row;
+  gap: 8px;
+  padding: 4px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-snap-type: x proximity;
+}
+
+.h-storymap-horizontal > .h-storymap-card {
+  flex: 0 0 min(320px, 85%);
+  scroll-snap-align: start;
+}
+
+.h-storymap-card {
+  box-sizing: border-box;
+  border: 1px solid var(--h-color-border, #ddd);
+  border-radius: 4px;
+  padding: 8px;
+  cursor: pointer;
+  transition: opacity 0.3s ease, border-color 0.3s ease;
+}
+
+.h-storymap-slides .h-storymap-card {
+  cursor: default;
+}
+
+.h-storymap-card-title {
+  font-weight: bold;
+  font-size: var(--h-font-size-large);
+}
+
+.h-storymap-card-text {
+  white-space: pre-line;
+}
+
+.h-storymap-highlight .h-storymap-card.is-current {
+  border-color: var(--h-color-accent, #d7301f);
+  box-shadow: 0 0 0 2px var(--h-color-accent, #d7301f) inset;
+}
+
+.h-storymap-veil .h-storymap-body:not(.h-storymap-slides) .h-storymap-card:not(.is-current) {
+  opacity: 0.35;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .h-storymap-card {
+    transition: none;
+  }
+}

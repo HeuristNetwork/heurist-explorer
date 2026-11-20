@@ -1,6 +1,6 @@
 /**
  * @file ExplorerToolModule.js
- * @brief A tool (Report, Crosstabs, Actions, Export, Publish) as an Explorer module:
+ * @brief A tool (Report, Crosstabs, Actions, Export, Story map, Publish) as an Explorer module:
  *        placed in a pane by the Explorer configuration like the presentations.
  *
  * The module owns the tool's panel (caption header and body); the tool itself is
@@ -28,7 +28,7 @@ export class ExplorerToolModule extends ExplorerModule {
   /**
    * @param {object} options Module configuration.
    * @param {string} options.id Module id.
-   * @param {string} options.type Tool type (`report`, `crosstabs`, `actions`, `export`, `publish`).
+   * @param {string} options.type Tool type (`report`, `crosstabs`, `actions`, `export`, `storymap`, `publish`).
    * @param {HTMLElement} options.container Module slot.
    * @param {string} options.title Header caption.
    * @param {function(HTMLElement, ExplorerToolModule): (Promise<object|null>|object|null)} [options.create]

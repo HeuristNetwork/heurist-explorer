@@ -77,6 +77,41 @@
   max-width: none;
 }
 
+/* tabs (plan 27q1 §5): the tab bar above the elements */
+.h-slider.h-slider-tabs {
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+.h-slider.h-slider-tabs > .h-slider-item {
+  grid-area: 2 / 1;
+}
+
+.h-slider-tabbar {
+  grid-area: 1 / 1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  border-bottom: 1px solid var(--h-color-border);
+  margin-bottom: 8px;
+}
+
+.h-slider-tab {
+  border: 1px solid transparent;
+  border-bottom: none;
+  border-radius: 4px 4px 0 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  padding: 4px 10px;
+  margin-bottom: -1px;
+}
+
+.h-slider-tab.is-active {
+  border-color: var(--h-color-border);
+  background: var(--h-color-bg, #fff);
+  font-weight: bold;
+}
+
 .h-slider-nav {
   grid-area: 2 / 1;
   display: flex;

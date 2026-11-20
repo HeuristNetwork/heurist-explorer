@@ -4,6 +4,11 @@ Status of the open development plans: what is done, committed, checked in a brow
 `CLAUDE.md` on 2026-11-18. The Status line at the top of each plan in this folder is the source; update both when a plan
 changes. Newest first.
 
+**`docs/development/27q1 Story-Map-Plan.md`** (agreed 2026-11-18; phases A-E done 2026-11-18, not committed, no browser check: entity `presentation`, srv/Presentations, HStoryMap + service + map binding, Explorer tool `storymap` (East), website element `storymap`, tabs in Record cards, map `flyTo`): story map as a stored *Presentation set*
+record (also for crosstabs and export), designed in an Explorer tool pane, chosen in the CMS (Edit in new window +
+Refresh); source query + expansion rule; layouts list / horizontal / tabs / carousel / slideshow (tabs also in Record
+cards); map patterns per element, only points and path now. Entity name `presentation` agreed.
+
 **Next plans, order and dates: `roadmap.md`** (agreed 2026-11-18): 27o multilevel layout, 27p conversion of three
 websites, 33a other Actions, 27q other CMS widgets; then 35 srv bootstrap and authorisation, 36 login / logout, 28b
 database structure, 27r AI agent API, 27s legacy website conversion.

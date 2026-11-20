@@ -926,6 +926,13 @@ export class ExplorerApplication {
   async _startUp() {
     // on a website page (plan 27a) neither the visitor's own last query nor the welcome popup
     if (this.config.published) return;
+    // a story map opened by the CMS designer (plan 27q1 §2.4): ?tool=storymap&preset=<id>
+    const params = new URLSearchParams(globalThis.location?.search || '');
+    if (params.get('tool') === 'storymap' && Number(params.get('preset')) > 0) {
+      this.container?.classList?.remove('h-explorer-booting');
+      await this.openStoryMap(Number(params.get('preset'))).catch((error) => HMsg.showMsgErr?.(error?.message || String(error)));
+      return;
+    }
     const last = this.history.list()[0];
     if (last?.dataSource) {
       // the workspace is ready: the query's progress is the Query Source loading
@@ -1942,7 +1949,8 @@ export class ExplorerApplication {
       create: {
         report: (body) => this._createReportsTool(body),
         export: (body) => this._createExportTool(body),
-        actions: (body) => this._createActionsTool(body)
+        actions: (body) => this._createActionsTool(body),
+        storymap: (body) => this._createStoryMapTool(body)
       }[definition.type] || null
     });
     this.modules.set(definition.id, module);
@@ -2495,6 +2503,60 @@ export class ExplorerApplication {
   }
 
   /**
+   * Create the Story map tool (plan 27q1 §7) in its body: the story of the selected record, its current element on
+   * the Map module of Explorer. Loaded only now (its own chunk).
+   *
+   * @private
+   * @param {HTMLElement} body Tool body.
+   * @returns {Promise<object>} The StoryMapTool.
+   */
+  async _createStoryMapTool(body) {
+    const { StoryMapTool } = await (this._storyMapLoader || loadStoryMapTool)();
+    const tool = new StoryMapTool({
+      apiClient: this.apiClient,
+      getDbDefs: () => this._ensureDbDefs(),
+      getDataSource: () => (this.sync?.dataSource ? cloneDataSource(this.sync.dataSource) : null),
+      getSelection: () => [...(this.sync?.selection || [])],
+      // the Map module of the layout (created when it was deferred at start), its public API once it is ready
+      getMap: async () => {
+        const map = [...this.modules.values()].find((module) => module.type === 'map') || await this.showPresentation('map');
+        return typeof map?.getPublicApi === 'function' ? map.getPublicApi() : null;
+      },
+      getQuerySources: () => this.getQuerySources(),
+      showRecords: (query, title) => this.showDatasource({ reference: { type: 'query' }, title, request: { q: query } }),
+      runtime: this._reportsRuntime()
+    });
+    body.replaceChildren();
+    tool.attach(body);
+    await tool.render();
+    return tool;
+  }
+
+  /**
+   * Open a story map in its tool (the CMS designer: Edit in new window, `?tool=storymap&preset=<id>`): the tool is
+   * shown, its source records become the result and the first one is selected.
+   *
+   * @param {number} presetId Presentation set id.
+   * @returns {Promise<boolean>} False when the tool or the story map is not there.
+   */
+  async openStoryMap(presetId) {
+    const module = await this.showPresentation('storymap');
+    if (!module) {
+      HMsg.showMsgErr?.($HR('Place the Story map tool in a pane (Options > Layout)'));
+      return false;
+    }
+    const tool = await module.ready?.();
+    if (!tool?.openPreset) return false;
+    const opened = await tool.openPreset(Number(presetId), { showSource: true });
+    // the first source record is selected: its story is shown
+    if (opened && tool.preset?.query != null) {
+      const [first] = await tool.service.queryIds(tool.preset.query, 1).catch(() => []);
+      if (first) await this.sync?.setSelection([first]);
+    }
+    return opened;
+  }
+
+  /**
    * Host bridge given to heurist-reports: record editor, current result,
    * selection, Query Sources and users/groups of Explorer.
    *
@@ -2881,6 +2943,11 @@ function loadActionsTool() {
   return import('../tools/actions/ActionsTool.js');
 }
 
+/** Lazy chunk of the Story map tool (plan 27q1). */
+function loadStoryMapTool() {
+  return import('../tools/storymap/StoryMapTool.js');
+}
+
 /** Load and mount heurist-reports' direct bootstrap into the Reports tool. */
 async function mountDirectReports(options) {
   const { mountHeuristReports } = await import('../../../reports/src/direct.js');
@@ -2918,7 +2985,8 @@ const TOOL_TITLES = {
   report: 'Custom reports manager and editor',
   crosstabs: 'Crosstabs / Charts',
   actions: 'Actions Dashboard',
-  export: 'Export records'
+  export: 'Export records',
+  storymap: 'Story map'
 };
 
 /** Explorer's built-in default layout: Data west, Map center. */
