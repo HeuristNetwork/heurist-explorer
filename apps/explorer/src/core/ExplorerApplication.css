@@ -129,9 +129,12 @@
     color: var(--h-color-text-muted);
 }
 
-/* Reports tool: the app fills the body */
+/* Reports and Story map tools: the app fills the body */
 .h-explorer-tool-report-body,
-.h-explorer-tool-publish-body {
+.h-explorer-tool-publish-body,
+.h-explorer-tool-storymap-body {
+    /* the pane body is the tool's own element: no centring of its parts (review 2, 2026-11-20) */
+    place-items: stretch;
     display: flex;
     width: 100%;
     overflow: hidden;

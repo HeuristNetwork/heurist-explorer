@@ -19,6 +19,7 @@ import {
 } from "#shared/host";
 import { resolveModuleBootstrap } from "#shared/config";
 import { normalizeRecordLimits } from "#shared/recordview/recordLimits.js";
+import { normalizeBaseStyle } from "#shared/ui/baseStyle.js";
 import { normalizeGraphConfigurationSettings } from "./ui/config/graphConfigurationSchema.js";
 
 /**
@@ -72,6 +73,8 @@ export function createHeuristGraphConfig(bootstrap, { bridge = null, containerId
     language: /^[a-z]{3}$/.test(language) ? language : "eng",
     // limits of the built-in record popup, from the Explorer configuration (plan 23 §3.1)
     recordLimits: normalizeRecordLimits(runtime.recordLimits),
+    // Base style settings of Explorer (2026-11-20): colours and fonts of the UI
+    baseStyle: normalizeBaseStyle(runtime.baseStyle),
     localeBaseUrl: runtime.localeBaseUrl || runtime.moduleBaseUrl || null,
     host: runtime.baseUrl
       ? {

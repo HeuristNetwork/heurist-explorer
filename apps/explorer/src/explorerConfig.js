@@ -76,6 +76,8 @@ export function createHeuristExplorerConfig(bootstrap, { bridge = null, containe
     hostLanguage,
     // limits of the built-in record view (plan 23 §3.1), passed on to every module
     recordLimits: uiConfig.recordLimits,
+    // Base style settings (2026-11-20), passed on to every module; a published Explorer has the styles of its page
+    baseStyle: published ? {} : uiConfig.baseStyle,
     hostBridge: bridge || null,
     moduleModes: {
       data: normalizeMode(runtime.moduleModes?.data, 'direct'),

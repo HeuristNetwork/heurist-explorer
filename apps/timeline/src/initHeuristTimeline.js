@@ -14,6 +14,7 @@
  */
 
 import { HeuristApiClient, createModuleRequestMonitor } from "#shared/api";
+import { applyBaseStyle } from "#shared/ui/baseStyle.js";
 import { createHostAdapter } from "./host/createHostAdapter.js";
 import { validateTimelineConfig } from "./validateTimelineConfig.js";
 import { showTimelineMessage } from "./ui/timelineMessages.js";
@@ -27,6 +28,9 @@ import { showTimelineMessage } from "./ui/timelineMessages.js";
  */
 export async function initHeuristTimeline(config) {
   const { config: safeConfig, container } = validateTimelineConfig(config);
+  // Base style settings of Explorer (runtime.baseStyle, 2026-11-20); kept when there are none (a direct module in
+  // Explorer's own page)
+  applyBaseStyle(document, config.baseStyle, { removeEmpty: false });
   // the styles of #heurist-timeline also apply to a directly mounted container (direct.js)
   container.classList.add("heurist-timeline-host");
 

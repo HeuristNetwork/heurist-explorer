@@ -709,3 +709,14 @@
 #Value#Value
 #Or from the record#Or from the record
 #Carousel#Carousel
+# Story map tool, Full record view (plan 27q1 review 1, 2026-11-20)
+#End#End
+#In collection#In collection
+#Overview#Overview
+#View#View
+#filtered from#filtered from
+#of#of
+#Previous#Previous
+#Next#Next
+#Full record view#Full record view
+#There are no elements to show for "{title}". They may exist but not be public.#There are no elements to show for "{title}". They may exist but not be public.

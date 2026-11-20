@@ -19,7 +19,7 @@
  */
 
 import {
-  normalizeStoryMapSettings, sortStoryElements, storyQuery, temporalSortValue
+  PATH_ROLES, normalizeStoryMapSettings, sortStoryElements, storyQuery, temporalSortValue
 } from './storyMapModel.js';
 
 /** Concept codes of the fields of a Presentation set (2-1112). */
@@ -95,7 +95,8 @@ export function presetFromRecords(payload) {
  *
  * @param {object} record `{rec_ID, rec_Title, rec_RecTypeID, details}`.
  * @param {Map<number, string>} types Field types.
- * @returns {{id: number, title: string, rectype: number, date: number|null, fields: object, geo: Array}}
+ * @returns {{id: number, title: string, rectype: number, date: number|null, fields: object, places: object, geo: Array,
+ *           record: object}} `record`: the record as found (HRecordList).
  */
 export function storyElement(record, types) {
   const fields = {};
@@ -106,7 +107,10 @@ export function storyElement(record, types) {
     fields[id] = list;
     if (date == null && types.get(id) === 'date') date = temporalSortValue(list[0]);
   }
-  return { id: Number(record.rec_ID), title: String(record.rec_Title ?? ''), rectype: Number(record.rec_RecTypeID) || 0, date, fields, geo: [] };
+  return {
+    id: Number(record.rec_ID), title: String(record.rec_Title ?? ''), rectype: Number(record.rec_RecTypeID) || 0, date, fields,
+    places: { begin: [], transition: [], end: [] }, geo: [], record
+  };
 }
 
 /** Story map data over the Heurist API (fetch). */
@@ -157,17 +161,6 @@ export class StoryMapService {
   }
 
   /**
-   * The query of a query source (map overview).
-   *
-   * @param {number} id
-   * @returns {Promise<*>} Its query, null when unknown.
-   */
-  async querySourceQuery(id) {
-    const payload = await this.get(`/records/querysource/${Number(id)}`);
-    return (payload?.querySource || payload)?.source?.query ?? null;
-  }
-
-  /**
    * The first ids of a query (the source records: one result shows its story at once).
    *
    * @param {*} query
@@ -181,51 +174,59 @@ export class StoryMapService {
   }
 
   /**
-   * The story of one source record: its title, the elements in order with their place fields, and the geometries of
-   * their places and of their own geo fields.
+   * The story of one topic: its title, the elements in order, and the places of each element by role (the geo field
+   * paths of `map.places`, `/map?geofields=…&geoOutputMode=features`, one call per role). Without places the element's
+   * own geometry is read.
    *
    * @param {object} settings Normalised settings.
    * @param {number} sourceId
-   * @returns {Promise<{source: {id: number, title: string}, elements: Array<object>, places: Map<number, object>,
-   *          fieldId: (code: string|number) => number|null, placeFields: Set<number>, allowed: Map<object, Set<number>>}>}
+   * @returns {Promise<{source: {id: number, title: string}, elements: Array<object>,
+   *          fieldId: (code: string|number) => number|null}>}
    */
   async loadStory(settings, sourceId) {
     const query = storyQuery(settings, sourceId);
+    const limit = Math.min(Number(settings.story?.limit) || STORY_LIMIT, STORY_LIMIT);
     const [found, head] = await Promise.all([
-      query ? this.get('/records', { q: query, fields: '_all', limit: STORY_LIMIT }) : Promise.resolve({ records: [] }),
+      query ? this.get('/records', { q: query, fields: '_all', limit }) : Promise.resolve({ records: [] }),
       this.get('/records', { q: `ids:${Number(sourceId)}`, fields: 'rec_ID,rec_Title', limit: 1 }).catch(() => null)
     ]);
     const { byCode, types } = recordFieldIndex(found);
     const fieldId = (code) => (byCode.has(String(code)) ? byCode.get(String(code)) : (Number(code) > 0 ? Number(code) : null));
-    const placeFields = new Set([...types].filter(([, type]) => type === 'resource').map(([id]) => id));
-    const elements = sortStoryElements((found?.records || []).map((record) => storyElement(record, types)), settings.story.order, { fieldId });
-    // the places: every pointer value of the elements, and the elements themselves (their own geo fields)
-    const placeIds = new Set();
-    for (const element of elements) {
-      for (const field of placeFields) for (const value of element.fields[field] || []) if (Number(value) > 0) placeIds.add(Number(value));
-    }
-    const ids = [...placeIds, ...elements.map((element) => element.id)];
-    const places = new Map();
-    if (ids.length) {
-      const geo = await this.get('/map', { q: `ids:${ids.join(',')}`, limit: ids.length }).catch(() => null);
-      for (const feature of geo?.features || []) {
-        const id = Number(feature?.properties?.rec_ID ?? feature?.id);
-        if (id > 0 && feature.geometry) places.set(id, feature.geometry);
-      }
-    }
-    for (const element of elements) {
-      if (places.has(element.id) && !placeIds.has(element.id)) element.geo = [places.get(element.id)];
-    }
-    // points with a filter: the places that pass it
-    const allowed = new Map();
-    for (const pattern of settings.map.patterns) {
-      if (pattern.type !== 'points' || !pattern.filter || !placeIds.size) continue;
-      const filter = Array.isArray(pattern.filter) ? pattern.filter : [pattern.filter];
-      const passed = await this.queryIds([{ ids: [...placeIds].join(',') }, ...filter], placeIds.size).catch(() => []);
-      allowed.set(pattern, new Set(passed));
-    }
+    const elements = sortStoryElements((found?.records || []).map((record) => storyElement(record, types)), settings.story.order,
+      { fieldId, sourceId });
+    await this._loadPlaces(elements, settings.map?.places || {});
     const sourceTitle = String(head?.records?.[0]?.rec_Title ?? '');
-    return { source: { id: Number(sourceId), title: sourceTitle }, elements, places, fieldId, placeFields, allowed };
+    return { source: { id: Number(sourceId), title: sourceTitle }, elements, fieldId };
+  }
+
+  /** @private The geometries of the elements by role (`element.places`), or their own (`element.geo`). */
+  async _loadPlaces(elements, places) {
+    if (!elements.length) return;
+    const ids = `ids:${elements.map((element) => element.id).join(',')}`;
+    const byId = new Map(elements.map((element) => [element.id, element]));
+    const roles = PATH_ROLES.filter((role) => places[role]?.length);
+    const read = async (geofields) => {
+      const payload = await this.get('/map', { q: ids, geofields, geoOutputMode: geofields ? 'features' : null, limit: elements.length })
+        .catch((error) => {
+          console.warn('Story map: places', error);
+          return null;
+        });
+      return (payload?.features || []).filter((feature) => feature?.geometry);
+    };
+    if (!roles.length) {
+      for (const feature of await read(null)) {
+        const element = byId.get(Number(feature.properties?.rec_ID ?? feature.id));
+        if (element) element.geo = [feature.geometry];
+      }
+      return;
+    }
+    const results = await Promise.all(roles.map((role) => read(places[role].join(','))));
+    roles.forEach((role, index) => {
+      for (const feature of results[index]) {
+        const element = byId.get(Number(feature.properties?.rec_ID ?? String(feature.id).split(':')[0]));
+        if (element) (element.places[role] ||= []).push(feature.geometry);
+      }
+    });
   }
 
   /**

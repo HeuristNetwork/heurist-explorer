@@ -46,8 +46,7 @@ export async function mountStoryMap(host, instance, config, { findModule }) {
     host.textContent = runtime.design ? $HR('Choose a story map in the configuration of this element') : '';
     return null;
   }
-  const overview = preset.settings.map.overview;
-  const overviewQuery = overview?.query ?? (overview?.querySource ? await service.querySourceQuery(overview.querySource).catch(() => null) : null);
+  // the background map document comes from the settings (map.background, plan 27q1 §15)
   const binding = settings.map
     ? new StoryMapBinding({ getMap: () => findModule(String(settings.map)), settings: preset.settings, title: preset.title })
     : null;
@@ -59,7 +58,6 @@ export async function mountStoryMap(host, instance, config, { findModule }) {
     binding,
     settings: preset.configuration,
     sourceQuery: preset.query,
-    overviewQuery,
     language: config.site?.language || runtime.language || '',
     design: Boolean(runtime.design)
   }).render();

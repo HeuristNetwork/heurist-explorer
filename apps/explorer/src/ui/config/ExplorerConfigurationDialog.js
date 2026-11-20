@@ -17,6 +17,7 @@ import { ExplorerUiConfig } from '../../core/ExplorerUiConfig.js';
 import { createLayoutEditor } from './explorerLayoutEditor.js';
 import { normalizeRecordLimits, RECORD_LIMIT_OPTIONS } from '#shared/recordview/recordLimits.js';
 import { normalizeRecordEditorSettings } from '#shared/data/recordEditorSettings.js';
+import { normalizeBaseStyle } from '#shared/ui/baseStyle.js';
 import { VIEW_MODES } from '../ExplorerRail.js';
 import './ExplorerConfigurationDialog.css';
 
@@ -54,33 +55,12 @@ export class ExplorerConfigurationDialog {
    * @param {Element|null} [options.parent] Element to append the dialog to; defaults to `document.body`.
    * @param {Function|null} [options.onSave] Called with the new value on save; returning `false` keeps the dialog open.
    * @param {Function|null} [options.onCancel] Called with the (unsaved) current value when the dialog is cancelled.
-   * @param {Function|null} [options.onGettingStarted] Offers a Getting started button: it closes the dialog and calls this.
-   * @param {Function|null} [options.onQueryTrace] Offers a Query tracer button: it closes the dialog and calls this.
-   * @param {Function|null} [options.onManageTags] Offers a Manage tags button (plan 20, 4a): it closes the dialog and calls this.
-   * @param {Function|null} [options.onManageFiles] Offers a Manage registered files button (plan 20): it closes the dialog and calls this.
-   * @param {Function|null} [options.onTestEditForm] Offers the temporary Test edit form (plan 14a): it closes the dialog and calls this.
-   * @param {Function|null} [options.onManageUsers] Offers a Manage users button (plan 20, 4d): it closes the dialog and calls this.
-   * @param {Function|null} [options.onManageGroups] Offers a Manage groups button (plan 20, 4d): it closes the dialog and calls this.
-   * @param {Function|null} [options.onPublishView] Offers a Publish this view button (plan 27b §11): it closes the dialog and calls this.
-   * @param {Function|null} [options.onManageWebsites] Offers a Websites and published pages button (plan 27b §11): it closes
-   *        the dialog and calls this.
    */
-  constructor({ value = null, parent = null, onSave = null, onCancel = null, onGettingStarted = null, onQueryTrace = null,
-    onManageTags = null, onManageFiles = null, onManageUsers = null, onManageGroups = null, onPublishView = null,
-    onManageWebsites = null, onTestEditForm = null } = {}) {
+  constructor({ value = null, parent = null, onSave = null, onCancel = null } = {}) {
     this.value = mergeDefaults(value);
     this.parent = parent;
     this.onSave = typeof onSave === 'function' ? onSave : null;
     this.onCancel = typeof onCancel === 'function' ? onCancel : null;
-    this.onGettingStarted = typeof onGettingStarted === 'function' ? onGettingStarted : null;
-    this.onQueryTrace = typeof onQueryTrace === 'function' ? onQueryTrace : null;
-    this.onManageTags = typeof onManageTags === 'function' ? onManageTags : null;
-    this.onManageFiles = typeof onManageFiles === 'function' ? onManageFiles : null;
-    this.onManageUsers = typeof onManageUsers === 'function' ? onManageUsers : null;
-    this.onManageGroups = typeof onManageGroups === 'function' ? onManageGroups : null;
-    this.onPublishView = typeof onPublishView === 'function' ? onPublishView : null;
-    this.onManageWebsites = typeof onManageWebsites === 'function' ? onManageWebsites : null;
-    this.onTestEditForm = typeof onTestEditForm === 'function' ? onTestEditForm : null;
     this.layoutEditor = null;
     this.element = null;
   }
@@ -127,50 +107,8 @@ export class ExplorerConfigurationDialog {
     this._advancedControls.push(layoutSection);
 
     const footer = el('footer', 'heurist-config-footer h-dialog-footer');
-    // Getting started and Query tracer close the dialog first (asking about unsaved changes as Cancel does)
-    const extras = el('div', 'heurist-config-footer-extras');
-    if (this.onGettingStarted) {
-      const start = button('Getting started', () => { if (this.cancel() !== false) this.onGettingStarted(); }, 'Show the welcome popup and the getting started guide');
-      start.classList.add('heurist-config-getting-started');
-      extras.append(start);
-    }
-    if (this.onQueryTrace) {
-      const trace = button('Query tracer', () => { if (this.cancel() !== false) this.onQueryTrace(); }, 'Show the query trace below the search editor');
-      trace.classList.add('heurist-config-query-trace');
-      extras.append(trace);
-      this._advancedControls.push(trace);
-    }
+    // the tools (Getting started, Query tracer, Manage tags ...) are in the Options menu (2026-11-20)
     this._syncSimplified();
-    if (this.onManageTags) {
-      extras.append(button('Manage tags', () => { if (this.cancel() !== false) this.onManageTags(); },
-        'Add, rename, merge and delete your tags and the tags of your groups'));
-    }
-    if (this.onManageFiles) {
-      extras.append(button('Manage registered files', () => { if (this.cancel() !== false) this.onManageFiles(); },
-        'Upload and register files, register external resources, edit the details of files'));
-    }
-    if (this.onManageUsers) {
-      extras.append(button('Manage users', () => { if (this.cancel() !== false) this.onManageUsers(); },
-        'Add users, change their accounts and status (administrators); change your own account'));
-    }
-    if (this.onManageGroups) {
-      extras.append(button('Manage groups', () => { if (this.cancel() !== false) this.onManageGroups(); },
-        'Add groups, change their members and admins'));
-    }
-    if (this.onPublishView) {
-      extras.append(button('Publish this view', () => { if (this.cancel() !== false) this.onPublishView(); },
-        'Publish the current Explorer view as a standalone page'));
-    }
-    if (this.onManageWebsites) {
-      extras.append(button('Websites and published pages', () => { if (this.cancel() !== false) this.onManageWebsites(); },
-        'Website manager: websites and standalone pages'));
-    }
-    if (this.onTestEditForm) {
-      extras.append(button('Test edit form', () => { if (this.cancel() !== false) this.onTestEditForm(); },
-        'Edit form of a test JSON with every field type'));
-    }
-    if (this.onGettingStarted || this.onQueryTrace || this.onManageTags || this.onManageFiles || this.onManageUsers
-      || this.onManageGroups || this.onPublishView || this.onManageWebsites || this.onTestEditForm) footer.append(extras);
     footer.append(button('Cancel', () => this.cancel()), submitButton('Apply'));
     this.form.append(this.content, footer);
     this.dialog.append(header, this.form);
@@ -302,7 +240,7 @@ export class ExplorerConfigurationDialog {
   }
 
   /**
-   * Hide the toolbar, lists and layout controls and the Query tracer button while the
+   * Hide the toolbar, lists and layout controls while the
    * simplified interface is on (Advanced UI unchecked): it sets them itself.
    *
    * @private
@@ -510,7 +448,9 @@ function mergeDefaults(value) {
     language: LANGUAGES.some(([code]) => code === value?.language) ? value.language : defaults.language,
     isSimplifiedUI: typeof value?.isSimplifiedUI === 'boolean' ? value.isSimplifiedUI : defaults.isSimplifiedUI,
     recordLimits: normalizeRecordLimits(value?.recordLimits),
-    recordEditor: normalizeRecordEditorSettings(value?.recordEditor)
+    recordEditor: normalizeRecordEditorSettings(value?.recordEditor),
+    // edited in Base style settings; kept as it is
+    baseStyle: normalizeBaseStyle(value?.baseStyle)
   };
 }
 

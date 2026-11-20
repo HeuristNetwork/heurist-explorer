@@ -1387,3 +1387,144 @@
 #Nothing found#Rien trouvé
 #There is no query source to copy#Aucune source de requête à copier
 #Initial set#Ensemble initial
+# Carte narrative, vue complète (plan 27q1 revue 1, 2026-11-20)
+#(none)#(aucun)
+#A story map has one rule: the first one is used#Une carte narrative a une seule règle : la première est utilisée
+#Above the story#Au-dessus du récit
+#All story elements must be of one record type: choose one type in the last step of the rule#Tous les éléments du récit doivent être d'un seul type d'enregistrement : choisissez un type dans la dernière étape de la règle
+#Apply time filter on the background map#Appliquer le filtre temporel à la carte de fond
+#As found#Dans l'ordre trouvé
+#As the first element#Comme premier élément
+#As the last element#Comme dernier élément
+#Ascending#Croissant
+#Auto select Place→Location#Sélection auto Lieu→Localisation
+#Background map#Carte de fond
+#Begin or main#Début ou principal
+#Below the story#Sous le récit
+#Carousel#Carrousel
+#Changing the record type of the story elements will distort the presentation configuration. Continue?#Changer le type d'enregistrement des éléments du récit faussera la configuration de la présentation. Continuer ?
+#Choose the story elements first#Choisissez d'abord les éléments du récit
+#Connect the places: begin → transition → end#Relier les lieux : début → transition → fin
+#Content#Contenu
+#Continue#Continuer
+#Current element#Élément courant
+#Date (the first date of the element)#Date (la première date de l'élément)
+#Delete the story map#Supprimer la carte narrative
+#Deleted#Supprimé
+#Descending#Décroissant
+#Direction#Sens
+#Draw a line begin → transition → end.#Tracer une ligne début → transition → fin.
+#Duration of the smooth move of the map to the current element, in milliseconds. 0 = jump.#Durée du déplacement progressif de la carte vers l'élément courant, en millisecondes. 0 = saut.
+#Edit symbology#Modifier la symbologie
+#Element symbology#Symbologie de l'élément
+#End#Fin
+#End info#Information de fin
+#Find a link to Place and select its Location field#Trouver un lien vers Lieu et sélectionner son champ Localisation
+#Flight (ms)#Vol (ms)
+#Geographic fields of the story element or of linked records#Champs géographiques de l'élément du récit ou des enregistrements liés
+#Geographic fields of the story element or of the records it points to: the place where the element begins, or its only place.#Champs géographiques de l'élément du récit ou des enregistrements qu'il pointe : le lieu où l'élément commence, ou son seul lieu.
+#Highlight#Mettre en évidence
+#How the current element is marked in a vertical story.#Comment l'élément courant est marqué dans un récit vertical.
+#Individual Linked Map Features#Entités cartographiques liées individuelles
+#Introduction#Introduction
+#Keep the places of all elements on the map; otherwise only the current element is shown.#Garder sur la carte les lieux de tous les éléments ; sinon seul l'élément courant est affiché.
+#Keep the places of the whole story on the map#Garder sur la carte les lieux de tout le récit
+#Limit#Limite
+#Line between the places of the current element.#Ligne entre les lieux de l'élément courant.
+#Line symbology#Symbologie de la ligne
+#Load dynamically by map extent#Charger dynamiquement selon l'étendue de la carte
+#Manual#Manuel
+#Manual order#Ordre manuel
+#Map document shown under the story, e.g. all places of all topics or a historical base map.#Document cartographique affiché sous le récit, p. ex. tous les lieux de tous les sujets ou une carte historique.
+#Mapping#Cartographie
+#Maximum zoom#Zoom maximal
+#Minimum zoom#Zoom minimal
+#Most story elements read for one story topic.#Nombre maximal d'éléments lus pour un sujet de récit.
+#Name, owner and visibility of the story map#Nom, propriétaire et visibilité de la carte narrative
+#New story#Nouveau récit
+#New story map#Nouvelle carte narrative
+#No Place link was found in this query record type#Aucun lien vers Lieu n'a été trouvé dans ce type d'enregistrement
+#No story found#Aucun récit trouvé
+#No story maps#Aucune carte narrative
+#On a tab#Sur un onglet
+#Order#Ordre
+#Order of the story#Ordre du récit
+#Order of the story elements: by the first date of the element, by a date field, as found by the rule, or set by hand for each story.#Ordre des éléments du récit : par la première date de l'élément, par un champ date, dans l'ordre trouvé par la règle, ou fixé à la main pour chaque récit.
+#Order the elements of the shown story#Ordonner les éléments du récit affiché
+#Overview#Aperçu
+#Place or Location definition is not available in this database#La définition Lieu ou Localisation n'existe pas dans cette base
+#Places on the way, in their order.#Lieux du parcours, dans leur ordre.
+#Places where the element ends. Several end places give a star.#Lieux où l'élément se termine. Plusieurs lieux de fin donnent une étoile.
+#Records that tell the story of a topic in time and on the map, e.g. the life events of a person or the campsites of an expedition. They are found by an expansion rule from the topic. All story elements must be of one record type.#Enregistrements qui racontent l'histoire d'un sujet dans le temps et sur la carte, p. ex. les événements de la vie d'une personne ou les campements d'une expédition. Ils sont trouvés par une règle d'expansion depuis le sujet. Tous les éléments du récit doivent être d'un seul type d'enregistrement.
+#Records whose stories are told, e.g. persons or expeditions. If the query finds one record, its story is shown at once.#Enregistrements dont les histoires sont racontées, p. ex. des personnes ou des expéditions. Si la requête trouve un seul enregistrement, son récit est affiché aussitôt.
+#Run the query of the story topics and show the story of the first one#Exécuter la requête des sujets et afficher le récit du premier
+#Save the story map#Enregistrer la carte narrative
+#Select a story topic with story elements first#Sélectionnez d'abord un sujet qui a des éléments de récit
+#Select story map#Choisir une carte narrative
+#Show as#Afficher comme
+#Show only the features of the background map whose time overlaps the time of the current element.#N'afficher que les entités de la carte de fond dont la période recoupe celle de l'élément courant.
+#Show or hide the configuration of the story map#Afficher ou masquer la configuration de la carte narrative
+#Shown after the last element: a text ({title} = the title of the story topic) or a template run on the story topic.#Affiché après le dernier élément : un texte ({title} = le titre du sujet) ou un modèle appliqué au sujet.
+#Shown before the first element: a text ({title} = the title of the story topic) or a template run on the story topic.#Affiché avant le premier élément : un texte ({title} = le titre du sujet) ou un modèle appliqué au sujet.
+#Shown until a story topic is selected.#Affiché tant qu'aucun sujet n'est sélectionné.
+#Shown when a story topic has no story elements (they may exist but not be public).#Affiché quand un sujet n'a pas d'éléments de récit (ils peuvent exister sans être publics).
+#Start info#Information de début
+#Story editor#Éditeur du récit
+#Story elements#Éléments du récit
+#Story has been changed. Save changes?#Le récit a été modifié. Enregistrer les modifications ?
+#Story map#Carte narrative
+#Story topics#Sujets des récits
+#Symbols of the places of the current element.#Symboles des lieux de l'élément courant.
+#Tabs#Onglets
+#Template of one story element. Without a template the title of the element is shown.#Modèle d'un élément du récit. Sans modèle, le titre de l'élément est affiché.
+#The order of the elements of the story shown now. Drag the elements; the order is kept for this story topic.#L'ordre des éléments du récit affiché. Faites glisser les éléments ; l'ordre est gardé pour ce sujet.
+#The story map has no query of story topics#La carte narrative n'a pas de requête des sujets
+#The story map is used by website pages and can not be deleted#La carte narrative est utilisée par des pages du site web et ne peut pas être supprimée
+#The story map was not found#La carte narrative est introuvable
+#This database has no record type Presentation set (2-1112)#Cette base n'a pas le type d'enregistrement Presentation set (2-1112)
+#Transition#Transition
+#Veil the others#Voiler les autres
+#Vertical: the elements one below the other; Horizontal: side by side; Carousel: one element with Previous / Next; Tabs: a tab per element.#Vertical : les éléments l'un sous l'autre ; Horizontal : côte à côte ; Carrousel : un élément avec Précédent / Suivant ; Onglets : un onglet par élément.
+#Where the start and end info is shown.#Où l'information de début et de fin est affichée.
+#stories ordered#récits ordonnés
+#Previous#Précédent
+#Full record view#Vue complète de l'enregistrement
+#Help of the story map#Aide de la carte narrative
+#There are no elements to show for "{title}". They may exist but not be public.#Aucun élément à afficher pour « {title} ». Ils peuvent exister sans être publics.
+#Fill in the required fields of the configuration#Remplissez les champs obligatoires de la configuration
+#How the current element is marked in a vertical or horizontal story.#Comment l'élément courant est marqué dans un récit vertical ou horizontal.
+#Template of one story element.#Modèle d'un élément du récit.
+
+# Base style settings (2026-11-20)
+#Base style settings#Réglages du style de base
+#Configuration, tools and help#Configuration, outils et aide
+#Colours, fonts and sizes of the Explorer interface and its modules. Choose a theme to fill the colours, then change single values. Empty values use the Heurist defaults. Explorer reloads when you apply the changes.#Couleurs, polices et tailles de l’interface d’Explorer et de ses modules. Choisissez un thème pour remplir les couleurs, puis modifiez les valeurs une à une. Les valeurs vides utilisent les valeurs par défaut de Heurist. Explorer se recharge quand vous appliquez les modifications.
+#Discard changes to the base style settings?#Abandonner les modifications du style de base ?
+#Theme#Thème
+#(choose a theme)#(choisir un thème)
+#Heurist default#Valeur par défaut de Heurist
+#Font family#Famille de police
+#e.g. Georgia, serif#p. ex. Georgia, serif
+#Text colour#Couleur du texte
+#Background colour#Couleur de fond
+#Surface colour (bars, panels)#Couleur de surface (barres, panneaux)
+#Primary colour (buttons, active tab)#Couleur principale (boutons, onglet actif)
+#Link colour#Couleur des liens
+#Border colour#Couleur des bordures
+#Corner radius#Rayon des coins
+#e.g. 4px#p. ex. 4px
+#e.g. 15px#p. ex. 15px
+#Heading font#Police des titres
+#e.g. Arial, sans-serif#p. ex. Arial, sans-serif
+#Heading colour#Couleur des titres
+#Selected background colour#Couleur de fond de la sélection
+#Selected border colour#Couleur de bordure de la sélection
+#Text on primary colour (buttons)#Texte sur la couleur principale (boutons)
+#Muted text colour#Couleur du texte atténué
+#Default light#Clair par défaut
+#Default dark#Sombre par défaut
+#Sepia#Sépia
+#Greenish#Verdâtre
+#Blueish#Bleuté
+#Monitor (green on black)#Moniteur (vert sur noir)
+#Red and white#Rouge et blanc

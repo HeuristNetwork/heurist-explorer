@@ -214,7 +214,7 @@ test('"In panes": a gear menu before «/», and modules in Unused have no tab', 
   const settings = leftRail.element.querySelector('.h-explorer-pane-toolbar-settings');
   assert.ok(settings);
   assert.deepEqual(settings.querySelectorAll('.h-menu-item').map((item) => item.textContent),
-    ['Configuration', 'Help', 'Getting started', 'Manage tags', 'Manage registered files', 'Manage users', 'Manage groups',
+    ['Configuration', 'Base style settings', 'Help', 'Getting started', 'Manage tags', 'Manage registered files', 'Manage users', 'Manage groups',
       'Publish this view', 'Websites and published pages', 'Query tracer', 'Test edit form', 'Test module configuration']);
   assert.equal(settings.querySelectorAll('.h-menu-divider').length, 3);
   assert.ok(!tabTypes(layout, 'center').includes('graph'));

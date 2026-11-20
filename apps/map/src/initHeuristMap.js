@@ -20,6 +20,7 @@ import { createMapEngine } from './engine/createMapEngine.js';
 import { createHostAdapter } from './host/createHostAdapter.js';
 import { HeuristMapPublicApi } from './host/HeuristMapPublicApi.js';
 import { HeuristApiClient, createModuleRequestMonitor } from '#shared/api';
+import { applyBaseStyle } from '#shared/ui/baseStyle.js';
 import { MapDocumentProvider } from './data/MapDocumentProvider.js';
 import { MapLayerProvider } from './data/MapLayerProvider.js';
 import { QueryGeoDataProvider } from './data/QueryGeoDataProvider.js';
@@ -47,6 +48,9 @@ import { createSymbologyService } from './host/createSymbologyService.js';
  */
 export async function initHeuristMap(config) {
   const container = document.getElementById(config.containerId);
+  // Base style settings of Explorer (runtime.baseStyle, 2026-11-20); kept when there are none (a direct module in
+  // Explorer's own page)
+  applyBaseStyle(document, config.baseStyle, { removeEmpty: false });
   if (!container) {
     throw new Error(`Map container #${config.containerId} was not found`);
   }

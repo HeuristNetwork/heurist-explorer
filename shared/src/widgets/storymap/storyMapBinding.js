@@ -1,10 +1,11 @@
 /**
  * @file storyMapBinding.js
- * @brief The map of a story map (plan 27q1 §6): the overview as a query layer, the places of the story and of the
+ * @brief The map of a story map (plan 27q1 §6, §15): the background map document, the places of the story and of the
  *        current element as inline GeoJSON layers (places and lines apart, each with its symbology), and the flight to
  *        the current element. The layers go into the active map document (only its layers are drawn). Works over the
- *        public API of a Map module (HeuristMapPublicApi): `addLayer`, `removeLayer`, `getActiveMapDocument`, `flyTo`; the caller gives a function that returns that API (the Map module of
- *        Explorer, or the map instance chosen on a website page), so a map mounted later is found too.
+ *        public API of a Map module (HeuristMapPublicApi): `addLayer`, `removeLayer`, `getActiveMapDocument`,
+ *        `loadMapDocuments`, `activateMapDocument`, `flyTo`; the caller gives a function that returns that API (the Map
+ *        module of Explorer, or the map instance chosen on a website page), so a map mounted later is found too.
  *
  * @project     Heurist academic knowledge management system
  * @package     heurist-client-core
@@ -42,21 +43,31 @@ export class StoryMapBinding {
     this.getMap = getMap;
     this.map = settings?.map || {};
     this.title = title;
-    this.layers = { overview: null, story: null, places: null, lines: null };
+    this.layers = { story: null, places: null, lines: null };
   }
 
   /**
-   * The overview: the initial set on the map (a query layer).
+   * The background map: a map document is loaded (when the map does not list it yet) and activated. The story layers
+   * go into the active document, so this comes before the story.
    *
-   * @param {*} query Query of the overview; null removes it.
+   * @param {{mapDocument: number}|null} background `map.background` of the settings; null keeps the map as it is.
    * @returns {Promise<void>}
    */
-  async showOverview(query) {
+  async showBackground(background) {
+    const id = Number(background?.mapDocument) || 0;
+    if (!id) return;
     const api = await this._api();
-    if (!api) return;
-    await this._remove(api, 'overview');
-    if (query == null) return;
-    this.layers.overview = await this._add(api, `${this.title}: overview`, { type: 'heurist-query', query }, STORY_STYLE);
+    if (!api || typeof api.activateMapDocument !== 'function') return;
+    if (Number(api.getActiveMapDocument?.()?.id) === id) return;
+    const listed = () => (api.getMapDocuments?.() || []).some((item) => Number(item.id) === id);
+    if (!listed()) await api.loadMapDocuments?.(null, { activateFirst: false });
+    if (!listed()) {
+      console.warn(`Story map: map document ${id} is not available`);
+      return;
+    }
+    // the layers of the story stay in the document they were added to
+    await this.clearStory();
+    await api.activateMapDocument(id);
   }
 
   /**
@@ -101,7 +112,7 @@ export class StoryMapBinding {
     await Promise.all(Object.keys(this.layers).map((key) => this._remove(api, key)));
   }
 
-  /** Remove the layers of the story, keep the overview. */
+  /** Remove the layers of the story (the background map stays). */
   async clearStory() {
     const api = await this._api();
     if (!api) return;
@@ -123,7 +134,8 @@ export class StoryMapBinding {
    */
   async _add(api, title, source, style) {
     if (typeof api.addLayer !== 'function') return null;
-    const documentId = api.getActiveMapDocument?.()?.id ?? null;
+    // the background map document of the story (review 3, 2026-11-20), else the active one
+    const documentId = Number(this.map.background?.mapDocument) || (api.getActiveMapDocument?.()?.id ?? null);
     const layer = await api.addLayer({ title, visible: true, selectable: true, source, style: { ...style } },
       documentId != null ? { documentId } : {});
     return layer?.id != null ? { id: layer.id, documentId } : null;

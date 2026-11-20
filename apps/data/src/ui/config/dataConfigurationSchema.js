@@ -159,7 +159,7 @@ function normalizeConfig(source, defaults) {
   );
   const storedViewMode = enumValue(
     configured.viewMode,
-    ["list", "card", "row", "big", "datatable"],
+    ["list", "card", "row", "big", "full", "datatable"],
     null,
   );
   // An explicit viewMode always wins. `engine` is consulted only for legacy

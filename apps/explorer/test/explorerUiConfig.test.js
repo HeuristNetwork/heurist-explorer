@@ -23,7 +23,9 @@ test('save() persists and load() round-trips a valid value', () => {
     isSimplifiedUI: false,
     recordLimits: { fields: 100, values: 20, thumbs: 50, links: 500 },
     // plan 25: the record editor settings
-    recordEditor: { showHelp: false, showOptional: true, reverseRelations: false, nonStandardFields: true, wysiwygInline: true }
+    recordEditor: { showHelp: false, showOptional: true, reverseRelations: false, nonStandardFields: true, wysiwygInline: true },
+    // Base style settings (2026-11-20)
+    baseStyle: { 'color-bg': '#000000', 'site-font-size': '14px' }
   };
   const saved = config.save(value);
   assert.deepEqual(saved, { version: 1, ...value });
@@ -225,4 +227,12 @@ test('fromValue(): the configuration of a published page, never written to the b
     if (previous) Object.defineProperty(globalThis, 'localStorage', previous);
     else delete globalThis.localStorage;
   }
+});
+
+test('baseStyle: the UI base settings only (no page width, logo height or unknown keys), trimmed', () => {
+  const config = new ExplorerUiConfig({ database: 'demo', storage: memoryStorage() });
+  const saved = config.save({ baseStyle: { 'color-bg': ' #111111 ', 'site-width': '1200px', 'site-logo-height': '64px',
+    other: 'x', 'color-text': '' } });
+  assert.deepEqual(saved.baseStyle, { 'color-bg': '#111111' });
+  assert.deepEqual(config.save({ baseStyle: 'bad' }).baseStyle, {});
 });

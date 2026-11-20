@@ -15,6 +15,7 @@ import { showGraphMessage } from "./ui/graphMessages.js";
  */
 
 import { HeuristApiClient, createModuleRequestMonitor } from "#shared/api";
+import { applyBaseStyle } from "#shared/ui/baseStyle.js";
 import { GraphApplication } from "./core/GraphApplication.js";
 import { GraphProvider } from "./data/GraphProvider.js";
 import { createGraphEngine } from "./engine/createGraphEngine.js";
@@ -40,6 +41,9 @@ import { RecordViewLoader } from "#shared/recordview/RecordViewLoader.js";
  */
 export async function initHeuristGraph(config) {
   const container = document.getElementById(config.containerId);
+  // Base style settings of Explorer (runtime.baseStyle, 2026-11-20); kept when there are none (a direct module in
+  // Explorer's own page)
+  applyBaseStyle(document, config.baseStyle, { removeEmpty: false });
   if (!container)
     throw new Error(`Graph container #${config.containerId} was not found`);
   // the styles of #heurist-graph also apply to a directly mounted container (direct.js)

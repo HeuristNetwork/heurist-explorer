@@ -1,13 +1,14 @@
 /**
  * @file storyMapModel.js
- * @brief Pure functions of the story map (plan 27q1 §4): settings of a Presentation set of kind `storymap`, the query
- *        of the story of one source record, the order of the story elements, the place pattern of each element and
- *        its GeoJSON (places and connection lines). No DOM, no API: HStoryMap and the map bindings use them.
+ * @brief Pure functions of the story map (plan 27q1 §4, §15): settings of a Presentation set of kind `storymap`, the
+ *        query of the story of one topic, the order of the story elements, the default places of an element type and
+ *        the GeoJSON of one element (places by role and the connection line). No DOM, no API: HStoryMap and the map
+ *        bindings use them.
  *
  *   const settings = normalizeStoryMapSettings(JSON.parse(configuration));
  *   const query = storyQuery(settings, personId);            // → /records?q=…
- *   const elements = sortStoryElements(found, settings.story.order);
- *   const features = elementFeatures(element, choosePattern(element, settings.map.patterns, { fieldId }), places);
+ *   const elements = sortStoryElements(found, settings.story.order, { sourceId: personId });
+ *   const features = elementFeatures(element, { connect: settings.map.places.connect });
  *
  * The server checks the same form in srv/Presentations/StoryMapSettings.php.
  *
@@ -21,29 +22,37 @@
  * @since       8.0
  */
 
-import { expansionLevelQuery, ruleDepth } from '../../data/expansionRules.js';
+import { expansionLevelQuery, ruleDepth, ruleTargetTypes } from '../../data/expansionRules.js';
 
-/** Layouts of the story elements (Record cards: list, carousel, slider (slideshow), tabs). */
-export const STORY_LAYOUTS = Object.freeze(['list', 'horizontal', 'tabs', 'carousel', 'slideshow']);
+/** Layouts of the story elements: Vertical, Horizontal, Carousel, Tabs (review 1, 2026-11-20). */
+export const STORY_LAYOUTS = Object.freeze(['list', 'horizontal', 'carousel', 'tabs']);
 
-/** How the current element is distinguished. */
+/** How the current element is distinguished (Vertical). */
 export const STORY_DISTINCT = Object.freeze(['highlight', 'veil', 'none']);
 
-/** Where the start (overview) element is shown. */
-export const STORY_START_MODES = Object.freeze(['inline', 'tab', 'header', 'none']);
+/** Where the start info is shown (no own tab since review 3, 2026-11-20: a stored `tab` is `inline`). */
+export const STORY_START_MODES = Object.freeze(['inline', 'header', 'none']);
 
-/** Where the end element is shown. */
-export const STORY_END_MODES = Object.freeze(['inline', 'tab', 'footer', 'none']);
+/** Where the end info is shown. */
+export const STORY_END_MODES = Object.freeze(['inline', 'footer', 'none']);
 
-/** Place patterns of 27q1; star, pairs and change come with their own plan (§6.1). */
-export const STORY_PATTERNS = Object.freeze(['points', 'path']);
+/** Orders of the story elements besides a field. */
+export const STORY_ORDERS = Object.freeze(['date', 'rule', 'manual']);
 
-/** Roles of the place fields of a `path`, in their order on the line. */
+/** Roles of the places of an element, in their order on the line. */
 export const PATH_ROLES = Object.freeze(['begin', 'transition', 'end']);
 
-/** The legacy place fields of a path (start 2-134 / 1414-1092, transition 1414-1090, end 2-864). */
-export const DEFAULT_PATH = Object.freeze({
-  type: 'path', begin: Object.freeze(['2-134', '1414-1092']), transition: Object.freeze(['1414-1090']), end: Object.freeze(['2-864'])
+/** Story elements read for one topic: default and most. */
+export const STORY_LIMIT = Object.freeze({ default: 100, max: 500 });
+
+/**
+ * Fields used as places of a new story by default (when the element type has them): concept codes per role. 2-28 is
+ * the element's own geo field; the pointers lead to a Place and its location.
+ */
+export const DEFAULT_PLACE_CODES = Object.freeze({
+  begin: Object.freeze(['2-28', '2-134', '1414-1092']),
+  transition: Object.freeze(['1414-1090']),
+  end: Object.freeze(['2-864'])
 });
 
 const isObject = (value) => value != null && typeof value === 'object' && !Array.isArray(value);
@@ -54,37 +63,52 @@ const positiveId = (value) => {
 };
 const isField = (value) => positiveId(value) != null || (typeof value === 'string' && /^\d+-\d+$/.test(value));
 
+/**
+ * A geographic field path as in Query sources (`MapFieldSelector.php`): `rty:dty` (own field) or
+ * `rty:lt<ptr>:rty:…:dty` (a field of linked records).
+ *
+ * @param {*} value
+ * @returns {boolean}
+ */
+export function isGeoPath(value) {
+  return typeof value === 'string' && /^\d+(?::(?:lt|lf|rt|rf|r)\d*:\d+)*:\d+$/i.test(value.trim());
+}
+
 /** Texts by language (`{def, fre}`); anything else gives `{}`. */
 function texts(value) {
   if (!isObject(value)) return {};
   return Object.fromEntries(Object.entries(value).filter(([, text]) => typeof text === 'string'));
 }
 
-/** A field list of a pattern: local ids as numbers, concept codes as strings. */
-function fields(value) {
-  return (Array.isArray(value) ? value : []).filter(isField).map((item) => positiveId(item) ?? item);
+/** Geo field paths of a role. */
+function paths(value) {
+  return [...new Set((Array.isArray(value) ? value : []).filter(isGeoPath).map((item) => item.trim()))];
 }
 
-/**
- * One place pattern with its defaults, or `null` for an unknown type.
- *
- * @param {object} pattern Stored pattern.
- * @returns {object|null} `{type, rectypes, filter}` (points) or `{type, rectypes, begin, transition, end}` (path).
- */
-function normalizePattern(pattern) {
-  if (!isObject(pattern) || !STORY_PATTERNS.includes(pattern.type)) return null;
-  const rectypes = fields(pattern.rectypes).filter((item) => typeof item === 'number');
-  if (pattern.type === 'points') {
-    return { type: 'points', rectypes, filter: pattern.filter != null && typeof pattern.filter === 'object' ? pattern.filter : null };
+/** The manual orders: topic id → element ids. */
+function manualOrders(value) {
+  if (!isObject(value)) return {};
+  const result = {};
+  for (const [topic, ids] of Object.entries(value)) {
+    const list = (Array.isArray(ids) ? ids : []).map(positiveId).filter(Boolean);
+    if (positiveId(topic) && list.length) result[positiveId(topic)] = list;
   }
-  const result = { type: 'path', rectypes };
-  for (const role of PATH_ROLES) result[role] = fields(pattern[role]);
-  return PATH_ROLES.some((role) => result[role].length) ? result : null;
+  return result;
+}
+
+/** The places of the stored settings; the older `patterns` (a path) give their geo paths and `connect`. */
+function places(map) {
+  const own = isObject(map.places);
+  const stored = own ? map.places : (Array.isArray(map.patterns) ? map.patterns.find((item) => item?.type === 'path') : null);
+  const result = {};
+  for (const role of PATH_ROLES) result[role] = paths(stored?.[role]);
+  result.connect = own ? map.places.connect === true : Boolean(stored);
+  return result;
 }
 
 /**
- * The settings of a story map with all defaults (plan 27q1 §4). Unknown values fall back to the default; a draft
- * without a rule or a template is kept as it is.
+ * The settings of a story map with all defaults (plan 27q1 §15). Unknown values fall back to the default; older
+ * settings (`patterns`, `overview`, `messages` at the top, `slideshow`) are converted.
  *
  * @param {object|string|null} raw Stored configuration (2-1187), as JSON text or object.
  * @returns {object} Normalised settings.
@@ -102,42 +126,57 @@ export function normalizeStoryMapSettings(raw) {
   const story = isObject(settings.story) ? settings.story : {};
   const rule = isObject(story.rule) && story.rule.query != null && typeof story.rule.query === 'object' ? structuredClone(story.rule) : null;
   const order = isObject(story.order) ? story.order : {};
-  const by = ['date', 'rule'].includes(order.by) ? order.by : (isField(order.by) ? (positiveId(order.by) ?? order.by) : 'date');
+  const by = STORY_ORDERS.includes(order.by) ? order.by : (isField(order.by) ? (positiveId(order.by) ?? order.by) : 'date');
+  const limit = Number(story.limit);
   const part = (key, modes, fallback) => {
     const stored = isObject(settings[key]) ? settings[key] : {};
-    return { mode: oneOf(stored.mode, modes, fallback), template: positiveId(stored.template), text: texts(stored.text) };
+    const mode = stored.mode === 'tab' ? 'inline' : stored.mode;
+    return { mode: oneOf(mode, modes, fallback), template: positiveId(stored.template), text: texts(stored.text) };
   };
   const presentation = isObject(settings.presentation) ? settings.presentation : {};
-  const interval = Number(presentation.interval);
-  const messages = isObject(settings.messages) ? settings.messages : {};
+  const messages = isObject(presentation.messages) ? presentation.messages : (isObject(settings.messages) ? settings.messages : {});
+  const layout = presentation.layout === 'slideshow' ? 'carousel' : presentation.layout;
   const map = isObject(settings.map) ? settings.map : {};
-  const overview = isObject(map.overview) && (positiveId(map.overview.querySource) || (map.overview.query != null && typeof map.overview.query === 'object'))
-    ? (positiveId(map.overview.querySource) ? { querySource: positiveId(map.overview.querySource) } : { query: structuredClone(map.overview.query) })
-    : null;
-  const patterns = Array.isArray(map.patterns) ? map.patterns.map(normalizePattern).filter(Boolean) : [];
+  const background = isObject(map.background) ? map.background : {};
   const duration = Number(map.duration);
   return {
-    story: { rule, order: { by, dir: order.dir === 'desc' ? 'desc' : 'asc' } },
+    story: {
+      rule,
+      order: { by, dir: order.dir === 'desc' ? 'desc' : 'asc', manual: manualOrders(order.manual) },
+      limit: Number.isInteger(limit) && limit > 0 ? Math.min(limit, STORY_LIMIT.max) : STORY_LIMIT.default
+    },
     element: { template: positiveId(settings.element?.template) },
     start: part('start', STORY_START_MODES, 'none'),
     end: part('end', STORY_END_MODES, 'none'),
     presentation: {
-      layout: oneOf(presentation.layout, STORY_LAYOUTS, 'list'),
+      layout: oneOf(layout, STORY_LAYOUTS, 'list'),
       distinct: oneOf(presentation.distinct, STORY_DISTINCT, 'highlight'),
-      interval: Number.isFinite(interval) && interval > 0 ? interval : 5000
+      messages: { intro: texts(messages.intro), empty: texts(messages.empty) }
     },
-    messages: { intro: texts(messages.intro), empty: texts(messages.empty) },
     map: {
-      overview,
-      patterns: patterns.length ? patterns : [{ type: 'points', rectypes: [], filter: null }],
+      background: positiveId(background.mapDocument)
+        ? { mapDocument: positiveId(background.mapDocument), timeFilter: background.timeFilter === true }
+        : null,
+      places: places(map),
       elementSymbology: isObject(map.elementSymbology) ? structuredClone(map.elementSymbology) : null,
       lineSymbology: isObject(map.lineSymbology) ? structuredClone(map.lineSymbology) : null,
       duration: Number.isFinite(duration) && duration >= 0 ? duration : 1500,
-      keep: map.keep === true,
-      layers: (Array.isArray(map.layers) ? map.layers : []).map(positiveId).filter(Boolean)
+      keep: map.keep === true
     },
     actions: Array.isArray(settings.actions) ? structuredClone(settings.actions) : null
   };
+}
+
+/**
+ * The record types of the story elements: the target types of the deepest level of the rule (its last branch).
+ *
+ * @param {object|null} rule Expansion rule.
+ * @returns {number[]} Empty: any type (or no rule).
+ */
+export function storyElementTypes(rule) {
+  let step = rule;
+  while (step?.levels?.length) step = step.levels[step.levels.length - 1];
+  return step ? ruleTargetTypes(step) : [];
 }
 
 /**
@@ -185,21 +224,35 @@ function compareValues(a, b) {
  * The story elements in the order of the settings.
  *
  * - `date`: `element.date` (a sortable value: the start of the first temporal field), then the title;
- * - a field: the first value of `element.fields[field]` (`fieldId` resolves a concept code);
- * - `rule`: as found.
+ * - a field: the first value of `element.fields[field]` (dates as temporalSortValue; `fieldId` resolves a concept code);
+ * - `rule`: as found;
+ * - `manual`: the ids stored for the topic (`order.manual[sourceId]`), the other elements after them as found.
  * Empty values go last, also in `desc`.
  *
  * @param {Array<object>} elements `{id, title, date, fields: {fieldId: [values]}}`.
- * @param {{by: string|number, dir: string}} order Order of the settings.
+ * @param {{by: string|number, dir: string, manual?: object}} order Order of the settings.
  * @param {object} [options]
  * @param {(code: string|number) => number} [options.fieldId] Local id of a field code.
+ * @param {number|null} [options.sourceId] The story topic (manual order).
  * @returns {Array<object>} New sorted array.
  */
-export function sortStoryElements(elements, order = { by: 'date', dir: 'asc' }, { fieldId = (code) => positiveId(code) } = {}) {
+export function sortStoryElements(elements, order = { by: 'date', dir: 'asc' }, { fieldId = (code) => positiveId(code), sourceId = null } = {}) {
   const list = Array.isArray(elements) ? [...elements] : [];
   if (order?.by === 'rule') return list;
+  if (order?.by === 'manual') {
+    const ids = order.manual?.[positiveId(sourceId)] || [];
+    const position = new Map(ids.map((id, index) => [id, index]));
+    return list
+      .map((element, index) => ({ element, index, at: position.get(positiveId(element?.id)) ?? Infinity }))
+      .sort((a, b) => (a.at === b.at ? a.index - b.index : (a.at < b.at ? -1 : 1)))
+      .map((item) => item.element);
+  }
   const field = order?.by === 'date' || order?.by == null ? null : fieldId(order.by);
-  const key = (element) => (field ? element?.fields?.[field]?.[0] : element?.date);
+  const key = (element) => {
+    if (!field) return element?.date;
+    const value = element?.fields?.[field]?.[0];
+    return temporalSortValue(value) ?? value;
+  };
   const direction = order?.dir === 'desc' ? -1 : 1;
   return list
     .map((element, index) => ({ element, index }))
@@ -214,35 +267,41 @@ export function sortStoryElements(elements, order = { by: 'date', dir: 'asc' }, 
     .map((item) => item.element);
 }
 
-/** Values of the fields of an element (codes resolved), flattened. */
-function fieldValues(element, list, fieldId) {
-  return list.flatMap((code) => element?.fields?.[fieldId(code)] || []);
-}
-
 /**
- * The place pattern of one story element: the first pattern that fits (its record types; a path needs a value in one
- * of its fields); the last pattern when none fits; points without patterns.
+ * The default places of a story element type (DEFAULT_PLACE_CODES): its own geo field as `rty:dty`, a pointer to a
+ * Place as `rty:lt<ptr>:<place>:<geo>`.
  *
- * @param {object} element `{rectype, fields}`.
- * @param {Array<object>} patterns Normalised `map.patterns`.
- * @param {object} [options]
- * @param {(code: string|number) => number} [options.fieldId] Local id of a field code.
- * @returns {object} Pattern.
+ * @param {number} rectypeId Type of the story elements.
+ * @param {object} definitions
+ * @param {(code: string) => ({id: number, type: string, targets: number[]}|null)} definitions.fieldOf The field of the
+ *        concept code in the record type, or null.
+ * @param {number} definitions.placeType Local id of Place (3-1009).
+ * @param {number} definitions.geoField Local id of the location field (2-28).
+ * @returns {{begin: string[], transition: string[], end: string[]}}
  */
-export function choosePattern(element, patterns, { fieldId = (code) => positiveId(code) } = {}) {
-  const list = Array.isArray(patterns) && patterns.length ? patterns : [{ type: 'points', rectypes: [], filter: null }];
-  const fits = (pattern) => {
-    if (pattern.rectypes?.length && !pattern.rectypes.includes(Number(element?.rectype))) return false;
-    if (pattern.type !== 'path') return true;
-    return PATH_ROLES.some((role) => fieldValues(element, pattern[role] || [], fieldId).length > 0);
-  };
-  return list.find(fits) || list[list.length - 1];
+export function defaultPlaces(rectypeId, { fieldOf, placeType, geoField }) {
+  const result = { begin: [], transition: [], end: [] };
+  const rty = positiveId(rectypeId);
+  if (!rty || typeof fieldOf !== 'function') return result;
+  for (const role of PATH_ROLES) {
+    for (const code of DEFAULT_PLACE_CODES[role]) {
+      const field = fieldOf(code);
+      if (!field?.id) continue;
+      if (field.type === 'geo') {
+        result[role].push(`${rty}:${field.id}`);
+      } else if (field.type === 'resource' && placeType && geoField && (field.targets || []).map(Number).includes(Number(placeType))) {
+        result[role].push(`${rty}:lt${field.id}:${placeType}:${geoField}`);
+      }
+    }
+  }
+  return result;
 }
 
 /**
  * Connection lines of a path (legacy `_createPointLinks`): one begin → transitions → one end as a LineString.
  * Several begins or ends: lines from each begin to the first transition, the transitions, lines from the last
- * transition to each end; without transitions and with as many begins as ends: one line per pair.
+ * transition to each end; without transitions: a star from one begin to every end (or to one end from every begin),
+ * else one line per pair.
  *
  * @param {Array<number[]>} begin Coordinates of the begin points.
  * @param {Array<number[]>} transition Coordinates of the transition points, in order.
@@ -256,6 +315,10 @@ export function pathGeometry(begin = [], transition = [], end = []) {
       for (const point of begin) lines.push([point, transition[0]]);
       if (transition.length > 1) lines.push([...transition]);
       for (const point of end) lines.push([transition[transition.length - 1], point]);
+    } else if (begin.length === 1) {
+      for (const point of end) lines.push([begin[0], point]);
+    } else if (end.length === 1) {
+      for (const point of begin) lines.push([point, end[0]]);
     } else if (begin.length === end.length) {
       begin.forEach((point, index) => lines.push([point, end[index]]));
     }
@@ -265,63 +328,44 @@ export function pathGeometry(begin = [], transition = [], end = []) {
   return line.length > 1 ? { type: 'LineString', coordinates: line } : null;
 }
 
-/** Coordinates of a point geometry (or the first point of a multipoint), else null. */
-function pointOf(geometry) {
+/** The point a line starts or ends at: a point, or the centre of the bounds of a line or polygon. */
+function anchorOf(geometry) {
   if (geometry?.type === 'Point') return geometry.coordinates;
   if (geometry?.type === 'MultiPoint') return geometry.coordinates?.[0] ?? null;
-  return null;
+  const bounds = featureBounds([{ geometry }]);
+  return bounds ? [(bounds.west + bounds.east) / 2, (bounds.south + bounds.north) / 2] : null;
 }
 
 /**
- * GeoJSON features of one story element by its pattern: the places (one feature per place, with `role`) and, for a
- * path, the connection line (`role: 'line'`). Every feature has `story_ID` = the element.
+ * GeoJSON features of one story element: its places by role (`begin`, `transition`, `end`; `place` for the element's
+ * own geometry when no place was found) and, with `connect`, the line begin → transition → end (`role: 'line'`).
+ * Polygons stay polygons (morphing later, §6.1); a line starts at their centre. Every feature has `rec_ID` =
+ * `story_ID` = the element.
  *
- * @param {object} element `{id, fields, geo: [geometry]}`; place fields hold place record ids.
- * @param {object} pattern Pattern of the element (choosePattern).
- * @param {Map<number, object>|object} places Place record id → GeoJSON geometry.
- * @param {object} [options]
- * @param {(code: string|number) => number} [options.fieldId] Local id of a field code.
- * @param {Set<number>|null} [options.allowed] Points: the places that pass the pattern's filter (null = all).
- * @param {Set<number>|null} [options.placeFields] Points: the pointer fields to read (null = all fields of the element).
+ * @param {object} element `{id, places: {begin: [geometry], transition, end}, geo: [geometry]}`.
+ * @param {{connect?: boolean}} [options]
  * @returns {Array<object>} Features.
  */
-export function elementFeatures(element, pattern, places, { fieldId = (code) => positiveId(code), allowed = null, placeFields = null } = {}) {
-  const geometryOf = (id) => (places instanceof Map ? places.get(Number(id)) : places?.[id]) ?? null;
+export function elementFeatures(element, { connect = false } = {}) {
   const storyId = positiveId(element?.id);
-  const feature = (geometry, placeId, role) => ({
-    type: 'Feature', geometry, properties: { rec_ID: placeId ?? storyId, story_ID: storyId, role }
-  });
+  const feature = (geometry, role) => ({ type: 'Feature', geometry, properties: { rec_ID: storyId, story_ID: storyId, role } });
   const features = [];
-  if (pattern?.type === 'path') {
-    const points = {};
-    for (const role of PATH_ROLES) {
-      points[role] = [];
-      for (const id of fieldValues(element, pattern[role] || [], fieldId)) {
-        const geometry = geometryOf(id);
-        if (!geometry) continue;
-        features.push(feature(geometry, positiveId(id), role));
-        const point = pointOf(geometry);
-        if (point) points[role].push(point);
-      }
-    }
-    const line = pathGeometry(points.begin, points.transition, points.end);
-    if (line) features.push(feature(line, null, 'line'));
-    return features;
-  }
-  const seen = new Set();
-  for (const [field, values] of Object.entries(element?.fields || {})) {
-    if (placeFields && !placeFields.has(Number(field))) continue;
-    for (const id of values || []) {
-      const placeId = positiveId(id);
-      if (!placeId || seen.has(placeId) || (allowed && !allowed.has(placeId))) continue;
-      const geometry = geometryOf(placeId);
+  const anchors = {};
+  for (const role of PATH_ROLES) {
+    anchors[role] = [];
+    for (const geometry of element?.places?.[role] || []) {
       if (!geometry) continue;
-      seen.add(placeId);
-      features.push(feature(geometry, placeId, 'place'));
+      features.push(feature(geometry, role));
+      const point = anchorOf(geometry);
+      if (point) anchors[role].push(point);
     }
   }
-  for (const geometry of element?.geo || []) {
-    if (geometry) features.push(feature(geometry, null, 'place'));
+  if (!features.length) {
+    for (const geometry of element?.geo || []) if (geometry) features.push(feature(geometry, 'place'));
+  }
+  if (connect) {
+    const line = pathGeometry(anchors.begin, anchors.transition, anchors.end);
+    if (line) features.push(feature(line, 'line'));
   }
   return features;
 }

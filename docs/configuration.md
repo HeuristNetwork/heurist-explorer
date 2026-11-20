@@ -52,6 +52,13 @@ popups show before a "Show all" link. Defaults are 50/10/10/20
 (`shared/src/recordview/recordLimits.js`). Explorer sets it from its configuration (*Record View and Edit limits*) and
 reloads when it changes; without it the defaults are used.
 
+`runtime.baseStyle` (Data, Graph, Map, Record View, Timeline; 2026-11-20): the *Base style settings* of Explorer —
+the base settings of the CMS (`font-family`, `color-*`, `radius`, `site-font-size`, `site-heading-font`,
+`site-heading-color`; not `site-width`, `site-logo-height`). Each module writes it into its document at start
+(`shared/src/ui/baseStyle.js`: `--h-*` variables on `html:root`, the font size scales the `--h-font-size*` sizes,
+heading font and colour on h1–h6). Explorer keeps it in its configuration (browser, per database) and reloads when it
+changes; a published Explorer (website page) does not use it.
+
 Persisted settings are normalized by each application's configuration schema.
 Bootstrap/runtime state and persisted settings are not interchangeable.
 

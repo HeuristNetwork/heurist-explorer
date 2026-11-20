@@ -18,6 +18,7 @@
  */
 
 import { $HR, HMsg } from '#shared/ui';
+import { askChoice } from '#shared/ui/askChoice.js';
 import { SCREENS } from '#shared/site/cmsDocument.js';
 import { confirmNear, createStylesForm, helpLine, presetName, styleRows } from './designerStyles.js';
 import { ELEMENT_GROUPS, PAGE_TEMPLATES, previewSvg } from './designerCatalog.js';
@@ -391,36 +392,9 @@ export function cssText(style) {
   return parts.join('; ');
 }
 
-/** A question with answer buttons and Cancel; `className` on the dialog while it is open. */
+/** A question with answer buttons and Cancel (shared askChoice in the dialog of the designer). */
 function choice(message, title, answers, className = '') {
-  return new Promise((resolve) => {
-    let done = false;
-    const finish = (value) => {
-      done = true;
-      HMsg.closeMsgDlg(DIALOG_ID);
-      resolve(value);
-    };
-    const text = element('p', 'h-cms-dialog-text');
-    text.textContent = $HR(message);
-    const dialog = HMsg.showMsgDlg(text, {
-      message: true,
-      dialogId: DIALOG_ID,
-      title,
-      buttons: [
-        ...answers.map(([value, label], index) => ({ label, class: `h-btn${index ? '' : ' h-btn-primary'}`, onClick: () => finish(value) })),
-        { label: 'Cancel', class: 'h-btn', onClick: () => finish(null) }
-      ]
-    });
-    if (className) dialog?.classList.add(className);
-    // a close event of the dialog shown before in the same element (see formDialog) is not this one's
-    const onClose = () => {
-      if (dialog.open) return;
-      dialog.removeEventListener('close', onClose);
-      if (className) dialog.classList.remove(className);
-      if (!done) resolve(null);
-    };
-    dialog?.addEventListener('close', onClose);
-  });
+  return askChoice(message, title, answers, { className, dialogId: DIALOG_ID });
 }
 
 /** Show content in a message dialog; `read()` gives the value or null (keeps it open). */

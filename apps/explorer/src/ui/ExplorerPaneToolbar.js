@@ -35,6 +35,7 @@
 
 import { $HR } from '#shared/ui';
 import { ExplorerPaneTabs } from './ExplorerPaneTabs.js';
+import { createOptionsMenuList, placeMenu } from './ExplorerOptionsMenu.js';
 import './ExplorerPaneToolbar.css';
 
 const PANES_CLASS = 'h-toolbar-panes';
@@ -221,54 +222,8 @@ export class ExplorerPaneToolbar {
     icon.setAttribute('aria-hidden', 'true');
     summary.append(icon);
 
-    const menu = document.createElement('ul');
-    menu.className = 'h-menu';
-    menu.setAttribute('role', 'menu');
-    const items = [
-      ['Configuration', () => app.controlPanel?.openConfiguration()],
-      ['Help', () => app.controlPanel?.openHelp()],
-      ['Getting started', () => app.showWelcome?.()],
-      null,
-      ['Manage tags', () => void app.manageTags?.()],
-      ['Manage registered files', () => void app.manageFiles?.()],
-      ['Manage users', () => void app.manageUsers?.()],
-      ['Manage groups', () => void app.manageGroups?.()],
-      null,
-      // plan 27b §11: management tools, not pane modules
-      ['Publish this view', () => void app.publishView?.()],
-      ['Websites and published pages', () => void app.openWebsiteManager?.()],
-      null,
-      ['Query tracer', () => app.showQueryTrace?.()],
-      // temporary (plan 14a)
-      ['Test edit form', () => void app.controlPanel?.openEditFormTest()],
-      // temporary (plan 29)
-      ['Test module configuration', () => void app.controlPanel?.openModuleConfigurationTest()]
-    ];
-    for (const entry of items) {
-      const item = document.createElement('li');
-      if (!entry) {
-        item.setAttribute('role', 'separator');
-        const divider = document.createElement('hr');
-        divider.className = 'h-menu-divider';
-        item.append(divider);
-        menu.append(item);
-        continue;
-      }
-      const [label, action] = entry;
-      // no query tracer in the simplified interface (CSS on h-explorer-simplified)
-      if (label === 'Query tracer') item.className = 'h-explorer-pane-toolbar-trace';
-      const button = document.createElement('button');
-      button.type = 'button';
-      button.className = 'h-menu-item h-i18n';
-      button.setAttribute('role', 'menuitem');
-      button.textContent = $HR(label);
-      button.addEventListener('click', () => {
-        details.open = false;
-        action();
-      });
-      item.append(button);
-      menu.append(item);
-    }
+    // the same menu as the Options button of the right rail (ExplorerOptionsMenu.js, 2026-11-20)
+    const menu = createOptionsMenuList(app, () => { details.open = false; });
 
     details.append(summary, menu);
     // fixed position next to the gear: the collapsed West strip clips its content
@@ -440,24 +395,4 @@ export class ExplorerPaneToolbar {
       for (const module of modules.values()) void module.resize?.();
     });
   }
-}
-
-/**
- * Put a dropdown menu next to its button, in fixed position: below it, or to the
- * right of it when the button is in the narrow collapsed strip; kept in the window.
- *
- * @param {HTMLElement} menu The `.h-menu` list.
- * @param {HTMLElement} anchor The button that opened it.
- * @returns {void}
- */
-function placeMenu(menu, anchor) {
-  const box = anchor.getBoundingClientRect();
-  const width = menu.offsetWidth || 180;
-  const height = menu.offsetHeight || 0;
-  const inStrip = Boolean(anchor.closest('.h-cardinal-west.is-collapsed'));
-  let left = inStrip ? box.right + 2 : box.right - width;
-  let top = inStrip ? box.bottom - height : box.bottom + 2;
-  left = Math.max(4, Math.min(left, window.innerWidth - width - 4));
-  top = Math.max(4, Math.min(top, window.innerHeight - height - 4));
-  Object.assign(menu.style, { position: 'fixed', left: `${left}px`, top: `${top}px`, right: 'auto', bottom: 'auto' });
 }

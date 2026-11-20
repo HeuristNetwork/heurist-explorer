@@ -15,6 +15,7 @@
 
 import { getFrameHostBridge, getGlobalBootstrap } from "#shared/host";
 import { resolveModuleBootstrap } from "#shared/config";
+import { normalizeBaseStyle } from "#shared/ui/baseStyle.js";
 import { normalizeTimelineConfigurationSettings } from "./ui/config/timelineConfigurationSchema.js";
 
 /**
@@ -91,6 +92,8 @@ export function createHeuristTimelineConfig(bootstrap, { bridge = null, containe
     },
     // heurist-explorer's "Interface for dummies": the control panel starts collapsed (2026-10-14)
     simplified: runtime.simplifiedUI === true,
+    // Base style settings of Explorer (2026-11-20): colours and fonts of the UI
+    baseStyle: normalizeBaseStyle(runtime.baseStyle),
     ui: {
       ...normalized.options.ui,
       ...(runtime.simplifiedUI === true ? { initiallyExpanded: false } : {})

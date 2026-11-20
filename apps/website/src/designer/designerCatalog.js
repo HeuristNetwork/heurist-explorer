@@ -253,7 +253,7 @@ export const ELEMENT_GROUPS = Object.freeze([
       },
       {
         value: 'storymap', label: 'Story map', available: true,
-        description: 'The story of the selected record (e.g. the life events of a person) as cards, tabs or a slideshow;'
+        description: 'The story of the selected record (e.g. the life events of a person) as a vertical or horizontal list, a carousel or tabs;'
           + ' the current element is shown on a map of the page. Choose a story map made in Explorer (tool Story map).',
         preview: [['t', 8, 8, 36, 64], ['m', 48, 8, 64, 64, 'Map']]
       }

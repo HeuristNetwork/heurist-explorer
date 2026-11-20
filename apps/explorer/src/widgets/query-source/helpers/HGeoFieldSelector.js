@@ -25,11 +25,14 @@ export class HGeoFieldSelector extends HFieldSelectionEditor {
   /**
    * @param {object} [options] Forwarded to HFieldSelectionEditor; `title` and the geo-specific selection settings are fixed.
    *        `viewportOptions: false` hides "Load dynamically by map extent" and the zoom inputs (the record
-   *        editor has them as fields); the output mode stays.
+   *        editor has them as fields); the output mode stays. `autoSelect: false` hides "Auto select Place→Location"
+   *        and `outputMode: false` "Individual Linked Map Features" (the story map: only the field tree, plan 27q1 §15).
    */
   constructor(options = {}) {
     super({ ...options, title: 'Geographic fields', selectableTypes: ['geo'], hideUnselectable: true, allowReorder: false, showSort: false });
     this.viewportOptions = options.viewportOptions !== false;
+    this.autoSelect = options.autoSelect !== false;
+    this.outputMode = options.outputMode !== false;
     this.mapOptions = { dynamicRequests: false, minZoom: null, maxZoom: null, geoOutputMode: 'records' };
   }
 
@@ -61,7 +64,7 @@ export class HGeoFieldSelector extends HFieldSelectionEditor {
     auto.innerHTML = '<i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i> ' + $HR('Auto select Place→Location');
     auto.title = $HR('Find a link to Place and select its Location field');
     auto.addEventListener('click', () => this._autoSelectPlaceLocation());
-    this._toolbar.prepend(auto);
+    if (this.autoSelect) this._toolbar.prepend(auto);
 
     const box = document.createElement('div');
     box.className = 'h-qse-helper-options h-qse-geo-options';
@@ -80,6 +83,8 @@ export class HGeoFieldSelector extends HFieldSelectionEditor {
       labelled($HR('Maximum zoom'), this._max)
     );
     dynamicRow.hidden = !this.viewportOptions;
+    featureRow.hidden = !this.outputMode;
+    box.hidden = !this.viewportOptions && !this.outputMode;
     box.append(featureRow, dynamicRow);
     // under the selected fields, right of the tree
     this._rows.after(box);

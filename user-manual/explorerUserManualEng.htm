@@ -79,7 +79,10 @@
   </ul>
   <p>Modules have their own manuals, opened with the help button in the module.</p>
   <h3 id="layout-configuration">Layout configuration</h3>
-  <p>Explorer configuration (<strong>Options</strong>, the gear button on the toolbar) sets the toolbar position and button size, and which
+  <p>The <strong>Options</strong> menu (the gear button on the toolbar) opens Configuration, Base style settings, Help,
+  Getting started, the management tools (tags, registered files, users, groups, publication, websites) and the
+  Query tracer.</p>
+  <p>Explorer configuration (<strong>Options &gt; Configuration</strong>) sets the toolbar position and button size, and which
   pane each module occupies. Several modules in one pane work as tabs: one is visible at a
   time. The tools (Report, Crosstabs, Actions, Export, Publish) are placed in panes like the
   other modules; by default they are in the center pane after Graph. Modules dragged to
@@ -88,11 +91,18 @@
   buttons (Filters, Entities, Sources, Favorites, History, Workspace) are a row of small buttons at the
   top of the left pane; the search editor is always shown there, and the <strong>&laquo;</strong> button
   folds the left pane to a narrow strip (<strong>&raquo;</strong> opens it again). The gear button at the
-  end of that row opens Configuration, Help, Getting started and the Query tracer. There is no toolbar
+  end of that row opens the same Options menu. There is no toolbar
   on the right: modules and tools are shown with tabs at the top of their pane (only icons when the
   pane is too narrow for the names), and the small arrows on the dividers between panes fold a pane,
   bring it back, or enlarge it to take the whole width (or height); a folded pane shows the icons of its
   modules.</p>
+
+  <h3 id="base-style">Base style settings</h3>
+  <p><strong>Options &gt; Base style settings</strong> sets the colours, fonts and sizes of Explorer and its modules,
+  as the Base settings of a website do. Choose a theme to fill the colours, then change single values; empty values
+  use the Heurist defaults. The font size is the normal text size (12px by default); the larger and smaller texts
+  follow it. The heading font and colour apply to all headings. The preview shows the result before you apply it;
+  Explorer reloads when you apply the changes. The settings are kept in this browser, for each database.</p>
 
   <h2 id="tools">4. Tools</h2>
   <p>Reports, Crosstabs, Actions, Export, Publish. Each tool is shown in its pane like a module
@@ -130,6 +140,29 @@
   </ul>
   <p>The number of records in one export is limited by the database setting
   (100,000 by default, expanded records included).</p>
+
+  <h3 id="storymap">Story map</h3>
+  <p>A <strong>story map</strong> tells the story of a record, the <em>story topic</em> (a person, an expedition), with
+  the records that describe it in time and on the map, the <em>story elements</em> (the life events of the person, the
+  campsites of the expedition). The story is shown in the tool pane; the current element is shown on the Map. A story
+  map is saved as a record (Presentation set) and can be placed on a website page.</p>
+  <ul>
+    <li><strong>Toolbar</strong>: <em>New story</em>; the list of story maps; <em>Story editor</em> shows or hides the
+    configuration; the pen edits the record (name, owner, visibility); Save; Delete (refused while website pages use
+    the story map); <em>Run</em> shows the story topics as the result and the story of the first one. Select another
+    record of the result to see its story.</li>
+    <li><strong>Source</strong>: the query of the story topics; the story elements, found by an expansion rule from
+    the topic (all of one record type); their order (a date, as found, or by hand for each story); the start and end
+    info (a text or a template run on the topic); the most elements read.</li>
+    <li><strong>Presentation</strong>: the template of an element; Vertical, Horizontal, Carousel (one element with
+    Previous / Next) or Tabs; where the start and end info is shown; the texts shown before a topic is selected and
+    when a topic has no story.</li>
+    <li><strong>Mapping</strong>: the background map document; the places of an element (begin or main, transition,
+    end: geographic fields of the element or of linked records); a line between them; all places of the story kept on
+    the map; the duration of the move to the next element; the symbology of the places and of the line.</li>
+  </ul>
+  <p>Most changes are shown at once. A new query, rule or background map is applied with <strong>Apply</strong>.
+  Changes are kept only after <strong>Save</strong>.</p>
 
   <h2 id="publication">5. Publication</h2>
   <p class="todo">Content to be provided.</p>

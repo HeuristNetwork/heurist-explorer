@@ -44,6 +44,7 @@ import { ExplorerToolModule } from '../tools/ExplorerToolModule.js';
 import { HDbDefs } from '#shared/data/HDbDefs.js';
 import { RecordTypeProvider } from '#shared/data/RecordTypeProvider.js';
 import { recordLimitsDiffer } from '#shared/recordview/recordLimits.js';
+import { baseStyleDiffers } from '#shared/ui/baseStyle.js';
 import { EditorServices } from './EditorServices.js';
 import { QuerySourcePanel } from '../widgets/query-source/QuerySourcePanel.js';
 import { QueryTracePanel } from '../widgets/query-source/QueryTracePanel.js';
@@ -419,7 +420,9 @@ export class ExplorerApplication {
         // "Interface for dummies": modules simplify themselves (Data, plan 16 Part 4)
         simplifiedUI: this.isSimplifiedUI(),
         // limits of the built-in record view and popups (plan 23 §3.1)
-        recordLimits: this.config.recordLimits
+        recordLimits: this.config.recordLimits,
+        // Base style settings (2026-11-20): colours and fonts of the module's UI
+        baseStyle: this.config.baseStyle || {}
       },
       settings: this._moduleSettings(definition),
       state: definition.state || null,
@@ -1894,10 +1897,11 @@ export class ExplorerApplication {
     this.uiConfigValue = applied;
     this.applySimplifiedUI();
 
-    // another interface language or other record view limits: Explorer reloads, and
-    // passes them to every module at start
+    // another interface language, other record view limits or another base style: Explorer
+    // reloads, and passes them to every module at start
     const language = resolveUiLanguage(saved, this.config.hostLanguage || this.config.language);
-    const reload = language !== this.config.language || recordLimitsDiffer(saved.recordLimits, this.config.recordLimits);
+    const reload = language !== this.config.language || recordLimitsDiffer(saved.recordLimits, this.config.recordLimits)
+      || (!this.config.published && baseStyleDiffers(saved.baseStyle, this.config.baseStyle));
     if (reload && typeof globalThis.location?.reload === 'function') {
       globalThis.location.reload();
       return saved;
@@ -2522,8 +2526,15 @@ export class ExplorerApplication {
         const map = [...this.modules.values()].find((module) => module.type === 'map') || await this.showPresentation('map');
         return typeof map?.getPublicApi === 'function' ? map.getPublicApi() : null;
       },
-      getQuerySources: () => this.getQuerySources(),
       showRecords: (query, title) => this.showDatasource({ reference: { type: 'query' }, title, request: { q: query } }),
+      selectRecords: (ids) => this.sync?.setSelection(ids),
+      editRecord: (id) => this.editRecord(id),
+      // the special editors and pointer services of the record editor (plan 27q1 §15: no new inputs)
+      specialEditors: (dbdefs) => this.recordEditing.specialEditors(dbdefs),
+      formServices: () => this.recordEditing.formServices(),
+      editSymbology: (value, options) => this.recordEditing.symbology.edit(value, options),
+      // Help: the Story map section of the Explorer manual
+      openManual: (anchor) => this.openManual(anchor),
       runtime: this._reportsRuntime()
     });
     body.replaceChildren();

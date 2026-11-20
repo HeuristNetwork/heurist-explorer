@@ -619,8 +619,15 @@ export function isSafeCssValue(value) {
   return !/[<;{}\0]/.test(text) && !text.includes('/*') && isSafeCss(text);
 }
 
-/** CSS variables of the base settings. */
-function baseVariables(base, issues) {
+/**
+ * CSS variables of the base settings (`--h-<key>:value;`), unknown keys and unsafe values left out; used for the
+ * Explorer base style too (2026-11-20).
+ *
+ * @param {object} base Base settings.
+ * @param {Array<object>} [issues] Collects the warnings.
+ * @returns {string}
+ */
+export function baseVariables(base, issues = []) {
   let css = '';
   for (const [key, raw] of Object.entries(isMap(base) ? base : {})) {
     if (!BASE_SETTINGS.includes(key)) {

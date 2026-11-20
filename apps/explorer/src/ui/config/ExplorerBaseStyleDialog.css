@@ -1,0 +1,19 @@
+/* ExplorerBaseStyleDialog (2026-11-20): the two columns of the shared Base settings form (baseSettingsForm.css), as
+   wide as the CMS Styles popup allows */
+
+.h-explorer-base-style-dialog {
+  width: min(1100px, 96vw);
+  max-height: 94vh;
+  padding: 0;
+}
+
+.h-explorer-base-style-dialog > form {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.h-explorer-base-style-dialog .h-cms-styles-layout {
+  box-sizing: border-box;
+  overflow: hidden;
+}

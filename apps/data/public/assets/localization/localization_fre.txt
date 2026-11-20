@@ -255,3 +255,6 @@
 #No#Non
 #Configuration#Configuration
 #Data options#Options des données
+# Carte narrative, vue complète (plan 27q1 revue 1, 2026-11-20)
+#of#sur
+#Full record view#Vue complète de l'enregistrement

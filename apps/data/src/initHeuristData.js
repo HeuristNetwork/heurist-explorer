@@ -14,6 +14,7 @@
  */
 
 import { HeuristApiClient, createModuleRequestMonitor } from "#shared/api";
+import { applyBaseStyle } from "#shared/ui/baseStyle.js";
 import { DataApplication } from "./core/DataApplication.js";
 import { QuerySourceProvider } from "#shared/data/QuerySourceProvider.js";
 import { RecordDataProvider } from "./data/RecordDataProvider.js";
@@ -39,6 +40,9 @@ import { RecordViewLoader } from "#shared/recordview/RecordViewLoader.js";
  */
 export async function initHeuristData(config) {
   const frame = document.getElementById(config.containerId);
+  // Base style settings of Explorer (runtime.baseStyle, 2026-11-20); kept when there are none (a direct module in
+  // Explorer's own page)
+  applyBaseStyle(document, config.baseStyle, { removeEmpty: false });
   if (!frame)
     throw new Error(`Data container #${config.containerId} was not found`);
   // The frame holds the main list and the expansion-level pane beside it;

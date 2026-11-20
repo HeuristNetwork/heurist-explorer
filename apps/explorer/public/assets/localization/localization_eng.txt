@@ -1387,3 +1387,144 @@
 #Nothing found#Nothing found
 #There is no query source to copy#There is no query source to copy
 #Initial set#Initial set
+# Story map tool, Full record view (plan 27q1 review 1, 2026-11-20)
+#(none)#(none)
+#A story map has one rule: the first one is used#A story map has one rule: the first one is used
+#Above the story#Above the story
+#All story elements must be of one record type: choose one type in the last step of the rule#All story elements must be of one record type: choose one type in the last step of the rule
+#Apply time filter on the background map#Apply time filter on the background map
+#As found#As found
+#As the first element#As the first element
+#As the last element#As the last element
+#Ascending#Ascending
+#Auto select Place→Location#Auto select Place→Location
+#Background map#Background map
+#Begin or main#Begin or main
+#Below the story#Below the story
+#Carousel#Carousel
+#Changing the record type of the story elements will distort the presentation configuration. Continue?#Changing the record type of the story elements will distort the presentation configuration. Continue?
+#Choose the story elements first#Choose the story elements first
+#Connect the places: begin → transition → end#Connect the places: begin → transition → end
+#Content#Content
+#Continue#Continue
+#Current element#Current element
+#Date (the first date of the element)#Date (the first date of the element)
+#Delete the story map#Delete the story map
+#Deleted#Deleted
+#Descending#Descending
+#Direction#Direction
+#Draw a line begin → transition → end.#Draw a line begin → transition → end.
+#Duration of the smooth move of the map to the current element, in milliseconds. 0 = jump.#Duration of the smooth move of the map to the current element, in milliseconds. 0 = jump.
+#Edit symbology#Edit symbology
+#Element symbology#Element symbology
+#End#End
+#End info#End info
+#Find a link to Place and select its Location field#Find a link to Place and select its Location field
+#Flight (ms)#Flight (ms)
+#Geographic fields of the story element or of linked records#Geographic fields of the story element or of linked records
+#Geographic fields of the story element or of the records it points to: the place where the element begins, or its only place.#Geographic fields of the story element or of the records it points to: the place where the element begins, or its only place.
+#Highlight#Highlight
+#How the current element is marked in a vertical story.#How the current element is marked in a vertical story.
+#Individual Linked Map Features#Individual Linked Map Features
+#Introduction#Introduction
+#Keep the places of all elements on the map; otherwise only the current element is shown.#Keep the places of all elements on the map; otherwise only the current element is shown.
+#Keep the places of the whole story on the map#Keep the places of the whole story on the map
+#Limit#Limit
+#Line between the places of the current element.#Line between the places of the current element.
+#Line symbology#Line symbology
+#Load dynamically by map extent#Load dynamically by map extent
+#Manual#Manual
+#Manual order#Manual order
+#Map document shown under the story, e.g. all places of all topics or a historical base map.#Map document shown under the story, e.g. all places of all topics or a historical base map.
+#Mapping#Mapping
+#Maximum zoom#Maximum zoom
+#Minimum zoom#Minimum zoom
+#Most story elements read for one story topic.#Most story elements read for one story topic.
+#Name, owner and visibility of the story map#Name, owner and visibility of the story map
+#New story#New story
+#New story map#New story map
+#No Place link was found in this query record type#No Place link was found in this query record type
+#No story found#No story found
+#No story maps#No story maps
+#On a tab#On a tab
+#Order#Order
+#Order of the story#Order of the story
+#Order of the story elements: by the first date of the element, by a date field, as found by the rule, or set by hand for each story.#Order of the story elements: by the first date of the element, by a date field, as found by the rule, or set by hand for each story.
+#Order the elements of the shown story#Order the elements of the shown story
+#Overview#Overview
+#Place or Location definition is not available in this database#Place or Location definition is not available in this database
+#Places on the way, in their order.#Places on the way, in their order.
+#Places where the element ends. Several end places give a star.#Places where the element ends. Several end places give a star.
+#Records that tell the story of a topic in time and on the map, e.g. the life events of a person or the campsites of an expedition. They are found by an expansion rule from the topic. All story elements must be of one record type.#Records that tell the story of a topic in time and on the map, e.g. the life events of a person or the campsites of an expedition. They are found by an expansion rule from the topic. All story elements must be of one record type.
+#Records whose stories are told, e.g. persons or expeditions. If the query finds one record, its story is shown at once.#Records whose stories are told, e.g. persons or expeditions. If the query finds one record, its story is shown at once.
+#Run the query of the story topics and show the story of the first one#Run the query of the story topics and show the story of the first one
+#Save the story map#Save the story map
+#Select a story topic with story elements first#Select a story topic with story elements first
+#Select story map#Select story map
+#Show as#Show as
+#Show only the features of the background map whose time overlaps the time of the current element.#Show only the features of the background map whose time overlaps the time of the current element.
+#Show or hide the configuration of the story map#Show or hide the configuration of the story map
+#Shown after the last element: a text ({title} = the title of the story topic) or a template run on the story topic.#Shown after the last element: a text ({title} = the title of the story topic) or a template run on the story topic.
+#Shown before the first element: a text ({title} = the title of the story topic) or a template run on the story topic.#Shown before the first element: a text ({title} = the title of the story topic) or a template run on the story topic.
+#Shown until a story topic is selected.#Shown until a story topic is selected.
+#Shown when a story topic has no story elements (they may exist but not be public).#Shown when a story topic has no story elements (they may exist but not be public).
+#Start info#Start info
+#Story editor#Story editor
+#Story elements#Story elements
+#Story has been changed. Save changes?#Story has been changed. Save changes?
+#Story map#Story map
+#Story topics#Story topics
+#Symbols of the places of the current element.#Symbols of the places of the current element.
+#Tabs#Tabs
+#Template of one story element. Without a template the title of the element is shown.#Template of one story element. Without a template the title of the element is shown.
+#The order of the elements of the story shown now. Drag the elements; the order is kept for this story topic.#The order of the elements of the story shown now. Drag the elements; the order is kept for this story topic.
+#The story map has no query of story topics#The story map has no query of story topics
+#The story map is used by website pages and can not be deleted#The story map is used by website pages and can not be deleted
+#The story map was not found#The story map was not found
+#This database has no record type Presentation set (2-1112)#This database has no record type Presentation set (2-1112)
+#Transition#Transition
+#Veil the others#Veil the others
+#Vertical: the elements one below the other; Horizontal: side by side; Carousel: one element with Previous / Next; Tabs: a tab per element.#Vertical: the elements one below the other; Horizontal: side by side; Carousel: one element with Previous / Next; Tabs: a tab per element.
+#Where the start and end info is shown.#Where the start and end info is shown.
+#stories ordered#stories ordered
+#Previous#Previous
+#Full record view#Full record view
+#Help of the story map#Help of the story map
+#There are no elements to show for "{title}". They may exist but not be public.#There are no elements to show for "{title}". They may exist but not be public.
+#Fill in the required fields of the configuration#Fill in the required fields of the configuration
+#How the current element is marked in a vertical or horizontal story.#How the current element is marked in a vertical or horizontal story.
+#Template of one story element.#Template of one story element.
+
+# Base style settings (2026-11-20)
+#Base style settings#Base style settings
+#Configuration, tools and help#Configuration, tools and help
+#Colours, fonts and sizes of the Explorer interface and its modules. Choose a theme to fill the colours, then change single values. Empty values use the Heurist defaults. Explorer reloads when you apply the changes.#Colours, fonts and sizes of the Explorer interface and its modules. Choose a theme to fill the colours, then change single values. Empty values use the Heurist defaults. Explorer reloads when you apply the changes.
+#Discard changes to the base style settings?#Discard changes to the base style settings?
+#Theme#Theme
+#(choose a theme)#(choose a theme)
+#Heurist default#Heurist default
+#Font family#Font family
+#e.g. Georgia, serif#e.g. Georgia, serif
+#Text colour#Text colour
+#Background colour#Background colour
+#Surface colour (bars, panels)#Surface colour (bars, panels)
+#Primary colour (buttons, active tab)#Primary colour (buttons, active tab)
+#Link colour#Link colour
+#Border colour#Border colour
+#Corner radius#Corner radius
+#e.g. 4px#e.g. 4px
+#e.g. 15px#e.g. 15px
+#Heading font#Heading font
+#e.g. Arial, sans-serif#e.g. Arial, sans-serif
+#Heading colour#Heading colour
+#Selected background colour#Selected background colour
+#Selected border colour#Selected border colour
+#Text on primary colour (buttons)#Text on primary colour (buttons)
+#Muted text colour#Muted text colour
+#Default light#Default light
+#Default dark#Default dark
+#Sepia#Sepia
+#Greenish#Greenish
+#Blueish#Blueish
+#Monitor (green on black)#Monitor (green on black)
+#Red and white#Red and white

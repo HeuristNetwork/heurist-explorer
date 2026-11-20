@@ -105,3 +105,16 @@ tree/HTree.js|css, edit-form/HEditField.js, edit-form/querySourceChooser.js|css,
 **Tests:** `shared/test/cmsEditorSimplification.test.js` (tab set, HSlider look, HTree collapse, chooser filter),
 `apps/website/test/moduleOwnSource.test.js` (storedQuery, Edit + ▾, tabs settings), updated media form / style editor
 tests.
+
+## 8. Review 2026-11-20 (browser check)
+
+1. Record cards as tabs showed 1, 2, 3: the preview of the designer (`siteWidgets.previewCards`) now reads `rec_Title` and
+   writes `data-h-label` as the server does.
+2. The top Advanced button stayed visible on forms without advanced fields: `.h-btn` sets `display`, so the `hidden`
+   attribute did nothing; `.h-cms-panel-advanced[hidden] { display: none }`.
+3. The Tabs element showed the content of all tabs: a panel with its own `display` (a group: flex / grid) ignored
+   `hidden`; `.h-site-tabs > .h-site-tab-panel[hidden] { display: none !important }`.
+4. Horizontal tabs: at most 240px, the caption cut with an ellipsis (the whole caption is the title); vertical tabs keep
+   the column rule (a third of the width).
+5. Own style: *Group layout (flex)* and the alignments of the grid (Row alignment, Column alignment, Rows in the group)
+   are no longer advanced: always shown.

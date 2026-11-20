@@ -274,6 +274,10 @@
               "label": "Extended"
             },
             {
+              "id": "full",
+              "label": "Full record view"
+            },
+            {
               "id": "datatable",
               "label": "Table"
             }

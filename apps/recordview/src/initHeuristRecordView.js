@@ -14,6 +14,7 @@
  */
 import { showRecordViewMessage } from "./ui/recordViewMessages.js";
 import { HeuristApiClient } from "#shared/api";
+import { applyBaseStyle } from "#shared/ui/baseStyle.js";
 import { RecordViewApplication } from "./core/RecordViewApplication.js";
 import { RecordDataProvider } from "#shared/recordview/RecordDataProvider.js";
 import { RecordStructureProvider } from "#shared/recordview/RecordStructureProvider.js";
@@ -40,6 +41,9 @@ import { recordViewConfiguration } from "./configuration.js";
  */
 export async function initHeuristRecordView(config) {
   const container = document.getElementById(config.containerId);
+  // Base style settings of Explorer (runtime.baseStyle, 2026-11-20); kept when there are none (a direct module in
+  // Explorer's own page)
+  applyBaseStyle(document, config.baseStyle, { removeEmpty: false });
   if (!container) throw new Error(`Record View container #${config.containerId} was not found`);
   const apiClient = new HeuristApiClient({
     apiBaseUrl: config.apiBaseUrl,

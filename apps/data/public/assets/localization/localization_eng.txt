@@ -255,3 +255,6 @@
 #No#No
 #Configuration#Configuration
 #Data options#Data options
+# Story map tool, Full record view (plan 27q1 review 1, 2026-11-20)
+#of#of
+#Full record view#Full record view

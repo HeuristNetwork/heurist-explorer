@@ -28,6 +28,11 @@
   color: var(--h-color-text);
   font: inherit;
   cursor: pointer;
+  /* a long caption is cut (review 2026-11-20); the whole caption is the title */
+  max-width: 240px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .h-site-tab:hover {
@@ -43,6 +48,11 @@
 
 .h-site-tabs > .h-site-tab-panel > .h-site-tab-heading {
   display: none;
+}
+
+/* a hidden panel stays hidden whatever the display of the element (a group: flex or grid) */
+.h-site-tabs > .h-site-tab-panel[hidden] {
+  display: none !important;
 }
 
 .h-site-tab-panel {
@@ -226,6 +236,8 @@
   }
 
   .h-site-tabs[data-h-orientation="vertical"] > .h-site-tab-strip > .h-site-tab {
+    /* the column (a third of the width) limits it */
+    max-width: none;
     overflow: hidden;
     text-align: left;
     text-overflow: ellipsis;

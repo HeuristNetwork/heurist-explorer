@@ -15,6 +15,7 @@
 
 import { ExplorerApplication } from './core/ExplorerApplication.js';
 import { HeuristExplorerPublicApi } from './host/HeuristExplorerPublicApi.js';
+import { applyBaseStyle } from '#shared/ui/baseStyle.js';
 
 /**
  * Create the Explorer application, expose it as `window.heuristExplorer` at once
@@ -35,6 +36,8 @@ export async function initHeuristExplorer(config, { before = null } = {}) {
   if (!container) throw new Error(`#${config.containerId} was not found`);
   // the styles of #heurist-explorer also apply to a directly mounted container (direct.js)
   container.classList.add('heurist-explorer-host');
+  // Base style settings (2026-11-20): colours and fonts of the Explorer UI; none on a website page
+  applyBaseStyle(document, config.baseStyle);
 
   const application = new ExplorerApplication({ container, config });
   const api = new HeuristExplorerPublicApi(application);

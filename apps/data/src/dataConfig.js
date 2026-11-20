@@ -18,6 +18,7 @@ import {
 } from "#shared/host";
 import { resolveModuleBootstrap } from "#shared/config";
 import { normalizeRecordLimits } from "#shared/recordview/recordLimits.js";
+import { normalizeBaseStyle } from "#shared/ui/baseStyle.js";
 import { normalizeDataConfigurationSettings } from "./ui/config/dataConfigurationSchema.js";
 import { applySimplifiedDataSettings, hasAdminInfoSetting } from "./ui/config/simplifiedDataSettings.js";
 
@@ -92,6 +93,8 @@ export function createHeuristDataConfig(
     language,
     // limits of the built-in record view and popup, from the Explorer configuration (plan 23 §3.1)
     recordLimits: normalizeRecordLimits(runtime.recordLimits),
+    // Base style settings of Explorer (2026-11-20): colours and fonts of the UI
+    baseStyle: normalizeBaseStyle(runtime.baseStyle),
     searchRealm: runtime.searchRealm ?? runtime.search_realm ?? null,
     sourceId: runtime.source ?? runtime.sourceId ?? null,
     localeBaseUrl: runtime.localeBaseUrl || runtime.moduleBaseUrl || null,

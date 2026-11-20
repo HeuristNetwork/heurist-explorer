@@ -370,3 +370,8 @@
 .h-explorer-builtin-filter-row .h-explorer-source-title {
     margin-left: 24px;
 }
+
+/* the Options menu of the right rail (ExplorerOptionsMenu.js, 2026-11-20): placed by placeMenu() in fixed position */
+.h-explorer-options-popup {
+    z-index: 1100;
+}

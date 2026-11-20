@@ -68,7 +68,8 @@
 }
 
 /* a hidden button (Layout outside the header and footer): .h-btn sets its display */
-.h-cms-pane-bar > .h-btn[hidden] {
+.h-cms-pane-bar > .h-btn[hidden],
+.h-cms-panel-advanced[hidden] {
   display: none;
 }
 
@@ -262,21 +263,6 @@
   max-width: 640px;
 }
 
-/* the colour input as high as the other compact inputs */
-.h-cms-styles-value .h-input-color {
-  align-items: stretch;
-}
-
-.h-cms-styles-value .h-input-color-text {
-  min-height: 0;
-  padding-top: 1px;
-  padding-bottom: 1px;
-}
-
-.h-cms-styles-value .h-input-color-swatch {
-  height: auto;
-}
-
 /* font size: text input + drop-down of the Heurist font sizes (plan 27n §1); the input as wide as the other text inputs
    (review §16.1: its own width, not the width of the form) */
 .h-cms-style-with-pick {
@@ -360,24 +346,9 @@
   width: min(1320px, 96vw);
 }
 
-/* Styles popup (§21, §22): the tabs (help line and settings in each) and the preview beside them, half as wide */
-.h-cms-styles-layout {
-  display: grid;
-  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
-  gap: 12px;
-  height: min(680px, 75vh);
-}
-
 .h-cms-styles-tabs {
   display: flex;
   flex-direction: column;
-  min-height: 0;
-}
-
-.h-cms-styles-preview-column {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
   min-height: 0;
 }
 
@@ -410,57 +381,6 @@
   font-weight: 600;
 }
 
-.h-cms-styles-pane {
-  display: flex;
-  flex: 1 1 auto;
-  flex-direction: column;
-  gap: 8px;
-  min-height: 0;
-  padding-top: 8px;
-}
-
-.h-cms-styles-pane[hidden] {
-  display: none;
-}
-
-.h-cms-styles-help {
-  display: flex;
-  flex: 0 0 auto;
-  gap: 6px;
-  align-items: baseline;
-  color: var(--h-color-muted, #777);
-}
-
-.h-cms-styles-help .fa-circle-question {
-  color: var(--h-color-primary);
-}
-
-.h-cms-styles-config {
-  display: flex;
-  flex: 1 1 auto;
-  flex-direction: column;
-  gap: 8px;
-  min-height: 0;
-  overflow: auto;
-}
-
-.h-cms-styles-field {
-  display: grid;
-  grid-template-columns: 220px 1fr;
-  gap: 8px;
-  align-items: center;
-}
-
-/* Theme (Base settings) and Kind (Layout styles): a selector of normal height close to its caption, a line below
-   (2026-11-12) */
-.h-cms-styles-config > .h-cms-styles-field.h-cms-styles-head {
-  grid-template-columns: auto 240px;
-  justify-content: start;
-  flex: 0 0 auto;
-  padding-bottom: 8px;
-  border-bottom: 1px solid var(--h-color-border);
-}
-
 /* Pages kept in memory: a short number input */
 .h-cms-styles-field > .h-cms-styles-cache {
   justify-self: start;
@@ -470,10 +390,6 @@
 /* a checkbox at the left of its column (Use 2 rows on normal screens) */
 .h-cms-styles-field > input[type="checkbox"] {
   justify-self: start;
-  margin: 0;
-}
-
-.h-cms-styles-value .h-form-input {
   margin: 0;
 }
 
@@ -567,28 +483,6 @@
   border: 0;
   font-family: monospace;
   resize: none;
-}
-
-/* the preview page: at least 424 px, 641 px with columns (wider than the narrow screen); a scroll bar in a narrow column */
-.h-cms-styles-preview-box {
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow: auto hidden;
-  border: 1px solid var(--h-color-border);
-  border-radius: var(--h-radius, 4px);
-  background: #fff;
-}
-
-.h-cms-styles-preview {
-  display: block;
-  width: max(424px, 100%);
-  height: 100%;
-  border: 0;
-}
-
-/* a preview with columns: wider than the narrow screen (640 px), so the columns are side by side */
-.h-cms-styles-preview.h-cms-styles-preview-columns {
-  width: max(641px, 100%);
 }
 
 /* catalog popup: Add page, Add element (§19) */

@@ -1,4 +1,4 @@
-/* Story map (plan 27q1 §5): the cards of a story; tabs, carousel and slideshow are HSlider (HSlider.css). */
+/* Story map (plan 27q1 §5, §15): the story in an HRecordList (HRecordList.css), start / end cards above / below it. */
 .h-storymap {
   display: flex;
   flex-direction: column;
@@ -27,31 +27,61 @@
 }
 
 .h-storymap-body {
+  display: flex;
+  flex-direction: column;
   flex: 1 1 auto;
   min-height: 0;
-  overflow: auto;
+}
+
+.h-storymap-body[hidden] {
+  display: none;
 }
 
 .h-storymap-list {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 4px;
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
-.h-storymap-horizontal {
-  display: flex;
-  flex-direction: row;
-  gap: 8px;
-  padding: 4px;
-  overflow-x: auto;
-  overflow-y: hidden;
+.h-storymap-list > .h-recordlist {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+/* Horizontal: wider cards that snap */
+.h-storymap[data-h-layout="horizontal"] .h-recordlist-content {
   scroll-snap-type: x proximity;
 }
 
-.h-storymap-horizontal > .h-storymap-card {
-  flex: 0 0 min(320px, 85%);
+.h-storymap[data-h-layout="horizontal"] .h-recordlist-row {
+  flex-basis: min(360px, 85%);
+  overflow: auto;
   scroll-snap-align: start;
+}
+
+/* no hover colour: a card is not a selectable record here */
+.h-storymap .h-recordlist-item:hover {
+  border-color: var(--h-color-border);
+  background: var(--h-color-bg);
+}
+
+.h-storymap .h-recordlist-item {
+  transition: opacity 0.3s ease, border-color 0.3s ease;
+}
+
+.h-storymap .h-recordlist-item.h-recordlist-current {
+  border-color: var(--h-color-border);
+  box-shadow: none;
+}
+
+.h-storymap-highlight .h-recordlist-item.h-recordlist-current {
+  border-color: var(--h-color-accent, #d7301f);
+  box-shadow: 0 0 0 2px var(--h-color-accent, #d7301f) inset;
+}
+
+.h-storymap-veil .h-recordlist-item:not(.h-recordlist-current) {
+  opacity: 0.35;
 }
 
 .h-storymap-card {
@@ -59,12 +89,7 @@
   border: 1px solid var(--h-color-border, #ddd);
   border-radius: 4px;
   padding: 8px;
-  cursor: pointer;
-  transition: opacity 0.3s ease, border-color 0.3s ease;
-}
-
-.h-storymap-slides .h-storymap-card {
-  cursor: default;
+  margin: 3px;
 }
 
 .h-storymap-card-title {
@@ -76,17 +101,8 @@
   white-space: pre-line;
 }
 
-.h-storymap-highlight .h-storymap-card.is-current {
-  border-color: var(--h-color-accent, #d7301f);
-  box-shadow: 0 0 0 2px var(--h-color-accent, #d7301f) inset;
-}
-
-.h-storymap-veil .h-storymap-body:not(.h-storymap-slides) .h-storymap-card:not(.is-current) {
-  opacity: 0.35;
-}
-
 @media (prefers-reduced-motion: reduce) {
-  .h-storymap-card {
+  .h-storymap .h-recordlist-item {
     transition: none;
   }
 }

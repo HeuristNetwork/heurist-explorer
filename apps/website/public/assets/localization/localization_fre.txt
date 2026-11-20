@@ -709,3 +709,14 @@
 #Value#Valeur
 #Or from the record#Ou de l'enregistrement
 #Carousel#Carrousel
+# Carte narrative, vue complète (plan 27q1 revue 1, 2026-11-20)
+#End#Fin
+#In collection#Dans la collection
+#Overview#Aperçu
+#View#Voir
+#filtered from#filtré sur
+#of#sur
+#Previous#Précédent
+#Next#Suivant
+#Full record view#Vue complète de l'enregistrement
+#There are no elements to show for "{title}". They may exist but not be public.#Aucun élément à afficher pour « {title} ». Ils peuvent exister sans être publics.

@@ -4,13 +4,25 @@ Status of the open development plans: what is done, committed, checked in a brow
 `CLAUDE.md` on 2026-11-18. The Status line at the top of each plan in this folder is the source; update both when a plan
 changes. Newest first.
 
+**Explorer Base style settings** (agreed with Artem 2026-11-20, done 2026-11-20, not committed, no browser check; no plan
+file): Options menu item *Base style settings* after Configuration = the Base settings tab of the CMS Styles popup (moved
+to `shared/src/widgets/styles/baseSettingsForm.js`, the designer uses it), preview beside it. Stored in the browser per
+database with the Explorer configuration (`ExplorerUiConfig.baseStyle`; may move to the server later with the other
+Explorer settings). Keys: the CMS base settings without page width and logo height; font size scales the
+`--h-font-size*` sizes, heading font / colour on h1-h6 (`shared/src/ui/baseStyle.js`). Passed to modules as
+`runtime.baseStyle` (`docs/configuration.md`); Explorer reloads when it changes; not used by a published Explorer.
+The right-rail Options button opens the same menu as the "In panes" gear (`ExplorerOptionsMenu.js`); the tool buttons
+of the Configuration popup footer were removed (Cancel / Apply stay). Other `--h-*` variables (icon, danger, warning,
+header colours, control height, gap) are not editable; some hard-coded colours may not follow a dark theme — to check
+in the browser.
+
 **`docs/development/27n1 CMS-Editor-Simplification-Plan.md`** (agreed 2026-11-20; §1-7 done 2026-11-20, not committed, no
 browser check): Source shown again in Media / Gallery / Record cards (no Media record), one Query with Edit + ▾ (copy a
 query source, by value) in Record cards, Records and selection, record editor, Reports, Generate, Story map; card tabs
 with orientation / style through the shared `createTabSet` (scrolling ‹ ›, `siteTabs.css`); Saved filter dialog rows;
 collapsible page tree; top Advanced button hidden without advanced fields; Advanced styles always.
 
-**`docs/development/27q1 Story-Map-Plan.md`** (agreed 2026-11-18; phases A-E done 2026-11-18, not committed, no browser check: entity `presentation`, srv/Presentations, HStoryMap + service + map binding, Explorer tool `storymap` (East), website element `storymap`, tabs in Record cards, map `flyTo`): story map as a stored *Presentation set*
+**`docs/development/27q1 Story-Map-Plan.md`** (review 1 of Artem 2026-11-20 (§15) implemented 2026-11-20 (§16), not committed, no browser check: manager toolbar, HEditForm with existing special editors only, instant apply + Apply for query / rule / background map, Save / Discard / Cancel, stories in HRecordList (new view mode Full record view), places as geo field paths per role, background map document; time filter of the background map waits for a decision. Before: agreed 2026-11-18; phases A-E done 2026-11-18: entity `presentation`, srv/Presentations, HStoryMap + service + map binding, Explorer tool `storymap` (East), website element `storymap`, tabs in Record cards, map `flyTo`): story map as a stored *Presentation set*
 record (also for crosstabs and export), designed in an Explorer tool pane, chosen in the CMS (Edit in new window +
 Refresh); source query + expansion rule; layouts list / horizontal / tabs / carousel / slideshow (tabs also in Record
 cards); map patterns per element, only points and path now. Entity name `presentation` agreed.

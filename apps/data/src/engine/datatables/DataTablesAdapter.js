@@ -140,6 +140,7 @@ export class DataTablesAdapter extends DataEngineAdapter {
       ["card", "Cards"],
       ["row", "Row"],
       ["big", "Extended"],
+      ["full", "Full record view"],
       ["datatable", "Table"],
     ].forEach(([value, text]) => {
       const option = document.createElement("option");

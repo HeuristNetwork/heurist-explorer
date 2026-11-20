@@ -1,7 +1,8 @@
 # 27q1 Story map
 
 **Status.** Agreed with Artem 2026-11-18 (discussion of his notes, decisions in §11). Phases A-E done 2026-11-18 (§13,
-§14), not committed, no browser check. Next: browser check; test data for `path` (§13); French texts.
+§14), committed. Review 1 (Artem, 2026-11-20, §15) implemented 2026-11-20 (§16), not committed, no browser check.
+Next: browser check; decision on the time filter of the background map (§15.8); test data for begin / end places.
 
 ## 1. Goal and the idea
 
@@ -282,3 +283,115 @@ map pass.
 **Open:** browser check (Explorer tool with the Map; website page with Result + Map + Story map); French texts of the
 new captions; test data for `path`; HRuleBuilder's dialog starts from the source record type (from the source query).
 
+
+## 15. Review 1 (Artem, 2026-11-20) — decisions
+
+**Rule:** the settings form uses only existing inputs (HEditForm types and special editors, helper dialogs). A new input
+is asked for first.
+
+1. **Toolbar** as the Report / Website manager (`h-btn` + label, labels hidden in a narrow pane): New story | Story
+   selector (button + list in a popover) | Story editor `fa-pen-ruler` (shows / hides the form) | Record editor
+   `fa-pen` (the Presentation set in the record editor) | Save | Delete | Run `fa-bolt` (the source query as Explorer's
+   result, the first story topic selected). Save as, Refresh and Source records are dropped (Run replaces them).
+2. **Layout:** stories Vertical → form and stories side by side; Horizontal → form above, stories below. The stories
+   are hidden while the form is open when the pane is narrower than 600 (vertical) / 400 (horizontal).
+3. **Form** = HEditForm in three sections.
+   - *Source:* Name; **Story topics** (the source records: query special with Edit + ▾ copy of a query source);
+     **Story elements** (rule special → HRuleBuilder; one record type only; a change of the type asks *Changing the
+     record type of the story elements will distort the presentation configuration. Continue?* and resets the type's
+     fields); Order (As found / Manual / Date / the date fields of the element type, Ascending / Descending); Manual order
+     (popup with the elements of the current story, drag and drop in HTree; stored per topic); Start info and End info
+     (multilingual text + template on the story topic); Limit (default 100, at most 500).
+   - *Presentation:* Story element template; Show as Vertical / Horizontal / Carousel / Tabs (no Slideshow); position of
+     Start / End info (None / first-last element / tab / above-below); Current element (Vertical); messages
+     Introduction and No story found (multilingual).
+   - *Mapping:* Background map = a map document (resource selector), its time filter (see 8); Begin or main /
+     Transition / End = geographic fields of the element or of linked records (HGeoFieldSelector, only the field tree);
+     Connect the places; Keep the places; Flight (ms); Element and Line symbology (symbology editor). Places filter is
+     dropped. Default fields of a new element type: begin 2-28, 2-134, 1414-1092; transition 1414-1090; end 2-864.
+4. **Instant apply** of every change except the source query, the rule and the background map: these make Apply primary
+   and ask *Apply new queries?* / *Apply new map document?*. Apply is always visible (sticky footer).
+   No *Apply and Save*: Save is in the toolbar. Switching story / New with changes: *Story has been changed. Save
+   changes?* Save | Discard | Cancel (`askSaveDiscard` moved to `shared/src/ui`).
+5. **Presentation over HRecordList** (no header, no tools, lazy loading): Vertical = Extended (`big`), Horizontal =
+   `row`, Carousel = new view mode **`full`** (Full record view: one record, prev / *n of N* / next instead of the
+   pagination, arrow keys), Tabs = `full` with a tab bar. HRecordList reports the current record
+   (`onCurrentRecordChange`).
+6. **Settings format** (§4 replaced): `story {rule, order {by: date|rule|manual|<field>, dir, manual {<topic>: [ids]}}, limit}`,
+   `element {template}`, `start` / `end {mode, template, text}`, `presentation {layout: list|horizontal|carousel|tabs,
+   distinct, messages {intro, empty}}`, `map {background {mapDocument, timeFilter}, places {begin, transition, end,
+   connect}, elementSymbology, lineSymbology, duration, keep}`. Places are geo field paths as in Query sources
+   (`rty:dty`, `rty:lt<ptr>:rty:dty`), read with `/map?geofields=…&geoOutputMode=features`. Older settings
+   (`patterns`, `overview`, `messages`, `slideshow`) are converted when read.
+7. **Answers.**
+   - *Server-side generation:* only dynamic. A generated page would make sense only for one fixed topic and still needs
+     the map and JS; static text for SEO can come later from the 27m generator.
+   - *Complications (opinion):* Source type Query / Manual pickup are one format (manual pickup = an `ids:` query made
+     with the record picker); *None* (elements without a topic) doubles the logic — later, as *Manual elements*. When the
+     topics query is copied from a query source that has expansion rules, offer *Use its rules?* (cheap, later).
+   - *Legacy animation* (`app_storymap.js`): a JSON field 2-1090 on each element (the widget option `storyActions` is
+     never read); actions `fade_in`, `fade_out`, `fade_in_out`, `hide`, `show`, `fly`, `zoom`, `center`, `blink`,
+     `gradient`, `style`; scope `begin | trans | end | all | field | ids`, `range` chunks, steps in sequence; not done
+     there: `follow_path`, `ant_path`, popup, progressive line. Easy now: fly / zoom / center, fade in / out, style,
+     CSS slide effect. Redundant: hide / show, blink (buggy), gradient, JSON per element record. Suggested for phase F:
+     `map.animation {begin, transition, end}` with `fly | fade_in | fade_out | style | draw_line | follow_path`, morph of
+     begin → end polygons, keep the current time when the topic changes, timeline scroll.
+8. **Time filter of the background map:** the new Map has no time filter. Proposal: Map public API
+   `setTimeFilter({start, end} | null)`; the checkbox is stored now, the filter is done when agreed.
+
+## 16. Review 1 — implemented 2026-11-20 (both repos, not committed, no browser check)
+
+- **Model** (`storyMapModel.js`): the format of §15.6; older settings are read (`patterns` → `places`, `slideshow` →
+  `carousel`, `messages` → `presentation.messages`; `overview` and the places filter are dropped). New: `isGeoPath`,
+  `storyElementTypes` (types of the rule's last level), `defaultPlaces` (2-28 / pointers to Place 3-1009 → geo paths),
+  manual order and date fields as dates in `sortStoryElements`; `elementFeatures(element, {connect})` (places by
+  role, a polygon gives its centre for the line; without places the element's own geometry). `pathGeometry`: one begin
+  and several ends (or the reverse) without a transition is a star. Server `StoryMapSettings.php` checks the new format
+  (`PresentationEntityTest.php`: 35 checks).
+- **Service:** the places of the elements per role with `/map?q=ids:…&geofields=<paths>&geoOutputMode=features` (one
+  call per role; `rec_ID` of a feature = the element); `story.limit` (≤ 500). **Binding:** `showBackground` loads the
+  map documents when needed and activates the background document (the story layers leave the old document first).
+- **HRecordList:** view mode **`full`** (Full record view: prev / *n of N* / next or tabs `fullNav: 'tabs'`
+  (createTabSet, `h-site` tab styles), arrow keys, `showRecordAt`); option **`trackCurrent`** (the most visible / the
+  clicked record gets `h-recordlist-current`) and callback **`onCurrentRecordChange(id, index)`**; `setCurrentRecord`,
+  `getCurrentRecord`.
+- **HStoryMap** on HRecordList (`createList` option for the tests); start / end info as records −1 / −2 or cards
+  above / below; a change of layout, template, texts or symbology lays the shown story out again without reading it;
+  rule, order, limit or places read it again. HSlider is no longer used by the story map.
+- **Explorer tool:** toolbar of §15.1 (`tool()` as ReportManager, labels hidden below 560px by a container query);
+  form = HEditForm (`storyMapForm.js`); query and rule fields are named by their field ids, so the special editors of
+  `RecordEditorHost.specialEditors()` work unchanged (Filter Builder + ▾ copy of a query source; HRuleBuilder);
+  geo fields = HGeoFieldSelector (new options `autoSelect: false`, `outputMode: false`) in `showHelperDialog`;
+  symbology = Explorer's `editSymbology`; manual order = HTree in a dialog; background = resource field of Map document
+  (`pointerMode: browseonly`, services of `RecordEditorHost.formServices()`). Instant apply (300 ms) except query, rule
+  and background (Apply primary, question). A new element type asks first, then sets the order choices and the default
+  places in the form. Save / Discard / Cancel before New, another story map and the record editor: `askSaveDiscard`,
+  moved with `askChoice` to `shared/src/ui/askChoice.js` (the CMS designer uses it too). Delete shows the pages of a 409.
+  A new story map without a name asks the name in an edit form dialog.
+- **Deviations:** the Story element template without a template shows the title (not the standard record view); the
+  time filter is only stored (§15.8); *Save as* is dropped (§15.1).
+- Dictionaries: explorer, website, data (eng / fre) have the new captions. `npm test` 1882 pass; builds of explorer,
+  website and data pass. Checked with the local API: `/map?…&geofields=48:lt134:12:28&geoOutputMode=features` gives one
+  feature per place with the element as `rec_ID`.
+
+**Review 2 (Artem, 2026-11-20), fixed:** Data knows the view mode `full` (configuration schema and form, the view
+select of the Table engine), so it is no longer replaced by Cards; the tool fills its pane body
+(`.h-explorer-tool-storymap-body` as Report; `width: 100%` on the inline-size container — without it the tool, the
+toolbar and the form shrank to their content); the toolbar stays on one line (labels hidden below 640px, the selector
+shrinks); Record editor, Save and Delete are icons only. Second fix: the tool's element is the pane body, whose
+`place-items: center` centred the toolbar and the main part (they had their content's width): `place-items: stretch` /
+`align-items: stretch`.
+
+**Review 3 (Artem, 2026-11-20), fixed:** Ascending / Descending hidden for Manual (and As found); start / end info
+has no own tab any more (a stored `tab` is read as `inline`); the places of the story go into the background map
+document when one is set (else the active one); Help button (Explorer manual, new section `storymap` in eng / fre);
+Connect / Keep / time filter are checkboxes; Save failed with "n.find is not a function" (HRecordList `_markCurrent`
+called `find` on a NodeList); Delete clears and closes the form; without an open or new story map only New story and
+Help work (the selector is disabled while the list is empty).
+
+**Review 4 (Artem, 2026-11-20), fixed:** Name, Story topics, Story elements and Story element template are required;
+Save and Apply check the form first (`HEditForm.validate`: the fields are marked and shown as in every form; a closed
+form is opened for it; the name dialog of a new story map is dropped). The server still accepts a draft (§3). Another
+story map opened: the form shows its values (before, `_renderForm` read the old form back) and the story is cleared
+(`HStoryMap.clear()`; Run or a selection shows a story again). The empty message names the topic
+(`There are no elements to show for "{title}"…`). Highlight / veil also in Horizontal.

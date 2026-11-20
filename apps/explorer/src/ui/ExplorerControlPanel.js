@@ -18,6 +18,7 @@ import { ownerSections } from '#shared/utils/ownerSections.js';
 import { isModuleUsed, MODULE_TYPES, moduleTypesInOrder } from '../core/ExplorerUiConfig.js';
 import { ExplorerRail } from './ExplorerRail.js';
 import { ExplorerConfigurationDialog } from './config/ExplorerConfigurationDialog.js';
+import { ExplorerOptionsPopup } from './ExplorerOptionsMenu.js';
 import './ExplorerControlPanel.css';
 
 /**
@@ -525,20 +526,48 @@ export class ExplorerControlPanel {
    */
   openConfiguration() {
     this.closeToolPanel();
+    // the tools of its footer are in the Options menu (2026-11-20)
     new ExplorerConfigurationDialog({
       // the saved value: the simplified interface overrides some of it only when applied
       value: this.application.uiConfigSaved || this.application.uiConfigValue,
-      onSave: (value) => this.application.applyUiConfig(value),
-      onGettingStarted: () => this.application.showWelcome(),
-      onQueryTrace: () => this.application.showQueryTrace(),
-      onManageTags: () => void this.application.manageTags(),
-      onManageFiles: () => void this.application.manageFiles(),
-      onManageUsers: () => void this.application.manageUsers(),
-      onManageGroups: () => void this.application.manageGroups(),
-      onPublishView: () => void this.application.publishView(),
-      onManageWebsites: () => void this.application.openWebsiteManager(),
-      onTestEditForm: () => void this.openEditFormTest()
+      onSave: (value) => this.application.applyUiConfig(value)
     }).open();
+  }
+
+  /**
+   * Opens the Base style settings of Explorer (Options menu, 2026-11-20): colours and fonts of
+   * the Explorer UI and its modules, saved with the configuration (`baseStyle`; Explorer reloads).
+   *
+   * @returns {Promise<void>}
+   */
+  async openBaseStyle() {
+    this.closeToolPanel();
+    try {
+      const { ExplorerBaseStyleDialog } = await import('./config/ExplorerBaseStyleDialog.js');
+      const saved = () => this.application.uiConfigSaved || this.application.uiConfigValue;
+      new ExplorerBaseStyleDialog({
+        value: saved()?.baseStyle || {},
+        onSave: (baseStyle) => this.application.applyUiConfig({ ...saved(), baseStyle })
+      }).open();
+    } catch (error) {
+      HMsg.showMsgErr?.(error?.message || String(error));
+    }
+  }
+
+  /**
+   * Opens or closes the Options menu at the Options button of the right rail (Vertical /
+   * Horizontal toolbar): the same menu as the gear of the "In panes" toolbar (2026-11-20).
+   *
+   * @returns {void}
+   */
+  toggleOptionsMenu() {
+    const anchor = this.rightRail?.getButtonElement('options');
+    if (!anchor) {
+      this.openConfiguration();
+      return;
+    }
+    this.optionsPopup ||= new ExplorerOptionsPopup(this.application);
+    this.optionsPopup.toggle(anchor);
   }
 
   /**
@@ -774,7 +803,7 @@ export class ExplorerControlPanel {
     }
 
     if (id === 'options') {
-      this.openConfiguration();
+      this.toggleOptionsMenu();
     }
   }
 
@@ -1825,7 +1854,7 @@ export function rightButtons() {
     { id: 'export', icon: 'fa-solid fa-file-export', title: 'Export', hint: 'Export records in various formats', group: 'tools', toggle: true },
     { id: 'storymap', icon: 'fa-solid fa-route', title: 'Story map', hint: 'The story of the selected record: its elements as cards and their places on the map', group: 'tools', toggle: true },
     { id: 'help', icon: 'fa-solid fa-circle-question', title: 'Help', hint: 'Explorer help and user guide', group: 'settings' },
-    { id: 'options', icon: 'fa-solid fa-gear', title: 'Options', hint: 'Toolbar and layout configuration', group: 'settings' }
+    { id: 'options', icon: 'fa-solid fa-gear', title: 'Options', hint: 'Configuration, tools and help', group: 'settings' }
   ];
 }
 

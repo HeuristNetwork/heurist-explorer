@@ -357,7 +357,8 @@ test('Style editor: simple and advanced lists, group flex box, Reset all, Remove
   const group = document.createElement('div');
   const simple = styleRows(group, {}, null, { kind: 'group', simple: true, advanced: false });
   const sectionsOf = () => group.querySelectorAll('.h-cms-style-section').map((item) => item.textContent.trim());
-  assert.ok(!sectionsOf().includes('Group layout (flex)') && sectionsOf().includes('Grid (columns)'));
+  // Group layout (flex) and the alignments of the grid in the simple form too (review 2026-11-20)
+  assert.ok(sectionsOf().includes('Group layout (flex)') && sectionsOf().includes('Grid (columns)'));
   assert.equal(group.querySelector('.h-cms-style-advanced').hidden, false, 'Advanced styles always');
   assert.equal(group.querySelector('.h-cms-style-tabs').hidden, true, 'no screen selector');
   simple.setSimple(false);

@@ -28,38 +28,13 @@ import { showPopover } from '#shared/widgets/popover/popover.js';
 import { fileOfRecord, HInputFile } from '#shared/widgets/form/inputs/HInputFile.js';
 import { fileUrl, parseFileUrl } from '#shared/data/fileUrls.js';
 import { createTabSet } from '#shared/widgets/layout/tabs.js';
+import {
+  BASE_LABELS, CMS_THEMES, cleanBase, createBaseSettingsPane, createPreviewColumn, defaultVariables, helpLine,
+  isBaseColor as isColor, PREVIEW_CSS, SAMPLE_PAGE, setBaseValue, styleField as field
+} from '#shared/widgets/styles/baseSettingsForm.js';
 
-/** Labels and hints of the base settings. */
-export const BASE_LABELS = Object.freeze({
-  'font-family': ['Font family', 'e.g. Georgia, serif'],
-  'color-text': ['Text colour'],
-  'color-bg': ['Background colour'],
-  'color-surface': ['Surface colour (bars, panels)'],
-  'color-primary': ['Primary colour (buttons, active tab)'],
-  'color-link': ['Link colour'],
-  'color-border': ['Border colour'],
-  radius: ['Corner radius', 'e.g. 4px'],
-  'site-font-size': ['Font size', 'e.g. 15px'],
-  'site-heading-font': ['Heading font', 'e.g. Arial, sans-serif'],
-  'site-heading-color': ['Heading colour'],
-  'site-width': ['Page width (max)', 'e.g. 1200px; empty = full width'],
-  'color-selected': ['Selected background colour'],
-  'color-selected-border': ['Selected border colour'],
-  'color-primary-text': ['Text on primary colour (buttons)'],
-  'color-text-muted': ['Muted text colour'],
-  'site-logo-height': ['Logo height', 'e.g. 64px; smaller on medium and narrow screens']
-});
-
-/** Colour themes of the base settings (in the manner of the jQuery UI ThemeRoller / Bootstrap themes). */
-export const CMS_THEMES = Object.freeze([
-  { name: 'light', label: 'Default light', values: { 'color-text': '#333333', 'color-bg': '#ffffff', 'color-surface': '#f5f5f5', 'color-primary': '#2a6ebb', 'color-link': '#2a6ebb', 'color-border': '#dddddd', 'site-heading-color': '#222222' , 'color-selected': '#dcecff', 'color-selected-border': '#3983b7', 'color-primary-text': '#ffffff', 'color-text-muted': '#777777' } },
-  { name: 'dark', label: 'Default dark', values: { 'color-text': '#e6e6e6', 'color-bg': '#1e1e1e', 'color-surface': '#2b2b2b', 'color-primary': '#4f9be8', 'color-link': '#7db8f0', 'color-border': '#444444', 'site-heading-color': '#ffffff' , 'color-selected': '#2f4a66', 'color-selected-border': '#4f9be8', 'color-primary-text': '#ffffff', 'color-text-muted': '#9a9a9a' } },
-  { name: 'sepia', label: 'Sepia', values: { 'color-text': '#5b4636', 'color-bg': '#f4ecd8', 'color-surface': '#e9dcc0', 'color-primary': '#8b5a2b', 'color-link': '#8b4513', 'color-border': '#d3c4a5', 'site-heading-color': '#4a3426' , 'color-selected': '#ead9b5', 'color-selected-border': '#8b5a2b', 'color-primary-text': '#ffffff', 'color-text-muted': '#8a7560' } },
-  { name: 'green', label: 'Greenish', values: { 'color-text': '#2f3e33', 'color-bg': '#f4f8f4', 'color-surface': '#e3efe5', 'color-primary': '#2e7d32', 'color-link': '#2e7d32', 'color-border': '#c5dcc8', 'site-heading-color': '#1b5e20' , 'color-selected': '#d4ead6', 'color-selected-border': '#2e7d32', 'color-primary-text': '#ffffff', 'color-text-muted': '#64766a' } },
-  { name: 'blue', label: 'Blueish', values: { 'color-text': '#253645', 'color-bg': '#f3f7fb', 'color-surface': '#e1ebf5', 'color-primary': '#1565c0', 'color-link': '#1565c0', 'color-border': '#c3d4e6', 'site-heading-color': '#0d47a1' , 'color-selected': '#d3e3f5', 'color-selected-border': '#1565c0', 'color-primary-text': '#ffffff', 'color-text-muted': '#5f7387' } },
-  { name: 'monitor', label: 'Monitor (green on black)', values: { 'color-text': '#33ff33', 'color-bg': '#000000', 'color-surface': '#0a1a0a', 'color-primary': '#00aa00', 'color-link': '#66ff66', 'color-border': '#1f5f1f', 'site-heading-color': '#66ff66', 'font-family': '"Courier New", monospace', 'site-heading-font': '"Courier New", monospace' , 'color-selected': '#0f3a0f', 'color-selected-border': '#33ff33', 'color-primary-text': '#000000', 'color-text-muted': '#1faa1f' } },
-  { name: 'red', label: 'Red and white', values: { 'color-text': '#000000', 'color-bg': '#ffffff', 'color-surface': '#b0b0b0', 'color-primary': '#c62828', 'color-link': '#c62828', 'color-border': '#8a8a8a', 'site-heading-color': '#b71c1c' , 'color-selected': '#f6d5d5', 'color-selected-border': '#c62828', 'color-primary-text': '#ffffff', 'color-text-muted': '#666666' } }
-]);
+// moved to shared (Explorer Base style settings, 2026-11-20); re-exported for existing imports
+export { BASE_LABELS, CMS_THEMES, helpLine };
 
 const KIND_LABELS = Object.freeze({
   group: 'Groups', tabs: 'Tabs', accordion: 'Accordions', text: 'Texts', media: 'Media', instance: 'Modules and widgets'
@@ -170,56 +145,6 @@ const PALETTE = Object.freeze([
 /** Variables without a Heurist default on this page: the variable (or colour) they fall back to. */
 const PALETTE_FALLBACK = Object.freeze({ 'site-heading-color': 'color-text' });
 
-/** Heurist variables of the site stylesheet (their defaults are read from this page for the previews). */
-const VARIABLES = ['--h-font-family', '--h-color-text', '--h-color-text-muted', '--h-color-bg', '--h-color-surface',
-  '--h-color-primary', '--h-color-primary-text', '--h-color-link', '--h-color-border', '--h-color-selected',
-  '--h-color-selected-border', '--h-radius'];
-
-/** A small copy of the site stylesheet (apps/website/src/style.css) for the previews. */
-const PREVIEW_CSS = `
-html.h-site{--h-site-font-size:15px;--h-site-heading-font:var(--h-font-family);--h-site-heading-color:var(--h-color-text)}
-body{margin:0;padding:12px;font-family:var(--h-font-family,sans-serif);font-size:var(--h-site-font-size);line-height:1.5;
-color:var(--h-color-text);background:var(--h-color-bg)}
-:is(h1,h2,h3,h4,h5,h6){margin:.3em 0;font-family:var(--h-site-heading-font);color:var(--h-site-heading-color)}
-p{margin:.3em 0}
-a{color:var(--h-color-link)}
-section[data-h-control="group"][aria-labelledby]>h3:first-child{grid-column:1/-1}
-figure[data-h-media]{margin:0}figure[data-h-media] :is(img,video,audio,iframe){display:block;max-width:100%;border:0}
-figure[data-h-media] figcaption{margin-top:4px;font-size:.9em}
-.pv-header{display:flex;align-items:center;gap:12px;padding:6px 12px;background:var(--h-color-surface);
-border-bottom:1px solid var(--h-color-border);font-weight:600}
-.pv-header span{font-weight:normal;color:var(--h-color-link)}
-.pv-box{margin-top:10px;padding:10px;border:1px solid var(--h-color-border);border-radius:var(--h-radius,4px)}
-.pv-large{font-size:1.25em}.pv-small{font-size:.875em}.pv-tiny{font-size:.75em}
-.pv-muted{color:var(--h-color-text-muted,color-mix(in srgb,var(--h-color-text) 60%,var(--h-color-bg)))}
-.pv-buttons{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
-.pv-list{margin-top:8px;border:1px solid var(--h-color-border)}.pv-list>div{padding:2px 8px;border:1px solid transparent}
-.pv-list>.pv-selected{background:var(--h-color-selected,#dcecff);border-color:var(--h-color-selected-border,#3983b7)}
-button,input,select{padding:4px 12px;border:1px solid var(--h-color-border);border-radius:var(--h-radius,4px);font:inherit;
-background:var(--h-color-surface);color:var(--h-color-text)}
-input,select{padding:4px 8px;background:var(--h-color-bg)}
-button.pv-primary{border-color:var(--h-color-primary);background:var(--h-color-primary);color:var(--h-color-primary-text,#fff)}
-button.pv-icon{padding:4px 9px}
-.h-site-tab-strip{display:flex;gap:2px;border-bottom:1px solid var(--h-color-border)}
-.h-site-tab{padding:4px 12px;border:1px solid transparent;border-bottom:0;border-radius:var(--h-radius,4px) var(--h-radius,4px) 0 0}
-.h-site-tab.is-active{border-color:var(--h-color-border);color:var(--h-color-primary)}
-details{margin:4px 0;border:1px solid var(--h-color-border);border-radius:var(--h-radius,4px);overflow:hidden}
-details>summary{padding:4px 8px;background:var(--h-color-surface);cursor:pointer}
-details>:not(summary){padding:4px 8px}
-.pv-module{display:flex;align-items:center;justify-content:center;height:100%;min-height:60px;
-border:1px dashed var(--h-color-border);color:var(--h-color-primary)}
-`;
-
-const SAMPLE_PAGE = '<div class="pv-header">Website title <span>Home</span><span>About</span><span>Contact</span></div>'
-  + '<div class="pv-box"><h1>Heading 1</h1><h2>Heading 2</h2><h3>Heading 3</h3><h4>Heading 4</h4>'
-  + '<p class="pv-large">Large font text</p><p>Regular font text with <a href="#">a link</a>.</p>'
-  + '<p class="pv-small">Small font text</p><p class="pv-tiny">Tiny font text</p><p class="pv-muted">Muted text</p>'
-  + '<div class="pv-buttons"><button class="pv-primary" type="button">Primary button</button>'
-  + '<button type="button">Standard button</button><button class="pv-icon" type="button" title="Icon button">&#9881;</button></div>'
-  + '<div class="pv-buttons"><input type="text" value="Input" aria-label="Input">'
-  + '<select aria-label="Selector"><option>Selector</option><option>Second option</option></select></div>'
-  + '<div class="pv-list"><div>List item</div><div class="pv-selected">Selected item</div><div>List item</div></div></div>';
-
 const TEXT = '<div data-h-text=""><p>Text of an element in this style. Lorem ipsum dolor sit amet, consectetur adipiscing.</p></div>';
 
 /** Sample content of each kind (real data-h-* attributes, so the compiled kind styles apply). */
@@ -257,71 +182,20 @@ export function createStylesForm({ base = {}, kinds = {}, presets = {}, layout =
   const root = element('div', 'h-cms-styles-layout');
   const previews = [];
   const tabs = createTabSet({ prefix: 'h-cms-styles', onSelect: (index) => previews[index]?.() });
-  const previewColumn = element('div', 'h-cms-styles-preview-column');
-  const previewCaption = element('div', 'h-cms-caption');
-  previewCaption.textContent = $HR('Preview');
-  const frame = element('iframe', 'h-cms-styles-preview');
-  // no scripts; the same origin, so registered images that need the login are shown too
-  frame.setAttribute('sandbox', 'allow-same-origin');
-  frame.title = $HR('Preview');
-  // the preview page: at least 424 px, 641 px with columns (show); a scroll bar in a narrow column
-  const frameBox = element('div', 'h-cms-styles-preview-box');
-  frameBox.append(frame);
-  previewColumn.append(previewCaption, frameBox);
-  root.append(tabs.element, previewColumn);
+  // the preview column (shared with the Explorer Base style settings, 2026-11-20)
+  const previewColumn = createPreviewColumn();
+  root.append(tabs.element, previewColumn.element);
   // columns (a grid / flex preset or group kind) need a page wider than the narrow screen (640 px); else a narrow one
-  const show = (html, columns = false) => {
-    frame.classList.toggle('h-cms-styles-preview-columns', columns);
-    frame.srcdoc = html;
-  };
+  const show = previewColumn.show;
   // background images are allowed from the Heurist base URL only (compileCmsStyles)
   const preview = (body) => previewDocument(javaScriptAllowed ? state : { ...state, css: '' }, body, files?.baseUrl || '');
   const refresh = () => previews[tabs.selected]?.();
 
   // ------------------------------------------------------------ base settings
   const basePane = pane(tabs, 'Base settings', HELP.base);
-  // Theme and Kind (Layout styles): a selector of normal height close to its caption, a line below (2026-11-12)
-  const theme = element('select', 'h-select');
-  theme.append(option('', $HR('(choose a theme)')), ...CMS_THEMES.map((item) => option(item.name, $HR(item.label))));
-  basePane.config.append(field('Theme', theme, 'h-cms-styles-field h-cms-styles-head'));
-  const controls = {};
-  for (const key of BASE_SETTINGS) {
-    // the page width is chosen in Navigation and layout (Maximum width of page, review 2026-11-15)
-    if (key === 'site-width') continue;
-    const [label, hint] = BASE_LABELS[key] || [key];
-    const host = element('div', 'h-cms-styles-value');
-    basePane.config.append(field(label, host));
-    if (isColor(key)) {
-      const color = new HInputColor().attach(host, { suppressLabel: true, clearButton: false, value: state.base[key] ?? '', placeholder: $HR('Heurist default') }).render();
-      const changed = () => {
-        setBase(state, key, color.getValue());
-        refresh();
-      };
-      host.addEventListener('h-input-change', changed);
-      host.addEventListener('input', changed);
-      controls[key] = { set: (value) => color.setValue(value) };
-    } else {
-      const text = element('input', 'h-input h-compact');
-      text.type = 'text';
-      text.value = state.base[key] ?? '';
-      text.placeholder = $HR(hint || 'Heurist default');
-      text.addEventListener('input', () => {
-        setBase(state, key, text.value);
-        refresh();
-      });
-      host.append(text);
-      controls[key] = { set: (value) => { text.value = value; } };
-    }
-  }
-  theme.addEventListener('change', () => {
-    const chosen = CMS_THEMES.find((item) => item.name === theme.value);
-    if (!chosen) return;
-    for (const [key, value] of Object.entries(chosen.values)) {
-      setBase(state, key, value);
-      controls[key]?.set(value);
-    }
-    refresh();
-  });
+  // the page width is chosen in Navigation and layout (Maximum width of page, review 2026-11-15); the rows are shared
+  // with the Explorer Base style settings (2026-11-20)
+  createBaseSettingsPane(basePane.config, { base: state.base, keys: BASE_SETTINGS.filter((key) => key !== 'site-width'), onChange: refresh });
   previews.push(() => show(preview(SAMPLE_PAGE)));
 
   // ------------------------------------------------------------ layout styles (kind defaults)
@@ -655,15 +529,16 @@ export const SIMPLE_STYLE_FIELDS = Object.freeze([
     fields: [
       { property: 'grid-template-columns', label: 'Columns', columns: true },
       { property: 'gap', label: 'Gap between elements', hint: 'e.g. 12px' },
-      { property: 'align-items', label: 'Row alignment', advanced: true, options: SELECT(['stretch', 'Stretch'], ['start', 'Top'],
+      { property: 'align-items', label: 'Row alignment', options: SELECT(['stretch', 'Stretch'], ['start', 'Top'],
         ['center', 'Center'], ['end', 'Bottom']) },
       // plan 27i §9 A: the content of all columns left / centre / right; the rows together in a tall group
-      { property: 'justify-items', label: 'Column alignment', advanced: true, options: SELECT(['stretch', 'Stretch'], ['start', 'Left'],
+      { property: 'justify-items', label: 'Column alignment', options: SELECT(['stretch', 'Stretch'], ['start', 'Left'],
         ['center', 'Center'], ['end', 'Right']) },
-      { property: 'align-content', label: 'Rows in the group', advanced: true, options: SELECT(['start', 'Top'], ['center', 'Center'],
+      { property: 'align-content', label: 'Rows in the group', options: SELECT(['start', 'Top'], ['center', 'Center'],
         ['end', 'Bottom'], ['space-between', 'Space between'], ['space-evenly', 'Space evenly']) }
     ] },
-  { section: 'Group layout (flex)', group: true, advanced: true,
+  // always shown, also in the simple form (plan 27n1 review 2026-11-20)
+  { section: 'Group layout (flex)', group: true,
     // checked: a flex box; unchecked: display block
     toggle: { key: { display: 'flex' }, on: { display: 'flex' }, off: { display: 'block' } }, fields: [
       { property: 'flex-direction', label: 'Direction', options: SELECT(['row', 'Row (side by side)'], ['column', 'Column (one under another)']) },
@@ -1367,17 +1242,6 @@ export function basePalette(base = {}) {
   return PALETTE.map(([key, label]) => ({ value: `var(--h-${key})`, label: $HR(label), color: colorOf(key) }));
 }
 
-/** The help line of a tab or popup (question icon and text). */
-export function helpLine(help) {
-  const line = element('div', 'h-cms-styles-help');
-  const icon = element('i', 'fa-solid fa-circle-question');
-  icon.setAttribute('aria-hidden', 'true');
-  const text = element('span');
-  text.textContent = $HR(help);
-  line.append(icon, text);
-  return line;
-}
-
 /** The drag handle of a row of a sortable list (sortableList), its first column. */
 export function dragHandle() {
   const handle = element('span', 'h-cms-drag');
@@ -1546,31 +1410,8 @@ function pane(tabs, label, help) {
   return { panel, config };
 }
 
-function defaultVariables() {
-  const style = globalThis.getComputedStyle?.(document.documentElement);
-  const values = VARIABLES.map((name) => [name, style?.getPropertyValue?.(name)?.trim()]).filter(([, value]) => value);
-  return values.length ? `:root{${values.map(([name, value]) => `${name}:${value}`).join(';')}}\n` : '';
-}
-
 function setBase(state, key, value) {
-  if (String(value ?? '').trim()) state.base[key] = String(value).trim(); else delete state.base[key];
-}
-
-function cleanBase(base) {
-  return Object.fromEntries(Object.entries(base || {}).filter(([, value]) => String(value ?? '').trim()).map(([key, value]) => [key, String(value).trim()]));
-}
-
-function isColor(key) {
-  return key.startsWith('color-') || key === 'site-heading-color';
-}
-
-/** A caption and its control; `tag` div for a control of several buttons (a label clicks its first one). */
-function field(label, control, className = 'h-cms-styles-field', tag = 'label') {
-  const line = element(tag, className);
-  const caption = element('span');
-  caption.textContent = $HR(label);
-  line.append(caption, control);
-  return line;
+  setBaseValue(state.base, key, value);
 }
 
 /**

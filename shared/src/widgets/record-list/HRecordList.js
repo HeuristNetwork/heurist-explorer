@@ -30,12 +30,16 @@ import { $HR } from '../../ui/i18n/HResource.js';
 import { dataPopupMode, extendedViewTemplate } from "./recordTemplates.js";
 import { createOwnersCheckbox, createOwnersToggle, createSortSelect } from "./ListToolControls.js";
 import { pageEntries } from "./pageEntries.js";
+import { createTabSet } from "../layout/tabs.js";
 import { adminInfoHtml, recordTypeIconUrl } from "./recordAdminInfo.js";
 import template from "./HRecordList.html?raw";
 import "./HRecordList.css";
+import "../site/siteTabs.css";
 
 const PAGE_SIZES = [50, 100, 500, 1000, 5000];
-const VIEW_MODES = ["list", "card", "row", "big"];
+// "full": Full record view - one record with the Extended template, prev / next or tabs instead of the
+// pagination (the story map, plan 27q1 §15)
+const VIEW_MODES = ["list", "card", "row", "big", "full"];
 
 /** Renders records using native DOM/CSS without a UI framework. */
 export class HRecordList extends HBaseWidget {
@@ -58,6 +62,8 @@ export class HRecordList extends HBaseWidget {
    *        double-click no longer edits (the record manager selects with it, plan 21).
    * @param {(record: object) => HTMLElement|null} [context.recordTools] The tools of a record (the
    *        relations mode of the record manager, plan 24); the owner wires them.
+   * @param {(id: number, index: number) => void} [context.onCurrentRecordChange] The current record changed: the
+   *        shown one (Full record view) or, with the option `trackCurrent`, the most visible one / the clicked one.
    * @returns {Promise<void>}
    */
   async initialize({
@@ -77,6 +83,7 @@ export class HRecordList extends HBaseWidget {
     onOwnersToggle,
     onRecordActivate,
     recordTools,
+    onCurrentRecordChange,
   }) {
     // set before attach: the simplified toolbar is built while rendering
     Object.assign(this, { getListSort, onListSortChange, onOwnersToggle });
@@ -93,7 +100,10 @@ export class HRecordList extends HBaseWidget {
       onDataSourceAction,
       onRecordActivate,
       recordTools,
+      onCurrentRecordChange,
     });
+    this.currentIndex = 0;
+    this.currentId = null;
     this.selected = new Set();
     this.collected = new Set();
     this.records = [];
@@ -223,6 +233,18 @@ export class HRecordList extends HBaseWidget {
       ".h-recordlist-item",
       (event, target) => this._recordClicked(event, target),
     );
+    // Full record view: the previous / next record (buttons, arrow keys)
+    this.delegate(this.content, "click", "[data-full-step]", (event, target) => {
+      event.preventDefault();
+      this.showRecordAt(this.currentIndex + Number(target.dataset.fullStep));
+    });
+    this.listen(this.content, "keydown", (event) => {
+      if (this.options.viewMode !== "full" || event.target.closest?.("input,select,textarea")) return;
+      const step = { ArrowRight: 1, ArrowLeft: -1 }[event.key];
+      if (!step) return;
+      event.preventDefault();
+      this.showRecordAt(this.currentIndex + step);
+    });
     // double-click = the pen button, when editing is allowed
     this.delegate(
       this.content,
@@ -304,6 +326,9 @@ export class HRecordList extends HBaseWidget {
     this.offset = Number(pagination.offset) || 0;
     this.total = Number(pagination.total) || records.length;
     this.filteredTotal = this.total;
+    // new data: the first record is the current one
+    this.currentIndex = 0;
+    this.currentId = null;
     this._render();
   }
 
@@ -371,6 +396,9 @@ export class HRecordList extends HBaseWidget {
   _render() {
     if (!this.content) return;
     this.observer?.disconnect();
+    this.currentObserver?.disconnect();
+    this.fullTabs?.destroy();
+    this.fullTabs = null;
     this.contentAbort?.abort();
     this.contentAbort = new AbortController();
     this.renderGeneration = (this.renderGeneration || 0) + 1;
@@ -386,10 +414,13 @@ export class HRecordList extends HBaseWidget {
         this.options.emptyResultMessage || "No records",
       );
       this.content.append(message);
+    } else if (this.options.viewMode === "full") {
+      this._renderFull(visible);
     } else {
       visible.forEach((record, index) =>
         this.content.append(this._renderRecord(record, index)),
       );
+      this._observeCurrent();
     }
     this._renderPagination();
     this._updateCounter();
@@ -423,7 +454,7 @@ export class HRecordList extends HBaseWidget {
             ? this._cardHtml(record)
             : this._rowHtml(record);
       }
-    } else if (this.options.viewMode === "big" && this.onRecordContentRequest) {
+    } else if ((this.options.viewMode === "big" || this.options.viewMode === "full") && this.onRecordContentRequest) {
       item.classList.add("h-recordlist-template-item");
       item.innerHTML = this._templateShellHtml(record);
       item._record = record;
@@ -436,6 +467,159 @@ export class HRecordList extends HBaseWidget {
   }
 
   /**
+   * Full record view: the navigation (prev / "n of N" / next, or a tab per record with `fullNav: "tabs"`) and the
+   * current record.
+   *
+   * @private
+   * @param {Array<object>} visible Records shown.
+   * @returns {void}
+   */
+  _renderFull(visible) {
+    this.fullRecords = visible;
+    this.currentIndex = Math.min(Math.max(0, this.currentIndex), visible.length - 1);
+    const nav = document.createElement("div");
+    nav.className = "h-recordlist-full-nav";
+    if (this.options.fullNav === "tabs") {
+      this.fullTabs = createTabSet({
+        prefix: "h-site",
+        scroll: true,
+        onSelect: (index) => {
+          if (!this._selectingTab) this.showRecordAt(index);
+        },
+      });
+      for (const record of visible) {
+        const panel = document.createElement("div");
+        panel.hidden = true;
+        this.fullTabs.add(String(record.rec_Title ?? `#${recordId(record)}`), panel);
+      }
+      nav.classList.add("is-tabs");
+      nav.append(this.fullTabs.element);
+    } else {
+      const button = (step, icon, title) =>
+        `<button type="button" class="h-btn h-btn-small" data-full-step="${step}" title="${escapeAttr($HR(title))}"` +
+        ` aria-label="${escapeAttr($HR(title))}"><i class="fa-solid ${icon}" aria-hidden="true"></i></button>`;
+      nav.innerHTML = `${button(-1, "fa-chevron-left", "Previous")}<span class="h-recordlist-full-status"></span>${button(1, "fa-chevron-right", "Next")}`;
+    }
+    this.fullBody = document.createElement("div");
+    this.fullBody.className = "h-recordlist-full-body";
+    this.fullBody.tabIndex = -1;
+    this.content.append(nav, this.fullBody);
+    this.fullNav = nav;
+    this._showFullRecord();
+  }
+
+  /** @private The current record of the Full record view into its body; the navigation follows. */
+  _showFullRecord() {
+    const records = this.fullRecords || [];
+    const record = records[this.currentIndex];
+    if (!record || !this.fullBody) return;
+    this.fullBody.replaceChildren(this._renderRecord(record, this.currentIndex));
+    const status = this.fullNav?.querySelector(".h-recordlist-full-status");
+    if (status) status.textContent = `${this.currentIndex + 1} ${$HR("of")} ${records.length}`;
+    this.fullNav?.querySelectorAll("[data-full-step]").forEach((button) => {
+      const step = Number(button.dataset.fullStep);
+      button.disabled = this.currentIndex + step < 0 || this.currentIndex + step >= records.length;
+    });
+    if (this.fullTabs) {
+      this._selectingTab = true;
+      this.fullTabs.select(this.currentIndex);
+      this._selectingTab = false;
+    }
+    this._applyCollection();
+    this._applySelection();
+    this._notifyCurrent(record, this.currentIndex);
+  }
+
+  /**
+   * Show a record of the Full record view by its position (the navigation, the arrow keys, the host).
+   *
+   * @param {number} index Position in the shown records.
+   * @returns {void}
+   */
+  showRecordAt(index) {
+    const records = this.fullRecords || [];
+    if (this.options.viewMode !== "full" || !records.length) return;
+    const next = Math.min(Math.max(0, Number(index) || 0), records.length - 1);
+    if (next === this.currentIndex && this.fullBody?.childElementCount) return;
+    this.currentIndex = next;
+    this._showFullRecord();
+  }
+
+  /**
+   * Make a record the current one: shown (Full record view) or marked and scrolled into view (`trackCurrent`).
+   *
+   * @param {number} id Record id.
+   * @param {{scroll?: boolean}} [options]
+   * @returns {void}
+   */
+  setCurrentRecord(id, { scroll = true } = {}) {
+    if (this.options.viewMode === "full") {
+      const index = (this.fullRecords || []).findIndex((record) => recordId(record) === Number(id));
+      if (index >= 0) this.showRecordAt(index);
+      return;
+    }
+    const item = this.$(`.h-recordlist-item[data-record-id="${Number(id)}"]`);
+    if (item) this._markCurrent(Number(item.dataset.recordIndex), { scroll });
+  }
+
+  /** @returns {number|null} Id of the current record. */
+  getCurrentRecord() {
+    return this.currentId;
+  }
+
+  /**
+   * `trackCurrent` (Extended, Row, Cards, List): the most visible record is the current one while the list scrolls.
+   *
+   * @private
+   * @returns {void}
+   */
+  _observeCurrent() {
+    if (this.options.trackCurrent !== true || typeof IntersectionObserver === "undefined") return;
+    const ratios = new Map();
+    let timer = null;
+    this.currentObserver = new IntersectionObserver((entries) => {
+      for (const entry of entries) {
+        ratios.set(Number(entry.target.dataset.recordIndex), entry.isIntersecting ? entry.intersectionRatio : 0);
+      }
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        if (this._scrollLock && Date.now() < this._scrollLock) return;
+        let best = -1;
+        let ratio = 0;
+        for (const [index, value] of ratios) {
+          if (value > ratio + 0.01 || (value === ratio && index < best)) [best, ratio] = [index, value];
+        }
+        if (best >= 0 && ratio > 0) this._markCurrent(best);
+      }, 150);
+    }, { root: this.content, threshold: [0, 0.25, 0.5, 0.75, 1] });
+    this.$$(".h-recordlist-item").forEach((item) => this.currentObserver.observe(item));
+  }
+
+  /** @private Mark the current record (class `h-recordlist-current`), scroll to it on request, tell the host. */
+  _markCurrent(index, { scroll = false } = {}) {
+    // $$ gives a NodeList
+    const items = [...this.$$(".h-recordlist-item")];
+    const item = items.find((element) => Number(element.dataset.recordIndex) === index);
+    if (!item) return;
+    items.forEach((element) => element.classList.toggle("h-recordlist-current", element === item));
+    this.currentIndex = index;
+    if (scroll) {
+      // the scroll does not choose another record meanwhile
+      this._scrollLock = Date.now() + 800;
+      item.scrollIntoView?.({ behavior: "smooth", block: "nearest", inline: "nearest" });
+    }
+    this._notifyCurrent(this.records.find((record) => recordId(record) === Number(item.dataset.recordId)), index);
+  }
+
+  /** @private Tell the host about a new current record. */
+  _notifyCurrent(record, index) {
+    const id = recordId(record);
+    if (!Number.isFinite(id) || id === this.currentId) return;
+    this.currentId = id;
+    this.onCurrentRecordChange?.(id, index);
+  }
+
+  /**
    * The owner's tools of a record (`recordTools`): first in a list item, after the admin
    * info of the card top in the Extended view, a row below the card top in card / row.
    */
@@ -445,7 +629,7 @@ export class HRecordList extends HBaseWidget {
     tools.classList?.add("h-recordlist-record-tools");
     const top = [...item.children].find((child) => child.classList?.contains("h-recordlist-card-top"));
     if (this.options.viewMode === "list" || !top) item.prepend(tools);
-    else if (this.options.viewMode === "big") top.append(tools);
+    else if (this.options.viewMode === "big" || this.options.viewMode === "full") top.append(tools);
     else top.after(tools);
   }
 
@@ -511,7 +695,7 @@ export class HRecordList extends HBaseWidget {
     if (this.options.viewMode === "card" || this.options.viewMode === "row") {
       return nullableTemplate(this.options.cardTemplate);
     }
-    if (this.options.viewMode === "big")
+    if (this.options.viewMode === "big" || this.options.viewMode === "full")
       return extendedViewTemplate(this.options.viewTemplate);
     return null;
   }
@@ -646,6 +830,9 @@ export class HRecordList extends HBaseWidget {
 
   /** Apply click/ctrl-click/shift-click selection semantics to a clicked record item. */
   _recordClicked(event, item) {
+    if (this.options.trackCurrent === true && this.options.viewMode !== "full" && !event.target.closest("button,input,a,select")) {
+      this._markCurrent(Number(item.dataset.recordIndex), { scroll: true });
+    }
     if (
       this.options.interaction.selectionEnabled === false ||
       event.target.closest("button,input,a,select")
@@ -1123,6 +1310,9 @@ export class HRecordList extends HBaseWidget {
    */
   async destroy() {
     this.observer?.disconnect();
+    this.currentObserver?.disconnect();
+    this.currentObserver = null;
+    this.fullTabs?.destroy();
     this.contentAbort?.abort();
     this.observer = null;
     this.contentAbort = null;

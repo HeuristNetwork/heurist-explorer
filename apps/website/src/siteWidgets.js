@@ -153,6 +153,11 @@ async function fillPreview(host, instance, runtime, languages = []) {
   if (!host.innerHTML) host.textContent = $HR('Nothing to show yet: open the configuration of this element');
 }
 
+/** Text in a double-quoted attribute. */
+function escapeAttribute(text) {
+  return String(text).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+}
+
 /** The first cards: the query (or the query of the query source, plan 27l §11.4), then the report of each record. */
 async function previewCards(settings, runtime, language) {
   const api = `${runtime.apiBaseUrl}/${encodeURIComponent(runtime.database)}`;
@@ -164,13 +169,16 @@ async function previewCards(settings, runtime, language) {
   }
   if (stored && !Array.isArray(stored) && typeof stored === 'object') stored = [stored];
   if (!Array.isArray(stored) || !stored.length || !settings.template) return '';
-  const query = new URLSearchParams({ q: JSON.stringify(stored), detail: 'ids', limit: String(PREVIEW_CARDS) });
+  // the titles too: the labels of tabs (data-h-label, as the server writes them, review 2026-11-20)
+  const query = new URLSearchParams({ q: JSON.stringify(stored), fields: 'rec_ID,rec_Title', limit: String(PREVIEW_CARDS) });
   const found = await (await fetch(`${api}/records?${query}`, { credentials: 'same-origin' })).json();
-  const ids = (found?.ids || found?.records || []).slice(0, PREVIEW_CARDS).map((item) => Number(item?.rec_ID ?? item));
-  const cards = await Promise.all(ids.map(async (id) => {
+  const records = (found?.records || found?.ids || []).slice(0, PREVIEW_CARDS)
+    .map((item) => ({ id: Number(item?.rec_ID ?? item), title: String(item?.rec_Title ?? '').replace(/<[^>]*>/g, '').trim() }));
+  const cards = await Promise.all(records.map(async ({ id, title }) => {
     const url = `${api}/report/${encodeURIComponent(settings.template)}/execute?recordId=${id}&lang=${encodeURIComponent(language)}`;
     const response = await fetch(url, { credentials: 'same-origin' });
-    return response.ok ? `<div class="h-site-card">${await response.text()}</div>` : '';
+    const label = settings.presentation === 'tabs' && title ? ` data-h-label="${escapeAttribute(title)}"` : '';
+    return response.ok ? `<div class="h-site-card" data-h-rec="${id}"${label}>${await response.text()}</div>` : '';
   }));
   return cards.join('');
 }

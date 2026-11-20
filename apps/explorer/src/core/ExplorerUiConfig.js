@@ -15,6 +15,7 @@
 
 import { DEFAULT_RECORD_LIMITS, normalizeRecordLimits } from '#shared/recordview/recordLimits.js';
 import { DEFAULT_RECORD_EDITOR_SETTINGS, normalizeRecordEditorSettings } from '#shared/data/recordEditorSettings.js';
+import { normalizeBaseStyle } from '#shared/ui/baseStyle.js';
 
 // panes: buttons and tabs in the panes they act on (2026-10-13, plan 16; named
 // 'compact' until 2026-10-14, still read)
@@ -189,7 +190,10 @@ function defaults() {
     // before "Show all"; passed to every module (runtime.recordLimits, plan 23 §3.1)
     recordLimits: { ...DEFAULT_RECORD_LIMITS },
     // the record editor: start settings of the Structure pane, optional groups, HTML editor (plan 25)
-    recordEditor: { ...DEFAULT_RECORD_EDITOR_SETTINGS }
+    recordEditor: { ...DEFAULT_RECORD_EDITOR_SETTINGS },
+    // Base style settings (2026-11-20): the base settings of the CMS (colours, fonts) for the Explorer UI and its
+    // modules (runtime.baseStyle); empty = Heurist defaults
+    baseStyle: {}
   };
 }
 
@@ -246,7 +250,8 @@ function normalize(value) {
     language: UI_LANGUAGES.includes(source.language) ? source.language : fallback.language,
     isSimplifiedUI: typeof source.isSimplifiedUI === 'boolean' ? source.isSimplifiedUI : fallback.isSimplifiedUI,
     recordLimits: normalizeRecordLimits(source.recordLimits),
-    recordEditor: normalizeRecordEditorSettings(source.recordEditor)
+    recordEditor: normalizeRecordEditorSettings(source.recordEditor),
+    baseStyle: normalizeBaseStyle(source.baseStyle)
   };
 
   for (const type of MODULE_TYPES) {
