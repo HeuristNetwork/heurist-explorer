@@ -308,6 +308,33 @@ export class HRecordEditor extends HBaseWidget {
     return [Number(ids[0])];
   }
 
+  /**
+   * The parent context of a new child added from a field of this record (plan 26): the field creates children
+   * (`createChild`). The child then shows this record as its parent and is linked by this record's save.
+   *
+   * @param {number} fieldId Pointer field of this record.
+   * @returns {{recordId: number, rectypeId: number, fieldId: number, title: string}|null}
+   */
+  _childContext(fieldId) {
+    if (!this.dbdefs?.field(this.rectypeId, fieldId)?.createChild) return null;
+    return { recordId: Number(this.record?.rec_ID) || 0, rectypeId: this.rectypeId, fieldId: Number(fieldId),
+      title: this.record?.rec_Title };
+  }
+
+  /**
+   * The record manager request of a pointer field: for a child field its Add record gets the parent context
+   * (2026-11-20, the Add of the manager showed the orphan warning). A function: the manager is kept per field and
+   * this record may be saved (a new id) after the first Browse.
+   *
+   * @param {object} request
+   * @param {object} [field] Field of the edit form (`dty`).
+   * @returns {object}
+   */
+  _childRequest(request, field) {
+    if (!this._childContext(field?.dty)) return request;
+    return { ...request, parentContext: () => this._childContext(field.dty) };
+  }
+
   /** @returns {number} The parent chosen in the virtual field (0 for none). */
   _selectedParent() {
     return Number(this.editForm?.getStates().get('_parent')?.values?.[0]?.value) || 0;
@@ -1367,15 +1394,14 @@ export class HRecordEditor extends HBaseWidget {
       selectGeometry: this.options.selectGeometry,
       editRecord: this.options.editRecord,
       viewRecord: this.options.viewRecord,
-      browseRecords: (request, field) => field?.name === '_parent' ? this._browseParent() : this.options.browseRecords?.(request),
+      browseRecords: (request, field) => field?.name === '_parent' ? this._browseParent()
+        : this.options.browseRecords?.(this._childRequest(request, field)),
       // the record manager kept per field (2026-11-03); not for the parent (its own browse)
       createRecordBrowser: typeof this.options.createRecordBrowser === 'function'
-        ? (request, field) => (field?.name === '_parent' ? null : this.options.createRecordBrowser(request)) : undefined,
-      addRecord: typeof this.options.addRecord === 'function' ? (rectypeId, context) => {
-        const child = this.dbdefs?.field(this.rectypeId, context?.fieldId)?.createChild;
-        return this.options.addRecord(rectypeId, child ? { recordId: Number(this.record?.rec_ID) || 0,
-          rectypeId: this.rectypeId, fieldId: context.fieldId, title: this.record?.rec_Title } : null);
-      } : undefined,
+        ? (request, field) => (field?.name === '_parent' ? null : this.options.createRecordBrowser(this._childRequest(request, field)))
+        : undefined,
+      addRecord: typeof this.options.addRecord === 'function'
+        ? (rectypeId, context) => this.options.addRecord(rectypeId, this._childContext(context?.fieldId)) : undefined,
       fileUrl: this.options.fileUrl,
       editFile: this.options.editFile,
       fileViewer: this.options.fileViewer,

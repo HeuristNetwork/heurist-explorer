@@ -681,3 +681,24 @@ test('valueInLanguage (2026-11-14): the translation of the language, else the or
   assert.equal(valueInLanguage(['fre:Lieux'], 'eng'), 'Lieux', 'no original: the first value');
   assert.equal(valueInLanguage([], 'fre'), '');
 });
+
+test('Browse / Add of a child field: the record manager request carries the parent context (2026-11-20)', async () => {
+  const requests = [];
+  const added = [];
+  const childDefs = { ...dbdefs, field: (rty, dty) => (Number(dty) === 1105 ? { createChild: true } : {}) };
+  const { editor } = await openEditor({ options: {
+    dbdefs: childDefs,
+    browseRecords: async (request) => { requests.push(request); return null; },
+    addRecord: async (rectypeId, context) => { added.push([rectypeId, context]); return { saved: false }; }
+  } });
+  const options = editor.editForm.options;
+  await options.browseRecords({ recordTypes: [5] }, { dty: 1105 });
+  await options.browseRecords({ recordTypes: [5] }, { dty: 32 });
+  assert.equal(typeof requests[0].parentContext, 'function');
+  assert.deepEqual(requests[0].parentContext(), { recordId: 7, rectypeId: 29, fieldId: 1105, title: 'Main' });
+  assert.equal('parentContext' in requests[1], false);
+  await options.addRecord(5, { fieldId: 1105 });
+  await options.addRecord(5, { fieldId: 32 });
+  assert.deepEqual(added, [[5, { recordId: 7, rectypeId: 29, fieldId: 1105, title: 'Main' }], [5, null]]);
+  await editor.destroy();
+});

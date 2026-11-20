@@ -804,8 +804,11 @@ export class RecordEditorHost {
   }
 
   /** HRecordManager options of browseRecords / createRecordBrowser: the services of the host. */
-  async _managerOptions(options) {
+  async _managerOptions({ parentContext = null, ...options } = {}) {
     const dbdefs = await this.options.ensureDbDefs();
+    // a child field of a record (HRecordEditor, plan 26): its Add record makes a child of that record (2026-11-20); a
+    // function, read when a record is added
+    const childOf = () => (typeof parentContext === 'function' ? parentContext() : parentContext) || null;
     // registered files (/files, plan 20): edited with editFile, added by Upload / Tile stack / URL
     const fileType = Number(dbdefs?.dbconst?.('RT_REGISTERED_FILE')) || 0;
     const types = (options.recordTypes || []).map(Number).filter((id) => id > 0);
@@ -816,7 +819,7 @@ export class RecordEditorHost {
       ...(files && this.options.isLoggedIn() ? { addActions: this._fileAddActions(dbdefs) } : {}),
       apiClient: this.options.apiClient,
       dbdefs,
-      addRecord: (rectypeId) => this.addRecord(rectypeId),
+      addRecord: (rectypeId) => this.addRecord(rectypeId, { parentContext: childOf() }),
       // null = any type (the Add record dialog)
       canAddRecordType: (rectypeId) => (rectypeId == null ? this.options.isLoggedIn() : this.canEditRecordType(rectypeId)),
       // a relationship record of the relations mode keeps its field's constraints (plan 24)

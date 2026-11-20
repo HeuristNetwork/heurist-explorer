@@ -232,3 +232,24 @@ test('a failed open frees the record (2026-11-06)', async () => {
   fail = false;
   assert.equal((await host.editRecord(5)).recordId, 5);
 });
+
+test('record manager of a child field: its Add record makes a child of the record (2026-11-20)', async () => {
+  const host = new RecordEditorHost({
+    apiClient: { get: async () => ({}), request: async () => ({}) },
+    getDbDefs: () => dbdefs,
+    ensureDbDefs: async () => dbdefs,
+    getBridge: () => null,
+    isLoggedIn: () => true
+  });
+  const calls = [];
+  host.addRecord = async (rectypeId, options) => { calls.push([rectypeId, options]); return { saved: false }; };
+  let recordId = 0;
+  const options = await host._managerOptions({ recordTypes: [5], parentContext: () => ({ recordId, rectypeId: 10, fieldId: 20 }) });
+  assert.equal('parentContext' in options, false);
+  // the parent was saved after the manager was made: the context is read when a record is added
+  recordId = 100;
+  await options.addRecord(5);
+  const plain = await host._managerOptions({ recordTypes: [5] });
+  await plain.addRecord(5);
+  assert.deepEqual(calls, [[5, { parentContext: { recordId: 100, rectypeId: 10, fieldId: 20 } }], [5, { parentContext: null }]]);
+});

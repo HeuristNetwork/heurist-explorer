@@ -4,6 +4,13 @@ Status of the open development plans: what is done, committed, checked in a brow
 `CLAUDE.md` on 2026-11-18. The Status line at the top of each plan in this folder is the source; update both when a plan
 changes. Newest first.
 
+**Fix 2026-11-20: child record added from its parent** (plan 26 / plan 21; not committed, no browser check): the Add
+record of the record manager opened from a child pointer field (Browse → Add) had no parent context, so the child showed
+the orphan warning; choosing the same parent there wrote the parent on the server (`assignParent`) and the open parent
+editor then got the 409 "changed by someone else". Now `HRecordEditor._childRequest` gives the manager request a
+`parentContext` function and `RecordEditorHost._managerOptions` passes it to `addRecord`; the parent's own save links
+the child.
+
 **Explorer Base style settings** (agreed with Artem 2026-11-20, done 2026-11-20, not committed, no browser check; no plan
 file): Options menu item *Base style settings* after Configuration = the Base settings tab of the CMS Styles popup (moved
 to `shared/src/widgets/styles/baseSettingsForm.js`, the designer uses it), preview beside it. Stored in the browser per
