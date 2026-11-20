@@ -94,7 +94,7 @@ test('media form: a single element has one source, a typed caption and no presen
   const single = mediaFormFields({ single: true, mediaType: 5, fileType: 6 });
   // plan 27g §6: Any record has its own action with the links of the record and the Record page
   assert.deepEqual(names(gallery), ['mode', 'records', 'files', 'anyRecords', 'fileField', 'caption', 'width', 'height', 'action', 'recordAction',
-    'recordPage', 'savedFilter', 'presentation', 'duration', 'fade', 'navigation', 'fit']);
+    'recordPage', 'savedFilter', 'presentation', 'tabOrientation', 'tabStyle', 'duration', 'fade', 'navigation', 'fit']);
   assert.deepEqual(names(single), ['mode', 'records', 'files', 'anyRecords', 'fileField', 'captionText', 'width', 'height', 'align', 'action', 'recordAction',
     'recordPage', 'savedFilter']);
   const recordAction = single.find((field) => field.name === 'recordAction');
@@ -103,7 +103,10 @@ test('media form: a single element has one source, a typed caption and no presen
   assert.deepEqual(single.find((field) => field.name === 'savedFilter').showWhen, { mode: 'record', recordAction: 'savedFilter' });
   assert.deepEqual(recordAction.showWhen, { mode: 'record' });
   assert.deepEqual(single.find((field) => field.name === 'recordPage').showWhen, { mode: 'record', recordAction: 'recordPage' });
-  assert.deepEqual(single[0].terms.map((term) => term.id), ['media', 'files', 'record']);
+  // Source shown, Media record only for an element that has it (plan 27n1 §1)
+  assert.deepEqual(single[0].terms.map((term) => term.id), ['files', 'record']);
+  assert.equal(single[0].req, undefined, 'not an advanced setting');
+  assert.deepEqual(mediaFormFields({ single: true, mediaRecords: true })[0].terms.map((term) => term.id), ['media', 'files', 'record']);
   for (const [fields, max] of [[gallery, 0], [single, 1]]) {
     for (const field of fields.filter((item) => item.type === 'resource')) {
       assert.equal(field.max, max);

@@ -4,7 +4,8 @@
  *        server wrote into the host. Slideshow (`slider`): one element visible, fade, start / stop and `<< < > >>`.
  *        Carousel (`carousel`, plan 27e §29): one element visible, `< >` only, no rotation. Tabs (`tabs`, plan 27q1 §5):
  *        one element visible, a tab bar with the label of each element (`data-h-label`, else its first heading or
- *        caption). Option `onChange(index, element)`: the shown element changed (story map). `<<` and `>>` only from
+ *        caption); the shared tab set (createTabSet, prefix h-site, siteTabs.css) with the look of the Tabs element:
+ *        option `tabs: {orientation, style}` (plan 27n1 §2d), a strip that scrolls (§2e). Option `onChange(index, element)`: the shown element changed (story map). `<<` and `>>` only from
  *        NAV_ENDS_MIN elements. Action `url`:
  *        a click on a card opens its `data-h-url` in a new window. The action Player / Viewer is HMediaViewer, for the
  *        whole page: the class `h-slider-running` tells it that this host rotates. Option `design` (the CMS designer):
@@ -25,7 +26,10 @@
 
 import { HBaseWidget } from '../HBaseWidget.js';
 import { $HR } from '../../ui/i18n/HResource.js';
+import { createTabSet } from '../layout/tabs.js';
+import { cmsTabsLook } from '../../site/cmsEdit.js';
 import './HSlider.css';
+import './siteTabs.css';
 
 /** Defaults of the slider (ms). */
 export const SLIDER_DEFAULTS = Object.freeze({ duration: 4000, fade: 500, navigation: true });
@@ -52,14 +56,18 @@ export class HSlider extends HBaseWidget {
    * @param {boolean} [options.design=false] In the designer: the slider without rotation and actions.
    * @param {{duration?: number, fade?: number, navigation?: boolean, fit?: string}} [options.slider] Settings of the
    *        slider; `fit`: position of an image (contain, height, width, none, cover, fill).
+   * @param {{orientation?: string, style?: string}} [options.tabs] Look of the tabs (plan 27n1 §2d).
    * @returns {HSlider}
    */
   attach(container, options = {}) {
     super.attach(container, options);
-    this.items = [...container.children].filter((item) => !item.classList.contains('h-slider-nav') && !item.classList.contains('h-slider-tabbar'));
+    this.items = [...container.children].filter((item) => !item.classList.contains('h-slider-nav')
+      && !item.classList.contains('h-site-tab-strip'));
     this.index = 0;
     this.timer = null;
     this.tabs = null;
+    this.tabSet = null;
+    this._selecting = false;
     this._changed = false;
     this.slider = { ...SLIDER_DEFAULTS, ...(options.slider || {}) };
     return this;
@@ -93,13 +101,13 @@ export class HSlider extends HBaseWidget {
       const active = position === this.index;
       item.classList.toggle('is-active', active);
       item.setAttribute('aria-hidden', String(!active));
-      const tab = this.tabs?.[position];
-      if (tab) {
-        tab.classList.toggle('is-active', active);
-        tab.setAttribute('aria-selected', String(active));
-        tab.tabIndex = active ? 0 : -1;
-      }
     });
+    if (this.tabSet) {
+      // the tab set shows the panel; its onSelect is not a choice of the visitor here
+      this._selecting = true;
+      this.tabSet.select(this.index);
+      this._selecting = false;
+    }
     if (previous !== this.index || !this._changed) {
       this._changed = true;
       this.options.onChange?.(this.index, this.items[this.index]);
@@ -137,6 +145,7 @@ export class HSlider extends HBaseWidget {
   /** @returns {Promise<void>} Completion after the timer is removed. */
   async destroy() {
     this.stop();
+    this.tabSet?.destroy();
     await super.destroy();
   }
 
@@ -158,17 +167,18 @@ export class HSlider extends HBaseWidget {
   /** The slides, the navigation and the start. */
   _slider() {
     const host = this.container;
+    if (this.options.presentation === 'tabs') {
+      this._tabSet();
+      this.show(Number(this.options.start) || 0);
+      return;
+    }
     host.classList.add('h-slider');
     host.style.setProperty('--h-slider-fade', `${Math.max(0, Number(this.slider.fade) || 0)}ms`);
     if (this.slider.fit) host.setAttribute('data-h-fit', this.slider.fit);
     for (const item of this.items) item.classList.add('h-slider-item');
-    if (this.options.presentation === 'tabs') {
-      host.classList.add('h-slider-tabs');
-      host.prepend(this._tabBar());
-    }
     this.show(Number(this.options.start) || 0);
-    // a carousel moves only by its buttons, tabs by the tabs
-    if (this.options.presentation !== 'tabs' && (this.slider.navigation !== false || !this._rotates()) && this.items.length > 1) {
+    // a carousel moves only by its buttons
+    if ((this.slider.navigation !== false || !this._rotates()) && this.items.length > 1) {
       host.append(this._navigation());
     }
     // no automatic movement in the designer and for visitors who asked for reduced motion
@@ -202,30 +212,27 @@ export class HSlider extends HBaseWidget {
     return bar;
   }
 
-  /** A tab per element (role tablist; arrow keys move between the tabs). */
-  _tabBar() {
-    const bar = document.createElement('div');
-    bar.className = 'h-slider-tabbar';
-    bar.setAttribute('role', 'tablist');
-    this.tabs = this.items.map((item, position) => {
-      const tab = document.createElement('button');
-      tab.type = 'button';
-      tab.className = 'h-slider-tab';
-      tab.setAttribute('role', 'tab');
-      tab.textContent = HSlider.label(item, position);
-      item.setAttribute('role', 'tabpanel');
-      this.listen(tab, 'click', () => this._go(position));
-      this.listen(tab, 'keydown', (event) => {
-        const step = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[event.key];
-        if (!step) return;
-        event.preventDefault();
-        this._go(this.index + step);
-        this.tabs[this.index]?.focus();
-      });
-      bar.append(tab);
-      return tab;
+  /**
+   * A tab per element: the shared tab set with the look of the Tabs element (orientation, style), arrow keys, a strip that
+   * scrolls when the tabs do not fit (plan 27n1 §2d-e).
+   */
+  _tabSet() {
+    const host = this.container;
+    const look = cmsTabsLook(this.options.tabs);
+    host.classList.add('h-slider-tabs');
+    if (look.orientation === 'vertical') host.setAttribute('data-h-orientation', 'vertical');
+    if (look.style !== 'tabs') host.setAttribute('data-h-item-style', look.style);
+    this.tabSet = createTabSet({
+      prefix: 'h-site',
+      element: host,
+      listen: (target, type, handler) => this.listen(target, type, handler),
+      scroll: true,
+      onSelect: (index) => {
+        if (!this._selecting) this._go(index);
+      }
     });
-    return bar;
+    this.items.forEach((item, position) => this.tabSet.add(HSlider.label(item, position), item));
+    this.tabs = this.tabSet.tabs;
   }
 
   /** The visitor chose a slide: the automatic change stops. */

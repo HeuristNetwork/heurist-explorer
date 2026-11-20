@@ -698,3 +698,14 @@
 #Collapse all actions#Collapse all actions
 #Show advanced settings#Show advanced settings
 #Hide advanced settings#Hide advanced settings
+#Copy the query of a query source#Copy the query of a query source
+#Nothing found#Nothing found
+#There is no query source to copy#There is no query source to copy
+#Write a query or copy one with the arrow#Write a query or copy one with the arrow
+#A query without parameters#A query without parameters
+#The link opens the target page with the records of the query source or saved filter.#The link opens the target page with the records of the query source or saved filter.
+#Set some or all values of the chosen filter in advance. Type a fixed value, or pick a field of the record: each record then fills in its own value. Values left empty: Explorer asks for them, other modules leave them out.#Set some or all values of the chosen filter in advance. Type a fixed value, or pick a field of the record: each record then fills in its own value. Values left empty: Explorer asks for them, other modules leave them out.
+#Set some or all values of the chosen filter in advance. Values left empty: Explorer asks for them, other modules leave them out.#Set some or all values of the chosen filter in advance. Values left empty: Explorer asks for them, other modules leave them out.
+#Value#Value
+#Or from the record#Or from the record
+#Carousel#Carousel

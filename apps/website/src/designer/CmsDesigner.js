@@ -26,7 +26,7 @@ import { $HR, HMsg, InlineHelp } from '#shared/ui';
 import { HCardinalLayout } from '#shared/widgets/layout/HCardinalLayout.js';
 import { HTree } from '#shared/widgets/tree/HTree.js';
 import { createTabSet } from '#shared/widgets/layout/tabs.js';
-import { CMS_ELEMENTS, CMS_PAGE_PRESETS, CMS_TEAM_TEMPLATE, cmsPageStarter } from '#shared/site/cmsEdit.js';
+import { CMS_CONTROLS, CMS_ELEMENTS, CMS_PAGE_PRESETS, CMS_TEAM_TEMPLATE, cmsPageStarter } from '#shared/site/cmsEdit.js';
 import { CMS_NAME } from '#shared/site/cmsDocument.js';
 import { buildTemplatePage, CMS_TEMPLATE_ELEMENTS } from '#shared/site/cmsPageTemplates.js';
 import { normalizeRecordLimits } from '#shared/recordview/recordLimits.js';
@@ -53,13 +53,12 @@ import { cmsFilterHref } from '#shared/site/cmsSavedFilter.js';
 import { QuerySource } from '#shared/data/QuerySource.js';
 import { savedFilterRecord } from '#shared/data/savedFilters.js';
 import { hasQueryParameters } from '#shared/data/queryParameters.js';
-import { valueInLanguage } from '#shared/data/recordEditValues.js';
 import { cmsInstanceRecords } from '#shared/site/cmsRecords.js';
 import { CMS_WEBSITE_FILTERS_GROUP, resolveCmsFilterItem } from '#shared/site/cmsFilterWidget.js';
 import { LegacySavedFilterConverter } from '#shared/data/legacy/LegacySavedFilterConverter.js';
 import { QuerySourceProvider } from '#shared/data/QuerySourceProvider.js';
-import { RecordTypeProvider } from '#shared/data/RecordTypeProvider.js';
-import { ITEM_COLOR_LABELS, openActionMenuForm, openSocialForm, sitePageList } from './actionForms.js';
+import { listQuerySources } from '#shared/data/querySourceList.js';
+import { ITEM_COLOR_LABELS, TAB_STYLE_LABELS, openActionMenuForm, openSocialForm, sitePageList } from './actionForms.js';
 import { buildBadgesHtml, openBadgesForm } from './badgesForm.js';
 import {
   EXPLORER_MODULES, explorerModuleSettings, explorerModuleTypes, moduleItemId, parseModuleItemId, withExplorerModuleSettings
@@ -74,20 +73,6 @@ import {
 } from './designerDialogs.js';
 import './designer.css';
 
-/** The record type of query sources (RT_QUERY_SOURCE): its global concept code (Saved filter, plan 27j). */
-const QUERY_SOURCE_CONCEPT_CODE = '3-1021';
-/** DT_QUERY_STRING of a query source (QuerySourceManager of Explorer). */
-const QUERY_FIELD_CONCEPT_CODE = '2-12';
-
-/** Parsed JSON, or the text itself. */
-function parseJsonText(text) {
-  try {
-    return JSON.parse(text);
-  } catch {
-    return text;
-  }
-}
-
 /** Elements that are module instances: they get the website defaults of the module when added (review 2026-11-15). */
 const MODULE_ELEMENTS = Object.freeze(['explorer', 'data', 'map', 'timeline', 'graph', 'recordview']);
 
@@ -99,10 +84,6 @@ function instanceOfNode(doc, nodeId) {
 
 /** Media types the text editor inserts (Media of TinyMCE, 2026-11-14). */
 const TEXT_MEDIA_TYPES = Object.freeze(['image', 'video', 'audio', 'service']);
-
-/** Styles of tabs (plan 27k §3, CMS_TAB_STYLES): value, label. */
-const TAB_STYLE_LABELS = Object.freeze([['tabs', 'Tabs'], ['underline', 'Bottom border'], ['pills', 'Pills'], ['links', 'Links'],
-  ['buttons', 'Buttons'], ['outline', 'Outlined buttons']]);
 
 /**
  * Widgets whose configuration is in the element panel (plan 27n §6): `edit` an HEditForm with the sections (Reveal and
@@ -1349,8 +1330,12 @@ export class CmsDesigner {
     if (this.pageTopBar) this.partPane.append(this.pageTopBar);
     const host = element('div', 'h-cms-tree-host');
     this.partPane.append(host);
+    // groups, tabs and accordions collapse (plan 27n1 §5); kept when the tree is made again
+    const collapsed = this.partTree?.collapsed?.() || [];
     this.partTree = new HTree().attach(host, {
       items: this._partItems(),
+      collapsible: (item) => CMS_CONTROLS.includes(item.control),
+      collapsed,
       tools: (item) => this._nodeTools(item),
       canDrop: (dragId, targetId, position) => this._canDropNode(dragId, targetId, position),
       onDrop: this.readOnly ? null : (dragId, targetId, position) => this._dropNode(dragId, targetId, position),
@@ -1384,6 +1369,7 @@ export class CmsDesigner {
       id: item.id,
       label: item.fieldOnly ? this._fieldLabel(item.field) : item.label,
       icon: nodeIcon(item),
+      control: item.control || null,
       danger: Boolean(marked?.has(item.id)),
       badge: item.configured ? '' : $HR('not configured'),
       title: [item.kind, item.preset ? `${$HR('preset')}: ${item.preset}` : ''].filter(Boolean).join(' · '),
@@ -1583,6 +1569,8 @@ export class CmsDesigner {
     if (id && record && record.doc.find(id)?.part !== this.current.part) return;
     const changed = (id || null) !== this.selectedNode;
     this.selectedNode = id || null;
+    // an element chosen in the preview inside a collapsed group: the group opens
+    if (id) this.partTree?.expandTo(id);
     this.partTree?.select(id || ROOT);
     if (!fromPreview) this.preview?.reveal(id);
     this._renderProperties();
@@ -2033,26 +2021,10 @@ export class CmsDesigner {
    * @returns {Promise<Array<{id: number, title: string}>>}
    */
   _publicQuerySources() {
+    // the shared list (plan 27n1 §4): public ones only, visitors read them
     this._querySources ||= (async () => {
-      const typeId = await new RecordTypeProvider({ apiClient: this.apiClient }).getIdByConceptCode(QUERY_SOURCE_CONCEPT_CODE);
-      if (!typeId) return [];
-      // the query too: whether it has parameters (plan 27l §11.3)
-      const queryField = Number(this.options.dbdefs?.localId?.('dty', QUERY_FIELD_CONCEPT_CODE)) || 0;
-      // the caption: its name (DT_NAME, the value without a language), not the record title (2026-11-16)
-      const nameField = Number(this.options.dbdefs?.dbconst?.('DT_NAME')) || 0;
-      const answer = await this.apiClient.get('/records/', {
-        query: { q: [{ t: String(typeId) }, { access: 'public' }], fields: ['rec_ID', 'rec_Title', queryField, nameField].filter(Boolean).join(','),
-          limit: 1000 }
-      });
-      const title = (record) => valueInLanguage([record.details?.[nameField]].flat().filter((value) => value != null), '')
-        || String(record.rec_Title ?? '').replace(/<[^>]*>/g, '').trim() || `#${record.rec_ID}`;
-      const query = (record) => {
-        const value = [record.details?.[queryField]].flat()[0];
-        return value == null ? '' : String(typeof value === 'object' ? value.value ?? '' : value);
-      };
-      return (answer?.records || []).map((record) => ({ id: Number(record.rec_ID), title: title(record),
-        parameterized: hasQueryParameters(parseJsonText(query(record))) }))
-        .sort((a, b) => a.title.localeCompare(b.title));
+      const list = await listQuerySources({ apiClient: this.apiClient, dbdefs: this.options.dbdefs, publicOnly: true });
+      return list.map(({ id, title, parameterized }) => ({ id, title, parameterized }));
     })().catch((error) => {
       this._querySources = null;
       throw error;
@@ -3040,7 +3012,6 @@ export class CmsDesigner {
       instance,
       instances: page.instances,
       sources: page.sources,
-      choices: ['explorer', 'recordview'].includes(instance.type) ? [] : await this._ownSourceChoices(),
       services: this._formServices(),
       apiClient: this.apiClient,
       dbdefs: this.options.dbdefs,
@@ -3161,20 +3132,6 @@ export class CmsDesigner {
       }
     }
     return { instances, sources };
-  }
-
-  /**
-   * The own records a module may have (plan 27l §11.3): saved filters of "Website filters" and public query sources,
-   * without parameters (a module has no Filter Form for them).
-   *
-   * @returns {Promise<Array<{key: string, title: string, kind: 'source'|'filter'}>>}
-   */
-  async _ownSourceChoices() {
-    const [filters, sources] = await Promise.all([this._websiteSavedFilters().catch(() => []), this._publicQuerySources().catch(() => [])]);
-    return [
-      ...filters.filter((item) => !item.parameterized).map((item) => ({ key: `filter:${item.id}`, title: item.title, kind: 'filter' })),
-      ...sources.filter((item) => !item.parameterized).map((item) => ({ key: `source:${item.id}`, title: item.title, kind: 'source' }))
-    ];
   }
 
   /**
@@ -3327,13 +3284,13 @@ export class CmsDesigner {
   }
 
   /**
-   * The own style in the form (plan 27i §10): every change at once; a group may have a background video. Simple without
-   * Show advanced settings of the panel (review 27n §21).
+   * The own style in the form (plan 27i §10): every change at once; a group may have a background video. Simple; its own
+   * Advanced styles button shows all (plan 27n1 §7: it does not follow Show advanced settings of the panel any more).
    */
   _styleSection(host, id, context = null) {
     const record = this._currentRecord();
-    const simple = context?.advanced !== true;
-    const follow = (editor) => context?.onAdvanced?.((shown) => editor.setSimple(!shown));
+    const simple = true;
+    const follow = (editor) => editor;
     const base = Object.assign({}, ...this._styleRecords().map((item) => item.doc.base()));
     const part = this.current?.part;
     if (id === ROOT && (part === 'header' || part === 'footer')) {

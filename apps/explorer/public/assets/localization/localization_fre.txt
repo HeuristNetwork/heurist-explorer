@@ -1382,3 +1382,8 @@
 #Restore#Restaurer
 #Stop the running search#Arrêter la recherche en cours
 #Records and selection#Fiches et sélection
+#Copy the query of a query source#Copier la requête d'une source de requête
+#filter#filtre
+#Nothing found#Rien trouvé
+#There is no query source to copy#Aucune source de requête à copier
+#Initial set#Ensemble initial

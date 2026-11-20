@@ -114,6 +114,8 @@ export class HFilterForm extends HBaseWidget {
         if (config.default != null && config.default !== '' && !parameter.range) this.defaults[id] = config.default;
         const host = document.createElement('div');
         host.className = 'h-filter-form-field';
+        // the parameter of the field: a host can put its own control beside it (Saved filter dialog, plan 27n1 §3)
+        host.dataset.hParam = id;
         const presentation = this._presentation(id, parameter, config, layout);
         const settings = layout.settings || {};
         const widget = createHInput(presentation.type, host, {

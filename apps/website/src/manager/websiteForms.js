@@ -17,6 +17,8 @@
 import { $HR, HMsg } from '#shared/ui';
 import { hasQueryParameters } from '#shared/data/queryParameters.js';
 import { openEditFormDialog } from '#shared/widgets/edit-form/editFormDialog.js';
+import { querySourceAction } from '#shared/widgets/edit-form/querySourceChooser.js';
+import { listQuerySources } from '#shared/data/querySourceList.js';
 import { createWebsiteFieldsForm } from './websiteFields.js';
 
 const DIALOG_ID = 'h-website-dialog';
@@ -365,19 +367,29 @@ export async function openGenerateForm({ languages = [], recordPages = [], previ
   return answer ? generateOptions(answer.values, codes) : null;
 }
 
-/** The query field of a record page: the Filter Builder from its icon (as the query of Record cards). */
+/**
+ * The query field of a record page: the Filter Builder from Edit (as the query of Record cards), ▾ copies the query of a
+ * query source without parameters (plan 27n1 §4, by value).
+ */
 function querySpecial(services) {
+  const edit = typeof services.editQuery === 'function' ? async (value) => {
+    const result = await services.editQuery(generateQuery(value) || [], null, { allowParameters: false });
+    return result?.query ? JSON.stringify(result.query) : undefined;
+  } : undefined;
+  const actions = edit ? [{ label: 'Edit', icon: 'fa-sliders', title: 'Open the Filter Builder', primary: true, run: edit }] : [];
+  if (services.apiClient) {
+    actions.push(querySourceAction({
+      list: () => listQuerySources({ apiClient: services.apiClient, dbdefs: services.dbdefs }),
+      definition: async (item) => item,
+      apply: (item) => (typeof item.query === 'string' ? item.query : JSON.stringify(item.query ?? []))
+    }));
+  }
   return {
     json: false,
-    icon: 'fa-sliders',
-    title: 'Open the Filter Builder',
     describe: (value) => {
       const query = generateQuery(value);
       return query && typeof services.describeQuery === 'function' ? services.describeQuery(query) || '' : '';
     },
-    edit: typeof services.editQuery === 'function' ? async (value) => {
-      const result = await services.editQuery(generateQuery(value) || [], null, { allowParameters: false });
-      return result?.query ? JSON.stringify(result.query) : undefined;
-    } : undefined
+    actions
   };
 }

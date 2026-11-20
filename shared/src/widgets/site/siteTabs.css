@@ -1,0 +1,279 @@
+/**
+ * @file siteTabs.css
+ * @brief Tabs of the website (createTabSet, prefix h-site): the Tabs element (data-h-control="tabs"), the tabs of Record
+ *        cards and Media gallery and of the story map (HSlider, plan 27n1 §2d). Styles `data-h-item-style`, colours
+ *        `data-h-colors`, orientation `data-h-orientation`; a strip that does not fit scrolls with ‹ › (§2e). Moved from
+ *        apps/website/src/style.css.
+ *
+ * @project     Heurist academic knowledge management system
+ * @package     heurist-shared
+ * @license     https://www.gnu.org/licenses/gpl-3.0.txt GNU License 3.0
+ * @since       8.0
+ */
+
+/* tabs (data-h-control="tabs"): the first heading of a panel is its tab */
+.h-site-tab-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  border-bottom: 1px solid var(--h-color-border);
+}
+
+.h-site-tab {
+  padding: 8px 14px;
+  border: 1px solid transparent;
+  border-bottom: none;
+  border-radius: var(--h-radius) var(--h-radius) 0 0;
+  background: none;
+  color: var(--h-color-text);
+  font: inherit;
+  cursor: pointer;
+}
+
+.h-site-tab:hover {
+  background: var(--h-color-surface);
+}
+
+.h-site-tab.is-active {
+  border-color: var(--h-color-border);
+  background: var(--h-color-bg);
+  color: var(--h-color-primary);
+  margin-bottom: -1px;
+}
+
+.h-site-tabs > .h-site-tab-panel > .h-site-tab-heading {
+  display: none;
+}
+
+.h-site-tab-panel {
+  padding: 1em 0;
+}
+
+/* styles of tabs (plan 27k §3, data-h-item-style; the item styles of the menus): without the attribute the tabs above */
+.h-site-tabs[data-h-item-style] > .h-site-tab-strip {
+  gap: 6px;
+  border-bottom: none;
+}
+
+.h-site-tabs[data-h-item-style] > .h-site-tab-strip > .h-site-tab {
+  margin: 0;
+  border: 1px solid transparent;
+  border-radius: var(--h-radius);
+}
+
+.h-site-tabs[data-h-item-style="underline"] > .h-site-tab-strip {
+  gap: 2px;
+  border-bottom: 1px solid var(--h-color-border);
+}
+
+.h-site-tabs[data-h-item-style="underline"] > .h-site-tab-strip > .h-site-tab {
+  margin-bottom: -1px;
+  border-width: 0 0 2px;
+  border-radius: 0;
+  background: none;
+}
+
+.h-site-tabs[data-h-item-style="underline"] > .h-site-tab-strip > .h-site-tab:hover {
+  border-bottom-color: var(--h-color-border);
+}
+
+.h-site-tabs[data-h-item-style="underline"] > .h-site-tab-strip > .h-site-tab.is-active {
+  border-bottom-color: var(--h-color-primary);
+  color: var(--h-color-primary);
+}
+
+.h-site-tabs[data-h-item-style="pills"] > .h-site-tab-strip > .h-site-tab {
+  border-radius: 999px;
+}
+
+.h-site-tabs[data-h-item-style="pills"] > .h-site-tab-strip > .h-site-tab.is-active,
+.h-site-tabs[data-h-item-style="outline"] > .h-site-tab-strip > .h-site-tab.is-active {
+  border-color: var(--h-color-primary);
+  background: var(--h-color-primary);
+  color: var(--h-color-primary-text, #fff);
+}
+
+.h-site-tabs[data-h-item-style="links"] > .h-site-tab-strip > .h-site-tab {
+  background: none;
+  text-decoration: underline;
+}
+
+.h-site-tabs[data-h-item-style="links"] > .h-site-tab-strip > .h-site-tab.is-active {
+  font-weight: bold;
+  text-decoration: none;
+}
+
+.h-site-tabs[data-h-item-style="buttons"] > .h-site-tab-strip > .h-site-tab {
+  border-color: var(--h-color-primary);
+  background: var(--h-color-primary);
+  color: var(--h-color-primary-text, #fff);
+  opacity: 0.75;
+}
+
+.h-site-tabs[data-h-item-style="buttons"] > .h-site-tab-strip > .h-site-tab:is(:hover, .is-active) {
+  opacity: 1;
+}
+
+.h-site-tabs[data-h-item-style="buttons"] > .h-site-tab-strip > .h-site-tab.is-active {
+  font-weight: bold;
+}
+
+.h-site-tabs[data-h-item-style="outline"] > .h-site-tab-strip > .h-site-tab {
+  border-color: currentColor;
+}
+
+/* colours of the tabs (plan 27n §7, data-h-colors; as the menus): inverted = the text and background colours of the site
+   swapped (tabs over a banner), own = the item colours of the Own style; only the tab strip, not the panels */
+.h-site-tabs[data-h-colors="inverted"] {
+  --h-item-text: var(--h-color-bg);
+  --h-item-accent: var(--h-color-bg);
+  --h-item-accent-text: var(--h-color-text);
+}
+
+.h-site-tabs[data-h-colors] {
+  --h-items-text: var(--h-item-text, var(--h-color-text));
+  --h-items-accent: var(--h-item-accent, var(--h-color-primary));
+  --h-items-accent-text: var(--h-item-accent-text, var(--h-color-primary-text, #fff));
+}
+
+.h-site-tabs[data-h-colors] > .h-site-tab-strip {
+  --h-color-text: var(--h-items-text);
+  --h-color-primary: var(--h-items-accent);
+  --h-color-primary-text: var(--h-items-accent-text);
+  --h-color-surface: color-mix(in srgb, var(--h-items-text) 12%, transparent);
+  --h-color-border: color-mix(in srgb, var(--h-items-text) 35%, transparent);
+  color: var(--h-items-text);
+}
+
+.h-site-tabs[data-h-colors] > .h-site-tab-strip > .h-site-tab:not(.is-active) {
+  background: transparent;
+}
+
+/* the default style: the active tab filled with the accent */
+.h-site-tabs[data-h-colors]:not([data-h-item-style]) > .h-site-tab-strip > .h-site-tab.is-active {
+  background: var(--h-color-primary);
+  color: var(--h-color-primary-text);
+}
+
+/* too many tabs for one line (plan 27n1 §2e): the strip scrolls, ‹ › at its edges while the tabs do not fit */
+.h-site-tab-strip.is-scrolling {
+  position: relative;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.h-site-tab-strip.is-scrolling::-webkit-scrollbar {
+  display: none;
+}
+
+.h-site-tab-strip.is-scrolling > .h-site-tab {
+  flex: none;
+  white-space: nowrap;
+}
+
+.h-site-tab-scroll {
+  position: sticky;
+  z-index: 1;
+  flex: none;
+  padding: 0 8px;
+  border: none;
+  background: var(--h-color-bg);
+  color: var(--h-color-text);
+  font: inherit;
+  font-size: var(--h-font-size-icon);
+  cursor: pointer;
+}
+
+.h-site-tab-scroll.is-prev {
+  left: 0;
+  box-shadow: 4px 0 6px -4px rgb(0 0 0 / 30%);
+}
+
+.h-site-tab-scroll.is-next {
+  right: 0;
+  margin-left: auto;
+  box-shadow: -4px 0 6px -4px rgb(0 0 0 / 30%);
+}
+
+.h-site-tab-scroll[hidden] {
+  display: none;
+}
+
+/* vertical tabs (plan 27k §3, data-h-orientation): the tabs a column on the left, the panel on the right, from 641 px;
+   on narrower screens the tabs above */
+@media (min-width: 641px) {
+  .h-site-tabs[data-h-orientation="vertical"] {
+    display: grid;
+    /* at most a third of the width (plan 27n1 §2f); a longer caption is cut */
+    grid-template-columns: minmax(8em, fit-content(33%)) minmax(0, 1fr);
+    align-items: start;
+    column-gap: 1.5em;
+  }
+
+  .h-site-tabs[data-h-orientation="vertical"] > .h-site-tab-strip {
+    grid-column: 1;
+    grid-row: 1;
+    flex-direction: column;
+    flex-wrap: nowrap;
+    align-items: stretch;
+  }
+
+  .h-site-tabs[data-h-orientation="vertical"] > .h-site-tab-panel {
+    grid-column: 2;
+    grid-row: 1;
+    padding-top: 0;
+  }
+
+  .h-site-tabs[data-h-orientation="vertical"] > .h-site-tab-strip > .h-site-tab {
+    overflow: hidden;
+    text-align: left;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* a column does not scroll sideways */
+  .h-site-tabs[data-h-orientation="vertical"] > .h-site-tab-strip.is-scrolling {
+    overflow: visible;
+  }
+
+  .h-site-tabs[data-h-orientation="vertical"] > .h-site-tab-strip > .h-site-tab-scroll {
+    display: none;
+  }
+
+  /* the default style: a line on the right of the tabs, the active tab open towards its panel */
+  .h-site-tabs[data-h-orientation="vertical"]:not([data-h-item-style]) > .h-site-tab-strip {
+    border-right: 1px solid var(--h-color-border);
+    border-bottom: none;
+  }
+
+  .h-site-tabs[data-h-orientation="vertical"]:not([data-h-item-style]) > .h-site-tab-strip > .h-site-tab {
+    border: 1px solid transparent;
+    border-right: none;
+    border-radius: var(--h-radius) 0 0 var(--h-radius);
+  }
+
+  .h-site-tabs[data-h-orientation="vertical"]:not([data-h-item-style]) > .h-site-tab-strip > .h-site-tab.is-active {
+    margin: 0 -1px 0 0;
+    border-color: var(--h-color-border);
+  }
+
+  /* underline: the line on the right */
+  .h-site-tabs[data-h-orientation="vertical"][data-h-item-style="underline"] > .h-site-tab-strip {
+    border-right: 1px solid var(--h-color-border);
+    border-bottom: none;
+  }
+
+  .h-site-tabs[data-h-orientation="vertical"][data-h-item-style="underline"] > .h-site-tab-strip > .h-site-tab {
+    margin: 0 -1px 0 0;
+    border-width: 0 2px 0 0;
+  }
+
+  .h-site-tabs[data-h-orientation="vertical"][data-h-item-style="underline"] > .h-site-tab-strip > .h-site-tab:hover {
+    border-right-color: var(--h-color-border);
+  }
+
+  .h-site-tabs[data-h-orientation="vertical"][data-h-item-style="underline"] > .h-site-tab-strip > .h-site-tab.is-active {
+    border-right-color: var(--h-color-primary);
+  }
+}

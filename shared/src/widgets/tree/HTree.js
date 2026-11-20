@@ -16,7 +16,9 @@
  *   }).render();
  *   tree.setItems(items); tree.select(id); tree.highlight(id);
  *
- * Keyboard: Up / Down move the selection, Home / End, Enter selects (onSelect).
+ * Keyboard: Up / Down move the selection, Home / End, Enter selects (onSelect). Option `collapsible(item)` (plan 27n1 §5):
+ * such items with children get a chevron that collapses them; Left / Right collapse / expand the selected item; the set of
+ * collapsed ids is kept across setItems() (`collapsed()` reads it, `expandTo(id)` opens the parents of an item).
  *
  * @project     Heurist academic knowledge management system
  * @package     heurist-client-core
@@ -51,11 +53,14 @@ export class HTree extends HBaseWidget {
    *        (to show something next to it).
    * @param {(id: string) => void} [options.onActivate] Double click on an item (not on its tools).
    * @param {string} [options.emptyText] Shown without items.
+   * @param {(item: object) => boolean} [options.collapsible] Items (with children) that can be collapsed.
+   * @param {Iterable<string>} [options.collapsed] Ids collapsed at start.
    * @returns {HTree}
    */
   attach(container, options = {}) {
     super.attach(container, options);
     this.items = Array.isArray(options.items) ? options.items : [];
+    this._collapsed = new Set(options.collapsed || []);
     this.selectedId = null;
     this.highlightedId = null;
     this._dragId = null;
@@ -76,8 +81,12 @@ export class HTree extends HBaseWidget {
       event.stopPropagation();
       this.options.onTool?.(button.dataset.action, button.closest('.h-tree-row').dataset.id, button);
     });
+    this.delegate(this.root, 'click', '.h-tree-toggle', (event, button) => {
+      event.stopPropagation();
+      this.toggle(button.closest('.h-tree-row').dataset.id);
+    });
     this.delegate(this.root, 'click', '.h-tree-row', (event, row) => {
-      if (!event.target?.closest?.('.h-tree-tool')) this._choose(row.dataset.id);
+      if (!event.target?.closest?.('.h-tree-tool, .h-tree-toggle')) this._choose(row.dataset.id);
     });
     this.delegate(this.root, 'dblclick', '.h-tree-row', (event, row) => {
       if (!event.target?.closest?.('.h-tree-tool')) this.options.onActivate?.(row.dataset.id);
@@ -115,6 +124,44 @@ export class HTree extends HBaseWidget {
     if (this.root) this._draw();
   }
 
+  /**
+   * Collapse or expand an item.
+   *
+   * @param {string} id
+   * @param {boolean} [collapse] Default: the other state.
+   */
+  toggle(id, collapse = !this._collapsed.has(id)) {
+    if (collapse === this._collapsed.has(id)) return;
+    if (collapse) this._collapsed.add(id); else this._collapsed.delete(id);
+    if (this.root) this._draw();
+  }
+
+  /** @returns {string[]} The ids of the collapsed items. */
+  collapsed() {
+    return [...this._collapsed];
+  }
+
+  /**
+   * Expand the parents of an item (an item chosen in the preview); redrawn when one was collapsed.
+   *
+   * @param {string} id
+   */
+  expandTo(id) {
+    const path = [];
+    const visit = (items, parents) => items.some((item) => {
+      if (item.id === id) {
+        path.push(...parents);
+        return true;
+      }
+      return visit(item.children || [], [...parents, item.id]);
+    });
+    visit(this.items, []);
+    const closed = path.filter((parent) => this._collapsed.has(parent));
+    if (!closed.length) return;
+    for (const parent of closed) this._collapsed.delete(parent);
+    if (this.root) this._draw();
+  }
+
   /** Mark an item as selected (no onSelect). */
   select(id) {
     this.selectedId = id ?? null;
@@ -141,6 +188,29 @@ export class HTree extends HBaseWidget {
     return ids;
   }
 
+  /** Ids of the shown items (not inside a collapsed item), in display order. */
+  shownIds() {
+    const ids = [];
+    const visit = (items) => {
+      for (const item of items) {
+        ids.push(item.id);
+        if (!this._isCollapsed(item)) visit(item.children || []);
+      }
+    };
+    visit(this.items);
+    return ids;
+  }
+
+  /** Whether an item can collapse (option `collapsible`, with children). */
+  _canCollapse(item) {
+    return Boolean(item.children?.length) && typeof this.options.collapsible === 'function' && this.options.collapsible(item) === true;
+  }
+
+  /** Whether the children of an item are hidden. */
+  _isCollapsed(item) {
+    return this._collapsed.has(item.id) && this._canCollapse(item);
+  }
+
   _draw() {
     this.root.replaceChildren();
     if (!this.items.length) {
@@ -164,7 +234,7 @@ export class HTree extends HBaseWidget {
       entry.className = 'h-tree-item';
       entry.setAttribute('role', 'none');
       entry.append(this._rowOf(item, depth));
-      if (item.children?.length) entry.append(this._list(item.children, depth + 1));
+      if (item.children?.length && !this._isCollapsed(item)) entry.append(this._list(item.children, depth + 1));
       list.append(entry);
     }
     return list;
@@ -178,6 +248,25 @@ export class HTree extends HBaseWidget {
     row.style.paddingLeft = `${4 + depth * 14}px`;
     if (item.draggable !== false && this.options.onDrop) row.draggable = true;
     if (item.title) row.title = item.title;
+    // the chevron of a collapsible item; other rows keep its place (aligned icons)
+    if (typeof this.options.collapsible === 'function') {
+      const can = this._canCollapse(item);
+      const toggle = document.createElement(can ? 'button' : 'span');
+      toggle.className = can ? 'h-tree-toggle' : 'h-tree-toggle is-empty';
+      if (can) {
+        const collapsed = this._collapsed.has(item.id);
+        toggle.type = 'button';
+        toggle.tabIndex = -1;
+        toggle.title = collapsed ? 'Expand' : 'Collapse';
+        toggle.setAttribute('aria-label', toggle.title);
+        row.setAttribute('aria-expanded', String(!collapsed));
+        const icon = document.createElement('i');
+        icon.className = `fa-solid ${collapsed ? 'fa-caret-right' : 'fa-caret-down'}`;
+        icon.setAttribute('aria-hidden', 'true');
+        toggle.append(icon);
+      }
+      row.append(toggle);
+    }
     if (item.icon) {
       const icon = document.createElement('i');
       icon.className = `h-tree-icon fa-solid ${item.icon}`;
@@ -234,9 +323,16 @@ export class HTree extends HBaseWidget {
   }
 
   _key(event) {
-    const ids = this.ids();
+    const ids = this.shownIds();
     if (!ids.length) return;
     const index = ids.indexOf(this.selectedId);
+    // Left / Right: collapse / expand the selected item
+    const selected = this.selectedId ? this._find(this.selectedId) : null;
+    if ((event.key === 'ArrowLeft' || event.key === 'ArrowRight') && selected && this._canCollapse(selected)) {
+      event.preventDefault();
+      this.toggle(selected.id, event.key === 'ArrowLeft');
+      return;
+    }
     let next = null;
     if (event.key === 'ArrowDown') next = ids[Math.min(ids.length - 1, index + 1)];
     else if (event.key === 'ArrowUp') next = ids[Math.max(0, index - 1)];

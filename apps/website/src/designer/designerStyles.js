@@ -878,8 +878,8 @@ function isColorProperty(property) {
  *        own choice; null = the choice of the session. `video`: the background video of a group (the key of a
  *        registered file, '' none; null: not offered), a Video input in the Background section (plan 27i §9 D).
  *        `headExtra`: an element (or a list) of the caller beside the preset selector (with `presets` only).
- *        `simple`: the simple form of the element panel (review 27n §21): the Normal screen only, no Advanced button,
- *        no section or field marked `advanced`; `setSimple` switches it.
+ *        `simple`: the simple form of the element panel (review 27n §21): the Normal screen only, no section or field
+ *        marked `advanced`; the Advanced button is always there and shows all of it (plan 27n1 §7); `setSimple` switches it.
  * @returns {{value: () => object, preset: () => string|null, cssClass: () => string|null, video: () => string,
  *          setSimple: (simple: boolean) => void}} `cssClass`: null while it has characters that are not allowed.
  */
@@ -891,9 +891,9 @@ export function styleRows(parent, style, onChange = null, {
   let videoKey = typeof video === 'string' ? video : '';
   // Simple or Advanced: the session's choice (own style), or the editor's own (Styles popup)
   let isAdvanced = startAdvanced ?? advancedMode;
-  // the simple form (review 27n §21): the property rows of Advanced not offered
+  // the simple form (review 27n §21): the Normal screen and no advanced sections until Advanced is pressed (plan 27n1 §7)
   let simpleMode = simple === true;
-  const rowsShown = () => isAdvanced && !simpleMode;
+  const rowsShown = () => isAdvanced;
   const screens = ['normal', ...Object.keys(SCREENS)];
   const values = { normal: {} };
   for (const screen of Object.keys(SCREENS)) values[screen] = { ...(style?.[screen] || {}) };
@@ -1287,9 +1287,8 @@ export function styleRows(parent, style, onChange = null, {
     screenSelect.value = screen;
     advanced.classList.toggle('h-cms-style-advanced-on', isAdvanced);
     advanced.setAttribute('aria-pressed', String(isAdvanced));
-    // the simple form: the Normal screen, no Advanced button (review 27n §21)
-    advanced.hidden = simpleMode;
-    screenHost.hidden = simpleMode;
+    // the simple form: the Normal screen until Advanced is pressed; the button always (plan 27n1 §7)
+    screenHost.hidden = simpleMode && !isAdvanced;
     add.hidden = !rowsShown();
     removeAll.hidden = !rowsShown();
     list.classList.toggle('h-cms-style-simple', !rowsShown());
@@ -1304,6 +1303,7 @@ export function styleRows(parent, style, onChange = null, {
   advanced.addEventListener('click', () => {
     isAdvanced = !isAdvanced;
     if (startAdvanced === null) advancedMode = isAdvanced;
+    if (simpleMode && !isAdvanced) screen = 'normal';
     draw();
   });
   add.addEventListener('click', () => {
@@ -1327,13 +1327,13 @@ export function styleRows(parent, style, onChange = null, {
     clearScreen();
     draw();
   });
-  if (simpleMode) screen = 'normal';
+  if (simpleMode && !isAdvanced) screen = 'normal';
   draw();
   return { value: build, preset: () => presetValue, cssClass: () => (classError ? null : classValue.trim().split(/\s+/).filter(Boolean).join(' ')),
     video: () => videoKey,
     setSimple: (next) => {
       simpleMode = next === true;
-      if (simpleMode) screen = 'normal';
+      if (simpleMode && !isAdvanced) screen = 'normal';
       draw();
     } };
 }

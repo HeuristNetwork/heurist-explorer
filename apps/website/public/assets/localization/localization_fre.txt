@@ -698,3 +698,14 @@
 #Collapse all actions#Replier toutes les actions
 #Show advanced settings#Afficher les paramètres avancés
 #Hide advanced settings#Masquer les paramètres avancés
+#Copy the query of a query source#Copier la requête d'une source de requête
+#Nothing found#Rien trouvé
+#There is no query source to copy#Aucune source de requête à copier
+#Write a query or copy one with the arrow#Écrivez une requête ou copiez-en une avec la flèche
+#A query without parameters#Une requête sans paramètres
+#The link opens the target page with the records of the query source or saved filter.#Le lien ouvre la page cible avec les enregistrements de la source de requête ou du filtre enregistré.
+#Set some or all values of the chosen filter in advance. Type a fixed value, or pick a field of the record: each record then fills in its own value. Values left empty: Explorer asks for them, other modules leave them out.#Définissez à l'avance tout ou partie des valeurs du filtre choisi. Saisissez une valeur fixe, ou choisissez un champ de l'enregistrement : chaque enregistrement remplit alors sa propre valeur. Valeurs laissées vides : Explorer les demande, les autres modules les ignorent.
+#Set some or all values of the chosen filter in advance. Values left empty: Explorer asks for them, other modules leave them out.#Définissez à l'avance tout ou partie des valeurs du filtre choisi. Valeurs laissées vides : Explorer les demande, les autres modules les ignorent.
+#Value#Valeur
+#Or from the record#Ou de l'enregistrement
+#Carousel#Carrousel

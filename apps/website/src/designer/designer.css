@@ -1487,6 +1487,47 @@
   max-width: 100%;
 }
 
+/* the values below a line, the instruction first (plan 27n1 §3a) */
+.h-cms-saved-filter-values:not(:empty) {
+  margin-top: 4px;
+  padding-top: 8px;
+  border-top: 1px solid var(--h-color-border);
+}
+
+/* a value and its "from the record" in one row, aligned (§3b-c) */
+.h-cms-saved-filter-head,
+.h-cms-saved-filter-inputs.has-record .h-cms-saved-filter-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 12em;
+  align-items: start;
+  column-gap: 8px;
+}
+
+.h-cms-saved-filter-head {
+  margin: 6px 0 2px;
+  color: var(--h-color-text-muted);
+  font-size: var(--h-font-size-small);
+}
+
+.h-cms-saved-filter-head > :last-child {
+  grid-column: 2;
+}
+
+.h-cms-saved-filter-row > :not(.h-cms-saved-filter-from) {
+  grid-column: 1;
+  min-width: 0;
+}
+
+.h-cms-saved-filter-row > .h-cms-saved-filter-from {
+  grid-column: 2;
+  grid-row: 1;
+  align-self: end;
+  min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
+  text-overflow: ellipsis;
+}
+
 .h-cms-saved-filter-caption {
   margin-top: 4px;
   font-weight: bold;

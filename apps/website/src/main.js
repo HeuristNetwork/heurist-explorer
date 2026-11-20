@@ -19,6 +19,8 @@ import '@fortawesome/fontawesome-free/css/regular.min.css';
 // social media icons of action menus (plan 27f §6); the font loads only when an icon is shown
 import '@fortawesome/fontawesome-free/css/brands.min.css';
 import '#shared/ui/heurist-ui.css';
+// tabs of the Tabs element, Record cards and story maps (plan 27n1 §2d)
+import '#shared/widgets/site/siteTabs.css';
 import './style.css';
 import { initLocale } from '#shared/ui';
 import { attachSamePageFilters, designerHost, designerUrl, designHooks, isFramed, readSiteConfig, startSite } from './siteRuntime.js';

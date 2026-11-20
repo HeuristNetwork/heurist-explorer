@@ -127,3 +127,24 @@
 .h-tree-danger .h-tree-icon {
   color: var(--h-color-danger, #b91c1c);
 }
+
+/* the chevron of a collapsible item (plan 27n1 §5); an empty one keeps the place */
+.h-tree-toggle {
+  flex: none;
+  width: 14px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--h-color-text-muted);
+  font: inherit;
+  text-align: center;
+  cursor: pointer;
+}
+
+.h-tree-toggle:hover {
+  color: var(--h-color-text);
+}
+
+.h-tree-toggle.is-empty {
+  cursor: default;
+}

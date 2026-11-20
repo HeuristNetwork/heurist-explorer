@@ -205,8 +205,7 @@ export async function openSavedFilterForm(services, value = null, { recordFields
   const pages = services.filterPages?.() || [];
   const form = element('form', 'h-cms-form h-cms-saved-filter-form');
   const help = element('div', 'h-cms-style-note');
-  help.textContent = $HR('The link opens the target page with the records of the query source or saved filter. Values left empty: '
-    + 'Explorer asks for them, other modules leave them out.');
+  help.textContent = $HR('The link opens the target page with the records of the query source or saved filter.');
   // one list: query sources, then saved filters of "Website filters" (plan 27l §7.2); the value is `source:<id>` / `filter:<id>`
   const current = cmsFilterTarget({ source: value?.source, filter: value?.filter });
   const source = select([['', $HR('Choose a query source or a saved filter')],
@@ -219,33 +218,35 @@ export async function openSavedFilterForm(services, value = null, { recordFields
   };
   const page = select([['', $HR('Choose the target page')], ...pages.map((item) => [String(item.id), item.label])],
     value?.page ? String(value.page) : '');
+  // the values below a line (plan 27n1 §3a); values from the record (phase B): a select beside each input (§3b-c)
   const valuesHost = element('div', 'h-cms-saved-filter-values');
-  // values from the record (phase B): a select per parameter
-  const recordHost = element('div', 'h-cms-saved-filter-record');
   const fieldTerms = recordFields ? await recordFields().catch(() => []) : null;
   const problems = element('div', 'h-cms-style-problems');
-  form.append(help, line('Query source', source), line('Target page', page), valuesHost, recordHost, problems);
+  form.append(help, line('Query source', source), line('Target page', page), valuesHost, problems);
   const stored = value?.values || {};
   const constants = Object.fromEntries(Object.entries(stored).filter(([, item]) => !cmsFilterReference(item)));
   if (!sources.length && !filters.length) problems.textContent = $HR('There is no public query source or website filter in this database.');
   // the Filter Form of the chosen source, made again for another source
   const state = { definition: null, form: null, parameters: [], turn: 0, references: new Map() };
-  const showReferences = (references) => {
-    recordHost.replaceChildren();
+  // values from the record: a select per parameter beside its input of the Filter Form, else a row below it
+  const showReferences = (references, rest) => {
     state.references = new Map();
     if (!fieldTerms || !state.parameters.length) return;
-    const caption = element('div', 'h-cms-saved-filter-caption');
-    caption.textContent = $HR('Values from the record');
-    const note = element('div', 'h-cms-style-note');
-    note.textContent = $HR('A value from the record wins over the value above. Each record gets its own link.');
-    recordHost.append(caption, note);
     const described = describeQueryParameters(state.definition.source.query, services.dbdefs) || {};
     for (const name of state.parameters) {
       const choice = select([['', '—'], ['id', $HR('Record ID')], ...fieldTerms.map((term) => [`field:${term.id}`, term.label])], '');
+      choice.classList.add('h-cms-saved-filter-from');
+      choice.title = $HR('Or from the record');
       const current = cmsFilterReference(references[name]);
       if (current) choice.value = current === 'id' ? 'id' : `field:${current}`;
-      const label = described[name]?.label ? `${described[name].label} (${name})` : name;
-      recordHost.append(line(label, choice, false));
+      const host = [...valuesHost.querySelectorAll('[data-h-param]')].find((item) => item.dataset.hParam === name);
+      if (host) {
+        host.classList.add('h-cms-saved-filter-row');
+        host.append(choice);
+      } else {
+        const label = described[name]?.label ? `${described[name].label} (${name})` : name;
+        rest.append(line(label, choice, false));
+      }
       state.references.set(name, choice);
     }
   };
@@ -257,7 +258,6 @@ export async function openSavedFilterForm(services, value = null, { recordFields
     state.parameters = [];
     state.param = null;
     valuesHost.replaceChildren();
-    recordHost.replaceChildren();
     state.references = new Map();
     const target = chosenTarget();
     if (!target) return;
@@ -271,7 +271,6 @@ export async function openSavedFilterForm(services, value = null, { recordFields
     if (turn !== state.turn) return;
     state.definition = definition;
     state.parameters = cmsFilterParameters(definition);
-    showReferences(references);
     if (!state.parameters.length) {
       const note = element('div', 'h-cms-style-note');
       note.textContent = $HR(search ? 'This query source has no parameters: a search box needs one.' : 'This query source has no parameters.');
@@ -293,10 +292,26 @@ export async function openSavedFilterForm(services, value = null, { recordFields
         valuesHost.append(line('The typed text is the value of', state.param));
       }
     }
-    const caption = element('div', 'h-cms-saved-filter-caption');
-    caption.textContent = $HR('Values');
-    const host = element('div');
-    valuesHost.append(caption, host);
+    // the instruction below the line (plan 27n1 §3)
+    const note = element('div', 'h-cms-style-note');
+    note.textContent = $HR(fieldTerms
+      ? 'Set some or all values of the chosen filter in advance. Type a fixed value, or pick a field of the record: each record '
+        + 'then fills in its own value. Values left empty: Explorer asks for them, other modules leave them out.'
+      : 'Set some or all values of the chosen filter in advance. Values left empty: Explorer asks for them, other modules leave '
+        + 'them out.');
+    valuesHost.append(note);
+    if (fieldTerms) {
+      const head = element('div', 'h-cms-saved-filter-head');
+      const value = element('span');
+      value.textContent = $HR('Value');
+      const from = element('span');
+      from.textContent = $HR('Or from the record');
+      head.append(value, from);
+      valuesHost.append(head);
+    }
+    const host = element('div', fieldTerms ? 'h-cms-saved-filter-inputs has-record' : 'h-cms-saved-filter-inputs');
+    const rest = element('div', 'h-cms-saved-filter-rest');
+    valuesHost.append(host, rest);
     state.form = new HFilterForm().attach(host, {
       definition: { query: definition.source.query, filterForm: definition.filterForm || null },
       values: cmsFilterFormValues(values || {}),
@@ -309,6 +324,7 @@ export async function openSavedFilterForm(services, value = null, { recordFields
       // the values are kept, nothing runs here
       onSubmit: () => {}
     }).render();
+    showReferences(references, rest);
   };
   source.addEventListener('change', () => void showValues({}));
   await showValues(constants, stored);

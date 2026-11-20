@@ -101,6 +101,10 @@ export function menuLineSettings(values = {}) {
 export const ITEM_STYLES = Object.freeze([['plain', 'Plain'], ['links', 'Links (underlined)'], ['underline', 'Bottom border on hover'],
   ['pills', 'Pills (current item filled)'], ['buttons', 'Buttons'], ['outline', 'Outlined buttons']]);
 
+/** Styles of tabs (plan 27k §3, CMS_TAB_STYLES): value, label; the Tabs element and tabs of Record cards (plan 27n1 §2d). */
+export const TAB_STYLE_LABELS = Object.freeze([['tabs', 'Tabs'], ['underline', 'Bottom border'], ['pills', 'Pills'], ['links', 'Links'],
+  ['buttons', 'Buttons'], ['outline', 'Outlined buttons']]);
+
 /** Presentations of the social media preset (plan 27k §2, grow: review 2026-11-16). */
 const SOCIAL_PRESENTATIONS = Object.freeze([['icons', 'Icons'], ['expand', 'Icons behind a button (expand on hover)'],
   ['grow', 'Icons that show their name on hover']]);

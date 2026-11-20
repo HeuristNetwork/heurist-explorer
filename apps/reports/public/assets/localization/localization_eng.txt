@@ -290,3 +290,9 @@
 #public_hint#public (viewable by anyone)
 #Maximize#Maximize
 #Restore#Restore
+#Copy the query of a query source#Copy the query of a query source
+#filter#filter
+#Nothing found#Nothing found
+#There is no query source to copy#There is no query source to copy
+#Search#Search
+#Choose a query source#Choose a query source

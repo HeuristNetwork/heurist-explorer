@@ -30,7 +30,7 @@ import { querySourceAction } from '#shared/widgets/edit-form/querySourceChooser.
 import { openEditFormDialog } from '#shared/widgets/edit-form/editFormDialog.js';
 import { createTranslationForm } from '#shared/widgets/translation/HTranslationDialog.js';
 import { sectionTitle, showDomForm, showEditForm } from './panelForms.js';
-import { ITEM_COLOR_LABELS, ITEM_STYLES, MENU_LINE_FIELDS, menuLineSettings, menuLineValues } from './actionForms.js';
+import { ITEM_COLOR_LABELS, ITEM_STYLES, MENU_LINE_FIELDS, TAB_STYLE_LABELS, menuLineSettings, menuLineValues } from './actionForms.js';
 import { ITEM_COLORS, MENU_ANIMATIONS, MENU_COLOR } from '#shared/site/cmsMenu.js';
 import {
   attachNewRecordPage, recordActionFields, recordActionIssues, recordActionSettings, recordActionTerms, recordActionValues
@@ -38,6 +38,7 @@ import {
 import { cmsFilterSettings, cmsFilterTarget } from '#shared/site/cmsSavedFilter.js';
 import { CMS_FILTER_WIDGET_MODES, cmsFilterItemKey, cmsFilterWidgetSettings, storedCmsFilterWidget } from '#shared/site/cmsFilterWidget.js';
 import { cmsInstanceDataSource } from '#shared/site/cmsDocument.js';
+import { cmsTabsLook } from '#shared/site/cmsEdit.js';
 import { cmsDefaultRecordsFrom, cmsInstanceRecords } from '#shared/site/cmsRecords.js';
 import { attachSavedFilter, queryRecordTypes, recordFilterFieldTerms, recordTypesOf, storedSavedFilter } from './savedFilterField.js';
 
@@ -459,7 +460,7 @@ const FIT_TERMS = Object.freeze([
 ]);
 
 /** Names of the presentation fields (presentationFields), hidden together by code. */
-const PRESENTATION_FIELDS = Object.freeze(['presentation', 'duration', 'fade', 'navigation']);
+const PRESENTATION_FIELDS = Object.freeze(['presentation', 'duration', 'fade', 'navigation', 'tabOrientation', 'tabStyle']);
 
 /**
  * Action fields (recordActionFields, plan 27g §6), presentation and slider fields of the cards and gallery forms.
@@ -471,11 +472,18 @@ const PRESENTATION_FIELDS = Object.freeze(['presentation', 'duration', 'fade', '
 function presentationFields(actionFields, showWhen = null) {
   // the timing and the start / stop button belong to the slideshow only, a carousel moves by its buttons (plan 27e §29)
   const slider = { ...(showWhen || {}), presentation: 'slider' };
+  const tabs = { ...(showWhen || {}), presentation: 'tabs' };
   return [
     ...actionFields,
+    // short labels (plan 27n1 §2c)
     { name: 'presentation', type: 'enum', label: 'Show as', mode: 'radio', max: 1, ...(showWhen ? { showWhen } : {}),
-      terms: [{ id: 'list', label: 'List (all visible)' }, { id: 'carousel', label: 'Carousel (one visible, buttons)' },
-        { id: 'slider', label: 'Slideshow (one visible, automatic)' }, { id: 'tabs', label: 'Tabs (one visible, a tab per record)' }] },
+      terms: [{ id: 'list', label: 'List' }, { id: 'carousel', label: 'Carousel' }, { id: 'slider', label: 'Slideshow' },
+        { id: 'tabs', label: 'Tabs' }] },
+    // the look of the tabs, as the Tabs element (plan 27n1 §2d)
+    { name: 'tabOrientation', type: 'enum', label: 'Orientation', mode: 'radio', max: 1, showWhen: tabs,
+      terms: [{ id: 'horizontal', label: 'Horizontal' }, { id: 'vertical', label: 'Vertical' }] },
+    { name: 'tabStyle', type: 'enum', label: 'Style of the tabs', mode: 'select', max: 1, showWhen: tabs,
+      terms: TAB_STYLE_LABELS.map(([id, label]) => ({ id, label })) },
     // advanced settings (review 27n §21: `req: 'optional'`, the defaults 4000 / 500 / on)
     { name: 'duration', type: 'integer', label: 'Duration (ms)', max: 1, minValue: 500, showWhen: slider, req: 'optional' },
     { name: 'fade', type: 'integer', label: 'Fade out (ms)', max: 1, minValue: 0, showWhen: slider, req: 'optional' },
@@ -487,22 +495,28 @@ function presentationFields(actionFields, showWhen = null) {
 /** Values of the presentation fields from the settings. */
 function presentationValues(settings = {}) {
   const slider = { ...SLIDER_DEFAULTS, ...(settings.slider || {}) };
+  const tabs = cmsTabsLook(settings.tabs);
   return { presentation: settings.presentation || 'list', action: settings.action || 'none',
-    duration: slider.duration, fade: slider.fade, navigation: slider.navigation };
+    duration: slider.duration, fade: slider.fade, navigation: slider.navigation, tabOrientation: tabs.orientation, tabStyle: tabs.style };
 }
 
 /**
  * Settings from the values of the presentation fields: `list`, `carousel` (one visible, buttons only), `slider` (slideshow)
- * or `tabs` (plan 27q1 §5).
+ * or `tabs` (plan 27q1 §5) with `tabs: {orientation, style}` when not the default (plan 27n1 §2d).
  *
  * @param {object} values Values of the form.
- * @returns {{presentation: string, action: string, slider?: object}}
+ * @returns {{presentation: string, action: string, slider?: object, tabs?: object}}
  */
 export function presentationSettings(values) {
   const presentation = ['carousel', 'slider', 'tabs'].includes(values.presentation) ? values.presentation : 'list';
   const settings = { presentation, action: values.action || 'none' };
   if (presentation === 'slider') {
     settings.slider = { duration: Number(values.duration) || SLIDER_DEFAULTS.duration, fade: Number(values.fade) || 0, navigation: values.navigation !== false };
+  }
+  if (presentation === 'tabs') {
+    const tabs = cmsTabsLook({ orientation: values.tabOrientation, style: values.tabStyle });
+    const stored = { ...(tabs.orientation === 'vertical' ? { orientation: 'vertical' } : {}), ...(tabs.style !== 'tabs' ? { style: tabs.style } : {}) };
+    if (Object.keys(stored).length) settings.tabs = stored;
   }
   return settings;
 }
@@ -642,7 +656,7 @@ export const RECORDS_MIXED_NOTE = 'The first records come from the own query; a 
 /**
  * The form of the section *Records and selection* of a module on a website page (plan 27l §12.3): where its records come
  * from (own query, Saved filter links, Filter widgets, other modules with an own query; any of them: the latest search
- * wins), its own query (a query source or saved filter without parameters, or a query, one or the other) and whether it
+ * wins), its own query (by value; ▾ copies a query source or saved filter without parameters, plan 27n1 §4) and whether it
  * shares the selection. Record View: its own record or the selected record. Explorer: own filters and Saved filter links
  * (its filters are in its own form, phase E2).
  *
@@ -650,13 +664,11 @@ export const RECORDS_MIXED_NOTE = 'The first records come from the own query; a 
  * @param {string} options.type Module type.
  * @param {Array<{id: string, label: string}>} [options.sources] The other sources of the page: `links`,
  *        `filter:<id>`, `module:<id>` (Own query is added here).
- * @param {Array<{key: string, title: string, kind: string}>} [options.choices] Query sources and saved filters without
- *        parameters (`key`: `source:<id>` / `filter:<id>`).
- * @param {object} [options.services] `editQuery`, `describeQuery` (the query field).
+ * @param {object} [options.services] `editQuery`, `describeQuery`, `querySources`, `savedFilters` ... (the query field).
  * @param {boolean} [options.legend=true] The legend of the fieldset (Explorer: its filters fieldset has it, phase E2).
  * @returns {object} Form JSON: one group, a fieldset with its legend as the other sections.
  */
-export function recordsForm({ type, sources = [], choices = [], services = {}, legend = true }) {
+export function recordsForm({ type, sources = [], services = {}, legend = true }) {
   const own = { from: 'own' };
   let children;
   if (type === 'recordview') {
@@ -676,11 +688,9 @@ export function recordsForm({ type, sources = [], choices = [], services = {}, l
       { name: 'from', type: 'enum', label: 'Records from', mode: 'checkbox', max: 0,
         terms: [{ id: 'own', label: 'Own query' }, ...sources],
         help: 'Any of them: the module shows the latest search' },
-      { name: 'source', type: 'enum', label: 'Query source', mode: 'select', max: 1, emptyLabel: 'None', showWhen: own,
-        terms: choices.map((choice) => ({ id: choice.key, label: `${choice.title} [${choice.kind === 'filter' ? 'filter' : 'source'}]` })),
-        help: 'Saved filters of "Website filters" and public query sources without parameters' },
-      { name: 'query', type: 'freetext', label: 'Query', max: 1, special: cardsQuerySpecial(services), showWhen: own,
-        help: 'Or a query without parameters' },
+      // one query (plan 27n1 §4): ▾ copies a query source or a saved filter of "Website filters" (by value)
+      { name: 'query', type: 'freetext', label: 'Query', max: 1, special: cardsQuerySpecial(services, { filters: true }), showWhen: own,
+        help: 'A query without parameters' },
       { name: 'selection', type: 'boolean', label: 'Share selection with other modules', mode: 'checkbox', max: 1 }
     ];
   }
@@ -749,22 +759,22 @@ export function recordsIssues(values = {}, type = '') {
   }
   if (type === 'explorer' || ![values.from].flat().includes('own')) return [];
   const text = String(values.query ?? '').trim();
-  if (!values.source && !text) return [{ field: 'source', message: $HR('Choose a query source or write a query') }];
+  if (!values.source && !text) return [{ field: 'query', message: $HR('Write a query or copy one with the arrow') }];
   return !values.source && !parseCardsQuery(text) ? [{ field: 'query', message: $HR('A query in JSON without parameters') }] : [];
 }
 
 /**
  * The section *Records and selection* of the configuration form of a module on a website page (plan 27l §12.3): an
  * inline HEditForm (a fieldset with its legend, as the other sections) above the module form, applied with its Apply.
- * Choosing a query source clears the query and the other way; a note with an own query and other sources.
+ * A stored query source or saved filter (by id, before plan 27n1 §4) becomes its query when the form opens; a note with an
+ * own query and other sources.
  *
  * @param {object} options
  * @param {object} options.instance Instance configuration.
  * @param {object} [options.instances] The instances of the page.
  * @param {Array<{id: string, label: string}>} [options.sources] recordsForm `sources`.
- * @param {Array<{key: string, title: string, kind: string}>} [options.choices] recordsForm `choices`.
  * @param {object} [options.services] The services of the designer forms (`editQuery`, `describeQuery`, `browseRecords`,
- *        `createRecordBrowser`, `valueLimit`).
+ *        `createRecordBrowser`, `valueLimit`, `querySources`, `querySourceDefinition`, `savedFilters`, `savedFilterDefinition`).
  * @param {object} [options.apiClient]
  * @param {object} [options.dbdefs]
  * @param {boolean} [options.inline=false] Without its own fieldset legend: put into the filters fieldset of Explorer
@@ -775,15 +785,11 @@ export function recordsIssues(values = {}, type = '') {
  *          from: () => string[], destroy: () => Promise<void>}} `read()`: null while a value can not be used (shown
  *          beside the field).
  */
-export function createRecordsSection({ instance, instances = {}, sources = [], choices = [], services = {}, apiClient = null,
+export function createRecordsSection({ instance, instances = {}, sources = [], services = {}, apiClient = null,
   dbdefs = null, inline = false, onFromChange = null }) {
   const values = recordsValues(instance, instances);
-  const list = [...choices];
-  // a stored one that is not offered any more (parameters added, not public): kept as it is
-  if (values.source && !list.some((choice) => choice.key === values.source)) {
-    const [kind, id] = values.source.split(':');
-    list.push({ key: values.source, kind, title: `#${id}` });
-  }
+  // a stored query source / saved filter: kept until its query is read (or when it can not be read)
+  let stored = values.source || '';
   // a source of the page that is not there any more (a widget removed): kept until it is unchecked
   const known = new Set(['own', ...sources.map((term) => term.id)]);
   const terms = [...sources, ...values.from.filter((token) => !known.has(token)).map((token) => ({ id: token, label: token }))];
@@ -796,9 +802,8 @@ export function createRecordsSection({ instance, instances = {}, sources = [], c
     const from = [current.from].flat();
     note.hidden = !(from.includes('own') && from.length > 1);
   };
-  let clearing = false;
   const form = new HEditForm().attach(element, {
-    form: recordsForm({ type: instance.type, sources: terms, choices: list, services, legend: !inline }),
+    form: recordsForm({ type: instance.type, sources: terms, services, legend: !inline }),
     values,
     apiClient,
     dbdefs,
@@ -806,34 +811,53 @@ export function createRecordsSection({ instance, instances = {}, sources = [], c
     valueLimit: services.valueLimit,
     browseRecords: services.browseRecords,
     createRecordBrowser: services.createRecordBrowser,
-    validate: (current) => recordsIssues(current, instance.type),
+    validate: (current) => recordsIssues({ ...current, source: stored }, instance.type),
     onReady: (edit) => {
       // the note in the fieldset, after the sources
       const fieldset = element.querySelector('fieldset') || element;
       fieldset.append(note);
       showNote(edit.getValues());
+      // the stored query source becomes its query (plan 27n1 §4)
+      if (stored) {
+        void storedQuery(stored, services).then((text) => {
+          if (!text || !stored) return;
+          stored = '';
+          edit.setValue('query', text);
+        }).catch(() => {});
+      }
     },
     onChange: (edit, change) => {
       if (change.name === 'from') {
         showNote(edit.getValues());
         onFromChange?.([edit.getValues().from].flat().filter(Boolean));
       }
-      if (clearing) return;
-      // one or the other (review 2026-11-16)
-      const other = change.name === 'source' ? 'query' : (change.name === 'query' ? 'source' : null);
-      const filled = [change.value].flat().some((item) => String(item ?? '').trim());
-      if (!other || !filled || !String(edit.getValue(other) ?? '').trim()) return;
-      clearing = true;
-      void Promise.resolve(edit.setValue(other, '')).finally(() => { clearing = false; });
+      // a query typed or copied replaces the stored query source
+      if (change.name === 'query' && String(change.value ?? '').trim()) stored = '';
     }
   }).render();
   if (instance.type === 'recordview' || instance.type === 'explorer') note.hidden = true;
   return {
     element,
-    read: () => (form.validate().length ? null : recordsResult(form.getValues(), instance.type, instances)),
+    read: () => (form.validate().length ? null : recordsResult({ ...form.getValues(), source: stored }, instance.type, instances)),
     from: () => [form.getValues().from].flat().filter(Boolean),
     destroy: () => form.destroy()
   };
+}
+
+/**
+ * The query of a stored query source or saved filter (`source:<id>` / `filter:<id>`), as the text of the query field: a
+ * reference by id becomes a query by value when its form is opened (plan 27n1 §4).
+ *
+ * @param {string} key `source:<id>` or `filter:<id>`.
+ * @param {object} services `querySourceDefinition(id)`, `savedFilterDefinition(id)`.
+ * @returns {Promise<string|undefined>} The text of the query; undefined when it can not be read.
+ */
+export async function storedQuery(key, services) {
+  const [kind, id] = String(key || '').split(':');
+  if (!(Number(id) > 0)) return undefined;
+  const read = { filter: services?.savedFilterDefinition, source: services?.querySourceDefinition }[kind];
+  if (typeof read !== 'function') return undefined;
+  return queryText((await read(Number(id)))?.source?.query);
 }
 
 /**
@@ -849,10 +873,11 @@ export function createRecordsSection({ instance, instances = {}, sources = [], c
  */
 export async function openCardsForm({ settings = {}, dbdefs, apiClient, services, inline = null }) {
   const reports = await services.cardTemplates?.().catch(() => []) ?? [];
-  // public query sources without parameters (plan 27l §11.4); a stored one not offered any more: kept as #id
-  const sources = (await services.querySources?.().catch(() => []) ?? []).filter((item) => !item.parameterized);
-  const storedSource = settings.mode === 'source' ? Number(settings.querySource) || 0 : 0;
-  if (storedSource && !sources.some((item) => Number(item.id) === storedSource)) sources.push({ id: storedSource, title: `#${storedSource}` });
+  // a query source by id (plan 27l §11.4) becomes its query, by value (plan 27n1 §2b); one that can not be read is kept
+  let storedSource = settings.mode === 'source' ? Number(settings.querySource) || 0 : 0;
+  const copied = storedSource ? await storedQuery(`source:${storedSource}`, services).catch(() => undefined) : undefined;
+  if (copied) storedSource = 0;
+  const mode = copied ? 'query' : (settings.mode || 'manual');
   // the Saved filter of the action (plan 27j)
   const filter = { value: storedSavedFilter(settings) };
   const templates = cardTemplateTerms(reports, settings.template);
@@ -869,14 +894,13 @@ export async function openCardsForm({ settings = {}, dbdefs, apiClient, services
       id: 'main',
       children: [
         // Record of the page URL: the widget of a record page (plan 27g)
-        // an advanced setting (review 27n §21): Manual pickup by default
-        { name: 'mode', type: 'enum', label: 'Source', mode: 'radio', max: 1, req: 'optional',
-          terms: [{ id: 'manual', label: 'Manual pickup' }, { id: 'source', label: 'Query source' }, { id: 'query', label: 'Query' },
+        // Manual pickup by default; shown again, one Query (plan 27n1 §2a-b): ▾ copies the query of a query source; a query
+        // source by id that could not be read stays as it is
+        { name: 'mode', type: 'enum', label: 'Source', mode: 'radio', max: 1,
+          terms: [{ id: 'manual', label: 'Manual pickup' }, { id: 'query', label: 'Query' },
+            ...(storedSource ? [{ id: 'source', label: `${$HR('Query source')} #${storedSource}` }] : []),
             { id: 'url', label: 'Record of the page URL' }] },
         { name: 'records', type: 'resource', label: 'Source records', max: 0, targetTypes: [], pointerMode: 'browseonly', showWhen: { mode: 'manual' } },
-        { name: 'querySource', type: 'enum', label: 'Query source', mode: 'select', max: 1, showWhen: { mode: 'source' },
-          terms: sources.map((item) => ({ id: String(item.id), label: item.title || `#${item.id}` })),
-          help: 'Public query sources without parameters; the cards follow later changes of its query' },
         { name: 'query', type: 'freetext', label: 'Query', max: 1, special: cardsQuerySpecial(services), showWhen: { mode: 'query' } },
         // a selector also for a few templates (not the radios of a small vocabulary)
         { name: 'template', type: 'enum', label: 'Smarty template', mode: 'select', max: 1, terms: templates.terms,
@@ -889,10 +913,9 @@ export async function openCardsForm({ settings = {}, dbdefs, apiClient, services
     title: 'Record cards',
     form,
     values: {
-      mode: settings.mode || 'manual',
+      mode,
       records: manualIds(['query', 'source', 'url'].includes(settings.mode) ? null : settings.query),
-      querySource: storedSource ? String(storedSource) : null,
-      query: settings.mode === 'query' && settings.query ? JSON.stringify(settings.query) : '',
+      query: copied || (settings.mode === 'query' && settings.query ? JSON.stringify(settings.query) : ''),
       template: templates.value,
       ...presentationValues(settings),
       ...recordActionValues(settings),
@@ -922,7 +945,6 @@ export async function openCardsForm({ settings = {}, dbdefs, apiClient, services
       const issues = values.mode === 'url' ? [] : [...recordActionIssues(values, filter.value)];
       if (values.mode === 'manual' && !(values.records || []).filter(Boolean).length) issues.push({ field: 'records', message: $HR('Choose the records') });
       if (values.mode === 'query' && !parseCardsQuery(values.query)) issues.push({ field: 'query', message: $HR('A query in JSON without parameters') });
-      if (values.mode === 'source' && !(Number(values.querySource) > 0)) issues.push({ field: 'querySource', message: $HR('Choose a query source') });
       if (!values.template) issues.push({ field: 'template', message: $HR('Choose a template') });
       return issues;
     }
@@ -930,17 +952,18 @@ export async function openCardsForm({ settings = {}, dbdefs, apiClient, services
     if (!values) return null;
     const records = [values.records].flat().filter(Boolean);
     const template = String(values.template);
-    const mode = ['query', 'source', 'url'].includes(values.mode) ? values.mode : 'manual';
+    // `source` only for a stored query source that could not be read (plan 27n1 §2b)
+    const mode = ['query', 'url'].includes(values.mode) || (values.mode === 'source' && storedSource) ? values.mode : 'manual';
     return {
       mode,
       query: mode === 'query' ? parseCardsQuery(values.query) : (['url', 'source'].includes(mode) ? null : manualQuery(records)),
-      ...(mode === 'source' ? { querySource: Number(values.querySource) } : {}),
+      ...(mode === 'source' ? { querySource: storedSource } : {}),
       // a report id, or the file name of a template without a report
       template: /^\d+$/.test(template) ? Number(template) : template,
       ...presentationSettings(values),
       ...recordActionSettings(values, { allowed: mode !== 'url', filter: filter.value })
     };
-  }, { inline, sections: { source: ['mode', 'records', 'querySource', 'query'], behaviour: ['action', 'recordAction', 'recordPage', 'page', 'savedFilter'] } });
+  }, { inline, sections: { source: ['mode', 'records', 'query'], behaviour: ['action', 'recordAction', 'recordPage', 'page', 'savedFilter'] } });
 }
 
 /** A help text above a form. */

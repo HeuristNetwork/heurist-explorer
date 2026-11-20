@@ -329,6 +329,8 @@ export function createElementPanel({ onClose = null, onModeChange = null, onCanc
           cleanups.push(cleanup);
         }
       }
+      // the button only when a form of this show has advanced settings (plan 27n1 §6)
+      advanced.hidden = !advancedHandlers.length && !body.querySelector('.h-cms-advanced-only');
       fitPopup();
     },
     /** Hide the panel and destroy its forms. */

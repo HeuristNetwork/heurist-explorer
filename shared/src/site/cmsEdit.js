@@ -52,6 +52,18 @@ export const CMS_CONTROLS = Object.freeze(['group', 'tabs', 'accordion']);
 export const CMS_TAB_STYLES = Object.freeze(['tabs', 'links', 'underline', 'pills', 'buttons', 'outline']);
 
 /**
+ * The look of tabs from stored settings (tabs of Record cards, plan 27n1 §2d): `vertical` or `horizontal`, a style of
+ * CMS_TAB_STYLES (else `tabs`).
+ *
+ * @param {{orientation?: string, style?: string}|null} [look]
+ * @returns {{orientation: 'horizontal'|'vertical', style: string}}
+ */
+export function cmsTabsLook(look = null) {
+  return { orientation: look?.orientation === 'vertical' ? 'vertical' : 'horizontal',
+    style: CMS_TAB_STYLES.includes(look?.style) ? look.style : 'tabs' };
+}
+
+/**
  * Reveal on scroll of an element (plan 27k §6, `data-h-reveal`; StoredText allows the same). Plan 27n §8: slide down,
  * left, right (side slide), zoom. Initially hidden is an option of its own (`data-h-hidden`, review §18.2b).
  */

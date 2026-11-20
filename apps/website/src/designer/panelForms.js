@@ -151,7 +151,9 @@ export function showEditForm(options, map, { inline = null, sections = null } = 
     slot.append(node);
     slot.parentElement?.append(slot);
   }
-  inline.onAdvanced?.((shown) => edit.setShowOptional(shown));
+  // a form without advanced settings does not follow the panel button (it is hidden then, plan 27n1 §6)
+  const hasOptional = form.groups.some((group) => group.req === 'optional' || (group.children || []).some((field) => field.req === 'optional'));
+  if (hasOptional) inline.onAdvanced?.((shown) => edit.setShowOptional(shown));
   inline.register?.(async () => {
     globalThis.clearTimeout(timer);
     await edit.destroy();

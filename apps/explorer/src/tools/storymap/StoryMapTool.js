@@ -30,6 +30,7 @@ import {
   DEFAULT_PATH, STORY_DISTINCT, STORY_END_MODES, STORY_LAYOUTS, STORY_START_MODES, normalizeStoryMapSettings
 } from '#shared/widgets/storymap/storyMapModel.js';
 import { HRuleBuilder, describeExpansionRule } from '../../widgets/query-source/helpers/HRuleBuilder.js';
+import { chooseQuerySource, querySourceChoices } from '#shared/widgets/edit-form/querySourceChooser.js';
 import './StoryMapTool.css';
 
 /** Captions of the choices of the form. */
@@ -344,7 +345,14 @@ export class StoryMapTool extends HBaseWidget {
       return label;
     };
     const templates = [['', $HR('(none)')], ...this.templates.map((item) => [String(item.id), `${item.title}${item.card ? '' : ` (${$HR('not a card')})`}`])];
-    const sources = [['', $HR('(none)')], ...(this.tool.getQuerySources?.() || []).map((item) => [String(item.id), item.title])];
+    // the initial set: a query, by value; ▾ copies the query of a query source (plan 27n1 §4)
+    const overview = settings.map.overview || null;
+    const overviewText = text('overview', overview?.query ? JSON.stringify(overview.query) : '', { area: true, placeholder: '[{"t":12}]' });
+    if (!overview?.query && overview?.querySource) {
+      void this.service.querySourceQuery(overview.querySource).then((query) => {
+        if (query != null && !overviewText.value) overviewText.value = typeof query === 'string' ? query : JSON.stringify(query);
+      }).catch(() => {});
+    }
     const path = settings.map.patterns.find((pattern) => pattern.type === 'path') || null;
     const points = settings.map.patterns.find((pattern) => pattern.type === 'points') || null;
     const language = (texts) => texts?.def ?? '';
@@ -375,6 +383,16 @@ export class StoryMapTool extends HBaseWidget {
       }
     }, true);
 
+    const copyOverview = button('fa-caret-down', 'Copy the query of a query source', async () => {
+      const items = querySourceChoices(this.tool.getQuerySources?.() || [], 'without');
+      const item = await chooseQuerySource(copyOverview, items);
+      if (!item) return;
+      const query = await this.service.querySourceQuery(item.id).catch(() => null);
+      if (query == null) return;
+      overviewText.value = typeof query === 'string' ? query : JSON.stringify(query);
+      this._dirty = true;
+    });
+
     const sections = [
       section('Story map', [
         row('Name', text('title', this.values.title)),
@@ -400,7 +418,7 @@ export class StoryMapTool extends HBaseWidget {
         row('No story found', text('empty', language(settings.messages.empty), { area: true }))
       ]),
       section('Map', [
-        row('Initial set (query source)', choice('overview', settings.map.overview?.querySource ?? '', sources)),
+        row('Initial set', overviewText, copyOverview),
         row('', check('path', Boolean(path), 'Connect the places: begin → transition → end')),
         row('Begin fields', text('begin', (path?.begin || DEFAULT_PATH.begin).join(', '))),
         row('Transition fields', text('transition', (path?.transition || DEFAULT_PATH.transition).join(', '))),
@@ -452,7 +470,8 @@ export class StoryMapTool extends HBaseWidget {
         presentation: { layout: value('layout'), distinct: value('distinct'), interval: Number(value('interval')) || 5000 },
         messages: { intro: texts('intro'), empty: texts('empty') },
         map: {
-          overview: Number(value('overview')) > 0 ? { querySource: Number(value('overview')) } : null,
+          // by value (plan 27n1 §4)
+          overview: json('overview') ? { query: json('overview') } : null,
           patterns,
           elementSymbology: json('elementSymbology'),
           lineSymbology: json('lineSymbology'),

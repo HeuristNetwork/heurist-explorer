@@ -353,12 +353,12 @@ test('Style editor: simple and advanced lists, group flex box, Reset all, Remove
   assert.deepEqual(child.querySelectorAll('.h-cms-style-section').map((item) => item.textContent.trim()),
     ['In the group', 'Size and spacing', 'Text', 'Background', 'Border']);
   // the simple form of the element panel (review 27n §21): no Group layout, Grid with Columns and Gap, Normal screen only,
-  // no Advanced button; setSimple(false) as before
+  // the Advanced button always (plan 27n1 §7); setSimple(false) as before
   const group = document.createElement('div');
-  const simple = styleRows(group, {}, null, { kind: 'group', simple: true });
+  const simple = styleRows(group, {}, null, { kind: 'group', simple: true, advanced: false });
   const sectionsOf = () => group.querySelectorAll('.h-cms-style-section').map((item) => item.textContent.trim());
   assert.ok(!sectionsOf().includes('Group layout (flex)') && sectionsOf().includes('Grid (columns)'));
-  assert.equal(group.querySelector('.h-cms-style-advanced').hidden, true);
+  assert.equal(group.querySelector('.h-cms-style-advanced').hidden, false, 'Advanced styles always');
   assert.equal(group.querySelector('.h-cms-style-tabs').hidden, true, 'no screen selector');
   simple.setSimple(false);
   assert.ok(sectionsOf().includes('Group layout (flex)'));

@@ -4,6 +4,12 @@ Status of the open development plans: what is done, committed, checked in a brow
 `CLAUDE.md` on 2026-11-18. The Status line at the top of each plan in this folder is the source; update both when a plan
 changes. Newest first.
 
+**`docs/development/27n1 CMS-Editor-Simplification-Plan.md`** (agreed 2026-11-20; §1-7 done 2026-11-20, not committed, no
+browser check): Source shown again in Media / Gallery / Record cards (no Media record), one Query with Edit + ▾ (copy a
+query source, by value) in Record cards, Records and selection, record editor, Reports, Generate, Story map; card tabs
+with orientation / style through the shared `createTabSet` (scrolling ‹ ›, `siteTabs.css`); Saved filter dialog rows;
+collapsible page tree; top Advanced button hidden without advanced fields; Advanced styles always.
+
 **`docs/development/27q1 Story-Map-Plan.md`** (agreed 2026-11-18; phases A-E done 2026-11-18, not committed, no browser check: entity `presentation`, srv/Presentations, HStoryMap + service + map binding, Explorer tool `storymap` (East), website element `storymap`, tabs in Record cards, map `flyTo`): story map as a stored *Presentation set*
 record (also for crosstabs and export), designed in an Explorer tool pane, chosen in the CMS (Edit in new window +
 Refresh); source query + expansion rule; layouts list / horizontal / tabs / carousel / slideshow (tabs also in Record

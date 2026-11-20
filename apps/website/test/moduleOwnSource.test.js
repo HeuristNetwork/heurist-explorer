@@ -54,7 +54,7 @@ test('the section values: sources, own query (query source or query), selection;
   assert.deepEqual(recordsResult({ shows: 'own', record: [15] }, 'recordview'), { records: null, selection: false, dataSource: { record: 15 } });
   assert.deepEqual(recordsResult({ shows: 'selection', record: 15 }, 'recordview'), { records: null, selection: true, dataSource: null });
   assert.equal(recordsIssues({ from: ['own'], source: '', query: 'not json' }, 'data').length, 1);
-  assert.equal(recordsIssues({ from: ['own'], source: '', query: '' }, 'data')[0].field, 'source');
+  assert.equal(recordsIssues({ from: ['own'], source: '', query: '' }, 'data')[0].field, 'query');
   assert.equal(recordsIssues({ from: ['links'], query: 'not json' }, 'data').length, 0);
   assert.equal(recordsIssues({ shows: 'own', record: null }, 'recordview')[0].field, 'record');
 });
@@ -89,4 +89,24 @@ test('other records and selection or own records: the module is mounted again', 
   assert.equal(applyInstanceSettings(api, before, { ...before, records: { from: ['own'] } }), false);
   assert.equal(applyInstanceSettings(api, before, { ...before, selection: false }), false);
   assert.equal(applyInstanceSettings(api, before, { ...before, dataSource: { source: 1 } }), false);
+});
+
+test('a query source by id becomes its query when the form opens; the ▾ list of the query field (plan 27n1 §4)', async () => {
+  const { storedQuery, cardsQuerySpecial, presentationSettings } = await import('../src/designer/widgetForms.js');
+  const services = {
+    querySourceDefinition: async (id) => ({ source: { query: [{ t: String(id) }] } }),
+    savedFilterDefinition: async () => ({ source: { query: 't:5' } })
+  };
+  assert.equal(await storedQuery('source:9', services), '[{"t":"9"}]');
+  assert.equal(await storedQuery('filter:4', services), 't:5', 'a legacy text stays text');
+  assert.equal(await storedQuery('source:0', services), undefined);
+  assert.equal(await storedQuery('other:3', services), undefined);
+  // Edit and ▾ (only with the query source services)
+  const special = cardsQuerySpecial({ editQuery: async () => null, querySources: async () => [], ...services });
+  assert.deepEqual(special.actions.map((action) => action.icon), ['fa-sliders', 'fa-caret-down']);
+  assert.equal(cardsQuerySpecial({}).actions.length, 0);
+  // tabs of Record cards: the look only when not the default (plan 27n1 §2d)
+  assert.deepEqual(presentationSettings({ presentation: 'tabs', tabOrientation: 'vertical', tabStyle: 'tabs' }).tabs, { orientation: 'vertical' });
+  assert.equal(presentationSettings({ presentation: 'tabs', tabOrientation: 'horizontal', tabStyle: 'tabs' }).tabs, undefined);
+  assert.equal(presentationSettings({ presentation: 'list', tabStyle: 'pills' }).tabs, undefined);
 });

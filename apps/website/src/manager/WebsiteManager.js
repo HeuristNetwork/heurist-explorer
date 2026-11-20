@@ -329,7 +329,10 @@ export class WebsiteManager extends HBaseWidget {
       previous: summary.generated?.options || null,
       services: {
         editQuery: typeof this.app.bridge?.editQuery === 'function' ? (query, form, opts) => this.app.bridge.editQuery(query, form, opts) : null,
-        describeQuery: typeof this.app.bridge?.describeQuery === 'function' ? (query) => this.app.bridge.describeQuery(query) : null
+        describeQuery: typeof this.app.bridge?.describeQuery === 'function' ? (query) => this.app.bridge.describeQuery(query) : null,
+        // ▾ of the query fields (plan 27n1 §4)
+        apiClient: this.app.apiClient,
+        dbdefs: this.app.dbdefs
       }
     });
     if (!options) return;

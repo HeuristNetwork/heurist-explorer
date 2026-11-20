@@ -20,6 +20,7 @@ import { HJobMonitor } from '#shared/widgets';
 import { visibilityIconHtml } from '#shared/widgets/record-list/recordAdminInfo.js';
 import { $HR, HMsg } from '#shared/ui';
 import { intervalLabel, outputsOfQuery } from '../core/ReportsApplication.js';
+import { chooseQuerySource } from '#shared/widgets/edit-form/querySourceChooser.js';
 import { confirmDialog } from './formDialog.js';
 import { formatDate, formatSize, LARGE_FILE } from './GeneratedFiles.js';
 
@@ -328,10 +329,20 @@ export async function createOutputsPanel(app, report = null, { mode = 'list', on
     const sourceRow = el('div', 'h-reports-source-row', source);
     let sourceInput;
     if (sources.length) {
-      sourceInput = el('select', 'h-select', sourceRow);
-      sourceInput.setAttribute('aria-label', $HR('Query Source'));
-      sourceInput.append(option('', ''));
-      for (const item of sources) sourceInput.append(option(item.title, item.id));
+      // the list of the ▾ of query fields (plan 27n1 §4): the query is copied into the new output (by value)
+      sourceInput = el('button', 'h-btn h-btn-small h-reports-source-choose', sourceRow);
+      sourceInput.type = 'button';
+      sourceInput.value = '';
+      const caption = el('span', '', sourceInput);
+      caption.textContent = $HR('Choose a query source');
+      el('i', 'fa-solid fa-caret-down', sourceInput).setAttribute('aria-hidden', 'true');
+      sourceInput.addEventListener('click', () => run(async () => {
+        const item = await chooseQuerySource(sourceInput, sources);
+        if (!item) return;
+        sourceInput.value = String(item.id);
+        caption.textContent = item.title || `#${item.id}`;
+        await applySource();
+      }));
     } else {
       sourceInput = el('input', 'h-input', sourceRow);
       sourceInput.type = 'number';
@@ -367,7 +378,7 @@ export async function createOutputsPanel(app, report = null, { mode = 'list', on
     };
 
     for (const radio of radios) radio.addEventListener('change', () => run(applySource));
-    sourceInput.addEventListener('change', () => run(applySource));
+    if (!sources.length) sourceInput.addEventListener('change', () => run(applySource));
 
     newReport = target;
     controls.hidden = true;

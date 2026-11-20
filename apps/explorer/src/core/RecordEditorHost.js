@@ -47,6 +47,8 @@ import { normalizeRecordLimits } from '#shared/recordview/recordLimits.js';
 import { buildFileMediaItem, fileMediaUrls } from '#shared/recordview/fileMediaItem.js';
 import { TranslationClient } from '#shared/data/TranslationClient.js';
 import { mediaTag } from '#shared/widgets/rich-text/mediaTag.js';
+import { querySourceAction } from '#shared/widgets/edit-form/querySourceChooser.js';
+import { listQuerySources } from '#shared/data/querySourceList.js';
 
 /** Id prefix of the record editor dialogs (a numbered id each: a pointed record opens over its editor). */
 const DIALOG_ID = 'h-record-editor-dialog';
@@ -468,16 +470,36 @@ export class RecordEditorHost {
       return definition;
     };
     if (query) {
+      const edit = editQuery ? async (value, context) => {
+        const definition = await editDefinition(context);
+        return definition ? JSON.stringify(definition.query ?? []) : undefined;
+      } : undefined;
+      const querySourceType = id('RT_QUERY_SOURCE');
       specials[query] = {
         json: false, // legacy query strings are text
         // icons and tooltips of the Query Source editor (2026-10-18)
         icon: 'fa-sliders',
         title: 'Open the Filter Builder',
         describe: (value) => this.options.describeQuery?.(parseJson(value) ?? value) || '',
-        edit: editQuery ? async (value, context) => {
-          const definition = await editDefinition(context);
-          return definition ? JSON.stringify(definition.query ?? []) : undefined;
-        } : undefined
+        edit,
+        // ▾ copies the query of a query source (plan 27n1 §4, by value); a query source itself has Edit only
+        actionsFor: (context) => {
+          const actions = edit ? [{ label: 'Edit', icon: 'fa-sliders', title: 'Open the Filter Builder', primary: true, run: edit }] : [];
+          const rectype = Number(context.rectypeId || context.record?.rec_RecTypeID) || 0;
+          if (querySourceType > 0 && rectype === querySourceType) return actions;
+          const hasForm = Boolean(form) && context.hasField?.(form) !== false;
+          actions.push(querySourceAction({
+            list: () => listQuerySources({ apiClient: this.options.apiClient, dbdefs }),
+            // the list has the query and the filter form already
+            definition: async (item) => item,
+            parameters: hasForm ? 'any' : 'without',
+            apply: (item, current) => {
+              if (hasForm) current.setValue?.(form, item.filterForm ? JSON.stringify(item.filterForm) : '');
+              return typeof item.query === 'string' ? item.query : JSON.stringify(item.query ?? []);
+            }
+          }));
+          return actions;
+        }
       };
     }
     if (form) {
