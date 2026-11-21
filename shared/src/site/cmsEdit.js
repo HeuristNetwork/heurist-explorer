@@ -72,7 +72,7 @@ export const CMS_REVEALS = Object.freeze(['fade', 'up', 'down', 'left', 'right',
 /** Elements the designer can add (§5.2). */
 export const CMS_ELEMENTS = Object.freeze(['text', 'media', 'group', 'columns2', 'columns3', 'tabs', 'accordion', 'explorer',
   'data', 'map', 'timeline', 'graph', 'recordview', 'menu', 'report', 'cards', 'gallery', 'headerSet', 'field', 'language',
-  'actionmenu', 'social', 'badges', 'siteFooter', 'email', 'breadcrumbs', 'filter', 'storymap']);
+  'actionmenu', 'social', 'badges', 'siteFooter', 'email', 'breadcrumbs', 'filter', 'storymap', 'crosstabs']);
 
 /**
  * Fields of the website record in the header default set (plan 27f §13): logo, title, subtitle (concept codes of
@@ -1213,6 +1213,14 @@ export class CmsRecordDocument {
         const nodeId = id('n');
         this.config.instances[instanceId] = defaultInstance('widget', 'storymap');
         this._nodeStyles()[nodeId] = { height: '480px' };
+        return element$('div', [['data-h-node', nodeId], ['data-h-instance', instanceId]], '');
+      }
+      case 'crosstabs': {
+        // crosstabs (plan 27q2 §10): a stored Presentation set; the table and chart scroll inside its height
+        const instanceId = id('i');
+        const nodeId = id('n');
+        this.config.instances[instanceId] = defaultInstance('widget', 'crosstabs');
+        this._nodeStyles()[nodeId] = { height: '560px' };
         return element$('div', [['data-h-node', nodeId], ['data-h-instance', instanceId]], '');
       }
       case 'menu':

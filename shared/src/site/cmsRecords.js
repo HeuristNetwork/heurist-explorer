@@ -8,7 +8,8 @@
  * follows everything that module shows); `selection: false` (shares no selection; not written when it does). Not
  * stored = the default: Saved filter links and every Filter widget of the page, selection shared. A module shows the
  * latest search of any of its sources. Record View has no external source: its own record, or the selected record.
- * Explorer: `own` (its filters) and `links` only, no page selection yet (phase D).
+ * Explorer: `own` (its filters) and `links` only, no page selection yet (phase D). Crosstabs (a widget, plan 27q2):
+ * `settings.from`, `own` = the query of the crosstab, no selection.
  *
  * An older `sync` (round 1, test pages only) is read: `all` = the default, `selection` = own records + selection,
  * `none` = own records only.
@@ -56,6 +57,14 @@ export function cmsDefaultRecordsFrom(type, instances = {}) {
  */
 export function cmsInstanceRecords(instance, instances = {}) {
   const type = String(instance?.type ?? '');
+  if (instance?.kind === 'widget' && type === 'crosstabs') {
+    // crosstabs (plan 27q2 §10): `settings.from` (a widget has no `records`); own = the query of the crosstab
+    const stored = instance.settings?.from;
+    const from = Array.isArray(stored)
+      ? [...new Set(stored.filter((token) => typeof token === 'string' && CMS_RECORDS_TOKEN.test(token)))]
+      : ['own', ...cmsDefaultRecordsFrom(type, instances)];
+    return { from, selection: false, own: null };
+  }
   const own = cmsInstanceDataSource(instance?.dataSource, type);
   if (type === 'recordview') {
     // its own record, or the selected record

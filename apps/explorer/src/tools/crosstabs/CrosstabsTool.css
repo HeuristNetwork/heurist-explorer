@@ -1,0 +1,154 @@
+/* Crosstabs tool of Explorer (plan 27q2 §8): toolbar as the Story map tool, the form beside the crosstab (HCrosstab.css). */
+.h-crosstabs-tool {
+  container-type: inline-size;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  height: 100%;
+  min-height: 0;
+  font-size: var(--h-font-size);
+}
+
+.h-crosstabs-tool-toolbar {
+  flex: 0 0 auto;
+  flex-wrap: nowrap;
+  overflow: hidden;
+  gap: var(--h-gap, 6px);
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--h-color-border);
+}
+
+.h-crosstabs-tool-btn {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+.h-crosstabs-tool-btn[hidden] { display: none; }
+
+.h-crosstabs-tool-btn.is-active {
+  border-color: var(--h-color-primary);
+  color: var(--h-color-primary);
+}
+
+.h-crosstabs-tool-help { margin-left: auto; }
+
+.h-crosstabs-tool-separator {
+  align-self: stretch;
+  width: 1px;
+  margin: 2px 4px;
+  background: var(--h-color-border);
+}
+
+.h-crosstabs-tool-select {
+  display: inline-flex;
+  flex: 0 1 280px;
+  align-items: center;
+  gap: 6px;
+  min-width: 80px;
+}
+
+.h-crosstabs-tool-select-label {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: left;
+}
+
+.h-crosstabs-tool-scope { flex: 0 1 160px; min-width: 0; }
+
+@container (max-width: 640px) {
+  .h-crosstabs-tool-label { display: none; }
+}
+
+.h-crosstabs-tool-list {
+  display: flex;
+  flex-direction: column;
+  min-width: 220px;
+  max-height: 60vh;
+  overflow: auto;
+  padding: 4px 0;
+}
+
+.h-crosstabs-tool-list-item {
+  padding: 5px 10px;
+  border: 0;
+  background: none;
+  color: var(--h-color-text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.h-crosstabs-tool-list-item:hover { background: var(--h-color-surface-hover); }
+.h-crosstabs-tool-list-item.is-active { font-weight: bold; color: var(--h-color-primary); }
+
+.h-crosstabs-tool-main {
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+}
+
+.h-crosstabs-tool-form {
+  display: flex;
+  flex: 0 0 min(400px, 50%);
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  border-right: 1px solid var(--h-color-border);
+  background: var(--h-color-bg);
+}
+
+.h-crosstabs-tool-form[hidden] { display: none; }
+
+.h-crosstabs-tool-form-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  padding: 4px 8px;
+}
+
+.h-crosstabs-tool-view {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  padding: 8px;
+  overflow: hidden;
+}
+
+.h-crosstabs-tool-view > .h-crosstab { flex: 1 1 auto; }
+
+/* the dialogs: field tree, ranges */
+.h-crosstabs-tool-tree {
+  width: min(480px, 90vw);
+  height: min(60vh, 520px);
+  overflow: auto;
+}
+
+.h-crosstabs-tool-ranges {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: min(560px, 90vw);
+  max-height: 60vh;
+  overflow: auto;
+}
+
+.h-crosstabs-tool-ranges-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.h-crosstabs-tool-range-label { width: 160px; }

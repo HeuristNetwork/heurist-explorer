@@ -89,6 +89,8 @@ export class PageSync extends EventTarget {
       member = new ExplorerMember(instanceId, api, from);
     } else if (type === 'storymap') {
       member = new StoryMapMember(instanceId, api);
+    } else if (type === 'crosstabs') {
+      member = new CrosstabsMember(instanceId, api, from);
     } else if (SYNC_MODULE_TYPES.includes(type)) {
       member = new ModuleMember(instanceId, type, api, from, selection);
     }
@@ -266,6 +268,38 @@ class StoryMapMember extends EventTarget {
   setSelection(ids) {
     return this.widget?.setSelection?.(ids);
   }
+
+  setActiveMapDocument() {}
+
+  setRules() {}
+
+  destroy() {}
+}
+
+/**
+ * Crosstabs on the page (plan 27q2 §10): count the records of their sources; no selection. What they show is not sent on
+ * (a clicked count is sent by the widget itself as `module:<id>`).
+ */
+class CrosstabsMember extends EventTarget {
+  constructor(id, widget, from) {
+    super();
+    this.id = id;
+    this.type = 'crosstabs';
+    this.from = from.filter((origin) => origin !== 'own');
+    this.selection = false;
+    this.widget = widget;
+  }
+
+  async setDataSource(dataSource) {
+    try {
+      await this.widget?.setQuery?.(dataSource?.request?.q ?? null);
+    } catch (error) {
+      console.warn(`Page result: crosstabs (${this.id}) did not take the records`, error);
+    }
+    return false;
+  }
+
+  setSelection() {}
 
   setActiveMapDocument() {}
 

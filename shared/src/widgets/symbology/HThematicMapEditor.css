@@ -48,12 +48,6 @@
 .h-thematic-mode { margin:10px 0 4px; }
 .h-thematic-toolbar { display:flex; flex-wrap:wrap; gap:6px; padding:4px 0; }
 .h-thematic-gradient { margin-left:20px; }
-.h-thematic-range-list { display:flex; flex-direction:column; gap:2px; margin-top:6px; }
-.h-thematic-range { display:flex; align-items:center; gap:6px; padding:2px 0; }
-.h-thematic-range-values { display:inline-flex; align-items:center; gap:4px; min-width:240px; }
-.h-thematic-range-values > .h-form-input { min-width:240px; }
-.h-thematic-range-bound { width:110px; }
-.h-thematic-range-separator { color:var(--h-color-text-muted); }
 .h-thematic-range-caption { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:220px; }
 .h-thematic-symbol { display:inline-flex; padding:0; border:1px solid var(--h-color-border); border-radius:var(--h-radius); background:var(--h-color-bg); cursor:pointer; }
 .h-thematic-symbol:hover,

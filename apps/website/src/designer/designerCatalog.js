@@ -246,9 +246,10 @@ export const ELEMENT_GROUPS = Object.freeze([
         preview: [['f', 8, 10, 40, 8], ['f', 8, 22, 40, 8], ['f', 8, 34, 40, 8], ['t', 56, 10, 56, 50]]
       },
       {
-        value: 'crosstabs', label: 'Crosstabs',
-        description: 'A cross tabulation of the records by the values of two or more fields, with counts, sums or averages'
-          + ' and charts.',
+        value: 'crosstabs', label: 'Crosstabs', available: true,
+        description: 'A cross tabulation of the records by the values of up to three fields, with counts, sums or averages,'
+          + ' percentages and charts; the records come from the Filter widget or the query of the crosstab. Choose a'
+          + ' crosstab made in Explorer (tool Crosstabs).',
         preview: [['f', 8, 8, 104, 7], ['b', 8, 18, 104, 54], ['t', 12, 22, 96, 46]]
       },
       {

@@ -1,0 +1,520 @@
+/**
+ * @file HCrosstab.js
+ * @brief A crosstab (plan 27q2): the counts (or a measure) of the records of a query by the buckets of up to three
+ *        fields, as a table (DataTables, export) and / or a chart (Chart.js). Used by the Explorer tool pane and the
+ *        website element `crosstabs`.
+ *
+ * What the user can change depends on the level (§10): `view` — Table / Chart and the exports; `display` (default) —
+ * also values, totals, percentages, blank rows, chart type, swap rows and columns; `pivot` — also the fields of rows,
+ * columns and pages and the measure, from the lists of the settings (`visitor.fields`, `visitor.measures`). The page
+ * (Var 3) is chosen above the table. More records than `autoLimit`: the Update button counts them.
+ *
+ *   const widget = new HCrosstab().attach(host, { service, settings, labels, fieldLabel, level: 'display' }).render();
+ *   await widget.setQuery([{ t: '10' }]);
+ *
+ * @project     Heurist academic knowledge management system
+ * @package     heurist-client-core
+ * @link        https://HeuristNetwork.org
+ * @copyright   (C) 2024 onwards Heurist Network
+ * @author      Artem Osmakov   <osmakov@gmail.com>
+ * @author      Ian Johnson <ian.johnson.heurist@gmail.com>
+ * @license     https://www.gnu.org/licenses/gpl-3.0.txt GNU License 3.0
+ * @since       8.0
+ */
+
+import { HBaseWidget } from '../HBaseWidget.js';
+import { $HR } from '../../ui/i18n/HResource.js';
+import {
+  CROSSTAB_AUTO_LIMIT, CROSSTAB_CHARTS, CROSSTAB_LEVELS, CROSSTAB_MEASURES, crosstabCellQuery, crosstabChartData,
+  crosstabRequest, crosstabTables, normalizeCrosstabSettings
+} from './crosstabModel.js';
+import { enhanceCrosstabTable, renderCrosstabTable } from './crosstabTable.js';
+import { chartColors, createCrosstabChart, crosstabChartConfig } from './crosstabChart.js';
+import './HCrosstab.css';
+
+const CHART_LABELS = Object.freeze({
+  bar: 'Bars', stackedBar: 'Stacked bars', horizontalBar: 'Horizontal bars', line: 'Line', pie: 'Pie', doughnut: 'Doughnut'
+});
+const MEASURE_LABELS = Object.freeze({ count: 'Count', sum: 'Sum', avg: 'Average', min: 'Minimum', max: 'Maximum' });
+const DISPLAY_LABELS = Object.freeze([
+  ['values', 'Values'], ['totals', 'Totals'], ['percentRow', 'Row %'], ['percentColumn', 'Column %'], ['showBlanks', 'Blank rows']
+]);
+
+/** Crosstab widget. */
+export class HCrosstab extends HBaseWidget {
+  /**
+   * @param {HTMLElement} container
+   * @param {object} options
+   * @param {object} options.service CrosstabService.
+   * @param {object|string} [options.settings] Crosstab settings.
+   * @param {*} [options.query] The query (JSON or text); setQuery changes it.
+   * @param {string} [options.level] Highest level for this place (the settings may lower it): view | display | pivot.
+   * @param {{termLabel?: Function, rectypeName?: Function, userGroupName?: Function}} [options.labels] Bucket labels.
+   * @param {(code: string) => string} [options.fieldLabel] Caption of a field path code.
+   * @param {(query: Array, title: string) => void} [options.onCellQuery] A click on a count: its records (drill-down).
+   * @param {number} [options.autoLimit] Records counted without Update.
+   * @param {string} [options.language]
+   * @param {string} [options.database] For the export header.
+   * @param {string} [options.emptyText] Shown without a query.
+   * @returns {HCrosstab}
+   */
+  attach(container, options = {}) {
+    super.attach(container, options);
+    this.settings = normalizeCrosstabSettings(options.settings || null);
+    this.query = options.query ?? null;
+    this._reset();
+    return this;
+  }
+
+  /** @returns {HCrosstab} */
+  render() {
+    const root = this.container;
+    root.classList.add('h-widget', 'h-crosstab');
+    this.titleElement = element('div', 'h-crosstab-title');
+    this.controls = element('div', 'h-crosstab-controls');
+    this.status = element('div', 'h-crosstab-status');
+    this.pageBar = element('div', 'h-crosstab-pages');
+    this.body = element('div', 'h-crosstab-body');
+    this.tableHost = element('div', 'h-crosstab-tables');
+    this.chartHost = element('div', 'h-crosstab-chart');
+    this.canvas = element('canvas');
+    this.chartHost.append(this.canvas);
+    this.body.append(this.tableHost, this.chartHost);
+    root.replaceChildren(this.titleElement, this.controls, this.status, this.pageBar, this.body);
+    this.state = 'rendered';
+    this._renderControls();
+    if (this.query != null) void this.load();
+    else this._message(this.options.emptyText || 'No records');
+    return this;
+  }
+
+  /**
+   * New settings (the visitor's changes are dropped).
+   *
+   * @param {object|string} settings
+   * @param {{reload?: boolean}} [options] reload: false keeps the answer (display only).
+   * @returns {Promise<void>}
+   */
+  async setSettings(settings, { reload = true } = {}) {
+    const before = JSON.stringify(crosstabRequest(this.settings));
+    this.settings = normalizeCrosstabSettings(settings);
+    this._reset();
+    this._renderControls();
+    if (reload && JSON.stringify(crosstabRequest(this.settings)) !== before) await this.load();
+    else this._renderResult();
+  }
+
+  /**
+   * Count the records of another query.
+   *
+   * @param {*} query
+   * @returns {Promise<void>}
+   */
+  async setQuery(query) {
+    this.query = query ?? null;
+    this.pageIndex = 0;
+    await this.load();
+  }
+
+  /**
+   * Count again (also above the limit).
+   *
+   * @param {{force?: boolean}} [options]
+   * @returns {Promise<void>}
+   */
+  async load({ force = false } = {}) {
+    this._abort?.abort();
+    if (!this.container) return;
+    const request = this._request();
+    if (this.query == null || this.query === '') {
+      this.answer = null;
+      this._clearOutput();
+      this._message(this.options.emptyText || 'No records');
+      return;
+    }
+    if (!request) {
+      this.answer = null;
+      this._clearOutput();
+      this._message('Choose the field of the rows');
+      return;
+    }
+    const abort = new AbortController();
+    this._abort = abort;
+    this._message('Counting…', true);
+    try {
+      const limit = Number(this.options.autoLimit) || CROSSTAB_AUTO_LIMIT;
+      if (!force) {
+        const count = await this.options.service.count(this.query, { signal: abort.signal });
+        if (abort.signal.aborted) return;
+        if (count > limit) {
+          this.answer = null;
+          this._clearOutput();
+          this._update(count);
+          return;
+        }
+      }
+      const answer = await this.options.service.tabulate(this.query, request, { signal: abort.signal });
+      if (abort.signal.aborted || !this.container) return;
+      this.answer = answer;
+      this._renderResult();
+    } catch (error) {
+      if (abort.signal.aborted || error?.name === 'AbortError') return;
+      this.answer = null;
+      this._clearOutput();
+      this._message(error?.message || String(error), false, true);
+    }
+  }
+
+  /** @returns {object|null} The answer shown now. */
+  getAnswer() {
+    return this.answer;
+  }
+
+  /** @returns {Promise<void>} */
+  async destroy() {
+    this._abort?.abort();
+    this._destroyOutput();
+    await super.destroy();
+  }
+
+  // ------------------------------------------------------------------ state
+
+  /** @private The visitor's choices back to the settings. */
+  _reset() {
+    this.pivot = {};
+    this.display = { ...this.settings.display };
+    this.chartType = this.settings.chart.type;
+    this.show = this.settings.chart.show;
+    this.pageIndex = 0;
+  }
+
+  /** @private The level: the lower of the place (option) and the settings. */
+  _level() {
+    const place = CROSSTAB_LEVELS.indexOf(this.options.level || 'pivot');
+    const stored = CROSSTAB_LEVELS.indexOf(this.settings.visitor.level);
+    return CROSSTAB_LEVELS[Math.min(place < 0 ? 2 : place, stored < 0 ? 1 : stored)];
+  }
+
+  /** @private The request with the visitor's pivot. */
+  _request() {
+    return crosstabRequest(this.settings, this.pivot);
+  }
+
+  /** @private A dimension with the visitor's choice. */
+  _dimension(name) {
+    return Object.hasOwn(this.pivot, name) ? this.pivot[name] : this.settings[name];
+  }
+
+  /** @private The caption of a dimension: its label, else the name of its field. */
+  _caption(name) {
+    const dimension = this._dimension(name);
+    if (!dimension) return '';
+    const label = dimension.label?.[this.options.language] || dimension.label?.def;
+    return label || this.options.fieldLabel?.(dimension.code) || dimension.code;
+  }
+
+  /** @private Count, or Sum of … */
+  _valueCaption() {
+    const measure = this.pivot.measure || this.settings.measure;
+    if (!measure || measure.op === 'count') return $HR('Count');
+    const field = this.options.fieldLabel?.(String(measure.field)) || String(measure.field);
+    return `${$HR(MEASURE_LABELS[measure.op] || measure.op)} ${$HR('of')} ${field}`;
+  }
+
+  // ------------------------------------------------------------------ controls
+
+  /** @private The controls of the level. */
+  _renderControls() {
+    if (!this.controls) return;
+    const level = CROSSTAB_LEVELS.indexOf(this._level());
+    const bar = this.controls;
+    bar.replaceChildren();
+    const title = this.settings.display.title?.[this.options.language] || this.settings.display.title?.def || '';
+    this.titleElement.textContent = title;
+    this.titleElement.hidden = !title;
+    // Table | Chart | Both
+    const show = select('Show', [['table', 'Table'], ['chart', 'Chart'], ['both', 'Table and chart']], this.show, (value) => {
+      this.show = value;
+      this._renderResult();
+    });
+    bar.append(show);
+    if (level >= 1) {
+      bar.append(select('Chart', CROSSTAB_CHARTS.map((type) => [type, CHART_LABELS[type]]), this.chartType, (value) => {
+        this.chartType = value;
+        this._renderChart();
+      }));
+      const flags = element('div', 'h-crosstab-flags');
+      for (const [key, label] of DISPLAY_LABELS) {
+        flags.append(checkbox(label, this.display[key] === true, (checked) => {
+          this.display[key] = checked;
+          this._renderResult();
+        }));
+      }
+      bar.append(flags);
+      if (this._dimension('columns')) {
+        const swap = element('button', 'h-btn h-compact');
+        swap.type = 'button';
+        swap.title = $HR('Swap rows and columns');
+        swap.innerHTML = '<i class="fa-solid fa-right-left" aria-hidden="true"></i>';
+        swap.setAttribute('aria-label', swap.title);
+        swap.addEventListener('click', () => {
+          const rows = this._dimension('rows');
+          this.pivot = { ...this.pivot, rows: this._dimension('columns'), columns: rows };
+          this._renderControls();
+          void this.load();
+        });
+        bar.append(swap);
+      }
+    }
+    if (level >= 2) this._renderPivot(bar);
+  }
+
+  /** @private Rows / Columns / Pages and the measure from the lists of the settings. */
+  _renderPivot(bar) {
+    const fields = [...new Set([...this.settings.visitor.fields,
+      ...['rows', 'columns', 'pages'].map((name) => this.settings[name]?.code).filter(Boolean)])];
+    if (fields.length) {
+      const dimensionOf = (code) => ['rows', 'columns', 'pages'].map((name) => this.settings[name])
+        .find((dimension) => dimension?.code === code) || { code, label: {}, buckets: 'values' };
+      for (const [name, label] of [['rows', 'Rows'], ['columns', 'Columns'], ['pages', 'Pages']]) {
+        const choices = [...(name === 'rows' ? [] : [['', '(none)']]),
+          ...fields.map((code) => [code, this.options.fieldLabel?.(code) || code])];
+        bar.append(select(label, choices, this._dimension(name)?.code || '', (value) => {
+          this.pivot = { ...this.pivot, [name]: value ? dimensionOf(value) : null };
+          this.pageIndex = 0;
+          this._renderControls();
+          void this.load();
+        }));
+      }
+    }
+    const measures = [...new Set(['count', ...this.settings.visitor.measures])].filter((op) => op === 'count' || this.settings.measure.field);
+    if (measures.length > 1) {
+      const current = (this.pivot.measure || this.settings.measure).op;
+      bar.append(select('Measure', measures.filter((op) => CROSSTAB_MEASURES.includes(op)).map((op) => [op, MEASURE_LABELS[op]]),
+        current, (value) => {
+          this.pivot = { ...this.pivot, measure: { op: value, field: this.settings.measure.field } };
+          void this.load();
+        }));
+    }
+  }
+
+  // ------------------------------------------------------------------ output
+
+  /** @private Table(s) and chart of the answer. */
+  _renderResult() {
+    if (!this.answer || !this.container) return;
+    this.tables = crosstabTables(this.answer, { display: this.display }, {
+      termLabel: this.options.labels?.termLabel, rectypeName: this.options.labels?.rectypeName,
+      userGroupName: this.options.labels?.userGroupName, translate: $HR
+    });
+    const shown = this.tables.tables;
+    this.pageIndex = Math.min(this.pageIndex, Math.max(0, shown.length - 1));
+    this._message(`${$HR('Records')}: ${this.tables.total.toLocaleString()} · ${this._valueCaption()}`);
+    this._renderPages();
+    this.tableHost.hidden = this.show === 'chart';
+    this.chartHost.hidden = this.show === 'table';
+    void this._renderTable();
+    this._renderChart();
+  }
+
+  /** @private The page selector (Var 3). */
+  _renderPages() {
+    this.pageBar.replaceChildren();
+    const shown = this.tables?.tables || [];
+    this.pageBar.hidden = !this.answer?.pages;
+    if (!this.answer?.pages) return;
+    this.pageBar.append(select(this._caption('pages'), shown.map((table, index) => [String(index), table.page.label]),
+      String(this.pageIndex), (value) => {
+        this.pageIndex = Number(value) || 0;
+        void this._renderTable();
+        this._renderChart();
+      }));
+  }
+
+  /** @private The table of the page shown. */
+  async _renderTable() {
+    const serial = (this._tableSerial = (this._tableSerial || 0) + 1);
+    this._table?.destroy();
+    this._table = null;
+    this.tableHost.replaceChildren();
+    const table = this.tables?.tables?.[this.pageIndex];
+    if (!table) {
+      this.tableHost.textContent = $HR('No records');
+      return;
+    }
+    if (!table.rows.length) {
+      this.tableHost.textContent = $HR('No values');
+      return;
+    }
+    const drill = typeof this.options.onCellQuery === 'function' && this.settings.visitor.drill !== false
+      ? (cell) => this._drill(cell, table) : null;
+    const element$ = renderCrosstabTable(table, this.tables, {
+      display: this.display,
+      rowCaption: this._caption('rows'),
+      columnCaption: this._caption('columns'),
+      valueCaption: this._valueCaption(),
+      translate: $HR,
+      language: this.options.language,
+      onCell: drill
+    });
+    this.tableHost.append(element$);
+    if (this.options.enhance === false) return;
+    const exports = this.settings.visitor.export.filter((item) => item !== 'png');
+    const page = table.page.label ? ` – ${this._caption('pages')}: ${table.page.label}` : '';
+    const title = `${this.settings.display.title?.def || this._caption('rows')}${page}`;
+    const enhanced = await enhanceCrosstabTable(element$, { exports, title, messageTop: this._exportHeader(), filename: fileName(title) });
+    if (serial !== this._tableSerial) enhanced?.destroy();
+    else this._table = enhanced;
+  }
+
+  /** @private The chart of the page shown. */
+  _renderChart() {
+    const serial = (this._chartSerial = (this._chartSerial || 0) + 1);
+    const table = this.tables?.tables?.[this.pageIndex];
+    if (this.show === 'table' || !table?.rows?.length || this.options.enhance === false) {
+      this._chart?.destroy();
+      this._chart = null;
+      this.chartHost.querySelector('.h-crosstab-png')?.remove();
+      return;
+    }
+    const data = crosstabChartData(table, this.tables, this._valueCaption());
+    const config = crosstabChartConfig(this.chartType, data, {
+      title: table.page.label || '',
+      totals: table.rows.map((row) => row.total.value),
+      totalsLabel: this._valueCaption(),
+      colors: chartColors(this.container),
+      onClick: typeof this.options.onCellQuery === 'function' && this.settings.visitor.drill !== false
+        ? (index, datasetIndex) => {
+          const row = table.rows[index];
+          const column = this.tables.hasColumns && !['pie', 'doughnut'].includes(this.chartType) ? table.columns[datasetIndex] : null;
+          if (row) this._drill({ row: row.index, column: column ? column.index : null }, table);
+        } : null
+    });
+    const draw = async () => {
+      if (this._chart) this._chart.update(config);
+      else this._chart = await createCrosstabChart(this.canvas, config);
+      if (serial !== this._chartSerial) return;
+      if (this.settings.visitor.export.includes('png') && !this.chartHost.querySelector('.h-crosstab-png')) {
+        const png = element('button', 'h-btn h-compact h-crosstab-png');
+        png.type = 'button';
+        png.textContent = $HR('PNG');
+        png.title = $HR('Save the chart as an image');
+        png.addEventListener('click', () => download(this._chart?.png(), `${fileName(this._caption('rows'))}.png`));
+        this.chartHost.prepend(png);
+      }
+    };
+    draw().catch((error) => {
+      console.warn('Crosstab: the chart can not be drawn', error);
+      this.chartHost.hidden = true;
+    });
+  }
+
+  /** @private A click on a count: the query of the cell to the host. */
+  _drill({ row = null, column = null }, table) {
+    const page = this.answer?.pages ? table.page.index : null;
+    const query = crosstabCellQuery(this.query, this.answer, { row, column, page });
+    if (!query) return;
+    const label = (name, index) => (index == null ? '' : this.tables?.[name]?.find((item) => item.index === index)?.label || '');
+    const title = [label('rows', row), label('columns', column), table.page.label].filter(Boolean).join(' × ');
+    this.options.onCellQuery(query, title);
+  }
+
+  /** @private Database, date, number of records, query, measure (legacy export header). */
+  _exportHeader() {
+    const parts = [];
+    if (this.options.database) parts.push(`${$HR('Database')}: ${this.options.database}`);
+    parts.push(new Date().toLocaleDateString());
+    parts.push(`N = ${this.tables?.total ?? 0}`);
+    parts.push(this._valueCaption());
+    if (this.query != null) parts.push(`${$HR('Query')}: ${typeof this.query === 'string' ? this.query : JSON.stringify(this.query)}`);
+    return parts.join(', ');
+  }
+
+  /** @private The status line. */
+  _message(text, busy = false, error = false) {
+    if (!this.status) return;
+    this.status.replaceChildren();
+    this.status.classList.toggle('is-error', error);
+    if (busy) this.status.append(element('i', 'fa-solid fa-spinner fa-spin'), document.createTextNode(' '));
+    this.status.append(document.createTextNode($HR(text)));
+  }
+
+  /** @private More records than the limit: Update. */
+  _update(count) {
+    this._message(`${$HR('Records')}: ${count.toLocaleString()}. ${$HR('Counting may take a while.')}`);
+    const button = element('button', 'h-btn h-btn-primary h-compact');
+    button.type = 'button';
+    button.textContent = $HR('Update');
+    button.addEventListener('click', () => void this.load({ force: true }));
+    this.status.append(document.createTextNode(' '), button);
+  }
+
+  /** @private Empty output. */
+  _clearOutput() {
+    this._destroyOutput();
+    this.tableHost?.replaceChildren();
+    this.pageBar?.replaceChildren();
+  }
+
+  /** @private DataTable and chart away. */
+  _destroyOutput() {
+    this._table?.destroy();
+    this._table = null;
+    this._chart?.destroy();
+    this._chart = null;
+    this.chartHost?.querySelector('.h-crosstab-png')?.remove();
+  }
+}
+
+/** A labelled select. */
+function select(label, choices, value, onChange) {
+  const wrap = element('label', 'h-crosstab-control');
+  const caption = element('span');
+  caption.textContent = $HR(label);
+  const input = element('select', 'h-select h-compact');
+  for (const [id, text] of choices) {
+    const option = element('option');
+    option.value = id;
+    option.textContent = $HR(text);
+    input.append(option);
+  }
+  input.value = value ?? '';
+  input.addEventListener('change', () => onChange(input.value));
+  wrap.append(caption, input);
+  return wrap;
+}
+
+/** A labelled checkbox. */
+function checkbox(label, checked, onChange) {
+  const wrap = element('label', 'h-crosstab-check');
+  const input = element('input', 'h-checkbox');
+  input.type = 'checkbox';
+  input.checked = checked;
+  input.addEventListener('change', () => onChange(input.checked));
+  const caption = element('span');
+  caption.textContent = $HR(label);
+  wrap.append(input, caption);
+  return wrap;
+}
+
+function element(tag, className = '') {
+  const node = document.createElement(tag);
+  if (className) node.className = className;
+  return node;
+}
+
+/** A file name of a title. */
+function fileName(text) {
+  return String(text || 'crosstab').replace(/[^\p{L}\p{N}_ -]+/gu, '').trim().slice(0, 80) || 'crosstab';
+}
+
+/** Save a data URL as a file. */
+function download(url, name) {
+  if (!url) return;
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = name;
+  document.body.append(link);
+  link.click();
+  link.remove();
+}

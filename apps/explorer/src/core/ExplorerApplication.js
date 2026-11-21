@@ -936,6 +936,12 @@ export class ExplorerApplication {
       await this.openStoryMap(Number(params.get('preset'))).catch((error) => HMsg.showMsgErr?.(error?.message || String(error)));
       return;
     }
+    // a crosstab opened by the CMS designer (plan 27q2 §8): ?tool=crosstabs[&preset=<id>]
+    if (params.get('tool') === 'crosstabs') {
+      this.container?.classList?.remove('h-explorer-booting');
+      await this.openCrosstabs(Number(params.get('preset')) || 0).catch((error) => HMsg.showMsgErr?.(error?.message || String(error)));
+      return;
+    }
     const last = this.history.list()[0];
     if (last?.dataSource) {
       // the workspace is ready: the query's progress is the Query Source loading
@@ -1954,7 +1960,8 @@ export class ExplorerApplication {
         report: (body) => this._createReportsTool(body),
         export: (body) => this._createExportTool(body),
         actions: (body) => this._createActionsTool(body),
-        storymap: (body) => this._createStoryMapTool(body)
+        storymap: (body) => this._createStoryMapTool(body),
+        crosstabs: (body) => this._createCrosstabsTool(body)
       }[definition.type] || null
     });
     this.modules.set(definition.id, module);
@@ -2544,6 +2551,61 @@ export class ExplorerApplication {
   }
 
   /**
+   * Create the Crosstabs tool (plan 27q2 §8) in its body: the crosstab of the current result (or the selection) and its
+   * editor. Loaded only now (its own chunk: HCrosstab, DataTables and Chart.js when they are shown).
+   *
+   * @private
+   * @param {HTMLElement} body Tool body.
+   * @returns {Promise<object>} The CrosstabsTool.
+   */
+  async _createCrosstabsTool(body) {
+    const { CrosstabsTool } = await (this._crosstabsLoader || loadCrosstabsTool)();
+    const tool = new CrosstabsTool({
+      apiClient: this.apiClient,
+      getDbDefs: () => this._ensureDbDefs(),
+      getDataSource: () => (this.sync?.dataSource ? cloneDataSource(this.sync.dataSource) : null),
+      getSelection: () => [...(this.sync?.selection || [])],
+      editRecord: (id) => this.editRecord(id),
+      // the query editor of the record editor (no new inputs)
+      specialEditors: (dbdefs) => this.recordEditing.specialEditors(dbdefs),
+      formServices: () => this.recordEditing.formServices(),
+      openManual: (anchor) => this.openManual(anchor),
+      runtime: this._reportsRuntime()
+    });
+    body.replaceChildren();
+    tool.attach(body);
+    await tool.render();
+    return tool;
+  }
+
+  /**
+   * Open a crosstab in its tool (the CMS designer: Edit in new window, `?tool=crosstabs&preset=<id>`); without an id the
+   * tool with a new crosstab.
+   *
+   * @param {number} presetId Presentation set id, 0: a new crosstab.
+   * @returns {Promise<boolean>} False when the tool or the crosstab is not there.
+   */
+  async openCrosstabs(presetId) {
+    const module = await this.showPresentation('crosstabs');
+    if (!module) {
+      HMsg.showMsgErr?.($HR('Place the Crosstabs tool in a pane (Options > Layout)'));
+      return false;
+    }
+    const tool = await module.ready?.();
+    if (!tool?.openPreset) return false;
+    if (!(Number(presetId) > 0)) {
+      await tool.newCrosstab?.();
+      return true;
+    }
+    const opened = await tool.openPreset(Number(presetId));
+    // its records: the query of the crosstab as the result of Explorer
+    if (opened && tool.preset?.query != null && tool.preset.query !== '') {
+      await this.showDatasource({ reference: { type: 'query' }, title: tool.preset.title, request: { q: tool.preset.query } });
+    }
+    return opened;
+  }
+
+  /**
    * Open a story map in its tool (the CMS designer: Edit in new window, `?tool=storymap&preset=<id>`): the tool is
    * shown, its source records become the result and the first one is selected.
    *
@@ -2957,6 +3019,11 @@ function loadActionsTool() {
 /** Lazy chunk of the Story map tool (plan 27q1). */
 function loadStoryMapTool() {
   return import('../tools/storymap/StoryMapTool.js');
+}
+
+/** Load the Crosstabs tool chunk (plan 27q2). */
+function loadCrosstabsTool() {
+  return import('../tools/crosstabs/CrosstabsTool.js');
 }
 
 /** Load and mount heurist-reports' direct bootstrap into the Reports tool. */

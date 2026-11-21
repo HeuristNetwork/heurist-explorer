@@ -31,7 +31,7 @@ test('aggregate posts the body and takes another domain', async () => {
 });
 
 test('aggregate refuses an unknown op', async () => {
-  assert.deepEqual([...AGGREGATE_OPS], ['count', 'rectypes', 'values', 'minmax', 'ranges']);
+  assert.deepEqual([...AGGREGATE_OPS], ['count', 'rectypes', 'values', 'minmax', 'ranges', 'crosstab']);
   await assert.rejects(aggregate(fakeApi(), 'sum', {}), TypeError);
   await assert.rejects(aggregate(null, 'count', {}), TypeError);
 });

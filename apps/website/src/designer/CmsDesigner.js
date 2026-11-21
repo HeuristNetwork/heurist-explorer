@@ -45,7 +45,7 @@ import { createWebsiteFieldsForm, PAGE_FIELD_KEYS, WEBSITE_FIELD_KEYS } from '..
 import { PANEL_MIN_WIDTH, PANEL_SIDE_WIDTH, createElementPanel } from './designerPanel.js';
 import { styleRows } from './designerStyles.js';
 import {
-  cardTemplateTerms, createRecordsSection, openBreadcrumbsForm, openFilterWidgetForm, openCardsForm, openEmailForm, openFieldForm, openLanguageForm, openMediaForm, openMenuForm, openReportForm, openStoryMapForm, teamReportBody
+  cardTemplateTerms, createRecordsSection, openBreadcrumbsForm, openFilterWidgetForm, openCardsForm, openEmailForm, openFieldForm, openLanguageForm, openMediaForm, openMenuForm, openReportForm, openStoryMapForm, openCrosstabsForm, teamReportBody
 } from './widgetForms.js';
 import { openNewRecordPageForm, recordPageTerms, sitePageTerms } from './recordPageField.js';
 import { filterPageTerms, recordFilterFieldTerms } from './savedFilterField.js';
@@ -2327,7 +2327,22 @@ export class CmsDesigner {
         onEdit: (id) => this._openStoryMapEditor(id),
         // a story map changed in Explorer: the list and the preview again
         onRefresh: () => {
-          this._storyMaps = null;
+          this._presentations = {};
+          this._loadPreview();
+        },
+        ...extra
+      }), setSettings);
+    } else if (instance.type === 'crosstabs') {
+      // crosstabs (plan 27q2 §10): a Presentation set made in Explorer, its records from the page or its own query
+      const presets = await this._presentationPresets('crosstabs').catch(() => []);
+      const sources = this._pageRecordSources(instanceId).sources;
+      await run((extra) => openCrosstabsForm({
+        settings: instance.settings || {},
+        presets,
+        sources,
+        onEdit: (id) => this._openPresentationEditor('crosstabs', id),
+        onRefresh: () => {
+          this._presentations = {};
           this._loadPreview();
         },
         ...extra
@@ -2361,11 +2376,23 @@ export class CmsDesigner {
    * @returns {Promise<Array<{id: number, title: string, public: boolean}>>}
    */
   _storyMapPresets() {
-    this._storyMaps ||= (async () => {
+    return this._presentationPresets('storymap');
+  }
+
+  /**
+   * The Presentation sets of a kind (storymap, crosstabs; plans 27q1, 27q2): id, title, public. Read once per designer
+   * and kind (Refresh reads them again). A story map list also has the sets without a kind (older ones).
+   *
+   * @param {'storymap'|'crosstabs'} kind
+   * @returns {Promise<Array<{id: number, title: string, public: boolean}>>}
+   */
+  _presentationPresets(kind) {
+    this._presentations ||= {};
+    this._presentations[kind] ||= (async () => {
       const id = (code) => Number(this.options.dbdefs?.dbconst?.(code)) || 0;
       const rectype = id('RT_PRESENTATION_SET');
       const typeField = id('DT_PRESENTATION_TYPE');
-      const storymap = id('TRM_PRESENTATION_STORYMAP');
+      const term = id(kind === 'crosstabs' ? 'TRM_PRESENTATION_CROSSTABS' : 'TRM_PRESENTATION_STORYMAP');
       if (!rectype) return [];
       const answer = await this.apiClient.get('/records', {
         query: { q: JSON.stringify([{ t: String(rectype) }]), fields: ['rec_ID', 'rec_Title', 'rec_NonOwnerVisibility', typeField].filter(Boolean).join(','), limit: 1000 }
@@ -2373,16 +2400,16 @@ export class CmsDesigner {
       return ((answer?.data ?? answer)?.records || [])
         .filter((record) => {
           const type = Number([record.details?.[typeField]].flat()[0]) || 0;
-          return !type || type === storymap;
+          return type === term || (!type && kind === 'storymap');
         })
         .map((record) => ({ id: Number(record.rec_ID), title: String(record.rec_Title || `#${record.rec_ID}`),
           public: !record.rec_NonOwnerVisibility || record.rec_NonOwnerVisibility === 'public' }))
         .sort((a, b) => a.title.localeCompare(b.title));
     })().catch((error) => {
-      this._storyMaps = null;
+      this._presentations[kind] = null;
       throw error;
     });
-    return this._storyMaps;
+    return this._presentations[kind];
   }
 
   /**
@@ -2419,9 +2446,19 @@ export class CmsDesigner {
    * @param {number} presetId 0: the tool without a story map (a new one).
    */
   _openStoryMapEditor(presetId) {
+    this._openPresentationEditor('storymap', presetId);
+  }
+
+  /**
+   * Explorer with a story map or a crosstab in a new window (plans 27q1 §2.4, 27q2 §10): `?tool=<kind>&preset=<id>`.
+   *
+   * @param {'storymap'|'crosstabs'} kind
+   * @param {number} presetId 0: the tool without a set (a new one).
+   */
+  _openPresentationEditor(kind, presetId) {
     const runtime = this.options.runtime || {};
     const base = String(runtime.baseUrl || '/').replace(/\/?$/, '/');
-    const url = `${base}?db=${encodeURIComponent(runtime.database || '')}&tool=storymap${presetId > 0 ? `&preset=${presetId}` : ''}`;
+    const url = `${base}?db=${encodeURIComponent(runtime.database || '')}&tool=${kind}${presetId > 0 ? `&preset=${presetId}` : ''}`;
     globalThis.open?.(url, '_blank', 'noopener');
   }
 
@@ -3120,6 +3157,9 @@ export class CmsDesigner {
               } else if (instance.kind === 'widget' && instance.type === 'storymap') {
                 // its source records (plan 27q1 §8)
                 sources.push({ id: `module:${item.instance}`, label: `${$HR('Story map')}: ${name}` });
+              } else if (instance.kind === 'widget' && instance.type === 'crosstabs' && item.instance !== instanceId) {
+                // the records of a clicked count (plan 27q2 §9)
+                sources.push({ id: `module:${item.instance}`, label: `${$HR('Crosstabs')}: ${name}` });
               } else if (instance.kind === 'module' && item.instance !== instanceId && !['explorer', 'recordview'].includes(instance.type)
                 && cmsInstanceRecords(instance, instances).own) {
                 sources.push({ id: `module:${item.instance}`, label: `${$HR('Module')}: ${name}` });

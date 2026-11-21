@@ -10,7 +10,9 @@
  *   `sort` = count|value, `via`, `limit`, `offset`);
  * - `minmax` → `{query, field, type, min, max, count}` (`field`);
  * - `ranges` → `{query, field, type, total, buckets: [{from, to, label, count}]}`
- *   (`field`, `groupby`, `ranges`, `match`).
+ *   (`field`, `groupby`, `ranges`, `match`);
+ * - `crosstab` → `{query, total, rows, columns, pages, measure, cells, totals}` (`crosstab` =
+ *   `{rows, columns?, pages?, measure?}` as JSON; plan 27q2, srv `Records/Query/CrossTabulator.php`).
  *
  * The response is returned as the server gives it.
  *
@@ -26,13 +28,13 @@
  */
 
 /** Operations of `/{domain}/aggregate`. */
-export const AGGREGATE_OPS = Object.freeze(['count', 'rectypes', 'values', 'minmax', 'ranges']);
+export const AGGREGATE_OPS = Object.freeze(['count', 'rectypes', 'values', 'minmax', 'ranges', 'crosstab']);
 
 /**
  * Run one aggregate operation.
  *
  * @param {object} api HeuristApiClient (needs `get`, or `post` for `method: 'POST'`).
- * @param {'count'|'rectypes'|'values'|'minmax'|'ranges'} op Operation.
+ * @param {'count'|'rectypes'|'values'|'minmax'|'ranges'|'crosstab'} op Operation.
  * @param {object} [params] Query (`q`/`query`/`ids`, `filter`) and the parameters of the operation.
  * @param {{domain?: string, method?: 'GET'|'POST', signal?: AbortSignal}} [options]
  *        `domain`: `records` (default) or `files` (count and rectypes only); POST for long queries.

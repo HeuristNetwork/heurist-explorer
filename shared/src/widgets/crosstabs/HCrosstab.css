@@ -1,0 +1,91 @@
+/* HCrosstab (plan 27q2): controls, status, page selector, the table (DataTables) and the chart. */
+.h-crosstab {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  box-sizing: border-box;
+  min-height: 0;
+  color: var(--h-color-text);
+  font-size: var(--h-font-size);
+}
+
+.h-crosstab-title {
+  font-size: var(--h-font-size-large);
+  font-weight: bold;
+}
+
+.h-crosstab-title[hidden] { display: none; }
+
+.h-crosstab-controls,
+.h-crosstab-flags,
+.h-crosstab-pages {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 12px;
+}
+
+.h-crosstab-pages[hidden] { display: none; }
+
+.h-crosstab-control,
+.h-crosstab-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+.h-crosstab-status {
+  color: var(--h-color-text-muted);
+}
+
+.h-crosstab-status.is-error { color: var(--h-color-danger); }
+
+.h-crosstab-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+}
+
+.h-crosstab-tables[hidden],
+.h-crosstab-chart[hidden] { display: none; }
+
+.h-crosstab-table {
+  border-collapse: collapse;
+  font-size: var(--h-font-size);
+}
+
+.h-crosstab-table :is(th, td) {
+  padding: 3px 8px;
+  border: 1px solid var(--h-color-border);
+}
+
+.h-crosstab-table thead th,
+.h-crosstab-table tfoot :is(th, td) {
+  background: var(--h-color-surface);
+}
+
+.h-crosstab-table tbody th { text-align: left; font-weight: normal; }
+.h-crosstab-number { text-align: right; white-space: nowrap; }
+.h-crosstab-percent { color: var(--h-color-text-muted); }
+.h-crosstab-total { font-weight: bold; }
+
+.h-crosstab-clickable { cursor: pointer; }
+.h-crosstab-clickable:hover,
+.h-crosstab-clickable:focus-visible { background: var(--h-color-selected); outline: none; }
+
+.h-crosstab-chart {
+  position: relative;
+  height: 360px;
+  min-height: 240px;
+}
+
+.h-crosstab-png {
+  position: absolute;
+  top: 0;
+  right: 0;
+  z-index: 1;
+}

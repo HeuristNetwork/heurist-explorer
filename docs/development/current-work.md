@@ -4,6 +4,13 @@ Status of the open development plans: what is done, committed, checked in a brow
 `CLAUDE.md` on 2026-11-18. The Status line at the top of each plan in this folder is the source; update both when a plan
 changes. Newest first.
 
+**`docs/development/27q2 Crosstabs-Plan.md`** (agreed 2026-11-20; phases A-F implemented 2026-11-20, not committed, no
+browser check): server `/records/aggregate?op=crosstab` (`CrossTabulator`, `RangeValue`, linked fields, first-value
+measure, exact terms), `CrosstabSettings`; shared `HCrosstab` (DataTables table + Chart.js 4.5.1 chart, visitor levels,
+Update above 50 000), `HRangeList` (from the thematic editor); Explorer tool `crosstabs` (`?tool=crosstabs&preset=`);
+website element `crosstabs` (sources in `settings.from`, PageSync member, click → `module:<id>`); manuals eng / fre.
+Next: browser check (plan §16.4).
+
 **Fix 2026-11-20: child record added from its parent** (plan 26 / plan 21; not committed, no browser check): the Add
 record of the record manager opened from a child pointer field (Browse → Add) had no parent context, so the child showed
 the orphan warning; choosing the same parent there wrote the parent on the server (`assignParent`) and the open parent

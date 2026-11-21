@@ -1717,3 +1717,78 @@ export function openStoryMapForm({ settings = {}, presets = [], maps = [], onEdi
     return { preset: Number(values.preset), ...(values.map ? { map: String(values.map) } : {}) };
   }, { inline, sections: { source: ['preset'], behaviour: ['map'] } });
 }
+
+/** Help of the crosstabs form (plan 27q2 §10). */
+export const CROSSTABS_HELP = 'A crosstab is made in Explorer (tool Crosstabs): its fields, ranges, measure, chart and what'
+  + ' visitors may change. Here you choose one and where its records come from: its own query, the Filter widgets of the'
+  + ' page (the facets), the Saved filter links or another module. The latest search counts.';
+
+/**
+ * Settings of the crosstabs element (plan 27q2 §10): the crosstab (a Presentation set), where its records come from
+ * (`from`: own = its query, links, filter:<id>, module:<id>) and the level of the visitor (it can only lower the level of
+ * the crosstab); Edit in new window (Explorer with the crosstab) and Refresh.
+ *
+ * @param {object} options
+ * @param {object} [options.settings] `{preset, from, level}`.
+ * @param {Array<{id: number, title: string, public?: boolean}>} options.presets
+ * @param {Array<{id: string, label: string}>} options.sources The sources of the page (links, Filter widgets, modules).
+ * @param {(presetId: number) => void} [options.onEdit] Open the crosstab in Explorer.
+ * @param {() => void} [options.onRefresh] Load the preview again.
+ * @returns {Promise<object|null>} `{preset, from?, level?}`.
+ */
+export function openCrosstabsForm({ settings = {}, presets = [], sources = [], onEdit = null, onRefresh = null, inline = null } = {}) {
+  const known = new Set(['own', ...sources.map((item) => item.id)]);
+  const stored = Array.isArray(settings.from) ? settings.from : null;
+  const terms = [{ id: 'own', label: 'Query of the crosstab' }, ...sources,
+    ...(stored || []).filter((token) => !known.has(token)).map((token) => ({ id: token, label: token }))];
+  const fallback = ['own', ...sources.filter((item) => item.id === 'links' || item.id.startsWith('filter:')).map((item) => item.id)];
+  return showEditForm({
+    title: 'Crosstabs',
+    form: {
+      groups: [{
+        id: 'main',
+        children: [
+          { name: 'preset', type: 'enum', label: 'Crosstab', mode: 'select', max: 1, req: 'required', terms: storyMapTerms(presets, settings.preset),
+            help: presets.length ? 'Public crosstabs can be seen by visitors' : 'Make a crosstab in Explorer first (tool Crosstabs)' },
+          { name: 'from', type: 'enum', label: 'Records from', mode: 'checkbox', max: 0, terms,
+            help: 'Any of them: the crosstab counts the latest search' },
+          { name: 'level', type: 'enum', label: 'Visitors can', mode: 'select', max: 1, emptyLabel: 'As in the crosstab',
+            terms: [{ id: 'view', label: 'View' }, { id: 'display', label: 'Change the display' }, { id: 'pivot', label: 'Choose the fields' }],
+            help: 'Lowers what the crosstab allows' }
+        ]
+      }]
+    },
+    values: {
+      preset: Number(settings.preset) > 0 ? String(settings.preset) : null,
+      from: stored || fallback,
+      level: settings.level || null
+    },
+    onReady: (edit) => {
+      addFormHelp(edit, CROSSTABS_HELP);
+      if (!edit.container) return;
+      const bar = document.createElement('div');
+      bar.className = 'h-cms-storymap-actions';
+      const action = (icon, text, run) => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'h-btn h-compact';
+        const glyph = document.createElement('i');
+        glyph.className = `fa-solid ${icon}`;
+        glyph.setAttribute('aria-hidden', 'true');
+        button.append(glyph, document.createTextNode(` ${$HR(text)}`));
+        button.addEventListener('click', run);
+        bar.append(button);
+      };
+      if (onEdit) action('fa-up-right-from-square', 'Edit in new window', () => onEdit(Number(edit.getValues().preset) || 0));
+      if (onRefresh) action('fa-rotate', 'Refresh', () => onRefresh());
+      edit.container.append(bar);
+    },
+    validate: (values) => (Number(values.preset) > 0 ? [] : [{ field: 'preset', message: $HR('Choose a crosstab') }])
+  }, (values) => {
+    if (!values) return null;
+    const from = [...new Set([values.from].flat().filter((token) => typeof token === 'string' && token))];
+    const same = from.length === fallback.length && fallback.every((token) => from.includes(token));
+    const level = [values.level].flat()[0];
+    return { preset: Number(values.preset), ...(same ? {} : { from }), ...(level ? { level: String(level) } : {}) };
+  }, { inline, sections: { source: ['preset', 'from'], behaviour: ['level'] } });
+}

@@ -164,6 +164,36 @@
   <p>Most changes are shown at once. A new query, rule or background map is applied with <strong>Apply</strong>.
   Changes are kept only after <strong>Save</strong>.</p>
 
+  <h3 id="crosstabs">Crosstabs</h3>
+  <p><strong>Crosstabs</strong> count the records of the current result (or of the selected records) by the values of
+  one, two or three fields: <em>rows</em>, <em>columns</em> and <em>pages</em> (one table per page, chosen above the
+  table). Instead of counting they can show the sum, average, minimum or maximum of a numeric field (the first value
+  of each record). A record with several values of a field is counted once for each value; the totals count each
+  record once, so they can be smaller than the sum of the cells. A crosstab is saved as a record (Presentation set)
+  and can be placed on a website page.</p>
+  <ul>
+    <li><strong>Toolbar</strong>: <em>New crosstab</em>; the list of crosstabs; <em>Crosstab editor</em> shows or hides
+    the configuration; the pen edits the record (name, owner, visibility); Save; Delete (refused while website pages
+    use the crosstab); <em>Current result</em> or <em>Selected records</em>: the records counted.</li>
+    <li><strong>Source</strong>: the name; the query counted on a website page that gives the crosstab no other
+    records; <em>Fields of</em>: the record type whose fields are offered (it does not filter the records).</li>
+    <li><strong>Rows, Columns, Pages</strong>: the field (also a field of the records they point to, up to two links);
+    a caption; the values: <em>Each value</em>, <em>Dates by period</em> (years, decades, centuries),
+    <em>Equal ranges</em> of numbers, or <em>Own ranges</em>: intervals (1900&lt;&gt;1909) and groups of terms with a
+    label, made as the ranges of a thematic map (Add range, Generate ranges, Remove all). Values outside the ranges are
+    <em>other values</em>; records without a value are <em>(no value)</em>.</li>
+    <li><strong>Measure</strong>: count of records, or sum / average / minimum / maximum of a numeric field.</li>
+    <li><strong>Display</strong>: title, values, totals, row and column percentages, blank for zero, blank rows and
+    columns, decimals; Table, Chart or both; the chart type (bars, stacked bars, horizontal bars, line, pie,
+    doughnut).</li>
+    <li><strong>Visitors on a website</strong>: what a visitor may change (view only; the display; also the fields and
+    the measure, from the lists given here), the exports (CSV, Excel, PDF, chart image, print) and whether a click on a
+    count shows its records in the other modules of the page.</li>
+  </ul>
+  <p>Changes are shown at once and kept after <strong>Save</strong>. Above the table the display can be changed for a
+  moment (values, percentages, chart type, swap rows and columns). With more than 50 000 records the crosstab is
+  counted after <strong>Update</strong>.</p>
+
   <h2 id="publication">5. Publication</h2>
   <p class="todo">Content to be provided.</p>
 </body>

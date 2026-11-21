@@ -868,6 +868,23 @@ export async function mountInstance(host, id, config, loaders) {
       return showMessage(host, $HR('This part of the page can not be shown'));
     }
   }
+  if (instance.kind === 'widget' && instance.type === 'crosstabs') {
+    // crosstabs (plan 27q2 §10): a lazy chunk; a member of the page (its records, a clicked count sent on)
+    try {
+      const { mountCrosstabs } = await import('./siteCrosstabs.js');
+      const sync = pageSyncOf(config);
+      const mounted = await mountCrosstabs(host, instance, config, {
+        id,
+        sendRecords: sync ? (request, origin) => void sync.setRequest(request, { origin }) : null
+      });
+      if (!mounted) return null;
+      joinPageSync(config, id, instance, mounted.widget);
+      return mounted.widget;
+    } catch (error) {
+      console.error(`Unable to show the crosstabs (${id})`, error);
+      return showMessage(host, $HR('This part of the page can not be shown'));
+    }
+  }
   if (instance.kind === 'widget' && SITE_WIDGETS.includes(instance.type)) return mountSiteWidget(host, instance, config);
   if (instance.kind !== 'module' || !Object.hasOwn(loaders, instance.type)) {
     return showMessage(host, $HR('This part of the page can not be shown'));

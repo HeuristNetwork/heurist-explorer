@@ -720,3 +720,115 @@
 #Next#Next
 #Full record view#Full record view
 #There are no elements to show for "{title}". They may exist but not be public.#There are no elements to show for "{title}". They may exist but not be public.
+
+# Crosstabs (plan 27q2, 2026-11-20)
+#(no value)#(no value)
+#(other values)#(other values)
+#A click on a count shows its records in the modules of the page that take their records from the crosstab.#A click on a count shows its records in the modules of the page that take their records from the crosstab.
+#A click shows the records#A click shows the records
+#Add a field#Add a field
+#Add range#Add range
+#Average#Average
+#Bars#Bars
+#Stacked bars#Stacked bars
+#Horizontal bars#Horizontal bars
+#Line#Line
+#Pie#Pie
+#Doughnut#Doughnut
+#Blank for zero#Blank for zero
+#Blank rows#Blank rows
+#Chart#Chart
+#Choose a crosstab in the configuration of this element#Choose a crosstab in the configuration of this element
+#Choose the field#Choose the field
+#Choose the field first#Choose the field first
+#Choose the field of the rows#Choose the field of the rows
+#Choose the record type of the fields first#Choose the record type of the fields first
+#Column %#Column %
+#Count#Count
+#Count of records#Count of records
+#Count the records, or the sum / average / minimum / maximum of a numeric field (the first value of each record).#Count the records, or the sum / average / minimum / maximum of a numeric field (the first value of each record).
+#Counting may take a while.#Counting may take a while.
+#Counting…#Counting…
+#Crosstab#Crosstab
+#Crosstabs#Crosstabs
+#Crosstab editor#Crosstab editor
+#Current result#Current result
+#Database#Database
+#Dates by period#Dates by period
+#Months#Months
+#Years#Years
+#Decades#Decades
+#Centuries#Centuries
+#Decimals#Decimals
+#Delete the crosstab#Delete the crosstab
+#Each value#Each value
+#Each value: a row per value. Dates by period: years, decades … Equal ranges: numbers in round ranges. Own ranges: intervals and groups of values you define and name.#Each value: a row per value. Dates by period: years, decades … Equal ranges: numbers in round ranges. Own ranges: intervals and groups of values you define and name.
+#Edit the ranges#Edit the ranges
+#Equal ranges (numbers)#Equal ranges (numbers)
+#Field#Field
+#Fields a visitor may choose for rows, columns and pages (level Pivot).#Fields a visitor may choose for rows, columns and pages (level Pivot).
+#Fields of#Fields of
+#Fields to choose#Fields to choose
+#Generate ranges...#Generate ranges...
+#Help of the crosstabs#Help of the crosstabs
+#Intervals ("1900<>1909"), values or groups of terms; each with an optional label. Values outside them are counted as "other values".#Intervals ("1900<>1909"), values or groups of terms; each with an optional label. Values outside them are counted as "other values".
+#Maximum#Maximum
+#Measure#Measure
+#Measures to choose#Measures to choose
+#Minimum#Minimum
+#Name, owner and visibility of the crosstab#Name, owner and visibility of the crosstab
+#New crosstab#New crosstab
+#No records#No records
+#No values#No values
+#Number of ranges#Number of ranges
+#Numeric field#Numeric field
+#Own ranges#Own ranges
+#Period#Period
+#Ranges#Ranges
+#Records counted#Records counted
+#Records counted on a website page that gives the crosstab no other records. In Explorer the crosstab counts the current result (or the selection).#Records counted on a website page that gives the crosstab no other records. In Explorer the crosstab counts the current result (or the selection).
+#Records on a website#Records on a website
+#Remove all ranges#Remove all ranges
+#Row %#Row %
+#Rows#Rows
+#Save the chart as an image#Save the chart as an image
+#Save the crosstab#Save the crosstab
+#Search for records: the crosstab counts the current result#Search for records: the crosstab counts the current result
+#Select crosstab#Select crosstab
+#Selected records#Selected records
+#Show blank rows and columns#Show blank rows and columns
+#Show or hide the configuration of the crosstab#Show or hide the configuration of the crosstab
+#Show the rows and columns without records, the records without a value and the other values.#Show the rows and columns without records, the records without a value and the other values.
+#Show totals#Show totals
+#Show values#Show values
+#Sum#Sum
+#Swap rows and columns#Swap rows and columns
+#Table#Table
+#Table and chart#Table and chart
+#The crosstab is used by website pages and can not be deleted#The crosstab is used by website pages and can not be deleted
+#The crosstab was not found#The crosstab was not found
+#The field whose values make the rows (columns, pages): a field of the records or of the records they point to.#The field whose values make the rows (columns, pages): a field of the records or of the records they point to.
+#The record type whose fields (and the fields of the records they point to) are offered. It does not filter the records: all records of the result are counted.#The record type whose fields (and the fields of the records they point to) are offered. It does not filter the records: all records of the result are counted.
+#Title above the table and of the exports.#Title above the table and of the exports.
+#Total#Total
+#Totals#Totals
+#Update#Update
+#Visitors can#Visitors can
+#Change the display#Change the display
+#Choose the fields#Choose the fields
+#Visitors on a website#Visitors on a website
+#What a visitor of a website page can change. View: Table / Chart and export. Display: also values, totals, percentages and chart type. Pivot: also the fields of rows, columns, pages and the measure, from the lists below.#What a visitor of a website page can change. View: Table / Chart and export. Display: also values, totals, percentages and chart type. Pivot: also the fields of rows, columns, pages and the measure, from the lists below.
+#Chart image (PNG)#Chart image (PNG)
+#Print#Print
+#ranges#ranges
+#Yes#Yes
+#Query of the crosstab#Query of the crosstab
+#Any of them: the crosstab counts the latest search#Any of them: the crosstab counts the latest search
+#As in the crosstab#As in the crosstab
+#Lowers what the crosstab allows#Lowers what the crosstab allows
+#Public crosstabs can be seen by visitors#Public crosstabs can be seen by visitors
+#Make a crosstab in Explorer first (tool Crosstabs)#Make a crosstab in Explorer first (tool Crosstabs)
+#Choose a crosstab#Choose a crosstab
+#The crosstab counts the records of the page#The crosstab counts the records of the page
+#Place the Crosstabs tool in a pane (Options > Layout)#Place the Crosstabs tool in a pane (Options > Layout)
+#The crosstab has been changed. Save changes?#The crosstab has been changed. Save changes?

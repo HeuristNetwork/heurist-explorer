@@ -1,0 +1,7 @@
+/* HRangeList: the ranges of one field (thematic maps, crosstabs); taken out of HThematicMapEditor.css 2026-11-20 */
+.h-thematic-range-list { display:flex; flex-direction:column; gap:2px; margin-top:6px; }
+.h-thematic-range { display:flex; align-items:center; gap:6px; padding:2px 0; }
+.h-thematic-range-values { display:inline-flex; align-items:center; gap:4px; min-width:240px; }
+.h-thematic-range-values > .h-form-input { min-width:240px; }
+.h-thematic-range-bound { width:110px; }
+.h-thematic-range-separator { color:var(--h-color-text-muted); }

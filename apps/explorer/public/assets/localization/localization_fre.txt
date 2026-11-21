@@ -1528,3 +1528,97 @@
 #Blueish#Bleuté
 #Monitor (green on black)#Moniteur (vert sur noir)
 #Red and white#Rouge et blanc
+# Crosstabs (plan 27q2, 2026-11-20)
+#(no value)#(sans valeur)
+#(other values)#(autres valeurs)
+#A click on a count shows its records in the modules of the page that take their records from the crosstab.#Un clic sur un nombre montre ses enregistrements dans les modules de la page qui prennent leurs enregistrements du tableau croisé.
+#A click shows the records#Un clic montre les enregistrements
+#Add a field#Ajouter un champ
+#Average#Moyenne
+#Bars#Barres
+#Stacked bars#Barres empilées
+#Horizontal bars#Barres horizontales
+#Line#Ligne
+#Pie#Secteurs
+#Doughnut#Anneau
+#Blank for zero#Vide pour zéro
+#Blank rows#Lignes vides
+#Chart#Graphique
+#Choose a crosstab in the configuration of this element#Choisissez un tableau croisé dans la configuration de cet élément
+#Choose the field#Choisir le champ
+#Choose the field first#Choisissez d'abord le champ
+#Choose the field of the rows#Choisissez le champ des lignes
+#Choose the record type of the fields first#Choisissez d'abord le type d'enregistrement des champs
+#Column %#% colonne
+#Count#Nombre
+#Count of records#Nombre d'enregistrements
+#Count the records, or the sum / average / minimum / maximum of a numeric field (the first value of each record).#Compter les enregistrements, ou la somme / moyenne / le minimum / maximum d'un champ numérique (la première valeur de chaque enregistrement).
+#Counting may take a while.#Le calcul peut prendre du temps.
+#Counting…#Calcul…
+#Crosstab#Tableau croisé
+#Crosstab editor#Éditeur du tableau croisé
+#Database#Base de données
+#Dates by period#Dates par période
+#Months#Mois
+#Years#Années
+#Decades#Décennies
+#Centuries#Siècles
+#Decimals#Décimales
+#Delete the crosstab#Supprimer le tableau croisé
+#Each value#Chaque valeur
+#Each value: a row per value. Dates by period: years, decades … Equal ranges: numbers in round ranges. Own ranges: intervals and groups of values you define and name.#Chaque valeur : une ligne par valeur. Dates par période : années, décennies … Intervalles égaux : nombres en intervalles ronds. Intervalles propres : intervalles et groupes de valeurs que vous définissez et nommez.
+#Edit the ranges#Modifier les intervalles
+#Equal ranges (numbers)#Intervalles égaux (nombres)
+#Fields a visitor may choose for rows, columns and pages (level Pivot).#Champs que le visiteur peut choisir pour les lignes, colonnes et pages (niveau Pivot).
+#Fields of#Champs de
+#Fields to choose#Champs à choisir
+#Help of the crosstabs#Aide des tableaux croisés
+#Intervals ("1900<>1909"), values or groups of terms; each with an optional label. Values outside them are counted as "other values".#Intervalles ("1900<>1909"), valeurs ou groupes de termes ; chacun avec un libellé facultatif. Les valeurs hors de ceux-ci sont comptées comme "autres valeurs".
+#Maximum#Maximum
+#Measure#Mesure
+#Measures to choose#Mesures à choisir
+#Minimum#Minimum
+#Name, owner and visibility of the crosstab#Nom, propriétaire et visibilité du tableau croisé
+#New crosstab#Nouveau tableau croisé
+#No values#Pas de valeurs
+#Number of ranges#Nombre d'intervalles
+#Numeric field#Champ numérique
+#Own ranges#Intervalles propres
+#Pages#Pages
+#Period#Période
+#Ranges#Intervalles
+#Records counted#Enregistrements comptés
+#Records counted on a website page that gives the crosstab no other records. In Explorer the crosstab counts the current result (or the selection).#Enregistrements comptés sur une page de site web qui ne donne pas d'autres enregistrements au tableau croisé. Dans Explorer, le tableau compte le résultat courant (ou la sélection).
+#Records on a website#Enregistrements sur un site web
+#Row %#% ligne
+#Save the chart as an image#Enregistrer le graphique comme image
+#Save the crosstab#Enregistrer le tableau croisé
+#Search for records: the crosstab counts the current result#Cherchez des enregistrements : le tableau croisé compte le résultat courant
+#Select crosstab#Choisir un tableau croisé
+#Selected records#Enregistrements sélectionnés
+#Show blank rows and columns#Afficher les lignes et colonnes vides
+#Show or hide the configuration of the crosstab#Afficher ou masquer la configuration du tableau croisé
+#Show the rows and columns without records, the records without a value and the other values.#Afficher les lignes et colonnes sans enregistrements, les enregistrements sans valeur et les autres valeurs.
+#Show totals#Afficher les totaux
+#Show values#Afficher les valeurs
+#Sum#Somme
+#Swap rows and columns#Échanger lignes et colonnes
+#Table and chart#Tableau et graphique
+#The crosstab is used by website pages and can not be deleted#Le tableau croisé est utilisé par des pages de site web et ne peut pas être supprimé
+#The crosstab was not found#Le tableau croisé n'a pas été trouvé
+#The field whose values make the rows (columns, pages): a field of the records or of the records they point to.#Le champ dont les valeurs forment les lignes (colonnes, pages) : un champ des enregistrements ou des enregistrements liés.
+#The record type whose fields (and the fields of the records they point to) are offered. It does not filter the records: all records of the result are counted.#Le type d'enregistrement dont les champs (et ceux des enregistrements liés) sont proposés. Il ne filtre pas : tous les enregistrements du résultat sont comptés.
+#Title above the table and of the exports.#Titre au-dessus du tableau et des exports.
+#Total#Total
+#Totals#Totaux
+#Update#Mettre à jour
+#Value#Valeur
+#Values#Valeurs
+#Visitors can#Les visiteurs peuvent
+#Change the display#Changer l'affichage
+#Choose the fields#Choisir les champs
+#Visitors on a website#Visiteurs d'un site web
+#What a visitor of a website page can change. View: Table / Chart and export. Display: also values, totals, percentages and chart type. Pivot: also the fields of rows, columns, pages and the measure, from the lists below.#Ce qu'un visiteur d'une page de site web peut changer. Voir : tableau / graphique et export. Affichage : aussi valeurs, totaux, pourcentages et type de graphique. Pivot : aussi les champs des lignes, colonnes, pages et la mesure, parmi les listes ci-dessous.
+#Chart image (PNG)#Image du graphique (PNG)
+#Place the Crosstabs tool in a pane (Options > Layout)#Placez l'outil Tableaux croisés dans un panneau (Options > Disposition)
+#The crosstab has been changed. Save changes?#Le tableau croisé a été modifié. Enregistrer les modifications ?

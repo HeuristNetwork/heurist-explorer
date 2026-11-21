@@ -25,10 +25,8 @@
 
 import { HBaseWidget } from '../HBaseWidget.js';
 import { HFieldTree } from '../field-tree/HFieldTree.js';
-import { createHInput } from '../form/inputs/createHInput.js';
 import { HMsg } from '../../ui/HMsg.js';
 import { $HR } from '../../ui/i18n/HResource.js';
-import { TermSource } from '../../data/valueSources/localSources.js';
 import { fieldPathCode, fieldCodeLabel } from '../../data/fieldPathCodes.js';
 import { formatRange, isIntervalType, parseRange } from '../../data/ranges/rangeDefinitions.js';
 import { DEFAULT_MAP_SYMBOL } from '../../symbology/normalizeMapSymbol.js';
@@ -39,6 +37,7 @@ import { renderSymbolPreview } from '../../symbology/symbolPreview.js';
 import { THEMATIC_FIELD_TYPES, fieldCodeDty, fieldCodeType, layerRecordTypes } from '../../symbology/thematicFields.js';
 import { HSymbolEditor } from './HSymbolEditor.js';
 import { openRangeGenerator } from './HRangeGenerator.js';
+import { HRangeList } from './HRangeList.js';
 import './HThematicMapEditor.css';
 
 /** Editor of the thematic renderers of one map layer. */
@@ -106,7 +105,7 @@ export class HThematicMapEditor extends HBaseWidget {
     this.layerEffective = effectiveSymbol(this.layerSymbol, effectiveSymbol({}, options.parentSymbol || DEFAULT_MAP_SYMBOL));
     this.recordTypes = null;
     this.fieldTree = null;
-    this.rangeInputs = [];
+    this.rangeRows = null;
     return this;
   }
 
@@ -468,45 +467,13 @@ export class HThematicMapEditor extends HBaseWidget {
     this._renderRangeRows();
   }
 
-  /** One row per range: value (term or from/to), symbol preview, edit, reset, delete. */
+  /** One row per range (HRangeList): value (term or from/to), then symbol preview, edit, reset and legend caption. */
   _renderRangeRows() {
-    void this._destroyRangeInputs();
     const field = this._field();
     if (!field || !this.rangeList) return;
     const enumField = !isIntervalType(fieldCodeType(field.code, this.options.dbdefs));
     const vocabulary = enumField ? this.options.dbdefs?.vocabRoot?.(fieldCodeDty(field.code)) : 0;
-    this.rangeList.replaceChildren(...field.ranges.map((range, index) => {
-      const row = element('div', 'h-thematic-range');
-      const remove = linkButton('', $HR('Remove range'), () => {
-        field.ranges.splice(index, 1);
-        this._renderRangeRows();
-      }, 'fa-circle-minus');
-      remove.classList.add('h-thematic-range-remove');
-      const values = element('div', 'h-thematic-range-values');
-      if (enumField && vocabulary) {
-        const parsed = parseRange(range.value);
-        const selected = parsed.kind === 'list' ? parsed.values : (parsed.value ? [parsed.value] : []);
-        const input = createHInput('enum', values, {
-          source: new TermSource(this.options.dbdefs, vocabulary),
-          // no clear button: the row has its own remove action
-          mode: 'select', multiple: true, suppressLabel: true, clearButton: false, value: selected.map(Number)
-        });
-        values.addEventListener('h-input-change', () => {
-          const value = input.getValue();
-          range.value = formatRange(Array.isArray(value) ? value : (value == null ? [] : [value]));
-        });
-        this.rangeInputs.push(input);
-      } else {
-        const parsed = parseRange(range.value);
-        const from = textBox(parsed.kind === 'interval' ? parsed.min : (parsed.kind === 'list' ? parsed.values.join(',') : parsed.value || ''));
-        const to = textBox(parsed.kind === 'interval' ? parsed.max : '');
-        const sync = () => { range.value = formatRange(from.value, to.value); };
-        this.listen(from, 'input', sync);
-        this.listen(to, 'input', sync);
-        const separator = element('span', 'h-thematic-range-separator');
-        separator.textContent = '<>';
-        values.append(from, separator, to);
-      }
+    const extras = (row, range) => {
       const preview = symbolButton($HR('Click to edit symbol'), () => void this._editRangeSymbol(range, preview));
       renderSymbolPreview(preview, this._rangeSymbol(range), this._previewOptions());
       const reset = linkButton('×', $HR('Reset to inherited symbology'), () => {
@@ -515,12 +482,13 @@ export class HThematicMapEditor extends HBaseWidget {
       });
       const caption = element('span', 'h-thematic-range-caption h-muted');
       caption.textContent = isFilled(range.symbol) && range.symbol.legendLabel ? range.symbol.legendLabel : '';
-      row.append(remove, values, preview, reset, caption);
       row._preview = preview;
       row._range = range;
-      return row;
-    }));
-    if (!field.ranges.length) this.rangeList.append(emptyNote('No ranges'));
+      return [preview, reset, caption];
+    };
+    const options = { ranges: field.ranges, enumField, vocabulary, dbdefs: this.options.dbdefs, extras };
+    if (this.rangeRows?.container === this.rangeList) this.rangeRows.setRanges(field.ranges, options);
+    else this.rangeRows = new HRangeList().attach(this.rangeList, options).render();
   }
 
   /** Add an empty range. */
@@ -657,11 +625,11 @@ export class HThematicMapEditor extends HBaseWidget {
     }
   }
 
-  /** Remove the term pickers of the range rows. */
+  /** Remove the range rows (their term pickers). */
   async _destroyRangeInputs() {
-    const inputs = this.rangeInputs || [];
-    this.rangeInputs = [];
-    for (const input of inputs) await input.destroy?.();
+    const rows = this.rangeRows;
+    this.rangeRows = null;
+    await rows?.destroy();
   }
 }
 
@@ -802,15 +770,6 @@ function button(label, onClick, className = '') {
   node.textContent = $HR(label);
   node.addEventListener('click', onClick);
   return node;
-}
-
-/** A text box of a range bound. */
-function textBox(value) {
-  const input = document.createElement('input');
-  input.type = 'text';
-  input.className = 'h-input h-thematic-range-bound';
-  input.value = value ?? '';
-  return input;
 }
 
 /** A muted note of an empty list. */
