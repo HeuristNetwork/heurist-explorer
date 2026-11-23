@@ -78,14 +78,18 @@ export class ExplorerBaseStyleDialog {
     const preview = createPreviewColumn();
     layout.append(pane, preview.element);
     const refresh = () => preview.show(basePreviewHtml(this.base));
-    createBaseSettingsPane(config, { base: this.base, keys: UI_BASE_SETTINGS, onChange: refresh });
+    this.pane = createBaseSettingsPane(config, { base: this.base, keys: UI_BASE_SETTINGS, onChange: refresh });
+    this.refreshPreview = refresh;
     refresh();
 
     const footer = el('footer', 'h-dialog-footer');
     const apply = el('button', 'h-btn h-btn-primary h-i18n');
     apply.type = 'submit';
     apply.textContent = 'Apply';
-    footer.append(button('Cancel', () => this.cancel()), apply);
+    // Reset at the left: all values empty, the Heurist defaults again after Apply (2026-11-22)
+    const reset = button('Reset', () => this.reset(), 'Clear all settings: the default colours and fonts are used again');
+    reset.classList.add('h-explorer-base-style-reset');
+    footer.append(reset, button('Cancel', () => this.cancel()), apply);
     form.append(layout, footer);
     this.dialog.append(header, form);
     (this.parent || document.body).append(this.dialog);
@@ -113,6 +117,30 @@ export class ExplorerBaseStyleDialog {
    */
   signature() {
     return JSON.stringify(this.getValue());
+  }
+
+  /**
+   * Clear all settings after a confirmation; nothing is saved before Apply.
+   *
+   * @returns {void}
+   */
+  reset() {
+    if (!this.pane || this.resetDialog?.open) return;
+    const dialogId = 'heurist-explorer-reset-base-style';
+    this.resetDialog = HMsg.showMsgDlg($HR('Clear all base style settings? The default colours and fonts are used again after Apply.'), {
+      title: $HR('Reset'),
+      dialogId,
+      buttons: [
+        { label: $HR('Cancel'), class: 'h-btn', onClick: () => this.resetDialog.close() },
+        { label: $HR('Reset'), class: 'h-btn h-btn-danger', onClick: () => {
+          this.resetDialog.close();
+          for (const key of UI_BASE_SETTINGS) this.pane.set(key, '');
+          const theme = this.dialog?.querySelector('.h-cms-styles-head select');
+          if (theme) theme.value = '';
+          this.refreshPreview?.();
+        } }
+      ]
+    });
   }
 
   /**
@@ -164,6 +192,7 @@ export class ExplorerBaseStyleDialog {
    */
   close() {
     this.discardDialog?.close();
+    this.resetDialog?.close();
     this.dialog?.close();
     this.dialog?.remove();
     this.dialog = null;

@@ -86,6 +86,10 @@ export class HInputTemporal extends HInputDate {
       this.notifyChange();
     });
     this.listen(this.editButton, 'click', () => void this._edit());
+    // a click on the readable text of a temporal object opens the editor, as Edit (2026-11-22)
+    this.listen(this.summary, 'click', () => {
+      if (!this.editButton.hidden) void this._edit();
+    });
     this.setReadOnly(Boolean(this.options.readOnly));
     this._syncView();
     return this;

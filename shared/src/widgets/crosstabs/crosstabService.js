@@ -32,11 +32,14 @@ export class CrosstabService {
    * @param {string} options.database Database name.
    * @param {object} [options.headers] Request headers (access token of Explorer).
    * @param {typeof fetch} [options.fetchImpl]
+   * @param {object} [options.apiClient] HeuristApiClient (Explorer): its requests are traced and Stop cancels the query
+   *        on the server too (`/records/cancel`); without it a plain fetch (website).
    */
-  constructor({ apiBaseUrl, database, headers = {}, fetchImpl = globalThis.fetch?.bind(globalThis) }) {
+  constructor({ apiBaseUrl, database, headers = {}, fetchImpl = globalThis.fetch?.bind(globalThis), apiClient = null }) {
     this.base = `${String(apiBaseUrl || '').replace(/\/$/, '')}/${encodeURIComponent(database || '')}`;
     this.headers = headers || {};
     this.fetchImpl = fetchImpl;
+    this.apiClient = apiClient;
   }
 
   /**
@@ -48,6 +51,7 @@ export class CrosstabService {
    * @returns {Promise<object>}
    */
   async request(path, params = {}, { signal } = {}) {
+    if (this.apiClient) return this._clientRequest(path, params, signal);
     const query = new URLSearchParams();
     for (const [key, value] of Object.entries(params)) {
       if (value == null) continue;
@@ -70,6 +74,19 @@ export class CrosstabService {
       throw error;
     }
     return payload?.data ?? payload;
+  }
+
+  /** @private A request through the HeuristApiClient: GET, or POST with a JSON body for a long query. */
+  async _clientRequest(path, params, signal) {
+    const query = {};
+    for (const [key, value] of Object.entries(params)) {
+      if (value != null) query[key] = typeof value === 'object' ? JSON.stringify(value) : String(value);
+    }
+    const length = Object.entries(query).reduce((sum, [key, value]) => sum + key.length + value.length + 2, path.length);
+    const answer = length > MAX_GET
+      ? await this.apiClient.request(path, { method: 'POST', body: params, signal })
+      : await this.apiClient.request(path, { query, signal });
+    return answer?.data ?? answer;
   }
 
   /**

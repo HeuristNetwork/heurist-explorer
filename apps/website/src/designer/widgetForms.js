@@ -1726,10 +1726,11 @@ export const CROSSTABS_HELP = 'A crosstab is made in Explorer (tool Crosstabs): 
 /**
  * Settings of the crosstabs element (plan 27q2 §10): the crosstab (a Presentation set), where its records come from
  * (`from`: own = its query, links, filter:<id>, module:<id>) and the level of the visitor (it can only lower the level of
- * the crosstab); Edit in new window (Explorer with the crosstab) and Refresh.
+ * the crosstab); Edit in new window (Explorer with the crosstab) and Refresh. A crosstab published from Explorer keeps
+ * the query of the records shown there in `settings.query` (presentation-sources.md §6): it is the own query then.
  *
  * @param {object} options
- * @param {object} [options.settings] `{preset, from, level}`.
+ * @param {object} [options.settings] `{preset, from, level, query}`.
  * @param {Array<{id: number, title: string, public?: boolean}>} options.presets
  * @param {Array<{id: string, label: string}>} options.sources The sources of the page (links, Filter widgets, modules).
  * @param {(presetId: number) => void} [options.onEdit] Open the crosstab in Explorer.
@@ -1739,7 +1740,8 @@ export const CROSSTABS_HELP = 'A crosstab is made in Explorer (tool Crosstabs): 
 export function openCrosstabsForm({ settings = {}, presets = [], sources = [], onEdit = null, onRefresh = null, inline = null } = {}) {
   const known = new Set(['own', ...sources.map((item) => item.id)]);
   const stored = Array.isArray(settings.from) ? settings.from : null;
-  const terms = [{ id: 'own', label: 'Query of the crosstab' }, ...sources,
+  const publishedQuery = settings.query != null && settings.query !== '';
+  const terms = [{ id: 'own', label: publishedQuery ? 'Query published from Explorer' : 'Query of the crosstab' }, ...sources,
     ...(stored || []).filter((token) => !known.has(token)).map((token) => ({ id: token, label: token }))];
   const fallback = ['own', ...sources.filter((item) => item.id === 'links' || item.id.startsWith('filter:')).map((item) => item.id)];
   return showEditForm({
@@ -1789,6 +1791,9 @@ export function openCrosstabsForm({ settings = {}, presets = [], sources = [], o
     const from = [...new Set([values.from].flat().filter((token) => typeof token === 'string' && token))];
     const same = from.length === fallback.length && fallback.every((token) => from.includes(token));
     const level = [values.level].flat()[0];
-    return { preset: Number(values.preset), ...(same ? {} : { from }), ...(level ? { level: String(level) } : {}) };
+    return {
+      preset: Number(values.preset), ...(same ? {} : { from }), ...(level ? { level: String(level) } : {}),
+      ...(publishedQuery ? { query: settings.query } : {})
+    };
   }, { inline, sections: { source: ['preset', 'from'], behaviour: ['level'] } });
 }

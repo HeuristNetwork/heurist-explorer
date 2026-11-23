@@ -39,9 +39,10 @@ export function querySourceChoices(items = [], parameters = 'without') {
  *
  * @param {HTMLElement} anchor The ▾ button.
  * @param {Array<{id: number|string, title?: string, kind?: string}>} items Items to offer (`kind: 'filter'` gets a mark).
+ * @param {Array<{id: string, title: string}>} [first] Fixed items above the list (e.g. Current result), not searched.
  * @returns {Promise<object|null>}
  */
-export function chooseQuerySource(anchor, items) {
+export function chooseQuerySource(anchor, items, first = []) {
   return new Promise((resolve) => {
     let chosen = null;
     const content = document.createElement('div');
@@ -52,6 +53,23 @@ export function chooseQuerySource(anchor, items) {
       const needle = text.trim().toLowerCase();
       menu.replaceChildren();
       const shown = items.filter((item) => !needle || String(item.title || '').toLowerCase().includes(needle));
+      for (const item of first) {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'h-menu-item h-query-source-chooser-first';
+        button.textContent = $HR(item.title);
+        button.addEventListener('click', () => {
+          chosen = item;
+          popover.close();
+        });
+        menu.append(button);
+      }
+      if (first.length) {
+        const line = document.createElement('div');
+        line.className = 'h-menu-divider';
+        line.setAttribute('role', 'separator');
+        menu.append(line);
+      }
       for (const item of shown) {
         const button = document.createElement('button');
         button.type = 'button';
@@ -69,7 +87,7 @@ export function chooseQuerySource(anchor, items) {
         });
         menu.append(button);
       }
-      if (!shown.length) {
+      if (!shown.length && !first.length) {
         const empty = document.createElement('div');
         empty.className = 'h-query-source-chooser-empty';
         empty.textContent = $HR(items.length ? 'Nothing found' : 'There is no query source to copy');
@@ -99,11 +117,13 @@ export function chooseQuerySource(anchor, items) {
  * @param {() => Promise<Array<object>>} options.list Query sources (and saved filters): `[{id, title, kind, parameterized}]`.
  * @param {(item: object) => Promise<{query: *, filterForm?: object|null}|null>} options.definition The query of an item.
  * @param {'any'|'with'|'without'} [options.parameters='without'] Which ones are offered.
+ * @param {Array<{id: string, title: string}>} [options.first] Fixed items above the list (Current result, plan 27q2
+ *        §17); `definition` gets them as the other items.
  * @param {(definition: object, context: object) => (string|undefined)} options.apply The new value of the field (and other
  *        fields set through the context, e.g. a filter form); undefined: nothing changes.
  * @returns {{label: string, icon: string, title: string, iconOnly: boolean, run: Function}}
  */
-export function querySourceAction({ list, definition, parameters = 'without', apply }) {
+export function querySourceAction({ list, definition, parameters = 'without', apply, first = [] }) {
   return {
     label: '',
     icon: 'fa-caret-down',
@@ -111,7 +131,7 @@ export function querySourceAction({ list, definition, parameters = 'without', ap
     title: 'Copy the query of a query source',
     run: async (value, context, anchor) => {
       const items = querySourceChoices(await list(), parameters);
-      const item = await chooseQuerySource(anchor, items);
+      const item = await chooseQuerySource(anchor, items, first);
       if (!item) return undefined;
       const found = await definition(item);
       return found ? apply(found, context) : undefined;

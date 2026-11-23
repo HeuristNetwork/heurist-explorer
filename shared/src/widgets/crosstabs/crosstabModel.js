@@ -6,7 +6,8 @@
  *
  * Settings (plan 27q2 §5): `rows` / `columns` / `pages` = `{code, label, buckets}` (the form of the request: a field path
  * code of the thematic maps and its buckets, plus a caption), `measure`, `display`, `chart`, `visitor`. The server checks
- * the same form (srv Presentations/CrosstabSettings.php).
+ * the same form (srv Presentations/CrosstabSettings.php). `fields.rectype`: the record type whose records are counted
+ * (plan 27q2 §17); `filterForm`: the Filter Form of the parameters of the query of the Presentation set (or null).
  *
  * @project     Heurist academic knowledge management system
  * @package     heurist-client-core
@@ -42,7 +43,7 @@ const HEADER_FIELDS = Object.freeze(['rectype', 'owner', 'addedby', 'access', 't
  * The settings with their defaults; a JSON text is read.
  *
  * @param {object|string|null} raw
- * @returns {{fields: {rectype: number|null}, rows: object|null, columns: object|null, pages: object|null,
+ * @returns {{fields: {rectype: number|null}, filterForm: object|null, rows: object|null, columns: object|null, pages: object|null,
  *          measure: {op: string, field: number|null}, display: object, chart: {show: string, type: string},
  *          visitor: {level: string, fields: string[], measures: string[], export: string[], drill: boolean}}}
  */
@@ -63,6 +64,7 @@ export function normalizeCrosstabSettings(raw) {
   const op = CROSSTAB_MEASURES.includes(measure.op) ? measure.op : 'count';
   const result = {
     fields: { rectype: Number(source.fields?.rectype) > 0 ? Number(source.fields.rectype) : null },
+    filterForm: isObject(source.filterForm) ? source.filterForm : null,
     rows: null,
     columns: null,
     pages: null,

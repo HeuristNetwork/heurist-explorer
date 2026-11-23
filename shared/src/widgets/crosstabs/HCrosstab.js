@@ -7,7 +7,9 @@
  * What the user can change depends on the level (§10): `view` — Table / Chart and the exports; `display` (default) —
  * also values, totals, percentages, blank rows, chart type, swap rows and columns; `pivot` — also the fields of rows,
  * columns and pages and the measure, from the lists of the settings (`visitor.fields`, `visitor.measures`). The page
- * (Var 3) is chosen above the table. More records than `autoLimit`: the Update button counts them.
+ * (Var 3) is chosen above the table; *All values* shows one table with the pages merged (a request without pages, so a
+ * record is counted once). More records than `autoLimit`: the Update button counts them. Only the records of the record
+ * type of the settings (`fields.rectype`) are counted (plan 27q2 §17). Stop while calculating aborts the request.
  *
  *   const widget = new HCrosstab().attach(host, { service, settings, labels, fieldLabel, level: 'display' }).render();
  *   await widget.setQuery([{ t: '10' }]);
@@ -24,6 +26,7 @@
 
 import { HBaseWidget } from '../HBaseWidget.js';
 import { $HR } from '../../ui/i18n/HResource.js';
+import { recordTypeQuery } from '../../data/presentationSource.js';
 import {
   CROSSTAB_AUTO_LIMIT, CROSSTAB_CHARTS, CROSSTAB_LEVELS, CROSSTAB_MEASURES, crosstabCellQuery, crosstabChartData,
   crosstabRequest, crosstabTables, normalizeCrosstabSettings
@@ -36,9 +39,12 @@ const CHART_LABELS = Object.freeze({
   bar: 'Bars', stackedBar: 'Stacked bars', horizontalBar: 'Horizontal bars', line: 'Line', pie: 'Pie', doughnut: 'Doughnut'
 });
 const MEASURE_LABELS = Object.freeze({ count: 'Count', sum: 'Sum', avg: 'Average', min: 'Minimum', max: 'Maximum' });
+// Totals after Column % (review 2026-11-22)
 const DISPLAY_LABELS = Object.freeze([
-  ['values', 'Values'], ['totals', 'Totals'], ['percentRow', 'Row %'], ['percentColumn', 'Column %'], ['showBlanks', 'Blank rows']
+  ['values', 'Values'], ['percentRow', 'Row %'], ['percentColumn', 'Column %'], ['totals', 'Totals'], ['showBlanks', 'Blank rows']
 ]);
+/** The page index of *All values* (the pages merged). */
+const ALL_PAGES = -1;
 
 /** Crosstab widget. */
 export class HCrosstab extends HBaseWidget {
@@ -124,6 +130,7 @@ export class HCrosstab extends HBaseWidget {
    */
   async load({ force = false } = {}) {
     this._abort?.abort();
+    this._merged = null;
     if (!this.container) return;
     const request = this._request();
     if (this.query == null || this.query === '') {
@@ -140,11 +147,12 @@ export class HCrosstab extends HBaseWidget {
     }
     const abort = new AbortController();
     this._abort = abort;
-    this._message('Counting…', true);
+    this._busy();
+    const query = this.countedQuery();
     try {
       const limit = Number(this.options.autoLimit) || CROSSTAB_AUTO_LIMIT;
       if (!force) {
-        const count = await this.options.service.count(this.query, { signal: abort.signal });
+        const count = await this.options.service.count(query, { signal: abort.signal });
         if (abort.signal.aborted) return;
         if (count > limit) {
           this.answer = null;
@@ -153,9 +161,10 @@ export class HCrosstab extends HBaseWidget {
           return;
         }
       }
-      const answer = await this.options.service.tabulate(this.query, request, { signal: abort.signal });
+      const answer = await this.options.service.tabulate(query, request, { signal: abort.signal });
       if (abort.signal.aborted || !this.container) return;
       this.answer = answer;
+      if (!answer?.pages && this.pageIndex === ALL_PAGES) this.pageIndex = 0;
       this._renderResult();
     } catch (error) {
       if (abort.signal.aborted || error?.name === 'AbortError') return;
@@ -168,6 +177,38 @@ export class HCrosstab extends HBaseWidget {
   /** @returns {object|null} The answer shown now. */
   getAnswer() {
     return this.answer;
+  }
+
+  /**
+   * The records counted: the query AND the record type of the settings.
+   *
+   * @returns {*} The query (null without one).
+   */
+  countedQuery() {
+    return recordTypeQuery(this.query, this.settings.fields.rectype);
+  }
+
+  /**
+   * No records: the output is removed and a message shown (a query that needs values, a result without the record type).
+   *
+   * @param {string} [text] Message (translated here).
+   * @returns {void}
+   */
+  clear(text = '') {
+    this._abort?.abort();
+    this.query = null;
+    this.answer = null;
+    this._merged = null;
+    this._clearOutput();
+    this._message(text || this.options.emptyText || 'No records');
+  }
+
+  /** Stop the calculation (the request is aborted; in Explorer the server query is cancelled too). */
+  stop() {
+    if (!this._abort || this._abort.signal.aborted) return;
+    this._abort.abort();
+    this._message('Stopped');
+    this._updateButton();
   }
 
   /** @returns {Promise<void>} */
@@ -303,12 +344,18 @@ export class HCrosstab extends HBaseWidget {
   /** @private Table(s) and chart of the answer. */
   _renderResult() {
     if (!this.answer || !this.container) return;
-    this.tables = crosstabTables(this.answer, { display: this.display }, {
+    const labels = {
       termLabel: this.options.labels?.termLabel, rectypeName: this.options.labels?.rectypeName,
       userGroupName: this.options.labels?.userGroupName, translate: $HR
-    });
-    const shown = this.tables.tables;
-    this.pageIndex = Math.min(this.pageIndex, Math.max(0, shown.length - 1));
+    };
+    this.pageTables = crosstabTables(this.answer, { display: this.display }, labels);
+    const merged = this.pageIndex === ALL_PAGES && Boolean(this.answer.pages);
+    if (merged && !this._merged) {
+      void this._loadMerged();
+      return;
+    }
+    this.tables = merged ? crosstabTables(this._merged, { display: this.display }, labels) : this.pageTables;
+    if (!merged) this.pageIndex = Math.min(Math.max(0, this.pageIndex), Math.max(0, this.tables.tables.length - 1));
     this._message(`${$HR('Records')}: ${this.tables.total.toLocaleString()} · ${this._valueCaption()}`);
     this._renderPages();
     this.tableHost.hidden = this.show === 'chart';
@@ -317,18 +364,42 @@ export class HCrosstab extends HBaseWidget {
     this._renderChart();
   }
 
-  /** @private The page selector (Var 3). */
+  /** @private The page selector (Var 3): All values (the pages merged), then each page. */
   _renderPages() {
     this.pageBar.replaceChildren();
-    const shown = this.tables?.tables || [];
+    const shown = this.pageTables?.tables || [];
     this.pageBar.hidden = !this.answer?.pages;
     if (!this.answer?.pages) return;
-    this.pageBar.append(select(this._caption('pages'), shown.map((table, index) => [String(index), table.page.label]),
-      String(this.pageIndex), (value) => {
-        this.pageIndex = Number(value) || 0;
-        void this._renderTable();
-        this._renderChart();
-      }));
+    const choices = [[String(ALL_PAGES), 'All values'], ...shown.map((table, index) => [String(index), table.page.label])];
+    this.pageBar.append(select(this._caption('pages'), choices, String(this.pageIndex), (value) => {
+      this.pageIndex = Number(value);
+      if (!Number.isInteger(this.pageIndex)) this.pageIndex = 0;
+      this._renderResult();
+    }));
+  }
+
+  /** @private The index of the table shown in `this.tables` (one table when the pages are merged). */
+  _tableIndex() {
+    return this.pageIndex === ALL_PAGES ? 0 : this.pageIndex;
+  }
+
+  /** @private All values of the pages: the crosstab without pages (a record is counted once). */
+  async _loadMerged() {
+    const request = crosstabRequest(this.settings, { ...this.pivot, pages: null });
+    if (!request) return;
+    this._abort?.abort();
+    const abort = new AbortController();
+    this._abort = abort;
+    this._busy();
+    try {
+      const answer = await this.options.service.tabulate(this.countedQuery(), request, { signal: abort.signal });
+      if (abort.signal.aborted || !this.container) return;
+      this._merged = answer;
+      this._renderResult();
+    } catch (error) {
+      if (abort.signal.aborted || error?.name === 'AbortError') return;
+      this._message(error?.message || String(error), false, true);
+    }
   }
 
   /** @private The table of the page shown. */
@@ -337,7 +408,7 @@ export class HCrosstab extends HBaseWidget {
     this._table?.destroy();
     this._table = null;
     this.tableHost.replaceChildren();
-    const table = this.tables?.tables?.[this.pageIndex];
+    const table = this.tables?.tables?.[this._tableIndex()];
     if (!table) {
       this.tableHost.textContent = $HR('No records');
       return;
@@ -370,7 +441,7 @@ export class HCrosstab extends HBaseWidget {
   /** @private The chart of the page shown. */
   _renderChart() {
     const serial = (this._chartSerial = (this._chartSerial || 0) + 1);
-    const table = this.tables?.tables?.[this.pageIndex];
+    const table = this.tables?.tables?.[this._tableIndex()];
     if (this.show === 'table' || !table?.rows?.length || this.options.enhance === false) {
       this._chart?.destroy();
       this._chart = null;
@@ -411,8 +482,9 @@ export class HCrosstab extends HBaseWidget {
 
   /** @private A click on a count: the query of the cell to the host. */
   _drill({ row = null, column = null }, table) {
-    const page = this.answer?.pages ? table.page.index : null;
-    const query = crosstabCellQuery(this.query, this.answer, { row, column, page });
+    const merged = this.pageIndex === ALL_PAGES;
+    const page = this.answer?.pages && !merged ? table.page.index : null;
+    const query = crosstabCellQuery(this.countedQuery(), merged ? this._merged : this.answer, { row, column, page });
     if (!query) return;
     const label = (name, index) => (index == null ? '' : this.tables?.[name]?.find((item) => item.index === index)?.label || '');
     const title = [label('rows', row), label('columns', column), table.page.label].filter(Boolean).join(' × ');
@@ -426,7 +498,8 @@ export class HCrosstab extends HBaseWidget {
     parts.push(new Date().toLocaleDateString());
     parts.push(`N = ${this.tables?.total ?? 0}`);
     parts.push(this._valueCaption());
-    if (this.query != null) parts.push(`${$HR('Query')}: ${typeof this.query === 'string' ? this.query : JSON.stringify(this.query)}`);
+    const query = this.countedQuery();
+    if (query != null) parts.push(`${$HR('Query')}: ${typeof query === 'string' ? query : JSON.stringify(query)}`);
     return parts.join(', ');
   }
 
@@ -439,9 +512,25 @@ export class HCrosstab extends HBaseWidget {
     this.status.append(document.createTextNode($HR(text)));
   }
 
+  /** @private Calculating…, with Stop. */
+  _busy() {
+    this._message('Calculating…', true);
+    const button = element('button', 'h-btn h-compact h-crosstab-stop');
+    button.type = 'button';
+    button.textContent = $HR('Stop');
+    button.title = $HR('Stop the calculation');
+    button.addEventListener('click', () => this.stop());
+    this.status.append(document.createTextNode(' '), button);
+  }
+
   /** @private More records than the limit: Update. */
   _update(count) {
     this._message(`${$HR('Records')}: ${count.toLocaleString()}. ${$HR('Counting may take a while.')}`);
+    this._updateButton();
+  }
+
+  /** @private The Update button in the status line (counts also above the limit). */
+  _updateButton() {
     const button = element('button', 'h-btn h-btn-primary h-compact');
     button.type = 'button';
     button.textContent = $HR('Update');

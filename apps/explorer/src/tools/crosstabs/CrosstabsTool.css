@@ -1,4 +1,5 @@
-/* Crosstabs tool of Explorer (plan 27q2 §8): toolbar as the Story map tool, the form beside the crosstab (HCrosstab.css). */
+/* Crosstabs of Explorer (plan 27q2 §8, §17): the viewer pane and the full screen designer (the form beside the preview);
+   toolbar as the Story map tool; the crosstab itself in HCrosstab.css. */
 .h-crosstabs-tool {
   container-type: inline-size;
   display: flex;
@@ -37,7 +38,8 @@
   color: var(--h-color-primary);
 }
 
-.h-crosstabs-tool-help { margin-left: auto; }
+/* the first button of the right group (Delete, Help) */
+.h-crosstabs-tool-right { margin-left: auto; }
 
 .h-crosstabs-tool-separator {
   align-self: stretch;
@@ -63,7 +65,7 @@
   text-align: left;
 }
 
-.h-crosstabs-tool-scope { flex: 0 1 160px; min-width: 0; }
+.h-crosstabs-viewer-source { flex: 0 1 150px; min-width: 0; }
 
 @container (max-width: 640px) {
   .h-crosstabs-tool-label { display: none; }
@@ -88,8 +90,77 @@
   cursor: pointer;
 }
 
-.h-crosstabs-tool-list-item:hover { background: var(--h-color-surface-hover); }
+.h-crosstabs-tool-list-item {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.h-crosstabs-tool-list-item:hover:not(:disabled) { background: var(--h-color-surface-hover); }
 .h-crosstabs-tool-list-item.is-active { font-weight: bold; color: var(--h-color-primary); }
+.h-crosstabs-tool-list-item:disabled { color: var(--h-color-text-muted); cursor: default; }
+
+.h-crosstabs-tool-list-note {
+  margin-left: auto;
+  color: var(--h-color-text-muted);
+  font-size: var(--h-font-size-small);
+  font-weight: normal;
+}
+
+/* For the current result / Other configurations */
+.h-crosstabs-tool-list-heading {
+  padding: 6px 10px 2px;
+  color: var(--h-color-text-muted);
+  font-size: var(--h-font-size-small);
+  font-weight: 600;
+}
+
+/* the Filter Form of the parameters of the own query (viewer) */
+.h-crosstabs-viewer-params {
+  flex: 0 0 auto;
+  max-height: 40%;
+  overflow: auto;
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--h-color-border);
+}
+
+.h-crosstabs-viewer-params[hidden] { display: none; }
+
+/* the designer over the whole screen (as the Website manager) */
+.h-crosstabs-designer-host {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  background: var(--h-color-bg, #fff);
+}
+
+.h-crosstabs-designer-test {
+  display: flex;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 12px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--h-color-border);
+  margin-bottom: 6px;
+}
+
+.h-crosstabs-designer-note {
+  color: var(--h-color-text-muted);
+  font-size: var(--h-font-size-small);
+}
+
+.h-crosstabs-designer-preview {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.h-crosstabs-designer-preview > .h-crosstab { flex: 1 1 auto; }
 
 .h-crosstabs-tool-main {
   display: flex;
@@ -129,11 +200,20 @@
 
 .h-crosstabs-tool-view > .h-crosstab { flex: 1 1 auto; }
 
-/* the dialogs: field tree, ranges */
+/* the dialogs: field tree (as wide as the dialog, review 2026-11-22), ranges */
 .h-crosstabs-tool-tree {
-  width: min(480px, 90vw);
+  box-sizing: border-box;
+  width: 100%;
+  min-width: min(520px, 90vw);
   height: min(60vh, 520px);
   overflow: auto;
+}
+
+.h-crosstabs-tool-tree > .h-fbtree,
+.h-crosstabs-tool-tree > .h-fbtree-inline {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: none;
 }
 
 .h-crosstabs-tool-ranges {

@@ -1500,6 +1500,8 @@
 #Configuration, tools and help#Configuration, tools and help
 #Colours, fonts and sizes of the Explorer interface and its modules. Choose a theme to fill the colours, then change single values. Empty values use the Heurist defaults. Explorer reloads when you apply the changes.#Colours, fonts and sizes of the Explorer interface and its modules. Choose a theme to fill the colours, then change single values. Empty values use the Heurist defaults. Explorer reloads when you apply the changes.
 #Discard changes to the base style settings?#Discard changes to the base style settings?
+#Clear all settings: the default colours and fonts are used again#Clear all settings: the default colours and fonts are used again
+#Clear all base style settings? The default colours and fonts are used again after Apply.#Clear all base style settings? The default colours and fonts are used again after Apply.
 #Theme#Theme
 #(choose a theme)#(choose a theme)
 #Heurist default#Heurist default
@@ -1622,3 +1624,39 @@
 #Chart image (PNG)#Chart image (PNG)
 #Place the Crosstabs tool in a pane (Options > Layout)#Place the Crosstabs tool in a pane (Options > Layout)
 #The crosstab has been changed. Save changes?#The crosstab has been changed. Save changes?
+
+# Crosstabs review 1 (2026-11-22)
+#Calculating…#Calculating…
+#Stop the calculation#Stop the calculation
+#Save as#Save as
+#Save the changes as a new crosstab (with the Name of the form; "(copy)" when it is not changed)#Save the changes as a new crosstab (with the Name of the form; "(copy)" when it is not changed)
+#copy#copy
+#Own query#Own query
+#Test on#Test on
+#The main search does not change the preview.#The main search does not change the preview.
+#Close the designer#Close the designer
+#Open the crosstab in the designer (full screen)#Open the crosstab in the designer (full screen)
+#A new crosstab in the designer (full screen)#A new crosstab in the designer (full screen)
+#Publish the crosstab with the records shown as a web page#Publish the crosstab with the records shown as a web page
+#Choose a crosstab#Choose a crosstab
+#There is no crosstab yet: New opens the designer#There is no crosstab yet: New opens the designer
+#The current result has no records of type#The current result has no records of type
+#Choose another crosstab#Choose another crosstab
+#The crosstab has no query of its own#The crosstab has no query of its own
+#The query needs a value of#The query needs a value of
+#Select records: the query of the crosstab uses the selection#Select records: the query of the crosstab uses the selection
+#Records counted: the current result of Explorer, or the query of the crosstab#Records counted: the current result of Explorer, or the query of the crosstab
+#For the current result#For the current result
+#Other configurations#Other configurations
+#No crosstab for the record types of the current result#No crosstab for the record types of the current result
+#Set the query of the crosstab (Source)#Set the query of the crosstab (Source)
+#Choose the test records#Choose the test records
+#not in the test records#not in the test records
+#Choose the record type first#Choose the record type first
+#This field can not be counted#This field can not be counted
+#Own ranges are for numeric, date and enum fields#Own ranges are for numeric, date and enum fields
+#Display and default values#Display and default values
+#Equal ranges#Equal ranges
+#The records of the crosstab when it uses its own query: on a website page without other records, and in Explorer with the source Own query. It may have parameters (a value given by the page or the selection).#The records of the crosstab when it uses its own query: on a website page without other records, and in Explorer with the source Own query. It may have parameters (a value given by the page or the selection).
+#Only records of this type are counted. Its fields and the fields of the records they point to are offered for rows, columns and pages.#Only records of this type are counted. Its fields and the fields of the records they point to are offered for rows, columns and pages.
+#Each value: a row per value. Dates by period: years, decades … Equal ranges: numbers in round ranges. Own ranges: intervals and groups of values you define and name. What is offered depends on the type of the field.#Each value: a row per value. Dates by period: years, decades … Equal ranges: numbers in round ranges. Own ranges: intervals and groups of values you define and name. What is offered depends on the type of the field.

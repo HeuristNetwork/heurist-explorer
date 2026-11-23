@@ -1,8 +1,10 @@
 /**
  * @file crosstabsForm.js
- * @brief Settings form of the Crosstabs tool (plan 27q2 §8): the HEditForm JSON in sections Source / Rows / Columns /
- *        Pages / Measure / Display / Visitors on a website, made of existing inputs and special editors (field path,
- *        ranges, list of fields), and the conversion between the crosstab settings (crosstabModel.js) and the values.
+ * @brief Settings form of the crosstab designer (plan 27q2 §8, §17): the HEditForm JSON in sections Source / Rows /
+ *        Columns / Pages / Measure / Display and default values / Visitors on a website, made of existing inputs and
+ *        special editors (query, field path, ranges, list of fields), and the conversion between the crosstab settings
+ *        (crosstabModel.js) and the values. The values of a dimension depend on the type of its field
+ *        (`bucketTermsFor`, review 2026-11-22).
  *
  * @project     Heurist academic knowledge management system
  * @package     heurist-explorer
@@ -21,10 +23,10 @@ import {
 
 /** Help texts of the form. */
 export const HELP = Object.freeze({
-  query: 'Records counted on a website page that gives the crosstab no other records. In Explorer the crosstab counts the current result (or the selection).',
-  fieldsOf: 'The record type whose fields (and the fields of the records they point to) are offered. It does not filter the records: all records of the result are counted.',
+  query: 'The records of the crosstab when it uses its own query: on a website page without other records, and in Explorer with the source Own query. It may have parameters (a value given by the page or the selection).',
+  fieldsOf: 'Only records of this type are counted. Its fields and the fields of the records they point to are offered for rows, columns and pages.',
   code: 'The field whose values make the rows (columns, pages): a field of the records or of the records they point to.',
-  buckets: 'Each value: a row per value. Dates by period: years, decades … Equal ranges: numbers in round ranges. Own ranges: intervals and groups of values you define and name.',
+  buckets: 'Each value: a row per value. Dates by period: years, decades … Equal ranges: numbers in round ranges. Own ranges: intervals and groups of values you define and name. What is offered depends on the type of the field.',
   ranges: 'Intervals ("1900<>1909"), values or groups of terms; each with an optional label. Values outside them are counted as "other values".',
   measure: 'Count the records, or the sum / average / minimum / maximum of a numeric field (the first value of each record).',
   showBlanks: 'Show the rows and columns without records, the records without a value and the other values.',
@@ -37,8 +39,17 @@ export const HELP = Object.freeze({
 const DIMENSION_LABELS = Object.freeze({ rows: 'Rows', columns: 'Columns', pages: 'Pages' });
 const BUCKET_TERMS = Object.freeze([
   { id: 'values', label: 'Each value' }, { id: 'groupby', label: 'Dates by period' },
-  { id: 'count', label: 'Equal ranges (numbers)' }, { id: 'ranges', label: 'Own ranges' }
+  { id: 'count', label: 'Equal ranges' }, { id: 'ranges', label: 'Own ranges' }
 ]);
+/** The values offered for a field type, the first is the default (review 2026-11-22: 3d, 3j). */
+const BUCKETS_BY_TYPE = Object.freeze({
+  date: ['groupby', 'values', 'ranges'],
+  year: ['count', 'values', 'ranges'],
+  integer: ['count', 'values', 'ranges'],
+  float: ['count', 'values', 'ranges'],
+  enum: ['values', 'ranges'],
+  relationtype: ['values', 'ranges']
+});
 const GROUPBY_LABELS = Object.freeze({ month: 'Months', year: 'Years', decade: 'Decades', century: 'Centuries' });
 const CHART_LABELS = Object.freeze({
   bar: 'Bars', stackedBar: 'Stacked bars', horizontalBar: 'Horizontal bars', line: 'Line', pie: 'Pie', doughnut: 'Doughnut'
@@ -47,27 +58,52 @@ const MEASURE_TERMS = Object.freeze([
   { id: 'count', label: 'Count of records' }, { id: 'sum', label: 'Sum' }, { id: 'avg', label: 'Average' },
   { id: 'min', label: 'Minimum' }, { id: 'max', label: 'Maximum' }
 ]);
+// Show totals after Column % (review 2026-11-22)
 const FLAGS = Object.freeze([
-  ['values', 'Show values'], ['totals', 'Show totals'], ['percentRow', 'Row %'], ['percentColumn', 'Column %'],
+  ['values', 'Show values'], ['percentRow', 'Row %'], ['percentColumn', 'Column %'], ['totals', 'Show totals'],
   ['blankZero', 'Blank for zero'], ['showBlanks', 'Show blank rows and columns']
 ]);
+
+/**
+ * The values (buckets) a field of this type can have, the default first: dates by period, numbers in equal ranges,
+ * own ranges for numbers, dates and terms; each value only for text and pointers.
+ *
+ * @param {string|null} fieldType Field type (`fieldCodeType`); null: no field yet.
+ * @returns {Array<{id: string, label: string}>}
+ */
+export function bucketTermsFor(fieldType) {
+  const ids = BUCKETS_BY_TYPE[String(fieldType || '')] || ['values'];
+  return ids.map((id) => BUCKET_TERMS.find((term) => term.id === id));
+}
+
+/**
+ * The default values (buckets) of a field type.
+ *
+ * @param {string|null} fieldType
+ * @returns {string} `values`, `groupby` or `count`.
+ */
+export function defaultBucketMode(fieldType) {
+  return bucketTermsFor(fieldType)[0].id;
+}
 
 /**
  * The form JSON.
  *
  * @param {object} context
- * @param {{query: number}} context.ids Field id of the query (its special editor).
- * @param {Array<{id: number, label: string}>} context.rectypes Record types of *Fields of*.
+ * @param {{query: number, form?: number}} context.ids Field ids of the query and its filter form (their special editors).
+ * @param {Array<{id: number, label: string}>} context.rectypes Record types of *Record type*.
  * @param {Array<{id: number, label: string}>} context.numericFields Numeric fields of that type (the measure).
+ * @param {Object<string, string|null>} [context.fieldTypes] Type of the field of each dimension (its values).
  * @returns {object} heurist-edit-form/1.
  */
-export function crosstabsForm({ ids = {}, rectypes = [], numericFields = [] }) {
+export function crosstabsForm({ ids = {}, rectypes = [], numericFields = [], fieldTypes = {} }) {
   const dimension = (name) => ({
     id: name, type: 'accordion', label: DIMENSION_LABELS[name], open: name === 'rows',
     children: [
       { name: `${name}Code`, type: 'special', special: 'fieldCode', label: 'Field', help: HELP.code, ...(name === 'rows' ? { req: 'required' } : {}) },
       { name: `${name}Label`, type: 'freetext', label: 'Caption', multilang: true },
-      { name: `${name}Buckets`, type: 'enum', mode: 'select', label: 'Values', help: HELP.buckets, clearable: false, terms: BUCKET_TERMS },
+      { name: `${name}Buckets`, type: 'enum', mode: 'select', label: 'Values', help: HELP.buckets, clearable: false,
+        terms: bucketTermsFor(fieldTypes[name] ?? null) },
       { name: `${name}Groupby`, type: 'enum', mode: 'select', label: 'Period', clearable: false, showWhen: { [`${name}Buckets`]: 'groupby' },
         terms: CROSSTAB_GROUPBY.map((id) => ({ id, label: GROUPBY_LABELS[id] })) },
       { name: `${name}Count`, type: 'integer', label: 'Number of ranges', minValue: 1, maxValue: 20, clearable: false,
@@ -82,8 +118,10 @@ export function crosstabsForm({ ids = {}, rectypes = [], numericFields = [] }) {
         id: 'source', type: 'accordion', label: 'Source', open: true,
         children: [
           { name: 'title', type: 'freetext', label: 'Name', req: 'required' },
-          { name: String(ids.query || 'query'), type: 'special', special: 'query', label: 'Records on a website', help: HELP.query },
-          { name: 'fieldsOf', type: 'enum', mode: 'select', label: 'Fields of', help: HELP.fieldsOf, req: 'required',
+          { name: String(ids.query || 'query'), type: 'special', special: 'query', label: 'Query', help: HELP.query },
+          // the Filter Form of the parameters: set by the query editor, not shown
+          { name: String(ids.form || 'filterForm'), type: 'special', special: 'filterForm', label: 'Filter form', hidden: true },
+          { name: 'fieldsOf', type: 'enum', mode: 'select', label: 'Record type', help: HELP.fieldsOf, req: 'required',
             terms: rectypes.map((item) => ({ id: String(item.id), label: item.label })) }
         ]
       },
@@ -97,7 +135,7 @@ export function crosstabsForm({ ids = {}, rectypes = [], numericFields = [] }) {
         ]
       },
       {
-        id: 'display', type: 'accordion', label: 'Display', open: false,
+        id: 'display', type: 'accordion', label: 'Display and default values', open: false,
         children: [
           { name: 'displayTitle', type: 'freetext', label: 'Title', help: HELP.title, multilang: true },
           ...FLAGS.map(([key, label]) => ({ name: key, type: 'boolean', mode: 'checkbox', label, ...(key === 'showBlanks' ? { help: HELP.showBlanks } : {}) })),
@@ -129,13 +167,14 @@ export function crosstabsForm({ ids = {}, rectypes = [], numericFields = [] }) {
  * The values of the form.
  *
  * @param {{title: string, query: string, settings: object}} values Name, query text and normalised settings.
- * @param {{query: number}} ids
+ * @param {{query: number, form?: number}} ids
  * @returns {object}
  */
 export function formValues({ title, query, settings }, ids = {}) {
   const values = {
     title,
     [String(ids.query || 'query')]: query || '',
+    [String(ids.form || 'filterForm')]: settings.filterForm ? JSON.stringify(settings.filterForm) : '',
     fieldsOf: settings.fields.rectype ? String(settings.fields.rectype) : null,
     measureOp: settings.measure.op,
     measureField: settings.measure.field ? String(settings.measure.field) : null,
@@ -167,7 +206,7 @@ export function formValues({ title, query, settings }, ids = {}) {
  * Name, query and settings from the values of the form.
  *
  * @param {object} values Form values.
- * @param {{query: number}} ids
+ * @param {{query: number, form?: number}} ids
  * @returns {{title: string, query: string, settings: object}}
  */
 export function valuesSettings(values, ids = {}) {
@@ -182,6 +221,7 @@ export function valuesSettings(values, ids = {}) {
   };
   const raw = {
     fields: { rectype: Number(one(values.fieldsOf)) || null },
+    filterForm: json(values[String(ids.form || 'filterForm')]),
     measure: { op: one(values.measureOp) || 'count', field: Number(one(values.measureField)) || null },
     display: {
       ...Object.fromEntries(FLAGS.map(([key]) => [key, one(values[key]) === true])),

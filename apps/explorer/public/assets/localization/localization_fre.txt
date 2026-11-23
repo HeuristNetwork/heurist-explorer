@@ -1500,6 +1500,8 @@
 #Configuration, tools and help#Configuration, outils et aide
 #Colours, fonts and sizes of the Explorer interface and its modules. Choose a theme to fill the colours, then change single values. Empty values use the Heurist defaults. Explorer reloads when you apply the changes.#Couleurs, polices et tailles de l’interface d’Explorer et de ses modules. Choisissez un thème pour remplir les couleurs, puis modifiez les valeurs une à une. Les valeurs vides utilisent les valeurs par défaut de Heurist. Explorer se recharge quand vous appliquez les modifications.
 #Discard changes to the base style settings?#Abandonner les modifications du style de base ?
+#Clear all settings: the default colours and fonts are used again#Effacer tous les réglages : les couleurs et polices par défaut sont de nouveau utilisées
+#Clear all base style settings? The default colours and fonts are used again after Apply.#Effacer tous les réglages du style de base ? Les couleurs et polices par défaut sont de nouveau utilisées après Appliquer.
 #Theme#Thème
 #(choose a theme)#(choisir un thème)
 #Heurist default#Valeur par défaut de Heurist
@@ -1622,3 +1624,39 @@
 #Chart image (PNG)#Image du graphique (PNG)
 #Place the Crosstabs tool in a pane (Options > Layout)#Placez l'outil Tableaux croisés dans un panneau (Options > Disposition)
 #The crosstab has been changed. Save changes?#Le tableau croisé a été modifié. Enregistrer les modifications ?
+
+# Crosstabs review 1 (2026-11-22)
+#Calculating…#Calcul en cours…
+#Stop the calculation#Arrêter le calcul
+#Save as#Enregistrer sous
+#Save the changes as a new crosstab (with the Name of the form; "(copy)" when it is not changed)#Enregistrer les modifications comme un nouveau tableau croisé (avec le Nom du formulaire ; « (copie) » s’il n’est pas modifié)
+#copy#copie
+#Own query#Requête propre
+#Test on#Tester sur
+#The main search does not change the preview.#La recherche principale ne modifie pas l’aperçu.
+#Close the designer#Fermer le concepteur
+#Open the crosstab in the designer (full screen)#Ouvrir le tableau croisé dans le concepteur (plein écran)
+#A new crosstab in the designer (full screen)#Un nouveau tableau croisé dans le concepteur (plein écran)
+#Publish the crosstab with the records shown as a web page#Publier le tableau croisé avec les enregistrements affichés comme page web
+#Choose a crosstab#Choisir un tableau croisé
+#There is no crosstab yet: New opens the designer#Il n’y a pas encore de tableau croisé : Nouveau ouvre le concepteur
+#The current result has no records of type#Le résultat actuel n’a pas d’enregistrements du type
+#Choose another crosstab#Choisissez un autre tableau croisé
+#The crosstab has no query of its own#Le tableau croisé n’a pas de requête propre
+#The query needs a value of#La requête a besoin d’une valeur pour
+#Select records: the query of the crosstab uses the selection#Sélectionnez des enregistrements : la requête du tableau croisé utilise la sélection
+#Records counted: the current result of Explorer, or the query of the crosstab#Enregistrements comptés : le résultat actuel d’Explorer, ou la requête du tableau croisé
+#For the current result#Pour le résultat actuel
+#Other configurations#Autres configurations
+#No crosstab for the record types of the current result#Aucun tableau croisé pour les types d’enregistrement du résultat actuel
+#Set the query of the crosstab (Source)#Définissez la requête du tableau croisé (Source)
+#Choose the test records#Choisissez les enregistrements de test
+#not in the test records#absent des enregistrements de test
+#Choose the record type first#Choisissez d’abord le type d’enregistrement
+#This field can not be counted#Ce champ ne peut pas être compté
+#Own ranges are for numeric, date and enum fields#Les intervalles propres sont pour les champs numériques, de date et de liste
+#Display and default values#Affichage et valeurs par défaut
+#Equal ranges#Intervalles égaux
+#The records of the crosstab when it uses its own query: on a website page without other records, and in Explorer with the source Own query. It may have parameters (a value given by the page or the selection).#Les enregistrements du tableau croisé quand il utilise sa propre requête : sur une page web sans autres enregistrements, et dans Explorer avec la source Requête propre. Elle peut avoir des paramètres (une valeur donnée par la page ou la sélection).
+#Only records of this type are counted. Its fields and the fields of the records they point to are offered for rows, columns and pages.#Seuls les enregistrements de ce type sont comptés. Ses champs et ceux des enregistrements pointés sont proposés pour les lignes, colonnes et pages.
+#Each value: a row per value. Dates by period: years, decades … Equal ranges: numbers in round ranges. Own ranges: intervals and groups of values you define and name. What is offered depends on the type of the field.#Chaque valeur : une ligne par valeur. Dates par période : années, décennies … Intervalles égaux : nombres en intervalles ronds. Intervalles propres : intervalles et groupes de valeurs que vous définissez et nommez. Ce qui est proposé dépend du type du champ.

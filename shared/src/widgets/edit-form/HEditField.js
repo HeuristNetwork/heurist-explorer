@@ -86,10 +86,11 @@ export class HEditField extends HBaseWidget {
    * @param {{baseUrl: string, database: string}} [options.fileViewer] File fields: show the file below the input.
    * @param {boolean} [options.allowHidden=true] Show the "hidden from the public" switch.
    * @param {boolean} [options.readOnly] Display only (also `field.readOnly`).
-   * @param {{json?: boolean, list?: boolean, describe?: Function, edit?: Function, icon?: string, title?: string, actions?: Array<object>}|null} [options.special] Special field:
+   * @param {{json?: boolean, list?: boolean, describe?: Function, edit?: Function, editLabel?: string, icon?: string, title?: string, actions?: Array<object>}|null} [options.special] Special field:
    *        `describe(value, context)` readable text, `edit(value, context)` resolves with the new
    *        value (undefined: cancelled), `icon` (Font Awesome class) and `title` (tooltip) of its
-   *        Edit button, `json` the raw value must be JSON; `actions`
+   *        Edit button, `editLabel` its caption (default "Edit"; "Select" for a `list` of fields),
+   *        `json` the raw value must be JSON; `actions`
    *        (`[{label, icon?, title?, primary?, iconOnly?, run(value, context, button)}]`) several editors instead of `edit`,
    *        or `actionsFor(context)` returning them for the record (type) being edited.
    * @param {object} [options.context] Passed to `describe`/`edit`: `{field, getValue(name), setValue(name, value)}`.
@@ -513,8 +514,9 @@ export class HEditField extends HBaseWidget {
   }
 
   /**
-   * Special field: readable value, "Edit" (the host's editors), "Show raw" (the text
-   * input, hidden at first), clear and visibility.
+   * Special field: readable value, "Edit" (the host's editors; "Select" for a list of
+   * fields, or the special's `editLabel`), "Show raw" (the text input, hidden at first),
+   * clear and visibility. A click on the readable value opens the main editor.
    */
   _renderSpecial(row, host) {
     const special = this.options.special;
@@ -541,7 +543,9 @@ export class HEditField extends HBaseWidget {
     const listed = typeof special.actionsFor === 'function' ? special.actionsFor(this.options.context || {}) : special.actions;
     const actions = Array.isArray(listed)
       ? listed
-      : (typeof special.edit === 'function' ? [{ label: 'Edit', icon: special.icon, title: special.title, primary: true, run: special.edit }] : []);
+      : (typeof special.edit === 'function' ? [{ label: special.editLabel || (special.list ? 'Select' : 'Edit'), icon: special.icon, title: special.title, primary: true, run: special.edit }] : []);
+    // a click on the readable value opens the main editor, as its button (2026-11-22)
+    let mainButton = null;
     if (!this.isReadOnly) {
       for (const action of actions) {
         if (typeof action?.run !== 'function') continue;
@@ -573,7 +577,13 @@ export class HEditField extends HBaseWidget {
           }
         });
         buttons.append(edit);
+        if (!mainButton || (action.primary && !mainButton.classList.contains('h-btn-primary'))) mainButton = edit;
       }
+    }
+    if (mainButton) {
+      row.summary.classList.add('is-clickable');
+      if (mainButton.title) row.summary.title = mainButton.title;
+      this.listen(row.summary, 'click', () => mainButton.click());
     }
     buttons.append(raw, ...this._specialTools(row));
     box.append(row.summary, buttons);

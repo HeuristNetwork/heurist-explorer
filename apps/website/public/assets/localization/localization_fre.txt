@@ -832,3 +832,11 @@
 #The crosstab counts the records of the page#Le tableau croisé compte les enregistrements de la page
 #Place the Crosstabs tool in a pane (Options > Layout)#Placez l'outil Tableaux croisés dans un panneau (Options > Disposition)
 #The crosstab has been changed. Save changes?#Le tableau croisé a été modifié. Enregistrer les modifications ?
+
+# Crosstabs review 1 (2026-11-22)
+#This crosstab needs a value of#Ce tableau croisé a besoin d’une valeur pour
+#Query published from Explorer#Requête publiée depuis Explorer
+#All values#Toutes les valeurs
+#Calculating…#Calcul en cours…
+#Stop the calculation#Arrêter le calcul
+#Stopped#Arrêté

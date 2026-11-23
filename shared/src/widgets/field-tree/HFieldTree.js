@@ -42,7 +42,7 @@
  */
 
 import { $HR } from '../../ui/i18n/HResource.js';
-import { FIELD_TYPE_FILTERS } from '../../data/fieldTypeFilters.js';
+import { FIELD_TYPE_FILTERS, fieldTypeOptions } from '../../data/fieldTypeFilters.js';
 import './HFieldTree.css';
 
 const LINKABLE = new Set(['resource', 'relmarker']);
@@ -158,7 +158,8 @@ export class HFieldTree {
    * Show the tree inline in a container; it stays open after a pick.
    *
    * @param {HTMLElement} container Panel the tree fills.
-   * @param {object} scope Same options as `open`, plus `enumOutputs` (enum fields
+   * @param {object} scope Same options as `open`, plus `typeFilter` (the type filter also for fixed
+   *        `selectableTypes` + `hideUnselectable`), `enumOutputs` (enum fields
    *        expand to Term / Code / Internal ID ...; true or a list of outputs) and
    *        `includeFiles` (file fields).
    * @param {(path:Array)=>void} onPick Called with the path of each picked leaf.
@@ -211,6 +212,9 @@ export class HFieldTree {
     // a tree limited to its selectable types (geo, date fields): no type filter and
     // no leaves of other types (Any field, "<type> records", title, metadata)
     this._fixedTypes = Boolean(this._selectableTypes && this._hideUnselectable);
+    // `typeFilter`: the type filter also for fixed types, with the options of those types (crosstabs, 2026-11-22)
+    this._fixedTypeFilter = this._fixedTypes && scope?.typeFilter === true;
+    if (this._fixedTypeFilter && !this._typeFilterOptions().includes(this._typeFilter)) this._typeFilter = 'all';
     // field-path editors: a taller popover, bounded by the window rather than the dialog
     this._tall = scope?.tall === true;
     this._includeHeaders = scope?.includeHeaders !== false;
@@ -273,7 +277,7 @@ export class HFieldTree {
         this._renderBody();
       }));
     }
-    if (!this._fixedTypes) second.append(this._typeFilterSelect());
+    if (!this._fixedTypes || this._fixedTypeFilter) second.append(this._typeFilterSelect());
     // enum outputs as a sub-level: only where several outputs are offered
     this._enumToggle = null;
     if (this._enumOutputs?.length && !this._fixedTypes) {
@@ -339,7 +343,7 @@ export class HFieldTree {
     typeFilter.className = 'h-select h-fbtree-type-filter';
     typeFilter.setAttribute('aria-label', $HR('Field type'));
     typeFilter.title = $HR('Show fields of this type');
-    for (const value of Object.keys(TYPE_FILTERS)) {
+    for (const value of this._typeFilterOptions()) {
       const option = document.createElement('option');
       option.value = value;
       option.textContent = $HR(value);
@@ -352,6 +356,12 @@ export class HFieldTree {
       this._renderBody();
     });
     return typeFilter;
+  }
+
+  /** @returns {string[]} Options of the type filter: all of them, or those of the fixed types (`typeFilter`). */
+  _typeFilterOptions() {
+    const options = Object.keys(TYPE_FILTERS);
+    return this._fixedTypeFilter ? fieldTypeOptions(this._selectableTypes, options) : options;
   }
 
   /** The "enum fields" checkbox is shown for the type filters all and enum only. */
@@ -570,9 +580,11 @@ export class HFieldTree {
 
   /** @returns {boolean} Whether a field type passes the header's type filter. */
   _typeShown(type) {
-    if (this._fixedTypes) return this._selectableTypes.has(String(type || '').toLowerCase());
+    const value = String(type || '').toLowerCase();
+    if (this._fixedTypes && !this._selectableTypes.has(value)) return false;
+    if (this._fixedTypes && !this._fixedTypeFilter) return true;
     const types = TYPE_FILTERS[this._typeFilter];
-    return !types || types.includes(String(type || '').toLowerCase());
+    return !types || types.includes(value);
   }
 
   /** @returns {HTMLElement[]} Metadata leaves passing the type filter (none when metadata is hidden). */

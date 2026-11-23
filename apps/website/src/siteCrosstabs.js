@@ -5,7 +5,10 @@
  *        (`settings.from`: its own query, Saved filter links, Filter widgets, other modules); with *A click shows the
  *        records* a click on a count sends the records of the cell on as `module:<id>`. The visitor level is the lower
  *        of the element (`settings.level`) and the crosstab. Labels of terms, record types and fields come from the
- *        definitions of the database (read once per page, as the Filter widget).
+ *        definitions of the database (read once per page, as the Filter widget). Its own records (presentation-sources.md):
+ *        `settings.query` (a crosstab published from Explorer with the records shown there), else the query of the
+ *        crosstab; parameters get the values of the page URL (`v.<NAME>=`, a link from another page). Only records of the
+ *        record type of the crosstab are counted (HCrosstab).
  *
  * @project     Heurist academic knowledge management system
  * @package     heurist-website
@@ -25,6 +28,8 @@ import { fieldCodeLabel } from '#shared/data/fieldPathCodes.js';
 import { HCrosstab } from '#shared/widgets/crosstabs/HCrosstab.js';
 import { CrosstabService } from '#shared/widgets/crosstabs/crosstabService.js';
 import { cmsInstanceRecords } from '#shared/site/cmsRecords.js';
+import { CMS_FILTER_LIMITS, normalizeCmsFilterValues } from '#shared/site/cmsSavedFilter.js';
+import { ownQuery } from '#shared/data/presentationSource.js';
 
 /** The definitions by database and language (labels of terms, record types and fields). */
 const DEFINITIONS = new Map();
@@ -33,7 +38,7 @@ const DEFINITIONS = new Map();
  * Mount crosstabs.
  *
  * @param {HTMLElement} host Host of the instance.
- * @param {object} instance Instance configuration (`settings.preset`, `settings.from`, `settings.level`).
+ * @param {object} instance Instance configuration (`settings.preset`, `settings.from`, `settings.level`, `settings.query`).
  * @param {object} config The configuration block of the page.
  * @param {object} options
  * @param {string} options.id Instance id.
@@ -76,9 +81,32 @@ export async function mountCrosstabs(host, instance, config, { id, sendRecords =
     }, `module:${id}`) : null,
     emptyText: runtime.design ? 'The crosstab counts the records of the page' : 'No records'
   }).render();
-  // its own query first; a search of the page replaces it (PageSync)
-  if (from.includes('own') && preset.query != null && preset.query !== '') void widget.setQuery(preset.query);
+  // its own query first (with the values of the page URL); a search of the page replaces it (PageSync)
+  const query = settings.query != null && settings.query !== '' ? settings.query : preset.query;
+  if (from.includes('own') && query != null && query !== '') {
+    const own = ownQuery(query, { values: urlValues(globalThis.location?.search || ''), filterForm: preset.settings.filterForm });
+    if (own.missing.length) widget.clear(`${$HR('This crosstab needs a value of')} ${own.missing.join(', ')}`);
+    else void widget.setQuery(own.q);
+  }
   return { widget };
+}
+
+/**
+ * The parameter values of a page URL (`v.<NAME>=`, as the Saved filter links of plan 27j), within the limits.
+ *
+ * @param {string} search `location.search`.
+ * @returns {object} Values by parameter name.
+ */
+export function urlValues(search) {
+  const raw = {};
+  for (const [key, value] of new URLSearchParams(String(search || ''))) {
+    if (!key.startsWith('v.')) continue;
+    const name = key.slice(2);
+    raw[name] = Object.hasOwn(raw, name) ? [raw[name]].flat().concat(value) : value;
+  }
+  const limited = Object.fromEntries(Object.entries(raw).slice(0, CMS_FILTER_LIMITS.values)
+    .map(([name, value]) => [name, Array.isArray(value) ? value.slice(0, CMS_FILTER_LIMITS.items) : value]));
+  return normalizeCmsFilterValues(limited).values;
 }
 
 /** The definitions of the database; null when they can not be read. */

@@ -832,3 +832,11 @@
 #The crosstab counts the records of the page#The crosstab counts the records of the page
 #Place the Crosstabs tool in a pane (Options > Layout)#Place the Crosstabs tool in a pane (Options > Layout)
 #The crosstab has been changed. Save changes?#The crosstab has been changed. Save changes?
+
+# Crosstabs review 1 (2026-11-22)
+#This crosstab needs a value of#This crosstab needs a value of
+#Query published from Explorer#Query published from Explorer
+#All values#All values
+#Calculating…#Calculating…
+#Stop the calculation#Stop the calculation
+#Stopped#Stopped

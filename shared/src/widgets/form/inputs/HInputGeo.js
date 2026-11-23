@@ -87,6 +87,10 @@ export class HInputGeo extends HInput {
         }));
       }
     });
+    // a click on the read-only summary opens the map, as the button (2026-11-22)
+    this.listen(this.summary, 'click', () => {
+      if (!this.mapButton.disabled) this.mapButton.click();
+    });
     group.append(this.summary, this.mapButton);
     host.append(group);
     return group;

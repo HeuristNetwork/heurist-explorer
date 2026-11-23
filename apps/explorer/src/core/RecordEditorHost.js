@@ -440,9 +440,11 @@ export class RecordEditorHost {
    * Special fields of the system record types, by local field id.
    *
    * @param {object} dbdefs HDbDefs.
+   * @param {{currentQuery?: function(): *}} [options] `currentQuery`: the ▾ of the query offers *Current result* first
+   *        (the crosstab designer, plan 27q2 §17).
    * @returns {Object<number, {json: boolean, describe: Function, edit?: Function}>}
    */
-  specialEditors(dbdefs) {
+  specialEditors(dbdefs, { currentQuery = null } = {}) {
     const id = (code) => Number(dbdefs?.dbconst?.(code)) || 0;
     const query = id('DT_QUERY_STRING');
     const form = id('DT_FILTER_FORM');
@@ -488,10 +490,17 @@ export class RecordEditorHost {
           const rectype = Number(context.rectypeId || context.record?.rec_RecTypeID) || 0;
           if (querySourceType > 0 && rectype === querySourceType) return actions;
           const hasForm = Boolean(form) && context.hasField?.(form) !== false;
+          const current = typeof currentQuery === 'function';
           actions.push(querySourceAction({
             list: () => listQuerySources({ apiClient: this.options.apiClient, dbdefs }),
-            // the list has the query and the filter form already
-            definition: async (item) => item,
+            // the list has the query and the filter form already; Current result: the query of Explorer's result
+            definition: async (item) => {
+              if (item.id !== 'current') return item;
+              const query = currentQuery();
+              if (query == null) HMsg.showMsgFlash?.($HR('There is no current result'), 2000);
+              return query == null ? null : { query, filterForm: null };
+            },
+            first: current ? [{ id: 'current', title: 'Current result' }] : [],
             parameters: hasForm ? 'any' : 'without',
             apply: (item, current) => {
               if (hasForm) current.setValue?.(form, item.filterForm ? JSON.stringify(item.filterForm) : '');
@@ -529,6 +538,7 @@ export class RecordEditorHost {
       specials[columns] = {
         json: true,
         icon: 'fa-table',
+        editLabel: 'Select',
         title: 'Columns and formatting used by the Data table presentation.',
         describe: (value) => describeColumns(parseJson(value)),
         edit: async (value, context) => {

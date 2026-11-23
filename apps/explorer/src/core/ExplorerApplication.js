@@ -58,7 +58,7 @@ import './ExplorerApplication.css';
 import { aggregate } from '#shared/data/aggregate.js';
 import { openTagManager } from '../ui/ExplorerTagManager.js';
 import { WebsiteClient } from '#shared/api/WebsiteClient.js';
-import { publishModuleTo } from '#shared/site/modulePublisher.js';
+import { publishModulePage, publishModuleTo } from '#shared/site/modulePublisher.js';
 import { HFilter } from '#shared/widgets/filter/HFilter.js';
 import { memoryStorage, normalizePublishedFilter, publishedModuleSettings, publishedUiConfig } from './publishedView.js';
 import { filterItemCaptions } from '#shared/site/cmsFilterWidget.js';
@@ -936,7 +936,7 @@ export class ExplorerApplication {
       await this.openStoryMap(Number(params.get('preset'))).catch((error) => HMsg.showMsgErr?.(error?.message || String(error)));
       return;
     }
-    // a crosstab opened by the CMS designer (plan 27q2 §8): ?tool=crosstabs[&preset=<id>]
+    // a crosstab opened by the CMS designer (plan 27q2 §8, §17): ?tool=crosstabs[&preset=<id>], the designer full screen
     if (params.get('tool') === 'crosstabs') {
       this.container?.classList?.remove('h-explorer-booting');
       await this.openCrosstabs(Number(params.get('preset')) || 0).catch((error) => HMsg.showMsgErr?.(error?.message || String(error)));
@@ -2551,8 +2551,9 @@ export class ExplorerApplication {
   }
 
   /**
-   * Create the Crosstabs tool (plan 27q2 §8) in its body: the crosstab of the current result (or the selection) and its
-   * editor. Loaded only now (its own chunk: HCrosstab, DataTables and Chart.js when they are shown).
+   * Create the Crosstabs pane (plan 27q2 §17) in its body: the viewer of crosstabs (current result or their own query);
+   * Edit / New open the full screen designer. Loaded only now (its own chunk: HCrosstab, DataTables and Chart.js when
+   * they are shown).
    *
    * @private
    * @param {HTMLElement} body Tool body.
@@ -2565,10 +2566,8 @@ export class ExplorerApplication {
       getDbDefs: () => this._ensureDbDefs(),
       getDataSource: () => (this.sync?.dataSource ? cloneDataSource(this.sync.dataSource) : null),
       getSelection: () => [...(this.sync?.selection || [])],
-      editRecord: (id) => this.editRecord(id),
-      // the query editor of the record editor (no new inputs)
-      specialEditors: (dbdefs) => this.recordEditing.specialEditors(dbdefs),
-      formServices: () => this.recordEditing.formServices(),
+      openDesigner: (presetId) => this.openCrosstabsDesigner(presetId),
+      publish: (options) => this.publishCrosstab(options),
       openManual: (anchor) => this.openManual(anchor),
       runtime: this._reportsRuntime()
     });
@@ -2579,30 +2578,92 @@ export class ExplorerApplication {
   }
 
   /**
-   * Open a crosstab in its tool (the CMS designer: Edit in new window, `?tool=crosstabs&preset=<id>`); without an id the
-   * tool with a new crosstab.
+   * The crosstab designer over the whole screen (plan 27q2 §17, as the Website manager): the settings form and a preview
+   * on its own test records. Resolves when it is closed (unsaved changes are asked first).
+   *
+   * @param {number} [presetId] Presentation set id, 0: a new crosstab.
+   * @returns {Promise<{presetId: number}|null>} The crosstab shown when it was closed; null when it could not open.
+   */
+  async openCrosstabsDesigner(presetId = 0) {
+    if (this._crosstabsDesigner) return this._crosstabsDesigner.closed;
+    const host = document.createElement('div');
+    host.className = 'h-crosstabs-designer-host';
+    document.body.append(host);
+    let resolveClosed;
+    const closed = new Promise((resolve) => { resolveClosed = resolve; });
+    const entry = { host, closed, designer: null };
+    this._crosstabsDesigner = entry;
+    const finish = (result) => {
+      if (this._crosstabsDesigner !== entry) return;
+      this._crosstabsDesigner = null;
+      void Promise.resolve(entry.designer?.destroy()).catch(() => {}).finally(() => host.remove());
+      resolveClosed(result);
+    };
+    try {
+      const { CrosstabsDesigner } = await (this._crosstabsDesignerLoader || loadCrosstabsDesigner)();
+      const designer = new CrosstabsDesigner({
+        apiClient: this.apiClient,
+        getDbDefs: () => this._ensureDbDefs(),
+        getCurrentQuery: () => this.sync?.dataSource?.request?.q ?? null,
+        getSelection: () => [...(this.sync?.selection || [])],
+        editRecord: (id) => this.editRecord(id),
+        // the query editor of the record editor (no new inputs); ▾ offers the current result first
+        specialEditors: (dbdefs, options) => this.recordEditing.specialEditors(dbdefs, options),
+        formServices: () => this.recordEditing.formServices(),
+        openManual: (anchor) => this.openManual(anchor),
+        onClose: (result) => finish(result),
+        runtime: this._reportsRuntime()
+      });
+      entry.designer = designer;
+      designer.attach(host);
+      await designer.render();
+      if (Number(presetId) > 0) await designer.openPreset(Number(presetId));
+      else await designer.newCrosstab();
+    } catch (error) {
+      HMsg.showMsgErr?.(error?.message || String(error));
+      finish(null);
+    }
+    return closed;
+  }
+
+  /**
+   * Open a crosstab in the designer (the CMS designer: Edit in new window, `?tool=crosstabs&preset=<id>`); without an id
+   * a new crosstab. When it is closed, the Crosstabs pane (if placed) shows it.
    *
    * @param {number} presetId Presentation set id, 0: a new crosstab.
-   * @returns {Promise<boolean>} False when the tool or the crosstab is not there.
+   * @returns {Promise<boolean>} False when the designer could not open.
    */
   async openCrosstabs(presetId) {
+    const result = await this.openCrosstabsDesigner(Number(presetId) || 0);
+    if (!result) return false;
     const module = await this.showPresentation('crosstabs');
-    if (!module) {
-      HMsg.showMsgErr?.($HR('Place the Crosstabs tool in a pane (Options > Layout)'));
-      return false;
+    const tool = await module?.ready?.();
+    await tool?.reload?.(result.presetId);
+    return true;
+  }
+
+  /**
+   * Publish a crosstab with the records shown in the pane as a standalone page (presentation-sources.md §6): the page
+   * gets one Crosstabs element with the crosstab and the query (its own records).
+   *
+   * @param {{presetId: number, title?: string, query?: *}} options
+   * @returns {Promise<object|null>} The page, null when cancelled.
+   */
+  async publishCrosstab({ presetId, title = '', query = null }) {
+    try {
+      const client = new WebsiteClient({ apiClient: this.apiClient });
+      const settings = { preset: Number(presetId), from: ['own'], ...(query != null && query !== '' ? { query } : {}) };
+      const result = await publishModulePage({ client, database: this.config.database, type: 'crosstabs', settings, state: null });
+      if (!result) return null;
+      const { PublishedDialog } = await import('#shared/ui/PublishedDialog.js');
+      new PublishedDialog({
+        publication: { ...result, title: result.title || title, actions: [{ label: 'Website manager', run: () => this.openWebsiteManager({ recordId: result.id }) }] }
+      }).open();
+      return result;
+    } catch (error) {
+      HMsg.showMsgErr?.(error?.message || String(error));
+      return null;
     }
-    const tool = await module.ready?.();
-    if (!tool?.openPreset) return false;
-    if (!(Number(presetId) > 0)) {
-      await tool.newCrosstab?.();
-      return true;
-    }
-    const opened = await tool.openPreset(Number(presetId));
-    // its records: the query of the crosstab as the result of Explorer
-    if (opened && tool.preset?.query != null && tool.preset.query !== '') {
-      await this.showDatasource({ reference: { type: 'query' }, title: tool.preset.title, request: { q: tool.preset.query } });
-    }
-    return opened;
   }
 
   /**
@@ -3024,6 +3085,11 @@ function loadStoryMapTool() {
 /** Load the Crosstabs tool chunk (plan 27q2). */
 function loadCrosstabsTool() {
   return import('../tools/crosstabs/CrosstabsTool.js');
+}
+
+/** Load the crosstab designer chunk (plan 27q2 §17). */
+function loadCrosstabsDesigner() {
+  return import('../tools/crosstabs/CrosstabsDesigner.js');
 }
 
 /** Load and mount heurist-reports' direct bootstrap into the Reports tool. */

@@ -3,8 +3,10 @@
 **Status.** Agreed with Artem 2026-11-20 (answers in §13: Chart.js, DataTables, `op=crosstab`, default level
 `display`, first value, no `.cfg` conversion, no drill-down in Explorer, 50 000, reuse of the thematic map code, fields
 of linked records included). **Phases A-F implemented 2026-11-20** (§15 server, §16 client, Explorer tool, website
-element, manual). Not committed, **no browser check**. Next: browser check (§16.4). Depends on 27q1 (Presentation set,
-tool pane, CMS element rules) and 17 (ranges, thematic maps).
+element, manual). **Review 1 (Artem, 2026-11-22), §17:** viewer pane + full screen designer, sources `current` / `own`
+(topic note `presentation-sources.md`), record type filter, form by field type, Save as, Stop, publication from
+Explorer. Not committed, **no browser check**. Depends on 27q1 (Presentation set, tool pane, CMS element rules) and 17
+(ranges, thematic maps).
 
 ## 1. Goal
 
@@ -437,4 +439,99 @@ cell queries, HTML table, service, widget levels / Update / pivot, HRangeList), 
 (3), `apps/website/test/crosstabsElement.test.js` (2). `npm test`: 1906 pass. heurist: `CrossTabTest` 59,
 `PresentationEntityTest` 52, `CmsFormatTest` 21, `WebsiteEditTest` 112. Builds: Chart.js and the crosstab code are
 separate lazy chunks (Explorer and website).
+
+## 17. Review 1 (Artem, 2026-11-22)
+
+General model for all presentation types: **`docs/development/presentation-sources.md`** (configuration and instance,
+sources `current` / `own`, the selection as the parameter `$SELECTED$`, chooser by record type, viewer pane and full
+screen designer, publication from Explorer). Crosstabs are the first type done this way.
+
+### 17.1 Items and decisions
+
+| # | Item | Decision |
+|---|---|---|
+| 1 | Full screen or a maximized pane | The **designer** is full screen (as the Website manager); the **viewer** stays a pane like the other modules |
+| 1a | Save changes of a loaded crosstab as a new one | A **Save as** button: a new Presentation set with the values of the form and a new name (`POST /presentation/0`; `duplicate` would copy the stored record without the changes). Clearer than guessing from a changed name, query or record type |
+| 2 | Not linked with the main search | The designer works on its own test records (*Test on: Current result / Own query*). The viewer pane follows the current result when its source is *Current result* |
+| 3a | Accordions mutually exclusive | Not done (Artem) |
+| 3b | Source | "Records on a website" → **Query** (default query, may have parameters); "Fields of" → **Record type**: the record types of the test records with counts; it **also filters** the counted records (query AND `t:type`, in HCrosstab, so Explorer and website count the same). ▾ of Query: **Current result** first |
+| 3c | Choose the field | Tree as wide as the dialog; Alphabetic; type filter; metadata (unchecked); no Any field. Types: freetext, enum, relationtype, date, year, integer, float, resource, relmarker (pointers kept: a row per linked record); boolean dropped |
+| 3d | Values by type | Own ranges for numeric, date and enum; Dates by period for dates; Equal ranges for numbers (also `year`: the server counts years as numbers); text and pointers: Each value only |
+| 3e | Indent of the accordions | `.h-edit-form-accordion > .h-edit-form-fields { padding-left: 12px }` (all forms) |
+| 3f | Display | Renamed **Display and default values** |
+| 3g | Show totals | After Column % in the form and in the toolbar of the crosstab |
+| 3h | Visitors → Fields to choose | Multiple selection of HFieldTree |
+| 3i, 3j | Values on a field change | Reset to the default of the type: dates → Dates by period, numbers → Equal ranges, else Each value |
+| 2 (pages) | Pages selector | **All values** first: one table with the pages merged (a request without pages; counts stay distinct records) |
+| 3 | Scope selector | Removed; replaced by the source of the viewer (*Current result* / *Own query*) |
+| 4 | Delete | Next to Help (right) |
+| 5 | Stop | Shown while calculating; in Explorer the server query is cancelled too (`/records/cancel`) |
+| 6 | Output stored as JSON | **Rejected** (presentation-sources.md §8) |
+| + | Publication | The viewer pane is published like a module, with the query of the current result stored in the element |
+
+### 17.2 Implemented 2026-11-22 (both repos, not committed, no browser check)
+
+**Shared**
+- `shared/src/data/presentationSource.js` (new, for all presentation types): `recordTypeQuery(query, rectype)` (JSON,
+  JSON text or legacy text AND `t:`), `ownQuery(query, {values, selection, filterForm})` (`$SELECTED$` = the selected
+  ids; `missing` = parameters without a value: the query is not run), `PRESENTATION_SOURCES`, `SELECTED_PARAMETER`.
+- `HCrosstab`: counts `countedQuery()` (the query AND `settings.fields.rectype`, also for the cell queries and the
+  export header); Pages *All values* (index -1, a request without `pages`, cached until the next load); *Calculating…*
+  with **Stop** (`stop()`: aborted, *Stopped* + Update); `clear(text)`; display flags Values, Row %, Column %, Totals.
+- `CrosstabService({apiClient})`: requests through the HeuristApiClient (traced; an abort cancels the server query with
+  `/records/cancel`); the website keeps fetch.
+- `normalizeCrosstabSettings`: `filterForm` (the Filter Form of the parameters of the query; server
+  `CrosstabSettings::problems` checks it is an object).
+- `HFieldTree` scope option `typeFilter`: the type filter also for fixed types, offering only their filters
+  (`fieldTypeOptions`).
+- `querySourceAction({first})` / `chooseQuerySource(anchor, items, first)`: fixed items above the list (Current result).
+- `HEditForm.css`: fields of an accordion indented 12px.
+
+**Explorer** (`apps/explorer/src/tools/crosstabs/`)
+- `CrosstabsTool.js` = the **viewer pane** (still a pane module, follows DataSource and selection): chooser grouped by the
+  record types of the result (`loadScopeRecordTypes`; *For the current result* with counts, *Other configurations*
+  disabled; one fitting crosstab or the last one of the record type opens at once); Source *Current result* / *Own
+  query* (parameters in an HFilterForm above the crosstab, `$SELECTED$` from the selection); Edit / New (designer),
+  Publish, Help. The chosen crosstab, the source and the last crosstab per record type are kept in localStorage
+  (`heurist.crosstabs.<db>`, a convenience).
+- `CrosstabsDesigner.js` (new) = the **full screen designer** (`ExplorerApplication.openCrosstabsDesigner`, a fixed host
+  as the Website manager): toolbar New | selector | Record editor | Save | **Save as** | Delete | Help | Close; *Test on*
+  Current result (a snapshot when it opens or is chosen again) / Own query; the form; the preview. *Record type* terms =
+  the record types of the test records "Name (count)" (the chosen one kept as "not in the test records"); without test
+  records every record type. A field change resets Values to the default of its type (`bucketTermsFor`,
+  `defaultBucketMode`); *Choose the field*: HFieldTree with Alphabetic, `typeFilter`, metadata, `valuesOnly` (no Any
+  field), the header codes converted (`crosstabCode`: `rec_Added` → `added`; ID and URL refused); *Fields to choose*:
+  multiple selection (Add selected fields).
+- `crosstabsPresets.js` (new): `crosstabIds`, `loadCrosstabPresets` (with the record type of each), `groupCrosstabPresets`,
+  labels, toolbar helpers.
+- `crosstabsForm.js`: Query, Record type, hidden `filterForm` field (DT_FILTER_FORM: the query editor allows parameters
+  and stores their form), *Display and default values*, Show totals after Column %, Values by type.
+- `RecordEditorHost.specialEditors(dbdefs, {currentQuery})`: ▾ of the query offers *Current result* first.
+- `ExplorerApplication`: `openCrosstabsDesigner`, `openCrosstabs` (`?tool=crosstabs&preset=` → the designer; on Close
+  the pane shows the crosstab), `publishCrosstab` (`publishModulePage` type `crosstabs`, settings `{preset, from: ['own'],
+  query}`, the PublishedDialog with Website manager).
+
+**Website and server**
+- `siteCrosstabs.js`: own query = `settings.query` (published from Explorer) else the query of the crosstab; parameters
+  from the page URL (`urlValues`: `v.<NAME>=`); a missing value shows "This crosstab needs a value of …".
+- `openCrosstabsForm` keeps `settings.query` (*Query published from Explorer*).
+- `WebsiteEditService::importModule`: `PUBLISHED_WIDGETS = ['crosstabs']` published as a widget instance (existing
+  `import` action, no new endpoint).
+
+**Deviations**
+1. **Save as** asks no name (no new input): the new crosstab gets the Name of the form, with "(copy)" when the Name was
+   not changed; `duplicate` is not used (it copies the stored record without the changes).
+2. `year` fields: Equal ranges, not Dates by period (the server counts them as numbers).
+3. Header fields of the tree: Title, Added, Modified, Creator, Owner, Visibility can be counted; ID and URL are refused.
+4. `WebsiteEditTest` used `crosstabs` as an unknown module type: now `nosuchmodule`, plus a check that crosstabs is
+   published as a widget. The first runs of the old test made two pages "Crosstabs 2026-11-22" (209957, 209966) in
+   `osmak_mapping`: to delete.
+
+**Tests**: `shared/test/presentationSources.test.js` (7), `apps/explorer/test/crosstabsForm.test.js` (+5),
+`apps/website/test/crosstabsElement.test.js` (+1); `npm test` 1919 pass. heurist:
+`WebsiteEditTest` 114, `PresentationEntityTest` 52, `CrossTabTest` 59. Builds explorer and website.
+
+**Browser check (to do)**: the pane with a mixed result (Persons + Places), the chooser, Own query with a parameter
+and with `$SELECTED$`; Edit → designer, Test on, Save as, Close; field tree; Values by type; All values; Stop on a large
+count; Publish and the page; a website page with `?v.NAME=`; accordion indent in the record editor.
 

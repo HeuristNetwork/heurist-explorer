@@ -40,3 +40,11 @@ test('PageSync: the crosstab counts the searches of its sources and sends nothin
   assert.equal(sync.latest(['module:x1']).dataSource.title, 'City');
   sync.destroy();
 });
+
+test('own query parameters from the page URL (v.<NAME>=, within the limits)', async () => {
+  const { installFakeDom } = await import('../../../shared/test/helpers/fakeDom.js');
+  installFakeDom();
+  const { urlValues } = await import('../src/siteCrosstabs.js');
+  assert.deepEqual(urlValues('?v.LIBRARY=77&x=1&v.TYPE=a&v.TYPE=b'), { LIBRARY: '77', TYPE: ['a', 'b'] });
+  assert.deepEqual(urlValues(''), {});
+});

@@ -70,8 +70,9 @@
   font-weight: 600;
 }
 
+/* the fields indented under the caption (review 2026-11-22) */
 .h-edit-form-accordion > .h-edit-form-fields {
-  padding: 4px var(--h-gap) var(--h-gap);
+  padding: 4px var(--h-gap) var(--h-gap) 12px;
 }
 
 /* inner groups (legacy inner separators): a heading with its fields, or a

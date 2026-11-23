@@ -4,12 +4,14 @@ Status of the open development plans: what is done, committed, checked in a brow
 `CLAUDE.md` on 2026-11-18. The Status line at the top of each plan in this folder is the source; update both when a plan
 changes. Newest first.
 
-**`docs/development/27q2 Crosstabs-Plan.md`** (agreed 2026-11-20; phases A-F implemented 2026-11-20, not committed, no
-browser check): server `/records/aggregate?op=crosstab` (`CrossTabulator`, `RangeValue`, linked fields, first-value
-measure, exact terms), `CrosstabSettings`; shared `HCrosstab` (DataTables table + Chart.js 4.5.1 chart, visitor levels,
-Update above 50 000), `HRangeList` (from the thematic editor); Explorer tool `crosstabs` (`?tool=crosstabs&preset=`);
-website element `crosstabs` (sources in `settings.from`, PageSync member, click → `module:<id>`); manuals eng / fre.
-Next: browser check (plan §16.4).
+**`docs/development/27q2 Crosstabs-Plan.md`** (agreed 2026-11-20; phases A-F implemented 2026-11-20; **review 1
+implemented 2026-11-22** (§17), not committed, no browser check): general model in the new topic note
+`presentation-sources.md` (configuration / instance, sources `current` / `own`, `$SELECTED$`, chooser by record type,
+viewer pane + full screen designer, publication from Explorer; story map, report, export later). Crosstabs: viewer pane
+`CrosstabsTool`, full screen `CrosstabsDesigner` (Save as, Test on, Delete by Help, Close), record type filter in
+`HCrosstab`, Values by field type, field tree options, All values, Stop (server cancel in Explorer), Publish (server
+`importModule` accepts the widget `crosstabs`), website own query from `settings.query` + URL parameters. Next: browser
+check (§17.2); delete the stray test pages 209957, 209966 in `osmak_mapping`.
 
 **Fix 2026-11-20: child record added from its parent** (plan 26 / plan 21; not committed, no browser check): the Add
 record of the record manager opened from a child pointer field (Browse → Add) had no parent context, so the child showed

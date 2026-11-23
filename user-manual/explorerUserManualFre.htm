@@ -60,23 +60,40 @@
   <strong>Appliquer</strong>. Les changements ne sont gardés qu'après <strong>Enregistrer</strong>.</p>
 
   <h2 id="crosstabs">Tableaux croisés</h2>
-  <p>Les <strong>tableaux croisés</strong> comptent les enregistrements du résultat courant (ou des enregistrements
-  sélectionnés) selon les valeurs d'un, deux ou trois champs : <em>lignes</em>, <em>colonnes</em> et <em>pages</em>
-  (un tableau par page, choisi au-dessus du tableau). Au lieu de compter, ils peuvent afficher la somme, la moyenne, le
-  minimum ou le maximum d'un champ numérique (la première valeur de chaque enregistrement). Un enregistrement avec
-  plusieurs valeurs d'un champ est compté pour chaque valeur ; les totaux comptent chaque enregistrement une seule
-  fois. Un tableau croisé est enregistré comme un enregistrement (Presentation set) et peut être placé sur une page de
-  site web.</p>
+  <p>Les <strong>tableaux croisés</strong> comptent des enregistrements selon les valeurs d'un, deux ou trois champs :
+  <em>lignes</em>, <em>colonnes</em> et <em>pages</em> (un tableau par page, choisi au-dessus du tableau ; <em>Toutes
+  les valeurs</em> montre un seul tableau pour toutes les pages). Au lieu de compter, ils peuvent afficher la somme, la
+  moyenne, le minimum ou le maximum d'un champ numérique (la première valeur de chaque enregistrement). Un
+  enregistrement avec plusieurs valeurs d'un champ est compté pour chaque valeur ; les totaux comptent chaque
+  enregistrement une seule fois. Un tableau croisé est enregistré comme un enregistrement (Presentation set) pour un
+  type d'enregistrement : seuls les enregistrements de ce type sont comptés. Il peut être placé sur une page de site
+  web.</p>
+  <p>Le <strong>panneau Tableaux croisés</strong> affiche les tableaux croisés sans les modifier.</p>
   <ul>
-    <li><strong>Barre d'outils</strong> : <em>Nouveau tableau croisé</em> ; la liste ; l'éditeur ; le stylo modifie
-    l'enregistrement ; Enregistrer ; Supprimer ; <em>Résultat courant</em> ou <em>Enregistrements sélectionnés</em>.</li>
-    <li><strong>Lignes, colonnes, pages</strong> : le champ (aussi un champ des enregistrements liés, jusqu'à deux
-    liens) ; les valeurs : chaque valeur, dates par période, intervalles égaux, ou intervalles propres avec un libellé
-    (comme les intervalles d'une carte thématique).</li>
-    <li><strong>Mesure</strong>, <strong>Affichage</strong> (titre, valeurs, totaux, pourcentages, tableau et / ou
-    graphique, type de graphique) et <strong>Visiteurs d'un site web</strong> (ce qu'un visiteur peut changer, les
-    exports, un clic sur un nombre qui montre ses enregistrements).</li>
+    <li><strong>Liste</strong> : avec la source <em>Résultat actuel</em>, les tableaux croisés des types
+    d'enregistrement du résultat viennent d'abord (avec le nombre d'enregistrements) ; les autres sont listés en dessous
+    et ne peuvent pas être choisis.</li>
+    <li><strong>Source</strong> : <em>Résultat actuel</em> (les enregistrements de ce type du résultat d'Explorer) ou
+    <em>Requête propre</em> (la requête du tableau croisé ; une valeur de paramètre est demandée au-dessus du tableau,
+    <code>$SELECTED$</code> prend les enregistrements sélectionnés).</li>
+    <li><strong>Modifier</strong> et <strong>Nouveau</strong> ouvrent le concepteur ; <strong>Publier</strong> crée une
+    page web avec le tableau croisé et les enregistrements affichés.</li>
   </ul>
-  <p>Avec plus de 50 000 enregistrements, le tableau est calculé après <strong>Mettre à jour</strong>.</p>
+  <p>Le <strong>concepteur</strong> occupe tout l'écran : la configuration à gauche, un aperçu à droite (<em>Tester
+  sur</em> le résultat actuel ou la requête propre ; la recherche principale ne modifie pas l'aperçu). Barre d'outils :
+  Nouveau ; la liste ; le stylo modifie l'enregistrement ; Enregistrer ; <em>Enregistrer sous</em> (un nouveau tableau
+  croisé avec le Nom du formulaire, « (copie) » ajouté s'il n'est pas modifié) ; Supprimer ; Aide ; Fermer.</p>
+  <ul>
+    <li><strong>Source</strong> : le nom ; la <em>Requête</em> (▾ copie le résultat actuel ou un filtre enregistré) ;
+    le <em>Type d'enregistrement</em> (les types des enregistrements de test, avec leur nombre).</li>
+    <li><strong>Lignes, colonnes, pages</strong> : le champ (aussi un champ des enregistrements liés, jusqu'à deux
+    liens) ; les valeurs selon le type du champ : chaque valeur, dates par période (dates, par défaut), intervalles
+    égaux (nombres, par défaut), ou intervalles propres avec un libellé (nombres, dates, termes).</li>
+    <li><strong>Mesure</strong>, <strong>Affichage et valeurs par défaut</strong> (titre, valeurs, pourcentages,
+    totaux, tableau et / ou graphique, type de graphique) et <strong>Visiteurs d'un site web</strong> (ce qu'un
+    visiteur peut changer, les exports, un clic sur un nombre qui montre ses enregistrements).</li>
+  </ul>
+  <p>Avec plus de 50 000 enregistrements, le tableau est calculé après <strong>Mettre à jour</strong> ;
+  <strong>Arrêter</strong> interrompt un long calcul.</p>
 </body>
 </html>

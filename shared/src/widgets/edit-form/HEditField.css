@@ -134,6 +134,14 @@
   overflow-wrap: anywhere;
 }
 
+.h-edit-field-special-summary.is-clickable {
+  cursor: pointer;
+}
+
+.h-edit-field-special-summary.is-clickable:hover {
+  border-color: var(--h-color-primary);
+}
+
 .h-edit-field-special-summary.is-empty {
   color: var(--h-color-text-muted);
   font-style: italic;

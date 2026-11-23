@@ -9,6 +9,11 @@
   min-width: 0;
 }
 
+/* a click on the summary opens the map (when the button can) */
+.h-input-geo:has(.h-input-geo-map:not(:disabled)) .h-input-geo-summary {
+  cursor: pointer;
+}
+
 .h-input-geo-map {
   flex: 0 0 auto;
   margin: 0;
